@@ -70,6 +70,18 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_EQ(CircuitChecker::check(builder), expected_result);
     };
 
+    // Helper to check the infinity status of a circuit element.
+    // Ultra: reads the in-circuit is_point_at_infinity flag.
+    // Goblin/Mega: derives infinity from native (0,0) coordinates (no circuit flag exists).
+    static bool is_infinity(const element_ct& e)
+    {
+        if constexpr (HasGoblinBuilder<TestType>) {
+            return e.get_value().is_point_at_infinity();
+        } else {
+            return e.is_point_at_infinity().get_value();
+        }
+    }
+
     // Create a random point as a witness
     static std::pair<affine_element, element_ct> get_random_witness_point(Builder* builder)
     {
@@ -400,8 +412,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             EXPECT_EQ(standard_a.get_origin_tag(), submitted_value_origin_tag);
             EXPECT_EQ(standard_b.get_origin_tag(), challenge_origin_tag);
 
-            EXPECT_EQ(standard_a.is_point_at_infinity().get_value(), true);
-            EXPECT_EQ(standard_b.is_point_at_infinity().get_value(), true);
+            EXPECT_EQ(is_infinity(standard_a), true);
+            EXPECT_EQ(is_infinity(standard_b), true);
 
             fq standard_a_x = standard_a.x().get_value().lo;
             fq standard_a_y = standard_a.y().get_value().lo;
@@ -642,7 +654,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             EXPECT_EQ(result_infinity.get_origin_tag(), submitted_value_origin_tag);
 
             // Result should be point at infinity
-            EXPECT_TRUE(result_infinity.is_point_at_infinity().get_value());
+            EXPECT_TRUE(is_infinity(result_infinity));
         }
         {
             // Case 2: Doubling a normal point should not result in infinity
@@ -656,7 +668,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             EXPECT_EQ(result_normal.get_origin_tag(), submitted_value_origin_tag);
 
             // Result should not be point at infinity (with overwhelming probability)
-            EXPECT_FALSE(result_normal.is_point_at_infinity().get_value());
+            EXPECT_FALSE(is_infinity(result_normal));
 
             // Verify correctness
             affine_element expected_normal(element(input_normal).dbl());
@@ -714,7 +726,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             EXPECT_EQ(fq(sum_x), fq(dbl_x));
             EXPECT_EQ(fq(sum_y), fq(dbl_y));
-            EXPECT_EQ(sum.is_point_at_infinity().get_value(), doubled.is_point_at_infinity().get_value());
+            EXPECT_EQ(is_infinity(sum), is_infinity(doubled));
         }
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
@@ -1045,7 +1057,12 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             a.incomplete_assert_equal(b, "infinity flag mismatch test");
 
             EXPECT_EQ(builder.failed(), true);
-            EXPECT_EQ(builder.err(), "infinity flag mismatch test (infinity flag)");
+            if constexpr (HasGoblinBuilder<TestType>) {
+                // Goblin has no infinity flag; (0,0) coords differ from b's coords
+                EXPECT_EQ(builder.err(), "infinity flag mismatch test (x coordinate)");
+            } else {
+                EXPECT_EQ(builder.err(), "infinity flag mismatch test (infinity flag)");
+            }
         }
     }
 
@@ -1204,7 +1221,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             EXPECT_EQ(result.get_origin_tag(), first_two_merged_tag);
 
             // Check if result is infinity
-            bool result_is_inf = result.is_point_at_infinity().get_value();
+            bool result_is_inf = is_infinity(result);
             bool expected_is_inf = expected.is_point_at_infinity();
 
             EXPECT_EQ(result_is_inf, expected_is_inf);
@@ -1347,7 +1364,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             // Check the result of the multiplication has a tag that's the union of inputs' tags
             EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
-            EXPECT_EQ(c.is_point_at_infinity().get_value(), expect_infinity);
+            EXPECT_EQ(is_infinity(c), expect_infinity);
             EXPECT_CIRCUIT_CORRECTNESS(builder);
             // The second point is finite, hence we flip the flag
             expect_infinity = false;
@@ -1955,7 +1972,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         element_ct result = element_ct::batch_mul(circuit_points, circuit_scalars, 0, true);
 
         // Result should be point at infinity
-        EXPECT_TRUE(result.is_point_at_infinity().get_value());
+        EXPECT_TRUE(is_infinity(result));
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
@@ -1982,7 +1999,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         element_ct result = element_ct::batch_mul(circuit_points, circuit_scalars, 0, true);
 
         // Result should be point at infinity
-        EXPECT_TRUE(result.is_point_at_infinity().get_value());
+        EXPECT_TRUE(is_infinity(result));
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
@@ -2229,7 +2246,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         // Case 1: constant_infinity() returns canonical form
         {
             element_ct inf = element_ct::constant_infinity(&builder);
-            EXPECT_TRUE(inf.is_point_at_infinity().get_value());
+            EXPECT_TRUE(is_infinity(inf));
             // Verify coordinates are (0, 0)
             EXPECT_EQ(fq(inf.x().get_value().lo), fq(0));
             EXPECT_EQ(fq(inf.y().get_value().lo), fq(0));
@@ -2242,7 +2259,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element_ct neg_P = -P;
             element_ct result = P + neg_P;
 
-            EXPECT_TRUE(result.is_point_at_infinity().get_value());
+            EXPECT_TRUE(is_infinity(result));
             // After standardization, coordinates should be (0, 0)
             EXPECT_EQ(fq(result.x().get_value().lo), fq(0));
             EXPECT_EQ(fq(result.y().get_value().lo), fq(0));
@@ -2254,7 +2271,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element_ct P = element_ct::from_witness(&builder, input);
             element_ct result = P - P;
 
-            EXPECT_TRUE(result.is_point_at_infinity().get_value());
+            EXPECT_TRUE(is_infinity(result));
             EXPECT_EQ(fq(result.x().get_value().lo), fq(0));
             EXPECT_EQ(fq(result.y().get_value().lo), fq(0));
         }
@@ -2265,7 +2282,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element_ct inf2 = element_ct::constant_infinity(&builder);
             element_ct result = inf1 + inf2;
 
-            EXPECT_TRUE(result.is_point_at_infinity().get_value());
+            EXPECT_TRUE(is_infinity(result));
             EXPECT_EQ(fq(result.x().get_value().lo), fq(0));
             EXPECT_EQ(fq(result.y().get_value().lo), fq(0));
         }
@@ -2275,7 +2292,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element_ct inf = element_ct::constant_infinity(&builder);
             element_ct result = inf.dbl();
 
-            EXPECT_TRUE(result.is_point_at_infinity().get_value());
+            EXPECT_TRUE(is_infinity(result));
             EXPECT_EQ(fq(result.x().get_value().lo), fq(0));
             EXPECT_EQ(fq(result.y().get_value().lo), fq(0));
         }
@@ -2297,7 +2314,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element_ct temp = a + inf;
             element_ct result = temp - a;
 
-            EXPECT_TRUE(result.is_point_at_infinity().get_value());
+            EXPECT_TRUE(is_infinity(result));
             EXPECT_EQ(fq(result.x().get_value().lo), fq(0));
             EXPECT_EQ(fq(result.y().get_value().lo), fq(0));
         }
@@ -2315,7 +2332,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             // Result should equal a
             EXPECT_EQ(fq(result.x().get_value().lo), input_a.x);
             EXPECT_EQ(fq(result.y().get_value().lo), input_a.y);
-            EXPECT_FALSE(result.is_point_at_infinity().get_value());
+            EXPECT_FALSE(is_infinity(result));
         }
 
         // (infinity - infinity) + a = a
@@ -2349,7 +2366,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             bool_ct pred(witness_ct(&builder, false));
             element_ct result = a.conditional_select(inf, pred);
 
-            EXPECT_FALSE(result.is_point_at_infinity().get_value());
+            EXPECT_FALSE(is_infinity(result));
             EXPECT_EQ(fq(result.x().get_value().lo), input_a.x);
             EXPECT_EQ(fq(result.y().get_value().lo), input_a.y);
         }
@@ -2359,7 +2376,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             bool_ct pred(witness_ct(&builder, true));
             element_ct result = a.conditional_select(inf, pred);
 
-            EXPECT_TRUE(result.is_point_at_infinity().get_value());
+            EXPECT_TRUE(is_infinity(result));
         }
 
         // Case 3: Select between two infinity points
@@ -2368,7 +2385,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             bool_ct pred(witness_ct(&builder, true));
             element_ct result = inf.conditional_select(inf2, pred);
 
-            EXPECT_TRUE(result.is_point_at_infinity().get_value());
+            EXPECT_TRUE(is_infinity(result));
         }
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
@@ -2386,7 +2403,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             bool_ct pred(witness_ct(&builder, true));
             element_ct result = inf.conditional_negate(pred);
 
-            EXPECT_TRUE(result.is_point_at_infinity().get_value());
+            EXPECT_TRUE(is_infinity(result));
             EXPECT_EQ(fq(result.x().get_value().lo), fq(0));
             EXPECT_EQ(fq(result.y().get_value().lo), fq(0));
         }
@@ -2396,7 +2413,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             bool_ct pred(witness_ct(&builder, false));
             element_ct result = inf.conditional_negate(pred);
 
-            EXPECT_TRUE(result.is_point_at_infinity().get_value());
+            EXPECT_TRUE(is_infinity(result));
         }
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
@@ -2415,11 +2432,11 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         // Canonical infinity has (0, 0) coordinates
         EXPECT_EQ(fq(P.x().get_value().lo), fq(0));
         EXPECT_EQ(fq(P.y().get_value().lo), fq(0));
-        EXPECT_TRUE(P.is_point_at_infinity().get_value());
+        EXPECT_TRUE(is_infinity(P));
 
         // After standardization, coords should still be (0, 0)
         element_ct standardized = P.get_standard_form();
-        EXPECT_TRUE(standardized.is_point_at_infinity().get_value());
+        EXPECT_TRUE(is_infinity(standardized));
         EXPECT_EQ(fq(standardized.x().get_value().lo), fq(0));
         EXPECT_EQ(fq(standardized.y().get_value().lo), fq(0));
 
@@ -2437,7 +2454,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         element_ct point(x_zero, y_zero);
 
-        EXPECT_TRUE(point.is_point_at_infinity().get_value());
+        EXPECT_TRUE(is_infinity(point));
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
@@ -2454,7 +2471,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             scalar_ct zero = scalar_ct::from_witness(&builder, fr(0));
 
             element_ct result = P * zero;
-            EXPECT_TRUE(result.is_point_at_infinity().get_value());
+            EXPECT_TRUE(is_infinity(result));
             EXPECT_EQ(fq(result.x().get_value().lo), fq(0));
             EXPECT_EQ(fq(result.y().get_value().lo), fq(0));
         }
@@ -2466,7 +2483,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             scalar_ct k = scalar_ct::from_witness(&builder, scalar_val);
 
             element_ct result = inf * k;
-            EXPECT_TRUE(result.is_point_at_infinity().get_value());
+            EXPECT_TRUE(is_infinity(result));
             EXPECT_EQ(fq(result.x().get_value().lo), fq(0));
             EXPECT_EQ(fq(result.y().get_value().lo), fq(0));
         }
@@ -2477,7 +2494,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             scalar_ct zero = scalar_ct::from_witness(&builder, fr(0));
 
             element_ct result = inf * zero;
-            EXPECT_TRUE(result.is_point_at_infinity().get_value());
+            EXPECT_TRUE(is_infinity(result));
         }
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
@@ -2508,7 +2525,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         element_ct result = element_ct::batch_mul(points, scalars, 0, true);
 
-        EXPECT_TRUE(result.is_point_at_infinity().get_value());
+        EXPECT_TRUE(is_infinity(result));
         EXPECT_EQ(fq(result.x().get_value().lo), fq(0));
         EXPECT_EQ(fq(result.y().get_value().lo), fq(0));
 
@@ -2527,13 +2544,13 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         element_ct result = P + const_inf;
 
-        EXPECT_FALSE(result.is_point_at_infinity().get_value());
+        EXPECT_FALSE(is_infinity(result));
         EXPECT_EQ(fq(result.x().get_value().lo), input.x);
         EXPECT_EQ(fq(result.y().get_value().lo), input.y);
 
         // constant_infinity + P = P
         element_ct result2 = const_inf + P;
-        EXPECT_FALSE(result2.is_point_at_infinity().get_value());
+        EXPECT_FALSE(is_infinity(result2));
         EXPECT_EQ(fq(result2.x().get_value().lo), input.x);
         EXPECT_EQ(fq(result2.y().get_value().lo), input.y);
 

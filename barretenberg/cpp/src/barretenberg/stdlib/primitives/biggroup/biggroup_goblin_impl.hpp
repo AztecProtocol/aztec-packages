@@ -120,12 +120,8 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
     Fq point_x(x_lo, x_hi);
     Fq point_y(y_lo, y_hi);
 
-    // NOTE: this used to be set as a circuit constant from `op_tuple.return_is_infinity
-    // I do not see how this was secure as it meant a circuit constant could change depending on witness values
-    // e.g. x*[P] + y*[Q] where `x = y` and `[P] = -[Q]`
-    // TODO(@zac-williamson) what is op_queue.return_is_infinity actually used for? I don't see its value
-    auto op2_is_infinity = (x_lo.add_two(x_hi, y_lo) + y_hi).is_zero();
-    goblin_element result(point_x, point_y, /*is_infinity=*/op2_is_infinity);
+    // Point-at-infinity is represented by (0, 0) coordinates; ECCVM enforces this.
+    goblin_element result(point_x, point_y);
 
     // Set the tag of the result
     result.set_origin_tag(tag_union);
