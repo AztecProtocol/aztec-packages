@@ -331,6 +331,7 @@ function run {
         -e AWS_TOKEN=\$aws_token \
         -e NAMESPACE=${NAMESPACE:-} \
         -e NETWORK=${NETWORK:-} \
+        -e GITHUB_ACTOR=${GITHUB_ACTOR:-} \
         --pids-limit=65536 \
         --shm-size=2g \
         aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")

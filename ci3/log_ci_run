@@ -66,7 +66,8 @@ if [ -z "$key" ]; then
       --argjson instance_vcpus "$instance_vcpus" \
       --arg pr_number "$pr_number" \
       --arg dashboard "$dashboard" \
-      '{timestamp: $timestamp, run_id: $run_id, job_id: $job_id, status: $status, msg: $msg, name: $name, author: $author, arch: $arch, spot: $spot, instance_type: $instance_type, instance_vcpus: $instance_vcpus, pr_number: $pr_number, dashboard: $dashboard}')
+      --arg github_actor "${GITHUB_ACTOR:-}" \
+      '{timestamp: $timestamp, run_id: $run_id, job_id: $job_id, status: $status, msg: $msg, name: $name, author: $author, github_actor: $github_actor, arch: $arch, spot: $spot, instance_type: $instance_type, instance_vcpus: $instance_vcpus, pr_number: $pr_number, dashboard: $dashboard}')
   # echo "$json" >&2
   redis_cli ZADD $range_key $key "$json" &>/dev/null
   redis_cli SETEX hb-$key 60 1 &>/dev/null
