@@ -185,11 +185,20 @@
       const a = agg(nsF);
       Object.values(charts).forEach(c=>c.destroy()); charts = {};
 
-      // Apply top N filter
+      // Apply top N filter: top N *per bucket*, then union all visible namespaces
       const n = topN();
-      const ranked = Object.entries(a.nsTotals).sort((x,y)=>y[1].total-x[1].total);
-      const visibleNs = n > 0 ? new Set(ranked.slice(0, n).map(e=>e[0])) : null;
-      if (visibleNs) {
+      let visibleNs = null;
+      if (n > 0) {
+        visibleNs = new Set();
+        const filtered = nsF && nsF !== 'all'
+          ? data.map(e => ({ date:e.date, namespaces: e.namespaces[nsF] ? {[nsF]:e.namespaces[nsF]} : {} }))
+          : data;
+        for (const bucket of filtered) {
+          const bucketRanked = Object.entries(bucket.namespaces)
+            .map(([ns, nd]) => [ns, (nd.total || 0)])
+            .sort((x,y) => y[1] - x[1]);
+          bucketRanked.slice(0, n).forEach(([ns]) => visibleNs.add(ns));
+        }
         for (const ns of Object.keys(a.nsTotals)) {
           if (!visibleNs.has(ns)) delete a.nsTotals[ns];
         }
