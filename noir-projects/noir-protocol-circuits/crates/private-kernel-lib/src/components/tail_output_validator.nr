@@ -7,7 +7,7 @@ use crate::{
     components::gas_meter::meter_gas_used,
 };
 
-use dep::types::abis::kernel_circuit_public_inputs::{
+use types::abis::kernel_circuit_public_inputs::{
     PrivateKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,
 };
 

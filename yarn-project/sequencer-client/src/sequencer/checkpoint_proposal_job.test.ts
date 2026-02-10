@@ -146,6 +146,7 @@ describe('CheckpointProposalJob', () => {
       l1StartBlock: 0n,
       epochDuration: 16,
       proofSubmissionEpochs: 4,
+      targetCommitteeSize: 48,
     };
 
     dateProvider = new TestDateProvider();

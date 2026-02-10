@@ -113,7 +113,7 @@ export class FeesTest {
     });
 
     this.rollupContract = RollupContract.getFromConfig(this.context.config);
-    this.chainMonitor = new ChainMonitor(this.rollupContract, this.context.dateProvider!, this.logger, 200).start();
+    this.chainMonitor = new ChainMonitor(this.rollupContract, this.context.dateProvider, this.logger, 200).start();
 
     await this.applyBaseSetup();
 
@@ -126,7 +126,7 @@ export class FeesTest {
   }
 
   setIsMarkingAsProven(b: boolean) {
-    this.context.watcher!.setIsMarkingAsProven(b);
+    this.context.watcher.setIsMarkingAsProven(b);
   }
 
   async catchUpProvenChain() {
@@ -188,8 +188,8 @@ export class FeesTest {
     });
 
     this.wallet = this.context.wallet;
-    this.aztecNode = this.context.aztecNodeService!;
-    this.aztecNodeAdmin = this.context.aztecNodeService!;
+    this.aztecNode = this.context.aztecNodeService;
+    this.aztecNodeAdmin = this.context.aztecNodeService;
     this.gasSettings = GasSettings.default({ maxFeesPerGas: (await this.aztecNode.getCurrentMinFees()).mul(2) });
     this.cheatCodes = this.context.cheatCodes;
     this.accounts = deployedAccounts.map(a => a.address);
@@ -221,8 +221,8 @@ export class FeesTest {
     );
 
     this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
-      aztecNode: this.context.aztecNodeService!,
-      aztecNodeAdmin: this.context.aztecNodeService!,
+      aztecNode: this.context.aztecNodeService,
+      aztecNodeAdmin: this.context.aztecNodeService,
       l1Client: this.context.deployL1ContractsValues.l1Client,
       wallet: this.wallet,
       logger: this.logger,

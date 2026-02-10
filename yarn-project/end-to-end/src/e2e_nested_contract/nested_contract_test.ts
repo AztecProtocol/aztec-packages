@@ -44,7 +44,7 @@ export class NestedContractTest {
     });
     this.wallet = this.context.wallet;
     [{ address: this.defaultAccountAddress }] = deployedAccounts;
-    this.aztecNode = this.context.aztecNodeService!;
+    this.aztecNode = this.context.aztecNodeService;
 
     this.logger.info('Public deploy accounts');
     await publicDeployAccounts(this.wallet, [this.defaultAccountAddress]);

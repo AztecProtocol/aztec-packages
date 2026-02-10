@@ -34,6 +34,7 @@ import { BootstrapNode } from '../bootstrap/bootstrap.js';
 import type { BootnodeConfig, P2PConfig } from '../config.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import { DiscV5Service } from '../services/discv5/discV5_service.js';
+import { APP_SPECIFIC_WEIGHT } from '../services/gossipsub/scoring.js';
 import { LibP2PService } from '../services/libp2p/libp2p_service.js';
 import { PeerManager } from '../services/peer-manager/peer_manager.js';
 import { PeerScoring } from '../services/peer-manager/peer_scoring.js';
@@ -154,7 +155,7 @@ export async function createTestLibP2PService<T extends P2PClientType>(
     epochCache,
   );
 
-  p2pNode.services.pubsub.score.params.appSpecificWeight = 10;
+  p2pNode.services.pubsub.score.params.appSpecificWeight = APP_SPECIFIC_WEIGHT;
   p2pNode.services.pubsub.score.params.appSpecificScore = (peerId: string) =>
     peerManager.shouldDisableP2PGossip(peerId) ? -Infinity : peerManager.getPeerScore(peerId);
 

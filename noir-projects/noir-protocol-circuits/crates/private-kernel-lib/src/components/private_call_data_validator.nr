@@ -1,7 +1,7 @@
 mod validate_contract_address;
 pub(crate) mod validate_side_effect_counters;
 
-use dep::types::{
+use types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_call_request::PrivateCallRequest,
