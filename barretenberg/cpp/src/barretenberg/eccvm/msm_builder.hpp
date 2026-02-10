@@ -135,6 +135,7 @@ class ECCVMMSMMBuilder {
 
         const auto update_read_count = [&point_table_read_counts](const size_t point_idx, const int slice) {
             /**
+             * AUDITTODO: verify and correct the point table ordering described below.
              * The wNAF digits for base 16 lie in the range -15, -13, ..., 13, 15.
              * The *point table* format is the following:
              * (for positive point table) T[0] =  P, T[1] =  3P, ..., T[7]  =  15P
