@@ -273,13 +273,21 @@ export class DeletedPool {
   }
 
   /**
-   * Removes a transaction from slot-deleted tracking.
-   * Called when a tx is re-added to the pool to prevent it from being cleaned up later.
+   * Clears soft-deletion status for a transaction being re-added to the pool.
+   * Removes slot-deleted tracking entirely, and resets the prune-soft-deleted flag
+   * while preserving the prune tracking itself (so a subsequent delete still uses
+   * the prune path).
    */
-  async clearSlotDeleted(txHash: string): Promise<void> {
+  async clearSoftDeleted(txHash: string): Promise<void> {
     if (this.#slotDeletedTxs.has(txHash)) {
       this.#slotDeletedTxs.delete(txHash);
       await this.#slotDeletedDB.delete(txHash);
+    }
+    const existing = this.#state.get(txHash);
+    if (existing?.softDeleted) {
+      const state: DeletedTxState = { minedAtBlock: existing.minedAtBlock, softDeleted: false };
+      this.#state.set(txHash, state);
+      await this.#deletedTxsDB.set(txHash, serializeState(state));
     }
   }
 

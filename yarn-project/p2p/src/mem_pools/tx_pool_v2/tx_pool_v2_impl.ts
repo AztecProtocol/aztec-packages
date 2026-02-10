@@ -634,7 +634,7 @@ export class TxPoolV2Impl {
     const meta = await buildTxMetaData(tx);
 
     await this.#txsDB.set(txHashStr, tx.toBuffer());
-    await this.#deletedPool.clearSlotDeleted(txHashStr);
+    await this.#deletedPool.clearSoftDeleted(txHashStr);
     this.#callbacks.onTxsAdded([tx], opts);
 
     if (state === 'pending') {

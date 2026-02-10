@@ -442,23 +442,23 @@ describe('DeletedPool', () => {
       expect(pool.isFromPrunedBlock('tx1')).toBe(true);
     });
 
-    it('clearSlotDeleted removes tx from slot-deleted tracking', async () => {
+    it('clearSoftDeleted removes tx from slot-deleted tracking', async () => {
       await txsDB.set('tx1', Buffer.from('data1'));
       await pool.deleteTx('tx1');
       expect(pool.isSoftDeleted('tx1')).toBe(true);
 
-      await pool.clearSlotDeleted('tx1');
+      await pool.clearSoftDeleted('tx1');
 
       expect(pool.isSoftDeleted('tx1')).toBe(false);
-      // Tx is still in DB (clearSlotDeleted doesn't delete the tx data)
+      // Tx is still in DB (clearSoftDeleted doesn't delete the tx data)
       expect(await txsDB.getAsync('tx1')).toBeDefined();
     });
 
-    it('clearSlotDeleted is a no-op for non-slot-deleted txs', async () => {
+    it('clearSoftDeleted is a no-op for non-slot-deleted txs', async () => {
       await txsDB.set('tx1', Buffer.from('data1'));
 
       // Should not throw or error
-      await pool.clearSlotDeleted('tx1');
+      await pool.clearSoftDeleted('tx1');
       expect(pool.isSoftDeleted('tx1')).toBe(false);
     });
 

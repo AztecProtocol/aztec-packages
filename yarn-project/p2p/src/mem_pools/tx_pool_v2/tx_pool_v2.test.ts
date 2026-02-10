@@ -2402,6 +2402,87 @@ describe('TxPoolV2', () => {
       expect(await pool.getTxByHash(tx.getTxHash())).toBeDefined();
     });
 
+    it('re-added tx after slot-soft-delete is not cleaned up by prepareForSlot', async () => {
+      const tx = await mockTx(1);
+
+      // Add and then delete
+      await pool.addPendingTxs([tx]);
+      expectAddedTxs(tx);
+      await pool.handleFailedExecution([tx.getTxHash()]);
+      expectRemovedTxs(tx);
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('deleted');
+
+      // Re-add while still slot-soft-deleted
+      await pool.addPendingTxs([tx]);
+      expectAddedTxs(tx);
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
+
+      // prepareForSlot should NOT delete the tx
+      await pool.prepareForSlot(SlotNumber(1));
+
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
+      expect(await pool.getTxByHash(tx.getTxHash())).toBeDefined();
+      expect(await pool.getPendingTxCount()).toBe(1);
+    });
+
+    it('re-added tx after prune-soft-delete is not cleaned up by handleFinalizedBlock', async () => {
+      const tx = await mockTx(1);
+
+      // Add, mine at block 1, then prune
+      await pool.addPendingTxs([tx]);
+      await pool.handleMinedBlock(makeBlock([tx], slot1Header));
+      await pool.handlePrunedBlocks(block0Id);
+
+      // Delete - this is prune-soft-delete since tx is from pruned block
+      await pool.handleFailedExecution([tx.getTxHash()]);
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('deleted');
+
+      // Re-add the tx
+      await pool.addPendingTxs([tx]);
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
+
+      // Finalize block 1 (the block tx was originally mined in)
+      // The tx was re-added, so it should NOT be hard-deleted
+      await pool.handleFinalizedBlock(slot1Header);
+
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
+      expect(await pool.getTxByHash(tx.getTxHash())).toBeDefined();
+      expect(await pool.getPendingTxCount()).toBe(1);
+    });
+
+    it('re-added then re-deleted prune tx remains prune-soft-deleted until finalized', async () => {
+      const tx = await mockTx(1);
+
+      // Add, mine at block 1, then prune
+      await pool.addPendingTxs([tx]);
+      await pool.handleMinedBlock(makeBlock([tx], slot1Header));
+      await pool.handlePrunedBlocks(block0Id);
+
+      // Delete - prune-soft-delete
+      await pool.handleFailedExecution([tx.getTxHash()]);
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('deleted');
+
+      // Re-add the tx
+      await pool.addPendingTxs([tx]);
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
+
+      // Delete again
+      await pool.handleFailedExecution([tx.getTxHash()]);
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('deleted');
+
+      // Advance slot - tx should survive (prune-soft-deleted, not slot-soft-deleted)
+      await pool.prepareForSlot(SlotNumber(5));
+
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('deleted');
+      expect(await pool.getTxByHash(tx.getTxHash())).toBeDefined();
+
+      // Finalize block 1 - NOW hard-deleted
+      await pool.handleFinalizedBlock(slot1Header);
+
+      expect(await pool.getTxStatus(tx.getTxHash())).toBeUndefined();
+      expect(await pool.getTxByHash(tx.getTxHash())).toBeUndefined();
+    });
+
     it('prune-soft-deleted tx survives slot cleanup', async () => {
       const tx = await mockTx(1);
 
