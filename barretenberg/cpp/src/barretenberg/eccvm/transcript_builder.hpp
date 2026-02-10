@@ -560,8 +560,9 @@ class ECCVMTranscriptBuilder {
     }
 
     /**
-     * @brief If entry is not a point at infinity, compute the slope between the VM entry point and current accumulator,
-     * else compute the slope between the accumulators.
+     * @brief Compute the slope between the VM entry point and the current accumulator for a point addition or
+     * doubling. In degenerate cases (either point is at infinity, or x-coords are equal with different y-coords),
+     * the numerator and denominator are not modified.
 
      * @details   `transcript_add_lambda` represents the slope (\f$ \lambda \f$) of the line connecting two points
      * on the elliptic curve during the point addition process or the tangent line at a point during point doubling.
