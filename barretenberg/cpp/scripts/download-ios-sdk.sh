@@ -3,7 +3,7 @@
 # Usage: IOS_SDK_VERSION=26.2 ./download-ios-sdk.sh
 set -eu
 
-SDK_VERSION="${IOS_SDK_VERSION:-18.4}"
+SDK_VERSION="${IOS_SDK_VERSION:-26.2}"
 SDK_DIR="${IOS_SDK_DIR:-$(dirname "$0")/../ios-sdk}"
 SDK_NAME="iPhoneOS${SDK_VERSION}.sdk"
 

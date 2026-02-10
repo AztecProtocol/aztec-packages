@@ -537,8 +537,8 @@
       "description": "Cross-compile for iOS arm64 devices using Zig",
       "inherits": "zig-base",
       "environment": {
-        "CC": "zig cc -target aarch64-ios -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS18.4.sdk/usr/include",
-        "CXX": "zig c++ -target aarch64-ios -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS18.4.sdk/usr/include"
+        "CC": "zig cc -target aarch64-ios -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS26.2.sdk/usr/include",
+        "CXX": "zig c++ -target aarch64-ios -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS26.2.sdk/usr/include"
       },
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Generic",
@@ -553,8 +553,8 @@
       "description": "Cross-compile for iOS Simulator on ARM64 using Zig",
       "inherits": "zig-base",
       "environment": {
-        "CC": "zig cc -target aarch64-ios-simulator -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS18.4.sdk/usr/include",
-        "CXX": "zig c++ -target aarch64-ios-simulator -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS18.4.sdk/usr/include"
+        "CC": "zig cc -target aarch64-ios-simulator -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS26.2.sdk/usr/include",
+        "CXX": "zig c++ -target aarch64-ios-simulator -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS26.2.sdk/usr/include"
       },
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Generic",
