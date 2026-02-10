@@ -23,34 +23,48 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
 
     uint32_t row = 1; // We start from row 1 because this trace contains shifted columns.
     for (const auto& event : events) {
-        FF value = event.value;
-        uint32_t radix = event.radix;
+        const FF& value = event.value;
+        const uint32_t radix = event.radix;
         BB_ASSERT(radix >= 2 && radix <= 256, "Invalid radix");
-        size_t radix_index = static_cast<size_t>(radix);
-        uint32_t safe_limbs = static_cast<uint32_t>(p_limbs_per_radix[radix_index].size()) - 1;
+        const auto& p_limbs = p_limbs_per_radix[static_cast<size_t>(radix)];
+
+        // Number of safe limbs. It means that the first `safe_limbs` limbs will not overflow
+        // the field modulus p. The limb at index `safe_limbs` is considered unsafe and we must
+        // ensure that the accumulator is under p. Past this point, we have padding limbs that we must
+        // assert to be zero in circuit.
+        const uint32_t safe_limbs = static_cast<uint32_t>(p_limbs.size()) - 1;
 
         FF acc = 0;
-        FF exponent = 1;
-        bool found = false;
-        bool acc_under_p = false;
+        FF exponent = 1;          // Successive powers of the radix. After unsafe limbs, we set it to 0.
+        bool found = false;       // Whether the value has been found in the decomposition.
+        bool acc_under_p = false; // Whether the accumulator is under p.
 
         for (uint32_t i = 0; i < event.limbs.size(); ++i) {
-            bool is_padding = i > safe_limbs;
-            uint8_t limb = event.limbs[i];
-            uint8_t p_limb = is_padding ? 0 : p_limbs_per_radix[radix_index][static_cast<size_t>(i)];
+            const bool is_padding = i > safe_limbs;
+            const uint8_t limb = event.limbs[i];
+            const uint8_t p_limb = is_padding ? 0 : p_limbs[static_cast<size_t>(i)];
 
+            // If the new limb is equal to the p limb, this will not change the boolean value of acc_under_p.
             if (limb != p_limb) {
                 acc_under_p = limb < p_limb;
             }
-            FF limb_p_diff = limb == p_limb ? 0 : limb > p_limb ? limb - p_limb - 1 : p_limb - limb - 1;
 
-            bool is_unsafe_limb = i == safe_limbs;
-            FF safety_diff = FF(i) - FF(safe_limbs);
+            // Remain 0 if limb == p_limb
+            FF limb_p_diff = 0;
 
-            acc += exponent * limb;
+            if (limb > p_limb) {
+                limb_p_diff = limb - p_limb - 1;
+            } else if (limb < p_limb) {
+                limb_p_diff = p_limb - limb - 1;
+            }
 
-            FF rem = value - acc;
-            found = rem == 0;
+            const bool is_unsafe_limb = i == safe_limbs;
+            const FF safety_diff = FF(i) - FF(safe_limbs);
+
+            acc += exponent * FF(limb);
+
+            const FF rem = value - acc;
+            found = rem.is_zero();
 
             bool end = i == (event.limbs.size() - 1);
 
@@ -61,29 +75,30 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
                           { C::to_radix_radix, radix },
                           { C::to_radix_limb_index, i },
                           { C::to_radix_limb, limb },
-                          { C::to_radix_start, i == 0 },
-                          { C::to_radix_end, end },
+                          { C::to_radix_start, i == 0 ? 1 : 0 },
+                          { C::to_radix_end, end ? 1 : 0 },
                           { C::to_radix_exponent, exponent },
-                          { C::to_radix_not_padding_limb, !is_padding },
+                          { C::to_radix_not_padding_limb, !is_padding ? 1 : 0 },
                           { C::to_radix_acc, acc },
-                          { C::to_radix_found, found },
+                          { C::to_radix_found, found ? 1 : 0 },
                           { C::to_radix_limb_radix_diff, radix - 1 - limb },
                           { C::to_radix_rem_inverse, rem }, // Will be inverted in batch later
                           { C::to_radix_safe_limbs, safe_limbs },
-                          { C::to_radix_is_unsafe_limb, is_unsafe_limb },
+                          { C::to_radix_is_unsafe_limb, is_unsafe_limb ? 1 : 0 },
                           { C::to_radix_safety_diff_inverse, safety_diff }, // Will be inverted in batch later
                           { C::to_radix_p_limb, p_limb },
-                          { C::to_radix_acc_under_p, acc_under_p },
-                          { C::to_radix_limb_lt_p, limb < p_limb },
-                          { C::to_radix_limb_eq_p, limb == p_limb },
+                          { C::to_radix_acc_under_p, acc_under_p ? 1 : 0 },
+                          { C::to_radix_limb_lt_p, limb < p_limb ? 1 : 0 },
+                          { C::to_radix_limb_eq_p, limb == p_limb ? 1 : 0 },
                           { C::to_radix_limb_p_diff, limb_p_diff },
                       } });
 
             row++;
             if (is_unsafe_limb) {
                 exponent = 0;
+            } else {
+                exponent *= FF(radix);
             }
-            exponent *= radix;
         }
     }
 
@@ -212,7 +227,7 @@ void ToRadixTraceBuilder::process_with_memory(
                           { C::to_radix_mem_sel, 1 },
                           { C::to_radix_mem_num_limbs, remaining_limbs },
                           { C::to_radix_mem_num_limbs_minus_one_inv,
-                            remaining_limbs - 1 == 0 ? 0 : FF(remaining_limbs - 1) }, // Will be inverted in batch later
+                            FF(remaining_limbs - 1) }, // Will be inverted in batch later
                           { C::to_radix_mem_last, last ? 1 : 0 },
                           // Decomposition
                           { C::to_radix_mem_sel_should_decompose, 1 },
