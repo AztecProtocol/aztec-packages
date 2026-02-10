@@ -51,6 +51,10 @@ void ECCVMBoolsRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulat
     auto msm_double = View(in.msm_double);
     auto msm_skew = View(in.msm_skew);
     auto precompute_select = View(in.precompute_select);
+    auto msm_add1 = View(in.msm_add1);
+    auto msm_add2 = View(in.msm_add2);
+    auto msm_add3 = View(in.msm_add3);
+    auto msm_add4 = View(in.msm_add4);
 
     std::get<0>(accumulator) += q_eq * (q_eq - 1) * scaling_factor;
     std::get<1>(accumulator) += q_add * (q_add - 1) * scaling_factor;
@@ -71,5 +75,9 @@ void ECCVMBoolsRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulat
     std::get<16>(accumulator) += msm_double * (msm_double - 1) * scaling_factor;
     std::get<17>(accumulator) += msm_skew * (msm_skew - 1) * scaling_factor;
     std::get<18>(accumulator) += precompute_select * (precompute_select - 1) * scaling_factor;
+    std::get<19>(accumulator) += msm_add1 * (msm_add1 - 1) * scaling_factor;
+    std::get<20>(accumulator) += msm_add2 * (msm_add2 - 1) * scaling_factor;
+    std::get<21>(accumulator) += msm_add3 * (msm_add3 - 1) * scaling_factor;
+    std::get<22>(accumulator) += msm_add4 * (msm_add4 - 1) * scaling_factor;
 }
 } // namespace bb
