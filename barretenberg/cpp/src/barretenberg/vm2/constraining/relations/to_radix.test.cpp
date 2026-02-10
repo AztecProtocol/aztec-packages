@@ -1094,7 +1094,7 @@ TEST(ToRadixMemoryConstrainingTest, NegativeGhostRowInjectionBlocked)
     trace.set(ghost_row,
               std::vector<std::pair<Column, FF>>{
                   { C::precomputed_first_row, 1 },
-                  { C::precomputed_clk, ghost_row },
+                  { C::execution_clk, ghost_row },
                   { C::to_radix_mem_sel, 0 },
                   { C::to_radix_mem_sel_should_write_mem, 1 },
                   { C::to_radix_mem_execution_clk, malicious_clk },

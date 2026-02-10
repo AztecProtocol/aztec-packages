@@ -8,6 +8,7 @@
     "clean": "./scripts/clean.sh",
     "dev:netlify": "yarn netlify dev",
     "generate:aztec-nr-api": "./scripts/aztec_nr_docs_generation/generate_aztec_nr_docs.sh",
+    "generate:typescript-api": "./scripts/typescript_api_generation/generate_ts_api_docs.sh",
     "preprocess": "yarn node -r dotenv/config ./src/preprocess/index.js",
     "preprocess:move": "sh scripts/move_processed.sh",
     "serve": "docusaurus serve",
@@ -60,7 +61,8 @@
     "files": [
       "./docs/**/{*.md,*.md?}",
       "./docs-developers/**/{*.md,*.md?}",
-      "./docs-network/**/{*.md,*.md?}",
+      "./docs-operate/**/{*.md,*.md?}",
+      "./docs-participate/**/{*.md,*.md?}",
       "./developer_versioned_docs/**/{*.md,*.md?}",
       "./network_versioned_docs/**/{*.md,*.md?}",
       "./internal_notes/**/{*.md,*.md?}",

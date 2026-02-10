@@ -1,4 +1,4 @@
-use dep::types::{
+use types::{
     abis::{
         block_header::BlockHeader, private_kernel::private_call_data::PrivateCallData,
         protocol_contracts::ProtocolContracts,

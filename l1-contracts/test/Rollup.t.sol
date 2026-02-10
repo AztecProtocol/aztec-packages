@@ -798,22 +798,22 @@ contract RollupTest is RollupBase {
     _proposeCheckpoint("mixed_checkpoint_1", 1);
     DecoderBase.Data memory data = load("mixed_checkpoint_1").checkpoint;
 
-    // Set the pending checkpoint number to be Constants.AZTEC_MAX_EPOCH_DURATION + 2, so we don't revert early with a
+    // Set the pending checkpoint number to be Constants.MAX_CHECKPOINTS_PER_EPOCH + 2, so we don't revert early with a
     // different case
     stdstore.enable_packed_slots().target(address(rollup)).sig("getPendingCheckpointNumber()")
-      .checked_write(Constants.AZTEC_MAX_EPOCH_DURATION + 2);
+      .checked_write(Constants.MAX_CHECKPOINTS_PER_EPOCH + 2);
 
     CheckpointLog memory checkpoint = rollup.getCheckpoint(0);
     vm.expectRevert(
       abi.encodeWithSelector(
         Errors.Rollup__TooManyCheckpointsInEpoch.selector,
-        Constants.AZTEC_MAX_EPOCH_DURATION,
-        Constants.AZTEC_MAX_EPOCH_DURATION + 1
+        Constants.MAX_CHECKPOINTS_PER_EPOCH,
+        Constants.MAX_CHECKPOINTS_PER_EPOCH + 1
       )
     );
     _submitEpochProof(
       1,
-      Constants.AZTEC_MAX_EPOCH_DURATION + 2,
+      Constants.MAX_CHECKPOINTS_PER_EPOCH + 2,
       checkpoint.archive,
       data.archive,
       data.batchedBlobInputs,
@@ -911,7 +911,7 @@ contract RollupTest is RollupBase {
       previousArchive: _prevArchive, endArchive: _archive, outHash: _outHash, proverId: _prover
     });
 
-    bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
+    bytes32[] memory fees = new bytes32[](Constants.MAX_CHECKPOINTS_PER_EPOCH * 2);
     fees[0] = bytes32(uint256(uint160(bytes20(_coinbase)))); // Need the address to be left padded within the bytes32
     fees[1] = bytes32(_fee);
 

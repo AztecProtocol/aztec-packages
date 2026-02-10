@@ -89,6 +89,7 @@ NETWORK_TESTS_2=(
   mempool_limit.test.ts
   upgrade_governance_proposer.test.ts
   validator_nuke_and_suppression.test.ts
+  mbps.test.ts
 )
 
 # Run spartan tests sequentially with k8s log enrichment, collecting failures.
@@ -140,7 +141,7 @@ function network_bench_cmds {
 function proving_bench_cmds {
   local tps=1
   local timeout=9000  # 2.5h
-  echo "$hash:TIMEOUT=${timeout} TPS=${tps} BENCH_OUTPUT=bench-out/prove_n_tps.${tps}tps.bench.json $root/yarn-project/end-to-end/scripts/run_test.sh simple prove_n_tps.test.ts"
+  echo "$(hash):TIMEOUT=${timeout} TPS=${tps} BENCH_OUTPUT=bench-out/n_tps_prove.${tps}tps.bench.json $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps_prove.test.ts"
 }
 
 function network_bench {
@@ -278,7 +279,7 @@ case "$cmd" in
     ;;
   "test-kind-upgrade-rollup")
     source scripts/source_network_env.sh
-    source_network_env kind-provers
+    source_network_env ${KIND_ENV:-kind-provers}
     namespace="upgrade-rollup-version${NAME_POSTFIX:-}"
     INSTALL_METRICS=false \
       ./scripts/test_kind.sh src/spartan/upgrade_rollup_version.test.ts "$namespace"

@@ -284,7 +284,7 @@ export abstract class BaseTestWallet extends BaseWallet {
 
   /** Returns the block header up to which the wallet has synced. */
   getSyncedBlockHeader(): Promise<BlockHeader> {
-    return this.pxe.debug.getSyncedBlockHeader();
+    return this.pxe.getSyncedBlockHeader();
   }
 
   /**

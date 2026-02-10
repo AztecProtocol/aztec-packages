@@ -650,7 +650,7 @@ export class CheckpointProposalJob implements Traceable {
         `Waiting for enough txs to build block ${blockNumber} at index ${indexWithinCheckpoint} in slot ${this.slot} (have ${availableTxs} but need ${minTxs})`,
         { blockNumber, slot: this.slot, indexWithinCheckpoint },
       );
-      await sleep(TXS_POLLING_MS);
+      await this.waitForTxsPollingInterval();
       availableTxs = await this.p2pClient.getPendingTxCount();
     }
 
@@ -855,6 +855,11 @@ export class CheckpointProposalJob implements Traceable {
     const slotStartTimestamp = this.getSlotStartBuildTimestamp();
     const targetTimestamp = slotStartTimestamp + targetSecondsIntoSlot;
     await sleepUntil(new Date(targetTimestamp * 1000), this.dateProvider.nowAsDate());
+  }
+
+  /** Waits the polling interval for transactions. Extracted for test overriding. */
+  protected async waitForTxsPollingInterval(): Promise<void> {
+    await sleep(TXS_POLLING_MS);
   }
 
   private getSlotStartBuildTimestamp(): number {

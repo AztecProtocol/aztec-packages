@@ -1,0 +1,125 @@
+{
+  "description": "Configuration for TypeScript API documentation generation",
+  "packages": {
+    "client_sdks": [
+      {
+        "name": "aztec.js",
+        "path": "aztec.js",
+        "description": "Main SDK for building Aztec applications",
+        "details": [
+          "Contract deployment and interaction",
+          "Transaction creation and submission",
+          "Account management",
+          "RPC client for connecting to Aztec nodes"
+        ],
+        "status": "active"
+      },
+      {
+        "name": "accounts",
+        "path": "accounts",
+        "description": "Sample account contract implementations",
+        "details": [
+          "ECDSA accounts (Ethereum-compatible signatures)",
+          "Schnorr accounts (native Aztec signatures)",
+          "Testing utilities"
+        ],
+        "status": "active"
+      },
+      {
+        "name": "pxe",
+        "path": "pxe",
+        "description": "Private eXecution Environment client",
+        "details": [
+          "Orchestrates private transaction execution and proving",
+          "Manages encrypted notes and nullifiers",
+          "Provides privacy-preserving state queries"
+        ],
+        "status": "active"
+      },
+      {
+        "name": "entrypoints",
+        "path": "entrypoints",
+        "description": "Transaction entrypoint implementations",
+        "details": [
+          "Account abstraction patterns",
+          "Fee payment handling"
+        ],
+        "status": "active"
+      },
+      {
+        "name": "wallet-sdk",
+        "path": "wallet-sdk",
+        "description": "Wallet SDK for browser and extension integrations",
+        "details": [
+          "Browser wallet integration",
+          "Key management utilities"
+        ],
+        "status": "active"
+      },
+      {
+        "name": "test-wallet",
+        "path": "test-wallet",
+        "description": "Test wallet for development and e2e testing",
+        "details": [
+          "In-memory wallet for testing",
+          "Account creation helpers",
+          "Transaction proving utilities"
+        ],
+        "status": "active"
+      }
+    ],
+    "core_libraries": [
+      {
+        "name": "stdlib",
+        "path": "stdlib",
+        "description": "Protocol-level types and domain interfaces",
+        "details": [
+          "Transaction and block types",
+          "Proof types and verification",
+          "Kernel circuit types",
+          "Tree structures (note hash, nullifier, public data)"
+        ],
+        "status": "active"
+      },
+      {
+        "name": "foundation",
+        "path": "foundation",
+        "description": "Low-level utilities and primitives",
+        "details": [
+          "Cryptographic primitives",
+          "Serialization utilities",
+          "Async helpers and collections",
+          "Logging infrastructure"
+        ],
+        "status": "active"
+      },
+      {
+        "name": "constants",
+        "path": "constants",
+        "description": "Protocol constants shared between TypeScript and Noir",
+        "details": [
+          "Circuit size limits",
+          "Gas and fee constants",
+          "Tree heights and sizes"
+        ],
+        "status": "active"
+      }
+    ],
+    "developer_tools": []
+  },
+  "excluded_packages": {
+    "note": "Internal tools and infrastructure not documented for external users",
+    "packages": ["builder", "cli", "kv-store", "ethereum", "simulator"]
+  },
+  "output": {
+    "json_dir": "static/typescript-api",
+    "markdown_dir": "docs-developers/docs/typescript-api"
+  },
+  "typedoc": {
+    "excludePrivate": true,
+    "excludeProtected": false,
+    "excludeInternal": true,
+    "hideGenerator": true,
+    "readme": "none"
+  }
+}

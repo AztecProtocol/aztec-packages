@@ -1,8 +1,8 @@
-use dep::types::{
+use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
+use types::{
     abis::validation_requests::KeyValidationRequestAndGenerator,
     hash::compute_app_siloed_secret_key, scalar::Scalar, side_effect::Scoped,
 };
-use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 
 /// Validates a Key Validation Request that an app circuit has submitted to the kernel.
 ///

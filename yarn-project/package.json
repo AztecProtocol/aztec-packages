@@ -81,7 +81,7 @@
     "eslint-plugin-import-x": "^4.6.1",
     "nodemon": "^3.1.9",
     "prettier": "^3.5.3",
-    "typedoc": "^0.24.8",
+    "typedoc": "^0.28.16",
     "typescript": "^5.3.3"
   },
   "resolutions": {

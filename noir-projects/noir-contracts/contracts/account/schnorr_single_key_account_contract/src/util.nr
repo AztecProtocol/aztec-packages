@@ -1,5 +1,5 @@
 use crate::auth_oracle::AuthWitness;
-use dep::aztec::protocol::address::AztecAddress;
+use aztec::protocol::address::AztecAddress;
 use std::embedded_curve_ops::EmbeddedCurvePoint;
 
 pub fn recover_address(message_hash: Field, witness: AuthWitness) -> AztecAddress {

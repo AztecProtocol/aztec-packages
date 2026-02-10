@@ -1,0 +1,173 @@
+---
+title: TypeScript API Reference
+description: API reference documentation for Aztec TypeScript packages including aztec.js, accounts, PXE, and core libraries.
+---
+
+import { useActiveVersion } from "@docusaurus/plugin-content-docs/client";
+import { useState } from "react";
+
+export const useApiVersion = () => {
+  const version = useActiveVersion("developer");
+  const versionName = version?.name || "current";
+  // Map Docusaurus version to API docs folder
+  // Use stable paths for nightly/devnet, version-specific for others
+  if (versionName === "current") return "next";
+  if (versionName.includes("nightly")) return "nightly";
+  if (versionName.includes("devnet")) return "devnet";
+  return versionName;
+};
+
+export const ApiLink = ({ path, children }) => {
+  const apiVersion = useApiVersion();
+  const href = `/typescript-api/${apiVersion}/${path}`;
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer">
+      {children}
+    </a>
+  );
+};
+
+export const ApiPath = () => {
+  const apiVersion = useApiVersion();
+  return <code>/typescript-api/{apiVersion}/</code>;
+};
+
+export const CopyIcon = ({ path, absolute = false }) => {
+  const apiVersion = useApiVersion();
+  const [status, setStatus] = useState("idle");
+
+const handleCopy = async (e) => {
+e.preventDefault();
+const url = absolute ? path : `/typescript-api/${apiVersion}/${path}`;
+setStatus("loading");
+try {
+const response = await fetch(url);
+if (!response.ok) throw new Error("Failed to fetch");
+const text = await response.text();
+await navigator.clipboard.writeText(text);
+setStatus("copied");
+setTimeout(() => setStatus("idle"), 2000);
+} catch (error) {
+setStatus("error");
+setTimeout(() => setStatus("idle"), 2000);
+}
+};
+
+const buttonStyle = {
+padding: "2px",
+marginLeft: "6px",
+cursor: status === "loading" ? "wait" : "pointer",
+border: "none",
+borderRadius: "3px",
+background: "transparent",
+color: status === "copied" ? "var(--ifm-color-success)" :
+status === "error" ? "var(--ifm-color-danger)" :
+"var(--ifm-color-emphasis-600)",
+transition: "color 0.2s ease",
+verticalAlign: "middle",
+display: "inline-flex",
+alignItems: "center",
+};
+
+const iconStyle = {
+width: "14px",
+height: "14px",
+};
+
+const copyIcon = (
+<svg style={iconStyle} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+</svg>
+);
+
+const checkIcon = (
+<svg style={iconStyle} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+<polyline points="20 6 9 17 4 12"></polyline>
+</svg>
+);
+
+const errorIcon = (
+<svg style={iconStyle} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+<line x1="18" y1="6" x2="6" y2="18"></line>
+<line x1="6" y1="6" x2="18" y2="18"></line>
+</svg>
+);
+
+const icon = status === "copied" ? checkIcon : status === "error" ? errorIcon : copyIcon;
+const title = status === "copied" ? "Copied!" : status === "error" ? "Failed to copy" : "Copy contents";
+
+return (
+<button onClick={handleCopy} style={buttonStyle} disabled={status === "loading"} title={title} aria-label={title}>
+{status === "loading" ? "..." : icon}
+</button>
+);
+};
+
+export const ApiFile = ({ path, children }) => {
+  const apiVersion = useApiVersion();
+  const href = `/typescript-api/${apiVersion}/${path}`;
+  return (
+    <span style={{ whiteSpace: "nowrap" }}>
+      <a href={href} target="_blank" rel="noopener noreferrer">
+        <code>{children || path}</code>
+      </a>
+      <CopyIcon path={path} />
+    </span>
+  );
+};
+
+This section provides API reference documentation for the Aztec TypeScript packages. These packages enable developers to build applications on Aztec, from simple contract interactions to complex privacy-preserving protocols.
+
+## Package Categories
+
+### Client SDKs
+
+Packages for building Aztec applications:
+
+| Package                | Description                                                                                                           |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **@aztec/aztec.js**    | Main SDK for building Aztec applications. Provides contract deployment, transaction creation, and account management. |
+| **@aztec/accounts**    | Sample account contract implementations including ECDSA and Schnorr accounts.                                         |
+| **@aztec/pxe**         | Private eXecution Environment client library for orchestrating private transaction execution and proving.             |
+| **@aztec/wallet-sdk**  | Wallet SDK for browser and extension integrations.                                                                    |
+| **@aztec/entrypoints** | Transaction entrypoint implementations for account abstraction.                                                       |
+
+### Core Libraries
+
+Foundational types and utilities used across the Aztec stack:
+
+| Package           | Description                                                                            |
+| ----------------- | -------------------------------------------------------------------------------------- |
+| **@aztec/stdlib** | Protocol-level types including transactions, blocks, proofs, and kernel circuit types. |
+
+:::note
+Common types like `Fr`, `AztecAddress`, and `EthAddress` are re-exported through `@aztec/aztec.js` subpaths (e.g., `@aztec/aztec.js/fields`, `@aztec/aztec.js/addresses`). Most developers won't need to import from `@aztec/stdlib` directly.
+:::
+
+## LLM-Optimized Documentation
+
+For LLM consumption, we provide machine-readable documentation in multiple formats:
+
+- **[llms.txt](pathname:///llms.txt)** <CopyIcon path="/llms.txt" absolute={true} /> - Full documentation optimized for LLM context
+- <ApiLink path="llm-summary.txt">**LLM Summary**</ApiLink>
+  <CopyIcon path="llm-summary.txt" /> - Human-readable API summary
+
+### Markdown API Files
+
+The following markdown files are available for LLM context inclusion at <ApiPath />:
+
+| File                               | Description                                     |
+| ---------------------------------- | ----------------------------------------------- |
+| <ApiFile path="llm-summary.txt" /> | Human-readable summary with package overview    |
+| <ApiFile path="aztec.js.md" />     | Main SDK - contracts, transactions, accounts    |
+| <ApiFile path="accounts.md" />     | Account implementations (ECDSA, Schnorr)        |
+| <ApiFile path="pxe.md" />          | Private execution environment client            |
+| <ApiFile path="wallet-sdk.md" />   | Browser/extension wallet integration            |
+| <ApiFile path="entrypoints.md" />  | Transaction entrypoints for account abstraction |
+| <ApiFile path="stdlib.md" />       | Protocol types (transactions, blocks, proofs)   |
+
+## Related Resources
+
+- [Aztec.js Getting Started](../tutorials/js_tutorials/aztecjs-getting-started.md)
+- [GitHub: aztec-packages](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project)

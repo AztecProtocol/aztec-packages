@@ -13,7 +13,7 @@ import type {
 } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
-import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -86,9 +86,8 @@ export class CrossChainMessagingTest {
   }
 
   async advanceToEpochProven(l2TxReceipt: TxReceipt): Promise<EpochNumber> {
-    const epoch = await this.rollup.getEpochNumberForCheckpoint(
-      CheckpointNumber.fromBlockNumber(l2TxReceipt.blockNumber!),
-    );
+    const block = await this.aztecNode.getBlock(l2TxReceipt.blockNumber!);
+    const epoch = await this.rollup.getEpochNumberForCheckpoint(block!.checkpointNumber);
     // Warp to the next epoch.
     await this.cheatCodes.rollup.advanceToEpoch(EpochNumber(epoch + 1));
     // Wait for the tx to be proven.

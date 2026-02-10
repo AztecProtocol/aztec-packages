@@ -9,7 +9,7 @@ use crate::{
     components::reset_output_composer::SquashedOutputArrayHints,
     reset::{KeyValidationRequestsValidator, ReadRequestValidator, TransientDataValidator},
 };
-use dep::types::{
+use types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         note_hash::NoteHash,
@@ -495,7 +495,7 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
 
 mod tests {
     use super::assert_correctly_siloed_note_hash;
-    use dep::types::{
+    use types::{
         abis::note_hash::NoteHash,
         address::AztecAddress,
         hash::{compute_note_nonce_and_unique_note_hash, compute_siloed_note_hash},

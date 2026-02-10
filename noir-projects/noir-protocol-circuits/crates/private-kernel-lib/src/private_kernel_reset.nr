@@ -5,7 +5,7 @@ use crate::{
         reset_output_validator::ResetOutputValidator,
     },
 };
-use dep::types::{
+use types::{
     abis::private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
     constants::{
         PRIVATE_KERNEL_INIT_VK_INDEX, PRIVATE_KERNEL_INNER_VK_INDEX, PRIVATE_KERNEL_RESET_VK_INDEX,
@@ -168,7 +168,7 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         let previous_public_inputs = self.previous_kernel.public_inputs;
         // Validate inputs.
 
-        if !dep::std::runtime::is_unconstrained() {
+        if !::std::runtime::is_unconstrained() {
             self.previous_kernel.verify(false);
             self.previous_kernel.validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
@@ -181,7 +181,7 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         };
 
         // Validate output.
-        if dep::types::validate::should_validate_output() {
+        if ::types::validate::should_validate_output() {
             ResetOutputValidator::new(
                 output,
                 previous_public_inputs,

@@ -1,4 +1,4 @@
-use dep::types::{
+use types::{
     abis::validation_requests::KeyValidationRequestAndGenerator, side_effect::Scoped, traits::Empty,
     utils::arrays::ClaimedLengthArray,
 };

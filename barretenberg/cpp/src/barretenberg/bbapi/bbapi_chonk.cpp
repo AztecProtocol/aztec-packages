@@ -214,7 +214,7 @@ ChonkStats::Response ChonkStats::execute([[maybe_unused]] BBApiRequest& request)
     Response response;
 
     const auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
-    acir_format::AcirProgram program{ constraint_system };
+    acir_format::AcirProgram program{ constraint_system, {} };
 
     // Get IVC constraints if any
     const auto& ivc_constraints = constraint_system.hn_recursion_constraints;

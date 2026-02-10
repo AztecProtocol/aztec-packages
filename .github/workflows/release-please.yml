@@ -197,13 +197,24 @@ jobs:
           ./bootstrap.sh build_packages
 
       - name: Build aztec CLI
+        id: build-cli
+        continue-on-error: true
         working-directory: ./yarn-project
         run: |
           ./bootstrap.sh
           echo "AZTEC_CLI_PATH=$(pwd)/aztec/dest/bin" >> $GITHUB_ENV
 
+      - name: Generate TypeScript API documentation
+        if: steps.build-cli.outcome == 'success'
+        working-directory: ./docs
+        run: |
+          # Generate TypeScript API docs for this version (requires yarn-project to be built)
+          ./scripts/typescript_api_generation/generate_ts_api_docs.sh ${{ steps.version.outputs.semver }}
+          echo "Generated TypeScript API docs for: ${{ steps.version.outputs.semver }}"
+
       - name: Generate Aztec CLI documentation
         id: aztec-cli-docs
+        if: steps.build-cli.outcome == 'success'
         working-directory: ./docs
         continue-on-error: true
         run: |
@@ -236,13 +247,20 @@ jobs:
           echo "Generated BB CLI documentation for: ${{ steps.version.outputs.semver }}"
 
       - name: Comment on PR if CLI docs generation failed
-        if: steps.aztec-cli-docs.outcome == 'failure' || steps.bb-cli-docs.outcome == 'failure'
+        if: steps.build-cli.outcome == 'failure' || steps.aztec-cli-docs.outcome == 'failure' || steps.bb-cli-docs.outcome == 'failure'
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
           FAILED_DOCS=""
+          if [[ "${{ steps.build-cli.outcome }}" == "failure" ]]; then
+            FAILED_DOCS="yarn-project build (cache miss)"
+          fi
           if [[ "${{ steps.aztec-cli-docs.outcome }}" == "failure" ]]; then
-            FAILED_DOCS="Aztec CLI"
+            if [[ -n "$FAILED_DOCS" ]]; then
+              FAILED_DOCS="$FAILED_DOCS, Aztec CLI"
+            else
+              FAILED_DOCS="Aztec CLI"
+            fi
           fi
           if [[ "${{ steps.bb-cli-docs.outcome }}" == "failure" ]]; then
             if [[ -n "$FAILED_DOCS" ]]; then
@@ -258,6 +276,8 @@ jobs:
           The following CLI documentation failed to generate: $FAILED_DOCS
 
           The release will continue, but CLI reference docs may be incomplete for this version.
+
+          cc @AztecProtocol/devrel
 
           [View workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
           EOF

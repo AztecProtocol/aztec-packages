@@ -79,7 +79,7 @@ contract RollupBase is DecoderBase {
       proverId: _prover
     });
 
-    bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
+    bytes32[] memory fees = new bytes32[](Constants.MAX_CHECKPOINTS_PER_EPOCH * 2);
 
     uint256 size = endCheckpointNumber - startCheckpointNumber + 1;
     for (uint256 i = 0; i < size; i++) {

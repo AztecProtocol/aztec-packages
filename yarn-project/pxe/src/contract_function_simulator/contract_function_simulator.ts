@@ -72,6 +72,7 @@ import {
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/stdlib/tx';
 
+import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
 import type { AddressStore } from '../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
@@ -107,6 +108,7 @@ export class ContractFunctionSimulator {
     private capsuleStore: CapsuleStore,
     private privateEventStore: PrivateEventStore,
     private simulator: CircuitSimulator,
+    private contractSyncService: ContractSyncService,
   ) {
     this.log = createLogger('simulator');
   }
@@ -186,6 +188,7 @@ export class ContractFunctionSimulator {
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
+      this.contractSyncService,
       jobId,
       0, // totalPublicArgsCount
       startSideEffectCounter,
@@ -356,7 +359,7 @@ class OrderedSideEffect<T> {
  */
 export async function generateSimulatedProvingResult(
   privateExecutionResult: PrivateExecutionResult,
-  contractStore: ContractStore,
+  debugFunctionNameGetter: (contractAddress: AztecAddress, functionSelector: FunctionSelector) => Promise<string>,
   minRevertibleSideEffectCounterOverride?: number,
 ): Promise<PrivateKernelExecutionProofOutput<PrivateKernelTailCircuitPublicInputs>> {
   const siloedNoteHashes: OrderedSideEffect<Fr>[] = [];
@@ -437,7 +440,7 @@ export async function generateSimulatedProvingResult(
       : execution.publicInputs.publicTeardownCallRequest;
 
     executionSteps.push({
-      functionName: await contractStore.getDebugFunctionName(
+      functionName: await debugFunctionNameGetter(
         execution.publicInputs.callContext.contractAddress,
         execution.publicInputs.callContext.functionSelector,
       ),

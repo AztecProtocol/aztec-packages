@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+cmd=$1
+shift
+squashed_args=$(printf '%q ' "$@")
+exec $cmd "$squashed_args"
