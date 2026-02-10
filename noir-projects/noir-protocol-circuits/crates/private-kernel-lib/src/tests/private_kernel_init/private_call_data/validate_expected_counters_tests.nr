@@ -1,5 +1,5 @@
 use crate::tests::private_kernel_init::TestBuilder;
-use dep::types::constants::MAX_U32_VALUE;
+use ::types::constants::MAX_U32_VALUE;
 
 #[test]
 fn with_zero_counter() {

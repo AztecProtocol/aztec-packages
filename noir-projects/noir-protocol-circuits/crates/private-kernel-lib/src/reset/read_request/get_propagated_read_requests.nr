@@ -1,5 +1,5 @@
 use super::read_request_action::{ReadRequestAction, ReadRequestActions};
-use dep::types::{side_effect::{Counted, Scoped}, traits::Empty, utils::arrays::ClaimedLengthArray};
+use ::types::{side_effect::{Counted, Scoped}, traits::Empty, utils::arrays::ClaimedLengthArray};
 
 /// According to the hints provided, this fn splice-removes all read requests that are to be processed
 /// by this reset circuit, and outputs a list of the remaining read_requests that are to

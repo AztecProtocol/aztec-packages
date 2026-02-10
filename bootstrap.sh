@@ -99,9 +99,16 @@ function check_toolchains {
     exit 1
   fi
   if ! rustup show | grep $rust_version > /dev/null; then
-    # Cargo will download necessary version of rust at runtime but warn to alert that an update to the build-image
-    # is desirable.
-    echo -e "${bold}${yellow}WARN: Rust ${rust_version} is not installed. Performance will be degraded.${reset}"
+    if [ "${CI:-0}" -eq 1 ]; then
+      echo "Attempting install of required Rust version $rust_version"
+      rustup self update 2>/dev/null || true
+      rustup toolchain install $rust_version
+      rustup default $rust_version
+    else
+      # Cargo will download necessary version of rust at runtime but warn to alert that an update to the build-image
+      # is desirable.
+      echo -e "${bold}${yellow}WARN: Rust ${rust_version} is not installed. Performance will be degraded.${reset}"
+    fi
   fi
   # Check wasi-sdk version.
   if ! cat /opt/wasi-sdk/VERSION 2> /dev/null | grep 27.0 > /dev/null; then

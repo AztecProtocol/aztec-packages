@@ -5,7 +5,7 @@ use super::{
     key_validation_hint::KeyValidationHint,
     key_validation_requests_validator::KeyValidationRequestsValidator,
 };
-use dep::types::{
+use ::types::{
     abis::validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},
     address::AztecAddress,
     hash::compute_app_siloed_secret_key,

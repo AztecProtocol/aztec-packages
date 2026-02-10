@@ -5,22 +5,22 @@ mod config;
 // And corresponds to a Token on L2 that uses the `AuthWit` accounts pattern.
 // Bridge has to be set as a minter on the token before it can be used
 
-use dep::aztec::macros::aztec;
+use ::aztec::macros::aztec;
 
 #[aztec]
 pub contract TokenBridge {
     use crate::config::Config;
 
-    use dep::aztec::{protocol::address::{AztecAddress, EthAddress}, state_vars::PublicImmutable};
+    use ::aztec::{protocol::address::{AztecAddress, EthAddress}, state_vars::PublicImmutable};
 
-    use dep::token_portal_content_hash_lib::{
+    use ::token_portal_content_hash_lib::{
         get_mint_to_private_content_hash, get_mint_to_public_content_hash,
         get_withdraw_content_hash,
     };
 
-    use dep::token::Token;
+    use ::token::Token;
 
-    use dep::aztec::macros::{functions::{external, initializer, view}, storage::storage};
+    use ::aztec::macros::{functions::{external, initializer, view}, storage::storage};
 
     // Storage structure, containing all storage, and specifying what slots they use.
     #[storage]

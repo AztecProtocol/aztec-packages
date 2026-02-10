@@ -1,4 +1,4 @@
-use dep::aztec::macros::aztec;
+use ::aztec::macros::aztec;
 
 /// A simple contract for testing scope isolation on TXE.
 /// Uses PrivateImmutable to store a single note per owner. Only owners should be
