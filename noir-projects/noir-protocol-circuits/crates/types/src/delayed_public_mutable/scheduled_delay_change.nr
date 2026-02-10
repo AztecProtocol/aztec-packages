@@ -3,8 +3,8 @@ use std::cmp::min;
 
 mod test;
 
-// This data structure is used by DelayedPublicMutable to store the minimum delay with which a ScheduledValueChange object can
-// schedule a change.
+// This data structure is used by DelayedPublicMutable to store the minimum delay with which a ScheduledValueChange
+// object can schedule a change.
 // This delay is initially equal to INITIAL_DELAY, and can be safely mutated to any other value over time. This mutation
 // is performed via `schedule_change` in order to satisfy ScheduleValueChange constraints: if e.g. we allowed for the
 // delay to be decreased immediately then it'd be possible for the state variable to schedule a value change with a
@@ -29,8 +29,8 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
     /// WARNING: This function only returns a meaningful value when called in public with the current timestamp - for
     /// historical private reads use `get_effective_minimum_delay_at` instead.
     pub fn get_current(self, current_timestamp: u64) -> u64 {
-        // The post value becomes the current one at the timestamp of change, so any transaction that is included at or after
-        // the timestamp of change will use the post value.
+        // The post value becomes the current one at the timestamp of change, so any transaction that is included at or
+        // after the timestamp of change will use the post value.
         if current_timestamp < self.timestamp_of_change {
             self.pre.unwrap_or(INITIAL_DELAY)
         } else {
@@ -137,25 +137,25 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
         // Therefore the `delayed_mutable` that you will read _as at the very start of the next
         // block_ will be _the very same_ `delayed_mutable` (nothing can possibly have changed).
         // Therefore the first opportunity to schedule a value change (from the anchor timestamp)
-        // is the first tx of that next block, which takes place at least 1 second after the
-        // anchor block.
-        // So should you choose to go ahead and schedule a value change in the first tx of that
-        // next block, it will only take effect after the "current delay" (as dictated by the
+        // is the first tx of a subsequent block. Blocks within the same checkpoint can share
+        // timestamps, so the earliest scheduling timestamp can equal the anchor timestamp.
+        // So should you choose to go ahead and schedule a value change in a subsequent block,
+        // it will only take effect after the "current" delay (as dictated by the
         // `delayed_mutable` of that tx, which is the same as the `delayed_mutable` as at the
         // anchor timestamp).
         // In all, the time between the anchor block's timestamp and the earliest-possible value
-        // timestamp_of_change, is therefore: 1 second + the "current" delay (as at the time of
-        // the anchor timestamp).
+        // timestamp_of_change, is therefore: 0 + the "current" delay (as at the time of the anchor
+        // timestamp).
         // Reads must only be valid until _just before_ the earliest-possible value change --
         // i.e. 1 second before the earliest-possible value change.
         // That is, reads are only valid for the "current" delay (as at the time of the anchor
         // timestamp) _at most_.
-        // (I.e. the read remains valid for 1 + "current delay" - 1 = "current delay", from the
+        // (I.e. the read remains valid for 0 + "current delay" - 1 = "current delay", from the
         // anchor timestamp).
         //
         //  ____________                               ____________
         // |            |                             |            |
-        // |  Block     |<--At least a 1 second gap-->|  Block     |
+        // |  Block     |<-- 0 or more seconds gap -->|  Block     |
         // |____________|                             |____________|
         //              ^                              ^
         //              |                              You can schedule a value change from here.
@@ -175,10 +175,13 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
             //
             // So in this `if` case, `self.post` is in effect at the time of the `historical_timestamp`.
             //
-            // If no delay changes are scheduled (as at the time of the anchor timestamp), then the
-            // "current delay" (as at the time of the historical timestamp) is `self.post` (or the
-            // INITIAL_DELAY if never set).
-            self.post.unwrap_or(INITIAL_DELAY)
+            // If no delay changes are scheduled (as at the time of the anchor timestamp), then the "current delay" (as
+            // at the time of the historical timestamp) is `self.post` (or the INITIAL_DELAY if never set).
+            //
+            // Note: We subtract 1 because the earliest scheduling can happen in the block following the anchor block
+            // and that block can share the same timestamp as the anchor block (blocks within the same checkpoint can
+            // share timestamps).
+            self.post.unwrap_or(INITIAL_DELAY) - 1
         } else {
             //
             //          `historical_timestamp` < `self.timestamp_of_change`
@@ -234,7 +237,7 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
             //     .                              .  than `pre`)     ||_ new values can take effect from here.
             //     .                              .                  |
             //     .                              .                  |_ reads are only valid until here:
-            //     .                              .                  .  `historic_timestamp + time_until_delay_change + self.post - 1`
+            //     .                              .                  .  `historical_timestamp + time_until_delay_change + self.post - 1`
             //     .                              .                  .                 .
             //     [*************************************************]                 .
             //     [                                                 ]                 .
@@ -256,7 +259,7 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
             //     .                              .  (scheduling deferred delay changes is not yet possible)            ^^
             //     .                              .                                                                     ||
             //     .                              .     reads would only be valid until here:___________________________||
-            //     .                              .     `historic_timestamp + time_until_delay_change + self.post - 1`   |
+            //     .                              .     `historical_timestamp + time_until_delay_change + self.post - 1` |
             //     .                              .                                                                      |
             //     .                              .                        new values would take effect from here,_______|
             //     .                              .                        but only once this longer delay takes effect  .
@@ -284,7 +287,7 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
             let time_until_delay_change = self.timestamp_of_change - historical_timestamp;
 
             min(
-                self.pre.unwrap_or(INITIAL_DELAY), // in case the scheduled delay (`post`) gets cancelled before it takes effect.
+                self.pre.unwrap_or(INITIAL_DELAY) - 1, // in case the scheduled delay (`post`) gets cancelled before it takes effect.
                 time_until_delay_change + self.post.unwrap_or(INITIAL_DELAY) - 1,
             )
         }

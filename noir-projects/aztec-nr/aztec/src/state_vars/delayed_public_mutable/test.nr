@@ -230,7 +230,7 @@ unconstrained fn get_current_value_in_private_initial() {
         assert_eq(state_var.get_current_value(), zeroed());
         assert_eq(
             context.include_by_timestamp,
-            context.get_anchor_block_header().global_variables.timestamp + TEST_INITIAL_DELAY,
+            context.get_anchor_block_header().global_variables.timestamp + TEST_INITIAL_DELAY - 1,
         );
     });
 }
@@ -305,7 +305,7 @@ unconstrained fn get_current_value_in_private_at_change() {
         assert_eq(state_var.get_current_value(), new_value);
         assert_eq(
             context.include_by_timestamp,
-            context.get_anchor_block_header().global_variables.timestamp + TEST_INITIAL_DELAY,
+            context.get_anchor_block_header().global_variables.timestamp + TEST_INITIAL_DELAY - 1,
         );
     });
 }
@@ -333,7 +333,7 @@ unconstrained fn get_current_value_in_private_after_change() {
         assert_eq(state_var.get_current_value(), new_value);
         assert_eq(
             context.include_by_timestamp,
-            context.get_anchor_block_header().global_variables.timestamp + TEST_INITIAL_DELAY,
+            context.get_anchor_block_header().global_variables.timestamp + TEST_INITIAL_DELAY - 1,
         );
     });
 }
@@ -361,7 +361,7 @@ unconstrained fn get_current_value_in_private_with_non_initial_delay() {
         let state_var = in_private(context);
 
         assert_eq(state_var.get_current_value(), new_value);
-        assert_eq(context.include_by_timestamp, historical_timestamp + new_delay);
+        assert_eq(context.include_by_timestamp, historical_timestamp + new_delay - 1);
     });
 }
 

@@ -167,10 +167,11 @@ unconstrained fn assert_effective_minimum_delay_invariants<let INITIAL_DELAY: u6
     effective_minimum_delay: u64,
 ) {
     // The effective minimum delay guarantees the earliest timestamp in which a scheduled value change could be made
-    // effective. No action, even if executed immediately after the historical timestamp, should result in a scheduled
-    // value change having a timestamp of change lower than this.
+    // effective. No action, even if executed as in the block following anchor block with the block having the same
+    // timestamp as the anchor block (blocks within the same checkpoint can share timestamps), should result in
+    // a scheduled value change having a timestamp of change lower than this.
     let expected_earliest_value_change_timestamp =
-        historical_timestamp + 1 + effective_minimum_delay;
+        historical_timestamp + 0 + effective_minimum_delay; // + 0 to emphasize it's the smallest post anchor block's timestamp
 
     if delay_change.timestamp_of_change > historical_timestamp {
         // If a delay change is already scheduled to happen in the future, we then must consider the scenario in
@@ -182,16 +183,19 @@ unconstrained fn assert_effective_minimum_delay_invariants<let INITIAL_DELAY: u6
         assert(expected_earliest_value_change_timestamp <= value_change_timestamp);
     }
 
-    // Another possibility would be to schedule a value change immediately after the historical timestamp.
-    let change_schedule_timestamp = historical_timestamp + 1;
+    // Another possibility would be to schedule a value change at the historical timestamp (blocks within the same
+    // checkpoint can share timestamps, so the earliest scheduling can happen at the anchor timestamp - smallest
+    // timestamp of a block following the anchor block).
+    let change_schedule_timestamp = historical_timestamp + 0;
     let value_change_timestamp =
         change_schedule_timestamp + delay_change.get_current(change_schedule_timestamp);
     assert(expected_earliest_value_change_timestamp <= value_change_timestamp);
 
-    // Finally, a delay reduction could be scheduled immediately after the historical timestamp. We reduce the delay to
+    // Finally, a delay reduction could be scheduled at the historical timestamp - smallest timestamp of a block
+    // following the anchor block (blocks within the same checkpoint can share timestamps). We reduce the delay to
     // zero, which means that at the delay timestamp of change there'll be no delay and a value change could be
     // performed immediately then.
-    delay_change.schedule_change(0, historical_timestamp + 1);
+    delay_change.schedule_change(0, historical_timestamp + 0);
     assert(expected_earliest_value_change_timestamp <= delay_change.timestamp_of_change);
 }
 
@@ -206,9 +210,10 @@ unconstrained fn test_get_effective_delay_at_before_change_in_far_future() {
     let mut delay_change = get_non_initial_delay_change(pre, post, timestamp_of_change);
 
     // The scheduled delay change is far into the future (further than the current delay is), so it doesn't affect
-    // the effective delay, which is simply the current one (pre).
+    // the effective delay, which is simply the current one (pre) minus 1 (since the earliest scheduling can happen
+    // at the same timestamp as the anchor).
     let effective_minimum_delay = delay_change.get_effective_minimum_delay_at(historical_timestamp);
-    assert_eq(effective_minimum_delay, pre);
+    assert_eq(effective_minimum_delay, pre - 1);
 
     assert_effective_minimum_delay_invariants(
         &mut delay_change,
@@ -229,9 +234,9 @@ unconstrained fn test_get_effective_delay_at_before_change_to_long_delay() {
 
     // The scheduled delay change will be effective soon (it's fewer seconds away than the current delay), but due to
     // it being larger than the current one it doesn't affect the effective delay, which is simply the current one
-    // (pre).
+    // (pre) minus 1.
     let effective_minimum_delay = delay_change.get_effective_minimum_delay_at(historical_timestamp);
-    assert_eq(effective_minimum_delay, pre);
+    assert_eq(effective_minimum_delay, pre - 1);
 
     assert_effective_minimum_delay_invariants(
         &mut delay_change,
@@ -256,7 +261,7 @@ unconstrained fn test_get_effective_delay_at_before_near_change_to_short_delay()
     // The effective delay therefore is the new delay plus the number of seconds that need to elapse until it becomes
     // effective (i.e. until the timestamp of change).
     let effective_minimum_delay = delay_change.get_effective_minimum_delay_at(historical_timestamp);
-    assert_eq(effective_minimum_delay, post + timestamp_of_change - (historical_timestamp + 1));
+    assert_eq(effective_minimum_delay, post + timestamp_of_change - historical_timestamp - 1);
 
     assert_effective_minimum_delay_invariants(
         &mut delay_change,
@@ -275,9 +280,9 @@ unconstrained fn test_get_effective_delay_at_after_change() {
 
     let mut delay_change = get_non_initial_delay_change(pre, post, timestamp_of_change);
 
-    // No delay change is scheduled, so the effective delay is simply the current one (post).
+    // No delay change is scheduled, so the effective delay is simply the current one (post) minus 1.
     let effective_minimum_delay = delay_change.get_effective_minimum_delay_at(historical_timestamp);
-    assert_eq(effective_minimum_delay, post);
+    assert_eq(effective_minimum_delay, post - 1);
 
     assert_effective_minimum_delay_invariants(
         &mut delay_change,
@@ -293,9 +298,9 @@ unconstrained fn test_get_effective_delay_at_initial() {
     let historical_timestamp = 200;
 
     // Like in the after change scenario, no delay change is scheduled, so the effective delay is simply the current
-    // one (initial).
+    // one (initial) minus 1.
     let effective_minimum_delay = delay_change.get_effective_minimum_delay_at(historical_timestamp);
-    assert_eq(effective_minimum_delay, TEST_INITIAL_DELAY);
+    assert_eq(effective_minimum_delay, TEST_INITIAL_DELAY - 1);
 
     assert_effective_minimum_delay_invariants(
         &mut delay_change,

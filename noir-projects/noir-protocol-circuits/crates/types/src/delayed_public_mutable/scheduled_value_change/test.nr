@@ -38,15 +38,16 @@ unconstrained fn assert_time_horizon_invariants(
     let current_at_historical = value_change.get_current_at(historical_timestamp);
     assert_eq(current_at_historical, value_change.get_current_at(time_horizon));
 
-    // The earliest a new change could be scheduled in would be the immediate next timestamp to the historical one. This
-    // should result in the new timestamp of change landing *after* the time horizon, and the current value still not
-    // changing at the previously determined time_horizon.
+    // The earliest a new change could be scheduled is in the beginning of the next block following the anchor block
+    // and since blocks within the same checkpoint can share timestamps, the smallest timestamp of a block following
+    // the anchor block is "historical_timestamp + 0". This should result in the new timestamp of change landing
+    // *after* the time horizon, and the current value still not changing at the previously determined time_horizon.
     let new = value_change.pre + value_change.post; // Make sure it's different to both pre and post
     value_change.schedule_change(
         new,
-        historical_timestamp + 1,
-        TEST_DELAY,
-        historical_timestamp + 1 + TEST_DELAY,
+        historical_timestamp + 0,
+        TEST_DELAY + 1,
+        historical_timestamp + TEST_DELAY + 1,
     );
 
     assert(value_change.timestamp_of_change > time_horizon);

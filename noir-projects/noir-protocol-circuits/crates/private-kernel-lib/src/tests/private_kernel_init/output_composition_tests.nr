@@ -89,7 +89,7 @@ fn include_by_timestamp_constrained_by_contract_updates() {
     // Set the private call's include_by_timestamp to a large value
     // that exceeds the contract update time horizon
     let anchor_timestamp = builder.private_call.anchor_block_header.global_variables.timestamp;
-    let contract_update_horizon = anchor_timestamp + DEFAULT_UPDATE_DELAY;
+    let contract_update_horizon = anchor_timestamp + DEFAULT_UPDATE_DELAY - 1;
 
     // Set include_by_timestamp larger than the contract update horizon
     builder.private_call.include_by_timestamp = contract_update_horizon + 1000;

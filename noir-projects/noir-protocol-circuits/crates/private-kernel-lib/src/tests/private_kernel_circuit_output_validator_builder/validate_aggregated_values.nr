@@ -132,8 +132,13 @@ fn validate_aggregated_values_include_by_timestamp_from_both_pick_larger_private
 fn validate_aggregated_values_include_by_timestamp_pick_for_contract_updates_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    let include_by_timestamp_for_contract_updates =
-        builder.private_call.anchor_block_header.global_variables.timestamp + DEFAULT_UPDATE_DELAY;
+    let include_by_timestamp_for_contract_updates = builder
+        .private_call
+        .anchor_block_header
+        .global_variables
+        .timestamp
+        + DEFAULT_UPDATE_DELAY
+        - 1;
 
     builder.previous_kernel.include_by_timestamp = include_by_timestamp_for_contract_updates + 1;
     builder.private_call.include_by_timestamp = include_by_timestamp_for_contract_updates + 1;
