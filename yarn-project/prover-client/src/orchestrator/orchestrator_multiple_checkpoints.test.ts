@@ -23,7 +23,7 @@ describe('prover/orchestrator/multi-checkpoints', () => {
   });
 
   describe('multiple checkpoints ', () => {
-    it.each([4, 5])(
+    it.each([4, 5, MAX_CHECKPOINTS_PER_EPOCH])(
       'builds an epoch with %s checkpoints in sequence',
       async (numCheckpoints: number) => {
         const numBlocksPerCheckpoint = 1;
