@@ -93,7 +93,17 @@ yarn lint
 
 ### Step 7: Commit and Push
 
-If there are changes from build fixes or conflict resolution, commit and push:
+If there are changes from build fixes or conflict resolution, commit and push.
+
+If the PR targets `next`, amend to keep it as a single commit:
+
+```bash
+git add -u
+git commit --amend --no-edit
+git push --force-with-lease
+```
+
+Otherwise, create a normal commit:
 
 ```bash
 git add -u
@@ -104,7 +114,7 @@ git push --force-with-lease
 ## Key Points
 
 - **Rebase, don't merge**: Always use `git rebase`, never `git merge`
-- **Don't amend**: Create normal commits — PRs are squashed on merge
+- **Amend only for PRs targeting `next`**: Other PRs use normal commits
 - **Stage tracked files only**: Use `git add -u` for modifications. If new files were created, stage them explicitly by name. Never use `git add .`
 - **Bootstrap when needed**: Only if there are changes outside yarn-project
 - **Verify build**: Always run `yarn build` after rebase
