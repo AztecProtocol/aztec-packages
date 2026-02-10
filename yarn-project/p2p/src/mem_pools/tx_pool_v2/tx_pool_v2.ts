@@ -1,6 +1,7 @@
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
+import { DateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { L2Block, L2BlockId } from '@aztec/stdlib/block';
@@ -35,6 +36,7 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
     deps: TxPoolV2Dependencies,
     telemetry: TelemetryClient = getTelemetryClient(),
     config: Partial<TxPoolV2Config> = {},
+    dateProvider: DateProvider = new DateProvider(),
     log = createLogger('p2p:tx_pool_v2'),
   ) {
     super();
@@ -59,7 +61,7 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
     };
 
     // Create the implementation
-    this.#impl = new TxPoolV2Impl(store, archiveStore, deps, callbacks, config, log);
+    this.#impl = new TxPoolV2Impl(store, archiveStore, deps, callbacks, config, dateProvider, log);
   }
 
   // ============================================================================
@@ -130,6 +132,10 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
 
   getPendingTxHashes(): Promise<TxHash[]> {
     return this.#queue.put(() => Promise.resolve(this.#impl.getPendingTxHashes()));
+  }
+
+  getEligiblePendingTxHashes(maxReceivedAt: number): Promise<TxHash[]> {
+    return this.#queue.put(() => Promise.resolve(this.#impl.getEligiblePendingTxHashes(maxReceivedAt)));
   }
 
   getPendingTxCount(): Promise<number> {

@@ -187,6 +187,9 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
   /** Gets pending transaction hashes sorted by priority (highest first) */
   getPendingTxHashes(): Promise<TxHash[]>;
 
+  /** Gets pending transaction hashes that have been in the pool since before maxReceivedAt, sorted by priority (highest first) */
+  getEligiblePendingTxHashes(maxReceivedAt: number): Promise<TxHash[]>;
+
   /** Gets the count of pending transactions */
   getPendingTxCount(): Promise<number>;
 

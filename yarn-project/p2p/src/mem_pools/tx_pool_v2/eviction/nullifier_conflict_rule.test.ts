@@ -20,6 +20,7 @@ describe('NullifierConflictRule', () => {
     feeLimit: 1000n,
     nullifiers,
     includeByTimestamp: 0n,
+    receivedAt: 0,
     data: stubTxMetaValidationData(),
   });
 

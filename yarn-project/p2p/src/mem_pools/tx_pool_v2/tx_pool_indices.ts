@@ -89,6 +89,29 @@ export class TxPoolIndices {
     }
   }
 
+  /**
+   * Iterates pending transaction hashes in priority order, skipping txs received after maxReceivedAt.
+   * @param order - 'desc' for highest priority first, 'asc' for lowest priority first
+   * @param maxReceivedAt - Only yield txs with receivedAt <= this value
+   */
+  *iterateEligiblePendingByPriority(order: 'asc' | 'desc', maxReceivedAt: number): Generator<string> {
+    const feeCompareFn = order === 'desc' ? (a: bigint, b: bigint) => compareFee(b, a) : compareFee;
+    const hashCompareFn = order === 'desc' ? (a: string, b: string) => compareTxHash(b, a) : compareTxHash;
+
+    const sortedFees = [...this.#pendingByPriority.keys()].sort(feeCompareFn);
+
+    for (const fee of sortedFees) {
+      const hashesAtFee = this.#pendingByPriority.get(fee)!;
+      const sortedHashes = [...hashesAtFee].sort(hashCompareFn);
+      for (const hash of sortedHashes) {
+        const meta = this.#metadata.get(hash);
+        if (meta && meta.receivedAt <= maxReceivedAt) {
+          yield hash;
+        }
+      }
+    }
+  }
+
   /** Iterates all metadata entries */
   *iterateMetadata(): Generator<[string, TxMetaData]> {
     yield* this.#metadata;

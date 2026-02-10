@@ -1,5 +1,6 @@
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
+import type { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
@@ -64,6 +65,7 @@ export class TxPoolV2Impl {
   #archive: TxArchive;
   #deletedPool: DeletedPool;
   #evictionManager: EvictionManager;
+  #dateProvider: DateProvider;
   #log: Logger;
   #callbacks: TxPoolV2Callbacks;
 
@@ -73,6 +75,7 @@ export class TxPoolV2Impl {
     deps: TxPoolV2Dependencies,
     callbacks: TxPoolV2Callbacks,
     config: Partial<TxPoolV2Config> = {},
+    dateProvider: DateProvider,
     log: Logger,
   ) {
     this.#store = store;
@@ -85,6 +88,7 @@ export class TxPoolV2Impl {
     this.#config = { ...DEFAULT_TX_POOL_V2_CONFIG, ...config };
     this.#archive = new TxArchive(archiveStore, this.#config.archivedTxLimit, log);
     this.#deletedPool = new DeletedPool(store, this.#txsDB, log);
+    this.#dateProvider = dateProvider;
     this.#log = log;
     this.#callbacks = callbacks;
 
@@ -549,6 +553,12 @@ export class TxPoolV2Impl {
     return [...this.#indices.iteratePendingByPriority('desc')].map(hash => TxHash.fromString(hash));
   }
 
+  getEligiblePendingTxHashes(maxReceivedAt: number): TxHash[] {
+    return [...this.#indices.iterateEligiblePendingByPriority('desc', maxReceivedAt)].map(hash =>
+      TxHash.fromString(hash),
+    );
+  }
+
   getPendingTxCount(): number {
     return this.#indices.getPendingTxCount();
   }
@@ -629,6 +639,7 @@ export class TxPoolV2Impl {
   ): Promise<TxMetaData> {
     const txHashStr = tx.getTxHash().toString();
     const meta = await buildTxMetaData(tx);
+    meta.receivedAt = this.#dateProvider.now();
 
     await this.#txsDB.set(txHashStr, tx.toBuffer());
     this.#callbacks.onTxsAdded([tx], opts);

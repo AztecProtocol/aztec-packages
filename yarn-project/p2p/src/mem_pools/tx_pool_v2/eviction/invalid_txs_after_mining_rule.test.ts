@@ -36,6 +36,7 @@ describe('InvalidTxsAfterMiningRule', () => {
       feeLimit: 100n,
       nullifiers,
       includeByTimestamp,
+      receivedAt: 0,
       data: stubTxMetaValidationData({ includeByTimestamp }),
     };
   };
