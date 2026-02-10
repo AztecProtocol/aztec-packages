@@ -168,9 +168,6 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Compute auxiliary generator U, which is used to bind together the inner product claim and the commitment.
         // This yields the binding property because we assume it is computationally difficult to find a linear relation
         // between the CRS and `Commitment::one()`.
-        // Compute auxiliary generator U, which is used to bind together the inner product claim and the commitment.
-        // This yields the binding property because we assume it is computationally difficult to find a linear relation
-        // between the CRS and `Commitment::one()`.
         auto aux_generator = Commitment::one() * generator_challenge;
 
         // Checks poly_degree is greater than zero and a power of two
@@ -848,8 +845,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      *
      * @details We create an IPA accumulator by running the partial IPA recursive verifier on each claim. Then, we
      * generate challenges, and use these challenges to compute the new accumulator. We also create the accumulated
-     * polynomial, and generate the IPA proof for the accumulated claim. More details are described here:
-     * https://hackmd.io/IXoLIPhVT_ej8yhZ_Ehvuw?both.
+     * polynomial, and generate the IPA proof for the accumulated claim.
      *
      * @param ck
      * @param transcript_1
