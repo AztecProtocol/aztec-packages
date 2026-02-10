@@ -110,10 +110,9 @@ describe('e2e_epochs/epochs_mbps', () => {
 
     ({ context, logger, rollup } = test);
     wallet = context.wallet;
-    archiver = (context.aztecNode as AztecNodeService).getBlockSource() as Archiver;
     from = context.accounts[0];
 
-    // Deploy cross-chain contract if needed (before stopping the initial sequencer).
+    // Deploy cross-chain contract if needed (before stopping the initial node).
     // Unlike emit_nullifier (which has #[noinitcheck]), cross-chain methods require a deployed contract.
     if (deployCrossChainContract) {
       logger.warn(`Deploying cross-chain test contract before stopping initial sequencer`);
@@ -131,6 +130,12 @@ describe('e2e_epochs/epochs_mbps', () => {
       test.createValidatorNode([privateKey], { dontStartSequencer: true }),
     );
     logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
+
+    // Point the wallet at a validator node. The initial node-0 has all validator keys in its config,
+    // so it rejects block proposals from validators thinking they come from itself. By redirecting
+    // the wallet to a validator node, the PXE correctly tracks proposed blocks.
+    wallet.updateNode(nodes[0]);
+    archiver = nodes[0].getBlockSource() as Archiver;
 
     // Register contract for sending txs.
     contract = await test.registerTestContract(wallet);
