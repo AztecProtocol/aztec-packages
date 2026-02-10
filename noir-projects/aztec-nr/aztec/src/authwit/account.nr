@@ -7,11 +7,11 @@ use crate::authwit::entrypoint::app::AppPayload;
 
 pub struct AccountActions<Context> {
     context: Context,
-    is_valid_impl: fn(&mut PrivateContext, Field) -> bool,
+    is_valid_impl: fn(Context, Field) -> bool,
 }
 
 impl<Context> AccountActions<Context> {
-    pub fn init(context: Context, is_valid_impl: fn(&mut PrivateContext, Field) -> bool) -> Self {
+    pub fn init(context: Context, is_valid_impl: fn(Context, Field) -> bool) -> Self {
         AccountActions { context, is_valid_impl }
     }
 }
