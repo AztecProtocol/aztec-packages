@@ -1,5 +1,5 @@
 ---
-title: Enabling Authentication Witnesses
+title: Authentication Witnesses
 description: Enable contracts to execute actions on behalf of user accounts using authentication witnesses.
 tags: [accounts, authwit]
 sidebar_position: 11
