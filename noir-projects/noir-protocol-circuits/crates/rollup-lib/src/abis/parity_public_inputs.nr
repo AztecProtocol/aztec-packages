@@ -1,4 +1,4 @@
-use ::types::traits::{Deserialize, Empty, Serialize};
+use types::traits::{Deserialize, Empty, Serialize};
 
 #[derive(Deserialize, Eq, Serialize)]
 pub struct ParityPublicInputs {

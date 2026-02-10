@@ -1,4 +1,4 @@
-use ::types::{
+use types::{
     abis::private_kernel::private_call_data::PrivateCallData,
     constants::DEFAULT_UPDATE_DELAY,
     contract_class_id::ContractClassId,

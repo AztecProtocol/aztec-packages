@@ -1,4 +1,4 @@
-pub use ::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
+pub use std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 use crate::{hash::poseidon2_hash, traits::{Deserialize, Empty, Hash, Packable, Serialize}};
 
 pub global POINT_LENGTH: u32 = 3;
@@ -45,7 +45,7 @@ impl Packable for Point {
 
 mod tests {
     use super::validate_on_curve;
-    use ::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
+    use std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 
     #[test]
     unconstrained fn test_validate_on_curve_generator() {

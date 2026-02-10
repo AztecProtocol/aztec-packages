@@ -5,7 +5,7 @@ use crate::{
         reset_output_validator::ResetOutputValidator,
     },
 };
-use ::types::{
+use types::{
     abis::private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
     constants::{
         PRIVATE_KERNEL_INIT_VK_INDEX, PRIVATE_KERNEL_INNER_VK_INDEX, PRIVATE_KERNEL_RESET_VK_INDEX,

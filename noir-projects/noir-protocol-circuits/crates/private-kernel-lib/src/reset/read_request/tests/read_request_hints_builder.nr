@@ -3,7 +3,7 @@ use crate::reset::read_request::{
     validate_pending_read_requests::PendingReadHint,
     validate_settled_read_requests::SettledReadHint,
 };
-use ::types::{merkle_tree::MembershipWitness, traits::Empty};
+use types::{merkle_tree::MembershipWitness, traits::Empty};
 
 pub struct ReadRequestHintsBuilder<let ReadRequestLen: u32, let PendingHintsLen: u32, let SettledHintsLen: u32, let TreeHeight: u32, SettledReadLeafPreimage> {
     pub read_request_actions: [ReadRequestAction; ReadRequestLen],

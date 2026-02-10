@@ -1,4 +1,4 @@
-use ::aztec::protocol::traits::{Deserialize, Packable, Serialize, ToField};
+use aztec::protocol::traits::{Deserialize, Packable, Serialize, ToField};
 use std::meta::derive;
 
 global ADMIN_FLAG: u64 = 1;

@@ -1,4 +1,4 @@
-use ::types::{
+use types::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
     constants::{MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX},
     utils::arrays::{get_order_hints, OrderHint},

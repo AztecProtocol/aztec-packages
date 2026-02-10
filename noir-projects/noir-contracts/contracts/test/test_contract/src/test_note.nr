@@ -1,4 +1,4 @@
-use ::aztec::{
+use aztec::{
     context::PrivateContext,
     macros::notes::custom_note,
     note::note_interface::NoteHash,

@@ -1,6 +1,6 @@
 mod note;
 mod fake_avm_oracle;
-use ::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract AvmTest {
@@ -15,15 +15,15 @@ pub contract AvmTest {
     use crate::fake_avm_oracle::{
         avm_return, call, returndata_copy, returndata_size, revert, success_copy,
     };
-    use ::aztec::context::gas::GasOpts;
-    use ::aztec::macros::{functions::{external, view}, storage::storage};
-    use ::aztec::oracle::get_contract_instance::{
+    use aztec::context::gas::GasOpts;
+    use aztec::macros::{functions::{external, view}, storage::storage};
+    use aztec::oracle::get_contract_instance::{
         get_contract_instance_class_id_avm, get_contract_instance_deployer_avm,
         get_contract_instance_initialization_hash_avm,
     };
-    use ::aztec::protocol::abis::function_selector::FunctionSelector;
-    use ::aztec::protocol::{address::{AztecAddress, EthAddress}, point::Point, scalar::Scalar};
-    use ::aztec::protocol::{
+    use aztec::protocol::abis::function_selector::FunctionSelector;
+    use aztec::protocol::{address::{AztecAddress, EthAddress}, point::Point, scalar::Scalar};
+    use aztec::protocol::{
         constants::{
             CANONICAL_AUTH_REGISTRY_ADDRESS, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
             FEE_JUICE_ADDRESS, GRUMPKIN_ONE_X, GRUMPKIN_ONE_Y,
@@ -33,17 +33,17 @@ pub contract AvmTest {
         storage::map::derive_storage_slot_in_map,
         traits::{Empty, FromField, ToField},
     };
-    use ::aztec::state_vars::Map;
-    use ::aztec::state_vars::PublicMutable;
-    use ::aztec::state_vars::StateVariable;
-    use ::compressed_string::CompressedString;
     use aztec::protocol::traits::Serialize;
+    use aztec::state_vars::Map;
+    use aztec::state_vars::PublicMutable;
+    use aztec::state_vars::StateVariable;
+    use compressed_string::CompressedString;
     use std::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
 
-    use ::auth_contract::AuthRegistry;
-    use ::aztec::context::PublicContext;
-    use ::fee_juice::FeeJuice;
-    use ::instance_contract::ContractInstanceRegistry;
+    use auth_contract::AuthRegistry;
+    use aztec::context::PublicContext;
+    use fee_juice::FeeJuice;
+    use instance_contract::ContractInstanceRegistry;
     use std::ops::Add;
 
     #[storage]

@@ -8,7 +8,7 @@ use crate::{
         gas_meter::meter_gas_used, tail_output_validator::validate_include_by_timestamp_duration,
     },
 };
-use ::types::abis::kernel_circuit_public_inputs::{
+use types::abis::kernel_circuit_public_inputs::{
     PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
 };
 

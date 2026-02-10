@@ -1,4 +1,4 @@
-use ::rollup_lib::tx_base::{
+use rollup_lib::tx_base::{
     public_chonk_verifier, PublicChonkVerifierPrivateInputs, PublicChonkVerifierPublicInputs,
 };
 

@@ -1,4 +1,4 @@
-use ::types::{scalar::Scalar, traits::Empty};
+use types::{scalar::Scalar, traits::Empty};
 
 pub struct KeyValidationHint {
     pub sk_m: Scalar,

@@ -1,5 +1,5 @@
 use super::TestBuilder;
-use ::types::{address::AztecAddress, tests::utils::assert_array_eq, traits::FromField};
+use types::{address::AztecAddress, tests::utils::assert_array_eq, traits::FromField};
 
 #[test]
 fn correct_private_kernel_tail_output_propagated_values() {

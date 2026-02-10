@@ -1,12 +1,12 @@
 mod test;
-use ::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract PrivateVoting {
     // docs:start:imports
-    use ::aztec::macros::{functions::{external, initializer, only_self}, storage::storage};
-    use ::aztec::protocol::{address::AztecAddress, traits::{Deserialize, Serialize, ToField}};
-    use ::aztec::state_vars::{Map, Owned, PublicImmutable, PublicMutable, SingleUseClaim};
+    use aztec::macros::{functions::{external, initializer, only_self}, storage::storage};
+    use aztec::protocol::{address::AztecAddress, traits::{Deserialize, Serialize, ToField}};
+    use aztec::state_vars::{Map, Owned, PublicImmutable, PublicMutable, SingleUseClaim};
 
     #[derive(Serialize, Deserialize)]
     pub struct ElectionId {

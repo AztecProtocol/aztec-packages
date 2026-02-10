@@ -2,7 +2,7 @@ use crate::{
     private_kernel_init::{self, PrivateKernelInitCircuitPrivateInputs},
     tests::private_kernel_init::TestBuilder,
 };
-use ::types::{
+use types::{
     abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
     constants::{
         MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,

@@ -5,7 +5,7 @@ use crate::{
         validate_consecutive_tx_rollups::validate_consecutive_tx_rollups,
     },
 };
-use ::types::{
+use types::{
     constants::{
         PRIVATE_TX_BASE_ROLLUP_VK_INDEX, PUBLIC_TX_BASE_ROLLUP_VK_INDEX, TX_MERGE_ROLLUP_VK_INDEX,
     },

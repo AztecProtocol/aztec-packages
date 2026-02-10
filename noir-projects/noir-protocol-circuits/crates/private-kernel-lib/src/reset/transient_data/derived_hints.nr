@@ -10,7 +10,7 @@ use nullifier_index_sorted_tuples::build_nullifier_index_sorted_tuples;
 pub(crate) use num_active_squashing_hints::get_num_active_squashing_hints;
 use squash_flags::{build_note_hash_squash_flags, build_nullifier_squash_flags};
 
-use ::types::{
+use types::{
     abis::{note_hash::NoteHash, nullifier::Nullifier, private_log::PrivateLogData},
     side_effect::{Counted, Scoped},
     utils::arrays::{ClaimedLengthArray, SortedTuple},

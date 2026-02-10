@@ -1,5 +1,5 @@
-use ::private_kernel_lib::{hiding_kernel_to_rollup, HidingKernelToRollupPrivateInputs};
-use ::types::{
+use private_kernel_lib::{hiding_kernel_to_rollup, HidingKernelToRollupPrivateInputs};
+use types::{
     abis::kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
     constants::MEGA_VK_LENGTH_IN_FIELDS, proof::vk_data::VkData,
 };

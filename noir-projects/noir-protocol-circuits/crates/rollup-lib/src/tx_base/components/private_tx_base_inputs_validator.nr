@@ -1,7 +1,7 @@
 use crate::tx_base::components::{
     fees::compute_fee_payer_fee_juice_balance_leaf_slot, private_tail_validator,
 };
-use ::types::{
+use types::{
     abis::{
         block_constant_data::BlockConstantData,
         kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
