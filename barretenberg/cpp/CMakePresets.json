@@ -453,6 +453,16 @@
       }
     },
     {
+      "name": "alloc-profiler",
+      "displayName": "Build with allocation lifetime profiler",
+      "description": "Instruments operator new/delete with stack traces and lifetime tracking for region analysis",
+      "inherits": "clang20",
+      "binaryDir": "build-alloc-profiler",
+      "cacheVariables": {
+        "ALLOC_PROFILER": "ON"
+      }
+    },
+    {
       "name": "xray",
       "displayName": "Build with multi-threaded XRay Profiling",
       "description": "Build with Clang and enable multi-threaded LLVM XRay for profiling",
@@ -741,6 +751,11 @@
       "name": "bump-allocator",
       "inherits": "clang20",
       "configurePreset": "bump-allocator"
+    },
+    {
+      "name": "alloc-profiler",
+      "inherits": "clang20",
+      "configurePreset": "alloc-profiler"
     },
     {
       "name": "xray",

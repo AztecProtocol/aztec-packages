@@ -49,6 +49,12 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "a
     set(RUN_HAVE_POSIX_REGEX 0)
 endif()
 
+option(ALLOC_PROFILER "Track allocation lifetimes with stack traces for region analysis (profiling only)" OFF)
+if(ALLOC_PROFILER)
+  set(ENABLE_STACKTRACES ON CACHE BOOL "" FORCE)
+  add_compile_options(-DALLOC_PROFILER)
+endif()
+
 if(ENABLE_STACKTRACES)
     add_compile_options(-DCHECK_CIRCUIT_STACKTRACES -DSTACKTRACES)
 endif()
