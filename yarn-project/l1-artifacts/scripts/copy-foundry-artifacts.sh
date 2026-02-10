@@ -24,7 +24,7 @@ mkdir -p "l1-contracts/test/script"
 cp -p "$src/test/shouting.t.sol" "l1-contracts/test/"
 cp -p "$src"/test/script/*.sol "l1-contracts/test/script/"
 cp -p "$src"/{foundry.toml,foundry.lock,package.json,solc-*} "l1-contracts/"
-# Copy the compiled forge broadcast wrapper (built by l1-contracts bootstrap).
+# Copy the forge broadcast wrapper (now a plain .js source file).
 mkdir -p "l1-contracts/scripts"
 cp -p "$src/scripts/forge_broadcast.js" "l1-contracts/scripts/"
 abs_dest=$(pwd)/l1-contracts

@@ -1,6 +1,7 @@
-#!/usr/bin/env -S node --experimental-strip-types
+#!/usr/bin/env node
+// Note: this would be .ts but Node.js refuses to load .ts from node_modules.
 
-// forge_broadcast.ts - Reliable forge script broadcast with retry and timeout.
+// forge_broadcast.js - Reliable forge script broadcast with retry and timeout.
 //
 // Wraps `forge script` with:
 //   1. --batch-size 8 to prevent forge broadcast hangs (forge bug with large RPC batches)
@@ -16,13 +17,13 @@
 // On real chains (where this anvil-specific bug doesn't apply), we use --resume.
 //
 // Usage:
-//   ./scripts/forge_broadcast.ts <forge script args...>
+//   ./scripts/forge_broadcast.js <forge script args...>
 //
 //   Pass the same args you'd pass to `forge script`, WITHOUT --broadcast or --batch-size.
 //   The wrapper adds those automatically.
 //
 // Example:
-//   ./scripts/forge_broadcast.ts script/deploy/Deploy.s.sol:Deploy \
+//   ./scripts/forge_broadcast.js script/deploy/Deploy.s.sol:Deploy \
 //     --rpc-url "$RPC_URL" --private-key "$KEY" -vvv
 //
 // Environment variables:
@@ -31,10 +32,10 @@
 //
 // Uses only Node.js built-ins (no external dependencies).
 
-import { spawn } from 'node:child_process';
-import { rmSync, writeSync } from 'node:fs';
-import { request as httpRequest } from 'node:http';
-import { request as httpsRequest } from 'node:https';
+import { spawn } from "node:child_process";
+import { rmSync, writeSync } from "node:fs";
+import { request as httpRequest } from "node:http";
+import { request as httpsRequest } from "node:https";
 
 // Chain IDs for timeout selection.
 const MAINNET_CHAIN_ID = 1;
@@ -42,12 +43,15 @@ const SEPOLIA_CHAIN_ID = 11155111;
 
 // Timeout per attempt: 300s for mainnet/sepolia (real chains are slow), 50s for everything else.
 // FORGE_BROADCAST_TIMEOUT env var overrides the auto-detected value.
-function getDefaultTimeout(chainId: number | undefined): number {
+function getDefaultTimeout(chainId) {
   if (chainId === MAINNET_CHAIN_ID || chainId === SEPOLIA_CHAIN_ID) return 300;
   return 50;
 }
 
-const MAX_RETRIES = parseInt(process.env.FORGE_BROADCAST_MAX_RETRIES ?? '3', 10);
+const MAX_RETRIES = parseInt(
+  process.env.FORGE_BROADCAST_MAX_RETRIES ?? "3",
+  10,
+);
 
 // Batch size of 8 prevents forge from hanging during broadcast.
 // See: https://github.com/foundry-rs/foundry/issues/6796
@@ -58,60 +62,68 @@ const EXIT_TIMEOUT = 124;
 // Delay before retry to let pending transactions settle in the mempool.
 const RETRY_DELAY = 10_000;
 
-function log(msg: string): void {
+function log(msg) {
   process.stderr.write(`[forge_broadcast] ${msg}\n`);
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** Extract --rpc-url value from forge args. */
-function extractRpcUrl(args: string[]): string | undefined {
+function extractRpcUrl(args) {
   for (let i = 0; i < args.length - 1; i++) {
-    if (args[i] === '--rpc-url') return args[i + 1];
+    if (args[i] === "--rpc-url") return args[i + 1];
   }
   return undefined;
 }
 
 /** Strip --verify from args, returning the filtered args and whether --verify was present. */
-function extractVerifyFlag(args: string[]): { args: string[]; verify: boolean } {
-  const filtered = args.filter(a => a !== '--verify');
+function extractVerifyFlag(args) {
+  const filtered = args.filter((a) => a !== "--verify");
   return { args: filtered, verify: filtered.length !== args.length };
 }
 
 const RPC_TIMEOUT = 10_000;
 
 /** JSON-RPC call using Node.js built-ins. Rejects on JSON-RPC errors and timeouts. */
-function rpcCall(rpcUrl: string, method: string, params: unknown[]): Promise<unknown> {
+function rpcCall(rpcUrl, method, params) {
   return new Promise((resolve, reject) => {
     const url = new URL(rpcUrl);
-    const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method, params });
-    const reqFn = url.protocol === 'https:' ? httpsRequest : httpRequest;
+    const body = JSON.stringify({ jsonrpc: "2.0", id: 1, method, params });
+    const reqFn = url.protocol === "https:" ? httpsRequest : httpRequest;
 
     const timer = setTimeout(() => {
       req.destroy();
       reject(new Error(`RPC call ${method} timed out after ${RPC_TIMEOUT}ms`));
     }, RPC_TIMEOUT);
 
-    const req = reqFn(url, { method: 'POST', headers: { 'Content-Type': 'application/json' } }, res => {
-      let data = '';
-      res.on('data', chunk => (data += chunk));
-      res.on('end', () => {
-        clearTimeout(timer);
-        try {
-          const parsed = JSON.parse(data);
-          if (parsed.error) {
-            reject(new Error(`RPC error for ${method}: ${JSON.stringify(parsed.error)}`));
-          } else {
-            resolve(parsed.result);
+    const req = reqFn(
+      url,
+      { method: "POST", headers: { "Content-Type": "application/json" } },
+      (res) => {
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          clearTimeout(timer);
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.error) {
+              reject(
+                new Error(
+                  `RPC error for ${method}: ${JSON.stringify(parsed.error)}`,
+                ),
+              );
+            } else {
+              resolve(parsed.result);
+            }
+          } catch {
+            reject(new Error(`Bad RPC response: ${data.slice(0, 200)}`));
           }
-        } catch {
-          reject(new Error(`Bad RPC response: ${data.slice(0, 200)}`));
-        }
-      });
-    });
-    req.on('error', (err) => {
+        });
+      },
+    );
+    req.on("error", (err) => {
       clearTimeout(timer);
       reject(err);
     });
@@ -121,50 +133,49 @@ function rpcCall(rpcUrl: string, method: string, params: unknown[]): Promise<unk
 }
 
 /** Detect if the RPC endpoint is an anvil dev node via web3_clientVersion. */
-async function detectAnvil(rpcUrl: string): Promise<boolean> {
+async function detectAnvil(rpcUrl) {
   try {
-    const version = (await rpcCall(rpcUrl, 'web3_clientVersion', [])) as string;
-    return version.toLowerCase().includes('anvil');
+    const version = await rpcCall(rpcUrl, "web3_clientVersion", []);
+    return version.toLowerCase().includes("anvil");
   } catch {
     return false;
   }
 }
 
 /** Get the chain ID from the RPC endpoint. */
-async function getChainId(rpcUrl: string): Promise<number | undefined> {
+async function getChainId(rpcUrl) {
   try {
-    const result = (await rpcCall(rpcUrl, 'eth_chainId', [])) as string;
+    const result = await rpcCall(rpcUrl, "eth_chainId", []);
     return parseInt(result, 16);
   } catch {
     return undefined;
   }
 }
 
-interface ForgeResult {
-  exitCode: number;
-  stdout: Buffer[];
-}
+function runForge(args, timeoutSecs) {
+  return new Promise((resolve) => {
+    const proc = spawn(
+      "forge",
+      ["script", ...args, "--broadcast", "--batch-size", String(BATCH_SIZE)],
+      {
+        stdio: ["ignore", "pipe", "inherit"], // buffer stdout, pass stderr through
+      },
+    );
 
-function runForge(args: string[], timeoutSecs: number): Promise<ForgeResult> {
-  return new Promise(resolve => {
-    const proc = spawn('forge', ['script', ...args, '--broadcast', '--batch-size', String(BATCH_SIZE)], {
-      stdio: ['ignore', 'pipe', 'inherit'], // buffer stdout, pass stderr through
-    });
-
-    const stdout: Buffer[] = [];
-    proc.stdout!.on('data', (chunk: Buffer) => stdout.push(chunk));
+    const stdout = [];
+    proc.stdout.on("data", (chunk) => stdout.push(chunk));
 
     let timedOut = false;
     let settled = false;
-    let killTimer: ReturnType<typeof setTimeout> | undefined;
+    let killTimer;
 
     const timer = setTimeout(() => {
       timedOut = true;
-      proc.kill('SIGTERM');
-      killTimer = setTimeout(() => proc.kill('SIGKILL'), KILL_GRACE);
+      proc.kill("SIGTERM");
+      killTimer = setTimeout(() => proc.kill("SIGKILL"), KILL_GRACE);
     }, timeoutSecs * 1000);
 
-    const finish = (code: number): void => {
+    const finish = (code) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
@@ -172,8 +183,8 @@ function runForge(args: string[], timeoutSecs: number): Promise<ForgeResult> {
       resolve({ exitCode: timedOut ? EXIT_TIMEOUT : code, stdout });
     };
 
-    proc.on('error', () => finish(1));
-    proc.on('close', code => finish(code ?? 1));
+    proc.on("error", () => finish(1));
+    proc.on("close", (code) => finish(code ?? 1));
   });
 }
 
@@ -183,7 +194,9 @@ function runForge(args: string[], timeoutSecs: number): Promise<ForgeResult> {
 // happens after all receipts are collected (foundry-rs/foundry crates/script/src/lib.rs:333-338)
 // and forge exits non-zero if ANY verification fails (crates/script/src/verify.rs), even when
 // all transactions landed. We run verification as a separate step after broadcast succeeds.
-const { args: forgeArgs, verify: wantsVerify } = extractVerifyFlag(process.argv.slice(2));
+const { args: forgeArgs, verify: wantsVerify } = extractVerifyFlag(
+  process.argv.slice(2),
+);
 const rpcUrl = extractRpcUrl(forgeArgs);
 
 // Query chain info from RPC at startup.
@@ -192,14 +205,16 @@ const TIMEOUT = process.env.FORGE_BROADCAST_TIMEOUT
   ? parseInt(process.env.FORGE_BROADCAST_TIMEOUT, 10)
   : getDefaultTimeout(chainId);
 
-log(`chain_id=${chainId ?? 'unknown'}, timeout=${TIMEOUT}s, max_retries=${MAX_RETRIES}, batch_size=${BATCH_SIZE}${wantsVerify ? ', verify=true (after broadcast)' : ''}`);
+log(
+  `chain_id=${chainId ?? "unknown"}, timeout=${TIMEOUT}s, max_retries=${MAX_RETRIES}, batch_size=${BATCH_SIZE}${wantsVerify ? ", verify=true (after broadcast)" : ""}`,
+);
 
 // Detect anvil once at startup. On anvil, retries reset the chain and start from scratch
 // instead of using --resume, because anvil's auto-miner can strand transactions in the
 // mempool in an unrecoverable state (neither evm_mine nor --resume can flush them).
 const isAnvil = rpcUrl ? await detectAnvil(rpcUrl) : false;
 if (isAnvil) {
-  log('Detected anvil — retries will reset chain instead of using --resume.');
+  log("Detected anvil — retries will reset chain instead of using --resume.");
 }
 
 /**
@@ -209,25 +224,41 @@ if (isAnvil) {
  *      crates/script/src/verify.rs (verify_contracts).
  * Failure is logged but doesn't affect the exit code — transactions already landed.
  */
-async function runVerification(args: string[]): Promise<void> {
-  log('Running contract verification (no timeout)...');
-  const verifyResult = await new Promise<number>(resolve => {
-    const proc = spawn('forge', ['script', ...args, '--broadcast', '--resume', '--verify'], {
-      stdio: ['ignore', 'inherit', 'inherit'],
-    });
+async function runVerification(args) {
+  log("Running contract verification (no timeout)...");
+  const verifyResult = await new Promise((resolve) => {
+    const proc = spawn(
+      "forge",
+      ["script", ...args, "--broadcast", "--resume", "--verify"],
+      {
+        stdio: ["ignore", "inherit", "inherit"],
+      },
+    );
     let settled = false;
-    proc.on('error', () => { if (!settled) { settled = true; resolve(1); } });
-    proc.on('close', code => { if (!settled) { settled = true; resolve(code ?? 1); } });
+    proc.on("error", () => {
+      if (!settled) {
+        settled = true;
+        resolve(1);
+      }
+    });
+    proc.on("close", (code) => {
+      if (!settled) {
+        settled = true;
+        resolve(code ?? 1);
+      }
+    });
   });
   if (verifyResult === 0) {
-    log('Contract verification succeeded.');
+    log("Contract verification succeeded.");
   } else {
-    log(`Contract verification failed (exit ${verifyResult}). Transactions are on-chain; verify manually if needed.`);
+    log(
+      `Contract verification failed (exit ${verifyResult}). Transactions are on-chain; verify manually if needed.`,
+    );
   }
 }
 
 /** Write buffered stdout to fd 1 (synchronous) and exit. */
-function emitAndExit(result: ForgeResult, code: number): never {
+function emitAndExit(result, code) {
   const data = Buffer.concat(result.stdout);
   if (data.length > 0) {
     writeSync(1, data);
@@ -236,7 +267,7 @@ function emitAndExit(result: ForgeResult, code: number): never {
 }
 
 /** Run verification if requested, then emit stdout and exit. */
-async function verifyAndExit(result: ForgeResult): Promise<never> {
+async function verifyAndExit(result) {
   if (wantsVerify) {
     await runVerification(forgeArgs);
   }
@@ -248,11 +279,13 @@ log(`Attempt 1/${MAX_RETRIES + 1}: broadcasting...`);
 let result = await runForge(forgeArgs, TIMEOUT);
 
 if (result.exitCode === 0) {
-  log('Broadcast succeeded on first attempt.');
+  log("Broadcast succeeded on first attempt.");
   await verifyAndExit(result);
 }
 
-log(`Attempt 1 ${result.exitCode === EXIT_TIMEOUT ? `timed out after ${TIMEOUT}s` : `failed (exit ${result.exitCode})`}.`);
+log(
+  `Attempt 1 ${result.exitCode === EXIT_TIMEOUT ? `timed out after ${TIMEOUT}s` : `failed (exit ${result.exitCode})`}.`,
+);
 
 for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
   log(`Waiting ${RETRY_DELAY / 1000}s before retry...`);
@@ -268,9 +301,11 @@ for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     //   - Forge computes new nonces from on-chain state
     //   - New transactions replace any stuck ones with the same nonce
     //   - The race condition is intermittent (~0.04%), so retries almost always succeed
-    rmSync('broadcast', { recursive: true, force: true });
+    rmSync("broadcast", { recursive: true, force: true });
 
-    log(`Attempt ${attempt + 1}/${MAX_RETRIES + 1}: retrying from scratch (anvil)...`);
+    log(
+      `Attempt ${attempt + 1}/${MAX_RETRIES + 1}: retrying from scratch (anvil)...`,
+    );
     result = await runForge(forgeArgs, TIMEOUT);
   } else {
     // On real chains: use --resume to pick up unmined transactions.
@@ -279,7 +314,7 @@ for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     // is only produced on the first attempt. We keep the first attempt's stdout (`result`)
     // and only check the exit code from the --resume attempt.
     log(`Attempt ${attempt + 1}/${MAX_RETRIES + 1}: --resume`);
-    const resumeResult = await runForge([...forgeArgs, '--resume'], TIMEOUT);
+    const resumeResult = await runForge([...forgeArgs, "--resume"], TIMEOUT);
 
     if (resumeResult.exitCode === 0) {
       log(`Broadcast succeeded on attempt ${attempt + 1}.`);

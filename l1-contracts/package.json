@@ -6,8 +6,6 @@
   "description": "Aztec contracts for the Ethereum mainnet and testnets",
   "devDependencies": {
     "@openzeppelin/merkle-tree": "^1.0.8",
-    "@swc/cli": "^0.6.0",
-    "@swc/core": "^1.10.12",
     "ox": "^0.8.3",
     "solhint": "5.1.0"
   },

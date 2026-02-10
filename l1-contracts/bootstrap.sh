@@ -108,9 +108,6 @@ function build_verifier {
 function build {
   build_src
   build_verifier
-  # Compile the forge broadcast wrapper to JS (Node refuses to load .ts from node_modules).
-  npx swc scripts/forge_broadcast.ts -o scripts/forge_broadcast.js \
-    --no-swcrc -C jsc.target=es2022 -C jsc.parser.syntax=typescript -C module.type=es6
 }
 
 function test_cmds {

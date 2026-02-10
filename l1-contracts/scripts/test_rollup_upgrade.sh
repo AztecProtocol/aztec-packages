@@ -32,7 +32,7 @@ export L1_RPC_URL="http://127.0.0.1:$ANVIL_PORT"
 export ROLLUP_DEPLOYMENT_PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
 echo "=== Deploying initial L1 contracts ==="
-./scripts/forge_broadcast.ts \
+./scripts/forge_broadcast.js \
   script/deploy/DeployAztecL1Contracts.s.sol:DeployAztecL1Contracts \
   --rpc-url "$L1_RPC_URL" \
   --private-key "$ROLLUP_DEPLOYMENT_PRIVATE_KEY" \

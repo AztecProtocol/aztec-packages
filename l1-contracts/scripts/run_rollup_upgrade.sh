@@ -21,7 +21,7 @@ echo "Registry: $registry_address"
 
 REGISTRY_ADDRESS="$registry_address" \
 REAL_VERIFIER="${REAL_VERIFIER:-true}" \
-./scripts/forge_broadcast.ts \
+./scripts/forge_broadcast.js \
   script/deploy/DeployRollupForUpgrade.s.sol:DeployRollupForUpgrade \
   --rpc-url "$L1_RPC_URL" \
   --private-key "$ROLLUP_DEPLOYMENT_PRIVATE_KEY" \
