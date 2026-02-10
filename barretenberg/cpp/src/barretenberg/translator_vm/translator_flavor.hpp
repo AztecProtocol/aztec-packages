@@ -154,13 +154,21 @@ class TranslatorFlavor {
     // Total number of minicircuit wires across all concatenation groups (5 groups × 16 wires each)
     static constexpr size_t NUM_CONCATENATED_WIRES = NUM_CONCATENATED_POLYS * CONCATENATION_GROUP_SIZE;
 
-    // Number of witness polynomials in get_unshifted_without_concatenated() (witness portion only)
-    // = WireNonshifted(1) + OrderedRange(5) + Derived(1) = 7
+    // Number of non-concatenated witness polynomials in PCS unshifted batch
+    // = WireNonshifted/op(1) + OrderedRange(5) + Derived/z_perm(1) = 7
     static constexpr size_t NUM_UNSHIFTED_WITNESSES_WITHOUT_CONCATENATED = 7;
 
     // Number of to-be-shifted polynomials for PCS
     // = OpQueueWiresToBeShifted(3) + OrderedRange(5) + Derived(1) = 9
     static constexpr size_t NUM_TO_BE_SHIFTED = 9;
+
+    // Number of unshifted polynomials in PCS: masking + non-computable precomputed + witness base + concatenated
+    static constexpr size_t NUM_PCS_UNSHIFTED = NUM_MASKING_POLYNOMIALS +
+                                                (NUM_PRECOMPUTED_ENTITIES - NUM_COMPUTABLE_PRECOMPUTED) +
+                                                NUM_UNSHIFTED_WITNESSES_WITHOUT_CONCATENATED + NUM_CONCATENATED_POLYS;
+
+    // Number of to-be-shifted polynomials in PCS: base to-be-shifted + concatenated
+    static constexpr size_t NUM_PCS_TO_BE_SHIFTED = NUM_TO_BE_SHIFTED + NUM_CONCATENATED_POLYS;
 
     // The index of the first unshifted witness that is going to be shifted when AllEntities are partitioned
     static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED;
@@ -208,11 +216,12 @@ class TranslatorFlavor {
     static constexpr size_t num_frs_fr = FrCodec::calc_num_fields<FF>();
     static constexpr size_t num_frs_fq = FrCodec::calc_num_fields<BF>();
 
-    // Proof length formula
-    // Commitments sent: 5 concatenated + 5 ordered = 10 (was 77+5=82)
-    // No more Gemini P_pos/P_neg evaluations (no interleaved batching)
-    static constexpr size_t NUM_COMMITMENTS_IN_PROOF =
-        NUM_CONCATENATED_POLYS + 5 /*ordered*/; // = 10 (not counting gemini masking, z_perm, op queue)
+    // Number of ordered range constraint polynomials: 4 (one per range constraint group) + 1 (overflow)
+    static constexpr size_t NUM_ORDERED_RANGE = 5;
+
+    // Commitments sent in wire round: concatenated + ordered range constraints
+    // (not counting gemini masking, z_perm, op queue which are sent separately)
+    static constexpr size_t NUM_COMMITMENTS_IN_PROOF = NUM_CONCATENATED_POLYS + NUM_ORDERED_RANGE;
     static constexpr size_t PROOF_LENGTH =
         /* 1. Gemini masking poly commitment */ (num_frs_comm) +
         /* 2. Wire commitments: concatenated(5) + ordered(5) = 10 */
@@ -459,39 +468,6 @@ class TranslatorFlavor {
         {
             return concatenate(ConcatenatedPolynomials<DataType>::get_all(),
                                OrderedRangeConstraints<DataType>::get_all());
-        };
-
-        /**
-         * @brief Witness entities on which Shplemini operates in the default manner (excludes concatenated polys
-         * and the 77 minicircuit wires that are authenticated via concatenated commitments).
-         * @details At AllEntities level: Masking(1) + ordered_extra(1) + WireNonshifted/op(1) + OrderedRange(5)
-         *          + Derived/z_perm(1) = 9 (12 computable precomputed excluded from PCS batching)
-         */
-        auto get_unshifted_without_concatenated()
-        {
-            return concatenate(WireNonshiftedEntities<DataType>::get_all(),
-                               OrderedRangeConstraints<DataType>::get_all(),
-                               DerivedWitnessEntities<DataType>::get_all());
-        }
-
-        auto get_unshifted()
-        {
-            return concatenate(WireNonshiftedEntities<DataType>::get_all(),
-                               WireToBeShiftedEntities<DataType>::get_all(),
-                               OrderedRangeConstraints<DataType>::get_all(),
-                               DerivedWitnessEntities<DataType>::get_all(),
-                               ConcatenatedPolynomials<DataType>::get_all());
-        }
-
-        /**
-         * @brief To-be-shifted polys for PCS: excludes 77 minicircuit wires (authenticated via concatenation).
-         * @details OpQueueWiresToBeShifted(3) + OrderedRangeConstraints(5) + DerivedWitness(1) = 9
-         */
-        auto get_to_be_shifted()
-        {
-            return concatenate(OpQueueWiresToBeShiftedEntities<DataType>::get_all(),
-                               OrderedRangeConstraints<DataType>::get_all(),
-                               DerivedWitnessEntities<DataType>::get_all());
         };
 
         /**
@@ -895,22 +871,31 @@ class TranslatorFlavor {
          */
         auto get_ordered_range_constraints() { return OrderedRangeConstraints<DataType>::get_all(); };
 
-        auto get_unshifted() const
+        /**
+         * @brief All unshifted polynomials for PCS (excludes computable precomputed, includes concatenated).
+         * @details masking(1) + ordered_extra(1) + op(1) + ordered(5) + z_perm(1) + concat(5) = 14
+         */
+        auto get_pcs_unshifted()
         {
-            return concatenate(MaskingEntities<DataType>::get_all(),
-                               PrecomputedEntities<DataType>::get_all(),
-                               WitnessEntities<DataType>::get_unshifted());
+            return concatenate(
+                MaskingEntities<DataType>::get_all(),                                     // gemini_masking_poly
+                RefArray<DataType, 1>{ this->ordered_extra_range_constraints_numerator }, // non-computable precomputed
+                WireNonshiftedEntities<DataType>::get_all(),                              // op (from merge protocol)
+                OrderedRangeConstraints<DataType>::get_all(),                             // ordered_0..4
+                DerivedWitnessEntities<DataType>::get_all(),                              // z_perm
+                ConcatenatedPolynomials<DataType>::get_all());                            // concat_0..4
         }
 
         /**
-         * @brief Unshifted polynomials for PCS, excluding concatenated AND computable precomputed.
-         * @details Masking(1) + ordered_extra(1) + WireNonshifted(1) + OrderedRange(5) + Derived(1) = 9
+         * @brief All to-be-shifted polynomials for PCS (base to-be-shifted + concatenated).
+         * @details op_queue_shifted(3) + ordered(5) + z_perm(1) + concat(5) = 14
          */
-        auto get_unshifted_without_concatenated()
+        auto get_pcs_to_be_shifted()
         {
-            return concatenate(MaskingEntities<DataType>::get_all(),
-                               RefArray<DataType, 1>{ this->ordered_extra_range_constraints_numerator },
-                               WitnessEntities<DataType>::get_unshifted_without_concatenated());
+            return concatenate(OpQueueWiresToBeShiftedEntities<DataType>::get_all(), // x_lo_y_hi, x_hi_z_1, y_lo_z_2
+                               OrderedRangeConstraints<DataType>::get_all(),         // ordered_0..4
+                               DerivedWitnessEntities<DataType>::get_all(),          // z_perm
+                               ConcatenatedPolynomials<DataType>::get_all());        // concat_0..4
         }
 
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };

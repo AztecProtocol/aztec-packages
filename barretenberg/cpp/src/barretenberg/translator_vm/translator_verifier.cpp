@@ -249,25 +249,28 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
                                              claimed.get_groups_to_be_concatenated(),
                                              claimed.get_groups_to_be_concatenated_shifted());
 
-    // Write reconstructed evals into the claimed evaluations struct
+    // Write reconstructed unshifted concat evals into AllEntities so getters work
     auto concat_eval_refs = claimed.get_concatenated();
     for (size_t g = 0; g < concat_evals.size(); g++) {
         concat_eval_refs[g] = concat_evals[g];
     }
 
     // --- PCS: build opening claims and verify ---
-    // Unshifted: standard (9) + concatenated (5) = 14 commitments/evals
-    auto combined_unshifted_comms =
-        concatenate(commitments.get_unshifted_without_concatenated(), commitments.get_concatenated());
-    auto combined_unshifted_evals =
-        concatenate(claimed.get_unshifted_without_concatenated(), claimed.get_concatenated());
+    auto combined_unshifted_comms = commitments.get_pcs_unshifted();
+    auto combined_unshifted_evals = claimed.get_pcs_unshifted();
 
-    // Shifted: standard (9) + concatenated (5) = 14 commitments/evals
-    auto combined_shifted_comms = concatenate(commitments.get_to_be_shifted(), commitments.get_concatenated());
+    // For shifted: commitments use the getter, but evals must be assembled manually since
+    // the reconstructed shifted concat evals live in a local array, not in AllEntities.
+    auto combined_shifted_comms = commitments.get_pcs_to_be_shifted();
     RefVector<FF> combined_shifted_evals(claimed.get_pcs_shifted());
     for (auto& eval : concat_shift_evals) {
         combined_shifted_evals.push_back(eval);
     }
+
+    BB_ASSERT_EQ(combined_unshifted_comms.size(), TranslatorFlavor::NUM_PCS_UNSHIFTED);
+    BB_ASSERT_EQ(combined_unshifted_evals.size(), TranslatorFlavor::NUM_PCS_UNSHIFTED);
+    BB_ASSERT_EQ(combined_shifted_comms.size(), TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED);
+    BB_ASSERT_EQ(combined_shifted_evals.size(), TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED);
 
     ClaimBatcher claim_batcher{ .unshifted = ClaimBatch{ combined_unshifted_comms, combined_unshifted_evals },
                                 .shifted = ClaimBatch{ combined_shifted_comms, combined_shifted_evals } };

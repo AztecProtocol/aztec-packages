@@ -37,13 +37,8 @@ void TranslatorProvingKey::compute_concatenated_polynomials()
         auto& group = groups[i];
         auto& current_target = targets[i];
 
-        // For group 4 (non-range), the last 3 slots are null padding (static zero values).
-        // These are zero-initialized, so we skip them.
-        if (i == 4 && j >= 13) {
-            return; // null padding slots - leave as zero
-        }
-
         // Copy into appropriate position in the concatenated polynomial: j * MINI + k
+        // Note: null padding slots in group 4 are zero-sized polynomials, so this loop is a no-op for them.
         for (size_t k = group[j].start_index(); k < group[j].end_index(); k++) {
             current_target.at(j * MINI_CIRCUIT_SIZE + k) = group[j][k];
         }
@@ -54,14 +49,25 @@ void TranslatorProvingKey::compute_concatenated_polynomials()
 /**
  * @brief Compute denominator polynomials for Translator's range constraint permutation
  *
- * @details We need to prove that all the range constraint wires indeed have values within the given
- * range [0, 2^14 - 1]. We use concatenated polynomials (concatenated_range_constraints_<i> and
- * concatenated_non_range) and generate ordered polynomials (ordered_range_constraints_<i>) that contain
- * the same values in sorted order. The DeltaRangeConstraint relation ensures sequential values differ by
- * at most 3, with the last value being the maximum.
+ * @details We need to prove that all the range constraint wires in the concatenation groups indeed have values within
+ * the given range [0, 2^14 - 1]. To do this, we take the values from the 4 concatenated range constraint polynomials
+ * (concatenated_range_constraints_<i>) and spread them into 5 ordered polynomials (ordered_range_constraints_<i>)
+ * which, as the name suggests, are sorted in non-descending order. The TranslatorDeltaRangeConstraint relation
+ * operates on these ordered polynomials and ensures that sequential values differ by no more than 3, the last value
+ * is the maximum, and the first value is zero (zero at the start allows us to avoid complications with shifts). Then,
+ * we run the TranslatorPermutationRelation on the concatenated and ordered polynomials to show that they contain the
+ * same multiset of values, which implies that the wires in the groups are indeed within the correct range.
  *
- * With concatenation, masking rows are scattered: the last NUM_MASKED_ROWS_END rows of each block.
- * Sorted values occupy non-masking positions; masking values sit in the holes.
+ * Ideally, we could simply rearrange the values from the 4 concatenated polynomials into 4 ordered polynomials, but
+ * we could hit the worst case scenario: every value in the polynomials is the maximum value. In that case we still
+ * need to add (max_range / 3 + 1) stepping-stone values to each ordered polynomial for the delta range constraint to
+ * hold. So we also need a 5th ordered polynomial to store the overflow: k * (max_range / 3 + 1) values that couldn't
+ * fit, plus (max_range / 3 + 1) connecting values. To counteract the extra (k + 1) * (max_range / 3 + 1) values in
+ * the denominator, we place a corresponding extra numerator polynomial (ordered_extra_range_constraints_numerator).
+ * The construction is feasible when (k + 1) * (max_range / 3 + 1) < concatenated polynomial size.
+ *
+ * With concatenation, masking rows are scattered: the last NUM_MASKED_ROWS_END rows of each block. Sorted values
+ * occupy non-masking positions; masking values sit in the holes.
  */
 void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomials()
 {
@@ -89,8 +95,9 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
         // Calculate the starting index of this group's overflowing elements in the extra denominator polynomial
         size_t extra_denominator_offset = i * sorted_elements.size();
 
-        // Number of values per lane (excluding start_index gap and masking rows)
-        const size_t values_per_lane = group[0].end_index() - group[0].start_index() - NUM_DISABLED_ROWS_IN_SUMCHECK;
+        // Number of real values per lane: MINI_CIRCUIT_SIZE positions minus the virtual zero at index 0
+        // minus NUM_MASKED_ROWS_END masking rows at the end of each block
+        static constexpr size_t values_per_lane = Flavor::MINI_CIRCUIT_SIZE - 1 - Flavor::NUM_MASKED_ROWS_END;
 
         // Go through each polynomial in the concatenated group
         for (size_t j = 0; j < Flavor::CONCATENATION_GROUP_SIZE; j++) {
@@ -98,8 +105,8 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
             // Dense offset: avoid phantom zeros by packing values tightly
             auto current_offset = j * values_per_lane;
 
-            // For each element in the polynomial
-            for (size_t k = group[j].start_index(); k < group[j].end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; k++) {
+            // For each element in the polynomial (excluding masking rows at the end)
+            for (size_t k = group[j].start_index(); k < group[j].end_index() - Flavor::NUM_MASKED_ROWS_END; k++) {
 
                 auto vec_idx = current_offset + (k - group[j].start_index());
 
@@ -139,12 +146,13 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
         }
     };
 
-    // Construct the first 4 polynomials
-    parallel_for(4, ordering_function);
+    // Construct the first NUM_CONCATENATED_POLYS - 1 polynomials (range constraint groups only)
+    constexpr size_t NUM_RANGE_CONSTRAINT_GROUPS = Flavor::NUM_CONCATENATED_POLYS - 1;
+    parallel_for(NUM_RANGE_CONSTRAINT_GROUPS, ordering_function);
 
     // Advance the iterator into the extra range constraint past the last written element
     auto extra_denominator_it = extra_denominator_uint.begin();
-    std::advance(extra_denominator_it, 4 * sorted_elements.size());
+    std::advance(extra_denominator_it, NUM_RANGE_CONSTRAINT_GROUPS * sorted_elements.size());
 
     // Add steps to the extra denominator polynomial to fill it
     std::copy(sorted_elements.cbegin(), sorted_elements.cend(), extra_denominator_it);
@@ -187,52 +195,85 @@ void TranslatorProvingKey::split_concatenated_random_coefficients_to_ordered()
     const size_t MINI = Flavor::MINI_CIRCUIT_SIZE;
 
     // Collect all random values from masking positions in concatenated range constraint polynomials
-    // NOTE: Only extract from the first 4 concatenated polys (concatenated_range_constraints_0..3)
-    // which appear in the permutation numerator. The 5th (concatenated_non_range) is not in the numerator.
-    // Masking positions are at the end of each block: [j*MINI + (MINI - NUM_DISABLED_ROWS_IN_SUMCHECK), j*MINI + MINI)
-    constexpr size_t NUM_CONCATENATED_IN_NUMERATOR = 4; // Only range constraint concatenated polys are in numerator
-    const size_t num_random_values_per_concat = NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::CONCATENATION_GROUP_SIZE;
-    const size_t total_num_random_values = num_random_values_per_concat * NUM_CONCATENATED_IN_NUMERATOR;
+    // NOTE: Only extract from the first NUM_CONCATENATED_POLYS - 1 concatenated polys
+    // (concatenated_range_constraints_0..3) which appear in the permutation numerator.
+    // The last (concatenated_non_range) is not in the numerator.
+    // Masking positions are at the end of each block: [j*MINI + (MINI - NUM_MASKED_ROWS_END), j*MINI + MINI)
+    constexpr size_t NUM_RANGE_CONSTRAINT_GROUPS = Flavor::NUM_CONCATENATED_POLYS - 1;
+    const size_t num_random_values_per_concat = Flavor::NUM_MASKED_ROWS_END * Flavor::CONCATENATION_GROUP_SIZE;
+    const size_t total_num_random_values = num_random_values_per_concat * NUM_RANGE_CONSTRAINT_GROUPS;
     const size_t num_random_values_per_ordered = total_num_random_values / num_ordered_polynomials;
     const size_t remaining_random_values = total_num_random_values % num_ordered_polynomials;
 
-    std::vector<FF> random_values;
-    random_values.reserve(total_num_random_values);
+    std::vector<FF> random_values(total_num_random_values);
 
-    // Extract random values from scattered masking positions in the first 4 concatenated polynomials
-    for (size_t i = 0; i < NUM_CONCATENATED_IN_NUMERATOR; i++) {
+    // Extract random values from scattered masking positions in the first NUM_RANGE_CONSTRAINT_GROUPS concatenated
+    // polynomials. Each thread handles one concatenated polynomial, writing to a disjoint slice of random_values.
+    parallel_for(NUM_RANGE_CONSTRAINT_GROUPS, [&](size_t i) {
         const auto& current_concat = concatenated[i];
+        size_t idx = i * num_random_values_per_concat;
         for (size_t j = 0; j < Flavor::CONCATENATION_GROUP_SIZE; j++) {
-            size_t block_masking_start = j * MINI + (MINI - NUM_DISABLED_ROWS_IN_SUMCHECK);
-            size_t block_masking_end = j * MINI + MINI;
-            for (size_t k = block_masking_start; k < block_masking_end; k++) {
-                random_values.push_back(current_concat[k]);
+            size_t block_masking_start = j * MINI + (MINI - Flavor::NUM_MASKED_ROWS_END);
+            for (size_t k = 0; k < Flavor::NUM_MASKED_ROWS_END; k++) {
+                random_values[idx] = current_concat[block_masking_start + k];
+                idx++;
             }
         }
-    }
+    });
 
-    // Distribute random values to ordered polynomials at the END (contiguous)
-    // Each ordered polynomial gets values at the last positions
-    size_t random_idx = 0;
+    // Distribute random values to ordered polynomials at the END (contiguous).
+    // Each ordered polynomial gets values at the last positions.
     const size_t circuit_size = proving_key->polynomials.get_polynomial_size();
-    for (size_t i = 0; i < num_ordered_polynomials; i++) {
+    parallel_for(num_ordered_polynomials, [&](size_t i) {
         auto& current_ordered = ordered[i];
         size_t values_for_this_poly = num_random_values_per_ordered + (i < remaining_random_values ? 1 : 0);
+        // Compute offset into random_values for this ordered polynomial
+        size_t random_idx = i * num_random_values_per_ordered + std::min(i, remaining_random_values);
         // Place random values at the END: [circuit_size - values_for_this_poly, circuit_size)
         for (size_t k = 0; k < values_for_this_poly; k++) {
             current_ordered.at(circuit_size - values_for_this_poly + k) = random_values[random_idx];
             random_idx++;
         }
-    }
+    });
 }
 
 /**
- * @brief Constructs all Lagrange precomputed polynomials required for Translator relations.
+ * @brief Constructs all Lagrange precomputed polynomials required for Translator relations. These enforce properties at
+ * specific positions within the Translator trace. Translator operates on two circuit sizes (full and mini) both
+ * requiring separate Lagrange polynomials.
  *
- * @details With concatenation, lagrange_masking is scattered across 16 blocks (end of each block),
- * and lagrange_masking_adjacent is 1 at masking rows AND the row immediately preceding each masking block.
- * lagrange_real_last marks the last row with sorted values in ordered polynomials (before the contiguous
- * masking region at the end).
+ * @details With concatenation, the full circuit has CONCATENATION_GROUP_SIZE (16) blocks of MINI_CIRCUIT_SIZE each.
+ * Masking rows are scattered: the last NUM_MASKED_ROWS_END rows of each block, rather than contiguous at the end.
+ *
+ * **Full Circuit Lagranges:**
+ * - `lagrange_first`: Active only at index 0, marks the first row of the full circuit
+ * - `lagrange_real_last`: Active at the last row with sorted values in ordered polynomials
+ *   (before the contiguous masking region at circuit_size - MAX_RANDOM_VALUES_PER_ORDERED)
+ * - `lagrange_last`: Active at the very last row of the full circuit
+ * - `lagrange_masking`: Active at scattered masking positions — the last NUM_MASKED_ROWS_END rows of each of the
+ *   CONCATENATION_GROUP_SIZE blocks
+ * - `lagrange_masking_adjacent`: Active where masking[i]=1 OR masking[i+1]=1. Disables the delta range constraint
+ *   at masking rows AND at the row immediately before each masking block
+ * - `lagrange_ordered_masking`: Active at the last MAX_RANDOM_VALUES_PER_ORDERED positions (contiguous at end),
+ *   where random values are placed in ordered polynomials
+ *
+ * **Mini Circuit Lagranges:**
+ * - `lagrange_mini_masking`: Active in two regions:
+ *   1. Between RANDOMNESS_START and RESULT_ROW (random values at the beginning of the mini circuit)
+ *   2. In the last rows of the mini circuit (for trailing randomness)
+ * - `lagrange_even_in_minicircuit`: Active at even indices within the actual ECC operation processing range,
+ *   excluding randomness
+ * - `lagrange_odd_in_minicircuit`: Active at odd indices within the actual ECC operation processing range,
+ *   excluding randomness
+ * - `lagrange_result_row`: Active only at the designated result row (Flavor::RESULT_ROW)
+ * - `lagrange_last_in_minicircuit`: Active at the last row before masking in the mini circuit
+ *
+ * The even/odd Lagranges are needed because the Translator VM processes two rows of its execution trace
+ * simultaneously, with different relations applying to even and odd indexed rows.
+ *
+ * @note All Lagrange polynomials are initialized to 0 by default, and this function sets specific
+ *       indices to 1 to create the desired selector behavior.
+ * @note The masking regions contain random values used for zero-knowledge properties.
  */
 void TranslatorProvingKey::compute_lagrange_polynomials()
 {
@@ -311,9 +352,10 @@ void TranslatorProvingKey::compute_extra_range_constraint_numerator()
 {
 
     const auto sorted_elements = get_sorted_steps();
-    // NOTE: We use 5 factors in the numerator: 4 concatenated_range_constraints + 1 extra_numerator
-    // (matching 5 ordered_range_constraints in denominator). Each sorted element appears 5 times.
-    constexpr size_t NUM_FACTORS_IN_NUMERATOR = 5; // 4 concat range + 1 extra
+    // The numerator has NUM_CONCATENATED_POLYS factors: (NUM_CONCATENATED_POLYS - 1) concatenated range constraint
+    // polynomials + 1 extra_numerator, matching NUM_CONCATENATED_POLYS ordered polynomials in the denominator.
+    // Each sorted element appears NUM_CONCATENATED_POLYS times.
+    constexpr size_t NUM_FACTORS_IN_NUMERATOR = Flavor::NUM_CONCATENATED_POLYS;
     auto fill_with_shift = [&](size_t shift) {
         for (size_t i = 0; i < sorted_elements.size(); i++) {
             proving_key->polynomials.ordered_extra_range_constraints_numerator.at(
