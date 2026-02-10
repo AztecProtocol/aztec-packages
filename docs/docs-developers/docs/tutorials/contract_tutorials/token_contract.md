@@ -427,5 +427,5 @@ The BOB token shows how blockchain can enable new models of corporate benefits t
 
 ### Continue Your Journey
 
-- Explore [cross-chain communication](../../aztec-nr/framework-description/ethereum-aztec-messaging/index.md) to integrate with existing health systems
+- Explore [cross-chain communication](../../foundational-topics/ethereum-aztec-messaging/index.md) to integrate with existing health systems
 - Learn about [account abstraction](../../foundational-topics/accounts/index.md) for recovery mechanisms

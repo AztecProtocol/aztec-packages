@@ -220,8 +220,8 @@ fn set_minter(minter: AztecAddress) {
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.6-patch.1/docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr#L31-L37" target="_blank" rel="noopener noreferrer">Source code: docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr#L31-L37</a></sub></sup>
 
 
-Now for the magic - minting NFTs **privately**. The bridge will call this to mint to a user, deliver the note using [constrained message delivery](../../aztec-nr/framework-description/how_to_emit_event.md) (best practice when "sending someone a
-note") and then [enqueue a public call](../../aztec-nr/framework-description/how_to_call_contracts.md) to the `_mark_nft_exists` function:
+Now for the magic - minting NFTs **privately**. The bridge will call this to mint to a user, deliver the note using [constrained message delivery](../../aztec-nr/framework-description/events_and_logs.md) (best practice when "sending someone a
+note") and then [enqueue a public call](../../aztec-nr/framework-description/calling_contracts.md) to the `_mark_nft_exists` function:
 
 ```rust title="mint" showLineNumbers
 #[external("private")]
@@ -279,7 +279,7 @@ aztec compile
 
 We have built the L2 NFT contract. This is the L2 representation of an NFT that is locked on the L1 bridge.
 
-The L2 bridge is the contract that talks to the L1 bridge through cross-chain messaging. You can read more about this protocol [here](../../../docs/aztec-nr/framework-description/ethereum-aztec-messaging/index.md).
+The L2 bridge is the contract that talks to the L1 bridge through cross-chain messaging. You can read more about this protocol [here](../../../docs/foundational-topics/ethereum-aztec-messaging/index.md).
 
 ```mermaid
 graph LR
@@ -837,7 +837,7 @@ const depositReceipt = await publicClient.waitForTransactionReceipt({
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.6-patch.1/docs/examples/tutorials/token_bridge_contract/scripts/index.ts#L150-L176" target="_blank" rel="noopener noreferrer">Source code: docs/examples/tutorials/token_bridge_contract/scripts/index.ts#L150-L176</a></sub></sup>
 
 
-The `Inbox` contract will emit an important log: `MessageSent(inProgress, index, leaf, updatedRollingHash);`. This log provides the **leaf index** of the message in the [L1-L2 Message Tree](../../aztec-nr/framework-description/ethereum-aztec-messaging/index.md)—the location of the message in the tree that will appear on L2. You need this index, plus the secret, to correctly claim and decrypt the message.
+The `Inbox` contract will emit an important log: `MessageSent(inProgress, index, leaf, updatedRollingHash);`. This log provides the **leaf index** of the message in the [L1-L2 Message Tree](../../foundational-topics/ethereum-aztec-messaging/index.md)—the location of the message in the tree that will appear on L2. You need this index, plus the secret, to correctly claim and decrypt the message.
 
 Use viem to extract this information:
 
@@ -1063,5 +1063,5 @@ A complete private NFT bridge with:
 :::tip Learn More
 
 - [State management page](../../foundational-topics/state_management.md)
-- [Cross-chain messaging](../../aztec-nr/framework-description/ethereum-aztec-messaging/index.md)
+- [Cross-chain messaging](../../foundational-topics/ethereum-aztec-messaging/index.md)
   :::
