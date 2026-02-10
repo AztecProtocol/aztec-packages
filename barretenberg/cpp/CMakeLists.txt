@@ -70,6 +70,11 @@ if(TRACY_PROFILE_MEMORY)
   add_compile_options(-DTRACY_INSTRUMENTED)
 endif()
 
+option(BUMP_ALLOCATOR "Replace operator new/delete with a thread-local bump allocator (profiling only)" OFF)
+if(BUMP_ALLOCATOR)
+  add_compile_options(-DBUMP_ALLOCATOR)
+endif()
+
 if(ENABLE_ASAN)
     add_compile_options(-fsanitize=address)
     add_link_options(-fsanitize=address)
