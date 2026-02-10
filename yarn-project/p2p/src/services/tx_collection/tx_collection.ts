@@ -36,7 +36,6 @@ export type FastCollectionRequest = FastCollectionRequestInput & {
   deadline: Date;
   blockInfo: L2BlockInfo;
   promise: PromiseWithResolvers<void>;
-  foundTxs: Map<string, Tx>;
 };
 
 /**

@@ -84,7 +84,6 @@ export class FastTxCollection {
       ...input,
       blockInfo,
       promise,
-      foundTxs: new Map<string, Tx>(),
       missingTxTracker: MissingTxsTracker.fromArray(txHashes),
       deadline: opts.deadline,
     };
@@ -93,7 +92,7 @@ export class FastTxCollection {
     clearTimeout(timeoutTimer);
 
     this.log.verbose(
-      `Collected ${request.foundTxs.size} txs out of ${txHashes.length} for ${input.type} at slot ${blockInfo.slotNumber}`,
+      `Collected ${request.missingTxTracker.collectedTxs.length} txs out of ${txHashes.length} for ${input.type} at slot ${blockInfo.slotNumber}`,
       {
         ...blockInfo,
         duration,
@@ -101,7 +100,7 @@ export class FastTxCollection {
         missingTxs: [...request.missingTxTracker.missingTxHashes],
       },
     );
-    return [...request.foundTxs.values()];
+    return request.missingTxTracker.collectedTxs;
   }
 
   protected async collectFast(
@@ -333,7 +332,6 @@ export class FastTxCollection {
         const txHash = tx.txHash.toString();
         // Remove the tx hash from the missing set, and add it to the found set.
         if (request.missingTxTracker.markFetched(tx)) {
-          request.foundTxs.set(txHash, tx);
           this.log.trace(`Found tx ${txHash} for fast collection request`, {
             ...request.blockInfo,
             txHash: tx.txHash.toString(),

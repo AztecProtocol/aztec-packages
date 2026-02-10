@@ -115,11 +115,15 @@ export class SlowTxCollection {
 
     // Request in chunks to avoid hitting RPC limits
     for (const batch of chunk(missingTxHashes, this.config.txCollectionNodeRpcMaxBatchSize)) {
-      await this.txCollectionSink.collect(() => node.getTxsByHash(batch), batch.map(TxHash.toString), {
-        description: `node ${node.getInfo()}`,
-        node: node.getInfo(),
-        method: 'slow-node-rpc',
-      });
+      await this.txCollectionSink.collect(
+        () => node.getTxsByHash(batch),
+        batch.map(hash => hash.toString()),
+        {
+          description: `node ${node.getInfo()}`,
+          node: node.getInfo(),
+          method: 'slow-node-rpc',
+        },
+      );
     }
 
     // Mark every tx that is still missing as ready for reqresp.

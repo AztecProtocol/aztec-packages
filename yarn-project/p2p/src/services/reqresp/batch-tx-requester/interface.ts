@@ -27,6 +27,8 @@ export interface IMissingTxsTracker {
   isMissing(txHash: string): boolean;
   /** Marks a transaction as fetched. Returns true if it was previously missing. */
   markFetched(tx: Tx): boolean;
+  /** Get list of collected txs */
+  get collectedTxs(): Tx[];
 }
 
 export interface ITxMetadataCollection {
