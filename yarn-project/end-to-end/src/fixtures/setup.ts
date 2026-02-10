@@ -505,7 +505,7 @@ export async function setup(
       const proverNodeConfig = {
         ...config.proverNodeConfig,
         dataDirectory: proverNodeDataDirectory,
-        p2pEnabled: false,
+        p2pEnabled: !!mockGossipSubNetwork,
       };
       proverNode = await createAndSyncProverNode(
         proverNodePrivateKeyHex,
@@ -513,6 +513,11 @@ export async function setup(
         proverNodeConfig,
         aztecNodeService,
         prefilledPublicData,
+        {
+          p2pClientDeps: mockGossipSubNetwork
+            ? { p2pServiceFactory: getMockPubSubP2PServiceFactory(mockGossipSubNetwork) }
+            : undefined,
+        },
       );
     }
 
