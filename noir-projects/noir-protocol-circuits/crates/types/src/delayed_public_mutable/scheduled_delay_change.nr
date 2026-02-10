@@ -222,10 +222,14 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
             //     * If reading a _value_ at that (<--) anchor timestamp, then the    *.
             //     * read will remain valid for this duration, unless a shorter       *.
             //     * delay has been scheduled (see just below in this diagram).       *.
-            //     * If a _deferred, longer_ delay has been scheduled, it might yet   *.
-            //     * still be cancelled, in which case this `pre - 1` delay would     *.
-            //     * bite (see the `min` calc below) -- meaning reads would remain    *.
-            //     * valid for this duration.                                         *.
+            //     * See the `min` calc in the code below.                            *.
+            //     *                                                                  *.
+            //     * Future enhancement, recorded here so we don't have to            *.
+            //     * re-remember it:                                                  *.
+            //     * If a _deferred, longer_ delay has been scheduled (not yet        *.
+            //     * possible), it might yet still be cancelled, in which case this   *.
+            //     * `pre - 1` delay would also bite (meaning reads would remain      *.
+            //     * valid for this duration).                                        *.
             //     *                                                                  *.
             //     ********************************************************************.
             //     .                              .                                    .
