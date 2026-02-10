@@ -663,8 +663,10 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         }
 
         // Compute G_zero
-        // In the native verifier, this uses pippenger. Here we were batch_mul.
-        const std::vector<Commitment> srs_elements = vk.get_monomial_points();
+        // In the native verifier, this uses pippenger. Here we use batch_mul.
+        std::vector<Commitment> srs_elements = vk.get_monomial_points();
+        BB_ASSERT_GTE(srs_elements.size(), poly_length, "Not enough SRS points for IPA!");
+        srs_elements.resize(poly_length);
         Commitment computed_G_zero = Commitment::batch_mul(srs_elements, s_vec);
         // check the computed G_zero and the claimed G_zero are the same.
         claimed_G_zero.assert_equal(computed_G_zero);
