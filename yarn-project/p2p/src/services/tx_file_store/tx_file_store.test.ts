@@ -321,14 +321,15 @@ describe('TxFileStore', () => {
     it('rejects tx when tx with wrong hash is returned', async () => {
       // Write a tx with a mismatched hash directly to the file store
       const invalidTx = Tx.random(); // random hash does not match computed hash
-      await fileStore.save(`txs/${invalidTx.txHash.toString()}.bin`, (await makeTx()).toBuffer(), { compress: false });
+      const validTx = await makeTx();
+      await fileStore.save(`txs/${invalidTx.txHash.toString()}.bin`, validTx.toBuffer(), { compress: false });
 
       // Read it back via FileStoreTxSource
       const source = (await FileStoreTxSource.create(`file://${tmpDir}`, log))!;
       const result = await source.getTxsByHash([invalidTx.txHash]);
 
       expect(result.validTxs).toHaveLength(0);
-      expect(result.invalidTxHashes).toEqual([invalidTx.txHash.toString()]);
+      expect(result.invalidTxHashes).toEqual([validTx.txHash.toString()]);
     });
   });
 
