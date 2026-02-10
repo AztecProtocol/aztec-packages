@@ -25,7 +25,9 @@ namespace bb::stdlib {
  * @brief cycle_group represents a group Element of the proving system's embedded curve, i.e. a curve with a cofactor 1
  * defined over a field equal to the circuit's native field Builder::FF
  * @details In barretenberg, cycle group is used to represent the Grumpkin curve defined over the bn254 scalar field.
- * The point at infinity is represented as (0, 0).
+ * The point at infinity is tracked via an `is_infinity` flag. At observation boundaries (serialize_to_fields,
+ * set_public, operator==, assert_equal), coordinates are canonicalized to (0, 0) when is_infinity is true.
+ * Intermediate arithmetic results may have non-canonical coordinates when is_infinity is true.
  *
  * @note For the honest prover, we restrict the construction of cycle group elements in the following ways: (1) x and y
  * coordinates of a point must have matching constancy, i.e. both are constants or both are witnesses, enforced via a
@@ -99,7 +101,6 @@ template <typename Builder> class cycle_group {
     void standardize();
     void validate_on_curve() const;
 
-    // Public API operations - always return standardized (canonical) results
     cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const;
     cycle_group unconditional_add(const cycle_group& other,
                                   const std::optional<AffineElement> hint = std::nullopt) const;

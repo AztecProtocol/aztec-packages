@@ -250,8 +250,8 @@ template <typename Builder> typename cycle_group<Builder>::AffineElement cycle_g
 
 /**
  * @brief On-curve check.
- * @details Validates that the point satisfies the curve equation \f$y^2 = x^3 + b\f$ or is the point at infinity, in
- * which case the coordinates are constrained to be (0, 0).
+ * @details Validates that the point satisfies the curve equation \f$y^2 = x^3 + b\f$ or is the point at infinity. This
+ * method does not constrain coordinates to be (0, 0) if the point is at infinity.
  *
  * @note No separate canonical-form check is needed here. All construction paths either:
  * (a) auto-detect is_infinity from coordinates (2-arg constructor), guaranteeing canonical form, or
