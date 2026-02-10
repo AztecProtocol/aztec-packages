@@ -31,7 +31,7 @@ std::pair<std::vector<uint8_t>, /* truncated */ bool> ToRadix::to_le_radix(const
 
     uint256_t value_integer = static_cast<uint256_t>(value);
     while (value_integer != 0) {
-        const auto [quotient, remainder] = value_integer.divmod(static_cast<uint64_t>(radix));
+        const auto [quotient, remainder] = value_integer.fast_divmod(static_cast<uint64_t>(radix));
         limbs.push_back(static_cast<uint8_t>(remainder)); // Cast is fine by the precondition that radix <= 256.
         value_integer = quotient;
     }
