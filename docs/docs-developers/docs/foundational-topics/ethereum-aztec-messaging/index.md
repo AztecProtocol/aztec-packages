@@ -120,7 +120,7 @@ The following diagram shows the overall architecture, combining the earlier sect
 
 ## See also
 
-- [Communicating Cross-Chain](../how_to_communicate_cross_chain.md) - Practical guide with code examples for L1-L2 messaging
+- [Communicating Cross-Chain](../../aztec-nr/framework-description/ethereum_aztec_messaging.md) - Practical guide with code examples for L1-L2 messaging
 - [Data Structures](./data_structures.md) - Message and actor type definitions
 - [Inbox](./inbox.md) - L1 contract for sending messages to L2
 - [Outbox](./outbox.md) - L1 contract for consuming messages from L2
