@@ -52,7 +52,7 @@ endif()
 option(ALLOC_PROFILER "Track allocation lifetimes with stack traces for region analysis (profiling only)" OFF)
 if(ALLOC_PROFILER)
   set(ENABLE_STACKTRACES ON CACHE BOOL "" FORCE)
-  add_compile_options(-DALLOC_PROFILER)
+  add_compile_options(-DALLOC_PROFILER -fno-omit-frame-pointer)
 endif()
 
 if(ENABLE_STACKTRACES)

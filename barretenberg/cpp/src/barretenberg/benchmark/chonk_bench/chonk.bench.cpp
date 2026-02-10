@@ -25,7 +25,13 @@ class ChonkBench : public benchmark::Fixture {
 
     void SetUp([[maybe_unused]] const ::benchmark::State& state) override
     {
+#ifdef ALLOC_PROFILER
+        // Allow CRS download/generation in profiling builds so we don't need pre-cached CRS
+        bb::srs::init_bn254_net_crs_factory(bb::srs::bb_crs_path());
+        bb::srs::init_grumpkin_net_crs_factory(bb::srs::bb_crs_path());
+#else
         bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
+#endif
     }
 };
 

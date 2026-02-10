@@ -188,7 +188,6 @@ void operator delete[](void*, std::size_t, std::align_val_t) noexcept {}
 #include <unordered_map>
 #include <vector>
 
-#include <backward.hpp>
 #include <execinfo.h>
 
 namespace {
@@ -276,9 +275,19 @@ struct ProfilerState {
     bool report_dumped = false;
 };
 
+void dump_report(); // forward declaration
+
 ProfilerState& state() // NOLINT
 {
     static ProfilerState s; // NOLINT
+    // Register dump_report via atexit on first call. Since ProfilerState was just
+    // initialized, atexit will fire BEFORE ProfilerState is destroyed (C++ guarantees
+    // reverse-order destruction of statics and atexit handlers).
+    static bool registered = [] {
+        std::atexit(dump_report);
+        return true;
+    }();
+    (void)registered;
     return s;
 }
 
@@ -312,23 +321,13 @@ std::string format_duration_ns(uint64_t ns)
     return { buf };
 }
 
-void symbolize_and_print(FILE* f, void* const* pcs, int count)
+void print_raw_pcs(FILE* f, void* const* pcs, int count)
 {
-    // Resolve each PC individually using backward-cpp
-    backward::TraceResolver resolver;
     for (int i = 0; i < count; i++) {
-        backward::Trace trace(pcs[i], static_cast<size_t>(i));
-        backward::ResolvedTrace resolved = resolver.resolve(trace);
-        if (resolved.source.filename.empty()) {
-            if (resolved.object_function.empty()) {
-                std::fprintf(f, "      #%d [%p]\n", i, pcs[i]);
-            } else {
-                std::fprintf(f, "      #%d %s [%p]\n", i, resolved.object_function.c_str(), pcs[i]);
-            }
-        } else {
-            std::fprintf(f, "      #%d %s (%s:%d)\n", i, resolved.source.function.c_str(),
-                         resolved.source.filename.c_str(), resolved.source.line);
+        if (!pcs[i]) {
+            break;
         }
+        std::fprintf(f, "      #%d [%p]\n", i, pcs[i]);
     }
 }
 
@@ -359,6 +358,7 @@ void dump_report()
 
     uint64_t leaked = s.total_alloc_count - s.total_free_count;
     std::fprintf(f, "=== Allocation Lifetime Profiler Report ===\n");
+    std::fprintf(f, "# Symbolize with: addr2line -Cfpe <binary> <addr>\n");
     std::fprintf(f, "Total: %zu allocs, %zu frees, %zu leaked\n",
                  static_cast<size_t>(s.total_alloc_count),
                  static_cast<size_t>(s.total_free_count),
@@ -366,6 +366,7 @@ void dump_report()
     std::fprintf(f, "Total allocated: %s\n", format_bytes(s.global_peak_bytes).c_str());
     std::fprintf(f, "Peak concurrent: %s\n", format_bytes(s.global_peak_bytes).c_str());
     std::fprintf(f, "Unique allocation sites: %zu\n\n", s.sites.size());
+    std::fflush(f);
 
     int rank = 0;
     for (const auto& [hash, stats] : sorted_sites) {
@@ -422,7 +423,7 @@ void dump_report()
 
         // Alloc stack trace
         std::fprintf(f, "  Alloc stack:\n");
-        symbolize_and_print(f, stats->pcs, stats->pc_count);
+        print_raw_pcs(f, stats->pcs, stats->pc_count);
 
         // Free sites
         if (!stats->free_site_counts.empty()) {
@@ -442,12 +443,13 @@ void dump_report()
                 std::fprintf(f, "    %zux:\n", static_cast<size_t>(fcount));
                 auto it = stats->free_site_pcs.find(fhash);
                 if (it != stats->free_site_pcs.end()) {
-                    symbolize_and_print(f, it->second.pcs, it->second.count);
+                    print_raw_pcs(f, it->second.pcs, it->second.count);
                 }
             }
         }
 
         std::fprintf(f, "\n");
+        std::fflush(f);
     }
 
     if (f != stderr) {
@@ -456,12 +458,6 @@ void dump_report()
                      s.sites.size());
     }
 }
-
-struct ReportDumper {
-    ~ReportDumper() { dump_report(); }
-};
-
-ReportDumper report_dumper; // NOLINT - dumps report on process exit
 
 void record_alloc(void* ptr, std::size_t size)
 {

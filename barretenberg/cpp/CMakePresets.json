@@ -459,7 +459,8 @@
       "inherits": "clang20",
       "binaryDir": "build-alloc-profiler",
       "cacheVariables": {
-        "ALLOC_PROFILER": "ON"
+        "ALLOC_PROFILER": "ON",
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
       }
     },
     {
