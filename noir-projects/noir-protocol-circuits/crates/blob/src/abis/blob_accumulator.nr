@@ -292,7 +292,7 @@ fn serde_test() {
         gamma_pow_acc: BLS12_381_Fr::from_limbs([
             0x999888777666555444333222111000,
             0xaaabbbcccdddeeefff111222333444,
-            0x7fff,
+            0x5000,
         ]),
     };
 
