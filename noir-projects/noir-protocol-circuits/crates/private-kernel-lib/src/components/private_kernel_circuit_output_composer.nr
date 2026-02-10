@@ -22,7 +22,7 @@ use crate::{
     },
     private_kernel_init::PrivateKernelInitCircuitPrivateInputs,
 };
-use ::types::{
+use types::{
     abis::{
         accumulated_data::private_accumulated_data::PrivateAccumulatedData,
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,

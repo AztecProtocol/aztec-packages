@@ -1,5 +1,5 @@
 use crate::abis::PaddedSideEffectAmounts;
-use ::types::{
+use types::{
     abis::accumulated_data::{PrivateAccumulatedData, PrivateToPublicAccumulatedData},
     constants::MAX_U32_VALUE,
     side_effect::Ordered,

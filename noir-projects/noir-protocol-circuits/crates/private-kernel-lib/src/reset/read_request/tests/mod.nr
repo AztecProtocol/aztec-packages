@@ -8,7 +8,7 @@ use super::{
     get_propagated_read_requests::get_propagated_read_requests,
     read_request_validator::ReadRequestValidator,
 };
-use ::types::{
+use types::{
     address::AztecAddress,
     merkle_tree::{LeafPreimage, MembershipWitness},
     side_effect::{Counted, Readable, Scoped},

@@ -1,5 +1,5 @@
 use super::TestBuilder;
-use ::types::{
+use types::{
     abis::gas::Gas,
     constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE,

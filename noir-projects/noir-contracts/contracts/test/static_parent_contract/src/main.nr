@@ -1,13 +1,13 @@
 // A contract used along with `StaticChild` contract to test static calls.
-use ::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract StaticParent {
-    use ::aztec::{context::gas::GasOpts, macros::functions::{external, view}};
-    use ::aztec::protocol::{
+    use aztec::{context::gas::GasOpts, macros::functions::{external, view}};
+    use aztec::protocol::{
         abis::function_selector::FunctionSelector, address::AztecAddress, traits::ToField,
     };
-    use ::static_child_contract::StaticChild;
+    use static_child_contract::StaticChild;
 
     // Public function to directly call another public function to the target_contract using the selector and value provided
     #[external("public")]

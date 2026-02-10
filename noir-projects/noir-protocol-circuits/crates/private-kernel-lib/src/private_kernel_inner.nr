@@ -3,7 +3,7 @@ use crate::components::{
     private_kernel_circuit_output_composer::PrivateKernelCircuitOutputComposer,
     private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
 };
-use ::types::{
+use types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData, private_kernel_data::PrivateKernelData,

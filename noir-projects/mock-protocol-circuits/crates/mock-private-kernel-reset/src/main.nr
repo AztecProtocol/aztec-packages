@@ -1,4 +1,4 @@
-use ::mock_types::{
+use mock_types::{
     MAX_COMMITMENT_READ_REQUESTS_PER_TX, MAX_COMMITMENTS_PER_TX, MEGA_VK_LENGTH_IN_FIELDS,
     PrivateKernelPublicInputs, PROOF_TYPE_HN, VerificationKey,
 };
