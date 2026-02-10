@@ -103,7 +103,7 @@ pub contract MyContract {
 
 Like Solidity contracts, Aztec contracts can define events to notify that some state has changed. However, in Aztec, events can also be emitted privately, in which case only some users will learn of the event.
 
-[Events](./how_to_emit_event.md) are a struct marked with the `#[event]` macro:
+[Events](./events_and_logs.md) are a struct marked with the `#[event]` macro:
 
 ```rust
 #[event]
@@ -160,4 +160,4 @@ We expect to lift some of these restrictions sometime after the release of Noir 
 
 - [Define functions](./functions/index.md) - Learn about private, public, and utility functions
 - [Define storage](./state_variables.md) - Work with persistent state variables
-- [Compile your contract](../how_to_compile_contract.md) - Build your contract artifact
+- [Compile your contract](../compiling_contracts.md) - Build your contract artifact

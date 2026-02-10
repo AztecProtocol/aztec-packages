@@ -21,6 +21,10 @@ on:
         description: "Git ref to checkout"
         required: false
         type: string
+      namespace:
+        description: "Kubernetes namespace override (optional, defaults to env file value)"
+        required: false
+        type: string
   workflow_dispatch:
     inputs:
       network:
@@ -41,9 +45,13 @@ on:
         description: "Full docker image tag (optional, defaults to semver)"
         required: false
         type: string
+      namespace:
+        description: "Kubernetes namespace override (optional, defaults to env file value)"
+        required: false
+        type: string
 
 concurrency:
-  group: deploy-network-${{ inputs.network }}-${{ inputs.semver }}-${{ github.ref || github.ref_name }}
+  group: deploy-network-${{ inputs.network }}-${{ inputs.namespace || inputs.network }}-${{ inputs.semver }}-${{ github.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -128,6 +136,7 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
           REF_NAME: "v${{ inputs.semver }}"
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          NAMESPACE: ${{ inputs.namespace }}
           AZTEC_DOCKER_IMAGE: "aztecprotocol/aztec:${{ inputs.docker_image_tag || inputs.semver }}"
         run: |
           echo "Deploying network: ${{ inputs.network }}"

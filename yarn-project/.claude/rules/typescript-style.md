@@ -1,3 +1,7 @@
+---
+globs: "*.ts,*.tsx,*.mts,*.cts"
+---
+
 # TypeScript Code Style
 
 ## Type Safety

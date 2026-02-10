@@ -58,7 +58,7 @@ describe('e2e_p2p_validators_sentinel', () => {
 
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider!,
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_NODES, // Note we do not create the last validator yet, so it shows as offline
       BOOT_NODE_UDP_PORT,
@@ -158,7 +158,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       const nodeIndex = NUM_NODES + 1;
       const newNode = await createNode(
         t.ctx.aztecNodeConfig,
-        t.ctx.dateProvider!,
+        t.ctx.dateProvider,
         BOOT_NODE_UDP_PORT + nodeIndex + 1,
         t.bootstrapNodeEnr!,
         nodeIndex,

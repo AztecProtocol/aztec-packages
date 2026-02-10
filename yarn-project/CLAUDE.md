@@ -75,7 +75,7 @@ For long-running tests or verbose output, redirect to a temp file and use native
 yarn workspace @aztec/<package-name> test src/file.test.ts > /tmp/test-output.log 2>&1
 ```
 
-Then use **Read** or **Grep** to examine `/tmp/test-output.log`. Never use `| tail` or `| head` to limit output—use native tools instead.
+Then use **Read** or **Grep** to examine `/tmp/test-output.log`. Never use `| tail` or `| head` to limit output—use native tools instead. Never append `; echo "EXIT: $?"` or similar—the Bash tool already reports exit codes directly.
 
 ### End-to-End Tests
 

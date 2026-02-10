@@ -80,6 +80,7 @@ describe('p2p client integration message propagation', () => {
     });
 
     attestationPool.isEmpty.mockResolvedValue(true);
+    attestationPool.tryAddBlockProposal.mockResolvedValue({ added: true, alreadyExists: false, count: 1 });
 
     worldState.status.mockResolvedValue({
       state: mock(),

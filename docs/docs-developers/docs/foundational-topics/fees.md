@@ -77,7 +77,7 @@ import { Gas_Settings_Components, Gas_Settings, Tx_Teardown_Phase } from '@site/
 
 A fee payer obtains Fee Juice by bridging Aztec tokens from Ethereum. The fee payer can be the account itself or a fee-paying contract (FPC), which functions similarly to a paymaster on Ethereum. On Aztec, Fee Juice is non-transferable and only deducted by the protocol to pay for fees. A user can claim bridged Fee Juice and use it to pay for transaction fees in the same transaction.
 
-Fee Juice uses an enshrined `FeeJuicePortal` contract on Ethereum for bridging, unlike user-deployed token portals. The underlying cross-chain messaging mechanism is similar to other tokens - for more on this concept see the [Token Bridge Tutorial](../tutorials/js_tutorials/token_bridge.md) which describes portal contracts and [cross-chain messaging](../aztec-nr/framework-description/how_to_communicate_cross_chain.md).
+Fee Juice uses an enshrined `FeeJuicePortal` contract on Ethereum for bridging, unlike user-deployed token portals. The underlying cross-chain messaging mechanism is similar to other tokens - for more on this concept see the [Token Bridge Tutorial](../tutorials/js_tutorials/token_bridge.md) which describes portal contracts and [cross-chain messaging](../aztec-nr/framework-description/ethereum_aztec_messaging.md).
 
 ### Payment methods
 
