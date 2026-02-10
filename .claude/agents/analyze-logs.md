@@ -2,6 +2,7 @@
 name: analyze-logs
 description: |
   Deep-read test logs and extract relevant information. Runs in separate context to avoid polluting the main conversation. Accepts local file paths (preferred) or hashes. Returns condensed summaries, not raw logs.
+model: opus
 ---
 
 # CI Log Analysis Agent
