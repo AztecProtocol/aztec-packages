@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/boomerang_value_detection/helpers/bool_t_helpers.hpp"
+#include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
 namespace cdg {
@@ -9,6 +10,33 @@ template <typename CircuitBuilder> struct Field {
     uint32_t witness_index;
     bb::stdlib::field_t<CircuitBuilder> witness;
 };
+
+template <typename FF, typename CircuitBuilder>
+Field<CircuitBuilder> witness_or_constant_to_field(const acir_format::WitnessOrConstant<FF>& witness_or_constant,
+                                                   CircuitBuilder& builder)
+{
+    auto field_t = acir_format::to_field_ct(witness_or_constant, builder);
+    auto res_field = Field<CircuitBuilder>{ .witness = field_t };
+    if (field_t.is_constant()) {
+        res_field.witness_index = bb::stdlib::IS_CONSTANT;
+    } else {
+        res_field.witness_index = witness_or_constant.index;
+    }
+    return res_field;
+}
+
+template <typename FF, typename CircuitBuilder>
+Bool<CircuitBuilder> witness_or_constant_to_bool(const acir_format::WitnessOrConstant<FF>& witness_or_constant,
+                                                 CircuitBuilder& builder)
+{
+    using bool_ct = bb::stdlib::bool_t<CircuitBuilder>;
+
+    if (witness_or_constant.is_constant) {
+        return Bool<CircuitBuilder>{ bb::stdlib::IS_CONSTANT, bool_ct(static_cast<bool>(witness_or_constant.value)) };
+    }
+    return Bool<CircuitBuilder>{ witness_or_constant.index,
+                                 bool_ct::from_witness_index_unsafe(&builder, witness_or_constant.index) };
+}
 
 /**
  * @brief Get the result of field_t * field_t from the circuit
@@ -263,17 +291,29 @@ bool is_assert_zero_gate_exists(CircuitBuilder& builder, const Field<CircuitBuil
     }
     for (size_t gate_idx = 0; gate_idx < builder.blocks.arithmetic.size(); gate_idx++) {
         bool condition = true;
+        std::cout << "condition: " << condition << std::endl;
         condition &= builder.blocks.arithmetic.w_l()[gate_idx] == witness_idx;
+        std::cout << "condition: " << condition << std::endl;
         condition &= builder.blocks.arithmetic.w_r()[gate_idx] == builder.zero_idx();
+        std::cout << "condition: " << condition << std::endl;
         condition &= builder.blocks.arithmetic.w_o()[gate_idx] == builder.zero_idx();
+        std::cout << "condition: " << condition << std::endl;
         condition &= builder.blocks.arithmetic.w_4()[gate_idx] == builder.zero_idx();
+        std::cout << "condition: " << condition << std::endl;
         condition &= builder.blocks.arithmetic.q_m()[gate_idx] == FF::zero();
+        std::cout << "condition: " << condition << std::endl;
         condition &= builder.blocks.arithmetic.q_1()[gate_idx] == witness.multiplicative_constant;
+        std::cout << "condition: " << condition << std::endl;
         condition &= builder.blocks.arithmetic.q_2()[gate_idx] == FF::zero();
+        std::cout << "condition: " << condition << std::endl;
         condition &= builder.blocks.arithmetic.q_3()[gate_idx] == FF::zero();
+        std::cout << "condition: " << condition << std::endl;
         condition &= builder.blocks.arithmetic.q_c()[gate_idx] == witness.additive_constant;
+        std::cout << "condition: " << condition << std::endl;
         condition &= builder.blocks.arithmetic.q_arith()[gate_idx] == FF::one();
+        std::cout << "condition: " << condition << std::endl;
         condition &= builder.blocks.arithmetic.q_4()[gate_idx] == FF::zero();
+        std::cout << "condition: " << condition << std::endl;
         if (condition) {
             return true;
         }
@@ -307,13 +347,8 @@ Field<CircuitBuilder> get_the_result_of_conditional_assign_gate(CircuitBuilder& 
 
     if (lhs_idx == rhs_idx && (lhs.additive_constant == rhs.additive_constant) &&
         (lhs.multiplicative_constant == rhs.multiplicative_constant)) {
+        std::cout << "HUUUI" << std::endl;
         return lhs_field;
-    }
-
-    if (lhs.is_constant() && rhs.is_constant()) {
-        auto result = (lhs - rhs).madd(predicate, rhs);
-        auto result_idx = result.is_constant() ? bb::stdlib::IS_CONSTANT : predicate_field.witness_index;
-        return Field<CircuitBuilder>{ result_idx, result };
     }
 
     Field<CircuitBuilder> lhs_minus_rhs;

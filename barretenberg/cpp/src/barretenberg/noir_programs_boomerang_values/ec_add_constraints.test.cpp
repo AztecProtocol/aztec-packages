@@ -81,7 +81,7 @@ TEST_F(EcAddConstraintsTests, ValidateEcAddConstraint)
 {
     auto input1 = std::vector<WitnessOrConstant<bb::fr>>{ WitnessOrConstant<bb::fr>::from_index(0),
                                                           WitnessOrConstant<bb::fr>::from_index(1),
-                                                          WitnessOrConstant<bb::fr>::from_constant(0) };
+                                                          WitnessOrConstant<bb::fr>::from_constant(1) };
     auto input2 = std::vector<WitnessOrConstant<bb::fr>>{ WitnessOrConstant<bb::fr>::from_index(3),
                                                           WitnessOrConstant<bb::fr>::from_index(4),
                                                           WitnessOrConstant<bb::fr>::from_index(5) };
@@ -113,7 +113,7 @@ TEST_F(EcAddConstraintsTests, ValidateEcAddConstraintWithConstHell)
                                                           WitnessOrConstant<bb::fr>::from_index(4),
                                                           WitnessOrConstant<bb::fr>::from_index(5) };
     auto result = std::vector<uint32_t>{ 7, 8, 9 };
-    auto predicate = WitnessOrConstant<bb::fr>::from_index(6);
+    auto predicate = WitnessOrConstant<bb::fr>::from_index(2);
     auto ec_add_constraint = create_ec_add_constraint(input1, input2, result, predicate);
     AcirFormat constraint_system = build_acir_format(9, ec_add_constraint);
 
@@ -185,8 +185,8 @@ TEST_F(EcAddConstraintsTests, DetectCorruptedOnCurveMulGate)
     auto program = AcirProgram{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
 
-    cdg::Point<fr> input1_point{ input1[0].index, input1[1].index, input1[2].index };
-    auto real_point = cdg::get_real_point<fr>(builder, input1_point, predicate.index);
+    cdg::Point<fr> input1_point{ input1[0], input1[1], input1[2] };
+    auto real_point = cdg::get_real_point<fr>(builder, input1_point, predicate);
     auto x_field = real_point.x;
     auto xx_field = cdg::get_mul_gate_output<fr>(builder, x_field, x_field);
     auto mul_gate_idx = find_mul_gate_idx(builder, x_field, x_field, xx_field.witness_index);
@@ -221,8 +221,8 @@ TEST_F(EcAddConstraintsTests, DetectCorruptedOnCurveConstraintInput2Gate)
     auto program = AcirProgram{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
 
-    cdg::Point<fr> input2_point{ input2[0].index, input2[1].index, input2[2].index };
-    auto real_point = cdg::get_real_point<fr>(builder, input2_point, predicate.index);
+    cdg::Point<fr> input2_point{ input2[0], input2[1], input2[2] };
+    auto real_point = cdg::get_real_point<fr>(builder, input2_point, predicate);
     auto x_field = real_point.x;
     auto xx_field = cdg::get_mul_gate_output<fr>(builder, x_field, x_field);
     auto mul_gate_idx = find_mul_gate_idx(builder, x_field, x_field, xx_field.witness_index);

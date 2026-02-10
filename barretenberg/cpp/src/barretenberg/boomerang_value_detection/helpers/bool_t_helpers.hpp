@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
 
 namespace cdg {

@@ -940,34 +940,13 @@ template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_ec_add_constraint(const ConstraintPtr& ptr)
 {
     const auto* constraint = std::get<const EcAdd*>(ptr);
-    Point<FF> input1_point = {
-        constraint->input1_x.index,
-        constraint->input1_y.index,
-        constraint->input1_infinite.index,
-        constraint->input1_x.is_constant ? std::optional<FF>(constraint->input1_x.value) : std::nullopt,
-        constraint->input1_y.is_constant ? std::optional<FF>(constraint->input1_y.value) : std::nullopt,
-        constraint->input1_infinite.is_constant ? std::optional<bool>(constraint->input1_infinite.value == FF::one())
-                                                : std::nullopt
-    };
-    Point<FF> input2_point = {
-        constraint->input2_x.index,
-        constraint->input2_y.index,
-        constraint->input2_infinite.index,
-        constraint->input2_x.is_constant ? std::optional<FF>(constraint->input2_x.value) : std::nullopt,
-        constraint->input2_y.is_constant ? std::optional<FF>(constraint->input2_y.value) : std::nullopt,
-        constraint->input2_infinite.is_constant ? std::optional<bool>(constraint->input2_infinite.value == FF::one())
-                                                : std::nullopt
-    };
-
-    auto is_point_constant = [](const Point<FF>& point) {
-        return point.x_idx == bb::stdlib::IS_CONSTANT && point.y_idx == bb::stdlib::IS_CONSTANT &&
-               point.is_infinity_idx == bb::stdlib::IS_CONSTANT;
-    };
+    Point<FF> input1_point = { constraint->input1_x, constraint->input1_y, constraint->input1_infinite };
+    Point<FF> input2_point = { constraint->input2_x, constraint->input2_y, constraint->input2_infinite };
 
     // If point is not constant, check that all gates needed for the on-curve check exist
     try {
         if (!is_point_constant(input1_point) &&
-            !is_on_curve_check_exists<FF>(builder, input1_point, constraint->predicate.index)) {
+            !is_on_curve_check_exists<FF>(builder, input1_point, constraint->predicate)) {
             log_error("On-curve check for input1 point does not exist");
             return false;
         }
@@ -978,7 +957,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_ec_add_constraint(const Co
 
     try {
         if (!is_point_constant(input2_point) &&
-            !is_on_curve_check_exists<FF>(builder, input2_point, constraint->predicate.index)) {
+            !is_on_curve_check_exists<FF>(builder, input2_point, constraint->predicate)) {
             log_error("On-curve check for input2 point does not exist");
             return false;
         }

@@ -2,18 +2,17 @@
 
 #include "barretenberg/boomerang_value_detection/helpers/bool_t_helpers.hpp"
 #include "barretenberg/boomerang_value_detection/helpers/field_t_helpers.hpp"
+#include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
 #include <optional>
 namespace cdg {
 
+using namespace acir_format;
 template <typename FF> struct Point {
-    uint32_t x_idx;
-    uint32_t y_idx;
-    uint32_t is_infinity_idx;
-    std::optional<FF> x_value = std::nullopt;
-    std::optional<FF> y_value = std::nullopt;
-    std::optional<bool> is_infinity_value = std::nullopt;
+    WitnessOrConstant<FF> x;
+    WitnessOrConstant<FF> y;
+    WitnessOrConstant<FF> is_infinity;
 };
 
 template <typename CircuitBuilder> struct RealPoint {
@@ -21,6 +20,11 @@ template <typename CircuitBuilder> struct RealPoint {
     Field<CircuitBuilder> y;
     Bool<CircuitBuilder> is_infinite;
 };
+
+template <typename FF> bool is_point_constant(Point<FF> point)
+{
+    return point.x.is_constant && point.y.is_constant && point.is_infinity.is_constant;
+}
 
 /**
  * @brief Get the real point indices (after conditional_assign) from the witness indices. We need this to process
@@ -31,50 +35,20 @@ template <typename CircuitBuilder> struct RealPoint {
  * @return The real point indices (after conditional_assign)
  */
 template <typename FF, typename CircuitBuilder>
-RealPoint<CircuitBuilder> get_real_point(CircuitBuilder& builder, const Point<FF>& point, const uint32_t predicate_idx)
+RealPoint<CircuitBuilder> get_real_point(CircuitBuilder& builder,
+                                         const Point<FF>& point,
+                                         const acir_format::WitnessOrConstant<FF> predicate)
 {
     using field_ct = bb::stdlib::field_t<CircuitBuilder>;
     using bool_ct = bb::stdlib::bool_t<CircuitBuilder>;
 
     auto real_point = RealPoint<CircuitBuilder>{};
-    auto predicate = field_ct::from_witness_index(&builder, predicate_idx);
 
-    auto predicate_field = Field<CircuitBuilder>{ predicate_idx, predicate };
-    auto x_field = Field<CircuitBuilder>{};
-    if (point.x_idx == bb::stdlib::IS_CONSTANT) {
-        auto x_value = point.x_value.value_or(FF::zero());
-        x_field = Field<CircuitBuilder>{ bb::stdlib::IS_CONSTANT, field_ct(x_value) };
-    } else {
-        x_field = Field<CircuitBuilder>{ point.x_idx, field_ct::from_witness_index(&builder, point.x_idx) };
-    }
-
-    auto y_field = Field<CircuitBuilder>{};
-    if (point.y_idx == bb::stdlib::IS_CONSTANT) {
-        auto y_value = point.y_value.value_or(FF::zero());
-        y_field = Field<CircuitBuilder>{ bb::stdlib::IS_CONSTANT, field_ct(y_value) };
-    } else {
-        y_field = Field<CircuitBuilder>{ point.y_idx, field_ct::from_witness_index(&builder, point.y_idx) };
-    }
-
-    auto is_infinity_bool = Bool<CircuitBuilder>{};
-    if (point.is_infinity_idx == bb::stdlib::IS_CONSTANT) {
-        bool is_infinity = point.is_infinity_value.value_or(false);
-        is_infinity_bool = Bool<CircuitBuilder>{ point.is_infinity_idx, bool_ct(is_infinity) };
-    } else {
-        is_infinity_bool = Bool<CircuitBuilder>{ point.is_infinity_idx,
-                                                 bool_ct::from_witness_index_unsafe(&builder, point.is_infinity_idx) };
-    }
-    if (predicate.is_constant()) {
-        return RealPoint<CircuitBuilder>{ x_field, y_field, is_infinity_bool };
-    }
-
-    auto predicate_bool = Bool<CircuitBuilder>{};
-    if (predicate_idx == bb::stdlib::IS_CONSTANT) {
-        predicate_bool = Bool<CircuitBuilder>{ predicate_idx, bool_ct(false) };
-    } else {
-        predicate_bool =
-            Bool<CircuitBuilder>{ predicate_idx, bool_ct::from_witness_index_unsafe(&builder, predicate_idx) };
-    }
+    auto x_field = witness_or_constant_to_field<FF>(point.x, builder);
+    auto y_field = witness_or_constant_to_field<FF>(point.y, builder);
+    auto is_infinity_bool = witness_or_constant_to_bool<FF>(point.is_infinity, builder);
+    auto predicate_field = witness_or_constant_to_field<FF>(predicate, builder);
+    auto predicate_bool = witness_or_constant_to_bool<FF>(predicate, builder);
 
     auto x_field_real = get_the_result_of_conditional_assign_gate<FF>(
         builder,
@@ -104,11 +78,13 @@ RealPoint<CircuitBuilder> get_real_point(CircuitBuilder& builder, const Point<FF
  * @return True if the all gates needed for the on-curve check exist, false otherwise
  */
 template <typename FF, typename CircuitBuilder>
-bool is_on_curve_check_exists(CircuitBuilder& builder, const Point<FF>& point, const uint32_t predicate_idx)
+bool is_on_curve_check_exists(CircuitBuilder& builder,
+                              const Point<FF>& point,
+                              const acir_format::WitnessOrConstant<FF> predicate)
 {
     using field_ct = bb::stdlib::field_t<CircuitBuilder>;
 
-    auto real_point = get_real_point<FF>(builder, point, predicate_idx);
+    auto real_point = get_real_point<FF>(builder, point, predicate);
     auto x_field = real_point.x;
     auto xx_field = get_mul_gate_output<FF>(builder, x_field, x_field);
     auto xxx_field = get_mul_gate_output<FF>(builder, xx_field, x_field);
@@ -116,6 +92,7 @@ bool is_on_curve_check_exists(CircuitBuilder& builder, const Point<FF>& point, c
     auto minus_xxx_minus_b_field_t = (xxx_field.witness * -FF::one()) - bb::grumpkin::g1::curve_b;
     auto y_field = real_point.y;
     auto minus_xxx_minus_b_field = Field<CircuitBuilder>{ xxx_field.witness_index, minus_xxx_minus_b_field_t };
+
     auto res_field = get_madd_gate_output<FF>(builder, y_field, y_field, minus_xxx_minus_b_field);
 
     if (real_point.is_infinite.witness.is_constant()) {
@@ -129,6 +106,7 @@ bool is_on_curve_check_exists(CircuitBuilder& builder, const Point<FF>& point, c
 
     auto res_mul_not_infinity = get_mul_gate_output<FF>(builder, res_field, not_infinity_field);
 
+    std::cout << "res" << res_mul_not_infinity.witness_index;
     return is_assert_zero_gate_exists<FF>(builder, res_mul_not_infinity);
 }
 
