@@ -1,5 +1,5 @@
 ---
-title: Enabling Authentication Witnesses
+title: Authentication Witnesses
 description: Enable contracts to execute actions on behalf of user accounts using authentication witnesses.
 tags: [accounts, authwit]
 sidebar_position: 11
@@ -150,5 +150,5 @@ The cancel transaction must be finalized before any transaction attempts to use 
 
 ## Next steps
 
-- [Using authwits in aztec.js](../../aztec-js/how_to_use_authwit.md) - Create and manage authwits from your client application
+- [Using authwits in aztec.js](../../aztec-js/how_to_use_authwit) - Create and manage authwits from your client application
 - [Authentication Witnesses concepts](../../foundational-topics/advanced/authwit.md) - Deeper explanation of the authwit mechanism

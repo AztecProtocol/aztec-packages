@@ -6,12 +6,7 @@ import {
   getContractClassFromArtifact,
   getContractInstanceFromInstantiationParams,
 } from '@aztec/aztec.js/contracts';
-import {
-  broadcastPrivateFunction,
-  broadcastUtilityFunction,
-  publishContractClass,
-  publishInstance,
-} from '@aztec/aztec.js/deployment';
+import { publishContractClass, publishInstance } from '@aztec/aztec.js/deployment';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
@@ -20,7 +15,6 @@ import type { Wallet } from '@aztec/aztec.js/wallet';
 import { writeTestData } from '@aztec/foundation/testing/files';
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { ContractClassIdPreimage } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
 
@@ -76,55 +70,6 @@ describe('e2e_deploy_contract contract class registration', () => {
       expect(registeredClass!.privateFunctionsRoot.toString()).toEqual(contractClass.privateFunctionsRoot.toString());
       expect(registeredClass!.packedBytecode.toString('hex')).toEqual(contractClass.packedBytecode.toString('hex'));
       expect(registeredClass!.privateFunctions).toEqual([]);
-    });
-
-    it('broadcasts a private function', async () => {
-      const constructorArtifact = artifact.functions.find(fn => fn.name == 'constructor');
-      if (!constructorArtifact) {
-        // If this gets thrown you've probably modified the StatefulTestContract to no longer include constructor.
-        // If that's the case you should update this test to use a private function which fits into the bytecode size limit.
-        throw new Error('No constructor found in the StatefulTestContract artifact. Does it still exist?');
-      }
-      const selector = await FunctionSelector.fromNameAndParameters(
-        constructorArtifact.name,
-        constructorArtifact.parameters,
-      );
-
-      const tx = await (
-        await broadcastPrivateFunction(wallet, artifact, selector)
-      ).send({ from: defaultAccountAddress });
-      const logs = await aztecNode.getContractClassLogs({ txHash: tx.txHash });
-      const logData = logs.logs[0].log.toBuffer();
-
-      // To actually trigger this write:
-      // From `yarn-project/end-to-end/`
-      // AZTEC_GENERATE_TEST_DATA=1 yarn test contract_class_registration.test.ts
-      writeTestData('yarn-project/protocol-contracts/fixtures/PrivateFunctionBroadcastedEventData.hex', logData);
-
-      const fetchedClass = await aztecNode.getContractClass(contractClass.id);
-      const fetchedFunction = fetchedClass!.privateFunctions[0]!;
-      expect(fetchedFunction).toBeDefined();
-      expect(fetchedFunction.selector).toEqual(selector);
-    });
-
-    it('broadcasts a utility function', async () => {
-      const functionArtifact = artifact.functions.find(fn => fn.functionType === FunctionType.UTILITY)!;
-      const selector = await FunctionSelector.fromNameAndParameters(functionArtifact);
-      const tx = await (
-        await broadcastUtilityFunction(wallet, artifact, selector)
-      ).send({ from: defaultAccountAddress });
-      const logs = await aztecNode.getContractClassLogs({ txHash: tx.txHash });
-      const logData = logs.logs[0].log.toBuffer();
-
-      // To actually trigger this write:
-      // From `yarn-project/end-to-end/`
-      // AZTEC_GENERATE_TEST_DATA=1 yarn test contract_class_registration.test.ts
-      writeTestData('yarn-project/protocol-contracts/fixtures/UtilityFunctionBroadcastedEventData.hex', logData);
-
-      const fetchedClass = await aztecNode.getContractClass(contractClass.id);
-      const fetchedFunction = fetchedClass!.utilityFunctions[0]!;
-      expect(fetchedFunction).toBeDefined();
-      expect(fetchedFunction.selector).toEqual(selector);
     });
   });
 

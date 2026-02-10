@@ -5,7 +5,7 @@ tags: [functions, contracts, composability]
 description: Call functions in other contracts from your Aztec smart contracts to enable composability.
 ---
 
-This guide shows you how to call functions in other contracts from your Aztec smart contracts.
+How to call functions in other contracts from your Aztec smart contracts.
 
 ## Add the target contract as a dependency
 
