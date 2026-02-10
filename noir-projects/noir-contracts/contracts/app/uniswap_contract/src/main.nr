@@ -4,11 +4,11 @@ mod util;
 // Demonstrates how to use portal contracts to swap on L1 Uniswap with funds on L2
 // Has two separate flows for private and public respectively
 // Uses the token bridge contract, which tells which input token we need to talk to and handles the exit funds to L1
-use ::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract Uniswap {
-    use ::aztec::{
+    use aztec::{
         authwit::auth::{
             assert_current_call_valid_authwit_public, compute_authwit_message_hash_from_call,
             set_authorized,
@@ -23,8 +23,8 @@ pub contract Uniswap {
     };
 
     use crate::util::{compute_swap_private_content_hash, compute_swap_public_content_hash};
-    use ::token::Token;
-    use ::token_bridge::TokenBridge;
+    use token::Token;
+    use token_bridge::TokenBridge;
 
     #[storage]
     struct Storage<Context> {

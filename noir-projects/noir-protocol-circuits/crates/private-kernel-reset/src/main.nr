@@ -1,7 +1,8 @@
-use ::private_kernel_lib::{
+use private_kernel_lib::{
     PaddedSideEffects, PrivateKernelResetCircuitPrivateInputs, PrivateKernelResetHints,
 };
-use ::types::{
+use types::abis::private_kernel_data::PrivateKernelDataWithoutPublicInputs;
+use types::{
     constants::{
         MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
         MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
@@ -9,7 +10,6 @@ use ::types::{
     },
     PrivateKernelCircuitPublicInputs,
 };
-use types::abis::private_kernel_data::PrivateKernelDataWithoutPublicInputs;
 
 // Note: We generate lots of variants of this reset circuit.
 // The variants are simply re-compilations of this circuit but with different global constants.

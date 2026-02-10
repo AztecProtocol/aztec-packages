@@ -1,9 +1,9 @@
-use ::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract AvmInitializerTest {
     // Libs
-    use ::aztec::{
+    use aztec::{
         macros::{functions::{external, initializer}, storage::storage},
         state_vars::PublicImmutable,
     };

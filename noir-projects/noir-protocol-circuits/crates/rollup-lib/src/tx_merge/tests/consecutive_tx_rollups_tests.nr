@@ -1,5 +1,5 @@
 use super::TestBuilder;
-use ::types::{address::EthAddress, hash::accumulate_sha256};
+use types::{address::EthAddress, hash::accumulate_sha256};
 
 #[test]
 fn accumulated_out_hash_correctly() {

@@ -5,7 +5,8 @@ use super::{
     key_validation_hint::KeyValidationHint,
     key_validation_requests_validator::KeyValidationRequestsValidator,
 };
-use ::types::{
+use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
+use types::{
     abis::validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},
     address::AztecAddress,
     hash::compute_app_siloed_secret_key,
@@ -14,7 +15,6 @@ use ::types::{
     traits::{Empty, FromField},
     utils::arrays::ClaimedLengthArray,
 };
-use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 
 global TEST_READ_REQUEST_LEN: u32 = 6;
 global TEST_HINT_LEN: u32 = 2;

@@ -1,6 +1,6 @@
 use crate::{reader::Reader, serialization::{Deserialize, Serialize}, writer::Writer};
-use ::std::embedded_curve_ops::EmbeddedCurvePoint;
-use ::std::embedded_curve_ops::EmbeddedCurveScalar;
+use std::embedded_curve_ops::EmbeddedCurvePoint;
+use std::embedded_curve_ops::EmbeddedCurveScalar;
 
 global U1_SERIALIZED_LEN: u32 = 1;
 global BOOL_SERIALIZED_LEN: u32 = 1;

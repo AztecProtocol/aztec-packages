@@ -1,5 +1,5 @@
 // docs:start:setup
-use ::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract Counter {

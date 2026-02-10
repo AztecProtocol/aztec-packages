@@ -1,4 +1,4 @@
-use ::types::traits::Empty;
+use types::traits::Empty;
 
 struct ReadRequestActionEnum {
     pub SKIP: u8,

@@ -1,5 +1,5 @@
 use crate::abis::PublicChonkVerifierPublicInputs;
-use ::types::{
+use types::{
     abis::kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
     constants::HIDING_KERNEL_TO_PUBLIC_VK_INDEX, proof::proof_data::ChonkProofData,
 };

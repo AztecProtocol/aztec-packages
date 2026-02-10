@@ -1,6 +1,6 @@
 use crate::{abis::PublicChonkVerifierPublicInputs, tx_base::components::private_tail_validator};
 use super::fees::compute_effective_gas_fees;
-use ::types::{
+use types::{
     abis::{
         avm_circuit_public_inputs::AvmCircuitPublicInputs, block_constant_data::BlockConstantData,
     },
