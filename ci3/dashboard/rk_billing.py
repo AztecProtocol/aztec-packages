@@ -104,22 +104,15 @@ def _fetch_from_bigquery(date_from_str, date_to_str):
 
     try:
         client = bigquery.Client(project=_BQ_PROJECT)
-        # Query both tables: consumption (cpu/memory requests) and usage (network/storage)
-        consumption = f'{_BQ_PROJECT}.{_BQ_DATASET}.{_BQ_TABLE_CONSUMPTION}'
+        # Use the usage table for all resources (actual consumption, not just requests).
+        # The consumption table only records resource *requests* which can be far lower
+        # than actual usage (e.g. prove-n-tps-real: $2.87 requests vs $138.72 actual).
         usage = f'{_BQ_PROJECT}.{_BQ_DATASET}.{_BQ_TABLE_USAGE}'
         query = f"""
-        SELECT date, namespace, sku_id, resource_name, SUM(total_usage) AS total_usage FROM (
-            SELECT DATE(start_time) AS date, namespace, sku_id, resource_name, SUM(usage.amount) AS total_usage
-            FROM `{consumption}`
-            WHERE DATE(start_time) BETWEEN @date_from AND @date_to
-            GROUP BY date, namespace, sku_id, resource_name
-            UNION ALL
-            SELECT DATE(start_time) AS date, namespace, sku_id, resource_name, SUM(usage.amount) AS total_usage
-            FROM `{usage}`
-            WHERE DATE(start_time) BETWEEN @date_from AND @date_to
-              AND resource_name IN ('networkEgress', 'storage')
-            GROUP BY date, namespace, sku_id, resource_name
-        )
+        SELECT DATE(start_time) AS date, namespace, sku_id, resource_name,
+               SUM(usage.amount) AS total_usage
+        FROM `{usage}`
+        WHERE DATE(start_time) BETWEEN @date_from AND @date_to
         GROUP BY date, namespace, sku_id, resource_name
         ORDER BY date, namespace
         """
