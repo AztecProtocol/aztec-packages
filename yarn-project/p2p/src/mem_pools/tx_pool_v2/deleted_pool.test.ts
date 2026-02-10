@@ -65,6 +65,60 @@ describe('DeletedPool', () => {
     });
   });
 
+  describe('clearIfMinedHigher', () => {
+    it('clears tracking when tx re-mines at a higher block', async () => {
+      await pool.markFromPrunedBlock([{ txHash: 'tx1', minedAtBlock: BlockNumber(10) }]);
+      expect(pool.isFromPrunedBlock('tx1')).toBe(true);
+
+      await pool.clearIfMinedHigher('tx1', BlockNumber(12));
+
+      expect(pool.isFromPrunedBlock('tx1')).toBe(false);
+      expect(pool.getMinedAtBlock('tx1')).toBeUndefined();
+      expect(pool.getCount()).toBe(0);
+    });
+
+    it('clears tracking when tx re-mines at the same block', async () => {
+      await pool.markFromPrunedBlock([{ txHash: 'tx1', minedAtBlock: BlockNumber(10) }]);
+
+      await pool.clearIfMinedHigher('tx1', BlockNumber(10));
+
+      expect(pool.isFromPrunedBlock('tx1')).toBe(false);
+      expect(pool.getMinedAtBlock('tx1')).toBeUndefined();
+    });
+
+    it('preserves tracking when tx re-mines at a lower block', async () => {
+      await pool.markFromPrunedBlock([{ txHash: 'tx1', minedAtBlock: BlockNumber(10) }]);
+
+      await pool.clearIfMinedHigher('tx1', BlockNumber(8));
+
+      expect(pool.isFromPrunedBlock('tx1')).toBe(true);
+      expect(pool.getMinedAtBlock('tx1')).toBe(BlockNumber(10));
+    });
+
+    it('is a no-op for untracked transactions', async () => {
+      await pool.clearIfMinedHigher('tx1', BlockNumber(10));
+
+      expect(pool.isFromPrunedBlock('tx1')).toBe(false);
+      expect(pool.getCount()).toBe(0);
+    });
+
+    it('persists clearing across restarts', async () => {
+      await pool.markFromPrunedBlock([
+        { txHash: 'tx1', minedAtBlock: BlockNumber(10) },
+        { txHash: 'tx2', minedAtBlock: BlockNumber(10) },
+      ]);
+
+      // Clear tx1 (re-mined higher), keep tx2
+      await pool.clearIfMinedHigher('tx1', BlockNumber(12));
+
+      const pool2 = new DeletedPool(store, txsDB, createLogger('test2'));
+      await pool2.hydrateFromDatabase();
+
+      expect(pool2.isFromPrunedBlock('tx1')).toBe(false);
+      expect(pool2.isFromPrunedBlock('tx2')).toBe(true);
+    });
+  });
+
   describe('deleteTx', () => {
     it('soft-deletes tx from pruned block (keeps in DB)', async () => {
       await txsDB.set('tx1', Buffer.from('data1'));

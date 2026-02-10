@@ -148,6 +148,27 @@ export class DeletedPool {
   }
 
   /**
+   * Clears tracking for a transaction if it re-mines at a block number >= the tracked minedAtBlock.
+   *
+   * When a tx re-mines at a higher (or equal) block, the old high-water mark is no longer needed:
+   * any future prune would re-add the tx with an even higher block number. Clearing keeps
+   * DeletedPool consistent — only txs that are actually un-mined should be tracked here.
+   *
+   * When a tx re-mines at a lower block, we must preserve the existing entry to retain
+   * the high-water mark for re-execution purposes.
+   */
+  async clearIfMinedHigher(txHash: string, minedAtBlock: BlockNumber): Promise<void> {
+    const existing = this.#state.get(txHash);
+    if (existing !== undefined && minedAtBlock >= existing.minedAtBlock) {
+      this.#state.delete(txHash);
+      await this.#deletedTxsDB.delete(txHash);
+      this.#log.debug(
+        `Cleared tracking for tx ${txHash}: re-mined at block ${minedAtBlock} (was ${existing.minedAtBlock})`,
+      );
+    }
+  }
+
+  /**
    * Checks if a transaction is from a pruned block.
    */
   isFromPrunedBlock(txHash: string): boolean {

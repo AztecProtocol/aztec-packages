@@ -356,6 +356,7 @@ export class TxPoolV2Impl {
           // Add new mined tx (callback emitted by #addTx)
           await this.#addTx(tx, { mined: blockId }, opts);
         }
+        await this.#deletedPool.clearIfMinedHigher(txHashStr, blockId.number);
       }
     });
   }
@@ -382,6 +383,7 @@ export class TxPoolV2Impl {
     // Step 4: Mark txs as mined (only those we have in the pool)
     for (const meta of found) {
       this.#indices.markAsMined(meta, blockId);
+      await this.#deletedPool.clearIfMinedHigher(meta.txHash, blockId.number);
     }
 
     // Step 5: Run eviction rules (remove pending txs with conflicting nullifiers/expired timestamps)
