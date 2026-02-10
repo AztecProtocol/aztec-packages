@@ -216,7 +216,7 @@ class alignas(32) uint256_t {
     uint64_t data[4]; // NOLINT
 
     [[nodiscard]] constexpr std::pair<uint256_t, uint256_t> divmod(const uint256_t& b) const;
-    [[nodiscard]] constexpr std::pair<uint256_t, uint64_t> fast_divmod(uint64_t b) const;
+    [[nodiscard]] constexpr std::pair<uint256_t, uint64_t> divmod(uint64_t b) const;
 
     size_t hash() const noexcept { return utils::hash_as_tuple(data[0], data[1], data[2], data[3]); }
 
