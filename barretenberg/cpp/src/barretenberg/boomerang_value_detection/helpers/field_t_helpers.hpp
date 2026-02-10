@@ -38,6 +38,32 @@ Bool<CircuitBuilder> witness_or_constant_to_bool(const acir_format::WitnessOrCon
                                  bool_ct::from_witness_index_unsafe(&builder, witness_or_constant.index) };
 }
 
+template <typename FF, typename CircuitBuilder>
+Field<CircuitBuilder> find_fixed_witness_field(CircuitBuilder& builder, const FF& value)
+{
+    const auto expected_q_c = -value;
+    for (size_t gate_idx = 0; gate_idx < builder.blocks.arithmetic.size(); gate_idx++) {
+        bool condition = true;
+        condition &= builder.blocks.arithmetic.w_r()[gate_idx] == builder.zero_idx();
+        condition &= builder.blocks.arithmetic.w_o()[gate_idx] == builder.zero_idx();
+        condition &= builder.blocks.arithmetic.w_4()[gate_idx] == builder.zero_idx();
+        condition &= builder.blocks.arithmetic.q_m()[gate_idx] == FF::zero();
+        condition &= builder.blocks.arithmetic.q_1()[gate_idx] == FF::one();
+        condition &= builder.blocks.arithmetic.q_2()[gate_idx] == FF::zero();
+        condition &= builder.blocks.arithmetic.q_3()[gate_idx] == FF::zero();
+        condition &= builder.blocks.arithmetic.q_4()[gate_idx] == FF::zero();
+        condition &= builder.blocks.arithmetic.q_c()[gate_idx] == expected_q_c;
+        condition &= builder.blocks.arithmetic.q_arith()[gate_idx] == FF::one();
+        if (condition) {
+            auto witness_idx = builder.blocks.arithmetic.w_l()[gate_idx];
+            return Field<CircuitBuilder>{
+                witness_idx, bb::stdlib::field_t<CircuitBuilder>::from_witness_index(&builder, witness_idx)
+            };
+        }
+    }
+    throw std::runtime_error("Cannot find fixed witness for constant");
+}
+
 /**
  * @brief Get the result of field_t * field_t from the circuit
  * @param builder The builder
@@ -121,6 +147,7 @@ Field<CircuitBuilder> get_add_gate_output(CircuitBuilder& builder,
     if (b.is_constant()) {
         return Field<CircuitBuilder>{ a_idx, a + b };
     }
+
     for (size_t gate_idx = 0; gate_idx < builder.blocks.arithmetic.size(); gate_idx++) {
         bool condition = true;
         condition &= builder.blocks.arithmetic.w_l()[gate_idx] == a_idx;
@@ -287,33 +314,22 @@ bool is_assert_zero_gate_exists(CircuitBuilder& builder, const Field<CircuitBuil
     auto witness_idx = field.witness_index;
     auto witness = field.witness;
     if (witness.is_constant()) {
-        return false;
+        return witness.get_value() == FF::zero();
     }
     for (size_t gate_idx = 0; gate_idx < builder.blocks.arithmetic.size(); gate_idx++) {
         bool condition = true;
-        std::cout << "condition: " << condition << std::endl;
         condition &= builder.blocks.arithmetic.w_l()[gate_idx] == witness_idx;
-        std::cout << "condition: " << condition << std::endl;
         condition &= builder.blocks.arithmetic.w_r()[gate_idx] == builder.zero_idx();
-        std::cout << "condition: " << condition << std::endl;
         condition &= builder.blocks.arithmetic.w_o()[gate_idx] == builder.zero_idx();
-        std::cout << "condition: " << condition << std::endl;
         condition &= builder.blocks.arithmetic.w_4()[gate_idx] == builder.zero_idx();
-        std::cout << "condition: " << condition << std::endl;
         condition &= builder.blocks.arithmetic.q_m()[gate_idx] == FF::zero();
-        std::cout << "condition: " << condition << std::endl;
         condition &= builder.blocks.arithmetic.q_1()[gate_idx] == witness.multiplicative_constant;
-        std::cout << "condition: " << condition << std::endl;
         condition &= builder.blocks.arithmetic.q_2()[gate_idx] == FF::zero();
-        std::cout << "condition: " << condition << std::endl;
         condition &= builder.blocks.arithmetic.q_3()[gate_idx] == FF::zero();
-        std::cout << "condition: " << condition << std::endl;
         condition &= builder.blocks.arithmetic.q_c()[gate_idx] == witness.additive_constant;
-        std::cout << "condition: " << condition << std::endl;
         condition &= builder.blocks.arithmetic.q_arith()[gate_idx] == FF::one();
-        std::cout << "condition: " << condition << std::endl;
         condition &= builder.blocks.arithmetic.q_4()[gate_idx] == FF::zero();
-        std::cout << "condition: " << condition << std::endl;
+
         if (condition) {
             return true;
         }
@@ -347,7 +363,6 @@ Field<CircuitBuilder> get_the_result_of_conditional_assign_gate(CircuitBuilder& 
 
     if (lhs_idx == rhs_idx && (lhs.additive_constant == rhs.additive_constant) &&
         (lhs.multiplicative_constant == rhs.multiplicative_constant)) {
-        std::cout << "HUUUI" << std::endl;
         return lhs_field;
     }
 

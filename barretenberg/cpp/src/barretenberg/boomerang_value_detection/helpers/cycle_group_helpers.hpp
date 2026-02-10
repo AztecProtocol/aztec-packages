@@ -23,7 +23,9 @@ template <typename CircuitBuilder> struct RealPoint {
 
 template <typename FF> bool is_point_constant(Point<FF> point)
 {
-    return point.x.is_constant && point.y.is_constant && point.is_infinity.is_constant;
+    // We skip is_inifity check, because cycle_group constructor
+    // enforces is_infinite to be constant, if x and y are constants.
+    return point.x.is_constant && point.y.is_constant;
 }
 
 /**
@@ -64,6 +66,15 @@ RealPoint<CircuitBuilder> get_real_point(CircuitBuilder& builder,
         Field<CircuitBuilder>{ bb::stdlib::IS_CONSTANT, field_ct(bb::grumpkin::g1::affine_one.y) });
     real_point.y = y_field_real;
 
+    // Mirror cycle_group constructor behavior: if only one coordinate is constant, it is converted to a fixed witness.
+    if (real_point.x.witness.is_constant() != real_point.y.witness.is_constant()) {
+        if (real_point.x.witness.is_constant()) {
+            real_point.x = find_fixed_witness_field<FF>(builder, real_point.x.witness.get_value());
+        } else {
+            real_point.y = find_fixed_witness_field<FF>(builder, real_point.y.witness.get_value());
+        }
+    }
+
     auto is_infinity_bool_real = get_boolean_conditional_assign_result<FF>(
         builder, predicate_bool, is_infinity_bool, Bool<CircuitBuilder>{ bb::stdlib::IS_CONSTANT, bool_ct(false) });
     real_point.is_infinite = is_infinity_bool_real;
@@ -85,14 +96,14 @@ bool is_on_curve_check_exists(CircuitBuilder& builder,
     using field_ct = bb::stdlib::field_t<CircuitBuilder>;
 
     auto real_point = get_real_point<FF>(builder, point, predicate);
+
     auto x_field = real_point.x;
     auto xx_field = get_mul_gate_output<FF>(builder, x_field, x_field);
     auto xxx_field = get_mul_gate_output<FF>(builder, xx_field, x_field);
-
     auto minus_xxx_minus_b_field_t = (xxx_field.witness * -FF::one()) - bb::grumpkin::g1::curve_b;
+
     auto y_field = real_point.y;
     auto minus_xxx_minus_b_field = Field<CircuitBuilder>{ xxx_field.witness_index, minus_xxx_minus_b_field_t };
-
     auto res_field = get_madd_gate_output<FF>(builder, y_field, y_field, minus_xxx_minus_b_field);
 
     if (real_point.is_infinite.witness.is_constant()) {
@@ -106,7 +117,6 @@ bool is_on_curve_check_exists(CircuitBuilder& builder,
 
     auto res_mul_not_infinity = get_mul_gate_output<FF>(builder, res_field, not_infinity_field);
 
-    std::cout << "res" << res_mul_not_infinity.witness_index;
     return is_assert_zero_gate_exists<FF>(builder, res_mul_not_infinity);
 }
 

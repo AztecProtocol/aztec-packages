@@ -107,10 +107,10 @@ TEST_F(EcAddConstraintsTests, ValidateEcAddConstraintWithConstHell)
 {
     const auto input_point = bb::grumpkin::g1::affine_one;
     auto input1 = std::vector<WitnessOrConstant<bb::fr>>{ WitnessOrConstant<bb::fr>::from_constant(input_point.x),
+                                                          WitnessOrConstant<bb::fr>::from_index(1),
+                                                          WitnessOrConstant<bb::fr>::from_constant(0) };
+    auto input2 = std::vector<WitnessOrConstant<bb::fr>>{ WitnessOrConstant<bb::fr>::from_index(0),
                                                           WitnessOrConstant<bb::fr>::from_constant(input_point.y),
-                                                          WitnessOrConstant<bb::fr>::from_index(2) };
-    auto input2 = std::vector<WitnessOrConstant<bb::fr>>{ WitnessOrConstant<bb::fr>::from_index(3),
-                                                          WitnessOrConstant<bb::fr>::from_index(4),
                                                           WitnessOrConstant<bb::fr>::from_index(5) };
     auto result = std::vector<uint32_t>{ 7, 8, 9 };
     auto predicate = WitnessOrConstant<bb::fr>::from_index(2);
