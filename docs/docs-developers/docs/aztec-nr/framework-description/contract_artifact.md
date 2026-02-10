@@ -1,5 +1,5 @@
 ---
-title: "Contract Artifacts"
+title: Contract Artifacts
 description: Understand the structure and contents of Aztec smart contract artifacts.
 tags: [contracts]
 sidebar_position: 13
@@ -8,7 +8,7 @@ sidebar_position: 13
 Compiling an Aztec contract produces a contract artifact file (`.json`) containing everything needed to interact with that contract: its name, functions, their interfaces, and compiled bytecode. Since private function bytecode is never published to the network, you need this artifact file to call private functions.
 
 :::tip Most developers don't need this
-When you [compile a contract](../how_to_compile_contract.md) and use [`aztec codegen`](../../aztec-js/how_to_deploy_contract.md#generate-typescript-bindings), you get type-safe TypeScript classes that handle artifacts automatically. This page is useful if you're:
+When you [compile a contract](../compiling_contracts.md) and use [`aztec codegen`](../../aztec-js/how_to_deploy_contract.md#generate-typescript-bindings), you get type-safe TypeScript classes that handle artifacts automatically. This page is useful if you're:
 - Building custom tooling around Aztec contracts
 - Debugging compilation or deployment issues
 - Understanding what data is available in artifacts
@@ -78,6 +78,6 @@ Parameter visibility can be `public`, `private`, or `databus`.
 
 ## Next Steps
 
-- [Compile contracts](../how_to_compile_contract.md) to generate artifacts
+- [Compile contracts](../compiling_contracts.md) to generate artifacts
 - [Deploy contracts](../../aztec-js/how_to_deploy_contract.md) using generated TypeScript bindings
 - [Send transactions](../../aztec-js/how_to_send_transaction.md) to interact with deployed contracts

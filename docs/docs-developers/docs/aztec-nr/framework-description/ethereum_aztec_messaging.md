@@ -1,5 +1,5 @@
 ---
-title: Communicating Cross-Chain
+title: Ethereum<>Aztec Messaging
 tags: [contracts, portals]
 sidebar_position: 12
 description: Send messages and data between L1 and L2 contracts using portal contracts and cross-chain messaging.

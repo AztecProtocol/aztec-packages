@@ -1,6 +1,6 @@
 ---
-title: Contract Deployment Quick Reference
-sidebar_position: 2
+title: Contract Deployment Reference
+sidebar_position: 3
 tags: [contracts, deployment, initialization]
 description: A practical guide to determine which deployment steps your Aztec contract needs and when functions become callable.
 ---
@@ -81,4 +81,4 @@ If your contract has no initializer and is deployed with `without_initializer()`
 - [Contract Deployment](../foundational-topics/contract_creation.md) - Conceptual foundation of classes, instances, and lifecycle states
 - [Deploying Contracts](../aztec-js/how_to_deploy_contract.md) - TypeScript deployment guide
 - [Defining Initializer Functions](./framework-description/functions/how_to_define_functions.md#define-initializer-functions) - How to use `#[initializer]` and `#[noinitcheck]`
-- [Communicating Cross-Chain](./framework-description/how_to_communicate_cross_chain.md) - Portal contracts and L1/L2 messaging
+- [Communicating Cross-Chain](./framework-description/ethereum_aztec_messaging.md) - Portal contracts and L1/L2 messaging

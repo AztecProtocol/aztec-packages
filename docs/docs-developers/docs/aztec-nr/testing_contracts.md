@@ -2,7 +2,7 @@
 title: Testing Contracts
 tags: [contracts, tests, testing, noir]
 keywords: [tests, testing, noir]
-sidebar_position: 4
+sidebar_position: 5
 description: Write and run tests for your Aztec smart contracts using Noir's TestEnvironment.
 ---
 
@@ -49,7 +49,7 @@ Always use `aztec test` instead of `nargo test`. The `TestEnvironment` requires 
 ```rust
 use crate::MyContract;
 use aztec::{
-    protocol_types::address::AztecAddress,
+    protocol::address::AztecAddress,
     test::helpers::test_environment::TestEnvironment,
 };
 
@@ -67,7 +67,7 @@ unconstrained fn test_basic_flow() {
 
 - Tests run in parallel by default
 - Use `unconstrained` functions for faster execution
-- See all `TestEnvironment` methods [here](https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.6-patch.1/noir-projects/aztec-nr/aztec/src/test/helpers/test_environment.nr)
+- See all `TestEnvironment` methods [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/test/helpers/test_environment.nr)
 
 :::
 
@@ -223,7 +223,7 @@ pub unconstrained fn setup(with_authwits: bool) -> (TestEnvironment, AztecAddres
 
 ## Testing with authwits
 
-[Authwits](./framework-description/how_to_use_authwit.md) allow one account to authorize another to act on its behalf.
+[Authwits](./framework-description/authentication_witnesses.md) allow one account to authorize another to act on its behalf.
 
 :::warning
 Authwits require **contract accounts**, not light accounts.
