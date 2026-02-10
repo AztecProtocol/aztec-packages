@@ -250,7 +250,7 @@
           const allNs = nsF && nsF !== 'all' ? (e.namespaces[nsF] ? {[nsF]:e.namespaces[nsF]} : {}) : e.namespaces;
           return Object.entries(allNs).reduce((s, [ns, nd]) => s + (bucketTopSets[i].has(ns) ? 0 : ((nd.total||0))), 0);
         });
-        datasets.push({ label:'other', data:otherData, backgroundColor:'#333', borderWidth:0 });
+        datasets.unshift({ label:'other', data:otherData, backgroundColor:'#333', borderWidth:0, order:999 });
       }
       charts.t = new Chart(document.getElementById('timeline').getContext('2d'), {
         type:'bar',
@@ -265,7 +265,7 @@
           plugins: {
             legend:{position:'bottom',labels:{color:'#888',boxWidth:10,padding:8,font:{size:10,family:'monospace'}}},
             tooltip:{
-              itemSort:(a,b)=>b.raw-a.raw,
+              itemSort:(a,b)=>{ if(a.dataset.label==='other') return 1; if(b.dataset.label==='other') return -1; return b.raw-a.raw; },
               filter:c=>c.raw>0,
               callbacks:{label:c=>`${c.dataset.label}: ${fmt(c.raw)}`, footer:items=>`total: ${fmt(items.reduce((s,i)=>s+i.raw,0))}`}
             }
