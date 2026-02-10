@@ -81,7 +81,7 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
                           { C::to_radix_not_padding_limb, !is_padding ? 1 : 0 },
                           { C::to_radix_acc, acc },
                           { C::to_radix_found, found ? 1 : 0 },
-                          { C::to_radix_limb_radix_diff, radix - 1 - limb },
+                          { C::to_radix_limb_radix_diff, radix - limb - 1 },
                           { C::to_radix_rem_inverse, rem }, // Will be inverted in batch later
                           { C::to_radix_safe_limbs, safe_limbs },
                           { C::to_radix_is_unsafe_limb, is_unsafe_limb ? 1 : 0 },

@@ -98,7 +98,7 @@ namespace to_radix;
 
     // Limb should be less than radix
     pol commit limb_radix_diff;
-    sel * (radix - 1 - limb - limb_radix_diff) = 0;
+    sel * (radix - limb - 1 - limb_radix_diff) = 0;
 
     #[LIMB_LESS_THAN_RADIX_RANGE]
     sel { limb_radix_diff }
@@ -109,7 +109,7 @@ namespace to_radix;
 
     // On start, current acc must be equal to limb
     start * (acc - limb) = 0;
-    // Next acc must be current acc + next_exponent*next_limb
+    // Next acc must be current acc + next_power*next_limb
     NOT_END * (acc + power' * limb' - acc') = 0;
 
     // found is 1 when value - acc = 0
