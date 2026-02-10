@@ -281,7 +281,9 @@ function build {
       "build_wasm_threads" \
       "build_cross arm64-linux" \
       "build_cross amd64-macos true" \
-      "build_cross arm64-macos true"
+      "build_cross arm64-macos true" \
+      "build_ios zig-arm64-ios" \
+      "build_ios zig-arm64-ios-sim"
     build_release_dir
   else
     builds=(
@@ -293,7 +295,7 @@ function build {
       builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast)
     fi
     if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
-      builds+=("build_cross arm64-macos true" build_smt_verification)
+      builds+=("build_cross arm64-macos true" build_smt_verification "build_ios zig-arm64-ios" "build_ios zig-arm64-ios-sim")
     fi
     parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: "${builds[@]}"
   fi
