@@ -63,7 +63,7 @@ export type TxMetaData = {
 };
 
 /** Transaction state derived from TxMetaData fields and pool protection status */
-export type TxState = 'pending' | 'protected' | 'mined';
+export type TxState = 'pending' | 'protected' | 'mined' | 'deleted';
 
 /**
  * Builds TxMetaData from a full Tx object.

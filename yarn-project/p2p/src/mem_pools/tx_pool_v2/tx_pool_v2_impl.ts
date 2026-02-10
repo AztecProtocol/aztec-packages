@@ -1,4 +1,4 @@
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -10,6 +10,7 @@ import { DatabasePublicStateSource } from '@aztec/stdlib/trees';
 import { BlockHeader, Tx, TxHash, type TxValidator } from '@aztec/stdlib/tx';
 
 import { TxArchive } from './archive/index.js';
+import { DeletedPool } from './deleted_pool.js';
 import {
   EvictionManager,
   FeePayerBalanceEvictionRule,
@@ -61,6 +62,7 @@ export class TxPoolV2Impl {
   // === Config & Services ===
   #config: TxPoolV2Config;
   #archive: TxArchive;
+  #deletedPool: DeletedPool;
   #evictionManager: EvictionManager;
   #log: Logger;
   #callbacks: TxPoolV2Callbacks;
@@ -82,6 +84,7 @@ export class TxPoolV2Impl {
 
     this.#config = { ...DEFAULT_TX_POOL_V2_CONFIG, ...config };
     this.#archive = new TxArchive(archiveStore, this.#config.archivedTxLimit, log);
+    this.#deletedPool = new DeletedPool(store, this.#txsDB, log);
     this.#log = log;
     this.#callbacks = callbacks;
 
@@ -116,7 +119,10 @@ export class TxPoolV2Impl {
    * by running pre-add rules to resolve nullifier conflicts, balance checks, and pool size limits.
    */
   async hydrateFromDatabase(): Promise<void> {
-    // Step 1: Load all transactions from DB
+    // Step 0: Hydrate deleted pool state
+    await this.#deletedPool.hydrateFromDatabase();
+
+    // Step 1: Load all transactions from DB (excluding soft-deleted)
     const { loaded, errors: deserializationErrors } = await this.#loadAllTxsFromDb();
 
     // Step 2: Check mined status for each tx
@@ -350,6 +356,7 @@ export class TxPoolV2Impl {
           // Add new mined tx (callback emitted by #addTx)
           await this.#addTx(tx, { mined: blockId }, opts);
         }
+        await this.#deletedPool.clearIfMinedHigher(txHashStr, blockId.number);
       }
     });
   }
@@ -376,6 +383,7 @@ export class TxPoolV2Impl {
     // Step 4: Mark txs as mined (only those we have in the pool)
     for (const meta of found) {
       this.#indices.markAsMined(meta, blockId);
+      await this.#deletedPool.clearIfMinedHigher(meta.txHash, blockId.number);
     }
 
     // Step 5: Run eviction rules (remove pending txs with conflicting nullifiers/expired timestamps)
@@ -429,24 +437,34 @@ export class TxPoolV2Impl {
 
     this.#log.info(`Handling prune to block ${latestBlock.number}: un-mining ${txsToUnmine.length} txs`);
 
-    // Step 2: Unmine - clear mined status from metadata
+    // Step 2: Mark ALL un-mined txs with their original mined block number
+    // This ensures they get soft-deleted if removed later, and only hard-deleted
+    // when their original mined block is finalized
+    await this.#deletedPool.markFromPrunedBlock(
+      txsToUnmine.map(m => ({
+        txHash: m.txHash,
+        minedAtBlock: BlockNumber(m.minedL2BlockId!.number),
+      })),
+    );
+
+    // Step 3: Unmine - clear mined status from metadata
     for (const meta of txsToUnmine) {
       this.#indices.markAsUnmined(meta);
     }
 
-    // Step 3: Filter out protected txs (they'll be handled by prepareForSlot)
+    // Step 4: Filter out protected txs (they'll be handled by prepareForSlot)
     const unprotectedTxs = this.#indices.filterUnprotected(txsToUnmine);
 
     // Step 4: Validate for pending pool
     const { valid, invalid } = await this.#revalidateMetadata(unprotectedTxs, 'during handlePrunedBlocks');
 
-    // Step 5: Resolve nullifier conflicts and add winners to pending indices
+    // Step 6: Resolve nullifier conflicts and add winners to pending indices
     const { toEvict } = this.#applyNullifierConflictResolution(valid);
 
-    // Step 6: Delete invalid and evicted txs
+    // Step 7: Delete invalid and evicted txs
     await this.#deleteTxsBatch([...invalid, ...toEvict]);
 
-    // Step 7: Run eviction rules for ALL pending txs (not just restored ones)
+    // Step 8: Run eviction rules for ALL pending txs (not just restored ones)
     // This handles cases like existing pending txs with invalid fee payer balances
     await this.#evictionManager.evictAfterChainPrune(latestBlock.number);
   }
@@ -461,16 +479,13 @@ export class TxPoolV2Impl {
   async handleFinalizedBlock(block: BlockHeader): Promise<void> {
     const blockNumber = block.globalVariables.blockNumber;
 
-    // Step 1: Find txs mined at or before finalized block
-    const txsToFinalize = this.#indices.findTxsMinedAtOrBefore(blockNumber);
-    if (txsToFinalize.length === 0) {
-      return;
-    }
+    // Step 1: Find mined txs at or before finalized block
+    const minedTxsToFinalize = this.#indices.findTxsMinedAtOrBefore(blockNumber);
 
-    // Step 2: Collect txs for archiving (before deletion)
+    // Step 2: Collect mined txs for archiving (before deletion)
     const txsToArchive: Tx[] = [];
     if (this.#archive.isEnabled()) {
-      for (const txHashStr of txsToFinalize) {
+      for (const txHashStr of minedTxsToFinalize) {
         const buffer = await this.#txsDB.getAsync(txHashStr);
         if (buffer) {
           txsToArchive.push(Tx.fromBuffer(buffer));
@@ -478,15 +493,20 @@ export class TxPoolV2Impl {
       }
     }
 
-    // Step 3: Delete from active pool
-    await this.#deleteTxsBatch(txsToFinalize);
+    // Step 3: Delete mined txs from active pool
+    await this.#deleteTxsBatch(minedTxsToFinalize);
 
-    // Step 4: Archive
+    // Step 4: Finalize soft-deleted txs
+    await this.#deletedPool.finalizeBlock(blockNumber);
+
+    // Step 5: Archive mined txs
     if (txsToArchive.length > 0) {
       await this.#archive.archiveTxs(txsToArchive);
     }
 
-    this.#log.info(`Finalized ${txsToFinalize.length} txs from blocks up to ${blockNumber}`);
+    if (minedTxsToFinalize.length > 0) {
+      this.#log.info(`Finalized ${minedTxsToFinalize.length} mined txs from blocks up to ${blockNumber}`);
+    }
   }
 
   // === Query Methods ===
@@ -506,15 +526,23 @@ export class TxPoolV2Impl {
   }
 
   hasTxs(txHashes: TxHash[]): boolean[] {
-    return txHashes.map(h => this.#indices.has(h.toString()));
+    return txHashes.map(h => {
+      const hashStr = h.toString();
+      return this.#indices.has(hashStr) || this.#deletedPool.isSoftDeleted(hashStr);
+    });
   }
 
   getTxStatus(txHash: TxHash): TxState | undefined {
-    const meta = this.#indices.getMetadata(txHash.toString());
-    if (!meta) {
-      return undefined;
+    const txHashStr = txHash.toString();
+    const meta = this.#indices.getMetadata(txHashStr);
+    if (meta) {
+      return this.#indices.getTxState(meta);
     }
-    return this.#indices.getTxState(meta);
+    // Check if soft-deleted
+    if (this.#deletedPool.isSoftDeleted(txHashStr)) {
+      return 'deleted';
+    }
+    return undefined;
   }
 
   getPendingTxHashes(): TxHash[] {
@@ -627,10 +655,15 @@ export class TxPoolV2Impl {
    * Deletes a transaction from both indices and DB.
    * Emits onTxsRemoved callback immediately after DB delete.
    */
+  /**
+   * Deletes a transaction from the pool.
+   * Delegates to DeletedPool which decides soft vs hard delete based on whether
+   * the tx is from a pruned block.
+   */
   async #deleteTx(txHashStr: string): Promise<void> {
     this.#indices.remove(txHashStr);
-    await this.#txsDB.delete(txHashStr);
     this.#callbacks.onTxsRemoved([txHashStr]);
+    await this.#deletedPool.deleteTx(txHashStr);
   }
 
   /** Deletes a batch of transactions, emitting callbacks individually for each. */
@@ -743,6 +776,11 @@ export class TxPoolV2Impl {
     const errors: string[] = [];
 
     for await (const [txHashStr, buffer] of this.#txsDB.entriesAsync()) {
+      // Skip soft-deleted transactions - they stay in DB but not in indices
+      if (this.#deletedPool.isSoftDeleted(txHashStr)) {
+        continue;
+      }
+
       try {
         const tx = Tx.fromBuffer(buffer);
         const meta = await buildTxMetaData(tx);
