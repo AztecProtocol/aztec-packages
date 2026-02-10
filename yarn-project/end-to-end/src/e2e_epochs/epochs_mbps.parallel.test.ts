@@ -250,10 +250,9 @@ describe('e2e_epochs/epochs_mbps', () => {
     }
     logger.warn(`All txs have been mined`);
 
-    // TODO(palla/mbps): Reenable
     // We are fine with at least 2 blocks per checkpoint, since we may lose one sub-slot if assembling a tx is slow
-    // const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(2, logger);
-    // await waitForProvenCheckpoint(multiBlockCheckpoint);
+    const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(2, logger);
+    await waitForProvenCheckpoint(multiBlockCheckpoint);
   });
 
   it('builds multiple blocks per slot with L2 to L1 messages', async () => {
