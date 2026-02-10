@@ -225,11 +225,13 @@
       if (n > 0 && nsSet.length > n) {
         const byTotal = nsSet.map(ns => [ns, a.nsTotals[ns]?.total||0]).sort((x,y)=>y[1]-x[1]);
         const namedSet = new Set(byTotal.slice(0, n).map(e=>e[0]));
-        const otherNs = nsSet.filter(ns => !namedSet.has(ns));
         chartNs = [...namedSet];
-        hasOther = otherNs.length > 0;
-        // Build "other" dataset by summing the remaining union members per bucket
-        var otherData = data.map(e => otherNs.reduce((s, ns) => s + ((e.namespaces[ns]||{}).total||0), 0));
+        hasOther = true;
+        // "other" = all costs in each bucket not attributed to the named top N
+        var otherData = data.map(e => {
+          const allNs = nsF && nsF !== 'all' ? (e.namespaces[nsF] ? {[nsF]:e.namespaces[nsF]} : {}) : e.namespaces;
+          return Object.entries(allNs).reduce((s, [ns, nd]) => s + (namedSet.has(ns) ? 0 : ((nd.total||0))), 0);
+        });
       }
       const datasets = chartNs.map(ns => ({
         label:ns, data: data.map(e=>(e.namespaces[ns]||{}).total||0),
