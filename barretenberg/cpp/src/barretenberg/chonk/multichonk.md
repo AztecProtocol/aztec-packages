@@ -351,9 +351,27 @@ F(u) = Σ f_i(u) · L_i(u_0, u_1)
 
 ---
 
-## 13. Open Questions
+## 13. Interleaved ↔ Concatenated Consistency
 
-1. **Merge → ECCVM consistency:** Interleaved comm shouldn't be hard to befriend with eccvm wires.
+In IVC we must use interleaving: prover work scales with actual polynomial size, not padded size. Ideally ecc wires would stay separate, but interleaving challenge ordering (LSB prepended after sumcheck) prevents opening standalone wires at the same multilinear point without restructuring Gemini. So ecc wires are interleaved into a group.
+
+Translator cannot use interleaving: it has two groups of polynomials of different sizes, and the challenge ordering issue prevents batching them under a single interleaved opening. So Translator uses concatenation.
+
+At the merge boundary we need a consistency check between the interleaved representation (from Mega) and the concatenated representation (for Translator). Given:
+
+$$C(X) = \sum_i X^{iN} f_i(X), \qquad I(X) = \sum_i X^i f_i(X^s)$$
+
+Pick random $y$, set $x = y^s$. Then $f_i(x) = f_i(y^s)$, so individual evaluations $e_i = f_i(x)$ satisfy both:
+
+$$C(x) = \sum_i x^{iN} \cdot e_i, \qquad I(y) = \sum_i y^i \cdot e_i$$
+
+The $e_i$ openings (using preserved individual commitments) bridge the two representations.
+
+---
+
+## 14. Open Questions
+
+1. ~~**Merge → ECCVM consistency:**~~ Addressed by the interleaved ↔ concatenated consistency check (Section 13).
 
 2. ~~**SRS constraints:**~~ Memory is fine (128 MB for 2^19 with batch=4).
 
