@@ -113,9 +113,7 @@ void ToRadixTraceBuilder::process_with_memory(
     for (const auto& event : events) {
         // Helpers
         uint8_t num_limbs_is_zero = event.num_limbs == 0 ? 1 : 0;
-        FF num_limbs_inv = event.num_limbs == 0 ? FF(0) : FF(event.num_limbs); // Will be inverted in batch later
         uint8_t value_is_zero = event.value == FF(0) ? 1 : 0;
-        FF value_inv = event.value == FF(0) ? FF(0) : event.value; // Will be inverted in batch later
 
         // Error Handling - Out of Memory Access
         uint64_t dst_addr = static_cast<uint64_t>(event.dst_addr);
@@ -148,9 +146,9 @@ void ToRadixTraceBuilder::process_with_memory(
                       { C::to_radix_mem_two, 2 },
                       { C::to_radix_mem_two_five_six, 256 },
                       { C::to_radix_mem_sel_num_limbs_is_zero, num_limbs_is_zero },
-                      { C::to_radix_mem_num_limbs_inv, num_limbs_inv },
+                      { C::to_radix_mem_num_limbs_inv, event.num_limbs }, // Will be inverted in batch later
                       { C::to_radix_mem_sel_value_is_zero, value_is_zero },
-                      { C::to_radix_mem_value_inv, value_inv },
+                      { C::to_radix_mem_value_inv, event.value }, // Will be inverted in batch later
                   } });
 
         // Input validation errors
@@ -195,9 +193,11 @@ void ToRadixTraceBuilder::process_with_memory(
             continue;
         }
 
-        // Truncation error (still does decomposition)
-        bool truncation_error = event.num_limbs != 0 && !found.at(0);
+        // Truncation error. A radix decomposition in the non-memory aware to_radix subtrace is performed.
+        const bool truncation_error = (event.num_limbs != 0) && !found.at(0);
 
+        // We only populate a single row to retrieve `value_found` from the non-memory aware to_radix subtrace
+        // at the last limb (little endian) corresponding to the first limb in the big endian decomposition.
         if (truncation_error) {
             trace.set(row,
                       { {
@@ -218,6 +218,9 @@ void ToRadixTraceBuilder::process_with_memory(
         uint32_t remaining_limbs = static_cast<uint32_t>(event.num_limbs);
 
         // Base case
+        // Here we have the following guarantees:
+        // - event.num_limbs > 0
+        // - No error occured
         for (uint32_t i = 0; i < event.num_limbs; ++i) {
             MemoryValue limb_value = event.limbs.at(i);
             bool last = i == (event.num_limbs - 1);
