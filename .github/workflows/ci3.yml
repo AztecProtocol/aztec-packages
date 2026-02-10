@@ -262,9 +262,9 @@ jobs:
         run: |
           ./.github/ci3.sh network-tests-kind
 
-  # iOS cross-compilation build for barretenberg using Zig from Linux.
-  # Runs in parallel with the main CI job on every PR (~9 min per target).
-  # This builds the bb-external static library for iOS devices and simulators.
+  # Builds bb-external static library (.a) for iOS using Zig cross-compilation from Linux.
+  # Only produces static libraries — Zig cannot link iOS executables (no TBD/dylib support).
+  # Requires iOS SDK headers for C stdlib types; downloaded via scripts/download-ios-sdk.sh.
   # Non-blocking (continue-on-error) to avoid rugging releases - alerts #honk-team on failure.
   # TEMPORARILY DISABLED: Migrating from Xcode toolchain to Zig cross-compilation
   build-bb-ios:

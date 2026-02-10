@@ -107,7 +107,9 @@ function build_cross {
   fi
 }
 
-# Build for iOS using Zig cross-compilation (can run on Linux)
+# Build static library (.a) for iOS using Zig cross-compilation from Linux.
+# Only produces static libraries (bb-external) — Zig cannot link iOS executables
+# due to lack of TBD/dylib support. Requires iOS SDK headers (downloaded automatically).
 # Arg is preset name: zig-arm64-ios or zig-arm64-ios-sim
 function build_ios {
   set -eu
