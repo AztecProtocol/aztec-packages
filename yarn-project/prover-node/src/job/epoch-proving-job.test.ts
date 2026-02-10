@@ -1,6 +1,7 @@
 import { BatchedBlob } from '@aztec/blob-lib/types';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { fromEntries, times, timesParallel } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { toArray } from '@aztec/foundation/iterable';
 import { sleep } from '@aztec/foundation/sleep';
@@ -12,6 +13,7 @@ import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { EpochProver, MerkleTreeWriteOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { Proof } from '@aztec/stdlib/proofs';
 import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { ProcessedTx, Tx } from '@aztec/stdlib/tx';
 import { BlockHeader } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
@@ -236,5 +238,42 @@ describe('epoch-proving-job', () => {
     expect(job.getState()).toEqual('completed');
     expect(prover.finalizeEpoch).toHaveBeenCalled();
     expect(publisher.submitEpochProof).not.toHaveBeenCalled();
+  });
+
+  it('inserts L1 to L2 messages into the message tree only for the first block of each checkpoint', async () => {
+    const l1ToL2Messages: Record<number, Fr[]> = fromEntries(
+      checkpoints.map(c => [c.number, [Fr.random(), Fr.random()]]),
+    );
+
+    const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
+    const data: EpochProvingJobData = {
+      checkpoints,
+      txs: txsMap,
+      epochNumber: EpochNumber(epochNumber),
+      l1ToL2Messages,
+      previousBlockHeader: initialHeader,
+      attestations,
+    };
+
+    const job = new EpochProvingJob(
+      data,
+      worldState,
+      prover,
+      publicProcessorFactory,
+      publisher,
+      l2BlockSource,
+      metrics,
+      undefined,
+      { parallelBlockLimit: 32 },
+    );
+
+    await job.run();
+
+    expect(job.getState()).toEqual('completed');
+
+    // appendLeaves should be called once per checkpoint (for the first block only), not once per block
+    const appendLeavesCalls = db.appendLeaves.mock.calls.filter(call => call[0] === MerkleTreeId.L1_TO_L2_MESSAGE_TREE);
+    expect(appendLeavesCalls).toHaveLength(NUM_CHECKPOINTS);
+    expect(appendLeavesCalls).not.toHaveLength(NUM_BLOCKS);
   });
 });

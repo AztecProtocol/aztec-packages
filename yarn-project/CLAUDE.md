@@ -232,15 +232,13 @@ For PRs with multiple commits that should be preserved (e.g., porting multiple P
 
 ### Fixing PRs
 
-When fixing an existing PR (CI failures, review feedback, etc.), always amend the existing commit - never create new commits.
+PRs are squashed to a single commit on merge, so during development just create normal commits. Only amend when explicitly asked or when using the `/fix-pr` skill on a PR targeting `next`.
 
 ```bash
 git add .
-git commit --amend --no-edit
-git push --force-with-lease
+git commit -m "fix: address review feedback"
+git push
 ```
-
-This keeps the PR as a single commit. CI enforces PRs have a single commit.
 
 ### Breaking Changes
 

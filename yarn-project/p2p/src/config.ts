@@ -45,6 +45,9 @@ export interface P2PConfig
   /** The frequency in which to check for new L2 blocks. */
   blockCheckIntervalMS: number;
 
+  /** The frequency in which to check for new L2 slots. */
+  slotCheckIntervalMS: number;
+
   /** The number of blocks to fetch in a single batch. */
   blockRequestBatchSize: number;
 
@@ -206,6 +209,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_BLOCK_CHECK_INTERVAL_MS',
     description: 'The frequency in which to check for new L2 blocks.',
     ...numberConfigHelper(100),
+  },
+  slotCheckIntervalMS: {
+    env: 'P2P_SLOT_CHECK_INTERVAL_MS',
+    description: 'The frequency in which to check for new L2 slots.',
+    ...numberConfigHelper(1000),
   },
   debugDisableColocationPenalty: {
     env: 'DEBUG_P2P_DISABLE_COLOCATION_PENALTY',

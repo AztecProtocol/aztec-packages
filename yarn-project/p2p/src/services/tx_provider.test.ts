@@ -1,9 +1,9 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
-import { P2PClient, type PeerId, type TxPool, TxProvider } from '@aztec/p2p';
+import { P2PClient, type PeerId, type TxPoolV2, TxProvider } from '@aztec/p2p';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { makeBlockProposal, mockTx } from '@aztec/stdlib/testing';
-import { Tx, type TxHash } from '@aztec/stdlib/tx';
+import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -16,7 +16,7 @@ type TxResults = { txs: Tx[]; missingTxs: TxHash[] };
 describe('TxProvider', () => {
   // Dependencies
   let txCollection: MockProxy<TxCollection>;
-  let txPool: MockProxy<TxPool>;
+  let txPool: MockProxy<TxPoolV2>;
   let txValidator: MockProxy<Pick<P2PClient, 'validate'>>;
 
   // Subject under test
@@ -80,17 +80,28 @@ describe('TxProvider', () => {
     opts = { deadline: new Date(Date.now() + 10_000), pinnedPeer: undefined };
 
     txCollection = mock<TxCollection>();
-    txPool = mock<TxPool>();
+    txPool = mock<TxPoolV2>();
     txValidator = mock<Pick<P2PClient, 'validate'>>();
 
     txPool.getTxsByHash.mockImplementation(txHashes =>
       Promise.resolve(txHashes.map(txHash => txPools.get(txHash.toString()))),
     );
 
-    txPool.addTxs.mockImplementation(async txs => {
+    txPool.addPendingTxs.mockImplementation(async txs => {
+      const accepted: TxHash[] = [];
       const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
-      txs.forEach((tx, index) => txPools.set(hashes[index].toString(), tx));
-      return Promise.resolve(txs.length);
+      txs.forEach((tx, index) => {
+        txPools.set(hashes[index].toString(), tx);
+        accepted.push(hashes[index]);
+      });
+      return Promise.resolve({ accepted, ignored: [], rejected: [] });
+    });
+
+    txPool.addProtectedTxs.mockImplementation(txs => {
+      for (const tx of txs) {
+        txPools.set(tx.getTxHash().toString(), tx);
+      }
+      return Promise.resolve();
     });
 
     txCollection.collectFastFor.mockImplementation((_request, txHashes) => {

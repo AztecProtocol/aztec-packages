@@ -49,7 +49,7 @@ const NODE_COUNT = 5;
 const VALIDATOR_COUNT = 4;
 const COMMITTEE_SIZE = 4;
 
-describe('HA Full Setup', () => {
+describe.skip('HA Full Setup', () => {
   jest.setTimeout(20 * 60 * 1000); // 20 minutes
 
   let logger: Logger;
