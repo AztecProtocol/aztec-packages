@@ -81,7 +81,7 @@ TEST_F(EcAddConstraintsTests, ValidateEcAddConstraint)
 {
     auto input1 = std::vector<WitnessOrConstant<bb::fr>>{ WitnessOrConstant<bb::fr>::from_index(0),
                                                           WitnessOrConstant<bb::fr>::from_index(1),
-                                                          WitnessOrConstant<bb::fr>::from_index(2) };
+                                                          WitnessOrConstant<bb::fr>::from_constant(0) };
     auto input2 = std::vector<WitnessOrConstant<bb::fr>>{ WitnessOrConstant<bb::fr>::from_index(3),
                                                           WitnessOrConstant<bb::fr>::from_index(4),
                                                           WitnessOrConstant<bb::fr>::from_index(5) };
@@ -91,6 +91,32 @@ TEST_F(EcAddConstraintsTests, ValidateEcAddConstraint)
     AcirFormat constraint_system = build_acir_format(9, ec_add_constraint);
 
     const auto input_point = bb::grumpkin::g1::affine_one;
+    const auto result_point = input_point + input_point;
+    auto witness = WitnessVector{
+        input_point.x, input_point.y, fr(0),          input_point.x,  input_point.y,
+        fr(0),         fr(1),         result_point.x, result_point.y, fr(0),
+    };
+    auto program = AcirProgram{ constraint_system, witness };
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
+    StaticAnalyzerAcir analyzer(std::move(constraint_system), std::move(builder));
+    analyzer.process_constraint_system();
+    EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty());
+}
+
+TEST_F(EcAddConstraintsTests, ValidateEcAddConstraintWithConstHell)
+{
+    const auto input_point = bb::grumpkin::g1::affine_one;
+    auto input1 = std::vector<WitnessOrConstant<bb::fr>>{ WitnessOrConstant<bb::fr>::from_constant(input_point.x),
+                                                          WitnessOrConstant<bb::fr>::from_constant(input_point.y),
+                                                          WitnessOrConstant<bb::fr>::from_index(2) };
+    auto input2 = std::vector<WitnessOrConstant<bb::fr>>{ WitnessOrConstant<bb::fr>::from_index(3),
+                                                          WitnessOrConstant<bb::fr>::from_index(4),
+                                                          WitnessOrConstant<bb::fr>::from_index(5) };
+    auto result = std::vector<uint32_t>{ 7, 8, 9 };
+    auto predicate = WitnessOrConstant<bb::fr>::from_index(6);
+    auto ec_add_constraint = create_ec_add_constraint(input1, input2, result, predicate);
+    AcirFormat constraint_system = build_acir_format(9, ec_add_constraint);
+
     const auto result_point = input_point + input_point;
     auto witness = WitnessVector{
         input_point.x, input_point.y, fr(0),          input_point.x,  input_point.y,
@@ -159,11 +185,9 @@ TEST_F(EcAddConstraintsTests, DetectCorruptedOnCurveMulGate)
     auto program = AcirProgram{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
 
-    using field_ct = bb::stdlib::field_t<UltraCircuitBuilder>;
-    cdg::Point input1_point{ input1[0].index, input1[1].index, input1[2].index };
+    cdg::Point<fr> input1_point{ input1[0].index, input1[1].index, input1[2].index };
     auto real_point = cdg::get_real_point<fr>(builder, input1_point, predicate.index);
-    auto x_field =
-        cdg::Field<UltraCircuitBuilder>{ real_point.x_idx, field_ct::from_witness_index(&builder, real_point.x_idx) };
+    auto x_field = real_point.x;
     auto xx_field = cdg::get_mul_gate_output<fr>(builder, x_field, x_field);
     auto mul_gate_idx = find_mul_gate_idx(builder, x_field, x_field, xx_field.witness_index);
 
@@ -197,11 +221,9 @@ TEST_F(EcAddConstraintsTests, DetectCorruptedOnCurveConstraintInput2Gate)
     auto program = AcirProgram{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
 
-    using field_ct = bb::stdlib::field_t<UltraCircuitBuilder>;
-    cdg::Point input2_point{ input2[0].index, input2[1].index, input2[2].index };
+    cdg::Point<fr> input2_point{ input2[0].index, input2[1].index, input2[2].index };
     auto real_point = cdg::get_real_point<fr>(builder, input2_point, predicate.index);
-    auto x_field =
-        cdg::Field<UltraCircuitBuilder>{ real_point.x_idx, field_ct::from_witness_index(&builder, real_point.x_idx) };
+    auto x_field = real_point.x;
     auto xx_field = cdg::get_mul_gate_output<fr>(builder, x_field, x_field);
     auto mul_gate_idx = find_mul_gate_idx(builder, x_field, x_field, xx_field.witness_index);
     builder.blocks.arithmetic.q_arith().set(mul_gate_idx, fr::zero());

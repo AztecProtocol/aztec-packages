@@ -1,6 +1,7 @@
 #include "./graph_description_acir.hpp"
 #include "barretenberg/boomerang_value_detection/helpers/cycle_group_helpers.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include <optional>
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
@@ -939,10 +940,26 @@ template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_ec_add_constraint(const ConstraintPtr& ptr)
 {
     const auto* constraint = std::get<const EcAdd*>(ptr);
-    Point input1_point = { constraint->input1_x.index, constraint->input1_y.index, constraint->input1_infinite.index };
-    Point input2_point = { constraint->input2_x.index, constraint->input2_y.index, constraint->input2_infinite.index };
+    Point<FF> input1_point = {
+        constraint->input1_x.index,
+        constraint->input1_y.index,
+        constraint->input1_infinite.index,
+        constraint->input1_x.is_constant ? std::optional<FF>(constraint->input1_x.value) : std::nullopt,
+        constraint->input1_y.is_constant ? std::optional<FF>(constraint->input1_y.value) : std::nullopt,
+        constraint->input1_infinite.is_constant ? std::optional<bool>(constraint->input1_infinite.value == FF::one())
+                                                : std::nullopt
+    };
+    Point<FF> input2_point = {
+        constraint->input2_x.index,
+        constraint->input2_y.index,
+        constraint->input2_infinite.index,
+        constraint->input2_x.is_constant ? std::optional<FF>(constraint->input2_x.value) : std::nullopt,
+        constraint->input2_y.is_constant ? std::optional<FF>(constraint->input2_y.value) : std::nullopt,
+        constraint->input2_infinite.is_constant ? std::optional<bool>(constraint->input2_infinite.value == FF::one())
+                                                : std::nullopt
+    };
 
-    auto is_point_constant = [](const Point& point) {
+    auto is_point_constant = [](const Point<FF>& point) {
         return point.x_idx == bb::stdlib::IS_CONSTANT && point.y_idx == bb::stdlib::IS_CONSTANT &&
                point.is_infinity_idx == bb::stdlib::IS_CONSTANT;
     };

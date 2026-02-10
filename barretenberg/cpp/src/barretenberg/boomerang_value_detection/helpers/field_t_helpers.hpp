@@ -29,7 +29,7 @@ Field<CircuitBuilder> get_mul_gate_output(CircuitBuilder& builder,
     auto a = a_field.witness;
     auto b = b_field.witness;
     if (a.is_constant() && b.is_constant()) {
-        return Field<CircuitBuilder>{ builder.zero_idx(), a * b };
+        return Field<CircuitBuilder>{ bb::stdlib::IS_CONSTANT, a * b };
     }
     if (a.is_constant()) {
         return Field<CircuitBuilder>{ b_idx, a * b };
@@ -85,7 +85,7 @@ Field<CircuitBuilder> get_add_gate_output(CircuitBuilder& builder,
     auto a = a_field.witness;
     auto b = b_field.witness;
     if (a.is_constant() && b.is_constant()) {
-        return Field<CircuitBuilder>{ builder.zero_idx(), a + b };
+        return Field<CircuitBuilder>{ bb::stdlib::IS_CONSTANT, a + b };
     }
     if (a.is_constant()) {
         return Field<CircuitBuilder>{ b_idx, a + b };
@@ -131,25 +131,35 @@ Field<CircuitBuilder> get_madd_gate_output(CircuitBuilder& builder,
                                            const Field<CircuitBuilder>& b_field,
                                            const Field<CircuitBuilder>& c_field)
 {
+
     auto a_idx = a_field.witness_index;
     auto b_idx = b_field.witness_index;
     auto c_idx = c_field.witness_index;
     auto a = a_field.witness;
     auto b = b_field.witness;
     auto c = c_field.witness;
-    if (a.is_constant() || b.is_constant()) {
-        return Field<CircuitBuilder>{ a_idx, (a * b) + c };
+    if (a.is_constant()) {
+        auto const_mul_res = Field<CircuitBuilder>{ b_idx, (a * b) };
+        return get_add_gate_output<FF>(builder, const_mul_res, c_field);
     }
+    if (b.is_constant()) {
+        auto const_mul_res = Field<CircuitBuilder>{ a_idx, (a * b) };
+        return get_add_gate_output<FF>(builder, const_mul_res, c_field);
+    }
+
     FF mul_scaling = a.multiplicative_constant * b.multiplicative_constant;
     FF a_scaling = a.multiplicative_constant * b.additive_constant;
     FF b_scaling = b.multiplicative_constant * a.additive_constant;
     FF c_scaling = c.multiplicative_constant;
     FF const_scaling = (a.additive_constant * b.additive_constant) + c.additive_constant;
+    auto w_l = a.is_constant() ? builder.zero_idx() : a_idx;
+    auto w_r = b.is_constant() ? builder.zero_idx() : b_idx;
+    auto w_o = c.is_constant() ? builder.zero_idx() : c_idx;
     for (size_t gate_idx = 0; gate_idx < builder.blocks.arithmetic.size(); gate_idx++) {
         bool condition = true;
-        condition &= builder.blocks.arithmetic.w_l()[gate_idx] == a_idx;
-        condition &= builder.blocks.arithmetic.w_r()[gate_idx] == b_idx;
-        condition &= builder.blocks.arithmetic.w_o()[gate_idx] == c_idx;
+        condition &= builder.blocks.arithmetic.w_l()[gate_idx] == w_l;
+        condition &= builder.blocks.arithmetic.w_r()[gate_idx] == w_r;
+        condition &= builder.blocks.arithmetic.w_o()[gate_idx] == w_o;
         condition &= builder.blocks.arithmetic.q_m()[gate_idx] == mul_scaling;
         condition &= builder.blocks.arithmetic.q_1()[gate_idx] == a_scaling;
         condition &= builder.blocks.arithmetic.q_2()[gate_idx] == b_scaling;
@@ -298,6 +308,12 @@ Field<CircuitBuilder> get_the_result_of_conditional_assign_gate(CircuitBuilder& 
     if (lhs_idx == rhs_idx && (lhs.additive_constant == rhs.additive_constant) &&
         (lhs.multiplicative_constant == rhs.multiplicative_constant)) {
         return lhs_field;
+    }
+
+    if (lhs.is_constant() && rhs.is_constant()) {
+        auto result = (lhs - rhs).madd(predicate, rhs);
+        auto result_idx = result.is_constant() ? bb::stdlib::IS_CONSTANT : predicate_field.witness_index;
+        return Field<CircuitBuilder>{ result_idx, result };
     }
 
     Field<CircuitBuilder> lhs_minus_rhs;
