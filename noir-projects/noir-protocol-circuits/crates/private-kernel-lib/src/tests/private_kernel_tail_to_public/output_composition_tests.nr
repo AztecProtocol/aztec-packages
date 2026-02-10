@@ -1,6 +1,6 @@
 use crate::abis::PaddedSideEffectAmounts;
 use super::TestBuilder;
-use dep::types::{
+use types::{
     constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX,
         MAX_ENQUEUED_CALLS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,

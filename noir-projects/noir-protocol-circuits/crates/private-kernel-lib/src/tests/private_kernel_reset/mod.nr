@@ -12,7 +12,8 @@ use crate::{
     private_kernel_reset::PrivateKernelResetCircuitPrivateInputs,
     reset::{KeyValidationHint, ReadRequestHintsBuilder, TransientDataSquashingHint},
 };
-use dep::types::{
+use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key};
+use types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::NoteHash,
         note_hash_leaf_preimage::NoteHashLeafPreimage, nullifier::Nullifier,
@@ -40,7 +41,6 @@ use dep::types::{
     traits::Empty,
     utils::arrays::find_first_index,
 };
-use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key};
 
 global NOTE_HASH_PENDING_READ_HINTS_LEN: u32 = 8;
 global NOTE_HASH_SETTLED_READ_HINTS_LEN: u32 = 5;

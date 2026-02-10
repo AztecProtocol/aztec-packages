@@ -94,7 +94,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
         is_l2gasleft, is_dagasleft,
         mem_tag_reg[0] // out/dest tag
     } in precomputed.sel_range_8 {
-        precomputed.clk,
+        precomputed.idx,
         precomputed.invalid_envvar_enum,
         precomputed.sel_envvar_pi_lookup_col0, precomputed.sel_envvar_pi_lookup_col1, precomputed.envvar_pi_row_idx,
         precomputed.is_address, precomputed.is_sender, precomputed.is_transactionfee,
@@ -111,14 +111,14 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     sel_envvar_pi_lookup_col0 {
         envvar_pi_row_idx, value_from_pi
     } in public_inputs.sel {
-        precomputed.clk, public_inputs.cols[0]
+        precomputed.idx, public_inputs.cols[0]
     };
     // Read from PI col1 instead for minFeePerL2Gas
     #[READ_FROM_PUBLIC_INPUTS_COL1]
     sel_envvar_pi_lookup_col1 {
         envvar_pi_row_idx, value_from_pi
     } in public_inputs.sel {
-        precomputed.clk, public_inputs.cols[1]
+        precomputed.idx, public_inputs.cols[1]
     };
 
     // NOTE: we do not need to gate on `1 - sel_opcode_error` for these register-setting relations below

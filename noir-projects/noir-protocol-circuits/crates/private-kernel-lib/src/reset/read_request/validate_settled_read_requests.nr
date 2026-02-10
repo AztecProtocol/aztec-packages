@@ -1,4 +1,4 @@
-use dep::types::{
+use types::{
     merkle_tree::{check_membership, LeafPreimage, MembershipWitness},
     side_effect::{Counted, Readable, Scoped},
     traits::Empty,

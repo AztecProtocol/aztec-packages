@@ -38,7 +38,7 @@ def get_list_as_string(key, limit=None):
         else:
             values = r.lrange(key, 0, limit - 1)
         if not values:
-            value = "List is empty or key not found"
+            value = ""
         else:
             concatenated = []
             for item in values:
@@ -93,8 +93,7 @@ def render(group: list) -> str:
     return f"{date_time}: {links_str} {BOLD}{name}{RESET} {PURPLE}{author}{RESET}: {msg} {duration_str}{CLEAR_EOL}\n"
 
 def get_section_data(section: str, offset: int = 0, limit: int = 100,
-                     filter_str: str = '', filter_prop: str = '',
-                     fail_list: str = '') -> str:
+                     filter_str: str = '', filter_prop: str = '') -> str:
     """Core logic for fetching and rendering section data."""
     lua_script_path = Path(__file__).parent / 'set-filter.lua'
     with lua_script_path.open('r') as f:
@@ -113,8 +112,9 @@ def get_section_data(section: str, offset: int = 0, limit: int = 100,
             group_sorted = sorted(group, key=lambda x: x.get('ts', x.get('timestamp', 0)))
             lines += render(group_sorted)
 
-    if fail_list:
+    fail_lines = get_list_as_string("failed_tests_" + section, 100)
+    if fail_lines:
         lines += "\n"
         lines += f"Last 100 failed or flaked tests:\n\n"
-        lines += get_list_as_string(fail_list, 100)
+        lines += fail_lines
     return lines

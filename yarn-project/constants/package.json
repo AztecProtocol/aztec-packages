@@ -5,6 +5,13 @@
   "inherits": [
     "../package.common.json"
   ],
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/constants.gen.ts"
+    ],
+    "name": "Constants",
+    "tsconfig": "./tsconfig.json"
+  },
   "exports": {
     ".": "./dest/constants.js"
   },

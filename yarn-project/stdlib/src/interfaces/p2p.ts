@@ -63,7 +63,7 @@ export interface P2PApiWithAttestations extends P2PApiWithoutAttestations {
 
 export interface P2PClient extends P2PApiWithAttestations {
   /** Manually adds checkpoint attestations to the p2p client attestation pool. */
-  addCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void>;
+  addOwnCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void>;
 }
 
 export type P2PApi<T extends P2PClientType = P2PClientType.Full> = T extends P2PClientType.Full

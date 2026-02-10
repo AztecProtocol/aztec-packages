@@ -9,6 +9,7 @@
 #include <ranges>
 #include <stdexcept>
 
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sha256_mem.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -532,7 +533,8 @@ void Sha256TraceBuilder::process(
                           { C::sha256_u32_tag, static_cast<uint8_t>(MemoryTag::U32) },
                           { C::sha256_two_pow_32, 1UL << 32 },
                           // For round selectors
-                          { C::sha256_xor_sel, 2 },
+                          { C::sha256_xor_op_id, AVM_BITWISE_XOR_OP_ID },
+                          { C::sha256_and_op_id, AVM_BITWISE_AND_OP_ID },
                           { C::sha256_perform_round, 1 },
                           { C::sha256_round_count, i },
                           { C::sha256_rounds_remaining, 64 - i },
@@ -567,7 +569,6 @@ void Sha256TraceBuilder::process(
                       { C::sha256_latch, 1 },
                       { C::sha256_last, 1 },
                       { C::sha256_sel, 1 },
-                      { C::sha256_xor_sel, 2 },
                       { C::sha256_round_count, 64 },
                       { C::sha256_input_addr, input_addr + 16 },
                   } });
@@ -629,7 +630,7 @@ void Sha256TraceBuilder::process(
 
 const InteractionDefinition Sha256TraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_sha256_round_constant_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_sha256_round_constant_settings, InteractionType::LookupIntoIndexedByRow>()
         // GT Interactions
         .add<lookup_sha256_mem_check_state_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         .add<lookup_sha256_mem_check_input_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)

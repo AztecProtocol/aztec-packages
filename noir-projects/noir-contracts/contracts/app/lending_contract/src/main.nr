@@ -10,38 +10,43 @@ mod helpers;
 // - Update accumulator should be for specific asset, just abusing only 1 asset atm.
 // - A way to repay all debt at once
 // - Liquidations
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract Lending {
-    use dep::aztec::{protocol::address::AztecAddress, state_vars::{Map, PublicMutable}};
+    use aztec::{protocol::address::AztecAddress, state_vars::{Map, PublicMutable}};
 
     use crate::asset::Asset;
     use crate::helpers::{compute_identifier, covered_by_collateral, debt_updates, debt_value};
     use crate::interest_math::compute_multiplier;
     use crate::position::Position;
-    use dep::price_feed::PriceFeed;
-    use dep::token::Token;
+    use price_feed::PriceFeed;
+    use token::Token;
 
-    use dep::aztec::macros::{functions::{external, initializer, only_self, view}, storage::storage};
+    use aztec::macros::{functions::{external, initializer, only_self, view}, storage::storage};
 
-    use dep::aztec::protocol::traits::{FromField, ToField};
+    use aztec::protocol::traits::{FromField, ToField};
 
+    // docs:start:custom_struct_storage_map
     // Storage structure, containing all storage, and specifying what slots they use.
     #[storage]
     struct Storage<Context> {
+        // docs:start:public_mutable
         collateral_asset: PublicMutable<AztecAddress, Context>,
+        // docs:end:public_mutable
         stable_coin: PublicMutable<AztecAddress, Context>,
         assets: Map<Field, PublicMutable<Asset, Context>, Context>,
         collateral: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
         static_debt: Map<AztecAddress, PublicMutable<u128, Context>, Context>, // abusing keys very heavily
     }
+    // docs:end:custom_struct_storage_map
 
     // Constructs the contract.
     #[external("private")]
     #[initializer]
     fn constructor() {}
 
+    // docs:start:custom_struct_read_write
     #[external("public")]
     fn init(
         oracle: AztecAddress,
@@ -68,10 +73,12 @@ pub contract Lending {
                 oracle,
             },
         );
-
+        // docs:start:public_mutable_write
         self.storage.collateral_asset.write(collateral_asset);
+        // docs:end:public_mutable_write
         self.storage.stable_coin.write(stable_coin);
     }
+    // docs:end:custom_struct_read_write
 
     // Create a position.
     #[external("public")]
@@ -293,9 +300,11 @@ pub contract Lending {
         Position { collateral, static_debt, debt }
     }
 
+    // docs:start:public_mutable_read
     #[external("public")]
     #[view]
     fn get_assets() -> pub [AztecAddress; 2] {
         [self.storage.collateral_asset.read(), self.storage.stable_coin.read()]
     }
+    // docs:end:public_mutable_read
 }

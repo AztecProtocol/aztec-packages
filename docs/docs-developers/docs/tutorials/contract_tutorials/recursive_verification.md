@@ -23,7 +23,6 @@ Before starting, ensure you have the following installed and configured:
 - yarn package manager
 - Aztec CLI (version 3.0.0-devnet.6-patch.1)
 - Nargo (version 1.0.0-beta.15)
-- 8GB+ RAM (required for proof generation)
 - Familiarity with [Noir syntax](https://noir-lang.org/docs) and [Aztec contract basics](../../aztec-nr/index.md)
 
 Install the required tools:
@@ -255,7 +254,7 @@ Replace the contents of `contract/src/main.nr` with:
 
 ### Storage Variables Explained
 
-The contract uses two [storage types](../../aztec-nr/framework-description/how_to_define_storage.md) with different characteristics:
+The contract uses two [storage types](../../aztec-nr/framework-description/state_variables.md) with different characteristics:
 
 **`vk_hash: PublicImmutable<Field>`**
 

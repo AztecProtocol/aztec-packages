@@ -25,7 +25,7 @@ struct lookup_alu_tag_max_bits_value_settings_ {
                                                                                     ColumnAndShifts::alu_max_bits,
                                                                                     ColumnAndShifts::alu_max_value };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::precomputed_idx,
         ColumnAndShifts::precomputed_tag_max_bits,
         ColumnAndShifts::precomputed_tag_max_value
     };
@@ -204,7 +204,7 @@ struct lookup_alu_shifts_two_pow_settings_ {
         ColumnAndShifts::alu_shift_lo_bits, ColumnAndShifts::alu_two_pow_shift_lo_bits
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_power_of_2
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::precomputed_power_of_2
     };
 };
 

@@ -3466,7 +3466,7 @@ struct lookup_keccakf1600_round_cst_settings_ {
         ColumnAndShifts::keccakf1600_round, ColumnAndShifts::keccakf1600_round_cst
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_keccak_round_constant
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::precomputed_keccak_round_constant
     };
 };
 

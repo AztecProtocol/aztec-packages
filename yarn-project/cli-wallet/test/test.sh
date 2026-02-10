@@ -1,4 +1,16 @@
 #!/usr/bin/env bash
+
+# To run these tests against a local network:
+# 1. Start a local Ethereum node (Anvil):
+#    anvil --host 127.0.0.1 --port 8545
+#
+# 2. Start the Aztec local network:
+#    cd yarn-project/aztec
+#    NODE_NO_WARNINGS=1 ETHEREUM_HOSTS=http://127.0.0.1:8545 node ./dest/bin/index.js start --local-network
+#
+# 3. Run the tests:
+#    ./test.sh 
+
 set -e
 
 LOCATION=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )

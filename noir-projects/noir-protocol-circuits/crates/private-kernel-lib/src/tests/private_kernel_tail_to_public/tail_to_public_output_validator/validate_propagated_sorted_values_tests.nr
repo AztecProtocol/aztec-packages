@@ -1,5 +1,5 @@
 use crate::tests::private_kernel_tail_to_public::TestBuilder;
-use dep::types::tests::utils::swap_items;
+use types::tests::utils::swap_items;
 
 // Only a few scenarios are tested here for `l2_to_l1_msgs`, `contract_class_logs_hashes`, and `public_call_requests` to
 // ensure that `assert_split_sorted_transformed_arrays` is applied to them.

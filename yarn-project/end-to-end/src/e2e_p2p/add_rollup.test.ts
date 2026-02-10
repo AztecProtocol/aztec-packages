@@ -350,9 +350,8 @@ describe('e2e_p2p_add_rollup', () => {
         });
 
         const rollup = new RollupContract(l1Client, l1ContractAddresses.rollupAddress);
-        const epoch = await rollup.getEpochNumberForCheckpoint(
-          CheckpointNumber.fromBlockNumber(l2OutgoingReceipt.blockNumber!),
-        );
+        const block = await node.getBlock(l2OutgoingReceipt.blockNumber!);
+        const epoch = await rollup.getEpochNumberForCheckpoint(block!.checkpointNumber);
 
         const l2ToL1MessageResult = (await computeL2ToL1MembershipWitness(node, epoch, leaf))!;
         const leafId = getL2ToL1MessageLeafId(l2ToL1MessageResult);

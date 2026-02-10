@@ -1,5 +1,5 @@
 use crate::Test;
-use dep::aztec::{protocol::address::AztecAddress, test::helpers::test_environment::TestEnvironment};
+use aztec::{protocol::address::AztecAddress, test::helpers::test_environment::TestEnvironment};
 
 global VALUE: u128 = 5;
 global STORAGE_SLOT: Field = 17;

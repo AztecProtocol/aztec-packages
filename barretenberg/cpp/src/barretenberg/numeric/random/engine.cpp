@@ -10,7 +10,17 @@
 #include <cstring>
 #include <functional>
 #include <random>
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#if TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR
+#include <unistd.h>
+extern "C" int getentropy(void* buffer, size_t length); // getentropy on iOS
+#else
+#include <sys/random.h> // getentropy on macOS
+#endif
+#else
 #include <sys/random.h>
+#endif
 
 namespace bb::numeric {
 

@@ -68,8 +68,8 @@ mod tests {
         assert_eq(flags[0], true);
         // is_infinity = false
         assert_eq(flags[1], false);
-        // is_greater = false (point.y < -point.y for G)
-        assert_eq(flags[2], false);
+        // is_greater = false (point.y > -point.y for G)
+        assert_eq(flags[2], true);
         // Decompress back to the same point:
         let mut bytes = compress_to_blob_commitment(point).compressed;
         // Same as &= 0b0001_1111 - clear first three bits of our flags
@@ -80,13 +80,8 @@ mod tests {
         // y^2 = x^3 + ax + b
         let reconstructed_y_squared =
             reconstructed_x.__pow(BLS12_381_Fq::from(3)).add(a.mul(reconstructed_x)).add(b);
-        let mut reconstructed_y = reconstructed_y_squared.__tonelli_shanks_sqrt().unwrap();
-        // If the sqrt returned is the 'greater' one, negate it (since here is_greater = false):
-        reconstructed_y = if reconstructed_y > -reconstructed_y {
-            -reconstructed_y
-        } else {
-            reconstructed_y
-        };
+        let mut reconstructed_y = -(reconstructed_y_squared.__sqrt().unwrap());
+
         assert_eq(reconstructed_y, point.y);
     }
 

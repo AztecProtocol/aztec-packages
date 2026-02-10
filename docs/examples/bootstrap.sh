@@ -90,7 +90,7 @@ function get_pr_number {
   local branch="${GITHUB_HEAD_REF:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null)}"
 
   if [[ -n "$branch" && "$branch" != "HEAD" ]]; then
-    gh pr list --head "$branch" --json number --jq '.[0].number' 2>/dev/null
+    gh pr list --head "$branch" --json number --jq '.[0].number' 2>/dev/null || echo "Failed to query PR number from branch $branch" >&2
   fi
 }
 

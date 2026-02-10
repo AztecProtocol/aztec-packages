@@ -1,7 +1,7 @@
 mod test;
 pub mod utils;
 
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 /// The purpose of this contract is to perform a check in public without revealing what contract enqueued the public
 /// call. This can be achieved by enqueueing an `incognito` public call.

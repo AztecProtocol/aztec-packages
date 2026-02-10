@@ -12,11 +12,40 @@ import {
 import type { Logger } from '@aztec/foundation/log';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
+import { type Sequencer, type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 
 import { inspect } from 'util';
 
 import { FeesTest } from './fees_test.js';
+
+/**
+ * Waits for the sequencer to reach IDLE state.
+ * This ensures any in-progress checkpoint job has completed and the next job will use the current config.
+ */
+function waitForSequencerIdle(sequencer: Sequencer, timeout = 30000): Promise<void> {
+  // If already idle, no need to wait
+  if (sequencer.status().state === SequencerState.IDLE) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      sequencer.off('state-changed', handler);
+      reject(new Error('Timeout waiting for sequencer IDLE state'));
+    }, timeout);
+
+    const handler = (args: Parameters<SequencerEvents['state-changed']>[0]) => {
+      if (args.newState === SequencerState.IDLE) {
+        clearTimeout(timer);
+        sequencer.off('state-changed', handler);
+        resolve();
+      }
+    };
+
+    sequencer.on('state-changed', handler);
+  });
+}
 
 describe('e2e_fees gas_estimation', () => {
   let wallet: Wallet;
@@ -77,7 +106,13 @@ describe('e2e_fees gas_estimation', () => {
     });
     logGasEstimate(estimatedGas);
 
+    const sequencer = t.context.sequencer!.getSequencer();
+
     await t.aztecNodeAdmin.setConfig({ minTxsPerBlock: 2, maxTxsPerBlock: 2 });
+
+    // Wait for any in-progress checkpoint job to complete before sending txs.
+    // This ensures the next checkpoint job will use the updated minTxsPerBlock config.
+    await waitForSequencerIdle(sequencer);
 
     const [withEstimate, withoutEstimate] = await sendTransfers(estimatedGas);
 

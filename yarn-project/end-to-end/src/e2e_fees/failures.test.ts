@@ -8,7 +8,7 @@ import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
-import { FunctionType } from '@aztec/stdlib/abi';
+import { FunctionCall, FunctionType } from '@aztec/stdlib/abi';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import { ExecutionPayload } from '@aztec/stdlib/tx';
 
@@ -334,16 +334,16 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
       this.sender,
       {
         caller: this.paymentContract,
-        call: {
+        call: FunctionCall.from({
           name: 'transfer_in_public',
-          args: [this.sender.toField(), this.paymentContract.toField(), maxFee, authwitNonce],
+          to: asset,
           selector: await FunctionSelector.fromSignature('transfer_in_public((Field),(Field),u128,Field)'),
           type: FunctionType.PUBLIC,
           hideMsgSender: false /** the target function performs an authwit, so msg_sender is needed */,
           isStatic: false,
-          to: asset,
+          args: [this.sender.toField(), this.paymentContract.toField(), maxFee, authwitNonce],
           returnTypes: [],
-        },
+        }),
       },
       true,
     );
@@ -351,7 +351,7 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
     return new ExecutionPayload(
       [
         ...(await setPublicAuthWitInteraction.request()).calls,
-        {
+        FunctionCall.from({
           name: 'fee_entrypoint_public',
           to: this.paymentContract,
           selector: await FunctionSelector.fromSignature('fee_entrypoint_public(u128,Field)'),
@@ -360,7 +360,7 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
           isStatic: false,
           args: [tooMuchFee, authwitNonce],
           returnTypes: [],
-        },
+        }),
       ],
       [],
       [],

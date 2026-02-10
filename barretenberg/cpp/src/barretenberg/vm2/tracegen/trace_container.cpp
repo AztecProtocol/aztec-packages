@@ -13,7 +13,6 @@ namespace {
 
 // We need a zero value to return (a reference to) when a value is not found.
 static const FF zero = FF::zero();
-constexpr auto clk_column = Column::precomputed_clk;
 
 } // namespace
 
@@ -83,20 +82,22 @@ uint32_t TraceContainer::get_column_rows(Column col) const
     return static_cast<uint32_t>(column_data.max_row_number + 1);
 }
 
-uint32_t TraceContainer::get_num_rows_without_clk() const
+uint32_t TraceContainer::get_num_witness_rows() const
 {
     uint32_t max_rows = 0;
-    for (size_t col = 0; col < num_columns(); ++col) {
-        if (static_cast<Column>(col) != clk_column) {
-            max_rows = std::max(max_rows, get_column_rows(static_cast<Column>(col)));
-        }
+    for (size_t col = WITNESS_START_IDX; col < WITNESS_END_IDX; ++col) {
+        max_rows = std::max(max_rows, get_column_rows(static_cast<Column>(col)));
     }
     return max_rows;
 }
 
 uint32_t TraceContainer::get_num_rows() const
 {
-    return std::max(get_column_rows(clk_column), get_num_rows_without_clk());
+    uint32_t max_rows = 0;
+    for (size_t col = 0; col < num_columns(); ++col) {
+        max_rows = std::max(max_rows, get_column_rows(static_cast<Column>(col)));
+    }
+    return max_rows;
 }
 
 void TraceContainer::visit_column(Column col, const std::function<void(uint32_t, const FF&)>& visitor) const

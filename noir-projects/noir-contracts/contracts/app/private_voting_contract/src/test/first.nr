@@ -1,5 +1,5 @@
 use crate::test::utils;
-use dep::aztec::protocol::storage::map::derive_storage_slot_in_map;
+use aztec::protocol::storage::map::derive_storage_slot_in_map;
 
 use crate::PrivateVoting;
 use crate::PrivateVoting::ElectionId;

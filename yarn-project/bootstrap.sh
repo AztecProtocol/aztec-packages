@@ -219,7 +219,7 @@ function test_cmds {
   done
 
   # Uses mocha for browser tests, so we have to treat it differently.
-  echo "$hash cd yarn-project/kv-store && yarn test"
+  echo "$hash:ISOLATE=1 cd yarn-project/kv-store && yarn test"
 
   if [[ "${TARGET_BRANCH:-}" =~ ^v[0-9]+$ ]]; then
     echo "$hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"
@@ -238,6 +238,7 @@ function bench_cmds {
   echo "$hash BENCH_OUTPUT=bench-out/native_world_state.bench.json yarn-project/scripts/run_test.sh world-state/src/native/native_bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/kv_store.bench.json yarn-project/scripts/run_test.sh kv-store/src/bench/map_bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/tx_pool.bench.json yarn-project/scripts/run_test.sh p2p/src/mem_pools/tx_pool/tx_pool_bench.test.ts"
+  echo "$hash BENCH_OUTPUT=bench-out/tx_pool_v2.bench.json yarn-project/scripts/run_test.sh p2p/src/mem_pools/tx_pool_v2/tx_pool_v2_bench.test.ts"
   echo "$hash:ISOLATE=1:CPUS=16:MEM=32g:TIMEOUT=1200 BENCH_OUTPUT=bench-out/p2p_client_proposal_tx_collector.bench.json yarn-project/scripts/run_test.sh p2p/src/client/test/tx_proposal_collector/p2p_client.proposal_tx_collector.bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/tx.bench.json yarn-project/scripts/run_test.sh stdlib/src/tx/tx_bench.test.ts"
   echo "$hash:ISOLATE=1:CPUS=10:MEM=16g:LOG_LEVEL=silent BENCH_OUTPUT=bench-out/proving_broker.bench.json yarn-project/scripts/run_test.sh prover-client/src/test/proving_broker_testbench.test.ts"

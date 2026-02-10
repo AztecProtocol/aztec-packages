@@ -44,25 +44,11 @@ if [ -d "$VERSIONED_DOCS_DIR" ]; then
         NIGHTLY_VERSIONS=$(echo "$ALL_VERSIONS" | grep "nightly" | sort -Vr)
         NON_NIGHTLY_VERSIONS=$(echo "$ALL_VERSIONS" | grep -v "nightly")
 
-        # Build versions array with nightly versions first, then preserve existing order
+        # Build versions array with non-nightly versions first, then nightly last
         NEW_VERSIONS="["
         FIRST=true
 
-        # Add nightly versions first (newest first)
-        if [ -n "$NIGHTLY_VERSIONS" ]; then
-            while IFS= read -r version; do
-                if [ -n "$version" ]; then
-                    if [ "$FIRST" = true ]; then
-                        NEW_VERSIONS="$NEW_VERSIONS\"$version\""
-                        FIRST=false
-                    else
-                        NEW_VERSIONS="$NEW_VERSIONS, \"$version\""
-                    fi
-                fi
-            done <<< "$NIGHTLY_VERSIONS"
-        fi
-
-        # Add non-nightly versions preserving existing order, then new ones
+        # Add non-nightly versions first, preserving existing order, then new ones
         if [ -n "$NON_NIGHTLY_VERSIONS" ]; then
             # First add existing non-nightly versions in their current order
             if [ -n "$EXISTING_VERSIONS" ]; then
@@ -95,6 +81,20 @@ if [ -d "$VERSIONED_DOCS_DIR" ]; then
                     fi
                 fi
             done <<< "$(echo "$NON_NIGHTLY_VERSIONS" | sort -Vr)"
+        fi
+
+        # Add nightly versions last (newest first)
+        if [ -n "$NIGHTLY_VERSIONS" ]; then
+            while IFS= read -r version; do
+                if [ -n "$version" ]; then
+                    if [ "$FIRST" = true ]; then
+                        NEW_VERSIONS="$NEW_VERSIONS\"$version\""
+                        FIRST=false
+                    else
+                        NEW_VERSIONS="$NEW_VERSIONS, \"$version\""
+                    fi
+                fi
+            done <<< "$NIGHTLY_VERSIONS"
         fi
 
         NEW_VERSIONS="$NEW_VERSIONS]"

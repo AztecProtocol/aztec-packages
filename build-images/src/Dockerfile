@@ -21,12 +21,12 @@ RUN export DEBIAN_FRONTEND="noninteractive" \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Install rust and cross-compilers. Noir specifically uses 1.85.0.
+# Install rust and cross-compilers. Noir specifically uses 1.89.0.
 # We give everyone write ownership so downstream boxes can write.
 ENV RUSTUP_HOME=/opt/rust/rustup
 ENV CARGO_HOME=/opt/rust/cargo
 ENV PATH="/opt/rust/cargo/bin:$PATH"
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.85.0 && \
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.89.0 && \
     rustup target add wasm32-unknown-unknown wasm32-wasip1 aarch64-apple-darwin && \
     chmod -R a+w /opt/rust
 
