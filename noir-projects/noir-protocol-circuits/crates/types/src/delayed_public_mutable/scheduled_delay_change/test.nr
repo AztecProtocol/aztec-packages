@@ -184,14 +184,14 @@ unconstrained fn assert_effective_minimum_delay_invariants<let INITIAL_DELAY: u6
     }
 
     // Another possibility would be to schedule a value change at the historical timestamp (blocks within the same
-    // checkpoint can share timestamps, so the earliest scheduling can happen at the anchor timestamp - smallest
-    // timestamp of a block following the anchor block).
+    // checkpoint can share timestamps, so the earliest scheduling can happen at the anchor timestamp which is the
+    // smallest timestamp of a block following the anchor block).
     let change_schedule_timestamp = historical_timestamp + 0;
     let value_change_timestamp =
         change_schedule_timestamp + delay_change.get_current(change_schedule_timestamp);
     assert(expected_earliest_value_change_timestamp <= value_change_timestamp);
 
-    // Finally, a delay reduction could be scheduled at the historical timestamp - smallest timestamp of a block
+    // Finally, a delay reduction could be scheduled at the anchor timestamp which is the smallest timestamp of a block
     // following the anchor block (blocks within the same checkpoint can share timestamps). We reduce the delay to
     // zero, which means that at the delay timestamp of change there'll be no delay and a value change could be
     // performed immediately then.
