@@ -4,7 +4,7 @@ mod validate_propagated_values_tests;
 
 use crate::components::{gas_meter::meter_gas_used, tail_output_validator::TailOutputValidator};
 use super::TestBuilder;
-use ::types::abis::kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs;
+use types::abis::kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs;
 
 impl TestBuilder {
     pub fn export_output(self) -> PrivateToRollupKernelCircuitPublicInputs {

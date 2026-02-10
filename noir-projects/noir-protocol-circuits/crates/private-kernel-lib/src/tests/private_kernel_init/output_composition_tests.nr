@@ -1,5 +1,5 @@
 use super::TestBuilder;
-use ::types::{
+use types::{
     address::AztecAddress,
     constants::DEFAULT_UPDATE_DELAY,
     hash::{create_protocol_nullifier, silo_nullifier},

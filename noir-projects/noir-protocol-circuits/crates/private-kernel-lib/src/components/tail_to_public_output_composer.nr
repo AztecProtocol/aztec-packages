@@ -9,7 +9,7 @@ use crate::{
         private_kernel_circuit_output_composer::PrivateKernelCircuitOutputComposer,
     },
 };
-use ::types::abis::kernel_circuit_public_inputs::{
+use types::abis::kernel_circuit_public_inputs::{
     PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
 };
 

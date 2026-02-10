@@ -1,5 +1,5 @@
 use super::TestBuilder;
-use ::types::tests::utils::assert_array_eq;
+use types::tests::utils::assert_array_eq;
 
 impl TestBuilder {
     pub fn new_all_pending() -> Self {

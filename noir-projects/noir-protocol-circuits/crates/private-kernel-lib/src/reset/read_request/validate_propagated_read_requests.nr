@@ -1,5 +1,5 @@
 use super::{read_request_action::ReadRequestActions, read_request_hints::ReadRequestHints};
-use ::types::{side_effect::{Counted, Scoped}, utils::arrays::ClaimedLengthArray};
+use types::{side_effect::{Counted, Scoped}, utils::arrays::ClaimedLengthArray};
 
 pub fn validate_propagated_read_requests<let ReadRequestLen: u32, let PendingReadHintsLen: u32, let SettledReadHintsLen: u32, let TreeHeight: u32, SettledReadLeafPreimage>(
     read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, ReadRequestLen>,

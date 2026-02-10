@@ -1,11 +1,11 @@
 mod util;
 mod auth_oracle;
 
-use ::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract SchnorrSingleKeyAccount {
-    use ::aztec::{
+    use aztec::{
         authwit::{account::AccountActions, entrypoint::app::AppPayload},
         context::PrivateContext,
         oracle::notes::set_sender_for_tags,
@@ -13,7 +13,7 @@ pub contract SchnorrSingleKeyAccount {
 
     use crate::{auth_oracle::get_auth_witness, util::recover_address};
 
-    use ::aztec::macros::functions::{allow_phase_change, external, view};
+    use aztec::macros::functions::{allow_phase_change, external, view};
 
     // @dev: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts (specifically `getEntrypointAbi()`)
     #[external("private")]

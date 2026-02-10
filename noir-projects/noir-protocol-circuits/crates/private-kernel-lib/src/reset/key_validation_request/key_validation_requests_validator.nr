@@ -2,7 +2,7 @@ use super::{
     key_validation_hint::KeyValidationHint,
     validate_key_validation_request::validate_key_validation_request,
 };
-use ::types::{
+use types::{
     abis::validation_requests::KeyValidationRequestAndGenerator, side_effect::Scoped,
     utils::arrays::ClaimedLengthArray,
 };

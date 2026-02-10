@@ -2,7 +2,7 @@ use crate::components::{
     previous_kernel_for_tail_validator::validate_previous_kernel_for_tail,
     tail_output_composer::TailOutputComposer, tail_output_validator::TailOutputValidator,
 };
-use ::types::{
+use types::{
     abis::{
         kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
         private_kernel_data::PrivateKernelData,

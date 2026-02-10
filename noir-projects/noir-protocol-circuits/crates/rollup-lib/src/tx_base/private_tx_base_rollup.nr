@@ -4,7 +4,7 @@ use crate::{
         PrivateTxBaseInputsValidator, TreeSnapshotDiffHints, TxBasePublicInputsComposer,
     },
 };
-use ::types::{
+use types::{
     abis::{
         block_constant_data::BlockConstantData,
         kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,

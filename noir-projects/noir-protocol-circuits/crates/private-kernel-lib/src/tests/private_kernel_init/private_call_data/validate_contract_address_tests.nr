@@ -1,9 +1,9 @@
 use crate::tests::private_kernel_init::TestBuilder;
-use ::types::{
+use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key};
+use types::{
     abis::protocol_contracts::ProtocolContracts, address::AztecAddress,
     constants::MAX_PROTOCOL_CONTRACTS, traits::FromField,
 };
-use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key};
 
 impl TestBuilder {
     pub fn new_with_regular_contract() -> Self {

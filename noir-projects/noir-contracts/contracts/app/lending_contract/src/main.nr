@@ -10,22 +10,22 @@ mod helpers;
 // - Update accumulator should be for specific asset, just abusing only 1 asset atm.
 // - A way to repay all debt at once
 // - Liquidations
-use ::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract Lending {
-    use ::aztec::{protocol::address::AztecAddress, state_vars::{Map, PublicMutable}};
+    use aztec::{protocol::address::AztecAddress, state_vars::{Map, PublicMutable}};
 
     use crate::asset::Asset;
     use crate::helpers::{compute_identifier, covered_by_collateral, debt_updates, debt_value};
     use crate::interest_math::compute_multiplier;
     use crate::position::Position;
-    use ::price_feed::PriceFeed;
-    use ::token::Token;
+    use price_feed::PriceFeed;
+    use token::Token;
 
-    use ::aztec::macros::{functions::{external, initializer, only_self, view}, storage::storage};
+    use aztec::macros::{functions::{external, initializer, only_self, view}, storage::storage};
 
-    use ::aztec::protocol::traits::{FromField, ToField};
+    use aztec::protocol::traits::{FromField, ToField};
 
     // docs:start:custom_struct_storage_map
     // Storage structure, containing all storage, and specifying what slots they use.

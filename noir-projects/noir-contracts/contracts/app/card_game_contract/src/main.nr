@@ -1,21 +1,21 @@
 mod cards;
 mod game;
 
-use ::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract CardGame {
-    use ::aztec::protocol::address::AztecAddress;
-    use ::aztec::protocol::hash::poseidon2_hash;
-    use ::aztec::state_vars::{Map, PublicMutable};
+    use aztec::protocol::address::AztecAddress;
+    use aztec::protocol::hash::poseidon2_hash;
+    use aztec::state_vars::{Map, PublicMutable};
 
-    use ::aztec::note::constants::MAX_NOTES_PER_PAGE;
+    use aztec::note::constants::MAX_NOTES_PER_PAGE;
 
     use crate::cards::{Card, compute_deck_strength, Deck, get_pack_cards};
     use crate::game::{Game, PLAYABLE_CARDS, PlayerEntry};
-    use ::aztec::macros::{functions::{external, only_self}, storage::storage};
+    use aztec::macros::{functions::{external, only_self}, storage::storage};
 
-    use ::aztec::protocol::traits::{FromField, ToField};
+    use aztec::protocol::traits::{FromField, ToField};
 
     #[storage]
     struct Storage<Context> {

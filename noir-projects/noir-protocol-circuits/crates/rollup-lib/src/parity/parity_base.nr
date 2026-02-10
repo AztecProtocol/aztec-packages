@@ -1,5 +1,5 @@
 use crate::abis::ParityPublicInputs;
-use ::types::{constants::NUM_MSGS_PER_BASE_PARITY, merkle_tree::MerkleTree};
+use types::{constants::NUM_MSGS_PER_BASE_PARITY, merkle_tree::MerkleTree};
 
 pub struct ParityBasePrivateInputs {
     pub(crate) msgs: [Field; NUM_MSGS_PER_BASE_PARITY],

@@ -1,4 +1,4 @@
-use ::mock_types::{
+use mock_types::{
     KernelPublicInputs, MEGA_VK_LENGTH_IN_FIELDS, PROOF_TYPE_HN_FINAL, VerificationKey,
 };
 
