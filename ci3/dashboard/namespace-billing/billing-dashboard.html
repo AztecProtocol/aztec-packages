@@ -221,13 +221,12 @@
       const dates = data.map(e=>e.date);
       let nsSet = [...new Set(data.flatMap(e=>Object.keys(e.namespaces).filter(n=>nsF==='all'||n===nsF)))].sort();
       if (visibleNs) nsSet = nsSet.filter(ns => visibleNs.has(ns));
-      let chartNs = nsSet, hasOther = false;
-      if (n > 0 && nsSet.length > n) {
-        const byTotal = nsSet.map(ns => [ns, a.nsTotals[ns]?.total||0]).sort((x,y)=>y[1]-x[1]);
-        const namedSet = new Set(byTotal.slice(0, n).map(e=>e[0]));
-        chartNs = [...namedSet];
+      // All union members get their own segment; "other" = everything outside the union
+      const chartNs = nsSet.slice().sort((a,b) => (agg(nsF).nsTotals[b]?.total||0) - (agg(nsF).nsTotals[a]?.total||0));
+      let hasOther = false;
+      if (n > 0) {
+        const namedSet = new Set(chartNs);
         hasOther = true;
-        // "other" = all costs in each bucket not attributed to the named top N
         var otherData = data.map(e => {
           const allNs = nsF && nsF !== 'all' ? (e.namespaces[nsF] ? {[nsF]:e.namespaces[nsF]} : {}) : e.namespaces;
           return Object.entries(allNs).reduce((s, [ns, nd]) => s + (namedSet.has(ns) ? 0 : ((nd.total||0))), 0);
