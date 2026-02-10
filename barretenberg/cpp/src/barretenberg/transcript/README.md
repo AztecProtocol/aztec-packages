@@ -197,7 +197,7 @@ auto commitment = transcript->receive_from_prover<Commitment>("wire_commitments"
 - Deserializes via `Codec::deserialize_from_fields<T>()` which enforces:
   - **Curve checks** (for point types): `validate_on_curve()` called during deserialization
   - **Range constraints** (for `bigfield` with UltraCircuitBuilder): Limb bounds enforced
-  - **Point-at-infinity detection**: `check_point_at_infinity()` used during point reconstruction
+  - **Point-at-infinity detection**: auto-detected from (0, 0) coordinates during point reconstruction
 - Assigns and validates origin tag (in-circuit mode)
 
 ### Challenge Generation
