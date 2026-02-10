@@ -14,14 +14,14 @@ async function main() {
     process.exit(1);
   }
   const blobHashes = process.argv.slice(3).map(hexToBuffer);
-  logger.info(`Fetching blobs for block hash ${blockHash}`);
+  logger.info('Fetching blobs for block hash %s', blockHash);
   if (blobHashes.length > 0) {
-    logger.info(`Filtering by blob hashes ${blobHashes.map(bufferToHex).join(', ')}`);
+    logger.info('Filtering by blob hashes %s', blobHashes.map(bufferToHex).join(', '));
   }
 
   const blobClient = createBlobClient(getBlobClientConfigFromEnv());
   const blobs = await blobClient.getBlobSidecar(blockHash, blobHashes);
-  logger.info(`Got ${blobs.length} blobs`);
+  logger.info('Got %s blobs', blobs.length);
   for (const blob of blobs) {
     console.log(blob.toJSON());
   }
