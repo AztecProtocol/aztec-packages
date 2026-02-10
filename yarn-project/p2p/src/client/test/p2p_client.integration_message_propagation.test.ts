@@ -1,5 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -7,7 +7,7 @@ import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundati
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
-import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { BlockProposal, CheckpointAttestation } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { type MakeConsensusPayloadOptions, makeBlockProposal } from '@aztec/stdlib/testing';
@@ -46,6 +46,8 @@ describe('p2p client integration message propagation', () => {
 
   let clients: P2PClient[] = [];
 
+  const currentSlot = SlotNumber(1);
+
   beforeEach(() => {
     clients = [];
     txPool = mock<TxPool>();
@@ -58,6 +60,7 @@ describe('p2p client integration message propagation', () => {
 
     //@ts-expect-error - we want to mock the getEpochAndSlotInNextL1Slot method, mocking ts is enough
     epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) });
+    epochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot, nextSlot: SlotNumber(currentSlot + 1) });
     epochCache.getRegisteredValidators.mockResolvedValue([]);
     epochCache.getL1Constants.mockReturnValue({
       l1StartBlock: 0n,
@@ -68,6 +71,11 @@ describe('p2p client integration message propagation', () => {
       proofSubmissionEpochs: 2,
       targetCommitteeSize: 48,
     });
+
+    const mockMerkleTreeOps = mock<MerkleTreeReadOperations>();
+    mockMerkleTreeOps.findLeafIndices.mockResolvedValue([]);
+    worldState.getCommitted.mockReturnValue(mockMerkleTreeOps);
+    worldState.getSnapshot.mockReturnValue(mockMerkleTreeOps);
 
     txPool.isEmpty.mockResolvedValue(true);
     txPool.hasTxs.mockResolvedValue([]);
@@ -194,7 +202,7 @@ describe('p2p client integration message propagation', () => {
     // Client 1 sends a block proposal
     const dummyPayload: MakeConsensusPayloadOptions = {
       signer: Secp256k1Signer.random(),
-      header: CheckpointHeader.random(),
+      header: CheckpointHeader.random({ slotNumber: currentSlot }),
       archive: Fr.random(),
       txHashes: [TxHash.random()],
     };
@@ -346,7 +354,7 @@ describe('p2p client integration message propagation', () => {
         // Client 1 sends a block proposal
         const dummyPayload: MakeConsensusPayloadOptions = {
           signer: Secp256k1Signer.random(),
-          header: CheckpointHeader.random(),
+          header: CheckpointHeader.random({ slotNumber: currentSlot }),
           archive: Fr.random(),
           txHashes: [TxHash.random()],
         };
