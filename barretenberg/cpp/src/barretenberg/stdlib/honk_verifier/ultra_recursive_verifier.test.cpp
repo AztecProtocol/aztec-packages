@@ -457,23 +457,8 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
         EXPECT_EQ(cc.size(), 1);
 
         // Expected variables in one gate:
-        // - Base count of is_infinity booleans (MegaBuilder only, one per deserialized commitment)
         // - +1 for unused Shplonk power (non-ZK flavors only)
-        //
-        // AUDITTODO: When using MegaBuilder as outer circuit, goblin_element::from_witness() creates
-        // is_point_at_infinity boolean witnesses for each deserialized commitment. These bools are only
-        // constrained to be 0/1 (via bool gate) but are not linked to the actual point coordinates.
         size_t expected_unconstrained = 0;
-        if constexpr (IsMegaBuilder<OuterBuilder>) {
-            // Number of is_infinity booleans depends on number of commitments in the proof
-            if constexpr (IsAnyOf<RecursiveFlavor,
-                                  MegaRecursiveFlavor_<OuterBuilder>,
-                                  MegaZKRecursiveFlavor_<OuterBuilder>>) {
-                expected_unconstrained = 31; // Mega proofs have more commitments
-            } else {
-                expected_unconstrained = 28; // Ultra proofs have fewer commitments
-            }
-        }
         // Add 1 for unused Shplonk power in non-ZK flavors
         if constexpr (!RecursiveFlavor::HasZK) {
             expected_unconstrained += 1;
