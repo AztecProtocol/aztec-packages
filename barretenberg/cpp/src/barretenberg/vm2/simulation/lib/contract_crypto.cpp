@@ -44,8 +44,8 @@ FF compute_public_bytecode_separator(size_t bytecode_size)
 {
     // TODO(MW): 32 (4 bytes) chosen just to keep the value of sep small and avoids having to change types further down
     // the stack.
-    // The maximum sep is currently: Fr<0x00000000000000000000000000000000000000000000000000016b48fd05e4c9>
-    // Max fields in bytes = 3000 * 31 = 16b48, Dom sep = fd05e4c9
+    // The maximum sep is currently: Fr<0x00000000000000000000000000000000000000000000000000016b480f8411f1>
+    // Max fields in bytes = 3000 * 31 = 16b48, Dom sep = f8411f1
     return uint256_t(DOM_SEP__PUBLIC_BYTECODE) + uint256_t(bytecode_size << 32);
 }
 
