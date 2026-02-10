@@ -41,7 +41,7 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
 
         for (uint32_t i = 0; i < event.limbs.size(); ++i) {
             const bool is_padding = i > safe_limbs;
-            const uint8_t limb = event.limbs[i];
+            const uint8_t limb = event.limbs[i]; // Safe access by the precondition that i < event.limbs.size().
             const uint8_t p_limb = is_padding ? 0 : p_limbs[static_cast<size_t>(i)];
 
             // If the new limb is equal to the p limb, this will not change the boolean value of acc_under_p.
@@ -172,6 +172,8 @@ void ToRadixTraceBuilder::process_with_memory(
         // If no error occured, the following invariant must hold (honest simulation):
         BB_ASSERT(event.limbs.size() == static_cast<size_t>(num_limbs), "Number of limbs does not match");
 
+        // From now on, accessing event.limbs[i] for any 0<=i<num_limbs is safe.
+
         // Num limbs = 0 short circuit
         if (num_limbs == 0) {
             trace.set(row,
@@ -211,7 +213,7 @@ void ToRadixTraceBuilder::process_with_memory(
                           // Decomposition
                           { C::to_radix_mem_sel_should_decompose, 1 },
                           { C::to_radix_mem_limb_index_to_lookup, num_limbs - 1 },
-                          { C::to_radix_mem_limb_value, event.limbs.at(0).as_ff() },
+                          { C::to_radix_mem_limb_value, event.limbs[0].as_ff() },
                           { C::to_radix_mem_value_found, 0 },
                       } });
 
@@ -219,15 +221,15 @@ void ToRadixTraceBuilder::process_with_memory(
             continue;
         }
 
-        uint32_t remaining_limbs = static_cast<uint32_t>(num_limbs);
+        uint32_t remaining_limbs = num_limbs;
 
         // Base case
         // Here we have the following guarantees:
         // - num_limbs > 0
         // - No error occured
         for (uint32_t i = 0; i < num_limbs; ++i) {
-            MemoryValue limb_value = event.limbs.at(i);
-            bool last = i == (num_limbs - 1);
+            const MemoryValue& limb_value = event.limbs[i];
+            const bool last = i == (num_limbs - 1);
 
             trace.set(row,
                       { {
