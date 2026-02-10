@@ -217,16 +217,28 @@
         `top: <span>${top[0]?top[0][0]:'--'} (${top[0]?fmt(top[0][1].total):'--'})</span> &middot; ` +
         `namespaces: <span>${Object.keys(a.nsTotals).length}</span>`;
 
-      // timeline
+      // timeline: show top N overall as named segments, rest of union as "other"
       const dates = data.map(e=>e.date);
       let nsSet = [...new Set(data.flatMap(e=>Object.keys(e.namespaces).filter(n=>nsF==='all'||n===nsF)))].sort();
       if (visibleNs) nsSet = nsSet.filter(ns => visibleNs.has(ns));
+      let chartNs = nsSet, hasOther = false;
+      if (n > 0 && nsSet.length > n) {
+        const byTotal = nsSet.map(ns => [ns, a.nsTotals[ns]?.total||0]).sort((x,y)=>y[1]-x[1]);
+        const namedSet = new Set(byTotal.slice(0, n).map(e=>e[0]));
+        const otherNs = nsSet.filter(ns => !namedSet.has(ns));
+        chartNs = [...namedSet];
+        hasOther = otherNs.length > 0;
+        // Build "other" dataset by summing the remaining union members per bucket
+        var otherData = data.map(e => otherNs.reduce((s, ns) => s + ((e.namespaces[ns]||{}).total||0), 0));
+      }
+      const datasets = chartNs.map(ns => ({
+        label:ns, data: data.map(e=>(e.namespaces[ns]||{}).total||0),
+        backgroundColor: nsColor(ns), borderWidth:0
+      }));
+      if (hasOther) datasets.push({ label:'other', data:otherData, backgroundColor:'#333', borderWidth:0 });
       charts.t = new Chart(document.getElementById('timeline').getContext('2d'), {
         type:'bar',
-        data: { labels: dates.map(fmtDate), datasets: nsSet.map(ns => ({
-          label:ns, data: data.map(e=>(e.namespaces[ns]||{}).total||0),
-          backgroundColor: nsColor(ns), borderWidth:0
-        }))},
+        data: { labels: dates.map(fmtDate), datasets },
         options: {
           responsive:true, maintainAspectRatio:false,
           interaction:{mode:'index',intersect:false},
