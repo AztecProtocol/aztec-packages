@@ -256,7 +256,8 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     std::get<13>(accumulator) += precompute_select * (precompute_skew * (precompute_skew - 7)) * scaling_factor;
 
     // Set slices (a.k.a. compressed digits), pc, and round all to zero when `precompute_select == 0`.
-    // (this is for one of the multiset equality checks.)
+    // (this is for one of the multiset equality checks.) Defensively, we also set precompute_point_transition to 0 when
+    // precompute_select == 0.
     const auto precompute_select_zero = (-precompute_select + 1) * scaling_factor;
     std::get<14>(accumulator) += precompute_select_zero * (w0 + 15);
     std::get<15>(accumulator) += precompute_select_zero * (w1 + 15);
@@ -265,14 +266,6 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
 
     std::get<18>(accumulator) += precompute_select_zero * round;
     std::get<19>(accumulator) += precompute_select_zero * pc;
-
-    // Note(@zac-williamson #2226)
-    // if precompute_select = 0, validate pc, round, slice values are all zero
-    // If we do this we can reduce the degree of the set equivalence relations
-    // (currently when checking pc/round/wnaf tuples from WNAF columns match those from MSM columns,
-    //  we conditionally include tuples depending on if precompute_select = 1 (for WNAF columns) or if q_add1/2/3/4 = 1
-    //  (for MSM columns).
-    // If we KNOW that the wnaf tuple values are 0 when precompute_select = 0, we can remove the conditional checks in
-    // the set equivalence relation
+    std::get<21>(accumulator) += precompute_select_zero * q_transition;
 }
 } // namespace bb
