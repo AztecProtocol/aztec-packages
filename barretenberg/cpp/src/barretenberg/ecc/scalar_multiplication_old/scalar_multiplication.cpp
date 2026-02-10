@@ -16,6 +16,7 @@
 #include "barretenberg/numeric/general/general.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 
@@ -55,6 +56,7 @@ template <typename Curve>
 void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typename Curve::ScalarField> scalars,
                                                                  std::vector<uint32_t>& consolidated_indices) noexcept
 {
+    BB_BENCH_NAME("old::transform_scalars");
     std::vector<std::vector<uint32_t>> thread_indices(get_num_cpus());
 
     parallel_for([&](const ThreadChunk& chunk) {
@@ -113,7 +115,7 @@ template <typename Curve>
 std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
     std::span<std::span<ScalarField>> scalars, std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept
 {
-
+    BB_BENCH_NAME("old::get_work_units");
     const size_t num_msms = scalars.size();
     msm_scalar_indices.resize(num_msms);
     for (size_t i = 0; i < num_msms; ++i) {
@@ -325,6 +327,7 @@ void MSM<Curve>::add_affine_points(typename Curve::AffineElement* points,
                                    const size_t num_points,
                                    typename Curve::BaseField* scratch_space) noexcept
 {
+    BB_BENCH_NAME("old::add_affine_points");
     using Fq = typename Curve::BaseField;
     Fq batch_inversion_accumulator = Fq::one();
 
@@ -375,6 +378,7 @@ void MSM<Curve>::add_affine_points(typename Curve::AffineElement* points,
 template <typename Curve>
 typename Curve::Element MSM<Curve>::small_pippenger_low_memory_with_transformed_scalars(MSMData& msm_data) noexcept
 {
+    BB_BENCH_NAME("old::jacobian_pippenger");
     std::span<const uint32_t>& nonzero_scalar_indices = msm_data.scalar_indices;
     const size_t size = nonzero_scalar_indices.size();
     const size_t bits_per_slice = get_optimal_log_num_buckets(size);
@@ -400,6 +404,7 @@ typename Curve::Element MSM<Curve>::small_pippenger_low_memory_with_transformed_
 template <typename Curve>
 typename Curve::Element MSM<Curve>::pippenger_low_memory_with_transformed_scalars(MSMData& msm_data) noexcept
 {
+    BB_BENCH_NAME("old::affine_pippenger");
     const size_t msm_size = msm_data.scalar_indices.size();
     const size_t bits_per_slice = get_optimal_log_num_buckets(msm_size);
     const size_t num_buckets = 1 << bits_per_slice;
@@ -763,6 +768,7 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     std::span<std::span<ScalarField>> scalars,
     bool handle_edge_cases) noexcept
 {
+    BB_BENCH_NAME("old::batch_multi_scalar_mul");
     BB_ASSERT_EQ(points.size(), scalars.size());
     const size_t num_msms = points.size();
 

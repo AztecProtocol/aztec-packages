@@ -761,17 +761,21 @@ __attribute__((always_inline)) inline void batch_affine_add_impl(const AffineEle
         AffineElement& output = rhs_base[Policy::template output_index<AffineElement>(i, num_pairs)];
         Fq& scratch = scratch_space[i];
 
+        // lambda = (y2 - y1) / (x2 - x1), completing the batch inversion
+        rhs.y *= batch_inversion_accumulator;
+        batch_inversion_accumulator *= rhs.x;
+        rhs.x = rhs.y.sqr();
+        output.x = rhs.x - scratch; // x3 = lambda^2 - (x1 + x2)
+
+        // Prefetch AFTER output.x is computed — gives maximum latency hiding for next iteration's data
         if constexpr (Policy::ENABLE_PREFETCH) {
             Policy::prefetch_iteration(rhs_base, scratch_space, i, num_pairs);
         }
 
-        rhs.y *= batch_inversion_accumulator;
-        batch_inversion_accumulator *= rhs.x;
-        rhs.x = rhs.y.sqr();
-        output.x = rhs.x - scratch;
-        scratch = lhs.x - output.x;
-        scratch *= rhs.y;
-        output.y = scratch - lhs.y;
+        // y3 = lambda * (x1 - x3) - y1; use local temp to avoid writing back through scratch_space
+        Fq temp = lhs.x - output.x;
+        temp *= rhs.y;
+        output.y = temp - lhs.y;
     }
 }
 
