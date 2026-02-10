@@ -98,6 +98,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
     // Compute the length of the vector of coefficients of a polynomial being opened.
     static constexpr size_t poly_length = 1UL << log_poly_length;
+    static_assert(log_poly_length >= 1, "log_poly_length must be at least 1");
 
 // These allow access to internal functions so that we can never use a mock transcript unless it's fuzzing or testing of
 // IPA specifically
