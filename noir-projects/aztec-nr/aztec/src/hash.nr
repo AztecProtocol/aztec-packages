@@ -144,5 +144,5 @@ unconstrained fn public_bytecode_commitment() {
     input[0] = (len as Field) * 31;
     let hash = compute_public_bytecode_commitment(input);
     // Used in cpp vm2 tests:
-    assert_eq(hash, 0x0c8f69a2f17ceb90f720db5718a8b2bd948db32d17858db403373b3bfe880113);
+    assert_eq(hash, 0x09348974e76c3602893d7a4b4bb52c2ec746f1ade5004ac471d0fbb4587a81a6);
 }
