@@ -271,8 +271,8 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
         // explicit point in an `add` op or the result of an MSM at the end of an MSM. RHS is often referred to as A.
         Accumulator transcript_lambda_relation(0);
         auto is_double = transcript_add_x_equal * transcript_add_y_equal; // degree 2
-        // `is_add == 1` iff the op_code is `add` and the x-value of the point-to-add and the accumulator are _not_
-        // equal. this ensures that it is not a double and that the result is not the point-at-infinity.
+        // `is_add == 1` iff the x-values of the point-to-add and the accumulator are _not_ equal. this ensures that
+        // it is not a double and that the result is not the point-at-infinity. Used for both `add` and MSM operations.
         auto is_add = -transcript_add_x_equal + 1; // degree 1
         // `add_result_is_infinity == 1` iff the op_code is `add`, the x-value of the point-to-add and the accumulator
         // are equal, and the y-values are unequal. then the result of the accumulation is of course the
@@ -307,7 +307,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
         auto result_is_infinity = result_infinity_from_inputs + result_infinity_from_operation; // degree 2
         auto any_add_is_active = q_add + msm_transition;                                        // degree 1
 
-        // Valdiate `transcript_add_lambda` is well formed if we are adding MSM output into accumulator
+        // Validate `transcript_msm_lambda` is well formed if we are adding MSM output into accumulator
         {
             Accumulator transcript_msm_lambda_relation(0);
             auto msm_x = transcript_msm_x;
