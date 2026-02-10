@@ -193,16 +193,16 @@ Field<CircuitBuilder> get_add_two_gate_output(CircuitBuilder& builder,
     // Process the cases where one of the summands is a constant
     // I have no idea how to make it smarter
     if (a.is_constant()) {
-        auto const_add_res = Field<CircuitBuilder>{ b_idx, b + c };
-        return get_add_gate_output<FF>(builder, const_add_res, c_idx);
+        auto const_add_res = Field<CircuitBuilder>{ b_idx, a + b };
+        return get_add_gate_output<FF>(builder, const_add_res, c_field);
     }
     if (b.is_constant()) {
-        auto const_add_res = Field<CircuitBuilder>{ a_idx, a + c };
-        return get_add_gate_output<FF>(builder, const_add_res, b_idx);
+        auto const_add_res = Field<CircuitBuilder>{ a_idx, a + b };
+        return get_add_gate_output<FF>(builder, const_add_res, c_field);
     }
     if (c.is_constant()) {
-        auto const_add_res = Field<CircuitBuilder>{ a_idx, a + b };
-        return get_add_gate_output<FF>(builder, const_add_res, c_idx);
+        auto const_add_res = Field<CircuitBuilder>{ b_idx, b + c };
+        return get_add_gate_output<FF>(builder, a_field, const_add_res);
     }
 
     FF a_scaling = a.multiplicative_constant;
