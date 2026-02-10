@@ -168,6 +168,16 @@ void ToRadixTraceBuilder::process_with_memory(
             continue;
         }
 
+        // Num limbs = 0 short circuit
+        if (event.num_limbs == 0) {
+            trace.set(row,
+                      { {
+                          { C::to_radix_mem_last, 1 },
+                      } });
+            row++;
+            continue;
+        }
+
         // At this point, a decomposition has happened, so we can process the limbs
 
         // Compute found for the given decomposition
@@ -181,16 +191,6 @@ void ToRadixTraceBuilder::process_with_memory(
             acc += power * limb_value;
             power *= event.radix;
             found[reverse_index] = acc == event.value;
-        }
-
-        // Num limbs = 0 short circuit
-        if (event.num_limbs == 0) {
-            trace.set(row,
-                      { {
-                          { C::to_radix_mem_last, 1 },
-                      } });
-            row++;
-            continue;
         }
 
         // Truncation error. A radix decomposition in the non-memory aware to_radix subtrace is performed.
