@@ -1,23 +1,22 @@
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall, NO_WAIT } from '@aztec/aztec.js/contracts';
-import { broadcastPrivateFunction, broadcastUtilityFunction, publishContractClass } from '@aztec/aztec.js/deployment';
+import { publishContractClass } from '@aztec/aztec.js/deployment';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
 import { FIELDS_PER_BLOB } from '@aztec/constants';
+import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
+import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
 import { AvmGadgetsTestContract } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
 import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import { type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_multiple_blobs', () => {
-  const contractArtifact = TestContract.artifact;
-
   let contract: TestContract;
   let logger: Logger;
   let wallet: Wallet;
@@ -25,13 +24,6 @@ describe('e2e_multiple_blobs', () => {
   let aztecNode: AztecNode;
   let aztecNodeAdmin: AztecNodeAdmin;
   let teardown: () => Promise<void>;
-
-  const broadcastFunction = async (artifact: FunctionArtifact) => {
-    const selector = await FunctionSelector.fromNameAndParameters(artifact);
-    return artifact.functionType == FunctionType.PRIVATE
-      ? await broadcastPrivateFunction(wallet, contractArtifact, selector)
-      : await broadcastUtilityFunction(wallet, contractArtifact, selector);
-  };
 
   beforeAll(async () => {
     let maybeAztecNodeAdmin: AztecNodeAdmin | undefined;
@@ -52,23 +44,16 @@ describe('e2e_multiple_blobs', () => {
   afterAll(() => teardown());
 
   it('includes multiple txs in a block that produces multiple blobs', async () => {
-    const privateFunctions = contractArtifact.functions.filter(fn => fn.functionType == FunctionType.PRIVATE);
-    const utilityFunctions = contractArtifact.functions.filter(fn => fn.functionType == FunctionType.UTILITY);
-
     // Increase the minimum number of txs per block so that all txs will be mined in the same block.
-    const TX_COUNT = 6;
+    const TX_COUNT = 5;
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: TX_COUNT });
 
     const provenTxs = [
-      // 2 contract deployment tx.
+      // 4 contract deployment tx.
       await publishContractClass(wallet, AvmTestContract.artifact),
       await publishContractClass(wallet, AvmGadgetsTestContract.artifact),
-      // 2 private function broadcast txs. We pick [2] because it has large bytecode (~1,807 fields),
-      // which combined with the contract class publications exceeds FIELDS_PER_BLOB (4,096).
-      await broadcastFunction(privateFunctions[0]),
-      await broadcastFunction(privateFunctions[2]),
-      // 1 utility function broadcast tx.
-      await broadcastFunction(utilityFunctions[0]),
+      await publishContractClass(wallet, PrivateTokenContract.artifact),
+      await publishContractClass(wallet, TokenBlacklistContract.artifact),
       // 1 tx to emit note hash, nullifier, l2_to_l1_message, private log and public log.
       new BatchCall(wallet, [
         contract.methods.call_create_note(123n, await AztecAddress.random(), Fr.random(), false),
@@ -134,6 +119,9 @@ describe('e2e_multiple_blobs', () => {
       // all types of side effects.
       expect(value).toBeGreaterThan(0);
     }
+    logger.info(
+      `Block ${blockNumber} has ${provenTxs.length} txs, which produce ${numBlobFields} blob fields in ${numBlobs} blobs.`,
+    );
 
     expect(numBlobs).toBeGreaterThan(1);
   });
