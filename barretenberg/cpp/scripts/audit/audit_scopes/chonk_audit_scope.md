@@ -50,11 +50,16 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 28. `flavor/multilinear_batching_flavor.cpp`
 29. `flavor/multilinear_batching_recursive_flavor.hpp`
 
+### Databus
+30. `stdlib/primitives/databus/databus.hpp`
+31. `stdlib/primitives/databus/databus.cpp`
+32. `dsl/acir_format/block_constraint.cpp` (only the databus parts: `CallData`/`ReturnData` handling. The RAM/ROM parts are covered by the RAM/ROM audit scope.)
+
 ### ACIR Integration
-30. `dsl/acir_format/hypernova_recursion_constraint.hpp`
-31. `dsl/acir_format/hypernova_recursion_constraint.cpp`
-32. `dsl/acir_format/recursion_constraint.cpp` (only `process_hn_recursion_constraints()` method)
-33. `dsl/acir_format/recursion_constraint.cpp`
+33. `dsl/acir_format/hypernova_recursion_constraint.hpp`
+34. `dsl/acir_format/hypernova_recursion_constraint.cpp`
+35. `dsl/acir_format/recursion_constraint.cpp` (only `process_hn_recursion_constraints()` method)
+36. `dsl/acir_format/recursion_constraint.cpp`
 ---
 
 ## Critical Files
@@ -88,6 +93,7 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 | `multilinear_batching/multilinear_batching_prover.test.cpp` | Polynomial claim batching, eq consistency |
 | `goblin/merge.test.cpp` | Merge protocol correctness, degree checks, PREPEND/APPEND modes |
 | `relations/databus_lookup_relation_consistency.test.cpp` | Databus lookup relation soundness |
+| `stdlib/primitives/databus/databus.test.cpp` | Databus read/write tests |
 
 ---
 
