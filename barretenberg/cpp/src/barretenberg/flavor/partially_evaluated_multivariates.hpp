@@ -5,6 +5,7 @@
 // =====================
 #pragma once
 
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 
@@ -30,11 +31,13 @@ class PartiallyEvaluatedMultivariatesBase : public AllEntitiesBase {
      */
     PartiallyEvaluatedMultivariatesBase(const ProverPolynomialsType& full_polynomials, size_t circuit_size)
     {
-        for (auto [poly, full_poly] : zip_view(this->get_all(), full_polynomials.get_all())) {
-            // After the initial sumcheck round, the new size is CEIL(size/2).
-            size_t desired_size = (full_poly.end_index() / 2) + (full_poly.end_index() % 2);
-            poly = Polynomial(desired_size, circuit_size / 2);
-        }
+        auto all_polys = this->get_all();
+        auto all_full_polys = full_polynomials.get_all();
+        const size_t num_polys = all_polys.size();
+        parallel_for(num_polys, [&](size_t i) {
+            size_t desired_size = (all_full_polys[i].end_index() / 2) + (all_full_polys[i].end_index() % 2);
+            all_polys[i] = Polynomial(desired_size, circuit_size / 2, Polynomial::DontZeroMemory::FLAG);
+        });
     }
 };
 
