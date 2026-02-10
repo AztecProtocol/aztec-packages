@@ -333,8 +333,11 @@ describe('e2e_state_vars', () => {
       await delay(4);
 
       // The validity of our DelayedPublicMutable read request should be limited to the new delay
+      // Note: We subtract 1 because blocks within the same checkpoint can share timestamps so the earliest scheduling
+      // can happen at the anchor timestamp itself. For this reason, the latest timestamp at which a change is
+      // guaranteed to not have happened is the anchor timestamp + the new delay - 1.
       const expectedModifiedIncludeByTimestamp =
-        (await aztecNode.getBlockHeader('latest'))!.globalVariables.timestamp + newDelay;
+        (await aztecNode.getBlockHeader('latest'))!.globalVariables.timestamp + newDelay - 1n;
 
       // We now call our AuthContract to see if the change in include by timestamp has reflected our delay change
       const tx = await proveInteraction(wallet, authContract.methods.get_authorized_in_private(), {
