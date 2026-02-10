@@ -533,10 +533,11 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Step 7.
         // Compute R = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j - G₀ * a₀ - (f(\beta) - a₀ * b₀) ⋅ U
         // If everything is correct, then R == -C, as C':= C + f(\beta) ⋅ U
-        msm_elements.emplace_back(-G_zero);
-        msm_elements.emplace_back(-Commitment::one(builder));
-        msm_scalars.emplace_back(a_zero);
-        msm_scalars.emplace_back(generator_challenge * a_zero.madd(b_zero, { -opening_claim.opening_pair.evaluation }));
+        msm_elements[(2 * log_poly_length)] = -G_zero;
+        msm_elements[(2 * log_poly_length) + 1] = -Commitment::one(builder);
+        msm_scalars[(2 * log_poly_length)] = a_zero;
+        msm_scalars[(2 * log_poly_length) + 1] =
+            generator_challenge * a_zero.madd(b_zero, { -opening_claim.opening_pair.evaluation });
         GroupElement ipa_relation = GroupElement::batch_mul(msm_elements, msm_scalars);
         auto neg_commitment = -opening_claim.commitment;
 
