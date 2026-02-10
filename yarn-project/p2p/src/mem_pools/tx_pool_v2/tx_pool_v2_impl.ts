@@ -53,7 +53,7 @@ export class TxPoolV2Impl {
   // === Dependencies ===
   #l2BlockSource: L2BlockSource;
   #worldStateSynchronizer: WorldStateSynchronizer;
-  #pendingTxValidator: TxValidator<Tx>;
+  #createTxValidator: TxPoolV2Dependencies['createTxValidator'];
 
   // === In-Memory Indices ===
   #indices: TxPoolIndices = new TxPoolIndices();
@@ -78,7 +78,7 @@ export class TxPoolV2Impl {
 
     this.#l2BlockSource = deps.l2BlockSource;
     this.#worldStateSynchronizer = deps.worldStateSynchronizer;
-    this.#pendingTxValidator = deps.pendingTxValidator;
+    this.#createTxValidator = deps.createTxValidator;
 
     this.#config = { ...DEFAULT_TX_POOL_V2_CONFIG, ...config };
     this.#archive = new TxArchive(archiveStore, this.#config.archivedTxLimit, log);
@@ -134,7 +134,10 @@ export class TxPoolV2Impl {
     }
 
     // Step 4: Validate non-mined transactions
-    const { valid, invalid } = await this.#validateTxBatch(nonMined, 'on startup');
+    const { valid, invalid } = await this.#revalidateMetadata(
+      nonMined.map(e => e.meta),
+      'on startup',
+    );
 
     // Step 5: Populate mined indices (these don't need conflict resolution)
     for (const meta of mined) {
@@ -229,13 +232,13 @@ export class TxPoolV2Impl {
     const txHash = tx.getTxHash();
     const txHashStr = txHash.toString();
 
-    // Validate transaction
-    if (!(await this.#validateTx(tx))) {
+    // Build metadata and validate using metadata
+    const meta = await buildTxMetaData(tx);
+    if (!(await this.#validateMeta(meta))) {
       return { status: 'rejected' };
     }
 
-    // Build metadata and run pre-add rules
-    const meta = await buildTxMetaData(tx);
+    // Run pre-add rules
     const preAddResult = await this.#evictionManager.runPreAddRules(meta, poolAccess);
 
     if (preAddResult.shouldIgnore) {
@@ -267,14 +270,14 @@ export class TxPoolV2Impl {
       return 'ignored';
     }
 
-    // Validate transaction (no logging for dry-run check)
-    const validationResult = await this.#pendingTxValidator.validateTx(tx);
-    if (validationResult.result !== 'valid') {
+    // Build metadata and validate using metadata
+    const meta = await buildTxMetaData(tx);
+    const validationResult = await this.#validateMeta(meta, undefined, 'can add pending');
+    if (validationResult !== true) {
       return 'rejected';
     }
 
-    // Build metadata and use pre-add rules
-    const meta = await buildTxMetaData(tx);
+    // Use pre-add rules
     const poolAccess = this.#createPreAddPoolAccess();
     const preAddResult = await this.#evictionManager.runPreAddRules(meta, poolAccess);
 
@@ -397,7 +400,7 @@ export class TxPoolV2Impl {
     this.#log.info(`Preparing for slot ${slotNumber}: unprotecting ${txsToRestore.length} txs`);
 
     // Step 4: Validate for pending pool
-    const { valid, invalid } = await this.#loadAndValidateTxs(txsToRestore, 'during prepareForSlot');
+    const { valid, invalid } = await this.#revalidateMetadata(txsToRestore, 'during prepareForSlot');
 
     // Step 5: Resolve nullifier conflicts and add winners to pending indices
     const { added, toEvict } = this.#applyNullifierConflictResolution(valid);
@@ -435,7 +438,7 @@ export class TxPoolV2Impl {
     const unprotectedTxs = this.#indices.filterUnprotected(txsToUnmine);
 
     // Step 4: Validate for pending pool
-    const { valid, invalid } = await this.#loadAndValidateTxs(unprotectedTxs, 'during handlePrunedBlocks');
+    const { valid, invalid } = await this.#revalidateMetadata(unprotectedTxs, 'during handlePrunedBlocks');
 
     // Step 5: Resolve nullifier conflicts and add winners to pending indices
     const { toEvict } = this.#applyNullifierConflictResolution(valid);
@@ -641,62 +644,34 @@ export class TxPoolV2Impl {
   // PRIVATE HELPERS - Validation & Conflict Resolution
   // ============================================================================
 
-  /** Validates a single transaction, returning true if valid */
-  async #validateTx(tx: Tx, context?: string): Promise<boolean> {
-    const result = await this.#pendingTxValidator.validateTx(tx);
+  /** Validates transaction metadata, returning true if valid */
+  async #validateMeta(meta: TxMetaData, validator?: TxValidator<TxMetaData>, context?: string): Promise<boolean> {
+    const txValidator = validator ?? (await this.#createTxValidator());
+    const result = await txValidator.validateTx(meta);
     if (result.result !== 'valid') {
       const contextStr = context ? ` ${context}` : '';
-      this.#log.info(`Tx ${tx.getTxHash()}${contextStr} failed validation: ${result.reason?.join(', ')}`);
+      this.#log.info(`Tx ${meta.txHash}${contextStr} failed validation: ${result.reason?.join(', ')}`);
       return false;
     }
     return true;
   }
 
-  /** Loads transactions from DB, returning loaded txs and missing hashes */
-  async #loadTxsFromDb(metas: TxMetaData[]): Promise<{ loaded: { tx: Tx; meta: TxMetaData }[]; missing: string[] }> {
-    const loaded: { tx: Tx; meta: TxMetaData }[] = [];
-    const missing: string[] = [];
-
-    for (const meta of metas) {
-      const buffer = await this.#txsDB.getAsync(meta.txHash);
-      if (!buffer) {
-        this.#log.warn(`Tx ${meta.txHash} not found in DB`);
-        missing.push(meta.txHash);
-        continue;
-      }
-      loaded.push({ tx: Tx.fromBuffer(buffer), meta });
-    }
-
-    return { loaded, missing };
-  }
-
-  /** Validates a batch of transactions, returning valid and invalid groups */
-  async #validateTxBatch(
-    txs: { tx: Tx; meta: TxMetaData }[],
+  /** Validates metadata directly */
+  async #revalidateMetadata(
+    metas: TxMetaData[],
     context?: string,
   ): Promise<{ valid: TxMetaData[]; invalid: string[] }> {
     const valid: TxMetaData[] = [];
     const invalid: string[] = [];
-
-    for (const { tx, meta } of txs) {
-      if (await this.#validateTx(tx, context)) {
+    const validator = await this.#createTxValidator();
+    for (const meta of metas) {
+      if (await this.#validateMeta(meta, validator, context)) {
         valid.push(meta);
       } else {
         invalid.push(meta.txHash);
       }
     }
-
     return { valid, invalid };
-  }
-
-  /** Loads transactions from DB and validates them */
-  async #loadAndValidateTxs(
-    metas: TxMetaData[],
-    context?: string,
-  ): Promise<{ valid: TxMetaData[]; invalid: string[] }> {
-    const { loaded, missing } = await this.#loadTxsFromDb(metas);
-    const { valid, invalid } = await this.#validateTxBatch(loaded, context);
-    return { valid, invalid: [...missing, ...invalid] };
   }
 
   /**

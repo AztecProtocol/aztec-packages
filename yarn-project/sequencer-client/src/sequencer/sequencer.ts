@@ -376,6 +376,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     this.lastSlotForCheckpointProposalJob = slot;
+    await this.p2pClient.prepareForSlot(slot);
     this.log.info(`Preparing checkpoint proposal ${checkpointNumber} at slot ${slot}`, { ...logCtx, proposer });
 
     // Create and return the checkpoint proposal job

@@ -1,14 +1,14 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { BlockHash } from '@aztec/stdlib/block';
 import { mockTxForRollup } from '@aztec/stdlib/testing';
-import { type AnyTx, TX_ERROR_BLOCK_HEADER, type TxValidationResult } from '@aztec/stdlib/tx';
+import { TX_ERROR_BLOCK_HEADER, type Tx, type TxValidationResult } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
 import { type ArchiveSource, BlockHeaderTxValidator } from './block_header_validator.js';
 
 describe('BlockHeaderTxValidator', () => {
-  let txValidator: BlockHeaderTxValidator<AnyTx>;
+  let txValidator: BlockHeaderTxValidator<Tx>;
   let archiveSource: MockProxy<ArchiveSource>;
 
   beforeEach(() => {

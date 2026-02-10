@@ -91,6 +91,7 @@ export class SlowTxCollection {
 
     for (const txHash of txHashes) {
       this.missingTxs.set(txHash.toString(), {
+        block,
         blockNumber: block.number,
         deadline: this.getDeadlineForSlot(block.header.getSlot()),
         readyForReqResp: this.nodes.length === 0, // If we have no nodes, we can start reqresp immediately
@@ -109,18 +110,26 @@ export class SlowTxCollection {
 
     // Gather all missing txs that are not in fast collection and request them from the node
     const missingTxs = this.getMissingTxsForSlowCollection();
-    const missingTxHashes = missingTxs.map(([txHash]) => txHash).map(TxHash.fromString);
-    if (missingTxHashes.length === 0) {
+    if (missingTxs.length === 0) {
       return;
     }
 
-    // Request in chunks to avoid hitting RPC limits
-    for (const batch of chunk(missingTxHashes, this.config.txCollectionNodeRpcMaxBatchSize)) {
-      await this.txCollectionSink.collect(txHashes => node.getTxsByHash(txHashes), batch, {
-        description: `node ${node.getInfo()}`,
-        node: node.getInfo(),
-        method: 'slow-node-rpc',
-      });
+    // Group by block so we pass the correct mined context to the sink
+    for (const entries of this.groupByBlock(missingTxs)) {
+      const block = entries[0][1].block;
+      const txHashes = entries.map(([txHash]) => TxHash.fromString(txHash));
+      for (const batch of chunk(txHashes, this.config.txCollectionNodeRpcMaxBatchSize)) {
+        await this.txCollectionSink.collect(
+          hashes => node.getTxsByHash(hashes),
+          batch,
+          {
+            description: `node ${node.getInfo()}`,
+            node: node.getInfo(),
+            method: 'slow-node-rpc',
+          },
+          { type: 'mined', block },
+        );
+      }
     }
 
     // Mark every tx that is still missing as ready for reqresp.
@@ -149,25 +158,30 @@ export class SlowTxCollection {
 
     const pinnedPeer = undefined;
     const timeoutMs = this.config.txCollectionSlowReqRespTimeoutMs;
-    const maxPeers = boundInclusive(Math.ceil(missingTxs.length / 3), 4, 16);
     const maxRetryAttempts = 3;
-    // Send a batch request via reqresp for the missing txs
-    await this.txCollectionSink.collect(
-      async txHashes => {
-        const txs = await this.reqResp.sendBatchRequest<ReqRespSubProtocol.TX>(
-          ReqRespSubProtocol.TX,
-          chunkTxHashesRequest(txHashes),
-          pinnedPeer,
-          timeoutMs,
-          maxPeers,
-          maxRetryAttempts,
-        );
 
-        return txs.flat();
-      },
-      missingTxs.map(([txHash]) => TxHash.fromString(txHash)),
-      { description: 'slow reqresp', timeoutMs, method: 'slow-req-resp' },
-    );
+    // Group by block so we pass the correct mined context to the sink
+    for (const entries of this.groupByBlock(missingTxs)) {
+      const block = entries[0][1].block;
+      const txHashes = entries.map(([txHash]) => TxHash.fromString(txHash));
+      const maxPeers = boundInclusive(Math.ceil(txHashes.length / 3), 4, 16);
+      await this.txCollectionSink.collect(
+        async hashes => {
+          const txs = await this.reqResp.sendBatchRequest<ReqRespSubProtocol.TX>(
+            ReqRespSubProtocol.TX,
+            chunkTxHashesRequest(hashes),
+            pinnedPeer,
+            timeoutMs,
+            maxPeers,
+            maxRetryAttempts,
+          );
+          return txs.flat();
+        },
+        txHashes,
+        { description: 'slow reqresp', timeoutMs, method: 'slow-req-resp' },
+        { type: 'mined', block },
+      );
+    }
   }
 
   /** Retrieves all missing txs for the slow collection process. This is, all missing txs that are not part of a fast request. */
@@ -221,6 +235,21 @@ export class SlowTxCollection {
         this.missingTxs.delete(txHash);
       }
     }
+  }
+
+  /** Groups missing tx entries by block number. */
+  private groupByBlock(entries: [string, MissingTxInfo][]): [string, MissingTxInfo][][] {
+    const groups = new Map<number, [string, MissingTxInfo][]>();
+    for (const entry of entries) {
+      const bn = +entry[1].blockNumber;
+      let group = groups.get(bn);
+      if (!group) {
+        group = [];
+        groups.set(bn, group);
+      }
+      group.push(entry);
+    }
+    return [...groups.values()];
   }
 
   /** Computes the proof submission deadline for a given slot, a tx mined in this slot is no longer interesting after this deadline */
