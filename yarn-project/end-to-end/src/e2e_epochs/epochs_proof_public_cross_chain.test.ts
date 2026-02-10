@@ -40,7 +40,7 @@ describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
 
   it('submits proof with a tx with public l1-to-l2 message claim', async () => {
     // Deploy a contract that consumes L1 to L2 messages
-    await context.aztecNodeAdmin!.setConfig({ minTxsPerBlock: 0 });
+    await context.aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 });
     logger.warn(`Deploying test contract`);
     const testContract = await TestContract.deploy(context.wallet).send({ from: context.accounts[0] });
     logger.warn(`Test contract deployed at ${testContract.address}`);

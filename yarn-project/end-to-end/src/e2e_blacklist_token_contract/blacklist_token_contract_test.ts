@@ -92,7 +92,7 @@ export class BlacklistTokenContractTest {
     });
 
     this.cheatCodes = this.context.cheatCodes;
-    this.aztecNode = this.context.aztecNodeService!;
+    this.aztecNode = this.context.aztecNodeService;
     this.sequencer = this.context.sequencer!;
     this.wallet = this.context.wallet;
     this.adminAddress = deployedAccounts[0].address;

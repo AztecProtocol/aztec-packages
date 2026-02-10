@@ -144,7 +144,7 @@ export class FullProverTest {
     this.logger.info(`Enabling proving`, { realProofs: this.realProofs });
 
     // We don't wish to mark as proven automatically, so we set the flag to false
-    this.context.watcher!.setIsMarkingAsProven(false);
+    this.context.watcher.setIsMarkingAsProven(false);
 
     this.simulatedProverNode = this.context.proverNode!;
     ({
@@ -152,7 +152,7 @@ export class FullProverTest {
       deployL1ContractsValues: this.l1Contracts,
       cheatCodes: this.cheatCodes,
     } = this.context);
-    this.aztecNodeAdmin = this.context.aztecNodeService!;
+    this.aztecNodeAdmin = this.context.aztecNodeService;
 
     const config = this.context.aztecNodeConfig;
     const blobClient = await createBlobClientWithFileStores(config, this.logger);
@@ -225,7 +225,7 @@ export class FullProverTest {
     this.logger.verbose('Starting archiver for new prover node');
     const archiver = await createArchiver(
       { ...this.context.aztecNodeConfig, dataDirectory: undefined },
-      { blobClient, dateProvider: this.context.dateProvider! },
+      { blobClient, dateProvider: this.context.dateProvider },
       { blockUntilSync: true },
     );
 

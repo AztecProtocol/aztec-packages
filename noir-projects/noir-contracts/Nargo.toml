@@ -62,6 +62,7 @@ members = [
     "contracts/test/stateful_test_contract",
     "contracts/test/static_child_contract",
     "contracts/test/static_parent_contract",
+    "contracts/test/storage_proof_test_contract",
     "contracts/test/test_contract",
     "contracts/test/test_log_contract",
     "contracts/test/updatable_contract",
