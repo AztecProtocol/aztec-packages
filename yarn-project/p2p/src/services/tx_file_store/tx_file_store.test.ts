@@ -9,6 +9,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { InMemoryTxPool } from '../../test-helpers/testbench-utils.js';
+import { FileStoreTxSource } from '../tx_collection/file_store_tx_source.js';
 import type { TxFileStoreConfig } from './config.js';
 import { TxFileStore } from './tx_file_store.js';
 
@@ -301,6 +302,34 @@ describe('TxFileStore', () => {
 
       spy.mockRestore();
     }, 10000);
+  });
+
+  describe('tx download validation', () => {
+    it('rejects tx with invalid hash when reading from file store', async () => {
+      // Write a tx with a mismatched hash directly to the file store
+      const invalidTx = Tx.random(); // random hash does not match computed hash
+      await fileStore.save(`txs/${invalidTx.txHash.toString()}.bin`, invalidTx.toBuffer(), { compress: false });
+
+      // Read it back via FileStoreTxSource
+      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, log))!;
+      const result = await source.getTxsByHash([invalidTx.txHash]);
+
+      expect(result.validTxs).toHaveLength(0);
+      expect(result.invalidTxHashes).toEqual([invalidTx.txHash.toString()]);
+    });
+
+    it('rejects tx when tx with wrong hash is returned', async () => {
+      // Write a tx with a mismatched hash directly to the file store
+      const invalidTx = Tx.random(); // random hash does not match computed hash
+      await fileStore.save(`txs/${invalidTx.txHash.toString()}.bin`, (await makeTx()).toBuffer(), { compress: false });
+
+      // Read it back via FileStoreTxSource
+      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, log))!;
+      const result = await source.getTxsByHash([invalidTx.txHash]);
+
+      expect(result.validTxs).toHaveLength(0);
+      expect(result.invalidTxHashes).toEqual([invalidTx.txHash.toString()]);
+    });
   });
 
   describe('getPendingUploadCount', () => {

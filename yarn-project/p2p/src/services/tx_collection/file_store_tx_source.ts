@@ -40,6 +40,7 @@ export class FileStoreTxSource implements TxSource {
   }
 
   public async getTxsByHash(txHashes: TxHash[]): Promise<{ validTxs: Tx[]; invalidTxHashes: string[] }> {
+    const invalidTxHashes: string[] = [];
     return {
       validTxs: (
         await Promise.all(
@@ -47,7 +48,13 @@ export class FileStoreTxSource implements TxSource {
             const path = `txs/${txHash.toString()}.bin`;
             try {
               const buffer = await this.fileStore.read(path);
-              return Tx.fromBuffer(buffer);
+              const tx = Tx.fromBuffer(buffer);
+              if ((await tx.validateTxHash()) && txHash === tx.txHash) {
+                return tx;
+              } else {
+                invalidTxHashes.push(tx.txHash.toString());
+                return undefined;
+              }
             } catch {
               // Tx not found or error reading - return undefined
               return undefined;
@@ -55,7 +62,7 @@ export class FileStoreTxSource implements TxSource {
           }),
         )
       ).filter(tx => tx !== undefined),
-      invalidTxHashes: [],
+      invalidTxHashes: invalidTxHashes,
     };
   }
 }
