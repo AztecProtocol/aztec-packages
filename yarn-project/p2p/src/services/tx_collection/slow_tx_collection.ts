@@ -120,7 +120,7 @@ export class SlowTxCollection {
       for (const batch of chunk(txHashes, this.config.txCollectionNodeRpcMaxBatchSize)) {
         await this.txCollectionSink.collect(
           () => node.getTxsByHash(batch),
-          batch,
+          batch.map(h => h.toString()),
           {
             description: `node ${node.getInfo()}`,
             node: node.getInfo(),
@@ -165,10 +165,10 @@ export class SlowTxCollection {
       const txHashes = entries.map(([txHash]) => TxHash.fromString(txHash));
       const maxPeers = boundInclusive(Math.ceil(txHashes.length / 3), 4, 16);
       await this.txCollectionSink.collect(
-        async hashes => {
+        async () => {
           const txs = await this.reqResp.sendBatchRequest<ReqRespSubProtocol.TX>(
             ReqRespSubProtocol.TX,
-            chunkTxHashesRequest(hashes),
+            chunkTxHashesRequest(txHashes),
             pinnedPeer,
             timeoutMs,
             maxPeers,
@@ -176,7 +176,7 @@ export class SlowTxCollection {
           );
           return { validTxs: txs.flat(), invalidTxHashes: [] };
         },
-        txHashes,
+        txHashes.map(h => h.toString()),
         { description: 'slow reqresp', timeoutMs, method: 'slow-req-resp' },
         { type: 'mined', block },
       );

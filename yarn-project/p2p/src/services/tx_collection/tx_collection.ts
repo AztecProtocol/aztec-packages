@@ -12,8 +12,7 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 
 import type { PeerId } from '@libp2p/interface';
 
-import type { TxPool } from '../../mem_pools/index.js';
-import type { TxPoolEvents } from '../../mem_pools/tx_pool/tx_pool.js';
+import type { TxPoolV2, TxPoolV2Events } from '../../mem_pools/tx_pool_v2/interfaces.js';
 import type { BatchTxRequesterLibP2PService, IMissingTxsTracker } from '../reqresp/batch-tx-requester/interface.js';
 import type { TxCollectionConfig } from './config.js';
 import { FastTxCollection } from './fast_tx_collection.js';

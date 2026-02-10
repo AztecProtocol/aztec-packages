@@ -129,8 +129,8 @@ export class FileStoreTxCollection {
 
       try {
         const result = await this.txCollectionSink.collect(
-          hashes => source.getTxsByHash(hashes),
-          [txHash],
+          () => source.getTxsByHash([txHash]),
+          [txHash.toString()],
           {
             description: `file-store ${source.getInfo()}`,
             method: 'file-store',
