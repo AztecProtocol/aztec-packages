@@ -131,6 +131,9 @@ A restricted variant of BLAKE3 with inputs limited to ≤1024 bytes that generat
 
 The `aes128` module provides both native and circuit-friendly implementations of the AES-128 block cipher with CBC (Cipher Block Chaining) mode.
 
+### Documentation
+- NIST FIPS 197, Advanced Encryption Scheme: https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197-upd1.pdf
+
 ### Files to Audit
 
 #### Native Implementation
@@ -151,10 +154,11 @@ The `aes128` module provides both native and circuit-friendly implementations of
 ### Test Files
 1. `crypto/aes128/aes128.test.cpp`
 2. `stdlib/encryption/aes128/aes128.test.cpp`
+3. `dsl/acir_format/aes128_constraint.test.cpp`
 
 ### Security Mechanisms
 1. `boomerang_value_detection/graph_description_aes128.test.cpp`
-
+2. `stdlib/encryption/aes128/aes128.fuzzer.cpp`
 ---
 
 ## 4. Keccak
