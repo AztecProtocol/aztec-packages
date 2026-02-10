@@ -20,7 +20,7 @@ namespace bb {
  * algorithm nonetheless.
  *
  * PHASE 1: Precomputation (performed in ecc_wnaf_relation.hpp, ecc_point_table_relation.hpp)
- * Each scalar a_i is split into 4-bit WNAF slices s_{j, i} for j = 0 to 31, and a skew bool skew_i
+ * Each scalar a_i is split into 4-bit WNAF slices a_{j, i} for j = 0 to 31, and a skew bool skew_i
  * For each point [P_i] a size-16 lookup table of points, T_i, is computed { [-15 P_i], [-13 P_i], ..., [15 P_i] }
  *
  * PHASE 2: MSM evaluation
@@ -38,7 +38,7 @@ namespace bb {
  * If skew_i == 1, [Acc] = [Acc] - [P_i] for all i in [0, ..., k - 1]
  *
  * The relations in ECCVMMSMRelationImpl constrain the ADDITION, DOUBLE and SKEW rounds
- * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
+ * @param accumulator transformed to `accumulator + C(in(X)...)*scaling_factor`
  * @param in an std::array containing the fully extended Accumulator edges.
  * @param parameters contains beta, gamma, and public_input_delta, ....
  * @param scaling_factor optional term to scale the evaluation before adding to evals.
@@ -168,7 +168,8 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      *      2. (precompute_pc, 4 * precompute_round + 1, w_2)
      *      3. (precompute_pc, 4 * precompute_round + 2, w_3)
      *      4. (precompute_pc, 4 * precompute_round + 3, w_4)
-     *      5. (precompute_pc, 4 * precompute_round + 4, precompute_skew) if precompute_point_transition == 1
+     * Additionally, if `precompute_point_transition == 1`, we add
+     *      5. (precompute_pc, 4 * precompute_round + 4, precompute_skew)
      *
      * ELSE `precompute_select == 0` and we add:
      *      1. (0, 0, 0)
@@ -226,7 +227,8 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      * output value of an MSM from the MSM table to the transcript table so it can continue its processing. (Send here
      * is a euphemism for constrain.) We do this via a multiset equality check of the form:
      *                      (pc, P.x, P.y, msm-size)
-     * From the perspective of the MSM table, we add such a tuple only at an `msm_transition`. The terms P.x and P.y
+     * From the perspective of the MSM table, we add such a tuple only when `msm_transition_shift == 1` (i.e., the next
+     * row begins a new MSM, meaning the current row is the last row of the just-completed MSM). The terms P.x and P.y
      * refer to the output values of the MSM just computed by the MSM table. `msm_size` is the size of the _just
      * completed_ MSM.
      *
@@ -260,7 +262,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      * xa/ya (if `selector == 0`). Additionally, we require `lambda = 0` if `selector = 0`. The `collision_relation`
      * accumulator tracks a subrelation that validates xb != xa.
      * Repeated calls to this method will increase the max degree of the Accumulator output:
-     * deg(x_out) = 1 + max(deg(xa, xb)), deg(y_out) = max(1 + deg(x_out), 1 + deg(ya))
+     * deg(x_out) = 1 + max(deg(xa), deg(xb)), deg(y_out) = max(1 + deg(x_out), 1 + deg(ya))
      * in our application, we chain together 4 of these with the pattern in such a way that the final x_out will have
      * degree 5 and the final y_out will have degree 6.
      */
@@ -279,7 +281,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
         collision_relation += selector * (xb - xa);
         // x_out = L.L + (-xb - xa) * q + (1 - q) xa
         // deg L = 1, deg q = 1, min(deg(xa), deg(xb))≥ 1.
-        // hence deg(x_out) = 1 + max(deg(xa, xb))
+        // hence deg(x_out) = 1 + max(deg(xa), deg(xb))
         auto x_out = lambda.sqr() + (-xb - xa - xa) * selector + xa;
 
         // y_out = L . (xa - x_out) - ya * q + (1 - q) ya
@@ -368,7 +370,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      *    2. round != 32
      *
      * Algorithm to process MSM DOUBLE round:
-     * [Acc_shift] = (([Acc].double()).double()).double()
+     * [Acc_shift] = ((([Acc].double()).double()).double()).double()
      *
      * As with additions, the column q_double describes whether row is a double round. It is Prover-defined.
      * The value of `msm_round` can only update when `q_double = 1` and we use this to ensure Prover correctly sets
@@ -466,7 +468,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // the Straus algorithm are processing the same wNAF digit place.
 
     // `round_transition == 0` if `round_delta == 0` or the next row is an MSM transition.
-    // if `round_transition != 1`, then `round_transition == round_delta == 1` by the following constraint.
+    // if `round_transition != 0`, then `round_transition == round_delta == 1` by the following constraint.
     // in particular, `round_transition` is boolean. (`round_delta` is not boolean precisely one step before an MSM
     // transition, but that does not concern us here.)
     const auto round_transition = round_delta * (-msm_transition_shift + 1);
@@ -517,7 +519,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // if we are changing the `round` (i.e., starting to process a new wNAF digit or at an msm transition), the
     // count_shift must be 0.
     std::get<23>(accumulator) += round_delta * count_shift * scaling_factor;
-    // if msm_transition = 0 and round_transition = 0, then the next "row" of the VM is processing the same wNAF digit.
+    // if msm_transition_shift = 0 and round_delta = 0, then the next "row" of the VM is processing the same wNAF digit.
     // this means that the count must increase: count_shift = count + add1 + add2 + add3 + add4
     std::get<24>(accumulator) += (-msm_transition_shift + 1) * (-round_delta + 1) *
                                  (count_shift - count - add1 - add2 - add3 - add4) * scaling_factor;
