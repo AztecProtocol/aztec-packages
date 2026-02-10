@@ -18,11 +18,16 @@ echo "Downloading iOS SDK $SDK_VERSION..."
 mkdir -p "$SDK_DIR"
 cd "$SDK_DIR"
 
-# Sparse-clone only the specific SDK version to minimize download size
-git clone --depth 1 --filter=blob:none --sparse \
-  https://github.com/xybp888/iOS-SDKs.git .
+# Sparse-clone only the specific SDK version to minimize download size.
+# If the repo was already cloned (e.g. by a parallel build), just update sparse-checkout.
+if [ -d ".git" ]; then
+  echo "Git repo already exists, updating sparse-checkout..."
+else
+  git clone --depth 1 --filter=blob:none --sparse \
+    https://github.com/xybp888/iOS-SDKs.git .
+fi
 
-git sparse-checkout set "$SDK_NAME"
+git sparse-checkout add "$SDK_NAME"
 
 if [ -d "$SDK_NAME" ]; then
   echo "Successfully downloaded $SDK_NAME"
