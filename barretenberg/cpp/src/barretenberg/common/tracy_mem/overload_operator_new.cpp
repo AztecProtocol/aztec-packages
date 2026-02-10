@@ -188,6 +188,7 @@ void operator delete[](void*, std::size_t, std::align_val_t) noexcept {}
 #include <unordered_map>
 #include <vector>
 
+#include <dlfcn.h>
 #include <execinfo.h>
 
 namespace {
@@ -321,13 +322,14 @@ std::string format_duration_ns(uint64_t ns)
     return { buf };
 }
 
-void print_raw_pcs(FILE* f, void* const* pcs, int count)
+void print_raw_pcs(FILE* f, void* const* pcs, int count, uintptr_t base)
 {
     for (int i = 0; i < count; i++) {
         if (!pcs[i]) {
             break;
         }
-        std::fprintf(f, "      #%d [%p]\n", i, pcs[i]);
+        auto offset = reinterpret_cast<uintptr_t>(pcs[i]) - base;
+        std::fprintf(f, "      #%d [0x%lx]\n", i, static_cast<unsigned long>(offset));
     }
 }
 
@@ -356,9 +358,21 @@ void dump_report()
     std::sort(sorted_sites.begin(), sorted_sites.end(),
               [](const auto& a, const auto& b) { return a.second->peak_bytes > b.second->peak_bytes; });
 
+    // Get binary base address via dladdr so we can output file offsets for addr2line
+    uintptr_t binary_base = 0;
+    {
+        Dl_info info{};
+        // Use address of dump_report itself (known to be in the main binary)
+        if (dladdr(reinterpret_cast<void*>(&dump_report), &info) && info.dli_fbase) {
+            binary_base = reinterpret_cast<uintptr_t>(info.dli_fbase);
+        }
+    }
+
     uint64_t leaked = s.total_alloc_count - s.total_free_count;
     std::fprintf(f, "=== Allocation Lifetime Profiler Report ===\n");
-    std::fprintf(f, "# Symbolize with: addr2line -Cfpe <binary> <addr>\n");
+    std::fprintf(f, "# Binary base: 0x%lx\n", static_cast<unsigned long>(binary_base));
+    std::fprintf(f, "# Addresses below are file offsets (base subtracted). Symbolize with:\n");
+    std::fprintf(f, "#   addr2line -Cfpe <binary> <addr>\n");
     std::fprintf(f, "Total: %zu allocs, %zu frees, %zu leaked\n",
                  static_cast<size_t>(s.total_alloc_count),
                  static_cast<size_t>(s.total_free_count),
@@ -423,7 +437,7 @@ void dump_report()
 
         // Alloc stack trace
         std::fprintf(f, "  Alloc stack:\n");
-        print_raw_pcs(f, stats->pcs, stats->pc_count);
+        print_raw_pcs(f, stats->pcs, stats->pc_count, binary_base);
 
         // Free sites
         if (!stats->free_site_counts.empty()) {
@@ -443,7 +457,7 @@ void dump_report()
                 std::fprintf(f, "    %zux:\n", static_cast<size_t>(fcount));
                 auto it = stats->free_site_pcs.find(fhash);
                 if (it != stats->free_site_pcs.end()) {
-                    print_raw_pcs(f, it->second.pcs, it->second.count);
+                    print_raw_pcs(f, it->second.pcs, it->second.count, binary_base);
                 }
             }
         }
