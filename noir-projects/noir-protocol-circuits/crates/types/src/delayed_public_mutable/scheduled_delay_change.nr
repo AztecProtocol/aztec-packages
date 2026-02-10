@@ -201,35 +201,42 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
             //  `historical_           Scheduled delay change:               `svc.timestamp_of_change`
             //  timestamp`      <      `self.timestamp_of_change`            (if not already set [^1])
             //     v                              v                                    v
-            //  ===||=============================|====================================|================>
-            //     .|                             .                                    .
-            //     .|                             .                                    .
-            //     .|__ Earliest possible timestamp at which a                         .
+            //  ===|==============================|====================================|================>
+            //     |                              .                                    .
+            //     |                              .                                    .
+            //     |__ Earliest possible timestamp at which a                          .
             //     .    function could call `schedule_change` for a new                .
-            //     .    _value_ change..................................................And the earliest timestamp at
-            //     .                              .                                    .which the new value would take effect.
-            //     .[---------------`self.pre` delay-----------------------------------]
+            //     .    _value_ change.................................................| And the earliest timestamp at
+            //     .                              .                                    . which the new value would take effect,
+            //     .                              .                                    . as dictated by `self.pre`.
             //     .                              .                                    .
-            //     [******************************************************************].
-            //     [                                                                  ].
-            //     [----------------`self.pre` delay----------------------------------].
-            //     [                                                                  ].
-            //     [ If reading a _value_ at that (<--) anchor timestamp, then the    ].
-            //     [ read will remain valid for this duration, unless a shorter       ].
-            //     [ delay has been scheduled (see just below in this diagram).       ].
-            //     [ If a _deferred, longer_ delay has been scheduled, it might yet   ].
-            //     [ still be cancelled, in which case this `pre` delay would         ].
-            //     [ bite (see the `min` calc below) -- meaning reads would remain    ].
-            //     [ valid for this duration.                                         ].
-            //     [                                                                  ].
-            //     [******************************************************************].
+            //     [---------------`self.pre` delay------------------------------------]
+            //     .                              .                                    .
+            //     .                              .                                    .
+            //     .                              .                                    .
+            //     .                              .                                    .
+            //     ********************************************************************.
+            //     *                                                                  *.
+            //     [----------------`self.pre - 1`------------------------------------].
+            //     *                                                                  *.
+            //     * If reading a _value_ at that (<--) anchor timestamp, then the    *.
+            //     * read will remain valid for this duration, unless a shorter       *.
+            //     * delay has been scheduled (see just below in this diagram).       *.
+            //     * If a _deferred, longer_ delay has been scheduled, it might yet   *.
+            //     * still be cancelled, in which case this `pre - 1` delay would     *.
+            //     * bite (see the `min` calc below) -- meaning reads would remain    *.
+            //     * valid for this duration.                                         *.
+            //     *                                                                  *.
+            //     ********************************************************************.
+            //     .                              .                                    .
+            //     .                              .                                    .
             //     .                              .                                    .
             //     .                              .                                    .
             //     [---`time_until_delay_change`--]                                    .
             //     .                              .                                    .
             //     .                              .                                    .
             //     .                              .                                    .
-            //     SCENARIO 1: scheduled delay is shorter than the `self.pre` delay:   .
+            //     SCENARIO 1: an already-scheduled delay is shorter than the `self.pre` delay:
             //     .                              .                                    .
             //     .                              .                                    .
             //     .                              [-`self.post` delay-]                .
@@ -239,20 +246,22 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
             //     .                              .                  |_ reads are only valid until here:
             //     .                              .                  .  `historical_timestamp + time_until_delay_change + self.post - 1`
             //     .                              .                  .                 .
-            //     [*************************************************]                 .
-            //     [                                                 ]                 .
+            //     ***************************************************                 .
+            //     *                                                 *                 .
             //     [----`time_until_delay_change + self.post - 1`----]                 .
-            //     [                                                 ]                 .
-            //     [ If reading a _value_ at that (<--) anchor       ]                 .
-            //     [ timestamp, then the read will remain valid      ]                 .
-            //     [ for this duration:                              ]                 .
-            //     [                                                 ]                 .
-            //     [*************************************************]                 .
+            //     *                                                 *                 .
+            //     * If reading a _value_ at that (<--) anchor       *                 .
+            //     * timestamp, then the read will remain valid      *                 .
+            //     * for this duration:                              *                 .
+            //     *                                                 *                 .
+            //     ***************************************************                 .
             //     .                              .                                    .
             //     .                              .                                    .
             //     .                              .                                    .
-            //     SCENARIO 2: scheduled delay is longer than the `self.pre` delay, AND is deferred:
+            //     .                              .                                    .
+            //     SCENARIO 2: an already-scheduled delay is longer than the `self.pre` delay, AND is deferred:
             //     (note: scheduling deferred delay changes is not yet possible)
+            //     .                              .                                    .
             //     .                              .                                    .
             //     .                              .                                    .
             //     .                              [-`self.post` delay (if longer than `pre` & deferred)------------------]
@@ -265,19 +274,20 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
             //     .                              .                        but only once this longer delay takes effect  .
             //     .                              .                                    .                                 .
             //     .                              .                                    .                                 .
-            //     [****************************************************************************************************].
-            //     [                                                                                                    ].
+            //     .                              .                                    .                                 .
+            //     ******************************************************************************************************.
+            //     *                                                                                                    *.
             //     [----`time_until_delay_change + self.post - 1`-------------------------------------------------------].
-            //     [                                                                                                    ].
-            //     [ Given a longer, deferred delay, then if reading a _value_ at that (<--) historical timestamp, then ].
-            //     [ you might think the read would remain valid for this duration.                                     ].
-            //     [ BUT, in this case of this deferred, longer-than-`self.pre` delay, the `pre` delay ends sooner (by  ].
-            //     [ construction) (see above in this diagram).                                                         ].
-            //     [ And since this scheduled delay (`post`) can be cancelled up until the time it takes effect,        ].
-            //     [ any reads as at that (<--) historical timestamp would cautiously only be valid until the earlier   ].
-            //     [ `pre` delay expiry.                                                                                ].
-            //     [                                                                                                    ].
-            //     [****************************************************************************************************].
+            //     *                                                                                                    *.
+            //     * Given a longer, deferred delay, then if reading a _value_ at that (<--) historical timestamp, then *.
+            //     * you might think the read would remain valid for this duration.                                     *.
+            //     * BUT, in this case of this deferred, longer-than-`self.pre` delay, the `pre` delay ends sooner (by  *.
+            //     * construction) (see above in this diagram).                                                         *.
+            //     * And since this scheduled delay (`post`) can be cancelled up until the time it takes effect,        *.
+            //     * any reads as at that (<--) historical timestamp would cautiously only be valid until the earlier   *.
+            //     * `pre` delay expiry.                                                                                *.
+            //     *                                                                                                    *.
+            //     ******************************************************************************************************.
             //
             //
             //
