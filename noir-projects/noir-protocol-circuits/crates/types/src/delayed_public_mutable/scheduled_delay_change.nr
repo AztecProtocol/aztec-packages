@@ -191,7 +191,10 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
             //           `self.pre` is effective         |`self.post` takes effect from here.
             //           during this period.             |
             //
+            //
             // So in this `else` case, `self.pre` is in effect at the time of the `historical_timestamp`.
+            //
+            //
             //
             // If a delay change _is_ already scheduled (as at the time of the historical timestamp):
             //      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
