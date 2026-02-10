@@ -91,18 +91,20 @@ yarn format
 yarn lint
 ```
 
-### Step 7: Amend and Push
+### Step 7: Commit and Push
+
+If there are changes from build fixes or conflict resolution, commit and push:
 
 ```bash
 git add -u
-git commit --amend --no-edit
+git commit -m "fix: resolve rebase conflicts"
 git push --force-with-lease
 ```
 
 ## Key Points
 
 - **Rebase, don't merge**: Always use `git rebase`, never `git merge`
-- **Amend, don't create new commits**: PRs should be single commits
+- **Don't amend**: Create normal commits — PRs are squashed on merge
 - **Stage tracked files only**: Use `git add -u` for modifications. If new files were created, stage them explicitly by name. Never use `git add .`
 - **Bootstrap when needed**: Only if there are changes outside yarn-project
 - **Verify build**: Always run `yarn build` after rebase
