@@ -1,7 +1,7 @@
 # External Audit Scope: pippenger
 
 Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: TBD (link)
+Commit hash: dac3f148132ecfc98adb6ac6444ab47861b38dd5
 
 ## Files to Audit
 Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`

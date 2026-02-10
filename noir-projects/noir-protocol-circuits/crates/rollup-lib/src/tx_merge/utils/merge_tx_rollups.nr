@@ -1,5 +1,5 @@
 use crate::abis::TxRollupPublicInputs;
-use dep::types::hash::accumulate_sha256;
+use types::hash::accumulate_sha256;
 
 // The `out_hash` is the root of a (potentially wonky, greedy) subtree of L2->L1 messages that the
 // various functions of txs of this block have emitted.

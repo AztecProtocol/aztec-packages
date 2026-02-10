@@ -54,7 +54,7 @@ export interface IMiscOracle {
 
   utilityGetRandomField(): Fr;
   utilityAssertCompatibleOracleVersion(version: number): void;
-  utilityDebugLog(level: number, message: string, fields: Fr[]): void;
+  utilityDebugLog(level: number, message: string, fields: Fr[]): Promise<void>;
 }
 
 /**

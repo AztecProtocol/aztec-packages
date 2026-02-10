@@ -14,7 +14,7 @@ pub fn validate_previous_rollups<let NumPreviousRollups: u32, let NumVkIndices: 
     previous_rollups: [RollupHonkProofData<TxRollupPublicInputs>; NumPreviousRollups],
     allowed_previous_vk_indices: [u32; NumVkIndices],
 ) {
-    if !dep::std::runtime::is_unconstrained() {
+    if !::std::runtime::is_unconstrained() {
         for i in 0..NumPreviousRollups {
             previous_rollups[i].verify_proof();
         }
@@ -69,7 +69,7 @@ pub fn validate_l1_to_l2_tree_snapshot_in_constants(
 
 /// Verify the parity root proof and vk, and check that its vk tree root equals the one in the rollup's constants.
 pub fn validate_parity_root(data: UltraHonkProofData<ParityPublicInputs>, vk_tree_root: Field) {
-    if !dep::std::runtime::is_unconstrained() {
+    if !::std::runtime::is_unconstrained() {
         data.verify_proof();
     }
 

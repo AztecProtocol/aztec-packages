@@ -6,6 +6,7 @@ import type {
   P2PBlockReceivedCallback,
   P2PCheckpointReceivedCallback,
   P2PConfig,
+  P2PDuplicateAttestationCallback,
   P2PDuplicateProposalCallback,
   P2PSyncState,
   PeerId,
@@ -210,5 +211,9 @@ export class DummyP2P implements P2P {
 
   public registerDuplicateProposalCallback(_callback: P2PDuplicateProposalCallback): void {
     throw new Error('DummyP2P does not implement "registerDuplicateProposalCallback"');
+  }
+
+  public registerDuplicateAttestationCallback(_callback: P2PDuplicateAttestationCallback): void {
+    throw new Error('DummyP2P does not implement "registerDuplicateAttestationCallback"');
   }
 }

@@ -70,7 +70,7 @@ export class TokenContractTest {
       initialFundedAccounts: this.context.initialFundedAccounts,
     });
 
-    this.node = this.context.aztecNodeService!;
+    this.node = this.context.aztecNodeService;
     this.wallet = this.context.wallet;
     [this.adminAddress, this.account1Address, this.account2Address] = deployedAccounts.map(acc => acc.address);
 

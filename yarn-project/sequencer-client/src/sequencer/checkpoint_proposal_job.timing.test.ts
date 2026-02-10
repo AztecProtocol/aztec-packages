@@ -329,6 +329,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       l1StartBlock: 0n,
       epochDuration: 16,
       proofSubmissionEpochs: 4,
+      targetCommitteeSize: 48,
     };
 
     // Initialize test state

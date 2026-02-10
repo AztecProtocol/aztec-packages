@@ -1,6 +1,6 @@
 # @aztec/test-wallet
 
-Version: v4.0.0-nightly.20260208
+Version: v4.0.0-nightly.20260210
 
 ## Quick Import Reference
 
@@ -123,8 +123,9 @@ new TestWallet(pxe: PXE, aztecNode: AztecNode)
 - `sendTx<W extends InteractionWaitOptions>(executionPayload: ExecutionPayload, opts: SendOptions<W>) => Promise<SendReturn<W>>`
 - `setMinFeePadding(value?: number) => void`
 - `setPublicAuthWit(from: AztecAddress, messageHashOrIntent: Fr | IntentInnerHash | CallIntent | ContractFunctionInteractionCallIntent, authorized: boolean) => Promise<SetPublicAuthwitContractInteraction>` - Returns an interaction that can be used to set the authorization status of an intent
-- `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResult>`
+- `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResult>` - Simulates a transaction, optimizing leading public static calls by running them directly on the node while sending the remaining calls through the standard PXE path. Return values from both paths are merged back in original call order.
 - `simulateUtility(call: FunctionCall, authwits?: AuthWitness[]) => Promise<UtilitySimulationResult>`
+- `simulateViaEntrypoint(executionPayload: ExecutionPayload, from: AztecAddress, feeOptions: FeeOptions, skipTxValidation?: boolean, skipFeeEnforcement?: boolean) => Promise<TxSimulationResult>` - Simulates calls through the standard PXE path (account entrypoint).
 - `stop() => Promise<void>` - Stops the internal job queue. This function is typically used when tearing down tests.
 - `sync() => Promise<void>` - Triggers a sync of the wallet with the node to update the latest block header. Blocks until the sync is complete.
 

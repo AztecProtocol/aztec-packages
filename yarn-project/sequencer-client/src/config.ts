@@ -11,8 +11,14 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type KeyStoreConfig, keyStoreConfigMappings } from '@aztec/node-keystore/config';
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ChainConfig, type SequencerConfig, chainConfigMappings } from '@aztec/stdlib/config';
+import {
+  type ChainConfig,
+  type SequencerConfig,
+  chainConfigMappings,
+  sharedSequencerConfigMappings,
+} from '@aztec/stdlib/config';
 import type { ResolvedSequencerConfig } from '@aztec/stdlib/interfaces/server';
+import { DEFAULT_P2P_PROPAGATION_TIME } from '@aztec/stdlib/timetable';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client/config';
 
 import {
@@ -24,8 +30,6 @@ import {
 
 export * from './publisher/config.js';
 export type { SequencerConfig };
-
-export const DEFAULT_ATTESTATION_PROPAGATION_TIME = 2;
 
 /**
  * Default values for SequencerConfig.
@@ -41,7 +45,7 @@ export const DefaultSequencerConfig: ResolvedSequencerConfig = {
   maxDABlockGas: 10e9,
   maxBlockSizeInBytes: 1024 * 1024,
   enforceTimeTable: true,
-  attestationPropagationTime: DEFAULT_ATTESTATION_PROPAGATION_TIME,
+  attestationPropagationTime: DEFAULT_P2P_PROPAGATION_TIME,
   secondsBeforeInvalidatingBlockAsCommitteeMember: 144, // 12 L1 blocks
   secondsBeforeInvalidatingBlockAsNonCommitteeMember: 432, // 36 L1 blocks
   skipCollectingAttestations: false,
@@ -191,13 +195,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Shuffle attestation ordering to create invalid ordering (for testing only)',
     ...booleanConfigHelper(DefaultSequencerConfig.shuffleAttestationOrdering),
   },
-  blockDurationMs: {
-    env: 'SEQ_BLOCK_DURATION_MS',
-    description:
-      'Duration per block in milliseconds when building multiple blocks per slot. ' +
-      'If undefined (default), builds a single block per slot using the full slot duration.',
-    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
-  },
+  ...sharedSequencerConfigMappings,
   buildCheckpointIfEmpty: {
     env: 'SEQ_BUILD_CHECKPOINT_IF_EMPTY',
     description: 'Have sequencer build and publish an empty checkpoint if there are no txs',

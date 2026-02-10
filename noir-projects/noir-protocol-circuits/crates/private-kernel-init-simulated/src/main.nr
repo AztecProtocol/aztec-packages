@@ -1,5 +1,5 @@
-use dep::private_kernel_lib::{private_kernel_init, PrivateKernelInitCircuitPrivateInputs};
-use dep::types::{
+use private_kernel_lib::{private_kernel_init, PrivateKernelInitCircuitPrivateInputs};
+use types::{
     abis::{
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallDataWithoutPublicInputs,

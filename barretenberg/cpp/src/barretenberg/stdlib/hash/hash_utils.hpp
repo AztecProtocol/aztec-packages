@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Luke], commit: dd03c4a23ab067274b4964cacb36d1545f73fb14}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -24,9 +24,9 @@ namespace bb::stdlib::hash_utils {
  * @param overflow_bits Number of bits for overflow range constraint. Must accommodate max(a + b) / 2^32.
  *                      For two 32-bit inputs, 1 bit suffices. For accumulated sums, use appropriately larger values.
  *
- * @warning Marked `unsafe` since the result is not explicitly range-constrained herein. Callers must ensure
- *          the result is constrained to 32 bits, either explicitly via create_range_constraint() or implicitly
- *          via downstream lookup tables that enforce the range.
+ * @warning Marked `unsafe` since the result is not explicitly range-constrained herein. If such range constraints are
+ * required, the caller must ensure they are applied, e.g. explicitly via create_range_constraint() or implicitly via
+ * downstream lookup tables that enforce the range.
  */
 template <typename Builder>
 field_t<Builder> add_normalize_unsafe(const field_t<Builder>& a, const field_t<Builder>& b, size_t overflow_bits)

@@ -138,10 +138,10 @@ export class ClientFlowsBenchmark {
     });
     await this.applyBaseSetup();
 
-    await this.context.aztecNodeService!.setConfig({ feeRecipient: this.sequencerAddress, coinbase: this.coinbase });
+    await this.context.aztecNodeService.setConfig({ feeRecipient: this.sequencerAddress, coinbase: this.coinbase });
 
     const rollupContract = RollupContract.getFromConfig(this.context.config);
-    this.chainMonitor = new ChainMonitor(rollupContract, this.context.dateProvider!, this.logger, 200).start();
+    this.chainMonitor = new ChainMonitor(rollupContract, this.context.dateProvider, this.logger, 200).start();
 
     return this;
   }
@@ -207,7 +207,7 @@ export class ClientFlowsBenchmark {
     const [{ address: adminAddress }, { address: sequencerAddress }] = deployedAccounts;
 
     this.adminWallet = this.context.wallet;
-    this.aztecNode = this.context.aztecNodeService!;
+    this.aztecNode = this.context.aztecNodeService;
     this.cheatCodes = this.context.cheatCodes;
 
     this.adminAddress = adminAddress;
@@ -235,8 +235,8 @@ export class ClientFlowsBenchmark {
     this.feeJuiceContract = FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.adminWallet);
 
     this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
-      aztecNode: this.context.aztecNodeService!,
-      aztecNodeAdmin: this.context.aztecNodeService!,
+      aztecNode: this.context.aztecNodeService,
+      aztecNodeAdmin: this.context.aztecNodeService,
       l1Client: this.context.deployL1ContractsValues.l1Client,
       wallet: this.adminWallet,
       logger: this.logger,

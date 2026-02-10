@@ -1,6 +1,6 @@
 # Aztec TypeScript API Summary
-Version: v4.0.0-nightly.20260208
-Generated: 2026-02-08T04:53:18.889Z
+Version: v4.0.0-nightly.20260210
+Generated: 2026-02-10T04:53:04.766Z
 
 This file provides an index of the Aztec TypeScript API packages.
 For detailed API documentation, see the individual package .md files.
@@ -36,7 +36,7 @@ Exports: 4 classes, 2 interfaces, 1 functions, 5 types
 **@aztec/wallet-sdk** - Wallet SDK for browser and extension integrations
   - Browser wallet integration
   - Key management utilities
-Exports: 6 classes, 31 interfaces, 7 functions, 8 types
+Exports: 6 classes, 31 interfaces, 10 functions, 8 types
 
 **@aztec/test-wallet** - Test wallet for development and e2e testing
   - In-memory wallet for testing
@@ -64,7 +64,7 @@ Key: AztecAddress, BlockHeader, CompleteAddress, EthAddress
   - Circuit size limits
   - Gas and fee constants
   - Tree heights and sizes
-Exports: 502 types
+Exports: 501 types
 
 ## Key Types Quick Reference
 

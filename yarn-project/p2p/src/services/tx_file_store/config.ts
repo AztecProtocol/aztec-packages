@@ -6,8 +6,6 @@ import { type ConfigMappingsType, booleanConfigHelper, numberConfigHelper } from
 export type TxFileStoreConfig = {
   /** URL for uploading txs to file storage (s3://, gs://, file://) */
   txFileStoreUrl?: string;
-  /** URL for downloading txs from file storage */
-  txFileStoreDownloadUrl?: string;
   /** Max concurrent uploads */
   txFileStoreUploadConcurrency: number;
   /** Max queue size to prevent unbounded memory growth */
@@ -20,10 +18,6 @@ export const txFileStoreConfigMappings: ConfigMappingsType<TxFileStoreConfig> = 
   txFileStoreUrl: {
     env: 'TX_FILE_STORE_URL',
     description: 'URL for uploading txs to file storage (s3://, gs://, file://)',
-  },
-  txFileStoreDownloadUrl: {
-    env: 'TX_FILE_STORE_DOWNLOAD_URL',
-    description: 'URL for downloading txs from file storage',
   },
   txFileStoreUploadConcurrency: {
     env: 'TX_FILE_STORE_UPLOAD_CONCURRENCY',

@@ -40,6 +40,7 @@ import {
 } from '../services/reqresp/interface.js';
 import { chunkTxHashesRequest } from '../services/reqresp/protocols/tx.js';
 import type {
+  DuplicateAttestationInfo,
   DuplicateProposalInfo,
   P2PBlockReceivedCallback,
   P2PCheckpointReceivedCallback,
@@ -339,9 +340,17 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   public async broadcastProposal(proposal: BlockProposal): Promise<void> {
     this.log.verbose(`Broadcasting proposal for slot ${proposal.slotNumber} to peers`);
     // Store our own proposal so we can respond to req/resp requests for it
-    const { totalForPosition } = await this.attestationPool.tryAddBlockProposal(proposal);
-    if (totalForPosition > 1) {
-      throw new Error(`Attempted to broadcast a duplicate block proposal for slot ${proposal.slotNumber}`);
+    const { count } = await this.attestationPool.tryAddBlockProposal(proposal);
+    if (count > 1) {
+      if (this.config.broadcastEquivocatedProposals) {
+        this.log.warn(`Broadcasting equivocated block proposal for slot ${proposal.slotNumber}`, {
+          slot: proposal.slotNumber,
+          archive: proposal.archive.toString(),
+          count,
+        });
+      } else {
+        throw new Error(`Attempted to broadcast a duplicate block proposal for slot ${proposal.slotNumber}`);
+      }
     }
     return this.p2pService.propagate(proposal);
   }
@@ -391,6 +400,10 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   public registerDuplicateProposalCallback(callback: (info: DuplicateProposalInfo) => void): void {
     this.p2pService.registerDuplicateProposalCallback(callback);
+  }
+
+  public registerDuplicateAttestationCallback(callback: (info: DuplicateAttestationInfo) => void): void {
+    this.p2pService.registerDuplicateAttestationCallback(callback);
   }
 
   /**

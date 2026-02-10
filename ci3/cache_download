@@ -30,23 +30,27 @@ function extract_tar {
 
 mkdir -p "$out_dir"
 
-S3_ENDPOINT="http://aztec-ci-artifacts.s3.amazonaws.com"
-s3_uri="s3://aztec-ci-artifacts/build-cache/$tar_file"
+if [ "$CI" -eq 1 ]; then
+  endpoint="http://aztec-ci-artifacts.s3.amazonaws.com/build-cache"
+else
+  endpoint="https://build-cache.aztec-labs.com"
+fi
 
 if [[ -n "${S3_BUILD_CACHE_AWS_PARAMS:-}" ]]; then
   # Use AWS CLI with custom params (e.g., custom endpoint)
   # NOTE: This is NOT currently used, but allows for using minio or other S3-compatible storage for tests.
+  s3_uri="s3://aztec-ci-artifacts/build-cache/$tar_file"
   aws $S3_BUILD_CACHE_AWS_PARAMS s3 cp "$s3_uri" "-" | extract_tar
 elif [[ -n "${CACHE_SSH_HOST:-}" ]]; then
   # Run S3 download on remote host via SSH jump and pipe back
-  if ! ssh "$CACHE_SSH_HOST" "curl -s -f \"$S3_ENDPOINT/build-cache/$tar_file\"" | extract_tar; then
+  if ! ssh "$CACHE_SSH_HOST" "curl -s -f \"$endpoint/$tar_file\"" | extract_tar; then
     echo_stderr "SSH cache download of $tar_file via $CACHE_SSH_HOST failed."
     exit 1
   fi
 else
   # Default to AWS S3 URL via curl
   # Attempt to download and extract the cache file
-  if ! curl -s -f "$S3_ENDPOINT/build-cache/$tar_file" | extract_tar; then
+  if ! curl -s -f "$endpoint/$tar_file" | extract_tar; then
     echo_stderr "Cache download of $tar_file failed."
     exit 1
   fi

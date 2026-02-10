@@ -131,13 +131,14 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   // We instruct users to debug contracts via this oracle, so it makes sense that they'd expect it to also work in tests
-  utilityDebugLog(level: number, message: string, fields: Fr[]): void {
+  utilityDebugLog(level: number, message: string, fields: Fr[]): Promise<void> {
     if (!LogLevels[level]) {
       throw new Error(`Invalid debug log level: ${level}`);
     }
     const levelName = LogLevels[level];
 
     this.logger[levelName](`${applyStringFormatting(message, fields)}`, { module: `${this.logger.module}:debug_log` });
+    return Promise.resolve();
   }
 
   txeGetDefaultAddress(): AztecAddress {
@@ -411,7 +412,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     // We pass the non-zero minRevertibleSideEffectCounter to make sure the side effects are split correctly.
     const { publicInputs } = await generateSimulatedProvingResult(
       result,
-      this.contractStore,
+      (addr, sel) => this.contractStore.getDebugFunctionName(addr, sel),
       minRevertibleSideEffectCounter,
     );
 
@@ -684,16 +685,16 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       this.jobId,
     );
 
-    const call = new FunctionCall(
-      artifact.name,
-      targetContractAddress,
-      functionSelector,
-      FunctionType.UTILITY,
-      false,
-      false,
+    const call = FunctionCall.from({
+      name: artifact.name,
+      to: targetContractAddress,
+      selector: functionSelector,
+      type: FunctionType.UTILITY,
+      hideMsgSender: false,
+      isStatic: false,
       args,
-      [],
-    );
+      returnTypes: [],
+    });
 
     return this.executeUtilityCall(call);
   }

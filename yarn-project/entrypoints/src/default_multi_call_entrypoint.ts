@@ -40,16 +40,16 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
   async wrapExecutionPayload(exec: ExecutionPayload, _options?: any): Promise<ExecutionPayload> {
     const { authWitnesses, capsules, extraHashedArgs } = exec;
     const callData = await this.#buildEntrypointCallData(exec);
-    const entrypointCall = new FunctionCall(
-      callData.abi.name,
-      this.address,
-      callData.functionSelector,
-      callData.abi.functionType,
-      false,
-      callData.abi.isStatic,
-      callData.encodedArgs,
-      callData.abi.returnTypes,
-    );
+    const entrypointCall = FunctionCall.from({
+      name: callData.abi.name,
+      to: this.address,
+      selector: callData.functionSelector,
+      type: callData.abi.functionType,
+      hideMsgSender: false,
+      isStatic: callData.abi.isStatic,
+      args: callData.encodedArgs,
+      returnTypes: callData.abi.returnTypes,
+    });
 
     return new ExecutionPayload(
       [entrypointCall],

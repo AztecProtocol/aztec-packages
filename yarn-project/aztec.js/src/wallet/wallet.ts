@@ -7,8 +7,7 @@ import {
   type ContractArtifact,
   ContractArtifactSchema,
   type EventMetadataDefinition,
-  type FunctionCall,
-  FunctionType,
+  FunctionCall,
 } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -257,19 +256,8 @@ export type Wallet = {
   batch<const T extends readonly BatchedMethod[]>(methods: T): Promise<BatchResults<T>>;
 };
 
-export const FunctionCallSchema = z.object({
-  name: z.string(),
-  to: schemas.AztecAddress,
-  selector: schemas.FunctionSelector,
-  type: z.nativeEnum(FunctionType),
-  isStatic: z.boolean(),
-  hideMsgSender: z.boolean(),
-  args: z.array(schemas.Fr),
-  returnTypes: z.array(AbiTypeSchema),
-});
-
 export const ExecutionPayloadSchema = z.object({
-  calls: z.array(FunctionCallSchema),
+  calls: z.array(FunctionCall.schema),
   authWitnesses: z.array(AuthWitness.schema),
   capsules: z.array(Capsule.schema),
   extraHashedArgs: z.array(HashedValues.schema),
@@ -326,7 +314,7 @@ export const MessageHashOrIntentSchema = z.union([
   z.object({ consumer: schemas.AztecAddress, innerHash: schemas.Fr }),
   z.object({
     caller: schemas.AztecAddress,
-    call: FunctionCallSchema,
+    call: FunctionCall.schema,
   }),
 ]);
 
@@ -522,7 +510,7 @@ const WalletMethodSchemas = {
   simulateTx: z.function().args(ExecutionPayloadSchema, SimulateOptionsSchema).returns(TxSimulationResult.schema),
   simulateUtility: z
     .function()
-    .args(FunctionCallSchema, optional(z.array(AuthWitness.schema)))
+    .args(FunctionCall.schema, optional(z.array(AuthWitness.schema)))
     .returns(UtilitySimulationResult.schema),
   profileTx: z.function().args(ExecutionPayloadSchema, ProfileOptionsSchema).returns(TxProfileResult.schema),
   sendTx: z

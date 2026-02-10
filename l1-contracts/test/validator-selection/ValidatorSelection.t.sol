@@ -745,7 +745,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       proverId: prover
     });
 
-    bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
+    bytes32[] memory fees = new bytes32[](Constants.MAX_CHECKPOINTS_PER_EPOCH * 2);
 
     if (_revertData != NO_REVERT) {
       vm.expectPartialRevert(_revertData);

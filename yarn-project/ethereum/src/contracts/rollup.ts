@@ -391,20 +391,24 @@ export class RollupContract {
     slotDuration: number;
     epochDuration: number;
     proofSubmissionEpochs: number;
+    targetCommitteeSize: number;
   }> {
-    const [l1StartBlock, l1GenesisTime, slotDuration, epochDuration, proofSubmissionEpochs] = await Promise.all([
-      this.getL1StartBlock(),
-      this.getL1GenesisTime(),
-      this.getSlotDuration(),
-      this.getEpochDuration(),
-      this.getProofSubmissionEpochs(),
-    ]);
+    const [l1StartBlock, l1GenesisTime, slotDuration, epochDuration, proofSubmissionEpochs, targetCommitteeSize] =
+      await Promise.all([
+        this.getL1StartBlock(),
+        this.getL1GenesisTime(),
+        this.getSlotDuration(),
+        this.getEpochDuration(),
+        this.getProofSubmissionEpochs(),
+        this.getTargetCommitteeSize(),
+      ]);
     return {
       l1StartBlock,
       l1GenesisTime,
       slotDuration,
       epochDuration: Number(epochDuration),
       proofSubmissionEpochs: Number(proofSubmissionEpochs),
+      targetCommitteeSize,
     };
   }
 

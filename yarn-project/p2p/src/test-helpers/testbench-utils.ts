@@ -155,10 +155,10 @@ export class InMemoryAttestationPool {
     const id = blockProposal.archive.toString();
     const alreadyExists = this.proposals.has(id);
     if (alreadyExists) {
-      return Promise.resolve({ added: false, alreadyExists: true, totalForPosition: 1 });
+      return Promise.resolve({ added: false, alreadyExists: true, count: 1 });
     }
     this.proposals.set(id, blockProposal);
-    return Promise.resolve({ added: true, alreadyExists: false, totalForPosition: 1 });
+    return Promise.resolve({ added: true, alreadyExists: false, count: 1 });
   }
 
   getBlockProposal(id: string): Promise<BlockProposal | undefined> {
@@ -166,7 +166,7 @@ export class InMemoryAttestationPool {
   }
 
   tryAddCheckpointProposal(_proposal: CheckpointProposal): Promise<TryAddResult> {
-    return Promise.resolve({ added: true, alreadyExists: false, totalForPosition: 1 });
+    return Promise.resolve({ added: true, alreadyExists: false, count: 1 });
   }
 
   getCheckpointProposal(_id: string): Promise<CheckpointProposalCore | undefined> {
@@ -188,8 +188,8 @@ export class InMemoryAttestationPool {
     return Promise.resolve([]);
   }
 
-  tryAddCheckpointAttestation(_attestation: CheckpointAttestation, _committeeSize: number): Promise<TryAddResult> {
-    return Promise.resolve({ added: true, alreadyExists: false, totalForPosition: 1 });
+  tryAddCheckpointAttestation(_attestation: CheckpointAttestation): Promise<TryAddResult> {
+    return Promise.resolve({ added: true, alreadyExists: false, count: 1 });
   }
 
   isEmpty(): Promise<boolean> {
@@ -216,6 +216,15 @@ export function createMockEpochCache(): EpochCacheInterface {
     isInCommittee: () => Promise.resolve(false),
     getRegisteredValidators: () => Promise.resolve([]),
     filterInCommittee: () => Promise.resolve([]),
+    getL1Constants: () => ({
+      l1StartBlock: 0n,
+      l1GenesisTime: 0n,
+      epochDuration: 1,
+      slotDuration: 1,
+      ethereumSlotDuration: 1,
+      proofSubmissionEpochs: 1,
+      targetCommitteeSize: 48,
+    }),
   };
 }
 

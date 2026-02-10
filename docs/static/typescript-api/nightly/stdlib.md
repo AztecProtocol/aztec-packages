@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: v4.0.0-nightly.20260208
+Version: v4.0.0-nightly.20260210
 
 ## Quick Import Reference
 
@@ -718,14 +718,16 @@ new FunctionCall(name: string, to: AztecAddress, selector: FunctionSelector, typ
 - `isStatic: boolean` - Whether this call can make modifications to state or not
 - `name: string` - The name of the function to call
 - `returnTypes: AbiType[]` - The return type for decoding
+- `static schema: unknown`
 - `selector: FunctionSelector` - The function being called
 - `to: AztecAddress` - The recipient contract
 - `type: FunctionType` - Type of the function
 
 **Methods**
-- `static empty() => { args: never[]; hideMsgSender: boolean; ... }` - Creates an empty function call.
+- `static empty() => FunctionCall` - Creates an empty function call.
 - `static from(fields: FieldsOf<FunctionCall>) => FunctionCall`
 - `static getFields(fields: FieldsOf<FunctionCall>) => readonly []`
+- `isPublicStatic() => boolean`
 
 ### FunctionData
 
