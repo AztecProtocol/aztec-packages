@@ -73,7 +73,7 @@ namespace execution;
     // gt gadget requires both inputs to be bounded by 2^128.
     // prev_l2_gas_used is bounded by l2_gas_limit < 2^32
     // BASE_L2_GAS < 2^17
-    // dynamic_l2_gas_factor < 2^32 (for unencrypted logs and to_radix, 32-bit register)
+    // dynamic_l2_gas_factor < 2^32 (for public logs and to_radix, 32-bit register)
     // dynamic_l2_gas < 2^16
     // Then total_gas_l2 = prev_l2_gas_used + BASE_L2_GAS + dynamic_l2_gas_factor * dynamic_da_gas < 2^49
     // l2_gas_limit is 32 bits (see at the top of this file).

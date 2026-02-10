@@ -23,7 +23,7 @@
 #include "relations/ecc_mem.hpp"
 #include "relations/emit_notehash.hpp"
 #include "relations/emit_nullifier.hpp"
-#include "relations/emit_unencrypted_log.hpp"
+#include "relations/emit_public_log.hpp"
 #include "relations/execution.hpp"
 #include "relations/external_call.hpp"
 #include "relations/ff_gt.hpp"
@@ -85,7 +85,7 @@
 #include "relations/lookups_ecc_mem.hpp"
 #include "relations/lookups_emit_notehash.hpp"
 #include "relations/lookups_emit_nullifier.hpp"
-#include "relations/lookups_emit_unencrypted_log.hpp"
+#include "relations/lookups_emit_public_log.hpp"
 #include "relations/lookups_execution.hpp"
 #include "relations/lookups_external_call.hpp"
 #include "relations/lookups_ff_gt.hpp"
@@ -127,7 +127,7 @@
 #include "relations/perms_context.hpp"
 #include "relations/perms_data_copy.hpp"
 #include "relations/perms_ecc_mem.hpp"
-#include "relations/perms_emit_unencrypted_log.hpp"
+#include "relations/perms_emit_public_log.hpp"
 #include "relations/perms_execution.hpp"
 #include "relations/perms_get_contract_instance.hpp"
 #include "relations/perms_internal_call.hpp"
@@ -175,7 +175,7 @@ struct AvmFlavorVariables {
         avm2::ecc_mem<FF_>,
         avm2::emit_notehash<FF_>,
         avm2::emit_nullifier<FF_>,
-        avm2::emit_unencrypted_log<FF_>,
+        avm2::emit_public_log<FF_>,
         avm2::execution<FF_>,
         avm2::external_call<FF_>,
         avm2::ff_gt<FF_>,
@@ -283,9 +283,9 @@ struct AvmFlavorVariables {
         lookup_ecc_mem_input_output_ecc_add_relation<FF_>,
         lookup_emit_notehash_notehash_tree_write_relation<FF_>,
         lookup_emit_nullifier_write_nullifier_relation<FF_>,
-        lookup_emit_unencrypted_log_check_log_fields_count_relation<FF_>,
-        lookup_emit_unencrypted_log_check_memory_out_of_bounds_relation<FF_>,
-        lookup_emit_unencrypted_log_write_data_to_public_inputs_relation<FF_>,
+        lookup_emit_public_log_check_log_fields_count_relation<FF_>,
+        lookup_emit_public_log_check_memory_out_of_bounds_relation<FF_>,
+        lookup_emit_public_log_write_data_to_public_inputs_relation<FF_>,
         lookup_execution_bytecode_retrieval_result_relation<FF_>,
         lookup_execution_check_radix_gt_256_relation<FF_>,
         lookup_execution_check_written_storage_slot_relation<FF_>,
@@ -597,7 +597,7 @@ struct AvmFlavorVariables {
         lookup_tx_context_public_inputs_write_l2_to_l1_message_count_relation<FF_>,
         lookup_tx_context_public_inputs_write_note_hash_count_relation<FF_>,
         lookup_tx_context_public_inputs_write_nullifier_count_relation<FF_>,
-        lookup_tx_context_public_inputs_write_unencrypted_log_count_relation<FF_>,
+        lookup_tx_context_public_inputs_write_public_log_count_relation<FF_>,
         lookup_tx_context_restore_state_on_revert_relation<FF_>,
         lookup_tx_note_hash_append_relation<FF_>,
         lookup_tx_nullifier_append_relation<FF_>,
@@ -643,10 +643,10 @@ struct AvmFlavorVariables {
         perm_ecc_mem_write_mem_0_relation<FF_>,
         perm_ecc_mem_write_mem_1_relation<FF_>,
         perm_ecc_mem_write_mem_2_relation<FF_>,
-        perm_emit_unencrypted_log_read_mem_relation<FF_>,
+        perm_emit_public_log_read_mem_relation<FF_>,
         perm_execution_dispatch_to_cd_copy_relation<FF_>,
         perm_execution_dispatch_to_ecc_add_relation<FF_>,
-        perm_execution_dispatch_to_emit_unencrypted_log_relation<FF_>,
+        perm_execution_dispatch_to_emit_public_log_relation<FF_>,
         perm_execution_dispatch_to_get_contract_instance_relation<FF_>,
         perm_execution_dispatch_to_keccakf1600_relation<FF_>,
         perm_execution_dispatch_to_poseidon2_perm_relation<FF_>,

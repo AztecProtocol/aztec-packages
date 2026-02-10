@@ -19,7 +19,7 @@ import {
   EcAdd,
   EmitNoteHash,
   EmitNullifier,
-  EmitUnencryptedLog,
+  EmitPublicLog,
   Eq,
   FieldDiv,
   GetContractInstance,
@@ -129,7 +129,7 @@ export const INSTRUCTION_SET = new Map<Opcode, InstructionDeserializer>([
   [L1ToL2MessageExists.opcode, Instruction.fromBuffer.bind(L1ToL2MessageExists)], // Messages
 
   // Accrued Substate
-  [EmitUnencryptedLog.opcode, Instruction.fromBuffer.bind(EmitUnencryptedLog)],
+  [EmitPublicLog.opcode, Instruction.fromBuffer.bind(EmitPublicLog)],
   [SendL2ToL1Message.opcode, Instruction.fromBuffer.bind(SendL2ToL1Message)],
   [GetContractInstance.opcode, Instruction.fromBuffer.bind(GetContractInstance)],
 

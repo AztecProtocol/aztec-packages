@@ -74,7 +74,7 @@ enum class WireOpCode : uint8_t {
     GETCONTRACTINSTANCE,
 
     // Accrued Substate
-    EMITUNENCRYPTEDLOG,
+    EMITPUBLICLOG,
     SENDL2TOL1MSG, // Messages
 
     // Control Flow - Contract Calls
@@ -139,7 +139,7 @@ enum class ExecutionOpCode : uint8_t {
     EMITNULLIFIER,
     L1TOL2MSGEXISTS,
     GETCONTRACTINSTANCE,
-    EMITUNENCRYPTEDLOG,
+    EMITPUBLICLOG,
     SENDL2TOL1MSG,
     CALL,
     STATICCALL,

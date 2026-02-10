@@ -484,15 +484,9 @@ TEST(BytecodeTraceGenTest, InstrFetchingSingleBytecode)
     constexpr BytecodeId bytecode_id = 1;
     constexpr size_t num_of_opcodes = 10;
     constexpr std::array<WireOpCode, num_of_opcodes> opcodes = {
-        WireOpCode::DIV_16,
-        WireOpCode::RETURNDATASIZE,
-        WireOpCode::AND_8,
-        WireOpCode::EMITUNENCRYPTEDLOG,
-        WireOpCode::CAST_16,
-        WireOpCode::CALL,
-        WireOpCode::SUCCESSCOPY,
-        WireOpCode::MOV_8,
-        WireOpCode::SHA256COMPRESSION,
+        WireOpCode::DIV_16,        WireOpCode::RETURNDATASIZE, WireOpCode::AND_8,
+        WireOpCode::EMITPUBLICLOG, WireOpCode::CAST_16,        WireOpCode::CALL,
+        WireOpCode::SUCCESSCOPY,   WireOpCode::MOV_8,          WireOpCode::SHA256COMPRESSION,
         WireOpCode::INTERNALCALL,
     };
 

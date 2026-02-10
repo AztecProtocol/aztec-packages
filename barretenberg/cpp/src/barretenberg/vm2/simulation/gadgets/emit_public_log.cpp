@@ -1,4 +1,4 @@
-#include "barretenberg/vm2/simulation/gadgets/emit_unencrypted_log.hpp"
+#include "barretenberg/vm2/simulation/gadgets/emit_public_log.hpp"
 
 #include <cassert>
 #include <cstdint>
@@ -6,17 +6,17 @@
 
 namespace bb::avm2::simulation {
 
-void EmitUnencryptedLog::emit_unencrypted_log(MemoryInterface& memory,
-                                              ContextInterface& context,
-                                              const AztecAddress& contract_address,
-                                              MemoryAddress log_address,
-                                              uint32_t log_size)
+void EmitPublicLog::emit_public_log(MemoryInterface& memory,
+                                    ContextInterface& context,
+                                    const AztecAddress& contract_address,
+                                    MemoryAddress log_address,
+                                    uint32_t log_size)
 {
     uint64_t end_log_address_upper_bound = static_cast<uint64_t>(log_address) + static_cast<uint64_t>(log_size);
     bool error_memory_out_of_bounds = greater_than.gt(end_log_address_upper_bound, AVM_MEMORY_SIZE);
 
     auto& side_effect_tracker = context.get_side_effect_tracker();
-    uint32_t prev_emitted_log_fields = side_effect_tracker.get_side_effects().get_num_unencrypted_log_fields();
+    uint32_t prev_emitted_log_fields = side_effect_tracker.get_side_effects().get_num_public_log_fields();
 
     uint64_t total_log_fields_size = PUBLIC_LOG_HEADER_LENGTH + log_size;
     uint64_t expected_next_emitted_log_fields = prev_emitted_log_fields + total_log_fields_size;
@@ -46,14 +46,14 @@ void EmitUnencryptedLog::emit_unencrypted_log(MemoryInterface& memory,
         side_effect_tracker.add_public_log(contract_address, std::vector<FF>(values.begin(), values.end()));
     }
 
-    events.emit(EmitUnencryptedLogWriteEvent{
+    events.emit(EmitPublicLogWriteEvent{
         .execution_clk = execution_id_manager.get_execution_id(),
         .contract_address = contract_address,
         .space_id = memory.get_space_id(),
         .log_address = log_address,
         .log_size = log_size,
-        .prev_num_unencrypted_log_fields = prev_emitted_log_fields,
-        .next_num_unencrypted_log_fields = side_effect_tracker.get_side_effects().get_num_unencrypted_log_fields(),
+        .prev_num_public_log_fields = prev_emitted_log_fields,
+        .next_num_public_log_fields = side_effect_tracker.get_side_effects().get_num_public_log_fields(),
         .is_static = error_is_static,
         .values = values,
         .error_memory_out_of_bounds = error_memory_out_of_bounds,
@@ -62,30 +62,30 @@ void EmitUnencryptedLog::emit_unencrypted_log(MemoryInterface& memory,
     });
 
     if (error_memory_out_of_bounds) {
-        throw EmitUnencryptedLogException("Memory out of bounds");
+        throw EmitPublicLogException("Memory out of bounds");
     }
     if (error_too_many_log_fields) {
-        throw EmitUnencryptedLogException("Too many logs");
+        throw EmitPublicLogException("Too many logs");
     }
     if (error_tag_mismatch) {
-        throw EmitUnencryptedLogException("Tag mismatch");
+        throw EmitPublicLogException("Tag mismatch");
     }
     if (error_is_static) {
-        throw EmitUnencryptedLogException("Static call cannot update the state.");
+        throw EmitPublicLogException("Static call cannot update the state.");
     }
 }
 
-void EmitUnencryptedLog::on_checkpoint_created()
+void EmitPublicLog::on_checkpoint_created()
 {
     events.emit(CheckPointEventType::CREATE_CHECKPOINT);
 }
 
-void EmitUnencryptedLog::on_checkpoint_committed()
+void EmitPublicLog::on_checkpoint_committed()
 {
     events.emit(CheckPointEventType::COMMIT_CHECKPOINT);
 }
 
-void EmitUnencryptedLog::on_checkpoint_reverted()
+void EmitPublicLog::on_checkpoint_reverted()
 {
     events.emit(CheckPointEventType::REVERT_CHECKPOINT);
 }
