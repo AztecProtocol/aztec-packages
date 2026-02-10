@@ -181,7 +181,7 @@ constexpr std::pair<uint256_t, uint256_t> uint256_t::divmod(const uint256_t& b) 
  * because the invariant remainder < b guarantees the quotient limb fits in 64 bits.
  * Falls back to the uint256_t overload for wasm.
  */
-constexpr std::pair<uint256_t, uint64_t> uint256_t::fast_divmod(uint64_t b) const
+constexpr std::pair<uint256_t, uint64_t> uint256_t::divmod(uint64_t b) const
 {
     if (*this == 0 || b == 0) {
         return { 0, 0 };

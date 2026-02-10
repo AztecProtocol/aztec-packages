@@ -22,7 +22,7 @@ std::pair<std::vector<uint8_t>, /* truncated */ bool> PureToRadix::to_le_radix(c
     limbs.reserve(num_limbs);
 
     for (uint32_t i = 0; i < num_limbs; i++) {
-        auto [quotient, remainder] = value_integer.fast_divmod(static_cast<uint64_t>(radix));
+        auto [quotient, remainder] = value_integer.divmod(static_cast<uint64_t>(radix));
         limbs.push_back(static_cast<uint8_t>(remainder));
         value_integer = quotient;
     }
