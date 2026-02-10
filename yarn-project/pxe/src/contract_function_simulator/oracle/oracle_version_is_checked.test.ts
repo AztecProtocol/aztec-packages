@@ -12,6 +12,7 @@ import { BlockHeader, HashedValues, TxContext, TxExecutionRequest } from '@aztec
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
+import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
@@ -36,6 +37,7 @@ describe('Oracle Version Check test suite', () => {
   let senderAddressBookStore: ReturnType<typeof mock<SenderAddressBookStore>>;
   let capsuleStore: ReturnType<typeof mock<CapsuleStore>>;
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
+  let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
   let acirSimulator: ContractFunctionSimulator;
   let contractAddress: AztecAddress;
   let anchorBlockHeader: BlockHeader;
@@ -54,6 +56,7 @@ describe('Oracle Version Check test suite', () => {
     senderAddressBookStore = mock<SenderAddressBookStore>();
     capsuleStore = mock<CapsuleStore>();
     privateEventStore = mock<PrivateEventStore>();
+    contractSyncService = mock<ContractSyncService>();
     utilityAssertCompatibleOracleVersionSpy = jest.spyOn(
       UtilityExecutionOracle.prototype,
       'utilityAssertCompatibleOracleVersion',
@@ -99,6 +102,7 @@ describe('Oracle Version Check test suite', () => {
       capsuleStore,
       privateEventStore,
       simulator,
+      contractSyncService,
     );
   });
 
@@ -161,16 +165,16 @@ describe('Oracle Version Check test suite', () => {
       contractStore.getFunctionArtifact.mockResolvedValue(utilityFunctionArtifact);
 
       // Form the execution request for the utility function
-      const execRequest: FunctionCall = {
+      const execRequest = FunctionCall.from({
         name: utilityFunctionArtifact.name,
         to: contractAddress,
         selector: FunctionSelector.empty(),
         type: FunctionType.UTILITY,
-        isStatic: false,
         hideMsgSender: false,
+        isStatic: false,
         args: encodeArguments(utilityFunctionArtifact, []),
         returnTypes: utilityFunctionArtifact.returnTypes,
-      };
+      });
 
       // Call the utility function
       await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, [], 'test');

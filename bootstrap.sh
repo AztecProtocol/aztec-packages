@@ -99,9 +99,16 @@ function check_toolchains {
     exit 1
   fi
   if ! rustup show | grep $rust_version > /dev/null; then
-    # Cargo will download necessary version of rust at runtime but warn to alert that an update to the build-image
-    # is desirable.
-    echo -e "${bold}${yellow}WARN: Rust ${rust_version} is not installed. Performance will be degraded.${reset}"
+    if [ "${CI:-0}" -eq 1 ]; then
+      echo "Attempting install of required Rust version $rust_version"
+      rustup self update 2>/dev/null || true
+      rustup toolchain install $rust_version
+      rustup default $rust_version
+    else
+      # Cargo will download necessary version of rust at runtime but warn to alert that an update to the build-image
+      # is desirable.
+      echo -e "${bold}${yellow}WARN: Rust ${rust_version} is not installed. Performance will be degraded.${reset}"
+    fi
   fi
   # Check wasi-sdk version.
   if ! cat /opt/wasi-sdk/VERSION 2> /dev/null | grep 27.0 > /dev/null; then
@@ -281,10 +288,11 @@ function build_and_test {
   # Start the test engine.
   rm -f $test_cmds_file
   touch $test_cmds_file
-  # put it in it's own process group via background subshell, we can terminate on cleanup.
-  (color_prefix "test-engine" "denoise test_engine_start") &
+  # put it in it's own process group, we can terminate on cleanup.
+  setsid color_prefix "test-engine" "denoise test_engine_start" &
   test_engine_pid=$!
   test_engine_pgid=$(ps -o pgid= -p $test_engine_pid)
+  echo "Started test engine with $test_engine_pid in PGID $test_engine_pgid."
 
   # Start the build.
   if [ -z "$target" ]; then
@@ -589,6 +597,18 @@ case "$cmd" in
     export CI_FULL=1
     build_and_test
     bench
+    ;;
+  "ci-grind-test")
+    export CI=1
+    export USE_TEST_CACHE=0
+
+    full_cmd="${1:?full_cmd required}"
+    timeout="${2:-}"
+    jobs_pct="${3:-200}"
+    memsuspend_pct="${4:-50}"
+    commit="${5:-}"
+
+    grind_test "$full_cmd" "$timeout" "$jobs_pct" "$memsuspend_pct" "$commit"
     ;;
 
   ##########################################

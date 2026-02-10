@@ -461,7 +461,7 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
 
 const InteractionDefinition AluTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_alu_tag_max_bits_value_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_alu_tag_max_bits_value_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_alu_range_check_decomposition_a_lo_settings, InteractionType::LookupGeneric>(C::range_check_sel)
         .add<lookup_alu_range_check_decomposition_a_hi_settings, InteractionType::LookupGeneric>(C::range_check_sel)
         .add<lookup_alu_range_check_decomposition_b_lo_settings, InteractionType::LookupGeneric>(C::range_check_sel)
@@ -469,7 +469,7 @@ const InteractionDefinition AluTraceBuilder::interactions =
         .add<lookup_alu_range_check_mul_c_hi_settings, InteractionType::LookupGeneric>(C::range_check_sel)
         .add<lookup_alu_ff_gt_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_int_gt_settings, InteractionType::LookupGeneric>(C::gt_sel)
-        .add<lookup_alu_shifts_two_pow_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_alu_shifts_two_pow_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_alu_range_check_trunc_mid_settings, InteractionType::LookupGeneric>(C::range_check_sel)
         .add<lookup_alu_large_trunc_canonical_dec_settings, InteractionType::LookupGeneric>();
 

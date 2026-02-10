@@ -21,7 +21,7 @@ enum class InteractionType {
     LookupGeneric,
     LookupSequential,
     LookupIntoBitwise,
-    LookupIntoIndexedByClk,
+    LookupIntoIndexedByRow,
     LookupIntoPDecomposition,
     Permutation,
     MultiPermutation,
@@ -80,11 +80,11 @@ class InteractionDefinition {
                 return strict ? std::make_unique<AddChecksToBuilder<LookupIntoBitwise<InteractionSettings...>>>(args...)
                               : std::make_unique<LookupIntoBitwise<InteractionSettings...>>(args...);
             };
-        } else if constexpr (type == InteractionType::LookupIntoIndexedByClk) {
+        } else if constexpr (type == InteractionType::LookupIntoIndexedByRow) {
             return [args...](bool strict, SharedIndexCache&) {
-                return strict ? std::make_unique<AddChecksToBuilder<LookupIntoIndexedByClk<InteractionSettings...>>>(
+                return strict ? std::make_unique<AddChecksToBuilder<LookupIntoIndexedByRow<InteractionSettings...>>>(
                                     args...)
-                              : std::make_unique<LookupIntoIndexedByClk<InteractionSettings...>>(args...);
+                              : std::make_unique<LookupIntoIndexedByRow<InteractionSettings...>>(args...);
             };
         } else if constexpr (type == InteractionType::LookupIntoPDecomposition) {
             return [args...](bool strict, SharedIndexCache&) {

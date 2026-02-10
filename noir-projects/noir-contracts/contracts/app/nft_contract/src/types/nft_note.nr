@@ -1,4 +1,4 @@
-use dep::aztec::{
+use aztec::{
     context::{PrivateContext, PublicContext},
     keys::getters::{get_nhk_app, get_public_keys, try_get_public_keys},
     macros::notes::custom_note,
@@ -242,7 +242,7 @@ impl PartialNFTNote {
 
 mod test {
     use super::{compute_partial_commitment, NFTNote, PartialNFTNote};
-    use dep::aztec::{
+    use aztec::{
         note::note_interface::NoteHash,
         protocol::{address::AztecAddress, traits::FromField},
     };

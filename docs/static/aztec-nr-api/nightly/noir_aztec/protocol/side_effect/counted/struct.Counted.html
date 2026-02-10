@@ -28,7 +28,6 @@
 <li><a href="#expose_to_public">expose_to_public</a></li>
 <li><a href="#new">new</a></li>
 <li><a href="#scope">scope</a></li>
-<li><a href="#scope">scope</a></li>
 </ul>
 <h3>Trait implementations</h3>
 <ul class="sidebar-list">
@@ -56,21 +55,17 @@
 <div id="structfield.inner" class="struct-field"><code class="code-header">inner: T</code></div>
 <div class="padded-description"></div><div id="structfield.counter" class="struct-field"><code class="code-header">counter: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
 <div class="padded-description"></div><h2>Implementations</h2>
-<h3><code class="code-header">impl <a href="../../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../../protocol_types/messaging/l2_to_l1_message/struct.L2ToL1Message.html" class="struct">L2ToL1Message</a>&gt;</code></h3>
-
-<div class="padded-methods"><code id="scope" class="code-header">pub fn <a href="#scope"><span class="fn">scope</span></a>(self, contract_address: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> <a href="../../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;Self&gt;</code>
-
-</div><h3><code class="code-header">impl <a href="../../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a>&gt;</code></h3>
+<h3><code class="code-header">impl <a href="../../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a>&gt;</code></h3>
 
 <div class="padded-methods"><code id="expose_to_public" class="code-header">pub fn <a href="#expose_to_public"><span class="fn">expose_to_public</span></a>(self) -> <a href="../../../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a></code>
 
 </div><h3><code class="code-header">impl&lt;T&gt; <a href="../../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;T&gt;</code></h3>
 
-<div class="padded-methods"><code id="scope" class="code-header">pub fn <a href="#scope"><span class="fn">scope</span></a>(self, contract_address: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> <a href="../../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;Self&gt;</code>
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(inner: T, counter: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>) -> Self</code>
 
 </div><h3><code class="code-header">impl&lt;T&gt; <a href="../../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;T&gt;</code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(inner: T, counter: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>) -> Self</code>
+<div class="padded-methods"><code id="scope" class="code-header">pub fn <a href="#scope"><span class="fn">scope</span></a>(self, contract_address: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> <a href="../../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;Self&gt;</code>
 
 </div><h2>Trait implementations</h2>
 <h3 id="impl-Deserialize-for-Counted<T>"><code class="code-header">impl&lt;T&gt; <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;T&gt;

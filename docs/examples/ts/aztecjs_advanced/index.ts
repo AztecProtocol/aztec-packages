@@ -14,7 +14,8 @@ import { NO_WAIT, BatchCall } from "@aztec/aztec.js/contracts";
 import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee/testing";
 import { getContractInstanceFromInstantiationParams } from "@aztec/stdlib/contract";
 import { PublicKeys } from "@aztec/stdlib/keys";
-import { getDecodedPublicEvents } from "@aztec/aztec.js/events";
+import { getPublicEvents } from "@aztec/aztec.js/events";
+import { BlockNumber } from "@aztec/aztec.js/fields";
 
 // Setup: connect to network
 const node = createAztecNodeClient("http://localhost:8080");
@@ -275,16 +276,19 @@ async function pollForTransferEvents() {
   const currentBlock = await node.getBlockNumber();
 
   if (currentBlock > lastProcessedBlock) {
-    const events = await getDecodedPublicEvents<Transfer>(
+    const events = await getPublicEvents<Transfer>(
       node,
       TokenContract.events.Transfer,
-      lastProcessedBlock + 1,
-      currentBlock - lastProcessedBlock,
+      {
+        fromBlock: BlockNumber(lastProcessedBlock + 1),
+        toBlock: BlockNumber(currentBlock + 1), // toBlock is exclusive
+      },
     );
 
-    for (const event of events) {
+    for (const { event, metadata } of events) {
       // Process each transfer event
       console.log(`Transfer: ${event.amount} from ${event.from} to ${event.to}`);
+      console.log(`  in block ${metadata.l2BlockNumber}, tx ${metadata.txHash}`);
     }
 
     lastProcessedBlock = currentBlock;

@@ -31,7 +31,7 @@ describe('BlockHeader', () => {
     const header = makeBlockHeader(seed);
     const hash = await header.hash();
     expect(hash.toString()).toMatchInlineSnapshot(
-      '"0x20d46dceda5d61ea884e476bef5ff972557b8a9f5be393bb769c656a3be93367"',
+      `"0x27d0765b4598120655fbb5cb342ba762d26206245213de0f8bf97ae8f69f82ca"`,
     );
   });
 
@@ -44,7 +44,7 @@ describe('BlockHeader', () => {
     const header = BlockHeader.empty();
     const hash = await header.hash();
     expect(hash.toString()).toMatchInlineSnapshot(
-      '"0x2332f3e8426f1e4fbf66323836e2de1916d47eeb53feb7d3d09ee30d001374be"',
+      `"0x0bdc537052dea0f80db9698585dff9f32063b86b6d4934ac17c30c81e8e416d3"`,
     );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data

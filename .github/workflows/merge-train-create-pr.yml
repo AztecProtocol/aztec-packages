@@ -46,10 +46,14 @@ jobs:
               base_branch="next"
 
               # Create PR with ci-no-squash label
+              labels="ci-no-squash"
+              if [[ "$branch" == "merge-train/spartan" ]]; then
+                labels="$labels,ci-full-no-test-cache"
+              fi
               gh pr create --base "$base_branch" --head "$branch" \
                 --title "feat: $branch" \
                 --body "$(echo -e "See [merge-train-readme.md](https://github.com/${{ github.repository }}/blob/next/.github/workflows/merge-train-readme.md).\nThis is a merge-train.")" \
-                --label "ci-no-squash"
+                --label "$labels"
 
               echo "Created PR for $branch"
             else

@@ -482,7 +482,6 @@
 <li><a href="noir_aztec/protocol/constants/global.AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE.html">noir_aztec::protocol::constants::AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE</a></li>
 <li><a href="noir_aztec/protocol/constants/global.AVM_XOR_BASE_L2_GAS.html">noir_aztec::protocol::constants::AVM_XOR_BASE_L2_GAS</a></li>
 <li><a href="noir_aztec/protocol/constants/global.AZTEC_ADDRESS_LENGTH.html">noir_aztec::protocol::constants::AZTEC_ADDRESS_LENGTH</a></li>
-<li><a href="noir_aztec/protocol/constants/global.AZTEC_MAX_EPOCH_DURATION.html">noir_aztec::protocol::constants::AZTEC_MAX_EPOCH_DURATION</a></li>
 <li><a href="noir_aztec/protocol/constants/global.BLOBS_PER_CHECKPOINT.html">noir_aztec::protocol::constants::BLOBS_PER_CHECKPOINT</a></li>
 <li><a href="noir_aztec/protocol/constants/global.BLOB_ACCUMULATOR_LENGTH.html">noir_aztec::protocol::constants::BLOB_ACCUMULATOR_LENGTH</a></li>
 <li><a href="noir_aztec/protocol/constants/global.BLOCK_CONSTANT_DATA_LENGTH.html">noir_aztec::protocol::constants::BLOCK_CONSTANT_DATA_LENGTH</a></li>
@@ -650,6 +649,7 @@
 <li><a href="noir_aztec/protocol/constants/global.L2_GAS_PER_PRIVATE_LOG.html">noir_aztec::protocol::constants::L2_GAS_PER_PRIVATE_LOG</a></li>
 <li><a href="noir_aztec/protocol/constants/global.L2_TO_L1_MESSAGE_LENGTH.html">noir_aztec::protocol::constants::L2_TO_L1_MESSAGE_LENGTH</a></li>
 <li><a href="noir_aztec/protocol/constants/global.LOG_HASH_LENGTH.html">noir_aztec::protocol::constants::LOG_HASH_LENGTH</a></li>
+<li><a href="noir_aztec/protocol/constants/global.MAX_CHECKPOINTS_PER_EPOCH.html">noir_aztec::protocol::constants::MAX_CHECKPOINTS_PER_EPOCH</a></li>
 <li><a href="noir_aztec/protocol/constants/global.MAX_CONTRACT_CLASS_LOGS_PER_CALL.html">noir_aztec::protocol::constants::MAX_CONTRACT_CLASS_LOGS_PER_CALL</a></li>
 <li><a href="noir_aztec/protocol/constants/global.MAX_CONTRACT_CLASS_LOGS_PER_TX.html">noir_aztec::protocol::constants::MAX_CONTRACT_CLASS_LOGS_PER_TX</a></li>
 <li><a href="noir_aztec/protocol/constants/global.MAX_ENQUEUED_CALLS_PER_CALL.html">noir_aztec::protocol::constants::MAX_ENQUEUED_CALLS_PER_CALL</a></li>
@@ -798,7 +798,6 @@
 <li><a href="noir_aztec/protocol/constants/global.TX_REQUEST_LENGTH.html">noir_aztec::protocol::constants::TX_REQUEST_LENGTH</a></li>
 <li><a href="noir_aztec/protocol/constants/global.TX_ROLLUP_PUBLIC_INPUTS_LENGTH.html">noir_aztec::protocol::constants::TX_ROLLUP_PUBLIC_INPUTS_LENGTH</a></li>
 <li><a href="noir_aztec/protocol/constants/global.TX_START_PREFIX.html">noir_aztec::protocol::constants::TX_START_PREFIX</a></li>
-<li><a href="noir_aztec/protocol/constants/global.TX_START_PREFIX_BIT_SIZE.html">noir_aztec::protocol::constants::TX_START_PREFIX_BIT_SIZE</a></li>
 <li><a href="noir_aztec/protocol/constants/global.ULTRA_KECCAK_PROOF_LENGTH.html">noir_aztec::protocol::constants::ULTRA_KECCAK_PROOF_LENGTH</a></li>
 <li><a href="noir_aztec/protocol/constants/global.ULTRA_VK_LENGTH_IN_FIELDS.html">noir_aztec::protocol::constants::ULTRA_VK_LENGTH_IN_FIELDS</a></li>
 <li><a href="noir_aztec/protocol/constants/global.UPDATED_CLASS_IDS_SLOT.html">noir_aztec::protocol::constants::UPDATED_CLASS_IDS_SLOT</a></li>
@@ -881,12 +880,12 @@
 <li><a href="noir_aztec/macros/aztec/fn.aztec.html">noir_aztec::macros::aztec::aztec</a></li>
 <li><a href="noir_aztec/macros/dispatch/fn.generate_public_dispatch.html">noir_aztec::macros::dispatch::generate_public_dispatch</a></li>
 <li><a href="noir_aztec/macros/events/fn.event.html">noir_aztec::macros::events::event</a></li>
+<li><a href="noir_aztec/macros/functions/fn.allow_phase_change.html">noir_aztec::macros::functions::allow_phase_change</a></li>
 <li><a href="noir_aztec/macros/functions/fn.authorize_once.html">noir_aztec::macros::functions::authorize_once</a></li>
 <li><a href="noir_aztec/macros/functions/fn.external.html">noir_aztec::macros::functions::external</a></li>
 <li><a href="noir_aztec/macros/functions/fn.initializer.html">noir_aztec::macros::functions::initializer</a></li>
 <li><a href="noir_aztec/macros/functions/fn.internal.html">noir_aztec::macros::functions::internal</a></li>
 <li><a href="noir_aztec/macros/functions/fn.noinitcheck.html">noir_aztec::macros::functions::noinitcheck</a></li>
-<li><a href="noir_aztec/macros/functions/fn.nophasecheck.html">noir_aztec::macros::functions::nophasecheck</a></li>
 <li><a href="noir_aztec/macros/functions/fn.only_self.html">noir_aztec::macros::functions::only_self</a></li>
 <li><a href="noir_aztec/macros/functions/fn.view.html">noir_aztec::macros::functions::view</a></li>
 <li><a href="noir_aztec/macros/functions/initialization_utils/fn.assert_initialization_matches_address_preimage_private.html">noir_aztec::macros::functions::initialization_utils::assert_initialization_matches_address_preimage_private</a></li>
@@ -926,6 +925,7 @@
 <li><a href="noir_aztec/messages/logs/partial_note/fn.compute_partial_note_private_content_log.html">noir_aztec::messages::logs::partial_note::compute_partial_note_private_content_log</a></li>
 <li><a href="noir_aztec/messages/logs/partial_note/fn.encode_partial_note_private_message.html">noir_aztec::messages::logs::partial_note::encode_partial_note_private_message</a></li>
 <li><a href="noir_aztec/messages/offchain_messages/fn.deliver_offchain_message.html">noir_aztec::messages::offchain_messages::deliver_offchain_message</a></li>
+<li><a href="noir_aztec/messages/processing/fn.validate_and_store_enqueued_notes_and_events.html">noir_aztec::messages::processing::validate_and_store_enqueued_notes_and_events</a></li>
 <li><a href="noir_aztec/note/lifecycle/fn.create_note.html">noir_aztec::note::lifecycle::create_note</a></li>
 <li><a href="noir_aztec/note/lifecycle/fn.destroy_note.html">noir_aztec::note::lifecycle::destroy_note</a></li>
 <li><a href="noir_aztec/note/note_getter/fn.get_note.html">noir_aztec::note::note_getter::get_note</a></li>

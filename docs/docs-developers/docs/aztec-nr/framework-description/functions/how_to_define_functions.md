@@ -35,7 +35,7 @@ Use `#[external("private")]` to create functions that execute privately on user 
 
 #include_code increment /docs/examples/contracts/counter_contract/src/main.nr rust
 
-Private functions run in a private context, can access private state, and can read certain public values through storage types like [`DelayedPublicMutable`](../how_to_define_storage.md#delayedpublicmutable).
+Private functions run in a private context, can access private state, and can read certain public values through storage types like [`DelayedPublicMutable`](../state_variables.md#delayedpublicmutable).
 
 ## Define public functions
 

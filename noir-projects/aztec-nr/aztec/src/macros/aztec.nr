@@ -306,6 +306,10 @@ comptime fn generate_process_message() -> Quoted {
                 message_ciphertext,
                 message_context,
             );
+
+            // At this point, the note is pending validation and storage in the database. We must call
+            // validate_and_store_enqueued_notes_and_events to complete that process.
+            aztec::messages::processing::validate_and_store_enqueued_notes_and_events(address);
         }
     }
 }

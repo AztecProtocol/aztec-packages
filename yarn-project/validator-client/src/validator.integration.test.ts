@@ -52,6 +52,7 @@ describe('ValidatorClient Integration', () => {
     ethereumSlotDuration: 12,
     proofSubmissionEpochs: 2,
     l1StartBlock: 0n,
+    targetCommitteeSize: 48,
   };
 
   const emptyL1ToL2Messages: Fr[] = [];
@@ -168,6 +169,7 @@ describe('ValidatorClient Integration', () => {
         disabledValidators: [],
         validatorReexecute: true,
         slashBroadcastedInvalidBlockPenalty: 10n,
+        slashDuplicateProposalPenalty: 10n,
         haSigningEnabled: false,
         skipCheckpointProposalValidation: false,
         skipPushProposedBlocksToArchiver: false,

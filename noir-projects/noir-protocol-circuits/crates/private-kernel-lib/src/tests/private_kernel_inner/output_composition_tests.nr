@@ -1,5 +1,5 @@
 use super::TestBuilder;
-use dep::types::{
+use types::{
     address::AztecAddress,
     tests::utils::assert_claimed_length_array_eq,
     traits::{Empty, FromField},

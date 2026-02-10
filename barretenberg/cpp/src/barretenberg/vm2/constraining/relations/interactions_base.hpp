@@ -11,14 +11,20 @@ namespace bb::avm2 {
 
 /////////////////// LOOKUPS ///////////////////
 
+/**
+ * @brief Settings to be passed ot GenericLookupRelationImpl
+ *
+ * @note For every template parameter Setting_, lookup_settings<Setting_> must satify the concept GenericLookupSettings
+ * defined in generic_lookup_relation.hpp
+ */
 template <typename Settings_> struct lookup_settings : public Settings_ {
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
-    static constexpr size_t READ_TERM_DEGREE = 0;
-    static constexpr size_t WRITE_TERM_DEGREE = 0;
+    static constexpr size_t NUM_LOOKUP_TERMS = 1;
+    static constexpr size_t NUM_TABLE_TERMS = 1;
+    static constexpr std::array<uint8_t, NUM_LOOKUP_TERMS> LOOKUP_TYPES = { BASIC_LOOKUP };
+    static constexpr std::array<uint8_t, NUM_TABLE_TERMS> TABLE_TYPES = { BASIC_TABLE };
+    static constexpr std::array<size_t, NUM_LOOKUP_TERMS> LOOKUP_TERM_DEGREES = { 0 };
+    static constexpr std::array<size_t, NUM_TABLE_TERMS> TABLE_TERM_DEGREES = { 0 };
+    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 2;
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
@@ -94,6 +100,8 @@ template <typename FF_, typename Settings_> struct lookup_relation_base : public
 /////////////////// PERMUTATIONS ///////////////////
 
 template <typename Settings_> struct permutation_settings : public Settings_ {
+    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 2;
+
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
         return (in.get(static_cast<ColumnAndShifts>(Settings_::SRC_SELECTOR)) == 1 ||

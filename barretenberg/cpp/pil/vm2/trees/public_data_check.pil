@@ -134,11 +134,11 @@ namespace public_data_check;
 
     #[CLK_DIFF_RANGE_LO]
     not_end { clk_diff_lo }
-    in precomputed.sel_range_16 { precomputed.clk };
+    in precomputed.sel_range_16 { precomputed.idx };
 
     #[CLK_DIFF_RANGE_HI]
     not_end { clk_diff_hi }
-    in precomputed.sel_range_16 { precomputed.clk };
+    in precomputed.sel_range_16 { precomputed.idx };
 
     // We enforce reads, which have unconstrained clk, to have clk = 0
     // So they have to be at the start of the trace
@@ -328,7 +328,7 @@ namespace public_data_check;
         leaf_slot,
         final_value
     } in public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0],
         public_inputs.cols[1]
     };
@@ -350,6 +350,6 @@ namespace public_data_check;
         length_pi_idx,
         public_data_writes_length
     } in public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0]
     };

@@ -20,6 +20,7 @@ import {
   Tag,
   TxScopedL2Log,
 } from '@aztec/stdlib/logs';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import type { BlockStore } from './block_store.js';
 
@@ -219,6 +220,7 @@ export class LogStore {
         .map((txEffect, txIndex) =>
           [
             numToUInt32BE(txIndex),
+            txEffect.txHash.toBuffer(),
             numToUInt32BE(txEffect.publicLogs.length),
             txEffect.publicLogs.map(log => log.toBuffer()),
           ].flat(),
@@ -242,6 +244,7 @@ export class LogStore {
         .map((txEffect, txIndex) =>
           [
             numToUInt32BE(txIndex),
+            txEffect.txHash.toBuffer(),
             numToUInt32BE(txEffect.contractClassLogs.length),
             txEffect.contractClassLogs.map(log => log.toBuffer()),
           ].flat(),
@@ -386,24 +389,33 @@ export class LogStore {
     }
 
     const buffer = (await this.#publicLogsByBlock.getAsync(blockNumber)) ?? Buffer.alloc(0);
-    const publicLogsInBlock: [PublicLog[]] = [[]];
+    const publicLogsInBlock: { txHash: TxHash; logs: PublicLog[] }[] = [];
     const reader = new BufferReader(buffer);
 
     const blockHash = this.#unpackBlockHash(reader);
 
     while (reader.remainingBytes() > 0) {
       const indexOfTx = reader.readNumber();
+      const txHash = reader.readObject(TxHash);
       const numLogsInTx = reader.readNumber();
-      publicLogsInBlock[indexOfTx] = [];
+      publicLogsInBlock[indexOfTx] = { txHash, logs: [] };
       for (let i = 0; i < numLogsInTx; i++) {
-        publicLogsInBlock[indexOfTx].push(reader.readObject(PublicLog));
+        publicLogsInBlock[indexOfTx].logs.push(reader.readObject(PublicLog));
       }
     }
 
-    const txLogs = publicLogsInBlock[txIndex];
+    const txData = publicLogsInBlock[txIndex];
 
     const logs: ExtendedPublicLog[] = [];
-    const maxLogsHit = this.#accumulateLogs(logs, blockNumber, blockHash, txIndex, txLogs, filter);
+    const maxLogsHit = this.#accumulatePublicLogs(
+      logs,
+      blockNumber,
+      blockHash,
+      txIndex,
+      txData.txHash,
+      txData.logs,
+      filter,
+    );
 
     return { logs, maxLogsHit };
   }
@@ -424,22 +436,31 @@ export class LogStore {
 
     let maxLogsHit = false;
     loopOverBlocks: for await (const [blockNumber, logBuffer] of this.#publicLogsByBlock.entriesAsync({ start, end })) {
-      const publicLogsInBlock: [PublicLog[]] = [[]];
+      const publicLogsInBlock: { txHash: TxHash; logs: PublicLog[] }[] = [];
       const reader = new BufferReader(logBuffer);
 
       const blockHash = this.#unpackBlockHash(reader);
 
       while (reader.remainingBytes() > 0) {
         const indexOfTx = reader.readNumber();
+        const txHash = reader.readObject(TxHash);
         const numLogsInTx = reader.readNumber();
-        publicLogsInBlock[indexOfTx] = [];
+        publicLogsInBlock[indexOfTx] = { txHash, logs: [] };
         for (let i = 0; i < numLogsInTx; i++) {
-          publicLogsInBlock[indexOfTx].push(reader.readObject(PublicLog));
+          publicLogsInBlock[indexOfTx].logs.push(reader.readObject(PublicLog));
         }
       }
       for (let txIndex = filter.afterLog?.txIndex ?? 0; txIndex < publicLogsInBlock.length; txIndex++) {
-        const txLogs = publicLogsInBlock[txIndex];
-        maxLogsHit = this.#accumulateLogs(logs, blockNumber, blockHash, txIndex, txLogs, filter);
+        const txData = publicLogsInBlock[txIndex];
+        maxLogsHit = this.#accumulatePublicLogs(
+          logs,
+          blockNumber,
+          blockHash,
+          txIndex,
+          txData.txHash,
+          txData.logs,
+          filter,
+        );
         if (maxLogsHit) {
           this.#log.debug(`Max logs hit at block ${blockNumber}`);
           break loopOverBlocks;
@@ -475,24 +496,33 @@ export class LogStore {
       return { logs: [], maxLogsHit: false };
     }
     const contractClassLogsBuffer = (await this.#contractClassLogsByBlock.getAsync(blockNumber)) ?? Buffer.alloc(0);
-    const contractClassLogsInBlock: [ContractClassLog[]] = [[]];
+    const contractClassLogsInBlock: { txHash: TxHash; logs: ContractClassLog[] }[] = [];
 
     const reader = new BufferReader(contractClassLogsBuffer);
     const blockHash = this.#unpackBlockHash(reader);
 
     while (reader.remainingBytes() > 0) {
       const indexOfTx = reader.readNumber();
+      const txHash = reader.readObject(TxHash);
       const numLogsInTx = reader.readNumber();
-      contractClassLogsInBlock[indexOfTx] = [];
+      contractClassLogsInBlock[indexOfTx] = { txHash, logs: [] };
       for (let i = 0; i < numLogsInTx; i++) {
-        contractClassLogsInBlock[indexOfTx].push(reader.readObject(ContractClassLog));
+        contractClassLogsInBlock[indexOfTx].logs.push(reader.readObject(ContractClassLog));
       }
     }
 
-    const txLogs = contractClassLogsInBlock[txIndex];
+    const txData = contractClassLogsInBlock[txIndex];
 
     const logs: ExtendedContractClassLog[] = [];
-    const maxLogsHit = this.#accumulateLogs(logs, blockNumber, blockHash, txIndex, txLogs, filter);
+    const maxLogsHit = this.#accumulateContractClassLogs(
+      logs,
+      blockNumber,
+      blockHash,
+      txIndex,
+      txData.txHash,
+      txData.logs,
+      filter,
+    );
 
     return { logs, maxLogsHit };
   }
@@ -516,20 +546,29 @@ export class LogStore {
       start,
       end,
     })) {
-      const contractClassLogsInBlock: [ContractClassLog[]] = [[]];
+      const contractClassLogsInBlock: { txHash: TxHash; logs: ContractClassLog[] }[] = [];
       const reader = new BufferReader(logBuffer);
       const blockHash = this.#unpackBlockHash(reader);
       while (reader.remainingBytes() > 0) {
         const indexOfTx = reader.readNumber();
+        const txHash = reader.readObject(TxHash);
         const numLogsInTx = reader.readNumber();
-        contractClassLogsInBlock[indexOfTx] = [];
+        contractClassLogsInBlock[indexOfTx] = { txHash, logs: [] };
         for (let i = 0; i < numLogsInTx; i++) {
-          contractClassLogsInBlock[indexOfTx].push(reader.readObject(ContractClassLog));
+          contractClassLogsInBlock[indexOfTx].logs.push(reader.readObject(ContractClassLog));
         }
       }
       for (let txIndex = filter.afterLog?.txIndex ?? 0; txIndex < contractClassLogsInBlock.length; txIndex++) {
-        const txLogs = contractClassLogsInBlock[txIndex];
-        maxLogsHit = this.#accumulateLogs(logs, blockNumber, blockHash, txIndex, txLogs, filter);
+        const txData = contractClassLogsInBlock[txIndex];
+        maxLogsHit = this.#accumulateContractClassLogs(
+          logs,
+          blockNumber,
+          blockHash,
+          txIndex,
+          txData.txHash,
+          txData.logs,
+          filter,
+        );
         if (maxLogsHit) {
           this.#log.debug(`Max logs hit at block ${blockNumber}`);
           break loopOverBlocks;
@@ -540,12 +579,13 @@ export class LogStore {
     return { logs, maxLogsHit };
   }
 
-  #accumulateLogs(
-    results: (ExtendedContractClassLog | ExtendedPublicLog)[],
+  #accumulatePublicLogs(
+    results: ExtendedPublicLog[],
     blockNumber: number,
     blockHash: BlockHash,
     txIndex: number,
-    txLogs: (ContractClassLog | PublicLog)[],
+    txHash: TxHash,
+    txLogs: PublicLog[],
     filter: LogFilter = {},
   ): boolean {
     let maxLogsHit = false;
@@ -553,15 +593,37 @@ export class LogStore {
     for (; logIndex < txLogs.length; logIndex++) {
       const log = txLogs[logIndex];
       if (!filter.contractAddress || log.contractAddress.equals(filter.contractAddress)) {
-        if (log instanceof ContractClassLog) {
-          results.push(
-            new ExtendedContractClassLog(new LogId(BlockNumber(blockNumber), blockHash, txIndex, logIndex), log),
-          );
-        } else if (log instanceof PublicLog) {
-          results.push(new ExtendedPublicLog(new LogId(BlockNumber(blockNumber), blockHash, txIndex, logIndex), log));
-        } else {
-          throw new Error('Unknown log type');
+        results.push(
+          new ExtendedPublicLog(new LogId(BlockNumber(blockNumber), blockHash, txHash, txIndex, logIndex), log),
+        );
+
+        if (results.length >= this.#logsMaxPageSize) {
+          maxLogsHit = true;
+          break;
         }
+      }
+    }
+
+    return maxLogsHit;
+  }
+
+  #accumulateContractClassLogs(
+    results: ExtendedContractClassLog[],
+    blockNumber: number,
+    blockHash: BlockHash,
+    txIndex: number,
+    txHash: TxHash,
+    txLogs: ContractClassLog[],
+    filter: LogFilter = {},
+  ): boolean {
+    let maxLogsHit = false;
+    let logIndex = typeof filter.afterLog?.logIndex === 'number' ? filter.afterLog.logIndex + 1 : 0;
+    for (; logIndex < txLogs.length; logIndex++) {
+      const log = txLogs[logIndex];
+      if (!filter.contractAddress || log.contractAddress.equals(filter.contractAddress)) {
+        results.push(
+          new ExtendedContractClassLog(new LogId(BlockNumber(blockNumber), blockHash, txHash, txIndex, logIndex), log),
+        );
 
         if (results.length >= this.#logsMaxPageSize) {
           maxLogsHit = true;

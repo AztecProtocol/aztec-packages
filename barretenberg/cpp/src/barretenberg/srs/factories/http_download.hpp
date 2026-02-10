@@ -4,6 +4,8 @@
 
 #ifdef __clang__
 #pragma clang diagnostic push
+// -Wdeprecated-literal-operator is only available in Clang 18+, ignore unknown warnings for Apple Clang
+#pragma clang diagnostic ignored "-Wunknown-warning-option"
 #pragma clang diagnostic ignored "-Wdeprecated-literal-operator"
 #pragma clang diagnostic ignored "-Wunused-parameter"
 #endif
@@ -28,7 +30,7 @@ namespace bb::srs {
 
 /**
  * @brief Download data from a URL with optional Range header support
- * @param url Full URL (e.g., "http://crs.aztec.network/g1.dat")
+ * @param url Full URL (e.g., "http://crs.aztec-cdn.foundation/g1.dat")
  * @param start_byte Starting byte for range request (0 for no range)
  * @param end_byte Ending byte for range request (0 for no range)
  * @return Downloaded data as bytes
@@ -56,7 +58,7 @@ inline std::vector<uint8_t> http_download([[maybe_unused]] const std::string& ur
     std::string path = url.substr(path_start);
 
     // Create HTTP client (non-SSL)
-    httplib::Client cli(("http://" + host).c_str());
+    httplib::Client cli("http://" + host);
     cli.set_follow_location(true);
     cli.set_connection_timeout(30);
     cli.set_read_timeout(60);

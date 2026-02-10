@@ -1,5 +1,4 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 
 import { type FunctionAbi, FunctionType } from '../abi/index.js';
 import { AztecAddress } from '../aztec-address/index.js';
@@ -12,14 +11,15 @@ import {
 } from './contract_address.js';
 
 describe('ContractAddress', () => {
-  setupCustomSnapshotSerializers(expect);
   it('computePartialAddress', async () => {
     const mockInstance = {
       originalContractClassId: new Fr(1),
       saltedInitializationHash: new Fr(2),
     };
     const result = await computePartialAddress(mockInstance);
-    expect(result).toMatchSnapshot();
+    expect(result.toString()).toMatchInlineSnapshot(
+      `"0x2f43fe475e50f6066260038fd16fa97029a76395b2d38388808e60bc24651a0c"`,
+    );
   });
 
   it('computeSaltedInitializationHash', async () => {
@@ -29,7 +29,9 @@ describe('ContractAddress', () => {
       deployer: AztecAddress.fromField(new Fr(4)),
     };
     const result = await computeSaltedInitializationHash(mockInstance);
-    expect(result).toMatchSnapshot();
+    expect(result.toString()).toMatchInlineSnapshot(
+      `"0x15d6f8d1ddedee7f58e41db6a7b6e6e8f97f70574588f59a9d52de22b5605e3c"`,
+    );
   });
 
   it('computeInitializationHash', async () => {
@@ -45,7 +47,9 @@ describe('ContractAddress', () => {
     };
     const mockArgs: any[] = [true];
     const result = await computeInitializationHash(mockInitFn, mockArgs);
-    expect(result).toMatchSnapshot();
+    expect(result.toString()).toMatchInlineSnapshot(
+      `"0x08b683284b4344302193cb36c05f043d4225e2d88d9e0f6ffde12547098cab98"`,
+    );
   });
 
   it('computeInitializationHash empty', async () => {
@@ -60,7 +64,6 @@ describe('ContractAddress', () => {
     const initializationHash = new Fr(5n);
     const deployer = AztecAddress.fromField(new Fr(7));
     const publicKeys = (await deriveKeys(secretKey)).publicKeys;
-
     const address = (
       await computeContractAddressFromInstance({
         publicKeys,
@@ -72,7 +75,6 @@ describe('ContractAddress', () => {
         version: 1,
       })
     ).toString();
-
-    expect(address).toMatchSnapshot();
+    expect(address).toMatchInlineSnapshot(`"0x2cea4bfccb4a185354cbbd9eb5a39ace117abf1f9381c5b6167b1a6f94a0672c"`);
   });
 });
