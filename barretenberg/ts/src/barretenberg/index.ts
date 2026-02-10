@@ -82,9 +82,10 @@ export class Barretenberg extends AsyncApi {
   }
 
   getDefaultSrsSize(): number {
-    // iOS browser is very aggressive with memory. Check if running in browser and on iOS
+    // iOS browser is very aggressive with memory. Check if running in browser and on iOS.
     // We expect the mobile iOS browser to kill us >=1GB, so no real use in using a larger SRS.
-    if (typeof window !== 'undefined' && /iPad|iPhone/.test(navigator.userAgent)) {
+    // Use `self` instead of `window` so this check also works inside Web Workers.
+    if (typeof self !== 'undefined' && typeof self.navigator !== 'undefined' && /iPad|iPhone/.test(self.navigator.userAgent)) {
       return 2 ** 18;
     }
     return 2 ** 20;
