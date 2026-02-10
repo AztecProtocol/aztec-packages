@@ -281,11 +281,56 @@ case "$cmd" in
     $cmd
     ;;
   "test-kind-upgrade-rollup")
+    # Developer convenience: runs upgrade_rollup_version test with kind-provers env.
+    # CI uses test-kind-set or test-kind-single instead.
     source scripts/source_network_env.sh
     source_network_env ${KIND_ENV:-kind-provers}
     namespace="upgrade-rollup-version${NAME_POSTFIX:-}"
     export K8S_ENRICHER=${K8S_ENRICHER:-1}
     ./scripts/test_kind.sh src/spartan/upgrade_rollup_version.test.ts "$namespace"
+    ;;
+  "test-kind-set")
+    # Args: <env_name> <test_set>
+    # Runs a set of KIND tests sequentially (deploy/test/teardown per test).
+    source scripts/source_network_env.sh
+    env_name="${1:?env_name is required}"
+    test_set="${2:?test_set is required}"
+    source_network_env "$env_name"
+    export K8S_ENRICHER=${K8S_ENRICHER:-1}
+
+    if [[ "$test_set" == "1" ]]; then
+      tests=("smoke.test.ts" "${NETWORK_TESTS_1[@]}")
+    elif [[ "$test_set" == "2" ]]; then
+      tests=("smoke.test.ts" "${NETWORK_TESTS_2[@]}")
+    else
+      echo "Unknown test set: $test_set" >&2
+      exit 1
+    fi
+
+    failed=()
+    for test_file in "${tests[@]}"; do
+      namespace="${test_file%.test.ts}${NAME_POSTFIX:-}"
+      echo_header "Running KIND test: $test_file in namespace $namespace"
+      if ! ./scripts/test_kind.sh "src/spartan/$test_file" "$namespace"; then
+        failed+=("$test_file")
+        echo "FAILED: $test_file"
+      fi
+    done
+    if [[ ${#failed[@]} -gt 0 ]]; then
+      echo_header "Failed tests: ${failed[*]}"
+      exit 1
+    fi
+    ;;
+  "test-kind-single")
+    # Args: <env_name> <test_file>
+    # Runs a single KIND test with the specified environment.
+    source scripts/source_network_env.sh
+    env_name="${1:?env_name is required}"
+    test_file="${2:?test_file is required}"
+    source_network_env "$env_name"
+    namespace="${test_file%.test.ts}${NAME_POSTFIX:-}"
+    export K8S_ENRICHER=${K8S_ENRICHER:-1}
+    ./scripts/test_kind.sh "src/spartan/$test_file" "$namespace"
     ;;
   "network_teardown")
     env_file="$1"

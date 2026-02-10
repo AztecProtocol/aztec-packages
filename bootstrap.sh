@@ -649,15 +649,27 @@ case "$cmd" in
     export NAMESPACE="$namespace"
     spartan/bootstrap.sh network_tests "${env_file}"
     ;;
-  "ci-network-kind-tests")
+  "ci-network-kind-proven")
+    # Args: <test_set>
+    # Runs KIND tests with real provers, split across test sets.
+    test_set="${1:?test_set is required}"
     export CI=1
     [ "${SKIP_BUILD:-0}" -eq 0 ] && build
-    # Set the docker image to the locally built image and load it into KIND
     export AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:$(git rev-parse HEAD)"
     spartan/bootstrap.sh kind
     kind load docker-image "$AZTEC_DOCKER_IMAGE"
-    # Just one test for now
-    spartan/bootstrap.sh test-kind-upgrade-rollup
+    spartan/bootstrap.sh test-kind-set kind-provers-96 "$test_set"
+    ;;
+  "ci-network-kind-test")
+    # Args: <test_file>
+    # Runs a single KIND test with fake provers on a 32-core instance.
+    test_file="${1:?test_file is required}"
+    export CI=1
+    [ "${SKIP_BUILD:-0}" -eq 0 ] && build
+    export AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:$(git rev-parse HEAD)"
+    spartan/bootstrap.sh kind
+    kind load docker-image "$AZTEC_DOCKER_IMAGE"
+    spartan/bootstrap.sh test-kind-single kind-minimal "$test_file"
     ;;
   "ci-network-bench")
     # Args: <env_file> <namespace> [docker_image]
