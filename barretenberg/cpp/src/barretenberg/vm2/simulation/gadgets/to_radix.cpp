@@ -61,7 +61,7 @@ std::pair<std::vector<uint8_t>, /* truncated */ bool> ToRadix::to_le_radix(const
  * @param value The field element to decompose.
  * @param num_limbs The number of bits to decompose into.
  * @return A pair containing the vector of bits and a boolean indicating if the decomposition was truncated. The bits
- * are converted ina standard way, i.e., from nonzero values to `true`, zero to `false`.
+ * are converted in a standard way, i.e., from non-zero values to `true`, zero to `false`.
  */
 std::pair<std::vector<bool>, /* truncated */ bool> ToRadix::to_le_bits(const FF& value, uint32_t num_limbs)
 {

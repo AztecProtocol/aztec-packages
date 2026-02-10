@@ -49,7 +49,7 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
                 acc_under_p = limb < p_limb;
             }
 
-            // Remain 0 if limb == p_limb
+            // Remain 0 if limb == p_limb otherwise will be overwritten below.
             FF limb_p_diff = 0;
 
             if (limb > p_limb) {
