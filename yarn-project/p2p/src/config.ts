@@ -460,7 +460,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     ...booleanConfigHelper(false),
   },
   gossipsubAllowDuplicatePublish: {
-    description: 'Whether to configure gossipsub to allow publlishing duplicate messages. For testing purposes only',
+    description: 'Whether to configure gossipsub to allow publishing duplicate messages. For testing purposes only',
     ...booleanConfigHelper(false),
   },
   ...sharedSequencerConfigMappings,
