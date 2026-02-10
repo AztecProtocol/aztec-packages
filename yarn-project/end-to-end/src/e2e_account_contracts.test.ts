@@ -11,7 +11,7 @@ import { randomBytes } from '@aztec/foundation/crypto/random';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { createPXE, getPXEConfig } from '@aztec/pxe/server';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
-import { TestWallet } from '@aztec/test-wallet/server';
+import { AztecNodeProxy, TestWallet } from '@aztec/test-wallet/server';
 
 import { setup } from './fixtures/utils.js';
 
@@ -19,8 +19,9 @@ export class TestWalletInternals extends TestWallet {
   static override async create(node: AztecNode): Promise<TestWalletInternals> {
     const pxeConfig = getPXEConfig();
     pxeConfig.proverEnabled = false;
-    const pxe = await createPXE(node, pxeConfig);
-    return new TestWalletInternals(pxe, node);
+    const nodeRef = new AztecNodeProxy(node);
+    const pxe = await createPXE(nodeRef, pxeConfig);
+    return new TestWalletInternals(pxe, nodeRef);
   }
 
   replaceAccountAt(account: Account, address: AztecAddress) {
