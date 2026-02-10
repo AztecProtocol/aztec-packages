@@ -12,8 +12,8 @@ import { BlockHeader, HashedValues, TxContext, TxExecutionRequest } from '@aztec
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
+import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
-import type { AnchorBlockStore } from '../../storage/anchor_block_store/anchor_block_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
@@ -32,12 +32,12 @@ describe('Oracle Version Check test suite', () => {
   let keyStore: ReturnType<typeof mock<KeyStore>>;
   let addressStore: ReturnType<typeof mock<AddressStore>>;
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
-  let anchorBlockStore: ReturnType<typeof mock<AnchorBlockStore>>;
   let senderTaggingStore: ReturnType<typeof mock<SenderTaggingStore>>;
   let recipientTaggingStore: ReturnType<typeof mock<RecipientTaggingStore>>;
   let senderAddressBookStore: ReturnType<typeof mock<SenderAddressBookStore>>;
   let capsuleStore: ReturnType<typeof mock<CapsuleStore>>;
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
+  let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
   let acirSimulator: ContractFunctionSimulator;
   let contractAddress: AztecAddress;
   let anchorBlockHeader: BlockHeader;
@@ -51,12 +51,12 @@ describe('Oracle Version Check test suite', () => {
     keyStore = mock<KeyStore>();
     addressStore = mock<AddressStore>();
     aztecNode = mock<AztecNode>();
-    anchorBlockStore = mock<AnchorBlockStore>();
     senderTaggingStore = mock<SenderTaggingStore>();
     recipientTaggingStore = mock<RecipientTaggingStore>();
     senderAddressBookStore = mock<SenderAddressBookStore>();
     capsuleStore = mock<CapsuleStore>();
     privateEventStore = mock<PrivateEventStore>();
+    contractSyncService = mock<ContractSyncService>();
     utilityAssertCompatibleOracleVersionSpy = jest.spyOn(
       UtilityExecutionOracle.prototype,
       'utilityAssertCompatibleOracleVersion',
@@ -65,7 +65,6 @@ describe('Oracle Version Check test suite', () => {
 
     aztecNode.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
     anchorBlockHeader = BlockHeader.random();
-    anchorBlockStore.getBlockHeader.mockResolvedValue(anchorBlockHeader);
     capsuleStore.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
     capsuleStore.readCapsuleArray.mockResolvedValue([]);
     senderTaggingStore.getLastFinalizedIndex.mockResolvedValue(undefined);
@@ -97,13 +96,13 @@ describe('Oracle Version Check test suite', () => {
       keyStore,
       addressStore,
       aztecNode,
-      anchorBlockStore,
       senderTaggingStore,
       recipientTaggingStore,
       senderAddressBookStore,
       capsuleStore,
       privateEventStore,
       simulator,
+      contractSyncService,
     );
   });
 
@@ -166,16 +165,16 @@ describe('Oracle Version Check test suite', () => {
       contractStore.getFunctionArtifact.mockResolvedValue(utilityFunctionArtifact);
 
       // Form the execution request for the utility function
-      const execRequest: FunctionCall = {
+      const execRequest = FunctionCall.from({
         name: utilityFunctionArtifact.name,
         to: contractAddress,
         selector: FunctionSelector.empty(),
         type: FunctionType.UTILITY,
-        isStatic: false,
         hideMsgSender: false,
+        isStatic: false,
         args: encodeArguments(utilityFunctionArtifact, []),
         returnTypes: utilityFunctionArtifact.returnTypes,
-      };
+      });
 
       // Call the utility function
       await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, [], 'test');

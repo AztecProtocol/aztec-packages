@@ -52,7 +52,8 @@ export interface AztecNodeAdmin {
   getSlashOffenses(round: bigint | 'all' | 'current'): Promise<Offense[]>;
 }
 
-export type AztecNodeAdminConfig = ValidatorClientFullConfig &
+// L1 contracts are not mutable via admin updates.
+export type AztecNodeAdminConfig = Omit<ValidatorClientFullConfig, 'l1Contracts'> &
   SequencerConfig &
   ProverConfig &
   SlasherConfig &
@@ -65,7 +66,7 @@ export type AztecNodeAdminConfig = ValidatorClientFullConfig &
 
 export const AztecNodeAdminConfigSchema = SequencerConfigSchema.merge(ProverConfigSchema)
   .merge(SlasherConfigSchema)
-  .merge(ValidatorClientFullConfigSchema)
+  .merge(ValidatorClientFullConfigSchema.omit({ l1Contracts: true }))
   .merge(
     ArchiverSpecificConfigSchema.pick({
       archiverPollingIntervalMS: true,

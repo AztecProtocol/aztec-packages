@@ -7,15 +7,7 @@
 #include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
-#include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
-#include "barretenberg/dsl/acir_proofs/honk_optimized_contract.hpp"
-#include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"
-#include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/srs/global_crs.hpp"
-#include <optional>
 
 namespace bb {
 
@@ -205,7 +197,6 @@ void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
     std::string functions_string = "{\"functions\": [\n  ";
 
     // For now, treat the entire bytecode as a single circuit
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1074): Handle multi-circuit programs properly
     // Convert flags to ProofSystemSettings
     bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
                                          .oracle_hash_type = flags.oracle_hash_type,

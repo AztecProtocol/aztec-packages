@@ -15,4 +15,11 @@ export default [
       'no-console': 'off',
     },
   },
+  {
+    files: ['src/e2e_storage_proof/fixtures/storage_proof_fetcher.ts'],
+    rules: {
+      camelcase: 'off',
+      'no-console': 'off',
+    },
+  },
 ];

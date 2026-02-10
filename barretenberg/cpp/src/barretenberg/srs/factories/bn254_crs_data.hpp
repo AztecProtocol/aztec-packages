@@ -15,7 +15,7 @@ inline constexpr g1::affine_element BN254_G1_FIRST_ELEMENT = g1::affine_one;
 /**
  * @brief Expected second G1 element from BN254 CRS
  * @details This is the second point in the BN254 CRS, corresponding to tau * G where tau is the secret from the
- * trusted setup. Reference: http://crs.aztec.network/g1.dat (bytes 64-127)
+ * trusted setup. Reference: https://crs.aztec-cdn.foundation/g1.dat (bytes 64-127)
  */
 inline g1::affine_element get_bn254_g1_second_element()
 {
@@ -32,7 +32,7 @@ inline g1::affine_element get_bn254_g1_second_element()
 /**
  * @brief Reference BN254 G2 element from the trusted setup CRS
  * @details This is the single G2 point used in the BN254 CRS for verification.
- * Reference: http://crs.aztec.network/g2.dat
+ * Reference: https://crs.aztec-cdn.foundation/g2.dat
  */
 inline g2::affine_element get_bn254_g2_crs_element()
 {

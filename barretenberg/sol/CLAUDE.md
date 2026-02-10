@@ -29,8 +29,8 @@ Circuit-specific verification keys:
 
 ### Optimized Verifier (src/honk/optimised/)
 
-- `blake-opt.sol` - Hand-optimized assembly verifier for Blake circuit
-- `blake-opt.sol.template` - Template used to generate blake-opt.sol
+- `honk-optimized.sol` - Hand-optimized assembly verifier (uses Blake circuit for testing)
+- `honk-optimized.sol.template` - Template used to generate honk-optimized.sol
 - `generate_offsets.py` - Helper for memory layout
 
 ### C++ Contract Templates (cpp/src/barretenberg/dsl/acir_proofs/)
@@ -48,10 +48,10 @@ These hpp files contain embedded Solidity code used by bb CLI to generate verifi
 # Regenerate honk_contract.hpp and honk_zk_contract.hpp from Solidity sources
 ./scripts/copy_to_cpp.sh -f
 
-# Sync VK values from BlakeHonkVerificationKey.sol to blake-opt.sol
+# Sync VK values from BlakeHonkVerificationKey.sol to honk-optimized.sol
 ./scripts/sync_blake_opt_vk.sh
 
-# Copy blake-opt.sol to honk_optimized_contract.hpp
+# Copy honk-optimized.sol to honk_optimized_contract.hpp
 ./scripts/copy_optimized_to_cpp.sh -f
 
 # Regenerate all VKs (requires rebuilt bb)
@@ -138,7 +138,7 @@ When making changes to core Solidity files:
 4. Run tests: `forge test`
 
 For optimized verifier changes:
-1. Edit `blake-opt.sol.template`
+1. Edit `honk-optimized.sol.template`
 2. Run `./scripts/sync_blake_opt_vk.sh` to apply VK values
 3. Run `./scripts/copy_optimized_to_cpp.sh -f`
 
@@ -174,3 +174,58 @@ Powers (eta², eta³, β², β³) are computed locally where needed, not stored.
 2. **Isolate relations**: Comment out relation accumulations in `Relations.sol` to find the failing one
 3. **Check wire mappings**: Ensure `WIRE` enum matches C++ `AllEntities` ordering
 4. **Verify VK hash**: The `VK_HASH` constant must match what C++ computes
+
+## Optimized Verifier Memory Layout
+
+The optimized verifier (`blake-opt.sol.template`) uses hand-tuned assembly with explicit memory offsets.
+
+### Limb Encodings (Two Different Schemes)
+
+**Public inputs / Pairing points** use 2 limbs with 136-bit encoding:
+```solidity
+// Reconstruct 256-bit value from 2 limbs (136 bits each)
+value := or(shl(136, hi_limb), lo_limb)
+```
+
+**Non-native field arithmetic** (in Relations.sol) uses 4 limbs with 68-bit encoding:
+```solidity
+uint256 internal constant LIMB_SIZE = 0x100000000000000000; // 1 << 68
+```
+
+These are different encodings for different purposes - don't confuse them.
+
+### Eta Buffer Structure
+
+The eta challenge input is computed from:
+```
+eta_input = VK_HASH (32 bytes) + public_inputs + pairing_point_limbs + w1,w2,w3 (192 bytes)
+```
+
+With 8 pairing point limbs (2 per coordinate × 4 coordinates):
+```solidity
+let eta_input_length := add(0x1e0, public_inputs_size)
+// 0x1e0 = 0x20 (VK_HASH) + 0x100 (8 limbs × 32 bytes) + 0xC0 (w1,w2,w3)
+```
+
+### Pitfall: Automated Offset Updates
+
+**Never use automated scripts to bulk-update hex offsets.** Many hex constants look like memory offsets but are actually cryptographic values:
+
+| Constant | Value | NOT an offset |
+|----------|-------|---------------|
+| `LIMB_SIZE` | `0x100000000000000000` | 1 << 68 |
+| `SUBLIMB_SHIFT` | `0x4000` | 1 << 14 |
+| `LOWER_127_MASK` | `0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF` | (1 << 127) - 1 |
+| `NEG_HALF_MODULO_P` | `0x183227397098d014...` | Cryptographic constant |
+| `VK_HASH` | `0x...` | Circuit-specific hash |
+
+An automated "find hex values >= X and subtract Y" script will corrupt these constants. Always update memory offsets manually or use very targeted regex that only matches offset constant definitions.
+
+### Memory Layout Changes
+
+When changing the number of pairing point limbs (e.g., 16 → 8):
+1. Update `PAIRING_POINTS_SIZE` constant
+2. Remove/add `PAIRING_POINT_N` constants
+3. Shift all memory offsets after pairing points by `delta × 32 bytes`
+4. Update eta buffer calldatacopy sizes and `eta_input_length`
+5. Update pairing reconstruction code (shift amounts: 136-bit for 2 limbs)

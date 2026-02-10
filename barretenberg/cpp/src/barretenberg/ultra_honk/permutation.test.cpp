@@ -10,16 +10,14 @@ using FlavorTypes = testing::Types<UltraFlavor,
                                    UltraZKFlavor,
                                    UltraKeccakFlavor,
                                    UltraKeccakZKFlavor,
-                                   UltraRollupFlavor,
                                    UltraStarknetFlavor,
                                    UltraStarknetZKFlavor>;
 #else
-using FlavorTypes =
-    testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraRollupFlavor>;
+using FlavorTypes = testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>;
 #endif
 template <typename T> using PermutationTests = UltraHonkTests<T>;
 TYPED_TEST_SUITE(PermutationTests, FlavorTypes);
-using NonZKFlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor>;
+using NonZKFlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor>;
 template <typename T> using PermutationNonZKTests = UltraHonkTests<T>;
 TYPED_TEST_SUITE(PermutationNonZKTests, NonZKFlavorTypes);
 

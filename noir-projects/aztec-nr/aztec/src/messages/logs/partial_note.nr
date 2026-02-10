@@ -50,9 +50,9 @@ where
     prefix_with_tag(message_ciphertext, recipient)
 }
 
-/// Creates the plaintext for a partial note private message (i.e. one of type [PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID]).
+/// Creates the plaintext for a partial note private message (i.e. one of type [`PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID`]).
 ///
-/// This plaintext is meant to be decoded via [decode_partial_note_private_message].
+/// This plaintext is meant to be decoded via [`decode_partial_note_private_message`].
 pub fn encode_partial_note_private_message<PartialNotePrivateContent>(
     partial_note_private_content: PartialNotePrivateContent,
     owner: AztecAddress,
@@ -91,14 +91,14 @@ where
     )
 }
 
-/// Decodes the plaintext from a private note message (i.e. one of type [PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID]).
+/// Decodes the plaintext from a private note message (i.e. one of type [`PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID`]).
 ///
-/// This plaintext is meant to have originated from [encode_partial_note_private_message].
+/// This plaintext is meant to have originated from [`encode_partial_note_private_message`].
 ///
-/// Note that while [encode_partial_note_private_message] returns a fixed-size array, this function takes a
-/// [BoundedVec] instead. This is because when decoding we're typically processing runtime-sized plaintexts, more
+/// Note that while [`encode_partial_note_private_message`] returns a fixed-size array, this function takes a
+/// [`BoundedVec`] instead. This is because when decoding we're typically processing runtime-sized plaintexts, more
 /// specifically, those that originate from
-/// [crate::messages::encryption::message_encryption::MessageEncryption::decrypt].
+/// [`crate::messages::encryption::message_encryption::MessageEncryption::decrypt`].
 pub(crate) unconstrained fn decode_partial_note_private_message(
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,

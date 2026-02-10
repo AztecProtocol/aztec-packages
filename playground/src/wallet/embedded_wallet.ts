@@ -20,7 +20,6 @@ import { convertFromUTF8BufferAsString } from '../utils/conversion';
 import { WebLogger } from '../utils/web_logger';
 import { createStore } from '@aztec/kv-store/indexeddb';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
-import { NETWORKS } from '../utils/networks';
 import type { SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
 
 /**
@@ -50,16 +49,8 @@ export class EmbeddedWallet extends BaseWallet {
     super(pxe, aztecNode);
   }
 
-  static async create(chainInfo: ChainInfo) {
-    const network = NETWORKS.find(
-      network => new Fr(network.chainId).equals(chainInfo.chainId) && new Fr(network.version).equals(chainInfo.version),
-    );
-    if (!network) {
-      throw new Error(
-        `Cannot create an embedded wallet for chainId ${chainInfo.chainId} and rollup version ${chainInfo.version}`,
-      );
-    }
-    const aztecNode = createAztecNodeClient(network.nodeURL);
+  static async create(nodeURL: string) {
+    const aztecNode = createAztecNodeClient(nodeURL);
 
     const l1Contracts = await aztecNode.getL1ContractAddresses();
     const rollupAddress = l1Contracts.rollupAddress;
@@ -85,6 +76,7 @@ export class EmbeddedWallet extends BaseWallet {
     const walletDBStore = await createStore(
       `wallet-${rollupAddress}`,
       { dataDirectory: 'wallet', dataStoreMapSizeKb: 2e10 },
+      undefined,
       walletLogger,
     );
     const db = WalletDB.init(walletDBStore, walletLogger.info);

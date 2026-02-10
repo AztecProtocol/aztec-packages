@@ -138,29 +138,39 @@ export class Oracle {
   }
 
   async utilityGetNoteHashMembershipWitness(
-    [blockHash]: ACVMField[],
-    [leafValue]: ACVMField[],
+    [anchorBlockHash]: ACVMField[],
+    [noteHash]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
-    const parsedBlockHash = BlockHash.fromString(blockHash);
-    const parsedLeafValue = Fr.fromString(leafValue);
+    const parsedAnchorBlockHash = BlockHash.fromString(anchorBlockHash);
+    const parsedNoteHash = Fr.fromString(noteHash);
 
-    const witness = await this.handlerAsUtility().utilityGetNoteHashMembershipWitness(parsedBlockHash, parsedLeafValue);
+    const witness = await this.handlerAsUtility().utilityGetNoteHashMembershipWitness(
+      parsedAnchorBlockHash,
+      parsedNoteHash,
+    );
     if (!witness) {
-      throw new Error(`Leaf ${leafValue} not found in the note hash tree at block hash ${parsedBlockHash.toString()}.`);
+      throw new Error(
+        `Note hash ${noteHash} not found in the note hash tree at anchor block hash ${parsedAnchorBlockHash.toString()}.`,
+      );
     }
     return witness.toNoirRepresentation();
   }
 
-  async utilityGetArchiveMembershipWitness(
+  async utilityGetBlockHashMembershipWitness(
+    [anchorBlockHash]: ACVMField[],
     [blockHash]: ACVMField[],
-    [leafValue]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
+    const parsedAnchorBlockHash = BlockHash.fromString(anchorBlockHash);
     const parsedBlockHash = BlockHash.fromString(blockHash);
-    const parsedLeafValue = Fr.fromString(leafValue);
 
-    const witness = await this.handlerAsUtility().utilityGetArchiveMembershipWitness(parsedBlockHash, parsedLeafValue);
+    const witness = await this.handlerAsUtility().utilityGetBlockHashMembershipWitness(
+      parsedAnchorBlockHash,
+      parsedBlockHash,
+    );
     if (!witness) {
-      throw new Error(`Leaf ${leafValue} not found in the archive tree at block hash ${parsedBlockHash.toString()}.`);
+      throw new Error(
+        `Block hash ${parsedBlockHash.toString()} not found in the archive tree at anchor block ${parsedAnchorBlockHash.toString()}.`,
+      );
     }
     return witness.toNoirRepresentation();
   }
@@ -238,12 +248,19 @@ export class Oracle {
     return [witness.map(toACVMField)];
   }
 
-  async utilityGetPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<ACVMField[][]> {
+  async utilityTryGetPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
     const parsedAddress = AztecAddress.fromField(Fr.fromString(address));
-    const { publicKeys, partialAddress } =
-      await this.handlerAsUtility().utilityGetPublicKeysAndPartialAddress(parsedAddress);
+    const result = await this.handlerAsUtility().utilityTryGetPublicKeysAndPartialAddress(parsedAddress);
 
-    return [[...publicKeys.toFields(), partialAddress].map(toACVMField)];
+    // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
+    // with two fields: `some` (a boolean) and `value` (a field array in this case).
+    if (result === undefined) {
+      // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
+      return [toACVMField(0), Array(13).fill(toACVMField(0))];
+    } else {
+      // Data was found so we set `some` to 1 and return it along with `value`.
+      return [toACVMField(1), [...result.publicKeys.toFields(), result.partialAddress].map(toACVMField)];
+    }
   }
 
   async utilityGetNotes(
@@ -400,7 +417,7 @@ export class Oracle {
     return Promise.resolve([]);
   }
 
-  utilityDebugLog(
+  async utilityDebugLog(
     level: ACVMField[],
     message: ACVMField[],
     _ignoredFieldsSize: ACVMField[],
@@ -409,8 +426,8 @@ export class Oracle {
     const levelFr = Fr.fromString(level[0]);
     const messageStr = message.map(acvmField => String.fromCharCode(Fr.fromString(acvmField).toNumber())).join('');
     const fieldsFr = fields.map(Fr.fromString);
-    this.handlerAsMisc().utilityDebugLog(levelFr.toNumber(), messageStr, fieldsFr);
-    return Promise.resolve([]);
+    await this.handlerAsMisc().utilityDebugLog(levelFr.toNumber(), messageStr, fieldsFr);
+    return [];
   }
 
   // This function's name is directly hardcoded in `circuit_recorder.ts`. Don't forget to update it there if you

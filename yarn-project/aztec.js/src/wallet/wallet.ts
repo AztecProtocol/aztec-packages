@@ -7,8 +7,7 @@ import {
   type ContractArtifact,
   ContractArtifactSchema,
   type EventMetadataDefinition,
-  type FunctionCall,
-  FunctionType,
+  FunctionCall,
 } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -40,6 +39,7 @@ import {
   type SimulateInteractionOptions,
 } from '../contract/interaction_options.js';
 import type { CallIntent, IntentInnerHash } from '../utils/authwit.js';
+import type { AppCapabilities, WalletCapabilities } from './capabilities.js';
 
 /**
  * A wrapper type that allows any item to be associated with an alias.
@@ -139,36 +139,65 @@ export type BatchResults<T extends readonly BatchedMethod[]> = {
 };
 
 /**
- * Filter options when querying private events.
+ * Base filter options for event queries.
  */
-export type PrivateEventFilter = {
-  /** The address of the contract that emitted the events. */
-  contractAddress: AztecAddress;
-  /** Addresses of accounts that are in scope for this filter. */
-  scopes: AztecAddress[];
+export type EventFilterBase = {
   /** Transaction in which the events were emitted. */
   txHash?: TxHash;
   /** The block number from which to start fetching events (inclusive).
    * Optional. If provided, it must be greater or equal than 1.
    * Defaults to the initial L2 block number (INITIAL_L2_BLOCK_NUM).
-   * */
+   */
   fromBlock?: BlockNumber;
   /** The block number until which to fetch logs (not inclusive).
    * Optional. If provided, it must be greater than fromBlock.
-   * Defaults to the latest known block to PXE + 1.
    */
   toBlock?: BlockNumber;
 };
 
 /**
- * An ABI decoded private event with associated metadata.
+ * Filter options when querying private events.
  */
-export type PrivateEvent<T> = {
+export type PrivateEventFilter = EventFilterBase & {
+  /** The address of the contract that emitted the events. */
+  contractAddress: AztecAddress;
+  /** Addresses of accounts that are in scope for this filter. */
+  scopes: AztecAddress[];
+};
+
+/**
+ * Filter options when querying public events.
+ */
+export type PublicEventFilter = EventFilterBase & {
+  /** The address of the contract that emitted the events. */
+  contractAddress?: AztecAddress;
+};
+
+/**
+ * An ABI decoded event with associated metadata.
+ * @typeParam T - The decoded event type
+ * @typeParam M - Additional metadata fields (empty by default)
+ */
+export type Event<T, M extends object = object> = {
   /** The ABI decoded event */
   event: T;
   /** Metadata describing event context information such as tx and block */
-  metadata: InTx;
+  metadata: InTx & M;
 };
+
+/** An ABI decoded private event with associated metadata. */
+export type PrivateEvent<T> = Event<T>;
+
+/** An ABI decoded public event with associated metadata (includes contract address). */
+export type PublicEvent<T> = Event<
+  T,
+  {
+    /**
+     * Address of the contract that emitted this event
+     */
+    contractAddress: AztecAddress;
+  }
+>;
 
 /**
  * Contract metadata including deployment and registration status.
@@ -223,22 +252,12 @@ export type Wallet = {
     opts: SendOptions<W>,
   ): Promise<SendReturn<W>>;
   createAuthWit(from: AztecAddress, messageHashOrIntent: IntentInnerHash | CallIntent): Promise<AuthWitness>;
+  requestCapabilities(manifest: AppCapabilities): Promise<WalletCapabilities>;
   batch<const T extends readonly BatchedMethod[]>(methods: T): Promise<BatchResults<T>>;
 };
 
-export const FunctionCallSchema = z.object({
-  name: z.string(),
-  to: schemas.AztecAddress,
-  selector: schemas.FunctionSelector,
-  type: z.nativeEnum(FunctionType),
-  isStatic: z.boolean(),
-  hideMsgSender: z.boolean(),
-  args: z.array(schemas.Fr),
-  returnTypes: z.array(AbiTypeSchema),
-});
-
 export const ExecutionPayloadSchema = z.object({
-  calls: z.array(FunctionCallSchema),
+  calls: z.array(FunctionCall.schema),
   authWitnesses: z.array(AuthWitness.schema),
   capsules: z.array(Capsule.schema),
   extraHashedArgs: z.array(HashedValues.schema),
@@ -295,7 +314,7 @@ export const MessageHashOrIntentSchema = z.union([
   z.object({ consumer: schemas.AztecAddress, innerHash: schemas.Fr }),
   z.object({
     caller: schemas.AztecAddress,
-    call: FunctionCallSchema,
+    call: FunctionCall.schema,
   }),
 ]);
 
@@ -305,6 +324,21 @@ export const EventMetadataDefinitionSchema = z.object({
   fieldNames: z.array(z.string()),
 });
 
+const EventFilterBaseSchema = z.object({
+  txHash: optional(TxHash.schema),
+  fromBlock: optional(BlockNumberPositiveSchema),
+  toBlock: optional(BlockNumberPositiveSchema),
+});
+
+export const PrivateEventFilterSchema = EventFilterBaseSchema.extend({
+  contractAddress: schemas.AztecAddress,
+  scopes: z.array(schemas.AztecAddress),
+});
+
+export const PublicEventFilterSchema = EventFilterBaseSchema.extend({
+  contractAddress: optional(schemas.AztecAddress),
+});
+
 export const PrivateEventSchema: z.ZodType<any> = zodFor<PrivateEvent<AbiDecoded>>()(
   z.object({
     event: AbiDecodedSchema,
@@ -312,13 +346,12 @@ export const PrivateEventSchema: z.ZodType<any> = zodFor<PrivateEvent<AbiDecoded
   }),
 );
 
-export const PrivateEventFilterSchema = z.object({
-  contractAddress: schemas.AztecAddress,
-  scopes: z.array(schemas.AztecAddress),
-  txHash: optional(TxHash.schema),
-  fromBlock: optional(BlockNumberPositiveSchema),
-  toBlock: optional(BlockNumberPositiveSchema),
-});
+export const PublicEventSchema = zodFor<PublicEvent<AbiDecoded>>()(
+  z.object({
+    event: AbiDecodedSchema,
+    metadata: z.intersection(inTxSchema(), z.object({ contractAddress: schemas.AztecAddress })),
+  }),
+);
 
 export const ContractMetadataSchema = z.object({
   instance: optional(ContractInstanceWithAddressSchema),
@@ -331,6 +364,119 @@ export const ContractMetadataSchema = z.object({
 export const ContractClassMetadataSchema = z.object({
   isArtifactRegistered: z.boolean(),
   isContractClassPubliclyRegistered: z.boolean(),
+});
+
+export const ContractFunctionPatternSchema = z.object({
+  contract: z.union([schemas.AztecAddress, z.literal('*')]),
+  function: z.union([z.string(), z.literal('*')]),
+});
+
+export const AccountsCapabilitySchema = z.object({
+  type: z.literal('accounts'),
+  canGet: optional(z.boolean()),
+  canCreateAuthWit: optional(z.boolean()),
+});
+
+export const GrantedAccountsCapabilitySchema = AccountsCapabilitySchema.extend({
+  accounts: z.array(z.object({ alias: z.string(), item: schemas.AztecAddress })),
+});
+
+export const ContractsCapabilitySchema = z.object({
+  type: z.literal('contracts'),
+  contracts: z.union([z.literal('*'), z.array(schemas.AztecAddress)]),
+  canRegister: optional(z.boolean()),
+  canGetMetadata: optional(z.boolean()),
+});
+
+export const GrantedContractsCapabilitySchema = ContractsCapabilitySchema;
+
+export const ContractClassesCapabilitySchema = z.object({
+  type: z.literal('contractClasses'),
+  classes: z.union([z.literal('*'), z.array(schemas.Fr)]),
+  canGetMetadata: z.boolean(),
+});
+
+export const GrantedContractClassesCapabilitySchema = ContractClassesCapabilitySchema;
+
+export const SimulationCapabilitySchema = z.object({
+  type: z.literal('simulation'),
+  transactions: optional(
+    z.object({
+      scope: z.union([z.literal('*'), z.array(ContractFunctionPatternSchema)]),
+    }),
+  ),
+  utilities: optional(
+    z.object({
+      scope: z.union([z.literal('*'), z.array(ContractFunctionPatternSchema)]),
+    }),
+  ),
+});
+
+export const GrantedSimulationCapabilitySchema = SimulationCapabilitySchema;
+
+export const TransactionCapabilitySchema = z.object({
+  type: z.literal('transaction'),
+  scope: z.union([z.literal('*'), z.array(ContractFunctionPatternSchema)]),
+});
+
+export const GrantedTransactionCapabilitySchema = TransactionCapabilitySchema;
+
+export const DataCapabilitySchema = z.object({
+  type: z.literal('data'),
+  addressBook: optional(z.boolean()),
+  privateEvents: optional(
+    z.object({
+      contracts: z.union([z.literal('*'), z.array(schemas.AztecAddress)]),
+    }),
+  ),
+});
+
+export const GrantedDataCapabilitySchema = DataCapabilitySchema;
+
+export const CapabilitySchema = z.discriminatedUnion('type', [
+  AccountsCapabilitySchema,
+  ContractsCapabilitySchema,
+  ContractClassesCapabilitySchema,
+  SimulationCapabilitySchema,
+  TransactionCapabilitySchema,
+  DataCapabilitySchema,
+]);
+
+export const GrantedCapabilitySchema = z.discriminatedUnion('type', [
+  GrantedAccountsCapabilitySchema,
+  GrantedContractsCapabilitySchema,
+  GrantedContractClassesCapabilitySchema,
+  GrantedSimulationCapabilitySchema,
+  GrantedTransactionCapabilitySchema,
+  GrantedDataCapabilitySchema,
+]);
+
+export const AppCapabilitiesSchema = z.object({
+  version: z.literal('1.0'),
+  metadata: z.object({
+    name: z.string(),
+    version: z.string(),
+    description: optional(z.string()),
+    url: optional(z.string()),
+    icon: optional(z.string()),
+  }),
+  capabilities: z.array(CapabilitySchema),
+  behavior: optional(
+    z.object({
+      mode: optional(z.enum(['strict', 'permissive'])),
+      expiration: optional(z.number()),
+    }),
+  ),
+});
+
+export const WalletCapabilitiesSchema = z.object({
+  version: z.literal('1.0'),
+  granted: z.array(GrantedCapabilitySchema),
+  wallet: z.object({
+    name: z.string(),
+    version: z.string(),
+  }),
+  expiresAt: optional(z.number()),
 });
 
 /**
@@ -364,7 +510,7 @@ const WalletMethodSchemas = {
   simulateTx: z.function().args(ExecutionPayloadSchema, SimulateOptionsSchema).returns(TxSimulationResult.schema),
   simulateUtility: z
     .function()
-    .args(FunctionCallSchema, optional(z.array(AuthWitness.schema)))
+    .args(FunctionCall.schema, optional(z.array(AuthWitness.schema)))
     .returns(UtilitySimulationResult.schema),
   profileTx: z.function().args(ExecutionPayloadSchema, ProfileOptionsSchema).returns(TxProfileResult.schema),
   sendTx: z
@@ -372,6 +518,7 @@ const WalletMethodSchemas = {
     .args(ExecutionPayloadSchema, SendOptionsSchema)
     .returns(z.union([TxHash.schema, TxReceipt.schema])),
   createAuthWit: z.function().args(schemas.AztecAddress, MessageHashOrIntentSchema).returns(AuthWitness.schema),
+  requestCapabilities: z.function().args(AppCapabilitiesSchema).returns(WalletCapabilitiesSchema),
 };
 
 /**

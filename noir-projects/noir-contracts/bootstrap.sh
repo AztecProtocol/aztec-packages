@@ -126,6 +126,7 @@ function get_contract_hash {
         ../../barretenberg/cpp/.rebuild_patterns \
         ../../barretenberg/ts/.rebuild_patterns \
         "^noir-projects/noir-contracts/contracts/$contract_path/" \
+        "^noir-projects/noir-contracts/contracts/protocol/aztec_sublib/" \
         "^noir-projects/aztec-nr/" \
         "^noir-projects/noir-protocol-circuits/crates/types/")
   fi

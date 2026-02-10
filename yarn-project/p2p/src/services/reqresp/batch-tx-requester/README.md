@@ -1,14 +1,14 @@
 # BatchTxRequester
 
-The `BatchTxRequester` is a specialized P2P service that aggressively fetches missing transactions from peers when a node receives a block proposal but lacks some of the referenced transactions. This is critical for validators who need all transactions to attest to a proposal.
+The `BatchTxRequester` is a specialized P2P service that aggressively fetches missing transactions from peers when a node lacks some of the referenced transactions. It serves two pathways: (1) block proposals, where validators need all transactions to attest, and (2) block proving, where provers need all transactions to generate proofs.
 
 ## Overview
 
-When a validator receives a block proposal, they must verify all transactions in the block. If some transactions are missing from the local mempool (e.g., due to gossip delays), the `BatchTxRequester` kicks in to fetch them via direct peer-to-peer requests before the attestation deadline.
+When a validator receives a block proposal or a prover needs to prove a block, they must have all transactions. If some transactions are missing from the local mempool (e.g., due to gossip delays), the `BatchTxRequester` kicks in to fetch them via direct peer-to-peer requests before the deadline.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           Block Proposal Received                           │
+│                      Block Proposal or Block Received                       │
 │                     (contains hashes of N transactions)                     │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
@@ -71,7 +71,7 @@ The requester classifies peers into three categories to optimize fetching:
 ### Blind Phase → Smart Phase Transition
 
 Peers transition from "dumb" to "smart" when they respond with a valid `BlockTxsResponse` containing:
-1. A matching `blockHash`
+1. A matching `archiveRoot`
 2. A non-empty `txIndices` BitVector indicating which transactions they have
 3. At least one transaction we're still missing
 
@@ -81,10 +81,10 @@ Peers transition from "dumb" to "smart" when they respond with a valid `BlockTxs
 │  ┌────────────────────────────────────────────────────────────────────────┐  │
 │  │  Initial State: All peers are "dumb" (except pinned peer)              │  │
 │  │                                                                        │  │
-│  │  Request: [blockHash, txHashes (full list), txIndices (BitVector)]     │  │
+│  │  Request: [archiveRoot, txHashes (full list), txIndices (BitVector)]   │  │
 │  │           └─ Include full hashes because peer may not have proposal    │  │
 │  │                                                                        │  │
-│  │  Response: [blockHash, txs[], txIndices (what peer has)]               │  │
+│  │  Response: [archiveRoot, txs[], txIndices (what peer has)]             │  │
 │  │            └─ Tells us exactly which txs this peer can provide         │  │
 │  └────────────────────────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────────────────────┘
@@ -97,10 +97,10 @@ Peers transition from "dumb" to "smart" when they respond with a valid `BlockTxs
 │  ┌────────────────────────────────────────────────────────────────────────┐  │
 │  │  Peer promoted to "smart" - we know exactly what they have             │  │
 │  │                                                                        │  │
-│  │  Request: [blockHash, txIndices (BitVector only)]                      │  │
+│  │  Request: [archiveRoot, txIndices (BitVector only)]                    │  │
 │  │           └─ No need for full hashes, peer has the proposal            │  │
 │  │                                                                        │  │
-│  │  Response: [blockHash, txs[], txIndices (updated availability)]        │  │
+│  │  Response: [archiveRoot, txs[], txIndices (updated availability)]      │  │
 │  │            └─ May have received more txs since last response           │  │
 │  └────────────────────────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────────────────────┘
@@ -152,7 +152,7 @@ The `BatchTxRequester` runs three types of workers concurrently:
 
 ```typescript
 class BlockTxsRequest {
-  blockHash: Fr;           // 32-byte hash of the proposed block header
+  archiveRoot: Fr;         // Archive root after the proposed block is applied
   txHashes: TxHashArray;   // Full tx hashes (for dumb peers without proposal)
   txIndices: BitVector;    // Which txs from proposal we're requesting (1 = want)
 }
@@ -162,7 +162,7 @@ class BlockTxsRequest {
 
 ```typescript
 class BlockTxsResponse {
-  blockHash: Fr;           // Echo back the block hash
+  archiveRoot: Fr;         // Echo back the proposal archive root
   txs: TxArray;            // Actual transaction data
   txIndices: BitVector;    // Which txs the peer has available (1 = have)
 }
@@ -230,8 +230,8 @@ Request to peer fails
 ```typescript
 const requester = new BatchTxRequester(
   missingTxHashes,      // TxHash[] - what we need
-  blockProposal,        // BlockProposal - the proposal we're attesting to
-  pinnedPeer,           // PeerId | undefined - who sent us the proposal
+  blockTxsSource,       // BlockTxsSource - the proposal or block we need txs for
+  pinnedPeer,           // PeerId | undefined - peer expected to have the txs
   timeoutMs,            // number - how long to try
   p2pService,           // BatchTxRequesterLibP2PService
 );
@@ -268,14 +268,14 @@ const txs = await BatchTxRequester.collectAllTxs(requester.run());
 ┌───────────────────────────────────┐   ┌─────────────────────────────────────┐
 │        FastTxCollection           │   │         SlowTxCollection            │
 │                                   │   │                                     │
-│  Time-critical: attestations      │   │  Background: unproven blocks        │
+│  Time-critical: proposals/proving │   │  Background: unproven blocks        │
 │                                   │   │                                     │
 │  1. Try RPC nodes first (fast)    │   │  Periodic polling of RPC nodes      │
 │  2. Fall back to BatchTxRequester │   │  and peers for missing txs          │
 │                                   │   │                                     │
 └───────────────────┬───────────────┘   └─────────────────────────────────────┘
                     │
-                    │ For 'proposal' requests
+                    │ For 'proposal' and 'block' requests
                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                           BatchTxRequester                                  │

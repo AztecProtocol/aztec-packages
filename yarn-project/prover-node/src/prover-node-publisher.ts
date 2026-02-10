@@ -1,5 +1,5 @@
 import { BatchedBlob, getEthBlobEvaluationInputs } from '@aztec/blob-lib';
-import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
+import { MAX_CHECKPOINTS_PER_EPOCH } from '@aztec/constants';
 import type { RollupContract, ViemCommitteeAttestation } from '@aztec/ethereum/contracts';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { makeTuple } from '@aztec/foundation/array';
@@ -31,7 +31,7 @@ export type L1SubmitEpochProofArgs = {
   endTimestamp: Fr;
   outHash: Fr;
   proverId: Fr;
-  fees: Tuple<FeeRecipient, typeof AZTEC_MAX_EPOCH_DURATION>;
+  fees: Tuple<FeeRecipient, typeof MAX_CHECKPOINTS_PER_EPOCH>;
   proof: Proof;
 };
 
@@ -271,7 +271,7 @@ export class ProverNodePublisher {
         outHash: args.publicInputs.outHash.toString(),
         proverId: EthAddress.fromField(args.publicInputs.constants.proverId).toString(),
       } /*_args*/,
-      makeTuple(AZTEC_MAX_EPOCH_DURATION * 2, i =>
+      makeTuple(MAX_CHECKPOINTS_PER_EPOCH * 2, i =>
         i % 2 === 0
           ? args.publicInputs.fees[i / 2].recipient.toField().toString()
           : args.publicInputs.fees[(i - 1) / 2].value.toString(),

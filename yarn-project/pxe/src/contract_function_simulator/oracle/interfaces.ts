@@ -54,7 +54,7 @@ export interface IMiscOracle {
 
   utilityGetRandomField(): Fr;
   utilityAssertCompatibleOracleVersion(version: number): void;
-  utilityDebugLog(level: number, message: string, fields: Fr[]): void;
+  utilityDebugLog(level: number, message: string, fields: Fr[]): Promise<void>;
 }
 
 /**
@@ -68,24 +68,24 @@ export interface IUtilityExecutionOracle {
   utilityGetKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest>;
   utilityGetContractInstance(address: AztecAddress): Promise<ContractInstance>;
   utilityGetNoteHashMembershipWitness(
-    blockHash: BlockHash,
-    leafValue: Fr,
+    anchorBlockHash: BlockHash,
+    noteHash: Fr,
   ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined>;
-  utilityGetArchiveMembershipWitness(
+  utilityGetBlockHashMembershipWitness(
+    anchorBlockHash: BlockHash,
     blockHash: BlockHash,
-    leafValue: Fr,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined>;
   utilityGetNullifierMembershipWitness(
-    blockHash: BlockHash,
+    anchorBlockHash: BlockHash,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined>;
-  utilityGetPublicDataWitness(blockHash: BlockHash, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
+  utilityGetPublicDataWitness(anchorBlockHash: BlockHash, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
   utilityGetLowNullifierMembershipWitness(
-    blockHash: BlockHash,
+    anchorBlockHash: BlockHash,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined>;
   utilityGetBlockHeader(blockNumber: BlockNumber): Promise<BlockHeader | undefined>;
-  utilityGetPublicKeysAndPartialAddress(account: AztecAddress): Promise<CompleteAddress>;
+  utilityTryGetPublicKeysAndPartialAddress(account: AztecAddress): Promise<CompleteAddress | undefined>;
   utilityGetAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
   utilityGetNotes(
     owner: AztecAddress | undefined,
@@ -111,7 +111,7 @@ export interface IUtilityExecutionOracle {
     secret: Fr,
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
   utilityStorageRead(
-    blockHash: BlockHash,
+    anchorBlockHash: BlockHash,
     contractAddress: AztecAddress,
     startStorageSlot: Fr,
     numberOfElements: number,

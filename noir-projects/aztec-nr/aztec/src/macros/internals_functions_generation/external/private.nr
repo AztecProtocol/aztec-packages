@@ -1,12 +1,12 @@
 use crate::macros::{
     internals_functions_generation::external::helpers::{create_authorize_once_check, get_abi_relevant_attributes},
     utils::{
-        fn_has_authorize_once, fn_has_noinitcheck, fn_has_nophasecheck, is_fn_initializer, is_fn_only_self, is_fn_view,
-        module_has_initializer, module_has_storage,
+        fn_has_allow_phase_change, fn_has_authorize_once, fn_has_noinitcheck, is_fn_initializer, is_fn_only_self,
+        is_fn_view, module_has_initializer, module_has_storage,
     },
 };
 use crate::protocol::meta::utils::derive_serialization_quotes;
-use std::meta::{ctstring::AsCtString, type_of};
+use std::meta::type_of;
 
 pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quoted {
     let module_has_initializer = module_has_initializer(f.module());
@@ -70,8 +70,7 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
     };
 
     let view_check = if is_fn_view(f) {
-        let assertion_message =
-            f"Function {original_function_name} can only be called statically".as_ctstring().as_quoted_str();
+        let assertion_message = f"Function {original_function_name} can only be called statically".as_quoted_str();
         quote { assert(self.context.inputs.call_context.is_static_call, $assertion_message); }
     } else {
         quote {}
@@ -94,20 +93,20 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
     };
 
     // Phase checks are skipped in functions that request to manually handle phases
-    let initial_phase_store = if fn_has_nophasecheck(f) {
+    let initial_phase_store = if fn_has_allow_phase_change(f) {
         quote {}
     } else {
         quote { let within_revertible_phase: bool = self.context.in_revertible_phase(); }
     };
 
-    let no_phase_change_check = if fn_has_nophasecheck(f) {
+    let no_phase_change_check = if fn_has_allow_phase_change(f) {
         quote {}
     } else {
         quote {   
             assert_eq(
                 within_revertible_phase,
                 self.context.in_revertible_phase(),
-                f"Phase change detected on function with phase check. If this is expected, use #[nophasecheck]",
+                f"Phase change detected on function with phase check. If this is expected, use #[allow_phase_change]",
             ); 
         }
     };

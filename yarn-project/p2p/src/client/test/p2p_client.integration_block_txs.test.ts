@@ -14,15 +14,13 @@ import { Tx, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import type { P2PClient } from '../../client/p2p_client.js';
 import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
-import type { AttestationPool } from '../../mem_pools/attestation_pool/attestation_pool.js';
-import type { TxPool } from '../../mem_pools/tx_pool/index.js';
-import { ReqRespSubProtocol } from '../../services/reqresp/interface.js';
-import { BlockTxsRequest, BlockTxsResponse } from '../../services/reqresp/protocols/block_txs/block_txs_reqresp.js';
+import type { AttestationPool, TxPool } from '../../mem_pools/index.js';
+import { BlockTxsRequest, BlockTxsResponse, ReqRespSubProtocol } from '../../services/index.js';
 import { ReqRespStatus } from '../../services/reqresp/status.js';
-import { makeAndStartTestP2PClients } from '../../test-helpers/make-test-p2p-clients.js';
+import { makeAndStartTestP2PClients } from '../../test-helpers/index.js';
 import { createMockTxWithMetadata } from '../../test-helpers/mock-tx-helpers.js';
+import type { P2PClient } from '../p2p_client.js';
 
 const TEST_TIMEOUT = 120000;
 jest.setTimeout(TEST_TIMEOUT);
@@ -41,7 +39,7 @@ describe('p2p client integration block txs protocol ', () => {
   let clients: P2PClient[] = [];
 
   const blockNumber = BlockNumber(5);
-  const blockHash = Fr.random();
+  const archiveRoot = Fr.random();
   let txs: Tx[];
   let txHashes: TxHash[];
   let blockProposal: BlockProposal;
@@ -58,6 +56,15 @@ describe('p2p client integration block txs protocol ', () => {
     //@ts-expect-error - we want to mock the getEpochAndSlotInNextL1Slot method, mocking ts is enough
     epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) });
     epochCache.getRegisteredValidators.mockResolvedValue([]);
+    epochCache.getL1Constants.mockReturnValue({
+      l1StartBlock: 0n,
+      l1GenesisTime: 0n,
+      slotDuration: 24,
+      epochDuration: 16,
+      ethereumSlotDuration: 12,
+      proofSubmissionEpochs: 2,
+      targetCommitteeSize: 48,
+    });
 
     txPool.isEmpty.mockResolvedValue(true);
     txPool.hasTxs.mockResolvedValue([]);
@@ -100,7 +107,7 @@ describe('p2p client integration block txs protocol ', () => {
 
     txs = await Promise.all(times(5, i => createMockTxWithMetadata(p2pBaseConfig, i)));
     txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
-    blockProposal = await createBlockProposal(BlockNumber(blockNumber), blockHash, txHashes);
+    blockProposal = await createBlockProposal(BlockNumber(blockNumber), archiveRoot, txHashes);
     attestationPool.getBlockProposal.mockResolvedValue(blockProposal);
   });
 
@@ -122,18 +129,18 @@ describe('p2p client integration block txs protocol ', () => {
     await sleep(1000);
   };
 
-  const createBlockProposal = (blockNumber: BlockNumber, blockHash: Fr, txHashes: TxHash[]) => {
+  const createBlockProposal = (blockNumber: BlockNumber, archiveRoot: Fr, txHashes: TxHash[]) => {
     return makeBlockProposal({
       signer: Secp256k1Signer.random(),
       blockHeader: makeBlockHeader(1, { blockNumber }),
-      archiveRoot: blockHash,
+      archiveRoot,
       txHashes,
     });
   };
 
   const sendBlockTxsRequest = (blockProposal: BlockProposal, missingHashes: TxHash[], includeFullTxHashes = false) => {
     const [client1, client2] = clients as any;
-    const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, missingHashes, includeFullTxHashes);
+    const request = BlockTxsRequest.fromTxsSourceAndMissingTxs(blockProposal, missingHashes, includeFullTxHashes);
     if (!request) {
       return undefined;
     }
@@ -171,11 +178,11 @@ describe('p2p client integration block txs protocol ', () => {
       blockProposal,
       txHashes.filter((_, i) => requestedIndices.includes(i)),
     );
-    //const response = await sendBlockTxsRequest(blockHash, requestedIndices, txs.length);
+    //const response = await sendBlockTxsRequest(archiveRoot, requestedIndices, txs.length);
 
     expect(response.status).toBe(ReqRespStatus.SUCCESS);
     const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
-    expect(blockTxsResponse.blockHash.equals(blockHash)).toBe(true);
+    expect(blockTxsResponse.archiveRoot.equals(archiveRoot)).toBe(true);
     expect(blockTxsResponse.txs.length).toBe(requestedIndices.length);
     expect(blockTxsResponse.txIndices.getTrueIndices()).toEqual([0, 1, 2, 3, 4]);
 
@@ -211,7 +218,7 @@ describe('p2p client integration block txs protocol ', () => {
 
     expect(response.status).toBe(ReqRespStatus.SUCCESS);
     const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
-    expect(blockTxsResponse.blockHash.equals(blockHash)).toBe(true);
+    expect(blockTxsResponse.archiveRoot.equals(archiveRoot)).toBe(true);
     expect(blockTxsResponse.txs.length).toBe(2); // Only txs at indices 0 and 2 are returned
     expect(blockTxsResponse.txIndices.getTrueIndices()).toEqual([0, 2, 3]);
 
@@ -235,7 +242,7 @@ describe('p2p client integration block txs protocol ', () => {
 
     expect(response.status).toBe(ReqRespStatus.SUCCESS);
     const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
-    expect(blockTxsResponse.blockHash.equals(blockHash)).toBe(true);
+    expect(blockTxsResponse.archiveRoot.equals(archiveRoot)).toBe(true);
     expect(blockTxsResponse.txs.length).toBe(0);
     expect(blockTxsResponse.txIndices.getTrueIndices()).toEqual([]);
   });
@@ -260,7 +267,7 @@ describe('p2p client integration block txs protocol ', () => {
 
     expect(response.status).toBe(ReqRespStatus.SUCCESS);
     const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
-    expect(blockTxsResponse.blockHash.equals(blockHash)).toBe(true);
+    expect(blockTxsResponse.archiveRoot.equals(archiveRoot)).toBe(true);
     expect(blockTxsResponse.txs.length).toBe(requestedIndices.length);
     expect(blockTxsResponse.txIndices.getTrueIndices()).toEqual([0, 1, 2, 3, 4]);
 
@@ -297,7 +304,7 @@ describe('p2p client integration block txs protocol ', () => {
 
     expect(response.status).toBe(ReqRespStatus.SUCCESS);
     const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
-    expect(blockTxsResponse.blockHash.equals(blockHash)).toBe(true);
+    expect(blockTxsResponse.archiveRoot.equals(archiveRoot)).toBe(true);
     expect(blockTxsResponse.txs.length).toBe(2); // Only 2 txs returned
     expect(blockTxsResponse.txIndices.getTrueIndices()).toEqual([1, 3]); // Only indices 1 and 3 available
 
@@ -337,8 +344,8 @@ describe('p2p client integration block txs protocol ', () => {
     expect(response.status).toBe(ReqRespStatus.SUCCESS);
     const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
 
-    // When peer doesn't have proposal but has txs, it returns Fr.ZERO as blockHash
-    expect(blockTxsResponse.blockHash.equals(Fr.ZERO)).toBe(true);
+    // When peer doesn't have proposal but has txs, it returns Fr.ZERO as archive root
+    expect(blockTxsResponse.archiveRoot.equals(Fr.ZERO)).toBe(true);
     expect(blockTxsResponse.txs.length).toBe(2); // Only 2 txs available
     expect(blockTxsResponse.txIndices.getLength()).toBe(0); // Empty BitVector when no proposal
 
@@ -367,7 +374,7 @@ describe('p2p client integration block txs protocol ', () => {
     expect(response.status).toBe(ReqRespStatus.SUCCESS);
     const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
 
-    expect(blockTxsResponse.blockHash.equals(Fr.ZERO)).toBe(true);
+    expect(blockTxsResponse.archiveRoot.equals(Fr.ZERO)).toBe(true);
     expect(blockTxsResponse.txs.length).toBe(1); // Only 1 tx available
     expect(blockTxsResponse.txIndices.getLength()).toBe(0);
 
@@ -389,7 +396,7 @@ describe('p2p client integration block txs protocol ', () => {
     expect(response.status).toBe(ReqRespStatus.SUCCESS);
     const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
 
-    expect(blockTxsResponse.blockHash.equals(Fr.ZERO)).toBe(true);
+    expect(blockTxsResponse.archiveRoot.equals(Fr.ZERO)).toBe(true);
     expect(blockTxsResponse.txs.length).toBe(0); // No txs available
     expect(blockTxsResponse.txIndices.getLength()).toBe(0);
   });

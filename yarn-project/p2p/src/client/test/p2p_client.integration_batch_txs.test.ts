@@ -64,6 +64,15 @@ describe('p2p client integration batch txs', () => {
     //@ts-expect-error - we want to mock the getEpochAndSlotInNextL1Slot method, mocking ts is enough
     epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) });
     epochCache.getRegisteredValidators.mockResolvedValue([]);
+    epochCache.getL1Constants.mockReturnValue({
+      l1StartBlock: 0n,
+      l1GenesisTime: 0n,
+      slotDuration: 24,
+      epochDuration: 16,
+      ethereumSlotDuration: 12,
+      proofSubmissionEpochs: 2,
+      targetCommitteeSize: 48,
+    });
 
     txPool.hasTxs.mockResolvedValue([]);
     txPool.getAllTxs.mockImplementation(() => {
@@ -105,11 +114,11 @@ describe('p2p client integration batch txs', () => {
     await sleep(1000);
   };
 
-  const createBlockProposal = (blockNumber: number, blockHash: Fr, txHashes: TxHash[]) => {
+  const createBlockProposal = (blockNumber: number, archiveRoot: Fr, txHashes: TxHash[]) => {
     return makeBlockProposal({
       signer: Secp256k1Signer.random(),
       blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(blockNumber) }),
-      archiveRoot: blockHash,
+      archiveRoot,
       txHashes,
     });
   };
@@ -173,8 +182,8 @@ describe('p2p client integration batch txs', () => {
     const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
 
     const blockNumber = 5;
-    const blockHash = Fr.random();
-    const blockProposal = await createBlockProposal(blockNumber, blockHash, txHashes);
+    const archiveRoot = Fr.random();
+    const blockProposal = await createBlockProposal(blockNumber, archiveRoot, txHashes);
 
     // Distribute transactions across peers (simulating partial knowledge)
     // Peer 0 has no txs (client requesting)

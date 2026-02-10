@@ -202,8 +202,6 @@ export type L2BlockBuiltStats = {
   duration: number;
   /** Time for processing public txs in ms. */
   publicProcessDuration: number;
-  /** Time for running rollup circuits in ms.  */
-  rollupCircuitsDuration: number;
 } & L2BlockStats;
 
 /** Stats for an L2 block processed by the world state synchronizer. */

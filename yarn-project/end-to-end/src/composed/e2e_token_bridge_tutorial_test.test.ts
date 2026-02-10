@@ -9,7 +9,6 @@ import { createAztecNodeClient, waitForNode } from '@aztec/aztec.js/node';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import {
   FeeAssetHandlerAbi,
   FeeAssetHandlerBytecode,
@@ -218,7 +217,8 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
 
     // docs:start:l1-withdraw
     const rollup = new RollupContract(l1Client, l1ContractAddresses.rollupAddress.toString());
-    const epoch = await rollup.getEpochNumberForCheckpoint(CheckpointNumber.fromBlockNumber(l2TxReceipt.blockNumber!));
+    const block = await node.getBlock(l2TxReceipt.blockNumber!);
+    const epoch = await rollup.getEpochNumberForCheckpoint(block!.checkpointNumber);
 
     const result = await computeL2ToL1MembershipWitness(node, epoch, l2ToL1Message);
     if (!result) {

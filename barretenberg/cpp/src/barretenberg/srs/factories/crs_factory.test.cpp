@@ -2,6 +2,8 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
+#include "barretenberg/srs/factories/bn254_crs_data.hpp"
+#include "barretenberg/srs/factories/get_bn254_crs.hpp"
 #include "barretenberg/srs/factories/mem_bn254_crs_factory.hpp"
 #include "barretenberg/srs/factories/mem_grumpkin_crs_factory.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
@@ -99,4 +101,24 @@ TEST(CrsFactory, grumpkin)
     // Tiny download check to test the 'net CRS' path
     ASSERT_ANY_THROW(check_grumpkin_consistency(temp_crs_path, 1, /*allow_download=*/false));
     check_grumpkin_consistency(temp_crs_path, 1, /*allow_download=*/true);
+}
+
+TEST(CrsFactory, Bn254Fallback)
+{
+    // Test that fallback works when primary URL fails
+    const std::filesystem::path& temp_crs_path = "barretenberg_srs_test_crs_bn254_fallback";
+    fs::remove_all(temp_crs_path);
+    fs::create_directories(temp_crs_path);
+
+    // Use a bad primary URL that will fail, forcing fallback to the real S3 URL
+    std::string bad_primary = "http://nonexistent.invalid/g1.dat";
+    std::string good_fallback = "http://crs.aztec-labs.com/g1.dat";
+
+    // This should succeed by falling back to the working URL
+    auto points = bb::get_bn254_g1_data(temp_crs_path, 1, /*allow_download=*/true, bad_primary, good_fallback);
+    EXPECT_EQ(points.size(), 1);
+    // Verify the downloaded point matches the expected first element
+    EXPECT_EQ(points[0], bb::srs::BN254_G1_FIRST_ELEMENT);
+
+    fs::remove_all(temp_crs_path);
 }

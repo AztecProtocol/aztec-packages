@@ -306,6 +306,10 @@ comptime fn generate_process_message() -> Quoted {
                 message_ciphertext,
                 message_context,
             );
+
+            // At this point, the note is pending validation and storage in the database. We must call
+            // validate_and_store_enqueued_notes_and_events to complete that process.
+            aztec::messages::processing::validate_and_store_enqueued_notes_and_events(address);
         }
     }
 }
@@ -313,7 +317,7 @@ comptime fn generate_process_message() -> Quoted {
 /// Checks that all functions in the module have a context macro applied.
 ///
 /// Non-macroified functions are not allowed in contracts. They must all be one of
-/// [external](crate::macros::functions::external), [internal](crate::macros::functions::internal) or `test`.
+/// [`external`](crate::macros::functions::external), [`internal`](crate::macros::functions::internal) or `test`.
 comptime fn check_each_fn_macroified(m: Module) {
     for f in m.functions() {
         let name = f.name();

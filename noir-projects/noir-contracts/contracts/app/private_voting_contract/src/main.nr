@@ -1,12 +1,12 @@
 mod test;
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract PrivateVoting {
     // docs:start:imports
-    use dep::aztec::macros::{functions::{external, initializer, only_self}, storage::storage};
-    use dep::aztec::protocol::{address::AztecAddress, traits::{Deserialize, Serialize, ToField}};
-    use dep::aztec::state_vars::{Map, Owned, PublicImmutable, PublicMutable, SingleUseClaim};
+    use aztec::macros::{functions::{external, initializer, only_self}, storage::storage};
+    use aztec::protocol::{address::AztecAddress, traits::{Deserialize, Serialize, ToField}};
+    use aztec::state_vars::{Map, Owned, PublicImmutable, PublicMutable, SingleUseClaim};
 
     #[derive(Serialize, Deserialize)]
     pub struct ElectionId {
@@ -56,6 +56,7 @@ pub contract PrivateVoting {
         self.enqueue_self.add_to_tally_public(election_id, candidate);
     }
 
+    // docs:start:nested_map_access
     #[external("public")]
     #[only_self]
     fn add_to_tally_public(election_id: ElectionId, candidate: Field) {
@@ -64,6 +65,7 @@ pub contract PrivateVoting {
         let new_tally = self.storage.tally.at(election_id).at(candidate).read() + 1;
         self.storage.tally.at(election_id).at(candidate).write(new_tally);
     }
+    // docs:end:nested_map_access
 
     #[external("public")]
     fn start_vote(election_id: ElectionId) {

@@ -3,8 +3,8 @@
 // 1_000_000_000_000_000_000 Wei = 1 ETH
 export const WEI_CONST = 1_000_000_000n;
 
-// @note using this large gas limit to avoid the issue of `gas limit too low` when estimating gas in reth
-export const LARGE_GAS_LIMIT = 12_000_000n;
+// EIP-7825: protocol-level cap on tx gas limit (2^24). Clients reject above this.
+export const MAX_L1_TX_LIMIT = 16_777_216n;
 
 // setting a minimum bump percentage to 10% due to geth's implementation
 // https://github.com/ethereum/go-ethereum/blob/e3d61e6db028c412f74bc4d4c7e117a9e29d0de0/core/txpool/legacypool/list.go#L298

@@ -12,14 +12,10 @@ log() { echo "[INFO]  $(date -Is) - $*"; }
 err() { echo "[ERROR] $(date -Is) - $*" >&2; }
 die() { err "$*"; exit 1; }
 
-# Cleanup function for traps
-cleanup() {
-  if [[ -n "${K8S_LOG_WATCHER_PID:-}" ]]; then
-    log "Cleaning up K8s log watcher (PID: ${K8S_LOG_WATCHER_PID})"
-    kill "${K8S_LOG_WATCHER_PID}" 2>/dev/null || true
-  fi
+# Wrapper for denoise with k8s context injection
+k8s_denoise() {
+  "${SCRIPT_DIR}/k8s_enriched_denoise" "${NAMESPACE}" "$1"
 }
-trap cleanup EXIT INT TERM
 
 # We want to separate out these logs.
 export DENOISE=1
@@ -215,23 +211,19 @@ fi
 # Create the namespace if it doesn't exist
 kubectl get namespace "${NAMESPACE}" >/dev/null 2>&1 || kubectl create namespace "${NAMESPACE}"
 
-# Start K8s log watcher in background (GKE only)
-K8S_LOG_WATCHER_PID=""
-if [[ "${CLUSTER}" != "kind" && "${K8S_CLUSTER_CONTEXT}" == gke_* ]]; then
-  # Parse GKE context: gke_{project}_{location}_{cluster_name}
-  GKE_CLUSTER_NAME=$(echo "${K8S_CLUSTER_CONTEXT}" | cut -d'_' -f4)
-  GKE_LOCATION=$(echo "${K8S_CLUSTER_CONTEXT}" | cut -d'_' -f3)
-  # Convert epoch start time to ISO format for log filtering
-  DEPLOY_START_ISO=$(date -u -d "@${DEPLOY_START_TIME}" +"%Y-%m-%dT%H:%M:%SZ")
-  log "Starting K8s log watcher for namespace ${NAMESPACE}"
-  python3 "${SCRIPT_DIR}/watch_k8s_logs.py" "${NAMESPACE}" \
-    --project "${GCP_PROJECT_ID}" \
-    --cluster "${GKE_CLUSTER_NAME}" \
-    --location "${GKE_LOCATION}" \
-    --start-time "${DEPLOY_START_ISO}" &
-  K8S_LOG_WATCHER_PID=$!
-  log "K8s log watcher started (PID: ${K8S_LOG_WATCHER_PID})"
-fi
+# Start k8s enricher in background with per-pod cache logging.
+# The enricher spawns a cache_log process per pod, each with its own CI link.
+K8S_ENRICHER_PID=""
+node --experimental-strip-types --no-warnings "${SCRIPT_DIR}/k8s_enricher.ts" "${NAMESPACE}" --cache-log &
+K8S_ENRICHER_PID=$!
+
+cleanup_enricher() {
+  if [[ -n "${K8S_ENRICHER_PID:-}" ]]; then
+    kill "${K8S_ENRICHER_PID}" 2>/dev/null || true
+    wait "${K8S_ENRICHER_PID}" 2>/dev/null || true
+  fi
+}
+trap cleanup_enricher EXIT
 
 # DRY helper to init/plan/apply/destroy a terraform module
 tf_run() {
@@ -281,7 +273,7 @@ USE_LOAD_BALANCERS = ${USE_LOAD_BALANCERS:-false}
 EOF
 
   "${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_ETH_DEVNET_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-eth-devnet"
-  denoise "tf_run "${DEPLOY_ETH_DEVNET_DIR}" "${DESTROY_ETH_DEVNET}" "${CREATE_ETH_DEVNET}""
+  k8s_denoise "tf_run "${DEPLOY_ETH_DEVNET_DIR}" "${DESTROY_ETH_DEVNET}" "${CREATE_ETH_DEVNET}""
 
   L1_RPC_URL=$(terraform -chdir="${DEPLOY_ETH_DEVNET_DIR}" output -raw eth_execution_rpc_url)
   L1_CONSENSUS_HOST_URL=$(terraform -chdir="${DEPLOY_ETH_DEVNET_DIR}" output -raw eth_beacon_api_url)
@@ -391,7 +383,7 @@ EOF
 
 # Check terraform state for existing contract addresses
 # This avoids redeploying contracts when the k8s job has been cleaned up by TTL
-denoise "terraform -chdir=${DEPLOY_ROLLUP_CONTRACTS_DIR} init -reconfigure >/dev/null"
+k8s_denoise "terraform -chdir=${DEPLOY_ROLLUP_CONTRACTS_DIR} init -reconfigure >/dev/null"
 EXISTING_REGISTRY=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw registry_address 2>/dev/null | grep -E '^0x[a-fA-F0-9]{40}$' || true)
 
 if [[ "${USE_NETWORK_CONFIG:-false}" == "true" ]]; then
@@ -402,18 +394,10 @@ else
   else
     if [[ "${REDEPLOY_ROLLUP_CONTRACTS}" == "true" ]]; then
       log "REDEPLOY_ROLLUP_CONTRACTS=true, destroying existing deployment"
-      denoise "terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" destroy -auto-approve"
+      k8s_denoise "terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" destroy -auto-approve"
     fi
-    denoise "terraform -chdir=${DEPLOY_ROLLUP_CONTRACTS_DIR} plan -out=tfplan"
-    denoise "terraform -chdir=${DEPLOY_ROLLUP_CONTRACTS_DIR} apply tfplan"
-
-    # Print logs from any failed pods (useful if job succeeded after retries)
-    JOB_NAME=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw job_name)
-    for pod in $(kubectl get pods -n "${NAMESPACE}" -l "job-name=${JOB_NAME}" \
-      --field-selector=status.phase=Failed -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
-      echo "=== Failed pod: $pod ==="
-      kubectl logs -n "${NAMESPACE}" "$pod" 2>/dev/null || true
-    done
+    k8s_denoise "terraform -chdir=${DEPLOY_ROLLUP_CONTRACTS_DIR} plan -out=tfplan"
+    k8s_denoise "terraform -chdir=${DEPLOY_ROLLUP_CONTRACTS_DIR} apply tfplan"
   fi
 fi
 
@@ -499,6 +483,8 @@ SLASH_INACTIVITY_PENALTY = ${SLASH_INACTIVITY_PENALTY:-null}
 SLASH_PRUNE_PENALTY = ${SLASH_PRUNE_PENALTY:-null}
 SLASH_DATA_WITHHOLDING_PENALTY = ${SLASH_DATA_WITHHOLDING_PENALTY:-null}
 SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY = ${SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY:-null}
+SLASH_DUPLICATE_PROPOSAL_PENALTY = ${SLASH_DUPLICATE_PROPOSAL_PENALTY:-null}
+SLASH_DUPLICATE_ATTESTATION_PENALTY = ${SLASH_DUPLICATE_ATTESTATION_PENALTY:-null}
 SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY = ${SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY:-null}
 SLASH_UNKNOWN_PENALTY = ${SLASH_UNKNOWN_PENALTY:-null}
 SLASH_INVALID_BLOCK_PENALTY = ${SLASH_INVALID_BLOCK_PENALTY:-null}
@@ -538,6 +524,8 @@ FISHERMAN_MNEMONIC_START_INDEX = ${FISHERMAN_MNEMONIC_START_INDEX}
 FULL_NODE_REPLICAS = ${FULL_NODE_REPLICAS:-1}
 
 PROVER_FAILED_PROOF_STORE = "${PROVER_FAILED_PROOF_STORE}"
+PROVER_PROOF_STORE = "${PROVER_PROOF_STORE:-}"
+PROVER_BROKER_DEBUG_REPLAY_ENABLED = ${PROVER_BROKER_DEBUG_REPLAY_ENABLED:-false}
 DEPLOY_ARCHIVAL_NODE = ${DEPLOY_ARCHIVAL_NODE}
 PROVER_REPLICAS = ${PROVER_REPLICAS}
 
@@ -572,7 +560,7 @@ DEBUG_FORCE_TX_PROOF_VERIFICATION = ${DEBUG_FORCE_TX_PROOF_VERIFICATION:-false}
 WAIT_FOR_PROVER_DEPLOY = ${WAIT_FOR_PROVER_DEPLOY:-null}
 EOF
 
-denoise "tf_run "${DEPLOY_AZTEC_INFRA_DIR}" "${DESTROY_AZTEC_INFRA}" "${CREATE_AZTEC_INFRA}""
+k8s_denoise "tf_run "${DEPLOY_AZTEC_INFRA_DIR}" "${DESTROY_AZTEC_INFRA}" "${CREATE_AZTEC_INFRA}""
 STAGE_TIMINGS[aztec_infra]=$(($(date +%s) - AZTEC_INFRA_START))
 log "Deployed aztec infra"
 

@@ -3,6 +3,8 @@ image:
   tag: "18"
   pullPolicy: IfNotPresent
 
+component: "validator-ha-db"
+
 auth:
   database: validator_ha
   username: validator

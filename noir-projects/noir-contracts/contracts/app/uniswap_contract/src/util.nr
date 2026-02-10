@@ -1,9 +1,5 @@
 // docs:start:uniswap_public_content_hash
-use dep::aztec::protocol::{
-    address::{AztecAddress, EthAddress},
-    hash::sha256_to_field,
-    traits::ToField,
-};
+use aztec::protocol::{address::{AztecAddress, EthAddress}, hash::sha256_to_field, traits::ToField};
 
 // This method computes the L2 to L1 message content hash for the public
 // refer `l1-contracts/test/portals/UniswapPortal.sol` on how L2 to L1 message is expected

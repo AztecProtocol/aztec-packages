@@ -6,6 +6,8 @@ import type {
   P2PBlockReceivedCallback,
   P2PCheckpointReceivedCallback,
   P2PConfig,
+  P2PDuplicateAttestationCallback,
+  P2PDuplicateProposalCallback,
   P2PSyncState,
   PeerId,
   ReqRespSubProtocol,
@@ -133,8 +135,8 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "getCheckpointAttestationsForSlot"');
   }
 
-  public addCheckpointAttestations(_attestations: CheckpointAttestation[]): Promise<void> {
-    throw new Error('DummyP2P does not implement "addCheckpointAttestations"');
+  public addOwnCheckpointAttestations(_attestations: CheckpointAttestation[]): Promise<void> {
+    throw new Error('DummyP2P does not implement "addOwnCheckpointAttestations"');
   }
 
   public getL2BlockHash(_number: number): Promise<string | undefined> {
@@ -206,4 +208,12 @@ export class DummyP2P implements P2P {
 
   //This is no-op
   public registerThisValidatorAddresses(_address: EthAddress[]): void {}
+
+  public registerDuplicateProposalCallback(_callback: P2PDuplicateProposalCallback): void {
+    throw new Error('DummyP2P does not implement "registerDuplicateProposalCallback"');
+  }
+
+  public registerDuplicateAttestationCallback(_callback: P2PDuplicateAttestationCallback): void {
+    throw new Error('DummyP2P does not implement "registerDuplicateAttestationCallback"');
+  }
 }

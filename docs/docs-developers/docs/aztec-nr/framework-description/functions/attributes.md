@@ -20,7 +20,7 @@ This page documents the attributes (macros) available in Aztec.nr for defining c
 | `#[view]` | functions | Prevents state modification |
 | `#[initializer]` | functions | Contract constructor |
 | `#[noinitcheck]` | functions | Callable before contract initialization |
-| `#[nophasecheck]` | functions | Skips transaction phase validation |
+| `#[allow_phase_change]` | functions | Allows for phase change to happen during the function's execution |
 | `#[only_self]` | functions | Only callable by the same contract |
 | `#[authorize_once]` | functions | Requires authwit authorization with replay protection |
 | `#[note]` | structs | Defines a private note type |
@@ -129,15 +129,15 @@ This macro inserts a check at the beginning of the function to ensure that the c
 assert(self.msg_sender().unwrap() == self.address, "Function can only be called internally");
 ```
 
-## #[nophasecheck]
+## #[allow_phase_change]
 
-Private functions normally include a check to validate the current transaction phase. The `#[nophasecheck]` attribute skips this validation, allowing the function to handle phase transitions internally.
+Private functions normally include a check to validate the current transaction phase. The `#[allow_phase_change]` attribute skips this validation, allowing the function to handle phase transitions internally.
 
 This is primarily used in account contract entrypoints that need to handle fee payment methods spanning multiple phases:
 
 ```rust
 #[external("private")]
-#[nophasecheck]
+#[allow_phase_change]
 fn entrypoint(app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {
     // Handle different fee payment methods that may span phases
 }

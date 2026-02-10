@@ -2,12 +2,12 @@ use bignum::{BigNum, BLS12_381_Fr};
 use types::{
     constants::BLS12_FR_LIMBS,
     traits::{Deserialize, Empty, Serialize},
-    utils::reader::Reader,
+    utils::{reader::Reader, writer::Writer},
 };
 
 /**
-* Final values z and gamma are injected into each block root circuit. We ensure they are correct by:
-* - Checking equality in each block merge circuit and propagating up
+* Final values z and gamma are injected into each checkpoint root circuit. We ensure they are correct by:
+* - Checking equality in each checkpoint merge circuit and propagating up
 * - Checking final z_acc == z in root circuit
 * - Checking final h(gamma_acc, z) == gamma in root circuit
 *
@@ -41,10 +41,15 @@ impl Serialize for FinalBlobBatchingChallenges {
     let N: u32 = BLS12_FR_LIMBS + 1;
 
     fn serialize(self) -> [Field; Self::N] {
-        let mut fields: BoundedVec<Field, BLS12_FR_LIMBS + 1> = BoundedVec::new();
-        fields.push(self.z);
-        fields.extend_from_array(self.gamma.get_limbs().map(|l| l as Field));
-        fields.storage()
+        let mut writer: Writer<Self::N> = Writer::new();
+        self.stream_serialize(&mut writer);
+        writer.finish()
+    }
+
+    #[inline_always]
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        writer.write(self.z);
+        writer.write_array(self.gamma.get_limbs().map(|l| l as Field));
     }
 }
 
@@ -53,10 +58,25 @@ impl Deserialize for FinalBlobBatchingChallenges {
 
     fn deserialize(fields: [Field; Self::N]) -> Self {
         let mut reader = Reader::new(fields);
-        let mut item = Self {
+        let result = Self::stream_deserialize(&mut reader);
+        reader.finish();
+        result
+    }
+
+    #[inline_always]
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
+        Self {
             z: reader.read(),
             gamma: BLS12_381_Fr::from_limbs(reader.read_array().map(|e| e as u128)),
-        };
-        item
+        }
     }
+}
+
+#[test]
+fn serde_test() {
+    let final_blob_batching_challenges =
+        FinalBlobBatchingChallenges { z: 1, gamma: BLS12_381_Fr::from_limbs([2, 3, 4]) };
+    let serialized = final_blob_batching_challenges.serialize();
+    let deserialized = FinalBlobBatchingChallenges::deserialize(serialized);
+    assert_eq(final_blob_batching_challenges, deserialized);
 }

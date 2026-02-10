@@ -22,12 +22,12 @@
 <li><a href="initialization_utils/index.html">initialization_utils</a></div></li>
 </ul>
 <h3>Functions</h3><ul class="item-list">
+<li><a href="fn.allow_phase_change.html">allow_phase_change</a></div></li>
 <li><a href="fn.authorize_once.html">authorize_once</a></div></li>
 <li><a href="fn.external.html">external</a></div></li>
 <li><a href="fn.initializer.html">initializer</a></div></li>
 <li><a href="fn.internal.html">internal</a></div></li>
 <li><a href="fn.noinitcheck.html">noinitcheck</a></div></li>
-<li><a href="fn.nophasecheck.html">nophasecheck</a></div></li>
 <li><a href="fn.only_self.html">only_self</a></div></li>
 <li><a href="fn.view.html">view</a></div></li>
 </ul>
@@ -45,10 +45,11 @@
 <li>public: executed by the sequencer and do not preserve privacy (like on the EVM)</li>
 <li>utility: helpers that are never executed on-chain, typically used for state queries</li>
 </ul>
-<p><a href="../../../noir_aztec/macros/functions/fn.external.html">external</a> functions are the Aztec equivalent of a Solidity <code>external</code> function, though their behavior differs
+<p><a href="../../../noir_aztec/macros/functions/fn.external.html"><code>external</code></a> functions are the Aztec equivalent of a Solidity <code>external</code> function, though their behavior differs
 slightly for public, private and utiliy functions.</p>
-<p><a href="../../../noir_aztec/macros/functions/fn.external.html">external</a> functions can also be made <a href="../../../noir_aztec/macros/functions/fn.initializer.html">initializer</a> (for contract intialization), <a href="../../../noir_aztec/macros/functions/fn.view.html">view</a> (for read-only behavior),
-<a href="../../../noir_aztec/macros/functions/fn.authorize_once.html">authorize_once</a> (for basic access control) and <a href="../../../noir_aztec/macros/functions/fn.only_self.html">only_self</a> (to prevent other contracts from calling them).</p></div>
+<p><a href="../../../noir_aztec/macros/functions/fn.external.html"><code>external</code></a> functions can also be made <a href="../../../noir_aztec/macros/functions/fn.initializer.html"><code>initializer</code></a> (for contract intialization), <a href="../../../noir_aztec/macros/functions/fn.view.html"><code>view</code></a> (for read-only
+behavior),
+<a href="../../../noir_aztec/macros/functions/fn.authorize_once.html"><code>authorize_once</code></a> (for basic access control) and <a href="../../../noir_aztec/macros/functions/fn.only_self.html"><code>only_self</code></a> (to prevent other contracts from calling them).</p></div>
 </main>
 </span>
 </body>

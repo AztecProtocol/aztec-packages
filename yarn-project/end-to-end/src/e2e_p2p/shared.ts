@@ -145,6 +145,7 @@ export async function awaitCommitteeExists({
     'non-empty committee',
     60,
   );
+  logger.warn(`Committee has been formed`, { committee: committee!.map(c => c.toString()) });
   return committee!.map(c => c.toString() as `0x${string}`);
 }
 

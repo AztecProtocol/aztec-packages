@@ -637,6 +637,7 @@ template <typename Flavor> class SumcheckProver {
             dest_view[j].shrink_end_index((limit / 2) + (limit % 2));
         });
     };
+
     /**
      * @brief Initialize partially evaluated polynomials and perform first round of partial evaluation.
      * @details Creates PartiallyEvaluatedMultivariates from full polynomials and evaluates at the first round
@@ -680,6 +681,7 @@ template <typename Flavor> class SumcheckProver {
         return multivariate_evaluations;
     };
 };
+
 /*! \brief Implementation of the sumcheck Verifier for statements of the form \f$\sum_{\vec \ell \in \{0,1\}^d}
  pow_{\beta}(\vec \ell) \cdot F \left(P_1(\vec \ell),\ldots, P_N(\vec \ell) \right)  = 0 \f$ for multilinear
  polynomials \f$P_1, \ldots, P_N \f$.
@@ -724,7 +726,6 @@ template <typename Flavor> class SumcheckVerifier {
     /**
      * @brief Container type for the evaluations of Prover Polynomials \f$P_1,\ldots,P_N\f$ at the challenge point
      * \f$(u_0,\ldots, u_{d-1}) \f$.
-     *
      */
     using ClaimedEvaluations = typename Flavor::AllValues;
     // For ZK Flavors: the verifier obtains a vector of evaluations of \f$ d \f$ univariate polynomials and uses them to
@@ -741,7 +742,6 @@ template <typename Flavor> class SumcheckVerifier {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
     /**
      * @brief The number of Prover Polynomials \f$ P_1, \ldots, P_N \f$ specified by the Flavor.
-     *
      */
     static constexpr size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 

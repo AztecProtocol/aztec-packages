@@ -637,7 +637,7 @@ impl PrivateContext {
     /// ## Historical Notes
     ///
     /// If you need to assert that a note existed _by some specific block in the past_, instead of simply proving that
-    /// it exists by the current anchor block, use [crate::history::note::assert_note_existed_by] instead.
+    /// it exists by the current anchor block, use [`crate::history::note::assert_note_existed_by`] instead.
     ///
     /// ## Cost
     ///
@@ -673,7 +673,7 @@ impl PrivateContext {
     /// ## Historical Nullifiers
     ///
     /// If you need to assert that a nullifier existed _by some specific block in the past_, instead of simply proving
-    /// that it exists by the current anchor block, use [crate::history::nullifier::assert_nullifier_existed_by]
+    /// that it exists by the current anchor block, use [`crate::history::nullifier::assert_nullifier_existed_by`]
     /// instead.
     ///
     /// ## Public vs Private
@@ -685,7 +685,7 @@ impl PrivateContext {
     ///
     /// This is not the case in public functions, which do have access to the tip of the blockchain and so can reliably
     /// prove whether a nullifier exists or not via
-    /// [crate::context::public_context::PublicContext::nullifier_exists_unsafe].
+    /// [`crate::context::public_context::PublicContext::nullifier_exists_unsafe`].
     ///
     /// ## Cost
     ///
@@ -704,30 +704,30 @@ impl PrivateContext {
         self.nullifier_read_requests.push(request);
     }
 
-    /// Requests the app-siloed nullifier secret key (nsk_app) for the given (hashed) master nullifier public key
+    /// Requests the app-siloed nullifier hiding key (nhk_app) for the given (hashed) master nullifier public key
     /// (npk_m), from the user's PXE.
     ///
     /// Advanced function: Only needed if you're designing your own notes and/or nullifiers.
     ///
     /// Contracts are not allowed to compute nullifiers for other contracts, as that would let them read parts of their
-    /// private state. Because of this, a contract is only given an "app-siloed secret key", which is constructed by
-    /// hashing the user's master nullifier secret key with the contract's address. However, because contracts cannot
-    /// be trusted with a user's master nullifier secret key (because we don't know which contracts are honest or
+    /// private state. Because of this, a contract is only given an "app-siloed key", which is constructed by
+    /// hashing the user's master nullifier hiding key with the contract's address. However, because contracts cannot
+    /// be trusted with a user's master nullifier hiding key (because we don't know which contracts are honest or
     /// malicious), the PXE refuses to provide any master secret keys to any app smart contract function. This means
-    /// app functions are unable to prove that the derivation of an app-siloed nullifier secret key has been computed
-    /// correctly. Instead, an app function can request to the kernel (via `request_nsk_app`) that it validates the
+    /// app functions are unable to prove that the derivation of an app-siloed nullifier hiding key has been computed
+    /// correctly. Instead, an app function can request to the kernel (via `request_nhk_app`) that it validates the
     /// siloed derivation, since the kernel has been vetted to not leak any master secret keys.
     ///
-    /// A common nullification scheme is to inject a nullifier secret key into the preimage of a nullifier, to make the
+    /// A common nullification scheme is to inject a nullifier hiding key into the preimage of a nullifier, to make the
     /// nullifier deterministic but random-looking. This function enables that flow.
     ///
     /// # Arguments
     /// * `npk_m_hash` - A hash of the master nullifier public key of the user whose PXE is executing this function.
     ///
     /// # Returns
-    /// * The app-siloed nullifier secret key that corresponds to the given `npk_m_hash`.
+    /// * The app-siloed nullifier hiding key that corresponds to the given `npk_m_hash`.
     ///
-    pub fn request_nsk_app(&mut self, npk_m_hash: Field) -> Field {
+    pub fn request_nhk_app(&mut self, npk_m_hash: Field) -> Field {
         self.request_sk_app(npk_m_hash, NULLIFIER_INDEX)
     }
 

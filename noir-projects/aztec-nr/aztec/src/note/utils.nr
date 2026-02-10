@@ -2,7 +2,7 @@ use crate::{context::NoteExistenceRequest, note::{ConfirmedNote, HintedNote, not
 
 use crate::protocol::hash::{compute_siloed_note_hash, compute_unique_note_hash};
 
-/// Returns the [NoteExistenceRequest] used to prove a note exists.
+/// Returns the [`NoteExistenceRequest`] used to prove a note exists.
 pub fn compute_note_existence_request<Note>(hinted_note: HintedNote<Note>) -> NoteExistenceRequest
 where
     Note: NoteHash,

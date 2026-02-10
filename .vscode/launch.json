@@ -36,7 +36,7 @@
       "name": "Debug chonk transaction",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/barretenberg/cpp/build-debug-fast-no-avm/bin/bb",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/bb",
       "args": ["prove", "--scheme", "chonk", "--output_path", ".", "--ivc_inputs_path", "ivc-inputs.msgpack", "--print_bench"],
       "cwd": "${workspaceFolder}/yarn-project/end-to-end/example-app-ivc-inputs-out/ecdsar1+transfer_0_recursions+sponsored_fpc",
       "initCommands": [
@@ -48,10 +48,10 @@
       "name": "Debug acir test",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/barretenberg/cpp/build-debug-fast-no-avm/bin/bb",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug-fast/bin/bb",
       "args": ["prove", "--scheme", "ultra_honk", "--output_path", ".", "-b", "./target/program.json", "--write_vk"],
       // Can replace with any directory containing target/program.json and target/witness.gz
-      "cwd": "${workspaceFolder}/barretenberg/acir_tests/acir_tests/embedded_curve_ops",
+      "cwd": "${workspaceFolder}/barretenberg/acir_tests/internal_test_programs/aes_wrong_padding",
       "initCommands": [
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
       ],
@@ -60,7 +60,7 @@
       "name": "Debug test_graph_for_arithmetic_gates",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/barretenberg/cpp/build-debug-no-avm/bin/boomerang_value_detection_tests",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/boomerang_value_detection_tests",
       "args": ["--gtest_filter=BoomerangGoblinRecursiveVerifierTests.graph_description_basic"],
       "initCommands": [
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
@@ -70,9 +70,9 @@
       "name": "Debug BB API Test",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/barretenberg/cpp/build-debug-no-avm/bin/api_tests",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/api_tests",
       "args": ["--gtest_filter=ChonkAPITests.ProveAndVerifyFileBasedFlow"],
-      "cwd": "${workspaceFolder}/barretenberg/cpp/build-debug-no-avm",
+      "cwd": "${workspaceFolder}/barretenberg/cpp/build-debug",
       "initCommands": [
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
       ],

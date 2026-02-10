@@ -1,10 +1,4 @@
-import {
-  ARCHIVE_HEIGHT,
-  L1_TO_L2_MSG_TREE_HEIGHT,
-  NOTE_HASH_TREE_HEIGHT,
-  NULLIFIER_TREE_HEIGHT,
-  PUBLIC_DATA_TREE_HEIGHT,
-} from '@aztec/constants';
+import { ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
 import {
   BlockNumber,
@@ -93,63 +87,31 @@ export interface AztecNode
   /**
    * Find the indexes of the given leaves in the given tree along with a block metadata pointing to the block in which
    * the leaves were inserted.
-   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
+   * @param referenceBlock - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @param treeId - The tree to search in.
    * @param leafValues - The values to search for.
    * @returns The indices of leaves and the block metadata of a block in which the leaves were inserted.
    */
   findLeavesIndexes(
-    block: BlockParameter,
+    referenceBlock: BlockParameter,
     treeId: MerkleTreeId,
     leafValues: Fr[],
   ): Promise<(DataInBlock<bigint> | undefined)[]>;
 
   /**
-   * Returns a sibling path for the given index in the nullifier tree.
-   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
-   * @param leafIndex - The index of the leaf for which the sibling path is required.
-   * @returns The sibling path for the leaf index.
-   */
-  getNullifierSiblingPath(block: BlockParameter, leafIndex: bigint): Promise<SiblingPath<typeof NULLIFIER_TREE_HEIGHT>>;
-
-  /**
-   * Returns a sibling path for the given index in the note hash tree.
-   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
-   * @param leafIndex - The index of the leaf for which the sibling path is required.
-   * @returns The sibling path for the leaf index.
-   */
-  getNoteHashSiblingPath(block: BlockParameter, leafIndex: bigint): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>>;
-
-  /**
-   * Returns a sibling path for a leaf in the committed historic blocks tree.
-   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
-   * @param leafIndex - Index of the leaf in the tree.
-   * @returns The sibling path.
-   */
-  getArchiveSiblingPath(block: BlockParameter, leafIndex: bigint): Promise<SiblingPath<typeof ARCHIVE_HEIGHT>>;
-
-  /**
-   * Returns a sibling path for a leaf in the committed public data tree.
-   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
-   * @param leafIndex - Index of the leaf in the tree.
-   * @returns The sibling path.
-   */
-  getPublicDataSiblingPath(
-    block: BlockParameter,
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>>;
-
-  /**
    * Returns a nullifier membership witness for a given nullifier at a given block.
-   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
+   * @param referenceBlock - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @param nullifier - Nullifier we try to find witness for.
    * @returns The nullifier membership witness (if found).
    */
-  getNullifierMembershipWitness(block: BlockParameter, nullifier: Fr): Promise<NullifierMembershipWitness | undefined>;
+  getNullifierMembershipWitness(
+    referenceBlock: BlockParameter,
+    nullifier: Fr,
+  ): Promise<NullifierMembershipWitness | undefined>;
 
   /**
    * Returns a low nullifier membership witness for a given nullifier at a given block.
-   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
+   * @param referenceBlock - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @param nullifier - Nullifier we try to find the low nullifier witness for.
    * @returns The low nullifier membership witness (if found).
    * @remarks Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
@@ -157,49 +119,56 @@ export interface AztecNode
    * we are trying to prove non-inclusion for.
    */
   getLowNullifierMembershipWitness(
-    block: BlockParameter,
+    referenceBlock: BlockParameter,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined>;
 
   /**
    * Returns a public data tree witness for a given leaf slot at a given block.
-   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
+   * @param referenceBlock - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @param leafSlot - The leaf slot we try to find the witness for.
    * @returns The public data witness (if found).
    * @remarks The witness can be used to compute the current value of the public data tree leaf. If the low leaf preimage corresponds to an
    * "in range" slot, means that the slot doesn't exist and the value is 0. If the low leaf preimage corresponds to the exact slot, the current value
    * is contained in the leaf preimage.
    */
-  getPublicDataWitness(block: BlockParameter, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
+  getPublicDataWitness(referenceBlock: BlockParameter, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
 
   /**
-   * Returns a membership witness for a given archive leaf at a given block.
-   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
-   * @param archive - The archive leaf we try to find the witness for.
+   * Returns a membership witness for a given block hash in the archive tree.
+   *
+   * Block hashes are the leaves of the archive tree. Each time a new block is added to the chain,
+   * its block hash is appended as a new leaf to the archive tree. This method finds the membership
+   * witness (leaf index and sibling path) for a given block hash, which can be used to prove that
+   * a specific block exists in the chain's history.
+   *
+   * @param referenceBlock - The block parameter (block number, block hash, or 'latest') at which to get the data
+   * (which contains the root of the archive tree in which we are searching for the block hash).
+   * @param blockHash - The block hash to find in the archive tree.
    */
-  getArchiveMembershipWitness(
-    block: BlockParameter,
-    archive: Fr,
+  getBlockHashMembershipWitness(
+    referenceBlock: BlockParameter,
+    blockHash: BlockHash,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined>;
 
   /**
    * Returns a membership witness for a given note hash at a given block.
-   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
+   * @param referenceBlock - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @param noteHash - The note hash we try to find the witness for.
    */
   getNoteHashMembershipWitness(
-    block: BlockParameter,
+    referenceBlock: BlockParameter,
     noteHash: Fr,
   ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined>;
 
   /**
    * Returns the index and a sibling path for a leaf in the committed l1 to l2 data tree.
-   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
+   * @param referenceBlock - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @param l1ToL2Message - The l1ToL2Message to get the index / sibling path for.
    * @returns A tuple of the index and the sibling path of the L1ToL2Message (undefined if not found).
    */
   getL1ToL2MessageMembershipWitness(
-    block: BlockParameter,
+    referenceBlock: BlockParameter,
     l1ToL2Message: Fr,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined>;
 
@@ -224,10 +193,10 @@ export interface AztecNode
 
   /**
    * Get a block specified by its block number or 'latest'.
-   * @param number - The block number or 'latest'.
+   * @param blockParameter - The block parameter (block number, block hash, or 'latest').
    * @returns The requested block.
    */
-  getBlock(number: BlockParameter): Promise<L2Block | undefined>;
+  getBlock(blockParameter: BlockParameter): Promise<L2Block | undefined>;
 
   /**
    * Get a block specified by its hash.
@@ -433,12 +402,12 @@ export interface AztecNode
    * @remarks The storage slot here refers to the slot as it is defined in Noir not the index in the merkle tree.
    * Aztec's version of `eth_getStorageAt`.
    *
-   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
+   * @param referenceBlock - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @param contract - Address of the contract to query.
    * @param slot - Slot to query.
    * @returns Storage value at the given contract slot.
    */
-  getPublicStorageAt(block: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr>;
+  getPublicStorageAt(referenceBlock: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr>;
 
   /**
    * Returns the block header for a given block number, block hash, or 'latest'.
@@ -518,26 +487,6 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .args(BlockParameterSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr).max(MAX_RPC_LEN))
     .returns(z.array(optional(dataInBlockSchemaFor(schemas.BigInt)))),
 
-  getNullifierSiblingPath: z
-    .function()
-    .args(BlockParameterSchema, schemas.BigInt)
-    .returns(SiblingPath.schemaFor(NULLIFIER_TREE_HEIGHT)),
-
-  getNoteHashSiblingPath: z
-    .function()
-    .args(BlockParameterSchema, schemas.BigInt)
-    .returns(SiblingPath.schemaFor(NOTE_HASH_TREE_HEIGHT)),
-
-  getArchiveSiblingPath: z
-    .function()
-    .args(BlockParameterSchema, schemas.BigInt)
-    .returns(SiblingPath.schemaFor(ARCHIVE_HEIGHT)),
-
-  getPublicDataSiblingPath: z
-    .function()
-    .args(BlockParameterSchema, schemas.BigInt)
-    .returns(SiblingPath.schemaFor(PUBLIC_DATA_TREE_HEIGHT)),
-
   getNullifierMembershipWitness: z
     .function()
     .args(BlockParameterSchema, schemas.Fr)
@@ -553,9 +502,9 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .args(BlockParameterSchema, schemas.Fr)
     .returns(PublicDataWitness.schema.optional()),
 
-  getArchiveMembershipWitness: z
+  getBlockHashMembershipWitness: z
     .function()
-    .args(BlockParameterSchema, schemas.Fr)
+    .args(BlockParameterSchema, BlockHash.schema)
     .returns(MembershipWitness.schemaFor(ARCHIVE_HEIGHT).optional()),
 
   getNoteHashMembershipWitness: z

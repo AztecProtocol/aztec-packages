@@ -328,7 +328,7 @@ export class RPCTranslator {
 
   // When the argument is a slice, noir automatically adds a length field to oracle call.
   // When the argument is an array, we add the field length manually to the signature.
-  utilityDebugLog(
+  async utilityDebugLog(
     foreignLevel: ForeignCallSingle,
     foreignMessage: ForeignCallArray,
     _foreignLength: ForeignCallSingle,
@@ -340,7 +340,7 @@ export class RPCTranslator {
       .join('');
     const fields = fromArray(foreignFields);
 
-    this.handlerAsMisc().utilityDebugLog(level, message, fields);
+    await this.handlerAsMisc().utilityDebugLog(level, message, fields);
 
     return toForeignCallResult([]);
   }
@@ -545,12 +545,23 @@ export class RPCTranslator {
     );
   }
 
-  async utilityGetPublicKeysAndPartialAddress(foreignAddress: ForeignCallSingle) {
+  async utilityTryGetPublicKeysAndPartialAddress(foreignAddress: ForeignCallSingle) {
     const address = addressFromSingle(foreignAddress);
 
-    const { publicKeys, partialAddress } = await this.handlerAsUtility().utilityGetPublicKeysAndPartialAddress(address);
+    const result = await this.handlerAsUtility().utilityTryGetPublicKeysAndPartialAddress(address);
 
-    return toForeignCallResult([toArray([...publicKeys.toFields(), partialAddress])]);
+    // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
+    // with two fields: `some` (a boolean) and `value` (a field array in this case).
+    if (result === undefined) {
+      // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
+      return toForeignCallResult([toSingle(new Fr(0)), toArray(Array(13).fill(new Fr(0)))]);
+    } else {
+      // Data was found so we set `some` to 1 and return it along with `value`.
+      return toForeignCallResult([
+        toSingle(new Fr(1)),
+        toArray([...result.publicKeys.toFields(), result.partialAddress]),
+      ]);
+    }
   }
 
   async utilityGetKeyValidationRequest(foreignPkMHash: ForeignCallSingle) {
@@ -641,26 +652,34 @@ export class RPCTranslator {
     return toForeignCallResult(header.toFields().map(toSingle));
   }
 
-  async utilityGetNoteHashMembershipWitness(foreignBlockHash: ForeignCallSingle, foreignLeafValue: ForeignCallSingle) {
-    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
-    const leafValue = fromSingle(foreignLeafValue);
+  async utilityGetNoteHashMembershipWitness(
+    foreignAnchorBlockHash: ForeignCallSingle,
+    foreignNoteHash: ForeignCallSingle,
+  ) {
+    const blockHash = new BlockHash(fromSingle(foreignAnchorBlockHash));
+    const noteHash = fromSingle(foreignNoteHash);
 
-    const witness = await this.handlerAsUtility().utilityGetNoteHashMembershipWitness(blockHash, leafValue);
+    const witness = await this.handlerAsUtility().utilityGetNoteHashMembershipWitness(blockHash, noteHash);
 
     if (!witness) {
-      throw new Error(`Note hash ${leafValue} not found in the note hash tree at block ${blockHash.toString()}.`);
+      throw new Error(`Note hash ${noteHash} not found in the note hash tree at block ${blockHash.toString()}.`);
     }
     return toForeignCallResult(witness.toNoirRepresentation());
   }
 
-  async utilityGetArchiveMembershipWitness(foreignBlockHash: ForeignCallSingle, foreignLeafValue: ForeignCallSingle) {
+  async utilityGetBlockHashMembershipWitness(
+    foreignAnchorBlockHash: ForeignCallSingle,
+    foreignBlockHash: ForeignCallSingle,
+  ) {
+    const anchorBlockHash = new BlockHash(fromSingle(foreignAnchorBlockHash));
     const blockHash = new BlockHash(fromSingle(foreignBlockHash));
-    const leafValue = fromSingle(foreignLeafValue);
 
-    const witness = await this.handlerAsUtility().utilityGetArchiveMembershipWitness(blockHash, leafValue);
+    const witness = await this.handlerAsUtility().utilityGetBlockHashMembershipWitness(anchorBlockHash, blockHash);
 
     if (!witness) {
-      throw new Error(`Block hash ${leafValue} not found in the archive tree at block ${blockHash.toString()}.`);
+      throw new Error(
+        `Block hash ${blockHash.toString()} not found in the archive tree at anchor block ${anchorBlockHash.toString()}.`,
+      );
     }
     return toForeignCallResult(witness.toNoirRepresentation());
   }

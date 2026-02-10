@@ -29,7 +29,7 @@ struct lookup_get_contract_instance_precomputed_info_settings_ {
         ColumnAndShifts::get_contract_instance_is_init_hash
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::precomputed_idx,
         ColumnAndShifts::precomputed_is_valid_member_enum,
         ColumnAndShifts::precomputed_is_deployer,
         ColumnAndShifts::precomputed_is_class_id,

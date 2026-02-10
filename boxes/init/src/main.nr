@@ -1,5 +1,5 @@
 
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 contract Main {

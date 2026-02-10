@@ -1,5 +1,5 @@
 use crate::protocol::meta::derive_serialize;
-use std::meta::unquote;
+use std::meta::{ctstring::AsCtString, unquote};
 
 pub(crate) comptime fn is_fn_external(f: FunctionDefinition) -> bool {
     f.has_named_attribute("external")
@@ -33,75 +33,55 @@ pub(crate) comptime fn fn_has_noinitcheck(f: FunctionDefinition) -> bool {
     f.has_named_attribute("noinitcheck")
 }
 
-pub(crate) comptime fn fn_has_nophasecheck(f: FunctionDefinition) -> bool {
-    f.has_named_attribute("nophasecheck")
+pub(crate) comptime fn fn_has_allow_phase_change(f: FunctionDefinition) -> bool {
+    f.has_named_attribute("allow_phase_change")
 }
 
 pub(crate) comptime fn fn_has_authorize_once(f: FunctionDefinition) -> bool {
     f.has_named_attribute("authorize_once")
 }
 
-comptime fn signature_of_type(typ: Type) -> Quoted {
+comptime fn signature_of_type(typ: Type) -> CtString {
     if typ.is_field() {
-        quote {Field}
+        "Field".as_ctstring()
     } else if typ.as_integer().is_some() {
         let (is_signed, bit_size) = typ.as_integer().unwrap();
         if is_signed {
-            f"i{bit_size}".quoted_contents()
+            f"i{bit_size}".as_ctstring()
         } else {
-            f"u{bit_size}".quoted_contents()
+            f"u{bit_size}".as_ctstring()
         }
     } else if typ.is_bool() {
-        quote {bool}
+        "bool".as_ctstring()
     } else if typ.as_str().is_some() {
         let str_len_typ = typ.as_str().unwrap();
         let str_len = str_len_typ.as_constant().unwrap();
-        f"str<{str_len}>".quoted_contents()
+        f"str<{str_len}>".as_ctstring()
     } else if typ.as_array().is_some() {
         let (element_type, array_len) = typ.as_array().unwrap();
         let array_len = if array_len.as_constant().is_some() {
             let const_len = array_len.as_constant().unwrap();
-            f"{const_len}".quoted_contents()
+            f"{const_len}".as_ctstring()
         } else {
             // If array length is not a constant, chances are it's a numeric generic This will make the signature of a
             // type like Struct<N> be the same regardless of the value of N, but at least this fn will not crash. It is
             // up to the caller to decide whether this is acceptable.
-            f"{array_len}".quoted_contents()
+            f"{array_len}".as_ctstring()
         };
 
         let element_typ_quote = signature_of_type(element_type);
-        f"[{element_typ_quote};{array_len}]".quoted_contents()
+        f"[{element_typ_quote};{array_len}]".as_ctstring()
     } else if typ.as_data_type().is_some() {
         let (s, generics) = typ.as_data_type().unwrap();
-        let field_signatures = s.fields(generics).map(|(_, typ, _)| signature_of_type(typ)).join(quote {,});
-        f"({field_signatures})".quoted_contents()
+        let field_signatures = s.fields(generics).map(|(_, typ, _)| signature_of_type(typ)).join(",".as_ctstring());
+        f"({field_signatures})".as_ctstring()
     } else if typ.as_tuple().is_some() {
         // Note that tuples are handled the same way as structs
         let types = typ.as_tuple().unwrap();
-        let field_signatures = types.map(|typ: Type| signature_of_type(typ)).join(quote {,});
-        f"({field_signatures})".quoted_contents()
+        let field_signatures = types.map(|typ: Type| signature_of_type(typ)).join(",".as_ctstring());
+        f"({field_signatures})".as_ctstring()
     } else {
         panic(f"Unsupported type {typ}")
-    }
-}
-
-pub trait AsStrQuote {
-    fn as_str_quote(self) -> (Self, u32);
-}
-
-impl AsStrQuote for Quoted {
-    // Used to convert an arbitrary quoted type into a quoted string, removing whitespace between tokens
-    comptime fn as_str_quote(self) -> (Quoted, u32) {
-        let tokens = self.tokens();
-        let mut string = CtString::new();
-        for token in tokens {
-            let token_as_fmt_str = f"{token}";
-            string = string.append_fmtstr(token_as_fmt_str);
-        }
-        let string: str<_> = string.as_quoted_str!();
-        let array = string.as_bytes();
-        let total_len = array.len();
-        (quote { $string }, total_len)
     }
 }
 
@@ -113,12 +93,11 @@ pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
     //
     // The signature will be "foo(Field,AztecAddress)".
     let fn_name = f.name();
-    let args_signatures = f.parameters().map(|(_, typ)| signature_of_type(typ)).join(quote {,});
-    let signature_quote = quote { $fn_name($args_signatures) };
-    let (signature_str_quote, _) = signature_quote.as_str_quote();
+    let args_signatures = f.parameters().map(|(_, typ)| signature_of_type(typ)).join(",".as_ctstring());
+    let signature_quote = f"{fn_name}({args_signatures})".as_ctstring();
 
     let computation_quote = quote {
-        crate::protocol::traits::ToField::to_field(crate::protocol::abis::function_selector::FunctionSelector::from_signature($signature_str_quote))
+        crate::protocol::traits::ToField::to_field(crate::protocol::abis::function_selector::FunctionSelector::from_signature($signature_quote))
     };
     unquote!(computation_quote)
 }
@@ -140,12 +119,11 @@ pub(crate) comptime fn compute_struct_selector(s: TypeDefinition, from_signature
             // handled here!
             signature_of_type(typ)
         })
-        .join(quote {,});
-    let signature_quote = quote { $struct_name($args_signatures) };
-    let (signature_str_quote, _) = signature_quote.as_str_quote();
+        .join(",".as_ctstring());
+    let signature_quote = f"{struct_name}({args_signatures})".as_ctstring();
 
     let computation_quote = quote {
-        crate::protocol::traits::ToField::to_field($from_signature_fn($signature_str_quote))
+        crate::protocol::traits::ToField::to_field($from_signature_fn($signature_quote))
     };
     unquote!(computation_quote)
 }

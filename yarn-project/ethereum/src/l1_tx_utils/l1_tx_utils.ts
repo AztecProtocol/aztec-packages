@@ -27,7 +27,7 @@ import { jsonRpc } from 'viem/nonce';
 import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './config.js';
-import { LARGE_GAS_LIMIT } from './constants.js';
+import { MAX_L1_TX_LIMIT } from './constants.js';
 import type { IL1TxMetrics, IL1TxStore } from './interfaces.js';
 import { ReadOnlyL1TxUtils } from './readonly_l1_tx_utils.js';
 import {
@@ -207,7 +207,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
       let gasLimit: bigint;
       if (this.debugMaxGasLimit) {
-        gasLimit = LARGE_GAS_LIMIT;
+        gasLimit = MAX_L1_TX_LIMIT;
       } else if (gasConfig.gasLimit) {
         gasLimit = gasConfig.gasLimit;
       } else {
@@ -283,7 +283,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       return { txHash, state: l1TxState };
     } catch (err: any) {
       const viemError = formatViemError(err, request.abi);
-      this.logger.error(`Failed to send L1 transaction`, viemError, {
+      this.logger.error(`Failed to send L1 transaction: ${viemError.message}`, viemError, {
         request: pick(request, 'to', 'value'),
       });
       throw viemError;
@@ -631,12 +631,12 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       from: request.from ?? this.getSenderAddress().toString(),
       maxFeePerGas: gasPrice.maxFeePerGas,
       maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
-      gas: request.gas ?? LARGE_GAS_LIMIT,
+      gas: request.gas ?? MAX_L1_TX_LIMIT,
     };
 
     if (!request.gas && !gasConfig.ignoreBlockGasLimit) {
-      // LARGE_GAS_LIMIT is set as call.gas, increase block gasLimit
-      blockOverrides.gasLimit = LARGE_GAS_LIMIT * 2n;
+      // MAX_L1_TX_LIMIT is set as call.gas, ensure block gasLimit is sufficient
+      blockOverrides.gasLimit = MAX_L1_TX_LIMIT;
     }
 
     return this._simulate(call, blockOverrides, stateOverrides, gasConfig, abi);

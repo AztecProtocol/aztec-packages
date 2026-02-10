@@ -399,6 +399,18 @@ variable "SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY" {
   default     = 0.0
 }
 
+variable "SLASH_DUPLICATE_PROPOSAL_PENALTY" {
+  description = "The slash duplicate proposal penalty"
+  type        = string
+  nullable    = true
+}
+
+variable "SLASH_DUPLICATE_ATTESTATION_PENALTY" {
+  description = "The slash duplicate attestation penalty"
+  type        = string
+  nullable    = true
+}
+
 variable "SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY" {
   description = "The slash attest descendant of invalid penalty"
   type        = string
@@ -574,6 +586,19 @@ variable "PROVER_FAILED_PROOF_STORE" {
   type        = string
   nullable    = false
   default     = ""
+}
+
+variable "PROVER_PROOF_STORE" {
+  description = "Optional GCS/S3/file URI to store proof inputs and outputs (e.g. gs://bucket/path, s3://bucket/path, file:///path)"
+  type        = string
+  nullable    = false
+  default     = ""
+}
+
+variable "PROVER_BROKER_DEBUG_REPLAY_ENABLED" {
+  description = "Enable debug replay mode for the prover broker to replay proving jobs from stored inputs"
+  type        = bool
+  default     = false
 }
 
 variable "RPC_REPLICAS" {

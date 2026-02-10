@@ -13,7 +13,7 @@ mkdir -p './src/honk/keys'
 echo ""
 echo "✓ VK generation complete"
 
-# Sync blake-opt.sol with generated Blake VK
+# Sync honk-optimized.sol with generated Blake VK
 echo ""
-echo "Syncing blake-opt.sol with generated Blake VK..."
+echo "Syncing honk-optimized.sol with generated Blake VK..."
 ./scripts/sync_blake_opt_vk.sh

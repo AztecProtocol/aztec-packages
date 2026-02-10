@@ -9,6 +9,7 @@
 #include "../byte_array/byte_array.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
+#include "../field/field_utils.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
@@ -730,26 +731,33 @@ template <typename Builder, typename T> class bigfield {
         prime_basis_limb.unset_free_witness_tag();
     }
     /**
-     * @brief Set the witness indices of the binary basis limbs to public
+     * @brief Set the witness indices for the limbs of the bigfield to public
+     * @details Bigfield is represented in public inputs using 2 limbs (lo, hi), matching the Codec representation.
+     *          lo = limb0 + limb1 * 2^NUM_LIMB_BITS, hi = limb2 + limb3 * 2^NUM_LIMB_BITS
      *
      * @return uint32_t The public input index at which the representation of the bigfield starts
      */
     uint32_t set_public() const
     {
+        // Reduce bigfield to canonical form before combining into 2-limb format.
+        self_reduce();
+
         Builder* ctx = get_context();
         const uint32_t start_index = static_cast<uint32_t>(ctx->num_public_inputs());
-        for (auto& limb : binary_basis_limbs) {
-            ctx->set_public_input(limb.element.get_witness_index());
-        }
-        return start_index;
-    }
 
-    /**
-     * @brief Reconstruct a bigfield from limbs (generally stored in the public inputs)
-     */
-    static bigfield reconstruct_from_public(const std::span<const field_ct, PUBLIC_INPUTS_SIZE>& limbs)
-    {
-        return construct_from_limbs(limbs[0], limbs[1], limbs[2], limbs[3], /*can_overflow=*/false);
+        // Combine limbs into 2-limb Codec format
+        constexpr uint256_t shift = uint256_t(1) << NUM_LIMB_BITS;
+        field_t<Builder> lo = binary_basis_limbs[0].element + binary_basis_limbs[1].element * shift;
+        field_t<Builder> hi = binary_basis_limbs[2].element + binary_basis_limbs[3].element * shift;
+
+        // Mark as used witnesses (these are intentionally in one gate for public input encoding)
+        mark_witness_as_used(lo);
+        mark_witness_as_used(hi);
+
+        ctx->set_public_input(lo.get_witness_index());
+        ctx->set_public_input(hi.get_witness_index());
+
+        return start_index;
     }
 
     static constexpr uint512_t get_maximum_unreduced_value()

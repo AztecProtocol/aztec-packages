@@ -8,12 +8,33 @@
 #include "http_download.hpp"
 
 namespace {
-std::vector<uint8_t> download_bn254_g1_data(size_t num_points)
+// Primary CRS URL (Cloudflare R2)
+constexpr const char* CRS_PRIMARY_URL = "http://crs.aztec-cdn.foundation/g1.dat";
+// Fallback CRS URL (AWS S3)
+constexpr const char* CRS_FALLBACK_URL = "http://crs.aztec-labs.com/g1.dat";
+
+std::vector<uint8_t> download_bn254_g1_data(size_t num_points,
+                                            const std::string& primary_url,
+                                            const std::string& fallback_url)
 {
     size_t g1_end = (num_points * sizeof(bb::g1::affine_element)) - 1;
 
-    // Download via HTTP with Range header
-    auto data = bb::srs::http_download("http://crs.aztec.network/g1.dat", 0, g1_end);
+    // Try primary URL first, with fallback on failure.
+    // Note: WASM is compiled with -fno-exceptions, so try/catch is not available.
+    // In practice, WASM never calls this function - it initializes CRS via srs_init_srs from JavaScript.
+    std::vector<uint8_t> data;
+#ifndef __wasm__
+    try {
+        data = bb::srs::http_download(primary_url, 0, g1_end);
+    } catch (const std::exception& e) {
+        vinfo("Primary CRS download failed: ", e.what(), ". Trying fallback...");
+        data = bb::srs::http_download(fallback_url, 0, g1_end);
+    }
+#else
+    // WASM fallback: just try primary (will abort on failure)
+    data = bb::srs::http_download(primary_url, 0, g1_end);
+    static_cast<void>(fallback_url);
+#endif
 
     if (data.size() < sizeof(bb::g1::affine_element)) {
         throw_or_abort("Downloaded g1 data is too small");
@@ -38,9 +59,13 @@ std::vector<uint8_t> download_bn254_g1_data(size_t num_points)
 } // namespace
 
 namespace bb {
+
+// Main implementation with configurable URLs
 std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& path,
                                                   size_t num_points,
-                                                  bool allow_download)
+                                                  bool allow_download,
+                                                  const std::string& primary_url,
+                                                  const std::string& fallback_url)
 {
     std::filesystem::create_directories(path);
 
@@ -84,7 +109,7 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
     }
 
     vinfo("downloading bn254 crs...");
-    auto data = download_bn254_g1_data(num_points);
+    auto data = download_bn254_g1_data(num_points, primary_url, fallback_url);
     write_file(g1_path, data);
 
     auto points = std::vector<g1::affine_element>(num_points);
@@ -92,6 +117,14 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
         points[i] = from_buffer<g1::affine_element>(data, i * sizeof(g1::affine_element));
     }
     return points;
+}
+
+// Default overload using production URLs
+std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& path,
+                                                  size_t num_points,
+                                                  bool allow_download)
+{
+    return get_bn254_g1_data(path, num_points, allow_download, CRS_PRIMARY_URL, CRS_FALLBACK_URL);
 }
 
 } // namespace bb

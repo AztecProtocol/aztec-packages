@@ -13,7 +13,12 @@ import type {
   ReqRespSubProtocolHandler,
   ReqRespSubProtocolValidators,
 } from '../services/reqresp/interface.js';
-import type { P2PBlockReceivedCallback, P2PCheckpointReceivedCallback } from '../services/service.js';
+import type {
+  DuplicateAttestationInfo,
+  DuplicateProposalInfo,
+  P2PBlockReceivedCallback,
+  P2PCheckpointReceivedCallback,
+} from '../services/service.js';
 
 /**
  * Enum defining the possible states of the p2p client.
@@ -77,6 +82,23 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
    * @param handler - A function taking a received checkpoint proposal and producing attestations
    */
   registerCheckpointProposalHandler(callback: P2PCheckpointReceivedCallback): void;
+
+  /**
+   * Registers a callback invoked when a duplicate proposal is detected (equivocation).
+   * The callback is triggered on the first duplicate (when count goes from 1 to 2).
+   *
+   * @param callback - Function called with info about the duplicate proposal
+   */
+  registerDuplicateProposalCallback(callback: (info: DuplicateProposalInfo) => void): void;
+
+  /**
+   * Registers a callback invoked when a duplicate attestation is detected (equivocation).
+   * A validator signing attestations for different proposals at the same slot.
+   * The callback is triggered on the first duplicate (when count goes from 1 to 2).
+   *
+   * @param callback - Function called with info about the duplicate attestation
+   */
+  registerDuplicateAttestationCallback(callback: (info: DuplicateAttestationInfo) => void): void;
 
   /**
    * Request a list of transactions from another peer by their tx hashes.

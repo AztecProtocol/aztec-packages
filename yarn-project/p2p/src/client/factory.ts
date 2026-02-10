@@ -13,20 +13,21 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 
 import { P2PClient } from '../client/p2p_client.js';
 import type { P2PConfig } from '../config.js';
-import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
-import { KvAttestationPool } from '../mem_pools/attestation_pool/kv_attestation_pool.js';
+import { AttestationPool, type AttestationPoolApi } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import { AztecKVTxPool, type TxPool } from '../mem_pools/tx_pool/index.js';
 import { DummyP2PService } from '../services/dummy_service.js';
 import { LibP2PService } from '../services/index.js';
+import { createFileStoreTxSources } from '../services/tx_collection/file_store_tx_source.js';
 import { TxCollection } from '../services/tx_collection/tx_collection.js';
 import { type TxSource, createNodeRpcTxSources } from '../services/tx_collection/tx_source.js';
+import { TxFileStore } from '../services/tx_file_store/tx_file_store.js';
 import { configureP2PClientAddresses, createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey } from '../util.js';
 
 export type P2PClientDeps<T extends P2PClientType> = {
   txPool?: TxPool;
   store?: AztecAsyncKVStore;
-  attestationPool?: AttestationPool;
+  attestationPool?: AttestationPoolApi;
   logger?: Logger;
   txCollectionNodeSources?: TxSource[];
   p2pServiceFactory?: (...args: Parameters<(typeof LibP2PService)['new']>) => Promise<LibP2PService<T>>;
@@ -76,7 +77,7 @@ export async function createP2PClient<T extends P2PClientType>(
         maxPendingTxCount: config.maxPendingTxCount,
         archivedTxLimit: config.archivedTxLimit,
       }),
-    attestationPool: deps.attestationPool ?? new KvAttestationPool(attestationStore, telemetry),
+    attestationPool: deps.attestationPool ?? new AttestationPool(attestationStore, telemetry),
   };
 
   const p2pService = await createP2PService<T>(
@@ -105,16 +106,29 @@ export async function createP2PClient<T extends P2PClientType>(
     });
   }
 
+  const fileStoreSources = await createFileStoreTxSources(
+    config.txCollectionFileStoreUrls,
+    logger.createChild('file-store-tx-source'),
+  );
+  if (fileStoreSources.length > 0) {
+    logger.info(`Using ${fileStoreSources.length} file store sources for tx collection.`, {
+      stores: fileStoreSources.map(s => s.getInfo()),
+    });
+  }
+
   const txCollection = new TxCollection(
     p2pService.getBatchTxRequesterService(),
     nodeSources,
     l1Constants,
     mempools.txPool,
     config,
+    fileStoreSources,
     dateProvider,
     telemetry,
     logger.createChild('tx-collection'),
   );
+
+  const txFileStore = await TxFileStore.create(mempools.txPool, config, logger.createChild('tx-file-store'), telemetry);
 
   return new P2PClient(
     clientType,
@@ -123,6 +137,7 @@ export async function createP2PClient<T extends P2PClientType>(
     mempools,
     p2pService,
     txCollection,
+    txFileStore,
     config,
     dateProvider,
     telemetry,

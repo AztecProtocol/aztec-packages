@@ -30,10 +30,9 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
-import { ensureContractSynced } from '../../contract_sync/index.js';
+import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import { NoteService } from '../../notes/note_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
-import type { AnchorBlockStore } from '../../storage/anchor_block_store/anchor_block_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
@@ -89,12 +88,12 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     keyStore: KeyStore,
     addressStore: AddressStore,
     aztecNode: AztecNode,
-    anchorBlockStore: AnchorBlockStore,
     private readonly senderTaggingStore: SenderTaggingStore,
     recipientTaggingStore: RecipientTaggingStore,
     senderAddressBookStore: SenderAddressBookStore,
     capsuleStore: CapsuleStore,
     privateEventStore: PrivateEventStore,
+    private readonly contractSyncService: ContractSyncService,
     jobId: string,
     private totalPublicCalldataCount: number = 0,
     protected sideEffectCounter: number = 0,
@@ -113,7 +112,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       keyStore,
       addressStore,
       aztecNode,
-      anchorBlockStore,
       recipientTaggingStore,
       senderAddressBookStore,
       capsuleStore,
@@ -245,7 +243,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     sender: AztecAddress,
     recipient: AztecAddress,
   ) {
-    const senderCompleteAddress = await this.getCompleteAddress(sender);
+    const senderCompleteAddress = await this.getCompleteAddressOrFail(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
     return DirectionalAppTaggingSecret.compute(
       senderCompleteAddress,
@@ -364,7 +362,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     const pendingNullifiers = this.noteCache.getNullifiers(this.callContext.contractAddress);
 
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobId);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
     const dbNotes = await noteService.getNotes(
       this.callContext.contractAddress,
       owner,
@@ -540,13 +538,12 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
-    await ensureContractSynced(
+    await this.contractSyncService.ensureContractSynced(
       targetContractAddress,
       functionSelector,
       this.utilityExecutor,
-      this.aztecNode,
-      this.contractStore,
       this.anchorBlockHeader,
+      this.jobId,
     );
 
     const targetArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(
@@ -574,12 +571,12 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.keyStore,
       this.addressStore,
       this.aztecNode,
-      this.anchorBlockStore,
       this.senderTaggingStore,
       this.recipientTaggingStore,
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
+      this.contractSyncService,
       this.jobId,
       this.totalPublicCalldataCount,
       sideEffectCounter,

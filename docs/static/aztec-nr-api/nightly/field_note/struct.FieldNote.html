@@ -47,9 +47,11 @@
 <h2>Fields</h2>
 <div id="structfield.value" class="struct-field"><code class="code-header">value: <a href="../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><h2>Trait implementations</h2>
-<h3 id="impl-Deserialize-for-FieldNote"><code class="code-header">impl <a href="../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../field_note/struct.FieldNote.html" class="struct">FieldNote</a></code></h3>
+<h3 id="impl-Deserialize-for-FieldNote"><code class="code-header">impl <a href="../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../field_note/struct.FieldNote.html" class="struct">FieldNote</a></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(serialized: [<a href="../std/primitive.Field.html" class="primitive">Field</a>; 1]) -> Self</code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../std/primitive.Field.html" class="primitive">Field</a>; 1]) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
 
 </div><h3 id="impl-Eq-for-FieldNote"><code class="code-header">impl <a href="../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../field_note/struct.FieldNote.html" class="struct">FieldNote</a></code></h3>
 
@@ -75,7 +77,7 @@
     self,
     owner: <a href="../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     note_hash_for_nullification: <a href="../std/primitive.Field.html" class="primitive">Field</a>,
-) -> <a href="../std/primitive.Field.html" class="primitive">Field</a></code>
+) -> <a href="../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../std/primitive.Field.html" class="primitive">Field</a>&gt;</code>
 
 </div><h3 id="impl-NoteProperties&lt;FieldNoteProperties&gt;-for-FieldNote"><code class="code-header">impl <a href="../noir_aztec/note/note_interface/trait.NoteProperties.html" class="trait">NoteProperties</a>&lt;FieldNoteProperties&gt; for <a href="../field_note/struct.FieldNote.html" class="struct">FieldNote</a></code></h3>
 
@@ -91,9 +93,11 @@
 
 <code class="code-header">pub fn <span class="fn">unpack</span>(packed: [<a href="../std/primitive.Field.html" class="primitive">Field</a>; 1]) -> Self</code>
 
-</div><h3 id="impl-Serialize-for-FieldNote"><code class="code-header">impl <a href="../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../field_note/struct.FieldNote.html" class="struct">FieldNote</a></code></h3>
+</div><h3 id="impl-Serialize-for-FieldNote"><code class="code-header">impl <a href="../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../field_note/struct.FieldNote.html" class="struct">FieldNote</a></code></h3>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../std/primitive.Field.html" class="primitive">Field</a>; 1]</code>
+
+<code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
 
 </div></main>
 </span>

@@ -11,7 +11,7 @@ pub mod public_keys;
 pub mod point;
 pub mod scalar;
 pub mod constants;
-mod domain_separators;
+mod constants_tests;
 pub mod contract_class_id;
 pub mod merkle_tree;
 pub mod contract_instance;
@@ -20,9 +20,7 @@ pub mod poseidon2;
 pub mod abis;
 
 pub mod hash;
-pub mod type_serialization;
 pub mod type_packing;
-pub mod tuple_serialization;
 
 pub mod blob_data;
 

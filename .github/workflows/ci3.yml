@@ -58,6 +58,7 @@ jobs:
           MERGE_GROUP_BASE_REF: ${{ github.event.merge_group.base_ref }}
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: ./.github/ci3_labels_to_env.sh ${{ join(github.event.pull_request.labels.*.name, ' ') }}
 
       - name: Run
@@ -111,6 +112,7 @@ jobs:
           benchmark-data-dir-path: "bench/${{ env.TARGET_BRANCH }}"
           tool: "customSmallerIsBetter"
           output-file-path: ./bench-out/bench.json
+          gh-repository: github.com/AztecProtocol/benchmark-page-data
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           auto-push: true
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -125,17 +127,27 @@ jobs:
   # Runs two test sets in parallel.
   ci-network-scenario:
     runs-on: ubuntu-latest
-    # We either run after a release (tag starting with v), or when the ci-network-scenario label is present in a PR.
-    # We exclude ci-release-pr test tags (v0.0.1-commit.*) which are only for testing the release process.
+    strategy:
+      fail-fast: false
+      matrix:
+        test_set: ["1", "2"]
+    # We run after a spartan release (from merge-train/spartan), or when the ci-network-scenario label is present in a PR.
     needs: ci
-    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false && ((startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-commit.')) || contains(github.event.pull_request.labels.*.name, 'ci-network-scenario'))
+    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false && ((startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-spartan.')) || contains(github.event.pull_request.labels.*.name, 'ci-network-scenario'))
     steps:
+      - name: Remove label (one-time use)
+        if: github.event.pull_request && contains(github.event.pull_request.labels.*.name, 'ci-network-scenario')
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-network-scenario --repo ${{ github.repository }} || true
+
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Run Network Scenarios
+        timeout-minutes: 350
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -160,16 +172,16 @@ jobs:
             docker_image="aztecprotocol/aztec:${tag}"
           else
             # branch name
-            namespace=pr-$(echo "${{ github.head_ref || github.ref_name }}" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20)
-            echo "NAMESPACE=$namespace" >> $GITHUB_ENV
+            namespace=pr-$(echo "${{ github.head_ref || github.ref_name }}" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20 | sed 's/-*$//')
             docker_image=""
           fi
+          echo "NAMESPACE=$namespace" >> $GITHUB_ENV
           set -x # print next line
-          ./.github/ci3.sh network-scenarios next-scenario "$namespace" "$docker_image"
+          ./.github/ci3.sh network-scenarios next-scenario "$namespace" "$docker_image" "${{ matrix.test_set }}"
 
       - name: Cleanup network resources
-        # Clean up if this is a CI label or nightly.
-        if: always() && (!startsWith(github.ref, 'refs/tags/v') || contains(github.ref_name, '-nightly.'))
+        # Clean up if this is a CI label or spartan.
+        if: always() && (!startsWith(github.ref, 'refs/tags/v') || contains(github.ref_name, '-spartan.'))
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -179,8 +191,7 @@ jobs:
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           NO_SPOT: 1
         run: |
-          ./.github/ci3.sh network-teardown next-scenario "${NAMESPACE}-1" || true
-          ./.github/ci3.sh network-teardown next-scenario "${NAMESPACE}-2" || true
+          ./.github/ci3.sh network-teardown next-scenario "${NAMESPACE}-${{ matrix.test_set }}" || true
 
       #############
       # Benchmarks
@@ -216,4 +227,80 @@ jobs:
               -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
               -H "Content-type: application/json" \
               --data "$data"
+          fi
+
+  # KIND-based e2e tests that run on a local Kubernetes cluster.
+  # One-time use: label is removed after the job runs.
+  ci-network-kind:
+    runs-on: ubuntu-latest
+    needs: ci
+    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'ci-network-kind')
+    timeout-minutes: 180 # 3 hours for KIND tests
+    steps:
+      - name: Remove label
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-network-kind --repo ${{ github.repository }}
+
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Run KIND Test
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          RUN_ID: ${{ github.run_id }}
+          AWS_SHUTDOWN_TIME: 180
+        run: |
+          ./.github/ci3.sh network-tests-kind
+
+  # iOS cross-compilation build for barretenberg.
+  # Runs in parallel with the main CI job on every PR (~9 min per target).
+  # This builds the bb-external static library for iOS devices and simulators.
+  # Non-blocking (continue-on-error) to avoid rugging releases - alerts #honk-team on failure.
+  build-bb-ios:
+    name: Build iOS static libraries
+    runs-on: macos-14
+    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - preset: ios-arm64
+            label: arm64-ios
+          - preset: ios-sim-arm64
+            label: arm64-ios-sim
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Create Build Environment
+        run: |
+          brew install cmake ninja
+
+      - name: Compile bb-external for iOS
+        working-directory: barretenberg/cpp
+        run: |
+          cmake --preset ${{ matrix.preset }}
+          cmake --build --preset ${{ matrix.preset }} --target bb-external
+
+      - name: Notify Slack on failure
+        if: failure()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          if [ -n "${SLACK_BOT_TOKEN}" ]; then
+            curl -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-type: application/json" \
+              --data "{\"channel\": \"#honk-team\", \"text\": \"iOS build (${{ matrix.preset }}) FAILED: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>\"}"
           fi

@@ -59,6 +59,15 @@ describe('p2p client integration message propagation', () => {
     //@ts-expect-error - we want to mock the getEpochAndSlotInNextL1Slot method, mocking ts is enough
     epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) });
     epochCache.getRegisteredValidators.mockResolvedValue([]);
+    epochCache.getL1Constants.mockReturnValue({
+      l1StartBlock: 0n,
+      l1GenesisTime: 0n,
+      slotDuration: 24,
+      epochDuration: 16,
+      ethereumSlotDuration: 12,
+      proofSubmissionEpochs: 2,
+      targetCommitteeSize: 48,
+    });
 
     txPool.isEmpty.mockResolvedValue(true);
     txPool.hasTxs.mockResolvedValue([]);
@@ -71,6 +80,7 @@ describe('p2p client integration message propagation', () => {
     });
 
     attestationPool.isEmpty.mockResolvedValue(true);
+    attestationPool.tryAddBlockProposal.mockResolvedValue({ added: true, alreadyExists: false, count: 1 });
 
     worldState.status.mockResolvedValue({
       state: mock(),

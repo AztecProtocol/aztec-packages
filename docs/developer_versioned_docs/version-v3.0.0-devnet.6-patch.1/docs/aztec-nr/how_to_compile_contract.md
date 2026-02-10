@@ -1,7 +1,7 @@
 ---
 title: Compiling Contracts
 tags: [contracts]
-sidebar_position: 2
+sidebar_position: 3
 description: Compile your Aztec smart contracts into deployable artifacts using aztec command.
 ---
 

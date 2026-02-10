@@ -1,4 +1,3 @@
-import { toArray } from '@aztec/foundation/iterable';
 import { Semaphore } from '@aztec/foundation/queue';
 import type { Fr } from '@aztec/foundation/schemas';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
@@ -17,6 +16,8 @@ import { StoredNote } from './stored_note.js';
  **/
 export class NoteStore implements StagedStore {
   readonly storeName: string = 'note';
+
+  #store: AztecAsyncKVStore;
 
   // Note that we use the siloedNullifier as the note id in the store as it's guaranteed to be unique.
 
@@ -46,6 +47,7 @@ export class NoteStore implements StagedStore {
   #jobLocks: Map<string, Semaphore>;
 
   constructor(store: AztecAsyncKVStore) {
+    this.#store = store;
     this.#notes = store.openMap('notes');
     this.#nullifiersByContractAddress = store.openMultiMap('note_nullifiers_by_contract');
     this.#nullifiersByNullificationBlockNumber = store.openMultiMap('note_block_number_to_nullifier');
@@ -65,32 +67,26 @@ export class NoteStore implements StagedStore {
    * @param jobId - The job context for staged writes
    */
   public addNotes(notes: NoteDao[], scope: AztecAddress, jobId: string): Promise<void[]> {
-    return this.#withJobLock(jobId, () => Promise.all(notes.map(noteDao => this.#addNote(noteDao, scope, jobId))));
-  }
-
-  async #addNote(note: NoteDao, scope: AztecAddress, jobId: string) {
-    const noteForJob =
-      (await this.#readNote(note.siloedNullifier.toString(), jobId)) ?? new StoredNote(note, new Set());
-
-    // Make sure the note is linked to the scope and staged for this job
-    noteForJob.addScope(scope.toString());
-    this.#writeNote(noteForJob, jobId);
+    return this.#withJobLock(jobId, () =>
+      this.#store.transactionAsync(() =>
+        Promise.all(
+          notes.map(async note => {
+            const noteForJob =
+              (await this.#readNote(note.siloedNullifier.toString(), jobId)) ?? new StoredNote(note, new Set());
+            noteForJob.addScope(scope.toString());
+            this.#writeNote(noteForJob, jobId);
+          }),
+        ),
+      ),
+    );
   }
 
   async #readNote(nullifier: string, jobId: string): Promise<StoredNote | undefined> {
-    // First check staged notes for this job
-    const noteForJob = this.#getNotesForJob(jobId).get(nullifier);
-    if (noteForJob) {
-      return noteForJob;
-    }
-
-    // Then check persistent storage
+    // Always issue DB read to keep IndexedDB transaction alive (they auto-commit when a new micro-task starts and there
+    // are no pending read requests). The staged value still takes precedence if it exists.
     const noteBuffer = await this.#notes.getAsync(nullifier);
-    if (noteBuffer) {
-      return StoredNote.fromBuffer(noteBuffer);
-    }
-
-    return undefined;
+    const noteForJob = this.#getNotesForJob(jobId).get(nullifier);
+    return noteForJob ?? (noteBuffer ? StoredNote.fromBuffer(noteBuffer) : undefined);
   }
 
   #writeNote(note: StoredNote, jobId: string) {
@@ -109,57 +105,98 @@ export class NoteStore implements StagedStore {
    * returned once if this is the case)
    * @throws If filtering by an empty scopes array. Scopes have to be set to undefined or to a non-empty array.
    */
-  async getNotes(filter: NotesFilter, jobId: string): Promise<NoteDao[]> {
+  getNotes(filter: NotesFilter, jobId: string): Promise<NoteDao[]> {
     if (filter.scopes !== undefined && filter.scopes.length === 0) {
-      throw new Error('Trying to get notes with an empty scopes array');
+      return Promise.reject(new Error('Trying to get notes with an empty scopes array'));
     }
 
-    const targetStatus = filter.status ?? NoteStatus.ACTIVE;
+    return this.#store.transactionAsync(async () => {
+      const targetStatus = filter.status ?? NoteStatus.ACTIVE;
 
-    const foundNotes: Map<string, NoteDao> = new Map();
+      // The code below might read a bit unnatural, the reason is that we need to be careful in how we use `await` inside
+      // `transactionAsync`, otherwise browsers might choose to auto-commit the IndexedDB transaction forcing us to
+      // explicitly handle that condition. The rule we need to honor is: do not await unless you generate a database
+      // read or write or you're done using the DB for the remainder of the transaction. The following sequence is
+      // unsafe in IndexedDB:
+      //
+      // 1. start transactionAsync()
+      // 2. await readDb() <-- OK, transaction alive because we issued DB ops
+      // 3. run a bunch of computations (no await involved) <-- OK, tx alive because we are in the same microtask
+      // 4. await doSthNotInDb() <-- no DB ops issued in this task, browser's free to decide to commit the tx
+      // 5. await readDb() <-- BOOM, TransactionInactiveError
+      //
+      // Note that the real issue is in step number 5: we try to continue using a transaction that the browser might
+      // have already committed.
+      //
+      // We need to read candidate notes which are either indexed by contract address in the DB (in
+      // #nullifiersByContractAddress), or lie in memory for the not yet committed `jobId`.
+      // So we collect promises based on both sources without awaiting for them.
+      const noteReadPromises: Map<string, Promise<StoredNote | undefined>> = new Map();
 
-    const nullifiersOfContract = await this.#nullifiersOfContract(filter.contractAddress, jobId);
-    for (const nullifier of nullifiersOfContract) {
-      const note = await this.#readNote(nullifier, jobId);
-
-      // Defensive: hitting this case means we're mishandling contract indices or in-memory job data
-      if (!note) {
-        throw new Error('PXE note database is corrupted.');
+      // Awaiting the getValuesAsync iterator is fine because it's reading from the DB
+      for await (const nullifier of this.#nullifiersByContractAddress.getValuesAsync(
+        filter.contractAddress.toString(),
+      )) {
+        // Each #readNote will perform a DB read
+        noteReadPromises.set(nullifier, this.#readNote(nullifier, jobId));
       }
 
-      // Apply filters
-      if (targetStatus === NoteStatus.ACTIVE && note.isNullified()) {
-        continue;
+      // Add staged nullifiers from job, no awaits involved, so we are fine
+      for (const storedNote of this.#getNotesForJob(jobId).values()) {
+        if (storedNote.noteDao.contractAddress.equals(filter.contractAddress)) {
+          const nullifier = storedNote.noteDao.siloedNullifier.toString();
+          if (!noteReadPromises.has(nullifier)) {
+            noteReadPromises.set(nullifier, Promise.resolve(storedNote));
+          }
+        }
       }
 
-      if (filter.owner && !note.noteDao.owner.equals(filter.owner)) {
-        continue;
+      // By now we have pending DB requests from all the #readNote calls. Await them all together.
+      const notes = await Promise.all(noteReadPromises.values());
+
+      // The rest of the function is await-free, and just deals with filtering and sorting our findings.
+      const foundNotes: Map<string, NoteDao> = new Map();
+
+      for (const note of notes) {
+        // Defensive: hitting this case means we're mishandling contract indices or in-memory job data
+        if (!note) {
+          throw new Error('PXE note database is corrupted.');
+        }
+
+        // Apply filters
+        if (targetStatus === NoteStatus.ACTIVE && note.isNullified()) {
+          continue;
+        }
+
+        if (filter.owner && !note.noteDao.owner.equals(filter.owner)) {
+          continue;
+        }
+
+        if (filter.storageSlot && !note.noteDao.storageSlot.equals(filter.storageSlot)) {
+          continue;
+        }
+
+        if (filter.siloedNullifier && !note.noteDao.siloedNullifier.equals(filter.siloedNullifier)) {
+          continue;
+        }
+
+        if (filter.scopes && note.scopes.intersection(new Set(filter.scopes.map(s => s.toString()))).size === 0) {
+          continue;
+        }
+
+        foundNotes.set(note.noteDao.siloedNullifier.toString(), note.noteDao);
       }
 
-      if (filter.storageSlot && !note.noteDao.storageSlot.equals(filter.storageSlot)) {
-        continue;
-      }
-
-      if (filter.siloedNullifier && !note.noteDao.siloedNullifier.equals(filter.siloedNullifier)) {
-        continue;
-      }
-
-      if (filter.scopes && note.scopes.intersection(new Set(filter.scopes.map(s => s.toString()))).size === 0) {
-        continue;
-      }
-
-      foundNotes.set(note.noteDao.siloedNullifier.toString(), note.noteDao);
-    }
-
-    // Sort by block number, then by tx index within block, then by note index within tx
-    return [...foundNotes.values()].sort((a, b) => {
-      if (a.l2BlockNumber !== b.l2BlockNumber) {
-        return a.l2BlockNumber - b.l2BlockNumber;
-      }
-      if (a.txIndexInBlock !== b.txIndexInBlock) {
-        return a.txIndexInBlock - b.txIndexInBlock;
-      }
-      return a.noteIndexInTx - b.noteIndexInTx;
+      // Sort by block number, then by tx index within block, then by note index within tx
+      return [...foundNotes.values()].sort((a, b) => {
+        if (a.l2BlockNumber !== b.l2BlockNumber) {
+          return a.l2BlockNumber - b.l2BlockNumber;
+        }
+        if (a.txIndexInBlock !== b.txIndexInBlock) {
+          return a.txIndexInBlock - b.txIndexInBlock;
+        }
+        return a.noteIndexInTx - b.noteIndexInTx;
+      });
     });
   }
 
@@ -179,41 +216,46 @@ export class NoteStore implements StagedStore {
    * @throws Error if any nullifier is not found in this notes store
    */
   applyNullifiers(nullifiers: DataInBlock<Fr>[], jobId: string): Promise<NoteDao[]> {
-    return this.#withJobLock(jobId, async () => {
-      if (nullifiers.length === 0) {
-        return [];
-      }
+    if (nullifiers.length === 0) {
+      return Promise.resolve([]);
+    }
 
-      const notesToNullify = await Promise.all(
-        nullifiers.map(async nullifierInBlock => {
-          const nullifier = nullifierInBlock.data.toString();
+    if (nullifiers.some(n => n.l2BlockNumber === 0)) {
+      return Promise.reject(new Error('applyNullifiers: nullifiers cannot have been emitted at block 0'));
+    }
 
-          const storedNote = await this.#readNote(nullifier, jobId);
-          if (!storedNote) {
-            throw new Error(`Attempted to mark a note as nullified which does not exist in PXE DB`);
+    return this.#withJobLock(jobId, () =>
+      this.#store.transactionAsync(async () => {
+        const notesToNullify = await Promise.all(
+          nullifiers.map(async nullifierInBlock => {
+            const nullifier = nullifierInBlock.data.toString();
+
+            const storedNote = await this.#readNote(nullifier, jobId);
+            if (!storedNote) {
+              throw new Error(`Attempted to mark a note as nullified which does not exist in PXE DB`);
+            }
+
+            return { storedNote, blockNumber: nullifierInBlock.l2BlockNumber };
+          }),
+        );
+
+        const notesNullifiedInThisCall: Map<string, NoteDao> = new Map();
+        for (const noteToNullify of notesToNullify) {
+          const note = noteToNullify.storedNote;
+
+          // Skip already nullified notes
+          if (note.isNullified()) {
+            continue;
           }
 
-          return { storedNote: await this.#readNote(nullifier, jobId), blockNumber: nullifierInBlock.l2BlockNumber };
-        }),
-      );
-
-      const notesNullifiedInThisCall: Map<string, NoteDao> = new Map();
-      for (const noteToNullify of notesToNullify) {
-        // Safe to coerce (!) because we throw if we find any undefined above
-        const note = noteToNullify.storedNote!;
-
-        // Skip already nullified notes
-        if (note.isNullified()) {
-          continue;
+          note.markAsNullified(noteToNullify.blockNumber);
+          this.#writeNote(note, jobId);
+          notesNullifiedInThisCall.set(note.noteDao.siloedNullifier.toString(), note.noteDao);
         }
 
-        note.markAsNullified(noteToNullify.blockNumber);
-        this.#writeNote(note, jobId);
-        notesNullifiedInThisCall.set(note.noteDao.siloedNullifier.toString(), note.noteDao);
-      }
-
-      return [...notesNullifiedInThisCall.values()];
-    });
+        return [...notesNullifiedInThisCall.values()];
+      }),
+    );
   }
 
   /**
@@ -244,17 +286,22 @@ export class NoteStore implements StagedStore {
    * @param blockNumber - Notes created after this block number will be deleted
    */
   async #deleteActiveNotesAfterBlock(blockNumber: number): Promise<void> {
-    const notes = await toArray(this.#notes.valuesAsync());
-    for (const noteBuffer of notes) {
+    // Collect notes to delete during iteration to keep IndexedDB transaction alive.
+    const notesToDelete: { nullifier: string; contractAddress: string }[] = [];
+    for await (const noteBuffer of this.#notes.valuesAsync()) {
       const storedNote = StoredNote.fromBuffer(noteBuffer);
       if (storedNote.noteDao.l2BlockNumber > blockNumber) {
-        const noteNullifier = storedNote.noteDao.siloedNullifier.toString();
-        await this.#notes.delete(noteNullifier);
-        await this.#nullifiersByContractAddress.deleteValue(
-          storedNote.noteDao.contractAddress.toString(),
-          noteNullifier,
-        );
+        notesToDelete.push({
+          nullifier: storedNote.noteDao.siloedNullifier.toString(),
+          contractAddress: storedNote.noteDao.contractAddress.toString(),
+        });
       }
+    }
+
+    // Delete all collected notes. Each delete is a DB operation that keeps the transaction alive.
+    for (const { nullifier, contractAddress } of notesToDelete) {
+      await this.#notes.delete(nullifier);
+      await this.#nullifiersByContractAddress.deleteValue(contractAddress, nullifier);
     }
   }
 
@@ -268,62 +315,69 @@ export class NoteStore implements StagedStore {
    * @param anchorBlockNumber - Upper bound for the block range to process
    */
   async #rewindNullifiedNotesAfterBlock(blockNumber: number, anchorBlockNumber: number): Promise<void> {
-    const currentBlockNumber = blockNumber + 1;
-    for (let i = currentBlockNumber; i <= anchorBlockNumber; i++) {
-      const noteNullifiersToReinsert: string[] = await toArray(
-        this.#nullifiersByNullificationBlockNumber.getValuesAsync(i),
-      );
+    // First pass: collect all nullifiers for all blocks, starting reads during iteration to keep tx alive.
+    const nullifiersByBlock: Map<number, { nullifier: string; noteReadPromise: Promise<Buffer | undefined> }[]> =
+      new Map();
 
-      const nullifiedNoteBuffers = await Promise.all(
-        noteNullifiersToReinsert.map(async noteNullifier => {
-          const note = await this.#notes.getAsync(noteNullifier);
+    for (let i = blockNumber + 1; i <= anchorBlockNumber; i++) {
+      const blockNullifiers: { nullifier: string; noteReadPromise: Promise<Buffer | undefined> }[] = [];
+      for await (const nullifier of this.#nullifiersByNullificationBlockNumber.getValuesAsync(i)) {
+        // Start read immediately during iteration to keep IndexedDB transaction alive
+        blockNullifiers.push({ nullifier, noteReadPromise: this.#notes.getAsync(nullifier) });
+      }
+      if (blockNullifiers.length > 0) {
+        nullifiersByBlock.set(i, blockNullifiers);
+      }
+    }
 
-          if (!note) {
-            throw new Error(`PXE DB integrity error: no note found with nullifier ${noteNullifier}`);
-          }
+    // Second pass: await reads and perform writes
+    for (const [block, nullifiers] of nullifiersByBlock) {
+      for (const { nullifier, noteReadPromise } of nullifiers) {
+        const noteBuffer = await noteReadPromise;
+        if (!noteBuffer) {
+          throw new Error(`PXE DB integrity error: no note found with nullifier ${nullifier}`);
+        }
 
-          return note;
-        }),
-      );
-
-      const storedNotes = nullifiedNoteBuffers.map(buffer => StoredNote.fromBuffer(buffer));
-
-      for (const storedNote of storedNotes) {
-        const noteNullifier = storedNote.noteDao.siloedNullifier.toString();
-        const scopes = storedNote.scopes;
-
-        if (scopes.size === 0) {
-          // We should never run into this error because notes always have a scope assigned to them - either on initial
-          // insertion via `addNotes` or when removing their nullifiers.
-          throw new Error(`No scopes found for nullified note with nullifier ${noteNullifier}`);
+        const storedNote = StoredNote.fromBuffer(noteBuffer);
+        if (storedNote.scopes.size === 0) {
+          throw new Error(`No scopes found for nullified note with nullifier ${nullifier}`);
         }
 
         storedNote.markAsActive();
 
         await Promise.all([
-          this.#notes.set(noteNullifier, storedNote.toBuffer()),
-          this.#nullifiersByNullificationBlockNumber.deleteValue(i, noteNullifier),
+          this.#notes.set(nullifier, storedNote.toBuffer()),
+          this.#nullifiersByNullificationBlockNumber.deleteValue(block, nullifier),
         ]);
       }
     }
   }
 
-  commit(jobId: string): Promise<void> {
-    return this.#withJobLock(jobId, async () => {
-      for (const [nullifier, storedNote] of this.#getNotesForJob(jobId)) {
-        await this.#notes.set(nullifier, storedNote.toBuffer());
-        await this.#nullifiersByContractAddress.set(storedNote.noteDao.contractAddress.toString(), nullifier);
-        if (storedNote.nullifiedAt !== undefined) {
-          await this.#nullifiersByNullificationBlockNumber.set(storedNote.nullifiedAt, nullifier);
-        }
+  /**
+   * Commits in memory job data to persistent storage.
+   *
+   * Called by JobCoordinator when a job completes successfully.
+   *
+   * Note: JobCoordinator wraps all commits in a single transaction, so we don't need our own transactionAsync here
+   * (and using one would throw on IndexedDB as it does not support nested txs).
+   *
+   * @param jobId - The jobId identifying which staged data to commit
+   */
+  async commit(jobId: string): Promise<void> {
+    for (const [nullifier, storedNote] of this.#getNotesForJob(jobId)) {
+      await this.#notes.set(nullifier, storedNote.toBuffer());
+      await this.#nullifiersByContractAddress.set(storedNote.noteDao.contractAddress.toString(), nullifier);
+      if (storedNote.nullifiedAt !== undefined) {
+        await this.#nullifiersByNullificationBlockNumber.set(storedNote.nullifiedAt, nullifier);
       }
+    }
 
-      this.#clearJobData(jobId);
-    });
+    this.#clearJobData(jobId);
   }
 
   discardStaged(jobId: string): Promise<void> {
-    return this.#withJobLock(jobId, () => Promise.resolve(this.#clearJobData(jobId)));
+    this.#clearJobData(jobId);
+    return Promise.resolve();
   }
 
   #clearJobData(jobId: string) {
@@ -357,20 +411,5 @@ export class NoteStore implements StagedStore {
       this.#notesForJob.set(jobId, notesForJob);
     }
     return notesForJob;
-  }
-
-  async #nullifiersOfContract(contractAddress: AztecAddress, jobId: string): Promise<Set<string>> {
-    // Collect persisted nullifiers for this contract
-    const persistedNullifiers: string[] = await toArray(
-      this.#nullifiersByContractAddress.getValuesAsync(contractAddress.toString()),
-    );
-
-    // Collect staged nullifiers from the job where the note's contract matches
-    const stagedNullifiers = this.#getNotesForJob(jobId)
-      .values()
-      .filter(storedNote => storedNote.noteDao.contractAddress.equals(contractAddress))
-      .map(storedNote => storedNote.noteDao.siloedNullifier.toString());
-
-    return new Set([...persistedNullifiers, ...stagedNullifiers]);
   }
 }

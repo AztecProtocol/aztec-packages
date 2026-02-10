@@ -194,6 +194,7 @@ export class EpochsTestContext {
       l1GenesisTime: await this.rollup.getL1GenesisTime(),
       ethereumSlotDuration,
       proofSubmissionEpochs: Number(await this.rollup.getProofSubmissionEpochs()),
+      targetCommitteeSize: await this.rollup.getTargetCommitteeSize(),
     };
 
     this.logger.info(
@@ -404,7 +405,7 @@ export class EpochsTestContext {
         privateKeyToAccount(this.getNextPrivateKey()),
         this.l1Client.chain,
       ),
-      this.context.dateProvider!,
+      this.context.dateProvider,
       { ethereumSlotDuration: this.L1_BLOCK_TIME_IN_S },
     );
     expect(await client.getBalance({ address: client.account.address })).toBeGreaterThan(0n);

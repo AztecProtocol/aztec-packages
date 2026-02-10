@@ -29,6 +29,8 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'valid-epoch-pruned-slash
  * We don't need to do anything special for this test other than to run it without a prover node
  * (which is the default), and this will produce pruned epochs that could have been proven. But we do
  * need to send a tx to make sure that the slash is due to valid epoch prune and not data withholding.
+ *
+ * TODO(palla/mbps): Add tests for 1) out messages and 2) partial epoch prunes
  */
 describe('e2e_p2p_valid_epoch_pruned_slash', () => {
   let t: P2PNetworkTest;
@@ -111,7 +113,7 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
     t.logger.warn(`Creating ${NUM_VALIDATORS} new nodes`);
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider!,
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
