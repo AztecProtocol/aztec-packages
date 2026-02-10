@@ -30,9 +30,9 @@ export class DeployTest {
       fundSponsoredFPC: true,
       skipAccountDeployment: true,
     });
-    this.aztecNode = this.context.aztecNodeService!;
+    this.aztecNode = this.context.aztecNodeService;
     this.wallet = this.context.wallet;
-    this.aztecNodeAdmin = this.context.aztecNodeService!;
+    this.aztecNodeAdmin = this.context.aztecNodeService;
     await this.applyInitialAccount();
     return this;
   }

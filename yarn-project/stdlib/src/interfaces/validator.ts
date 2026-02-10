@@ -56,11 +56,17 @@ export type ValidatorClientConfig = ValidatorHASignerConfig & {
 
   /** Skip pushing re-executed blocks to archiver (default: false) */
   skipPushProposedBlocksToArchiver?: boolean;
+
+  /** Agree to attest to equivocated checkpoint proposals (for testing purposes only) */
+  attestToEquivocatedProposals?: boolean;
 };
 
 export type ValidatorClientFullConfig = ValidatorClientConfig &
   Pick<SequencerConfig, 'txPublicSetupAllowList' | 'broadcastInvalidBlockProposal'> &
-  Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty' | 'slashDuplicateProposalPenalty'> & {
+  Pick<
+    SlasherConfig,
+    'slashBroadcastedInvalidBlockPenalty' | 'slashDuplicateProposalPenalty' | 'slashDuplicateAttestationPenalty'
+  > & {
     /**
      * Whether transactions are disabled for this node
      * @remarks This should match the property in P2PConfig. It's not picked from there to avoid circular dependencies.
@@ -79,6 +85,7 @@ export const ValidatorClientConfigSchema = zodFor<Omit<ValidatorClientConfig, 'v
     fishermanMode: z.boolean().optional(),
     skipCheckpointProposalValidation: z.boolean().optional(),
     skipPushProposedBlocksToArchiver: z.boolean().optional(),
+    attestToEquivocatedProposals: z.boolean().optional(),
   }),
 );
 
@@ -88,6 +95,7 @@ export const ValidatorClientFullConfigSchema = zodFor<Omit<ValidatorClientFullCo
     broadcastInvalidBlockProposal: z.boolean().optional(),
     slashBroadcastedInvalidBlockPenalty: schemas.BigInt,
     slashDuplicateProposalPenalty: schemas.BigInt,
+    slashDuplicateAttestationPenalty: schemas.BigInt,
     disableTransactions: z.boolean().optional(),
   }),
 );

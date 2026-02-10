@@ -22,26 +22,34 @@ const TEST_TIMEOUT = 600_000; // 10 minutes
 jest.setTimeout(TEST_TIMEOUT);
 
 const NUM_VALIDATORS = 4;
-const BOOT_NODE_UDP_PORT = 4500;
+const BOOT_NODE_UDP_PORT = 4600;
 const COMMITTEE_SIZE = NUM_VALIDATORS;
 const ETHEREUM_SLOT_DURATION = 8;
 const AZTEC_SLOT_DURATION = ETHEREUM_SLOT_DURATION * 3;
 const BLOCK_DURATION = 4;
 
-const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'duplicate-proposal-slash-'));
+const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'duplicate-attestation-slash-'));
 
 /**
- * Test that slashing occurs when a validator sends duplicate proposals (equivocation).
+ * Test that slashing occurs when a validator sends duplicate attestations (equivocation).
  *
  * The setup of the test is as follows:
  * 1. Create 4 validator nodes total:
  *    - 2 honest validators with unique keys
- *    - 2 "malicious" validators that share the SAME validator key but have DIFFERENT coinbase addresses
- * 2. The two nodes with the same key will both detect they are proposers for the same slot and naturally race to propose
+ *    - 2 "malicious proposer" validators that share the SAME validator key but have DIFFERENT coinbase addresses
+ *      (these will create duplicate proposals for the same slot)
+ *    - The malicious proposer validators also have `attestToEquivocatedProposals: true` which makes them attest
+ *      to BOTH proposals when they receive them - this is the attestation equivocation we want to detect
+ * 2. The two nodes with the same proposer key will both detect they are proposers for the same slot and race to propose
  * 3. Since they have different coinbase addresses, their proposals will have different archives (different content)
- * 4. Other validators will detect the duplicate and emit a slash event
+ * 4. The malicious attester nodes (with attestToEquivocatedProposals enabled) will attest to BOTH proposals
+ * 5. Honest validators will detect the duplicate attestations and emit a slash event
+ *
+ * NOTE: This test triggers BOTH duplicate proposal (from malicious proposers sharing a key) AND duplicate attestation
+ * (from the malicious proposers attesting to multiple proposals). We verify specifically that the duplicate
+ * attestation offense is recorded.
  */
-describe('e2e_p2p_duplicate_proposal_slash', () => {
+describe('e2e_p2p_duplicate_attestation_slash', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
 
@@ -53,7 +61,7 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
-      testName: 'e2e_p2p_duplicate_proposal_slash',
+      testName: 'e2e_p2p_duplicate_attestation_slash',
       numberOfNodes: 0,
       numberOfValidators: NUM_VALIDATORS,
       basePort: BOOT_NODE_UDP_PORT,
@@ -76,6 +84,7 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
         enforceTimeTable: true,
         blockDurationMs: BLOCK_DURATION * 1000,
         slashDuplicateProposalPenalty: slashingUnit,
+        slashDuplicateAttestationPenalty: slashingUnit,
         slashingOffsetInRounds: 1,
       },
     });
@@ -96,7 +105,7 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
     await t.ctx.cheatCodes.rollup.debugRollup();
   };
 
-  it('slashes validator who sends duplicate proposals', async () => {
+  it('slashes validator who sends duplicate attestations', async () => {
     const { rollup } = await t.getContracts();
 
     // Jump forward to an epoch in the future such that the validator set is not empty
@@ -105,53 +114,56 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
 
     t.logger.warn('Creating nodes');
 
-    // Get the attester private key that will be shared between two malicious nodes
-    // We'll use validator index 0 for the "malicious" validator key
-    const maliciousValidatorIndex = 0;
-    const maliciousValidatorPrivateKey = getPrivateKeyFromIndex(
-      ATTESTER_PRIVATE_KEYS_START_INDEX + maliciousValidatorIndex,
+    // Get the attester private key that will be shared between two malicious proposer nodes
+    // We'll use validator index 0 for the "malicious" proposer validator key
+    const maliciousProposerIndex = 0;
+    const maliciousProposerPrivateKey = getPrivateKeyFromIndex(
+      ATTESTER_PRIVATE_KEYS_START_INDEX + maliciousProposerIndex,
     )!;
-    const maliciousValidatorAddress = EthAddress.fromString(
-      privateKeyToAccount(`0x${maliciousValidatorPrivateKey.toString('hex')}`).address,
+    const maliciousProposerAddress = EthAddress.fromString(
+      privateKeyToAccount(`0x${maliciousProposerPrivateKey.toString('hex')}`).address,
     );
 
-    t.logger.warn(`Malicious proposer address: ${maliciousValidatorAddress.toString()}`);
+    t.logger.warn(`Malicious proposer address: ${maliciousProposerAddress.toString()}`);
 
     // Create two nodes with the SAME validator key but DIFFERENT coinbase addresses
     // This will cause them to create proposals with different content for the same slot
-    const maliciousPrivateKeyHex = bufferToHex(maliciousValidatorPrivateKey);
+    // Additionally, enable attestToEquivocatedProposals so they will attest to BOTH proposals
+    const maliciousProposerPrivateKeyHex = bufferToHex(maliciousProposerPrivateKey);
     const coinbase1 = EthAddress.random();
     const coinbase2 = EthAddress.random();
 
-    t.logger.warn(`Creating malicious node 1 with coinbase ${coinbase1.toString()}`);
+    t.logger.warn(`Creating malicious proposer node 1 with coinbase ${coinbase1.toString()}`);
     const maliciousNode1 = await createNode(
       {
         ...t.ctx.aztecNodeConfig,
-        validatorPrivateKey: maliciousPrivateKeyHex,
+        validatorPrivateKey: maliciousProposerPrivateKeyHex,
         coinbase: coinbase1,
-        broadcastEquivocatedProposals: true,
+        attestToEquivocatedProposals: true, // Attest to all proposals - creates duplicate attestations
+        broadcastEquivocatedProposals: true, // Don't abort checkpoint building on duplicate block proposals
       },
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       BOOT_NODE_UDP_PORT + 1,
       t.bootstrapNodeEnr,
-      maliciousValidatorIndex,
+      maliciousProposerIndex,
       t.prefilledPublicData,
       `${DATA_DIR}-0`,
       shouldCollectMetrics(),
     );
 
-    t.logger.warn(`Creating malicious node 2 with coinbase ${coinbase2.toString()}`);
+    t.logger.warn(`Creating malicious proposer node 2 with coinbase ${coinbase2.toString()}`);
     const maliciousNode2 = await createNode(
       {
         ...t.ctx.aztecNodeConfig,
-        validatorPrivateKey: maliciousPrivateKeyHex,
+        validatorPrivateKey: maliciousProposerPrivateKeyHex,
         coinbase: coinbase2,
-        broadcastEquivocatedProposals: true,
+        attestToEquivocatedProposals: true, // Attest to all proposals - creates duplicate attestations
+        broadcastEquivocatedProposals: true, // Don't abort checkpoint building on duplicate block proposals
       },
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       BOOT_NODE_UDP_PORT + 2,
       t.bootstrapNodeEnr,
-      maliciousValidatorIndex,
+      maliciousProposerIndex,
       t.prefilledPublicData,
       `${DATA_DIR}-1`,
       shouldCollectMetrics(),
@@ -161,7 +173,7 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
     t.logger.warn('Creating honest nodes');
     const honestNode1 = await createNode(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       BOOT_NODE_UDP_PORT + 3,
       t.bootstrapNodeEnr,
       1,
@@ -171,7 +183,7 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
     );
     const honestNode2 = await createNode(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       BOOT_NODE_UDP_PORT + 4,
       t.bootstrapNodeEnr,
       2,
@@ -186,36 +198,52 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
     await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
     await awaitCommitteeExists({ rollup, logger: t.logger });
 
-    // Wait for offense to be detected
-    // The honest nodes should detect the duplicate proposal from the malicious validator
-    t.logger.warn('Waiting for duplicate proposal offense to be detected...');
+    // Wait for offenses to be detected
+    // We expect BOTH duplicate proposal AND duplicate attestation offenses
+    // The malicious proposer nodes create duplicate proposals (same key, different coinbase)
+    // The malicious proposer nodes also create duplicate attestations (attestToEquivocatedProposals enabled)
+    t.logger.warn('Waiting for duplicate attestation offense to be detected...');
     const offenses = await awaitOffenseDetected({
       epochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,
       logger: t.logger,
       nodeAdmin: honestNode1, // Use honest node to check for offenses
       slashingRoundSize,
-      waitUntilOffenseCount: 1,
+      waitUntilOffenseCount: 2, // Wait for both duplicate proposal and duplicate attestation
       timeoutSeconds: AZTEC_SLOT_DURATION * 16,
     });
 
     t.logger.warn(`Collected offenses`, { offenses });
 
-    // Verify the offense is correct
-    expect(offenses.length).toBeGreaterThan(0);
-    for (const offense of offenses) {
-      expect(offense.offenseType).toEqual(OffenseType.DUPLICATE_PROPOSAL);
-      expect(offense.validator.toString()).toEqual(maliciousValidatorAddress.toString());
+    // Verify we have detected the duplicate attestation offense
+    const duplicateAttestationOffenses = offenses.filter(
+      offense => offense.offenseType === OffenseType.DUPLICATE_ATTESTATION,
+    );
+    const duplicateProposalOffenses = offenses.filter(
+      offense => offense.offenseType === OffenseType.DUPLICATE_PROPOSAL,
+    );
+
+    t.logger.info(`Found ${duplicateAttestationOffenses.length} duplicate attestation offenses`);
+    t.logger.info(`Found ${duplicateProposalOffenses.length} duplicate proposal offenses`);
+
+    // We should have at least one duplicate attestation offense
+    expect(duplicateAttestationOffenses.length).toBeGreaterThan(0);
+
+    // Verify the duplicate attestation offense is from the malicious proposer address
+    // (since they are the ones with attestToEquivocatedProposals enabled)
+    for (const offense of duplicateAttestationOffenses) {
+      expect(offense.offenseType).toEqual(OffenseType.DUPLICATE_ATTESTATION);
+      expect(offense.validator.toString()).toEqual(maliciousProposerAddress.toString());
     }
 
-    // Verify that for each offense, the proposer for that slot is the malicious validator
+    // Verify that for each duplicate attestation offense, the attester for that slot is the malicious validator
     const epochCache = (honestNode1 as TestAztecNodeService).epochCache;
-    for (const offense of offenses) {
+    for (const offense of duplicateAttestationOffenses) {
       const offenseSlot = SlotNumber(Number(offense.epochOrSlot));
-      const proposerForSlot = await epochCache.getProposerAttesterAddressInSlot(offenseSlot);
-      t.logger.info(`Offense slot ${offenseSlot}: proposer is ${proposerForSlot?.toString()}`);
-      expect(proposerForSlot?.toString()).toEqual(maliciousValidatorAddress.toString());
+      const committeeInfo = await epochCache.getCommittee(offenseSlot);
+      t.logger.info(`Offense slot ${offenseSlot}: committee includes attester ${maliciousProposerAddress.toString()}`);
+      expect(committeeInfo.committee?.map(addr => addr.toString())).toContain(maliciousProposerAddress.toString());
     }
 
-    t.logger.warn('Duplicate proposal offense correctly detected and recorded');
+    t.logger.warn('Duplicate attestation offense correctly detected and recorded');
   });
 });

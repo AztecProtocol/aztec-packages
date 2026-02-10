@@ -19,13 +19,17 @@ export type TryAddResult = {
   added: boolean;
   /** Whether the exact item already existed */
   alreadyExists: boolean;
-  /** Total items for this position - used for duplicate detection */
-  totalForPosition: number;
+  /** Count of items for the position. Meaning varies by method:
+   *  - tryAddBlockProposal: proposals at (slot, indexWithinCheckpoint)
+   *  - tryAddCheckpointProposal: proposals at slot
+   *  - tryAddCheckpointAttestation: attestations by this signer for this slot */
+  count: number;
 };
 
-export const MAX_PROPOSALS_PER_SLOT = 5;
-export const MAX_PROPOSALS_PER_POSITION = 3;
-export const ATTESTATION_CAP_BUFFER = 10;
+export const MAX_CHECKPOINT_PROPOSALS_PER_SLOT = 5;
+export const MAX_BLOCK_PROPOSALS_PER_POSITION = 3;
+/** Maximum attestations a single signer can make per slot before being rejected. */
+export const MAX_ATTESTATIONS_PER_SLOT_AND_SIGNER = 3;
 
 /** Public API interface for attestation pools. Used for typing mocks and test implementations. */
 export type AttestationPoolApi = Pick<
@@ -69,6 +73,10 @@ export class AttestationPool {
   // Key: (slot << 10) | indexWithinCheckpoint, Value: archive string
   private blockProposalsForSlotAndIndex: AztecAsyncMultiMap<number, string>;
 
+  // Checkpoint attestations indexed by (slot, signer) for tracking attestations per (slot, signer) for duplicate detection
+  // Key: `${Fr(slot).toString()}-${signerAddress}` string (padded for lexicographic ordering), Value: `proposalId` strings
+  private checkpointAttestationsPerSlotAndSigner: AztecAsyncMultiMap<string, string>;
+
   constructor(
     private store: AztecAsyncKVStore,
     telemetry: TelemetryClient = getTelemetryClient(),
@@ -80,6 +88,7 @@ export class AttestationPool {
 
     // Initialize checkpoint attestations storage
     this.checkpointAttestations = store.openMap('checkpoint_attestations');
+    this.checkpointAttestationsPerSlotAndSigner = store.openMultiMap('checkpoint_attestations_per_slot_and_signer');
 
     // Initialize checkpoint proposal storage
     this.checkpointProposals = store.openMap('checkpoint_proposals');
@@ -133,6 +142,12 @@ export class AttestationPool {
     return { start: `${proposalKey}-`, end: `${proposalKey}-Z` };
   }
 
+  /** Creates a key for the per-signer-per-slot attestation index. Uses padded slot for lexicographic ordering. */
+  private getSlotSignerKey(slot: SlotNumber, signerAddress: string): string {
+    const slotStr = new Fr(slot).toString();
+    return `${slotStr}-${signerAddress}`;
+  }
+
   /** Number of bits reserved for indexWithinCheckpoint in position keys. */
   private static readonly INDEX_BITS = 10;
   /** Maximum indexWithinCheckpoint value (2^10 - 1 = 1023). */
@@ -166,21 +181,21 @@ export class AttestationPool {
       // Check if already exists
       const alreadyExists = await this.blockProposals.hasAsync(proposalId);
       if (alreadyExists) {
-        const totalForPosition = await this.getBlockProposalCountForPosition(
+        const count = await this.getBlockProposalCountForPosition(
           blockProposal.slotNumber,
           blockProposal.indexWithinCheckpoint,
         );
-        return { added: false, alreadyExists: true, totalForPosition };
+        return { added: false, alreadyExists: true, count };
       }
 
       // Get current count for position and check cap, do not add if exceeded
-      const totalForPosition = await this.getBlockProposalCountForPosition(
+      const count = await this.getBlockProposalCountForPosition(
         blockProposal.slotNumber,
         blockProposal.indexWithinCheckpoint,
       );
 
-      if (totalForPosition >= MAX_PROPOSALS_PER_POSITION) {
-        return { added: false, alreadyExists: false, totalForPosition };
+      if (count >= MAX_BLOCK_PROPOSALS_PER_POSITION) {
+        return { added: false, alreadyExists: false, count };
       }
 
       // Add the proposal
@@ -195,7 +210,7 @@ export class AttestationPool {
         },
       );
 
-      return { added: true, alreadyExists: false, totalForPosition: totalForPosition + 1 };
+      return { added: true, alreadyExists: false, count: count + 1 };
     });
   }
 
@@ -261,14 +276,14 @@ export class AttestationPool {
       // Check if already exists
       const alreadyExists = await this.checkpointProposals.hasAsync(proposalId);
       if (alreadyExists) {
-        const totalForPosition = await this.checkpointProposalsForSlot.getValueCountAsync(proposal.slotNumber);
-        return { added: false, alreadyExists: true, totalForPosition };
+        const count = await this.checkpointProposalsForSlot.getValueCountAsync(proposal.slotNumber);
+        return { added: false, alreadyExists: true, count };
       }
 
       // Get current count for slot and check cap
-      const totalForPosition = await this.checkpointProposalsForSlot.getValueCountAsync(proposal.slotNumber);
-      if (totalForPosition >= MAX_PROPOSALS_PER_SLOT) {
-        return { added: false, alreadyExists: false, totalForPosition };
+      const count = await this.checkpointProposalsForSlot.getValueCountAsync(proposal.slotNumber);
+      if (count >= MAX_CHECKPOINT_PROPOSALS_PER_SLOT) {
+        return { added: false, alreadyExists: false, count };
       }
 
       // Add the proposal if cap not exceeded
@@ -279,7 +294,7 @@ export class AttestationPool {
         slotNumber: proposal.slotNumber,
       });
 
-      return { added: true, alreadyExists: false, totalForPosition: totalForPosition + 1 };
+      return { added: true, alreadyExists: false, count: count + 1 };
     });
   }
 
@@ -409,6 +424,14 @@ export class AttestationPool {
         numberOfAttestations++;
       }
 
+      // Clean up per-signer-per-slot index. Keys are formatted as `${Fr(slot).toString()}-${signerAddress}`.
+      // Since Fr pads to fixed-width hex, Fr(oldestSlot) is lexicographically greater than any key with
+      // a smaller slot (even with the signer suffix), so using it as the exclusive end bound is correct.
+      const slotSignerEndKey = new Fr(oldestSlot).toString();
+      for await (const key of this.checkpointAttestationsPerSlotAndSigner.keysAsync({ end: slotSignerEndKey })) {
+        await this.checkpointAttestationsPerSlotAndSigner.delete(key);
+      }
+
       // Delete checkpoint proposals for slots < oldestSlot, using checkpointProposalsForSlot as index
       for await (const slot of this.checkpointProposalsForSlot.keysAsync({ end: oldestSlot })) {
         const proposalIds = await toArray(this.checkpointProposalsForSlot.getValuesAsync(slot));
@@ -445,61 +468,81 @@ export class AttestationPool {
    *
    * This method performs validation and addition in a single call:
    * - Checks if the attestation already exists (returns alreadyExists: true if so)
-   * - Checks if the (slot, proposalId) has reached the attestation cap (returns added: false if so)
+   * - Checks if this signer has reached the per-signer attestation cap for this slot
    * - Adds the attestation if validation passes
    *
    * @param attestation - The checkpoint attestation to add
-   * @param committeeSize - Committee size for the attestation's slot
-   * @returns Result indicating whether the attestation was added and existence info
+   * @returns Result indicating whether the attestation was added, existence info, and count of
+   *          attestations by this signer for this slot (for equivocation detection)
    */
-  public async tryAddCheckpointAttestation(
-    attestation: CheckpointAttestation,
-    committeeSize: number,
-  ): Promise<TryAddResult> {
+  public async tryAddCheckpointAttestation(attestation: CheckpointAttestation): Promise<TryAddResult> {
     const slotNumber = attestation.payload.header.slotNumber;
     const proposalId = attestation.archive.toString();
     const sender = attestation.getSender();
 
     if (!sender) {
-      return { added: false, alreadyExists: false, totalForPosition: 0 };
+      return { added: false, alreadyExists: false, count: 0 };
     }
 
+    const signerAddress = sender.toString();
+
     return await this.store.transactionAsync(async () => {
-      const key = this.getAttestationKey(slotNumber, proposalId, sender.toString());
+      const key = this.getAttestationKey(slotNumber, proposalId, signerAddress);
       const alreadyExists = await this.checkpointAttestations.hasAsync(key);
 
+      // Get count of attestations by this signer for this slot (for duplicate detection)
+      const signerAttestationCount = await this.getSignerAttestationCountForSlot(slotNumber, signerAddress);
+
       if (alreadyExists) {
-        const total = await this.getAttestationCount(slotNumber, proposalId);
-        return { added: false, alreadyExists: true, totalForPosition: total };
+        return {
+          added: false,
+          alreadyExists: true,
+          count: signerAttestationCount,
+        };
       }
 
-      const limit = committeeSize + ATTESTATION_CAP_BUFFER;
-      const currentCount = await this.getAttestationCount(slotNumber, proposalId);
-
-      if (currentCount >= limit) {
-        return { added: false, alreadyExists: false, totalForPosition: currentCount };
+      // Check if this signer has exceeded the per-signer cap for this slot
+      if (signerAttestationCount >= MAX_ATTESTATIONS_PER_SLOT_AND_SIGNER) {
+        this.log.debug(`Rejecting attestation: signer ${signerAddress} exceeded per-slot cap for slot ${slotNumber}`, {
+          slotNumber,
+          signerAddress,
+          proposalId,
+          signerAttestationCount,
+        });
+        return {
+          added: false,
+          alreadyExists: false,
+          count: signerAttestationCount,
+        };
       }
 
+      // Add the attestation
       await this.checkpointAttestations.set(key, attestation.toBuffer());
 
-      this.log.debug(`Added checkpoint attestation for slot ${slotNumber} from ${sender.toString()}`, {
+      // Track this attestation in the per-signer-per-slot index for duplicate detection
+      const slotSignerKey = this.getSlotSignerKey(slotNumber, signerAddress);
+      await this.checkpointAttestationsPerSlotAndSigner.set(slotSignerKey, proposalId);
+
+      this.log.debug(`Added checkpoint attestation for slot ${slotNumber} from ${signerAddress}`, {
         signature: attestation.signature.toString(),
         slotNumber,
-        address: sender.toString(),
+        address: signerAddress,
         proposalId,
       });
-      return { added: true, alreadyExists: false, totalForPosition: currentCount + 1 };
+
+      // Return the new count
+      return {
+        added: true,
+        alreadyExists: false,
+        count: signerAttestationCount + 1,
+      };
     });
   }
 
-  /** Gets the count of attestations for a given (slot, proposalId). */
-  private async getAttestationCount(slot: SlotNumber, proposalId: string): Promise<number> {
-    const range = this.getAttestationKeyRangeForProposal(slot, proposalId);
-    let count = 0;
-    for await (const _ of this.checkpointAttestations.keysAsync(range)) {
-      count++;
-    }
-    return count;
+  /** Gets the count of attestations by a specific signer for a given slot. */
+  private async getSignerAttestationCountForSlot(slot: SlotNumber, signerAddress: string): Promise<number> {
+    const slotSignerKey = this.getSlotSignerKey(slot, signerAddress);
+    return await this.checkpointAttestationsPerSlotAndSigner.getValueCountAsync(slotSignerKey);
   }
 }
 

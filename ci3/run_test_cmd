@@ -47,8 +47,9 @@ if [ "$CI" -eq 1 ]; then
   allow_flakes=1
   track_test_fail=1
 
-  # Track the test in the history tracker if this is in merge queue or targeting a version branch.
-  if [[ "$is_merge_queue" -eq 1 || ("${TARGET_BRANCH:-}" =~ ^v[0-9]) ]]; then
+  # Track the test in the history tracker if this is in merge queue, targeting a version branch, or
+  # targeting a merge-train.
+  if [[ "$is_merge_queue" -eq 1 || ("${TARGET_BRANCH:-}" =~ ^v[0-9]) || ("${TARGET_BRANCH:-}" == merge-train/*) ]]; then
     track_test_history=1
   fi
 

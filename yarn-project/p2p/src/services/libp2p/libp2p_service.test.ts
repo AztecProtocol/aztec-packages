@@ -28,8 +28,8 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { type P2PConfig, p2pConfigMappings } from '../../config.js';
 import {
   AttestationPool,
-  MAX_PROPOSALS_PER_POSITION,
-  MAX_PROPOSALS_PER_SLOT,
+  MAX_BLOCK_PROPOSALS_PER_POSITION,
+  MAX_CHECKPOINT_PROPOSALS_PER_SLOT,
 } from '../../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../../mem_pools/interface.js';
 import type { TxPool } from '../../mem_pools/tx_pool/tx_pool.js';
@@ -510,8 +510,8 @@ describe('LibP2PService', () => {
       const header = makeBlockHeader(1, { slotNumber: currentSlot });
       const indexWithinCheckpoint = IndexWithinCheckpoint(0);
 
-      // Add MAX_PROPOSALS_PER_POSITION proposals
-      for (let i = 0; i < MAX_PROPOSALS_PER_POSITION; i++) {
+      // Add MAX_BLOCK_PROPOSALS_PER_POSITION proposals
+      for (let i = 0; i < MAX_BLOCK_PROPOSALS_PER_POSITION; i++) {
         const individualSigner = Secp256k1Signer.random();
         mockEpochCache.getProposerAttesterAddressInSlot.mockResolvedValue(individualSigner.address);
         const proposal = await makeBlockProposal({
@@ -745,8 +745,8 @@ describe('LibP2PService', () => {
       const checkpointHeader = makeCheckpointHeader(1, { slotNumber: currentSlot });
       const blockHeader = makeBlockHeader(1, { slotNumber: currentSlot });
 
-      // Fill checkpoint slot to MAX_PROPOSALS_PER_SLOT
-      for (let i = 0; i < MAX_PROPOSALS_PER_SLOT; i++) {
+      // Fill checkpoint slot to MAX_CHECKPOINT_PROPOSALS_PER_SLOT
+      for (let i = 0; i < MAX_CHECKPOINT_PROPOSALS_PER_SLOT; i++) {
         const individualSigner = Secp256k1Signer.random();
         mockEpochCache.getProposerAttesterAddressInSlot.mockResolvedValue(individualSigner.address);
         const proposal = await makeCheckpointProposal({

@@ -95,7 +95,7 @@ describe('e2e_snapshot_sync', () => {
 
   it('creates a snapshot', async () => {
     log.warn(`Creating snapshot`);
-    await context.aztecNodeAdmin!.startSnapshotUpload(snapshotLocation);
+    await context.aztecNodeAdmin.startSnapshotUpload(snapshotLocation);
     await retryUntil(() => readdir(snapshotDir).then(files => files.length > 0), 'snapshot-created', 90, 1);
     log.warn(`Snapshot created`);
   });
