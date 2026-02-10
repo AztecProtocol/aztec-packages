@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <mutex>
 #include <nlohmann/json.hpp>
 #include <sstream>
 #include <thread>
@@ -140,7 +141,11 @@ void generate_vks_for_functions(const std::filesystem::path& cache_dir,
     // Track work distribution
     std::atomic<size_t> current_function{ 0 };
 
-    // Worker function
+    // Thread-safe storage for exceptions and failed function names
+    std::mutex error_mutex;
+    std::vector<std::pair<std::string, std::string>> failed_functions; // (function_name, error_message)
+
+    // Worker function with exception handling
     auto worker = [&]() {
         // Set thread-local concurrency for this worker
         set_parallel_for_concurrency(threads_per_task);
@@ -151,11 +156,21 @@ void generate_vks_for_functions(const std::filesystem::path& cache_dir,
             auto* function = functions[func_idx];
             std::string fn_name = (*function)["name"].get<std::string>();
 
-            // Get bytecode from function
-            auto bytecode = extract_bytecode(*function);
+            try {
+                // Get bytecode from function
+                auto bytecode = extract_bytecode(*function);
 
-            // Generate and cache VK (can use parallel_for internally)
-            get_or_generate_cached_vk(cache_dir, fn_name, bytecode, force);
+                // Generate and cache VK (can use parallel_for internally)
+                get_or_generate_cached_vk(cache_dir, fn_name, bytecode, force);
+            } catch (const std::exception& e) {
+                std::lock_guard<std::mutex> lock(error_mutex);
+                failed_functions.emplace_back(fn_name, e.what());
+                info("VK generation failed for function '", fn_name, "': ", e.what());
+            } catch (...) {
+                std::lock_guard<std::mutex> lock(error_mutex);
+                failed_functions.emplace_back(fn_name, "Unknown error");
+                info("VK generation failed for function '", fn_name, "': Unknown error");
+            }
         }
     };
 
@@ -170,6 +185,20 @@ void generate_vks_for_functions(const std::filesystem::path& cache_dir,
     // Wait for completion
     for (auto& t : threads) {
         t.join();
+    }
+
+    // Check if any VK generation failed
+    if (!failed_functions.empty()) {
+        std::ostringstream error_msg;
+        error_msg << "VK generation failed for " << failed_functions.size() << " function(s):\n";
+        for (const auto& [fn_name, err] : failed_functions) {
+            error_msg << "  - " << fn_name << ": " << err << "\n";
+        }
+        error_msg << "\nThis may be caused by:\n";
+        error_msg << "  - Large circuit size requiring more CRS points (try running 'aztec preload-crs')\n";
+        error_msg << "  - Insufficient memory for circuit construction\n";
+        error_msg << "  - Network issues during CRS download\n";
+        throw_or_abort(error_msg.str());
     }
 
     // Update JSON with VKs from cache (sequential is fine here, it's fast)
