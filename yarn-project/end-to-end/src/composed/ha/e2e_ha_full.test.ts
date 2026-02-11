@@ -49,7 +49,7 @@ const NODE_COUNT = 5;
 const VALIDATOR_COUNT = 4;
 const COMMITTEE_SIZE = 4;
 
-describe.skip('HA Full Setup', () => {
+describe('HA Full Setup', () => {
   jest.setTimeout(20 * 60 * 1000); // 20 minutes
 
   let logger: Logger;
@@ -262,7 +262,12 @@ describe.skip('HA Full Setup', () => {
 
   afterEach(async () => {
     // Clean up database state between tests
-    await mainPool.query('DELETE FROM validator_duties');
+    try {
+      await mainPool.query('DELETE FROM validator_duties');
+    } catch (error) {
+      // Ignore cleanup errors (table might not exist on first run failure)
+      logger?.warn(`Failed to clean up validator_duties: ${error}`);
+    }
   });
 
   it('should produce blocks with HA coordination and attestations', async () => {
@@ -373,6 +378,117 @@ describe.skip('HA Full Setup', () => {
     }
   });
 
+  it('should coordinate governance voting across HA nodes', async () => {
+    logger.info('Testing real governance voting with HA coordination');
+
+    const mockGovernancePayload = deployL1ContractsValues.l1ContractAddresses.governanceAddress;
+    logger.info(`Setting governance payload: ${mockGovernancePayload.toString()}`);
+
+    // Configure all HA nodes to vote for this payload
+    for (let i = 0; i < NODE_COUNT; i++) {
+      await haNodeServices[i].setConfig({
+        governanceProposerPayload: mockGovernancePayload,
+      });
+    }
+    logger.info(`All ${NODE_COUNT} HA nodes configured to vote for governance payload`);
+
+    // Send a transaction to trigger block building which will also trigger voting
+    logger.info('Sending transaction to trigger block building...');
+    const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
+    const receipt = await deployer.deploy(ownerAddress, ownerAddress, 42).send({
+      from: ownerAddress,
+      contractAddressSalt: Fr.random(),
+      wait: { returnReceipt: true },
+    });
+    expect(receipt.blockNumber).toBeDefined();
+    logger.info(`Transaction mined in block ${receipt.blockNumber}`);
+
+    // Get the slot of the block that was just built
+    const [block] = await aztecNode.getCheckpointedBlocks(receipt.blockNumber!, 1);
+    if (!block) {
+      throw new Error(`Block ${receipt.blockNumber} not found`);
+    }
+    const blockSlot = block.block.header.globalVariables.slotNumber;
+    logger.info(`Block was built in slot ${blockSlot}`);
+
+    // Compute round for governance voting from the block slot
+    const round = await governanceProposer.computeRound(blockSlot);
+    logger.info(`Block slot ${blockSlot}, governance round ${round}`);
+
+    // Poll L1 for governance votes
+    logger.info('Polling L1 for governance votes...');
+    const l1VoteCount = await retryUntil(
+      async () => {
+        const voteCount = Number(
+          await governanceProposer.getPayloadSignals(
+            deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+            round,
+            mockGovernancePayload.toString(),
+          ),
+        );
+        return voteCount > 0 ? voteCount : undefined;
+      },
+      'governance votes to appear on L1',
+      6, // timeout in seconds (30 attempts * 200ms)
+      0.2, // interval in seconds (200ms)
+    );
+    logger.info(`Found ${l1VoteCount} governance vote(s) on L1 for payload ${mockGovernancePayload.toString()}`);
+
+    // Verify votes were actually sent to L1
+    expect(l1VoteCount).toBeGreaterThan(0);
+    logger.info(`Verified ${l1VoteCount} governance vote(s) successfully sent to L1`);
+
+    // Get L1 round info to determine which slots have actually landed on L1.
+    // We anchor the comparison on L1's lastSignalSlot since:
+    // - The DB may have duties for future slots that haven't been published to L1 yet
+    // - L1 may have signals from earlier slots in the round before the governance payload was set in the DB
+    const roundInfo = await governanceProposer.getRoundInfo(
+      deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+      round,
+    );
+    const lastSignalSlot = Number(roundInfo.lastSignalSlot);
+    logger.info(
+      `L1 round ${round} info: lastSignalSlot=${lastSignalSlot}, l1VoteCount=${l1VoteCount}, payloadWithMostSignals=${roundInfo.payloadWithMostSignals}`,
+    );
+
+    // Query governance vote duties only for slots that have actually landed on L1 (up to lastSignalSlot)
+    const dbResult = await mainPool.query<DutyRow>(
+      `SELECT * FROM validator_duties WHERE slot::numeric <= $1 AND duty_type = 'GOVERNANCE_VOTE' ORDER BY slot, started_at`,
+      [lastSignalSlot.toString()],
+    );
+    const governanceVoteDuties = dbResult.rows;
+    logger.info(
+      `HA database shows ${governanceVoteDuties.length} governance vote duty(ies) up to slot ${lastSignalSlot}`,
+    );
+
+    if (governanceVoteDuties.length > 0) {
+      // Verify HA coordination: Only one duty per (slot, validator) should exist
+      const dutyKeys = governanceVoteDuties.map(row => `${row.slot}-${row.validator_address}`);
+      const uniqueDutyKeys = new Set(dutyKeys);
+      expect(uniqueDutyKeys.size).toBe(governanceVoteDuties.length); // No duplicate (slot, validator) pairs
+
+      // All duties should be completed
+      for (const duty of governanceVoteDuties) {
+        logger.info(
+          `  Governance vote duty: slot ${duty.slot}, validator ${duty.validator_address}, node ${duty.node_id}, status ${duty.status}`,
+        );
+        expect(duty.status).toBe(DutyStatus.SIGNED);
+        expect(duty.completed_at).toBeDefined();
+      }
+
+      // L1 votes should match the number of unique slots in the DB that have landed on L1
+      const uniqueSlots = new Set(governanceVoteDuties.map(row => row.slot));
+      logger.info(
+        `L1 vote count: ${l1VoteCount}, unique slots in DB with governance votes up to L1 lastSignalSlot: ${uniqueSlots.size} (slots: ${[...uniqueSlots].join(', ')})`,
+      );
+      expect(l1VoteCount).toBe(uniqueSlots.size);
+      logger.info(`Verified L1 votes (${l1VoteCount}) === unique slots with votes (${uniqueSlots.size})`);
+    }
+
+    logger.info('Governance voting with HA coordination and L1 verification complete');
+  });
+
+  // NOTE: this test needs to run last
   it('should distribute work across multiple HA nodes', async () => {
     logger.info('Testing HA resilience by killing nodes after they produce blocks');
 
@@ -554,115 +670,5 @@ describe.skip('HA Full Setup', () => {
         expect(checkpointValidatorAddresses.has(validatorAddress)).toBe(true);
       }
     }
-  });
-
-  it('should coordinate governance voting across HA nodes', async () => {
-    logger.info('Testing real governance voting with HA coordination');
-
-    const mockGovernancePayload = deployL1ContractsValues.l1ContractAddresses.governanceAddress;
-    logger.info(`Setting governance payload: ${mockGovernancePayload.toString()}`);
-
-    // Configure all HA nodes to vote for this payload
-    for (let i = 0; i < NODE_COUNT; i++) {
-      await haNodeServices[i].setConfig({
-        governanceProposerPayload: mockGovernancePayload,
-      });
-    }
-    logger.info(`All ${NODE_COUNT} HA nodes configured to vote for governance payload`);
-
-    // Send a transaction to trigger block building which will also trigger voting
-    logger.info('Sending transaction to trigger block building...');
-    const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-    const receipt = await deployer.deploy(ownerAddress, ownerAddress, 42).send({
-      from: ownerAddress,
-      contractAddressSalt: Fr.random(),
-      wait: { returnReceipt: true },
-    });
-    expect(receipt.blockNumber).toBeDefined();
-    logger.info(`Transaction mined in block ${receipt.blockNumber}`);
-
-    // Get the slot of the block that was just built
-    const [block] = await aztecNode.getCheckpointedBlocks(receipt.blockNumber!, 1);
-    if (!block) {
-      throw new Error(`Block ${receipt.blockNumber} not found`);
-    }
-    const blockSlot = block.block.header.globalVariables.slotNumber;
-    logger.info(`Block was built in slot ${blockSlot}`);
-
-    // Compute round for governance voting from the block slot
-    const round = await governanceProposer.computeRound(blockSlot);
-    logger.info(`Block slot ${blockSlot}, governance round ${round}`);
-
-    // Poll L1 for governance votes
-    logger.info('Polling L1 for governance votes...');
-    const l1VoteCount = await retryUntil(
-      async () => {
-        const voteCount = Number(
-          await governanceProposer.getPayloadSignals(
-            deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-            round,
-            mockGovernancePayload.toString(),
-          ),
-        );
-        return voteCount > 0 ? voteCount : undefined;
-      },
-      'governance votes to appear on L1',
-      6, // timeout in seconds (30 attempts * 200ms)
-      0.2, // interval in seconds (200ms)
-    );
-    logger.info(`Found ${l1VoteCount} governance vote(s) on L1 for payload ${mockGovernancePayload.toString()}`);
-
-    // Verify votes were actually sent to L1
-    expect(l1VoteCount).toBeGreaterThan(0);
-    logger.info(`Verified ${l1VoteCount} governance vote(s) successfully sent to L1`);
-
-    // Get L1 round info to determine which slots have actually landed on L1.
-    // We anchor the comparison on L1's lastSignalSlot since:
-    // - The DB may have duties for future slots that haven't been published to L1 yet
-    // - L1 may have signals from earlier slots in the round before the governance payload was set in the DB
-    const roundInfo = await governanceProposer.getRoundInfo(
-      deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-      round,
-    );
-    const lastSignalSlot = Number(roundInfo.lastSignalSlot);
-    logger.info(
-      `L1 round ${round} info: lastSignalSlot=${lastSignalSlot}, l1VoteCount=${l1VoteCount}, payloadWithMostSignals=${roundInfo.payloadWithMostSignals}`,
-    );
-
-    // Query governance vote duties only for slots that have actually landed on L1 (up to lastSignalSlot)
-    const dbResult = await mainPool.query<DutyRow>(
-      `SELECT * FROM validator_duties WHERE slot::numeric <= $1 AND duty_type = 'GOVERNANCE_VOTE' ORDER BY slot, started_at`,
-      [lastSignalSlot.toString()],
-    );
-    const governanceVoteDuties = dbResult.rows;
-    logger.info(
-      `HA database shows ${governanceVoteDuties.length} governance vote duty(ies) up to slot ${lastSignalSlot}`,
-    );
-
-    if (governanceVoteDuties.length > 0) {
-      // Verify HA coordination: Only one duty per (slot, validator) should exist
-      const dutyKeys = governanceVoteDuties.map(row => `${row.slot}-${row.validator_address}`);
-      const uniqueDutyKeys = new Set(dutyKeys);
-      expect(uniqueDutyKeys.size).toBe(governanceVoteDuties.length); // No duplicate (slot, validator) pairs
-
-      // All duties should be completed
-      for (const duty of governanceVoteDuties) {
-        logger.info(
-          `  Governance vote duty: slot ${duty.slot}, validator ${duty.validator_address}, node ${duty.node_id}, status ${duty.status}`,
-        );
-        expect(duty.status).toBe(DutyStatus.SIGNED);
-        expect(duty.completed_at).toBeDefined();
-      }
-
-      // L1 votes should match the number of unique slots in the DB that have landed on L1
-      const uniqueSlots = new Set(governanceVoteDuties.map(row => row.slot));
-      logger.info(
-        `L1 vote count: ${l1VoteCount}, unique slots in DB with governance votes up to L1 lastSignalSlot: ${uniqueSlots.size} (slots: ${[...uniqueSlots].join(', ')})`,
-      );
-      expect(l1VoteCount).toBe(uniqueSlots.size);
-      logger.info(`Verified L1 votes (${l1VoteCount}) === unique slots with votes (${uniqueSlots.size})`);
-    }
-
-    logger.info('Governance voting with HA coordination and L1 verification complete');
   });
 });
