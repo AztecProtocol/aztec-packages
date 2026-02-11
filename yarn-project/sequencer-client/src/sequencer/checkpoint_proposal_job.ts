@@ -516,7 +516,7 @@ export class CheckpointProposalJob implements Traceable {
       // Create iterator to pending txs. We filter out txs already included in previous blocks in the checkpoint
       // just in case p2p failed to sync the provisional block and didn't get to remove those txs from the mempool yet.
       const pendingTxs = filter(
-        this.p2pClient.iteratePendingTxs(),
+        this.p2pClient.iterateEligiblePendingTxs(),
         tx => !txHashesAlreadyIncluded.has(tx.txHash.toString()),
       );
 

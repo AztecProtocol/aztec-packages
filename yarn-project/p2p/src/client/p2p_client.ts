@@ -488,6 +488,15 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     }
   }
 
+  public async *iterateEligiblePendingTxs(): AsyncIterableIterator<Tx> {
+    for (const txHash of await this.txPool.getEligiblePendingTxHashes()) {
+      const tx = await this.txPool.getTxByHash(txHash);
+      if (tx) {
+        yield tx;
+      }
+    }
+  }
+
   /**
    * Returns a transaction in the transaction pool by its hash.
    * @param txHash - Hash of the transaction to look for in the pool.

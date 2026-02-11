@@ -290,6 +290,8 @@ export async function setup(
     config.enforceTimeTable = !!opts.enforceTimeTable;
     config.listenAddress = '127.0.0.1';
 
+    config.minTxPoolAgeMs = opts.minTxPoolAgeMs ?? 0;
+
     const logger = getLogger();
 
     // Create a temp directory for any services that need it and cleanup later

@@ -190,6 +190,9 @@ export interface P2PConfig
 
   /** Broadcast block proposals even when a conflicting proposal for the same slot already exists in the pool (for testing purposes only). */
   broadcastEquivocatedProposals?: boolean;
+
+  /** Minimum age (ms) a transaction must have been in the pool before it's eligible for block building. */
+  minTxPoolAgeMs: number;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
@@ -463,6 +466,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description:
       'Broadcast block proposals even when a conflicting proposal for the same slot already exists in the pool (for testing purposes only).',
     ...booleanConfigHelper(false),
+  },
+  minTxPoolAgeMs: {
+    env: 'P2P_MIN_TX_POOL_AGE_MS',
+    description: 'Minimum age (ms) a transaction must have been in the pool before it is eligible for block building.',
+    ...numberConfigHelper(2_000),
   },
   ...sharedSequencerConfigMappings,
   ...p2pReqRespConfigMappings,
