@@ -13,7 +13,7 @@ The merge-train system is fully automated via GitHub Actions in `.github/workflo
 
 1. **PR Creation** (`merge-train-create-pr.yml`): Triggered on push to `merge-train/*` branches. Creates a PR targeting `next` with the `ci-no-squash` label (and `ci-full-no-test-cache` for spartan). Skips merge commits and commits already in `next`.
 
-2. **Body Updates** (`merge-train-update-pr-body.yml`): Triggered on push to `merge-train/**`. Updates the PR body with meaningful commits (those containing PR references like `(#1234)`). The body uses `BEGIN_COMMIT_OVERRIDE` / `END_COMMIT_OVERRIDE` markers.
+2. **Body Updates** (`merge-train-update-pr-body.yml`): Triggered on push to `merge-train/**`. Updates the PR body with meaningful commits (those containing PR references like `(#1234)`). The body uses `BEGIN_COMMIT_OVERRIDE` / `END_COMMIT_OVERRIDE` markers for release-please.
 
 3. **Next Integration** (`merge-train-next-to-branches.yml`): Triggered on push to `next`. Merges `next` into each active merge-train branch via `scripts/merge-train/merge-next.sh`. Uses `continue-on-error: true` so a conflict in one branch does not block others. Skips branches whose PR already has auto-merge enabled.
 
