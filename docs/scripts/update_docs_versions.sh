@@ -34,50 +34,23 @@ if [ -d "$VERSIONED_DOCS_DIR" ]; then
     ALL_VERSIONS=$(ls -1 $VERSIONED_DOCS_DIR | sed 's/version-//' | sort -V)
 
     if [ -n "$ALL_VERSIONS" ]; then
-        # Read existing versions file to preserve order
-        EXISTING_VERSIONS=""
-        if [ -f "$VERSIONS_FILE" ] && [ -s "$VERSIONS_FILE" ]; then
-            EXISTING_VERSIONS=$(jq -r '.[]' "$VERSIONS_FILE" 2>/dev/null)
-        fi
-
         # Separate nightly and non-nightly versions from versioned_docs
         NIGHTLY_VERSIONS=$(echo "$ALL_VERSIONS" | grep "nightly" | sort -Vr)
         NON_NIGHTLY_VERSIONS=$(echo "$ALL_VERSIONS" | grep -v "nightly")
 
-        # Build versions array with non-nightly versions first, then nightly last
+        # Build versions array with non-nightly versions first (newest first), then nightly last
         NEW_VERSIONS="["
         FIRST=true
 
-        # Add non-nightly versions first, preserving existing order, then new ones
+        # Add non-nightly versions first (newest first)
         if [ -n "$NON_NIGHTLY_VERSIONS" ]; then
-            # First add existing non-nightly versions in their current order
-            if [ -n "$EXISTING_VERSIONS" ]; then
-                while IFS= read -r existing_version; do
-                    if [ -n "$existing_version" ] && ! echo "$existing_version" | grep -q "nightly"; then
-                        # Check if this version still exists in versioned_docs
-                        if echo "$NON_NIGHTLY_VERSIONS" | grep -q "^$existing_version$"; then
-                            if [ "$FIRST" = true ]; then
-                                NEW_VERSIONS="$NEW_VERSIONS\"$existing_version\""
-                                FIRST=false
-                            else
-                                NEW_VERSIONS="$NEW_VERSIONS, \"$existing_version\""
-                            fi
-                        fi
-                    fi
-                done <<< "$EXISTING_VERSIONS"
-            fi
-
-            # Add any new non-nightly versions that weren't in existing versions file
             while IFS= read -r version; do
                 if [ -n "$version" ]; then
-                    # Check if this version is not already added
-                    if [ -z "$EXISTING_VERSIONS" ] || ! echo "$EXISTING_VERSIONS" | grep -q "^$version$"; then
-                        if [ "$FIRST" = true ]; then
-                            NEW_VERSIONS="$NEW_VERSIONS\"$version\""
-                            FIRST=false
-                        else
-                            NEW_VERSIONS="$NEW_VERSIONS, \"$version\""
-                        fi
+                    if [ "$FIRST" = true ]; then
+                        NEW_VERSIONS="$NEW_VERSIONS\"$version\""
+                        FIRST=false
+                    else
+                        NEW_VERSIONS="$NEW_VERSIONS, \"$version\""
                     fi
                 fi
             done <<< "$(echo "$NON_NIGHTLY_VERSIONS" | sort -Vr)"
