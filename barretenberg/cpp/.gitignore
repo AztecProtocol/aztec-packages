@@ -20,3 +20,4 @@ src/barretenberg/avm_fuzzer/corpus/**
 src/barretenberg/avm_fuzzer/coverage/**
 out
 ios-sdk/
+android-sysroot/
