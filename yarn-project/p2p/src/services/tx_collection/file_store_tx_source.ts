@@ -49,7 +49,7 @@ export class FileStoreTxSource implements TxSource {
             try {
               const buffer = await this.fileStore.read(path);
               const tx = Tx.fromBuffer(buffer);
-              if ((await tx.validateTxHash()) && txHash === tx.txHash) {
+              if ((await tx.validateTxHash()) && txHash.equals(tx.txHash)) {
                 return tx;
               } else {
                 invalidTxHashes.push(tx.txHash.toString());

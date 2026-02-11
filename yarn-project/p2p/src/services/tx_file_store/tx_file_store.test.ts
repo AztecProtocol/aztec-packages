@@ -331,6 +331,19 @@ describe('TxFileStore', () => {
       expect(result.validTxs).toHaveLength(0);
       expect(result.invalidTxHashes).toEqual([validTx.txHash.toString()]);
     });
+
+    it('accepts correct tx', async () => {
+      // Write a tx with a mismatched hash directly to the file store
+      const validTx = await makeTx();
+      await fileStore.save(`txs/${validTx.txHash.toString()}.bin`, validTx.toBuffer(), { compress: false });
+
+      // Read it back via FileStoreTxSource
+      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, log))!;
+      const result = await source.getTxsByHash([validTx.txHash]);
+
+      expect(result.validTxs).toHaveLength(1);
+      expect(result.invalidTxHashes).toHaveLength(0);
+    });
   });
 
   describe('getPendingUploadCount', () => {
