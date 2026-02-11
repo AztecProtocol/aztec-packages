@@ -9,12 +9,13 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
-import { TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { expect, jest } from '@jest/globals';
 import { createPublicClient, fallback, http } from 'viem';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
+import { proveInteraction } from '../test-wallet/utils.js';
 import type { TestAccounts } from './setup_test_wallets.js';
 import { createWalletAndAztecNodeClient, deploySponsoredTestAccountsWithTokens } from './setup_test_wallets.js';
 import {

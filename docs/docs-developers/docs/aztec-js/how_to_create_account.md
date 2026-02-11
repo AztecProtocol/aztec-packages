@@ -9,13 +9,13 @@ This guide shows you how to create and deploy a new account on Aztec.
 
 ## Prerequisites
 
-- [Connected to a network](./how_to_connect_to_local_network.md) with a `TestWallet` instance
+- [Connected to a network](./how_to_connect_to_local_network.md) with a `EmbeddedWallet` instance
 - Understanding of [account concepts](../foundational-topics/accounts/index.md)
 
 ## Install dependencies
 
 ```bash
-yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/test-wallet@#include_version_without_prefix
+yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/wallets@#include_version_without_prefix
 ```
 
 ## Create a new account

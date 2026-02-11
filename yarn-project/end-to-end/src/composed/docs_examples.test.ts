@@ -3,7 +3,8 @@ import { Contract } from '@aztec/aztec.js/contracts';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
-import { TestWallet } from '@aztec/test-wallet/server';
+
+import { TestWallet } from '../test-wallet/test_wallet.js';
 
 // To run these tests against a local network:
 // 1. Start a local Ethereum node (Anvil):

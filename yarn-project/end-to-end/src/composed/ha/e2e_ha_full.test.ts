@@ -21,7 +21,6 @@ import { retryUntil } from '@aztec/foundation/retry';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { type AttestationInfo, getAttestationInfoFromPublishedCheckpoint } from '@aztec/stdlib/block';
-import type { TestWallet } from '@aztec/test-wallet/server';
 import { type DutyRow, DutyStatus } from '@aztec/validator-ha-signer/types';
 
 import { jest } from '@jest/globals';
@@ -44,6 +43,7 @@ import {
   getWeb3SignerUrl,
   refreshWeb3Signer,
 } from '../../fixtures/web3signer.js';
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
 
 const NODE_COUNT = 5;
 const VALIDATOR_COUNT = 4;

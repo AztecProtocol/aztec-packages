@@ -6,11 +6,12 @@ import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
-import { TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
+import { proveInteraction } from '../test-wallet/utils.js';
 import {
   type TestAccounts,
   createWalletAndAztecNodeClient,
