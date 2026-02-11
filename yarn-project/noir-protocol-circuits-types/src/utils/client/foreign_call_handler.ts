@@ -8,7 +8,7 @@ export function foreignCallHandler(name: string, args: ForeignCallInput[]): Prom
   // ForeignCallInput is actually a string[], so the args are string[][].
   const log = createLogger('noir-protocol-circuits:oracle');
 
-  if (name === 'utilityDebugLog') {
+  if (name === 'utilityLog') {
     assert(args.length === 4, 'expected 4 arguments for debugLog: level, msg, fields_length, fields');
     const [levelInput, msgRaw, _ignoredFieldsSize, fields] = args;
     const levelNumber = Fr.fromString(levelInput[0]).toNumber();

@@ -328,7 +328,7 @@ export class RPCTranslator {
 
   // When the argument is a slice, noir automatically adds a length field to oracle call.
   // When the argument is an array, we add the field length manually to the signature.
-  async utilityDebugLog(
+  async utilityLog(
     foreignLevel: ForeignCallSingle,
     foreignMessage: ForeignCallArray,
     _foreignLength: ForeignCallSingle,
@@ -340,7 +340,7 @@ export class RPCTranslator {
       .join('');
     const fields = fromArray(foreignFields);
 
-    await this.handlerAsMisc().utilityDebugLog(level, message, fields);
+    await this.handlerAsMisc().utilityLog(level, message, fields);
 
     return toForeignCallResult([]);
   }

@@ -3,8 +3,8 @@ use crate::messages::{discovery::ComputeNoteHashAndNullifier, logs::note::MAX_NO
 use crate::protocol::{
     address::AztecAddress,
     constants::MAX_NOTE_HASHES_PER_TX,
-    debug_log::debug_log_format,
     hash::{compute_note_hash_nonce, compute_siloed_note_hash, compute_unique_note_hash},
+    logging::debug_log_format,
     traits::ToField,
 };
 
