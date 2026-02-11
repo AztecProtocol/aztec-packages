@@ -13,7 +13,7 @@ void HonkRecursionConstraintsOutput<Builder>::update(const HonkRecursionConstrai
                                                      bool update_ipa_data)
 {
     // Update points accumulator
-    if (this->points_accumulator.has_data) {
+    if (this->points_accumulator.is_populated()) {
         this->points_accumulator.aggregate(other.points_accumulator);
     } else {
         this->points_accumulator = other.points_accumulator;
@@ -31,7 +31,7 @@ void HonkRecursionConstraintsOutput<Builder>::update(const HonkRecursionConstrai
                                                      bool update_ipa_data)
 {
     // Update points accumulator
-    if (this->points_accumulator.has_data) {
+    if (this->points_accumulator.is_populated()) {
         this->points_accumulator.aggregate(other.points_accumulator);
     } else {
         this->points_accumulator = other.points_accumulator;
@@ -133,7 +133,7 @@ void HonkRecursionConstraintsOutput<UltraCircuitBuilder>::finalize(UltraCircuitB
         // Propagate pairing points and ipa claim
         IO inputs;
         inputs.pairing_inputs =
-            points_accumulator.has_data
+            points_accumulator.is_populated()
                 ? points_accumulator
                 : stdlib::recursion::PairingPoints<stdlib::bn254<UltraCircuitBuilder>>::construct_default();
         inputs.ipa_claim = ipa_claim;
@@ -150,7 +150,7 @@ void HonkRecursionConstraintsOutput<UltraCircuitBuilder>::finalize(UltraCircuitB
         }
 
         // Propagate public inputs
-        if (points_accumulator.has_data) {
+        if (points_accumulator.is_populated()) {
             IO inputs;
             inputs.pairing_inputs = points_accumulator;
             inputs.set_public();
@@ -173,7 +173,7 @@ void HonkRecursionConstraintsOutput<MegaCircuitBuilder>::finalize(MegaCircuitBui
     // If the recursion constraints from HN, the public inputs have already been set. Otherwise, we need to propagate
     // the pairing points
     if (!is_hn_recursion_constraints) {
-        if (points_accumulator.has_data) {
+        if (points_accumulator.is_populated()) {
             IO inputs;
             inputs.pairing_inputs = points_accumulator;
             inputs.set_public();

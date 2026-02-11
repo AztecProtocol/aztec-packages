@@ -64,13 +64,6 @@ template <typename Curve> struct PairingPoints {
     // Number of bb::fr field elements used to represent pairing points in public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
 
-    // Array-like interface for Codec compatibility
-    using value_type = Group;
-    static constexpr size_t SIZE = 2;
-
-    std::array<Group, 2> _points;
-
-    bool has_data = false;
     uint32_t tag_index = 0; // Index of the tag for tracking pairing point aggregation
 
     Group& P0() { return _points[0]; }
@@ -78,13 +71,15 @@ template <typename Curve> struct PairingPoints {
     const Group& P0() const { return _points[0]; }
     const Group& P1() const { return _points[1]; }
 
+    bool is_populated() const { return has_data_; }
+
     PairingPoints() = default;
 
     PairingPoints(const Group& p0, const Group& p1)
         : _points{ p0, p1 }
-        , has_data(true)
+        , has_data_(true)
     {
-        Builder* builder = validate_context<Builder>(_points);
+        Builder* builder = validate_context<Builder>(p0.get_context(), p1.get_context());
         if (builder != nullptr) {
             tag_index = builder->pairing_points_tagging.create_pairing_point_tag();
         }
@@ -95,21 +90,24 @@ template <typename Curve> struct PairingPoints {
 #endif
     }
 
-    // Array access (delegates to _points)
-    auto& operator[](size_t idx) { return _points[idx]; }
-    const auto& operator[](size_t idx) const { return _points[idx]; }
-
-    // Iterator support for range-based for (required by Codec deserialization)
-    // Non-const begin() sets has_data since Codec uses `for (auto& x : val)` pattern
-    auto begin()
+    /**
+     * @brief Reconstruct PairingPoints from public input limbs.
+     */
+    static PairingPoints reconstruct_from_public(
+        const std::span<const stdlib::field_t<Builder>, PUBLIC_INPUTS_SIZE>& limbs)
     {
-        has_data = true;
-        return _points.begin();
+        using Codec = StdlibCodec<stdlib::field_t<Builder>>;
+        constexpr size_t GROUP_SIZE = Codec::template calc_num_fields<Group>();
+        Group p0 = Codec::template deserialize_from_fields<Group>(limbs.template subspan<0, GROUP_SIZE>());
+        Group p1 = Codec::template deserialize_from_fields<Group>(limbs.template subspan<GROUP_SIZE, GROUP_SIZE>());
+        return PairingPoints(p0, p1);
     }
+
+    // Iterator support (used by validate_context to extract Builder* from the contained group elements)
+    auto begin() { return _points.begin(); }
     auto end() { return _points.end(); }
     auto begin() const { return _points.begin(); }
     auto end() const { return _points.end(); }
-    static constexpr size_t size() { return SIZE; }
 
     typename Curve::bool_ct operator==(PairingPoints const& other) const
     {
@@ -212,10 +210,10 @@ template <typename Curve> struct PairingPoints {
      */
     void aggregate(PairingPoints const& other)
     {
-        BB_ASSERT(other.has_data, "Cannot aggregate null pairing points.");
+        BB_ASSERT(other.has_data_, "Cannot aggregate null pairing points.");
 
         // If LHS is empty, simply set it equal to the incoming pairing points
-        if (!this->has_data && other.has_data) {
+        if (!this->has_data_ && other.has_data_) {
             *this = other;
             return;
         }
@@ -259,7 +257,7 @@ template <typename Curve> struct PairingPoints {
      */
     uint32_t set_public()
     {
-        BB_ASSERT(this->has_data, "Calling set_public on empty pairing points.");
+        BB_ASSERT(this->has_data_, "Calling set_public on empty pairing points.");
         uint32_t start_idx = P0().set_public();
         P1().set_public();
         return start_idx;
@@ -270,7 +268,7 @@ template <typename Curve> struct PairingPoints {
      */
     void fix_witness()
     {
-        BB_ASSERT(this->has_data, "Calling fix_witness on empty pairing points.");
+        BB_ASSERT(this->has_data_, "Calling fix_witness on empty pairing points.");
         P0().fix_witness();
         P1().fix_witness();
     }
@@ -281,7 +279,7 @@ template <typename Curve> struct PairingPoints {
      */
     bool check() const
     {
-        BB_ASSERT(this->has_data, "Calling check on empty pairing points.");
+        BB_ASSERT(this->has_data_, "Calling check on empty pairing points.");
         bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0().get_value(), P1().get_value());
         return native_pp.check();
     }
@@ -333,20 +331,18 @@ template <typename Curve> struct PairingPoints {
 
         return PairingPoints(P0, P1);
     }
+
+  private:
+    std::array<Group, 2> _points;
+    bool has_data_ = false;
 };
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, PairingPoints<NCT> const& as)
 {
     return os << "P0: " << as.P0() << "\n"
               << "P1: " << as.P1() << "\n"
-              << "has_data: " << as.has_data << "\n"
+              << "is_populated: " << as.is_populated() << "\n"
               << "tag_index: " << as.tag_index << "\n";
 }
 
 } // namespace bb::stdlib::recursion
-
-// Enable std::tuple_size for Codec compatibility (array-like deserialization)
-namespace std {
-template <typename Curve>
-struct tuple_size<bb::stdlib::recursion::PairingPoints<Curve>> : std::integral_constant<size_t, 2> {};
-} // namespace std
