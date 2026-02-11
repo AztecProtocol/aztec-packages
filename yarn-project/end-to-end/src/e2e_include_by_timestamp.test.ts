@@ -3,10 +3,10 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP } from '@aztec/stdlib/tx';
-import type { TestWallet } from '@aztec/test-wallet/server';
-import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { setup } from './fixtures/utils.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
+import { proveInteraction } from './test-wallet/utils.js';
 
 describe('e2e_include_by_timestamp', () => {
   let wallet: TestWallet;

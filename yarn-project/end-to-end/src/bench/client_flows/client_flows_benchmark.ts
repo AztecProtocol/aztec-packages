@@ -26,7 +26,6 @@ import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
-import { TestWallet } from '@aztec/test-wallet/server';
 
 import { MNEMONIC } from '../../fixtures/fixtures.js';
 import { type EndToEndContext, type SetupOptions, deployAccounts, setup, teardown } from '../../fixtures/setup.js';
@@ -37,6 +36,7 @@ import {
   FeeJuicePortalTestingHarnessFactory,
   type GasBridgingTestHarness,
 } from '../../shared/gas_portal_test_harness.js';
+import { TestWallet } from '../../test-wallet/test_wallet.js';
 import { ProxyLogger } from './benchmark.js';
 import { type ClientFlowsConfig, FULL_FLOWS_CONFIG, KEY_FLOWS_CONFIG } from './config.js';
 

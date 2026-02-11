@@ -19,7 +19,10 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import SecurityIcon from '@mui/icons-material/Security';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { useContext, useEffect, useState, useRef } from 'react';
-import { EmbeddedWallet } from '../../../wallet/embedded_wallet';
+import { EmbeddedWallet } from '@aztec/wallets/embedded';
+import { WebLogger } from '../../../utils/web_logger';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
+import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { type DeployOptions, DeployMethod } from '@aztec/aztec.js/contracts';
 import { AztecContext } from '../../../aztecContext';
@@ -69,6 +72,30 @@ function EmojiGrid({ emojis, size = 'medium' }: { emojis: string; size?: 'small'
       ))}
     </Box>
   );
+}
+
+async function discoverTestAccounts(wallet: EmbeddedWallet) {
+  const testAccountData = await getInitialTestAccountsData();
+  const [sampleAccount] = testAccountData;
+  if (!sampleAccount) {
+    return;
+  }
+
+  const existingAccounts = await wallet.getAccounts();
+  if (existingAccounts.find(aliased => aliased.item.equals(sampleAccount.address))) {
+    return;
+  }
+
+  const { isContractInitialized } = await wallet.getContractMetadata(sampleAccount.address);
+  if (!isContractInitialized) {
+    return;
+  }
+
+  for (let i = 0; i < testAccountData.length; i++) {
+    const accountData = testAccountData[i];
+    const sk = deriveSigningKey(accountData.secret);
+    await wallet.createSchnorrAccount(accountData.secret, accountData.salt, sk, `test${i}`);
+  }
 }
 
 type ConnectionPhase = 'idle' | 'connecting' | 'verifying' | 'finalizing';
@@ -130,7 +157,13 @@ export function WalletHub() {
       type: 'embedded',
       name: 'Embedded wallet',
       icon: new URL('../../../assets/aztec_logo.png', import.meta.url).href,
-      directConnect: () => EmbeddedWallet.create(network.nodeURL),
+      directConnect: async () => {
+        const w = await EmbeddedWallet.create(network.nodeURL, {
+          logger: WebLogger.getInstance().createLogger('embedded-wallet'),
+        });
+        await discoverTestAccounts(w);
+        return w;
+      },
       establishSecureChannel: async () => {
         throw new Error('Embedded wallet should use directConnect');
       },

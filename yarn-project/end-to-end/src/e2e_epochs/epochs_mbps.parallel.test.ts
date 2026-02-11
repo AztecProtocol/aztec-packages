@@ -18,13 +18,14 @@ import { bufferToHex } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { TxStatus } from '@aztec/stdlib/tx';
-import { TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
+import { proveInteraction } from '../test-wallet/utils.js';
 import { EpochsTestContext } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 20);

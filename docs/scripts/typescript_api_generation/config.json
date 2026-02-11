@@ -57,13 +57,13 @@
         "status": "active"
       },
       {
-        "name": "test-wallet",
-        "path": "test-wallet",
-        "description": "Test wallet for development and e2e testing",
+        "name": "wallets",
+        "path": "wallets",
+        "description": "Embedded wallet for browser and Node.js environments",
         "details": [
-          "In-memory wallet for testing",
-          "Account creation helpers",
-          "Transaction proving utilities"
+          "EmbeddedWallet with browser and Node.js flavors",
+          "Account creation and management",
+          "Transaction simulation and proving"
         ],
         "status": "active"
       }
