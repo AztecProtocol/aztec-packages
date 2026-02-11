@@ -1158,6 +1158,144 @@ describe('TxPoolV2', () => {
         });
       });
     });
+
+    describe('soft-deleted tx resurrection', () => {
+      let mockValidator: MockProxy<TxValidator<TxMetaData>>;
+      let poolWithValidator: AztecKVTxPoolV2;
+      let validatorStore: Awaited<ReturnType<typeof openTmpStore>>;
+      let validatorArchiveStore: Awaited<ReturnType<typeof openTmpStore>>;
+
+      beforeEach(async () => {
+        mockValidator = mock<TxValidator<TxMetaData>>();
+        mockValidator.validateTx.mockResolvedValue({ result: 'valid' });
+
+        validatorStore = await openTmpStore('p2p-protect-soft-delete');
+        validatorArchiveStore = await openTmpStore('archive-protect-soft-delete');
+        poolWithValidator = new AztecKVTxPoolV2(validatorStore, validatorArchiveStore, {
+          l2BlockSource: mockL2BlockSource,
+          worldStateSynchronizer: mockWorldState,
+          createTxValidator: () => Promise.resolve(mockValidator),
+        });
+        await poolWithValidator.start();
+      });
+
+      afterEach(async () => {
+        await poolWithValidator.stop();
+        await validatorStore.delete();
+        await validatorArchiveStore.delete();
+      });
+
+      /** Helper: add tx, mine it, prune it, fail validation -> soft-deleted */
+      const softDeleteTx = async (tx: Tx) => {
+        await poolWithValidator.addPendingTxs([tx]);
+        await poolWithValidator.handleMinedBlock(makeBlock([tx], slot1Header));
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('mined');
+
+        // Make validator reject so tx is soft-deleted on prune
+        mockValidator.validateTx.mockResolvedValue({
+          result: 'invalid',
+          reason: ['timestamp expired'],
+        });
+        await poolWithValidator.handlePrunedBlocks(block0Id);
+
+        // Verify soft-deleted
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('deleted');
+        expect(await poolWithValidator.getTxByHash(tx.getTxHash())).toBeDefined();
+
+        // Restore validator for subsequent operations
+        mockValidator.validateTx.mockResolvedValue({ result: 'valid' });
+      };
+
+      it('resurrects a soft-deleted tx as protected instead of reporting it missing', async () => {
+        const tx = await mockTx(1);
+        await softDeleteTx(tx);
+
+        // protectTxs should find the soft-deleted tx and resurrect it
+        const missing = await poolWithValidator.protectTxs([tx.getTxHash()], slot2Header);
+
+        expect(missing).toHaveLength(0);
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('protected');
+      });
+
+      it('resurrected soft-deleted tx is retrievable and in indices', async () => {
+        const tx = await mockTx(1);
+        await softDeleteTx(tx);
+
+        await poolWithValidator.protectTxs([tx.getTxHash()], slot2Header);
+
+        // Should be retrievable
+        const retrieved = await poolWithValidator.getTxByHash(tx.getTxHash());
+        expect(retrieved).toBeDefined();
+        expect(retrieved!.getTxHash().toString()).toEqual(tx.getTxHash().toString());
+
+        // hasTxs should return true (in indices, not just soft-deleted)
+        const [hasTx] = await poolWithValidator.hasTxs([tx.getTxHash()]);
+        expect(hasTx).toBe(true);
+      });
+
+      it('resurrected tx is unprotected on the next slot', async () => {
+        const tx = await mockTx(1);
+        await softDeleteTx(tx);
+
+        await poolWithValidator.protectTxs([tx.getTxHash()], slot1Header);
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('protected');
+
+        // Advance to slot 2 — protection from slot 1 expires
+        await poolWithValidator.prepareForSlot(SlotNumber(2));
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('pending');
+      });
+
+      it('mix of existing, soft-deleted, and truly missing txs', async () => {
+        const txExisting = await mockTx(1);
+        const txSoftDeleted = await mockTx(2);
+        const txMissing = await mockTx(3);
+
+        // Add txExisting as a regular pending tx
+        await poolWithValidator.addPendingTxs([txExisting]);
+        expect(await poolWithValidator.getTxStatus(txExisting.getTxHash())).toBe('pending');
+
+        // Soft-delete txSoftDeleted
+        await softDeleteTx(txSoftDeleted);
+
+        // Protect all three
+        const missing = await poolWithValidator.protectTxs(
+          [txExisting.getTxHash(), txSoftDeleted.getTxHash(), txMissing.getTxHash()],
+          slot2Header,
+        );
+
+        // Only txMissing should be reported as missing
+        expect(toStrings(missing)).toEqual([hashOf(txMissing)]);
+
+        // txExisting: protected (was pending, now protected)
+        expect(await poolWithValidator.getTxStatus(txExisting.getTxHash())).toBe('protected');
+        // txSoftDeleted: protected (resurrected from soft-deleted)
+        expect(await poolWithValidator.getTxStatus(txSoftDeleted.getTxHash())).toBe('protected');
+        // txMissing: pre-recorded protection, not in pool yet
+        expect(await poolWithValidator.getTxStatus(txMissing.getTxHash())).toBeUndefined();
+      });
+
+      it('resurrected tx survives a second protectTxs call', async () => {
+        const tx = await mockTx(1);
+        await softDeleteTx(tx);
+
+        // Resurrect via protectTxs at slot 1
+        await poolWithValidator.protectTxs([tx.getTxHash()], slot1Header);
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('protected');
+
+        // Re-protect at slot 2 — should update slot, not report missing
+        const missing = await poolWithValidator.protectTxs([tx.getTxHash()], slot2Header);
+        expect(missing).toHaveLength(0);
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('protected');
+
+        // Should survive prepareForSlot(2)
+        await poolWithValidator.prepareForSlot(SlotNumber(2));
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('protected');
+
+        // Should unprotect at slot 3
+        await poolWithValidator.prepareForSlot(SlotNumber(3));
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('pending');
+      });
+    });
   });
 
   describe('handleMinedBlock', () => {

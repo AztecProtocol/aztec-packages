@@ -167,6 +167,37 @@ export const MEMPOOL_TX_MINED_DELAY: MetricDefinition = {
   valueType: ValueType.INT,
 };
 
+export const MEMPOOL_TX_POOL_V2_EVICTED_COUNT: MetricDefinition = {
+  name: 'aztec.mempool.tx_pool_v2.evicted_count',
+  description: 'The number of transactions evicted from the tx pool',
+  valueType: ValueType.INT,
+};
+export const MEMPOOL_TX_POOL_V2_IGNORED_COUNT: MetricDefinition = {
+  name: 'aztec.mempool.tx_pool_v2.ignored_count',
+  description: 'The number of transactions ignored in addPendingTxs',
+  valueType: ValueType.INT,
+};
+export const MEMPOOL_TX_POOL_V2_REJECTED_COUNT: MetricDefinition = {
+  name: 'aztec.mempool.tx_pool_v2.rejected_count',
+  description: 'The number of transactions rejected in addPendingTxs',
+  valueType: ValueType.INT,
+};
+export const MEMPOOL_TX_POOL_V2_SOFT_DELETED_HITS: MetricDefinition = {
+  name: 'aztec.mempool.tx_pool_v2.soft_deleted_hits',
+  description: 'The number of transactions found in the soft-deleted pool',
+  valueType: ValueType.INT,
+};
+export const MEMPOOL_TX_POOL_V2_MISSING_ON_PROTECT: MetricDefinition = {
+  name: 'aztec.mempool.tx_pool_v2.missing_on_protect',
+  description: 'The number of truly missing transactions in protectTxs',
+  valueType: ValueType.INT,
+};
+export const MEMPOOL_TX_POOL_V2_MISSING_PREVIOUSLY_EVICTED: MetricDefinition = {
+  name: 'aztec.mempool.tx_pool_v2.missing_previously_evicted',
+  description: 'The number of truly missing transactions in protectTxs that were previously evicted',
+  valueType: ValueType.INT,
+};
+
 export const DB_NUM_ITEMS: MetricDefinition = {
   name: 'aztec.db.num_items',
   description: 'LMDB Num Items',

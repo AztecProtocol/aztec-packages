@@ -9,6 +9,7 @@ import type { L2Block, L2BlockId, L2BlockSource } from '@aztec/stdlib/block';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { DatabasePublicStateSource } from '@aztec/stdlib/trees';
 import { BlockHeader, Tx, TxHash, type TxValidator } from '@aztec/stdlib/tx';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import { TxArchive } from './archive/index.js';
 import { DeletedPool } from './deleted_pool.js';
@@ -24,6 +25,7 @@ import {
   type PoolOperations,
   type PreAddPoolAccess,
 } from './eviction/index.js';
+import { TxPoolV2Instrumentation } from './instrumentation.js';
 import {
   type AddTxsResult,
   DEFAULT_TX_POOL_V2_CONFIG,
@@ -66,6 +68,8 @@ export class TxPoolV2Impl {
   #deletedPool: DeletedPool;
   #evictionManager: EvictionManager;
   #dateProvider: DateProvider;
+  #instrumentation: TxPoolV2Instrumentation;
+  #evictedTxHashes: Set<string> = new Set();
   #log: Logger;
   #callbacks: TxPoolV2Callbacks;
 
@@ -74,6 +78,7 @@ export class TxPoolV2Impl {
     archiveStore: AztecAsyncKVStore,
     deps: TxPoolV2Dependencies,
     callbacks: TxPoolV2Callbacks,
+    telemetry: TelemetryClient,
     config: Partial<TxPoolV2Config> = {},
     dateProvider: DateProvider,
     log: Logger,
@@ -89,6 +94,7 @@ export class TxPoolV2Impl {
     this.#archive = new TxArchive(archiveStore, this.#config.archivedTxLimit, log);
     this.#deletedPool = new DeletedPool(store, this.#txsDB, log);
     this.#dateProvider = dateProvider;
+    this.#instrumentation = new TxPoolV2Instrumentation(telemetry);
     this.#log = log;
     this.#callbacks = callbacks;
 
@@ -221,6 +227,14 @@ export class TxPoolV2Impl {
       accepted.push(TxHash.fromString(txHashStr));
     }
 
+    // Record metrics
+    if (ignored.length > 0) {
+      this.#instrumentation.recordIgnored(ignored.length);
+    }
+    if (rejected.length > 0) {
+      this.#instrumentation.recordRejected(rejected.length);
+    }
+
     // Run post-add eviction rules for pending txs
     if (acceptedPending.size > 0) {
       const feePayers = Array.from(acceptedPending).map(txHash => this.#indices.getMetadata(txHash)!.feePayer);
@@ -257,13 +271,15 @@ export class TxPoolV2Impl {
     }
 
     // Evict conflicts
-    for (const evictHashStr of preAddResult.txHashesToEvict) {
-      await this.#deleteTx(evictHashStr);
-      this.#log.debug(`Evicted tx ${evictHashStr} due to higher-fee tx ${txHashStr}`);
-      if (acceptedPending.has(evictHashStr)) {
-        // Evicted tx was from this batch - mark as ignored in result
-        acceptedPending.delete(evictHashStr);
-        ignored.push(TxHash.fromString(evictHashStr));
+    if (preAddResult.txHashesToEvict.length > 0) {
+      await this.#evictTxs(preAddResult.txHashesToEvict);
+      for (const evictHashStr of preAddResult.txHashesToEvict) {
+        this.#log.debug(`Evicted tx ${evictHashStr} due to higher-fee tx ${txHashStr}`);
+        if (acceptedPending.has(evictHashStr)) {
+          // Evicted tx was from this batch - mark as ignored in result
+          acceptedPending.delete(evictHashStr);
+          ignored.push(TxHash.fromString(evictHashStr));
+        }
       }
     }
 
@@ -324,9 +340,11 @@ export class TxPoolV2Impl {
     });
   }
 
-  protectTxs(txHashes: TxHash[], block: BlockHeader): TxHash[] {
+  async protectTxs(txHashes: TxHash[], block: BlockHeader): Promise<TxHash[]> {
     const slotNumber = block.globalVariables.slotNumber;
     const missing: TxHash[] = [];
+    let softDeletedHits = 0;
+    let missingPreviouslyEvicted = 0;
 
     for (const txHash of txHashes) {
       const txHashStr = txHash.toString();
@@ -334,11 +352,37 @@ export class TxPoolV2Impl {
       if (this.#indices.has(txHashStr)) {
         // Update protection for existing tx
         this.#indices.updateProtection(txHashStr, slotNumber);
+      } else if (this.#deletedPool.isSoftDeleted(txHashStr)) {
+        // Resurrect soft-deleted tx as protected
+        const buffer = await this.#txsDB.getAsync(txHashStr);
+        if (buffer) {
+          const tx = Tx.fromBuffer(buffer);
+          await this.#addTx(tx, { protected: slotNumber });
+          softDeletedHits++;
+        } else {
+          // Data missing despite soft-delete flag — treat as truly missing
+          this.#indices.setProtection(txHashStr, slotNumber);
+          missing.push(txHash);
+        }
       } else {
-        // Pre-record protection for tx we don't have yet
+        // Truly missing — pre-record protection for tx we don't have yet
         this.#indices.setProtection(txHashStr, slotNumber);
         missing.push(txHash);
+        if (this.#evictedTxHashes.has(txHashStr)) {
+          missingPreviouslyEvicted++;
+        }
       }
+    }
+
+    // Record metrics
+    if (softDeletedHits > 0) {
+      this.#instrumentation.recordSoftDeletedHits(softDeletedHits);
+    }
+    if (missing.length > 0) {
+      this.#instrumentation.recordMissingOnProtect(missing.length);
+    }
+    if (missingPreviouslyEvicted > 0) {
+      this.#instrumentation.recordMissingPreviouslyEvicted(missingPreviouslyEvicted);
     }
 
     return missing;
@@ -420,8 +464,9 @@ export class TxPoolV2Impl {
     // Step 5: Resolve nullifier conflicts and add winners to pending indices
     const { added, toEvict } = this.#applyNullifierConflictResolution(valid);
 
-    // Step 6: Delete invalid and evicted txs
-    await this.#deleteTxsBatch([...invalid, ...toEvict]);
+    // Step 6: Delete invalid txs and evict conflict losers
+    await this.#deleteTxsBatch(invalid);
+    await this.#evictTxs(toEvict);
 
     // Step 7: Run eviction rules (enforce pool size limit)
     if (added.length > 0) {
@@ -468,8 +513,9 @@ export class TxPoolV2Impl {
     // Step 6: Resolve nullifier conflicts and add winners to pending indices
     const { toEvict } = this.#applyNullifierConflictResolution(valid);
 
-    // Step 7: Delete invalid and evicted txs
-    await this.#deleteTxsBatch([...invalid, ...toEvict]);
+    // Step 7: Delete invalid txs and evict conflict losers
+    await this.#deleteTxsBatch(invalid);
+    await this.#evictTxs(toEvict);
 
     // Step 8: Run eviction rules for ALL pending txs (not just restored ones)
     // This handles cases like existing pending txs with invalid fee payer balances
@@ -692,6 +738,28 @@ export class TxPoolV2Impl {
     }
   }
 
+  /** Evicts transactions: records eviction metric, caches hashes, then deletes. */
+  async #evictTxs(txHashes: string[]): Promise<void> {
+    if (txHashes.length === 0) {
+      return;
+    }
+    this.#instrumentation.recordEvictions(txHashes.length);
+    for (const txHashStr of txHashes) {
+      this.#addToEvictedCache(txHashStr);
+    }
+    await this.#deleteTxsBatch(txHashes);
+  }
+
+  /** Adds a tx hash to the bounded evicted cache, evicting the oldest entry if at capacity. */
+  #addToEvictedCache(txHashStr: string): void {
+    if (this.#evictedTxHashes.size >= this.#config.evictedTxCacheSize) {
+      // FIFO eviction: remove the first (oldest) entry
+      const oldest = this.#evictedTxHashes.values().next().value!;
+      this.#evictedTxHashes.delete(oldest);
+    }
+    this.#evictedTxHashes.add(txHashStr);
+  }
+
   // ============================================================================
   // PRIVATE HELPERS - Validation & Conflict Resolution
   // ============================================================================
@@ -883,7 +951,7 @@ export class TxPoolV2Impl {
       getFeePayerPendingTxs: (feePayer: string) => this.#indices.getFeePayerPendingTxs(feePayer),
       getPendingTxCount: () => this.#indices.getPendingTxCount(),
       getLowestPriorityPending: (limit: number) => this.#indices.getLowestPriorityPending(limit),
-      deleteTxs: (txHashes: string[]) => this.#deleteTxsBatch(txHashes),
+      deleteTxs: (txHashes: string[]) => this.#evictTxs(txHashes),
     };
   }
 

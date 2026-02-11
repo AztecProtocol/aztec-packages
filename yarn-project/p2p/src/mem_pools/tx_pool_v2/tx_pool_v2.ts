@@ -61,7 +61,7 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
     };
 
     // Create the implementation
-    this.#impl = new TxPoolV2Impl(store, archiveStore, deps, callbacks, config, dateProvider, log);
+    this.#impl = new TxPoolV2Impl(store, archiveStore, deps, callbacks, telemetry, config, dateProvider, log);
   }
 
   // ============================================================================
@@ -83,7 +83,7 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
   }
 
   protectTxs(txHashes: TxHash[], block: BlockHeader): Promise<TxHash[]> {
-    return this.#queue.put(() => Promise.resolve(this.#impl.protectTxs(txHashes, block)));
+    return this.#queue.put(() => this.#impl.protectTxs(txHashes, block));
   }
 
   addMinedTxs(txs: Tx[], block: BlockHeader, opts: { source?: string } = {}): Promise<void> {
