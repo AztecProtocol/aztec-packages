@@ -160,7 +160,7 @@ contract EscapeHatch is IEscapeHatch {
 
     BOND_TOKEN.safeTransferFrom(candidate, address(this), BOND_SIZE);
 
-    emit CandidateJoined(candidate, BOND_SIZE);
+    emit CandidateJoined(candidate);
   }
 
   /**
