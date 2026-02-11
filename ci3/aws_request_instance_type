@@ -86,14 +86,6 @@ if [ -z "${iid:-}" -o "${iid:-}" == "None" ]; then
   echo $iid > $iid_path
 fi
 
-aws ec2 create-tags --resources $iid --tags "Key=Name,Value=$name"
-aws ec2 create-tags --resources $iid --tags "Key=Group,Value=build-instance"
-if [ "${UNSAFE_AWS_KEEP_ALIVE:-0}" -eq 1 ]; then
-  echo_stderr "You have set UNSAFE_AWS_KEEP_ALIVE=1, so the instance will not be terminated after 1.5 hours by the reaper script. Make sure you shut the machine down when done."
-  # Tag instance with Keep-Alive=true
-  aws ec2 create-tags --resources $iid --tags "Key=Keep-Alive,Value=true"
-fi
-
 while [ -z "${ip:-}" ]; do
   sleep 1
   ip=$(aws ec2 describe-instances \
@@ -115,3 +107,6 @@ while ! ssh -F $SSH_CONFIG_PATH -o ConnectTimeout=1 $ip $LIVE_CMD > /dev/null 2>
   fi
   sleep 1
 done
+
+aws ec2 create-tags --resources $iid --tags "Key=Name,Value=$name"
+aws ec2 create-tags --resources $iid --tags "Key=Group,Value=build-instance"
