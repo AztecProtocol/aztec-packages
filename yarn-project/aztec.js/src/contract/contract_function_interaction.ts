@@ -111,7 +111,10 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     // docs:end:simulate
     if (this.functionDao.functionType == FunctionType.UTILITY) {
       const call = await this.getFunctionCall();
-      const utilityResult = await this.wallet.simulateUtility(call, options.authWitnesses ?? []);
+      const utilityResult = await this.wallet.simulateUtility(call, {
+        scope: options.from,
+        authWitnesses: options.authWitnesses,
+      });
 
       // Decode the raw field elements to the actual return type
       const returnValue = utilityResult.result ? decodeFromAbi(this.functionDao.returnTypes, utilityResult.result) : [];

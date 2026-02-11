@@ -24,7 +24,10 @@ export type NotesFilter = {
   status?: NoteStatus;
   /** The siloed nullifier for the note. */
   siloedNullifier?: Fr;
-  /** The scopes in which to get notes from. This defaults to all scopes. */
+  /**
+   * The scopes in which to get notes from
+   * Undefined scopes means all scopes, while empty list of scopes means no scope at all
+   */
   scopes?: AztecAddress[];
 };
 

@@ -499,7 +499,7 @@ export class TXESession implements TXESessionStateHandler {
   }
 
   private utilityExecutorForContractSync(anchorBlock: any) {
-    return async (call: FunctionCall) => {
+    return async (call: FunctionCall, scopes: undefined | AztecAddress[]) => {
       const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
       if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
         throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
@@ -521,6 +521,7 @@ export class TXESession implements TXESessionStateHandler {
           capsuleStore: this.capsuleStore,
           privateEventStore: this.privateEventStore,
           jobId: this.currentJobId,
+          scopes,
         });
         await new WASMSimulator()
           .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())

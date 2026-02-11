@@ -71,10 +71,11 @@ export class PXEDebugUtils {
       await this.contractSyncService.ensureContractSynced(
         filter.contractAddress,
         null,
-        async privateSyncCall =>
-          await this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, jobId),
+        async (privateSyncCall, execScopes) =>
+          await this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
         anchorBlockHeader,
         jobId,
+        filter.scopes,
       );
 
       return this.noteStore.getNotes(filter, jobId);
