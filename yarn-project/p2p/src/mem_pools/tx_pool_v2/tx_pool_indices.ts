@@ -348,13 +348,15 @@ export class TxPoolIndices {
   // METRICS
   // ============================================================================
 
-  /** Counts transactions by state */
-  countTxs(): { pending: number; protected: number; mined: number } {
+  /** Counts transactions by state and estimates total metadata memory usage */
+  countTxs(): { pending: number; protected: number; mined: number; totalMetadataBytes: number } {
     let pending = 0;
     let protected_ = 0;
     let mined = 0;
+    let totalMetadataBytes = 0;
 
     for (const meta of this.#metadata.values()) {
+      totalMetadataBytes += meta.estimatedSizeBytes;
       const state = this.getTxState(meta);
       if (state === 'pending') {
         pending++;
@@ -365,7 +367,16 @@ export class TxPoolIndices {
       }
     }
 
-    return { pending, protected: protected_, mined };
+    return { pending, protected: protected_, mined, totalMetadataBytes };
+  }
+
+  /** Returns the estimated total memory consumed by all metadata objects */
+  getTotalMetadataBytes(): number {
+    let total = 0;
+    for (const meta of this.#metadata.values()) {
+      total += meta.estimatedSizeBytes;
+    }
+    return total;
   }
 
   /** Gets all mined transactions with their block IDs */

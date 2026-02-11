@@ -48,6 +48,7 @@ describe('TxMetaData', () => {
       nullifiers: [],
       includeByTimestamp: 0n,
       receivedAt: 0,
+      estimatedSizeBytes: 0,
       data: stubTxMetaValidationData(),
     });
 
@@ -81,6 +82,7 @@ describe('TxMetaData', () => {
       nullifiers,
       includeByTimestamp: 0n,
       receivedAt: 0,
+      estimatedSizeBytes: 0,
       data: stubTxMetaValidationData(),
     });
 

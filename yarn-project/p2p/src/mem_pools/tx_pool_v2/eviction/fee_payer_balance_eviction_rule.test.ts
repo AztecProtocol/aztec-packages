@@ -43,6 +43,7 @@ describe('FeePayerBalanceEvictionRule', () => {
     nullifiers: [`0x${txHash.slice(2)}null1`],
     includeByTimestamp: 0n,
     receivedAt: 0,
+    estimatedSizeBytes: 0,
     data: stubTxMetaValidationData(),
   });
 

@@ -63,6 +63,9 @@ export type TxMetaData = {
 
   /** Timestamp (ms) when the tx was received into the pool. 0 for hydrated txs (always eligible). */
   receivedAt: number;
+
+  /** Estimated memory footprint of this metadata object in bytes */
+  readonly estimatedSizeBytes: number;
 };
 
 /** Transaction state derived from TxMetaData fields and pool protection status */
@@ -86,6 +89,8 @@ export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
 
   const { feeLimit, claimAmount } = await getFeePayerBalanceDelta(tx, ProtocolContractAddress.FeeJuice);
 
+  const estimatedSizeBytes = estimateTxMetaDataSize(nullifiers.length);
+
   return {
     txHash,
     anchorBlockHeaderHash,
@@ -96,6 +101,7 @@ export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
     nullifiers,
     includeByTimestamp,
     receivedAt: 0,
+    estimatedSizeBytes,
     data: {
       getNonEmptyNullifiers: () => nullifierFrs,
       includeByTimestamp,
@@ -107,6 +113,27 @@ export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
       },
     },
   };
+}
+
+// V8 JS object overhead (~64 bytes for a plain object with hidden class).
+// String overhead: ~32 bytes header + 1 byte per ASCII char (V8 one-byte strings).
+// Hex string (0x + 64 hex chars = 66 chars): ~98 bytes per string.
+// bigint: ~32 bytes. number: 8 bytes. Fr: ~80 bytes (32 data + object overhead).
+const OBJECT_OVERHEAD = 64;
+const HEX_STRING_BYTES = 98;
+const BIGINT_BYTES = 32;
+const FR_BYTES = 80;
+// Fixed cost: object shell + txHash + anchorBlockHeaderHash + feePayer (3 hex strings)
+// + priorityFee + claimAmount + feeLimit + includeByTimestamp (4 bigints)
+// + receivedAt (number, 8 bytes) + estimatedSizeBytes (number, 8 bytes)
+// + data closure object (~OBJECT_OVERHEAD + anchorBlockHeaderHashFr Fr + anchorBlockNumber number)
+const FIXED_METADATA_BYTES =
+  OBJECT_OVERHEAD + 3 * HEX_STRING_BYTES + 4 * BIGINT_BYTES + 8 + 8 + OBJECT_OVERHEAD + FR_BYTES + 8;
+
+/** Estimates the in-memory size of a TxMetaData object based on the number of nullifiers. */
+function estimateTxMetaDataSize(nullifierCount: number): number {
+  // Per nullifier: one hex string in nullifiers[] + one Fr in the captured nullifierFrs[]
+  return FIXED_METADATA_BYTES + nullifierCount * (HEX_STRING_BYTES + FR_BYTES);
 }
 
 /** Minimal fields required for priority comparison. */

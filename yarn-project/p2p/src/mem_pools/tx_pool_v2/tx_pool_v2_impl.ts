@@ -94,7 +94,7 @@ export class TxPoolV2Impl {
     this.#archive = new TxArchive(archiveStore, this.#config.archivedTxLimit, log);
     this.#deletedPool = new DeletedPool(store, this.#txsDB, log);
     this.#dateProvider = dateProvider;
-    this.#instrumentation = new TxPoolV2Instrumentation(telemetry);
+    this.#instrumentation = new TxPoolV2Instrumentation(telemetry, () => this.#indices.getTotalMetadataBytes());
     this.#log = log;
     this.#callbacks = callbacks;
 
@@ -673,7 +673,7 @@ export class TxPoolV2Impl {
 
   // === Metrics ===
 
-  countTxs(): { pending: number; protected: number; mined: number } {
+  countTxs(): { pending: number; protected: number; mined: number; totalMetadataBytes: number } {
     return this.#indices.countTxs();
   }
 

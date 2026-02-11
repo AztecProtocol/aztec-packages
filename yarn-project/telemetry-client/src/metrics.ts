@@ -197,6 +197,12 @@ export const MEMPOOL_TX_POOL_V2_MISSING_PREVIOUSLY_EVICTED: MetricDefinition = {
   description: 'The number of truly missing transactions in protectTxs that were previously evicted',
   valueType: ValueType.INT,
 };
+export const MEMPOOL_TX_POOL_V2_METADATA_MEMORY: MetricDefinition = {
+  name: 'aztec.mempool.tx_pool_v2.metadata_memory',
+  description: 'Estimated total memory consumed by in-memory transaction metadata',
+  unit: 'By',
+  valueType: ValueType.INT,
+};
 
 export const DB_NUM_ITEMS: MetricDefinition = {
   name: 'aztec.db.num_items',

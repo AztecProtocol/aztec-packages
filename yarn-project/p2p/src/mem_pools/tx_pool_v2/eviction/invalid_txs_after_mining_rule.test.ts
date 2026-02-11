@@ -37,6 +37,7 @@ describe('InvalidTxsAfterMiningRule', () => {
       nullifiers,
       includeByTimestamp,
       receivedAt: 0,
+      estimatedSizeBytes: 0,
       data: stubTxMetaValidationData({ includeByTimestamp }),
     };
   };

@@ -1,10 +1,15 @@
 import {
   type Meter,
   Metrics,
+  type ObservableGauge,
+  type ObservableResult,
   type TelemetryClient,
   type UpDownCounter,
   createUpDownCounterWithDefault,
 } from '@aztec/telemetry-client';
+
+/** Callback that returns the current estimated metadata memory in bytes. */
+export type MetadataMemoryCallback = () => number;
 
 /** Instrumentation for TxPoolV2Impl internal operations. */
 export class TxPoolV2Instrumentation {
@@ -14,8 +19,9 @@ export class TxPoolV2Instrumentation {
   #softDeletedHitsCounter: UpDownCounter;
   #missingOnProtectCounter: UpDownCounter;
   #missingPreviouslyEvictedCounter: UpDownCounter;
+  #metadataMemoryGauge: ObservableGauge;
 
-  constructor(telemetry: TelemetryClient) {
+  constructor(telemetry: TelemetryClient, metadataMemoryCallback: MetadataMemoryCallback) {
     const meter: Meter = telemetry.getMeter('TxPoolV2Impl');
 
     this.#evictedCounter = createUpDownCounterWithDefault(meter, Metrics.MEMPOOL_TX_POOL_V2_EVICTED_COUNT);
@@ -30,6 +36,10 @@ export class TxPoolV2Instrumentation {
       meter,
       Metrics.MEMPOOL_TX_POOL_V2_MISSING_PREVIOUSLY_EVICTED,
     );
+    this.#metadataMemoryGauge = meter.createObservableGauge(Metrics.MEMPOOL_TX_POOL_V2_METADATA_MEMORY);
+    this.#metadataMemoryGauge.addCallback((result: ObservableResult) => {
+      result.observe(metadataMemoryCallback());
+    });
   }
 
   recordEvictions(count: number) {
