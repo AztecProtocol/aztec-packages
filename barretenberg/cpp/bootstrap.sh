@@ -122,11 +122,13 @@ function build_ios {
   fi
 }
 
-# Build for Android (requires ANDROID_NDK_HOME to be set)
-# Arg is preset name: android-arm64 or android-x86_64
+# Build static library (.a) for Android using Zig cross-compilation from Linux.
+# Only produces static libraries (bb-external). Requires Android sysroot headers (downloaded automatically).
+# Arg is preset name: zig-arm64-android or zig-x86_64-android
 function build_android {
   set -eu
   preset=$1
+  bash scripts/download-android-sysroot.sh
   if ! cache_download barretenberg-$preset-$hash.zst; then
     build_preset $preset --target bb-external
     cache_upload barretenberg-$preset-$hash.zst build-$preset/lib
@@ -271,12 +273,12 @@ function build_release_dir {
     tar -czf build-release/barretenberg-static-arm64-ios-sim.tar.gz -C build-zig-arm64-ios-sim/lib libbb-external.a
   fi
 
-  # Package Android static libraries (built on Linux runners with NDK)
-  if [ -f build-android-arm64/lib/libbb-external.a ]; then
-    tar -czf build-release/barretenberg-static-arm64-android.tar.gz -C build-android-arm64/lib libbb-external.a
+  # Package Android static libraries (cross-compiled with Zig from Linux)
+  if [ -f build-zig-arm64-android/lib/libbb-external.a ]; then
+    tar -czf build-release/barretenberg-static-arm64-android.tar.gz -C build-zig-arm64-android/lib libbb-external.a
   fi
-  if [ -f build-android-x86_64/lib/libbb-external.a ]; then
-    tar -czf build-release/barretenberg-static-x86_64-android.tar.gz -C build-android-x86_64/lib libbb-external.a
+  if [ -f build-zig-x86_64-android/lib/libbb-external.a ]; then
+    tar -czf build-release/barretenberg-static-x86_64-android.tar.gz -C build-zig-x86_64-android/lib libbb-external.a
   fi
 }
 
@@ -293,8 +295,9 @@ function build {
   (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
 
   if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
-    # Download iOS SDK before parallel builds (both iOS presets share the same SDK)
+    # Download mobile SDKs before parallel builds (shared across presets)
     bash scripts/download-ios-sdk.sh
+    bash scripts/download-android-sysroot.sh
     # Perform release builds of bb and napi module, for all architectures.
     parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: \
       "build_native" \
@@ -304,7 +307,9 @@ function build {
       "build_cross amd64-macos true" \
       "build_cross arm64-macos true" \
       "build_ios zig-arm64-ios" \
-      "build_ios zig-arm64-ios-sim"
+      "build_ios zig-arm64-ios-sim" \
+      "build_android zig-arm64-android" \
+      "build_android zig-x86_64-android"
     build_release_dir
   else
     builds=(
@@ -317,7 +322,8 @@ function build {
     fi
     if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
       bash scripts/download-ios-sdk.sh
-      builds+=("build_cross arm64-macos true" build_smt_verification "build_ios zig-arm64-ios" "build_ios zig-arm64-ios-sim")
+      bash scripts/download-android-sysroot.sh
+      builds+=("build_cross arm64-macos true" build_smt_verification "build_ios zig-arm64-ios" "build_ios zig-arm64-ios-sim" "build_android zig-arm64-android" "build_android zig-x86_64-android")
     fi
     parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: "${builds[@]}"
   fi

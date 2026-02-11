@@ -564,33 +564,33 @@
       }
     },
     {
-      "name": "android-arm64",
-      "displayName": "Build for Android arm64",
-      "description": "Build for Android arm64 devices using Android NDK toolchain",
-      "binaryDir": "build-android-arm64",
-      "generator": "Ninja",
-      "toolchainFile": "$env{ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake",
+      "name": "zig-arm64-android",
+      "displayName": "Android arm64 static library (Zig)",
+      "description": "Cross-compile static libraries for Android arm64 devices using Zig. Only supports static library targets (no linking).",
+      "inherits": "zig-base",
+      "environment": {
+        "CC": "zig cc -target aarch64-linux-android -isystem ${sourceDir}/android-sysroot/usr/include -isystem ${sourceDir}/android-sysroot/usr/include/aarch64-linux-android",
+        "CXX": "zig c++ -target aarch64-linux-android -isystem ${sourceDir}/android-sysroot/usr/include -isystem ${sourceDir}/android-sysroot/usr/include/aarch64-linux-android"
+      },
       "cacheVariables": {
-        "ANDROID_ABI": "arm64-v8a",
-        "ANDROID_PLATFORM": "android-24",
-        "CMAKE_BUILD_TYPE": "Release",
-        "ENABLE_PIC": "ON",
+        "CMAKE_SYSTEM_NAME": "Generic",
+        "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
         "HAVE_STD_REGEX": "ON",
         "MOBILE": "ON"
       }
     },
     {
-      "name": "android-x86_64",
-      "displayName": "Build for Android x86_64",
-      "description": "Build for Android x86_64 (emulator) using Android NDK toolchain",
-      "binaryDir": "build-android-x86_64",
-      "generator": "Ninja",
-      "toolchainFile": "$env{ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake",
+      "name": "zig-x86_64-android",
+      "displayName": "Android x86_64 static library (Zig)",
+      "description": "Cross-compile static libraries for Android x86_64 emulator using Zig. Only supports static library targets (no linking).",
+      "inherits": "zig-base",
+      "environment": {
+        "CC": "zig cc -target x86_64-linux-android -isystem ${sourceDir}/android-sysroot/usr/include -isystem ${sourceDir}/android-sysroot/usr/include/x86_64-linux-android",
+        "CXX": "zig c++ -target x86_64-linux-android -isystem ${sourceDir}/android-sysroot/usr/include -isystem ${sourceDir}/android-sysroot/usr/include/x86_64-linux-android"
+      },
       "cacheVariables": {
-        "ANDROID_ABI": "x86_64",
-        "ANDROID_PLATFORM": "android-24",
-        "CMAKE_BUILD_TYPE": "Release",
-        "ENABLE_PIC": "ON",
+        "CMAKE_SYSTEM_NAME": "Generic",
+        "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
         "HAVE_STD_REGEX": "ON",
         "MOBILE": "ON"
       }
@@ -793,13 +793,13 @@
       "inheritConfigureEnvironment": true
     },
     {
-      "name": "android-arm64",
-      "configurePreset": "android-arm64",
+      "name": "zig-arm64-android",
+      "configurePreset": "zig-arm64-android",
       "inheritConfigureEnvironment": true
     },
     {
-      "name": "android-x86_64",
-      "configurePreset": "android-x86_64",
+      "name": "zig-x86_64-android",
+      "configurePreset": "zig-x86_64-android",
       "inheritConfigureEnvironment": true
     }
   ],
