@@ -80,3 +80,13 @@ jobs:
       namespace: ${{ needs.tag.outputs.namespace }}
       ref: ${{ needs.tag.outputs.ref }}
       deploy_contracts: ${{ needs.tag.outputs.patch == '0' }}
+
+  fund:
+    needs: [tag, deploy]
+    uses: ./.github/workflows/ensure-funded-environment.yml
+    secrets: inherit
+    with:
+      environment: devnet
+      namespace: ${{ needs.tag.outputs.namespace }}
+      low_watermark: '5.0'
+      high_watermark: '10.0'
