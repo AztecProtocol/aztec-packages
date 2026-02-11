@@ -191,32 +191,41 @@ bool is_on_curve_check_exists(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
  */
 template <typename FF, typename CircuitBuilder>
 std::optional<std::pair<Field<CircuitBuilder>, Field<CircuitBuilder>>> get_dbl_gate_result(
-    CircuitBuilder& builder, const Field<CircuitBuilder>& x1_field, const Field<CircuitBuilder>& modified_y_field)
+    StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+    CircuitBuilder& builder,
+    const Field<CircuitBuilder>& x1_field,
+    const Field<CircuitBuilder>& modified_y_field)
 {
     using field_ct = bb::stdlib::field_t<CircuitBuilder>;
 
     auto x1_idx = x1_field.witness_index;
     auto y1_idx = modified_y_field.witness_index;
-    auto& elliptic_block = builder.blocks.elliptic;
 
-    for (size_t gate_idx = 0; gate_idx + 1 < elliptic_block.size(); ++gate_idx) {
-        bool is_dbl_gate = true;
-        is_dbl_gate &= elliptic_block.w_r()[gate_idx] == x1_idx;
-        is_dbl_gate &= elliptic_block.w_o()[gate_idx] == y1_idx;
-        is_dbl_gate &= elliptic_block.q_m()[gate_idx] == FF::one(); // q_is_double = 1
-        is_dbl_gate &= elliptic_block.q_elliptic()[gate_idx] == FF::one();
+    auto filter_helper = FilterFunctionBuilder<CircuitBuilder, FF>(builder)
+                             .set_w_r(x1_idx)
+                             .set_w_o(y1_idx)
+                             .set_q_1(FF::zero())
+                             .set_q_2(FF::zero())
+                             .set_q_3(FF::zero())
+                             .set_q_4(FF::zero())
+                             .set_q_c(FF::zero())
+                             .set_q_m(FF::one())
+                             .set_q_elliptic(FF::one());
 
-        if (is_dbl_gate) {
-            auto x3_idx = elliptic_block.w_r()[gate_idx + 1];
-            auto y3_idx = elliptic_block.w_o()[gate_idx + 1];
-            auto x3 = Field<CircuitBuilder>{ x3_idx, field_ct::from_witness_index(&builder, x3_idx) };
-            auto y3 = Field<CircuitBuilder>{ y3_idx, field_ct::from_witness_index(&builder, y3_idx) };
-            return std::make_pair(x3, y3);
-        }
+    auto gates = analyzer.get_variable_gates(x1_idx);
+    auto filtered_gates = filter_helper.filter_gates(gates);
+    if (filtered_gates.empty()) {
+        log_error("No ECC dbl gate found for x1=", x1_idx, " y1=", y1_idx);
+        return std::nullopt;
     }
 
-    log_error("No ECC dbl gate found for x1=", x1_idx, " y1=", y1_idx);
-    return std::nullopt;
+    auto block_idx = filtered_gates[0].first;
+    auto gate_idx = filtered_gates[0].second;
+    auto x3_idx = builder.blocks.elliptic.w_r()[block_idx + 1];
+    auto y3_idx = builder.blocks.elliptic.w_o()[block_idx + 1];
+    auto x3 = Field<CircuitBuilder>{ x3_idx, field_ct::from_witness_index(&builder, x3_idx) };
+    auto y3 = Field<CircuitBuilder>{ y3_idx, field_ct::from_witness_index(&builder, y3_idx) };
+    return std::make_pair(x3, y3);
 }
 
 /**

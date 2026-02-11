@@ -23,6 +23,7 @@ template <typename CircuitBuilder, typename FF> class FilterFunctionBuilder {
     FilterFunctionBuilder& set_q_c(FF q_c);
     FilterFunctionBuilder& set_q_4(FF q_4);
     FilterFunctionBuilder& set_q_arith(FF q_arith);
+    FilterFunctionBuilder& set_q_elliptic(FF q_elliptic);
 
     std::function<bool(size_t, size_t)> build() const;
     std::vector<std::pair<size_t, size_t>> filter_gates(std::vector<std::pair<size_t, size_t>>& gates) const;
@@ -40,6 +41,7 @@ template <typename CircuitBuilder, typename FF> class FilterFunctionBuilder {
     std::optional<FF> q_c = std::nullopt;
     std::optional<FF> q_4 = std::nullopt;
     std::optional<FF> q_arith = std::nullopt;
+    std::optional<FF> q_elliptic = std::nullopt;
 };
 
 template <typename CircuitBuilder, typename FF>
@@ -121,6 +123,14 @@ template <typename CircuitBuilder, typename FF>
 inline FilterFunctionBuilder<CircuitBuilder, FF>& FilterFunctionBuilder<CircuitBuilder, FF>::set_q_arith(FF q_arith)
 {
     this->q_arith = q_arith;
+    return *this;
+}
+
+template <typename CircuitBuilder, typename FF>
+inline FilterFunctionBuilder<CircuitBuilder, FF>& FilterFunctionBuilder<CircuitBuilder, FF>::set_q_elliptic(
+    FF q_elliptic)
+{
+    this->q_elliptic = q_elliptic;
     return *this;
 }
 
