@@ -111,6 +111,9 @@ contract EscapeHatch is IEscapeHatch {
 
     require(_frequency > _activeDuration, Errors.EscapeHatch__InvalidConfiguration());
 
+    // BOND_SIZE must be non-zero to ensure "something at stake"
+    require(_bondSize > 0, Errors.EscapeHatch__InvalidConfiguration());
+
     // FAILED_HATCH_PUNISHMENT must be <= BOND_SIZE to avoid underflow
     require(_failedHatchPunishment <= _bondSize, Errors.EscapeHatch__InvalidConfiguration());
 
