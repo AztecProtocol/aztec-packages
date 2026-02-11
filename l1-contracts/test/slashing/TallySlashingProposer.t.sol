@@ -11,7 +11,7 @@ import {Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
-import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
+import {ISlasher, SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {TallySlashingProposer} from "@aztec/core/slashing/TallySlashingProposer.sol";
 import {SlashRound} from "@aztec/core/libraries/SlashRoundLib.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
@@ -913,6 +913,62 @@ contract TallySlashingProposerTest is TestBase {
     // Verify round is marked as executed
     (bool isExecuted,) = slashingProposer.getRound(targetRound);
     assertTrue(isExecuted, "Round should be marked as executed");
+  }
+
+  function test_revertWhenSlashAmountIsZero() public {
+    // The ordering constraints (small <= medium <= large) checked before the > 0 checks mean that
+    // setting medium=0 or large=0 forces the smaller amounts to zero as well, so only the "small"
+    // check is reachable in practice. The medium and large checks exist as defense in depth in case
+    // the ordering constraints are removed or reordered in a future refactor.
+    // All three cases below therefore revert with the "small" info string.
+    uint256[3] memory slashAmounts = [uint256(0), SLASHING_UNIT * 2, SLASHING_UNIT * 3];
+
+    // small = 0
+    vm.expectRevert(abi.encodeWithSelector(Errors.TallySlashingProposer__SlashAmountMustBeGtZero.selector, "small"));
+    new TallySlashingProposer(
+      address(rollup),
+      ISlasher(address(slasher)),
+      QUORUM,
+      ROUND_SIZE,
+      LIFETIME_IN_ROUNDS,
+      EXECUTION_DELAY_IN_ROUNDS,
+      slashAmounts,
+      COMMITTEE_SIZE,
+      EPOCH_DURATION,
+      SLASH_OFFSET_IN_ROUNDS
+    );
+
+    // medium = 0 (ordering forces small = 0, so "small" check fires first)
+    slashAmounts[1] = 0;
+    vm.expectRevert(abi.encodeWithSelector(Errors.TallySlashingProposer__SlashAmountMustBeGtZero.selector, "small"));
+    new TallySlashingProposer(
+      address(rollup),
+      ISlasher(address(slasher)),
+      QUORUM,
+      ROUND_SIZE,
+      LIFETIME_IN_ROUNDS,
+      EXECUTION_DELAY_IN_ROUNDS,
+      slashAmounts,
+      COMMITTEE_SIZE,
+      EPOCH_DURATION,
+      SLASH_OFFSET_IN_ROUNDS
+    );
+
+    // large = 0 (ordering forces all to 0, so "small" check fires first)
+    slashAmounts[2] = 0;
+    vm.expectRevert(abi.encodeWithSelector(Errors.TallySlashingProposer__SlashAmountMustBeGtZero.selector, "small"));
+    new TallySlashingProposer(
+      address(rollup),
+      ISlasher(address(slasher)),
+      QUORUM,
+      ROUND_SIZE,
+      LIFETIME_IN_ROUNDS,
+      EXECUTION_DELAY_IN_ROUNDS,
+      slashAmounts,
+      COMMITTEE_SIZE,
+      EPOCH_DURATION,
+      SLASH_OFFSET_IN_ROUNDS
+    );
   }
 
   function test_getSlashTargetCommitteesEarlyEpochs() public {

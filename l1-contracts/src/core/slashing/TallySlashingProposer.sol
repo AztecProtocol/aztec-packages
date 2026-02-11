@@ -361,6 +361,14 @@ contract TallySlashingProposer is EIP712 {
       COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS % 4 == 0,
       Errors.TallySlashingProposer__VotesMustBeMultipleOf4(COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS)
     );
+
+    // Defense in depth: the ordering constraints (small <= medium <= large) above mean that
+    // if medium or large is zero, small must also be zero, so the small check would fire first.
+    // We keep all three checks explicitly for clarity and to guard against future refactors
+    // that might remove or reorder the sorting constraints.
+    require(SLASH_AMOUNT_SMALL > 0, Errors.TallySlashingProposer__SlashAmountMustBeGtZero("small"));
+    require(SLASH_AMOUNT_MEDIUM > 0, Errors.TallySlashingProposer__SlashAmountMustBeGtZero("medium"));
+    require(SLASH_AMOUNT_LARGE > 0, Errors.TallySlashingProposer__SlashAmountMustBeGtZero("large"));
   }
 
   /**
