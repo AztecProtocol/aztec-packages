@@ -102,7 +102,7 @@ export class TxPoolIndices {
       return meta !== undefined && meta.receivedAt <= maxReceivedAt;
     };
 
-    return this.iteratePendingByPriority(order, filter);
+    yield* this.iteratePendingByPriority(order, filter);
   }
 
   /** Iterates all metadata entries */
