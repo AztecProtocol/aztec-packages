@@ -42,9 +42,9 @@ Bool<CircuitBuilder> get_bool_from_w_4(CircuitBuilder& builder, std::pair<size_t
  * @return The resulting (witness_index, witness) of the normalization gate
  */
 template <typename FF, typename CircuitBuilder>
-Bool<CircuitBuilder> get_normalization_result(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
-                                              CircuitBuilder& builder,
-                                              const Bool<CircuitBuilder>& a_bool)
+std::optional<Bool<CircuitBuilder>> get_normalization_result(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                                             CircuitBuilder& builder,
+                                                             const Bool<CircuitBuilder>& a_bool)
 {
     auto a_idx = a_bool.witness_index;
     auto a = a_bool.witness;
@@ -73,7 +73,8 @@ Bool<CircuitBuilder> get_normalization_result(StaticAnalyzer_<FF, CircuitBuilder
     auto gates = analyzer.get_variable_gates(a_idx);
     auto filtered_gates = filter_helper.filter_gates(gates);
     if (filtered_gates.empty()) {
-        throw std::runtime_error("No normalization gate found for bool " + std::to_string(a_idx));
+        log_error("No normalization gate found for bool ", a_idx);
+        return std::nullopt;
     }
 
     return get_bool_from_w_o<FF>(builder, filtered_gates[0]);
