@@ -256,6 +256,10 @@ export class InMemoryAttestationPool {
     return Promise.resolve({ added: true, alreadyExists: false, count: 1 });
   }
 
+  hasBlockProposalsForSlot(_slot: SlotNumber): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
   isEmpty(): Promise<boolean> {
     return Promise.resolve(this.proposals.size === 0);
   }

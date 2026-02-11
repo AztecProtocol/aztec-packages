@@ -186,14 +186,18 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
       const validatorStats = stats.stats[validator.toString().toLowerCase()];
       const history = validatorStats?.history.filter(h => h.slot > initialSlot && h.slot <= slotForSentinel) ?? [];
       t.logger.info(`Asserting stats for online validator ${validator}`, { history });
-      expect(history.filter(h => h.status === 'attestation-missed' || h.status === 'block-missed')).toBeEmpty();
+      expect(
+        history.filter(
+          h => h.status === 'attestation-missed' || h.status === 'blocks-missed' || h.status === 'checkpoint-missed',
+        ),
+      ).toBeEmpty();
     }
 
     // At least one of the first node validators must have been seen as proposer
     const firstNodeBlockProposedHistory = firstNodeValidators
       .flatMap(v => stats.stats[v.toString().toLowerCase()].history)
       .filter(h => h.slot > initialSlot && h.slot <= slotForSentinel)
-      .filter(h => h.status === 'block-proposed');
+      .filter(h => h.status === 'checkpoint-proposed');
     expect(firstNodeBlockProposedHistory).not.toBeEmpty();
 
     // And all of the proposers for the offline node must be seen as missed attestation or proposal
@@ -201,7 +205,11 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
       const validatorStats = stats.stats[validator.toString().toLowerCase()];
       const history = validatorStats.history?.filter(h => h.slot > initialSlot && h.slot <= slotForSentinel) ?? [];
       t.logger.info(`Asserting stats for offline validator ${validator}`, { history });
-      expect(history.filter(h => h.status === 'attestation-missed' || h.status === 'block-missed')).not.toBeEmpty();
+      expect(
+        history.filter(
+          h => h.status === 'attestation-missed' || h.status === 'blocks-missed' || h.status === 'checkpoint-missed',
+        ),
+      ).not.toBeEmpty();
     }
   });
 });

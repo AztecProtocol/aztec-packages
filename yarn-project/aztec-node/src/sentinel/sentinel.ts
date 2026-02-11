@@ -36,6 +36,17 @@ import EventEmitter from 'node:events';
 
 import { SentinelStore } from './store.js';
 
+/** Maps a validator status to its category: proposer or attestation. */
+function statusToCategory(status: ValidatorStatusInSlot): ValidatorStatusType {
+  switch (status) {
+    case 'attestation-sent':
+    case 'attestation-missed':
+      return 'attestation';
+    default:
+      return 'proposer';
+  }
+}
+
 export class Sentinel extends (EventEmitter as new () => WatcherEmitter) implements L2BlockStreamEventHandler, Watcher {
   protected runningPromise: RunningPromise;
   protected blockStream!: L2BlockStream;
@@ -336,16 +347,16 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
 
     // Check if there is an L2 block in L1 for this L2 slot
 
-    // Here we get all attestations for the block mined at the given slot,
-    // or all attestations for all proposals in the slot if no block was mined.
+    // Here we get all checkpoint attestations for the checkpoint at the given slot,
+    // or all checkpoint attestations for all proposals in the slot if no checkpoint was mined.
     // We gather from both p2p (contains the ones seen on the p2p layer) and archiver
-    // (contains the ones synced from mined blocks, which we may have missed from p2p).
-    const block = this.slotNumberToCheckpoint.get(slot);
-    const p2pAttested = await this.p2p.getCheckpointAttestationsForSlot(slot, block?.archive);
+    // (contains the ones synced from mined checkpoints, which we may have missed from p2p).
+    const checkpoint = this.slotNumberToCheckpoint.get(slot);
+    const p2pAttested = await this.p2p.getCheckpointAttestationsForSlot(slot, checkpoint?.archive);
     // Filter out attestations with invalid signatures
     const p2pAttestors = p2pAttested.map(a => a.getSender()).filter((s): s is EthAddress => s !== undefined);
     const attestors = new Set(
-      [...p2pAttestors.map(a => a.toString()), ...(block?.attestors.map(a => a.toString()) ?? [])].filter(
+      [...p2pAttestors.map(a => a.toString()), ...(checkpoint?.attestors.map(a => a.toString()) ?? [])].filter(
         addr => proposer.toString() !== addr, // Exclude the proposer from the attestors
       ),
     );
@@ -356,20 +367,29 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     // But we'll leave that corner case out to reduce pressure on the node.
     // TODO(palla/slash): This breaks if a given node has more than one validator in the current committee,
     // since they will attest to their own proposal it even if it's not re-executable.
-    const blockStatus = block ? 'mined' : attestors.size > 0 ? 'proposed' : 'missed';
-    this.logger.debug(`Block for slot ${slot} was ${blockStatus}`, { ...block, slot });
+    let status: 'checkpoint-mined' | 'checkpoint-proposed' | 'checkpoint-missed' | 'blocks-missed';
+    if (checkpoint) {
+      status = 'checkpoint-mined';
+    } else if (attestors.size > 0) {
+      status = 'checkpoint-proposed';
+    } else {
+      // No checkpoint on L1 and no checkpoint attestations seen. Check if block proposals were sent for this slot.
+      const hasBlockProposals = await this.p2p.hasBlockProposalsForSlot(slot);
+      status = hasBlockProposals ? 'checkpoint-missed' : 'blocks-missed';
+    }
+    this.logger.debug(`Checkpoint status for slot ${slot}: ${status}`, { ...checkpoint, slot });
 
-    // Get attestors that failed their duties for this block, but only if there was a block proposed
+    // Get attestors that failed their checkpoint attestation duties, but only if there was a checkpoint proposed or mined
     const missedAttestors = new Set(
-      blockStatus === 'missed'
+      status === 'blocks-missed' || status === 'checkpoint-missed'
         ? []
         : committee.filter(v => !attestors.has(v.toString()) && !proposer.equals(v)).map(v => v.toString()),
     );
 
     this.logger.debug(`Retrieved ${attestors.size} attestors out of ${committee.length} for slot ${slot}`, {
-      blockStatus,
+      status,
       proposer: proposer.toString(),
-      ...block,
+      ...checkpoint,
       slot,
       attestors: [...attestors],
       missedAttestors: [...missedAttestors],
@@ -379,7 +399,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     // Compute the status for each validator in the committee
     const statusFor = (who: `0x${string}`): ValidatorStatusInSlot | undefined => {
       if (who === proposer.toString()) {
-        return `block-${blockStatus}`;
+        return status;
       } else if (attestors.has(who)) {
         return 'attestation-sent';
       } else if (missedAttestors.has(who)) {
@@ -472,14 +492,16 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   ): ValidatorStats {
     let history = fromSlot ? allHistory.filter(h => BigInt(h.slot) >= fromSlot) : allHistory;
     history = toSlot ? history.filter(h => BigInt(h.slot) <= toSlot) : history;
-    const lastProposal = history.filter(h => h.status === 'block-proposed' || h.status === 'block-mined').at(-1);
+    const lastProposal = history
+      .filter(h => h.status === 'checkpoint-proposed' || h.status === 'checkpoint-mined')
+      .at(-1);
     const lastAttestation = history.filter(h => h.status === 'attestation-sent').at(-1);
     return {
       address: EthAddress.fromString(address),
       lastProposal: this.computeFromSlot(lastProposal?.slot),
       lastAttestation: this.computeFromSlot(lastAttestation?.slot),
       totalSlots: history.length,
-      missedProposals: this.computeMissed(history, 'block', ['block-missed']),
+      missedProposals: this.computeMissed(history, 'proposer', ['checkpoint-missed', 'blocks-missed']),
       missedAttestations: this.computeMissed(history, 'attestation', ['attestation-missed']),
       history,
     };
@@ -487,10 +509,12 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
 
   protected computeMissed(
     history: ValidatorStatusHistory,
-    computeOverPrefix: ValidatorStatusType | undefined,
+    computeOverCategory: ValidatorStatusType | undefined,
     filter: ValidatorStatusInSlot[],
   ) {
-    const relevantHistory = history.filter(h => !computeOverPrefix || h.status.startsWith(computeOverPrefix));
+    const relevantHistory = history.filter(
+      h => !computeOverCategory || statusToCategory(h.status) === computeOverCategory,
+    );
     const filteredHistory = relevantHistory.filter(h => filter.includes(h.status));
     return {
       currentStreak: countWhile([...relevantHistory].reverse(), h => filter.includes(h.status)),

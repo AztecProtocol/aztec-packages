@@ -216,4 +216,8 @@ export class DummyP2P implements P2P {
   public registerDuplicateAttestationCallback(_callback: P2PDuplicateAttestationCallback): void {
     throw new Error('DummyP2P does not implement "registerDuplicateAttestationCallback"');
   }
+
+  public hasBlockProposalsForSlot(_slot: SlotNumber): Promise<boolean> {
+    throw new Error('DummyP2P does not implement "hasBlockProposalsForSlot"');
+  }
 }

@@ -9,7 +9,7 @@ import type {
 } from '@aztec/stdlib/validators';
 
 export class SentinelStore {
-  public static readonly SCHEMA_VERSION = 2;
+  public static readonly SCHEMA_VERSION = 3;
 
   // a map from validator address to their ValidatorStatusHistory
   private readonly historyMap: AztecAsyncMap<`0x${string}`, Buffer>;
@@ -86,11 +86,7 @@ export class SentinelStore {
     });
   }
 
-  private async pushValidatorStatusForSlot(
-    who: EthAddress,
-    slot: SlotNumber,
-    status: 'block-mined' | 'block-proposed' | 'block-missed' | 'attestation-sent' | 'attestation-missed',
-  ) {
+  private async pushValidatorStatusForSlot(who: EthAddress, slot: SlotNumber, status: ValidatorStatusInSlot) {
     await this.store.transactionAsync(async () => {
       const currentHistory = (await this.getHistory(who)) ?? [];
       const newHistory = [...currentHistory, { slot, status }].slice(-this.config.historyLength);
@@ -149,16 +145,18 @@ export class SentinelStore {
 
   private statusToNumber(status: ValidatorStatusInSlot): number {
     switch (status) {
-      case 'block-mined':
+      case 'checkpoint-mined':
         return 1;
-      case 'block-proposed':
+      case 'checkpoint-proposed':
         return 2;
-      case 'block-missed':
+      case 'checkpoint-missed':
         return 3;
       case 'attestation-sent':
         return 4;
       case 'attestation-missed':
         return 5;
+      case 'blocks-missed':
+        return 6;
       default: {
         const _exhaustive: never = status;
         throw new Error(`Unknown status: ${status}`);
@@ -169,15 +167,17 @@ export class SentinelStore {
   private statusFromNumber(status: number): ValidatorStatusInSlot {
     switch (status) {
       case 1:
-        return 'block-mined';
+        return 'checkpoint-mined';
       case 2:
-        return 'block-proposed';
+        return 'checkpoint-proposed';
       case 3:
-        return 'block-missed';
+        return 'checkpoint-missed';
       case 4:
         return 'attestation-sent';
       case 5:
         return 'attestation-missed';
+      case 6:
+        return 'blocks-missed';
       default:
         throw new Error(`Unknown status: ${status}`);
     }

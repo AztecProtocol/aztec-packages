@@ -236,6 +236,9 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
 
   handleAuthRequestFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage>;
 
+  /** Checks if any block proposals exist for the given slot. */
+  hasBlockProposalsForSlot(slot: SlotNumber): Promise<boolean>;
+
   /** If node running this P2P stack is validator, passes in validator address to P2P layer */
   registerThisValidatorAddresses(address: EthAddress[]): void;
 };

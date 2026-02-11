@@ -1,12 +1,13 @@
 import type { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 
-export type ValidatorStatusType = 'block' | 'attestation';
+export type ValidatorStatusType = 'proposer' | 'attestation';
 
 export type ValidatorStatusInSlot =
-  | 'block-mined'
-  | 'block-proposed'
-  | 'block-missed'
+  | 'checkpoint-mined'
+  | 'checkpoint-proposed'
+  | 'checkpoint-missed'
+  | 'blocks-missed'
   | 'attestation-sent'
   | 'attestation-missed';
 
