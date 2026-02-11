@@ -201,6 +201,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/):
 
 - **Primary development**: `next` branch (default PR target)
 - **Production**: `master` branch
+- **Merge trains**: Some teams use `merge-train/*` branches (e.g., `merge-train/barretenberg`, `merge-train/spartan`) to batch PRs before merging into `next`. If the current branch targets a `merge-train/*` branch, use that as the base -- not `next` or `master`. See the `merge-trains` skill for details.
 - **Backport**: Fix in release branch -> forward-port to `next`
 - **Forward-port**: Fix in `next` -> backport if needed
 

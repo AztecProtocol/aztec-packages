@@ -1,9 +1,9 @@
 ---
 name: merge-trains
-description: Understand and assist with merge-train workflows including creating PRs, debugging failures, managing labels, and bypassing checks when needed.
+description: Guide for working with merge-train branches -- creating PRs, choosing the right base branch, understanding labels, handling failures, and bypassing checks.
 ---
 
-# Merge Trains
+# Working with Merge Trains
 
 ## What Is a Merge Train?
 
@@ -18,8 +18,6 @@ A merge train is an automated batching system (inspired by [Rust rollups](https:
 | `merge-train/ci` | CI infrastructure | `#help-ci` |
 | `merge-train/docs` | Documentation | `#dev-rels` |
 | `merge-train/spartan` | Spartan / infra | `#team-alpha` |
-
-These are defined in `.github/workflows/merge-train-next-to-branches.yml`.
 
 ## How to Use a Merge Train
 
@@ -36,22 +34,6 @@ These are defined in `.github/workflows/merge-train-next-to-branches.yml`.
 - **Your PR is squashed into the train**: Individual PRs targeting a merge-train branch are squash-merged as usual. You should not use the merge commit merge method, but the squash method.
 - **The train itself is NOT squashed**: The merge-train PR (e.g., `merge-train/barretenberg` -> `next`) is merged with a **merge commit**, preserving the individual squashed commits. This is why the `ci-no-squash` label is automatically applied.
 - **You generally don't need to worry about the train PR itself** -- it is fully automated (creation, body updates, approval, merge, and recreation). You only need to pay attention to it if an alert is sent to your team channel.
-
-## Automation Lifecycle
-
-The merge-train system is fully automated via GitHub Actions in `.github/workflows/merge-train-*.yml`:
-
-1. **PR Creation** (`merge-train-create-pr.yml`): When code is pushed to a `merge-train/*` branch, a PR targeting `next` is automatically created with the `ci-no-squash` label (and `ci-full-no-test-cache` for spartan).
-
-2. **Body Updates** (`merge-train-update-pr-body.yml`): On every push, the PR body is updated with a list of meaningful commits (those containing PR references like `(#1234)`). The body uses `BEGIN_COMMIT_OVERRIDE` / `END_COMMIT_OVERRIDE` markers.
-
-3. **Next Integration** (`merge-train-next-to-branches.yml`): Whenever code is pushed to `next`, it is automatically merged into all active merge-train branches. If there are merge conflicts, a comment is posted on the latest `next` commit. This keeps trains up-to-date with `next`.
-
-4. **Auto-Merge** (`merge-train-auto-merge.yml`): An hourly cron job checks all merge-train PRs. If a train has been **inactive for 4+ hours** (no new meaningful, non-merge commits) and the last merge-queue run didn't fail, it is automatically approved and merged. A bot comment is posted: "Auto-merge enabled after 4 hours of inactivity."
-
-5. **Recreation** (`merge-train-recreate.yml`): After a merge-train PR merges, the branch is recreated from `next` with an empty commit, starting a new cycle.
-
-6. **Failure Notification** (`merge-queue-dequeue-notify.yml`): If a merge-train PR is dequeued from the merge queue without being merged (CI failure), a Slack notification is sent to the team's channel.
 
 ## CI Behavior for Merge Trains
 
@@ -93,25 +75,7 @@ If the user needs to bypass CI checks for their merge-train PR (e.g., a known fl
 
 ## Backport Trains
 
-A related system exists for backport branches (`backport-to-*`). These use the same `auto-merge.sh` script but with different settings:
+A related system exists for backport branches (`backport-to-*`). These use the same auto-merge mechanism but with different settings:
 - Branch pattern: `backport-to-`
 - Inactivity threshold: 8 hours (instead of 4)
 - Merge strategy: merge commit
-
-## Key Files Reference
-
-| File | Purpose |
-|---|---|
-| `.github/workflows/merge-train-readme.md` | User-facing documentation |
-| `.github/workflows/merge-train-create-pr.yml` | Auto-creates PRs for train branches |
-| `.github/workflows/merge-train-auto-merge.yml` | Hourly cron to auto-merge inactive trains |
-| `.github/workflows/merge-train-next-to-branches.yml` | Syncs `next` into all train branches |
-| `.github/workflows/merge-train-recreate.yml` | Recreates branch after merge |
-| `.github/workflows/merge-train-update-pr-body.yml` | Updates PR body with commit list |
-| `.github/workflows/merge-queue-dequeue-notify.yml` | Slack notification on merge-queue failure |
-| `scripts/merge-train/auto-merge.sh` | Auto-merge logic |
-| `scripts/merge-train/merge-next.sh` | Merge `next` into train branch |
-| `scripts/merge-train/update-pr-body.sh` | Update PR body with commits |
-| `ci3/merge_train_failure_slack_notify` | Slack failure notification |
-| `.github/ci3_labels_to_env.sh` | CI mode selection based on labels/branches |
-| `.github/workflows/squashed-pr-check.yml` | Squash enforcement (skipped for `ci-no-squash`) |
