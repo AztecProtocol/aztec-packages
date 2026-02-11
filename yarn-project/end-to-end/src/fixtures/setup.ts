@@ -788,12 +788,11 @@ export type BalancesFn = ReturnType<typeof getBalancesFn>;
 export function getBalancesFn(
   symbol: string,
   method: ContractMethod,
-  from: AztecAddress,
   logger: any,
 ): (...addresses: (AztecAddress | { address: AztecAddress })[]) => Promise<bigint[]> {
   const balances = async (...addressLikes: (AztecAddress | { address: AztecAddress })[]) => {
     const addresses = addressLikes.map(addressLike => ('address' in addressLike ? addressLike.address : addressLike));
-    const b = await Promise.all(addresses.map(address => method(address).simulate({ from })));
+    const b = await Promise.all(addresses.map(address => method(address).simulate({ from: address })));
     const debugString = `${symbol} balances: ${addresses.map((address, i) => `${address}: ${b[i]}`).join(', ')}`;
     logger.verbose(debugString);
     return b;

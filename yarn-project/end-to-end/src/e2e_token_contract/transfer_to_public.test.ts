@@ -40,21 +40,20 @@ describe('e2e_token_contract transfer_to_public', () => {
     const authwitNonce = Fr.random();
     expect(amount).toBeGreaterThan(0n);
 
-    // We need to compute the message we want to sign and add it to the wallet as approved
     const action = asset.methods.transfer_to_public(adminAddress, account1Address, amount, authwitNonce);
+    const call = await action.getFunctionCall();
+    const witness = await wallet.createAuthWit(adminAddress, { caller: t.proxy.address, action });
 
-    // Both wallets are connected to same node and PXE so we could just insert directly
-    // But doing it in two actions to show the flow.
-    const witness = await wallet.createAuthWit(adminAddress, { caller: account1Address, action });
-
-    await action.send({ from: account1Address, authWitnesses: [witness] });
+    await t.proxy.methods
+      .forward_private_4(call.to, call.selector, call.args)
+      .send({ from: adminAddress, authWitnesses: [witness] });
     tokenSim.transferToPublic(adminAddress, account1Address, amount);
 
     // Perform the transfer again, should fail
     await expect(
-      asset.methods
-        .transfer_to_public(adminAddress, account1Address, amount, authwitNonce)
-        .send({ from: account1Address, authWitnesses: [witness] }),
+      t.proxy.methods
+        .forward_private_4(call.to, call.selector, call.args)
+        .send({ from: adminAddress, authWitnesses: [witness] }),
     ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
   });
 

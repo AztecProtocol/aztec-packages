@@ -174,7 +174,10 @@ describe('WalletSchema', () => {
       args: [Fr.random()],
       returnTypes: [],
     });
-    const result = await context.client.simulateUtility(call, [AuthWitness.random()]);
+    const result = await context.client.simulateUtility(call, {
+      scope: await AztecAddress.random(),
+      authWitnesses: [AuthWitness.random()],
+    });
     expect(result).toBeInstanceOf(UtilitySimulationResult);
   });
 
@@ -322,7 +325,7 @@ describe('WalletSchema', () => {
       { name: 'getAccounts', args: [] },
       { name: 'registerContract', args: [mockInstance, mockArtifact, undefined] },
       { name: 'simulateTx', args: [exec, simulateOpts] },
-      { name: 'simulateUtility', args: [call, [AuthWitness.random()]] },
+      { name: 'simulateUtility', args: [call, { scope: address3, authWitnesses: [AuthWitness.random()] }] },
       { name: 'profileTx', args: [exec, profileOpts] },
       { name: 'sendTx', args: [exec, opts] },
       { name: 'createAuthWit', args: [address1, { consumer: await AztecAddress.random(), innerHash: Fr.random() }] },
@@ -427,7 +430,10 @@ class MockWallet implements Wallet {
     return Promise.resolve(TxSimulationResult.random());
   }
 
-  simulateUtility(_call: any, _authwits?: AuthWitness[]): Promise<UtilitySimulationResult> {
+  simulateUtility(
+    _call: any,
+    _opts: { scope: AztecAddress; authWitnesses?: AuthWitness[] },
+  ): Promise<UtilitySimulationResult> {
     return Promise.resolve(UtilitySimulationResult.random());
   }
 
