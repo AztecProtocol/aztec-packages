@@ -72,7 +72,7 @@ export class TxPoolIndices {
    * Iterates pending transaction hashes in priority order.
    * @param order - 'desc' for highest priority first, 'asc' for lowest priority first
    */
-  *iteratePendingByPriority(order: 'asc' | 'desc'): Generator<string> {
+  *iteratePendingByPriority(order: 'asc' | 'desc', filter?: (hash: string) => boolean): Generator<string> {
     // Use compareFee from tx_metadata, swap args for descending order
     const feeCompareFn = order === 'desc' ? (a: bigint, b: bigint) => compareFee(b, a) : compareFee;
     const hashCompareFn = order === 'desc' ? (a: string, b: string) => compareTxHash(b, a) : compareTxHash;
@@ -84,7 +84,9 @@ export class TxPoolIndices {
       // Use compareTxHash from tx_metadata, swap args for descending order
       const sortedHashes = [...hashesAtFee].sort(hashCompareFn);
       for (const hash of sortedHashes) {
-        yield hash;
+        if (filter === undefined || filter(hash)) {
+          yield hash;
+        }
       }
     }
   }
@@ -95,21 +97,12 @@ export class TxPoolIndices {
    * @param maxReceivedAt - Only yield txs with receivedAt <= this value
    */
   *iterateEligiblePendingByPriority(order: 'asc' | 'desc', maxReceivedAt: number): Generator<string> {
-    const feeCompareFn = order === 'desc' ? (a: bigint, b: bigint) => compareFee(b, a) : compareFee;
-    const hashCompareFn = order === 'desc' ? (a: string, b: string) => compareTxHash(b, a) : compareTxHash;
+    const filter = (hash: string) => {
+      const meta = this.#metadata.get(hash);
+      return meta !== undefined && meta.receivedAt <= maxReceivedAt;
+    };
 
-    const sortedFees = [...this.#pendingByPriority.keys()].sort(feeCompareFn);
-
-    for (const fee of sortedFees) {
-      const hashesAtFee = this.#pendingByPriority.get(fee)!;
-      const sortedHashes = [...hashesAtFee].sort(hashCompareFn);
-      for (const hash of sortedHashes) {
-        const meta = this.#metadata.get(hash);
-        if (meta && meta.receivedAt <= maxReceivedAt) {
-          yield hash;
-        }
-      }
-    }
+    return this.iteratePendingByPriority(order, filter);
   }
 
   /** Iterates all metadata entries */
