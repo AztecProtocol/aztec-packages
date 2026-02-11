@@ -76,154 +76,6 @@ TYPED_TEST(PairingPointsTests, TestDefault)
     EXPECT_TRUE(native_pp.check()) << "Default PairingPoints are not valid pairing points.";
 }
 
-TYPED_TEST(PairingPointsTests, TaggingMechanismWorks)
-{
-    using Curve = TypeParam;
-    using Builder = typename Curve::Builder;
-    using PairingPoints = PairingPoints<Curve>;
-    using Group = PairingPoints::Group;
-    using Fr = PairingPoints::Fr;
-    using NativeFr = typename Curve::ScalarFieldNative;
-
-    Builder builder;
-
-    Fr scalar_one = Fr::from_witness(&builder, NativeFr::random_element());
-    Fr scalar_two = Fr::from_witness(&builder, NativeFr::random_element());
-    Group P0 = Group::batch_mul({ Group::one(&builder) }, { scalar_one });
-    Group P1 = Group::batch_mul({ Group::one(&builder) }, { scalar_two });
-
-    // Check that no pairing points exist
-    EXPECT_TRUE(builder.pairing_points_tagging.has_single_pairing_point_tag());
-
-    PairingPoints pp_one = { P0, P1 };
-    PairingPoints pp_two = { P0, P1 };
-
-    // Check the tags
-    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_one.tag_index), 0U);
-    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_two.tag_index), 1U);
-
-    // Check that there are two different pairing points in the builder
-    EXPECT_FALSE(builder.pairing_points_tagging.has_single_pairing_point_tag());
-
-    // Merge the tags
-    pp_one.aggregate(pp_two);
-
-    // Check that the tags have been merged
-    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_two.tag_index), 0U);
-    EXPECT_TRUE(builder.pairing_points_tagging.has_single_pairing_point_tag());
-
-    // Create two new pairing points and aggregate with aggregate_multiple
-    PairingPoints pp_three = { P0, P1 };
-    PairingPoints pp_four = { P0, P1 };
-
-    // Check the tags
-    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_three.tag_index), 2U);
-    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_four.tag_index), 3U);
-
-    // Check that there are two different pairing points in the builder
-    EXPECT_FALSE(builder.pairing_points_tagging.has_single_pairing_point_tag());
-
-    // Merge the tags
-    std::vector<PairingPoints> pp_to_be_aggregated = { pp_one, pp_three, pp_four };
-    PairingPoints aggregated_pp = PairingPoints::aggregate_multiple(pp_to_be_aggregated);
-
-    // Check that the tags have been merged
-    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_one.tag_index), 4U);
-    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_two.tag_index), 4U);
-    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_three.tag_index), 4U);
-    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_four.tag_index), 4U);
-    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(aggregated_pp.tag_index), 4U);
-    EXPECT_TRUE(builder.pairing_points_tagging.has_single_pairing_point_tag());
-}
-
-TYPED_TEST(PairingPointsTests, TaggingMechanismFails)
-{
-
-    using Curve = TypeParam;
-    using Builder = typename Curve::Builder;
-    using PairingPoints = PairingPoints<Curve>;
-    using Group = PairingPoints::Group;
-    using Fr = PairingPoints::Fr;
-    using NativeFr = typename Curve::ScalarFieldNative;
-    using Flavor = std::conditional_t<IsMegaBuilder<Builder>, MegaFlavor, UltraFlavor>;
-    using ProverInstance = ProverInstance_<Flavor>;
-
-    Builder builder;
-
-    Fr scalar_one = Fr::from_witness(&builder, NativeFr::random_element());
-    Fr scalar_two = Fr::from_witness(&builder, NativeFr::random_element());
-    Group P0 = Group::batch_mul({ Group::one(&builder) }, { scalar_one });
-    Group P1 = Group::batch_mul({ Group::one(&builder) }, { scalar_two });
-
-    PairingPoints pp_one = { P0, P1 };
-    PairingPoints pp_two = { P0, P1 };
-    PairingPoints pp_three = { P0, P1 };
-
-    // Check the tags
-    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_one.tag_index), 0U);
-    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_two.tag_index), 1U);
-    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_three.tag_index), 2U);
-
-    // Check that there are different pairing points in the builder
-    EXPECT_FALSE(builder.pairing_points_tagging.has_single_pairing_point_tag());
-
-    // Merge the tags
-    pp_one.aggregate(pp_two);
-
-    // Check that the tags have not been merged
-    EXPECT_FALSE(builder.pairing_points_tagging.has_single_pairing_point_tag());
-
-    // Create a ProverInstance, expect failure because pairing points have not been aggregated
-    EXPECT_THROW_WITH_MESSAGE(
-        ProverInstance prover_instance(builder),
-        "Pairing points must all be aggregated together. Either no pairing points should be created, or "
-        "all created pairing points must be aggregated into a single pairing point. Found 2 different "
-        "pairing points");
-
-    // Aggregate pairing points
-    pp_one.aggregate(pp_three);
-
-    // Create a ProverInstance, expect failure because pairing points have not been set to public
-    EXPECT_THROW_WITH_MESSAGE(
-        ProverInstance prover_instance(builder),
-        "Pairing points must be set to public in the circuit before constructing the ProverInstance.");
-
-    stdlib::recursion::honk::DefaultIO<Builder> inputs;
-    inputs.pairing_inputs = pp_one;
-    inputs.set_public();
-
-    // Construct Prover instance successfully
-    ProverInstance prover_instance(builder);
-}
-
-TYPED_TEST(PairingPointsTests, CopyConstructorWorks)
-{
-    using Curve = TypeParam;
-    using Builder = typename Curve::Builder;
-
-    using PairingPoints = PairingPoints<Curve>;
-    using Group = PairingPoints::Group;
-    using Fr = Curve::ScalarField;
-    using NativeFr = Curve::ScalarFieldNative;
-
-    Builder builder;
-
-    Fr scalar_one = Fr::from_witness(&builder, NativeFr::random_element());
-    Fr scalar_two = Fr::from_witness(&builder, NativeFr::random_element());
-    Group P0 = Group::batch_mul({ Group::one(&builder) }, { scalar_one });
-    Group P1 = Group::batch_mul({ Group::one(&builder) }, { scalar_two });
-
-    PairingPoints pp_original = { P0, P1 };
-    PairingPoints pp_copy(pp_original);
-
-    // Check that there is only one tag
-    EXPECT_TRUE(builder.pairing_points_tagging.has_single_pairing_point_tag());
-
-    // Check that the tags are the same
-    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_original.tag_index),
-                 builder.pairing_points_tagging.get_tag(pp_copy.tag_index));
-}
-
 TYPED_TEST(PairingPointsTests, AggregateMultipleWithDuplicatePoints)
 {
     using Curve = TypeParam;
@@ -253,9 +105,6 @@ TYPED_TEST(PairingPointsTests, AggregateMultipleWithDuplicatePoints)
 
     // Circuit should be valid
     EXPECT_TRUE(CircuitChecker::check(builder));
-
-    // Verify tags are properly merged
-    EXPECT_TRUE(builder.pairing_points_tagging.has_single_pairing_point_tag());
 
     // Verify the result is exactly what we expect: (1 + r₁ + r₂)·(P0, P1)
     // We replicate the challenge generation to compute the expected scalar
@@ -327,9 +176,6 @@ TYPED_TEST(PairingPointsTests, PublicInputSerdeRoundTrip)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
-// WORKTODO: maybe remove this once we've use the create_valid_pairing_points helper in more tests, since it already
-// verifies the points are valid. This is a bit redundant with the default test, but it does verify that the constructor
-// from witness points works correctly.
 TYPED_TEST(PairingPointsTests, SrsBasedPairingPointsAreValid)
 {
     using Curve = TypeParam;
@@ -348,6 +194,164 @@ TYPED_TEST(PairingPointsTests, SrsBasedPairingPointsAreValid)
     EXPECT_NE(pps[1].P0().get_value(), pps[2].P0().get_value());
 
     EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+// =============================================================================
+// Tagging mechanism tests (tag tracking, merge, ProverInstance enforcement)
+// =============================================================================
+
+template <typename Builder> class PairingPointsTaggingTests : public testing::Test {
+  public:
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+};
+
+TYPED_TEST_SUITE(PairingPointsTaggingTests, Curves);
+
+TYPED_TEST(PairingPointsTaggingTests, TagCreationAndMerge)
+{
+    using Curve = TypeParam;
+    using Builder = typename Curve::Builder;
+    using PairingPoints = PairingPoints<Curve>;
+    using Group = PairingPoints::Group;
+    using Fr = PairingPoints::Fr;
+    using NativeFr = typename Curve::ScalarFieldNative;
+
+    Builder builder;
+
+    Fr scalar_one = Fr::from_witness(&builder, NativeFr::random_element());
+    Fr scalar_two = Fr::from_witness(&builder, NativeFr::random_element());
+    Group P0 = Group::batch_mul({ Group::one(&builder) }, { scalar_one });
+    Group P1 = Group::batch_mul({ Group::one(&builder) }, { scalar_two });
+
+    // Check that no pairing points exist
+    EXPECT_TRUE(builder.pairing_points_tagging.has_single_pairing_point_tag());
+
+    PairingPoints pp_one = { P0, P1 };
+    PairingPoints pp_two = { P0, P1 };
+
+    // Check the tags
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_one.tag_index), 0U);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_two.tag_index), 1U);
+
+    // Check that there are two different pairing points in the builder
+    EXPECT_FALSE(builder.pairing_points_tagging.has_single_pairing_point_tag());
+
+    // Merge the tags
+    pp_one.aggregate(pp_two);
+
+    // Check that the tags have been merged
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_two.tag_index), 0U);
+    EXPECT_TRUE(builder.pairing_points_tagging.has_single_pairing_point_tag());
+
+    // Create two new pairing points and aggregate with aggregate_multiple
+    PairingPoints pp_three = { P0, P1 };
+    PairingPoints pp_four = { P0, P1 };
+
+    // Check the tags
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_three.tag_index), 2U);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_four.tag_index), 3U);
+
+    // Check that there are two different pairing points in the builder
+    EXPECT_FALSE(builder.pairing_points_tagging.has_single_pairing_point_tag());
+
+    // Merge the tags
+    std::vector<PairingPoints> pp_to_be_aggregated = { pp_one, pp_three, pp_four };
+    PairingPoints aggregated_pp = PairingPoints::aggregate_multiple(pp_to_be_aggregated);
+
+    // Check that the tags have been merged
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_one.tag_index), 4U);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_two.tag_index), 4U);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_three.tag_index), 4U);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_four.tag_index), 4U);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(aggregated_pp.tag_index), 4U);
+    EXPECT_TRUE(builder.pairing_points_tagging.has_single_pairing_point_tag());
+}
+
+TYPED_TEST(PairingPointsTaggingTests, ProverInstanceRejectsUnmergedTags)
+{
+    using Curve = TypeParam;
+    using Builder = typename Curve::Builder;
+    using PairingPoints = PairingPoints<Curve>;
+    using Group = PairingPoints::Group;
+    using Fr = PairingPoints::Fr;
+    using NativeFr = typename Curve::ScalarFieldNative;
+    using Flavor = std::conditional_t<IsMegaBuilder<Builder>, MegaFlavor, UltraFlavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
+
+    Builder builder;
+
+    Fr scalar_one = Fr::from_witness(&builder, NativeFr::random_element());
+    Fr scalar_two = Fr::from_witness(&builder, NativeFr::random_element());
+    Group P0 = Group::batch_mul({ Group::one(&builder) }, { scalar_one });
+    Group P1 = Group::batch_mul({ Group::one(&builder) }, { scalar_two });
+
+    PairingPoints pp_one = { P0, P1 };
+    PairingPoints pp_two = { P0, P1 };
+    PairingPoints pp_three = { P0, P1 };
+
+    // Check the tags
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_one.tag_index), 0U);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_two.tag_index), 1U);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_three.tag_index), 2U);
+
+    // Check that there are different pairing points in the builder
+    EXPECT_FALSE(builder.pairing_points_tagging.has_single_pairing_point_tag());
+
+    // Merge the tags
+    pp_one.aggregate(pp_two);
+
+    // Check that the tags have not been merged
+    EXPECT_FALSE(builder.pairing_points_tagging.has_single_pairing_point_tag());
+
+    // Create a ProverInstance, expect failure because pairing points have not been aggregated
+    EXPECT_THROW_WITH_MESSAGE(
+        ProverInstance prover_instance(builder),
+        "Pairing points must all be aggregated together. Either no pairing points should be created, or "
+        "all created pairing points must be aggregated into a single pairing point. Found 2 different "
+        "pairing points");
+
+    // Aggregate pairing points
+    pp_one.aggregate(pp_three);
+
+    // Create a ProverInstance, expect failure because pairing points have not been set to public
+    EXPECT_THROW_WITH_MESSAGE(
+        ProverInstance prover_instance(builder),
+        "Pairing points must be set to public in the circuit before constructing the ProverInstance.");
+
+    stdlib::recursion::honk::DefaultIO<Builder> inputs;
+    inputs.pairing_inputs = pp_one;
+    inputs.set_public();
+
+    // Construct Prover instance successfully
+    ProverInstance prover_instance(builder);
+}
+
+TYPED_TEST(PairingPointsTaggingTests, CopyPreservesTag)
+{
+    using Curve = TypeParam;
+    using Builder = typename Curve::Builder;
+
+    using PairingPoints = PairingPoints<Curve>;
+    using Group = PairingPoints::Group;
+    using Fr = Curve::ScalarField;
+    using NativeFr = Curve::ScalarFieldNative;
+
+    Builder builder;
+
+    Fr scalar_one = Fr::from_witness(&builder, NativeFr::random_element());
+    Fr scalar_two = Fr::from_witness(&builder, NativeFr::random_element());
+    Group P0 = Group::batch_mul({ Group::one(&builder) }, { scalar_one });
+    Group P1 = Group::batch_mul({ Group::one(&builder) }, { scalar_two });
+
+    PairingPoints pp_original = { P0, P1 };
+    PairingPoints pp_copy(pp_original);
+
+    // Check that there is only one tag
+    EXPECT_TRUE(builder.pairing_points_tagging.has_single_pairing_point_tag());
+
+    // Check that the tags are the same
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_original.tag_index),
+                 builder.pairing_points_tagging.get_tag(pp_copy.tag_index));
 }
 
 } // namespace bb::stdlib::recursion
