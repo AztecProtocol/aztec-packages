@@ -9,7 +9,7 @@ import type { L1TxUtilsConfig } from './config.js';
 import type { IL1TxMetrics, IL1TxStore } from './interfaces.js';
 import { L1TxUtils } from './l1_tx_utils.js';
 import { createViemSigner } from './signer.js';
-import type { Delayer } from './tx_delayer.js';
+import { Delayer } from './tx_delayer.js';
 import type { SigningCallback } from './types.js';
 
 /** Source of signing capability: either a wallet client or a separate client + signer. */

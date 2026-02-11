@@ -47,7 +47,6 @@ import type { P2PClientDeps } from '@aztec/p2p';
 import { MockGossipSubNetwork, getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeConfig, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
-import type { TestProverNode } from '@aztec/prover-node/test';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
@@ -518,7 +517,7 @@ export async function setup(
     }
 
     const sequencerDelayer = sequencerClient?.getDelayer();
-    const proverDelayer = proverNode ? (proverNode as TestProverNode).publisher.l1TxUtils.delayer : undefined;
+    const proverDelayer = proverNode?.getDelayer();
 
     logger.verbose('Creating a pxe...');
     const pxeConfig = { ...getPXEConfig(), ...pxeOpts };

@@ -9,7 +9,7 @@ import { EpochCache } from '@aztec/epoch-cache';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { type Delayer, createDelayer, waitUntilL1Timestamp, wrapClientWithDelayer } from '@aztec/ethereum/l1-tx-utils';
+import { Delayer, createDelayer, waitUntilL1Timestamp, wrapClientWithDelayer } from '@aztec/ethereum/l1-tx-utils';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
@@ -376,7 +376,7 @@ export class EpochsTestContext {
       privateKeyToAccount(this.getNextPrivateKey()),
       this.l1Client.chain,
     );
-    const delayer = createDelayer(this.context.dateProvider, { ethereumSlotDuration: this.L1_BLOCK_TIME_IN_S });
+    const delayer = createDelayer(this.context.dateProvider, { ethereumSlotDuration: this.L1_BLOCK_TIME_IN_S }, {});
     const client = wrapClientWithDelayer(rawClient, delayer);
     expect(await client.getBalance({ address: client.account.address })).toBeGreaterThan(0n);
     return { client, delayer };

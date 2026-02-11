@@ -1,5 +1,5 @@
 import { omit } from '@aztec/foundation/collection';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { DateProvider } from '@aztec/foundation/timer';
 
@@ -9,9 +9,11 @@ import {
   type Hex,
   type PublicClient,
   type TransactionSerializableEIP4844,
+  type TransactionSerialized,
   keccak256,
   parseTransaction,
   publicActions,
+  recoverTransactionAddress,
   serializeTransaction,
   walletActions,
 } from 'viem';
@@ -73,33 +75,9 @@ export function waitUntilL1Timestamp<T extends Client>(
   );
 }
 
-export interface Delayer {
-  /** Returns the hashes of all effectively sent txs. */
-  getSentTxHashes(): Hex[];
-  /** Returns the raw hex for all cancelled txs. */
-  getCancelledTxs(): Hex[];
-  /** Delays the next tx to be sent so it lands on the given L1 block number. */
-  pauseNextTxUntilBlock(l1BlockNumber: number | bigint | undefined): void;
-  /** Delays the next tx to be sent so it lands on the given timestamp. */
-  pauseNextTxUntilTimestamp(l1Timestamp: number | bigint | undefined): void;
-  /** Delays the next tx to be sent indefinitely. */
-  cancelNextTx(): void;
-  /**
-   * Sets max inclusion time into slot. If more than this many seconds have passed
-   * since the last L1 block was mined, then any tx will not be mined in the current
-   * L1 slot but will be deferred for the next one.
-   */
-  setMaxInclusionTimeIntoSlot(seconds: number | bigint | undefined): void;
-}
-
-class DelayerImpl implements Delayer {
-  private logger = createLogger('ethereum:tx_delayer');
-  constructor(
-    public dateProvider: DateProvider,
-    opts: { ethereumSlotDuration: bigint | number },
-  ) {
-    this.ethereumSlotDuration = BigInt(opts.ethereumSlotDuration);
-  }
+/** Manages tx delaying for testing, intercepting sendRawTransaction calls to delay or cancel them. */
+export class Delayer {
+  private logger: Logger;
 
   public maxInclusionTimeIntoSlot: number | undefined = undefined;
   public ethereumSlotDuration: bigint;
@@ -107,37 +85,76 @@ class DelayerImpl implements Delayer {
   public sentTxHashes: Hex[] = [];
   public cancelledTxs: Hex[] = [];
 
+  constructor(
+    public dateProvider: DateProvider,
+    opts: { ethereumSlotDuration: bigint | number },
+    bindings: LoggerBindings,
+  ) {
+    this.ethereumSlotDuration = BigInt(opts.ethereumSlotDuration);
+    this.logger = createLogger('ethereum:tx_delayer', bindings);
+  }
+
+  /** Returns the logger instance used by this delayer. */
+  getLogger(): Logger {
+    return this.logger;
+  }
+
+  /** Returns the hashes of all effectively sent txs. */
   getSentTxHashes() {
     return this.sentTxHashes;
   }
 
+  /** Returns the raw hex for all cancelled txs. */
   getCancelledTxs(): Hex[] {
     return this.cancelledTxs;
   }
 
+  /** Delays the next tx to be sent so it lands on the given L1 block number. */
   pauseNextTxUntilBlock(l1BlockNumber: number | bigint) {
     this.nextWait = { l1BlockNumber: BigInt(l1BlockNumber) };
   }
 
+  /** Delays the next tx to be sent so it lands on the given timestamp. */
   pauseNextTxUntilTimestamp(l1Timestamp: number | bigint) {
     this.nextWait = { l1Timestamp: BigInt(l1Timestamp) };
   }
 
+  /** Delays the next tx to be sent indefinitely. */
   cancelNextTx() {
     this.nextWait = { indefinitely: true };
   }
 
+  /**
+   * Sets max inclusion time into slot. If more than this many seconds have passed
+   * since the last L1 block was mined, then any tx will not be mined in the current
+   * L1 slot but will be deferred for the next one.
+   */
   setMaxInclusionTimeIntoSlot(seconds: number | undefined) {
     this.maxInclusionTimeIntoSlot = seconds;
   }
 }
 
 /**
- * Creates a new DelayerImpl instance. Exposed so callers can create a single shared delayer
+ * Creates a new Delayer instance. Exposed so callers can create a single shared delayer
  * and pass it to multiple `wrapClientWithDelayer` calls.
  */
-export function createDelayer(dateProvider: DateProvider, opts: { ethereumSlotDuration: bigint | number }): Delayer {
-  return new DelayerImpl(dateProvider, opts);
+export function createDelayer(
+  dateProvider: DateProvider,
+  opts: { ethereumSlotDuration: bigint | number },
+  bindings: LoggerBindings,
+): Delayer {
+  return new Delayer(dateProvider, opts, bindings);
+}
+
+/** Tries to recover the sender address from a serialized signed transaction. */
+async function tryRecoverSender(serializedTransaction: Hex): Promise<string | undefined> {
+  try {
+    return await recoverTransactionAddress({
+      serializedTransaction: serializedTransaction as TransactionSerialized,
+    });
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -145,8 +162,7 @@ export function createDelayer(dateProvider: DateProvider, opts: { ethereumSlotDu
  * The delayer intercepts sendRawTransaction calls and delays them based on the delayer's state.
  */
 export function wrapClientWithDelayer<T extends ViemClient>(client: T, delayer: Delayer): T {
-  const logger = createLogger('ethereum:tx_delayer');
-  const delayerImpl = delayer as DelayerImpl;
+  const logger = delayer.getLogger();
 
   // Cast to ExtendedViemWalletClient for the extend chain since it has sendRawTransaction.
   // The sendRawTransaction override is applied to all clients regardless of type.
@@ -162,19 +178,20 @@ export function wrapClientWithDelayer<T extends ViemClient>(client: T, delayer: 
 
         const { serializedTransaction } = args[0];
         const publicClient = client as unknown as PublicClient;
+        const sender = await tryRecoverSender(serializedTransaction);
 
-        if (delayerImpl.nextWait !== undefined) {
+        if (delayer.nextWait !== undefined) {
           // Check if we have been instructed to delay the next tx.
-          const waitUntil = delayerImpl.nextWait;
-          delayerImpl.nextWait = undefined;
+          const waitUntil = delayer.nextWait;
+          delayer.nextWait = undefined;
 
           // Compute the tx hash manually so we emulate sendRawTransaction response
           txHash = computeTxHash(serializedTransaction);
 
           // Cancel tx outright if instructed
           if ('indefinitely' in waitUntil && waitUntil.indefinitely) {
-            logger.info(`Cancelling tx ${txHash}`);
-            delayerImpl.cancelledTxs.push(serializedTransaction);
+            logger.info(`Cancelling tx ${txHash}`, { sender });
+            delayer.cancelledTxs.push(serializedTransaction);
             return Promise.resolve(txHash);
           }
 
@@ -183,28 +200,30 @@ export function wrapClientWithDelayer<T extends ViemClient>(client: T, delayer: 
             'l1BlockNumber' in waitUntil
               ? waitUntilBlock(publicClient, waitUntil.l1BlockNumber - 1n, logger)
               : 'l1Timestamp' in waitUntil
-                ? waitUntilL1Timestamp(publicClient, waitUntil.l1Timestamp - delayerImpl.ethereumSlotDuration, logger)
+                ? waitUntilL1Timestamp(publicClient, waitUntil.l1Timestamp - delayer.ethereumSlotDuration, logger)
                 : undefined;
 
           logger.info(`Delaying tx ${txHash} until ${inspect(waitUntil)}`, {
+            sender,
             argsLen: args.length,
             ...omit(parseTransaction(serializedTransaction), 'data', 'sidecars'),
           });
-        } else if (delayerImpl.maxInclusionTimeIntoSlot !== undefined) {
+        } else if (delayer.maxInclusionTimeIntoSlot !== undefined) {
           // Check if we need to delay txs sent too close to the end of the slot.
           const currentBlock = await publicClient.getBlock({ includeTransactions: false });
           const { timestamp: lastBlockTimestamp, number } = currentBlock;
-          const now = delayerImpl.dateProvider.now();
+          const now = delayer.dateProvider.now();
 
           txHash = computeTxHash(serializedTransaction);
           const logData = {
+            sender,
             ...omit(parseTransaction(serializedTransaction), 'data', 'sidecars'),
             lastBlockTimestamp,
             now,
-            maxInclusionTimeIntoSlot: delayerImpl.maxInclusionTimeIntoSlot,
+            maxInclusionTimeIntoSlot: delayer.maxInclusionTimeIntoSlot,
           };
 
-          if (now / 1000 - Number(lastBlockTimestamp) > delayerImpl.maxInclusionTimeIntoSlot) {
+          if (now / 1000 - Number(lastBlockTimestamp) > delayer.maxInclusionTimeIntoSlot) {
             // If the last block was mined more than `maxInclusionTimeIntoSlot` seconds ago, then we cannot include
             // any txs in the current slot, so we delay the tx until the next slot.
             logger.info(`Delaying inclusion of tx ${txHash} until the next slot since it was sent too late`, logData);
@@ -227,15 +246,15 @@ export function wrapClientWithDelayer<T extends ViemClient>(client: T, delayer: 
                   computedTxHash: txHash,
                 });
               }
-              logger.info(`Sent previously delayed tx ${clientTxHash}`);
-              delayerImpl.sentTxHashes.push(clientTxHash);
+              logger.info(`Sent previously delayed tx ${clientTxHash}`, { sender });
+              delayer.sentTxHashes.push(clientTxHash);
             })
             .catch(err => logger.error(`Error sending tx after delay`, err));
           return Promise.resolve(txHash!);
         } else {
           const txHash = await client.sendRawTransaction(...args);
-          logger.debug(`Sent tx immediately ${txHash}`);
-          delayerImpl.sentTxHashes.push(txHash);
+          logger.debug(`Sent tx immediately ${txHash}`, { sender });
+          delayer.sentTxHashes.push(txHash);
           return txHash;
         }
       },

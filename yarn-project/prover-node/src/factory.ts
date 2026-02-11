@@ -214,6 +214,9 @@ export async function createProverNode(
     l1TxUtils.map(utils => utils.getSenderAddress()),
   );
 
+  // Extract the shared delayer from the first L1TxUtils instance (all instances share the same delayer)
+  const delayer = l1TxUtils[0]?.delayer;
+
   return new ProverNode(
     prover,
     publisherFactory,
@@ -227,5 +230,6 @@ export async function createProverNode(
     l1Metrics,
     proverNodeConfig,
     telemetry,
+    delayer,
   );
 }

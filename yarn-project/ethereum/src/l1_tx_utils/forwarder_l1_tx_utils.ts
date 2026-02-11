@@ -12,7 +12,7 @@ import type { L1SignerSource } from './factory.js';
 import { resolveSignerSource } from './factory.js';
 import type { IL1TxMetrics, IL1TxStore } from './interfaces.js';
 import { L1TxUtils } from './l1_tx_utils.js';
-import type { Delayer } from './tx_delayer.js';
+import { Delayer } from './tx_delayer.js';
 import type { L1BlobInputs, L1TxConfig, L1TxRequest, SigningCallback } from './types.js';
 
 /**

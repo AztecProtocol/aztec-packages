@@ -27,7 +27,7 @@ async function createSharedDeps(
   deps: {
     telemetry: TelemetryClient;
     logger?: ReturnType<typeof createLogger>;
-    dateProvider?: DateProvider;
+    dateProvider: DateProvider;
   },
 ) {
   const logger = deps.logger ?? createLogger('l1-tx-utils');
@@ -43,8 +43,8 @@ async function createSharedDeps(
 
   // Create a single shared delayer for all L1TxUtils instances in this group
   const delayer =
-    config.enableDelayer && config.ethereumSlotDuration !== undefined && deps.dateProvider
-      ? createDelayer(deps.dateProvider, { ethereumSlotDuration: config.ethereumSlotDuration })
+    config.enableDelayer && config.ethereumSlotDuration !== undefined
+      ? createDelayer(deps.dateProvider, { ethereumSlotDuration: config.ethereumSlotDuration }, logger.getBindings())
       : undefined;
 
   return { logger, store, metrics, dateProvider: deps.dateProvider, delayer };
@@ -60,7 +60,7 @@ export async function createL1TxUtilsFromWallets(
   deps: {
     telemetry: TelemetryClient;
     logger?: ReturnType<typeof createLogger>;
-    dateProvider?: DateProvider;
+    dateProvider: DateProvider;
     kzg?: BlobKzgInstance;
   },
 ) {
@@ -81,7 +81,7 @@ export async function createL1TxUtilsFromSigners(
   deps: {
     telemetry: TelemetryClient;
     logger?: ReturnType<typeof createLogger>;
-    dateProvider?: DateProvider;
+    dateProvider: DateProvider;
     kzg?: BlobKzgInstance;
   },
 ) {
@@ -120,7 +120,7 @@ export async function createForwarderL1TxUtilsFromWallets(
   deps: {
     telemetry: TelemetryClient;
     logger?: ReturnType<typeof createLogger>;
-    dateProvider?: DateProvider;
+    dateProvider: DateProvider;
     kzg?: BlobKzgInstance;
   },
 ) {
@@ -144,7 +144,7 @@ export async function createForwarderL1TxUtilsFromSigners(
   deps: {
     telemetry: TelemetryClient;
     logger?: ReturnType<typeof createLogger>;
-    dateProvider?: DateProvider;
+    dateProvider: DateProvider;
     kzg?: BlobKzgInstance;
   },
 ) {

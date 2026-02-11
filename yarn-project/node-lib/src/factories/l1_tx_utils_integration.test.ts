@@ -3,6 +3,7 @@ import { getAddressFromPrivateKey } from '@aztec/ethereum/account';
 import type { ViemClient } from '@aztec/ethereum/types';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import type { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { KeystoreManager } from '@aztec/node-keystore';
@@ -18,6 +19,7 @@ describe('L1TxUtils Integration - Publisher Deduplication', () => {
   let kvStore: AztecAsyncKVStore;
   let mockClient: ViemClient;
   let mockTelemetry: TelemetryClient;
+  let mockDateProvider: DateProvider;
   let count = 0;
 
   const mockConfig = {
@@ -45,6 +47,9 @@ describe('L1TxUtils Integration - Publisher Deduplication', () => {
         createUpDownCounter: () => ({ add: () => {} }),
       }),
     } as any;
+
+    // Mock DateProvider
+    mockDateProvider = { now: () => Date.now(), nowInSeconds: () => Math.floor(Date.now() / 1000) } as DateProvider;
   });
 
   afterEach(async () => {
@@ -83,6 +88,7 @@ describe('L1TxUtils Integration - Publisher Deduplication', () => {
 
     const l1TxUtils = await createL1TxUtilsFromSigners(mockClient, allPublisherSigners, mockConfig, {
       telemetry: mockTelemetry,
+      dateProvider: mockDateProvider,
       kzg: Blob.getViemKzgInstance(),
     });
 
@@ -143,6 +149,7 @@ describe('L1TxUtils Integration - Publisher Deduplication', () => {
 
     const l1TxUtils = await createL1TxUtilsFromSigners(mockClient, allPublisherSigners, mockConfig, {
       telemetry: mockTelemetry,
+      dateProvider: mockDateProvider,
       kzg: Blob.getViemKzgInstance(),
     });
 

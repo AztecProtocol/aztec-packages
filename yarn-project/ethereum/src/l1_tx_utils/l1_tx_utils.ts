@@ -3,7 +3,7 @@ import { maxBigint } from '@aztec/foundation/bigint';
 import { merge, pick } from '@aztec/foundation/collection';
 import { InterruptError, TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -31,7 +31,7 @@ import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './config.js';
 import { MAX_L1_TX_LIMIT } from './constants.js';
 import type { IL1TxMetrics, IL1TxStore } from './interfaces.js';
 import { ReadOnlyL1TxUtils } from './readonly_l1_tx_utils.js';
-import { type Delayer, createDelayer, wrapClientWithDelayer } from './tx_delayer.js';
+import { Delayer, createDelayer, wrapClientWithDelayer } from './tx_delayer.js';
 import {
   DroppedTransactionError,
   type L1BlobInputs,
@@ -50,7 +50,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
   protected nonceManager: NonceManager;
   protected txs: L1TxState[] = [];
   /** Tx delayer for testing. Only set when enableDelayer config is true. */
-  public delayer: Delayer | undefined;
+  public delayer?: Delayer;
   /** KZG instance for blob operations. */
   protected kzg?: BlobKzgInstance;
 
@@ -73,14 +73,15 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
     // Set up delayer: use provided one or create new
     if (config?.enableDelayer && config?.ethereumSlotDuration) {
-      this.delayer = delayer ?? this.createDelayer({ ethereumSlotDuration: config.ethereumSlotDuration });
-      this.client = this.wrapClientWithDelayer(this.client, this.delayer);
+      this.delayer =
+        delayer ?? this.createDelayer({ ethereumSlotDuration: config.ethereumSlotDuration }, logger.getBindings());
+      this.client = wrapClientWithDelayer(this.client, this.delayer);
       if (config.txDelayerMaxInclusionTimeIntoSlot !== undefined) {
         this.delayer.setMaxInclusionTimeIntoSlot(config.txDelayerMaxInclusionTimeIntoSlot);
       }
     } else if (delayer) {
       // Delayer provided but enableDelayer not set — just store it without wrapping
-      // This shouldn't normally happen but handle gracefully
+      logger.warn('Delayer provided but enableDelayer config is not set; delayer will not be used');
       this.delayer = delayer;
     }
   }
@@ -763,12 +764,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
   }
 
   /** Creates a new delayer instance. */
-  protected createDelayer(opts: { ethereumSlotDuration: bigint | number }): Delayer {
-    return createDelayer(this.dateProvider, opts);
-  }
-
-  /** Wraps the client with delayer logic. */
-  protected wrapClientWithDelayer<T extends ViemClient>(client: T, delayer: Delayer): T {
-    return wrapClientWithDelayer(client, delayer);
+  protected createDelayer(opts: { ethereumSlotDuration: bigint | number }, bindings: LoggerBindings): Delayer {
+    return createDelayer(this.dateProvider, opts, bindings);
   }
 }
