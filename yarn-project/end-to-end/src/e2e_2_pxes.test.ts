@@ -5,12 +5,12 @@ import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
-import { TestWallet } from '@aztec/test-wallet/server';
 
 import { expect, jest } from '@jest/globals';
 
 import { deployToken, expectTokenBalance, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup, setupPXEAndGetWallet } from './fixtures/utils.js';
+import { TestWallet } from './test-wallet/test_wallet.js';
 
 const TIMEOUT = 300_000;
 

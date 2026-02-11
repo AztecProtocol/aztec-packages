@@ -5,7 +5,6 @@ import { sleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import type { IVCProofVerificationResult } from '@aztec/stdlib/interfaces/server';
 import type { Tx } from '@aztec/stdlib/tx';
-import { type TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import '@jest/globals';
 import { mkdir, writeFile } from 'fs/promises';
@@ -21,6 +20,8 @@ import {
 } from 'zlib';
 
 import { FullProverTest } from '../fixtures/e2e_prover_test.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
+import { proveInteraction } from '../test-wallet/utils.js';
 
 // Set a 3 minute timeout.
 const TIMEOUT = 180_000;

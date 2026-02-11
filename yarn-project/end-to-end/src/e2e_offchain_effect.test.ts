@@ -6,12 +6,12 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { OffchainEffectContract, type TestEvent } from '@aztec/noir-test-contracts.js/OffchainEffect';
 import { MessageContext } from '@aztec/stdlib/logs';
 import { OFFCHAIN_MESSAGE_IDENTIFIER } from '@aztec/stdlib/tx';
-import type { TestWallet } from '@aztec/test-wallet/server';
-import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
+import { proveInteraction } from './test-wallet/utils.js';
 
 const TIMEOUT = 120_000;
 

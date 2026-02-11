@@ -48,24 +48,26 @@ For development:
 
 The preprocessing system uses these environment variables:
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `RELEASE_TYPE` | Release type: `nightly`, `devnet`, `testnet`, `mainnet`, `ignition` | `nightly` |
-| `NIGHTLY_TAG` | Version for nightly builds (falls back to `COMMIT_TAG`) | `0.0.0-nightly.0` |
-| `DEVNET_TAG` | Version for devnet builds | `3.0.0-devnet.5` |
-| `TESTNET_TAG` | Version for testnet builds | `2.1.11` |
-| `MAINNET_TAG` | Version for mainnet/ignition builds | `2.1.11` |
-| `COMMIT_TAG` | Legacy variable, used as fallback for `NIGHTLY_TAG` | `next` |
+| Variable       | Description                                                         | Default           |
+| -------------- | ------------------------------------------------------------------- | ----------------- |
+| `RELEASE_TYPE` | Release type: `nightly`, `devnet`, `testnet`, `mainnet`, `ignition` | `nightly`         |
+| `NIGHTLY_TAG`  | Version for nightly builds (falls back to `COMMIT_TAG`)             | `0.0.0-nightly.0` |
+| `DEVNET_TAG`   | Version for devnet builds                                           | `3.0.0-devnet.5`  |
+| `TESTNET_TAG`  | Version for testnet builds                                          | `2.1.11`          |
+| `MAINNET_TAG`  | Version for mainnet/ignition builds                                 | `2.1.11`          |
+| `COMMIT_TAG`   | Legacy variable, used as fallback for `NIGHTLY_TAG`                 | `next`            |
 
 ### Preprocessing Macros
 
 **Release-type-aware macros:**
+
 - `#release_version` - Resolves to the version for the current `RELEASE_TYPE`:
   - `nightly` → `NIGHTLY_TAG`, `devnet` → `DEVNET_TAG`, `testnet` → `TESTNET_TAG`, `mainnet`/`ignition` → `MAINNET_TAG`
 - `#release_network` - Resolves to the network name for CLI `--network` flag:
   - `nightly` → `local-network`, `devnet` → `devnet`, `testnet` → `testnet`, `mainnet`/`ignition` → `mainnet`
 
 **Legacy macros:**
+
 - `#include_aztec_version` - Uses `COMMIT_TAG`
 - `#include_devnet_version`, `#include_testnet_version`, `#include_mainnet_version` - Version-specific macros
 
@@ -86,6 +88,7 @@ Default content
 **Supported conditions** (matching `RELEASE_TYPE` values): `nightly`, `devnet`, `testnet`, `mainnet`, `ignition`
 
 **Notes:**
+
 - Conditional blocks are processed before version macro substitution (so you can use version macros inside conditionals)
 - Nested conditionals are not supported
 - The `#else` block is optional
@@ -125,7 +128,8 @@ Two API reference systems generate documentation from source code:
 - **TypeScript API** (`static/typescript-api/`) - Generated from `yarn-project/` packages using TypeDoc
 
 The TypeScript API generation is configured in `scripts/typescript_api_generation/config.json` and documents:
-- Client SDKs: `aztec.js`, `accounts`, `pxe`, `wallet-sdk`, `test-wallet`, `entrypoints`
+
+- Client SDKs: `aztec.js`, `accounts`, `pxe`, `wallet-sdk`, `wallets`, `entrypoints`
 - Core Libraries: `stdlib`, `foundation`, `constants`
 
 ### Versioning System

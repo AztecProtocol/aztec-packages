@@ -107,7 +107,7 @@
       "path": "../../../../yarn-project/telemetry-client"
     },
     {
-      "path": "../../../../yarn-project/test-wallet"
+      "path": "../../../../yarn-project/wallets"
     },
     {
       "path": "../../../../yarn-project/validator-client"

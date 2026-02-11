@@ -4,11 +4,11 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { Fq } from '@aztec/foundation/curves/bn254';
 import { sleep } from '@aztec/foundation/sleep';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import type { Hex } from 'viem';
 
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { FeesTest } from './fees_test.js';
 
 jest.setTimeout(300_000);

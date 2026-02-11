@@ -36,7 +36,7 @@ We want to add a few more dependencies now before we start:
 
 ```bash
 cd hardhat-aztec-example
-yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/accounts@#include_version_without_prefix @aztec/stdlib@#include_version_without_prefix @aztec/test-wallet@#include_version_without_prefix tsx
+yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/accounts@#include_version_without_prefix @aztec/stdlib@#include_version_without_prefix @aztec/wallets@#include_version_without_prefix tsx
 ```
 
 Now start the local network in another terminal:
@@ -460,12 +460,10 @@ npx hardhat run scripts/index.ts --network localhost
 A complete private NFT bridge with:
 
 1. **L1 Contracts** (Solidity)
-
    - `SimpleNFT`: Basic ERC721 for testing
    - `NFTPortal`: Locks/unlocks NFTs and handles L1↔L2 messaging
 
 2. **L2 Contracts** (Noir)
-
    - `NFTPunk`: Private NFT with encrypted ownership using `PrivateSet`
    - `NFTBridge`: Claims L1 messages and mints NFTs privately
 
