@@ -105,6 +105,12 @@ variable "AZTEC_DOCKER_IMAGE" {
   default     = "aztecprotocol/aztec:staging"
 }
 
+variable "PROVER_AGENT_DOCKER_IMAGE" {
+  description = "Docker image for prover agents (includes baked-in CRS). Defaults to AZTEC_DOCKER_IMAGE."
+  type        = string
+  default     = ""
+}
+
 variable "VALIDATOR_VALUES" {
   description = "The values file to apply"
   type        = string

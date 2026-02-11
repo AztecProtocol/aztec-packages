@@ -84,6 +84,11 @@ locals {
     tag        = split(":", var.AZTEC_DOCKER_IMAGE)[1]
   }
 
+  prover_agent_image = var.PROVER_AGENT_DOCKER_IMAGE != "" ? {
+    repository = split(":", var.PROVER_AGENT_DOCKER_IMAGE)[0]
+    tag        = split(":", var.PROVER_AGENT_DOCKER_IMAGE)[1]
+  } : local.aztec_image
+
   # Detect local kind context (e.g., "kind-kind") to gate Service types
   is_kind = can(regex("^kind", var.K8S_CLUSTER_CONTEXT))
 
@@ -328,6 +333,9 @@ locals {
           "broker.node.logLevel"                                = var.LOG_LEVEL
           "broker.node.env.BOOTSTRAP_NODES"                     = "asdf"
           "broker.node.env.PROVER_BROKER_DEBUG_REPLAY_ENABLED"  = var.PROVER_BROKER_DEBUG_REPLAY_ENABLED
+          "agent.node.image.repository"                          = local.prover_agent_image.repository
+          "agent.node.image.tag"                                 = local.prover_agent_image.tag
+          "agent.node.env.CRS_PATH"                              = "/usr/src/crs"
           "agent.node.proverRealProofs"                         = var.PROVER_REAL_PROOFS
           "agent.node.env.PROVER_AGENT_POLL_INTERVAL_MS"        = var.PROVER_AGENT_POLL_INTERVAL_MS
           "agent.replicaCount"                                  = var.PROVER_REPLICAS
