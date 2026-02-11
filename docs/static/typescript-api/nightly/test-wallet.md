@@ -1,21 +1,88 @@
 # @aztec/test-wallet
 
-Version: v4.0.0-nightly.20260210
+Version: v4.0.0-nightly.20260211
 
 ## Quick Import Reference
 
 ```typescript
 import {
+  AztecNodeProxy,
   ProvenTx,
   TestWallet,
   deployFundedSchnorrAccounts,
   proveInteraction,
-  registerInitialLocalNetworkAccountsInWallet,
   // ... and more
 } from '@aztec/test-wallet';
 ```
 
 ## Classes
+
+### AztecNodeProxy
+
+Mutable wrapper around an AztecNode that forwards all calls to the current target. Allows swapping the underlying node at runtime via updateTargetNode, which is useful for tests that need to redirect a wallet from one node to another without recreating it.
+
+Extends: `AztecNode`
+
+**Constructor**
+```typescript
+new AztecNodeProxy(target: AztecNode)
+```
+
+**Methods**
+- `findLeavesIndexes(referenceBlock: BlockHash | BlockNumber | "latest", treeId: MerkleTreeId, leafValues: Fr[]) => Promise<DataInBlock<bigint> | undefined[]>` - Find the indexes of the given leaves in the given tree along with a block metadata pointing to the block in which the leaves were inserted.
+- `getAllowedPublicSetup() => Promise<AllowedElement[]>` - Returns the list of allowed public setup elements configured for this node.
+- `getBlock(blockParameter: BlockHash | BlockNumber | "latest") => Promise<L2Block | undefined>` - Get a block specified by its block number or 'latest'.
+- `getBlockByArchive(archive: Fr) => Promise<L2Block | undefined>` - Get a block specified by its archive root.
+- `getBlockByHash(blockHash: BlockHash) => Promise<L2Block | undefined>` - Get a block specified by its hash.
+- `getBlockHashMembershipWitness(referenceBlock: BlockHash | BlockNumber | "latest", blockHash: BlockHash) => Promise<MembershipWitness<30> | undefined>` - Returns a membership witness for a given block hash in the archive tree. Block hashes are the leaves of the archive tree. Each time a new block is added to the chain, its block hash is appended as a new leaf to the archive tree. This method finds the membership witness (leaf index and sibling path) for a given block hash, which can be used to prove that a specific block exists in the chain's history.
+- `getBlockHeader(block?: BlockHash | BlockNumber | "latest") => Promise<BlockHeader | undefined>` - Returns the block header for a given block number, block hash, or 'latest'.
+- `getBlockHeaderByArchive(archive: Fr) => Promise<BlockHeader | undefined>` - Get a block header specified by its archive root.
+- `getBlockNumber() => Promise<BlockNumber>` - Method to fetch the latest block number synchronized by the node.
+- `getBlocks(from: BlockNumber, limit: number) => Promise<L2Block[]>` - Method to request blocks. Will attempt to return all requested blocks but will return only those available.
+- `getChainId() => Promise<number>` - Method to fetch the chain id of the base-layer for the rollup.
+- `getCheckpointedBlockNumber() => Promise<BlockNumber>` - Fetches the latest checkpointed block number.
+- `getCheckpointedBlocks(from: BlockNumber, limit: number) => Promise<CheckpointedL2Block[]>`
+- `getCheckpoints(checkpointNumber: CheckpointNumber, limit: number) => Promise<PublishedCheckpoint[]>` - Retrieves a collection of checkpoints.
+- `getContract(address: AztecAddress) => Promise<ContractInstanceWithAddress | undefined>` - Returns a publicly deployed contract instance given its address.
+- `getContractClass(id: Fr) => Promise<ContractClassPublic | undefined>` - Returns a registered contract class given its id.
+- `getContractClassLogs(filter: LogFilter) => Promise<GetContractClassLogsResponse>` - Gets contract class logs based on the provided filter.
+- `getCurrentMinFees() => Promise<GasFees>` - Method to fetch the current min fees.
+- `getEncodedEnr() => Promise<string | undefined>` - Returns the ENR of this node for peer discovery, if available.
+- `getL1ContractAddresses() => Promise<L1ContractAddresses>` - Method to fetch the currently deployed l1 contract addresses.
+- `getL1ToL2MessageBlock(l1ToL2Message: Fr) => Promise<BlockNumber | undefined>` - Returns the L2 block number in which this L1 to L2 message becomes available, or undefined if not found.
+- `getL1ToL2MessageMembershipWitness(referenceBlock: BlockHash | BlockNumber | "latest", l1ToL2Message: Fr) => Promise<[] | undefined>` - Returns the index and a sibling path for a leaf in the committed l1 to l2 data tree.
+- `getL2Tips() => Promise<L2Tips>` - Returns the tips of the L2 chain.
+- `getL2ToL1Messages(epoch: EpochNumber) => Promise<Fr[][][][]>` - Returns all the L2 to L1 messages in an epoch.
+- `getLowNullifierMembershipWitness(referenceBlock: BlockHash | BlockNumber | "latest", nullifier: Fr) => Promise<NullifierMembershipWitness | undefined>` - Returns a low nullifier membership witness for a given nullifier at a given block.
+- `getMaxPriorityFees() => Promise<GasFees>` - Method to fetch the current max priority fee of txs in the mempool.
+- `getNodeInfo() => Promise<NodeInfo>` - Returns the information about the server's node. Includes current Node version, compatible Noir version, L1 chain identifier, protocol version, and L1 address of the rollup contract.
+- `getNodeVersion() => Promise<string>` - Method to fetch the version of the package.
+- `getNoteHashMembershipWitness(referenceBlock: BlockHash | BlockNumber | "latest", noteHash: Fr) => Promise<MembershipWitness<42> | undefined>` - Returns a membership witness for a given note hash at a given block.
+- `getNullifierMembershipWitness(referenceBlock: BlockHash | BlockNumber | "latest", nullifier: Fr) => Promise<NullifierMembershipWitness | undefined>` - Returns a nullifier membership witness for a given nullifier at a given block.
+- `getPendingTxCount() => Promise<number>` - Retrieves the number of pending txs
+- `getPendingTxs(limit?: number, after?: TxHash) => Promise<Tx[]>` - Method to retrieve pending txs.
+- `getPrivateLogsByTags(tags: SiloedTag[], page?: number, referenceBlock?: BlockHash) => Promise<TxScopedL2Log[][]>` - Gets private logs that match any of the `tags`. For each tag, an array of matching logs is returned. An empty array implies no logs match that tag.
+- `getProtocolContractAddresses() => Promise<ProtocolContractAddresses>` - Method to fetch the protocol contract addresses.
+- `getProvenBlockNumber() => Promise<BlockNumber>` - Fetches the latest proven block number.
+- `getPublicDataWitness(referenceBlock: BlockHash | BlockNumber | "latest", leafSlot: Fr) => Promise<PublicDataWitness | undefined>` - Returns a public data tree witness for a given leaf slot at a given block.
+- `getPublicLogs(filter: LogFilter) => Promise<GetPublicLogsResponse>` - Gets public logs based on the provided filter.
+- `getPublicLogsByTagsFromContract(contractAddress: AztecAddress, tags: Tag[], page?: number, referenceBlock?: BlockHash) => Promise<TxScopedL2Log[][]>` - Gets public logs that match any of the `tags` from the specified contract. For each tag, an array of matching logs is returned. An empty array implies no logs match that tag.
+- `getPublicStorageAt(referenceBlock: BlockHash | BlockNumber | "latest", contract: AztecAddress, slot: Fr) => Promise<Fr>` - Gets the storage value at the given contract storage slot.
+- `getTxByHash(txHash: TxHash) => Promise<Tx | undefined>` - Method to retrieve a single pending tx.
+- `getTxEffect(txHash: TxHash) => Promise<IndexedTxEffect | undefined>` - Gets a tx effect.
+- `getTxReceipt(txHash: TxHash) => Promise<TxReceipt>` - Fetches a transaction receipt for a given transaction hash. Returns a mined receipt if it was added to the chain, a pending receipt if it's still in the mempool of the connected Aztec node, or a dropped receipt if not found in the connected Aztec node.
+- `getTxsByHash(txHashes: TxHash[]) => Promise<Tx[]>` - Method to retrieve multiple pending txs.
+- `getValidatorsStats() => Promise<ValidatorsStats>` - Returns stats for validators if enabled.
+- `getValidatorStats(validatorAddress: EthAddress, fromSlot?: SlotNumber, toSlot?: SlotNumber) => Promise<SingleValidatorStats | undefined>` - Returns stats for a single validator if enabled.
+- `getVersion() => Promise<number>` - Method to fetch the version of the rollup the node is connected to.
+- `getWorldStateSyncStatus() => Promise<WorldStateSyncStatus>` - Returns the sync status of the node's world state
+- `isL1ToL2MessageSynced(l1ToL2Message: Fr) => Promise<boolean>` - Returns whether an L1 to L2 message is synced by archiver.
+- `isReady() => Promise<boolean>` - Method to determine if the node is ready to accept transactions.
+- `isValidTx(tx: Tx, options?: { isSimulation?: boolean; skipFeeEnforcement?: boolean }) => Promise<TxValidationResult>` - Returns true if the transaction is valid for inclusion at the current state. Valid transactions can be made invalid by *other* transactions if e.g. they emit the same nullifiers, or come become invalid due to e.g. the include_by_timestamp property.
+- `registerContractFunctionSignatures(functionSignatures: string[]) => Promise<void>` - Registers contract function signatures for debugging purposes.
+- `sendTx(tx: Tx) => Promise<void>` - Method to submit a transaction to the p2p pool.
+- `simulatePublicCalls(tx: Tx, skipFeeEnforcement?: boolean) => Promise<PublicSimulationOutput>` - Simulates the public part of a transaction with the current state. This currently just checks that the transaction execution succeeds.
+- `updateTargetNode(node: AztecNode) => void` - Updates the underlying node that this reference points to.
 
 ### ProvenTx
 
@@ -78,7 +145,7 @@ Extends: `BaseTestWallet`
 
 **Constructor**
 ```typescript
-new TestWallet(pxe: PXE, aztecNode: AztecNode)
+new TestWallet(pxe: PXE, nodeRef: AztecNodeProxy)
 ```
 
 **Properties**
@@ -128,6 +195,7 @@ new TestWallet(pxe: PXE, aztecNode: AztecNode)
 - `simulateViaEntrypoint(executionPayload: ExecutionPayload, from: AztecAddress, feeOptions: FeeOptions, skipTxValidation?: boolean, skipFeeEnforcement?: boolean) => Promise<TxSimulationResult>` - Simulates calls through the standard PXE path (account entrypoint).
 - `stop() => Promise<void>` - Stops the internal job queue. This function is typically used when tearing down tests.
 - `sync() => Promise<void>` - Triggers a sync of the wallet with the node to update the latest block header. Blocks until the sync is complete.
+- `updateNode(node: AztecNode) => void` - Updates the underlying node that this wallet and its PXE communicate with.
 
 ## Interfaces
 
@@ -173,14 +241,17 @@ This package references types from other Aztec packages:
 **@aztec/entrypoints**
 - `AccountFeePaymentMethodOptions`, `ChainInfo`
 
+**@aztec/ethereum**
+- `L1ContractAddresses`
+
 **@aztec/foundation**
-- `Buffer32`, `BufferReader`, `FieldsOf`, `Fq`, `Fr`, `Logger`
+- `BlockNumber`, `Buffer32`, `BufferReader`, `CheckpointNumber`, `EpochNumber`, `EthAddress`, `FieldsOf`, `Fq`, `Fr`, `Logger`, `MembershipWitness`, `SlotNumber`
 
 **@aztec/pxe**
 - `PXE`, `PXEConfig`, `PXECreationOptions`
 
 **@aztec/stdlib**
-- `AuthWitness`, `AztecAddress`, `AztecNode`, `BlockHeader`, `ChonkProof`, `ContractArtifact`, `ContractClassLog`, `ContractClassLogFields`, `ContractInstanceWithAddress`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `GasSettings`, `GetPublicLogsResponse`, `HashedValues`, `L2LogsSource`, `NoteDao`, `NotesFilter`, `OffchainEffect`, `PrivateKernelTailCircuitPublicInputs`, `ProvingStats`, `PublicCallRequestWithCalldata`, `TopicType`, `Tx`, `TxExecutionRequest`, `TxHash`, `TxProfileResult`, `TxReceipt`, `TxSimulationResult`, `TxStats`, `UtilitySimulationResult`
+- `AllowedElement`, `AuthWitness`, `AztecAddress`, `AztecNode`, `BlockHash`, `BlockHeader`, `CheckpointedL2Block`, `ChonkProof`, `ContractArtifact`, `ContractClassLog`, `ContractClassLogFields`, `ContractClassPublic`, `ContractInstanceWithAddress`, `DataInBlock`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `GasFees`, `GasSettings`, `GetContractClassLogsResponse`, `GetPublicLogsResponse`, `HashedValues`, `IndexedTxEffect`, `L2Block`, `L2LogsSource`, `L2Tips`, `LogFilter`, `MerkleTreeId`, `NodeInfo`, `NoteDao`, `NotesFilter`, `NullifierMembershipWitness`, `OffchainEffect`, `PrivateKernelTailCircuitPublicInputs`, `ProtocolContractAddresses`, `ProvingStats`, `PublicCallRequestWithCalldata`, `PublicDataWitness`, `PublicSimulationOutput`, `PublishedCheckpoint`, `SiloedTag`, `SingleValidatorStats`, `Tag`, `TopicType`, `Tx`, `TxExecutionRequest`, `TxHash`, `TxProfileResult`, `TxReceipt`, `TxScopedL2Log`, `TxSimulationResult`, `TxStats`, `TxValidationResult`, `UtilitySimulationResult`, `ValidatorsStats`, `WorldStateSyncStatus`
 
 **@aztec/wallet-sdk**
 - `FeeOptions`, `T`, `W`

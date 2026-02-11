@@ -69,8 +69,10 @@ export async function cleanupHADatabase(pool: Pool, logger?: Logger): Promise<vo
   try {
     // Drop all HA tables
     await pool.query('DROP TABLE IF EXISTS validator_duties CASCADE');
-    await pool.query('DROP TABLE IF EXISTS slashing_protection CASCADE');
     await pool.query('DROP TABLE IF EXISTS schema_version CASCADE');
+    // Drop migration tracking table (node-pg-migrate uses 'pgmigrations' by default)
+    // This ensures migrations will run fresh on next startup
+    await pool.query('DROP TABLE IF EXISTS pgmigrations CASCADE');
 
     logger?.info('HA database cleaned up successfully');
   } catch (error) {

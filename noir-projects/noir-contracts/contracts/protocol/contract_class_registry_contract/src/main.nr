@@ -58,7 +58,7 @@ pub contract ContractClassRegistry {
         context.push_nullifier(contract_class_id.to_field());
 
         // Broadcast class info including public bytecode
-        aztec::oracle::debug_log::debug_log_format(
+        aztec::oracle::logging::debug_log_format(
             "ContractClassPublished: {}",
             [
                 contract_class_id.to_field(),

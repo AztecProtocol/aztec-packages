@@ -112,7 +112,7 @@ describe('a test that passively observes the network in the presence of network 
       logger: debugLogger,
       replicas: 1,
       txIntervalSeconds: 10,
-      followChain: 'PENDING',
+      followChain: 'CHECKPOINTED',
     });
   });
 

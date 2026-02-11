@@ -31,6 +31,7 @@
 <li><a href="#expose_to_public">expose_to_public</a></li>
 <li><a href="#expose_to_public">expose_to_public</a></li>
 <li><a href="#innermost">innermost</a></li>
+<li><a href="#is_non_revertible">is_non_revertible</a></li>
 <li><a href="#new">new</a></li>
 </ul>
 <h3>Trait implementations</h3>
@@ -81,6 +82,12 @@
 </div><h3><code class="code-header">impl&lt;T&gt; <a href="../../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;T&gt;&gt;</code></h3>
 
 <div class="padded-methods"><code id="innermost" class="code-header">pub fn <a href="#innermost"><span class="fn">innermost</span></a>(self) -> T</code>
+
+<code id="is_non_revertible" class="code-header">pub fn <a href="#is_non_revertible"><span class="fn">is_non_revertible</span></a>(
+    self,
+    is_private_only: <a href="../../../../std/primitive.bool.html" class="primitive">bool</a>,
+    claimed_revertible_counter: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>,
+) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code>
 
 </div><h3><code class="code-header">impl&lt;T&gt; <a href="../../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;T&gt;</code></h3>
 

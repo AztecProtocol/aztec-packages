@@ -15,6 +15,7 @@ import {
   makeBlockProposal,
   makeCheckpointHeader,
   makeCheckpointProposal,
+  mockTx,
 } from '@aztec/stdlib/testing';
 import { type Tx, TxArray, TxHashArray, type TxValidator } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -123,6 +124,97 @@ describe('LibP2PService', () => {
 
       // Verify that the peer was penalized
       expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.LowToleranceError);
+    });
+  });
+
+  describe('handleGossipedTx - propagation based on pool acceptance', () => {
+    let txService: TestLibP2PService;
+    let txPeerManager: MockProxy<PeerManagerInterface>;
+    let txPeerId: MockProxy<PeerId>;
+    let txReportSpy: jest.Mock;
+    let txPool: MockProxy<TxPoolV2>;
+
+    beforeEach(() => {
+      txPeerManager = mock<PeerManagerInterface>();
+      txPeerId = mock<PeerId>({
+        toString: () => MOCK_PEER_ID,
+      });
+      txReportSpy = jest.fn();
+      txPool = mock<TxPoolV2>();
+
+      const txNode = mock<PubSubLibp2p>();
+      txNode.services = {
+        pubsub: {
+          reportMessageValidationResult: txReportSpy,
+        },
+      } as any;
+
+      txService = createTestLibP2PService({
+        peerManager: txPeerManager,
+        node: txNode,
+        txPool,
+      });
+      // Make validatePropagatedTx pass by default
+      txService.validatePropagatedTxMock.mockResolvedValue(true);
+    });
+
+    it('should propagate (Accept) when pool accepts the transaction', async () => {
+      const tx = await mockTx();
+      const txHash = tx.getTxHash();
+
+      txPool.addPendingTxs.mockResolvedValue({
+        accepted: [txHash],
+        ignored: [],
+        rejected: [],
+      });
+
+      await txService.handleGossipedTx(tx.toBuffer(), 'test-msg-id', txPeerId);
+
+      expect(txReportSpy).toHaveBeenCalledWith('test-msg-id', MOCK_PEER_ID, TopicValidatorResult.Accept);
+      expect(txPool.addPendingTxs).toHaveBeenCalled();
+    });
+
+    it('should NOT propagate (Ignore) when pool ignores the transaction', async () => {
+      const tx = await mockTx();
+      const txHash = tx.getTxHash();
+
+      txPool.addPendingTxs.mockResolvedValue({
+        accepted: [],
+        ignored: [txHash],
+        rejected: [],
+      });
+
+      await txService.handleGossipedTx(tx.toBuffer(), 'test-msg-id', txPeerId);
+
+      expect(txReportSpy).toHaveBeenCalledWith('test-msg-id', MOCK_PEER_ID, TopicValidatorResult.Ignore);
+      expect(txPool.addPendingTxs).toHaveBeenCalled();
+    });
+
+    it('should NOT propagate (Reject) when pool rejects the transaction', async () => {
+      const tx = await mockTx();
+      const txHash = tx.getTxHash();
+
+      txPool.addPendingTxs.mockResolvedValue({
+        accepted: [],
+        ignored: [],
+        rejected: [txHash],
+      });
+
+      await txService.handleGossipedTx(tx.toBuffer(), 'test-msg-id', txPeerId);
+
+      expect(txReportSpy).toHaveBeenCalledWith('test-msg-id', MOCK_PEER_ID, TopicValidatorResult.Reject);
+      expect(txPool.addPendingTxs).toHaveBeenCalled();
+    });
+
+    it('should NOT propagate (Reject) when gossip validation fails', async () => {
+      const tx = await mockTx();
+
+      txService.validatePropagatedTxMock.mockResolvedValue(false);
+
+      await txService.handleGossipedTx(tx.toBuffer(), 'test-msg-id', txPeerId);
+
+      expect(txReportSpy).toHaveBeenCalledWith('test-msg-id', MOCK_PEER_ID, TopicValidatorResult.Reject);
+      expect(txPool.addPendingTxs).not.toHaveBeenCalled();
     });
   });
 
@@ -884,6 +976,9 @@ class TestLibP2PService extends LibP2PService {
   /** Mocked validateRequestedTx for testing. */
   public validateRequestedTxMock: jest.Mock;
 
+  /** Mocked validatePropagatedTx for testing gossip tx handling. */
+  public validatePropagatedTxMock: jest.Mock<(tx: Tx, peerId: PeerId) => Promise<boolean>>;
+
   /** Stub validator returned by createRequestedTxValidator. */
   private stubValidator: TxValidator;
 
@@ -937,6 +1032,7 @@ class TestLibP2PService extends LibP2PService {
 
     this.testEpochCache = epochCache;
     this.validateRequestedTxMock = jest.fn(() => Promise.resolve());
+    this.validatePropagatedTxMock = jest.fn(() => Promise.resolve(true));
     this.stubValidator = {
       validateTx: () => Promise.resolve({ result: 'valid' as const }),
     };
@@ -945,6 +1041,16 @@ class TestLibP2PService extends LibP2PService {
   /** Exposes the protected handleNewGossipMessage for testing. */
   public override handleNewGossipMessage(msg: Message, msgId: string, source: PeerId): Promise<void> {
     return super.handleNewGossipMessage(msg, msgId, source);
+  }
+
+  /** Exposes the protected handleGossipedTx for testing. */
+  public override handleGossipedTx(payloadData: Buffer, msgId: string, source: PeerId): Promise<void> {
+    return super.handleGossipedTx(payloadData, msgId, source);
+  }
+
+  /** Override to use the mock for validatePropagatedTx. */
+  protected override validatePropagatedTx(tx: Tx, peerId: PeerId): Promise<boolean> {
+    return this.validatePropagatedTxMock(tx, peerId);
   }
 
   /** Exposes the protected validateRequestedBlock for testing. */

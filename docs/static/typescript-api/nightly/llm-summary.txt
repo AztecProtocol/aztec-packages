@@ -1,6 +1,6 @@
 # Aztec TypeScript API Summary
-Version: v4.0.0-nightly.20260210
-Generated: 2026-02-10T04:53:04.766Z
+Version: v4.0.0-nightly.20260211
+Generated: 2026-02-11T04:52:29.438Z
 
 This file provides an index of the Aztec TypeScript API packages.
 For detailed API documentation, see the individual package .md files.
@@ -14,7 +14,7 @@ For detailed API documentation, see the individual package .md files.
   - Transaction creation and submission
   - Account management
   - RPC client for connecting to Aztec nodes
-Exports: 36 classes, 24 interfaces, 32 functions, 72 types
+Exports: 36 classes, 24 interfaces, 30 functions, 72 types
 Key: AccountManager, Contract, Fq, Fr
 
 **@aztec/accounts** - Sample account contract implementations
@@ -42,7 +42,7 @@ Exports: 6 classes, 31 interfaces, 10 functions, 8 types
   - In-memory wallet for testing
   - Account creation helpers
   - Transaction proving utilities
-Exports: 2 classes, 1 interfaces, 3 functions
+Exports: 3 classes, 1 interfaces, 3 functions
 
 ### Core Libraries
 
@@ -104,7 +104,7 @@ accounts → aztec.js, entrypoints, foundation, stdlib
 aztec.js → entrypoints, ethereum, foundation, stdlib
 entrypoints → foundation, stdlib
 stdlib → blob-lib, constants, ethereum, foundation
-test-wallet → accounts, aztec.js, entrypoints, foundation, pxe, stdlib, wallet-sdk
+test-wallet → accounts, aztec.js, entrypoints, ethereum, foundation, pxe, stdlib, wallet-sdk
 wallet-sdk → aztec.js, entrypoints, foundation, pxe, stdlib
 
 For detailed API documentation, see the individual package files.

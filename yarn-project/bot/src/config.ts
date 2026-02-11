@@ -19,7 +19,7 @@ import type { ComponentsVersions } from '@aztec/stdlib/versioning';
 
 import { z } from 'zod';
 
-const BotFollowChain = ['NONE', 'PENDING', 'PROVEN'] as const;
+const BotFollowChain = ['NONE', 'PROPOSED', 'CHECKPOINTED', 'PROVEN'] as const;
 type BotFollowChain = (typeof BotFollowChain)[number];
 
 export enum SupportedTokenContracts {
@@ -213,10 +213,14 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     description: 'Which chain the bot follows',
     defaultValue: 'NONE',
     parseEnv(val) {
-      if (!(BotFollowChain as readonly string[]).includes(val.toUpperCase())) {
+      const upper = val.toUpperCase();
+      if (upper === 'PENDING') {
+        return 'CHECKPOINTED';
+      }
+      if (!(BotFollowChain as readonly string[]).includes(upper)) {
         throw new Error(`Invalid value for BOT_FOLLOW_CHAIN: ${val}`);
       }
-      return val as BotFollowChain;
+      return upper as BotFollowChain;
     },
   },
   maxPendingTxs: {

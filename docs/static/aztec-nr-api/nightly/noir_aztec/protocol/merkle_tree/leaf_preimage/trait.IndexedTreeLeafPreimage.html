@@ -47,23 +47,53 @@
     + <a href="../../../../protocol_types/merkle_tree/leaf_preimage/trait.LeafPreimage.html" class="trait">LeafPreimage</a>
 {
     <span class="comment">// Required methods</span>
-    pub fn <a href="#get_next_key"><span class="fn">get_next_key</span></a>(self) -> <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>;
-    pub fn <a href="#points_to_infinity"><span class="fn">points_to_infinity</span></a>(self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a>;
-    pub fn <a href="#update_pointers"><span class="fn">update_pointers</span></a>(self, next_key: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, next_index: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self;
-    pub fn <a href="#update_value"><span class="fn">update_value</span></a>(self, value: Value) -> Self;
-    pub fn <a href="#build_insertion_leaf"><span class="fn">build_insertion_leaf</span></a>(value: Value, low_leaf: Self) -> Self;
+    pub fn <a href="#get_next_key"><span class="fn">get_next_key</span></a>(self) -> <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>
+<div class="where-clause">    where
+        Self: <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a>,
+        Self: <a href="../../../../protocol_types/merkle_tree/leaf_preimage/trait.LeafPreimage.html" class="trait">LeafPreimage</a></div>;
+    pub fn <a href="#points_to_infinity"><span class="fn">points_to_infinity</span></a>(self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a>
+<div class="where-clause">    where
+        Self: <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a>,
+        Self: <a href="../../../../protocol_types/merkle_tree/leaf_preimage/trait.LeafPreimage.html" class="trait">LeafPreimage</a></div>;
+    pub fn <a href="#update_pointers"><span class="fn">update_pointers</span></a>(self, next_key: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, next_index: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self
+<div class="where-clause">    where
+        Self: <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a>,
+        Self: <a href="../../../../protocol_types/merkle_tree/leaf_preimage/trait.LeafPreimage.html" class="trait">LeafPreimage</a></div>;
+    pub fn <a href="#update_value"><span class="fn">update_value</span></a>(self, value: Value) -> Self
+<div class="where-clause">    where
+        Self: <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a>,
+        Self: <a href="../../../../protocol_types/merkle_tree/leaf_preimage/trait.LeafPreimage.html" class="trait">LeafPreimage</a></div>;
+    pub fn <a href="#build_insertion_leaf"><span class="fn">build_insertion_leaf</span></a>(value: Value, low_leaf: Self) -> Self
+<div class="where-clause">    where
+        Self: <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a>,
+        Self: <a href="../../../../protocol_types/merkle_tree/leaf_preimage/trait.LeafPreimage.html" class="trait">LeafPreimage</a></div>;
 }</code></pre>
 
 <h2>Required methods</h2>
-<div class="padded-methods"><code id="get_next_key" class="code-header">pub fn <a href="#get_next_key"><span class="fn">get_next_key</span></a>(self) -> <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code>
+<div class="padded-methods"><code id="get_next_key" class="code-header">pub fn <a href="#get_next_key"><span class="fn">get_next_key</span></a>(self) -> <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>
+<div class="where-clause">where
+    Self: <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a>,
+    Self: <a href="../../../../protocol_types/merkle_tree/leaf_preimage/trait.LeafPreimage.html" class="trait">LeafPreimage</a></div></code>
 
-<code id="points_to_infinity" class="code-header">pub fn <a href="#points_to_infinity"><span class="fn">points_to_infinity</span></a>(self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code>
+<code id="points_to_infinity" class="code-header">pub fn <a href="#points_to_infinity"><span class="fn">points_to_infinity</span></a>(self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a>
+<div class="where-clause">where
+    Self: <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a>,
+    Self: <a href="../../../../protocol_types/merkle_tree/leaf_preimage/trait.LeafPreimage.html" class="trait">LeafPreimage</a></div></code>
 
-<code id="update_pointers" class="code-header">pub fn <a href="#update_pointers"><span class="fn">update_pointers</span></a>(self, next_key: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, next_index: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+<code id="update_pointers" class="code-header">pub fn <a href="#update_pointers"><span class="fn">update_pointers</span></a>(self, next_key: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, next_index: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self
+<div class="where-clause">where
+    Self: <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a>,
+    Self: <a href="../../../../protocol_types/merkle_tree/leaf_preimage/trait.LeafPreimage.html" class="trait">LeafPreimage</a></div></code>
 
-<code id="update_value" class="code-header">pub fn <a href="#update_value"><span class="fn">update_value</span></a>(self, value: Value) -> Self</code>
+<code id="update_value" class="code-header">pub fn <a href="#update_value"><span class="fn">update_value</span></a>(self, value: Value) -> Self
+<div class="where-clause">where
+    Self: <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a>,
+    Self: <a href="../../../../protocol_types/merkle_tree/leaf_preimage/trait.LeafPreimage.html" class="trait">LeafPreimage</a></div></code>
 
-<code id="build_insertion_leaf" class="code-header">pub fn <a href="#build_insertion_leaf"><span class="fn">build_insertion_leaf</span></a>(value: Value, low_leaf: Self) -> Self</code>
+<code id="build_insertion_leaf" class="code-header">pub fn <a href="#build_insertion_leaf"><span class="fn">build_insertion_leaf</span></a>(value: Value, low_leaf: Self) -> Self
+<div class="where-clause">where
+    Self: <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a>,
+    Self: <a href="../../../../protocol_types/merkle_tree/leaf_preimage/trait.LeafPreimage.html" class="trait">LeafPreimage</a></div></code>
 
 </div><h2>Implementors</h2>
 <h3 id="impl-IndexedTreeLeafPreimage&lt;Field&gt;-for-NullifierLeafPreimage"><code class="code-header">impl <a href="../../../../protocol_types/merkle_tree/leaf_preimage/trait.IndexedTreeLeafPreimage.html" class="trait">IndexedTreeLeafPreimage</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../../../protocol_types/abis/nullifier_leaf_preimage/struct.NullifierLeafPreimage.html" class="struct">NullifierLeafPreimage</a></code></h3>
