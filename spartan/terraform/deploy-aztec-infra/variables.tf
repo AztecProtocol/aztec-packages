@@ -519,6 +519,12 @@ variable "BOT_TRANSFERS_FOLLOW_CHAIN" {
   default     = "PENDING"
 }
 
+variable "BOT_TRANSFERS_PXE_SYNC_CHAIN_TIP" {
+  description = "Transfers bot PXE sync chain tip mode (e.g., checkpointed)"
+  type        = string
+  default     = "checkpointed"
+}
+
 variable "BOT_TRANSFERS_L2_PRIVATE_KEY" {
   description = "Private key for the transfers bot (hex string starting with 0x)"
   nullable    = true
@@ -547,6 +553,12 @@ variable "BOT_SWAPS_FOLLOW_CHAIN" {
   description = "AMM swaps bot follow-chain mode (e.g., NONE)"
   type        = string
   default     = "PENDING"
+}
+
+variable "BOT_SWAPS_PXE_SYNC_CHAIN_TIP" {
+  description = "AMM swaps bot PXE sync chain tip mode (e.g., checkpointed)"
+  type        = string
+  default     = "checkpointed"
 }
 
 variable "BOT_SWAPS_L2_PRIVATE_KEY" {

@@ -576,6 +576,7 @@ locals {
         "bot.replicaCount"       = var.BOT_TRANSFERS_REPLICAS
         "bot.txIntervalSeconds"  = var.BOT_TRANSFERS_TX_INTERVAL_SECONDS
         "bot.followChain"        = var.BOT_TRANSFERS_FOLLOW_CHAIN
+        "bot.pxeSyncChainTip"    = var.BOT_TRANSFERS_PXE_SYNC_CHAIN_TIP
         "bot.botPrivateKey"      = var.BOT_TRANSFERS_L2_PRIVATE_KEY
         "bot.nodeUrl"            = local.internal_rpc_url
         "bot.mnemonic"           = var.BOT_MNEMONIC
@@ -599,6 +600,7 @@ locals {
         "bot.replicaCount"       = var.BOT_SWAPS_REPLICAS
         "bot.txIntervalSeconds"  = var.BOT_SWAPS_TX_INTERVAL_SECONDS
         "bot.followChain"        = var.BOT_SWAPS_FOLLOW_CHAIN
+        "bot.pxeSyncChainTip"    = var.BOT_SWAPS_PXE_SYNC_CHAIN_TIP
         "bot.botPrivateKey"      = var.BOT_SWAPS_L2_PRIVATE_KEY
         "bot.nodeUrl"            = local.internal_rpc_url
         "bot.mnemonic"           = var.BOT_MNEMONIC
