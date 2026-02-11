@@ -16,6 +16,15 @@ namespace bb::avm2::tracegen {
 
 using C = Column;
 
+/**
+ * @brief Processes the non-memory aware to_radix subtrace ingesting ToRadixEvent events. The populated number of rows
+ *        per event is equal to the number of limbs in the event. Simulation guarantees that the limbs in the event
+ *        fully decompose the value (no truncation) but high limbs might be zero.
+ *
+ *
+ * @param events The events of type ToRadixEvent to process.
+ * @param trace The trace to populate.
+ */
 void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simulation::ToRadixEvent>::Container& events,
                                   TraceContainer& trace)
 {
@@ -106,6 +115,14 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
     trace.invert_columns({ { C::to_radix_safety_diff_inverse, C::to_radix_rem_inverse } });
 }
 
+/**
+ * @brief Processes the memory aware to_radix subtrace ingesting ToRadixMemoryEvent events. The populated number of rows
+ *        per event is equal to event.num_limbs if there is no error and num_limbs is not zero. Otherwise, a single row
+ *        is populated.
+ *
+ * @param events The events of type ToRadixMemoryEvent to process.
+ * @param trace The trace to populate.
+ */
 void ToRadixTraceBuilder::process_with_memory(
     const simulation::EventEmitterInterface<simulation::ToRadixMemoryEvent>::Container& events, TraceContainer& trace)
 {
