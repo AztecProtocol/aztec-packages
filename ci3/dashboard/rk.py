@@ -1109,6 +1109,14 @@ def api_pr_metrics():
     return Response(json.dumps(rk_github.get_pr_metrics(date_from, date_to, author, ci_runs)), mimetype='application/json')
 
 
+@app.route('/api/merge-queue/stats')
+@auth.login_required
+def api_merge_queue_stats():
+    date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
+    date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
+    return Response(json.dumps(rk_github.get_merge_queue_stats(date_from, date_to)), mimetype='application/json')
+
+
 # ---- Dashboard view routes ----
 
 @app.route('/cost-overview')

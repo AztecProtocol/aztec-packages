@@ -1,7 +1,7 @@
 """GitHub API polling with in-memory cache.
 
-Fetches PR lifecycle, deployment runs, and branch lag via `gh` CLI.
-All data cached in memory with TTL. No SQLite, no background threads.
+Fetches PR lifecycle, deployment runs, branch lag, and merge queue stats via `gh` CLI.
+Most data cached in memory with TTL. Merge queue stats persisted to SQLite daily.
 """
 import json
 import subprocess
@@ -449,5 +449,152 @@ def get_pr_metrics(date_from: str, date_to: str, author: str = '',
             'total_prs': len(prs),
             'total_cost': round(sum(all_costs), 2),
             'avg_ci_runs_per_pr': round(sum(all_run_counts)/max(len(all_run_counts),1), 1) if all_run_counts else 0,
+        },
+    }
+
+
+# ---- Merge queue failure rate ----
+
+CI3_WORKFLOW = 'ci3.yml'
+
+def _fetch_merge_queue_runs(date_str: str) -> dict:
+    """Fetch merge_group workflow runs for a single date. Returns daily summary."""
+    out = _gh([
+        'api', '--paginate',
+        f'repos/{REPO}/actions/workflows/{CI3_WORKFLOW}/runs'
+        f'?event=merge_group&created={date_str}&per_page=100',
+        '--jq', '.workflow_runs[] | [.conclusion, .status] | @tsv',
+    ])
+    summary = {'date': date_str, 'total': 0, 'success': 0, 'failure': 0,
+               'cancelled': 0, 'in_progress': 0}
+    if not out:
+        return summary
+    for line in out.strip().split('\n'):
+        if not line.strip():
+            continue
+        parts = line.split('\t')
+        conclusion = parts[0] if parts[0] else ''
+        status = parts[1] if len(parts) > 1 else ''
+        summary['total'] += 1
+        if conclusion == 'success':
+            summary['success'] += 1
+        elif conclusion == 'failure':
+            summary['failure'] += 1
+        elif conclusion == 'cancelled':
+            summary['cancelled'] += 1
+        elif status in ('in_progress', 'queued', 'waiting'):
+            summary['in_progress'] += 1
+        else:
+            summary['failure'] += 1  # treat unknown conclusions as failures
+    return summary
+
+
+def _backfill_merge_queue():
+    """Backfill missing merge queue daily stats into SQLite."""
+    import rk_db
+    db = rk_db.get_db()
+
+    # Find which dates we already have
+    existing = {row['date'] for row in
+                db.execute('SELECT date FROM merge_queue_daily').fetchall()}
+
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).date()
+    # Backfill up to 365 days
+    start = yesterday - timedelta(days=365)
+    current = start
+
+    missing = []
+    while current <= yesterday:
+        ds = current.isoformat()
+        if ds not in existing:
+            missing.append(ds)
+        current += timedelta(days=1)
+
+    if not missing:
+        return
+
+    print(f"[rk_github] Backfilling {len(missing)} days of merge queue stats...")
+    for ds in missing:
+        summary = _fetch_merge_queue_runs(ds)
+        if summary['total'] == 0:
+            # Write a zero row so we don't re-fetch
+            db.execute(
+                'INSERT OR REPLACE INTO merge_queue_daily (date, total, success, failure, cancelled, in_progress) '
+                'VALUES (?, 0, 0, 0, 0, 0)', (ds,))
+        else:
+            db.execute(
+                'INSERT OR REPLACE INTO merge_queue_daily (date, total, success, failure, cancelled, in_progress) '
+                'VALUES (?, ?, ?, ?, ?, ?)',
+                (ds, summary['total'], summary['success'], summary['failure'],
+                 summary['cancelled'], summary['in_progress']))
+        db.commit()
+
+
+def refresh_merge_queue_today():
+    """Refresh today's (and yesterday's) merge queue stats. Called periodically."""
+    import rk_db
+    db = rk_db.get_db()
+    today = datetime.now(timezone.utc).date().isoformat()
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).date().isoformat()
+
+    for ds in [yesterday, today]:
+        summary = _fetch_merge_queue_runs(ds)
+        db.execute(
+            'INSERT OR REPLACE INTO merge_queue_daily (date, total, success, failure, cancelled, in_progress) '
+            'VALUES (?, ?, ?, ?, ?, ?)',
+            (ds, summary['total'], summary['success'], summary['failure'],
+             summary['cancelled'], summary['in_progress']))
+        db.commit()
+
+
+_mq_backfill_lock = threading.Lock()
+_mq_last_refresh = 0
+_MQ_REFRESH_TTL = 3600  # refresh today's data every hour
+
+
+def ensure_merge_queue_data():
+    """Ensure merge queue data is backfilled and today is fresh."""
+    global _mq_last_refresh
+    now = time.time()
+    if now - _mq_last_refresh < _MQ_REFRESH_TTL:
+        return
+    if not _mq_backfill_lock.acquire(blocking=False):
+        return
+    try:
+        _backfill_merge_queue()
+        refresh_merge_queue_today()
+        _mq_last_refresh = now
+    finally:
+        _mq_backfill_lock.release()
+
+
+def get_merge_queue_stats(date_from: str, date_to: str) -> dict:
+    """Get merge queue failure rate by day. Triggers backfill if needed."""
+    # Ensure data is populated (async after first load)
+    import rk_db
+    db = rk_db.get_db()
+    count = db.execute('SELECT COUNT(*) as c FROM merge_queue_daily').fetchone()['c']
+    if count == 0:
+        ensure_merge_queue_data()  # block on first load
+    else:
+        threading.Thread(target=ensure_merge_queue_data, daemon=True).start()
+
+    rows = rk_db.query(
+        'SELECT date, total, success, failure, cancelled, in_progress '
+        'FROM merge_queue_daily WHERE date >= ? AND date <= ? ORDER BY date',
+        (date_from, date_to))
+
+    total_runs = sum(r['total'] for r in rows)
+    total_fail = sum(r['failure'] for r in rows)
+    total_success = sum(r['success'] for r in rows)
+
+    return {
+        'by_date': rows,
+        'summary': {
+            'total_runs': total_runs,
+            'total_success': total_success,
+            'total_failure': total_fail,
+            'failure_rate': round(total_fail / max(total_runs, 1) * 100, 1),
+            'days': len([r for r in rows if r['total'] > 0]),
         },
     }

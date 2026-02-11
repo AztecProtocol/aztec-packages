@@ -1,7 +1,7 @@
-"""SQLite database for test event storage.
+"""SQLite database for CI metrics storage.
 
-Only tracks test events from Redis pub/sub (no other data source for these).
-Everything else reads directly from Redis sorted sets or external APIs with caching.
+Stores test events (from Redis pub/sub) and merge queue daily stats
+(backfilled from GitHub API).
 """
 import os
 import sqlite3
@@ -32,6 +32,15 @@ CREATE TABLE IF NOT EXISTS test_events (
 CREATE INDEX IF NOT EXISTS idx_test_events_status ON test_events(status);
 CREATE INDEX IF NOT EXISTS idx_test_events_ts ON test_events(timestamp);
 CREATE INDEX IF NOT EXISTS idx_test_events_cmd ON test_events(test_cmd);
+
+CREATE TABLE IF NOT EXISTS merge_queue_daily (
+    date           TEXT PRIMARY KEY,
+    total          INTEGER NOT NULL DEFAULT 0,
+    success        INTEGER NOT NULL DEFAULT 0,
+    failure        INTEGER NOT NULL DEFAULT 0,
+    cancelled      INTEGER NOT NULL DEFAULT 0,
+    in_progress    INTEGER NOT NULL DEFAULT 0
+);
 """
 
 
