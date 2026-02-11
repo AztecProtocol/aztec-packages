@@ -8,7 +8,7 @@ pub contract Counter {
     use aztec::{
         macros::{functions::{external, initializer}, storage::storage},
         messages::message_delivery::MessageDelivery,
-        oracle::debug_log::debug_log_format,
+        oracle::logging::debug_log_format,
         protocol::{address::AztecAddress, traits::ToField},
         state_vars::Owned,
     };

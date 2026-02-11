@@ -563,7 +563,7 @@ fn handle_foreign_call(
         "avmOpcodeRevert" => handle_revert(avm_instrs, destinations, inputs),
         "avmOpcodeStorageRead" => handle_storage_read(avm_instrs, destinations, inputs),
         "avmOpcodeStorageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
-        "utilityDebugLog" => handle_debug_log(avm_instrs, destinations, inputs),
+        "utilityLog" => handle_debug_log(avm_instrs, destinations, inputs),
         // Getters.
         _ if inputs.is_empty() && destinations.len() == 1 => {
             handle_getter_instruction(avm_instrs, function, destinations, inputs);
@@ -1348,8 +1348,8 @@ fn handle_debug_log(
 ) {
     // We need to handle two flavors here:
     //
-    // #[oracle(utilityDebugLog)]
-    // unconstrained fn debug_log_array_oracle<let M: u32, let N: u32>(
+    // #[oracle(utilityLog)]
+    // unconstrained fn log_oracle<let M: u32, let N: u32>(
     //     log_level: u8,
     //     msg: str<M>,
     //     length: u32,
@@ -1358,8 +1358,8 @@ fn handle_debug_log(
     //
     // and
     //
-    //#[oracle(utilityDebugLog)]
-    // unconstrained fn debug_log_slice_oracle<let M: u32>(log_level: u8, msg: str<M>, args: [Field]) {}
+    //#[oracle(utilityLog)]
+    // unconstrained fn log_slice_oracle<let M: u32>(log_level: u8, msg: str<M>, args: [Field]) {}
     //
     // Luckily, these two flavors have both 4 arguments, since noir inserts a length field for slices before the slice.
     // So we can handle both cases with mostly the same code.
