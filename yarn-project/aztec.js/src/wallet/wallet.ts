@@ -226,6 +226,16 @@ export type ContractClassMetadata = {
 };
 
 /**
+ * Options for simulating a utility function call.
+ */
+export type SimulateUtilityOptions = {
+  /** The scope for the utility simulation (determines which notes and keys are visible). */
+  scope: AztecAddress;
+  /** Optional auth witnesses to use during execution. */
+  authWitnesses?: AuthWitness[];
+};
+
+/**
  * The wallet interface.
  */
 export type Wallet = {
@@ -245,7 +255,7 @@ export type Wallet = {
     secretKey?: Fr,
   ): Promise<ContractInstanceWithAddress>;
   simulateTx(exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult>;
-  simulateUtility(call: FunctionCall, authwits?: AuthWitness[]): Promise<UtilitySimulationResult>;
+  simulateUtility(call: FunctionCall, opts: SimulateUtilityOptions): Promise<UtilitySimulationResult>;
   profileTx(exec: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult>;
   sendTx<W extends InteractionWaitOptions = undefined>(
     exec: ExecutionPayload,
@@ -510,7 +520,13 @@ const WalletMethodSchemas = {
   simulateTx: z.function().args(ExecutionPayloadSchema, SimulateOptionsSchema).returns(TxSimulationResult.schema),
   simulateUtility: z
     .function()
-    .args(FunctionCall.schema, optional(z.array(AuthWitness.schema)))
+    .args(
+      FunctionCall.schema,
+      z.object({
+        scope: schemas.AztecAddress,
+        authWitnesses: optional(z.array(AuthWitness.schema)),
+      }),
+    )
     .returns(UtilitySimulationResult.schema),
   profileTx: z.function().args(ExecutionPayloadSchema, ProfileOptionsSchema).returns(TxProfileResult.schema),
   sendTx: z

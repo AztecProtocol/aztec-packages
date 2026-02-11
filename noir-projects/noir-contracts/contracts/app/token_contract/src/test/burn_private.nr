@@ -1,7 +1,7 @@
 use crate::test::utils;
 use crate::Token;
 use aztec::test::helpers::authwit::add_private_authwit_from_call;
-use generic_proxy::GenericProxy;
+use generic_proxy_contract::GenericProxy;
 
 global AUTHWIT_NONCE: Field = 7;
 
