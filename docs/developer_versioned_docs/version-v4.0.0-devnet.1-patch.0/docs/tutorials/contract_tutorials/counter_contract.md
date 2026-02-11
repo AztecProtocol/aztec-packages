@@ -9,7 +9,7 @@ import Image from "@theme/IdealImage";
 
 In this guide, we will create our first Aztec.nr smart contract. We will build a simple private counter, where you can keep your own private counter - so no one knows what ID you are at or when you increment! This contract will get you started with the basic setup and syntax of Aztec.nr, but doesn't showcase all of the awesome stuff Aztec is capable of.
 
-This tutorial is compatible with the Aztec version `v4.0.0-devnet.1-patch.0`. Install the correct version with `bash -i <(curl -sL https://install.aztec.network/4.0.0-devnet.1-patch.0/)`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+This tutorial is compatible with the Aztec version `v4.0.0-devnet.1-patch.0`. Install the correct version with `VERSION=4.0.0-devnet.1-patch.0 bash -i <(curl -sL https://install.aztec.network/4.0.0-devnet.1-patch.0/)`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
 
 ## Prerequisites
 

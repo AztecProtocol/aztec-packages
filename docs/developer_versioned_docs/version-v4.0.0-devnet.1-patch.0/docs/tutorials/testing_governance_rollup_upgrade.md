@@ -32,7 +32,7 @@ The default governance configuration for local networks:
 Ensure you are on the correct Aztec version:
 
 ```bash
-aztec-up 3.0.0-devnet.6-patch.1
+aztec-up install 4.0.0-devnet.1-patch.0
 ```
 
 ```bash
@@ -57,7 +57,7 @@ Clone the l1-contracts repo and checkout the version matching your Aztec install
 ```bash
 git clone https://github.com/AztecProtocol/l1-contracts.git
 cd l1-contracts
-git checkout 3.0.0-devnet.6-patch.1
+git checkout 4.0.0-devnet.1-patch.0
 ```
 
 Install dependencies and set up the build environment:

@@ -21,7 +21,7 @@ Before starting, ensure you have the following installed and configured:
 
 - Node.js (v22 or later)
 - yarn package manager
-- Aztec CLI (version 3.0.0-devnet.6-patch.1)
+- Aztec CLI (version 4.0.0-devnet.1-patch.0)
 - Nargo (version 1.0.0-beta.15)
 - Familiarity with [Noir syntax](https://noir-lang.org/docs) and [Aztec contract basics](../../aztec-nr/index.md)
 
@@ -29,12 +29,11 @@ Install the required tools:
 
 ```bash
 # Install Aztec CLI
-bash -i <(curl -sL https://install.aztec.network)
-aztec-up 3.0.0-devnet.6-patch.1
+VERSION=4.0.0-devnet.1-patch.0 bash -i <(curl -sL https://install.aztec.network/4.0.0-devnet.1-patch.0/)
 
 # Install Nargo via noirup
 curl -L https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
-noirup -v 1.0.0-beta.15
+noirup -v 1.0.0-beta.18
 ```
 
 ## Part 1: Understanding the Architecture
@@ -130,7 +129,7 @@ circuit/
 
 Replace the contents of `circuit/src/main.nr` with:
 
-```rust title="circuit" showLineNumbers 
+```rust title="circuit" showLineNumbers
 fn main(x: u64, y: pub u64) {
     assert(x != y);
 }
@@ -140,8 +139,8 @@ fn test_main() {
     main(1, 2);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-devnet.1-patch.0/docs/examples/circuits/hello_circuit/src/main.nr#L1-L10" target="_blank" rel="noopener noreferrer">Source code: docs/examples/circuits/hello_circuit/src/main.nr#L1-L10</a></sub></sup>
 
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-devnet.1-patch.0/docs/examples/circuits/hello_circuit/src/main.nr#L1-L10" target="_blank" rel="noopener noreferrer">Source code: docs/examples/circuits/hello_circuit/src/main.nr#L1-L10</a></sub></sup>
 
 This is intentionally minimal to focus on the verification pattern. In production, you would replace `assert(x != y)` with meaningful computations like:
 
@@ -171,7 +170,7 @@ For example, you could create a zkpassport proof demonstrating that you are over
 
 Update `circuit/Nargo.toml` (see [Noir crates and packages](https://noir-lang.org/docs/noir/modules_packages_crates/crates_and_packages) for more details):
 
-```toml title="circuit_nargo_toml" showLineNumbers 
+```toml title="circuit_nargo_toml" showLineNumbers
 [package]
 name = "hello_circuit"
 type = "bin"
@@ -179,8 +178,8 @@ authors = [""]
 
 [dependencies]
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-devnet.1-patch.0/docs/examples/circuits/hello_circuit/Nargo.toml#L1-L8" target="_blank" rel="noopener noreferrer">Source code: docs/examples/circuits/hello_circuit/Nargo.toml#L1-L8</a></sub></sup>
 
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-devnet.1-patch.0/docs/examples/circuits/hello_circuit/Nargo.toml#L1-L8" target="_blank" rel="noopener noreferrer">Source code: docs/examples/circuits/hello_circuit/Nargo.toml#L1-L8</a></sub></sup>
 
 **Note**: This is a vanilla Noir circuit, not an Aztec contract. It has `type = "bin"` (binary) and no Aztec dependencies. The circuit is compiled with `nargo`, not `aztec compile`. This distinction is important—you can verify proofs from _any_ Noir circuit inside Aztec contracts.
 
@@ -256,8 +255,8 @@ type = "contract"
 authors = ["[YOUR_NAME]"]
 
 [dependencies]
-aztec = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "v3.0.0-devnet.6-patch.1", directory = "aztec" }
-bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v3.0.0-devnet.6-patch.1", directory = "barretenberg/noir/bb_proof_verification" }
+aztec = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "v4.0.0-devnet.1-patch.0", directory = "aztec" }
+bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v4.0.0-devnet.1-patch.0", directory = "barretenberg/noir/bb_proof_verification" }
 ```
 
 **Key differences from the circuit's Nargo.toml**:
@@ -270,7 +269,7 @@ bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages
 
 Replace the contents of `contract/src/main.nr` with:
 
-```rust title="full_contract" showLineNumbers 
+```rust title="full_contract" showLineNumbers
 use aztec::macros::aztec;
 
 #[aztec]
@@ -334,8 +333,8 @@ pub contract ValueNotEqual {
     }
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-devnet.1-patch.0/docs/examples/contracts/recursive_verification_contract/src/main.nr#L1-L78" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/recursive_verification_contract/src/main.nr#L1-L78</a></sub></sup>
 
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-devnet.1-patch.0/docs/examples/contracts/recursive_verification_contract/src/main.nr#L1-L78" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/recursive_verification_contract/src/main.nr#L1-L78</a></sub></sup>
 
 ### Storage Variables Explained
 
@@ -470,14 +469,14 @@ Create the following files in your project root directory.
     "recursion": "tsx scripts/run_recursion.ts"
   },
   "dependencies": {
-    "@aztec/accounts": "3.0.0-devnet.6-patch.1",
-    "@aztec/aztec.js": "3.0.0-devnet.6-patch.1",
-    "@aztec/bb.js": "3.0.0-devnet.6-patch.1",
-    "@aztec/kv-store": "3.0.0-devnet.6-patch.1",
-    "@aztec/noir-contracts.js": "3.0.0-devnet.6-patch.1",
-    "@aztec/noir-noir_js": "3.0.0-devnet.6-patch.1",
-    "@aztec/pxe": "3.0.0-devnet.6-patch.1",
-    "@aztec/test-wallet": "3.0.0-devnet.6-patch.1",
+    "@aztec/accounts": "4.0.0-devnet.1-patch.0",
+    "@aztec/aztec.js": "4.0.0-devnet.1-patch.0",
+    "@aztec/bb.js": "4.0.0-devnet.1-patch.0",
+    "@aztec/kv-store": "4.0.0-devnet.1-patch.0",
+    "@aztec/noir-contracts.js": "4.0.0-devnet.1-patch.0",
+    "@aztec/noir-noir_js": "4.0.0-devnet.1-patch.0",
+    "@aztec/pxe": "4.0.0-devnet.1-patch.0",
+    "@aztec/test-wallet": "4.0.0-devnet.1-patch.0",
     "tsx": "^4.20.6"
   },
   "devDependencies": {
@@ -544,7 +543,7 @@ The proof generation script executes the circuit offchain and produces the proof
 
 Create `scripts/generate_data.ts`:
 
-```typescript title="generate_data" showLineNumbers 
+```typescript title="generate_data" showLineNumbers
 import { Noir } from "@aztec/noir-noir_js";
 import circuitJson from "../../../../circuits/hello_circuit/target/hello_circuit.json" with { type: "json" };
 import { Barretenberg, UltraHonkBackend, deflattenFields } from "@aztec/bb.js";
@@ -618,8 +617,8 @@ await barretenbergAPI.destroy();
 console.log("Done");
 exit();
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-devnet.1-patch.0/docs/examples/ts/recursive_verification/scripts/generate_data.ts#L1-L74" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/recursive_verification/scripts/generate_data.ts#L1-L74</a></sub></sup>
 
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-devnet.1-patch.0/docs/examples/ts/recursive_verification/scripts/generate_data.ts#L1-L74" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/recursive_verification/scripts/generate_data.ts#L1-L74</a></sub></sup>
 
 ### Understanding the Proof Generation Pipeline
 
@@ -907,7 +906,7 @@ This single line triggers a complex flow:
 
 Create `scripts/sponsored_fpc.ts`:
 
-```typescript title="sponsored_fpc" showLineNumbers 
+```typescript title="sponsored_fpc" showLineNumbers
 import { getContractInstanceFromInstantiationParams } from "@aztec/aztec.js/contracts";
 import { Fr } from "@aztec/aztec.js/fields";
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
@@ -923,8 +922,8 @@ export async function getSponsoredFPCInstance() {
   );
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-devnet.1-patch.0/docs/examples/ts/recursive_verification/scripts/sponsored_fpc.ts#L1-L16" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/recursive_verification/scripts/sponsored_fpc.ts#L1-L16</a></sub></sup>
 
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-devnet.1-patch.0/docs/examples/ts/recursive_verification/scripts/sponsored_fpc.ts#L1-L16" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/recursive_verification/scripts/sponsored_fpc.ts#L1-L16</a></sub></sup>
 
 This utility computes the address of the pre-deployed sponsored FPC contract. The salt ensures we get the same address every time. For more information about fee payment options, see [Paying Fees](../../aztec-js/how_to_pay_fees.md).
 

@@ -84,7 +84,7 @@ async function preprocessIncludeVersion(markdownContent, filePath = "unknown") {
   const nightlyTag =
     process.env.NIGHTLY_TAG || process.env.COMMIT_TAG || "0.0.0-nightly.0";
   const testnetTag = process.env.TESTNET_TAG || "2.1.11";
-  const devnetTag = process.env.DEVNET_TAG || "3.0.0-devnet.6-patch.1";
+  const devnetTag = process.env.DEVNET_TAG || "4.0.0-devnet.1-patch.0";
   const mainnetTag = process.env.MAINNET_TAG || "2.1.11";
   const releaseType = process.env.RELEASE_TYPE || "nightly";
   // COMMIT_TAG kept for backwards compatibility
@@ -108,9 +108,12 @@ async function preprocessIncludeVersion(markdownContent, filePath = "unknown") {
   const releaseNetwork = getReleaseNetwork(releaseType);
 
   // New macro for API ref paths
-  const apiRefVersion = releaseType === "nightly" ? "nightly"
-                      : releaseType === "devnet" ? "devnet"
-                      : "next";
+  const apiRefVersion =
+    releaseType === "nightly"
+      ? "nightly"
+      : releaseType === "devnet"
+        ? "devnet"
+        : "next";
 
   // Step 1: Process conditional blocks FIRST (before version substitution)
   // This allows conditionals to contain version macros
@@ -121,9 +124,18 @@ async function preprocessIncludeVersion(markdownContent, filePath = "unknown") {
   );
 
   // Step 2: Replace new release-type-aware macros
-  markdownContent = markdownContent.replaceAll(`#release_version`, releaseVersion);
-  markdownContent = markdownContent.replaceAll(`#release_network`, releaseNetwork);
-  markdownContent = markdownContent.replaceAll(`#api_ref_version`, apiRefVersion);
+  markdownContent = markdownContent.replaceAll(
+    `#release_version`,
+    releaseVersion,
+  );
+  markdownContent = markdownContent.replaceAll(
+    `#release_network`,
+    releaseNetwork,
+  );
+  markdownContent = markdownContent.replaceAll(
+    `#api_ref_version`,
+    apiRefVersion,
+  );
 
   // Step 3: Replace existing macros (backwards compatibility)
   // TODO: Phase out #include_aztec_version and #include_version_without_prefix macros.
