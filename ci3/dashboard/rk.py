@@ -899,11 +899,14 @@ def api_costs_runners():
     date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
     granularity = request.args.get('granularity', 'daily')
+    dashboard = request.args.get('dashboard', '')
     ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
     ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
 
     runs = rk_metrics.get_ci_runs(r, ts_from, ts_to)
     runs_with_cost = [run for run in runs if run.get('cost_usd') is not None]
+    if dashboard:
+        runs_with_cost = [run for run in runs_with_cost if run.get('dashboard') == dashboard]
 
     # By date
     by_date_map = {}
@@ -1054,17 +1057,30 @@ def api_ci_performance():
         d['test_failure_count'] = fail_test_daily_map.get(d['date'], 0)
 
     # Flake/failure data from test_events (the only SQLite data)
-    top_flakes = rk_db.query('''
-        SELECT test_cmd, COUNT(*) as count, ref_name
-        FROM test_events WHERE status='flaked' AND timestamp >= ? AND timestamp <= ?
-        GROUP BY test_cmd ORDER BY count DESC LIMIT 15
-    ''', (date_from, date_to + 'T23:59:59'))
-
-    top_failures = rk_db.query('''
-        SELECT test_cmd, COUNT(*) as count
-        FROM test_events WHERE status='failed' AND timestamp >= ? AND timestamp <= ?
-        GROUP BY test_cmd ORDER BY count DESC LIMIT 15
-    ''', (date_from, date_to + 'T23:59:59'))
+    if dashboard:
+        top_flakes = rk_db.query('''
+            SELECT test_cmd, COUNT(*) as count, ref_name
+            FROM test_events WHERE status='flaked' AND dashboard = ?
+            AND timestamp >= ? AND timestamp <= ?
+            GROUP BY test_cmd ORDER BY count DESC LIMIT 15
+        ''', (dashboard, date_from, date_to + 'T23:59:59'))
+        top_failures = rk_db.query('''
+            SELECT test_cmd, COUNT(*) as count
+            FROM test_events WHERE status='failed' AND dashboard = ?
+            AND timestamp >= ? AND timestamp <= ?
+            GROUP BY test_cmd ORDER BY count DESC LIMIT 15
+        ''', (dashboard, date_from, date_to + 'T23:59:59'))
+    else:
+        top_flakes = rk_db.query('''
+            SELECT test_cmd, COUNT(*) as count, ref_name
+            FROM test_events WHERE status='flaked' AND timestamp >= ? AND timestamp <= ?
+            GROUP BY test_cmd ORDER BY count DESC LIMIT 15
+        ''', (date_from, date_to + 'T23:59:59'))
+        top_failures = rk_db.query('''
+            SELECT test_cmd, COUNT(*) as count
+            FROM test_events WHERE status='failed' AND timestamp >= ? AND timestamp <= ?
+            GROUP BY test_cmd ORDER BY count DESC LIMIT 15
+        ''', (date_from, date_to + 'T23:59:59'))
 
     # Summary
     total = len(runs)
@@ -1077,19 +1093,35 @@ def api_ci_performance():
         if complete and ts:
             durations.append((complete - ts) / 60000.0)
 
-    flake_count = rk_db.query('''
-        SELECT COUNT(*) as c FROM test_events WHERE status='flaked' AND timestamp >= ? AND timestamp <= ?
-    ''', (date_from, date_to + 'T23:59:59'))
-    total_tests = rk_db.query('''
-        SELECT COUNT(*) as c FROM test_events WHERE status IN ('failed','flaked') AND timestamp >= ? AND timestamp <= ?
-    ''', (date_from, date_to + 'T23:59:59'))
+    if dashboard:
+        flake_count = rk_db.query('''
+            SELECT COUNT(*) as c FROM test_events WHERE status='flaked' AND dashboard = ?
+            AND timestamp >= ? AND timestamp <= ?
+        ''', (dashboard, date_from, date_to + 'T23:59:59'))
+        total_tests = rk_db.query('''
+            SELECT COUNT(*) as c FROM test_events WHERE status IN ('failed','flaked') AND dashboard = ?
+            AND timestamp >= ? AND timestamp <= ?
+        ''', (dashboard, date_from, date_to + 'T23:59:59'))
+    else:
+        flake_count = rk_db.query('''
+            SELECT COUNT(*) as c FROM test_events WHERE status='flaked' AND timestamp >= ? AND timestamp <= ?
+        ''', (date_from, date_to + 'T23:59:59'))
+        total_tests = rk_db.query('''
+            SELECT COUNT(*) as c FROM test_events WHERE status IN ('failed','flaked') AND timestamp >= ? AND timestamp <= ?
+        ''', (date_from, date_to + 'T23:59:59'))
 
     fc = flake_count[0]['c'] if flake_count else 0
     tc = total_tests[0]['c'] if total_tests else 0
 
-    total_failures_count = rk_db.query('''
-        SELECT COUNT(*) as c FROM test_events WHERE status='failed' AND timestamp >= ? AND timestamp <= ?
-    ''', (date_from, date_to + 'T23:59:59'))
+    if dashboard:
+        total_failures_count = rk_db.query('''
+            SELECT COUNT(*) as c FROM test_events WHERE status='failed' AND dashboard = ?
+            AND timestamp >= ? AND timestamp <= ?
+        ''', (dashboard, date_from, date_to + 'T23:59:59'))
+    else:
+        total_failures_count = rk_db.query('''
+            SELECT COUNT(*) as c FROM test_events WHERE status='failed' AND timestamp >= ? AND timestamp <= ?
+        ''', (date_from, date_to + 'T23:59:59'))
     tfc = total_failures_count[0]['c'] if total_failures_count else 0
 
     return Response(json.dumps({

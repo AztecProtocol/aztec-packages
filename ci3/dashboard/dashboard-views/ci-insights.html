@@ -54,12 +54,6 @@
     th.amt { text-align:right; }
     .detail-scroll { max-height:500px; overflow:auto; }
 
-    /* Flake detail */
-    .flake-detail { background:#0d1117; border:1px solid #222; padding:12px; margin:8px 0; display:none; }
-    .flake-detail h4 { color:#ccc; font-size:13px; margin:0 0 8px 0; }
-    .flake-detail table { font-size:12px; }
-    .flake-detail .close { float:right; cursor:pointer; color:#888; }
-    .flake-detail .close:hover { color:#fff; }
   </style>
 </head>
 <body>
@@ -88,6 +82,10 @@
   </div>
 
   <div id="msg" class="msg"></div>
+  <div id="pipeline-filter" style="display:none; margin:8px 0; padding:6px 12px; background:#1a1a2e; border:1px solid #58a6ff; align-items:center; gap:8px; font-size:13px;">
+    filtered to pipeline: <span id="pf-name" style="color:#fff;font-weight:bold"></span>
+    <span id="pf-clear" style="cursor:pointer;color:#888;margin-left:8px">[clear]</span>
+  </div>
 
   <!-- KPI strip -->
   <div class="kpi-strip" id="kpis">
@@ -116,7 +114,6 @@
 
   <!-- Flake cost ranking table -->
   <div class="section-title">flakes by pipeline</div>
-  <div id="flake-detail" class="flake-detail"></div>
   <div class="detail-scroll">
     <table>
       <thead id="flake-thead"><tr></tr></thead>
@@ -144,6 +141,7 @@
     let sparkCharts = {};
     let flakeSort = { col: 'count', dir: 'desc' };
     let authorSort = { col: 'total_cost', dir: 'desc' };
+    let pipelineFilter = '';
 
     function granularity() { return document.querySelector('[data-g].active').dataset.g; }
 
@@ -196,13 +194,23 @@
       const f = document.getElementById('dateFrom').value;
       const t = document.getElementById('dateTo').value;
       const g = granularity();
+      const pf = pipelineFilter ? `&dashboard=${encodeURIComponent(pipelineFilter)}` : '';
+
+      // Show/hide pipeline filter indicator
+      const pfEl = document.getElementById('pipeline-filter');
+      if (pipelineFilter) {
+        pfEl.style.display = 'inline-flex';
+        document.getElementById('pf-name').textContent = pipelineFilter;
+      } else {
+        pfEl.style.display = 'none';
+      }
 
       try {
         const [costResp, mqResp, perfResp, flakeResp, prResp] = await Promise.all([
-          fetch(`/api/costs/runners?from=${f}&to=${t}&granularity=${g}`),
+          fetch(`/api/costs/runners?from=${f}&to=${t}&granularity=${g}${pf}`),
           fetch(`/api/merge-queue/stats?from=${f}&to=${t}`),
-          fetch(`/api/ci/performance?from=${f}&to=${t}&granularity=${g}`),
-          fetch(`/api/ci/flakes-by-command?from=${f}&to=${t}`),
+          fetch(`/api/ci/performance?from=${f}&to=${t}&granularity=${g}${pf}`),
+          fetch(`/api/ci/flakes-by-command?from=${f}&to=${t}${pf}`),
           fetch(`/api/prs/metrics?from=${f}&to=${t}`),
         ]);
 
@@ -428,44 +436,67 @@
       });
     }
 
-    // ---- Flake cost ranking table ----
+    // ---- Flakes table ----
     function renderFlakeTable() {
       const cmds = flakeData?.by_command || [];
       if (!cmds.length) {
         document.getElementById('flake-tbody').innerHTML = '<tr><td colspan="3" style="color:#888">no flake data</td></tr>';
+        document.querySelector('#flake-thead tr').innerHTML = '';
         return;
       }
 
-      const rows = cmds.map(c => ({
-        pipeline: c.command || '',
-        count: c.total_flakes || 0,
-        failures: c.total_failures || 0,
-        top_tests: c.top_tests || [],
-      }));
-
-      // Build header
-      const hdrs = [
-        { k: 'pipeline', l: 'Pipeline' },
-        { k: 'count', l: 'Flakes', cls: 'amt' },
-        { k: 'failures', l: 'Failures', cls: 'amt' },
-      ];
-      const tr = document.querySelector('#flake-thead tr');
-      tr.innerHTML = '';
-      hdrs.forEach(h => {
-        const th = document.createElement('th');
-        th.textContent = h.l;
-        if (h.cls) th.className = h.cls;
-        th.onclick = () => {
-          flakeSort = flakeSort.col === h.k ? { col: h.k, dir: flakeSort.dir === 'asc' ? 'desc' : 'asc' } : { col: h.k, dir: 'desc' };
-          renderFlakeRows(rows);
-        };
-        tr.appendChild(th);
-      });
-
-      renderFlakeRows(rows);
+      if (pipelineFilter) {
+        // Filtered: show individual test commands within this pipeline
+        const allTests = cmds.flatMap(c => (c.top_tests || []).map(t => ({
+          test_cmd: t.test_cmd || '',
+          count: t.count || 0,
+        })));
+        const hdrs = [
+          { k: 'test_cmd', l: 'Test Command' },
+          { k: 'count', l: 'Flakes', cls: 'amt' },
+        ];
+        const tr = document.querySelector('#flake-thead tr');
+        tr.innerHTML = '';
+        hdrs.forEach(h => {
+          const th = document.createElement('th');
+          th.textContent = h.l;
+          if (h.cls) th.className = h.cls;
+          th.onclick = () => {
+            flakeSort = flakeSort.col === h.k ? { col: h.k, dir: flakeSort.dir === 'asc' ? 'desc' : 'asc' } : { col: h.k, dir: 'desc' };
+            renderTestRows(allTests);
+          };
+          tr.appendChild(th);
+        });
+        renderTestRows(allTests);
+      } else {
+        // Unfiltered: show pipelines, clickable to filter
+        const rows = cmds.map(c => ({
+          pipeline: c.command || '',
+          count: c.total_flakes || 0,
+          failures: c.total_failures || 0,
+        }));
+        const hdrs = [
+          { k: 'pipeline', l: 'Pipeline' },
+          { k: 'count', l: 'Flakes', cls: 'amt' },
+          { k: 'failures', l: 'Failures', cls: 'amt' },
+        ];
+        const tr = document.querySelector('#flake-thead tr');
+        tr.innerHTML = '';
+        hdrs.forEach(h => {
+          const th = document.createElement('th');
+          th.textContent = h.l;
+          if (h.cls) th.className = h.cls;
+          th.onclick = () => {
+            flakeSort = flakeSort.col === h.k ? { col: h.k, dir: flakeSort.dir === 'asc' ? 'desc' : 'asc' } : { col: h.k, dir: 'desc' };
+            renderPipelineRows(rows);
+          };
+          tr.appendChild(th);
+        });
+        renderPipelineRows(rows);
+      }
     }
 
-    function renderFlakeRows(rows) {
+    function renderPipelineRows(rows) {
       rows.sort((a, b) => {
         const col = flakeSort.col;
         let av = a[col], bv = b[col];
@@ -481,27 +512,31 @@
         `</tr>`
       ).join('');
 
-      // Click handler for drill-down
       document.querySelectorAll('#flake-tbody tr').forEach(tr => {
         tr.onclick = () => {
-          const idx = parseInt(tr.dataset.idx);
-          const row = rows[idx];
-          const detail = document.getElementById('flake-detail');
-          if (row.top_tests && row.top_tests.length) {
-            detail.style.display = 'block';
-            detail.innerHTML =
-              `<span class="close" onclick="document.getElementById('flake-detail').style.display='none'">[x]</span>` +
-              `<h4>${escapeHtml(row.pipeline)} - top flaking tests</h4>` +
-              `<table><thead><tr><th>Test</th><th class="amt">Count</th></tr></thead><tbody>` +
-              row.top_tests.map(t =>
-                `<tr><td>${escapeHtml(t.test_cmd || t.test || '')}</td><td class="amt">${t.count || 0}</td></tr>`
-              ).join('') +
-              `</tbody></table>`;
-          } else {
-            detail.style.display = 'none';
+          const row = rows[parseInt(tr.dataset.idx)];
+          if (row.pipeline) {
+            pipelineFilter = row.pipeline;
+            load();
           }
         };
       });
+    }
+
+    function renderTestRows(rows) {
+      rows.sort((a, b) => {
+        const col = flakeSort.col;
+        let av = a[col], bv = b[col];
+        if (typeof av === 'string') return flakeSort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+        return flakeSort.dir === 'asc' ? (av || 0) - (bv || 0) : (bv || 0) - (av || 0);
+      });
+
+      document.getElementById('flake-tbody').innerHTML = rows.map(r =>
+        `<tr>` +
+        `<td>${escapeHtml(r.test_cmd)}</td>` +
+        `<td class="amt" style="color:#f0883e">${r.count}</td>` +
+        `</tr>`
+      ).join('');
     }
 
     // ---- Author CI profile table ----
@@ -569,6 +604,7 @@
       p.set('from', document.getElementById('dateFrom').value);
       p.set('to', document.getElementById('dateTo').value);
       p.set('g', granularity());
+      if (pipelineFilter) p.set('pipeline', pipelineFilter);
       history.replaceState({}, '', '?' + p);
       const shared = new URLSearchParams();
       shared.set('from', p.get('from')); shared.set('to', p.get('to')); shared.set('g', p.get('g'));
@@ -583,6 +619,7 @@
       if (p.get('from')) document.getElementById('dateFrom').value = p.get('from');
       if (p.get('to')) document.getElementById('dateTo').value = p.get('to');
       if (p.get('g')) document.querySelectorAll('[data-g]').forEach(b => b.classList.toggle('active', b.dataset.g === p.get('g')));
+      if (p.get('pipeline')) pipelineFilter = p.get('pipeline');
     }
 
     // ---- Init ----
@@ -594,6 +631,7 @@
 
       loadUrl();
 
+      document.getElementById('pf-clear').onclick = () => { pipelineFilter = ''; load(); };
       document.getElementById('refreshBtn').onclick = load;
       document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
         document.querySelectorAll('[data-g]').forEach(x => x.classList.remove('active'));
