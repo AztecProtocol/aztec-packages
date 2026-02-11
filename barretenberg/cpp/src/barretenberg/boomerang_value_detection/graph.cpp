@@ -77,6 +77,35 @@ std::vector<std::pair<size_t, size_t>> StaticAnalyzer_<FF, CircuitBuilder>::get_
 }
 
 template <typename FF, typename CircuitBuilder>
+std::optional<std::uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_fixed_witness_index(FF value)
+{
+    if (!constants_initialized) {
+        for (size_t gate_idx = 0; gate_idx < circuit_builder.blocks.arithmetic.size(); gate_idx++) {
+            bool is_fixed_witness_gate = true;
+            is_fixed_witness_gate &= circuit_builder.blocks.arithmetic.w_r()[gate_idx] == circuit_builder.zero_idx();
+            is_fixed_witness_gate &= circuit_builder.blocks.arithmetic.w_o()[gate_idx] == circuit_builder.zero_idx();
+            is_fixed_witness_gate &= circuit_builder.blocks.arithmetic.w_4()[gate_idx] == circuit_builder.zero_idx();
+            is_fixed_witness_gate &= circuit_builder.blocks.arithmetic.q_m()[gate_idx] == FF::zero();
+            is_fixed_witness_gate &= circuit_builder.blocks.arithmetic.q_1()[gate_idx] == FF::one();
+            is_fixed_witness_gate &= circuit_builder.blocks.arithmetic.q_2()[gate_idx] == FF::zero();
+            is_fixed_witness_gate &= circuit_builder.blocks.arithmetic.q_3()[gate_idx] == FF::zero();
+            is_fixed_witness_gate &= circuit_builder.blocks.arithmetic.q_4()[gate_idx] == FF::zero();
+            is_fixed_witness_gate &= circuit_builder.blocks.arithmetic.q_arith()[gate_idx] == FF::one();
+            if (is_fixed_witness_gate) {
+                auto value = -circuit_builder.blocks.arithmetic.q_c()[gate_idx];
+                auto witness_idx = circuit_builder.blocks.arithmetic.w_l()[gate_idx];
+                constant_variable_indices.insert({ value, witness_idx });
+            }
+        }
+        constants_initialized = true;
+    }
+    if (constant_variable_indices.contains(value)) {
+        return constant_variable_indices.at(value);
+    }
+    return std::nullopt;
+}
+
+template <typename FF, typename CircuitBuilder>
 std::vector<std::pair<uint32_t, uint32_t>> StaticAnalyzer_<FF, CircuitBuilder>::get_gates_by_filter_function(
     uint32_t block_idx, const std::function<bool(size_t, size_t)>& filter_function) const
 {

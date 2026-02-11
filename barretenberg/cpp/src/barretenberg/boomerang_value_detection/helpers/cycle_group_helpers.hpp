@@ -82,9 +82,19 @@ std::optional<RealPoint<CircuitBuilder>> get_real_point(StaticAnalyzer_<FF, Circ
     // witness.
     if (real_point.x.witness.is_constant() != real_point.y.witness.is_constant()) {
         if (real_point.x.witness.is_constant()) {
-            real_point.x = find_fixed_witness_field<FF>(builder, real_point.x.witness.get_value());
+            auto real_point_x = find_fixed_witness_field<FF>(analyzer, builder, real_point.x.witness.get_value());
+            if (!real_point_x.has_value()) {
+                log_error("X field real is not valid");
+                return std::nullopt;
+            }
+            real_point.x = real_point_x.value();
         } else {
-            real_point.y = find_fixed_witness_field<FF>(builder, real_point.y.witness.get_value());
+            auto real_point_y = find_fixed_witness_field<FF>(analyzer, builder, real_point.y.witness.get_value());
+            if (!real_point_y.has_value()) {
+                log_error("Y field real is not valid");
+                return std::nullopt;
+            }
+            real_point.y = real_point_y.value();
         }
     }
 

@@ -63,29 +63,18 @@ Field<CircuitBuilder> get_field_from_w_4(CircuitBuilder& builder, std::pair<size
 }
 
 template <typename FF, typename CircuitBuilder>
-Field<CircuitBuilder> find_fixed_witness_field(CircuitBuilder& builder, const FF& value)
+std::optional<Field<CircuitBuilder>> find_fixed_witness_field(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                                              CircuitBuilder& builder,
+                                                              const FF& value)
 {
-    const auto expected_q_c = -value;
-    for (size_t gate_idx = 0; gate_idx < builder.blocks.arithmetic.size(); gate_idx++) {
-        bool condition = true;
-        condition &= builder.blocks.arithmetic.w_r()[gate_idx] == builder.zero_idx();
-        condition &= builder.blocks.arithmetic.w_o()[gate_idx] == builder.zero_idx();
-        condition &= builder.blocks.arithmetic.w_4()[gate_idx] == builder.zero_idx();
-        condition &= builder.blocks.arithmetic.q_m()[gate_idx] == FF::zero();
-        condition &= builder.blocks.arithmetic.q_1()[gate_idx] == FF::one();
-        condition &= builder.blocks.arithmetic.q_2()[gate_idx] == FF::zero();
-        condition &= builder.blocks.arithmetic.q_3()[gate_idx] == FF::zero();
-        condition &= builder.blocks.arithmetic.q_4()[gate_idx] == FF::zero();
-        condition &= builder.blocks.arithmetic.q_c()[gate_idx] == expected_q_c;
-        condition &= builder.blocks.arithmetic.q_arith()[gate_idx] == FF::one();
-        if (condition) {
-            auto witness_idx = builder.blocks.arithmetic.w_l()[gate_idx];
-            return Field<CircuitBuilder>{
-                witness_idx, bb::stdlib::field_t<CircuitBuilder>::from_witness_index(&builder, witness_idx)
-            };
-        }
+    const auto witness_idx = analyzer.get_fixed_witness_index(value);
+    if (!witness_idx.has_value()) {
+        log_error("Cannot find fixed witness for constant ", value);
+        return std::nullopt;
     }
-    throw std::runtime_error("Cannot find fixed witness for constant");
+    return Field<CircuitBuilder>{
+        witness_idx.value(), bb::stdlib::field_t<CircuitBuilder>::from_witness_index(&builder, witness_idx.value())
+    };
 }
 
 /**

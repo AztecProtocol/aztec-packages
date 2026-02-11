@@ -162,6 +162,11 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
 
     std::vector<std::pair<size_t, size_t>> get_variable_gates(uint32_t var_idx) const;
 
+    // If constant_initialized is false, iterates over the arithmetic gates and saves the fixed witness indices to the
+    // constant_variable_indices map. Then, it returns the witness index for the given value. If the value is not found,
+    // returns std::nullopt.
+    std::optional<std::uint32_t> get_fixed_witness_index(FF value);
+
     /**
      * @brief
      * @param block_idx The index of the block to get gates from
@@ -203,6 +208,9 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     std::unordered_set<uint32_t> constant_variable_indices_set;
 
     std::vector<ConnectedComponent> connected_components;
+
+    bool constants_initialized = false;
+    std::unordered_map<FF, uint32_t> constant_variable_indices;
 };
 
 // Type aliases for convenience
