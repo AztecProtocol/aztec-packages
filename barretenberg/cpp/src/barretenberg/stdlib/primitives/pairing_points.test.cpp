@@ -39,6 +39,21 @@ template <typename Builder> class PairingPointsTests : public testing::Test {
 using Curves = testing::Types<stdlib::bn254<UltraCircuitBuilder>, stdlib::bn254<MegaCircuitBuilder>>;
 TYPED_TEST_SUITE(PairingPointsTests, Curves);
 
+TYPED_TEST(PairingPointsTests, EmptyPairingPointsProtection)
+{
+    using Curve = TypeParam;
+    using Builder = typename Curve::Builder;
+    using PP = PairingPoints<Curve>;
+
+    Builder builder;
+    auto pps = TestFixture::template create_valid_pairing_points<Curve>(&builder, 1);
+
+    PP empty;
+    EXPECT_THROW_WITH_MESSAGE(pps[0].aggregate(empty), "Cannot aggregate null pairing points.");
+    EXPECT_THROW_WITH_MESSAGE(empty.set_public(), "Calling set_public on empty pairing points.");
+    EXPECT_THROW_WITH_MESSAGE(empty.check(), "Calling check on empty pairing points.");
+}
+
 TYPED_TEST(PairingPointsTests, ConstructDefault)
 {
     using Builder = typename TypeParam::Builder;
@@ -54,7 +69,7 @@ TYPED_TEST(PairingPointsTests, ConstructDefault)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
-TYPED_TEST(PairingPointsTests, TestDefault)
+TYPED_TEST(PairingPointsTests, DefaultPointsAreValid)
 {
     using Builder = TypeParam::Builder;
     using Group = PairingPoints<TypeParam>::Group;
@@ -76,64 +91,90 @@ TYPED_TEST(PairingPointsTests, TestDefault)
     EXPECT_TRUE(native_pp.check()) << "Default PairingPoints are not valid pairing points.";
 }
 
-TYPED_TEST(PairingPointsTests, AggregateMultipleWithDuplicatePoints)
+TYPED_TEST(PairingPointsTests, Aggregate)
 {
     using Curve = TypeParam;
     using Builder = typename Curve::Builder;
-    using PairingPoints = PairingPoints<Curve>;
-    using Group = PairingPoints::Group;
+    using Group = typename Curve::Group;
+    using Fr = typename Curve::ScalarField;
 
     Builder builder;
+    auto pps = TestFixture::template create_valid_pairing_points<Curve>(&builder, 2);
 
-    // Use default pairing points that are known to satisfy the pairing equation
-    Group P0(DEFAULT_PAIRING_POINT_P0_X, DEFAULT_PAIRING_POINT_P0_Y, /*assert_on_curve=*/false);
-    Group P1(DEFAULT_PAIRING_POINT_P1_X, DEFAULT_PAIRING_POINT_P1_Y, /*assert_on_curve=*/false);
-    P0.convert_constant_to_fixed_witness(&builder);
-    P1.convert_constant_to_fixed_witness(&builder);
+    // Save the original values before aggregation mutates pps[0]
+    auto orig_P0 = pps[0].P0();
+    auto orig_P1 = pps[0].P1();
 
-    // Create duplicate pairing points (same P0, P1)
-    PairingPoints pp_first = { P0, P1 };
-    PairingPoints pp_second = { P0, P1 }; // Duplicate
-    PairingPoints pp_third = { P0, P1 };  // Another duplicate
+    pps[0].aggregate(pps[1]);
 
-    // Test aggregate_multiple with all duplicate points
-    // The n-1 optimization computes: P_agg = P₀ + r₁·P₁ + r₂·P₂
-    // With duplicates: P_agg = P + r₁·P + r₂·P = (1 + r₁ + r₂)·P
-    // This tests that the optimization handles the edge case where first point equals others
-    std::vector<PairingPoints> pp_vector = { pp_first, pp_second, pp_third };
-    PairingPoints aggregated = PairingPoints::aggregate_multiple(pp_vector);
+    // Replicate the transcript to derive the same separator
+    bb::StdlibTranscript<Builder> transcript{};
+    transcript.add_to_hash_buffer("Accumulator_P0", orig_P0);
+    transcript.add_to_hash_buffer("Accumulator_P1", orig_P1);
+    transcript.add_to_hash_buffer("Aggregated_P0", pps[1].P0());
+    transcript.add_to_hash_buffer("Aggregated_P1", pps[1].P1());
+    auto r = transcript.template get_challenge<Fr>("recursion_separator");
 
-    // Circuit should be valid
+    // Expected: orig + r * other
+    Group expected_P0 = orig_P0 + pps[1].P0() * r;
+    Group expected_P1 = orig_P1 + pps[1].P1() * r;
+
+    EXPECT_EQ(pps[0].P0().get_value(), expected_P0.get_value());
+    EXPECT_EQ(pps[0].P1().get_value(), expected_P1.get_value());
+
     EXPECT_TRUE(CircuitChecker::check(builder));
+}
 
-    // Verify the result is exactly what we expect: (1 + r₁ + r₂)·(P0, P1)
-    // We replicate the challenge generation to compute the expected scalar
+TYPED_TEST(PairingPointsTests, AggregateIntoEmpty)
+{
+    using Curve = TypeParam;
+    using Builder = typename Curve::Builder;
+    using PP = PairingPoints<Curve>;
+
+    Builder builder;
+    auto pps = TestFixture::template create_valid_pairing_points<Curve>(&builder, 1);
+
+    // Default-constructed PairingPoints has no data
+    PP empty;
+    EXPECT_FALSE(empty.is_populated());
+
+    // Aggregating into empty should just copy the other
+    empty.aggregate(pps[0]);
+    EXPECT_TRUE(empty.is_populated());
+    EXPECT_EQ(empty.P0().get_value(), pps[0].P0().get_value());
+    EXPECT_EQ(empty.P1().get_value(), pps[0].P1().get_value());
+}
+
+TYPED_TEST(PairingPointsTests, AggregateMultiple)
+{
+    using Curve = TypeParam;
+    using Builder = typename Curve::Builder;
+    using PP = PairingPoints<Curve>;
+    using Group = typename Curve::Group;
     using Fr = typename Curve::ScalarField;
+
+    Builder builder;
+    auto pps = TestFixture::template create_valid_pairing_points<Curve>(&builder, 3);
+
+    // Replicate the transcript to derive the same challenges
     bb::StdlibTranscript<Builder> transcript{};
     for (size_t idx = 0; idx < 3; ++idx) {
-        transcript.add_to_hash_buffer("first_component_" + std::to_string(idx), pp_vector[idx].P0());
-        transcript.add_to_hash_buffer("second_component_" + std::to_string(idx), pp_vector[idx].P1());
+        transcript.add_to_hash_buffer("first_component_" + std::to_string(idx), pps[idx].P0());
+        transcript.add_to_hash_buffer("second_component_" + std::to_string(idx), pps[idx].P1());
     }
-    std::array<std::string, 2> challenge_labels = { "pp_aggregation_challenge_1", "pp_aggregation_challenge_2" };
-    std::array<Fr, 2> challenges = transcript.template get_challenges<Fr, 2>(challenge_labels);
+    std::vector<std::string> labels = { "pp_aggregation_challenge_1", "pp_aggregation_challenge_2" };
+    auto challenges = transcript.template get_challenges<Fr>(labels);
 
-    // Compute expected result: (1 + r₁ + r₂)·P0
-    Fr total_scalar = Fr(1);
-    for (const auto& challenge : challenges) {
-        total_scalar += challenge;
-    }
-    Group expected_P0 = P0 * total_scalar;
-    Group expected_P1 = P1 * total_scalar;
+    // Expected: P₀ + r₁·P₁ + r₂·P₂
+    Group expected_P0 = pps[0].P0() + pps[1].P0() * challenges[0] + pps[2].P0() * challenges[1];
+    Group expected_P1 = pps[0].P1() + pps[1].P1() * challenges[0] + pps[2].P1() * challenges[1];
 
-    // Verify the aggregated result matches the expected result
-    EXPECT_EQ(aggregated.P0().get_value(), expected_P0.get_value()) << "Aggregated P0 should equal (1 + r₁ + r₂)·P0";
-    EXPECT_EQ(aggregated.P1().get_value(), expected_P1.get_value()) << "Aggregated P1 should equal (1 + r₁ + r₂)·P1";
+    std::vector<PP> pp_vec = { pps[0], pps[1], pps[2] };
+    PP aggregated = PP::aggregate_multiple(pp_vec);
 
-    // The result should still be a valid pairing point (scalar multiple of the original)
-    bb::PairingPoints<typename Curve::NativeCurve> native_aggregated(aggregated.P0().get_value(),
-                                                                     aggregated.P1().get_value());
-    EXPECT_TRUE(native_aggregated.check())
-        << "Aggregated duplicate pairing points should still satisfy pairing equation";
+    EXPECT_EQ(aggregated.P0().get_value(), expected_P0.get_value());
+    EXPECT_EQ(aggregated.P1().get_value(), expected_P1.get_value());
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TYPED_TEST(PairingPointsTests, PublicInputSerdeRoundTrip)

@@ -52,7 +52,6 @@ static constexpr bb::fq DEFAULT_PAIRING_POINT_P1_Y =
  * @details The points may represent the output of a single partial recursive verification or the linear combination of
  * multiple sets of pairing points.
  *
- * TODO(https://github.com/AztecProtocol/barretenberg/issues/1421): Proper tests for `PairingPoints`
  * @tparam Builder_
  */
 template <typename Curve> struct PairingPoints {
@@ -108,11 +107,6 @@ template <typename Curve> struct PairingPoints {
     auto end() { return _points.end(); }
     auto begin() const { return _points.begin(); }
     auto end() const { return _points.end(); }
-
-    typename Curve::bool_ct operator==(PairingPoints const& other) const
-    {
-        return P0() == other.P0() && P1() == other.P1();
-    }
 
     /**
      * @brief Aggregate multiple PairingPoints using random linear combination
@@ -226,9 +220,9 @@ template <typename Curve> struct PairingPoints {
         transcript.add_to_hash_buffer("Aggregated_P1", other.P1());
         auto recursion_separator =
             transcript.template get_challenge<typename Curve::ScalarField>("recursion_separator");
-        // If Mega Builder is in use, the EC operations are deferred via Goblin
+        // If Mega Builder is in use, the EC operations are deferred via Goblin.
+        // batch_mul with constant scalar 1 is optimal here (Goblin uses add instead of mul).
         if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1385): Can we improve efficiency here?
             P0() = Group::batch_mul({ P0(), other.P0() }, { 1, recursion_separator });
             P1() = Group::batch_mul({ P1(), other.P1() }, { 1, recursion_separator });
         } else {
