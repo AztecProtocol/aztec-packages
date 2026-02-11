@@ -140,7 +140,7 @@ def _ensure_cached():
         return
     try:
         yesterday = datetime.now(timezone.utc).date() - timedelta(days=1)
-        date_from = (yesterday - timedelta(days=90)).isoformat()
+        date_from = (yesterday - timedelta(days=365)).isoformat()
         date_to = yesterday.isoformat()
         print(f"[rk_billing] Fetching billing data from BigQuery ({date_from} to {date_to})...")
         data = _fetch_from_bigquery(date_from, date_to)

@@ -195,7 +195,7 @@ def _ensure_cached():
     try:
         today = datetime.now(timezone.utc).date()
         rows = _fetch_aws_costs(
-            (today - timedelta(days=90)).isoformat(),
+            (today - timedelta(days=365)).isoformat(),
             today.isoformat(),
         )
         if rows:
@@ -277,7 +277,7 @@ def _ensure_detail_cached():
     try:
         today = datetime.now(timezone.utc).date()
         rows = _fetch_aws_cost_details(
-            (today - timedelta(days=90)).isoformat(),
+            (today - timedelta(days=365)).isoformat(),
             today.isoformat(),
         )
         if rows:
