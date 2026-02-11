@@ -1,5 +1,6 @@
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/primitives/public_input_component/public_input_component.hpp"
@@ -12,6 +13,27 @@ namespace bb::stdlib::recursion {
 template <typename Builder> class PairingPointsTests : public testing::Test {
   public:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+
+    /**
+     * @brief Create N distinct valid pairing points as circuit witnesses from SRS points.
+     * @details The pairing check verifies e(P0, [1]_2) * e(P1, [x]_2) == 1. Using SRS points srs[i] = [x^i]_1,
+     * the pair (srs[i], -srs[i-1]) satisfies this. Each element uses a different SRS index for distinctness.
+     */
+    template <typename Curve>
+    static std::vector<PairingPoints<Curve>> create_valid_pairing_points(typename Curve::Builder* builder, size_t count)
+    {
+        using Group = typename Curve::Group;
+
+        bb::CommitmentKey<curve::BN254> ck(count + 1);
+        auto srs = ck.get_monomial_points();
+
+        std::vector<PairingPoints<Curve>> result;
+        result.reserve(count);
+        for (size_t i = 1; i <= count; i++) {
+            result.emplace_back(Group::from_witness(builder, srs[i]), Group::from_witness(builder, -srs[i - 1]));
+        }
+        return result;
+    }
 };
 
 using Curves = testing::Types<stdlib::bn254<UltraCircuitBuilder>, stdlib::bn254<MegaCircuitBuilder>>;
@@ -301,6 +323,29 @@ TYPED_TEST(PairingPointsTests, PublicInputSerdeRoundTrip)
     // Verify the round-tripped values match
     EXPECT_EQ(reconstructed.P0().get_value(), original.P0().get_value());
     EXPECT_EQ(reconstructed.P1().get_value(), original.P1().get_value());
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+// WORKTODO: maybe remove this once we've use the create_valid_pairing_points helper in more tests, since it already
+// verifies the points are valid. This is a bit redundant with the default test, but it does verify that the constructor
+// from witness points works correctly.
+TYPED_TEST(PairingPointsTests, SrsBasedPairingPointsAreValid)
+{
+    using Curve = TypeParam;
+    using Builder = typename Curve::Builder;
+
+    Builder builder;
+    auto pps = TestFixture::template create_valid_pairing_points<Curve>(&builder, 3);
+
+    for (auto& pp : pps) {
+        EXPECT_TRUE(pp.is_populated());
+        EXPECT_TRUE(pp.check());
+    }
+
+    // Verify the points are actually distinct
+    EXPECT_NE(pps[0].P0().get_value(), pps[1].P0().get_value());
+    EXPECT_NE(pps[1].P0().get_value(), pps[2].P0().get_value());
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
