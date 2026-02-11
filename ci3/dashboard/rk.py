@@ -173,7 +173,7 @@ def root() -> str:
         f"\n{YELLOW}"
         f"{hyperlink('/cost-overview', 'cost overview (AWS + GCP)')}\n"
         f"{hyperlink('/namespace-billing', 'namespace billing')}\n"
-        f"{hyperlink('/ci-health', 'ci health')}\n"
+        f"{hyperlink('/ci-insights', 'ci insights')}\n"
         f"{RESET}"
     )
 
@@ -1020,6 +1020,39 @@ def api_ci_performance():
         d['pass_rate'] = round(100.0 * d['passed'] / max(d['total'], 1), 1)
         d['failure_rate'] = round(100.0 * d['failed'] / max(d['total'], 1), 1)
 
+    # Daily flake/failure counts from test_events
+    if dashboard:
+        flake_daily = rk_db.query('''
+            SELECT substr(timestamp, 1, 10) as date, COUNT(*) as count
+            FROM test_events WHERE status = 'flaked' AND dashboard = ?
+            AND timestamp >= ? AND timestamp < ?
+            GROUP BY substr(timestamp, 1, 10)
+        ''', (dashboard, date_from, date_to + 'T23:59:59'))
+        fail_test_daily = rk_db.query('''
+            SELECT substr(timestamp, 1, 10) as date, COUNT(*) as count
+            FROM test_events WHERE status = 'failed' AND dashboard = ?
+            AND timestamp >= ? AND timestamp < ?
+            GROUP BY substr(timestamp, 1, 10)
+        ''', (dashboard, date_from, date_to + 'T23:59:59'))
+    else:
+        flake_daily = rk_db.query('''
+            SELECT substr(timestamp, 1, 10) as date, COUNT(*) as count
+            FROM test_events WHERE status = 'flaked'
+            AND timestamp >= ? AND timestamp < ?
+            GROUP BY substr(timestamp, 1, 10)
+        ''', (date_from, date_to + 'T23:59:59'))
+        fail_test_daily = rk_db.query('''
+            SELECT substr(timestamp, 1, 10) as date, COUNT(*) as count
+            FROM test_events WHERE status = 'failed'
+            AND timestamp >= ? AND timestamp < ?
+            GROUP BY substr(timestamp, 1, 10)
+        ''', (date_from, date_to + 'T23:59:59'))
+    flake_daily_map = {r['date']: r['count'] for r in flake_daily}
+    fail_test_daily_map = {r['date']: r['count'] for r in fail_test_daily}
+    for d in by_date:
+        d['flake_count'] = flake_daily_map.get(d['date'], 0)
+        d['test_failure_count'] = fail_test_daily_map.get(d['date'], 0)
+
     # Flake/failure data from test_events (the only SQLite data)
     top_flakes = rk_db.query('''
         SELECT test_cmd, COUNT(*) as count, ref_name
@@ -1054,6 +1087,11 @@ def api_ci_performance():
     fc = flake_count[0]['c'] if flake_count else 0
     tc = total_tests[0]['c'] if total_tests else 0
 
+    total_failures_count = rk_db.query('''
+        SELECT COUNT(*) as c FROM test_events WHERE status='failed' AND timestamp >= ? AND timestamp <= ?
+    ''', (date_from, date_to + 'T23:59:59'))
+    tfc = total_failures_count[0]['c'] if total_failures_count else 0
+
     return Response(json.dumps({
         'by_date': by_date,
         'top_flakes': top_flakes,
@@ -1064,6 +1102,8 @@ def api_ci_performance():
             'failure_rate': round(100.0 * failed / max(total, 1), 1),
             'avg_duration_mins': round(sum(durations) / len(durations), 1) if durations else None,
             'flake_rate': round(100.0 * fc / max(tc, 1), 1) if tc else 0,
+            'total_flakes': fc,
+            'total_test_failures': tfc,
         },
     }), mimetype='application/json')
 
@@ -1137,6 +1177,15 @@ def api_flakes_by_command():
 @auth.login_required
 def ci_health():
     path = Path('dashboard-views/ci-health.html')
+    if path.exists():
+        return path.read_text()
+    return "Dashboard not found", 404
+
+
+@app.route('/ci-insights')
+@auth.login_required
+def ci_insights():
+    path = Path('dashboard-views/ci-insights.html')
     if path.exists():
         return path.read_text()
     return "Dashboard not found", 404
