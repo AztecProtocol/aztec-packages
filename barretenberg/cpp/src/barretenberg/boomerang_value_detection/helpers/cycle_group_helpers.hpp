@@ -219,10 +219,9 @@ std::optional<std::pair<Field<CircuitBuilder>, Field<CircuitBuilder>>> get_dbl_g
         return std::nullopt;
     }
 
-    auto block_idx = filtered_gates[0].first;
     auto gate_idx = filtered_gates[0].second;
-    auto x3_idx = builder.blocks.elliptic.w_r()[block_idx + 1];
-    auto y3_idx = builder.blocks.elliptic.w_o()[block_idx + 1];
+    auto x3_idx = builder.blocks.elliptic.w_r()[gate_idx + 1];
+    auto y3_idx = builder.blocks.elliptic.w_o()[gate_idx + 1];
     auto x3 = Field<CircuitBuilder>{ x3_idx, field_ct::from_witness_index(&builder, x3_idx) };
     auto y3 = Field<CircuitBuilder>{ y3_idx, field_ct::from_witness_index(&builder, y3_idx) };
     return std::make_pair(x3, y3);
@@ -384,7 +383,7 @@ bool is_ec_add_result_constrained(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
         dbl_x = Field<CircuitBuilder>{ bb::stdlib::IS_CONSTANT, field_ct(x3_dbl) };
         dbl_y = Field<CircuitBuilder>{ bb::stdlib::IS_CONSTANT, field_ct(y3_dbl) };
     } else {
-        auto dbl_result = get_dbl_gate_result<FF>(builder, x1, modified_y);
+        auto dbl_result = get_dbl_gate_result<FF>(analyzer, builder, x1, modified_y);
         if (!dbl_result.has_value()) {
             log_error("Failed to find dbl gate");
             return false;
