@@ -39,6 +39,14 @@ import type { CallInfo } from './types.js';
  * in order to reconstruct an L2 block header.
  */
 export class CalldataRetriever {
+  /** Tx hashes we've already logged for trace+debug failure (log once per tx per process). */
+  private static readonly traceFailureWarnedTxHashes = new Set<string>();
+
+  /** Clears the trace-failure warned set. For testing only. */
+  static resetTraceFailureWarnedForTesting(): void {
+    CalldataRetriever.traceFailureWarnedTxHashes.clear();
+  }
+
   /** Pre-computed valid contract calls for validation */
   private readonly validContractCalls: ValidContractCall[];
 
@@ -313,7 +321,8 @@ export class CalldataRetriever {
       this.logger.debug(`Successfully traced using trace_transaction, found ${calls.length} calls`);
     } catch (err) {
       const traceError = err instanceof Error ? err : new Error(String(err));
-      this.logger.verbose(`Failed trace_transaction for ${txHash}`, { traceError });
+      this.logger.verbose(`Failed trace_transaction for ${txHash}: ${traceError.message}`);
+      this.logger.debug(`Trace failure details for ${txHash}`, { traceError });
 
       try {
         // Fall back to debug_traceTransaction (Geth RPC)
@@ -322,7 +331,16 @@ export class CalldataRetriever {
         this.logger.debug(`Successfully traced using debug_traceTransaction, found ${calls.length} calls`);
       } catch (debugErr) {
         const debugError = debugErr instanceof Error ? debugErr : new Error(String(debugErr));
-        this.logger.warn(`All tracing methods failed for tx ${txHash}`, {
+        // Log once per tx so we don't spam on every sync cycle when sync point doesn't advance
+        if (!CalldataRetriever.traceFailureWarnedTxHashes.has(txHash)) {
+          CalldataRetriever.traceFailureWarnedTxHashes.add(txHash);
+          this.logger.warn(
+            `Cannot decode L1 tx ${txHash}: trace and debug RPC failed or unavailable. ` +
+              `trace_transaction: ${traceError.message}; debug_traceTransaction: ${debugError.message}`,
+          );
+        }
+        // Full error objects can be very long; keep at debug only
+        this.logger.debug(`Trace/debug failure details for tx ${txHash}`, {
           traceError,
           debugError,
           txHash,
