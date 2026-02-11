@@ -12,10 +12,9 @@ fn main() {
 
         // Link C++ standard library (different name on macOS/iOS vs Linux)
         let target = std::env::var("TARGET").unwrap();
-        if target.contains("apple") {
+        if target.contains("apple") || target.contains("android") {
             println!("cargo:rustc-link-lib=dylib=c++");
         } else {
-            // TODO: Android uses c++_shared, add when CI builds Android artifacts
             println!("cargo:rustc-link-lib=dylib=stdc++");
         }
     }
