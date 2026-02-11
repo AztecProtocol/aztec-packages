@@ -72,22 +72,18 @@ TYPED_TEST(PairingPointsTests, ConstructDefault)
 TYPED_TEST(PairingPointsTests, DefaultPointsAreValid)
 {
     using Builder = TypeParam::Builder;
-    using Group = PairingPoints<TypeParam>::Group;
-    using CommitmentKey = bb::CommitmentKey<curve::BN254>;
+    using PP = PairingPoints<TypeParam>;
 
     Builder builder;
 
-    Group P0(DEFAULT_PAIRING_POINT_P0_X, DEFAULT_PAIRING_POINT_P0_Y, /*assert_on_curve=*/false);
-    Group P1(DEFAULT_PAIRING_POINT_P1_X, DEFAULT_PAIRING_POINT_P1_Y, /*assert_on_curve=*/false);
-    P0.convert_constant_to_fixed_witness(&builder);
-    P1.convert_constant_to_fixed_witness(&builder);
-    PairingPoints<TypeParam> pp(P0, P1);
+    auto pp = PP::construct_default();
+    pp.P0().convert_constant_to_fixed_witness(&builder);
+    pp.P1().convert_constant_to_fixed_witness(&builder);
     pp.set_public();
     EXPECT_TRUE(CircuitChecker::check(builder));
 
-    // Validate default PairingPoints
-    CommitmentKey commitment_key;
-    bb::PairingPoints<curve::BN254> native_pp(P0.get_value(), P1.get_value());
+    // Validate default PairingPoints via native pairing check
+    bb::PairingPoints<curve::BN254> native_pp(pp.P0().get_value(), pp.P1().get_value());
     EXPECT_TRUE(native_pp.check()) << "Default PairingPoints are not valid pairing points.";
 }
 
@@ -182,19 +178,15 @@ TYPED_TEST(PairingPointsTests, PublicInputSerdeRoundTrip)
     using Curve = TypeParam;
     using Builder = typename Curve::Builder;
     using PP = PairingPoints<Curve>;
-    using Group = PP::Group;
     using Fr = Curve::ScalarField;
     using PublicPP = stdlib::PublicInputComponent<PP>;
 
     Builder builder;
 
     // Create witness pairing points from known defaults
-    Group P0(DEFAULT_PAIRING_POINT_P0_X, DEFAULT_PAIRING_POINT_P0_Y, /*assert_on_curve=*/false);
-    Group P1(DEFAULT_PAIRING_POINT_P1_X, DEFAULT_PAIRING_POINT_P1_Y, /*assert_on_curve=*/false);
-    P0.convert_constant_to_fixed_witness(&builder);
-    P1.convert_constant_to_fixed_witness(&builder);
-
-    PP original(P0, P1);
+    PP original = PP::construct_default();
+    original.P0().convert_constant_to_fixed_witness(&builder);
+    original.P1().convert_constant_to_fixed_witness(&builder);
     EXPECT_TRUE(original.is_populated());
 
     // Serialize to public inputs
