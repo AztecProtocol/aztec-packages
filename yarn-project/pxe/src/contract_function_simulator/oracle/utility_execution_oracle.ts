@@ -369,9 +369,9 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return this.contractLogger;
   }
 
-  public async utilityDebugLog(level: number, message: string, fields: Fr[]): Promise<void> {
+  public async utilityLog(level: number, message: string, fields: Fr[]): Promise<void> {
     if (!LogLevels[level]) {
-      throw new Error(`Invalid debug log level: ${level}`);
+      throw new Error(`Invalid log level: ${level}`);
     }
     const levelName = LogLevels[level];
     const logger = await this.#getContractLogger();
