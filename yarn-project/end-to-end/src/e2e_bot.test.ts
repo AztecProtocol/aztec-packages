@@ -219,7 +219,7 @@ describe('e2e_bot', () => {
     beforeAll(() => {
       config = {
         ...getBotDefaultConfig(),
-        followChain: 'CHECKPOINTED',
+        followChain: 'PROPOSED',
         ammTxs: false,
         senderPrivateKey: new SecretValue(Fr.random()),
         l1PrivateKey: new SecretValue(bufferToHex(getPrivateKeyFromIndex(8)!)),
