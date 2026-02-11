@@ -196,7 +196,7 @@ export class SlowTxCollection {
     // from mined unproven blocks it has seen in the past.
     const fastRequests = this.fastCollection.getFastCollectionRequests();
     const fastCollectionTxs: Set<string> = new Set(
-      ...Array.from(fastRequests.values()).flatMap(r => r.missingTxTracker.missingTxHashes),
+      Array.from(fastRequests.values()).flatMap(r => r.missingTxTracker.missingTxHashes),
     );
 
     // Return all missing txs that are not in fastCollectionTxs and are ready for reqresp if requested

@@ -348,14 +348,14 @@ export class FastTxCollection {
             txHash: tx.txHash.toString(),
             type: request.type,
           });
-          // If we found all txs for this request, we resolve the promise
-          if (request.missingTxTracker.numberOfMissingTxs === 0) {
-            this.log.trace(`All txs found for fast collection request`, {
-              ...request.blockInfo,
-              type: request.type,
-            });
-            request.promise.resolve();
-          }
+        }
+        // If we found all txs for this request, we resolve the promise
+        if (request.missingTxTracker.numberOfMissingTxs === 0) {
+          this.log.trace(`All txs found for fast collection request`, {
+            ...request.blockInfo,
+            type: request.type,
+          });
+          request.promise.resolve();
         }
       }
     }
