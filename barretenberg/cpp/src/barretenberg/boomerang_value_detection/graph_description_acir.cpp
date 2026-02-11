@@ -934,8 +934,9 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_block_constraint(const Con
 }
 
 // Checks that the ECADD constraint is valid.
-// Right now we only check that input points are asserted to be on curve
-// TODO(defkit): check that result point is constrained to be input1 + input2
+// Verifies:
+// 1. Both input points are asserted to be on curve
+// 2. The result point is constrained to be input1 + input2 (via operator+ trace and assert_equal)
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_ec_add_constraint(const ConstraintPtr& ptr)
 {
@@ -946,6 +947,22 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_ec_add_constraint(const Co
     bool condition = true;
     condition &= is_on_curve_check_exists<FF>(analyzer, builder, input1_point, constraint->predicate);
     condition &= is_on_curve_check_exists<FF>(analyzer, builder, input2_point, constraint->predicate);
+
+    // Check that result point is constrained to be input1 + input2
+    if (is_point_constant(input1_point) && is_point_constant(input2_point)) {
+        // Both constant: addition computed natively, no gates to check
+        return condition;
+    }
+
+    condition &= is_ec_add_result_constrained<FF>(analyzer,
+                                                  builder,
+                                                  input1_point,
+                                                  input2_point,
+                                                  constraint->result_x,
+                                                  constraint->result_y,
+                                                  constraint->result_infinite,
+                                                  constraint->predicate);
+
     return condition;
 }
 

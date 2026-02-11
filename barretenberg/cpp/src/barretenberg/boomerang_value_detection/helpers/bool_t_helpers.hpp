@@ -99,7 +99,13 @@ std::optional<Bool<CircuitBuilder>> get_and_result(StaticAnalyzer_<FF, CircuitBu
     auto a = a_bool.witness;
     auto b = b_bool.witness;
     if (a.is_constant() || b.is_constant()) {
-        return Bool<CircuitBuilder>{ a_idx, a && b };
+        auto result = a && b;
+        if (result.is_constant()) {
+            return Bool<CircuitBuilder>{ bb::stdlib::IS_CONSTANT, result };
+        }
+        // Non-constant result: use the witness_index from the non-constant operand
+        uint32_t result_idx = a.is_constant() ? b_idx : a_idx;
+        return Bool<CircuitBuilder>{ result_idx, result };
     }
 
     int i_a = static_cast<int>(a.is_inverted());
@@ -151,7 +157,12 @@ std::optional<Bool<CircuitBuilder>> get_or_result(StaticAnalyzer_<FF, CircuitBui
     auto a = a_bool.witness;
     auto b = b_bool.witness;
     if (a.is_constant() || b.is_constant()) {
-        return Bool<CircuitBuilder>{ a_idx, a || b };
+        auto result = a || b;
+        if (result.is_constant()) {
+            return Bool<CircuitBuilder>{ bb::stdlib::IS_CONSTANT, result };
+        }
+        uint32_t result_idx = a.is_constant() ? b_idx : a_idx;
+        return Bool<CircuitBuilder>{ result_idx, result };
     }
     const int rhs_inverted = static_cast<int>(b.is_inverted());
     const int lhs_inverted = static_cast<int>(a.is_inverted());

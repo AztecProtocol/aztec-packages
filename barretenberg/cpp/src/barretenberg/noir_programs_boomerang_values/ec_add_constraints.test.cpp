@@ -103,6 +103,59 @@ TEST_F(EcAddConstraintsTests, ValidateEcAddConstraint)
     EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty());
 }
 
+TEST_F(EcAddConstraintsTests, ValidateEcAddConstraintLhsPointConstant)
+{
+    const auto input_point = bb::grumpkin::g1::affine_one;
+    auto input1 = std::vector<WitnessOrConstant<bb::fr>>{ WitnessOrConstant<bb::fr>::from_constant(input_point.x),
+                                                          WitnessOrConstant<bb::fr>::from_constant(fr(input_point.y)),
+                                                          WitnessOrConstant<bb::fr>::from_constant(0) };
+    auto input2 = std::vector<WitnessOrConstant<bb::fr>>{ WitnessOrConstant<bb::fr>::from_index(0),
+                                                          WitnessOrConstant<bb::fr>::from_index(1),
+                                                          WitnessOrConstant<bb::fr>::from_index(5) };
+    auto result = std::vector<uint32_t>{ 7, 8, 9 };
+    auto predicate = WitnessOrConstant<bb::fr>::from_index(2);
+    auto ec_add_constraint = create_ec_add_constraint(input1, input2, result, predicate);
+    AcirFormat constraint_system = build_acir_format(9, ec_add_constraint);
+
+    const auto result_point = input_point + input_point;
+    auto witness = WitnessVector{
+        input_point.x, input_point.y, fr(0),          input_point.x,  input_point.y,
+        fr(0),         fr(1),         result_point.x, result_point.y, fr(0),
+    };
+    auto program = AcirProgram{ constraint_system, witness };
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
+    StaticAnalyzerAcir analyzer(std::move(constraint_system), std::move(builder));
+    analyzer.process_constraint_system();
+    EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty());
+}
+
+TEST_F(EcAddConstraintsTests, ValidateEcAddConstraintRhsPointConstant)
+{
+    const auto input_point = bb::grumpkin::g1::affine_one;
+    auto input1 = std::vector<WitnessOrConstant<bb::fr>>{ WitnessOrConstant<bb::fr>::from_index(0),
+                                                          WitnessOrConstant<bb::fr>::from_index(1),
+                                                          WitnessOrConstant<bb::fr>::from_index(2) };
+    auto input2 = std::vector<WitnessOrConstant<bb::fr>>{ WitnessOrConstant<bb::fr>::from_constant(input_point.x),
+                                                          WitnessOrConstant<bb::fr>::from_constant(fr(input_point.y)),
+                                                          WitnessOrConstant<bb::fr>::from_constant(0) };
+
+    auto result = std::vector<uint32_t>{ 7, 8, 9 };
+    auto predicate = WitnessOrConstant<bb::fr>::from_index(6);
+    auto ec_add_constraint = create_ec_add_constraint(input1, input2, result, predicate);
+    AcirFormat constraint_system = build_acir_format(9, ec_add_constraint);
+
+    const auto result_point = input_point + input_point;
+    auto witness = WitnessVector{
+        input_point.x, input_point.y, fr(0),          input_point.x,  input_point.y,
+        fr(0),         fr(1),         result_point.x, result_point.y, fr(0),
+    };
+    auto program = AcirProgram{ constraint_system, witness };
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
+    StaticAnalyzerAcir analyzer(std::move(constraint_system), std::move(builder));
+    analyzer.process_constraint_system();
+    EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty());
+}
+
 TEST_F(EcAddConstraintsTests, ValidateEcAddConstraintWithConstHell)
 {
     const auto input_point = bb::grumpkin::g1::affine_one;
@@ -229,6 +282,107 @@ TEST_F(EcAddConstraintsTests, DetectCorruptedOnCurveConstraintInput2Gate)
     auto xx_field = cdg::get_mul_gate_output<fr>(graph_analyzer, builder, x_field, x_field);
     auto mul_gate_idx = find_mul_gate_idx(builder, x_field, x_field, xx_field->witness_index);
     builder.blocks.arithmetic.q_arith().set(mul_gate_idx, fr::zero());
+
+    StaticAnalyzerAcir analyzer(std::move(constraint_system), std::move(builder));
+    analyzer.process_constraint_system();
+    EXPECT_FALSE(analyzer.get_incorrect_opcodes().empty());
+}
+
+// Corrupt the ECC dbl gate in the elliptic block so the analyzer can no longer
+// trace through the addition chain.
+TEST_F(EcAddConstraintsTests, DetectCorruptedDblGate)
+{
+    auto input1 = std::vector<WitnessOrConstant<bb::fr>>{ WitnessOrConstant<bb::fr>::from_index(0),
+                                                          WitnessOrConstant<bb::fr>::from_index(1),
+                                                          WitnessOrConstant<bb::fr>::from_index(2) };
+    auto input2 = std::vector<WitnessOrConstant<bb::fr>>{ WitnessOrConstant<bb::fr>::from_index(3),
+                                                          WitnessOrConstant<bb::fr>::from_index(4),
+                                                          WitnessOrConstant<bb::fr>::from_index(5) };
+    auto result = std::vector<uint32_t>{ 7, 8, 9 };
+    auto predicate = WitnessOrConstant<bb::fr>::from_index(6);
+    auto ec_add_constraint = create_ec_add_constraint(input1, input2, result, predicate);
+    AcirFormat constraint_system = build_acir_format(9, ec_add_constraint);
+
+    const auto input_point = bb::grumpkin::g1::affine_one;
+    const auto result_point = input_point + input_point;
+    auto witness = WitnessVector{
+        input_point.x, input_point.y, fr(0),          input_point.x,  input_point.y,
+        fr(0),         fr(1),         result_point.x, result_point.y, fr(0),
+    };
+    auto program = AcirProgram{ constraint_system, witness };
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
+
+    // Corrupt the elliptic block: set q_m=0 (removes is_double flag) on all dbl gates
+    // CircuitChecker may still pass since we only change the selector.
+    auto& elliptic_block = builder.blocks.elliptic;
+    for (size_t i = 0; i < elliptic_block.size(); ++i) {
+        if (elliptic_block.q_m()[i] == fr::one()) {
+            elliptic_block.q_m().set(i, fr::zero());
+        }
+    }
+
+    StaticAnalyzerAcir analyzer(std::move(constraint_system), std::move(builder));
+    analyzer.process_constraint_system();
+    EXPECT_FALSE(analyzer.get_incorrect_opcodes().empty());
+}
+
+// Corrupt the lambda computation gate (evaluate_polynomial_identity for x_diff * lambda = y2 - y1)
+// so the analyzer cannot find the addition formula.
+TEST_F(EcAddConstraintsTests, DetectCorruptedLambdaGate)
+{
+    auto input1 = std::vector<WitnessOrConstant<bb::fr>>{ WitnessOrConstant<bb::fr>::from_index(0),
+                                                          WitnessOrConstant<bb::fr>::from_index(1),
+                                                          WitnessOrConstant<bb::fr>::from_index(2) };
+    auto input2 = std::vector<WitnessOrConstant<bb::fr>>{ WitnessOrConstant<bb::fr>::from_index(3),
+                                                          WitnessOrConstant<bb::fr>::from_index(4),
+                                                          WitnessOrConstant<bb::fr>::from_index(5) };
+    auto result = std::vector<uint32_t>{ 7, 8, 9 };
+    auto predicate = WitnessOrConstant<bb::fr>::from_index(6);
+    auto ec_add_constraint = create_ec_add_constraint(input1, input2, result, predicate);
+    AcirFormat constraint_system = build_acir_format(9, ec_add_constraint);
+
+    const auto input_point = bb::grumpkin::g1::affine_one;
+    const auto result_point = input_point + input_point;
+    auto witness = WitnessVector{
+        input_point.x, input_point.y, fr(0),          input_point.x,  input_point.y,
+        fr(0),         fr(1),         result_point.x, result_point.y, fr(0),
+    };
+    auto program = AcirProgram{ constraint_system, witness };
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
+
+    // Find the x_diff gate (add_two for x2.add_two(-x1, x_coord_match)) and corrupt its
+    // q_arith selector, which will prevent the analyzer from finding x_diff, and consequently lambda.
+    cdg::Point<fr> input1_point_cdg{ input1[0], input1[1], input1[2] };
+    cdg::Point<fr> input2_point_cdg{ input2[0], input2[1], input2[2] };
+    auto graph_analyzer = StaticAnalyzer_<fr, UltraCircuitBuilder>(builder);
+    auto real_p1 = *cdg::get_real_point<fr>(graph_analyzer, builder, input1_point_cdg, predicate);
+    auto real_p2 = *cdg::get_real_point<fr>(graph_analyzer, builder, input2_point_cdg, predicate);
+
+    // Get x_coordinates_match to then find x_diff
+    auto x_coord_match = cdg::get_equality_result<fr>(graph_analyzer, builder, real_p1.x, real_p2.x);
+    ASSERT_TRUE(x_coord_match.has_value());
+
+    auto neg_x1 = cdg::Field<UltraCircuitBuilder>{ real_p1.x.witness_index, -real_p1.x.witness };
+    auto x_coord_match_field =
+        cdg::Field<UltraCircuitBuilder>{ x_coord_match->witness_index,
+                                         bb::stdlib::field_t<UltraCircuitBuilder>(x_coord_match->witness) };
+    auto x_diff = cdg::get_add_two_gate_output<fr>(graph_analyzer, builder, real_p2.x, neg_x1, x_coord_match_field);
+    ASSERT_TRUE(x_diff.has_value());
+
+    // Find the lambda gate: evaluate_polynomial_identity(x_diff, lambda, -y2, y1)
+    auto neg_y2 = cdg::Field<UltraCircuitBuilder>{ real_p2.y.witness_index, -real_p2.y.witness };
+    auto lambda = cdg::get_evaluate_polynomial_identity_b<fr>(graph_analyzer, builder, *x_diff, neg_y2, real_p1.y);
+    ASSERT_TRUE(lambda.has_value());
+
+    // Find and corrupt the lambda gate by setting q_arith to zero
+    auto lambda_gates = graph_analyzer.get_variable_gates(x_diff->witness_index);
+    for (auto [blk_idx, gate_idx] : lambda_gates) {
+        auto& block = builder.blocks.get()[blk_idx];
+        if (block.w_r()[gate_idx] == lambda->witness_index) {
+            block.q_arith().set(gate_idx, fr::zero());
+            break;
+        }
+    }
 
     StaticAnalyzerAcir analyzer(std::move(constraint_system), std::move(builder));
     analyzer.process_constraint_system();
