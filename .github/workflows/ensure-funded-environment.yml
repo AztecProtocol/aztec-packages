@@ -19,6 +19,10 @@ on:
         required: false
         type: string
         default: '1.0'
+      namespace:
+        description: 'Kubernetes namespace override (e.g., v4-devnet-1). Sets NAMESPACE before sourcing env file.'
+        required: false
+        type: string
   workflow_dispatch:
     inputs:
       environment:
@@ -42,6 +46,10 @@ on:
         required: false
         type: string
         default: '1.0'
+      namespace:
+        description: 'Kubernetes namespace override (e.g., v4-devnet-1)'
+        required: false
+        type: string
 
 concurrency:
   group: ensure-funded-environment-${{ inputs.environment }}
@@ -103,6 +111,7 @@ jobs:
         env:
           FUNDING_PRIVATE_KEY: ${{ env.FUNDING_PRIVATE_KEY }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          NAMESPACE: ${{ inputs.namespace }}
         run: |
           cd spartan/scripts
 
