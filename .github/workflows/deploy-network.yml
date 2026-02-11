@@ -25,6 +25,11 @@ on:
         description: "Kubernetes namespace override (optional, defaults to env file value)"
         required: false
         type: string
+      deploy_contracts:
+        description: "Whether to deploy contracts fresh (true for first patch, false to read from network config)"
+        required: false
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       network:
@@ -49,6 +54,11 @@ on:
         description: "Kubernetes namespace override (optional, defaults to env file value)"
         required: false
         type: string
+      deploy_contracts:
+        description: "Whether to deploy contracts fresh (true for first patch, false to read from network config)"
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-network-${{ inputs.network }}-${{ inputs.namespace || inputs.network }}-${{ inputs.semver }}-${{ github.ref || github.ref_name }}
@@ -138,6 +148,8 @@ jobs:
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           NAMESPACE: ${{ inputs.namespace }}
           AZTEC_DOCKER_IMAGE: "aztecprotocol/aztec:${{ inputs.docker_image_tag || inputs.semver }}"
+          CREATE_ROLLUP_CONTRACTS: ${{ inputs.deploy_contracts == true && 'true' || '' }}
+          USE_NETWORK_CONFIG: ${{ inputs.deploy_contracts == true && 'false' || '' }}
         run: |
           echo "Deploying network: ${{ inputs.network }}"
           echo "Using image: $AZTEC_DOCKER_IMAGE"
