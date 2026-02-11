@@ -33,7 +33,7 @@ function help {
   echo "Usage: aztec-up [command] [options]"
   echo
   echo "Commands:"
-  echo "  install <version>         Install a version and switch to it"
+  echo "  install <VERSION>         Install a version and switch to it"
   echo "  use [<version>]           Switch to an installed version (or read from .aztecrc)"
   echo "  list                      List installed versions"
   echo "  uninstall <version>       Remove an installed version"
@@ -44,9 +44,8 @@ function help {
   echo "  -h, --help                Show this help message"
   echo
   echo "Examples:"
-  echo "  aztec-up install          Install the latest version"
-  echo "  aztec-up install nightly  Install the latest nightly version"
   echo "  aztec-up install 0.85.0   Install a specific version"
+  echo "  aztec-up install nightly  Install the nightly version"
   echo "  aztec-up use 0.85.0       Switch to version 0.85.0"
   echo "  aztec-up use              Read version from .aztecrc and switch to it"
   echo "  aztec-up list             Show all installed versions"
@@ -100,7 +99,7 @@ function is_semver {
   [[ "$version" =~ $semver_regex ]]
 }
 
-# Resolve alias (like "latest") to actual version number
+# Resolve alias (like "nightly") to actual version number
 function resolve_version {
   local version="$1"
   if is_semver "$version"; then
@@ -118,7 +117,31 @@ function resolve_version {
 
 # Install a version by downloading and running the version-specific installer
 function cmd_install {
-  local version="${1:-latest}"
+  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    echo "Install a version of Aztec and switch to it"
+    echo
+    echo "Usage: aztec-up install <VERSION>"
+    echo
+    echo "Arguments:"
+    echo "  <VERSION>  Version to install - semver (0.85.0) or alias (nightly)"
+    echo
+    echo "Options:"
+    echo "  -h, --help  Print help"
+    echo
+    echo "Examples:"
+    echo "  aztec-up install 0.85.0     # Install a specific version"
+    echo "  aztec-up install nightly    # Install the nightly build"
+    return 0
+  fi
+
+  local version="${1:-}"
+
+  if [ -z "$version" ]; then
+    echo "Error: Please specify a version to install."
+    echo "Usage: aztec-up install <version>"
+    echo "Example: aztec-up install 0.85.0"
+    exit 1
+  fi
 
   # Resolve alias to actual version
   local resolved_version
@@ -144,6 +167,25 @@ function cmd_install {
 
 # Switch to a version
 function cmd_use {
+  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    echo "Switch to an installed version of Aztec"
+    echo
+    echo "Usage: aztec-up use [VERSION]"
+    echo
+    echo "Arguments:"
+    echo "  [VERSION]  Version to switch to. If omitted, reads from .aztecrc file"
+    echo "             in the current directory or parent directories up to \$HOME"
+    echo
+    echo "Options:"
+    echo "  -h, --help  Print help"
+    echo
+    echo "Examples:"
+    echo "  aztec-up use 0.85.0    # Switch to version 0.85.0"
+    echo "  aztec-up use nightly   # Switch to nightly (if installed)"
+    echo "  aztec-up use           # Use version from .aztecrc file"
+    return 0
+  fi
+
   local version="${1:-}"
 
   # If no version specified, try to read from .aztecrc
@@ -179,6 +221,24 @@ function cmd_use {
 
 # List installed versions and available aliases
 function cmd_list {
+  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    echo "List installed Aztec versions and available aliases"
+    echo
+    echo "Usage: aztec-up list"
+    echo
+    echo "Options:"
+    echo "  -h, --help  Print help"
+    echo
+    echo "Output:"
+    echo "  - All locally installed versions"
+    echo "  - The currently active version (marked with *)"
+    echo "  - Available version aliases (nightly, etc.)"
+    echo
+    echo "Examples:"
+    echo "  aztec-up list    # Show all installed versions and aliases"
+    return 0
+  fi
+
   local current_version
   current_version=$(get_current_version)
 
@@ -220,6 +280,26 @@ function cmd_list {
 
 # Uninstall a version
 function cmd_uninstall {
+  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    echo "Remove an installed version of Aztec"
+    echo
+    echo "Usage: aztec-up uninstall <VERSION>"
+    echo
+    echo "Arguments:"
+    echo "  <VERSION>  Version to uninstall (required)"
+    echo
+    echo "Options:"
+    echo "  -h, --help  Print help"
+    echo
+    echo "Note:"
+    echo "  If uninstalling the currently active version, you will need to run"
+    echo "  'aztec-up use <version>' to switch to another version afterwards."
+    echo
+    echo "Examples:"
+    echo "  aztec-up uninstall 0.85.0    # Remove version 0.85.0"
+    return 0
+  fi
+
   local version="${1:-}"
 
   if [ -z "$version" ]; then
@@ -250,6 +330,19 @@ function cmd_uninstall {
 
 # Update aztec-up itself
 function cmd_self-update {
+  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    echo "Update aztec-up itself to the latest version"
+    echo
+    echo "Usage: aztec-up self-update"
+    echo
+    echo "Options:"
+    echo "  -h, --help  Print help"
+    echo
+    echo "Examples:"
+    echo "  aztec-up self-update    # Update aztec-up to the latest version"
+    return 0
+  fi
+
   echo "Updating aztec-up..."
 
   local self_path="$AZTEC_HOME/bin/aztec-up"
@@ -272,6 +365,20 @@ function cmd_self-update {
 
 # Output PATH for .aztecrc version (for eval in shell scripts)
 function cmd_env {
+  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    echo "Output PATH export for the version specified in .aztecrc"
+    echo
+    echo "Usage: aztec-up env"
+    echo
+    echo "Options:"
+    echo "  -h, --help  Print help"
+    echo
+    echo "Examples:"
+    echo "  eval \"\$(aztec-up env)\"                        # Set PATH for .aztecrc version"
+    echo "  eval \"\$(aztec-up env 2>/dev/null)\" || true    # Safe for shell profiles"
+    return 0
+  fi
+
   # Find and read .aztecrc
   local aztecrc_file
   if ! aztecrc_file=$(find_aztecrc); then
