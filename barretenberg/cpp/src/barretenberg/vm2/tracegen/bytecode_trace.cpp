@@ -196,13 +196,19 @@ void BytecodeTraceBuilder::process_hashing(
                           { C::bc_hashing_sel_not_padding_2, end_of_bytecode && padding_amount > 0 ? 0 : 1 },
                           { C::bc_hashing_output_hash, output_hash } } });
             if (end_of_bytecode) {
-                // TODO(MW): Cleanup: below sets the pc at which the final field starts.
-                // It can't just be pc_index + 31 * padding_amount because we 'skip' 31 bytes at start == 1 to force
-                // the first field to be the separator:
+                // Below sets the pc at which the final field starts. We only use/constrain it at latch == 1.
+                // Note: It can't just be pc_index + 31 * padding_amount because we 'skip' 31 bytes at start == 1 to
+                // force the first field to be the separator.
+                FF pc_at_final_field =
+                    padding_amount == 2
+                        // Two padding fields => we are currently at the final field:
+                        ? pc_index
+                        // One padding field => the final field starts at pc_index_1
+                        // No padding fields => the final field starts at pc_index_2 (= pc_index_1 + 31):
+                        : pc_index_1 + (31 * (1 - padding_amount));
                 trace.set(row,
                           { {
-                              { C::bc_hashing_pc_at_final_field,
-                                padding_amount == 2 ? pc_index : pc_index_1 + (31 * (1 - padding_amount)) },
+                              { C::bc_hashing_pc_at_final_field, pc_at_final_field },
                           } });
             }
             pc_index = pc_index_1 + 62;

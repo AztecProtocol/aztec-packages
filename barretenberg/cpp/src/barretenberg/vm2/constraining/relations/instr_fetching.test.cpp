@@ -778,8 +778,7 @@ TEST(InstrFetchingConstrainingTest, NegativeTruncatedBytecodeRepro)
     // We could previously process a truncated bytecode with the same id:
     // 'Fake' bytecode: [ 23 23 23 23 23 23 23 23 23 23 23 23 23 23 23 02 00 05 05 ] of length 19 bytes
     // Before introducing  #[BYTECODE_LENGTH_BYTES] in bc_hashing.pil and including the size in
-    // compute_public_bytecode_separator(), trunc_hash == hash, meaning we could use truncated bytecode. TODO(MW): add
-    // PR number here for future ref
+    // compute_public_bytecode_separator(), (#20254) trunc_hash == hash, meaning we could use truncated bytecode.
     ASSERT_NE(hash, trunc_hash);
 
     // Now, we cannot process the truncated bytecode and force a good instruction on the full bytecode to fail:
