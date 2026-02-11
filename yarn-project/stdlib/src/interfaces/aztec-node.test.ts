@@ -668,6 +668,7 @@ class MockAztecNode implements AztecNode {
         L1ContractsNames.map(name => [name, EthAddress.random()]),
       ) as L1ContractAddresses,
       protocolContractAddresses: Object.fromEntries(protocolContracts) as ProtocolContractAddresses,
+      realProofs: true,
     };
   }
   getBlocks(from: number, limit: number): Promise<L2Block[]> {

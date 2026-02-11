@@ -9,7 +9,6 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 // implements TransparentNote shield flow.
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import { mkdtemp } from 'fs/promises';
@@ -18,6 +17,7 @@ import { join } from 'path';
 
 import { BlacklistTokenContractTest, Role } from '../e2e_blacklist_token_contract/blacklist_token_contract_test.js';
 import { type EndToEndContext, setup } from '../fixtures/utils.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 
 jest.setTimeout(60_000);
 

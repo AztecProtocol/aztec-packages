@@ -19,7 +19,6 @@ import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
@@ -31,6 +30,7 @@ import {
   teardown,
 } from '../fixtures/setup.js';
 import { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 
 export class CrossChainMessagingTest {
   private requireEpochProven: boolean;

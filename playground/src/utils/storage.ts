@@ -6,7 +6,6 @@ import { type TxHash, TxReceipt, TxStatus } from '@aztec/aztec.js/tx';
 import type { LogFn } from '@aztec/foundation/log';
 import { type AztecAsyncMap, type AztecAsyncKVStore, type AztecAsyncMultiMap } from '@aztec/kv-store';
 import { stringify } from 'buffer-json';
-import { convertFromUTF8BufferAsString } from './conversion';
 
 export const Aliases = ['accounts', 'artifacts', 'secrets', 'transactions', 'authwits', 'contracts'] as const;
 export type AliasType = (typeof Aliases)[number];
@@ -63,8 +62,7 @@ export class PlaygroundDB {
 
     for await (const [alias, data] of this.networks.entriesAsync()) {
       try {
-        // Convert buffer to string: data.toString() returns comma-separated bytes
-        const jsonString = convertFromUTF8BufferAsString(data.toString());
+        const jsonString = data.toString();
         const networkData = JSON.parse(jsonString);
         result.push({
           networkUrl: networkData.networkUrl,

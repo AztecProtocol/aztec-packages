@@ -1,12 +1,13 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { WaitOpts } from '@aztec/aztec.js/contracts';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { AccountManager } from '@aztec/aztec.js/wallet';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { LogFn } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet/server';
+import { EmbeddedWallet } from '@aztec/wallets/embedded';
+import { deployFundedSchnorrAccounts } from '@aztec/wallets/testing';
 
 export async function setupL2Contracts(nodeUrl: string, testAccounts: boolean, json: boolean, log: LogFn) {
   const waitOpts: WaitOpts = {
@@ -16,7 +17,7 @@ export async function setupL2Contracts(nodeUrl: string, testAccounts: boolean, j
   log('setupL2Contracts: Wait options' + jsonStringify(waitOpts));
   log('setupL2Contracts: Creating PXE client...');
   const node = createAztecNodeClient(nodeUrl);
-  const wallet = await TestWallet.create(node);
+  const wallet = await EmbeddedWallet.create(node);
 
   let deployedAccountManagers: AccountManager[] = [];
   if (testAccounts) {

@@ -8,8 +8,8 @@ import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { DeployTest, type StatefulContractCtorArgs } from './deploy_test.js';
 
 describe('e2e_deploy_contract private initialization', () => {
