@@ -37,6 +37,8 @@ export type TxPoolV2Config = {
   maxPendingTxCount: number;
   /** Maximum number of archived transactions to retain (0 = disabled) */
   archivedTxLimit: number;
+  /** Minimum age (ms) a transaction must have been in the pool before it's eligible for block building */
+  minTxPoolAgeMs: number;
 };
 
 /**
@@ -45,6 +47,7 @@ export type TxPoolV2Config = {
 export const DEFAULT_TX_POOL_V2_CONFIG: TxPoolV2Config = {
   maxPendingTxCount: 0, // 0 = disabled
   archivedTxLimit: 0, // 0 = disabled
+  minTxPoolAgeMs: 2_000,
 };
 
 /**
@@ -187,8 +190,8 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
   /** Gets pending transaction hashes sorted by priority (highest first) */
   getPendingTxHashes(): Promise<TxHash[]>;
 
-  /** Gets pending transaction hashes that have been in the pool since before maxReceivedAt, sorted by priority (highest first) */
-  getEligiblePendingTxHashes(maxReceivedAt: number): Promise<TxHash[]>;
+  /** Gets pending transaction hashes that have been in the pool long enough per minTxPoolAgeMs, sorted by priority (highest first) */
+  getEligiblePendingTxHashes(): Promise<TxHash[]>;
 
   /** Gets the count of pending transactions */
   getPendingTxCount(): Promise<number>;

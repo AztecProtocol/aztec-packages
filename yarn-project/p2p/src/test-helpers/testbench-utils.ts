@@ -163,7 +163,7 @@ export class InMemoryTxPool extends EventEmitter implements TxPoolV2 {
     return Promise.resolve([...this.txsByHash.keys()].map(key => TxHash.fromString(key)));
   }
 
-  getEligiblePendingTxHashes(_maxReceivedAt: number): Promise<TxHash[]> {
+  getEligiblePendingTxHashes(): Promise<TxHash[]> {
     return this.getPendingTxHashes();
   }
 

@@ -553,7 +553,8 @@ export class TxPoolV2Impl {
     return [...this.#indices.iteratePendingByPriority('desc')].map(hash => TxHash.fromString(hash));
   }
 
-  getEligiblePendingTxHashes(maxReceivedAt: number): TxHash[] {
+  getEligiblePendingTxHashes(): TxHash[] {
+    const maxReceivedAt = this.#dateProvider.now() - this.#config.minTxPoolAgeMs;
     return [...this.#indices.iterateEligiblePendingByPriority('desc', maxReceivedAt)].map(hash =>
       TxHash.fromString(hash),
     );

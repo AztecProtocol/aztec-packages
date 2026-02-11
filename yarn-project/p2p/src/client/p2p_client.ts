@@ -489,8 +489,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   public async *iterateEligiblePendingTxs(): AsyncIterableIterator<Tx> {
-    const maxReceivedAt = this._dateProvider.now() - this.config.minTxPoolAgeMs;
-    for (const txHash of await this.txPool.getEligiblePendingTxHashes(maxReceivedAt)) {
+    for (const txHash of await this.txPool.getEligiblePendingTxHashes()) {
       const tx = await this.txPool.getTxByHash(txHash);
       if (tx) {
         yield tx;
