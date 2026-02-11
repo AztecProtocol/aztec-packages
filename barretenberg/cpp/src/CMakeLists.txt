@@ -7,7 +7,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 # module's own CMakeLists.txt by adding conditional compilation flags like the following
 # ```
 # if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-# target_compile_options(crypto_blake3s_full_objects PRIVATE -Wno-error=shorten-64-to-32)
+# target_compile_options(my_module_objects PRIVATE -Wno-error=shorten-64-to-32)
 # endif()
 # ```
 # Specifying `-Wno-${ERROR_NAME}` will silence the error completely.

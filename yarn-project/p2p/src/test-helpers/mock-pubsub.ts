@@ -19,8 +19,20 @@ import {
 
 import type { P2PConfig } from '../config.js';
 import type { MemPools } from '../mem_pools/interface.js';
-import { DummyPeerDiscoveryService, DummyPeerManager, DummyReqResp, LibP2PService } from '../services/index.js';
-import type { ReqRespInterface } from '../services/reqresp/interface.js';
+import { DummyPeerDiscoveryService, DummyPeerManager, LibP2PService } from '../services/index.js';
+import type { P2PReqRespConfig } from '../services/reqresp/config.js';
+import type { ConnectionSampler } from '../services/reqresp/connection-sampler/connection_sampler.js';
+import {
+  type ReqRespInterface,
+  type ReqRespResponse,
+  type ReqRespSubProtocol,
+  type ReqRespSubProtocolHandler,
+  type ReqRespSubProtocolHandlers,
+  type ReqRespSubProtocolValidators,
+  type SubProtocolMap,
+  responseFromBuffer,
+} from '../services/reqresp/interface.js';
+import { ReqRespStatus } from '../services/reqresp/status.js';
 import { GossipSubEvent } from '../types/index.js';
 import type { PubSubLibp2p } from '../util.js';
 
@@ -52,7 +64,7 @@ export function getMockPubSubP2PServiceFactory<T extends P2PClientType>(
     deps.logger.verbose('Creating mock PubSub service');
     const libp2p = new MockPubSub(peerId, network);
     const peerManager = new DummyPeerManager(peerId, network);
-    const reqresp: ReqRespInterface = new DummyReqResp();
+    const reqresp: ReqRespInterface = new MockReqResp(peerId, network);
     const peerDiscoveryService = new DummyPeerDiscoveryService();
     const service = new LibP2PService<T>(
       clientType as T,
@@ -72,6 +84,115 @@ export function getMockPubSubP2PServiceFactory<T extends P2PClientType>(
 
     return Promise.resolve(service);
   };
+}
+
+/**
+ * Mock implementation of ReqRespInterface that routes requests to other peers' handlers through the mock network.
+ * When a peer calls sendBatchRequest, the mock iterates over network peers and invokes their registered handler
+ * for the sub-protocol, simulating the request-response protocol without actual libp2p streams.
+ */
+class MockReqResp implements ReqRespInterface {
+  private handlers: Partial<ReqRespSubProtocolHandlers> = {};
+  private logger = createLogger('p2p:test:mock-reqresp');
+
+  constructor(
+    private peerId: PeerId,
+    private network: MockGossipSubNetwork,
+  ) {
+    network.registerReqRespPeer(this);
+  }
+
+  updateConfig(_config: Partial<P2PReqRespConfig>): void {}
+
+  start(
+    subProtocolHandlers: Partial<ReqRespSubProtocolHandlers>,
+    _subProtocolValidators: ReqRespSubProtocolValidators,
+  ): Promise<void> {
+    Object.assign(this.handlers, subProtocolHandlers);
+    return Promise.resolve();
+  }
+
+  addSubProtocol(
+    subProtocol: ReqRespSubProtocol,
+    handler: ReqRespSubProtocolHandler,
+    _validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
+  ): Promise<void> {
+    this.handlers[subProtocol] = handler;
+    return Promise.resolve();
+  }
+
+  stop(): Promise<void> {
+    this.handlers = {};
+    return Promise.resolve();
+  }
+
+  getHandler(subProtocol: ReqRespSubProtocol): ReqRespSubProtocolHandler | undefined {
+    return this.handlers[subProtocol];
+  }
+
+  async sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
+    subProtocol: SubProtocol,
+    requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
+    pinnedPeer: PeerId | undefined,
+    _timeoutMs?: number,
+    _maxPeers?: number,
+    _maxRetryAttempts?: number,
+  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]> {
+    const responses: InstanceType<SubProtocolMap[SubProtocol]['response']>[] = [];
+    const peers = this.network.getReqRespPeers().filter(p => !p.peerId.equals(this.peerId));
+    const targetPeers = pinnedPeer ? peers.filter(p => p.peerId.equals(pinnedPeer)) : peers;
+
+    for (const request of requests) {
+      const requestBuffer = request.toBuffer();
+      for (const peer of targetPeers) {
+        const handler = peer.getHandler(subProtocol);
+        if (!handler) {
+          continue;
+        }
+        try {
+          const responseBuffer = await handler(this.peerId, requestBuffer);
+          if (responseBuffer.length > 0) {
+            const response = responseFromBuffer(subProtocol, responseBuffer);
+            responses.push(response as InstanceType<SubProtocolMap[SubProtocol]['response']>);
+            break;
+          }
+        } catch (err) {
+          this.logger.debug(`Mock reqresp handler error from peer ${peer.peerId}`, { err });
+        }
+      }
+    }
+
+    return responses;
+  }
+
+  async sendRequestToPeer(
+    peerId: PeerId,
+    subProtocol: ReqRespSubProtocol,
+    payload: Buffer,
+    _dialTimeout?: number,
+  ): Promise<ReqRespResponse> {
+    const peer = this.network.getReqRespPeers().find(p => p.peerId.equals(peerId));
+    const handler = peer?.getHandler(subProtocol);
+    if (!handler) {
+      return { status: ReqRespStatus.SUCCESS, data: Buffer.from([]) };
+    }
+    try {
+      const data = await handler(this.peerId, payload);
+      return { status: ReqRespStatus.SUCCESS, data };
+    } catch {
+      return { status: ReqRespStatus.FAILURE };
+    }
+  }
+
+  getConnectionSampler(): Pick<ConnectionSampler, 'getPeerListSortedByConnectionCountAsc'> {
+    return {
+      getPeerListSortedByConnectionCountAsc: () =>
+        this.network
+          .getReqRespPeers()
+          .filter(p => !p.peerId.equals(this.peerId))
+          .map(p => p.peerId),
+    };
+  }
 }
 
 /**
@@ -157,6 +278,7 @@ class MockGossipSubService extends TypedEventEmitter<GossipsubEvents> implements
  */
 export class MockGossipSubNetwork {
   private peers: MockGossipSubService[] = [];
+  private reqRespPeers: MockReqResp[] = [];
   private nextMsgId = 0;
 
   private logger = createLogger('p2p:test:mock-gossipsub-network');
@@ -167,6 +289,14 @@ export class MockGossipSubNetwork {
 
   public registerPeer(peer: MockGossipSubService): void {
     this.peers.push(peer);
+  }
+
+  public registerReqRespPeer(peer: MockReqResp): void {
+    this.reqRespPeers.push(peer);
+  }
+
+  public getReqRespPeers(): MockReqResp[] {
+    return this.reqRespPeers;
   }
 
   public publishToPeers(topic: TopicStr, data: Uint8Array, sender: PeerId): void {

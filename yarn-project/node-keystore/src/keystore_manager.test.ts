@@ -1442,7 +1442,7 @@ describe('KeystoreManager', () => {
       expect(validateAccessSpy).toHaveBeenCalledWith(testUrl, [publisherAddress.toString()]);
     });
 
-    it('should handle validation errors', async () => {
+    it('should handle validation errors after retries are exhausted', async () => {
       const testUrl = 'http://test-signer:9000';
       const address = EthAddress.random();
 
@@ -1456,11 +1456,52 @@ describe('KeystoreManager', () => {
         ],
       };
 
+      const manager = new KeystoreManager(keystore);
+
       using validateAccessSpy = jest.spyOn(RemoteSigner, 'validateAccess');
-      validateAccessSpy.mockRejectedValueOnce(new Error('Connection refused'));
+      validateAccessSpy.mockRejectedValue(new Error('Connection refused'));
+
+      jest.useFakeTimers();
+
+      const promise = manager.validateSigners().catch(err => err);
+      await jest.advanceTimersByTimeAsync(32_000);
+      const error = await promise;
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toBe('Connection refused');
+
+      jest.useRealTimers();
+    });
+
+    it('should retry and succeed when validateAccess fails transiently', async () => {
+      const testUrl = 'http://test-signer:9000';
+      const address = EthAddress.random();
+
+      const keystore: KeyStore = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: { address, remoteSignerUrl: testUrl },
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+      };
 
       const manager = new KeystoreManager(keystore);
-      await expect(manager.validateSigners()).rejects.toThrow('Connection refused');
+
+      using validateAccessSpy = jest.spyOn(RemoteSigner, 'validateAccess');
+      validateAccessSpy
+        .mockRejectedValueOnce(new Error('ECONNREFUSED'))
+        .mockRejectedValueOnce(new Error('ECONNREFUSED'))
+        .mockResolvedValueOnce(undefined);
+
+      jest.useFakeTimers();
+
+      const promise = manager.validateSigners();
+      await jest.advanceTimersByTimeAsync(4_000);
+      await expect(promise).resolves.not.toThrow();
+      expect(validateAccessSpy).toHaveBeenCalledTimes(3);
+
+      jest.useRealTimers();
     });
 
     it('should skip validation for mnemonic and JSON V3 configs', async () => {
