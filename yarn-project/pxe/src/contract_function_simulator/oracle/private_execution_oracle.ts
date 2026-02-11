@@ -526,22 +526,13 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
-    // When scopes are set and the target contract is a registered account (has keys in the keyStore),
-    // expand scopes to include it so nested private calls can sync and read the contract's own notes.
-    // We only expand for registered accounts because the log service needs the recipient's keys to derive
-    // tagging secrets, which are only available for registered accounts.
-    const expandedScopes =
-      this.scopes && (await this.keyStore.hasAccount(targetContractAddress))
-        ? [...this.scopes, targetContractAddress]
-        : this.scopes;
-
     await this.contractSyncService.ensureContractSynced(
       targetContractAddress,
       functionSelector,
       this.utilityExecutor,
       this.anchorBlockHeader,
       this.jobId,
-      expandedScopes,
+      this.scopes,
     );
 
     const targetArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(
@@ -579,7 +570,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       totalPublicCalldataCount: this.totalPublicCalldataCount,
       sideEffectCounter,
       log: this.log,
-      scopes: expandedScopes,
+      scopes: this.scopes,
       senderForTags: this.senderForTags,
       simulator: this.simulator!,
     });
