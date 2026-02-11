@@ -111,9 +111,8 @@ template <typename Curve> struct PairingPoints {
     /**
      * @brief Aggregate multiple PairingPoints using random linear combination
      *
-     * @details The pairing points are aggregated using challenges generated as the consecutive hashes of the pairing
-     * points being aggregated. Computes: P_agg = P₀ + r₁·P₁ + r₂·P₂ + ... + rₙ₋₁·Pₙ₋₁
-     * where r₁,...,rₙ₋₁ are 128-bit challenges derived from hashing all input points.
+     * @details Computes: P_agg = P₀ + r₁·P₁ + r₂·P₂ + ... + rₙ₋₁·Pₙ₋₁ where r₁,...,rₙ₋₁ are 128-bit challenges
+     * depending on all input points.
      *
      * @param pairing_points Vector of pairing points to aggregate (requires size > 1)
      * @param handle_edge_cases If true, batch_mul handles edge cases where points might be zero or challenges might
@@ -121,9 +120,8 @@ template <typename Curve> struct PairingPoints {
      *
      * Safety of handle_edge_cases=false:
      * - Safe when all points are verifier-computed (deterministic, won't collide)
-     * - Safe even with untrusted public input points, as the random challenges maintain binding
+     * - Safe even with untrusted public input points, as the random challenges make collisions negligible
      * - Provides significant circuit gate savings in recursive verification
-     * - Should only be disabled when the caller can guarantee point validity
      */
     static PairingPoints aggregate_multiple(std::vector<PairingPoints>& pairing_points, bool handle_edge_cases = true)
     {
@@ -156,7 +154,8 @@ template <typename Curve> struct PairingPoints {
         std::vector<Fr> challenges = transcript.template get_challenges<Fr>(labels);
 
         // Aggregate: P_agg = P₀ + r₁·P₁ + r₂·P₂ + ... + rₙ₋₁·Pₙ₋₁
-        Group P0, P1;
+        Group P0;
+        Group P1;
 
         // For MegaCircuitBuilder (Goblin): batch_mul optimizes constant scalar 1 (uses add instead of mul)
         // so we can include all points in a single batch_mul with scalar [1, r₁, r₂, ..., rₙ₋₁]
@@ -168,8 +167,8 @@ template <typename Curve> struct PairingPoints {
             scalars.push_back(Fr(1)); // Optimized by Goblin: add instead of mul
             scalars.insert(scalars.end(), challenges.begin(), challenges.end());
 
-            P0 = Group::batch_mul(first_components, scalars, 128, handle_edge_cases);
-            P1 = Group::batch_mul(second_components, scalars, 128, handle_edge_cases);
+            P0 = Group::batch_mul(first_components, scalars);
+            P1 = Group::batch_mul(second_components, scalars);
         } else {
             // Use first point as base, then batch_mul remaining points
             std::vector<Group> remaining_first(first_components.begin() + 1, first_components.end());
@@ -196,11 +195,11 @@ template <typename Curve> struct PairingPoints {
     }
 
     /**
-     * @brief Compute a linear combination of the present pairing points with an input set of pairing points
-     * @details The linear combination is done with a recursion separator that is the hash of the two sets of pairing
-     * points.
-     * @param other
-     * @param recursion_separator
+     * @brief Aggregate another PairingPoints into this one via random linear combination.
+     * @details Computes: this = this + r · other, where r is a 128-bit Fiat-Shamir challenge depending on
+     * both sets of points. If this is unpopulated (default-constructed), simply copies other.
+     *
+     * @param other The PairingPoints to aggregate (must be populated).
      */
     void aggregate(PairingPoints const& other)
     {
@@ -211,9 +210,8 @@ template <typename Curve> struct PairingPoints {
             *this = other;
             return;
         }
-        // We use a Transcript because it provides us an easy way to hash to get a "random" separator.
+        // Use transcript to hash all four points to derive a binding challenge
         StdlibTranscript<Builder> transcript{};
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1375): Sometimes unnecesarily hashing constants
         transcript.add_to_hash_buffer("Accumulator_P0", P0());
         transcript.add_to_hash_buffer("Accumulator_P1", P1());
         transcript.add_to_hash_buffer("Aggregated_P0", other.P0());
@@ -223,10 +221,11 @@ template <typename Curve> struct PairingPoints {
         // If Mega Builder is in use, the EC operations are deferred via Goblin.
         // batch_mul with constant scalar 1 is optimal here (Goblin uses add instead of mul).
         if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
+            // Goblin: batch_mul with constant scalar 1 uses add instead of mul
             P0() = Group::batch_mul({ P0(), other.P0() }, { 1, recursion_separator });
             P1() = Group::batch_mul({ P1(), other.P1() }, { 1, recursion_separator });
         } else {
-            // Save gates using short scalars.
+            // Ultra: 128-bit scalar mul to save gates
             Group point_to_aggregate = other.P0().scalar_mul(recursion_separator, 128);
             P0() += point_to_aggregate;
             point_to_aggregate = other.P1().scalar_mul(recursion_separator, 128);
