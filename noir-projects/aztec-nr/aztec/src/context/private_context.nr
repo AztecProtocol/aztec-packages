@@ -529,7 +529,7 @@ impl PrivateContext {
     /// balance (>= the gas limits specified in the TxContext) by the time we reach the public setup phase of the tx.
     ///
     pub fn set_as_fee_payer(&mut self) {
-        crate::protocol::debug_log::debug_log_format("Setting {0} as fee payer", [self.this_address().to_field()]);
+        crate::protocol::logging::debug_log_format("Setting {0} as fee payer", [self.this_address().to_field()]);
         self.is_fee_payer = true;
     }
 
@@ -578,7 +578,7 @@ impl PrivateContext {
         // Incrementing the side effect counter when ending setup ensures non ambiguity for the counter where we change
         // phases.
         self.side_effect_counter += 1;
-        // crate::protocol::debug_log::debug_log_format(
+        // crate::protocol::logging::debug_log_format(
         //     "Ending setup at counter {0}",
         //     [self.side_effect_counter as Field]
         // );

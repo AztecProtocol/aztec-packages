@@ -8,7 +8,7 @@ pub contract ContractInstanceRegistry {
         context::{PrivateContext, PublicContext},
         hash::hash_args,
         nullifier::utils::compute_nullifier_existence_request,
-        oracle::{avm, debug_log::debug_log_format, version::assert_compatible_oracle_version},
+        oracle::{avm, logging::debug_log_format, version::assert_compatible_oracle_version},
         protocol::{
             abis::function_selector::FunctionSelector,
             address::{AztecAddress, PartialAddress},

@@ -58,14 +58,14 @@ export async function createPXE(
   const protocolContractsProvider = new BundledProtocolContractsProvider();
 
   const pxeLogger = loggers.pxe ?? createLogger('pxe:service', { actor });
-  const pxe = await PXE.create(
-    aztecNode,
-    options.store,
-    prover,
+  const pxe = await PXE.create({
+    node: aztecNode,
+    store: options.store,
+    proofCreator: prover,
     simulator,
     protocolContractsProvider,
-    configWithContracts,
-    pxeLogger,
-  );
+    config: configWithContracts,
+    loggerOrSuffix: pxeLogger,
+  });
   return pxe;
 }
