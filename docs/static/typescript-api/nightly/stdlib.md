@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: v4.0.0-nightly.20260210
+Version: v4.0.0-nightly.20260211
 
 ## Quick Import Reference
 

@@ -1,6 +1,6 @@
 # @aztec/aztec.js
 
-Version: v4.0.0-nightly.20260210
+Version: v4.0.0-nightly.20260211
 
 ## Quick Import Reference
 
@@ -1235,18 +1235,6 @@ Wallet capability response. Returned by wallet after user reviews and approves/d
 function BlockNumber(value: number) => BlockNumber
 ```
 Creates a BlockNumber from a number.
-
-### broadcastPrivateFunction
-```typescript
-function broadcastPrivateFunction(wallet: Wallet, artifact: ContractArtifact, selector: FunctionSelector) => Promise<ContractFunctionInteraction>
-```
-Sets up a call to broadcast a private function's bytecode via the ClassRegistry contract. Note that this is not required for users to call the function, but is rather a convenience to make this code publicly available so dapps or wallets do not need to redistribute it.
-
-### broadcastUtilityFunction
-```typescript
-function broadcastUtilityFunction(wallet: Wallet, artifact: ContractArtifact, selector: FunctionSelector) => Promise<ContractFunctionInteraction>
-```
-Sets up a call to broadcast a utility function's bytecode via the ClassRegistry contract. Note that this is not required for users to call the function, but is rather a convenience to make this code publicly available so dapps or wallets do not need to redistribute it.
 
 ### computeAppNullifierHidingKey
 ```typescript
