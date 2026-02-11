@@ -12,16 +12,8 @@ export const General = {
   ),
   InstallationInstructions: () => (
     <p>
-      To use Aztec's suite of tools you'll need to:
-      <ul>
-        <li>
-          <a href="https://docs.docker.com/engine/install/">Get docker</a>{" "}
-          (engine or desktop)
-        </li>
-        <li>
-          Run <code>bash -i &lt;(curl -sL https://install.aztec.network)</code>
-        </li>
-      </ul>
+      To use Aztec's suite of tools, run:{" "}
+      <code>VERSION=&lt;version&gt; bash -i &lt;(curl -sL https://install.aztec.network/&lt;version&gt;)</code>
     </p>
   ),
 

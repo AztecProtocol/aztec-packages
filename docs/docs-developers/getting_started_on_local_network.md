@@ -19,37 +19,28 @@ What's included in the local network:
 - A set of test accounts with some test tokens to pay fees
 - Development tools to compile contracts and interact with the network (`aztec` and `aztec-wallet`)
 
-All of this comes packaged in a Docker container to make it easy to install and run.
-
 This guide will teach you how to install the Aztec local network, run it using the Aztec CLI, and interact with contracts using the wallet CLI. To jump right into the testnet instead, click the `Testnet` tab.
 
 ## Prerequisites
 
 import { General, Fees } from '@site/src/components/Snippets/general_snippets';
 
-You need two global dependencies on your machine:
-
 - <General.node_ver />
-- Docker (visit [this page of the Docker docs](https://docs.docker.com/get-docker/) on how to install it)
 
 ## Install and run the local network
 
-### Start Docker
-
-Docker needs to be running in order to install the local network. Find instructions on the [Docker website](https://docs.docker.com/get-started/).
-
-### Install the local network
+### Install the Aztec toolchain
 
 Run:
 
 ```bash
-bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix/)
+VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix)
 ```
 
 This will install the following tools:
 
 - **aztec** - compiles and tests aztec contracts and launches various infrastructure subsystems (full local network, sequencer, prover, pxe, etc) and provides utility commands to interact with the network
-- **aztec-up** - a tool to upgrade the aztec toolchain to the latest, or specific versions.
+- **aztec-up** - a version manager for the Aztec toolchain. Use `aztec-up install <version>` to install a new version, `aztec-up use <version>` to switch between installed versions, or `aztec-up list` to see installed versions.
 - **aztec-wallet** - a tool for interacting with the aztec network
 
 ### Start the local network
