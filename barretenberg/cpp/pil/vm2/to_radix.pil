@@ -1,24 +1,55 @@
 include "precomputed.pil";
 
-// Decomposes a field in radixes
-// Roughly, what we do is keep track of an accumulator where we reconstruct value using the limbs. We can end when the accumulator is equal to the value (found).
-// For overflow protection, we compare the limbs against the p limbs for the given radix. If we reach the last limb (is_unsafe) we assert that we are under p.
-// Overflow in the accumulator can only happen in the unsafe limb. After the unsafe limb we have padding limbs, that we assert to be zero. This is used
-// because users might want to decompose in more limbs that strictly needed for the radix.
-// The following table is non-exhaustive, we do have some extra columns to compute these values.
-// +-------+-------+------+--------+------------+------+-------------+----------+------------------+-------+------------+-----------+-------+-----+-----+---------+
-// | value | radix | limb | p_limb | limb_index | acc  | acc_under_p | power    | not_padding_limb | found | safe_limbs | is_unsafe | start | end | sel | NOT_END |
-// +-------+-------+------+--------+------------+------+-------------+----------+------------------+-------+------------+-----------+-------+-----+-----+---------+
-// |     0 |     0 |    0 |      0 |          0 |    0 |           0 | 0        |                0 |     0 |          0 |         0 |     0 |   0 |   0 |       0 |
-// |  1337 |    10 |    7 |      7 |          0 |    7 |           0 | 1        |                1 |     0 |         76 |         0 |     1 |   0 |   1 |       1 |
-// |  1337 |    10 |    3 |      1 |          1 |   37 |           0 | 10       |                1 |     0 |         76 |         0 |     0 |   0 |   1 |       1 |
-// |  1337 |    10 |    3 |      6 |          2 |  337 |           1 | 100      |                1 |     0 |         76 |         0 |     0 |   0 |   1 |       1 |
-// |  1337 |    10 |    1 |      5 |          3 | 1337 |           1 | 1000     |                1 |     1 |         76 |         0 |     0 |   0 |   1 |       1 |
-// |  1337 |    10 |    0 |      9 |          4 | 1337 |           1 | 10000    |                1 |     1 |         76 |         0 |     0 |   0 |   1 |       1 |
-// |  1337 |    10 |    0 |      2 |         76 | 1337 |           1 | 10**76   |                1 |     1 |         76 |         1 |     0 |   0 |   1 |       1 |
-// |  1337 |    10 |    0 |      0 |         77 | 1337 |           0 | 0        |                0 |     1 |         76 |         0 |     0 |   1 |   1 |       0 |
-// |     0 |     0 |    0 |      0 |          0 |    0 |           0 | 0        |                0 |     0 |          0 |         0 |     0 |   0 |   0 |       0 |
-// +-------+-------+------+--------+------------+------+-------------+----------+------------------+-------+------------+-----------+-------+-----+-----+---------+
+/*
+ * Decomposes a field in radixes
+ * Roughly, what we do is keep track of an accumulator where we reconstruct value using the limbs. We can end when the accumulator is equal to the value (found).
+ * For overflow protection, we compare the limbs against the p limbs for the given radix. If we reach the last limb (is_unsafe) we assert that we are under p.
+ * Overflow in the accumulator can only happen in the unsafe limb. After the unsafe limb we have padding limbs, that we assert to be zero. This is used
+ * because users might want to decompose in more limbs that strictly needed for the radix. We also assert that the decomposition is complete, i.e., that the value
+ * has been found. In other words, truncation error is not supported in this trace.
+ *
+ *
+ * Usage:
+ * sel_XX { value, limb_index, radix, limb, value_found
+ * } in to_radix.sel {
+ *         to_radix.value, to_radix.limb_index, to_radix.radix, to_radix.limb, to_radix.found
+ * };
+ *
+ * Optionally, column `value_found` can be omitted provided that the caller ensures that the decomposition is complete or
+ * does not care about truncation error.
+ *
+ * Preconditions: 'radix' is in range [2, 256]. This trace cannot guarantee correctness if 'radix' is not in this range.
+ *
+ * Inputs:
+ * - value: The value to decompose in little endian.
+ * - limb_index: The index of the limb to lookup in little endian.
+ * - radix: The radix to decompose the value in. Must be in range [2, 256].
+ * Outputs:
+ * - limb: The limb to lookup in little endian.
+ * - value_found: Whether the value has been found, i.e., the decomposition is complete with the limbs from index 0 to index `limb_index`.
+ *
+ * The following table is non-exhaustive, we do have some extra columns to compute these values.
+ * +-------+-------+------+--------+------------+------+-------------+----------+------------------+-------+------------+-----------+-------+-----+-----+---------+
+ * | value | radix | limb | p_limb | limb_index | acc  | acc_under_p | power    | not_padding_limb | found | safe_limbs | is_unsafe | start | end | sel | NOT_END |
+ * +-------+-------+------+--------+------------+------+-------------+----------+------------------+-------+------------+-----------+-------+-----+-----+---------+
+ * |     0 |     0 |    0 |      0 |          0 |    0 |           0 | 0        |                0 |     0 |          0 |         0 |     0 |   0 |   0 |       0 |
+ * |  1337 |    10 |    7 |      7 |          0 |    7 |           0 | 1        |                1 |     0 |         76 |         0 |     1 |   0 |   1 |       1 |
+ * |  1337 |    10 |    3 |      1 |          1 |   37 |           0 | 10       |                1 |     0 |         76 |         0 |     0 |   0 |   1 |       1 |
+ * |  1337 |    10 |    3 |      6 |          2 |  337 |           1 | 100      |                1 |     0 |         76 |         0 |     0 |   0 |   1 |       1 |
+ * |  1337 |    10 |    1 |      5 |          3 | 1337 |           1 | 1000     |                1 |     1 |         76 |         0 |     0 |   0 |   1 |       1 |
+ * |  1337 |    10 |    0 |      9 |          4 | 1337 |           1 | 10000    |                1 |     1 |         76 |         0 |     0 |   0 |   1 |       1 |
+ * .........................................
+ * |  1337 |    10 |    0 |      2 |         76 | 1337 |           1 | 10**76   |                1 |     1 |         76 |         1 |     0 |   0 |   1 |       1 |
+ * |  1337 |    10 |    0 |      0 |         77 | 1337 |           0 | 0        |                0 |     1 |         76 |         0 |     0 |   1 |   1 |       0 |
+ * |     0 |     0 |    0 |      0 |          0 |    0 |           0 | 0        |                0 |     0 |          0 |         0 |     0 |   0 |   0 |       0 |
+ * +-------+-------+------+--------+------------+------+-------------+----------+------------------+-------+------------+-----------+-------+-----+-----+---------+
+ *
+ * Each computation is performed over a contiguous block of rows. The block is determined by the `start` and `end` selectors.
+ * The number of rows in a computation block is at least the number of limbs for a complete decomposition. Tracegen determines
+ * the number of "padding" rows for the extra high limbs depending on the need of the subtraces invoking this gadget. Note that
+ * it does not pose a soundness isssue because this trace ensures that a present row is correct. If a row is not present, then
+ * we have a completeness issue because the lookup will fail.
+ */
 namespace to_radix;
 
     #[skippable_if]
@@ -29,7 +60,7 @@ namespace to_radix;
 
     // Inputs to to_radix
     pol commit value;
-    pol commit radix; // Must be 256 >= radix >= 2
+    pol commit radix; // Must be in range [2, 256] as a precondition.
     pol commit limb_index;
 
     // Outputs of to_radix
