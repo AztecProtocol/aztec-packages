@@ -112,17 +112,13 @@ export class FileStoreTxCollection {
 
   private async workerLoop(): Promise<void> {
     while (this.running) {
-      const entry = this.pickNextEntry();
-      if (!entry) {
-        const sleepMs = this.getSleepMs();
-        if (sleepMs === undefined) {
-          await this.waitForWake();
-          continue;
-        }
-        await this.sleepOrWake(sleepMs);
+      const action = this.getNextAction();
+      if (action.type === 'sleep') {
+        await action.promise;
         continue;
       }
 
+      const entry = action.entry;
       const source = this.sources[entry.nextSourceIndex % this.sources.length];
       entry.nextSourceIndex++;
       entry.attempts++;
@@ -144,10 +140,11 @@ export class FileStoreTxCollection {
     }
   }
 
-  /** Picks the next entry to process: removes expired, skips entries in backoff, returns entry with fewest attempts. */
-  private pickNextEntry(): FileStoreTxEntry | undefined {
+  /** Single-pass scan: removes expired entries, finds the best ready entry, or computes sleep time. */
+  private getNextAction(): { type: 'process'; entry: FileStoreTxEntry } | { type: 'sleep'; promise: Promise<void> } {
     const now = this.dateProvider.now();
     let best: FileStoreTxEntry | undefined;
+    let earliestReadyAt = Infinity;
 
     for (const [key, entry] of this.entries) {
       if (+entry.deadline <= now) {
@@ -155,14 +152,23 @@ export class FileStoreTxCollection {
         continue;
       }
       const backoffMs = this.getBackoffMs(entry);
-      if (entry.lastAttemptTime + backoffMs > now) {
+      const readyAt = entry.lastAttemptTime + backoffMs;
+      if (readyAt > now) {
+        earliestReadyAt = Math.min(earliestReadyAt, readyAt);
         continue;
       }
       if (!best || entry.attempts < best.attempts) {
         best = entry;
       }
     }
-    return best;
+
+    if (best) {
+      return { type: 'process', entry: best };
+    }
+    if (earliestReadyAt < Infinity) {
+      return { type: 'sleep', promise: this.sleepOrWake(earliestReadyAt - now) };
+    }
+    return { type: 'sleep', promise: this.waitForWake() };
   }
 
   /** Computes backoff for an entry. Backoff applies after a full cycle through all sources. */
@@ -172,20 +178,6 @@ export class FileStoreTxCollection {
       return 0;
     }
     return Math.min(this.config.backoffBaseMs * Math.pow(2, fullCycles - 1), this.config.backoffMaxMs);
-  }
-
-  /** Returns time in ms until the earliest entry exits backoff, or undefined if no entries. */
-  private getSleepMs(): number | undefined {
-    if (this.entries.size === 0) {
-      return undefined;
-    }
-    const now = this.dateProvider.now();
-    let earliest = Infinity;
-    for (const entry of this.entries.values()) {
-      const readyAt = entry.lastAttemptTime + this.getBackoffMs(entry);
-      earliest = Math.min(earliest, readyAt);
-    }
-    return Math.max(0, earliest - now);
   }
 
   /** Resolves the current wake signal and creates a new one. */
