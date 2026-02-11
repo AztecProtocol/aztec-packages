@@ -31,15 +31,17 @@ template <typename FF> bool is_point_constant(Point<FF> point)
 /**
  * @brief Get the real point indices (after conditional_assign) from the witness indices. We need this to process
  * to_grumpkin_point, which uses conditional_assign to set the point to the generator if the predicate is false.
+ * @param analyzer The analyzer
  * @param builder The builder
  * @param point The point
  * @param predicate_idx The predicate index
  * @return The real point indices (after conditional_assign)
  */
 template <typename FF, typename CircuitBuilder>
-RealPoint<CircuitBuilder> get_real_point(CircuitBuilder& builder,
-                                         const Point<FF>& point,
-                                         const acir_format::WitnessOrConstant<FF> predicate)
+std::optional<RealPoint<CircuitBuilder>> get_real_point(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                                        CircuitBuilder& builder,
+                                                        const Point<FF>& point,
+                                                        const acir_format::WitnessOrConstant<FF> predicate)
 {
     using field_ct = bb::stdlib::field_t<CircuitBuilder>;
     using bool_ct = bb::stdlib::bool_t<CircuitBuilder>;
@@ -53,20 +55,31 @@ RealPoint<CircuitBuilder> get_real_point(CircuitBuilder& builder,
     auto predicate_bool = witness_or_constant_to_bool<FF>(predicate, builder);
 
     auto x_field_real = get_the_result_of_conditional_assign_gate<FF>(
+        analyzer,
         builder,
         predicate_field,
         x_field,
         Field<CircuitBuilder>{ bb::stdlib::IS_CONSTANT, field_ct(bb::grumpkin::g1::affine_one.x) });
-    real_point.x = x_field_real;
+    if (!x_field_real.has_value()) {
+        log_error("X field real is not valid");
+        return std::nullopt;
+    }
+    real_point.x = x_field_real.value();
 
     auto y_field_real = get_the_result_of_conditional_assign_gate<FF>(
+        analyzer,
         builder,
         predicate_field,
         y_field,
         Field<CircuitBuilder>{ bb::stdlib::IS_CONSTANT, field_ct(bb::grumpkin::g1::affine_one.y) });
-    real_point.y = y_field_real;
+    if (!y_field_real.has_value()) {
+        log_error("Y field real is not valid");
+        return std::nullopt;
+    }
+    real_point.y = y_field_real.value();
 
-    // Mirror cycle_group constructor behavior: if only one coordinate is constant, it is converted to a fixed witness.
+    // Mirror cycle_group constructor behavior: if only one coordinate is constant, it is converted to a fixed
+    // witness.
     if (real_point.x.witness.is_constant() != real_point.y.witness.is_constant()) {
         if (real_point.x.witness.is_constant()) {
             real_point.x = find_fixed_witness_field<FF>(builder, real_point.x.witness.get_value());
@@ -75,39 +88,72 @@ RealPoint<CircuitBuilder> get_real_point(CircuitBuilder& builder,
         }
     }
 
-    auto is_infinity_bool_real = get_boolean_conditional_assign_result<FF>(
-        builder, predicate_bool, is_infinity_bool, Bool<CircuitBuilder>{ bb::stdlib::IS_CONSTANT, bool_ct(false) });
-    real_point.is_infinite = is_infinity_bool_real;
+    auto is_infinity_bool_real =
+        get_boolean_conditional_assign_result<FF>(analyzer,
+                                                  builder,
+                                                  predicate_bool,
+                                                  is_infinity_bool,
+                                                  Bool<CircuitBuilder>{ bb::stdlib::IS_CONSTANT, bool_ct(false) });
+    if (!is_infinity_bool_real.has_value()) {
+        log_error("Is infinity bool real is not valid");
+        return std::nullopt;
+    }
+    real_point.is_infinite = is_infinity_bool_real.value();
     return real_point;
 }
 
 /**
  * @brief Check that all gates needed for the on-curve check exist.
+ * @param analyzer The analyzer
  * @param builder The builder
  * @param point The point
  * @param predicate_idx The predicate index
  * @return True if the all gates needed for the on-curve check exist, false otherwise
  */
 template <typename FF, typename CircuitBuilder>
-bool is_on_curve_check_exists(CircuitBuilder& builder,
+bool is_on_curve_check_exists(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                              CircuitBuilder& builder,
                               const Point<FF>& point,
                               const acir_format::WitnessOrConstant<FF> predicate)
 {
     using field_ct = bb::stdlib::field_t<CircuitBuilder>;
 
-    auto real_point = get_real_point<FF>(builder, point, predicate);
+    if (is_point_constant(point)) {
+        // Constant points are always on curve
+        return true;
+    }
+    auto real_point_optional = get_real_point<FF>(analyzer, builder, point, predicate);
+
+    if (!real_point_optional.has_value()) {
+        log_error("Real point is not valid");
+        return false;
+    }
+    auto real_point = real_point_optional.value();
 
     auto x_field = real_point.x;
-    auto xx_field = get_mul_gate_output<FF>(builder, x_field, x_field);
-    auto xxx_field = get_mul_gate_output<FF>(builder, xx_field, x_field);
+    auto xx_field = get_mul_gate_output<FF>(analyzer, builder, x_field, x_field);
+    if (!xx_field.has_value()) {
+        log_error("XX field is not valid");
+        return false;
+    }
+    auto xxx_field_optional = get_mul_gate_output<FF>(analyzer, builder, *xx_field, x_field);
+    if (!xxx_field_optional.has_value()) {
+        log_error("XXX field is not valid");
+        return false;
+    }
+    auto xxx_field = xxx_field_optional.value();
     auto minus_xxx_minus_b_field_t = (xxx_field.witness * -FF::one()) - bb::grumpkin::g1::curve_b;
 
     auto y_field = real_point.y;
     auto minus_xxx_minus_b_field = Field<CircuitBuilder>{ xxx_field.witness_index, minus_xxx_minus_b_field_t };
-    auto res_field = get_madd_gate_output<FF>(builder, y_field, y_field, minus_xxx_minus_b_field);
+    auto res_field = get_madd_gate_output<FF>(analyzer, builder, y_field, y_field, minus_xxx_minus_b_field);
+    if (!res_field.has_value()) {
+        log_error("Res field is not valid");
+        return false;
+    }
 
     if (real_point.is_infinite.witness.is_constant()) {
-        return is_assert_zero_gate_exists<FF>(builder, res_field);
+        return is_assert_zero_gate_exists<FF>(analyzer, builder, *res_field);
     }
 
     auto is_infinity_bool_t = real_point.is_infinite.witness;
@@ -115,9 +161,13 @@ bool is_on_curve_check_exists(CircuitBuilder& builder,
     auto not_infinity_field_t = field_ct(not_infinity_bool);
     auto not_infinity_field = Field<CircuitBuilder>{ real_point.is_infinite.witness_index, not_infinity_field_t };
 
-    auto res_mul_not_infinity = get_mul_gate_output<FF>(builder, res_field, not_infinity_field);
+    auto res_mul_not_infinity = get_mul_gate_output<FF>(analyzer, builder, *res_field, not_infinity_field);
+    if (!res_mul_not_infinity.has_value()) {
+        log_error("Res mul not infinity field is not valid");
+        return false;
+    }
 
-    return is_assert_zero_gate_exists<FF>(builder, res_mul_not_infinity);
+    return is_assert_zero_gate_exists<FF>(analyzer, builder, *res_mul_not_infinity);
 }
 
 } // namespace cdg

@@ -186,10 +186,11 @@ TEST_F(EcAddConstraintsTests, DetectCorruptedOnCurveMulGate)
     auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     cdg::Point<fr> input1_point{ input1[0], input1[1], input1[2] };
-    auto real_point = cdg::get_real_point<fr>(builder, input1_point, predicate);
+    auto graph_analyzer = StaticAnalyzer_<fr, UltraCircuitBuilder>(builder);
+    auto real_point = *cdg::get_real_point<fr>(graph_analyzer, builder, input1_point, predicate);
     auto x_field = real_point.x;
-    auto xx_field = cdg::get_mul_gate_output<fr>(builder, x_field, x_field);
-    auto mul_gate_idx = find_mul_gate_idx(builder, x_field, x_field, xx_field.witness_index);
+    auto xx_field = cdg::get_mul_gate_output<fr>(graph_analyzer, builder, x_field, x_field);
+    auto mul_gate_idx = find_mul_gate_idx(builder, x_field, x_field, xx_field->witness_index);
 
     // Corrupt the mul gate selector so the analyzer can no longer find the on-curve chain.
     builder.blocks.arithmetic.q_m().set(mul_gate_idx, fr::zero());
@@ -222,10 +223,11 @@ TEST_F(EcAddConstraintsTests, DetectCorruptedOnCurveConstraintInput2Gate)
     auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     cdg::Point<fr> input2_point{ input2[0], input2[1], input2[2] };
-    auto real_point = cdg::get_real_point<fr>(builder, input2_point, predicate);
+    auto graph_analyzer = StaticAnalyzer_<fr, UltraCircuitBuilder>(builder);
+    auto real_point = *cdg::get_real_point<fr>(graph_analyzer, builder, input2_point, predicate);
     auto x_field = real_point.x;
-    auto xx_field = cdg::get_mul_gate_output<fr>(builder, x_field, x_field);
-    auto mul_gate_idx = find_mul_gate_idx(builder, x_field, x_field, xx_field.witness_index);
+    auto xx_field = cdg::get_mul_gate_output<fr>(graph_analyzer, builder, x_field, x_field);
+    auto mul_gate_idx = find_mul_gate_idx(builder, x_field, x_field, xx_field->witness_index);
     builder.blocks.arithmetic.q_arith().set(mul_gate_idx, fr::zero());
 
     StaticAnalyzerAcir analyzer(std::move(constraint_system), std::move(builder));

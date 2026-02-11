@@ -943,29 +943,10 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_ec_add_constraint(const Co
     Point<FF> input1_point = { constraint->input1_x, constraint->input1_y, constraint->input1_infinite };
     Point<FF> input2_point = { constraint->input2_x, constraint->input2_y, constraint->input2_infinite };
 
-    // If point is not constant, check that all gates needed for the on-curve check exist
-    try {
-        if (!is_point_constant(input1_point) &&
-            !is_on_curve_check_exists<FF>(builder, input1_point, constraint->predicate)) {
-            log_error("On-curve check for input1 point does not exist");
-            return false;
-        }
-    } catch (const std::runtime_error& e) {
-        log_error("Error checking on-curve check for input1 point: ", e.what());
-        return false;
-    }
-
-    try {
-        if (!is_point_constant(input2_point) &&
-            !is_on_curve_check_exists<FF>(builder, input2_point, constraint->predicate)) {
-            log_error("On-curve check for input2 point does not exist");
-            return false;
-        }
-    } catch (const std::runtime_error& e) {
-        log_error("Error checking on-curve check for input2 point: ", e.what());
-        return false;
-    }
-    return true;
+    bool condition = true;
+    condition &= is_on_curve_check_exists<FF>(analyzer, builder, input1_point, constraint->predicate);
+    condition &= is_on_curve_check_exists<FF>(analyzer, builder, input2_point, constraint->predicate);
+    return condition;
 }
 
 template class StaticAnalyzerAcir_<fr, MegaCircuitBuilder>;

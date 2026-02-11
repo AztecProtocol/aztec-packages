@@ -1,6 +1,8 @@
 #pragma once
 
+#include "barretenberg/boomerang_value_detection/graph.hpp"
 #include "barretenberg/boomerang_value_detection/helpers/bool_t_helpers.hpp"
+#include "barretenberg/boomerang_value_detection/helpers/filter_function_builder.hpp"
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
@@ -38,6 +40,28 @@ Bool<CircuitBuilder> witness_or_constant_to_bool(const acir_format::WitnessOrCon
                                  bool_ct::from_witness_index_unsafe(&builder, witness_or_constant.index) };
 }
 
+// Takes block_idx, gate_idx from FilterFunctionBuilder::filter_gates result and returns the Field from w_o
+template <typename FF, typename CircuitBuilder>
+Field<CircuitBuilder> get_field_from_w_o(CircuitBuilder& builder, std::pair<size_t, size_t> gate_location)
+{
+    auto block_idx = gate_location.first;
+    auto gate_idx = gate_location.second;
+    auto result_idx = builder.blocks.get()[block_idx].w_o()[gate_idx];
+    return Field<CircuitBuilder>{ result_idx,
+                                  bb::stdlib::field_t<CircuitBuilder>::from_witness_index(&builder, result_idx) };
+}
+
+// Takes block_idx, gate_idx from FilterFunctionBuilder::filter_gates result and returns the Field from w_4
+template <typename FF, typename CircuitBuilder>
+Field<CircuitBuilder> get_field_from_w_4(CircuitBuilder& builder, std::pair<size_t, size_t> gate_location)
+{
+    auto block_idx = gate_location.first;
+    auto gate_idx = gate_location.second;
+    auto result_idx = builder.blocks.get()[block_idx].w_4()[gate_idx];
+    return Field<CircuitBuilder>{ result_idx,
+                                  bb::stdlib::field_t<CircuitBuilder>::from_witness_index(&builder, result_idx) };
+}
+
 template <typename FF, typename CircuitBuilder>
 Field<CircuitBuilder> find_fixed_witness_field(CircuitBuilder& builder, const FF& value)
 {
@@ -66,17 +90,18 @@ Field<CircuitBuilder> find_fixed_witness_field(CircuitBuilder& builder, const FF
 
 /**
  * @brief Get the result of field_t * field_t from the circuit
+ * @param analyzer The analyzer
  * @param builder The builder
  * @param a The first field_t
  * @param b The second field_t
  * @return The resulting (witness_index, witness) of field_t * field_t
- * @throws std::runtime_error if no gate exists
  * @note a and b should not be constants, otherwise field_t * field_t does not create a gate
  */
 template <typename FF, typename CircuitBuilder>
-Field<CircuitBuilder> get_mul_gate_output(CircuitBuilder& builder,
-                                          const Field<CircuitBuilder>& a_field,
-                                          const Field<CircuitBuilder>& b_field)
+std::optional<Field<CircuitBuilder>> get_mul_gate_output(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                                         CircuitBuilder& builder,
+                                                         const Field<CircuitBuilder>& a_field,
+                                                         const Field<CircuitBuilder>& b_field)
 {
     auto a_idx = a_field.witness_index;
     auto b_idx = b_field.witness_index;
@@ -96,28 +121,26 @@ Field<CircuitBuilder> get_mul_gate_output(CircuitBuilder& builder,
     auto q_l = a.multiplicative_constant * b.additive_constant;
     auto q_m = a.multiplicative_constant * b.multiplicative_constant;
 
-    for (size_t gate_idx = 0; gate_idx < builder.blocks.arithmetic.size(); gate_idx++) {
-        bool condition = true;
-        condition &= builder.blocks.arithmetic.w_l()[gate_idx] == a_idx;
-        condition &= builder.blocks.arithmetic.w_r()[gate_idx] == b_idx;
-        condition &= builder.blocks.arithmetic.w_4()[gate_idx] == builder.zero_idx();
-        condition &= builder.blocks.arithmetic.q_m()[gate_idx] == q_m;
-        condition &= builder.blocks.arithmetic.q_1()[gate_idx] == q_l;
-        condition &= builder.blocks.arithmetic.q_2()[gate_idx] == q_r;
-        condition &= builder.blocks.arithmetic.q_3()[gate_idx] == FF::neg_one();
-        condition &= builder.blocks.arithmetic.q_4()[gate_idx] == FF::zero();
-        condition &= builder.blocks.arithmetic.q_c()[gate_idx] == q_c;
-        condition &= builder.blocks.arithmetic.q_arith()[gate_idx] == FF::one();
-        if (condition) {
-            auto result_idx = builder.blocks.arithmetic.w_o()[gate_idx];
-            return Field<CircuitBuilder>{
-                result_idx, bb::stdlib::field_t<CircuitBuilder>::from_witness_index(&builder, result_idx)
-            };
-        }
+    auto filter_helper = FilterFunctionBuilder<CircuitBuilder, FF>(builder)
+                             .set_w_l(a_idx)
+                             .set_w_r(b_idx)
+                             .set_w_4(builder.zero_idx())
+                             .set_q_m(q_m)
+                             .set_q_1(q_l)
+                             .set_q_2(q_r)
+                             .set_q_3(FF::neg_one())
+                             .set_q_c(q_c)
+                             .set_q_4(FF::zero())
+                             .set_q_arith(FF::one());
+
+    auto gates = analyzer.get_variable_gates(a_idx);
+    auto filtered_gates = filter_helper.filter_gates(gates);
+    if (filtered_gates.empty()) {
+        log_error("No multiplication gate found between ", a_idx, " and ", b_idx);
+        return std::nullopt;
     }
-    log_error("No multiplication gate found between ", a_idx, " and ", b_idx);
-    throw std::runtime_error("No multiplication gate found between " + std::to_string(a_idx) + " and " +
-                             std::to_string(b_idx));
+
+    return get_field_from_w_o<FF>(builder, filtered_gates[0]);
 }
 
 /**
@@ -126,13 +149,13 @@ Field<CircuitBuilder> get_mul_gate_output(CircuitBuilder& builder,
  * @param a The first field_t
  * @param b The second field_t
  * @return The resulting (witness_index, witness) of field_t + field_t
- * @throws std::runtime_error if no gate exists
  * @note a and b should not be constants, otherwise field_t + field_t does not create a gate
  */
 template <typename FF, typename CircuitBuilder>
-Field<CircuitBuilder> get_add_gate_output(CircuitBuilder& builder,
-                                          const Field<CircuitBuilder>& a_field,
-                                          const Field<CircuitBuilder>& b_field)
+std::optional<Field<CircuitBuilder>> get_add_gate_output(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                                         CircuitBuilder& builder,
+                                                         const Field<CircuitBuilder>& a_field,
+                                                         const Field<CircuitBuilder>& b_field)
 {
     auto a_idx = a_field.witness_index;
     auto b_idx = b_field.witness_index;
@@ -148,43 +171,42 @@ Field<CircuitBuilder> get_add_gate_output(CircuitBuilder& builder,
         return Field<CircuitBuilder>{ a_idx, a + b };
     }
 
-    for (size_t gate_idx = 0; gate_idx < builder.blocks.arithmetic.size(); gate_idx++) {
-        bool condition = true;
-        condition &= builder.blocks.arithmetic.w_l()[gate_idx] == a_idx;
-        condition &= builder.blocks.arithmetic.w_r()[gate_idx] == b_idx;
-        condition &= builder.blocks.arithmetic.w_4()[gate_idx] == builder.zero_idx();
-        condition &= builder.blocks.arithmetic.q_1()[gate_idx] == a.multiplicative_constant;
-        condition &= builder.blocks.arithmetic.q_2()[gate_idx] == b.multiplicative_constant;
-        condition &= builder.blocks.arithmetic.q_4()[gate_idx] == FF::zero();
-        condition &= builder.blocks.arithmetic.q_c()[gate_idx] == a.additive_constant + b.additive_constant;
-        condition &= builder.blocks.arithmetic.q_m()[gate_idx] == FF::zero();
-        condition &= builder.blocks.arithmetic.q_arith()[gate_idx] == FF::one();
-        if (condition) {
-            auto result_idx = builder.blocks.arithmetic.w_o()[gate_idx];
-            return Field<CircuitBuilder>{
-                result_idx, bb::stdlib::field_t<CircuitBuilder>::from_witness_index(&builder, result_idx)
-            };
-        }
+    auto filter_helper = FilterFunctionBuilder<CircuitBuilder, FF>(builder)
+                             .set_w_l(a_idx)
+                             .set_w_r(b_idx)
+                             .set_w_4(builder.zero_idx())
+                             .set_q_1(a.multiplicative_constant)
+                             .set_q_2(b.multiplicative_constant)
+                             .set_q_4(FF::zero())
+                             .set_q_c(a.additive_constant + b.additive_constant)
+                             .set_q_m(FF::zero())
+                             .set_q_arith(FF::one());
+
+    auto gates = analyzer.get_variable_gates(a_idx);
+    auto filtered_gates = filter_helper.filter_gates(gates);
+    if (filtered_gates.empty()) {
+        log_error("No addition gate found between ", a_idx, " and ", b_idx);
+        return std::nullopt;
     }
-    log_error("No addition gate found between ", a_idx, " and ", b_idx);
-    throw std::runtime_error("No addition gate found between " + std::to_string(a_idx) + " and " +
-                             std::to_string(b_idx));
+
+    return get_field_from_w_o<FF>(builder, filtered_gates[0]);
 }
 
 /**
  * @brief Get the result of field_t.madd(field_t, field_t) from the circuit
+ * @param analyzer The analyzer
  * @param builder The builder
  * @param a The first field_t
  * @param b The second field_t
  * @param c The third field_t
  * @return The resulting (witness_index, witness) of field_t.madd(field_t, field_t)
- * @throws std::runtime_error if no gate exists
  */
 template <typename FF, typename CircuitBuilder>
-Field<CircuitBuilder> get_madd_gate_output(CircuitBuilder& builder,
-                                           const Field<CircuitBuilder>& a_field,
-                                           const Field<CircuitBuilder>& b_field,
-                                           const Field<CircuitBuilder>& c_field)
+std::optional<Field<CircuitBuilder>> get_madd_gate_output(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                                          CircuitBuilder& builder,
+                                                          const Field<CircuitBuilder>& a_field,
+                                                          const Field<CircuitBuilder>& b_field,
+                                                          const Field<CircuitBuilder>& c_field)
 {
 
     auto a_idx = a_field.witness_index;
@@ -195,11 +217,11 @@ Field<CircuitBuilder> get_madd_gate_output(CircuitBuilder& builder,
     auto c = c_field.witness;
     if (a.is_constant()) {
         auto const_mul_res = Field<CircuitBuilder>{ b_idx, (a * b) };
-        return get_add_gate_output<FF>(builder, const_mul_res, c_field);
+        return get_add_gate_output<FF>(analyzer, builder, const_mul_res, c_field);
     }
     if (b.is_constant()) {
         auto const_mul_res = Field<CircuitBuilder>{ a_idx, (a * b) };
-        return get_add_gate_output<FF>(builder, const_mul_res, c_field);
+        return get_add_gate_output<FF>(analyzer, builder, const_mul_res, c_field);
     }
 
     FF mul_scaling = a.multiplicative_constant * b.multiplicative_constant;
@@ -210,44 +232,43 @@ Field<CircuitBuilder> get_madd_gate_output(CircuitBuilder& builder,
     auto w_l = a.is_constant() ? builder.zero_idx() : a_idx;
     auto w_r = b.is_constant() ? builder.zero_idx() : b_idx;
     auto w_o = c.is_constant() ? builder.zero_idx() : c_idx;
-    for (size_t gate_idx = 0; gate_idx < builder.blocks.arithmetic.size(); gate_idx++) {
-        bool condition = true;
-        condition &= builder.blocks.arithmetic.w_l()[gate_idx] == w_l;
-        condition &= builder.blocks.arithmetic.w_r()[gate_idx] == w_r;
-        condition &= builder.blocks.arithmetic.w_o()[gate_idx] == w_o;
-        condition &= builder.blocks.arithmetic.q_m()[gate_idx] == mul_scaling;
-        condition &= builder.blocks.arithmetic.q_1()[gate_idx] == a_scaling;
-        condition &= builder.blocks.arithmetic.q_2()[gate_idx] == b_scaling;
-        condition &= builder.blocks.arithmetic.q_3()[gate_idx] == c_scaling;
-        condition &= builder.blocks.arithmetic.q_4()[gate_idx] == FF::neg_one();
-        condition &= builder.blocks.arithmetic.q_c()[gate_idx] == const_scaling;
-        condition &= builder.blocks.arithmetic.q_arith()[gate_idx] == FF::one();
-        if (condition) {
-            auto result_idx = builder.blocks.arithmetic.w_4()[gate_idx];
-            return Field<CircuitBuilder>{
-                result_idx, bb::stdlib::field_t<CircuitBuilder>::from_witness_index(&builder, result_idx)
-            };
-        }
+    auto filter_helper = FilterFunctionBuilder<CircuitBuilder, FF>(builder)
+                             .set_w_l(w_l)
+                             .set_w_r(w_r)
+                             .set_w_o(w_o)
+                             .set_q_m(mul_scaling)
+                             .set_q_1(a_scaling)
+                             .set_q_2(b_scaling)
+                             .set_q_3(c_scaling)
+                             .set_q_4(FF::neg_one())
+                             .set_q_c(const_scaling)
+                             .set_q_arith(FF::one());
+
+    auto gates = analyzer.get_variable_gates(a_idx);
+    auto filtered_gates = filter_helper.filter_gates(gates);
+    if (filtered_gates.empty()) {
+        log_error("No madd gate found between ", a_idx, " and ", b_idx, " and ", c_idx);
+        return std::nullopt;
     }
-    std::string error_message = "No gate created by a.madd(b, c) found between " + std::to_string(a_idx) + " and " +
-                                std::to_string(b_idx) + " and " + std::to_string(c_idx);
-    throw std::runtime_error(error_message);
+
+    return get_field_from_w_4<FF>(builder, filtered_gates[0]);
 }
 
 /**
  * @brief Get the result of field_t.add_two(field_t, field_t) from the circuit
+ * @param analyzer The analyzer
  * @param builder The builder
  * @param a The first field_t
  * @param b The second field_t
  * @param c The third field_t
  * @return The resulting (witness_index, witness) of field_t.add_two(field_t, field_t)
- * @throws std::runtime_error if no gate exists
  */
 template <typename FF, typename CircuitBuilder>
-Field<CircuitBuilder> get_add_two_gate_output(CircuitBuilder& builder,
-                                              const Field<CircuitBuilder>& a_field,
-                                              const Field<CircuitBuilder>& b_field,
-                                              const Field<CircuitBuilder>& c_field)
+std::optional<Field<CircuitBuilder>> get_add_two_gate_output(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                                             CircuitBuilder& builder,
+                                                             const Field<CircuitBuilder>& a_field,
+                                                             const Field<CircuitBuilder>& b_field,
+                                                             const Field<CircuitBuilder>& c_field)
 {
     auto a_idx = a_field.witness_index;
     auto b_idx = b_field.witness_index;
@@ -259,15 +280,15 @@ Field<CircuitBuilder> get_add_two_gate_output(CircuitBuilder& builder,
     // I have no idea how to make it smarter
     if (a.is_constant()) {
         auto const_add_res = Field<CircuitBuilder>{ b_idx, a + b };
-        return get_add_gate_output<FF>(builder, const_add_res, c_field);
+        return get_add_gate_output<FF>(analyzer, builder, const_add_res, c_field);
     }
     if (b.is_constant()) {
         auto const_add_res = Field<CircuitBuilder>{ a_idx, a + b };
-        return get_add_gate_output<FF>(builder, const_add_res, c_field);
+        return get_add_gate_output<FF>(analyzer, builder, const_add_res, c_field);
     }
     if (c.is_constant()) {
         auto const_add_res = Field<CircuitBuilder>{ b_idx, b + c };
-        return get_add_gate_output<FF>(builder, a_field, const_add_res);
+        return get_add_gate_output<FF>(analyzer, builder, a_field, const_add_res);
     }
 
     FF a_scaling = a.multiplicative_constant;
@@ -279,66 +300,71 @@ Field<CircuitBuilder> get_add_two_gate_output(CircuitBuilder& builder,
     FF w_r = b.is_constant() ? builder.zero_idx() : b_idx;
     FF w_o = c.is_constant() ? builder.zero_idx() : c_idx;
 
-    for (size_t gate_idx = 0; gate_idx < builder.blocks.arithmetic.size(); gate_idx++) {
-        bool condition = true;
-        condition &= builder.blocks.arithmetic.w_l()[gate_idx] == w_l;
-        condition &= builder.blocks.arithmetic.w_r()[gate_idx] == w_r;
-        condition &= builder.blocks.arithmetic.w_o()[gate_idx] == w_o;
-        condition &= builder.blocks.arithmetic.q_m()[gate_idx] == FF::zero();
-        condition &= builder.blocks.arithmetic.q_1()[gate_idx] == a_scaling;
-        condition &= builder.blocks.arithmetic.q_2()[gate_idx] == b_scaling;
-        condition &= builder.blocks.arithmetic.q_3()[gate_idx] == c_scaling;
-        condition &= builder.blocks.arithmetic.q_c()[gate_idx] == const_scaling;
-        condition &= builder.blocks.arithmetic.q_4()[gate_idx] == FF::neg_one();
-        if (condition) {
-            auto result_idx = builder.blocks.arithmetic.w_4()[gate_idx];
-            return Field<CircuitBuilder>{
-                result_idx, bb::stdlib::field_t<CircuitBuilder>::from_witness_index(&builder, result_idx)
-            };
-        }
+    auto filter_helper = FilterFunctionBuilder<CircuitBuilder, FF>(builder)
+                             .set_w_l(w_l)
+                             .set_w_r(w_r)
+                             .set_w_o(w_o)
+                             .set_q_m(FF::zero())
+                             .set_q_1(a_scaling)
+                             .set_q_2(b_scaling)
+                             .set_q_3(c_scaling)
+                             .set_q_c(const_scaling)
+                             .set_q_4(FF::neg_one())
+                             .set_q_arith(FF::one());
+
+    auto gates = analyzer.get_variable_gates(a_idx);
+    auto filtered_gates = filter_helper.filter_gates(gates);
+    if (filtered_gates.empty()) {
+        log_error("No add two gate found between ", a_idx, " and ", b_idx, " and ", c_idx);
+        return std::nullopt;
     }
-    std::string error_message = "No gate created by a.add_two(b, c) found between " + std::to_string(a_idx) + " and " +
-                                std::to_string(b_idx) + " and " + std::to_string(c_idx);
-    throw std::runtime_error(error_message);
+
+    return get_field_from_w_4<FF>(builder, filtered_gates[0]);
 }
 
 /**
  * @brief Check if the assert zero gate exists for the field_t
+ * @param analyzer The analyzer
  * @param builder The builder
  * @param field The field_t
  * @return True if the all gates needed for the assert zero check exist, false otherwise
  */
 template <typename FF, typename CircuitBuilder>
-bool is_assert_zero_gate_exists(CircuitBuilder& builder, const Field<CircuitBuilder>& field)
+bool is_assert_zero_gate_exists(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                CircuitBuilder& builder,
+                                const Field<CircuitBuilder>& field)
 {
     auto witness_idx = field.witness_index;
     auto witness = field.witness;
     if (witness.is_constant()) {
         return witness.get_value() == FF::zero();
     }
-    for (size_t gate_idx = 0; gate_idx < builder.blocks.arithmetic.size(); gate_idx++) {
-        bool condition = true;
-        condition &= builder.blocks.arithmetic.w_l()[gate_idx] == witness_idx;
-        condition &= builder.blocks.arithmetic.w_r()[gate_idx] == builder.zero_idx();
-        condition &= builder.blocks.arithmetic.w_o()[gate_idx] == builder.zero_idx();
-        condition &= builder.blocks.arithmetic.w_4()[gate_idx] == builder.zero_idx();
-        condition &= builder.blocks.arithmetic.q_m()[gate_idx] == FF::zero();
-        condition &= builder.blocks.arithmetic.q_1()[gate_idx] == witness.multiplicative_constant;
-        condition &= builder.blocks.arithmetic.q_2()[gate_idx] == FF::zero();
-        condition &= builder.blocks.arithmetic.q_3()[gate_idx] == FF::zero();
-        condition &= builder.blocks.arithmetic.q_c()[gate_idx] == witness.additive_constant;
-        condition &= builder.blocks.arithmetic.q_arith()[gate_idx] == FF::one();
-        condition &= builder.blocks.arithmetic.q_4()[gate_idx] == FF::zero();
+    auto filter_helper = FilterFunctionBuilder<CircuitBuilder, FF>(builder)
+                             .set_w_l(witness_idx)
+                             .set_w_r(builder.zero_idx())
+                             .set_w_o(builder.zero_idx())
+                             .set_w_4(builder.zero_idx())
+                             .set_q_m(FF::zero())
+                             .set_q_1(witness.multiplicative_constant)
+                             .set_q_2(FF::zero())
+                             .set_q_3(FF::zero())
+                             .set_q_c(witness.additive_constant)
+                             .set_q_4(FF::zero())
+                             .set_q_arith(FF::one());
 
-        if (condition) {
-            return true;
-        }
+    auto gates = analyzer.get_variable_gates(witness_idx);
+    auto filtered_gates = filter_helper.filter_gates(gates);
+    if (filtered_gates.empty()) {
+        log_error("No assert zero gate found for ", witness_idx);
+        return false;
     }
-    return false;
+
+    return true;
 }
 
 /**
  * @brief Get the result of the conditional assign gate from the circuit
+ * @param analyzer The analyzer
  * @param builder The builder
  * @param predicate_field The predicate field_t
  * @param lhs_field The left field_t
@@ -346,10 +372,12 @@ bool is_assert_zero_gate_exists(CircuitBuilder& builder, const Field<CircuitBuil
  * @return The resulting (witness_index, witness) of the conditional assign gate
  */
 template <typename FF, typename CircuitBuilder>
-Field<CircuitBuilder> get_the_result_of_conditional_assign_gate(CircuitBuilder& builder,
-                                                                const Field<CircuitBuilder>& predicate_field,
-                                                                const Field<CircuitBuilder>& lhs_field,
-                                                                const Field<CircuitBuilder>& rhs_field)
+std::optional<Field<CircuitBuilder>> get_the_result_of_conditional_assign_gate(
+    StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+    CircuitBuilder& builder,
+    const Field<CircuitBuilder>& predicate_field,
+    const Field<CircuitBuilder>& lhs_field,
+    const Field<CircuitBuilder>& rhs_field)
 {
     auto lhs_idx = lhs_field.witness_index;
     auto rhs_idx = rhs_field.witness_index;
@@ -371,9 +399,13 @@ Field<CircuitBuilder> get_the_result_of_conditional_assign_gate(CircuitBuilder& 
         lhs_minus_rhs = Field<CircuitBuilder>{ lhs_idx, lhs - rhs };
     } else {
         auto minus_rhs = Field<CircuitBuilder>{ rhs_idx, -rhs };
-        lhs_minus_rhs = get_add_gate_output<FF>(builder, lhs_field, minus_rhs);
+        auto lhs_minus_rhs_tmp = get_add_gate_output<FF>(analyzer, builder, lhs_field, minus_rhs);
+        if (!lhs_minus_rhs_tmp.has_value()) {
+            return std::nullopt;
+        }
+        lhs_minus_rhs = *lhs_minus_rhs_tmp;
     }
 
-    return get_madd_gate_output<FF>(builder, lhs_minus_rhs, predicate_field, rhs_field);
+    return get_madd_gate_output<FF>(analyzer, builder, lhs_minus_rhs, predicate_field, rhs_field);
 }
 } // namespace cdg
