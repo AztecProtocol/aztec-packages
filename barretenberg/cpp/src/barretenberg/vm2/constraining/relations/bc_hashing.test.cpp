@@ -741,8 +741,8 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashLengthBytes)
 
     // The claimed byte length is incorrect:
     EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_bytecode_length_bytes_settings_>(trace)),
-        "LOOKUP_BC_HASHING_BYTECODE_LENGTH_BYTES");
+        (check_interaction<BytecodeTraceBuilder, perm_bc_hashing_bytecode_length_bytes_settings>(trace)),
+        "PERM_BC_HASHING_BYTECODE_LENGTH_BYTES");
 }
 
 TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashOutputConsistency)

@@ -145,8 +145,8 @@ namespace bc_hashing;
     pol commit size_in_bytes;
     #[BYTECODE_LENGTH_BYTES]
     start { precomputed.zero, bytecode_id, size_in_bytes }
-    in
-    bc_decomposition.sel { bc_decomposition.pc, bc_decomposition.id, bc_decomposition.bytes_remaining };
+    is
+    bc_decomposition.start { bc_decomposition.pc, bc_decomposition.id, bc_decomposition.bytes_remaining };
 
     // At the start of a new bytecode hash, the initial field has to be the size appended to the separator, and we skip the lookup
     // fetching a field from decomposition.

@@ -11,6 +11,33 @@
 
 namespace bb::avm2 {
 
+/////////////////// perm_bc_hashing_bytecode_length_bytes ///////////////////
+
+struct perm_bc_hashing_bytecode_length_bytes_settings_ {
+    static constexpr std::string_view NAME = "PERM_BC_HASHING_BYTECODE_LENGTH_BYTES";
+    static constexpr std::string_view RELATION_NAME = "bc_hashing";
+    static constexpr size_t COLUMNS_PER_SET = 3;
+    static constexpr Column SRC_SELECTOR = Column::bc_hashing_start;
+    static constexpr Column DST_SELECTOR = Column::bc_decomposition_start;
+    static constexpr Column INVERSES = Column::perm_bc_hashing_bytecode_length_bytes_inv;
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
+        ColumnAndShifts::precomputed_zero,
+        ColumnAndShifts::bc_hashing_bytecode_id,
+        ColumnAndShifts::bc_hashing_size_in_bytes
+    };
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
+        ColumnAndShifts::bc_decomposition_pc,
+        ColumnAndShifts::bc_decomposition_id,
+        ColumnAndShifts::bc_decomposition_bytes_remaining
+    };
+};
+
+using perm_bc_hashing_bytecode_length_bytes_settings =
+    permutation_settings<perm_bc_hashing_bytecode_length_bytes_settings_>;
+template <typename FF_>
+using perm_bc_hashing_bytecode_length_bytes_relation =
+    permutation_relation_base<FF_, perm_bc_hashing_bytecode_length_bytes_settings>;
+
 /////////////////// perm_bc_hashing_get_packed_field_0 ///////////////////
 
 struct perm_bc_hashing_get_packed_field_0_settings_ {

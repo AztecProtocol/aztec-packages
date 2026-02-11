@@ -61,6 +61,7 @@ void BytecodeTraceBuilder::process_decomposition(
                           { C::bc_decomposition_sel, 1 },
                           { C::bc_decomposition_id, id },
                           { C::bc_decomposition_pc, i },
+                          { C::bc_decomposition_start, i == 0 ? 1 : 0 },
                           { C::bc_decomposition_last_of_contract, is_last ? 1 : 0 },
                           { C::bc_decomposition_bytes_remaining, remaining },
                           { C::bc_decomposition_bytes_to_read, bytes_to_read },
@@ -452,7 +453,7 @@ void BytecodeTraceBuilder::process_instruction_fetching(
 const InteractionDefinition BytecodeTraceBuilder::interactions =
     InteractionDefinition()
         // Bytecode Hashing
-        .add<lookup_bc_hashing_bytecode_length_bytes_settings, InteractionType::LookupSequential>()
+        .add<perm_bc_hashing_bytecode_length_bytes_settings, InteractionType::Permutation>()
         .add<lookup_bc_hashing_check_final_bytes_remaining_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_hashing_poseidon2_hash_settings, InteractionType::LookupSequential>()
         // Bytecode Retrieval
