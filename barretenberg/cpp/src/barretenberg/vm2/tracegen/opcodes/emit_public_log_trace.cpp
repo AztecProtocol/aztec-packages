@@ -1,11 +1,8 @@
 #include "barretenberg/vm2/tracegen/opcodes/emit_public_log_trace.hpp"
 
-#include <cstddef>
 #include <cstdint>
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
-#include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -19,16 +16,20 @@ namespace bb::avm2::tracegen {
 
 using C = Column;
 
+/**
+ * @brief Process emit-public-log events into trace rows.
+ *
+ * @param events The container of emit-public-log simulation events.
+ * @param trace The trace container to populate with constrained columns.
+ */
 void EmitPublicLogTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::EmitPublicLogEvent>::Container& events, TraceContainer& trace)
 {
     uint32_t row = 1;
     process_with_discard(events, [&](const simulation::EmitPublicLogWriteEvent& event, bool discard) {
-        // error = error_too_large | error_out_of_bounds | error_too_many_logs | error_tag_mismatch | is_static
-        // we split the above computation in 2 to reduce the degree of the full relation
-        bool error_too_many_logs_wrong_tag_is_static =
-            event.error_too_many_log_fields || event.error_tag_mismatch || event.is_static;
-        bool error = event.error_memory_out_of_bounds || error_too_many_logs_wrong_tag_is_static;
+        // error = error_out_of_bounds | error_too_many_log_fields | error_tag_mismatch | is_static
+        bool error = event.error_memory_out_of_bounds || event.error_too_many_log_fields || event.error_tag_mismatch ||
+                     event.is_static;
 
         FF log_address = FF(event.log_address);
         bool seen_wrong_tag = false;
@@ -91,11 +92,9 @@ void EmitPublicLogTraceBuilder::process(
                     { C::emit_public_log_end_log_address_upper_bound, log_address + event.log_size },
                     { C::emit_public_log_error_too_many_log_fields, event.error_too_many_log_fields },
                     { C::emit_public_log_expected_next_log_fields, expected_next_log_fields },
-                    { C::emit_public_log_public_logs_payload_length, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH },
+                    { C::emit_public_log_max_public_logs_payload_length, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH },
                     { C::emit_public_log_error_tag_mismatch, event.error_tag_mismatch },
                     { C::emit_public_log_seen_wrong_tag, seen_wrong_tag },
-                    { C::emit_public_log_error_too_many_logs_wrong_tag_is_static,
-                      error_too_many_logs_wrong_tag_is_static },
                     { C::emit_public_log_sel_should_write_to_public_inputs, !error && !discard },
                     { C::emit_public_log_is_write_contract_address, is_contract_address_row },
                     { C::emit_public_log_is_write_memory_value, is_value_row },

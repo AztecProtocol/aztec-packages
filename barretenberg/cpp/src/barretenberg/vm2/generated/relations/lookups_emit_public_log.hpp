@@ -44,12 +44,12 @@ struct lookup_emit_public_log_check_log_fields_count_settings_ {
     static constexpr std::string_view RELATION_NAME = "emit_public_log";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::emit_public_log_start;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column DST_SELECTOR = Column::gt_sel_others;
     static constexpr Column COUNTS = Column::lookup_emit_public_log_check_log_fields_count_counts;
     static constexpr Column INVERSES = Column::lookup_emit_public_log_check_log_fields_count_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::emit_public_log_expected_next_log_fields,
-        ColumnAndShifts::emit_public_log_public_logs_payload_length,
+        ColumnAndShifts::emit_public_log_max_public_logs_payload_length,
         ColumnAndShifts::emit_public_log_error_too_many_log_fields
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,

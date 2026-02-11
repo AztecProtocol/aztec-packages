@@ -4,13 +4,11 @@
 #include <cstdint>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/emit_public_log.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_emit_public_log.hpp"
-#include "barretenberg/vm2/generated/relations/perms_emit_public_log.hpp"
 #include "barretenberg/vm2/simulation/events/emit_public_log_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/gt_event.hpp"
@@ -277,6 +275,8 @@ TEST(EmitPublicLogConstrainingTest, ErrorStatic)
 
     EmitPublicLogTraceBuilder trace_builder;
     trace_builder.process({ event }, trace);
+
+    check_relation<emit_public_log>(trace);
 }
 
 TEST(EmitPublicLogConstrainingTest, Interactions)
@@ -397,56 +397,55 @@ TEST(EmitPublicLogConstrainingTest, NegativeStartAfterLatch)
                               "START_AFTER_LATCH");
 }
 
-TEST(EmitPublicLogConstrainingTest, NegativeSelectorOnStart)
+TEST(EmitPublicLogConstrainingTest, NegativeTraceContinuity)
 {
-    TestTraceContainer trace = TestTraceContainer({ {
-        { C::emit_public_log_sel, 1 },
-        { C::emit_public_log_start, 1 },
-    } });
-
-    check_relation<emit_public_log>(trace, emit_public_log::SR_SELECTOR_ON_START);
-
-    trace.set(C::emit_public_log_sel, 0, 0);
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_SELECTOR_ON_START),
-                              "SELECTOR_ON_START");
-}
-
-TEST(EmitPublicLogConstrainingTest, NegativeSelectorConsistency)
-{
+    // Once sel drops to 0, it cannot come back to 1 (on non-first rows).
+    // Row 0: first_row=1, sel=1 (first row exempt from constraint)
+    // Row 1: sel=0
+    // Row 2: sel=1 (violates continuity)
     TestTraceContainer trace = TestTraceContainer({ {
                                                         { C::precomputed_first_row, 1 },
-                                                    },
-                                                    {
                                                         { C::emit_public_log_sel, 1 },
                                                         { C::emit_public_log_start, 1 },
                                                         { C::emit_public_log_end, 1 },
                                                     },
                                                     {
                                                         { C::emit_public_log_sel, 0 },
+                                                    },
+                                                    {
+                                                        { C::emit_public_log_sel, 0 },
                                                     } });
 
-    check_relation<emit_public_log>(trace, emit_public_log::SR_SELECTOR_CONSISTENCY);
+    check_relation<emit_public_log>(trace, emit_public_log::SR_TRACE_CONTINUITY);
 
-    trace.set(C::emit_public_log_end, 1, 0);
+    // Now make sel come back to 1 after a gap.
+    trace.set(C::emit_public_log_sel, 2, 1);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_SELECTOR_CONSISTENCY),
-                              "SELECTOR_CONSISTENCY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_TRACE_CONTINUITY),
+                              "TRACE_CONTINUITY");
 }
 
-TEST(EmitPublicLogConstrainingTest, NegativeSelectorOnEnd)
+TEST(EmitPublicLogConstrainingTest, NegativeComputationFinishAtEnd)
 {
+    // sel can only turn off (sel=1 -> sel'=0) when end=1.
+    // Row 0: first_row=1, sel=1, start=1, end=0
+    // Row 1: sel=0 (sel dropped without end=1, violates COMPUTATION_FINISH_AT_END)
     TestTraceContainer trace = TestTraceContainer({ {
-        { C::emit_public_log_sel, 1 },
-        { C::emit_public_log_end, 1 },
-    } });
+                                                        { C::precomputed_first_row, 1 },
+                                                        { C::emit_public_log_sel, 1 },
+                                                        { C::emit_public_log_start, 1 },
+                                                    },
+                                                    {
+                                                        { C::emit_public_log_sel, 0 },
+                                                    } });
 
-    check_relation<emit_public_log>(trace, emit_public_log::SR_SELECTOR_ON_END);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_COMPUTATION_FINISH_AT_END),
+                              "COMPUTATION_FINISH_AT_END");
 
-    trace.set(C::emit_public_log_sel, 0, 0);
+    // Adding end=1 should satisfy the constraint.
+    trace.set(C::emit_public_log_end, 0, 1);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_SELECTOR_ON_END),
-                              "SELECTOR_ON_END");
+    check_relation<emit_public_log>(trace, emit_public_log::SR_COMPUTATION_FINISH_AT_END);
 }
 
 TEST(EmitPublicLogConstrainingTest, NegativeRemainingRowsDecrement)
