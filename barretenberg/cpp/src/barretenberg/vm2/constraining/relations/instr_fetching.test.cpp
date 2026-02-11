@@ -760,7 +760,7 @@ TEST(InstrFetchingConstrainingTest, NegativeTruncatedBytecodeRepro)
         bytecode.end(), std::make_move_iterator(instr_bytecode.begin()), std::make_move_iterator(instr_bytecode.end()));
 
     std::vector<FF> fields = simulation::encode_bytecode(bytecode);
-    std::vector<FF> prepended_fields = { simulation::compute_public_bytecode_separator(bytecode.size()) };
+    std::vector<FF> prepended_fields = { simulation::compute_public_bytecode_first_field(bytecode.size()) };
     prepended_fields.insert(prepended_fields.end(), fields.begin(), fields.end());
     FF hash = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(prepended_fields);
 
@@ -778,7 +778,7 @@ TEST(InstrFetchingConstrainingTest, NegativeTruncatedBytecodeRepro)
     // We could previously process a truncated bytecode with the same id:
     // 'Fake' bytecode: [ 23 23 23 23 23 23 23 23 23 23 23 23 23 23 23 02 00 05 05 ] of length 19 bytes
     // Before introducing  #[BYTECODE_LENGTH_BYTES] in bc_hashing.pil and including the size in
-    // compute_public_bytecode_separator(), (#20254) trunc_hash == hash, meaning we could use truncated bytecode.
+    // compute_public_bytecode_first_field(), (#20254) trunc_hash == hash, meaning we could use truncated bytecode.
     ASSERT_NE(hash, trunc_hash);
 
     // Now, we cannot process the truncated bytecode and force a good instruction on the full bytecode to fail:

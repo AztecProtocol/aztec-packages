@@ -309,17 +309,17 @@ TEST(BytecodeTraceGenTest, BasicHashing)
               ROW_FIELD_EQ(bc_hashing_latch, 0),
               ROW_FIELD_EQ(bc_hashing_bytecode_id, 1),
               ROW_FIELD_EQ(bc_hashing_pc_index, 0),
-              // We don't increment at start to account for the prepended separator:
+              // We don't increment at start to account for the prepended first field length | separator:
               ROW_FIELD_EQ(bc_hashing_pc_index_1, 0),
               ROW_FIELD_EQ(bc_hashing_pc_index_2, 31),
-              ROW_FIELD_EQ(bc_hashing_packed_fields_0, simulation::compute_public_bytecode_separator(93)),
+              ROW_FIELD_EQ(bc_hashing_packed_fields_0, simulation::compute_public_bytecode_first_field(93)),
               ROW_FIELD_EQ(bc_hashing_packed_fields_1, 10),
               ROW_FIELD_EQ(bc_hashing_packed_fields_2, 20),
               ROW_FIELD_EQ(bc_hashing_size_in_bytes, 93),
               ROW_FIELD_EQ(bc_hashing_input_len, 4),
               ROW_FIELD_EQ(bc_hashing_rounds_rem, 2),
               ROW_FIELD_EQ(bc_hashing_output_hash,
-                           RawPoseidon2::hash({ simulation::compute_public_bytecode_separator(93), 10, 20, 30 })),
+                           RawPoseidon2::hash({ simulation::compute_public_bytecode_first_field(93), 10, 20, 30 })),
               ROW_FIELD_EQ(bc_hashing_pc_at_final_field, 0)));
 
     // Latched row
@@ -341,7 +341,7 @@ TEST(BytecodeTraceGenTest, BasicHashing)
               ROW_FIELD_EQ(bc_hashing_input_len, 4),
               ROW_FIELD_EQ(bc_hashing_rounds_rem, 1),
               ROW_FIELD_EQ(bc_hashing_output_hash,
-                           RawPoseidon2::hash({ simulation::compute_public_bytecode_separator(93), 10, 20, 30 })),
+                           RawPoseidon2::hash({ simulation::compute_public_bytecode_first_field(93), 10, 20, 30 })),
               ROW_FIELD_EQ(bc_hashing_pc_at_final_field, 62)));
 }
 

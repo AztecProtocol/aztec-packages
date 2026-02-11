@@ -53,7 +53,7 @@ void BytecodeTraceBuilder::process_decomposition(
             const bool is_windows_eq_remaining = remaining == DECOMPOSE_WINDOW_SIZE;
 
             // Check that we still expect the max public bytecode in bytes to fit within 24 bits (i.e. <= 0xffffff).
-            static_assert(MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS * 32 <= 0xffffff);
+            static_assert(MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS * 31 <= 0xffffff);
 
             // We set the decomposition in bytes, and other values.
             trace.set(row + i,
@@ -162,8 +162,8 @@ void BytecodeTraceBuilder::process_hashing(
 
     for (const auto& event : events) {
         const auto id = event.bytecode_id;
-        // Note that bytecode fields from the BytecodeHashingEvent do not contain the prepended separator
-        std::vector<FF> fields = { simulation::compute_public_bytecode_separator(event.bytecode_length) };
+        // Note that bytecode fields from the BytecodeHashingEvent do not contain the prepended field length | separator
+        std::vector<FF> fields = { simulation::compute_public_bytecode_first_field(event.bytecode_length) };
         fields.reserve(1 + event.bytecode_fields.size());
         fields.insert(fields.end(), event.bytecode_fields.begin(), event.bytecode_fields.end());
         auto bytecode_field_at = [&fields](size_t i) -> FF { return i < fields.size() ? fields[i] : 0; };

@@ -106,41 +106,6 @@ namespace bc_hashing;
     // We need 3 packed fields to use as inputs for each poseidon round
     pol commit packed_fields_0, packed_fields_1, packed_fields_2;
 
-
-    // We could approach linking the size in bytes to bc_decomposition in a few ways.
-    // Easy, naive: add new lookup like
-    // start { precomputed.zero, bytecode_id, size_in_bytes } is bc_decomposition.sel { bc_decomposition.pc, bc_decomposition.id, bc_decomposition.bytes_remaining }
-    // we only need the size_in_bytes at start == 1, so it's confined to one row.
-
-    // Clever, interesting, cool: propagate size_in_bytes from start == 1 to latch == 1, then constrain that:
-    // size_in_bytes == 31*(pc_at_final_field + 1) + last_bytes
-    //  where last_bytes < 31 and can be read via a new column in the existing CHECK_FINAL_BYTES_REMAINING lookup:
-    // #[CHECK_FINAL_BYTES_REMAINING]
-    // latch {
-    //     pc_at_final_field,
-    //     bytecode_id,
-    //     last_bytes,
-    //     sel /* =1 */,
-    //     precomputed.zero /* =0 */,
-    //     precomputed.zero /* =0 */,
-    //     precomputed.zero /* =0 */,
-    //     precomputed.zero /* =0 */,
-    //     precomputed.zero /* =0 */,
-    //     precomputed.zero /* =0 */
-    // } in bc_decomposition.sel_packed {
-    //     bc_decomposition.pc,
-    //     bc_decomposition.id,
-    //     bc_decomposition.bytes_remaining,
-    //     bc_decomposition.sel_windows_gt_remaining,
-    //     bc_decomposition.bytes_pc_plus_31,
-    //     bc_decomposition.bytes_pc_plus_32,
-    //     bc_decomposition.bytes_pc_plus_33,
-    //     bc_decomposition.bytes_pc_plus_34,
-    //     bc_decomposition.bytes_pc_plus_35,
-    //     bc_decomposition.bytes_pc_plus_36
-    // };
-    // We have already constrained that we are at the last field using this lookup, so last_bytes < 31
-
     // Only constrained at start for the prepended field:
     pol commit size_in_bytes;
     #[BYTECODE_LENGTH_BYTES]
@@ -151,11 +116,11 @@ namespace bc_hashing;
     // At the start of a new bytecode hash, the initial field has to be the size appended to the separator, and we skip the lookup
     // fetching a field from decomposition.
     // NOTE: size_in_bytes is constrained to be less than MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS (= 3000) * 31 at the contract registration
-    // level, so the below should never underflow. TODO: Consider what would happen if we get an overflowed size at the seq. level.
-    pol SEPARATOR = constants.DOM_SEP__PUBLIC_BYTECODE + (size_in_bytes * (2 ** 32));
+    // level, so the below should never overflow. TODO: Consider what would happen if we get an overflowed size at the seq. level.
+    pol FIRST_FIELD = constants.DOM_SEP__PUBLIC_BYTECODE + size_in_bytes * 2**32;
 
-    #[START_IS_SEPARATOR]
-    start * (packed_fields_0 - SEPARATOR) = 0;
+    #[START_IS_FIRST_FIELD]
+    start * (packed_fields_0 - FIRST_FIELD) = 0;
 
     #[GET_PACKED_FIELD_0]
     sel_not_start { pc_index, bytecode_id, packed_fields_0 }
@@ -269,12 +234,12 @@ namespace bc_hashing;
         sel_not_padding_2 * pc_index_2 // no padding ==> pc_at_final_field = pc_index_2
     ) = 0;
 
-    // The length of the hashed bytecode in fields, including the prepended separator. We use it to look up into poseidon_2 to ensure that
+    // The length of the hashed bytecode in fields, including the prepended field. We use it to look up into poseidon_2 to ensure that
     // the hashed IV matches our bytecode length.
     // Note: this is constrained at the final row (latch) by linking it to the pc_at_final_field (see above lookups/relations).
     pol commit input_len;
 
-    // Minus one for the separator field not present in bc_decomposition, and one to include the final field (pc_at_final_field marks the beginning of the last field).
+    // Minus one for the initial field not present in bc_decomposition, and one to include the final field (pc_at_final_field marks the beginning of the last field).
     // Note: this shouldn't underflow as we don't handle empty bytecode.
     #[BYTECODE_LENGTH_FIELDS]
     latch * (31 * (input_len - 2) - pc_at_final_field) = 0;
@@ -315,7 +280,7 @@ namespace bc_hashing;
     // a row with latch == 1 before we meet start == 1 when we go up. This shows that bytecode_id,
     // pc_index, and incremental_hash evolution did not deviate from the happy path.
     // When we reach a row with start == 1 (we know we must reach one thanks to #[START_AFTER_LATCH]
-    // enforces it on the second row.), then #[START_IS_SEPARATOR] implies that pc_index and packed_fields
+    // enforces it on the second row.), then #[START_IS_FIRST_FIELD] implies that pc_index and packed_fields
     // are correctly initialized. Note also that thanks #[TRACE_CONTINUITY] and #[GET_PACKED_FIELD_i]
     // we retrieved packed_field_i at the right pc_index_i from bc_decomposition sub-trace.
     // We remark that before reaching another latch, a prover might add additional rows without

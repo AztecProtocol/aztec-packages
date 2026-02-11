@@ -39,19 +39,19 @@ std::vector<FF> encode_bytecode(std::span<const uint8_t> bytecode)
 
 // Takes the size of the bytecode in bytes and computes the field prepended to the public bytecode
 // commitment hash.
-// TODO(MW): rename? prepended field?
-FF compute_public_bytecode_separator(size_t bytecode_size)
+FF compute_public_bytecode_first_field(size_t bytecode_size)
 {
     // TODO(MW): 32 (4 bytes) chosen just to keep the value of sep small and avoids having to change types further down
     // the stack.
     // The maximum sep is currently: Fr<0x00000000000000000000000000000000000000000000000000016b480f8411f1>
     // Max fields in bytes = 3000 * 31 = 16b48, Dom sep = f8411f1
+    static_assert(DOM_SEP__PUBLIC_BYTECODE <= UINT32_MAX, "Public bytecode domain separator must fit in 32 bits");
     return uint256_t(DOM_SEP__PUBLIC_BYTECODE) + uint256_t(bytecode_size << 32);
 }
 
 FF compute_public_bytecode_commitment(std::span<const uint8_t> bytecode)
 {
-    std::vector<FF> inputs = { compute_public_bytecode_separator(bytecode.size()) };
+    std::vector<FF> inputs = { compute_public_bytecode_first_field(bytecode.size()) };
     auto bytecode_as_fields = encode_bytecode(bytecode);
     inputs.insert(inputs.end(), bytecode_as_fields.begin(), bytecode_as_fields.end());
     return poseidon2::hash(inputs);

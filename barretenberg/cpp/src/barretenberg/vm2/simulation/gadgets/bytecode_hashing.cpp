@@ -13,7 +13,7 @@ void BytecodeHasher::assert_public_bytecode_commitment(const BytecodeId& bytecod
     BB_BENCH_NAME("BytecodeHasher::assert_public_bytecode_commitment");
     auto bytecode_length_in_bytes = static_cast<uint32_t>(bytecode.size());
 
-    std::vector<FF> inputs = { compute_public_bytecode_separator(bytecode_length_in_bytes) };
+    std::vector<FF> inputs = { compute_public_bytecode_first_field(bytecode_length_in_bytes) };
     auto bytecode_as_fields = encode_bytecode(bytecode);
     inputs.insert(inputs.end(), bytecode_as_fields.begin(), bytecode_as_fields.end());
 
