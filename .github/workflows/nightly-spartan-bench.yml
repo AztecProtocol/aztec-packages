@@ -152,7 +152,7 @@ jobs:
           fi
 
       - name: Run proving benchmarks
-        timeout-minutes: 150
+        timeout-minutes: 180
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -162,7 +162,7 @@ jobs:
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           RUN_ID: ${{ github.run_id }}
-          AWS_SHUTDOWN_TIME: 150
+          AWS_SHUTDOWN_TIME: 180
           NO_SPOT: 1
         run: |
           ./.github/ci3.sh network-proving-bench prove-n-tps-fake prove-n-tps-fake "aztecprotocol/aztec:${{ steps.nightly-tag.outputs.nightly_tag }}"
