@@ -1,3 +1,12 @@
+/**
+ * @file filter_function_builder.hpp
+ * @brief Helper class to build a filter function for gates
+ * @details The filter function is used to filter gates based on the given criteria (wires and selectors)
+ * it uses fluent interface to set the criteria, and if the criteria is defined, it will check if the gate matches the
+ * criteria
+ * @tparam CircuitBuilder The circuit builder type
+ * @tparam FF The field type
+ */
 #pragma once
 
 #include <algorithm>
@@ -23,6 +32,7 @@ template <typename CircuitBuilder, typename FF> class FilterFunctionBuilder {
     FilterFunctionBuilder& set_q_c(FF q_c);
     FilterFunctionBuilder& set_q_4(FF q_4);
     FilterFunctionBuilder& set_q_arith(FF q_arith);
+    FilterFunctionBuilder& set_q_elliptic(FF q_elliptic);
 
     std::function<bool(size_t, size_t)> build() const;
     std::vector<std::pair<size_t, size_t>> filter_gates(std::vector<std::pair<size_t, size_t>>& gates) const;
@@ -40,6 +50,7 @@ template <typename CircuitBuilder, typename FF> class FilterFunctionBuilder {
     std::optional<FF> q_c = std::nullopt;
     std::optional<FF> q_4 = std::nullopt;
     std::optional<FF> q_arith = std::nullopt;
+    std::optional<FF> q_elliptic = std::nullopt;
 };
 
 template <typename CircuitBuilder, typename FF>
@@ -125,6 +136,15 @@ inline FilterFunctionBuilder<CircuitBuilder, FF>& FilterFunctionBuilder<CircuitB
 }
 
 template <typename CircuitBuilder, typename FF>
+inline FilterFunctionBuilder<CircuitBuilder, FF>& FilterFunctionBuilder<CircuitBuilder, FF>::set_q_elliptic(
+    FF q_elliptic)
+{
+    this->q_elliptic = q_elliptic;
+    return *this;
+}
+
+// Builds the filter function that will be used to filter the gates. Checks if the gate matches all set criteria
+template <typename CircuitBuilder, typename FF>
 inline std::function<bool(size_t, size_t)> FilterFunctionBuilder<CircuitBuilder, FF>::build() const
 {
     return [this](size_t block_idx, size_t gate_idx) {
@@ -167,6 +187,7 @@ inline std::function<bool(size_t, size_t)> FilterFunctionBuilder<CircuitBuilder,
     };
 }
 
+// Filters the gates based on the criteria. Returns a vector of gate locations that match the criteria.
 template <typename CircuitBuilder, typename FF>
 inline std::vector<std::pair<size_t, size_t>> FilterFunctionBuilder<CircuitBuilder, FF>::filter_gates(
     std::vector<std::pair<size_t, size_t>>& gates) const
