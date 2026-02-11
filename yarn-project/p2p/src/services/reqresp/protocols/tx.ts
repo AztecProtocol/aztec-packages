@@ -1,4 +1,5 @@
 import { chunk } from '@aztec/foundation/collection';
+import { MAX_TX_SIZE_KB } from '@aztec/stdlib/p2p';
 import { TxArray, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
@@ -54,4 +55,25 @@ export function reqRespTxHandler(mempools: MemPools): ReqRespSubProtocolHandler 
 //more info:  https://github.com/AztecProtocol/aztec-packages/pull/15516#pullrequestreview-2995474321
 export function chunkTxHashesRequest(hashes: TxHash[], chunkSize = 1): Array<TxHashArray> {
   return chunk(hashes, chunkSize).map(chunk => new TxHashArray(...chunk));
+}
+
+/**
+ * Calculate the expected response size for a TX request.
+ * @param requestBuffer - The serialized request buffer containing TxHashArray
+ * @returns Expected response size in KB
+ */
+export function calculateTxResponseSize(requestBuffer: Buffer): number {
+  try {
+    const txHashes = TxHashArray.fromBuffer(requestBuffer);
+    // TxHashArray.fromBuffer returns empty array on parse failure, so check for that
+    if (txHashes.length === 0 && requestBuffer.length > 0) {
+      // If we got an empty array but had a non-empty buffer, parsing likely failed
+      // Fall back to allowing a single transaction response
+      return MAX_TX_SIZE_KB + 1;
+    }
+    return Math.max(txHashes.length, 1) * MAX_TX_SIZE_KB + 1; // +1 KB overhead, at least 1 tx
+  } catch {
+    // If we can't parse the request, fall back to allowing a single transaction response
+    return MAX_TX_SIZE_KB + 1;
+  }
 }

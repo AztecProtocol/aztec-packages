@@ -11,7 +11,7 @@ Partial notes are notes created with incomplete data during private execution, w
 
 ## Prerequisites
 
-- Understanding of [notes and private state](../how_to_implement_custom_notes.md)
+- Understanding of [notes and private state](../custom_notes.md)
 - Familiarity with [private and public function execution](../../../foundational-topics/call_types.md)
 
 ## Overview
@@ -178,6 +178,6 @@ The [AMM contract](https://github.com/AztecProtocol/aztec-packages/tree/next/noi
 
 ## Next Steps
 
-- [Implement custom notes](../how_to_implement_custom_notes.md) - Learn about note structure and lifecycle
+- [Implement custom notes](../custom_notes.md) - Learn about note structure and lifecycle
 - [Private and public execution](../../../foundational-topics/call_types.md) - Understand the execution model
 - [Token contract tutorial](../../../tutorials/contract_tutorials/token_contract.md) - See partial notes in a complete example

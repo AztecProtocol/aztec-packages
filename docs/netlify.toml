@@ -605,6 +605,43 @@
     to = "/developers/docs/aztec-nr/framework-description/:splat"
 
 # =============================================================================
+# Smart Contract Guide Restructures
+# Redirects from old guide paths to new naming convention
+# =============================================================================
+
+[[redirects]]
+    from = "/developers/docs/aztec-nr/how_to_compile_contract"
+    to = "/developers/docs/aztec-nr/compiling_contracts"
+
+[[redirects]]
+    from = "/developers/docs/aztec-nr/how_to_test_contracts"
+    to = "/developers/docs/aztec-nr/testing_contracts"
+
+[[redirects]]
+    from = "/developers/docs/aztec-nr/framework-description/how_to_use_authwit"
+    to = "/developers/docs/aztec-nr/framework-description/authentication_witnesses"
+
+[[redirects]]
+    from = "/developers/docs/aztec-nr/framework-description/how_to_communicate_cross_chain"
+    to = "/developers/docs/aztec-nr/framework-description/ethereum_aztec_messaging"
+
+[[redirects]]
+    from = "/developers/docs/aztec-nr/framework-description/how_to_call_contracts"
+    to = "/developers/docs/aztec-nr/framework-description/calling_contracts"
+
+[[redirects]]
+    from = "/developers/docs/aztec-nr/framework-description/how_to_emit_event"
+    to = "/developers/docs/aztec-nr/framework-description/events_and_logs"
+
+[[redirects]]
+    from = "/developers/docs/aztec-nr/framework-description/how_to_implement_custom_notes"
+    to = "/developers/docs/aztec-nr/framework-description/custom_notes"
+
+[[redirects]]
+    from = "/developers/docs/aztec-nr/framework-description/ethereum-aztec-messaging/*"
+    to = "/developers/docs/foundational-topics/ethereum-aztec-messaging/:splat"
+
+# =============================================================================
 # Reference → resources, aztec-cli, wallet-cli, aztec-nr
 # =============================================================================
 

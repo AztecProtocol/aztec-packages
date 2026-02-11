@@ -133,20 +133,32 @@
 <h1>Trait <span id="trait" class="trait">Empty</span></h1>
 <pre><code>pub trait Empty: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> {
     <span class="comment">// Required methods</span>
-    pub fn <a href="#empty"><span class="fn">empty</span></a>() -> Self;
+    pub fn <a href="#empty"><span class="fn">empty</span></a>() -> Self
+<div class="where-clause">    where
+        Self: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div>;
 
     <span class="comment">// Provided methods</span>
-    pub fn <a href="#is_empty"><span class="fn">is_empty</span></a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a> { ... }
-    pub fn <a href="#assert_empty"><span class="fn">assert_empty</span></a>&lt;let S: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;) { ... }
+    pub fn <a href="#is_empty"><span class="fn">is_empty</span></a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a>
+<div class="where-clause">    where
+        Self: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div> { ... }
+    pub fn <a href="#assert_empty"><span class="fn">assert_empty</span></a>&lt;let S: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)
+<div class="where-clause">    where
+        Self: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div> { ... }
 }</code></pre>
 
 <h2>Required methods</h2>
-<div class="padded-methods"><code id="empty" class="code-header">pub fn <a href="#empty"><span class="fn">empty</span></a>() -> Self</code>
+<div class="padded-methods"><code id="empty" class="code-header">pub fn <a href="#empty"><span class="fn">empty</span></a>() -> Self
+<div class="where-clause">where
+    Self: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
 
 </div><h2>Provided methods</h2>
-<div class="padded-methods"><code id="is_empty" class="code-header">pub fn <a href="#is_empty"><span class="fn">is_empty</span></a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+<div class="padded-methods"><code id="is_empty" class="code-header">pub fn <a href="#is_empty"><span class="fn">is_empty</span></a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a>
+<div class="where-clause">where
+    Self: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
 
-<code id="assert_empty" class="code-header">pub fn <a href="#assert_empty"><span class="fn">assert_empty</span></a>&lt;let S: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+<code id="assert_empty" class="code-header">pub fn <a href="#assert_empty"><span class="fn">assert_empty</span></a>&lt;let S: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)
+<div class="where-clause">where
+    Self: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
 
 </div><h2>Implementors</h2>
 <h3 id="impl-Empty-for-(A, B)"><code class="code-header">impl&lt;A, B&gt; <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for (A, B)

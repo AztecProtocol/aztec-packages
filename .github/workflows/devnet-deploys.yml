@@ -1,0 +1,80 @@
+name: Devnet Auto-Deploy
+
+# Automatically tags, builds (via CI3), and deploys devnet branches.
+# Triggered on every push to a devnet branch (v*-devnet-*).
+
+on:
+  push:
+    branches:
+      - "v*-devnet-*"
+
+concurrency:
+  group: devnet-deploys-${{ github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.create-tag.outputs.tag }}
+      semver: ${{ steps.create-tag.outputs.semver }}
+      namespace: ${{ steps.create-tag.outputs.namespace }}
+      ref: ${{ steps.create-tag.outputs.ref }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Create and push tag
+        id: create-tag
+        run: spartan/scripts/create_devnet_tag.ts
+
+      - name: Step summary
+        run: |
+          {
+            echo "## Devnet Tag Created"
+            echo ""
+            echo "| Item | Value |"
+            echo "|------|-------|"
+            echo "| Branch | \`${{ steps.create-tag.outputs.ref }}\` |"
+            echo "| Tag | \`${{ steps.create-tag.outputs.tag }}\` |"
+            echo "| Semver | \`${{ steps.create-tag.outputs.semver }}\` |"
+            echo "| Namespace | \`${{ steps.create-tag.outputs.namespace }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  wait-for-ci3:
+    needs: tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Wait for CI3
+        run: spartan/scripts/wait_for_ci3.ts "${{ needs.tag.outputs.tag }}"
+
+  deploy:
+    needs: [tag, wait-for-ci3]
+    uses: ./.github/workflows/deploy-network.yml
+    secrets: inherit
+    with:
+      network: devnet
+      semver: ${{ needs.tag.outputs.semver }}
+      namespace: ${{ needs.tag.outputs.namespace }}
+      ref: ${{ needs.tag.outputs.ref }}

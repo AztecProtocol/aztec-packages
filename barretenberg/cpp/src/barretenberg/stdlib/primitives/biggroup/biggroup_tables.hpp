@@ -94,8 +94,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::read_group_element_rom_tables(
     y_fq.binary_basis_limbs[2].maximum_value = limb_max[6];
     y_fq.binary_basis_limbs[3].maximum_value = limb_max[7];
 
-    // ROM table points are precomputed and known to be valid, skip curve check
-    const auto output = element(x_fq, y_fq, /*assert_on_curve=*/false);
+    // ROM table points are precomputed and known to be valid, skip curve check.
+    // Use 4-arg constructor with is_infinity=false (table lookups return valid, non-infinity points).
+    const auto output = element(x_fq, y_fq, bool_ct(x_fq.get_context(), false), /*assert_on_curve=*/false);
     return output;
 }
 
@@ -158,8 +159,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::eight_bit_fixed_base_table::operato
         y = -y;
     }
 
-    // Points from precomputed tables are known to be on the curve
-    return element(x, y, /*assert_on_curve=*/false);
+    // Points from precomputed tables are known to be on the curve.
+    // Use 4-arg constructor with is_infinity=false (table lookups return valid, non-infinity points).
+    return element(x, y, bool_ct(x.get_context(), false), /*assert_on_curve=*/false);
 }
 
 template <typename C, class Fq, class Fr, class G>

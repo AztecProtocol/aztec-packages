@@ -9,3 +9,4 @@ export {
 } from './interfaces.js';
 export { type TxMetaData, type TxState, buildTxMetaData, comparePriority } from './tx_metadata.js';
 export { TxArchive } from './archive/index.js';
+export { DeletedPool } from './deleted_pool.js';

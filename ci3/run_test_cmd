@@ -170,39 +170,42 @@ if [ "$live_logging" -eq 1 ]; then
   publish_pid=$!
 fi
 
-# Reset timer and run the test in background (for prompt signal handling) using exec_test.
-SECONDS=0
-set +e
-$ci3/exec_test "$cmd" >> "$tmp_file" 2>&1 &
-test_pid=$!
-wait $test_pid
-code=$?
+function run_test {
+  # Reset timer and run the test in background (for prompt signal handling) using exec_test.
+  SECONDS=0
+  set +e
+  $ci3/exec_test "$cmd" >> "$tmp_file" 2>&1 &
+  test_pid=$!
+  wait $test_pid
+  code=$?
 
-# If the test received a SIGTERM or SIGINT, we don't want to track or print anything, just exit.
-if [ "$code" -eq 143 ] || [ "$code" -eq 130 ]; then
-  exit $code
-fi
-
-if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
-  # If the test succeeded and we're in CI, set success flag for test. This key is unique to the test.
-  # If the test succeeded and we're logging passes, save the test log.
-  # If the test failed, save the test log.
-  if [ $code -eq 0 ]; then
-    if [ "$CI" -eq 1 ]; then
-      redis_cli SETEX $key 604800 $log_key &>/dev/null
-    fi
-    if [ "$pass_log" -eq 1 ]; then
-      # Publish final log.
-      publish_log_final
-    else
-      # Scrub the link we optimistically (for live logging) set earlier.
-      log_info=""
-    fi
-  else
-    # Publish final log, extending lifetime of failure to 12 weeks.
-    publish_log_final $((60 * 60 * 24 * 7 * 12))
+  # If the test received a SIGTERM or SIGINT, we don't want to track or print anything, just exit.
+  if [ "$code" -eq 143 ] || [ "$code" -eq 130 ]; then
+    exit $code
   fi
-fi
+}
+
+function finalize_test {
+  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+    # If the test succeeded and we're in CI, set success flag for test. This key is unique to the test.
+    # If the test succeeded and we're logging passes, save the test log.
+    # If the test failed, save the test log.
+    if [ $code -eq 0 ]; then
+      if [ "$CI" -eq 1 ]; then
+        redis_cli SETEX $key 604800 $log_key &>/dev/null
+      fi
+      if [ "$pass_log" -eq 1 ]; then
+        publish_log_final
+      else
+        # Scrub the link we optimistically (for live logging) set earlier.
+        log_info=""
+      fi
+    else
+      # Publish final log, extending lifetime of failure to 12 weeks.
+      publish_log_final $((60 * 60 * 24 * 7 * 12))
+    fi
+  fi
+}
 
 function track_test {
   local list_key=$1
@@ -239,6 +242,8 @@ function publish_redis {
 
 # Show PASSED and early out on success.
 function pass {
+  finalize_test
+
   local line="${green}PASSED${reset}${log_info:-}: $test_cmd (${SECONDS}s)"
   echo -e "$line"
 
@@ -252,6 +257,8 @@ function pass {
 
 # Show FAILED and exit with error code.
 function fail {
+  finalize_test
+
   local line="${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
   echo -e "$line"
 
@@ -303,6 +310,8 @@ function flake {
   exit 0
 }
 
+run_test
+
 # Test passed.
 [ $code -eq 0 ] && pass
 
@@ -318,9 +327,18 @@ owners=$(echo "$test_entries" | jq -r '.owners[]' | sort -u)
 # Extract flake_group_id from first matching entry
 flake_group_id=$(echo "$test_entries" | jq -r '.flake_group_id // empty' | head -1)
 
-# To not fail a test, we at least need an owner to notify.
+# If there's no owner for a failed test, we consider it a hard fail.
+# Otherwise we perform a single retry.
 if [ -z "$owners" ]; then
   fail
 else
-  flake
+  echo -e "${yellow}RETRYING${reset}${log_info:-}: $test_cmd"
+
+  run_test
+
+  # Test passed. Signal it as a flake, but pass.
+  [ $code -eq 0 ] && flake
+
+  # Otherwise we failed twice in a row, so hard fail.
+  fail
 fi

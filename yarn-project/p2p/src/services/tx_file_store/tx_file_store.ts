@@ -6,7 +6,7 @@ import { type FileStore, createFileStore } from '@aztec/stdlib/file-store';
 import type { Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import type { TxPool, TxPoolEvents } from '../../mem_pools/tx_pool/index.js';
+import type { TxPoolV2 } from '../../mem_pools/index.js';
 import type { TxFileStoreConfig } from './config.js';
 import { TxFileStoreInstrumentation } from './instrumentation.js';
 
@@ -18,7 +18,7 @@ export class TxFileStore {
   private uploadQueue: Tx[] = [];
   private activeUploads = 0;
   private readonly queueProcessor: RunningPromise;
-  private readonly handleTxsAdded: TxPoolEvents['txs-added'];
+  private readonly handleTxsAdded: (args: { txs: Tx[]; source?: string }) => void;
 
   /** Recently uploaded tx hashes for deduplication. */
   private recentUploads: Set<string> = new Set();
@@ -27,7 +27,7 @@ export class TxFileStore {
 
   private constructor(
     private readonly fileStore: FileStore,
-    private readonly txPool: TxPool,
+    private readonly txPool: TxPoolV2,
     private readonly config: TxFileStoreConfig,
     private readonly instrumentation: TxFileStoreInstrumentation,
     private readonly log: Logger,
@@ -48,7 +48,7 @@ export class TxFileStore {
    * @returns The file store instance, or undefined if not configured/enabled.
    */
   static async create(
-    txPool: TxPool,
+    txPool: TxPoolV2,
     config: TxFileStoreConfig,
     log: Logger = createLogger('p2p:tx_file_store'),
     telemetry: TelemetryClient = getTelemetryClient(),

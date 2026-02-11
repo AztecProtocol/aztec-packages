@@ -164,7 +164,7 @@ The `#[abi(functions)]` attribute marks the struct for inclusion in the contract
 Contract artifacts enable:
 
 - Machine-readable contract interface descriptions
-- TypeScript binding generation (see [how to compile contracts](../../how_to_compile_contract.md))
+- TypeScript binding generation (see [how to compile contracts](../../compiling_contracts.md))
 - Function return value decoding in the simulator
 
 ## Further reading
