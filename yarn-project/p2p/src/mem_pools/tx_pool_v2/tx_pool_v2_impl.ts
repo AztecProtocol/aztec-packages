@@ -393,6 +393,9 @@ export class TxPoolV2Impl {
   }
 
   async prepareForSlot(slotNumber: SlotNumber): Promise<void> {
+    // Step 0: Clean up slot-deleted txs from previous slots
+    await this.#deletedPool.cleanupSlotDeleted(slotNumber);
+
     // Step 1: Find expired protected txs
     const expiredProtected = this.#indices.findExpiredProtectedTxs(slotNumber);
 
@@ -631,6 +634,7 @@ export class TxPoolV2Impl {
     const meta = await buildTxMetaData(tx);
 
     await this.#txsDB.set(txHashStr, tx.toBuffer());
+    await this.#deletedPool.clearSoftDeleted(txHashStr);
     this.#callbacks.onTxsAdded([tx], opts);
 
     if (state === 'pending') {

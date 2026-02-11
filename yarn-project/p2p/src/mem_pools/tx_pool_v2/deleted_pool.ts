@@ -1,6 +1,6 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
-import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
+import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSet } from '@aztec/kv-store';
 
 /**
  * State stored for each transaction from a pruned block.
@@ -39,15 +39,17 @@ function deserializeState(buffer: Buffer): DeletedTxState {
  * When a chain prune (reorg) happens, transactions from pruned blocks are tracked here.
  * This class is responsible for ALL deletion decisions:
  *
- * - Transactions from pruned blocks are "soft deleted" - removed from indices but kept
- *   in the database for later re-execution
- * - Transactions NOT from pruned blocks are "hard deleted" - completely removed from DB
+ * - Transactions from pruned blocks are "prune-soft-deleted" - removed from indices but kept
+ *   in the database for later re-execution until their mined block is finalized
+ * - Transactions NOT from pruned blocks are "slot-soft-deleted" - kept in the database
+ *   until the next slot, so other nodes can still fetch them via reqresp
  *
- * When a block is finalized, soft-deleted transactions that were originally mined at or
- * before that block number are permanently (hard) deleted.
+ * When a block is finalized, prune-soft-deleted transactions that were originally mined at or
+ * before that block number are permanently (hard) deleted. Slot-soft-deleted transactions
+ * are hard-deleted when `prepareForSlot` advances to a new slot.
  */
 export class DeletedPool {
-  /** Persisted map: txHash -> DeletedTxState (serialized) */
+  /** Persisted map: txHash -> DeletedTxState (serialized) - for prune-based soft deletions */
   #deletedTxsDB: AztecAsyncMap<string, Buffer>;
 
   /** Reference to the main txs database for hard deletion */
@@ -56,16 +58,27 @@ export class DeletedPool {
   /** In-memory state for transactions from pruned blocks */
   #state: Map<string, DeletedTxState> = new Map();
 
+  /** In-memory tracking: txHash -> slot at which the tx was deleted */
+  #slotDeletedTxs: Map<string, SlotNumber> = new Map();
+
+  /** Persisted set tracking which txs are slot-deleted, for hydration cleanup. */
+  #slotDeletedDB: AztecAsyncSet<string>;
+
+  /** Current slot number, updated by cleanupSlotDeleted */
+  #currentSlot: SlotNumber = SlotNumber(0);
+
   #log: Logger;
 
   constructor(store: AztecAsyncKVStore, txsDB: AztecAsyncMap<string, Buffer>, log: Logger) {
     this.#deletedTxsDB = store.openMap('deleted_txs');
+    this.#slotDeletedDB = store.openSet('slot_deleted_txs');
     this.#txsDB = txsDB;
     this.#log = log;
   }
 
   /**
    * Loads state from the database on startup.
+   * Slot-deleted txs are stale after restart and are immediately hard-deleted.
    */
   async hydrateFromDatabase(): Promise<void> {
     let prunedCount = 0;
@@ -82,6 +95,18 @@ export class DeletedPool {
 
     if (prunedCount > 0 || softDeletedCount > 0) {
       this.#log.info(`Loaded ${prunedCount} txs from pruned blocks, ${softDeletedCount} soft-deleted`);
+    }
+
+    // Slot-deleted txs are stale after restart - hard-delete them all
+    let slotDeletedCount = 0;
+    for await (const txHash of this.#slotDeletedDB.entriesAsync()) {
+      await this.#txsDB.delete(txHash);
+      await this.#slotDeletedDB.delete(txHash);
+      slotDeletedCount++;
+    }
+
+    if (slotDeletedCount > 0) {
+      this.#log.info(`Hard-deleted ${slotDeletedCount} stale slot-deleted txs on startup`);
     }
   }
 
@@ -123,27 +148,25 @@ export class DeletedPool {
 
   /**
    * Deletes a transaction. This is the single entry point for ALL deletions.
+   * The tx is always soft-deleted (kept in DB):
    *
-   * - If the tx is from a pruned block: soft-delete (keep in DB, mark as deleted)
-   * - If the tx is NOT from a pruned block: hard-delete (remove from DB)
-   *
-   * @returns 'soft' if soft-deleted, 'hard' if hard-deleted
+   * - If the tx is from a pruned block: prune-soft-delete (kept until finalized)
+   * - If the tx is NOT from a pruned block: slot-soft-delete (kept until next slot)
    */
-  async deleteTx(txHash: string): Promise<'soft' | 'hard'> {
+  async deleteTx(txHash: string): Promise<void> {
     const existing = this.#state.get(txHash);
     if (existing !== undefined) {
-      // Soft delete - keep in DB
+      // Prune-soft-delete - keep in DB until finalized
       const state: DeletedTxState = {
         minedAtBlock: existing.minedAtBlock,
         softDeleted: true,
       };
       this.#state.set(txHash, state);
       await this.#deletedTxsDB.set(txHash, serializeState(state));
-      return 'soft';
     } else {
-      // Hard delete - remove from DB
-      await this.#txsDB.delete(txHash);
-      return 'hard';
+      // Slot-soft-delete - keep in DB until next slot
+      this.#slotDeletedTxs.set(txHash, this.#currentSlot);
+      await this.#slotDeletedDB.add(txHash);
     }
   }
 
@@ -176,10 +199,10 @@ export class DeletedPool {
   }
 
   /**
-   * Checks if a transaction is soft-deleted.
+   * Checks if a transaction is soft-deleted (either prune-based or slot-based).
    */
   isSoftDeleted(txHash: string): boolean {
-    return this.#state.get(txHash)?.softDeleted ?? false;
+    return (this.#state.get(txHash)?.softDeleted ?? false) || this.#slotDeletedTxs.has(txHash);
   }
 
   /**
@@ -216,6 +239,56 @@ export class DeletedPool {
 
     this.#log.debug(`Finalized ${toHardDelete.length} txs from pruned blocks at block ${finalizedBlockNumber}`);
     return toHardDelete;
+  }
+
+  /**
+   * Cleans up slot-deleted transactions from previous slots.
+   * Called at the start of prepareForSlot. Updates #currentSlot and hard-deletes
+   * any txs that were deleted in an earlier slot.
+   */
+  async cleanupSlotDeleted(currentSlot: SlotNumber): Promise<void> {
+    const previousSlot = this.#currentSlot;
+    this.#currentSlot = currentSlot;
+
+    const toHardDelete: string[] = [];
+    for (const [txHash, deletedAtSlot] of this.#slotDeletedTxs) {
+      if (deletedAtSlot < currentSlot) {
+        toHardDelete.push(txHash);
+      }
+    }
+
+    if (toHardDelete.length === 0) {
+      return;
+    }
+
+    for (const txHash of toHardDelete) {
+      this.#slotDeletedTxs.delete(txHash);
+      await this.#slotDeletedDB.delete(txHash);
+      await this.#txsDB.delete(txHash);
+    }
+
+    this.#log.debug(
+      `Cleaned up ${toHardDelete.length} slot-deleted txs from slot ${previousSlot} (now slot ${currentSlot})`,
+    );
+  }
+
+  /**
+   * Clears soft-deletion status for a transaction being re-added to the pool.
+   * Removes slot-deleted tracking entirely, and resets the prune-soft-deleted flag
+   * while preserving the prune tracking itself (so a subsequent delete still uses
+   * the prune path).
+   */
+  async clearSoftDeleted(txHash: string): Promise<void> {
+    if (this.#slotDeletedTxs.has(txHash)) {
+      this.#slotDeletedTxs.delete(txHash);
+      await this.#slotDeletedDB.delete(txHash);
+    }
+    const existing = this.#state.get(txHash);
+    if (existing?.softDeleted) {
+      const state: DeletedTxState = { minedAtBlock: existing.minedAtBlock, softDeleted: false };
+      this.#state.set(txHash, state);
+      await this.#deletedTxsDB.set(txHash, serializeState(state));
+    }
   }
 
   /**
