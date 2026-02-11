@@ -13,12 +13,12 @@ A merge train is an automated batching system (inspired by [Rust rollups](https:
 
 | Branch | Team / Domain | Slack Channel |
 |---|---|---|
-| `merge-train/avm` | AVM / VM2 | `#team-bonobos` |
-| `merge-train/barretenberg` | Barretenberg / Honk | `#honk-team` |
-| `merge-train/ci` | CI infrastructure | `#help-ci` |
+| `merge-train/avm` | AVM, barretenberg vm2 folder | `#team-bonobos` |
+| `merge-train/barretenberg` | Barretenberg folder, but not vm2 folder | `#honk-team` |
+| `merge-train/ci` | CI infrastructure / ci3 | `#help-ci` |
 | `merge-train/docs` | Documentation | `#dev-rels` |
-| `merge-train/fairies` | Fairies | `#team-fairies` |
-| `merge-train/spartan` | Spartan / infra | `#team-alpha` |
+| `merge-train/fairies` | aztec-nr | `#team-fairies` |
+| `merge-train/spartan` | Spartan / infra / yarn-project sequencer and prover orchestration | `#team-alpha` |
 
 ## How to Use a Merge Train
 
@@ -49,7 +49,7 @@ A merge train is an automated batching system (inspired by [Rust rollups](https:
 
 Two options from the [merge-train-readme.md](https://github.com/AztecProtocol/aztec-packages/blob/next/.github/workflows/merge-train-readme.md):
 
-**Option 1: Direct Fix** -- Push a fix directly to the merge-train branch. Use bypass merge to expedite (all users have this permission).
+**Option 1: Direct Fix** -- Push a fix directly to the merge-train branch. Use bypass merge to expedite (all users have this permission). You can use the ci-skip label to no-op CI if really necessary.
 
 **Option 2: Fix in Next** -- Merge a revert or workaround into `next`. The fix will auto-propagate to the merge-train via the `merge-train-next-to-branches` workflow. Best when the root cause is in `next` or multiple trains are affected.
 
