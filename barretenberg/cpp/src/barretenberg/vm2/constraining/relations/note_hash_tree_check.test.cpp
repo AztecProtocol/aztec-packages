@@ -13,6 +13,7 @@
 #include "barretenberg/vm2/generated/relations/note_hash_tree_check.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/note_hash_tree_check_event.hpp"
+#include "barretenberg/vm2/simulation/gadgets/merkle_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/note_hash_tree_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
@@ -225,7 +226,7 @@ TEST(NoteHashTreeCheckConstrainingTests, NegativeSiloingOnRead)
     TestTraceContainer trace({ {
         { C::note_hash_tree_check_sel, 1 },
         { C::note_hash_tree_check_write, 0 },
-        { C::note_hash_tree_check_should_silo, 1 },
+        { C::note_hash_tree_check_sel_silo, 1 },
         { C::note_hash_tree_check_note_hash, 27 },
     } });
 
@@ -239,7 +240,7 @@ TEST(NoteHashTreeCheckConstrainingTests, NegativePassthroughSiloing)
     TestTraceContainer trace({ {
         { C::note_hash_tree_check_sel, 1 },
         { C::note_hash_tree_check_write, 0 },
-        { C::note_hash_tree_check_should_silo, 0 },
+        { C::note_hash_tree_check_sel_silo, 0 },
         { C::note_hash_tree_check_note_hash, 27 },
         { C::note_hash_tree_check_siloed_note_hash, 27 },
     } });
@@ -257,7 +258,7 @@ TEST(NoteHashTreeCheckConstrainingTests, NegativeUniquenessOnRead)
     TestTraceContainer trace({ {
         { C::note_hash_tree_check_sel, 1 },
         { C::note_hash_tree_check_write, 0 },
-        { C::note_hash_tree_check_should_unique, 1 },
+        { C::note_hash_tree_check_sel_unique, 1 },
         { C::note_hash_tree_check_note_hash, 27 },
     } });
 
@@ -271,7 +272,7 @@ TEST(NoteHashTreeCheckConstrainingTests, NegativePassthroughUniqueness)
     TestTraceContainer trace({ {
         { C::note_hash_tree_check_sel, 1 },
         { C::note_hash_tree_check_write, 0 },
-        { C::note_hash_tree_check_should_unique, 0 },
+        { C::note_hash_tree_check_sel_unique, 0 },
         { C::note_hash_tree_check_note_hash, 27 },
         { C::note_hash_tree_check_siloed_note_hash, 27 },
         { C::note_hash_tree_check_unique_note_hash, 27 },

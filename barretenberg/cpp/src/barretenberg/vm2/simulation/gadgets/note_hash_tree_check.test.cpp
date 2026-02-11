@@ -4,7 +4,6 @@
 #include <gtest/gtest.h>
 
 #include "barretenberg/crypto/merkle_tree/memory_tree.hpp"
-#include "barretenberg/vm2/simulation/events/note_hash_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_merkle_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
@@ -13,9 +12,7 @@
 namespace bb::avm2::simulation {
 
 using ::testing::_;
-using ::testing::AllOf;
 using ::testing::ElementsAre;
-using ::testing::Field;
 using ::testing::Return;
 using ::testing::StrictMock;
 

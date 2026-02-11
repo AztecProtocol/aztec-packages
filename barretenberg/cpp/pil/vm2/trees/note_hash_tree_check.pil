@@ -2,6 +2,7 @@ include "merkle_check.pil";
 include "../constants_gen.pil";
 include "../poseidon2_hash.pil";
 include "../public_inputs.pil";
+include "../precomputed.pil";
 
 /**
  * This gadget reads or writes notes in the note hash tree. The note hash tree is an append only tree where the
@@ -13,20 +14,72 @@ include "../public_inputs.pil";
  * Note that if you ask the gadget to silo the note hash, you also need to ask it to make it unique.
  * For reading, we enforce that the note hash is already unique.
  *
+ * Shape:
+ * We'll generate just one row per read or write.
+ *
+ * Errors: None
+ *
+ * Usage:
  * Read usage:
- * sel { precomputed.zero, unique_note_hash, leaf_index, note_hash_tree_root, exists }
- * in note_hash_tree_check.sel { note_hash_tree_check.write, note_hash_tree_check.note_hash,
- *     note_hash_tree_check.leaf_index, note_hash_tree_check.prev_root, note_hash_tree_check.exists };
+ *     sel {
+ *         precomputed.zero,
+ *         unique_note_hash,
+ *         leaf_index,
+ *         note_hash_tree_root,
+ *         exists
+ *     } in note_hash_tree_check.sel {
+ *         note_hash_tree_check.write,      // Input
+ *         note_hash_tree_check.note_hash,  // Input
+ *         note_hash_tree_check.leaf_index, // Input
+ *         note_hash_tree_check.prev_root,  // Input
+ *         note_hash_tree_check.exists      // Output
+ *     };
+ *
+ * On the read variant, there is no need to pass sel_silo or sel_unique, as we force them to be 0.
  *
  * Write usage:
- * sel { note_hash, note_hash_next_available_leaf_index, prev_note_hash_tree_root,
- *     should_silo, address, should_unique, note_hash_index, discard, next_note_hash_tree_root  }
- * in note_hash_tree_check.write { note_hash_tree_check.note_hash,
- *     note_hash_tree_check.leaf_index, note_hash_tree_check.prev_root, note_hash_tree_check.should_silo,
- *     note_hash_tree_check.address, note_hash_tree_check.should_unique, note_hash_tree_check.note_hash_index,
- *     note_hash_tree_check.discard, note_hash_tree_check.next_root };
+ *     sel {
+ *         note_hash,
+ *         note_hash_next_available_leaf_index,
+ *         prev_note_hash_tree_root,
+ *         should_silo,
+ *         address,
+ *         should_unique,
+ *         note_hash_index,
+ *         discard,
+ *         next_note_hash_tree_root
+ *     } in note_hash_tree_check.write {
+ *         note_hash_tree_check.note_hash,       // Input
+ *         note_hash_tree_check.leaf_index,      // Input
+ *         note_hash_tree_check.prev_root,       // Input
+ *         note_hash_tree_check.sel_silo,        // Input
+ *         note_hash_tree_check.address,         // Input
+ *         note_hash_tree_check.sel_unique,      // Input
+ *         note_hash_tree_check.note_hash_index, // Input
+ *         note_hash_tree_check.discard,         // Input
+ *         note_hash_tree_check.next_root        // Output
+ *     };
  *
- * As write variant usage, we can omit the address column whenever we pass should_silo == 0.
+ * As write variant usage, we should omit the address column whenever we pass sel_silo == 0, since tracegen will populate it with a 0.
+ * On the contrary, `note_hash_index` should always be passed in, even when sel_unique == 0, as it's used for public input checks.
+ * Note that we don't return the new size of the tree, since it can be trivially derived by the caller.
+ *
+ * Preconditions:
+ * - leaf_index < 2^constants.NOTE_HASH_TREE_HEIGHT
+ *   - We don't enforce on write that the leaf at leaf_index is zero.
+ *       It's important that the caller sets the leaf index to the next available leaf index.
+ * - note_hash_index < constants.MAX_NOTE_HASHES_PER_TX
+ *
+ * Interactions:
+ * - public_inputs:
+ *   - To read the first nullifier when uniqueing
+ *   - To write the unique note hash when writing
+ * - poseidon2_hash:
+ *   - To silo the note hash when sel_silo == 1.
+ *   - To compute the nonce when sel_unique == 1.
+ *   - To compute the unique note hash when sel_unique == 1.
+ * - merkle_check: To check the Merkle tree membership when reading and to compute the new root when writing.
+ *
 **/
 namespace note_hash_tree_check;
     pol commit sel; // @boolean
@@ -35,48 +88,50 @@ namespace note_hash_tree_check;
     #[skippable_if]
     sel = 0;
 
-    // Inputs to the gadget
+    // ====== INPUTS ======
     pol commit write; // @boolean
     write * (1 - write) = 0;
-    pol READ = 1 - write;
+    pol READ = 1 - write; // @boolean (by definition)
     pol commit exists; // @boolean
     exists * (1 - exists) = 0;
 
+    // Note hash input to the gadget. This will be passed through / uniqued / siloed+uniqued depending on input selectors.
     pol commit note_hash;
     pol commit leaf_index;
     pol commit prev_root;
 
-    // Write specific inputs
-    pol commit should_silo; // @boolean
-    should_silo * (1 - should_silo) = 0;
+    // ====== WRITE SPECIFIC INPUTS ======
+    pol commit sel_silo; // @boolean
+    sel_silo * (1 - sel_silo) = 0;
 
     pol commit address;
 
-    pol commit should_unique; // @boolean
-    should_unique * (1 - should_unique) = 0;
+    pol commit sel_unique; // @boolean
+    sel_unique * (1 - sel_unique) = 0;
 
     pol commit note_hash_index;
 
-    // Caller should constrain this to be boolean
-    pol commit discard;
+    pol commit discard; // @boolean
+    discard * (1 - discard) = 0;
 
     pol commit next_root;
 
-    // If writing, sel must be on
+    // Allows this gadget to be looked up by the write column
     write * (1 - sel) = 0;
 
 
     // ====== SILOING ======
     // If reading we should pass an already siloed note hash
     #[DISABLE_SILOING_ON_READ]
-    READ * should_silo = 0;
+    READ * sel_silo = 0;
 
     // Asking the gadget to silo without asking it to unique is an error
-    should_silo * (1 - should_unique) = 0;
+    sel_silo * (1 - sel_unique) = 0;
 
+    // siloed_note_hash = if sel_silo { silo(address, note_hash) } else { note_hash }
     pol commit siloed_note_hash;
     #[PASSTHROUGH_SILOING]
-    sel * (1 - should_silo) * (note_hash - siloed_note_hash) = 0;
+    sel * (1 - sel_silo) * (note_hash - siloed_note_hash) = 0;
 
     // Lookup constant support: Can be removed when we support constants in lookups.
     pol commit siloing_separator;
@@ -85,22 +140,23 @@ namespace note_hash_tree_check;
     sel * (const_three - 3) = 0;
 
     #[SILO_POSEIDON2]
-    should_silo {
-         siloing_separator, address, note_hash,
-         siloed_note_hash, const_three
+    sel_silo {
+        siloing_separator, address, note_hash,
+        siloed_note_hash, const_three
     } in poseidon2_hash.start {
-         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
-         poseidon2_hash.output, poseidon2_hash.input_len
+        poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
+        poseidon2_hash.output, poseidon2_hash.input_len
     };
 
     // ====== UNIQUE ======
     // If reading we should pass an already unique note hash
     #[DISABLE_UNIQUENESS_ON_READ]
-    READ * should_unique = 0;
+    READ * sel_unique = 0;
 
+    // unique_note_hash = if sel_unique { unique(siloed_note_hash, make_nonce(note_hash_index)) } else { siloed_note_hash }
     pol commit unique_note_hash;
     #[PASSTHROUGH_UNIQUENESS]
-    sel * (1 - should_unique) * (siloed_note_hash - unique_note_hash) = 0;
+    sel * (1 - sel_unique) * (siloed_note_hash - unique_note_hash) = 0;
 
     // Lookup constant support: Can be removed when we support constants in lookups.
     pol commit first_nullifier_pi_index;
@@ -109,11 +165,10 @@ namespace note_hash_tree_check;
     pol commit first_nullifier;
 
     #[READ_FIRST_NULLIFIER]
-    should_unique {
+    sel_unique {
         first_nullifier_pi_index,
         first_nullifier
-    } in
-    public_inputs.sel {
+    } in public_inputs.sel {
         precomputed.idx,
         public_inputs.cols[0]
     };
@@ -125,12 +180,12 @@ namespace note_hash_tree_check;
     sel * (constants.DOM_SEP__NOTE_HASH_NONCE - nonce_separator) = 0;
 
     #[NONCE_COMPUTATION_POSEIDON2]
-    should_unique {
-         nonce_separator, first_nullifier, note_hash_index,
-         nonce, const_three
+    sel_unique {
+        nonce_separator, first_nullifier, note_hash_index,
+        nonce, const_three
     } in poseidon2_hash.start {
-         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
-         poseidon2_hash.output, poseidon2_hash.input_len
+        poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
+        poseidon2_hash.output, poseidon2_hash.input_len
     };
 
     // Lookup constant support: Can be removed when we support constants in lookups.
@@ -138,24 +193,27 @@ namespace note_hash_tree_check;
     sel * (constants.DOM_SEP__UNIQUE_NOTE_HASH - unique_note_hash_separator) = 0;
 
     #[UNIQUE_NOTE_HASH_POSEIDON2]
-    should_unique {
-         unique_note_hash_separator, nonce, siloed_note_hash,
-         unique_note_hash, const_three
+    sel_unique {
+        unique_note_hash_separator, nonce, siloed_note_hash,
+        unique_note_hash, const_three
     } in poseidon2_hash.start {
-         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
-         poseidon2_hash.output, poseidon2_hash.input_len
+        poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
+        poseidon2_hash.output, poseidon2_hash.input_len
     };
 
     // ====== TREE CHECK ======
+    // We get a hint of the previous leaf value. We'll pass this to merkle check:
+    // - If reading, prev_leaf_value will be compared to the unique note hash to determine exists.
+    // - If writing, prev_leaf_value will be used to provide what was present at that tree index.
     pol commit prev_leaf_value;
 
     // exists = prev_leaf_value == unique_note_hash
     pol PREV_LEAF_VALUE_UNIQUE_NOTE_HASH_DIFF = prev_leaf_value - unique_note_hash;
-    pol commit prev_leaf_value_unique_note_hash_diff_inv;
+    pol commit prev_leaf_value_unique_note_hash_diff_inv; // @zero-check
     sel * (PREV_LEAF_VALUE_UNIQUE_NOTE_HASH_DIFF * (exists * (1 - prev_leaf_value_unique_note_hash_diff_inv) + prev_leaf_value_unique_note_hash_diff_inv) - 1 + exists) = 0;
 
     pol commit next_leaf_value;
-    // If reading, next_leaf_value is unconstrained
+    // If reading, next_leaf_value is unconstrained. Tracegen must set it to zero.
     write * (unique_note_hash - next_leaf_value) = 0;
 
     // Lookup constant support: Can be removed when we support constants in lookups.
@@ -163,24 +221,26 @@ namespace note_hash_tree_check;
     sel * (constants.NOTE_HASH_TREE_HEIGHT - note_hash_tree_height) = 0;
 
     #[MERKLE_CHECK]
-    sel { write, prev_leaf_value, next_leaf_value,
-        leaf_index, note_hash_tree_height, prev_root, next_root } in
-    merkle_check.start { merkle_check.write, merkle_check.read_node, merkle_check.write_node,
-        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root };
+    sel {
+        write, prev_leaf_value, next_leaf_value,
+        leaf_index, note_hash_tree_height, prev_root, next_root
+    } in merkle_check.start {
+        merkle_check.write, merkle_check.read_node, merkle_check.write_node,
+        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root
+    };
 
 
     // ====== WRITE TO PUBLIC INPUTS ======
-    pol commit should_write_to_public_inputs;
-    write * (1 - discard) = should_write_to_public_inputs;
+    pol commit sel_write_to_public_inputs;  // @boolean (by definition)
+    write * (1 - discard) = sel_write_to_public_inputs;
     pol commit public_inputs_index;
-    should_write_to_public_inputs * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + note_hash_index - public_inputs_index) = 0;
+    sel_write_to_public_inputs * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + note_hash_index - public_inputs_index) = 0;
 
     #[WRITE_NOTE_HASH_TO_PUBLIC_INPUTS]
-    should_write_to_public_inputs {
+    sel_write_to_public_inputs {
         public_inputs_index,
         unique_note_hash
-    } in
-    public_inputs.sel {
+    } in public_inputs.sel {
         precomputed.idx,
         public_inputs.cols[0]
     };
