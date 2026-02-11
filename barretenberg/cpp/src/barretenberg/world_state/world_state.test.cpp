@@ -592,7 +592,7 @@ TEST_F(WorldStateTest, SyncExternalBlockFromEmpty)
         { MerkleTreeId::NOTE_HASH_TREE,
           { fr("0x2496ae3983b59733967ef32aecb041134d5f17bd2b040def30e699432dcc8967"), 1 } },
         { MerkleTreeId::PUBLIC_DATA_TREE,
-          { fr("0x0278dcf9ff541da255ee722aecfad849b66af0d42c2924d949b5a509f2e1aec9"), 129 } },
+          { fr("0x0cef6cc2f1127a3f0e87e391b283f77e7d9e2c4843ca817fd5d62928bf08f719"), 129 } },
         { MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
           { fr("0x149be5d1559bbefa0006c5e55ed982c43a1db53848e2f59385523d0c40d74a94"), 1 } },
     };
@@ -637,7 +637,7 @@ TEST_F(WorldStateTest, SyncBlockFromDirtyState)
         { MerkleTreeId::NOTE_HASH_TREE,
           { fr("0x2496ae3983b59733967ef32aecb041134d5f17bd2b040def30e699432dcc8967"), 1 } },
         { MerkleTreeId::PUBLIC_DATA_TREE,
-          { fr("0x0278dcf9ff541da255ee722aecfad849b66af0d42c2924d949b5a509f2e1aec9"), 129 } },
+          { fr("0x0cef6cc2f1127a3f0e87e391b283f77e7d9e2c4843ca817fd5d62928bf08f719"), 129 } },
         { MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
           { fr("0x149be5d1559bbefa0006c5e55ed982c43a1db53848e2f59385523d0c40d74a94"), 1 } },
     };
@@ -680,7 +680,7 @@ TEST_F(WorldStateTest, SyncCurrentBlock)
         { MerkleTreeId::NOTE_HASH_TREE,
           { fr("0x2496ae3983b59733967ef32aecb041134d5f17bd2b040def30e699432dcc8967"), 1 } },
         { MerkleTreeId::PUBLIC_DATA_TREE,
-          { fr("0x0278dcf9ff541da255ee722aecfad849b66af0d42c2924d949b5a509f2e1aec9"), 129 } },
+          { fr("0x0cef6cc2f1127a3f0e87e391b283f77e7d9e2c4843ca817fd5d62928bf08f719"), 129 } },
         { MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
           { fr("0x149be5d1559bbefa0006c5e55ed982c43a1db53848e2f59385523d0c40d74a94"), 1 } },
     };
@@ -718,7 +718,7 @@ TEST_F(WorldStateTest, RejectSyncBlockWithBadPublicWriteBatches)
         { MerkleTreeId::NOTE_HASH_TREE,
           { fr("0x2496ae3983b59733967ef32aecb041134d5f17bd2b040def30e699432dcc8967"), 1 } },
         { MerkleTreeId::PUBLIC_DATA_TREE,
-          { fr("0x0278dcf9ff541da255ee722aecfad849b66af0d42c2924d949b5a509f2e1aec9"), 129 } },
+          { fr("0x0cef6cc2f1127a3f0e87e391b283f77e7d9e2c4843ca817fd5d62928bf08f719"), 129 } },
         { MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
           { fr("0x149be5d1559bbefa0006c5e55ed982c43a1db53848e2f59385523d0c40d74a94"), 1 } },
     };
@@ -745,7 +745,7 @@ TEST_F(WorldStateTest, RejectSyncBlockWithInvalidStateRef)
         { MerkleTreeId::NOTE_HASH_TREE,
           { fr("0x2496ae3983b59733967ef32aecb041134d5f17bd2b040def30e699432dcc8967"), 1 } },
         { MerkleTreeId::PUBLIC_DATA_TREE,
-          { fr("0x0278dcf9ff541da255ee722aecfad849b66af0d42c2924d949b5a509f2e1aec9"), 129 } },
+          { fr("0x0cef6cc2f1127a3f0e87e391b283f77e7d9e2c4843ca817fd5d62928bf08f719"), 129 } },
         { MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
           { fr("0x149be5d1559bbefa0006c5e55ed982c43a1db53848e2f59385523d0c40d74a94"), 1 } },
     };
@@ -906,7 +906,7 @@ TEST_F(WorldStateTest, GetBlockForIndex)
         { MerkleTreeId::NOTE_HASH_TREE,
           { fr("0x2496ae3983b59733967ef32aecb041134d5f17bd2b040def30e699432dcc8967"), 1 } },
         { MerkleTreeId::PUBLIC_DATA_TREE,
-          { fr("0x0278dcf9ff541da255ee722aecfad849b66af0d42c2924d949b5a509f2e1aec9"), 129 } },
+          { fr("0x0cef6cc2f1127a3f0e87e391b283f77e7d9e2c4843ca817fd5d62928bf08f719"), 129 } },
         { MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
           { fr("0x149be5d1559bbefa0006c5e55ed982c43a1db53848e2f59385523d0c40d74a94"), 1 } },
     };
