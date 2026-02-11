@@ -35,7 +35,7 @@ members = [
     "contracts/protocol_interface/auth_registry_interface",
     "contracts/protocol_interface/contract_instance_registry_interface",
     "contracts/protocol_interface/fee_juice_interface",
-    "contracts/test/generic_proxy",
+    "contracts/test/generic_proxy_contract",
     "contracts/test/auth_wit_test_contract",
     "contracts/test/avm_gadgets_test_contract",
     "contracts/test/avm_initializer_test_contract",

@@ -161,15 +161,11 @@ export class ClientFlowsBenchmark {
 
   /** Admin mints bananaCoin tokens privately to the target address and redeems them. */
   async mintPrivateBananas(amount: bigint, address: AztecAddress) {
-    const balanceBefore = await this.bananaCoin.methods
-      .balance_of_private(address)
-      .simulate({ from: this.adminAddress });
+    const balanceBefore = await this.bananaCoin.methods.balance_of_private(address).simulate({ from: address });
 
     await mintTokensToPrivate(this.bananaCoin, this.adminAddress, address, amount);
 
-    const balanceAfter = await this.bananaCoin.methods
-      .balance_of_private(address)
-      .simulate({ from: this.adminAddress });
+    const balanceAfter = await this.bananaCoin.methods.balance_of_private(address).simulate({ from: address });
     expect(balanceAfter).toEqual(balanceBefore + amount);
   }
 

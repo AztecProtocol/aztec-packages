@@ -207,8 +207,8 @@ export class ContractFunctionSimulator {
       txContext: request.txContext,
       callContext,
       anchorBlockHeader,
-      utilityExecutor: async call => {
-        await this.runUtility(call, [], anchorBlockHeader, scopes, jobId);
+      utilityExecutor: async (call, execScopes) => {
+        await this.runUtility(call, [], anchorBlockHeader, execScopes, jobId);
       },
       authWitnesses: request.authWitnesses,
       capsules: request.capsules,

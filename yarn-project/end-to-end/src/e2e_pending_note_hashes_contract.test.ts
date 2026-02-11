@@ -1,5 +1,5 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
+import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import {
@@ -286,18 +286,8 @@ describe('e2e_pending_note_hashes_contract', () => {
     const minToNeedReset = Math.min(MAX_NOTE_HASHES_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX) + 1;
     const deployedContract = await deployContract();
 
-    // We use 10 different recipients to send private logs to in order to avoid exceeding
-    // UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN logs emitted for any single sender-recipient pair.
-    const recipients = (
-      await Promise.all(
-        Array.from({ length: 10 }, () =>
-          wallet.createSchnorrAccount(Fr.random(), Fr.random(), GrumpkinScalar.random()),
-        ),
-      )
-    ).map(a => a.address);
-
     await deployedContract.methods
-      .test_recursively_create_notes(recipients, Math.ceil(minToNeedReset / notesPerIteration))
+      .test_recursively_create_notes(owner, Math.ceil(minToNeedReset / notesPerIteration))
       .send({ from: owner });
   });
 });
