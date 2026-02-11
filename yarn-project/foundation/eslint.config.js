@@ -108,6 +108,8 @@ export default [
             // Seems like ignoring l1-artifacts in the eslint call messes up no-unresolved
             '@aztec/l1-artifacts',
             '@aztec/bb.js',
+            // Conditional exports (browser/default) not resolved by eslint-import-resolver-typescript
+            '@aztec/wallets',
           ],
         },
       ],

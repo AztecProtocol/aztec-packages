@@ -22,7 +22,7 @@ import { NoteDao } from '@aztec/stdlib/note';
 import type { NotesFilter } from '@aztec/stdlib/note';
 import type { TxProvingResult, TxSimulationResult } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
-import { BaseWallet } from '@aztec/wallet-sdk/base-wallet';
+import { BaseWallet, type FeeOptions } from '@aztec/wallet-sdk/base-wallet';
 
 import type { WalletDB } from '../storage/wallet_db.js';
 import type { AccountType } from './constants.js';
@@ -208,12 +208,32 @@ export class CLIWallet extends BaseWallet {
   }
 
   override async simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult> {
-    let simulationResults;
-    const feeOptions = opts.fee?.estimateGas
-      ? await this.completeFeeOptionsForEstimation(opts.from, executionPayload.feePayer, opts.fee?.gasSettings)
-      : await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
+    const simulationResults = await super.simulateTx(executionPayload, opts);
+
+    if (opts.fee?.estimateGas) {
+      const feeOptions = await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
+      const limits = getGasLimits(simulationResults, opts.fee?.estimatedGasPadding);
+      printGasEstimates(feeOptions, limits, this.userLog);
+    }
+    return simulationResults;
+  }
+
+  /**
+   * Uses a stub account for kernelless simulation, bypassing real account authorization.
+   * Falls through to the standard entrypoint path for SignerlessAccount (ZERO address).
+   */
+  protected override async simulateViaEntrypoint(
+    executionPayload: ExecutionPayload,
+    from: AztecAddress,
+    feeOptions: FeeOptions,
+    skipTxValidation?: boolean,
+    skipFeeEnforcement?: boolean,
+  ): Promise<TxSimulationResult> {
+    if (from.equals(AztecAddress.ZERO)) {
+      return super.simulateViaEntrypoint(executionPayload, from, feeOptions, skipTxValidation, skipFeeEnforcement);
+    }
+
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
-    const chainInfo = await this.getChainInfo();
     const executionOptions: DefaultAccountEntrypointOptions = {
       txNonce: Fr.random(),
       cancellable: this.cancellableTransactions,
@@ -223,46 +243,22 @@ export class CLIWallet extends BaseWallet {
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
       : executionPayload;
 
-    // Kernelless simulations using the multicall entrypoints are not currently supported,
-    // since we only override proper account contracts.
-    // TODO: allow disabling kernels even when no overrides are necessary
-    if (opts.from.equals(AztecAddress.ZERO)) {
-      const fromAccount = await this.getAccountFromAddress(opts.from);
-      const txRequest = await fromAccount.createTxExecutionRequest(
-        finalExecutionPayload,
-        feeOptions.gasSettings,
-        chainInfo,
-        executionOptions,
-      );
-      simulationResults = await this.pxe.simulateTx(txRequest, {
-        simulatePublic: true,
-        skipTxValidation: opts?.skipTxValidation,
-        skipFeeEnforcement: opts?.skipFeeEnforcement ?? true,
-      });
-    } else {
-      const { account: fromAccount, instance, artifact } = await this.getFakeAccountDataFor(opts.from);
-      const txRequest = await fromAccount.createTxExecutionRequest(
-        finalExecutionPayload,
-        feeOptions.gasSettings,
-        chainInfo,
-        executionOptions,
-      );
-      const contractOverrides = {
-        [opts.from.toString()]: { instance, artifact },
-      };
-      simulationResults = await this.pxe.simulateTx(txRequest, {
-        simulatePublic: true,
-        skipTxValidation: true,
-        skipFeeEnforcement: true,
-        overrides: { contracts: contractOverrides },
-      });
-    }
-
-    if (opts.fee?.estimateGas) {
-      const limits = getGasLimits(simulationResults, opts.fee?.estimatedGasPadding);
-      printGasEstimates(feeOptions, limits, this.userLog);
-    }
-    return simulationResults;
+    const { account: fromAccount, instance, artifact } = await this.getFakeAccountDataFor(from);
+    const chainInfo = await this.getChainInfo();
+    const txRequest = await fromAccount.createTxExecutionRequest(
+      finalExecutionPayload,
+      feeOptions.gasSettings,
+      chainInfo,
+      executionOptions,
+    );
+    return this.pxe.simulateTx(txRequest, {
+      simulatePublic: true,
+      skipFeeEnforcement: true,
+      skipTxValidation: true,
+      overrides: {
+        contracts: { [from.toString()]: { instance, artifact } },
+      },
+    });
   }
 
   // Exposed because of the `aztec-wallet get-tx` command. It has been decided that it's fine to keep around because

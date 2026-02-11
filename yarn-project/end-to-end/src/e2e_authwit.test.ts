@@ -4,12 +4,12 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { AuthRegistryContract } from '@aztec/noir-contracts.js/AuthRegistry';
 import { AuthWitTestContract } from '@aztec/noir-test-contracts.js/AuthWitTest';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
 import { DUPLICATE_NULLIFIER_ERROR } from './fixtures/fixtures.js';
 import { ensureAccountContractsPublished, setup } from './fixtures/utils.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
 
 const TIMEOUT = 150_000;
 

@@ -7,10 +7,10 @@ import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
-import type { TestWallet } from '@aztec/test-wallet/server';
 import { defaultInitialAccountFeeJuice } from '@aztec/world-state/testing';
 
 import { setup } from './fixtures/utils.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
 
 // Private functions should receive automatically a phase check that avoids any nested call changing the phase.
 // Functions that opt out of this phase check can be marked with #[allow_phase_change].

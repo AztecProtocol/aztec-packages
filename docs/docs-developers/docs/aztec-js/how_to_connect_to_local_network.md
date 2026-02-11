@@ -16,21 +16,21 @@ This guide shows you how to connect your application to the Aztec local network 
 ## Install dependencies
 
 ```bash
-yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/test-wallet@#include_version_without_prefix
+yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/wallets@#include_version_without_prefix
 ```
 
 ## Connect to the network
 
-Create a node client and TestWallet to interact with the local network:
+Create a node client and EmbeddedWallet to interact with the local network:
 
 #include_code connect_to_network /docs/examples/ts/aztecjs_connection/index.ts typescript
 
-:::note About TestWallet
-`TestWallet` is a simplified wallet for local development that implements the same `Wallet` interface used in production. It handles key management, transaction signing, and proof generation in-process without external dependencies.
+:::note About EmbeddedWallet
+`EmbeddedWallet` is a simplified wallet for local development that implements the same `Wallet` interface used in production. It handles key management, transaction signing, and proof generation in-process without external dependencies.
 
 **Why use it for testing?** It starts instantly, requires no setup, and provides deterministic behavior—ideal for automated tests and rapid iteration.
 
-**Production wallets** (like browser extensions or mobile apps) implement the same interface but store keys securely, may require user confirmation for transactions, and typically run in a separate process. Code written against `TestWallet` works with any `Wallet` implementation, so your application logic transfers directly to production.
+**Production wallets** (like browser extensions or mobile apps) implement the same interface but store keys securely, may require user confirmation for transactions, and typically run in a separate process. Code written against `EmbeddedWallet` works with any `Wallet` implementation, so your application logic transfers directly to production.
 :::
 
 ### Verify the connection

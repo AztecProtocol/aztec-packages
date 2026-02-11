@@ -3,10 +3,8 @@ import {
   waitForNode,
   waitForTx,
 } from "@aztec/aztec.js/node";
-import {
-  TestWallet,
-  registerInitialLocalNetworkAccountsInWallet,
-} from "@aztec/test-wallet/server";
+import { EmbeddedWallet } from "@aztec/wallets/embedded";
+import { getInitialTestAccountsData } from "@aztec/accounts/testing";
 import { TokenContract, type Transfer } from "@aztec/noir-contracts.js/Token";
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
 import { Fr } from "@aztec/aztec.js/fields";
@@ -20,10 +18,14 @@ import { BlockNumber } from "@aztec/aztec.js/fields";
 // Setup: connect to network
 const node = createAztecNodeClient("http://localhost:8080");
 await waitForNode(node);
-const wallet = await TestWallet.create(node);
+const wallet = await EmbeddedWallet.create(node);
 
-const [aliceAddress, bobAddress] =
-  await registerInitialLocalNetworkAccountsInWallet(wallet);
+const testAccounts = await getInitialTestAccountsData();
+const [aliceAddress, bobAddress] = await Promise.all(
+  testAccounts.slice(0, 2).map(async (account) => {
+    return (await wallet.createSchnorrAccount(account.secret, account.salt, account.signingKey)).address;
+  }),
+);
 
 // docs:start:deploy_basic_local
 // wallet and aliceAddress are from the connection guide

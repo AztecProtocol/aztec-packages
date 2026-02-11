@@ -1,4 +1,3 @@
-import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import {
@@ -27,7 +26,7 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
-import { TestWallet } from '@aztec/test-wallet/server';
+import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { type BotConfig, SupportedTokenContracts } from './config.js';
 import type { BotStore } from './store/index.js';
@@ -41,7 +40,7 @@ export class BotFactory {
 
   constructor(
     private readonly config: BotConfig,
-    private readonly wallet: TestWallet,
+    private readonly wallet: EmbeddedWallet,
     private readonly store: BotStore,
     private readonly aztecNode: AztecNode,
     private readonly aztecNodeAdmin?: AztecNodeAdmin,
@@ -52,21 +51,21 @@ export class BotFactory {
    * deploying the token contract, and minting tokens if necessary.
    */
   public async setup(): Promise<{
-    wallet: TestWallet;
+    wallet: EmbeddedWallet;
     defaultAccountAddress: AztecAddress;
     token: TokenContract | PrivateTokenContract;
     node: AztecNode;
     recipient: AztecAddress;
   }> {
     const defaultAccountAddress = await this.setupAccount();
-    const recipient = (await this.wallet.createAccount()).address;
+    const recipient = (await this.wallet.createSchnorrAccount(Fr.random(), Fr.random())).address;
     const token = await this.setupToken(defaultAccountAddress);
     await this.mintTokens(token, defaultAccountAddress);
     return { wallet: this.wallet, defaultAccountAddress, token, node: this.aztecNode, recipient };
   }
 
   public async setupAmm(): Promise<{
-    wallet: TestWallet;
+    wallet: EmbeddedWallet;
     defaultAccountAddress: AztecAddress;
     amm: AMMContract;
     token0: TokenContract;
@@ -114,12 +113,7 @@ export class BotFactory {
   private async setupAccountWithPrivateKey(secret: Fr) {
     const salt = this.config.senderSalt ?? Fr.ONE;
     const signingKey = deriveSigningKey(secret);
-    const accountData = {
-      secret,
-      salt,
-      contract: new SchnorrAccountContract(signingKey!),
-    };
-    const accountManager = await this.wallet.createAccount(accountData);
+    const accountManager = await this.wallet.createSchnorrAccount(secret, salt, signingKey);
     const metadata = await this.wallet.getContractMetadata(accountManager.address);
     if (metadata.isContractInitialized) {
       this.log.info(`Account at ${accountManager.address.toString()} already initialized`);
@@ -159,12 +153,11 @@ export class BotFactory {
 
   private async setupTestAccount() {
     const [initialAccountData] = await getInitialTestAccountsData();
-    const accountData = {
-      secret: initialAccountData.secret,
-      salt: initialAccountData.salt,
-      contract: new SchnorrAccountContract(initialAccountData.signingKey),
-    };
-    const accountManager = await this.wallet.createAccount(accountData);
+    const accountManager = await this.wallet.createSchnorrAccount(
+      initialAccountData.secret,
+      initialAccountData.salt,
+      initialAccountData.signingKey,
+    );
     return accountManager.address;
   }
 

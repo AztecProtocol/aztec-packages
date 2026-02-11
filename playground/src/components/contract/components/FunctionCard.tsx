@@ -352,7 +352,10 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
                         </Typography>
                       </Typography>
                       <Typography variant="caption">
-                        Total RPC calls: {profileResults[fn.name].totalRPCCalls}
+                        Total RPC calls: {profileResults[fn.name].totalRPCCalls} (
+                        {profileResults[fn.name].stats.nodeRPCCalls?.roundTrips?.roundTrips ?? 0} round trips,{' '}
+                        {profileResults[fn.name].stats.nodeRPCCalls?.roundTrips?.totalBlockingTime?.toFixed(2) ?? 0}ms
+                        blocking)
                       </Typography>
                     </Box>
                     <Box sx={{ margin: '0.5rem', fontSize: '0.8rem' }}>
