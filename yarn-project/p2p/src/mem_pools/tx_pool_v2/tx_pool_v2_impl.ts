@@ -604,6 +604,9 @@ export class TxPoolV2Impl {
       this.#config.archivedTxLimit = config.archivedTxLimit;
       this.#archive.updateLimit(config.archivedTxLimit);
     }
+    if (config.minTxPoolAgeMs !== undefined) {
+      this.#config.minTxPoolAgeMs = config.minTxPoolAgeMs;
+    }
     // Update eviction rules with new config
     this.#evictionManager.updateConfig(config);
   }

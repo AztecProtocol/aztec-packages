@@ -1,6 +1,7 @@
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { DateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -4422,6 +4423,183 @@ describe('TxPoolV2', () => {
 
       expect(await pool.getPendingTxCount()).toBe(0);
       expect(await pool.getMinedTxCount()).toBe(0);
+    });
+  });
+
+  describe('minimum transaction age (getEligiblePendingTxHashes)', () => {
+    let ageStore: Awaited<ReturnType<typeof openTmpStore>>;
+    let ageArchiveStore: Awaited<ReturnType<typeof openTmpStore>>;
+    let agePool: AztecKVTxPoolV2;
+    let mockDateProvider: DateProvider;
+    let currentTime: number;
+
+    beforeEach(async () => {
+      currentTime = 10_000;
+      mockDateProvider = { now: () => currentTime } as DateProvider;
+
+      ageStore = await openTmpStore('p2p-age');
+      ageArchiveStore = await openTmpStore('archive-age');
+      agePool = new AztecKVTxPoolV2(
+        ageStore,
+        ageArchiveStore,
+        {
+          l2BlockSource: mockL2BlockSource,
+          worldStateSynchronizer: mockWorldState,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
+        },
+        undefined, // telemetry
+        { minTxPoolAgeMs: 2_000 },
+        mockDateProvider,
+      );
+      await agePool.start();
+    });
+
+    afterEach(async () => {
+      await agePool.stop();
+      await ageStore.delete();
+      await ageArchiveStore.delete();
+    });
+
+    it('newly added tx is not eligible before minTxPoolAgeMs elapses', async () => {
+      const tx = await mockTxWithFee(1, 10);
+      await agePool.addPendingTxs([tx]);
+
+      // getPendingTxHashes returns the tx regardless of age
+      expect(await agePool.getPendingTxHashes()).toHaveLength(1);
+
+      // At the same time, the tx is NOT eligible (added at 10000, cutoff is 10000 - 2000 = 8000)
+      expect(await agePool.getEligiblePendingTxHashes()).toHaveLength(0);
+    });
+
+    it('tx becomes eligible after minTxPoolAgeMs elapses', async () => {
+      const tx = await mockTxWithFee(1, 10);
+      await agePool.addPendingTxs([tx]);
+
+      // Advance time past the minimum age
+      currentTime = 12_001;
+
+      const eligible = await agePool.getEligiblePendingTxHashes();
+      expect(toStrings(eligible)).toEqual([hashOf(tx)]);
+    });
+
+    it('tx becomes eligible at exactly minTxPoolAgeMs', async () => {
+      const tx = await mockTxWithFee(1, 10);
+      await agePool.addPendingTxs([tx]);
+
+      // Advance time to exactly the min age boundary (added at 10000, need 12000)
+      currentTime = 12_000;
+
+      const eligible = await agePool.getEligiblePendingTxHashes();
+      expect(eligible).toHaveLength(1);
+    });
+
+    it('filters ineligible txs while returning eligible ones', async () => {
+      // Add tx1 at time 10000
+      const tx1 = await mockTxWithFee(1, 10);
+      await agePool.addPendingTxs([tx1]);
+
+      // Advance time and add tx2 at time 11000
+      currentTime = 11_000;
+      const tx2 = await mockTxWithFee(2, 20);
+      await agePool.addPendingTxs([tx2]);
+
+      // At time 12500: tx1 (added at 10000) is eligible, tx2 (added at 11000) is not
+      currentTime = 12_500;
+
+      const eligible = await agePool.getEligiblePendingTxHashes();
+      expect(toStrings(eligible)).toEqual([hashOf(tx1)]);
+
+      // All are still in getPendingTxHashes
+      expect(await agePool.getPendingTxHashes()).toHaveLength(2);
+    });
+
+    it('eligible txs are returned in priority order', async () => {
+      // Add three txs at the same time with different priorities
+      const txLow = await mockTxWithFee(1, 5);
+      const txMid = await mockTxWithFee(2, 10);
+      const txHigh = await mockTxWithFee(3, 20);
+      await agePool.addPendingTxs([txLow, txMid, txHigh]);
+
+      // Advance time so all are eligible
+      currentTime = 13_000;
+
+      const eligible = await agePool.getEligiblePendingTxHashes();
+      expect(toStrings(eligible)).toEqual([hashOf(txHigh), hashOf(txMid), hashOf(txLow)]);
+    });
+
+    it('hydrated txs are immediately eligible (receivedAt = 0)', async () => {
+      // Add a tx, stop, and re-hydrate into a new pool
+      const tx = await mockTxWithFee(1, 10);
+      await agePool.addPendingTxs([tx]);
+      await agePool.stop();
+
+      // Set time to exactly minTxPoolAgeMs — hydrated txs (receivedAt=0) should still be eligible
+      // because 0 <= (2000 - 2000) = 0
+      currentTime = 2_000;
+
+      const hydratedPool = new AztecKVTxPoolV2(
+        ageStore,
+        ageArchiveStore,
+        {
+          l2BlockSource: mockL2BlockSource,
+          worldStateSynchronizer: mockWorldState,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
+        },
+        undefined,
+        { minTxPoolAgeMs: 2_000 },
+        mockDateProvider,
+      );
+      await hydratedPool.start();
+
+      // Hydrated tx should be immediately eligible even at time 0
+      const eligible = await hydratedPool.getEligiblePendingTxHashes();
+      expect(toStrings(eligible)).toEqual([hashOf(tx)]);
+
+      await hydratedPool.stop();
+    });
+
+    it('updateConfig changes minTxPoolAgeMs', async () => {
+      const tx = await mockTxWithFee(1, 10);
+      await agePool.addPendingTxs([tx]);
+
+      // Not eligible yet at default 2000ms
+      expect(await agePool.getEligiblePendingTxHashes()).toHaveLength(0);
+
+      // Reduce the minimum age to 0ms
+      await agePool.updateConfig({ minTxPoolAgeMs: 0 });
+
+      // Now the tx should be immediately eligible
+      const eligible = await agePool.getEligiblePendingTxHashes();
+      expect(toStrings(eligible)).toEqual([hashOf(tx)]);
+    });
+
+    it('minTxPoolAgeMs of 0 makes all txs immediately eligible', async () => {
+      await agePool.updateConfig({ minTxPoolAgeMs: 0 });
+
+      const tx = await mockTxWithFee(1, 10);
+      await agePool.addPendingTxs([tx]);
+
+      const eligible = await agePool.getEligiblePendingTxHashes();
+      expect(toStrings(eligible)).toEqual([hashOf(tx)]);
+    });
+
+    it('protected and mined txs are excluded from eligible pending', async () => {
+      const txPending = await mockTxWithFee(1, 10);
+      const txProtected = await mockTxWithFee(2, 20);
+      const txMined = await mockTxWithFee(3, 30);
+
+      await agePool.addPendingTxs([txPending, txProtected, txMined]);
+
+      // Advance time so all are old enough
+      currentTime = 13_000;
+
+      // Transition txProtected to protected and txMined to mined
+      await agePool.addProtectedTxs([txProtected], slot1Header);
+      await agePool.addMinedTxs([txMined], slot1Header);
+
+      // Only the pending tx should appear in eligible results
+      const eligible = await agePool.getEligiblePendingTxHashes();
+      expect(toStrings(eligible)).toEqual([hashOf(txPending)]);
     });
   });
 });
