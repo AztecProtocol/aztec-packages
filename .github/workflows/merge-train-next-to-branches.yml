@@ -16,6 +16,7 @@ jobs:
           - merge-train/barretenberg
           - merge-train/ci
           - merge-train/docs
+          - merge-train/fairies
           - merge-train/spartan
     steps:
       - name: Checkout
