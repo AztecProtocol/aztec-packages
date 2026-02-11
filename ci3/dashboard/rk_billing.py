@@ -1,22 +1,17 @@
 """Namespace billing helpers for rkapp.
 
-Reads daily billing JSON files and lazily fetches missing days from BigQuery.
+Fetches GKE namespace billing from BigQuery with in-memory cache.
 Route definitions remain in rk.py; this module provides the logic.
 """
-import gzip
-import json
-import os
 import threading
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-
-BILLING_DIR = os.path.join(os.getenv('LOGS_DISK_PATH', '/logs-disk'), 'billing')
 
 # BigQuery defaults
 _BQ_PROJECT = 'testnet-440309'
 _BQ_DATASET = 'egress_consumption'
-_BQ_TABLE_CONSUMPTION = 'gke_cluster_resource_consumption'  # cpu, memory (request-based)
-_BQ_TABLE_USAGE = 'gke_cluster_resource_usage'              # networkEgress, storage + cpu/memory
+_BQ_TABLE_USAGE = 'gke_cluster_resource_usage'
 
 # SKU pricing (from GCP Cloud Billing Catalog API, us-west1)
 # cpu: price per vCPU-hour, memory: price per GiB-hour
@@ -35,22 +30,25 @@ _SKU_PRICING = {
     'A03E-E620-7389': {'price': 0.027502, 'resource': 'cpu',    'category': 'compute_ondemand'},
     '5535-6D2D-4B50': {'price': 0.003686, 'resource': 'memory', 'category': 'compute_ondemand'},
     # Network Egress (price per GiB)
-    '0C3C-6B13-B1E8': {'price': 0.02,  'resource': 'networkEgress', 'category': 'network'},  # Inter-region Americas→LA
-    '6B8F-E63D-832B': {'price': 0.0,   'resource': 'networkEgress', 'category': 'network'},  # Internet Americas→APAC (free tier)
-    '92CB-C25F-B1D1': {'price': 0.0,   'resource': 'networkEgress', 'category': 'network'},  # To Google Services
-    '984A-1F27-2D1F': {'price': 0.04,  'resource': 'networkEgress', 'category': 'network'},  # Carrier Peering Americas
-    '9DE9-9092-B3BC': {'price': 0.20,  'resource': 'networkEgress', 'category': 'network'},  # Internet Americas→China
-    'C863-37DA-506E': {'price': 0.02,  'resource': 'networkEgress', 'category': 'network'},  # Inter-region Americas→Virginia
-    'C8EA-1A86-3D28': {'price': 0.02,  'resource': 'networkEgress', 'category': 'network'},  # Inter-region Americas→Americas
-    'DE9E-AFBC-A15A': {'price': 0.01,  'resource': 'networkEgress', 'category': 'network'},  # Inter-zone
-    'DFA5-B5C6-36D6': {'price': 0.085, 'resource': 'networkEgress', 'category': 'network'},  # Internet Americas→EMEA
-    'F274-1692-F213': {'price': 0.08,  'resource': 'networkEgress', 'category': 'network'},  # Internet Americas→Americas
-    'FDBC-6E3B-D4D8': {'price': 0.15,  'resource': 'networkEgress', 'category': 'network'},  # Internet Americas→Australia
+    '0C3C-6B13-B1E8': {'price': 0.02,  'resource': 'networkEgress', 'category': 'network'},
+    '6B8F-E63D-832B': {'price': 0.0,   'resource': 'networkEgress', 'category': 'network'},
+    '92CB-C25F-B1D1': {'price': 0.0,   'resource': 'networkEgress', 'category': 'network'},
+    '984A-1F27-2D1F': {'price': 0.04,  'resource': 'networkEgress', 'category': 'network'},
+    '9DE9-9092-B3BC': {'price': 0.20,  'resource': 'networkEgress', 'category': 'network'},
+    'C863-37DA-506E': {'price': 0.02,  'resource': 'networkEgress', 'category': 'network'},
+    'C8EA-1A86-3D28': {'price': 0.02,  'resource': 'networkEgress', 'category': 'network'},
+    'DE9E-AFBC-A15A': {'price': 0.01,  'resource': 'networkEgress', 'category': 'network'},
+    'DFA5-B5C6-36D6': {'price': 0.085, 'resource': 'networkEgress', 'category': 'network'},
+    'F274-1692-F213': {'price': 0.08,  'resource': 'networkEgress', 'category': 'network'},
+    'FDBC-6E3B-D4D8': {'price': 0.15,  'resource': 'networkEgress', 'category': 'network'},
     # Storage (price per GiB-month)
-    'D973-5D65-BAB2': {'price': 0.04,  'resource': 'storage', 'category': 'storage'},  # PD Capacity
+    'D973-5D65-BAB2': {'price': 0.04,  'resource': 'storage', 'category': 'storage'},
 }
 
-_fetch_lock = threading.Lock()
+# In-memory cache (same pattern as rk_aws_costs.py)
+_cache = {'data': [], 'ts': 0}
+_cache_lock = threading.Lock()
+_CACHE_TTL = 6 * 3600  # 6 hours
 
 
 # ---- BigQuery fetch ----
@@ -61,46 +59,28 @@ def _usage_to_cost(sku_id, resource_name, amount):
         return 0.0, 'other'
     price = info['price']
     if resource_name == 'cpu':
-        # cpu-seconds → hours
+        # cpu-seconds -> hours
         return (amount / 3600.0) * price, info['category']
     elif resource_name == 'memory':
-        # byte-seconds → GiB-hours
+        # byte-seconds -> GiB-hours
         return (amount / 3600.0 / (1024 ** 3)) * price, info['category']
     elif resource_name.startswith('networkEgress'):
-        # bytes → GiB
+        # bytes -> GiB
         return (amount / (1024 ** 3)) * price, info['category']
     elif resource_name == 'storage':
-        # byte-seconds → GiB-months (730 hours/month)
+        # byte-seconds -> GiB-months (730 hours/month)
         gib_months = amount / (1024 ** 3) / (730 * 3600)
         return gib_months * price, info['category']
     return 0.0, info['category']
 
 
-def _find_missing_dates(date_from, date_to):
-    """Return list of date strings in range that have no billing file on disk."""
-    existing = set()
-    if os.path.exists(BILLING_DIR):
-        for f in os.listdir(BILLING_DIR):
-            if f.endswith('.json') or f.endswith('.json.gz'):
-                existing.add(f.split('.')[0])
-
-    missing = []
-    current = date_from
-    while current <= date_to:
-        ds = current.strftime('%Y-%m-%d')
-        if ds not in existing:
-            missing.append(ds)
-        current += timedelta(days=1)
-    return missing
-
-
 def _fetch_from_bigquery(date_from_str, date_to_str):
-    """Query BigQuery for usage data and write daily JSON files. Returns count of days written."""
+    """Query BigQuery for usage data, return list of daily billing entries."""
     try:
         from google.cloud import bigquery
     except ImportError:
-        print("google-cloud-bigquery not installed, skipping auto-fetch")
-        return 0
+        print("[rk_billing] google-cloud-bigquery not installed")
+        return []
 
     try:
         client = bigquery.Client(project=_BQ_PROJECT)
@@ -124,8 +104,8 @@ def _fetch_from_bigquery(date_from_str, date_to_str):
         )
         rows = list(client.query(query, job_config=job_config).result())
     except Exception as e:
-        print(f"BigQuery fetch failed: {e}")
-        return 0
+        print(f"[rk_billing] BigQuery fetch failed: {e}")
+        return []
 
     # Build daily structures
     days = {}
@@ -143,119 +123,49 @@ def _fetch_from_bigquery(date_from_str, date_to_str):
         entry['breakdown'][category] = entry['breakdown'].get(category, 0) + cost
         entry['total'] += cost
 
-    # Round and write
-    os.makedirs(BILLING_DIR, exist_ok=True)
-    count = 0
-    for date_str, data in days.items():
+    # Round values
+    for data in days.values():
         for ns_data in data['namespaces'].values():
             ns_data['total'] = round(ns_data['total'], 4)
             ns_data['breakdown'] = {k: round(v, 4) for k, v in ns_data['breakdown'].items()}
-        with open(os.path.join(BILLING_DIR, f'{date_str}.json'), 'w') as f:
-            json.dump(data, f, indent=2)
-        count += 1
 
-    # Also write empty files for dates with no data so we don't re-query them
-    current = datetime.strptime(date_from_str, '%Y-%m-%d')
-    end = datetime.strptime(date_to_str, '%Y-%m-%d')
-    while current <= end:
-        ds = current.strftime('%Y-%m-%d')
-        if ds not in days:
-            filepath = os.path.join(BILLING_DIR, f'{ds}.json')
-            if not os.path.exists(filepath):
-                with open(filepath, 'w') as f:
-                    json.dump({'date': ds, 'namespaces': {}}, f)
-                count += 1
-        current += timedelta(days=1)
-
-    return count
+    return sorted(days.values(), key=lambda x: x['date'])
 
 
-def ensure_billing_data(date_from, date_to):
-    """Fetch any missing billing days from BigQuery. Thread-safe, non-blocking if already running."""
-    # Don't fetch today (data incomplete) or future dates
-    yesterday = datetime.now(timezone.utc).date() - timedelta(days=1)
-    effective_to = min(date_to.date() if hasattr(date_to, 'date') else date_to,
-                       yesterday)
-    effective_from = date_from.date() if hasattr(date_from, 'date') else date_from
-
-    if effective_from > effective_to:
+def _ensure_cached():
+    now = time.time()
+    if _cache['data'] and now - _cache['ts'] < _CACHE_TTL:
         return
-
-    missing = _find_missing_dates(
-        datetime.combine(effective_from, datetime.min.time()),
-        datetime.combine(effective_to, datetime.min.time()),
-    )
-    if not missing:
+    if not _cache_lock.acquire(blocking=False):
         return
-
-    if not _fetch_lock.acquire(blocking=False):
-        return  # Another fetch is already running
-
     try:
-        print(f"Auto-fetching {len(missing)} missing billing days from BigQuery...")
-        _fetch_from_bigquery(missing[0], missing[-1])
+        yesterday = datetime.now(timezone.utc).date() - timedelta(days=1)
+        date_from = (yesterday - timedelta(days=90)).isoformat()
+        date_to = yesterday.isoformat()
+        print(f"[rk_billing] Fetching billing data from BigQuery ({date_from} to {date_to})...")
+        data = _fetch_from_bigquery(date_from, date_to)
+        if data:
+            _cache['data'] = data
+            _cache['ts'] = now
+            print(f"[rk_billing] Cached {len(data)} days of billing data")
     finally:
-        _fetch_lock.release()
+        _cache_lock.release()
 
 
-# ---- File reading ----
-
-def read_billing_file(filepath):
-    """Read a billing JSON file (gzipped or plain)."""
-    try:
-        if filepath.endswith('.gz'):
-            with gzip.open(filepath, 'rb') as f:
-                return json.loads(f.read().decode('utf-8'))
-        else:
-            with open(filepath, 'r') as f:
-                return json.load(f)
-    except Exception as e:
-        print(f"Error reading billing file {filepath}: {e}")
-        return None
-
+# ---- Public API ----
 
 def get_billing_files_in_range(date_from, date_to):
-    """Return list of billing data entries for dates in range. Auto-fetches missing days."""
-    # Trigger async fetch for missing days
-    try:
-        threading.Thread(
-            target=ensure_billing_data,
-            args=(date_from, date_to),
-            daemon=True,
-        ).start()
-    except Exception:
-        pass
+    """Return billing data for dates in range. Fetches from BigQuery with in-memory cache."""
+    if not _cache['data']:
+        _ensure_cached()  # block on first load so dashboard isn't empty
+    else:
+        threading.Thread(target=_ensure_cached, daemon=True).start()
 
-    results = []
-    if not os.path.exists(BILLING_DIR):
-        return results
+    # Convert datetime args to date strings for filtering
+    from_str = date_from.strftime('%Y-%m-%d') if hasattr(date_from, 'strftime') else str(date_from)
+    to_str = date_to.strftime('%Y-%m-%d') if hasattr(date_to, 'strftime') else str(date_to)
 
-    current = date_from
-    while current <= date_to:
-        date_str = current.strftime('%Y-%m-%d')
-        for ext in ['.json', '.json.gz']:
-            filepath = os.path.join(BILLING_DIR, date_str + ext)
-            if os.path.exists(filepath):
-                data = read_billing_file(filepath)
-                if data and data.get('namespaces'):
-                    data['date'] = date_str
-                    results.append(data)
-                break
-        current += timedelta(days=1)
-    return results
-
-
-def get_all_namespaces():
-    """Return sorted list of all namespaces across billing data files."""
-    ns_set = set()
-    if os.path.exists(BILLING_DIR):
-        for filename in os.listdir(BILLING_DIR):
-            if filename.endswith('.json') or filename.endswith('.json.gz'):
-                filepath = os.path.join(BILLING_DIR, filename)
-                data = read_billing_file(filepath)
-                if data:
-                    ns_set.update(data.get('namespaces', {}).keys())
-    return sorted(ns_set)
+    return [e for e in _cache['data'] if from_str <= e['date'] <= to_str]
 
 
 def _merge_ns_billing(target, ns_data):

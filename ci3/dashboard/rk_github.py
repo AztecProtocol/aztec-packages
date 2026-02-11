@@ -360,6 +360,17 @@ def batch_get_pr_authors(pr_numbers: set) -> dict:
     return result
 
 
+def get_branch_pr_map() -> dict:
+    """Return {branch_name: pr_number} from the PR cache. Call _ensure_prs first."""
+    if not _pr_cache['data']:
+        _ensure_prs()
+    else:
+        threading.Thread(target=_ensure_prs, daemon=True).start()
+    return {pr['headRefName']: pr['number']
+            for pr in _pr_cache.get('data', [])
+            if pr.get('headRefName')}
+
+
 def get_pr_metrics(date_from: str, date_to: str, author: str = '',
                    ci_runs: list = None) -> dict:
     """Get PR metrics. ci_runs should be passed from the caller (read from Redis)."""
