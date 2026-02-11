@@ -1176,10 +1176,7 @@ def api_flakes_by_command():
 @app.route('/ci-health')
 @auth.login_required
 def ci_health():
-    path = Path('dashboard-views/ci-health.html')
-    if path.exists():
-        return path.read_text()
-    return "Dashboard not found", 404
+    return redirect('/ci-insights')
 
 
 @app.route('/ci-insights')

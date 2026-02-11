@@ -80,6 +80,10 @@
     <label>from</label> <input type="date" id="dateFrom" />
     <label>to</label> <input type="date" id="dateTo" />
     <span style="color:#333">|</span>
+    <button data-g="daily" class="active">daily</button>
+    <button data-g="weekly">weekly</button>
+    <button data-g="monthly">monthly</button>
+    <span style="color:#333">|</span>
     <button id="refreshBtn">refresh</button>
   </div>
 
@@ -111,7 +115,7 @@
   </div>
 
   <!-- Flake cost ranking table -->
-  <div class="section-title">flake cost ranking</div>
+  <div class="section-title">flakes by pipeline</div>
   <div id="flake-detail" class="flake-detail"></div>
   <div class="detail-scroll">
     <table>
@@ -140,6 +144,8 @@
     let sparkCharts = {};
     let flakeSort = { col: 'count', dir: 'desc' };
     let authorSort = { col: 'total_cost', dir: 'desc' };
+
+    function granularity() { return document.querySelector('[data-g].active').dataset.g; }
 
     const fmt = v => v == null ? '--' : v >= 1000 ? '$' + v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : v >= 1 ? '$' + v.toFixed(2) : '$' + v.toFixed(4);
     const fmtDate = s => { const d = new Date(s + 'T00:00:00'); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
@@ -189,12 +195,13 @@
       el.className = 'msg'; el.textContent = 'loading...';
       const f = document.getElementById('dateFrom').value;
       const t = document.getElementById('dateTo').value;
+      const g = granularity();
 
       try {
         const [costResp, mqResp, perfResp, flakeResp, prResp] = await Promise.all([
-          fetch(`/api/costs/runners?from=${f}&to=${t}`),
+          fetch(`/api/costs/runners?from=${f}&to=${t}&granularity=${g}`),
           fetch(`/api/merge-queue/stats?from=${f}&to=${t}`),
-          fetch(`/api/ci/performance?from=${f}&to=${t}`),
+          fetch(`/api/ci/performance?from=${f}&to=${t}&granularity=${g}`),
           fetch(`/api/ci/flakes-by-command?from=${f}&to=${t}`),
           fetch(`/api/prs/metrics?from=${f}&to=${t}`),
         ]);
@@ -246,7 +253,6 @@
       const costByDateMap = {};
       costByDate.forEach(d => { costByDateMap[d.date] = d.total || 0; });
       const allDates = [...new Set([...Object.keys(prMergedByDate), ...Object.keys(costByDateMap)])].sort();
-      const cpmValues = [];
       let totalMerged = 0;
       allDates.forEach(date => { totalMerged += prMergedByDate[date] || 0; });
       const avgCPM = totalMerged > 0 ? totalCost / totalMerged : null;
@@ -355,10 +361,11 @@
         data: {
           labels: dates.map(fmtDate),
           datasets: [
-            { type: 'bar', label: 'Success', data: byDate.map(d => d.success || 0), backgroundColor: '#3fb950', stack: 'mq', borderWidth: 0, order: 2 },
-            { type: 'bar', label: 'Failure', data: byDate.map(d => d.failure || 0), backgroundColor: '#f85149', stack: 'mq', borderWidth: 0, order: 2 },
-            { type: 'bar', label: 'Cancelled', data: byDate.map(d => d.cancelled || 0), backgroundColor: '#888', stack: 'mq', borderWidth: 0, order: 2 },
+            { type: 'bar', label: 'Success', data: byDate.map(d => d.success || 0), backgroundColor: '#3fb950', stack: 'mq', borderWidth: 0, order: 3 },
+            { type: 'bar', label: 'Failure', data: byDate.map(d => d.failure || 0), backgroundColor: '#f85149', stack: 'mq', borderWidth: 0, order: 3 },
+            { type: 'bar', label: 'Cancelled', data: byDate.map(d => d.cancelled || 0), backgroundColor: '#888', stack: 'mq', borderWidth: 0, order: 3 },
             { type: 'line', label: 'Success %', data: successRate, borderColor: '#56d364', borderWidth: 2, pointRadius: 0, tension: 0.3, yAxisID: 'y1', order: 1, spanGaps: true },
+            { type: 'line', label: 'Queue Depth', data: byDate.map(d => d.in_progress || 0), borderColor: '#d2a8ff', borderWidth: 1.5, borderDash: [4, 3], pointRadius: 0, tension: 0.3, yAxisID: 'y', order: 2 },
           ]
         },
         options: {
@@ -374,7 +381,7 @@
             tooltip: {
               callbacks: {
                 label: c => {
-                  if (c.dataset.type === 'line') return `${c.dataset.label}: ${c.raw != null ? c.raw.toFixed(1) + '%' : '--'}`;
+                  if (c.dataset.label === 'Success %') return `${c.dataset.label}: ${c.raw != null ? c.raw.toFixed(1) + '%' : '--'}`;
                   return `${c.dataset.label}: ${c.raw}`;
                 }
               }
@@ -425,28 +432,22 @@
     function renderFlakeTable() {
       const cmds = flakeData?.by_command || [];
       if (!cmds.length) {
-        document.getElementById('flake-tbody').innerHTML = '<tr><td colspan="5" style="color:#888">no flake data</td></tr>';
+        document.getElementById('flake-tbody').innerHTML = '<tr><td colspan="3" style="color:#888">no flake data</td></tr>';
         return;
       }
 
-      // Estimate cost per flake: avg_cost_per_run from costData (total cost / total runs)
-      const avgCostPerRun = (costData?.summary?.total_cost && costData?.summary?.total_runs)
-        ? costData.summary.total_cost / costData.summary.total_runs : 0;
-
       const rows = cmds.map(c => ({
-        test_cmd: c.command || '',
+        pipeline: c.command || '',
         count: c.total_flakes || 0,
         failures: c.total_failures || 0,
-        est_cost: (c.total_flakes || 0) * avgCostPerRun,
         top_tests: c.top_tests || [],
       }));
 
       // Build header
       const hdrs = [
-        { k: 'test_cmd', l: 'CI Command' },
+        { k: 'pipeline', l: 'Pipeline' },
         { k: 'count', l: 'Flakes', cls: 'amt' },
         { k: 'failures', l: 'Failures', cls: 'amt' },
-        { k: 'est_cost', l: 'Est. Waste', cls: 'amt' },
       ];
       const tr = document.querySelector('#flake-thead tr');
       tr.innerHTML = '';
@@ -474,10 +475,9 @@
 
       document.getElementById('flake-tbody').innerHTML = rows.map((r, i) =>
         `<tr style="cursor:pointer" data-idx="${i}">` +
-        `<td>${escapeHtml(r.test_cmd)}</td>` +
+        `<td>${escapeHtml(r.pipeline)}</td>` +
         `<td class="amt" style="color:#f0883e">${r.count}</td>` +
         `<td class="amt" style="color:#f85149">${r.failures}</td>` +
-        `<td class="amt" style="color:#ff7b72">${fmt(r.est_cost)}</td>` +
         `</tr>`
       ).join('');
 
@@ -491,7 +491,7 @@
             detail.style.display = 'block';
             detail.innerHTML =
               `<span class="close" onclick="document.getElementById('flake-detail').style.display='none'">[x]</span>` +
-              `<h4>${escapeHtml(row.test_cmd)} - top flaking tests</h4>` +
+              `<h4>${escapeHtml(row.pipeline)} - top flaking tests</h4>` +
               `<table><thead><tr><th>Test</th><th class="amt">Count</th></tr></thead><tbody>` +
               row.top_tests.map(t =>
                 `<tr><td>${escapeHtml(t.test_cmd || t.test || '')}</td><td class="amt">${t.count || 0}</td></tr>`
@@ -568,9 +568,10 @@
       const p = new URLSearchParams();
       p.set('from', document.getElementById('dateFrom').value);
       p.set('to', document.getElementById('dateTo').value);
+      p.set('g', granularity());
       history.replaceState({}, '', '?' + p);
       const shared = new URLSearchParams();
-      shared.set('from', p.get('from')); shared.set('to', p.get('to'));
+      shared.set('from', p.get('from')); shared.set('to', p.get('to')); shared.set('g', p.get('g'));
       document.querySelectorAll('#nav a[href]').forEach(a => {
         const base = a.getAttribute('href').split('?')[0];
         if (base !== '/') a.href = base + '?' + shared;
@@ -581,6 +582,7 @@
       const p = new URLSearchParams(location.search);
       if (p.get('from')) document.getElementById('dateFrom').value = p.get('from');
       if (p.get('to')) document.getElementById('dateTo').value = p.get('to');
+      if (p.get('g')) document.querySelectorAll('[data-g]').forEach(b => b.classList.toggle('active', b.dataset.g === p.get('g')));
     }
 
     // ---- Init ----
@@ -593,6 +595,11 @@
       loadUrl();
 
       document.getElementById('refreshBtn').onclick = load;
+      document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
+        document.querySelectorAll('[data-g]').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        load();
+      });
       document.querySelectorAll('[data-range]').forEach(b => b.onclick = () => {
         document.querySelectorAll('[data-range]').forEach(x => x.classList.remove('active'));
         b.classList.add('active');
