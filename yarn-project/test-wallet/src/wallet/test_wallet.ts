@@ -232,7 +232,12 @@ export abstract class BaseTestWallet extends BaseWallet {
       const contractOverrides = {
         [opts.from.toString()]: { instance, artifact },
       };
-      return this.pxe.simulateTx(txRequest, true /* simulatePublic */, true, true, { contracts: contractOverrides });
+      return this.pxe.simulateTx(txRequest, {
+        simulatePublic: true,
+        skipTxValidation: true,
+        skipFeeEnforcement: true,
+        overrides: { contracts: contractOverrides },
+      });
     }
   }
 

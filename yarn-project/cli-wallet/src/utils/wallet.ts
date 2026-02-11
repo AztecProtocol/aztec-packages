@@ -234,12 +234,11 @@ export class CLIWallet extends BaseWallet {
         chainInfo,
         executionOptions,
       );
-      simulationResults = await this.pxe.simulateTx(
-        txRequest,
-        true /* simulatePublic */,
-        opts?.skipTxValidation,
-        opts?.skipFeeEnforcement ?? true,
-      );
+      simulationResults = await this.pxe.simulateTx(txRequest, {
+        simulatePublic: true,
+        skipTxValidation: opts?.skipTxValidation,
+        skipFeeEnforcement: opts?.skipFeeEnforcement ?? true,
+      });
     } else {
       const { account: fromAccount, instance, artifact } = await this.getFakeAccountDataFor(opts.from);
       const txRequest = await fromAccount.createTxExecutionRequest(
@@ -251,8 +250,11 @@ export class CLIWallet extends BaseWallet {
       const contractOverrides = {
         [opts.from.toString()]: { instance, artifact },
       };
-      simulationResults = await this.pxe.simulateTx(txRequest, true /* simulatePublic */, true, true, {
-        contracts: contractOverrides,
+      simulationResults = await this.pxe.simulateTx(txRequest, {
+        simulatePublic: true,
+        skipTxValidation: true,
+        skipFeeEnforcement: true,
+        overrides: { contracts: contractOverrides },
       });
     }
 

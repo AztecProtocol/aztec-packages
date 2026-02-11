@@ -77,7 +77,14 @@ describe('PXE', () => {
       },
     });
 
-    pxe = await PXE.create(node, kvStore, kernelProver, simulator, protocolContractsProvider, config);
+    pxe = await PXE.create({
+      node,
+      store: kvStore,
+      proofCreator: kernelProver,
+      simulator,
+      protocolContractsProvider,
+      config,
+    });
   }, 120_000);
 
   it('registers an account and returns it as an account only and not as a recipient', async () => {

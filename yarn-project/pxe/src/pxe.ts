@@ -86,6 +86,54 @@ export type PackedPrivateEvent = InTx & {
   eventSelector: EventSelector;
 };
 
+/** Options for PXE.profileTx. */
+export type ProfileTxOpts = {
+  /** The profiling mode to use. */
+  profileMode: 'full' | 'execution-steps' | 'gates';
+  /** If true, proof generation is skipped during profiling. Defaults to true. */
+  skipProofGeneration?: boolean;
+};
+
+/** Options for PXE.simulateTx. */
+export type SimulateTxOpts = {
+  /** Whether to simulate the public part of the transaction. */
+  simulatePublic: boolean;
+  /** If false, this function throws if the transaction is unable to be included in a block at the current state. */
+  skipTxValidation?: boolean;
+  /** If false, fees are enforced. */
+  skipFeeEnforcement?: boolean;
+  /** State overrides for the simulation, such as contract instances and artifacts. */
+  overrides?: SimulationOverrides;
+  /** The accounts whose notes we can access in this call. Defaults to all. */
+  scopes?: AztecAddress[];
+};
+
+/** Options for PXE.simulateUtility. */
+export type SimulateUtilityOpts = {
+  /** The authentication witnesses required for the function call. */
+  authwits?: AuthWitness[];
+  /** The accounts whose notes we can access in this call. Defaults to all. */
+  scopes?: AztecAddress[];
+};
+
+/** Args for PXE.create. */
+export type PXECreateArgs = {
+  /** The Aztec node to connect to. */
+  node: AztecNode;
+  /** The key-value store for persisting PXE state. */
+  store: AztecAsyncKVStore;
+  /** The prover for generating private kernel proofs. */
+  proofCreator: PrivateKernelProver;
+  /** The circuit simulator for executing ACIR circuits. */
+  simulator: CircuitSimulator;
+  /** Provider for protocol contract artifacts and instances. */
+  protocolContractsProvider: ProtocolContractsProvider;
+  /** PXE configuration options. */
+  config: PXEConfig;
+  /** Optional logger instance or string suffix for the logger name. */
+  loggerOrSuffix?: string | Logger;
+};
+
 /**
  * Private eXecution Environment (PXE) is a library used by wallets to simulate private phase of transactions and to
  * manage private state of users.
@@ -122,15 +170,15 @@ export class PXE {
    *
    * @returns A promise that resolves PXE is ready to be used.
    */
-  public static async create(
-    node: AztecNode,
-    store: AztecAsyncKVStore,
-    proofCreator: PrivateKernelProver,
-    simulator: CircuitSimulator,
-    protocolContractsProvider: ProtocolContractsProvider,
-    config: PXEConfig,
-    loggerOrSuffix?: string | Logger,
-  ) {
+  public static async create({
+    node,
+    store,
+    proofCreator,
+    simulator,
+    protocolContractsProvider,
+    config,
+    loggerOrSuffix,
+  }: PXECreateArgs) {
     // Extract bindings from the logger, or use empty bindings if a string suffix is provided.
     const bindings: LoggerBindings | undefined =
       loggerOrSuffix && typeof loggerOrSuffix !== 'string' ? loggerOrSuffix.getBindings() : undefined;
@@ -227,20 +275,20 @@ export class PXE {
   #getSimulatorForTx(overrides?: { contracts?: ContractOverrides }) {
     const proxyContractStore = ProxiedContractStoreFactory.create(this.contractStore, overrides?.contracts);
 
-    return new ContractFunctionSimulator(
-      proxyContractStore,
-      this.noteStore,
-      this.keyStore,
-      this.addressStore,
-      BenchmarkedNodeFactory.create(this.node),
-      this.senderTaggingStore,
-      this.recipientTaggingStore,
-      this.senderAddressBookStore,
-      this.capsuleStore,
-      this.privateEventStore,
-      this.simulator,
-      this.contractSyncService,
-    );
+    return new ContractFunctionSimulator({
+      contractStore: proxyContractStore,
+      noteStore: this.noteStore,
+      keyStore: this.keyStore,
+      addressStore: this.addressStore,
+      aztecNode: BenchmarkedNodeFactory.create(this.node),
+      senderTaggingStore: this.senderTaggingStore,
+      recipientTaggingStore: this.recipientTaggingStore,
+      senderAddressBookStore: this.senderAddressBookStore,
+      capsuleStore: this.capsuleStore,
+      privateEventStore: this.privateEventStore,
+      simulator: this.simulator,
+      contractSyncService: this.contractSyncService,
+    });
   }
 
   #contextualizeError(err: Error, ...context: string[]): Error {
@@ -322,18 +370,13 @@ export class PXE {
         jobId,
       );
 
-      const result = await contractFunctionSimulator.run(
-        txRequest,
+      const result = await contractFunctionSimulator.run(txRequest, {
         contractAddress,
-        functionSelector,
-        undefined,
+        selector: functionSelector,
         anchorBlockHeader,
-        // The sender for tags is set by contracts, typically by an account
-        // contract entrypoint
-        undefined, // senderForTags
         scopes,
         jobId,
-      );
+      });
       this.log.debug(`Private simulation completed for ${contractAddress.toString()}:${functionSelector}`);
       return result;
     } catch (err) {
@@ -736,17 +779,13 @@ export class PXE {
 
   /**
    * Profiles a transaction, reporting gate counts (unless disabled) and returns an execution trace.
-   *
-   * @param txRequest - An authenticated tx request ready for simulation
-   * @param msgSender - (Optional) The message sender to use for the simulation.
-   * @param skipTxValidation - (Optional) If false, this function throws if the transaction is unable to be included in a block at the current state.
+   * @param txRequest - An authenticated tx request ready for simulation.
    * @returns A trace of the program execution with gate counts.
    * @throws If the code for the functions executed in this transaction have not been made available via `addContracts`.
    */
   public profileTx(
     txRequest: TxExecutionRequest,
-    profileMode: 'full' | 'execution-steps' | 'gates',
-    skipProofGeneration: boolean = true,
+    { profileMode, skipProofGeneration = true }: ProfileTxOpts,
   ): Promise<TxProfileResult> {
     // We disable concurrent profiles for consistency with simulateTx.
     return this.#putInJobQueue(async jobId => {
@@ -831,12 +870,7 @@ export class PXE {
    * In that case, the transaction returned is only potentially ready to be sent to the network for execution.
    *
    *
-   * @param txRequest - An authenticated tx request ready for simulation
-   * @param simulatePublic - Whether to simulate the public part of the transaction.
-   * @param skipTxValidation - (Optional) If false, this function throws if the transaction is unable to be included in a block at the current state.
-   * @param skipFeeEnforcement - (Optional) If false, fees are enforced.
-   * @param overrides - (Optional) State overrides for the simulation, such as msgSender, contract instances and artifacts.
-   * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will default to all.
+   * @param txRequest - An authenticated tx request ready for simulation.
    * @returns A simulated transaction result object that includes public and private return values.
    * @throws If the code for the functions executed in this transaction have not been made available via `addContracts`.
    * Also throws if simulatePublic is true and public simulation reverts.
@@ -845,11 +879,7 @@ export class PXE {
    */
   public simulateTx(
     txRequest: TxExecutionRequest,
-    simulatePublic: boolean,
-    skipTxValidation: boolean = false,
-    skipFeeEnforcement: boolean = false,
-    overrides?: SimulationOverrides,
-    scopes?: AztecAddress[],
+    { simulatePublic, skipTxValidation = false, skipFeeEnforcement = false, overrides, scopes }: SimulateTxOpts,
   ): Promise<TxSimulationResult> {
     // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
     // to the capsules), and we need to prevent concurrent runs from interfering with one another (e.g. attempting to
@@ -980,18 +1010,12 @@ export class PXE {
   }
 
   /**
-   * Simulate the execution of a contract utility function.
-   *
+   * Simulates the execution of a contract utility function.
    * @param call - The function call containing the function details, arguments, and target contract address.
-   * @param authwits - (Optional) The authentication witnesses required for the function call.
-   * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will
-   * default to all.
-   * @returns The result of the utility function call, structured based on the function ABI.
    */
   public simulateUtility(
     call: FunctionCall,
-    authwits?: AuthWitness[],
-    scopes?: AztecAddress[],
+    { authwits, scopes }: SimulateUtilityOpts = {},
   ): Promise<UtilitySimulationResult> {
     // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
     // to the capsules), and we need to prevent concurrent runs from interfering with one another (e.g. attempting to

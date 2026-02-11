@@ -300,7 +300,7 @@ export abstract class BaseWallet implements Wallet {
     skipFeeEnforcement?: boolean,
   ) {
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, from, feeOptions);
-    return this.pxe.simulateTx(txRequest, true /* simulatePublic */, skipTxValidation, skipFeeEnforcement);
+    return this.pxe.simulateTx(txRequest, { simulatePublic: true, skipTxValidation, skipFeeEnforcement });
   }
 
   /**
@@ -350,7 +350,10 @@ export abstract class BaseWallet implements Wallet {
   async profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult> {
     const feeOptions = await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
-    return this.pxe.profileTx(txRequest, opts.profileMode, opts.skipProofGeneration ?? true);
+    return this.pxe.profileTx(txRequest, {
+      profileMode: opts.profileMode,
+      skipProofGeneration: opts.skipProofGeneration ?? true,
+    });
   }
 
   public async sendTx<W extends InteractionWaitOptions = undefined>(
@@ -396,7 +399,7 @@ export abstract class BaseWallet implements Wallet {
   }
 
   simulateUtility(call: FunctionCall, authwits?: AuthWitness[]): Promise<UtilitySimulationResult> {
-    return this.pxe.simulateUtility(call, authwits);
+    return this.pxe.simulateUtility(call, { authwits });
   }
 
   async getPrivateEvents<T>(
