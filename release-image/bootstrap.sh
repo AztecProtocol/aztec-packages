@@ -3,6 +3,44 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 hash=$(cache_content_hash ^release-image/Dockerfile ^build-images/src/Dockerfile ^yarn-project/yarn.lock)
 
+function prepare_crs {
+  echo_header "prepare crs for prover-agent image"
+  local crs_src=${CRS_PATH:-$HOME/.bb-crs}
+
+  if [ ! -f "$crs_src/bn254_g1.dat" ]; then
+    # this assumes we pull the required number of points for proving the biggest circuit
+    echo "CRS not found at $crs_src, downloading..."
+    $root/barretenberg/scripts/download_bb_crs.sh
+    crs_src=$HOME/.bb-crs
+  fi
+
+  mkdir -p crs
+  cp "$crs_src/bn254_g1.dat" crs/
+  cp "$crs_src/bn254_g2.dat" crs/
+  cp "$crs_src/grumpkin_g1.flat.dat" crs/
+  # Normalize timestamps so COPY --link produces an identical layer across builds
+  for f in crs/*; do touch -t 197001010000 "$f"; done
+  echo "CRS files staged in crs/ ($(du -sh crs | cut -f1))"
+}
+export -f prepare_crs
+
+function build_prover_agent_image {
+  set -euo pipefail
+  local tag=$(git rev-parse HEAD)
+
+  if ! docker image inspect aztecprotocol/aztec:$tag &>/dev/null; then
+    echo "Base image aztecprotocol/aztec:$tag not found. Run 'release-image/bootstrap.sh' first."
+    exit 1
+  fi
+
+  prepare_crs
+  echo_header "build prover-agent image"
+  docker build -f Dockerfile.prover-agent --build-arg AZTEC_IMAGE_TAG=$tag \
+    -t aztecprotocol/aztec-prover-agent:$tag .
+  docker tag aztecprotocol/aztec-prover-agent:$tag aztecprotocol/aztec-prover-agent:latest
+}
+export -f build_prover_agent_image
+
 function build_image {
   set -euo pipefail
   cd ..
@@ -43,6 +81,10 @@ function build {
   fi
 
   denoise "build_image"
+
+  if semver check "${REF_NAME:-}"; then
+    denoise "build_prover_agent_image"
+  fi
 }
 
 function test_cmds {
@@ -64,6 +106,9 @@ function release {
   docker tag aztecprotocol/aztec:$COMMIT_HASH aztecprotocol/aztec:$tag-$(arch)
   do_or_dryrun docker push aztecprotocol/aztec:$tag-$(arch)
 
+  docker tag aztecprotocol/aztec-prover-agent:$COMMIT_HASH aztecprotocol/aztec-prover-agent:$tag-$(arch)
+  do_or_dryrun docker push aztecprotocol/aztec-prover-agent:$tag-$(arch)
+
   # If doing a release in CI, update the remote manifest if we're the arm build.
   if [ "${DRY_RUN:-0}" == 0 ] && [ "$(arch)" == "arm64" ] && [ "${CI:-0}" -eq 1 ]; then
     # Wait for amd64 image to be available.
@@ -76,6 +121,15 @@ function release {
     docker buildx imagetools create -t aztecprotocol/aztec:$tag \
       aztecprotocol/aztec:$tag-amd64 \
       aztecprotocol/aztec:$tag-arm64
+
+    while ! docker manifest inspect aztecprotocol/aztec-prover-agent:$tag-amd64 &>/dev/null; do
+      echo "Waiting for amd64 prover-agent image to be pushed..."
+      sleep 10
+    done
+
+    docker buildx imagetools create -t aztecprotocol/aztec-prover-agent:$tag \
+      aztecprotocol/aztec-prover-agent:$tag-amd64 \
+      aztecprotocol/aztec-prover-agent:$tag-arm64
 
     # We also release with our dist_tag, e.g. 'latest', 'staging' or 'nightly'.
     # docker buildx imagetools create -t aztecprotocol/aztec:$(dist_tag) \
@@ -93,6 +147,7 @@ function push {
   fi
   echo $DOCKERHUB_PASSWORD | docker login -u ${DOCKERHUB_USERNAME:-aztecprotocolci} --password-stdin
   do_or_dryrun docker push aztecprotocol/aztec:$COMMIT_HASH
+  do_or_dryrun docker push aztecprotocol/aztec-prover-agent:$COMMIT_HASH
 }
 
 function push_pr {
@@ -105,6 +160,8 @@ function push_pr {
   echo $DOCKERHUB_PASSWORD | docker login -u ${DOCKERHUB_USERNAME:-aztecprotocolci} --password-stdin
   docker tag aztecprotocol/aztec:$COMMIT_HASH aztecprotocol/aztecdev:$COMMIT_HASH
   do_or_dryrun docker push aztecprotocol/aztecdev:$COMMIT_HASH
+  docker tag aztecprotocol/aztec-prover-agent:$COMMIT_HASH aztecprotocol/aztec-prover-agent-dev:$COMMIT_HASH
+  do_or_dryrun docker push aztecprotocol/aztec-prover-agent-dev:$COMMIT_HASH
 }
 
 case "$cmd" in

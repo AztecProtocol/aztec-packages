@@ -14,7 +14,11 @@ shutdown=0
 trap 'shutdown=1' TERM INT
 
 down() {
-  docker compose -p "$name" down --remove-orphans --timeout 2 >/dev/null 2>&1 || true
+  local down_flags="--remove-orphans --timeout 2"
+  if [ "${REMOVE_COMPOSE_VOLUMES:-0}" -eq 1 ]; then
+    down_flags="-v $down_flags"
+  fi
+  docker compose -p "$name" down $down_flags >/dev/null 2>&1 || true
 }
 trap down EXIT
 

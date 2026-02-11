@@ -40,6 +40,27 @@ import { pickNotes } from '../pick_notes.js';
 import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
+/** Args for UtilityExecutionOracle constructor. */
+export type UtilityExecutionOracleArgs = {
+  contractAddress: AztecAddress;
+  /** List of transient auth witnesses to be used during this simulation */
+  authWitnesses: AuthWitness[];
+  capsules: Capsule[]; // TODO(#12425): Rename to transientCapsules
+  anchorBlockHeader: BlockHeader;
+  contractStore: ContractStore;
+  noteStore: NoteStore;
+  keyStore: KeyStore;
+  addressStore: AddressStore;
+  aztecNode: AztecNode;
+  recipientTaggingStore: RecipientTaggingStore;
+  senderAddressBookStore: SenderAddressBookStore;
+  capsuleStore: CapsuleStore;
+  privateEventStore: PrivateEventStore;
+  jobId: string;
+  log?: ReturnType<typeof createLogger>;
+  scopes?: AztecAddress[];
+};
+
 /**
  * The oracle for an execution of utility contract functions.
  */
@@ -49,25 +70,41 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
   private contractLogger: Logger | undefined;
 
-  constructor(
-    protected readonly contractAddress: AztecAddress,
-    /** List of transient auth witnesses to be used during this simulation */
-    protected readonly authWitnesses: AuthWitness[],
-    protected readonly capsules: Capsule[], // TODO(#12425): Rename to transientCapsules
-    protected readonly anchorBlockHeader: BlockHeader,
-    protected readonly contractStore: ContractStore,
-    protected readonly noteStore: NoteStore,
-    protected readonly keyStore: KeyStore,
-    protected readonly addressStore: AddressStore,
-    protected readonly aztecNode: AztecNode,
-    protected readonly recipientTaggingStore: RecipientTaggingStore,
-    protected readonly senderAddressBookStore: SenderAddressBookStore,
-    protected readonly capsuleStore: CapsuleStore,
-    protected readonly privateEventStore: PrivateEventStore,
-    protected readonly jobId: string,
-    protected log = createLogger('simulator:client_view_context'),
-    protected readonly scopes?: AztecAddress[],
-  ) {}
+  protected readonly contractAddress: AztecAddress;
+  protected readonly authWitnesses: AuthWitness[];
+  protected readonly capsules: Capsule[];
+  protected readonly anchorBlockHeader: BlockHeader;
+  protected readonly contractStore: ContractStore;
+  protected readonly noteStore: NoteStore;
+  protected readonly keyStore: KeyStore;
+  protected readonly addressStore: AddressStore;
+  protected readonly aztecNode: AztecNode;
+  protected readonly recipientTaggingStore: RecipientTaggingStore;
+  protected readonly senderAddressBookStore: SenderAddressBookStore;
+  protected readonly capsuleStore: CapsuleStore;
+  protected readonly privateEventStore: PrivateEventStore;
+  protected readonly jobId: string;
+  protected log: ReturnType<typeof createLogger>;
+  protected readonly scopes?: AztecAddress[];
+
+  constructor(args: UtilityExecutionOracleArgs) {
+    this.contractAddress = args.contractAddress;
+    this.authWitnesses = args.authWitnesses;
+    this.capsules = args.capsules;
+    this.anchorBlockHeader = args.anchorBlockHeader;
+    this.contractStore = args.contractStore;
+    this.noteStore = args.noteStore;
+    this.keyStore = args.keyStore;
+    this.addressStore = args.addressStore;
+    this.aztecNode = args.aztecNode;
+    this.recipientTaggingStore = args.recipientTaggingStore;
+    this.senderAddressBookStore = args.senderAddressBookStore;
+    this.capsuleStore = args.capsuleStore;
+    this.privateEventStore = args.privateEventStore;
+    this.jobId = args.jobId;
+    this.log = args.log ?? createLogger('simulator:client_view_context');
+    this.scopes = args.scopes;
+  }
 
   public utilityAssertCompatibleOracleVersion(version: number): void {
     if (version !== ORACLE_VERSION) {
@@ -369,9 +406,9 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return this.contractLogger;
   }
 
-  public async utilityDebugLog(level: number, message: string, fields: Fr[]): Promise<void> {
+  public async utilityLog(level: number, message: string, fields: Fr[]): Promise<void> {
     if (!LogLevels[level]) {
-      throw new Error(`Invalid debug log level: ${level}`);
+      throw new Error(`Invalid log level: ${level}`);
     }
     const levelName = LogLevels[level];
     const logger = await this.#getContractLogger();

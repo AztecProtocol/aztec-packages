@@ -55,22 +55,37 @@ resource "cloudflare_r2_bucket_lifecycle" "cleanup" {
   rules = flatten([
     for folder in local.top_level_folders : [
       {
-        id                        = "delete-snapshots-${folder}"
-        enabled                   = true
-        conditions                = { prefix = "${folder}/aztec" }
-        delete_objects_transition = { days = var.SNAPSHOT_RETENTION_DAYS }
+        id         = "delete-snapshots-${folder}"
+        enabled    = true
+        conditions = { prefix = "${folder}/aztec" }
+        delete_objects_transition = {
+          condition = {
+            max_age = var.SNAPSHOT_RETENTION_DAYS * 24 * 60 * 60 # Convert days to seconds
+            type    = "Age"
+          }
+        }
       },
       {
-        id                        = "delete-blobs-${folder}"
-        enabled                   = true
-        conditions                = { prefix = "${folder}/blobs" }
-        delete_objects_transition = { days = var.BLOB_RETENTION_DAYS }
+        id         = "delete-blobs-${folder}"
+        enabled    = true
+        conditions = { prefix = "${folder}/blobs" }
+        delete_objects_transition = {
+          condition = {
+            max_age = var.BLOB_RETENTION_DAYS * 24 * 60 * 60 # Convert days to seconds
+            type    = "Age"
+          }
+        }
       },
       {
-        id                        = "delete-txs-${folder}"
-        enabled                   = true
-        conditions                = { prefix = "${folder}/txs" }
-        delete_objects_transition = { days = var.TX_RETENTION_DAYS }
+        id         = "delete-txs-${folder}"
+        enabled    = true
+        conditions = { prefix = "${folder}/txs" }
+        delete_objects_transition = {
+          condition = {
+            max_age = var.TX_RETENTION_DAYS * 24 * 60 * 60 # Convert days to seconds
+            type    = "Age"
+          }
+        }
       },
     ]
   ])

@@ -84,5 +84,5 @@ if (dryRun) {
   console.log(`Tag ${tag} created and pushed.`);
 
   // 5. Write outputs for CI
-  writeGithubOutputs({ tag, semver, namespace, ref: branch });
+  writeGithubOutputs({ tag, semver, namespace, ref: branch, patch: String(nextPatch) });
 }

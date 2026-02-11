@@ -18,7 +18,7 @@ import type { TxCollectionConfig } from './config.js';
 import { FastTxCollection } from './fast_tx_collection.js';
 import { FileStoreTxCollection } from './file_store_tx_collection.js';
 import type { FileStoreTxSource } from './file_store_tx_source.js';
-import { SlowTxCollection } from './slow_tx_collection.js';
+import { SlowTxCollection, getProofDeadlineForSlot } from './slow_tx_collection.js';
 import { type TxAddContext, TxCollectionSink } from './tx_collection_sink.js';
 import type { TxSource } from './tx_source.js';
 
@@ -56,8 +56,11 @@ export class TxCollection {
   /** Fast collection methods */
   protected readonly fastCollection: FastTxCollection;
 
-  /** File store collection */
-  protected readonly fileStoreCollection: FileStoreTxCollection;
+  /** File store collection for slow (mined block) path */
+  protected readonly fileStoreSlowCollection: FileStoreTxCollection;
+
+  /** File store collection for fast (proposal/proving) path */
+  protected readonly fileStoreFastCollection: FileStoreTxCollection;
 
   /** Loop for periodically reconciling found transactions from the tx pool in case we missed some */
   private readonly reconcileFoundTxsLoop: RunningPromise;
@@ -111,7 +114,28 @@ export class TxCollection {
     );
 
     this.hasFileStoreSources = fileStoreSources.length > 0;
-    this.fileStoreCollection = new FileStoreTxCollection(fileStoreSources, this.txCollectionSink, this.log);
+    this.fileStoreSlowCollection = new FileStoreTxCollection(
+      fileStoreSources,
+      this.txCollectionSink,
+      {
+        workerCount: config.txCollectionFileStoreSlowWorkerCount,
+        backoffBaseMs: config.txCollectionFileStoreSlowBackoffBaseMs,
+        backoffMaxMs: config.txCollectionFileStoreSlowBackoffMaxMs,
+      },
+      this.dateProvider,
+      this.log,
+    );
+    this.fileStoreFastCollection = new FileStoreTxCollection(
+      fileStoreSources,
+      this.txCollectionSink,
+      {
+        workerCount: config.txCollectionFileStoreFastWorkerCount,
+        backoffBaseMs: config.txCollectionFileStoreFastBackoffBaseMs,
+        backoffMaxMs: config.txCollectionFileStoreFastBackoffMaxMs,
+      },
+      this.dateProvider,
+      this.log,
+    );
 
     this.reconcileFoundTxsLoop = new RunningPromise(
       () => this.reconcileFoundTxsWithPool(),
@@ -137,7 +161,8 @@ export class TxCollection {
   public start(): Promise<void> {
     this.started = true;
     this.slowCollection.start();
-    this.fileStoreCollection.start();
+    this.fileStoreSlowCollection.start();
+    this.fileStoreFastCollection.start();
     this.reconcileFoundTxsLoop.start();
 
     // TODO(palla/txs): Collect mined unproven tx hashes for txs we dont have in the pool and populate missingTxs on startup
@@ -150,7 +175,8 @@ export class TxCollection {
     await Promise.all([
       this.slowCollection.stop(),
       this.fastCollection.stop(),
-      this.fileStoreCollection.stop(),
+      this.fileStoreSlowCollection.stop(),
+      this.fileStoreFastCollection.stop(),
       this.reconcileFoundTxsLoop.stop(),
     ]);
 
@@ -175,6 +201,7 @@ export class TxCollection {
     // Delay file store collection to give P2P methods time to find txs first
     if (this.hasFileStoreSources) {
       const context: TxAddContext = { type: 'mined', block };
+      const deadline = getProofDeadlineForSlot(block.header.getSlot(), this.constants);
       sleep(this.config.txCollectionFileStoreSlowDelayMs)
         .then(() => {
           if (this.started) {
@@ -182,7 +209,7 @@ export class TxCollection {
             const stillMissing = new Set(this.slowCollection.getMissingTxHashes().map(h => h.toString()));
             const remaining = txHashes.filter(h => stillMissing.has(h.toString()));
             if (remaining.length > 0) {
-              this.fileStoreCollection.startCollecting(remaining, context);
+              this.fileStoreSlowCollection.startCollecting(remaining, context, deadline);
             }
           }
         })
@@ -223,7 +250,7 @@ export class TxCollection {
       sleep(this.config.txCollectionFileStoreFastDelayMs)
         .then(() => {
           if (this.started) {
-            this.fileStoreCollection.startCollecting(hashes, context);
+            this.fileStoreFastCollection.startCollecting(hashes, context, opts.deadline);
           }
         })
         .catch(err => this.log.error('Error in file store fast delay', err));
@@ -245,7 +272,8 @@ export class TxCollection {
   private foundTxs(txs: Tx[]) {
     this.slowCollection.foundTxs(txs);
     this.fastCollection.foundTxs(txs);
-    this.fileStoreCollection.foundTxs(txs);
+    this.fileStoreSlowCollection.foundTxs(txs);
+    this.fileStoreFastCollection.foundTxs(txs);
   }
 
   /**
@@ -255,7 +283,8 @@ export class TxCollection {
   public stopCollectingForBlocksUpTo(blockNumber: BlockNumber): void {
     this.slowCollection.stopCollectingForBlocksUpTo(blockNumber);
     this.fastCollection.stopCollectingForBlocksUpTo(blockNumber);
-    this.fileStoreCollection.clearPending();
+    this.fileStoreSlowCollection.clearPending();
+    this.fileStoreFastCollection.clearPending();
   }
 
   /**
@@ -265,7 +294,8 @@ export class TxCollection {
   public stopCollectingForBlocksAfter(blockNumber: BlockNumber): void {
     this.slowCollection.stopCollectingForBlocksAfter(blockNumber);
     this.fastCollection.stopCollectingForBlocksAfter(blockNumber);
-    this.fileStoreCollection.clearPending();
+    this.fileStoreSlowCollection.clearPending();
+    this.fileStoreFastCollection.clearPending();
   }
 
   /** Every now and then, check if the pool has received one of the txs we are looking for, just to catch any race conditions */

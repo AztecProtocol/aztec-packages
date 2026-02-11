@@ -81,6 +81,10 @@ node:
     - --node
     - --archiver
 
+  image:
+    repository: ""
+    tag: ""
+
   env: {}
 
   envFrom:

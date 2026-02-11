@@ -105,6 +105,12 @@ variable "AZTEC_DOCKER_IMAGE" {
   default     = "aztecprotocol/aztec:staging"
 }
 
+variable "PROVER_AGENT_DOCKER_IMAGE" {
+  description = "Docker image for prover agents (includes baked-in CRS). Defaults to AZTEC_DOCKER_IMAGE."
+  type        = string
+  default     = ""
+}
+
 variable "VALIDATOR_VALUES" {
   description = "The values file to apply"
   type        = string
@@ -519,6 +525,12 @@ variable "BOT_TRANSFERS_FOLLOW_CHAIN" {
   default     = "PENDING"
 }
 
+variable "BOT_TRANSFERS_PXE_SYNC_CHAIN_TIP" {
+  description = "Transfers bot PXE sync chain tip mode (e.g., checkpointed)"
+  type        = string
+  default     = "checkpointed"
+}
+
 variable "BOT_TRANSFERS_L2_PRIVATE_KEY" {
   description = "Private key for the transfers bot (hex string starting with 0x)"
   nullable    = true
@@ -547,6 +559,12 @@ variable "BOT_SWAPS_FOLLOW_CHAIN" {
   description = "AMM swaps bot follow-chain mode (e.g., NONE)"
   type        = string
   default     = "PENDING"
+}
+
+variable "BOT_SWAPS_PXE_SYNC_CHAIN_TIP" {
+  description = "AMM swaps bot PXE sync chain tip mode (e.g., checkpointed)"
+  type        = string
+  default     = "checkpointed"
 }
 
 variable "BOT_SWAPS_L2_PRIVATE_KEY" {
