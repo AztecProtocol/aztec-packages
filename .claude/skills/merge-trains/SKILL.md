@@ -25,29 +25,17 @@ These are defined in `.github/workflows/merge-train-next-to-branches.yml`.
 
 ### Targeting a Merge Train with Your PR
 
-1. Create your feature branch **off the appropriate merge-train branch** (not `master` or `next`).
+1. Create your feature branch **off the appropriate merge-train branch** (not our default branch `next`).
 2. Open your PR targeting that merge-train branch (e.g., base: `merge-train/barretenberg`).
 3. When your PR is approved and merged, it gets squashed into the merge-train branch.
 4. The merge-train PR (which targets `next`) automatically accumulates your commit.
 
 ### Key Rules for Contributors
 
-- **Base branch matters**: Always branch from and target the correct `merge-train/*` branch. For barretenberg work, use `merge-train/barretenberg`. For AVM work, use `merge-train/avm`. See `barretenberg/CLAUDE.md` and `barretenberg/cpp/src/barretenberg/vm2/CLAUDE.md`.
-- **Your PR is squashed into the train**: Individual PRs targeting a merge-train branch are squash-merged as usual.
+- **Base branch matters**: Always branch from the branch specified in the CI_BASE_BRANCH environment variable. If it is not set, then ask the user their intent and offer to set CI_BASE_BRANCH in their shell's RC file. 
+- **Your PR is squashed into the train**: Individual PRs targeting a merge-train branch are squash-merged as usual. You should not use the merge commit merge method, but the squash method.
 - **The train itself is NOT squashed**: The merge-train PR (e.g., `merge-train/barretenberg` -> `next`) is merged with a **merge commit**, preserving the individual squashed commits. This is why the `ci-no-squash` label is automatically applied.
-- **You don't need to worry about the train PR itself** -- it is fully automated (creation, body updates, approval, merge, and recreation).
-
-## Labels
-
-| Label | Meaning | Applied To |
-|---|---|---|
-| `ci-no-squash` | Exempts from the single-commit squash check. **Automatically applied** to all merge-train PRs. | Merge-train PRs targeting `next` |
-| `ci-full-no-test-cache` | Forces full CI without test caching. **Automatically applied** to `merge-train/spartan` PRs. | `merge-train/spartan` PRs |
-| `ci-skip` | Skips CI entirely. Use when you need to force-merge a train without waiting for CI. | Any PR (apply manually) |
-| `ci-merge-queue` | Simulates merge-queue CI mode on a regular PR push. | Any PR (apply manually) |
-| `ci-docs` | Triggers docs-only CI. Automatically used when target is `merge-train/docs`. | PRs targeting `merge-train/docs` |
-| `ci-barretenberg` | Triggers barretenberg-only CI. Automatically used when target is `merge-train/barretenberg`. | PRs targeting `merge-train/barretenberg` |
-| `ci-no-fail-fast` | Continues running all CI tests even if some fail. | Any PR (apply manually) |
+- **You generally don't need to worry about the train PR itself** -- it is fully automated (creation, body updates, approval, merge, and recreation). You only need to pay attention to it if an alert is sent to your team channel.
 
 ## Automation Lifecycle
 
@@ -99,7 +87,7 @@ If the user needs to bypass CI checks for their merge-train PR (e.g., a known fl
 
 1. **Confirm intent**: Always confirm with the user that they want to skip CI, since this merges untested code into `next`.
 2. **Add the `ci-skip` label**: Apply the `ci-skip` label to the merge-train PR. This causes CI to skip entirely. Use: `gh pr edit <PR_NUMBER> --add-label ci-skip`
-3. **Force merge in the UI**: The user can then use GitHub's "Merge without waiting for requirements to be met" button (bypass merge) in the PR UI. All users have this permission. This cannot be done via the CLI -- it must be done through the GitHub web UI.
+3. **Force merge in the UI**: The user can then use GitHub's "Merge without waiting for requirements to be met" button (bypass merge) in the PR UI. All users have this permission. 
 
 **Important**: Only do this when the user explicitly asks to bypass checks. Always confirm first since it skips all CI validation.
 
