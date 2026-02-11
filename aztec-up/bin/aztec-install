@@ -23,7 +23,7 @@ fi
 AZTEC_HOME="${AZTEC_HOME:-$HOME/.aztec}"
 shared_bin_path="$AZTEC_HOME/bin"
 
-VERSION="${VERSION:-}"
+VERSION="${VERSION:-nightly}"
 
 # Install URI (root, not version-specific)
 INSTALL_URI="${INSTALL_URI:-https://install.aztec-labs.com}"
@@ -54,7 +54,7 @@ function title {
   echo -e "  ${bold}${g}nargo${r}        - the version of the noir programming language compatible with this version of aztec."
   echo -e "  ${bold}${g}bb${r}           - the version of the barretenberg proving backend compatible with this version of aztec."
   echo -e "  ${bold}${g}aztec${r}        - a collection of tools to compile and test contracts, to launch subsystems and interact with the aztec network."
-  echo -e "  ${bold}${g}aztec-up${r}     - a tool to upgrade the aztec toolchain to the latest, or specific versions."
+  echo -e "  ${bold}${g}aztec-up${r}     - a tool to install and manage aztec toolchain versions."
   echo -e "  ${bold}${g}aztec-wallet${r} - our minimalistic CLI wallet"
   echo
   read -p "Do you wish to continue? (y/n) " -n 1 -r
@@ -131,13 +131,9 @@ function install_jq {
 }
 
 function install_aztec_up {
-  if [ -n "$VERSION" ]; then
-    # Download aztec-up from version dir (useful for testing).
-    curl -fsSL "$INSTALL_URI/$VERSION/aztec-up" -o "$shared_bin_path/aztec-up"
-  else
-    # Download aztec-up from root (the canonical latest version).
-    curl -fsSL "$INSTALL_URI/aztec-up" -o "$shared_bin_path/aztec-up"
-  fi
+  # Download aztec-up from root (the canonical latest version).
+  # aztec-up is a version manager, so it's not version-specific.
+  curl -fsSL "$INSTALL_URI/aztec-up" -o "$shared_bin_path/aztec-up"
   chmod +x "$shared_bin_path/aztec-up"
 }
 
