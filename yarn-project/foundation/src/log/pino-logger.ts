@@ -7,6 +7,7 @@ import { inspect } from 'util';
 import { compactArray } from '../collection/array.js';
 import type { EnvVar } from '../config/index.js';
 import { parseBooleanEnv } from '../config/parse-env.js';
+import { convertBigintsToStrings } from './bigint-utils.js';
 import { GoogleCloudLoggerConfig } from './gcloud-logger-config.js';
 import { getLogLevelFromFilters, parseEnv } from './log-filters.js';
 import type { LogLevel } from './log-levels.js';
@@ -133,29 +134,6 @@ const customLevels = { verbose: 25 };
 
 // Global pino options, tweaked for google cloud if running there.
 const useGcloudLogging = parseBooleanEnv(process.env['USE_GCLOUD_LOGGING' satisfies EnvVar]);
-
-/**
- * Converts bigint values to strings recursively in a log object to avoid serialization issues.
- */
-function convertBigintsToStrings(obj: unknown): unknown {
-  if (typeof obj === 'bigint') {
-    return String(obj);
-  }
-
-  if (Array.isArray(obj)) {
-    return obj.map(item => convertBigintsToStrings(item));
-  }
-
-  if (obj !== null && typeof obj === 'object') {
-    const result: Record<string, unknown> = {};
-    for (const key in obj) {
-      result[key] = convertBigintsToStrings((obj as Record<string, unknown>)[key]);
-    }
-    return result;
-  }
-
-  return obj;
-}
 
 const redactedPaths = [
   'validatorPrivateKeys',
