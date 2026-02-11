@@ -12,7 +12,7 @@ import { foundry } from 'viem/chains';
 import { createExtendedL1Client } from '../client.js';
 import { DefaultL1ContractsConfig } from '../config.js';
 import { deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
-import { L1TxUtils, createL1TxUtilsFromViemWallet } from '../l1_tx_utils/index.js';
+import { L1TxUtils, createL1TxUtils } from '../l1_tx_utils/index.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ExtendedViemWalletClient } from '../types.js';
 import { FeeAssetHandlerContract } from './fee_asset_handler.js';
@@ -48,7 +48,7 @@ describe('FeeAssetHandler', () => {
     });
     // Since the registry cannot "see" the slash factory, we omit it from the addresses for this test
     const deployedAddresses = omit(deployed.l1ContractAddresses, 'slashFactoryAddress');
-    txUtils = createL1TxUtilsFromViemWallet(l1Client, { logger });
+    txUtils = createL1TxUtils(l1Client, { logger });
     feeAssetHandler = new FeeAssetHandlerContract(l1Client, deployedAddresses.feeAssetHandlerAddress!);
     feeAsset = getContract({
       address: deployedAddresses.feeJuiceAddress!.toString(),

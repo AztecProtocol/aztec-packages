@@ -1,6 +1,7 @@
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
+import { Blob } from '@aztec/blob-lib';
 import { EpochCache } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { RollupContract } from '@aztec/ethereum/contracts';
@@ -12,10 +13,7 @@ import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { type KeyStoreConfig, KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync } from '@aztec/node-lib/actions';
-import {
-  createForwarderL1TxUtilsFromEthSigner,
-  createL1TxUtilsFromEthSignerWithStore,
-} from '@aztec/node-lib/factories';
+import { createForwarderL1TxUtilsFromSigners, createL1TxUtilsFromSigners } from '@aztec/node-lib/factories';
 import { NodeRpcTxSource, type P2PClientDeps, createP2PClient } from '@aztec/p2p';
 import { type ProverClientConfig, createProverClient } from '@aztec/prover-client';
 import { createAndStartProvingBroker } from '@aztec/prover-client/broker';
@@ -136,14 +134,14 @@ export async function createProverNode(
   const l1TxUtils = deps.l1TxUtils
     ? [deps.l1TxUtils]
     : config.publisherForwarderAddress
-      ? await createForwarderL1TxUtilsFromEthSigner(
+      ? await createForwarderL1TxUtilsFromSigners(
           publicClient,
           proverSigners.signers,
           config.publisherForwarderAddress,
           { ...config, scope: 'prover' },
-          { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
+          { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider, kzg: Blob.getViemKzgInstance() },
         )
-      : await createL1TxUtilsFromEthSignerWithStore(
+      : await createL1TxUtilsFromSigners(
           publicClient,
           proverSigners.signers,
           { ...config, scope: 'prover' },

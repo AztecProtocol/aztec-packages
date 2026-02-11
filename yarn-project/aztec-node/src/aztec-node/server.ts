@@ -1,6 +1,7 @@
 import { Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobClientInterface, createBlobClientWithFileStores } from '@aztec/blob-client/client';
+import { Blob } from '@aztec/blob-lib';
 import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
@@ -18,10 +19,7 @@ import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 import { KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
-import {
-  createForwarderL1TxUtilsFromEthSigner,
-  createL1TxUtilsWithBlobsFromEthSigner,
-} from '@aztec/node-lib/factories';
+import { createForwarderL1TxUtilsFromSigners, createL1TxUtilsFromSigners } from '@aztec/node-lib/factories';
 import { type P2P, type P2PClientDeps, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { GlobalVariableBuilder, SequencerClient, type SequencerPublisher } from '@aztec/sequencer-client';
@@ -413,18 +411,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       await slasherClient.start();
 
       const l1TxUtils = config.publisherForwarderAddress
-        ? await createForwarderL1TxUtilsFromEthSigner(
+        ? await createForwarderL1TxUtilsFromSigners(
             publicClient,
             keyStoreManager!.createAllValidatorPublisherSigners(),
             config.publisherForwarderAddress,
             { ...config, scope: 'sequencer' },
-            { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
+            { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider, kzg: Blob.getViemKzgInstance() },
           )
-        : await createL1TxUtilsWithBlobsFromEthSigner(
+        : await createL1TxUtilsFromSigners(
             publicClient,
             keyStoreManager!.createAllValidatorPublisherSigners(),
             { ...config, scope: 'sequencer' },
-            { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
+            { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider, kzg: Blob.getViemKzgInstance() },
           );
 
       // Create and start the sequencer client

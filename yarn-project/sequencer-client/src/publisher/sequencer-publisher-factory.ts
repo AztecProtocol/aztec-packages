@@ -3,7 +3,7 @@ import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import type { EpochCache } from '@aztec/epoch-cache';
 import type { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
-import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { PublisherFilter, PublisherManager } from '@aztec/ethereum/publisher-manager';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import type { DateProvider } from '@aztec/foundation/timer';
@@ -32,7 +32,7 @@ export class SequencerPublisherFactory {
     private sequencerConfig: SequencerClientConfig,
     private deps: {
       telemetry: TelemetryClient;
-      publisherManager: PublisherManager<L1TxUtilsWithBlobs>;
+      publisherManager: PublisherManager<L1TxUtils>;
       blobClient: BlobClientInterface;
       dateProvider: DateProvider;
       epochCache: EpochCache;
@@ -55,9 +55,9 @@ export class SequencerPublisherFactory {
     // If we have been given an attestor address we must only allow publishers permitted for that attestor
 
     const allowedPublishers = !validatorAddress ? [] : this.deps.nodeKeyStore.getPublisherAddresses(validatorAddress);
-    const filter: PublisherFilter<L1TxUtilsWithBlobs> = !validatorAddress
+    const filter: PublisherFilter<L1TxUtils> = !validatorAddress
       ? () => true
-      : (utils: L1TxUtilsWithBlobs) => {
+      : (utils: L1TxUtils) => {
           const publisherAddress = utils.getSenderAddress();
           return allowedPublishers.some(allowedPublisher => allowedPublisher.equals(publisherAddress));
         };

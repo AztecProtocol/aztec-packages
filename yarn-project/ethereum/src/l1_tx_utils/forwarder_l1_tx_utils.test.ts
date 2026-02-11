@@ -1,3 +1,4 @@
+import { Blob } from '@aztec/blob-lib';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -104,6 +105,8 @@ describe('ForwarderL1TxUtils', () => {
       },
       false,
       undefined,
+      undefined,
+      Blob.getViemKzgInstance(),
       undefined,
       forwarderAddress,
     );

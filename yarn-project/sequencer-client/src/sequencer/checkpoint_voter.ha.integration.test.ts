@@ -14,7 +14,7 @@ import type {
   RollupContract,
 } from '@aztec/ethereum/contracts';
 import { Multicall3 } from '@aztec/ethereum/contracts';
-import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -53,7 +53,7 @@ describe('CheckpointVoter HA Integration', () => {
   let rollupContract: MockProxy<RollupContract>;
   let governanceProposerContract: MockProxy<GovernanceProposerContract>;
   let slashingProposerContract: MockProxy<EmpireSlashingProposerContract>;
-  let l1TxUtils: MockProxy<L1TxUtilsWithBlobs>;
+  let l1TxUtils: MockProxy<L1TxUtils>;
   let dateProvider: TestDateProvider;
   let sequencerMetrics: MockProxy<SequencerMetrics>;
   let publisherMetrics: MockProxy<SequencerPublisherMetrics>;
@@ -147,8 +147,8 @@ describe('CheckpointVoter HA Integration', () => {
   /**
    * Helper to create mock L1 tx utils
    */
-  function createMockL1TxUtils(validatorAccount: PrivateKeyAccount): MockProxy<L1TxUtilsWithBlobs> {
-    const txUtils = mock<L1TxUtilsWithBlobs>();
+  function createMockL1TxUtils(validatorAccount: PrivateKeyAccount): MockProxy<L1TxUtils> {
+    const txUtils = mock<L1TxUtils>();
     txUtils.client = {
       account: validatorAccount,
       getCode: () => Promise.resolve('0x1234' as `0x${string}`),

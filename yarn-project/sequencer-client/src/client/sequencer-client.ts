@@ -3,8 +3,7 @@ import { EpochCache } from '@aztec/epoch-cache';
 import { isAnvilTestChain } from '@aztec/ethereum/chain';
 import { getPublicClient } from '@aztec/ethereum/client';
 import { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
-import type { Delayer } from '@aztec/ethereum/l1-tx-utils';
-import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { type Delayer, L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
@@ -29,7 +28,7 @@ import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
  */
 export class SequencerClient {
   constructor(
-    protected publisherManager: PublisherManager<L1TxUtilsWithBlobs>,
+    protected publisherManager: PublisherManager<L1TxUtils>,
     protected sequencer: Sequencer,
     protected checkpointsBuilder: FullNodeCheckpointsBuilder,
     protected validatorClient?: ValidatorClient,
@@ -64,7 +63,7 @@ export class SequencerClient {
       blobClient: BlobClientInterface;
       dateProvider: DateProvider;
       epochCache?: EpochCache;
-      l1TxUtils: L1TxUtilsWithBlobs[];
+      l1TxUtils: L1TxUtils[];
       nodeKeyStore: KeystoreManager;
     },
   ) {

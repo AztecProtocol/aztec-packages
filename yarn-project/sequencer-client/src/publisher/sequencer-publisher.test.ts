@@ -1,15 +1,19 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { DefaultL1ContractsConfig, type L1ContractsConfig } from '@aztec/ethereum/config';
+import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import {
   type EmpireSlashingProposerContract,
   type GovernanceProposerContract,
   Multicall3,
   type RollupContract,
 } from '@aztec/ethereum/contracts';
-import { type GasPrice, type L1TxUtilsConfig, defaultL1TxUtilsConfig } from '@aztec/ethereum/l1-tx-utils';
-import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import {
+  type GasPrice,
+  type L1TxUtils,
+  type L1TxUtilsConfig,
+  defaultL1TxUtilsConfig,
+} from '@aztec/ethereum/l1-tx-utils';
 import { FormattedViemError } from '@aztec/ethereum/utils';
 import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -58,7 +62,7 @@ describe('SequencerPublisher', () => {
   let slashingProposerContract: MockProxy<EmpireSlashingProposerContract>;
   let governanceProposerContract: MockProxy<GovernanceProposerContract>;
   let slashFactoryContract: MockProxy<SlashFactoryContract>;
-  let l1TxUtils: MockProxy<L1TxUtilsWithBlobs>;
+  let l1TxUtils: MockProxy<L1TxUtils>;
   let l1Metrics: MockProxy<SequencerPublisherMetrics>;
   let forwardSpy: jest.SpiedFunction<typeof Multicall3.forward>;
 
@@ -101,7 +105,7 @@ describe('SequencerPublisher', () => {
     testHarnessAttesterAccount = privateKeyToAccount(
       '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
     );
-    l1TxUtils = mock<L1TxUtilsWithBlobs>();
+    l1TxUtils = mock<L1TxUtils>();
     l1TxUtils.getBlock.mockResolvedValue({ timestamp: 12n } as any);
     l1TxUtils.getBlockNumber.mockResolvedValue(1n);
     l1TxUtils.getSenderAddress.mockReturnValue(EthAddress.fromString(testHarnessAttesterAccount.address));
@@ -113,7 +117,6 @@ describe('SequencerPublisher', () => {
         rollupAddress: EthAddress.ZERO.toString(),
         governanceProposerAddress: mockGovernanceProposerAddress,
       },
-      ethereumSlotDuration: DefaultL1ContractsConfig.ethereumSlotDuration,
 
       ...defaultL1TxUtilsConfig,
     } as unknown as TxSenderConfig &

@@ -23,7 +23,6 @@ import type { L1ContractsConfig } from './config.js';
 import { deployMulticall3 } from './contracts/multicall.js';
 import { RollupContract } from './contracts/rollup.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
-import type { L1TxUtilsConfig } from './l1_tx_utils/config.js';
 import type { ExtendedViemWalletClient } from './types.js';
 
 const logger = createLogger('ethereum:deploy_aztec_l1_contracts');
@@ -491,7 +490,25 @@ export type VerificationRecord = {
   libraries: VerificationLibraryEntry[];
 };
 
-export interface DeployAztecL1ContractsArgs extends Omit<L1ContractsConfig, keyof L1TxUtilsConfig> {
+export interface DeployAztecL1ContractsArgs
+  extends Omit<
+    L1ContractsConfig,
+    | 'gasLimitBufferPercentage'
+    | 'maxGwei'
+    | 'maxBlobGwei'
+    | 'priorityFeeBumpPercentage'
+    | 'priorityFeeRetryBumpPercentage'
+    | 'minimumPriorityFeePerGas'
+    | 'maxSpeedUpAttempts'
+    | 'checkIntervalMs'
+    | 'stallTimeMs'
+    | 'txTimeoutMs'
+    | 'cancelTxOnTimeout'
+    | 'txCancellationFinalTimeoutMs'
+    | 'txUnseenConsideredDroppedMs'
+    | 'enableDelayer'
+    | 'txDelayerMaxInclusionTimeIntoSlot'
+  > {
   /** The vk tree root. */
   vkTreeRoot: Fr;
   /** The hash of the protocol contracts. */

@@ -14,7 +14,7 @@ import { createExtendedL1Client } from '../client.js';
 import { DefaultL1ContractsConfig } from '../config.js';
 import { type DeployAztecL1ContractsReturnType, deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
 import { deployL1Contract } from '../deploy_l1_contract.js';
-import { L1TxUtils, createL1TxUtilsFromViemWallet } from '../l1_tx_utils/index.js';
+import { L1TxUtils, createL1TxUtils } from '../l1_tx_utils/index.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ExtendedViemWalletClient } from '../types.js';
 import { FormattedViemError } from '../utils.js';
@@ -67,7 +67,7 @@ describe('Multicall3', () => {
       client: walletClient,
     });
 
-    l1TxUtils = createL1TxUtilsFromViemWallet(walletClient, { logger });
+    l1TxUtils = createL1TxUtils(walletClient, { logger });
 
     const addMinterHash = await tokenContract.write.addMinter([MULTI_CALL_3_ADDRESS], { account: privateKey });
     await walletClient.waitForTransactionReceipt({ hash: addMinterHash });

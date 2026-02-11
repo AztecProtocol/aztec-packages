@@ -9,7 +9,7 @@ import { FeeAssetHandlerContract, RegistryContract, RollupContract } from '@azte
 import { deployRollupForUpgrade } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { L1TxUtils, createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
+import { L1TxUtils, createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -88,7 +88,7 @@ describe('e2e_p2p_add_rollup', () => {
     await t.applyBaseSetup();
     await t.removeInitialNode();
 
-    l1TxUtils = createL1TxUtilsFromViemWallet(t.ctx.deployL1ContractsValues.l1Client);
+    l1TxUtils = createL1TxUtils(t.ctx.deployL1ContractsValues.l1Client);
 
     t.ctx.watcher.setIsMarkingAsProven(false);
   });

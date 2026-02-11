@@ -1,26 +1,27 @@
+import type { BlobKzgInstance } from '@aztec/blob-lib/types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 
 import { type Hex, encodeFunctionData } from 'viem';
 
-import type { EthSigner } from '../eth-signer/eth-signer.js';
 import { FORWARDER_ABI } from '../forwarder_proxy.js';
-import type { ExtendedViemWalletClient, ViemClient } from '../types.js';
+import type { ViemClient } from '../types.js';
 import type { L1TxUtilsConfig } from './config.js';
+import type { L1SignerSource } from './factory.js';
+import { resolveSignerSource } from './factory.js';
 import type { IL1TxMetrics, IL1TxStore } from './interfaces.js';
-import { L1TxUtilsWithBlobs } from './l1_tx_utils_with_blobs.js';
-import { createViemSigner } from './signer.js';
-import { type Delayer, applyDelayer } from './tx_delayer.js';
+import { L1TxUtils } from './l1_tx_utils.js';
+import type { Delayer } from './tx_delayer.js';
 import type { L1BlobInputs, L1TxConfig, L1TxRequest, SigningCallback } from './types.js';
 
 /**
- * Extends L1TxUtilsWithBlobs to wrap all transactions through a forwarder contract.
+ * Extends L1TxUtils to wrap all transactions through a forwarder contract.
  * This is mainly used for testing the archiver's ability to decode transactions that go through proxies.
  */
-export class ForwarderL1TxUtils extends L1TxUtilsWithBlobs {
+export class ForwarderL1TxUtils extends L1TxUtils {
   constructor(
-    client: ViemClient | ExtendedViemWalletClient,
+    client: ViemClient,
     senderAddress: EthAddress,
     signingCallback: SigningCallback,
     logger: Logger | undefined,
@@ -29,9 +30,23 @@ export class ForwarderL1TxUtils extends L1TxUtilsWithBlobs {
     debugMaxGasLimit: boolean,
     store: IL1TxStore | undefined,
     metrics: IL1TxMetrics | undefined,
+    kzg: BlobKzgInstance | undefined,
+    delayer: Delayer | undefined,
     private readonly forwarderAddress: EthAddress,
   ) {
-    super(client, senderAddress, signingCallback, logger, dateProvider, config, debugMaxGasLimit, store, metrics);
+    super(
+      client,
+      senderAddress,
+      signingCallback,
+      logger,
+      dateProvider,
+      config,
+      debugMaxGasLimit,
+      store,
+      metrics,
+      kzg,
+      delayer,
+    );
   }
 
   /**
@@ -62,67 +77,32 @@ export class ForwarderL1TxUtils extends L1TxUtilsWithBlobs {
   }
 }
 
-export function createForwarderL1TxUtilsFromViemWallet(
-  client: ExtendedViemWalletClient,
+export function createForwarderL1TxUtils(
+  source: L1SignerSource,
   forwarderAddress: EthAddress,
-  deps: {
+  deps?: {
     logger?: Logger;
     dateProvider?: DateProvider;
     store?: IL1TxStore;
     metrics?: IL1TxMetrics;
-    ethereumSlotDuration?: number;
+    kzg?: BlobKzgInstance;
     delayer?: Delayer;
-  } = {},
-  config: Partial<L1TxUtilsConfig> = {},
-  debugMaxGasLimit: boolean = false,
-) {
-  const l1TxUtils = new ForwarderL1TxUtils(
+  },
+  config?: Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean },
+): ForwarderL1TxUtils {
+  const { client, address, signingCallback } = resolveSignerSource(source);
+  return new ForwarderL1TxUtils(
     client,
-    EthAddress.fromString(client.account.address),
-    createViemSigner(client),
-    deps.logger,
-    deps.dateProvider,
-    config,
-    debugMaxGasLimit,
-    deps.store,
-    deps.metrics,
+    address,
+    signingCallback,
+    deps?.logger,
+    deps?.dateProvider,
+    config ?? {},
+    config?.debugMaxGasLimit ?? false,
+    deps?.store,
+    deps?.metrics,
+    deps?.kzg,
+    deps?.delayer,
     forwarderAddress,
   );
-  applyDelayer(l1TxUtils, config, deps.ethereumSlotDuration, deps.delayer);
-  return l1TxUtils;
-}
-
-export function createForwarderL1TxUtilsFromEthSigner(
-  client: ViemClient,
-  signer: EthSigner,
-  forwarderAddress: EthAddress,
-  deps: {
-    logger?: Logger;
-    dateProvider?: DateProvider;
-    store?: IL1TxStore;
-    metrics?: IL1TxMetrics;
-    ethereumSlotDuration?: number;
-    delayer?: Delayer;
-  } = {},
-  config: Partial<L1TxUtilsConfig> = {},
-  debugMaxGasLimit: boolean = false,
-) {
-  const callback: SigningCallback = async (transaction, _signingAddress) => {
-    return (await signer.signTransaction(transaction)).toViemTransactionSignature();
-  };
-
-  const l1TxUtils = new ForwarderL1TxUtils(
-    client,
-    signer.address,
-    callback,
-    deps.logger,
-    deps.dateProvider,
-    config,
-    debugMaxGasLimit,
-    deps.store,
-    deps.metrics,
-    forwarderAddress,
-  );
-  applyDelayer(l1TxUtils, config, deps.ethereumSlotDuration, deps.delayer);
-  return l1TxUtils;
 }

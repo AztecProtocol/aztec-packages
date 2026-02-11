@@ -65,6 +65,8 @@ export interface L1TxUtilsConfig {
   enableDelayer?: boolean;
   /** Max seconds into an L1 slot for tx inclusion. Txs sent later are deferred to next slot. Only used when enableDelayer is true. */
   txDelayerMaxInclusionTimeIntoSlot?: number;
+  /** How many seconds an L1 slot lasts. */
+  ethereumSlotDuration?: number;
 }
 
 export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
@@ -154,6 +156,11 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   txDelayerMaxInclusionTimeIntoSlot: {
     description: 'Max seconds into L1 slot for tx inclusion when delayer is enabled.',
     ...optionalNumberConfigHelper(),
+  },
+  ethereumSlotDuration: {
+    env: 'ETHEREUM_SLOT_DURATION',
+    description: 'How many seconds an L1 slot lasts.',
+    ...numberConfigHelper(12),
   },
 };
 

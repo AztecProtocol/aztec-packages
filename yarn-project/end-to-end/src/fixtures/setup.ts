@@ -286,7 +286,8 @@ export async function setup(
     config.realProofs = !!opts.realProofs;
     // Only enforce the time table if requested
     config.enforceTimeTable = !!opts.enforceTimeTable;
-    config.enableDelayer = true;
+    // Default to enabling the tx delayer unless explicitly disabled
+    config.enableDelayer = config.enableDelayer ?? true;
     config.listenAddress = '127.0.0.1';
 
     const logger = getLogger();

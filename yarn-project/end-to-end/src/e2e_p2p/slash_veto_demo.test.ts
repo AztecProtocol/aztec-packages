@@ -13,7 +13,7 @@ import {
   SlasherArtifact,
   TallySlashingProposerArtifact,
 } from '@aztec/ethereum/l1-artifacts';
-import { L1TxUtils, createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
+import { L1TxUtils, createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { tryJsonStringify } from '@aztec/foundation/json-rpc';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -115,7 +115,7 @@ describe('veto slash', () => {
       t.ctx.aztecNodeConfig.l1RpcUrls,
       bufferToHex(getPrivateKeyFromIndex(VETOER_PRIVATE_KEY_INDEX)!),
     );
-    vetoerL1TxUtils = createL1TxUtilsFromViemWallet(vetoerL1Client, {
+    vetoerL1TxUtils = createL1TxUtils(vetoerL1Client, {
       logger: t.logger,
       dateProvider: t.ctx.dateProvider,
     });
@@ -199,7 +199,7 @@ describe('veto slash', () => {
     }
 
     debugLogger.info(`\n\ninitializing slasher with proposer: ${proposer}\n\n`);
-    const txUtils = createL1TxUtilsFromViemWallet(deployerClient, {
+    const txUtils = createL1TxUtils(deployerClient, {
       logger: t.logger,
       dateProvider: t.ctx.dateProvider,
     });
