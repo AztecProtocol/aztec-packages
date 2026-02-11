@@ -65,7 +65,8 @@ namespace to_radix;
 
     // Outputs of to_radix
     pol commit limb;
-
+    pol commit found;
+    found * (1 - found) = 0;
 
     // == Multi-row Computation Selectors ==
     // See recipe in https://hackmd.io/moq6viBpRJeLpWrHAogCZw?view#Contiguous-Multi-Rows-Computation-Trace
@@ -111,8 +112,6 @@ namespace to_radix;
     // ACCUMULATION
 
     pol commit acc;
-    pol commit found;
-    found * (1 - found) = 0;
 
     // Limb index starts at zero
     start * (limb_index - 0) = 0;
