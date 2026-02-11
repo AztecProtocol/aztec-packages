@@ -157,15 +157,11 @@ export class FeesTest {
 
   /** Alice mints bananaCoin tokens privately to the target address and redeems them. */
   async mintPrivateBananas(amount: bigint, address: AztecAddress) {
-    const balanceBefore = await this.bananaCoin.methods
-      .balance_of_private(address)
-      .simulate({ from: this.aliceAddress });
+    const balanceBefore = await this.bananaCoin.methods.balance_of_private(address).simulate({ from: address });
 
     await mintTokensToPrivate(this.bananaCoin, this.aliceAddress, address, amount);
 
-    const balanceAfter = await this.bananaCoin.methods
-      .balance_of_private(address)
-      .simulate({ from: this.aliceAddress });
+    const balanceAfter = await this.bananaCoin.methods.balance_of_private(address).simulate({ from: address });
     expect(balanceAfter).toEqual(balanceBefore + amount);
   }
 
@@ -213,12 +209,7 @@ export class FeesTest {
 
     this.feeJuiceContract = FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.wallet);
 
-    this.getGasBalanceFn = getBalancesFn(
-      '⛽',
-      this.feeJuiceContract.methods.balance_of_public,
-      this.aliceAddress,
-      this.logger,
-    );
+    this.getGasBalanceFn = getBalancesFn('⛽', this.feeJuiceContract.methods.balance_of_public, this.logger);
 
     this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
       aztecNode: this.context.aztecNodeService,
@@ -238,16 +229,10 @@ export class FeesTest {
     this.logger.info(`BananaCoin deployed at ${bananaCoin.address}`);
 
     this.bananaCoin = bananaCoin;
-    this.getBananaPublicBalanceFn = getBalancesFn(
-      '🍌.public',
-      this.bananaCoin.methods.balance_of_public,
-      this.aliceAddress,
-      this.logger,
-    );
+    this.getBananaPublicBalanceFn = getBalancesFn('🍌.public', this.bananaCoin.methods.balance_of_public, this.logger);
     this.getBananaPrivateBalanceFn = getBalancesFn(
       '🍌.private',
       this.bananaCoin.methods.balance_of_private,
-      this.aliceAddress,
       this.logger,
     );
   }
