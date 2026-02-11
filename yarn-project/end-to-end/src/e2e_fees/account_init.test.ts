@@ -13,10 +13,10 @@ import { SchnorrAccountContract as SchnorrAccountContractInterface } from '@azte
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasSettings } from '@aztec/stdlib/gas';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { FeesTest } from './fees_test.js';
 
 jest.setTimeout(300_000);

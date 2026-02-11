@@ -9,7 +9,7 @@ import { loader } from '../../styles/common';
 import { FUN_FACTS, TX_TIMEOUT } from '../../constants';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import { queryTxReceipt, type UserTx } from '../../utils/txs';
-import { convertFromUTF8BufferAsString, formatFrAsString } from '../../utils/conversion';
+import { formatFrAsString } from '../../utils/conversion';
 import { TxHash, TxStatus } from '@aztec/aztec.js/tx';
 import { TransactionModal } from '../common/TransactionModal';
 import { useLocalStorage } from '@uidotdev/usehooks';
@@ -174,15 +174,15 @@ export function TxPanel() {
   useEffect(() => {
     const refreshTransactions = async () => {
       const txsPerContract = await playgroundDB.retrieveAllTx();
-      const txHashes = txsPerContract.map(txHash => TxHash.fromString(convertFromUTF8BufferAsString(txHash)));
+      const txHashes = txsPerContract.map(txHash => TxHash.fromString(txHash));
       const txs: UserTx[] = await Promise.all(
         txHashes.map(async txHash => {
           const txData = await playgroundDB.retrieveTxData(txHash);
           return {
             txHash: txData.txHash,
-            status: convertFromUTF8BufferAsString(txData.status),
-            name: convertFromUTF8BufferAsString(txData.name),
-            date: parseInt(convertFromUTF8BufferAsString(txData.date)),
+            status: txData.status,
+            name: txData.name,
+            date: parseInt(txData.date),
           } as UserTx;
         }),
       );
@@ -247,7 +247,8 @@ export function TxPanel() {
     lastLog = lastLog.slice(0, 100) + '...';
   }
 
-  const hasError = pendingTx?.error || TX_ERRORS.includes(pendingTx?.status) || pendingTx?.receipt?.hasExecutionReverted();
+  const hasError =
+    pendingTx?.error || TX_ERRORS.includes(pendingTx?.status) || pendingTx?.receipt?.hasExecutionReverted();
   const errorMessage = pendingTx?.error;
 
   let subtitle;
@@ -389,7 +390,9 @@ export function TxPanel() {
                         sx={{ '& svg': { fontSize: '14px' }, height: '1rem' }}
                       />
                     </div>
-                    <Typography variant="caption">{status}</Typography>
+                    <Typography variant="caption" sx={{ fontSize: '8px', alignSelf: 'center' }}>
+                      {status}
+                    </Typography>
                   </Typography>
                   <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
                     {tx.receipt && tx.receipt.status === 'error' ? tx.receipt.error : tx.error}

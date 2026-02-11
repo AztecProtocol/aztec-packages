@@ -188,7 +188,9 @@ export class PXE {
         ? createLogger(loggerOrSuffix ? `pxe:service:${loggerOrSuffix}` : `pxe:service`)
         : loggerOrSuffix;
 
-    const proverEnabled = !!config.proverEnabled;
+    const info = await node.getNodeInfo();
+
+    const proverEnabled = config.proverEnabled !== undefined ? config.proverEnabled : info.realProofs;
     const addressStore = new AddressStore(store);
     const privateEventStore = new PrivateEventStore(store);
     const contractStore = new ContractStore(store);
@@ -265,7 +267,6 @@ export class PXE {
     pxe.jobQueue.start();
 
     await pxe.#registerProtocolContracts();
-    const info = await node.getNodeInfo();
     log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.rollupVersion}`);
     return pxe;
   }

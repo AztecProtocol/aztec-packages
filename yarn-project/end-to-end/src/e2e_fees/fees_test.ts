@@ -20,7 +20,6 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import { TestWallet } from '@aztec/test-wallet/server';
 
 import { getContract } from 'viem';
 
@@ -36,6 +35,7 @@ import {
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 import { type BalancesFn, getBalancesFn, setupSponsoredFPC } from '../fixtures/utils.js';
 import { FeeJuicePortalTestingHarnessFactory, type GasBridgingTestHarness } from '../shared/gas_portal_test_harness.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
 
 /**
  * Test fixture for testing fees. Provides the following setup steps:

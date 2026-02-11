@@ -11,9 +11,10 @@ import { randomBytes } from '@aztec/foundation/crypto/random';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { createPXE, getPXEConfig } from '@aztec/pxe/server';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
-import { AztecNodeProxy, TestWallet } from '@aztec/test-wallet/server';
 
 import { setup } from './fixtures/utils.js';
+import { TestWallet } from './test-wallet/test_wallet.js';
+import { AztecNodeProxy } from './test-wallet/utils.js';
 
 export class TestWalletInternals extends TestWallet {
   static override async create(node: AztecNode): Promise<TestWalletInternals> {
