@@ -489,10 +489,41 @@ def _fetch_merge_queue_runs(date_str: str) -> dict:
     return summary
 
 
+def _load_backfill_json():
+    """Load seed data from merge-queue-backfill.json if SQLite is empty."""
+    import rk_db
+    from pathlib import Path
+    db = rk_db.get_db()
+
+    count = db.execute('SELECT COUNT(*) as c FROM merge_queue_daily').fetchone()['c']
+    if count > 0:
+        return
+
+    seed = Path(__file__).parent / 'merge-queue-backfill.json'
+    if not seed.exists():
+        return
+
+    import json
+    with seed.open() as f:
+        data = json.load(f)
+
+    print(f"[rk_github] Loading {len(data)} days from merge-queue-backfill.json...")
+    for ds, summary in data.items():
+        db.execute(
+            'INSERT OR REPLACE INTO merge_queue_daily (date, total, success, failure, cancelled, in_progress) '
+            'VALUES (?, ?, ?, ?, ?, ?)',
+            (ds, summary['total'], summary['success'], summary['failure'],
+             summary['cancelled'], summary['in_progress']))
+    db.commit()
+
+
 def _backfill_merge_queue():
     """Backfill missing merge queue daily stats into SQLite."""
     import rk_db
     db = rk_db.get_db()
+
+    # Load seed data on first run
+    _load_backfill_json()
 
     # Find which dates we already have
     existing = {row['date'] for row in
@@ -517,7 +548,6 @@ def _backfill_merge_queue():
     for ds in missing:
         summary = _fetch_merge_queue_runs(ds)
         if summary['total'] == 0:
-            # Write a zero row so we don't re-fetch
             db.execute(
                 'INSERT OR REPLACE INTO merge_queue_daily (date, total, success, failure, cancelled, in_progress) '
                 'VALUES (?, 0, 0, 0, 0, 0)', (ds,))
