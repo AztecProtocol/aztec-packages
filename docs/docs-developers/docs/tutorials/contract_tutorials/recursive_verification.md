@@ -21,7 +21,7 @@ Before starting, ensure you have the following installed and configured:
 
 - Node.js (v22 or later)
 - yarn package manager
-- Aztec CLI (version 3.0.0-devnet.6-patch.1)
+- Aztec CLI (version #include_aztec_version)
 - Nargo (version 1.0.0-beta.15)
 - Familiarity with [Noir syntax](https://noir-lang.org/docs) and [Aztec contract basics](../../aztec-nr/index.md)
 
@@ -29,8 +29,7 @@ Install the required tools:
 
 ```bash
 # Install Aztec CLI
-bash -i <(curl -sL https://install.aztec.network)
-aztec-up 3.0.0-devnet.6-patch.1
+VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix)
 
 # Install Nargo via noirup
 curl -L https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
@@ -236,8 +235,8 @@ type = "contract"
 authors = ["[YOUR_NAME]"]
 
 [dependencies]
-aztec = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "v3.0.0-devnet.6-patch.1", directory = "aztec" }
-bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v3.0.0-devnet.6-patch.1", directory = "barretenberg/noir/bb_proof_verification" }
+aztec = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "#include_aztec_version", directory = "aztec" }
+bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "barretenberg/noir/bb_proof_verification" }
 ```
 
 **Key differences from the circuit's Nargo.toml**:
@@ -385,14 +384,14 @@ Create the following files in your project root directory.
     "recursion": "tsx scripts/run_recursion.ts"
   },
   "dependencies": {
-    "@aztec/accounts": "3.0.0-devnet.6-patch.1",
-    "@aztec/aztec.js": "3.0.0-devnet.6-patch.1",
-    "@aztec/bb.js": "3.0.0-devnet.6-patch.1",
-    "@aztec/kv-store": "3.0.0-devnet.6-patch.1",
-    "@aztec/noir-contracts.js": "3.0.0-devnet.6-patch.1",
-    "@aztec/noir-noir_js": "3.0.0-devnet.6-patch.1",
-    "@aztec/pxe": "3.0.0-devnet.6-patch.1",
-    "@aztec/wallets": "3.0.0-devnet.6-patch.1",
+    "@aztec/accounts": "#include_version_without_prefix",
+    "@aztec/aztec.js": "#include_version_without_prefix",
+    "@aztec/bb.js": "#include_version_without_prefix",
+    "@aztec/kv-store": "#include_version_without_prefix",
+    "@aztec/noir-contracts.js": "#include_version_without_prefix",
+    "@aztec/noir-noir_js": "#include_version_without_prefix",
+    "@aztec/pxe": "#include_version_without_prefix",
+    "@aztec/test-wallet": "#include_version_without_prefix",
     "tsx": "^4.20.6"
   },
   "devDependencies": {

@@ -179,6 +179,11 @@ jobs:
           node "$AZTEC_CLI_PATH/index.js" "$@"
           EOF
           chmod +x /tmp/cli-bin/aztec
+
+          # Copy aztec-up from repo (it's a standalone bash script)
+          cp "$GITHUB_WORKSPACE/aztec-up/bin/aztec-up" /tmp/cli-bin/aztec-up
+          chmod +x /tmp/cli-bin/aztec-up
+
           export PATH="/tmp/cli-bin:${PATH}"
 
           # Generate Aztec CLI docs using binaries (continue-on-error handles failures)

@@ -116,8 +116,8 @@ There are four components whose versions need to be kept compatible:
 1. Aztec local network (includes the `aztec` command)
 2. `Aztec.nr`, the Noir framework for writing Aztec contracts
 
-First three are packaged together in docker and are kept compatible by running `aztec-up`.
-But you need to update your Aztec.nr version manually or using `aztec update`.
+You can manage Aztec versions using `aztec-up`. Use `aztec-up install <version>` to install a specific version, or `aztec-up use <version>` to switch between installed versions.
+You need to update your Aztec.nr version manually or using `aztec update`.
 
 ## Updating Aztec.nr packages
 
