@@ -72,47 +72,43 @@
 
 <code id="with_gas" class="code-header">pub fn <a href="#with_gas"><span class="fn">with_gas</span></a>(self, gas_opts: <a href="../../../noir_aztec/context/gas/struct.GasOpts.html" class="struct">GasOpts</a>) -> Self</code>
 
-<code id="call" class="code-header">pub unconstrained fn <a href="#call"><span class="fn">call</span></a>(self, context: <a href="../../../noir_aztec/context/public_context/struct.PublicContext.html" class="struct">PublicContext</a>) -> T
+<code id="call" class="code-header">pub unconstrained fn <a href="#call"><span class="fn">call</span></a>(self, context: <a href="../../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>) -> T
 <div class="where-clause">where
-    T: <a href="../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+    T: <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
-<p><strong>[DEPRECATED]</strong>
-This function is deprecated. Please use the new contract API:
-<code>self.call(MyContract::at(address).my_public_function(...args))</code>
+<p><strong>DEPRECATED</strong>.</p>
+<p>Please use the new contract API: <code>self.call(MyContract::at(address).my_public_function(...args))</code> instead of
+manually constructing and calling <code>PublicCall</code>.</p>
+</div>
+</div><code id="enqueue" class="code-header">pub fn <a href="#enqueue"><span class="fn">enqueue</span></a>(self, context: &mut <a href="../../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>)</code>
+
+<div class="padded-description"><div class="comments">
+<p><strong>DEPRECATED</strong>.</p>
+<p>Please use the new contract API: <code>self.enqueue(MyContract::at(address).my_public_function(...args))</code> instead of
+manually constructing and calling <code>PublicCall</code>.</p>
+</div>
+</div><code id="enqueue_incognito" class="code-header">pub fn <a href="#enqueue_incognito"><span class="fn">enqueue_incognito</span></a>(self, context: &mut <a href="../../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>)</code>
+
+<div class="padded-description"><div class="comments">
+<p><strong>DEPRECATED</strong>.</p>
+<p>Please use the new contract API: <code>self.enqueue_incognito(MyContract::at(address).my_public_function(...args))</code>
 instead of manually constructing and calling <code>PublicCall</code>.</p>
 </div>
-</div><code id="enqueue" class="code-header">pub fn <a href="#enqueue"><span class="fn">enqueue</span></a>(self, context: &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>)</code>
+</div><code id="set_as_teardown" class="code-header">pub fn <a href="#set_as_teardown"><span class="fn">set_as_teardown</span></a>(self, context: &mut <a href="../../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>)</code>
 
 <div class="padded-description"><div class="comments">
-<p><strong>[DEPRECATED]</strong>
-This function is deprecated. Please use the new contract API:
-<code>self.enqueue(MyContract::at(address).my_public_function(...args))</code>
-instead of manually constructing and calling <code>PublicCall</code>.</p>
-</div>
-</div><code id="enqueue_incognito" class="code-header">pub fn <a href="#enqueue_incognito"><span class="fn">enqueue_incognito</span></a>(self, context: &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>)</code>
-
-<div class="padded-description"><div class="comments">
-<p><strong>[DEPRECATED]</strong>
-This function is deprecated. Please use the new contract API:
-<code>self.enqueue_incognito(MyContract::at(address).my_public_function(...args))</code>
-instead of manually constructing and calling <code>PublicCall</code>.</p>
-</div>
-</div><code id="set_as_teardown" class="code-header">pub fn <a href="#set_as_teardown"><span class="fn">set_as_teardown</span></a>(self, context: &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>)</code>
-
-<div class="padded-description"><div class="comments">
-<p><strong>[DEPRECATED]</strong>
-This function is deprecated. Please use the new contract API:
-<code>self.set_as_teardown(MyContract::at(address).my_public_function(...args))</code>
+<p><strong>DEPRECATED</strong>.</p>
+<p>Please use the new contract API: <code>self.set_as_teardown(MyContract::at(address).my_public_function(...args))</code>
 instead of manually constructing and setting the teardown function <code>PublicCall</code>.</p>
 </div>
-</div><code id="set_as_teardown_incognito" class="code-header">pub fn <a href="#set_as_teardown_incognito"><span class="fn">set_as_teardown_incognito</span></a>(self, context: &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>)</code>
+</div><code id="set_as_teardown_incognito" class="code-header">pub fn <a href="#set_as_teardown_incognito"><span class="fn">set_as_teardown_incognito</span></a>(self, context: &mut <a href="../../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>)</code>
 
 <div class="padded-description"><div class="comments">
-<p><strong>[DEPRECATED]</strong>
-This function is deprecated. Please use the new contract API:
-<code>self.set_as_teardown_incognito(MyContract::at(address).my_public_function(...args))</code>
-instead of manually constructing and setting the teardown function <code>PublicCall</code>.</p>
+<p><strong>DEPRECATED</strong>.</p>
+<p>Please use the new contract API:
+<code>self.set_as_teardown_incognito(MyContract::at(address).my_public_function(...args))</code> instead of manually
+constructing and setting the teardown function <code>PublicCall</code>.</p>
 </div>
 </div></div></main>
 </span>

@@ -29,8 +29,6 @@
 <li><a href="../field/index.html">field</a></div></li>
 <li><a href="../for_loop/index.html">for_loop</a></div></li>
 <li><a href="../math/index.html">math</a></div></li>
-<li><a href="../reader/index.html">reader</a></div></li>
-<li><a href="../uint256/index.html">uint256</a></div></li>
 </ul>
 </nav>
 <main>
@@ -47,20 +45,28 @@ Validation must include:</p>
 <li><div class="item-name"><a href="struct.SortedTuple.html" class="struct">SortedTuple</a></div><div class="item-description"></div></li>
 </ul>
 <h2 id="functions">Functions</h2><ul class="item-list">
-<li><div class="item-name"><a href="fn.array_length.html" class="fn">array_length</a></div><div class="item-description">Deprecated.</div></li>
+<li><div class="item-name"><a href="fn.array_length.html" class="fn">array_length</a></div><div class="item-description">Helper function to count the number of non-empty elements in a validated array.
+Danger: This is only safe to call if the input arrays have been &quot;validated&quot; (dense lhs, empty rhs).</p>
+<ol>
+<li>All elements before the first empty element are non-empty</li>
+<li>All elements after and including the first empty element are empty</li>
+<li>The array forms a contiguous sequence of non-empty elements followed by empty elements</li>
+</ol></div></li>
 <li><div class="item-name"><a href="fn.array_length_until.html" class="fn">array_length_until</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="fn.array_merge.html" class="fn">array_merge</a></div><div class="item-description">This function assumes that <code>array1</code> and <code>array2</code> contain no more than N non-empty elements between them,
-if this is not the case then elements from the end of <code>array2</code> will be dropped.</div></li>
+if this is not the case then elements from the end of <code>array2</code> will be dropped.
+Danger: This is only safe to call if the input arrays have been &quot;validated&quot; (dense lhs, empty rhs).</div></li>
 <li><div class="item-name"><a href="fn.array_padded_with.html" class="fn">array_padded_with</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="fn.assert_trailing_zeros.html" class="fn">assert_trailing_zeros</a></div><div class="item-description">Asserts that all fields in <code>input</code> after the first <code>in_len</code> fields are zero.</div></li>
 <li><div class="item-name"><a href="fn.check_permutation.html" class="fn">check_permutation</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.copy_items_into_array.html" class="fn">copy_items_into_array</a></div><div class="item-description">Copies up to <code>num_items_to_copy</code> items from <code>array2</code> into <code>array1</code>, starting at <code>start_index</code>, and returns a new
+array with the modifications.</div></li>
 <li><div class="item-name"><a href="fn.find_first_index.html" class="fn">find_first_index</a></div><div class="item-description">Helper function to find the index of the first element in an array that satisfies a given predicate.
 If the element is not found, the function returns the length of the array <code>N</code></div></li>
-<li><div class="item-name"><a href="fn.find_index_hint.html" class="fn">find_index_hint</a></div><div class="item-description"></div></li>
-<li><div class="item-name"><a href="fn.find_index_hint_in_reverse.html" class="fn">find_index_hint_in_reverse</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="fn.find_last_index.html" class="fn">find_last_index</a></div><div class="item-description">Helper function to find the index of the last element in an array that satisfies a given predicate.
 If the element is not found, the function returns the length of the array <code>N</code></div></li>
-<li><div class="item-name"><a href="fn.get_sorted_tuples.html" class="fn">get_sorted_tuples</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.get_sorted_tuples.html" class="fn">get_sorted_tuples</a></div><div class="item-description">Sorts the input <code>array</code>, but also outputs an <code>original_index</code> field for each sorted
+item, so that you know where it came from.</div></li>
 <li><div class="item-name"><a href="fn.subarray.html" class="fn">subarray</a></div><div class="item-description">Helper fn to create a subarray from a given array.</div></li>
 <li><div class="item-name"><a href="fn.trimmed_array_length_hint.html" class="fn">trimmed_array_length_hint</a></div><div class="item-description"></div></li>
 </ul>

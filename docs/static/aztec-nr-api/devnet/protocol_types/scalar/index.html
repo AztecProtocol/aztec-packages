@@ -20,7 +20,7 @@
 <h2><a href="#mod">Module scalar</a></h2>
 <h3>Module items</h3>
 <ul class="sidebar-list">
-<li><a href="#re-exports">Re-exports</a></li>
+<li><a href="#structs">Structs</a></li>
 </ul>
 <h2>In module protocol_types</h2>
 <h3>Modules</h3><ul class="item-list">
@@ -28,7 +28,6 @@
 <li><a href="../address/index.html">address</a></div></li>
 <li><a href="../blob_data/index.html">blob_data</a></div></li>
 <li><a href="../constants/index.html">constants</a></div></li>
-<li><a href="../content_commitment/index.html">content_commitment</a></div></li>
 <li><a href="../contract_class_id/index.html">contract_class_id</a></div></li>
 <li><a href="../contract_instance/index.html">contract_instance</a></div></li>
 <li><a href="../data/index.html">data</a></div></li>
@@ -55,8 +54,10 @@
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">protocol_types</a>::scalar</div>
 <h1>Module <span id="mod" class="module">scalar</span></h1>
-<h2 id="re-exports">Re-exports</h2><ul class="item-list">
-<li><div class="item-name"><code>pub use std::embedded_curve_ops::<a href="../../std/embedded_curve_ops/struct.EmbeddedCurveScalar.html" class="struct">EmbeddedCurveScalar</a> as Scalar;</code></div></li>
+<h2 id="structs">Structs</h2><ul class="item-list">
+<li><div class="item-name"><a href="struct.Scalar.html" class="struct">Scalar</a></div><div class="item-description">Scalar for the embedded curve represented as low and high limbs
+By definition, the scalar field of the embedded curve is base field of the proving system curve.
+It may not fit into a Field element, so it is represented with two Field elements; its low and high limbs.</div></li>
 </ul>
 </main>
 </span>

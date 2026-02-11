@@ -1,37 +1,21 @@
 # @aztec/aztec.js
 
-Version: v3.0.0-devnet.6-patch.1
+Version: v4.0.0-devnet.1-patch.0
 
 ## Quick Import Reference
 
 ```typescript
 import {
-  AccountEntrypointMetaPaymentMethod,
   AccountManager,
   AccountWithSecretKey,
-  AuthWitness,
-  AztecAddress,
+  BaseAccount,
+  BatchCall,
+  Capsule,
   // ... and more
 } from '@aztec/aztec.js';
 ```
 
 ## Classes
-
-### AccountEntrypointMetaPaymentMethod
-
-Fee payment method that allows an account contract to pay for its own deployment It works by rerouting the provided fee payment method through the account's entrypoint, which sets itself as fee payer. If no payment method is provided, it is assumed the account will pay with its own fee juice balance. Usually, in order to pay fees it is necessary to obtain an ExecutionPayload that encodes the necessary information that is sent to the user's account entrypoint, that has plumbing to handle it. If there's no account contract yet (it's being deployed) a MultiCallContract is used, which doesn't have a concept of fees or how to handle this payload. HOWEVER, the account contract's entrypoint does, so this method reshapes that fee payload into a call to the account contract entrypoint being deployed with the original fee payload. This class can be seen in action in DeployAccountMethod.ts#getSelfPaymentMethod
-Implements: `FeePaymentMethod`
-
-**Constructor**
-```typescript
-new AccountEntrypointMetaPaymentMethod(wallet: Wallet, artifact: ContractArtifact, feePaymentNameOrArtifact: string | FunctionArtifact, accountAddress: AztecAddress, paymentMethod?: FeePaymentMethod)
-```
-
-**Methods**
-- `getAsset() => Promise<AztecAddress>` - The asset used to pay the fee.
-- `getExecutionPayload() => Promise<ExecutionPayload>` - Returns the data to be added to the final execution request to pay the fee in the given asset
-- `getFeePayer() => Promise<AztecAddress>` - The expected fee payer for this tx.
-- `getGasSettings() => GasSettings` - The gas settings (if any) used to compute the execution payload of the payment method
 
 ### AccountManager
 
@@ -39,13 +23,12 @@ Manages a user account. Provides methods for calculating the account's address a
 
 **Properties**
 - `address: unknown`
-- `readonly salt: Salt`
+- `readonly salt: Salt` - Contract instantiation salt for the account contract
 
 **Methods**
 - `static create(wallet: Wallet, secretKey: Fr, accountContract: AccountContract, salt?: Salt) => Promise<AccountManager>`
 - `getAccount() => Promise<AccountWithSecretKey>` - Returns a Wallet instance associated with this account. Use it to create Contract instances to be interacted with from this account.
 - `getAccountContract() => AccountContract` - Returns the account contract that backs this account.
-- `getAccountInterface() => Promise<AccountInterface>` - Returns the entrypoint for this account as defined by its account contract.
 - `getCompleteAddress() => Promise<CompleteAddress>` - Gets the calculated complete address associated with this account. Does not require the account to have been published for public execution.
 - `getDeployMethod() => Promise<DeployAccountMethod<Contract>>` - Returns a preconfigured deploy method that contains all the necessary function calls to deploy the account contract.
 - `getInstance() => ContractInstanceWithAddress` - Returns the contract instance definition associated with this account. Does not require the account to have been published for public execution.
@@ -56,88 +39,25 @@ Manages a user account. Provides methods for calculating the account's address a
 
 ### AccountWithSecretKey
 
-Extends Account with the encryption private key. Not required for implementing the wallet interface but useful for testing purposes or exporting an account to another pxe.
-
-Extends: `BaseAccount`
+Extends BaseAccount with the encryption private key. Not required for implementing the wallet interface but useful for testing purposes or exporting an account to another pxe.
+Implements: `Account`
 
 **Constructor**
 ```typescript
-new AccountWithSecretKey(account: AccountInterface, secretKey: Fr, salt: Salt)
+new AccountWithSecretKey(account: Account, secretKey: Fr, salt: Salt)
 ```
 
 **Properties**
-- `account: AccountInterface`
-- `readonly salt: Salt`
+- `readonly salt: Salt` - Deployment salt for this account contract.
 
 **Methods**
-- `createAuthWit(messageHashOrIntent: Fr | Buffer | CallIntent | IntentInnerHash) => Promise<AuthWitness>` - Computes an authentication witness from either a message hash or an intent. If a message hash is provided, it will create a witness for the hash directly. Otherwise, it will compute the message hash using the intent, along with the chain id and the version values provided by the wallet.
-- `createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings, options: DefaultAccountEntrypointOptions) => Promise<TxExecutionRequest>` - Generates an execution request out of set of function calls.
-- `getAddress() => AztecAddress` - Returns the address of the account that implements this wallet.
-- `getChainId() => Fr` - Returns the chain id for this account
-- `getCompleteAddress() => CompleteAddress` - Returns the complete address of the account that implements this wallet.
+- `createAuthWit(intent: IntentInnerHash | CallIntent, chainInfo: ChainInfo) => Promise<AuthWitness>` - Creates an authentication witness from an inner hash with consumer, or a call intent
+- `createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings, chainInfo: ChainInfo, options?: any) => Promise<TxExecutionRequest>` - Generates an execution request out of set of function calls.
+- `getAddress() => AztecAddress` - Returns the address for this account.
+- `getCompleteAddress() => CompleteAddress` - Returns the complete address for this account.
 - `getEncryptionSecret() => Promise<Fq>` - Returns the encryption secret, the secret of the encryption point—the point that others use to encrypt messages to this account note - this ensures that the address secret always corresponds to an address point with y being positive dev - this is also referred to as the address secret, which decrypts payloads encrypted to an address point
 - `getSecretKey() => Fr` - Returns the encryption private key associated with this account.
-- `getVersion() => Fr` - Returns the rollup version for this account
-
-### AuthWitness
-
-An authentication witness. Used to authorize an action by a user.
-
-**Constructor**
-```typescript
-new AuthWitness(requestHash: Fr, witness: number | Fr[])
-```
-
-**Properties**
-- `readonly requestHash: Fr`
-- `static schema: unknown`
-- `readonly witness: Fr[]` - Authentication witness for the hash
-
-**Methods**
-- `static fromBuffer(buffer: Buffer | BufferReader) => AuthWitness`
-- `static fromString(str: string) => AuthWitness`
-- `static random() => AuthWitness`
-- `toBuffer() => any`
-- `toJSON() => string`
-- `toString() => string`
-
-### AztecAddress
-
-AztecAddress represents a 32-byte address in the Aztec Protocol. It provides methods to create, manipulate, and compare addresses, as well as conversion to and from strings, buffers, and other formats. Addresses are the x coordinate of a point in the Grumpkin curve, and therefore their maximum is determined by the field modulus. An address with a value that is not the x coordinate of a point in the curve is a called an 'invalid address'. These addresses have a greatly reduced feature set, as they cannot own secrets nor have messages encrypted to them, making them quite useless. We need to be able to represent them however as they can be encountered in the wild.
-
-**Constructor**
-```typescript
-new AztecAddress(buffer: Fr | Buffer)
-```
-
-**Properties**
-- `_branding: "AztecAddress"` - Brand.
-- `static schema: unknown`
-- `size: unknown`
-- `static SIZE_IN_BYTES: number`
-- `static ZERO: AztecAddress`
-
-**Methods**
-- `[custom]() => string`
-- `equals(other: AztecAddress) => boolean`
-- `static fromBigInt(value: bigint) => AztecAddress`
-- `static fromBuffer(buffer: Buffer | BufferReader) => AztecAddress`
-- `static fromField(fr: Fr) => AztecAddress`
-- `static fromFields(fields: Fr[] | FieldReader) => AztecAddress`
-- `static fromNumber(value: number) => AztecAddress`
-- `static fromPlainObject(obj: any) => AztecAddress` - Creates an AztecAddress from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack). Handles buffers, strings, or existing instances.
-- `static fromString(buf: string) => AztecAddress`
-- `static isAddress(str: string) => boolean`
-- `isValid() => Promise<boolean>`
-- `isZero() => boolean`
-- `static random() => Promise<AztecAddress>`
-- `toAddressPoint() => Promise<Point>`
-- `toBigInt() => bigint`
-- `toBuffer() => any`
-- `toField() => Fr`
-- `toJSON() => string`
-- `toString() => string`
-- `static zero() => AztecAddress`
+- `wrapExecutionPayload(exec: ExecutionPayload, options?: any) => Promise<ExecutionPayload>` - Wraps an execution payload such that it is executed *via* this entrypoint. This returns an ExecutionPayload with the entrypoint as the caller for the wrapped payload. Useful for account self-funding deployments and batching calls beyond the limit of a single entrypoint call.
 
 ### BaseAccount
 
@@ -146,38 +66,15 @@ Implements: `Account`
 
 **Constructor**
 ```typescript
-new BaseAccount(account: AccountInterface)
+new BaseAccount(entrypoint: EntrypointInterface, authWitnessProvider: AuthWitnessProvider, completeAddress: CompleteAddress)
 ```
 
-**Properties**
-- `account: AccountInterface`
-
 **Methods**
-- `createAuthWit(messageHashOrIntent: Fr | Buffer | CallIntent | IntentInnerHash) => Promise<AuthWitness>` - Computes an authentication witness from either a message hash or an intent. If a message hash is provided, it will create a witness for the hash directly. Otherwise, it will compute the message hash using the intent, along with the chain id and the version values provided by the wallet.
-- `createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings, options: DefaultAccountEntrypointOptions) => Promise<TxExecutionRequest>` - Generates an execution request out of set of function calls.
-- `getAddress() => AztecAddress` - Returns the address of the account that implements this wallet.
-- `getChainId() => Fr` - Returns the chain id for this account
-- `getCompleteAddress() => CompleteAddress` - Returns the complete address of the account that implements this wallet.
-- `getVersion() => Fr` - Returns the rollup version for this account
-
-### BaseContractInteraction
-
-Base class for an interaction with a contract, be it a deployment, a function call, or a batch. Implements the sequence create/simulate/send.
-
-**Constructor**
-```typescript
-new BaseContractInteraction(wallet: Wallet, authWitnesses?: AuthWitness[], capsules?: Capsule[])
-```
-
-**Properties**
-- `authWitnesses: AuthWitness[]`
-- `capsules: Capsule[]`
-- `log: Logger`
-- `wallet: Wallet`
-
-**Methods**
-- `request(options?: RequestInteractionOptions) => Promise<ExecutionPayload>` - Returns an execution request that represents this operation. Can be used as a building block for constructing batch requests.
-- `send(options: SendInteractionOptions) => SentTx` - Sends a transaction to the contract function with the specified options. This function throws an error if called on a utility function. It creates and signs the transaction if necessary, and returns a SentTx instance, which can be used to track the transaction status, receipt, and events.
+- `createAuthWit(messageHashOrIntent: IntentInnerHash | CallIntent, chainInfo: ChainInfo) => Promise<AuthWitness>` - Creates an authentication witness from an inner hash with consumer, or a call intent
+- `createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings, chainInfo: ChainInfo, options: DefaultAccountEntrypointOptions) => Promise<TxExecutionRequest>` - Generates an execution request out of set of function calls.
+- `getAddress() => AztecAddress` - Returns the address for this account.
+- `getCompleteAddress() => CompleteAddress` - Returns the complete address for this account.
+- `wrapExecutionPayload(exec: ExecutionPayload, options?: any) => Promise<ExecutionPayload>` - Wraps an execution payload such that it is executed *via* this entrypoint. This returns an ExecutionPayload with the entrypoint as the caller for the wrapped payload. Useful for account self-funding deployments and batching calls beyond the limit of a single entrypoint call.
 
 ### BatchCall
 
@@ -199,51 +96,9 @@ new BatchCall(wallet: Wallet, interactions: ExecutionPayload | BaseContractInter
 
 **Methods**
 - `getExecutionPayloads() => Promise<ExecutionPayload[]>`
-- `request(options?: RequestInteractionOptions) => Promise<ExecutionPayload>` - Returns an execution request that represents this operation.
-- `send(options: SendInteractionOptions) => SentTx` - Sends a transaction to the contract function with the specified options. This function throws an error if called on a utility function. It creates and signs the transaction if necessary, and returns a SentTx instance, which can be used to track the transaction status, receipt, and events.
+- `request(options: RequestInteractionOptions) => Promise<ExecutionPayload>` - Returns an execution request that represents this operation.
+- `send<TReturn>(options: SendInteractionOptionsWithoutWait) => Promise<TReturn>` - Sends a transaction to the contract function with the specified options. By default, waits for the transaction to be mined and returns the receipt (or custom type).
 - `simulate(options: SimulateInteractionOptions) => Promise<any>` - Simulates the batch, supporting private, public and utility functions. Although this is a single interaction with the wallet, private and public functions will be grouped into a single ExecutionPayload that the wallet will simulate as a single transaction. Utility function calls will simply be executed one by one.
-
-### Body
-
-**Constructor**
-```typescript
-new Body(txEffects: TxEffect[])
-```
-
-**Properties**
-- `static schema: unknown`
-- `txEffects: TxEffect[]`
-
-**Methods**
-- `[custom]() => string`
-- `static empty() => Body`
-- `equals(other: Body) => boolean`
-- `static fromBuffer(buf: Buffer | BufferReader) => Body` - Deserializes a block from a buffer
-- `static fromTxBlobData(txBlobData: TxBlobData[]) => Body` - Decodes a block from blob fields.
-- `static random(__namedParameters?: { makeTxOptions?: (txIndex: number) => Partial<{ maxEffects?: number; numContractClassLogs?: number; ... }>; txsPerBlock?: number } & Partial<{ maxEffects?: number; numContractClassLogs?: number; ... }>) => Promise<Body>`
-- `toBuffer() => any` - Serializes a block body
-- `toTxBlobData() => TxBlobData[]` - Returns a flat packed array of fields of all tx effects - used for blobs.
-
-### CallAuthorizationRequest
-
-An authwit request for a function call. Includes the preimage of the data to be signed, as opposed of just the inner hash.
-
-**Constructor**
-```typescript
-new CallAuthorizationRequest(selector: AuthorizationSelector, innerHash: Fr, msgSender: AztecAddress, functionSelector: FunctionSelector, argsHash: Fr, args: Fr[])
-```
-
-**Properties**
-- `args: Fr[]`
-- `argsHash: Fr`
-- `functionSelector: FunctionSelector`
-- `innerHash: Fr`
-- `msgSender: AztecAddress`
-- `selector: AuthorizationSelector`
-
-**Methods**
-- `static fromFields(fields: Fr[]) => Promise<CallAuthorizationRequest>`
-- `static getSelector() => Promise<AuthorizationSelector>`
 
 ### Capsule
 
@@ -255,43 +110,17 @@ new Capsule(contractAddress: AztecAddress, storageSlot: Fr, data: Fr[])
 ```
 
 **Properties**
-- `readonly contractAddress: AztecAddress`
-- `readonly data: Fr[]`
+- `readonly contractAddress: AztecAddress` - The address of the contract the capsule is for
+- `readonly data: Fr[]` - Data passed to the contract
 - `static schema: unknown`
-- `readonly storageSlot: Fr`
+- `readonly storageSlot: Fr` - The storage slot of the capsule
 
 **Methods**
-- `static fromBuffer(buffer: Buffer | BufferReader) => Capsule`
+- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => Capsule`
 - `static fromString(str: string) => Capsule`
-- `toBuffer() => any`
+- `toBuffer() => Buffer<ArrayBufferLike>`
 - `toJSON() => string`
 - `toString() => string`
-
-### CompleteAddress
-
-A complete address is a combination of an Aztec address, a public key and a partial address.
-
-**Properties**
-- `address: AztecAddress`
-- `partialAddress: Fr`
-- `publicKeys: PublicKeys`
-- `static schema: unknown`
-- `static readonly SIZE_IN_BYTES: number` - Size in bytes of an instance
-
-**Methods**
-- `static create(address: AztecAddress, publicKeys: PublicKeys, partialAddress: Fr) => Promise<CompleteAddress>`
-- `equals(other: CompleteAddress) => boolean` - Determines if this CompleteAddress instance is equal to the given CompleteAddress instance. Equality is based on the content of their respective buffers.
-- `static fromBuffer(buffer: Buffer | BufferReader) => Promise<CompleteAddress>` - Creates an CompleteAddress instance from a given buffer or BufferReader. If the input is a Buffer, it wraps it in a BufferReader before processing. Throws an error if the input length is not equal to the expected size.
-- `static fromSecretKeyAndInstance(secretKey: Fr, instance: Pick<ContractInstance, "deployer" | "originalContractClassId" | "initializationHash" | "salt"> | { originalContractClassId: Fr; saltedInitializationHash: Fr }) => Promise<CompleteAddress>`
-- `static fromSecretKeyAndPartialAddress(secretKey: Fr, partialAddress: Fr) => Promise<CompleteAddress>`
-- `static fromString(address: string) => Promise<CompleteAddress>` - Create a CompleteAddress instance from a hex-encoded string. The input 'address' should be prefixed with '0x' or not, and have exactly 128 hex characters representing the x and y coordinates. Throws an error if the input length is invalid or coordinate values are out of range.
-- `getPreaddress() => Promise<Fr>`
-- `static random() => Promise<CompleteAddress>`
-- `toBuffer() => Buffer` - Converts the CompleteAddress instance into a Buffer. This method should be used when encoding the address for storage, transmission or serialization purposes.
-- `toJSON() => string`
-- `toReadableString() => string` - Gets a readable string representation of the complete address.
-- `toString() => string` - Convert the CompleteAddress to a hexadecimal string representation, with a "0x" prefix. The resulting string will have a length of 66 characters (including the prefix).
-- `validate() => Promise<void>` - Throws if the address is not correctly derived from the public key and partial address.
 
 ### Contract
 
@@ -305,10 +134,10 @@ new Contract(address: AztecAddress, artifact: ContractArtifact, wallet: Wallet)
 ```
 
 **Properties**
-- `readonly address: AztecAddress`
-- `readonly artifact: ContractArtifact`
+- `readonly address: AztecAddress` - The contract's address.
+- `readonly artifact: ContractArtifact` - The Application Binary Interface for the contract.
 - `methods: {}` - An object containing contract methods mapped to their respective names.
-- `wallet: Wallet`
+- `wallet: Wallet` - The wallet used for interacting with this contract.
 
 **Methods**
 - `static at(address: AztecAddress, artifact: ContractArtifact, wallet: Wallet) => Contract` - Gets a contract instance.
@@ -326,10 +155,10 @@ new ContractBase(address: AztecAddress, artifact: ContractArtifact, wallet: Wall
 ```
 
 **Properties**
-- `readonly address: AztecAddress`
-- `readonly artifact: ContractArtifact`
+- `readonly address: AztecAddress` - The contract's address.
+- `readonly artifact: ContractArtifact` - The Application Binary Interface for the contract.
 - `methods: {}` - An object containing contract methods mapped to their respective names.
-- `wallet: Wallet`
+- `wallet: Wallet` - The wallet used for interacting with this contract.
 
 **Methods**
 - `withWallet(wallet: Wallet) => this` - Creates a new instance of the contract wrapper attached to a different wallet.
@@ -354,7 +183,7 @@ Extends: `BaseContractInteraction`
 
 **Constructor**
 ```typescript
-new ContractFunctionInteraction(wallet: Wallet, contractAddress: AztecAddress, functionDao: FunctionAbi, args: any[], authWitnesses?: AuthWitness[], capsules?: Capsule[], extraHashedArgs?: HashedValues[])
+new ContractFunctionInteraction(wallet: Wallet, contractAddress: AztecAddress, functionDao: FunctionAbi, args: any[], authWitnesses: AuthWitness[], capsules: Capsule[], extraHashedArgs: HashedValues[])
 ```
 
 **Properties**
@@ -367,10 +196,10 @@ new ContractFunctionInteraction(wallet: Wallet, contractAddress: AztecAddress, f
 - `wallet: Wallet`
 
 **Methods**
-- `getFunctionCall() => Promise<{ args: Fr[]; hideMsgSender: boolean; ... }>` - Returns the encoded function call wrapped by this interaction Useful when generating authwits
+- `getFunctionCall() => Promise<FunctionCall>` - Returns the encoded function call wrapped by this interaction Useful when generating authwits
 - `profile(options: ProfileInteractionOptions) => Promise<TxProfileResult>` - Simulate a transaction and profile the gate count for each function in the transaction.
-- `request(options?: RequestInteractionOptions) => Promise<ExecutionPayload>` - Returns the execution payload that allows this operation to happen on chain.
-- `send(options: SendInteractionOptions) => SentTx` - Sends a transaction to the contract function with the specified options. This function throws an error if called on a utility function. It creates and signs the transaction if necessary, and returns a SentTx instance, which can be used to track the transaction status, receipt, and events.
+- `request(options: RequestInteractionOptions) => Promise<ExecutionPayload>` - Returns the execution payload that allows this operation to happen on chain.
+- `send<TReturn>(options: SendInteractionOptionsWithoutWait) => Promise<TReturn>` - Sends a transaction to the contract function with the specified options. By default, waits for the transaction to be mined and returns the receipt (or custom type).
 - `simulate<T extends SimulateInteractionOptions>(options: T) => Promise<SimulationReturn<Exclude<T["fee"], undefined>["estimateGas"]>>` - Simulate a transaction and get information from its execution. Differs from prove in a few important ways: 1. It returns the values of the function execution, plus additional metadata if requested 2. It supports `utility`, `private` and `public` functions
 - `with(options: { authWitnesses?: AuthWitness[]; capsules?: Capsule[]; extraHashedArgs?: HashedValues[] }) => ContractFunctionInteraction` - Augments this ContractFunctionInteraction with additional metadata, such as authWitnesses, capsules, and extraHashedArgs. This is useful when creating a "batteries included" interaction, such as registering a contract class with its associated capsule instead of having the user provide them externally.
 
@@ -382,7 +211,7 @@ Extends: `DeployMethod<TContract>`
 
 **Constructor**
 ```typescript
-new DeployAccountMethod(publicKeys: PublicKeys, wallet: Wallet, artifact: ContractArtifact, postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract, salt: Fr, args?: any[], constructorNameOrArtifact?: string | FunctionArtifact)
+new DeployAccountMethod(publicKeys: PublicKeys, wallet: Wallet, artifact: ContractArtifact, postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract, salt: Fr, account: Account, args: any[], constructorNameOrArtifact?: string | FunctionArtifact)
 ```
 
 **Properties**
@@ -396,26 +225,26 @@ new DeployAccountMethod(publicKeys: PublicKeys, wallet: Wallet, artifact: Contra
 - `wallet: Wallet`
 
 **Methods**
-- `convertDeployOptionsToRequestOptions(options: DeployOptions) => RequestDeployOptions`
+- `convertDeployOptionsToRequestOptions(options: DeployAccountOptionsWithoutWait) => RequestDeployOptions`
 - `getInitializationExecutionPayload(options?: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns the calls necessary to initialize the contract.
 - `getInstance(options?: RequestDeployOptions) => Promise<ContractInstanceWithAddress>` - Builds the contract instance and returns it.
 - `getPublicationExecutionPayload(options?: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns an execution payload for: - publication of the contract class and - publication of the contract instance to enable public execution depending on the provided options.
-- `profile(options: Omit<RequestDeployOptions, "deployer"> & { universalDeploy?: boolean } & Pick<SendInteractionOptions, "fee" | "from"> & Omit<SendInteractionOptions, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => Promise<TxProfileResult>` - Simulate a deployment and profile the gate count for each function in the transaction.
+- `profile(options: Omit<RequestDeployOptions, "deployer"> & { universalDeploy?: boolean } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => Promise<TxProfileResult>` - Simulate a deployment and profile the gate count for each function in the transaction.
 - `register(options?: RequestDeployOptions) => Promise<TContract>` - Adds this contract to the wallet and returns the Contract object.
 - `request(opts?: RequestDeployAccountOptions) => Promise<ExecutionPayload>` - Returns the execution payload that allows this operation to happen on chain.
-- `send(options: DeployOptions) => DeploySentTx<TContract>` - Send a contract deployment transaction (initialize and/or publish) using the provided options. This function extends the 'send' method from the ContractFunctionInteraction class, allowing us to send a transaction specifically for contract deployment.
+- `send(options: DeployOptionsWithoutWait) => Promise<TContract>` - Send a contract deployment transaction (initialize and/or publish) using the provided options. By default, waits for the transaction to be mined and returns the deployed contract instance.
 - `simulate(options: SimulateDeployOptions) => Promise<{ estimatedGas: Pick<GasSettings, "gasLimits" | "teardownGasLimits">; offchainEffects: OffchainEffect[]; ... }>` - Simulate the deployment
-- `with(options: { authWitnesses?: AuthWitness[]; capsules?: Capsule[] }) => DeployMethod<ContractBase>` - Augments this DeployMethod with additional metadata, such as authWitnesses and capsules.
+- `with(options: { authWitnesses?: AuthWitness[]; capsules?: Capsule[] }) => DeployMethod` - Augments this DeployMethod with additional metadata, such as authWitnesses and capsules.
 
 ### DeployMethod
 
-Contract interaction for deployment. Handles class publication, instance publication, and initialization of the contract. Note that for some contracts, a tx is not required as part of its "creation": If there are no public functions, and if there are no initialization functions, then technically the contract has already been "created", and all of the contract's functions (private and utility) can be interacted-with immediately, without any "deployment tx". Extends the BaseContractInteraction class.
+Contract interaction for deployment. Handles class publication, instance publication, and initialization of the contract. Note that for some contracts, a tx is not required as part of its "creation": If there are no public functions, and if there are no initialization functions, then technically the contract has already been "created", and all of the contract's functions (private and utility) can be interacted-with immediately, without any "deployment tx".
 
 Extends: `BaseContractInteraction`
 
 **Constructor**
 ```typescript
-new DeployMethod(publicKeys: PublicKeys, wallet: Wallet, artifact: ContractArtifact, postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract, args?: any[], constructorNameOrArtifact?: string | FunctionArtifact, authWitnesses?: AuthWitness[], capsules?: Capsule[])
+new DeployMethod(publicKeys: PublicKeys, wallet: Wallet, artifact: ContractArtifact, postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract, args: any[], constructorNameOrArtifact?: string | FunctionArtifact, authWitnesses: AuthWitness[], capsules: Capsule[])
 ```
 
 **Properties**
@@ -429,77 +258,16 @@ new DeployMethod(publicKeys: PublicKeys, wallet: Wallet, artifact: ContractArtif
 - `wallet: Wallet`
 
 **Methods**
-- `convertDeployOptionsToRequestOptions(options: DeployOptions) => RequestDeployOptions`
+- `convertDeployOptionsToRequestOptions(options: DeployOptionsWithoutWait) => RequestDeployOptions`
 - `getInitializationExecutionPayload(options?: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns the calls necessary to initialize the contract.
 - `getInstance(options?: RequestDeployOptions) => Promise<ContractInstanceWithAddress>` - Builds the contract instance and returns it.
 - `getPublicationExecutionPayload(options?: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns an execution payload for: - publication of the contract class and - publication of the contract instance to enable public execution depending on the provided options.
-- `profile(options: Omit<RequestDeployOptions, "deployer"> & { universalDeploy?: boolean } & Pick<SendInteractionOptions, "fee" | "from"> & Omit<SendInteractionOptions, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => Promise<TxProfileResult>` - Simulate a deployment and profile the gate count for each function in the transaction.
+- `profile(options: Omit<RequestDeployOptions, "deployer"> & { universalDeploy?: boolean } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => Promise<TxProfileResult>` - Simulate a deployment and profile the gate count for each function in the transaction.
 - `register(options?: RequestDeployOptions) => Promise<TContract>` - Adds this contract to the wallet and returns the Contract object.
 - `request(options?: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns the execution payload that allows this operation to happen on chain.
-- `send(options: DeployOptions) => DeploySentTx<TContract>` - Send a contract deployment transaction (initialize and/or publish) using the provided options. This function extends the 'send' method from the ContractFunctionInteraction class, allowing us to send a transaction specifically for contract deployment.
+- `send(options: DeployOptionsWithoutWait) => Promise<TContract>` - Send a contract deployment transaction (initialize and/or publish) using the provided options. By default, waits for the transaction to be mined and returns the deployed contract instance.
 - `simulate(options: SimulateDeployOptions) => Promise<{ estimatedGas: Pick<GasSettings, "gasLimits" | "teardownGasLimits">; offchainEffects: OffchainEffect[]; ... }>` - Simulate the deployment
-- `with(options: { authWitnesses?: AuthWitness[]; capsules?: Capsule[] }) => DeployMethod<ContractBase>` - Augments this DeployMethod with additional metadata, such as authWitnesses and capsules.
-
-### DeploySentTx
-
-A contract deployment transaction sent to the network, extending SentTx with methods to publish a contract instance.
-
-Extends: `SentTx`
-
-**Constructor**
-```typescript
-new DeploySentTx(wallet: Wallet, sendTx: () => Promise<TxHash>, postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract, instanceGetter: () => Promise<ContractInstanceWithAddress>)
-```
-
-**Properties**
-- `sendTxError?: Error`
-- `sendTxPromise: Promise<void>`
-- `txHash?: TxHash`
-- `walletOrNode: AztecNode | Wallet`
-
-**Methods**
-- `deployed(opts?: DeployedWaitOpts) => Promise<TContract>` - Awaits for the tx to be mined and returns the contract instance. Throws if tx is not mined.
-- `getInstance() => Promise<ContractInstanceWithAddress>` - Returns the contract instance for this deployment.
-- `getReceipt() => Promise<TxReceipt>` - Retrieve the transaction receipt associated with the current SentTx instance. The function fetches the transaction hash using 'getTxHash' and then queries the PXE to get the corresponding transaction receipt.
-- `getTxHash() => Promise<TxHash>` - Retrieves the transaction hash of the SentTx instance. The function internally awaits for the 'txHashPromise' to resolve, and then returns the resolved transaction hash.
-- `wait(opts?: DeployedWaitOpts) => Promise<DeployTxReceipt<TContract>>` - Awaits for the tx to be mined and returns the receipt along with a contract instance. Throws if tx is not mined.
-- `waitForReceipt(opts?: WaitOpts) => Promise<TxReceipt>`
-
-### EthAddress
-
-Represents an Ethereum address as a 20-byte buffer and provides various utility methods for converting between different representations, generating random addresses, validating checksums, and comparing addresses. EthAddress can be instantiated using a buffer or string, and can be serialized/deserialized from a buffer or BufferReader.
-
-**Constructor**
-```typescript
-new EthAddress(buffer: Buffer)
-```
-
-**Properties**
-- `static schema: unknown`
-- `static SIZE_IN_BYTES: number` - The size of an Ethereum address in bytes.
-- `static ZERO: EthAddress` - Represents a zero Ethereum address with 20 bytes filled with zeros.
-
-**Methods**
-- `[custom]() => string`
-- `static areEqual(a: string | EthAddress, b: string | EthAddress) => boolean`
-- `static checkAddressChecksum(address: string) => boolean` - Checks if the given Ethereum address has a valid checksum. The input 'address' should be prefixed with '0x' or not, and have exactly 40 hex characters. Returns true if the address has a valid checksum, false otherwise.
-- `equals(rhs: EthAddress) => boolean` - Checks whether the given EthAddress instance is equal to the current instance. Equality is determined by comparing the underlying byte buffers of both instances.
-- `static fromBuffer(buffer: Buffer | BufferReader) => EthAddress` - Deserializes from a buffer or reader, corresponding to a write in cpp.
-- `static fromField(fr: Fr) => EthAddress` - Converts a field to a eth address.
-- `static fromFields(fields: Fr[] | FieldReader) => EthAddress`
-- `static fromNumber(num: number | bigint) => EthAddress` - Converts a number into an address. Useful for testing.
-- `static fromPlainObject(obj: any) => EthAddress` - Creates an EthAddress from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack). Handles buffers (20 or 32 bytes), strings, or existing instances.
-- `static fromString(address: string) => EthAddress` - Creates an EthAddress instance from a valid Ethereum address string. The input 'address' can be either in checksum format or lowercase, and it can be prefixed with '0x'. Throws an error if the input is not a valid Ethereum address.
-- `static isAddress(address: string) => boolean` - Determines if the given string represents a valid Ethereum address. A valid address should meet the following criteria: 1. Contains exactly 40 hex characters (excluding an optional '0x' prefix). 2. Is either all lowercase, all uppercase, or has a valid checksum based on EIP-55.
-- `isZero() => boolean` - Checks if the EthAddress instance represents a zero address. A zero address consists of 20 bytes filled with zeros and is considered an invalid address.
-- `static random() => EthAddress` - Create a random EthAddress instance with 20 random bytes. This method generates a new Ethereum address with a randomly generated set of 20 bytes. It is useful for generating test addresses or unique identifiers.
-- `toBuffer() => any` - Returns a 20-byte buffer representation of the Ethereum address.
-- `toBuffer32() => any` - Returns a 32-byte buffer representation of the Ethereum address, with the original 20-byte address occupying the last 20 bytes and the first 12 bytes being zero-filled. This format is commonly used in smart contracts when handling addresses as 32-byte values.
-- `static toChecksumAddress(address: string) => string` - Converts an Ethereum address to its checksum format. The input 'address' should be prefixed with '0x' or not, and have exactly 40 hex characters. The checksum format is created by capitalizing certain characters in the hex string based on the hash of the lowercase address. Throws an error if the input address is invalid.
-- `toChecksumString() => string` - Returns the Ethereum address as a checksummed string. The output string will have characters in the correct upper or lowercase form, according to EIP-55. This provides a way to verify if an address is typed correctly, by checking the character casing.
-- `toField() => Fr` - Returns a new field with the same contents as this EthAddress.
-- `toJSON() => string`
-- `toString() => string` - Converts the Ethereum address to a hex-encoded string. The resulting string is prefixed with '0x' and has exactly 40 hex characters. This method can be used to represent the EthAddress instance in the widely used hexadecimal format.
+- `with(options: { authWitnesses?: AuthWitness[]; capsules?: Capsule[] }) => DeployMethod` - Augments this DeployMethod with additional metadata, such as authWitnesses and capsules.
 
 ### EventSelector
 
@@ -522,7 +290,7 @@ new EventSelector(value: number)
 - `[custom]() => string`
 - `static empty() => EventSelector` - Creates an empty selector.
 - `equals(other: Selector) => boolean` - Checks if this selector is equal to another.
-- `static fromBuffer(buffer: Buffer | BufferReader) => EventSelector` - Deserializes from a buffer or reader, corresponding to a write in cpp.
+- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => EventSelector` - Deserializes from a buffer or reader, corresponding to a write in cpp.
 - `static fromField(fr: Fr) => EventSelector` - Converts a field to selector.
 - `static fromSignature(signature: string) => Promise<EventSelector>` - Creates a selector from a signature.
 - `static fromString(selector: string) => EventSelector` - Create a Selector instance from a hex-encoded string.
@@ -543,11 +311,11 @@ new ExecutionPayload(calls: FunctionCall[], authWitnesses: AuthWitness[], capsul
 ```
 
 **Properties**
-- `authWitnesses: AuthWitness[]`
-- `calls: FunctionCall[]`
-- `capsules: Capsule[]`
-- `extraHashedArgs: HashedValues[]`
-- `feePayer?: AztecAddress`
+- `authWitnesses: AuthWitness[]` - Any transient auth witnesses needed for this execution
+- `calls: FunctionCall[]` - The function calls to be executed.
+- `capsules: Capsule[]` - Data passed through an oracle for this execution.
+- `extraHashedArgs: HashedValues[]` - Extra hashed values to be injected in the execution cache
+- `feePayer?: AztecAddress` - The address that is paying for the fee in this execution payload (if any). If undefined, the wallet software executing the payload will have to add a fee payment method
 
 **Methods**
 - `static empty() => ExecutionPayload`
@@ -566,7 +334,7 @@ new FeeJuicePaymentMethodWithClaim(sender: AztecAddress, claim: Pick<L2AmountCla
 - `getAsset() => Promise<AztecAddress>` - The asset used to pay the fee.
 - `getExecutionPayload() => Promise<ExecutionPayload>` - Creates an execution payload to pay the fee in Fee Juice.
 - `getFeePayer() => Promise<AztecAddress>` - The expected fee payer for this tx.
-- `getGasSettings() => GasSettings` - The gas settings (if any) used to compute the execution payload of the payment method
+- `getGasSettings() => GasSettings | undefined` - The gas settings (if any) used to compute the execution payload of the payment method
 
 ### Fq
 
@@ -576,7 +344,7 @@ Extends: `BaseField`
 
 **Constructor**
 ```typescript
-new Fq(value: number | bigint | boolean | Buffer | Fq)
+new Fq(value: number | bigint | boolean | Fq | Buffer<ArrayBufferLike>)
 ```
 
 **Properties**
@@ -593,9 +361,9 @@ new Fq(value: number | bigint | boolean | Buffer | Fq)
 **Methods**
 - `[custom]() => string`
 - `add(rhs: Fq) => Fq`
-- `cmp(rhs: BaseField) => -1 | 0 | 1`
+- `static cmp(lhs: BaseField, rhs: BaseField) => -1 | 0 | 1`
 - `equals(rhs: BaseField) => boolean`
-- `static fromBuffer(buffer: Buffer | BufferReader) => Fq`
+- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => Fq`
 - `static fromBufferReduce(buffer: Buffer) => Fq`
 - `static fromHexString(buf: string) => Fq` - Creates a Fq instance from a hex string.
 - `static fromHighLow(high: Fr, low: Fr) => Fq`
@@ -605,10 +373,10 @@ new Fq(value: number | bigint | boolean | Buffer | Fq)
 - `lt(rhs: BaseField) => boolean`
 - `modulus() => bigint`
 - `static random() => Fq`
-- `sqrt() => Promise<Fq>` - Computes a square root of the field element.
+- `sqrt() => Promise<Fq | null>` - Computes a square root of the field element.
 - `toBigInt() => bigint`
 - `toBool() => boolean`
-- `toBuffer() => Buffer` - We return a copy of the Buffer to ensure this remains immutable.
+- `toBuffer() => Buffer` - Converts the bigint to a Buffer.
 - `toField() => this`
 - `toFields() => Fr[]`
 - `toFriendlyJSON() => string`
@@ -627,7 +395,7 @@ Extends: `BaseField`
 
 **Constructor**
 ```typescript
-new Fr(value: number | bigint | boolean | Fr | Buffer)
+new Fr(value: number | bigint | boolean | Fr | Buffer<ArrayBufferLike>)
 ```
 
 **Properties**
@@ -644,11 +412,11 @@ new Fr(value: number | bigint | boolean | Fr | Buffer)
 **Methods**
 - `[custom]() => string`
 - `add(rhs: Fr) => Fr` - Arithmetic
-- `cmp(rhs: BaseField) => -1 | 0 | 1`
+- `static cmp(lhs: BaseField, rhs: BaseField) => -1 | 0 | 1`
 - `div(rhs: Fr) => Fr`
 - `ediv(rhs: Fr) => Fr`
 - `equals(rhs: BaseField) => boolean`
-- `static fromBuffer(buffer: Buffer | BufferReader) => Fr`
+- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => Fr`
 - `static fromBufferReduce(buffer: Buffer) => Fr`
 - `static fromHexString(buf: string) => Fr` - Creates a Fr instance from a hex string.
 - `static fromPlainObject(obj: any) => Fr` - Creates an Fr instance from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack). Handles buffers, strings, numbers, bigints, or existing instances.
@@ -660,12 +428,12 @@ new Fr(value: number | bigint | boolean | Fr | Buffer)
 - `mul(rhs: Fr) => Fr`
 - `negate() => Fr`
 - `static random() => Fr`
-- `sqrt() => Promise<Fr>` - Computes a square root of the field element.
+- `sqrt() => Promise<Fr | null>` - Computes a square root of the field element.
 - `square() => Fr`
 - `sub(rhs: Fr) => Fr`
 - `toBigInt() => bigint`
 - `toBool() => boolean`
-- `toBuffer() => Buffer` - We return a copy of the Buffer to ensure this remains immutable.
+- `toBuffer() => Buffer` - Converts the bigint to a Buffer.
 - `toField() => this`
 - `toFriendlyJSON() => string`
 - `toJSON() => string`
@@ -685,19 +453,21 @@ new FunctionCall(name: string, to: AztecAddress, selector: FunctionSelector, typ
 ```
 
 **Properties**
-- `args: Fr[]`
-- `hideMsgSender: boolean`
-- `isStatic: boolean`
-- `name: string`
-- `returnTypes: AbiType[]`
-- `selector: FunctionSelector`
-- `to: AztecAddress`
-- `type: FunctionType`
+- `args: Fr[]` - The encoded args
+- `hideMsgSender: boolean` - Only applicable for enqueued public function calls. `hideMsgSender = true` will set the msg_sender field (the caller's address) to "null", meaning the public function (and observers around the world) won't know which smart contract address made the call.
+- `isStatic: boolean` - Whether this call can make modifications to state or not
+- `name: string` - The name of the function to call
+- `returnTypes: AbiType[]` - The return type for decoding
+- `static schema: unknown`
+- `selector: FunctionSelector` - The function being called
+- `to: AztecAddress` - The recipient contract
+- `type: FunctionType` - Type of the function
 
 **Methods**
-- `static empty() => { args: never[]; hideMsgSender: boolean; ... }` - Creates an empty function call.
+- `static empty() => FunctionCall` - Creates an empty function call.
 - `static from(fields: FieldsOf<FunctionCall>) => FunctionCall`
 - `static getFields(fields: FieldsOf<FunctionCall>) => readonly []`
+- `isPublicStatic() => boolean`
 
 ### FunctionSelector
 
@@ -720,10 +490,11 @@ new FunctionSelector(value: number)
 - `[custom]() => string`
 - `static empty() => FunctionSelector` - Creates an empty selector.
 - `equals(other: Selector) => boolean` - Checks if this selector is equal to another.
-- `static fromBuffer(buffer: Buffer | BufferReader) => FunctionSelector` - Deserializes from a buffer or reader, corresponding to a write in cpp.
+- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => FunctionSelector` - Deserializes from a buffer or reader, corresponding to a write in cpp.
 - `static fromField(fr: Fr) => FunctionSelector` - Converts a field to selector.
+- `static fromFieldOrUndefined(fr: Fr) => FunctionSelector | undefined`
 - `static fromFields(fields: Fr[] | FieldReader) => FunctionSelector`
-- `static fromNameAndParameters(args: { name: string; parameters: { name: string; type: AbiType } & { visibility: "databus" | "private" | "public" }[] }) => Promise<FunctionSelector>` - Creates a function selector for a given function name and parameters.
+- `static fromNameAndParameters(args: { name: string; parameters: { name: string; type: AbiType } & { visibility: "private" | "databus" | "public" }[] }) => Promise<FunctionSelector>` - Creates a function selector for a given function name and parameters.
 - `static fromSignature(signature: string) => Promise<FunctionSelector>` - Creates a selector from a signature.
 - `static fromString(selector: string) => FunctionSelector` - Create a Selector instance from a hex-encoded string.
 - `isEmpty() => boolean` - Checks if the selector is empty (all bytes are 0).
@@ -743,15 +514,15 @@ new GlobalVariables(chainId: Fr, version: Fr, blockNumber: BlockNumber, slotNumb
 ```
 
 **Properties**
-- `blockNumber: BlockNumber`
-- `chainId: Fr`
-- `coinbase: EthAddress`
-- `feeRecipient: AztecAddress`
-- `gasFees: GasFees`
+- `blockNumber: BlockNumber` - Block number of the L2 block.
+- `chainId: Fr` - ChainId for the L2 block.
+- `coinbase: EthAddress` - Recipient of block reward.
+- `feeRecipient: AztecAddress` - Address to receive fees.
+- `gasFees: GasFees` - Global gas prices for this block.
 - `static schema: unknown`
-- `slotNumber: SlotNumber`
-- `timestamp: bigint`
-- `version: Fr`
+- `slotNumber: SlotNumber` - Slot number of the L2 block
+- `timestamp: bigint` - Timestamp of the L2 block.
+- `version: Fr` - Version for the L2 block.
 
 **Methods**
 - `[custom]() => string`
@@ -759,14 +530,14 @@ new GlobalVariables(chainId: Fr, version: Fr, blockNumber: BlockNumber, slotNumb
 - `static empty(fields?: Partial<FieldsOf<GlobalVariables>>) => GlobalVariables`
 - `equals(other: this) => boolean`
 - `static from(fields: FieldsOf<GlobalVariables>) => GlobalVariables`
-- `static fromBuffer(buffer: Buffer | BufferReader) => GlobalVariables`
+- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => GlobalVariables`
 - `static fromFields(fields: Fr[] | FieldReader) => GlobalVariables`
 - `static fromPlainObject(obj: any) => GlobalVariables` - Creates a GlobalVariables instance from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack).
 - `static getFields(fields: FieldsOf<GlobalVariables>) => readonly []`
 - `getSize() => number`
 - `isEmpty() => boolean`
 - `static random(overrides?: Partial<FieldsOf<GlobalVariables>>) => GlobalVariables`
-- `toBuffer() => any`
+- `toBuffer() => Buffer<ArrayBufferLike>`
 - `toFields() => Fr[]`
 - `toFriendlyJSON() => { blockNumber: BlockNumber; coinbase: string; ... }` - A trimmed version of the JSON representation of the global variables, tailored for human consumption.
 - `toInspect() => { blockNumber: BlockNumber; chainId: number; ... }`
@@ -782,39 +553,19 @@ new HashedValues(values: Fr[], hash: Fr)
 ```
 
 **Properties**
-- `readonly hash: Fr`
+- `readonly hash: Fr` - The hash of the raw values
 - `static schema: unknown`
-- `readonly values: Fr[]`
+- `readonly values: Fr[]` - Raw values.
 
 **Methods**
 - `static from(fields: FieldsOf<HashedValues>) => HashedValues`
 - `static fromArgs(args: Fr[]) => Promise<HashedValues>`
-- `static fromBuffer(buffer: Buffer | BufferReader) => HashedValues`
+- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => HashedValues`
 - `static fromCalldata(calldata: Fr[]) => Promise<HashedValues>`
 - `static getFields(fields: FieldsOf<HashedValues>) => readonly []`
 - `getSize() => number`
 - `static random() => HashedValues`
-- `toBuffer() => any`
-
-### L1Actor
-
-The sender of an L1 to L2 message or recipient of an L2 to L1 message.
-
-**Constructor**
-```typescript
-new L1Actor(sender: EthAddress, chainId: number)
-```
-
-**Properties**
-- `readonly chainId: number`
-- `readonly sender: EthAddress`
-
-**Methods**
-- `static empty() => L1Actor`
-- `static fromBuffer(buffer: Buffer | BufferReader) => L1Actor`
-- `static random() => L1Actor`
-- `toBuffer() => Buffer`
-- `toFields() => Fr[]`
+- `toBuffer() => Buffer<ArrayBufferLike>`
 
 ### L1FeeJuicePortalManager
 
@@ -822,39 +573,13 @@ Helper for interacting with the FeeJuicePortal on L1.
 
 **Constructor**
 ```typescript
-new L1FeeJuicePortalManager(portalAddress: EthAddress, tokenAddress: EthAddress, handlerAddress: EthAddress, extendedClient: ExtendedViemWalletClient, logger: Logger)
+new L1FeeJuicePortalManager(portalAddress: EthAddress, tokenAddress: EthAddress, handlerAddress: EthAddress | undefined, extendedClient: ExtendedViemWalletClient, logger: Logger)
 ```
 
 **Methods**
-- `bridgeTokensPublic(to: AztecAddress, amount: bigint, mint?: boolean) => Promise<L2AmountClaim>` - Bridges fee juice from L1 to L2 publicly. Handles L1 ERC20 approvals. Returns once the tx has been mined.
+- `bridgeTokensPublic(to: AztecAddress, amount: bigint | undefined, mint: boolean) => Promise<L2AmountClaim>` - Bridges fee juice from L1 to L2 publicly. Handles L1 ERC20 approvals. Returns once the tx has been mined.
 - `getTokenManager() => L1TokenManager` - Returns the associated token manager for the L1 ERC20.
 - `static new(node: AztecNode, extendedClient: ExtendedViemWalletClient, logger: Logger) => Promise<L1FeeJuicePortalManager>` - Creates a new instance
-
-### L1ToL2Message
-
-The format of an L1 to L2 Message.
-
-**Constructor**
-```typescript
-new L1ToL2Message(sender: L1Actor, recipient: L2Actor, content: Fr, secretHash: Fr, index: Fr)
-```
-
-**Properties**
-- `readonly content: Fr`
-- `readonly index: Fr`
-- `readonly recipient: L2Actor`
-- `readonly secretHash: Fr`
-- `readonly sender: L1Actor`
-
-**Methods**
-- `static empty() => L1ToL2Message`
-- `static fromBuffer(buffer: Buffer | BufferReader) => L1ToL2Message`
-- `static fromString(data: string) => L1ToL2Message`
-- `hash() => Fr`
-- `static random() => Promise<L1ToL2Message>`
-- `toBuffer() => Buffer`
-- `toFields() => Fr[]` - Returns each element within its own field so that it can be consumed by an acvm oracle call.
-- `toString() => string`
 
 ### L1ToL2TokenPortalManager
 
@@ -862,18 +587,18 @@ Helper for interacting with a test TokenPortal on L1 for sending tokens to L2.
 
 **Constructor**
 ```typescript
-new L1ToL2TokenPortalManager(portalAddress: EthAddress, tokenAddress: EthAddress, handlerAddress: EthAddress, extendedClient: ExtendedViemWalletClient, logger: Logger)
+new L1ToL2TokenPortalManager(portalAddress: EthAddress, tokenAddress: EthAddress, handlerAddress: EthAddress | undefined, extendedClient: ExtendedViemWalletClient, logger: Logger)
 ```
 
 **Properties**
 - `extendedClient: ExtendedViemWalletClient`
 - `logger: Logger`
-- `readonly portal: { abi: readonly []; address: string }`
+- `readonly portal: {}`
 - `readonly tokenManager: L1TokenManager`
 
 **Methods**
-- `bridgeTokensPrivate(to: AztecAddress, amount: bigint, mint?: boolean) => Promise<L2AmountClaimWithRecipient>` - Bridges tokens from L1 to L2 privately. Handles token approvals. Returns once the tx has been mined.
-- `bridgeTokensPublic(to: AztecAddress, amount: bigint, mint?: boolean) => Promise<L2AmountClaim>` - Bridges tokens from L1 to L2. Handles token approvals. Returns once the tx has been mined.
+- `bridgeTokensPrivate(to: AztecAddress, amount: bigint, mint: boolean) => Promise<L2AmountClaimWithRecipient>` - Bridges tokens from L1 to L2 privately. Handles token approvals. Returns once the tx has been mined.
+- `bridgeTokensPublic(to: AztecAddress, amount: bigint, mint: boolean) => Promise<L2AmountClaim>` - Bridges tokens from L1 to L2. Handles token approvals. Returns once the tx has been mined.
 - `getTokenManager() => L1TokenManager` - Returns the token manager for the underlying L1 token.
 
 ### L1TokenManager
@@ -882,15 +607,15 @@ Helper for managing an ERC20 on L1.
 
 **Constructor**
 ```typescript
-new L1TokenManager(tokenAddress: EthAddress, handlerAddress: EthAddress, extendedClient: ExtendedViemWalletClient, logger: Logger)
+new L1TokenManager(tokenAddress: EthAddress, handlerAddress: EthAddress | undefined, extendedClient: ExtendedViemWalletClient, logger: Logger)
 ```
 
 **Properties**
-- `readonly handlerAddress: EthAddress`
-- `readonly tokenAddress: EthAddress`
+- `readonly handlerAddress: EthAddress | undefined` - Address of the handler/faucet contract.
+- `readonly tokenAddress: EthAddress` - Address of the ERC20 contract.
 
 **Methods**
-- `approve(amount: bigint, address: string, addressName?: string) => Promise<void>` - Approves tokens for the given address. Returns once the tx has been mined.
+- `approve(amount: bigint, address: string, addressName: string) => Promise<void>` - Approves tokens for the given address. Returns once the tx has been mined.
 - `getL1TokenBalance(address: string) => Promise<bigint>` - Returns the balance of the given address.
 - `getMintAmount() => Promise<bigint>` - Returns the amount of tokens available to mint via the handler.
 - `mint(address: string, addressName?: string) => Promise<void>` - Mints a fixed amount of tokens for the given address. Returns once the tx has been mined.
@@ -903,128 +628,21 @@ Extends: `L1ToL2TokenPortalManager`
 
 **Constructor**
 ```typescript
-new L1TokenPortalManager(portalAddress: EthAddress, tokenAddress: EthAddress, handlerAddress: EthAddress, outboxAddress: EthAddress, extendedClient: ExtendedViemWalletClient, logger: Logger)
+new L1TokenPortalManager(portalAddress: EthAddress, tokenAddress: EthAddress, handlerAddress: EthAddress | undefined, outboxAddress: EthAddress, extendedClient: ExtendedViemWalletClient, logger: Logger)
 ```
 
 **Properties**
 - `extendedClient: ExtendedViemWalletClient`
 - `logger: Logger`
-- `readonly portal: { abi: readonly []; address: string }`
+- `readonly portal: {}`
 - `readonly tokenManager: L1TokenManager`
 
 **Methods**
-- `bridgeTokensPrivate(to: AztecAddress, amount: bigint, mint?: boolean) => Promise<L2AmountClaimWithRecipient>` - Bridges tokens from L1 to L2 privately. Handles token approvals. Returns once the tx has been mined.
-- `bridgeTokensPublic(to: AztecAddress, amount: bigint, mint?: boolean) => Promise<L2AmountClaim>` - Bridges tokens from L1 to L2. Handles token approvals. Returns once the tx has been mined.
-- `getL2ToL1MessageLeaf(amount: bigint, recipient: EthAddress, l2Bridge: AztecAddress, callerOnL1?: EthAddress) => Promise<Fr>` - Computes the L2 to L1 message leaf for the given parameters.
+- `bridgeTokensPrivate(to: AztecAddress, amount: bigint, mint: boolean) => Promise<L2AmountClaimWithRecipient>` - Bridges tokens from L1 to L2 privately. Handles token approvals. Returns once the tx has been mined.
+- `bridgeTokensPublic(to: AztecAddress, amount: bigint, mint: boolean) => Promise<L2AmountClaim>` - Bridges tokens from L1 to L2. Handles token approvals. Returns once the tx has been mined.
+- `getL2ToL1MessageLeaf(amount: bigint, recipient: EthAddress, l2Bridge: AztecAddress, callerOnL1: EthAddress) => Promise<Fr>` - Computes the L2 to L1 message leaf for the given parameters.
 - `getTokenManager() => L1TokenManager` - Returns the token manager for the underlying L1 token.
-- `withdrawFunds(amount: bigint, recipient: EthAddress, blockNumber: bigint, messageIndex: bigint, siblingPath: SiblingPath<number>) => Promise<void>` - Withdraws funds from the portal by consuming an L2 to L1 message. Returns once the tx is mined on L1.
-
-### L2Actor
-
-The recipient of an L2 message.
-
-**Constructor**
-```typescript
-new L2Actor(recipient: AztecAddress, version: number)
-```
-
-**Properties**
-- `readonly recipient: AztecAddress`
-- `readonly version: number`
-
-**Methods**
-- `static empty() => L2Actor`
-- `static fromBuffer(buffer: Buffer | BufferReader) => L2Actor`
-- `static random() => Promise<L2Actor>`
-- `toBuffer() => Buffer`
-- `toFields() => Fr[]`
-
-### L2Block
-
-The data that makes up the rollup proof, with encoder decoder functions.
-
-**Constructor**
-```typescript
-new L2Block(archive: AppendOnlyTreeSnapshot, header: L2BlockHeader, body: Body, blockHash?: Fr)
-```
-
-**Properties**
-- `archive: AppendOnlyTreeSnapshot`
-- `body: Body`
-- `header: L2BlockHeader`
-- `number: unknown`
-- `static schema: unknown`
-- `slot: unknown`
-- `timestamp: unknown`
-
-**Methods**
-- `static empty() => L2Block` - Creates an L2 block containing empty data.
-- `equals(other: L2Block) => boolean`
-- `static fromBuffer(buf: Buffer | BufferReader) => L2Block` - Deserializes a block from a buffer
-- `static fromCheckpoint(checkpoint: Checkpoint) => L2Block`
-- `static fromString(str: string) => L2Block` - Deserializes L2 block from a buffer.
-- `getBlockHeader() => BlockHeader`
-- `getCheckpointBlobFields() => Fr[]`
-- `getCheckpointHeader() => CheckpointHeader`
-- `getStats() => { blockNumber: BlockNumber; blockTimestamp: number; ... }` - Returns stats used for logging.
-- `hash() => Promise<Fr>` - Returns the block's hash (hash of block header).
-- `static random(l2BlockNum: BlockNumber, txsPerBlock?: number, numPublicCallsPerTx?: number, numPublicLogsPerCall?: number, inHash?: Fr, slotNumber?: number, maxEffects?: number) => Promise<L2Block>` - Creates an L2 block containing random data.
-- `toBlobFields() => Fr[]`
-- `toBlockBlobData() => BlockBlobData`
-- `toBlockInfo() => L2BlockInfo`
-- `toBuffer() => any` - Serializes a block
-- `toCheckpoint() => Checkpoint`
-- `toL2Block() => L2BlockNew`
-- `toString() => string` - Serializes a block to a string.
-
-### LogId
-
-A globally unique log id.
-
-**Constructor**
-```typescript
-new LogId(blockNumber: BlockNumber, txIndex: number, logIndex: number)
-```
-
-**Properties**
-- `readonly blockNumber: BlockNumber`
-- `readonly logIndex: number`
-- `static schema: unknown`
-- `readonly txIndex: number`
-
-**Methods**
-- `static fromBuffer(buffer: Buffer | BufferReader) => LogId` - Creates a LogId from a buffer.
-- `static fromString(data: string) => LogId` - Creates a LogId from a string.
-- `static random() => LogId`
-- `toBuffer() => Buffer` - Serializes log id to a buffer.
-- `toHumanReadable() => string` - Serializes log id to a human readable string.
-- `toString() => string` - Converts the LogId instance to a string.
-
-### Note
-
-The Note class represents a Note emitted from a Noir contract as a vector of Fr (finite field) elements. This data also represents a preimage to a note hash.
-
-Extends: `Vector<Fr>`
-
-**Constructor**
-```typescript
-new Note(items: Fr[])
-```
-
-**Properties**
-- `items: Fr[]`
-- `length: unknown`
-- `static schema: unknown`
-
-**Methods**
-- `equals(other: Note) => boolean`
-- `static fromBuffer(buffer: Buffer | BufferReader) => Note` - Create a Note instance from a Buffer or BufferReader. The input 'buffer' can be either a Buffer containing the serialized Fr elements or a BufferReader instance. This function reads the Fr elements in the buffer and constructs a Note with them.
-- `static fromString(str: string) => Note` - Creates a new Note instance from a hex string.
-- `static random() => Note` - Generates a random Note instance with a variable number of items. The number of items is determined by a random value between 1 and 10 (inclusive). Each item in the Note is generated using the Fr.random() method.
-- `toBuffer() => any`
-- `toFriendlyJSON() => Fr[]`
-- `toJSON() => any`
-- `toString() => string` - Returns a hex representation of the note.
+- `withdrawFunds(amount: bigint, recipient: EthAddress, epochNumber: EpochNumber, messageIndex: bigint, siblingPath: SiblingPath<number>) => Promise<void>` - Withdraws funds from the portal by consuming an L2 to L1 message. Returns once the tx is mined on L1.
 
 ### NoteSelector
 
@@ -1047,7 +665,7 @@ new NoteSelector(value: number)
 - `[custom]() => string`
 - `static empty() => NoteSelector` - Creates an empty selector.
 - `equals(other: Selector) => boolean` - Checks if this selector is equal to another.
-- `static fromBuffer(buffer: Buffer | BufferReader) => NoteSelector` - Deserializes from a buffer or reader, corresponding to a write in cpp.
+- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => NoteSelector` - Deserializes from a buffer or reader, corresponding to a write in cpp.
 - `static fromField(fr: Fr) => NoteSelector` - Converts a field to selector.
 - `static fromString(buf: string) => NoteSelector`
 - `isEmpty() => boolean` - Checks if the selector is empty (all bytes are 0).
@@ -1069,18 +687,18 @@ new Point(x: Fr, y: Fr, isInfinite: boolean)
 **Properties**
 - `static COMPRESSED_SIZE_IN_BYTES: number`
 - `inf: unknown`
-- `readonly isInfinite: boolean`
-- `readonly kind: string` - Used to differentiate this class from AztecAddress
+- `readonly isInfinite: boolean` - Whether the point is at infinity
+- `readonly kind: "point"` - Used to differentiate this class from AztecAddress
 - `static schema: unknown`
 - `static SIZE_IN_BYTES: number`
-- `readonly x: Fr`
-- `readonly y: Fr`
+- `readonly x: Fr` - The point's x coordinate
+- `readonly y: Fr` - The point's y coordinate
 - `static ZERO: Point`
 
 **Methods**
 - `equals(rhs: Point) => boolean` - Check if two Point instances are equal by comparing their buffer values. Returns true if the buffer values are the same, and false otherwise.
-- `static fromBuffer(buffer: Buffer | BufferReader) => Point` - Create a Point instance from a given buffer or BufferReader. The input 'buffer' should have exactly 64 bytes representing the x and y coordinates.
-- `static fromCompressedBuffer(buffer: Buffer | BufferReader) => Promise<Point>` - Create a Point instance from a compressed buffer. The input 'buffer' should have exactly 33 bytes representing the x coordinate and the sign of the y coordinate.
+- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => Point` - Create a Point instance from a given buffer or BufferReader. The input 'buffer' should have exactly 64 bytes representing the x and y coordinates.
+- `static fromCompressedBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => Promise<Point>` - Create a Point instance from a compressed buffer. The input 'buffer' should have exactly 33 bytes representing the x coordinate and the sign of the y coordinate.
 - `static fromFields(fields: Fr[] | FieldReader) => Point`
 - `static fromPlainObject(obj: any) => Point` - Creates a Point from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack). Handles buffers, existing instances, or objects with x, y, and isInfinite fields.
 - `static fromString(str: string) => Point` - Create a Point instance from a hex-encoded string. The input should be prefixed with '0x' or not, and have exactly 128 hex characters representing the x and y coordinates. Throws an error if the input length is invalid or coordinate values are out of range.
@@ -1090,8 +708,8 @@ new Point(x: Fr, y: Fr, isInfinite: boolean)
 - `isZero() => boolean`
 - `static random() => Promise<Point>` - Generate a random Point instance.
 - `toBigInts() => { isInfinite: bigint; x: bigint; y: bigint }` - Returns the contents of the point as BigInts.
-- `toBuffer() => any` - Converts the Point instance to a Buffer representation of the coordinates.
-- `toCompressedBuffer() => any` - Converts the Point instance to a compressed Buffer representation of the coordinates.
+- `toBuffer() => Buffer<ArrayBufferLike>` - Converts the Point instance to a Buffer representation of the coordinates.
+- `toCompressedBuffer() => Buffer<ArrayBufferLike>` - Converts the Point instance to a compressed Buffer representation of the coordinates.
 - `toFields() => Fr[]` - Returns the contents of the point as an array of 2 fields.
 - `toJSON() => string`
 - `toNoirStruct() => { is_infinite: boolean; x: Fr; y: Fr }`
@@ -1099,7 +717,7 @@ new Point(x: Fr, y: Fr, isInfinite: boolean)
 - `toString() => string` - Convert the Point instance to a hexadecimal string representation. The output string is prefixed with '0x' and consists of exactly 128 hex characters, representing the concatenated x and y coordinates of the point.
 - `toWrappedNoirStruct() => { inner: { is_infinite: boolean; x: Fr; y: Fr } }`
 - `toXAndSign() => []` - Returns the x coordinate and the sign of the y coordinate.
-- `static YFromX(x: Fr) => Promise<Fr>`
+- `static YFromX(x: Fr) => Promise<Fr | null>`
 
 ### PrivateFeePaymentMethod
 
@@ -1108,7 +726,7 @@ Implements: `FeePaymentMethod`
 
 **Constructor**
 ```typescript
-new PrivateFeePaymentMethod(paymentContract: AztecAddress, sender: AztecAddress, wallet: Wallet, gasSettings: GasSettings, setMaxFeeToOne?: boolean)
+new PrivateFeePaymentMethod(paymentContract: AztecAddress, sender: AztecAddress, wallet: Wallet, gasSettings: GasSettings, setMaxFeeToOne: boolean)
 ```
 
 **Properties**
@@ -1118,7 +736,7 @@ new PrivateFeePaymentMethod(paymentContract: AztecAddress, sender: AztecAddress,
 - `getAsset() => Promise<AztecAddress>` - The asset used to pay the fee.
 - `getExecutionPayload() => Promise<ExecutionPayload>` - Creates an execution payload to pay the fee using a private function through an FPC in the desired asset
 - `getFeePayer() => Promise<AztecAddress>` - The expected fee payer for this tx.
-- `getGasSettings() => GasSettings` - The gas settings (if any) used to compute the execution payload of the payment method
+- `getGasSettings() => GasSettings | undefined` - The gas settings (if any) used to compute the execution payload of the payment method
 
 ### PublicFeePaymentMethod
 
@@ -1140,7 +758,7 @@ new PublicFeePaymentMethod(paymentContract: AztecAddress, sender: AztecAddress, 
 - `getAsset() => Promise<AztecAddress>` - The asset used to pay the fee.
 - `getExecutionPayload() => Promise<ExecutionPayload>` - Creates an execution payload to pay the fee using a public function through an FPC in the desired asset
 - `getFeePayer() => Promise<AztecAddress>` - The expected fee payer for this tx.
-- `getGasSettings() => GasSettings` - The gas settings (if any) used to compute the execution payload of the payment method
+- `getGasSettings() => GasSettings | undefined` - The gas settings (if any) used to compute the execution payload of the payment method
 
 ### PublicKeys
 
@@ -1150,10 +768,10 @@ new PublicKeys(masterNullifierPublicKey: Point, masterIncomingViewingPublicKey: 
 ```
 
 **Properties**
-- `masterIncomingViewingPublicKey: Point`
-- `masterNullifierPublicKey: Point`
-- `masterOutgoingViewingPublicKey: Point`
-- `masterTaggingPublicKey: Point`
+- `masterIncomingViewingPublicKey: Point` - Master incoming viewing public key
+- `masterNullifierPublicKey: Point` - Master nullifier public key
+- `masterOutgoingViewingPublicKey: Point` - Master outgoing viewing public key
+- `masterTaggingPublicKey: Point` - Master tagging viewing public key
 - `static schema: unknown`
 
 **Methods**
@@ -1161,7 +779,7 @@ new PublicKeys(masterNullifierPublicKey: Point, masterIncomingViewingPublicKey: 
 - `encodeToNoir() => Fr[]`
 - `equals(other: PublicKeys) => boolean` - Determines if this PublicKeys instance is equal to the given PublicKeys instance. Equality is based on the content of their respective buffers.
 - `static from(fields: FieldsOf<PublicKeys>) => PublicKeys`
-- `static fromBuffer(buffer: Buffer | BufferReader) => PublicKeys` - Creates an PublicKeys instance from a given buffer or BufferReader. If the input is a Buffer, it wraps it in a BufferReader before processing. Throws an error if the input length is not equal to the expected size.
+- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => PublicKeys` - Creates an PublicKeys instance from a given buffer or BufferReader. If the input is a Buffer, it wraps it in a BufferReader before processing. Throws an error if the input length is not equal to the expected size.
 - `static fromFields(fields: Fr[] | FieldReader) => PublicKeys`
 - `static fromPlainObject(obj: any) => PublicKeys` - Creates a PublicKeys from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack).
 - `static fromString(keys: string) => PublicKeys`
@@ -1173,79 +791,6 @@ new PublicKeys(masterNullifierPublicKey: Point, masterIncomingViewingPublicKey: 
 - `toNoirStruct() => { ivpk_m: { inner: { is_infinite: boolean; x: Fr; y: Fr } }; npk_m: { inner: { is_infinite: boolean; x: Fr; y: Fr } }; ... }`
 - `toString() => string`
 
-### SentTx
-
-The SentTx class represents a sent transaction through the PXE (or directly to a node) providing methods to fetch its hash, receipt, and mining status.
-
-**Constructor**
-```typescript
-new SentTx(walletOrNode: AztecNode | Wallet, sendTx: () => Promise<TxHash>)
-```
-
-**Properties**
-- `sendTxError?: Error`
-- `sendTxPromise: Promise<void>`
-- `txHash?: TxHash`
-- `walletOrNode: AztecNode | Wallet`
-
-**Methods**
-- `getReceipt() => Promise<TxReceipt>` - Retrieve the transaction receipt associated with the current SentTx instance. The function fetches the transaction hash using 'getTxHash' and then queries the PXE to get the corresponding transaction receipt.
-- `getTxHash() => Promise<TxHash>` - Retrieves the transaction hash of the SentTx instance. The function internally awaits for the 'txHashPromise' to resolve, and then returns the resolved transaction hash.
-- `wait(opts?: WaitOpts) => Promise<TxReceipt>` - Awaits for a tx to be mined and returns the receipt. Throws if tx is not mined.
-- `waitForReceipt(opts?: WaitOpts) => Promise<TxReceipt>`
-
-### SetPublicAuthwitContractInteraction
-
-Convenience class designed to wrap the very common interaction of setting a public authwit in the AuthRegistry contract
-
-Extends: `ContractFunctionInteraction`
-
-**Properties**
-- `args: any[]`
-- `authWitnesses: AuthWitness[]`
-- `capsules: Capsule[]`
-- `contractAddress: AztecAddress`
-- `functionDao: FunctionAbi`
-- `log: Logger`
-- `wallet: Wallet`
-
-**Methods**
-- `static create(wallet: Wallet, from: AztecAddress, messageHashOrIntent: Fr | CallIntent | IntentInnerHash | ContractFunctionInteractionCallIntent, authorized: boolean) => Promise<SetPublicAuthwitContractInteraction>`
-- `getFunctionCall() => Promise<{ args: Fr[]; hideMsgSender: boolean; ... }>` - Returns the encoded function call wrapped by this interaction Useful when generating authwits
-- `profile(options?: Omit<ProfileInteractionOptions, "from">) => Promise<TxProfileResult>` - Overrides the profile method, adding the sender of the authwit (authorizer) as from and preventing misuse
-- `request(options?: RequestInteractionOptions) => Promise<ExecutionPayload>` - Returns the execution payload that allows this operation to happen on chain.
-- `send(options?: Omit<SendInteractionOptions, "from">) => SentTx` - Overrides the send method, adding the sender of the authwit (authorizer) as from and preventing misuse
-- `simulate<T extends SimulateInteractionOptions>(options: Omit<T, "from">) => Promise<SimulationReturn<T["includeMetadata"]>>` - Overrides the simulate method, adding the sender of the authwit (authorizer) as from and preventing misuse
-- `with(options: { authWitnesses?: AuthWitness[]; capsules?: Capsule[]; extraHashedArgs?: HashedValues[] }) => ContractFunctionInteraction` - Augments this ContractFunctionInteraction with additional metadata, such as authWitnesses, capsules, and extraHashedArgs. This is useful when creating a "batteries included" interaction, such as registering a contract class with its associated capsule instead of having the user provide them externally.
-
-### SiblingPath
-
-Contains functionality to compute and serialize/deserialize a sibling path. E.g. Sibling path for a leaf at index 3 in a tree of depth 3 consists of: d0: [ root ] d1: [ ] [*] d2: [*] [ ] [ ] [ ] d3: [ ] [ ] [*] [ ] [ ] [ ] [ ] [ ]. And the elements would be ordered as: [ leaf_at_index_2, node_at_level_2_index_0, node_at_level_1_index_1 ].
-
-**Constructor**
-```typescript
-new SiblingPath(pathSize: N, path: Buffer[])
-```
-
-**Properties**
-- `pathSize: N`
-- `static schema: unknown`
-
-**Methods**
-- `static deserialize<N extends number>(buf: Buffer, offset?: number) => { adv: number; elem: SiblingPath<N> }` - Deserializes a SiblingPath object from a slice of a part of a buffer and returns the amount of bytes advanced.
-- `static fromBuffer<N extends number>(buf: Buffer, offset?: number) => SiblingPath<N>` - Deserializes a SiblingPath from a buffer.
-- `static fromString<N extends number>(repr: string) => SiblingPath<N>` - Deserializes a SiblingPath object from a hex string representation.
-- `getSubtreeSiblingPath<SubtreeHeight extends number, SubtreeSiblingPathHeight extends number>(subtreeHeight: SubtreeHeight) => SiblingPath<SubtreeSiblingPathHeight>` - Generate a subtree path from the current sibling path.
-- `static random<N extends number>(number: N) => SiblingPath<N>`
-- `static schemaFor<N extends number>(size: N) => ZodEffects<ZodEffects<ZodFor<any>, SiblingPath<N>, any>, SiblingPath<N>, any>`
-- `toBuffer() => Buffer` - Serializes this SiblingPath object to a buffer.
-- `toBufferArray() => Buffer[]` - Returns the path buffer underlying the sibling path.
-- `toFields() => Fr[]` - Convert the Sibling Path object into an array of field elements.
-- `toJSON() => any`
-- `toString() => string` - Serializes this SiblingPath object to a hex string representation.
-- `toTuple() => Tuple<Fr, N>` - Convert Sibling Path object into a tuple of field elements.
-- `static ZERO<N extends number>(size: N, zeroElement: Buffer, hasher: Hasher) => SiblingPath<N>` - Returns sibling path hashed up from the a element.
-
 ### SignerlessAccount
 
 Account implementation which creates a transaction using the multicall protocol contract as entrypoint.
@@ -1253,16 +798,15 @@ Implements: `Account`
 
 **Constructor**
 ```typescript
-new SignerlessAccount(chainInfo: ChainInfo)
+new SignerlessAccount()
 ```
 
 **Methods**
-- `createAuthWit(_intent: Fr | Buffer | CallIntent | IntentInnerHash) => Promise<AuthWitness>` - Computes an authentication witness from either a message hash
-- `createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings) => Promise<TxExecutionRequest>` - Generates an execution request out of set of function calls.
+- `createAuthWit(_intent: Fr | IntentInnerHash | CallIntent | Buffer<ArrayBufferLike>) => Promise<AuthWitness>` - Creates an authentication witness from an inner hash with consumer, or a call intent
+- `createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings, chainInfo: ChainInfo) => Promise<TxExecutionRequest>` - Generates an execution request out of set of function calls.
 - `getAddress() => AztecAddress` - Returns the address for this account.
-- `getChainId() => Fr` - Returns the chain id for this account
 - `getCompleteAddress() => CompleteAddress` - Returns the complete address for this account.
-- `getVersion() => Fr` - Returns the rollup version for this account
+- `wrapExecutionPayload(exec: ExecutionPayload, options?: any) => Promise<ExecutionPayload>` - Wraps an execution payload such that it is executed *via* this entrypoint. This returns an ExecutionPayload with the entrypoint as the caller for the wrapped payload. Useful for account self-funding deployments and batching calls beyond the limit of a single entrypoint call.
 
 ### SponsoredFeePaymentMethod
 
@@ -1278,7 +822,7 @@ new SponsoredFeePaymentMethod(paymentContract: AztecAddress)
 - `getAsset() => Promise<AztecAddress>` - The asset used to pay the fee.
 - `getExecutionPayload() => Promise<ExecutionPayload>` - Returns the data to be added to the final execution request to pay the fee in the given asset
 - `getFeePayer() => Promise<AztecAddress>` - The expected fee payer for this tx.
-- `getGasSettings() => GasSettings` - The gas settings (if any) used to compute the execution payload of the payment method
+- `getGasSettings() => GasSettings | undefined` - The gas settings (if any) used to compute the execution payload of the payment method
 
 ### Tx
 
@@ -1292,20 +836,20 @@ new Tx(txHash: TxHash, data: PrivateKernelTailCircuitPublicInputs, chonkProof: C
 ```
 
 **Properties**
-- `readonly chonkProof: ChonkProof`
-- `readonly contractClassLogFields: ContractClassLogFields[]`
-- `readonly data: PrivateKernelTailCircuitPublicInputs`
+- `readonly chonkProof: ChonkProof` - Proof from the private kernel circuit.
+- `readonly contractClassLogFields: ContractClassLogFields[]` - Contract class log fields emitted from the tx. Their order should match the order of the log hashes returned from `this.data.getNonEmptyContractClassLogsHashes`. This claimed data is reconciled against a hash of this data (that is contained within the tx's public inputs (`this.data`)), in data_validator.ts.
+- `readonly data: PrivateKernelTailCircuitPublicInputs` - Output of the private kernel circuit for this tx.
 - `static p2pTopic: TopicType` - The p2p topic identifier, this determines how the message is handled
-- `readonly publicFunctionCalldata: HashedValues[]`
+- `readonly publicFunctionCalldata: HashedValues[]` - An array of calldata for the enqueued public function calls and the teardown function call. This claimed data is reconciled against hashes of this data (that are contained within the tx's public inputs (`this.data`)), in data_validator.ts.
 - `static schema: unknown`
-- `readonly txHash: TxHash`
+- `readonly txHash: TxHash` - Identifier of the tx. It's a hash of the public inputs of the tx's proof. This claimed hash is reconciled against the tx's public inputs (`this.data`) in data_validator.ts.
 
 **Methods**
 - `static clone(tx: Tx, cloneProof?: boolean) => Tx` - Clones a tx, making a deep copy of all fields.
 - `static computeTxHash(fields: Pick<FieldsOf<Tx>, "data">) => Promise<TxHash>`
 - `static create(fields: Omit<FieldsOf<Tx>, "txHash">) => Promise<Tx>`
 - `static from(fields: FieldsOf<Tx>) => Tx`
-- `static fromBuffer(buffer: Buffer | BufferReader) => Tx` - Deserializes the Tx object from a Buffer.
+- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => Tx` - Deserializes the Tx object from a Buffer.
 - `generateP2PMessageIdentifier() => Promise<Buffer32>`
 - `getCalldataMap() => Map<string, Fr[]>`
 - `getContractClassLogs() => ContractClassLog[]`
@@ -1318,7 +862,7 @@ new Tx(txHash: TxHash, data: PrivateKernelTailCircuitPublicInputs, chonkProof: C
 - `getSize() => number` - Get the size of the gossipable object. This is used for metrics recording.
 - `getSplitContractClassLogs(revertible: boolean) => ContractClassLog[]` - Gets either revertible or non revertible contract class logs emitted by this tx.
 - `getStats() => TxStats` - Returns stats about this tx.
-- `getTeardownPublicCallRequestWithCalldata() => PublicCallRequestWithCalldata`
+- `getTeardownPublicCallRequestWithCalldata() => PublicCallRequestWithCalldata | undefined`
 - `getTotalPublicCalldataCount() => number`
 - `getTxHash() => TxHash` - Return transaction hash.
 - `hasPublicCalls() => boolean`
@@ -1326,7 +870,7 @@ new Tx(txHash: TxHash, data: PrivateKernelTailCircuitPublicInputs, chonkProof: C
 - `p2pMessageLoggingIdentifier() => Promise<Buffer32>` - A digest of the message information **used for logging only**. The identifier used for deduplication is `getMsgIdFn` as defined in `encoding.ts` which is a hash over topic and data.
 - `static random(args?: { randomProof?: boolean; txHash?: string | TxHash }) => Tx` - Creates a random tx.
 - `recomputeHash() => Promise<TxHash>` - Recomputes the tx hash. Used for testing purposes only when a property of the tx was mutated.
-- `toBuffer() => any` - Serializes the Tx object into a Buffer.
+- `toBuffer() => Buffer<ArrayBufferLike>` - Serializes the Tx object into a Buffer.
 - `toMessage() => Buffer`
 - `validateTxHash() => Promise<boolean>` - Validates that the tx hash matches the computed hash from the tx data. This should be called when deserializing a tx from an untrusted source.
 
@@ -1340,24 +884,24 @@ new TxExecutionRequest(origin: AztecAddress, functionSelector: FunctionSelector,
 ```
 
 **Properties**
-- `argsOfCalls: HashedValues[]`
-- `authWitnesses: AuthWitness[]`
-- `capsules: Capsule[]`
-- `firstCallArgsHash: Fr`
-- `functionSelector: FunctionSelector`
-- `origin: AztecAddress`
-- `salt: Fr`
+- `argsOfCalls: HashedValues[]` - An unordered array of packed arguments for each call in the transaction.
+- `authWitnesses: AuthWitness[]` - Transient authorization witnesses for authorizing the execution of one or more actions during this tx. These witnesses are not expected to be stored in the local witnesses database of the PXE.
+- `capsules: Capsule[]` - Read-only data passed through the oracle calls during this tx execution.
+- `firstCallArgsHash: Fr` - The hash of arguments of first call to be executed (usually account entrypoint).
+- `functionSelector: FunctionSelector` - Selector of the function to call.
+- `origin: AztecAddress` - Sender.
+- `salt: Fr` - A salt to make the tx request hash difficult to predict. The hash is used as the first nullifier if there is no nullifier emitted throughout the tx.
 - `static schema: unknown`
-- `txContext: TxContext`
+- `txContext: TxContext` - Transaction context.
 
 **Methods**
 - `[custom]() => string`
 - `static from(fields: FieldsOf<TxExecutionRequest>) => TxExecutionRequest`
-- `static fromBuffer(buffer: Buffer | BufferReader) => TxExecutionRequest` - Deserializes from a buffer or reader, corresponding to a write in cpp.
+- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => TxExecutionRequest` - Deserializes from a buffer or reader, corresponding to a write in cpp.
 - `static fromString(str: string) => TxExecutionRequest` - Deserializes from a string, corresponding to a write in cpp.
 - `static getFields(fields: FieldsOf<TxExecutionRequest>) => readonly []`
 - `static random() => Promise<TxExecutionRequest>`
-- `toBuffer() => any` - Serialize as a buffer.
+- `toBuffer() => Buffer<ArrayBufferLike>` - Serialize as a buffer.
 - `toString() => string` - Serialize as a string.
 - `toTxRequest() => TxRequest`
 
@@ -1371,19 +915,19 @@ new TxHash(hash: Fr)
 ```
 
 **Properties**
-- `readonly hash: Fr`
+- `readonly hash: Fr` - A field representing the tx hash (tx hash is an output of poseidon hash hence it's a field).
 - `static schema: unknown`
 - `static SIZE: unknown`
 
 **Methods**
 - `equals(other: TxHash) => boolean`
 - `static fromBigInt(value: bigint) => TxHash`
-- `static fromBuffer(buffer: Uint8Array | BufferReader) => TxHash`
+- `static fromBuffer(buffer: Uint8Array<ArrayBufferLike> | BufferReader) => TxHash`
 - `static fromField(value: Fr) => TxHash`
 - `static fromString(str: string) => TxHash`
 - `static random() => TxHash`
 - `toBigInt() => bigint`
-- `toBuffer() => any`
+- `toBuffer() => Buffer<ArrayBufferLike>`
 - `toJSON() => string`
 - `toString() => string`
 - `static zero() => TxHash`
@@ -1409,42 +953,28 @@ Represents a transaction receipt in the Aztec network. Contains essential inform
 
 **Constructor**
 ```typescript
-new TxReceipt(txHash: TxHash, status: TxStatus, error: string, transactionFee?: bigint, blockHash?: L2BlockHash, blockNumber?: BlockNumber)
+new TxReceipt(txHash: TxHash, status: TxStatus, executionResult: TxExecutionResult | undefined, error: string | undefined, transactionFee?: bigint, blockHash?: BlockHash, blockNumber?: BlockNumber)
 ```
 
 **Properties**
-- `blockHash?: L2BlockHash`
-- `blockNumber?: BlockNumber`
-- `error: string`
+- `blockHash?: BlockHash` - The hash of the block containing the transaction.
+- `blockNumber?: BlockNumber` - The block number in which the transaction was included.
+- `error: string | undefined` - Description of transaction error, if any.
+- `executionResult: TxExecutionResult | undefined` - The execution result of the transaction, only set when tx is in a block.
 - `static schema: unknown`
-- `status: TxStatus`
-- `transactionFee?: bigint`
-- `txHash: TxHash`
+- `status: TxStatus` - The transaction's block finalization status.
+- `transactionFee?: bigint` - The transaction fee paid for the transaction.
+- `txHash: TxHash` - A unique identifier for a transaction.
 
 **Methods**
 - `static empty() => TxReceipt`
-- `static from(fields: FieldsOf<TxReceipt>) => TxReceipt`
-- `static statusFromRevertCode(revertCode: RevertCode) => SUCCESS | APP_LOGIC_REVERTED | TEARDOWN_REVERTED | BOTH_REVERTED`
-
-### UnsafeContract
-
-Unsafe constructor for ContractBase that bypasses the check that the instance is registered in the wallet.
-
-Extends: `ContractBase`
-
-**Constructor**
-```typescript
-new UnsafeContract(instance: ContractInstanceWithAddress, artifact: ContractArtifact, wallet: Wallet)
-```
-
-**Properties**
-- `readonly address: AztecAddress`
-- `readonly artifact: ContractArtifact`
-- `methods: {}` - An object containing contract methods mapped to their respective names.
-- `wallet: Wallet`
-
-**Methods**
-- `withWallet(wallet: Wallet) => this` - Creates a new instance of the contract wrapper attached to a different wallet.
+- `static executionResultFromRevertCode(revertCode: RevertCode) => TxExecutionResult`
+- `static from(fields: { blockHash?: BlockHash; blockNumber?: BlockNumber; ... }) => TxReceipt`
+- `hasExecutionReverted() => boolean` - Returns true if the transaction execution reverted.
+- `hasExecutionSucceeded() => boolean` - Returns true if the transaction was executed successfully.
+- `isDropped() => boolean` - Returns true if the transaction was dropped.
+- `isMined() => boolean` - Returns true if the transaction has been included in a block (proposed, checkpointed, proven, or finalized).
+- `isPending() => boolean` - Returns true if the transaction is pending.
 
 ## Interfaces
 
@@ -1453,94 +983,42 @@ new UnsafeContract(instance: ContractInstanceWithAddress, artifact: ContractArti
 An account contract instance. Knows its artifact, deployment arguments, how to create transaction execution requests out of function calls, and how to authorize actions.
 
 **Methods**
+- `getAccount(address: CompleteAddress) => Account` - Returns the account implementation for this account contract given an instance at the provided address. The account is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
 - `getAuthWitnessProvider(address: CompleteAddress) => AuthWitnessProvider` - Returns the auth witness provider for the given address.
 - `getContractArtifact() => Promise<ContractArtifact>` - Returns the artifact of this account contract.
-- `getInitializationFunctionAndArgs() => Promise<{ constructorArgs: any[]; constructorName: string }>` - Returns the initializer function name and arguments for this instance, or undefined if this contract does not require initialization.
-- `getInterface(address: CompleteAddress, chainInfo: ChainInfo) => AccountInterface` - Returns the account interface for this account contract given an instance at the provided address. The account interface is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
+- `getInitializationFunctionAndArgs() => Promise<{ constructorArgs: any[]; constructorName: string } | undefined>` - Returns the initializer function name and arguments for this instance, or undefined if this contract does not require initialization.
 
-### AccountInterface
+### AccountsCapability
 
-Handler for interfacing with an account. Knows how to create transaction execution requests and authorize actions for its corresponding account.
+Account access capability - grants access to user accounts. Maps to wallet methods: - getAccounts (when canGet: true) - createAuthWit (when canCreateAuthWit: true) The wallet decides which accounts to reveal to the app. Apps don't specify which accounts they want - they just request the capability and the wallet shows them the available accounts.
 
-Extends: `EntrypointInterface`, `AuthWitnessProvider`
+**Properties**
+- `canCreateAuthWit?: boolean` - Can create auth witnesses for accounts. Maps to: createAuthWit
+- `canGet?: boolean` - Can get accounts from wallet. Maps to: getAccounts
+- `type: "accounts"` - Discriminator for capability type
 
-**Methods**
-- `createAuthWit(messageHash: Fr | Buffer) => Promise<AuthWitness>` - Computes an authentication witness from either a message hash
-- `createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings, options?: any) => Promise<TxExecutionRequest>` - Generates an execution request out of set of function calls.
-- `getAddress() => AztecAddress` - Returns the address for this account.
-- `getChainId() => Fr` - Returns the chain id for this account
-- `getCompleteAddress() => CompleteAddress` - Returns the complete address for this account.
-- `getVersion() => Fr` - Returns the rollup version for this account
+### AppCapabilities
+
+Application capability manifest. Sent by dApp to declare all operations it needs. This reduces authorization friction from multiple dialogs to a single comprehensive permission request.
+
+**Properties**
+- `capabilities: Capability[]` - Requested capabilities grouped by scope.
+- `metadata: { description?: string; icon?: string; ... }` - Application metadata for display in authorization dialogs.
+- `version: "1.0"` - Manifest version for forward compatibility. Currently only '1.0' is supported.
 
 ### AuthWitnessProvider
 
 Creates authorization witnesses.
 
 **Methods**
-- `createAuthWit(messageHash: Fr | Buffer) => Promise<AuthWitness>` - Computes an authentication witness from either a message hash
+- `createAuthWit(messageHash: Fr | Buffer<ArrayBufferLike>) => Promise<AuthWitness>` - Computes an authentication witness from either a message hash
 
-### AztecNode
+### AuthorizationProvider
 
-The aztec node. We will probably implement the additional interfaces by means other than Aztec Node as it's currently a privacy leak
-
-Extends: `Pick<L2BlockSource, "getBlocks" | "getPublishedBlocks" | "getBlockHeader" | "getL2Tips">`
+Provides authorization for actions via the AuthWitness mechanism.
 
 **Methods**
-- `findLeavesIndexes(blockNumber: BlockNumber | "latest", treeId: MerkleTreeId, leafValues: Fr[]) => Promise<DataInBlock<bigint>[]>` - Find the indexes of the given leaves in the given tree along with a block metadata pointing to the block in which the leaves were inserted.
-- `getAllowedPublicSetup() => Promise<AllowedElement[]>` - Returns the list of allowed public setup elements configured for this node.
-- `getArchiveMembershipWitness(blockNumber: BlockNumber | "latest", archive: Fr) => Promise<MembershipWitness<30>>` - Returns a membership witness for a given archive leaf at a given block.
-- `getArchiveSiblingPath(blockNumber: BlockNumber | "latest", leafIndex: bigint) => Promise<SiblingPath<30>>` - Returns a sibling path for a leaf in the committed historic blocks tree.
-- `getBlock(number: BlockNumber | "latest") => Promise<L2Block>` - Get a block specified by its number.
-- `getBlockByArchive(archive: Fr) => Promise<L2Block>` - Get a block specified by its archive root.
-- `getBlockByHash(blockHash: Fr) => Promise<L2Block>` - Get a block specified by its hash.
-- `getBlockHeader(blockNumber?: BlockNumber | "latest") => Promise<BlockHeader>` - Returns the currently committed block header.
-- `getBlockHeaderByArchive(archive: Fr) => Promise<BlockHeader>` - Get a block header specified by its archive root.
-- `getBlockHeaderByHash(blockHash: Fr) => Promise<BlockHeader>` - Get a block header specified by its hash.
-- `getBlockNumber() => Promise<BlockNumber>` - Method to fetch the latest block number synchronized by the node.
-- `getBlocks(from: BlockNumber, limit: number) => Promise<L2Block[]>` - Method to request blocks. Will attempt to return all requested blocks but will return only those available.
-- `getChainId() => Promise<number>` - Method to fetch the chain id of the base-layer for the rollup.
-- `getContract(address: AztecAddress) => Promise<ContractInstanceWithAddress>` - Returns a publicly deployed contract instance given its address.
-- `getContractClass(id: Fr) => Promise<ContractClassPublic>` - Returns a registered contract class given its id.
-- `getContractClassLogs(filter: LogFilter) => Promise<GetContractClassLogsResponse>` - Gets contract class logs based on the provided filter.
-- `getCurrentBaseFees() => Promise<GasFees>` - Method to fetch the current base fees.
-- `getEncodedEnr() => Promise<string>` - Returns the ENR of this node for peer discovery, if available.
-- `getL1ContractAddresses() => Promise<L1ContractAddresses>` - Method to fetch the currently deployed l1 contract addresses.
-- `getL1ToL2MessageBlock(l1ToL2Message: Fr) => Promise<BlockNumber>` - Returns the L2 block number in which this L1 to L2 message becomes available, or undefined if not found.
-- `getL1ToL2MessageMembershipWitness(blockNumber: BlockNumber | "latest", l1ToL2Message: Fr) => Promise<[]>` - Returns the index and a sibling path for a leaf in the committed l1 to l2 data tree.
-- `getL2Tips() => Promise<L2Tips>` - Returns the tips of the L2 chain.
-- `getL2ToL1Messages(blockNumber: BlockNumber | "latest") => Promise<Fr[][]>` - Returns all the L2 to L1 messages in a block.
-- `getLogsByTags(tags: Fr[], logsPerTag?: number) => Promise<TxScopedL2Log[][]>` - Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
-- `getLowNullifierMembershipWitness(blockNumber: BlockNumber | "latest", nullifier: Fr) => Promise<NullifierMembershipWitness>` - Returns a low nullifier membership witness for a given nullifier at a given block.
-- `getMaxPriorityFees() => Promise<GasFees>` - Method to fetch the current max priority fee of txs in the mempool.
-- `getNodeInfo() => Promise<NodeInfo>` - Returns the information about the server's node. Includes current Node version, compatible Noir version, L1 chain identifier, protocol version, and L1 address of the rollup contract.
-- `getNodeVersion() => Promise<string>` - Method to fetch the version of the package.
-- `getNoteHashMembershipWitness(blockNumber: BlockNumber | "latest", noteHash: Fr) => Promise<MembershipWitness<42>>` - Returns a membership witness for a given note hash at a given block.
-- `getNoteHashSiblingPath(blockNumber: BlockNumber | "latest", leafIndex: bigint) => Promise<SiblingPath<42>>` - Returns a sibling path for the given index in the note hash tree.
-- `getNullifierMembershipWitness(blockNumber: BlockNumber | "latest", nullifier: Fr) => Promise<NullifierMembershipWitness>` - Returns a nullifier membership witness for a given nullifier at a given block.
-- `getNullifierSiblingPath(blockNumber: BlockNumber | "latest", leafIndex: bigint) => Promise<SiblingPath<42>>` - Returns a sibling path for the given index in the nullifier tree.
-- `getPendingTxCount() => Promise<number>` - Retrieves the number of pending txs
-- `getPendingTxs(limit?: number, after?: TxHash) => Promise<Tx[]>` - Method to retrieve pending txs.
-- `getProtocolContractAddresses() => Promise<ProtocolContractAddresses>` - Method to fetch the protocol contract addresses.
-- `getProvenBlockNumber() => Promise<BlockNumber>` - Fetches the latest proven block number.
-- `getPublicDataSiblingPath(blockNumber: BlockNumber | "latest", leafIndex: bigint) => Promise<SiblingPath<40>>` - Returns a sibling path for a leaf in the committed public data tree.
-- `getPublicDataWitness(blockNumber: BlockNumber | "latest", leafSlot: Fr) => Promise<PublicDataWitness>` - Returns a public data tree witness for a given leaf slot at a given block.
-- `getPublicLogs(filter: LogFilter) => Promise<GetPublicLogsResponse>` - Gets public logs based on the provided filter.
-- `getPublicStorageAt(blockNumber: BlockNumber | "latest", contract: AztecAddress, slot: Fr) => Promise<Fr>` - Gets the storage value at the given contract storage slot.
-- `getPublishedBlocks(from: BlockNumber, limit: number, proven?: boolean) => Promise<PublishedL2Block[]>` - Equivalent to getBlocks but includes publish data.
-- `getTxByHash(txHash: TxHash) => Promise<Tx>` - Method to retrieve a single pending tx.
-- `getTxEffect(txHash: TxHash) => Promise<IndexedTxEffect>` - Gets a tx effect.
-- `getTxReceipt(txHash: TxHash) => Promise<TxReceipt>` - Fetches a transaction receipt for a given transaction hash. Returns a mined receipt if it was added to the chain, a pending receipt if it's still in the mempool of the connected Aztec node, or a dropped receipt if not found in the connected Aztec node.
-- `getTxsByHash(txHashes: TxHash[]) => Promise<Tx[]>` - Method to retrieve multiple pending txs.
-- `getValidatorsStats() => Promise<ValidatorsStats>` - Returns stats for validators if enabled.
-- `getValidatorStats(validatorAddress: EthAddress, fromSlot?: SlotNumber, toSlot?: SlotNumber) => Promise<SingleValidatorStats>` - Returns stats for a single validator if enabled.
-- `getVersion() => Promise<number>` - Method to fetch the version of the rollup the node is connected to.
-- `getWorldStateSyncStatus() => Promise<WorldStateSyncStatus>` - Returns the sync status of the node's world state
-- `isL1ToL2MessageSynced(l1ToL2Message: Fr) => Promise<boolean>` - Returns whether an L1 to L2 message is synced by archiver.
-- `isReady() => Promise<boolean>` - Method to determine if the node is ready to accept transactions.
-- `isValidTx(tx: Tx, options?: { isSimulation?: boolean; skipFeeEnforcement?: boolean }) => Promise<TxValidationResult>` - Returns true if the transaction is valid for inclusion at the current state. Valid transactions can be made invalid by *other* transactions if e.g. they emit the same nullifiers, or come become invalid due to e.g. the include_by_timestamp property.
-- `registerContractFunctionSignatures(functionSignatures: string[]) => Promise<void>` - Registers contract function signatures for debugging purposes.
-- `sendTx(tx: Tx) => Promise<void>` - Method to submit a transaction to the p2p pool.
-- `simulatePublicCalls(tx: Tx, skipFeeEnforcement?: boolean) => Promise<PublicSimulationOutput>` - Simulates the public part of a transaction with the current state. This currently just checks that the transaction execution succeeds.
+- `createAuthWit(intent: IntentInnerHash | CallIntent, chainInfo: ChainInfo) => Promise<AuthWitness>` - Creates an authentication witness from an inner hash with consumer, or a call intent
 
 ### ContractArtifact
 
@@ -1554,6 +1032,42 @@ Defines artifact of a contract.
 - `outputs: { globals: Record<string, AbiValue[]>; structs: Record<string, AbiType[]> }` - The outputs of the contract.
 - `storageLayout: Record<string, FieldLayout>` - Storage layout
 
+### ContractClassesCapability
+
+Contract class capability - for querying contract class metadata. Maps to wallet methods: - getContractClassMetadata Contract classes are identified by their class ID (Fr), not by contract address. Multiple contract instances can share the same class. This capability grants permission to query metadata for specific contract classes. Apps typically acquire this permission automatically when registering a contract with an artifact (the wallet auto-grants permission for that contract's class ID).
+
+**Properties**
+- `canGetMetadata: boolean` - Can query contract class metadata. Maps to: getContractClassMetadata
+- `classes: Fr[] | "*"` - Which contract classes this applies to: - '*': Any contract class ID - Fr[]: Specific contract class IDs
+- `type: "contractClasses"` - Discriminator for capability type
+
+### ContractFunctionPattern
+
+Pattern for matching contract functions with wildcards. Used in simulation and transaction capabilities to specify which contract functions are allowed.
+
+**Properties**
+- `contract: AztecAddress | "*"` - Contract address or '*' for any contract
+- `function: string` - Function name or '*' for any function
+
+### ContractsCapability
+
+Contract interaction capability - for registering and querying contracts. Maps to wallet methods: - registerContract (when canRegister: true) - getContractMetadata (when canGetMetadata: true) Matching is done by contract address, not class ID. This allows updating existing contracts with new artifacts (e.g., when contract is upgraded to a new contractClassId on-chain). Note: For querying contract class metadata, use ContractClassesCapability instead.
+
+**Properties**
+- `canGetMetadata?: boolean` - Can query contract metadata. Maps to: getContractMetadata
+- `canRegister?: boolean` - Can register contracts and update existing registrations. Maps to: registerContract When true, allows: - Registering new contract instances at specified addresses - Re-registering existing contracts with updated artifacts (e.g., after upgrade)
+- `contracts: "*" | AztecAddress[]` - Which contracts this applies to: - '*': Any contract address - AztecAddress[]: Specific contract addresses
+- `type: "contracts"` - Discriminator for capability type
+
+### DataCapability
+
+Data access capability - for querying private data. Maps to wallet methods: - getAddressBook (when addressBook: true) - getPrivateEvents (when privateEvents specified)
+
+**Properties**
+- `addressBook?: boolean` - Access to address book. Maps to: getAddressBook
+- `privateEvents?: { contracts: "*" | AztecAddress[] }` - Access to private events. Maps to: getPrivateEvents
+- `type: "data"` - Discriminator for capability type
+
 ### FeePaymentMethod
 
 Holds information about how the fee for a transaction is to be paid.
@@ -1562,7 +1076,7 @@ Holds information about how the fee for a transaction is to be paid.
 - `getAsset() => Promise<AztecAddress>` - The asset used to pay the fee.
 - `getExecutionPayload() => Promise<ExecutionPayload>` - Returns the data to be added to the final execution request to pay the fee in the given asset
 - `getFeePayer() => Promise<AztecAddress>` - The expected fee payer for this tx.
-- `getGasSettings() => GasSettings` - The gas settings (if any) used to compute the execution payload of the payment method
+- `getGasSettings() => GasSettings | undefined` - The gas settings (if any) used to compute the execution payload of the payment method
 
 ### FunctionAbi
 
@@ -1575,7 +1089,7 @@ The abi entry of a function.
 - `isOnlySelf: boolean` - Whether the function is marked as `#[only_self]` and hence callable only from within the contract.
 - `isStatic: boolean` - Whether the function can alter state or not
 - `name: string` - The name of the function.
-- `parameters: { name: string; type: AbiType } & { visibility: "databus" | "private" | "public" }[]` - Function parameters.
+- `parameters: { name: string; type: AbiType } & { visibility: "private" | "databus" | "public" }[]` - Function parameters.
 - `returnTypes: AbiType[]` - The types of the return values.
 
 ### FunctionArtifact
@@ -1594,16 +1108,83 @@ Extends: `FunctionAbi`
 - `isOnlySelf: boolean` - Whether the function is marked as `#[only_self]` and hence callable only from within the contract.
 - `isStatic: boolean` - Whether the function can alter state or not
 - `name: string` - The name of the function.
-- `parameters: { name: string; type: AbiType } & { visibility: "databus" | "private" | "public" }[]` - Function parameters.
+- `parameters: { name: string; type: AbiType } & { visibility: "private" | "databus" | "public" }[]` - Function parameters.
 - `returnTypes: AbiType[]` - The types of the return values.
 - `verificationKey?: string` - The verification key of the function, base64 encoded, if it's a private fn.
+
+### GrantedAccountsCapability
+
+Granted account access capability. Extends the request with specific accounts that were granted by the wallet.
+
+Extends: `AccountsCapability`
+
+**Properties**
+- `accounts: Aliased<AztecAddress>[]` - Specific accounts granted by the wallet with their aliases. The wallet adds this when granting the capability.
+- `canCreateAuthWit?: boolean` - Can create auth witnesses for accounts. Maps to: createAuthWit
+- `canGet?: boolean` - Can get accounts from wallet. Maps to: getAccounts
+- `type: "accounts"` - Discriminator for capability type
+
+### GrantedContractClassesCapability
+
+Granted contract class capability. The wallet may reduce the scope (e.g., from '*' to specific class IDs).
+
+Extends: `ContractClassesCapability`
+
+**Properties**
+- `canGetMetadata: boolean` - Can query contract class metadata. Maps to: getContractClassMetadata
+- `classes: Fr[] | "*"` - Which contract classes this applies to: - '*': Any contract class ID - Fr[]: Specific contract class IDs
+- `type: "contractClasses"` - Discriminator for capability type
+
+### GrantedContractsCapability
+
+Granted contract interaction capability. The wallet may reduce the scope (e.g., from '*' to specific addresses).
+
+Extends: `ContractsCapability`
+
+**Properties**
+- `canGetMetadata?: boolean` - Can query contract metadata. Maps to: getContractMetadata
+- `canRegister?: boolean` - Can register contracts and update existing registrations. Maps to: registerContract When true, allows: - Registering new contract instances at specified addresses - Re-registering existing contracts with updated artifacts (e.g., after upgrade)
+- `contracts: "*" | AztecAddress[]` - Which contracts this applies to: - '*': Any contract address - AztecAddress[]: Specific contract addresses
+- `type: "contracts"` - Discriminator for capability type
+
+### GrantedDataCapability
+
+Granted data access capability. The wallet may reduce the scope (e.g., from '*' to specific contracts).
+
+Extends: `DataCapability`
+
+**Properties**
+- `addressBook?: boolean` - Access to address book. Maps to: getAddressBook
+- `privateEvents?: { contracts: "*" | AztecAddress[] }` - Access to private events. Maps to: getPrivateEvents
+- `type: "data"` - Discriminator for capability type
+
+### GrantedSimulationCapability
+
+Granted transaction simulation capability. The wallet may reduce the scope (e.g., from '*' to specific patterns).
+
+Extends: `SimulationCapability`
+
+**Properties**
+- `transactions?: { scope: "*" | ContractFunctionPattern[] }` - Transaction simulation scope. Maps to: simulateTx, profileTx
+- `type: "simulation"` - Discriminator for capability type
+- `utilities?: { scope: "*" | ContractFunctionPattern[] }` - Utility simulation scope (unconstrained calls). Maps to: simulateUtility
+
+### GrantedTransactionCapability
+
+Granted transaction execution capability. The wallet may reduce the scope (e.g., from '*' to specific patterns).
+
+Extends: `TransactionCapability`
+
+**Properties**
+- `scope: "*" | ContractFunctionPattern[]` - Which contracts/functions to allow: - '*': Any transaction - ContractFunctionPattern[]: Specific patterns
+- `type: "transaction"` - Discriminator for capability type
 
 ### NodeInfo
 
 Provides basic information about the running node.
 
 **Properties**
-- `enr: string` - The node's ENR.
+- `enr: string | undefined` - The node's ENR.
 - `l1ChainId: number` - L1 chain id.
 - `l1ContractAddresses: L1ContractAddresses` - The deployed l1 contract addresses
 - `nodeVersion: string` - Version as tracked in the aztec-packages repository.
@@ -1621,51 +1202,44 @@ The compilation result of an Aztec.nr contract.
 - `outputs: { globals: Record<string, AbiValue[]>; structs: Record<string, AbiType[]> }` - The events of the contract
 - `transpiled?: boolean` - Is the contract's public bytecode transpiled?
 
+### SimulationCapability
+
+Transaction simulation capability - for simulating transactions and utilities. Maps to wallet methods: - simulateTx (when transactions scope specified) - simulateUtility (when utilities scope specified) - profileTx (when transactions scope specified)
+
+**Properties**
+- `transactions?: { scope: "*" | ContractFunctionPattern[] }` - Transaction simulation scope. Maps to: simulateTx, profileTx
+- `type: "simulation"` - Discriminator for capability type
+- `utilities?: { scope: "*" | ContractFunctionPattern[] }` - Utility simulation scope (unconstrained calls). Maps to: simulateUtility
+
+### TransactionCapability
+
+Transaction execution capability - for sending transactions. Maps to wallet methods: - sendTx Policy enforcement (rate limits, spending limits) should be handled at the contract level in Aztec, not at the wallet level.
+
+**Properties**
+- `scope: "*" | ContractFunctionPattern[]` - Which contracts/functions to allow: - '*': Any transaction - ContractFunctionPattern[]: Specific patterns
+- `type: "transaction"` - Discriminator for capability type
+
+### WalletCapabilities
+
+Wallet capability response. Returned by wallet after user reviews and approves/denies the capability request. The wallet can modify requested capabilities: - Reduce scope (e.g., restrict to specific contracts instead of '*') - Add information (e.g., specify which accounts are granted) - Deny capabilities (by omitting them from the `granted` array)
+
+**Properties**
+- `granted: GrantedCapability[]` - Capabilities granted by the wallet. Capabilities not in this array were implicitly denied. Empty array means the user denied all capabilities.
+- `version: "1.0"` - Response version for forward compatibility.
+- `wallet: { name: string; version: string }` - Wallet implementation details.
+
 ## Functions
 
-### abiChecker
+### BlockNumber
 ```typescript
-function abiChecker(artifact: ContractArtifact) => boolean
+function BlockNumber(value: number) => BlockNumber
 ```
-Validates the given ContractArtifact object by checking its functions and their parameters. Ensures that the ABI has at least one function, a constructor, valid bytecode, and correct parameter types. Throws an error if any inconsistency is detected during the validation process.
+Creates a BlockNumber from a number.
 
-### broadcastPrivateFunction
+### computeAppNullifierHidingKey
 ```typescript
-function broadcastPrivateFunction(wallet: Wallet, artifact: ContractArtifact, selector: FunctionSelector) => Promise<ContractFunctionInteraction>
+function computeAppNullifierHidingKey(masterNullifierHidingKey: Fq, app: AztecAddress) => Promise<Fr>
 ```
-Sets up a call to broadcast a private function's bytecode via the ClassRegistry contract. Note that this is not required for users to call the function, but is rather a convenience to make this code publicly available so dapps or wallets do not need to redistribute it.
-
-### broadcastUtilityFunction
-```typescript
-function broadcastUtilityFunction(wallet: Wallet, artifact: ContractArtifact, selector: FunctionSelector) => Promise<ContractFunctionInteraction>
-```
-Sets up a call to broadcast a utility function's bytecode via the ClassRegistry contract. Note that this is not required for users to call the function, but is rather a convenience to make this code publicly available so dapps or wallets do not need to redistribute it.
-
-### computeAppNullifierSecretKey
-```typescript
-function computeAppNullifierSecretKey(masterNullifierSecretKey: Fq, app: AztecAddress) => Promise<Fr>
-```
-
-### computeAuthWitMessageHash
-```typescript
-function computeAuthWitMessageHash(intent: CallIntent | IntentInnerHash | ContractFunctionInteractionCallIntent, metadata: ChainInfo) => Promise<Fr>
-```
-
-### computeInnerAuthWitHash
-```typescript
-function computeInnerAuthWitHash(args: Fr[]) => Promise<Fr>
-```
-
-### computeInnerAuthWitHashFromAction
-```typescript
-function computeInnerAuthWitHashFromAction(caller: AztecAddress, action: ContractFunctionInteraction | FunctionCall) => Promise<Fr>
-```
-
-### computeSecretHash
-```typescript
-function computeSecretHash(secret: Fr) => Promise<Fr>
-```
-Computes a hash of a secret.
 
 ### contractArtifactFromBuffer
 ```typescript
@@ -1679,16 +1253,6 @@ function contractArtifactToBuffer(artifact: ContractArtifact) => Buffer
 ```
 Serializes a contract artifact to a buffer for storage.
 
-### createAztecNodeClient
-```typescript
-function createAztecNodeClient(url: string, versions?: Partial<ComponentsVersions>, fetch?: (host: string, body: unknown, extraHeaders?: Record<string, string>, noRetry?: boolean) => Promise<{ headers: { get: (header: string) => string | null | undefined }; response: any }>, batchWindowMS?: number) => AztecNode
-```
-
-### createLogger
-```typescript
-function createLogger(module: string) => Logger
-```
-
 ### decodeFromAbi
 ```typescript
 function decodeFromAbi(typ: AbiType[], buffer: Fr[]) => AbiDecoded
@@ -1697,18 +1261,18 @@ Decodes values in a flattened Field array using a provided ABI.
 
 ### deriveKeys
 ```typescript
-function deriveKeys(secretKey: Fr) => Promise<{ masterIncomingViewingSecretKey: Fq; masterNullifierSecretKey: Fq; ... }>
+function deriveKeys(secretKey: Fr) => Promise<{ masterIncomingViewingSecretKey: Fq; masterNullifierHidingKey: Fq; ... }>
 ```
 Computes secret and public keys and public keys hash from a secret key.
 
 ### deriveMasterIncomingViewingSecretKey
 ```typescript
-function deriveMasterIncomingViewingSecretKey(secretKey: Fr) => GrumpkinScalar
+function deriveMasterIncomingViewingSecretKey(secretKey: Fr) => Fq
 ```
 
-### deriveMasterNullifierSecretKey
+### deriveMasterNullifierHidingKey
 ```typescript
-function deriveMasterNullifierSecretKey(secretKey: Fr) => GrumpkinScalar
+function deriveMasterNullifierHidingKey(secretKey: Fr) => Fq
 ```
 
 ### encodeArguments
@@ -1725,7 +1289,7 @@ Generates a pair secret and secret hash
 
 ### generatePublicKey
 ```typescript
-function generatePublicKey(privateKey: Fq) => Promise<PublicKey>
+function generatePublicKey(privateKey: Fq) => Promise<Point>
 ```
 Method for generating a public grumpkin key from a private key.
 
@@ -1741,15 +1305,9 @@ function getAllFunctionAbis(artifact: ContractArtifact) => FunctionAbi[]
 ```
 Gets all function abis
 
-### getClassRegistryContract
-```typescript
-function getClassRegistryContract(wallet: Wallet) => Promise<UnsafeContract>
-```
-Returns a Contract wrapper for the contract class registry.
-
 ### getContractClassFromArtifact
 ```typescript
-function getContractClassFromArtifact(artifact: ContractArtifact | ContractArtifactWithHash) => Promise<ContractClassWithId & ContractClassIdPreimage>
+function getContractClassFromArtifact(artifact: ContractArtifact | ContractArtifactWithHash) => Promise<ContractClass & Pick<ContractClassCommitments, "id"> & ContractClassIdPreimage>
 ```
 Creates a ContractClass from a contract compilation artifact.
 
@@ -1759,47 +1317,11 @@ function getContractInstanceFromInstantiationParams(artifact: ContractArtifact, 
 ```
 Generates a Contract Instance from some instantiation params.
 
-### getDecodedPublicEvents
-```typescript
-function getDecodedPublicEvents<T>(node: AztecNode, eventMetadataDef: EventMetadataDefinition, from: number, limit: number) => Promise<T[]>
-```
-Returns decoded public events given search parameters.
-
-### getFeeJuice
-```typescript
-function getFeeJuice(wallet: Wallet) => Promise<UnsafeContract>
-```
-Returns a Contract wrapper for the fee juice contract
-
-### getFeeJuiceBalance
-```typescript
-function getFeeJuiceBalance(owner: AztecAddress, node: AztecNode) => Promise<bigint>
-```
-Returns the owner's fee juice balance. Note: This is used only e2e_local_network_example test. Consider nuking.
-
 ### getGasLimits
 ```typescript
-function getGasLimits(simulationResult: TxSimulationResult, pad?: number) => { gasLimits: Gas; teardownGasLimits: Gas }
+function getGasLimits(simulationResult: TxSimulationResult, pad: number) => { gasLimits: Gas; teardownGasLimits: Gas }
 ```
 Returns suggested total and teardown gas limits for a simulated tx.
-
-### getInstanceRegistryContract
-```typescript
-function getInstanceRegistryContract(wallet: Wallet) => Promise<UnsafeContract>
-```
-Returns a Contract wrapper for the contract instance registry.
-
-### getMessageHashFromIntent
-```typescript
-function getMessageHashFromIntent(messageHashOrIntent: Fr | CallIntent | IntentInnerHash | ContractFunctionInteractionCallIntent, chainInfo: ChainInfo) => Promise<Fr>
-```
-Compute an authentication witness message hash from an intent and metadata. This is just a wrapper around computeAuthwitMessageHash that allows receiving an already computed messageHash as input
-
-### getTimestampRangeForEpoch
-```typescript
-function getTimestampRangeForEpoch(epochNumber: EpochNumber, constants: Pick<L1RollupConstants, "epochDuration" | "l1GenesisTime" | "slotDuration" | "ethereumSlotDuration">) => []
-```
-Returns the range of L1 timestamps (inclusive) for a given epoch number. Note that the endTimestamp is the start timestamp of the last L1 slot for the epoch.
 
 ### isAddressStruct
 ```typescript
@@ -1825,12 +1347,6 @@ function isFunctionSelectorStruct(abiType: AbiType) => boolean
 ```
 Returns whether the ABI type is an Function Selector defined in Aztec.nr.
 
-### isL1ToL2MessageReady
-```typescript
-function isL1ToL2MessageReady(node: Pick<AztecNode, "getBlockNumber" | "getL1ToL2MessageBlock">, l1ToL2MessageHash: Fr, opts: { forPublicConsumption: boolean; messageBlockNumber?: number }) => Promise<boolean>
-```
-Returns whether the L1 to L2 message is ready to be consumed.
-
 ### isWrappedFieldStruct
 ```typescript
 function isWrappedFieldStruct(abiType: AbiType) => boolean
@@ -1849,22 +1365,11 @@ function loadContractArtifactForPublic(input: NoirCompiledContract) => ContractA
 ```
 Gets nargo build output and returns a valid contract artifact instance. Differs from loadContractArtifact() by retaining all bytecode.
 
-### lookupValidity
-```typescript
-function lookupValidity(wallet: Wallet, onBehalfOf: AztecAddress, intent: CallIntent | IntentInnerHash | ContractFunctionInteractionCallIntent, witness: AuthWitness) => Promise<{ isValidInPrivate: boolean; isValidInPublic: boolean }>
-```
-Lookup the validity of an authwit in private and public contexts. Uses the chain id and version of the wallet.
-
 ### mergeExecutionPayloads
 ```typescript
 function mergeExecutionPayloads(requests: ExecutionPayload[]) => ExecutionPayload
 ```
 Merges an array ExecutionPayloads combining their calls, authWitnesses, capsules and extraArgHashes.
-
-### merkleTreeIds
-```typescript
-function merkleTreeIds() => MerkleTreeId[]
-```
 
 ### publishContractClass
 ```typescript
@@ -1874,14 +1379,9 @@ Sets up a call to publish a contract class given its artifact.
 
 ### publishInstance
 ```typescript
-function publishInstance(wallet: Wallet, instance: ContractInstanceWithAddress) => Promise<ContractFunctionInteraction>
+function publishInstance(wallet: Wallet, instance: ContractInstanceWithAddress) => ContractFunctionInteraction
 ```
 Sets up a call to the canonical contract instance registry to publish a contract instance.
-
-### readFieldCompressedString
-```typescript
-function readFieldCompressedString(field: NoirFieldCompressedString) => string
-```
 
 ### toProfileOptions
 ```typescript
@@ -1891,7 +1391,7 @@ Transforms and cleans up the higher level ProfileInteractionOptions defined by t
 
 ### toSendOptions
 ```typescript
-function toSendOptions(options: SendInteractionOptions) => SendOptions
+function toSendOptions<W extends InteractionWaitOptions>(options: SendInteractionOptions<W>) => SendOptions<W>
 ```
 Transforms and cleans up the higher level SendInteractionOptions defined by the interaction into SendOptions, which are the ones that can be serialized and forwarded to the wallet
 
@@ -1900,17 +1400,6 @@ Transforms and cleans up the higher level SendInteractionOptions defined by the 
 function toSimulateOptions(options: SimulateInteractionOptions) => SimulateOptions
 ```
 Transforms and cleans up the higher level SimulateInteractionOptions defined by the interaction into SimulateOptions, which are the ones that can be serialized and forwarded to the wallet
-
-### waitForL1ToL2MessageReady
-```typescript
-function waitForL1ToL2MessageReady(node: Pick<AztecNode, "getBlockNumber" | "getL1ToL2MessageBlock">, l1ToL2MessageHash: Fr, opts: { forPublicConsumption: boolean; timeoutSeconds: number }) => Promise<boolean>
-```
-Waits for the L1 to L2 message to be ready to be consumed.
-
-### waitForNode
-```typescript
-function waitForNode(node: AztecNode, logger?: Logger) => Promise<void>
-```
 
 ### waitForProven
 ```typescript
@@ -1934,13 +1423,13 @@ A variable type.
 
 ### Account
 ```typescript
-type Account = AccountInterface & AuthwitnessIntentProvider
+type Account = EntrypointInterface & AuthorizationProvider & {}
 ```
-A type defining an account, capable of both creating authwits and using them to authenticate transaction execution requests.
+Minimal interface for transaction execution and authorization.
 
 ### Aliased
 ```typescript
-type Aliased = { alias: string; item: T }
+type Aliased = unknown
 ```
 A wrapper type that allows any item to be associated with an alias.
 
@@ -1958,15 +1447,15 @@ Maps a tuple of BatchedMethod to a tuple of their wrapped return types
 
 ### BatchableMethods
 ```typescript
-type BatchableMethods = Pick<Wallet, "registerContract" | "sendTx" | "registerSender" | "simulateUtility" | "simulateTx">
+type BatchableMethods = Omit<Wallet, "batch">
 ```
-Helper type that represents all methods that can be batched.
+Helper type that represents all methods that can be batched (all methods except batch itself).
 
 ### BatchedMethod
 ```typescript
-type BatchedMethod = { args: Parameters<BatchableMethods[T]>; name: T }
+type BatchedMethod = { [key: string]: unknown }[keyof BatchableMethods]
 ```
-From the batchable methods, we create a type that represents a method call with its name and arguments. This is what the wallet will accept as arguments to the `batch` method.
+Union of all possible batched method calls. This ensures type safety: the `args` must match the specific `name`.
 
 ### BatchedMethodResult
 ```typescript
@@ -1976,21 +1465,39 @@ Helper type to extract the return type of a batched method
 
 ### BatchedMethodResultWrapper
 ```typescript
-type BatchedMethodResultWrapper = { name: T["name"]; result: BatchedMethodResult<T> }
+type BatchedMethodResultWrapper = unknown
 ```
 Wrapper type for batch results that includes the method name for discriminated union deserialization. Each result is wrapped as { name: 'methodName', result: ActualResult } to allow proper deserialization when AztecAddress and TxHash would otherwise be ambiguous (both are hex strings).
 
-### CallIntent
+### BlockNumber
 ```typescript
-type CallIntent = { call: FunctionCall; caller: AztecAddress }
+type BlockNumber = Branded<number, "BlockNumber">
 ```
-Intent with a call
+Creates a BlockNumber from a number.
+
+### CAPABILITY_VERSION
+```typescript
+type CAPABILITY_VERSION = "1.0"
+```
+Current capability manifest version.
+
+### Capability
+```typescript
+type Capability = AccountsCapability | ContractsCapability | ContractClassesCapability | SimulationCapability | TransactionCapability | DataCapability
+```
+Union type of all capability scopes (app request). Capabilities group wallet operations by their security sensitivity and functional cohesion, making permission requests understandable to users.
 
 ### ChainInfo
 ```typescript
-type ChainInfo = { chainId: Fr; version: Fr }
+type ChainInfo = unknown
 ```
 Information on the connected chain. Used by wallets when constructing transactions to protect against replay attacks.
+
+### ContractClassMetadata
+```typescript
+type ContractClassMetadata = unknown
+```
+Contract class metadata.
 
 ### ContractClassWithId
 ```typescript
@@ -1998,16 +1505,16 @@ type ContractClassWithId = ContractClass & Pick<ContractClassCommitments, "id">
 ```
 A contract class with its precomputed id.
 
-### ContractFunctionInteractionCallIntent
-```typescript
-type ContractFunctionInteractionCallIntent = { action: ContractFunctionInteraction; caller: AztecAddress }
-```
-Intent with a ContractFunctionInteraction
-
 ### ContractInstanceWithAddress
 ```typescript
 type ContractInstanceWithAddress = ContractInstance & { address: AztecAddress }
 ```
+
+### ContractMetadata
+```typescript
+type ContractMetadata = unknown
+```
+Contract metadata including deployment and registration status.
 
 ### ContractMethod
 ```typescript
@@ -2033,27 +1540,39 @@ type DefaultWaitOpts = WaitOpts
 
 ### DeployAccountOptions
 ```typescript
-type DeployAccountOptions = Omit<DeployOptions, "contractAddressSalt" | "universalDeploy">
+type DeployAccountOptions = DeployAccountOptionsWithoutWait & { wait?: W }
 ```
 The configuration options for the send/prove methods. Omits: - The contractAddressSalt, since for account contracts that is fixed in the constructor. - UniversalDeployment flag, since account contracts are always deployed with it set to true
 
+### DeployInteractionWaitOptions
+```typescript
+type DeployInteractionWaitOptions = NoWait | DeployWaitOptions | undefined
+```
+Type for wait options in deployment interactions. - NO_WAIT symbol: Don't wait, return TxHash immediately - DeployWaitOptions: Wait with custom options - undefined: Wait with default options
+
 ### DeployOptions
 ```typescript
-type DeployOptions = Omit<RequestDeployOptions, "deployer"> & { universalDeploy?: boolean } & Pick<SendInteractionOptions, "from" | "fee">
+type DeployOptions = DeployOptionsWithoutWait & { wait?: W }
 ```
-Extends the deployment options with the required parameters to send the transaction
+Extends the deployment options with the required parameters to send the transaction.
+
+### DeployReturn
+```typescript
+type DeployReturn = unknown
+```
+Represents the result type of deploying a contract. - If wait is NO_WAIT, returns TxHash immediately. - If wait has returnReceipt: true, returns DeployTxReceipt after waiting. - Otherwise (undefined or DeployWaitOptions without returnReceipt), returns TContract after waiting.
 
 ### DeployTxReceipt
 ```typescript
-type DeployTxReceipt = FieldsOf<TxReceipt> & { contract: TContract; instance: ContractInstanceWithAddress }
+type DeployTxReceipt = TxReceipt & { contract: TContract; instance: ContractInstanceWithAddress }
 ```
-Extends a transaction receipt with a contract instance that represents the newly deployed contract.
+Receipt for a deployment transaction with the deployed contract instance.
 
-### DeployedWaitOpts
+### DeployWaitOptions
 ```typescript
-type DeployedWaitOpts = WaitOpts & { wallet?: Wallet }
+type DeployWaitOptions = WaitOpts & { returnReceipt?: boolean }
 ```
-Options related to waiting for a deployment tx.
+Wait options specific to deployment transactions. Extends WaitOpts with a flag to return the full receipt instead of just the contract.
 
 ### EthAddressLike
 ```typescript
@@ -2066,18 +1585,6 @@ Any type that can be converted into an EthAddress Aztec.nr struct.
 type EventSelectorLike = FieldLike | EventSelector
 ```
 Any type that can be converted into an EventSelector Aztec.nr struct.
-
-### FeeEstimationOptions
-```typescript
-type FeeEstimationOptions = { estimatedGasPadding?: number; estimateGas?: boolean }
-```
-Options used to tweak the simulation and add gas estimation capabilities
-
-### FeePaymentMethodOption
-```typescript
-type FeePaymentMethodOption = { paymentMethod?: FeePaymentMethod }
-```
-Interactions allow configuring a custom fee payment method that gets bundled with the transaction before sending it to the wallet
 
 ### FieldLike
 ```typescript
@@ -2093,32 +1600,32 @@ Any type that can be converted into a FunctionSelector Aztec.nr struct.
 
 ### GasSettingsOption
 ```typescript
-type GasSettingsOption = { gasSettings?: Partial<FieldsOf<GasSettings>> }
+type GasSettingsOption = unknown
 ```
 User-defined partial gas settings for the interaction. This type is completely optional since the wallet will fill in the missing options
+
+### GrantedCapability
+```typescript
+type GrantedCapability = GrantedAccountsCapability | GrantedContractsCapability | GrantedContractClassesCapability | GrantedSimulationCapability | GrantedTransactionCapability | GrantedDataCapability
+```
+Union type of all granted capabilities (wallet response). The wallet may augment capabilities with additional information: - AccountsCapability: adds specific accounts granted - Other capabilities: may reduce scope (e.g., '*' to specific addresses)
 
 ### GrumpkinScalar
 ```typescript
 type GrumpkinScalar = typeof Fq
 ```
 
-### INITIAL_L2_BLOCK_NUM
-```typescript
-type INITIAL_L2_BLOCK_NUM = BlockNumber
-```
-The initial L2 block number (typed as BlockNumber). This is the first block number in the Aztec L2 chain.
-
-### IntentInnerHash
-```typescript
-type IntentInnerHash = { consumer: AztecAddress; innerHash: Fr }
-```
-Intent with an inner hash
-
 ### InteractionFeeOptions
 ```typescript
 type InteractionFeeOptions = GasSettingsOption & FeePaymentMethodOption
 ```
 Fee options as set by a user.
+
+### InteractionWaitOptions
+```typescript
+type InteractionWaitOptions = NoWait | WaitOpts | undefined
+```
+Type for wait options in interactions. - NO_WAIT symbol: Don't wait for confirmation, return TxHash immediately - WaitOpts object: Wait with custom options and return receipt/result - undefined: Wait with default options and return receipt/result
 
 ### L2AmountClaim
 ```typescript
@@ -2134,21 +1641,21 @@ L1 to L2 message info that corresponds to an amount to claim with associated rec
 
 ### L2Claim
 ```typescript
-type L2Claim = { claimSecret: Fr; claimSecretHash: Fr; ... }
+type L2Claim = unknown
 ```
 L1 to L2 message info to claim it on L2.
 
-### LogFilter
+### NO_WAIT
 ```typescript
-type LogFilter = { afterLog?: LogId; contractAddress?: AztecAddress; ... }
+type NO_WAIT = "NO_WAIT"
 ```
-Log filter used to fetch L2 logs.
+Constant for explicitly not waiting for transaction confirmation. We use this instead of false to avoid confusion with falsy checks.
 
-### Logger
+### NoWait
 ```typescript
-type Logger = { [key: string]: unknown } & { error: ErrorLogFn } & { createChild: (childModule: string) => Logger; isLevelEnabled: (level: LogLevel) => boolean; ... }
+type NoWait = typeof NO_WAIT
 ```
-Logger that supports multiple severity levels.
+Type for the NO_WAIT constant.
 
 ### PartialAddress
 ```typescript
@@ -2158,13 +1665,13 @@ A type which along with public key forms a preimage of a contract address. See t
 
 ### PrivateEvent
 ```typescript
-type PrivateEvent = { event: T; metadata: InTx }
+type PrivateEvent = Event<T>
 ```
 An ABI decoded private event with associated metadata.
 
 ### PrivateEventFilter
 ```typescript
-type PrivateEventFilter = { contractAddress: AztecAddress; fromBlock?: BlockNumber; ... }
+type PrivateEventFilter = EventFilterBase & { contractAddress: AztecAddress; scopes: AztecAddress[] }
 ```
 Filter options when querying private events.
 
@@ -2178,24 +1685,25 @@ Represents the options for profiling an interaction.
 ```typescript
 type ProfileOptions = Omit<ProfileInteractionOptions, "fee"> & { fee?: GasSettingsOption }
 ```
-Options for profiling interactions with the wallet. Overrides the fee settings of an interaction with a simplified version that only hints at the wallet wether the interaction contains a fee payment method or not
+Options for profiling interactions with the wallet. Overrides the fee settings of an interaction with a simplified version that only hints at the wallet whether the interaction contains a fee payment method or not
 
-### ProtocolContractAddress
+### PublicEvent
 ```typescript
-type ProtocolContractAddress = Record<ProtocolContractName, AztecAddress>
+type PublicEvent = Event<T, { contractAddress: AztecAddress }>
 ```
+An ABI decoded public event with associated metadata (includes contract address).
+
+### PublicEventFilter
+```typescript
+type PublicEventFilter = EventFilterBase & { contractAddress?: AztecAddress }
+```
+Filter options when querying public events.
 
 ### PublicKey
 ```typescript
 type PublicKey = Point
 ```
 Represents a user public key.
-
-### RequestDeployAccountOptions
-```typescript
-type RequestDeployAccountOptions = Omit<RequestDeployOptions, "contractAddressSalt">
-```
-The configuration options for the request method. Omits the contractAddressSalt, since for account contracts that is fixed in the constructor
 
 ### RequestDeployOptions
 ```typescript
@@ -2205,7 +1713,7 @@ Options for deploying a contract on the Aztec network. Allows specifying a contr
 
 ### RequestInteractionOptions
 ```typescript
-type RequestInteractionOptions = { authWitnesses?: AuthWitness[]; capsules?: Capsule[]; fee?: FeePaymentMethodOption }
+type RequestInteractionOptions = unknown
 ```
 Represents the options to configure a request from a contract interaction. Allows specifying additional auth witnesses and capsules to use during execution
 
@@ -2217,25 +1725,25 @@ A contract deployment salt.
 
 ### SendInteractionOptions
 ```typescript
-type SendInteractionOptions = RequestInteractionOptions & { fee?: InteractionFeeOptions; from: AztecAddress }
+type SendInteractionOptions = SendInteractionOptionsWithoutWait & { wait?: W }
 ```
 Represents options for calling a (constrained) function in a contract.
 
 ### SendOptions
 ```typescript
-type SendOptions = Omit<SendInteractionOptions, "fee"> & { fee?: GasSettingsOption }
+type SendOptions = Omit<SendInteractionOptionsWithoutWait, "fee"> & { fee?: GasSettingsOption; wait?: W }
 ```
-Options for sending/proving interactions with the wallet. Overrides the fee settings of an interaction with a simplified version that only hints at the wallet wether the interaction contains a fee payment method or not
+Options for sending/proving interactions with the wallet. Overrides the fee settings of an interaction with a simplified version that only hints at the wallet whether the interaction contains a fee payment method or not
 
-### SimulateDeployAccountOptions
+### SendReturn
 ```typescript
-type SimulateDeployAccountOptions = Omit<SimulateDeployOptions, "contractAddressSalt">
+type SendReturn = unknown
 ```
-The configuration options for the simulate method. Omits the contractAddressSalt, since for account contracts that is fixed in the constructor
+Represents the result type of sending a transaction. If `wait` is NO_WAIT, returns TxHash immediately without waiting. If `wait` is undefined or WaitOpts, returns TReturn (defaults to TxReceipt) after waiting.
 
 ### SimulateDeployOptions
 ```typescript
-type SimulateDeployOptions = Omit<DeployOptions, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... }
+type SimulateDeployOptions = Omit<DeployOptionsWithoutWait, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... }
 ```
 Options for simulating the deployment of a contract Allows skipping certain validations and computing gas estimations
 
@@ -2249,19 +1757,19 @@ Represents the options for simulating a contract function interaction. Allows sp
 ```typescript
 type SimulateOptions = Omit<SimulateInteractionOptions, "fee"> & { fee?: GasSettingsOption & FeeEstimationOptions }
 ```
-Options for simulating interactions with the wallet. Overrides the fee settings of an interaction with a simplified version that only hints at the wallet wether the interaction contains a fee payment method or not
-
-### SimulationInteractionFeeOptions
-```typescript
-type SimulationInteractionFeeOptions = InteractionFeeOptions & FeeEstimationOptions
-```
-Fee options that can be set for simulation *only*
+Options for simulating interactions with the wallet. Overrides the fee settings of an interaction with a simplified version that only hints at the wallet whether the interaction contains a fee payment method or not
 
 ### SimulationReturn
 ```typescript
 type SimulationReturn = unknown
 ```
 Represents the result type of a simulation. By default, it will just be the return value of the simulated function If `includeMetadata` is set to true in `SimulateInteractionOptions` on the input of `simulate(...)`, it will provide extra information.
+
+### SortedTxStatuses
+```typescript
+type SortedTxStatuses = TxStatus[]
+```
+Tx status sorted by finalization progress.
 
 ### U128Like
 ```typescript
@@ -2271,19 +1779,19 @@ Any type that can be converted into a U128.
 
 ### WaitForProvenOpts
 ```typescript
-type WaitForProvenOpts = { interval?: number; provenTimeout?: number }
+type WaitForProvenOpts = unknown
 ```
 Options for waiting for a transaction to be proven.
 
 ### WaitOpts
 ```typescript
-type WaitOpts = { dontThrowOnRevert?: boolean; ignoreDroppedReceiptsFor?: number; ... }
+type WaitOpts = unknown
 ```
 Options related to waiting for a tx.
 
 ### Wallet
 ```typescript
-type Wallet = {}
+type Wallet = unknown
 ```
 The wallet interface.
 
@@ -2293,34 +1801,56 @@ type WrappedFieldLike = { inner: FieldLike } | FieldLike
 ```
 Any type that can be converted into a struct with a single `inner` field.
 
+### ZERO
+```typescript
+type ZERO = BlockNumber
+```
+
+### add
+```typescript
+type add = (bn: BlockNumber, increment: number) => BlockNumber
+```
+
+### fromBigInt
+```typescript
+type fromBigInt = (value: bigint) => BlockNumber
+```
+
+### fromCheckpointNumber
+```typescript
+type fromCheckpointNumber = (value: CheckpointNumber) => BlockNumber
+```
+
+### fromString
+```typescript
+type fromString = (value: string) => BlockNumber
+```
+
+### isValid
+```typescript
+type isValid = (value: unknown) => boolean
+```
+
 ## Enums
-
-### Comparator
-The comparator to use to compare.
-
-Values: `1`, `5`, `6`, `3`, `4`, `2`
 
 ### FunctionType
 Aztec.nr function types.
 
 Values: `private`, `public`, `utility`
 
-### MerkleTreeId
-Defines the possible Merkle tree IDs.
+### TxExecutionResult
+Execution result - only set when tx is in a block.
 
-Values: `4`, `3`, `1`, `0`, `2`
+Values: `app_logic_reverted`, `both_reverted`, `success`, `teardown_reverted`
 
 ### TxStatus
-Possible status of a transaction.
+Block inclusion/finalization status.
 
-Values: `app_logic_reverted`, `both_reverted`, `dropped`, `pending`, `success`, `teardown_reverted`
+Values: `checkpointed`, `dropped`, `finalized`, `pending`, `proposed`, `proven`
 
 ## Cross-Package References
 
 This package references types from other Aztec packages:
-
-**@aztec/blob-lib**
-- `BlockBlobData`, `TxBlobData`
 
 **@aztec/entrypoints**
 - `AuthWitnessProvider`, `ChainInfo`, `DefaultAccountEntrypointOptions`, `EntrypointInterface`
@@ -2329,10 +1859,7 @@ This package references types from other Aztec packages:
 - `ExtendedViemWalletClient`, `L1ContractAddresses`
 
 **@aztec/foundation**
-- `BaseField`, `BlockNumber`, `Buffer32`, `BufferReader`, `EpochNumber`, `ErrorLogFn`, `EthAddress`, `FieldReader`, `FieldsOf`, `Fq`, `Fr`, `GrumpkinScalar`, `Hasher`, `LogLevel`, `Logger`, `MembershipWitness`, `N`, `Point`, `SiblingPath`, `SlotNumber`, `SubtreeHeight`, `SubtreeSiblingPathHeight`, `Tuple`, `ZodFor`
-
-**@aztec/protocol-contracts**
-- `ProtocolContractName`
+- `BaseField`, `BlockNumber`, `Branded`, `Buffer32`, `BufferReader`, `CheckpointNumber`, `EpochNumber`, `EthAddress`, `FieldReader`, `FieldsOf`, `Fq`, `Fr`, `Logger`, `Point`, `SiblingPath`, `SlotNumber`
 
 **@aztec/stdlib**
-- `ABIParameterSchema`, `APP_LOGIC_REVERTED`, `AbiDecoded`, `AbiErrorType`, `AbiType`, `AbiValue`, `AllowedElement`, `AppendOnlyTreeSnapshot`, `ArrayType`, `AuthWitness`, `AuthorizationSelector`, `AztecAddress`, `AztecNode`, `BOTH_REVERTED`, `BasicType`, `BlockHeader`, `Body`, `Capsule`, `Checkpoint`, `CheckpointHeader`, `ChonkProof`, `CompleteAddress`, `ComponentsVersions`, `ContractArtifact`, `ContractArtifactWithHash`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractClassLog`, `ContractClassLogFields`, `ContractClassPublic`, `ContractClassWithId`, `ContractInstance`, `ContractInstanceWithAddress`, `ContractInstantiationData`, `DataInBlock`, `DebugFileMap`, `EventMetadataDefinition`, `EventSelector`, `ExecutionPayload`, `FieldLayout`, `FunctionAbi`, `FunctionArtifact`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `FunctionType`, `Gas`, `GasFees`, `GasSettings`, `GetContractClassLogsResponse`, `GetPublicLogsResponse`, `GlobalVariables`, `Gossipable`, `HashedValues`, `InTx`, `IndexedTxEffect`, `IntegerType`, `L1Actor`, `L1RollupConstants`, `L1ToL2Message`, `L2Actor`, `L2Block`, `L2BlockHash`, `L2BlockHeader`, `L2BlockInfo`, `L2BlockNew`, `L2BlockSource`, `L2LogsSource`, `L2Tips`, `LogFilter`, `LogId`, `MerkleTreeId`, `NodeInfo`, `NoirCompiledContract`, `NoirFunctionEntry`, `Note`, `NoteSelector`, `NullifierMembershipWitness`, `OffchainEffect`, `PrivateExecutionStep`, `PrivateKernelTailCircuitPublicInputs`, `ProtocolContractAddresses`, `ProvingStats`, `PublicCallRequestWithCalldata`, `PublicDataWitness`, `PublicKey`, `PublicKeys`, `PublicSimulationOutput`, `PublishedL2Block`, `RevertCode`, `SUCCESS`, `Selector`, `SimulationStats`, `SingleValidatorStats`, `StringType`, `StructType`, `TEARDOWN_REVERTED`, `TopicType`, `TupleType`, `Tx`, `TxContext`, `TxEffect`, `TxExecutionRequest`, `TxHash`, `TxProfileResult`, `TxReceipt`, `TxRequest`, `TxScopedL2Log`, `TxSimulationResult`, `TxStats`, `TxStatus`, `TxValidationResult`, `ValidatorsStats`, `Vector`, `WorldStateSyncStatus`
+- `ABIParameterSchema`, `AbiDecoded`, `AbiErrorType`, `AbiType`, `AbiValue`, `ArrayType`, `AuthWitness`, `AztecAddress`, `AztecNode`, `BasicType`, `BlockHash`, `Capsule`, `ChonkProof`, `CompleteAddress`, `ContractArtifact`, `ContractArtifactWithHash`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractClassLog`, `ContractClassLogFields`, `ContractInstance`, `ContractInstanceWithAddress`, `ContractInstantiationData`, `DebugFileMap`, `EventSelector`, `ExecutionPayload`, `FieldLayout`, `FunctionAbi`, `FunctionArtifact`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `FunctionType`, `Gas`, `GasFees`, `GasSettings`, `GetPublicLogsResponse`, `GlobalVariables`, `Gossipable`, `HashedValues`, `IntegerType`, `L2LogsSource`, `NoirCompiledContract`, `NoirFunctionEntry`, `NoteSelector`, `OffchainEffect`, `PrivateExecutionStep`, `PrivateKernelTailCircuitPublicInputs`, `ProtocolContractAddresses`, `ProvingStats`, `PublicCallRequestWithCalldata`, `PublicKeys`, `RevertCode`, `Selector`, `SimulationStats`, `StringType`, `StructType`, `TopicType`, `TupleType`, `Tx`, `TxContext`, `TxExecutionRequest`, `TxExecutionResult`, `TxHash`, `TxProfileResult`, `TxReceipt`, `TxRequest`, `TxSimulationResult`, `TxStats`, `TxStatus`

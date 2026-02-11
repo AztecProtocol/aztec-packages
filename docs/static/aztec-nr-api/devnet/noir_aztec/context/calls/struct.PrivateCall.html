@@ -67,15 +67,14 @@
 
 </div><h3><code class="code-header">impl&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../noir_aztec/context/calls/struct.PrivateCall.html" class="struct">PrivateCall</a>&lt;M, N, T&gt;</code></h3>
 
-<div class="padded-methods"><code id="call" class="code-header">pub fn <a href="#call"><span class="fn">call</span></a>(self, context: &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>) -> T
+<div class="padded-methods"><code id="call" class="code-header">pub fn <a href="#call"><span class="fn">call</span></a>(self, context: &mut <a href="../../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>) -> T
 <div class="where-clause">where
-    T: <a href="../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+    T: <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
-<p><strong>[DEPRECATED]</strong>
-This function is deprecated. Please use the new contract API:
-<code>self.call(MyContract::at(address).my_private_function(...args))</code>
-instead of manually constructing and calling <code>PrivateCall</code>.</p>
+<p><strong>DEPRECATED</strong>.</p>
+<p>Please use the new contract API: <code>self.call(MyContract::at(address).my_private_function(...args))</code> instead of
+manually constructing and calling <code>PrivateCall</code>.</p>
 </div>
 </div></div></main>
 </span>

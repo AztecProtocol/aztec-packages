@@ -22,12 +22,12 @@
 <li><a href="initialization_utils/index.html">initialization_utils</a></div></li>
 </ul>
 <h3>Functions</h3><ul class="item-list">
+<li><a href="fn.allow_phase_change.html">allow_phase_change</a></div></li>
 <li><a href="fn.authorize_once.html">authorize_once</a></div></li>
 <li><a href="fn.external.html">external</a></div></li>
 <li><a href="fn.initializer.html">initializer</a></div></li>
 <li><a href="fn.internal.html">internal</a></div></li>
 <li><a href="fn.noinitcheck.html">noinitcheck</a></div></li>
-<li><a href="fn.nophasecheck.html">nophasecheck</a></div></li>
 <li><a href="fn.only_self.html">only_self</a></div></li>
 <li><a href="fn.view.html">view</a></div></li>
 </ul>
@@ -38,13 +38,45 @@
 <pre><code>pub comptime fn initializer(f: <a href="../../../std/primitive.FunctionDefinition.html" class="primitive">FunctionDefinition</a>)</code></pre>
 
 <div class="comments">
-<p>An initializer function is similar to a constructor:</p>
+<p>An initializer function is where a contract initializes its state.</p>
+<p>Initializer functions are similar to constructors:</p>
 <ul>
-<li>it can only be called once</li>
-<li>if there are multiple initializer functions, only one of them can be called</li>
-<li>no non-initializer functions can be called until an initializer has ben called (except <code>noinitcheck</code> functions)</li>
+<li>can only be called once</li>
+<li><a href="../../../noir_aztec/macros/functions/fn.external.html"><code>external</code></a> non-initializer functions cannot be called until one of the initializers has ben called</li>
 </ul>
-</div>
+<p>The only exception are <a href="../../../noir_aztec/macros/functions/fn.noinitcheck.html"><code>noinitcheck</code></a> functions, which can be called even if none of the initializers has been
+called.</p>
+<h2>Initialization Commitment</h2>
+<p>All contract instances have their address include a commitment to one of their initializer functions, along with
+parameters and calling address. Any of the following will therefore fail:</p>
+<ul>
+<li>calling the wrong initializer function</li>
+<li>calling the initializer function with incorrect parameters</li>
+<li>calling the initializer function from the incorrect address</li>
+</ul>
+<p>It is possible however to allow for any account to call the specified initializer by setting the intended caller to
+the zero address. These are called 'universal deployments'.</p>
+<h2>Multiple Initializers</h2>
+<p>A contract can have multiple initializer functions, but it is not possible to call multiple initializers on the
+same instance: all initializers become disabled once any of them executes. Each individual instance can call any of
+the initializers.</p>
+<p>Initializers can be either private or public. If a contract needs to initialize both private and public state, then
+it should have an <a href="../../../noir_aztec/macros/functions/fn.external.html"><code>external</code></a> private function marked as <a href="../../../noir_aztec/macros/functions/fn.initializer.html"><code>initializer</code></a> which then enqueues a call to an
+<a href="../../../noir_aztec/macros/functions/fn.external.html"><code>external</code></a> public function <strong>not</strong> marked as <a href="../../../noir_aztec/macros/functions/fn.initializer.html"><code>initializer</code></a> and instead marked as <a href="../../../noir_aztec/macros/functions/fn.only_self.html"><code>only_self</code></a> (so that it can
+only be called in this manner).</p>
+<h2>Lack of Initializers</h2>
+<p>If a contract has no initializer function, initialization is then not required and all functions can be called at
+any time. Contracts that do have initializers can also make some of their functions available prior to
+initialization by marking them with the <code>#[noinitcheck]</code> attribute - though any contract state initialization will
+of course not have taken place.</p>
+<h2>Cost</h2>
+<p>The initialization process emits a nullifier which marks the contract as initialized. All other <a href="../../../noir_aztec/macros/functions/fn.external.html"><code>external</code></a>
+functions are automatically made to check that this nullifier exists, ensuring initialization.</p>
+<p>For private non-initializer functions, the cost of this check is equivalent to that of a call to
+<a href="../../../noir_aztec/context/struct.PrivateContext.html#assert_nullifier_exists"><code>PrivateContext::assert_nullifier_exists</code></a>. For public
+ones, it is equivalent to a call to
+<a href="../../../noir_aztec/context/struct.PublicContext.html#nullifier_exists_unsafe"><code>PublicContext::nullifier_exists_unsafe</code></a>.</p>
+<p>The <a href="../../../noir_aztec/macros/functions/fn.noinitcheck.html"><code>noinitcheck</code></a> attribute can be used to skip the initialization nullifer checks.</p></div>
 </main>
 </span>
 </body>

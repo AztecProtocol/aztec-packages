@@ -32,7 +32,7 @@
 <li><a href="type.ComputeNoteHashAndNullifier.html">ComputeNoteHashAndNullifier</a></div></li>
 </ul>
 <h3>Functions</h3><ul class="item-list">
-<li><a href="fn.discover_new_messages.html">discover_new_messages</a></div></li>
+<li><a href="fn.do_sync_state.html">do_sync_state</a></div></li>
 </ul>
 </nav>
 <main>
@@ -44,8 +44,8 @@
 <p>A function which takes a note's packed content, address of the emitting contract, note nonce, storage slot and note
 type ID and attempts to compute its note hash (not hashed by note nonce nor siloed by address) and inner nullifier
 (not siloed by address).</p>
-<p>This function must be user-provided as its implementation requires knowledge of how note type IDs are allocated in a
-contract. The <code>#[aztec]</code> macro automatically creates such a contract library method called
+<p>This function must be user-provided as its implementation requires knowledge of how note type IDs are allocated in
+a contract. The <code>#[aztec]</code> macro automatically creates such a contract library method called
 <code>_compute_note_hash_and_nullifier</code>, which looks something like this:</p>
 <pre><code>|packed_note, owner, storage_slot, note_type_id, contract_address, randomness, note_nonce| {
     <span class="kw">if</span> note_type_id == MyNoteType::get_id() {
@@ -55,7 +55,7 @@ contract. The <code>#[aztec]</code> macro automatically creates such a contract 
 
         <span class="kw">let</span> note_hash = note.compute_note_hash(owner, storage_slot, randomness);
         <span class="kw">let</span> note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
-            RetrievedNote{ note, contract_address, metadata: SettledNoteMetadata::new(note_nonce).into() },
+            HintedNote{ note, contract_address, metadata: SettledNoteMetadata::new(note_nonce).into() },
             storage_slot
         );
 

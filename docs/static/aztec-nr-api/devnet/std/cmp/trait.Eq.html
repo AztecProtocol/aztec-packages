@@ -46,7 +46,6 @@
 <li><a href="#impl-Eq-for-ClaimedLengthArray<T, N>">ClaimedLengthArray<T, N></a></li>
 <li><a href="#impl-Eq-for-CompoundStruct">CompoundStruct</a></li>
 <li><a href="#impl-Eq-for-CompressedString<N, M>">CompressedString<N, M></a></li>
-<li><a href="#impl-Eq-for-ContentCommitment">ContentCommitment</a></li>
 <li><a href="#impl-Eq-for-ContractClassId">ContractClassId</a></li>
 <li><a href="#impl-Eq-for-ContractClassLog">ContractClassLog</a></li>
 <li><a href="#impl-Eq-for-ContractInstance">ContractInstance</a></li>
@@ -71,6 +70,7 @@
 <li><a href="#impl-Eq-for-GasSettings">GasSettings</a></li>
 <li><a href="#impl-Eq-for-GlobalVariables">GlobalVariables</a></li>
 <li><a href="#impl-Eq-for-HashMap<K, V, N, B>">HashMap<K, V, N, B></a></li>
+<li><a href="#impl-Eq-for-HintedNote<Note>">HintedNote<Note></a></li>
 <li><a href="#impl-Eq-for-IvpkM">IvpkM</a></li>
 <li><a href="#impl-Eq-for-KeyValidationRequest">KeyValidationRequest</a></li>
 <li><a href="#impl-Eq-for-KeyValidationRequestAndGenerator">KeyValidationRequestAndGenerator</a></li>
@@ -101,7 +101,6 @@
 <li><a href="#impl-Eq-for-PrivateCircuitPublicInputs">PrivateCircuitPublicInputs</a></li>
 <li><a href="#impl-Eq-for-PrivateContext">PrivateContext</a></li>
 <li><a href="#impl-Eq-for-PrivateContextInputs">PrivateContextInputs</a></li>
-<li><a href="#impl-Eq-for-PrivateKernelCircuitPublicInputs">PrivateKernelCircuitPublicInputs</a></li>
 <li><a href="#impl-Eq-for-PrivateLogData">PrivateLogData</a></li>
 <li><a href="#impl-Eq-for-PrivateToAvmAccumulatedData">PrivateToAvmAccumulatedData</a></li>
 <li><a href="#impl-Eq-for-PrivateToAvmAccumulatedDataArrayLengths">PrivateToAvmAccumulatedDataArrayLengths</a></li>
@@ -123,7 +122,6 @@
 <li><a href="#impl-Eq-for-PublicKeysHash">PublicKeysHash</a></li>
 <li><a href="#impl-Eq-for-PublicLogs">PublicLogs</a></li>
 <li><a href="#impl-Eq-for-Quoted">Quoted</a></li>
-<li><a href="#impl-Eq-for-RetrievedNote<Note>">RetrievedNote<Note></a></li>
 <li><a href="#impl-Eq-for-SaltedInitializationHash">SaltedInitializationHash</a></li>
 <li><a href="#impl-Eq-for-ScheduledDelayChange<INITIAL_DELAY>">ScheduledDelayChange<INITIAL_DELAY></a></li>
 <li><a href="#impl-Eq-for-ScheduledValueChange<T>">ScheduledValueChange<T></a></li>
@@ -216,11 +214,11 @@
     D: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a>,
     E: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code></h3>
 
-<h3 id="impl-Eq-for-AddressNote"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../address_note/address_note/struct.AddressNote.html" class="struct">AddressNote</a></code></h3>
+<h3 id="impl-Eq-for-AddressNote"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../address_note/struct.AddressNote.html" class="struct">AddressNote</a></code></h3>
 
 <h3 id="impl-Eq-for-AppendOnlyTreeSnapshot"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a></code></h3>
 
-<h3 id="impl-Eq-for-AuthorizationSelector"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/authwit/authorization_selector/struct.AuthorizationSelector.html" class="struct">AuthorizationSelector</a></code></h3>
+<h3 id="impl-Eq-for-AuthorizationSelector"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/authwit/struct.AuthorizationSelector.html" class="struct">AuthorizationSelector</a></code></h3>
 
 <h3 id="impl-Eq-for-AvmAccumulatedData"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/accumulated_data/avm_accumulated_data/struct.AvmAccumulatedData.html" class="struct">AvmAccumulatedData</a></code></h3>
 
@@ -254,8 +252,6 @@
 
 <h3 id="impl-Eq-for-CompressedString<N, M>"><code class="code-header">impl&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../compressed_string/struct.CompressedString.html" class="struct">CompressedString</a>&lt;N, M&gt;</code></h3>
 
-<h3 id="impl-Eq-for-ContentCommitment"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/content_commitment/struct.ContentCommitment.html" class="struct">ContentCommitment</a></code></h3>
-
 <h3 id="impl-Eq-for-ContractClassId"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a></code></h3>
 
 <h3 id="impl-Eq-for-ContractClassLog"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/contract_class_log/struct.ContractClassLog.html" class="struct">ContractClassLog</a></code></h3>
@@ -272,15 +268,15 @@
 <div class="where-clause">where
     T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code></h3>
 
-<h3 id="impl-Eq-for-EmbeddedCurvePoint"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a></code></h3>
+<h3 id="impl-Eq-for-EmbeddedCurvePoint"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/point/struct.Point.html" class="struct">EmbeddedCurvePoint</a></code></h3>
 
-<h3 id="impl-Eq-for-EmbeddedCurveScalar"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../std/embedded_curve_ops/struct.EmbeddedCurveScalar.html" class="struct">EmbeddedCurveScalar</a></code></h3>
+<h3 id="impl-Eq-for-EmbeddedCurveScalar"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/scalar/struct.Scalar.html" class="struct">EmbeddedCurveScalar</a></code></h3>
 
 <h3 id="impl-Eq-for-EpochConstantData"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/epoch_constant_data/struct.EpochConstantData.html" class="struct">EpochConstantData</a></code></h3>
 
 <h3 id="impl-Eq-for-EthAddress"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/address/eth_address/struct.EthAddress.html" class="struct">EthAddress</a></code></h3>
 
-<h3 id="impl-Eq-for-EventSelector"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/event/event_selector/struct.EventSelector.html" class="struct">EventSelector</a></code></h3>
+<h3 id="impl-Eq-for-EventSelector"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/event/struct.EventSelector.html" class="struct">EventSelector</a></code></h3>
 
 <h3 id="impl-Eq-for-FeeRecipient"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/fee_recipient/struct.FeeRecipient.html" class="struct">FeeRecipient</a></code></h3>
 
@@ -288,7 +284,7 @@
 
 <h3 id="impl-Eq-for-FieldCompressedString"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../compressed_string/struct.FieldCompressedString.html" class="struct">FieldCompressedString</a></code></h3>
 
-<h3 id="impl-Eq-for-FieldNote"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../field_note/field_note/struct.FieldNote.html" class="struct">FieldNote</a></code></h3>
+<h3 id="impl-Eq-for-FieldNote"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../field_note/struct.FieldNote.html" class="struct">FieldNote</a></code></h3>
 
 <h3 id="impl-Eq-for-FixtureBuilder"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/tests/fixture_builder/struct.FixtureBuilder.html" class="struct">FixtureBuilder</a></code></h3>
 
@@ -313,6 +309,10 @@
     V: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a>,
     B: <a href="../../std/hash/trait.BuildHasher.html" class="trait">BuildHasher</a></div></code></h3>
 
+<h3 id="impl-Eq-for-HintedNote<Note>"><code class="code-header">impl&lt;Note&gt; <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;
+<div class="where-clause">where
+    Note: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code></h3>
+
 <h3 id="impl-Eq-for-IvpkM"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/public_keys/struct.IvpkM.html" class="struct">IvpkM</a></code></h3>
 
 <h3 id="impl-Eq-for-KeyValidationRequest"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/validation_requests/key_validation_request/struct.KeyValidationRequest.html" class="struct">KeyValidationRequest</a></code></h3>
@@ -331,9 +331,9 @@
 
 <h3 id="impl-Eq-for-MerkleTree<N>"><code class="code-header">impl&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/merkle_tree/merkle_tree/struct.MerkleTree.html" class="struct">MerkleTree</a>&lt;N&gt;</code></h3>
 
-<h3 id="impl-Eq-for-MessageContext"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/messages/processing/message_context/struct.MessageContext.html" class="struct">MessageContext</a></code></h3>
+<h3 id="impl-Eq-for-MessageContext"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/messages/processing/struct.MessageContext.html" class="struct">MessageContext</a></code></h3>
 
-<h3 id="impl-Eq-for-MockStruct"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/test/mocks/mock_struct/struct.MockStruct.html" class="struct">MockStruct</a></code></h3>
+<h3 id="impl-Eq-for-MockStruct"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/test/mocks/struct.MockStruct.html" class="struct">MockStruct</a></code></h3>
 
 <h3 id="impl-Eq-for-Module"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../std/primitive.Module.html" class="primitive">Module</a></code></h3>
 
@@ -361,7 +361,7 @@
 
 <h3 id="impl-Eq-for-PartialStateReference"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/partial_state_reference/struct.PartialStateReference.html" class="struct">PartialStateReference</a></code></h3>
 
-<h3 id="impl-Eq-for-PartialUintNote"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../uint_note/uint_note/struct.PartialUintNote.html" class="struct">PartialUintNote</a></code></h3>
+<h3 id="impl-Eq-for-PartialUintNote"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../uint_note/struct.PartialUintNote.html" class="struct">PartialUintNote</a></code></h3>
 
 <h3 id="impl-Eq-for-Poseidon2Sponge"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/poseidon2/struct.Poseidon2Sponge.html" class="struct">Poseidon2Sponge</a></code></h3>
 
@@ -371,11 +371,9 @@
 
 <h3 id="impl-Eq-for-PrivateCircuitPublicInputs"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/private_circuit_public_inputs/struct.PrivateCircuitPublicInputs.html" class="struct">PrivateCircuitPublicInputs</a></code></h3>
 
-<h3 id="impl-Eq-for-PrivateContext"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a></code></h3>
+<h3 id="impl-Eq-for-PrivateContext"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a></code></h3>
 
-<h3 id="impl-Eq-for-PrivateContextInputs"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/context/inputs/private_context_inputs/struct.PrivateContextInputs.html" class="struct">PrivateContextInputs</a></code></h3>
-
-<h3 id="impl-Eq-for-PrivateKernelCircuitPublicInputs"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/kernel_circuit_public_inputs/private_kernel_circuit_public_inputs/struct.PrivateKernelCircuitPublicInputs.html" class="struct">PrivateKernelCircuitPublicInputs</a></code></h3>
+<h3 id="impl-Eq-for-PrivateContextInputs"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/context/inputs/struct.PrivateContextInputs.html" class="struct">PrivateContextInputs</a></code></h3>
 
 <h3 id="impl-Eq-for-PrivateLogData"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/private_log/struct.PrivateLogData.html" class="struct">PrivateLogData</a></code></h3>
 
@@ -401,7 +399,7 @@
 
 <h3 id="impl-Eq-for-PublicCallRequestArrayLengths"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/public_call_request/struct.PublicCallRequestArrayLengths.html" class="struct">PublicCallRequestArrayLengths</a></code></h3>
 
-<h3 id="impl-Eq-for-PublicContext"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/context/public_context/struct.PublicContext.html" class="struct">PublicContext</a></code></h3>
+<h3 id="impl-Eq-for-PublicContext"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a></code></h3>
 
 <h3 id="impl-Eq-for-PublicDataTreeLeaf"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/data/public_data_tree_leaf/struct.PublicDataTreeLeaf.html" class="struct">PublicDataTreeLeaf</a></code></h3>
 
@@ -418,10 +416,6 @@
 <h3 id="impl-Eq-for-PublicLogs"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/public_logs/struct.PublicLogs.html" class="struct">PublicLogs</a></code></h3>
 
 <h3 id="impl-Eq-for-Quoted"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../std/primitive.Quoted.html" class="primitive">Quoted</a></code></h3>
-
-<h3 id="impl-Eq-for-RetrievedNote<Note>"><code class="code-header">impl&lt;Note&gt; <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/note/retrieved_note/struct.RetrievedNote.html" class="struct">RetrievedNote</a>&lt;Note&gt;
-<div class="where-clause">where
-    Note: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code></h3>
 
 <h3 id="impl-Eq-for-SaltedInitializationHash"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/address/salted_initialization_hash/struct.SaltedInitializationHash.html" class="struct">SaltedInitializationHash</a></code></h3>
 
@@ -474,7 +468,7 @@
     V: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a>,
     B: <a href="../../std/hash/trait.BuildHasher.html" class="trait">BuildHasher</a></div></code></h3>
 
-<h3 id="impl-Eq-for-UintNote"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../uint_note/uint_note/struct.UintNote.html" class="struct">UintNote</a></code></h3>
+<h3 id="impl-Eq-for-UintNote"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../uint_note/struct.UintNote.html" class="struct">UintNote</a></code></h3>
 
 <h3 id="impl-Eq-for-UnaryOp"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../std/meta/op/struct.UnaryOp.html" class="struct">UnaryOp</a></code></h3>
 

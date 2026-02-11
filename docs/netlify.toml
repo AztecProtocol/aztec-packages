@@ -196,7 +196,7 @@
 # =============================================================================
 [[redirects]]
     from = "/developers/guides/smart_contracts/compile_contract"
-    to = "/developers/docs/aztec-nr/how_to_compile_contract"
+    to = "/developers/docs/aztec-nr/compiling_contracts"
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/deploy_contract"
@@ -212,11 +212,11 @@
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/call_contracts"
-    to = "/developers/docs/aztec-nr/framework-description/how_to_call_contracts"
+    to = "/developers/docs/aztec-nr/framework-description/calling_contracts"
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/emit_event"
-    to = "/developers/docs/aztec-nr/framework-description/how_to_emit_event"
+    to = "/developers/docs/aztec-nr/framework-description/events_and_logs"
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/pop_capsule"
@@ -224,11 +224,11 @@
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/write_custom_note"
-    to = "/developers/docs/aztec-nr/framework-description/how_to_implement_custom_notes"
+    to = "/developers/docs/aztec-nr/framework-description/custom_notes"
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/test_contracts"
-    to = "/developers/docs/aztec-nr/how_to_test_contracts"
+    to = "/developers/docs/aztec-nr/testing_contracts"
 
 # Redirects for renamed local_env guide pages
 [[redirects]]
@@ -289,7 +289,7 @@
 # Redirect for cli_wallet_reference
 [[redirects]]
     from = "/developers/guides/local_env/advanced/cli_wallet_reference"
-    to = "/developers/docs/wallet-cli/cli_wallet_reference"
+    to = "/developers/docs/cli/aztec_wallet_cli_reference"
 
 # Handle relative path redirects for concepts
 [[redirects]]
@@ -334,7 +334,7 @@
 # FaceID wallet redirect
 [[redirects]]
     from = "/developers/tutorials/codealong/faceid_wallet"
-    to = "/developers/docs/wallet-cli/faceid_wallet"
+    to = "/developers/docs/tutorials/faceid_wallet"
 
 # Legacy network paths - SPECIFIC PATHS MUST COME BEFORE WILDCARDS
 # (Netlify processes redirects top-to-bottom, first match wins)
@@ -514,7 +514,7 @@
 # concepts/communication → aztec-nr or foundational-topics
 [[redirects]]
     from = "/developers/docs/concepts/communication/cross_chain_calls"
-    to = "/developers/docs/aztec-nr/framework-description/how_to_communicate_cross_chain"
+    to = "/developers/docs/aztec-nr/framework-description/ethereum_aztec_messaging"
 
 [[redirects]]
     from = "/developers/docs/concepts/communication/*"
@@ -577,7 +577,7 @@
 
 [[redirects]]
     from = "/developers/docs/guides/local_env/advanced/faceid_wallet"
-    to = "/developers/docs/wallet-cli/faceid_wallet"
+    to = "/developers/docs/tutorials/faceid_wallet"
 
 [[redirects]]
     from = "/developers/docs/guides/local_env/*"
@@ -586,11 +586,11 @@
 # guides/smart_contracts exceptions (files at aztec-nr root)
 [[redirects]]
     from = "/developers/docs/guides/smart_contracts/how_to_compile_contract"
-    to = "/developers/docs/aztec-nr/how_to_compile_contract"
+    to = "/developers/docs/aztec-nr/compiling_contracts"
 
 [[redirects]]
     from = "/developers/docs/guides/smart_contracts/how_to_test_contracts"
-    to = "/developers/docs/aztec-nr/how_to_test_contracts"
+    to = "/developers/docs/aztec-nr/testing_contracts"
 
 [[redirects]]
     from = "/developers/docs/guides/smart_contracts/how_to_define_functions"
@@ -661,7 +661,7 @@
 # reference/environment_reference → aztec-cli or wallet-cli
 [[redirects]]
     from = "/developers/docs/reference/environment_reference/cli_wallet*"
-    to = "/developers/docs/wallet-cli/cli_wallet_reference"
+    to = "/developers/docs/cli/aztec_wallet_cli_reference"
 
 [[redirects]]
     from = "/developers/docs/reference/environment_reference/sandbox-reference"
@@ -669,7 +669,7 @@
 
 [[redirects]]
     from = "/developers/docs/reference/environment_reference/*"
-    to = "/developers/docs/aztec-cli/cli_reference"
+    to = "/developers/docs/cli/aztec_cli_reference"
 
 # reference/smart_contract_reference → aztec-nr
 [[redirects]]

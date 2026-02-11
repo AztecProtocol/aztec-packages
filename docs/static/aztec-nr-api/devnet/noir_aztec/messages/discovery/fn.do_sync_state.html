@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Function do_sync_state documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">do_sync_state</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module discovery</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="nonce_discovery/index.html">nonce_discovery</a></div></li>
+<li><a href="partial_notes/index.html">partial_notes</a></div></li>
+<li><a href="private_events/index.html">private_events</a></div></li>
+<li><a href="private_notes/index.html">private_notes</a></div></li>
+<li><a href="process_message/index.html">process_message</a></div></li>
+</ul>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.NoteHashAndNullifier.html">NoteHashAndNullifier</a></div></li>
+</ul>
+<h3>Type aliases</h3><ul class="item-list">
+<li><a href="type.ComputeNoteHashAndNullifier.html">ComputeNoteHashAndNullifier</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.do_sync_state.html">do_sync_state</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::<a href="index.html">discovery</a></div>
+<h1>Function <span class="fn">do_sync_state</span></h1>
+<pre><code>pub unconstrained fn do_sync_state&lt;Env&gt;(
+    contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    compute_note_hash_and_nullifier: <a href="../../../noir_aztec/messages/discovery/type.ComputeNoteHashAndNullifier.html" class="type">ComputeNoteHashAndNullifier</a>&lt;Env&gt;,
+)</code></pre>
+
+<div class="comments">
+<p>Performs the state synchronization process, in which private logs are downloaded and inspected to find new private
+notes, partial notes and events, etc., and pending partial notes are processed to search for their completion logs.
+This is the mechanism via which a contract updates its knowledge of its private state.</p>
+<p>Note that the state is synchronized up to the latest block synchronized by PXE (referred to as &quot;anchor block&quot;).
+That should be close to the chain tip as block synchronization is performed before contract function simulation is
+done.</p>
+<p>Receives the address of the contract on which discovery is performed along with its
+<code>compute_note_hash_and_nullifier</code> function.</p>
+</div>
+</main>
+</span>
+</body>
+</html>
