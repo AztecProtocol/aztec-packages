@@ -384,71 +384,107 @@ def get_pr_metrics(date_from: str, date_to: str, author: str = '',
     if author:
         prs = [p for p in prs if p.get('author') == author]
 
-    # Compute per-PR CI cost from ci_runs
+    # Compute per-PR CI cost and duration from ci_runs
     pr_costs = {}
     pr_run_counts = {}
+    pr_ci_time = {}  # total CI compute hours per PR
     if ci_runs:
         for run in ci_runs:
             prn = run.get('pr_number')
-            if prn and run.get('cost_usd') is not None:
+            if not prn:
+                continue
+            if run.get('cost_usd') is not None:
                 pr_costs[prn] = pr_costs.get(prn, 0) + run['cost_usd']
                 pr_run_counts[prn] = pr_run_counts.get(prn, 0) + 1
+            c = run.get('complete')
+            t = run.get('timestamp')
+            if c and t:
+                pr_ci_time[prn] = pr_ci_time.get(prn, 0) + (c - t) / 3_600_000
 
     for pr in prs:
         prn = pr.get('number')
         pr['ci_cost_usd'] = round(pr_costs.get(prn, 0), 2)
         pr['ci_runs_count'] = pr_run_counts.get(prn, 0)
+        pr['ci_time_hrs'] = round(pr_ci_time.get(prn, 0), 2)
 
     # Group by date
     by_date_map = {}
     for pr in prs:
         date = pr['merged_date']
         if date not in by_date_map:
-            by_date_map[date] = {'costs': [], 'merge_times': [], 'count': 0}
+            by_date_map[date] = {'costs': [], 'merge_times': [], 'ci_times': [],
+                                  'run_counts': [], 'count': 0}
         by_date_map[date]['count'] += 1
         by_date_map[date]['costs'].append(pr['ci_cost_usd'])
+        by_date_map[date]['ci_times'].append(pr.get('ci_time_hrs', 0))
+        by_date_map[date]['run_counts'].append(pr.get('ci_runs_count', 0))
         if pr.get('merge_time_hrs') is not None:
             by_date_map[date]['merge_times'].append(pr['merge_time_hrs'])
 
-    by_date = [{'date': d, 'avg_cost': round(sum(v['costs'])/max(len(v['costs']),1), 2),
-                'avg_merge_time_hrs': round(sum(v['merge_times'])/max(len(v['merge_times']),1), 1) if v['merge_times'] else None,
-                'pr_count': v['count']}
-               for d, v in sorted(by_date_map.items())]
+    def _median(vals):
+        s = sorted(vals)
+        n = len(s)
+        if n == 0:
+            return None
+        if n % 2 == 1:
+            return s[n // 2]
+        return (s[n // 2 - 1] + s[n // 2]) / 2
+
+    by_date = []
+    for d, v in sorted(by_date_map.items()):
+        by_date.append({
+            'date': d,
+            'pr_count': v['count'],
+            'avg_cost': round(sum(v['costs']) / max(len(v['costs']), 1), 2),
+            'median_merge_time_hrs': round(_median(v['merge_times']), 1) if v['merge_times'] else None,
+            'avg_ci_time_hrs': round(sum(v['ci_times']) / max(len(v['ci_times']), 1), 2),
+            'avg_runs': round(sum(v['run_counts']) / max(len(v['run_counts']), 1), 1),
+        })
 
     # By author (all PRs in range, not filtered by author)
     all_prs_in_range = [p for p in _pr_cache['data']
                         if p.get('merged_date') and date_from <= p['merged_date'] <= date_to]
-    for pr in all_prs_in_range:
-        prn = pr.get('number')
-        pr.setdefault('ci_cost_usd', round(pr_costs.get(prn, 0), 2))
 
     author_map = {}
     for pr in all_prs_in_range:
+        prn = pr.get('number')
         a = pr.get('author', 'unknown')
         if a not in author_map:
-            author_map[a] = {'total_cost': 0, 'pr_count': 0, 'merge_times': []}
-        author_map[a]['total_cost'] += pr.get('ci_cost_usd', 0)
+            author_map[a] = {'total_cost': 0, 'pr_count': 0, 'merge_times': [],
+                             'total_ci_time': 0, 'total_runs': 0}
+        author_map[a]['total_cost'] += round(pr_costs.get(prn, 0), 2)
         author_map[a]['pr_count'] += 1
+        author_map[a]['total_ci_time'] += round(pr_ci_time.get(prn, 0), 2)
+        author_map[a]['total_runs'] += pr_run_counts.get(prn, 0)
         if pr.get('merge_time_hrs') is not None:
             author_map[a]['merge_times'].append(pr['merge_time_hrs'])
 
-    by_author = [{'author': a, 'total_cost': round(v['total_cost'], 2), 'pr_count': v['pr_count'],
-                  'avg_merge_time_hrs': round(sum(v['merge_times'])/max(len(v['merge_times']),1), 1) if v['merge_times'] else None}
-                 for a, v in sorted(author_map.items(), key=lambda x: -x[1]['total_cost'])[:20]]
+    by_author = []
+    for a, v in sorted(author_map.items(), key=lambda x: -x[1]['total_cost'])[:20]:
+        by_author.append({
+            'author': a,
+            'total_cost': round(v['total_cost'], 2),
+            'pr_count': v['pr_count'],
+            'avg_merge_time_hrs': round(_median(v['merge_times']), 1) if v['merge_times'] else None,
+            'avg_ci_time_hrs': round(v['total_ci_time'] / max(v['pr_count'], 1), 2),
+            'avg_runs_per_pr': round(v['total_runs'] / max(v['pr_count'], 1), 1),
+        })
 
     all_costs = [p.get('ci_cost_usd', 0) for p in prs]
     all_merge = [p['merge_time_hrs'] for p in prs if p.get('merge_time_hrs') is not None]
     all_run_counts = [p.get('ci_runs_count', 0) for p in prs]
+    all_ci_times = [p.get('ci_time_hrs', 0) for p in prs]
 
     return {
         'by_date': by_date,
         'by_author': by_author,
         'summary': {
             'avg_cost_per_pr': round(sum(all_costs)/max(len(all_costs),1), 2) if all_costs else 0,
-            'median_merge_time_hrs': round(sorted(all_merge)[len(all_merge)//2], 1) if all_merge else None,
+            'median_merge_time_hrs': round(_median(all_merge), 1) if all_merge else None,
             'total_prs': len(prs),
             'total_cost': round(sum(all_costs), 2),
             'avg_ci_runs_per_pr': round(sum(all_run_counts)/max(len(all_run_counts),1), 1) if all_run_counts else 0,
+            'avg_ci_time_hrs': round(sum(all_ci_times)/max(len(all_ci_times),1), 2) if all_ci_times else 0,
         },
     }
 

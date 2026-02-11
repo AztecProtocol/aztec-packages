@@ -160,7 +160,8 @@ if [ "$publish" -eq 1 ]; then
     --arg commit_hash "$COMMIT_HASH" \
     --arg commit_author "$COMMIT_AUTHOR" \
     --arg commit_msg "$COMMIT_MSG" \
-    '{status: $status, test_cmd: $test_cmd, log_id: $log_id, log_url: $log_url, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, timestamp: now | todate}')
+    --arg dashboard "${CI_DASHBOARD:-}" \
+    '{status: $status, test_cmd: $test_cmd, log_id: $log_id, log_url: $log_url, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, dashboard: $dashboard, timestamp: now | todate}')
   redis_publish "ci:test:started" "$start_redis_data"
 fi
 
@@ -236,7 +237,8 @@ function publish_redis {
     --arg commit_msg "$COMMIT_MSG" \
     --argjson code "$code" \
     --argjson duration "$SECONDS" \
-    '{status: $status, test_cmd: $test_cmd, log_url: $log_url, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, exit_code: $code, duration_seconds: $duration, timestamp: now | todate}')
+    --arg dashboard "${CI_DASHBOARD:-}" \
+    '{status: $status, test_cmd: $test_cmd, log_url: $log_url, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, exit_code: $code, duration_seconds: $duration, dashboard: $dashboard, timestamp: now | todate}')
   redis_publish "ci:test:$1" "$redis_data"
 }
 

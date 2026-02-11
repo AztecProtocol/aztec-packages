@@ -27,11 +27,13 @@ CREATE TABLE IF NOT EXISTS test_events (
     is_scenario    INTEGER DEFAULT 0,
     owners         TEXT,
     flake_group_id TEXT,
+    dashboard      TEXT NOT NULL DEFAULT '',
     timestamp      TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_test_events_status ON test_events(status);
 CREATE INDEX IF NOT EXISTS idx_test_events_ts ON test_events(timestamp);
 CREATE INDEX IF NOT EXISTS idx_test_events_cmd ON test_events(test_cmd);
+CREATE INDEX IF NOT EXISTS idx_test_events_dashboard ON test_events(dashboard);
 
 CREATE TABLE IF NOT EXISTS merge_queue_daily (
     date           TEXT PRIMARY KEY,
@@ -41,6 +43,23 @@ CREATE TABLE IF NOT EXISTS merge_queue_daily (
     cancelled      INTEGER NOT NULL DEFAULT 0,
     in_progress    INTEGER NOT NULL DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS ci_runs (
+    dashboard     TEXT NOT NULL,
+    name          TEXT NOT NULL DEFAULT '',
+    timestamp_ms  INTEGER NOT NULL,
+    complete_ms   INTEGER,
+    status        TEXT,
+    author        TEXT,
+    pr_number     INTEGER,
+    instance_type TEXT,
+    spot          INTEGER DEFAULT 0,
+    cost_usd      REAL,
+    synced_at     TEXT NOT NULL,
+    PRIMARY KEY (dashboard, timestamp_ms, name)
+);
+CREATE INDEX IF NOT EXISTS idx_ci_runs_ts ON ci_runs(timestamp_ms);
+CREATE INDEX IF NOT EXISTS idx_ci_runs_name ON ci_runs(name);
 """
 
 
@@ -49,6 +68,7 @@ def get_db() -> sqlite3.Connection:
     if conn is None:
         os.makedirs(os.path.dirname(_DB_PATH), exist_ok=True)
         conn = sqlite3.connect(_DB_PATH)
+        conn.execute('PRAGMA busy_timeout = 5000')
         conn.row_factory = sqlite3.Row
         conn.executescript(SCHEMA)
         _local.conn = conn

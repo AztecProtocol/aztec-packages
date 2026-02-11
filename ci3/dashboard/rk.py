@@ -36,11 +36,12 @@ Compress(app)
 auth = HTTPBasicAuth()
 
 def _init_metrics():
-    """Initialize SQLite for test events and start test listener."""
+    """Initialize SQLite for test events, start test listener and CI run sync."""
     try:
         rk_db.get_db()
         rk_metrics.start_test_listener(r)
-        print("[rk.py] Test event listener started")
+        rk_metrics.start_ci_run_sync(r)
+        print("[rk.py] Test event listener and CI run sync started")
     except Exception as e:
         print(f"[rk.py] Warning: metrics startup failed: {e}")
 
@@ -172,6 +173,7 @@ def root() -> str:
         f"\n{YELLOW}"
         f"{hyperlink('/cost-overview', 'cost overview (AWS + GCP)')}\n"
         f"{hyperlink('/namespace-billing', 'namespace billing')}\n"
+        f"{hyperlink('/ci-health', 'ci health')}\n"
         f"{RESET}"
     )
 
@@ -1117,7 +1119,28 @@ def api_merge_queue_stats():
     return Response(json.dumps(rk_github.get_merge_queue_stats(date_from, date_to)), mimetype='application/json')
 
 
+@app.route('/api/ci/flakes-by-command')
+@auth.login_required
+def api_flakes_by_command():
+    """Flake counts grouped by CI command type (dashboard section)."""
+    date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
+    date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
+    dashboard = request.args.get('dashboard', '')
+    # Ensure test events are synced from Redis lists
+    rk_metrics.sync_failed_tests_to_sqlite(r)
+    return Response(json.dumps(rk_metrics.get_flakes_by_command(date_from, date_to, dashboard)), mimetype='application/json')
+
+
 # ---- Dashboard view routes ----
+
+@app.route('/ci-health')
+@auth.login_required
+def ci_health():
+    path = Path('dashboard-views/ci-health.html')
+    if path.exists():
+        return path.read_text()
+    return "Dashboard not found", 404
+
 
 @app.route('/cost-overview')
 @auth.login_required
