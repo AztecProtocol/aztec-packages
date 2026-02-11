@@ -2,6 +2,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/stdlib/primitives/public_input_component/public_input_component.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include <gtest/gtest.h>
@@ -262,6 +263,46 @@ TYPED_TEST(PairingPointsTests, AggregateMultipleWithDuplicatePoints)
                                                                      aggregated.P1().get_value());
     EXPECT_TRUE(native_aggregated.check())
         << "Aggregated duplicate pairing points should still satisfy pairing equation";
+}
+
+TYPED_TEST(PairingPointsTests, PublicInputSerdeRoundTrip)
+{
+    using Curve = TypeParam;
+    using Builder = typename Curve::Builder;
+    using PP = PairingPoints<Curve>;
+    using Group = PP::Group;
+    using Fr = Curve::ScalarField;
+    using PublicPP = stdlib::PublicInputComponent<PP>;
+
+    Builder builder;
+
+    // Create witness pairing points from known defaults
+    Group P0(DEFAULT_PAIRING_POINT_P0_X, DEFAULT_PAIRING_POINT_P0_Y, /*assert_on_curve=*/false);
+    Group P1(DEFAULT_PAIRING_POINT_P1_X, DEFAULT_PAIRING_POINT_P1_Y, /*assert_on_curve=*/false);
+    P0.convert_constant_to_fixed_witness(&builder);
+    P1.convert_constant_to_fixed_witness(&builder);
+
+    PP original(P0, P1);
+    EXPECT_TRUE(original.is_populated());
+
+    // Serialize to public inputs
+    uint32_t start_idx = original.set_public();
+
+    // Extract the public inputs as field_t elements
+    std::vector<Fr> public_inputs;
+    for (uint32_t var_idx : builder.public_inputs()) {
+        public_inputs.emplace_back(Fr::from_witness_index(&builder, var_idx));
+    }
+
+    // Reconstruct via PublicInputComponent (exercises reconstruct_from_public)
+    PP reconstructed = PublicPP::reconstruct(public_inputs, PublicComponentKey{ start_idx });
+    EXPECT_TRUE(reconstructed.is_populated());
+
+    // Verify the round-tripped values match
+    EXPECT_EQ(reconstructed.P0().get_value(), original.P0().get_value());
+    EXPECT_EQ(reconstructed.P1().get_value(), original.P1().get_value());
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 } // namespace bb::stdlib::recursion
