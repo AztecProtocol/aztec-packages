@@ -34,8 +34,6 @@
 
 import { spawn } from "node:child_process";
 import { rmSync, writeSync } from "node:fs";
-import { request as httpRequest } from "node:http";
-import { request as httpsRequest } from "node:https";
 
 // Chain IDs for timeout selection.
 const MAINNET_CHAIN_ID = 1;
@@ -52,6 +50,11 @@ const MAX_RETRIES = parseInt(
   process.env.FORGE_BROADCAST_MAX_RETRIES ?? "3",
   10,
 );
+
+if (!Number.isSafeInteger(MAX_RETRIES)) {
+  process.stderr.write(`MAX_RETRIES is not a valid integer.\n`);
+  process.exit(1);
+}
 
 // Batch size of 8 prevents forge from hanging during broadcast.
 // See: https://github.com/foundry-rs/foundry/issues/6796
@@ -86,50 +89,29 @@ function extractVerifyFlag(args) {
 
 const RPC_TIMEOUT = 10_000;
 
-/** JSON-RPC call using Node.js built-ins. Rejects on JSON-RPC errors and timeouts. */
-function rpcCall(rpcUrl, method, params) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(rpcUrl);
-    const body = JSON.stringify({ jsonrpc: "2.0", id: 1, method, params });
-    const reqFn = url.protocol === "https:" ? httpsRequest : httpRequest;
-
-    const timer = setTimeout(() => {
-      req.destroy();
-      reject(new Error(`RPC call ${method} timed out after ${RPC_TIMEOUT}ms`));
-    }, RPC_TIMEOUT);
-
-    const req = reqFn(
-      url,
-      { method: "POST", headers: { "Content-Type": "application/json" } },
-      (res) => {
-        let data = "";
-        res.on("data", (chunk) => (data += chunk));
-        res.on("end", () => {
-          clearTimeout(timer);
-          try {
-            const parsed = JSON.parse(data);
-            if (parsed.error) {
-              reject(
-                new Error(
-                  `RPC error for ${method}: ${JSON.stringify(parsed.error)}`,
-                ),
-              );
-            } else {
-              resolve(parsed.result);
-            }
-          } catch {
-            reject(new Error(`Bad RPC response: ${data.slice(0, 200)}`));
-          }
-        });
-      },
-    );
-    req.on("error", (err) => {
-      clearTimeout(timer);
-      reject(err);
-    });
-    req.write(body);
-    req.end();
+/** JSON-RPC call using fetch. Rejects on JSON-RPC errors and timeouts. */
+async function rpcCall(rpcUrl, method, params) {
+  const body = JSON.stringify({ jsonrpc: "2.0", id: 1, method, params });
+  const res = await fetch(rpcUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+    signal: AbortSignal.timeout(RPC_TIMEOUT),
   });
+  if (!res.ok) {
+    throw new Error(`RPC HTTP ${res.status} for ${method}`);
+  }
+  const data = await res.text();
+  let parsed;
+  try {
+    parsed = JSON.parse(data);
+  } catch {
+    throw new Error(`Bad RPC response for ${method}: ${data.slice(0, 200)}`);
+  }
+  if (parsed.error) {
+    throw new Error(`RPC error for ${method}: ${JSON.stringify(parsed.error)}`);
+  }
+  return parsed.result;
 }
 
 /** Detect if the RPC endpoint is an anvil dev node via web3_clientVersion. */
@@ -204,6 +186,11 @@ const chainId = rpcUrl ? await getChainId(rpcUrl) : undefined;
 const TIMEOUT = process.env.FORGE_BROADCAST_TIMEOUT
   ? parseInt(process.env.FORGE_BROADCAST_TIMEOUT, 10)
   : getDefaultTimeout(chainId);
+
+if (!Number.isSafeInteger(TIMEOUT)) {
+  process.stderr.write(`FORGE_BROADCAST_TIMEOUT is not a valid integer.\n`);
+  process.exit(1);
+}
 
 log(
   `chain_id=${chainId ?? "unknown"}, timeout=${TIMEOUT}s, max_retries=${MAX_RETRIES}, batch_size=${BATCH_SIZE}${wantsVerify ? ", verify=true (after broadcast)" : ""}`,
@@ -301,7 +288,7 @@ for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     //   - Forge computes new nonces from on-chain state
     //   - New transactions replace any stuck ones with the same nonce
     //   - The race condition is intermittent (~0.04%), so retries almost always succeed
-    rmSync("broadcast", { recursive: true, force: true });
+    rmSync("broadcast", { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
 
     log(
       `Attempt ${attempt + 1}/${MAX_RETRIES + 1}: retrying from scratch (anvil)...`,
