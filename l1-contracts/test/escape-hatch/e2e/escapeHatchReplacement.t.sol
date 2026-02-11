@@ -347,7 +347,7 @@ contract EscapeHatchReplacementTest is EscapeHatchIntegrationBase {
     bytes32 previousArchive = rollup.archiveAt(0);
     bytes32 endArchive = rollup.archiveAt(1);
 
-    bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
+    bytes32[] memory fees = new bytes32[](64);
     fees[0] = bytes32(uint256(uint160(bytes20(("sequencer")))));
     fees[1] = bytes32(0);
 
@@ -407,7 +407,8 @@ contract EscapeHatchReplacementTest is EscapeHatchIntegrationBase {
    *
    * @dev Scenario:
    *      1. Candidate selected, proposes during first epoch of active window
-   *      2. Governance deactivates escape hatch during the second epoch
+   *      2. Governance deactivates escape hatch during the first epoch. With next-epoch
+   *         activation, the second epoch no longer has the escape hatch.
    *      3. Proof for the proposed checkpoint is never submitted
    *      4. At validation: candidate proposed something and is "living up to that" -
    *         normal validation applies, punishment for unproven checkpoint.
@@ -433,8 +434,9 @@ contract EscapeHatchReplacementTest is EscapeHatchIntegrationBase {
     _proposeWithHatch(CANDIDATE1);
     assertEq(rollup.getPendingCheckpointNumber(), 1, "Checkpoint should be proposed");
 
-    // Step 3: Governance deactivates escape hatch during the second epoch of the window
-    _warpForwardEpochs(1);
+    // Step 3: Governance deactivates escape hatch during the first epoch of the window.
+    //         With next-epoch activation, the second epoch no longer has the escape hatch,
+    //         so the candidate loses coverage for the latter half of their window.
     address rollupOwner = Ownable(address(rollup)).owner();
     vm.prank(rollupOwner);
     rollup.updateEscapeHatch(address(0));
@@ -462,7 +464,8 @@ contract EscapeHatchReplacementTest is EscapeHatchIntegrationBase {
    *
    * @dev Scenario:
    *      1. Candidate selected for a hatch but does NOT propose during first epoch
-   *      2. Governance deactivates escape hatch during the second epoch
+   *      2. Governance deactivates escape hatch during the first epoch. With next-epoch
+   *         activation, the second epoch no longer has the escape hatch.
    *      3. At validation: candidate did nothing AND escape hatch was disrupted -
    *         no punishment despite the candidate potentially stalling for one epoch.
    *
@@ -480,8 +483,9 @@ contract EscapeHatchReplacementTest is EscapeHatchIntegrationBase {
     // Step 2: Warp to first epoch of hatch window but do NOT propose
     _warpToHatch(targetHatch);
 
-    // Step 3: Governance deactivates escape hatch during the second epoch of the window
-    _warpForwardEpochs(1);
+    // Step 3: Governance deactivates escape hatch during the first epoch of the window.
+    //         With next-epoch activation, the second epoch no longer has the escape hatch,
+    //         so the candidate's window is disrupted partway through.
     address rollupOwner = Ownable(address(rollup)).owner();
     vm.prank(rollupOwner);
     rollup.updateEscapeHatch(address(0));

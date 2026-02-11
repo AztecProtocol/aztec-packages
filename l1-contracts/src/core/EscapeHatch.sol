@@ -275,28 +275,45 @@ contract EscapeHatch is IEscapeHatch {
 
     require(block.timestamp >= data.exitableAt, Errors.EscapeHatch__NotExitableYet(data.exitableAt, block.timestamp));
 
+    // Check if this contract was the active escape hatch for the entire active period.
+    // If not, the proposer may have been unable to fulfill duties due to governance change.
+    Epoch firstActiveEpoch = _getFirstEpoch(_hatch);
+    Epoch lastActiveEpoch = firstActiveEpoch + Epoch.wrap(ACTIVE_DURATION - 1);
+    bool wasActiveAtStart = address(ROLLUP.getEscapeHatchForEpoch(firstActiveEpoch)) == address(this);
+    bool wasActiveAtEnd = address(ROLLUP.getEscapeHatchForEpoch(lastActiveEpoch)) == address(this);
+    bool wasActiveEntirePeriod = wasActiveAtStart && wasActiveAtEnd;
+
     bool success = true;
     uint256 punishment = 0;
 
-    // Check success conditions:
-    // 1. Something must have been proposed
-    if (data.lastCheckpointNumber == 0) {
-      success = false;
-    }
+    if (!wasActiveEntirePeriod && data.lastCheckpointNumber == 0) {
+      // Escape hatch was deactivated during the active window and proposer did nothing.
+      // This is acceptable - they couldn't (or chose not to) propose during disruption.
+      // Skip punishment, transition to EXITING.
+    } else {
+      // Normal validation: either was active the entire time, or proposer proposed something
+      // (if they proposed, they're on the hook regardless of escape hatch changes,
+      // since proofs go to the rollup directly and are unaffected by escape hatch changes).
 
-    // 2. Proofs must have been submitted at least up to this checkpoint
-    if (success && ROLLUP.getProvenCheckpointNumber() < data.lastCheckpointNumber) {
-      success = false;
-    }
+      // 1. Something must have been proposed
+      if (data.lastCheckpointNumber == 0) {
+        success = false;
+      }
 
-    // 3. The checkpoint archive must still be in the chain (not pruned)
-    if (success && ROLLUP.archiveAt(data.lastCheckpointNumber) != data.lastSubmittedArchive) {
-      success = false;
-    }
+      // 2. Proofs must have been submitted at least up to this checkpoint
+      if (success && ROLLUP.getProvenCheckpointNumber() < data.lastCheckpointNumber) {
+        success = false;
+      }
 
-    if (!success) {
-      punishment = FAILED_HATCH_PUNISHMENT;
-      data.amount -= FAILED_HATCH_PUNISHMENT;
+      // 3. The checkpoint archive must still be in the chain (not pruned)
+      if (success && ROLLUP.archiveAt(data.lastCheckpointNumber) != data.lastSubmittedArchive) {
+        success = false;
+      }
+
+      if (!success) {
+        punishment = FAILED_HATCH_PUNISHMENT;
+        data.amount -= FAILED_HATCH_PUNISHMENT;
+      }
     }
 
     data.status = Status.EXITING;
@@ -547,6 +564,14 @@ contract EscapeHatch is IEscapeHatch {
    * @custom:reverts EscapeHatch__SetUnstable if called before the freeze timestamp (defense in depth)
    */
   function selectCandidates() public override(IEscapeHatchCore) {
+    // Don't select new candidates if this contract is no longer the active escape hatch.
+    // We check the latest value rather than the epoch-stable one since we sample for the future,
+    // so if the current differs, the future will as well.
+    // Early return (not revert) is important because initiateExit() calls selectCandidates() internally.
+    if (address(ROLLUP.getEscapeHatch()) != address(this)) {
+      return;
+    }
+
     Hatch currentHatch = getCurrentHatch();
     Hatch targetHatch = currentHatch + Hatch.wrap(LAG_IN_HATCHES);
 

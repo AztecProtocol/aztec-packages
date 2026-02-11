@@ -2,6 +2,7 @@
 // Copyright 2025 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {TestConstants} from "@test/harnesses/TestConstants.sol";
 
@@ -16,6 +17,7 @@ contract FakeRollup {
   // Controllable state
   uint256 public provenCheckpointNumber;
   mapping(uint256 => bytes32) public archives;
+  address public escapeHatchAddress;
 
   constructor() {
     TimeLib.initialize(
@@ -34,6 +36,10 @@ contract FakeRollup {
 
   function setArchiveAt(uint256 _checkpointNumber, bytes32 _archive) external {
     archives[_checkpointNumber] = _archive;
+  }
+
+  function setEscapeHatch(address _escapeHatch) external {
+    escapeHatchAddress = _escapeHatch;
   }
 
   // ============ IRollup methods used by EscapeHatch ============
@@ -63,5 +69,13 @@ contract FakeRollup {
   function getSampleSeedAt(Timestamp _ts) external pure returns (uint256) {
     // Return deterministic seed based on timestamp for reproducible tests
     return uint256(keccak256(abi.encodePacked("seed", _ts)));
+  }
+
+  function getEscapeHatch() external view returns (IEscapeHatch) {
+    return IEscapeHatch(escapeHatchAddress);
+  }
+
+  function getEscapeHatchForEpoch(Epoch) external view returns (IEscapeHatch) {
+    return IEscapeHatch(escapeHatchAddress);
   }
 }
