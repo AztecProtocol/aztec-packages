@@ -110,14 +110,12 @@ library ValidatorSelectionLib {
   /**
    * @dev Stack struct used in verifyAttestations to avoid stack too deep errors
    *      Used when reconstructing the committee commitment from the attestations
-   * @param proposerIndex Index of the proposer within the committee
    * @param index Working index for iteration (unused in current implementation)
    * @param needed Number of signatures required (2/3 + 1 of committee size)
    * @param signaturesRecovered Number of valid signatures found
    * @param reconstructedCommittee Array of committee member addresses reconstructed from attestations
    */
   struct VerifyStack {
-    uint256 proposerIndex;
     uint256 index;
     uint256 needed;
     uint256 signaturesRecovered;
@@ -308,7 +306,6 @@ library ValidatorSelectionLib {
    *      directly from calldata.
    *
    *      Skips validation entirely if target committee size is 0 (test configurations).
-   * @param _slot The slot of the checkpoint
    * @param _epochNumber The epoch of the checkpoint
    * @param _attestations The packed signatures and addresses of committee members
    * @param _digest The digest of the checkpoint that attestations are signed over
@@ -317,12 +314,9 @@ library ValidatorSelectionLib {
    * stored commitment
    * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
-  function verifyAttestations(
-    Slot _slot,
-    Epoch _epochNumber,
-    CommitteeAttestations memory _attestations,
-    bytes32 _digest
-  ) internal {
+  function verifyAttestations(Epoch _epochNumber, CommitteeAttestations memory _attestations, bytes32 _digest)
+    internal
+  {
     (bytes32 committeeCommitment, uint256 targetCommitteeSize) = getCommitteeCommitmentAt(_epochNumber);
 
     // If the rollup is *deployed* with a target committee size of 0, we skip the validation.
@@ -333,7 +327,6 @@ library ValidatorSelectionLib {
     }
 
     VerifyStack memory stack = VerifyStack({
-      proposerIndex: computeProposerIndex(_epochNumber, _slot, getSampleSeed(_epochNumber), targetCommitteeSize),
       needed: (targetCommitteeSize << 1) / 3 + 1, // targetCommitteeSize * 2 / 3 + 1, but cheaper
       index: 0,
       signaturesRecovered: 0,
