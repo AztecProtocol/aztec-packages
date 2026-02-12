@@ -140,7 +140,10 @@ void ToRadixTraceBuilder::process_with_memory(
 
         // Error Handling - Radix Range
         const bool invalid_radix = (event.radix < 2 || event.radix > 256);
-        const bool invalid_bitwise_radix = event.is_output_bits && event.radix != 2;
+
+        // Error Handling - Bitwise Radix
+        const bool radix_eq_2 = event.radix == 2;
+        const bool invalid_bitwise_radix = event.is_output_bits && !radix_eq_2;
 
         // Error Handling - Num Limbs and Value
         const bool invalid_num_limbs = num_limbs == 0 && !(event.value == FF(0));
@@ -165,6 +168,8 @@ void ToRadixTraceBuilder::process_with_memory(
                       { C::to_radix_mem_num_limbs_inv, num_limbs }, // Will be inverted in batch later
                       { C::to_radix_mem_sel_value_is_zero, value_is_zero },
                       { C::to_radix_mem_value_inv, event.value }, // Will be inverted in batch later
+                      { C::to_radix_mem_sel_radix_eq_2, radix_eq_2 ? 1 : 0 },
+                      { C::to_radix_mem_radix_min_two_inv, FF(event.radix) - FF(2) }, // Will be inverted in batch later
                   } });
 
         // Input validation errors
@@ -286,8 +291,12 @@ void ToRadixTraceBuilder::process_with_memory(
     }
 
     // Batch invert the columns.
-    trace.invert_columns(
-        { { C::to_radix_mem_num_limbs_inv, C::to_radix_mem_value_inv, C::to_radix_mem_num_limbs_minus_one_inv } });
+    trace.invert_columns({ {
+        C::to_radix_mem_num_limbs_inv,
+        C::to_radix_mem_value_inv,
+        C::to_radix_mem_num_limbs_minus_one_inv,
+        C::to_radix_mem_radix_min_two_inv,
+    } });
 }
 
 const InteractionDefinition ToRadixTraceBuilder::interactions =

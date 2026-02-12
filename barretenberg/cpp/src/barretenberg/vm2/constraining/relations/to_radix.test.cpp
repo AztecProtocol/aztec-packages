@@ -426,6 +426,9 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             { C::gt_input_a, dst_addr + num_limbs },
             { C::gt_input_b, MAX_MEM },
             { C::gt_res, 0 }, // GT should return true
+        },
+        // Row 1
+        {
             // Execution Trace (No gas)
             { C::execution_sel, 1 },
             { C::execution_sel_exec_dispatch_to_radix, 1 },
@@ -434,10 +437,6 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             { C::execution_register_2_, num_limbs },
             { C::execution_register_3_, 0 }, // is_output_bits
             { C::execution_rop_4_, dst_addr },
-
-        },
-        // Row 1
-        {
             // To Radix Mem
             { C::to_radix_mem_sel, 1 },
             { C::to_radix_mem_max_mem_size, MAX_MEM },
@@ -461,6 +460,8 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             { C::to_radix_mem_num_limbs_inv, FF(num_limbs).invert() },
             { C::to_radix_mem_sel_value_is_zero, 0 },
             { C::to_radix_mem_value_inv, value.invert() },
+            { C::to_radix_mem_sel_radix_eq_2, 0 },
+            { C::to_radix_mem_radix_min_two_inv, (FF(radix) - FF(2)).invert() },
             // Output
             { C::to_radix_mem_limb_value, 1 },
             { C::to_radix_mem_sel_should_decompose, 1 },
@@ -668,6 +669,8 @@ TEST(ToRadixMemoryConstrainingTest, DstOutOfRange)
             { C::to_radix_mem_num_limbs_inv, FF(num_limbs).invert() },
             { C::to_radix_mem_sel_value_is_zero, 0 },
             { C::to_radix_mem_value_inv, value.invert() },
+            { C::to_radix_mem_sel_radix_eq_2, 0 },
+            { C::to_radix_mem_radix_min_two_inv, (FF(radix) - FF(2)).invert() },
         },
     });
 
@@ -723,6 +726,8 @@ TEST(ToRadixMemoryConstrainingTest, InvalidRadix)
             { C::to_radix_mem_num_limbs_inv, FF(num_limbs).invert() },
             { C::to_radix_mem_sel_value_is_zero, 0 },
             { C::to_radix_mem_value_inv, value.invert() },
+            { C::to_radix_mem_sel_radix_eq_2, 0 },
+            { C::to_radix_mem_radix_min_two_inv, (FF(radix) - FF(2)).invert() },
         },
     });
     check_relation<to_radix_mem>(trace);
@@ -777,6 +782,8 @@ TEST(ToRadixMemoryConstrainingTest, InvalidBitwiseRadix)
             { C::to_radix_mem_num_limbs_inv, FF(num_limbs).invert() },
             { C::to_radix_mem_sel_value_is_zero, 0 },
             { C::to_radix_mem_value_inv, value.invert() },
+            { C::to_radix_mem_sel_radix_eq_2, 0 },
+            { C::to_radix_mem_radix_min_two_inv, (FF(radix) - FF(2)).invert() },
         },
     });
     check_relation<to_radix_mem>(trace);
@@ -831,6 +838,8 @@ TEST(ToRadixMemoryConstrainingTest, InvalidNumLimbsForValue)
             { C::to_radix_mem_num_limbs_inv, 0 },
             { C::to_radix_mem_sel_value_is_zero, 0 },
             { C::to_radix_mem_value_inv, value.invert() },
+            { C::to_radix_mem_sel_radix_eq_2, 0 },
+            { C::to_radix_mem_radix_min_two_inv, (FF(radix) - FF(2)).invert() },
         },
     });
     check_relation<to_radix_mem>(trace);
@@ -888,6 +897,8 @@ TEST(ToRadixMemoryConstrainingTest, TruncationError)
             { C::to_radix_mem_num_limbs_inv, FF(num_limbs).invert() },
             { C::to_radix_mem_sel_value_is_zero, 0 },
             { C::to_radix_mem_value_inv, value.invert() },
+            { C::to_radix_mem_sel_radix_eq_2, 0 },
+            { C::to_radix_mem_radix_min_two_inv, (FF(radix) - FF(2)).invert() },
         },
     });
     check_relation<to_radix_mem>(trace);
@@ -949,6 +960,8 @@ TEST(ToRadixMemoryConstrainingTest, ZeroNumLimbsAndZeroValueIsNoop)
             { C::to_radix_mem_num_limbs_inv, 0 },
             { C::to_radix_mem_sel_value_is_zero, 1 },
             { C::to_radix_mem_value_inv, 0 },
+            { C::to_radix_mem_sel_radix_eq_2, 0 },
+            { C::to_radix_mem_radix_min_two_inv, (FF(radix) - FF(2)).invert() },
         },
     });
     check_relation<to_radix_mem>(trace);

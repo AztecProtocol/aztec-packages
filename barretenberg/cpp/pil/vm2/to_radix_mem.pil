@@ -152,9 +152,17 @@ namespace to_radix_mem;
     in
     gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
+    // Check whether radix == 2
+    pol commit sel_radix_eq_2;
+    sel_radix_eq_2 * (1 - sel_radix_eq_2) = 0;
+    pol RADIX_MIN_TWO = radix - 2;
+    // sel_radix_eq_2 == 1 iff RADIX_MIN_TWO == 0 (only on `start == 1`)
+    pol commit radix_min_two_inv;
+    start * (RADIX_MIN_TWO * (sel_radix_eq_2 * (1 - radix_min_two_inv) + radix_min_two_inv) - 1 + sel_radix_eq_2) = 0;
+
     // is_output_bits already guaranteed to be boolean by execution trace tag validation
     #[IS_OUTPUT_BITS_IMPLY_RADIX_2]
-    start * is_output_bits * (1 - sel_invalid_bitwise_radix) * (radix - 2) = 0;
+    sel_invalid_bitwise_radix = start * is_output_bits * (1 - sel_radix_eq_2);
 
     /////////////////////////////////////////////////////////
     // Error Handling - Check Num Limbs and Value are valid
