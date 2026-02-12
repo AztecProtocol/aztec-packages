@@ -2,6 +2,13 @@
 
 Fetches GKE namespace billing from BigQuery with in-memory cache.
 Route definitions remain in rk.py; this module provides the logic.
+
+SKU pricing: Queries the Cloud Billing pricing export table in BigQuery
+if available, otherwise falls back to hardcoded rates. To enable the
+pricing export:
+  1. Go to GCP Console > Billing > Billing export
+  2. Enable "Detailed usage cost" and "Pricing" exports
+  3. Set the dataset to the _BQ_DATASET below
 """
 import threading
 import time
@@ -12,11 +19,12 @@ from pathlib import Path
 _BQ_PROJECT = 'testnet-440309'
 _BQ_DATASET = 'egress_consumption'
 _BQ_TABLE_USAGE = 'gke_cluster_resource_usage'
+_BQ_TABLE_PRICING = 'cloud_pricing_export'
 
-# SKU pricing (from GCP Cloud Billing Catalog API, us-west1)
+# Hardcoded fallback SKU pricing (us-west1).
 # cpu: price per vCPU-hour, memory: price per GiB-hour
 # network: price per GiB, storage: price per GiB-month
-_SKU_PRICING = {
+_HARDCODED_SKU_PRICING = {
     # Compute - Spot
     'E7FF-A0FB-FA82': {'price': 0.00497,  'resource': 'cpu',    'category': 'compute_spot'},
     '48AB-89F5-9112': {'price': 0.000668, 'resource': 'memory', 'category': 'compute_spot'},
@@ -45,10 +53,74 @@ _SKU_PRICING = {
     'D973-5D65-BAB2': {'price': 0.04,  'resource': 'storage', 'category': 'storage'},
 }
 
-# In-memory cache (same pattern as rk_aws_costs.py)
+# Resource name to category mapping for SKUs discovered from BigQuery
+_RESOURCE_CATEGORIES = {
+    ('cpu', True): 'compute_spot',
+    ('cpu', False): 'compute_ondemand',
+    ('memory', True): 'compute_spot',
+    ('memory', False): 'compute_ondemand',
+}
+
+# Active SKU pricing — updated from BigQuery if available
+_SKU_PRICING = dict(_HARDCODED_SKU_PRICING)
+
+# In-memory caches
 _cache = {'data': [], 'ts': 0}
 _cache_lock = threading.Lock()
 _CACHE_TTL = 6 * 3600  # 6 hours
+
+_pricing_cache = {'ts': 0}
+_pricing_lock = threading.Lock()
+_PRICING_CACHE_TTL = 24 * 3600  # 24 hours
+
+
+def _refresh_sku_pricing():
+    """Try to fetch SKU pricing from BigQuery pricing export table."""
+    global _SKU_PRICING
+    now = time.time()
+    if _pricing_cache['ts'] and now - _pricing_cache['ts'] < _PRICING_CACHE_TTL:
+        return
+    if not _pricing_lock.acquire(blocking=False):
+        return
+    try:
+        if _pricing_cache['ts'] and time.time() - _pricing_cache['ts'] < _PRICING_CACHE_TTL:
+            return
+        from google.cloud import bigquery
+        client = bigquery.Client(project=_BQ_PROJECT)
+        table = f'{_BQ_PROJECT}.{_BQ_DATASET}.{_BQ_TABLE_PRICING}'
+
+        # Get the known SKU IDs we need pricing for
+        sku_ids = list(_HARDCODED_SKU_PRICING.keys())
+        placeholders = ', '.join(f"'{s}'" for s in sku_ids)
+
+        query = f"""
+        SELECT sku.id AS sku_id,
+               pricing.effective_price AS price,
+               sku.description AS description
+        FROM `{table}`
+        WHERE sku.id IN ({placeholders})
+          AND service.description = 'Compute Engine'
+        QUALIFY ROW_NUMBER() OVER (PARTITION BY sku.id ORDER BY export_time DESC) = 1
+        """
+        rows = list(client.query(query).result())
+        if rows:
+            updated = dict(_HARDCODED_SKU_PRICING)
+            for row in rows:
+                sid = row.sku_id
+                if sid in updated:
+                    updated[sid] = {**updated[sid], 'price': float(row.price)}
+            _SKU_PRICING = updated
+            _pricing_cache['ts'] = time.time()
+            print(f"[rk_billing] Updated {len(rows)} SKU prices from BigQuery")
+        else:
+            _pricing_cache['ts'] = time.time()
+            print("[rk_billing] No pricing rows returned, using hardcoded rates")
+    except Exception as e:
+        # Table probably doesn't exist yet — use hardcoded rates
+        _pricing_cache['ts'] = time.time()
+        print(f"[rk_billing] SKU pricing query failed (using hardcoded): {e}")
+    finally:
+        _pricing_lock.release()
 
 
 # ---- BigQuery fetch ----
@@ -156,6 +228,9 @@ def _ensure_cached():
 
 def get_billing_files_in_range(date_from, date_to):
     """Return billing data for dates in range. Fetches from BigQuery with in-memory cache."""
+    # Refresh SKU pricing from BigQuery (async, falls back to hardcoded)
+    threading.Thread(target=_refresh_sku_pricing, daemon=True).start()
+
     if not _cache['data']:
         _ensure_cached()  # block on first load so dashboard isn't empty
     else:
