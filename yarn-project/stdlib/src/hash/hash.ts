@@ -69,6 +69,10 @@ export function computeProtocolNullifier(txRequestHash: Fr): Promise<Fr> {
   return siloNullifier(AztecAddress.fromBigInt(NULL_MSG_SENDER_CONTRACT_ADDRESS), txRequestHash);
 }
 
+export function computeSiloedPrivateLogFirstField(contract: AztecAddress, field: Fr): Promise<Fr> {
+  return poseidon2HashWithSeparator([contract, field], GeneratorIndex.PRIVATE_LOG_FIRST_FIELD);
+}
+
 /**
  * Computes a public data tree value ready for insertion.
  * @param value - Raw public data tree value to hash into a tree-insertion-ready value.
