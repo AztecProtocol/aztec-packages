@@ -41,10 +41,10 @@ std::vector<FF> encode_bytecode(std::span<const uint8_t> bytecode)
 // commitment hash.
 FF compute_public_bytecode_first_field(size_t bytecode_size)
 {
-    // TODO(MW): 32 (4 bytes) chosen just to keep the value of sep small and avoids having to change types further down
-    // the stack.
-    // The maximum sep is currently: Fr<0x00000000000000000000000000000000000000000000000000016b480f8411f1>
-    // Max fields in bytes = 3000 * 31 = 16b48, Dom sep = f8411f1
+    // Note: Shifting by 32 (4 bytes). This value was chosen to keep the value of the first field small, avoiding having
+    // to change types further down the stack. The maximum first field is currently:
+    // Fr<0x00000000000000000000000000000000000000000000000000016b480f8411f1> From: max fields in bytes = 3000 * 31 =
+    // 16b48, Dom sep = f8411f1
     static_assert(DOM_SEP__PUBLIC_BYTECODE <= UINT32_MAX, "Public bytecode domain separator must fit in 32 bits");
     return uint256_t(DOM_SEP__PUBLIC_BYTECODE) + uint256_t(bytecode_size << 32);
 }

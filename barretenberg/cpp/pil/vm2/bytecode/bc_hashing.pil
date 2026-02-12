@@ -114,9 +114,8 @@ namespace bc_hashing;
     bc_decomposition.start { bc_decomposition.pc, bc_decomposition.id, bc_decomposition.bytes_remaining };
 
     // At the start of a new bytecode hash, the initial field has to be the size appended to the separator, and we skip the lookup
-    // fetching a field from decomposition.
-    // NOTE: size_in_bytes is constrained to be less than MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS (= 3000) * 31 at the contract registration
-    // level, so the below should never overflow. TODO: Consider what would happen if we get an overflowed size at the seq. level.
+    // fetching a field from decomposition. NOTE: size_in_bytes is constrained to be less than MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS (= 3000) * 31 at the contract registration
+    // level, so the below should never overflow.
     pol FIRST_FIELD = constants.DOM_SEP__PUBLIC_BYTECODE + size_in_bytes * 2**32;
 
     #[START_IS_FIRST_FIELD]
