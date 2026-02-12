@@ -1,4 +1,5 @@
 pub mod fees;
+pub mod log_array_length;
 pub mod private_tail_validator;
 pub mod private_tx_effect_builder;
 pub mod public_tx_effect_builder;
