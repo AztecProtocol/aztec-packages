@@ -49,6 +49,9 @@ export class SequencerMetrics {
   private fishermanTimeBeforeBlock: Histogram;
   private fishermanPendingBlobTxCount: Histogram;
   private fishermanIncludedBlobTxCount: Histogram;
+  private fishermanPendingBlobCount: Histogram;
+  private fishermanIncludedBlobCount: Histogram;
+  private fishermanBlockBlobsFull: UpDownCounter;
   private fishermanCalculatedPriorityFee: Histogram;
   private fishermanPriorityFeeDelta: Histogram;
   private fishermanEstimatedCost: Histogram;
@@ -238,6 +241,18 @@ export class SequencerMetrics {
         valueType: ValueType.DOUBLE,
       },
     );
+
+    this.fishermanPendingBlobCount = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_PENDING_BLOB_COUNT);
+
+    this.fishermanIncludedBlobCount = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_INCLUDED_BLOB_COUNT);
+
+    this.fishermanBlockBlobsFull = createUpDownCounterWithDefault(
+      this.meter,
+      Metrics.FISHERMAN_FEE_ANALYSIS_BLOCK_BLOBS_FULL,
+      {
+        [Attributes.OK]: [true, false],
+      },
+    );
   }
 
   public recordRequiredAttestations(requiredAttestationsCount: number, allowanceMs: number) {
@@ -348,10 +363,12 @@ export class SequencerMetrics {
 
       // Record pending block snapshot data (once per strategy for comparison)
       this.fishermanPendingBlobTxCount.record(analysis.pendingSnapshot.pendingBlobTxCount, strategyAttributes);
+      this.fishermanPendingBlobCount.record(analysis.pendingSnapshot.pendingBlobCount, strategyAttributes);
 
       // Record mined block data if available
       if (analysis.minedBlock) {
         this.fishermanIncludedBlobTxCount.record(analysis.minedBlock.includedBlobTxCount, strategyAttributes);
+        this.fishermanIncludedBlobCount.record(analysis.minedBlock.includedBlobCount, strategyAttributes);
 
         // Record actual fees from blob transactions in the mined block
         for (const blobTx of analysis.minedBlock.includedBlobTxs) {
@@ -384,6 +401,13 @@ export class SequencerMetrics {
       // Record analysis results if available
       if (analysis.analysis) {
         this.fishermanTimeBeforeBlock.record(Math.ceil(analysis.analysis.timeBeforeBlockMs), strategyAttributes);
+
+        // Record whether the block reached 100% blob capacity
+        if (analysis.analysis.blockBlobsFull) {
+          this.fishermanBlockBlobsFull.add(1, { ...strategyAttributes, [Attributes.OK]: true });
+        } else {
+          this.fishermanBlockBlobsFull.add(1, { ...strategyAttributes, [Attributes.OK]: false });
+        }
 
         // Record strategy-specific inclusion result
         if (strategyResult.wouldBeIncluded !== undefined) {
