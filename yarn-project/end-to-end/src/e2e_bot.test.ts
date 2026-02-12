@@ -48,7 +48,7 @@ describe('e2e_bot', () => {
     beforeAll(async () => {
       config = {
         ...getBotDefaultConfig(),
-        followChain: 'PENDING',
+        followChain: 'CHECKPOINTED',
         ammTxs: false,
       };
       bot = await Bot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
@@ -113,7 +113,7 @@ describe('e2e_bot', () => {
       const config: BotConfig = {
         ...getBotDefaultConfig(),
 
-        followChain: 'PENDING',
+        followChain: 'CHECKPOINTED',
         ammTxs: false,
 
         // this bot has a well defined private key and salt
@@ -151,7 +151,7 @@ describe('e2e_bot', () => {
       const config: BotConfig = {
         ...getBotDefaultConfig(),
 
-        followChain: 'PENDING',
+        followChain: 'CHECKPOINTED',
         ammTxs: false,
 
         // this bot has a well defined private key and salt
@@ -189,7 +189,7 @@ describe('e2e_bot', () => {
     beforeAll(async () => {
       config = {
         ...getBotDefaultConfig(),
-        followChain: 'PENDING',
+        followChain: 'CHECKPOINTED',
         ammTxs: true,
       };
       bot = await AmmBot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
@@ -219,7 +219,7 @@ describe('e2e_bot', () => {
     beforeAll(() => {
       config = {
         ...getBotDefaultConfig(),
-        followChain: 'PENDING',
+        followChain: 'PROPOSED',
         ammTxs: false,
         senderPrivateKey: new SecretValue(Fr.random()),
         l1PrivateKey: new SecretValue(bufferToHex(getPrivateKeyFromIndex(8)!)),

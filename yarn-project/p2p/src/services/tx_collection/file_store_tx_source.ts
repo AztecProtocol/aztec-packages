@@ -9,6 +9,7 @@ export class FileStoreTxSource implements TxSource {
   private constructor(
     private readonly fileStore: ReadOnlyFileStore,
     private readonly baseUrl: string,
+    private readonly basePath: string,
     private readonly log: Logger,
   ) {}
 
@@ -20,6 +21,7 @@ export class FileStoreTxSource implements TxSource {
    */
   public static async create(
     url: string,
+    basePath: string,
     log: Logger = createLogger('p2p:file_store_tx_source'),
   ): Promise<FileStoreTxSource | undefined> {
     try {
@@ -28,7 +30,7 @@ export class FileStoreTxSource implements TxSource {
         log.warn(`Failed to create file store for URL: ${url}`);
         return undefined;
       }
-      return new FileStoreTxSource(fileStore, url, log);
+      return new FileStoreTxSource(fileStore, url, basePath, log);
     } catch (err) {
       log.warn(`Error creating file store for URL: ${url}`, { error: err });
       return undefined;
@@ -42,7 +44,7 @@ export class FileStoreTxSource implements TxSource {
   public getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
     return Promise.all(
       txHashes.map(async txHash => {
-        const path = `txs/${txHash.toString()}.bin`;
+        const path = `${this.basePath}/txs/${txHash.toString()}.bin`;
         try {
           const buffer = await this.fileStore.read(path);
           return Tx.fromBuffer(buffer);
@@ -63,8 +65,9 @@ export class FileStoreTxSource implements TxSource {
  */
 export async function createFileStoreTxSources(
   urls: string[],
+  basePath: string,
   log: Logger = createLogger('p2p:file_store_tx_source'),
 ): Promise<FileStoreTxSource[]> {
-  const sources = await Promise.all(urls.map(url => FileStoreTxSource.create(url, log)));
+  const sources = await Promise.all(urls.map(url => FileStoreTxSource.create(url, basePath, log)));
   return sources.filter((s): s is FileStoreTxSource => s !== undefined);
 }

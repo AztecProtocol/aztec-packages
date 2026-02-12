@@ -580,6 +580,7 @@ class TestFastTxCollection extends FastTxCollection {
 class TestTxCollection extends TxCollection {
   declare slowCollection: SlowTxCollection;
   declare fastCollection: TestFastTxCollection;
-  declare fileStoreCollection: TxCollection['fileStoreCollection'];
+  declare fileStoreSlowCollection: TxCollection['fileStoreSlowCollection'];
+  declare fileStoreFastCollection: TxCollection['fileStoreFastCollection'];
   declare handleTxsAddedToPool: TxPoolV2Events['txs-added'];
 }

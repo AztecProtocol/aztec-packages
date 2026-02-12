@@ -1,0 +1,5 @@
+ARG AZTEC_IMAGE_TAG
+FROM aztecprotocol/aztec:${AZTEC_IMAGE_TAG}
+
+COPY --link crs/ /usr/src/crs/
+ENV CRS_PATH=/usr/src/crs
