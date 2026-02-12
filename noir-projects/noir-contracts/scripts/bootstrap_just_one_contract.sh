@@ -41,13 +41,46 @@ echo "Transpiling contract..."
 TRANSPILER=${TRANSPILER:-../../../avm-transpiler/target/release/avm-transpiler}
 "$TRANSPILER" "../target/$JSON_NAME.json" "../target/$JSON_NAME.json"
 
-# Postprocess the contract
-echo "Postprocessing contract..."
+# Strip aztec nr prefix
+echo "Stripping aztec nr prefix..."
+STRIP_AZTEC_NR_PREFIX=${STRIP_AZTEC_NR_PREFIX:-./strip_aztec_nr_prefix.sh}
+$STRIP_AZTEC_NR_PREFIX "../target/$JSON_NAME.json"
+
+# Generate verification keys for private functions
+echo "Generating verification keys..."
+BB=${BB:-../../../barretenberg/cpp/build/bin/bb}
 BB_HASH=${BB_HASH:-$(cd ../../../ && git ls-tree -r HEAD | grep 'barretenberg/cpp' | awk '{print $3}' | git hash-object --stdin)}
 echo "Using BB hash $BB_HASH"
 
 tempDir="../target/tmp"
 mkdir -p "$tempDir"
 
-BB_HASH=$BB_HASH node ./postprocess_contract.js "../target/$JSON_NAME.json" "$tempDir"
+json_path="../target/$JSON_NAME.json"
+num_functions=$(jq '.functions | length' "$json_path")
+
+for ((i=0; i<num_functions; i++)); do
+  func=$(jq -c ".functions[$i]" "$json_path")
+  name=$(echo "$func" | jq -r '.name')
+
+  # Check if the function is private (not public and not unconstrained).
+  is_public=$(echo "$func" | jq '(.custom_attributes | index("public") != null)')
+  is_unconstrained=$(echo "$func" | jq '.is_unconstrained')
+
+  if [ "$is_public" == "true" ] || [ "$is_unconstrained" == "true" ]; then
+    echo "Skipping VK for $name (public or unconstrained)"
+    continue
+  fi
+
+  echo "Generating VK for $name..."
+  bytecode_b64=$(echo "$func" | jq -r '.bytecode')
+  outdir=$(mktemp -d -p "$tempDir")
+  echo "$bytecode_b64" | base64 -d | gunzip | "$BB" write_vk --scheme chonk -b - -o "$outdir" -v
+  vk=$(cat "$outdir/vk" | base64 -w 0)
+
+  # Update the function's verification_key in the JSON
+  jq --arg vk "$vk" --argjson idx "$i" '.functions[$idx].verification_key = $vk' "$json_path" > "$json_path.tmp"
+  mv "$json_path.tmp" "$json_path"
+done
+
+echo "Done."
 
