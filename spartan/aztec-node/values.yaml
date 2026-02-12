@@ -95,6 +95,15 @@ node:
     envEnabled: false
     filesEnabled: false
 
+  # -- SHA-256 hex hash of a pre-generated admin API key.
+  # When set, the node uses this hash for authentication instead of auto-generating a key.
+  # Generate with: echo -n "your-api-key" | sha256sum | cut -d' ' -f1
+  adminApiKeyHash: ""
+
+  # -- Disable admin API key authentication.
+  # Set to false in production to enable API key auth.
+  noAdminApiKey: true
+
   # the address that will receive block or proof rewards
   coinbase:
 

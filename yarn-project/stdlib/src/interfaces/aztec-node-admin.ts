@@ -94,10 +94,12 @@ export function createAztecNodeAdminClient(
   url: string,
   versions: Partial<ComponentsVersions> = {},
   fetch = defaultFetch,
+  apiKey?: string,
 ): AztecNodeAdmin {
   return createSafeJsonRpcClient<AztecNodeAdmin>(url, AztecNodeAdminApiSchema, {
     namespaceMethods: 'nodeAdmin',
     fetch,
     onResponse: getVersioningResponseHandler(versions),
+    ...(apiKey ? { extraHeaders: { 'x-api-key': apiKey } } : {}),
   });
 }
