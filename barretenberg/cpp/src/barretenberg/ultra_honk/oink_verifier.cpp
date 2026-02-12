@@ -27,28 +27,26 @@ namespace bb {
  */
 template <typename Flavor> void OinkVerifier<Flavor>::verify()
 {
-    // Execute the Verifier rounds
-    execute_preamble_round();
-    // For ZK flavors: receive Gemini masking polynomial commitment
+    receive_vk_hash_and_public_inputs();
     if constexpr (Flavor::HasZK) {
         verifier_instance->gemini_masking_commitment =
             transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
     }
-    execute_wire_commitments_round();
-    execute_sorted_list_accumulator_round();
-    execute_log_derivative_inverse_round();
-    execute_grand_product_computation_round();
+    receive_wire_commitments();
+    receive_lookup_counts_and_w4_commitments();
+    receive_logderiv_commitments();
+    receive_z_perm_commitment();
 
     verifier_instance->witness_commitments = witness_comms;
     verifier_instance->relation_parameters = relation_parameters;
-    verifier_instance->alpha = generate_alpha_round();
+    verifier_instance->alpha = transcript->template get_challenge<FF>("alpha");
 }
 
 /**
  * @brief Get circuit size, public input size, and public inputs from transcript
  *
  */
-template <typename Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
+template <typename Flavor> void OinkVerifier<Flavor>::receive_vk_hash_and_public_inputs()
 {
     auto vk = verifier_instance->get_vk();
 
@@ -88,7 +86,7 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
  * only received after adding memory records. In the Goblin Flavor, we also receive the ECC OP wires and the
  * DataBus columns.
  */
-template <typename Flavor> void OinkVerifier<Flavor>::execute_wire_commitments_round()
+template <typename Flavor> void OinkVerifier<Flavor>::receive_wire_commitments()
 {
     // Get commitments to first three wire polynomials
     witness_comms.w_l = transcript->template receive_from_prover<Commitment>(comm_labels.w_l);
@@ -114,7 +112,7 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_wire_commitments_r
  * @brief Get sorted witness-table accumulator and fourth wire commitments
  *
  */
-template <typename Flavor> void OinkVerifier<Flavor>::execute_sorted_list_accumulator_round()
+template <typename Flavor> void OinkVerifier<Flavor>::receive_lookup_counts_and_w4_commitments()
 {
     // Get eta challenge and compute powers (eta, eta², eta³)
     relation_parameters.compute_eta_powers(transcript->template get_challenge<FF>("eta"));
@@ -130,7 +128,7 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_sorted_list_accumu
  * @brief Get log derivative inverse polynomial and its commitment, if MegaFlavor
  *
  */
-template <typename Flavor> void OinkVerifier<Flavor>::execute_log_derivative_inverse_round()
+template <typename Flavor> void OinkVerifier<Flavor>::receive_logderiv_commitments()
 {
     auto [beta, gamma] = transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
     relation_parameters.compute_beta_powers(beta);
@@ -151,7 +149,7 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_log_derivative_inv
  * @brief Compute lookup grand product delta and get permutation and lookup grand product commitments
  *
  */
-template <typename Flavor> void OinkVerifier<Flavor>::execute_grand_product_computation_round()
+template <typename Flavor> void OinkVerifier<Flavor>::receive_z_perm_commitment()
 {
     auto vk = verifier_instance->get_vk();
 
@@ -162,13 +160,6 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_grand_product_comp
 
     // Get commitment to permutation and lookup grand products
     witness_comms.z_perm = transcript->template receive_from_prover<Commitment>(comm_labels.z_perm);
-}
-
-template <typename Flavor> typename Flavor::SubrelationSeparator OinkVerifier<Flavor>::generate_alpha_round()
-{
-    // Get the single alpha challenge for sumcheck computation
-    // Powers of this challenge will be used to batch subrelations
-    return transcript->template get_challenge<FF>("alpha");
 }
 
 // Native flavor instantiations

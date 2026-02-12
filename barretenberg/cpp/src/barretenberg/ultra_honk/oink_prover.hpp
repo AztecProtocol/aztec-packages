@@ -23,16 +23,11 @@
 *                        L\              L\
 */
 // clang-format on
-#include <utility>
-
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 
 namespace bb {
 /**
  * @brief Class for all the oink rounds, which are shared between the folding prover and ultra prover.
- * @details This class contains execute_preamble_round(), execute_wire_commitments_round(),
- * execute_sorted_list_accumulator_round(), execute_log_derivative_inverse_round(), and
- * execute_grand_product_computation_round().
  *
  * @tparam Flavor
  */
@@ -45,13 +40,6 @@ template <IsUltraOrMegaHonk Flavor> class OinkProver {
     using Proof = typename Transcript::Proof;
 
   public:
-    std::shared_ptr<ProverInstance> prover_instance;
-    std::shared_ptr<HonkVK> honk_vk;
-    std::shared_ptr<Transcript> transcript;
-
-    typename Flavor::CommitmentLabels commitment_labels;
-    using SubrelationSeparator = typename Flavor::SubrelationSeparator;
-
     OinkProver(std::shared_ptr<ProverInstance> prover_instance,
                std::shared_ptr<HonkVK> honk_vk,
                const std::shared_ptr<typename Flavor::Transcript>& transcript)
@@ -62,13 +50,18 @@ template <IsUltraOrMegaHonk Flavor> class OinkProver {
 
     void prove();
     Proof export_proof();
-    void execute_preamble_round();
-    void execute_wire_commitments_round();
-    void execute_sorted_list_accumulator_round();
-    void execute_log_derivative_inverse_round();
-    void execute_grand_product_computation_round();
+
+  private:
+    std::shared_ptr<ProverInstance> prover_instance;
+    std::shared_ptr<HonkVK> honk_vk;
+    std::shared_ptr<Transcript> transcript;
+    typename Flavor::CommitmentLabels commitment_labels;
+    void send_vk_hash_and_public_inputs();
+    void commit_to_wires();
+    void commit_to_lookup_counts_and_w4();
+    void commit_to_logderiv_inverses();
+    void commit_to_z_perm();
     void commit_to_masking_poly();
-    SubrelationSeparator generate_alpha_round();
     Flavor::Commitment commit_to_witness_polynomial(Polynomial<FF>& polynomial, const std::string& label);
 };
 
