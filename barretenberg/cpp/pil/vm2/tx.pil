@@ -502,8 +502,8 @@ namespace tx;
         note_hash_tree_check.note_hash,
         note_hash_tree_check.leaf_index,
         note_hash_tree_check.prev_root,
-        note_hash_tree_check.should_silo,
-        note_hash_tree_check.should_unique,
+        note_hash_tree_check.sel_silo,
+        note_hash_tree_check.sel_unique,
         note_hash_tree_check.note_hash_index,
         note_hash_tree_check.discard,
         note_hash_tree_check.next_root
