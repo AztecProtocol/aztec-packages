@@ -14,9 +14,9 @@ template <typename FF_> class bc_decompositionImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 63> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 3, 3, 4, 4, 5, 3, 3, 4, 4, 3, 3, 3, 5, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 5, 3, 3
+    static constexpr std::array<size_t, 64> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 3, 3, 4, 4, 5, 3, 3, 3, 4, 4, 3, 3, 3, 5, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 5, 3, 3
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -43,19 +43,20 @@ template <typename FF> class bc_decomposition : public Relation<bc_decomposition
     static constexpr size_t SR_BC_DEC_LAST_CONTRACT_BYTES_REM_ONE = 5;
     static constexpr size_t SR_BC_DEC_PC_ZERO_INITIALIZATION = 6;
     static constexpr size_t SR_START_AFTER_LATCH = 7;
-    static constexpr size_t SR_BC_DEC_PC_INCREMENT = 8;
-    static constexpr size_t SR_BC_DEC_BYTES_REMAINING_DECREMENT = 9;
-    static constexpr size_t SR_BC_DEC_ID_CONSTANT = 10;
-    static constexpr size_t SR_IS_WINDOWS_EQ_REMAINING = 13;
-    static constexpr size_t SR_SEL_WINDOWS_GT_REMAINING_INIT = 14;
-    static constexpr size_t SR_SEL_WINDOWS_GT_REMAINING_PROPAGATION = 15;
-    static constexpr size_t SR_SET_BYTES_TO_READ = 16;
-    static constexpr size_t SR_PACKED_ROW_NEEDS_PERM_SELECTOR = 57;
-    static constexpr size_t SR_SEL_TOGGLED_AT_PACKED = 58;
-    static constexpr size_t SR_SEL_PACKED_INIT = 59;
-    static constexpr size_t SR_PC_IS_PACKED = 60;
-    static constexpr size_t SR_NEXT_PACKED_PC_PROPAGATION = 61;
-    static constexpr size_t SR_BC_DECOMPOSITION_REPACKING = 62;
+    static constexpr size_t SR_SEL_ON_START_OR_END = 8;
+    static constexpr size_t SR_BC_DEC_PC_INCREMENT = 9;
+    static constexpr size_t SR_BC_DEC_BYTES_REMAINING_DECREMENT = 10;
+    static constexpr size_t SR_BC_DEC_ID_CONSTANT = 11;
+    static constexpr size_t SR_IS_WINDOWS_EQ_REMAINING = 14;
+    static constexpr size_t SR_SEL_WINDOWS_GT_REMAINING_INIT = 15;
+    static constexpr size_t SR_SEL_WINDOWS_GT_REMAINING_PROPAGATION = 16;
+    static constexpr size_t SR_SET_BYTES_TO_READ = 17;
+    static constexpr size_t SR_PACKED_ROW_NEEDS_PERM_SELECTOR = 58;
+    static constexpr size_t SR_SEL_TOGGLED_AT_PACKED = 59;
+    static constexpr size_t SR_SEL_PACKED_INIT = 60;
+    static constexpr size_t SR_PC_IS_PACKED = 61;
+    static constexpr size_t SR_NEXT_PACKED_PC_PROPAGATION = 62;
+    static constexpr size_t SR_BC_DECOMPOSITION_REPACKING = 63;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -70,6 +71,8 @@ template <typename FF> class bc_decomposition : public Relation<bc_decomposition
             return "BC_DEC_PC_ZERO_INITIALIZATION";
         case SR_START_AFTER_LATCH:
             return "START_AFTER_LATCH";
+        case SR_SEL_ON_START_OR_END:
+            return "SEL_ON_START_OR_END";
         case SR_BC_DEC_PC_INCREMENT:
             return "BC_DEC_PC_INCREMENT";
         case SR_BC_DEC_BYTES_REMAINING_DECREMENT:

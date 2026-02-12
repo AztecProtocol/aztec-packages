@@ -74,6 +74,10 @@ LATCH_CONDITION * pc' = 0;
 #[START_AFTER_LATCH]
 sel' * (start' - LATCH_CONDITION) = 0;
 
+// start and last_of_contract are only on for active rows
+#[SEL_ON_START_OR_END]
+(start + last_of_contract) * (1 - sel) = 0;
+
 // pc evolution (increment within bytecode)
 #[BC_DEC_PC_INCREMENT]
 sel * (1 - last_of_contract) * (pc' - pc - 1) = 0;
