@@ -4,11 +4,42 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <fstream>
 #include <iomanip>
 #include <sstream>
 #include <string>
 
 namespace bb {
+
+/**
+ * @brief Get the current process resident set size (RSS) in MB.
+ * @details Reads from /proc/self/status on Linux. Returns 0 on other platforms.
+ */
+inline double get_rss_mb()
+{
+#ifdef __linux__
+    std::ifstream status("/proc/self/status");
+    std::string line;
+    while (std::getline(status, line)) {
+        if (line.starts_with("VmRSS:")) {
+            // Format: "VmRSS:    <value> kB"
+            size_t kb = std::stoul(line.substr(6));
+            return static_cast<double>(kb) / 1024.0;
+        }
+    }
+#endif
+    return 0;
+}
+
+/**
+ * @brief Log current RSS with a label. Only does anything when BB_POLY_STATS is set.
+ */
+inline void log_rss(const std::string& label)
+{
+    if (std::getenv("BB_POLY_STATS") != nullptr) {
+        info("[RSS] ", label, ": ", std::fixed, std::setprecision(1), get_rss_mb(), " MB");
+    }
+}
 
 /**
  * @brief Compute the minimum number of bytes needed to represent a field element's value.

@@ -97,6 +97,7 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     {
         BB_BENCH_NAME("ProverInstance(Circuit&)");
         vinfo("Constructing ProverInstance");
+        log_rss("before ProverInstance (circuit alive)");
         auto start = std::chrono::steady_clock::now();
 
         // Check pairing point tagging: either no pairing points were created,
@@ -151,6 +152,7 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
             // Set the shifted polynomials now that all of the to_be_shifted polynomials are defined.
             polynomials.set_shifted();
         }
+        log_rss("after polynomial allocation (circuit + polys)");
 
         // Construct and add to proving key the wire, selector and copy constraint polynomials
         vinfo("populating trace...");
@@ -195,8 +197,9 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
         auto end = std::chrono::steady_clock::now();
         auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         vinfo("time to construct proving key: ", diff.count(), " ms.");
+        log_rss("after ProverInstance complete (circuit still alive)");
 
-        if (std::getenv("BB_POLY_STATS")) {
+        if (std::getenv("BB_POLY_STATS") != nullptr) {
             analyze_prover_polynomials(polynomials);
         }
     }
