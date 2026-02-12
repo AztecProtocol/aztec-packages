@@ -39,11 +39,11 @@ Before working with devnet, ensure you have:
 2. Aztec CLI with Devnet version installed:
 
 ```sh
-VERSION=4.0.0-devnet.1-patch.0 bash -i <(curl -sL https://install.aztec.network/4.0.0-devnet.1-patch.0/)
+bash -i <(curl -sL https://install.aztec.network/3.0.0-devnet.6-patch.1/)
 ```
 
 :::warning
-The devnet is version dependent. It is currently running version `4.0.0-devnet.1-patch.0`. Maintain version consistency when interacting with the devnet to reduce errors.
+The devnet is version dependent. It is currently running version `3.0.0-devnet.6-patch.1`. Maintain version consistency when interacting with the devnet to reduce errors.
 :::
 
 ## Getting Started on Devnet
@@ -53,7 +53,7 @@ The devnet is version dependent. It is currently running version `4.0.0-devnet.1
 Set the required environment variables:
 
 ```bash
-export VERSION=4.0.0-devnet.1-patch.0
+export VERSION=3.0.0-devnet.6-patch.1
 export NODE_URL=https://devnet.aztec-labs.com/
 export SPONSORED_FPC_ADDRESS=0x280e5686a148059543f4d0968f9a18cd4992520fcd887444b8689bf2726a1f97
 ```
