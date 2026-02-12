@@ -119,6 +119,47 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
                       ROW_FIELD_EQ(bc_decomposition_last_of_contract, 1)));
 }
 
+TEST(BytecodeTraceGenTest, BasicSingleByte)
+{
+    TestTraceContainer trace;
+    BytecodeTraceBuilder builder;
+
+    builder.process_decomposition(
+        {
+            simulation::BytecodeDecompositionEvent{
+                .bytecode_id = 43,
+                .bytecode = std::make_shared<std::vector<uint8_t>>(std::vector<uint8_t>{ 24 }),
+            },
+        },
+        trace);
+    auto rows = trace.as_rows();
+
+    // One extra empty row is prepended. Note that precomputed_first_row is not set through process_decomposition()
+    // because it pertains to another subtrace.
+    ASSERT_EQ(rows.size(), 1 + 1);
+
+    // We do not inspect row at index 0 as it is completely empty.
+    EXPECT_THAT(rows.at(1),
+                AllOf(ROW_FIELD_EQ(bc_decomposition_sel, 1),
+                      ROW_FIELD_EQ(bc_decomposition_id, 43),
+                      ROW_FIELD_EQ(bc_decomposition_bytes, 24),
+                      ROW_FIELD_EQ(bc_decomposition_bytes_pc_plus_1, 0),
+                      ROW_FIELD_EQ(bc_decomposition_bytes_pc_plus_2, 0),
+                      ROW_FIELD_EQ(bc_decomposition_bytes_pc_plus_3, 0),
+                      ROW_FIELD_EQ(bc_decomposition_bytes_pc_plus_4, 0),
+                      ROW_FIELD_EQ(bc_decomposition_pc, 0),
+                      ROW_FIELD_EQ(bc_decomposition_bytes_remaining, 1),
+                      ROW_FIELD_EQ(bc_decomposition_sel_windows_gt_remaining, 1),
+                      ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, FF(DECOMPOSE_WINDOW_SIZE - 1).invert()),
+                      ROW_FIELD_EQ(bc_decomposition_sel_windows_eq_remaining, 0),
+                      ROW_FIELD_EQ(bc_decomposition_bytes_to_read, 1),
+                      ROW_FIELD_EQ(bc_decomposition_last_of_contract, 1),
+                      ROW_FIELD_EQ(bc_decomposition_sel_packed, 1),
+                      ROW_FIELD_EQ(bc_decomposition_start, 1),
+                      ROW_FIELD_EQ(bc_decomposition_next_packed_pc, 0),
+                      ROW_FIELD_EQ(bc_decomposition_next_packed_pc_min_pc_inv, 0)));
+}
+
 TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
 {
     TestTraceContainer trace;

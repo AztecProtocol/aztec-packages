@@ -15,7 +15,7 @@ template <typename FF_> class bc_decompositionImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 64> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 4, 5, 3, 3, 4, 3, 3, 3, 4, 4, 3, 3, 5, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 4, 5, 3, 3, 3, 3, 3, 3, 4, 4, 3, 3, 5, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 5, 3, 3
     };
 

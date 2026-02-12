@@ -59,9 +59,9 @@ void bc_decompositionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // TRACE_CONTINUITY
         using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
-        auto tmp = (FF(1) - static_cast<View>(in.get(C::precomputed_first_row))) *
-                   (FF(1) - static_cast<View>(in.get(C::bc_decomposition_sel))) *
-                   static_cast<View>(in.get(C::bc_decomposition_sel_shift));
+        auto tmp = (FF(1) - CView(bc_decomposition_LATCH_CONDITION)) *
+                   (static_cast<View>(in.get(C::bc_decomposition_sel)) -
+                    static_cast<View>(in.get(C::bc_decomposition_sel_shift)));
         std::get<5>(evals) += (tmp * scaling_factor);
     }
     { // START_AFTER_LATCH
