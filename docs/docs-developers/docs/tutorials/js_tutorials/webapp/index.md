@@ -35,7 +35,7 @@ Without privacy, your opponent could see your point allocations as you play and 
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) v22 or later
-- The [Aztec CLI](../../getting_started/quickstart.md) installed (`aztec` command available)
+- The [Aztec CLI](../../../../getting_started_on_local_network.md) installed (`aztec` command available)
 - A local Aztec network running (`aztec start --sandbox`), **or** access to the Aztec devnet
 - Basic familiarity with React and TypeScript
 
