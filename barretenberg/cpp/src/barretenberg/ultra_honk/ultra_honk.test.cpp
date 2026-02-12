@@ -328,3 +328,79 @@ TYPED_TEST(UltraHonkTests, NativeVKHashMismatchDetected)
     Verifier verifier(vk_and_hash);
     EXPECT_THROW_WITH_MESSAGE(verifier.verify_proof(proof), "VK Hash Mismatch");
 }
+
+/**
+ * @brief Test that a truncated proof is rejected with a clear error message
+ * @details When a proof is too short, the verifier should detect this before
+ *          unsigned integer underflow occurs in derive_num_public_inputs.
+ */
+TYPED_TEST(UltraHonkTests, TooShortProofRejected)
+{
+    using Flavor = TypeParam;
+    using IO = typename TestFixture::IO;
+    using Builder = typename Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
+    using VerificationKey = typename Flavor::VerificationKey;
+    using VKAndHash = typename Flavor::VKAndHash;
+    using Verifier = UltraVerifier_<Flavor, IO>;
+    using Proof = typename Flavor::Transcript::Proof;
+
+    // Create a simple circuit and produce a valid proof
+    Builder builder;
+    MockCircuits::add_arithmetic_gates(builder);
+    this->set_default_pairing_points_and_ipa_claim_and_proof(builder);
+
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto vk = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+
+    Prover prover(prover_instance, vk);
+    auto proof = prover.construct_proof();
+
+    // Truncate the proof by removing the last 10 elements
+    Proof truncated_proof(proof.begin(), proof.end() - 10);
+
+    auto vk_and_hash = std::make_shared<VKAndHash>(vk);
+    Verifier verifier(vk_and_hash);
+    EXPECT_THROW_WITH_MESSAGE(verifier.verify_proof(truncated_proof), "Proof size too small");
+}
+
+/**
+ * @brief Test that a proof with extra elements appended is rejected
+ * @details When a proof is too long, the derived num_public_inputs will be wrong,
+ *          causing a mismatch with the VK's expected value.
+ */
+TYPED_TEST(UltraHonkTests, TooLongProofRejected)
+{
+    using Flavor = TypeParam;
+    using IO = typename TestFixture::IO;
+    using Builder = typename Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
+    using VerificationKey = typename Flavor::VerificationKey;
+    using VKAndHash = typename Flavor::VKAndHash;
+    using Verifier = UltraVerifier_<Flavor, IO>;
+    using Proof = typename Flavor::Transcript::Proof;
+    using FF = typename Flavor::FF;
+
+    // Create a simple circuit and produce a valid proof
+    Builder builder;
+    MockCircuits::add_arithmetic_gates(builder);
+    this->set_default_pairing_points_and_ipa_claim_and_proof(builder);
+
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto vk = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+
+    Prover prover(prover_instance, vk);
+    auto proof = prover.construct_proof();
+
+    // Append extra elements to the proof
+    Proof extended_proof(proof);
+    for (size_t i = 0; i < 10; i++) {
+        extended_proof.push_back(FF::random_element());
+    }
+
+    auto vk_and_hash = std::make_shared<VKAndHash>(vk);
+    Verifier verifier(vk_and_hash);
+    EXPECT_THROW_WITH_MESSAGE(verifier.verify_proof(extended_proof), "num_public_inputs mismatch");
+}
