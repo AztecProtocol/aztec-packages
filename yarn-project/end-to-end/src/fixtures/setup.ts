@@ -290,6 +290,8 @@ export async function setup(
     config.enforceTimeTable = !!opts.enforceTimeTable;
     config.listenAddress = '127.0.0.1';
 
+    config.minTxPoolAgeMs = opts.minTxPoolAgeMs ?? 0;
+
     const logger = getLogger();
 
     // Create a temp directory for any services that need it and cleanup later
@@ -413,8 +415,13 @@ export async function setup(
     if (enableAutomine) {
       await ethCheatCodes.setAutomine(false);
       await ethCheatCodes.setIntervalMining(config.ethereumSlotDuration);
-      dateProvider.setTime((await ethCheatCodes.timestamp()) * 1000);
     }
+
+    // Always sync dateProvider to L1 time after deploying L1 contracts, regardless of mining mode.
+    // In compose mode, L1 time may have drifted ahead of system time due to the local-network watcher
+    // warping time forward on each filled slot. Without this sync, the sequencer computes the wrong
+    // slot from its dateProvider and cannot propose blocks.
+    dateProvider.setTime((await ethCheatCodes.timestamp()) * 1000);
 
     if (opts.l2StartTime) {
       await ethCheatCodes.warp(opts.l2StartTime, { resetBlockInterval: true });
