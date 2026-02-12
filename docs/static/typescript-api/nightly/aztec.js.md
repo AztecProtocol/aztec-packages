@@ -1,6 +1,6 @@
 # @aztec/aztec.js
 
-Version: v4.0.0-nightly.20260211
+Version: v4.0.0-nightly.20260212
 
 ## Quick Import Reference
 
@@ -1189,6 +1189,7 @@ Provides basic information about the running node.
 - `l1ContractAddresses: L1ContractAddresses` - The deployed l1 contract addresses
 - `nodeVersion: string` - Version as tracked in the aztec-packages repository.
 - `protocolContractAddresses: ProtocolContractAddresses` - Protocol contract addresses
+- `realProofs: boolean` - Whether the node requires real proofs for transaction submission.
 - `rollupVersion: number` - Rollup version.
 
 ### NoirCompiledContract
@@ -1758,6 +1759,12 @@ Represents the options for simulating a contract function interaction. Allows sp
 type SimulateOptions = Omit<SimulateInteractionOptions, "fee"> & { fee?: GasSettingsOption & FeeEstimationOptions }
 ```
 Options for simulating interactions with the wallet. Overrides the fee settings of an interaction with a simplified version that only hints at the wallet whether the interaction contains a fee payment method or not
+
+### SimulateUtilityOptions
+```typescript
+type SimulateUtilityOptions = unknown
+```
+Options for simulating a utility function call.
 
 ### SimulationReturn
 ```typescript
