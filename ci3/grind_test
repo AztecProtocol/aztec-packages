@@ -49,7 +49,8 @@ function grind {
     # parallel suspends at 2*SIZE and runs 1 job at SIZE, so SIZE = mem * (100 - pct) / 200
     local mem=$(total_mem_gb)
     local memsuspend_gb=$((mem * (100 - memsuspend_pct) / 200))
-    awk 'BEGIN {i=1; while (1) print i++}' | timeout $timeout parallel --memsuspend ${memsuspend_gb}G --halt now,fail=10 --joblog "$joblog" -j $jobs --line-buffer "$par_cmd" || true
+    # NAME_POSTFIX allows for grinding compose tests in parallel.
+    awk 'BEGIN {i=1; while (1) print i++}' | timeout $timeout parallel --memsuspend ${memsuspend_gb}G --halt now,fail=10 --joblog "$joblog" -j $jobs --line-buffer "NAME_POSTFIX={} $par_cmd" || true
 
     # Check if any jobs failed (column 7 is exitval in joblog)
     if awk 'NR>1 && $7!=0 {found=1} END {exit !found}' "$joblog"; then
