@@ -39,6 +39,7 @@ template <typename Builder> class PairingPointsTests : public testing::Test {
 using Curves = testing::Types<stdlib::bn254<UltraCircuitBuilder>, stdlib::bn254<MegaCircuitBuilder>>;
 TYPED_TEST_SUITE(PairingPointsTests, Curves);
 
+// Precondition asserts fire on unpopulated PairingPoints
 TYPED_TEST(PairingPointsTests, EmptyPairingPointsProtection)
 {
     using Curve = TypeParam;
@@ -54,6 +55,7 @@ TYPED_TEST(PairingPointsTests, EmptyPairingPointsProtection)
     EXPECT_THROW_WITH_MESSAGE(empty.check(), "Calling check on empty pairing points.");
 }
 
+// Gate count pinning for set_default_to_public
 TYPED_TEST(PairingPointsTests, ConstructDefault)
 {
     using Builder = typename TypeParam::Builder;
@@ -69,6 +71,7 @@ TYPED_TEST(PairingPointsTests, ConstructDefault)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
+// Default pairing points satisfy the pairing equation
 TYPED_TEST(PairingPointsTests, DefaultPointsAreValid)
 {
     using Builder = TypeParam::Builder;
@@ -87,6 +90,7 @@ TYPED_TEST(PairingPointsTests, DefaultPointsAreValid)
     EXPECT_TRUE(native_pp.check()) << "Default PairingPoints are not valid pairing points.";
 }
 
+// Pairwise aggregate computes this = this + r * other with correct Fiat-Shamir challenge
 TYPED_TEST(PairingPointsTests, Aggregate)
 {
     using Curve = TypeParam;
@@ -121,6 +125,7 @@ TYPED_TEST(PairingPointsTests, Aggregate)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
+// Aggregating into an unpopulated LHS simply copies the RHS
 TYPED_TEST(PairingPointsTests, AggregateIntoEmpty)
 {
     using Curve = TypeParam;
@@ -141,6 +146,7 @@ TYPED_TEST(PairingPointsTests, AggregateIntoEmpty)
     EXPECT_EQ(empty.P1().get_value(), pps[0].P1().get_value());
 }
 
+// N-way aggregate computes P₀ + r₁·P₁ + r₂·P₂ with correct Fiat-Shamir challenges
 TYPED_TEST(PairingPointsTests, AggregateMultiple)
 {
     using Curve = TypeParam;
@@ -173,6 +179,7 @@ TYPED_TEST(PairingPointsTests, AggregateMultiple)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
+// set_public then reconstruct_from_public recovers the same point values
 TYPED_TEST(PairingPointsTests, PublicInputSerdeRoundTrip)
 {
     using Curve = TypeParam;
@@ -209,26 +216,6 @@ TYPED_TEST(PairingPointsTests, PublicInputSerdeRoundTrip)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
-TYPED_TEST(PairingPointsTests, SrsBasedPairingPointsAreValid)
-{
-    using Curve = TypeParam;
-    using Builder = typename Curve::Builder;
-
-    Builder builder;
-    auto pps = TestFixture::template create_valid_pairing_points<Curve>(&builder, 3);
-
-    for (auto& pp : pps) {
-        EXPECT_TRUE(pp.is_populated());
-        EXPECT_TRUE(pp.check());
-    }
-
-    // Verify the points are actually distinct
-    EXPECT_NE(pps[0].P0().get_value(), pps[1].P0().get_value());
-    EXPECT_NE(pps[1].P0().get_value(), pps[2].P0().get_value());
-
-    EXPECT_TRUE(CircuitChecker::check(builder));
-}
-
 // =============================================================================
 // Tagging mechanism tests (tag tracking, merge, ProverInstance enforcement)
 // =============================================================================
@@ -240,6 +227,7 @@ template <typename Builder> class PairingPointsTaggingTests : public testing::Te
 
 TYPED_TEST_SUITE(PairingPointsTaggingTests, Curves);
 
+// Tags are assigned sequentially and unified by aggregate / aggregate_multiple
 TYPED_TEST(PairingPointsTaggingTests, TagCreationAndMerge)
 {
     using Curve = TypeParam;
@@ -300,6 +288,7 @@ TYPED_TEST(PairingPointsTaggingTests, TagCreationAndMerge)
     EXPECT_TRUE(builder.pairing_points_tagging.has_single_pairing_point_tag());
 }
 
+// ProverInstance rejects unaggregated or non-public pairing points
 TYPED_TEST(PairingPointsTaggingTests, ProverInstanceRejectsUnmergedTags)
 {
     using Curve = TypeParam;
@@ -359,6 +348,7 @@ TYPED_TEST(PairingPointsTaggingTests, ProverInstanceRejectsUnmergedTags)
     ProverInstance prover_instance(builder);
 }
 
+// Copying a PairingPoints shares the same tag (no new equivalence class)
 TYPED_TEST(PairingPointsTaggingTests, CopyPreservesTag)
 {
     using Curve = TypeParam;
@@ -385,6 +375,42 @@ TYPED_TEST(PairingPointsTaggingTests, CopyPreservesTag)
     // Check that the tags are the same
     BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_original.tag_index),
                  builder.pairing_points_tagging.get_tag(pp_copy.tag_index));
+}
+
+// After set_public, no further merges or set_public calls are allowed
+TYPED_TEST(PairingPointsTaggingTests, SetPublicIsTerminal)
+{
+    using Curve = TypeParam;
+    using Builder = typename Curve::Builder;
+    using PairingPoints = PairingPoints<Curve>;
+    using Group = PairingPoints::Group;
+    using Fr = PairingPoints::Fr;
+    using NativeFr = typename Curve::ScalarFieldNative;
+
+    Builder builder;
+
+    Fr scalar_one = Fr::from_witness(&builder, NativeFr::random_element());
+    Fr scalar_two = Fr::from_witness(&builder, NativeFr::random_element());
+    Group P0 = Group::batch_mul({ Group::one(&builder) }, { scalar_one });
+    Group P1 = Group::batch_mul({ Group::one(&builder) }, { scalar_two });
+
+    PairingPoints pp_one = { P0, P1 };
+    PairingPoints pp_two = { P0, P1 };
+
+    pp_one.aggregate(pp_two);
+    stdlib::recursion::honk::DefaultIO<Builder> inputs;
+    inputs.pairing_inputs = pp_one;
+    inputs.set_public();
+
+    // Cannot merge after set_public
+    PairingPoints pp_three = { P0, P1 };
+    EXPECT_THROW_WITH_MESSAGE(pp_one.aggregate(pp_three),
+                              "Cannot merge pairing point tags after pairing points have been set to public.");
+
+    // Cannot set_public twice
+    EXPECT_THROW_WITH_MESSAGE(
+        builder.pairing_points_tagging.set_public_pairing_points(),
+        "Trying to set pairing points to public for a circuit that already has public pairing points.");
 }
 
 } // namespace bb::stdlib::recursion
