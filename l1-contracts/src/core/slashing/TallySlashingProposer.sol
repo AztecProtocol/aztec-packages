@@ -601,6 +601,17 @@ contract TallySlashingProposer is EIP712 {
    */
   function getVotes(SlashRound _round, uint256 _index) external view returns (bytes memory) {
     uint256 expectedLength = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4;
+
+    // _getRoundVotes reverts if _round is out of the roundabout range.
+    // But within-range the storage slot may still hold stale data from a
+    // previous round that mapped to the same circular index. Guard against
+    // that by checking the authoritative round metadata first.
+    SlashRound currentRound = getCurrentRound();
+    RoundData memory roundData = _getRoundData(_round, currentRound);
+    if (roundData.voteCount == 0) {
+      return new bytes(expectedLength);
+    }
+
     bytes32[4] storage voteSlots = _getRoundVotes(_round).votes[_index];
     return _loadVoteDataFromStorage(voteSlots, expectedLength);
   }

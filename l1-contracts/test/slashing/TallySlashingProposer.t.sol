@@ -603,6 +603,83 @@ contract TallySlashingProposerTest is TestBase {
     slashingProposer.getRound(futureSlashRound);
   }
 
+  function test_getVotesRevertsForOutOfRangeRound() public {
+    // Test that getVotes reverts for rounds outside the valid roundabout range.
+    // Before the range check was added to _getRoundVotes, getVotes would silently
+    // return whatever stale data was at the storage slot - potentially data from
+    // a completely different round that mapped to the same circular index.
+    _jumpToSlashRound(10);
+    SlashRound baseRound = slashingProposer.getCurrentRound();
+
+    // Cast a vote with a recognizable pattern
+    uint8[] memory slashAmounts = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
+    slashAmounts[0] = 3;
+    slashAmounts[1] = 2;
+    _castVote(slashAmounts);
+
+    // Confirm we can read the vote data now
+    bytes memory storedVote = slashingProposer.getVotes(baseRound, 0);
+    bytes memory expectedVote = _createVoteData(slashAmounts);
+    assertEq(storedVote, expectedVote, "Vote data should match before jump");
+
+    // Jump far enough that baseRound falls outside the roundabout range
+    uint256 roundaboutSize = slashingProposer.ROUNDABOUT_SIZE();
+    _jumpToSlashRound(SlashRound.unwrap(baseRound) + roundaboutSize);
+
+    // getVotes on the now-out-of-range round should revert
+    vm.expectPartialRevert(Errors.TallySlashingProposer__RoundOutOfRange.selector);
+    slashingProposer.getVotes(baseRound, 0);
+  }
+
+  function test_getVotesReturnsEmptyForStaleRound() public {
+    // Verifies that getVotes returns zeroed-out bytes (not stale data) for a round
+    // that was never written to, even though the underlying circular storage slot
+    // still contains data from a previous round. getVotes consults _getRoundData
+    // which detects the staleness via the stored roundNumber, sees voteCount == 0,
+    // and returns empty bytes before touching storage.
+    _jumpToSlashRound(10);
+    SlashRound baseRound = slashingProposer.getCurrentRound();
+
+    // Cast a vote with a recognizable pattern in baseRound
+    uint8[] memory slashAmounts = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
+    slashAmounts[0] = 3;
+    slashAmounts[1] = 2;
+    slashAmounts[2] = 1;
+    _castVote(slashAmounts);
+
+    bytes memory expectedVote = _createVoteData(slashAmounts);
+
+    // Confirm vote data is present
+    bytes memory storedBefore = slashingProposer.getVotes(baseRound, 0);
+    assertEq(storedBefore, expectedVote, "Vote data should be present for baseRound");
+
+    // Jump exactly ROUNDABOUT_SIZE rounds ahead. The new round maps to the same
+    // storage slot but has never been written to.
+    uint256 roundaboutSize = slashingProposer.ROUNDABOUT_SIZE();
+    SlashRound staleRound = SlashRound.wrap(SlashRound.unwrap(baseRound) + roundaboutSize);
+    _jumpToSlashRound(SlashRound.unwrap(staleRound));
+
+    // getRound correctly reports 0 votes (via _getRoundData staleness check)
+    (, uint256 voteCount) = slashingProposer.getRound(staleRound);
+    assertEq(voteCount, 0, "getRound should report 0 votes for the unwritten round");
+
+    // getVotes should return zeroed-out bytes, not the stale data from baseRound
+    uint256 expectedLength = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4;
+    bytes memory emptyVote = new bytes(expectedLength);
+    bytes memory result = slashingProposer.getVotes(staleRound, 0);
+    assertEq(result, emptyVote, "getVotes should return empty bytes for stale round");
+  }
+
+  function test_getVotesRevertsForFutureRound() public {
+    // getVotes should revert when asked about a round in the future
+    _jumpToSlashRound(10);
+    SlashRound currentRound = slashingProposer.getCurrentRound();
+    SlashRound futureRound = SlashRound.wrap(SlashRound.unwrap(currentRound) + 1);
+
+    vm.expectPartialRevert(Errors.TallySlashingProposer__RoundOutOfRange.selector);
+    slashingProposer.getVotes(futureRound, 0);
+  }
+
   function test_voteStorageAndLoadingRoundTrip() public {
     // Test that vote data is correctly stored and loaded without corruption
     _jumpToSlashRound(FIRST_SLASH_ROUND);
