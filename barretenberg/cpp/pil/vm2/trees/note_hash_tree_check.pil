@@ -42,9 +42,9 @@ include "../precomputed.pil";
  *         note_hash,
  *         note_hash_next_available_leaf_index,
  *         prev_note_hash_tree_root,
- *         should_silo,
+ *         sel_silo,
  *         address,
- *         should_unique,
+ *         sel_unique,
  *         note_hash_index,
  *         discard,
  *         next_note_hash_tree_root
@@ -114,6 +114,7 @@ namespace note_hash_tree_check;
     pol commit discard; // @boolean
     discard * (1 - discard) = 0;
 
+    // Tracegen must set it to zero on read (merkle check precondition).
     pol commit next_root;
 
     // Allows this gadget to be looked up by the write column
@@ -213,7 +214,7 @@ namespace note_hash_tree_check;
     sel * (PREV_LEAF_VALUE_UNIQUE_NOTE_HASH_DIFF * (exists * (1 - prev_leaf_value_unique_note_hash_diff_inv) + prev_leaf_value_unique_note_hash_diff_inv) - 1 + exists) = 0;
 
     pol commit next_leaf_value;
-    // If reading, next_leaf_value is unconstrained. Tracegen must set it to zero.
+    // If reading, next_leaf_value is unconstrained. Tracegen must set it to zero (merkle check precondition).
     write * (unique_note_hash - next_leaf_value) = 0;
 
     // Lookup constant support: Can be removed when we support constants in lookups.
