@@ -76,6 +76,9 @@ export async function createP2PClient<T extends P2PClientType>(
   const attestationStore = await createStore(P2P_ATTESTATION_STORE_NAME, 1, config, bindings);
   const l1Constants = await archiver.getL1Constants();
 
+  const rollupAddress = inputConfig.l1Contracts.rollupAddress.toString().toLowerCase().replace(/^0x/, '');
+  const txFileStoreBasePath = `aztec-${inputConfig.l1ChainId}-${inputConfig.rollupVersion}-0x${rollupAddress}`;
+
   /** Validator factory for pool re-validation (double-spend + block header only). */
   const createPoolTxValidator = async () => {
     await worldStateSynchronizer.syncImmediate();
@@ -154,6 +157,7 @@ export async function createP2PClient<T extends P2PClientType>(
 
   const fileStoreSources = await createFileStoreTxSources(
     config.txCollectionFileStoreUrls,
+    txFileStoreBasePath,
     logger.createChild('file-store-tx-source'),
   );
   if (fileStoreSources.length > 0) {
@@ -174,7 +178,13 @@ export async function createP2PClient<T extends P2PClientType>(
     logger.createChild('tx-collection'),
   );
 
-  const txFileStore = await TxFileStore.create(mempools.txPool, config, logger.createChild('tx-file-store'), telemetry);
+  const txFileStore = await TxFileStore.create(
+    mempools.txPool,
+    config,
+    txFileStoreBasePath,
+    logger.createChild('tx-file-store'),
+    telemetry,
+  );
 
   return new P2PClient(
     clientType,
