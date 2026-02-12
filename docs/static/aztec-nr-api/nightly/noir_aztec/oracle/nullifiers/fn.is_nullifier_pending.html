@@ -33,12 +33,13 @@
 ) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code></pre>
 
 <div class="comments">
-<p>Returns true if the nullifier has been emitted in the same transaction, i.e. if <a href="../../../noir_aztec/oracle/nullifiers/fn.notify_created_nullifier.html">notify_created_nullifier</a> has been
+<p>Returns true if the nullifier has been emitted in the same transaction, i.e. if <a href="../../../noir_aztec/oracle/nullifiers/fn.notify_created_nullifier.html"><code>notify_created_nullifier</code></a> has
+been
 called for this inner nullifier from the contract with the specified address.</p>
-<p>Note that despite sharing pending transaction information with the app, this is not a privacy leak:
-anyone in the network can always determine in which transaction a inner nullifier was emitted by a
-given contract by simply inspecting transaction effects. What <em>would</em> constitute a leak would be to
-share the list of inner pending nullifiers, as that would reveal their preimages.</p></div>
+<p>Note that despite sharing pending transaction information with the app, this is not a privacy leak: anyone in the
+network can always determine in which transaction a inner nullifier was emitted by a given contract by simply
+inspecting transaction effects. What <em>would</em> constitute a leak would be to share the list of inner pending
+nullifiers, as that would reveal their preimages.</p></div>
 </main>
 </span>
 </body>

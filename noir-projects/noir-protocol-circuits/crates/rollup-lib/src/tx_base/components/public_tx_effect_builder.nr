@@ -1,5 +1,5 @@
 use crate::tx_base::components::private_tail_validator;
-use dep::types::{
+use types::{
     abis::{
         avm_circuit_public_inputs::AvmCircuitPublicInputs, contract_class_log::ContractClassLog,
         kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs, log::Log,

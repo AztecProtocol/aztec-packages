@@ -125,4 +125,4 @@ For detailed usage, see the [Noir profiler documentation](https://noir-lang.org/
 
 - [Writing efficient contracts](./writing_efficient_contracts.md) - optimization strategies and examples
 - [Transaction lifecycle](../../../foundational-topics/transactions.md)
-- [Testing contracts](../../how_to_test_contracts.md)
+- [Testing contracts](../../testing_contracts.md)

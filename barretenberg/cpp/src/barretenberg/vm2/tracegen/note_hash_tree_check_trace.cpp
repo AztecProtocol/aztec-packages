@@ -106,6 +106,6 @@ const InteractionDefinition NoteHashTreeCheckTraceBuilder::interactions =
         .add<lookup_note_hash_tree_check_unique_note_hash_poseidon2_settings, InteractionType::LookupGeneric>()
         .add<lookup_note_hash_tree_check_merkle_check_settings, InteractionType::LookupGeneric>()
         .add<lookup_note_hash_tree_check_write_note_hash_to_public_inputs_settings,
-             InteractionType::LookupIntoIndexedByClk>();
+             InteractionType::LookupIntoIndexedByRow>();
 
 } // namespace bb::avm2::tracegen

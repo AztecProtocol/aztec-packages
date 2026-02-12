@@ -13,8 +13,14 @@
   },
   "typedocOptions": {
     "entryPoints": [
-      "./src/index.ts"
+      "./src/base-wallet/index.ts",
+      "./src/extension/handlers/index.ts",
+      "./src/extension/provider/index.ts",
+      "./src/crypto.ts",
+      "./src/types.ts",
+      "./src/manager/index.ts"
     ],
+    "name": "Wallet SDK",
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {

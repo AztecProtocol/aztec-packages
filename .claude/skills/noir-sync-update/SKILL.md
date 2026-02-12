@@ -5,19 +5,9 @@ description: Perform necessary follow-on updates as a result of updating the noi
 
 # Noir Sync Update
 
-## Workflow
+## Steps
 
-Copy this checklist and track progress:
-
-```
-Noir Sync Update Progress:
-- [ ] Step 1: Ensure that the new submodule commit has been pulled.
-- [ ] Step 2: Update the `Cargo.lock` file in `avm-transpiler`.
-- [ ] Step 3: Update the `yarn.lock` file in `yarn-project`.
-- [ ] Step 4: Format `noir-projects`.
-```
-
-After each step, commit the results.
+After each step, verify with `git status` and commit the results before proceeding.
 
 ## Critical Verification Rules
 
@@ -25,13 +15,11 @@ After each step, commit the results.
 
 **IMPORTANT:** Always run `git status` from the repository root directory, not from subdirectories. Running `git status noir-projects/` from inside `noir-projects/` will fail silently.
 
-### Step 1: Ensure that the new submodule commit has been pulled
+### 1. Ensure submodule is pulled
 
-Run `./bootstrap.sh` in `noir` to ensure that the new submodule commit has been pulled.
+Run `./bootstrap.sh` in `noir` to ensure that the new submodule commit has been pulled. This shouldn't produce changes that need committing.
 
-This shouldn't update any files such that a commit is necessary.
-
-### Step 2: Update `Cargo.lock` in `avm-transpiler`
+### 2. Update `Cargo.lock` in `avm-transpiler`
 
 **Before updating**, determine the expected noir version:
 1. Read `noir/noir-repo/.release-please-manifest.json` to find the expected version (e.g., `1.0.0-beta.18`)
@@ -55,13 +43,13 @@ It's possible that changes in dependencies result in `avm-transpiler` no longer 
   - If transient dependency mismatches mean changes to the dependency tree are necessary, then the `Cargo.lock` file in `avm-transpiler` should be modified. **DO NOT MODIFY `noir/noir-repo`**.
   - If updates are necessary due to changes in exports from `noir/noir-repo` packages, then perform the necessary updates to import statements, etc.
 
-### Step 3: Update `yarn.lock` in `yarn-project`
+### 3. Update `yarn.lock` in `yarn-project`
 
 Run `yarn install` in `yarn-project` to update the `yarn.lock` file.
 
 **After running**, verify with `git status yarn-project/yarn.lock` that the file was modified before committing.
 
-### Step 4: Format `noir-projects`
+### 4. Format `noir-projects`
 
 Run `./bootstrap.sh format` in `noir-projects`.
 

@@ -61,10 +61,10 @@
 { <span class="comment">/* private fields */</span> }
 </code></pre>
 <div class="comments">
-<p>This represents an Aztec test run, and contains all the methods utilized during one to interact with the network and
-manipulate its state (e.g. create accounts, make contract calls, etc.). Each test is expected to have its own
-instance of <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html">TestEnvironment</a>, as tests execute in parallel and so cannot share this object.</p>
-<p>Most tests will begin by creating a <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html">TestEnvironment</a> variable, and then make multiple calls to its different
+<p>This represents an Aztec test run, and contains all the methods utilized during one to interact with the network
+and manipulate its state (e.g. create accounts, make contract calls, etc.). Each test is expected to have its own
+instance of <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html"><code>TestEnvironment</code></a>, as tests execute in parallel and so cannot share this object.</p>
+<p>Most tests will begin by creating a <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html"><code>TestEnvironment</code></a> variable, and then make multiple calls to its different
 methods. E.g.:</p>
 <pre><code>#[test]
 <span class="kw">fn</span> sample_test() {
@@ -101,8 +101,8 @@ public context - use <code>call_public</code> for testing contract calls (though
 inside <code>public_context</code>).</p>
 <p>Receives a callback function which is called with the created <code>PublicContext</code> - this function is where testing
 logic is expected to reside. Any values returned by it are bubbled-up and returned to the caller of
-<code>public_context</code>. Do <strong>NOT</strong> return the <code>PublicContext</code> from the callback function, or use it in any way outside
-of it - it becomes invalid once <code>public_context</code> returns.</p>
+<code>public_context</code>. Do <strong>NOT</strong> return the <code>PublicContext</code> from the callback function, or use it in any way
+outside of it - it becomes invalid once <code>public_context</code> returns.</p>
 <p>See <code>public_context_at</code> for a variant that allows specifying the contract address.</p>
 <h4>Sample usage</h4>
 <pre><code>env.public_context(|context| {
@@ -134,9 +134,9 @@ execute, which will affect note and nullifier siloing, storage access, etc.</p>
 <p>Creates a <code>PrivateContext</code>, which allows using aztec-nr features as if inside a private contract function.
 Useful for low-level testing of private state variables and utilities.</p>
 <p>A new block is automatically mined once <code>private_context</code> returns, containing all of the side effects caused by
-its execution (e.g. note and nullifier emission). It is however <strong>NOT</strong> possible to make any contract calls from this
-private context, neither private nor enqueued public calls - use <code>call_private</code> and <code>call_public</code> for testing
-contract calls (though usage of these is forbidden while inside <code>private_context</code>).</p>
+its execution (e.g. note and nullifier emission). It is however <strong>NOT</strong> possible to make any contract calls
+from this private context, neither private nor enqueued public calls - use <code>call_private</code> and <code>call_public</code> for
+testing contract calls (though usage of these is forbidden while inside <code>private_context</code>).</p>
 <p>Receives a callback function which is called with the created <code>PrivateContext</code> - this function is where testing
 logic is expected to reside. Any values returned by it are bubbled-up and returned to the caller of
 <code>private_context</code>. Do <strong>NOT</strong> return the <code>PrivateContext</code> from the callback function, or use it in any way
@@ -182,8 +182,8 @@ execute, which will affect note and nullifier siloing, storage access, etc.</p>
 <div class="padded-description"><div class="comments">
 <p>Creates a <code>UtilityContext</code>, which allows using aztec-nr features as if inside a utility contract function.
 Useful for low-level testing of private and public state variable utilities.</p>
-<p>Receives a callback function which is called with the created <code>Utility</code> - this function is where testing
-logic is expected to reside. Any values returned by it are bubbled-up and returned to the caller of
+<p>Receives a callback function which is called with the created <code>Utility</code> - this function is where testing logic
+is expected to reside. Any values returned by it are bubbled-up and returned to the caller of
 <code>utility_context</code>. Do <strong>NOT</strong> return the <code>Utility</code> from the callback function, or use it in any way outside of
 it - it becomes invalid once <code>utility_context</code> returns.</p>
 <p>See <code>utility_context_at</code> for a variant that allows specifying the contract address.</p>
@@ -229,8 +229,8 @@ must be done by calling <code>mine_block_at</code> or <code>set_next_block_times
 
 <div class="padded-description"><div class="comments">
 <p>Mines an empty block (i.e. with no transactions) at <code>timestamp</code>, causing followup public executions to occur at
-that timestamp (e.g. via <code>call_public</code> or <code>public_context</code>), and making it possible to create private executions
-at the specified timestamp (e.g. via <code>call_private</code> or <code>private_context</code>).</p>
+that timestamp (e.g. via <code>call_public</code> or <code>public_context</code>), and making it possible to create private
+executions at the specified timestamp (e.g. via <code>call_private</code> or <code>private_context</code>).</p>
 </div>
 </div><code id="set_next_block_timestamp" class="code-header">pub unconstrained fn <a href="#set_next_block_timestamp"><span class="fn">set_next_block_timestamp</span></a>(self, timestamp: <a href="../../../../std/primitive.u64.html" class="primitive">u64</a>)</code>
 
@@ -241,8 +241,8 @@ at the specified timestamp (e.g. via <code>call_private</code> or <code>private_
 </div><code id="mine_block" class="code-header">pub unconstrained fn <a href="#mine_block"><span class="fn">mine_block</span></a>(_self: Self)</code>
 
 <div class="padded-description"><div class="comments">
-<p>Mines an empty block (i.e. with no transactions). Note that block timestamps do not automatically advance - this
-must be done by calling <code>mine_block_at</code> or <code>set_next_block_timestamp</code>.</p>
+<p>Mines an empty block (i.e. with no transactions). Note that block timestamps do not automatically advance -
+this must be done by calling <code>mine_block_at</code> or <code>set_next_block_timestamp</code>.</p>
 </div>
 </div><code id="advance_next_block_timestamp_by" class="code-header">pub unconstrained fn <a href="#advance_next_block_timestamp_by"><span class="fn">advance_next_block_timestamp_by</span></a>(_self: Self, duration: <a href="../../../../std/primitive.u64.html" class="primitive">u64</a>)</code>
 
@@ -254,11 +254,10 @@ must be done by calling <code>mine_block_at</code> or <code>set_next_block_times
 <div class="padded-description"><div class="comments">
 <p>Creates a new account that can be used as the <code>from</code> parameter in contract calls, e.g. in <code>private_call</code> or
 <code>public_call</code>, or be made the owner or recipient of notes in <code>private_context</code>.</p>
-<p>The returned account has a full set of privacy keys, so it can nullify notes, receive messages, etc. It also has
-an associated <code>SchnorrAccount</code> contract that can process authwit requests - the authwits can be added via the
-<code>add_private_authwit_from_call</code> and <code>add_public_authwit_from_call</code> helper functions. If
-authwits are not required, consider using <code>create_light_account</code> instead, which is a faster variant of this
-function.</p>
+<p>The returned account has a full set of privacy keys, so it can nullify notes, receive messages, etc. It also
+has an associated <code>SchnorrAccount</code> contract that can process authwit requests - the authwits can be added via
+the <code>add_private_authwit_from_call</code> and <code>add_public_authwit_from_call</code> helper functions. If authwits are not
+required, consider using <code>create_light_account</code> instead, which is a faster variant of this function.</p>
 <p>Each call to <code>create_contract_account</code> will return a different address, and so it can be called repeatedly to
 generate multiple addresses. These addresses are also different from the ones that <code>create_light_account</code>
 returns, and so these two functions can be mixed and match to create a set of unique accounts.</p>
@@ -270,8 +269,8 @@ returns, and so these two functions can be mixed and match to create a set of un
 <code>public_call</code>, or be made the owner or recipient of notes in <code>private_context</code>. This is a faster variant of
 <code>create_contract_account</code>, but comes with reduced capabilities.</p>
 <p>The returned account has a full set of privacy keys, so it can nullify notes, receive messages, etc. It doesn't
-however have an associated account contract, so it cannot process private authwit requests. If calling contracts
-that rely on private authwits, use <code>create_contract_account</code> instead.</p>
+however have an associated account contract, so it cannot process private authwit requests. If calling
+contracts that rely on private authwits, use <code>create_contract_account</code> instead.</p>
 <p>Each call to <code>create_light_account</code> will return a different address, and so it can be called repeatedly to
 generate multiple addresses. These addresses are also different from the ones that <code>create_contract_account</code>
 returns, and so these two functions can be mixed and match to create a set of unique accounts.</p>
@@ -285,20 +284,18 @@ returns, and so these two functions can be mixed and match to create a set of un
 <p>Prepares a contract for deployment, so that its private, public and utility functions can be called. The
 contract <strong>must be already compiled</strong> before tests are run, and <strong>must be recompiled if changed</strong> for the tests
 to deploy the updated version.</p>
-<p>In order to finalize the deployment, the proper initializer function must be specified via one of the associated
-methods. For more information on how to specify the path and initialization, read the sections below.</p>
-<h4>Path</h4>
-<p>Contracts can be deployed from either the same crate as the test, from a different crate in the same workspace,
-or from an altogether independent crate.</p>
+<p>In order to finalize the deployment, the proper initializer function must be specified via one of the
+associated methods. For more information on how to specify the path and initialization, read the sections
+below.</p>
+<h4>Path Contracts can be deployed from either the same crate as the test, from a different crate in the same workspace, or from an altogether independent crate.</h4>
 <p>If deploying contracts from the same crate as the test, just refer to it by its name:</p>
 <pre><code>TestEnvironment::new().deploy(<span class="string">"MyContract"</span>);</code></pre>
 <p>If deploying contracts from a different crate in the same workspace, use <code>@crate_name/contract_name</code>:</p>
 <pre><code>TestEnvironment::new().deploy(<span class="string">"@my_contract_crate/MyContract"</span>);</code></pre>
-<p>If deploying contracts from a crate not in the workspace, use <code>path_to_crate/contract_name</code>, with the crate path
-relative to the current workspace:</p>
+<p>If deploying contracts from a crate not in the workspace, use <code>path_to_crate/contract_name</code>, with the crate
+path relative to the current workspace:</p>
 <pre><code>TestEnvironment::new().deploy(<span class="string">"../my_other_crate/MyContract"</span>);</code></pre>
-<h4>Initialization</h4>
-<p>If no initializer function needs to be called, use <code>without_initializer</code>:</p>
+<h4>Initialization If no initializer function needs to be called, use <code>without_initializer</code>:</h4>
 <pre><code><span class="kw">let</span> my_contract = TestEnvironment::new().deploy(<span class="string">"MyContract"</span>).without_initializer();</code></pre>
 <p>For private initializers, use <code>with_private_initializer</code>:</p>
 <pre><code><span class="kw">let</span> my_contract = TestEnvironment::new().deploy(<span class="string">"MyContract"</span>).with_private_initializer(
@@ -314,7 +311,7 @@ relative to the current workspace:</p>
     call: <a href="../../../../noir_aztec/context/calls/struct.PrivateCall.html" class="struct">PrivateCall</a>&lt;M, N, T&gt;,
 ) -> T
 <div class="where-clause">where
-    T: <a href="../../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+    T: <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Performs a private contract function call, including the processing of any nested private calls and enqueued
@@ -332,22 +329,25 @@ calls that operate on the result of prior calls.</p>
 <span class="kw">let</span> return_value = env.call_private(caller, SampleContract::at(contract_addr).sample_private_function());</code></pre></div>
 </div><code id="view_private" class="code-header">pub unconstrained fn <a href="#view_private"><span class="fn">view_private</span></a>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     _self: Self,
+    from: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     call: <a href="../../../../noir_aztec/context/calls/struct.PrivateStaticCall.html" class="struct">PrivateStaticCall</a>&lt;M, N, T&gt;,
 ) -> T
 <div class="where-clause">where
-    T: <a href="../../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+    T: <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Variant of <code>call_private</code> for private <code>#[view]</code> functions.</p>
 <p>Unlike <code>call_private</code>, no transaction is created and no block is mined (since <code>#[view]</code> functions are only
 executable in a static context, and these produce no side effects).</p>
+<p>The <code>from</code> parameter specifies the account from whose perspective the view is executed. This affects
+scope isolation - only notes scoped to this account will be visible during execution.</p>
 </div>
 </div><code id="simulate_utility" class="code-header">pub unconstrained fn <a href="#simulate_utility"><span class="fn">simulate_utility</span></a>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     _self: Self,
     call: <a href="../../../../noir_aztec/context/calls/struct.UtilityCall.html" class="struct">UtilityCall</a>&lt;M, N, T&gt;,
 ) -> T
 <div class="where-clause">where
-    T: <a href="../../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+    T: <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Performs a utility contract function call and returns the result of the called function.</p>
@@ -361,7 +361,7 @@ executable in a static context, and these produce no side effects).</p>
     call: <a href="../../../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;,
 ) -> T
 <div class="where-clause">where
-    T: <a href="../../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+    T: <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Performs a public contract function call, including the processing of any nested public calls. Returns the
@@ -382,19 +382,19 @@ calls that operate on the result of prior calls.</p>
     call: <a href="../../../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;,
 ) -> T
 <div class="where-clause">where
-    T: <a href="../../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+    T: <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Performs a public contract function call, including the processing of any nested public calls. Returns the
-result of the called function.
-Variant of <code>call_public</code>, but the <code>from</code> address (<code>msg_sender</code>) is set to &quot;null&quot;.</p>
+result of the called function. Variant of <code>call_public</code>, but the <code>from</code> address (<code>msg_sender</code>) is set to
+&quot;null&quot;.</p>
 </div>
 </div><code id="view_public" class="code-header">pub unconstrained fn <a href="#view_public"><span class="fn">view_public</span></a>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     _self: Self,
     call: <a href="../../../../noir_aztec/context/calls/struct.PublicStaticCall.html" class="struct">PublicStaticCall</a>&lt;M, N, T&gt;,
 ) -> T
 <div class="where-clause">where
-    T: <a href="../../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+    T: <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Variant of <code>call_public</code> for public <code>#[view]</code> functions.</p>
@@ -406,7 +406,7 @@ executable in a static context, and these produce no side effects).</p>
     call: <a href="../../../../noir_aztec/context/calls/struct.PublicStaticCall.html" class="struct">PublicStaticCall</a>&lt;M, N, T&gt;,
 ) -> T
 <div class="where-clause">where
-    T: <a href="../../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+    T: <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Variant of <code>view_public</code>, but the <code>from</code> address (<code>msg_sender</code>) is set to &quot;null&quot;</p>
@@ -420,18 +420,18 @@ executable in a static context, and these produce no side effects).</p>
     Note: <a href="../../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a></div></code>
 
 <div class="padded-description"><div class="comments">
-<p>Discovers a note from a <a href="../../../../noir_aztec/note/struct.NoteMessage.html">NoteMessage</a>, which is expected to have been created in the last transaction
-(typically via <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#private_context">TestEnvironment::private_context</a>) so that it can be retrieved in later transactions. This
+<p>Discovers a note from a <a href="../../../../noir_aztec/note/struct.NoteMessage.html"><code>NoteMessage</code></a>, which is expected to have been created in the last transaction
+(typically via <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#private_context"><code>TestEnvironment::private_context</code></a>) so that it can be retrieved in later transactions. This
 mimics the normal message processing that takes place automatically in contracts.</p>
-<p><a href="../../../../noir_aztec/note/struct.NoteMessage.html">NoteMessage</a> values are typically returned by aztec-nr state variables that create notes and need to notify
+<p><a href="../../../../noir_aztec/note/struct.NoteMessage.html"><code>NoteMessage</code></a> values are typically returned by aztec-nr state variables that create notes and need to notify
 a recipient of their existence. Instead of going through the message encoding, encryption and delivery that
-would regularly take place in a contract, this function simply takes the <a href="../../../../noir_aztec/note/struct.NoteMessage.html">NoteMessage</a> and processes it as
+would regularly take place in a contract, this function simply takes the <a href="../../../../noir_aztec/note/struct.NoteMessage.html"><code>NoteMessage</code></a> and processes it as
 needed to discover the underlying note.</p>
-<p>See <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#discover_note_at">TestEnvironment::discover_note_at</a> for a variant that allows specifying the contract address the note
+<p>See <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#discover_note_at"><code>TestEnvironment::discover_note_at</code></a> for a variant that allows specifying the contract address the note
 belongs to.</p>
 <h4>Sample usage</h4>
 <p>The most common way to invoke this function is to obtain a note message created during the execution of a
-<a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#private_context">TestEnvironment::private_context</a>:</p>
+<a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#private_context"><code>TestEnvironment::private_context</code></a>:</p>
 <pre><code><span class="kw">let</span> note_message = env.private_context(|context| create_note(context, storage_slot, note));
 
 env.discover_note(note_message);
@@ -448,9 +448,9 @@ env.private_context(|context| { <span class="kw">let</span> (hinted_note, _) = g
     Note: <a href="../../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a></div></code>
 
 <div class="padded-description"><div class="comments">
-<p>Variant of <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#discover_note">TestEnvironment::discover_note</a> which allows specifying the contract address the note belongs to,
+<p>Variant of <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#discover_note"><code>TestEnvironment::discover_note</code></a> which allows specifying the contract address the note belongs to,
 which is required when the note was not emitted in the default address used by
-<a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#private_context">TestEnvironment::private_context</a>.</p>
+<a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#private_context"><code>TestEnvironment::private_context</code></a>.</p>
 <pre><code><span class="kw">let</span> note_message = env.private_context_at(contract_address, |context| {
     create_note(context, storage_slot, note)
 });

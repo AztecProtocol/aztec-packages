@@ -36,7 +36,7 @@
 ) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></pre>
 
 <div class="comments">
-<p>Unconstrained variant of <a href="../../../noir_aztec/event/event_interface/fn.compute_private_event_commitment.html">compute_private_event_commitment</a> which takes the event in serialized form.</p>
+<p>Unconstrained variant of <a href="../../../noir_aztec/event/event_interface/fn.compute_private_event_commitment.html"><code>compute_private_event_commitment</code></a> which takes the event in serialized form.</p>
 <p>This function is unconstrained as the mechanism it uses to compute the commitment would be very inefficient in a
 constrained environment (due to the hashing of a dynamically sized array). This is not an issue as it is typically
 invoked when processing event messages, which is an unconstrained operation.</p></div>

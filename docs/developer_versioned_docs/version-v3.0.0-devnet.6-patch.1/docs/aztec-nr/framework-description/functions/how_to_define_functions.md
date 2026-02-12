@@ -42,7 +42,7 @@ fn increment(owner: AztecAddress) {
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.6-patch.1/docs/examples/contracts/counter_contract/src/main.nr#L36-L42" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/counter_contract/src/main.nr#L36-L42</a></sub></sup>
 
 
-Private functions run in a private context, can access private state, and can read certain public values through storage types like [`DelayedPublicMutable`](../how_to_define_storage.md#delayedpublicmutable).
+Private functions run in a private context, can access private state, and can read certain public values through storage types like [`DelayedPublicMutable`](../state_variables.md#delayedpublicmutable).
 
 ## Define public functions
 

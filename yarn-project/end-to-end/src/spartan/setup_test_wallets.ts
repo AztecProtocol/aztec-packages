@@ -13,11 +13,13 @@ import type { Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import { TestWallet, proveInteraction, registerInitialLocalNetworkAccountsInWallet } from '@aztec/test-wallet/server';
+import { registerInitialLocalNetworkAccountsInWallet } from '@aztec/wallets/testing';
 
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
 import { getSponsoredFPCAddress, registerSponsoredFPC } from '../fixtures/utils.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
+import { proveInteraction } from '../test-wallet/utils.js';
 
 export interface TestAccounts {
   aztecNode: AztecNode;

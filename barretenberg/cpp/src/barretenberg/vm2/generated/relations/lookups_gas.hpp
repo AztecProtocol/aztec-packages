@@ -25,7 +25,7 @@ struct lookup_gas_addressing_gas_read_settings_ {
         ColumnAndShifts::execution_addressing_mode, ColumnAndShifts::execution_addressing_gas
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_addressing_gas
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::precomputed_addressing_gas
     };
 };
 

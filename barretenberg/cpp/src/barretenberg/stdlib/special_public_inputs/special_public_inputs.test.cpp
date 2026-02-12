@@ -74,8 +74,8 @@ TEST_F(SpecialPublicInputsTests, Basic)
         kernel_input.reconstruct_from_public(stdlib_public_inputs);
 
         // Ensure the reconstructed data matches the original values
-        EXPECT_EQ(kernel_input.pairing_inputs.P0.get_value(), P0_val);
-        EXPECT_EQ(kernel_input.pairing_inputs.P1.get_value(), P1_val);
+        EXPECT_EQ(kernel_input.pairing_inputs.P0().get_value(), P0_val);
+        EXPECT_EQ(kernel_input.pairing_inputs.P1().get_value(), P1_val);
         EXPECT_EQ(kernel_input.kernel_return_data.get_value(), kernel_return_data_val);
         EXPECT_EQ(kernel_input.app_return_data.get_value(), app_return_data_val);
         for (auto [reconstructed_commitment, commitment] : zip_view(kernel_input.ecc_op_tables, ecc_op_tables_val)) {
@@ -139,8 +139,8 @@ TEST_F(SpecialPublicInputsTests, Default)
         io_input.reconstruct_from_public(stdlib_public_inputs);
 
         // Ensure the reconstructed data matches the original values
-        EXPECT_EQ(io_input.pairing_inputs.P0.get_value(), P0_val);
-        EXPECT_EQ(io_input.pairing_inputs.P1.get_value(), P1_val);
+        EXPECT_EQ(io_input.pairing_inputs.P0().get_value(), P0_val);
+        EXPECT_EQ(io_input.pairing_inputs.P1().get_value(), P1_val);
     }
 
     {
@@ -149,8 +149,8 @@ TEST_F(SpecialPublicInputsTests, Default)
         io_input_native.reconstruct_from_public(public_inputs);
 
         // Ensure the reconstructed data matches the original values
-        EXPECT_EQ(io_input_native.pairing_inputs.P0, P0_val);
-        EXPECT_EQ(io_input_native.pairing_inputs.P1, P1_val);
+        EXPECT_EQ(io_input_native.pairing_inputs.P0(), P0_val);
+        EXPECT_EQ(io_input_native.pairing_inputs.P1(), P1_val);
     }
 }
 
@@ -220,8 +220,8 @@ TEST_F(SpecialPublicInputsTests, RollUpIO)
         rollup_io_input.reconstruct_from_public(stdlib_public_inputs);
 
         // Ensure the reconstructed data matches the original values
-        EXPECT_EQ(rollup_io_input.pairing_inputs.P0.get_value(), P0_val);
-        EXPECT_EQ(rollup_io_input.pairing_inputs.P1.get_value(), P1_val);
+        EXPECT_EQ(rollup_io_input.pairing_inputs.P0().get_value(), P0_val);
+        EXPECT_EQ(rollup_io_input.pairing_inputs.P1().get_value(), P1_val);
         EXPECT_EQ(rollup_io_input.ipa_claim.opening_pair.challenge.get_value(), static_cast<uint512_t>(challenge_val));
         EXPECT_EQ(rollup_io_input.ipa_claim.opening_pair.evaluation.get_value(),
                   static_cast<uint512_t>(evaluation_val));
@@ -234,8 +234,8 @@ TEST_F(SpecialPublicInputsTests, RollUpIO)
         rollup_io_input_native.reconstruct_from_public(public_inputs);
 
         // Ensure the reconstructed data matches the original values
-        EXPECT_EQ(rollup_io_input_native.pairing_inputs.P0, P0_val);
-        EXPECT_EQ(rollup_io_input_native.pairing_inputs.P1, P1_val);
+        EXPECT_EQ(rollup_io_input_native.pairing_inputs.P0(), P0_val);
+        EXPECT_EQ(rollup_io_input_native.pairing_inputs.P1(), P1_val);
         EXPECT_EQ(rollup_io_input_native.ipa_claim.opening_pair.challenge, challenge_val);
         EXPECT_EQ(rollup_io_input_native.ipa_claim.opening_pair.evaluation, evaluation_val);
         EXPECT_EQ(rollup_io_input_native.ipa_claim.commitment, commitment_val);
@@ -313,8 +313,8 @@ TEST_F(SpecialPublicInputsTests, HidingKernel)
         hiding_input.reconstruct_from_public(stdlib_public_inputs);
 
         // Ensure the reconstructed data matches the original values
-        EXPECT_EQ(hiding_input.pairing_inputs.P0.get_value(), P0_val);
-        EXPECT_EQ(hiding_input.pairing_inputs.P1.get_value(), P1_val);
+        EXPECT_EQ(hiding_input.pairing_inputs.P0().get_value(), P0_val);
+        EXPECT_EQ(hiding_input.pairing_inputs.P1().get_value(), P1_val);
         EXPECT_EQ(hiding_input.kernel_return_data.get_value(), return_data_val);
         for (auto [reconstructed_commitment, commitment] : zip_view(hiding_input.ecc_op_tables, ecc_op_tables_val)) {
             EXPECT_EQ(reconstructed_commitment.get_value(), commitment);
@@ -327,8 +327,8 @@ TEST_F(SpecialPublicInputsTests, HidingKernel)
         hiding_input_native.reconstruct_from_public(public_inputs);
 
         // Ensure the reconstructed data matches the original values
-        EXPECT_EQ(hiding_input_native.pairing_inputs.P0, P0_val);
-        EXPECT_EQ(hiding_input_native.pairing_inputs.P1, P1_val);
+        EXPECT_EQ(hiding_input_native.pairing_inputs.P0(), P0_val);
+        EXPECT_EQ(hiding_input_native.pairing_inputs.P1(), P1_val);
         EXPECT_EQ(hiding_input_native.kernel_return_data, return_data_val);
         for (auto [reconstructed_commitment, commitment] :
              zip_view(hiding_input_native.ecc_op_tables, ecc_op_tables_val)) {

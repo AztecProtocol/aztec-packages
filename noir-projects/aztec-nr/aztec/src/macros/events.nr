@@ -1,11 +1,12 @@
-use crate::macros::utils::{compute_struct_selector, derive_serialize_if_not_implemented, get_trait_impl_method};
-use poseidon::poseidon2::Poseidon2Hasher;
-use std::{collections::umap::UHashMap, hash::BuildHasherDefault, panic};
+use crate::{
+    macros::utils::{compute_struct_selector, derive_serialize_if_not_implemented, get_trait_impl_method},
+    utils::cmap::CHashMap,
+};
+use std::panic;
 
 /// A map from event selector to event name indicating whether the event selector has already been seen during the
 /// contract compilation - prevents event selector collisions.
-pub comptime mut global EVENT_SELECTORS: UHashMap<Field, Quoted, BuildHasherDefault<Poseidon2Hasher>> =
-    UHashMap::default();
+pub comptime mut global EVENT_SELECTORS: CHashMap<Field, Quoted> = CHashMap::new();
 
 comptime fn generate_event_interface_and_get_selector(s: TypeDefinition) -> (Quoted, Field) {
     let name = s.name();
@@ -31,8 +32,9 @@ comptime fn generate_event_interface_and_get_selector(s: TypeDefinition) -> (Quo
 }
 
 comptime fn register_event_selector(event_selector: Field, event_name: Quoted) {
-    if EVENT_SELECTORS.contains_key(event_selector) {
-        let existing_event = EVENT_SELECTORS.get(event_selector).unwrap();
+    let existing_event = EVENT_SELECTORS.get(event_selector);
+    if existing_event.is_some() {
+        let existing_event = existing_event.unwrap();
         panic(
             f"Event selector collision detected between events '{event_name}' and '{existing_event}'",
         );

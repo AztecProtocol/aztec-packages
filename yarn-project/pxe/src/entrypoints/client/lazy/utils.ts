@@ -8,6 +8,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import type { PXEConfig } from '../../../config/index.js';
 import { PXE } from '../../../pxe.js';
+import { PXE_DATA_SCHEMA_VERSION } from '../../../storage/metadata.js';
 import type { PXECreationOptions } from '../../pxe_creation_options.js';
 
 /**
@@ -36,7 +37,8 @@ export async function createPXE(
 
   const storeLogger = loggers.store ?? createLogger('pxe:data:idb', { actor });
 
-  const store = options.store ?? (await createStore('pxe_data', configWithContracts, storeLogger));
+  const store =
+    options.store ?? (await createStore('pxe_data', configWithContracts, PXE_DATA_SCHEMA_VERSION, storeLogger));
 
   const simulator = options.simulator ?? new WASMSimulator();
   const proverLogger = loggers.prover ?? createLogger('pxe:bb:wasm:bundle', { actor });
@@ -50,6 +52,14 @@ export async function createPXE(
   const protocolContractsProvider = new LazyProtocolContractsProvider();
 
   const pxeLogger = loggers.pxe ?? createLogger('pxe:service', { actor });
-  const pxe = await PXE.create(aztecNode, store, prover, simulator, protocolContractsProvider, config, pxeLogger);
+  const pxe = await PXE.create({
+    node: aztecNode,
+    store,
+    proofCreator: prover,
+    simulator,
+    protocolContractsProvider,
+    config,
+    loggerOrSuffix: pxeLogger,
+  });
   return pxe;
 }

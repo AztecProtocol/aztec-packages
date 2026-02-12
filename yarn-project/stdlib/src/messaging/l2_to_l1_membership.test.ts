@@ -1,4 +1,4 @@
-import { MAX_L2_TO_L1_MSGS_PER_TX, OUT_HASH_TREE_HEIGHT } from '@aztec/constants';
+import { MAX_CHECKPOINTS_PER_EPOCH, MAX_L2_TO_L1_MSGS_PER_TX, OUT_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { sha256Trunc } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -525,17 +525,17 @@ describe('L2 to L1 membership', () => {
     it('full checkpoints in the epoch, with 3 checkpoints in the left epoch top tree and 4 checkpoints in the right epoch top tree that have messages', () => {
       //   left epoch top tree      right epoch top tree
       //    /     /      /           \     \     \     \
-      //   c7    c19    c31          c32   c33  c41   c47
+      //   c7    c11    c15          c16   c17  c29   c31
 
-      const messagesInEpoch: Fr[][][][] = Array.from({ length: 48 }, () => [[[]]]);
+      const messagesInEpoch: Fr[][][][] = Array.from({ length: MAX_CHECKPOINTS_PER_EPOCH }, () => [[[]]]);
       // Add one message to each of the target checkpoints.
       messagesInEpoch[7] = [[msgHashes(1)]]; // m0
       messagesInEpoch[11] = [[msgHashes(2)]]; // m1, m2
-      messagesInEpoch[31] = [[msgHashes(3)]]; // m3, m4, m5
-      messagesInEpoch[32] = [[msgHashes(2)]]; // m6, m7
-      messagesInEpoch[33] = [[msgHashes(1)]]; // m8
-      messagesInEpoch[43] = [[msgHashes(2)]]; // m9, m10
-      messagesInEpoch[47] = [[msgHashes(3)]]; // m11, m12, m13
+      messagesInEpoch[15] = [[msgHashes(3)]]; // m3, m4, m5
+      messagesInEpoch[16] = [[msgHashes(2)]]; // m6, m7
+      messagesInEpoch[17] = [[msgHashes(1)]]; // m8
+      messagesInEpoch[29] = [[msgHashes(2)]]; // m9, m10
+      messagesInEpoch[31] = [[msgHashes(3)]]; // m11, m12, m13
 
       const witnesses = verifyMembershipForMessagesInEpoch(messagesInEpoch);
       {
@@ -555,47 +555,47 @@ describe('L2 to L1 membership', () => {
         expect(m1.siblingPath.pathSize).toBe(1 + epochTopTreeDepth);
       }
       {
-        //      c31
+        //      c15
         //     /  \
         //    .   m5
         //  /  \
         // m3  m4
         const m4 = witnesses[4];
-        expect(m4.leafIndex).toBe(31n * 4n + 1n); // 31 checkpoints before it, each has 4 (ghost) leaves.
+        expect(m4.leafIndex).toBe(15n * 4n + 1n); // 15 checkpoints before it, each has 4 (ghost) leaves.
         expect(m4.siblingPath.pathSize).toBe(2 + epochTopTreeDepth);
       }
       {
-        //   c32
+        //   c16
         //  /  \
         // m6  m7
         const m6 = witnesses[6];
-        expect(m6.leafIndex).toBe(32n * 2n); // 32 checkpoints before it, each has 2 (ghost) leaves.
+        expect(m6.leafIndex).toBe(16n * 2n); // 16 checkpoints before it, each has 2 (ghost) leaves.
         expect(m6.siblingPath.pathSize).toBe(1 + epochTopTreeDepth);
       }
       {
-        // c33
+        // c17
         //  |
         // m8
         const m8 = witnesses[8];
-        expect(m8.leafIndex).toBe(32n + 1n);
+        expect(m8.leafIndex).toBe(17n);
         expect(m8.siblingPath.pathSize).toBe(epochTopTreeDepth);
       }
       {
-        //   c43
+        //   c29
         //  /  \
         // m9  m10
         const m10 = witnesses[10];
-        expect(m10.leafIndex).toBe(43n * 2n + 1n); // (32 + 11) checkpoints before it, each has 2 (ghost) leaves.
+        expect(m10.leafIndex).toBe(29n * 2n + 1n); // 29 checkpoints before it, each has 2 (ghost) leaves.
         expect(m10.siblingPath.pathSize).toBe(1 + epochTopTreeDepth);
       }
       {
-        //      c47
+        //      c31
         //     /  \
         //    .   m13
         //  /  \
         // m11 m12
         const m11 = witnesses[11];
-        expect(m11.leafIndex).toBe(47n * 4n); // (32 + 15) checkpoints before it, each has 4 (ghost) leaves.
+        expect(m11.leafIndex).toBe(31n * 4n); // 31 checkpoints before it, each has 4 (ghost) leaves.
         expect(m11.siblingPath.pathSize).toBe(2 + epochTopTreeDepth);
       }
     });
@@ -840,9 +840,9 @@ describe('L2 to L1 membership', () => {
     });
 
     it('a complex full epoch, with multiple checkpoints, blocks, txs, and messages', () => {
-      const messagesInEpoch: Fr[][][][] = Array.from({ length: 48 }, () => [[[]]]);
+      const messagesInEpoch: Fr[][][][] = Array.from({ length: MAX_CHECKPOINTS_PER_EPOCH }, () => [[[]]]);
       let totalNumMessages = 0;
-      for (let checkpointIndex = 0; checkpointIndex < 48; checkpointIndex++) {
+      for (let checkpointIndex = 0; checkpointIndex < MAX_CHECKPOINTS_PER_EPOCH; checkpointIndex++) {
         const numBlocks = randomInt(72); // Assumes at most 72 blocks per checkpoint.
         for (let blockIndex = 0; blockIndex < numBlocks; blockIndex++) {
           const blockMessages = [];

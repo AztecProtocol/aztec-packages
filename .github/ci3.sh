@@ -56,7 +56,7 @@ function check_cache {
     "ci-release-pr"
   )
   # Check if CI_MODE is in cached_ci_modes
-  if [[ " ${cached_ci_modes[@]} " =~ " ${CI_MODE} " ]]; then
+  if [[ " ${cached_ci_modes[@]} " =~ " ${CI_MODE} " && "$GITHUB_RUN_ATTEMPT" -eq 1 ]]; then
     if cache_download "$cache_name" . 2>/dev/null && [ -f ".ci-success.txt" ]; then
       echo "Cache hit in .github/ci3.sh! Previous run: $(cat ".ci-success.txt")"
       exit 0
@@ -87,7 +87,7 @@ function main {
   # Handle release-pr mode separately (creates tag instead of running CI)
 
   if [ "${CI_MODE}" == "skip" ]; then
-    echo_stderr "WARNING: CI is being skipped in this PR."
+    echo "WARNING: CI is being skipped in this PR." >&2
     exit 0
   fi
   if [ "${CI_MODE}" == "release-pr" ]; then

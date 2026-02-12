@@ -209,6 +209,6 @@ options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
 
 ## Next steps
 
-- Learn about [custom note implementations](../how_to_implement_custom_notes.md)
+- Learn about [custom note implementations](../custom_notes.md)
 - Explore [note discovery mechanisms](../../../foundational-topics/advanced/storage/note_discovery.md)
 - Understand [partial notes](./partial_notes.md)

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
+<title>Struct ProofDataForFixedVk documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">ProofDataForFixedVk</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct ProofDataForFixedVk</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.proof">proof</a></li>
+<li><a href="#structfield.public_inputs">public_inputs</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#verify_proof_with_columns">verify_proof_with_columns</a></li>
+</ul>
+<h2>In module proof_data</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.ProofData.html">ProofData</a></div></li>
+<li><a href="struct.ProofDataForFixedVk.html">ProofDataForFixedVk</a></div></li>
+</ul>
+<h3>Type aliases</h3><ul class="item-list">
+<li><a href="type.AvmV2ProofData.html">AvmV2ProofData</a></div></li>
+<li><a href="type.ChonkProofData.html">ChonkProofData</a></div></li>
+<li><a href="type.RollupHonkProofData.html">RollupHonkProofData</a></div></li>
+<li><a href="type.UltraHonkProofData.html">UltraHonkProofData</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">protocol</a>::<a href="../index.html">proof</a>::<a href="index.html">proof_data</a></div>
+<h1>Struct <span id="struct" class="struct">ProofDataForFixedVk</span></h1>
+<pre><code>pub struct ProofDataForFixedVk&lt;T, let ProofLen: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt; {
+    pub public_inputs: T,
+    pub proof: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; ProofLen],
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="structfield.public_inputs" class="struct-field"><code class="code-header">public_inputs: T</code></div>
+<div class="padded-description"></div><div id="structfield.proof" class="struct-field"><code class="code-header">proof: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; ProofLen]</code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;T&gt; <a href="../../../../protocol_types/proof/proof_data/struct.ProofDataForFixedVk.html" class="struct">ProofDataForFixedVk</a>&lt;T, 16200&gt;</code></h3>
+
+<div class="padded-methods"><code id="verify_proof_with_columns" class="code-header">pub fn <a href="#verify_proof_with_columns"><span class="fn">verify_proof_with_columns</span></a>&lt;let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self)
+<div class="where-clause">where
+    T: <a href="../../../../protocol_types/proof/traits/trait.SerializeToColumns.html" class="trait">SerializeToColumns</a>&lt;N&gt;</div></code>
+
+</div></main>
+</span>
+</body>
+</html>

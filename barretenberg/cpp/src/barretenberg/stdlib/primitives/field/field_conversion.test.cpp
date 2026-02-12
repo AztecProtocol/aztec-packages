@@ -48,15 +48,14 @@ template <typename Builder> class stdlib_field_conversion : public ::testing::Te
     }
 
     // Serialize and deserialize
-    template <typename T> void check_conversion(T in, bool valid_circuit = true, bool point_at_infinity = false)
+    template <typename T> void check_conversion(T in, bool valid_circuit = true)
     {
         size_t len = Codec::template calc_num_fields<T>();
         auto frs = Codec::serialize_to_fields(in);
         EXPECT_EQ(len, frs.size());
         auto out = Codec::template deserialize_from_fields<T>(frs);
-        bool expected = std::is_same_v<Builder, UltraCircuitBuilder> ? !point_at_infinity : true;
 
-        EXPECT_EQ(in.get_value() == out.get_value(), expected);
+        EXPECT_EQ(in.get_value(), out.get_value());
 
         auto ctx = in.get_context();
 
@@ -149,15 +148,13 @@ TYPED_TEST(stdlib_field_conversion, FieldConversionBN254AffineElement)
             this->check_conversion(group_element);
         }
     }
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1527): Remove `point_at_infinity` flag when point at
-    // infinity is consistently represented.
     { // Serialize and deserialize the point at infinity
         Builder builder;
 
         bn254_element<Builder> group_element =
             bn254_element<Builder>::from_witness(&builder, curve::BN254::AffineElement::infinity());
-        // The circuit is valid, because the point at infinity is set to `one`.
-        this->check_conversion(group_element, /* valid circuit */ true, /* point at infinity */ true);
+        // Point at infinity is now consistently represented as (0, 0) across all builders
+        this->check_conversion(group_element);
     }
 
     { // Serialize and deserialize "coordinates" that do not correspond to any point on the curve
@@ -214,6 +211,8 @@ TYPED_TEST(stdlib_field_conversion, FieldConversionGrumpkinAffineElement)
     { // Serialize and deserialize the point at infinity
         Builder builder;
 
+        // from_witness handles infinity: coordinates are set to (0,0), and the 2-arg constructor
+        // auto-detects infinity from x^2 + 5*y^2 == 0.
         grumpkin_element<Builder> group_element =
             grumpkin_element<Builder>::from_witness(&builder, curve::Grumpkin::AffineElement::infinity());
         this->check_conversion(group_element);
@@ -233,7 +232,7 @@ TYPED_TEST(stdlib_field_conversion, DeserializePointAtInfinity)
         bn254_element<Builder> point_at_infinity =
             Codec::template deserialize_from_fields<bn254_element<Builder>>(zeros);
 
-        EXPECT_TRUE(point_at_infinity.is_point_at_infinity().get_value());
+        EXPECT_TRUE(point_at_infinity.get_value().is_point_at_infinity());
         EXPECT_TRUE(CircuitChecker::check(builder));
     }
     {
@@ -242,7 +241,7 @@ TYPED_TEST(stdlib_field_conversion, DeserializePointAtInfinity)
         grumpkin_element<Builder> point_at_infinity =
             Codec::template deserialize_from_fields<grumpkin_element<Builder>>(zeros);
 
-        EXPECT_TRUE(point_at_infinity.is_point_at_infinity().get_value());
+        EXPECT_TRUE(point_at_infinity.get_value().is_point_at_infinity());
         EXPECT_TRUE(CircuitChecker::check(builder));
     }
 }
@@ -378,8 +377,8 @@ TYPED_TEST(stdlib_field_conversion, GateCountBN254PointDeserialization)
 {
     using Builder = TypeParam;
     // Ultra: full bigfield construction + on-curve validation + assert_is_in_field for x and y
-    // Mega: only is_infinity check, range constraint and on_curve validation deferred to ECCVM and Translator
-    constexpr uint32_t expected = std::is_same_v<Builder, bb::UltraCircuitBuilder> ? 3850 : 5;
+    // Mega: no in-circuit checks; range constraint and on_curve validation deferred to ECCVM and Translator
+    constexpr uint32_t expected = std::is_same_v<Builder, bb::UltraCircuitBuilder> ? 3865 : 0;
     this->template check_deserialization_gate_count<bn254_element<Builder>>(
         [] { return curve::BN254::AffineElement::random_element(); }, expected);
 }
@@ -391,7 +390,7 @@ TYPED_TEST(stdlib_field_conversion, GateCountMultipleBN254PointDeserialization)
 {
     using Builder = TypeParam;
 
-    constexpr uint32_t expected = std::is_same_v<Builder, bb::UltraCircuitBuilder> ? 5601 : 50;
+    constexpr uint32_t expected = std::is_same_v<Builder, bb::UltraCircuitBuilder> ? 5751 : 0;
     this->template check_deserialization_gate_count<bn254_element<Builder>>(
         [] { return curve::BN254::AffineElement::random_element(); }, expected, 10);
 }

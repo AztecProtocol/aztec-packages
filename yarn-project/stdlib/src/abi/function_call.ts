@@ -1,8 +1,11 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { FieldsOf } from '@aztec/foundation/types';
 
+import { z } from 'zod';
+
 import { AztecAddress } from '../aztec-address/index.js';
-import { type AbiType, FunctionType } from './abi.js';
+import { schemas } from '../schemas/index.js';
+import { type AbiType, AbiTypeSchema, FunctionType } from './abi.js';
 import { FunctionSelector } from './function_selector.js';
 
 /** A request to call a function on a contract. */
@@ -43,12 +46,31 @@ export class FunctionCall {
     return new FunctionCall(...FunctionCall.getFields(fields));
   }
 
+  static get schema() {
+    return z
+      .object({
+        name: z.string(),
+        to: schemas.AztecAddress,
+        selector: schemas.FunctionSelector,
+        type: z.nativeEnum(FunctionType),
+        isStatic: z.boolean(),
+        hideMsgSender: z.boolean(),
+        args: z.array(schemas.Fr),
+        returnTypes: z.array(AbiTypeSchema),
+      })
+      .transform(FunctionCall.from);
+  }
+
+  public isPublicStatic(): boolean {
+    return this.type === FunctionType.PUBLIC && this.isStatic;
+  }
+
   /**
    * Creates an empty function call.
    * @returns an empty function call.
    */
   public static empty() {
-    return {
+    return FunctionCall.from({
       name: '',
       to: AztecAddress.ZERO,
       selector: FunctionSelector.empty(),
@@ -57,6 +79,6 @@ export class FunctionCall {
       isStatic: false,
       args: [],
       returnTypes: [],
-    };
+    });
   }
 }

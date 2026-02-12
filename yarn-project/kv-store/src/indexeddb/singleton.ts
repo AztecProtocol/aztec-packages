@@ -37,7 +37,7 @@ export class IndexedDBAztecSingleton<T extends Value> implements AztecAsyncSingl
     const result = await this.db.put({
       container: this.#container,
       slot: this.#slot,
-      key: this.#slot,
+      key: [this.#slot],
       keyCount: 1,
       value: val,
       hash: hash(val),

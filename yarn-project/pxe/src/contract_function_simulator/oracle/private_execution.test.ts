@@ -27,6 +27,7 @@ import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { WASMSimulator } from '@aztec/simulator/client';
 import {
   type ContractArtifact,
+  FunctionCall,
   FunctionSelector,
   encodeArguments,
   getFunctionArtifact,
@@ -44,7 +45,7 @@ import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { computeNoteHashNonce, computeSecretHash, computeUniqueNoteHash, siloNoteHash } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/stdlib/keys';
+import { computeAppNullifierHidingKey, deriveKeys } from '@aztec/stdlib/keys';
 import type { SiloedTag } from '@aztec/stdlib/logs';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { Note, NoteDao } from '@aztec/stdlib/note';
@@ -64,6 +65,8 @@ import { jest } from '@jest/globals';
 import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
+import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
+import { syncState } from '../../contract_sync/helpers.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
@@ -120,6 +123,7 @@ describe('Private Execution test suite', () => {
   let aztecNode: MockProxy<AztecNode>;
   let capsuleStore: MockProxy<CapsuleStore>;
   let privateEventStore: MockProxy<PrivateEventStore>;
+  let contractSyncService: MockProxy<ContractSyncService>;
   let acirSimulator: ContractFunctionSimulator;
   let anchorBlockHeader = BlockHeader.empty();
   let logger: Logger;
@@ -135,9 +139,9 @@ describe('Private Execution test suite', () => {
   let recipientCompleteAddress: CompleteAddress;
   let senderForTagsCompleteAddress: CompleteAddress;
 
-  let ownerNskM: GrumpkinScalar;
-  let recipientNskM: GrumpkinScalar;
-  let senderForTagsNskM: GrumpkinScalar;
+  let ownerNhkM: GrumpkinScalar;
+  let recipientNhkM: GrumpkinScalar;
+  let senderForTagsNhkM: GrumpkinScalar;
   let ownerIvskM: GrumpkinScalar;
   let recipientIvskM: GrumpkinScalar;
   let senderForTagsIvskM: GrumpkinScalar;
@@ -211,16 +215,14 @@ describe('Private Execution test suite', () => {
       salt: Fr.random(),
     });
 
-    return acirSimulator.run(
-      txRequest,
+    return acirSimulator.run(txRequest, {
       contractAddress,
       selector,
       msgSender,
       anchorBlockHeader,
       senderForTags,
-      undefined,
-      TEST_JOB_ID,
-    );
+      jobId: TEST_JOB_ID,
+    });
   };
 
   const insertLeaves = async (leaves: Fr[], name = 'noteHash') => {
@@ -282,14 +284,14 @@ describe('Private Execution test suite', () => {
 
     const ownerPartialAddress = Fr.random();
     ownerCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, ownerPartialAddress);
-    ({ masterNullifierSecretKey: ownerNskM, masterIncomingViewingSecretKey: ownerIvskM } = await deriveKeys(ownerSk));
+    ({ masterNullifierHidingKey: ownerNhkM, masterIncomingViewingSecretKey: ownerIvskM } = await deriveKeys(ownerSk));
 
     const recipientPartialAddress = Fr.random();
     recipientCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(
       recipientSk,
       recipientPartialAddress,
     );
-    ({ masterNullifierSecretKey: recipientNskM, masterIncomingViewingSecretKey: recipientIvskM } =
+    ({ masterNullifierHidingKey: recipientNhkM, masterIncomingViewingSecretKey: recipientIvskM } =
       await deriveKeys(recipientSk));
 
     const senderForTagsPartialAddress = Fr.random();
@@ -297,7 +299,7 @@ describe('Private Execution test suite', () => {
       senderForTagsSk,
       senderForTagsPartialAddress,
     );
-    ({ masterNullifierSecretKey: senderForTagsNskM, masterIncomingViewingSecretKey: senderForTagsIvskM } =
+    ({ masterNullifierHidingKey: senderForTagsNhkM, masterIncomingViewingSecretKey: senderForTagsIvskM } =
       await deriveKeys(senderForTagsSk));
 
     owner = ownerCompleteAddress.address;
@@ -320,6 +322,22 @@ describe('Private Execution test suite', () => {
     capsuleStore = mock<CapsuleStore>();
     privateEventStore = mock<PrivateEventStore>();
     senderAddressBookStore = mock<SenderAddressBookStore>();
+    contractSyncService = mock<ContractSyncService>();
+    // Configure mock to actually perform sync_state calls (needed for nested call tests)
+    contractSyncService.ensureContractSynced.mockImplementation(
+      async (contractAddress, functionToInvokeAfterSync, utilityExecutor, anchorBlockHeader, jobId) => {
+        await syncState(
+          contractAddress,
+          contractStore,
+          functionToInvokeAfterSync,
+          call => utilityExecutor(call, undefined),
+          noteStore,
+          aztecNode,
+          anchorBlockHeader,
+          jobId,
+        );
+      },
+    );
     contracts = {};
     anchorBlockHeader = makeBlockHeader();
     capsuleStore.readCapsuleArray.mockResolvedValue([]);
@@ -369,7 +387,7 @@ describe('Private Execution test suite', () => {
         return Promise.resolve(
           new KeyValidationRequest(
             ownerCompleteAddress.publicKeys.masterNullifierPublicKey,
-            await computeAppNullifierSecretKey(ownerNskM, contractAddress),
+            await computeAppNullifierHidingKey(ownerNhkM, contractAddress),
           ),
         );
       }
@@ -377,7 +395,7 @@ describe('Private Execution test suite', () => {
         return Promise.resolve(
           new KeyValidationRequest(
             recipientCompleteAddress.publicKeys.masterNullifierPublicKey,
-            await computeAppNullifierSecretKey(recipientNskM, contractAddress),
+            await computeAppNullifierHidingKey(recipientNhkM, contractAddress),
           ),
         );
       }
@@ -385,7 +403,7 @@ describe('Private Execution test suite', () => {
         return Promise.resolve(
           new KeyValidationRequest(
             senderForTagsCompleteAddress.publicKeys.masterNullifierPublicKey,
-            await computeAppNullifierSecretKey(senderForTagsNskM, contractAddress),
+            await computeAppNullifierHidingKey(senderForTagsNhkM, contractAddress),
           ),
         );
       }
@@ -438,16 +456,16 @@ describe('Private Execution test suite', () => {
         throw new Error(`Contract not found: ${to}`);
       }
       const functionArtifact = getFunctionArtifactByName(contract, functionName);
-      return {
+      return FunctionCall.from({
         name: functionArtifact.name,
-        args: encodeArguments(functionArtifact, args),
+        to,
         selector: await FunctionSelector.fromNameAndParameters(functionArtifact.name, functionArtifact.parameters),
         type: functionArtifact.functionType,
-        to,
         hideMsgSender: false,
         isStatic: functionArtifact.isStatic,
+        args: encodeArguments(functionArtifact, args),
         returnTypes: functionArtifact.returnTypes,
-      };
+      });
     });
 
     capsuleStore.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
@@ -458,7 +476,7 @@ describe('Private Execution test suite', () => {
       },
     );
 
-    acirSimulator = new ContractFunctionSimulator(
+    acirSimulator = new ContractFunctionSimulator({
       contractStore,
       noteStore,
       keyStore,
@@ -470,7 +488,8 @@ describe('Private Execution test suite', () => {
       capsuleStore,
       privateEventStore,
       simulator,
-    );
+      contractSyncService,
+    });
   });
 
   describe('no constructor', () => {
@@ -1140,7 +1159,7 @@ describe('Private Execution test suite', () => {
 
       const nullifier = result.publicInputs.nullifiers.array[0];
       const expectedNullifier = await poseidon2HashWithSeparator(
-        [derivedNoteHash, await computeAppNullifierSecretKey(ownerNskM, contractAddress)],
+        [derivedNoteHash, await computeAppNullifierHidingKey(ownerNhkM, contractAddress)],
         GeneratorIndex.NOTE_NULLIFIER,
       );
       expect(nullifier.value).toEqual(expectedNullifier);
@@ -1207,7 +1226,7 @@ describe('Private Execution test suite', () => {
 
       const nullifier = execGetThenNullify.publicInputs.nullifiers.array[0];
       const expectedNullifier = await poseidon2HashWithSeparator(
-        [derivedNoteHash, await computeAppNullifierSecretKey(ownerNskM, contractAddress)],
+        [derivedNoteHash, await computeAppNullifierHidingKey(ownerNhkM, contractAddress)],
         GeneratorIndex.NOTE_NULLIFIER,
       );
       expect(nullifier.value).toEqual(expectedNullifier);

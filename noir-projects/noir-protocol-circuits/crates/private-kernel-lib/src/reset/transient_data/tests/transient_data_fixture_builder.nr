@@ -3,7 +3,7 @@ use crate::reset::transient_data::{
     transient_data_squashing_hint::TransientDataSquashingHint,
     transient_data_validator::TransientDataValidator,
 };
-use dep::types::{
+use types::{
     abis::{note_hash::NoteHash, nullifier::Nullifier, private_log::{PrivateLog, PrivateLogData}},
     address::AztecAddress,
     constants::PRIVATE_LOG_SIZE_IN_FIELDS,

@@ -134,6 +134,16 @@ sel_first_row_in_context' = sel_enter_call + enqueued_call_start';
 #[TRACE_CONTINUITY]
 (1 - sel) * (1 - precomputed.first_row) * sel' = 0;
 
+pol commit clk;
+
+// Initialize clk to 0 on the first row and at the same time enforces that clk is 0 if sel = 0.
+#[EXEC_CLK_INIT]
+(1 - sel) * clk = 0;
+
+#[EXEC_CLK_CONTINUITY]
+sel' * (clk + 1 - clk') = 0;
+
+
 /**************************************************************************************************
  *  Temporality group 1: Bytecode retrieval (unconditional)
  **************************************************************************************************/
@@ -306,7 +316,7 @@ sel_instruction_fetching_success {
 } in
 precomputed.sel_exec_spec {
     // execution opcode
-    precomputed.clk,
+    precomputed.idx,
     // gas
     precomputed.exec_opcode_opcode_gas,
     precomputed.exec_opcode_base_da_gas,
@@ -449,7 +459,7 @@ sel_gas_sstore * constants.AVM_DYN_GAS_ID_SSTORE
 #[DYN_L2_FACTOR_BITWISE]
 sel_gas_bitwise { mem_tag_reg[0], dynamic_l2_gas_factor }
 in
-precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_byte_length };
+precomputed.sel_tag_parameters { precomputed.idx, precomputed.tag_byte_length };
 
 //////////////////////////////////////////
 // ToRadixBE, Dynamic L2 Gas Calculation
@@ -489,7 +499,7 @@ sel_gas_to_radix * sel_radix_gt_256 * (num_p_limbs - 32) = 0;
 sel_lookup_num_p_limbs { /*radix=*/register[1], num_p_limbs }
 in
 precomputed.sel_to_radix_p_limb_counts
-    { precomputed.clk, precomputed.to_radix_num_limbs_for_p };
+    { precomputed.idx, precomputed.to_radix_num_limbs_for_p };
 
 // We now compute the dynamic l2 gas factor as max(num_limbs, num_p_limbs)
 // The easiest way to do this is to check if `num_limbs > num_p_limbs`.
@@ -909,7 +919,7 @@ sel_exec_dispatch_cast {
 
 #[DISPATCH_TO_CD_COPY]
 sel_exec_dispatch_calldata_copy {
-        precomputed.clk,
+        clk,
         parent_id, context_id,
         register[0], register[1], rop[2],
         parent_calldata_addr, parent_calldata_size,
@@ -924,7 +934,7 @@ sel_exec_dispatch_calldata_copy {
 
 #[DISPATCH_TO_RD_COPY]
 sel_exec_dispatch_returndata_copy {
-        precomputed.clk,
+        clk,
         last_child_id, context_id,
         register[0], register[1], rop[2],
         last_child_returndata_addr, last_child_returndata_size,
@@ -964,7 +974,7 @@ sel_exec_dispatch_set {
 #[DISPATCH_TO_GET_CONTRACT_INSTANCE]
 sel_exec_dispatch_get_contract_instance {
     // inputs
-    precomputed.clk,
+    clk,
     /*contract_address=*/ register[0],
     /*dst_offset=*/ rop[1],
     /*member_enum=*/ rop[2],
@@ -988,7 +998,7 @@ sel_exec_dispatch_get_contract_instance {
 
 #[DISPATCH_TO_EMIT_UNENCRYPTED_LOG]
 sel_exec_dispatch_emit_unencrypted_log {
-        precomputed.clk,
+        clk,
         context_id,
         // Message offset
         rop[1],
@@ -1017,7 +1027,7 @@ sel_exec_dispatch_emit_unencrypted_log {
 
 #[DISPATCH_TO_POSEIDON2_PERM]
 sel_exec_dispatch_poseidon2_perm {
-        precomputed.clk,
+        clk,
         context_id,
         rop[0],
         rop[1],
@@ -1032,14 +1042,14 @@ sel_exec_dispatch_poseidon2_perm {
 
 #[DISPATCH_TO_SHA256_COMPRESSION]
 sel_exec_dispatch_sha256_compression {
-    precomputed.clk, context_id, rop[0], rop[1], rop[2], sel_opcode_error
+    clk, context_id, rop[0], rop[1], rop[2], sel_opcode_error
 } is sha256.start {
     sha256.execution_clk, sha256.space_id, sha256.output_addr, sha256.state_addr, sha256.input_addr, sha256.err
 };
 
 #[DISPATCH_TO_KECCAKF1600]
 sel_exec_dispatch_keccakf1600 {
-     precomputed.clk, rop[0], rop[1], context_id, sel_opcode_error
+     clk, rop[0], rop[1], context_id, sel_opcode_error
 } is keccakf1600.start {
      keccakf1600.clk, keccakf1600.dst_addr, keccakf1600.src_addr, keccakf1600.space_id, keccakf1600.error
 };
@@ -1053,7 +1063,7 @@ sel_exec_dispatch_keccakf1600 {
 
 #[DISPATCH_TO_ECC_ADD]
 sel_exec_dispatch_ecc_add {
-        precomputed.clk,
+        clk,
         context_id,
         // Point P
         register[0],
@@ -1086,7 +1096,7 @@ sel_exec_dispatch_ecc_add {
 
 #[DISPATCH_TO_TO_RADIX]
 sel_exec_dispatch_to_radix {
-        precomputed.clk,
+        clk,
         context_id,
         register[0],
         register[1],

@@ -196,6 +196,7 @@ describe('L1Publisher integration', () => {
           slicedBlocks.map(
             async block =>
               new CheckpointedL2Block(
+                // Test uses 1-block-per-checkpoint, so checkpoint number equals block number
                 CheckpointNumber.fromBlockNumber(block.number),
                 block,
                 new L1PublishedData(BigInt(block.number), BigInt(block.number), (await block.hash()).toString()),
@@ -205,6 +206,7 @@ describe('L1Publisher integration', () => {
         );
       },
       async getCheckpoints(checkpointNumber, _limit) {
+        // Test uses 1-block-per-checkpoint, so we find block by checkpoint number
         const block = blocks.find(b => Number(b.number) === Number(checkpointNumber));
         if (!block) {
           return Promise.resolve([]);
@@ -213,7 +215,7 @@ describe('L1Publisher integration', () => {
           block.archive,
           CheckpointHeader.random({ lastArchiveRoot: block.header.lastArchive.root }),
           [block],
-          CheckpointNumber.fromBlockNumber(block.number),
+          checkpointNumber,
         );
         return [
           new PublishedCheckpoint(
@@ -228,6 +230,7 @@ describe('L1Publisher integration', () => {
         const blockId = latestBlock
           ? { number: latestBlock.number, hash: (await latestBlock.hash()).toString() }
           : { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
+        // Test uses 1-block-per-checkpoint, so checkpoint number equals block number
         const tipId = {
           block: blockId,
           checkpoint: { number: CheckpointNumber.fromBlockNumber(blockId.number), hash: blockId.hash },
@@ -352,6 +355,7 @@ describe('L1Publisher integration', () => {
       gasFees: globalVariables.gasFees,
     };
 
+    // Test uses 1-block-per-checkpoint
     const checkpointNumber = CheckpointNumber.fromBlockNumber(globalVariables.blockNumber);
     const builder = await LightweightCheckpointBuilder.startNewCheckpoint(
       checkpointNumber,
@@ -491,7 +495,7 @@ describe('L1Publisher integration', () => {
         });
         expect(logs).toHaveLength(i + 1);
         expect(logs[i].args.checkpointNumber).toEqual(BigInt(i + 1));
-        const thisCheckpointNumber = CheckpointNumber.fromBlockNumber(block.header.globalVariables.blockNumber);
+        const thisCheckpointNumber = checkpoint.number;
         const prevCheckpointNumber = CheckpointNumber(thisCheckpointNumber - 1);
         const isFirstCheckpointOfEpoch =
           thisCheckpointNumber == CheckpointNumber(1) ||
@@ -895,7 +899,6 @@ describe('L1Publisher integration', () => {
 
     it(`speeds up block proposal if not mined`, async () => {
       const { checkpoint } = await buildSingleCheckpoint();
-      const block = checkpoint.blocks[0];
       await enqueueProposeL2Checkpoint(checkpoint);
       await sendRequests();
 
@@ -925,7 +928,7 @@ describe('L1Publisher integration', () => {
       expect(minedTx).toBeDefined();
       const minedTxReceipt = await l1Client.getTransactionReceipt({ hash: minedTx!.hash });
       expect(minedTxReceipt.status).toEqual('success');
-      expect(await rollup.getCheckpointNumber()).toEqual(CheckpointNumber.fromBlockNumber(block.number));
+      expect(await rollup.getCheckpointNumber()).toEqual(checkpoint.number);
     });
 
     it(`can send two consecutive proposals if the first one times out`, async () => {
@@ -978,8 +981,8 @@ describe('L1Publisher integration', () => {
       expect(sendRequestsResult).not.toBeNull();
       expect(sendRequestsResult!.successfulActions).toEqual(['propose']);
       expect(sendRequestsResult!.failedActions).toEqual([]);
-      expect(await rollup.getCheckpointNumber()).toEqual(CheckpointNumber.fromBlockNumber(block2.number));
-      const rollupBlock = await rollup.getCheckpoint(CheckpointNumber.fromBlockNumber(block2.number));
+      expect(await rollup.getCheckpointNumber()).toEqual(checkpoint2.number);
+      const rollupBlock = await rollup.getCheckpoint(checkpoint2.number);
       expect(rollupBlock.slotNumber).toEqual(block2.slot);
     });
   });

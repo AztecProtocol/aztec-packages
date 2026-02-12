@@ -114,8 +114,8 @@ class ChonkTests : public ::testing::Test {
                 AppIOSerde app_io = AppIOSerde::from_proof(app_entry.proof, num_public_inputs);
 
                 // Double the pairing points (multiply by 2) - creates valid but different points
-                app_io.pairing_inputs.P0 = app_io.pairing_inputs.P0 + app_io.pairing_inputs.P0;
-                app_io.pairing_inputs.P1 = app_io.pairing_inputs.P1 + app_io.pairing_inputs.P1;
+                app_io.pairing_inputs.P0() = app_io.pairing_inputs.P0() + app_io.pairing_inputs.P0();
+                app_io.pairing_inputs.P1() = app_io.pairing_inputs.P1() + app_io.pairing_inputs.P1();
 
                 EXPECT_TRUE(app_io.pairing_inputs.check());
 
@@ -162,8 +162,8 @@ class ChonkTests : public ::testing::Test {
                 case KernelIOField::PAIRING_INPUTS: {
                     // Replace with valid default pairing points (different from actual accumulated values)
                     using namespace bb::stdlib::recursion;
-                    kernel_io.pairing_inputs.P0 = Commitment(DEFAULT_PAIRING_POINTS_P0_X, DEFAULT_PAIRING_POINTS_P0_Y);
-                    kernel_io.pairing_inputs.P1 = Commitment(DEFAULT_PAIRING_POINTS_P1_X, DEFAULT_PAIRING_POINTS_P1_Y);
+                    kernel_io.pairing_inputs.P0() = Commitment(DEFAULT_PAIRING_POINT_P0_X, DEFAULT_PAIRING_POINT_P0_Y);
+                    kernel_io.pairing_inputs.P1() = Commitment(DEFAULT_PAIRING_POINT_P1_X, DEFAULT_PAIRING_POINT_P1_Y);
                     EXPECT_TRUE(kernel_io.pairing_inputs.check());
                     break;
                 }
@@ -240,12 +240,12 @@ class ChonkTests : public ::testing::Test {
         // Verify field propagated correctly from Tail kernel to HidingKernel
         switch (field_to_test) {
         case HidingKernelIOField::PAIRING_INPUTS:
-            EXPECT_EQ(tail_io.pairing_inputs.P0, hiding_io.pairing_inputs.P0)
-                << "P0 mismatch: Tail has " << tail_io.pairing_inputs.P0 << " but HidingKernel has "
-                << hiding_io.pairing_inputs.P0;
-            EXPECT_EQ(tail_io.pairing_inputs.P1, hiding_io.pairing_inputs.P1)
-                << "P1 mismatch: Tail has " << tail_io.pairing_inputs.P1 << " but HidingKernel has "
-                << hiding_io.pairing_inputs.P1;
+            EXPECT_EQ(tail_io.pairing_inputs.P0(), hiding_io.pairing_inputs.P0())
+                << "P0 mismatch: Tail has " << tail_io.pairing_inputs.P0() << " but HidingKernel has "
+                << hiding_io.pairing_inputs.P0();
+            EXPECT_EQ(tail_io.pairing_inputs.P1(), hiding_io.pairing_inputs.P1())
+                << "P1 mismatch: Tail has " << tail_io.pairing_inputs.P1() << " but HidingKernel has "
+                << hiding_io.pairing_inputs.P1();
             break;
         case HidingKernelIOField::KERNEL_RETURN_DATA:
             EXPECT_EQ(tail_io.kernel_return_data, hiding_io.kernel_return_data)

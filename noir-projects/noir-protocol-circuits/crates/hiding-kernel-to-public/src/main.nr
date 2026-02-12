@@ -1,5 +1,5 @@
-use dep::private_kernel_lib::{hiding_kernel_to_public, HidingKernelToPublicPrivateInputs};
-use dep::types::{
+use private_kernel_lib::{hiding_kernel_to_public, HidingKernelToPublicPrivateInputs};
+use types::{
     abis::kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
     constants::MEGA_VK_LENGTH_IN_FIELDS, proof::vk_data::VkData,
 };

@@ -12,6 +12,7 @@ export const Aliases = ['accounts', 'contracts', 'artifacts', 'secrets', 'transa
 export type AliasType = (typeof Aliases)[number];
 
 export class WalletDB {
+  #store!: AztecAsyncKVStore;
   #accounts!: AztecAsyncMap<string, Buffer>;
   #aliases!: AztecAsyncMap<string, Buffer>;
   #bridgedFeeJuice!: AztecAsyncMap<string, Buffer>;
@@ -29,6 +30,7 @@ export class WalletDB {
   }
 
   async init(store: AztecAsyncKVStore) {
+    this.#store = store;
     this.#accounts = store.openMap('accounts');
     this.#aliases = store.openMap('aliases');
     this.#bridgedFeeJuice = store.openMap('bridgedFeeJuice');
@@ -41,14 +43,17 @@ export class WalletDB {
   }
 
   async pushBridgedFeeJuice(recipient: AztecAddress, secret: Fr, amount: bigint, leafIndex: bigint, log: LogFn) {
-    let stackPointer = (await this.#bridgedFeeJuice.getAsync(`${recipient.toString()}:stackPointer`))?.readInt8() || 0;
-    stackPointer++;
-    await this.#bridgedFeeJuice.set(
-      `${recipient.toString()}:${stackPointer}`,
-      Buffer.from(`${amount.toString()}:${secret.toString()}:${leafIndex.toString()}`),
-    );
-    await this.#bridgedFeeJuice.set(`${recipient.toString()}:stackPointer`, Buffer.from([stackPointer]));
-    log(`Pushed ${amount} fee juice for recipient ${recipient.toString()}. Stack pointer ${stackPointer}`);
+    await this.#store.transactionAsync(async () => {
+      let stackPointer =
+        (await this.#bridgedFeeJuice.getAsync(`${recipient.toString()}:stackPointer`))?.readInt8() || 0;
+      stackPointer++;
+      await this.#bridgedFeeJuice.set(
+        `${recipient.toString()}:${stackPointer}`,
+        Buffer.from(`${amount.toString()}:${secret.toString()}:${leafIndex.toString()}`),
+      );
+      await this.#bridgedFeeJuice.set(`${recipient.toString()}:stackPointer`, Buffer.from([stackPointer]));
+      log(`Pushed ${amount} fee juice for recipient ${recipient.toString()}. Stack pointer ${stackPointer}`);
+    });
   }
 
   async popBridgedFeeJuice(recipient: AztecAddress, log: LogFn) {
@@ -76,19 +81,24 @@ export class WalletDB {
     }: { type: AccountType; secretKey: Fr; salt: Fr; alias: string | undefined; publicKey: string | undefined },
     log: LogFn,
   ) {
-    if (alias) {
-      await this.#aliases.set(`accounts:${alias}`, Buffer.from(address.toString()));
-    }
-    await this.#accounts.set(`${address.toString()}:type`, Buffer.from(type));
-    await this.#accounts.set(`${address.toString()}:sk`, secretKey.toBuffer());
-    await this.#accounts.set(`${address.toString()}:salt`, salt.toBuffer());
+    let publicSigningKey: Buffer | undefined;
     if (type === 'ecdsasecp256r1ssh' && publicKey) {
-      const publicSigningKey = extractECDSAPublicKeyFromBase64String(publicKey);
-      await this.storeAccountMetadata(address, 'publicSigningKey', publicSigningKey);
+      publicSigningKey = extractECDSAPublicKeyFromBase64String(publicKey);
     }
-    await this.#aliases.set('accounts:last', Buffer.from(address.toString()));
-    log(`Account stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
 
+    await this.#store.transactionAsync(async () => {
+      if (alias) {
+        await this.#aliases.set(`accounts:${alias}`, Buffer.from(address.toString()));
+      }
+      await this.#accounts.set(`${address.toString()}:type`, Buffer.from(type));
+      await this.#accounts.set(`${address.toString()}:sk`, secretKey.toBuffer());
+      await this.#accounts.set(`${address.toString()}:salt`, salt.toBuffer());
+      if (publicSigningKey) {
+        await this.#accounts.set(`${address.toString()}:publicSigningKey`, publicSigningKey);
+      }
+      await this.#aliases.set('accounts:last', Buffer.from(address.toString()));
+    });
+    log(`Account stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
     await this.refreshAliasCache();
   }
 
@@ -100,35 +110,38 @@ export class WalletDB {
   }
 
   async storeContract(address: AztecAddress, artifactPath: string, log: LogFn, alias?: string) {
-    if (alias) {
-      await this.#aliases.set(`contracts:${alias}`, Buffer.from(address.toString()));
-      await this.#aliases.set(`artifacts:${alias}`, Buffer.from(artifactPath));
-    }
-    await this.#aliases.set(`contracts:last`, Buffer.from(address.toString()));
-    await this.#aliases.set(`artifacts:last`, Buffer.from(artifactPath));
-    await this.#aliases.set(`artifacts:${address.toString()}`, Buffer.from(artifactPath));
+    await this.#store.transactionAsync(async () => {
+      if (alias) {
+        await this.#aliases.set(`contracts:${alias}`, Buffer.from(address.toString()));
+        await this.#aliases.set(`artifacts:${alias}`, Buffer.from(artifactPath));
+      }
+      await this.#aliases.set(`contracts:last`, Buffer.from(address.toString()));
+      await this.#aliases.set(`artifacts:last`, Buffer.from(artifactPath));
+      await this.#aliases.set(`artifacts:${address.toString()}`, Buffer.from(artifactPath));
+    });
     log(`Contract stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
-
     await this.refreshAliasCache();
   }
 
   async storeAuthwitness(authWit: AuthWitness, log: LogFn, alias?: string) {
-    if (alias) {
-      await this.#aliases.set(`authwits:${alias}`, Buffer.from(authWit.toString()));
-    }
-    await this.#aliases.set(`authwits:last`, Buffer.from(authWit.toString()));
+    await this.#store.transactionAsync(async () => {
+      if (alias) {
+        await this.#aliases.set(`authwits:${alias}`, Buffer.from(authWit.toString()));
+      }
+      await this.#aliases.set(`authwits:last`, Buffer.from(authWit.toString()));
+    });
     log(`Authorization witness stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
-
     await this.refreshAliasCache();
   }
 
   async storeTx({ txHash }: { txHash: TxHash }, log: LogFn, alias?: string) {
-    if (alias) {
-      await this.#aliases.set(`transactions:${alias}`, Buffer.from(txHash.toString()));
-    }
-    await this.#aliases.set(`transactions:last`, Buffer.from(txHash.toString()));
+    await this.#store.transactionAsync(async () => {
+      if (alias) {
+        await this.#aliases.set(`transactions:${alias}`, Buffer.from(txHash.toString()));
+      }
+      await this.#aliases.set(`transactions:last`, Buffer.from(txHash.toString()));
+    });
     log(`Transaction hash stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
-
     await this.refreshAliasCache();
   }
 

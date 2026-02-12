@@ -43,6 +43,7 @@ export class FeeAssetHandlerContract {
     }
     return txUtils.sendAndMonitorTransaction({
       to: this.address.toString(),
+      abi: FeeAssetHandlerAbi,
       data: encodeFunctionData({
         abi: FeeAssetHandlerAbi,
         functionName: 'mint',
@@ -54,6 +55,7 @@ export class FeeAssetHandlerContract {
   public setMintAmount(txUtils: L1TxUtils, amount: bigint) {
     return txUtils.sendAndMonitorTransaction({
       to: this.address.toString(),
+      abi: FeeAssetHandlerAbi,
       data: encodeFunctionData({
         abi: FeeAssetHandlerAbi,
         functionName: 'setMintAmount',

@@ -61,10 +61,12 @@ describe('normalizeBlockIndex', () => {
 describe('getBlockIndexFromDutyIdentifier', () => {
   const validatorAddress = EthAddress.random();
   const slot = SlotNumber(100);
+  const rollupAddress = EthAddress.random();
 
   describe('BLOCK_PROPOSAL duties', () => {
     it('should return the blockIndexWithinCheckpoint', () => {
       const duty: BlockProposalDutyIdentifier = {
+        rollupAddress,
         validatorAddress,
         slot,
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
@@ -73,6 +75,7 @@ describe('getBlockIndexFromDutyIdentifier', () => {
       expect(getBlockIndexFromDutyIdentifier(duty)).toBe(0);
 
       const duty2: BlockProposalDutyIdentifier = {
+        rollupAddress,
         validatorAddress,
         slot,
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(5),
@@ -85,6 +88,7 @@ describe('getBlockIndexFromDutyIdentifier', () => {
   describe('non-BLOCK_PROPOSAL duties', () => {
     it('should return -1 for CHECKPOINT_PROPOSAL', () => {
       const duty: OtherDutyIdentifier = {
+        rollupAddress,
         validatorAddress,
         slot,
         dutyType: DutyType.CHECKPOINT_PROPOSAL,
@@ -94,6 +98,7 @@ describe('getBlockIndexFromDutyIdentifier', () => {
 
     it('should return -1 for ATTESTATION', () => {
       const duty: OtherDutyIdentifier = {
+        rollupAddress,
         validatorAddress,
         slot,
         dutyType: DutyType.ATTESTATION,
@@ -103,6 +108,7 @@ describe('getBlockIndexFromDutyIdentifier', () => {
 
     it('should return -1 for ATTESTATIONS_AND_SIGNERS', () => {
       const duty: OtherDutyIdentifier = {
+        rollupAddress,
         validatorAddress,
         slot,
         dutyType: DutyType.ATTESTATIONS_AND_SIGNERS,
@@ -112,6 +118,7 @@ describe('getBlockIndexFromDutyIdentifier', () => {
 
     it('should return -1 for GOVERNANCE_VOTE', () => {
       const duty: OtherDutyIdentifier = {
+        rollupAddress,
         validatorAddress,
         slot,
         dutyType: DutyType.GOVERNANCE_VOTE,
@@ -121,6 +128,7 @@ describe('getBlockIndexFromDutyIdentifier', () => {
 
     it('should return -1 for SLASHING_VOTE', () => {
       const duty: OtherDutyIdentifier = {
+        rollupAddress,
         validatorAddress,
         slot,
         dutyType: DutyType.SLASHING_VOTE,

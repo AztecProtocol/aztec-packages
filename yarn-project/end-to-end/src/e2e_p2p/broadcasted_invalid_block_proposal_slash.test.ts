@@ -118,7 +118,7 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
     };
     const invalidProposerNodes = await createNodes(
       invalidProposerConfig,
-      t.ctx.dateProvider!,
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       1,
       BOOT_NODE_UDP_PORT,
@@ -134,7 +134,7 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
     // Create remaining honest nodes
     const honestNodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider!,
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS - 1,
       BOOT_NODE_UDP_PORT,

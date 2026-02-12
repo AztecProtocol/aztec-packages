@@ -2,7 +2,7 @@ import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { type CheckpointAttestation, PeerErrorSeverity, type ValidationResult } from '@aztec/stdlib/p2p';
 import { Attributes, Metrics, type TelemetryClient, createUpDownCounterWithDefault } from '@aztec/telemetry-client';
 
-import type { AttestationPool } from '../../mem_pools/attestation_pool/attestation_pool.js';
+import type { AttestationPoolApi } from '../../mem_pools/attestation_pool/attestation_pool.js';
 import { CheckpointAttestationValidator } from './attestation_validator.js';
 
 /**
@@ -18,7 +18,7 @@ export class FishermanAttestationValidator extends CheckpointAttestationValidato
 
   constructor(
     epochCache: EpochCacheInterface,
-    private attestationPool: AttestationPool,
+    private attestationPool: AttestationPoolApi,
     telemetryClient: TelemetryClient,
   ) {
     super(epochCache);

@@ -8,3 +8,4 @@ pub mod random;
 mod with_hash;
 pub use with_hash::WithHash;
 pub mod remove_constraints;
+pub(crate) mod cmap;

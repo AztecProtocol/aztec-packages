@@ -2,7 +2,6 @@ import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { TxHash } from '@aztec/aztec.js/tx';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
 import { ENR, type P2PClient, type P2PService, type PeerId } from '@aztec/p2p';
@@ -150,7 +149,7 @@ describe('e2e_p2p_preferred_network', () => {
   });
 
   afterEach(async () => {
-    await t.stopNodes([t.ctx.aztecNodeService!].concat(nodes).concat(validators).concat(preferredNodes));
+    await t.stopNodes([t.ctx.aztecNodeService].concat(nodes).concat(validators).concat(preferredNodes));
     await t.teardown();
     for (let i = 0; i < NUM_NODES + NUM_VALIDATORS + NUM_PREFERRED_NODES; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
@@ -191,7 +190,7 @@ describe('e2e_p2p_preferred_network', () => {
 
     preferredNodes = await createNodes(
       preferredNodeConfig,
-      t.ctx.dateProvider!,
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_PREFERRED_NODES,
       BOOT_NODE_UDP_PORT,
@@ -225,7 +224,7 @@ describe('e2e_p2p_preferred_network', () => {
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       nodeConfig,
-      t.ctx.dateProvider!,
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
@@ -248,7 +247,7 @@ describe('e2e_p2p_preferred_network', () => {
 
     validators = await createNodes(
       validatorConfig,
-      t.ctx.dateProvider!,
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS - 1,
       BOOT_NODE_UDP_PORT,
@@ -272,7 +271,7 @@ describe('e2e_p2p_preferred_network', () => {
 
     const noDiscoveryValidators = await createNodes(
       lastValidatorConfig,
-      t.ctx.dateProvider!,
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       1,
       BOOT_NODE_UDP_PORT,
@@ -283,7 +282,7 @@ describe('e2e_p2p_preferred_network', () => {
       indexOffset,
     );
 
-    const allNodes = [...nodes, ...preferredNodes, ...validators, ...noDiscoveryValidators, t.ctx.aztecNodeService!];
+    const allNodes = [...nodes, ...preferredNodes, ...validators, ...noDiscoveryValidators, t.ctx.aztecNodeService];
     const identifiers = nodes
       .map((_, i) => `Node ${i + 1}`)
       .concat(preferredNodes.map((_, i) => `Preferred Node ${i + 1}`))
@@ -359,7 +358,8 @@ describe('e2e_p2p_preferred_network', () => {
     // Gather signers from attestations downloaded from L1
     const blockNumber = receipts[0].blockNumber!;
     const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
-    const [publishedCheckpoint] = await dataStore.getCheckpoints(CheckpointNumber.fromBlockNumber(blockNumber), 1);
+    const checkpointedBlock = await dataStore.getCheckpointedBlock(blockNumber);
+    const [publishedCheckpoint] = await dataStore.getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
     const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())

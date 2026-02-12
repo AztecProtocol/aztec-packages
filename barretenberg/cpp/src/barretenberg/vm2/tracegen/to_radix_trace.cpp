@@ -26,6 +26,7 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
     for (const auto& event : events) {
         FF value = event.value;
         uint32_t radix = event.radix;
+        BB_ASSERT(radix >= 2 && radix <= 256, "Invalid radix");
         size_t radix_index = static_cast<size_t>(radix);
         uint32_t safe_limbs = static_cast<uint32_t>(p_limbs_per_radix[radix_index].size()) - 1;
 
@@ -247,11 +248,11 @@ void ToRadixTraceBuilder::process_with_memory(
 
 const InteractionDefinition ToRadixTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_to_radix_limb_range_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_to_radix_limb_less_than_radix_range_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_to_radix_fetch_safe_limbs_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_to_radix_limb_range_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_to_radix_limb_less_than_radix_range_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_to_radix_fetch_safe_limbs_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_to_radix_fetch_p_limb_settings, InteractionType::LookupIntoPDecomposition>()
-        .add<lookup_to_radix_limb_p_diff_range_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_to_radix_limb_p_diff_range_settings, InteractionType::LookupIntoIndexedByRow>()
         // Mem Aware To Radix
         // GT checks
         .add<lookup_to_radix_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)

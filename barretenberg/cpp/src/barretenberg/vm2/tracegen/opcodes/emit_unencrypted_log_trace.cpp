@@ -130,6 +130,6 @@ const InteractionDefinition EmitUnencryptedLogTraceBuilder::interactions =
         .add<lookup_emit_unencrypted_log_check_memory_out_of_bounds_settings, InteractionType::LookupGeneric>(
             Column::gt_sel)
         .add<lookup_emit_unencrypted_log_write_data_to_public_inputs_settings,
-             InteractionType::LookupIntoIndexedByClk>();
+             InteractionType::LookupIntoIndexedByRow>();
 
 } // namespace bb::avm2::tracegen

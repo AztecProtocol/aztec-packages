@@ -87,7 +87,9 @@ export async function makeTXEBlock(
   const newArchiveInfo = await worldTrees.getTreeInfo(MerkleTreeId.ARCHIVE);
   const newArchive = new AppendOnlyTreeSnapshot(new Fr(newArchiveInfo.root), Number(newArchiveInfo.size));
 
-  // L2Block requires checkpointNumber and indexWithinCheckpoint
+  // L2Block requires checkpointNumber and indexWithinCheckpoint.
+  // TXE uses 1-block-per-checkpoint for testing simplicity, so we can use block number as checkpoint number.
+  // This uses the deprecated fromBlockNumber method intentionally for the TXE testing environment.
   const checkpointNumber = CheckpointNumber.fromBlockNumber(globalVariables.blockNumber);
   const indexWithinCheckpoint = IndexWithinCheckpoint(0);
 

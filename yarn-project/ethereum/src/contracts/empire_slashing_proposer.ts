@@ -6,7 +6,6 @@ import { EmpireSlashingProposerAbi } from '@aztec/l1-artifacts/EmpireSlashingPro
 
 import EventEmitter from 'events';
 import {
-  type EncodeFunctionDataParameters,
   type GetContractReturnType,
   type Hex,
   type Log,
@@ -100,6 +99,7 @@ export class EmpireSlashingProposerContract extends EventEmitter implements IEmp
   public createSignalRequest(payload: Hex): L1TxRequest {
     return {
       to: this.address.toString(),
+      abi: EmpireSlashingProposerAbi,
       data: encodeSignal(payload),
     };
   }
@@ -121,6 +121,7 @@ export class EmpireSlashingProposerContract extends EventEmitter implements IEmp
     );
     return {
       to: this.address.toString(),
+      abi: EmpireSlashingProposerAbi,
       data: encodeSignalWithSignature(payload, signature),
     };
   }
@@ -180,6 +181,7 @@ export class EmpireSlashingProposerContract extends EventEmitter implements IEmp
   public buildExecuteRoundRequest(round: bigint): L1TxRequest {
     return {
       to: this.address.toString(),
+      abi: EmpireSlashingProposerAbi,
       data: encodeFunctionData({
         abi: EmpireSlashingProposerAbi,
         functionName: 'submitRoundWinner',
@@ -222,24 +224,13 @@ export class EmpireSlashingProposerContract extends EventEmitter implements IEmp
     if (typeof round === 'number') {
       round = BigInt(round);
     }
-    const args: EncodeFunctionDataParameters<typeof EmpireSlashingProposerAbi, 'submitRoundWinner'> = {
-      abi: EmpireSlashingProposerAbi,
-      functionName: 'submitRoundWinner',
-      args: [round],
-    };
-    const data = encodeFunctionData(args);
+    const request = this.buildExecuteRoundRequest(round);
     const response = await txUtils
-      .sendAndMonitorTransaction(
-        {
-          to: this.address.toString(),
-          data,
-        },
-        {
-          // Gas estimation is way off for this, likely because we are creating the contract/selector to call
-          // for the actual slashing dynamically.
-          gasLimitBufferPercentage: 50, // +50% gas
-        },
-      )
+      .sendAndMonitorTransaction(request, {
+        // Gas estimation is way off for this, likely because we are creating the contract/selector to call
+        // for the actual slashing dynamically.
+        gasLimitBufferPercentage: 50, // +50% gas
+      })
       .catch(err => {
         if (err instanceof FormattedViemError && err.message.includes('ProposalAlreadyExecuted')) {
           throw new ProposalAlreadyExecutedError(round);
@@ -248,15 +239,13 @@ export class EmpireSlashingProposerContract extends EventEmitter implements IEmp
       });
 
     if (response.receipt.status === 'reverted') {
-      const error = await txUtils.tryGetErrorFromRevertedTx(
-        data,
-        {
-          ...args,
-          address: this.address.toString(),
-        },
-        undefined,
-        [],
-      );
+      const args = {
+        abi: EmpireSlashingProposerAbi,
+        functionName: 'submitRoundWinner' as const,
+        args: [round] as const,
+        address: this.address.toString(),
+      };
+      const error = await txUtils.tryGetErrorFromRevertedTx(request.data!, args, undefined, []);
       if (error?.includes('ProposalAlreadyExecuted')) {
         throw new ProposalAlreadyExecutedError(round);
       }

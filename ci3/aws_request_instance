@@ -62,6 +62,7 @@ for cpu in "${cpu_list[@]}"; do
     aws_request_instance_type $name $instance_type $price $ami $state_dir
     code=$?
     [[ "$code" -eq 0 || "$code" -eq 143 || "$code" -eq 130 ]] && exit $code
+    echo "Instance request exited with code: $code"
   done
 done
 exit 1

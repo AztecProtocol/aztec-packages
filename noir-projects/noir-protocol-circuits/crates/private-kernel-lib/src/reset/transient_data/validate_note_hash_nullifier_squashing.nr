@@ -1,7 +1,7 @@
 mod validate_squashable_note_hash_nullifier_pair;
 
 use crate::reset::transient_data::transient_data_squashing_hint::TransientDataSquashingHint;
-use dep::types::{
+use types::{
     abis::{note_hash::NoteHash, nullifier::Nullifier},
     side_effect::{Counted, Scoped},
     utils::arrays::ClaimedLengthArray,

@@ -1,0 +1,47 @@
+node:
+  node:
+    resources:
+      requests:
+        cpu: "0.5"
+        memory: "2Gi"
+
+  persistence:
+    enabled: true
+  statefulSet:
+    volumeClaimTemplates:
+      - metadata:
+          name: data
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 16Gi
+
+broker:
+  replicaCount: 1
+
+  persistence:
+    enabled: true
+  statefulSet:
+    volumeClaimTemplates:
+      - metadata:
+          name: data
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 8Gi
+  node:
+    resources:
+      requests:
+        cpu: "0.5"
+        memory: "2Gi"
+
+agent:
+  replicaCount: 4
+
+  node:
+    resources:
+      requests:
+        memory: "50Gi"
+        cpu: "16"

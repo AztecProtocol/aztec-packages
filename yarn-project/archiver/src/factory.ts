@@ -77,14 +77,21 @@ export async function createArchiver(
   const inbox = new InboxContract(publicClient, config.l1Contracts.inboxAddress);
 
   // Fetch L1 constants from rollup contract
-  const [l1StartBlock, l1GenesisTime, proofSubmissionEpochs, genesisArchiveRoot, slashingProposerAddress] =
-    await Promise.all([
-      rollup.getL1StartBlock(),
-      rollup.getL1GenesisTime(),
-      rollup.getProofSubmissionEpochs(),
-      rollup.getGenesisArchiveTreeRoot(),
-      rollup.getSlashingProposerAddress(),
-    ] as const);
+  const [
+    l1StartBlock,
+    l1GenesisTime,
+    proofSubmissionEpochs,
+    genesisArchiveRoot,
+    slashingProposerAddress,
+    targetCommitteeSize,
+  ] = await Promise.all([
+    rollup.getL1StartBlock(),
+    rollup.getL1GenesisTime(),
+    rollup.getProofSubmissionEpochs(),
+    rollup.getGenesisArchiveTreeRoot(),
+    rollup.getSlashingProposerAddress(),
+    rollup.getTargetCommitteeSize(),
+  ] as const);
 
   const l1StartBlockHash = await publicClient
     .getBlock({ blockNumber: l1StartBlock, includeTransactions: false })
@@ -100,6 +107,7 @@ export async function createArchiver(
     slotDuration,
     ethereumSlotDuration,
     proofSubmissionEpochs: Number(proofSubmissionEpochs),
+    targetCommitteeSize,
     genesisArchiveRoot: Fr.fromString(genesisArchiveRoot.toString()),
   };
 

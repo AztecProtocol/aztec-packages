@@ -9,5 +9,13 @@ namespace bb {
 std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& path,
                                                   size_t num_points,
                                                   bool allow_download = true);
+
+// Overload with custom URLs for testing fallback behavior
+std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& path,
+                                                  size_t num_points,
+                                                  bool allow_download,
+                                                  const std::string& primary_url,
+                                                  const std::string& fallback_url);
+
 g2::affine_element get_bn254_g2_data(const std::filesystem::path& path, bool allow_download = true);
 } // namespace bb

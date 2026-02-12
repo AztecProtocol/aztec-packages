@@ -72,6 +72,7 @@ describe('EpochCache', () => {
       ethereumSlotDuration: SLOT_DURATION,
       epochDuration: EPOCH_DURATION,
       proofSubmissionEpochs: 1,
+      targetCommitteeSize: 48,
       lagInEpochsForValidatorSet: 2,
       lagInEpochsForRandao: 2,
     };

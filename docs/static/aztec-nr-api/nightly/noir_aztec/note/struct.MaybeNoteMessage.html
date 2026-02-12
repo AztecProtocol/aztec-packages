@@ -50,9 +50,9 @@
 { <span class="comment">/* private fields */</span> }
 </code></pre>
 <div class="comments">
-<p>Same as <a href="../../noir_aztec/note/struct.NoteMessage.html">NoteMessage</a>, except this type also handles the possibility where the note may not have been actually
+<p>Same as <a href="../../noir_aztec/note/struct.NoteMessage.html"><code>NoteMessage</code></a>, except this type also handles the possibility where the note may not have been actually
 created depending on runtime conditions (e.g. a token transfer change note is not created if there is no change).</p>
-<p>Other than that, it and <a href="../../noir_aztec/note/struct.MaybeNoteMessage.html#deliver">MaybeNoteMessage::deliver</a> behave the exact same way as <a href="../../noir_aztec/note/struct.NoteMessage.html">NoteMessage</a>.</p></div>
+<p>Other than that, it and <a href="../../noir_aztec/note/struct.MaybeNoteMessage.html#deliver"><code>MaybeNoteMessage::deliver</code></a> behave the exact same way as <a href="../../noir_aztec/note/struct.NoteMessage.html"><code>NoteMessage</code></a>.</p></div>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/note/struct.MaybeNoteMessage.html" class="struct">MaybeNoteMessage</a>&lt;Note&gt;</code></h3>
 
@@ -67,8 +67,9 @@ created depending on runtime conditions (e.g. a token transfer change note is no
     Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
-<p>Same as <a href="../../noir_aztec/note/struct.NoteMessage.html#deliver">NoteMessage::deliver</a>, except the message will only be delivered if it actually exists.</p>
-<p>Messages delivered using <a href="../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html#structfield.ONCHAIN_CONSTRAINED">crate::messages::message_delivery::MessageDeliveryEnum::ONCHAIN_CONSTRAINED</a> will pay
+<p>Same as <a href="../../noir_aztec/note/struct.NoteMessage.html#deliver"><code>NoteMessage::deliver</code></a>, except the message will only be delivered if it actually exists.</p>
+<p>Messages delivered using <a href="../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html#structfield.ONCHAIN_CONSTRAINED"><code>crate::messages::message_delivery::MessageDeliveryEnum::ONCHAIN_CONSTRAINED</code></a> will
+pay
 proving costs regardless of whether the message exists or not.</p></div>
 </div><code id="deliver_to" class="code-header">pub fn <a href="#deliver_to"><span class="fn">deliver_to</span></a>(self, recipient: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, delivery_mode: <a href="../../std/primitive.u8.html" class="primitive">u8</a>)
 <div class="where-clause">where
@@ -76,8 +77,9 @@ proving costs regardless of whether the message exists or not.</p></div>
     Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
-<p>Same as <a href="../../noir_aztec/note/struct.NoteMessage.html#deliver_to">NoteMessage::deliver_to</a>, except the message will only be delivered if it actually exists.</p>
-<p>Messages delivered using <a href="../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html#structfield.ONCHAIN_CONSTRAINED">crate::messages::message_delivery::MessageDeliveryEnum::ONCHAIN_CONSTRAINED</a> will pay
+<p>Same as <a href="../../noir_aztec/note/struct.NoteMessage.html#deliver_to"><code>NoteMessage::deliver_to</code></a>, except the message will only be delivered if it actually exists.</p>
+<p>Messages delivered using <a href="../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html#structfield.ONCHAIN_CONSTRAINED"><code>crate::messages::message_delivery::MessageDeliveryEnum::ONCHAIN_CONSTRAINED</code></a> will
+pay
 proving costs regardless of whether the message exists or not.</p></div>
 </div><code id="get_note" class="code-header">pub fn <a href="#get_note"><span class="fn">get_note</span></a>(self) -> <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;Note&gt;
 <div class="where-clause">where

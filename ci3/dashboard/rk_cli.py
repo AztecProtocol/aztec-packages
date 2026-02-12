@@ -13,13 +13,11 @@ def main():
                         help='Filter pattern (comma-separated)')
     parser.add_argument('--filter-prop', '-p', type=str, default='',
                         help='Property to filter on (status,name,author,msg)')
-    parser.add_argument('--fail-list', type=str, default='', help='Redis key for failed tests list')
 
     args = parser.parse_args()
 
     set_base_url("http://ci.aztec-labs.com")
-    output = get_section_data(args.section, args.offset, args.limit,
-                               args.filter_str, args.filter_prop, args.fail_list)
+    output = get_section_data(args.section, args.offset, args.limit, args.filter_str, args.filter_prop)
     print(output, end='')
 
 if __name__ == '__main__':

@@ -4,14 +4,14 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { FifoMemoryQueue, type ISemaphore, Semaphore } from '@aztec/foundation/queue';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, executeTimeout } from '@aztec/foundation/timer';
-import { type BlockProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Tx, TxArray, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
 
 import { ReqRespSubProtocol } from '.././interface.js';
-import { BlockTxsRequest, BlockTxsResponse } from '.././protocols/index.js';
+import { BlockTxsRequest, BlockTxsResponse, type BlockTxsSource } from '.././protocols/index.js';
 import { ReqRespStatus } from '.././status.js';
 import {
   DEFAULT_BATCH_TX_REQUESTER_BAD_PEER_THRESHOLD,
@@ -42,7 +42,7 @@ import { BatchRequestTxValidator, type IBatchRequestTxValidator } from './tx_val
  *    - Is the peer which was unable to send us successful response N times in a row
  * */
 export class BatchTxRequester {
-  private readonly blockProposal: BlockProposal;
+  private readonly blockTxsSource: BlockTxsSource;
   private readonly pinnedPeer: PeerId | undefined;
   private readonly timeoutMs: number;
   private readonly p2pService: BatchTxRequesterLibP2PService;
@@ -61,7 +61,7 @@ export class BatchTxRequester {
 
   constructor(
     missingTxs: TxHash[],
-    blockProposal: BlockProposal,
+    blockTxsSource: BlockTxsSource,
     pinnedPeer: PeerId | undefined,
     timeoutMs: number,
     p2pService: BatchTxRequesterLibP2PService,
@@ -69,7 +69,7 @@ export class BatchTxRequester {
     dateProvider?: DateProvider,
     opts?: BatchTxRequesterOptions,
   ) {
-    this.blockProposal = blockProposal;
+    this.blockTxsSource = blockTxsSource;
     this.pinnedPeer = pinnedPeer;
     this.timeoutMs = timeoutMs;
     this.p2pService = p2pService;
@@ -205,7 +205,7 @@ export class BatchTxRequester {
         return;
       }
 
-      const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txs);
+      const request = BlockTxsRequest.fromTxsSourceAndMissingTxs(this.blockTxsSource, txs);
       if (!request) {
         return;
       }
@@ -249,8 +249,8 @@ export class BatchTxRequester {
       // If peer is dumb peer, we don't know yet if they received full blockProposal
       // there is solid chance that peer didn't receive proposal yet, thus we must send full hashes
       const includeFullHashesInRequestNotJustIndices = true;
-      const blockRequest = BlockTxsRequest.fromBlockProposalAndMissingTxs(
-        this.blockProposal,
+      const blockRequest = BlockTxsRequest.fromTxsSourceAndMissingTxs(
+        this.blockTxsSource,
         txs,
         includeFullHashesInRequestNotJustIndices,
       );
@@ -342,7 +342,7 @@ export class BatchTxRequester {
 
     const makeRequest = (pid: PeerId) => {
       const txs = this.txsMetadata.getTxsToRequestFromThePeer(pid);
-      const blockRequest = BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txs);
+      const blockRequest = BlockTxsRequest.fromTxsSourceAndMissingTxs(this.blockTxsSource, txs);
       if (!blockRequest) {
         return undefined;
       }
@@ -605,9 +605,9 @@ export class BatchTxRequester {
   }
 
   private isBlockResponseValid(response: BlockTxsResponse): boolean {
-    const blockIdsMatch = this.blockProposal.archive.toString() === response.blockHash.toString();
+    const archiveRootsMatch = this.blockTxsSource.archive.toString() === response.archiveRoot.toString();
     const peerHasSomeTxsFromProposal = !response.txIndices.isEmpty();
-    return blockIdsMatch && peerHasSomeTxsFromProposal;
+    return archiveRootsMatch && peerHasSomeTxsFromProposal;
   }
 
   private peerHasSomeTxsWeAreMissing(_peerId: PeerId, response: BlockTxsResponse): boolean {
@@ -624,7 +624,7 @@ export class BatchTxRequester {
   private extractHashesPeerHasFromResponse(response: BlockTxsResponse): Array<TxHash> {
     const hashes: TxHash[] = [];
     const indicesOfHashesPeerHas = new Set(response.txIndices.getTrueIndices());
-    this.blockProposal.txHashes.forEach((hash, idx) => {
+    this.blockTxsSource.txHashes.forEach((hash, idx) => {
       if (indicesOfHashesPeerHas.has(idx)) {
         hashes.push(hash);
       }

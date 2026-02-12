@@ -36,7 +36,7 @@ struct lookup_get_env_var_precomputed_info_settings_ {
         ColumnAndShifts::execution_mem_tag_reg_0_
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::precomputed_idx,
         ColumnAndShifts::precomputed_invalid_envvar_enum,
         ColumnAndShifts::precomputed_sel_envvar_pi_lookup_col0,
         ColumnAndShifts::precomputed_sel_envvar_pi_lookup_col1,
@@ -70,7 +70,7 @@ struct lookup_get_env_var_read_from_public_inputs_col0_settings_ {
         ColumnAndShifts::execution_envvar_pi_row_idx, ColumnAndShifts::execution_value_from_pi
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::public_inputs_cols_0_
     };
 };
 
@@ -94,7 +94,7 @@ struct lookup_get_env_var_read_from_public_inputs_col1_settings_ {
         ColumnAndShifts::execution_envvar_pi_row_idx, ColumnAndShifts::execution_value_from_pi
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_1_
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::public_inputs_cols_1_
     };
 };
 

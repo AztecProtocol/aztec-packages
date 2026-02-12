@@ -6,7 +6,7 @@
  * node will sign for a given duty (slot + duty type).
  */
 import type { Buffer32 } from '@aztec/foundation/buffer';
-import type { EthAddress } from '@aztec/foundation/eth-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
@@ -41,6 +41,7 @@ import {
 export class ValidatorHASigner {
   private readonly log: Logger;
   private readonly slashingProtection: SlashingProtectionService;
+  private readonly rollupAddress: EthAddress;
 
   constructor(
     db: SlashingProtectionDatabase,
@@ -56,9 +57,11 @@ export class ValidatorHASigner {
     if (!config.nodeId || config.nodeId === '') {
       throw new Error('NODE_ID is required for high-availability setups');
     }
+    this.rollupAddress = config.l1Contracts.rollupAddress;
     this.slashingProtection = new SlashingProtectionService(db, config);
     this.log.info('Validator HA Signer initialized with slashing protection', {
       nodeId: config.nodeId,
+      rollupAddress: this.rollupAddress.toString(),
     });
   }
 
@@ -88,6 +91,7 @@ export class ValidatorHASigner {
     let dutyIdentifier: DutyIdentifier;
     if (context.dutyType === DutyType.BLOCK_PROPOSAL) {
       dutyIdentifier = {
+        rollupAddress: this.rollupAddress,
         validatorAddress,
         slot: context.slot,
         blockIndexWithinCheckpoint: context.blockIndexWithinCheckpoint,
@@ -95,6 +99,7 @@ export class ValidatorHASigner {
       };
     } else {
       dutyIdentifier = {
+        rollupAddress: this.rollupAddress,
         validatorAddress,
         slot: context.slot,
         dutyType: context.dutyType,
@@ -142,8 +147,8 @@ export class ValidatorHASigner {
    * Start the HA signer background tasks (cleanup of stuck duties).
    * Should be called after construction and before signing operations.
    */
-  start() {
-    this.slashingProtection.start();
+  async start() {
+    await this.slashingProtection.start();
   }
 
   /**

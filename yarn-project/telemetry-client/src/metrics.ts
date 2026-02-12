@@ -1271,6 +1271,33 @@ export const TX_COLLECTOR_DURATION_PER_TX: MetricDefinition = {
   valueType: ValueType.INT,
 };
 
+export const TX_FILE_STORE_UPLOADS_SUCCESS: MetricDefinition = {
+  name: 'aztec.p2p.tx_file_store.uploads_success',
+  description: 'Number of successful tx uploads to file storage',
+  valueType: ValueType.INT,
+};
+export const TX_FILE_STORE_UPLOADS_FAILED: MetricDefinition = {
+  name: 'aztec.p2p.tx_file_store.uploads_failed',
+  description: 'Number of failed tx uploads to file storage',
+  valueType: ValueType.INT,
+};
+export const TX_FILE_STORE_UPLOADS_SKIPPED: MetricDefinition = {
+  name: 'aztec.p2p.tx_file_store.uploads_skipped',
+  description: 'Number of tx uploads skipped (duplicates)',
+  valueType: ValueType.INT,
+};
+export const TX_FILE_STORE_UPLOAD_DURATION: MetricDefinition = {
+  name: 'aztec.p2p.tx_file_store.upload_duration',
+  description: 'Duration to upload a tx to file storage',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const TX_FILE_STORE_QUEUE_SIZE: MetricDefinition = {
+  name: 'aztec.p2p.tx_file_store.queue_size',
+  description: 'Number of txs pending upload',
+  valueType: ValueType.INT,
+};
+
 export const IVC_VERIFIER_TIME: MetricDefinition = {
   name: 'aztec.ivc_verifier.time',
   description: 'Duration to verify chonk proofs',

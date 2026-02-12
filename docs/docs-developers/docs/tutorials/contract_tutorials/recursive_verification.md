@@ -12,7 +12,7 @@ This is called "recursive" verification because the proof is verified inside an 
 :::
 
 :::tip Full Working Example
-The complete code for this tutorial is available at [aztec-examples/recursive_verification](https://github.com/AztecProtocol/aztec-examples/tree/v3.0.0-devnet.6-patch.1/recursive_verification). Clone it to follow along or use it as a reference.
+The complete code for this tutorial is available in the [docs/examples](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/docs/examples) directory. Clone it to follow along or use it as a reference.
 :::
 
 ## Prerequisites
@@ -21,17 +21,15 @@ Before starting, ensure you have the following installed and configured:
 
 - Node.js (v22 or later)
 - yarn package manager
-- Aztec CLI (version 3.0.0-devnet.6-patch.1)
+- Aztec CLI (version #include_aztec_version)
 - Nargo (version 1.0.0-beta.15)
-- 8GB+ RAM (required for proof generation)
 - Familiarity with [Noir syntax](https://noir-lang.org/docs) and [Aztec contract basics](../../aztec-nr/index.md)
 
 Install the required tools:
 
 ```bash
 # Install Aztec CLI
-bash -i <(curl -s https://install.aztec.network)
-aztec-up 3.0.0-devnet.6-patch.1
+VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix)
 
 # Install Nargo via noirup
 curl -L https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
@@ -131,16 +129,7 @@ circuit/
 
 Replace the contents of `circuit/src/main.nr` with:
 
-```rust
-fn main(x: u64, y: pub u64) {
-    assert(x != y);
-}
-
-#[test]
-fn test_main() {
-    main(1, 2);
-}
-```
+#include_code circuit /docs/examples/circuits/hello_circuit/src/main.nr rust
 
 This is intentionally minimal to focus on the verification pattern. In production, you would replace `assert(x != y)` with meaningful computations like:
 
@@ -170,14 +159,7 @@ For example, you could create a zkpassport proof demonstrating that you are over
 
 Update `circuit/Nargo.toml` (see [Noir crates and packages](https://noir-lang.org/docs/noir/modules_packages_crates/crates_and_packages) for more details):
 
-```toml
-[package]
-name = "hello_circuit"
-type = "bin"
-authors = ["[YOUR_NAME]"]
-
-[dependencies]
-```
+#include_code circuit_nargo_toml /docs/examples/circuits/hello_circuit/Nargo.toml toml
 
 **Note**: This is a vanilla Noir circuit, not an Aztec contract. It has `type = "bin"` (binary) and no Aztec dependencies. The circuit is compiled with `nargo`, not `aztec compile`. This distinction is important—you can verify proofs from _any_ Noir circuit inside Aztec contracts.
 
@@ -253,8 +235,8 @@ type = "contract"
 authors = ["[YOUR_NAME]"]
 
 [dependencies]
-aztec = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "v3.0.0-devnet.6-patch.1", directory = "aztec" }
-bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v3.0.0-devnet.6-patch.1", directory = "barretenberg/noir/bb_proof_verification" }
+aztec = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "#include_aztec_version", directory = "aztec" }
+bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "barretenberg/noir/bb_proof_verification" }
 ```
 
 **Key differences from the circuit's Nargo.toml**:
@@ -267,74 +249,11 @@ bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages
 
 Replace the contents of `contract/src/main.nr` with:
 
-```rust
-use aztec::macros::aztec;
-
-#[aztec]
-pub contract ValueNotEqual {
-    use aztec::{
-        macros::{functions::{external, initializer, internal, only_self, view}, storage::storage},
-        oracle::debug_log::debug_log_format,
-        protocol::{address::AztecAddress, traits::ToField},
-        state_vars::{Map, PublicImmutable, PublicMutable},
-    };
-    use bb_proof_verification::{UltraHonkVerificationKey, UltraHonkZKProof, verify_honk_proof};
-
-    #[storage]
-    struct Storage<Context> {
-        counters: Map<AztecAddress, PublicMutable<Field, Context>, Context>,
-        vk_hash: PublicImmutable<Field, Context>,
-    }
-
-    #[initializer]
-    #[external("public")]
-    fn constructor(headstart: Field, owner: AztecAddress, vk_hash: Field) {
-        self.storage.counters.at(owner).write(headstart);
-        self.storage.vk_hash.initialize(vk_hash);
-    }
-
-    #[external("private")]
-    fn increment(
-        owner: AztecAddress,
-        verification_key: UltraHonkVerificationKey,
-        proof: UltraHonkZKProof,
-        public_inputs: [Field; 1],
-    ) {
-        debug_log_format("Incrementing counter for owner {0}", [owner.to_field()]);
-
-        // Read the stored VK hash - this is readable from private context
-        // because PublicImmutable values are committed at deployment
-        let vk_hash = self.storage.vk_hash.read();
-
-        // Verify the proof - this is the core operation
-        // The function checks:
-        // 1. The VK hashes to the stored vk_hash
-        // 2. The proof is valid for the given VK and public inputs
-        verify_honk_proof(verification_key, proof, public_inputs, vk_hash);
-
-        // If we reach here, the proof is valid
-        // Enqueue a public function call to update state
-        self.enqueue_self._increment_public(owner);
-    }
-
-    #[only_self]
-    #[external("public")]
-    fn _increment_public(owner: AztecAddress) {
-        let current = self.storage.counters.at(owner).read();
-        self.storage.counters.at(owner).write(current + 1);
-    }
-
-    #[view]
-    #[external("public")]
-    fn get_counter(owner: AztecAddress) -> Field {
-        self.storage.counters.at(owner).read()
-    }
-}
-```
+#include_code full_contract /docs/examples/contracts/recursive_verification_contract/src/main.nr rust
 
 ### Storage Variables Explained
 
-The contract uses two [storage types](../../aztec-nr/framework-description/how_to_define_storage.md) with different characteristics:
+The contract uses two [storage types](../../aztec-nr/framework-description/state_variables.md) with different characteristics:
 
 **`vk_hash: PublicImmutable<Field>`**
 
@@ -465,14 +384,14 @@ Create the following files in your project root directory.
     "recursion": "tsx scripts/run_recursion.ts"
   },
   "dependencies": {
-    "@aztec/accounts": "3.0.0-devnet.6-patch.1",
-    "@aztec/aztec.js": "3.0.0-devnet.6-patch.1",
-    "@aztec/bb.js": "3.0.0-devnet.6-patch.1",
-    "@aztec/kv-store": "3.0.0-devnet.6-patch.1",
-    "@aztec/noir-contracts.js": "3.0.0-devnet.6-patch.1",
-    "@aztec/noir-noir_js": "3.0.0-devnet.6-patch.1",
-    "@aztec/pxe": "3.0.0-devnet.6-patch.1",
-    "@aztec/test-wallet": "3.0.0-devnet.6-patch.1",
+    "@aztec/accounts": "#include_version_without_prefix",
+    "@aztec/aztec.js": "#include_version_without_prefix",
+    "@aztec/bb.js": "#include_version_without_prefix",
+    "@aztec/kv-store": "#include_version_without_prefix",
+    "@aztec/noir-contracts.js": "#include_version_without_prefix",
+    "@aztec/noir-noir_js": "#include_version_without_prefix",
+    "@aztec/pxe": "#include_version_without_prefix",
+    "@aztec/test-wallet": "#include_version_without_prefix",
     "tsx": "^4.20.6"
   },
   "devDependencies": {
@@ -523,7 +442,7 @@ Now compile the Aztec contract and generate TypeScript bindings:
 yarn ccc
 ```
 
-**What this command does** (see [How to Compile a Contract](../../aztec-nr/how_to_compile_contract.md) for details):
+**What this command does** (see [How to Compile a Contract](../../aztec-nr/compiling_contracts.md) for details):
 
 1. `aztec compile`: Compiles the Noir contract and post-processes it for Aztec (different from `nargo compile`)
 2. `aztec codegen`: Generates TypeScript bindings from the contract artifact, enabling type-safe contract interaction
@@ -539,80 +458,7 @@ The proof generation script executes the circuit offchain and produces the proof
 
 Create `scripts/generate_data.ts`:
 
-```typescript
-import { Noir } from "@aztec/noir-noir_js";
-import circuitJson from "../circuit/target/hello_circuit.json" with { type: "json" };
-import { Barretenberg, UltraHonkBackend, deflattenFields } from "@aztec/bb.js";
-import fs from "fs";
-import { exit } from "process";
-
-// Step 1: Initialize Barretenberg API (the proving system backend)
-// Barretenberg is the C++ library that implements UltraHonk
-// threads: 1 uses single-threaded mode (increase for faster proofs on multi-core machines)
-const barretenbergAPI = await Barretenberg.new({ threads: 1 });
-
-// Step 2: Create Noir circuit instance from compiled bytecode
-// This loads the circuit definition so we can execute it
-const helloWorld = new Noir(circuitJson as any);
-
-// Step 3: Execute circuit with inputs to generate witness
-// The witness is all intermediate values computed during circuit execution
-// x=1 (private), y=2 (public) - proves that 1 != 2
-const { witness: mainWitness } = await helloWorld.execute({ x: 1, y: 2 });
-
-// Step 4: Create UltraHonk backend with circuit bytecode
-// The backend handles proof generation and verification
-const mainBackend = new UltraHonkBackend(circuitJson.bytecode, barretenbergAPI);
-
-// Step 5: Generate proof targeting the noir-recursive verifier
-// verifierTarget: 'noir-recursive' creates a proof format suitable for
-// verification inside another Noir circuit (which is what Aztec contracts are)
-const mainProofData = await mainBackend.generateProof(mainWitness, {
-  verifierTarget: "noir-recursive",
-});
-
-// Step 6: Verify proof locally before saving
-// This catches errors early - if verification fails here, it will fail onchain too
-const isValid = await mainBackend.verifyProof(mainProofData, {
-  verifierTarget: "noir-recursive",
-});
-console.log(`Proof verification: ${isValid ? "SUCCESS" : "FAILED"}`);
-
-// Step 7: Generate recursive artifacts for onchain use
-// This converts the proof and VK into field element arrays that can be
-// passed to the Aztec contract
-const recursiveArtifacts = await mainBackend.generateRecursiveProofArtifacts(
-  mainProofData.proof,
-  mainProofData.publicInputs.length,
-);
-
-// Step 8: Convert proof to field elements if needed
-// Some versions return empty proofAsFields, requiring manual conversion
-let proofAsFields = recursiveArtifacts.proofAsFields;
-if (proofAsFields.length === 0) {
-  console.log("Using deflattenFields to convert proof...");
-  proofAsFields = deflattenFields(mainProofData.proof).map((f) => f.toString());
-}
-
-const vkAsFields = recursiveArtifacts.vkAsFields;
-
-console.log(`VK size: ${vkAsFields.length}`); // Should be 115
-console.log(`Proof size: ${proofAsFields.length}`); // Should be 508
-console.log(`Public inputs: ${mainProofData.publicInputs.length}`); // Should be 1
-
-// Step 9: Save all data to JSON for contract interaction
-const data = {
-  vkAsFields: vkAsFields, // 115 field elements - the verification key
-  vkHash: recursiveArtifacts.vkHash, // Hash of VK - stored in contract
-  proofAsFields: proofAsFields, // 508 field elements - the proof
-  publicInputs: mainProofData.publicInputs.map((p: string) => p.toString()),
-};
-
-fs.writeFileSync("data.json", JSON.stringify(data, null, 2));
-await barretenbergAPI.destroy();
-console.log("Done");
-exit();
-```
+#include_code generate_data /docs/examples/ts/recursive_verification/scripts/generate_data.ts typescript
 
 ### Understanding the Proof Generation Pipeline
 
@@ -741,7 +587,7 @@ import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
 import { ValueNotEqualContract } from "../contract/artifacts/ValueNotEqual";
 import data from "../data.json";
 import { getPXEConfig } from "@aztec/pxe/config";
-import { TestWallet } from "@aztec/test-wallet/server";
+import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { rm } from "node:fs/promises";
 import assert from "node:assert";
@@ -756,7 +602,7 @@ const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(
 
 // Initialize wallet and connect to local network
 // The wallet manages accounts and sends transactions through the PXE
-export const setupWallet = async (): Promise<TestWallet> => {
+export const setupWallet = async (): Promise<EmbeddedWallet> => {
   try {
     // Connect to the Aztec node (runs the rollup)
     const aztecNode = await createAztecNodeClient(NODE_URL);
@@ -766,10 +612,9 @@ export const setupWallet = async (): Promise<TestWallet> => {
     const config = getPXEConfig();
     await rm("pxe", { recursive: true, force: true });
     config.dataDirectory = "pxe";
-    config.proverEnabled = true; // Enable proof generation
 
     // Create wallet with embedded PXE
-    let wallet = await TestWallet.create(aztecNode, config);
+    let wallet = await EmbeddedWallet.create(aztecNode, config);
 
     // Register the sponsored FPC so the wallet knows about it
     await wallet.registerContract(sponsoredFPC, SponsoredFPCContract.artifact);
@@ -784,8 +629,8 @@ async function main() {
   // Step 1: Setup wallet and create account
   // Accounts in Aztec are smart contracts (account abstraction)
   // See: https://docs.aztec.network/aztec/concepts/accounts
-  const testWallet = await setupWallet();
-  const account = await testWallet.createAccount();
+  const wallet = await setupWallet();
+  const account = await wallet.createAccount();
   const manager = await account.getDeployMethod();
 
   // Deploy the account contract
@@ -796,12 +641,12 @@ async function main() {
     })
     .deployed();
 
-  const accounts = await testWallet.getAccounts();
+  const accounts = await wallet.getAccounts();
 
   // Step 2: Deploy ValueNotEqual contract
   // Constructor args: initial counter (10), owner, VK hash
   const valueNotEqual = await ValueNotEqualContract.deploy(
-    testWallet,
+    wallet,
     10, // Initial counter value
     accounts[0].item, // Owner address
     data.vkHash as unknown as FieldLike, // VK hash for verification
@@ -900,22 +745,7 @@ This single line triggers a complex flow:
 
 Create `scripts/sponsored_fpc.ts`:
 
-```typescript
-import { getContractInstanceFromInstantiationParams } from "@aztec/aztec.js/contracts";
-import { Fr } from "@aztec/aztec.js/fields";
-import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
-
-const SPONSORED_FPC_SALT = new Fr(BigInt(0));
-
-export async function getSponsoredFPCInstance() {
-  return await getContractInstanceFromInstantiationParams(
-    SponsoredFPCContract.artifact,
-    {
-      salt: SPONSORED_FPC_SALT,
-    },
-  );
-}
-```
+#include_code sponsored_fpc /docs/examples/ts/recursive_verification/scripts/sponsored_fpc.ts typescript
 
 This utility computes the address of the pre-deployed sponsored FPC contract. The salt ensures we get the same address every time. For more information about fee payment options, see [Paying Fees](../../aztec-js/how_to_pay_fees.md).
 
@@ -955,7 +785,7 @@ The counter starts at 10 (set during deployment), and after successful proof ver
 
 ## Quick Reference
 
-If you want to run all commands at once, or if you're starting fresh, here's the complete workflow. You can also clone the [full working example](https://github.com/AztecProtocol/aztec-examples/tree/main/recursive_verification) to get started quickly.
+If you want to run all commands at once, or if you're starting fresh, here's the complete workflow. You can also reference the [full working example](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/docs/examples) in the main repository.
 
 ```bash
 # Install dependencies (after creating package.json and tsconfig.json)

@@ -1,6 +1,6 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { GrumpkinScalar } from '@aztec/aztec.js/fields';
-import { computeAppNullifierSecretKey, deriveMasterNullifierSecretKey } from '@aztec/aztec.js/keys';
+import { computeAppNullifierHidingKey, deriveMasterNullifierHidingKey } from '@aztec/aztec.js/keys';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { toBufferLE } from '@aztec/foundation/bigint-buffer';
@@ -60,7 +60,7 @@ describe('e2e_card_game', () => {
   let teardown: () => Promise<void>;
 
   let wallet: Wallet;
-  let masterNullifierSecretKeys: GrumpkinScalar[];
+  let masterNullifierHidingKeys: GrumpkinScalar[];
 
   let firstPlayer: AztecAddress;
   let secondPlayer: AztecAddress;
@@ -69,11 +69,11 @@ describe('e2e_card_game', () => {
   let contract: CardGameContract;
 
   const getPackedCards = async (accountIndex: number, seed: bigint): Promise<Card[]> => {
-    // First we get the app nullifier secret key for the account
-    const masterNullifierSecretKey = masterNullifierSecretKeys[accountIndex];
-    const appNullifierSecretKey = await computeAppNullifierSecretKey(masterNullifierSecretKey, contract.address);
+    // First we get the app nullifier hiding key for the account
+    const masterNullifierHidingKey = masterNullifierHidingKeys[accountIndex];
+    const appNullifierHidingKey = await computeAppNullifierHidingKey(masterNullifierHidingKey, contract.address);
     // Then we compute the mix from it and hash it to get the random bytes the same way as in the contract
-    const mix = appNullifierSecretKey.toBigInt() + seed;
+    const mix = appNullifierHidingKey.toBigInt() + seed;
     const randomBytes = sha256(toBufferLE(mix, 32));
     const cards: Card[] = [];
     for (let i = 0; i < PACK_CARDS; ++i) {
@@ -91,8 +91,8 @@ describe('e2e_card_game', () => {
 
     [firstPlayer, secondPlayer, thirdPlayer] = context.accounts;
 
-    masterNullifierSecretKeys = context.initialFundedAccounts.map(({ secret }) =>
-      deriveMasterNullifierSecretKey(secret),
+    masterNullifierHidingKeys = context.initialFundedAccounts.map(({ secret }) =>
+      deriveMasterNullifierHidingKey(secret),
     );
   });
 

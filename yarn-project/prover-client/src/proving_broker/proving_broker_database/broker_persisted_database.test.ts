@@ -30,6 +30,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
       proverBrokerBatchSize: 1,
       proverBrokerBatchIntervalMs: 10,
       proverBrokerMaxEpochsToKeepResultsFor: 1,
+      proverBrokerDebugReplayEnabled: false,
       l1Contracts: {
         rollupAddress: EthAddress.random(),
       } as any,
@@ -339,6 +340,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
         proverBrokerBatchSize: batchSize,
         proverBrokerBatchIntervalMs: 10,
         proverBrokerMaxEpochsToKeepResultsFor: 1,
+        proverBrokerDebugReplayEnabled: false,
         l1Contracts: {
           rollupAddress: EthAddress.random(),
         } as any,

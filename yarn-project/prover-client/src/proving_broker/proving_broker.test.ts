@@ -60,6 +60,7 @@ describe.each([
       proverBrokerPollIntervalMs: brokerIntervalMs,
       proverBrokerJobMaxRetries: maxRetries,
       proverBrokerMaxEpochsToKeepResultsFor: 1,
+      proverBrokerDebugReplayEnabled: false,
     });
   });
 

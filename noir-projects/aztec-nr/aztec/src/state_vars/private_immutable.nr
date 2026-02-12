@@ -1,6 +1,6 @@
 use crate::{
     context::{PrivateContext, UtilityContext},
-    keys::getters::{get_nsk_app, get_public_keys},
+    keys::getters::{get_nhk_app, get_public_keys},
     note::{
         lifecycle::create_note,
         note_getter::{get_note, view_note},
@@ -17,6 +17,8 @@ use crate::protocol::{
     hash::poseidon2_hash_with_separator,
     traits::{Hash, Packable},
 };
+
+mod test;
 
 /// Per-account immutable private state.
 ///
@@ -82,7 +84,7 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     fn get_initialization_nullifier(self) -> Field {
         let owner_npk_m = get_public_keys(self.owner).npk_m;
         let owner_npk_m_hash = owner_npk_m.hash();
-        let secret = self.context.request_nsk_app(owner_npk_m_hash);
+        let secret = self.context.request_nhk_app(owner_npk_m_hash);
         self.compute_initialization_nullifier(secret)
     }
 
@@ -137,7 +139,7 @@ where
     unconstrained fn get_initialization_nullifier(self) -> Field {
         let owner_npk_m = get_public_keys(self.owner).npk_m;
         let owner_npk_m_hash = owner_npk_m.hash();
-        let secret = get_nsk_app(owner_npk_m_hash);
+        let secret = get_nhk_app(owner_npk_m_hash);
         self.compute_initialization_nullifier(secret)
     }
 

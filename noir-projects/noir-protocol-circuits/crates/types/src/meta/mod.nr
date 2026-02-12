@@ -1,4 +1,4 @@
-use utils::derive_serialization_quotes;
+pub use serde::serialization::{derive_deserialize, derive_serialize};
 
 pub mod utils;
 
@@ -94,209 +94,6 @@ comptime fn get_where_trait_clause(s: TypeDefinition, trait_name: Quoted) -> Quo
     } else {
         // There are no non-numeric generics, so we return an empty quote.
         quote {}
-    }
-}
-
-/// Generates a `Serialize` trait implementation for a struct type.
-///
-/// # Parameters
-/// - `s`: The struct type definition to generate the implementation for
-///
-/// # Returns
-/// A quoted code block containing the trait implementation
-///
-/// # Example
-/// For a struct defined as:
-/// ```
-/// struct Log<N> {
-///     fields: [Field; N],
-///     length: u32
-/// }
-/// ```
-///
-/// This function generates code equivalent to:
-/// ```
-/// impl<let N: u32> Serialize for Log<N> {
-///     let N: u32 = <[Field; N] as Serialize>::N + <u32 as Serialize>::N;
-///
-///     #[inline_always]
-///     fn serialize(self) -> [Field; Self::N] {
-///         let mut serialized_params = [0; _];
-///         let mut offset = 0;
-///
-///         let serialized_member = Serialize::serialize(self.fields);
-///         let serialized_member_len = <[Field; N] as Serialize>::N;
-///         for i in 0..serialized_member_len {
-///             serialized_params[i + offset] = serialized_member[i];
-///         }
-///         offset += serialized_member_len;
-///
-///         let serialized_member = Serialize::serialize(self.length);
-///         let serialized_member_len = <u32 as Serialize>::N;
-///         for i in 0..serialized_member_len {
-///             serialized_params[i + offset] = serialized_member[i];
-///         }
-///         offset += serialized_member_len;
-///
-///         serialized_params
-///     }
-/// }
-/// ```
-pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
-    let typ = s.as_type();
-    let nested_struct = typ.as_data_type().unwrap();
-
-    // We care only about the name and type so we drop the last item of the tuple
-    let params = nested_struct.0.fields(nested_struct.1).map(|(name, typ, _)| (name, typ));
-
-    // Generates the generic parameter declarations (to be placed after the `impl` keyword) and the `where` clause
-    // for the `Serialize` trait.
-    let generics_declarations = get_generics_declarations(s);
-    let where_serialize_clause = get_where_trait_clause(s, quote {Serialize});
-
-    let (function_body, params_len_quote, serialized_params_name) =
-        derive_serialization_quotes(params, true);
-
-    quote {
-        impl$generics_declarations $crate::traits::Serialize for $typ
-            $where_serialize_clause
-        {
-            let N: u32 = $params_len_quote;
-
-            #[inline_always]
-            fn serialize(self) -> [Field; Self::N] {
-                $function_body
-
-                $serialized_params_name
-            }
-        }
-    }
-}
-
-/// Generates a `Deserialize` trait implementation for a given struct `s`.
-///
-/// # Arguments
-/// * `s` - The struct type definition to generate the implementation for
-///
-/// # Returns
-/// A `Quoted` block containing the generated trait implementation
-///
-/// # Requirements
-/// Each struct member type must implement the `Deserialize` trait (it gets used in the generated code).
-///
-/// # Example
-/// For a struct like:
-/// ```
-/// struct MyStruct {
-///     x: AztecAddress,
-///     y: Field,
-/// }
-/// ```
-///
-/// This generates:
-/// ```
-/// impl Deserialize for MyStruct {
-///     let N: u32 = <AztecAddress as Deserialize>::N + <Field as Deserialize>::N;
-///
-///     fn deserialize(serialized: [Field; Self::N]) -> Self {
-///         let mut offset = 0;
-///         let mut member_fields = [0; <AztecAddress as Deserialize>::N];
-///         for i in 0..<AztecAddress as Deserialize>::N {
-///             member_fields[i] = serialized[i + offset];
-///         }
-///         let x = <AztecAddress as Deserialize>::deserialize(member_fields);
-///         offset += <AztecAddress as Deserialize>::N;
-///
-///         let mut member_fields = [0; <Field as Deserialize>::N];
-///         for i in 0..<Field as Deserialize>::N {
-///             member_fields[i] = serialized[i + offset];
-///         }
-///         let y = <Field as Deserialize>::deserialize(member_fields);
-///         offset += <Field as Deserialize>::N;
-///
-///         Self { x, y }
-///     }
-/// }
-/// ```
-pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
-    let typ = s.as_type();
-    let nested_struct = typ.as_data_type().unwrap();
-    let params = nested_struct.0.fields(nested_struct.1);
-
-    // Generates the generic parameter declarations (to be placed after the `impl` keyword) and the `where` clause
-    // for the `Deserialize` trait.
-    let generics_declarations = get_generics_declarations(s);
-    let where_deserialize_clause = get_where_trait_clause(s, quote {Deserialize});
-
-    // The following will give us:
-    // <type_of_struct_member_1 as Deserialize>::N + <type_of_struct_member_2 as Deserialize>::N + ...
-    // (or 0 if the struct has no members)
-    let right_hand_side_of_definition_of_n = if params.len() > 0 {
-        params
-            .map(|(_, param_type, _): (Quoted, Type, Quoted)| {
-                quote {
-            <$param_type as $crate::traits::Deserialize>::N
-        }
-            })
-            .join(quote {+})
-    } else {
-        quote {0}
-    };
-
-    // For structs containing a single member, we can enhance performance by directly deserializing the input array,
-    // bypassing the need for loop-based array construction. While this optimization yields significant benefits in
-    // Brillig where the loops are expected to not be optimized, it is not relevant in ACIR where the loops are
-    // expected to be optimized away.
-    let function_body = if params.len() > 1 {
-        // This generates deserialization code for each struct member and concatenates them together.
-        let deserialization_of_struct_members = params
-            .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
-                quote {
-                    let mut member_fields = [0; <$param_type as Deserialize>::N];
-                    for i in 0..<$param_type as Deserialize>::N {
-                        member_fields[i] = serialized[i + offset];
-                    }
-                    let $param_name = <$param_type as Deserialize>::deserialize(member_fields);
-                    offset += <$param_type as Deserialize>::N;
-                }
-            })
-            .join(quote {});
-
-        // We join the struct member names with a comma to be used in the `Self { ... }` syntax
-        // This will give us e.g. `a, b, c` for a struct with three fields named `a`, `b`, and `c`.
-        let struct_members = params
-            .map(|(param_name, _, _): (Quoted, Type, Quoted)| quote { $param_name })
-            .join(quote {,});
-
-        quote {
-            let mut offset = 0;
-
-            $deserialization_of_struct_members
-
-            Self { $struct_members }
-        }
-    } else if params.len() == 1 {
-        let param_name = params[0].0;
-        quote {
-            Self { $param_name: $crate::traits::Deserialize::deserialize(serialized) }
-        }
-    } else {
-        quote {
-            Self {}
-        }
-    };
-
-    quote {
-        impl$generics_declarations $crate::traits::Deserialize for $typ
-            $where_deserialize_clause
-        {
-            let N: u32 = $right_hand_side_of_definition_of_n;
-
-            #[inline_always]
-            fn deserialize(serialized: [Field; Self::N]) -> Self {
-                $function_body
-            }
-        }
     }
 }
 
@@ -526,15 +323,6 @@ mod test {
     }
 
     #[test]
-    fn serde_on_empty() {
-        let original = Empty {};
-        let serialized = original.serialize();
-        assert_eq(serialized, [], "Serialized does not match empty array");
-        let deserialized = Empty::deserialize(serialized);
-        assert_eq(deserialized, original, "Deserialized does not match original");
-    }
-
-    #[test]
     fn packable_on_empty() {
         let original = Empty {};
         let packed = original.pack();
@@ -544,51 +332,14 @@ mod test {
     }
 
     #[test]
-    fn serde_on_smol() {
+    fn packable_on_smol() {
         let smol = Smol { a: 1, b: 2 };
         let serialized = smol.serialize();
         assert(serialized == [1, 2], serialized);
-        let deserialized = Smol::deserialize(serialized);
-        assert(deserialized == smol);
 
         // None of the struct members implements the `Packable` trait so the packed and serialized data should be the same
         let packed = smol.pack();
         assert_eq(packed, serialized, "Packed does not match serialized");
-    }
-
-    #[test]
-    fn serde_on_has_array() {
-        let has_array = HasArray { a: [1, 2], b: true };
-        let serialized = has_array.serialize();
-        assert(serialized == [1, 2, 1], serialized);
-        let deserialized = HasArray::deserialize(serialized);
-        assert(deserialized == has_array);
-    }
-
-    #[test]
-    fn serde_on_fancier() {
-        let fancier =
-            Fancier { a: Smol { a: 1, b: 2 }, b: [0, 1], c: [1, 2, 3], d: "metaprogramming!" };
-        let serialized = fancier.serialize();
-        assert(
-            serialized
-                == [
-                    1, 2, 0, 1, 1, 2, 3, 0x6d, 0x65, 0x74, 0x61, 0x70, 0x72, 0x6f, 0x67, 0x72, 0x61,
-                    0x6d, 0x6d, 0x69, 0x6e, 0x67, 0x21,
-                ],
-            serialized,
-        );
-        let deserialized = Fancier::deserialize(serialized);
-        assert(deserialized == fancier);
-    }
-
-    #[test]
-    fn serde_on_contains_array_with_generics() {
-        let struct_with_array_of_generics = HasArrayWithGenerics { fields: [1, 2, 3], length: 3 };
-        let serialized = struct_with_array_of_generics.serialize();
-        assert(serialized == [1, 2, 3, 3], serialized);
-        let deserialized = HasArrayWithGenerics::deserialize(serialized);
-        assert(deserialized == struct_with_array_of_generics);
     }
 
     #[test]

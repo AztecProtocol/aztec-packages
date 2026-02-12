@@ -118,10 +118,13 @@ export class SlasherPayloadsStore {
 
   public async incrementPayloadVotes(payloadAddress: EthAddress, round: bigint): Promise<bigint> {
     const key = this.getPayloadVotesKey(round, payloadAddress);
-    const currentVotes = (await this.roundPayloadVotes.getAsync(key)) || 0n;
-    const newVotes = currentVotes + 1n;
-    await this.roundPayloadVotes.set(key, newVotes);
-    return newVotes;
+    let newVotes: bigint;
+    await this.kvStore.transactionAsync(async () => {
+      const currentVotes = (await this.roundPayloadVotes.getAsync(key)) || 0n;
+      newVotes = currentVotes + 1n;
+      await this.roundPayloadVotes.set(key, newVotes);
+    });
+    return newVotes!;
   }
 
   public async addPayload(payload: SlashPayloadRound): Promise<void> {

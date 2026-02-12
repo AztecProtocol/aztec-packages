@@ -1,8 +1,8 @@
-use dep::aztec::protocol::{
+use aztec::protocol::{
     constants::{CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS},
     contract_class_id::ContractClassId,
 };
-use dep::aztec::protocol::traits::ToField;
+use aztec::protocol::traits::ToField;
 
 pub struct ContractClassPublished {
     pub contract_class_id: ContractClassId,

@@ -1,6 +1,5 @@
 import { type BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { Timer } from '@aztec/foundation/timer';
 import { L2Block } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { Gas } from '@aztec/stdlib/gas';
@@ -14,7 +13,7 @@ import type {
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { makeAppendOnlyTreeSnapshot } from '@aztec/stdlib/testing';
 import type { CheckpointGlobalVariables, Tx } from '@aztec/stdlib/tx';
-import type { BuildBlockInCheckpointResultWithTimer } from '@aztec/validator-client';
+import type { BuildBlockInCheckpointResult } from '@aztec/validator-client';
 
 /**
  * A fake CheckpointBuilder for testing that implements the same interface as the real one.
@@ -76,7 +75,7 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
     blockNumber: BlockNumber,
     timestamp: bigint,
     opts: PublicProcessorLimits,
-  ): Promise<BuildBlockInCheckpointResultWithTimer> {
+  ): Promise<BuildBlockInCheckpointResult> {
     this.buildBlockCalls.push({ blockNumber, timestamp, opts });
 
     if (this.errorOnBuild) {
@@ -117,7 +116,6 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
       publicGas: Gas.empty(),
       publicProcessorDuration: 0,
       numTxs: block?.body?.txEffects?.length ?? usedTxs.length,
-      blockBuildingTimer: new Timer(),
       usedTxs,
       failedTxs: [],
       usedTxBlobFields: block?.body?.txEffects?.reduce((sum, tx) => sum + tx.getNumBlobFields(), 0) ?? 0,

@@ -38,12 +38,10 @@
 <p>Efficient string storage.</p>
 </div>
 <h2 id="structs">Structs</h2><ul class="item-list">
-<li><div class="item-name"><a href="struct.CompressedString.html" class="struct">CompressedString</a></div><div class="item-description">Convenience struct for capturing a string of type <code>str&lt;M&gt;</code>, and converting it
-into other basic Noir types. Notably: converts to <code>[Field; N]</code> or <code>[u8; M]</code>.
-This particular conversion process tightly-packs the M bytes of the input <code>str</code>
-into 31-byte chunks, with each chunk being put into a field.
-Each field can store 31 characters, so N should be M/31 rounded up.
-Can be used for longer strings that don't fit into a single field.</div></li>
+<li><div class="item-name"><a href="struct.CompressedString.html" class="struct">CompressedString</a></div><div class="item-description">Convenience struct for capturing a string of type <code>str&lt;M&gt;</code>, and converting it into other basic Noir types. Notably:
+converts to <code>[Field; N]</code> or <code>[u8; M]</code>. This particular conversion process tightly-packs the M bytes of the input
+<code>str</code> into 31-byte chunks, with each chunk being put into a field. Each field can store 31 characters, so N should
+be M/31 rounded up. Can be used for longer strings that don't fit into a single field.</div></li>
 <li><div class="item-name"><a href="struct.FieldCompressedString.html" class="struct">FieldCompressedString</a></div><div class="item-description"></div></li>
 </ul>
 </main>

@@ -41,6 +41,21 @@ function main {
   local ci_mode
   if [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ] || has_label "ci-merge-queue"; then
     ci_mode="merge-queue"
+    # Check if this is a merge-train/spartan PR entering the merge queue.
+    # If so, use the heavier merge-queue-heavy mode (10 grind runs).
+    if [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ] && [ -n "${GITHUB_TOKEN:-}" ]; then
+      # GITHUB_REF_NAME in merge_group is like: gh-readonly-queue/next/pr-XXX-SHA
+      local pr_number
+      pr_number=$(echo "${GITHUB_REF_NAME:-}" | sed -n 's|gh-readonly-queue/.*/pr-\([0-9]*\)-.*|\1|p')
+      if [ -n "$pr_number" ]; then
+        local head_branch
+        head_branch=$(GH_TOKEN="$GITHUB_TOKEN" gh pr view "$pr_number" --json headRefName -q '.headRefName' 2>/dev/null || true)
+        if [ "$head_branch" == "merge-train/spartan" ]; then
+          echo "Merge-train/spartan PR detected, using merge-queue-heavy mode" >&2
+          ci_mode="merge-queue-heavy"
+        fi
+      fi
+    fi
   elif has_label "ci-release-pr"; then
     ci_mode="release-pr"
   elif has_label "ci-full"; then
@@ -58,7 +73,7 @@ function main {
   elif [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
     ci_mode="release"
   elif has_label "ci-skip"; then
-    echo_stderr "WARNING: Skipping CI due to the ci-skip label! Make sure this is intended!"
+    echo "WARNING: Skipping CI due to the ci-skipok label! Make sure this is intended!" >&2
     ci_mode="skip"
   else
     ci_mode="fast"
@@ -67,7 +82,7 @@ function main {
   echo "CI mode: $ci_mode"
 
   # Determine if benchmarks should be uploaded (merge-queue, full, or full-no-test-cache modes)
-  if [[ "$ci_mode" == "merge-queue" || "$ci_mode" == "full" || "$ci_mode" == "full-no-test-cache" ]]; then
+  if [[ "$ci_mode" == "merge-queue" || "$ci_mode" == "merge-queue-heavy" || "$ci_mode" == "full" || "$ci_mode" == "full-no-test-cache" ]]; then
     echo "SHOULD_UPLOAD_BENCHMARKS=1" >> $GITHUB_ENV
   fi
 

@@ -3,6 +3,7 @@ import { chunk } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { type ISemaphore, Semaphore } from '@aztec/foundation/queue';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -62,11 +63,11 @@ describe('BatchTxRequester', () => {
     txValidator = new AlwaysValidTxValidator();
 
     const signer = Secp256k1Signer.random();
-    const blockHash = Fr.random();
+    const archiveRoot = Fr.random();
     blockProposal = await makeBlockProposal({
       signer,
       blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(1) }),
-      archiveRoot: blockHash,
+      archiveRoot,
       txHashes: [],
     });
   });
@@ -945,7 +946,16 @@ describe('BatchTxRequester', () => {
         new Map(),
         shortDeadline / 4,
       );
-      reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
+
+      const { promise: onFirstRequest, resolve: signalFirstRequest } = promiseWithResolvers<void>();
+      let firstRequestSent = false;
+      reqResp.sendRequestToPeer.mockImplementation(async (peerId, sub, data) => {
+        if (!firstRequestSent) {
+          firstRequestSent = true;
+          signalFirstRequest();
+        }
+        return await mockImplementation(peerId, sub, data);
+      });
 
       const clock = new TestClock();
 
@@ -966,8 +976,8 @@ describe('BatchTxRequester', () => {
 
       const runPromise = BatchTxRequester.collectAllTxs(requester.run());
 
-      // Advance clock past deadline after a short delay
-      await sleep(shortDeadline / 2);
+      // Wait for first request, then advance clock past deadline
+      await onFirstRequest;
       clock.advanceTo(shortDeadline + 1);
 
       await runPromise;

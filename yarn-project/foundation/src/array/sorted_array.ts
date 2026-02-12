@@ -21,34 +21,39 @@ export function dedupeSortedArray<T>(arr: T[], cmp: Cmp<T>): void {
 }
 
 export function insertIntoSortedArray<T>(arr: T[], item: T, cmp: Cmp<T>, allowDuplicates = true): boolean {
+  const index = findInsertionIndexInSortedArray(arr, item, cmp);
+
+  if (!allowDuplicates) {
+    // Check element before insertion point (upper bound returns index after equal elements)
+    if (index > 0 && cmp(arr[index - 1], item) === 0) {
+      return false;
+    }
+  }
+
+  arr.splice(index, 0, item);
+  return true;
+}
+
+/**
+ * Finds the index where needle would be inserted to maintain sorted order.
+ * Returns the count of elements less than or equal to needle.
+ */
+export function findInsertionIndexInSortedArray<T, N>(values: T[], needle: N, cmp: (a: T, b: N) => number): number {
   let start = 0;
-  let end = arr.length;
+  let end = values.length;
 
   while (start < end) {
     const mid = start + (((end - start) / 2) | 0);
-    const comparison = cmp(arr[mid], item);
+    const comparison = cmp(values[mid], needle);
 
-    if (comparison < 0) {
+    if (comparison <= 0) {
       start = mid + 1;
     } else {
       end = mid;
     }
   }
 
-  if (!allowDuplicates) {
-    // Check element at insertion point
-    if (start < arr.length && cmp(arr[start], item) === 0) {
-      return false;
-    }
-
-    // Check element before insertion point (in case we landed after duplicates)
-    if (start > 0 && cmp(arr[start - 1], item) === 0) {
-      return false;
-    }
-  }
-
-  arr.splice(start, 0, item);
-  return true;
+  return start;
 }
 
 export function findIndexInSortedArray<T, N>(values: T[], needle: N, cmp: (a: T, b: N) => number): number {

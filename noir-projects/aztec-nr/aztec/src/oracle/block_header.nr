@@ -1,6 +1,6 @@
 use crate::protocol::{abis::block_header::BlockHeader, merkle_tree::root::root_from_sibling_path, traits::Hash};
 
-use crate::{context::PrivateContext, oracle::get_membership_witness::get_archive_membership_witness};
+use crate::{context::PrivateContext, oracle::get_membership_witness::get_block_hash_membership_witness};
 
 #[oracle(utilityGetBlockHeader)]
 unconstrained fn get_block_header_at_oracle(_block_number: u32) -> BlockHeader {}
@@ -56,7 +56,7 @@ fn constrain_get_block_header_at_internal(
 
     // 2) Get the membership witness of the block in the archive tree.
     // Safety: The witness is only used as a "magical value" that makes the merkle proof below pass. Hence it's safe.
-    let witness = unsafe { get_archive_membership_witness(anchor_block_header, block_hash) };
+    let witness = unsafe { get_block_hash_membership_witness(anchor_block_header, block_hash) };
 
     // 3) Check that the block is in the archive (i.e. the witness is valid)
     assert_eq(

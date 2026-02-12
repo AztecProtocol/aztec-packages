@@ -83,9 +83,17 @@ export async function createNodes(
   return nodes;
 }
 
-/** Creates a P2P enabled instance of Aztec Node Service with a validator */
+/** Extended config type for createNode with test-specific overrides. */
+export type CreateNodeConfig = AztecNodeConfig & {
+  /** Whether to skip starting the sequencer. */
+  dontStartSequencer?: boolean;
+  /** Override the private key (instead of deriving from addressIndex). */
+  validatorPrivateKey?: `0x${string}`;
+};
+
+/** Creates a P2P enabled instance of Aztec Node Service with a validator. */
 export async function createNode(
-  config: AztecNodeConfig & { dontStartSequencer?: boolean },
+  config: CreateNodeConfig,
   dateProvider: DateProvider,
   tcpPort: number,
   bootstrapNode: string | undefined,
@@ -187,20 +195,21 @@ export async function createP2PConfig(
 }
 
 export async function createValidatorConfig(
-  config: AztecNodeConfig,
+  config: CreateNodeConfig,
   bootstrapNodeEnr?: string,
   port?: number,
   addressIndex: number | number[] = 1,
   dataDirectory?: string,
 ) {
   const addressIndices = Array.isArray(addressIndex) ? addressIndex : [addressIndex];
-  if (addressIndices.length === 0) {
+  if (addressIndices.length === 0 && !config.validatorPrivateKey) {
     throw new Error('At least one address index must be provided to create a validator config');
   }
 
-  const attesterPrivateKeys = addressIndices.map(index =>
-    bufferToHex(getPrivateKeyFromIndex(ATTESTER_PRIVATE_KEYS_START_INDEX + index)!),
-  );
+  // Use override private key if provided, otherwise derive from address indices
+  const attesterPrivateKeys = config.validatorPrivateKey
+    ? [config.validatorPrivateKey]
+    : addressIndices.map(index => bufferToHex(getPrivateKeyFromIndex(ATTESTER_PRIVATE_KEYS_START_INDEX + index)!));
   const p2pConfig = await createP2PConfig(config, bootstrapNodeEnr, port, dataDirectory);
   const nodeConfig: AztecNodeConfig = {
     ...config,

@@ -376,9 +376,11 @@ the this sponge) before receiving all txs in a checkpoint slot.</p>
 <p>Finalize the sponge and output the non-standard poseidon2 hash of all fields absorbed.</p>
 </div>
 </div></div><h2>Trait implementations</h2>
-<h3 id="impl-Deserialize-for-SpongeBlob"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/blob_data/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></h3>
+<h3 id="impl-Deserialize-for-SpongeBlob"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/blob_data/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(serialized: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 10]) -> Self</code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 10]) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
 
 </div><h3 id="impl-Empty-for-SpongeBlob"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../protocol_types/blob_data/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></h3>
 
@@ -392,9 +394,11 @@ the this sponge) before receiving all txs in a checkpoint slot.</p>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
 
-</div><h3 id="impl-Serialize-for-SpongeBlob"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/blob_data/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></h3>
+</div><h3 id="impl-Serialize-for-SpongeBlob"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/blob_data/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></h3>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 10]</code>
+
+<code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
 
 </div></main>
 </span>

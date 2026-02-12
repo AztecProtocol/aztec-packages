@@ -8,6 +8,7 @@ import {console} from "forge-std/console.sol";
 
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
+import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
 
@@ -15,6 +16,8 @@ import {Governance} from "@aztec/governance/Governance.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+
+import {RegisterNewRollupVersionPayload} from "@aztec/periphery/RegisterNewRollupVersionPayload.sol";
 
 import {DeployRollupLib, RollupAddressInput, RollupAddressOutput} from "./DeployRollupLib.sol";
 import {IRollupConfiguration, RollupConfiguration} from "./RollupConfiguration.sol";
@@ -33,9 +36,17 @@ contract DeployRollupForUpgrade is Script {
   /// @notice Rollup deployment output
   RollupAddressOutput internal _rollupOutput;
 
+  /// @notice Governance payload for registering the new rollup version
+  RegisterNewRollupVersionPayload internal _payload;
+
   /// @notice Get rollup deployment output
   function rollupOutput() external view returns (RollupAddressOutput memory) {
     return _rollupOutput;
+  }
+
+  /// @notice Get the deployed governance payload
+  function payload() external view returns (RegisterNewRollupVersionPayload) {
+    return _payload;
   }
 
   /// @notice Deploy rollup and write output to stdout
@@ -46,9 +57,14 @@ contract DeployRollupForUpgrade is Script {
 
     vm.startBroadcast(input.deployer);
     _rollupOutput = DeployRollupLib.deployRollup(input, rollupConfig);
+
+    // Deploy governance payload for registering this rollup via governance
+    _payload = new RegisterNewRollupVersionPayload(input.registry, IInstance(address(_rollupOutput.rollup)));
     vm.stopBroadcast();
 
-    string memory finalJson = DeployRollupLib.writeRollupAddressesToJson(vm, "rollup", _rollupOutput);
+    // Write base rollup addresses to JSON, then add payload address
+    DeployRollupLib.writeRollupAddressesToJson(vm, "rollup", _rollupOutput);
+    string memory finalJson = vm.serializeAddress("rollup", "payloadAddress", address(_payload));
     console.log("JSON DEPLOY RESULT:", finalJson);
   }
 

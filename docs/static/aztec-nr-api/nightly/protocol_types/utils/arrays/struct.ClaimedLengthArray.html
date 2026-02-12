@@ -117,13 +117,15 @@ Validation must include:</p>
     T: <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
 
 </div><h2>Trait implementations</h2>
-<h3 id="impl-Deserialize-for-ClaimedLengthArray<T, N>"><code class="code-header">impl&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;T, N&gt;
+<h3 id="impl-Deserialize-for-ClaimedLengthArray<T, N>"><code class="code-header">impl&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;T, N&gt;
 <div class="where-clause">where
-    T: <a href="../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
+    T: <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(
-    serialized: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; N * &lt;(resolved type) as Deserialize&gt;::N + 1],
+    fields: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; N * &lt;(resolved type) as Deserialize&gt;::N + 1],
 ) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
 
 </div><h3 id="impl-Empty-for-ClaimedLengthArray<T, N>"><code class="code-header">impl&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;T, N&gt;
 <div class="where-clause">where
@@ -141,11 +143,13 @@ Validation must include:</p>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
 
-</div><h3 id="impl-Serialize-for-ClaimedLengthArray<T, N>"><code class="code-header">impl&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;T, N&gt;
+</div><h3 id="impl-Serialize-for-ClaimedLengthArray<T, N>"><code class="code-header">impl&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;T, N&gt;
 <div class="where-clause">where
-    T: <a href="../../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
+    T: <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; N * &lt;(resolved type) as Serialize&gt;::N + 1]</code>
+
+<code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
 
 </div></main>
 </span>

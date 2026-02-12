@@ -177,7 +177,7 @@ struct lookup_execution_exec_spec_read_settings_ {
         ColumnAndShifts::execution_expected_tag_reg_5_
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::precomputed_idx,
         ColumnAndShifts::precomputed_exec_opcode_opcode_gas,
         ColumnAndShifts::precomputed_exec_opcode_base_da_gas,
         ColumnAndShifts::precomputed_exec_opcode_dynamic_l2_gas,
@@ -237,7 +237,7 @@ struct lookup_execution_dyn_l2_factor_bitwise_settings_ {
         ColumnAndShifts::execution_mem_tag_reg_0_, ColumnAndShifts::execution_dynamic_l2_gas_factor
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_tag_byte_length
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::precomputed_tag_byte_length
     };
 };
 
@@ -286,7 +286,7 @@ struct lookup_execution_get_p_limbs_settings_ {
         ColumnAndShifts::execution_register_1_, ColumnAndShifts::execution_num_p_limbs
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_to_radix_num_limbs_for_p
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::precomputed_to_radix_num_limbs_for_p
     };
 };
 

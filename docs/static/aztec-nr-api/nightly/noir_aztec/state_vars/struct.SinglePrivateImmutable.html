@@ -30,15 +30,10 @@
 <li><a href="#impl-StateVariable&lt;1, Context&gt;-for-SinglePrivateImmutable<Note, Context>">StateVariable&lt;1, Context&gt;</a></li>
 </ul>
 <h2>In module state_vars</h2>
-<h3>Modules</h3><ul class="item-list">
-<li><a href="map/index.html">map</a></div></li>
-<li><a href="owned/index.html">owned</a></div></li>
-<li><a href="owned_state_variable/index.html">owned_state_variable</a></div></li>
-<li><a href="state_variable/index.html">state_variable</a></div></li>
-<li><a href="storage/index.html">storage</a></div></li>
-</ul>
 <h3>Structs</h3><ul class="item-list">
 <li><a href="struct.DelayedPublicMutable.html">DelayedPublicMutable</a></div></li>
+<li><a href="struct.Map.html">Map</a></div></li>
+<li><a href="struct.Owned.html">Owned</a></div></li>
 <li><a href="struct.PrivateImmutable.html">PrivateImmutable</a></div></li>
 <li><a href="struct.PrivateMutable.html">PrivateMutable</a></div></li>
 <li><a href="struct.PrivateSet.html">PrivateSet</a></div></li>
@@ -47,6 +42,11 @@
 <li><a href="struct.SinglePrivateImmutable.html">SinglePrivateImmutable</a></div></li>
 <li><a href="struct.SinglePrivateMutable.html">SinglePrivateMutable</a></div></li>
 <li><a href="struct.SingleUseClaim.html">SingleUseClaim</a></div></li>
+<li><a href="struct.Storable.html">Storable</a></div></li>
+</ul>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.OwnedStateVariable.html">OwnedStateVariable</a></div></li>
+<li><a href="trait.StateVariable.html">StateVariable</a></div></li>
 </ul>
 </nav>
 <main>
@@ -56,14 +56,15 @@
 { <span class="comment">/* private fields */</span> }
 </code></pre>
 <div class="comments">
+<p>Contract-wide immutable private state.</p>
 <p>A state variable that holds a single private value that is set once and remains unchanged forever (unlike
-<a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html">crate::state_vars::private_immutable::PrivateImmutable</a>, which holds one private value <em>per account</em> - hence
-the name 'single').</p>
+<a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html"><code>crate::state_vars::private_immutable::PrivateImmutable</code></a>, which holds one private value <em>per account</em> - hence the
+name 'single').</p>
 <p>Because this private value has no semantic owner, it is up to the application to determine which accounts will
-learn of its existence via <a href="../../noir_aztec/note/struct.NoteMessage.html#deliver_to">crate::note::note_message::NoteMessage::deliver_to</a>.</p>
+learn of its existence via <a href="../../noir_aztec/note/struct.NoteMessage.html#deliver_to"><code>crate::note::note_message::NoteMessage::deliver_to</code></a>.</p>
 <h2>Usage</h2>
-<p>Unlike <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html">crate::state_vars::private_immutable::PrivateImmutable</a> which is &quot;owned&quot; (requiring wrapping in an
-<a href="../../noir_aztec/state_vars/owned/struct.Owned.html">crate::state_vars::owned::Owned</a> state variable), SinglePrivateImmutable is used directly in storage:</p>
+<p>Unlike <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html"><code>crate::state_vars::private_immutable::PrivateImmutable</code></a> which is &quot;owned&quot; (requiring wrapping in an
+<a href="../../noir_aztec/state_vars/struct.Owned.html"><code>crate::state_vars::owned::Owned</code></a> state variable), SinglePrivateImmutable is used directly in storage:</p>
 <pre><code>#[storage]
 <span class="kw">struct</span> Storage&lt;Context&gt; {
     your_variable: SinglePrivateImmutable&lt;YourNote, Context&gt;,
@@ -72,15 +73,17 @@ learn of its existence via <a href="../../noir_aztec/note/struct.NoteMessage.htm
 <p>A contract's configuration parameters can be represented as a SinglePrivateImmutable. Once set during contract
 deployment or initial setup, these parameters remain constant for the lifetime of the contract. For example, an
 account contract's signing public key is typically stored using SinglePrivateImmutable. Note that the configuration
-would be visible only to the parties to which the <a href="../../noir_aztec/note/struct.NoteMessage.html">NoteMessage</a> returned from the <code>initialize(...)</code> function is
+would be visible only to the parties to which the <a href="../../noir_aztec/note/struct.NoteMessage.html"><code>NoteMessage</code></a> returned from the <code>initialize(...)</code> function is
 delivered.</p>
 <h2>Requirements</h2>
 <p>The contract that holds this state variable must have keys associated with it. This is because the initialization
-nullifier includes the contract's nullifying secret key (nsk) in its preimage and because the contract is set as
+nullifier includes the contract's nullifier hiding key (nhk) in its preimage and because the contract is set as
 the owner of the underlying note. This is expected to not ever be a problem because the contracts that use
 SinglePrivateImmutable generally have keys associated with them (account contracts or escrow contracts).</p></div>
 <h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/state_vars/struct.SinglePrivateImmutable.html" class="struct">SinglePrivateImmutable</a>&lt;Note, <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
+<h3><code class="code-header">impl&lt;Context, Note&gt; <a href="../../noir_aztec/state_vars/struct.SinglePrivateImmutable.html" class="struct">SinglePrivateImmutable</a>&lt;Note, Context&gt;</code></h3>
+
+<div class="padded-methods"></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/state_vars/struct.SinglePrivateImmutable.html" class="struct">SinglePrivateImmutable</a>&lt;Note, <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
 
 <div class="padded-methods"><code id="is_initialized" class="code-header">pub unconstrained fn <a href="#is_initialized"><span class="fn">is_initialized</span></a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a>
 <div class="where-clause">where
@@ -111,7 +114,7 @@ SinglePrivateImmutable generally have keys associated with them (account contrac
 
 <div class="padded-description"><div class="comments">
 <p>Initializes a SinglePrivateImmutable state variable instance with a permanent <code>note</code> and returns a
-<a href="../../noir_aztec/note/struct.NoteMessage.html">NoteMessage</a> that allows you to decide what method of note message delivery to use.</p>
+<a href="../../noir_aztec/note/struct.NoteMessage.html"><code>NoteMessage</code></a> that allows you to decide what method of note message delivery to use.</p>
 <p>This function inserts the single, permanent note for this state variable. It can only be called once per
 SinglePrivateImmutable. Subsequent calls will fail because the initialization nullifier will already exist.</p></div>
 </div><code id="get_note" class="code-header">pub fn <a href="#get_note"><span class="fn">get_note</span></a>(self) -> Note
@@ -127,10 +130,8 @@ fail and the transaction will not be provable.</p>
 <p>Since the note is immutable, there's no risk of reading stale data or race conditions - the note never changes
 after initialization.</p>
 </div>
-</div></div><h3><code class="code-header">impl&lt;Context, Note&gt; <a href="../../noir_aztec/state_vars/struct.SinglePrivateImmutable.html" class="struct">SinglePrivateImmutable</a>&lt;Note, Context&gt;</code></h3>
-
-<div class="padded-methods"></div><h2>Trait implementations</h2>
-<h3 id="impl-StateVariable&lt;1, Context&gt;-for-SinglePrivateImmutable<Note, Context>"><code class="code-header">impl&lt;Context, Note&gt; <a href="../../noir_aztec/state_vars/state_variable/trait.StateVariable.html" class="trait">StateVariable</a>&lt;1, Context&gt; for <a href="../../noir_aztec/state_vars/struct.SinglePrivateImmutable.html" class="struct">SinglePrivateImmutable</a>&lt;Note, Context&gt;</code></h3>
+</div></div><h2>Trait implementations</h2>
+<h3 id="impl-StateVariable&lt;1, Context&gt;-for-SinglePrivateImmutable<Note, Context>"><code class="code-header">impl&lt;Context, Note&gt; <a href="../../noir_aztec/state_vars/trait.StateVariable.html" class="trait">StateVariable</a>&lt;1, Context&gt; for <a href="../../noir_aztec/state_vars/struct.SinglePrivateImmutable.html" class="struct">SinglePrivateImmutable</a>&lt;Note, Context&gt;</code></h3>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">new</span>(context: Context, storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
 
