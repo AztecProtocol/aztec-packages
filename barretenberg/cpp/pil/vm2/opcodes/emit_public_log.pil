@@ -123,40 +123,38 @@ namespace emit_public_log;
     pol commit discard; // @boolean
 
     // error is constrained to be boolean on start rows via the execution permutation.
-    // It is only used in start-gated relations; sel_should_write_to_public_inputs absorbs
+    // It is only used in start-gated relations; sel_write_to_public_inputs absorbs
     // the error value on the start row and propagates it to worker rows. 
     // No propagation or explicit boolean constraint is needed for error itself.
     pol commit error; // @boolean (on start rows, via execution permutation). Unconstrained on worker rows.
 
     ////////////////////////////////////////////////
-    // Control flow management
+    // Multi-row Computation Selectors
     ////////////////////////////////////////////////
+    // We follow the recipe documented in:
+    // https://hackmd.io/moq6viBpRJeLpWrHAogCZw?view#Contiguous-Multi-Rows-Computation-Trace
+
     // The start of the computation, used as selector for the permutation with execution trace.
     pol commit start; // @boolean
     start * (1 - start) = 0;
-
     // The end of the computation
     pol commit end; // @boolean
     end * (1 - end) = 0;
 
+    pol LATCH_CONDITION = end + precomputed.first_row;
+
     // (start == 1) or (end == 1) implies sel == 1.
-    #[SEL_TOGGLED_AT_START_END]
+    #[SEL_ON_START_OR_END]
     (start + end) * (1 - sel) = 0;
 
-    pol NOT_END = sel - end;
-    pol LATCH_CONDITION = end + precomputed.first_row;
+    // Trace is contiguous: once sel = 0, it cannot be set to 1, can only be set to 0 at LATCH_CONDITION
+    #[TRACE_CONTINUITY]
+    (1 - LATCH_CONDITION) * (sel - sel') =0;
 
     #[START_AFTER_LATCH]
     sel' * (start' - LATCH_CONDITION) = 0;
 
-    // Trace is contiguous: once sel = 0, it cannot be set to 1
-    #[TRACE_CONTINUITY]
-    (1 - precomputed.first_row) * (1 - sel) * sel' = 0;
-
-    // This prevents a computation to be stopped prematurely, i.e., truncating last rows before
-    // we reach a row where end == 1.
-    #[COMPUTATION_FINISH_AT_END]
-    NOT_END * (1 - sel') = 0;
+    pol NOT_END = sel - end;
 
     // Implicity bounded since log_size is checked to be U32 in the registers subtrace
     // Given that PUBLIC_LOG_HEADER_LENGTH > 0 the value of remaining_rows does not underflow
@@ -180,7 +178,7 @@ namespace emit_public_log;
     // then propagated (preserving boolean-ness) via ERROR_OUT_OF_BOUNDS_CONSISTENCY.
     pol commit error_out_of_bounds; // @boolean 
 
-    // Improvement: Remove this column once constants in lookup columns are supported.
+    // Lookup constant support: Remove this column once constants in lookup columns are supported.
     pol commit max_mem_size;
     start * (max_mem_size - constants.AVM_MEMORY_SIZE) = 0;
 
@@ -207,7 +205,7 @@ namespace emit_public_log;
     // All values guaranteed to be <U32 so addition does not overflow
     start * (prev_num_public_log_fields + TOTAL_LOG_FIELDS_SIZE - expected_next_log_fields) = 0;
 
-    // Improvement: Remove this column once constants in lookup columns are supported.
+    // Lookup constant support: Remove this column once constants in lookup columns are supported.
     pol commit max_public_logs_payload_length;
     start * (max_public_logs_payload_length - constants.FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH) = 0;
 
@@ -296,10 +294,10 @@ namespace emit_public_log;
     //  - 2 others (`error_too_many_log_fields`, `is_static`): doesn't impact memory reads
     // We can't gate memory reads by error due to the second case, and we can't unconditionally read due to the first.
     // So we always read memory unless `error_out_of_bounds` is set.
-    pol commit sel_should_read_memory; // @boolean
+    pol commit sel_read_memory; // @boolean
     // Gate by sel to avoid ghost rows triggering memory reads.
     #[SEL_SHOULD_READ_MEMORY_IS_SEL_AND_WRITE_MEM_AND_NO_ERR]
-    sel_should_read_memory = sel * is_write_memory_value * (1 - error_out_of_bounds);
+    sel_read_memory = sel * is_write_memory_value * (1 - error_out_of_bounds);
 
     #[LOG_ADDRESS_INCREMENT]
     NOT_END * ((log_address + is_write_memory_value) - log_address') = 0;
@@ -313,7 +311,7 @@ namespace emit_public_log;
     NOT_END * (space_id - space_id') = 0;
 
     #[READ_MEM]
-    sel_should_read_memory {
+    sel_read_memory {
         execution_clk,  space_id,
         log_address,    value,
         tag,            /*rw=0*/ precomputed.zero
@@ -325,12 +323,12 @@ namespace emit_public_log;
     };
 
     // If memory read is disabled, value is zero and tag is FF
-    // `sel_should_read_memory` = sel * `is_write_memory_value` * (1 - `error_out_of_bounds`)
-    // therefore we can simplify sel * (1 - `sel_should_read_memory`) into the following
+    // `sel_read_memory` = sel * `is_write_memory_value` * (1 - `error_out_of_bounds`)
+    // therefore we can simplify sel * (1 - `sel_read_memory`) into the following
     #[DISABLED_MEM_READ_VALUE_ZERO]
-    (sel - sel_should_read_memory) * value = 0;
+    (sel - sel_read_memory) * value = 0;
     #[DISABLED_MEM_READ_TAG_FF]
-    (sel - sel_should_read_memory) * (constants.MEM_TAG_FF - tag) = 0;
+    (sel - sel_read_memory) * (constants.MEM_TAG_FF - tag) = 0;
 
     // Tag should be zero since that's the FF tag.
     pol commit correct_tag; // @boolean
@@ -347,10 +345,10 @@ namespace emit_public_log;
     // We write to public inputs if we don't have an error at all and if discard is off.
     // Remember that we will always generate all rows necessary to process a log, it's just that we'll
     // gate the writes to public inputs based on the error and discard flags.
-    pol commit sel_should_write_to_public_inputs; // @boolean (by definition)
-    start * ((1 - error) * (1 - discard) - sel_should_write_to_public_inputs) = 0;
+    pol commit sel_write_to_public_inputs; // @boolean (by definition)
+    start * ((1 - error) * (1 - discard) - sel_write_to_public_inputs) = 0;
     #[SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY]
-    NOT_END * (sel_should_write_to_public_inputs' - sel_should_write_to_public_inputs) = 0;
+    NOT_END * (sel_write_to_public_inputs' - sel_write_to_public_inputs) = 0;
 
     // The starting offset that this set of public logs should be written to in the public inputs
     pol START_PUBLIC_INDEX = constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX + constants.FLAT_PUBLIC_LOGS_HEADER_LENGTH + prev_num_public_log_fields;
@@ -371,7 +369,7 @@ namespace emit_public_log;
     is_write_memory_value * (value - public_inputs_value) = 0;
 
     #[WRITE_DATA_TO_PUBLIC_INPUTS]
-    sel_should_write_to_public_inputs {
+    sel_write_to_public_inputs {
         public_inputs_index,
         public_inputs_value
     } in

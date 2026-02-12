@@ -69,7 +69,7 @@ struct lookup_emit_public_log_write_data_to_public_inputs_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EMIT_PUBLIC_LOG_WRITE_DATA_TO_PUBLIC_INPUTS";
     static constexpr std::string_view RELATION_NAME = "emit_public_log";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::emit_public_log_sel_should_write_to_public_inputs;
+    static constexpr Column SRC_SELECTOR = Column::emit_public_log_sel_write_to_public_inputs;
     static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
     static constexpr Column COUNTS = Column::lookup_emit_public_log_write_data_to_public_inputs_counts;
     static constexpr Column INVERSES = Column::lookup_emit_public_log_write_data_to_public_inputs_inv;

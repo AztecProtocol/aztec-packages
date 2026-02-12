@@ -14,9 +14,9 @@ template <typename FF_> class emit_public_logImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 41> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 4, 3, 3, 3, 5, 3, 3, 3, 3,
-                                                                            3, 3, 3, 4, 3, 6, 4, 2, 3, 3, 3, 4, 3, 3,
-                                                                            3, 3, 3, 3, 5, 4, 3, 3, 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 40> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 3, 3, 3, 3,
+                                                                            3, 3, 4, 3, 6, 4, 2, 3, 3, 3, 4, 3, 3, 3,
+                                                                            3, 3, 3, 5, 4, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -37,38 +37,35 @@ template <typename FF> class emit_public_log : public Relation<emit_public_logIm
     static constexpr const std::string_view NAME = "emit_public_log";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_SEL_TOGGLED_AT_START_END = 3;
-    static constexpr size_t SR_START_AFTER_LATCH = 4;
-    static constexpr size_t SR_TRACE_CONTINUITY = 5;
-    static constexpr size_t SR_COMPUTATION_FINISH_AT_END = 6;
-    static constexpr size_t SR_REMAINING_ROWS_DECREMENT = 8;
-    static constexpr size_t SR_ERROR_OUT_OF_BOUNDS_CONSISTENCY = 12;
-    static constexpr size_t SR_ERROR_TAG_MISMATCH_CONSISTENCY = 15;
-    static constexpr size_t SR_INITIAL_SEEN_WRONG_TAG = 16;
-    static constexpr size_t SR_WRONG_TAG_CHECK = 17;
-    static constexpr size_t SR_CHECK_END_TAG_MISMATCH = 18;
-    static constexpr size_t SR_WRITE_CONTRACT_ADDRESS_AFTER_START = 21;
-    static constexpr size_t SR_SET_AND_PROGATE_VALUE_WRITE = 24;
-    static constexpr size_t SR_SEL_SHOULD_READ_MEMORY_IS_SEL_AND_WRITE_MEM_AND_NO_ERR = 25;
-    static constexpr size_t SR_LOG_ADDRESS_INCREMENT = 26;
-    static constexpr size_t SR_EXEC_CLK_CONSISTENCY = 27;
-    static constexpr size_t SR_SPACE_ID_CONSISTENCY = 28;
-    static constexpr size_t SR_DISABLED_MEM_READ_VALUE_ZERO = 29;
-    static constexpr size_t SR_DISABLED_MEM_READ_TAG_FF = 30;
-    static constexpr size_t SR_SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY = 34;
-    static constexpr size_t SR_CONTRACT_ADDRESS_CONSISTENCY = 37;
+    static constexpr size_t SR_SEL_ON_START_OR_END = 3;
+    static constexpr size_t SR_TRACE_CONTINUITY = 4;
+    static constexpr size_t SR_START_AFTER_LATCH = 5;
+    static constexpr size_t SR_REMAINING_ROWS_DECREMENT = 7;
+    static constexpr size_t SR_ERROR_OUT_OF_BOUNDS_CONSISTENCY = 11;
+    static constexpr size_t SR_ERROR_TAG_MISMATCH_CONSISTENCY = 14;
+    static constexpr size_t SR_INITIAL_SEEN_WRONG_TAG = 15;
+    static constexpr size_t SR_WRONG_TAG_CHECK = 16;
+    static constexpr size_t SR_CHECK_END_TAG_MISMATCH = 17;
+    static constexpr size_t SR_WRITE_CONTRACT_ADDRESS_AFTER_START = 20;
+    static constexpr size_t SR_SET_AND_PROGATE_VALUE_WRITE = 23;
+    static constexpr size_t SR_SEL_SHOULD_READ_MEMORY_IS_SEL_AND_WRITE_MEM_AND_NO_ERR = 24;
+    static constexpr size_t SR_LOG_ADDRESS_INCREMENT = 25;
+    static constexpr size_t SR_EXEC_CLK_CONSISTENCY = 26;
+    static constexpr size_t SR_SPACE_ID_CONSISTENCY = 27;
+    static constexpr size_t SR_DISABLED_MEM_READ_VALUE_ZERO = 28;
+    static constexpr size_t SR_DISABLED_MEM_READ_TAG_FF = 29;
+    static constexpr size_t SR_SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY = 33;
+    static constexpr size_t SR_CONTRACT_ADDRESS_CONSISTENCY = 36;
 
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case SR_SEL_TOGGLED_AT_START_END:
-            return "SEL_TOGGLED_AT_START_END";
-        case SR_START_AFTER_LATCH:
-            return "START_AFTER_LATCH";
+        case SR_SEL_ON_START_OR_END:
+            return "SEL_ON_START_OR_END";
         case SR_TRACE_CONTINUITY:
             return "TRACE_CONTINUITY";
-        case SR_COMPUTATION_FINISH_AT_END:
-            return "COMPUTATION_FINISH_AT_END";
+        case SR_START_AFTER_LATCH:
+            return "START_AFTER_LATCH";
         case SR_REMAINING_ROWS_DECREMENT:
             return "REMAINING_ROWS_DECREMENT";
         case SR_ERROR_OUT_OF_BOUNDS_CONSISTENCY:
