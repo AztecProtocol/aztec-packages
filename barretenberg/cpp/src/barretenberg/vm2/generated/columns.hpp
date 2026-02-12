@@ -36,16 +36,16 @@ enum class ColumnAndShifts {
     SENTINEL_DO_NOT_USE,
 };
 
-constexpr auto NUM_COLUMNS_WITH_SHIFTS = 3571;
+constexpr auto NUM_COLUMNS_WITH_SHIFTS = 3570;
 constexpr auto NUM_COLUMNS_WITHOUT_SHIFTS = 3211;
 constexpr auto NUM_PRECOMPUTED_ENTITIES = 123;
 constexpr auto NUM_WIRE_ENTITIES = 2620;
 constexpr auto NUM_DERIVED_ENTITIES = 468;
 constexpr auto NUM_WITNESS_ENTITIES = NUM_WIRE_ENTITIES + NUM_DERIVED_ENTITIES;
-constexpr auto NUM_WIRES_TO_BE_SHIFTED = 360;
-constexpr auto NUM_SHIFTED_ENTITIES = 360;
+constexpr auto NUM_WIRES_TO_BE_SHIFTED = 359;
+constexpr auto NUM_SHIFTED_ENTITIES = 359;
 constexpr auto NUM_UNSHIFTED_ENTITIES = NUM_COLUMNS_WITHOUT_SHIFTS;
-constexpr auto NUM_ALL_ENTITIES = 3571;
+constexpr auto NUM_ALL_ENTITIES = 3570;
 
 /*
  * Layout for all entities is:

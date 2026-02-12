@@ -248,10 +248,7 @@ TEST(BytecodeDecompositionConstrainingTest, NegativePcWrongInitializationFirstRo
 {
     TestTraceContainer trace({
         { { C::precomputed_first_row, 1 } },
-        {
-            { C::bc_decomposition_pc, 0 },
-            { C::bc_decomposition_sel, 1 },
-        },
+        { { C::bc_decomposition_pc, 0 }, { C::bc_decomposition_sel, 1 }, { C::bc_decomposition_start, 1 } },
     });
 
     check_relation<bc_decomposition>(trace, bc_decomposition::SR_PC_ZERO_INITIALIZATION);
@@ -264,10 +261,7 @@ TEST(BytecodeDecompositionConstrainingTest, NegativePcWrongInitializationInside)
 {
     TestTraceContainer trace({
         { { C::bc_decomposition_last_of_contract, 1 } },
-        {
-            { C::bc_decomposition_pc, 0 },
-            { C::bc_decomposition_sel, 1 },
-        },
+        { { C::bc_decomposition_pc, 0 }, { C::bc_decomposition_sel, 1 }, { C::bc_decomposition_start, 1 } },
     });
 
     check_relation<bc_decomposition>(trace, bc_decomposition::SR_PC_ZERO_INITIALIZATION);
