@@ -16,35 +16,6 @@
 
 namespace bb::stdlib::recursion {
 
-// Combined limbs for default pairing points: lo = limb0 + limb1 * 2^68, hi = limb2 + limb3 * 2^68
-// These are the source of truth, used in set_default_to_public() to avoid expensive bigfield operations.
-static constexpr bb::fr DEFAULT_PP_P0_X_LO =
-    bb::fr("0x000000000000000000000000000000b75c020998797da7842ab5d6d1986846cf");
-static constexpr bb::fr DEFAULT_PP_P0_X_HI =
-    bb::fr("0x0000000000000000000000000000000000031e97a575e9d05a107acb64952eca");
-static constexpr bb::fr DEFAULT_PP_P0_Y_LO =
-    bb::fr("0x000000000000000000000000000000c410db10a01750aebb5666547acf8bd5a4");
-static constexpr bb::fr DEFAULT_PP_P0_Y_HI =
-    bb::fr("0x0000000000000000000000000000000000178cbf4206471d722669117f9758a4");
-static constexpr bb::fr DEFAULT_PP_P1_X_LO =
-    bb::fr("0x0000000000000000000000000000007fd51009034b3357f0e91b8a11e7842c38");
-static constexpr bb::fr DEFAULT_PP_P1_X_HI =
-    bb::fr("0x00000000000000000000000000000000000f94656a2ca489889939f81e9c7402");
-static constexpr bb::fr DEFAULT_PP_P1_Y_LO =
-    bb::fr("0x00000000000000000000000000000093fe27776f50224bd6fb128b46c1ddb67f");
-static constexpr bb::fr DEFAULT_PP_P1_Y_HI =
-    bb::fr("0x00000000000000000000000000000000001b52c2020d7464a0c80c0da527a081");
-
-// Arbitrary valid pairing points. Derived from the combined limbs above: fq = lo + hi * 2^136
-static constexpr bb::fq DEFAULT_PAIRING_POINT_P0_X =
-    bb::fq(uint256_t(DEFAULT_PP_P0_X_LO) + (uint256_t(DEFAULT_PP_P0_X_HI) << 136));
-static constexpr bb::fq DEFAULT_PAIRING_POINT_P0_Y =
-    bb::fq(uint256_t(DEFAULT_PP_P0_Y_LO) + (uint256_t(DEFAULT_PP_P0_Y_HI) << 136));
-static constexpr bb::fq DEFAULT_PAIRING_POINT_P1_X =
-    bb::fq(uint256_t(DEFAULT_PP_P1_X_LO) + (uint256_t(DEFAULT_PP_P1_X_HI) << 136));
-static constexpr bb::fq DEFAULT_PAIRING_POINT_P1_Y =
-    bb::fq(uint256_t(DEFAULT_PP_P1_Y_LO) + (uint256_t(DEFAULT_PP_P1_Y_HI) << 136));
-
 /**
  * @brief An object storing two EC points that represent the inputs to a pairing check.
  * @details The points may represent the output of a single partial recursive verification or the linear combination of
@@ -276,50 +247,35 @@ template <typename Curve> struct PairingPoints {
     }
 
     /**
-     * @brief Set the witness indices for the default limbs of the pairing points to public.
-     * @details Optimized version that directly sets precomputed Fr limb values as public inputs,
-     *          avoiding expensive bigfield operations. The default pairing points satisfy the
-     *          pairing equation.
+     * @brief Set the witness indices for the default (infinity) pairing points to public.
+     * @details Optimized version that directly sets zero Fr limb values as public inputs, avoiding expensive bigfield
+     * operations. The default pairing points are at infinity, which trivially satisfies the pairing equation
      *
      * @return uint32_t The index into the public inputs array at which the representation is stored
      */
     static uint32_t set_default_to_public(Builder* builder)
     {
-        // Directly add precomputed combined limbs as public inputs, bypassing bigfield's self_reduce.
-        // These values encode the default pairing points in the format used by bigfield::set_public().
-        // Order: P0.x (lo, hi), P0.y (lo, hi), P1.x (lo, hi), P1.y (lo, hi)
-        auto add_fixed_public = [&](const bb::fr& value) {
-            uint32_t idx = builder->add_public_variable(value);
-            builder->fix_witness(idx, value);
-            return idx;
-        };
-
-        uint32_t start_idx = add_fixed_public(DEFAULT_PP_P0_X_LO);
-        add_fixed_public(DEFAULT_PP_P0_X_HI);
-        add_fixed_public(DEFAULT_PP_P0_Y_LO);
-        add_fixed_public(DEFAULT_PP_P0_Y_HI);
-        add_fixed_public(DEFAULT_PP_P1_X_LO);
-        add_fixed_public(DEFAULT_PP_P1_X_HI);
-        add_fixed_public(DEFAULT_PP_P1_Y_LO);
-        add_fixed_public(DEFAULT_PP_P1_Y_HI);
-
+        // Infinity is represented as (0,0) in biggroup. Directly add zero limbs as public inputs, bypassing bigfield's
+        // self_reduce.
+        uint32_t start_idx = 0;
+        for (size_t i = 0; i < PUBLIC_INPUTS_SIZE; i++) {
+            uint32_t idx = builder->add_public_variable(bb::fr(0));
+            builder->fix_witness(idx, bb::fr(0));
+            if (i == 0) {
+                start_idx = idx;
+            }
+        }
         return start_idx;
     }
 
     /**
-     * @brief Construct default pairing points.
+     * @brief Construct default pairing points (both at infinity).
+     * @details The point at infinity trivially satisfies the pairing equation: e(∞, Q) = 1.
      */
     static PairingPoints construct_default()
     {
-        Fq P0_x(DEFAULT_PAIRING_POINT_P0_X);
-        Fq P0_y(DEFAULT_PAIRING_POINT_P0_Y);
-        Fq P1_x(DEFAULT_PAIRING_POINT_P1_X);
-        Fq P1_y(DEFAULT_PAIRING_POINT_P1_Y);
-
-        // These are known, valid points, so we can skip the curve checks.
-        Group P0(P0_x, P0_y, /*assert_on_curve=*/false);
-        Group P1(P1_x, P1_y, /*assert_on_curve=*/false);
-
+        Group P0(Fq(0), Fq(0), /*assert_on_curve=*/false);
+        Group P1(Fq(0), Fq(0), /*assert_on_curve=*/false);
         return PairingPoints(P0, P1);
     }
 

@@ -58,14 +58,19 @@ template <typename Curve_> class PairingPoints {
     static constexpr size_t size() { return SIZE; }
 
     /**
-     * @brief Aggregate the current pairing points with another set of pairing points using a random scalar
+     * @brief Aggregate the current pairing points with another set of pairing points using a random scalar.
+     * @details If this is at infinity (default-constructed), simply copies other. The incoming points must not be at
+     * infinity since they should always represent the output of actual PCS verification.
      */
     void aggregate(const PairingPoints<Curve>& other)
     {
-        if (P0() == Point::infinity() || P1() == Point::infinity() || other.P0() == Point::infinity() ||
-            other.P1() == Point::infinity()) {
-            throw_or_abort("WARNING: Shouldn't be aggregating with Point at infinity! The pairing points are probably "
-                           "uninitialized.");
+        if (other.P0() == Point::infinity() || other.P1() == Point::infinity()) {
+            throw_or_abort("Cannot aggregate: incoming pairing points are at infinity (probably uninitialized).");
+        }
+        // If this is at infinity (default/uninitialized), just adopt the incoming points
+        if (P0() == Point::infinity() || P1() == Point::infinity()) {
+            *this = other;
+            return;
         }
         Fr aggregation_separator = Fr::random_element();
         P0() = P0() + other.P0() * aggregation_separator;
@@ -77,10 +82,8 @@ template <typename Curve_> class PairingPoints {
      */
     bool check() const
     {
-        VerifierCK pcs_vkey{};
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1423): Rename to verifier_pcs_key or vckey or
-        // something. Issue exists in many places besides just here.
-        return pcs_vkey.pairing_check(P0(), P1());
+        VerifierCK vck{};
+        return vck.pairing_check(P0(), P1());
     }
 
     bool operator==(const PairingPoints<Curve>& other) const = default;
