@@ -1,7 +1,7 @@
 import { createLogger } from '@aztec/foundation/log';
 
 import { type TxMetaData, comparePriority } from '../tx_metadata.js';
-import type { PreAddPoolAccess, PreAddResult, PreAddRule } from './interfaces.js';
+import type { PreAddContext, PreAddPoolAccess, PreAddResult, PreAddRule } from './interfaces.js';
 
 /**
  * Pre-add rule that checks if a fee payer has sufficient balance to cover the incoming transaction.
@@ -19,7 +19,7 @@ export class FeePayerBalancePreAddRule implements PreAddRule {
 
   private log = createLogger('p2p:tx_pool_v2:fee_payer_balance_pre_add_rule');
 
-  async check(incomingMeta: TxMetaData, poolAccess: PreAddPoolAccess): Promise<PreAddResult> {
+  async check(incomingMeta: TxMetaData, poolAccess: PreAddPoolAccess, _context?: PreAddContext): Promise<PreAddResult> {
     // Get fee payer's on-chain balance
     const initialBalance = await poolAccess.getFeePayerBalance(incomingMeta.feePayer);
 

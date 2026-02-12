@@ -70,7 +70,7 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
 
   // === Core Operations ===
 
-  addPendingTxs(txs: Tx[], opts: { source?: string } = {}): Promise<AddTxsResult> {
+  addPendingTxs(txs: Tx[], opts: { source?: string; feeOnly?: boolean } = {}): Promise<AddTxsResult> {
     return this.#queue.put(() => this.#impl.addPendingTxs(txs, opts));
   }
 

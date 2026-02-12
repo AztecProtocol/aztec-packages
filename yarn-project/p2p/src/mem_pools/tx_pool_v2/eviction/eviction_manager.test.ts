@@ -205,7 +205,22 @@ describe('EvictionManager', () => {
 
       expect(result.shouldIgnore).toBe(false);
       expect(result.txHashesToEvict).toContain('0x2222');
-      expect(preAddRule.check).toHaveBeenCalledWith(incomingMeta, poolAccess);
+      expect(preAddRule.check).toHaveBeenCalledWith(incomingMeta, poolAccess, undefined);
+    });
+
+    it('forwards PreAddContext to rules', async () => {
+      preAddRule.check.mockResolvedValue({
+        shouldIgnore: false,
+        txHashesToEvict: [],
+      });
+
+      evictionManager.registerPreAddRule(preAddRule);
+      const incomingMeta = createMeta('0x1111', 100n);
+      const context = { feeOnly: true };
+
+      await evictionManager.runPreAddRules(incomingMeta, poolAccess, context);
+
+      expect(preAddRule.check).toHaveBeenCalledWith(incomingMeta, poolAccess, context);
     });
 
     it('returns ignore result immediately when a rule says to ignore', async () => {

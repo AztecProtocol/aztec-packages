@@ -3464,6 +3464,111 @@ describe('TxPoolV2', () => {
     });
   });
 
+  describe('feeOnly priority comparison', () => {
+    it('default (gossip): same-fee tx can evict via hash tiebreaker at capacity', async () => {
+      await pool.updateConfig({ maxPendingTxCount: 2 });
+
+      const tx1 = await mockTxWithFee(1, 10);
+      const tx2 = await mockTxWithFee(2, 20);
+      await pool.addPendingTxs([tx1, tx2]);
+      expect(await pool.getPendingTxCount()).toBe(2);
+      clearCallbackTracking();
+
+      // Create a tx with the same fee as the lowest (tx1, fee=10).
+      // Without feeOnly, comparePriority uses hash tiebreaker and may evict.
+      const tx3 = await mockTxWithFee(3, 10);
+
+      // Determine tiebreaker direction
+      const tx3HashFr = Fr.fromHexString(tx3.getTxHash().toString());
+      const tx1HashFr = Fr.fromHexString(tx1.getTxHash().toString());
+      const tx3WinsTiebreaker = tx3HashFr.cmp(tx1HashFr) > 0;
+
+      // Default: no feeOnly flag (gossip path)
+      const result = await pool.addPendingTxs([tx3]);
+
+      if (tx3WinsTiebreaker) {
+        expect(toStrings(result.accepted)).toContain(hashOf(tx3));
+        expect(await pool.getPendingTxCount()).toBe(2);
+        expect(await pool.getTxStatus(tx1.getTxHash())).toBe('deleted');
+        expect(await pool.getTxStatus(tx3.getTxHash())).toBe('pending');
+      } else {
+        expect(toStrings(result.ignored)).toContain(hashOf(tx3));
+        expect(await pool.getPendingTxCount()).toBe(2);
+        expect(await pool.getTxStatus(tx1.getTxHash())).toBe('pending');
+      }
+    });
+
+    it('feeOnly (RPC): same-fee tx is ignored at capacity regardless of hash', async () => {
+      await pool.updateConfig({ maxPendingTxCount: 2 });
+
+      const tx1 = await mockTxWithFee(1, 10);
+      const tx2 = await mockTxWithFee(2, 20);
+      await pool.addPendingTxs([tx1, tx2]);
+      expect(await pool.getPendingTxCount()).toBe(2);
+      clearCallbackTracking();
+
+      // Same fee as the lowest — with feeOnly, no hash tiebreaker, always ignored
+      const tx3 = await mockTxWithFee(3, 10);
+      const result = await pool.addPendingTxs([tx3], { feeOnly: true });
+
+      expect(toStrings(result.ignored)).toContain(hashOf(tx3));
+      expect(result.accepted).toHaveLength(0);
+      expect(await pool.getPendingTxCount()).toBe(2);
+      expectNoCallbacks();
+    });
+
+    it('feeOnly (RPC): higher-fee tx still evicts at capacity', async () => {
+      await pool.updateConfig({ maxPendingTxCount: 2 });
+
+      const tx1 = await mockTxWithFee(1, 10);
+      const tx2 = await mockTxWithFee(2, 20);
+      await pool.addPendingTxs([tx1, tx2]);
+      expect(await pool.getPendingTxCount()).toBe(2);
+      clearCallbackTracking();
+
+      const tx3 = await mockTxWithFee(3, 15);
+      const result = await pool.addPendingTxs([tx3], { feeOnly: true });
+
+      expect(toStrings(result.accepted)).toContain(hashOf(tx3));
+      expect(await pool.getPendingTxCount()).toBe(2);
+      expect(await pool.getTxStatus(tx1.getTxHash())).toBe('deleted'); // fee=10 evicted
+      expect(await pool.getTxStatus(tx3.getTxHash())).toBe('pending');
+    });
+
+    it('feeOnly (RPC): lower-fee tx is ignored at capacity', async () => {
+      await pool.updateConfig({ maxPendingTxCount: 2 });
+
+      const tx1 = await mockTxWithFee(1, 10);
+      const tx2 = await mockTxWithFee(2, 20);
+      await pool.addPendingTxs([tx1, tx2]);
+      expect(await pool.getPendingTxCount()).toBe(2);
+      clearCallbackTracking();
+
+      const tx3 = await mockTxWithFee(3, 5);
+      const result = await pool.addPendingTxs([tx3], { feeOnly: true });
+
+      expect(toStrings(result.ignored)).toContain(hashOf(tx3));
+      expect(await pool.getPendingTxCount()).toBe(2);
+      expectNoCallbacks();
+    });
+
+    it('feeOnly has no effect when pool is not at capacity', async () => {
+      await pool.updateConfig({ maxPendingTxCount: 10 });
+
+      const tx1 = await mockTxWithFee(1, 10);
+
+      // Both modes accept when below capacity
+      const result1 = await pool.addPendingTxs([tx1], { feeOnly: true });
+      expect(result1.accepted).toHaveLength(1);
+
+      const tx2 = await mockTxWithFee(2, 10);
+      const result2 = await pool.addPendingTxs([tx2]);
+      expect(result2.accepted).toHaveLength(1);
+
+      expect(await pool.getPendingTxCount()).toBe(2);
+    });
+  });
+
   describe('multiple nullifier conflicts', () => {
     it('handles tx with multiple nullifiers conflicting with different txs', async () => {
       const tx1 = await mockPublicTx(1, 5);

@@ -582,7 +582,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    **/
   public async sendTx(tx: Tx): Promise<void> {
     this.#assertIsReady();
-    const result = await this.txPool.addPendingTxs([tx]);
+    const result = await this.txPool.addPendingTxs([tx], { feeOnly: true });
     if (result.accepted.length === 1) {
       await this.p2pService.propagate(tx);
     } else {
@@ -598,7 +598,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    **/
   public async addTxsToPool(txs: Tx[]): Promise<number> {
     this.#assertIsReady();
-    return (await this.txPool.addPendingTxs(txs)).accepted.length;
+    return (await this.txPool.addPendingTxs(txs, { feeOnly: true })).accepted.length;
   }
 
   /**

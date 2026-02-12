@@ -1,7 +1,7 @@
 import { createLogger } from '@aztec/foundation/log';
 
-import type { TxMetaData } from '../tx_metadata.js';
-import type { EvictionConfig, PreAddPoolAccess, PreAddResult, PreAddRule } from './interfaces.js';
+import { type TxMetaData, comparePriority } from '../tx_metadata.js';
+import type { EvictionConfig, PreAddContext, PreAddPoolAccess, PreAddResult, PreAddRule } from './interfaces.js';
 
 /**
  * Pre-add rule that checks if the pool is at capacity and handles low-priority eviction.
@@ -20,7 +20,7 @@ export class LowPriorityPreAddRule implements PreAddRule {
     this.maxPoolSize = config.maxPoolSize;
   }
 
-  check(incomingMeta: TxMetaData, poolAccess: PreAddPoolAccess): Promise<PreAddResult> {
+  check(incomingMeta: TxMetaData, poolAccess: PreAddPoolAccess, context?: PreAddContext): Promise<PreAddResult> {
     // Skip if max pool size is disabled (0 = unlimited)
     if (this.maxPoolSize === 0) {
       return Promise.resolve({ shouldIgnore: false, txHashesToEvict: [] });
@@ -40,8 +40,14 @@ export class LowPriorityPreAddRule implements PreAddRule {
       return Promise.resolve({ shouldIgnore: false, txHashesToEvict: [] });
     }
 
-    // If incoming tx has strictly higher priority, evict the lowest priority tx
-    if (incomingMeta.priorityFee > lowestPriorityMeta.priorityFee) {
+    // Compare incoming tx against lowest priority tx.
+    // feeOnly mode (RPC): use strict fee comparison only — avoids churn from hash ordering
+    // Default (gossip): use full comparePriority (fee + tx hash tiebreaker) for determinism
+    const isHigherPriority = context?.feeOnly
+      ? incomingMeta.priorityFee > lowestPriorityMeta.priorityFee
+      : comparePriority(incomingMeta, lowestPriorityMeta) > 0;
+
+    if (isHigherPriority) {
       this.log.debug(
         `Pool at capacity (${currentCount}/${this.maxPoolSize}), evicting ${lowestPriorityMeta.txHash} ` +
           `(priority ${lowestPriorityMeta.priorityFee}) for ${incomingMeta.txHash} (priority ${incomingMeta.priorityFee})`,

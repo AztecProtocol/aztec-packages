@@ -6,6 +6,7 @@ export {
   type EvictionResult,
   type EvictionRule,
   type PoolOperations,
+  type PreAddContext,
   type PreAddPoolAccess,
   type PreAddResult,
   type PreAddRule,

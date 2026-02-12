@@ -87,6 +87,12 @@ export interface PreAddResult {
   readonly reason?: string;
 }
 
+/** Context passed to pre-add rules from addPendingTxs. */
+export interface PreAddContext {
+  /** If true, compare priority fee only (no tx hash tiebreaker). Used for RPC submissions. */
+  feeOnly?: boolean;
+}
+
 /**
  * Pre-add rule interface. Rules check incoming txs before they're added to the pool.
  * All methods work with TxMetaData for efficiency.
@@ -98,9 +104,10 @@ export interface PreAddRule {
    * Check if incoming tx should be added and which existing txs to evict.
    * @param incomingMeta - Metadata for the incoming transaction
    * @param poolAccess - Read-only access to current pool state
+   * @param context - Optional context from addPendingTxs caller
    * @returns Result indicating whether to ignore and what to evict
    */
-  check(incomingMeta: TxMetaData, poolAccess: PreAddPoolAccess): Promise<PreAddResult>;
+  check(incomingMeta: TxMetaData, poolAccess: PreAddPoolAccess, context?: PreAddContext): Promise<PreAddResult>;
 
   /**
    * Updates the configuration for this rule.

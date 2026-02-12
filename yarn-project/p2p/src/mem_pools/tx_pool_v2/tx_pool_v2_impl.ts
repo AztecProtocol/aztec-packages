@@ -23,6 +23,7 @@ import {
   LowPriorityPreAddRule,
   NullifierConflictRule,
   type PoolOperations,
+  type PreAddContext,
   type PreAddPoolAccess,
 } from './eviction/index.js';
 import { TxPoolV2Instrumentation } from './instrumentation.js';
@@ -177,13 +178,14 @@ export class TxPoolV2Impl {
     this.#log.info(`Deleted ${toDelete.length} invalid/rejected transactions on startup`);
   }
 
-  async addPendingTxs(txs: Tx[], opts: { source?: string }): Promise<AddTxsResult> {
+  async addPendingTxs(txs: Tx[], opts: { source?: string; feeOnly?: boolean }): Promise<AddTxsResult> {
     const accepted: TxHash[] = [];
     const ignored: TxHash[] = [];
     const rejected: TxHash[] = [];
     const acceptedPending = new Set<string>();
 
     const poolAccess = this.#createPreAddPoolAccess();
+    const preAddContext: PreAddContext | undefined = opts.feeOnly !== undefined ? { feeOnly: opts.feeOnly } : undefined;
 
     await this.#store.transactionAsync(async () => {
       for (const tx of txs) {
@@ -210,7 +212,14 @@ export class TxPoolV2Impl {
           accepted.push(txHash);
         } else {
           // Regular pending tx - validate and run pre-add rules
-          const result = await this.#tryAddRegularPendingTx(tx, opts, poolAccess, acceptedPending, ignored);
+          const result = await this.#tryAddRegularPendingTx(
+            tx,
+            opts,
+            poolAccess,
+            acceptedPending,
+            ignored,
+            preAddContext,
+          );
           if (result.status === 'accepted') {
             acceptedPending.add(txHashStr);
           } else if (result.status === 'rejected') {
@@ -252,6 +261,7 @@ export class TxPoolV2Impl {
     poolAccess: PreAddPoolAccess,
     acceptedPending: Set<string>,
     ignored: TxHash[],
+    preAddContext?: PreAddContext,
   ): Promise<{ status: 'accepted' | 'ignored' | 'rejected' }> {
     const txHash = tx.getTxHash();
     const txHashStr = txHash.toString();
@@ -263,7 +273,7 @@ export class TxPoolV2Impl {
     }
 
     // Run pre-add rules
-    const preAddResult = await this.#evictionManager.runPreAddRules(meta, poolAccess);
+    const preAddResult = await this.#evictionManager.runPreAddRules(meta, poolAccess, preAddContext);
 
     if (preAddResult.shouldIgnore) {
       this.#log.debug(`Ignoring tx ${txHashStr}: ${preAddResult.reason}`);

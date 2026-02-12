@@ -9,6 +9,7 @@ import {
   EvictionEvent,
   type EvictionRule,
   type PoolOperations,
+  type PreAddContext,
   type PreAddPoolAccess,
   type PreAddResult,
   type PreAddRule,
@@ -48,13 +49,17 @@ export class EvictionManager {
    * Runs all pre-add rules for an incoming transaction.
    * Returns combined result of all rules.
    */
-  async runPreAddRules(incomingMeta: TxMetaData, poolAccess: PreAddPoolAccess): Promise<PreAddResult> {
+  async runPreAddRules(
+    incomingMeta: TxMetaData,
+    poolAccess: PreAddPoolAccess,
+    context?: PreAddContext,
+  ): Promise<PreAddResult> {
     const evictions: TaggedEviction[] = [];
     const seen = new Set<string>();
 
     for (const rule of this.preAddRules) {
       try {
-        const result = await rule.check(incomingMeta, poolAccess);
+        const result = await rule.check(incomingMeta, poolAccess, context);
 
         if (result.shouldIgnore) {
           return result;

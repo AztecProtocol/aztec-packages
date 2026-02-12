@@ -1,4 +1,5 @@
 import {
+  Attributes,
   type Meter,
   Metrics,
   type ObservableGauge,
@@ -42,8 +43,8 @@ export class TxPoolV2Instrumentation {
     });
   }
 
-  recordEvictions(count: number) {
-    this.#evictedCounter.add(count);
+  recordEvictions(count: number, reason: string) {
+    this.#evictedCounter.add(count, { [Attributes.TX_POOL_EVICTION_REASON]: reason });
   }
 
   recordIgnored(count: number) {

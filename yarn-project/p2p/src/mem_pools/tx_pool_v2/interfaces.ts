@@ -101,7 +101,7 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
    * @param opts - Optional metadata (e.g., source for logging)
    * @returns Result categorizing each transaction as accepted, rejected, or ignored
    */
-  addPendingTxs(txs: Tx[], opts?: { source?: string }): Promise<AddTxsResult>;
+  addPendingTxs(txs: Tx[], opts?: { source?: string; feeOnly?: boolean }): Promise<AddTxsResult>;
 
   /**
    * Checks if a transaction can be added without modifying the pool.
