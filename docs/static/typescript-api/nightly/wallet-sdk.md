@@ -1,6 +1,6 @@
 # @aztec/wallet-sdk
 
-Version: v4.0.0-nightly.20260211
+Version: v4.0.0-nightly.20260212
 
 ## Quick Import Reference
 
@@ -51,7 +51,7 @@ Implements: `Wallet`
 
 **Constructor**
 ```typescript
-new BaseWallet(pxe: PXE, aztecNode: AztecNode)
+new BaseWallet(pxe: PXE, aztecNode: AztecNode, log: Logger)
 ```
 
 **Properties**
@@ -79,10 +79,11 @@ new BaseWallet(pxe: PXE, aztecNode: AztecNode)
 - `registerContract(instance: ContractInstanceWithAddress, artifact?: ContractArtifact, secretKey?: Fr) => Promise<ContractInstanceWithAddress>`
 - `registerSender(address: AztecAddress, _alias: string) => Promise<AztecAddress>`
 - `requestCapabilities(_manifest: AppCapabilities) => Promise<WalletCapabilities>` - Request capabilities from the wallet. This method is wallet-implementation-dependent and must be provided by classes extending BaseWallet. Embedded wallets typically don't support capability-based authorization (no user authorization flow), while external wallets (browser extensions, hardware wallets) implement this to reduce authorization friction by allowing apps to request permissions upfront. Consider making it abstract so implementing it is a conscious decision. Leaving it as-is while the feature stabilizes.
+- `scopesFor(from: AztecAddress) => AztecAddress[]`
 - `sendTx<W extends InteractionWaitOptions>(executionPayload: ExecutionPayload, opts: SendOptions<W>) => Promise<SendReturn<W>>`
 - `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResult>` - Simulates a transaction, optimizing leading public static calls by running them directly on the node while sending the remaining calls through the standard PXE path. Return values from both paths are merged back in original call order.
-- `simulateUtility(call: FunctionCall, authwits?: AuthWitness[]) => Promise<UtilitySimulationResult>`
-- `simulateViaEntrypoint(executionPayload: ExecutionPayload, from: AztecAddress, feeOptions: FeeOptions, skipTxValidation?: boolean, skipFeeEnforcement?: boolean) => Promise<TxSimulationResult>` - Simulates calls through the standard PXE path (account entrypoint).
+- `simulateUtility(call: FunctionCall, opts: SimulateUtilityOptions) => Promise<UtilitySimulationResult>`
+- `simulateViaEntrypoint(executionPayload: ExecutionPayload, from: AztecAddress, feeOptions: FeeOptions, skipTxValidation?: boolean, skipFeeEnforcement?: boolean, scopes?: AztecAddress[]) => Promise<TxSimulationResult>` - Simulates calls through the standard PXE path (account entrypoint).
 
 ### ContentScriptConnectionHandler
 
@@ -565,7 +566,7 @@ Values: `aztec-wallet-disconnect`, `aztec-wallet-discovery`, `aztec-wallet-disco
 This package references types from other Aztec packages:
 
 **@aztec/aztec.js**
-- `Account`, `Aliased`, `AppCapabilities`, `BatchResults`, `BatchedMethod`, `CallIntent`, `FeePaymentMethod`, `IntentInnerHash`, `InteractionWaitOptions`, `PrivateEvent`, `PrivateEventFilter`, `ProfileOptions`, `SendOptions`, `SendReturn`, `SimulateOptions`, `Wallet`, `WalletCapabilities`
+- `Account`, `Aliased`, `AppCapabilities`, `BatchResults`, `BatchedMethod`, `CallIntent`, `FeePaymentMethod`, `IntentInnerHash`, `InteractionWaitOptions`, `PrivateEvent`, `PrivateEventFilter`, `ProfileOptions`, `SendOptions`, `SendReturn`, `SimulateOptions`, `SimulateUtilityOptions`, `Wallet`, `WalletCapabilities`
 
 **@aztec/entrypoints**
 - `AccountFeePaymentMethodOptions`, `ChainInfo`
