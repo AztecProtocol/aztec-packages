@@ -35,7 +35,10 @@ template <> constexpr inline size_t count_leading_zeros<uint128_t>(uint128_t con
         return static_cast<size_t>(__builtin_clzll(hi));
     }
     auto lo = static_cast<uint64_t>(u);
-    return static_cast<size_t>(__builtin_clzll(lo)) + 64;
+    if (lo != 0U) {
+        return static_cast<size_t>(__builtin_clzll(lo)) + 64;
+    }
+    return 128;
 }
 
 template <> constexpr inline size_t count_leading_zeros<uint256_t>(uint256_t const& u)
