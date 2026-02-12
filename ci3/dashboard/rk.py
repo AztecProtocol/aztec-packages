@@ -514,7 +514,34 @@ def trigger_grind():
     return redirect(f'/{run_id}')
 
 
-# ---- Thin proxy to ci-metrics server ----
+# ---- Reverse proxy to ci-metrics server ----
+
+_proxy_session = requests.Session()
+_HOP_BY_HOP = frozenset([
+    'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
+    'te', 'trailers', 'transfer-encoding', 'upgrade', 'content-encoding', 'content-length',
+])
+
+def _proxy(path):
+    """Forward request to ci-metrics, streaming the response back."""
+    url = f'{CI_METRICS_URL}/{path.lstrip("/")}'
+    try:
+        resp = _proxy_session.request(
+            method=request.method,
+            url=url,
+            params=request.args,
+            data=request.get_data(),
+            headers={k: v for k, v in request.headers if k.lower() not in ('host',)},
+            stream=True,
+            timeout=60,
+        )
+        # Strip hop-by-hop headers
+        headers = {k: v for k, v in resp.headers.items() if k.lower() not in _HOP_BY_HOP}
+        return Response(resp.iter_content(chunk_size=8192),
+                        status=resp.status_code, headers=headers)
+    except Exception as e:
+        return Response(json.dumps({'error': f'ci-metrics unavailable: {e}'}),
+                        mimetype='application/json', status=502)
 
 @app.route('/namespace-billing')
 @app.route('/ci-health')
@@ -523,23 +550,12 @@ def trigger_grind():
 @app.route('/test-timings')
 @auth.login_required
 def proxy_dashboard():
-    try:
-        resp = requests.get(f'{CI_METRICS_URL}{request.path}', timeout=10)
-        return Response(resp.content, status=resp.status_code,
-                        content_type=resp.headers.get('Content-Type', 'text/html'))
-    except Exception as e:
-        return f"ci-metrics unavailable: {e}", 502
+    return _proxy(request.path)
 
-@app.route('/api/<path:path>')
+@app.route('/api/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 @auth.login_required
 def proxy_api(path):
-    try:
-        resp = requests.get(f'{CI_METRICS_URL}/api/{path}', params=request.args, timeout=30)
-        return Response(resp.content, status=resp.status_code,
-                        mimetype=resp.headers.get('Content-Type', 'application/json'))
-    except Exception as e:
-        return Response(json.dumps({'error': f'ci-metrics unavailable: {e}'}),
-                        mimetype='application/json', status=502)
+    return _proxy(f'/api/{path}')
 
 @app.route('/<key>')
 @auth.login_required
