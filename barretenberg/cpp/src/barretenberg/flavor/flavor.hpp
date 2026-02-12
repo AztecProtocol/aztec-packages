@@ -322,7 +322,6 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      * If we instead did the hashing outside and just submitted the hash, only the origin tag of the hash would be set
      * properly. By tagging the VK components directly, we ensure all VK witnesses have proper origin tags.
      *
-     * @param domain_separator (currently unused, kept for API compatibility)
      * @param tag The origin tag extracted from the transcript
      * @returns The hash of the verification key
      */
@@ -523,7 +522,6 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
      * If we instead did the hashing outside and just submitted the hash, only the origin tag of the hash would be set
      * properly. By tagging the VK components directly, we ensure all VK witnesses have proper origin tags.
      *
-     * @param domain_separator (currently unused, kept for API compatibility)
      * @param tag The origin tag extracted from the transcript
      * @returns The hash of the verification key
      */

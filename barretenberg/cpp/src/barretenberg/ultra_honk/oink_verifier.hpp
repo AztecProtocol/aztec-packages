@@ -33,7 +33,6 @@ template <typename Flavor> class OinkVerifier {
   public:
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Instance> verifier_instance;
-    std::string domain_separator;
     typename Flavor::CommitmentLabels comm_labels;
     bb::RelationParameters<FF> relation_parameters;
     WitnessCommitments witness_comms;
@@ -44,11 +43,9 @@ template <typename Flavor> class OinkVerifier {
 
     OinkVerifier(const std::shared_ptr<Instance>& verifier_instance,
                  const std::shared_ptr<Transcript>& transcript,
-                 size_t num_public_inputs,
-                 std::string domain_separator = "")
+                 size_t num_public_inputs)
         : transcript(transcript)
         , verifier_instance(verifier_instance)
-        , domain_separator(std::move(domain_separator))
         , num_public_inputs(num_public_inputs)
     {}
 

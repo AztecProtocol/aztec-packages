@@ -48,19 +48,16 @@ template <IsUltraOrMegaHonk Flavor> class OinkProver {
     std::shared_ptr<ProverInstance> prover_instance;
     std::shared_ptr<HonkVK> honk_vk;
     std::shared_ptr<Transcript> transcript;
-    std::string domain_separator;
 
     typename Flavor::CommitmentLabels commitment_labels;
     using SubrelationSeparator = typename Flavor::SubrelationSeparator;
 
     OinkProver(std::shared_ptr<ProverInstance> prover_instance,
                std::shared_ptr<HonkVK> honk_vk,
-               const std::shared_ptr<typename Flavor::Transcript>& transcript = std::make_shared<Transcript>(),
-               std::string domain_separator = "")
+               const std::shared_ptr<typename Flavor::Transcript>& transcript)
         : prover_instance(prover_instance)
         , honk_vk(honk_vk)
         , transcript(transcript)
-        , domain_separator(std::move(domain_separator))
     {}
 
     void prove();

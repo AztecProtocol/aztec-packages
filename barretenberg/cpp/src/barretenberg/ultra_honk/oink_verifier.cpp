@@ -53,7 +53,7 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
     auto vk = verifier_instance->get_vk();
 
     FF vk_hash = vk->hash_with_origin_tagging(*transcript);
-    transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
+    transcript->add_to_hash_buffer("vk_hash", vk_hash);
     vinfo("vk hash in Oink verifier: ", vk_hash);
 
     // For recursive flavors, assert that the VK hash matches the expected hash provided in the VK
@@ -77,8 +77,7 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
 
     std::vector<FF> public_inputs;
     for (size_t i = 0; i < num_public_inputs; ++i) {
-        auto public_input_i =
-            transcript->template receive_from_prover<FF>(domain_separator + "public_input_" + std::to_string(i));
+        auto public_input_i = transcript->template receive_from_prover<FF>("public_input_" + std::to_string(i));
         public_inputs.emplace_back(public_input_i);
     }
     verifier_instance->public_inputs = std::move(public_inputs);
@@ -92,21 +91,21 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
 template <typename Flavor> void OinkVerifier<Flavor>::execute_wire_commitments_round()
 {
     // Get commitments to first three wire polynomials
-    witness_comms.w_l = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_l);
-    witness_comms.w_r = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_r);
-    witness_comms.w_o = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_o);
+    witness_comms.w_l = transcript->template receive_from_prover<Commitment>(comm_labels.w_l);
+    witness_comms.w_r = transcript->template receive_from_prover<Commitment>(comm_labels.w_r);
+    witness_comms.w_o = transcript->template receive_from_prover<Commitment>(comm_labels.w_o);
 
     // If Goblin, get commitments to ECC op wire polynomials and DataBus columns
     if constexpr (IsMegaFlavor<Flavor>) {
         // Receive ECC op wire commitments
         for (auto [commitment, label] : zip_view(witness_comms.get_ecc_op_wires(), comm_labels.get_ecc_op_wires())) {
-            commitment = transcript->template receive_from_prover<Commitment>(domain_separator + label);
+            commitment = transcript->template receive_from_prover<Commitment>(label);
         }
 
         // Receive DataBus related polynomial commitments
         for (auto [commitment, label] :
              zip_view(witness_comms.get_databus_entities(), comm_labels.get_databus_entities())) {
-            commitment = transcript->template receive_from_prover<Commitment>(domain_separator + label);
+            commitment = transcript->template receive_from_prover<Commitment>(label);
         }
     }
 }
@@ -122,10 +121,9 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_sorted_list_accumu
 
     // Get commitments to lookup argument polynomials and fourth wire
     witness_comms.lookup_read_counts =
-        transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_read_counts);
-    witness_comms.lookup_read_tags =
-        transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_read_tags);
-    witness_comms.w_4 = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_4);
+        transcript->template receive_from_prover<Commitment>(comm_labels.lookup_read_counts);
+    witness_comms.lookup_read_tags = transcript->template receive_from_prover<Commitment>(comm_labels.lookup_read_tags);
+    witness_comms.w_4 = transcript->template receive_from_prover<Commitment>(comm_labels.w_4);
 }
 
 /**
@@ -134,19 +132,17 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_sorted_list_accumu
  */
 template <typename Flavor> void OinkVerifier<Flavor>::execute_log_derivative_inverse_round()
 {
-    auto [beta, gamma] = transcript->template get_challenges<FF>(
-        std::array<std::string, 2>{ domain_separator + "beta", domain_separator + "gamma" });
+    auto [beta, gamma] = transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
     relation_parameters.compute_beta_powers(beta);
     relation_parameters.gamma = gamma;
 
-    witness_comms.lookup_inverses =
-        transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_inverses);
+    witness_comms.lookup_inverses = transcript->template receive_from_prover<Commitment>(comm_labels.lookup_inverses);
 
     // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomials
     if constexpr (IsMegaFlavor<Flavor>) {
         for (auto [commitment, label] :
              zip_view(witness_comms.get_databus_inverses(), comm_labels.get_databus_inverses())) {
-            commitment = transcript->template receive_from_prover<Commitment>(domain_separator + label);
+            commitment = transcript->template receive_from_prover<Commitment>(label);
         }
     }
 }
@@ -165,14 +161,14 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_grand_product_comp
     relation_parameters.public_input_delta = public_input_delta;
 
     // Get commitment to permutation and lookup grand products
-    witness_comms.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.z_perm);
+    witness_comms.z_perm = transcript->template receive_from_prover<Commitment>(comm_labels.z_perm);
 }
 
 template <typename Flavor> typename Flavor::SubrelationSeparator OinkVerifier<Flavor>::generate_alpha_round()
 {
     // Get the single alpha challenge for sumcheck computation
     // Powers of this challenge will be used to batch subrelations
-    return transcript->template get_challenge<FF>(domain_separator + "alpha");
+    return transcript->template get_challenge<FF>("alpha");
 }
 
 // Native flavor instantiations
