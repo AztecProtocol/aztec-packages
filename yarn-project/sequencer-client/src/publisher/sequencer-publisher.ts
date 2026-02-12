@@ -32,6 +32,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
@@ -112,6 +113,7 @@ export class SequencerPublisher {
   protected lastActions: Partial<Record<Action, SlotNumber>> = {};
 
   private isPayloadEmptyCache: Map<string, boolean> = new Map<string, boolean>();
+  private payloadProposedCache: Set<string> = new Set<string>();
 
   protected log: Logger;
   protected ethereumSlotDuration: bigint;
@@ -688,6 +690,31 @@ export class SequencerPublisher {
 
     if (await this.isPayloadEmpty(payload)) {
       this.log.warn(`Skipping vote cast for payload with empty code`);
+      return false;
+    }
+
+    // Check if payload was already submitted to governance
+    const cacheKey = payload.toString();
+    if (!this.payloadProposedCache.has(cacheKey)) {
+      try {
+        const proposed = await retry(
+          () => base.hasPayloadBeenProposed(payload.toString()),
+          'Check if payload was proposed',
+          makeBackoff([0, 1, 2]),
+          this.log,
+          true,
+        );
+        if (proposed) {
+          this.payloadProposedCache.add(cacheKey);
+        }
+      } catch (err) {
+        this.log.warn(`Failed to check if payload ${payload} was proposed after retries, skipping signal`, err);
+        return false;
+      }
+    }
+
+    if (this.payloadProposedCache.has(cacheKey)) {
+      this.log.info(`Payload ${payload} was already proposed to governance, stopping signals`);
       return false;
     }
 

@@ -418,4 +418,119 @@ describe('SequencerPublisher', () => {
       ),
     ).toEqual(false);
   });
+
+  it('stops signalling when payload was previously proposed', async () => {
+    const { govPayload } = mockGovernancePayload();
+    governanceProposerContract.hasPayloadBeenProposed.mockResolvedValue(true);
+
+    expect(
+      await publisher.enqueueGovernanceCastSignal(
+        govPayload,
+        SlotNumber(2),
+        1n,
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
+      ),
+    ).toEqual(false);
+  });
+
+  it('continues signalling when payload was NOT proposed', async () => {
+    const { govPayload } = mockGovernancePayload();
+    governanceProposerContract.hasPayloadBeenProposed.mockResolvedValue(false);
+
+    expect(
+      await publisher.enqueueGovernanceCastSignal(
+        govPayload,
+        SlotNumber(2),
+        1n,
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
+      ),
+    ).toEqual(true);
+  });
+
+  it('caches proposed result and prevents repeated L1 calls', async () => {
+    const { govPayload } = mockGovernancePayload();
+    governanceProposerContract.hasPayloadBeenProposed.mockResolvedValue(true);
+
+    await publisher.enqueueGovernanceCastSignal(
+      govPayload,
+      SlotNumber(2),
+      1n,
+      EthAddress.fromString(testHarnessAttesterAccount.address),
+      msg => testHarnessAttesterAccount.signTypedData(msg),
+    );
+
+    await publisher.enqueueGovernanceCastSignal(
+      govPayload,
+      SlotNumber(3),
+      2n,
+      EthAddress.fromString(testHarnessAttesterAccount.address),
+      msg => testHarnessAttesterAccount.signTypedData(msg),
+    );
+
+    expect(governanceProposerContract.hasPayloadBeenProposed).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries on transient RPC failure and succeeds', async () => {
+    const { govPayload } = mockGovernancePayload();
+    governanceProposerContract.hasPayloadBeenProposed
+      .mockRejectedValueOnce(new Error('RPC error'))
+      .mockRejectedValueOnce(new Error('RPC error'))
+      .mockResolvedValueOnce(false);
+
+    expect(
+      await publisher.enqueueGovernanceCastSignal(
+        govPayload,
+        SlotNumber(2),
+        1n,
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
+      ),
+    ).toEqual(true);
+  });
+
+  it('fails closed on persistent RPC failure', async () => {
+    const { govPayload } = mockGovernancePayload();
+    governanceProposerContract.hasPayloadBeenProposed.mockRejectedValue(new Error('RPC error'));
+
+    expect(
+      await publisher.enqueueGovernanceCastSignal(
+        govPayload,
+        SlotNumber(2),
+        1n,
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
+      ),
+    ).toEqual(false);
+  });
+
+  it('does not cache false result and re-checks on subsequent calls', async () => {
+    const { govPayload } = mockGovernancePayload();
+    governanceProposerContract.hasPayloadBeenProposed.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+
+    // First call: not proposed, signalling proceeds
+    expect(
+      await publisher.enqueueGovernanceCastSignal(
+        govPayload,
+        SlotNumber(2),
+        1n,
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
+      ),
+    ).toEqual(true);
+
+    // Second call: now proposed, signalling stops
+    expect(
+      await publisher.enqueueGovernanceCastSignal(
+        govPayload,
+        SlotNumber(3),
+        2n,
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
+      ),
+    ).toEqual(false);
+
+    expect(governanceProposerContract.hasPayloadBeenProposed).toHaveBeenCalledTimes(2);
+  });
 });
