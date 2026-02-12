@@ -95,7 +95,7 @@ function is_version_installed {
 function is_semver {
   local version="$1"
   # Match semver: X.Y.Z with optional pre-release and build metadata
-  local semver_regex='^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$'
+  local semver_regex='^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.]+)?$'
   [[ "$version" =~ $semver_regex ]]
 }
 
