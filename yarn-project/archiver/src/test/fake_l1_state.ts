@@ -131,6 +131,7 @@ export class FakeL1State {
   private provenCheckpointNumber: CheckpointNumber = CheckpointNumber(0);
   private targetCommitteeSize: number = 0;
   private version: bigint = 1n;
+  private canPruneResult: boolean = false;
 
   // Computed from checkpoints based on L1 block visibility
   private pendingCheckpointNumber: CheckpointNumber = CheckpointNumber(0);
@@ -276,6 +277,11 @@ export class FakeL1State {
     this.targetCommitteeSize = size;
   }
 
+  /** Sets whether the rollup contract would allow pruning at the next block. */
+  setCanPrune(value: boolean): void {
+    this.canPruneResult = value;
+  }
+
   /**
    * Removes all entries for a checkpoint number (simulates L1 reorg or prune).
    * Note: Does NOT remove messages for this checkpoint (use numL1ToL2Messages: 0 when re-adding).
@@ -383,6 +389,8 @@ export class FakeL1State {
         archiveOfMyCheckpoint: this.getArchiveAt(localCheckpointNum),
       });
     });
+
+    mockRollup.canPruneAtTime.mockImplementation(() => Promise.resolve(this.canPruneResult));
 
     // Mock the wrapper method for fetching checkpoint events
     mockRollup.getCheckpointProposedEvents.mockImplementation((fromBlock: bigint, toBlock: bigint) =>
