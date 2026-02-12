@@ -3,9 +3,10 @@ set -euo pipefail
 
 # validate_api_ref_links - Validate that markdown links to aztec-nr API reference resolve to actual files
 #
-# Scans versioned docs for pathname:///aztec-nr-api/ links (and JSX href variants) and checks
-# that the target files exist in static/aztec-nr-api/. Uses case-insensitive matching since
-# Netlify's CDN is case-insensitive, but warns about case mismatches.
+# Scans processed-docs/ (current build content) and developer_versioned_docs/ (pinned snapshots)
+# for pathname:///aztec-nr-api/ links (and JSX href variants) and checks that the target files
+# exist in static/aztec-nr-api/. Uses case-insensitive matching since Netlify's CDN is
+# case-insensitive, but warns about case mismatches.
 #
 # Usage: validate_api_ref_links.sh
 #
@@ -22,18 +23,28 @@ fi
 
 echo "Validating API reference links..."
 
-# Collect all versioned docs directories (where macros are already resolved)
+# Collect directories to scan.
+# 1. processed-docs/ — current docs with macros resolved (available during build after preprocess:move)
+# 2. developer_versioned_docs/ — pinned version snapshots (macros already resolved at version time)
+# We skip docs-developers/ source files because they contain unresolved #api_ref_version macros.
 SEARCH_DIRS=()
+
+# Processed docs (current build content — most important for catching regressions)
+if [[ -d "$DOCS_ROOT/processed-docs" ]]; then
+  SEARCH_DIRS+=("$DOCS_ROOT/processed-docs")
+fi
+
+# Versioned docs snapshots
 for dir in "$DOCS_ROOT"/developer_versioned_docs/version-*; do
   [[ -d "$dir" ]] && SEARCH_DIRS+=("$dir")
 done
 
 if [[ ${#SEARCH_DIRS[@]} -eq 0 ]]; then
-  echo "No versioned docs directories found. Skipping."
+  echo "No docs directories found (no processed-docs/ or versioned docs). Skipping."
   exit 0
 fi
 
-echo "Scanning ${#SEARCH_DIRS[@]} versioned docs directory(ies)..."
+echo "Scanning ${#SEARCH_DIRS[@]} docs directory(ies)..."
 
 BROKEN_COUNT=0
 CASE_MISMATCH_COUNT=0
