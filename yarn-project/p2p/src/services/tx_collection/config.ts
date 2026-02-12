@@ -31,6 +31,12 @@ export type TxCollectionConfig = {
   txCollectionNodeRpcMaxBatchSize: number;
   /** Which collector implementation to use for missing txs collection */
   txCollectionMissingTxsCollectorType: MissingTxsCollectorType;
+  /** A comma-separated list of file store URLs (s3://, gs://, file://, http://) for tx collection */
+  txCollectionFileStoreUrls: string[];
+  /** Delay in ms before file store collection starts after slow collection is triggered */
+  txCollectionFileStoreSlowDelayMs: number;
+  /** Delay in ms before file store collection starts after fast collection is triggered */
+  txCollectionFileStoreFastDelayMs: number;
 };
 
 export const txCollectionConfigMappings: ConfigMappingsType<TxCollectionConfig> = {
@@ -94,5 +100,25 @@ export const txCollectionConfigMappings: ConfigMappingsType<TxCollectionConfig> 
     env: 'TX_COLLECTION_MISSING_TXS_COLLECTOR_TYPE',
     description: 'Which collector implementation to use for missing txs collection (new or old)',
     ...enumConfigHelper(['new', 'old'] as const, 'new'),
+  },
+  txCollectionFileStoreUrls: {
+    env: 'TX_COLLECTION_FILE_STORE_URLS',
+    description: 'A comma-separated list of file store URLs (s3://, gs://, file://, http://) for tx collection',
+    parseEnv: (val: string) =>
+      val
+        .split(',')
+        .map(url => url.trim())
+        .filter(url => url.length > 0),
+    defaultValue: [],
+  },
+  txCollectionFileStoreSlowDelayMs: {
+    env: 'TX_COLLECTION_FILE_STORE_SLOW_DELAY_MS',
+    description: 'Delay before file store collection starts after slow collection',
+    ...numberConfigHelper(24_000),
+  },
+  txCollectionFileStoreFastDelayMs: {
+    env: 'TX_COLLECTION_FILE_STORE_FAST_DELAY_MS',
+    description: 'Delay before file store collection starts after fast collection',
+    ...numberConfigHelper(2_000),
   },
 };

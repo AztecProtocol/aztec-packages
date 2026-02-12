@@ -1,6 +1,6 @@
 use crate::{abis::PublicChonkVerifierPublicInputs, tx_base::components::private_tail_validator};
 use super::fees::compute_effective_gas_fees;
-use dep::types::{
+use types::{
     abis::{
         avm_circuit_public_inputs::AvmCircuitPublicInputs, block_constant_data::BlockConstantData,
     },
@@ -59,7 +59,7 @@ impl PublicTxBaseInputsValidator {
     }
 
     fn validate_public_chonk_verifier_proof_and_vk(self) {
-        if !dep::std::runtime::is_unconstrained() {
+        if !::std::runtime::is_unconstrained() {
             self.public_chonk_verifier_proof_data.verify_proof();
         }
 
@@ -74,7 +74,7 @@ impl PublicTxBaseInputsValidator {
     }
 
     fn validate_avm_proof(self) {
-        if !dep::std::runtime::is_unconstrained() {
+        if !::std::runtime::is_unconstrained() {
             self.avm_proof_data.verify_proof_with_columns();
         }
     }

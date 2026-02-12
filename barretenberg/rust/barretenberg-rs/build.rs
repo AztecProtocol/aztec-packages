@@ -12,7 +12,7 @@ fn main() {
 
         // Link C++ standard library (different name on macOS/iOS vs Linux)
         let target = std::env::var("TARGET").unwrap();
-        if target.contains("apple") {
+        if target.contains("apple") || target.contains("android") {
             println!("cargo:rustc-link-lib=dylib=c++");
         } else {
             println!("cargo:rustc-link-lib=dylib=stdc++");
@@ -62,9 +62,13 @@ fn download_lib(out_dir: &PathBuf) {
         }
         // iOS device
         t if t.contains("aarch64") && t.contains("apple") && t.contains("ios") => "arm64-ios",
+        // Android
+        t if t.contains("aarch64") && t.contains("android") => "arm64-android",
+        t if t.contains("x86_64") && t.contains("android") => "x86_64-android",
         _ => panic!(
             "Unsupported target for FFI backend: {}. \
-             Supported: x86_64-linux, aarch64-linux, x86_64-apple-darwin, aarch64-apple-darwin, aarch64-apple-ios, aarch64-apple-ios-sim",
+             Supported: x86_64-linux, aarch64-linux, x86_64-apple-darwin, aarch64-apple-darwin, \
+             aarch64-apple-ios, aarch64-apple-ios-sim, aarch64-linux-android, x86_64-linux-android",
             target
         ),
     };

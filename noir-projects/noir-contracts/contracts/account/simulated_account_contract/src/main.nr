@@ -1,4 +1,4 @@
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 // Account contract that does not perform any authentication, typically used to override a *real* account contract
 // in a simulation. This avoids the need of generating real signatures during simulation.
@@ -8,7 +8,7 @@ use dep::aztec::macros::aztec;
 // public key of the overridden contract
 #[aztec]
 pub contract SimulatedAccount {
-    use dep::aztec::{
+    use aztec::{
         authwit::{account::AccountActions, auth::IS_VALID_SELECTOR, entrypoint::app::AppPayload},
         context::PrivateContext,
         macros::functions::{allow_phase_change, external, view},

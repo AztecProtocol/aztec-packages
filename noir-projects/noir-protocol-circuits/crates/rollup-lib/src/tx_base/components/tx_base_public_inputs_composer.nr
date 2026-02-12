@@ -6,7 +6,7 @@ use crate::{
         tree_snapshot_builder::{build_tree_snapshots, TreeSnapshotDiffHints},
     },
 };
-use dep::types::{
+use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         avm_circuit_public_inputs::AvmCircuitPublicInputs, block_constant_data::BlockConstantData,

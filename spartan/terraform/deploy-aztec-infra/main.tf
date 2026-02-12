@@ -180,6 +180,7 @@ locals {
     "validator.slash.dataWithholdingPenalty"                   = var.SLASH_DATA_WITHHOLDING_PENALTY
     "validator.slash.proposeInvalidAttestationsPenalty"        = var.SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY
     "validator.slash.duplicateProposalPenalty"                 = var.SLASH_DUPLICATE_PROPOSAL_PENALTY
+    "validator.slash.duplicateAttestationPenalty"              = var.SLASH_DUPLICATE_ATTESTATION_PENALTY
     "validator.slash.attestDescendantOfInvalidPenalty"         = var.SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY
     "validator.slash.unknownPenalty"                           = var.SLASH_UNKNOWN_PENALTY
     "validator.slash.invalidBlockPenalty"                      = var.SLASH_INVALID_BLOCK_PENALTY

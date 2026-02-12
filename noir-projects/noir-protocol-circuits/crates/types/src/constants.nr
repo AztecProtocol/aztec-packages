@@ -166,9 +166,9 @@ pub global MAX_CHECKPOINTS_PER_EPOCH: u32 = 32;
 pub global MAX_INCLUDE_BY_TIMESTAMP_DURATION: u64 = 86400; // 1 day
 // The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
 pub global GENESIS_BLOCK_HEADER_HASH: Field =
-    0x20859c34fd7cd64578ba0779e7475e56900de9b95f1b634fbe2d7b266d8d2840;
+    0x2ff681dd7730c7b9e5650c70afa57ee81377792dfc95d98c11817b8c761ff965;
 pub global GENESIS_ARCHIVE_ROOT: Field =
-    0x2b7cc335b4798b4d9b5e88cd6b55b1ce54b1225970ad2adff7820413a3c4ca3c;
+    0x15684c8c3d2106918d3860f777e50555b7166adff47df13cc652e2e5a50bf5c7;
 pub global EMPTY_EPOCH_OUT_HASH: Field =
     0xc95e0ceb41951039e1592745ec2faea9866f6eaf01bf189a4463b4143af093;
 
@@ -203,28 +203,18 @@ pub global CLASS_REGISTRY_UTILITY_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 =/
     + 1 /* function selector */
     + 1 /* function metadata_hash */;
 
-// TODO: Replace sha224 with sha256 to field (truncating)
-
-// Since we are not yet emitting selectors we'll use this magic value to identify events emitted by the ClassRegistry.
-// This is just a stopgap until we implement proper selectors.
-// sha224sum 'struct ContractClassPublished {contract_class_id: ContractClassId, version: Field, artifact_hash: Field, private_functions_root: Field, packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] }'
+// We use these magic values to identify events emitted by the ContractClassRegistry and ContractInstanceRegistry.
+// The values were generated and checked in `constants_tests.nr`.
 pub global CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE: Field =
-    0x865ad43bd9e1810c684c0e95514e6bd32fb5f55fe1dc8f538c19bd35;
-// sha224sum 'struct ClassPrivateFunctionBroadcasted'
+    0x20f5895a4e837356c2d551743df6bf642756dcd93cd31cbd37c556c90bf7f244;
 pub global CONTRACT_CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE: Field =
-    0x1b70e95fde0b70adc30496b90a327af6a5e383e028e7a43211a07bcd;
-// sha224sum 'struct ClassUtilityFunctionBroadcasted'
+    0x0ea9d22f6c3686a6866f103431c5796d2be7b7a3d0c3abcf7636b064ab09e618;
 pub global CONTRACT_CLASS_REGISTRY_UTILITY_FUNCTION_BROADCASTED_MAGIC_VALUE: Field =
-    0xe7af816635466f128568edb04c9fa024f6c87fb9010fdbffa68b3d99;
-
-// CONTRACT INSTANCE CONSTANTS
-// sha224sum 'struct ContractInstancePublished'
+    0x06549ee6586be1c25c81f2d579c06a4c3f31255def74dd729903811d90ba2369;
 pub global CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE: Field =
-    0xb9b83068bdb54802a16c21ea497fa1d3363fdfab7e81557cad2a5547;
-
-// sha224sum 'struct ContractInstanceUpdated'
+    0x174c6b3d0fd14728e4fc5e53f7b262ab943546a7e125e2ed5e9fde3cf0b3e22f;
 pub global CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE: Field =
-    0x0e92f9f8a534e858fcf777da206e08b0c620ecf9deb21d13479813f6;
+    0x2dcffa53cd0e71da7b4a22677b3342bfc3b9043f5081bea58368ad008eaa6f37;
 
 // CANONICAL CONTRACT ADDRESSES
 // The maximum number of protocol contracts that can be supported.
@@ -245,7 +235,10 @@ pub global PUBLIC_CHECKS_ADDRESS: AztecAddress = AztecAddress::from_field(6);
 // padding feature.
 // It's not possible to create an actual contract whose address equals this value. If it were possible, it would mean
 // that anyone can freely change the state of the contract by adding padding side effects to their transactions.
-pub global SIDE_EFFECT_MASKING_ADDRESS: AztecAddress = AztecAddress::from_field(12); // MAX_PROTOCOL_CONTRACTS + 1, but can't automatically derive or constants generator fails
+// The value was generated and checked in `constants_tests.nr`.
+pub global SIDE_EFFECT_MASKING_ADDRESS: AztecAddress = AztecAddress::from_field(
+    0x2b29b6b962034f217d620700c44845d2a3c7d208d7e23328286124f4c6eb11e3,
+);
 
 // NULL MSG_SENDER CONTRACT ADDRESS (not part of the protocol contracts tree).
 pub global NULL_MSG_SENDER_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(
@@ -253,8 +246,9 @@ pub global NULL_MSG_SENDER_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_f
 ); // This is `-1`.
 
 // Randomly chosen slot for the bytecode capsule.
-// TODO: make this "NUMS" number. hash("CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT")
-pub global CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT: Field = 79025834455612;
+// The value was generated and checked in `constants_tests.nr`.
+pub global CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT: Field =
+    0x1f61038721b052d5389449bf44f73c817146aedfab1ef13d37f16ce928df1fb7;
 
 // Slot of the balances map to be hashed with an AztecAddress (map key) to get an actual storage slot.
 // TODO: document the fee_juice contract, documenting where all of the logic and constants live, because it's all over the place.
@@ -637,65 +631,63 @@ pub global MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS: u32 = 21;
 
 // ---------------------------------------------------------------
 // DOMAIN SEPARATORS
-
-// See ./domain-separators.nr for how the values of the domain separators are generated.
-
+// See ./constants_tests.nr for how the values are generated.
 // ---------------------------------------------------------------
 
 // Note hash generator index which can be used by custom implementations of NoteHash::compute_note_hash
-pub global DOM_SEP__NOTE_HASH: u32 = 570261536;
-pub global DOM_SEP__NOTE_HASH_NONCE: u32 = 4040695053;
-pub global DOM_SEP__UNIQUE_NOTE_HASH: u32 = 1615905817;
-pub global DOM_SEP__SILOED_NOTE_HASH: u32 = 3552985968;
+pub global DOM_SEP__NOTE_HASH: u32 = 116501019;
+pub global DOM_SEP__NOTE_HASH_NONCE: u32 = 1721808740;
+pub global DOM_SEP__UNIQUE_NOTE_HASH: u32 = 226850429;
+pub global DOM_SEP__SILOED_NOTE_HASH: u32 = 3361878420;
 
-pub global DOM_SEP__NOTE_NULLIFIER: u32 = 2273326939;
-pub global DOM_SEP__MESSAGE_NULLIFIER: u32 = 4179235419;
-pub global DOM_SEP__SILOED_NULLIFIER: u32 = 1843769845;
+pub global DOM_SEP__NOTE_NULLIFIER: u32 = 50789342;
+pub global DOM_SEP__MESSAGE_NULLIFIER: u32 = 3754509616;
+pub global DOM_SEP__SILOED_NULLIFIER: u32 = 57496191;
 
-pub global DOM_SEP__PRIVATE_LOG_FIRST_FIELD: u32 = 3381826258;
+pub global DOM_SEP__PRIVATE_LOG_FIRST_FIELD: u32 = 2769976252;
 
-pub global DOM_SEP__PUBLIC_LEAF_SLOT: u32 = 2853865602;
-pub global DOM_SEP__PUBLIC_STORAGE_MAP_SLOT: u32 = 1106049611;
+pub global DOM_SEP__PUBLIC_LEAF_SLOT: u32 = 1247650290;
+pub global DOM_SEP__PUBLIC_STORAGE_MAP_SLOT: u32 = 4015149901;
 
 // ---------------------------------------------------------------
 // Contract Address
 
 // Class Id
-pub global DOM_SEP__PRIVATE_FUNCTION_LEAF: u32 = 3274445394;
-pub global DOM_SEP__PUBLIC_BYTECODE: u32 = 4245021897;
-pub global DOM_SEP__CONTRACT_CLASS_ID: u32 = 1134959961;
+pub global DOM_SEP__PRIVATE_FUNCTION_LEAF: u32 = 1389398688;
+pub global DOM_SEP__PUBLIC_BYTECODE: u32 = 260313585;
+pub global DOM_SEP__CONTRACT_CLASS_ID: u32 = 3923495515;
 
 // Salted Initialization Hash
-pub global DOM_SEP__INITIALIZER: u32 = 3165476885;
+pub global DOM_SEP__INITIALIZER: u32 = 385396519;
 
 // Keys
-pub global DOM_SEP__NHK_M: u32 = 3431122223;
-pub global DOM_SEP__IVSK_M: u32 = 3641144584;
-pub global DOM_SEP__OVSK_M: u32 = 449371170;
-pub global DOM_SEP__TSK_M: u32 = 4031170476;
-pub global DOM_SEP__PUBLIC_KEYS_HASH: u32 = 349301051;
+pub global DOM_SEP__NHK_M: u32 = 242137788;
+pub global DOM_SEP__IVSK_M: u32 = 2747825907;
+pub global DOM_SEP__OVSK_M: u32 = 4272201051;
+pub global DOM_SEP__TSK_M: u32 = 1546190975;
+pub global DOM_SEP__PUBLIC_KEYS_HASH: u32 = 777457226;
 
 // Address
-pub global DOM_SEP__PARTIAL_ADDRESS: u32 = 1453969891;
+pub global DOM_SEP__PARTIAL_ADDRESS: u32 = 2103633018;
 
-pub global DOM_SEP__CONTRACT_ADDRESS_V1: u32 = 2091531360;
+pub global DOM_SEP__CONTRACT_ADDRESS_V1: u32 = 1788365517;
 
 // ---------------------------------------------------------------
 
-pub global DOM_SEP__BLOCK_HEADER_HASH: u32 = 2064783670;
+pub global DOM_SEP__BLOCK_HEADER_HASH: u32 = 4195546849;
 
-pub global DOM_SEP__TX_REQUEST: u32 = 1076396939;
-pub global DOM_SEP__PUBLIC_TX_HASH: u32 = 419169672;
-pub global DOM_SEP__PRIVATE_TX_HASH: u32 = 4261301885;
+pub global DOM_SEP__TX_REQUEST: u32 = 3763737512;
+pub global DOM_SEP__PUBLIC_TX_HASH: u32 = 1630108851;
+pub global DOM_SEP__PRIVATE_TX_HASH: u32 = 1971680439;
 
 // Hashing the calldata of public functions:
-pub global DOM_SEP__PUBLIC_CALLDATA: u32 = 388853507;
+pub global DOM_SEP__PUBLIC_CALLDATA: u32 = 2760353947;
 // Hashing the args to private functions:
-pub global DOM_SEP__FUNCTION_ARGS: u32 = 587126185;
+pub global DOM_SEP__FUNCTION_ARGS: u32 = 3576554347;
 
-pub global DOM_SEP__PROTOCOL_CONTRACTS: u32 = 3581307760;
+pub global DOM_SEP__PROTOCOL_CONTRACTS: u32 = 3904434327;
 // Part of the protocol, because some protocol contracts emit events.
-pub global DOM_SEP__EVENT_COMMITMENT: u32 = 469373807;
+pub global DOM_SEP__EVENT_COMMITMENT: u32 = 2517418573;
 
 // ---------------------------------------------------------------
 // Not protocol, but possibly protocol in future.
@@ -707,22 +699,22 @@ pub global DOM_SEP__EVENT_COMMITMENT: u32 = 469373807;
 // - It might not support authwits (instead using the fee_payer field as evidence of authorization).
 // If FeeJuice doesn't end up supporting those things, then these constants should be moved into aztec.nr.
 
-pub global DOM_SEP__AUTHWIT_INNER: u32 = 829479065;
-pub global DOM_SEP__AUTHWIT_OUTER: u32 = 1502324539;
-pub global DOM_SEP__AUTHWIT_NULLIFIER: u32 = 1450992171;
+pub global DOM_SEP__AUTHWIT_INNER: u32 = 221354163;
+pub global DOM_SEP__AUTHWIT_OUTER: u32 = 3283595782;
+pub global DOM_SEP__AUTHWIT_NULLIFIER: u32 = 1239150694;
 
-pub global DOM_SEP__SYMMETRIC_KEY: u32 = 690840336;
-pub global DOM_SEP__SYMMETRIC_KEY_2: u32 = 3484314061;
+pub global DOM_SEP__SYMMETRIC_KEY: u32 = 3882206064;
+pub global DOM_SEP__SYMMETRIC_KEY_2: u32 = 4129434989;
 
-pub global DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 1665410974;
+pub global DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 623934423;
 
 // ---------------------------------------------------------------
 // TODO: consider moving these to aztec-nr
 
-pub global DOM_SEP__INITIALIZATION_NULLIFIER: u32 = 2762319966;
-pub global DOM_SEP__SECRET_HASH: u32 = 15484084;
-pub global DOM_SEP__TX_NULLIFIER: u32 = 1039603495;
-pub global DOM_SEP__SIGNATURE_PAYLOAD: u32 = 2407104296;
+pub global DOM_SEP__INITIALIZATION_NULLIFIER: u32 = 1653084894;
+pub global DOM_SEP__SECRET_HASH: u32 = 4199652938;
+pub global DOM_SEP__TX_NULLIFIER: u32 = 1025801951;
+pub global DOM_SEP__SIGNATURE_PAYLOAD: u32 = 463525807;
 
 // ---------------------------------------------------------------
 
@@ -1177,12 +1169,10 @@ pub global AVM_SSTORE_DYN_DA_GAS: u32 = 2 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE
 
 // BLOB PREFIXES
 // Used when decoding blobs of tightly packed effects
-// TODO: Maybe hash instead of directly encoding to field for NUMS
-// TODO: we need noir tests that demonstrate that these derivations are correct.
-pub global TX_START_PREFIX: Field = 0x74785f7374617274; // = "tx_start".to_field() in nr (8 bytes)
-pub global TX_START_PREFIX_BIT_SIZE: u32 = 64;
-pub global BLOCK_END_PREFIX: Field = 0x626c6f636b5f656e64; // = "block_end".to_field() in nr (9 bytes)
-pub global CHECKPOINT_END_PREFIX: Field = 0x636865636b706f696e745f656e64; // = "checkpoint_end".to_field() in nr (14 bytes)
+// See ./constants_tests.nr for how the values are generated.
+pub global TX_START_PREFIX: Field = 0x9c707518;
+pub global BLOCK_END_PREFIX: Field = 0xeb8dcdbf;
+pub global CHECKPOINT_END_PREFIX: Field = 0x8c637443;
 
 // Constants related to proof type of a recursive proof verification.
 // Keep following constants in sync with the enum acir_format::PROOF_TYPE in recursion_constraint.hpp
@@ -1245,7 +1235,6 @@ pub global GRUMPKIN_ONE_Y: Field = 176316838811849753701652558875517816157483885
 pub global DEFAULT_MAX_DEBUG_LOG_MEMORY_READS: u32 = 125000;
 
 mod test {
-    use crate::address::aztec_address::AztecAddress;
     use crate::constants::{
         AVM_RETRIEVED_BYTECODES_TREE_HEIGHT, AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT,
         EMPTY_EPOCH_OUT_HASH, GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET,
@@ -1262,7 +1251,7 @@ mod test {
         OUT_HASH_TREE_HEIGHT, OUT_HASH_TREE_LEAF_COUNT, SIDE_EFFECT_MASKING_ADDRESS,
     };
     use crate::merkle_tree::root::compute_empty_sha_tree_root;
-    use crate::traits::FromField;
+    use crate::traits::ToField;
     use super::{
         GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET, MAX_ETH_ADDRESS_VALUE,
         NUM_BASE_PARITY_PER_ROOT_PARITY, NUM_MSGS_PER_BASE_PARITY,
@@ -1303,9 +1292,9 @@ mod test {
 
     #[test]
     unconstrained fn test_side_effect_masking_address() {
-        assert_eq(
-            SIDE_EFFECT_MASKING_ADDRESS,
-            AztecAddress::from_field(MAX_PROTOCOL_CONTRACTS as Field + 1),
+        assert(
+            (MAX_PROTOCOL_CONTRACTS as Field).lt(SIDE_EFFECT_MASKING_ADDRESS.to_field()),
+            "Side effect masking address cannot overlap with protocol contract addresses",
         );
     }
 

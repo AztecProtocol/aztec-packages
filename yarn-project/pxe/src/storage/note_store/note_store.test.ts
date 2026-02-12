@@ -311,10 +311,9 @@ describe('NoteStore', () => {
       expect(notes).toHaveLength(0);
     });
 
-    it('throws when called with an empty scopes array', async () => {
-      await expect(noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: [] }, 'test')).rejects.toThrow(
-        'Trying to get notes with an empty scopes array',
-      );
+    it('returns no notes when called with an empty scopes array', async () => {
+      const notes = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: [] }, 'test');
+      expect(notes).toHaveLength(0);
     });
 
     it('returns no notes when filtering by a non-existent siloedNullifier', async () => {

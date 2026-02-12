@@ -13,7 +13,13 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { FunctionSelector } from '@aztec/stdlib/abi/function-selector';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type AllowedElement, type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
+import {
+  type AllowedElement,
+  type ChainConfig,
+  type SequencerConfig,
+  chainConfigMappings,
+  sharedSequencerConfigMappings,
+} from '@aztec/stdlib/config';
 
 import {
   type BatchTxRequesterConfig,
@@ -31,12 +37,16 @@ export interface P2PConfig
     BatchTxRequesterConfig,
     ChainConfig,
     TxCollectionConfig,
-    TxFileStoreConfig {
+    TxFileStoreConfig,
+    Pick<SequencerConfig, 'blockDurationMs'> {
   /** A flag dictating whether the P2P subsystem should be enabled. */
   p2pEnabled: boolean;
 
   /** The frequency in which to check for new L2 blocks. */
   blockCheckIntervalMS: number;
+
+  /** The frequency in which to check for new L2 slots. */
+  slotCheckIntervalMS: number;
 
   /** The number of blocks to fetch in a single batch. */
   blockRequestBatchSize: number;
@@ -177,6 +187,9 @@ export interface P2PConfig
 
   /** Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus */
   fishermanMode: boolean;
+
+  /** Broadcast block proposals even when a conflicting proposal for the same slot already exists in the pool (for testing purposes only). */
+  broadcastEquivocatedProposals?: boolean;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
@@ -196,6 +209,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_BLOCK_CHECK_INTERVAL_MS',
     description: 'The frequency in which to check for new L2 blocks.',
     ...numberConfigHelper(100),
+  },
+  slotCheckIntervalMS: {
+    env: 'P2P_SLOT_CHECK_INTERVAL_MS',
+    description: 'The frequency in which to check for new L2 slots.',
+    ...numberConfigHelper(1000),
   },
   debugDisableColocationPenalty: {
     env: 'DEBUG_P2P_DISABLE_COLOCATION_PENALTY',
@@ -441,6 +459,12 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus.',
     ...booleanConfigHelper(false),
   },
+  broadcastEquivocatedProposals: {
+    description:
+      'Broadcast block proposals even when a conflicting proposal for the same slot already exists in the pool (for testing purposes only).',
+    ...booleanConfigHelper(false),
+  },
+  ...sharedSequencerConfigMappings,
   ...p2pReqRespConfigMappings,
   ...batchTxRequesterConfigMappings,
   ...chainConfigMappings,

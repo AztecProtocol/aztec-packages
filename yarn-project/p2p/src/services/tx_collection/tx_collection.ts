@@ -2,6 +2,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise } from '@aztec/foundation/promise';
+import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { L2Block, L2BlockInfo } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
@@ -11,18 +12,19 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 
 import type { PeerId } from '@libp2p/interface';
 
-import type { TxPool } from '../../mem_pools/index.js';
-import type { TxPoolEvents } from '../../mem_pools/tx_pool/tx_pool.js';
+import type { TxPoolV2, TxPoolV2Events } from '../../mem_pools/tx_pool_v2/interfaces.js';
 import type { BatchTxRequesterLibP2PService } from '../reqresp/batch-tx-requester/interface.js';
 import type { TxCollectionConfig } from './config.js';
 import { FastTxCollection } from './fast_tx_collection.js';
+import { FileStoreTxCollection } from './file_store_tx_collection.js';
+import type { FileStoreTxSource } from './file_store_tx_source.js';
 import { SlowTxCollection } from './slow_tx_collection.js';
-import { TxCollectionSink } from './tx_collection_sink.js';
+import { type TxAddContext, TxCollectionSink } from './tx_collection_sink.js';
 import type { TxSource } from './tx_source.js';
 
-export type CollectionMethod = 'fast-req-resp' | 'fast-node-rpc' | 'slow-req-resp' | 'slow-node-rpc';
+export type CollectionMethod = 'fast-req-resp' | 'fast-node-rpc' | 'slow-req-resp' | 'slow-node-rpc' | 'file-store';
 
-export type MissingTxInfo = { blockNumber: BlockNumber; deadline: Date; readyForReqResp: boolean };
+export type MissingTxInfo = { block: L2Block; blockNumber: BlockNumber; deadline: Date; readyForReqResp: boolean };
 
 export type FastCollectionRequestInput =
   | { type: 'block'; block: L2Block }
@@ -54,6 +56,9 @@ export class TxCollection {
   /** Fast collection methods */
   protected readonly fastCollection: FastTxCollection;
 
+  /** File store collection */
+  protected readonly fileStoreCollection: FileStoreTxCollection;
+
   /** Loop for periodically reconciling found transactions from the tx pool in case we missed some */
   private readonly reconcileFoundTxsLoop: RunningPromise;
 
@@ -61,17 +66,24 @@ export class TxCollection {
   private readonly txCollectionSink: TxCollectionSink;
 
   /** Handler for the txs-added event from the tx pool */
-  protected readonly handleTxsAddedToPool: TxPoolEvents['txs-added'];
+  protected readonly handleTxsAddedToPool: TxPoolV2Events['txs-added'];
 
   /** Handler for the txs-added event from the tx collection sink */
-  protected readonly handleTxsFound: TxPoolEvents['txs-added'];
+  protected readonly handleTxsFound: TxPoolV2Events['txs-added'];
+
+  /** Whether the service has been started. */
+  private started = false;
+
+  /** Whether file store sources are configured. */
+  private readonly hasFileStoreSources: boolean;
 
   constructor(
     private readonly p2pService: BatchTxRequesterLibP2PService,
     private readonly nodes: TxSource[],
     private readonly constants: L1RollupConstants,
-    private readonly txPool: TxPool,
+    private readonly txPool: TxPoolV2,
     private readonly config: TxCollectionConfig,
+    fileStoreSources: FileStoreTxSource[] = [],
     private readonly dateProvider: DateProvider = new DateProvider(),
     telemetryClient: TelemetryClient = getTelemetryClient(),
     private readonly log: Logger = createLogger('p2p:tx_collection_service'),
@@ -98,18 +110,21 @@ export class TxCollection {
       this.log,
     );
 
+    this.hasFileStoreSources = fileStoreSources.length > 0;
+    this.fileStoreCollection = new FileStoreTxCollection(fileStoreSources, this.txCollectionSink, this.log);
+
     this.reconcileFoundTxsLoop = new RunningPromise(
       () => this.reconcileFoundTxsWithPool(),
       this.log,
       this.config.txCollectionReconcileIntervalMs,
     );
 
-    this.handleTxsFound = (args: Parameters<TxPoolEvents['txs-added']>[0]) => {
+    this.handleTxsFound = (args: Parameters<TxPoolV2Events['txs-added']>[0]) => {
       this.foundTxs(args.txs);
     };
     this.txCollectionSink.on('txs-added', this.handleTxsFound);
 
-    this.handleTxsAddedToPool = (args: Parameters<TxPoolEvents['txs-added']>[0]) => {
+    this.handleTxsAddedToPool = (args: Parameters<TxPoolV2Events['txs-added']>[0]) => {
       const { txs, source } = args;
       if (source !== 'tx-collection') {
         this.foundTxs(txs);
@@ -120,7 +135,9 @@ export class TxCollection {
 
   /** Starts all collection loops. */
   public start(): Promise<void> {
+    this.started = true;
     this.slowCollection.start();
+    this.fileStoreCollection.start();
     this.reconcileFoundTxsLoop.start();
 
     // TODO(palla/txs): Collect mined unproven tx hashes for txs we dont have in the pool and populate missingTxs on startup
@@ -129,7 +146,13 @@ export class TxCollection {
 
   /** Stops all activity. */
   public async stop() {
-    await Promise.all([this.slowCollection.stop(), this.fastCollection.stop(), this.reconcileFoundTxsLoop.stop()]);
+    this.started = false;
+    await Promise.all([
+      this.slowCollection.stop(),
+      this.fastCollection.stop(),
+      this.fileStoreCollection.stop(),
+      this.reconcileFoundTxsLoop.stop(),
+    ]);
 
     this.txPool.removeListener('txs-added', this.handleTxsAddedToPool);
     this.txCollectionSink.removeListener('txs-added', this.handleTxsFound);
@@ -147,7 +170,24 @@ export class TxCollection {
 
   /** Starts collecting the given tx hashes for the given L2Block in the slow loop */
   public startCollecting(block: L2Block, txHashes: TxHash[]) {
-    return this.slowCollection.startCollecting(block, txHashes);
+    this.slowCollection.startCollecting(block, txHashes);
+
+    // Delay file store collection to give P2P methods time to find txs first
+    if (this.hasFileStoreSources) {
+      const context: TxAddContext = { type: 'mined', block };
+      sleep(this.config.txCollectionFileStoreSlowDelayMs)
+        .then(() => {
+          if (this.started) {
+            // Only queue txs that are still missing after the delay
+            const stillMissing = new Set(this.slowCollection.getMissingTxHashes().map(h => h.toString()));
+            const remaining = txHashes.filter(h => stillMissing.has(h.toString()));
+            if (remaining.length > 0) {
+              this.fileStoreCollection.startCollecting(remaining, context);
+            }
+          }
+        })
+        .catch(err => this.log.error('Error in file store slow delay', err));
+    }
   }
 
   /** Collects the set of txs for the given block proposal as fast as possible */
@@ -175,13 +215,37 @@ export class TxCollection {
     txHashes: TxHash[] | string[],
     opts: { deadline: Date; pinnedPeer?: PeerId },
   ) {
+    const hashes = txHashes.map(h => (typeof h === 'string' ? TxHash.fromString(h) : h));
+
+    // Delay file store collection to give P2P methods time to find txs first
+    if (this.hasFileStoreSources) {
+      const context = this.getAddContextForInput(input);
+      sleep(this.config.txCollectionFileStoreFastDelayMs)
+        .then(() => {
+          if (this.started) {
+            this.fileStoreCollection.startCollecting(hashes, context);
+          }
+        })
+        .catch(err => this.log.error('Error in file store fast delay', err));
+    }
+
     return this.fastCollection.collectFastFor(input, txHashes, opts);
+  }
+
+  /** Returns the TxAddContext for the given fast collection request input */
+  private getAddContextForInput(input: FastCollectionRequestInput): TxAddContext {
+    if (input.type === 'proposal') {
+      return { type: 'proposal', blockHeader: input.blockProposal.blockHeader };
+    } else {
+      return { type: 'mined', block: input.block };
+    }
   }
 
   /** Mark the given txs as found. Stops collecting them. */
   private foundTxs(txs: Tx[]) {
     this.slowCollection.foundTxs(txs);
     this.fastCollection.foundTxs(txs);
+    this.fileStoreCollection.foundTxs(txs);
   }
 
   /**
@@ -191,6 +255,7 @@ export class TxCollection {
   public stopCollectingForBlocksUpTo(blockNumber: BlockNumber): void {
     this.slowCollection.stopCollectingForBlocksUpTo(blockNumber);
     this.fastCollection.stopCollectingForBlocksUpTo(blockNumber);
+    this.fileStoreCollection.clearPending();
   }
 
   /**
@@ -200,6 +265,7 @@ export class TxCollection {
   public stopCollectingForBlocksAfter(blockNumber: BlockNumber): void {
     this.slowCollection.stopCollectingForBlocksAfter(blockNumber);
     this.fastCollection.stopCollectingForBlocksAfter(blockNumber);
+    this.fileStoreCollection.clearPending();
   }
 
   /** Every now and then, check if the pool has received one of the txs we are looking for, just to catch any race conditions */

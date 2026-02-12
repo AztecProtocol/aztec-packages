@@ -75,6 +75,7 @@ describe('sentinel', () => {
       epochDuration: 8,
       ethereumSlotDuration: 12,
       proofSubmissionEpochs: 1,
+      targetCommitteeSize: 48,
     };
 
     epochCache.getEpochAndSlotNow.mockReturnValue({ epoch, slot, ts, nowMs: ts * 1000n });

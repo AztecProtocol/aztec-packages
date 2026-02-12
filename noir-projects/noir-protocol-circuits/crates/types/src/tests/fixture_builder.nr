@@ -910,18 +910,21 @@ impl FixtureBuilder {
         }
     }
 
+    pub fn add_note_hash_read_request(&mut self, value: Field, contract_address: AztecAddress) {
+        let read_request = Counted::new(value, self.next_counter()).scope(contract_address);
+        self.note_hash_read_requests.push(read_request);
+    }
+
     pub fn add_settled_note_hash_read_request(&mut self, value: Field) -> u32 {
         let read_request_index = self.note_hash_read_requests.len();
-        let read_request = Counted::new(value, self.next_counter()).scope(AztecAddress::zero());
-        self.note_hash_read_requests.push(read_request);
+        self.add_note_hash_read_request(value, AztecAddress::zero());
         read_request_index
     }
 
     pub fn add_read_request_for_pending_note_hash(&mut self, note_hash_index: u32) -> u32 {
         let value = self.mock_note_hash_value(note_hash_index);
         let read_request_index = self.note_hash_read_requests.len();
-        let read_request = Counted::new(value, self.next_counter()).scope(self.contract_address);
-        self.note_hash_read_requests.push(read_request);
+        self.add_note_hash_read_request(value, self.contract_address);
         read_request_index
     }
 

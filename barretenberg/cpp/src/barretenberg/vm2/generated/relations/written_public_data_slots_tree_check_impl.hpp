@@ -16,7 +16,7 @@ void written_public_data_slots_tree_checkImpl<FF_>::accumulate(ContainerOverSubr
     using C = ColumnAndShifts;
 
     const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT = FF(6);
-    const auto constants_DOM_SEP__PUBLIC_LEAF_SLOT = FF(2853865602UL);
+    const auto constants_DOM_SEP__PUBLIC_LEAF_SLOT = FF(1247650290);
     const auto written_public_data_slots_tree_check_EXISTS =
         (FF(1) - in.get(C::written_public_data_slots_tree_check_leaf_not_exists));
     const auto written_public_data_slots_tree_check_SLOT_LOW_LEAF_SLOT_DIFF =

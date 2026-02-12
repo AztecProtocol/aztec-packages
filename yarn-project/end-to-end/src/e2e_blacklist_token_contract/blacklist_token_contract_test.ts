@@ -7,14 +7,15 @@ import type { TxHash } from '@aztec/aztec.js/tx';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
+import { GenericProxyContract } from '@aztec/noir-test-contracts.js/GenericProxy';
 import { InvalidAccountContract } from '@aztec/noir-test-contracts.js/InvalidAccount';
 import type { SequencerClient } from '@aztec/sequencer-client';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
 import { type EndToEndContext, deployAccounts, publicDeployAccounts, setup, teardown } from '../fixtures/setup.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 
 export class Role {
   private isAdmin = false;
@@ -53,6 +54,7 @@ export class BlacklistTokenContractTest {
   asset!: TokenBlacklistContract;
   tokenSim!: TokenSimulator;
   badAccount!: InvalidAccountContract;
+  proxy!: GenericProxyContract;
   cheatCodes!: CheatCodes;
   sequencer!: SequencerClient;
   aztecNode!: AztecNode;
@@ -92,7 +94,7 @@ export class BlacklistTokenContractTest {
     });
 
     this.cheatCodes = this.context.cheatCodes;
-    this.aztecNode = this.context.aztecNodeService!;
+    this.aztecNode = this.context.aztecNodeService;
     this.sequencer = this.context.sequencer!;
     this.wallet = this.context.wallet;
     this.adminAddress = deployedAccounts[0].address;
@@ -113,6 +115,13 @@ export class BlacklistTokenContractTest {
     this.logger.verbose(`Deploying bad account...`);
     this.badAccount = await InvalidAccountContract.deploy(this.wallet).send({ from: this.adminAddress });
     this.logger.verbose(`Deployed to ${this.badAccount.address}.`);
+
+    // Deploy a proxy contract for "on behalf of other" tests. The note owner must be the tx sender
+    // (so their notes are in scope), but msg_sender in the target must differ from the note owner
+    // to trigger authwit validation. The proxy forwards calls so that msg_sender != tx sender.
+    this.logger.verbose(`Deploying generic proxy...`);
+    this.proxy = await GenericProxyContract.deploy(this.wallet).send({ from: this.adminAddress });
+    this.logger.verbose(`Deployed to ${this.proxy.address}.`);
 
     await this.crossTimestampOfChange();
 

@@ -9,7 +9,7 @@ use crate::{
     components::reset_output_composer::SquashedOutputArrayHints,
     reset::{KeyValidationRequestsValidator, ReadRequestValidator, TransientDataValidator},
 };
-use dep::types::{
+use types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         note_hash::NoteHash,
@@ -22,7 +22,7 @@ use dep::types::{
         compute_note_nonce_and_unique_note_hash, compute_siloed_note_hash,
         compute_siloed_private_log_first_field, silo_nullifier,
     },
-    side_effect::{Counted, Ordered, Scoped},
+    side_effect::{Counted, Scoped},
 };
 use validate_note_logs_linked_to_note_hashes::validate_note_logs_linked_to_note_hashes;
 
@@ -33,7 +33,7 @@ fn assert_correctly_siloed_note_hash(
     index: u32,
     claimed_first_nullifier: Field,
     is_private_only: bool,
-    min_revertible_side_effect_counter: u32,
+    claimed_revertible_counter: u32,
 ) {
     // We determine which of these two values is appropriate, based on the revertible-ness of the note:
     let (siloed_note_hash, unique_siloed_note_hash) = if prev.contract_address.is_zero() {
@@ -54,8 +54,7 @@ fn assert_correctly_siloed_note_hash(
     // and just check that hint once, somewhere. In fact, that hint could be checked in the inner kernel
     // circuit, and propagated as a public input (via the data bus). That would save 3 inequality checks in this
     // reset circuit. Hmm.. but it would cost inequalities for every note & nullifier in a private call in the inner circuit... I wonder which is best...
-    let is_non_revertible = prev.counter() < min_revertible_side_effect_counter;
-    let computed_note_hash = if is_private_only | is_non_revertible {
+    let computed_note_hash = if prev.is_non_revertible(is_private_only, claimed_revertible_counter) {
         unique_siloed_note_hash
     } else {
         // Revertible note hashes are not siloed with a note_nonce if public execution will occur later
@@ -64,7 +63,7 @@ fn assert_correctly_siloed_note_hash(
         // at this point.
         //
         // Note: padded note hashes have a counter of `MAX_U32_VALUE`, which is always greater than
-        // `min_revertible_side_effect_counter`, so they are also not unique-ified with a note_nonce.
+        // `claimed_revertible_counter`, so they are not uniquified with a note_nonce either.
         siloed_note_hash
     };
     assert_eq(
@@ -244,7 +243,10 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
     }
 
     fn validate_transient_data<let TransientDataSquashingAmount: u32>(self) {
-        // For private-only txs, we squash all transient data.
+        // For private-only txs, all transient data are non-revertible and can be squashed.
+        // Although setting the `split_counter` to 0 might seem to imply that everything is revertible, this does not
+        // affect the logic in `validate_note_hash_nullifier_squashing.nr`. The key point is to ensure that all note
+        // hashes and nullifiers are on the same side of the split counter.
         let split_counter = if self.previous_kernel.is_private_only {
             0
         } else {
@@ -495,7 +497,7 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
 
 mod tests {
     use super::assert_correctly_siloed_note_hash;
-    use dep::types::{
+    use types::{
         abis::note_hash::NoteHash,
         address::AztecAddress,
         hash::{compute_note_nonce_and_unique_note_hash, compute_siloed_note_hash},
@@ -528,14 +530,7 @@ mod tests {
         let prev = make_note_hash(NOTE_HASH_VALUE, 10);
         let expected = compute_expected_unique(NOTE_HASH_VALUE, 0);
 
-        assert_correctly_siloed_note_hash(
-            expected,
-            prev,
-            0, // index
-            CLAIMED_FIRST_NULLIFIER,
-            false, // is_private_only
-            100, // min_revertible_side_effect_counter
-        );
+        assert_correctly_siloed_note_hash(expected, prev, 0, CLAIMED_FIRST_NULLIFIER, false, 100);
     }
 
     #[test]

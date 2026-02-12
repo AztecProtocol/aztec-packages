@@ -2,7 +2,7 @@
 // It's not straightforward to define a single function or component that validates both structs. Instead, this file
 // provides functions that can be called individually on the attributes common to both. All functions should be called
 // from both `PrivateTxBaseInputsValidator` and `PublicTxBaseInputValidator`.
-use dep::types::{
+use types::{
     abis::{
         block_constant_data::BlockConstantData, global_variables::GlobalVariables,
         log_hash::LogHash, tx_constant_data::TxConstantData,

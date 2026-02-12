@@ -3,7 +3,7 @@ mod output_composition_tests;
 mod proof_and_vk_tests;
 
 use crate::private_kernel_inner::{self, PrivateKernelInnerCircuitPrivateInputs};
-use dep::types::{
+use types::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
     constants::PRIVATE_KERNEL_INIT_VK_INDEX, tests::fixture_builder::FixtureBuilder,
 };

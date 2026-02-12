@@ -2,13 +2,12 @@ import type { AztecNodeConfig } from '@aztec/aztec-node';
 import type { AccountManager } from '@aztec/aztec.js/wallet';
 import type { ViemClient } from '@aztec/ethereum/types';
 import type { ConfigMappingsType } from '@aztec/foundation/config';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
 import type { SharedNodeConfig } from '@aztec/node-lib/config';
 import type { ProverConfig } from '@aztec/stdlib/interfaces/server';
 import { getTelemetryClient } from '@aztec/telemetry-client/start';
-import type { TestWallet } from '@aztec/test-wallet/server';
+import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import chalk from 'chalk';
 import type { Command } from 'commander';
@@ -68,30 +67,19 @@ export const installSignalHandlers = (logFn: LogFn, cb?: Array<() => Promise<voi
 /**
  * Creates logs for the initial accounts
  * @param accounts - The initial accounts
- * @param wallet - A TestWallet instance to get the registered accounts
+ * @param wallet - A EmbeddedWallet instance to get the registered accounts
  * @returns A string array containing the initial accounts details
  */
-export async function createAccountLogs(
-  accountsWithSecretKeys: {
-    /**
-     * The account object
-     */
-    account: AccountManager;
-    /**
-     * The secret key of the account
-     */
-    secretKey: Fr;
-  }[],
-  wallet: TestWallet,
-) {
+export async function createAccountLogs(accountManagers: AccountManager[], wallet: EmbeddedWallet) {
   const registeredAccounts = await wallet.getAccounts();
   const accountLogStrings = [`Initial Accounts:\n\n`];
-  for (const accountWithSecretKey of accountsWithSecretKeys) {
-    const completeAddress = await accountWithSecretKey.account.getCompleteAddress();
+  for (const accountManager of accountManagers) {
+    const account = await accountManager.getAccount();
+    const completeAddress = account.getCompleteAddress();
     if (registeredAccounts.find(a => a.item.equals(completeAddress.address))) {
       accountLogStrings.push(` Address: ${completeAddress.address.toString()}\n`);
       accountLogStrings.push(` Partial Address: ${completeAddress.partialAddress.toString()}\n`);
-      accountLogStrings.push(` Secret Key: ${accountWithSecretKey.secretKey.toString()}\n`);
+      accountLogStrings.push(` Secret Key: ${account.getSecretKey().toString()}\n`);
       accountLogStrings.push(
         ` Master nullifier public key: ${completeAddress.publicKeys.masterNullifierPublicKey.toString()}\n`,
       );

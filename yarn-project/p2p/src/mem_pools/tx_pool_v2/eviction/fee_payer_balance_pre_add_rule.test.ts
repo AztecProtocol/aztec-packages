@@ -1,4 +1,4 @@
-import type { TxMetaData } from '../tx_metadata.js';
+import { type TxMetaData, stubTxMetaValidationData } from '../tx_metadata.js';
 import { FeePayerBalancePreAddRule } from './fee_payer_balance_pre_add_rule.js';
 import type { PreAddPoolAccess } from './interfaces.js';
 
@@ -23,6 +23,7 @@ describe('FeePayerBalancePreAddRule', () => {
     feeLimit: opts.feeLimit ?? 100n,
     nullifiers: [`0x${txHash.slice(2)}null1`],
     includeByTimestamp: 0n,
+    data: stubTxMetaValidationData(),
   });
 
   // Mock pool access with configurable behavior

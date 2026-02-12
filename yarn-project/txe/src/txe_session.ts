@@ -339,30 +339,30 @@ export class TXESession implements TXESessionStateHandler {
     const taggingIndexCache = new ExecutionTaggingIndexCache();
 
     const utilityExecutor = this.utilityExecutorForContractSync(anchorBlock);
-    this.oracleHandler = new PrivateExecutionOracle(
-      Fr.ZERO,
-      new TxContext(this.chainId, this.version, GasSettings.empty()),
-      new CallContext(AztecAddress.ZERO, contractAddress, FunctionSelector.empty(), false),
-      anchorBlock!,
+    this.oracleHandler = new PrivateExecutionOracle({
+      argsHash: Fr.ZERO,
+      txContext: new TxContext(this.chainId, this.version, GasSettings.empty()),
+      callContext: new CallContext(AztecAddress.ZERO, contractAddress, FunctionSelector.empty(), false),
+      anchorBlockHeader: anchorBlock!,
       utilityExecutor,
-      [],
-      [],
-      new HashedValuesCache(),
+      authWitnesses: [],
+      capsules: [],
+      executionCache: new HashedValuesCache(),
       noteCache,
       taggingIndexCache,
-      this.contractStore,
-      this.noteStore,
-      this.keyStore,
-      this.addressStore,
-      this.stateMachine.node,
-      this.senderTaggingStore,
-      this.recipientTaggingStore,
-      this.senderAddressBookStore,
-      this.capsuleStore,
-      this.privateEventStore,
-      this.stateMachine.contractSyncService,
-      this.currentJobId,
-    );
+      contractStore: this.contractStore,
+      noteStore: this.noteStore,
+      keyStore: this.keyStore,
+      addressStore: this.addressStore,
+      aztecNode: this.stateMachine.node,
+      senderTaggingStore: this.senderTaggingStore,
+      recipientTaggingStore: this.recipientTaggingStore,
+      senderAddressBookStore: this.senderAddressBookStore,
+      capsuleStore: this.capsuleStore,
+      privateEventStore: this.privateEventStore,
+      contractSyncService: this.stateMachine.contractSyncService,
+      jobId: this.currentJobId,
+    });
 
     // We store the note and tagging index caches fed into the PrivateExecutionOracle (along with some other auxiliary
     // data) in order to refer to it later, mimicking the way this object is used by the ContractFunctionSimulator. The
@@ -416,22 +416,22 @@ export class TXESession implements TXESessionStateHandler {
       this.currentJobId,
     ).syncNoteNullifiers(contractAddress);
 
-    this.oracleHandler = new UtilityExecutionOracle(
+    this.oracleHandler = new UtilityExecutionOracle({
       contractAddress,
-      [],
-      [],
+      authWitnesses: [],
+      capsules: [],
       anchorBlockHeader,
-      this.contractStore,
-      this.noteStore,
-      this.keyStore,
-      this.addressStore,
-      this.stateMachine.node,
-      this.recipientTaggingStore,
-      this.senderAddressBookStore,
-      this.capsuleStore,
-      this.privateEventStore,
-      this.currentJobId,
-    );
+      contractStore: this.contractStore,
+      noteStore: this.noteStore,
+      keyStore: this.keyStore,
+      addressStore: this.addressStore,
+      aztecNode: this.stateMachine.node,
+      recipientTaggingStore: this.recipientTaggingStore,
+      senderAddressBookStore: this.senderAddressBookStore,
+      capsuleStore: this.capsuleStore,
+      privateEventStore: this.privateEventStore,
+      jobId: this.currentJobId,
+    });
 
     this.state = { name: 'UTILITY' };
     this.logger.debug(`Entered state ${this.state.name}`);
@@ -499,29 +499,30 @@ export class TXESession implements TXESessionStateHandler {
   }
 
   private utilityExecutorForContractSync(anchorBlock: any) {
-    return async (call: FunctionCall) => {
+    return async (call: FunctionCall, scopes: undefined | AztecAddress[]) => {
       const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
       if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
         throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
       }
 
       try {
-        const oracle = new UtilityExecutionOracle(
-          call.to,
-          [],
-          [],
-          anchorBlock!,
-          this.contractStore,
-          this.noteStore,
-          this.keyStore,
-          this.addressStore,
-          this.stateMachine.node,
-          this.recipientTaggingStore,
-          this.senderAddressBookStore,
-          this.capsuleStore,
-          this.privateEventStore,
-          this.currentJobId,
-        );
+        const oracle = new UtilityExecutionOracle({
+          contractAddress: call.to,
+          authWitnesses: [],
+          capsules: [],
+          anchorBlockHeader: anchorBlock!,
+          contractStore: this.contractStore,
+          noteStore: this.noteStore,
+          keyStore: this.keyStore,
+          addressStore: this.addressStore,
+          aztecNode: this.stateMachine.node,
+          recipientTaggingStore: this.recipientTaggingStore,
+          senderAddressBookStore: this.senderAddressBookStore,
+          capsuleStore: this.capsuleStore,
+          privateEventStore: this.privateEventStore,
+          jobId: this.currentJobId,
+          scopes,
+        });
         await new WASMSimulator()
           .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
           .catch((err: Error) => {

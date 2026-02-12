@@ -9,7 +9,8 @@ import { Tx, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 import type { PeerId } from '@libp2p/interface';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import type { AttestationPool, TxPool } from '../../../../mem_pools/index.js';
+import type { AttestationPool } from '../../../../mem_pools/index.js';
+import type { TxPoolV2 } from '../../../../mem_pools/tx_pool_v2/interfaces.js';
 import { ReqRespStatus } from '../../status.js';
 import { BitVector } from './bitvector.js';
 import { reqRespBlockTxsHandler } from './block_txs_handler.js';
@@ -18,7 +19,7 @@ import { BlockTxsRequest, BlockTxsResponse } from './block_txs_reqresp.js';
 describe('reqRespBlockTxsHandler', () => {
   let attestationPool: MockProxy<AttestationPool>;
   let archiver: MockProxy<L2BlockSource>;
-  let txPool: MockProxy<TxPool>;
+  let txPool: MockProxy<TxPoolV2>;
   let peerId: PeerId;
 
   const makeTx = (txHash?: TxHash) => Tx.random({ txHash }) as Tx;
@@ -41,7 +42,7 @@ describe('reqRespBlockTxsHandler', () => {
   beforeEach(() => {
     attestationPool = mock<AttestationPool>();
     archiver = mock<L2BlockSource>();
-    txPool = mock<TxPool>();
+    txPool = mock<TxPoolV2>();
     peerId = mock<PeerId>();
 
     attestationPool.getBlockProposal.mockResolvedValue(undefined);

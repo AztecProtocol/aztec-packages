@@ -16,7 +16,7 @@ import {
   createForwarderL1TxUtilsFromEthSigner,
   createL1TxUtilsFromEthSignerWithStore,
 } from '@aztec/node-lib/factories';
-import { NodeRpcTxSource, createP2PClient } from '@aztec/p2p';
+import { NodeRpcTxSource, type P2PClientDeps, createP2PClient } from '@aztec/p2p';
 import { type ProverClientConfig, createProverClient } from '@aztec/prover-client';
 import { createAndStartProvingBroker } from '@aztec/prover-client/broker';
 import type { AztecNode, ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
@@ -42,6 +42,7 @@ export type ProverNodeDeps = {
   broker?: ProvingJobBroker;
   l1TxUtils?: L1TxUtils;
   dateProvider?: DateProvider;
+  p2pClientDeps?: P2PClientDeps<P2PClientType.Prover>;
 };
 
 /** Creates a new prover node given a config. */
@@ -175,9 +176,11 @@ export async function createProverNode(
     dateProvider,
     telemetry,
     {
-      txCollectionNodeSources: deps.aztecNodeTxProvider
-        ? [new NodeRpcTxSource(deps.aztecNodeTxProvider, 'TestNode')]
-        : [],
+      ...deps.p2pClientDeps,
+      txCollectionNodeSources: [
+        ...(deps.p2pClientDeps?.txCollectionNodeSources ?? []),
+        ...(deps.aztecNodeTxProvider ? [new NodeRpcTxSource(deps.aztecNodeTxProvider, 'TestNode')] : []),
+      ],
     },
   );
 

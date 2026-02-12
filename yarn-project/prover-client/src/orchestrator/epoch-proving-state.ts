@@ -254,9 +254,11 @@ export class EpochProvingState {
       }
       outHashes.push(outHash);
 
-      // Get or create hints for the next checkpoint.
-      hint = checkpoint.getOutHashHintForNextCheckpoint() ?? (await computeOutHashHint(outHashes));
-      checkpoint.setOutHashHintForNextCheckpoint(hint);
+      // If this is NOT the last checkpoint, get or create the hint for the next checkpoint.
+      if (i !== this.totalNumCheckpoints - 1) {
+        hint = checkpoint.getOutHashHintForNextCheckpoint() ?? (await computeOutHashHint(outHashes));
+        checkpoint.setOutHashHintForNextCheckpoint(hint);
+      }
     }
   }
 

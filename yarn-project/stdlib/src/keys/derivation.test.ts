@@ -12,20 +12,21 @@ describe('🔑', () => {
     const masterOutgoingViewingPublicKey = new Point(new Fr(5), new Fr(6), false);
     const masterTaggingPublicKey = new Point(new Fr(7), new Fr(8), false);
 
-    const expected = Fr.fromHexString('0x029d92319623fe2e5804a64b35d13e1c4881045371c41f36329b44dfc237d232');
     const publicKeysHash = await new PublicKeys(
       masterNullifierPublicKey,
       masterIncomingViewingPublicKey,
       masterOutgoingViewingPublicKey,
       masterTaggingPublicKey,
     ).hash();
-    expect(publicKeysHash).toEqual(expected);
+    expect(publicKeysHash.toString()).toMatchInlineSnapshot(
+      `"0x056998309f6c119e4d753e404f94fef859dddfa530a9379634ceb0854b29bf7a"`,
+    );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
       'noir-projects/noir-protocol-circuits/crates/types/src/public_keys.nr',
       'expected_public_keys_hash',
-      expected.toString(),
+      publicKeysHash.toString(),
     );
   });
 
@@ -34,7 +35,7 @@ describe('🔑', () => {
     const partialAddress = new Fr(2n);
     const address = await computePreaddress(publicKeysHash, partialAddress);
     expect(address.toString()).toMatchInlineSnapshot(
-      '"0x0b661dee14f3871040a5938dbc5c1a7977aede0b64cff6b7faa168d11a288d75"',
+      `"0x286c7755f2924b1e53b00bcaf1adaffe7287bd74bba7a02f4ab867e3892d28da"`,
     );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
@@ -60,11 +61,10 @@ describe('🔑', () => {
     );
 
     const publicKeys = new PublicKeys(npkM, ivpkM, ovpkM, tpkM);
-
     const partialAddress = Fr.fromHexString('0x0a7c585381b10f4666044266a02405bf6e01fa564c8517d4ad5823493abd31de');
 
     const address = (await computeAddress(publicKeys, partialAddress)).toString();
-    expect(address).toMatchInlineSnapshot('"0x105626366aab4a53d471701395a4e0e04af65ad1fad8483c74de338f397f226c"');
+    expect(address).toMatchInlineSnapshot(`"0x2f66081d4bb077fbe8e8abe96a3516a713a3d7e34360b4e985da0da95092b37d"`);
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(

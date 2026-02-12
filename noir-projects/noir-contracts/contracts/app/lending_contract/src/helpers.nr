@@ -1,4 +1,4 @@
-use dep::aztec::protocol::hash::poseidon2_hash;
+use aztec::protocol::hash::poseidon2_hash;
 use std::ops::{Add, Sub};
 
 // Utility used to easily get a "id" for a private user that sits in the same

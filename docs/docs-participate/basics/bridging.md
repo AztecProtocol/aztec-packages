@@ -94,5 +94,5 @@ Bridging typically involves interacting with the portal contract on L1 (for depo
 ---
 
 :::tip For developers
-Learn how to implement bridging in your applications in the [Portal documentation](/developers/docs/aztec-nr/framework-description/ethereum-aztec-messaging).
+Learn how to implement bridging in your applications in the [Portal documentation](/developers/docs/aztec-nr/framework-description/ethereum_aztec_messaging).
 :::

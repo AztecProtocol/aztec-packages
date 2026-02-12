@@ -1,4 +1,4 @@
-use dep::types::{
+use types::{
     abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, public_data_write::PublicDataWrite},
     constants::PUBLIC_DATA_TREE_HEIGHT,
     data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},

@@ -13,6 +13,7 @@ describe('EpochHelpers', () => {
       slotDuration: 24,
       ethereumSlotDuration: 12,
       proofSubmissionEpochs: 1,
+      targetCommitteeSize: 48,
     };
   });
 

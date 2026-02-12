@@ -14,11 +14,17 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { P2PClient } from '../../client/p2p_client.js';
 import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
 import type { AttestationPool } from '../../mem_pools/attestation_pool/attestation_pool.js';
-import type { TxPool } from '../../mem_pools/tx_pool/index.js';
+import type { TxPoolV2 } from '../../mem_pools/tx_pool_v2/interfaces.js';
 import { ReqRespSubProtocol } from '../../services/reqresp/interface.js';
 import { chunkTxHashesRequest } from '../../services/reqresp/protocols/tx.js';
 import { makeAndStartTestP2PClients } from '../../test-helpers/make-test-p2p-clients.js';
 import { createMockTxWithMetadata } from '../../test-helpers/mock-tx-helpers.js';
+
+/** Calls the protected requestTxsByHash method on a P2PClient for testing. */
+const requestTxsByHash = (client: P2PClient, txHashes: TxHash[], pinnedPeerId?: unknown): Promise<Tx[]> =>
+  (
+    client as unknown as { requestTxsByHash(txHashes: TxHash[], pinnedPeerId: unknown): Promise<Tx[]> }
+  ).requestTxsByHash(txHashes, pinnedPeerId);
 
 const TEST_TIMEOUT = 120000;
 jest.setTimeout(TEST_TIMEOUT);
@@ -26,7 +32,7 @@ jest.setTimeout(TEST_TIMEOUT);
 const NUMBER_OF_PEERS = 2;
 
 describe('p2p client integration', () => {
-  let txPool: MockProxy<TxPool>;
+  let txPool: MockProxy<TxPoolV2>;
   let attestationPool: MockProxy<AttestationPool>;
   let epochCache: MockProxy<EpochCache>;
   let worldState: MockProxy<WorldStateSynchronizer>;
@@ -38,7 +44,7 @@ describe('p2p client integration', () => {
 
   beforeEach(() => {
     clients = [];
-    txPool = mock<TxPool>();
+    txPool = mock<TxPoolV2>();
     attestationPool = mock<AttestationPool>();
     epochCache = mock<EpochCache>();
     worldState = mock<WorldStateSynchronizer>();
@@ -49,13 +55,19 @@ describe('p2p client integration', () => {
     //@ts-expect-error - we want to mock the getEpochAndSlotInNextL1Slot method, mocking ts is enough
     epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) });
     epochCache.getRegisteredValidators.mockResolvedValue([]);
+    epochCache.getL1Constants.mockReturnValue({
+      l1StartBlock: 0n,
+      l1GenesisTime: 0n,
+      slotDuration: 24,
+      epochDuration: 16,
+      ethereumSlotDuration: 12,
+      proofSubmissionEpochs: 2,
+      targetCommitteeSize: 48,
+    });
 
     txPool.isEmpty.mockResolvedValue(true);
     txPool.hasTxs.mockResolvedValue([]);
-    txPool.getAllTxs.mockImplementation(() => {
-      return Promise.resolve([] as Tx[]);
-    });
-    txPool.addTxs.mockResolvedValue(1);
+    txPool.addPendingTxs.mockResolvedValue({ accepted: [], ignored: [], rejected: [] });
     txPool.getTxsByHash.mockImplementation(() => {
       return Promise.resolve([] as Tx[]);
     });
@@ -116,7 +128,7 @@ describe('p2p client integration', () => {
     const tx = await createMockTxWithMetadata(config);
     const txHash = tx.getTxHash();
 
-    const requestedTxs = await client1.requestTxsByHash([txHash], undefined);
+    const requestedTxs = await requestTxsByHash(client1, [txHash], undefined);
     expect(requestedTxs).toEqual([]);
   });
 
@@ -144,7 +156,7 @@ describe('p2p client integration', () => {
     // Mock the tx pool to return the tx we are looking for
     txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx));
 
-    const requestedTxs = await client1.requestTxsByHash([txHash], undefined);
+    const requestedTxs = await requestTxsByHash(client1, [txHash], undefined);
     expect(requestedTxs).toHaveLength(1);
     const requestedTx = requestedTxs[0];
 
@@ -184,11 +196,11 @@ describe('p2p client integration', () => {
     //@ts-expect-error - we want to spy on the sendRequestToPeer method
     const sendRequestToPeerSpy = jest.spyOn(client1.p2pService.reqresp, 'sendRequestToPeer');
 
-    const resultingTxs = await client1.requestTxsByHash(txHashes, undefined);
+    const resultingTxs = await requestTxsByHash(client1, txHashes, undefined);
     expect(resultingTxs).toHaveLength(txs.length);
 
     // Expect the tx to be the returned tx to be the same as the one we mocked
-    resultingTxs.forEach((requestedTx, i) => {
+    resultingTxs.forEach((requestedTx: Tx, i: number) => {
       expect(requestedTx.toBuffer()).toStrictEqual(txs[i].toBuffer());
     });
 
@@ -242,12 +254,12 @@ describe('p2p client integration', () => {
     //@ts-expect-error - we want to spy on the sendRequestToPeer method
     const sendRequestToPeerSpy = jest.spyOn(client1.p2pService.reqresp, 'sendRequestToPeer');
 
-    const resultingTxs = await client1.requestTxsByHash(txHashes, undefined);
+    const resultingTxs = await requestTxsByHash(client1, txHashes, undefined);
     expect(resultingTxs).toHaveLength(txs.length / 2);
 
     // Expect the tx to be the returned tx to be the same as the one we mocked
     // Note we have only returned the half of the txs, so we expect the resulting txs to be every other tx
-    resultingTxs.forEach((requestedTx, i) => {
+    resultingTxs.forEach((requestedTx: Tx, i: number) => {
       expect(requestedTx.toBuffer()).toStrictEqual(txs[2 * i].toBuffer());
     });
 
@@ -296,7 +308,7 @@ describe('p2p client integration', () => {
     // Return the correct tx with an invalid proof -> active attack
     txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx));
 
-    const requestedTxs = await client1.requestTxsByHash([txHash], undefined);
+    const requestedTxs = await requestTxsByHash(client1, [txHash], undefined);
     // Even though we got a response, the proof was deemed invalid
     expect(requestedTxs).toEqual([]);
 
@@ -333,7 +345,7 @@ describe('p2p client integration', () => {
     // Return an invalid tx
     txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx2));
 
-    const requestedTxs = await client1.requestTxsByHash([txHash], undefined);
+    const requestedTxs = await requestTxsByHash(client1, [txHash], undefined);
     // Even though we got a response, the proof was deemed invalid
     expect(requestedTxs).toEqual([]);
 
