@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.1.12](https://github.com/AztecProtocol/aztec-packages/compare/v2.1.11...v2.1.12) (2026-02-12)
+
+
+### Miscellaneous
+
+* Accumulated backports to v2 ([#20429](https://github.com/AztecProtocol/aztec-packages/issues/20429)) ([6cf2fed](https://github.com/AztecProtocol/aztec-packages/commit/6cf2fedbec0dc63fcb343caf0d68a67918eecf03))
+* disable pushing to latest ([3ba4281](https://github.com/AztecProtocol/aztec-packages/commit/3ba42810c58d26a25ea1d86f619fc5bffabb88ee))
+
 ## [2.1.11](https://github.com/AztecProtocol/aztec-packages/compare/v2.1.10...v2.1.11) (2026-01-21)
 
 
