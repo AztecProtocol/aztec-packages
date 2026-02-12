@@ -529,5 +529,18 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      */
     std::get<25>(accumulator) += lagrange_second * (-q_eq + 1) * scaling_factor;                // degree 2
     std::get<26>(accumulator) += lagrange_second * (-q_reset_accumulator + 1) * scaling_factor; // degree 2
+
+    /**
+     * @brief Enforce that coordinates are zero when the corresponding infinity flag is set.
+     * This ensures consistency between infinity flags and coordinates, preventing malicious provers
+     * from setting infinity flags while providing non-zero coordinates that could be used in
+     * subsequent arithmetic to create invalid proofs.
+     */
+    // Base point coordinates must be zero when transcript_Pinfinity is set
+    std::get<27>(accumulator) += transcript_Pinfinity * transcript_Px * scaling_factor; // degree 2
+    std::get<28>(accumulator) += transcript_Pinfinity * transcript_Py * scaling_factor; // degree 2
+    // Accumulator coordinates must be zero when is_accumulator_empty is set
+    std::get<29>(accumulator) += is_accumulator_empty * transcript_accumulator_x * scaling_factor; // degree 2
+    std::get<30>(accumulator) += is_accumulator_empty * transcript_accumulator_y * scaling_factor; // degree 2
 }
 } // namespace bb

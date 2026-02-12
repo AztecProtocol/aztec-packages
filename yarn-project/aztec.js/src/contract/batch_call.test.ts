@@ -134,11 +134,17 @@ describe('BatchCall', () => {
       expect(wallet.batch).toHaveBeenCalledWith([
         {
           name: 'simulateUtility',
-          args: [expect.objectContaining({ name: 'getBalance', to: contractAddress1 }), undefined, undefined],
+          args: [
+            expect.objectContaining({ name: 'getBalance', to: contractAddress1 }),
+            expect.objectContaining({ scope: expect.any(AztecAddress) }),
+          ],
         },
         {
           name: 'simulateUtility',
-          args: [expect.objectContaining({ name: 'checkPermission', to: contractAddress3 }), undefined, undefined],
+          args: [
+            expect.objectContaining({ name: 'checkPermission', to: contractAddress3 }),
+            expect.objectContaining({ scope: expect.any(AztecAddress) }),
+          ],
         },
         {
           name: 'simulateTx',
@@ -193,11 +199,17 @@ describe('BatchCall', () => {
       expect(wallet.batch).toHaveBeenCalledWith([
         {
           name: 'simulateUtility',
-          args: [expect.objectContaining({ name: 'view1', to: contractAddress1 }), undefined, undefined],
+          args: [
+            expect.objectContaining({ name: 'view1', to: contractAddress1 }),
+            expect.objectContaining({ scope: expect.any(AztecAddress) }),
+          ],
         },
         {
           name: 'simulateUtility',
-          args: [expect.objectContaining({ name: 'view2', to: contractAddress2 }), undefined, undefined],
+          args: [
+            expect.objectContaining({ name: 'view2', to: contractAddress2 }),
+            expect.objectContaining({ scope: expect.any(AztecAddress) }),
+          ],
         },
       ]);
 

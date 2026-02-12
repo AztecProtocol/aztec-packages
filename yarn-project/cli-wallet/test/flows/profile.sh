@@ -2,15 +2,10 @@
 source $(git rev-parse --show-toplevel)/ci3/source
 source shared/setup.sh
 
-test_title "Profile private transfer with authwit"
+test_title "Profile private transfer"
 
 source $flows/shared/deploy_main_account_and_token.sh
 source $flows/shared/mint_to_private.sh 100 main
-source $flows/shared/create_funded_account.sh operator
-
-# Create an authwit for the operator to transfer tokens from the main account to operator's own account.
-aztec-wallet create-secret -a auth_nonce
-aztec-wallet create-authwit transfer_in_private operator -ca token --args accounts:main accounts:operator 100 secrets:auth_nonce -f main
 
 # Write out debug execution steps (used for debugging prover development).
 tmp=$(mktemp -d)
@@ -18,7 +13,7 @@ function cleanup {
     rm -rf $tmp
 }
 trap cleanup EXIT SIGINT
-aztec-wallet profile transfer_in_private --debug-execution-steps-dir $tmp -ca token --args accounts:main accounts:operator 100 secrets:auth_nonce -aw authwits:last -f operator
+aztec-wallet profile transfer_in_private --debug-execution-steps-dir $tmp -ca token --args accounts:main accounts:main 100 0 -f main
 # Crude check, check that $tmp is over one megabyte, the validity of these files is checked more directly in the chonk benches.
 size=$(du -sb $tmp | awk '{print $1}')
 if [ "$size" -lt 1000000 ]; then
@@ -27,7 +22,7 @@ if [ "$size" -lt 1000000 ]; then
 fi
 
 # Profile gate counts for `transfer_in_private`
-gate_count=$(aztec-wallet profile transfer_in_private -ca token --args accounts:main accounts:operator 100 secrets:auth_nonce -aw authwits:last -f operator | grep "Total gates:" | awk '{print $3}')
+gate_count=$(aztec-wallet profile transfer_in_private -ca token --args accounts:main accounts:main 100 0 -f main | grep "Total gates:" | awk '{print $3}')
 
 echo "GATE_COUNT: $gate_count"
 

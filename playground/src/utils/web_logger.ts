@@ -41,6 +41,7 @@ export class WebLogger {
   }
 
   createLogger(prefix: string): Logger {
+    const self = this;
     return new Proxy(createLogger(prefix), {
       get: (target, prop) => {
         if (logLevel.includes(prop as (typeof logLevel)[number])) {
@@ -50,6 +51,8 @@ export class WebLogger {
             WebLogger.getInstance().handleLog(...args);
             target[loggingFn].call(this, ...[data[0], data[1]]);
           };
+        } else if (prop === 'createChild') {
+          return (childModule: string) => self.createLogger(`${prefix}:${childModule}`);
         } else {
           return target[prop];
         }

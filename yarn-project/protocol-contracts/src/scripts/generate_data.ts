@@ -63,8 +63,8 @@ async function copyArtifact(srcName: string, destName: string) {
   return artifact;
 }
 
-async function computeAddress(artifact: NoirCompiledContract) {
-  const instance = await getContractInstanceFromInstantiationParams(loadContractArtifact(artifact), { salt });
+async function computeAddress(artifact: NoirCompiledContract, deployer: AztecAddress) {
+  const instance = await getContractInstanceFromInstantiationParams(loadContractArtifact(artifact), { salt, deployer });
   return instance.address;
 }
 
@@ -179,7 +179,7 @@ async function main() {
     const destName = destNames[i];
     const artifact = await copyArtifact(srcName, destName);
     await generateDeclarationFile(destName);
-    derivedAddresses.push(await computeAddress(artifact));
+    derivedAddresses.push(await computeAddress(artifact, AztecAddress.fromBigInt(contractAddressMapping[destName])));
   }
 
   await generateOutputFile(destNames, derivedAddresses);

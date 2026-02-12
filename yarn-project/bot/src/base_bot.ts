@@ -5,7 +5,7 @@ import { waitForTx } from '@aztec/aztec.js/node';
 import { TxHash, TxReceipt, TxStatus } from '@aztec/aztec.js/tx';
 import { Gas } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import type { TestWallet } from '@aztec/test-wallet/server';
+import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import type { BotConfig } from './config.js';
 
@@ -17,7 +17,7 @@ export abstract class BaseBot {
 
   protected constructor(
     public readonly node: AztecNode,
-    public readonly wallet: TestWallet,
+    public readonly wallet: EmbeddedWallet,
     public readonly defaultAccountAddress: AztecAddress,
     public config: BotConfig,
   ) {}

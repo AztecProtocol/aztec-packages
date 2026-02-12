@@ -4,7 +4,7 @@ use aztec::{
     oracle::random::random, protocol::traits::Deserialize,
     test::helpers::authwit::add_private_authwit_from_call,
 };
-use generic_proxy::GenericProxy;
+use generic_proxy_contract::GenericProxy;
 use uint_note::PartialUintNote;
 
 // Tests the typical scenario in which transfer_to_public_and_prepare_private_balance_increase is to be used:

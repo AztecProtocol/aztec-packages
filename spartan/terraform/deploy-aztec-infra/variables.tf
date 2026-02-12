@@ -656,6 +656,25 @@ variable "BLOB_FILE_STORE_UPLOAD_URL" {
   default     = null
 }
 
+variable "TX_FILE_STORE_ENABLED" {
+  description = "Whether to enable uploading transactions to file storage"
+  type        = bool
+  default     = false
+}
+
+variable "TX_FILE_STORE_URL" {
+  description = "URL for uploading transactions (e.g., s3://bucket/path/, gs://bucket/path/)"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "TX_COLLECTION_FILE_STORE_URLS" {
+  description = "Comma-separated URLs for reading transactions from file storage"
+  type        = string
+  default     = ""
+}
+
 variable "PROVER_AGENT_POLL_INTERVAL_MS" {
   description = "Interval in milliseconds between prover agent polls"
   type        = number

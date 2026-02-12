@@ -1,9 +1,7 @@
 // docs:start:complete_test_example
 import { createAztecNodeClient, waitForNode } from "@aztec/aztec.js/node";
-import {
-  TestWallet,
-  registerInitialLocalNetworkAccountsInWallet,
-} from "@aztec/test-wallet/server";
+import { EmbeddedWallet } from "@aztec/wallets/embedded";
+import { getInitialTestAccountsData } from "@aztec/accounts/testing";
 import { TokenContract } from "@aztec/noir-contracts.js/Token";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 
@@ -11,7 +9,7 @@ import { AztecAddress } from "@aztec/aztec.js/addresses";
 // In a real test file, wrap this in describe() and it() blocks.
 
 // Test setup variables
-let wallet: TestWallet;
+let wallet: EmbeddedWallet;
 let aliceAddress: AztecAddress;
 let bobAddress: AztecAddress;
 let token: TokenContract;
@@ -20,9 +18,13 @@ let token: TokenContract;
 async function setup() {
   const node = createAztecNodeClient("http://localhost:8080");
   await waitForNode(node);
-  wallet = await TestWallet.create(node);
-  [aliceAddress, bobAddress] =
-    await registerInitialLocalNetworkAccountsInWallet(wallet);
+  wallet = await EmbeddedWallet.create(node);
+  const testAccounts = await getInitialTestAccountsData();
+  [aliceAddress, bobAddress] = await Promise.all(
+    testAccounts.slice(0, 2).map(async (account) => {
+      return (await wallet.createSchnorrAccount(account.secret, account.salt, account.signingKey)).address;
+    }),
+  );
 
   token = await TokenContract.deploy(
     wallet,

@@ -2,7 +2,6 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { CompleteAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { DirectionalAppTaggingSecret, PendingTaggedLog, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { BlockHeader } from '@aztec/stdlib/tx';
@@ -159,7 +158,10 @@ export class LogService {
     contractAddress: AztecAddress,
     recipient: AztecAddress,
   ): Promise<DirectionalAppTaggingSecret[]> {
-    const recipientCompleteAddress = await this.#getCompleteAddress(recipient);
+    const recipientCompleteAddress = await this.addressStore.getCompleteAddress(recipient);
+    if (!recipientCompleteAddress) {
+      return [];
+    }
     const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
 
     // We implicitly add all PXE accounts as senders, this helps us decrypt tags on notes that we send to ourselves
@@ -205,16 +207,5 @@ export class LogService {
 
     // TODO: This looks like it could belong more at the oracle interface level
     return this.capsuleStore.appendToCapsuleArray(contractAddress, capsuleArrayBaseSlot, pendingTaggedLogs, this.jobId);
-  }
-
-  async #getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
-    const completeAddress = await this.addressStore.getCompleteAddress(account);
-    if (!completeAddress) {
-      throw new Error(
-        `No public key registered for address ${account}.
-				Register it by calling pxe.addAccount(...).\nSee docs for context: https://docs.aztec.network/developers/resources/debugging/aztecnr-errors#simulation-error-no-public-key-registered-for-address-0x0-register-it-by-calling-pxeregisterrecipient-or-pxeregisteraccount`,
-      );
-    }
-    return completeAddress;
   }
 }

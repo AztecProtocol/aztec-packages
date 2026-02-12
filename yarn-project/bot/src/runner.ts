@@ -4,7 +4,7 @@ import { omit } from '@aztec/foundation/collection';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
-import type { TestWallet } from '@aztec/test-wallet/server';
+import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { AmmBot } from './amm_bot.js';
 import type { BaseBot } from './base_bot.js';
@@ -24,7 +24,7 @@ export class BotRunner implements BotRunnerApi, Traceable {
 
   public constructor(
     private config: BotConfig,
-    private readonly wallet: TestWallet,
+    private readonly wallet: EmbeddedWallet,
     private readonly aztecNode: AztecNode,
     private readonly telemetry: TelemetryClient,
     private readonly aztecNodeAdmin: AztecNodeAdmin | undefined,
