@@ -570,16 +570,8 @@ contract TallySlashingProposer is EIP712 {
    * @return voteCount The total number of votes that have been cast in this round by proposers
    */
   function getRound(SlashRound _round) external view returns (bool isExecuted, uint256 voteCount) {
-    SlashRound currentRound = getCurrentRound();
-
     // Load round data from the circular storage
-    RoundData memory roundData = _getRoundData(_round, currentRound);
-
-    // If we have not written to this round yet, return fresh round data
-    if (roundData.roundNumber != _round) {
-      return (false, 0);
-    }
-
+    RoundData memory roundData = _getRoundData(_round, getCurrentRound());
     return (roundData.executed, roundData.voteCount);
   }
 
