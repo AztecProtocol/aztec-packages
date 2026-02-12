@@ -68,9 +68,8 @@ def extract_pr_number(name: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
-def get_ci_runs(redis_conn, date_from_ms=None, date_to_ms=None):
-    """Read CI runs directly from Redis sorted sets."""
-    # Build branch→PR map for runs where we can't extract PR from name/msg
+def _get_ci_runs_from_redis(redis_conn, date_from_ms=None, date_to_ms=None):
+    """Read CI runs from Redis sorted sets."""
     branch_pr_map = rk_github.get_branch_pr_map()
 
     runs = []
@@ -101,6 +100,65 @@ def get_ci_runs(redis_conn, date_from_ms=None, date_to_ms=None):
         except Exception as e:
             print(f"[rk_metrics] Error reading {key}: {e}")
     return runs
+
+
+def _get_ci_runs_from_sqlite(date_from_ms=None, date_to_ms=None):
+    """Read CI runs from SQLite (persistent store)."""
+    conditions = []
+    params = []
+    if date_from_ms is not None:
+        conditions.append('timestamp_ms >= ?')
+        params.append(date_from_ms)
+    if date_to_ms is not None:
+        conditions.append('timestamp_ms <= ?')
+        params.append(date_to_ms)
+    where = ('WHERE ' + ' AND '.join(conditions)) if conditions else ''
+    rows = rk_db.query(f'SELECT * FROM ci_runs {where} ORDER BY timestamp_ms', params)
+    runs = []
+    for row in rows:
+        runs.append({
+            'dashboard': row['dashboard'],
+            'name': row['name'],
+            'timestamp': row['timestamp_ms'],
+            'complete': row['complete_ms'],
+            'status': row['status'],
+            'author': row['author'],
+            'pr_number': row['pr_number'],
+            'instance_type': row['instance_type'],
+            'instance_vcpus': row.get('instance_vcpus'),
+            'spot': bool(row['spot']),
+            'cost_usd': row['cost_usd'],
+            'job_id': row.get('job_id', ''),
+            'arch': row.get('arch', ''),
+        })
+    return runs
+
+
+def get_ci_runs(redis_conn, date_from_ms=None, date_to_ms=None):
+    """Read CI runs from Redis, backfilled with SQLite for data that Redis has flushed."""
+    redis_runs = _get_ci_runs_from_redis(redis_conn, date_from_ms, date_to_ms)
+
+    # Find the earliest timestamp in Redis to know what SQLite needs to fill
+    redis_keys = set()
+    redis_min_ts = float('inf')
+    for run in redis_runs:
+        ts = run.get('timestamp', 0)
+        redis_keys.add((run.get('dashboard', ''), ts, run.get('name', '')))
+        if ts < redis_min_ts:
+            redis_min_ts = ts
+
+    # If requesting data older than what Redis has, backfill from SQLite
+    sqlite_runs = []
+    need_sqlite = (date_from_ms is not None and date_from_ms < redis_min_ts) or not redis_runs
+    if need_sqlite:
+        sqlite_to = int(redis_min_ts) if redis_runs else date_to_ms
+        sqlite_runs = _get_ci_runs_from_sqlite(date_from_ms, sqlite_to)
+        # Deduplicate: only include SQLite runs not already in Redis
+        sqlite_runs = [r for r in sqlite_runs
+                       if (r.get('dashboard', ''), r.get('timestamp', 0), r.get('name', ''))
+                       not in redis_keys]
+
+    return sqlite_runs + redis_runs
 
 
 def _ts_to_date(ts_ms):
@@ -369,8 +427,9 @@ def _load_seed_data():
                 db.execute('''
                     INSERT OR IGNORE INTO ci_runs
                     (dashboard, name, timestamp_ms, complete_ms, status, author,
-                     pr_number, instance_type, spot, cost_usd, synced_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     pr_number, instance_type, instance_vcpus, spot, cost_usd,
+                     job_id, arch, synced_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     run.get('dashboard', ''),
                     run.get('name', ''),
@@ -380,8 +439,11 @@ def _load_seed_data():
                     run.get('author'),
                     run.get('pr_number'),
                     run.get('instance_type'),
+                    run.get('instance_vcpus'),
                     1 if run.get('spot') else 0,
                     run.get('cost_usd'),
+                    run.get('job_id', ''),
+                    run.get('arch', ''),
                     now_iso,
                 ))
             except Exception:
@@ -428,16 +490,15 @@ _CI_SYNC_TTL = 3600  # 1 hour
 
 
 def sync_ci_runs_to_sqlite(redis_conn):
-    """Sync CI runs from Redis sorted sets into SQLite for flake correlation."""
+    """Sync all CI runs from Redis into SQLite for persistence."""
     global _ci_sync_ts
     now = time.time()
     if now - _ci_sync_ts < _CI_SYNC_TTL:
         return
     _ci_sync_ts = now
 
-    # Sync last 30 days of runs
-    ts_from = int((datetime.now(timezone.utc) - timedelta(days=30)).timestamp() * 1000)
-    runs = get_ci_runs(redis_conn, ts_from)
+    # Sync everything Redis has (not just 30 days)
+    runs = _get_ci_runs_from_redis(redis_conn)
 
     now_iso = datetime.now(timezone.utc).isoformat()
     db = rk_db.get_db()
@@ -447,8 +508,9 @@ def sync_ci_runs_to_sqlite(redis_conn):
             db.execute('''
                 INSERT OR REPLACE INTO ci_runs
                 (dashboard, name, timestamp_ms, complete_ms, status, author,
-                 pr_number, instance_type, spot, cost_usd, synced_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 pr_number, instance_type, instance_vcpus, spot, cost_usd,
+                 job_id, arch, synced_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 run.get('dashboard', ''),
                 run.get('name', ''),
@@ -458,8 +520,11 @@ def sync_ci_runs_to_sqlite(redis_conn):
                 run.get('author'),
                 run.get('pr_number'),
                 run.get('instance_type'),
+                run.get('instance_vcpus'),
                 1 if run.get('spot') else 0,
                 run.get('cost_usd'),
+                run.get('job_id', ''),
+                run.get('arch', ''),
                 now_iso,
             ))
             count += 1

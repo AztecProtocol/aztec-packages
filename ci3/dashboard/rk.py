@@ -19,14 +19,14 @@ from rk_core import (
     YELLOW, BLUE, GREEN, RED, PURPLE, BOLD, RESET,
     hyperlink, r, get_section_data, get_list_as_string
 )
-from rk_billing import (
+from billing import (
     get_billing_files_in_range,
     aggregate_billing_weekly, aggregate_billing_monthly,
     serve_billing_dashboard,
 )
 import rk_db
 import rk_metrics
-import rk_aws_costs
+import billing.aws as rk_aws_costs
 import rk_github
 
 LOGS_DISK_PATH = os.getenv('LOGS_DISK_PATH', '/logs-disk')
@@ -763,11 +763,14 @@ def api_costs_attribution():
     pr_numbers = {run.get('pr_number') for run in runs_with_cost if run.get('pr_number')}
     pr_authors = rk_github.batch_get_pr_authors(pr_numbers)
 
+    granularity = request.args.get('granularity', 'daily')
+
     # Build per-instance records with decoded branch info
     instances = []
     by_user = {}
     by_branch = {}
     by_type = {}  # merge-queue, pr, nightly, etc.
+    by_date_type = {}  # date -> type -> cost (time series)
 
     for run in runs_with_cost:
         info = rk_aws_costs.decode_branch_info(run)
@@ -780,6 +783,11 @@ def api_costs_attribution():
         if prn and int(prn) in pr_authors:
             author = pr_authors[int(prn)]['author']
 
+        inst_type = run.get('instance_type', 'unknown')
+        vcpus = run.get('instance_vcpus')
+        if inst_type == 'unknown' and vcpus:
+            inst_type = f'{vcpus}vcpu'
+
         instances.append({
             'instance_name': info['instance_name'],
             'date': date,
@@ -788,7 +796,7 @@ def api_costs_attribution():
             'branch': info['branch'],
             'pr_number': prn,
             'type': info['type'],
-            'instance_type': run.get('instance_type', 'unknown'),
+            'instance_type': inst_type,
             'spot': run.get('spot', False),
             'job_id': run.get('job_id', ''),
             'duration_mins': round((run.get('complete', 0) - run.get('timestamp', 0)) / 60000, 1) if run.get('complete') else None,
@@ -815,11 +823,17 @@ def api_costs_attribution():
         by_type[rt]['cost'] += cost
         by_type[rt]['runs'] += 1
 
-    # Add GKE namespace costs attributed to users.
+        # Time series: cost by date and type
+        if date not in by_date_type:
+            by_date_type[date] = {}
+        by_date_type[date][rt] = by_date_type[date].get(rt, 0) + cost
+
+    # Add GKE namespace costs attributed to users (only if we can match to a GitHub actor).
     # Namespace naming: pr-$(echo "$branch" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20 | sed 's/-*$//')
     # So we match namespaces to CI run branch names by reversing the sanitization.
+    gcp_unattributed = 0
     try:
-        from rk_billing import get_billing_files_in_range
+        from billing.gcp import get_billing_files_in_range
         gcp_data = get_billing_files_in_range(
             datetime.strptime(date_from, '%Y-%m-%d'),
             datetime.strptime(date_to, '%Y-%m-%d'),
@@ -850,18 +864,19 @@ def api_costs_attribution():
                 ns_cost = ns_data.get('total', 0)
                 if ns_cost < 0.01:
                     continue
-                # Try to match namespace to a known branch
+                # Try to match namespace to a known GitHub actor
                 ns_author = None
                 if ns.startswith('pr-'):
                     # Strip scenario test suffix (-1, -2, etc.) for matching
                     ns_base = re.sub(r'-\d+$', '', ns)
                     ns_author = ns_prefix_to_author.get(ns) or ns_prefix_to_author.get(ns_base)
-                if not ns_author:
-                    ns_author = ns if not ns.startswith('pr-') else 'unknown-pr'
 
-                if ns_author not in by_user:
-                    by_user[ns_author] = {'aws_cost': 0, 'gcp_cost': 0, 'runs': 0, 'by_date': {}}
-                by_user[ns_author]['gcp_cost'] += ns_cost
+                if ns_author:
+                    if ns_author not in by_user:
+                        by_user[ns_author] = {'aws_cost': 0, 'gcp_cost': 0, 'runs': 0, 'by_date': {}}
+                    by_user[ns_author]['gcp_cost'] += ns_cost
+                else:
+                    gcp_unattributed += ns_cost
     except Exception as e:
         print(f"[attribution] GKE enrichment error: {e}")
 
@@ -880,15 +895,34 @@ def api_costs_attribution():
 
     instances.sort(key=lambda x: -(x['cost_usd'] or 0))
 
+    # Build time series: [{date, total, runs, merge-queue, pr, nightly, ...}]
+    all_types = sorted(by_type.keys())
+    by_date_list = []
+    for date in sorted(by_date_type):
+        entry = {'date': date, 'total': 0, 'runs': 0}
+        for rt in all_types:
+            entry[rt] = round(by_date_type[date].get(rt, 0), 2)
+            entry['total'] += by_date_type[date].get(rt, 0)
+        entry['total'] = round(entry['total'], 2)
+        # Count runs for this date
+        entry['runs'] = sum(1 for inst in instances if inst['date'] == date)
+        by_date_list.append(entry)
+
+    by_date_list = _aggregate_dates(by_date_list, granularity,
+                                     sum_fields=['total', 'runs'] + all_types)
+
     total_aws = sum(u['aws_cost'] for u in user_list)
-    total_gcp = sum(u['gcp_cost'] for u in user_list)
+    total_gcp = sum(u['gcp_cost'] for u in user_list) + gcp_unattributed
 
     return Response(json.dumps({
         'by_user': user_list,
         'by_branch': branch_list,
         'by_type': type_list,
+        'by_date': by_date_list,
+        'run_types': all_types,
         'instances': instances[:500],  # cap to avoid huge payloads
         'totals': {'aws': round(total_aws, 2), 'gcp': round(total_gcp, 2),
+                   'gcp_unattributed': round(gcp_unattributed, 2),
                    'combined': round(total_aws + total_gcp, 2)},
     }), mimetype='application/json')
 

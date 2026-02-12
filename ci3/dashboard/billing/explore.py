@@ -390,10 +390,9 @@ def cmd_compare(args):
 
     # Get usage metering estimates
     try:
-        sys.path.insert(0, os.path.dirname(__file__))
-        import rk_billing
-        rk_billing._ensure_cached()
-        metering_data = rk_billing._cache.get('data', [])
+        from billing import gcp as _gcp_billing
+        _gcp_billing._ensure_cached()
+        metering_data = _gcp_billing._cache.get('data', [])
     except Exception as e:
         print(f'Could not load usage metering data: {e}')
         metering_data = []
@@ -511,8 +510,7 @@ def cmd_metering(args):
     ])
     rows = list(client.query(query, job_config=job_config).result())
     # Import pricing to check
-    sys.path.insert(0, os.path.dirname(__file__))
-    from rk_billing import _SKU_PRICING
+    from billing.gcp import _SKU_PRICING
     print(f'  {"SKU ID":<20} {"Resource":<20} {"Rows":>10} {"Amount":>18} {"Unit":<12} {"Known?"}')
     print('  ' + '-' * 90)
     for r in rows:
@@ -523,8 +521,7 @@ def cmd_metering(args):
 def _query_metering_table(client, table, start_date, end_date, label):
     """Query a metering table and compute costs using our SKU pricing."""
     from google.cloud import bigquery
-    sys.path.insert(0, os.path.dirname(__file__))
-    from rk_billing import _SKU_PRICING, _usage_to_cost
+    from billing.gcp import _SKU_PRICING, _usage_to_cost
 
     query = f"""
     SELECT

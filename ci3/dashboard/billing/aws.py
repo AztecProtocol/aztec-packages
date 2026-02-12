@@ -303,7 +303,7 @@ def get_costs_overview(date_from: str, date_to: str) -> dict:
     # GCP data from billing files (already on disk, no SQLite needed)
     gcp_by_date = {}
     try:
-        from rk_billing import get_billing_files_in_range
+        from billing.gcp import get_billing_files_in_range
         billing_data = get_billing_files_in_range(
             datetime.strptime(date_from, '%Y-%m-%d'),
             datetime.strptime(date_to, '%Y-%m-%d'),

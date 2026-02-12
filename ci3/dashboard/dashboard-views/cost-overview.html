@@ -138,8 +138,16 @@
 
   <div class="tab-content" id="tab-attribution">
     <div class="stats" id="attr-stats"></div>
+    <div id="attr-user-filter" style="display:none; margin:8px 0; padding:6px 12px; background:#1a1a2e; border:1px solid #58a6ff; align-items:center; gap:8px; font-size:13px;">
+      filtered to user: <span id="attr-uf-name" style="color:#fff;font-weight:bold"></span>
+      <span id="attr-uf-clear" style="cursor:pointer;color:#888;margin-left:8px">[clear]</span>
+    </div>
     <div id="attr-msg" class="msg"></div>
     <div class="charts">
+      <div class="chart-box full">
+        <h3>ci cost by run type (time series)</h3>
+        <div class="chart-wrap tall"><canvas id="attrTimeSeries"></canvas></div>
+      </div>
       <div class="chart-box">
         <h3>cost by user (AWS + GCP)</h3>
         <div class="chart-wrap" style="height:400px"><canvas id="userBar"></canvas></div>
@@ -178,6 +186,7 @@
 
     const fmt = v => v >= 1000 ? '$' + v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : v >= 1 ? '$' + v.toFixed(2) : '$' + v.toFixed(4);
     const fmtDate = s => { const d = new Date(s + 'T00:00:00'); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
+    const escapeHtml = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
     const cap = s => s.split('_').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
 
     function granularity() {
@@ -568,6 +577,19 @@
     // ---- CI attribution ----
     let attrData = null;
     let attrSort = { col: 'cost_usd', dir: 'desc' };
+    let attrUserFilter = '';
+
+    function setAttrUserFilter(user) {
+      attrUserFilter = user;
+      const el = document.getElementById('attr-user-filter');
+      if (user) {
+        el.style.display = 'inline-flex';
+        document.getElementById('attr-uf-name').textContent = user;
+      } else {
+        el.style.display = 'none';
+      }
+      renderAttribution();
+    }
 
     async function loadAttribution() {
       const msg = document.getElementById('attr-msg');
@@ -575,7 +597,8 @@
       try {
         const f = document.getElementById('dateFrom').value;
         const t = document.getElementById('dateTo').value;
-        const resp = await fetch(`/api/costs/attribution?from=${f}&to=${t}`);
+        const g = granularity();
+        const resp = await fetch(`/api/costs/attribution?from=${f}&to=${t}&granularity=${g}`);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         attrData = await resp.json();
         msg.textContent = '';
@@ -587,32 +610,112 @@
 
     function renderAttribution() {
       if (!attrData) return;
-      const { by_user, by_type, instances, totals } = attrData;
+      const { by_user, by_type, totals } = attrData;
 
-      document.getElementById('attr-stats').innerHTML =
-        `ci compute (aws): <span>${fmt(totals.aws)}</span> &middot; ` +
-        `gke namespaces (gcp): <span>${fmt(totals.gcp)}</span> &middot; ` +
-        `combined: <span style="color:#fff">${fmt(totals.combined)}</span> &middot; ` +
-        `users: <span>${by_user.length}</span> &middot; ` +
-        `instances: <span>${instances.length}</span>`;
+      // Apply user filter
+      const filteredInstances = attrUserFilter
+        ? attrData.instances.filter(i => i.author === attrUserFilter)
+        : attrData.instances;
+      const filteredByType = {};
+      filteredInstances.forEach(i => {
+        if (!filteredByType[i.type]) filteredByType[i.type] = { type: i.type, cost: 0, runs: 0 };
+        filteredByType[i.type].cost += i.cost_usd || 0;
+        filteredByType[i.type].runs += 1;
+      });
+      const displayByType = attrUserFilter ? Object.values(filteredByType).sort((a, b) => b.cost - a.cost) : by_type;
+
+      // Build filtered time series
+      const filteredByDate = {};
+      filteredInstances.forEach(i => {
+        if (!filteredByDate[i.date]) filteredByDate[i.date] = {};
+        filteredByDate[i.date][i.type] = (filteredByDate[i.date][i.type] || 0) + (i.cost_usd || 0);
+      });
+
+      const filteredAws = filteredInstances.reduce((s, i) => s + (i.cost_usd || 0), 0);
+      const filteredUser = attrUserFilter ? by_user.find(u => u.author === attrUserFilter) : null;
+      const filteredGcp = filteredUser ? filteredUser.gcp_cost : 0;
+
+      const unattr = totals.gcp_unattributed || 0;
+      if (attrUserFilter) {
+        document.getElementById('attr-stats').innerHTML =
+          `<span style="color:#fff">${attrUserFilter}</span>: ` +
+          `aws: <span>${fmt(filteredAws)}</span> &middot; ` +
+          `gcp: <span>${fmt(filteredGcp)}</span> &middot; ` +
+          `runs: <span>${filteredInstances.length}</span>`;
+      } else {
+        document.getElementById('attr-stats').innerHTML =
+          `ci compute (aws): <span>${fmt(totals.aws)}</span> &middot; ` +
+          `gke namespaces (gcp): <span>${fmt(totals.gcp)}</span>` +
+          (unattr > 0 ? ` <span style="color:#888">(${fmt(unattr)} unattributed)</span>` : '') + ` &middot; ` +
+          `combined: <span style="color:#fff">${fmt(totals.combined)}</span> &middot; ` +
+          `users: <span>${by_user.length}</span> &middot; ` +
+          `instances: <span>${attrData.instances.length}</span>`;
+      }
 
       // Destroy old charts
+      if (charts.attrTimeSeries) { charts.attrTimeSeries.destroy(); delete charts.attrTimeSeries; }
       if (charts.userBar) { charts.userBar.destroy(); delete charts.userBar; }
       if (charts.typeDonut) { charts.typeDonut.destroy(); delete charts.typeDonut; }
 
-      // User bar chart (horizontal)
+      // Time series: stacked bar by run type
+      const allRunTypes = attrData.run_types || [];
+      const byDateSorted = Object.keys(filteredByDate).sort();
+      const byDate = byDateSorted.map(d => ({ date: d, ...filteredByDate[d] }));
+      const runTypes = attrUserFilter
+        ? [...new Set(filteredInstances.map(i => i.type))].sort()
+        : allRunTypes;
+      if (byDate.length > 0) {
+        const typeColors = { 'merge-queue': '#58a6ff', 'pr': '#3fb950', 'nightly': '#d2a8ff', 'releases': '#f0883e', 'network': '#f85149', 'deflake': '#a5d6ff', 'other': '#555' };
+        const tsDatasets = runTypes.map(rt => ({
+          label: rt,
+          data: byDate.map(d => d[rt] || 0),
+          backgroundColor: typeColors[rt] || '#555',
+          borderWidth: 0,
+        }));
+        charts.attrTimeSeries = new Chart(document.getElementById('attrTimeSeries').getContext('2d'), {
+          type: 'bar',
+          data: { labels: byDate.map(d => fmtDate(d.date)), datasets: tsDatasets },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+              x: { stacked: true, ticks: { color: '#555', maxRotation: 45 }, grid: { color: '#181818' } },
+              y: { stacked: true, ticks: { color: '#555', callback: v => '$' + v }, grid: { color: '#181818' } }
+            },
+            plugins: {
+              legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },
+              tooltip: {
+                itemSort: (a, b) => b.raw - a.raw,
+                filter: c => c.raw > 0,
+                callbacks: {
+                  label: c => `${c.dataset.label}: ${fmt(c.raw)}`,
+                  footer: items => `total: ${fmt(items.reduce((s, i) => s + i.raw, 0))}`
+                }
+              }
+            }
+          }
+        });
+      }
+
+      // User bar chart (horizontal) — clickable to filter
       const topUsers = by_user.slice(0, 15);
       charts.userBar = new Chart(document.getElementById('userBar').getContext('2d'), {
         type: 'bar',
         data: {
           labels: topUsers.map(u => u.author),
           datasets: [
-            { label: 'AWS (compute)', data: topUsers.map(u => u.aws_cost), backgroundColor: '#58a6ff', barPercentage: 0.6 },
-            { label: 'GCP (namespace)', data: topUsers.map(u => u.gcp_cost), backgroundColor: '#3fb950', barPercentage: 0.6 },
+            { label: 'AWS (compute)', data: topUsers.map(u => u.aws_cost), backgroundColor: topUsers.map(u => u.author === attrUserFilter ? '#8cc9ff' : '#58a6ff'), barPercentage: 0.6 },
+            { label: 'GCP (namespace)', data: topUsers.map(u => u.gcp_cost), backgroundColor: topUsers.map(u => u.author === attrUserFilter ? '#6fdb7a' : '#3fb950'), barPercentage: 0.6 },
           ]
         },
         options: {
           responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+          onClick: (e, elements) => {
+            if (elements.length > 0) {
+              const user = topUsers[elements[0].index].author;
+              setAttrUserFilter(attrUserFilter === user ? '' : user);
+            }
+          },
           scales: {
             x: { stacked: true, ticks: { color: '#555', callback: v => '$' + v }, grid: { color: '#181818' } },
             y: { stacked: true, ticks: { color: '#ccc', font: { family: 'monospace' } }, grid: { display: false } }
@@ -629,13 +732,13 @@
         }
       });
 
-      // Type donut
+      // Type donut (filtered)
       const typeColors = { 'merge-queue': '#58a6ff', 'pr': '#3fb950', 'nightly': '#d2a8ff', 'releases': '#f0883e', 'network': '#f85149', 'deflake': '#a5d6ff', 'other': '#555' };
       charts.typeDonut = new Chart(document.getElementById('typeDonut').getContext('2d'), {
         type: 'doughnut',
         data: {
-          labels: by_type.map(t => t.type),
-          datasets: [{ data: by_type.map(t => t.cost), backgroundColor: by_type.map(t => typeColors[t.type] || '#555'), borderColor: '#0a0a0a', borderWidth: 2 }]
+          labels: displayByType.map(t => t.type),
+          datasets: [{ data: displayByType.map(t => t.cost), backgroundColor: displayByType.map(t => typeColors[t.type] || '#555'), borderColor: '#0a0a0a', borderWidth: 2 }]
         },
         options: {
           responsive: true, maintainAspectRatio: false,
@@ -677,7 +780,9 @@
         tr.appendChild(th);
       });
 
-      const items = attrData.instances.slice();
+      const items = attrUserFilter
+        ? attrData.instances.filter(i => i.author === attrUserFilter)
+        : attrData.instances.slice();
       items.sort((a, b) => {
         const col = attrSort.col;
         let av = a[col], bv = b[col];
@@ -694,17 +799,22 @@
 
       document.getElementById('attr-tbody').innerHTML = items.map(i =>
         `<tr>` +
-        `<td style="color:#ccc">${i.instance_name}</td>` +
-        `<td>${i.author}</td>` +
+        `<td style="color:#ccc">${escapeHtml(i.instance_name)}</td>` +
+        `<td><span class="attr-user-link" style="cursor:pointer;color:#58a6ff" data-user="${escapeHtml(i.author)}">${escapeHtml(i.author)}</span></td>` +
         `<td>${typeBadge(i.type)}</td>` +
-        `<td style="color:#888;max-width:200px;overflow:hidden;text-overflow:ellipsis">${i.branch}</td>` +
+        `<td style="color:#888;max-width:200px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(i.branch)}</td>` +
         `<td class="amt" style="color:#fff">${fmt(i.cost_usd)}</td>` +
         `<td class="amt">${i.duration_mins != null ? i.duration_mins.toFixed(1) : ''}</td>` +
-        `<td style="color:#888">${i.instance_type}</td>` +
+        `<td style="color:#888">${escapeHtml(i.instance_type || '')}</td>` +
         `<td>${i.spot ? '<span style="color:#3fb950">spot</span>' : '<span style="color:#f0883e">OD</span>'}</td>` +
         `<td style="color:#888">${fmtDate(i.date)}</td>` +
         `</tr>`
       ).join('');
+
+      // Make author names clickable
+      document.querySelectorAll('.attr-user-link').forEach(el => {
+        el.onclick = () => setAttrUserFilter(el.dataset.user);
+      });
     }
 
     // ---- url state ----
@@ -759,7 +869,10 @@
       // Tab switching
       document.querySelectorAll('.tab').forEach(t => t.onclick = () => switchTab(t.dataset.tab));
 
-      document.getElementById('refreshBtn').onclick = () => { detailData = null; attrData = null; load(); const t = document.querySelector('.tab.active').dataset.tab; if (t === 'details') loadDetails(); if (t === 'attribution') loadAttribution(); };
+      // Clear user filter
+      document.getElementById('attr-uf-clear').onclick = () => setAttrUserFilter('');
+
+      document.getElementById('refreshBtn').onclick = () => { detailData = null; attrData = null; attrUserFilter = ''; document.getElementById('attr-user-filter').style.display = 'none'; load(); const t = document.querySelector('.tab.active').dataset.tab; if (t === 'details') loadDetails(); if (t === 'attribution') loadAttribution(); };
       document.querySelectorAll('[data-range]').forEach(b => b.onclick = () => {
         document.querySelectorAll('[data-range]').forEach(x => x.classList.remove('active'));
         b.classList.add('active');
@@ -777,7 +890,10 @@
       document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
         document.querySelectorAll('[data-g]').forEach(x => x.classList.remove('active'));
         b.classList.add('active');
+        attrData = null;
         load();
+        const _t3 = document.querySelector('.tab.active').dataset.tab;
+        if (_t3 === 'attribution') loadAttribution();
       });
       document.getElementById('dateFrom').onchange = () => { document.querySelectorAll('[data-range]').forEach(x => x.classList.remove('active')); detailData = null; attrData = null; load(); { const _t2 = document.querySelector('.tab.active').dataset.tab; if (_t2 === 'details') loadDetails(); if (_t2 === 'attribution') loadAttribution(); } };
       document.getElementById('dateTo').onchange = () => { document.querySelectorAll('[data-range]').forEach(x => x.classList.remove('active')); detailData = null; attrData = null; load(); { const _t2 = document.querySelector('.tab.active').dataset.tab; if (_t2 === 'details') loadDetails(); if (_t2 === 'attribution') loadAttribution(); } };

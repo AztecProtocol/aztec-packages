@@ -53,14 +53,27 @@ CREATE TABLE IF NOT EXISTS ci_runs (
     author        TEXT,
     pr_number     INTEGER,
     instance_type TEXT,
+    instance_vcpus INTEGER,
     spot          INTEGER DEFAULT 0,
     cost_usd      REAL,
+    job_id        TEXT DEFAULT '',
+    arch          TEXT DEFAULT '',
     synced_at     TEXT NOT NULL,
     PRIMARY KEY (dashboard, timestamp_ms, name)
 );
 CREATE INDEX IF NOT EXISTS idx_ci_runs_ts ON ci_runs(timestamp_ms);
 CREATE INDEX IF NOT EXISTS idx_ci_runs_name ON ci_runs(name);
+CREATE INDEX IF NOT EXISTS idx_ci_runs_dashboard ON ci_runs(dashboard);
 """
+
+
+_MIGRATIONS = [
+    # Add columns introduced after initial schema
+    "ALTER TABLE ci_runs ADD COLUMN instance_vcpus INTEGER",
+    "ALTER TABLE ci_runs ADD COLUMN job_id TEXT DEFAULT ''",
+    "ALTER TABLE ci_runs ADD COLUMN arch TEXT DEFAULT ''",
+    "CREATE INDEX IF NOT EXISTS idx_ci_runs_dashboard ON ci_runs(dashboard)",
+]
 
 
 def get_db() -> sqlite3.Connection:
@@ -71,6 +84,13 @@ def get_db() -> sqlite3.Connection:
         conn.execute('PRAGMA busy_timeout = 5000')
         conn.row_factory = sqlite3.Row
         conn.executescript(SCHEMA)
+        # Run migrations (ignore "duplicate column" errors for idempotency)
+        for sql in _MIGRATIONS:
+            try:
+                conn.execute(sql)
+            except sqlite3.OperationalError:
+                pass
+        conn.commit()
         _local.conn = conn
     return conn
 

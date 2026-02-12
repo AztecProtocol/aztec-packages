@@ -207,7 +207,7 @@ def aggregate_billing_monthly(daily_data):
 
 
 def serve_billing_dashboard():
-    billing_html_path = Path('namespace-billing/billing-dashboard.html')
+    billing_html_path = Path(__file__).parent / 'billing-dashboard.html'
     if billing_html_path.exists():
         with billing_html_path.open('r') as f:
             return f.read()

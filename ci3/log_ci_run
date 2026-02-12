@@ -34,8 +34,15 @@ if [ -z "$key" ]; then
   msg=$(git log -1 --pretty=format:"%s")
   author="$(git log -1 --pretty=format:"%an")"
   name=$REF_NAME
-  [ "$(aws_get_meta_data instance-life-cycle)" == "spot" ] && spot=true || spot=false
-  instance_type=$(aws_get_meta_data instance-type 2>/dev/null || echo "unknown")
+  # Prefer EC2_SPOT/EC2_INSTANCE_TYPE from bootstrap_ec2 (reliable), fall back to metadata service
+  if [ "${EC2_SPOT:-}" == "spot" ]; then
+    spot=true
+  elif [ "${EC2_SPOT:-}" == "ondemand" ]; then
+    spot=false
+  else
+    [ "$(aws_get_meta_data instance-life-cycle)" == "spot" ] && spot=true || spot=false
+  fi
+  instance_type=${EC2_INSTANCE_TYPE:-$(aws_get_meta_data instance-type 2>/dev/null || echo "unknown")}
   instance_vcpus=$(nproc 2>/dev/null || echo 0)
 
   # Extract PR number from branch name or merge queue ref
@@ -71,7 +78,6 @@ if [ -z "$key" ]; then
   # echo "$json" >&2
   redis_cli ZADD $range_key $key "$json" &>/dev/null
   redis_cli SETEX hb-$key 60 1 &>/dev/null
-  redis_publish "ci:run:started" "$json"
 
   # To keep only the last 1000 entries (by score).
   redis_cli ZREMRANGEBYRANK $range_key 0 -1001 &>/dev/null
@@ -91,5 +97,4 @@ else
   redis_cli ZREM $range_key "$old_json" &>/dev/null
   # Add the updated entry with the same key.
   redis_cli ZADD $range_key $key "$json" &>/dev/null
-  redis_publish "ci:run:completed" "$json"
 fi
