@@ -68,7 +68,7 @@ namespace to_radix;
     pol commit found;
     found * (1 - found) = 0;
 
-    // == Multi-row Computation Selectors ==
+    // ==== Multi-row Computation Selectors ====
     // See recipe in https://hackmd.io/moq6viBpRJeLpWrHAogCZw?view#Contiguous-Multi-Rows-Computation-Trace
     pol commit start;
     start * (1 - start) = 0;
@@ -89,7 +89,7 @@ namespace to_radix;
     // `sel * (1 - end) = sel - end * sel` and since `end == 1 ==> sel == 1` we have `end * sel = end`.
     pol NOT_END = sel - end;
 
-    // EXPONENTIATION
+    // ===== RADIX POWERS COMPUTATION =====
 
     pol commit power;
     // We commit not_padding_limb instead of the more natural padding_limb because it's going to be used as a lookup selector.
@@ -99,6 +99,7 @@ namespace to_radix;
     // not_padding_limb starts at 1
     start * (1 - not_padding_limb) = 0;
     // next `not_padding_limb` is current `not_padding_limb` unless current limb is unsafe, where it changes to 0
+    // Note that unsafe_limbs is defined and constrained below.
     NOT_END * ((0 - not_padding_limb) * is_unsafe_limb + not_padding_limb - not_padding_limb') = 0;
 
     // power starts at 1
@@ -110,7 +111,7 @@ namespace to_radix;
     (1 - not_padding_limb) * power = 0;
 
 
-    // ACCUMULATION
+    // ===== ACCUMULATION =====
 
     pol commit acc;
 
@@ -151,11 +152,15 @@ namespace to_radix;
     // when found is 1, next limb is 0
     NOT_END * found * limb' = 0;
 
+    // As a consequence, when found is 1, the next acc value must be the same and
+    // the next found value must be 1 as well. In this way, `found == 1` is propagated
+    // until the end of the trace.
+
     // We can only enable end when found is one
     (1 - found) * end = 0;
 
 
-    // OVERFLOW PROTECTION
+    // ===== UNSAFE LIMBS COMPUTATION =====
 
     pol commit safe_limbs;
 
@@ -168,15 +173,12 @@ namespace to_radix;
     pol commit is_unsafe_limb;
     is_unsafe_limb * (1 - is_unsafe_limb) = 0;
 
-    // If is_padding_limb, limb is zero
-    (1 - not_padding_limb) * limb = 0;
-    // If is_padding_limb, p_limb is zero
-    (1 - not_padding_limb) * p_limb = 0;
-
-    // is_unsafe_limb is on when and only when limb_index == safe_limbs
-    pol safety_diff = limb_index - safe_limbs;
+    // `is_unsafe_limb == 1` iff `limb_index == safe_limbs`
+    pol SAFETY_DIFF = limb_index - safe_limbs;
     pol commit safety_diff_inverse;
-    sel * (safety_diff * (is_unsafe_limb * (1 - safety_diff_inverse) + safety_diff_inverse) - 1 + is_unsafe_limb) = 0;
+    sel * (SAFETY_DIFF * (is_unsafe_limb * (1 - safety_diff_inverse) + safety_diff_inverse) - 1 + is_unsafe_limb) = 0;
+
+    // ===== FIELD OVERFLOW PROTECTION =====
 
     // The limb of the modulus p decomposed by radix at this limb_index
     pol commit p_limb;
@@ -187,11 +189,16 @@ namespace to_radix;
     precomputed.sel_p_decomposition
         { precomputed.p_decomposition_radix, precomputed.p_decomposition_limb_index, precomputed.p_decomposition_limb };
 
+    // If is_padding_limb, limb is zero
+    (1 - not_padding_limb) * limb = 0;
+    // If is_padding_limb, p_limb is zero
+    (1 - not_padding_limb) * p_limb = 0;
+
     // We carry wether the accumulator is under p. If we reach the unsafe limb, we need to ensure that this is true.
     pol commit acc_under_p;
     acc_under_p * (1 - acc_under_p) = 0;
 
-    // 1 when lt, 0 when gt or equal
+    // 1 iff `limb < p_limb`
     pol commit limb_lt_p;
     limb_lt_p * (1 - limb_lt_p) = 0;
 
@@ -236,13 +243,13 @@ namespace to_radix;
     is_unsafe_limb * (1 - acc_under_p) = 0;
 
 
-    // CONSTANT CONSISTENCY
+    // ===== CONSTANT CONTINUITY =====
 
-    #[CONSTANT_CONSISTENCY_RADIX]
+    #[RADIX_CONTINUITY]
     NOT_END * (radix - radix') = 0;
 
-    #[CONSTANT_CONSISTENCY_VALUE]
+    #[VALUE_CONTINUITY]
     NOT_END * (value - value') = 0;
 
-    #[CONSTANT_CONSISTENCY_SAFE_LIMBS]
+    #[SAFE_LIMBS_CONTINUITY]
     NOT_END * (safe_limbs - safe_limbs') = 0;

@@ -384,20 +384,18 @@ TEST(ToRadixConstrainingTest, NegativeConsistency)
     // Mutate the radix
     trace.set(Column::to_radix_radix, 5, 200);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_CONSTANT_CONSISTENCY_RADIX),
-                              "CONSTANT_CONSISTENCY_RADIX");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_RADIX_CONTINUITY), "RADIX_CONTINUITY");
 
     // Mutate the value
     trace.set(Column::to_radix_value, 4, 27);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_CONSTANT_CONSISTENCY_VALUE),
-                              "CONSTANT_CONSISTENCY_VALUE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_VALUE_CONTINUITY), "VALUE_CONTINUITY");
 
     // Mutate the safe_limbs
     trace.set(Column::to_radix_safe_limbs, 3, 200);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_CONSTANT_CONSISTENCY_SAFE_LIMBS),
-                              "CONSTANT_CONSISTENCY_SAFE_LIMBS");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_SAFE_LIMBS_CONTINUITY),
+                              "SAFE_LIMBS_CONTINUITY");
 }
 
 /////////////////////////
