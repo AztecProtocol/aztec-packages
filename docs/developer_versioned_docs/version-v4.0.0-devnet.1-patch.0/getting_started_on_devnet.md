@@ -33,10 +33,7 @@ If you're new to Aztec and want to understand local development first, check out
 
 ## Prerequisites
 
-Before working with devnet, ensure you have:
-
-1. [Docker](https://docs.docker.com/get-started/get-docker/) installed
-2. Aztec CLI with Devnet version installed:
+Before working with devnet, ensure you have Aztec CLI with Devnet version installed:
 
 ```sh
 VERSION=4.0.0-devnet.1-patch.0 bash -i <(curl -sL https://install.aztec.network/4.0.0-devnet.1-patch.0/)
@@ -54,8 +51,8 @@ Set the required environment variables:
 
 ```bash
 export VERSION=4.0.0-devnet.1-patch.0
-export NODE_URL=https://devnet.aztec-labs.com/
-export SPONSORED_FPC_ADDRESS=0x280e5686a148059543f4d0968f9a18cd4992520fcd887444b8689bf2726a1f97
+export NODE_URL=https://next.devnet.aztec-labs.com/
+export SPONSORED_FPC_ADDRESS=0x0cc8969aefc807d1145702ef5cf7ea57801ab633fa0b5cf1527203b667812be9
 ```
 
 ### Step 2: Create and deploy an account
@@ -150,7 +147,7 @@ Then initialize with devnet configuration:
 import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { TestWallet } from "@aztec/test-wallet/server";
 
-const NODE_URL = "https://devnet.aztec-labs.com";
+const NODE_URL = "https://next.devnet.aztec-labs.com";
 const node = createAztecNodeClient(NODE_URL);
 const wallet = await TestWallet.create(node);
 ```

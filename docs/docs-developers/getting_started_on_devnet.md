@@ -52,7 +52,7 @@ Set the required environment variables:
 ```bash
 export VERSION=#include_devnet_version
 export NODE_URL=https://next.devnet.aztec-labs.com/
-export SPONSORED_FPC_ADDRESS=0x280e5686a148059543f4d0968f9a18cd4992520fcd887444b8689bf2726a1f97
+export SPONSORED_FPC_ADDRESS=0x0cc8969aefc807d1145702ef5cf7ea57801ab633fa0b5cf1527203b667812be9
 ```
 
 ### Step 2: Create and deploy an account
