@@ -576,7 +576,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           epochSize++;
         }
 
-        bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
+        bytes32[] memory fees = new bytes32[](Constants.MAX_CHECKPOINTS_PER_EPOCH * 2);
 
         for (uint256 feeIndex = 0; feeIndex < epochSize; feeIndex++) {
           // we need the minFee, and we cannot just take it from the point. Because it is different

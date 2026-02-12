@@ -14,6 +14,12 @@ impl<T> Counted<T> {
     pub fn new(inner: T, counter: u32) -> Self {
         Self { inner, counter }
     }
+
+    pub fn is_non_revertible(self, is_private_only: bool, claimed_revertible_counter: u32) -> bool {
+        // If a tx is private-only, everything is non-revertible.
+        // Otherwise, it's only non-revertible if the counter is less than the claimed revertible counter.
+        is_private_only | (self.counter < claimed_revertible_counter)
+    }
 }
 
 impl<T> Eq for Counted<T>

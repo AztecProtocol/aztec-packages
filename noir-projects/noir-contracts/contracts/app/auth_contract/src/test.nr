@@ -76,7 +76,7 @@ unconstrained fn scheduled_authorized_becomes_effective_after_delay() {
     env.mine_block_at(timestamp_of_change);
 
     assert_eq(env.view_public(auth.get_authorized()), to_authorize);
-    assert_eq(env.view_private(auth.get_authorized_in_private()), to_authorize);
+    assert_eq(env.view_private(to_authorize, auth.get_authorized_in_private()), to_authorize);
 
     env.call_private(to_authorize, auth.do_private_authorized_thing());
 }

@@ -4,7 +4,8 @@ import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { TxHash, type TxReceipt, TxStatus } from '@aztec/aztec.js/tx';
 import { times } from '@aztec/foundation/collection';
-import type { TestWallet } from '@aztec/test-wallet/server';
+
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 
 // submits a set of transactions to the provided Wallet
 export const submitTxsTo = async (

@@ -2,7 +2,7 @@ use crate::components::{
     gas_meter::meter_gas_used,
     private_kernel_circuit_output_composer::PrivateKernelCircuitOutputComposer,
 };
-use dep::types::{
+use types::{
     abis::{
         accumulated_data::{
             private_accumulated_data::PrivateAccumulatedData,

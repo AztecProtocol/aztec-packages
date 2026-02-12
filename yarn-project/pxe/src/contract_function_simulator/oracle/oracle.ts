@@ -248,12 +248,19 @@ export class Oracle {
     return [witness.map(toACVMField)];
   }
 
-  async utilityGetPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<ACVMField[][]> {
+  async utilityTryGetPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
     const parsedAddress = AztecAddress.fromField(Fr.fromString(address));
-    const { publicKeys, partialAddress } =
-      await this.handlerAsUtility().utilityGetPublicKeysAndPartialAddress(parsedAddress);
+    const result = await this.handlerAsUtility().utilityTryGetPublicKeysAndPartialAddress(parsedAddress);
 
-    return [[...publicKeys.toFields(), partialAddress].map(toACVMField)];
+    // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
+    // with two fields: `some` (a boolean) and `value` (a field array in this case).
+    if (result === undefined) {
+      // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
+      return [toACVMField(0), Array(13).fill(toACVMField(0))];
+    } else {
+      // Data was found so we set `some` to 1 and return it along with `value`.
+      return [toACVMField(1), [...result.publicKeys.toFields(), result.partialAddress].map(toACVMField)];
+    }
   }
 
   async utilityGetNotes(
@@ -410,7 +417,7 @@ export class Oracle {
     return Promise.resolve([]);
   }
 
-  utilityDebugLog(
+  async utilityLog(
     level: ACVMField[],
     message: ACVMField[],
     _ignoredFieldsSize: ACVMField[],
@@ -419,8 +426,8 @@ export class Oracle {
     const levelFr = Fr.fromString(level[0]);
     const messageStr = message.map(acvmField => String.fromCharCode(Fr.fromString(acvmField).toNumber())).join('');
     const fieldsFr = fields.map(Fr.fromString);
-    this.handlerAsMisc().utilityDebugLog(levelFr.toNumber(), messageStr, fieldsFr);
-    return Promise.resolve([]);
+    await this.handlerAsMisc().utilityLog(levelFr.toNumber(), messageStr, fieldsFr);
+    return [];
   }
 
   // This function's name is directly hardcoded in `circuit_recorder.ts`. Don't forget to update it there if you

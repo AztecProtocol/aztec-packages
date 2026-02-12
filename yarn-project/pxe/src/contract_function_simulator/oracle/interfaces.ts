@@ -54,7 +54,7 @@ export interface IMiscOracle {
 
   utilityGetRandomField(): Fr;
   utilityAssertCompatibleOracleVersion(version: number): void;
-  utilityDebugLog(level: number, message: string, fields: Fr[]): void;
+  utilityLog(level: number, message: string, fields: Fr[]): Promise<void>;
 }
 
 /**
@@ -85,7 +85,7 @@ export interface IUtilityExecutionOracle {
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined>;
   utilityGetBlockHeader(blockNumber: BlockNumber): Promise<BlockHeader | undefined>;
-  utilityGetPublicKeysAndPartialAddress(account: AztecAddress): Promise<CompleteAddress>;
+  utilityTryGetPublicKeysAndPartialAddress(account: AztecAddress): Promise<CompleteAddress | undefined>;
   utilityGetAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
   utilityGetNotes(
     owner: AztecAddress | undefined,

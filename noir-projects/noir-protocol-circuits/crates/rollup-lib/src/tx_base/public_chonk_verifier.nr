@@ -1,5 +1,5 @@
 use crate::abis::PublicChonkVerifierPublicInputs;
-use dep::types::{
+use types::{
     abis::kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
     constants::HIDING_KERNEL_TO_PUBLIC_VK_INDEX, proof::proof_data::ChonkProofData,
 };
@@ -15,7 +15,7 @@ pub struct PublicChonkVerifierPrivateInputs {
 ///
 /// VkIndex: PUBLIC_CHONK_VERIFIER_VK_INDEX
 pub fn execute(inputs: PublicChonkVerifierPrivateInputs) -> PublicChonkVerifierPublicInputs {
-    if !dep::std::runtime::is_unconstrained() {
+    if !::std::runtime::is_unconstrained() {
         inputs.hiding_kernel_proof_data.verify_proof();
     }
 

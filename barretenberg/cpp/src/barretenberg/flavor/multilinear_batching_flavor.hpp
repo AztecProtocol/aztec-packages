@@ -44,6 +44,7 @@ class MultilinearBatchingFlavor {
     // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
     // and Shplemini
     static constexpr bool USE_PADDING = true;
+
     // ============ PROOF STRUCTURE CONSTANTS ============
     // Number of accumulator commitments sent in proof (non_shifted + shifted).
     // Note: instance commitments are computed by verifier from Oink witness commitments.

@@ -27,7 +27,7 @@ struct lookup_tx_context_public_inputs_note_hash_tree_settings_ {
         ColumnAndShifts::tx_prev_note_hash_tree_size
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_, ColumnAndShifts::public_inputs_cols_1_
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::public_inputs_cols_0_, ColumnAndShifts::public_inputs_cols_1_
     };
 };
 
@@ -53,7 +53,7 @@ struct lookup_tx_context_public_inputs_nullifier_tree_settings_ {
         ColumnAndShifts::tx_prev_nullifier_tree_size
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_, ColumnAndShifts::public_inputs_cols_1_
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::public_inputs_cols_0_, ColumnAndShifts::public_inputs_cols_1_
     };
 };
 
@@ -79,7 +79,7 @@ struct lookup_tx_context_public_inputs_public_data_tree_settings_ {
         ColumnAndShifts::tx_prev_public_data_tree_size
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_, ColumnAndShifts::public_inputs_cols_1_
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::public_inputs_cols_0_, ColumnAndShifts::public_inputs_cols_1_
     };
 };
 
@@ -103,7 +103,7 @@ struct lookup_tx_context_public_inputs_l1_l2_tree_settings_ {
         ColumnAndShifts::tx_l1_l2_pi_offset, ColumnAndShifts::tx_l1_l2_tree_root, ColumnAndShifts::tx_l1_l2_tree_size
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_, ColumnAndShifts::public_inputs_cols_1_
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::public_inputs_cols_0_, ColumnAndShifts::public_inputs_cols_1_
     };
 };
 
@@ -129,7 +129,7 @@ struct lookup_tx_context_public_inputs_gas_used_settings_ {
         ColumnAndShifts::tx_prev_l2_gas_used
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_, ColumnAndShifts::public_inputs_cols_1_
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::public_inputs_cols_0_, ColumnAndShifts::public_inputs_cols_1_
     };
 };
 
@@ -153,7 +153,7 @@ struct lookup_tx_context_public_inputs_read_gas_limit_settings_ {
         ColumnAndShifts::tx_gas_limit_pi_offset, ColumnAndShifts::tx_da_gas_limit, ColumnAndShifts::tx_l2_gas_limit
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_, ColumnAndShifts::public_inputs_cols_1_
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::public_inputs_cols_0_, ColumnAndShifts::public_inputs_cols_1_
     };
 };
 
@@ -177,7 +177,7 @@ struct lookup_tx_context_public_inputs_read_reverted_settings_ {
         ColumnAndShifts::tx_reverted_pi_offset, ColumnAndShifts::tx_tx_reverted
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::public_inputs_cols_0_
     };
 };
 
@@ -251,7 +251,7 @@ struct lookup_tx_context_public_inputs_write_note_hash_count_settings_ {
         ColumnAndShifts::tx_array_length_note_hashes_pi_offset, ColumnAndShifts::tx_prev_num_note_hashes_emitted
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::public_inputs_cols_0_
     };
 };
 
@@ -275,7 +275,7 @@ struct lookup_tx_context_public_inputs_write_nullifier_count_settings_ {
         ColumnAndShifts::tx_array_length_nullifiers_pi_offset, ColumnAndShifts::tx_prev_num_nullifiers_emitted
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::public_inputs_cols_0_
     };
 };
 
@@ -299,7 +299,7 @@ struct lookup_tx_context_public_inputs_write_l2_to_l1_message_count_settings_ {
         ColumnAndShifts::tx_array_length_l2_to_l1_messages_pi_offset, ColumnAndShifts::tx_prev_num_l2_to_l1_messages
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::public_inputs_cols_0_
     };
 };
 
@@ -324,7 +324,7 @@ struct lookup_tx_context_public_inputs_write_unencrypted_log_count_settings_ {
         ColumnAndShifts::tx_prev_num_unencrypted_log_fields
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::public_inputs_cols_0_
     };
 };
 

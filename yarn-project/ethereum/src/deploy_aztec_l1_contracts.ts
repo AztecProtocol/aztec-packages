@@ -15,7 +15,7 @@ import { tmpdir } from 'os';
 import { dirname, join, resolve } from 'path';
 import readline from 'readline';
 import type { Hex } from 'viem';
-import { foundry, mainnet, sepolia } from 'viem/chains';
+import { mainnet, sepolia } from 'viem/chains';
 
 import { createEthereumChain, isAnvilTestChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
@@ -168,6 +168,9 @@ export function prepareL1ContractsForDeployment(): string {
   const foundryTomlPath = join(basePath, 'foundry.toml');
   let foundryToml = readFileSync(foundryTomlPath, 'utf-8');
   const solcPathMatch = foundryToml.match(/solc\s*=\s*"\.\/solc-([^"]+)"/);
+  // Did we find a hardcoded solc path that we need to make absolute?
+  // This code path happens in CI currently as we bundle solc there to avoid race conditions when
+  // downloading solc.
   if (solcPathMatch) {
     const solcVersion = solcPathMatch[1];
     const absoluteSolcPath = join(basePath, `solc-${solcVersion}`);
@@ -331,7 +334,8 @@ export async function deployAztecL1Contracts(
     '--rpc-url',
     rpcUrl,
     '--broadcast',
-    ...(chainId === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : []),
+    '--batch-size',
+    MAGIC_ANVIL_BATCH_SIZE.toString(),
     ...(shouldVerify ? ['--verify'] : []),
   ];
   const forgeEnv = {

@@ -27,4 +27,5 @@ geth \
   --maxpeers 0 \
   --nodiscover \
   --ipcdisable \
-  --verbosity 3
+  --verbosity 3 \
+  --rpc.txfeecap 0

@@ -15,6 +15,7 @@ const testConfigSchema = z.object({
   AZTEC_EPOCH_DURATION: z.coerce.number().optional().default(32),
   AZTEC_PROOF_SUBMISSION_WINDOW: z.coerce.number().optional().default(5),
   AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET: z.coerce.number().optional().default(2),
+  FUNDING_PRIVATE_KEY: z.string().optional(),
 });
 
 export type TestConfig = z.infer<typeof testConfigSchema>;

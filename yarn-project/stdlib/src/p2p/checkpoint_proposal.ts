@@ -148,6 +148,16 @@ export class CheckpointProposal extends Gossipable {
     };
   }
 
+  toCheckpointInfo() {
+    return {
+      slotNumber: this.slotNumber,
+      archive: this.archive,
+      lastBlockNumber: this.lastBlock?.blockHeader.getBlockNumber(),
+      lastBlockIndex: this.lastBlock?.indexWithinCheckpoint,
+      blockHeadersHash: this.checkpointHeader.blockHeadersHash,
+    };
+  }
+
   /**
    * Get the payload to sign for this checkpoint proposal.
    * The signature is over the checkpoint header + archive root (for consensus).

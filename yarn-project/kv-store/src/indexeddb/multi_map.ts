@@ -57,7 +57,7 @@ export class IndexedDBAztecMultiMap<K extends Key, V extends Value>
       false,
     );
     for await (const cursor of index.iterate(rangeQuery)) {
-      yield cursor.value.value as V;
+      yield this.restoreBuffers(cursor.value.value as V);
     }
   }
 
@@ -86,6 +86,20 @@ export class IndexedDBAztecMultiMap<K extends Key, V extends Value>
       );
     if (fullKey) {
       await this.db.delete(fullKey);
+    }
+  }
+
+  override async delete(key: K): Promise<void> {
+    const index = this.db.index('keyCount');
+    const rangeQuery = IDBKeyRange.bound(
+      [this.container, this.normalizeKey(key), 0],
+      [this.container, this.normalizeKey(key), Number.MAX_SAFE_INTEGER],
+      false,
+      false,
+    );
+
+    for await (const cursor of index.iterate(rangeQuery)) {
+      await cursor.delete();
     }
   }
 }

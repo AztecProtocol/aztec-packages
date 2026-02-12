@@ -222,13 +222,35 @@ sel_get_ctr = start * (1 - err);
 #[INTEGRAL_TAG_LENGTH]
 sel_get_ctr { tag_a, ctr }
 in
-precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_byte_length };
+precomputed.sel_tag_parameters { precomputed.idx, precomputed.tag_byte_length };
 
+pol commit sel_and;
+pol commit sel_or;
+pol commit sel_xor;
+sel_and * (1 - sel_and) = 0;
+sel_or * (1 - sel_or) = 0;
+sel_xor * (1 - sel_xor) = 0;
+// op_id dispatch for byte operations
+sel * op_id = sel_and * constants.AVM_BITWISE_AND_OP_ID
+            + sel_or * constants.AVM_BITWISE_OR_OP_ID
+            + sel_xor * constants.AVM_BITWISE_XOR_OP_ID;
+
+pol commit output_and;
+pol commit output_or;
+pol commit output_xor;
+
+// We fetch all the byte operations in one lookup for efficiency purposes.
 #[BYTE_OPERATIONS]
-sel { op_id, ia_byte, ib_byte, ic_byte }
-in
-precomputed.sel_bitwise { precomputed.bitwise_op_id, precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output };
+sel {
+     ia_byte, ib_byte,
+     output_and, output_or, output_xor
+} in precomputed.sel_range_16 {
+     precomputed.bitwise_input_a, precomputed.bitwise_input_b,
+     precomputed.bitwise_output_and, precomputed.bitwise_output_or, precomputed.bitwise_output_xor
+};
 
+// Dispatch the relevant output value to the output.
+ic_byte = sel_and * output_and + sel_or * output_or + sel_xor * output_xor;
 
 // Potential improvements: See the following paragraphs
 

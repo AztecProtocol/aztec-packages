@@ -67,8 +67,8 @@ use crate::{
         with_hash::derive_storage_slot_of_packed_values_hash,
     },
     hash::{
-        compute_contract_class_log_hash, compute_siloed_note_hash, compute_siloed_nullifier,
-        compute_siloed_private_log_first_field, compute_unique_siloed_note_hash,
+        compute_contract_class_log_hash, compute_note_nonce_and_unique_note_hash,
+        compute_siloed_note_hash, compute_siloed_nullifier, compute_siloed_private_log_first_field,
         create_protocol_nullifier,
     },
     merkle_tree::membership::MembershipWitness,
@@ -761,7 +761,7 @@ impl FixtureBuilder {
     pub fn add_siloed_unique_note_hash(&mut self, value: Field) {
         let siloed_value = compute_siloed_note_hash(self.contract_address, value);
         let current_index = self.note_hashes.len();
-        let unique_siloed_value = compute_unique_siloed_note_hash(
+        let unique_siloed_value = compute_note_nonce_and_unique_note_hash(
             siloed_value,
             self.claimed_first_nullifier,
             current_index,
@@ -910,18 +910,21 @@ impl FixtureBuilder {
         }
     }
 
+    pub fn add_note_hash_read_request(&mut self, value: Field, contract_address: AztecAddress) {
+        let read_request = Counted::new(value, self.next_counter()).scope(contract_address);
+        self.note_hash_read_requests.push(read_request);
+    }
+
     pub fn add_settled_note_hash_read_request(&mut self, value: Field) -> u32 {
         let read_request_index = self.note_hash_read_requests.len();
-        let read_request = Counted::new(value, self.next_counter()).scope(AztecAddress::zero());
-        self.note_hash_read_requests.push(read_request);
+        self.add_note_hash_read_request(value, AztecAddress::zero());
         read_request_index
     }
 
     pub fn add_read_request_for_pending_note_hash(&mut self, note_hash_index: u32) -> u32 {
         let value = self.mock_note_hash_value(note_hash_index);
         let read_request_index = self.note_hash_read_requests.len();
-        let read_request = Counted::new(value, self.next_counter()).scope(self.contract_address);
-        self.note_hash_read_requests.push(read_request);
+        self.add_note_hash_read_request(value, self.contract_address);
         read_request_index
     }
 
@@ -1087,7 +1090,7 @@ impl FixtureBuilder {
                 // Silo and clear the contract address here because the padded private logs are siloed when added in the
                 // reset circuit. We can only see the siloed version of it in the public inputs.
                 fields[0] =
-                    compute_siloed_private_log_first_field(self.contract_address, fields[0]);
+                    compute_siloed_private_log_first_field(SIDE_EFFECT_MASKING_ADDRESS, fields[0]);
                 self.private_logs.push(PrivateLogData {
                     log: PrivateLog { fields, length: fields.len() },
                     note_hash_counter: 0,

@@ -23,4 +23,7 @@ case "$type" in
   "web3signer")
     TEST=$test exec run_compose_test $test end-to-end $PWD/web3signer
   ;;
+  "ha")
+    TEST=$test exec run_compose_test $test end-to-end $PWD/ha
+  ;;
 esac

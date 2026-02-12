@@ -1572,6 +1572,86 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
+    // Test assert_zero_if with a zero bigfield - should always pass regardless of predicate
+    static void test_assert_zero_if_zero_value(bool predicate_value, InputType predicate_type)
+    {
+        auto builder = Builder();
+
+        // Create a zero bigfield as witness
+        fq_ct zero_ct = fq_ct::create_from_u512_as_witness(&builder, uint256_t(0));
+
+        // Create predicate
+        bool_ct predicate;
+        if (predicate_type == InputType::WITNESS) {
+            predicate = bool_ct(witness_ct(&builder, predicate_value));
+        } else {
+            predicate = bool_ct(&builder, predicate_value);
+        }
+
+        // Should always pass: zero bigfield satisfies the constraint regardless of predicate
+        zero_ct.assert_zero_if(predicate);
+
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
+    // Test assert_zero_if with a non-zero bigfield
+    // - predicate=false: should pass (check is skipped)
+    // - predicate=true: should fail (non-zero value violates constraint)
+    static void test_assert_zero_if_nonzero_value(bool predicate_value,
+                                                  InputType value_type,
+                                                  InputType predicate_type,
+                                                  bool expect_circuit_check_pass)
+    {
+        auto builder = Builder();
+
+        // Create a non-zero bigfield
+        fq_ct nonzero_ct;
+        if (value_type == InputType::WITNESS) {
+            nonzero_ct = fq_ct::create_from_u512_as_witness(&builder, uint256_t(42));
+        } else {
+            nonzero_ct = fq_ct(&builder, uint256_t(42));
+        }
+
+        // Create predicate
+        bool_ct predicate;
+        if (predicate_type == InputType::WITNESS) {
+            predicate = bool_ct(witness_ct(&builder, predicate_value));
+        } else {
+            predicate = bool_ct(&builder, predicate_value);
+        }
+
+        nonzero_ct.assert_zero_if(predicate);
+
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, expect_circuit_check_pass);
+    }
+
+    // Test assert_zero_if with computed zero (result of subtraction) - should pass
+    static void test_assert_zero_if_computed_zero()
+    {
+        auto builder = Builder();
+
+        // Create two equal bigfields and subtract to get zero
+        auto [a_native, a_ct] = get_random_witness(&builder);
+        fq_ct b_ct = fq_ct::create_from_u512_as_witness(&builder, uint256_t(a_native));
+
+        // Compute a - a which should be zero
+        fq_ct zero_ct = a_ct - b_ct;
+
+        // We need reduction so that the value is actually zero (k * p is not allowed)
+        zero_ct.self_reduce();
+
+        // Create true predicate as witness
+        bool_ct predicate = bool_ct(witness_ct(&builder, true));
+
+        // This should pass: computed zero with true predicate
+        zero_ct.assert_zero_if(predicate);
+
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
     static void test_pow()
     {
         Builder builder;
@@ -2471,4 +2551,42 @@ TYPED_TEST(stdlib_bigfield, internal_div_bug_regression)
     TestFixture::test_internal_div_regression();
     TestFixture::test_internal_div_regression2();
     TestFixture::test_internal_div_regression3();
+}
+
+// Zero value should always pass, regardless of predicate value
+TYPED_TEST(stdlib_bigfield, assert_zero_if_zero_value)
+{
+    // predicate=true, witness predicate
+    TestFixture::test_assert_zero_if_zero_value(true, InputType::WITNESS);
+    // predicate=true, constant predicate
+    TestFixture::test_assert_zero_if_zero_value(true, InputType::CONSTANT);
+    // predicate=false, witness predicate
+    TestFixture::test_assert_zero_if_zero_value(false, InputType::WITNESS);
+    // predicate=false, constant predicate
+    TestFixture::test_assert_zero_if_zero_value(false, InputType::CONSTANT);
+}
+
+// Non-zero value with false predicate should pass (check is skipped)
+TYPED_TEST(stdlib_bigfield, assert_zero_if_nonzero_value_false_predicate)
+{
+    TestFixture::test_assert_zero_if_nonzero_value(false, InputType::WITNESS, InputType::WITNESS, true);
+    TestFixture::test_assert_zero_if_nonzero_value(false, InputType::WITNESS, InputType::CONSTANT, true);
+    TestFixture::test_assert_zero_if_nonzero_value(false, InputType::CONSTANT, InputType::WITNESS, true);
+    TestFixture::test_assert_zero_if_nonzero_value(false, InputType::CONSTANT, InputType::CONSTANT, true);
+}
+
+// Non-zero value with true predicate should fail
+TYPED_TEST(stdlib_bigfield, assert_zero_if_nonzero_value_true_predicate_fails)
+{
+    TestFixture::test_assert_zero_if_nonzero_value(true, InputType::WITNESS, InputType::WITNESS, false);
+    TestFixture::test_assert_zero_if_nonzero_value(true, InputType::WITNESS, InputType::CONSTANT, false);
+    TestFixture::test_assert_zero_if_nonzero_value(true, InputType::CONSTANT, InputType::WITNESS, false);
+    // Note: We don't test (CONSTANT, CONSTANT) because when both value and predicate are constants,
+    // the assertion is evaluated at circuit construction time, not at verification time.
+}
+
+// Computed zero (from subtraction) should pass with true predicate
+TYPED_TEST(stdlib_bigfield, assert_zero_if_computed_zero)
+{
+    TestFixture::test_assert_zero_if_computed_zero();
 }

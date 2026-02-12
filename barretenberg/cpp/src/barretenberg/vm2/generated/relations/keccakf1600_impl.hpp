@@ -17,8 +17,8 @@ void keccakf1600Impl<FF_>::accumulate(ContainerOverSubrelations& evals,
 
     const auto constants_MEM_TAG_U64 = FF(5);
     const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
-    const auto constants_AVM_BITWISE_AND_OP_ID = FF(0);
-    const auto constants_AVM_BITWISE_XOR_OP_ID = FF(2);
+    const auto constants_AVM_BITWISE_AND_OP_ID = FF(1);
+    const auto constants_AVM_BITWISE_XOR_OP_ID = FF(4);
     const auto constants_AVM_KECCAKF1600_STATE_SIZE = FF(25);
     const auto keccakf1600_LATCH_CONDITION = in.get(C::keccakf1600_last) + in.get(C::precomputed_first_row);
     const auto keccakf1600_ROT_LEN_01 = FF(36);

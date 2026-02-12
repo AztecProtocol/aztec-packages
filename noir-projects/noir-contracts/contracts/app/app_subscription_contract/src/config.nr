@@ -1,4 +1,4 @@
-use dep::aztec::protocol::{address::AztecAddress, traits::Packable};
+use aztec::protocol::{address::AztecAddress, traits::Packable};
 use std::meta::derive;
 
 // PublicImmutable has constant read cost in private regardless of the size of what it stores, so we put all immutable

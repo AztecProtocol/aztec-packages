@@ -140,7 +140,7 @@ pub(crate) unconstrained fn enqueue_event_for_validation(
 /// queryable via `get_notes` oracle and our TS API (PXE::getPrivateEvents).
 ///
 /// This automatically clears both validation request queues, so no further work needs to be done by the caller.
-pub(crate) unconstrained fn validate_and_store_enqueued_notes_and_events(contract_address: AztecAddress) {
+pub unconstrained fn validate_and_store_enqueued_notes_and_events(contract_address: AztecAddress) {
     oracle::message_processing::validate_and_store_enqueued_notes_and_events(
         contract_address,
         NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,

@@ -43,6 +43,7 @@ describe('ValidatorHASigner', () => {
 
     config = {
       haSigningEnabled: true,
+      l1Contracts: { rollupAddress: EthAddress.random() },
       nodeId: NODE_ID,
       pollingIntervalMs: 50,
       signingTimeoutMs: 1000,
@@ -55,9 +56,17 @@ describe('ValidatorHASigner', () => {
     await pool.end();
   });
 
+  afterAll(async () => {
+    await db.close();
+    await pglite.close();
+  });
+
   describe('initialization', () => {
     it('should not initialize when nodeId is not explicitly set', () => {
-      const defaultConfig = { ...defaultValidatorHASignerConfig };
+      const defaultConfig = {
+        ...defaultValidatorHASignerConfig,
+        l1Contracts: { rollupAddress: EthAddress.random() },
+      };
       expect(
         () =>
           new ValidatorHASigner(db, {
@@ -77,7 +86,7 @@ describe('ValidatorHASigner', () => {
   describe('lifecycle', () => {
     it('should start and stop without error when enabled', async () => {
       const signer = new ValidatorHASigner(db, config);
-      signer.start();
+      await signer.start();
       await signer.stop();
     });
   });
@@ -86,9 +95,9 @@ describe('ValidatorHASigner', () => {
     let signer: ValidatorHASigner;
     let signFn: jest.Mock<(messageHash: Buffer32) => Promise<Signature>>;
 
-    beforeEach(() => {
+    beforeEach(async () => {
       signer = new ValidatorHASigner(db, config);
-      signer.start();
+      await signer.start();
       signFn = jest.fn<(messageHash: Buffer32) => Promise<Signature>>();
       signFn.mockResolvedValue(mockSignature);
     });
@@ -116,6 +125,7 @@ describe('ValidatorHASigner', () => {
 
       // Verify duty was recorded
       const dutyResult = await db.tryInsertOrGetExisting({
+        rollupAddress: config.l1Contracts.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(50),
@@ -149,6 +159,7 @@ describe('ValidatorHASigner', () => {
 
       // Verify duty was deleted
       const dutyResult = await db.tryInsertOrGetExisting({
+        rollupAddress: config.l1Contracts.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(50),
@@ -257,6 +268,7 @@ describe('ValidatorHASigner', () => {
 
       // Verify both duties exist
       const blockDutyResult = await db.tryInsertOrGetExisting({
+        rollupAddress: config.l1Contracts.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(50),
@@ -266,6 +278,7 @@ describe('ValidatorHASigner', () => {
         nodeId: NODE_ID,
       });
       const attestationDutyResult = await db.tryInsertOrGetExisting({
+        rollupAddress: config.l1Contracts.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(50),
@@ -337,6 +350,7 @@ describe('ValidatorHASigner', () => {
 
       // Verify both duties exist
       const blockDutyResult = await db.tryInsertOrGetExisting({
+        rollupAddress: config.l1Contracts.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(50),
@@ -346,6 +360,7 @@ describe('ValidatorHASigner', () => {
         nodeId: NODE_ID,
       });
       const blockDutyResult2 = await db.tryInsertOrGetExisting({
+        rollupAddress: config.l1Contracts.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(50),
@@ -403,6 +418,7 @@ describe('ValidatorHASigner', () => {
 
       // Verify all three duties exist in database
       const block0Result = await db.tryInsertOrGetExisting({
+        rollupAddress: config.l1Contracts.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot,
         blockNumber,
@@ -412,6 +428,7 @@ describe('ValidatorHASigner', () => {
         nodeId: NODE_ID,
       });
       const block1Result = await db.tryInsertOrGetExisting({
+        rollupAddress: config.l1Contracts.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot,
         blockNumber,
@@ -421,6 +438,7 @@ describe('ValidatorHASigner', () => {
         nodeId: NODE_ID,
       });
       const checkpointResult = await db.tryInsertOrGetExisting({
+        rollupAddress: config.l1Contracts.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot,
         blockNumber,
@@ -580,6 +598,7 @@ describe('ValidatorHASigner', () => {
 
       // Verify both duties were recorded with blockNumber = 0
       const governanceResult = await db.tryInsertOrGetExisting({
+        rollupAddress: config.l1Contracts.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(0), // getBlockNumberFromSigningContext returns 0 for vote duties
@@ -588,6 +607,7 @@ describe('ValidatorHASigner', () => {
         nodeId: NODE_ID,
       });
       const slashingResult = await db.tryInsertOrGetExisting({
+        rollupAddress: config.l1Contracts.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(0),
@@ -757,7 +777,7 @@ describe('ValidatorHASigner', () => {
       const signers = nodeIds.map(nodeId => new ValidatorHASigner(db, { ...config, nodeId }));
 
       // Start all signers
-      signers.forEach(signer => signer.start());
+      await Promise.all(signers.map(signer => signer.start()));
 
       try {
         // All signers try to sign the same duty for the same validator
@@ -810,6 +830,7 @@ describe('ValidatorHASigner', () => {
 
         // Verify the duty is recorded in the database with the winning nodeId
         const dutyResult = await db.tryInsertOrGetExisting({
+          rollupAddress: config.l1Contracts.rollupAddress,
           validatorAddress: VALIDATOR_ADDRESS,
           slot: sameSlot,
           blockNumber: sameBlockNumber,
@@ -930,6 +951,7 @@ describe('ValidatorHASigner', () => {
 
       // Verify the duty is marked as signed by the second signer
       const dutyResult = await db.tryInsertOrGetExisting({
+        rollupAddress: config.l1Contracts.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(50),
@@ -940,6 +962,101 @@ describe('ValidatorHASigner', () => {
       });
       expect(dutyResult.isNew).toBe(false);
       expect(dutyResult.record.status).toBe(DutyStatus.SIGNED);
+    });
+  });
+
+  describe('Rollup Upgrade Scenarios', () => {
+    it('should allow same slot signing across different rollup addresses', async () => {
+      const oldRollupAddress = EthAddress.random();
+      const newRollupAddress = EthAddress.random();
+
+      // Create signer with old rollup address
+      const oldSigner = new ValidatorHASigner(db, {
+        ...config,
+        l1Contracts: { rollupAddress: oldRollupAddress },
+      });
+      await oldSigner.start();
+
+      try {
+        const signFn = jest.fn<(messageHash: Buffer32) => Promise<Signature>>();
+        signFn.mockResolvedValue(mockSignature);
+
+        // Sign with old rollup
+        await oldSigner.signWithProtection(
+          VALIDATOR_ADDRESS,
+          MESSAGE_HASH,
+          {
+            slot: SlotNumber(100),
+            blockNumber: BlockNumber(50),
+            dutyType: DutyType.BLOCK_PROPOSAL,
+            blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+          },
+          signFn,
+        );
+
+        expect(signFn).toHaveBeenCalledTimes(1);
+
+        // "Upgrade" - create new signer with new rollup address
+        const newSigner = new ValidatorHASigner(db, {
+          ...config,
+          l1Contracts: { rollupAddress: newRollupAddress },
+        });
+        // Starting the new signer will clean up duties with outdated rollup addresses
+        await newSigner.start();
+
+        try {
+          const signFn2 = jest.fn<(messageHash: Buffer32) => Promise<Signature>>();
+          signFn2.mockResolvedValue(mockSignature);
+
+          // Sign same slot with new rollup - should succeed (no conflict, old duty was cleaned up)
+          await newSigner.signWithProtection(
+            VALIDATOR_ADDRESS,
+            MESSAGE_HASH,
+            {
+              slot: SlotNumber(100), // Same slot!
+              blockNumber: BlockNumber(50),
+              dutyType: DutyType.BLOCK_PROPOSAL,
+              blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+            },
+            signFn2,
+          );
+
+          expect(signFn2).toHaveBeenCalledTimes(1);
+
+          // Verify old duty was cleaned up at startup
+          const oldDuty = await db.tryInsertOrGetExisting({
+            rollupAddress: oldRollupAddress,
+            validatorAddress: VALIDATOR_ADDRESS,
+            slot: SlotNumber(100),
+            blockNumber: BlockNumber(50),
+            dutyType: DutyType.BLOCK_PROPOSAL,
+            blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+            messageHash: MESSAGE_HASH.toString(),
+            nodeId: NODE_ID,
+          });
+
+          // Verify new duty exists
+          const newDuty = await db.tryInsertOrGetExisting({
+            rollupAddress: newRollupAddress,
+            validatorAddress: VALIDATOR_ADDRESS,
+            slot: SlotNumber(100),
+            blockNumber: BlockNumber(50),
+            dutyType: DutyType.BLOCK_PROPOSAL,
+            blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+            messageHash: MESSAGE_HASH.toString(),
+            nodeId: NODE_ID,
+          });
+
+          expect(oldDuty.isNew).toBe(true); // Old duty was cleaned up
+          expect(newDuty.isNew).toBe(false); // New duty exists
+          expect(newDuty.record.rollupAddress).toEqual(newRollupAddress);
+          expect(newDuty.record.status).toBe(DutyStatus.SIGNED);
+        } finally {
+          await newSigner.stop();
+        }
+      } finally {
+        await oldSigner.stop();
+      }
     });
   });
 });

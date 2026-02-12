@@ -25,7 +25,7 @@ struct lookup_range_check_dyn_rng_chk_pow_2_settings_ {
         ColumnAndShifts::range_check_dyn_rng_chk_bits, ColumnAndShifts::range_check_dyn_rng_chk_pow_2
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_power_of_2
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::precomputed_power_of_2
     };
 };
 
@@ -47,7 +47,7 @@ struct lookup_range_check_dyn_diff_is_u16_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::range_check_dyn_diff
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_idx };
 };
 
 using lookup_range_check_dyn_diff_is_u16_settings = lookup_settings<lookup_range_check_dyn_diff_is_u16_settings_>;
@@ -68,7 +68,7 @@ struct lookup_range_check_r0_is_u16_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::range_check_u16_r0
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_idx };
 };
 
 using lookup_range_check_r0_is_u16_settings = lookup_settings<lookup_range_check_r0_is_u16_settings_>;
@@ -88,7 +88,7 @@ struct lookup_range_check_r1_is_u16_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::range_check_u16_r1
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_idx };
 };
 
 using lookup_range_check_r1_is_u16_settings = lookup_settings<lookup_range_check_r1_is_u16_settings_>;
@@ -108,7 +108,7 @@ struct lookup_range_check_r2_is_u16_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::range_check_u16_r2
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_idx };
 };
 
 using lookup_range_check_r2_is_u16_settings = lookup_settings<lookup_range_check_r2_is_u16_settings_>;
@@ -128,7 +128,7 @@ struct lookup_range_check_r3_is_u16_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::range_check_u16_r3
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_idx };
 };
 
 using lookup_range_check_r3_is_u16_settings = lookup_settings<lookup_range_check_r3_is_u16_settings_>;
@@ -148,7 +148,7 @@ struct lookup_range_check_r4_is_u16_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::range_check_u16_r4
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_idx };
 };
 
 using lookup_range_check_r4_is_u16_settings = lookup_settings<lookup_range_check_r4_is_u16_settings_>;
@@ -168,7 +168,7 @@ struct lookup_range_check_r5_is_u16_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::range_check_u16_r5
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_idx };
 };
 
 using lookup_range_check_r5_is_u16_settings = lookup_settings<lookup_range_check_r5_is_u16_settings_>;
@@ -188,7 +188,7 @@ struct lookup_range_check_r6_is_u16_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::range_check_u16_r6
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_idx };
 };
 
 using lookup_range_check_r6_is_u16_settings = lookup_settings<lookup_range_check_r6_is_u16_settings_>;
@@ -208,7 +208,7 @@ struct lookup_range_check_r7_is_u16_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::range_check_u16_r7
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_idx };
 };
 
 using lookup_range_check_r7_is_u16_settings = lookup_settings<lookup_range_check_r7_is_u16_settings_>;

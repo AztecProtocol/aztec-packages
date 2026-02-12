@@ -19,10 +19,12 @@ done
 commit_title=$(git log -1 --pretty=format:'%s')
 commit_author=$(git log -1 --pretty=format:'%an')
 
-if [[ "$REF_NAME" == "merge-train/barretenberg" ]]; then
-  channel="#honk-team"
-elif [[ "$REF_NAME" == "merge-train/avm" ]]; then
+if [[ "$REF_NAME" == "merge-train/avm" ]]; then
   channel="#team-bonobos"
+elif [[ "$REF_NAME" == "merge-train/barretenberg" ]]; then
+  channel="#honk-team"
+elif [[ "$REF_NAME" == "merge-train/ci" ]]; then
+  channel="#help-ci"
 elif [[ "$REF_NAME" == "merge-train/docs" ]]; then
   channel="#dev-rels"
 elif [[ "$REF_NAME" == "merge-train/spartan" ]]; then

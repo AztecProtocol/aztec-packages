@@ -346,7 +346,7 @@ impl AvmCircuitPublicInputs {
 
         // Effective gas fees
         set_gas_fees_in_cols(
-            self.global_variables.gas_fees,
+            self.effective_gas_fees,
             &mut cols,
             AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX,
         );
@@ -552,6 +552,7 @@ fn flat_columns_of_avm_circuit_public_inputs() {
     item.global_variables.chain_id = 123;
     item.global_variables.block_number = 456;
     item.global_variables.timestamp = 789;
+    item.global_variables.gas_fees = GasFees::new(100, 200);
 
     // Fee payer - middle of the struct
     item.fee_payer = AztecAddress::from_field(12345);
@@ -578,6 +579,8 @@ fn flat_columns_of_avm_circuit_public_inputs() {
     item.accumulated_data.public_data_writes[1].leaf_slot = 5555;
     item.accumulated_data.public_data_writes[1].value = 6666;
 
+    item.effective_gas_fees = GasFees::new(1000, 2000);
+
     // End gas used - toward the end of the struct
     item.end_gas_used.da_gas = 5000;
     item.end_gas_used.l2_gas = 7000;
@@ -601,6 +604,8 @@ fn flat_columns_of_avm_circuit_public_inputs() {
     assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_CHAIN_ID_ROW_IDX], 123);
     assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_BLOCK_NUMBER_ROW_IDX], 456);
     assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX], 789);
+    assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX], 100);
+    assert_eq(flat[col1_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX], 200);
 
     // Fee payer
     assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX], 12345);
@@ -633,6 +638,10 @@ fn flat_columns_of_avm_circuit_public_inputs() {
         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX + 1;
     assert_eq(flat[col0_offset + public_data_write_row], 5555);
     assert_eq(flat[col1_offset + public_data_write_row], 6666);
+
+    // Effective gas fees
+    assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX], 1000);
+    assert_eq(flat[col1_offset + AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX], 2000);
 
     // Pick a an unset/empty element and confirm that it is zero
     assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX], 0);

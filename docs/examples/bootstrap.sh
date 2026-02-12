@@ -78,10 +78,10 @@ function validate-ts {
 }
 
 ##############################################################################
-# CI failure handling - post PR comments instead of blocking the build
+# CI failure handling - send Slack notifications instead of blocking the build
 ##############################################################################
 
-# Get PR number for commenting (returns empty string if not in PR context)
+# Get PR number (returns empty string if not in PR context)
 function get_pr_number {
   if [[ -z "${CI:-}" ]] || ! command -v gh &>/dev/null; then
     return
@@ -90,47 +90,45 @@ function get_pr_number {
   local branch="${GITHUB_HEAD_REF:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null)}"
 
   if [[ -n "$branch" && "$branch" != "HEAD" ]]; then
-    gh pr list --head "$branch" --json number --jq '.[0].number' 2>/dev/null
+    gh pr list --head "$branch" --json number --jq '.[0].number' 2>/dev/null || echo "Failed to query PR number from branch $branch" >&2
   fi
 }
 
-# Find existing docs examples failure comment ID
-function get_existing_comment_id {
-  local pr_number=$1
-  local jq_filter='.comments[] | select(.body | startswith("⚠️ **Docs Examples Validation Failed**")) | .id'
-  gh pr view "$pr_number" --json comments --jq "$jq_filter" 2>/dev/null | head -n 1
-}
-
-# Post or update a PR comment about docs example failures
-function post_failure_comment {
-  local pr_number=$1
-  local comment_body=$2
-  local existing_comment
-  existing_comment=$(get_existing_comment_id "$pr_number")
-
-  if [[ -n "$existing_comment" ]]; then
-    echo "Updating existing docs examples failure comment..."
-    gh api "repos/{owner}/{repo}/issues/comments/$existing_comment" \
-      -X PATCH -f body="$comment_body" 2>/dev/null \
-      || echo "⚠ Failed to update existing comment"
-  else
-    echo "Adding docs examples failure comment to PR #$pr_number..."
-    gh pr comment "$pr_number" --body "$comment_body" 2>/dev/null \
-      || echo "⚠ Failed to add PR comment"
+function send_slack_message {
+  local message=$1
+  local channel=${2:-"#devrel-docs-updates"}
+  if [[ -z "${SLACK_BOT_TOKEN:-}" ]]; then
+    echo "SLACK_BOT_TOKEN not set, skipping Slack notification"
+    return 0
   fi
-}
 
-# Delete existing failure comment (called when validation passes)
-function delete_failure_comment {
-  local pr_number=$1
-  local existing_comment
-  existing_comment=$(get_existing_comment_id "$pr_number")
+  local data
+  data=$(jq -n --arg channel "$channel" --arg text "$message" \
+    '{channel: $channel, text: $text}')
 
-  if [[ -n "$existing_comment" ]]; then
-    echo "Validation passed - deleting previous failure comment..."
-    gh api "repos/{owner}/{repo}/issues/comments/$existing_comment" \
-      -X DELETE 2>/dev/null || true
+  local response
+  if ! response=$(curl -s --fail-with-body -X POST https://slack.com/api/chat.postMessage \
+    -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+    -H "Content-type: application/json" \
+    --data "$data"); then
+    echo "Slack API request failed (curl error)" >&2
+    return 1
   fi
+
+  local ok
+  if ! ok=$(echo "$response" | jq -r '.ok' 2>/dev/null); then
+    echo "Slack API returned invalid JSON: $response" >&2
+    return 1
+  fi
+
+  if [[ "$ok" != "true" ]]; then
+    local error
+    error=$(echo "$response" | jq -r '.error // "unknown error"' 2>/dev/null)
+    echo "Slack API error: $error" >&2
+    return 1
+  fi
+
+  return 0
 }
 
 # Arrays to collect failures across all steps
@@ -157,24 +155,37 @@ function run_step {
   fi
 }
 
-# Post a consolidated failure comment for all failed steps
-function post_failure_comment_for_steps {
-  local pr_number=$1
-  local max_chars_per_failure=$((4500 / ${#FAILED_STEPS[@]}))
-  local body="⚠️ **Docs Examples Validation Failed**"$'\n\n'
+# Send a consolidated Slack message for all failed steps
+function send_failure_slack_message {
+  local branch="${GITHUB_HEAD_REF:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")}"
+  local context="branch: \`${branch}\`"
+
+  local pr_number
+  pr_number=$(get_pr_number)
+  if [[ -n "$pr_number" ]]; then
+    local pr_url
+    pr_url=$(gh pr view "$pr_number" --json url --jq '.url' 2>/dev/null || echo "")
+    if [[ -n "$pr_url" ]]; then
+      context="<${pr_url}|PR #${pr_number}>"
+    else
+      context="PR #${pr_number}"
+    fi
+  fi
+
+  local max_chars_per_failure=$((2500 / ${#FAILED_STEPS[@]}))
+  local message=":warning: *Docs Examples Validation Failed* (${context})"$'\n\n'
 
   for i in "${!FAILED_STEPS[@]}"; do
     local output="${FAILED_OUTPUTS[$i]}"
     if [[ ${#output} -gt $max_chars_per_failure ]]; then
       output="(truncated)..."$'\n'"${output: -$max_chars_per_failure}"
     fi
-    body+="### ${FAILED_STEPS[$i]}"$'\n\n'"~~~"$'\n'"$output"$'\n'"~~~"$'\n\n'
+    message+="*${FAILED_STEPS[$i]}*"$'\n'"\`\`\`"$'\n'"$output"$'\n'"\`\`\`"$'\n\n'
   done
 
-  body+="**Action required:** Please fix the docs examples or update them to match the current API."$'\n\n'
-  body+="cc @AztecProtocol/devrel"
+  message+="*Action required:* Please fix the docs examples or update them to match the current API."
 
-  post_failure_comment "$pr_number" "$body"
+  send_slack_message "$message"
 }
 
 case "$cmd" in
@@ -184,13 +195,8 @@ case "$cmd" in
     run_step "Compile (Solidity)" compile-solidity
     run_step "TypeScript validation" validate-ts
 
-    pr_number=$(get_pr_number)
-    if [[ -n "$pr_number" ]]; then
-      if [[ ${#FAILED_STEPS[@]} -gt 0 ]]; then
-        post_failure_comment_for_steps "$pr_number"
-      else
-        delete_failure_comment "$pr_number"
-      fi
+    if [[ ${#FAILED_STEPS[@]} -gt 0 ]]; then
+      send_failure_slack_message
     fi
     ;;
   compile-circuits)

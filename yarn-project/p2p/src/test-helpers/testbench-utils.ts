@@ -1,6 +1,7 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { type BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
+import type { L2Block, L2BlockId } from '@aztec/stdlib/block';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type {
   BlockProposal,
@@ -12,15 +13,17 @@ import { type BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 import EventEmitter from 'events';
 
-import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
-import type { TxPool } from '../mem_pools/tx_pool/index.js';
+import type { TryAddResult } from '../mem_pools/attestation_pool/attestation_pool.js';
+import type { AddTxsResult, TxPoolV2, TxPoolV2Config } from '../mem_pools/tx_pool_v2/interfaces.js';
+import type { TxState } from '../mem_pools/tx_pool_v2/tx_metadata.js';
 import { RateLimitStatus } from '../services/reqresp/rate-limiter/rate_limiter.js';
 
 /**
  * In-memory TxPool implementation for testing.
  * Provides basic tx storage without persistence.
+ * Implements TxPoolV2 interface with stub implementations for testing.
  */
-export class InMemoryTxPool extends EventEmitter implements TxPool {
+export class InMemoryTxPool extends EventEmitter implements TxPoolV2 {
   private txsByHash = new Map<string, Tx>();
   private logger: Logger | null = null;
 
@@ -54,22 +57,88 @@ export class InMemoryTxPool extends EventEmitter implements TxPool {
     this.removeAllListeners();
   }
 
-  addTxs(txs: Tx[], opts?: { source?: string }): Promise<number> {
+  // === Core Operations (TxPoolV2) ===
+
+  addPendingTxs(txs: Tx[], opts?: { source?: string }): Promise<AddTxsResult> {
+    const accepted: TxHash[] = [];
     const newTxs: Tx[] = [];
-    let added = 0;
     for (const tx of txs) {
       const key = tx.getTxHash().toString();
       if (!this.txsByHash.has(key)) {
         newTxs.push(tx);
-        added += 1;
+        accepted.push(tx.getTxHash());
       }
       this.txsByHash.set(key, tx);
     }
     if (newTxs.length > 0) {
       this.emit('txs-added', { txs: newTxs, source: opts?.source });
     }
-    return Promise.resolve(added);
+    return Promise.resolve({ accepted, ignored: [], rejected: [] });
   }
+
+  canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored' | 'rejected'> {
+    const key = tx.getTxHash().toString();
+    if (this.txsByHash.has(key)) {
+      return Promise.resolve('ignored');
+    }
+    return Promise.resolve('accepted');
+  }
+
+  addProtectedTxs(txs: Tx[], _block: BlockHeader, opts?: { source?: string }): Promise<void> {
+    for (const tx of txs) {
+      const key = tx.getTxHash().toString();
+      this.txsByHash.set(key, tx);
+    }
+    if (txs.length > 0) {
+      this.emit('txs-added', { txs, source: opts?.source });
+    }
+    return Promise.resolve();
+  }
+
+  protectTxs(txHashes: TxHash[], _block: BlockHeader): Promise<TxHash[]> {
+    const notFound: TxHash[] = [];
+    for (const txHash of txHashes) {
+      if (!this.txsByHash.has(txHash.toString())) {
+        notFound.push(txHash);
+      }
+    }
+    return Promise.resolve(notFound);
+  }
+
+  addMinedTxs(txs: Tx[], _block: BlockHeader, _opts?: { source?: string }): Promise<void> {
+    for (const tx of txs) {
+      const key = tx.getTxHash().toString();
+      this.txsByHash.set(key, tx);
+    }
+    return Promise.resolve();
+  }
+
+  // === State Transition Handlers (TxPoolV2) ===
+
+  handleMinedBlock(_block: L2Block): Promise<void> {
+    return Promise.resolve();
+  }
+
+  prepareForSlot(_slotNumber: SlotNumber): Promise<void> {
+    return Promise.resolve();
+  }
+
+  handlePrunedBlocks(_latestBlock: L2BlockId): Promise<void> {
+    return Promise.resolve();
+  }
+
+  handleFailedExecution(txHashes: TxHash[]): Promise<void> {
+    for (const txHash of txHashes) {
+      this.txsByHash.delete(txHash.toString());
+    }
+    return Promise.resolve();
+  }
+
+  handleFinalizedBlock(_block: BlockHeader): Promise<void> {
+    return Promise.resolve();
+  }
+
+  // === Query Operations (TxPoolV2) ===
 
   getTxByHash(hash: TxHash): Promise<Tx | undefined> {
     return Promise.resolve(this.txsByHash.get(hash.toString()));
@@ -86,31 +155,8 @@ export class InMemoryTxPool extends EventEmitter implements TxPool {
     return Promise.resolve(hashes.map(h => this.txsByHash.has(h.toString())));
   }
 
-  hasTx(hash: TxHash): Promise<boolean> {
-    return Promise.resolve(this.txsByHash.has(hash.toString()));
-  }
-
   getArchivedTxByHash(_hash: TxHash): Promise<Tx | undefined> {
     return Promise.resolve(undefined);
-  }
-
-  async markAsMined(_txHashes: TxHash[], _blockHeader: BlockHeader): Promise<void> {}
-
-  async markMinedAsPending(_txHashes: TxHash[], _latestBlock: BlockNumber): Promise<void> {}
-
-  deleteTxs(txHashes: TxHash[], _opts?: { permanently?: boolean }): Promise<void> {
-    for (const txHash of txHashes) {
-      this.txsByHash.delete(txHash.toString());
-    }
-    return Promise.resolve();
-  }
-
-  getAllTxs(): Promise<Tx[]> {
-    return Promise.resolve([...this.txsByHash.values()]);
-  }
-
-  getAllTxHashes(): Promise<TxHash[]> {
-    return Promise.resolve([...this.txsByHash.keys()].map(key => TxHash.fromString(key)));
   }
 
   getPendingTxHashes(): Promise<TxHash[]> {
@@ -121,66 +167,75 @@ export class InMemoryTxPool extends EventEmitter implements TxPool {
     return Promise.resolve(this.txsByHash.size);
   }
 
-  getMinedTxHashes(): Promise<[tx: TxHash, blockNumber: BlockNumber][]> {
+  getMinedTxHashes(): Promise<[TxHash, L2BlockId][]> {
     return Promise.resolve([]);
   }
 
-  getTxStatus(hash: TxHash): Promise<'pending' | 'mined' | 'deleted' | undefined> {
-    return Promise.resolve(this.txsByHash.has(hash.toString()) ? 'pending' : undefined);
+  getMinedTxCount(): Promise<number> {
+    return Promise.resolve(0);
   }
 
-  updateConfig(_config: { maxPendingTxCount?: number; archivedTxLimit?: number }): void {}
+  getTxStatus(hash: TxHash): Promise<TxState | 'deleted' | undefined> {
+    return Promise.resolve(this.txsByHash.has(hash.toString()) ? 'pending' : undefined);
+  }
 
   isEmpty(): Promise<boolean> {
     return Promise.resolve(this.txsByHash.size === 0);
   }
 
-  async markTxsAsNonEvictable(_txHashes: TxHash[]): Promise<void> {}
+  getLowestPriorityPending(_limit: number): Promise<TxHash[]> {
+    return Promise.resolve([]);
+  }
 
-  async clearNonEvictableTxs(): Promise<void> {}
+  // === Configuration (TxPoolV2) ===
 
-  cleanupDeletedMinedTxs(_blockNumber: BlockNumber): Promise<number> {
-    return Promise.resolve(0);
+  updateConfig(_config: Partial<TxPoolV2Config>): Promise<void> {
+    return Promise.resolve();
+  }
+
+  // === Lifecycle (TxPoolV2) ===
+
+  start(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  stop(): Promise<void> {
+    return Promise.resolve();
   }
 }
 
 /**
- * In-memory AttestationPool implementation for testing.
+ * In-memory AttestationPool mock for testing/benchmarking.
+ * Provides minimal implementation without persistence.
  */
-export class InMemoryAttestationPool implements AttestationPool {
+export class InMemoryAttestationPool {
   private proposals = new Map<string, BlockProposal>();
 
-  addBlockProposal(blockProposal: BlockProposal): Promise<void> {
-    this.proposals.set(blockProposal.archive.toString(), blockProposal);
-    return Promise.resolve();
+  tryAddBlockProposal(blockProposal: BlockProposal): Promise<TryAddResult> {
+    const id = blockProposal.archive.toString();
+    const alreadyExists = this.proposals.has(id);
+    if (alreadyExists) {
+      return Promise.resolve({ added: false, alreadyExists: true, count: 1 });
+    }
+    this.proposals.set(id, blockProposal);
+    return Promise.resolve({ added: true, alreadyExists: false, count: 1 });
   }
 
   getBlockProposal(id: string): Promise<BlockProposal | undefined> {
     return Promise.resolve(this.proposals.get(id));
   }
 
-  hasBlockProposal(idOrProposal: string | BlockProposal): Promise<boolean> {
-    const id = typeof idOrProposal === 'string' ? idOrProposal : idOrProposal.archive.toString();
-    return Promise.resolve(this.proposals.has(id));
+  tryAddCheckpointProposal(_proposal: CheckpointProposal): Promise<TryAddResult> {
+    return Promise.resolve({ added: true, alreadyExists: false, count: 1 });
   }
-
-  canAddProposal(_block: BlockProposal): Promise<boolean> {
-    return Promise.resolve(true);
-  }
-
-  async addCheckpointProposal(_proposal: CheckpointProposal): Promise<void> {}
 
   getCheckpointProposal(_id: string): Promise<CheckpointProposalCore | undefined> {
     return Promise.resolve(undefined);
   }
 
-  hasCheckpointProposal(_idOrProposal: string | CheckpointProposal): Promise<boolean> {
-    return Promise.resolve(false);
-  }
+  async addOwnCheckpointAttestations(_attestations: CheckpointAttestation[]): Promise<void> {}
 
-  async addCheckpointAttestations(_attestations: CheckpointAttestation[]): Promise<void> {}
-
-  async deleteCheckpointAttestationsOlderThan(_slot: SlotNumber): Promise<void> {}
+  async deleteOlderThan(_slot: SlotNumber): Promise<void> {}
 
   getCheckpointAttestationsForSlot(_slot: SlotNumber): Promise<CheckpointAttestation[]> {
     return Promise.resolve([]);
@@ -193,24 +248,8 @@ export class InMemoryAttestationPool implements AttestationPool {
     return Promise.resolve([]);
   }
 
-  hasCheckpointAttestation(_attestation: CheckpointAttestation): Promise<boolean> {
-    return Promise.resolve(false);
-  }
-
-  canAddCheckpointProposal(_proposal: CheckpointProposal): Promise<boolean> {
-    return Promise.resolve(true);
-  }
-
-  canAddCheckpointAttestation(_attestation: CheckpointAttestation, _committeeSize: number): Promise<boolean> {
-    return Promise.resolve(true);
-  }
-
-  hasReachedCheckpointProposalCap(_slot: SlotNumber): Promise<boolean> {
-    return Promise.resolve(false);
-  }
-
-  hasReachedCheckpointAttestationCap(_slot: SlotNumber, _proposalId: string, _committeeSize: number): Promise<boolean> {
-    return Promise.resolve(false);
+  tryAddCheckpointAttestation(_attestation: CheckpointAttestation): Promise<TryAddResult> {
+    return Promise.resolve({ added: true, alreadyExists: false, count: 1 });
   }
 
   isEmpty(): Promise<boolean> {
@@ -237,6 +276,15 @@ export function createMockEpochCache(): EpochCacheInterface {
     isInCommittee: () => Promise.resolve(false),
     getRegisteredValidators: () => Promise.resolve([]),
     filterInCommittee: () => Promise.resolve([]),
+    getL1Constants: () => ({
+      l1StartBlock: 0n,
+      l1GenesisTime: 0n,
+      epochDuration: 1,
+      slotDuration: 1,
+      ethereumSlotDuration: 1,
+      proofSubmissionEpochs: 1,
+      targetCommitteeSize: 48,
+    }),
   };
 }
 

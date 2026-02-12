@@ -1,5 +1,5 @@
 use super::TestBuilder;
-use dep::types::{
+use types::{
     abis::gas::Gas,
     constants::{
         AVM_EMITNOTEHASH_BASE_L2_GAS, AVM_EMITNULLIFIER_BASE_L2_GAS, AVM_SENDL2TOL1MSG_BASE_L2_GAS,

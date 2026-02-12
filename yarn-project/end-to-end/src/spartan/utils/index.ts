@@ -5,7 +5,7 @@
 export { type TestConfig, setupEnvironment } from './config.js';
 
 // Scripts
-export { getGitProjectRoot, getAztecBin, runAztecBin, runProjectScript } from './scripts.js';
+export { type ScriptResult, getGitProjectRoot, getAztecBin, runAztecBin, runProjectScript } from './scripts.js';
 
 // K8s operations
 export {

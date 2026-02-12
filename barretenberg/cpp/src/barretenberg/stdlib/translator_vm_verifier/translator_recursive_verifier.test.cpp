@@ -151,7 +151,6 @@ class TranslatorRecursiveTests : public ::testing::Test {
     static std::tuple<OuterBuilder, std::shared_ptr<OuterFlavor::VerificationKey>> create_recursive_verifier_circuit(
         size_t circuit_size_parameter = 500)
     {
-        using NativeVerifierCommitmentKey = InnerFlavor::VerifierCommitmentKey;
 
         // Create fake ECCVM proof
         auto prover_transcript = std::make_shared<Transcript>();
@@ -201,9 +200,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
         auto native_result = native_verifier.reduce_to_pairing_check();
         bool native_verified = native_result.pairing_points.check() && native_result.reduction_succeeded;
 
-        NativeVerifierCommitmentKey pcs_vkey{};
-        auto recursive_verified = pcs_vkey.pairing_check(recursive_result.pairing_points.P0.get_value(),
-                                                         recursive_result.pairing_points.P1.get_value());
+        auto recursive_verified = recursive_result.pairing_points.check();
         EXPECT_EQ(recursive_verified, native_verified);
 
         // Verify VK commitments consistency between recursive and native verifiers

@@ -2,46 +2,46 @@
 
 exports[`Data generation for noir tests Computes contract info for defaultContract 1`] = `
 {
-  "address": "AztecAddress { inner: 0x132104c99a032fc2a484b8dd6c6ba420c674456af098a0afc119a42aaf36ad9b }",
+  "address": "AztecAddress { inner: 0x1f261b780016b7d06d35520a956d317ce9fc2d84bb229327b839b832f17b4ed8 }",
   "artifact_hash": "0x0000000000000000000000000000000000000000000000000000000000003039",
   "contract_address_salt": "0x000000000000000000000000000000000000000000000000000000000000ddd5",
-  "contract_class_id": "ContractClassId { inner: 0x111550962dd5f958a313d7c72726495b7d47296bbddc3fa39c1323aa49485b78 }",
+  "contract_class_id": "ContractClassId { inner: 0x1a2b20637fc7270335a1e63c21e60863108df289b269e14006badb26a6a1baed }",
   "deployer": "AztecAddress { inner: 0x0000000000000000000000000000000000000000000000000000000000000000 }",
-  "partial_address": "PartialAddress { inner: 0x1b74a4b0ad14e9f8dfc68b4cbf208732f9a1287bdf565b437a915df7ccea094c }",
-  "private_functions_root": "0x140a3a467ac6089aeca6c47296a9c5c52bbbcda8a7b37f29df9df870e1d07ce5",
-  "public_bytecode_commitment": "0x0de4ef9691c75fd71136a8c8092c622a35a870a86813e28378cec322c6bd21d8",
+  "partial_address": "PartialAddress { inner: 0x136efe24cceebbebf764c04e9cd33483b6dd08b29817871046bded6a85b7ff2c }",
+  "private_functions_root": "0x061c463b7081a00225202f820b1727b4f3de765b33bc73c2e790938d3cc602a7",
+  "public_bytecode_commitment": "0x0877102b2244f15d9b0c9e5be2e932bfa87de989dfce4bc814d81876086ecc15",
   "public_keys": "PublicKeys { inner: 0x01498945581e0eb9f8427ad6021184c700ef091d570892c437d12c7d90364bbd170ae506787c5c43d6ca9255d571c10fa9ffa9d141666e290c347c5c9ab7e34400c044b05b6ca83b9c2dbae79cc1135155956a64e136819136e9947fe5e5866c1c1f0ca244c7cd46b682552bff8ae77dea40b966a71de076ec3b7678f2bdb1511b00316144359e9a3ec8e49c1cdb7eeb0cedd190dfd9dc90eea5115aa779e287080ffc74d7a8b0bccb88ac11f45874172f3847eb8b92654aaa58a3d2b8dc7833019c111f36ad3fc1d9b7a7a14344314d2864b94f030594cd67f753ef774a1efb2039907fe37f08d10739255141bb066c506a12f7d1e8dfec21abc58494705b6f }",
-  "salted_initialization_hash": "SaltedInitializationHash { inner: 0x167fd027e179d3aac9ef5fda07741499457d6d34948bbf2d741e257ae46af1c2 }",
+  "salted_initialization_hash": "SaltedInitializationHash { inner: 0x222d697ec3c42432bba23ee114f269a711025d4d323c459582b3a41bfe083a5b }",
 }
 `;
 
 exports[`Data generation for noir tests Computes contract info for parentContract 1`] = `
 {
-  "address": "AztecAddress { inner: 0x2366008a8d752a27ee58ed2e08c1b7e499aed75bce57cc659d1dd11b04175244 }",
+  "address": "AztecAddress { inner: 0x0352024f83a2bf2903e8e464ee758923bf6e8273c996e2b857db77b87a755700 }",
   "artifact_hash": "0x00000000000000000000000000000000000000000000000000000000000004bc",
   "contract_address_salt": "0x0000000000000000000000000000000000000000000000000000000000001618",
-  "contract_class_id": "ContractClassId { inner: 0x17e7079ea684fdbb78fa5dcbab343c64bab31843706fe17bc92d8ba3bd04d459 }",
+  "contract_class_id": "ContractClassId { inner: 0x1d5a044a43ddcf7ea2975e199049a51b5253981ae8bfafb2ff54da7fd50e29ba }",
   "deployer": "AztecAddress { inner: 0x0000000000000000000000000000000000000000000000000000000000000000 }",
-  "partial_address": "PartialAddress { inner: 0x1e4beeea0e96fc385acc3cd03d5dcb02507d7f867af07db06243b8bc51b1c846 }",
-  "private_functions_root": "0x23d4dd0645e47cd264f8a6064766e193af9155a45833cfa78e9039123a806fbd",
-  "public_bytecode_commitment": "0x23e0f6c3b33e9479bb384b222971037c7b4a7d2c11015f22fb17138f5209894d",
+  "partial_address": "PartialAddress { inner: 0x07c049f2fd9ee4534d89f3f1ebc6d2c883ddacd746c5ecf706fb0e267a5b96c9 }",
+  "private_functions_root": "0x2727db9f811c8f991a27d77b79a7771f4def75af526771ade032ff9771eb7ece",
+  "public_bytecode_commitment": "0x1aa53d1e955bb35dbb39aa51f4ae6c9920c78020d2d85cdb914eabb8e6e96551",
   "public_keys": "PublicKeys { inner: 0x01498945581e0eb9f8427ad6021184c700ef091d570892c437d12c7d90364bbd170ae506787c5c43d6ca9255d571c10fa9ffa9d141666e290c347c5c9ab7e34400c044b05b6ca83b9c2dbae79cc1135155956a64e136819136e9947fe5e5866c1c1f0ca244c7cd46b682552bff8ae77dea40b966a71de076ec3b7678f2bdb1511b00316144359e9a3ec8e49c1cdb7eeb0cedd190dfd9dc90eea5115aa779e287080ffc74d7a8b0bccb88ac11f45874172f3847eb8b92654aaa58a3d2b8dc7833019c111f36ad3fc1d9b7a7a14344314d2864b94f030594cd67f753ef774a1efb2039907fe37f08d10739255141bb066c506a12f7d1e8dfec21abc58494705b6f }",
-  "salted_initialization_hash": "SaltedInitializationHash { inner: 0x037db29490b4ac14289f4ac61a713848b49424196551ec60cdaa2f5a8f9a9611 }",
+  "salted_initialization_hash": "SaltedInitializationHash { inner: 0x277a14ecf6d685df4a8c6477491094f8842421a21bde3d7dae376d64e4b9c45f }",
 }
 `;
 
 exports[`Data generation for noir tests Computes contract info for updatedContract 1`] = `
 {
-  "address": "AztecAddress { inner: 0x27327cbf240bed5a7c97daa48a5c139d0dbf0fff0ee50143b36eb56fa0c7727c }",
+  "address": "AztecAddress { inner: 0x0f7a757fea5a974aa38c596b81f03b49369d4ffba0ebfe035c2b122f83c5919b }",
   "artifact_hash": "0x0000000000000000000000000000000000000000000000000000000000054501",
   "contract_address_salt": "0x0000000000000000000000000000000000000000000000000000000000000315",
-  "contract_class_id": "ContractClassId { inner: 0x0a21b43cfb8a2d898e8f8ae91b411b163473f4fdba3e35b649928ae1885aefdc }",
+  "contract_class_id": "ContractClassId { inner: 0x0125b81fbc322bf7a4cf1b329c1693b473a89f627240e35c736d09aa25453f90 }",
   "deployer": "AztecAddress { inner: 0x0000000000000000000000000000000000000000000000000000000000000000 }",
-  "partial_address": "PartialAddress { inner: 0x1caf4f1e822dabbcae1e7c04aa106c7a52904a84a66b225d66b913153f7b3f4d }",
-  "private_functions_root": "0x2e0c78c4eb759f821c2ea53237533c77186e00c1e6db723bf291117b0899bf9d",
-  "public_bytecode_commitment": "0x2939a9edc3f0ee1bf4eff60171355f8cefa9ffb008207855f71d5eb4c0691a21",
+  "partial_address": "PartialAddress { inner: 0x13658e0c4e3b85685c6b9077e409b150ffc03182278a126cc3c37a9d7d95ed59 }",
+  "private_functions_root": "0x0ad5db0b1e6d6b34f0b7e8b92e4975c5cc8320d7789bd4d18065ca76542956c8",
+  "public_bytecode_commitment": "0x2c32960b4221567b4845f3119f17d7ac466e95e43792eb096779605b854f9a98",
   "public_keys": "PublicKeys { inner: 0x01498945581e0eb9f8427ad6021184c700ef091d570892c437d12c7d90364bbd170ae506787c5c43d6ca9255d571c10fa9ffa9d141666e290c347c5c9ab7e34400c044b05b6ca83b9c2dbae79cc1135155956a64e136819136e9947fe5e5866c1c1f0ca244c7cd46b682552bff8ae77dea40b966a71de076ec3b7678f2bdb1511b00316144359e9a3ec8e49c1cdb7eeb0cedd190dfd9dc90eea5115aa779e287080ffc74d7a8b0bccb88ac11f45874172f3847eb8b92654aaa58a3d2b8dc7833019c111f36ad3fc1d9b7a7a14344314d2864b94f030594cd67f753ef774a1efb2039907fe37f08d10739255141bb066c506a12f7d1e8dfec21abc58494705b6f }",
-  "salted_initialization_hash": "SaltedInitializationHash { inner: 0x25ea2214ec3384c240153d6ed145b1a101c773cb4036d4f5ac4d9022a9e24803 }",
+  "salted_initialization_hash": "SaltedInitializationHash { inner: 0x02b91db090444ca006f9effeaa6fde13bae8f7b4b4eae439e24d711a69fce428 }",
 }
 `;
 
@@ -51,7 +51,7 @@ exports[`Data generation for noir tests Computes function tree for the private f
   "membership_witness": "MembershipWitness {
         leaf_index: 0,
         sibling_path: [
-0x27eac3a6e29301462412fee9595e2c5d8fbedf8b1e463334ecf99cd87b450919,
+0x0946489a51e1af5ea7f2e85a17cf2691a446760d8751199208b49acf72e1c0c7,
 0x0e34ac2c09f45a503d2908bcb12f1cbae5fa4065759c88d501c097506a8b2290,
 0x21f9172d72fdcdafc312eee05cf5092980dda821da5b760a9fb8dbdf607c8a20,
 0x2373ea368857ec7af97e7b470d705848e2bf93ed7bef142a490f2119bcf82d8e,
@@ -89,7 +89,7 @@ exports[`Data generation for noir tests Computes function tree for the private f
   "membership_witness": "MembershipWitness {
         leaf_index: 0,
         sibling_path: [
-0x1b15a6fc26bd33b43181c6f3ba8a99c4857aa733248a61ac0967e840230bd5c5,
+0x1260f4354ff916029a970f9d72fea65c206f1a7be4b8f2864eea26d90dd66caf,
 0x0e34ac2c09f45a503d2908bcb12f1cbae5fa4065759c88d501c097506a8b2290,
 0x21f9172d72fdcdafc312eee05cf5092980dda821da5b760a9fb8dbdf607c8a20,
 0x2373ea368857ec7af97e7b470d705848e2bf93ed7bef142a490f2119bcf82d8e,

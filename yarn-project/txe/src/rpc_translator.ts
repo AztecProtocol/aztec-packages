@@ -328,7 +328,7 @@ export class RPCTranslator {
 
   // When the argument is a slice, noir automatically adds a length field to oracle call.
   // When the argument is an array, we add the field length manually to the signature.
-  utilityDebugLog(
+  async utilityLog(
     foreignLevel: ForeignCallSingle,
     foreignMessage: ForeignCallArray,
     _foreignLength: ForeignCallSingle,
@@ -340,7 +340,7 @@ export class RPCTranslator {
       .join('');
     const fields = fromArray(foreignFields);
 
-    this.handlerAsMisc().utilityDebugLog(level, message, fields);
+    await this.handlerAsMisc().utilityLog(level, message, fields);
 
     return toForeignCallResult([]);
   }
@@ -545,12 +545,23 @@ export class RPCTranslator {
     );
   }
 
-  async utilityGetPublicKeysAndPartialAddress(foreignAddress: ForeignCallSingle) {
+  async utilityTryGetPublicKeysAndPartialAddress(foreignAddress: ForeignCallSingle) {
     const address = addressFromSingle(foreignAddress);
 
-    const { publicKeys, partialAddress } = await this.handlerAsUtility().utilityGetPublicKeysAndPartialAddress(address);
+    const result = await this.handlerAsUtility().utilityTryGetPublicKeysAndPartialAddress(address);
 
-    return toForeignCallResult([toArray([...publicKeys.toFields(), partialAddress])]);
+    // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
+    // with two fields: `some` (a boolean) and `value` (a field array in this case).
+    if (result === undefined) {
+      // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
+      return toForeignCallResult([toSingle(new Fr(0)), toArray(Array(13).fill(new Fr(0)))]);
+    } else {
+      // Data was found so we set `some` to 1 and return it along with `value`.
+      return toForeignCallResult([
+        toSingle(new Fr(1)),
+        toArray([...result.publicKeys.toFields(), result.partialAddress]),
+      ]);
+    }
   }
 
   async utilityGetKeyValidationRequest(foreignPkMHash: ForeignCallSingle) {

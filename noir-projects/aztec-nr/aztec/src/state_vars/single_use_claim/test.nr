@@ -134,7 +134,7 @@ unconstrained fn claim_two_claim_ids_different_state_vars() {
     });
 }
 
-#[test(should_fail_with = "No public key registered")]
+#[test(should_fail_with = "Public keys not registered for account")]
 unconstrained fn claim_owner_unknown_public_keys() {
     let mut env = TestEnvironment::new();
 

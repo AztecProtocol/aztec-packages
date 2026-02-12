@@ -58,7 +58,7 @@ struct lookup_note_hash_tree_check_read_first_nullifier_settings_ {
         ColumnAndShifts::note_hash_tree_check_first_nullifier
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::public_inputs_cols_0_
     };
 };
 
@@ -180,7 +180,7 @@ struct lookup_note_hash_tree_check_write_note_hash_to_public_inputs_settings_ {
         ColumnAndShifts::note_hash_tree_check_unique_note_hash
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::public_inputs_cols_0_
     };
 };
 

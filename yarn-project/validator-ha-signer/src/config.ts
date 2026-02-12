@@ -1,3 +1,4 @@
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
@@ -6,6 +7,7 @@ import {
   numberConfigHelper,
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ZodFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
@@ -19,6 +21,8 @@ import { z } from 'zod';
 export interface ValidatorHASignerConfig {
   /** Whether HA signing / slashing protection is enabled */
   haSigningEnabled: boolean;
+  /** L1 contract addresses (rollup address required) */
+  l1Contracts: Pick<L1ContractAddresses, 'rollupAddress'>;
   /** Unique identifier for this node */
   nodeId: string;
   /** How long to wait between polls when a duty is being signed (ms) */
@@ -27,6 +31,8 @@ export interface ValidatorHASignerConfig {
   signingTimeoutMs: number;
   /** Maximum age of a stuck duty in ms (defaults to 2x hardcoded Aztec slot duration if not set) */
   maxStuckDutiesAgeMs?: number;
+  /** Optional: clean up old duties after this many hours (disabled if not set) */
+  cleanupOldDutiesAfterHours?: number;
   /**
    * PostgreSQL connection string
    * Format: postgresql://user:password@host:port/database
@@ -51,6 +57,15 @@ export const validatorHASignerConfigMappings: ConfigMappingsType<ValidatorHASign
     description: 'Whether HA signing / slashing protection is enabled',
     ...booleanConfigHelper(false),
   },
+  l1Contracts: {
+    description: 'L1 contract addresses (rollup address required)',
+    nested: {
+      rollupAddress: {
+        description: 'The Ethereum address of the rollup contract (must be set programmatically)',
+        parseEnv: (val: string) => EthAddress.fromString(val),
+      },
+    },
+  },
   nodeId: {
     env: 'VALIDATOR_HA_NODE_ID',
     description: 'The unique identifier for this node',
@@ -69,6 +84,11 @@ export const validatorHASignerConfigMappings: ConfigMappingsType<ValidatorHASign
   maxStuckDutiesAgeMs: {
     env: 'VALIDATOR_HA_MAX_STUCK_DUTIES_AGE_MS',
     description: 'The maximum age of a stuck duty in ms (defaults to 2x Aztec slot duration)',
+    ...optionalNumberConfigHelper(),
+  },
+  cleanupOldDutiesAfterHours: {
+    env: 'VALIDATOR_HA_OLD_DUTIES_MAX_AGE_H',
+    description: 'Optional: clean up old duties after this many hours (disabled if not set)',
     ...optionalNumberConfigHelper(),
   },
   databaseUrl: {
@@ -113,10 +133,14 @@ export function getConfigEnvVars(): ValidatorHASignerConfig {
 
 export const ValidatorHASignerConfigSchema = z.object({
   haSigningEnabled: z.boolean(),
+  l1Contracts: z.object({
+    rollupAddress: z.instanceof(EthAddress),
+  }),
   nodeId: z.string(),
   pollingIntervalMs: z.number().min(0),
   signingTimeoutMs: z.number().min(0),
   maxStuckDutiesAgeMs: z.number().min(0).optional(),
+  cleanupOldDutiesAfterHours: z.number().min(0).optional(),
   databaseUrl: z.string().optional(),
   poolMaxCount: z.number().min(0).optional(),
   poolMinCount: z.number().min(0).optional(),

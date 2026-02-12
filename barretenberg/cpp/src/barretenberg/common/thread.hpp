@@ -116,8 +116,7 @@ MultithreadData calculate_thread_data(size_t num_iterations,
 /**
  * @brief calculates number of threads to create based on minimum iterations per thread
  * @details Finds the number of cpus with get_num_cpus(), and calculates `desired_num_threads`
- * Returns the min of `desired_num_threads` and `max_num_theads`.
- * Note that it will not calculate a power of 2 necessarily, use `calculate_num_threads_pow2` instead
+ * Returns the min of `desired_num_threads` and `max_num_threads`.
  *
  * @param num_iterations
  * @param min_iterations_per_thread
@@ -125,17 +124,9 @@ MultithreadData calculate_thread_data(size_t num_iterations,
  */
 size_t calculate_num_threads(size_t num_iterations, size_t min_iterations_per_thread = DEFAULT_MIN_ITERS_PER_THREAD);
 
-/**
- * @brief calculates number of threads to create based on minimum iterations per thread, guaranteed power of 2
- * @details Same functionality as `calculate_num_threads` but guaranteed power of 2
- * @param num_iterations
- * @param min_iterations_per_thread
- * @return size_t
- */
-size_t calculate_num_threads_pow2(size_t num_iterations,
-                                  size_t min_iterations_per_thread = DEFAULT_MIN_ITERS_PER_THREAD);
-
 namespace thread_heuristics {
+// Maximum observed parallel_for overhead in nanoseconds (rounded up from 388us measurement)
+constexpr size_t PARALLEL_FOR_COST = 400000;
 // Rough cost of operations (the operation costs are derives in basics_bench and the units are nanoseconds)
 // Field element (16 byte) addition cost
 constexpr size_t FF_ADDITION_COST = 4;
@@ -197,6 +188,25 @@ void parallel_for(size_t num_threads, const Func& func)
 {
     parallel_for(num_threads, [&](size_t thread_index) {
         func(ThreadChunk{ .thread_index = thread_index, .total_threads = num_threads });
+    });
+}
+
+// parallel_for_heuristic variant that uses ThreadChunk for work distribution.
+// Parallelizes only when the estimated total work exceeds the parallel_for overhead.
+template <typename Func>
+    requires std::invocable<Func, ThreadChunk>
+void parallel_for_heuristic(size_t num_points, const Func& func, size_t heuristic_cost)
+{
+    const size_t num_cpus = get_num_cpus();
+    const size_t chunk_size = (num_points / num_cpus) + (num_points % num_cpus == 0 ? 0 : 1);
+    const size_t offset_cost = (num_points - chunk_size) * heuristic_cost;
+
+    if (offset_cost < thread_heuristics::PARALLEL_FOR_COST) {
+        func(ThreadChunk{ .thread_index = 0, .total_threads = 1 });
+        return;
+    }
+    parallel_for(num_cpus, [&](size_t thread_index) {
+        func(ThreadChunk{ .thread_index = thread_index, .total_threads = num_cpus });
     });
 }
 

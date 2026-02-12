@@ -102,7 +102,7 @@ resource "kubernetes_job_v1" "deploy_rollup_contracts" {
         container {
           name              = "deploy-rollup-contracts"
           image             = var.AZTEC_DOCKER_IMAGE
-          image_pull_policy = "Always"
+          image_pull_policy = can(regex("^kind-", var.K8S_CLUSTER_CONTEXT)) ? "IfNotPresent" : "Always"
           command           = ["/bin/sh"]
           args = concat(
             [

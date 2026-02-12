@@ -383,13 +383,13 @@ TEST(SStoreConstrainingTest, NegativeFullAttackWithAllTraces)
     WrittenPublicDataSlotsTreeCheckTraceBuilder written_slots_tree_trace_builder;
     written_slots_tree_trace_builder.process(written_public_data_slots_emitter.dump_events(), trace);
 
-    // Inject ghost sstore at row 0 where precomputed_clk matches public_data_check.clk.
+    // Inject ghost sstore at row 0 where precomputed_idx matches public_data_check.clk.
     // The mock execution_id_manager returns 0, so public_data_check.clk=0.
     // Ghost row: sel_execute_sstore=0 but sel_write_public_data=1
     trace.set(
         0,
         std::vector<std::pair<Column, FF>>{
-            { C::precomputed_clk, 0 },
+            { C::execution_clk, 0 },
             { C::precomputed_first_row, 1 },
             { C::execution_sel_execute_sstore, 0 },
             { C::execution_sel_write_public_data, 1 },

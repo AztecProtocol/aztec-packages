@@ -43,7 +43,7 @@ namespace execution;
     #[ADDRESSING_GAS_READ]
     sel_should_check_gas { addressing_mode, addressing_gas }
     in
-    precomputed.sel_addressing_gas { precomputed.clk, precomputed.addressing_gas };
+    precomputed.sel_addressing_gas { precomputed.idx, precomputed.addressing_gas };
 
     pol BASE_L2_GAS = opcode_gas + addressing_gas;
 

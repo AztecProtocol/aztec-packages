@@ -61,25 +61,6 @@ TEST_F(ThreadTest, CalculateNumThreads)
     EXPECT_EQ(calculate_num_threads(30, 10), 3);
 }
 
-// Test thread count calculation with power of 2
-TEST_F(ThreadTest, CalculateNumThreadsPow2)
-{
-    set_parallel_for_concurrency(8);
-
-    // With default min iterations per thread (16)
-    // 160 iterations / 16 = 10 desired, nearest power of 2 is 8, min(8, 8) = 8
-    EXPECT_EQ(calculate_num_threads_pow2(160), 8);
-
-    // 64 iterations / 16 = 4 desired, power of 2 is 4, min(4, 8) = 4
-    EXPECT_EQ(calculate_num_threads_pow2(64), 4);
-
-    // 96 iterations / 16 = 6 desired, nearest power of 2 is 4, min(4, 8) = 4
-    EXPECT_EQ(calculate_num_threads_pow2(96), 4);
-
-    // 8 iterations / 16 = 0 desired, should be at least 1
-    EXPECT_EQ(calculate_num_threads_pow2(8), 1);
-}
-
 // Test parallel_for with zero iterations
 TEST_F(ThreadTest, ZeroIterations)
 {
@@ -163,31 +144,6 @@ TEST_F(ThreadTest, HardwareConcurrency)
 
     set_parallel_for_concurrency(128);
     EXPECT_EQ(get_num_cpus(), 128);
-}
-
-// Test get_num_cpus_pow2
-TEST_F(ThreadTest, HardwareConcurrencyPow2)
-{
-    set_parallel_for_concurrency(1);
-    EXPECT_EQ(get_num_cpus_pow2(), 1);
-
-    set_parallel_for_concurrency(4);
-    EXPECT_EQ(get_num_cpus_pow2(), 4);
-
-    set_parallel_for_concurrency(5);
-    EXPECT_EQ(get_num_cpus_pow2(), 4); // Round down to power of 2
-
-    set_parallel_for_concurrency(7);
-    EXPECT_EQ(get_num_cpus_pow2(), 4); // Round down to power of 2
-
-    set_parallel_for_concurrency(8);
-    EXPECT_EQ(get_num_cpus_pow2(), 8);
-
-    set_parallel_for_concurrency(15);
-    EXPECT_EQ(get_num_cpus_pow2(), 8); // Round down to power of 2
-
-    set_parallel_for_concurrency(16);
-    EXPECT_EQ(get_num_cpus_pow2(), 16);
 }
 
 // Test that spawned threads can use parallel_for with set_parallel_for_concurrency

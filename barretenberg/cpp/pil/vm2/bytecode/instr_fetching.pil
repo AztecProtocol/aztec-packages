@@ -131,7 +131,7 @@ pol commit instr_abs_diff;
 instr_abs_diff = (2 * instr_out_of_range - 1) * (instr_size - bytes_to_read) - instr_out_of_range;
 
 #[INSTR_ABS_DIFF_POSITIVE]
-sel { instr_abs_diff } in precomputed.sel_range_8 { precomputed.clk };
+sel { instr_abs_diff } in precomputed.sel_range_8 { precomputed.idx };
 
 
 // ****************************************************************************
@@ -150,7 +150,7 @@ tag_value = (sel_has_tag - sel_tag_is_op2) * op3 + sel_tag_is_op2 * op2;
 
 // TODO: Investigate whether enforcing the tag checking in execution trace or in CAST/SET gadgets might be a better option.
 #[TAG_VALUE_VALIDATION]
-sel_has_tag { tag_value, tag_out_of_range } in precomputed.sel_range_8 { precomputed.clk, precomputed.sel_mem_tag_out_of_range };
+sel_has_tag { tag_value, tag_out_of_range } in precomputed.sel_range_8 { precomputed.idx, precomputed.sel_mem_tag_out_of_range };
 
 
 // ****************************************************************************
@@ -248,7 +248,7 @@ sel_pc_in_range {
      sel_op_dc_16
 } in
 precomputed.sel_range_8 {
-    precomputed.clk,
+    precomputed.idx,
     precomputed.opcode_out_of_range,
     precomputed.exec_opcode,
     precomputed.instr_size,

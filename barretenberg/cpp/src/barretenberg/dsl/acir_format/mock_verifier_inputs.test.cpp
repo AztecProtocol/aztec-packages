@@ -11,29 +11,29 @@ class MockVerifierInputsTest : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
-// Static assertions for proof length constants
-static_assert(MERGE_PROOF_SIZE == 42, "Merge proof size changed");
-static_assert(ECCVMFlavor::PROOF_LENGTH == 608, "ECCVM proof size changed");
-static_assert(IPA_PROOF_LENGTH == 64, "IPA proof size changed");
-static_assert(TranslatorFlavor::PROOF_LENGTH == 786, "Translator proof size changed");
+// Static assertions for proof size constants that must stay in sync with Noir (constants.nr)
+// These constants are used by Noir protocol circuits and TypeScript
 
-static_assert(ProofLength::Oink<MegaFlavor>::LENGTH_WITHOUT_PUB_INPUTS == 96, "Mega Oink proof size changed");
-static_assert(ProofLength::Oink<UltraFlavor>::LENGTH_WITHOUT_PUB_INPUTS == 32, "Ultra Oink proof size changed");
-static_assert(ProofLength::Oink<UltraZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS == 36, "UltraZK Oink proof size changed");
+// Public input component sizes (used in Noir)
+static_assert(PAIRING_POINTS_SIZE == 8, "PAIRING_POINTS_SIZE changed - update constants.nr");
+static_assert(GRUMPKIN_OPENING_CLAIM_SIZE == 6, "IPA_CLAIM_SIZE changed - update constants.nr");
+static_assert(HIDING_KERNEL_PUBLIC_INPUTS_SIZE == 28,
+              "HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE changed - update constants.nr");
 
-static_assert(ProofLength::Honk<MegaFlavor>::LENGTH_WITHOUT_PUB_INPUTS(MegaFlavor::VIRTUAL_LOG_N) == 433,
-              "Mega Honk proof size changed");
-static_assert(ProofLength::Honk<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS(MegaZKFlavor::VIRTUAL_LOG_N) == 407,
-              "MegaZK Honk (hiding kernel) proof size changed");
-static_assert(ProofLength::Honk<UltraFlavor>::LENGTH_WITHOUT_PUB_INPUTS(UltraFlavor::VIRTUAL_LOG_N) == 441,
-              "Ultra Honk proof size changed");
-static_assert(ProofLength::Honk<UltraZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS(UltraZKFlavor::VIRTUAL_LOG_N) == 492,
-              "UltraZK Honk proof size changed");
+// Component proof lengths (used in Noir)
+static_assert(MERGE_PROOF_SIZE == 42, "MERGE_PROOF_SIZE changed - update constants.nr");
+static_assert(ECCVMFlavor::PROOF_LENGTH == 608, "ECCVM proof size changed - update constants.nr");
+static_assert(IPA_PROOF_LENGTH == 64, "IPA_PROOF_LENGTH changed - update constants.nr");
+static_assert(TranslatorFlavor::PROOF_LENGTH == 786, "Translator proof size changed - update constants.nr");
 
+// Full proof lengths (used in Noir)
+static_assert(
+    ProofLength::Honk<UltraFlavor>::expected_proof_size<stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
+        UltraFlavor::VIRTUAL_LOG_N) == 449,
+    "RECURSIVE_PROOF_LENGTH changed - update constants.nr");
+static_assert(ChonkProof::PROOF_LENGTH == 1935, "CHONK_PROOF_LENGTH changed - update constants.nr");
 static_assert(ProofLength::MultilinearBatching<MultilinearBatchingFlavor>::LENGTH == 121,
-              "MultilinearBatching proof size changed");
-
-static_assert(ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS == 1907, "Chonk proof size changed");
+              "MultilinearBatching proof size changed - update constants.nr");
 
 /**
  * @brief Check that mock merge proof has the expected size

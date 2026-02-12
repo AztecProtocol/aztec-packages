@@ -6,16 +6,18 @@ function format_files {
 }
 
 if [ "$1" == "staged" ]; then
-  echo Formatting barretenberg staged files...
   files=$(git diff-index --diff-filter=d --relative --cached --name-only HEAD | grep -e '\.\(cpp\|hpp\|tcc\)$')
-  format_files "$files"
   if [ -n "$files" ]; then
+    echo Formatting barretenberg staged files...
+    format_files "$files"
     echo "$files" | xargs -r git add
   fi
 elif [ "$1" == "changed" ]; then
-  echo Formatting barretenberg changed files...
   files=$(git diff-index --diff-filter=d --relative --name-only HEAD | grep -e '\.\(cpp\|hpp\|tcc\)$')
-  format_files "$files"
+  if [ -n "$files" ]; then
+    echo Formatting barretenberg changed files...
+    format_files "$files"
+  fi
 elif [ "$1" == "check" ]; then
   files=$(find ./src -iname *.hpp -o -iname *.cpp -o -iname *.tcc | grep -v bb/deps)
   echo "$files" | parallel -N10 clang-format-20 --dry-run --Werror

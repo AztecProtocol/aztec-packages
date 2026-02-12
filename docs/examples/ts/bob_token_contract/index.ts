@@ -3,7 +3,7 @@ import { BobTokenContract } from "./artifacts/BobToken.js";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { getInitialTestAccountsData } from "@aztec/accounts/testing";
-import { TestWallet } from "@aztec/test-wallet/server";
+import { EmbeddedWallet } from "@aztec/wallets/embedded";
 // docs:end:imports
 
 // docs:start:get_balances
@@ -48,7 +48,7 @@ async function main() {
   // Connect to local network
   const node = createAztecNodeClient("http://localhost:8080");
 
-  const wallet = await TestWallet.create(node);
+  const wallet = await EmbeddedWallet.create(node);
 
   const [giggleWalletData, aliceWalletData, bobClinicWalletData] =
     await getInitialTestAccountsData();

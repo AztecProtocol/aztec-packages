@@ -48,4 +48,8 @@ function aws_get_meta_data {
   curl -fs -H "X-aws-ec2-metadata-token: $AWS_TOKEN" http://169.254.169.254/latest/meta-data/$1 || true
 }
 
-export -f hash_str hash_str_orig echo_stderr uuid get_num_cpus get_num_cpus_max
+function urlencode {
+  printf '%s' "$1" | python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.stdin.read(), safe=''))"
+}
+
+export -f hash_str hash_str_orig echo_stderr uuid get_num_cpus get_num_cpus_max urlencode

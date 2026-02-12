@@ -7,7 +7,7 @@ use crate::{
     abis::PaddedSideEffectAmounts,
     private_kernel_tail_to_public::{self, PrivateKernelTailToPublicCircuitPrivateInputs},
 };
-use dep::types::{
+use types::{
     abis::{gas::Gas, kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs},
     address::AztecAddress,
     constants::PRIVATE_KERNEL_INNER_VK_INDEX,

@@ -86,7 +86,7 @@ A node is a computer running Aztec software that participates in the Aztec netwo
 
 The Aztec testnet rolls up to Ethereum Sepolia.
 
-To run your own node see [here](/network/).
+To run your own node see [here](/operate/operators).
 
 ### Note
 
@@ -138,7 +138,6 @@ Included in the local network:
 - Deployed Aztec protocol contracts (for L1 and L2)
 - A set of test accounts with some test tokens to pay fees
 - Development tools to compile contracts and interact with the network (`aztec` and `aztec-wallet`)
-- All of this comes packaged in a Docker container to make it easy to install and run.
 
 ### Sequencer
 

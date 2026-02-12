@@ -21,7 +21,7 @@ template <typename Flavor, typename IO, typename Circuit = typename Flavor::Circ
 Circuit _compute_circuit(std::vector<uint8_t>&& bytecode, std::vector<uint8_t>&& witness)
 {
     const acir_format::ProgramMetadata metadata = _create_program_metadata<IO>();
-    acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(bytecode)) };
+    acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(bytecode)), {} };
 
     if (!witness.empty()) {
         program.witness = acir_format::witness_buf_to_witness_vector(std::move(witness));
@@ -172,7 +172,7 @@ CircuitStats::Response _stats(std::vector<uint8_t>&& bytecode, bool include_gate
     CircuitStats::Response response;
     response.num_acir_opcodes = static_cast<uint32_t>(constraint_system.num_acir_opcodes);
 
-    acir_format::AcirProgram program{ std::move(constraint_system) };
+    acir_format::AcirProgram program{ std::move(constraint_system), {} };
     auto builder = acir_format::create_circuit<Circuit>(program, metadata);
     builder.finalize_circuit(/*ensure_nonzero=*/true);
 

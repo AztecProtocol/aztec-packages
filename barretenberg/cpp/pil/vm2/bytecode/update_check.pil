@@ -48,7 +48,7 @@ namespace update_check;
     sel {
         timestamp_pi_offset, timestamp
     } in public_inputs.sel {
-        precomputed.clk, public_inputs.cols[0]
+        precomputed.idx, public_inputs.cols[0]
     };
 
     // ======== DELAYED PUBLIC MUTABLE HASH READ ========
