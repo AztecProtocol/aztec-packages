@@ -255,14 +255,22 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      * @brief Addition relation
      *
      * All addition operations in ECCVMMSMRelationImpl are conditional additions, as we sometimes want to add values and
-     * other times simply want to propagate values. (consider, e.g., when `q_add2 == 0`.) This method returns two
-     * Accumulators that represent x/y coord of output. Output is either an addition of inputs (if `selector == 1`), or
-     * xa/ya (if `selector == 0`). Additionally, we require `lambda = 0` if `selector = 0`. The `collision_relation`
-     * accumulator tracks a subrelation that validates xb != xa.
-     * Repeated calls to this method will increase the max degree of the Accumulator output:
-     * deg(x_out) = 1 + max(deg(xa, xb)), deg(y_out) = max(1 + deg(x_out), 1 + deg(ya))
-     * in our application, we chain together 4 of these with the pattern in such a way that the final x_out will have
-     * degree 5 and the final y_out will have degree 6.
+     * other times simply want to propagate values (consider, e.g., when `q_add2 == 0`).
+     *
+     * This method returns three Accumulators: (x_out, y_out, slope_relation)
+     * - x_out, y_out: Output point coordinates. Either an addition of inputs (if `selector == 1`), or xa/ya (if
+     *   `selector == 0`).
+     * - slope_relation: Constraint enforcing that lambda is computed correctly (lambda = 0 if selector = 0, else
+     *   lambda = (yb - ya) / (xb - xa))
+     *
+     * The `collision_relation` parameter tracks a subrelation that validates xb != xa. This collision check means that
+     * our system is only statistically complete, not perfectly complete. (See the `offset_generator` and the
+     * `first_add` method for details.)
+     *
+     * Repeated calls to this method will increase the max degree of the Accumulator output: deg(x_out) = 1 +
+     * max(deg(xa), deg(xb)), deg(y_out) = max(1 + deg(x_out), 1 + deg(ya)). In our application, we chain together 4 of
+     * these with the pattern in such a way that the final x_out will have degree 5 and the final y_out will have
+     * degree 6.
      */
     auto add = [&](auto& xb, auto& yb, auto& xa, auto& ya, auto& lambda, auto& selector, auto& collision_relation) {
         // computation of lambda is valid: if q == 1, then L == (yb - ya) / (xb - xa)
@@ -282,18 +290,36 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     };
 
     /**
-     * @brief First Addition relation
+     * @brief First Addition relation - handles the first addition in each row with inhomogeneous base point selection
      *
-     * The first add operation per row is treated differently.
-     * Normally we add the point xa/ya with an accumulator xb/yb,
-     * BUT, if this row STARTS a multiscalar multiplication,
-     * We need to add the point xa/ya with the "offset generator point" xo/yo
-     * The offset generator point's purpose is to ensure that no intermediate computations in the MSM will produce
-     * points at infinity, for an honest Prover.
-     * (we ensure soundness by validating the x-coordinates of xa/xb are not the same i.e. incomplete addition formula
-     * edge cases have not been hit)
-     * Note: this technique is only statistically complete, as there is a chance of an honest Prover creating a
-     * collision, but this probability is equivalent to solving the discrete logarithm problem
+     * @details The first add operation per row is treated inhomogeneously based on whether we are starting a new MSM
+     * or continuing an existing one across multiple rows.
+     *
+     * This method returns three Accumulators: (x_out, y_out, slope_relation), computed as follows:
+     *
+     * **Case 1: Continuing MSM (selector == 0, i.e., msm_transition == 0)**
+     * - Add point (xa, ya) to the accumulator (xb, yb) from the previous row
+     * - Example: In an MSM of size 9 spanning 3 rows, rows 2 and 3 use selector=0 to continue with their respective
+     *   accumulators
+     *
+     * **Case 2: Starting new MSM (selector == 1, i.e., msm_transition == 1)**
+     * - Add point (xa, ya) to the fixed "offset generator" point (xo, yo)
+     * - The offset generator serves two purposes for honest Provers:
+     *   (a) Ensures no intermediate MSM computations produce points at infinity
+     *   (b) Eliminates branch logic for the EC ops
+     * - Example: In an MSM of size 9, only row 1 has msm_transition=1 and uses the offset generator
+     *
+     * **Soundness via collision check:**
+     * We enforce soundness by constraining that the x-coordinates of the two input points must differ (xa != xb or
+     * xa != xo). This prevents the Prover from exploiting incomplete addition formula edge cases (point doubling or
+     * adding inverses). The collision_relation accumulator tracks this constraint, which is later verified via an
+     * inverse check.
+     *
+     * **Statistical completeness:**
+     * Note that this technique is only *statistically* complete. There exist valid MSM computations where an honest
+     * Prover would encounter x-coordinate collisions (xa == xb or xa == xo), causing the constraints to become
+     * unsatisfiable. However, the probability of such a collision is negligible—equivalent to solving the discrete
+     * logarithm problem.
      */
     auto first_add =
         [&](auto& xb, auto& yb, auto& xa, auto& ya, auto& lambda, auto& selector, auto& collision_relation) {
