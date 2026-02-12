@@ -195,7 +195,12 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
         this.#queue.put(() => {
           const counts = this.#impl.countTxs();
           return Promise.resolve({
-            itemCount: { pending: counts.pending, protected: counts.protected, mined: counts.mined },
+            itemCount: {
+              pending: counts.pending,
+              protected: counts.protected,
+              mined: counts.mined,
+              softDeleted: counts.softDeleted,
+            },
           });
         }),
       () => this.#store.estimateSize(),

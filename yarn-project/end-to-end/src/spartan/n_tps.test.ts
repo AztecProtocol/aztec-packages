@@ -345,7 +345,8 @@ describe('sustained N TPS test', () => {
     let lowValueTxs = 0;
     const lowValueSendTx = async (wallet: TestWallet) => {
       lowValueTxs++;
-      const feeAmount = Number(randomBigInt(10n)) + 1;
+      //const feeAmount = Number(randomBigInt(10n)) + 1;
+      const feeAmount = 1;
       const fee = new GasFees(0, feeAmount);
       logger.info('Sending low value tx ' + lowValueTxs + ' with fee ' + feeAmount);
 

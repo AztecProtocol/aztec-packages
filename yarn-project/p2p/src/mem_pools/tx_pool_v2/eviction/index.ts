@@ -9,6 +9,7 @@ export {
   type PreAddPoolAccess,
   type PreAddResult,
   type PreAddRule,
+  type TaggedEviction,
 } from './interfaces.js';
 
 // Pre-add rules

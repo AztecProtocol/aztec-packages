@@ -298,6 +298,17 @@ export class DeletedPool {
     return this.#state.size;
   }
 
+  /** Gets the count of soft-deleted transactions (both prune-based and slot-based). */
+  getSoftDeletedCount(): number {
+    let count = this.#slotDeletedTxs.size;
+    for (const state of this.#state.values()) {
+      if (state.softDeleted) {
+        count++;
+      }
+    }
+    return count;
+  }
+
   /**
    * Gets all transaction hashes from pruned blocks.
    */

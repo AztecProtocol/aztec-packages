@@ -270,9 +270,20 @@ export class TxPoolV2Impl {
       return { status: 'ignored' };
     }
 
-    // Evict conflicts
-    if (preAddResult.txHashesToEvict.length > 0) {
-      await this.#evictTxs(preAddResult.txHashesToEvict);
+    // Evict conflicts, grouped by rule name for metrics
+    if (preAddResult.evictions && preAddResult.evictions.length > 0) {
+      const byReason = new Map<string, string[]>();
+      for (const { txHash: evictHash, reason } of preAddResult.evictions) {
+        const group = byReason.get(reason);
+        if (group) {
+          group.push(evictHash);
+        } else {
+          byReason.set(reason, [evictHash]);
+        }
+      }
+      for (const [reason, hashes] of byReason) {
+        await this.#evictTxs(hashes, reason);
+      }
       for (const evictHashStr of preAddResult.txHashesToEvict) {
         this.#log.debug(`Evicted tx ${evictHashStr} due to higher-fee tx ${txHashStr}`);
         if (acceptedPending.has(evictHashStr)) {
@@ -379,11 +390,16 @@ export class TxPoolV2Impl {
       this.#instrumentation.recordSoftDeletedHits(softDeletedHits);
     }
     if (missing.length > 0) {
+      this.#log.debug(`protectTxs missing tx hashes: ${missing.map(h => h.toString()).join(', ')}`);
       this.#instrumentation.recordMissingOnProtect(missing.length);
     }
     if (missingPreviouslyEvicted > 0) {
       this.#instrumentation.recordMissingPreviouslyEvicted(missingPreviouslyEvicted);
     }
+
+    this.#log.info(
+      `Protected ${txHashes.length} txs, missing: ${missing.length}, soft-deleted hits: ${softDeletedHits}`,
+    );
 
     return missing;
   }
@@ -453,6 +469,7 @@ export class TxPoolV2Impl {
     // Step 3: Filter to only txs that have metadata and are not mined
     const txsToRestore = this.#indices.filterRestorable(expiredProtected);
     if (txsToRestore.length === 0) {
+      this.#log.debug(`Preparing for slot ${slotNumber}, no txs to unprotect`);
       return;
     }
 
@@ -466,7 +483,7 @@ export class TxPoolV2Impl {
 
     // Step 6: Delete invalid txs and evict conflict losers
     await this.#deleteTxsBatch(invalid);
-    await this.#evictTxs(toEvict);
+    await this.#evictTxs(toEvict, 'NullifierConflict');
 
     // Step 7: Run eviction rules (enforce pool size limit)
     if (added.length > 0) {
@@ -515,7 +532,7 @@ export class TxPoolV2Impl {
 
     // Step 7: Delete invalid txs and evict conflict losers
     await this.#deleteTxsBatch(invalid);
-    await this.#evictTxs(toEvict);
+    await this.#evictTxs(toEvict, 'NullifierConflict');
 
     // Step 8: Run eviction rules for ALL pending txs (not just restored ones)
     // This handles cases like existing pending txs with invalid fee payer balances
@@ -673,8 +690,17 @@ export class TxPoolV2Impl {
 
   // === Metrics ===
 
-  countTxs(): { pending: number; protected: number; mined: number; totalMetadataBytes: number } {
-    return this.#indices.countTxs();
+  countTxs(): {
+    pending: number;
+    protected: number;
+    mined: number;
+    softDeleted: number;
+    totalMetadataBytes: number;
+  } {
+    return {
+      ...this.#indices.countTxs(),
+      softDeleted: this.#deletedPool.getSoftDeletedCount(),
+    };
   }
 
   // ============================================================================
@@ -708,9 +734,11 @@ export class TxPoolV2Impl {
     }
 
     const stateStr = typeof state === 'string' ? state : Object.keys(state)[0];
-    this.#log.verbose(`Added ${stateStr} tx ${txHashStr}`, {
+    this.#log.debug(`Added tx ${txHashStr} as ${stateStr}`, {
       eventName: 'tx-added-to-pool',
+      txHash: txHashStr,
       state: stateStr,
+      source: opts.source,
     });
 
     return meta;
@@ -738,13 +766,14 @@ export class TxPoolV2Impl {
     }
   }
 
-  /** Evicts transactions: records eviction metric, caches hashes, then deletes. */
-  async #evictTxs(txHashes: string[]): Promise<void> {
+  /** Evicts transactions: records eviction metric with reason, caches hashes, then deletes. */
+  async #evictTxs(txHashes: string[], reason: string): Promise<void> {
     if (txHashes.length === 0) {
       return;
     }
-    this.#instrumentation.recordEvictions(txHashes.length);
+    this.#instrumentation.recordEvictions(txHashes.length, reason);
     for (const txHashStr of txHashes) {
+      this.#log.debug(`Evicting tx ${txHashStr}`, { txHash: txHashStr, reason });
       this.#addToEvictedCache(txHashStr);
     }
     await this.#deleteTxsBatch(txHashes);
@@ -951,7 +980,7 @@ export class TxPoolV2Impl {
       getFeePayerPendingTxs: (feePayer: string) => this.#indices.getFeePayerPendingTxs(feePayer),
       getPendingTxCount: () => this.#indices.getPendingTxCount(),
       getLowestPriorityPending: (limit: number) => this.#indices.getLowestPriorityPending(limit),
-      deleteTxs: (txHashes: string[]) => this.#evictTxs(txHashes),
+      deleteTxs: (txHashes: string[], reason?: string) => this.#evictTxs(txHashes, reason ?? 'unknown'),
     };
   }
 

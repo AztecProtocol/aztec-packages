@@ -204,6 +204,18 @@ export const MEMPOOL_TX_POOL_V2_METADATA_MEMORY: MetricDefinition = {
   valueType: ValueType.INT,
 };
 
+export const MEMPOOL_TX_POOL_V2_DUPLICATE_ADD: MetricDefinition = {
+  name: 'aztec.mempool.tx_pool_v2.duplicate_add',
+  description: 'Transactions received via addPendingTxs that were already in the pool',
+  valueType: ValueType.INT,
+};
+
+export const MEMPOOL_TX_POOL_V2_ALREADY_PROTECTED_ADD: MetricDefinition = {
+  name: 'aztec.mempool.tx_pool_v2.already_protected_add',
+  description: 'Transactions received via addPendingTxs that were already pre-protected',
+  valueType: ValueType.INT,
+};
+
 export const DB_NUM_ITEMS: MetricDefinition = {
   name: 'aztec.db.num_items',
   description: 'LMDB Num Items',

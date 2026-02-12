@@ -161,7 +161,7 @@ describe('InvalidTxsAfterReorgRule', () => {
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted.length).toBe(pendingTxs.length);
-        expect(deleteTxsMock).toHaveBeenCalledWith(result.txsEvicted);
+        expect(deleteTxsMock).toHaveBeenCalledWith(result.txsEvicted, 'InvalidTxsAfterReorg');
       });
 
       it('handles error from deleteTxs operation', async () => {

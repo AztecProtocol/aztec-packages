@@ -73,7 +73,7 @@ export class InvalidTxsAfterReorgRule implements EvictionRule {
 
       if (txsToEvict.length > 0) {
         this.log.verbose(`Evicting ${txsToEvict.length} txs from pool due to referencing pruned blocks`);
-        await pool.deleteTxs(txsToEvict);
+        await pool.deleteTxs(txsToEvict, this.name);
       }
 
       const keptCount = pendingTxs.length - txsToEvict.length;

@@ -55,7 +55,7 @@ export class LowPriorityEvictionRule implements EvictionRule {
       const txsToEvict = pool.getLowestPriorityPending(numberToEvict);
 
       if (txsToEvict.length > 0) {
-        await pool.deleteTxs(txsToEvict);
+        await pool.deleteTxs(txsToEvict, this.name);
       }
 
       const numNewTxsEvicted = context.newTxHashes.filter(newTxHash => txsToEvict.includes(newTxHash)).length;

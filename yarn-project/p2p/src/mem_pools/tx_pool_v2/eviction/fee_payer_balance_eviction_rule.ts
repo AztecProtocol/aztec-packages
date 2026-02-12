@@ -67,7 +67,7 @@ export class FeePayerBalanceEvictionRule implements EvictionRule {
     ).flat();
 
     if (txsToEvict.length > 0) {
-      await pool.deleteTxs(txsToEvict);
+      await pool.deleteTxs(txsToEvict, this.name);
     }
 
     return {

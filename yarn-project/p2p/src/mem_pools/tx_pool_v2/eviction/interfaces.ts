@@ -67,6 +67,12 @@ export interface PreAddPoolAccess {
   getLowestPriorityPendingTx(): TxMetaData | undefined;
 }
 
+/** A single eviction tagged with the rule that caused it. */
+export interface TaggedEviction {
+  readonly txHash: string;
+  readonly reason: string;
+}
+
 /**
  * Result of a pre-add check for a single transaction.
  */
@@ -75,6 +81,8 @@ export interface PreAddResult {
   readonly shouldIgnore: boolean;
   /** Tx hashes (as strings) that should be evicted if this tx is added */
   readonly txHashesToEvict: string[];
+  /** Evictions tagged with the rule name that produced them. Populated by EvictionManager. */
+  readonly evictions?: TaggedEviction[];
   /** Optional reason for ignoring */
   readonly reason?: string;
 }
@@ -120,8 +128,8 @@ export interface PoolOperations {
   /** Get the N lowest priority pending tx hashes */
   getLowestPriorityPending(limit: number): string[];
 
-  /** Delete transactions by hash */
-  deleteTxs(txHashes: string[]): Promise<void>;
+  /** Delete transactions by hash, with an optional reason for metrics */
+  deleteTxs(txHashes: string[], reason?: string): Promise<void>;
 }
 
 /**

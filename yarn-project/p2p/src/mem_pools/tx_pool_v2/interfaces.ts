@@ -50,7 +50,7 @@ export const DEFAULT_TX_POOL_V2_CONFIG: TxPoolV2Config = {
   maxPendingTxCount: 0, // 0 = disabled
   archivedTxLimit: 0, // 0 = disabled
   minTxPoolAgeMs: 2_000,
-  evictedTxCacheSize: 1_000,
+  evictedTxCacheSize: 10_000,
 };
 
 /**
