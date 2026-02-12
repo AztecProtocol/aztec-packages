@@ -927,6 +927,7 @@ export class PXE {
           ({ publicInputs, executionSteps } = await generateSimulatedProvingResult(
             privateExecutionResult,
             (addr, sel) => this.contractStore.getDebugFunctionName(addr, sel),
+            this.node,
           ));
         } else {
           // Kernel logic, plus proving of all private functions and kernels.
