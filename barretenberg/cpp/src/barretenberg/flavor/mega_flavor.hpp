@@ -12,6 +12,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/partially_evaluated_multivariates.hpp"
+#include "barretenberg/flavor/prover_polynomials.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
@@ -346,73 +347,8 @@ class MegaFlavor {
     /**
      * @brief A container for the prover polynomials handles.
      */
-    template <bool HasZK_ = HasZK> class ProverPolynomials_ : public AllEntities_<Polynomial, HasZK_> {
-      public:
-        // Define all operations as default, except copy construction/assignment
-        ProverPolynomials_() = default;
-        // fully-formed constructor
-        ProverPolynomials_(size_t circuit_size)
-        {
-            BB_BENCH_NAME("ProverPolynomials(size_t)");
-
-            for (auto& poly : this->get_to_be_shifted()) {
-                poly = Polynomial{ /*memory size*/ circuit_size - 1,
-                                   /*largest possible index*/ circuit_size,
-                                   /* offset */ 1 };
-            }
-            // catch-all with fully formed polynomials
-            for (auto& poly : this->get_unshifted()) {
-                if (poly.is_empty()) {
-                    // Not set above
-                    poly = Polynomial{ /*memory size*/ circuit_size, /*largest possible index*/ circuit_size };
-                }
-            }
-            set_shifted();
-        }
-        ProverPolynomials_& operator=(const ProverPolynomials_&) = delete;
-        ProverPolynomials_(const ProverPolynomials_& o) = delete;
-        ProverPolynomials_(ProverPolynomials_&& o) noexcept = default;
-        ProverPolynomials_& operator=(ProverPolynomials_&& o) noexcept = default;
-        ~ProverPolynomials_() = default;
-        [[nodiscard]] size_t get_polynomial_size() const { return this->q_c.size(); }
-        [[nodiscard]] AllValues_<HasZK_> get_row(size_t row_idx) const
-        {
-            AllValues_<HasZK_> result;
-            for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
-                result_field = polynomial[row_idx];
-            }
-            return result;
-        }
-
-        [[nodiscard]] AllValues_<HasZK_> get_row_for_permutation_arg(size_t row_idx)
-        {
-            AllValues_<HasZK_> result;
-            for (auto [result_field, polynomial] : zip_view(result.get_sigmas(), this->get_sigmas())) {
-                result_field = polynomial[row_idx];
-            }
-            for (auto [result_field, polynomial] : zip_view(result.get_ids(), this->get_ids())) {
-                result_field = polynomial[row_idx];
-            }
-            for (auto [result_field, polynomial] : zip_view(result.get_wires(), this->get_wires())) {
-                result_field = polynomial[row_idx];
-            }
-            return result;
-        }
-
-        void set_shifted()
-        {
-            for (auto [shifted, to_be_shifted] : zip_view(this->get_shifted(), this->get_to_be_shifted())) {
-                shifted = to_be_shifted.shifted();
-            }
-        }
-
-        void increase_polynomials_virtual_size(const size_t size_in)
-        {
-            for (auto& polynomial : this->get_all()) {
-                polynomial.increase_virtual_size(size_in);
-            }
-        }
-    };
+    template <bool HasZK_ = HasZK>
+    using ProverPolynomials_ = ProverPolynomialsBase<AllEntities_<Polynomial, HasZK_>, AllValues_<HasZK_>, Polynomial>;
 
     using ProverPolynomials = ProverPolynomials_<HasZK>;
 
