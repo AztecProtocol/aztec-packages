@@ -408,6 +408,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const { publicInputs } = await generateSimulatedProvingResult(
       result,
       (addr, sel) => this.contractStore.getDebugFunctionName(addr, sel),
+      this.stateMachine.node,
       minRevertibleSideEffectCounter,
     );
 
