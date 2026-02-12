@@ -150,9 +150,11 @@ jobs:
           AZTEC_DOCKER_IMAGE: "aztecprotocol/aztec:${{ inputs.docker_image_tag || inputs.semver }}"
           CREATE_ROLLUP_CONTRACTS: ${{ inputs.deploy_contracts == true && 'true' || '' }}
           USE_NETWORK_CONFIG: ${{ inputs.deploy_contracts == true && 'false' || '' }}
+          PROVER_AGENT_DOCKER_IMAGE: "aztecprotocol/aztec-prover-agent:${{ inputs.docker_image_tag || inputs.semver }}"
         run: |
           echo "Deploying network: ${{ inputs.network }}"
           echo "Using image: $AZTEC_DOCKER_IMAGE"
+          echo "Using prover image: $PROVER_AGENT_DOCKER_IMAGE"
           echo "Using branch/ref: ${{ steps.checkout-ref.outputs.ref }}"
 
           cd spartan

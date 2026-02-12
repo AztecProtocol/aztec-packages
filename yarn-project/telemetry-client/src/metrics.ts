@@ -474,6 +474,23 @@ export const FISHERMAN_FEE_ANALYSIS_MINED_BLOB_TX_TOTAL_COST: MetricDefinition =
   unit: 'eth',
   valueType: ValueType.DOUBLE,
 };
+export const FISHERMAN_FEE_ANALYSIS_PENDING_BLOB_COUNT: MetricDefinition = {
+  name: 'aztec.fisherman.fee_analysis.pending_blob_count',
+  description: 'Total number of blobs in pending blob transactions',
+  unit: 'blobs',
+  valueType: ValueType.INT,
+};
+export const FISHERMAN_FEE_ANALYSIS_INCLUDED_BLOB_COUNT: MetricDefinition = {
+  name: 'aztec.fisherman.fee_analysis.included_blob_count',
+  description: 'Total number of blobs included in the mined block',
+  unit: 'blobs',
+  valueType: ValueType.INT,
+};
+export const FISHERMAN_FEE_ANALYSIS_BLOCK_BLOBS_FULL: MetricDefinition = {
+  name: 'aztec.fisherman.fee_analysis.block_blobs_full',
+  description: 'Whether the mined block reached 100% blob capacity',
+  valueType: ValueType.INT,
+};
 
 export const VALIDATOR_INVALID_ATTESTATION_RECEIVED_COUNT: MetricDefinition = {
   name: 'aztec.validator.invalid_attestation_received_count',

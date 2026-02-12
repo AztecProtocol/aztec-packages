@@ -413,7 +413,7 @@ pub unconstrained fn set_reject_all(context: PublicContext, reject: bool) {
     let res = context.call_public_function(
         CANONICAL_AUTH_REGISTRY_ADDRESS,
         comptime { FunctionSelector::from_signature("set_reject_all(bool)") },
-        [context.this_address().to_field(), reject as Field],
+        [reject as Field],
         GasOpts::default(),
     );
     assert(res.len() == 0);

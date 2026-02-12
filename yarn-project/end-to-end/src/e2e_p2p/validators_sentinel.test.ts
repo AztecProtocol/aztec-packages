@@ -103,7 +103,7 @@ describe('e2e_p2p_validators_sentinel', () => {
             initialSlot &&
             lastProcessedSlot &&
             lastProcessedSlot - initialSlot >= blockCount - 1 &&
-            Object.values(stats).some(stat => stat.history.some(h => h.status === 'block-mined')) &&
+            Object.values(stats).some(stat => stat.history.some(h => h.status === 'checkpoint-mined')) &&
             Object.values(stats).some(stat => stat.history.some(h => h.status === 'attestation-sent')) &&
             stats[offlineValidator.toString().toLowerCase()] &&
             stats[offlineValidator.toString().toLowerCase()].history.length > 0 &&
@@ -132,7 +132,7 @@ describe('e2e_p2p_validators_sentinel', () => {
 
     it('collects stats on a block builder', () => {
       const [proposerValidator, proposerStats] = Object.entries(stats.stats).find(([_, v]) =>
-        v?.history?.some(h => h.status === 'block-mined'),
+        v?.history?.some(h => h.status === 'checkpoint-mined'),
       )!;
       t.logger.info(`Asserting stats for proposer validator ${proposerValidator}`);
       expect(proposerStats).toBeDefined();
