@@ -1,12 +1,12 @@
 bot:
   replicaCount: 1
+  botMode: "crosschain"
   txIntervalSeconds: 10
-  botMode: "amm"
   followChain: "PROPOSED"
   feePaymentMethod: "fee_juice"
   maxErrors: 3
   stopIfUnhealthy: true
-  botPrivateKey: "0xcafe02"
+  botPrivateKey: "0xcafe03"
 
   persistence:
     enabled: true

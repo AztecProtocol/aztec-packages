@@ -1,9 +1,18 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
+import { TxReceipt } from '@aztec/aztec.js/tx';
 import { DeployAccountMethod } from '@aztec/aztec.js/wallet';
 import type { CheatCodes } from '@aztec/aztec/testing';
-import { AmmBot, Bot, type BotConfig, BotStore, SupportedTokenContracts, getBotDefaultConfig } from '@aztec/bot';
+import {
+  AmmBot,
+  Bot,
+  type BotConfig,
+  BotStore,
+  CrossChainBot,
+  SupportedTokenContracts,
+  getBotDefaultConfig,
+} from '@aztec/bot';
 import { AVM_MAX_PROCESSABLE_L2_GAS, MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT } from '@aztec/constants';
 import { SecretValue } from '@aztec/foundation/config';
 import { bufferToHex } from '@aztec/foundation/string';
@@ -49,7 +58,7 @@ describe('e2e_bot', () => {
       config = {
         ...getBotDefaultConfig(),
         followChain: 'CHECKPOINTED',
-        ammTxs: false,
+        botMode: 'transfer',
       };
       bot = await Bot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
     });
@@ -114,7 +123,7 @@ describe('e2e_bot', () => {
         ...getBotDefaultConfig(),
 
         followChain: 'CHECKPOINTED',
-        ammTxs: false,
+        botMode: 'transfer',
 
         // this bot has a well defined private key and salt
         senderPrivateKey: new SecretValue(Fr.fromString('0xcafe')),
@@ -152,7 +161,7 @@ describe('e2e_bot', () => {
         ...getBotDefaultConfig(),
 
         followChain: 'CHECKPOINTED',
-        ammTxs: false,
+        botMode: 'transfer',
 
         // this bot has a well defined private key and salt
         senderPrivateKey: new SecretValue(Fr.fromString('0xcafe')),
@@ -190,7 +199,7 @@ describe('e2e_bot', () => {
       config = {
         ...getBotDefaultConfig(),
         followChain: 'CHECKPOINTED',
-        ammTxs: true,
+        botMode: 'amm',
       };
       bot = await AmmBot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
     });
@@ -220,7 +229,7 @@ describe('e2e_bot', () => {
       config = {
         ...getBotDefaultConfig(),
         followChain: 'PROPOSED',
-        ammTxs: false,
+        botMode: 'transfer',
         senderPrivateKey: new SecretValue(Fr.random()),
         l1PrivateKey: new SecretValue(bufferToHex(getPrivateKeyFromIndex(8)!)),
         l1RpcUrls,
@@ -234,5 +243,50 @@ describe('e2e_bot', () => {
       await cheatCodes.rollup.advanceInboxInProgress(10);
       await Bot.create(config, wallet, aztecNode, aztecNodeAdmin, new BotStore(await openTmpStore('bot')));
     }, 300_000);
+  });
+
+  describe('cross-chain-bot', () => {
+    let bot: CrossChainBot;
+
+    beforeAll(async () => {
+      config = {
+        ...getBotDefaultConfig(),
+        followChain: 'PROPOSED',
+        botMode: 'crosschain',
+        l1RpcUrls,
+        l1PrivateKey: new SecretValue(bufferToHex(getPrivateKeyFromIndex(9)!)),
+        flushSetupTransactions: true,
+        l1ToL2SeedCount: 2,
+      };
+      bot = await CrossChainBot.create(
+        config,
+        wallet,
+        aztecNode,
+        aztecNodeAdmin,
+        new BotStore(await openTmpStore('bot')),
+      );
+    }, 600_000);
+
+    it('sends L2→L1 and consumes L1→L2 messages', async () => {
+      const result = await bot.run();
+      expect(result).toBeDefined();
+      expect(result).toBeInstanceOf(TxReceipt);
+
+      const receipt = result as TxReceipt;
+      expect(receipt.blockNumber).toBeDefined();
+
+      // Verify L2→L1: the block should contain at least one non-zero L2→L1 message
+      const block = await aztecNode.getBlock(receipt.blockNumber!);
+      expect(block).toBeDefined();
+      const l2ToL1Msgs = block!.body.txEffects.flatMap(e => e.l2ToL1Msgs).filter(m => !m.isZero());
+      expect(l2ToL1Msgs.length).toBeGreaterThanOrEqual(1);
+    }, 120_000);
+
+    it('replenishes the seeding pipeline across ticks', async () => {
+      // Tick 2: the first tick consumed one message. This tick should seed a
+      // replacement and still have a ready message to consume.
+      const result = await bot.run();
+      expect(result).toBeDefined();
+    }, 120_000);
   });
 });
