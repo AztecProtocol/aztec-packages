@@ -142,7 +142,7 @@ export class DeletedPool {
     }
 
     if (count > 0) {
-      this.#log.debug(`Marked ${count} transactions from pruned blocks`);
+      this.#log.info(`Marked ${count} transactions from pruned blocks`);
     }
   }
 
@@ -237,7 +237,9 @@ export class DeletedPool {
       await this.#txsDB.delete(txHash);
     }
 
-    this.#log.debug(`Finalized ${toHardDelete.length} txs from pruned blocks at block ${finalizedBlockNumber}`);
+    this.#log.debug(`Finalized ${toHardDelete.length} txs from pruned blocks at block ${finalizedBlockNumber}`, {
+      txHashes: toHardDelete,
+    });
     return toHardDelete;
   }
 
@@ -269,6 +271,7 @@ export class DeletedPool {
 
     this.#log.debug(
       `Cleaned up ${toHardDelete.length} slot-deleted txs from slot ${previousSlot} (now slot ${currentSlot})`,
+      { txHashes: toHardDelete },
     );
   }
 
