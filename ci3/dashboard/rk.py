@@ -519,8 +519,11 @@ def trigger_grind():
 _proxy_session = requests.Session()
 _HOP_BY_HOP = frozenset([
     'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
-    'te', 'trailers', 'transfer-encoding', 'upgrade', 'content-encoding', 'content-length',
+    'te', 'trailers', 'transfer-encoding', 'upgrade', 'content-length',
 ])
+# Don't forward encoding headers — get plain responses from ci-metrics,
+# let rkapp's Flask-Compress handle compression to the browser.
+_STRIP_REQUEST_HEADERS = frozenset(['host', 'accept-encoding'])
 
 def _proxy(path):
     """Forward request to ci-metrics, streaming the response back."""
@@ -531,7 +534,7 @@ def _proxy(path):
             url=url,
             params=request.args,
             data=request.get_data(),
-            headers={k: v for k, v in request.headers if k.lower() not in ('host',)},
+            headers={k: v for k, v in request.headers if k.lower() not in _STRIP_REQUEST_HEADERS},
             stream=True,
             timeout=60,
         )
