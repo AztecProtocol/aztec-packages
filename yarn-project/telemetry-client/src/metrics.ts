@@ -98,6 +98,9 @@ export const FISHERMAN_FEE_ANALYSIS_ESTIMATED_OVERPAYMENT = 'aztec.fisherman.fee
 export const FISHERMAN_FEE_ANALYSIS_MINED_BLOB_TX_PRIORITY_FEE =
   'aztec.fisherman.fee_analysis.mined_blob_tx_priority_fee';
 export const FISHERMAN_FEE_ANALYSIS_MINED_BLOB_TX_TOTAL_COST = 'aztec.fisherman.fee_analysis.mined_blob_tx_total_cost';
+export const FISHERMAN_FEE_ANALYSIS_PENDING_BLOB_COUNT = 'aztec.fisherman.fee_analysis.pending_blob_count';
+export const FISHERMAN_FEE_ANALYSIS_INCLUDED_BLOB_COUNT = 'aztec.fisherman.fee_analysis.included_blob_count';
+export const FISHERMAN_FEE_ANALYSIS_BLOCK_BLOBS_FULL = 'aztec.fisherman.fee_analysis.block_blobs_full';
 
 export const VALIDATOR_INVALID_ATTESTATION_RECEIVED_COUNT = 'aztec.validator.invalid_attestation_received_count';
 

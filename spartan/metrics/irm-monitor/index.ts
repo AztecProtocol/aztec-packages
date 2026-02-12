@@ -4,6 +4,10 @@ import client from "prom-client";
 
 const { ROLLUP_CONTRACT_ADDRESS, ETHEREUM_HOST, NETWORK } = process.env;
 
+//////////////////////////////
+// IMPORTANT: Bump VERSION file when making changes
+//////////////////////////////
+
 if (!ROLLUP_CONTRACT_ADDRESS || !ETHEREUM_HOST || !NETWORK) {
   console.error(
     "ROLLUP_CONTRACT_ADDRESS, ETHEREUM_HOST and NETWORK are required. Provided: ",
