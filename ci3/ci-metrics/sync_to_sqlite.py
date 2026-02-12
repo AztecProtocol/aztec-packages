@@ -16,8 +16,8 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import redis as redis_lib
-import rk_db
-import rk_metrics
+import db
+import metrics
 
 REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
 REDIS_PORT = int(os.getenv('REDIS_PORT', '6379'))
@@ -34,22 +34,22 @@ def main():
         sys.exit(1)
 
     # Ensure DB schema is up to date
-    rk_db.get_db()
+    db.get_db()
 
     # Force sync by resetting the TTL gates
-    rk_metrics._ci_sync_ts = 0
-    rk_metrics._failed_tests_sync_ts = 0
+    metrics._ci_sync_ts = 0
+    metrics._failed_tests_sync_ts = 0
 
     # Sync CI runs
     print("[sync] Syncing CI runs from Redis to SQLite...")
-    rk_metrics.sync_ci_runs_to_sqlite(r)
+    metrics.sync_ci_runs_to_sqlite(r)
 
     # Sync failed/flaked test events from Redis lists
     print("[sync] Syncing test events from Redis to SQLite...")
-    rk_metrics.sync_failed_tests_to_sqlite(r)
+    metrics.sync_failed_tests_to_sqlite(r)
 
     # Report
-    db = rk_db.get_db()
+    db = db.get_db()
     ci_count = db.execute('SELECT COUNT(*) as c FROM ci_runs').fetchone()['c']
     te_count = db.execute('SELECT COUNT(*) as c FROM test_events').fetchone()['c']
     elapsed = time.time() - start

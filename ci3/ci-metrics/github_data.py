@@ -527,9 +527,9 @@ def _fetch_merge_queue_runs(date_str: str) -> dict:
 
 def _load_backfill_json():
     """Load seed data from merge-queue-backfill.json if SQLite is empty."""
-    import rk_db
+    import db
     from pathlib import Path
-    db = rk_db.get_db()
+    db = db.get_db()
 
     count = db.execute('SELECT COUNT(*) as c FROM merge_queue_daily').fetchone()['c']
     if count > 0:
@@ -555,8 +555,8 @@ def _load_backfill_json():
 
 def _backfill_merge_queue():
     """Backfill missing merge queue daily stats into SQLite."""
-    import rk_db
-    db = rk_db.get_db()
+    import db
+    db = db.get_db()
 
     # Load seed data on first run
     _load_backfill_json()
@@ -598,8 +598,8 @@ def _backfill_merge_queue():
 
 def refresh_merge_queue_today():
     """Refresh today's (and yesterday's) merge queue stats. Called periodically."""
-    import rk_db
-    db = rk_db.get_db()
+    import db
+    db = db.get_db()
     today = datetime.now(timezone.utc).date().isoformat()
     yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).date().isoformat()
 
@@ -637,15 +637,15 @@ def ensure_merge_queue_data():
 def get_merge_queue_stats(date_from: str, date_to: str) -> dict:
     """Get merge queue failure rate by day. Triggers backfill if needed."""
     # Ensure data is populated (async after first load)
-    import rk_db
-    db = rk_db.get_db()
+    import db
+    db = db.get_db()
     count = db.execute('SELECT COUNT(*) as c FROM merge_queue_daily').fetchone()['c']
     if count == 0:
         ensure_merge_queue_data()  # block on first load
     else:
         threading.Thread(target=ensure_merge_queue_data, daemon=True).start()
 
-    rows = rk_db.query(
+    rows = db.query(
         'SELECT date, total, success, failure, cancelled, in_progress '
         'FROM merge_queue_daily WHERE date >= ? AND date <= ? ORDER BY date',
         (date_from, date_to))

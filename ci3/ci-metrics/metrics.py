@@ -10,8 +10,8 @@ import time
 import threading
 from datetime import datetime, timedelta, timezone
 
-import rk_db
-import rk_github
+import db
+import github_data
 
 SECTIONS = ['next', 'prs', 'master', 'staging', 'releases', 'nightly', 'network', 'deflake', 'local']
 
@@ -70,7 +70,7 @@ def extract_pr_number(name: str) -> int | None:
 
 def _get_ci_runs_from_redis(redis_conn, date_from_ms=None, date_to_ms=None):
     """Read CI runs from Redis sorted sets."""
-    branch_pr_map = rk_github.get_branch_pr_map()
+    branch_pr_map = github_data.get_branch_pr_map()
 
     runs = []
     for section in SECTIONS:
@@ -113,7 +113,7 @@ def _get_ci_runs_from_sqlite(date_from_ms=None, date_to_ms=None):
         conditions.append('timestamp_ms <= ?')
         params.append(date_to_ms)
     where = ('WHERE ' + ' AND '.join(conditions)) if conditions else ''
-    rows = rk_db.query(f'SELECT * FROM ci_runs {where} ORDER BY timestamp_ms', params)
+    rows = db.query(f'SELECT * FROM ci_runs {where} ORDER BY timestamp_ms', params)
     runs = []
     for row in rows:
         runs.append({
@@ -175,7 +175,7 @@ def _handle_test_event(channel: str, data: dict):
     log_url = data.get('log_url') or data.get('log_key')
     if log_url and not log_url.startswith('http'):
         log_url = f'http://ci.aztec-labs.com/{log_url}'
-    rk_db.execute('''
+    db.execute('''
         INSERT INTO test_events
         (status, test_cmd, log_url, ref_name, commit_hash, commit_author,
          commit_msg, exit_code, duration_secs, is_scenario, owners,
@@ -343,7 +343,7 @@ def sync_failed_tests_to_sqlite(redis_conn):
         return
     _failed_tests_sync_ts = now
 
-    db = rk_db.get_db()
+    db = db.get_db()
     # Track existing entries to avoid duplicates: log_url for entries that have one,
     # (test_cmd, timestamp, dashboard) composite key for entries without log_url
     existing_urls = {row['log_url'] for row in db.execute(
@@ -405,7 +405,7 @@ def _load_seed_data():
     import gzip
     from pathlib import Path
 
-    db = rk_db.get_db()
+    db = db.get_db()
     ci_count = db.execute('SELECT COUNT(*) as c FROM ci_runs').fetchone()['c']
     te_count = db.execute('SELECT COUNT(*) as c FROM test_events').fetchone()['c']
     if ci_count > 0 and te_count > 0:
@@ -501,7 +501,7 @@ def sync_ci_runs_to_sqlite(redis_conn):
     runs = _get_ci_runs_from_redis(redis_conn)
 
     now_iso = datetime.now(timezone.utc).isoformat()
-    db = rk_db.get_db()
+    db = db.get_db()
     count = 0
     for run in runs:
         try:
@@ -555,7 +555,7 @@ def start_ci_run_sync(redis_conn):
 def get_flakes_by_command(date_from, date_to, dashboard=''):
     """Get flake stats grouped by CI command type (dashboard/section)."""
     if dashboard:
-        rows = rk_db.query('''
+        rows = db.query('''
             SELECT dashboard, test_cmd, COUNT(*) as count
             FROM test_events
             WHERE status = 'flaked' AND dashboard = ?
@@ -564,7 +564,7 @@ def get_flakes_by_command(date_from, date_to, dashboard=''):
             ORDER BY count DESC
         ''', (dashboard, date_from, date_to + 'T23:59:59'))
     else:
-        rows = rk_db.query('''
+        rows = db.query('''
             SELECT dashboard, test_cmd, COUNT(*) as count
             FROM test_events
             WHERE status = 'flaked' AND dashboard != ''
@@ -584,7 +584,7 @@ def get_flakes_by_command(date_from, date_to, dashboard=''):
         total_flakes += row['count']
 
     if dashboard:
-        failure_rows = rk_db.query('''
+        failure_rows = db.query('''
             SELECT dashboard, COUNT(*) as count
             FROM test_events
             WHERE status = 'failed' AND dashboard = ?
@@ -592,7 +592,7 @@ def get_flakes_by_command(date_from, date_to, dashboard=''):
             GROUP BY dashboard
         ''', (dashboard, date_from, date_to + 'T23:59:59'))
     else:
-        failure_rows = rk_db.query('''
+        failure_rows = db.query('''
             SELECT dashboard, COUNT(*) as count
             FROM test_events
             WHERE status = 'failed' AND dashboard != ''
