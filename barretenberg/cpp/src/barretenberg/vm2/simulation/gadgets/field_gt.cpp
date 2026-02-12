@@ -78,7 +78,7 @@ bool FieldGreaterThan::ff_gt(const FF& a, const FF& b)
     const LimbsComparisonWitness p_sub_a_witness = canonical_decomposition(a_limbs, range_check);
     const LimbsComparisonWitness p_sub_b_witness = canonical_decomposition(b_limbs, range_check);
 
-    // We will either be proving that a > gt or that b >= a.
+    // We will either be proving that a > b or that b >= a.
     const LimbsComparisonWitness res_witness =
         result_a_gt_b ? limb_gt_witness(a_limbs, b_limbs) : limb_gte_witness(b_limbs, a_limbs);
     range_check.assert_range(res_witness.lo, 128);
