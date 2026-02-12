@@ -54,7 +54,7 @@ export class BlacklistTokenContractTest {
   asset!: TokenBlacklistContract;
   tokenSim!: TokenSimulator;
   badAccount!: InvalidAccountContract;
-  proxy!: GenericProxyContract;
+  authwitProxy!: GenericProxyContract;
   cheatCodes!: CheatCodes;
   sequencer!: SequencerClient;
   aztecNode!: AztecNode;
@@ -120,8 +120,8 @@ export class BlacklistTokenContractTest {
     // (so their notes are in scope), but msg_sender in the target must differ from the note owner
     // to trigger authwit validation. The proxy forwards calls so that msg_sender != tx sender.
     this.logger.verbose(`Deploying generic proxy...`);
-    this.proxy = await GenericProxyContract.deploy(this.wallet).send({ from: this.adminAddress });
-    this.logger.verbose(`Deployed to ${this.proxy.address}.`);
+    this.authwitProxy = await GenericProxyContract.deploy(this.wallet).send({ from: this.adminAddress });
+    this.logger.verbose(`Deployed to ${this.authwitProxy.address}.`);
 
     await this.crossTimestampOfChange();
 
