@@ -19,6 +19,7 @@ pub fn validate_previous_kernel_for_tail(
 ) {
     // --- constants ---
     // There's no restriction on the specific values of the constants.
+    // Q: ^^^ I'm not sure what this means. They're restricted in the sense that they must match the previous kernel's constants.
 
     // --- min_revertible_side_effect_counter ---
 

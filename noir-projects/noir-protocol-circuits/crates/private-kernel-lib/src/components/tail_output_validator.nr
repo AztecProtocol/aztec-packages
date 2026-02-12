@@ -94,10 +94,12 @@ impl TailOutputValidator {
         assert_transformed_array(
             self.previous_kernel.end.private_logs,
             self.output.end.private_logs,
-            |prev, out| assert_eq(out, prev.innermost().log, "mismatch private_logs"),
+            |prev, out| assert_eq(out, prev.innermost().log, "mismatch private_logs"), // consider adding an `expose_to_public` for consistency.
         );
     }
 
+    // Why is this fn separate from the note_hashes, nullifiers and private_logs?
+    // Why does this fn have "sorted" in the name?
     fn validate_propagated_sorted_values(self) {
         // l2_to_l1_msgs
         assert_sorted_transformed_array(

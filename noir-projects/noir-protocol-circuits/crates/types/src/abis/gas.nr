@@ -16,6 +16,7 @@ impl Gas {
         Self { da_gas, l2_gas }
     }
 
+    // TODO: these constant values need to be justified/explained
     pub fn tx_overhead() -> Self {
         Self { da_gas: FIXED_DA_GAS, l2_gas: FIXED_L2_GAS }
     }
