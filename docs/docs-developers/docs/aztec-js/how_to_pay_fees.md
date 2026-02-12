@@ -11,7 +11,7 @@ This guide walks you through paying transaction fees on Aztec using various paym
 
 ## Prerequisites
 
-- [Connected to a network](./how_to_connect_to_local_network.md) with a `TestWallet` instance and funded accounts
+- [Connected to a network](./how_to_connect_to_local_network.md) with a `EmbeddedWallet` instance and funded accounts
 - Understanding of [fee concepts](../foundational-topics/fees.md)
 
 :::info
@@ -100,12 +100,10 @@ If your account has Fee Juice (for example, from a faucet), is [deployed](./how_
 
 ```typescript
 // contract is a deployed contract instance; aliceAddress is from the connection guide
-const receipt = await contract.methods
-  .myFunction(param1, param2)
-  .send({
-    from: aliceAddress,
-    // no fee payment method needed
-  });
+const receipt = await contract.methods.myFunction(param1, param2).send({
+  from: aliceAddress,
+  // no fee payment method needed
+});
 
 console.log("Transaction fee:", receipt.transactionFee);
 ```
@@ -246,31 +244,27 @@ const gasSettings = GasSettings.from({
   maxPriorityFeesPerGas: { daGas: 1, l2Gas: 1 },
 });
 
-const receipt = await contract.methods
-  .myFunction()
-  .send({
-    from: aliceAddress,
-    fee: {
-      paymentMethod,
-      gasSettings,
-    },
-  });
+const receipt = await contract.methods.myFunction().send({
+  from: aliceAddress,
+  fee: {
+    paymentMethod,
+    gasSettings,
+  },
+});
 ```
 
 ### Use automatic gas estimation
 
 ```typescript
 // contract, aliceAddress, and paymentMethod are from the examples above
-const receipt = await contract.methods
-  .myFunction()
-  .send({
-    from: aliceAddress,
-    fee: {
-      paymentMethod,
-      estimateGas: true,
-      estimatedGasPadding: 0.2, // 20% padding
-    },
-  });
+const receipt = await contract.methods.myFunction().send({
+  from: aliceAddress,
+  fee: {
+    paymentMethod,
+    estimateGas: true,
+    estimatedGasPadding: 0.2, // 20% padding
+  },
+});
 ```
 
 :::tip

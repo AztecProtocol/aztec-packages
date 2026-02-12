@@ -92,7 +92,7 @@
     "@aztec/sequencer-client": "workspace:^",
     "@aztec/slasher": "workspace:^",
     "@aztec/stdlib": "workspace:^",
-    "@aztec/test-wallet": "workspace:^",
+    "@aztec/wallets": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@ethersproject/wallet": "^5.8.0",
     "@iarna/toml": "^2.2.5",

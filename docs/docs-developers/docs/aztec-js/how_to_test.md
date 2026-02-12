@@ -15,20 +15,20 @@ This guide covers how to test Aztec smart contracts by connecting to a local net
 
 ## Setting up the test environment
 
-Connect to your local Aztec network and create a test wallet:
+Connect to your local Aztec network and create an embedded wallet:
 
 #include_code setup yarn-project/end-to-end/src/composed/e2e_local_network_example.test.ts typescript
 
-The `TestWallet` manages accounts, tracks deployed contracts, and handles transaction proving. It connects to the Aztec node which provides access to both the Private eXecution Environment (PXE) and the network.
+The `EmbeddedWallet` manages accounts, tracks deployed contracts, and handles transaction proving. It connects to the Aztec node which provides access to both the Private eXecution Environment (PXE) and the network.
 
 ## Loading test accounts
 
 The local network comes with pre-funded accounts. Load them into your wallet:
 
 ```typescript
-import { registerInitialLocalNetworkAccountsInWallet } from "@aztec/test-wallet/server";
+import { registerInitialLocalNetworkAccountsInWallet } from "@aztec/wallets/testing";
 
-// wallet is the TestWallet from the setup section above
+// wallet is the EmbeddedWallet from the setup section above
 const [alice, bob] = await registerInitialLocalNetworkAccountsInWallet(wallet);
 ```
 
@@ -89,7 +89,7 @@ it("reverts when transferring more than balance", async () => {
   await expect(
     token.methods
       .transfer_in_public(bob, balance + 1n)
-      .simulate({ from: alice })
+      .simulate({ from: alice }),
   ).rejects.toThrow();
 });
 ```

@@ -1,9 +1,7 @@
 // docs:start:connect_to_network
 import { createAztecNodeClient, waitForNode } from "@aztec/aztec.js/node";
-import {
-  TestWallet,
-  registerInitialLocalNetworkAccountsInWallet,
-} from "@aztec/test-wallet/server";
+import { EmbeddedWallet } from "@aztec/wallets/embedded";
+import { getInitialTestAccountsData } from "@aztec/accounts/testing";
 
 const nodeUrl = "http://localhost:8080";
 const node = createAztecNodeClient(nodeUrl);
@@ -11,8 +9,8 @@ const node = createAztecNodeClient(nodeUrl);
 // Wait for the network to be ready
 await waitForNode(node);
 
-// Create a TestWallet connected to the node
-const wallet = await TestWallet.create(node);
+// Create an EmbeddedWallet connected to the node
+const wallet = await EmbeddedWallet.create(node);
 // docs:end:connect_to_network
 
 // docs:start:verify_connection
@@ -22,8 +20,12 @@ console.log("Chain ID:", nodeInfo.l1ChainId);
 // docs:end:verify_connection
 
 // docs:start:load_accounts
-const [aliceAddress, bobAddress] =
-  await registerInitialLocalNetworkAccountsInWallet(wallet);
+const testAccounts = await getInitialTestAccountsData();
+const [aliceAddress, bobAddress] = await Promise.all(
+  testAccounts.slice(0, 2).map(async (account) => {
+    return (await wallet.createSchnorrAccount(account.secret, account.salt, account.signingKey)).address;
+  }),
+);
 
 console.log(`Alice's address: ${aliceAddress.toString()}`);
 console.log(`Bob's address: ${bobAddress.toString()}`);

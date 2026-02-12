@@ -1,4 +1,5 @@
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -81,9 +82,13 @@ export class PublicDataTreeLeafPreimage implements IndexedTreeLeafPreimage {
   toHashInputs(): Buffer[] {
     return [
       ...this.leaf.toHashInputs(),
-      Buffer.from(toBufferBE(this.nextIndex, 32)),
       Buffer.from(this.nextKey.toBuffer()),
+      Buffer.from(toBufferBE(this.nextIndex, 32)),
     ];
+  }
+
+  hash(): Promise<Fr> {
+    return poseidon2Hash(this.toHashInputs());
   }
 
   clone(): PublicDataTreeLeafPreimage {
@@ -104,10 +109,11 @@ export class PublicDataTreeLeafPreimage implements IndexedTreeLeafPreimage {
 
   static fromBuffer(buffer: Buffer | BufferReader): PublicDataTreeLeafPreimage {
     const reader = BufferReader.asReader(buffer);
-    const value = PublicDataTreeLeaf.fromBuffer(reader);
-    const nextIndex = toBigIntBE(reader.readBytes(32));
-    const nextSlot = Fr.fromBuffer(reader);
-    return new PublicDataTreeLeafPreimage(value, nextSlot, nextIndex);
+    return new PublicDataTreeLeafPreimage(
+      PublicDataTreeLeaf.fromBuffer(reader),
+      Fr.fromBuffer(reader),
+      toBigIntBE(reader.readBytes(32)),
+    );
   }
 
   static fromLeaf(leaf: PublicDataTreeLeaf, nextKey: bigint, nextIndex: bigint): PublicDataTreeLeafPreimage {

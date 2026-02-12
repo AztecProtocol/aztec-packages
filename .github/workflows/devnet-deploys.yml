@@ -23,6 +23,7 @@ jobs:
       semver: ${{ steps.create-tag.outputs.semver }}
       namespace: ${{ steps.create-tag.outputs.namespace }}
       ref: ${{ steps.create-tag.outputs.ref }}
+      patch: ${{ steps.create-tag.outputs.patch }}
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -78,3 +79,14 @@ jobs:
       semver: ${{ needs.tag.outputs.semver }}
       namespace: ${{ needs.tag.outputs.namespace }}
       ref: ${{ needs.tag.outputs.ref }}
+      deploy_contracts: ${{ needs.tag.outputs.patch == '0' }}
+
+  fund:
+    needs: [tag, deploy]
+    uses: ./.github/workflows/ensure-funded-environment.yml
+    secrets: inherit
+    with:
+      environment: devnet
+      namespace: ${{ needs.tag.outputs.namespace }}
+      low_watermark: '5.0'
+      high_watermark: '10.0'

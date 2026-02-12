@@ -4,10 +4,10 @@ import { publishContractClass } from '@aztec/aztec.js/deployment';
 import type { DeployAccountOptions, Wallet } from '@aztec/aztec.js/wallet';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { captureProfile } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 

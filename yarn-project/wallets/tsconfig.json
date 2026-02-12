@@ -1,0 +1,35 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../accounts"
+    },
+    {
+      "path": "../aztec.js"
+    },
+    {
+      "path": "../entrypoints"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../kv-store"
+    },
+    {
+      "path": "../pxe"
+    },
+    {
+      "path": "../stdlib"
+    },
+    {
+      "path": "../wallet-sdk"
+    }
+  ],
+  "include": ["src"]
+}

@@ -1,11 +1,9 @@
 // docs:start:setup
-import { createAztecNodeClient } from "@aztec/aztec.js/node";
-import { TestWallet } from "@aztec/test-wallet/server";
+import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { getInitialTestAccountsData } from "@aztec/accounts/testing";
 
 const nodeUrl = "http://localhost:8080";
-const node = createAztecNodeClient(nodeUrl);
-const wallet = await TestWallet.create(node);
+const wallet = await EmbeddedWallet.create(nodeUrl);
 
 const [alice, bob] = await getInitialTestAccountsData();
 await wallet.createSchnorrAccount(alice.secret, alice.salt);

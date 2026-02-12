@@ -215,16 +215,14 @@ describe('Private Execution test suite', () => {
       salt: Fr.random(),
     });
 
-    return acirSimulator.run(
-      txRequest,
+    return acirSimulator.run(txRequest, {
       contractAddress,
       selector,
       msgSender,
       anchorBlockHeader,
       senderForTags,
-      undefined,
-      TEST_JOB_ID,
-    );
+      jobId: TEST_JOB_ID,
+    });
   };
 
   const insertLeaves = async (leaves: Fr[], name = 'noteHash') => {
@@ -327,21 +325,15 @@ describe('Private Execution test suite', () => {
     contractSyncService = mock<ContractSyncService>();
     // Configure mock to actually perform sync_state calls (needed for nested call tests)
     contractSyncService.ensureContractSynced.mockImplementation(
-      async (
-        contractAddress: AztecAddress,
-        functionToInvokeAfterSync: FunctionSelector | null,
-        utilityExecutor: (call: FunctionCall) => Promise<unknown>,
-        header: BlockHeader,
-        jobId: string,
-      ) => {
+      async (contractAddress, functionToInvokeAfterSync, utilityExecutor, anchorBlockHeader, jobId) => {
         await syncState(
           contractAddress,
           contractStore,
           functionToInvokeAfterSync,
-          utilityExecutor,
+          call => utilityExecutor(call, undefined),
           noteStore,
           aztecNode,
-          header,
+          anchorBlockHeader,
           jobId,
         );
       },
@@ -484,7 +476,7 @@ describe('Private Execution test suite', () => {
       },
     );
 
-    acirSimulator = new ContractFunctionSimulator(
+    acirSimulator = new ContractFunctionSimulator({
       contractStore,
       noteStore,
       keyStore,
@@ -497,7 +489,7 @@ describe('Private Execution test suite', () => {
       privateEventStore,
       simulator,
       contractSyncService,
-    );
+    });
   });
 
   describe('no constructor', () => {

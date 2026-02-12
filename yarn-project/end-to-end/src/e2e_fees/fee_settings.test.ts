@@ -6,11 +6,11 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { GasSettings } from '@aztec/stdlib/gas';
 import { TX_ERROR_INSUFFICIENT_FEE_PER_GAS } from '@aztec/stdlib/tx';
-import type { TestWallet } from '@aztec/test-wallet/server';
-import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { inspect } from 'util';
 
+import type { TestWallet } from '../test-wallet/test_wallet.js';
+import { proveInteraction } from '../test-wallet/utils.js';
 import { FeesTest } from './fees_test.js';
 
 describe('e2e_fees fee settings', () => {

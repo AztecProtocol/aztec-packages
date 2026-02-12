@@ -1,12 +1,10 @@
 // docs:start:imports
-import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee";
 import type { FieldLike } from "@aztec/aztec.js/abi";
 import { getSponsoredFPCInstance } from "./scripts/sponsored_fpc.js";
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
 import { ValueNotEqualContract } from "./artifacts/ValueNotEqual.js";
-import { getPXEConfig } from "@aztec/pxe/config";
-import { TestWallet } from "@aztec/test-wallet/server";
+import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { rm } from "node:fs/promises";
 import assert from "node:assert";
@@ -34,20 +32,15 @@ const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(
 
 // Initialize wallet and connect to local network
 // The wallet manages accounts and sends transactions through the PXE
-export const setupWallet = async (): Promise<TestWallet> => {
+export const setupWallet = async (): Promise<EmbeddedWallet> => {
   try {
-    // Connect to the Aztec node (runs the rollup)
-    const aztecNode = await createAztecNodeClient(NODE_URL);
-
-    // Configure PXE (Private eXecution Environment)
-    // PXE runs on the client and handles private execution
-    const config = getPXEConfig();
     await rm("pxe", { recursive: true, force: true });
-    config.dataDirectory = "pxe";
-    config.proverEnabled = true; // Enable proof generation
 
     // Create wallet with embedded PXE
-    const wallet = await TestWallet.create(aztecNode, config);
+    const wallet = await EmbeddedWallet.create(NODE_URL, {
+      dataDirectory: "pxe",
+      proverEnabled: true, // Enable proof generation
+    });
 
     // Register the sponsored FPC so the wallet knows about it
     await wallet.registerContract(sponsoredFPC, SponsoredFPCContract.artifact);
@@ -63,8 +56,8 @@ export const setupWallet = async (): Promise<TestWallet> => {
 async function main() {
   // Step 1: Setup wallet and create account
   // Accounts in Aztec are smart contracts (account abstraction)
-  const testWallet = await setupWallet();
-  const account = await testWallet.createAccount();
+  const wallet = await setupWallet();
+  const account = await wallet.createAccount();
   const manager = await account.getDeployMethod();
 
   // Deploy the account contract
@@ -73,12 +66,12 @@ async function main() {
     fee: { paymentMethod: sponsoredPaymentMethod },
   });
 
-  const accounts = await testWallet.getAccounts();
+  const accounts = await wallet.getAccounts();
 
   // Step 2: Deploy ValueNotEqual contract
   // Constructor args: initial counter (10), owner, VK hash
   const valueNotEqual = await ValueNotEqualContract.deploy(
-    testWallet,
+    wallet,
     10, // Initial counter value
     accounts[0].item, // Owner address
     data.vkHash as unknown as FieldLike, // VK hash for verification

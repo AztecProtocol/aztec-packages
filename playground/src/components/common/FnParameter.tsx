@@ -1,7 +1,7 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { Aliased } from '@aztec/aztec.js/wallet';
 import { type ABIParameter, type AbiType, isAddressStruct } from '@aztec/stdlib/abi';
-import { formatFrAsString, parseAliasedBuffersAsString } from '../../utils/conversion';
+import { formatFrAsString } from '../../utils/conversion';
 import { useContext, useState } from 'react';
 import EditIcon from '@mui/icons-material/Edit';
 import { AztecContext } from '../../aztecContext';
@@ -73,7 +73,7 @@ export function FunctionParameter({ parameter, required, onParameterChange, defa
       const accounts = await wallet.getAccounts();
       const contacts = await wallet.getAddressBook();
 
-      const contracts = parseAliasedBuffersAsString(await playgroundDB.listAliases('contracts')).map(
+      const contracts = (await playgroundDB.listAliases('contracts')).map(
         ({ alias, item }) => ({ alias, item: AztecAddress.fromString(item) }),
       );
       setAliasedAddresses([...accounts, ...contacts, ...contracts]);

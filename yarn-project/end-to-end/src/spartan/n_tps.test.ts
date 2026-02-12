@@ -13,7 +13,6 @@ import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking
 import { GasFees } from '@aztec/stdlib/gas';
 import { TopicType } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
-import { ProvenTx, TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import { mkdir, writeFile } from 'fs/promises';
@@ -21,6 +20,8 @@ import { dirname } from 'path';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
 import { PrometheusClient } from '../quality_of_service/prometheus_client.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
+import { ProvenTx, proveInteraction } from '../test-wallet/utils.js';
 import {
   type WalletWrapper,
   createWalletAndAztecNodeClient,

@@ -199,7 +199,7 @@ validate_project() {
             yarn add \
                 @aztec/aztec.js@link:$REPO_ROOT/yarn-project/aztec.js \
                 @aztec/accounts@link:$REPO_ROOT/yarn-project/accounts \
-                @aztec/test-wallet@link:$REPO_ROOT/yarn-project/test-wallet \
+                @aztec/wallets@link:$REPO_ROOT/yarn-project/wallets \
                 @aztec/kv-store@link:$REPO_ROOT/yarn-project/kv-store
         fi
 

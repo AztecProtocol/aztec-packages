@@ -131,9 +131,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   // We instruct users to debug contracts via this oracle, so it makes sense that they'd expect it to also work in tests
-  utilityDebugLog(level: number, message: string, fields: Fr[]): Promise<void> {
+  utilityLog(level: number, message: string, fields: Fr[]): Promise<void> {
     if (!LogLevels[level]) {
-      throw new Error(`Invalid debug log level: ${level}`);
+      throw new Error(`Invalid log level: ${level}`);
     }
     const levelName = LogLevels[level];
 
@@ -303,8 +303,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const effectiveScopes = from.isZero() ? undefined : [from];
 
     // Sync notes before executing private function to discover notes from previous transactions
-    const utilityExecutor = async (call: FunctionCall) => {
-      await this.executeUtilityCall(call, effectiveScopes);
+    const utilityExecutor = async (call: FunctionCall, execScopes: undefined | AztecAddress[]) => {
+      await this.executeUtilityCall(call, execScopes);
     };
 
     const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
@@ -314,6 +314,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       utilityExecutor,
       blockHeader,
       this.jobId,
+      effectiveScopes,
     );
 
     const blockNumber = await this.txeGetNextBlockNumber();
@@ -337,43 +338,37 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const simulator = new WASMSimulator();
 
-    const privateExecutionOracle = new PrivateExecutionOracle(
+    const privateExecutionOracle = new PrivateExecutionOracle({
       argsHash,
       txContext,
       callContext,
-      /** Header of a block whose state is used during private execution (not the block the transaction is included in). */
-      blockHeader,
+      anchorBlockHeader: blockHeader,
       utilityExecutor,
-      /** List of transient auth witnesses to be used during this simulation */
-      Array.from(this.authwits.values()),
-      /** List of transient auth witnesses to be used during this simulation */
-      [],
-      HashedValuesCache.create([new HashedValues(args, argsHash)]),
+      authWitnesses: Array.from(this.authwits.values()),
+      capsules: [],
+      executionCache: HashedValuesCache.create([new HashedValues(args, argsHash)]),
       noteCache,
       taggingIndexCache,
-      this.contractStore,
-      this.noteStore,
-      this.keyStore,
-      this.addressStore,
-      this.stateMachine.node,
-      this.senderTaggingStore,
-      this.recipientTaggingStore,
-      this.senderAddressBookStore,
-      this.capsuleStore,
-      this.privateEventStore,
-      this.stateMachine.contractSyncService,
-      this.jobId,
-      0, // totalPublicArgsCount
-      minRevertibleSideEffectCounter, // (start) sideEffectCounter
-      undefined, // log
-      effectiveScopes, // scopes
-      /**
-       * In TXE, the typical transaction entrypoint is skipped, so we need to simulate the actions that such a
-       * contract would perform, including setting senderForTags.
-       */
-      from,
+      contractStore: this.contractStore,
+      noteStore: this.noteStore,
+      keyStore: this.keyStore,
+      addressStore: this.addressStore,
+      aztecNode: this.stateMachine.node,
+      senderTaggingStore: this.senderTaggingStore,
+      recipientTaggingStore: this.recipientTaggingStore,
+      senderAddressBookStore: this.senderAddressBookStore,
+      capsuleStore: this.capsuleStore,
+      privateEventStore: this.privateEventStore,
+      contractSyncService: this.stateMachine.contractSyncService,
+      jobId: this.jobId,
+      totalPublicCalldataCount: 0,
+      sideEffectCounter: minRevertibleSideEffectCounter,
+      scopes: effectiveScopes,
+      // In TXE, the typical transaction entrypoint is skipped, so we need to simulate the actions that such a
+      // contract would perform, including setting senderForTags.
+      senderForTags: from,
       simulator,
-    );
+    });
 
     // Note: This is a slight modification of simulator.run without any of the checks. Maybe we should modify simulator.run with a boolean value to skip checks.
     let result: PrivateExecutionResult;
@@ -678,11 +673,12 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     await this.stateMachine.contractSyncService.ensureContractSynced(
       targetContractAddress,
       functionSelector,
-      async call => {
-        await this.executeUtilityCall(call);
+      async (call, execScopes) => {
+        await this.executeUtilityCall(call, execScopes);
       },
       blockHeader,
       this.jobId,
+      undefined,
     );
 
     const call = FunctionCall.from({
@@ -696,10 +692,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       returnTypes: [],
     });
 
-    return this.executeUtilityCall(call);
+    return this.executeUtilityCall(call, undefined);
   }
 
-  private async executeUtilityCall(call: FunctionCall, scopes?: AztecAddress[]): Promise<Fr[]> {
+  private async executeUtilityCall(call: FunctionCall, scopes: undefined | AztecAddress[]): Promise<Fr[]> {
     const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
     if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
@@ -712,24 +708,23 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     try {
       const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
-      const oracle = new UtilityExecutionOracle(
-        call.to,
-        [],
-        [],
+      const oracle = new UtilityExecutionOracle({
+        contractAddress: call.to,
+        authWitnesses: [],
+        capsules: [],
         anchorBlockHeader,
-        this.contractStore,
-        this.noteStore,
-        this.keyStore,
-        this.addressStore,
-        this.stateMachine.node,
-        this.recipientTaggingStore,
-        this.senderAddressBookStore,
-        this.capsuleStore,
-        this.privateEventStore,
-        this.jobId,
-        undefined, // log
-        scopes, // scopes - used to filter notes by account
-      );
+        contractStore: this.contractStore,
+        noteStore: this.noteStore,
+        keyStore: this.keyStore,
+        addressStore: this.addressStore,
+        aztecNode: this.stateMachine.node,
+        recipientTaggingStore: this.recipientTaggingStore,
+        senderAddressBookStore: this.senderAddressBookStore,
+        capsuleStore: this.capsuleStore,
+        privateEventStore: this.privateEventStore,
+        jobId: this.jobId,
+        scopes,
+      });
       const acirExecutionResult = await new WASMSimulator()
         .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
         .catch((err: Error) => {
