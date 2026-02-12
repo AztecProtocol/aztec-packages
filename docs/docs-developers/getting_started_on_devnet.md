@@ -185,7 +185,7 @@ The only thing that changes between local development and devnet is the node URL
 export NODE_URL=http://localhost:8080
 
 # Devnet
-export NODE_URL=https://devnet.aztec-labs.com
+export NODE_URL=https://next.devnet.aztec-labs.com
 ```
 
 In your application code, read the URL from an environment variable so you can toggle without changing code:
