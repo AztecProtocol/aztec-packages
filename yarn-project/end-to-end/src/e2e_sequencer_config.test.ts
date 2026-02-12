@@ -40,7 +40,7 @@ describe('e2e_sequencer_config', () => {
       }));
       config = {
         ...getBotDefaultConfig(),
-        followChain: 'PENDING',
+        followChain: 'CHECKPOINTED',
         ammTxs: false,
         txMinedWaitSeconds: 12,
       };

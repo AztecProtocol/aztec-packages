@@ -60,6 +60,9 @@ export type TxMetaData = {
 
   /** Validator-compatible data, providing the same access patterns as Tx.data */
   readonly data: TxMetaValidationData;
+
+  /** Timestamp (ms) when the tx was received into the pool. 0 for hydrated txs (always eligible). */
+  receivedAt: number;
 };
 
 /** Transaction state derived from TxMetaData fields and pool protection status */
@@ -92,6 +95,7 @@ export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
     feeLimit,
     nullifiers,
     includeByTimestamp,
+    receivedAt: 0,
     data: {
       getNonEmptyNullifiers: () => nullifierFrs,
       includeByTimestamp,

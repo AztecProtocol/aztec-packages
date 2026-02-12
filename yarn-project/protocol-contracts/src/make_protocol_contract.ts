@@ -16,7 +16,7 @@ export async function makeProtocolContract(
   const salt = ProtocolContractSalt[name];
   // TODO(@spalladino): This computes the contract class from the artifact twice.
   const contractClass = await getContractClassFromArtifact(artifact);
-  const instance = await getContractInstanceFromInstantiationParams(artifact, { salt });
+  const instance = await getContractInstanceFromInstantiationParams(artifact, { salt, deployer: address });
   return {
     instance: { ...instance, address },
     contractClass,

@@ -166,6 +166,9 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
   /** Returns an iterator over pending txs on the mempool. */
   iteratePendingTxs(): AsyncIterableIterator<Tx>;
 
+  /** Returns an iterator over pending txs that have been in the pool long enough to be eligible for block building. */
+  iterateEligiblePendingTxs(): AsyncIterableIterator<Tx>;
+
   /** Returns the number of pending txs in the mempool. */
   getPendingTxCount(): Promise<number>;
 
@@ -232,6 +235,9 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
   ): Promise<void>;
 
   handleAuthRequestFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage>;
+
+  /** Checks if any block proposals exist for the given slot. */
+  hasBlockProposalsForSlot(slot: SlotNumber): Promise<boolean>;
 
   /** If node running this P2P stack is validator, passes in validator address to P2P layer */
   registerThisValidatorAddresses(address: EthAddress[]): void;
