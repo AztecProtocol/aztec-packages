@@ -1,6 +1,7 @@
 include "to_radix.pil";
 include "gt.pil";
 include "precomputed.pil";
+include "memory.pil";
 
 /**
  * This handles the memory writes when the TORADIXBE opcode is executed by user code.
