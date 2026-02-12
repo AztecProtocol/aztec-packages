@@ -7,7 +7,6 @@ import {
   FIXED_AVM_STARTUP_L2_GAS,
   FIXED_DA_GAS,
   FIXED_L2_GAS,
-  GeneratorIndex,
   L2_GAS_PER_CONTRACT_CLASS_LOG,
   L2_GAS_PER_L2_TO_L1_MSG,
   L2_GAS_PER_NOTE_HASH,
@@ -23,7 +22,6 @@ import {
   MAX_PRIVATE_LOGS_PER_TX,
 } from '@aztec/constants';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -48,6 +46,7 @@ import { Gas } from '@aztec/stdlib/gas';
 import {
   computeNoteHashNonce,
   computeProtocolNullifier,
+  computeSiloedPrivateLogFirstField,
   computeUniqueNoteHash,
   siloNoteHash,
   siloNullifier,
@@ -450,11 +449,9 @@ export async function generateSimulatedProvingResult(
     taggedPrivateLogs.push(
       ...(await Promise.all(
         execution.publicInputs.privateLogs.getActiveItems().map(async metadata => {
-          metadata.log.fields[0] = await poseidon2HashWithSeparator(
-            [contractAddress, metadata.log.fields[0]],
-            GeneratorIndex.PRIVATE_LOG_FIRST_FIELD,
-          );
-          return new OrderedSideEffect(metadata.log, metadata.counter);
+          const log = PrivateLog.fromFields(metadata.log.toFields());
+          log.fields[0] = await computeSiloedPrivateLogFirstField(contractAddress, log.fields[0]);
+          return new OrderedSideEffect(log, metadata.counter);
         }),
       )),
     );
