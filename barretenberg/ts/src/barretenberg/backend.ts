@@ -285,6 +285,7 @@ export class AztecClientBackend {
   constructor(
     private acirBuf: Uint8Array[],
     private api: Barretenberg,
+    private circuitNames: string[] = [],
   ) {}
 
   async prove(witnessBuf: Uint8Array[], vksBuf: Uint8Array[] = []): Promise<[Uint8Array[], Uint8Array, Uint8Array]> {
@@ -304,7 +305,7 @@ export class AztecClientBackend {
       const bytecode = this.acirBuf[i];
       const witness = witnessBuf[i] || new Uint8Array(0);
       const vk = vksBuf[i] || new Uint8Array(0);
-      const functionName = `unknown_wasm_${i}`;
+      const functionName = this.circuitNames[i] || `circuit_${i}`;
 
       // Load the circuit
       this.api.chonkLoad({
@@ -326,10 +327,11 @@ export class AztecClientBackend {
     // The API currently expects a msgpack-encoded API.
     const proof = new Encoder({ useRecords: false }).encode(fromChonkProof(proveResult.proof));
     // Generate the VK
+    const lastIdx = this.acirBuf.length - 1;
     const vkResult = await this.api.chonkComputeVk({
       circuit: {
-        name: 'hiding',
-        bytecode: this.acirBuf[this.acirBuf.length - 1],
+        name: this.circuitNames[lastIdx] || 'circuit',
+        bytecode: this.acirBuf[lastIdx],
       },
     });
 
@@ -370,11 +372,11 @@ export class AztecClientBackend {
 
   async gates(): Promise<number[]> {
     const circuitSizes: number[] = [];
-    for (const buf of this.acirBuf) {
+    for (let i = 0; i < this.acirBuf.length; i++) {
       const gates = await this.api.chonkStats({
         circuit: {
-          name: 'circuit',
-          bytecode: buf,
+          name: this.circuitNames[i] || `circuit_${i}`,
+          bytecode: this.acirBuf[i],
         },
         includeGatesPerOpcode: false,
       });

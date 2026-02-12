@@ -1,6 +1,6 @@
 use crate::private_kernel_inner::ALLOWED_PREVIOUS_CIRCUITS;
 use super::TestBuilder;
-use dep::types::constants::PRIVATE_KERNEL_TAIL_VK_INDEX;
+use types::constants::PRIVATE_KERNEL_TAIL_VK_INDEX;
 
 #[test]
 fn valid_previous_kernel() {

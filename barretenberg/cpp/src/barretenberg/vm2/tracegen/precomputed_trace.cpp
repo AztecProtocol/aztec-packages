@@ -37,47 +37,27 @@ void PrecomputedTraceBuilder::process_misc(TraceContainer& trace, const uint32_t
 void PrecomputedTraceBuilder::process_bitwise(TraceContainer& trace)
 {
     // 256 per input (a and b), and 3 different bitwise ops
-    constexpr auto num_rows = 256 * 256 * 3;
+    constexpr auto num_rows = 256 * 256;
     static_assert(num_rows <= PRECOMPUTED_TRACE_SIZE);
-    trace.reserve_column(C::precomputed_sel_bitwise, num_rows);
     trace.reserve_column(C::precomputed_bitwise_input_a, num_rows);
     trace.reserve_column(C::precomputed_bitwise_input_b, num_rows);
-    trace.reserve_column(C::precomputed_bitwise_output, num_rows);
+    trace.reserve_column(C::precomputed_bitwise_output_and, num_rows);
+    trace.reserve_column(C::precomputed_bitwise_output_or, num_rows);
+    trace.reserve_column(C::precomputed_bitwise_output_xor, num_rows);
 
     // row # is derived as:
     //     - input_b: bits 0...7 (0 being LSB)
     //     - input_a: bits 8...15
-    //     - op_id: bits 16...
-    // In other words, the first 256*256 rows are for op_id 0. Next are for op_id 1, followed by op_id 2.
-    auto row_from_inputs = [](BitwiseOperation op_id, uint32_t input_a, uint32_t input_b) -> uint32_t {
-        return (static_cast<uint32_t>(op_id) << 16) | (input_a << 8) | input_b;
-    };
-    auto compute_operation = [](BitwiseOperation op_id, uint32_t a, uint32_t b) -> uint32_t {
-        switch (op_id) {
-        case BitwiseOperation::AND:
-            return a & b;
-        case BitwiseOperation::OR:
-            return a | b;
-        case BitwiseOperation::XOR:
-            return a ^ b;
-        }
-
-        BB_ASSERT(false, "This should not happen");
-        __builtin_unreachable();
-    };
-
-    for (const auto op_id : { BitwiseOperation::AND, BitwiseOperation::OR, BitwiseOperation::XOR }) {
-        for (uint32_t a = 0; a < 256; a++) {
-            for (uint32_t b = 0; b < 256; b++) {
-                trace.set(row_from_inputs(op_id, a, b),
-                          { {
-                              { C::precomputed_sel_bitwise, 1 },
-                              { C::precomputed_bitwise_op_id, static_cast<uint8_t>(op_id) },
-                              { C::precomputed_bitwise_input_a, FF(a) },
-                              { C::precomputed_bitwise_input_b, FF(b) },
-                              { C::precomputed_bitwise_output, FF(compute_operation(op_id, a, b)) },
-                          } });
-            }
+    for (uint32_t a = 0; a < 256; a++) {
+        for (uint32_t b = 0; b < 256; b++) {
+            trace.set((a << 8) | b,
+                      { {
+                          { C::precomputed_bitwise_input_a, FF(a) },
+                          { C::precomputed_bitwise_input_b, FF(b) },
+                          { C::precomputed_bitwise_output_and, FF(a & b) },
+                          { C::precomputed_bitwise_output_or, FF(a | b) },
+                          { C::precomputed_bitwise_output_xor, FF(a ^ b) },
+                      } });
         }
     }
 }

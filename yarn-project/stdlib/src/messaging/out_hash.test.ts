@@ -1,15 +1,15 @@
-import { AZTEC_MAX_EPOCH_DURATION, EMPTY_EPOCH_OUT_HASH } from '@aztec/constants';
+import { EMPTY_EPOCH_OUT_HASH, MAX_CHECKPOINTS_PER_EPOCH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { computeEpochOutHash } from './out_hash.js';
 
 describe('out hash', () => {
   it('computes the out hash for a full epoch', () => {
-    const messagesInEpoch = Array.from({ length: AZTEC_MAX_EPOCH_DURATION }, (_, i) => [[[new Fr(i + 123)]]]);
+    const messagesInEpoch = Array.from({ length: MAX_CHECKPOINTS_PER_EPOCH }, (_, i) => [[[new Fr(i + 123)]]]);
 
     const outHash = computeEpochOutHash(messagesInEpoch).toString();
 
-    expect(outHash).toMatchInlineSnapshot(`"0x005d7aadcc96e1b40eff174895314c29d932c57e57e6f5aa2880596664bae4b9"`);
+    expect(outHash).toMatchInlineSnapshot(`"0x008c50251fe5f98286db86e24e87548f77407ad54788bc5d884616bf2ed20397"`);
   });
 
   it('returns an empty out hash root for an epoch with no txs/messages', () => {
@@ -29,6 +29,6 @@ describe('out hash', () => {
 
     const outHash = computeEpochOutHash(messagesInEpoch).toString();
 
-    expect(outHash).toMatchInlineSnapshot(`"0x002277ea21b0f438ba7f3badd17a588b5fc119d782d371c4808bbb95e2af335e"`);
+    expect(outHash).toMatchInlineSnapshot(`"0x0001279f68bef9c06b812c7c902b6c050d8f0d963ff12e4a04111145473c0bd5"`);
   });
 });

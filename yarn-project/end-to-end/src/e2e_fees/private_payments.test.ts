@@ -6,10 +6,10 @@ import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { GasSettings } from '@aztec/stdlib/gas';
 import { TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE } from '@aztec/stdlib/tx';
-import type { TestWallet } from '@aztec/test-wallet/server';
-import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { expectMapping } from '../fixtures/utils.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
+import { proveInteraction } from '../test-wallet/utils.js';
 import { FeesTest } from './fees_test.js';
 
 describe('e2e_fees private_payment', () => {

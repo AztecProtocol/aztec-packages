@@ -1,21 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2024 Aztec Labs
-pragma solidity >=0.8.21;
+// Copyright 2024 Aztec Labs.
+pragma solidity >=0.8.27;
 
-import {IVerifier} from "../interfaces/IVerifier.sol";
-import {
-    Honk,
-    WIRE,
-    NUMBER_OF_ENTITIES,
-    NUMBER_OF_SUBRELATIONS,
-    NUMBER_OF_ALPHAS,
-    NUMBER_UNSHIFTED,
-    BATCHED_RELATION_PARTIAL_LENGTH,
-    CONST_PROOF_SIZE_LOG_N
-} from "./HonkTypes.sol";
-
-// Field arithmetic libraries - prevent littering the code with modmul / addmul
-import {MODULUS as P, MINUS_ONE, ONE, ZERO, Fr, FrLib} from "./Fr.sol";
+import {ONE, Fr, FrLib} from "./Fr.sol";
+import {CONST_PROOF_SIZE_LOG_N} from "./HonkTypes.sol";
 
 library CommitmentSchemeLib {
     using FrLib for Fr;
@@ -46,16 +34,7 @@ library CommitmentSchemeLib {
         Fr[] foldPosEvaluations;
     }
 
-    function computeSquares(Fr r, uint256 logN) internal pure returns (Fr[] memory) {
-        Fr[] memory squares = new Fr[](logN);
-        squares[0] = r;
-        for (uint256 i = 1; i < logN; ++i) {
-            squares[i] = squares[i - 1].sqr();
-        }
-        return squares;
-    }
     // Compute the evaluations Aₗ(r^{2ˡ}) for l = 0, ..., m-1
-
     function computeFoldPosEvaluations(
         Fr[CONST_PROOF_SIZE_LOG_N] memory sumcheckUChallenges,
         Fr batchedEvalAccumulator,
@@ -77,5 +56,14 @@ library CommitmentSchemeLib {
             foldPosEvaluations[i - 1] = batchedEvalRoundAcc;
         }
         return foldPosEvaluations;
+    }
+
+    function computeSquares(Fr r, uint256 logN) internal pure returns (Fr[] memory) {
+        Fr[] memory squares = new Fr[](logN);
+        squares[0] = r;
+        for (uint256 i = 1; i < logN; ++i) {
+            squares[i] = squares[i - 1].sqr();
+        }
+        return squares;
     }
 }

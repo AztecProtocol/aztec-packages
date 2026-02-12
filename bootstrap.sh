@@ -99,9 +99,16 @@ function check_toolchains {
     exit 1
   fi
   if ! rustup show | grep $rust_version > /dev/null; then
-    # Cargo will download necessary version of rust at runtime but warn to alert that an update to the build-image
-    # is desirable.
-    echo -e "${bold}${yellow}WARN: Rust ${rust_version} is not installed. Performance will be degraded.${reset}"
+    if [ "${CI:-0}" -eq 1 ]; then
+      echo "Attempting install of required Rust version $rust_version"
+      rustup self update 2>/dev/null || true
+      rustup toolchain install $rust_version
+      rustup default $rust_version
+    else
+      # Cargo will download necessary version of rust at runtime but warn to alert that an update to the build-image
+      # is desirable.
+      echo -e "${bold}${yellow}WARN: Rust ${rust_version} is not installed. Performance will be degraded.${reset}"
+    fi
   fi
   # Check wasi-sdk version.
   if ! cat /opt/wasi-sdk/VERSION 2> /dev/null | grep 27.0 > /dev/null; then
@@ -130,7 +137,7 @@ function check_toolchains {
     fi
   done
   # Check Node.js version.
-  local node_min_version="22.15.0"
+  local node_min_version="24.12.0"
   local node_installed_version=$(node --version | cut -d 'v' -f 2)
   if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
     encourage_dev_container
@@ -597,9 +604,11 @@ case "$cmd" in
 
     full_cmd="${1:?full_cmd required}"
     timeout="${2:-}"
-    commit="${3:-}"
+    jobs_pct="${3:-200}"
+    memsuspend_pct="${4:-50}"
+    commit="${5:-}"
 
-    grind_test "$full_cmd" "$timeout" "$commit"
+    grind_test "$full_cmd" "$timeout" "$jobs_pct" "$memsuspend_pct" "$commit"
     ;;
 
   ##########################################

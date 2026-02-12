@@ -27,7 +27,7 @@ import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { WASMSimulator } from '@aztec/simulator/client';
 import {
   type ContractArtifact,
-  type FunctionCall,
+  FunctionCall,
   FunctionSelector,
   encodeArguments,
   getFunctionArtifact,
@@ -215,16 +215,14 @@ describe('Private Execution test suite', () => {
       salt: Fr.random(),
     });
 
-    return acirSimulator.run(
-      txRequest,
+    return acirSimulator.run(txRequest, {
       contractAddress,
       selector,
       msgSender,
       anchorBlockHeader,
       senderForTags,
-      undefined,
-      TEST_JOB_ID,
-    );
+      jobId: TEST_JOB_ID,
+    });
   };
 
   const insertLeaves = async (leaves: Fr[], name = 'noteHash') => {
@@ -327,21 +325,15 @@ describe('Private Execution test suite', () => {
     contractSyncService = mock<ContractSyncService>();
     // Configure mock to actually perform sync_state calls (needed for nested call tests)
     contractSyncService.ensureContractSynced.mockImplementation(
-      async (
-        contractAddress: AztecAddress,
-        functionToInvokeAfterSync: FunctionSelector | null,
-        utilityExecutor: (call: FunctionCall) => Promise<unknown>,
-        header: BlockHeader,
-        jobId: string,
-      ) => {
+      async (contractAddress, functionToInvokeAfterSync, utilityExecutor, anchorBlockHeader, jobId) => {
         await syncState(
           contractAddress,
           contractStore,
           functionToInvokeAfterSync,
-          utilityExecutor,
+          call => utilityExecutor(call, undefined),
           noteStore,
           aztecNode,
-          header,
+          anchorBlockHeader,
           jobId,
         );
       },
@@ -464,16 +456,16 @@ describe('Private Execution test suite', () => {
         throw new Error(`Contract not found: ${to}`);
       }
       const functionArtifact = getFunctionArtifactByName(contract, functionName);
-      return {
+      return FunctionCall.from({
         name: functionArtifact.name,
-        args: encodeArguments(functionArtifact, args),
+        to,
         selector: await FunctionSelector.fromNameAndParameters(functionArtifact.name, functionArtifact.parameters),
         type: functionArtifact.functionType,
-        to,
         hideMsgSender: false,
         isStatic: functionArtifact.isStatic,
+        args: encodeArguments(functionArtifact, args),
         returnTypes: functionArtifact.returnTypes,
-      };
+      });
     });
 
     capsuleStore.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
@@ -484,7 +476,7 @@ describe('Private Execution test suite', () => {
       },
     );
 
-    acirSimulator = new ContractFunctionSimulator(
+    acirSimulator = new ContractFunctionSimulator({
       contractStore,
       noteStore,
       keyStore,
@@ -497,7 +489,7 @@ describe('Private Execution test suite', () => {
       privateEventStore,
       simulator,
       contractSyncService,
-    );
+    });
   });
 
   describe('no constructor', () => {

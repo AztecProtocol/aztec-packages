@@ -18,13 +18,14 @@ import { BlockHeader, GlobalVariables, type Tx, TxEffect, TxHash, type TxValidat
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import type { TxMetaData } from './tx_metadata.js';
 import { AztecKVTxPoolV2 } from './tx_pool_v2.js';
 
 // Tx type alias for cleaner type annotations
 type MockTx = Awaited<ReturnType<typeof mockTx>>;
 
 /** A validator that accepts all transactions. Used in tests that don't need validation. */
-const alwaysValidValidator: TxValidator<Tx> = {
+const alwaysValidValidator: TxValidator<TxMetaData> = {
   validateTx: () => Promise.resolve({ result: 'valid' }),
 };
 
@@ -56,6 +57,37 @@ describe('TxPoolV2', () => {
   // When block 1 is pruned, the latest valid block is block 0
   const block0Id: L2BlockId = { number: BlockNumber(0), hash: '0x0' };
 
+  // Callback tracking
+  let addedTxs: Tx[] = [];
+  let removedTxHashes: string[] = [];
+
+  const clearCallbackTracking = () => {
+    addedTxs = [];
+    removedTxHashes = [];
+  };
+
+  /** Asserts that exactly these txs were added (in order) and clears added tracking */
+  const expectAddedTxs = (...txs: Tx[]) => {
+    const addedHashes = addedTxs.map(tx => tx.getTxHash().toString());
+    const expectedHashes = txs.map(tx => tx.getTxHash().toString());
+    expect(addedHashes).toEqual(expectedHashes);
+    addedTxs = [];
+  };
+
+  /** Asserts that exactly these txs were removed (order independent) and clears removed tracking */
+  const expectRemovedTxs = (...txs: Tx[]) => {
+    const expectedHashes = txs.map(tx => tx.getTxHash().toString());
+    expect(removedTxHashes.sort()).toEqual(expectedHashes.sort());
+    removedTxHashes = [];
+  };
+
+  /** Asserts no callbacks were invoked and clears all tracking */
+  const expectNoCallbacks = () => {
+    expect(addedTxs).toHaveLength(0);
+    expect(removedTxHashes).toHaveLength(0);
+    clearCallbackTracking();
+  };
+
   beforeEach(async () => {
     mockL2BlockSource = mock<L2BlockSource>();
     mockL2BlockSource.getTxEffect.mockResolvedValue(undefined);
@@ -85,9 +117,18 @@ describe('TxPoolV2', () => {
     pool = new AztecKVTxPoolV2(store, archiveStore, {
       l2BlockSource: mockL2BlockSource,
       worldStateSynchronizer: mockWorldState,
-      pendingTxValidator: alwaysValidValidator,
+      createTxValidator: () => Promise.resolve(alwaysValidValidator),
     });
     await pool.start();
+
+    // Setup callback tracking
+    clearCallbackTracking();
+    pool.on('txs-added', ({ txs }) => {
+      addedTxs.push(...txs);
+    });
+    pool.on('txs-removed', ({ txHashes }) => {
+      removedTxHashes.push(...txHashes.map(h => h.toString()));
+    });
   });
 
   afterEach(async () => {
@@ -177,18 +218,22 @@ describe('TxPoolV2', () => {
       expect(result.ignored).toHaveLength(0);
       expect(result.rejected).toHaveLength(0);
       expect(await pool.getPendingTxCount()).toBe(2);
+      expectAddedTxs(tx1, tx2);
     });
 
     it('ignores duplicate transactions', async () => {
       const tx = await mockTx(1);
 
       await pool.addPendingTxs([tx]);
+      expectAddedTxs(tx);
+
       const result = await pool.addPendingTxs([tx]);
 
       expect(result.accepted).toHaveLength(0);
       expect(result.ignored).toHaveLength(1);
       expect(result.rejected).toHaveLength(0);
       expect(await pool.getPendingTxCount()).toBe(1);
+      expectNoCallbacks(); // No callbacks for ignored duplicates
     });
 
     it('challenges transactions with conflicting nullifiers - higher fee wins', async () => {
@@ -199,6 +244,8 @@ describe('TxPoolV2', () => {
       setNullifier(tx2, 0, getNullifier(tx1, 0));
 
       await pool.addPendingTxs([tx1]);
+      expectAddedTxs(tx1);
+
       const result = await pool.addPendingTxs([tx2]);
 
       expect(toStrings(result.accepted)).toContain(hashOf(tx2));
@@ -206,23 +253,46 @@ describe('TxPoolV2', () => {
       const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toContain(hashOf(tx2));
       expect(pending).not.toContain(hashOf(tx1));
+      expectAddedTxs(tx2);
+      expectRemovedTxs(tx1); // tx1 was evicted
     });
 
-    it('challenges transactions with conflicting nullifiers - existing wins on tie', async () => {
+    it('challenges transactions with conflicting nullifiers - lower priority loses', async () => {
+      // Create txs with same fee - the tiebreaker is the tx hash (as field element)
       const tx1 = await mockPublicTx(1, 10);
       const tx2 = await mockPublicTx(2, 10);
 
       setNullifier(tx2, 0, getNullifier(tx1, 0));
 
+      // Determine which tx has higher priority (same fee, so hash is tiebreaker)
+      // Use Fr.cmp for field element comparison (same as compareTxHash in tx_metadata.ts)
+      const tx1HashFr = Fr.fromHexString(tx1.getTxHash().toString());
+      const tx2HashFr = Fr.fromHexString(tx2.getTxHash().toString());
+      const tx2HasHigherPriority = tx2HashFr.cmp(tx1HashFr) > 0;
+
       await pool.addPendingTxs([tx1]);
+      expectAddedTxs(tx1);
+
       const result = await pool.addPendingTxs([tx2]);
 
-      // tx2 is valid but ignored due to nullifier conflict with equal-priority tx1
-      expect(toStrings(result.ignored)).toContain(hashOf(tx2));
-      expect(result.rejected).toHaveLength(0);
-      const pending = toStrings(await pool.getPendingTxHashes());
-      expect(pending).toContain(hashOf(tx1));
-      expect(pending).not.toContain(hashOf(tx2));
+      if (tx2HasHigherPriority) {
+        // tx2 has higher priority - it evicts tx1
+        expect(toStrings(result.accepted)).toContain(hashOf(tx2));
+        expect(result.ignored).toHaveLength(0);
+        const pending = toStrings(await pool.getPendingTxHashes());
+        expect(pending).toContain(hashOf(tx2));
+        expect(pending).not.toContain(hashOf(tx1));
+        expectAddedTxs(tx2);
+        expectRemovedTxs(tx1);
+      } else {
+        // tx1 has higher or equal priority - tx2 is ignored
+        expect(toStrings(result.ignored)).toContain(hashOf(tx2));
+        expect(result.rejected).toHaveLength(0);
+        const pending = toStrings(await pool.getPendingTxHashes());
+        expect(pending).toContain(hashOf(tx1));
+        expect(pending).not.toContain(hashOf(tx2));
+        expectNoCallbacks(); // tx2 was ignored, no callbacks
+      }
     });
 
     it('emits txs-added event with source', async () => {
@@ -249,10 +319,13 @@ describe('TxPoolV2', () => {
 
       await pool.addPendingTxs([tx1, tx2, tx3]);
       expect(await pool.getPendingTxCount()).toBe(3);
+      expectAddedTxs(tx1, tx2, tx3);
 
       // Adding more txs should evict lowest priority
       await pool.addPendingTxs([tx4, tx5]);
       expect(await pool.getPendingTxCount()).toBe(3);
+      expectAddedTxs(tx4, tx5);
+      expectRemovedTxs(tx1, tx2); // Lowest priority txs evicted
 
       const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toContain(hashOf(tx5));
@@ -291,6 +364,7 @@ describe('TxPoolV2', () => {
     it('addPendingTxs ignores tx that is already pending', async () => {
       const tx = await mockTx(1);
       await pool.addPendingTxs([tx]);
+      expectAddedTxs(tx);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
 
       const result = await pool.addPendingTxs([tx]);
@@ -299,11 +373,13 @@ describe('TxPoolV2', () => {
       expect(result.ignored).toHaveLength(1);
       expect(result.rejected).toHaveLength(0);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
+      expectNoCallbacks();
     });
 
     it('addPendingTxs ignores tx that is already protected', async () => {
       const tx = await mockTx(1);
       await pool.addProtectedTxs([tx], slot1Header);
+      expectAddedTxs(tx);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       const result = await pool.addPendingTxs([tx]);
@@ -313,11 +389,13 @@ describe('TxPoolV2', () => {
       expect(result.rejected).toHaveLength(0);
       // Status should remain protected
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
+      expectNoCallbacks();
     });
 
     it('addPendingTxs ignores tx that is already mined', async () => {
       const tx = await mockTx(1);
       await pool.addMinedTxs([tx], slot1Header);
+      expectAddedTxs(tx);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       const result = await pool.addPendingTxs([tx]);
@@ -327,36 +405,43 @@ describe('TxPoolV2', () => {
       expect(result.rejected).toHaveLength(0);
       // Status should remain mined
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
+      expectNoCallbacks();
     });
 
     it('canAddPendingTx returns ignored for tx that is already pending', async () => {
       const tx = await mockTx(1);
       await pool.addPendingTxs([tx]);
+      expectAddedTxs(tx);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
 
       const result = await pool.canAddPendingTx(tx);
 
       expect(result).toBe('ignored');
+      expectNoCallbacks(); // canAddPendingTx is read-only
     });
 
     it('canAddPendingTx returns ignored for tx that is already protected', async () => {
       const tx = await mockTx(1);
       await pool.addProtectedTxs([tx], slot1Header);
+      expectAddedTxs(tx);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       const result = await pool.canAddPendingTx(tx);
 
       expect(result).toBe('ignored');
+      expectNoCallbacks(); // canAddPendingTx is read-only
     });
 
     it('canAddPendingTx returns ignored for tx that is already mined', async () => {
       const tx = await mockTx(1);
       await pool.addMinedTxs([tx], slot1Header);
+      expectAddedTxs(tx);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       const result = await pool.canAddPendingTx(tx);
 
       expect(result).toBe('ignored');
+      expectNoCallbacks(); // canAddPendingTx is read-only
     });
 
     it('addPendingTxs handles duplicate tx in same batch', async () => {
@@ -370,6 +455,7 @@ describe('TxPoolV2', () => {
       expect(result.ignored).toHaveLength(1);
       expect(result.rejected).toHaveLength(0);
       expect(await pool.getPendingTxCount()).toBe(1);
+      expectAddedTxs(tx); // Only one callback for the accepted tx
     });
 
     it('addProtectedTxs handles duplicate tx in same batch', async () => {
@@ -383,6 +469,7 @@ describe('TxPoolV2', () => {
       // Verify we can retrieve the tx
       const retrieved = await pool.getTxByHash(tx.getTxHash());
       expect(retrieved).toBeDefined();
+      expectAddedTxs(tx); // Only one callback for the first occurrence
     });
 
     it('addMinedTxs handles duplicate tx in same batch', async () => {
@@ -394,6 +481,7 @@ describe('TxPoolV2', () => {
       // Should only have one tx in pool
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
       expect(await pool.getMinedTxCount()).toBe(1);
+      expectAddedTxs(tx); // Only one callback for the first occurrence
     });
 
     it('addPendingTxs handles multiple duplicates in batch with other txs', async () => {
@@ -408,12 +496,13 @@ describe('TxPoolV2', () => {
       expect(result.ignored).toHaveLength(3);
       expect(result.rejected).toHaveLength(0);
       expect(await pool.getPendingTxCount()).toBe(2);
+      expectAddedTxs(tx1, tx2); // Only callbacks for the accepted txs
     });
   });
 
   describe('validator rejection', () => {
     let rejectingPool: AztecKVTxPoolV2;
-    let rejectingValidator: TxValidator<Tx>;
+    let rejectingValidator: TxValidator<TxMetaData>;
     let txsToReject: Set<string>;
     let rejectingStore: Awaited<ReturnType<typeof openTmpStore>>;
     let rejectingArchiveStore: Awaited<ReturnType<typeof openTmpStore>>;
@@ -422,9 +511,8 @@ describe('TxPoolV2', () => {
       // Create a validator that rejects specific transactions
       txsToReject = new Set<string>();
       rejectingValidator = {
-        validateTx: (tx: Tx) => {
-          const txHash = tx.getTxHash().toString();
-          if (txsToReject.has(txHash)) {
+        validateTx: (meta: TxMetaData) => {
+          if (txsToReject.has(meta.txHash)) {
             return Promise.resolve({ result: 'invalid', reason: ['test rejection'] });
           }
           return Promise.resolve({ result: 'valid' });
@@ -436,7 +524,7 @@ describe('TxPoolV2', () => {
       rejectingPool = new AztecKVTxPoolV2(rejectingStore, rejectingArchiveStore, {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
-        pendingTxValidator: rejectingValidator,
+        createTxValidator: () => Promise.resolve(rejectingValidator),
       });
       await rejectingPool.start();
     });
@@ -558,11 +646,13 @@ describe('TxPoolV2', () => {
 
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
       expect(await pool.getPendingTxCount()).toBe(0); // Not in pending
+      expectAddedTxs(tx);
     });
 
     it('updates existing pending transactions to protected', async () => {
       const tx = await mockTx(1);
       await pool.addPendingTxs([tx]);
+      expectAddedTxs(tx);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
       expect(await pool.getPendingTxCount()).toBe(1);
 
@@ -570,16 +660,19 @@ describe('TxPoolV2', () => {
 
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
       expect(await pool.getPendingTxCount()).toBe(0);
+      expectNoCallbacks(); // No new tx added, just state transition
     });
 
     it('does not modify mined transactions', async () => {
       const tx = await mockTx(1);
       await pool.addMinedTxs([tx], slot1Header);
+      expectAddedTxs(tx);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       await pool.addProtectedTxs([tx], slot2Header);
 
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
+      expectNoCallbacks(); // No change
     });
   });
 
@@ -591,11 +684,13 @@ describe('TxPoolV2', () => {
 
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
       expect(await pool.getPendingTxCount()).toBe(0);
+      expectAddedTxs(tx);
     });
 
     it('updates existing pending transactions to mined', async () => {
       const tx = await mockTx(1);
       await pool.addPendingTxs([tx]);
+      expectAddedTxs(tx);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
       expect(await pool.getPendingTxCount()).toBe(1);
 
@@ -603,27 +698,32 @@ describe('TxPoolV2', () => {
 
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
       expect(await pool.getPendingTxCount()).toBe(0);
+      expectNoCallbacks(); // No new tx added, just state transition
     });
 
     it('updates existing protected transactions to mined', async () => {
       const tx = await mockTx(1);
       await pool.addProtectedTxs([tx], slot1Header);
+      expectAddedTxs(tx);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       await pool.addMinedTxs([tx], slot1Header);
 
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
+      expectNoCallbacks(); // No new tx added, just state transition
     });
 
     it('is idempotent for already mined transactions', async () => {
       const tx = await mockTx(1);
       await pool.addMinedTxs([tx], slot1Header);
+      expectAddedTxs(tx);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       // Adding same tx as mined again should be a no-op
       await pool.addMinedTxs([tx], slot2Header);
 
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
+      expectNoCallbacks(); // No change
     });
   });
 
@@ -631,22 +731,26 @@ describe('TxPoolV2', () => {
     it('protects existing transactions', async () => {
       const tx = await mockTx(1);
       await pool.addPendingTxs([tx]);
+      expectAddedTxs(tx);
 
       const missing = await pool.protectTxs([tx.getTxHash()], slot1Header);
 
       expect(missing).toHaveLength(0);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
+      expectNoCallbacks(); // protectTxs is state transition only
     });
 
     it('returns missing transaction hashes', async () => {
       const tx1 = await mockTx(1);
       const tx2 = await mockTx(2);
       await pool.addPendingTxs([tx1]);
+      expectAddedTxs(tx1);
 
       const missing = await pool.protectTxs([tx1.getTxHash(), tx2.getTxHash()], slot1Header);
 
       expect(toStrings(missing)).toContain(hashOf(tx2));
       expect(missing).toHaveLength(1);
+      expectNoCallbacks(); // protectTxs is state transition only
     });
 
     it('immediately protects transactions received via gossip if pre-recorded', async () => {
@@ -655,9 +759,11 @@ describe('TxPoolV2', () => {
       // Pre-record protection for a tx we don't have yet
       const missing = await pool.protectTxs([tx.getTxHash()], slot1Header);
       expect(toStrings(missing)).toContain(hashOf(tx));
+      expectNoCallbacks(); // Pre-recording doesn't add tx
 
       // Now add the tx via gossip - it should be immediately protected
       await pool.addPendingTxs([tx]);
+      expectAddedTxs(tx);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
     });
 
@@ -666,19 +772,24 @@ describe('TxPoolV2', () => {
 
       // Add and protect for slot 1
       await pool.addPendingTxs([tx]);
+      expectAddedTxs(tx);
       await pool.protectTxs([tx.getTxHash()], slot1Header);
+      expectNoCallbacks();
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       // Re-protect for slot 2 via protectTxs
       await pool.protectTxs([tx.getTxHash()], slot2Header);
+      expectNoCallbacks();
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       // prepareForSlot(2) should NOT unprotect since slot was updated to 2
       await pool.prepareForSlot(SlotNumber(2));
+      expectNoCallbacks();
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       // prepareForSlot(3) should unprotect
       await pool.prepareForSlot(SlotNumber(3));
+      expectNoCallbacks();
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
     });
 
@@ -688,17 +799,21 @@ describe('TxPoolV2', () => {
       // Pre-record protection for slot 1
       const missing1 = await pool.protectTxs([tx.getTxHash()], slot1Header);
       expect(toStrings(missing1)).toContain(hashOf(tx));
+      expectNoCallbacks();
 
       // Pre-record protection for slot 2 (overwrites slot 1)
       const missing2 = await pool.protectTxs([tx.getTxHash()], slot2Header);
       expect(toStrings(missing2)).toContain(hashOf(tx));
+      expectNoCallbacks();
 
       // Now add the tx - it should be protected for slot 2
       await pool.addPendingTxs([tx]);
+      expectAddedTxs(tx);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       // prepareForSlot(2) should NOT unprotect since it's for slot 2
       await pool.prepareForSlot(SlotNumber(2));
+      expectNoCallbacks();
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
     });
 
@@ -1048,25 +1163,30 @@ describe('TxPoolV2', () => {
     it('marks protected transactions as mined', async () => {
       const tx = await mockTx(1);
       await pool.addProtectedTxs([tx], slot1Header);
+      expectAddedTxs(tx);
 
       await pool.handleMinedBlock(makeBlock([tx], slot1Header));
 
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
+      expectNoCallbacks(); // State transition only, tx not removed from pool
     });
 
     it('marks pending transactions as mined', async () => {
       const tx = await mockTx(1);
       await pool.addPendingTxs([tx]);
+      expectAddedTxs(tx);
 
       await pool.handleMinedBlock(makeBlock([tx], slot1Header));
 
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
       expect(await pool.getPendingTxCount()).toBe(0);
+      expectNoCallbacks(); // State transition only, tx not removed from pool
     });
 
     it('handles empty block gracefully', async () => {
       // Should not throw when processing an empty block
       await pool.handleMinedBlock(makeEmptyBlock(slot1Header));
+      expectNoCallbacks();
     });
 
     it('deletes pending transactions with conflicting nullifiers', async () => {
@@ -1077,14 +1197,17 @@ describe('TxPoolV2', () => {
 
       // Add low priority tx as pending
       await pool.addPendingTxs([txLow]);
+      expectAddedTxs(txLow);
       expect(await pool.getTxStatus(txLow.getTxHash())).toBe('pending');
 
       // Add high priority tx as protected (bypasses nullifier conflict check)
       await pool.addProtectedTxs([txHigh], slot1Header);
+      expectAddedTxs(txHigh);
       expect(await pool.getTxStatus(txHigh.getTxHash())).toBe('protected');
 
       // Unprotect - nullifier conflict resolution should delete the lower priority pending tx
       await pool.prepareForSlot(SlotNumber(2));
+      expectRemovedTxs(txLow); // txLow evicted due to nullifier conflict
 
       // High priority tx should now be pending, low priority tx should be deleted
       expect(await pool.getTxStatus(txHigh.getTxHash())).toBe('pending');
@@ -1097,21 +1220,26 @@ describe('TxPoolV2', () => {
     it('unprotects transactions from earlier slots', async () => {
       const tx = await mockTx(1);
       await pool.addProtectedTxs([tx], slot1Header);
+      expectAddedTxs(tx);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       await pool.prepareForSlot(SlotNumber(2));
 
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
       expect(await pool.getPendingTxCount()).toBe(1);
+      expectNoCallbacks(); // State transition only, tx not added or removed
     });
 
     it('does not unprotect transactions from current or future slots', async () => {
       const tx1 = await mockTx(1);
       const tx2 = await mockTx(2);
       await pool.addProtectedTxs([tx1], slot1Header);
+      expectAddedTxs(tx1);
       await pool.addProtectedTxs([tx2], slot2Header);
+      expectAddedTxs(tx2);
 
       await pool.prepareForSlot(SlotNumber(2));
+      expectNoCallbacks(); // tx1 transitions to pending, tx2 stays protected - no adds/removes
 
       expect(await pool.getTxStatus(tx1.getTxHash())).toBe('pending');
       expect(await pool.getTxStatus(tx2.getTxHash())).toBe('protected');
@@ -1124,14 +1252,17 @@ describe('TxPoolV2', () => {
 
       // Initially protected for slot 1
       await pool.addProtectedTxs([tx], slot1Header);
+      expectAddedTxs(tx);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       // Re-protected for slot 2 (new proposer takes over)
       await pool.addProtectedTxs([tx], slot2Header);
+      expectNoCallbacks(); // State transition only
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       // Late prepareForSlot(2) - tx should NOT be unprotected since it's now for slot 2
       await pool.prepareForSlot(SlotNumber(2));
+      expectNoCallbacks();
 
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
     });
@@ -1149,20 +1280,25 @@ describe('TxPoolV2', () => {
 
       // Protected for slot 1
       await pool.addProtectedTxs([tx], slot1Header);
+      expectAddedTxs(tx);
 
       // Re-protected for slot 3 (skipping slot 2)
       await pool.addProtectedTxs([tx], slot3Header);
+      expectNoCallbacks(); // State transition only
 
       // prepareForSlot(2) - tx should stay protected (it's for slot 3)
       await pool.prepareForSlot(SlotNumber(2));
+      expectNoCallbacks();
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       // prepareForSlot(3) - tx should still be protected (current slot)
       await pool.prepareForSlot(SlotNumber(3));
+      expectNoCallbacks();
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       // prepareForSlot(4) - NOW tx should be unprotected
       await pool.prepareForSlot(SlotNumber(4));
+      expectNoCallbacks(); // State transition to pending, not a removal
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
     });
 
@@ -1171,21 +1307,27 @@ describe('TxPoolV2', () => {
 
       // Pre-record protection
       await pool.protectTxs([tx.getTxHash()], slot1Header);
+      expectNoCallbacks();
 
       // Prepare for a later slot - should clean up the stale record
       await pool.prepareForSlot(SlotNumber(2));
+      expectNoCallbacks();
 
       // Now add the tx - it should be pending, not protected
       await pool.addPendingTxs([tx]);
+      expectAddedTxs(tx);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
     });
 
     it('is idempotent for same slot', async () => {
       const tx = await mockTx(1);
       await pool.addProtectedTxs([tx], slot1Header);
+      expectAddedTxs(tx);
 
       await pool.prepareForSlot(SlotNumber(2));
+      expectNoCallbacks(); // State transition only
       await pool.prepareForSlot(SlotNumber(2));
+      expectNoCallbacks(); // Idempotent
 
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
       expect(await pool.getPendingTxCount()).toBe(1);
@@ -1200,10 +1342,12 @@ describe('TxPoolV2', () => {
 
       // Add pending tx
       await pool.addPendingTxs([txPending]);
+      expectAddedTxs(txPending);
       expect(await pool.getPendingTxCount()).toBe(1);
 
       // Add protected tx (has higher priority, shares nullifier)
       await pool.addProtectedTxs([txProtected], slot1Header);
+      expectAddedTxs(txProtected);
 
       // Unprotect - txProtected should evict txPending due to nullifier conflict
       await pool.prepareForSlot(SlotNumber(2));
@@ -1213,6 +1357,7 @@ describe('TxPoolV2', () => {
       expect(pending).toHaveLength(1);
       expect(pending).toContain(hashOf(txProtected));
       expect(await pool.getTxStatus(txPending.getTxHash())).toBeUndefined();
+      expectRemovedTxs(txPending); // txPending evicted due to nullifier conflict
     });
 
     it('unprotected tx with lower priority is deleted when conflicting with pending tx', async () => {
@@ -1224,9 +1369,11 @@ describe('TxPoolV2', () => {
 
       // Add pending tx (higher priority)
       await pool.addPendingTxs([txPending]);
+      expectAddedTxs(txPending);
 
       // Add protected tx (lower priority, shares nullifier)
       await pool.addProtectedTxs([txProtected], slot1Header);
+      expectAddedTxs(txProtected);
 
       // Unprotect - txProtected should be deleted, txPending should remain
       await pool.prepareForSlot(SlotNumber(2));
@@ -1236,6 +1383,7 @@ describe('TxPoolV2', () => {
       expect(pending).toHaveLength(1);
       expect(pending).toContain(hashOf(txPending));
       expect(await pool.getTxStatus(txProtected.getTxHash())).toBeUndefined();
+      expectRemovedTxs(txProtected); // txProtected deleted due to lower priority
     });
 
     it('multiple unprotected txs with same nullifier - highest priority wins', async () => {
@@ -1249,6 +1397,7 @@ describe('TxPoolV2', () => {
 
       // Add all as protected for slot 1
       await pool.addProtectedTxs([tx1, tx2, tx3], slot1Header);
+      expectAddedTxs(tx1, tx2, tx3);
 
       // Unprotect all - only highest priority should survive
       await pool.prepareForSlot(SlotNumber(2));
@@ -1258,6 +1407,7 @@ describe('TxPoolV2', () => {
       expect(pending).toContain(hashOf(tx2)); // tx2 has fee=15, highest
       expect(await pool.getTxStatus(tx1.getTxHash())).toBeUndefined();
       expect(await pool.getTxStatus(tx3.getTxHash())).toBeUndefined();
+      expectRemovedTxs(tx1, tx3); // Lower priority txs deleted
     });
 
     it('unprotected tx evicts multiple conflicting pending txs with lower priority', async () => {
@@ -1271,10 +1421,12 @@ describe('TxPoolV2', () => {
 
       // Add pending txs
       await pool.addPendingTxs([txPending1, txPending2]);
+      expectAddedTxs(txPending1, txPending2);
       expect(await pool.getPendingTxCount()).toBe(2);
 
       // Add protected tx
       await pool.addProtectedTxs([txProtected], slot1Header);
+      expectAddedTxs(txProtected);
 
       // Unprotect - txProtected should evict both pending txs
       await pool.prepareForSlot(SlotNumber(2));
@@ -1284,6 +1436,7 @@ describe('TxPoolV2', () => {
       expect(pending).toContain(hashOf(txProtected));
       expect(await pool.getTxStatus(txPending1.getTxHash())).toBeUndefined();
       expect(await pool.getTxStatus(txPending2.getTxHash())).toBeUndefined();
+      expectRemovedTxs(txPending1, txPending2); // Both evicted
     });
 
     it('unprotected tx with one winning and one losing conflict is deleted', async () => {
@@ -1297,9 +1450,11 @@ describe('TxPoolV2', () => {
 
       // Add pending txs
       await pool.addPendingTxs([txPendingHigh, txPendingLow]);
+      expectAddedTxs(txPendingHigh, txPendingLow);
 
       // Add protected tx
       await pool.addProtectedTxs([txProtected], slot1Header);
+      expectAddedTxs(txProtected);
 
       // Unprotect - txProtected should be deleted because it can't beat txPendingHigh
       await pool.prepareForSlot(SlotNumber(2));
@@ -1309,6 +1464,7 @@ describe('TxPoolV2', () => {
       expect(pending).toContain(hashOf(txPendingHigh));
       expect(pending).toContain(hashOf(txPendingLow));
       expect(await pool.getTxStatus(txProtected.getTxHash())).toBeUndefined();
+      expectRemovedTxs(txProtected); // txProtected deleted
     });
   });
 
@@ -1316,13 +1472,16 @@ describe('TxPoolV2', () => {
     it('un-mines transactions from pruned block', async () => {
       const tx = await mockTx(1);
       await pool.addPendingTxs([tx]);
+      expectAddedTxs(tx);
       await pool.handleMinedBlock(makeBlock([tx], slot1Header));
+      expectNoCallbacks(); // handleMinedBlock is state transition only
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       await pool.handlePrunedBlocks(block0Id);
 
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
       expect(await pool.getPendingTxCount()).toBe(1);
+      expectNoCallbacks(); // handlePrunedBlocks restores to pending, no removal
     });
 
     it('un-mined tx with higher priority evicts conflicting pending tx', async () => {
@@ -1337,11 +1496,14 @@ describe('TxPoolV2', () => {
 
       // Add mined tx first and mine it
       await pool.addPendingTxs([txMined]);
+      expectAddedTxs(txMined);
       await pool.handleMinedBlock(makeBlock([txMined], slot1Header));
+      expectNoCallbacks();
       expect(await pool.getTxStatus(txMined.getTxHash())).toBe('mined');
 
       // Now txPending can be added since txMined's nullifier is no longer in pending
       await pool.addPendingTxs([txPending]);
+      expectAddedTxs(txPending);
       expect(await pool.getPendingTxCount()).toBe(1);
 
       // Reorg - txMined returns to pending and should evict txPending
@@ -1350,7 +1512,9 @@ describe('TxPoolV2', () => {
       const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(1);
       expect(pending).toContain(hashOf(txMined));
+      // txPending was never mined, never in a pruned block, so it's hard-deleted
       expect(await pool.getTxStatus(txPending.getTxHash())).toBeUndefined();
+      expectRemovedTxs(txPending); // txPending evicted due to nullifier conflict
     });
 
     it('un-mined tx with lower priority is deleted when conflicting with pending tx', async () => {
@@ -1364,10 +1528,13 @@ describe('TxPoolV2', () => {
 
       // Add mined tx first and mine it
       await pool.addPendingTxs([txMined]);
+      expectAddedTxs(txMined);
       await pool.handleMinedBlock(makeBlock([txMined], slot1Header));
+      expectNoCallbacks();
 
       // Now txPending can be added (higher priority)
       await pool.addPendingTxs([txPending]);
+      expectAddedTxs(txPending);
       expect(await pool.getPendingTxCount()).toBe(1);
 
       // Reorg - txMined tries to return but should be deleted (lower priority)
@@ -1376,7 +1543,8 @@ describe('TxPoolV2', () => {
       const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(1);
       expect(pending).toContain(hashOf(txPending));
-      expect(await pool.getTxStatus(txMined.getTxHash())).toBeUndefined();
+      expect(await pool.getTxStatus(txMined.getTxHash())).toBe('deleted');
+      expectRemovedTxs(txMined); // txMined deleted due to lower priority
     });
 
     it('multiple un-mined txs with same nullifier - highest priority wins', async () => {
@@ -1392,15 +1560,21 @@ describe('TxPoolV2', () => {
 
       // Add all as pending, then mine them all in one block
       await pool.addPendingTxs([tx1]);
+      expectAddedTxs(tx1);
       await pool.handleMinedBlock(makeBlock([tx1], slot1Header));
+      expectNoCallbacks();
 
       // After tx1 is mined, we can add tx2 (same nullifier but tx1 no longer pending)
       await pool.addPendingTxs([tx2]);
+      expectAddedTxs(tx2);
       await pool.handleMinedBlock(makeBlock([tx2], slot1Header));
+      expectNoCallbacks();
 
       // After tx2 is mined, we can add tx3
       await pool.addPendingTxs([tx3]);
+      expectAddedTxs(tx3);
       await pool.handleMinedBlock(makeBlock([tx3], slot1Header));
+      expectNoCallbacks();
 
       // Reorg all - only highest priority should survive
       await pool.handlePrunedBlocks(block0Id);
@@ -1408,8 +1582,9 @@ describe('TxPoolV2', () => {
       const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(1);
       expect(pending).toContain(hashOf(tx2)); // tx2 has fee=15, highest
-      expect(await pool.getTxStatus(tx1.getTxHash())).toBeUndefined();
-      expect(await pool.getTxStatus(tx3.getTxHash())).toBeUndefined();
+      expect(await pool.getTxStatus(tx1.getTxHash())).toBe('deleted');
+      expect(await pool.getTxStatus(tx3.getTxHash())).toBe('deleted');
+      expectRemovedTxs(tx1, tx3); // Lower priority txs deleted
     });
 
     it('un-mined tx evicts multiple conflicting pending txs with lower priority', async () => {
@@ -1425,10 +1600,13 @@ describe('TxPoolV2', () => {
 
       // Mine txMined first
       await pool.addPendingTxs([txMined]);
+      expectAddedTxs(txMined);
       await pool.handleMinedBlock(makeBlock([txMined], slot1Header));
+      expectNoCallbacks();
 
       // Now add the pending txs (no conflict since txMined is mined)
       await pool.addPendingTxs([txPending1, txPending2]);
+      expectAddedTxs(txPending1, txPending2);
       expect(await pool.getPendingTxCount()).toBe(2);
 
       // Reorg - txMined returns and should evict both pending txs
@@ -1437,8 +1615,10 @@ describe('TxPoolV2', () => {
       const pending = toStrings(await pool.getPendingTxHashes());
       expect(pending).toHaveLength(1);
       expect(pending).toContain(hashOf(txMined));
+      // txPending1 and txPending2 were never mined, never in a pruned block, so hard-deleted
       expect(await pool.getTxStatus(txPending1.getTxHash())).toBeUndefined();
       expect(await pool.getTxStatus(txPending2.getTxHash())).toBeUndefined();
+      expectRemovedTxs(txPending1, txPending2); // Both evicted
     });
 
     it('un-mined tx with one winning and one losing conflict is deleted', async () => {
@@ -1454,10 +1634,13 @@ describe('TxPoolV2', () => {
 
       // Mine txMined first
       await pool.addPendingTxs([txMined]);
+      expectAddedTxs(txMined);
       await pool.handleMinedBlock(makeBlock([txMined], slot1Header));
+      expectNoCallbacks();
 
       // Add the pending txs
       await pool.addPendingTxs([txPendingHigh, txPendingLow]);
+      expectAddedTxs(txPendingHigh, txPendingLow);
 
       // Reorg - txMined should be deleted because it can't beat txPendingHigh
       await pool.handlePrunedBlocks(block0Id);
@@ -1466,18 +1649,19 @@ describe('TxPoolV2', () => {
       expect(pending).toHaveLength(2);
       expect(pending).toContain(hashOf(txPendingHigh));
       expect(pending).toContain(hashOf(txPendingLow));
-      expect(await pool.getTxStatus(txMined.getTxHash())).toBeUndefined();
+      expect(await pool.getTxStatus(txMined.getTxHash())).toBe('deleted');
+      expectRemovedTxs(txMined); // txMined deleted
     });
   });
 
   describe('validation during restore', () => {
-    let mockValidator: MockProxy<TxValidator<Tx>>;
+    let mockValidator: MockProxy<TxValidator<TxMetaData>>;
     let poolWithValidator: AztecKVTxPoolV2;
     let validatorStore: Awaited<ReturnType<typeof openTmpStore>>;
     let validatorArchiveStore: Awaited<ReturnType<typeof openTmpStore>>;
 
     beforeEach(async () => {
-      mockValidator = mock<TxValidator<Tx>>();
+      mockValidator = mock<TxValidator<TxMetaData>>();
       // Default to valid
       mockValidator.validateTx.mockResolvedValue({ result: 'valid' });
 
@@ -1486,7 +1670,7 @@ describe('TxPoolV2', () => {
       poolWithValidator = new AztecKVTxPoolV2(validatorStore, validatorArchiveStore, {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
-        pendingTxValidator: mockValidator,
+        createTxValidator: () => Promise.resolve(mockValidator),
       });
       await poolWithValidator.start();
     });
@@ -1539,8 +1723,8 @@ describe('TxPoolV2', () => {
       await poolWithValidator.addProtectedTxs([txValid, txInvalid, txAlsoValid], slot1Header);
 
       // Configure validator to reject only txInvalid
-      mockValidator.validateTx.mockImplementation((tx: Tx) => {
-        if (tx.getTxHash().equals(txInvalid.getTxHash())) {
+      mockValidator.validateTx.mockImplementation((meta: TxMetaData) => {
+        if (meta.txHash === txInvalid.getTxHash().toString()) {
           return Promise.resolve({ result: 'invalid', reason: ['invalid proof'] });
         }
         return Promise.resolve({ result: 'valid' });
@@ -1570,10 +1754,10 @@ describe('TxPoolV2', () => {
         reason: ['timestamp expired'],
       });
 
-      // Reorg - tx should be deleted due to validation failure
+      // Reorg - tx should be soft-deleted due to validation failure
       await poolWithValidator.handlePrunedBlocks(block0Id);
 
-      expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBeUndefined();
+      expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('deleted');
       expect(await poolWithValidator.getPendingTxCount()).toBe(0);
     });
 
@@ -1605,8 +1789,8 @@ describe('TxPoolV2', () => {
       await poolWithValidator.handleMinedBlock(makeBlock([txValid, txInvalid, txAlsoValid], slot1Header));
 
       // Configure validator to reject only txInvalid
-      mockValidator.validateTx.mockImplementation((tx: Tx) => {
-        if (tx.getTxHash().equals(txInvalid.getTxHash())) {
+      mockValidator.validateTx.mockImplementation((meta: TxMetaData) => {
+        if (meta.txHash === txInvalid.getTxHash().toString()) {
           return Promise.resolve({ result: 'invalid', reason: ['nullifier exists'] });
         }
         return Promise.resolve({ result: 'valid' });
@@ -1615,7 +1799,7 @@ describe('TxPoolV2', () => {
       await poolWithValidator.handlePrunedBlocks(block0Id);
 
       expect(await poolWithValidator.getTxStatus(txValid.getTxHash())).toBe('pending');
-      expect(await poolWithValidator.getTxStatus(txInvalid.getTxHash())).toBeUndefined();
+      expect(await poolWithValidator.getTxStatus(txInvalid.getTxHash())).toBe('deleted');
       expect(await poolWithValidator.getTxStatus(txAlsoValid.getTxHash())).toBe('pending');
       expect(await poolWithValidator.getPendingTxCount()).toBe(2);
     });
@@ -1634,8 +1818,8 @@ describe('TxPoolV2', () => {
       await poolWithValidator.addProtectedTxs([txProtected], slot1Header);
 
       // Make validator reject the protected tx
-      mockValidator.validateTx.mockImplementation((tx: Tx) => {
-        if (tx.getTxHash().equals(txProtected.getTxHash())) {
+      mockValidator.validateTx.mockImplementation((meta: TxMetaData) => {
+        if (meta.txHash === txProtected.getTxHash().toString()) {
           return Promise.resolve({ result: 'invalid', reason: ['invalid'] });
         }
         return Promise.resolve({ result: 'valid' });
@@ -1652,15 +1836,496 @@ describe('TxPoolV2', () => {
     });
   });
 
+  describe('soft deletion', () => {
+    let mockValidator: MockProxy<TxValidator<TxMetaData>>;
+    let poolWithValidator: AztecKVTxPoolV2;
+    let validatorStore: Awaited<ReturnType<typeof openTmpStore>>;
+    let validatorArchiveStore: Awaited<ReturnType<typeof openTmpStore>>;
+
+    beforeEach(async () => {
+      mockValidator = mock<TxValidator<TxMetaData>>();
+      mockValidator.validateTx.mockResolvedValue({ result: 'valid' });
+
+      validatorStore = await openTmpStore('p2p-soft-delete');
+      validatorArchiveStore = await openTmpStore('archive-soft-delete');
+      poolWithValidator = new AztecKVTxPoolV2(validatorStore, validatorArchiveStore, {
+        l2BlockSource: mockL2BlockSource,
+        worldStateSynchronizer: mockWorldState,
+        createTxValidator: () => Promise.resolve(mockValidator),
+      });
+      await poolWithValidator.start();
+    });
+
+    afterEach(async () => {
+      await poolWithValidator.stop();
+      await validatorStore.delete();
+      await validatorArchiveStore.delete();
+    });
+
+    it('soft-deleted txs have deleted status but are still retrievable via getTxByHash', async () => {
+      const tx = await mockTx(1);
+
+      // Add and mine
+      await poolWithValidator.addPendingTxs([tx]);
+      await poolWithValidator.handleMinedBlock(makeBlock([tx], slot1Header));
+      expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('mined');
+
+      // Make validator reject this tx so it gets soft-deleted on prune
+      mockValidator.validateTx.mockResolvedValue({
+        result: 'invalid',
+        reason: ['timestamp expired'],
+      });
+
+      // Prune - tx should be soft-deleted (removed from indices but kept in DB)
+      await poolWithValidator.handlePrunedBlocks(block0Id);
+
+      // Status is 'deleted'
+      expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('deleted');
+      expect(await poolWithValidator.getPendingTxCount()).toBe(0);
+
+      // But still retrievable via getTxByHash
+      const retrieved = await poolWithValidator.getTxByHash(tx.getTxHash());
+      expect(retrieved).toBeDefined();
+      expect(retrieved!.getTxHash().toString()).toEqual(tx.getTxHash().toString());
+    });
+
+    it('handleFinalizedBlock hard-deletes soft-deleted txs', async () => {
+      const tx = await mockTx(1);
+
+      // Add and mine at block 1
+      await poolWithValidator.addPendingTxs([tx]);
+      await poolWithValidator.handleMinedBlock(makeBlock([tx], slot1Header));
+
+      // Make validator reject to cause soft deletion
+      mockValidator.validateTx.mockResolvedValue({
+        result: 'invalid',
+        reason: ['invalid'],
+      });
+
+      // Prune - tx is soft-deleted at block 0 (prune point)
+      await poolWithValidator.handlePrunedBlocks(block0Id);
+
+      // Verify still retrievable
+      expect(await poolWithValidator.getTxByHash(tx.getTxHash())).toBeDefined();
+
+      // Finalize block 1 - should hard-delete soft-deleted tx (pruned at block 0 <= finalized block 1)
+      await poolWithValidator.handleFinalizedBlock(slot1Header);
+
+      // Now completely gone from DB
+      expect(await poolWithValidator.getTxByHash(tx.getTxHash())).toBeUndefined();
+    });
+
+    it('soft-deleted tx is not hard-deleted until finalized block reaches prune point', async () => {
+      const tx = await mockTx(1);
+
+      // Create header for block 2
+      const block2Header = BlockHeader.empty({
+        globalVariables: GlobalVariables.empty({
+          blockNumber: BlockNumber(2),
+          slotNumber: SlotNumber(2),
+        }),
+      });
+
+      // Add, mine at block 2
+      await poolWithValidator.addPendingTxs([tx]);
+      await poolWithValidator.handleMinedBlock(makeBlock([tx], block2Header));
+      expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('mined');
+
+      // Make validator reject
+      mockValidator.validateTx.mockResolvedValue({
+        result: 'invalid',
+        reason: ['invalid'],
+      });
+
+      // Prune to block 1 - tx mined at block 2 gets un-mined, fails validation, soft-deleted
+      // The tx was mined at block 2, so it should only be hard-deleted when block 2 is finalized
+      const block1Id: L2BlockId = { number: BlockNumber(1), hash: '0x1' };
+      await poolWithValidator.handlePrunedBlocks(block1Id);
+
+      // Verify soft-deleted (status is 'deleted', still in DB)
+      expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('deleted');
+      expect(await poolWithValidator.getTxByHash(tx.getTxHash())).toBeDefined();
+
+      // Finalize block 1 - should NOT hard-delete (mined at 2 > finalized 1)
+      await poolWithValidator.handleFinalizedBlock(slot1Header);
+
+      // Still retrievable
+      expect(await poolWithValidator.getTxByHash(tx.getTxHash())).toBeDefined();
+
+      // Finalize block 2 - NOW it should be hard-deleted (mined at 2 <= finalized 2)
+      await poolWithValidator.handleFinalizedBlock(block2Header);
+
+      // Gone
+      expect(await poolWithValidator.getTxByHash(tx.getTxHash())).toBeUndefined();
+    });
+
+    it('evicted txs during nullifier conflict are soft-deleted and retrievable', async () => {
+      const txPending = await mockPublicTx(1, 10);
+      const txMined = await mockPublicTx(2, 5);
+
+      // Give mined tx the same nullifier as pending tx
+      setNullifier(txMined, 0, getNullifier(txPending, 0));
+
+      // Add mined tx first and mine it
+      await poolWithValidator.addPendingTxs([txMined]);
+      await poolWithValidator.handleMinedBlock(makeBlock([txMined], slot1Header));
+
+      // Now txPending can be added (higher priority)
+      await poolWithValidator.addPendingTxs([txPending]);
+
+      // Reorg - txMined tries to return but loses to txPending (lower priority)
+      // It should be soft-deleted, not hard-deleted
+      await poolWithValidator.handlePrunedBlocks(block0Id);
+
+      // txMined should have 'deleted' status but still be retrievable
+      expect(await poolWithValidator.getTxStatus(txMined.getTxHash())).toBe('deleted');
+      const retrieved = await poolWithValidator.getTxByHash(txMined.getTxHash());
+      expect(retrieved).toBeDefined();
+      expect(retrieved!.getTxHash().toString()).toEqual(txMined.getTxHash().toString());
+
+      // txPending should be in pending
+      expect(await poolWithValidator.getTxStatus(txPending.getTxHash())).toBe('pending');
+    });
+
+    it('hasTxs returns true for soft-deleted txs', async () => {
+      const tx = await mockTx(1);
+
+      // Add and mine
+      await poolWithValidator.addPendingTxs([tx]);
+      await poolWithValidator.handleMinedBlock(makeBlock([tx], slot1Header));
+
+      // Make validator reject to cause soft deletion
+      mockValidator.validateTx.mockResolvedValue({
+        result: 'invalid',
+        reason: ['invalid'],
+      });
+
+      // Prune - tx is soft-deleted
+      await poolWithValidator.handlePrunedBlocks(block0Id);
+
+      // hasTxs should still return true for soft-deleted tx
+      const [hasTx] = await poolWithValidator.hasTxs([tx.getTxHash()]);
+      expect(hasTx).toBe(true);
+
+      // getTxStatus returns 'deleted'
+      expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('deleted');
+
+      // And getTxByHash still works
+      expect(await poolWithValidator.getTxByHash(tx.getTxHash())).toBeDefined();
+    });
+
+    it('hasTxs returns false after hard deletion', async () => {
+      const tx = await mockTx(1);
+
+      // Add and mine
+      await poolWithValidator.addPendingTxs([tx]);
+      await poolWithValidator.handleMinedBlock(makeBlock([tx], slot1Header));
+
+      // Make validator reject to cause soft deletion
+      mockValidator.validateTx.mockResolvedValue({
+        result: 'invalid',
+        reason: ['invalid'],
+      });
+
+      // Prune - tx is soft-deleted
+      await poolWithValidator.handlePrunedBlocks(block0Id);
+
+      // Finalize - tx is hard-deleted
+      await poolWithValidator.handleFinalizedBlock(slot1Header);
+
+      // hasTxs should return false after hard deletion
+      const [hasTx] = await poolWithValidator.hasTxs([tx.getTxHash()]);
+      expect(hasTx).toBe(false);
+
+      // getTxByHash returns undefined
+      expect(await poolWithValidator.getTxByHash(tx.getTxHash())).toBeUndefined();
+    });
+
+    describe('full soft deletion lifecycle', () => {
+      it('prune -> soft-delete -> finalize -> gone', async () => {
+        const tx = await mockTx(1);
+
+        // 1. Add transaction as pending
+        await poolWithValidator.addPendingTxs([tx]);
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('pending');
+        expect(await poolWithValidator.getTxByHash(tx.getTxHash())).toBeDefined();
+
+        // 2. Mine the transaction
+        await poolWithValidator.handleMinedBlock(makeBlock([tx], slot1Header));
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('mined');
+
+        // 3. Prune (reorg) - transaction fails validation and is soft-deleted
+        mockValidator.validateTx.mockResolvedValue({
+          result: 'invalid',
+          reason: ['nullifier already exists'],
+        });
+        await poolWithValidator.handlePrunedBlocks(block0Id);
+
+        // Transaction is soft-deleted: status is 'deleted', still retrievable
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('deleted');
+        expect(await poolWithValidator.getTxByHash(tx.getTxHash())).toBeDefined();
+        expect((await poolWithValidator.hasTxs([tx.getTxHash()]))[0]).toBe(true);
+        expect(await poolWithValidator.getPendingTxCount()).toBe(0);
+
+        // 4. Finalize the block - transaction is hard-deleted
+        await poolWithValidator.handleFinalizedBlock(slot1Header);
+
+        // Transaction is completely gone (status undefined, not 'deleted')
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBeUndefined();
+        expect(await poolWithValidator.getTxByHash(tx.getTxHash())).toBeUndefined();
+        expect((await poolWithValidator.hasTxs([tx.getTxHash()]))[0]).toBe(false);
+      });
+
+      it('multiple txs with different mined blocks finalize at correct times', async () => {
+        const tx1 = await mockTx(1);
+        const tx2 = await mockTx(2);
+        const tx3 = await mockTx(3);
+
+        const block2Header = BlockHeader.empty({
+          globalVariables: GlobalVariables.empty({
+            blockNumber: BlockNumber(2),
+            slotNumber: SlotNumber(2),
+          }),
+        });
+
+        const block3Header = BlockHeader.empty({
+          globalVariables: GlobalVariables.empty({
+            blockNumber: BlockNumber(3),
+            slotNumber: SlotNumber(3),
+          }),
+        });
+
+        // Add and mine all txs at different blocks
+        await poolWithValidator.addPendingTxs([tx1]);
+        await poolWithValidator.handleMinedBlock(makeBlock([tx1], slot1Header)); // mined at block 1
+
+        await poolWithValidator.addPendingTxs([tx2]);
+        await poolWithValidator.handleMinedBlock(makeBlock([tx2], block2Header)); // mined at block 2
+
+        await poolWithValidator.addPendingTxs([tx3]);
+        await poolWithValidator.handleMinedBlock(makeBlock([tx3], block3Header)); // mined at block 3
+
+        // Make validator reject all
+        mockValidator.validateTx.mockResolvedValue({
+          result: 'invalid',
+          reason: ['invalid'],
+        });
+
+        // Prune to block 0 - un-mines all txs (mined at 1, 2, 3 are all > 0)
+        // All fail validation and are soft-deleted
+        // Each tx tracks its original mined block (1, 2, 3 respectively)
+        await poolWithValidator.handlePrunedBlocks(block0Id);
+
+        // All are soft-deleted, retrievable
+        expect(await poolWithValidator.getTxByHash(tx1.getTxHash())).toBeDefined();
+        expect(await poolWithValidator.getTxByHash(tx2.getTxHash())).toBeDefined();
+        expect(await poolWithValidator.getTxByHash(tx3.getTxHash())).toBeDefined();
+
+        // Finalize block 1 - only tx1 should be hard-deleted (mined at block 1)
+        await poolWithValidator.handleFinalizedBlock(slot1Header);
+
+        expect(await poolWithValidator.getTxByHash(tx1.getTxHash())).toBeUndefined();
+        expect(await poolWithValidator.getTxByHash(tx2.getTxHash())).toBeDefined();
+        expect(await poolWithValidator.getTxByHash(tx3.getTxHash())).toBeDefined();
+
+        // Finalize block 2 - tx2 should be hard-deleted (mined at block 2)
+        await poolWithValidator.handleFinalizedBlock(block2Header);
+
+        expect(await poolWithValidator.getTxByHash(tx2.getTxHash())).toBeUndefined();
+        expect(await poolWithValidator.getTxByHash(tx3.getTxHash())).toBeDefined();
+
+        // Finalize block 3 - tx3 should be hard-deleted (mined at block 3)
+        await poolWithValidator.handleFinalizedBlock(block3Header);
+
+        expect(await poolWithValidator.getTxByHash(tx3.getTxHash())).toBeUndefined();
+      });
+
+      it('soft-deleted txs are excluded from state-specific queries but included in hash queries', async () => {
+        const txPending = await mockTx(1);
+        const txToSoftDelete = await mockTx(2);
+
+        // Add both as pending
+        await poolWithValidator.addPendingTxs([txPending, txToSoftDelete]);
+        expect(await poolWithValidator.getPendingTxCount()).toBe(2);
+
+        // Mine txToSoftDelete
+        await poolWithValidator.handleMinedBlock(makeBlock([txToSoftDelete], slot1Header));
+
+        // Make validator reject
+        mockValidator.validateTx.mockResolvedValue({
+          result: 'invalid',
+          reason: ['invalid'],
+        });
+
+        // Prune - txToSoftDelete is soft-deleted
+        await poolWithValidator.handlePrunedBlocks(block0Id);
+
+        // State-specific queries should NOT include soft-deleted tx
+        expect(await poolWithValidator.getPendingTxCount()).toBe(1);
+        const pendingHashes = await poolWithValidator.getPendingTxHashes();
+        expect(pendingHashes.map(h => h.toString())).toContain(txPending.getTxHash().toString());
+        expect(pendingHashes.map(h => h.toString())).not.toContain(txToSoftDelete.getTxHash().toString());
+
+        // Hash-based queries should include soft-deleted tx
+        const [hasPending, hasSoftDeleted] = await poolWithValidator.hasTxs([
+          txPending.getTxHash(),
+          txToSoftDelete.getTxHash(),
+        ]);
+        expect(hasPending).toBe(true);
+        expect(hasSoftDeleted).toBe(true);
+
+        // Both retrievable by hash
+        expect(await poolWithValidator.getTxByHash(txPending.getTxHash())).toBeDefined();
+        expect(await poolWithValidator.getTxByHash(txToSoftDelete.getTxHash())).toBeDefined();
+
+        // Status differs
+        expect(await poolWithValidator.getTxStatus(txPending.getTxHash())).toBe('pending');
+        expect(await poolWithValidator.getTxStatus(txToSoftDelete.getTxHash())).toBe('deleted');
+      });
+
+      it('getTxsByHash returns soft-deleted txs', async () => {
+        const tx1 = await mockTx(1);
+        const tx2 = await mockTx(2);
+
+        // Add and mine
+        await poolWithValidator.addPendingTxs([tx1, tx2]);
+        await poolWithValidator.handleMinedBlock(makeBlock([tx1, tx2], slot1Header));
+
+        // Make validator reject
+        mockValidator.validateTx.mockResolvedValue({
+          result: 'invalid',
+          reason: ['invalid'],
+        });
+
+        // Prune - both soft-deleted
+        await poolWithValidator.handlePrunedBlocks(block0Id);
+
+        // getTxsByHash should return both
+        const txs = await poolWithValidator.getTxsByHash([tx1.getTxHash(), tx2.getTxHash()]);
+        expect(txs).toHaveLength(2);
+        expect(txs[0]).toBeDefined();
+        expect(txs[1]).toBeDefined();
+        expect(txs[0]!.getTxHash().toString()).toBe(tx1.getTxHash().toString());
+        expect(txs[1]!.getTxHash().toString()).toBe(tx2.getTxHash().toString());
+      });
+    });
+
+    describe('protected tx in pruned block', () => {
+      it('protected tx during prune that later fails validation should be soft-deleted', async () => {
+        const tx = await mockTx(1);
+
+        // Add, protect, and mine the tx
+        await poolWithValidator.addPendingTxs([tx]);
+        await poolWithValidator.addProtectedTxs([tx], slot1Header);
+        await poolWithValidator.handleMinedBlock(makeBlock([tx], slot1Header));
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('mined');
+
+        // Prune - tx is un-mined but stays protected (validator passes at this point)
+        await poolWithValidator.handlePrunedBlocks(block0Id);
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('protected');
+
+        // Now make validator reject this tx
+        mockValidator.validateTx.mockResolvedValue({
+          result: 'invalid',
+          reason: ['timestamp expired'],
+        });
+
+        // Unprotect (prepareForSlot) - tx fails validation
+        await poolWithValidator.prepareForSlot(SlotNumber(2));
+
+        // The tx was in a pruned block, so it should be SOFT-deleted, not hard-deleted
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('deleted');
+        expect(await poolWithValidator.getTxByHash(tx.getTxHash())).toBeDefined();
+      });
+
+      it('protected tx during prune that later loses nullifier conflict should be soft-deleted', async () => {
+        const txProtected = await mockPublicTx(1, 5);
+        const txHigherPriority = await mockPublicTx(2, 10);
+
+        // Give them the same nullifier
+        setNullifier(txHigherPriority, 0, getNullifier(txProtected, 0));
+
+        // Add, protect, and mine txProtected
+        await poolWithValidator.addPendingTxs([txProtected]);
+        await poolWithValidator.addProtectedTxs([txProtected], slot1Header);
+        await poolWithValidator.handleMinedBlock(makeBlock([txProtected], slot1Header));
+        expect(await poolWithValidator.getTxStatus(txProtected.getTxHash())).toBe('mined');
+
+        // Prune - txProtected is un-mined but stays protected
+        await poolWithValidator.handlePrunedBlocks(block0Id);
+        expect(await poolWithValidator.getTxStatus(txProtected.getTxHash())).toBe('protected');
+
+        // Now add a higher priority tx with same nullifier
+        await poolWithValidator.addPendingTxs([txHigherPriority]);
+        expect(await poolWithValidator.getTxStatus(txHigherPriority.getTxHash())).toBe('pending');
+
+        // Unprotect (prepareForSlot) - txProtected loses nullifier conflict
+        await poolWithValidator.prepareForSlot(SlotNumber(2));
+
+        // The tx was in a pruned block, so it should be SOFT-deleted, not hard-deleted
+        expect(await poolWithValidator.getTxStatus(txProtected.getTxHash())).toBe('deleted');
+        expect(await poolWithValidator.getTxByHash(txProtected.getTxHash())).toBeDefined();
+
+        // Higher priority tx should be pending
+        expect(await poolWithValidator.getTxStatus(txHigherPriority.getTxHash())).toBe('pending');
+      });
+
+      it('tx not in pruned block that is deleted should be hard-deleted', async () => {
+        const tx = await mockTx(1);
+
+        // Add tx as pending (never mined, so never pruned)
+        await poolWithValidator.addPendingTxs([tx]);
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('pending');
+
+        // Make validator reject
+        mockValidator.validateTx.mockResolvedValue({
+          result: 'invalid',
+          reason: ['invalid'],
+        });
+
+        // Protect and then unprotect - tx fails validation
+        await poolWithValidator.addProtectedTxs([tx], slot1Header);
+        await poolWithValidator.prepareForSlot(SlotNumber(2));
+
+        // The tx was never in a pruned block, so it should be HARD-deleted
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBeUndefined();
+        expect(await poolWithValidator.getTxByHash(tx.getTxHash())).toBeUndefined();
+      });
+    });
+  });
+
   describe('handleFailedExecution', () => {
     it('deletes failed transactions', async () => {
       const tx = await mockTx(1);
       await pool.addPendingTxs([tx]);
+      expectAddedTxs(tx);
 
       await pool.handleFailedExecution([tx.getTxHash()]);
 
       expect(await pool.getTxStatus(tx.getTxHash())).toBeUndefined();
       expect(await pool.getPendingTxCount()).toBe(0);
+      expectRemovedTxs(tx);
+    });
+
+    it('removes transactions from getPendingTxHashes', async () => {
+      const tx1 = await mockTxWithFee(1, 10);
+      const tx2 = await mockTxWithFee(2, 20);
+      const tx3 = await mockTxWithFee(3, 30);
+
+      await pool.addPendingTxs([tx1, tx2, tx3]);
+      expect(await pool.getPendingTxCount()).toBe(3);
+      expectAddedTxs(tx1, tx2, tx3);
+
+      // Mark tx2 as failed
+      await pool.handleFailedExecution([tx2.getTxHash()]);
+
+      // Verify tx2 is no longer returned by getPendingTxHashes
+      const pendingHashes = toStrings(await pool.getPendingTxHashes());
+      expect(pendingHashes).toHaveLength(2);
+      expect(pendingHashes).toContain(hashOf(tx3)); // fee=30, highest priority
+      expect(pendingHashes).toContain(hashOf(tx1)); // fee=10
+      expect(pendingHashes).not.toContain(hashOf(tx2)); // deleted
+      expectRemovedTxs(tx2);
     });
   });
 
@@ -1668,19 +2333,24 @@ describe('TxPoolV2', () => {
     it('permanently deletes mined transactions', async () => {
       const tx = await mockTx(1);
       await pool.addPendingTxs([tx]);
+      expectAddedTxs(tx);
       await pool.handleMinedBlock(makeBlock([tx], slot1Header));
+      expectNoCallbacks(); // handleMinedBlock is just a state transition
 
       await pool.handleFinalizedBlock(slot1Header);
 
       expect(await pool.getTxStatus(tx.getTxHash())).toBeUndefined();
       expect(await pool.getTxByHash(tx.getTxHash())).toBeUndefined();
+      expectRemovedTxs(tx); // Now the tx is actually deleted
     });
 
     it('archives transactions if configured', async () => {
       await pool.updateConfig({ archivedTxLimit: 10 });
       const tx = await mockTx(1);
       await pool.addPendingTxs([tx]);
+      expectAddedTxs(tx);
       await pool.handleMinedBlock(makeBlock([tx], slot1Header));
+      expectNoCallbacks(); // handleMinedBlock is just a state transition
 
       await pool.handleFinalizedBlock(slot1Header);
 
@@ -1688,6 +2358,7 @@ describe('TxPoolV2', () => {
       const archived = await pool.getArchivedTxByHash(tx.getTxHash());
       expect(archived).toBeDefined();
       expect(archived!.getTxHash().toString()).toEqual(hashOf(tx));
+      expectRemovedTxs(tx); // Now the tx is actually deleted
     });
   });
 
@@ -1696,15 +2367,19 @@ describe('TxPoolV2', () => {
       const tx = await mockTx(1);
 
       await pool.addPendingTxs([tx]);
+      expectAddedTxs(tx);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
 
       await pool.addProtectedTxs([tx], slot1Header);
+      expectNoCallbacks(); // State transition only
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       await pool.handleMinedBlock(makeBlock([tx], slot1Header));
+      expectNoCallbacks(); // State transition only
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       await pool.handleFinalizedBlock(slot1Header);
+      expectRemovedTxs(tx); // Actually deleted
       expect(await pool.getTxStatus(tx.getTxHash())).toBeUndefined();
     });
 
@@ -1712,12 +2387,15 @@ describe('TxPoolV2', () => {
       const tx = await mockTx(1);
 
       await pool.addPendingTxs([tx]);
+      expectAddedTxs(tx);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
 
       await pool.addProtectedTxs([tx], slot1Header);
+      expectNoCallbacks(); // State transition only
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       await pool.prepareForSlot(SlotNumber(2));
+      expectNoCallbacks(); // State transition only
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
     });
 
@@ -1725,12 +2403,16 @@ describe('TxPoolV2', () => {
       const tx = await mockTx(1);
 
       await pool.addPendingTxs([tx]);
+      expectAddedTxs(tx);
       await pool.addProtectedTxs([tx], slot1Header);
+      expectNoCallbacks();
       await pool.handleMinedBlock(makeBlock([tx], slot1Header));
+      expectNoCallbacks();
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       // After reorg, tx retains its protection status (protection is managed by prepareForSlot)
       await pool.handlePrunedBlocks(block0Id);
+      expectNoCallbacks(); // State transition only
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
     });
 
@@ -1738,12 +2420,15 @@ describe('TxPoolV2', () => {
       const tx = await mockTx(1);
 
       await pool.addProtectedTxs([tx], slot1Header);
+      expectAddedTxs(tx);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
       await pool.handleMinedBlock(makeBlock([tx], slot1Header));
+      expectNoCallbacks(); // State transition only
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       await pool.handleFinalizedBlock(slot1Header);
+      expectRemovedTxs(tx); // Actually deleted
       expect(await pool.getTxStatus(tx.getTxHash())).toBeUndefined();
     });
 
@@ -1751,9 +2436,11 @@ describe('TxPoolV2', () => {
       const tx = await mockTx(1);
 
       await pool.addMinedTxs([tx], slot1Header);
+      expectAddedTxs(tx);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
 
       await pool.handleFinalizedBlock(slot1Header);
+      expectRemovedTxs(tx); // Actually deleted
       expect(await pool.getTxStatus(tx.getTxHash())).toBeUndefined();
     });
   });
@@ -2172,15 +2859,15 @@ describe('TxPoolV2', () => {
 
       await pool.handlePrunedBlocks(block0Id);
 
-      // Low priority tx should be evicted, high priority should be pending
+      // Low priority tx should be evicted (soft-deleted since from pruned block), high priority should be pending
       expect(await pool.getTxStatus(txHigh.getTxHash())).toBe('pending');
-      expect(await pool.getTxStatus(txLow.getTxHash())).toBeUndefined();
+      expect(await pool.getTxStatus(txLow.getTxHash())).toBe('deleted');
     });
 
     it('priority ordering is correct - highest priority funded first', async () => {
       const sharedFeePayer = AztecAddress.fromBigInt(999n);
-      // Balance covers only 2 out of 3 txs
-      setFeePayerBalance(BigInt(4e8));
+      // Initial balance covers all 3 txs
+      setFeePayerBalance(BigInt(6e8));
 
       db.findLeafIndices.mockResolvedValue([1n]); // Anchor blocks valid
 
@@ -2205,14 +2892,17 @@ describe('TxPoolV2', () => {
       await pool.addPendingTxs([txPriority1, txPriority5, txPriority10]);
       await pool.handleMinedBlock(makeBlock([txPriority1, txPriority5, txPriority10], slot1Header));
 
+      // Reduce balance to only cover 2 txs before reorg
+      setFeePayerBalance(BigInt(4e8));
+
       // Reorg - triggers balance eviction
       await pool.handlePrunedBlocks(block0Id);
 
       // Highest (priority 10) and middle (priority 5) should remain
-      // Lowest (priority 1) should be evicted
+      // Lowest (priority 1) should be soft-deleted (from pruned block)
       expect(await pool.getTxStatus(txPriority10.getTxHash())).toBe('pending');
       expect(await pool.getTxStatus(txPriority5.getTxHash())).toBe('pending');
-      expect(await pool.getTxStatus(txPriority1.getTxHash())).toBeUndefined();
+      expect(await pool.getTxStatus(txPriority1.getTxHash())).toBe('deleted');
       expect(await pool.getPendingTxCount()).toBe(2);
     });
 
@@ -2258,8 +2948,8 @@ describe('TxPoolV2', () => {
 
       await pool.handlePrunedBlocks(block0Id);
 
-      // Tx should be deleted because its anchor block was pruned
-      expect(await pool.getTxStatus(tx.getTxHash())).toBeUndefined();
+      // Tx should be soft-deleted (from pruned block and anchor block was pruned)
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('deleted');
     });
 
     it('keeps txs with valid anchor blocks after reorg', async () => {
@@ -2300,9 +2990,9 @@ describe('TxPoolV2', () => {
 
       await pool.handlePrunedBlocks(block0Id);
 
-      // Valid tx should be restored to pending, invalid tx should be deleted
+      // Valid tx should be restored to pending, invalid tx should be soft-deleted (from pruned block)
       expect(await pool.getTxStatus(txValid.getTxHash())).toBe('pending');
-      expect(await pool.getTxStatus(txInvalid.getTxHash())).toBeUndefined();
+      expect(await pool.getTxStatus(txInvalid.getTxHash())).toBe('deleted');
     });
 
     it('evicts all txs when shared anchor block is pruned', async () => {
@@ -2317,9 +3007,9 @@ describe('TxPoolV2', () => {
 
       await pool.handlePrunedBlocks(block0Id);
 
-      // Both should be deleted since their anchor block was pruned
-      expect(await pool.getTxStatus(tx1.getTxHash())).toBeUndefined();
-      expect(await pool.getTxStatus(tx2.getTxHash())).toBeUndefined();
+      // Both should be soft-deleted (from pruned block and anchor block was pruned)
+      expect(await pool.getTxStatus(tx1.getTxHash())).toBe('deleted');
+      expect(await pool.getTxStatus(tx2.getTxHash())).toBe('deleted');
     });
   });
 
@@ -3265,7 +3955,7 @@ describe('TxPoolV2', () => {
         const pool1 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          pendingTxValidator: alwaysValidValidator,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
         });
         await pool1.start();
 
@@ -3290,7 +3980,7 @@ describe('TxPoolV2', () => {
         const pool2 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          pendingTxValidator: alwaysValidValidator,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
         });
         await pool2.start();
 
@@ -3318,7 +4008,7 @@ describe('TxPoolV2', () => {
           {
             l2BlockSource: mockL2BlockSource,
             worldStateSynchronizer: mockWorldState,
-            pendingTxValidator: alwaysValidValidator,
+            createTxValidator: () => Promise.resolve(alwaysValidValidator),
           },
           undefined, // telemetry
           { maxPendingTxCount: 100 },
@@ -3344,7 +4034,7 @@ describe('TxPoolV2', () => {
           {
             l2BlockSource: mockL2BlockSource,
             worldStateSynchronizer: mockWorldState,
-            pendingTxValidator: alwaysValidValidator,
+            createTxValidator: () => Promise.resolve(alwaysValidValidator),
           },
           undefined, // telemetry
           { maxPendingTxCount: 3 },
@@ -3376,7 +4066,7 @@ describe('TxPoolV2', () => {
         const pool1 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          pendingTxValidator: alwaysValidValidator,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
         });
         await pool1.start();
 
@@ -3393,7 +4083,7 @@ describe('TxPoolV2', () => {
         const pool2 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          pendingTxValidator: alwaysValidValidator,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
         });
         await pool2.start();
 
@@ -3422,7 +4112,7 @@ describe('TxPoolV2', () => {
         const pool1 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          pendingTxValidator: alwaysValidValidator,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
         });
         await pool1.start();
 
@@ -3456,7 +4146,7 @@ describe('TxPoolV2', () => {
           {
             l2BlockSource: mockL2BlockSource,
             worldStateSynchronizer: mockWorldState,
-            pendingTxValidator: alwaysValidValidator,
+            createTxValidator: () => Promise.resolve(alwaysValidValidator),
           },
           undefined, // telemetry
           { maxPendingTxCount: 0 }, // No pending txs allowed
@@ -3484,7 +4174,7 @@ describe('TxPoolV2', () => {
         const pool1 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          pendingTxValidator: alwaysValidValidator,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
         });
         await pool1.start();
 
@@ -3497,9 +4187,9 @@ describe('TxPoolV2', () => {
         await pool1.stop();
 
         // Create validator that rejects tx1
-        const selectiveValidator: TxValidator<Tx> = {
-          validateTx: (tx: Tx) => {
-            if (tx.getTxHash().toString() === tx1.getTxHash().toString()) {
+        const selectiveValidator: TxValidator<TxMetaData> = {
+          validateTx: (meta: TxMetaData) => {
+            if (meta.txHash === tx1.getTxHash().toString()) {
               return Promise.resolve({ result: 'invalid', reason: ['test rejection'] });
             }
             return Promise.resolve({ result: 'valid' });
@@ -3510,7 +4200,7 @@ describe('TxPoolV2', () => {
         const pool2 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          pendingTxValidator: selectiveValidator,
+          createTxValidator: () => Promise.resolve(selectiveValidator),
         });
         await pool2.start();
 
@@ -3535,7 +4225,7 @@ describe('TxPoolV2', () => {
         const pool1 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          pendingTxValidator: alwaysValidValidator,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
         });
         await pool1.start();
 
@@ -3560,7 +4250,7 @@ describe('TxPoolV2', () => {
         const pool2 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          pendingTxValidator: alwaysValidValidator,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
         });
         await pool2.start();
 

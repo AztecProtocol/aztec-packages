@@ -55,7 +55,12 @@ import { ValidatorClient } from './validator.js';
 
 describe('ValidatorClient', () => {
   let config: ValidatorClientConfig &
-    Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'> & { disableTransactions: boolean };
+    Pick<
+      SlasherConfig,
+      'slashBroadcastedInvalidBlockPenalty' | 'slashDuplicateProposalPenalty' | 'slashDuplicateAttestationPenalty'
+    > & {
+      disableTransactions: boolean;
+    };
   let validatorClient: ValidatorClient;
   let p2pClient: MockProxy<P2P>;
   let blockSource: MockProxy<L2BlockSource & L2BlockSink>;
@@ -115,6 +120,8 @@ describe('ValidatorClient', () => {
       disabledValidators: [],
       validatorReexecute: false,
       slashBroadcastedInvalidBlockPenalty: 1n,
+      slashDuplicateProposalPenalty: 1n,
+      slashDuplicateAttestationPenalty: 1n,
       disableTransactions: false,
       haSigningEnabled: false,
       l1Contracts: { rollupAddress: EthAddress.random() },
@@ -229,7 +236,7 @@ describe('ValidatorClient', () => {
       epochCache.filterInCommittee.mockResolvedValueOnce(
         validatorAccounts.map(account => EthAddress.fromString(account.address)),
       );
-      const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addCheckpointAttestations');
+      const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addOwnCheckpointAttestations');
       const proposal = await makeCheckpointProposal({ lastBlock: {} });
       // collectAttestations still throws as we don't have a real p2pClient
       await expect(
@@ -385,7 +392,7 @@ describe('ValidatorClient', () => {
     });
 
     it('should not attest to a checkpoint proposal if we did not validate a block for that slot', async () => {
-      const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addCheckpointAttestations');
+      const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addOwnCheckpointAttestations');
 
       const checkpointProposal = await makeCheckpointProposal({
         archiveRoot: proposal.archive,
@@ -403,7 +410,7 @@ describe('ValidatorClient', () => {
     });
 
     it('should attest to a checkpoint proposal after validating a block for that slot', async () => {
-      const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addCheckpointAttestations');
+      const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addOwnCheckpointAttestations');
 
       const didValidate = await validatorClient.validateBlockProposal(proposal, sender);
       expect(didValidate).toBe(true);
@@ -702,8 +709,8 @@ describe('ValidatorClient', () => {
       // Set up so validator is NOT in the committee
       epochCache.filterInCommittee.mockResolvedValueOnce([]);
 
-      // Spy on addCheckpointAttestations to verify attestations are NOT added to the pool
-      const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addCheckpointAttestations');
+      // Spy on addOwnCheckpointAttestations to verify attestations are NOT added to the pool
+      const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addOwnCheckpointAttestations');
 
       // In the new model, validateBlockProposal returns a boolean
       // Fisherman mode re-executes to validate but doesn't attest (that's for checkpoint proposals)

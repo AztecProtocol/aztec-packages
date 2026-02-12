@@ -22,7 +22,7 @@ fn correct_checkpoint_end_marker() {
     let marker = create_checkpoint_end_marker(num_blob_fields);
 
     let checkpoint_end_marker_from_ts =
-        0x0000000000000000000000000000636865636b706f696e745f656e64000004d2;
+        0x0000000000000000000000000000000000000000000000008c637443000004d2;
 
     assert_eq(marker, checkpoint_end_marker_from_ts);
 }
@@ -33,7 +33,7 @@ fn large_value_in_checkpoint_end_marker_does_not_get_truncated() {
     let marker = create_checkpoint_end_marker(num_blob_fields);
 
     let large_checkpoint_end_marker_from_ts =
-        0x0000000000000000000000000000636865636b706f696e745f656e64ffffffff;
+        0x0000000000000000000000000000000000000000000000008c637443ffffffff;
 
     assert_eq(marker, large_checkpoint_end_marker_from_ts);
 }

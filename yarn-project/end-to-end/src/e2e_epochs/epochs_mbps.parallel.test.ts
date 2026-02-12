@@ -18,16 +18,17 @@ import { bufferToHex } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { TxStatus } from '@aztec/stdlib/tx';
-import { TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
+import { proveInteraction } from '../test-wallet/utils.js';
 import { EpochsTestContext } from './epochs_test.js';
 
-jest.setTimeout(1000 * 60 * 15);
+jest.setTimeout(1000 * 60 * 20);
 
 const NODE_COUNT = 4;
 const EXPECTED_BLOCKS_PER_CHECKPOINT = 3;
@@ -87,8 +88,8 @@ describe('e2e_epochs/epochs_mbps', () => {
       initialValidators: validators,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
-      aztecProofSubmissionEpochs: 1024,
-      startProverNode: false,
+      startProverNode: true,
+      aztecEpochDuration: 4,
       enforceTimeTable: true,
       // L1 slot duration - using < 8 to enable test mode optimizations
       ethereumSlotDuration: 4,
@@ -110,10 +111,9 @@ describe('e2e_epochs/epochs_mbps', () => {
 
     ({ context, logger, rollup } = test);
     wallet = context.wallet;
-    archiver = (context.aztecNode as AztecNodeService).getBlockSource() as Archiver;
     from = context.accounts[0];
 
-    // Deploy cross-chain contract if needed (before stopping the initial sequencer).
+    // Deploy cross-chain contract if needed (before stopping the initial node).
     // Unlike emit_nullifier (which has #[noinitcheck]), cross-chain methods require a deployed contract.
     if (deployCrossChainContract) {
       logger.warn(`Deploying cross-chain test contract before stopping initial sequencer`);
@@ -132,24 +132,32 @@ describe('e2e_epochs/epochs_mbps', () => {
     );
     logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
 
+    // Point the wallet at a validator node. The initial node-0 has all validator keys in its config,
+    // so it rejects block proposals from validators thinking they come from itself. By redirecting
+    // the wallet to a validator node, the PXE correctly tracks proposed blocks.
+    wallet.updateNode(nodes[0]);
+    archiver = nodes[0].getBlockSource() as Archiver;
+
     // Register contract for sending txs.
     contract = await test.registerTestContract(wallet);
     logger.warn(`Test setup completed.`, { validators: validators.map(v => v.attester.toString()) });
   }
 
-  /** Retrieves all checkpoints from the archiver and checks that one of them at least has the target block count */
-  async function assertMultipleBlocksPerSlot(targetBlockCount: number, logger: Logger) {
+  /** Retrieves all checkpoints from the archiver, checks that one has the target block count, and returns its number. */
+  async function assertMultipleBlocksPerSlot(targetBlockCount: number, logger: Logger): Promise<CheckpointNumber> {
     const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
     logger.warn(`Retrieved ${checkpoints.length} checkpoints from archiver`, {
       checkpoints: checkpoints.map(pc => pc.checkpoint.getStats()),
     });
 
     let expectedBlockNumber = checkpoints[0].checkpoint.blocks[0].number;
-    let targetFound = false;
+    let multiBlockCheckpointNumber: CheckpointNumber | undefined;
 
     for (const checkpoint of checkpoints) {
       const blockCount = checkpoint.checkpoint.blocks.length;
-      targetFound = targetFound || blockCount >= targetBlockCount;
+      if (blockCount >= targetBlockCount && multiBlockCheckpointNumber === undefined) {
+        multiBlockCheckpointNumber = checkpoint.checkpoint.number;
+      }
       logger.warn(`Checkpoint ${checkpoint.checkpoint.number} has ${blockCount} blocks`, {
         checkpoint: checkpoint.checkpoint.getStats(),
       });
@@ -163,7 +171,16 @@ describe('e2e_epochs/epochs_mbps', () => {
       }
     }
 
-    expect(targetFound).toBe(true);
+    expect(multiBlockCheckpointNumber).toBeDefined();
+    return multiBlockCheckpointNumber!;
+  }
+
+  /** Waits until a specific multi-block checkpoint is proven, verifying that proving succeeds with MBPS blocks. */
+  async function waitForProvenCheckpoint(targetCheckpoint: CheckpointNumber) {
+    const provenTimeout = test.L2_SLOT_DURATION_IN_S * test.epochDuration * 4;
+    logger.warn(`Waiting for checkpoint ${targetCheckpoint} to be proven (timeout=${provenTimeout}s)`);
+    await test.waitUntilProvenCheckpointNumber(targetCheckpoint, provenTimeout);
+    logger.warn(`Proven checkpoint advanced to ${test.monitor.provenCheckpointNumber}`);
   }
 
   afterEach(async () => {
@@ -197,7 +214,8 @@ describe('e2e_epochs/epochs_mbps', () => {
     );
     logger.warn(`All txs have been mined`);
 
-    await assertMultipleBlocksPerSlot(EXPECTED_BLOCKS_PER_CHECKPOINT, logger);
+    const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(EXPECTED_BLOCKS_PER_CHECKPOINT, logger);
+    await waitForProvenCheckpoint(multiBlockCheckpoint);
   });
 
   it('builds multiple blocks per slot with transactions anchored to proposed blocks', async () => {
@@ -234,7 +252,8 @@ describe('e2e_epochs/epochs_mbps', () => {
     logger.warn(`All txs have been mined`);
 
     // We are fine with at least 2 blocks per checkpoint, since we may lose one sub-slot if assembling a tx is slow
-    await assertMultipleBlocksPerSlot(2, logger);
+    const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(2, logger);
+    await waitForProvenCheckpoint(multiBlockCheckpoint);
   });
 
   it('builds multiple blocks per slot with L2 to L1 messages', async () => {
@@ -265,7 +284,7 @@ describe('e2e_epochs/epochs_mbps', () => {
     await Promise.all(txHashes.map(txHash => waitForTx(context.aztecNode, txHash, { timeout })));
     logger.warn(`All L2→L1 message txs have been mined`);
 
-    await assertMultipleBlocksPerSlot(EXPECTED_BLOCKS_PER_CHECKPOINT, logger);
+    const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(EXPECTED_BLOCKS_PER_CHECKPOINT, logger);
 
     // Verify L2→L1 messages are in the blocks
     const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
@@ -273,6 +292,7 @@ describe('e2e_epochs/epochs_mbps', () => {
     const allL2ToL1Messages = allBlocks.flatMap(block => block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs));
     logger.warn(`Found ${allL2ToL1Messages.length} L2→L1 message(s) across all blocks`, { allL2ToL1Messages });
     expect(allL2ToL1Messages.length).toBeGreaterThanOrEqual(TX_COUNT);
+    await waitForProvenCheckpoint(multiBlockCheckpoint);
   });
 
   it('builds multiple blocks per slot with L1 to L2 messages', async () => {
@@ -361,7 +381,8 @@ describe('e2e_epochs/epochs_mbps', () => {
     await Promise.all(consumeTxHashes.map(txHash => waitForTx(context.aztecNode, txHash, { timeout })));
     logger.warn(`All ${consumeTxHashes.length} L1→L2 messages consumed`);
 
-    await assertMultipleBlocksPerSlot(2, logger);
+    const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(2, logger);
+    await waitForProvenCheckpoint(multiBlockCheckpoint);
   });
 
   it('builds multiple blocks per slot and non-validators re-execute and sync multi-block slots', async () => {
@@ -445,5 +466,8 @@ describe('e2e_epochs/epochs_mbps', () => {
       test.L2_SLOT_DURATION_IN_S * 10,
       0.5,
     );
+
+    const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(2, logger);
+    await waitForProvenCheckpoint(multiBlockCheckpoint);
   });
 });

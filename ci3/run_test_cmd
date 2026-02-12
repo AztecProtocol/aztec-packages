@@ -47,8 +47,9 @@ if [ "$CI" -eq 1 ]; then
   allow_flakes=1
   track_test_fail=1
 
-  # Track the test in the history tracker if this is in merge queue or targeting a version branch.
-  if [[ "$is_merge_queue" -eq 1 || ("${TARGET_BRANCH:-}" =~ ^v[0-9]) ]]; then
+  # Track the test in the history tracker if this is in merge queue, targeting a version branch, or
+  # targeting a merge-train.
+  if [[ "$is_merge_queue" -eq 1 || ("${TARGET_BRANCH:-}" =~ ^v[0-9]) || ("${TARGET_BRANCH:-}" == merge-train/*) ]]; then
     track_test_history=1
   fi
 
@@ -142,8 +143,7 @@ function live_publish_log {
 log_key=$(uuid)
 log_info=" ($(ci_term_link $log_key))"
 grind_link=$(term_link "/grind?cmd=$(urlencode "$cmd")" "grind")
-# We append this after the PASSED/FAILED/FLAKED for test tracking.
-track_line_postfix="${log_info:-} (${grind_link}): $test_cmd (${SECONDS}s) (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+fail_links="($grind_link)"
 
 # Create a temporary file for the test log.
 tmp_file=/tmp/$key
@@ -170,39 +170,42 @@ if [ "$live_logging" -eq 1 ]; then
   publish_pid=$!
 fi
 
-# Reset timer and run the test in background (for prompt signal handling) using exec_test.
-SECONDS=0
-set +e
-$ci3/exec_test "$cmd" >> "$tmp_file" 2>&1 &
-test_pid=$!
-wait $test_pid
-code=$?
+function run_test {
+  # Reset timer and run the test in background (for prompt signal handling) using exec_test.
+  SECONDS=0
+  set +e
+  $ci3/exec_test "$cmd" >> "$tmp_file" 2>&1 &
+  test_pid=$!
+  wait $test_pid
+  code=$?
 
-# If the test received a SIGTERM or SIGINT, we don't want to track or print anything, just exit.
-if [ "$code" -eq 143 ] || [ "$code" -eq 130 ]; then
-  exit $code
-fi
-
-if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
-  # If the test succeeded and we're in CI, set success flag for test. This key is unique to the test.
-  # If the test succeeded and we're logging passes, save the test log.
-  # If the test failed, save the test log.
-  if [ $code -eq 0 ]; then
-    if [ "$CI" -eq 1 ]; then
-      redis_cli SETEX $key 604800 $log_key &>/dev/null
-    fi
-    if [ "$pass_log" -eq 1 ]; then
-      # Publish final log.
-      publish_log_final
-    else
-      # Scrub the link we optimistically (for live logging) set earlier.
-      log_info=""
-    fi
-  else
-    # Publish final log, extending lifetime of failure to 12 weeks.
-    publish_log_final $((60 * 60 * 24 * 7 * 12))
+  # If the test received a SIGTERM or SIGINT, we don't want to track or print anything, just exit.
+  if [ "$code" -eq 143 ] || [ "$code" -eq 130 ]; then
+    exit $code
   fi
-fi
+}
+
+function finalize_test {
+  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+    # If the test succeeded and we're in CI, set success flag for test. This key is unique to the test.
+    # If the test succeeded and we're logging passes, save the test log.
+    # If the test failed, save the test log.
+    if [ $code -eq 0 ]; then
+      if [ "$CI" -eq 1 ]; then
+        redis_cli SETEX $key 604800 $log_key &>/dev/null
+      fi
+      if [ "$pass_log" -eq 1 ]; then
+        publish_log_final
+      else
+        # Scrub the link we optimistically (for live logging) set earlier.
+        log_info=""
+      fi
+    else
+      # Publish final log, extending lifetime of failure to 12 weeks.
+      publish_log_final $((60 * 60 * 24 * 7 * 12))
+    fi
+  fi
+}
 
 function track_test {
   local list_key=$1
@@ -239,11 +242,13 @@ function publish_redis {
 
 # Show PASSED and early out on success.
 function pass {
+  finalize_test
+
   local line="${green}PASSED${reset}${log_info:-}: $test_cmd (${SECONDS}s)"
   echo -e "$line"
 
   if [ "$track_test_history" -eq 1 ]; then
-    local track_line="${green}PASSED${reset}${log_info:-} ${grind_link}: $test_cmd (${SECONDS}s) (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+    local track_line="${green}PASSED${reset}${log_info:-} ${fail_links}: $test_cmd (${SECONDS}s) (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
     track_test_history "$track_line"
   fi
 
@@ -252,6 +257,8 @@ function pass {
 
 # Show FAILED and exit with error code.
 function fail {
+  finalize_test
+
   local line="${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
   echo -e "$line"
 
@@ -260,7 +267,7 @@ function fail {
     echo -e "$line"
   fi
 
-  local track_line="${red}FAILED${reset}${log_info:-} ${grind_link}: $test_cmd (${SECONDS}s) (code: $code) (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+  local track_line="${red}FAILED${reset}${log_info:-} ${fail_links}: $test_cmd (${SECONDS}s) (code: $code) (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
   [ "$track_test_history" -eq 1 ] && track_test_history "$track_line"
   [ "$track_test_fail" -eq 1 ] && track_test_failed "$track_line"
   [ "$publish" -eq 1 ] && publish_redis "failed"
@@ -281,7 +288,7 @@ function flake {
   local line="${purple}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)${group_suffix}"
   echo -e "$line"
 
-  local track_line="${purple}FLAKED${reset}${log_info:-} ${grind_link}: $test_cmd (${SECONDS}s) (code: $code)${group_suffix} (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+  local track_line="${purple}FLAKED${reset}${log_info:-} ${fail_links}: $test_cmd (${SECONDS}s) (code: $code)${group_suffix} (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
   [ "$track_test_history" -eq 1 ] && track_test_history "$track_line"
   [ "$track_test_fail" -eq 1 ] && track_test_failed "$track_line"
   [ "$publish" -eq 1 ] && publish_redis "flaked"
@@ -303,6 +310,8 @@ function flake {
   exit 0
 }
 
+run_test
+
 # Test passed.
 [ $code -eq 0 ] && pass
 
@@ -318,9 +327,18 @@ owners=$(echo "$test_entries" | jq -r '.owners[]' | sort -u)
 # Extract flake_group_id from first matching entry
 flake_group_id=$(echo "$test_entries" | jq -r '.flake_group_id // empty' | head -1)
 
-# To not fail a test, we at least need an owner to notify.
+# If there's no owner for a failed test, we consider it a hard fail.
+# Otherwise we perform a single retry.
 if [ -z "$owners" ]; then
   fail
 else
-  flake
+  echo -e "${yellow}RETRYING${reset}${log_info:-}: $test_cmd"
+
+  run_test
+
+  # Test passed. Signal it as a flake, but pass.
+  [ $code -eq 0 ] && flake
+
+  # Otherwise we failed twice in a row, so hard fail.
+  fail
 fi

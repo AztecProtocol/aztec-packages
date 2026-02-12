@@ -9,9 +9,13 @@ source $ci3/source_redis
 
 full_cmd="$1"
 timeout="${2:-10m}"
+# Jobs as percentage of CPUs (default 200% = nproc * 2)
+jobs_pct="${3:-200}"
+# Memsuspend threshold as percentage of total memory (default 50%)
+memsuspend_pct="${4:-50}"
 commit_tip=$(git rev-parse HEAD)
-commit="${3:-$commit_tip}"
-jobs=$(($(nproc) * 2))
+commit="${5:-$commit_tip}"
+jobs=$(($(nproc) * jobs_pct / 100))
 
 # Ensure we return to the original commit on exit.
 trap 'git checkout $commit_tip' EXIT
@@ -36,13 +40,16 @@ function build {
 }
 
 function grind {
-    echo "Grinding for $timeout..."
+    echo_header "grinding for $timeout"
     local par_cmd="CI=0 TRACK_TEST_FAIL=1 run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"
     local joblog=$(mktemp)
 
     # Run for full timeout, logging all results (no --halt, collect all failure data)
+    # memsuspend_pct is the % of memory usage at which to start suspending jobs
+    # parallel suspends at 2*SIZE and runs 1 job at SIZE, so SIZE = mem * (100 - pct) / 200
     local mem=$(total_mem_gb)
-    awk 'BEGIN {i=1; while (1) print i++}' | timeout $timeout parallel --memsuspend $((mem / 4))G --halt now,fail=10 --joblog "$joblog" -j $jobs --line-buffer "$par_cmd" || true
+    local memsuspend_gb=$((mem * (100 - memsuspend_pct) / 200))
+    awk 'BEGIN {i=1; while (1) print i++}' | timeout $timeout parallel --memsuspend ${memsuspend_gb}G --halt now,fail=10 --joblog "$joblog" -j $jobs --line-buffer "$par_cmd" || true
 
     # Check if any jobs failed (column 7 is exitval in joblog)
     if awk 'NR>1 && $7!=0 {found=1} END {exit !found}' "$joblog"; then
@@ -59,6 +66,8 @@ echo "Make target: ${MAKEFILE_TARGET:-<none, full bootstrap>}"
 echo "Grind for: $timeout"
 echo "Commit: $commit"
 echo "Ref name: $REF_NAME"
+echo "Jobs: $jobs (${jobs_pct}% of $(nproc) CPUs)"
+echo "Memsuspend: ${memsuspend_pct}% of memory"
 echo
 
 ulimit -n $(ulimit -Hn)

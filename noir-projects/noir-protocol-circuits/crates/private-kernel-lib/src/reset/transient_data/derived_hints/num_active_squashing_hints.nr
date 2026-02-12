@@ -1,5 +1,5 @@
 use crate::reset::transient_data::transient_data_squashing_hint::TransientDataSquashingHint;
-use dep::types::{
+use types::{
     abis::nullifier::Nullifier,
     side_effect::{Counted, Scoped},
     utils::arrays::{ClaimedLengthArray, find_first_index},

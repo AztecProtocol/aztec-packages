@@ -238,7 +238,7 @@ The TypeScript API reference is auto-generated from the `yarn-project/` packages
 
 **Documented packages:**
 
-- **Client SDKs:** `@aztec/aztec.js`, `@aztec/accounts`, `@aztec/pxe`, `@aztec/wallet-sdk`, `@aztec/test-wallet`, `@aztec/entrypoints`
+- **Client SDKs:** `@aztec/aztec.js`, `@aztec/accounts`, `@aztec/pxe`, `@aztec/wallet-sdk`, `@aztec/wallets`, `@aztec/entrypoints`
 - **Core Libraries:** `@aztec/stdlib`, `@aztec/foundation`, `@aztec/constants`
 
 **Prerequisites:** You need `yarn-project` to be built first (the bootstrap process handles this).
@@ -371,20 +371,20 @@ This value may be different from both `#include_aztec_version` and `#include_tes
 
 ### `#include_mainnet_version`
 
-This macro will be replaced inline with the provided mainnet version. This value is sourced from the `MAINNET_TAG` environment variable when running `yarn build` (e.g. `MAINNET_TAG=2.1.9 yarn build`). If not specified, it defaults to `2.1.9`.
+This macro will be replaced inline with the provided mainnet version. This value is sourced from the `MAINNET_TAG` environment variable when running `yarn build` (e.g. `MAINNET_TAG=2.1.11 yarn build`). If not specified, it defaults to `2.1.11`.
 This value is used for mainnet and ignition releases.
 
 ### `#release_version`
 
 This macro is release-type-aware and automatically resolves to the appropriate version based on the `RELEASE_TYPE` environment variable:
 
-| RELEASE_TYPE | Resolves to | Example |
-|--------------|-------------|---------|
-| nightly | `NIGHTLY_TAG` (falls back to `COMMIT_TAG`) | `3.0.0-nightly.20251218` |
-| devnet | `DEVNET_TAG` | `3.0.0-devnet.5` |
-| testnet | `TESTNET_TAG` | `2.1.9` |
-| mainnet | `MAINNET_TAG` | `2.1.9` |
-| ignition | `MAINNET_TAG` | `2.1.9` |
+| RELEASE_TYPE | Resolves to                                | Example                  |
+| ------------ | ------------------------------------------ | ------------------------ |
+| nightly      | `NIGHTLY_TAG` (falls back to `COMMIT_TAG`) | `3.0.0-nightly.20251218` |
+| devnet       | `DEVNET_TAG`                               | `3.0.0-devnet.5`         |
+| testnet      | `TESTNET_TAG`                              | `2.1.11`                 |
+| mainnet      | `MAINNET_TAG`                              | `2.1.11`                 |
+| ignition     | `MAINNET_TAG`                              | `2.1.11`                 |
 
 Usage: `aztecprotocol/aztec:#release_version`
 
@@ -392,13 +392,13 @@ Usage: `aztecprotocol/aztec:#release_version`
 
 This macro resolves to the network name for use with the `--network` CLI flag:
 
-| RELEASE_TYPE | Resolves to |
-|--------------|-------------|
-| nightly | `local-network` |
-| devnet | `devnet` |
-| testnet | `testnet` |
-| mainnet | `mainnet` |
-| ignition | `mainnet` |
+| RELEASE_TYPE | Resolves to     |
+| ------------ | --------------- |
+| nightly      | `local-network` |
+| devnet       | `devnet`        |
+| testnet      | `testnet`       |
+| mainnet      | `mainnet`       |
+| ignition     | `mainnet`       |
 
 Usage: `--network #release_network`
 
@@ -413,6 +413,7 @@ The `RELEASE_TYPE` environment variable controls which release type the document
 - `ignition` - For ignition releases (treated as mainnet)
 
 Example build commands:
+
 ```bash
 # Build for nightly (default)
 NIGHTLY_TAG=v3.0.0-nightly.20251218 yarn build
@@ -421,10 +422,10 @@ NIGHTLY_TAG=v3.0.0-nightly.20251218 yarn build
 RELEASE_TYPE=devnet DEVNET_TAG=3.0.0-devnet.5 yarn build
 
 # Build for testnet
-RELEASE_TYPE=testnet TESTNET_TAG=2.1.9 yarn build
+RELEASE_TYPE=testnet TESTNET_TAG=2.1.11 yarn build
 
 # Build for ignition/mainnet
-RELEASE_TYPE=ignition MAINNET_TAG=2.1.9 yarn build
+RELEASE_TYPE=ignition MAINNET_TAG=2.1.11 yarn build
 ```
 
 ### Conditional Content
@@ -446,6 +447,7 @@ Default content if no condition matches
 ```
 
 **Supported conditions** (matching `RELEASE_TYPE` values):
+
 - `nightly` - True when `RELEASE_TYPE=nightly`
 - `devnet` - True when `RELEASE_TYPE=devnet`
 - `testnet` - True when `RELEASE_TYPE=testnet`
@@ -453,6 +455,7 @@ Default content if no condition matches
 - `ignition` - Alias for `mainnet`
 
 **Notes:**
+
 - Conditional blocks are processed before version macro substitution, so you can use version macros inside conditionals
 - Nested conditionals are not supported
 - The `else` block is optional
@@ -516,7 +519,6 @@ When documentation references source code files, the CI system can automatically
    ```
 
 2. **Automatic Detection**: During CI builds (`bootstrap.sh`), the system:
-
    - Extracts all referenced paths from documentation frontmatter
    - Checks if any referenced files (or files within referenced directories) changed in the current PR
    - Automatically requests `@AztecProtocol/devrel` as reviewers if:
@@ -532,6 +534,7 @@ When documentation references source code files, the CI system can automatically
 **Implementation**: The automation is handled by `scripts/check_doc_references.sh`, which runs as part of the docs CI pipeline.
 
 **Path Format**:
+
 - Paths must be absolute from the repository root (e.g., `yarn-project/...`, not `../../../../yarn-project/...`)
 - For individual files: `"path/to/file.ts"`
 - For directories (all files within): `"path/to/directory/*"`
@@ -556,24 +559,28 @@ Building on the DevRel review automation, the docs CI can analyze PRs and notify
    - The DevRel team can review and apply the changes manually
 
 **Requirements**:
+
 - `ANTHROPIC_API_KEY` must be set in CI secrets
 - `SLACK_BOT_TOKEN` must be set for Slack notifications
 - Claude Code CLI must be installed (`@anthropic-ai/claude-code`)
 - The PR must not be a draft
 
 **Environment Variables**:
+
 - `SLACK_DOC_UPDATE_CHANNEL` - Slack channel for notifications (default: `#devrel`)
 - `DRY_RUN=1` - Skip Slack notification, just print what would be sent
 
 **Implementation**: The automation is handled by `scripts/update_doc_references.sh`, which runs as part of the docs CI pipeline after `check_doc_references.sh`.
 
 **Script Architecture**:
+
 - `scripts/update_doc_references.sh` - Main script that orchestrates the workflow
 - `scripts/lib/extract_doc_references.sh` - Shared library for parsing frontmatter references
 - `scripts/lib/create_doc_update_pr.sh` - (Reserved for future use) PR creation logic
 - `scripts/test_update_doc_references.sh` - Local testing helper
 
 **Local Testing**:
+
 ```bash
 # Find a PR with referenced file changes and test
 ./scripts/test_update_doc_references.sh
@@ -583,6 +590,7 @@ LOCAL_TEST=1 DRY_RUN=1 ./scripts/update_doc_references.sh 19803
 ```
 
 **Limitations**:
+
 - Only analyzes documentation in the source folders (`docs-developers/`, `docs-network/`), not versioned docs
 - Suggested changes should always be reviewed by a human before applying
 - The AI may occasionally suggest unnecessary or incorrect changes

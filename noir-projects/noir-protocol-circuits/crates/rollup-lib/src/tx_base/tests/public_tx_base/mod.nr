@@ -9,7 +9,7 @@ use crate::{
     tests::RollupFixtureBuilder,
     tx_base::public_tx_base_rollup::{self, PublicTxBaseRollupPrivateInputs},
 };
-use dep::types::{
+use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         avm_circuit_public_inputs::AvmCircuitPublicInputs, block_constant_data::BlockConstantData,

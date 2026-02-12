@@ -1,4 +1,6 @@
-import { MIN_EXECUTION_TIME, SequencerTimetable } from './timetable.js';
+import { MIN_EXECUTION_TIME } from '@aztec/stdlib/timetable';
+
+import { SequencerTimetable } from './timetable.js';
 import { SequencerState } from './utils.js';
 
 describe('sequencer-timetable', () => {

@@ -40,7 +40,7 @@
       "path": "../telemetry-client"
     },
     {
-      "path": "../test-wallet"
+      "path": "../wallets"
     }
   ],
   "include": ["src"]

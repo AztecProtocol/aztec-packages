@@ -46,14 +46,14 @@ proof_fr = [
 ]
 
 pairing_points = [
-    "PAIRING_POINT_0",
-    "PAIRING_POINT_1",
-    "PAIRING_POINT_2",
-    "PAIRING_POINT_3",
-    "PAIRING_POINT_4",
-    "PAIRING_POINT_5",
-    "PAIRING_POINT_6",
-    "PAIRING_POINT_7",
+    "PAIRING_POINT_0_X_0_LOC",
+    "PAIRING_POINT_0_X_1_LOC",
+    "PAIRING_POINT_0_Y_0_LOC",
+    "PAIRING_POINT_0_Y_1_LOC",
+    "PAIRING_POINT_1_X_0_LOC",
+    "PAIRING_POINT_1_X_1_LOC",
+    "PAIRING_POINT_1_Y_0_LOC",
+    "PAIRING_POINT_1_Y_1_LOC",
 ]
 
 proof_g1 = [

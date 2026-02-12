@@ -10,7 +10,7 @@ This guide covers how to test Aztec smart contracts by connecting to a local net
 ## Prerequisites
 
 - A running [local Aztec network](../../getting_started_on_local_network.md)
-- A compiled contract artifact (see [How to compile a contract](../aztec-nr/how_to_compile_contract.md))
+- A compiled contract artifact (see [How to compile a contract](../aztec-nr/compiling_contracts.md))
 - Node.js test framework (Jest, Vitest, or similar)
 
 ## Setting up the test environment
@@ -181,4 +181,4 @@ Use `.simulate()` to test reverts without spending gas. The simulation will thro
 - [How to send transactions](./how_to_send_transaction.md)
 - [How to deploy a contract](./how_to_deploy_contract.md)
 - [How to create an account](./how_to_create_account.md)
-- [How to compile a contract](../aztec-nr/how_to_compile_contract.md)
+- [How to compile a contract](../aztec-nr/compiling_contracts.md)

@@ -1,14 +1,13 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
-import type { AnyTx, Tx } from '@aztec/stdlib/tx';
-import { TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP } from '@aztec/stdlib/tx';
+import { TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP, type Tx } from '@aztec/stdlib/tx';
 
 import { TimestampTxValidator } from './timestamp_validator.js';
 
 describe('TimestampTxValidator', () => {
   let timestamp: bigint;
   let seed = 1;
-  let validator: TimestampTxValidator<AnyTx>;
+  let validator: TimestampTxValidator<Tx>;
 
   const setValidatorAtBlock = (blockNumber: BlockNumber) => {
     timestamp = 10n;

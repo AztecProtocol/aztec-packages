@@ -1,4 +1,4 @@
-import { AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_CHECKPOINT } from '@aztec/constants';
+import { BLOBS_PER_CHECKPOINT, MAX_CHECKPOINTS_PER_EPOCH } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { BLS12Fr, BLS12Point } from '@aztec/foundation/curves/bls12';
@@ -75,9 +75,9 @@ export class BatchedBlobAccumulator {
    */
   static async batch(blobFieldsPerCheckpoint: Fr[][], verifyProof = false): Promise<BatchedBlob> {
     const numCheckpoints = blobFieldsPerCheckpoint.length;
-    if (numCheckpoints > AZTEC_MAX_EPOCH_DURATION) {
+    if (numCheckpoints > MAX_CHECKPOINTS_PER_EPOCH) {
       throw new Error(
-        `Too many checkpoints sent to batch(). The maximum is ${AZTEC_MAX_EPOCH_DURATION}. Got ${numCheckpoints}.`,
+        `Too many checkpoints sent to batch(). The maximum is ${MAX_CHECKPOINTS_PER_EPOCH}. Got ${numCheckpoints}.`,
       );
     }
 

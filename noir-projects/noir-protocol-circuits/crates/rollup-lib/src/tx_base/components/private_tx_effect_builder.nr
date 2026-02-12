@@ -1,5 +1,5 @@
 use crate::tx_base::components::fees::compute_transaction_fee;
-use dep::types::{
+use types::{
     abis::{
         block_constant_data::BlockConstantData, contract_class_log::ContractClassLog,
         kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs, log::Log,

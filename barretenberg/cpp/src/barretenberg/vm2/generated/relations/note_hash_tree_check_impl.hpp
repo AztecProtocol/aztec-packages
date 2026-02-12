@@ -18,9 +18,9 @@ void note_hash_tree_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_NOTE_HASH_TREE_HEIGHT = FF(42);
     const auto constants_AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX = FF(169);
     const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX = FF(386);
-    const auto constants_DOM_SEP__NOTE_HASH_NONCE = FF(4040695053UL);
-    const auto constants_DOM_SEP__UNIQUE_NOTE_HASH = FF(1615905817);
-    const auto constants_DOM_SEP__SILOED_NOTE_HASH = FF(3552985968UL);
+    const auto constants_DOM_SEP__NOTE_HASH_NONCE = FF(1721808740);
+    const auto constants_DOM_SEP__UNIQUE_NOTE_HASH = FF(226850429);
+    const auto constants_DOM_SEP__SILOED_NOTE_HASH = FF(3361878420UL);
     const auto note_hash_tree_check_READ = (FF(1) - in.get(C::note_hash_tree_check_write));
     const auto note_hash_tree_check_PREV_LEAF_VALUE_UNIQUE_NOTE_HASH_DIFF =
         (in.get(C::note_hash_tree_check_prev_leaf_value) - in.get(C::note_hash_tree_check_unique_note_hash));

@@ -3,7 +3,7 @@ import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { Aes128 } from '@aztec/foundation/crypto/aes128';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
-import { LogLevels, applyStringFormatting, createLogger } from '@aztec/foundation/log';
+import { LogLevels, type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
@@ -40,6 +40,27 @@ import { pickNotes } from '../pick_notes.js';
 import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
+/** Args for UtilityExecutionOracle constructor. */
+export type UtilityExecutionOracleArgs = {
+  contractAddress: AztecAddress;
+  /** List of transient auth witnesses to be used during this simulation */
+  authWitnesses: AuthWitness[];
+  capsules: Capsule[]; // TODO(#12425): Rename to transientCapsules
+  anchorBlockHeader: BlockHeader;
+  contractStore: ContractStore;
+  noteStore: NoteStore;
+  keyStore: KeyStore;
+  addressStore: AddressStore;
+  aztecNode: AztecNode;
+  recipientTaggingStore: RecipientTaggingStore;
+  senderAddressBookStore: SenderAddressBookStore;
+  capsuleStore: CapsuleStore;
+  privateEventStore: PrivateEventStore;
+  jobId: string;
+  log?: ReturnType<typeof createLogger>;
+  scopes?: AztecAddress[];
+};
+
 /**
  * The oracle for an execution of utility contract functions.
  */
@@ -47,27 +68,43 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   isMisc = true as const;
   isUtility = true as const;
 
-  private aztecNrDebugLog = createLogger('aztec-nr:debug_log');
+  private contractLogger: Logger | undefined;
 
-  constructor(
-    protected readonly contractAddress: AztecAddress,
-    /** List of transient auth witnesses to be used during this simulation */
-    protected readonly authWitnesses: AuthWitness[],
-    protected readonly capsules: Capsule[], // TODO(#12425): Rename to transientCapsules
-    protected readonly anchorBlockHeader: BlockHeader,
-    protected readonly contractStore: ContractStore,
-    protected readonly noteStore: NoteStore,
-    protected readonly keyStore: KeyStore,
-    protected readonly addressStore: AddressStore,
-    protected readonly aztecNode: AztecNode,
-    protected readonly recipientTaggingStore: RecipientTaggingStore,
-    protected readonly senderAddressBookStore: SenderAddressBookStore,
-    protected readonly capsuleStore: CapsuleStore,
-    protected readonly privateEventStore: PrivateEventStore,
-    protected readonly jobId: string,
-    protected log = createLogger('simulator:client_view_context'),
-    protected readonly scopes?: AztecAddress[],
-  ) {}
+  protected readonly contractAddress: AztecAddress;
+  protected readonly authWitnesses: AuthWitness[];
+  protected readonly capsules: Capsule[];
+  protected readonly anchorBlockHeader: BlockHeader;
+  protected readonly contractStore: ContractStore;
+  protected readonly noteStore: NoteStore;
+  protected readonly keyStore: KeyStore;
+  protected readonly addressStore: AddressStore;
+  protected readonly aztecNode: AztecNode;
+  protected readonly recipientTaggingStore: RecipientTaggingStore;
+  protected readonly senderAddressBookStore: SenderAddressBookStore;
+  protected readonly capsuleStore: CapsuleStore;
+  protected readonly privateEventStore: PrivateEventStore;
+  protected readonly jobId: string;
+  protected log: ReturnType<typeof createLogger>;
+  protected readonly scopes?: AztecAddress[];
+
+  constructor(args: UtilityExecutionOracleArgs) {
+    this.contractAddress = args.contractAddress;
+    this.authWitnesses = args.authWitnesses;
+    this.capsules = args.capsules;
+    this.anchorBlockHeader = args.anchorBlockHeader;
+    this.contractStore = args.contractStore;
+    this.noteStore = args.noteStore;
+    this.keyStore = args.keyStore;
+    this.addressStore = args.addressStore;
+    this.aztecNode = args.aztecNode;
+    this.recipientTaggingStore = args.recipientTaggingStore;
+    this.senderAddressBookStore = args.senderAddressBookStore;
+    this.capsuleStore = args.capsuleStore;
+    this.privateEventStore = args.privateEventStore;
+    this.jobId = args.jobId;
+    this.log = args.log ?? createLogger('simulator:client_view_context');
+    this.scopes = args.scopes;
+  }
 
   public utilityAssertCompatibleOracleVersion(version: number): void {
     if (version !== ORACLE_VERSION) {
@@ -88,8 +125,21 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param pkMHash - The master public key hash.
    * @returns A Promise that resolves to nullifier keys.
    * @throws If the keys are not registered in the key store.
+   * @throws If scopes are defined and the account is not in the scopes.
    */
-  public utilityGetKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
+  public async utilityGetKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
+    // If scopes are defined, check that the key belongs to an account in the scopes.
+    if (this.scopes && this.scopes.length > 0) {
+      let hasAccess = false;
+      for (let i = 0; i < this.scopes.length && !hasAccess; i++) {
+        if (await this.keyStore.accountHasKey(this.scopes[i], pkMHash)) {
+          hasAccess = true;
+        }
+      }
+      if (!hasAccess) {
+        throw new Error(`Key validation request denied: no scoped account has a key with hash ${pkMHash.toString()}.`);
+      }
+    }
     return this.keyStore.getKeyValidationRequest(pkMHash, this.contractAddress);
   }
 
@@ -289,8 +339,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns A boolean indicating whether the nullifier exists in the tree or not.
    */
   public async utilityCheckNullifierExists(innerNullifier: Fr) {
-    const nullifier = await siloNullifier(this.contractAddress, innerNullifier!);
-    const [leafIndex] = await this.aztecNode.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [nullifier]);
+    const [nullifier, anchorBlockHash] = await Promise.all([
+      siloNullifier(this.contractAddress, innerNullifier!),
+      this.anchorBlockHeader.hash(),
+    ]);
+    const [leafIndex] = await this.aztecNode.findLeavesIndexes(anchorBlockHash, MerkleTreeId.NULLIFIER_TREE, [
+      nullifier,
+    ]);
     return leafIndex?.data !== undefined;
   }
 
@@ -341,12 +396,28 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return values;
   }
 
-  public utilityDebugLog(level: number, message: string, fields: Fr[]): void {
+  /**
+   * Returns a per-contract logger whose output is prefixed with `contract_log::<name>(<addrAbbrev>)`.
+   */
+  async #getContractLogger(): Promise<Logger> {
+    if (!this.contractLogger) {
+      const addrAbbrev = this.contractAddress.toString().slice(0, 10);
+      const name = await this.contractStore.getDebugContractName(this.contractAddress);
+      const module = name ? `contract_log::${name}(${addrAbbrev})` : `contract_log::${addrAbbrev}`;
+      // Purpose of instanceId is to distinguish logs from different instances of the same component. It makes sense
+      // to re-use jobId as instanceId here as executions of different PXE jobs are isolated.
+      this.contractLogger = createLogger(module, { instanceId: this.jobId });
+    }
+    return this.contractLogger;
+  }
+
+  public async utilityLog(level: number, message: string, fields: Fr[]): Promise<void> {
     if (!LogLevels[level]) {
-      throw new Error(`Invalid debug log level: ${level}`);
+      throw new Error(`Invalid log level: ${level}`);
     }
     const levelName = LogLevels[level];
-    this.aztecNrDebugLog[levelName](`${applyStringFormatting(message, fields)}`);
+    const logger = await this.#getContractLogger();
+    logger[levelName](`${applyStringFormatting(message, fields)}`);
   }
 
   public async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {

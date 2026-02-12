@@ -779,7 +779,7 @@ export class CheckpointProposalJob implements Traceable {
     const failedTxData = failedTxs.map(fail => fail.tx);
     const failedTxHashes = failedTxData.map(tx => tx.getTxHash());
     this.log.verbose(`Dropping failed txs ${failedTxHashes.join(', ')}`);
-    await this.p2pClient.deleteTxs(failedTxHashes);
+    await this.p2pClient.handleFailedExecution(failedTxHashes);
   }
 
   /**

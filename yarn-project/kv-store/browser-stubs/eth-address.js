@@ -1,6 +1,5 @@
 // Browser stub for @aztec/foundation/eth-address
-// Provides a simple EthAddress implementation without crypto dependencies
-
+// Only used during vitest browser tests to avoid loading Barretenberg WASM.
 import { z } from 'zod';
 
 export class EthAddress {
@@ -37,9 +36,12 @@ export class EthAddress {
   static ZERO = new EthAddress(new Uint8Array(20));
 
   toString() {
-    return '0x' + Array.from(this.buffer)
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
+    return (
+      '0x' +
+      Array.from(this.buffer)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('')
+    );
   }
 
   toBuffer() {

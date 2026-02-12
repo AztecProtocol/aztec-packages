@@ -104,6 +104,11 @@ export class KeyStore {
     return accounts.map(account => AztecAddress.fromString(account));
   }
 
+  /** Checks whether an account is registered in the key store. */
+  public async hasAccount(account: AztecAddress): Promise<boolean> {
+    return !!(await this.#keys.getAsync(`${account.toString()}-ivsk_m`));
+  }
+
   /**
    * Gets the key validation request for a given master public key hash and contract address.
    * @throws If the account corresponding to the master public key hash does not exist in the key store.
@@ -278,6 +283,23 @@ export class KeyStore {
     }
 
     return Promise.resolve(skM);
+  }
+
+  /**
+   * Checks whether a given account has a key matching the provided master public key hash.
+   * @param account - The account address to check.
+   * @param pkMHash - The master public key hash to look for.
+   * @returns True if the account has a key with the given hash.
+   */
+  public async accountHasKey(account: AztecAddress, pkMHash: Fr): Promise<boolean> {
+    const pkMHashBuffer = serializeToBuffer(pkMHash);
+    for (const prefix of KEY_PREFIXES) {
+      const stored = await this.#keys.getAsync(`${account.toString()}-${prefix}pk_m_hash`);
+      if (stored && Buffer.from(stored).equals(pkMHashBuffer)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

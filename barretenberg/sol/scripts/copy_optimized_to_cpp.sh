@@ -25,7 +25,7 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 
 # Define paths relative to the barretenberg directory
 BARRETENBERG_DIR="$REPO_ROOT/barretenberg"
-SOL_SRC_FILE="$BARRETENBERG_DIR/sol/src/honk/optimised/honk-optimized.sol"
+SOL_SRC_FILE="$BARRETENBERG_DIR/sol/src/honk/instance/BlakeHonkOpt.sol"
 CPP_FILE="$BARRETENBERG_DIR/cpp/src/barretenberg/dsl/acir_proofs/honk_optimized_contract.hpp"
 
 # Check if source file exists

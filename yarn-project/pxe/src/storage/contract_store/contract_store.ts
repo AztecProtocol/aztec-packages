@@ -316,15 +316,15 @@ export class ContractStore {
       throw new Error(`Unknown function ${functionName} in contract ${contract.name}.`);
     }
 
-    return {
+    return FunctionCall.from({
       name: functionDao.name,
-      args: encodeArguments(functionDao, args),
+      to,
       selector: await FunctionSelector.fromNameAndParameters(functionDao.name, functionDao.parameters),
       type: functionDao.functionType,
-      to,
       hideMsgSender: false,
       isStatic: functionDao.isStatic,
+      args: encodeArguments(functionDao, args),
       returnTypes: functionDao.returnTypes,
-    };
+    });
   }
 }
