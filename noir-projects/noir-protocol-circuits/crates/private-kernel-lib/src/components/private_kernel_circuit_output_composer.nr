@@ -32,7 +32,7 @@ use types::{
         validation_requests::PrivateValidationRequests,
     },
     address::AztecAddress,
-    hash::{create_protocol_nullifier, silo_nullifier},
+    hash::{compute_siloed_nullifier, create_protocol_nullifier},
     side_effect::Ordered,
     traits::Empty,
     utils::arrays::ClaimedLengthArray,
@@ -78,7 +78,10 @@ impl PrivateKernelCircuitOutputComposer {
         // If `first_nullifier_hint` equals the protocol nullifier, it is inserted at index 0. Otherwise, at least one
         // private call must emit a nullifier, and the hint should match the first nullifier emitted.
         let scoped_protocol_nullifier = create_protocol_nullifier(inputs.tx_request);
-        let protocol_nullifier = silo_nullifier(scoped_protocol_nullifier);
+        let protocol_nullifier = compute_siloed_nullifier(
+            scoped_protocol_nullifier.contract_address,
+            scoped_protocol_nullifier.innermost().value,
+        );
         let should_inject_protocol_nullifier = inputs.first_nullifier_hint == protocol_nullifier;
         if should_inject_protocol_nullifier {
             // Safety: we should ordinarily use `push`, so that the length correctly updates, but we know this is the very

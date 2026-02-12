@@ -6,7 +6,7 @@ use types::{
     },
     blob_data::{TxEffect, TxEffectArrayLengths},
     constants::{CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX},
-    hash::silo_l2_to_l1_message,
+    hash::compute_l2_to_l1_message_hash,
     traits::Hash,
     utils::arrays::{array_length_until, array_merge},
 };
@@ -21,9 +21,17 @@ pub fn build_tx_effect(
     let global_variables = avm.global_variables;
 
     // Compute siloed L2-to-L1 message hashes (siloed with the contract address of the function that
-    // emitted the message). We do this sequencer-side, because the hashes are computed with sha256.
-    let siloed_l2_to_l1_msgs = avm.accumulated_data.l2_to_l1_msgs.map(|message| {
-        silo_l2_to_l1_message(message, global_variables.version, global_variables.chain_id)
+    // emitted the message). We do this sequencer-side, because the hashes are computed with sha256
+    // for EVM compatibility.
+    // The private kernel init and inner circuits add l2_to_l1_msgs with non-zero contract addresses within the
+    // claimed length. The private kernel tail-to-public circuit ensures that items beyond the claimed length are empty.
+    // Therefore, the array is left-packed, and we can safely compute the hashes by checking the contract addresses.
+    let siloed_l2_to_l1_msgs = avm.accumulated_data.l2_to_l1_msgs.map(|message| if message
+        .contract_address
+        .is_zero() {
+        0
+    } else {
+        compute_l2_to_l1_message_hash(message, global_variables.version, global_variables.chain_id)
     });
 
     // If any of the public functions reverted within the `avm`, then the tx is considered to have reverted,

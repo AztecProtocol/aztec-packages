@@ -4,18 +4,17 @@ import {
   CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE,
   CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
   FEE_JUICE_ADDRESS,
-  GeneratorIndex,
   MAX_PROTOCOL_CONTRACTS,
   MULTI_CALL_ENTRYPOINT_ADDRESS,
   PUBLIC_CHECKS_ADDRESS,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { loadContractArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
+import { computeSiloedPrivateLogFirstField } from '@aztec/stdlib/hash';
 import { type NoirCompiledContract } from '@aztec/stdlib/noir';
 import { ProtocolContracts } from '@aztec/stdlib/tx';
 
@@ -136,9 +135,9 @@ async function generateProtocolContractsList(names: string[], derivedAddresses: 
 // Generate the siloed log tags for events emitted via private logs.
 async function generateLogTags() {
   return `
-  export const CONTRACT_INSTANCE_PUBLISHED_EVENT_TAG = Fr.fromHexString('${await poseidon2HashWithSeparator(
-    [CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE],
-    GeneratorIndex.PRIVATE_LOG_FIRST_FIELD,
+  export const CONTRACT_INSTANCE_PUBLISHED_EVENT_TAG = Fr.fromHexString('${await computeSiloedPrivateLogFirstField(
+    new AztecAddress(new Fr(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)),
+    new Fr(CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE),
   )}');
   `;
 }

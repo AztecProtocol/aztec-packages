@@ -11,7 +11,7 @@ use types::{
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     },
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
-    hash::silo_l2_to_l1_message,
+    hash::compute_l2_to_l1_message_hash,
     traits::{Empty, Hash},
     utils::arrays::{array_length, array_length_until},
 };
@@ -27,11 +27,20 @@ pub fn build_tx_effect(
     // Compute siloed L2-to-L1 message hashes (siloed with the contract address of the function that
     // emitted the message). We do this sequencer-side, because the hashes are computed with sha256
     // for EVM compatibility.
-    let l2_to_l1_msgs = accumulated_data.l2_to_l1_msgs.map(|message| silo_l2_to_l1_message(
-        message,
-        private_to_rollup.constants.tx_context.version,
-        private_to_rollup.constants.tx_context.chain_id,
-    ));
+    // The private kernel init and inner circuits add l2_to_l1_msgs with non-zero contract addresses within the
+    // claimed length. The private kernel tail circuit ensures that items beyond the claimed length are empty.
+    // Therefore, the array is left-packed, and we can safely compute the hashes by checking the contract addresses.
+    let l2_to_l1_msgs = accumulated_data.l2_to_l1_msgs.map(|message| if message
+        .contract_address
+        .is_zero() {
+        0
+    } else {
+        compute_l2_to_l1_message_hash(
+            message,
+            private_to_rollup.constants.tx_context.version,
+            private_to_rollup.constants.tx_context.chain_id,
+        )
+    });
 
     // Compute the transaction fee.
     let transaction_fee = compute_transaction_fee(
