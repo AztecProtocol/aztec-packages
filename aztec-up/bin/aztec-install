@@ -131,9 +131,13 @@ function install_jq {
 }
 
 function install_aztec_up {
-  # Download aztec-up from root (the canonical latest version).
-  # aztec-up is a version manager, so it's not version-specific.
-  curl -fsSL "$INSTALL_URI/aztec-up" -o "$shared_bin_path/aztec-up"
+  if [ -n "$VERSION" ]; then
+    # Download aztec-up from version dir (useful for testing).
+    curl -fsSL "$INSTALL_URI/$VERSION/aztec-up" -o "$shared_bin_path/aztec-up"
+  else
+    # Download aztec-up from root (the canonical latest version).
+    curl -fsSL "$INSTALL_URI/aztec-up" -o "$shared_bin_path/aztec-up"
+  fi
   chmod +x "$shared_bin_path/aztec-up"
 }
 
