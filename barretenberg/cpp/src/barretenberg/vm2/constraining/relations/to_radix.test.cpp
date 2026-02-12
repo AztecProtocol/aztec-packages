@@ -1123,6 +1123,49 @@ TEST(ToRadixMemoryConstrainingTest, NegativeGhostRowInjectionBlocked)
     EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace), "SEL_SHOULD_WRITE_MEM_REQUIRES_SEL");
 }
 
+// We test that the bitwise radix error must not be raised when is_output_bits is true and radix is 2
+TEST(ToRadixMemoryConstrainingTest, NegativeBitwiseRadixError)
+{
+    TestTraceContainer trace({
+        {
+            { C::to_radix_mem_start, 1 },
+            { C::to_radix_mem_sel, 1 },
+            { C::to_radix_mem_sel_radix_eq_2, 1 },
+            { C::to_radix_mem_is_output_bits, 1 },
+        },
+    });
+
+    check_relation<to_radix_mem>(trace, to_radix_mem::SR_IS_OUTPUT_BITS_IMPLY_RADIX_2);
+
+    // Activate maliciously the sel_invalid_bitwise_radix flag
+    trace.set(C::to_radix_mem_sel_invalid_bitwise_radix, 0, 1);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_IS_OUTPUT_BITS_IMPLY_RADIX_2),
+                              "IS_OUTPUT_BITS_IMPLY_RADIX_2");
+}
+
+// We test that the bitwise radix error must be raised when is_output_bits is true and radix is not 2
+TEST(ToRadixMemoryConstrainingTest, NegativeBitwiseRadixNoError)
+{
+    TestTraceContainer trace({
+        {
+            { C::to_radix_mem_start, 1 },
+            { C::to_radix_mem_sel, 1 },
+            { C::to_radix_mem_sel_radix_eq_2, 0 },
+            { C::to_radix_mem_is_output_bits, 1 },
+            { C::to_radix_mem_sel_invalid_bitwise_radix, 1 },
+        },
+    });
+
+    check_relation<to_radix_mem>(trace, to_radix_mem::SR_IS_OUTPUT_BITS_IMPLY_RADIX_2);
+
+    // De-activate maliciously the sel_invalid_bitwise_radix flag
+    trace.set(C::to_radix_mem_sel_invalid_bitwise_radix, 0, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_IS_OUTPUT_BITS_IMPLY_RADIX_2),
+                              "IS_OUTPUT_BITS_IMPLY_RADIX_2");
+}
+
 } // namespace
 
 } // namespace bb::avm2::constraining
