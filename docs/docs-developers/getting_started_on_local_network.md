@@ -25,13 +25,11 @@ This guide will teach you how to install the Aztec local network, run it using t
 
 import { General, Fees } from '@site/src/components/Snippets/general_snippets';
 
-You need two global dependencies on your machine:
-
 - <General.node_ver />
 
 ## Install and run the local network
 
-### Install the local network
+### Install the Aztec toolchain
 
 Run:
 
