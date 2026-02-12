@@ -90,52 +90,89 @@ import { executePrivateFunction } from './oracle/private_execution.js';
 import { PrivateExecutionOracle } from './oracle/private_execution_oracle.js';
 import { UtilityExecutionOracle } from './oracle/utility_execution_oracle.js';
 
+/** Options for ContractFunctionSimulator.run. */
+export type ContractSimulatorRunOpts = {
+  /** The address of the contract (should match request.origin). */
+  contractAddress: AztecAddress;
+  /** The function selector of the entry point. */
+  selector: FunctionSelector;
+  /** The address calling the function. Can be replaced to simulate a call from another contract or account. */
+  msgSender?: AztecAddress;
+  /** The block header to use as base state for this run. */
+  anchorBlockHeader: BlockHeader;
+  /** The address used as a tagging sender when emitting private logs. */
+  senderForTags?: AztecAddress;
+  /** The accounts whose notes we can access in this call. Defaults to all. */
+  scopes?: AztecAddress[];
+  /** The job ID for staged writes. */
+  jobId: string;
+};
+
+/** Args for ContractFunctionSimulator constructor. */
+export type ContractFunctionSimulatorArgs = {
+  contractStore: ContractStore;
+  noteStore: NoteStore;
+  keyStore: KeyStore;
+  addressStore: AddressStore;
+  aztecNode: AztecNode;
+  senderTaggingStore: SenderTaggingStore;
+  recipientTaggingStore: RecipientTaggingStore;
+  senderAddressBookStore: SenderAddressBookStore;
+  capsuleStore: CapsuleStore;
+  privateEventStore: PrivateEventStore;
+  simulator: CircuitSimulator;
+  contractSyncService: ContractSyncService;
+};
+
 /**
  * The contract function simulator.
  */
 export class ContractFunctionSimulator {
-  private log: Logger;
+  private readonly log: Logger;
+  private readonly contractStore: ContractStore;
+  private readonly noteStore: NoteStore;
+  private readonly keyStore: KeyStore;
+  private readonly addressStore: AddressStore;
+  private readonly aztecNode: AztecNode;
+  private readonly senderTaggingStore: SenderTaggingStore;
+  private readonly recipientTaggingStore: RecipientTaggingStore;
+  private readonly senderAddressBookStore: SenderAddressBookStore;
+  private readonly capsuleStore: CapsuleStore;
+  private readonly privateEventStore: PrivateEventStore;
+  private readonly simulator: CircuitSimulator;
+  private readonly contractSyncService: ContractSyncService;
 
-  constructor(
-    private contractStore: ContractStore,
-    private noteStore: NoteStore,
-    private keyStore: KeyStore,
-    private addressStore: AddressStore,
-    private aztecNode: AztecNode,
-    private senderTaggingStore: SenderTaggingStore,
-    private recipientTaggingStore: RecipientTaggingStore,
-    private senderAddressBookStore: SenderAddressBookStore,
-    private capsuleStore: CapsuleStore,
-    private privateEventStore: PrivateEventStore,
-    private simulator: CircuitSimulator,
-    private contractSyncService: ContractSyncService,
-  ) {
+  constructor(args: ContractFunctionSimulatorArgs) {
+    this.contractStore = args.contractStore;
+    this.noteStore = args.noteStore;
+    this.keyStore = args.keyStore;
+    this.addressStore = args.addressStore;
+    this.aztecNode = args.aztecNode;
+    this.senderTaggingStore = args.senderTaggingStore;
+    this.recipientTaggingStore = args.recipientTaggingStore;
+    this.senderAddressBookStore = args.senderAddressBookStore;
+    this.capsuleStore = args.capsuleStore;
+    this.privateEventStore = args.privateEventStore;
+    this.simulator = args.simulator;
+    this.contractSyncService = args.contractSyncService;
     this.log = createLogger('simulator');
   }
 
   /**
    * Runs a private function.
    * @param request - The transaction request.
-   * @param entryPointArtifact - The artifact of the entry point function.
-   * @param contractAddress - The address of the contract (should match request.origin)
-   * @param msgSender - The address calling the function. This can be replaced to simulate a call from another contract
-   * or a specific account.
-   * @param anchorBlockHeader - The block header to use as base state for this run.
-   * @param senderForTags - The address that is used as a tagging sender when emitting private logs. Returned from
-   * the `privateGetSenderForTags` oracle.
-   * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
-   * @param jobId - The job ID for staged writes.
-   * @returns The result of the execution.
    */
   public async run(
     request: TxExecutionRequest,
-    contractAddress: AztecAddress,
-    selector: FunctionSelector,
-    msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
-    anchorBlockHeader: BlockHeader,
-    senderForTags: AztecAddress | undefined,
-    scopes: AztecAddress[] | undefined,
-    jobId: string,
+    {
+      contractAddress,
+      selector,
+      msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
+      anchorBlockHeader,
+      senderForTags,
+      scopes,
+      jobId,
+    }: ContractSimulatorRunOpts,
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
 
@@ -165,38 +202,37 @@ export class ContractFunctionSimulator {
     const noteCache = new ExecutionNoteCache(protocolNullifier);
     const taggingIndexCache = new ExecutionTaggingIndexCache();
 
-    const privateExecutionOracle = new PrivateExecutionOracle(
-      request.firstCallArgsHash,
-      request.txContext,
+    const privateExecutionOracle = new PrivateExecutionOracle({
+      argsHash: request.firstCallArgsHash,
+      txContext: request.txContext,
       callContext,
       anchorBlockHeader,
-      async call => {
-        await this.runUtility(call, [], anchorBlockHeader, scopes, jobId);
+      utilityExecutor: async (call, execScopes) => {
+        await this.runUtility(call, [], anchorBlockHeader, execScopes, jobId);
       },
-      request.authWitnesses,
-      request.capsules,
-      HashedValuesCache.create(request.argsOfCalls),
+      authWitnesses: request.authWitnesses,
+      capsules: request.capsules,
+      executionCache: HashedValuesCache.create(request.argsOfCalls),
       noteCache,
       taggingIndexCache,
-      this.contractStore,
-      this.noteStore,
-      this.keyStore,
-      this.addressStore,
-      this.aztecNode,
-      this.senderTaggingStore,
-      this.recipientTaggingStore,
-      this.senderAddressBookStore,
-      this.capsuleStore,
-      this.privateEventStore,
-      this.contractSyncService,
+      contractStore: this.contractStore,
+      noteStore: this.noteStore,
+      keyStore: this.keyStore,
+      addressStore: this.addressStore,
+      aztecNode: this.aztecNode,
+      senderTaggingStore: this.senderTaggingStore,
+      recipientTaggingStore: this.recipientTaggingStore,
+      senderAddressBookStore: this.senderAddressBookStore,
+      capsuleStore: this.capsuleStore,
+      privateEventStore: this.privateEventStore,
+      contractSyncService: this.contractSyncService,
       jobId,
-      0, // totalPublicArgsCount
-      startSideEffectCounter,
-      undefined, // log
+      totalPublicCalldataCount: 0,
+      sideEffectCounter: startSideEffectCounter,
       scopes,
       senderForTags,
-      this.simulator,
-    );
+      simulator: this.simulator,
+    });
 
     const setupTime = simulatorSetupTimer.ms();
 
@@ -269,24 +305,23 @@ export class ContractFunctionSimulator {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
     }
 
-    const oracle = new UtilityExecutionOracle(
-      call.to,
-      authwits,
-      [],
+    const oracle = new UtilityExecutionOracle({
+      contractAddress: call.to,
+      authWitnesses: authwits,
+      capsules: [],
       anchorBlockHeader,
-      this.contractStore,
-      this.noteStore,
-      this.keyStore,
-      this.addressStore,
-      this.aztecNode,
-      this.recipientTaggingStore,
-      this.senderAddressBookStore,
-      this.capsuleStore,
-      this.privateEventStore,
+      contractStore: this.contractStore,
+      noteStore: this.noteStore,
+      keyStore: this.keyStore,
+      addressStore: this.addressStore,
+      aztecNode: this.aztecNode,
+      recipientTaggingStore: this.recipientTaggingStore,
+      senderAddressBookStore: this.senderAddressBookStore,
+      capsuleStore: this.capsuleStore,
+      privateEventStore: this.privateEventStore,
       jobId,
-      undefined,
       scopes,
-    );
+    });
 
     try {
       this.log.verbose(`Executing utility function ${entryPointArtifact.name}`, {
@@ -359,7 +394,7 @@ class OrderedSideEffect<T> {
  */
 export async function generateSimulatedProvingResult(
   privateExecutionResult: PrivateExecutionResult,
-  contractStore: ContractStore,
+  debugFunctionNameGetter: (contractAddress: AztecAddress, functionSelector: FunctionSelector) => Promise<string>,
   minRevertibleSideEffectCounterOverride?: number,
 ): Promise<PrivateKernelExecutionProofOutput<PrivateKernelTailCircuitPublicInputs>> {
   const siloedNoteHashes: OrderedSideEffect<Fr>[] = [];
@@ -440,7 +475,7 @@ export async function generateSimulatedProvingResult(
       : execution.publicInputs.publicTeardownCallRequest;
 
     executionSteps.push({
-      functionName: await contractStore.getDebugFunctionName(
+      functionName: await debugFunctionNameGetter(
         execution.publicInputs.callContext.contractAddress,
         execution.publicInputs.callContext.functionSelector,
       ),

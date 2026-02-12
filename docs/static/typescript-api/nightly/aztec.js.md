@@ -1,6 +1,6 @@
 # @aztec/aztec.js
 
-Version: v4.0.0-nightly.20260205
+Version: v4.0.0-nightly.20260212
 
 ## Quick Import Reference
 
@@ -196,7 +196,7 @@ new ContractFunctionInteraction(wallet: Wallet, contractAddress: AztecAddress, f
 - `wallet: Wallet`
 
 **Methods**
-- `getFunctionCall() => Promise<{ args: Fr[]; hideMsgSender: boolean; ... }>` - Returns the encoded function call wrapped by this interaction Useful when generating authwits
+- `getFunctionCall() => Promise<FunctionCall>` - Returns the encoded function call wrapped by this interaction Useful when generating authwits
 - `profile(options: ProfileInteractionOptions) => Promise<TxProfileResult>` - Simulate a transaction and profile the gate count for each function in the transaction.
 - `request(options: RequestInteractionOptions) => Promise<ExecutionPayload>` - Returns the execution payload that allows this operation to happen on chain.
 - `send<TReturn>(options: SendInteractionOptionsWithoutWait) => Promise<TReturn>` - Sends a transaction to the contract function with the specified options. By default, waits for the transaction to be mined and returns the receipt (or custom type).
@@ -458,14 +458,16 @@ new FunctionCall(name: string, to: AztecAddress, selector: FunctionSelector, typ
 - `isStatic: boolean` - Whether this call can make modifications to state or not
 - `name: string` - The name of the function to call
 - `returnTypes: AbiType[]` - The return type for decoding
+- `static schema: unknown`
 - `selector: FunctionSelector` - The function being called
 - `to: AztecAddress` - The recipient contract
 - `type: FunctionType` - Type of the function
 
 **Methods**
-- `static empty() => { args: never[]; hideMsgSender: boolean; ... }` - Creates an empty function call.
+- `static empty() => FunctionCall` - Creates an empty function call.
 - `static from(fields: FieldsOf<FunctionCall>) => FunctionCall`
 - `static getFields(fields: FieldsOf<FunctionCall>) => readonly []`
+- `isPublicStatic() => boolean`
 
 ### FunctionSelector
 
@@ -1187,6 +1189,7 @@ Provides basic information about the running node.
 - `l1ContractAddresses: L1ContractAddresses` - The deployed l1 contract addresses
 - `nodeVersion: string` - Version as tracked in the aztec-packages repository.
 - `protocolContractAddresses: ProtocolContractAddresses` - Protocol contract addresses
+- `realProofs: boolean` - Whether the node requires real proofs for transaction submission.
 - `rollupVersion: number` - Rollup version.
 
 ### NoirCompiledContract
@@ -1228,17 +1231,11 @@ Wallet capability response. Returned by wallet after user reviews and approves/d
 
 ## Functions
 
-### broadcastPrivateFunction
+### BlockNumber
 ```typescript
-function broadcastPrivateFunction(wallet: Wallet, artifact: ContractArtifact, selector: FunctionSelector) => Promise<ContractFunctionInteraction>
+function BlockNumber(value: number) => BlockNumber
 ```
-Sets up a call to broadcast a private function's bytecode via the ClassRegistry contract. Note that this is not required for users to call the function, but is rather a convenience to make this code publicly available so dapps or wallets do not need to redistribute it.
-
-### broadcastUtilityFunction
-```typescript
-function broadcastUtilityFunction(wallet: Wallet, artifact: ContractArtifact, selector: FunctionSelector) => Promise<ContractFunctionInteraction>
-```
-Sets up a call to broadcast a utility function's bytecode via the ClassRegistry contract. Note that this is not required for users to call the function, but is rather a convenience to make this code publicly available so dapps or wallets do not need to redistribute it.
+Creates a BlockNumber from a number.
 
 ### computeAppNullifierHidingKey
 ```typescript
@@ -1473,6 +1470,12 @@ type BatchedMethodResultWrapper = unknown
 ```
 Wrapper type for batch results that includes the method name for discriminated union deserialization. Each result is wrapped as { name: 'methodName', result: ActualResult } to allow proper deserialization when AztecAddress and TxHash would otherwise be ambiguous (both are hex strings).
 
+### BlockNumber
+```typescript
+type BlockNumber = Branded<number, "BlockNumber">
+```
+Creates a BlockNumber from a number.
+
 ### CAPABILITY_VERSION
 ```typescript
 type CAPABILITY_VERSION = "1.0"
@@ -1663,13 +1666,13 @@ A type which along with public key forms a preimage of a contract address. See t
 
 ### PrivateEvent
 ```typescript
-type PrivateEvent = unknown
+type PrivateEvent = Event<T>
 ```
 An ABI decoded private event with associated metadata.
 
 ### PrivateEventFilter
 ```typescript
-type PrivateEventFilter = unknown
+type PrivateEventFilter = EventFilterBase & { contractAddress: AztecAddress; scopes: AztecAddress[] }
 ```
 Filter options when querying private events.
 
@@ -1684,6 +1687,18 @@ Represents the options for profiling an interaction.
 type ProfileOptions = Omit<ProfileInteractionOptions, "fee"> & { fee?: GasSettingsOption }
 ```
 Options for profiling interactions with the wallet. Overrides the fee settings of an interaction with a simplified version that only hints at the wallet whether the interaction contains a fee payment method or not
+
+### PublicEvent
+```typescript
+type PublicEvent = Event<T, { contractAddress: AztecAddress }>
+```
+An ABI decoded public event with associated metadata (includes contract address).
+
+### PublicEventFilter
+```typescript
+type PublicEventFilter = EventFilterBase & { contractAddress?: AztecAddress }
+```
+Filter options when querying public events.
 
 ### PublicKey
 ```typescript
@@ -1745,6 +1760,12 @@ type SimulateOptions = Omit<SimulateInteractionOptions, "fee"> & { fee?: GasSett
 ```
 Options for simulating interactions with the wallet. Overrides the fee settings of an interaction with a simplified version that only hints at the wallet whether the interaction contains a fee payment method or not
 
+### SimulateUtilityOptions
+```typescript
+type SimulateUtilityOptions = unknown
+```
+Options for simulating a utility function call.
+
 ### SimulationReturn
 ```typescript
 type SimulationReturn = unknown
@@ -1787,6 +1808,36 @@ type WrappedFieldLike = { inner: FieldLike } | FieldLike
 ```
 Any type that can be converted into a struct with a single `inner` field.
 
+### ZERO
+```typescript
+type ZERO = BlockNumber
+```
+
+### add
+```typescript
+type add = (bn: BlockNumber, increment: number) => BlockNumber
+```
+
+### fromBigInt
+```typescript
+type fromBigInt = (value: bigint) => BlockNumber
+```
+
+### fromCheckpointNumber
+```typescript
+type fromCheckpointNumber = (value: CheckpointNumber) => BlockNumber
+```
+
+### fromString
+```typescript
+type fromString = (value: string) => BlockNumber
+```
+
+### isValid
+```typescript
+type isValid = (value: unknown) => boolean
+```
+
 ## Enums
 
 ### FunctionType
@@ -1815,7 +1866,7 @@ This package references types from other Aztec packages:
 - `ExtendedViemWalletClient`, `L1ContractAddresses`
 
 **@aztec/foundation**
-- `BaseField`, `BlockNumber`, `Buffer32`, `BufferReader`, `EpochNumber`, `EthAddress`, `FieldReader`, `FieldsOf`, `Fq`, `Fr`, `Logger`, `Point`, `SiblingPath`, `SlotNumber`
+- `BaseField`, `BlockNumber`, `Branded`, `Buffer32`, `BufferReader`, `CheckpointNumber`, `EpochNumber`, `EthAddress`, `FieldReader`, `FieldsOf`, `Fq`, `Fr`, `Logger`, `Point`, `SiblingPath`, `SlotNumber`
 
 **@aztec/stdlib**
 - `ABIParameterSchema`, `AbiDecoded`, `AbiErrorType`, `AbiType`, `AbiValue`, `ArrayType`, `AuthWitness`, `AztecAddress`, `AztecNode`, `BasicType`, `BlockHash`, `Capsule`, `ChonkProof`, `CompleteAddress`, `ContractArtifact`, `ContractArtifactWithHash`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractClassLog`, `ContractClassLogFields`, `ContractInstance`, `ContractInstanceWithAddress`, `ContractInstantiationData`, `DebugFileMap`, `EventSelector`, `ExecutionPayload`, `FieldLayout`, `FunctionAbi`, `FunctionArtifact`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `FunctionType`, `Gas`, `GasFees`, `GasSettings`, `GetPublicLogsResponse`, `GlobalVariables`, `Gossipable`, `HashedValues`, `IntegerType`, `L2LogsSource`, `NoirCompiledContract`, `NoirFunctionEntry`, `NoteSelector`, `OffchainEffect`, `PrivateExecutionStep`, `PrivateKernelTailCircuitPublicInputs`, `ProtocolContractAddresses`, `ProvingStats`, `PublicCallRequestWithCalldata`, `PublicKeys`, `RevertCode`, `Selector`, `SimulationStats`, `StringType`, `StructType`, `TopicType`, `TupleType`, `Tx`, `TxContext`, `TxExecutionRequest`, `TxExecutionResult`, `TxHash`, `TxProfileResult`, `TxReceipt`, `TxRequest`, `TxSimulationResult`, `TxStats`, `TxStatus`

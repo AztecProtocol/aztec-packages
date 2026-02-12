@@ -18,10 +18,6 @@
 # ACTIVE REDIRECTS: Core Navigation
 # =============================================================================
 [[redirects]]
-    from = "/try_testnet"
-    to = "/ignition_info"
-
-[[redirects]]
     from = "/guides/smart_contracts/writing_contracts/initializers"
     to = "/developers/docs/aztec-nr/framework-description/functions/how_to_define_functions"
 
@@ -31,11 +27,11 @@
 
 [[redirects]]
     from = "/developers/reference/smart_contract_reference/storage/*"
-    to = "/developers/docs/aztec-nr/framework-description/how_to_define_storage"
+    to = "/developers/docs/aztec-nr/framework-description/state_variables"
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/how_to_define_storage"
-    to = "/developers/docs/guides/smart_contracts/state_variables"
+    to = "/developers/docs/aztec-nr/framework-description/state_variables"
 
 # [[redirects]]
 #     from = "/developers/docs/aztec-cli/cli_reference"
@@ -75,7 +71,7 @@
 
 [[redirects]]
     from = "/v2.0.2/migration_notes"
-    to = "/developers/migration_notes"
+    to = "/developers/docs/resources/migration_notes"
 
 [[redirects]]
     from = "/tutorials/contract_tutorials/crowdfunding_contract"
@@ -187,7 +183,7 @@
 # =============================================================================
 [[redirects]]
     from = "/run_node/*"
-    to = "/operate/setup/running_a_node"
+    to = "/operate/operators/setup/running_a_node"
 
 [[redirects]]
     from = "/developers/tutorials/codealong/contract_tutorials/counter_contract"
@@ -212,7 +208,7 @@
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/define_storage"
-    to = "/developers/docs/aztec-nr/framework-description/how_to_define_storage"
+    to = "/developers/docs/aztec-nr/framework-description/state_variables"
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/call_contracts"
@@ -344,31 +340,31 @@
 # (Netlify processes redirects top-to-bottom, first match wins)
 [[redirects]]
     from = "/the_aztec_network/guides/run_nodes/how_to_run_sequencer"
-    to = "/network/setup/sequencer_management"
+    to = "/operate/operators/setup/sequencer_management"
 
 [[redirects]]
     from = "/the_aztec_network/guides/run_nodes/how_to_run_prover"
-    to = "/network/setup/running_a_prover"
+    to = "/operate/operators/setup/running_a_prover"
 
 [[redirects]]
     from = "/the_aztec_network/guides/run_nodes/how_to_run_full_node"
-    to = "/network/setup/running_a_node"
+    to = "/operate/operators/setup/running_a_node"
 
 [[redirects]]
     from = "/the_aztec_network/guides/run_nodes"
-    to = "/network/setup/running_a_node"
+    to = "/operate/operators/setup/running_a_node"
 
 [[redirects]]
     from = "/the_aztec_network/reference/operator_faq"
-    to = "/network/operation/operator_faq"
+    to = "/operate/operators/operator-faq"
 
 [[redirects]]
     from = "/the_aztec_network/reference/useful_commands"
-    to = "/network/operation/sequencer_management/useful_commands"
+    to = "/operate/operators/sequencer-management/useful-commands"
 
 [[redirects]]
     from = "/the_aztec_network/operation/sequencer_management/running_delegated_stake"
-    to = "/network/operation/sequencer_management/become_a_staking_provider"
+    to = "/operate/operators/setup/staking-provider"
 
 # Network docs wildcard redirect - catches remaining /the_aztec_network paths
 # This MUST come AFTER specific path redirects above
@@ -389,206 +385,97 @@
     status = 301
 
 # =============================================================================
-# PENDING REDIRECTS: Network → Participate Migration
-# TODO: Uncomment these redirects AFTER cutting a new network docs version
-# that removes concepts/ and users/ sections from all versioned docs.
-#
-# These redirect old network docs concepts/users paths to new Participate section.
-# Content like governance, proof of stake, staking/delegation/voting has been
-# consolidated into the Participate section for non-versioned educational content.
+# ACTIVE REDIRECTS: Old Operate paths → Participate & new structure
+# The /network/* → /operate/:splat redirect above handles the first hop,
+# so these catch /operate/concepts/*, /operate/users/*, and old flat paths.
 # Specific paths MUST come before wildcards.
 # =============================================================================
 
-# --- Production paths (ignition version at root /network/) ---
+# --- Concepts → Participate ---
 
 # Governance specific pages
-# [[redirects]]
-#     from = "/network/concepts/governance/governance"
-#     to = "/participate/governance"
-#     status = 301
+[[redirects]]
+    from = "/operate/concepts/governance/governance"
+    to = "/participate/governance"
+    status = 301
 
-# [[redirects]]
-#     from = "/network/concepts/governance/putting_forward_proposals"
-#     to = "/participate/governance/proposal-lifecycle"
-#     status = 301
+[[redirects]]
+    from = "/operate/concepts/governance/putting_forward_proposals"
+    to = "/participate/governance/proposal-lifecycle"
+    status = 301
 
-# [[redirects]]
-#     from = "/network/concepts/governance/voting"
-#     to = "/participate/governance/voting"
-#     status = 301
+[[redirects]]
+    from = "/operate/concepts/governance/voting"
+    to = "/participate/governance/voting"
+    status = 301
 
-# [[redirects]]
-#     from = "/network/concepts/governance/upgrades"
-#     to = "/participate/governance/upgrades"
-#     status = 301
+[[redirects]]
+    from = "/operate/concepts/governance/upgrades"
+    to = "/participate/governance/upgrades"
+    status = 301
 
-# [[redirects]]
-#     from = "/network/concepts/governance/*"
-#     to = "/participate/governance"
-#     status = 301
+[[redirects]]
+    from = "/operate/concepts/governance/*"
+    to = "/participate/governance"
+    status = 301
 
 # Proof of stake → token/staking
-# [[redirects]]
-#     from = "/network/concepts/proof_of_stake/*"
-#     to = "/participate/token/staking"
-#     status = 301
+[[redirects]]
+    from = "/operate/concepts/proof_of_stake/*"
+    to = "/participate/token/staking"
+    status = 301
 
-# [[redirects]]
-#     from = "/network/concepts/proof_of_stake"
-#     to = "/participate/token/staking"
-#     status = 301
+[[redirects]]
+    from = "/operate/concepts/proof_of_stake"
+    to = "/participate/token/staking"
+    status = 301
 
-# Users section → token section
-# [[redirects]]
-#     from = "/network/users/staking"
-#     to = "/participate/token/staking"
-#     status = 301
+# Catch-all for remaining concepts
+[[redirects]]
+    from = "/operate/concepts/*"
+    to = "/participate"
+    status = 301
 
-# [[redirects]]
-#     from = "/network/users/delegation"
-#     to = "/participate/token/delegation"
-#     status = 301
+# --- Users → Participate/Token ---
 
-# [[redirects]]
-#     from = "/network/users/voting"
-#     to = "/participate/token/voting"
-#     status = 301
+[[redirects]]
+    from = "/operate/users/staking"
+    to = "/participate/token/staking"
+    status = 301
 
-# [[redirects]]
-#     from = "/network/users/*"
-#     to = "/participate/token"
-#     status = 301
+[[redirects]]
+    from = "/operate/users/delegation"
+    to = "/participate/token/delegation"
+    status = 301
 
-# --- Testnet version paths (/network/testnet/) ---
+[[redirects]]
+    from = "/operate/users/voting"
+    to = "/participate/token/voting"
+    status = 301
 
-# Governance
-# [[redirects]]
-#     from = "/network/testnet/concepts/governance/proposal-lifecycle"
-#     to = "/participate/governance/proposal-lifecycle"
-#     status = 301
+[[redirects]]
+    from = "/operate/users/*"
+    to = "/participate/token"
+    status = 301
 
-# [[redirects]]
-#     from = "/network/testnet/concepts/governance/voting"
-#     to = "/participate/governance/voting"
-#     status = 301
+# --- Old flat paths → new operators/ prefix ---
+# Old ignition had setup/, operation/, prerequisites at root level.
+# New structure nests everything under operators/.
 
-# [[redirects]]
-#     from = "/network/testnet/concepts/governance/gse"
-#     to = "/participate/governance/gse"
-#     status = 301
+[[redirects]]
+    from = "/operate/setup/*"
+    to = "/operate/operators/setup/:splat"
+    status = 301
 
-# [[redirects]]
-#     from = "/network/testnet/concepts/governance/upgrades"
-#     to = "/participate/governance/upgrades"
-#     status = 301
+[[redirects]]
+    from = "/operate/operation/*"
+    to = "/operate/operators/:splat"
+    status = 301
 
-# [[redirects]]
-#     from = "/network/testnet/concepts/governance/*"
-#     to = "/participate/governance"
-#     status = 301
-
-# Contracts → governance/contracts
-# [[redirects]]
-#     from = "/network/testnet/concepts/contracts/deployment-architecture"
-#     to = "/participate/governance/contracts"
-#     status = 301
-
-# [[redirects]]
-#     from = "/network/testnet/concepts/contracts/*"
-#     to = "/participate/governance/contracts"
-#     status = 301
-
-# Proof of stake
-# [[redirects]]
-#     from = "/network/testnet/concepts/proof-of-stake/*"
-#     to = "/participate/token/staking"
-#     status = 301
-
-# [[redirects]]
-#     from = "/network/testnet/concepts/proof-of-stake"
-#     to = "/participate/token/staking"
-#     status = 301
-
-# Users
-# [[redirects]]
-#     from = "/network/testnet/users/staking"
-#     to = "/participate/token/staking"
-#     status = 301
-
-# [[redirects]]
-#     from = "/network/testnet/users/delegation"
-#     to = "/participate/token/delegation"
-#     status = 301
-
-# [[redirects]]
-#     from = "/network/testnet/users/voting"
-#     to = "/participate/token/voting"
-#     status = 301
-
-# [[redirects]]
-#     from = "/network/testnet/users/*"
-#     to = "/participate/token"
-#     status = 301
-
-# --- Ignition version paths (for dev environments at /network/ignition/) ---
-
-# Governance
-# [[redirects]]
-#     from = "/network/ignition/concepts/governance/governance"
-#     to = "/participate/governance"
-#     status = 301
-
-# [[redirects]]
-#     from = "/network/ignition/concepts/governance/putting_forward_proposals"
-#     to = "/participate/governance/proposal-lifecycle"
-#     status = 301
-
-# [[redirects]]
-#     from = "/network/ignition/concepts/governance/voting"
-#     to = "/participate/governance/voting"
-#     status = 301
-
-# [[redirects]]
-#     from = "/network/ignition/concepts/governance/upgrades"
-#     to = "/participate/governance/upgrades"
-#     status = 301
-
-# [[redirects]]
-#     from = "/network/ignition/concepts/governance/*"
-#     to = "/participate/governance"
-#     status = 301
-
-# Proof of stake
-# [[redirects]]
-#     from = "/network/ignition/concepts/proof_of_stake/*"
-#     to = "/participate/token/staking"
-#     status = 301
-
-# [[redirects]]
-#     from = "/network/ignition/concepts/proof_of_stake"
-#     to = "/participate/token/staking"
-#     status = 301
-
-# Users
-# [[redirects]]
-#     from = "/network/ignition/users/staking"
-#     to = "/participate/token/staking"
-#     status = 301
-
-# [[redirects]]
-#     from = "/network/ignition/users/delegation"
-#     to = "/participate/token/delegation"
-#     status = 301
-
-# [[redirects]]
-#     from = "/network/ignition/users/voting"
-#     to = "/participate/token/voting"
-#     status = 301
-
-# [[redirects]]
-#     from = "/network/ignition/users/*"
-#     to = "/participate/token"
-#     status = 301
+[[redirects]]
+    from = "/operate/prerequisites"
+    to = "/operate/operators/prerequisites"
+    status = 301
 
 # =============================================================================
 # ACTIVE REDIRECTS: devnet.5 → devnet.20251212 Structure Migration
@@ -716,6 +603,43 @@
 [[redirects]]
     from = "/developers/docs/guides/smart_contracts/*"
     to = "/developers/docs/aztec-nr/framework-description/:splat"
+
+# =============================================================================
+# Smart Contract Guide Restructures
+# Redirects from old guide paths to new naming convention
+# =============================================================================
+
+[[redirects]]
+    from = "/developers/docs/aztec-nr/how_to_compile_contract"
+    to = "/developers/docs/aztec-nr/compiling_contracts"
+
+[[redirects]]
+    from = "/developers/docs/aztec-nr/how_to_test_contracts"
+    to = "/developers/docs/aztec-nr/testing_contracts"
+
+[[redirects]]
+    from = "/developers/docs/aztec-nr/framework-description/how_to_use_authwit"
+    to = "/developers/docs/aztec-nr/framework-description/authentication_witnesses"
+
+[[redirects]]
+    from = "/developers/docs/aztec-nr/framework-description/how_to_communicate_cross_chain"
+    to = "/developers/docs/aztec-nr/framework-description/ethereum_aztec_messaging"
+
+[[redirects]]
+    from = "/developers/docs/aztec-nr/framework-description/how_to_call_contracts"
+    to = "/developers/docs/aztec-nr/framework-description/calling_contracts"
+
+[[redirects]]
+    from = "/developers/docs/aztec-nr/framework-description/how_to_emit_event"
+    to = "/developers/docs/aztec-nr/framework-description/events_and_logs"
+
+[[redirects]]
+    from = "/developers/docs/aztec-nr/framework-description/how_to_implement_custom_notes"
+    to = "/developers/docs/aztec-nr/framework-description/custom_notes"
+
+[[redirects]]
+    from = "/developers/docs/aztec-nr/framework-description/ethereum-aztec-messaging/*"
+    to = "/developers/docs/foundational-topics/ethereum-aztec-messaging/:splat"
 
 # =============================================================================
 # Reference → resources, aztec-cli, wallet-cli, aztec-nr

@@ -83,3 +83,22 @@ pub unconstrained fn assert_owns_private_nft(
 
     assert(nft_found, "NFT not found in private nfts");
 }
+
+// While authwits authorize a contract to perform an action, spending private notes still requires
+// knowledge of the note secrets. For private tokens, the note owner must be involved in the
+// transaction -- they cannot simply give another user an authwit and have that user spend the notes
+// independently. We deploy a proxy contract so that msg_sender in the target differs from the
+// caller, which is the condition that triggers authwit validation. We can't use another account for
+// this, since different scopes are enforced by TXE.
+pub unconstrained fn setup_with_proxy() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
+    let (mut env, nft_contract_address, owner, recipient) = setup(/* with_account_contracts */ true);
+    let proxy = env.deploy("@generic_proxy_contract/GenericProxy").without_initializer();
+    (env, nft_contract_address, owner, recipient, proxy)
+}
+
+pub unconstrained fn setup_mint_and_transfer_to_private_with_proxy() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field, AztecAddress) {
+    let (mut env, nft_contract_address, owner, recipient, token_id) =
+        setup_mint_and_transfer_to_private(/* with_account_contracts */ true);
+    let proxy = env.deploy("@generic_proxy_contract/GenericProxy").without_initializer();
+    (env, nft_contract_address, owner, recipient, token_id, proxy)
+}

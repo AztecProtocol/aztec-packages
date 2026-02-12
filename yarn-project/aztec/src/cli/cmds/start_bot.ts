@@ -10,7 +10,7 @@ import {
   initTelemetryClient,
   makeTracedFetch,
 } from '@aztec/telemetry-client';
-import { TestWallet } from '@aztec/test-wallet/server';
+import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { extractRelevantOptions } from '../util.js';
 import { getVersions } from '../versioning.js';
@@ -38,7 +38,7 @@ export async function startBot(
   const aztecNode = createAztecNodeClient(config.nodeUrl, getVersions(), fetch);
 
   const pxeConfig = extractRelevantOptions<PXEConfig & CliPXEOptions>(options, allPxeConfigMappings, 'pxe');
-  const wallet = await TestWallet.create(aztecNode, pxeConfig);
+  const wallet = await EmbeddedWallet.create(aztecNode, { pxeConfig });
 
   const telemetry = await initTelemetryClient(getTelemetryClientConfig());
   await addBot(options, signalHandlers, services, wallet, aztecNode, telemetry, undefined);
@@ -48,7 +48,7 @@ export async function addBot(
   options: any,
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
-  wallet: TestWallet,
+  wallet: EmbeddedWallet,
   aztecNode: AztecNode,
   telemetry: TelemetryClient,
   aztecNodeAdmin?: AztecNodeAdmin,

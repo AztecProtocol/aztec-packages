@@ -1,17 +1,17 @@
 import type { FieldLike } from '@aztec/aztec.js/abi';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { getDecodedPublicEvents } from '@aztec/aztec.js/events';
+import { getPublicEvents } from '@aztec/aztec.js/events';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { type OrderCreated, type OrderFulfilled, OrderbookContract } from '@aztec/noir-contracts.js/Orderbook';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
 import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
 
 const TIMEOUT = 120_000;
 
@@ -44,8 +44,8 @@ describe('Orderbook', () => {
     ({
       teardown,
       wallet,
-      aztecNode,
       accounts: [adminAddress, makerAddress, takerAddress],
+      aztecNode,
       logger,
     } = await setup(3));
 
@@ -81,11 +81,10 @@ describe('Orderbook', () => {
         .with({ authWitnesses: [makerAuthwit] })
         .send({ from: makerAddress });
 
-      const orderCreatedEvents = await getDecodedPublicEvents<OrderCreated>(
+      const orderCreatedEvents = await getPublicEvents<OrderCreated>(
         aztecNode,
         OrderbookContract.events.OrderCreated,
-        0,
-        100,
+        {},
       );
       expect(orderCreatedEvents.length).toBe(1);
 
@@ -93,7 +92,7 @@ describe('Orderbook', () => {
       // supported by Aztec.js to get a return value from a sent transaction.
 
       // Get order ID from emitted event
-      orderId = orderCreatedEvents[0].order_id;
+      orderId = orderCreatedEvents[0].event.order_id;
 
       // Get order from orderbook and verify details
       const [order, isFulfilled] = await orderbook.methods.get_order(orderId).simulate({ from: adminAddress });
@@ -134,14 +133,13 @@ describe('Orderbook', () => {
         .send({ from: takerAddress });
 
       // Verify order was fulfilled by checking events
-      const orderFulfilledEvents = await getDecodedPublicEvents<OrderFulfilled>(
+      const orderFulfilledEvents = await getPublicEvents<OrderFulfilled>(
         aztecNode,
         OrderbookContract.events.OrderFulfilled,
-        0,
-        100,
+        {},
       );
       expect(orderFulfilledEvents.length).toBe(1);
-      expect(orderFulfilledEvents[0].order_id).toEqual(orderId);
+      expect(orderFulfilledEvents[0].event.order_id).toEqual(orderId);
 
       // Verify balances after order fulfillment
       const makerBalances0 = await token0.methods.balance_of_private(makerAddress).simulate({ from: makerAddress });

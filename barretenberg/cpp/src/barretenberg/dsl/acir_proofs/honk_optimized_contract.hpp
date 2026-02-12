@@ -83,9 +83,10 @@ inline std::string generate_memory_offsets(int log_n)
                                                 "PROOF_NUM_PUBLIC_INPUTS",
                                                 "PROOF_PUB_INPUTS_OFFSET" };
 
-    const std::vector<std::string> pairing_points = { "PAIRING_POINT_0", "PAIRING_POINT_1", "PAIRING_POINT_2",
-                                                      "PAIRING_POINT_3", "PAIRING_POINT_4", "PAIRING_POINT_5",
-                                                      "PAIRING_POINT_6", "PAIRING_POINT_7" };
+    const std::vector<std::string> pairing_points = { "PAIRING_POINT_0_X_0_LOC", "PAIRING_POINT_0_X_1_LOC",
+                                                      "PAIRING_POINT_0_Y_0_LOC", "PAIRING_POINT_0_Y_1_LOC",
+                                                      "PAIRING_POINT_1_X_0_LOC", "PAIRING_POINT_1_X_1_LOC",
+                                                      "PAIRING_POINT_1_Y_0_LOC", "PAIRING_POINT_1_Y_1_LOC" };
 
     const std::vector<std::string> proof_g1 = {
         "W_L", "W_R", "W_O", "LOOKUP_READ_COUNTS", "LOOKUP_READ_TAGS", "W_4", "LOOKUP_INVERSES", "Z_PERM"
@@ -416,12 +417,6 @@ uint256 constant PUBLIC_INPUTS_OFFSET = 1;
 // LOG_N * 8
 uint256 constant NUMBER_OF_BARYCENTRIC_INVERSES = {{ NUMBER_OF_BARYCENTRIC_INVERSES }};
 
-error PUBLIC_INPUT_TOO_LARGE();
-error SUMCHECK_FAILED();
-error PAIRING_FAILED();
-error BATCH_ACCUMULATION_FAILED();
-error MODEXP_FAILED();
-
 contract HonkVerifier is IVerifier {
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    SLAB ALLOCATION                         */
@@ -525,17 +520,24 @@ contract HonkVerifier is IVerifier {
         0x00000000000000000000000000000000000000000000000000000000000013b0;
 
     // Constants for computing public input delta
-    uint256 constant PERMUTATION_ARGUMENT_VALUE_SEPARATOR = 1 << 28;
+    uint256 internal constant PERMUTATION_ARGUMENT_VALUE_SEPARATOR = 1 << 28;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                         ERRORS                             */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-    uint256 internal constant PUBLIC_INPUT_TOO_LARGE_SELECTOR = 0x803bff7c;
-    uint256 internal constant SUMCHECK_FAILED_SELECTOR = 0x7d06dd7fa;
-    uint256 internal constant PAIRING_FAILED_SELECTOR = 0xd71fd2634;
-    uint256 internal constant BATCH_ACCUMULATION_FAILED_SELECTOR = 0xfef01a9a4;
-    uint256 internal constant MODEXP_FAILED_SELECTOR = 0xf442f1632;
-    uint256 internal constant PROOF_POINT_NOT_ON_CURVE_SELECTOR = 0x661e012dec;
+    // The errors match Errors.sol
+
+    bytes4 internal constant VALUE_GE_LIMB_MAX_SELECTOR = 0xeb73e0bd;
+    bytes4 internal constant VALUE_GE_GROUP_ORDER_SELECTOR = 0x607be13e;
+    bytes4 internal constant VALUE_GE_FIELD_ORDER_SELECTOR = 0x20a33589;
+    bytes4 internal constant SUMCHECK_FAILED_SELECTOR = 0x9fc3a218;
+    bytes4 internal constant SHPLEMINI_FAILED_SELECTOR = 0xa5d82e8a;
+    bytes4 internal constant POINT_AT_INFINITY_SELECTOR = 0x4ddaa5e5;
+
+    bytes4 internal constant PROOF_LENGTH_WRONG_WITH_LOG_N_SELECTOR = 0x59895a53;
+    bytes4 internal constant PUBLIC_INPUTS_LENGTH_WRONG_SELECTOR = 0xfa066593;
+
+    bytes4 internal constant MODEXP_FAILED_SELECTOR = 0xf442f163;
 
     constructor() {}
 
@@ -623,6 +625,41 @@ contract HonkVerifier is IVerifier {
                 let proof_ptr := add(calldataload(0x04), 0x24)
 
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+                /*              VALIDATE INPUT LENGTHS                      */
+                /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+                // Validate proof byte length matches expected size for this circuit's LOG_N.
+                // Expected = (8*2 + LOG_N*BATCHED_RELATION_PARTIAL_LENGTH + NUMBER_OF_ENTITIES
+                //             + (LOG_N-1)*2 + LOG_N + 2*2 + PAIRING_POINTS_SIZE) * 32
+                {
+                    let expected_proof_size := mul(
+                        add(
+                            add(
+                                add(16, mul(LOG_N, BATCHED_RELATION_PARTIAL_LENGTH)),
+                                add(NUMBER_OF_ENTITIES, mul(sub(LOG_N, 1), 2))
+                            ),
+                            add(add(LOG_N, 4), PAIRING_POINTS_SIZE)
+                        ),
+                        32
+                    )
+                    let proof_length := calldataload(add(calldataload(0x04), 0x04))
+                    if iszero(eq(proof_length, expected_proof_size)) {
+                        mstore(0x00, PROOF_LENGTH_WRONG_WITH_LOG_N_SELECTOR)
+                        mstore(0x04, LOG_N)
+                        mstore(0x24, proof_length)
+                        mstore(0x44, expected_proof_size)
+                        revert(0x00, 0x64)
+                    }
+                }
+                // Validate public inputs array length matches expected count.
+                {
+                    let pi_count := calldataload(add(calldataload(0x24), 0x04))
+                    if iszero(eq(pi_count, REAL_NUMBER_PUBLIC_INPUTS)) {
+                        mstore(0x00, PUBLIC_INPUTS_LENGTH_WRONG_SELECTOR)
+                        revert(0x00, 0x04)
+                    }
+                }
+
+                /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
                 /*                    GENERATE CHALLENGES                     */
                 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
                 /*
@@ -687,9 +724,87 @@ contract HonkVerifier is IVerifier {
                 // We copy the entire proof into memory as we must hash each proof section for challenge
                 // evaluation
                 // The last item in the proof, and the first item in the proof (pairing point 0)
-                let proof_size := sub(ETA_CHALLENGE, PAIRING_POINT_0)
+                let proof_size := sub(ETA_CHALLENGE, PAIRING_POINT_0_X_0_LOC)
 
-                calldatacopy(PAIRING_POINT_0, proof_ptr, proof_size)
+                calldatacopy(PAIRING_POINT_0_X_0_LOC, proof_ptr, proof_size)
+
+                /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+                /*               VALIDATE PROOF INPUTS                      */
+                /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+                // Validate all proof elements are within their expected ranges.
+                // Pairing limbs: lo < 2^136, hi < 2^120. G1 coordinates < Q. Fr elements < P.
+                {
+                    let valid := true
+                    let lo_limb_max := shl(136, 1)
+                    let hi_limb_max := shl(120, 1)
+                    let q_mod := Q
+
+                    // 1. Pairing limbs: lo < 2^136, hi < 2^120 (4 pairs, stride 0x40)
+                    let ptr := PAIRING_POINT_0_X_0_LOC
+                    for {} lt(ptr, W_L_X_LOC) { ptr := add(ptr, 0x40) } {
+                        valid := and(valid, lt(mload(ptr), lo_limb_max))
+                        valid := and(valid, lt(mload(add(ptr, 0x20)), hi_limb_max))
+                    }
+                    if iszero(valid) {
+                        mstore(0x00, VALUE_GE_LIMB_MAX_SELECTOR)
+                        revert(0x00, 0x04)
+                    }
+
+                    // 2. G1 coordinates: each < Q
+                    //    - Witness commitments: W_L through Z_PERM (16 slots)
+                    for { ptr := W_L_X_LOC } lt(ptr, SUMCHECK_UNIVARIATE_0_0_LOC) { ptr := add(ptr, 0x20) } {
+                        valid := and(valid, lt(mload(ptr), q_mod))
+                    }
+                    //    - Gemini fold commitments (28 slots)
+                    for { ptr := GEMINI_FOLD_UNIVARIATE_0_X_LOC } lt(ptr, GEMINI_A_EVAL_0) { ptr := add(ptr, 0x20) } {
+                        valid := and(valid, lt(mload(ptr), q_mod))
+                    }
+                    //    - Shplonk Q + KZG quotient (4 slots)
+                    for { ptr := SHPLONK_Q_X_LOC } lt(ptr, ETA_CHALLENGE) { ptr := add(ptr, 0x20) } {
+                        valid := and(valid, lt(mload(ptr), q_mod))
+                    }
+                    if iszero(valid) {
+                        mstore(0x00, VALUE_GE_GROUP_ORDER_SELECTOR)
+                        revert(0x00, 0x04)
+                    }
+
+                    // 2b. G1 points: reject point at infinity (0,0).
+                    //     EVM precompiles silently treat (0,0) as the identity element,
+                    //     which could zero out commitments. On-curve validation (y² = x³ + 3)
+                    //     is handled by the ecAdd/ecMul precompiles per EIP-196.
+                    //    - Witness commitments (8 points, stride 0x40)
+                    for { ptr := W_L_X_LOC } lt(ptr, SUMCHECK_UNIVARIATE_0_0_LOC) { ptr := add(ptr, 0x40) } {
+                        valid := and(valid, iszero(iszero(or(mload(ptr), mload(add(ptr, 0x20))))))
+                    }
+                    //    - Gemini fold commitments (14 points, stride 0x40)
+                    for { ptr := GEMINI_FOLD_UNIVARIATE_0_X_LOC } lt(ptr, GEMINI_A_EVAL_0) { ptr := add(ptr, 0x40) } {
+                        valid := and(valid, iszero(iszero(or(mload(ptr), mload(add(ptr, 0x20))))))
+                    }
+                    //    - Shplonk Q + KZG quotient (2 points, stride 0x40)
+                    for { ptr := SHPLONK_Q_X_LOC } lt(ptr, ETA_CHALLENGE) { ptr := add(ptr, 0x40) } {
+                        valid := and(valid, iszero(iszero(or(mload(ptr), mload(add(ptr, 0x20))))))
+                    }
+                    if iszero(valid) {
+                        mstore(0x00, POINT_AT_INFINITY_SELECTOR)
+                        revert(0x00, 0x04)
+                    }
+
+                    // 3. Fr elements: each < P
+                    //    - Sumcheck univariates + evaluations (161 slots)
+                    for { ptr := SUMCHECK_UNIVARIATE_0_0_LOC } lt(ptr, GEMINI_FOLD_UNIVARIATE_0_X_LOC) {
+                        ptr := add(ptr, 0x20)
+                    } {
+                        valid := and(valid, lt(mload(ptr), p))
+                    }
+                    //    - Gemini evaluations (15 slots)
+                    for { ptr := GEMINI_A_EVAL_0 } lt(ptr, SHPLONK_Q_X_LOC) { ptr := add(ptr, 0x20) } {
+                        valid := and(valid, lt(mload(ptr), p))
+                    }
+                    if iszero(valid) {
+                        mstore(0x00, VALUE_GE_FIELD_ORDER_SELECTOR)
+                        revert(0x00, 0x04)
+                    }
+                }
 
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
                 /*             GENERATE BETA and GAMMAA  CHALLENGE            */
@@ -959,11 +1074,17 @@ contract HonkVerifier is IVerifier {
                     denominator_acc := addmod(denominator_acc, sub(p_clone, beta), p_clone)
                 }
 
+                // Revert if not all public inputs are field elements (i.e. < p)
+                if iszero(valid_inputs) {
+                    mstore(0x00, VALUE_GE_FIELD_ORDER_SELECTOR)
+                    revert(0x00, 0x04)
+                }
+
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
                 /*           PUBLIC INPUT DELTA - Pairing points accum        */
                 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
                 // Pairing points contribution to public inputs delta
-                let pairing_points_ptr := PAIRING_POINT_0
+                let pairing_points_ptr := PAIRING_POINT_0_X_0_LOC
                 for {} lt(pairing_points_ptr, W_L_X_LOC) { pairing_points_ptr := add(pairing_points_ptr, 0x20) } {
                     let input := mload(pairing_points_ptr)
 
@@ -972,12 +1093,6 @@ contract HonkVerifier is IVerifier {
 
                     numerator_acc := addmod(numerator_acc, beta, p_clone)
                     denominator_acc := addmod(denominator_acc, sub(p_clone, beta), p_clone)
-                }
-
-                // Revert if not all public inputs are field elements (i.e. < p)
-                if iszero(valid_inputs) {
-                    mstore(0x00, PUBLIC_INPUT_TOO_LARGE_SELECTOR)
-                    revert(0x00, 0x04)
                 }
 
                 mstore(PUBLIC_INPUTS_DELTA_NUMERATOR_CHALLENGE, numerator_value)
@@ -1460,7 +1575,7 @@ contract HonkVerifier is IVerifier {
                     let beta_sqr := mulmod(beta, beta, p)
                     let beta_cube := mulmod(beta_sqr, beta, p)
 
-                    // write_term = table_1 + γ + table_2 * β + table_3 * β² + table_4 * β³
+                    // table_term = table_1 + γ + table_2 * β + table_3 * β² + table_4 * β³
                     let t0 :=
                         addmod(addmod(mload(TABLE1_EVAL_LOC), gamma, p), mulmod(mload(TABLE2_EVAL_LOC), beta, p), p)
                     let t1 :=
@@ -1469,9 +1584,9 @@ contract HonkVerifier is IVerifier {
                             mulmod(mload(TABLE4_EVAL_LOC), beta_cube, p),
                             p
                         )
-                    let write_term := addmod(t0, t1, p)
+                    let table_term := addmod(t0, t1, p)
 
-                    // read_term = derived_entry_1 + γ + derived_entry_2 * β + derived_entry_3 * β² + q_index * β³
+                    // lookup_term = derived_entry_1 + γ + derived_entry_2 * β + derived_entry_3 * β² + q_index * β³
                     t0 := addmod(
                         addmod(mload(W1_EVAL_LOC), gamma, p),
                         mulmod(mload(QR_EVAL_LOC), mload(W1_SHIFT_EVAL_LOC), p),
@@ -1480,12 +1595,12 @@ contract HonkVerifier is IVerifier {
                     t1 := addmod(mload(W2_EVAL_LOC), mulmod(mload(QM_EVAL_LOC), mload(W2_SHIFT_EVAL_LOC), p), p)
                     let t2 := addmod(mload(W3_EVAL_LOC), mulmod(mload(QC_EVAL_LOC), mload(W3_SHIFT_EVAL_LOC), p), p)
 
-                    let read_term := addmod(t0, mulmod(t1, beta, p), p)
-                    read_term := addmod(read_term, mulmod(t2, beta_sqr, p), p)
-                    read_term := addmod(read_term, mulmod(mload(QO_EVAL_LOC), beta_cube, p), p)
+                    let lookup_term := addmod(t0, mulmod(t1, beta, p), p)
+                    lookup_term := addmod(lookup_term, mulmod(t2, beta_sqr, p), p)
+                    lookup_term := addmod(lookup_term, mulmod(mload(QO_EVAL_LOC), beta_cube, p), p)
 
-                    let read_inverse := mulmod(mload(LOOKUP_INVERSES_EVAL_LOC), write_term, p)
-                    let write_inverse := mulmod(mload(LOOKUP_INVERSES_EVAL_LOC), read_term, p)
+                    let lookup_inverse := mulmod(mload(LOOKUP_INVERSES_EVAL_LOC), table_term, p)
+                    let table_inverse := mulmod(mload(LOOKUP_INVERSES_EVAL_LOC), lookup_term, p)
 
                     let inverse_exists_xor := addmod(mload(LOOKUP_READ_TAGS_EVAL_LOC), mload(QLOOKUP_EVAL_LOC), p)
                     inverse_exists_xor := addmod(
@@ -1494,14 +1609,14 @@ contract HonkVerifier is IVerifier {
                         p
                     )
 
-                    let accumulator_none := mulmod(mulmod(read_term, write_term, p), mload(LOOKUP_INVERSES_EVAL_LOC), p)
+                    let accumulator_none := mulmod(mulmod(lookup_term, table_term, p), mload(LOOKUP_INVERSES_EVAL_LOC), p)
                     accumulator_none := addmod(accumulator_none, sub(p, inverse_exists_xor), p)
                     accumulator_none := mulmod(accumulator_none, mload(POW_PARTIAL_EVALUATION_LOC), p)
 
-                    let accumulator_one := mulmod(mload(QLOOKUP_EVAL_LOC), read_inverse, p)
+                    let accumulator_one := mulmod(mload(QLOOKUP_EVAL_LOC), lookup_inverse, p)
                     accumulator_one := addmod(
                         accumulator_one,
-                        sub(p, mulmod(mload(LOOKUP_READ_COUNTS_EVAL_LOC), write_inverse, p)),
+                        sub(p, mulmod(mload(LOOKUP_READ_COUNTS_EVAL_LOC), table_inverse, p)),
                         p
                     )
 
@@ -2360,7 +2475,7 @@ contract HonkVerifier is IVerifier {
 
                 if iszero(sumcheck_valid) {
                     mstore(0x00, SUMCHECK_FAILED_SELECTOR)
-                    return(0x00, 0x20)
+                    revert(0x00, 0x04)
                 }
             }
 
@@ -2472,8 +2587,6 @@ contract HonkVerifier is IVerifier {
 
             /// {{ UNROLL_SECTION_START COLLECT_INVERSES }}
             /// {{ UNROLL_SECTION_END COLLECT_INVERSES }}
-
-            let inverted_gemini_r := accumulator
 
             let unshifted_scalar := 0
             let shifted_scalar := 0
@@ -2850,7 +2963,6 @@ contract HonkVerifier is IVerifier {
                 mstore(SS_GEMINI_EVALS_LOC, GEMINI_A_EVAL_1)
                 let fold_pos_evals_loc := FOLD_POS_EVALUATIONS_1_LOC
 
-                let shplonk_z := mload(SHPLONK_Z_CHALLENGE)
                 let scalars_loc := BATCH_SCALAR_37_LOC
 
                 for { let i := 0 } lt(i, sub(LOG_N, 1)) { i := add(i, 1) } {
@@ -2886,16 +2998,6 @@ contract HonkVerifier is IVerifier {
                 // WORKTODO(md): we can ignore this accumulation as we are multiplying by 1,
                 // Just set the accumulator instead.
                 mstore(SCALAR_LOCATION, 0x1)
-                {
-                    let x := mload(SHPLONK_Q_X_LOC)
-                    let y := mload(SHPLONK_Q_Y_LOC)
-                    let xx := mulmod(x, x, q)
-                    // validate on curve
-                    precomp_success_flag := and(
-                        eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)),
-                        precomp_success_flag
-                    )
-                }
                 mcopy(G1_LOCATION, SHPLONK_Q_X_LOC, 0x40)
                 precomp_success_flag := staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR, 0x40)
             }
@@ -3239,17 +3341,6 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                {
-                    let x := mload(W_L_X_LOC)
-                    let y := mload(W_L_Y_LOC)
-                    let xx := mulmod(x, x, q)
-                    // validate on curve
-                    precomp_success_flag := and(
-                        eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)),
-                        precomp_success_flag
-                    )
-                }
-
                 // Accumulate proof points
                 // Accumulator = accumulator + scalar[29] * w_l
                 mcopy(G1_LOCATION, W_L_X_LOC, 0x40)
@@ -3263,17 +3354,6 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                {
-                    let x := mload(W_R_X_LOC)
-                    let y := mload(W_R_Y_LOC)
-                    let xx := mulmod(x, x, q)
-                    // validate on curve
-                    precomp_success_flag := and(
-                        eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)),
-                        precomp_success_flag
-                    )
-                }
-
                 // Accumulator = accumulator + scalar[30] * w_r
                 mcopy(G1_LOCATION, W_R_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_30_LOC))
@@ -3285,17 +3365,6 @@ contract HonkVerifier is IVerifier {
                     precomp_success_flag,
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
-
-                {
-                    let x := mload(W_O_X_LOC)
-                    let y := mload(W_O_Y_LOC)
-                    let xx := mulmod(x, x, q)
-                    // validate on curve
-                    precomp_success_flag := and(
-                        eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)),
-                        precomp_success_flag
-                    )
-                }
 
                 // Accumulator = accumulator + scalar[31] * w_o
                 mcopy(G1_LOCATION, W_O_X_LOC, 0x40)
@@ -3310,16 +3379,6 @@ contract HonkVerifier is IVerifier {
                 )
 
                 // Accumulator = accumulator + scalar[32] * w_4
-                {
-                    let x := mload(W_4_X_LOC)
-                    let y := mload(W_4_Y_LOC)
-                    let xx := mulmod(x, x, q)
-                    // validate on curve
-                    precomp_success_flag := and(
-                        eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)),
-                        precomp_success_flag
-                    )
-                }
                 mcopy(G1_LOCATION, W_4_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_32_LOC))
                 precomp_success_flag := and(
@@ -3331,16 +3390,6 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                {
-                    let x := mload(Z_PERM_X_LOC)
-                    let y := mload(Z_PERM_Y_LOC)
-                    let xx := mulmod(x, x, q)
-                    // validate on curve
-                    precomp_success_flag := and(
-                        eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)),
-                        precomp_success_flag
-                    )
-                }
                 // Accumulator = accumulator + scalar[33] * z_perm
                 mcopy(G1_LOCATION, Z_PERM_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_33_LOC))
@@ -3353,16 +3402,6 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                {
-                    let x := mload(LOOKUP_INVERSES_X_LOC)
-                    let y := mload(LOOKUP_INVERSES_Y_LOC)
-                    let xx := mulmod(x, x, q)
-                    // validate on curve
-                    precomp_success_flag := and(
-                        eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)),
-                        precomp_success_flag
-                    )
-                }
                 // Accumulator = accumulator + scalar[34] * lookup_inverses
                 mcopy(G1_LOCATION, LOOKUP_INVERSES_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_34_LOC))
@@ -3375,16 +3414,6 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                {
-                    let x := mload(LOOKUP_READ_COUNTS_X_LOC)
-                    let y := mload(LOOKUP_READ_COUNTS_Y_LOC)
-                    let xx := mulmod(x, x, q)
-                    // validate on curve
-                    precomp_success_flag := and(
-                        eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)),
-                        precomp_success_flag
-                    )
-                }
                 // Accumulator = accumulator + scalar[35] * lookup_read_counts
                 mcopy(G1_LOCATION, LOOKUP_READ_COUNTS_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_35_LOC))
@@ -3397,16 +3426,6 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                {
-                    let x := mload(LOOKUP_READ_TAGS_X_LOC)
-                    let y := mload(LOOKUP_READ_TAGS_Y_LOC)
-                    let xx := mulmod(x, x, q)
-                    // validate on curve
-                    precomp_success_flag := and(
-                        eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)),
-                        precomp_success_flag
-                    )
-                }
                 // Accumulator = accumulator + scalar[36] * lookup_read_tags
                 mcopy(G1_LOCATION, LOOKUP_READ_TAGS_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_36_LOC))
@@ -3444,16 +3463,6 @@ contract HonkVerifier is IVerifier {
 
                     // Accumlate final quotient commitment into shplonk check
                     // Accumulator = accumulator + shplonkZ * quotient commitment
-                    {
-                        let x := mload(KZG_QUOTIENT_X_LOC)
-                        let y := mload(KZG_QUOTIENT_Y_LOC)
-                        let xx := mulmod(x, x, q)
-                        // validate on curve
-                        precomp_success_flag := and(
-                            eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)),
-                            precomp_success_flag
-                        )
-                    }
                     mcopy(G1_LOCATION, KZG_QUOTIENT_X_LOC, 0x40)
 
                     mstore(SCALAR_LOCATION, mload(SHPLONK_Z_CHALLENGE))
@@ -3467,8 +3476,10 @@ contract HonkVerifier is IVerifier {
                     )
                 }
 
+                // All G1 points were validated on-curve during input validation.
+                // precomp_success_flag now only tracks ecAdd/ecMul precompile success.
                 if iszero(precomp_success_flag) {
-                    mstore(0x00, BATCH_ACCUMULATION_FAILED_SELECTOR)
+                    mstore(0x00, SHPLEMINI_FAILED_SELECTOR)
                     revert(0x00, 0x04)
                 }
 
@@ -3493,31 +3504,31 @@ contract HonkVerifier is IVerifier {
                     /*                   PAIRING AGGREGATION                      */
                     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
                     // Read the pairing encoded in the first 8 field elements of the proof (2 limbs per coordinate)
-                    let p0_other_x := mload(PAIRING_POINT_0)
-                    p0_other_x := or(shl(136, mload(PAIRING_POINT_1)), p0_other_x)
+                    let p0_other_x := mload(PAIRING_POINT_0_X_0_LOC)
+                    p0_other_x := or(shl(136, mload(PAIRING_POINT_0_X_1_LOC)), p0_other_x)
 
-                    let p0_other_y := mload(PAIRING_POINT_2)
-                    p0_other_y := or(shl(136, mload(PAIRING_POINT_3)), p0_other_y)
+                    let p0_other_y := mload(PAIRING_POINT_0_Y_0_LOC)
+                    p0_other_y := or(shl(136, mload(PAIRING_POINT_0_Y_1_LOC)), p0_other_y)
 
-                    let p1_other_x := mload(PAIRING_POINT_4)
-                    p1_other_x := or(shl(136, mload(PAIRING_POINT_5)), p1_other_x)
+                    let p1_other_x := mload(PAIRING_POINT_1_X_0_LOC)
+                    p1_other_x := or(shl(136, mload(PAIRING_POINT_1_X_1_LOC)), p1_other_x)
 
-                    let p1_other_y := mload(PAIRING_POINT_6)
-                    p1_other_y := or(shl(136, mload(PAIRING_POINT_7)), p1_other_y)
+                    let p1_other_y := mload(PAIRING_POINT_1_Y_0_LOC)
+                    p1_other_y := or(shl(136, mload(PAIRING_POINT_1_Y_1_LOC)), p1_other_y)
 
-                    // Validate p_0_other on curve
-                    let xx := mulmod(p0_other_x, p0_other_x, q)
-                    let xxx := mulmod(xx, p0_other_x, q)
-                    let yy := mulmod(p0_other_y, p0_other_y, q)
+                    // Reconstructed coordinates must be < Q to prevent malleability
+                    if iszero(and(
+                        and(lt(p0_other_x, q), lt(p0_other_y, q)),
+                        and(lt(p1_other_x, q), lt(p1_other_y, q))
+                    )) {
+                        mstore(0x00, VALUE_GE_GROUP_ORDER_SELECTOR)
+                        revert(0x00, 0x04)
+                    }
 
-                    let success := eq(yy, addmod(xxx, 3, q))
-
-                    // Validate p_1_other on curve
-                    xx := mulmod(p1_other_x, p1_other_x, q)
-                    xxx := mulmod(xx, p1_other_x, q)
-                    yy := mulmod(p1_other_y, p1_other_y, q)
-
-                    success := and(success, eq(yy, addmod(xxx, 3, q)))
+                    // Validate p_0_other not point of infinity
+                    let success := iszero(iszero(or(p0_other_x, p0_other_y)))
+                    // Validate p_1_other not point of infinity
+                    success := and(success, iszero(iszero(or(p1_other_x, p1_other_y))))
 
                     // p_0
                     mstore(0x00, p0_other_x)
@@ -3569,7 +3580,7 @@ contract HonkVerifier is IVerifier {
 
                     let pairing_success := and(success, staticcall(gas(), 8, 0x00, 0x180, 0x00, 0x20))
                     if iszero(and(pairing_success, mload(0x00))) {
-                        mstore(0x00, PAIRING_FAILED_SELECTOR)
+                        mstore(0x00, SHPLEMINI_FAILED_SELECTOR)
                         revert(0x00, 0x04)
                     }
 

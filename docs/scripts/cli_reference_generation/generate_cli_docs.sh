@@ -90,6 +90,12 @@ check_cli_version() {
     return 0
   fi
 
+  # aztec-up is version-independent (it manages versions, not tied to a specific Aztec version)
+  if [[ "$cli_cmd" == "aztec-up" ]]; then
+    echo "✓ aztec-up is version-independent (skipping version check)"
+    return 0
+  fi
+
   # Check if CLI is installed
   if ! command -v "$cli_cmd" &> /dev/null; then
     echo "Error: '$cli_cmd' command not found. Please install it first."

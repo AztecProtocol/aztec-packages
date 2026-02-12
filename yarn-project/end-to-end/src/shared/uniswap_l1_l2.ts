@@ -17,12 +17,12 @@ import { InboxAbi, UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-art
 import { UniswapContract } from '@aztec/noir-contracts.js/Uniswap';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import { type GetContractReturnType, getContract, parseEther, toFunctionSelector } from 'viem';
 
 import { type EndToEndContext, ensureAccountContractsPublished } from '../fixtures/utils.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { CrossChainTestHarness } from './cross_chain_test_harness.js';
 
 // PSA: This tests works on forked mainnet. There is a dump of the data in `dumpedState` such that we
@@ -84,7 +84,7 @@ export const uniswapL1L2TestSuite = (
 
       l1Client = deployL1ContractsValues.l1Client;
 
-      t.watcher?.setIsMarkingAsProven(false);
+      t.watcher.setIsMarkingAsProven(false);
 
       if (Number(await l1Client.getBlockNumber()) < expectedForkBlockNumber) {
         throw new Error('This test must be run on a fork of mainnet with the expected fork block');

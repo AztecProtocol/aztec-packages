@@ -1,5 +1,5 @@
 use super::TestBuilder;
-use dep::types::{
+use types::{
     address::AztecAddress,
     constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, DOM_SEP__IVSK_M, PRIVATE_KERNEL_TAIL_VK_INDEX,

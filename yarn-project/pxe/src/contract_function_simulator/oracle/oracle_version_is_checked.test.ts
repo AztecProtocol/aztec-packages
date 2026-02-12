@@ -90,7 +90,7 @@ describe('Oracle Version Check test suite', () => {
       return { ...artifact, debug: undefined };
     });
 
-    acirSimulator = new ContractFunctionSimulator(
+    acirSimulator = new ContractFunctionSimulator({
       contractStore,
       noteStore,
       keyStore,
@@ -103,7 +103,7 @@ describe('Oracle Version Check test suite', () => {
       privateEventStore,
       simulator,
       contractSyncService,
-    );
+    });
   });
 
   describe('private function execution', () => {
@@ -139,16 +139,14 @@ describe('Oracle Version Check test suite', () => {
       // Call the private function with arbitrary message sender and sender for tags
       const msgSender = await AztecAddress.random();
       const senderForTags = await AztecAddress.random();
-      await acirSimulator.run(
-        txRequest,
+      await acirSimulator.run(txRequest, {
         contractAddress,
         selector,
         msgSender,
         anchorBlockHeader,
         senderForTags,
-        undefined,
-        'test',
-      );
+        jobId: 'test',
+      });
 
       expect(utilityAssertCompatibleOracleVersionSpy).toHaveBeenCalledTimes(1);
     }, 30_000);
@@ -165,16 +163,16 @@ describe('Oracle Version Check test suite', () => {
       contractStore.getFunctionArtifact.mockResolvedValue(utilityFunctionArtifact);
 
       // Form the execution request for the utility function
-      const execRequest: FunctionCall = {
+      const execRequest = FunctionCall.from({
         name: utilityFunctionArtifact.name,
         to: contractAddress,
         selector: FunctionSelector.empty(),
         type: FunctionType.UTILITY,
-        isStatic: false,
         hideMsgSender: false,
+        isStatic: false,
         args: encodeArguments(utilityFunctionArtifact, []),
         returnTypes: utilityFunctionArtifact.returnTypes,
-      };
+      });
 
       // Call the utility function
       await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, [], 'test');

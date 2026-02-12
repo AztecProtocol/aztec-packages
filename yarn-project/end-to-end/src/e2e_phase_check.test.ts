@@ -7,13 +7,13 @@ import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
-import type { TestWallet } from '@aztec/test-wallet/server';
 import { defaultInitialAccountFeeJuice } from '@aztec/world-state/testing';
 
 import { setup } from './fixtures/utils.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
 
 // Private functions should receive automatically a phase check that avoids any nested call changing the phase.
-// Functions that opt out of this phase check can be marked with #[nophasecheck].
+// Functions that opt out of this phase check can be marked with #[allow_phase_change].
 describe('Phase check', () => {
   let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
@@ -62,7 +62,7 @@ describe('Phase check', () => {
     ).rejects.toThrow('Phase change detected on function with phase check.');
   });
 
-  it('should not fail when a nested call changes the phase if #[nophasecheck] is used', async () => {
+  it('should not fail when a nested call changes the phase if #[allow_phase_change] is used', async () => {
     await contract.methods.call_function_that_ends_setup_without_phase_check().simulate({
       from: defaultAccountAddress,
       fee: {

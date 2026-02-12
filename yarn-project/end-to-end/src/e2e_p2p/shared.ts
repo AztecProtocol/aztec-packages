@@ -22,9 +22,10 @@ import { getPXEConfig, getPXEConfig as getRpcConfig } from '@aztec/pxe/server';
 import { getRoundForOffense } from '@aztec/slasher';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
-import { type ProvenTx, TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { submitTxsTo } from '../shared/submit-transactions.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
+import { type ProvenTx, proveInteraction } from '../test-wallet/utils.js';
 
 // submits a set of transactions to the provided Private eXecution Environment (PXE)
 export const submitComplexTxsTo = async (
@@ -145,6 +146,7 @@ export async function awaitCommitteeExists({
     'non-empty committee',
     60,
   );
+  logger.warn(`Committee has been formed`, { committee: committee!.map(c => c.toString()) });
   return committee!.map(c => c.toString() as `0x${string}`);
 }
 

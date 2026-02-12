@@ -11,7 +11,7 @@ contracts:
 dependencies:
   - "@aztec/aztec.js"
   - "@aztec/accounts"
-  - "@aztec/test-wallet"
+  - "@aztec/wallets"
   - "@aztec/kv-store"
   # Example external package (uncomment if needed):
   # - "npm:viem"

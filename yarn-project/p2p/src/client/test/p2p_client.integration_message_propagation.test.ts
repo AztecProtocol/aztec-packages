@@ -1,5 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -7,7 +7,7 @@ import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundati
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
-import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { BlockProposal, CheckpointAttestation } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { type MakeConsensusPayloadOptions, makeBlockProposal } from '@aztec/stdlib/testing';
@@ -21,7 +21,7 @@ import type { P2PClient } from '../../client/p2p_client.js';
 import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
 import type { AttestationPool } from '../../mem_pools/attestation_pool/attestation_pool.js';
 import { mockCheckpointAttestation } from '../../mem_pools/attestation_pool/mocks.js';
-import type { TxPool } from '../../mem_pools/tx_pool/index.js';
+import type { TxPoolV2 } from '../../mem_pools/tx_pool_v2/interfaces.js';
 import type { LibP2PService } from '../../services/libp2p/libp2p_service.js';
 import {
   type MakeTestP2PClientOptions,
@@ -36,7 +36,7 @@ const TEST_TIMEOUT = 120_000;
 jest.setTimeout(TEST_TIMEOUT);
 
 describe('p2p client integration message propagation', () => {
-  let txPool: MockProxy<TxPool>;
+  let txPool: MockProxy<TxPoolV2>;
   let attestationPool: MockProxy<AttestationPool>;
   let epochCache: MockProxy<EpochCache>;
   let worldState: MockProxy<WorldStateSynchronizer>;
@@ -46,9 +46,11 @@ describe('p2p client integration message propagation', () => {
 
   let clients: P2PClient[] = [];
 
+  const currentSlot = SlotNumber(1);
+
   beforeEach(() => {
     clients = [];
-    txPool = mock<TxPool>();
+    txPool = mock<TxPoolV2>();
     attestationPool = mock<AttestationPool>();
     epochCache = mock<EpochCache>();
     worldState = mock<WorldStateSynchronizer>();
@@ -58,19 +60,38 @@ describe('p2p client integration message propagation', () => {
 
     //@ts-expect-error - we want to mock the getEpochAndSlotInNextL1Slot method, mocking ts is enough
     epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) });
+    epochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot, nextSlot: SlotNumber(currentSlot + 1) });
     epochCache.getRegisteredValidators.mockResolvedValue([]);
+    epochCache.getL1Constants.mockReturnValue({
+      l1StartBlock: 0n,
+      l1GenesisTime: 0n,
+      slotDuration: 24,
+      epochDuration: 16,
+      ethereumSlotDuration: 12,
+      proofSubmissionEpochs: 2,
+      targetCommitteeSize: 48,
+    });
+
+    const mockMerkleTreeOps = mock<MerkleTreeReadOperations>();
+    mockMerkleTreeOps.findLeafIndices.mockResolvedValue([]);
+    worldState.getCommitted.mockReturnValue(mockMerkleTreeOps);
+    worldState.getSnapshot.mockReturnValue(mockMerkleTreeOps);
 
     txPool.isEmpty.mockResolvedValue(true);
     txPool.hasTxs.mockResolvedValue([]);
-    txPool.getAllTxs.mockImplementation(() => {
-      return Promise.resolve([] as Tx[]);
-    });
-    txPool.addTxs.mockResolvedValue(1);
+    txPool.addPendingTxs.mockImplementation((txs: Tx[]) =>
+      Promise.resolve({
+        accepted: txs.map(tx => tx.getTxHash()),
+        ignored: [],
+        rejected: [],
+      }),
+    );
     txPool.getTxsByHash.mockImplementation(() => {
       return Promise.resolve([] as Tx[]);
     });
 
     attestationPool.isEmpty.mockResolvedValue(true);
+    attestationPool.tryAddBlockProposal.mockResolvedValue({ added: true, alreadyExists: false, count: 1 });
 
     worldState.status.mockResolvedValue({
       state: mock(),
@@ -184,7 +205,7 @@ describe('p2p client integration message propagation', () => {
     // Client 1 sends a block proposal
     const dummyPayload: MakeConsensusPayloadOptions = {
       signer: Secp256k1Signer.random(),
-      header: CheckpointHeader.random(),
+      header: CheckpointHeader.random({ slotNumber: currentSlot }),
       archive: Fr.random(),
       txHashes: [TxHash.random()],
     };
@@ -336,7 +357,7 @@ describe('p2p client integration message propagation', () => {
         // Client 1 sends a block proposal
         const dummyPayload: MakeConsensusPayloadOptions = {
           signer: Secp256k1Signer.random(),
-          header: CheckpointHeader.random(),
+          header: CheckpointHeader.random({ slotNumber: currentSlot }),
           archive: Fr.random(),
           txHashes: [TxHash.random()],
         };

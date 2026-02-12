@@ -134,7 +134,7 @@ export const P75AllTxsPriorityFeeStrategy: PriorityFeeStrategy = {
     // Sanity check: cap competitive fee at 100x network estimate to avoid using unrealistic fees
     const maxReasonableFee = networkEstimate * 100n;
     if (competitiveFee > maxReasonableFee && networkEstimate > 0n) {
-      logger?.warn('Competitive fee exceeds sanity cap, using capped value', {
+      logger?.debug('Competitive fee exceeds sanity cap, using capped value', {
         competitiveFee: formatGwei(competitiveFee),
         networkEstimate: formatGwei(networkEstimate),
         cappedTo: formatGwei(maxReasonableFee),

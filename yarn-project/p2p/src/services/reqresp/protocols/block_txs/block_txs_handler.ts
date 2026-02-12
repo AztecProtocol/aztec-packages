@@ -1,10 +1,11 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { L2BlockSource } from '@aztec/stdlib/block';
 import { TxArray } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
-import type { AttestationPool } from '../../../../mem_pools/attestation_pool/attestation_pool.js';
-import type { TxPool } from '../../../../mem_pools/index.js';
+import type { AttestationPoolApi } from '../../../../mem_pools/attestation_pool/attestation_pool.js';
+import type { TxPoolV2 } from '../../../../mem_pools/tx_pool_v2/interfaces.js';
 import type { ReqRespSubProtocolHandler } from '../../interface.js';
 import { ReqRespStatus, ReqRespStatusError } from '../../status.js';
 import { BitVector } from './bitvector.js';
@@ -13,10 +14,15 @@ import { BlockTxsRequest, BlockTxsResponse } from './block_txs_reqresp.js';
 /**
  * Handler for block txs requests
  * @param attestationPool - the attestation pool to check for block proposals
- * @param mempools - the mempools containing the tx pool
+ * @param archiver - the archiver to look up blocks by archive root
+ * @param txPool - the tx pool to fetch transactions from
  * @returns the BlockTxs request handler
  */
-export function reqRespBlockTxsHandler(attestationPool: AttestationPool, txPool: TxPool): ReqRespSubProtocolHandler {
+export function reqRespBlockTxsHandler(
+  attestationPool: AttestationPoolApi,
+  archiver: L2BlockSource,
+  txPool: TxPoolV2,
+): ReqRespSubProtocolHandler {
   /**
    * Handler for block txs requests
    * @param msg - the block txs request message
@@ -30,34 +36,37 @@ export function reqRespBlockTxsHandler(attestationPool: AttestationPool, txPool:
     } catch (err: any) {
       throw new ReqRespStatusError(ReqRespStatus.BADLY_FORMED_REQUEST, { cause: err });
     }
-
-    const blockProposal = await attestationPool.getBlockProposal(request.archiveRoot.toString());
+    // First try attestation pool, then fall back to archiver
+    let txHashes = (await attestationPool.getBlockProposal(request.archiveRoot.toString()))?.txHashes;
+    if (!txHashes) {
+      txHashes = (await archiver.getL2BlockByArchive(request.archiveRoot))?.body.txEffects.map(effect => effect.txHash);
+    }
 
     let requestedTxsHashes;
     if (request.txHashes.length > 0) {
       requestedTxsHashes = request.txHashes;
     }
 
-    // This is scenario in which we don't have this block proposal the peer is requesting from us
+    // This is scenario in which we don't have this block the peer is requesting from us
     // But peer has sent requested tx hashes, so we can send them the transactions
-    if (!blockProposal && requestedTxsHashes !== undefined) {
+    if (!txHashes && requestedTxsHashes !== undefined) {
       const responseTxs = (await txPool.getTxsByHash(requestedTxsHashes)).filter(tx => !!tx);
       const response = new BlockTxsResponse(Fr.zero(), new TxArray(...responseTxs), BitVector.init(0, []));
       return response.toBuffer();
     }
 
-    // If don't have this block proposal and peer has not sent requested tx hashes
-    if (!blockProposal) {
+    // If we don't have this block and peer has not sent requested tx hashes
+    if (!txHashes) {
       throw new ReqRespStatusError(ReqRespStatus.NOT_FOUND);
     }
 
-    const txsAvailableInPool = await txPool.hasTxs(blockProposal.txHashes);
-    //Map txs in the pool to their indices in the block proposal
+    const txsAvailableInPool = await txPool.hasTxs(txHashes);
+    // Map txs in the pool to their indices in the block
     const availableIndices = txsAvailableInPool.map((hasTx, idx) => (hasTx ? idx : -1)).filter(idx => idx !== -1);
-    const responseBitVector = BitVector.init(blockProposal.txHashes.length, availableIndices);
+    const responseBitVector = BitVector.init(txHashes.length, availableIndices);
 
     const requestedIndices = new Set(request.txIndices.getTrueIndices());
-    requestedTxsHashes = blockProposal.txHashes.filter((_, idx) => requestedIndices.has(idx));
+    requestedTxsHashes = txHashes.filter((_, idx) => requestedIndices.has(idx));
 
     const responseTxs = (await txPool.getTxsByHash(requestedTxsHashes)).filter(tx => !!tx);
     const response = new BlockTxsResponse(request.archiveRoot, new TxArray(...responseTxs), responseBitVector);

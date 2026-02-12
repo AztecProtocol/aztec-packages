@@ -13,8 +13,8 @@ Deploying a contract to Aztec involves publishing the contract class (the byteco
 
 ## Prerequisites
 
-- Compiled contract artifacts (see [How to Compile](../aztec-nr/how_to_compile_contract.md))
-- [Connected to a network](./how_to_connect_to_local_network.md) with a `TestWallet` instance and funded accounts
+- Compiled contract artifacts (see [How to Compile](../aztec-nr/compiling_contracts.md))
+- [Connected to a network](./how_to_connect_to_local_network.md) with a `EmbeddedWallet` instance and funded accounts
 - TypeScript project set up
 
 ## Generate TypeScript bindings
@@ -165,10 +165,10 @@ Use `wallet.getContractMetadata()` to check your contract's current state:
 const metadata = await wallet.getContractMetadata(contractAddress);
 
 // Check each state:
-metadata.instance                          // Contract registered in your wallet?
-metadata.isContractClassPubliclyRegistered // Class registered on the network?
-metadata.isContractPublished               // Instance registered on the network?
-metadata.isContractInitialized             // Constructor has been called?
+metadata.instance; // Contract registered in your wallet?
+metadata.isContractClassPubliclyRegistered; // Class registered on the network?
+metadata.isContractPublished; // Instance registered on the network?
+metadata.isContractInitialized; // Constructor has been called?
 ```
 
 For a complete overview of what these states mean and when functions become callable, see [Contract Readiness States](../aztec-nr/contract_readiness_states.md).

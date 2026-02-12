@@ -24,7 +24,8 @@ import {
   getConfigEnvVars as getTelemetryClientConfig,
   initTelemetryClient,
 } from '@aztec/telemetry-client';
-import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet/server';
+import { EmbeddedWallet } from '@aztec/wallets/embedded';
+import { deployFundedSchnorrAccounts } from '@aztec/wallets/testing';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { type Hex, createPublicClient, fallback, http as httpViemTransport } from 'viem';
@@ -190,16 +191,11 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
   }
 
   if (initialAccounts.length) {
-    const PXEConfig = { proverEnabled: aztecNodeConfig.realProofs };
-    const wallet = await TestWallet.create(node, PXEConfig);
+    const wallet = await EmbeddedWallet.create(node, { pxeConfig: { proverEnabled: aztecNodeConfig.realProofs } });
 
     userLog('Setting up funded test accounts...');
     const accountManagers = await deployFundedSchnorrAccounts(wallet, initialAccounts);
-    const accountsWithSecrets = accountManagers.map((manager, i) => ({
-      account: manager,
-      secretKey: initialAccounts[i].secret,
-    }));
-    const accLogs = await createAccountLogs(accountsWithSecrets, wallet);
+    const accLogs = await createAccountLogs(accountManagers, wallet);
     userLog(accLogs.join(''));
 
     await setupBananaFPC(initialAccounts, wallet, userLog);

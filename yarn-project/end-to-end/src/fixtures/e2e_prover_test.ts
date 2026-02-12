@@ -20,13 +20,13 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import { TestWallet } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { type Hex, getContract } from 'viem';
 import { privateKeyToAddress } from 'viem/accounts';
 
 import { TokenSimulator } from '../simulators/token_simulator.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import {
@@ -144,7 +144,7 @@ export class FullProverTest {
     this.logger.info(`Enabling proving`, { realProofs: this.realProofs });
 
     // We don't wish to mark as proven automatically, so we set the flag to false
-    this.context.watcher!.setIsMarkingAsProven(false);
+    this.context.watcher.setIsMarkingAsProven(false);
 
     this.simulatedProverNode = this.context.proverNode!;
     ({
@@ -152,7 +152,7 @@ export class FullProverTest {
       deployL1ContractsValues: this.l1Contracts,
       cheatCodes: this.cheatCodes,
     } = this.context);
-    this.aztecNodeAdmin = this.context.aztecNodeService!;
+    this.aztecNodeAdmin = this.context.aztecNodeService;
 
     const config = this.context.aztecNodeConfig;
     const blobClient = await createBlobClientWithFileStores(config, this.logger);
@@ -225,7 +225,7 @@ export class FullProverTest {
     this.logger.verbose('Starting archiver for new prover node');
     const archiver = await createArchiver(
       { ...this.context.aztecNodeConfig, dataDirectory: undefined },
-      { blobClient, dateProvider: this.context.dateProvider! },
+      { blobClient, dateProvider: this.context.dateProvider },
       { blockUntilSync: true },
     );
 

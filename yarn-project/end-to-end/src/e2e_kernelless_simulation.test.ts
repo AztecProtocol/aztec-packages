@@ -7,10 +7,10 @@ import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { type TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { type AbiDecoded, decodeFromAbi, getFunctionArtifact } from '@aztec/stdlib/abi';
 import { computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
 
 /*
  * Demonstrates the capability of simulating a transaction without executing the kernels, allowing

@@ -1,4 +1,4 @@
-use dep::types::{
+use types::{
     abis::{note_hash::NoteHash, private_log::PrivateLogData},
     side_effect::{Counted, Ordered, Scoped},
     utils::arrays::{ClaimedLengthArray, find_first_index},
@@ -74,7 +74,7 @@ mod tests {
     use super::{
         validate_note_log_linked_to_note_hash_with_hint, validate_note_logs_linked_to_note_hashes,
     };
-    use dep::types::{
+    use types::{
         abis::{note_hash::NoteHash, private_log::PrivateLogData},
         address::AztecAddress,
         side_effect::{Counted, Scoped},

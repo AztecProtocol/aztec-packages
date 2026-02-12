@@ -1,4 +1,4 @@
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 // Account contract that does not perform any authentication, typically used to override a *real* account contract
 // in a simulation. This avoids the need of generating real signatures during simulation.
@@ -8,16 +8,16 @@ use dep::aztec::macros::aztec;
 // public key of the overridden contract
 #[aztec]
 pub contract SimulatedAccount {
-    use dep::aztec::{
+    use aztec::{
         authwit::{account::AccountActions, auth::IS_VALID_SELECTOR, entrypoint::app::AppPayload},
         context::PrivateContext,
-        macros::functions::{external, nophasecheck, view},
+        macros::functions::{allow_phase_change, external, view},
         oracle::notes::set_sender_for_tags,
     };
 
     // @dev: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts (specifically `getEntrypointAbi()`)
     #[external("private")]
-    #[nophasecheck]
+    #[allow_phase_change]
     fn entrypoint(app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
         // Since this value is only used for unconstrained tagging and not for any constrained logic,

@@ -9,7 +9,7 @@ This guide shows you how to read data from Aztec contracts in TypeScript, includ
 
 ## Prerequisites
 
-- [Connected to a network](./how_to_connect_to_local_network.md) with a `TestWallet` instance and funded accounts
+- [Connected to a network](./how_to_connect_to_local_network.md) with a `EmbeddedWallet` instance and funded accounts
 - A deployed contract instance (see [How to Deploy a Contract](./how_to_deploy_contract.md))
 
 ## Simulating functions
@@ -80,12 +80,12 @@ Simulation runs locally without generating proofs. No correctness guarantees are
 
 Contracts emit data in two forms you can read:
 
-| Aspect             | Logs                        | Events                                                    |
-| ------------------ | --------------------------- | --------------------------------------------------------- |
-| **What**           | Raw field arrays (untyped)  | Decoded domain objects with type info                     |
-| **Storage**        | Archiver (node-level)       | PXE (client-level) for private events                     |
-| **API**            | `aztecNode.getPublicLogs()` | `wallet.getPrivateEvents()` or `getDecodedPublicEvents()` |
-| **Type awareness** | None - raw `Fr[]` data      | Requires ABI metadata to decode                           |
+| Aspect             | Logs                        | Events                                             |
+| ------------------ | --------------------------- | -------------------------------------------------- |
+| **What**           | Raw field arrays (untyped)  | Decoded domain objects with type info              |
+| **Storage**        | Archiver (node-level)       | PXE (client-level) for private events              |
+| **API**            | `aztecNode.getPublicLogs()` | `wallet.getPrivateEvents()` or `getPublicEvents()` |
+| **Type awareness** | None - raw `Fr[]` data      | Requires ABI metadata to decode                    |
 
 **Logs** are the low-level transport layer, while **events** are the semantic application layer decoded using ABI metadata from your contract.
 
@@ -114,10 +114,10 @@ Events provide typed access to contract emissions. The event metadata from your 
 
 ### Reading public events
 
-Use the `getDecodedPublicEvents` helper to retrieve typed public events:
+Use the `getPublicEvents` helper to retrieve typed public events:
 
 ```typescript
-import { getDecodedPublicEvents } from "@aztec/aztec.js/events";
+import { getPublicEvents } from "@aztec/aztec.js/events";
 ```
 
 #include_code get_public_events yarn-project/end-to-end/src/e2e_event_logs.test.ts typescript
@@ -126,12 +126,13 @@ The function parameters are:
 
 - `aztecNode` - The node to query
 - `Contract.events.EventName` - Event metadata from the contract artifact (contains the event selector)
-- `fromBlock` - Starting block number
-- `limit` - Number of blocks to search
+- `filter` - An object with optional fields:
+  - `fromBlock` - Starting block number (inclusive)
+  - `toBlock` - Ending block number (exclusive)
+  - `contractAddress` - Filter to a specific contract
+  - `txHash` - Filter to a specific transaction
 
-:::note
-This function queries all public logs in the block range and filters by **event selector**, not by contract address. If multiple contracts emit events with the same selector, they will all be returned.
-:::
+Each returned event includes both the decoded `event` data and `metadata` (block number, block hash, tx hash, contract address).
 
 ### Reading private events
 

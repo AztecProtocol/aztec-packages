@@ -7,7 +7,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 # module's own CMakeLists.txt by adding conditional compilation flags like the following
 # ```
 # if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-# target_compile_options(crypto_blake3s_full_objects PRIVATE -Wno-error=shorten-64-to-32)
+# target_compile_options(my_module_objects PRIVATE -Wno-error=shorten-64-to-32)
 # endif()
 # ```
 # Specifying `-Wno-${ERROR_NAME}` will silence the error completely.
@@ -34,6 +34,11 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         # This gets in the way of a partial object initialization (i.e. MyClass my_class{ .my_member = init_value })
         add_compile_options(-Wno-missing-field-initializers)
         # CLI11.hpp
+        add_compile_options(-Wno-deprecated-declarations)
+    endif()
+    if(MOBILE)
+        # iOS builds use Apple Clang which has stricter defaults but doesn't support -Wno-vla-cxx-extension
+        add_compile_options(-Wno-missing-field-initializers)
         add_compile_options(-Wno-deprecated-declarations)
     endif()
 endif()
@@ -114,10 +119,14 @@ add_subdirectory(barretenberg/translator_vm)
 add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm2_stub)
 add_subdirectory(barretenberg/wasi)
-add_subdirectory(barretenberg/lmdblib)
 
-if(NOT FUZZING AND NOT WASM)
+if(NOT MOBILE)
+    add_subdirectory(barretenberg/lmdblib)
+endif()
+
+if(NOT FUZZING AND NOT WASM AND NOT MOBILE)
     # Fuzzing preset cannot be built with world_state as world_state cannot compile with MULTITHREADING=OFF
+    # Mobile builds exclude these modules that require LMDB or aren't needed on mobile
     add_subdirectory(barretenberg/world_state)
     # NOTE: Do not conditionally base this on the AVM flag as it defines a necessary vm2_sim library.
     add_subdirectory(barretenberg/vm2)
@@ -196,8 +205,8 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:translator_vm_objects>
     $<TARGET_OBJECTS:ultra_honk_objects>)
 
-if(NOT WASM AND NOT FUZZING)
-    # enable merkle trees and lmdb
+if(NOT WASM AND NOT FUZZING AND NOT MOBILE)
+    # enable merkle trees and lmdb (not for mobile builds)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:crypto_merkle_tree_objects>)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:lmdblib_objects>)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:api_objects>)

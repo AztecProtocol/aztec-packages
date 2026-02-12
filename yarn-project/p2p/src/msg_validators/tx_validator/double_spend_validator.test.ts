@@ -1,19 +1,19 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
-import { type AnyTx, TX_ERROR_DUPLICATE_NULLIFIER_IN_TX, TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
+import { TX_ERROR_DUPLICATE_NULLIFIER_IN_TX, TX_ERROR_EXISTING_NULLIFIER, type Tx } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { DoubleSpendTxValidator, type NullifierSource } from './double_spend_validator.js';
 
 describe('DoubleSpendTxValidator', () => {
-  let txValidator: DoubleSpendTxValidator<AnyTx>;
+  let txValidator: DoubleSpendTxValidator<Tx>;
   let nullifierSource: MockProxy<NullifierSource>;
 
-  const expectValid = async (tx: AnyTx) => {
+  const expectValid = async (tx: Tx) => {
     await expect(txValidator.validateTx(tx)).resolves.toEqual({ result: 'valid' });
   };
-  const expectInvalid = async (tx: AnyTx, reason: string) => {
+  const expectInvalid = async (tx: Tx, reason: string) => {
     await expect(txValidator.validateTx(tx)).resolves.toEqual({ result: 'invalid', reason: [reason] });
   };
 

@@ -36,7 +36,7 @@ Never heard of `tsx`? Well, it will just run `typescript` with reasonable defaul
 Let's also import the Aztec dependencies for this tutorial:
 
 ```sh
-yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/accounts@#include_version_without_prefix @aztec/noir-contracts.js@#include_version_without_prefix @aztec/test-wallet@#include_version_without_prefix
+yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/accounts@#include_version_without_prefix @aztec/noir-contracts.js@#include_version_without_prefix @aztec/wallets@#include_version_without_prefix
 ```
 
 Aztec.js assumes your project is using ESM, so make sure you add `"type": "module"` to `package.json`. You probably also want at least a `start` script. For example:

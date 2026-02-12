@@ -25,6 +25,8 @@ export type AddTxsResult = {
 export type TxPoolV2Events = {
   /** Emitted when transactions are successfully added to the pool */
   'txs-added': (args: { txs: Tx[]; source?: string }) => void;
+  /** Emitted when transactions are removed from the pool */
+  'txs-removed': (args: { txHashes: TxHash[] }) => void;
 };
 
 /**
@@ -53,8 +55,8 @@ export type TxPoolV2Dependencies = {
   l2BlockSource: L2BlockSource;
   /** World state synchronizer for validating transactions after chain prunes */
   worldStateSynchronizer: WorldStateSynchronizer;
-  /** Validator for transactions entering the pending pool */
-  pendingTxValidator: TxValidator<Tx>;
+  /** Factory that creates a validator for re-validating pool transactions using metadata */
+  createTxValidator: () => Promise<TxValidator<TxMetaData>>;
 };
 
 /**

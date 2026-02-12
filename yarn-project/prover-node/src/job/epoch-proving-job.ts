@@ -193,7 +193,8 @@ export class EpochProvingJob implements Traceable {
           previousHeader,
         );
 
-        for (const block of checkpoint.blocks) {
+        for (let blockIndex = 0; blockIndex < checkpoint.blocks.length; blockIndex++) {
+          const block = checkpoint.blocks[blockIndex];
           const globalVariables = block.header.globalVariables;
           const txs = this.getTxs(block);
 
@@ -211,8 +212,12 @@ export class EpochProvingJob implements Traceable {
           // Start block proving
           await this.prover.startNewBlock(block.number, globalVariables.timestamp, txs.length);
 
-          // Process public fns
-          const db = await this.createFork(BlockNumber(block.number - 1), l1ToL2Messages);
+          // Process public fns. L1 to L2 messages are only inserted for the first block of a checkpoint,
+          // as the fork for subsequent blocks already includes them from the previous block's synced state.
+          const db = await this.createFork(
+            BlockNumber(block.number - 1),
+            blockIndex === 0 ? l1ToL2Messages : undefined,
+          );
           const config = PublicSimulatorConfig.from({
             proverId: this.prover.getProverId().toField(),
             skipFeeEnforcement: false,
@@ -295,22 +300,29 @@ export class EpochProvingJob implements Traceable {
   }
 
   /**
-   * Create a new db fork for tx processing, inserting all L1 to L2.
+   * Create a new db fork for tx processing, optionally inserting L1 to L2 messages.
+   * L1 to L2 messages should only be inserted for the first block in a checkpoint,
+   * as subsequent blocks' synced state already includes them.
    * REFACTOR: The prover already spawns a db fork of its own for each block, so we may be able to do away with just one fork.
    */
-  private async createFork(blockNumber: BlockNumber, l1ToL2Messages: Fr[]) {
+  private async createFork(blockNumber: BlockNumber, l1ToL2Messages: Fr[] | undefined) {
+    this.log.verbose(`Creating fork at ${blockNumber}`, { blockNumber });
     const db = await this.dbProvider.fork(blockNumber);
-    const l1ToL2MessagesPadded = padArrayEnd<Fr, number>(
-      l1ToL2Messages,
-      Fr.ZERO,
-      NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-      'Too many L1 to L2 messages',
-    );
-    this.log.verbose(`Creating fork at ${blockNumber} with ${l1ToL2Messages.length} L1 to L2 messages`, {
-      blockNumber,
-      l1ToL2Messages: l1ToL2Messages.map(m => m.toString()),
-    });
-    await db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
+
+    if (l1ToL2Messages !== undefined) {
+      this.log.verbose(`Inserting ${l1ToL2Messages.length} L1 to L2 messages in fork`, {
+        blockNumber,
+        l1ToL2Messages: l1ToL2Messages.map(m => m.toString()),
+      });
+      const l1ToL2MessagesPadded = padArrayEnd<Fr, number>(
+        l1ToL2Messages,
+        Fr.ZERO,
+        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+        'Too many L1 to L2 messages',
+      );
+      await db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
+    }
+
     return db;
   }
 

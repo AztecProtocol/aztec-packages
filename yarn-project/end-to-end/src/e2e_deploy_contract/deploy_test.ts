@@ -8,9 +8,9 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { type EndToEndContext, deployAccounts, setup, teardown } from '../fixtures/setup.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 
 export class DeployTest {
   public context!: EndToEndContext;
@@ -30,9 +30,9 @@ export class DeployTest {
       fundSponsoredFPC: true,
       skipAccountDeployment: true,
     });
-    this.aztecNode = this.context.aztecNodeService!;
+    this.aztecNode = this.context.aztecNodeService;
     this.wallet = this.context.wallet;
-    this.aztecNodeAdmin = this.context.aztecNodeService!;
+    this.aztecNodeAdmin = this.context.aztecNodeService;
     await this.applyInitialAccount();
     return this;
   }

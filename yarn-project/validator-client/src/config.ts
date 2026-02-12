@@ -73,6 +73,10 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     description: 'Skip pushing re-executed blocks to archiver (default: false)',
     defaultValue: false,
   },
+  attestToEquivocatedProposals: {
+    description: 'Agree to attest to equivocated checkpoint proposals (for testing purposes only)',
+    ...booleanConfigHelper(false),
+  },
   ...validatorHASignerConfigMappings,
 };
 

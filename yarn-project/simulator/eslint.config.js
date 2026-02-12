@@ -8,4 +8,11 @@ export default [
       'require-await': 'off',
     },
   },
+  {
+    files: ['src/public/avm/fixtures/account_proof_fetcher.ts'],
+    rules: {
+      camelcase: 'off',
+      'no-console': 'off',
+    },
+  },
 ];

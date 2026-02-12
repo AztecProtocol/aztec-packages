@@ -1,16 +1,15 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { ContractInstanceWithAddress, SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
-import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
 import { mintNotes } from '../../fixtures/token_utils.js';
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { captureProfile } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
@@ -114,19 +113,10 @@ describe('Transfer benchmark', () => {
 
           afterEach(async () => {
             // Send back the change to restart the test without redeploying the accounts
-            // We can do this because adminPXE has the private key for the user
-            // Since the admin's PXE never generates proofs, this upkeep is better done by them
-            const interaction = candyBarCoin.methods.transfer_in_private(
-              benchysAddress,
-              adminAddress,
-              expectedChange,
-              Fr.random(),
-            );
-            const witness = await userWallet.createAuthWit(benchysAddress, {
-              caller: adminAddress,
-              action: interaction,
-            });
-            await interaction.send({ from: adminAddress, authWitnesses: [witness], wait: { timeout: 120 } });
+            const asset = TokenContract.at(candyBarCoin.address, userWallet);
+            await asset.methods
+              .transfer(adminAddress, expectedChange)
+              .send({ from: benchysAddress, wait: { timeout: 120 } });
           });
 
           // Ensure we create a change note, by sending an amount that is not a multiple of the note amount
@@ -143,6 +133,8 @@ describe('Transfer benchmark', () => {
 
             const transferInteraction = asset.methods.transfer(adminAddress, amountToSend);
 
+            expectedChange = totalAmount - BigInt(amountToSend);
+
             await captureProfile(
               `${accountType}+transfer_${recursions}_recursions+${benchmarkingPaymentMethod}`,
               transferInteraction,
@@ -156,8 +148,6 @@ describe('Transfer benchmark', () => {
                 1 + // Kernel tail
                 1, // Kernel hiding
             );
-
-            expectedChange = totalAmount - BigInt(amountToSend);
 
             if (process.env.SANITY_CHECKS) {
               // Ensure we paid a fee

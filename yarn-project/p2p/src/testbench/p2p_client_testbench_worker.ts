@@ -144,7 +144,7 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
       const txHash = tx.getTxHash();
       const txHashString = txHash.toString();
       this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()}.`);
-      await this.mempools.txPool.addTxs([tx]);
+      await this.mempools.txPool.addPendingTxs([tx]);
     } else {
       await super.handleGossipedTx(payload, msgId, source);
     }
@@ -447,7 +447,7 @@ process.on('message', async msg => {
         const txHashes = allTxs.map(tx => tx.getTxHash());
         const blockProposal = await createBlockProposal(benchCmd.blockNumber, txHashes, benchCmd.seed);
 
-        await workerAttestationPool.addBlockProposal(blockProposal);
+        await workerAttestationPool.tryAddBlockProposal(blockProposal);
         workerLogger.debug(
           `[BENCH] Added block proposal with archive ${blockProposal.archive.toString().slice(0, 10)}...`,
         );

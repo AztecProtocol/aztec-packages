@@ -23,7 +23,7 @@ This is an intermediate tutorial that assumes you have:
 - Completed the [Counter Contract tutorial](./counter_contract.md)
 - A Running Aztec local network (see the Counter tutorial for setup)
 - Basic understanding of Aztec.nr syntax and structure
-- Aztec toolchain installed (`bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix/)`)
+- Aztec toolchain installed (`VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix)`)
 
 If you haven't completed the Counter Contract tutorial, please do so first as we'll skip the basic setup steps covered there.
 
@@ -427,5 +427,5 @@ The BOB token shows how blockchain can enable new models of corporate benefits t
 
 ### Continue Your Journey
 
-- Explore [cross-chain communication](../../aztec-nr/framework-description/ethereum-aztec-messaging/index.md) to integrate with existing health systems
+- Explore [cross-chain communication](../../foundational-topics/ethereum-aztec-messaging/index.md) to integrate with existing health systems
 - Learn about [account abstraction](../../foundational-topics/accounts/index.md) for recovery mechanisms

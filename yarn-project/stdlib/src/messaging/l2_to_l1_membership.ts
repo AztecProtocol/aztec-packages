@@ -32,10 +32,10 @@ import { SiblingPath, UnbalancedMerkleTreeCalculator, computeUnbalancedShaRoot }
  *    - Compression: If a block has no messages (out hash = 0), that branch is ignored
  *
  * 4. **Epoch Tree**
- *    - Leaves: Checkpoint out hashes from all checkpoints in an epoch (padded to AZTEC_MAX_EPOCH_DURATION)
+ *    - Leaves: Checkpoint out hashes from all checkpoints in an epoch (padded to OUT_HASH_TREE_LEAF_COUNT)
  *    - Root: Epoch out hash (set in the root rollup's public inputs and inserted into the Outbox on L1 when the epoch is proven)
  *    - Type: Unbalanced, non-compressed
- *    - **Important**: Padded with zeros up to AZTEC_MAX_EPOCH_DURATION to allow for proofs of partial epochs
+ *    - **Important**: Padded with zeros up to OUT_HASH_TREE_LEAF_COUNT to allow for proofs of partial epochs
  *
  * ## Combined Membership Proof
  * To prove a message exists in an epoch, we combine the sibling paths from all 4 trees:
@@ -163,7 +163,7 @@ export function computeL2ToL1MembershipWitnessFromMessagesInEpoch(
     }
     return buildCheckpointTree(messagesInCheckpoint).getRoot();
   });
-  // Pad to AZTEC_MAX_EPOCH_DURATION with zeros.
+  // Pad to OUT_HASH_TREE_LEAF_COUNT with zeros.
   checkpointOutHashes = checkpointOutHashes.concat(
     Array.from({ length: OUT_HASH_TREE_LEAF_COUNT - messagesInEpoch.length }, () => Buffer.alloc(32)),
   );

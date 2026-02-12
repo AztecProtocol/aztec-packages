@@ -20,7 +20,6 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import { TestWallet } from '@aztec/test-wallet/server';
 
 import { getContract } from 'viem';
 
@@ -36,6 +35,7 @@ import {
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 import { type BalancesFn, getBalancesFn, setupSponsoredFPC } from '../fixtures/utils.js';
 import { FeeJuicePortalTestingHarnessFactory, type GasBridgingTestHarness } from '../shared/gas_portal_test_harness.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
 
 /**
  * Test fixture for testing fees. Provides the following setup steps:
@@ -113,7 +113,7 @@ export class FeesTest {
     });
 
     this.rollupContract = RollupContract.getFromConfig(this.context.config);
-    this.chainMonitor = new ChainMonitor(this.rollupContract, this.context.dateProvider!, this.logger, 200).start();
+    this.chainMonitor = new ChainMonitor(this.rollupContract, this.context.dateProvider, this.logger, 200).start();
 
     await this.applyBaseSetup();
 
@@ -126,7 +126,7 @@ export class FeesTest {
   }
 
   setIsMarkingAsProven(b: boolean) {
-    this.context.watcher!.setIsMarkingAsProven(b);
+    this.context.watcher.setIsMarkingAsProven(b);
   }
 
   async catchUpProvenChain() {
@@ -157,15 +157,11 @@ export class FeesTest {
 
   /** Alice mints bananaCoin tokens privately to the target address and redeems them. */
   async mintPrivateBananas(amount: bigint, address: AztecAddress) {
-    const balanceBefore = await this.bananaCoin.methods
-      .balance_of_private(address)
-      .simulate({ from: this.aliceAddress });
+    const balanceBefore = await this.bananaCoin.methods.balance_of_private(address).simulate({ from: address });
 
     await mintTokensToPrivate(this.bananaCoin, this.aliceAddress, address, amount);
 
-    const balanceAfter = await this.bananaCoin.methods
-      .balance_of_private(address)
-      .simulate({ from: this.aliceAddress });
+    const balanceAfter = await this.bananaCoin.methods.balance_of_private(address).simulate({ from: address });
     expect(balanceAfter).toEqual(balanceBefore + amount);
   }
 
@@ -188,8 +184,8 @@ export class FeesTest {
     });
 
     this.wallet = this.context.wallet;
-    this.aztecNode = this.context.aztecNodeService!;
-    this.aztecNodeAdmin = this.context.aztecNodeService!;
+    this.aztecNode = this.context.aztecNodeService;
+    this.aztecNodeAdmin = this.context.aztecNodeService;
     this.gasSettings = GasSettings.default({ maxFeesPerGas: (await this.aztecNode.getCurrentMinFees()).mul(2) });
     this.cheatCodes = this.context.cheatCodes;
     this.accounts = deployedAccounts.map(a => a.address);
@@ -213,16 +209,11 @@ export class FeesTest {
 
     this.feeJuiceContract = FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.wallet);
 
-    this.getGasBalanceFn = getBalancesFn(
-      '⛽',
-      this.feeJuiceContract.methods.balance_of_public,
-      this.aliceAddress,
-      this.logger,
-    );
+    this.getGasBalanceFn = getBalancesFn('⛽', this.feeJuiceContract.methods.balance_of_public, this.logger);
 
     this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
-      aztecNode: this.context.aztecNodeService!,
-      aztecNodeAdmin: this.context.aztecNodeService!,
+      aztecNode: this.context.aztecNodeService,
+      aztecNodeAdmin: this.context.aztecNodeService,
       l1Client: this.context.deployL1ContractsValues.l1Client,
       wallet: this.wallet,
       logger: this.logger,
@@ -238,16 +229,10 @@ export class FeesTest {
     this.logger.info(`BananaCoin deployed at ${bananaCoin.address}`);
 
     this.bananaCoin = bananaCoin;
-    this.getBananaPublicBalanceFn = getBalancesFn(
-      '🍌.public',
-      this.bananaCoin.methods.balance_of_public,
-      this.aliceAddress,
-      this.logger,
-    );
+    this.getBananaPublicBalanceFn = getBalancesFn('🍌.public', this.bananaCoin.methods.balance_of_public, this.logger);
     this.getBananaPrivateBalanceFn = getBalancesFn(
       '🍌.private',
       this.bananaCoin.methods.balance_of_private,
-      this.aliceAddress,
       this.logger,
     );
   }

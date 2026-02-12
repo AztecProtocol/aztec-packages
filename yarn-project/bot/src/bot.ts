@@ -5,7 +5,7 @@ import { times } from '@aztec/foundation/collection';
 import type { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import type { TestWallet } from '@aztec/test-wallet/server';
+import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { BaseBot } from './base_bot.js';
 import type { BotConfig } from './config.js';
@@ -18,7 +18,7 @@ const TRANSFER_AMOUNT = 1;
 export class Bot extends BaseBot {
   protected constructor(
     node: AztecNode,
-    wallet: TestWallet,
+    wallet: EmbeddedWallet,
     defaultAccountAddress: AztecAddress,
     public readonly token: TokenContract | PrivateTokenContract,
     public readonly recipient: AztecAddress,
@@ -29,7 +29,7 @@ export class Bot extends BaseBot {
 
   static async create(
     config: BotConfig,
-    wallet: TestWallet,
+    wallet: EmbeddedWallet,
     aztecNode: AztecNode,
     aztecNodeAdmin: AztecNodeAdmin | undefined,
     store: BotStore,
@@ -83,7 +83,7 @@ export class Bot extends BaseBot {
     if (isStandardTokenContract(this.token)) {
       return {
         sender: await getBalances(this.token, this.defaultAccountAddress),
-        recipient: await getBalances(this.token, this.recipient, this.defaultAccountAddress),
+        recipient: await getBalances(this.token, this.recipient),
       };
     } else {
       return {
@@ -92,7 +92,7 @@ export class Bot extends BaseBot {
           publicBalance: 0n,
         },
         recipient: {
-          privateBalance: await getPrivateBalance(this.token, this.recipient, this.defaultAccountAddress),
+          privateBalance: await getPrivateBalance(this.token, this.recipient),
           publicBalance: 0n,
         },
       };

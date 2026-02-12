@@ -12,6 +12,7 @@ const fs = require("fs");
 const macros = require("./src/katex-macros.js");
 const versions = require("./versions.json");
 const nightlyVersion = versions.find((v) => v.includes("nightly"));
+const stableVersion = versions.find((v) => !v.includes("nightly"));
 
 // To redirect /api to the static/api directory in dev mode (netlify handles it in prod)
 function apiPlugin(context: any, options: any) {
@@ -90,11 +91,10 @@ const config: Config = {
           // Don't show latest since nightlies are published
           includeCurrentVersion: process.env.ENV === "dev",
           // There should be 2 versions, nightly and stable
-          // The stable version is second in the list
           // Fall back to versions[0] if only one version exists (e.g., during release builds)
-          lastVersion: versions[1] ?? versions[0],
+          lastVersion: stableVersion ?? versions[0],
           versions: {
-            ...(nightlyVersion && versions[1] && {
+            ...(nightlyVersion && stableVersion && {
               [nightlyVersion]: {
                 path: "nightly",
                 banner: "unreleased",

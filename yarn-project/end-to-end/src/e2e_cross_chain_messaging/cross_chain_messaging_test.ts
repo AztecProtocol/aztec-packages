@@ -19,7 +19,6 @@ import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
@@ -31,6 +30,7 @@ import {
   teardown,
 } from '../fixtures/setup.js';
 import { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 
 export class CrossChainMessagingTest {
   private requireEpochProven: boolean;
@@ -109,16 +109,16 @@ export class CrossChainMessagingTest {
 
   async applyBaseSetup() {
     // Set up base context fields
-    this.aztecNode = this.context.aztecNodeService!;
+    this.aztecNode = this.context.aztecNodeService;
     this.wallet = this.context.wallet;
     this.aztecNodeConfig = this.context.config;
     this.cheatCodes = this.context.cheatCodes;
     this.deployL1ContractsValues = this.context.deployL1ContractsValues;
-    this.aztecNodeAdmin = this.context.aztecNodeService!;
+    this.aztecNodeAdmin = this.context.aztecNodeService;
 
     if (this.requireEpochProven) {
       // Turn off the watcher to prevent it from keep marking blocks as proven.
-      this.context.watcher!.setIsMarkingAsProven(false);
+      this.context.watcher.setIsMarkingAsProven(false);
     }
 
     // Deploy 3 accounts

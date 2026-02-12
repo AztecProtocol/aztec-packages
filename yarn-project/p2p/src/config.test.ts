@@ -25,8 +25,8 @@ describe('config', () => {
     expect(allowList).toEqual(config);
   });
 
-  it('defaults proposal tx collector type to new', () => {
+  it('defaults missing txs collector type to new', () => {
     const config = getP2PDefaultConfig();
-    expect(config.txCollectionProposalTxCollectorType).toBe('new');
+    expect(config.txCollectionMissingTxsCollectorType).toBe('new');
   });
 });

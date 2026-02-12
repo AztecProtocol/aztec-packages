@@ -149,12 +149,15 @@ jobs:
           ./bootstrap.sh build_packages
 
       - name: Build aztec CLI
+        id: build-cli
+        continue-on-error: true
         working-directory: ./yarn-project
         run: |
           ./bootstrap.sh
           echo "AZTEC_CLI_PATH=$(pwd)/aztec/dest/bin" >> $GITHUB_ENV
 
       - name: Generate TypeScript API documentation
+        if: steps.build-cli.outcome == 'success'
         working-directory: ./docs
         run: |
           # Generate TypeScript API docs for this version (requires yarn-project to be built)
@@ -162,6 +165,7 @@ jobs:
           echo "Generated TypeScript API docs for: ${{ env.NIGHTLY_TAG }}"
 
       - name: Generate CLI documentation
+        if: steps.build-cli.outcome == 'success'
         working-directory: ./docs
         continue-on-error: true
         run: |
@@ -175,6 +179,11 @@ jobs:
           node "$AZTEC_CLI_PATH/index.js" "$@"
           EOF
           chmod +x /tmp/cli-bin/aztec
+
+          # Copy aztec-up from repo (it's a standalone bash script)
+          cp "$GITHUB_WORKSPACE/aztec-up/bin/aztec-up" /tmp/cli-bin/aztec-up
+          chmod +x /tmp/cli-bin/aztec-up
+
           export PATH="/tmp/cli-bin:${PATH}"
 
           # Generate Aztec CLI docs using binaries (continue-on-error handles failures)

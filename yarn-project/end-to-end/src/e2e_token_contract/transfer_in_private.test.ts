@@ -29,20 +29,20 @@ describe('e2e_token_contract transfer private', () => {
     const authwitNonce = Fr.random();
     expect(amount).toBeGreaterThan(0n);
 
-    // We need to compute the message we want to sign and add it to the wallet as approved
     const action = asset.methods.transfer_in_private(adminAddress, account1Address, amount, authwitNonce);
+    const call = await action.getFunctionCall();
+    const witness = await wallet.createAuthWit(adminAddress, { caller: t.proxy.address, action });
 
-    const witness = await wallet.createAuthWit(adminAddress, { caller: account1Address, action });
-
-    // Perform the transfer
-    await action.send({ from: account1Address, authWitnesses: [witness] });
+    await t.proxy.methods
+      .forward_private_4(call.to, call.selector, call.args)
+      .send({ from: adminAddress, authWitnesses: [witness] });
     tokenSim.transferPrivate(adminAddress, account1Address, amount);
 
     // Perform the transfer again, should fail
     await expect(
-      asset.methods
-        .transfer_in_private(adminAddress, account1Address, amount, authwitNonce)
-        .send({ from: account1Address, authWitnesses: [witness] }),
+      t.proxy.methods
+        .forward_private_4(call.to, call.selector, call.args)
+        .send({ from: adminAddress, authWitnesses: [witness] }),
     ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
   });
 
@@ -137,21 +137,21 @@ describe('e2e_token_contract transfer private', () => {
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
-      // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset.methods.transfer_in_private(adminAddress, account1Address, amount, authwitNonce);
+      const call = await action.getFunctionCall();
 
-      const intent = { caller: account1Address, action };
+      const intent = { caller: t.proxy.address, action };
 
       const witness = await wallet.createAuthWit(adminAddress, intent);
 
-      const innerHash = await computeInnerAuthWitHashFromAction(account1Address, action);
+      const innerHash = await computeInnerAuthWitHashFromAction(t.proxy.address, action);
       await asset.methods.cancel_authwit(innerHash).send({ from: adminAddress });
 
       // Perform the transfer, should fail because nullifier already emitted
       await expect(
-        asset.methods
-          .transfer_in_private(adminAddress, account1Address, amount, authwitNonce)
-          .send({ from: account1Address, authWitnesses: [witness] }),
+        t.proxy.methods
+          .forward_private_4(call.to, call.selector, call.args)
+          .send({ from: adminAddress, authWitnesses: [witness] }),
       ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
     });
 

@@ -1,7 +1,5 @@
 use crate::tests::private_kernel_init::TestBuilder;
-use dep::types::{
-    address::AztecAddress, constants::NULL_MSG_SENDER_CONTRACT_ADDRESS, traits::FromField,
-};
+use types::{address::AztecAddress, constants::NULL_MSG_SENDER_CONTRACT_ADDRESS, traits::FromField};
 
 #[test(should_fail_with = "incorrect msg_sender for private call request")]
 fn private_call_request_with_incorrect_msg_sender() {

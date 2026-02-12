@@ -144,7 +144,7 @@ void complete_proving_key_for_test(bb::RelationParameters<FF>& relation_paramete
 
     const size_t unmasked_witness_size = pk->circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK;
     // Compute z_perm and inverse polynomial for our logarithmic-derivative lookup method
-    compute_logderivative_inverse<FF, ECCVMFlavor::LookupRelation>(
+    compute_logderivative_inverse<FF, ECCVMFlavor::LookupRelation, ECCVMFlavor::ProverPolynomials, true>(
         pk->polynomials, relation_parameters, unmasked_witness_size);
     compute_grand_products<ECCVMFlavor>(pk->polynomials, relation_parameters, unmasked_witness_size);
 
@@ -390,6 +390,96 @@ TEST_F(ECCVMTests, CommittedSumcheck)
                                          verifier_output.round_univariate_evaluations[0][1]);
 
     EXPECT_TRUE(verifier_output.verified);
+}
+
+/**
+ * @brief Regression test: transcript_base_infinity soundness vulnerability.
+ *
+ * @details Constructs 2 MULs: mul(a, x) and mul(infinity, y). The honest
+ * computation yields a*x (since infinity*y contributes nothing). After building
+ * the prover, we replace transcript_Px/Py at the infinity-mul row with a valid
+ * on-curve point b. This makes the committed transcript look like:
+ *     mul(a, x), mul(b, y), eq(a*x)
+ * where the honest result should be a*x + b*y, not a*x.
+ *
+ * We then generate a full ECCVM proof and verify it (IPA included).
+ * Before the fix (constraining Px/Py = 0 when base_infinity = 1), this proof
+ * would VERIFY, demonstrating a soundness break. After the fix, the proof
+ * must FAIL verification.
+ */
+TEST_F(ECCVMTests, BaseInfinityForgedCoordinatesRejected)
+{
+    using Curve = curve::BN254;
+    using G1 = Curve::Element;
+    using Fr = Curve::ScalarField;
+
+    auto generators = Curve::Group::derive_generators("base_infinity_regression", 2);
+    G1 a = generators[0];
+    G1 b = generators[1]; // the point the attacker tries to smuggle in
+    Fr x = Fr::random_element(&engine);
+    Fr y = Fr::random_element(&engine);
+
+    // Honest vs forged results
+    G1 honest_result = a * x + b * y;
+    G1 forged_result = a * x;
+    ASSERT_NE(honest_result, forged_result) << "Need b*y != 0 for a meaningful attack";
+
+    // Build the circuit: mul(a, x), mul(infinity, y), eq_and_reset()
+    // The op queue honestly computes a*x + infinity*y = a*x. Eq point = a*x.
+    // The builder sets base_infinity=1 at the second mul row.
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+    op_queue->mul_accumulate(a, x);
+    op_queue->mul_accumulate(Curve::Group::affine_point_at_infinity, y);
+    op_queue->eq_and_reset();
+    op_queue->merge();
+    add_hiding_op_for_test(op_queue);
+
+    ECCVMCircuitBuilder builder{ op_queue };
+
+    // Create prover (polynomials are built in the constructor)
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
+
+    // Find the mul row with base_infinity=1
+    auto& polys = prover.key->polynomials;
+    const size_t num_rows = polys.get_polynomial_size();
+    size_t forged_row = 0;
+    for (size_t i = 0; i < num_rows; i++) {
+        if (polys.transcript_op[i] == FF(4) && polys.transcript_base_infinity[i] == FF(1)) {
+            forged_row = i;
+            break;
+        }
+    }
+    ASSERT_GT(forged_row, size_t(0)) << "Could not find infinity mul row";
+
+    // Replace transcript_Px/Py with valid on-curve point b.
+    // After this, the committed transcript says: mul(a,x), mul(b,y), eq(a*x)
+    // Honest result = a*x + b*y, but the proof will claim a*x.
+    auto b_affine = Curve::Group::affine_element(b);
+    polys.transcript_Px.at(forged_row) = b_affine.x;
+    polys.transcript_Py.at(forged_row) = b_affine.y;
+
+    // Generate proof from modified polynomials
+    auto [proof, opening_claim] = prover.construct_proof();
+
+    // Compute IPA opening proof
+    auto ipa_transcript = std::make_shared<Transcript>();
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+
+    // Verify the ECCVM proof
+    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
+    ECCVMVerifier verifier(verifier_transcript, proof);
+    auto eccvm_result = verifier.reduce_to_ipa_opening();
+
+    // Verify the IPA proof
+    auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, eccvm_result.ipa_claim, ipa_verifier_transcript);
+
+    bool proof_verified = ipa_verified && eccvm_result.reduction_succeeded;
+
+    EXPECT_FALSE(proof_verified)
+        << "REGRESSION: Forged ECCVM proof must NOT verify after base_infinity coordinate constraints";
 }
 
 /**

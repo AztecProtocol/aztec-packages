@@ -14,15 +14,15 @@ import { Tx, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import type { P2PClient } from '../../client/p2p_client.js';
 import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
 import type { AttestationPool } from '../../mem_pools/attestation_pool/attestation_pool.js';
-import type { TxPool } from '../../mem_pools/tx_pool/index.js';
+import type { TxPoolV2 } from '../../mem_pools/tx_pool_v2/interfaces.js';
 import { ReqRespSubProtocol } from '../../services/reqresp/interface.js';
 import { BlockTxsRequest, BlockTxsResponse } from '../../services/reqresp/protocols/block_txs/block_txs_reqresp.js';
 import { ReqRespStatus } from '../../services/reqresp/status.js';
-import { makeAndStartTestP2PClients } from '../../test-helpers/make-test-p2p-clients.js';
+import { makeAndStartTestP2PClients } from '../../test-helpers/index.js';
 import { createMockTxWithMetadata } from '../../test-helpers/mock-tx-helpers.js';
+import type { P2PClient } from '../p2p_client.js';
 
 const TEST_TIMEOUT = 120000;
 jest.setTimeout(TEST_TIMEOUT);
@@ -30,7 +30,7 @@ jest.setTimeout(TEST_TIMEOUT);
 const NUMBER_OF_PEERS = 2;
 
 describe('p2p client integration block txs protocol ', () => {
-  let txPool: MockProxy<TxPool>;
+  let txPool: MockProxy<TxPoolV2>;
   let attestationPool: MockProxy<AttestationPool>;
   let epochCache: MockProxy<EpochCache>;
   let worldState: MockProxy<WorldStateSynchronizer>;
@@ -47,7 +47,7 @@ describe('p2p client integration block txs protocol ', () => {
   let blockProposal: BlockProposal;
 
   beforeEach(async () => {
-    txPool = mock<TxPool>();
+    txPool = mock<TxPoolV2>();
     attestationPool = mock<AttestationPool>();
     epochCache = mock<EpochCache>();
     worldState = mock<WorldStateSynchronizer>();
@@ -58,13 +58,19 @@ describe('p2p client integration block txs protocol ', () => {
     //@ts-expect-error - we want to mock the getEpochAndSlotInNextL1Slot method, mocking ts is enough
     epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) });
     epochCache.getRegisteredValidators.mockResolvedValue([]);
+    epochCache.getL1Constants.mockReturnValue({
+      l1StartBlock: 0n,
+      l1GenesisTime: 0n,
+      slotDuration: 24,
+      epochDuration: 16,
+      ethereumSlotDuration: 12,
+      proofSubmissionEpochs: 2,
+      targetCommitteeSize: 48,
+    });
 
     txPool.isEmpty.mockResolvedValue(true);
     txPool.hasTxs.mockResolvedValue([]);
-    txPool.getAllTxs.mockImplementation(() => {
-      return Promise.resolve([] as Tx[]);
-    });
-    txPool.addTxs.mockResolvedValue(1);
+    txPool.addPendingTxs.mockResolvedValue({ accepted: [], ignored: [], rejected: [] });
     txPool.getTxsByHash.mockImplementation(() => {
       return Promise.resolve([] as Tx[]);
     });
@@ -133,7 +139,7 @@ describe('p2p client integration block txs protocol ', () => {
 
   const sendBlockTxsRequest = (blockProposal: BlockProposal, missingHashes: TxHash[], includeFullTxHashes = false) => {
     const [client1, client2] = clients as any;
-    const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, missingHashes, includeFullTxHashes);
+    const request = BlockTxsRequest.fromTxsSourceAndMissingTxs(blockProposal, missingHashes, includeFullTxHashes);
     if (!request) {
       return undefined;
     }

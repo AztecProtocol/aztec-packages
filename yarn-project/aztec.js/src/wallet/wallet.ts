@@ -7,8 +7,7 @@ import {
   type ContractArtifact,
   ContractArtifactSchema,
   type EventMetadataDefinition,
-  type FunctionCall,
-  FunctionType,
+  FunctionCall,
 } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -140,36 +139,65 @@ export type BatchResults<T extends readonly BatchedMethod[]> = {
 };
 
 /**
- * Filter options when querying private events.
+ * Base filter options for event queries.
  */
-export type PrivateEventFilter = {
-  /** The address of the contract that emitted the events. */
-  contractAddress: AztecAddress;
-  /** Addresses of accounts that are in scope for this filter. */
-  scopes: AztecAddress[];
+export type EventFilterBase = {
   /** Transaction in which the events were emitted. */
   txHash?: TxHash;
   /** The block number from which to start fetching events (inclusive).
    * Optional. If provided, it must be greater or equal than 1.
    * Defaults to the initial L2 block number (INITIAL_L2_BLOCK_NUM).
-   * */
+   */
   fromBlock?: BlockNumber;
   /** The block number until which to fetch logs (not inclusive).
    * Optional. If provided, it must be greater than fromBlock.
-   * Defaults to the latest known block to PXE + 1.
    */
   toBlock?: BlockNumber;
 };
 
 /**
- * An ABI decoded private event with associated metadata.
+ * Filter options when querying private events.
  */
-export type PrivateEvent<T> = {
+export type PrivateEventFilter = EventFilterBase & {
+  /** The address of the contract that emitted the events. */
+  contractAddress: AztecAddress;
+  /** Addresses of accounts that are in scope for this filter. */
+  scopes: AztecAddress[];
+};
+
+/**
+ * Filter options when querying public events.
+ */
+export type PublicEventFilter = EventFilterBase & {
+  /** The address of the contract that emitted the events. */
+  contractAddress?: AztecAddress;
+};
+
+/**
+ * An ABI decoded event with associated metadata.
+ * @typeParam T - The decoded event type
+ * @typeParam M - Additional metadata fields (empty by default)
+ */
+export type Event<T, M extends object = object> = {
   /** The ABI decoded event */
   event: T;
   /** Metadata describing event context information such as tx and block */
-  metadata: InTx;
+  metadata: InTx & M;
 };
+
+/** An ABI decoded private event with associated metadata. */
+export type PrivateEvent<T> = Event<T>;
+
+/** An ABI decoded public event with associated metadata (includes contract address). */
+export type PublicEvent<T> = Event<
+  T,
+  {
+    /**
+     * Address of the contract that emitted this event
+     */
+    contractAddress: AztecAddress;
+  }
+>;
 
 /**
  * Contract metadata including deployment and registration status.
@@ -198,6 +226,16 @@ export type ContractClassMetadata = {
 };
 
 /**
+ * Options for simulating a utility function call.
+ */
+export type SimulateUtilityOptions = {
+  /** The scope for the utility simulation (determines which notes and keys are visible). */
+  scope: AztecAddress;
+  /** Optional auth witnesses to use during execution. */
+  authWitnesses?: AuthWitness[];
+};
+
+/**
  * The wallet interface.
  */
 export type Wallet = {
@@ -217,7 +255,7 @@ export type Wallet = {
     secretKey?: Fr,
   ): Promise<ContractInstanceWithAddress>;
   simulateTx(exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult>;
-  simulateUtility(call: FunctionCall, authwits?: AuthWitness[]): Promise<UtilitySimulationResult>;
+  simulateUtility(call: FunctionCall, opts: SimulateUtilityOptions): Promise<UtilitySimulationResult>;
   profileTx(exec: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult>;
   sendTx<W extends InteractionWaitOptions = undefined>(
     exec: ExecutionPayload,
@@ -228,19 +266,8 @@ export type Wallet = {
   batch<const T extends readonly BatchedMethod[]>(methods: T): Promise<BatchResults<T>>;
 };
 
-export const FunctionCallSchema = z.object({
-  name: z.string(),
-  to: schemas.AztecAddress,
-  selector: schemas.FunctionSelector,
-  type: z.nativeEnum(FunctionType),
-  isStatic: z.boolean(),
-  hideMsgSender: z.boolean(),
-  args: z.array(schemas.Fr),
-  returnTypes: z.array(AbiTypeSchema),
-});
-
 export const ExecutionPayloadSchema = z.object({
-  calls: z.array(FunctionCallSchema),
+  calls: z.array(FunctionCall.schema),
   authWitnesses: z.array(AuthWitness.schema),
   capsules: z.array(Capsule.schema),
   extraHashedArgs: z.array(HashedValues.schema),
@@ -297,7 +324,7 @@ export const MessageHashOrIntentSchema = z.union([
   z.object({ consumer: schemas.AztecAddress, innerHash: schemas.Fr }),
   z.object({
     caller: schemas.AztecAddress,
-    call: FunctionCallSchema,
+    call: FunctionCall.schema,
   }),
 ]);
 
@@ -307,6 +334,21 @@ export const EventMetadataDefinitionSchema = z.object({
   fieldNames: z.array(z.string()),
 });
 
+const EventFilterBaseSchema = z.object({
+  txHash: optional(TxHash.schema),
+  fromBlock: optional(BlockNumberPositiveSchema),
+  toBlock: optional(BlockNumberPositiveSchema),
+});
+
+export const PrivateEventFilterSchema = EventFilterBaseSchema.extend({
+  contractAddress: schemas.AztecAddress,
+  scopes: z.array(schemas.AztecAddress),
+});
+
+export const PublicEventFilterSchema = EventFilterBaseSchema.extend({
+  contractAddress: optional(schemas.AztecAddress),
+});
+
 export const PrivateEventSchema: z.ZodType<any> = zodFor<PrivateEvent<AbiDecoded>>()(
   z.object({
     event: AbiDecodedSchema,
@@ -314,13 +356,12 @@ export const PrivateEventSchema: z.ZodType<any> = zodFor<PrivateEvent<AbiDecoded
   }),
 );
 
-export const PrivateEventFilterSchema = z.object({
-  contractAddress: schemas.AztecAddress,
-  scopes: z.array(schemas.AztecAddress),
-  txHash: optional(TxHash.schema),
-  fromBlock: optional(BlockNumberPositiveSchema),
-  toBlock: optional(BlockNumberPositiveSchema),
-});
+export const PublicEventSchema = zodFor<PublicEvent<AbiDecoded>>()(
+  z.object({
+    event: AbiDecodedSchema,
+    metadata: z.intersection(inTxSchema(), z.object({ contractAddress: schemas.AztecAddress })),
+  }),
+);
 
 export const ContractMetadataSchema = z.object({
   instance: optional(ContractInstanceWithAddressSchema),
@@ -479,7 +520,13 @@ const WalletMethodSchemas = {
   simulateTx: z.function().args(ExecutionPayloadSchema, SimulateOptionsSchema).returns(TxSimulationResult.schema),
   simulateUtility: z
     .function()
-    .args(FunctionCallSchema, optional(z.array(AuthWitness.schema)))
+    .args(
+      FunctionCall.schema,
+      z.object({
+        scope: schemas.AztecAddress,
+        authWitnesses: optional(z.array(AuthWitness.schema)),
+      }),
+    )
     .returns(UtilitySimulationResult.schema),
   profileTx: z.function().args(ExecutionPayloadSchema, ProfileOptionsSchema).returns(TxProfileResult.schema),
   sendTx: z

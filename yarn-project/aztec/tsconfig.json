@@ -91,13 +91,13 @@
       "path": "../telemetry-client"
     },
     {
-      "path": "../test-wallet"
-    },
-    {
       "path": "../txe"
     },
     {
       "path": "../validator-ha-signer"
+    },
+    {
+      "path": "../wallets"
     },
     {
       "path": "../world-state"

@@ -194,6 +194,7 @@ export class EpochsTestContext {
       l1GenesisTime: await this.rollup.getL1GenesisTime(),
       ethereumSlotDuration,
       proofSubmissionEpochs: Number(await this.rollup.getProofSubmissionEpochs()),
+      targetCommitteeSize: await this.rollup.getTargetCommitteeSize(),
     };
 
     this.logger.info(
@@ -212,10 +213,14 @@ export class EpochsTestContext {
     this.logger.warn('Creating and syncing a simulated prover node...');
     const proverNodePrivateKey = this.getNextPrivateKey();
     const proverIndex = this.proverNodes.length + 1;
+    const { mockGossipSubNetwork } = this.context;
     const proverNode = await withLoggerBindings({ actor: `prover-${proverIndex}` }, () =>
       createAndSyncProverNode(
         proverNodePrivateKey,
-        { ...this.context.config },
+        {
+          ...this.context.config,
+          p2pEnabled: this.context.config.p2pEnabled || mockGossipSubNetwork !== undefined,
+        },
         {
           dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
           proverId: EthAddress.fromNumber(proverIndex),
@@ -224,7 +229,12 @@ export class EpochsTestContext {
         },
         this.context.aztecNode,
         this.context.prefilledPublicData ?? [],
-        { dateProvider: this.context.dateProvider },
+        {
+          dateProvider: this.context.dateProvider,
+          p2pClientDeps: mockGossipSubNetwork
+            ? { p2pServiceFactory: getMockPubSubP2PServiceFactory(mockGossipSubNetwork) }
+            : undefined,
+        },
       ),
     );
     this.proverNodes.push(proverNode);
@@ -404,7 +414,7 @@ export class EpochsTestContext {
         privateKeyToAccount(this.getNextPrivateKey()),
         this.l1Client.chain,
       ),
-      this.context.dateProvider!,
+      this.context.dateProvider,
       { ethereumSlotDuration: this.L1_BLOCK_TIME_IN_S },
     );
     expect(await client.getBalance({ address: client.account.address })).toBeGreaterThan(0n);

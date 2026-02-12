@@ -2,14 +2,15 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { GenericProxyContract } from '@aztec/noir-test-contracts.js/GenericProxy';
 import { InvalidAccountContract } from '@aztec/noir-test-contracts.js/InvalidAccount';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
 import { type EndToEndContext, deployAccounts, publicDeployAccounts, setup, teardown } from '../fixtures/setup.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 
 const { METRICS_PORT: metricsPort } = process.env;
 
@@ -25,6 +26,7 @@ export class TokenContractTest {
   node!: AztecNode;
 
   badAccount!: InvalidAccountContract;
+  proxy!: GenericProxyContract;
   wallet!: TestWallet;
   adminAddress!: AztecAddress;
   account1Address!: AztecAddress;
@@ -70,7 +72,7 @@ export class TokenContractTest {
       initialFundedAccounts: this.context.initialFundedAccounts,
     });
 
-    this.node = this.context.aztecNodeService!;
+    this.node = this.context.aztecNodeService;
     this.wallet = this.context.wallet;
     [this.adminAddress, this.account1Address, this.account2Address] = deployedAccounts.map(acc => acc.address);
 
@@ -91,6 +93,13 @@ export class TokenContractTest {
     this.logger.verbose(`Deploying bad account...`);
     this.badAccount = await InvalidAccountContract.deploy(this.wallet).send({ from: this.adminAddress });
     this.logger.verbose(`Deployed to ${this.badAccount.address}.`);
+
+    // Deploy a proxy contract for "on behalf of other" tests. The note owner must be the tx sender
+    // (so their notes are in scope), but msg_sender in the target must differ from the note owner
+    // to trigger authwit validation. The proxy forwards calls so that msg_sender != tx sender.
+    this.logger.verbose(`Deploying generic proxy...`);
+    this.proxy = await GenericProxyContract.deploy(this.wallet).send({ from: this.adminAddress });
+    this.logger.verbose(`Deployed to ${this.proxy.address}.`);
 
     this.tokenSim = new TokenSimulator(this.asset, this.wallet, this.adminAddress, this.logger, [
       this.adminAddress,

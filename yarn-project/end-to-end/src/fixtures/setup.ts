@@ -1,5 +1,5 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
-import { type InitialAccountData, generateSchnorrAccounts, getInitialTestAccountsData } from '@aztec/accounts/testing';
+import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
@@ -13,7 +13,7 @@ import {
 import { publishContractClass, publishInstance } from '@aztec/aztec.js/deployment';
 import { Fr } from '@aztec/aztec.js/fields';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
-import { type AztecNode, createAztecNodeClient, waitForNode } from '@aztec/aztec.js/node';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
@@ -67,7 +67,7 @@ import {
   initTelemetryClient,
 } from '@aztec/telemetry-client';
 import { BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
-import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet/server';
+import { deployFundedSchnorrAccounts } from '@aztec/wallets/testing';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import type { Anvil } from '@viem/anvil';
@@ -84,6 +84,7 @@ import {
 } from 'viem/accounts';
 import { type Chain, foundry } from 'viem/chains';
 
+import { TestWallet } from '../test-wallet/test_wallet.js';
 import { MNEMONIC, TEST_MAX_PENDING_TX_POOL_COUNT, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
@@ -91,9 +92,6 @@ import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
 export { startAnvil };
-
-const { AZTEC_NODE_URL = '' } = process.env;
-const getAztecUrl = () => AZTEC_NODE_URL;
 
 let telemetry: TelemetryClient | undefined = undefined;
 async function getTelemetryClient(partialConfig: Partial<TelemetryClientConfig> & { benchmark?: boolean } = {}) {
@@ -217,13 +215,13 @@ export type EndToEndContext = {
   anvil: Anvil | undefined;
   /** The Aztec Node service or client a connected to it. */
   aztecNode: AztecNode;
-  /** The Aztec Node as a service (only set if running locally). */
-  aztecNodeService: AztecNodeService | undefined;
-  /** Client to the Aztec Node admin interface (undefined if connected to remote environment) */
-  aztecNodeAdmin: AztecNodeAdmin | undefined;
+  /** The Aztec Node as a service. */
+  aztecNodeService: AztecNodeService;
+  /** Client to the Aztec Node admin interface. */
+  aztecNodeAdmin: AztecNodeAdmin;
   /** The prover node service (only set if startProverNode is true) */
   proverNode: ProverNode | undefined;
-  /** A client to the sequencer service (undefined if connected to remote environment) */
+  /** A client to the sequencer service. */
   sequencer: SequencerClient | undefined;
   /** Return values from deployAztecL1Contracts function. */
   deployL1ContractsValues: DeployAztecL1ContractsReturnType;
@@ -243,12 +241,12 @@ export type EndToEndContext = {
   cheatCodes: CheatCodes;
   /** The cheat codes for L1 */
   ethCheatCodes: EthCheatCodes;
-  /** The anvil test watcher (undefined if connected to remote environment) */
-  watcher: AnvilTestWatcher | undefined;
-  /** Allows tweaking current system time, used by the epoch cache only (undefined if connected to remote environment) */
-  dateProvider: TestDateProvider | undefined;
+  /** The anvil test watcher. */
+  watcher: AnvilTestWatcher;
+  /** Allows tweaking current system time, used by the epoch cache only. */
+  dateProvider: TestDateProvider;
   /** Telemetry client */
-  telemetryClient: TelemetryClient | undefined;
+  telemetryClient: TelemetryClient;
   /** Mock gossip sub network used for gossipping messages (only if mockGossipSubNetwork was set to true in opts) */
   mockGossipSubNetwork: MockGossipSubNetwork | undefined;
   /** Prefilled public data used for setting up nodes. */
@@ -258,86 +256,10 @@ export type EndToEndContext = {
   /** BB config (only set if running locally). */
   bbConfig: Awaited<ReturnType<typeof getBBConfig>>;
   /** Directory to cleanup on teardown. */
-  directoryToCleanup: string | undefined;
+  directoryToCleanup: string;
   /** Function to stop the started services. */
   teardown: () => Promise<void>;
 };
-
-/**
- * Function to setup the test against a remote deployment. It is assumed that L1 contract are already deployed
- */
-async function setupWithRemoteEnvironment(
-  account: HDAccount | PrivateKeyAccount,
-  config: AztecNodeConfig & SetupOptions,
-  logger: Logger,
-  numberOfAccounts: number,
-): Promise<EndToEndContext> {
-  const aztecNodeUrl = getAztecUrl();
-  logger.verbose(`Creating Aztec Node client to remote host ${aztecNodeUrl}`);
-  const aztecNode = createAztecNodeClient(aztecNodeUrl);
-  await waitForNode(aztecNode, logger);
-  logger.verbose('JSON RPC client connected to Aztec Node');
-  logger.verbose(`Retrieving contract addresses from ${aztecNodeUrl}`);
-  const { l1ContractAddresses, rollupVersion } = await aztecNode.getNodeInfo();
-
-  const l1Client = createExtendedL1Client(config.l1RpcUrls, account, foundry);
-
-  const deployL1ContractsValues: DeployAztecL1ContractsReturnType = {
-    l1ContractAddresses,
-    l1Client,
-    rollupVersion,
-  };
-  const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls, new DateProvider());
-  const wallet = await TestWallet.create(aztecNode);
-
-  if (config.walletMinFeePadding !== undefined) {
-    wallet.setMinFeePadding(config.walletMinFeePadding);
-  }
-
-  const cheatCodes = await CheatCodes.create(config.l1RpcUrls, aztecNode, new DateProvider());
-  const teardown = () => Promise.resolve();
-
-  logger.verbose('Populating wallet from already registered accounts...');
-  const initialFundedAccounts = await getInitialTestAccountsData();
-
-  if (initialFundedAccounts.length < numberOfAccounts) {
-    throw new Error(`Required ${numberOfAccounts} accounts. Found ${initialFundedAccounts.length}.`);
-  }
-
-  const testAccounts = await Promise.all(
-    initialFundedAccounts.slice(0, numberOfAccounts).map(async account => {
-      const accountManager = await wallet.createSchnorrAccount(account.secret, account.salt, account.signingKey);
-      return accountManager.address;
-    }),
-  );
-
-  return {
-    anvil: undefined,
-    aztecNode,
-    aztecNodeService: undefined,
-    aztecNodeAdmin: undefined,
-    sequencer: undefined,
-    proverNode: undefined,
-    deployL1ContractsValues,
-    config,
-    aztecNodeConfig: config,
-    initialFundedAccounts,
-    wallet,
-    accounts: testAccounts,
-    logger,
-    cheatCodes,
-    ethCheatCodes,
-    prefilledPublicData: undefined,
-    mockGossipSubNetwork: undefined,
-    watcher: undefined,
-    dateProvider: undefined,
-    telemetryClient: undefined,
-    acvmConfig: undefined,
-    bbConfig: undefined,
-    directoryToCleanup: undefined,
-    teardown,
-  };
-}
 
 /**
  * Sets up the environment for the end-to-end tests.
@@ -381,12 +303,6 @@ export async function setup(
       if (!isAnvilTestChain(chain.id)) {
         throw new Error(`No ETHEREUM_HOSTS set but non anvil chain requested`);
       }
-      if (AZTEC_NODE_URL) {
-        throw new Error(
-          `AZTEC_NODE_URL provided but no ETHEREUM_HOSTS set. Refusing to run, please set both variables so tests can deploy L1 contracts to the same Anvil instance`,
-        );
-      }
-
       const res = await startAnvil({
         l1BlockTime: opts.ethereumSlotDuration,
         accounts: opts.anvilAccounts,
@@ -439,11 +355,6 @@ export async function setup(
 
     if (config.coinbase === undefined) {
       config.coinbase = EthAddress.fromString(publisherHdAccount.address);
-    }
-
-    if (AZTEC_NODE_URL) {
-      // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
-      return await setupWithRemoteEnvironment(publisherHdAccount!, config, logger, numberOfAccounts);
     }
 
     // Determine which addresses to fund in genesis
@@ -595,7 +506,7 @@ export async function setup(
       const proverNodeConfig = {
         ...config.proverNodeConfig,
         dataDirectory: proverNodeDataDirectory,
-        p2pEnabled: false,
+        p2pEnabled: !!mockGossipSubNetwork,
       };
       proverNode = await createAndSyncProverNode(
         proverNodePrivateKeyHex,
@@ -603,6 +514,11 @@ export async function setup(
         proverNodeConfig,
         aztecNodeService,
         prefilledPublicData,
+        {
+          p2pClientDeps: mockGossipSubNetwork
+            ? { p2pServiceFactory: getMockPubSubP2PServiceFactory(mockGossipSubNetwork) }
+            : undefined,
+        },
       );
     }
 
@@ -683,7 +599,7 @@ export async function setup(
         logger.error(`Error during e2e test teardown`, err);
       } finally {
         try {
-          await telemetryClient?.stop();
+          await telemetryClient.stop();
         } catch (err) {
           logger.error(`Error during telemetry client stop`, err);
         }
@@ -870,12 +786,11 @@ export type BalancesFn = ReturnType<typeof getBalancesFn>;
 export function getBalancesFn(
   symbol: string,
   method: ContractMethod,
-  from: AztecAddress,
   logger: any,
 ): (...addresses: (AztecAddress | { address: AztecAddress })[]) => Promise<bigint[]> {
   const balances = async (...addressLikes: (AztecAddress | { address: AztecAddress })[]) => {
     const addresses = addressLikes.map(addressLike => ('address' in addressLike ? addressLike.address : addressLike));
-    const b = await Promise.all(addresses.map(address => method(address).simulate({ from })));
+    const b = await Promise.all(addresses.map(address => method(address).simulate({ from: address })));
     const debugString = `${symbol} balances: ${addresses.map((address, i) => `${address}: ${b[i]}`).join(', ')}`;
     logger.verbose(debugString);
     return b;

@@ -13,6 +13,7 @@ import type {
   ProfileOptions,
   SendOptions,
   SimulateOptions,
+  SimulateUtilityOptions,
   Wallet,
   WalletCapabilities,
 } from '@aztec/aztec.js/wallet';
@@ -45,15 +46,18 @@ import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import type {
-  TxExecutionRequest,
-  TxProfileResult,
+import {
+  BlockHeader,
+  type TxExecutionRequest,
+  type TxProfileResult,
   TxSimulationResult,
-  UtilitySimulationResult,
+  type UtilitySimulationResult,
 } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
 import { inspect } from 'util';
+
+import { buildMergedSimulationResult, extractOptimizablePublicStaticCalls, simulateViaNode } from './utils.js';
 
 /**
  * Options to configure fee payment for a transaction
@@ -74,8 +78,6 @@ export type FeeOptions = {
  * A base class for Wallet implementations
  */
 export abstract class BaseWallet implements Wallet {
-  protected log = createLogger('wallet-sdk:base_wallet');
-
   protected minFeePadding = 0.5;
   protected cancellableTransactions = false;
 
@@ -83,7 +85,14 @@ export abstract class BaseWallet implements Wallet {
   protected constructor(
     protected readonly pxe: PXE,
     protected readonly aztecNode: AztecNode,
+    protected log = createLogger('wallet-sdk:base_wallet'),
   ) {}
+
+  // When `from` is the zero address (e.g. when deploying a new account contract), we return an
+  // empty scope list which acts as deny-all: no notes are visible and no keys are accessible.
+  protected scopesFor(from: AztecAddress): AztecAddress[] {
+    return from.isZero() ? [] : [from];
+  }
 
   protected abstract getAccountFromAddress(address: AztecAddress): Promise<Account>;
 
@@ -282,23 +291,87 @@ export abstract class BaseWallet implements Wallet {
     return instance;
   }
 
+  /**
+   * Simulates calls through the standard PXE path (account entrypoint).
+   * @param executionPayload - The execution payload to simulate.
+   * @param from - The sender address.
+   * @param feeOptions - Fee options for the transaction.
+   * @param skipTxValidation - Whether to skip tx validation.
+   * @param skipFeeEnforcement - Whether to skip fee enforcement.
+   * @param scopes - The scopes to use for the simulation.
+   */
+  protected async simulateViaEntrypoint(
+    executionPayload: ExecutionPayload,
+    from: AztecAddress,
+    feeOptions: FeeOptions,
+    skipTxValidation?: boolean,
+    skipFeeEnforcement?: boolean,
+    scopes?: AztecAddress[],
+  ) {
+    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, from, feeOptions);
+    return this.pxe.simulateTx(txRequest, { simulatePublic: true, skipTxValidation, skipFeeEnforcement, scopes });
+  }
+
+  /**
+   * Simulates a transaction, optimizing leading public static calls by running them directly
+   * on the node while sending the remaining calls through the standard PXE path.
+   * Return values from both paths are merged back in original call order.
+   * @param executionPayload - The execution payload to simulate.
+   * @param opts - Simulation options (from address, fee settings, etc.).
+   * @returns The merged simulation result.
+   */
   async simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult> {
     const feeOptions = opts.fee?.estimateGas
       ? await this.completeFeeOptionsForEstimation(opts.from, executionPayload.feePayer, opts.fee?.gasSettings)
       : await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
-    return this.pxe.simulateTx(
-      txRequest,
-      true /* simulatePublic */,
-      opts?.skipTxValidation,
-      opts?.skipFeeEnforcement ?? true,
-    );
+    const { optimizableCalls, remainingCalls } = extractOptimizablePublicStaticCalls(executionPayload);
+    const remainingPayload = { ...executionPayload, calls: remainingCalls };
+
+    const chainInfo = await this.getChainInfo();
+    let blockHeader: BlockHeader;
+    // PXE might not be synced yet, so we pull the latest header from the node
+    // To keep things consistent, we'll always try with PXE first
+    try {
+      blockHeader = await this.pxe.getSyncedBlockHeader();
+    } catch {
+      blockHeader = (await this.aztecNode.getBlockHeader())!;
+    }
+
+    const [optimizedResults, normalResult] = await Promise.all([
+      optimizableCalls.length > 0
+        ? simulateViaNode(
+            this.aztecNode,
+            optimizableCalls,
+            opts.from,
+            chainInfo,
+            feeOptions.gasSettings,
+            blockHeader,
+            opts.skipFeeEnforcement ?? true,
+          )
+        : Promise.resolve([]),
+      remainingCalls.length > 0
+        ? this.simulateViaEntrypoint(
+            remainingPayload,
+            opts.from,
+            feeOptions,
+            opts.skipTxValidation,
+            opts.skipFeeEnforcement ?? true,
+            this.scopesFor(opts.from),
+          )
+        : Promise.resolve(null),
+    ]);
+
+    return buildMergedSimulationResult(optimizedResults, normalResult);
   }
 
   async profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult> {
     const feeOptions = await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
-    return this.pxe.profileTx(txRequest, opts.profileMode, opts.skipProofGeneration ?? true);
+    return this.pxe.profileTx(txRequest, {
+      profileMode: opts.profileMode,
+      skipProofGeneration: opts.skipProofGeneration ?? true,
+      scopes: this.scopesFor(opts.from),
+    });
   }
 
   public async sendTx<W extends InteractionWaitOptions = undefined>(
@@ -307,7 +380,7 @@ export abstract class BaseWallet implements Wallet {
   ): Promise<SendReturn<W>> {
     const feeOptions = await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
-    const provenTx = await this.pxe.proveTx(txRequest);
+    const provenTx = await this.pxe.proveTx(txRequest, this.scopesFor(opts.from));
     const tx = await provenTx.toTx();
     const txHash = tx.getTxHash();
     if (await this.aztecNode.getTxEffect(txHash)) {
@@ -343,8 +416,8 @@ export abstract class BaseWallet implements Wallet {
     return err;
   }
 
-  simulateUtility(call: FunctionCall, authwits?: AuthWitness[]): Promise<UtilitySimulationResult> {
-    return this.pxe.simulateUtility(call, authwits);
+  simulateUtility(call: FunctionCall, opts: SimulateUtilityOptions): Promise<UtilitySimulationResult> {
+    return this.pxe.simulateUtility(call, { authwits: opts.authWitnesses, scopes: [opts.scope] });
   }
 
   async getPrivateEvents<T>(

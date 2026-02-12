@@ -90,7 +90,7 @@ describe('Utility Execution test suite', () => {
     capsuleStore.readCapsuleArray.mockImplementation((address, slot) => {
       return Promise.resolve(capsuleArrays.get(`${address.toString()}:${slot.toString()}`) ?? []);
     });
-    acirSimulator = new ContractFunctionSimulator(
+    acirSimulator = new ContractFunctionSimulator({
       contractStore,
       noteStore,
       keyStore,
@@ -103,7 +103,7 @@ describe('Utility Execution test suite', () => {
       privateEventStore,
       simulator,
       contractSyncService,
-    );
+    });
 
     const ownerPartialAddress = Fr.random();
     ownerCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(ownerSecretKey, ownerPartialAddress);
@@ -178,16 +178,16 @@ describe('Utility Execution test suite', () => {
 
     capsuleStore.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
-    const execRequest: FunctionCall = {
+    const execRequest = FunctionCall.from({
       name: artifact.name,
       to: contractAddress,
       selector: FunctionSelector.empty(),
       type: FunctionType.UTILITY,
-      isStatic: false,
       hideMsgSender: false,
+      isStatic: false,
       args: encodeArguments(artifact, [owner]),
       returnTypes: artifact.returnTypes,
-    };
+    });
 
     const result = await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, [], 'test-job-id');
 
@@ -205,10 +205,10 @@ describe('Utility Execution test suite', () => {
         globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(syncedBlockNumber) }),
       });
 
-      utilityExecutionOracle = new UtilityExecutionOracle(
+      utilityExecutionOracle = new UtilityExecutionOracle({
         contractAddress,
-        [],
-        [],
+        authWitnesses: [],
+        capsules: [],
         anchorBlockHeader,
         contractStore,
         noteStore,
@@ -219,8 +219,8 @@ describe('Utility Execution test suite', () => {
         senderAddressBookStore,
         capsuleStore,
         privateEventStore,
-        'test-job-id',
-      );
+        jobId: 'test-job-id',
+      });
     });
 
     describe('Respects synced block number', () => {

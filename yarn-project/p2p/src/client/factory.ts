@@ -4,30 +4,36 @@ import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { AztecLMDBStoreV2, createStore } from '@aztec/kv-store/lmdb-v2';
-import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { BlockHash, L2BlockSource } from '@aztec/stdlib/block';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { P2PClientType } from '@aztec/stdlib/p2p';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { P2PClient } from '../client/p2p_client.js';
 import type { P2PConfig } from '../config.js';
-import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
-import { KvAttestationPool } from '../mem_pools/attestation_pool/kv_attestation_pool.js';
+import { AttestationPool, type AttestationPoolApi } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
-import { AztecKVTxPool, type TxPool } from '../mem_pools/tx_pool/index.js';
+import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
+import type { TxMetaData } from '../mem_pools/tx_pool_v2/tx_metadata.js';
+import { AztecKVTxPoolV2 } from '../mem_pools/tx_pool_v2/tx_pool_v2.js';
+import { AggregateTxValidator } from '../msg_validators/tx_validator/aggregate_tx_validator.js';
+import { BlockHeaderTxValidator } from '../msg_validators/tx_validator/block_header_validator.js';
+import { DoubleSpendTxValidator } from '../msg_validators/tx_validator/double_spend_validator.js';
 import { DummyP2PService } from '../services/dummy_service.js';
 import { LibP2PService } from '../services/index.js';
+import { createFileStoreTxSources } from '../services/tx_collection/file_store_tx_source.js';
 import { TxCollection } from '../services/tx_collection/tx_collection.js';
 import { type TxSource, createNodeRpcTxSources } from '../services/tx_collection/tx_source.js';
 import { TxFileStore } from '../services/tx_file_store/tx_file_store.js';
 import { configureP2PClientAddresses, createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey } from '../util.js';
 
 export type P2PClientDeps<T extends P2PClientType> = {
-  txPool?: TxPool;
+  txPool?: TxPoolV2;
   store?: AztecAsyncKVStore;
-  attestationPool?: AttestationPool;
+  attestationPool?: AttestationPoolApi;
   logger?: Logger;
   txCollectionNodeSources?: TxSource[];
   p2pServiceFactory?: (...args: Parameters<(typeof LibP2PService)['new']>) => Promise<LibP2PService<T>>;
@@ -70,14 +76,52 @@ export async function createP2PClient<T extends P2PClientType>(
   const attestationStore = await createStore(P2P_ATTESTATION_STORE_NAME, 1, config, bindings);
   const l1Constants = await archiver.getL1Constants();
 
-  const mempools: MemPools = {
-    txPool:
-      deps.txPool ??
-      new AztecKVTxPool(store, archive, worldStateSynchronizer, telemetry, {
+  /** Validator factory for pool re-validation (double-spend + block header only). */
+  const createPoolTxValidator = async () => {
+    await worldStateSynchronizer.syncImmediate();
+    return new AggregateTxValidator<TxMetaData>(
+      new DoubleSpendTxValidator<TxMetaData>(
+        {
+          nullifiersExist: async (nullifiers: Buffer[]) => {
+            const merkleTree = worldStateSynchronizer.getCommitted();
+            const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
+            return indices.map(index => index !== undefined);
+          },
+        },
+        bindings,
+      ),
+      new BlockHeaderTxValidator<TxMetaData>(
+        {
+          getArchiveIndices: (archives: BlockHash[]) => {
+            const merkleTree = worldStateSynchronizer.getCommitted();
+            return merkleTree.findLeafIndices(MerkleTreeId.ARCHIVE, archives);
+          },
+        },
+        bindings,
+      ),
+    );
+  };
+
+  const txPool =
+    deps.txPool ??
+    new AztecKVTxPoolV2(
+      store,
+      archive,
+      {
+        l2BlockSource: archiver,
+        worldStateSynchronizer,
+        createTxValidator: createPoolTxValidator,
+      },
+      telemetry,
+      {
         maxPendingTxCount: config.maxPendingTxCount,
         archivedTxLimit: config.archivedTxLimit,
-      }),
-    attestationPool: deps.attestationPool ?? new KvAttestationPool(attestationStore, telemetry),
+      },
+    );
+
+  const mempools: MemPools = {
+    txPool,
+    attestationPool: deps.attestationPool ?? new AttestationPool(attestationStore, telemetry),
   };
 
   const p2pService = await createP2PService<T>(
@@ -106,12 +150,23 @@ export async function createP2PClient<T extends P2PClientType>(
     });
   }
 
+  const fileStoreSources = await createFileStoreTxSources(
+    config.txCollectionFileStoreUrls,
+    logger.createChild('file-store-tx-source'),
+  );
+  if (fileStoreSources.length > 0) {
+    logger.info(`Using ${fileStoreSources.length} file store sources for tx collection.`, {
+      stores: fileStoreSources.map(s => s.getInfo()),
+    });
+  }
+
   const txCollection = new TxCollection(
     p2pService.getBatchTxRequesterService(),
     nodeSources,
     l1Constants,
     mempools.txPool,
     config,
+    fileStoreSources,
     dateProvider,
     telemetry,
     logger.createChild('tx-collection'),
@@ -127,6 +182,7 @@ export async function createP2PClient<T extends P2PClientType>(
     p2pService,
     txCollection,
     txFileStore,
+    epochCache,
     config,
     dateProvider,
     telemetry,

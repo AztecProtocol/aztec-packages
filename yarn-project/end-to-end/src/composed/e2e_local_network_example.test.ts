@@ -12,11 +12,12 @@ import { getFeeJuiceBalance } from '@aztec/aztec.js/utils';
 import { timesParallel } from '@aztec/foundation/collection';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { GasSettings } from '@aztec/stdlib/gas';
-import { TestWallet, registerInitialLocalNetworkAccountsInWallet } from '@aztec/test-wallet/server';
+import { registerInitialLocalNetworkAccountsInWallet } from '@aztec/wallets/testing';
 
 import { format } from 'util';
 
 import { deployToken, mintTokensToPrivate } from '../fixtures/token_utils.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
 
 const { AZTEC_NODE_URL = 'http://localhost:8080' } = process.env;
 

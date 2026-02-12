@@ -8,8 +8,8 @@ import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { DeployTest, type StatefulContractCtorArgs } from './deploy_test.js';
 
 describe('e2e_deploy_contract private initialization', () => {
@@ -60,10 +60,10 @@ describe('e2e_deploy_contract private initialization', () => {
     logger.info(`Calling the constructor for ${contract.address}`);
     await contract.methods.constructor(...initArgs).send({ from: defaultAccountAddress });
     logger.info(`Checking if the constructor was run for ${contract.address}`);
-    expect(await contract.methods.summed_values(owner).simulate({ from: defaultAccountAddress })).toEqual(42n);
+    expect(await contract.methods.summed_values(owner).simulate({ from: owner })).toEqual(42n);
     logger.info(`Calling a private function that requires initialization on ${contract.address}`);
     await contract.methods.create_note(owner, 10).send({ from: defaultAccountAddress });
-    expect(await contract.methods.summed_values(owner).simulate({ from: defaultAccountAddress })).toEqual(52n);
+    expect(await contract.methods.summed_values(owner).simulate({ from: owner })).toEqual(52n);
   });
 
   // Tests privately initializing multiple undeployed contracts on the same tx through an account contract.
@@ -75,8 +75,8 @@ describe('e2e_deploy_contract private initialization', () => {
     );
     const calls = contracts.map((c, i) => c.methods.constructor(...initArgs[i]));
     await new BatchCall(wallet, calls).send({ from: defaultAccountAddress });
-    expect(await contracts[0].methods.summed_values(owner).simulate({ from: defaultAccountAddress })).toEqual(42n);
-    expect(await contracts[1].methods.summed_values(owner).simulate({ from: defaultAccountAddress })).toEqual(52n);
+    expect(await contracts[0].methods.summed_values(owner).simulate({ from: owner })).toEqual(42n);
+    expect(await contracts[1].methods.summed_values(owner).simulate({ from: owner })).toEqual(52n);
   });
 
   it('initializes and calls a private function in a single tx', async () => {
@@ -89,7 +89,7 @@ describe('e2e_deploy_contract private initialization', () => {
     ]);
     logger.info(`Executing constructor and private function in batch at ${contract.address}`);
     await batch.send({ from: defaultAccountAddress });
-    expect(await contract.methods.summed_values(owner).simulate({ from: defaultAccountAddress })).toEqual(52n);
+    expect(await contract.methods.summed_values(owner).simulate({ from: owner })).toEqual(52n);
   });
 
   it('refuses to initialize a contract twice', async () => {

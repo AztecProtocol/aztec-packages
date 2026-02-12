@@ -98,3 +98,21 @@ fn with_non_static_public_teardown_call_request() {
 
     builder.execute_and_fail();
 }
+
+#[test(should_fail_with = "static call cannot nominate itself as fee payer")]
+fn with_is_fee_payer() {
+    let mut builder = TestBuilder::new_static_call();
+
+    builder.private_call.is_fee_payer = true;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "static call cannot set the min revertible side effect counter")]
+fn with_min_revertible_side_effect_counter() {
+    let mut builder = TestBuilder::new_static_call();
+
+    builder.private_call.end_setup();
+
+    builder.execute_and_fail();
+}

@@ -329,6 +329,7 @@ calls that operate on the result of prior calls.</p>
 <span class="kw">let</span> return_value = env.call_private(caller, SampleContract::at(contract_addr).sample_private_function());</code></pre></div>
 </div><code id="view_private" class="code-header">pub unconstrained fn <a href="#view_private"><span class="fn">view_private</span></a>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     _self: Self,
+    from: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     call: <a href="../../../../noir_aztec/context/calls/struct.PrivateStaticCall.html" class="struct">PrivateStaticCall</a>&lt;M, N, T&gt;,
 ) -> T
 <div class="where-clause">where
@@ -338,6 +339,8 @@ calls that operate on the result of prior calls.</p>
 <p>Variant of <code>call_private</code> for private <code>#[view]</code> functions.</p>
 <p>Unlike <code>call_private</code>, no transaction is created and no block is mined (since <code>#[view]</code> functions are only
 executable in a static context, and these produce no side effects).</p>
+<p>The <code>from</code> parameter specifies the account from whose perspective the view is executed. This affects
+scope isolation - only notes scoped to this account will be visible during execution.</p>
 </div>
 </div><code id="simulate_utility" class="code-header">pub unconstrained fn <a href="#simulate_utility"><span class="fn">simulate_utility</span></a>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     _self: Self,

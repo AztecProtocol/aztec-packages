@@ -6,6 +6,7 @@ import json
 import os
 import re
 import requests
+import shlex
 import subprocess
 import threading
 import uuid
@@ -139,9 +140,9 @@ def root() -> str:
         f"\n"
         f"Benchmarks:\n"
         f"\n{YELLOW}"
-        f"{hyperlink('https://aztecprotocol.github.io/aztec-packages/bench?branch=master', 'master')}\n"
-        f"{hyperlink('https://aztecprotocol.github.io/aztec-packages/bench?branch=staging', 'staging')}\n"
-        f"{hyperlink('https://aztecprotocol.github.io/aztec-packages/bench?branch=next', 'next')}\n"
+        f"{hyperlink('https://aztecprotocol.github.io/benchmark-page-data/bench?branch=master', 'master')}\n"
+        f"{hyperlink('https://aztecprotocol.github.io/benchmark-page-data/bench?branch=staging', 'staging')}\n"
+        f"{hyperlink('https://aztecprotocol.github.io/benchmark-page-data/bench?branch=next', 'next')}\n"
         f"{hyperlink('/chonk-breakdowns', 'chonk breakdowns')}\n"
         f"{RESET}"
     )
@@ -400,8 +401,14 @@ def trigger_grind():
 
     full_cmd = request.args.get('cmd')
     commit = request.args.get('commit', 'HEAD')
-    grind_time = request.args.get('time')  # None = show selection page
     run_id = request.args.get('run')  # Pre-generated run_id from selection page
+    start = request.args.get('start')  # If set, start the grind
+
+    # Configurable options with defaults
+    grind_time = request.args.get('time', '20m')
+    cpus = request.args.get('cpus', '192')
+    jobs_pct = request.args.get('jobs', '200')
+    memsuspend_pct = request.args.get('memsuspend', '50')
 
     if not full_cmd:
         return "Missing cmd parameter", 400
@@ -410,25 +417,55 @@ def trigger_grind():
     if run_id and r.exists(run_id):
         return redirect(f'/{run_id}')
 
-    # If no time selected, show selection page
-    if not grind_time:
-        # Generate one run_id for all time links on this page load
+    # If start not requested, show configuration page
+    if not start:
+        # Generate one run_id for all links on this page load
         page_run_id = uuid.uuid4().hex[:16]
-        time_options = ['5m', '10m', '20m', '30m', '1h']
-        time_links = []
-        for t in time_options:
-            url = f"/grind?{url_encode({'cmd': full_cmd, 'commit': commit, 'time': t, 'run': page_run_id})}"
-            time_links.append(f"{YELLOW}{hyperlink(url, t)}{RESET}")
+
+        # Helper to build option links
+        def make_options(param_name, options, current_value, suffix=''):
+            links = []
+            for opt in options:
+                is_selected = str(opt) == str(current_value)
+                if is_selected:
+                    links.append(f"{BOLD}{BLUE}{opt}{suffix}{RESET}")
+                else:
+                    params = {
+                        'cmd': full_cmd, 'commit': commit, 'run': page_run_id,
+                        'time': grind_time, 'cpus': cpus, 'jobs': jobs_pct, 'memsuspend': memsuspend_pct
+                    }
+                    params[param_name] = opt
+                    url = f"/grind?{url_encode(params)}"
+                    links.append(f"{YELLOW}{hyperlink(url, f'{opt}{suffix}')}{RESET}")
+            return ' | '.join(links)
+
+        time_options = make_options('time', ['5m', '10m', '20m', '30m', '1h'], grind_time)
+        cpus_options = make_options('cpus', ['16', '32', '64', '128', '192'], cpus)
+        jobs_options = make_options('jobs', ['10', '25', '50', '75', '100', '200', '400'], jobs_pct, '%')
+        memsuspend_options = make_options('memsuspend', ['25', '50', '75'], memsuspend_pct, '%')
+
+        # Start grind button
+        start_params = {
+            'cmd': full_cmd, 'commit': commit, 'run': page_run_id,
+            'time': grind_time, 'cpus': cpus, 'jobs': jobs_pct, 'memsuspend': memsuspend_pct,
+            'start': '1'
+        }
+        start_url = f"/grind?{url_encode(start_params)}"
+        start_button = f"{BOLD}{GREEN}{hyperlink(start_url, '[ Start Grind ]')}{RESET}"
 
         page = (
             f"{BOLD}Grind Test{RESET}\n\n"
-            f"Command: {full_cmd}\n\n"
-            f"Select grind duration: "
-            f"{' | '.join(time_links)}\n"
+            f"Command: {full_cmd}\n"
+            f"Commit: {commit}\n\n"
+            f"Duration:   {time_options}\n"
+            f"CPUs:       {cpus_options}\n"
+            f"Jobs:       {jobs_options}\n"
+            f"Memsuspend: {memsuspend_options}\n\n"
+            f"{start_button}\n"
         )
         return render_template_string(TEMPLATE, value=ansi_to_html(page), filter_str='grind', follow='top')
 
-    # Time selected - start the grind
+    # Start requested - run the grind
     # Use run_id from URL, or generate new one if not provided
     if not run_id:
         run_id = uuid.uuid4().hex[:16]
@@ -441,7 +478,7 @@ def trigger_grind():
     repo_path = os.environ.get('REPO_PATH')
     if repo_path:
         subprocess.Popen(
-            ['bash', '-c', f'cd {repo_path} && RUN_ID={run_id} ./ci.sh grind-test "{full_cmd}" {grind_time} {commit}'],
+            ['bash', '-c', f'cd {repo_path} && RUN_ID={run_id} CPUS={cpus} ./ci.sh grind-test {shlex.quote(full_cmd)} {grind_time} {jobs_pct} {memsuspend_pct} {commit}'],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True

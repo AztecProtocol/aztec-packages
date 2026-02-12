@@ -23,7 +23,6 @@ Before starting, ensure you have the following installed and configured:
 - yarn package manager
 - Aztec CLI (version 3.0.0-devnet.6-patch.1)
 - Nargo (version 1.0.0-beta.15)
-- 8GB+ RAM (required for proof generation)
 - Familiarity with [Noir syntax](https://noir-lang.org/docs) and [Aztec contract basics](../../aztec-nr/index.md)
 
 Install the required tools:
@@ -523,7 +522,7 @@ Now compile the Aztec contract and generate TypeScript bindings:
 yarn ccc
 ```
 
-**What this command does** (see [How to Compile a Contract](../../aztec-nr/how_to_compile_contract.md) for details):
+**What this command does** (see [How to Compile a Contract](../../aztec-nr/compiling_contracts.md) for details):
 
 1. `aztec compile`: Compiles the Noir contract and post-processes it for Aztec (different from `nargo compile`)
 2. `aztec codegen`: Generates TypeScript bindings from the contract artifact, enabling type-safe contract interaction

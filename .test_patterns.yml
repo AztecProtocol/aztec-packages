@@ -165,14 +165,6 @@ tests:
     error_regex: "Anvil failed to stop in time|Cannot read properties of undefined"
     owners:
       - *palla
-  # http://ci.aztec-labs.com/f2007345762c50a8
-  - regex: "src/e2e_multi_validator_node.test.ts"
-    error_regex: "✕ should attest ONLY with the correct validator keys"
-    owners:
-      - *spyros
-  - regex: "src/composed/ha/e2e_ha_full.test.ts"
-    owners:
-      - *alex
 
   # yarn-project tests
   - regex: "yarn-project/kv-store"
@@ -364,7 +356,17 @@ tests:
     owners:
       - *lasse
 
-  - regex: "yarn-project/scripts/run_test.sh pxe/src/notes/note_service.test.ts"
-    error_regex: "should remove notes that have been nullified"
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh simple src/e2e_fees/gas_estimation.test.ts"
+    error_regex: "timeout: sending signal TERM to command 'bash'"
     owners:
-      - *martin
+      - *alex
+
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh compose src/composed/docs_examples.test.ts"
+    error_regex: "maxFeesPerGas.feePerL2Gas must be greater than or equal to gasFees.feePerL2Gas,"
+    owners:
+      - *esau
+
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh ha src/composed/ha/e2e_ha_full.test.ts"
+    error_regex: "✕ should coordinate governance voting across HA nodes"
+    owners:
+      - *spyros

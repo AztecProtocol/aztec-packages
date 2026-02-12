@@ -15,13 +15,13 @@ import { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import type { CircuitName } from '@aztec/stdlib/stats';
 import { TX_ERROR_INVALID_PROOF } from '@aztec/stdlib/tx';
-import { ProvenTx, proveInteraction } from '@aztec/test-wallet/server';
 
 import TOML from '@iarna/toml';
 import '@jest/globals';
 import { type GetContractReturnType, getContract } from 'viem';
 
 import { FullProverTest } from '../fixtures/e2e_prover_test.js';
+import { ProvenTx, proveInteraction } from '../test-wallet/utils.js';
 
 // Set a very long 15 minute timeout.
 const TIMEOUT = 900_000;

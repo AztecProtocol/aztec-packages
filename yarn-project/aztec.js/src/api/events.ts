@@ -1,44 +1,52 @@
 import { type EventMetadataDefinition, EventSelector, decodeFromAbi } from '@aztec/stdlib/abi';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
+import type { PublicEvent, PublicEventFilter } from '../wallet/wallet.js';
+
 /**
  * Returns decoded public events given search parameters.
  * @param node - The node to request events from
- * @param eventMetadata - Metadata of the event. This should be the class generated from the contract. e.g. Contract.events.Event
- * @param from - The block number to search from.
- * @param limit - The amount of blocks to search.
- * @returns - The deserialized events.
+ * @param eventMetadataDef - Metadata of the event. This should be the class generated from the contract. e.g. Contract.events.Event
+ * @param filter - Filter options for the event query:
+ *   - `contractAddress`: The address of the contract that emitted the events.
+ *   - `txHash`: Transaction in which the events were emitted.
+ *   - `fromBlock`: The block number from which to start fetching events (inclusive). Defaults to 1.
+ *   - `toBlock`: The block number until which to fetch events (not inclusive). Defaults to latest + 1.
+ * @returns - The decoded events with metadata.
  */
-export async function getDecodedPublicEvents<T>(
+export async function getPublicEvents<T>(
   node: AztecNode,
   eventMetadataDef: EventMetadataDefinition,
-  from: number,
-  limit: number,
-): Promise<T[]> {
+  filter: PublicEventFilter,
+): Promise<PublicEvent<T>[]> {
   const { logs } = await node.getPublicLogs({
-    fromBlock: from,
-    toBlock: from + limit,
+    fromBlock: filter.fromBlock ? Number(filter.fromBlock) : undefined,
+    toBlock: filter.toBlock ? Number(filter.toBlock) : undefined,
+    txHash: filter.txHash,
+    contractAddress: filter.contractAddress,
   });
 
-  const decodedEvents = logs
-    .map(log => {
-      // +1 for the event selector
-      const expectedLength = eventMetadataDef.fieldNames.length + 1;
-      if (log.log.fields.length !== expectedLength) {
-        throw new Error(
-          `Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length. Expected ${expectedLength}. Got ${log.log.fields.length}.`,
-        );
-      }
+  const decodedEvents: PublicEvent<T>[] = [];
 
-      const logFields = log.log.getEmittedFields();
-      // We are assuming here that event logs are the last 4 bytes of the event. This is not enshrined but is a function of aztec.nr raw log emission.
-      if (!EventSelector.fromField(logFields[logFields.length - 1]).equals(eventMetadataDef.eventSelector)) {
-        return undefined;
-      }
+  for (const log of logs) {
+    const logFields = log.log.getEmittedFields();
+    // Event selector is at the last position of the emitted fields
+    const logEventSelector = EventSelector.fromField(logFields[logFields.length - 1]);
 
-      return decodeFromAbi([eventMetadataDef.abiType], log.log.fields) as T;
-    })
-    .filter(log => log !== undefined) as T[];
+    if (!logEventSelector.equals(eventMetadataDef.eventSelector)) {
+      continue;
+    }
+
+    decodedEvents.push({
+      event: decodeFromAbi([eventMetadataDef.abiType], log.log.fields) as T,
+      metadata: {
+        l2BlockNumber: log.id.blockNumber,
+        l2BlockHash: log.id.blockHash,
+        txHash: log.id.txHash,
+        contractAddress: log.log.contractAddress,
+      },
+    });
+  }
 
   return decodedEvents;
 }

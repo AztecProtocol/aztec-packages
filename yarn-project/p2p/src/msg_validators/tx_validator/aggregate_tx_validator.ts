@@ -1,6 +1,6 @@
-import type { ProcessedTx, Tx, TxValidationResult, TxValidator } from '@aztec/stdlib/tx';
+import type { TxValidationResult, TxValidator } from '@aztec/stdlib/tx';
 
-export class AggregateTxValidator<T extends Tx | ProcessedTx> implements TxValidator<T> {
+export class AggregateTxValidator<T> implements TxValidator<T> {
   #validators: TxValidator<T>[];
   constructor(...validators: TxValidator<T>[]) {
     if (validators.length === 0) {

@@ -5,7 +5,8 @@ import { Bot, type BotConfig, BotStore, getBotDefaultConfig } from '@aztec/bot';
 import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { SequencerClient } from '@aztec/sequencer-client';
-import type { TestWallet } from '@aztec/test-wallet/server';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
@@ -19,7 +20,7 @@ describe('e2e_sequencer_config', () => {
   let sequencer: SequencerClient | undefined;
   let config: BotConfig;
   let bot: Bot;
-  let wallet: TestWallet;
+  let wallet: EmbeddedWallet;
   let aztecNode: AztecNode;
   let logger: Logger;
 
@@ -31,11 +32,11 @@ describe('e2e_sequencer_config', () => {
     // Sane targets < 64 bits.
     const manaTarget = 200e6;
     beforeAll(async () => {
-      const initialFundedAccounts = await getInitialTestAccountsData();
-      ({ teardown, sequencer, aztecNode, logger, wallet } = await setup(1, {
+      const [botAccount] = await getInitialTestAccountsData();
+      ({ teardown, sequencer, aztecNode, logger } = await setup(0, {
         maxL2BlockGas: manaTarget * 2,
         manaTarget: BigInt(manaTarget),
-        initialFundedAccounts,
+        initialFundedAccounts: [botAccount],
       }));
       config = {
         ...getBotDefaultConfig(),
@@ -43,6 +44,14 @@ describe('e2e_sequencer_config', () => {
         ammTxs: false,
         txMinedWaitSeconds: 12,
       };
+      wallet = await EmbeddedWallet.create(aztecNode, { ephemeral: true });
+      const accountManager = await wallet.createSchnorrAccount(
+        botAccount.secret,
+        botAccount.salt,
+        botAccount.signingKey,
+      );
+      const deployMethod = await accountManager.getDeployMethod();
+      await deployMethod.send({ from: AztecAddress.ZERO });
       bot = await Bot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
     });
 
