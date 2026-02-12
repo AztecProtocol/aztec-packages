@@ -207,6 +207,45 @@ TEST(BytecodeDecompositionConstrainingTest, NegativeDeactivateLastContract)
         "BC_DEC_LAST_CONTRACT_BYTES_REM_ONE");
 }
 
+TEST(BytecodeDecompositionConstrainingTest, NegativeDeactivateStart)
+{
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+        {
+            { C::bc_decomposition_pc, 0 },
+            { C::bc_decomposition_sel, 1 },
+            { C::bc_decomposition_start, 1 },
+        },
+    });
+
+    check_relation<bc_decomposition>(trace, bc_decomposition::SR_START_AFTER_LATCH);
+    trace.set(C::bc_decomposition_start, 1, 0); // Mutate to wrong value
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_START_AFTER_LATCH),
+                              "START_AFTER_LATCH");
+}
+
+TEST(BytecodeDecompositionConstrainingTest, NegativeStartEndNotSel)
+{
+    TestTraceContainer trace({ { { C::precomputed_first_row, 1 } },
+                               {
+                                   { C::bc_decomposition_sel, 1 },
+                                   { C::bc_decomposition_start, 1 },
+                               },
+                               {
+                                   { C::bc_decomposition_last_of_contract, 1 },
+                                   { C::bc_decomposition_sel, 1 },
+                               } });
+
+    check_relation<bc_decomposition>(trace, bc_decomposition::SR_SEL_ON_START_OR_END);
+    trace.set(C::bc_decomposition_sel, 1, 0); // Mutate to wrong value
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_SEL_ON_START_OR_END),
+                              "SEL_ON_START_OR_END");
+    trace.set(C::bc_decomposition_sel, 1, 1);
+    trace.set(C::bc_decomposition_sel, 2, 0); // Mutate to wrong value
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_SEL_ON_START_OR_END),
+                              "SEL_ON_START_OR_END");
+}
+
 TEST(BytecodeDecompositionConstrainingTest, NegativePcWrongInitializationFirstRow)
 {
     TestTraceContainer trace({

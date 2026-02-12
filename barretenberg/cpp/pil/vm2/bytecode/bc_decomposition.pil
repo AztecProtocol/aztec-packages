@@ -32,6 +32,11 @@ pol commit bytes_remaining;
 pol commit last_of_contract; // @boolean
 last_of_contract * (1 - last_of_contract) = 0;
 
+// This column is committed since it's used by the permutation #[BYTECODE_LENGTH_BYTES] in bc_hashing
+// pc == 0 <==> start == 1
+pol commit start; // @boolean
+start * (1 - start) = 0;
+
 // This is the most important column. It contains the bytecode one byte at a time on each row.
 // If the TX uses several bytecodes, they should go one after the other in this column.
 pol commit bytes;
@@ -64,6 +69,14 @@ pol LATCH_CONDITION = precomputed.first_row + last_of_contract;
 // Initialization of pc per bytecode to zero
 #[BC_DEC_PC_ZERO_INITIALIZATION]
 LATCH_CONDITION * pc' = 0;
+
+// Initialization of start
+#[START_AFTER_LATCH]
+sel' * (start' - LATCH_CONDITION) = 0;
+
+// start and last_of_contract are only on for active rows
+#[SEL_ON_START_OR_END]
+(start + last_of_contract) * (1 - sel) = 0;
 
 // pc evolution (increment within bytecode)
 #[BC_DEC_PC_INCREMENT]
