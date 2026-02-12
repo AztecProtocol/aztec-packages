@@ -116,7 +116,7 @@ If you have an existing app running on your local network, here's how to migrate
 Instead of running a local network, connect to the devnet node:
 
 ```sh
-export NODE_URL=https://devnet-6.aztec-labs.com/
+export NODE_URL=https://next.devnet.aztec-labs.com
 ```
 
 When running `aztec-wallet` commands, include the node URL:
@@ -133,7 +133,7 @@ You can connect to devnet directly from your app using AztecJS:
 import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
 
-const NODE_URL = "https://devnet.aztec-labs.com";
+const NODE_URL = "https://next.devnet.aztec-labs.com";
 const node = createAztecNodeClient(NODE_URL);
 const wallet = await EmbeddedWallet.create(node);
 ```
@@ -176,14 +176,28 @@ try {
 }
 ```
 
-### Environment Detection
+### Switching Between Local and Devnet
 
-Detect which environment your code is running against:
+The only thing that changes between local development and devnet is the node URL. Set `NODE_URL` to switch between them:
+
+```bash
+# Local development (default sandbox)
+export NODE_URL=http://localhost:8080
+
+# Devnet
+export NODE_URL=https://devnet.aztec-labs.com
+```
+
+In your application code, read the URL from an environment variable so you can toggle without changing code:
 
 ```javascript
-const isDevnet = process.env.NODE_URL?.includes("devnet");
 const nodeUrl = process.env.NODE_URL || "http://localhost:8080";
+const node = createAztecNodeClient(nodeUrl);
 ```
+
+:::tip
+On local development, fees are not required and test accounts are pre-deployed. On devnet, you must handle fees (e.g. via the sponsored FPC) and deploy your own accounts. See [Key Differences](#local-network-vs-devnet-key-differences) above.
+:::
 
 ## Devnet Information
 
