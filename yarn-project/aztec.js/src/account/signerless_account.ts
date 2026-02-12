@@ -11,13 +11,13 @@ import type { CallIntent, IntentInnerHash } from '../utils/authwit.js';
 import type { Account } from './account.js';
 
 /**
- * Account implementation which creates a transaction using the multicall protocol contract as entrypoint.
+ * Account implementation which creates a transaction using a deployed MultiCallEntrypoint contract as entrypoint.
  */
 export class SignerlessAccount implements Account {
   private entrypoint: EntrypointInterface;
 
-  constructor() {
-    this.entrypoint = new DefaultMultiCallEntrypoint();
+  constructor(multiCallEntrypointAddress: AztecAddress) {
+    this.entrypoint = new DefaultMultiCallEntrypoint(multiCallEntrypointAddress);
   }
 
   createTxExecutionRequest(

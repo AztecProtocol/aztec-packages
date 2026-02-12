@@ -5,9 +5,6 @@
 //
 // Pair this with SignerlessWallet to perform multiple actions before any account contracts are deployed (and without
 // authentication).
-//
-// Note that this contract should not be grouped with protocol contracts as it is not part of the protocol. We keep
-// it here for now as it allows us to use hardcoded address.
 use aztec::macros::aztec;
 
 #[aztec]

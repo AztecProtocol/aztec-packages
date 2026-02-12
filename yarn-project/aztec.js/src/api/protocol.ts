@@ -5,5 +5,3 @@ export { AuthRegistryContract } from '../contract/protocol_contracts/auth-regist
 export { ContractClassRegistryContract } from '../contract/protocol_contracts/contract-class-registry.js';
 export { ContractInstanceRegistryContract } from '../contract/protocol_contracts/contract-instance-registry.js';
 export { FeeJuiceContract } from '../contract/protocol_contracts/fee-juice.js';
-export { MultiCallEntrypointContract } from '../contract/protocol_contracts/multi-call-entrypoint.js';
-export { PublicChecksContract } from '../contract/protocol_contracts/public-checks.js';

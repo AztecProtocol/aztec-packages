@@ -29,13 +29,17 @@ export class EmbeddedWallet extends BaseWallet {
     protected walletDB: WalletDB,
     protected accountContracts: AccountContractsProvider,
     log?: Logger,
+    protected multiCallEntrypointAddress?: AztecAddress,
   ) {
     super(pxe, aztecNode, log);
   }
 
   protected async getAccountFromAddress(address: AztecAddress): Promise<Account> {
     if (address.equals(AztecAddress.ZERO)) {
-      return new SignerlessAccount();
+      if (!this.multiCallEntrypointAddress) {
+        throw new Error('multiCallEntrypointAddress is required for signerless accounts');
+      }
+      return new SignerlessAccount(this.multiCallEntrypointAddress);
     }
 
     const { secretKey, salt, signingKey, type } = await this.walletDB.retrieveAccount(address);

@@ -5,8 +5,6 @@ import {
   CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
   FEE_JUICE_ADDRESS,
   MAX_PROTOCOL_CONTRACTS,
-  MULTI_CALL_ENTRYPOINT_ADDRESS,
-  PUBLIC_CHECKS_ADDRESS,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -31,12 +29,10 @@ const outputFilePath = './src/protocol_contract_data.ts';
 const salt = new Fr(1);
 
 const contractAddressMapping: { [name: string]: number } = {
-  AuthRegistry: CANONICAL_AUTH_REGISTRY_ADDRESS,
-  ContractInstanceRegistry: CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
-  ContractClassRegistry: CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
-  MultiCallEntrypoint: MULTI_CALL_ENTRYPOINT_ADDRESS,
   FeeJuice: FEE_JUICE_ADDRESS,
-  PublicChecks: PUBLIC_CHECKS_ADDRESS,
+  ContractClassRegistry: CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
+  ContractInstanceRegistry: CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+  AuthRegistry: CANONICAL_AUTH_REGISTRY_ADDRESS,
 };
 
 async function clearDestDir() {

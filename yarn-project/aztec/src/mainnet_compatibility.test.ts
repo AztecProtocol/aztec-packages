@@ -9,12 +9,12 @@ import { getGenesisValues } from '@aztec/world-state/testing';
  */
 describe('Mainnet compatibility', () => {
   it('has expected VK tree root', () => {
-    const expectedRoots = [Fr.fromHexString('0x0f485d750a6264d399c416e01909e4dd18fa0dbaad882fe2b87c7847aeaab564')];
+    const expectedRoots = [Fr.fromHexString('0x09fbd43fbad54dad3c323b0fda88fa0329a68f4b368459705afb90b162a67e8e')];
     expect(expectedRoots).toContainEqual(getVKTreeRoot());
   });
   it('has expected Protocol Contracts tree root', () => {
     expect(protocolContractsHash).toEqual(
-      Fr.fromHexString('0x2348b12e0edd63c38dbb849b6c788c4975ed3f1f3706fcb5e17431e805da672d'),
+      Fr.fromHexString('0x18e3bc43bf7b5f79b767cf17245968147d5fc62593ff8d25ea045defee0cfe2e'),
     );
   });
   it('has expected Genesis tree roots', async () => {
@@ -25,7 +25,7 @@ describe('Mainnet compatibility', () => {
       /* initial public data leaves */ [],
     );
     expect(genesisArchiveRoot).toEqual(
-      Fr.fromHexString('0x1f8c805403d88ee809d3cb3e52eeba0a104f69968cdb844a9cbdf1e9e00b3a95'),
+      Fr.fromHexString('0x15684c8c3d2106918d3860f777e50555b7166adff47df13cc652e2e5a50bf5c7'),
     );
   });
 });

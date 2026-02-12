@@ -37,6 +37,7 @@ export class CLIWallet extends BaseWallet {
     node: AztecNode,
     private userLog: LogFn,
     private db?: WalletDB,
+    private multiCallEntrypointAddress?: AztecAddress,
   ) {
     super(pxe, node);
     this.cancellableTransactions = true;
@@ -47,10 +48,11 @@ export class CLIWallet extends BaseWallet {
     log: LogFn,
     db?: WalletDB,
     overridePXEConfig?: Partial<PXEConfig>,
+    multiCallEntrypointAddress?: AztecAddress,
   ): Promise<CLIWallet> {
     const pxeConfig = Object.assign(getPXEConfig(), overridePXEConfig);
     const pxe = await createPXE(node, pxeConfig);
-    return new CLIWallet(pxe, node, log, db);
+    return new CLIWallet(pxe, node, log, db, multiCallEntrypointAddress);
   }
 
   override async getAccounts(): Promise<Aliased<AztecAddress>[]> {
@@ -93,7 +95,10 @@ export class CLIWallet extends BaseWallet {
   override async getAccountFromAddress(address: AztecAddress) {
     let account: Account | undefined;
     if (address.equals(AztecAddress.ZERO)) {
-      account = new SignerlessAccount();
+      if (!this.multiCallEntrypointAddress) {
+        throw new Error('multiCallEntrypointAddress is required for signerless accounts');
+      }
+      account = new SignerlessAccount(this.multiCallEntrypointAddress);
     } else if (this.accountCache.has(address.toString())) {
       return this.accountCache.get(address.toString())!;
     } else {

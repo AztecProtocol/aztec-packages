@@ -70,10 +70,10 @@ describe('PXE', () => {
       enr: undefined,
       l1ContractAddresses: mockedContracts,
       protocolContractAddresses: {
-        classRegistry: await AztecAddress.random(),
         feeJuice: await AztecAddress.random(),
+        classRegistry: await AztecAddress.random(),
         instanceRegistry: await AztecAddress.random(),
-        multiCallEntrypoint: await AztecAddress.random(),
+        authRegistry: await AztecAddress.random(),
       },
       realProofs: true,
     });

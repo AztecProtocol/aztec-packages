@@ -4,6 +4,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';
+import { PublicChecksContract } from '@aztec/noir-contracts.js/PublicChecks';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
@@ -40,6 +41,7 @@ describe('e2e_crowdfunding_and_claim', () => {
 
   let donationToken: TokenContract;
   let rewardToken: TokenContract;
+  let publicCheckContract: PublicChecksContract;
   let crowdfundingContract: CrowdfundingContract;
   let claimContract: ClaimContract;
 
@@ -80,6 +82,9 @@ describe('e2e_crowdfunding_and_claim', () => {
     ).send({ from: operatorAddress });
     logger.info(`Reward Token deployed to ${rewardToken.address}`);
 
+    publicCheckContract = await PublicChecksContract.deploy(wallet).send({ from: operatorAddress });
+    logger.info(`Public Check Contract deployed at ${publicCheckContract.address}`);
+
     // We deploy the Crowdfunding contract as an escrow contract (i.e. with populated public keys that make it
     // a potential recipient of notes) because the donations accumulate "in it".
     crowdfundingSecretKey = Fr.random();
@@ -91,6 +96,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       donationToken.address,
       operatorAddress,
       deadline,
+      publicCheckContract.address,
     );
     const crowdfundingInstance = await crowdfundingDeployment.getInstance();
     await wallet.registerContract(crowdfundingInstance, CrowdfundingContract.artifact, crowdfundingSecretKey);
@@ -219,6 +225,7 @@ describe('e2e_crowdfunding_and_claim', () => {
         donationToken.address,
         operatorAddress,
         deadline,
+        publicCheckContract.address,
       );
 
       otherCrowdfundingContract = await otherCrowdfundingDeployment.send({ from: operatorAddress });

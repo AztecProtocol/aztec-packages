@@ -8,4 +8,5 @@ pub struct Config {
     pub donation_token: AztecAddress, // Token used for donations (e.g. DAI)
     pub operator: AztecAddress, // Crowdfunding campaign operator
     pub deadline: u64, // End of the crowdfunding campaign after which no more donations are accepted
+    pub public_checks_address: AztecAddress, // Address of the PublicChecks contract
 }

@@ -47,6 +47,7 @@ export class TestWallet extends BaseWallet {
   constructor(
     pxe: PXE,
     private readonly nodeRef: AztecNodeProxy,
+    private multiCallEntrypointAddress?: AztecAddress,
   ) {
     super(pxe, nodeRef);
   }
@@ -55,6 +56,7 @@ export class TestWallet extends BaseWallet {
     node: AztecNode,
     overridePXEConfig?: Partial<PXEConfig>,
     options: PXECreationOptions = { loggers: {} },
+    multiCallEntrypointAddress?: AztecAddress,
   ): Promise<TestWallet> {
     const nodeRef = new AztecNodeProxy(node);
     const pxeConfig = Object.assign(getPXEConfig(), {
@@ -62,7 +64,7 @@ export class TestWallet extends BaseWallet {
       ...overridePXEConfig,
     });
     const pxe = await createPXE(nodeRef, pxeConfig, options);
-    return new TestWallet(pxe, nodeRef);
+    return new TestWallet(pxe, nodeRef, multiCallEntrypointAddress);
   }
 
   /**
@@ -148,7 +150,10 @@ export class TestWallet extends BaseWallet {
   protected getAccountFromAddress(address: AztecAddress): Promise<Account> {
     let account: Account | undefined;
     if (address.equals(AztecAddress.ZERO)) {
-      account = new SignerlessAccount();
+      if (!this.multiCallEntrypointAddress) {
+        throw new Error('multiCallEntrypointAddress is required for signerless accounts');
+      }
+      account = new SignerlessAccount(this.multiCallEntrypointAddress);
     } else {
       account = this.accounts.get(address?.toString() ?? '');
     }
