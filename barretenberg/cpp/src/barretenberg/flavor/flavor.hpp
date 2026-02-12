@@ -342,8 +342,8 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
         tag_and_append(this->num_public_inputs);
         tag_and_append(this->pub_inputs_offset);
 
-        // Tag and serialize VK commitments.
-        // Note that commitments have been already deserialized and the point at infinity is constrained to (0,0)).
+        // Tag and serialize VK commitments. Point-at-infinity canonicalization to (0,0) is handled by
+        // FrCodec::serialize_to_fields on the native path.
         for (const Commitment& commitment : this->get_all()) {
             tag_and_append(commitment);
         }
