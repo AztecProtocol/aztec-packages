@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/assert.hpp"
 
@@ -22,7 +21,6 @@ namespace bb {
 template <typename Curve_> class PairingPoints {
   public:
     using Curve = Curve_;
-    using CK = CommitmentKey<Curve>;
     using Point = typename Curve::AffineElement;
     using Fr = typename Curve::ScalarField;
     using Fq = typename Curve::BaseField;
@@ -34,8 +32,6 @@ template <typename Curve_> class PairingPoints {
     using value_type = Point;
     static constexpr size_t SIZE = 2;
 
-    std::array<Point, 2> _points = { Point::infinity(), Point::infinity() };
-
     // Named accessors
     Point& P0() { return _points[0]; }
     Point& P1() { return _points[1]; }
@@ -46,9 +42,6 @@ template <typename Curve_> class PairingPoints {
     PairingPoints(const Point& p0, const Point& p1)
         : _points{ p0, p1 }
     {}
-
-    auto& operator[](size_t idx) { return _points[idx]; }
-    const auto& operator[](size_t idx) const { return _points[idx]; }
 
     // Iterator support for range-based for (required by Codec)
     auto begin() { return _points.begin(); }
@@ -78,15 +71,18 @@ template <typename Curve_> class PairingPoints {
     }
 
     /**
-     * @brief Perform the pairing check
+     * @brief Verify the pairing equation e(P0, [1]₂) · e(P1, [x]₂) = 1.
      */
     bool check() const
     {
         VerifierCK vck{};
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1423): Rename to verifier_pcs_key or vckey or
+        // something. Issue exists in many places besides just here.
         return vck.pairing_check(P0(), P1());
     }
 
-    bool operator==(const PairingPoints<Curve>& other) const = default;
+  private:
+    std::array<Point, 2> _points = { Point::infinity(), Point::infinity() };
 };
 
 } // namespace bb
