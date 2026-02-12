@@ -532,35 +532,65 @@
       }
     },
     {
-      "name": "ios-arm64",
-      "displayName": "Build for iOS arm64 (device)",
-      "description": "Build for iOS arm64 devices using ios.toolchain.cmake",
-      "binaryDir": "build-ios-arm64",
-      "generator": "Ninja",
-      "toolchainFile": "cmake/toolchains/ios.toolchain.cmake",
+      "name": "zig-arm64-ios",
+      "displayName": "iOS arm64 static library (Zig)",
+      "description": "Cross-compile static libraries for iOS arm64 devices using Zig. Only supports static library targets (no linking) — Zig lacks iOS TBD/dylib support.",
+      "inherits": "zig-base",
+      "environment": {
+        "CC": "zig cc -target aarch64-ios -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS26.2.sdk/usr/include",
+        "CXX": "zig c++ -target aarch64-ios -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS26.2.sdk/usr/include"
+      },
       "cacheVariables": {
-        "PLATFORM": "OS64",
-        "DEPLOYMENT_TARGET": "16.3",
-        "CMAKE_BUILD_TYPE": "Release",
-        "ENABLE_PIC": "ON",
-        "ENABLE_ARC": "OFF",
+        "CMAKE_SYSTEM_NAME": "Generic",
+        "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
         "HAVE_STD_REGEX": "ON",
         "MOBILE": "ON"
       }
     },
     {
-      "name": "ios-sim-arm64",
-      "displayName": "Build for iOS Simulator arm64",
-      "description": "Build for iOS Simulator on Apple Silicon using ios.toolchain.cmake",
-      "binaryDir": "build-ios-sim-arm64",
-      "generator": "Ninja",
-      "toolchainFile": "cmake/toolchains/ios.toolchain.cmake",
+      "name": "zig-arm64-ios-sim",
+      "displayName": "iOS Simulator arm64 static library (Zig)",
+      "description": "Cross-compile static libraries for iOS Simulator on ARM64 using Zig. Only supports static library targets (no linking) — Zig lacks iOS TBD/dylib support.",
+      "inherits": "zig-base",
+      "environment": {
+        "CC": "zig cc -target aarch64-ios-simulator -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS26.2.sdk/usr/include",
+        "CXX": "zig c++ -target aarch64-ios-simulator -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS26.2.sdk/usr/include"
+      },
       "cacheVariables": {
-        "PLATFORM": "SIMULATORARM64",
-        "DEPLOYMENT_TARGET": "16.3",
-        "CMAKE_BUILD_TYPE": "Release",
-        "ENABLE_PIC": "ON",
-        "ENABLE_ARC": "OFF",
+        "CMAKE_SYSTEM_NAME": "Generic",
+        "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
+        "HAVE_STD_REGEX": "ON",
+        "MOBILE": "ON"
+      }
+    },
+    {
+      "name": "zig-arm64-android",
+      "displayName": "Android arm64 static library (Zig)",
+      "description": "Cross-compile static libraries for Android arm64 devices using Zig. Only supports static library targets (no linking).",
+      "inherits": "zig-base",
+      "environment": {
+        "CC": "zig cc -target aarch64-linux-android -isystem ${sourceDir}/android-sysroot/usr/include -isystem ${sourceDir}/android-sysroot/usr/include/aarch64-linux-android",
+        "CXX": "zig c++ -target aarch64-linux-android -isystem ${sourceDir}/android-sysroot/usr/include -isystem ${sourceDir}/android-sysroot/usr/include/aarch64-linux-android"
+      },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Generic",
+        "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
+        "HAVE_STD_REGEX": "ON",
+        "MOBILE": "ON"
+      }
+    },
+    {
+      "name": "zig-x86_64-android",
+      "displayName": "Android x86_64 static library (Zig)",
+      "description": "Cross-compile static libraries for Android x86_64 emulator using Zig. Only supports static library targets (no linking).",
+      "inherits": "zig-base",
+      "environment": {
+        "CC": "zig cc -target x86_64-linux-android -isystem ${sourceDir}/android-sysroot/usr/include -isystem ${sourceDir}/android-sysroot/usr/include/x86_64-linux-android",
+        "CXX": "zig c++ -target x86_64-linux-android -isystem ${sourceDir}/android-sysroot/usr/include -isystem ${sourceDir}/android-sysroot/usr/include/x86_64-linux-android"
+      },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Generic",
+        "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
         "HAVE_STD_REGEX": "ON",
         "MOBILE": "ON"
       }
@@ -753,13 +783,23 @@
       "inheritConfigureEnvironment": true
     },
     {
-      "name": "ios-arm64",
-      "configurePreset": "ios-arm64",
+      "name": "zig-arm64-ios",
+      "configurePreset": "zig-arm64-ios",
       "inheritConfigureEnvironment": true
     },
     {
-      "name": "ios-sim-arm64",
-      "configurePreset": "ios-sim-arm64",
+      "name": "zig-arm64-ios-sim",
+      "configurePreset": "zig-arm64-ios-sim",
+      "inheritConfigureEnvironment": true
+    },
+    {
+      "name": "zig-arm64-android",
+      "configurePreset": "zig-arm64-android",
+      "inheritConfigureEnvironment": true
+    },
+    {
+      "name": "zig-x86_64-android",
+      "configurePreset": "zig-x86_64-android",
       "inheritConfigureEnvironment": true
     }
   ],
