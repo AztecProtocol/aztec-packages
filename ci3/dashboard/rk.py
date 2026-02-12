@@ -520,9 +520,13 @@ _proxy_session = requests.Session()
 _HOP_BY_HOP = frozenset([
     'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
     'te', 'trailers', 'transfer-encoding', 'upgrade', 'content-length',
+    # `requests` auto-decompresses gzip responses, so Content-Encoding is
+    # stale — strip it so the browser doesn't try to decompress plain content.
+    # Flask-Compress on rkapp handles browser compression.
+    'content-encoding',
 ])
-# Don't forward encoding headers — get plain responses from ci-metrics,
-# let rkapp's Flask-Compress handle compression to the browser.
+# Don't forward Accept-Encoding — let `requests` negotiate with ci-metrics
+# (it adds its own and auto-decompresses).
 _STRIP_REQUEST_HEADERS = frozenset(['host', 'accept-encoding'])
 
 def _proxy(path):
