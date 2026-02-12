@@ -33,6 +33,7 @@ Inspired by [rust rollups](https://forge.rust-lang.org/release/rollups.html), bu
 2. **Accumulation**: Feature PRs are merged into the merge train branch, squashed
 3. **Auto-merge**: After 4 hours of inactivity (with meaningful commits), the train is automatically merged with a merge-commit (not a squash)
 4. **Recreation**: The cycle starts again with a new merge train
+5. **PR Wakeup**: After recreation, PRs targeting the branch that have passed CI and have automerge enabled are labeled with `ci-wakeup-pr-after-merge` to trigger a CI re-run (typically a no-op via cache). The label is removed immediately by CI so it can be re-applied on subsequent merges.
 
 ## Handling Merge Failures
 
