@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Cron job: sync ephemeral Redis CI data to persistent SQLite.
+"""Sync ephemeral Redis CI data to persistent SQLite.
 
-Run daily to ensure CI runs and test events survive Redis restarts/flushes.
-Designed to be called from cron or systemd timer:
+Normally run automatically by the ci-metrics server's background sync thread.
+Can also be run standalone for a one-off manual sync:
 
-  0 */6 * * * cd /path/to/dashboard && python3 sync_to_sqlite.py
+  cd ci3/ci-metrics && python3 sync_to_sqlite.py
 
 Connects to Redis, reads all CI runs and failed test lists, writes to SQLite.
 """

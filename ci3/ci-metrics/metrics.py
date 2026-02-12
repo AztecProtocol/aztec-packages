@@ -12,27 +12,9 @@ from datetime import datetime, timedelta, timezone
 
 import db
 import github_data
+import ec2_pricing
 
 SECTIONS = ['next', 'prs', 'master', 'staging', 'releases', 'nightly', 'network', 'deflake', 'local']
-
-# EC2 instance hourly rates (us-east-2)
-INSTANCE_HOURLY_RATES = {
-    ('m6a.48xlarge', True):  8.31,
-    ('m6a.48xlarge', False): 16.56,
-    ('m6a.32xlarge', True):  5.54,
-    ('m6a.32xlarge', False): 11.04,
-    ('m6a.16xlarge', True):  2.77,
-    ('m6a.16xlarge', False): 5.52,
-    ('m7a.48xlarge', True):  8.31,
-    ('m7a.48xlarge', False): 16.56,
-    ('m7a.16xlarge', True):  2.77,
-    ('m7a.16xlarge', False): 5.52,
-    ('m7i.48xlarge', True):  8.31,
-    ('m7i.48xlarge', False): 16.56,
-    ('r7g.16xlarge', True):  1.97,
-    ('r7g.16xlarge', False): 3.94,
-}
-FALLBACK_VCPU_HOUR = {True: 0.0433, False: 0.0864}
 
 _PR_RE = re.compile(r'(?:pr-|#)(\d+)', re.IGNORECASE)
 _ANSI_RE = re.compile(r'\x1b\[[^m]*m|\x1b\]8;;[^\x07]*\x07')
@@ -47,10 +29,10 @@ def compute_run_cost(data: dict) -> float | None:
     hours = (complete - ts) / 3_600_000
     instance_type = data.get('instance_type', 'unknown')
     is_spot = bool(data.get('spot'))
-    rate = INSTANCE_HOURLY_RATES.get((instance_type, is_spot))
+    rate = ec2_pricing.get_instance_rate(instance_type, is_spot)
     if not rate:
         vcpus = data.get('instance_vcpus', 192)
-        rate = vcpus * FALLBACK_VCPU_HOUR[is_spot]
+        rate = vcpus * ec2_pricing.get_fallback_vcpu_rate(is_spot)
     return round(hours * rate, 4)
 
 
