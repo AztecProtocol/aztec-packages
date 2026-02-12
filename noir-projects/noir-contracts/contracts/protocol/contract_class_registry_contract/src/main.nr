@@ -1,13 +1,18 @@
 mod events;
+mod validate_bytecode;
 
 pub contract ContractClassRegistry {
     use crate::events::class_published::ContractClassPublished;
+    use crate::validate_bytecode::validate_packed_public_bytecode;
     use aztec::{
-        hash::compute_public_bytecode_commitment,
         oracle::capsules,
         protocol::{
-            constants::CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
-            contract_class_id::ContractClassId, traits::ToField,
+            constants::{
+                CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
+                MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
+            },
+            contract_class_id::ContractClassId,
+            traits::ToField,
         },
     };
 
@@ -33,17 +38,15 @@ pub contract ContractClassRegistry {
 
         // Safety: We load the bytecode via a capsule, which is unconstrained. In order to ensure the loaded bytecode
         // matches the expected one, we recompute the commitment and assert it matches the one provided by the caller.
-        let mut packed_public_bytecode: [Field; 3000] = unsafe {
+        let mut packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] = unsafe {
             capsules::load(
                 context.this_address(),
                 CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
             )
                 .unwrap()
         };
-        // Compute and check the public bytecode commitment
-        let computed_public_bytecode_commitment =
-            compute_public_bytecode_commitment(packed_public_bytecode);
-        assert_eq(computed_public_bytecode_commitment, public_bytecode_commitment);
+
+        validate_packed_public_bytecode(packed_public_bytecode, public_bytecode_commitment);
 
         // Compute contract class id from preimage
         let contract_class_id = ContractClassId::compute(

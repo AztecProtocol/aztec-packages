@@ -39,12 +39,48 @@ flowchart LR
 
 Both parties derive the same shared secret via Diffie-Hellman key exchange, then hash in the contract address, recipient, and index to produce identical tags.
 
+#### The sender in note tagging
+
+The "sender" in note tagging is **not necessarily the transaction sender**. It's the **sender for tags**, which account contracts set by calling `set_sender_for_tags(account_address)` before making calls to other contracts. This is typically the account contract address itself.
+
+This sender address is used along with the recipient address to compute the shared secret via Diffie-Hellman key exchange, which is then used to derive the tag.
+
 #### Discovering notes in Aztec contracts
 
 Note discovery is implemented in contract code rather than by the PXE. The `#[aztec]` macro automatically injects the necessary discovery logic, so developers don't need to implement it manually. However, this approach means users can customize or replace the discovery mechanism to suit their needs.
 
-### Limitations
+### Limitations and Solutions
 
-- **You cannot receive notes from an unknown sender**. Without knowing the sender's address, you cannot create the shared secret needed to derive the note tag. Potential workarounds include having senders register themselves in a contract, allowing recipients to search for note tags from all registered senders.
+#### You cannot receive tagged notes from an unknown sender
 
-- **Index synchronization can be complicated**. If transactions are reverted or mined out of order, the recipient may stop searching after receiving a tag with the latest expected index, potentially missing notes. Reusing the same index after a revert would create identical tags, linking the transactions and leaking privacy. This is mitigated by widening the search window and limiting how many notes a user can send from the same contract to the same recipient within a short time frame.
+Without knowing the sender's address, you cannot create the shared secret needed to derive the note tag. This is a fundamental limitation of the current tagging scheme.
+
+There are three broad families of solutions to this problem:
+
+**a) Brute force search** - Scan every single log and test if it decrypts. This has obvious performance issues as the network grows and becomes prohibitively expensive.
+
+**b) Tagging with known sender** (current implementation) - You know who will send you messages and search for those specifically. This is very fast and allows you to remove senders who spam you. However, we don't currently have a mechanism for constraining this (i.e., guaranteeing that the recipient will find the message).
+
+**c) Tagging with handshaking** - An intermediate solution where you can be notified of new senders. A handshake occurs onchain that lets the recipient discover a new sender, and from that point on there's regular tagging. This design either:
+- Is fast but leaks privacy (e.g., a public event with "new handshake for Alice!")
+- Is slow but doesn't leak (you brute force scan all logs from a handshake contract, testing if any handshakes are for you)
+
+The handshaking design space is large - for example, you could set up infrastructure where a server searches handshakes for you, trading off infrastructure requirements for performance.
+
+**Handshaking is not currently implemented in Aztec.nr.** For now, if you need to receive notes from unknown senders, potential workarounds include:
+- Having senders register themselves in a contract first, allowing recipients to search for note tags from all registered senders
+- Using offchain communication to share sender addresses with recipients
+- Implementing a custom discovery mechanism in your contract
+
+See the [Note Delivery](../../../aztec-nr/framework-description/note_delivery.md) documentation for more details on how the sender is used when delivering notes.
+
+## Advanced Cryptography Techniques
+
+Beyond the tagging system described above, there are more advanced cryptographic techniques for note discovery:
+
+- **Oblivious message retrieval (OMR)**: Allows retrieving messages without the server knowing which messages were accessed
+- **Private information retrieval (PIR)**: Enables querying a database without revealing which records you're interested in
+
+These techniques would solve a privacy leak that exists with the current tagging system: when your PXE queries an Aztec node for logs with specific tags, the node can observe your IP address and correlate it with which tags (and therefore which transactions) you're interested in. Even though the logs are encrypted, this network-level metadata can leak information about your activity.
+
+OMR and PIR would eliminate this issue by allowing you to retrieve your logs without the node knowing which ones you requested. However, these methods are currently impractical in production due to computational costs. They represent a long-term goal for achieving stronger privacy guarantees.
