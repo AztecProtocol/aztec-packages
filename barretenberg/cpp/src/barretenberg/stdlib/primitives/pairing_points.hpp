@@ -35,9 +35,7 @@ static constexpr bb::fr DEFAULT_PP_P1_Y_LO =
 static constexpr bb::fr DEFAULT_PP_P1_Y_HI =
     bb::fr("0x00000000000000000000000000000000001b52c2020d7464a0c80c0da527a081");
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from a
-// valid proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
-// Derived from the combined limbs above: fq = lo + hi * 2^136
+// Arbitrary valid pairing points. Derived from the combined limbs above: fq = lo + hi * 2^136
 static constexpr bb::fq DEFAULT_PAIRING_POINT_P0_X =
     bb::fq(uint256_t(DEFAULT_PP_P0_X_LO) + (uint256_t(DEFAULT_PP_P0_X_HI) << 136));
 static constexpr bb::fq DEFAULT_PAIRING_POINT_P0_Y =
