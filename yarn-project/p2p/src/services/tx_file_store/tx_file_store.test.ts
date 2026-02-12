@@ -313,10 +313,12 @@ describe('TxFileStore', () => {
     it('rejects tx with invalid hash when reading from file store', async () => {
       // Write a tx with a mismatched hash directly to the file store
       const invalidTx = Tx.random(); // random hash does not match computed hash
-      await fileStore.save(`txs/${invalidTx.txHash.toString()}.bin`, invalidTx.toBuffer(), { compress: false });
+      await fileStore.save(`${basePath}/txs/${invalidTx.txHash.toString()}.bin`, invalidTx.toBuffer(), {
+        compress: false,
+      });
 
       // Read it back via FileStoreTxSource
-      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, log))!;
+      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, basePath, log))!;
       const result = await source.getTxsByHash([invalidTx.txHash]);
 
       expect(result.validTxs).toHaveLength(0);
@@ -327,10 +329,12 @@ describe('TxFileStore', () => {
       // Write a tx with a mismatched hash directly to the file store
       const invalidTx = Tx.random(); // random hash does not match computed hash
       const validTx = await makeTx();
-      await fileStore.save(`txs/${invalidTx.txHash.toString()}.bin`, validTx.toBuffer(), { compress: false });
+      await fileStore.save(`${basePath}/txs/${invalidTx.txHash.toString()}.bin`, validTx.toBuffer(), {
+        compress: false,
+      });
 
       // Read it back via FileStoreTxSource
-      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, log))!;
+      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, basePath, log))!;
       const result = await source.getTxsByHash([invalidTx.txHash]);
 
       expect(result.validTxs).toHaveLength(0);
@@ -338,12 +342,14 @@ describe('TxFileStore', () => {
     });
 
     it('accepts correct tx', async () => {
-      // Write a tx with a mismatched hash directly to the file store
+      // Write a tx with a correct hash directly to the file store
       const validTx = await makeTx();
-      await fileStore.save(`txs/${validTx.txHash.toString()}.bin`, validTx.toBuffer(), { compress: false });
+      await fileStore.save(`${basePath}/txs/${validTx.txHash.toString()}.bin`, validTx.toBuffer(), {
+        compress: false,
+      });
 
       // Read it back via FileStoreTxSource
-      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, log))!;
+      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, basePath, log))!;
       const result = await source.getTxsByHash([validTx.txHash]);
 
       expect(result.validTxs).toHaveLength(1);
