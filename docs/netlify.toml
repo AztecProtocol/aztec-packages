@@ -340,7 +340,7 @@
 # (Netlify processes redirects top-to-bottom, first match wins)
 [[redirects]]
     from = "/the_aztec_network/guides/run_nodes/how_to_run_sequencer"
-    to = "/operate/operators/setup/sequencer_management"
+    to = "/operate/operators/sequencer-management"
 
 [[redirects]]
     from = "/the_aztec_network/guides/run_nodes/how_to_run_prover"
@@ -475,6 +475,25 @@
 [[redirects]]
     from = "/operate/prerequisites"
     to = "/operate/operators/prerequisites"
+    status = 301
+
+# =============================================================================
+# ACTIVE REDIRECTS: Underscore to Hyphen Folder Normalization
+# Folder names use hyphens but old links may use underscores
+# =============================================================================
+[[redirects]]
+    from = "/operate/operators/sequencer_management/*"
+    to = "/operate/operators/sequencer-management/:splat"
+    status = 301
+
+[[redirects]]
+    from = "/operate/testnet/operators/sequencer_management/*"
+    to = "/operate/testnet/operators/sequencer-management/:splat"
+    status = 301
+
+[[redirects]]
+    from = "/operate/ignition/operators/sequencer_management/*"
+    to = "/operate/ignition/operators/sequencer-management/:splat"
     status = 301
 
 # =============================================================================
