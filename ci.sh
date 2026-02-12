@@ -241,7 +241,7 @@ case "$cmd" in
     # Runs KIND-based spartan tests on a 192 CPU instance.
     export CI_DASHBOARD="network"
     export AWS_SHUTDOWN_TIME=180 # 3 hours for KIND tests
-    export CPUS=192
+    export CPUS=64
     export INSTANCE_POSTFIX="n-kind"
     bootstrap_ec2 "./bootstrap.sh ci-network-kind-tests"
     ;;
