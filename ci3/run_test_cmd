@@ -249,6 +249,8 @@ function pass {
   local line="${green}PASSED${reset}${log_info:-}: $test_cmd (${SECONDS}s)"
   echo -e "$line"
 
+  [ "$publish" -eq 1 ] && publish_redis "passed"
+
   if [ "$track_test_history" -eq 1 ]; then
     local track_line="${green}PASSED${reset}${log_info:-} ${fail_links}: $test_cmd (${SECONDS}s) (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
     track_test_history "$track_line"

@@ -169,6 +169,7 @@ def root() -> str:
         f"{hyperlink(CI_METRICS_URL + '/cost-overview', 'cost overview (AWS + GCP)')}\n"
         f"{hyperlink(CI_METRICS_URL + '/namespace-billing', 'namespace billing')}\n"
         f"{hyperlink(CI_METRICS_URL + '/ci-insights', 'ci insights')}\n"
+        f"{hyperlink(CI_METRICS_URL + '/test-timings', 'test timings')}\n"
         f"{RESET}"
     )
 
@@ -519,6 +520,7 @@ def trigger_grind():
 @app.route('/ci-health')
 @app.route('/ci-insights')
 @app.route('/cost-overview')
+@app.route('/test-timings')
 @auth.login_required
 def proxy_dashboard():
     try:

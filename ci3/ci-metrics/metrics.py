@@ -183,7 +183,7 @@ def _handle_test_event(channel: str, data: dict):
 
 def start_test_listener(redis_conn):
     """Subscribe to test event channels only. Reconnects on failure."""
-    channels = [b'ci:test:started', b'ci:test:failed', b'ci:test:flaked']
+    channels = [b'ci:test:started', b'ci:test:passed', b'ci:test:failed', b'ci:test:flaked']
 
     def listener():
         backoff = 1

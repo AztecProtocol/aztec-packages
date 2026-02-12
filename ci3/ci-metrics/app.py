@@ -706,6 +706,109 @@ def api_flakes_by_command():
     return _json(metrics.get_flakes_by_command(date_from, date_to, dashboard))
 
 
+# ---- Test timings ----
+
+@app.route('/api/tests/timings')
+@auth.login_required
+def api_test_timings():
+    """Test timing statistics: duration by test command, with trends."""
+    date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
+    date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
+    dashboard = request.args.get('dashboard', '')
+    status = request.args.get('status', '')  # filter to specific status
+    test_cmd = request.args.get('test_cmd', '')  # filter to specific test
+
+    conditions = ['duration_secs IS NOT NULL', 'duration_secs > 0',
+                  'timestamp >= ?', "timestamp < ? || 'T23:59:59'"]
+    params = [date_from, date_to]
+
+    if dashboard:
+        conditions.append('dashboard = ?')
+        params.append(dashboard)
+    if status:
+        conditions.append('status = ?')
+        params.append(status)
+    if test_cmd:
+        conditions.append('test_cmd = ?')
+        params.append(test_cmd)
+
+    where = 'WHERE ' + ' AND '.join(conditions)
+
+    # Per-test stats
+    by_test = db.query(f'''
+        SELECT test_cmd,
+               COUNT(*) as count,
+               ROUND(AVG(duration_secs), 1) as avg_secs,
+               ROUND(MIN(duration_secs), 1) as min_secs,
+               ROUND(MAX(duration_secs), 1) as max_secs,
+               SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END) as passed,
+               SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+               SUM(CASE WHEN status = 'flaked' THEN 1 ELSE 0 END) as flaked,
+               dashboard
+        FROM test_events {where}
+        GROUP BY test_cmd
+        ORDER BY count DESC
+        LIMIT 200
+    ''', params)
+
+    # Add pass rate
+    for row in by_test:
+        total = row['passed'] + row['failed'] + row['flaked']
+        row['pass_rate'] = round(100.0 * row['passed'] / max(total, 1), 1)
+        row['total_time_secs'] = round(row['avg_secs'] * row['count'], 0)
+
+    # Daily time series (aggregate across all tests or filtered test)
+    by_date = db.query(f'''
+        SELECT substr(timestamp, 1, 10) as date,
+               COUNT(*) as count,
+               ROUND(AVG(duration_secs), 1) as avg_secs,
+               ROUND(MAX(duration_secs), 1) as max_secs,
+               SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END) as passed,
+               SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+               SUM(CASE WHEN status = 'flaked' THEN 1 ELSE 0 END) as flaked
+        FROM test_events {where}
+        GROUP BY substr(timestamp, 1, 10)
+        ORDER BY date
+    ''', params)
+
+    # Summary
+    summary_rows = db.query(f'''
+        SELECT COUNT(*) as count,
+               ROUND(AVG(duration_secs), 1) as avg_secs,
+               ROUND(MAX(duration_secs), 1) as max_secs,
+               SUM(duration_secs) as total_secs,
+               SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END) as passed,
+               SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+               SUM(CASE WHEN status = 'flaked' THEN 1 ELSE 0 END) as flaked
+        FROM test_events {where}
+    ''', params)
+    s = summary_rows[0] if summary_rows else {}
+
+    # Slowest individual test runs
+    slowest = db.query(f'''
+        SELECT test_cmd, status, duration_secs, dashboard,
+               substr(timestamp, 1, 10) as date, commit_author, log_url
+        FROM test_events {where}
+        ORDER BY duration_secs DESC
+        LIMIT 50
+    ''', params)
+
+    return _json({
+        'by_test': by_test,
+        'by_date': by_date,
+        'slowest': slowest,
+        'summary': {
+            'total_runs': s.get('count', 0),
+            'avg_duration_secs': s.get('avg_secs'),
+            'max_duration_secs': s.get('max_secs'),
+            'total_compute_secs': round(s.get('total_secs', 0) or 0, 0),
+            'passed': s.get('passed', 0),
+            'failed': s.get('failed', 0),
+            'flaked': s.get('flaked', 0),
+        },
+    })
+
+
 # ---- Dashboard views ----
 
 @app.route('/ci-health')
@@ -727,6 +830,15 @@ def ci_insights():
 @auth.login_required
 def cost_overview():
     path = Path(__file__).parent / 'views' / 'cost-overview.html'
+    if path.exists():
+        return path.read_text()
+    return "Dashboard not found", 404
+
+
+@app.route('/test-timings')
+@auth.login_required
+def test_timings():
+    path = Path(__file__).parent / 'views' / 'test-timings.html'
     if path.exists():
         return path.read_text()
     return "Dashboard not found", 404
