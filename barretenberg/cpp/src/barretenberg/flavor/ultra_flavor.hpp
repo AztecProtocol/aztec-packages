@@ -58,31 +58,6 @@ class UltraFlavor {
     // and Shplemini
     static constexpr bool USE_PADDING = true;
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
-    // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (witness polynomials,
-    // precomputed polynomials and shifts). We often need containers of this size to hold related data, so we choose a
-    // name more agnostic than `NUM_POLYNOMIALS`.
-    static constexpr size_t NUM_ALL_ENTITIES = 41;
-    // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
-    // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 28;
-    // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 8;
-    // The number of shifted witness entities including derived witness entities
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 5;
-    // The number of unshifted witness entities
-    static constexpr size_t NUM_UNSHIFTED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
-
-    // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls
-    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
-        NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_ENTITIES);
-
-    // Size of the final PCS MSM after KZG adds quotient commitment:
-    // 1 (Shplonk Q) + NUM_UNSHIFTED + (log_n - 1) Gemini folds + 1 (G1 identity) + 1 (KZG W)
-    // (shifted commitments are removed as duplicates)
-    static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
-    {
-        return NUM_UNSHIFTED_ENTITIES + log_n + 2;
-    }
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.
@@ -256,6 +231,25 @@ class UltraFlavor {
 
     // Default AllEntities alias (no ZK)
     template <typename DataType> using AllEntities = AllEntities_<DataType, HasZK>;
+
+    // Derive entity counts from the actual struct definitions
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = PrecomputedEntities<FF>::_members_size;
+    static constexpr size_t NUM_WITNESS_ENTITIES = WitnessEntities<FF>::_members_size;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = ShiftedEntities<FF>::_members_size;
+    static constexpr size_t NUM_UNSHIFTED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = NUM_UNSHIFTED_ENTITIES + NUM_SHIFTED_ENTITIES;
+
+    // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
+        NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_ENTITIES);
+
+    // Size of the final PCS MSM after KZG adds quotient commitment:
+    // 1 (Shplonk Q) + NUM_UNSHIFTED + (log_n - 1) Gemini folds + 1 (G1 identity) + 1 (KZG W)
+    // (shifted commitments are removed as duplicates)
+    static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
+    {
+        return NUM_UNSHIFTED_ENTITIES + log_n + 2;
+    }
 
     /**
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials

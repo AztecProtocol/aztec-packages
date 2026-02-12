@@ -12,16 +12,6 @@
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 namespace bb {
 
-template <IsUltraOrMegaHonk Flavor>
-UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<ProverInstance>& prover_instance,
-                                   const std::shared_ptr<HonkVK>& honk_vk,
-                                   const CommitmentKey& commitment_key)
-    : prover_instance(std::move(prover_instance))
-    , honk_vk(honk_vk)
-    , transcript(std::make_shared<Transcript>())
-    , commitment_key(commitment_key)
-{}
-
 /**
  * @brief Create UltraProver_ from a decider proving key.
  *
@@ -34,34 +24,8 @@ UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<ProverInstance>& prover
                                    const std::shared_ptr<HonkVK>& honk_vk,
                                    const std::shared_ptr<Transcript>& transcript)
     : prover_instance(std::move(prover_instance))
-    , honk_vk(honk_vk)
     , transcript(transcript)
-    , commitment_key(prover_instance->commitment_key)
-{}
-
-/**
- * @brief Create UltraProver_ from a circuit.
- *
- * @param circuit Circuit with witnesses whose validity we'd like to prove.
- *
- * @tparam a type of UltraFlavor
- * */
-template <IsUltraOrMegaHonk Flavor>
-UltraProver_<Flavor>::UltraProver_(Builder& circuit,
-                                   const std::shared_ptr<HonkVK>& honk_vk,
-                                   const std::shared_ptr<Transcript>& transcript)
-    : prover_instance(std::make_shared<ProverInstance>(circuit))
     , honk_vk(honk_vk)
-    , transcript(transcript)
-    , commitment_key(prover_instance->commitment_key)
-{}
-
-template <IsUltraOrMegaHonk Flavor>
-UltraProver_<Flavor>::UltraProver_(Builder&& circuit, const std::shared_ptr<HonkVK>& honk_vk)
-    : prover_instance(std::make_shared<ProverInstance>(circuit))
-    , honk_vk(honk_vk)
-    , transcript(std::make_shared<Transcript>())
-    , commitment_key(prover_instance->commitment_key)
 {}
 
 /**

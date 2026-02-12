@@ -197,7 +197,10 @@ WASM_EXPORT void acir_prove_ultra_starknet_honk([[maybe_unused]] uint8_t const* 
         };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
 
-        return UltraStarknetProver(builder);
+        auto prover_instance = std::make_shared<ProverInstance_<UltraStarknetFlavor>>(builder);
+        auto vk = std::make_shared<UltraStarknetFlavor::VerificationKey>(
+            from_buffer<UltraStarknetFlavor::VerificationKey>(vk_buf));
+        return UltraStarknetProver(prover_instance, vk);
     }();
     auto proof = prover.construct_proof();
     *out = to_heap_buffer(to_buffer(proof));
@@ -220,7 +223,10 @@ WASM_EXPORT void acir_prove_ultra_starknet_zk_honk([[maybe_unused]] uint8_t cons
         };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
 
-        return UltraStarknetZKProver(builder);
+        auto prover_instance = std::make_shared<ProverInstance_<UltraStarknetZKFlavor>>(builder);
+        auto vk = std::make_shared<UltraStarknetZKFlavor::VerificationKey>(
+            from_buffer<UltraStarknetZKFlavor::VerificationKey>(vk_buf));
+        return UltraStarknetZKProver(prover_instance, vk);
     }();
     auto proof = prover.construct_proof();
     *out = to_heap_buffer(to_buffer(proof));
