@@ -1,152 +1,198 @@
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { FifoMemoryQueue } from '@aztec/foundation/queue';
+import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
+import { sleep } from '@aztec/foundation/sleep';
+import { DateProvider } from '@aztec/foundation/timer';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { FileStoreTxSource } from './file_store_tx_source.js';
 import type { TxAddContext, TxCollectionSink } from './tx_collection_sink.js';
 
-// Internal constants (not configurable by node operators)
-const FILE_STORE_DOWNLOAD_CONCURRENCY = 5; // Max concurrent downloads
+/** Configuration for a FileStoreTxCollection instance. */
+export type FileStoreCollectionConfig = {
+  workerCount: number;
+  backoffBaseMs: number;
+  backoffMaxMs: number;
+};
+
+type FileStoreTxEntry = {
+  txHash: string;
+  context: TxAddContext;
+  deadline: Date;
+  attempts: number;
+  lastAttemptTime: number;
+  nextSourceIndex: number;
+};
 
 /**
  * Collects txs from file stores as a fallback after P2P methods have been tried.
- * Runs in parallel to slow/fast collection. The delay before starting file store
- * collection is managed by the TxCollection orchestrator, not this class.
+ * Uses a shared worker pool that pulls entries with priority (fewest attempts first),
+ * retries with round-robin across sources, and applies exponential backoff between
+ * full cycles through all sources.
  */
 export class FileStoreTxCollection {
-  /** Map from tx hash to add context for txs queued for download. */
-  private pendingTxs = new Map<string, TxAddContext>();
+  /** Map from tx hash string to entry for all pending downloads. */
+  private entries = new Map<string, FileStoreTxEntry>();
 
-  /**
-   * Tracks tx hashes found elsewhere, even before startCollecting is called.
-   * Needed because the orchestrator delays startCollecting via a real sleep, but foundTxs
-   * may arrive during that delay — before the hashes are added to pendingTxs.
-   */
-  private foundTxHashes = new Set<string>();
-
-  /** Queue of tx hashes to be downloaded. */
-  private downloadQueue = new FifoMemoryQueue<TxHash>();
-
-  /** Worker promises for concurrent downloads. */
+  /** Worker promises for the shared worker pool. */
   private workers: Promise<void>[] = [];
 
-  /** Whether the collection has been started. */
-  private started = false;
+  /** Whether the worker pool is running. */
+  private running = false;
+
+  /** Signal used to wake sleeping workers when new entries arrive or stop is called. */
+  private wakeSignal: PromiseWithResolvers<void>;
 
   constructor(
-    private readonly fileStoreSources: FileStoreTxSource[],
+    private readonly sources: FileStoreTxSource[],
     private readonly txCollectionSink: TxCollectionSink,
+    private readonly config: FileStoreCollectionConfig,
+    private readonly dateProvider: DateProvider = new DateProvider(),
     private readonly log: Logger = createLogger('p2p:file_store_tx_collection'),
-  ) {}
-
-  /** Starts the file store collection workers. */
-  public start() {
-    if (this.fileStoreSources.length === 0) {
-      this.log.debug('No file store sources configured, skipping file store collection');
-      return;
-    }
-
-    this.started = true;
-    this.downloadQueue = new FifoMemoryQueue<TxHash>();
-
-    // Start concurrent download workers
-    for (let i = 0; i < FILE_STORE_DOWNLOAD_CONCURRENCY; i++) {
-      this.workers.push(this.downloadQueue.process(txHash => this.processDownload(txHash)));
-    }
-
-    this.log.info(`Started file store tx collection with ${this.fileStoreSources.length} sources`, {
-      sources: this.fileStoreSources.map(s => s.getInfo()),
-      concurrency: FILE_STORE_DOWNLOAD_CONCURRENCY,
-    });
+  ) {
+    this.wakeSignal = promiseWithResolvers<void>();
   }
 
-  /** Stops all collection activity. */
-  public async stop() {
-    if (!this.started) {
+  /** Starts the shared worker pool. */
+  public start(): void {
+    if (this.sources.length === 0) {
+      this.log.debug('No file store sources configured');
       return;
     }
-    this.started = false;
-    this.downloadQueue.end();
+    this.running = true;
+    for (let i = 0; i < this.config.workerCount; i++) {
+      this.workers.push(this.workerLoop());
+    }
+  }
+
+  /** Stops all workers and clears state. */
+  public async stop(): Promise<void> {
+    this.running = false;
+    this.wake();
     await Promise.all(this.workers);
     this.workers = [];
-    this.pendingTxs.clear();
-    this.foundTxHashes.clear();
+    this.entries.clear();
   }
 
-  /** Remove the given tx hashes from pending. */
-  public stopCollecting(txHashes: TxHash[]) {
-    for (const txHash of txHashes) {
-      const hashStr = txHash.toString();
-      this.pendingTxs.delete(hashStr);
+  /** Adds entries to the shared map and wakes workers. */
+  public startCollecting(txHashes: TxHash[], context: TxAddContext, deadline: Date): void {
+    if (this.sources.length === 0 || txHashes.length === 0) {
+      return;
     }
-  }
-
-  /** Clears all pending state. Items already in the download queue will still be processed but won't be re-queued. */
-  public clearPending() {
-    this.pendingTxs.clear();
-    this.foundTxHashes.clear();
-  }
-
-  /** Queue the given tx hashes for file store collection. */
-  public startCollecting(txHashes: TxHash[], context: TxAddContext) {
-    for (const txHash of txHashes) {
-      const hashStr = txHash.toString();
-      if (!this.pendingTxs.has(hashStr) && !this.foundTxHashes.has(hashStr)) {
-        this.pendingTxs.set(hashStr, context);
-        this.downloadQueue.put(txHash);
-      }
-    }
-  }
-
-  /** Stop tracking txs that were found elsewhere. */
-  public foundTxs(txs: Tx[]) {
-    for (const tx of txs) {
-      const hashStr = tx.getTxHash().toString();
-      this.pendingTxs.delete(hashStr);
-      this.foundTxHashes.add(hashStr);
-    }
-  }
-
-  /** Processes a single tx hash from the download queue. */
-  private async processDownload(txHash: TxHash) {
-    const hashStr = txHash.toString();
-    const context = this.pendingTxs.get(hashStr);
-
-    // Skip if already found by another method
-    if (!context) {
+    if (+deadline <= this.dateProvider.now()) {
       return;
     }
 
-    await this.downloadTx(txHash, context);
-    this.pendingTxs.delete(hashStr);
+    for (const txHash of txHashes) {
+      const hashStr = txHash.toString();
+      if (!this.entries.has(hashStr)) {
+        this.entries.set(hashStr, {
+          txHash: hashStr,
+          context,
+          deadline,
+          attempts: 0,
+          lastAttemptTime: 0,
+          nextSourceIndex: Math.floor(Math.random() * this.sources.length),
+        });
+      }
+    }
+    this.wake();
   }
 
-  /** Attempt to download a tx from file stores (round-robin). */
-  private async downloadTx(txHash: TxHash, context: TxAddContext) {
-    const startIndex = Math.floor(Math.random() * this.fileStoreSources.length);
-    for (let i = startIndex; i < startIndex + this.fileStoreSources.length; i++) {
-      const source = this.fileStoreSources[i % this.fileStoreSources.length];
+  /** Removes entries for txs that have been found elsewhere. */
+  public foundTxs(txs: Tx[]): void {
+    for (const tx of txs) {
+      this.entries.delete(tx.getTxHash().toString());
+    }
+  }
+
+  /** Clears all pending entries. */
+  public clearPending(): void {
+    this.entries.clear();
+  }
+
+  private async workerLoop(): Promise<void> {
+    while (this.running) {
+      const action = this.getNextAction();
+      if (action.type === 'sleep') {
+        await action.promise;
+        continue;
+      }
+
+      const entry = action.entry;
+      const source = this.sources[entry.nextSourceIndex % this.sources.length];
+      entry.nextSourceIndex++;
+      entry.attempts++;
+      entry.lastAttemptTime = this.dateProvider.now();
 
       try {
         const result = await this.txCollectionSink.collect(
           hashes => source.getTxsByHash(hashes),
-          [txHash],
-          {
-            description: `file-store ${source.getInfo()}`,
-            method: 'file-store',
-            fileStore: source.getInfo(),
-          },
-          context,
+          [TxHash.fromString(entry.txHash)],
+          { description: `file-store ${source.getInfo()}`, method: 'file-store', fileStore: source.getInfo() },
+          entry.context,
         );
-
         if (result.txs.length > 0) {
-          return;
+          this.entries.delete(entry.txHash);
         }
       } catch (err) {
-        this.log.trace(`Failed to download tx ${txHash} from ${source.getInfo()}`, { err });
+        this.log.trace(`Error downloading tx ${entry.txHash} from ${source.getInfo()}`, { err });
+      }
+    }
+  }
+
+  /** Single-pass scan: removes expired entries, finds the best ready entry, or computes sleep time. */
+  private getNextAction(): { type: 'process'; entry: FileStoreTxEntry } | { type: 'sleep'; promise: Promise<void> } {
+    const now = this.dateProvider.now();
+    let best: FileStoreTxEntry | undefined;
+    let earliestReadyAt = Infinity;
+
+    for (const [key, entry] of this.entries) {
+      if (+entry.deadline <= now) {
+        this.entries.delete(key);
+        continue;
+      }
+      const backoffMs = this.getBackoffMs(entry);
+      const readyAt = entry.lastAttemptTime + backoffMs;
+      if (readyAt > now) {
+        earliestReadyAt = Math.min(earliestReadyAt, readyAt);
+        continue;
+      }
+      if (!best || entry.attempts < best.attempts) {
+        best = entry;
       }
     }
 
-    this.log.trace(`Tx ${txHash} not found in any file store`);
+    if (best) {
+      return { type: 'process', entry: best };
+    }
+    if (earliestReadyAt < Infinity) {
+      return { type: 'sleep', promise: this.sleepOrWake(earliestReadyAt - now) };
+    }
+    return { type: 'sleep', promise: this.waitForWake() };
+  }
+
+  /** Computes backoff for an entry. Backoff applies after a full cycle through all sources. */
+  private getBackoffMs(entry: FileStoreTxEntry): number {
+    const fullCycles = Math.floor(entry.attempts / this.sources.length);
+    if (fullCycles === 0) {
+      return 0;
+    }
+    return Math.min(this.config.backoffBaseMs * Math.pow(2, fullCycles - 1), this.config.backoffMaxMs);
+  }
+
+  /** Resolves the current wake signal and creates a new one. */
+  private wake(): void {
+    this.wakeSignal.resolve();
+    this.wakeSignal = promiseWithResolvers<void>();
+  }
+
+  /** Waits until the wake signal is resolved. */
+  private async waitForWake(): Promise<void> {
+    await this.wakeSignal.promise;
+  }
+
+  /** Sleeps for the given duration or until the wake signal is resolved. */
+  private async sleepOrWake(ms: number): Promise<void> {
+    await Promise.race([sleep(ms), this.wakeSignal.promise]);
   }
 }
