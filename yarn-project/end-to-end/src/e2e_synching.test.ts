@@ -59,7 +59,6 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { TestWallet } from '@aztec/test-wallet/server';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import * as fs from 'fs';
@@ -68,6 +67,7 @@ import { getContract } from 'viem';
 
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEAndGetWallet } from './fixtures/utils.js';
+import { TestWallet } from './test-wallet/test_wallet.js';
 
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 const START_TIME = 1893456000; // 2030 01 01 00 00
@@ -403,7 +403,7 @@ describe('e2e_synching', () => {
 
     await (aztecNode as any).stop();
     await (sequencer as any).stop();
-    await watcher?.stop();
+    await watcher.stop();
 
     const blobClient = await createBlobClientWithFileStores(config, createLogger('test:blob-client:client'));
 
@@ -411,7 +411,7 @@ describe('e2e_synching', () => {
 
     const l1TxUtils = createL1TxUtilsWithBlobsFromViemWallet(
       deployL1ContractsValues.l1Client,
-      { logger, dateProvider: dateProvider! },
+      { logger, dateProvider },
       config,
     );
     const rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString();
@@ -450,7 +450,7 @@ describe('e2e_synching', () => {
         slashingProposerContract,
         slashFactoryContract,
         epochCache,
-        dateProvider: dateProvider!,
+        dateProvider,
         metrics: sequencerPublisherMetrics,
         lastActions: {},
       },

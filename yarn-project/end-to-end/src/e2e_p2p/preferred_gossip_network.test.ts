@@ -149,7 +149,7 @@ describe('e2e_p2p_preferred_network', () => {
   });
 
   afterEach(async () => {
-    await t.stopNodes([t.ctx.aztecNodeService!].concat(nodes).concat(validators).concat(preferredNodes));
+    await t.stopNodes([t.ctx.aztecNodeService].concat(nodes).concat(validators).concat(preferredNodes));
     await t.teardown();
     for (let i = 0; i < NUM_NODES + NUM_VALIDATORS + NUM_PREFERRED_NODES; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
@@ -190,7 +190,7 @@ describe('e2e_p2p_preferred_network', () => {
 
     preferredNodes = await createNodes(
       preferredNodeConfig,
-      t.ctx.dateProvider!,
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_PREFERRED_NODES,
       BOOT_NODE_UDP_PORT,
@@ -224,7 +224,7 @@ describe('e2e_p2p_preferred_network', () => {
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       nodeConfig,
-      t.ctx.dateProvider!,
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
@@ -247,7 +247,7 @@ describe('e2e_p2p_preferred_network', () => {
 
     validators = await createNodes(
       validatorConfig,
-      t.ctx.dateProvider!,
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS - 1,
       BOOT_NODE_UDP_PORT,
@@ -271,7 +271,7 @@ describe('e2e_p2p_preferred_network', () => {
 
     const noDiscoveryValidators = await createNodes(
       lastValidatorConfig,
-      t.ctx.dateProvider!,
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       1,
       BOOT_NODE_UDP_PORT,
@@ -282,7 +282,7 @@ describe('e2e_p2p_preferred_network', () => {
       indexOffset,
     );
 
-    const allNodes = [...nodes, ...preferredNodes, ...validators, ...noDiscoveryValidators, t.ctx.aztecNodeService!];
+    const allNodes = [...nodes, ...preferredNodes, ...validators, ...noDiscoveryValidators, t.ctx.aztecNodeService];
     const identifiers = nodes
       .map((_, i) => `Node ${i + 1}`)
       .concat(preferredNodes.map((_, i) => `Preferred Node ${i + 1}`))

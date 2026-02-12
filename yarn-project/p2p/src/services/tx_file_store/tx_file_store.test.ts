@@ -54,7 +54,6 @@ describe('TxFileStore', () => {
     config = {
       txFileStoreEnabled: true,
       txFileStoreUrl: `file://${tmpDir}`,
-      txFileStoreDownloadUrl: `file://${tmpDir}`,
       txFileStoreUploadConcurrency: 2,
       txFileStoreMaxQueueSize: 10,
     };
@@ -98,7 +97,7 @@ describe('TxFileStore', () => {
       const spy = jest.spyOn(fileStore, 'save');
 
       const tx = await makeTx();
-      await txPool.addTxs([tx]);
+      await txPool.addPendingTxs([tx]);
 
       await txFileStore!.flush();
 
@@ -114,7 +113,7 @@ describe('TxFileStore', () => {
       const spy = jest.spyOn(fileStore, 'save');
 
       const tx1 = await makeTx();
-      await txPool.addTxs([tx1]);
+      await txPool.addPendingTxs([tx1]);
       await txFileStore!.flush();
 
       const countBefore = await countUploadedFiles();
@@ -125,7 +124,7 @@ describe('TxFileStore', () => {
       // Add another tx after stopping - should not be uploaded
       // stop() synchronously removes the event listener, so no race condition
       const tx2 = await makeTx();
-      await txPool.addTxs([tx2]);
+      await txPool.addPendingTxs([tx2]);
 
       expect(spy).toHaveBeenCalledTimes(1);
 
@@ -141,7 +140,7 @@ describe('TxFileStore', () => {
       const spy = jest.spyOn(fileStore, 'save');
 
       const tx = await makeTx();
-      await txPool.addTxs([tx]);
+      await txPool.addPendingTxs([tx]);
 
       await txFileStore!.flush();
 
@@ -158,7 +157,7 @@ describe('TxFileStore', () => {
 
       const tx1 = await makeTx();
       const tx2 = await makeTx();
-      await txPool.addTxs([tx1, tx2]);
+      await txPool.addPendingTxs([tx1, tx2]);
 
       await txFileStore!.flush();
 
@@ -193,7 +192,7 @@ describe('TxFileStore', () => {
           .fill(0)
           .map(() => makeTx()),
       );
-      await txPool.addTxs(txs);
+      await txPool.addPendingTxs(txs);
 
       await txFileStore!.flush();
 
@@ -213,10 +212,10 @@ describe('TxFileStore', () => {
       const tx = await makeTx();
 
       // Upload same tx twice
-      await txPool.addTxs([tx]);
+      await txPool.addPendingTxs([tx]);
       await txFileStore!.flush();
 
-      await txPool.addTxs([tx]);
+      await txPool.addPendingTxs([tx]);
       await txFileStore!.flush(); // Dedup happens synchronously before upload starts
 
       // Should only upload once (second is deduplicated)
@@ -235,7 +234,7 @@ describe('TxFileStore', () => {
 
       // Queue 4 txs - with maxQueueSize=2, overflow logic drops 2 oldest
       const txs = await Promise.all([makeTx(), makeTx(), makeTx(), makeTx()]);
-      await txPool.addTxs(txs);
+      await txPool.addPendingTxs(txs);
 
       // Check pending count immediately after enqueue (before processing)
       // 4 added - 2 dropped = 2 remaining in queue (+ 0 active at this point)
@@ -263,7 +262,7 @@ describe('TxFileStore', () => {
         .mockImplementation(originalSave);
 
       const tx = await makeTx();
-      await txPool.addTxs([tx]);
+      await txPool.addPendingTxs([tx]);
 
       // flush() waits for all uploads including retries
       await txFileStore!.flush();
@@ -291,7 +290,7 @@ describe('TxFileStore', () => {
 
       const tx1 = await makeTx();
       const tx2 = await makeTx();
-      await txPool.addTxs([tx1, tx2]);
+      await txPool.addPendingTxs([tx1, tx2]);
 
       // flush() waits for all uploads including retries
       await txFileStore!.flush();
@@ -313,7 +312,7 @@ describe('TxFileStore', () => {
 
       const tx1 = await makeTx();
       const tx2 = await makeTx();
-      await txPool.addTxs([tx1, tx2]);
+      await txPool.addPendingTxs([tx1, tx2]);
 
       // Check immediately after enqueue (before processing starts)
       expect(txFileStore!.getPendingUploadCount()).toBe(2);

@@ -24,17 +24,22 @@ namespace bb::stdlib {
 template <typename Builder, typename T>
 bigfield<Builder, T>::bigfield(Builder* parent_context)
     : context(parent_context)
-    , binary_basis_limbs{ Limb(bb::fr(0)), Limb(bb::fr(0)), Limb(bb::fr(0)), Limb(bb::fr(0)) }
+    , binary_basis_limbs{ Limb(field_t<Builder>(parent_context, bb::fr(0))),
+                          Limb(field_t<Builder>(parent_context, bb::fr(0))),
+                          Limb(field_t<Builder>(parent_context, bb::fr(0))),
+                          Limb(field_t<Builder>(parent_context, bb::fr(0))) }
     , prime_basis_limb(context, 0)
 {}
 
 template <typename Builder, typename T>
 bigfield<Builder, T>::bigfield(Builder* parent_context, const uint256_t& value)
     : context(parent_context)
-    , binary_basis_limbs{ Limb(bb::fr(value.slice(0, NUM_LIMB_BITS))),
-                          Limb(bb::fr(value.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2))),
-                          Limb(bb::fr(value.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3))),
-                          Limb(bb::fr(value.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4))) }
+    , binary_basis_limbs{ Limb(field_t<Builder>(parent_context, bb::fr(value.slice(0, NUM_LIMB_BITS)))),
+                          Limb(field_t<Builder>(parent_context, bb::fr(value.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2)))),
+                          Limb(field_t<Builder>(parent_context,
+                                                bb::fr(value.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3)))),
+                          Limb(field_t<Builder>(parent_context,
+                                                bb::fr(value.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4)))) }
     , prime_basis_limb(context, value)
 {
     BB_ASSERT_LT(value, modulus);
@@ -1799,6 +1804,18 @@ template <typename Builder, typename T> void bigfield<Builder, T>::sanity_check(
                 limb_overflow_test_2 || limb_overflow_test_3));
 }
 
+template <typename Builder, typename T>
+void bigfield<Builder, T>::assert_zero_if(const bool_t<Builder>& predicate, std::string const& msg) const
+{
+    // Assert that all limbs are zero when predicate is true
+    const field_ct predicate_field = field_ct(predicate);
+    (binary_basis_limbs[0].element * predicate_field).assert_is_zero(msg + ": binary limb 0 not zero");
+    (binary_basis_limbs[1].element * predicate_field).assert_is_zero(msg + ": binary limb 1 not zero");
+    (binary_basis_limbs[2].element * predicate_field).assert_is_zero(msg + ": binary limb 2 not zero");
+    (binary_basis_limbs[3].element * predicate_field).assert_is_zero(msg + ": binary limb 3 not zero");
+    (prime_basis_limb * predicate_field).assert_is_zero(msg + ": prime limb not zero");
+}
+
 // Underneath performs unsafe_assert_less_than(modulus)
 // create a version with mod 2^t element part in [0,p-1]
 // After range-constraining to size 2^s, we check (p-1)-a is non-negative as integer.
@@ -1816,6 +1833,12 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_is_in_
 template <typename Builder, typename T>
 void bigfield<Builder, T>::assert_less_than(const uint256_t& upper_limit, std::string const& msg) const
 {
+    // For constant bigfields, just verify the value is in range (no circuit constraints needed)
+    if (is_constant()) {
+        BB_ASSERT((get_value() % modulus_u512).lo < upper_limit, msg);
+        return;
+    }
+
     bool is_default_msg = msg == "bigfield::assert_less_than";
 
     // Range constrain the binary basis limbs of the element to respective limb sizes.

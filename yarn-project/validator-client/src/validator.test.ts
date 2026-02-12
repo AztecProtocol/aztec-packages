@@ -55,7 +55,10 @@ import { ValidatorClient } from './validator.js';
 
 describe('ValidatorClient', () => {
   let config: ValidatorClientConfig &
-    Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty' | 'slashDuplicateProposalPenalty'> & {
+    Pick<
+      SlasherConfig,
+      'slashBroadcastedInvalidBlockPenalty' | 'slashDuplicateProposalPenalty' | 'slashDuplicateAttestationPenalty'
+    > & {
       disableTransactions: boolean;
     };
   let validatorClient: ValidatorClient;
@@ -118,6 +121,7 @@ describe('ValidatorClient', () => {
       validatorReexecute: false,
       slashBroadcastedInvalidBlockPenalty: 1n,
       slashDuplicateProposalPenalty: 1n,
+      slashDuplicateAttestationPenalty: 1n,
       disableTransactions: false,
       haSigningEnabled: false,
       l1Contracts: { rollupAddress: EthAddress.random() },

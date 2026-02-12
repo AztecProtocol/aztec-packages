@@ -365,7 +365,7 @@ new Oracle(handler: IMiscOracle | IUtilityExecutionOracle | IPrivateExecutionOra
 - `utilityBulkRetrieveLogs(__namedParameters: string[], __namedParameters: string[], __namedParameters: string[]) => Promise<string[]>`
 - `utilityCheckNullifierExists(__namedParameters: string[]) => Promise<string[]>`
 - `utilityCopyCapsule(__namedParameters: string[], __namedParameters: string[], __namedParameters: string[], __namedParameters: string[]) => Promise<string[]>`
-- `utilityDebugLog(level: string[], message: string[], _ignoredFieldsSize: string[], fields: string[]) => Promise<string[]>`
+- `utilityLog(level: string[], message: string[], _ignoredFieldsSize: string[], fields: string[]) => Promise<string[]>`
 - `utilityDeleteCapsule(__namedParameters: string[], __namedParameters: string[]) => Promise<string[]>`
 - `utilityEmitOffchainEffect(data: string[]) => Promise<never[]>`
 - `utilityFetchTaggedLogs(__namedParameters: string[]) => Promise<string[]>`
@@ -542,7 +542,7 @@ new PrivateExecutionOracle(argsHash: Fr, txContext: TxContext, callContext: Call
 - `utilityBulkRetrieveLogs(contractAddress: AztecAddress, logRetrievalRequestsArrayBaseSlot: Fr, logRetrievalResponsesArrayBaseSlot: Fr) => Promise<void>`
 - `utilityCheckNullifierExists(innerNullifier: Fr) => Promise<boolean>` - Check if a nullifier exists in the nullifier tree.
 - `utilityCopyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number) => Promise<void>`
-- `utilityDebugLog(level: number, message: string, fields: Fr[]) => void`
+- `utilityLog(level: number, message: string, fields: Fr[]) => void`
 - `utilityDeleteCapsule(contractAddress: AztecAddress, slot: Fr) => Promise<void>`
 - `utilityEmitOffchainEffect(data: Fr[]) => Promise<void>`
 - `utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) => Promise<void>`
@@ -769,7 +769,7 @@ new UtilityExecutionOracle(contractAddress: AztecAddress, authWitnesses: AuthWit
 - `utilityBulkRetrieveLogs(contractAddress: AztecAddress, logRetrievalRequestsArrayBaseSlot: Fr, logRetrievalResponsesArrayBaseSlot: Fr) => Promise<void>`
 - `utilityCheckNullifierExists(innerNullifier: Fr) => Promise<boolean>` - Check if a nullifier exists in the nullifier tree.
 - `utilityCopyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number) => Promise<void>`
-- `utilityDebugLog(level: number, message: string, fields: Fr[]) => void`
+- `utilityLog(level: number, message: string, fields: Fr[]) => void`
 - `utilityDeleteCapsule(contractAddress: AztecAddress, slot: Fr) => Promise<void>`
 - `utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) => Promise<void>`
 - `utilityGetAuthWitness(messageHash: Fr) => Promise<Fr[]>` - Returns an auth witness for the given message hash. Checks on the list of transient witnesses for this transaction first, and falls back to the local database if not found.
@@ -838,7 +838,7 @@ Miscellaneous oracle methods, not very Aztec-specific and expected to be availab
 
 **Methods**
 - `utilityAssertCompatibleOracleVersion(version: number) => void`
-- `utilityDebugLog(level: number, message: string, fields: Fr[]) => void`
+- `utilityLog(level: number, message: string, fields: Fr[]) => void`
 - `utilityGetRandomField() => Fr`
 
 ### IPrivateExecutionOracle

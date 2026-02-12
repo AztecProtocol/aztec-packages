@@ -60,10 +60,10 @@
     "stdlib",
     "telemetry-client",
     "txe",
-    "test-wallet",
     "validator-client",
     "validator-ha-signer",
     "wallet-sdk",
+    "wallets",
     "world-state"
   ],
   "prettier": "@aztec/foundation/prettier",

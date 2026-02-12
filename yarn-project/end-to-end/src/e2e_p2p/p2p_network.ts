@@ -27,7 +27,6 @@ import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
-import type { TestWallet } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import getPort from 'get-port';
@@ -49,6 +48,7 @@ import {
   generatePrivateKeys,
 } from '../fixtures/setup_p2p_test.js';
 import { getEndToEndTestTelemetryClient } from '../fixtures/with_telemetry_utils.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 
 // Use a fixed bootstrap node private key so that we can re-use the same snapshot and the nodes can find each other
 const BOOTSTRAP_NODE_PRIVATE_KEY = '080212208f988fc0899e4a73a5aee4d271a5f20670603a756ad8d84f2c94263a6427c591';
@@ -333,9 +333,9 @@ export class P2PNetworkTest {
     const block = await this.context.deployL1ContractsValues.l1Client.getBlock({
       blockNumber: receipt.blockNumber,
     });
-    this.context.dateProvider!.setTime(Number(block.timestamp) * 1000);
+    this.context.dateProvider.setTime(Number(block.timestamp) * 1000);
 
-    await this.context.aztecNodeService!.stop();
+    await this.context.aztecNodeService.stop();
   }
 
   async sendDummyTx() {
@@ -374,8 +374,8 @@ export class P2PNetworkTest {
     this.prefilledPublicData = prefilledPublicData;
 
     const rollupContract = RollupContract.getFromL1ContractsValues(this.context.deployL1ContractsValues);
-    this.monitor = new ChainMonitor(rollupContract, this.context.dateProvider!).start();
-    this.monitor.on('l1-block', ({ timestamp }) => this.context.dateProvider!.setTime(Number(timestamp) * 1000));
+    this.monitor = new ChainMonitor(rollupContract, this.context.dateProvider).start();
+    this.monitor.on('l1-block', ({ timestamp }) => this.context.dateProvider.setTime(Number(timestamp) * 1000));
   }
 
   async stopNodes(nodes: AztecNodeService[]) {

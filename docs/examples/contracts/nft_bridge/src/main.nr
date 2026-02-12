@@ -3,12 +3,12 @@ use aztec::macros::aztec;
 
 #[aztec]
 pub contract NFTBridge {
-    use dep::aztec::{
+    use aztec::{
         macros::{functions::{external, initializer}, storage::storage},
         protocol::{address::{AztecAddress, EthAddress}, hash::sha256_to_field},
         state_vars::PublicImmutable,
     };
-    use dep::NFTPunk::NFTPunk;
+    use NFTPunk::NFTPunk;
 
     #[storage]
     struct Storage<Context> {

@@ -288,7 +288,7 @@ Implementing a private state variable requires careful coordination of multiple 
 By applying the `#[note]` [macro](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/macros/notes/fn.note) to a [noir struct](https://noir-lang.org/docs/noir/concepts/data_types/structs), users can define values that will be storable in notes. Private state variables can then hold these notes and be used to read, write, and deliver note messages to the intended recipient.
 
 :::note
-Advanced users can change this default behavior by either defining their [own custom note](./how_to_implement_custom_notes.md) hash and nullifier functions, implementing their own state variables, or even accessing the note hash and nullifiers tree directly.
+Advanced users can change this default behavior by either defining their [own custom note](./custom_notes.md) hash and nullifier functions, implementing their own state variables, or even accessing the note hash and nullifiers tree directly.
 :::
 
 The snippet below shows a contract with two private state variables: an admin address (stored in an `AddressNote`) and a counter of how many calls the admin has made (stored in a `UintNote`). These values will be private and therefore not known except by the accounts that own these notes (the admin). In the `perform_admin_action` private function, the contract checks that it is being called by the correct admin and updates the call count by incrementing it by one.

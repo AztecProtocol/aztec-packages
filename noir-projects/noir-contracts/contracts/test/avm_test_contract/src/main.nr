@@ -363,19 +363,12 @@ pub contract AvmTest {
 
     #[external("public")]
     fn debug_logging() {
-        ::aztec::oracle::debug_log::debug_log("just text");
-        ::aztec::oracle::debug_log::debug_log_format("second: {1}", [1, 2, 3, 4]);
-        ::aztec::oracle::debug_log::debug_log_format("whole array: {}", [1, 2, 3, 4]);
-        ::aztec::oracle::debug_log::debug_log("tabs and newlines\n\t- first\n\t- second");
-        ::aztec::oracle::debug_log::debug_log_with_level(
-            ::aztec::oracle::debug_log::FATAL_LOG_LEVEL,
-            "fatal error",
-        );
-        ::aztec::oracle::debug_log::debug_log_format_with_level(
-            ::aztec::oracle::debug_log::TRACE_LOG_LEVEL,
-            "trace format: {}",
-            [1, 3, 3, 7],
-        );
+        aztec::oracle::logging::debug_log("just text");
+        aztec::oracle::logging::debug_log_format("second: {1}", [1, 2, 3, 4]);
+        aztec::oracle::logging::debug_log_format("whole array: {}", [1, 2, 3, 4]);
+        aztec::oracle::logging::debug_log("tabs and newlines\n\t- first\n\t- second");
+        aztec::oracle::logging::fatal_log("fatal error");
+        aztec::oracle::logging::trace_log_format("trace format: {}", [1, 3, 3, 7]);
     }
 
     #[external("public")]
@@ -479,7 +472,7 @@ pub contract AvmTest {
         assert(initialization_hash.unwrap().eq(expected_initialization_hash));
 
         // Get a Protocol Contract and it should exist
-        ::aztec::oracle::debug_log::debug_log("Get Contract Instance Protocol Contract Instance");
+        aztec::oracle::logging::debug_log("Get Contract Instance Protocol Contract Instance");
         let fee_juice_class_id = get_contract_instance_class_id_avm(FEE_JUICE_ADDRESS);
         assert(
             fee_juice_class_id.is_some(),
@@ -927,92 +920,92 @@ pub contract AvmTest {
         expected_initialization_hash: Field,
         skip_strictly_limited_side_effects: bool,
     ) {
-        ::aztec::oracle::debug_log::debug_log("biwise_ops");
+        aztec::oracle::logging::debug_log("biwise_ops");
         let num = self.context.block_number();
         let _ = bitwise_ops(num, num);
-        ::aztec::oracle::debug_log::debug_log("set_storage_single");
+        aztec::oracle::logging::debug_log("set_storage_single");
         _set_storage_single(self.storage, 30);
-        ::aztec::oracle::debug_log::debug_log("set_storage_list");
+        aztec::oracle::logging::debug_log("set_storage_list");
         _set_storage_list(self.storage, 40, 50);
-        ::aztec::oracle::debug_log::debug_log("read_storage_list");
+        aztec::oracle::logging::debug_log("read_storage_list");
         let _ = _set_storage_map(self.storage, self.address, 60);
-        ::aztec::oracle::debug_log::debug_log("add_storage_map");
+        aztec::oracle::logging::debug_log("add_storage_map");
         let _ = _add_storage_map(self.storage, self.address, 10);
-        ::aztec::oracle::debug_log::debug_log("read_storage_map");
+        aztec::oracle::logging::debug_log("read_storage_map");
         let _ = _read_storage_map(self.storage, self.address);
-        ::aztec::oracle::debug_log::debug_log("keccak_hash");
+        aztec::oracle::logging::debug_log("keccak_hash");
         let _ = keccak256::keccak256(args_u8, args_u8.len());
-        ::aztec::oracle::debug_log::debug_log("sha256_hash");
+        aztec::oracle::logging::debug_log("sha256_hash");
         let _ = sha256::sha256_var(args_u8, args_u8.len());
-        ::aztec::oracle::debug_log::debug_log("poseidon2_hash");
+        aztec::oracle::logging::debug_log("poseidon2_hash");
         let _ = poseidon::poseidon2::Poseidon2::hash(args_field, args_field.len());
-        ::aztec::oracle::debug_log::debug_log("pedersen_hash");
+        aztec::oracle::logging::debug_log("pedersen_hash");
         let _ = std::hash::pedersen_hash(args_field);
-        ::aztec::oracle::debug_log::debug_log("pedersen_hash_with_index");
+        aztec::oracle::logging::debug_log("pedersen_hash_with_index");
         let _ = std::hash::pedersen_hash_with_separator(args_field, /*index=*/ 20);
-        ::aztec::oracle::debug_log::debug_log("integer_division");
+        aztec::oracle::logging::debug_log("integer_division");
         let _ = integer_division(args_u8[0], args_u8[1]);
-        ::aztec::oracle::debug_log::debug_log("field_division");
+        aztec::oracle::logging::debug_log("field_division");
         let _ = field_division(args_field[0], args_field[1]);
-        ::aztec::oracle::debug_log::debug_log("test_get_contract_instance");
+        aztec::oracle::logging::debug_log("test_get_contract_instance");
         _test_get_contract_instance_matches(
             get_instance_for_address,
             expected_deployer,
             expected_class_id,
             expected_initialization_hash,
         );
-        ::aztec::oracle::debug_log::debug_log("get_address");
+        aztec::oracle::logging::debug_log("get_address");
         let _ = _get_address(self.address);
-        ::aztec::oracle::debug_log::debug_log("get_sender");
+        aztec::oracle::logging::debug_log("get_sender");
         let _ = _get_sender(self.context);
-        ::aztec::oracle::debug_log::debug_log("get_transaction_fee");
+        aztec::oracle::logging::debug_log("get_transaction_fee");
         let _ = _get_transaction_fee(self.context);
-        ::aztec::oracle::debug_log::debug_log("get_chain_id");
+        aztec::oracle::logging::debug_log("get_chain_id");
         let _ = _get_chain_id(self.context);
-        ::aztec::oracle::debug_log::debug_log("get_version");
+        aztec::oracle::logging::debug_log("get_version");
         let _ = _get_version(self.context);
-        ::aztec::oracle::debug_log::debug_log("get_block_number");
+        aztec::oracle::logging::debug_log("get_block_number");
         let _ = _get_block_number(self.context);
-        ::aztec::oracle::debug_log::debug_log("get_timestamp");
+        aztec::oracle::logging::debug_log("get_timestamp");
         let _ = _get_timestamp(self.context);
-        ::aztec::oracle::debug_log::debug_log("get_fee_per_l2_gas");
+        aztec::oracle::logging::debug_log("get_fee_per_l2_gas");
         let _ = _get_fee_per_l2_gas(self.context);
-        ::aztec::oracle::debug_log::debug_log("get_fee_per_da_gas");
+        aztec::oracle::logging::debug_log("get_fee_per_da_gas");
         let _ = _get_fee_per_da_gas(self.context);
-        ::aztec::oracle::debug_log::debug_log("get_l2_gas_left");
+        aztec::oracle::logging::debug_log("get_l2_gas_left");
         let _ = _get_l2_gas_left(self.context);
-        ::aztec::oracle::debug_log::debug_log("get_da_gas_left");
+        aztec::oracle::logging::debug_log("get_da_gas_left");
         let _ = _get_da_gas_left(self.context);
         if !skip_strictly_limited_side_effects {
-            ::aztec::oracle::debug_log::debug_log("emit_public_log");
+            aztec::oracle::logging::debug_log("emit_public_log");
             _emit_public_log(self.context);
         }
-        ::aztec::oracle::debug_log::debug_log("note_hash_exists");
+        aztec::oracle::logging::debug_log("note_hash_exists");
         let _ = _note_hash_exists(self.context, 1, 2);
-        ::aztec::oracle::debug_log::debug_log("new_note_hash");
+        aztec::oracle::logging::debug_log("new_note_hash");
         _new_note_hash(self.context, 1);
-        ::aztec::oracle::debug_log::debug_log("new_nullifier");
+        aztec::oracle::logging::debug_log("new_nullifier");
         _new_nullifier(self.context, args_field[0]);
-        ::aztec::oracle::debug_log::debug_log("nullifier_exists");
+        aztec::oracle::logging::debug_log("nullifier_exists");
         let _ = _nullifier_exists(self.context, self.address, 1);
-        ::aztec::oracle::debug_log::debug_log("l1_to_l2_msg_exists");
+        aztec::oracle::logging::debug_log("l1_to_l2_msg_exists");
         let _ = _l1_to_l2_msg_exists(self.context, 1, 2);
         if !skip_strictly_limited_side_effects {
-            ::aztec::oracle::debug_log::debug_log("send_l2_to_l1_msg");
+            aztec::oracle::logging::debug_log("send_l2_to_l1_msg");
             _send_l2_to_l1_msg(self.context, EthAddress::from_field(0x2020), 1);
         }
-        ::aztec::oracle::debug_log::debug_log("storage_read_and_write");
+        aztec::oracle::logging::debug_log("storage_read_and_write");
         _set_storage_single(self.storage, _read_storage_single(self.storage));
-        ::aztec::oracle::debug_log::debug_log("nested_call_to_add");
+        aztec::oracle::logging::debug_log("nested_call_to_add");
         let _ = _nested_call_to_add(self.context, self.address, 1, 2);
-        ::aztec::oracle::debug_log::debug_log("nested_static_call_to_add");
+        aztec::oracle::logging::debug_log("nested_static_call_to_add");
         let _ = _nested_static_call_to_add(self.context, self.address, 1, 2);
-        ::aztec::oracle::debug_log::debug_log("nested_call_to_protocol_contract");
+        aztec::oracle::logging::debug_log("nested_call_to_protocol_contract");
         _call_fee_juice(self.context, self.address);
-        ::aztec::oracle::debug_log::debug_log("to_le_bytes");
+        aztec::oracle::logging::debug_log("to_le_bytes");
         let first_byte = _to_le_bytes(args_field[0])[0];
         assert(first_byte != 0);
-        ::aztec::oracle::debug_log::debug_log("to_le_bits");
+        aztec::oracle::logging::debug_log("to_le_bits");
         let first_bit = _to_le_bits(args_field[0])[0];
         assert(first_bit != 0);
         //let _ = nested_call_to_nothing_recovers();

@@ -45,6 +45,10 @@ impl<T> Scoped<Counted<T>> {
     pub fn innermost(self) -> T {
         self.inner.inner
     }
+
+    pub fn is_non_revertible(self, is_private_only: bool, claimed_revertible_counter: u32) -> bool {
+        self.inner.is_non_revertible(is_private_only, claimed_revertible_counter)
+    }
 }
 
 impl Scoped<Counted<Field>> {

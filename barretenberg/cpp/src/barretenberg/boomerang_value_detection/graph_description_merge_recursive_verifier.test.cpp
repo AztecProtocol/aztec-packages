@@ -1,13 +1,9 @@
 #include "barretenberg/boomerang_value_detection/graph.hpp"
-#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
-#include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/goblin/merge_prover.hpp"
 #include "barretenberg/goblin/merge_verifier.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/ultra_honk/ultra_prover.hpp"
-#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 using namespace cdg;
 
@@ -51,7 +47,7 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
         // connected to the point coordinates. This may be a security issue if the infinity flag is not
         // properly bound to the coordinates via Fiat-Shamir - a malicious prover could potentially
         // set the flag independently of the actual point value.
-        constexpr size_t EXPECTED_UNCONSTRAINED_INFINITY_FLAGS = 8;
+        constexpr size_t EXPECTED_UNCONSTRAINED_INFINITY_FLAGS = 4;
 
         if constexpr (IsMegaBuilder<RecursiveBuilder>) {
             MegaStaticAnalyzer tool = MegaStaticAnalyzer(outer_circuit);

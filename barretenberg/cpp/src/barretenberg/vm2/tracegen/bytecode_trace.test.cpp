@@ -11,6 +11,7 @@
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/full_row.hpp"
+#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_memory.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
@@ -62,6 +63,7 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, 4),
                       ROW_FIELD_EQ(bc_decomposition_last_of_contract, 0),
                       ROW_FIELD_EQ(bc_decomposition_sel_packed, 1),
+                      ROW_FIELD_EQ(bc_decomposition_start, 1),
                       ROW_FIELD_EQ(bc_decomposition_next_packed_pc, 0),
                       ROW_FIELD_EQ(bc_decomposition_next_packed_pc_min_pc_inv, 0)));
 
@@ -157,6 +159,7 @@ TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
                       ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, DECOMPOSE_WINDOW_SIZE),
                       ROW_FIELD_EQ(bc_decomposition_sel_packed, 1),
+                      ROW_FIELD_EQ(bc_decomposition_start, 1),
                       ROW_FIELD_EQ(bc_decomposition_next_packed_pc, 0),
                       ROW_FIELD_EQ(bc_decomposition_next_packed_pc_min_pc_inv, 0),
                       ROW_FIELD_EQ(bc_decomposition_last_of_contract, 0)));
@@ -271,6 +274,7 @@ TEST(BytecodeTraceGenTest, MultipleEvents)
                     ROW_FIELD_EQ(bc_decomposition_next_packed_pc, next_packed_pc),
                     ROW_FIELD_EQ(bc_decomposition_next_packed_pc_min_pc_inv,
                                  j == next_packed_pc ? 0 : FF(next_packed_pc - j).invert()),
+                    ROW_FIELD_EQ(bc_decomposition_start, j == 0 ? 1 : 0),
                     ROW_FIELD_EQ(bc_decomposition_last_of_contract, j == bc_sizes[i] - 1 ? 1 : 0)));
             row_pos++;
             next_packed_pc += j % 31 == 0 ? 31 : 0;
@@ -287,7 +291,7 @@ TEST(BytecodeTraceGenTest, BasicHashing)
         {
             simulation::BytecodeHashingEvent{
                 .bytecode_id = 1,
-                .bytecode_length = 9,
+                .bytecode_length = 93,
                 .bytecode_fields = { 10, 20, 30 },
             },
         },
@@ -305,15 +309,17 @@ TEST(BytecodeTraceGenTest, BasicHashing)
               ROW_FIELD_EQ(bc_hashing_latch, 0),
               ROW_FIELD_EQ(bc_hashing_bytecode_id, 1),
               ROW_FIELD_EQ(bc_hashing_pc_index, 0),
-              // We don't increment at start to account for the prepended separator:
+              // We don't increment at start to account for the prepended first field length | separator:
               ROW_FIELD_EQ(bc_hashing_pc_index_1, 0),
               ROW_FIELD_EQ(bc_hashing_pc_index_2, 31),
-              ROW_FIELD_EQ(bc_hashing_packed_fields_0, DOM_SEP__PUBLIC_BYTECODE),
+              ROW_FIELD_EQ(bc_hashing_packed_fields_0, simulation::compute_public_bytecode_first_field(93)),
               ROW_FIELD_EQ(bc_hashing_packed_fields_1, 10),
               ROW_FIELD_EQ(bc_hashing_packed_fields_2, 20),
+              ROW_FIELD_EQ(bc_hashing_size_in_bytes, 93),
               ROW_FIELD_EQ(bc_hashing_input_len, 4),
               ROW_FIELD_EQ(bc_hashing_rounds_rem, 2),
-              ROW_FIELD_EQ(bc_hashing_output_hash, RawPoseidon2::hash({ DOM_SEP__PUBLIC_BYTECODE, 10, 20, 30 })),
+              ROW_FIELD_EQ(bc_hashing_output_hash,
+                           RawPoseidon2::hash({ simulation::compute_public_bytecode_first_field(93), 10, 20, 30 })),
               ROW_FIELD_EQ(bc_hashing_pc_at_final_field, 0)));
 
     // Latched row
@@ -334,7 +340,8 @@ TEST(BytecodeTraceGenTest, BasicHashing)
               ROW_FIELD_EQ(bc_hashing_packed_fields_2, 0),
               ROW_FIELD_EQ(bc_hashing_input_len, 4),
               ROW_FIELD_EQ(bc_hashing_rounds_rem, 1),
-              ROW_FIELD_EQ(bc_hashing_output_hash, RawPoseidon2::hash({ DOM_SEP__PUBLIC_BYTECODE, 10, 20, 30 })),
+              ROW_FIELD_EQ(bc_hashing_output_hash,
+                           RawPoseidon2::hash({ simulation::compute_public_bytecode_first_field(93), 10, 20, 30 })),
               ROW_FIELD_EQ(bc_hashing_pc_at_final_field, 62)));
 }
 

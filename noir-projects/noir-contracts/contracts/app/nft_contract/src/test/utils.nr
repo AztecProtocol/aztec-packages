@@ -92,13 +92,13 @@ pub unconstrained fn assert_owns_private_nft(
 // this, since different scopes are enforced by TXE.
 pub unconstrained fn setup_with_proxy() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
     let (mut env, nft_contract_address, owner, recipient) = setup(/* with_account_contracts */ true);
-    let proxy = env.deploy("@generic_proxy/GenericProxy").without_initializer();
+    let proxy = env.deploy("@generic_proxy_contract/GenericProxy").without_initializer();
     (env, nft_contract_address, owner, recipient, proxy)
 }
 
 pub unconstrained fn setup_mint_and_transfer_to_private_with_proxy() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field, AztecAddress) {
     let (mut env, nft_contract_address, owner, recipient, token_id) =
         setup_mint_and_transfer_to_private(/* with_account_contracts */ true);
-    let proxy = env.deploy("@generic_proxy/GenericProxy").without_initializer();
+    let proxy = env.deploy("@generic_proxy_contract/GenericProxy").without_initializer();
     (env, nft_contract_address, owner, recipient, token_id, proxy)
 }

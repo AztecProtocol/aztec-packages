@@ -36,6 +36,7 @@ import {
   type ReqRespSubProtocolValidators,
   type SubProtocolMap,
   responseFromBuffer,
+  subProtocolSizeCalculators,
 } from './interface.js';
 import { ReqRespMetrics } from './metrics.js';
 import {
@@ -437,6 +438,9 @@ export class ReqResp implements ReqRespInterface {
     try {
       this.metrics.recordRequestSent(subProtocol);
 
+      // Calculate expected response size based on the request payload
+      const expectedSizeKb = subProtocolSizeCalculators[subProtocol](payload);
+
       this.logger.trace(`Sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}`);
       stream = await this.connectionSampler.dialProtocol(peerId, subProtocol, dialTimeout);
       this.logger.trace(
@@ -444,11 +448,14 @@ export class ReqResp implements ReqRespInterface {
       );
 
       const timeoutErr = new IndividualReqRespTimeoutError();
+      // Create a wrapper to pass the expected size to readMessage
+      const readMessageWithSizeLimit = (source: AsyncIterable<Uint8ArrayList>) =>
+        this.readMessage(source, expectedSizeKb);
       const [_, resp] = await executeTimeout(
         signal =>
           Promise.all([
             pipeline([payload], stream!.sink, { signal }),
-            pipeline(stream!.source, this.readMessage.bind(this), { signal }),
+            pipeline(stream!.source, readMessageWithSizeLimit, { signal }),
           ]),
         this.individualRequestTimeoutMs,
         () => timeoutErr,
@@ -510,8 +517,11 @@ export class ReqResp implements ReqRespInterface {
    * The message is split into two components
    * - The first chunk should contain a control byte, indicating the status of the response see `ReqRespStatus`
    * - The second chunk should contain the response data
+   *
+   * @param source - The async iterable source of data chunks
+   * @param maxSizeKb - Optional maximum expected size in KB for the decompressed response
    */
-  private async readMessage(source: AsyncIterable<Uint8ArrayList>): Promise<ReqRespResponse> {
+  private async readMessage(source: AsyncIterable<Uint8ArrayList>, maxSizeKb?: number): Promise<ReqRespResponse> {
     let status: ReqRespStatus | undefined;
     const chunks: Uint8Array[] = [];
 
@@ -536,7 +546,7 @@ export class ReqResp implements ReqRespInterface {
       }
 
       const messageData = Buffer.concat(chunks);
-      const message: Buffer = this.snappyTransform.inboundTransformData(messageData);
+      const message: Buffer = this.snappyTransform.inboundTransformData(messageData, undefined, maxSizeKb);
 
       return {
         status: status ?? ReqRespStatus.UNKNOWN,

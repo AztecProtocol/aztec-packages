@@ -45,7 +45,7 @@ std::array<typename bn254<Builder>::Group, Builder::NUM_WIRES> empty_ecc_op_tabl
 {
     std::array<typename bn254<Builder>::Group, Builder::NUM_WIRES> empty_tables;
     for (auto& table_commitment : empty_tables) {
-        table_commitment = bn254<Builder>::Group::point_at_infinity(&builder);
+        table_commitment = bn254<Builder>::Group::constant_infinity(&builder);
         // Sanity check: Verify the native value is actually at infinity
         BB_ASSERT(table_commitment.get_value().is_point_at_infinity(),
                   "empty_ecc_op_tables: T_prev must be initialized to point at infinity");
@@ -145,7 +145,9 @@ class KernelIO {
         inputs.kernel_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
         inputs.app_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
         for (auto& table_commitment : inputs.ecc_op_tables) {
-            table_commitment = G1(DEFAULT_ECC_COMMITMENT);
+            table_commitment = G1(typename G1::BaseField(nullptr, uint256_t(DEFAULT_ECC_COMMITMENT.x)),
+                                  typename G1::BaseField(nullptr, uint256_t(DEFAULT_ECC_COMMITMENT.y)),
+                                  /*assert_on_curve=*/false);
             table_commitment.convert_constant_to_fixed_witness(&builder);
         }
         inputs.output_hn_accum_hash = FF::from_witness(&builder, typename FF::native(0));
@@ -344,10 +346,14 @@ template <class Builder_> class HidingKernelIO {
     {
         HidingKernelIO inputs;
         inputs.pairing_inputs = PairingInputs::construct_default();
-        inputs.kernel_return_data = G1(DEFAULT_ECC_COMMITMENT);
+        inputs.kernel_return_data = G1(typename G1::BaseField(nullptr, uint256_t(DEFAULT_ECC_COMMITMENT.x)),
+                                       typename G1::BaseField(nullptr, uint256_t(DEFAULT_ECC_COMMITMENT.y)),
+                                       /*assert_on_curve=*/false);
         inputs.kernel_return_data.convert_constant_to_fixed_witness(&builder);
         for (auto& table_commitment : inputs.ecc_op_tables) {
-            table_commitment = G1(DEFAULT_ECC_COMMITMENT);
+            table_commitment = G1(typename G1::BaseField(nullptr, uint256_t(DEFAULT_ECC_COMMITMENT.x)),
+                                  typename G1::BaseField(nullptr, uint256_t(DEFAULT_ECC_COMMITMENT.y)),
+                                  /*assert_on_curve=*/false);
             table_commitment.convert_constant_to_fixed_witness(&builder);
         }
         inputs.set_public();
