@@ -59,6 +59,7 @@ import {
   type PrivateExecutionStep,
   type PrivateKernelExecutionProofOutput,
   PrivateKernelTailCircuitPublicInputs,
+  PrivateLogData,
   PrivateToPublicAccumulatedData,
   PrivateToRollupAccumulatedData,
   PublicCallRequest,
@@ -413,7 +414,7 @@ export async function generateSimulatedProvingResult(
   node: AztecNode,
   minRevertibleSideEffectCounterOverride?: number,
 ): Promise<PrivateKernelExecutionProofOutput<PrivateKernelTailCircuitPublicInputs>> {
-  const taggedPrivateLogs: OrderedSideEffect<PrivateLog>[] = [];
+  const taggedPrivateLogs: OrderedSideEffect<PrivateLogData>[] = [];
   const l2ToL1Messages: OrderedSideEffect<ScopedL2ToL1Message>[] = [];
   const contractClassLogsHashes: OrderedSideEffect<ScopedLogHash>[] = [];
   const publicCallRequests: OrderedSideEffect<PublicCallRequest>[] = [];
@@ -449,9 +450,8 @@ export async function generateSimulatedProvingResult(
     taggedPrivateLogs.push(
       ...(await Promise.all(
         execution.publicInputs.privateLogs.getActiveItems().map(async metadata => {
-          const log = PrivateLog.fromFields(metadata.log.toFields());
-          log.fields[0] = await computeSiloedPrivateLogFirstField(contractAddress, log.fields[0]);
-          return new OrderedSideEffect(log, metadata.counter);
+          metadata.log.fields[0] = await computeSiloedPrivateLogFirstField(contractAddress, metadata.log.fields[0]);
+          return new OrderedSideEffect(metadata, metadata.counter);
         }),
       )),
     );
@@ -672,7 +672,7 @@ export async function generateSimulatedProvingResult(
  * of the reset kernels. Returns the filtered (surviving) scoped items and private logs.
  */
 function squashTransientSideEffects(
-  taggedPrivateLogs: OrderedSideEffect<PrivateLog>[],
+  taggedPrivateLogs: OrderedSideEffect<PrivateLogData>[],
   scopedNoteHashesCLA: ClaimedLengthArray<ScopedNoteHash, typeof MAX_NOTE_HASHES_PER_TX>,
   scopedNullifiersCLA: ClaimedLengthArray<ScopedNullifier, typeof MAX_NULLIFIERS_PER_TX>,
   noteHashNullifierCounterMap: Map<number, number>,
@@ -698,17 +698,9 @@ function squashTransientSideEffects(
   return {
     filteredNoteHashes: scopedNoteHashesCLA.getActiveItems().filter(nh => !squashedNoteHashCounters.has(nh.counter)),
     filteredNullifiers: scopedNullifiersCLA.getActiveItems().filter(n => !squashedNullifierCounters.has(n.counter)),
-    filteredPrivateLogs: taggedPrivateLogs.filter(log => {
-      for (let i = 0; i < numTransientData; i++) {
-        const hint = transientDataHints[i];
-        const noteHashCounter = scopedNoteHashesCLA.array[hint.noteHashIndex].counter;
-        const nullifierCounter = scopedNullifiersCLA.array[hint.nullifierIndex].counter;
-        if (log.counter > noteHashCounter && log.counter < nullifierCounter) {
-          return false;
-        }
-      }
-      return true;
-    }),
+    filteredPrivateLogs: taggedPrivateLogs
+      .filter(item => !squashedNoteHashCounters.has(item.sideEffect.noteHashCounter))
+      .map(item => new OrderedSideEffect(item.sideEffect.log, item.counter)),
   };
 }
 
