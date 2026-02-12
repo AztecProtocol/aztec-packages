@@ -42,7 +42,10 @@ class alignas(32) uint128_t {
     constexpr uint128_t& operator=(const uint128_t& other) = default;
     constexpr uint128_t& operator=(uint128_t&& other) = default;
     constexpr ~uint128_t() = default;
-    explicit constexpr operator bool() const { return data[0] || data[1] || data[2] || data[3]; };
+    explicit constexpr operator bool() const
+    {
+        return (data[0] != 0) || (data[1] != 0) || (data[2] != 0) || (data[3] != 0);
+    };
 
     template <std::integral T> explicit constexpr operator T() const { return static_cast<T>(data[0]); };
 
