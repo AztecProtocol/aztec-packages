@@ -28,7 +28,10 @@ Compress(app)
 auth = HTTPBasicAuth()
 
 # Start the ci-metrics server as a subprocess
+# Check sibling dir (repo layout) then subdirectory (Docker layout)
 _ci_metrics_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'ci-metrics')
+if not os.path.isdir(_ci_metrics_dir):
+    _ci_metrics_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ci-metrics')
 if os.path.isdir(_ci_metrics_dir):
     _ci_metrics_env = {**os.environ, 'CI_METRICS_PORT': str(CI_METRICS_PORT)}
     subprocess.Popen(
