@@ -34,3 +34,4 @@ __pycache__
 
 *.local.md
 .claude/settings.local.json
+.spec-manager/
