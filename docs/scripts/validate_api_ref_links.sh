@@ -8,6 +8,11 @@ set -euo pipefail
 # exist in static/aztec-nr-api/. Uses case-insensitive matching since Netlify's CDN is
 # case-insensitive, but warns about case mismatches.
 #
+# Checks performed:
+#   1. Broken links - target file does not exist at all
+#   2. Version mismatches - link uses wrong API version for its docs directory (e.g., a devnet
+#      versioned doc linking to nightly API, or vice versa)
+#
 # Usage: validate_api_ref_links.sh
 #
 # Exit code: Always 0 (warnings only) to avoid breaking builds initially.
@@ -47,10 +52,10 @@ fi
 echo "Scanning ${#SEARCH_DIRS[@]} docs directory(ies)..."
 
 BROKEN_COUNT=0
-CASE_MISMATCH_COUNT=0
+VERSION_MISMATCH_COUNT=0
 TOTAL_COUNT=0
 BROKEN_DETAILS=()
-CASE_MISMATCH_DETAILS=()
+VERSION_MISMATCH_DETAILS=()
 
 # Resolve a link path to a file in static/, case-insensitively.
 # Args: $1 = path relative to static/ (e.g., aztec-nr-api/devnet/noir_aztec/state_vars/struct.publicmutable)
@@ -135,26 +140,6 @@ resolve_static_path() {
   return 0
 }
 
-# Check if the resolved path differs in case from the link path
-# Args: $1 = expected path (from link), $2 = actual path (from filesystem)
-# Returns: 0 if exact match, 1 if case mismatch
-check_case_match() {
-  local expected="$1"
-  local actual="$2"
-
-  # Normalize: strip the static/ prefix from actual to compare with link path
-  local actual_rel="${actual#$DOCS_ROOT/static/}"
-
-  # Strip .html and /index.html suffixes from actual for comparison
-  local actual_clean="$actual_rel"
-  actual_clean="${actual_clean%.html}"
-  actual_clean="${actual_clean%/index}"
-
-  if [[ "$expected" == "$actual_clean" ]]; then
-    return 0
-  fi
-  return 1
-}
 
 # Get PR context for Slack messages (returns formatted PR link or branch name)
 get_pr_context() {
@@ -234,8 +219,9 @@ send_alert() {
   local context
   context=$(get_pr_context)
 
+  local issue_summary="${BROKEN_COUNT} broken, ${VERSION_MISMATCH_COUNT} version mismatch(es)"
   local message=":warning: *API Reference Link Issues* (${context})"$'\n\n'
-  message+="*Summary:* ${BROKEN_COUNT} broken link(s), ${CASE_MISMATCH_COUNT} case mismatch(es) out of ${TOTAL_COUNT} total links checked."$'\n'
+  message+="*Summary:* ${issue_summary} out of ${TOTAL_COUNT} total links checked."$'\n'
 
   if [[ $BROKEN_COUNT -gt 0 ]]; then
     message+=$'\n'"*Broken links:*"$'\n'
@@ -250,12 +236,12 @@ send_alert() {
     done
   fi
 
-  if [[ $CASE_MISMATCH_COUNT -gt 0 ]]; then
-    message+=$'\n'"*Case mismatches:*"$'\n'
+  if [[ $VERSION_MISMATCH_COUNT -gt 0 ]]; then
+    message+=$'\n'"*Version mismatches:*"$'\n'
     local count=0
-    for detail in "${CASE_MISMATCH_DETAILS[@]}"; do
+    for detail in "${VERSION_MISMATCH_DETAILS[@]}"; do
       if [[ $count -ge 15 ]]; then
-        message+="  ... and $((CASE_MISMATCH_COUNT - 15)) more"$'\n'
+        message+="  ... and $((VERSION_MISMATCH_COUNT - 15)) more"$'\n'
         break
       fi
       message+="  • \`${detail}\`"$'\n'
@@ -272,12 +258,33 @@ send_alert() {
   fi
 }
 
+# Determine the expected API version from a docs directory path.
+# Args: $1 = search directory path
+# Outputs: "devnet", "nightly", or "" (unknown/skip version check)
+get_expected_api_version() {
+  local search_dir="$1"
+  local dirname
+  dirname=$(basename "$search_dir")
+
+  # Versioned docs directories encode the release type in their name
+  if [[ "$dirname" =~ devnet ]]; then
+    echo "devnet"
+  elif [[ "$dirname" =~ nightly ]]; then
+    echo "nightly"
+  else
+    # processed-docs or unrecognized — skip version check
+    echo ""
+  fi
+}
+
 # Process a single link
-# Args: $1 = source file, $2 = line number, $3 = link path (after stripping pathname:// prefix)
+# Args: $1 = source file, $2 = line number, $3 = link path (after stripping pathname:// prefix),
+#        $4 = expected API version (optional, empty to skip version check)
 process_link() {
   local source_file="$1"
   local line_num="$2"
   local link_path="$3"
+  local expected_version="${4:-}"
 
   TOTAL_COUNT=$((TOTAL_COUNT + 1))
 
@@ -293,21 +300,26 @@ process_link() {
     return
   fi
 
-  local resolved
-  if resolved=$(resolve_static_path "$link_path"); then
-    # Found - check case
-    if ! check_case_match "$link_path" "$resolved"; then
-      CASE_MISMATCH_COUNT=$((CASE_MISMATCH_COUNT + 1))
-      local rel_source="${source_file#$DOCS_ROOT/}"
-      local actual_rel="${resolved#$DOCS_ROOT/static/}"
-      CASE_MISMATCH_DETAILS+=("$rel_source:$line_num -> Link: $link_path, Actual: $actual_rel")
-      echo "  CASE MISMATCH: $rel_source:$line_num"
-      echo "    Link:   $link_path"
-      echo "    Actual: $actual_rel"
+  local rel_source="${source_file#$DOCS_ROOT/}"
+
+  # Version mismatch check: verify the link uses the expected API version
+  if [[ -n "$expected_version" ]]; then
+    local link_version=""
+    if [[ "$link_path" =~ ^aztec-nr-api/([^/]+)/ ]]; then
+      link_version="${BASH_REMATCH[1]}"
     fi
-  else
+    if [[ -n "$link_version" ]] && [[ "$link_version" != "$expected_version" ]]; then
+      VERSION_MISMATCH_COUNT=$((VERSION_MISMATCH_COUNT + 1))
+      VERSION_MISMATCH_DETAILS+=("$rel_source:$line_num -> expected $expected_version, got $link_version")
+      echo "  VERSION MISMATCH: $rel_source:$line_num"
+      echo "    Expected version: $expected_version"
+      echo "    Link version:     $link_version"
+      echo "    Link: $link_path"
+    fi
+  fi
+
+  if ! resolve_static_path "$link_path" >/dev/null; then
     BROKEN_COUNT=$((BROKEN_COUNT + 1))
-    local rel_source="${source_file#$DOCS_ROOT/}"
     BROKEN_DETAILS+=("$rel_source:$line_num -> $link_path")
     echo "  BROKEN: $rel_source:$line_num"
     echo "    Link: $link_path"
@@ -320,6 +332,14 @@ JSX_HREF_PATTERN='href="/aztec-nr-api/([^"]*)"'
 
 # Scan files for links
 for search_dir in "${SEARCH_DIRS[@]}"; do
+  expected_version=$(get_expected_api_version "$search_dir")
+  rel_search_dir="${search_dir#$DOCS_ROOT/}"
+  if [[ -n "$expected_version" ]]; then
+    echo "  $rel_search_dir (expected API version: $expected_version)"
+  else
+    echo "  $rel_search_dir"
+  fi
+
   # Find all .md and .mdx files
   while IFS= read -r -d '' file; do
     local_line_num=0
@@ -330,16 +350,18 @@ for search_dir in "${SEARCH_DIRS[@]}"; do
       remaining="$line"
       while [[ "$remaining" =~ $MD_LINK_PATTERN ]]; do
         link_path="/aztec-nr-api/${BASH_REMATCH[1]}"
-        process_link "$file" "$local_line_num" "$link_path"
-        remaining="${remaining#*"${BASH_REMATCH[0]}"}"
+        full_match="${BASH_REMATCH[0]}"
+        process_link "$file" "$local_line_num" "$link_path" "$expected_version"
+        remaining="${remaining#*"$full_match"}"
       done
 
       # Match JSX href attributes: href="/aztec-nr-api/..."
       remaining="$line"
       while [[ "$remaining" =~ $JSX_HREF_PATTERN ]]; do
         link_path="/aztec-nr-api/${BASH_REMATCH[1]}"
-        process_link "$file" "$local_line_num" "$link_path"
-        remaining="${remaining#*"${BASH_REMATCH[0]}"}"
+        full_match="${BASH_REMATCH[0]}"
+        process_link "$file" "$local_line_num" "$link_path" "$expected_version"
+        remaining="${remaining#*"$full_match"}"
       done
 
     done < "$file"
@@ -350,7 +372,7 @@ echo ""
 echo "API reference link validation complete:"
 echo "  - Total links checked: $TOTAL_COUNT"
 echo "  - Broken links: $BROKEN_COUNT"
-echo "  - Case mismatches: $CASE_MISMATCH_COUNT"
+echo "  - Version mismatches: $VERSION_MISMATCH_COUNT"
 
 if [[ $BROKEN_COUNT -gt 0 ]]; then
   echo ""
@@ -359,13 +381,13 @@ if [[ $BROKEN_COUNT -gt 0 ]]; then
   echo "Run 'yarn generate:aztec-nr-api' to regenerate the API docs."
 fi
 
-if [[ $CASE_MISMATCH_COUNT -gt 0 ]]; then
+if [[ $VERSION_MISMATCH_COUNT -gt 0 ]]; then
   echo ""
-  echo "WARNING: $CASE_MISMATCH_COUNT case mismatch(es) found."
-  echo "These links work on Netlify (case-insensitive) but may break in other environments."
+  echo "WARNING: $VERSION_MISMATCH_COUNT version mismatch(es) found."
+  echo "These links reference the wrong API version for their docs directory."
 fi
 
-if [[ $BROKEN_COUNT -gt 0 ]] || [[ $CASE_MISMATCH_COUNT -gt 0 ]]; then
+if [[ $BROKEN_COUNT -gt 0 ]] || [[ $VERSION_MISMATCH_COUNT -gt 0 ]]; then
   send_alert
 fi
 
