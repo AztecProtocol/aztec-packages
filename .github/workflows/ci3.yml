@@ -44,6 +44,12 @@ jobs:
     if: github.event.pull_request.head.repo.fork != true && (github.event.pull_request.draft == false || contains(github.event.pull_request.labels.*.name, 'ci-draft'))
     environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'master' || '' }}
     steps:
+      - name: Remove wakeup label
+        if: contains(github.event.pull_request.labels.*.name, 'ci-wakeup-pr-after-merge')
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-wakeup-pr-after-merge --repo ${{ github.repository }} || true
+
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
