@@ -568,32 +568,52 @@ _ct_resolve_ts = 0
 _CT_RESOLVE_TTL = 6 * 3600  # 6 hours
 
 
-def _fetch_cloudtrail_events(ct, event_name, start_time, end_time, max_events=5000):
-    """Paginate through CloudTrail lookup_events for a given event name."""
+def _fetch_cloudtrail_daily(ct, event_name, start_time, end_time, max_per_day=10000):
+    """Fetch CloudTrail events in daily chunks to avoid the 5000-event global limit."""
     events = []
-    kwargs = {
-        'LookupAttributes': [
-            {'AttributeKey': 'EventName', 'AttributeValue': event_name},
-        ],
-        'StartTime': start_time,
-        'EndTime': end_time,
-        'MaxResults': 50,
-    }
-    while True:
-        resp = ct.lookup_events(**kwargs)
-        events.extend(resp.get('Events', []))
-        token = resp.get('NextToken')
-        if not token or len(events) >= max_events:
-            break
-        kwargs['NextToken'] = token
+    day = start_time.replace(hour=0, minute=0, second=0, microsecond=0)
+    while day < end_time:
+        day_end = min(day + timedelta(days=1), end_time)
+        kwargs = {
+            'LookupAttributes': [
+                {'AttributeKey': 'EventName', 'AttributeValue': event_name},
+            ],
+            'StartTime': day,
+            'EndTime': day_end,
+            'MaxResults': 50,
+        }
+        while True:
+            resp = ct.lookup_events(**kwargs)
+            events.extend(resp.get('Events', []))
+            token = resp.get('NextToken')
+            if not token or len(events) >= max_per_day:
+                break
+            kwargs['NextToken'] = token
+        day += timedelta(days=1)
     return events
+
+
+# Name tag format: <branch_normalized>_<arch>[_<postfix>]
+_NAME_TAG_RE = re.compile(r'^(.+)_(amd64|arm64)(?:_.*)?$')
+
+
+def _normalize_branch_name(name):
+    """Normalize a branch name the same way bootstrap_ec2 does for the EC2 Name tag."""
+    m = re.match(r'^gh-readonly-queue/[^/]+/pr-(\d+)', name)
+    if m:
+        return f'pr-{m.group(1)}'
+    name = re.sub(r'\s*\(queue\)$', '', name)
+    return re.sub(r'[^a-zA-Z0-9-]', '_', name[:50])
 
 
 def resolve_unknown_instance_types():
     """Query CloudTrail for RunInstances + CreateTags events to resolve unknown instance types.
 
-    Correlates by joining RunInstances and CreateTags on instance ID, then
-    matching to ci_runs via the Dashboard and Name tags set on each EC2 instance.
+    Strategy:
+    1. Fetch RunInstances events (daily chunks) → instance_id → instance_type + launch_time
+    2. Fetch CreateTags events (daily chunks) → instance_id → {Name, Group, Dashboard, ...}
+       Tags are accumulated across multiple events then filtered to Group=build-instance.
+    3. Join by instance_id, then match to ci_runs by normalized branch name + arch + time window.
     """
     global _ct_resolve_ts
     now = time.time()
@@ -624,19 +644,20 @@ def resolve_unknown_instance_types():
             min(r['timestamp_ms'] for r in unknown_runs) / 1000 - 300, tz=timezone.utc)
         end_time = datetime.now(timezone.utc)
 
-        # Fetch RunInstances events → instance_id → instance_type
-        run_events = _fetch_cloudtrail_events(ct, 'RunInstances', start_time, end_time)
-        instance_types = {}  # instance_id → instance_type
-        instance_launch_times = {}  # instance_id → launch time ms
+        # Step 1: Fetch RunInstances events in daily chunks → instance_id → type + launch time
+        run_events = _fetch_cloudtrail_daily(ct, 'RunInstances', start_time, end_time)
+        instance_types = {}
+        instance_launch_times = {}
         for event in run_events:
             try:
                 detail = json.loads(event.get('CloudTrailEvent', '{}'))
-                resp_items = detail.get('responseElements', {}).get('instancesSet', {}).get('items', [])
-                for item in resp_items:
+                itype = detail.get('requestParameters', {}).get('instanceType', '')
+                items = (detail.get('responseElements') or {}).get('instancesSet', {}).get('items', [])
+                for item in items:
                     iid = item.get('instanceId', '')
-                    itype = item.get('instanceType', '') or detail.get('requestParameters', {}).get('instanceType', '')
-                    if iid and itype:
-                        instance_types[iid] = itype
+                    item_type = item.get('instanceType', '') or itype
+                    if iid and item_type:
+                        instance_types[iid] = item_type
                         instance_launch_times[iid] = int(event['EventTime'].timestamp() * 1000)
             except Exception:
                 continue
@@ -645,9 +666,12 @@ def resolve_unknown_instance_types():
             print("[rk_metrics] CloudTrail: no RunInstances events found")
             return
 
-        # Fetch CreateTags events → instance_id → {Name, Dashboard} tags
-        tag_events = _fetch_cloudtrail_events(ct, 'CreateTags', start_time, end_time)
-        instance_tags = {}  # instance_id → {Name, Dashboard, GithubActor}
+        # Step 2: Fetch CreateTags events in daily chunks.
+        # Accumulate ALL tags per instance first, then filter to build instances.
+        # This handles the case where Name, Group, and Dashboard are set in separate
+        # create-tags API calls (aws_request_instance_type lines 97, 126, 127).
+        tag_events = _fetch_cloudtrail_daily(ct, 'CreateTags', start_time, end_time)
+        all_instance_tags = {}
         for event in tag_events:
             try:
                 detail = json.loads(event.get('CloudTrailEvent', '{}'))
@@ -655,73 +679,78 @@ def resolve_unknown_instance_types():
                 resources = req.get('resourcesSet', {}).get('items', [])
                 tags = req.get('tagSet', {}).get('items', [])
                 tag_dict = {t.get('key', ''): t.get('value', '') for t in tags}
-                # Only care about build instances
-                if tag_dict.get('Group') != 'build-instance' and 'Dashboard' not in tag_dict:
-                    continue
                 for res in resources:
                     rid = res.get('resourceId', '')
                     if rid.startswith('i-'):
-                        if rid not in instance_tags:
-                            instance_tags[rid] = {}
-                        instance_tags[rid].update(tag_dict)
+                        if rid not in all_instance_tags:
+                            all_instance_tags[rid] = {}
+                        all_instance_tags[rid].update(tag_dict)
             except Exception:
                 continue
 
-        # Join: build list of instances with both type and tags
+        # Filter to build instances
+        instance_tags = {
+            iid: tags for iid, tags in all_instance_tags.items()
+            if tags.get('Group') == 'build-instance'
+        }
+
+        # Step 3: Join RunInstances + CreateTags by instance_id
         instances = []
         for iid, itype in instance_types.items():
             tags = instance_tags.get(iid, {})
+            if not tags.get('Name'):
+                continue
             instances.append({
-                'instance_id': iid,
                 'instance_type': itype,
                 'launch_ms': instance_launch_times.get(iid, 0),
                 'dashboard': tags.get('Dashboard', ''),
                 'name_tag': tags.get('Name', ''),
-                'actor': tags.get('GithubActor', ''),
             })
 
-        # Match unknown runs to instances using tags
+        # Build index: normalized branch name → [instances]
+        tag_index = {}
+        for inst in instances:
+            m = _NAME_TAG_RE.match(inst['name_tag'])
+            if m:
+                tag_index.setdefault(m.group(1), []).append(inst)
+            else:
+                tag_index.setdefault(inst['name_tag'], []).append(inst)
+
+        # Step 4: Match unknown runs to instances
         updated = 0
         for run in unknown_runs:
-            run_dashboard = run['dashboard']
+            run_name = run['name']
+            run_arch = run['arch'] or ''
             run_ts = run['timestamp_ms']
+            run_dashboard = run['dashboard']
+
+            expected_name = _normalize_branch_name(run_name)
+            candidates = tag_index.get(expected_name, [])
 
             best = None
-            best_score = -1
-            for inst in instances:
-                score = 0
-                # Dashboard tag must match
-                if inst['dashboard'] and inst['dashboard'] == run_dashboard:
-                    score += 10
-                elif inst['dashboard']:
-                    continue  # Dashboard mismatch — skip
+            for inst in candidates:
+                # Verify arch matches
+                if run_arch:
+                    m = _NAME_TAG_RE.match(inst['name_tag'])
+                    if m and m.group(2) != run_arch:
+                        continue
 
-                # Name tag contains branch_arch; match components
-                name_tag = inst['name_tag']
-                if name_tag:
-                    # Name tag format: "branch-name_arch" (e.g. "pr-123_amd64")
-                    run_arch = run['arch'] or ''
-                    if run_arch and name_tag.endswith('_' + run_arch):
-                        score += 3
-                    # Check PR number in name tag
-                    run_pr = run['pr_number']
-                    if run_pr:
-                        tag_pr = extract_pr_number(name_tag)
-                        if tag_pr == run_pr:
-                            score += 5
-
-                # Timestamp proximity (within 10 min)
-                delta = abs(inst['launch_ms'] - run_ts)
-                if delta > 600_000:
+                # Verify dashboard matches (if tag present)
+                if inst['dashboard'] and inst['dashboard'] != run_dashboard:
                     continue
-                # Closer timestamps score higher
-                score += max(0, 5 - delta / 120_000)
 
-                if score > best_score:
-                    best_score = score
+                # CI run starts after instance launch; allow up to 90 min (instance lifetime)
+                delta = run_ts - inst['launch_ms']
+                if delta < -60_000 or delta > 5400_000:
+                    continue
+
+                # Prefer most recently launched instance before the run
+                if delta >= 0 and (best is None or inst['launch_ms'] > best['launch_ms']):
+                    best = inst
+                elif best is None and abs(delta) < 60_000:
                     best = inst
 
-            if best and best_score >= 10:
+            if best:
                 itype = best['instance_type']
                 is_spot = bool(run['spot'])
                 rate = ec2_pricing.get_instance_rate(itype, is_spot)
@@ -739,8 +768,8 @@ def resolve_unknown_instance_types():
         if updated:
             print(f"[rk_metrics] CloudTrail: resolved {updated}/{len(unknown_runs)} unknown instance types")
         else:
-            print(f"[rk_metrics] CloudTrail: {len(instances)} instances found, "
-                  f"{len(instance_tags)} tagged, 0/{len(unknown_runs)} matched")
+            print(f"[rk_metrics] CloudTrail: {len(instances)} instances, "
+                  f"0/{len(unknown_runs)} matched")
     except Exception as e:
         print(f"[rk_metrics] CloudTrail resolution failed: {e}")
 
