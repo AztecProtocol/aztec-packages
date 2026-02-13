@@ -7,7 +7,8 @@ import os
 import sqlite3
 import threading
 
-_DB_PATH = os.path.join(os.getenv('LOGS_DISK_PATH', '/logs-disk'), 'metrics.db')
+_DB_PATH = os.getenv('METRICS_DB_PATH',
+                     os.path.join(os.getenv('LOGS_DISK_PATH', '/logs-disk'), 'metrics.db'))
 _local = threading.local()
 
 SCHEMA = """

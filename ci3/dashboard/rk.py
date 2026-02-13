@@ -27,30 +27,43 @@ app = Flask(__name__)
 Compress(app)
 auth = HTTPBasicAuth()
 
-# Start the ci-metrics server as a subprocess
-# Check sibling dir (repo layout) then subdirectory (Docker layout)
+# Start the ci-metrics server as a subprocess (once across all workers).
+# Uses a file lock so only the first gunicorn worker to import this module
+# actually spawns the process; the rest skip silently.
+import fcntl
+import signal
+import time as _time
+
 _ci_metrics_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'ci-metrics')
 if not os.path.isdir(_ci_metrics_dir):
     _ci_metrics_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ci-metrics')
 if os.path.isdir(_ci_metrics_dir):
-    # Kill any stale process on the port (e.g. leftover from previous reload)
-    import signal
+    _lock_path = f'/tmp/ci-metrics-{CI_METRICS_PORT}.lock'
     try:
-        out = subprocess.check_output(
-            ['lsof', '-ti', f':{CI_METRICS_PORT}'], stderr=subprocess.DEVNULL, text=True)
-        for pid in out.strip().split('\n'):
-            if pid:
-                os.kill(int(pid), signal.SIGTERM)
-        import time; time.sleep(0.5)
-    except (subprocess.CalledProcessError, OSError):
+        _lock_fd = open(_lock_path, 'w')
+        fcntl.flock(_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        # We hold the lock — kill stale process and spawn fresh one
+        try:
+            out = subprocess.check_output(
+                ['lsof', '-ti', f':{CI_METRICS_PORT}'], stderr=subprocess.DEVNULL, text=True)
+            for pid in out.strip().split('\n'):
+                if pid:
+                    os.kill(int(pid), signal.SIGTERM)
+            _time.sleep(0.5)
+        except (subprocess.CalledProcessError, OSError):
+            pass
+        _ci_metrics_env = {**os.environ, 'CI_METRICS_PORT': str(CI_METRICS_PORT)}
+        subprocess.Popen(
+            ['gunicorn', '-w', '4', '-b', f'0.0.0.0:{CI_METRICS_PORT}',
+             '--timeout', '120', '--preload', 'app:app'],
+            cwd=_ci_metrics_dir,
+            env=_ci_metrics_env,
+        )
+        print(f"[rk.py] ci-metrics server started on port {CI_METRICS_PORT}")
+        # Hold the lock until this process exits so other workers skip
+    except OSError:
+        # Another worker already holds the lock — nothing to do
         pass
-    _ci_metrics_env = {**os.environ, 'CI_METRICS_PORT': str(CI_METRICS_PORT)}
-    subprocess.Popen(
-        ['gunicorn', '-w', '4', '-b', f'0.0.0.0:{CI_METRICS_PORT}', '--timeout', '120', 'app:app'],
-        cwd=_ci_metrics_dir,
-        env=_ci_metrics_env,
-    )
-    print(f"[rk.py] ci-metrics server started on port {CI_METRICS_PORT}")
 
 def read_from_disk(key):
     """Read log from disk as fallback when Redis key not found."""

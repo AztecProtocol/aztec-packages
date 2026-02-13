@@ -37,7 +37,7 @@ def verify_password(username, password):
 
 
 def _init():
-    """Initialize SQLite and start background threads."""
+    """Initialize SQLite, warm caches, and start background threads."""
     try:
         db.get_db()
         metrics.start_test_listener(r)
@@ -45,6 +45,18 @@ def _init():
         print("[ci-metrics] Background threads started")
     except Exception as e:
         print(f"[ci-metrics] Warning: startup failed: {e}")
+    # Warm billing caches so first request isn't slow
+    try:
+        from billing.gcp import _ensure_cached as _warm_gcp
+        _warm_gcp()
+        print("[ci-metrics] GCP billing cache warmed")
+    except Exception as e:
+        print(f"[ci-metrics] GCP billing warmup failed: {e}")
+    try:
+        billing_aws.get_costs_overview()
+        print("[ci-metrics] AWS costs cache warmed")
+    except Exception as e:
+        print(f"[ci-metrics] AWS costs warmup failed: {e}")
 
 threading.Thread(target=_init, daemon=True, name='metrics-init').start()
 
