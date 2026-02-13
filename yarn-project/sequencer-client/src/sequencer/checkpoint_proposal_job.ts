@@ -191,6 +191,9 @@ export class CheckpointProposalJob implements Traceable {
       );
       const previousCheckpointOutHashes = previousCheckpoints.map(c => c.getCheckpointOutHash());
 
+      // Get the fee asset price modifier from the oracle
+      const feeAssetPriceModifier = await this.publisher.getFeeAssetPriceModifier();
+
       // Create a long-lived forked world state for the checkpoint builder
       using fork = await this.worldState.fork(this.syncedToBlockNumber, { closeDelayMs: 12_000 });
 
@@ -198,6 +201,7 @@ export class CheckpointProposalJob implements Traceable {
       const checkpointBuilder = await this.checkpointsBuilder.startCheckpoint(
         this.checkpointNumber,
         checkpointGlobalVariables,
+        feeAssetPriceModifier,
         l1ToL2Messages,
         previousCheckpointOutHashes,
         fork,
@@ -275,6 +279,7 @@ export class CheckpointProposalJob implements Traceable {
       const proposal = await this.validatorClient.createCheckpointProposal(
         checkpoint.header,
         checkpoint.archive.root,
+        feeAssetPriceModifier,
         lastBlock,
         this.proposer,
         checkpointProposalOptions,
