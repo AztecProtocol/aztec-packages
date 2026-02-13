@@ -25,8 +25,8 @@
 
 namespace bb::avm2 {
 
-INSTANTIATE_LOOKUP(lookup_emit_unencrypted_log_check_memory_out_of_bounds_relation);
-INSTANTIATE_LOOKUP(lookup_emit_unencrypted_log_check_log_fields_count_relation);
-INSTANTIATE_LOOKUP(lookup_emit_unencrypted_log_write_data_to_public_inputs_relation);
+INSTANTIATE_LOOKUP(lookup_emit_public_log_check_memory_out_of_bounds_relation);
+INSTANTIATE_LOOKUP(lookup_emit_public_log_check_log_fields_count_relation);
+INSTANTIATE_LOOKUP(lookup_emit_public_log_write_data_to_public_inputs_relation);
 
 } // namespace bb::avm2
