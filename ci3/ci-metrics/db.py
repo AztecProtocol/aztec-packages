@@ -65,6 +65,18 @@ CREATE TABLE IF NOT EXISTS ci_runs (
 CREATE INDEX IF NOT EXISTS idx_ci_runs_ts ON ci_runs(timestamp_ms);
 CREATE INDEX IF NOT EXISTS idx_ci_runs_name ON ci_runs(name);
 CREATE INDEX IF NOT EXISTS idx_ci_runs_dashboard ON ci_runs(dashboard);
+
+CREATE TABLE IF NOT EXISTS test_daily_stats (
+    date          TEXT NOT NULL,
+    test_cmd      TEXT NOT NULL,
+    dashboard     TEXT NOT NULL DEFAULT '',
+    passed        INTEGER NOT NULL DEFAULT 0,
+    failed        INTEGER NOT NULL DEFAULT 0,
+    flaked        INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (date, test_cmd, dashboard)
+);
+CREATE INDEX IF NOT EXISTS idx_tds_date ON test_daily_stats(date);
+CREATE INDEX IF NOT EXISTS idx_tds_dashboard ON test_daily_stats(dashboard);
 """
 
 

@@ -54,7 +54,7 @@
     <a href="/test-timings" class="active">test timings</a>
   </div>
 
-  <h2 style="margin:8px 0;color:#ccc;">test timings</h2>
+  <h2 style="margin:8px 0;color:#ccc;">test timings <span id="period-label" style="font-size:12px;color:#666;font-weight:normal"></span></h2>
 
   <div class="controls">
     <button data-range="7">1w</button>
@@ -193,6 +193,9 @@ async function load() {
 }
 
 function render(d) {
+  if (d.period) {
+    document.getElementById('period-label').textContent = `(${d.period.from} to ${d.period.to})`;
+  }
   const s = d.summary;
   $('#kpis').innerHTML = [
     kpi('total runs', fmt(s.total_runs)),

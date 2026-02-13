@@ -149,6 +149,19 @@ def _ts_to_date(ts_ms):
 
 # ---- Test event handling (only thing needing SQLite) ----
 
+def _upsert_daily_stats(status: str, test_cmd: str, dashboard: str, timestamp: str):
+    """Increment the daily counter for a test status."""
+    date = timestamp[:10]  # 'YYYY-MM-DD'
+    col = status if status in ('passed', 'failed', 'flaked') else None
+    if not col:
+        return
+    db.execute(f'''
+        INSERT INTO test_daily_stats (date, test_cmd, dashboard, {col})
+        VALUES (?, ?, ?, 1)
+        ON CONFLICT(date, test_cmd, dashboard) DO UPDATE SET {col} = {col} + 1
+    ''', (date, test_cmd, dashboard))
+
+
 def _handle_test_event(channel: str, data: dict):
     status = channel.split(':')[-1]
     # Handle field name mismatches: run_test_cmd publishes 'cmd' for failed/flaked
@@ -157,6 +170,17 @@ def _handle_test_event(channel: str, data: dict):
     log_url = data.get('log_url') or data.get('log_key')
     if log_url and not log_url.startswith('http'):
         log_url = f'http://ci.aztec-labs.com/{log_url}'
+    dashboard = data.get('dashboard', '')
+    timestamp = data.get('timestamp', datetime.now(timezone.utc).isoformat())
+
+    # Always update daily stats (lightweight aggregate)
+    _upsert_daily_stats(status, test_cmd, dashboard, timestamp)
+
+    # Only persist individual rows for failed/flaked (for drill-down / log URLs).
+    # Passed events are tracked via daily stats only.
+    if status == 'passed':
+        return
+
     db.execute('''
         INSERT INTO test_events
         (status, test_cmd, log_url, ref_name, commit_hash, commit_author,
@@ -176,8 +200,8 @@ def _handle_test_event(channel: str, data: dict):
         1 if data.get('is_scenario_test') else 0,
         json.dumps(data['owners']) if data.get('owners') else None,
         data.get('flake_group_id'),
-        data.get('dashboard', ''),
-        data.get('timestamp', datetime.now(timezone.utc).isoformat()),
+        dashboard,
+        timestamp,
     ))
 
 
@@ -516,15 +540,155 @@ def sync_ci_runs_to_sqlite(redis_conn):
     print(f"[rk_metrics] Synced {count} CI runs to SQLite")
 
 
+def _backfill_daily_stats():
+    """Populate test_daily_stats from existing test_events rows (one-time)."""
+    conn = db.get_db()
+    # Check if daily stats are already populated
+    row = conn.execute("SELECT COUNT(*) as c FROM test_daily_stats").fetchone()
+    if row['c'] > 0:
+        return
+    conn.execute('''
+        INSERT OR IGNORE INTO test_daily_stats (date, test_cmd, dashboard, passed, failed, flaked)
+        SELECT substr(timestamp, 1, 10) as date, test_cmd, dashboard,
+               SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END),
+               SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END),
+               SUM(CASE WHEN status = 'flaked' THEN 1 ELSE 0 END)
+        FROM test_events
+        GROUP BY substr(timestamp, 1, 10), test_cmd, dashboard
+    ''')
+    conn.commit()
+    count = conn.execute("SELECT COUNT(*) as c FROM test_daily_stats").fetchone()['c']
+    if count:
+        print(f"[rk_metrics] Backfilled {count} daily stat rows from test_events")
+
+
+# ---- CloudTrail instance type resolution ----
+
+_ct_resolve_ts = 0
+_CT_RESOLVE_TTL = 6 * 3600  # 6 hours
+
+
+def resolve_unknown_instance_types():
+    """Query CloudTrail for RunInstances events to fill in unknown instance types."""
+    global _ct_resolve_ts
+    now = time.time()
+    if now - _ct_resolve_ts < _CT_RESOLVE_TTL:
+        return
+    _ct_resolve_ts = now
+
+    conn = db.get_db()
+    # Find runs with unknown/empty instance_type
+    unknown_runs = conn.execute('''
+        SELECT dashboard, name, timestamp_ms, complete_ms, instance_vcpus, spot, cost_usd
+        FROM ci_runs
+        WHERE (instance_type IS NULL OR instance_type = '' OR instance_type = 'unknown')
+        AND timestamp_ms > ?
+    ''', (int((time.time() - 90 * 86400) * 1000),)).fetchall()
+
+    if not unknown_runs:
+        return
+
+    try:
+        import boto3
+    except ImportError:
+        return
+
+    try:
+        ct = boto3.client('cloudtrail', region_name='us-east-2')
+        # Fetch RunInstances events from CloudTrail
+        events = []
+        kwargs = {
+            'LookupAttributes': [
+                {'AttributeKey': 'EventName', 'AttributeValue': 'RunInstances'},
+            ],
+            'StartTime': datetime.fromtimestamp(
+                min(r['timestamp_ms'] for r in unknown_runs) / 1000 - 300, tz=timezone.utc),
+            'EndTime': datetime.now(timezone.utc),
+            'MaxResults': 50,
+        }
+        # Paginate through results
+        while True:
+            resp = ct.lookup_events(**kwargs)
+            events.extend(resp.get('Events', []))
+            token = resp.get('NextToken')
+            if not token or len(events) >= 5000:
+                break
+            kwargs['NextToken'] = token
+
+        if not events:
+            print(f"[rk_metrics] CloudTrail: no RunInstances events found")
+            return
+
+        # Build time-indexed list of instance launches
+        launches = []
+        for event in events:
+            try:
+                detail = json.loads(event.get('CloudTrailEvent', '{}'))
+                req = detail.get('requestParameters', {})
+                instance_type = req.get('instanceType', '')
+                if not instance_type:
+                    # Try to get from instancesSet in response
+                    resp_items = detail.get('responseElements', {}).get('instancesSet', {}).get('items', [])
+                    if resp_items:
+                        instance_type = resp_items[0].get('instanceType', '')
+                if instance_type:
+                    event_time_ms = int(event['EventTime'].timestamp() * 1000)
+                    launches.append({
+                        'time_ms': event_time_ms,
+                        'instance_type': instance_type,
+                    })
+            except Exception:
+                continue
+
+        if not launches:
+            return
+
+        launches.sort(key=lambda x: x['time_ms'])
+
+        # Match unknown runs to CloudTrail events by timestamp proximity
+        updated = 0
+        for run in unknown_runs:
+            run_ts = run['timestamp_ms']
+            # Find closest launch within 10 minutes
+            best = None
+            best_delta = 600_000  # 10 min in ms
+            for launch in launches:
+                delta = abs(launch['time_ms'] - run_ts)
+                if delta < best_delta:
+                    best_delta = delta
+                    best = launch
+            if best:
+                itype = best['instance_type']
+                is_spot = bool(run['spot'])
+                rate = ec2_pricing.get_instance_rate(itype, is_spot)
+                new_cost = run['cost_usd']
+                if rate and run['complete_ms'] and run['timestamp_ms']:
+                    hours = (run['complete_ms'] - run['timestamp_ms']) / 3_600_000
+                    new_cost = round(hours * rate, 4)
+                conn.execute('''
+                    UPDATE ci_runs SET instance_type = ?, cost_usd = ?
+                    WHERE dashboard = ? AND timestamp_ms = ? AND name = ?
+                ''', (itype, new_cost, run['dashboard'], run['timestamp_ms'], run['name']))
+                updated += 1
+
+        conn.commit()
+        if updated:
+            print(f"[rk_metrics] CloudTrail: resolved {updated}/{len(unknown_runs)} unknown instance types")
+    except Exception as e:
+        print(f"[rk_metrics] CloudTrail resolution failed: {e}")
+
+
 def start_ci_run_sync(redis_conn):
     """Start periodic CI run + test event sync thread."""
     _load_seed_data()
+    _backfill_daily_stats()
 
     def loop():
         while True:
             try:
                 sync_ci_runs_to_sqlite(redis_conn)
                 sync_failed_tests_to_sqlite(redis_conn)
+                resolve_unknown_instance_types()
             except Exception as e:
                 print(f"[rk_metrics] sync error: {e}")
             time.sleep(600)  # check every 10 min (TTL gates actual work)

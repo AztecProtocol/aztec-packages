@@ -54,7 +54,7 @@ if os.path.isdir(_ci_metrics_dir):
             pass
         _ci_metrics_env = {**os.environ, 'CI_METRICS_PORT': str(CI_METRICS_PORT)}
         subprocess.Popen(
-            ['gunicorn', '-w', '4', '-b', f'0.0.0.0:{CI_METRICS_PORT}',
+            ['gunicorn', '-w', '1', '-b', f'0.0.0.0:{CI_METRICS_PORT}',
              '--timeout', '120', '--preload', 'app:app'],
             cwd=_ci_metrics_dir,
             env=_ci_metrics_env,
@@ -562,7 +562,7 @@ def _proxy(path):
             data=request.get_data(),
             headers={k: v for k, v in request.headers if k.lower() not in _STRIP_REQUEST_HEADERS},
             stream=True,
-            timeout=60,
+            timeout=180,
         )
         # Strip hop-by-hop headers
         headers = {k: v for k, v in resp.headers.items() if k.lower() not in _HOP_BY_HOP}
