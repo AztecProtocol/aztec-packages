@@ -249,7 +249,7 @@ template <typename Field> class StdlibCodec {
             // bn254_commitment serialization does not standardize infinity (unlike grumpkin_commitment above).
             // All existing code paths produce canonical (0,0) infinity, so just assert that invariant.
             if (val.get_value().is_point_at_infinity()) {
-                BB_ASSERT(val.x().get_value().is_zero() && val.y().get_value().is_zero(),
+                BB_ASSERT(val.x().get_value() == 0 && val.y().get_value() == 0,
                           "serialize_to_fields: bn254_commitment point at infinity must be canonical (0,0)");
             }
             using BaseField = typename T::BaseField;
