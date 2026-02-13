@@ -31,7 +31,7 @@ std::pair<std::vector<uint8_t>, /* truncated */ bool> ToRadix::to_le_radix(const
 
     uint256_t value_integer = static_cast<uint256_t>(value);
     while (value_integer != 0) {
-        const auto [quotient, remainder] = value_integer.divmod(static_cast<uint64_t>(radix));
+        auto [quotient, remainder] = value_integer.divmod(static_cast<uint64_t>(radix));
         limbs.push_back(static_cast<uint8_t>(remainder)); // Cast is fine by the precondition that radix <= 256.
         value_integer = quotient;
     }
@@ -47,7 +47,7 @@ std::pair<std::vector<uint8_t>, /* truncated */ bool> ToRadix::to_le_radix(const
         .limbs = limbs,
     });
 
-    const bool truncated = num_limbs < limbs.size();
+    bool truncated = num_limbs < limbs.size();
     if (truncated) {
         limbs.erase(limbs.begin() + num_limbs, limbs.end());
     }
@@ -109,19 +109,19 @@ void ToRadix::to_be_radix(MemoryInterface& memory,
 
     // Error handling - check that the maximum write address does not exceed the highest memory address
     // This subtrace writes in the range { dst_addr, dst_addr + 1, ..., dst_addr + num_limbs - 1 }
-    const uint64_t write_addr_upper_bound = static_cast<uint64_t>(dst_addr) + num_limbs;
-    const bool dst_out_of_range = gt.gt(write_addr_upper_bound, AVM_MEMORY_SIZE);
+    uint64_t write_addr_upper_bound = static_cast<uint64_t>(dst_addr) + num_limbs;
+    bool dst_out_of_range = gt.gt(write_addr_upper_bound, AVM_MEMORY_SIZE);
 
     // Error handling - check that the radix value is within the valid range
     // The valid range is [2, 256]. Therefore, the radix is invalid if (2 > radix) or (radix > 256)
     // We need to perform both checks explicitly since that is what the circuit would do
-    const bool radix_is_lt_2 = gt.gt(2, radix);
-    const bool radix_is_gt_256 = gt.gt(radix, 256);
+    bool radix_is_lt_2 = gt.gt(2, radix);
+    bool radix_is_gt_256 = gt.gt(radix, 256);
 
     // Error handling - check that if is_output_bits is true, the radix has to be 2
-    const bool invalid_bitwise_radix = is_output_bits && (radix != 2);
+    bool invalid_bitwise_radix = is_output_bits && (radix != 2);
     // Error handling - if num_limbs is zero, value needs to be zero
-    const bool invalid_num_limbs = (num_limbs == 0) && (!value.is_zero());
+    bool invalid_num_limbs = (num_limbs == 0) && (!value.is_zero());
 
     ToRadixMemoryEvent event = {
         .execution_clk = execution_clk,

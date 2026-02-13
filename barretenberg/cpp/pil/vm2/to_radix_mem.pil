@@ -159,6 +159,7 @@ namespace to_radix_mem;
     pol RADIX_MIN_TWO = radix - 2;
     // sel_radix_eq_2 == 1 iff RADIX_MIN_TWO == 0 (only on `start == 1`)
     pol commit radix_min_two_inv;
+    // @zero-check
     start * (RADIX_MIN_TWO * (sel_radix_eq_2 * (1 - radix_min_two_inv) + radix_min_two_inv) - 1 + sel_radix_eq_2) = 0;
 
     // is_output_bits already guaranteed to be boolean by execution trace tag validation

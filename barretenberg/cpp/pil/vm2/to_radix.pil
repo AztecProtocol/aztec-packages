@@ -147,7 +147,7 @@ namespace to_radix;
     // found is 1 when value - acc = 0
     pol REM = value - acc;
     pol commit rem_inverse;
-    sel * (REM * (found * (1 - rem_inverse) + rem_inverse) - 1 + found) = 0;
+    sel * (REM * (found * (1 - rem_inverse) + rem_inverse) - 1 + found) = 0; // @zero-check
 
     // when found is 1, next limb is 0
     NOT_END * found * limb' = 0;
@@ -176,6 +176,7 @@ namespace to_radix;
     // `is_unsafe_limb == 1` iff `limb_index == safe_limbs`
     pol SAFETY_DIFF = limb_index - safe_limbs;
     pol commit safety_diff_inverse;
+    // @zero-check
     sel * (SAFETY_DIFF * (is_unsafe_limb * (1 - safety_diff_inverse) + safety_diff_inverse) - 1 + is_unsafe_limb) = 0;
 
     // ===== FIELD OVERFLOW PROTECTION =====

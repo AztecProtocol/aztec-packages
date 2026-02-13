@@ -67,12 +67,12 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
                 limb_p_diff = p_limb - limb - 1;
             }
 
-            const bool is_unsafe_limb = i == safe_limbs;
-            const FF safety_diff = FF(i) - FF(safe_limbs);
+            bool is_unsafe_limb = i == safe_limbs;
+            FF safety_diff = FF(i) - FF(safe_limbs);
 
             acc += power * FF(limb);
 
-            const FF rem = value - acc;
+            FF rem = value - acc;
             found = rem.is_zero();
 
             bool end = i == (event.limbs.size() - 1);
@@ -130,23 +130,23 @@ void ToRadixTraceBuilder::process_with_memory(
     for (const auto& event : events) {
         // Helpers
         const uint32_t num_limbs = event.num_limbs;
-        const uint8_t num_limbs_is_zero = num_limbs == 0 ? 1 : 0;
-        const uint8_t value_is_zero = event.value == FF(0) ? 1 : 0;
+        uint8_t num_limbs_is_zero = num_limbs == 0 ? 1 : 0;
+        uint8_t value_is_zero = event.value == FF(0) ? 1 : 0;
 
         // Error Handling - Out of Memory Access
         uint64_t dst_addr = static_cast<uint64_t>(event.dst_addr); // Will be incremented in the loop below.
-        const uint64_t write_addr_upper_bound = dst_addr + num_limbs;
-        const bool write_out_of_range = write_addr_upper_bound > AVM_MEMORY_SIZE;
+        uint64_t write_addr_upper_bound = dst_addr + num_limbs;
+        bool write_out_of_range = write_addr_upper_bound > AVM_MEMORY_SIZE;
 
         // Error Handling - Radix Range
-        const bool invalid_radix = (event.radix < 2 || event.radix > 256);
+        bool invalid_radix = (event.radix < 2 || event.radix > 256);
 
         // Error Handling - Bitwise Radix
-        const bool radix_eq_2 = event.radix == 2;
-        const bool invalid_bitwise_radix = event.is_output_bits && !radix_eq_2;
+        bool radix_eq_2 = event.radix == 2;
+        bool invalid_bitwise_radix = event.is_output_bits && !radix_eq_2;
 
         // Error Handling - Num Limbs and Value
-        const bool invalid_num_limbs = num_limbs == 0 && !(event.value == FF(0));
+        bool invalid_num_limbs = num_limbs == 0 && !(event.value == FF(0));
 
         // Common values for the first row
         trace.set(row,
@@ -252,7 +252,7 @@ void ToRadixTraceBuilder::process_with_memory(
         // - No error occured
         for (uint32_t i = 0; i < num_limbs; ++i) {
             const MemoryValue& limb_value = event.limbs[i];
-            const bool last = i == (num_limbs - 1);
+            bool last = i == (num_limbs - 1);
 
             // Note that the following columns at i == 0 were already set above but code is simpler this way:
             // - C::to_radix_mem_dst_addr
