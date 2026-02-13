@@ -191,7 +191,6 @@ def root() -> str:
         f"{hyperlink('/cost-overview', 'cost overview (AWS + GCP)')}\n"
         f"{hyperlink('/namespace-billing', 'namespace billing')}\n"
         f"{hyperlink('/ci-insights', 'ci insights')}\n"
-        f"{hyperlink('/test-timings', 'test timings')}\n"
         f"{RESET}"
     )
 
