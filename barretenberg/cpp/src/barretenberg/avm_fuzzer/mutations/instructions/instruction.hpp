@@ -43,7 +43,7 @@ class InstructionMutator {
     std::vector<FuzzInstruction> generate_sha256compression_instruction(std::mt19937_64& rng);
     std::vector<FuzzInstruction> generate_toradixbe_instruction(std::mt19937_64& rng);
     std::vector<FuzzInstruction> generate_sload_instruction(std::mt19937_64& rng);
-    std::vector<FuzzInstruction> generate_emitunencryptedlog_instruction(std::mt19937_64& rng);
+    std::vector<FuzzInstruction> generate_emitpubliclog_instruction(std::mt19937_64& rng);
     std::vector<FuzzInstruction> generate_call_instruction(std::mt19937_64& rng);
     std::vector<FuzzInstruction> generate_getcontractinstance_instruction(std::mt19937_64& rng);
     std::vector<FuzzInstruction> generate_notehashexists_instruction(std::mt19937_64& rng);
@@ -84,7 +84,7 @@ class InstructionMutator {
     void mutate_note_hash_exists_instruction(NOTEHASHEXISTS_Instruction& instruction, std::mt19937_64& rng);
     void mutate_calldatacopy_instruction(CALLDATACOPY_Instruction& instruction, std::mt19937_64& rng);
     void mutate_sendl2tol1msg_instruction(SENDL2TOL1MSG_Instruction& instruction, std::mt19937_64& rng);
-    void mutate_emitunencryptedlog_instruction(EMITUNENCRYPTEDLOG_Instruction& instruction, std::mt19937_64& rng);
+    void mutate_emitpubliclog_instruction(EMITPUBLICLOG_Instruction& instruction, std::mt19937_64& rng);
     void mutate_call_instruction(CALL_Instruction& instruction, std::mt19937_64& rng);
     void mutate_returndatasize_instruction(RETURNDATASIZE_Instruction& instruction, std::mt19937_64& rng);
     void mutate_returndatacopy_instruction(RETURNDATACOPY_Instruction& instruction, std::mt19937_64& rng);
