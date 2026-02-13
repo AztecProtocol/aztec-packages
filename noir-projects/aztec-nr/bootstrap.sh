@@ -32,7 +32,16 @@ function test {
   trap 'kill $(jobs -p)' EXIT
   (cd $root/yarn-project/txe && LOG_LEVEL=error TXE_PORT=$txe_base_port yarn start) &
   echo "Waiting for TXE to start..."
-  while ! nc -z 127.0.0.1 $txe_base_port &>/dev/null; do sleep 1; done
+  local j=0
+  while ! nc -z 127.0.0.1 $txe_base_port &>/dev/null; do
+    if [ $j == 60 ]; then
+      echo "TXE failed to start on port $txe_base_port after 60s." >&2
+      check_port $txe_base_port
+      exit 1
+    fi
+    sleep 1
+    j=$((j+1))
+  done
 
   export NARGO_FOREIGN_CALL_TIMEOUT=300000
   test_cmds | filter_test_cmds | parallelize

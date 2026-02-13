@@ -254,7 +254,17 @@ function test {
   done
   echo "Waiting for TXE's to start..."
   for i in $(seq 0 $((NUM_TXES-1))); do
-      while ! nc -z 127.0.0.1 $((txe_base_port + i)) &>/dev/null; do sleep 1; done
+      local j=0
+      local port=$((txe_base_port + i))
+      while ! nc -z 127.0.0.1 $port &>/dev/null; do
+        if [ $j == 60 ]; then
+          echo "TXE $i failed to start on port $port after 60s." >&2
+          check_port $port
+          exit 1
+        fi
+        sleep 1
+        j=$((j+1))
+      done
   done
 
   export NARGO_FOREIGN_CALL_TIMEOUT=300000

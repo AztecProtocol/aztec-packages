@@ -236,10 +236,12 @@ function start_txes {
   local txe_base_port=14730
   for i in $(seq 0 $((NUM_TXES-1))); do
     port=$((txe_base_port + i))
-    if ! check_port $port; then
-      echo "Killing existing process on port $port"
-      kill -9 $(lsof -ti :$port) &>/dev/null || true
-      while ! check_port $port; do sleep 0.1; done
+    existing_pid=$(lsof -ti :$port || true)
+    if [ -n "$existing_pid" ]; then
+      echo "Killing existing process $existing_pid on port: $port"
+      check_port $port
+      kill -9 $existing_pid &>/dev/null || true
+      while kill -0 $existing_pid &>/dev/null; do sleep 0.1; done
     fi
     dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'node --no-warnings ./yarn-project/txe/dest/bin/index.js'" &
     txe_pids+="$! "
@@ -249,7 +251,11 @@ function start_txes {
   for i in $(seq 0 $((NUM_TXES-1))); do
       local j=0
       while ! nc -z 127.0.0.1 $((txe_base_port + i)) &>/dev/null; do
-        [ $j == 60 ] && echo_stderr "TXE $i took too long to start. Exiting." && exit 1
+        if [ $j == 60 ]; then
+          echo_stderr "TXE $i failed to start on port $((txe_base_port + i)) after 60s."
+          check_port $((txe_base_port + i))
+          exit 1
+        fi
         sleep 1
         j=$((j+1))
       done
