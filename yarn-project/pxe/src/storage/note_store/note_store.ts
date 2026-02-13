@@ -103,11 +103,10 @@ export class NoteStore implements StagedStore {
    * @params jobId - the job context to read from.
    * @returns Filtered and deduplicated notes (a note might be present in multiple scopes - we ensure it is only
    * returned once if this is the case)
-   * @throws If filtering by an empty scopes array. Scopes have to be set to undefined or to a non-empty array.
    */
   getNotes(filter: NotesFilter, jobId: string): Promise<NoteDao[]> {
     if (filter.scopes !== undefined && filter.scopes.length === 0) {
-      return Promise.reject(new Error('Trying to get notes with an empty scopes array'));
+      return Promise.resolve([]);
     }
 
     return this.#store.transactionAsync(async () => {

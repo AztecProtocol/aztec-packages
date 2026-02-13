@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: v4.0.0-nightly.20260211
+Version: v4.0.0-nightly.20260213
 
 ## Quick Import Reference
 
@@ -2553,6 +2553,7 @@ Provides basic information about the running node.
 - `l1ContractAddresses: L1ContractAddresses` - The deployed l1 contract addresses
 - `nodeVersion: string` - Version as tracked in the aztec-packages repository.
 - `protocolContractAddresses: ProtocolContractAddresses` - Protocol contract addresses
+- `realProofs: boolean` - Whether the node requires real proofs for transaction submission.
 - `rollupVersion: number` - Rollup version.
 
 ### PrivateFunction
@@ -2873,6 +2874,11 @@ Computes the salted initialization hash for an address, defined as the hash of t
 function computeSecretHash(secret: Fr) => Promise<Fr>
 ```
 Computes a hash of a secret.
+
+### computeSiloedPrivateLogFirstField
+```typescript
+function computeSiloedPrivateLogFirstField(contract: AztecAddress, field: Fr) => Promise<Fr>
+```
 
 ### computeUniqueNoteHash
 ```typescript

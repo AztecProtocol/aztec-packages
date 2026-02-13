@@ -163,6 +163,10 @@ export class InMemoryTxPool extends EventEmitter implements TxPoolV2 {
     return Promise.resolve([...this.txsByHash.keys()].map(key => TxHash.fromString(key)));
   }
 
+  getEligiblePendingTxHashes(): Promise<TxHash[]> {
+    return this.getPendingTxHashes();
+  }
+
   getPendingTxCount(): Promise<number> {
     return Promise.resolve(this.txsByHash.size);
   }
@@ -250,6 +254,10 @@ export class InMemoryAttestationPool {
 
   tryAddCheckpointAttestation(_attestation: CheckpointAttestation): Promise<TryAddResult> {
     return Promise.resolve({ added: true, alreadyExists: false, count: 1 });
+  }
+
+  hasBlockProposalsForSlot(_slot: SlotNumber): Promise<boolean> {
+    return Promise.resolve(false);
   }
 
   isEmpty(): Promise<boolean> {

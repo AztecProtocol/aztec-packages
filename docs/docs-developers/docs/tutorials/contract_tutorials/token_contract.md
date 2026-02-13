@@ -23,7 +23,7 @@ This is an intermediate tutorial that assumes you have:
 - Completed the [Counter Contract tutorial](./counter_contract.md)
 - A Running Aztec local network (see the Counter tutorial for setup)
 - Basic understanding of Aztec.nr syntax and structure
-- Aztec toolchain installed (`bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix/)`)
+- Aztec toolchain installed (`VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix)`)
 
 If you haven't completed the Counter Contract tutorial, please do so first as we'll skip the basic setup steps covered there.
 

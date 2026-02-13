@@ -19,7 +19,7 @@ The merge-train system is fully automated via GitHub Actions in `.github/workflo
 
 4. **Auto-Merge** (`merge-train-auto-merge.yml`): Runs hourly via cron (`0 * * * *`). Calls `scripts/merge-train/auto-merge.sh` for both merge-train (4-hour inactivity) and backport-train (8-hour inactivity) branches. Uses separate GitHub tokens: `AZTEC_BOT_GITHUB_TOKEN` for API calls and `MERGE_TRAIN_GITHUB_TOKEN` for approvals. Will not auto-merge if the last merge-queue CI run failed or was cancelled.
 
-5. **Recreation** (`merge-train-recreate.yml`): Triggered when a PR is closed (merged). If the merged PR's head branch starts with `merge-train/`, recreates the branch from the base branch (usually `next`) with an empty commit.
+5. **Recreation & Wakeup** (`merge-train-recreate.yml`): Triggered when a PR is closed (merged). If the merged PR's head branch starts with `merge-train/`, recreates the branch from the base branch (usually `next`). Then runs `scripts/merge-train/wakeup-prs.sh` to add the `ci-wakeup-pr-after-merge` label to all open PRs targeting the branch that have passed CI and have automerge enabled. This triggers a CI re-run (typically a no-op via tree-hash cache) so those PRs can proceed through the merge queue. The label is immediately removed by a step in `ci3.yml` so it can be re-applied on subsequent merges.
 
 6. **Failure Notification** (`merge-queue-dequeue-notify.yml`): Triggered when a PR is dequeued from the merge queue. If the PR's head branch starts with `merge-train/` and the PR was NOT merged, sends a Slack notification via `ci3/merge_train_failure_slack_notify`.
 
@@ -102,6 +102,7 @@ When a CI run fails on an EC2 instance, it calls `merge_train_failure_slack_noti
 | `scripts/merge-train/merge-next.sh` | Merges `next` into a train branch, handles conflicts, cancels stale CI runs |
 | `scripts/merge-train/update-pr-body.sh` | Updates PR body with meaningful commits |
 | `scripts/merge-train/squash-pr.sh` | Squashes PR commits (used by `ci-squash-and-merge` label) |
+| `scripts/merge-train/wakeup-prs.sh` | Adds `ci-wakeup-pr-after-merge` label to qualifying PRs after branch recreation |
 
 ### CI Configuration
 

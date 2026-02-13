@@ -67,8 +67,8 @@ use crate::{
         with_hash::derive_storage_slot_of_packed_values_hash,
     },
     hash::{
-        compute_contract_class_log_hash, compute_siloed_note_hash, compute_siloed_nullifier,
-        compute_siloed_private_log_first_field, compute_unique_siloed_note_hash,
+        compute_contract_class_log_hash, compute_note_nonce_and_unique_note_hash,
+        compute_siloed_note_hash, compute_siloed_nullifier, compute_siloed_private_log_first_field,
         create_protocol_nullifier,
     },
     merkle_tree::membership::MembershipWitness,
@@ -761,7 +761,7 @@ impl FixtureBuilder {
     pub fn add_siloed_unique_note_hash(&mut self, value: Field) {
         let siloed_value = compute_siloed_note_hash(self.contract_address, value);
         let current_index = self.note_hashes.len();
-        let unique_siloed_value = compute_unique_siloed_note_hash(
+        let unique_siloed_value = compute_note_nonce_and_unique_note_hash(
             siloed_value,
             self.claimed_first_nullifier,
             current_index,
@@ -1090,7 +1090,7 @@ impl FixtureBuilder {
                 // Silo and clear the contract address here because the padded private logs are siloed when added in the
                 // reset circuit. We can only see the siloed version of it in the public inputs.
                 fields[0] =
-                    compute_siloed_private_log_first_field(self.contract_address, fields[0]);
+                    compute_siloed_private_log_first_field(SIDE_EFFECT_MASKING_ADDRESS, fields[0]);
                 self.private_logs.push(PrivateLogData {
                     log: PrivateLog { fields, length: fields.len() },
                     note_hash_counter: 0,

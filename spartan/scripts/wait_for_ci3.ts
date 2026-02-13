@@ -38,15 +38,27 @@ function sleep(ms: number): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  // 1. Resolve tag SHA
-  const tagSha = execSync(
-    `gh api repos/${repo}/git/ref/tags/${tag} --jq '.object.sha'`,
-    {
-      encoding: "utf-8",
-    },
-  ).trim();
+  // 1. Resolve tag SHA (dereference annotated tags to the underlying commit)
+  const ref = JSON.parse(
+    execSync(
+      `gh api repos/${repo}/git/ref/tags/${tag}`,
+      { encoding: "utf-8" },
+    ),
+  );
 
-  console.log(`Waiting for CI3 run for tag ${tag} (sha: ${tagSha})`);
+  let commitSha: string = ref.object.sha;
+  if (ref.object.type === "tag") {
+    // Annotated tag — resolve the tag object to its commit
+    const tagObj = JSON.parse(
+      execSync(
+        `gh api repos/${repo}/git/tags/${ref.object.sha}`,
+        { encoding: "utf-8" },
+      ),
+    );
+    commitSha = tagObj.object.sha;
+  }
+
+  console.log(`Waiting for CI3 run for tag ${tag} (commit: ${commitSha})`);
 
   // 2. Poll for the CI3 run (up to 10 minutes, checking every 10s)
   const maxAttempts = 60;
@@ -54,7 +66,7 @@ async function main(): Promise<void> {
 
   for (let i = 1; i <= maxAttempts; i++) {
     const result = execSync(
-      `gh run list --repo ${repo} --workflow ci3.yml --json headSha,databaseId --jq '.[] | select(.headSha == "${tagSha}") | .databaseId'`,
+      `gh run list --repo ${repo} --workflow ci3.yml --json headSha,databaseId --jq '.[] | select(.headSha == "${commitSha}") | .databaseId'`,
       { encoding: "utf-8" },
     ).trim();
 

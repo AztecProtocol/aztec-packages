@@ -129,26 +129,49 @@ class CLIScanner:
             "description": "",
             "options": [],
             "commands": [],
-            "additional_commands": []
+            "additional_commands": [],
+            "examples": []
         }
 
         lines = help_text.split('\n')
         current_section = None
+        pre_usage_lines = []  # Collect lines before Usage: for modern CLI format
 
         for i, line in enumerate(lines):
             # Extract usage
             if line.strip().startswith('Usage:'):
                 result["usage"] = line.replace('Usage:', '').strip()
+                # In modern CLI format, description comes BEFORE Usage:
+                if pre_usage_lines and not result["description"]:
+                    result["description"] = ' '.join(pre_usage_lines)
+                continue
 
             # Section headers (check these before description parsing)
             elif 'Options:' in line and current_section != 'additional':
                 current_section = 'options'
-            elif line.strip() == 'Commands:' or 'Arguments:' in line:
+            elif line.strip() == 'Commands:':
                 current_section = 'commands'
+            elif 'Arguments:' in line:
+                # Arguments section - skip parsing (not commands)
+                current_section = 'arguments'
+            elif 'Examples:' in line or 'Example:' in line:
+                # Examples section - capture but don't parse as commands
+                current_section = 'examples'
+            elif 'Output:' in line or 'Note:' in line:
+                # Other informational sections - skip parsing
+                current_section = 'info'
             elif 'Additional commands:' in line:
                 current_section = 'additional'
 
-            # Extract description (usually after Usage, before Options/Commands)
+            # Collect lines before Usage: (for modern CLI format where description comes first)
+            elif not result["usage"] and line.strip() and current_section is None:
+                pre_usage_lines.append(line.strip())
+
+            # Capture examples
+            elif current_section == 'examples' and line.strip():
+                result["examples"].append(line.strip())
+
+            # Extract description (Commander.js format: after Usage, before Options/Commands)
             elif line.strip() and not line.startswith(' ') and current_section is None:
                 if result["usage"] and not result["description"]:
                     result["description"] = line.strip()

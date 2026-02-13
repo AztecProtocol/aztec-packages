@@ -1,6 +1,6 @@
 # Aztec CLI Documentation Generator
 
-A set of scripts to automatically generate comprehensive documentation for the Aztec CLI and Aztec Wallet CLI by recursively scanning all commands and their help output.
+A set of scripts to automatically generate comprehensive documentation for the Aztec CLIs by recursively scanning all commands and their help output.
 
 ## Overview
 
@@ -13,6 +13,7 @@ This documentation system consists of three main components:
 The system supports multiple CLIs:
 - **Aztec CLI** (`aztec`) - Main Aztec command-line interface
 - **Aztec Wallet CLI** (`aztec-wallet`) - Wallet-specific commands
+- **Aztec Version Manager** (`aztec-up`) - Version management tool
 
 ## Quick Start
 
@@ -313,6 +314,17 @@ python scan_cli.py --command "npm" --output npm_docs.json
 ./docs/scripts/cli_reference_generation/generate_cli_docs.sh aztec-wallet
 ```
 
+#### Generate and Deploy aztec-up Docs
+
+```bash
+# Generate for current version only (run from repo root)
+# Note: aztec-up is version-independent, so version check is skipped
+./docs/scripts/cli_reference_generation/generate_cli_docs.sh aztec-up current
+
+# Generate for all versions (current + versioned, run from repo root)
+./docs/scripts/cli_reference_generation/generate_cli_docs.sh aztec-up
+```
+
 #### Update Both CLIs
 
 ```bash
@@ -378,14 +390,16 @@ The documentation system uses a **unified script architecture** to reduce code d
 **Core Scripts:**
 - `scan_cli.py` - Python scanner (CLI-agnostic)
 - `transform_to_markdown.py` - Python transformer (CLI-agnostic)
-- `cli_config.sh` - Shared CLI configuration (display names, output files, etc.)
+- `cli_docs_config.json` - Single source of truth for CLI configuration (display names, output files, etc.)
+- `cli_config.sh` - Bash helper that reads from `cli_docs_config.json`
 - `generate_cli_docs.sh` - Generates and deploys documentation (accepts CLI name as parameter)
 - `generate_all_cli_docs.sh` - Convenience script to generate docs for all CLIs at once
 
 **Adding a New CLI:**
 To add support for a new CLI (e.g., `aztec-prover`):
-1. Add configuration case to `cli_config.sh`
-2. Add to `VALID_CLIS` array in `cli_config.sh`
+1. Add configuration entry to `cli_docs_config.json` (single source of truth)
+2. If the CLI needs special handling (e.g., version-independent), update `generate_cli_docs.sh`
+3. Update CI workflows (`.github/workflows/nightly-docs-release.yml` and `release-please.yml`) if the CLI needs to be made available during CI builds
 
 ## License
 

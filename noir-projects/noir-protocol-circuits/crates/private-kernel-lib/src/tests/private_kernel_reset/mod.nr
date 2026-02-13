@@ -9,6 +9,9 @@ mod reset_output_validator;
 
 use crate::{
     abis::{PaddedSideEffects, PrivateKernelResetHints},
+    components::reset_output_composer::{
+        silo_note_hash, silo_nullifier, silo_private_log, uniquify_siloed_note_hash,
+    },
     private_kernel_reset::PrivateKernelResetCircuitPrivateInputs,
     reset::{KeyValidationHint, ReadRequestHintsBuilder, TransientDataSquashingHint},
 };
@@ -20,17 +23,13 @@ use types::{
         nullifier_leaf_preimage::NullifierLeafPreimage,
         private_kernel_data::PrivateKernelDataWithoutPublicInputs, private_log::PrivateLogData,
     },
-    address::AztecAddress,
     constants::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
         NOTE_HASH_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT,
         PRIVATE_KERNEL_INNER_VK_INDEX,
     },
-    hash::{
-        compute_app_siloed_secret_key, compute_siloed_nullifier, compute_unique_siloed_note_hash,
-        silo_note_hash, silo_nullifier, silo_private_log,
-    },
+    hash::{compute_app_siloed_secret_key, compute_siloed_nullifier},
     merkle_tree::{LeafPreimage, MembershipWitness},
     side_effect::{Counted, Scoped},
     tests::{
@@ -238,10 +237,7 @@ impl TestBuilder {
         _self: Self,
         note_hash: Scoped<Counted<NoteHash>>,
     ) -> Scoped<Counted<NoteHash>> {
-        let mut siloed_note_hash = note_hash;
-        siloed_note_hash.inner.inner = silo_note_hash(note_hash);
-        siloed_note_hash.contract_address = AztecAddress::zero();
-        siloed_note_hash
+        silo_note_hash(note_hash)
     }
 
     pub fn compute_output_unique_siloed_note_hash(
@@ -249,41 +245,26 @@ impl TestBuilder {
         note_hash: Scoped<Counted<NoteHash>>,
         note_hash_index: u32,
     ) -> Scoped<Counted<NoteHash>> {
-        let siloed_note_hash = silo_note_hash(note_hash);
-        let mut unique_note_hash = note_hash;
-        unique_note_hash.inner.inner = compute_unique_siloed_note_hash(
+        let siloed_note_hash = self.compute_output_siloed_note_hash(note_hash);
+        uniquify_siloed_note_hash(
             siloed_note_hash,
             self.previous_kernel.claimed_first_nullifier,
             note_hash_index,
-        );
-        unique_note_hash.contract_address = AztecAddress::zero();
-        unique_note_hash
+        )
     }
 
     pub fn compute_output_nullifiers<let N: u32>(
         _self: Self,
         nullifiers: [Scoped<Counted<Nullifier>>; N],
     ) -> [Scoped<Counted<Nullifier>>; N] {
-        let mut output = nullifiers;
-        for i in 0..N {
-            output[i].inner.inner.value = silo_nullifier(nullifiers[i]);
-            output[i].contract_address = AztecAddress::zero();
-        }
-        output
+        nullifiers.map(|n| silo_nullifier(n))
     }
 
     pub fn compute_output_private_logs<let N: u32>(
         _self: Self,
         private_logs: [Scoped<Counted<PrivateLogData>>; N],
     ) -> [Scoped<Counted<PrivateLogData>>; N] {
-        private_logs.map(|l| {
-            PrivateLogData {
-                log: silo_private_log(l),
-                note_hash_counter: l.innermost().note_hash_counter,
-            }
-                .count(l.inner.counter)
-                .scope(AztecAddress::zero())
-        })
+        private_logs.map(|n| silo_private_log(n))
     }
 
     /// No siloing.

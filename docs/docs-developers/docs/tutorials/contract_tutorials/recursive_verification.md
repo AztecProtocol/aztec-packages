@@ -21,7 +21,7 @@ Before starting, ensure you have the following installed and configured:
 
 - Node.js (v22 or later)
 - yarn package manager
-- Aztec CLI (version 3.0.0-devnet.6-patch.1)
+- Aztec CLI (version #include_aztec_version)
 - Nargo (version 1.0.0-beta.15)
 - Familiarity with [Noir syntax](https://noir-lang.org/docs) and [Aztec contract basics](../../aztec-nr/index.md)
 
@@ -29,8 +29,7 @@ Install the required tools:
 
 ```bash
 # Install Aztec CLI
-bash -i <(curl -sL https://install.aztec.network)
-aztec-up 3.0.0-devnet.6-patch.1
+VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix)
 
 # Install Nargo via noirup
 curl -L https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
@@ -236,8 +235,8 @@ type = "contract"
 authors = ["[YOUR_NAME]"]
 
 [dependencies]
-aztec = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "v3.0.0-devnet.6-patch.1", directory = "aztec" }
-bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v3.0.0-devnet.6-patch.1", directory = "barretenberg/noir/bb_proof_verification" }
+aztec = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "#include_aztec_version", directory = "aztec" }
+bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "barretenberg/noir/bb_proof_verification" }
 ```
 
 **Key differences from the circuit's Nargo.toml**:
@@ -385,14 +384,14 @@ Create the following files in your project root directory.
     "recursion": "tsx scripts/run_recursion.ts"
   },
   "dependencies": {
-    "@aztec/accounts": "3.0.0-devnet.6-patch.1",
-    "@aztec/aztec.js": "3.0.0-devnet.6-patch.1",
-    "@aztec/bb.js": "3.0.0-devnet.6-patch.1",
-    "@aztec/kv-store": "3.0.0-devnet.6-patch.1",
-    "@aztec/noir-contracts.js": "3.0.0-devnet.6-patch.1",
-    "@aztec/noir-noir_js": "3.0.0-devnet.6-patch.1",
-    "@aztec/pxe": "3.0.0-devnet.6-patch.1",
-    "@aztec/test-wallet": "3.0.0-devnet.6-patch.1",
+    "@aztec/accounts": "#include_version_without_prefix",
+    "@aztec/aztec.js": "#include_version_without_prefix",
+    "@aztec/bb.js": "#include_version_without_prefix",
+    "@aztec/kv-store": "#include_version_without_prefix",
+    "@aztec/noir-contracts.js": "#include_version_without_prefix",
+    "@aztec/noir-noir_js": "#include_version_without_prefix",
+    "@aztec/pxe": "#include_version_without_prefix",
+    "@aztec/test-wallet": "#include_version_without_prefix",
     "tsx": "^4.20.6"
   },
   "devDependencies": {
@@ -588,7 +587,7 @@ import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
 import { ValueNotEqualContract } from "../contract/artifacts/ValueNotEqual";
 import data from "../data.json";
 import { getPXEConfig } from "@aztec/pxe/config";
-import { TestWallet } from "@aztec/test-wallet/server";
+import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { rm } from "node:fs/promises";
 import assert from "node:assert";
@@ -603,7 +602,7 @@ const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(
 
 // Initialize wallet and connect to local network
 // The wallet manages accounts and sends transactions through the PXE
-export const setupWallet = async (): Promise<TestWallet> => {
+export const setupWallet = async (): Promise<EmbeddedWallet> => {
   try {
     // Connect to the Aztec node (runs the rollup)
     const aztecNode = await createAztecNodeClient(NODE_URL);
@@ -613,10 +612,9 @@ export const setupWallet = async (): Promise<TestWallet> => {
     const config = getPXEConfig();
     await rm("pxe", { recursive: true, force: true });
     config.dataDirectory = "pxe";
-    config.proverEnabled = true; // Enable proof generation
 
     // Create wallet with embedded PXE
-    let wallet = await TestWallet.create(aztecNode, config);
+    let wallet = await EmbeddedWallet.create(aztecNode, config);
 
     // Register the sponsored FPC so the wallet knows about it
     await wallet.registerContract(sponsoredFPC, SponsoredFPCContract.artifact);
@@ -631,8 +629,8 @@ async function main() {
   // Step 1: Setup wallet and create account
   // Accounts in Aztec are smart contracts (account abstraction)
   // See: https://docs.aztec.network/aztec/concepts/accounts
-  const testWallet = await setupWallet();
-  const account = await testWallet.createAccount();
+  const wallet = await setupWallet();
+  const account = await wallet.createAccount();
   const manager = await account.getDeployMethod();
 
   // Deploy the account contract
@@ -643,12 +641,12 @@ async function main() {
     })
     .deployed();
 
-  const accounts = await testWallet.getAccounts();
+  const accounts = await wallet.getAccounts();
 
   // Step 2: Deploy ValueNotEqual contract
   // Constructor args: initial counter (10), owner, VK hash
   const valueNotEqual = await ValueNotEqualContract.deploy(
-    testWallet,
+    wallet,
     10, // Initial counter value
     accounts[0].item, // Owner address
     data.vkHash as unknown as FieldLike, // VK hash for verification

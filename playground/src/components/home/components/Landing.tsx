@@ -11,15 +11,11 @@ import { PREDEFINED_CONTRACTS } from '../../../constants';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { loadContractArtifact } from '@aztec/aztec.js/abi';
 import { useTransaction } from '../../../hooks/useTransaction';
-import {
-  convertFromUTF8BufferAsString,
-  formatFrAsString,
-  parseAliasedBuffersAsString,
-} from '../../../utils/conversion';
+import { formatFrAsString } from '../../../utils/conversion';
 import { filterDeployedAliasedContracts } from '../../../utils/contracts';
 import { parse } from 'buffer-json';
 import { trackButtonClick } from '../../../utils/matomo';
-import { EmbeddedWallet } from '../../../wallet/embedded_wallet';
+import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { prepareForFeePayment } from '../../../utils/sponsoredFPC';
 import { colors, commonStyles } from '../../../global.styles';
 
@@ -350,11 +346,10 @@ export function Landing() {
     let deployedContractAddress = null;
     const aliasedContracts = await playgroundDB.listAliases('contracts');
     if (wallet && aliasedContracts.length > 0) {
-      const contracts = parseAliasedBuffersAsString(aliasedContracts);
-      const deployedContracts = await filterDeployedAliasedContracts(contracts, wallet);
+      const deployedContracts = await filterDeployedAliasedContracts(aliasedContracts, wallet);
       for (const contract of deployedContracts) {
         const artifactAsString = await playgroundDB.retrieveAlias(`artifacts:${contract.item}`);
-        const contractArtifact = loadContractArtifact(parse(convertFromUTF8BufferAsString(artifactAsString)));
+        const contractArtifact = loadContractArtifact(parse(artifactAsString));
         if (contractArtifact.name === contractArtifactJSON.name) {
           deployedContractAddress = AztecAddress.fromString(contract.item);
           break;
