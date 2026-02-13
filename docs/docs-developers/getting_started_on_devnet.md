@@ -33,13 +33,10 @@ If you're new to Aztec and want to understand local development first, check out
 
 ## Prerequisites
 
-Before working with devnet, ensure you have:
-
-1. [Docker](https://docs.docker.com/get-started/get-docker/) installed
-2. Aztec CLI with Devnet version installed:
+Before working with devnet, ensure you have the Aztec CLI with the Devnet version installed:
 
 ```sh
-bash -i <(curl -sL https://install.aztec.network/#include_devnet_version/)
+VERSION=#include_devnet_version bash -i <(curl -sL https://install.aztec.network/#include_devnet_version)
 ```
 
 :::warning

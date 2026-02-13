@@ -22,12 +22,12 @@ template <IsUltraOrMegaBuilder Builder> class rom_table {
     rom_table(const std::vector<field_pt>& table_entries);
     rom_table(Builder* builder, const std::vector<field_pt>& table_entries);
     rom_table(const rom_table& other);
-    rom_table(rom_table&& other);
+    rom_table(rom_table&& other) noexcept;
 
     void initialize_table() const;
 
     rom_table& operator=(const rom_table& other);
-    rom_table& operator=(rom_table&& other);
+    rom_table& operator=(rom_table&& other) noexcept;
 
     // read from table with a constant index value. Does not add any gates
     field_pt operator[](const size_t index) const;

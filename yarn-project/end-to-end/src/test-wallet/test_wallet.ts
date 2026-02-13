@@ -229,9 +229,17 @@ export class TestWallet extends BaseWallet {
     feeOptions: FeeOptions,
     skipTxValidation?: boolean,
     skipFeeEnforcement?: boolean,
+    scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
     if (!this.simulatedSimulations) {
-      return super.simulateViaEntrypoint(executionPayload, from, feeOptions, skipTxValidation, skipFeeEnforcement);
+      return super.simulateViaEntrypoint(
+        executionPayload,
+        from,
+        feeOptions,
+        skipTxValidation,
+        skipFeeEnforcement,
+        scopes,
+      );
     }
 
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
@@ -259,13 +267,14 @@ export class TestWallet extends BaseWallet {
       skipFeeEnforcement: true,
       skipTxValidation: true,
       overrides: { contracts: contractOverrides },
+      scopes,
     });
   }
 
   async proveTx(exec: ExecutionPayload, opts: Omit<SendOptions, 'wait'>): Promise<ProvenTx> {
     const fee = await this.completeFeeOptions(opts.from, exec.feePayer, opts.fee?.gasSettings);
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(exec, opts.from, fee);
-    const txProvingResult = await this.pxe.proveTx(txRequest);
+    const txProvingResult = await this.pxe.proveTx(txRequest, this.scopesFor(opts.from));
     return new ProvenTx(
       this.aztecNode,
       await txProvingResult.toTx(),

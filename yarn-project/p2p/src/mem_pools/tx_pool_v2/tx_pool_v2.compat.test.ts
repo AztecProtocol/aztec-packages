@@ -161,10 +161,10 @@ describe('TxPoolV2 Compatibility Tests', () => {
       await pool.addPendingTxs([pendingTx, minedTx]);
       await pool.handleMinedBlock(makeBlock([minedTx], block1Header));
 
-      // Delete a pending tx via handleFailedExecution - should be permanently deleted
+      // Delete a pending tx via handleFailedExecution - should be slot-soft-deleted
       await pool.handleFailedExecution([pendingTx.getTxHash()]);
-      expect(await pool.getTxByHash(pendingTx.getTxHash())).toBeUndefined();
-      expect(await pool.getTxStatus(pendingTx.getTxHash())).toBeUndefined();
+      expect(await pool.getTxByHash(pendingTx.getTxHash())).toBeDefined();
+      expect(await pool.getTxStatus(pendingTx.getTxHash())).toBe('deleted');
 
       expect(await pool.getPendingTxCount()).toEqual(0);
     });
@@ -305,8 +305,8 @@ describe('TxPoolV2 Compatibility Tests', () => {
       // Delete mined tx via finalization
       await pool.handleFinalizedBlock(block1Header);
 
-      // Verify mined tx is deleted
-      expect(await pool.getTxStatus(txs[0].getTxHash())).toBeUndefined();
+      // Verify mined tx is deleted (slot-soft-deleted)
+      expect(await pool.getTxStatus(txs[0].getTxHash())).toBe('deleted');
 
       // Verify remaining pending count
       expect(await pool.getPendingTxCount()).toBe(2);

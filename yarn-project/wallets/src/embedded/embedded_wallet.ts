@@ -80,6 +80,7 @@ export class EmbeddedWallet extends BaseWallet {
     feeOptions: FeeOptions,
     _skipTxValidation?: boolean,
     _skipFeeEnforcement?: boolean,
+    scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
     const { account: fromAccount, instance, artifact } = await this.getFakeAccountDataFor(from);
 
@@ -106,6 +107,7 @@ export class EmbeddedWallet extends BaseWallet {
       overrides: {
         contracts: { [from.toString()]: { instance, artifact } },
       },
+      scopes,
     });
   }
 

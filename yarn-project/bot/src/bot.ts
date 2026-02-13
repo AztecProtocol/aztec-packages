@@ -83,7 +83,7 @@ export class Bot extends BaseBot {
     if (isStandardTokenContract(this.token)) {
       return {
         sender: await getBalances(this.token, this.defaultAccountAddress),
-        recipient: await getBalances(this.token, this.recipient, this.defaultAccountAddress),
+        recipient: await getBalances(this.token, this.recipient),
       };
     } else {
       return {
@@ -92,7 +92,7 @@ export class Bot extends BaseBot {
           publicBalance: 0n,
         },
         recipient: {
-          privateBalance: await getPrivateBalance(this.token, this.recipient, this.defaultAccountAddress),
+          privateBalance: await getPrivateBalance(this.token, this.recipient),
           publicBalance: 0n,
         },
       };

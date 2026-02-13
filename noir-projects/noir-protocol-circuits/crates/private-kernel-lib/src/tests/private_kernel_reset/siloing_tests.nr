@@ -196,3 +196,54 @@ fn siloing_private_logs_again() {
         [private_logs[0], private_logs[1], siloed_logs[0], siloed_logs[1]],
     );
 }
+
+#[test(should_fail_with = "Propagated note hash does not match")]
+fn extra_note_hash_beyond_claimed_length() {
+    let mut builder = TestBuilder::new();
+
+    // 1 extra note hash beyond the claimed length.
+    builder.previous_kernel.append_note_hashes(2);
+    let note_hashes = builder.previous_kernel.note_hashes.storage();
+    builder.previous_kernel.note_hashes = BoundedVec::from_parts_unchecked(note_hashes, 1);
+
+    let _ = builder.execute_with_siloing();
+
+    // This test fails because the composer doesn't add siloed note hashes beyond the claimed length, but the transient
+    // data validator processes all items within NOTE_HASH_SILOING_AMOUNT and expects a siloed note hash in the output.
+    // If the output does contain the extra note hashes, the validator will still catch it and fail.
+    // See the test propagated_note_hashes_tests.nr > previous_note_hashes_beyond_claimed_length.
+}
+
+#[test(should_fail_with = "Propagated nullifier does not match")]
+fn extra_nullifiers_beyond_claimed_length() {
+    let mut builder = TestBuilder::new();
+
+    // 1 extra nullifier beyond the claimed length.
+    builder.previous_kernel.append_nullifiers(2);
+    let nullifiers = builder.previous_kernel.nullifiers.storage();
+    builder.previous_kernel.nullifiers = BoundedVec::from_parts_unchecked(nullifiers, 1);
+
+    let _ = builder.execute_with_siloing();
+
+    // This test fails because the composer doesn't add siloed nullifiers beyond the claimed length, but the transient
+    // data validator processes all items within NULLIFIER_SILOING_AMOUNT and expects a siloed nullifier in the output.
+    // If the output does contain extra nullifiers, the validator will still catch it and fail.
+    // See the test propagated_nullifiers_tests.nr > previous_nullifiers_beyond_claimed_length.
+}
+
+#[test(should_fail_with = "Propagated private log does not match")]
+fn extra_private_logs_beyond_claimed_length() {
+    let mut builder = TestBuilder::new();
+
+    // 1 extra private log beyond the claimed length.
+    builder.previous_kernel.append_private_logs(2);
+    let private_logs = builder.previous_kernel.private_logs.storage();
+    builder.previous_kernel.private_logs = BoundedVec::from_parts_unchecked(private_logs, 1);
+
+    let _ = builder.execute_with_siloing();
+
+    // This test fails because the composer doesn't add siloed private logs beyond the claimed length, but the transient
+    // data validator processes all items within PRIVATE_LOG_SILOING_AMOUNT and expects a siloed log in the output.
+    // If the output does contain extra private logs, the validator will still catch it and fail.
+    // See the test propagated_private_logs_tests.nr > previous_private_logs_beyond_claimed_length.
+}

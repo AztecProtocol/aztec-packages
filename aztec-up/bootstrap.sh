@@ -112,10 +112,8 @@ function release {
   # Upload version-specific files to version directory.
   do_or_dryrun aws s3 cp bin/0.0.1/install "s3://install.aztec.network/$version/install"
   do_or_dryrun aws s3 cp bin/0.0.1/versions "s3://install.aztec.network/$version/versions"
-
-  # Upload root installer files to the version directory, which can be useful for testing.
-  do_or_dryrun aws s3 cp bin/aztec-install "s3://install.aztec.network/$version/aztec-install"
-  do_or_dryrun aws s3 cp bin/aztec-up "s3://install.aztec.network/$version/aztec-up"
+  do_or_dryrun aws s3 cp bin/0.0.1/aztec-install "s3://install.aztec.network/$version/aztec-install"
+  do_or_dryrun aws s3 cp bin/0.0.1/aztec-up "s3://install.aztec.network/$version/aztec-up"
 
   # Update alias to point to new version.
   # This has real impact outside of the version fence. i.e. if it's nightly dist tag, it affects nightly installs.
@@ -126,8 +124,8 @@ function release {
 # It's a manual process, as updating the root installer and alias index requires careful consideration.
 function release_aztec_up {
     # Update root scripts.
-    do_or_dryrun aws s3 cp bin/aztec-install "s3://install.aztec.network/aztec-install"
-    do_or_dryrun aws s3 cp bin/aztec-up "s3://install.aztec.network/aztec-up"
+    do_or_dryrun aws s3 cp bin/0.0.1/aztec-install "s3://install.aztec.network/aztec-install"
+    do_or_dryrun aws s3 cp bin/0.0.1/aztec-up "s3://install.aztec.network/aztec-up"
 
     # Update alias list.
     do_or_dryrun aws s3 cp bin/aliases/index "s3://install.aztec.network/aliases/index"

@@ -12,7 +12,14 @@ import type {
 } from './types.js';
 
 export const ValidatorStatusInSlotSchema = zodFor<ValidatorStatusInSlot>()(
-  z.enum(['block-mined', 'block-proposed', 'block-missed', 'attestation-sent', 'attestation-missed']),
+  z.enum([
+    'checkpoint-mined',
+    'checkpoint-proposed',
+    'checkpoint-missed',
+    'blocks-missed',
+    'attestation-sent',
+    'attestation-missed',
+  ]),
 );
 
 export const ValidatorStatusHistorySchema = zodFor<ValidatorStatusHistory>()(

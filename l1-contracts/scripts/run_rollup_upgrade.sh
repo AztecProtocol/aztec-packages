@@ -20,10 +20,10 @@ echo "=== Deploying rollup upgrade ==="
 echo "Registry: $registry_address"
 
 REGISTRY_ADDRESS="$registry_address" \
-     REAL_VERIFIER="${REAL_VERIFIER:-true}" \
-     forge script script/deploy/DeployRollupForUpgrade.s.sol:DeployRollupForUpgrade \
-       --rpc-url "$L1_RPC_URL" \
-       --private-key "$ROLLUP_DEPLOYMENT_PRIVATE_KEY" \
-       --broadcast \
-       ${ETHERSCAN_API_KEY:+--verify} \
+REAL_VERIFIER="${REAL_VERIFIER:-true}" \
+./scripts/forge_broadcast.js \
+  script/deploy/DeployRollupForUpgrade.s.sol:DeployRollupForUpgrade \
+  --rpc-url "$L1_RPC_URL" \
+  --private-key "$ROLLUP_DEPLOYMENT_PRIVATE_KEY" \
+  ${ETHERSCAN_API_KEY:+--verify} \
   -vvv

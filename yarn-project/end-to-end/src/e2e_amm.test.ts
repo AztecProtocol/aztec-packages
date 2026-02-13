@@ -146,7 +146,9 @@ describe('AMM', () => {
       // Liquidity tokens should also be minted for the liquidity provider, as well as locked at the zero address.
       const expectedLiquidityTokens = (INITIAL_AMM_TOTAL_SUPPLY * 99n) / 100n;
       expect(
-        await liquidityToken.methods.balance_of_private(liquidityProviderAddress).simulate({ from: adminAddress }),
+        await liquidityToken.methods
+          .balance_of_private(liquidityProviderAddress)
+          .simulate({ from: liquidityProviderAddress }),
       ).toEqual(expectedLiquidityTokens);
       expect(await liquidityToken.methods.total_supply().simulate({ from: adminAddress })).toEqual(
         INITIAL_AMM_TOTAL_SUPPLY,

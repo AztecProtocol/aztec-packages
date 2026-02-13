@@ -1,5 +1,6 @@
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
+import type { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
@@ -64,6 +65,7 @@ export class TxPoolV2Impl {
   #archive: TxArchive;
   #deletedPool: DeletedPool;
   #evictionManager: EvictionManager;
+  #dateProvider: DateProvider;
   #log: Logger;
   #callbacks: TxPoolV2Callbacks;
 
@@ -73,6 +75,7 @@ export class TxPoolV2Impl {
     deps: TxPoolV2Dependencies,
     callbacks: TxPoolV2Callbacks,
     config: Partial<TxPoolV2Config> = {},
+    dateProvider: DateProvider,
     log: Logger,
   ) {
     this.#store = store;
@@ -85,6 +88,7 @@ export class TxPoolV2Impl {
     this.#config = { ...DEFAULT_TX_POOL_V2_CONFIG, ...config };
     this.#archive = new TxArchive(archiveStore, this.#config.archivedTxLimit, log);
     this.#deletedPool = new DeletedPool(store, this.#txsDB, log);
+    this.#dateProvider = dateProvider;
     this.#log = log;
     this.#callbacks = callbacks;
 
@@ -164,7 +168,7 @@ export class TxPoolV2Impl {
         await this.#txsDB.delete(txHashStr);
       }
     });
-    this.#log.info(`Deleted ${toDelete.length} invalid/rejected transactions on startup`);
+    this.#log.info(`Deleted ${toDelete.length} invalid/rejected transactions on startup`, { txHashes: toDelete });
   }
 
   async addPendingTxs(txs: Tx[], opts: { source?: string }): Promise<AddTxsResult> {
@@ -255,7 +259,10 @@ export class TxPoolV2Impl {
     // Evict conflicts
     for (const evictHashStr of preAddResult.txHashesToEvict) {
       await this.#deleteTx(evictHashStr);
-      this.#log.debug(`Evicted tx ${evictHashStr} due to higher-fee tx ${txHashStr}`);
+      this.#log.debug(`Evicted tx ${evictHashStr} due to higher-fee tx ${txHashStr}`, {
+        evictedTxHash: evictHashStr,
+        replacementTxHash: txHashStr,
+      });
       if (acceptedPending.has(evictHashStr)) {
         // Evicted tx was from this batch - mark as ignored in result
         acceptedPending.delete(evictHashStr);
@@ -393,6 +400,9 @@ export class TxPoolV2Impl {
   }
 
   async prepareForSlot(slotNumber: SlotNumber): Promise<void> {
+    // Step 0: Clean up slot-deleted txs from previous slots
+    await this.#deletedPool.cleanupSlotDeleted(slotNumber);
+
     // Step 1: Find expired protected txs
     const expiredProtected = this.#indices.findExpiredProtectedTxs(slotNumber);
 
@@ -464,6 +474,11 @@ export class TxPoolV2Impl {
     // Step 7: Delete invalid and evicted txs
     await this.#deleteTxsBatch([...invalid, ...toEvict]);
 
+    this.#log.info(
+      `Handled prune to block ${latestBlock.number}: ${valid.length} txs restored to pending, ${invalid.length} invalid, ${toEvict.length} evicted due to nullifier conflicts`,
+      { txHashesRestored: valid.map(m => m.txHash), txHashesInvalid: invalid, txHashesEvicted: toEvict },
+    );
+
     // Step 8: Run eviction rules for ALL pending txs (not just restored ones)
     // This handles cases like existing pending txs with invalid fee payer balances
     await this.#evictionManager.evictAfterChainPrune(latestBlock.number);
@@ -473,7 +488,7 @@ export class TxPoolV2Impl {
     // Delete failed txs
     await this.#deleteTxsBatch(txHashes.map(h => h.toString()));
 
-    this.#log.info(`Deleted ${txHashes.length} failed txs`);
+    this.#log.info(`Deleted ${txHashes.length} failed txs`, { txHashes: txHashes.map(h => h.toString()) });
   }
 
   async handleFinalizedBlock(block: BlockHeader): Promise<void> {
@@ -505,7 +520,9 @@ export class TxPoolV2Impl {
     }
 
     if (minedTxsToFinalize.length > 0) {
-      this.#log.info(`Finalized ${minedTxsToFinalize.length} mined txs from blocks up to ${blockNumber}`);
+      this.#log.info(`Finalized ${minedTxsToFinalize.length} mined txs from blocks up to ${blockNumber}`, {
+        txHashes: minedTxsToFinalize,
+      });
     }
   }
 
@@ -547,6 +564,13 @@ export class TxPoolV2Impl {
 
   getPendingTxHashes(): TxHash[] {
     return [...this.#indices.iteratePendingByPriority('desc')].map(hash => TxHash.fromString(hash));
+  }
+
+  getEligiblePendingTxHashes(): TxHash[] {
+    const maxReceivedAt = this.#dateProvider.now() - this.#config.minTxPoolAgeMs;
+    return [...this.#indices.iterateEligiblePendingByPriority('desc', maxReceivedAt)].map(hash =>
+      TxHash.fromString(hash),
+    );
   }
 
   getPendingTxCount(): number {
@@ -593,6 +617,9 @@ export class TxPoolV2Impl {
       this.#config.archivedTxLimit = config.archivedTxLimit;
       this.#archive.updateLimit(config.archivedTxLimit);
     }
+    if (config.minTxPoolAgeMs !== undefined) {
+      this.#config.minTxPoolAgeMs = config.minTxPoolAgeMs;
+    }
     // Update eviction rules with new config
     this.#evictionManager.updateConfig(config);
   }
@@ -629,8 +656,10 @@ export class TxPoolV2Impl {
   ): Promise<TxMetaData> {
     const txHashStr = tx.getTxHash().toString();
     const meta = await buildTxMetaData(tx);
+    meta.receivedAt = this.#dateProvider.now();
 
     await this.#txsDB.set(txHashStr, tx.toBuffer());
+    await this.#deletedPool.clearSoftDeleted(txHashStr);
     this.#callbacks.onTxsAdded([tx], opts);
 
     if (state === 'pending') {
