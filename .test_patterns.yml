@@ -342,3 +342,10 @@ tests:
     error_regex: "✕ should coordinate governance voting across HA nodes"
     owners:
       - *spyros
+
+  # http://ci.aztec-labs.com/98d59d04f85223f8
+  # Build-cache flake: module not found during Jest startup
+  - regex: "src/e2e_sequencer/gov_proposal.parallel.test.ts"
+    error_regex: "Cannot find module '@aztec/sequencer-client/config'"
+    owners:
+      - *palla

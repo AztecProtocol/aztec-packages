@@ -219,6 +219,7 @@ locals {
     "validator.node.env.P2P_DROP_TX"                           = var.P2P_DROP_TX
     "validator.node.env.P2P_DROP_TX_CHANCE"                    = var.P2P_DROP_TX_CHANCE
     "validator.node.env.WS_NUM_HISTORIC_BLOCKS"                = var.WS_NUM_HISTORIC_BLOCKS
+    "validator.node.env.TX_COLLECTION_FILE_STORE_URLS"         = var.TX_COLLECTION_FILE_STORE_URLS
   }
 
   # Note: nonsensitive() is required here because helm_releases is used in for_each,
@@ -357,6 +358,7 @@ locals {
           "node.node.env.P2P_DROP_TX"                           = var.P2P_DROP_TX
           "node.node.env.P2P_DROP_TX_CHANCE"                    = var.P2P_DROP_TX_CHANCE
           "node.node.env.WS_NUM_HISTORIC_BLOCKS"                = var.WS_NUM_HISTORIC_BLOCKS
+          "node.node.env.TX_COLLECTION_FILE_STORE_URLS"         = var.TX_COLLECTION_FILE_STORE_URLS
           "node.service.p2p.nodePortEnabled"                    = var.P2P_NODEPORT_ENABLED
           "node.service.p2p.announcePort"                       = local.p2p_port_prover
           "node.service.p2p.port"                               = local.p2p_port_prover
@@ -436,6 +438,9 @@ locals {
         "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
         "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
         "node.env.WS_NUM_HISTORIC_BLOCKS"             = var.WS_NUM_HISTORIC_BLOCKS
+        "node.env.TX_FILE_STORE_ENABLED"              = var.TX_FILE_STORE_ENABLED
+        "node.env.TX_FILE_STORE_URL"                  = var.TX_FILE_STORE_URL
+        "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
         },
         # Only set RPC mnemonic config in fisherman mode)
         var.FISHERMAN_MODE ? {
@@ -490,6 +495,7 @@ locals {
         "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
         "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
         "node.env.WS_NUM_HISTORIC_BLOCKS"             = var.WS_NUM_HISTORIC_BLOCKS
+        "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
@@ -529,6 +535,7 @@ locals {
         "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
         "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
         "node.env.WS_NUM_HISTORIC_BLOCKS"             = var.WS_NUM_HISTORIC_BLOCKS
+        "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
@@ -613,6 +620,30 @@ locals {
         "bot.nodeUrl"            = local.internal_rpc_url
         "bot.mnemonic"           = var.BOT_MNEMONIC
         "bot.mnemonicStartIndex" = var.BOT_SWAPS_MNEMONIC_START_INDEX
+      }
+      boot_node_host_path  = ""
+      bootstrap_nodes_path = ""
+      wait                 = false
+    } : null
+
+    # Optional: cross-chain message bots
+    bot_cross_chain = var.BOT_CROSS_CHAIN_REPLICAS > 0 ? {
+      name  = "${var.RELEASE_PREFIX}-bot-cross-chain"
+      chart = "aztec-bot"
+      values = [
+        "common.yaml",
+        "bot-cross-chain.yaml",
+        "bot-resources-${var.BOT_RESOURCE_PROFILE}.yaml",
+      ]
+      custom_settings = {
+        "bot.replicaCount"       = var.BOT_CROSS_CHAIN_REPLICAS
+        "bot.txIntervalSeconds"  = var.BOT_CROSS_CHAIN_TX_INTERVAL_SECONDS
+        "bot.followChain"        = var.BOT_CROSS_CHAIN_FOLLOW_CHAIN
+        "bot.pxeSyncChainTip"    = var.BOT_CROSS_CHAIN_PXE_SYNC_CHAIN_TIP
+        "bot.botPrivateKey"      = var.BOT_CROSS_CHAIN_L2_PRIVATE_KEY
+        "bot.nodeUrl"            = local.internal_rpc_url
+        "bot.mnemonic"           = var.BOT_MNEMONIC
+        "bot.mnemonicStartIndex" = var.BOT_CROSS_CHAIN_MNEMONIC_START_INDEX
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""

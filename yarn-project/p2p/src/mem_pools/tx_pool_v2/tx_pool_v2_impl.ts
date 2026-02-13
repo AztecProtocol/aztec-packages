@@ -175,7 +175,7 @@ export class TxPoolV2Impl {
         await this.#txsDB.delete(txHashStr);
       }
     });
-    this.#log.info(`Deleted ${toDelete.length} invalid/rejected transactions on startup`);
+    this.#log.info(`Deleted ${toDelete.length} invalid/rejected transactions on startup`, { txHashes: toDelete });
   }
 
   async addPendingTxs(txs: Tx[], opts: { source?: string; feeOnly?: boolean }): Promise<AddTxsResult> {
@@ -295,7 +295,10 @@ export class TxPoolV2Impl {
         await this.#evictTxs(hashes, reason);
       }
       for (const evictHashStr of preAddResult.txHashesToEvict) {
-        this.#log.debug(`Evicted tx ${evictHashStr} due to higher-fee tx ${txHashStr}`);
+        this.#log.debug(`Evicted tx ${evictHashStr} due to higher-fee tx ${txHashStr}`, {
+          evictedTxHash: evictHashStr,
+          replacementTxHash: txHashStr,
+        });
         if (acceptedPending.has(evictHashStr)) {
           // Evicted tx was from this batch - mark as ignored in result
           acceptedPending.delete(evictHashStr);
@@ -544,6 +547,11 @@ export class TxPoolV2Impl {
     await this.#deleteTxsBatch(invalid);
     await this.#evictTxs(toEvict, 'NullifierConflict');
 
+    this.#log.info(
+      `Handled prune to block ${latestBlock.number}: ${valid.length} txs restored to pending, ${invalid.length} invalid, ${toEvict.length} evicted due to nullifier conflicts`,
+      { txHashesRestored: valid.map(m => m.txHash), txHashesInvalid: invalid, txHashesEvicted: toEvict },
+    );
+
     // Step 8: Run eviction rules for ALL pending txs (not just restored ones)
     // This handles cases like existing pending txs with invalid fee payer balances
     await this.#evictionManager.evictAfterChainPrune(latestBlock.number);
@@ -553,7 +561,7 @@ export class TxPoolV2Impl {
     // Delete failed txs
     await this.#deleteTxsBatch(txHashes.map(h => h.toString()));
 
-    this.#log.info(`Deleted ${txHashes.length} failed txs`);
+    this.#log.info(`Deleted ${txHashes.length} failed txs`, { txHashes: txHashes.map(h => h.toString()) });
   }
 
   async handleFinalizedBlock(block: BlockHeader): Promise<void> {
@@ -585,7 +593,9 @@ export class TxPoolV2Impl {
     }
 
     if (minedTxsToFinalize.length > 0) {
-      this.#log.info(`Finalized ${minedTxsToFinalize.length} mined txs from blocks up to ${blockNumber}`);
+      this.#log.info(`Finalized ${minedTxsToFinalize.length} mined txs from blocks up to ${blockNumber}`, {
+        txHashes: minedTxsToFinalize,
+      });
     }
   }
 

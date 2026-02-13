@@ -31,6 +31,7 @@ export class TxFileStore {
     private readonly config: TxFileStoreConfig,
     private readonly instrumentation: TxFileStoreInstrumentation,
     private readonly log: Logger,
+    private readonly basePath: string,
   ) {
     this.handleTxsAdded = (args: { txs: Tx[]; source?: string }) => {
       this.enqueueTxs(args.txs);
@@ -50,6 +51,7 @@ export class TxFileStore {
   static async create(
     txPool: TxPoolV2,
     config: TxFileStoreConfig,
+    basePath: string,
     log: Logger = createLogger('p2p:tx_file_store'),
     telemetry: TelemetryClient = getTelemetryClient(),
     fileStoreOverride?: FileStore,
@@ -71,8 +73,8 @@ export class TxFileStore {
     }
 
     const instrumentation = new TxFileStoreInstrumentation(telemetry, 'TxFileStore');
-    log.info('Created tx file store', { url: config.txFileStoreUrl });
-    return new TxFileStore(fileStore, txPool, config, instrumentation, log);
+    log.info('Created tx file store', { url: config.txFileStoreUrl, basePath });
+    return new TxFileStore(fileStore, txPool, config, instrumentation, log, basePath);
   }
 
   /** Starts listening to TxPool events and uploading txs. */
@@ -122,7 +124,7 @@ export class TxFileStore {
 
   private async uploadTx(tx: Tx): Promise<void> {
     const txHash = tx.getTxHash().toString();
-    const path = `txs/${txHash}.bin`;
+    const path = `${this.basePath}/txs/${txHash}.bin`;
     const timer = new Timer();
 
     if (this.recentUploads.has(txHash)) {

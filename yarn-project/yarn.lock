@@ -802,6 +802,7 @@ __metadata:
     "@aztec/archiver": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
     "@aztec/blob-client": "workspace:^"
+    "@aztec/blob-lib": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -1064,8 +1065,10 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
+    "@aztec/l1-artifacts": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
+    "@aztec/noir-test-contracts.js": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
@@ -1081,6 +1084,7 @@ __metadata:
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
+    viem: "npm:@aztec/viem@2.38.2"
     zod: "npm:^3.23.8"
   languageName: unknown
   linkType: soft

@@ -1,8 +1,9 @@
+import type { BlobKzgInstance } from '@aztec/blob-lib/types';
 import { maxBigint } from '@aztec/foundation/bigint';
 import { merge, pick } from '@aztec/foundation/collection';
 import { InterruptError, TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -30,6 +31,7 @@ import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './config.js';
 import { MAX_L1_TX_LIMIT } from './constants.js';
 import type { IL1TxMetrics, IL1TxStore } from './interfaces.js';
 import { ReadOnlyL1TxUtils } from './readonly_l1_tx_utils.js';
+import { Delayer, createDelayer, wrapClientWithDelayer } from './tx_delayer.js';
 import {
   DroppedTransactionError,
   type L1BlobInputs,
@@ -47,6 +49,10 @@ const MAX_L1_TX_STATES = 32;
 export class L1TxUtils extends ReadOnlyL1TxUtils {
   protected nonceManager: NonceManager;
   protected txs: L1TxState[] = [];
+  /** Tx delayer for testing. Only set when enableDelayer config is true. */
+  public delayer?: Delayer;
+  /** KZG instance for blob operations. */
+  protected kzg?: BlobKzgInstance;
 
   constructor(
     public override client: ViemClient,
@@ -58,9 +64,26 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     debugMaxGasLimit: boolean = false,
     protected store?: IL1TxStore,
     protected metrics?: IL1TxMetrics,
+    kzg?: BlobKzgInstance,
+    delayer?: Delayer,
   ) {
     super(client, logger, dateProvider, config, debugMaxGasLimit);
     this.nonceManager = createNonceManager({ source: jsonRpc() });
+    this.kzg = kzg;
+
+    // Set up delayer: use provided one or create new
+    if (config?.enableDelayer && config?.ethereumSlotDuration) {
+      this.delayer =
+        delayer ?? this.createDelayer({ ethereumSlotDuration: config.ethereumSlotDuration }, logger.getBindings());
+      this.client = wrapClientWithDelayer(this.client, this.delayer);
+      if (config.txDelayerMaxInclusionTimeIntoSlot !== undefined) {
+        this.delayer.setMaxInclusionTimeIntoSlot(config.txDelayerMaxInclusionTimeIntoSlot);
+      }
+    } else if (delayer) {
+      // Delayer provided but enableDelayer not set — just store it without wrapping
+      logger.warn('Delayer provided but enableDelayer config is not set; delayer will not be used');
+      this.delayer = delayer;
+    }
   }
 
   public get state() {
@@ -731,8 +754,17 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     return Number(timestamp) * 1000;
   }
 
-  /** Makes empty blob inputs for the cancellation tx. To be overridden in L1TxUtilsWithBlobs. */
-  protected makeEmptyBlobInputs(_maxFeePerBlobGas: bigint): Required<L1BlobInputs> {
-    throw new Error('Cannot make empty blob inputs for cancellation');
+  /** Makes empty blob inputs for the cancellation tx. */
+  protected makeEmptyBlobInputs(maxFeePerBlobGas: bigint): Required<L1BlobInputs> {
+    if (!this.kzg) {
+      throw new Error('Cannot make empty blob inputs for cancellation without kzg');
+    }
+    const blobData = new Uint8Array(131072).fill(0);
+    return { blobs: [blobData], kzg: this.kzg, maxFeePerBlobGas };
+  }
+
+  /** Creates a new delayer instance. */
+  protected createDelayer(opts: { ethereumSlotDuration: bigint | number }, bindings: LoggerBindings): Delayer {
+    return createDelayer(this.dateProvider, opts, bindings);
   }
 }

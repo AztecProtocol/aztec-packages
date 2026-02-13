@@ -86,13 +86,20 @@ if [ -z "${iid:-}" -o "${iid:-}" == "None" ]; then
   echo $iid > $iid_path
 fi
 
-aws ec2 create-tags --resources $iid --tags "Key=Name,Value=$name"
-aws ec2 create-tags --resources $iid --tags "Key=Group,Value=build-instance"
+tags="Key=Name,Value=$name Key=Group,Value=build-instance"
+[ -n "${GITHUB_ACTOR:-}" ] && tags+=" Key=GithubActor,Value=$GITHUB_ACTOR"
+[ -n "${CI_MODE:-}" ] && tags+=" Key=CICommand,Value=$CI_MODE"
+[ -n "${CI_DASHBOARD:-}" ] && tags+=" Key=Dashboard,Value=$CI_DASHBOARD"
 if [ "${UNSAFE_AWS_KEEP_ALIVE:-0}" -eq 1 ]; then
   echo_stderr "You have set UNSAFE_AWS_KEEP_ALIVE=1, so the instance will not be terminated after 1.5 hours by the reaper script. Make sure you shut the machine down when done."
-  # Tag instance with Keep-Alive=true
-  aws ec2 create-tags --resources $iid --tags "Key=Keep-Alive,Value=true"
+  tags+=" Key=Keep-Alive,Value=true"
 fi
+aws ec2 create-tags --resources $iid --tags $tags
+
+# Record the instance type so callers can pass it downstream (e.g. into Docker).
+echo $instance_type > $state_dir/instance_type
+# Record whether this is spot or on-demand.
+[ -f "$sir_path" ] && echo spot > $state_dir/spot || echo ondemand > $state_dir/spot
 
 while [ -z "${ip:-}" ]; do
   sleep 1
@@ -115,3 +122,6 @@ while ! ssh -F $SSH_CONFIG_PATH -o ConnectTimeout=1 $ip $LIVE_CMD > /dev/null 2>
   fi
   sleep 1
 done
+
+aws ec2 create-tags --resources $iid --tags "Key=Name,Value=$name"
+aws ec2 create-tags --resources $iid --tags "Key=Group,Value=build-instance"

@@ -12,7 +12,7 @@ import {
 import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import { MultiAdderArtifact } from '@aztec/ethereum/l1-artifacts';
-import { createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
+import { createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient, ViemClient } from '@aztec/ethereum/types';
 import { EpochNumber } from '@aztec/foundation/branded-types';
@@ -343,7 +343,7 @@ export class P2PNetworkTest {
   }
 
   private async _sendDummyTx(l1Client: ExtendedViemWalletClient) {
-    const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client);
+    const l1TxUtils = createL1TxUtils(l1Client);
     return await l1TxUtils.sendAndMonitorTransaction({
       to: l1Client.account!.address,
       value: 1n,

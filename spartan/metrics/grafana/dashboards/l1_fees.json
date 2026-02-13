@@ -986,12 +986,341 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "description": "Total number of blobs in pending and included blocks",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "blobs"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Pending"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Included"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 37
+      },
+      "id": 33,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(aztec_fisherman_fee_analysis_pending_blob_count_sum{k8s_namespace_name=\"$namespace\"}[$__rate_interval])) / sum(increase(aztec_fisherman_fee_analysis_pending_blob_count_count{k8s_namespace_name=\"$namespace\"}[$__rate_interval]))",
+          "legendFormat": "Pending",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(aztec_fisherman_fee_analysis_included_blob_count_sum{k8s_namespace_name=\"$namespace\"}[$__rate_interval])) / sum(increase(aztec_fisherman_fee_analysis_included_blob_count_count{k8s_namespace_name=\"$namespace\"}[$__rate_interval]))",
+          "legendFormat": "Included",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Total Blob Counts",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "description": "Percentage of blocks that reached 100% blob capacity",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 1,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 0.5
+              },
+              {
+                "color": "red",
+                "value": 0.8
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 37
+      },
+      "id": 34,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(aztec_fisherman_fee_analysis_block_blobs_full{k8s_namespace_name=\"$namespace\",aztec_ok=\"true\"}[$__range])) / sum(increase(aztec_fisherman_fee_analysis_block_blobs_full{k8s_namespace_name=\"$namespace\"}[$__range]))",
+          "legendFormat": "Blocks Full Rate",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Block Blob Capacity Full Rate",
+      "type": "gauge"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 37
+        "y": 45
+      },
+      "id": 60,
+      "panels": [],
+      "title": "Full Block Analysis",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "description": "Inclusion rate by strategy for blocks that reached 100% blob capacity",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "max": 1,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 46
+      },
+      "id": 61,
+      "options": {
+        "legend": {
+          "calcs": [
+            "last",
+            "mean"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "sum by(aztec_fisherman_strategy_id) (\n  increase(aztec_fisherman_fee_analysis_would_be_included{k8s_namespace_name=\"$namespace\",aztec_ok=\"true\"}[$__rate_interval])\n  * on() group_left()\n  (aztec_fisherman_fee_analysis_block_blobs_full{k8s_namespace_name=\"$namespace\",aztec_ok=\"true\"} > 0)\n) / sum by(aztec_fisherman_strategy_id) (\n  increase(aztec_fisherman_fee_analysis_would_be_included{k8s_namespace_name=\"$namespace\"}[$__rate_interval])\n  * on() group_left()\n  (aztec_fisherman_fee_analysis_block_blobs_full{k8s_namespace_name=\"$namespace\"} > 0)\n)",
+          "legendFormat": "{{aztec_fisherman_strategy_id}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Inclusion Rate by Strategy (Full Blocks Only)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 55
       },
       "id": 50,
       "panels": [],
@@ -1044,7 +1373,7 @@
         "h": 10,
         "w": 12,
         "x": 0,
-        "y": 38
+        "y": 56
       },
       "id": 51,
       "options": {
@@ -1149,7 +1478,7 @@
         "h": 10,
         "w": 12,
         "x": 12,
-        "y": 38
+        "y": 56
       },
       "id": 52,
       "options": {
@@ -1214,7 +1543,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 48
+        "y": 66
       },
       "id": 40,
       "panels": [],
@@ -1342,7 +1671,7 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 49
+        "y": 67
       },
       "id": 41,
       "options": {

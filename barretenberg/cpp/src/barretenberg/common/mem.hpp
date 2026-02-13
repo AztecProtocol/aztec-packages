@@ -37,7 +37,8 @@ static std::set<size_t> FREED_GATES; // hack to prevent instrumentation failures
 
 #define pad(size, alignment) (size - (size % alignment) + ((size % alignment) == 0 ? 0 : alignment))
 
-#ifdef __APPLE__
+// Apple and Android use posix_memalign (Android's aligned_alloc requires API 28+)
+#if defined(__APPLE__) || defined(__ANDROID__)
 inline void* aligned_alloc(size_t alignment, size_t size)
 {
     void* t = 0;
@@ -57,7 +58,8 @@ inline void aligned_free(void* mem)
 }
 #endif
 
-#if defined(__linux__) || defined(__wasm__)
+// Linux (but not Android) and WASM use the standard aligned_alloc
+#if (defined(__linux__) && !defined(__ANDROID__)) || defined(__wasm__)
 inline void* protected_aligned_alloc(size_t alignment, size_t size)
 {
     size += (size % alignment);

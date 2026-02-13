@@ -4,7 +4,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { EthCheatCodes } from '@aztec/aztec/testing';
-import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import type { ViemClient } from '@aztec/ethereum/types';
 import { times } from '@aztec/foundation/collection';
@@ -116,7 +116,7 @@ describe('e2e_multi_eoa', () => {
         from: defaultAccountAddress,
       });
 
-      const l1Utils: L1TxUtilsWithBlobs[] = (publisherManager as any).publishers;
+      const l1Utils: L1TxUtils[] = (publisherManager as any).publishers;
 
       const blockedSender = l1Utils[expectedFirstSender].getSenderAddress();
       const blockedTxs: Hex[] = [];
