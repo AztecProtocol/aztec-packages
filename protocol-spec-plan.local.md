@@ -268,3 +268,199 @@ How blocks are proposed, attested, and finalized. Covers proposer selection, att
 On-chain governance mechanisms: proposal format, voting, execution, and upgrade paths. Lower priority as governance is less coupled to core protocol compatibility.
 
 **Key references:** `l1-contracts/src/governance/`
+
+---
+
+## 6. Source Integration Tracking
+
+Legacy protocol spec files that need review and integration into the new specs. For each source, the agent reads the old document, compares it to the target new spec, verifies uncertain content against the codebase, and integrates still-valid content.
+
+### Source Status Key
+
+| Status           | Meaning                                           |
+| ---------------- | ------------------------------------------------- |
+| `Not Integrated` | Not yet reviewed                                  |
+| `In Progress`    | Currently being reviewed/integrated               |
+| `Integrated`     | Valid content merged into target spec              |
+| `Skipped`        | No actionable content (index page, outdated, etc) |
+
+### Sources → Spec #1: Protocol Overview
+
+| S#  | Source File                       | Status         | Notes |
+| --- | --------------------------------- | -------------- | ----- |
+| 1   | `old-protocol-specs/intro.md`     | Integrated     | TOC only |
+
+### Sources → Spec #2: Constants
+
+| S#  | Source File                       | Status         | Notes |
+| --- | --------------------------------- | -------------- | ----- |
+| 2   | `old-protocol-specs/constants.md` | In Progress    |       |
+
+### Sources → Spec #3: Cryptographic Primitives
+
+| S#  | Source File                                                            | Status         | Notes |
+| --- | ---------------------------------------------------------------------- | -------------- | ----- |
+| 3   | `old-protocol-specs/cryptography/index.md`                             | Not Integrated |       |
+| 4   | `old-protocol-specs/cryptography/hashing/hashing.md`                   | Not Integrated |       |
+| 5   | `old-protocol-specs/cryptography/hashing/pedersen.md`                  | Not Integrated |       |
+| 6   | `old-protocol-specs/cryptography/hashing/poseidon2.md`                 | Not Integrated |       |
+| 7   | `old-protocol-specs/cryptography/merkle-trees.md`                      | Not Integrated |       |
+| 8   | `old-protocol-specs/cryptography/proving-system/overview.md`           | Not Integrated |       |
+| 9   | `old-protocol-specs/cryptography/proving-system/data-bus.md`           | Not Integrated |       |
+| 10  | `old-protocol-specs/cryptography/proving-system/performance-targets.md` | Not Integrated |       |
+
+### Sources → Spec #4: State Model & Merkle Trees
+
+| S#  | Source File                                          | Status         | Notes |
+| --- | ---------------------------------------------------- | -------------- | ----- |
+| 11  | `old-protocol-specs/state/index.md`                  | Not Integrated |       |
+| 12  | `old-protocol-specs/state/archive.md`                | Not Integrated |       |
+| 13  | `old-protocol-specs/state/note-hash-tree.md`         | Not Integrated |       |
+| 14  | `old-protocol-specs/state/nullifier-tree.md`         | Not Integrated |       |
+| 15  | `old-protocol-specs/state/public-data-tree.md`       | Not Integrated |       |
+| 16  | `old-protocol-specs/state/tree-implementations.md`   | Not Integrated |       |
+| 17  | `old-protocol-specs/state/wonky-tree.md`             | Not Integrated |       |
+
+### Sources → Spec #5: Transaction Format & Lifecycle
+
+| S#  | Source File                                          | Status         | Notes |
+| --- | ---------------------------------------------------- | -------------- | ----- |
+| 18  | `old-protocol-specs/transactions/index.md`           | Not Integrated |       |
+| 19  | `old-protocol-specs/transactions/local-execution.md` | Not Integrated |       |
+| 20  | `old-protocol-specs/transactions/public-execution.md` | Not Integrated |       |
+| 21  | `old-protocol-specs/transactions/tx-object.md`       | Not Integrated |       |
+| 22  | `old-protocol-specs/transactions/validity.md`        | Not Integrated |       |
+| 23  | `old-protocol-specs/calls/index.md`                  | Not Integrated |       |
+| 24  | `old-protocol-specs/calls/batched-calls.md`          | Not Integrated |       |
+| 25  | `old-protocol-specs/calls/enqueued-calls.md`         | Not Integrated |       |
+| 26  | `old-protocol-specs/calls/static-calls.md`           | Not Integrated |       |
+| 27  | `old-protocol-specs/calls/sync-calls.md`             | Not Integrated |       |
+| 28  | `old-protocol-specs/calls/unconstrained-calls.md`    | Not Integrated |       |
+
+### Sources → Spec #7: Private Kernel Circuits
+
+| S#  | Source File                                            | Status         | Notes |
+| --- | ------------------------------------------------------ | -------------- | ----- |
+| 29  | `old-protocol-specs/circuits/high-level-topology.md`   | Not Integrated |       |
+| 30  | `old-protocol-specs/circuits/private-function.md`      | Not Integrated |       |
+| 31  | `old-protocol-specs/circuits/private-kernel-reset.md`  | Not Integrated |       |
+| 32  | `old-protocol-specs/circuits/private-kernel-tail.md`   | Not Integrated |       |
+
+### Sources → Spec #8: Public VM (AVM)
+
+| S#  | Source File                                                    | Status         | Notes |
+| --- | -------------------------------------------------------------- | -------------- | ----- |
+| 33  | `old-protocol-specs/bytecode/index.md`                         | Not Integrated |       |
+| 34  | `old-protocol-specs/public-vm/index.md`                        | Not Integrated |       |
+| 35  | `old-protocol-specs/public-vm/intro.md`                        | Not Integrated |       |
+| 36  | `old-protocol-specs/public-vm/execution.md`                    | Not Integrated |       |
+| 37  | `old-protocol-specs/public-vm/memory-model.md`                 | Not Integrated |       |
+| 38  | `old-protocol-specs/public-vm/state.md`                        | Not Integrated |       |
+| 39  | `old-protocol-specs/public-vm/control-flow.md`                 | Not Integrated |       |
+| 40  | `old-protocol-specs/public-vm/alu.md`                          | Not Integrated |       |
+| 41  | `old-protocol-specs/public-vm/type-structs.md`                 | Not Integrated |       |
+| 42  | `old-protocol-specs/public-vm/security.md`                     | Not Integrated |       |
+| 43  | `old-protocol-specs/public-vm/_nested-context.md`              | Not Integrated |       |
+| 44  | `old-protocol-specs/public-vm/avm-circuit.md`                  | Not Integrated |       |
+| 45  | `old-protocol-specs/public-vm/bytecode-validation-circuit.md`  | Not Integrated |       |
+| 46  | `old-protocol-specs/public-vm/circuit-index.md`                | Not Integrated |       |
+| 47  | `old-protocol-specs/circuits/public-kernel-initial.md`         | Not Integrated |       |
+| 48  | `old-protocol-specs/circuits/public-kernel-inner.md`           | Not Integrated |       |
+| 49  | `old-protocol-specs/circuits/public-kernel-tail.md`            | Not Integrated |       |
+
+### Sources → Spec #9: Rollup Circuits
+
+| S#  | Source File                                         | Status         | Notes |
+| --- | --------------------------------------------------- | -------------- | ----- |
+| 50  | `old-protocol-specs/rollup-circuits/index.md`       | Not Integrated |       |
+| 51  | `old-protocol-specs/rollup-circuits/base-rollup.md` | Not Integrated |       |
+| 52  | `old-protocol-specs/rollup-circuits/merge-rollup.md` | Not Integrated |       |
+| 53  | `old-protocol-specs/rollup-circuits/root-rollup.md` | Not Integrated |       |
+| 54  | `old-protocol-specs/rollup-circuits/tree-parity.md` | Not Integrated |       |
+
+### Sources → Spec #10: L1 Rollup Contract
+
+| S#  | Source File                                       | Status         | Notes |
+| --- | ------------------------------------------------- | -------------- | ----- |
+| 55  | `old-protocol-specs/l1-smart-contracts/index.md`  | Not Integrated |       |
+| 56  | `old-protocol-specs/l1-smart-contracts/frontier.md` | Not Integrated |       |
+
+### Sources → Spec #11: Cross-Chain Messaging
+
+| S#  | Source File                                              | Status         | Notes |
+| --- | -------------------------------------------------------- | -------------- | ----- |
+| 57  | `old-protocol-specs/calls/public-private-messaging.md`   | Not Integrated |       |
+
+### Sources → Spec #12: Data Availability & Blobs
+
+| S#  | Source File                                                            | Status         | Notes |
+| --- | ---------------------------------------------------------------------- | -------------- | ----- |
+| 58  | `old-protocol-specs/data-publication-and-availability/index.md`        | Not Integrated |       |
+| 59  | `old-protocol-specs/data-publication-and-availability/overview.md`     | Not Integrated |       |
+| 60  | `old-protocol-specs/data-publication-and-availability/published-data.md` | Not Integrated |       |
+| 61  | `old-protocol-specs/data-publication-and-availability/blobs.md`        | Not Integrated |       |
+
+### Sources → Spec #13: Addresses & Keys
+
+| S#  | Source File                                                                         | Status         | Notes |
+| --- | ----------------------------------------------------------------------------------- | -------------- | ----- |
+| 62  | `old-protocol-specs/addresses-and-keys/index.md`                                   | Not Integrated |       |
+| 63  | `old-protocol-specs/addresses-and-keys/address.md`                                 | Not Integrated |       |
+| 64  | `old-protocol-specs/addresses-and-keys/keys.md`                                    | Not Integrated |       |
+| 65  | `old-protocol-specs/addresses-and-keys/keys-requirements.md`                       | Not Integrated |       |
+| 66  | `old-protocol-specs/addresses-and-keys/diversified-and-stealth.md`                 | Not Integrated |       |
+| 67  | `old-protocol-specs/addresses-and-keys/precompiles.md`                             | Not Integrated |       |
+| 68  | `old-protocol-specs/addresses-and-keys/example-usage/diversified-and-stealth-keys.md` | Not Integrated |       |
+| 69  | `old-protocol-specs/addresses-and-keys/example-usage/encrypt-and-tag.md`           | Not Integrated |       |
+| 70  | `old-protocol-specs/addresses-and-keys/example-usage/nullifier.md`                 | Not Integrated |       |
+| 71  | `old-protocol-specs/addresses-and-keys/example-usage/tag-sequence-derivation.md`   | Not Integrated |       |
+
+### Sources → Spec #14: Contract Deployment
+
+| S#  | Source File                                             | Status         | Notes |
+| --- | ------------------------------------------------------- | -------------- | ----- |
+| 72  | `old-protocol-specs/contract-deployment/index.md`       | Not Integrated |       |
+| 73  | `old-protocol-specs/contract-deployment/classes.md`     | Not Integrated |       |
+| 74  | `old-protocol-specs/contract-deployment/instances.md`   | Not Integrated |       |
+| 75  | `old-protocol-specs/pre-compiled-contracts/index.md`    | Not Integrated |       |
+| 76  | `old-protocol-specs/pre-compiled-contracts/registry.md` | Not Integrated |       |
+
+### Sources → Spec #15: Gas & Fees
+
+| S#  | Source File                                                     | Status         | Notes |
+| --- | --------------------------------------------------------------- | -------------- | ----- |
+| 77  | `old-protocol-specs/gas-and-fees/index.md`                      | Not Integrated |       |
+| 78  | `old-protocol-specs/gas-and-fees/fee-juice.md`                  | Not Integrated |       |
+| 79  | `old-protocol-specs/gas-and-fees/fee-schedule.md`               | Not Integrated |       |
+| 80  | `old-protocol-specs/gas-and-fees/kernel-tracking.md`            | Not Integrated |       |
+| 81  | `old-protocol-specs/gas-and-fees/published-gas-and-fee-data.md` | Not Integrated |       |
+| 82  | `old-protocol-specs/gas-and-fees/specifying-gas-fee-info.md`    | Not Integrated |       |
+| 83  | `old-protocol-specs/gas-and-fees/tx-setup-and-teardown.md`      | Not Integrated |       |
+
+### Sources → Spec #16: Logs & Events
+
+| S#  | Source File                                                         | Status         | Notes |
+| --- | ------------------------------------------------------------------- | -------------- | ----- |
+| 84  | `old-protocol-specs/logs/index.md`                                  | Not Integrated |       |
+| 85  | `old-protocol-specs/private-message-delivery/index.md`              | Not Integrated |       |
+| 86  | `old-protocol-specs/private-message-delivery/private-msg-delivery.md` | Not Integrated |       |
+| 87  | `old-protocol-specs/private-message-delivery/send-note-guidelines.md` | Not Integrated |       |
+
+### Sources → Spec #17: P2P Network Protocol
+
+| S#  | Source File                                          | Status         | Notes |
+| --- | ---------------------------------------------------- | -------------- | ----- |
+| 88  | `old-protocol-specs/decentralization/p2p-network.md` | Not Integrated |       |
+
+### Sources → Spec #18: Block Production & Consensus
+
+| S#  | Source File                                                | Status         | Notes |
+| --- | ---------------------------------------------------------- | -------------- | ----- |
+| 89  | `old-protocol-specs/decentralization/actors.md`            | Not Integrated |       |
+| 90  | `old-protocol-specs/decentralization/block-production.md`  | Not Integrated |       |
+
+### Sources → Spec #19: Governance
+
+| S#  | Source File                                             | Status         | Notes |
+| --- | ------------------------------------------------------- | -------------- | ----- |
+| 91  | `old-protocol-specs/decentralization/governance.md`     | Not Integrated |       |
