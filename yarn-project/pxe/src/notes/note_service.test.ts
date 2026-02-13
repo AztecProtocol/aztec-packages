@@ -41,7 +41,7 @@ describe('NoteService', () => {
 
     contractAddress = await AztecAddress.random();
 
-    const notes = await noteStore.getNotes({ contractAddress }, 'test');
+    const notes = await noteStore.getNotes({ contractAddress, scopes: 'ALL_SCOPES' }, 'test');
     expect(notes).toHaveLength(0);
 
     const accounts = await keyStore.getAccounts();
@@ -65,7 +65,7 @@ describe('NoteService', () => {
     const nullifierIndex = randomDataInBlock(123n);
     aztecNode.findLeavesIndexes.mockResolvedValue([nullifierIndex]);
 
-    await noteService.syncNoteNullifiers(contractAddress);
+    await noteService.syncNoteNullifiers(contractAddress, 'ALL_SCOPES');
 
     const remainingNotes = await noteStore.getNotes(
       {
@@ -103,7 +103,7 @@ describe('NoteService', () => {
     // No nullifier found in merkle tree
     aztecNode.findLeavesIndexes.mockResolvedValue([undefined]);
 
-    await noteService.syncNoteNullifiers(contractAddress);
+    await noteService.syncNoteNullifiers(contractAddress, 'ALL_SCOPES');
 
     const remainingNotes = await noteStore.getNotes(
       {
@@ -148,7 +148,7 @@ describe('NoteService', () => {
       return Promise.resolve([undefined]);
     });
 
-    await noteService.syncNoteNullifiers(contractAddress);
+    await noteService.syncNoteNullifiers(contractAddress, 'ALL_SCOPES');
 
     // Verify note still exists
     const remainingNotes = await noteStore.getNotes(
@@ -186,7 +186,7 @@ describe('NoteService', () => {
 
     const getNotesSpy = jest.spyOn(noteStore, 'getNotes');
 
-    await noteService.syncNoteNullifiers(contractAddress);
+    await noteService.syncNoteNullifiers(contractAddress, 'ALL_SCOPES');
 
     // Verify applyNullifiers was called once for all accounts
     expect(getNotesSpy).toHaveBeenCalledTimes(1);

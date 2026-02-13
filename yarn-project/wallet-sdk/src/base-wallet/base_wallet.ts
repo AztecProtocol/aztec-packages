@@ -28,6 +28,7 @@ import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
+import type { AccessScopes } from '@aztec/pxe/client/lazy';
 import type { PXE, PackedPrivateEvent } from '@aztec/pxe/server';
 import {
   type ContractArtifact,
@@ -304,9 +305,9 @@ export abstract class BaseWallet implements Wallet {
     executionPayload: ExecutionPayload,
     from: AztecAddress,
     feeOptions: FeeOptions,
+    scopes: AccessScopes,
     skipTxValidation?: boolean,
     skipFeeEnforcement?: boolean,
-    scopes?: AztecAddress[],
   ) {
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, from, feeOptions);
     return this.pxe.simulateTx(txRequest, { simulatePublic: true, skipTxValidation, skipFeeEnforcement, scopes });
@@ -354,9 +355,9 @@ export abstract class BaseWallet implements Wallet {
             remainingPayload,
             opts.from,
             feeOptions,
+            this.scopesFor(opts.from),
             opts.skipTxValidation,
             opts.skipFeeEnforcement ?? true,
-            this.scopesFor(opts.from),
           )
         : Promise.resolve(null),
     ]);
