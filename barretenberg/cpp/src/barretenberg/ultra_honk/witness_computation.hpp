@@ -16,7 +16,7 @@ namespace bb {
  *
  * @tparam Flavor
  */
-template <IsUltraOrMegaHonk Flavor> class WitnessComputation {
+template <typename Flavor> class WitnessComputation {
     using FF = typename Flavor::FF;
 
   public:

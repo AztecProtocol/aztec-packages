@@ -19,7 +19,7 @@ namespace bb {
  *
  * @tparam a type of UltraFlavor
  * */
-template <IsUltraOrMegaHonk Flavor>
+template <typename Flavor>
 UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<ProverInstance>& prover_instance,
                                    const std::shared_ptr<HonkVK>& honk_vk,
                                    const std::shared_ptr<Transcript>& transcript)
@@ -43,7 +43,7 @@ UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<ProverInstance>& prover
  *
  * @note IPA_PROOF_LENGTH is defined in ipa.hpp as 4*CONST_ECCVM_LOG_N + 4 = 64 elements
  */
-template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::export_proof()
+template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::export_proof()
 {
     auto proof = transcript->export_proof();
 
@@ -56,7 +56,7 @@ template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraPr
     return proof;
 }
 
-template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::generate_gate_challenges()
+template <typename Flavor> void UltraProver_<Flavor>::generate_gate_challenges()
 {
     // Determine the number of rounds in the sumcheck based on whether or not padding is employed
     const size_t virtual_log_n =
@@ -66,7 +66,7 @@ template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::generate_gate_cha
         transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
 }
 
-template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::construct_proof()
+template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::construct_proof()
 {
     OinkProver<Flavor> oink_prover(prover_instance, honk_vk, transcript);
     oink_prover.prove();
@@ -89,7 +89,7 @@ template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraPr
  * challenges and all evaluations at u being calculated.
  *
  */
-template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::execute_sumcheck_iop()
+template <typename Flavor> void UltraProver_<Flavor>::execute_sumcheck_iop()
 {
     const size_t virtual_log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : prover_instance->log_dyadic_size();
 
@@ -123,7 +123,7 @@ template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::execute_sumcheck_
  * via Shplonk and produce an opening proof with the univariate PCS of choice (IPA when operating on Grumpkin).
  *
  */
-template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::execute_pcs()
+template <typename Flavor> void UltraProver_<Flavor>::execute_pcs()
 {
     using OpeningClaim = ProverOpeningClaim<Curve>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;

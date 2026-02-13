@@ -23,7 +23,7 @@ namespace bb {
  * @tparam Flavor
  * @param circuit
  */
-template <IsUltraOrMegaHonk Flavor> size_t ProverInstance_<Flavor>::compute_dyadic_size(Circuit& circuit)
+template <typename Flavor> size_t ProverInstance_<Flavor>::compute_dyadic_size(Circuit& circuit)
 {
     // For the lookup argument the circuit size must be at least as large as the sum of all tables used
     const size_t tables_size = circuit.get_tables_size();
@@ -40,7 +40,7 @@ template <IsUltraOrMegaHonk Flavor> size_t ProverInstance_<Flavor>::compute_dyad
     return circuit.get_circuit_subgroup_size(total_num_gates);
 }
 
-template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_wires()
+template <typename Flavor> void ProverInstance_<Flavor>::allocate_wires()
 {
     BB_BENCH_NAME("allocate_wires");
 
@@ -52,7 +52,7 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_wires
     }
 }
 
-template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_permutation_argument_polynomials()
+template <typename Flavor> void ProverInstance_<Flavor>::allocate_permutation_argument_polynomials()
 {
     BB_BENCH_NAME("allocate_permutation_argument_polynomials");
 
@@ -69,7 +69,7 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_permu
     polynomials.z_perm = Polynomial::shiftable(z_perm_size, dyadic_size());
 }
 
-template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_lagrange_polynomials()
+template <typename Flavor> void ProverInstance_<Flavor>::allocate_lagrange_polynomials()
 {
     BB_BENCH_NAME("allocate_lagrange_polynomials");
 
@@ -80,7 +80,7 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_lagra
         /* size=*/1, /*virtual size=*/dyadic_size(), /*start_index=*/final_active_wire_idx);
 }
 
-template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_selectors(const Circuit& circuit)
+template <typename Flavor> void ProverInstance_<Flavor>::allocate_selectors(const Circuit& circuit)
 {
     BB_BENCH_NAME("allocate_selectors");
 
@@ -95,8 +95,7 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_selec
     }
 }
 
-template <IsUltraOrMegaHonk Flavor>
-void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& circuit)
+template <typename Flavor> void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& circuit)
 {
     BB_BENCH_NAME("allocate_table_lookup_and_lookup_read_polynomials");
 
@@ -123,7 +122,7 @@ void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& c
     polynomials.lookup_inverses = Polynomial(lookup_inverses_size, dyadic_size());
 }
 
-template <IsUltraOrMegaHonk Flavor>
+template <typename Flavor>
 void ProverInstance_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circuit)
     requires IsMegaFlavor<Flavor>
 {
@@ -138,7 +137,7 @@ void ProverInstance_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circuit
     polynomials.lagrange_ecc_op = Polynomial(ecc_op_block_size, dyadic_size());
 }
 
-template <IsUltraOrMegaHonk Flavor>
+template <typename Flavor>
 void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circuit)
     requires HasDataBus<Flavor>
 {
@@ -189,7 +188,7 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
  * @tparam Flavor
  * @param circuit
  */
-template <IsUltraOrMegaHonk Flavor>
+template <typename Flavor>
 void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     requires HasDataBus<Flavor>
 {
@@ -238,7 +237,7 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
  * @details The memory records in the circuit store indices within the memory block where a read/write is performed.
  * They are stored in the DPK as indices into the full trace by accounting for the offset of the memory block.
  */
-template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::populate_memory_records(const Circuit& circuit)
+template <typename Flavor> void ProverInstance_<Flavor>::populate_memory_records(const Circuit& circuit)
 {
     // Store the read/write records as indices into the full trace by accounting for the offset of the memory block.
     uint32_t ram_rom_offset = circuit.blocks.memory.trace_offset();

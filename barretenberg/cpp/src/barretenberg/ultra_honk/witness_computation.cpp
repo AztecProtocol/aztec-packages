@@ -31,7 +31,7 @@ namespace bb {
  * @tparam Flavor
  * @param eta challenge produced after commitment to first three wire polynomials
  */
-template <IsUltraOrMegaHonk Flavor>
+template <typename Flavor>
 void WitnessComputation<Flavor>::add_ram_rom_memory_records_to_wire_4(typename Flavor::ProverPolynomials& polynomials,
                                                                       const std::vector<uint32_t>& memory_read_records,
                                                                       const std::vector<uint32_t>& memory_write_records,
@@ -67,7 +67,7 @@ void WitnessComputation<Flavor>::add_ram_rom_memory_records_to_wire_4(typename F
  * @param beta
  * @param gamma
  */
-template <IsUltraOrMegaHonk Flavor>
+template <typename Flavor>
 void WitnessComputation<Flavor>::compute_logderivative_inverses(Flavor::ProverPolynomials& polynomials,
                                                                 const size_t circuit_size,
                                                                 RelationParameters<FF>& relation_parameters)
@@ -98,7 +98,7 @@ void WitnessComputation<Flavor>::compute_logderivative_inverses(Flavor::ProverPo
  * @param relation_parameters
  * @param size_override override the size of the domain over which to compute the grand product
  */
-template <IsUltraOrMegaHonk Flavor>
+template <typename Flavor>
 void WitnessComputation<Flavor>::compute_grand_product_polynomial(Flavor::ProverPolynomials& polynomials,
                                                                   std::vector<FF>& public_inputs,
                                                                   const size_t pub_inputs_offset,
@@ -118,7 +118,7 @@ void WitnessComputation<Flavor>::compute_grand_product_polynomial(Flavor::Prover
  * @tparam Flavor
  * @param prover_inst
  */
-template <IsUltraOrMegaHonk Flavor>
+template <typename Flavor>
 void WitnessComputation<Flavor>::complete_prover_instance_for_test(
     const std::shared_ptr<ProverInstance_<Flavor>>& prover_inst)
 {

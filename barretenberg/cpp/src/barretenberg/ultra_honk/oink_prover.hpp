@@ -31,7 +31,7 @@ namespace bb {
  *
  * @tparam Flavor
  */
-template <IsUltraOrMegaHonk Flavor> class OinkProver {
+template <typename Flavor> class OinkProver {
     using CommitmentKey = typename Flavor::CommitmentKey;
     using HonkVK = typename Flavor::VerificationKey;
     using ProverInstance = ProverInstance_<Flavor>;

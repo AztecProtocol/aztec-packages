@@ -28,7 +28,7 @@ namespace bb {
  * required by a Mega Honk prover to create a proof.
  */
 
-template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
+template <typename Flavor_> class ProverInstance_ {
   public:
     using Flavor = Flavor_;
     using FF = typename Flavor::FF;

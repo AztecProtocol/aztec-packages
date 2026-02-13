@@ -15,7 +15,7 @@
 
 namespace bb {
 
-template <IsUltraOrMegaHonk Flavor_> class UltraProver_ {
+template <typename Flavor_> class UltraProver_ {
   public:
     using Flavor = Flavor_;
     using FF = typename Flavor::FF;
