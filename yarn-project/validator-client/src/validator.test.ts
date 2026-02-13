@@ -482,6 +482,44 @@ describe('ValidatorClient', () => {
       uploadBlobsSpy.mockRestore();
     });
 
+    it('should not attest to a checkpoint proposal that references a middle block instead of the last', async () => {
+      const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addOwnCheckpointAttestations');
+
+      // First validate a block proposal so the validator has seen a block for this slot
+      const didValidate = await validatorClient.validateBlockProposal(proposal, sender);
+      expect(didValidate).toBe(true);
+
+      // Create 3 blocks for the slot, each with a distinct archive root
+      const block1Archive = new AppendOnlyTreeSnapshot(Fr.random(), 1);
+      const block2Archive = new AppendOnlyTreeSnapshot(Fr.random(), 2);
+      const block3Archive = new AppendOnlyTreeSnapshot(Fr.random(), 3);
+      const blocks = [
+        { archive: block1Archive, number: 1 },
+        { archive: block2Archive, number: 2 },
+        { archive: block3Archive, number: 3 },
+      ] as unknown as L2Block[];
+
+      // Proposal references the middle block's archive (block 2), not the last (block 3)
+      const checkpointProposal = await makeCheckpointProposal({
+        archiveRoot: block2Archive.root,
+        checkpointHeader: makeCheckpointHeader(0, { slotNumber: proposal.slotNumber }),
+        lastBlock: {
+          blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(2), slotNumber: proposal.slotNumber }),
+          indexWithinCheckpoint: IndexWithinCheckpoint(1),
+          txHashes: proposal.txHashes,
+        },
+      });
+
+      // Mock getBlockHeaderByArchive to return a header so retryUntil succeeds
+      blockSource.getBlockHeaderByArchive.mockResolvedValue(makeBlockHeader());
+      blockSource.getBlocksForSlot.mockResolvedValue(blocks);
+
+      // Checkpoint validation should fail: proposal points to block 2 but last block in slot is block 3
+      const attestations = await validatorClient.attestToCheckpointProposal(checkpointProposal, sender);
+      expect(attestations).toBeUndefined();
+      expect(addCheckpointAttestationsSpy).not.toHaveBeenCalled();
+    });
+
     it('should wait for previous block to sync', async () => {
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
       blockSource.getBlockHeaderByArchive.mockResolvedValueOnce(undefined);
