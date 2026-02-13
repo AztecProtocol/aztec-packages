@@ -107,7 +107,12 @@ pub contract AppSubscription {
 
         // We check that the note is not expired. We do that via the public checks contract to conceal which contract
         // is performing the check.
-        privately_check_block_number(Comparator.LT, *user_expiry_block_number, self.context);
+        privately_check_block_number(
+            Comparator.LT,
+            *user_expiry_block_number,
+            self.context,
+            config.public_checks_address,
+        );
 
         payload.execute_calls(self.context, config.target_address);
     }
@@ -120,6 +125,7 @@ pub contract AppSubscription {
         subscription_token_address: AztecAddress,
         subscription_price: u128,
         fee_juice_limit_per_tx: Field,
+        public_checks_address: AztecAddress,
     ) {
         self.storage.config.initialize(
             Config {
@@ -128,6 +134,7 @@ pub contract AppSubscription {
                 subscription_token_address,
                 subscription_price,
                 fee_juice_limit_per_tx,
+                public_checks_address,
             },
         );
     }
@@ -156,6 +163,7 @@ pub contract AppSubscription {
             Comparator.GT,
             expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS,
             self.context,
+            config.public_checks_address,
         );
         // docs:start:owned_private_mutable_initialize
         self

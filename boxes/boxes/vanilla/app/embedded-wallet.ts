@@ -45,13 +45,19 @@ const LocalStorageKey = 'aztec-account';
 export class EmbeddedWallet extends BaseWallet {
   connectedAccount: AztecAddress | null = null;
   protected accounts: Map<string, Account> = new Map();
+  private multiCallEntrypointAddress?: AztecAddress;
 
   protected async getAccountFromAddress(
     address: AztecAddress
   ): Promise<Account> {
     let account: Account | undefined;
     if (address.equals(AztecAddress.ZERO)) {
-      account = new SignerlessAccount();
+      if (!this.multiCallEntrypointAddress) {
+        throw new Error(
+          'multiCallEntrypointAddress is required for signerless accounts'
+        );
+      }
+      account = new SignerlessAccount(this.multiCallEntrypointAddress);
     } else {
       account = this.accounts.get(address?.toString() ?? '');
     }

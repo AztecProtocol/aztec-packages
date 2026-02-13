@@ -3,18 +3,18 @@ import { z } from 'zod';
 import type { AztecAddress } from '../../aztec-address/index.js';
 import { schemas } from '../../schemas/index.js';
 
-export const ProtocolContractsNames = ['classRegistry', 'feeJuice', 'instanceRegistry', 'multiCallEntrypoint'] as const;
+export const ProtocolContractsNames = ['feeJuice', 'classRegistry', 'instanceRegistry', 'authRegistry'] as const;
 
 export type ProtocolContractAddresses = {
-  classRegistry: AztecAddress;
   feeJuice: AztecAddress;
+  classRegistry: AztecAddress;
   instanceRegistry: AztecAddress;
-  multiCallEntrypoint: AztecAddress;
+  authRegistry: AztecAddress;
 };
 
 export const ProtocolContractAddressesSchema = z.object({
-  classRegistry: schemas.AztecAddress,
   feeJuice: schemas.AztecAddress,
+  classRegistry: schemas.AztecAddress,
   instanceRegistry: schemas.AztecAddress,
-  multiCallEntrypoint: schemas.AztecAddress,
+  authRegistry: schemas.AztecAddress,
 });

@@ -10,4 +10,5 @@ pub struct Config {
     pub subscription_recipient_address: AztecAddress,
     pub subscription_price: u128,
     pub fee_juice_limit_per_tx: Field,
+    pub public_checks_address: AztecAddress, // Address of the PublicChecks contract
 }

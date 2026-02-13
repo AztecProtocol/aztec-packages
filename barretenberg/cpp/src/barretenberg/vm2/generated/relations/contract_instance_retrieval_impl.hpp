@@ -16,7 +16,7 @@ void contract_instance_retrievalImpl<FF_>::accumulate(ContainerOverSubrelations&
     using C = ColumnAndShifts;
 
     const auto constants_MAX_PROTOCOL_CONTRACTS = FF(11);
-    const auto constants_CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS = FF(2);
+    const auto constants_CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS = FF(3);
     const auto constants_AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACTS_ROW_IDX = FF(8);
     const auto contract_instance_retrieval_NOT_EXISTS = (FF(1) - in.get(C::contract_instance_retrieval_exists));
 

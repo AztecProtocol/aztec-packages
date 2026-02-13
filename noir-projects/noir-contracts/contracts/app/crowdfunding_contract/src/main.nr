@@ -35,8 +35,15 @@ pub contract Crowdfunding {
     #[external("public")]
     #[initializer]
     // this-will-error:init-header-error
-    fn init(donation_token: AztecAddress, operator: AztecAddress, deadline: u64) {
-        self.storage.config.initialize(Config { donation_token, operator, deadline });
+    fn init(
+        donation_token: AztecAddress,
+        operator: AztecAddress,
+        deadline: u64,
+        public_checks_address: AztecAddress,
+    ) {
+        self.storage.config.initialize(
+            Config { donation_token, operator, deadline, public_checks_address },
+        );
     }
 
     #[external("private")]
@@ -46,7 +53,12 @@ pub contract Crowdfunding {
         // 1) Check that the deadline has not passed --> we do that via the public checks contract to conceal which contract
         // is performing the check.
         // docs:start:call-check-deadline
-        privately_check_timestamp(Comparator.LT, config.deadline, self.context);
+        privately_check_timestamp(
+            Comparator.LT,
+            config.deadline,
+            self.context,
+            config.public_checks_address,
+        );
         // docs:end:call-check-deadline
 
         // 2) Transfer the donation tokens from donor to this contract

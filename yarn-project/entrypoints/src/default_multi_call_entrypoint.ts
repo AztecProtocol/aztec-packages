@@ -1,5 +1,4 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type FunctionAbi, FunctionCall, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
@@ -9,10 +8,11 @@ import { EncodedAppEntrypointCalls } from './encoding.js';
 import type { ChainInfo, EntrypointInterface } from './interfaces.js';
 
 /**
- * Implementation for an entrypoint interface that can execute multiple function calls in a single transaction
+ * Implementation for an entrypoint interface that can execute multiple function calls in a single transaction.
+ * Requires the address of a deployed MultiCallEntrypoint contract.
  */
 export class DefaultMultiCallEntrypoint implements EntrypointInterface {
-  constructor(private address: AztecAddress = ProtocolContractAddress.MultiCallEntrypoint) {}
+  constructor(private address: AztecAddress) {}
 
   async createTxExecutionRequest(
     exec: ExecutionPayload,

@@ -28,10 +28,10 @@ export async function getNodeInfo(nodeUrl: string, json: boolean, log: LogFn, lo
         stakingAssetHandler: info.l1ContractAddresses.stakingAssetHandlerAddress?.toString(),
       },
       protocolContractAddresses: {
-        classRegistry: info.protocolContractAddresses.classRegistry.toString(),
         feeJuice: info.protocolContractAddresses.feeJuice.toString(),
+        classRegistry: info.protocolContractAddresses.classRegistry.toString(),
         instanceRegistry: info.protocolContractAddresses.instanceRegistry.toString(),
-        multiCallEntrypoint: info.protocolContractAddresses.multiCallEntrypoint.toString(),
+        authRegistry: info.protocolContractAddresses.authRegistry.toString(),
       },
     });
   } else {
@@ -55,9 +55,9 @@ export async function getNodeInfo(nodeUrl: string, json: boolean, log: LogFn, lo
     log(` FeeAssetHandler Address: ${info.l1ContractAddresses.feeAssetHandlerAddress?.toString()}`);
     log(` StakingAssetHandler Address: ${info.l1ContractAddresses.stakingAssetHandlerAddress?.toString()}`);
     log(`L2 Contract Addresses:`);
-    log(` Class Registry: ${info.protocolContractAddresses.classRegistry.toString()}`);
     log(` Fee Juice: ${info.protocolContractAddresses.feeJuice.toString()}`);
+    log(` Class Registry: ${info.protocolContractAddresses.classRegistry.toString()}`);
     log(` Instance Deployer: ${info.protocolContractAddresses.instanceRegistry.toString()}`);
-    log(` MultiCall: ${info.protocolContractAddresses.multiCallEntrypoint.toString()}`);
+    log(` Auth Registry: ${info.protocolContractAddresses.authRegistry.toString()}`);
   }
 }
