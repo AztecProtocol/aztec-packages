@@ -4,10 +4,10 @@ use anyhow::Result;
 use arbitrary::{Arbitrary, Unstructured};
 use log::debug;
 
-use super::smt;
+use crate::smt;
 use super::system::TokenSystem;
+use crate::wallet::{self, AccountId};
 
-pub(crate) type AccountId = usize;
 pub(crate) type TokenId = usize;
 
 #[derive(Debug)]
@@ -320,7 +320,7 @@ impl smt::StateMachine for TokenMachine {
 
     fn next_state(&self, cmd: &Self::Command, state: Self::State) -> Self::State {
         use TokenCommand::*;
-        let mut state = state.clone();
+        let mut state = state;
 
         match cmd {
             MintPublic {
@@ -490,7 +490,7 @@ impl smt::StateMachine for TokenMachine {
     fn check_result(&self, cmd: &Self::Command, pre_state: &Self::State, result: Self::Result) {
         // TODO: should failure states and other output aside from balance checks be also processed later?
         if let Ok(result) = result {
-            if let Some(amount) = parse_token_amount(&result) {
+            if let Some(amount) = wallet::parse_simulation_result(&result) {
                 use TokenCommand::*;
                 match cmd {
                     BalanceOfPublic { token, address, .. } => {
@@ -539,21 +539,3 @@ impl smt::StateMachine for TokenMachine {
     }
 }
 
-fn parse_token_amount(stdout: &str) -> Option<TokenAmount> {
-    let amount_re = regex::Regex::new(r"Simulation result:\s+(\d+)n").unwrap();
-    amount_re.captures(stdout).map(|caps| {
-        let amount = caps.get(1).unwrap().as_str();
-        TokenAmount::from_str_radix(amount, 10).unwrap_or(0)
-    })
-}
-
-#[test]
-fn simulation_result_parsed() {
-    let stdout = "Simulation result:  208681979753062036312901159467002686397n";
-    let stdout2 = "Simulation result:  208681979";
-    assert_eq!(
-        parse_token_balance(stdout),
-        Some(208681979753062036312901159467002686397 as TokenAmount)
-    );
-    assert_eq!(parse_token_balance(stdout2), None);
-}
