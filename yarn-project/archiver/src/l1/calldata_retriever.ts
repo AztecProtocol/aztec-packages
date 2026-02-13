@@ -99,14 +99,18 @@ export class CalldataRetriever {
       hasPayloadDigest: !!expectedHashes.payloadDigest,
     });
     const tx = await this.publicClient.getTransaction({ hash: txHash });
-    const proposeCalldata = await this.getProposeCallData(tx, checkpointNumber);
+    const proposeCalldata = await this.getProposeCallData(tx, checkpointNumber, expectedHashes);
     return this.decodeAndBuildCheckpoint(proposeCalldata, tx.blockHash!, checkpointNumber, expectedHashes);
   }
 
   /** Gets rollup propose calldata from a transaction */
-  protected async getProposeCallData(tx: Transaction, checkpointNumber: CheckpointNumber): Promise<Hex> {
-    // Try to decode as multicall3 with validation
-    const proposeCalldata = this.tryDecodeMulticall3(tx);
+  protected async getProposeCallData(
+    tx: Transaction,
+    checkpointNumber: CheckpointNumber,
+    expectedHashes?: { attestationsHash?: Hex; payloadDigest?: Hex },
+  ): Promise<Hex> {
+    // Try to decode as multicall3 with validation (strict first, relaxed if hashes available)
+    const proposeCalldata = this.tryDecodeMulticall3(tx, expectedHashes);
     if (proposeCalldata) {
       this.logger.trace(`Decoded propose calldata from multicall3 for tx ${tx.hash}`);
       this.instrumentation?.recordBlockProposalTxTarget(tx.to!, false);
@@ -122,7 +126,7 @@ export class CalldataRetriever {
     }
 
     // Try to decode as Spire Proposer multicall wrapper
-    const spireProposeCalldata = await this.tryDecodeSpireProposer(tx);
+    const spireProposeCalldata = await this.tryDecodeSpireProposer(tx, expectedHashes);
     if (spireProposeCalldata) {
       this.logger.trace(`Decoded propose calldata from Spire Proposer for tx ${tx.hash}`);
       this.instrumentation?.recordBlockProposalTxTarget(tx.to!, false);
@@ -141,9 +145,13 @@ export class CalldataRetriever {
    * Attempts to decode a transaction as a Spire Proposer multicall wrapper.
    * If successful, extracts the wrapped call and validates it as either multicall3 or direct propose.
    * @param tx - The transaction to decode
+   * @param expectedHashes - Optional expected hashes for relaxed multicall3 validation
    * @returns The propose calldata if successfully decoded and validated, undefined otherwise
    */
-  protected async tryDecodeSpireProposer(tx: Transaction): Promise<Hex | undefined> {
+  protected async tryDecodeSpireProposer(
+    tx: Transaction,
+    expectedHashes?: { attestationsHash?: Hex; payloadDigest?: Hex },
+  ): Promise<Hex | undefined> {
     // Try to decode as Spire Proposer multicall (extracts the wrapped call)
     const spireWrappedCall = await getCallFromSpireProposer(tx, this.publicClient, this.logger);
     if (!spireWrappedCall) {
@@ -155,7 +163,7 @@ export class CalldataRetriever {
     // Now try to decode the wrapped call as either multicall3 or direct propose
     const wrappedTx = { to: spireWrappedCall.to, input: spireWrappedCall.data, hash: tx.hash };
 
-    const multicall3Calldata = this.tryDecodeMulticall3(wrappedTx);
+    const multicall3Calldata = this.tryDecodeMulticall3(wrappedTx, expectedHashes);
     if (multicall3Calldata) {
       this.logger.trace(`Decoded propose calldata from Spire Proposer to multicall3 for tx ${tx.hash}`);
       return multicall3Calldata;
@@ -175,11 +183,17 @@ export class CalldataRetriever {
 
   /**
    * Attempts to decode transaction input as multicall3 and extract propose calldata.
-   * Returns undefined if validation fails.
+   * Tries strict validation first (all calls must be on the allowlist). If strict fails due to
+   * unrecognized calls and both expected hashes are available, falls back to relaxed mode which
+   * filters candidate propose calls by target address + selector and verifies them against hashes.
    * @param tx - The transaction-like object with to, input, and hash
+   * @param expectedHashes - Optional expected hashes from CheckpointProposed event
    * @returns The propose calldata if successfully validated, undefined otherwise
    */
-  protected tryDecodeMulticall3(tx: { to: Hex | null | undefined; input: Hex; hash: Hex }): Hex | undefined {
+  protected tryDecodeMulticall3(
+    tx: { to: Hex | null | undefined; input: Hex; hash: Hex },
+    expectedHashes?: { attestationsHash?: Hex; payloadDigest?: Hex },
+  ): Hex | undefined {
     const txHash = tx.hash;
 
     try {
@@ -208,9 +222,10 @@ export class CalldataRetriever {
 
       const [calls] = multicall3Args;
 
-      // Validate all calls and find propose calls
+      // Strict mode: validate all calls against the allowlist and find propose calls
       const rollupAddressLower = this.rollupAddress.toString().toLowerCase();
       const proposeCalls: Hex[] = [];
+      let strictFailed = false;
 
       for (let i = 0; i < calls.length; i++) {
         const addr = calls[i].target.toLowerCase();
@@ -220,7 +235,8 @@ export class CalldataRetriever {
         if (callData.length < 10) {
           // "0x" + 8 hex chars = 10 chars minimum for a valid function call
           this.logger.warn(`Invalid calldata length at index ${i} (${callData.length})`, { txHash });
-          return undefined;
+          strictFailed = true;
+          break;
         }
         const functionSelector = callData.slice(0, 10) as Hex;
 
@@ -237,7 +253,8 @@ export class CalldataRetriever {
             validCalls: this.validContractCalls.map(c => ({ address: c.address, selector: c.functionSelector })),
             txHash,
           });
-          return undefined;
+          strictFailed = true;
+          break;
         }
 
         this.logger.trace(`Valid call found to ${addr}`, { validCall });
@@ -248,19 +265,81 @@ export class CalldataRetriever {
         }
       }
 
-      // Validate exactly ONE propose call
-      if (proposeCalls.length === 0) {
-        this.logger.warn(`No propose calls found in multicall3`, { txHash });
+      // If strict validation passed, return the single propose call
+      if (!strictFailed) {
+        if (proposeCalls.length === 0) {
+          this.logger.warn(`No propose calls found in multicall3`, { txHash });
+          return undefined;
+        }
+
+        if (proposeCalls.length > 1) {
+          this.logger.warn(`Multiple propose calls found in multicall3 (${proposeCalls.length})`, { txHash });
+          return undefined;
+        }
+
+        return proposeCalls[0];
+      }
+
+      // Relaxed mode: strict failed, try hash-verified extraction
+      // Only attempt when both hashes are present
+      if (!expectedHashes?.attestationsHash || !expectedHashes?.payloadDigest) {
+        this.logger.debug(`Strict multicall3 validation failed and relaxed mode unavailable (missing hashes)`, {
+          txHash,
+          hasAttestationsHash: !!expectedHashes?.attestationsHash,
+          hasPayloadDigest: !!expectedHashes?.payloadDigest,
+        });
         return undefined;
       }
 
-      if (proposeCalls.length > 1) {
-        this.logger.warn(`Multiple propose calls found in multicall3 (${proposeCalls.length})`, { txHash });
+      this.logger.debug(`Strict multicall3 validation failed, attempting relaxed hash-verified extraction`, {
+        txHash,
+      });
+
+      // Filter candidate propose calls: target must be rollup address and selector must be propose
+      const proposeSelectorLower = PROPOSE_SELECTOR.toLowerCase();
+      const candidates: Hex[] = [];
+
+      for (const call of calls) {
+        const addr = call.target.toLowerCase();
+        const callData = call.callData;
+
+        if (callData.length < 10) {
+          continue;
+        }
+
+        const selector = callData.slice(0, 10).toLowerCase();
+        if (addr === rollupAddressLower && selector === proposeSelectorLower) {
+          candidates.push(callData);
+        }
+      }
+
+      if (candidates.length === 0) {
+        this.logger.debug(`No propose candidates found in relaxed mode`, { txHash });
         return undefined;
       }
 
-      // Successfully extracted single propose call
-      return proposeCalls[0];
+      // Verify each candidate against expected hashes
+      const verified: Hex[] = [];
+      for (const candidate of candidates) {
+        if (this.verifyProposeCalldataHashes(candidate, expectedHashes)) {
+          verified.push(candidate);
+        }
+      }
+
+      if (verified.length === 1) {
+        this.logger.info(`Relaxed mode: verified single propose candidate via hash matching`, { txHash });
+        return verified[0];
+      }
+
+      if (verified.length > 1) {
+        this.logger.warn(`Relaxed mode: multiple candidates verified (${verified.length}), cannot disambiguate`, {
+          txHash,
+        });
+      } else {
+        this.logger.debug(`Relaxed mode: no candidates verified against expected hashes`, { txHash });
+      }
+
+      return undefined;
     } catch (err) {
       // Any decoding error triggers fallback to trace
       this.logger.warn(`Failed to decode multicall3: ${err}`, { txHash });
@@ -363,6 +442,76 @@ export class CalldataRetriever {
   }
 
   /**
+   * Computes the keccak256 hash of ABI-encoded CommitteeAttestations.
+   * Shared by both extraction-time verification (relaxed mode) and final validation.
+   */
+  private computeAttestationsHash(packedAttestations: ViemCommitteeAttestations): Hex {
+    return keccak256(encodeAbiParameters([this.getCommitteeAttestationsStructDef()], [packedAttestations]));
+  }
+
+  /**
+   * Computes the keccak256 payload digest from the checkpoint header and archive root.
+   * Shared by both extraction-time verification (relaxed mode) and final validation.
+   */
+  private computePayloadDigest(header: CheckpointHeader, archiveRoot: Fr): Hex {
+    const consensusPayload = new ConsensusPayload(header, archiveRoot);
+    const payloadToSign = consensusPayload.getPayloadToSign(SignatureDomainSeparator.checkpointAttestation);
+    return keccak256(payloadToSign);
+  }
+
+  /**
+   * Verifies candidate propose calldata against expected hashes.
+   * Returns true only when both hashes are provided and both match.
+   * Returns false for missing hash(es), decode errors, or mismatches.
+   */
+  protected verifyProposeCalldataHashes(
+    proposeCalldata: Hex,
+    expectedHashes: { attestationsHash?: Hex; payloadDigest?: Hex },
+  ): boolean {
+    // Both hashes are required for verification
+    if (!expectedHashes.attestationsHash || !expectedHashes.payloadDigest) {
+      return false;
+    }
+
+    try {
+      const { functionName, args } = decodeFunctionData({ abi: RollupAbi, data: proposeCalldata });
+      if (functionName !== 'propose') {
+        return false;
+      }
+
+      const [decodedArgs, packedAttestations] = args! as readonly [
+        { archive: Hex; oracleInput: { feeAssetPriceModifier: bigint }; header: ViemHeader },
+        ViemCommitteeAttestations,
+        ...unknown[],
+      ];
+
+      // Verify attestationsHash
+      const computedAttestationsHash = this.computeAttestationsHash(packedAttestations);
+      const attestationsMatch = Buffer.from(hexToBytes(computedAttestationsHash)).equals(
+        Buffer.from(hexToBytes(expectedHashes.attestationsHash)),
+      );
+      if (!attestationsMatch) {
+        return false;
+      }
+
+      // Verify payloadDigest
+      const header = CheckpointHeader.fromViem(decodedArgs.header);
+      const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)));
+      const computedPayloadDigest = this.computePayloadDigest(header, archiveRoot);
+      const payloadMatch = Buffer.from(hexToBytes(computedPayloadDigest)).equals(
+        Buffer.from(hexToBytes(expectedHashes.payloadDigest)),
+      );
+      if (!payloadMatch) {
+        return false;
+      }
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Extracts the CommitteeAttestations struct definition from RollupAbi.
    * Finds the _attestations parameter by name in the propose function.
    * Lazy-loaded to avoid issues during module initialization.
@@ -450,16 +599,13 @@ export class CalldataRetriever {
 
     // Validate attestationsHash if provided (skip for backwards compatibility with older events)
     if (expectedHashes.attestationsHash) {
-      // Compute attestationsHash: keccak256(abi.encode(CommitteeAttestations))
-      const computedAttestationsHash = keccak256(
-        encodeAbiParameters([this.getCommitteeAttestationsStructDef()], [packedAttestations]),
-      );
+      const computedAttestationsHash = this.computeAttestationsHash(packedAttestations);
 
-      // Compare as buffers to avoid case-sensitivity and string comparison issues
-      const computedBuffer = Buffer.from(hexToBytes(computedAttestationsHash));
-      const expectedBuffer = Buffer.from(hexToBytes(expectedHashes.attestationsHash));
-
-      if (!computedBuffer.equals(expectedBuffer)) {
+      if (
+        !Buffer.from(hexToBytes(computedAttestationsHash)).equals(
+          Buffer.from(hexToBytes(expectedHashes.attestationsHash)),
+        )
+      ) {
         throw new Error(
           `Attestations hash mismatch for checkpoint ${checkpointNumber}: ` +
             `computed=${computedAttestationsHash}, expected=${expectedHashes.attestationsHash}`,
@@ -474,17 +620,11 @@ export class CalldataRetriever {
 
     // Validate payloadDigest if provided (skip for backwards compatibility with older events)
     if (expectedHashes.payloadDigest) {
-      // Use ConsensusPayload to compute the digest - this ensures we match the exact logic
-      // used by the network for signing and verification
-      const consensusPayload = new ConsensusPayload(header, archiveRoot);
-      const payloadToSign = consensusPayload.getPayloadToSign(SignatureDomainSeparator.checkpointAttestation);
-      const computedPayloadDigest = keccak256(payloadToSign);
+      const computedPayloadDigest = this.computePayloadDigest(header, archiveRoot);
 
-      // Compare as buffers to avoid case-sensitivity and string comparison issues
-      const computedBuffer = Buffer.from(hexToBytes(computedPayloadDigest));
-      const expectedBuffer = Buffer.from(hexToBytes(expectedHashes.payloadDigest));
-
-      if (!computedBuffer.equals(expectedBuffer)) {
+      if (
+        !Buffer.from(hexToBytes(computedPayloadDigest)).equals(Buffer.from(hexToBytes(expectedHashes.payloadDigest)))
+      ) {
         throw new Error(
           `Payload digest mismatch for checkpoint ${checkpointNumber}: ` +
             `computed=${computedPayloadDigest}, expected=${expectedHashes.payloadDigest}`,

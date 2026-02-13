@@ -40,8 +40,11 @@ import {
  * Test class that exposes protected methods for testing
  */
 class TestCalldataRetriever extends CalldataRetriever {
-  public override tryDecodeMulticall3(tx: Transaction): Hex | undefined {
-    return super.tryDecodeMulticall3(tx);
+  public override tryDecodeMulticall3(
+    tx: Transaction,
+    expectedHashes?: { attestationsHash?: Hex; payloadDigest?: Hex },
+  ): Hex | undefined {
+    return super.tryDecodeMulticall3(tx, expectedHashes);
   }
 
   public override tryDecodeDirectPropose(tx: Transaction): Hex | undefined {
@@ -59,6 +62,13 @@ class TestCalldataRetriever extends CalldataRetriever {
     expectedHashes: { attestationsHash?: Hex; payloadDigest?: Hex },
   ) {
     return super.decodeAndBuildCheckpoint(proposeCalldata, blockHash, checkpointNumber, expectedHashes);
+  }
+
+  public override verifyProposeCalldataHashes(
+    proposeCalldata: Hex,
+    expectedHashes: { attestationsHash?: Hex; payloadDigest?: Hex },
+  ): boolean {
+    return super.verifyProposeCalldataHashes(proposeCalldata, expectedHashes);
   }
 }
 
@@ -134,6 +144,26 @@ describe('CalldataRetriever', () => {
         blobInput,
       ],
     });
+  }
+
+  /**
+   * Sets up mocks for the hash computation methods to return specific test hashes.
+   * This allows us to test validation logic without recomputing hashes (which would duplicate production logic).
+   * In production, expectedHashes come from the blockchain event logs (computed by the Solidity contract).
+   *
+   * The hash validation logic tests use mocking rather than recomputing hashes because:
+   * 1. In production, expectedHashes come from blockchain event logs (computed by Solidity)
+   * 2. We're testing validation logic, not hash computation correctness
+   * 3. Recomputing hashes in tests would duplicate production logic, hiding bugs
+   * 4. Correctness of hash computation is covered by e2e tests
+   */
+  function mockHashComputation(
+    attestationsHash: Hex = '0x1111111111111111111111111111111111111111111111111111111111111111',
+    payloadDigest: Hex = '0x2222222222222222222222222222222222222222222222222222222222222222',
+  ): { attestationsHash: Hex; payloadDigest: Hex } {
+    jest.spyOn(retriever as any, 'computeAttestationsHash').mockReturnValue(attestationsHash);
+    jest.spyOn(retriever as any, 'computePayloadDigest').mockReturnValue(payloadDigest);
+    return { attestationsHash, payloadDigest };
   }
 
   function makeMulticall3Transaction(calls: { target: Hex; callData: Hex }[]): Transaction {
@@ -1242,6 +1272,434 @@ describe('CalldataRetriever', () => {
 
       // Verify instrumentation was called with Spire Proposer address
       expect(instrumentation.recordBlockProposalTxTarget).toHaveBeenCalledWith(SPIRE_PROPOSER_ADDRESS, false);
+    });
+  });
+
+  describe('verifyProposeCalldataHashes', () => {
+    it('should return true when both hashes match', () => {
+      const proposeCalldata = makeProposeCalldata();
+      // Mock the hash computation to return specific test values
+      const hashes = mockHashComputation(
+        '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Hex,
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Hex,
+      );
+
+      // When computed hashes match expected hashes, should return true
+      expect(retriever.verifyProposeCalldataHashes(proposeCalldata, hashes)).toBe(true);
+    });
+
+    it('should return false when attestationsHash does not match', () => {
+      const proposeCalldata = makeProposeCalldata();
+      // Mock to return specific hashes
+      mockHashComputation(
+        '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Hex,
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Hex,
+      );
+
+      // Pass different attestationsHash - should return false
+      expect(
+        retriever.verifyProposeCalldataHashes(proposeCalldata, {
+          attestationsHash: '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex,
+          payloadDigest: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Hex,
+        }),
+      ).toBe(false);
+    });
+
+    it('should return false when payloadDigest does not match', () => {
+      const proposeCalldata = makeProposeCalldata();
+      // Mock to return specific hashes
+      mockHashComputation(
+        '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Hex,
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Hex,
+      );
+
+      // Pass different payloadDigest - should return false
+      expect(
+        retriever.verifyProposeCalldataHashes(proposeCalldata, {
+          attestationsHash: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Hex,
+          payloadDigest: '0x0000000000000000000000000000000000000000000000000000000000000002' as Hex,
+        }),
+      ).toBe(false);
+    });
+
+    it('should return false when only attestationsHash is provided', () => {
+      const proposeCalldata = makeProposeCalldata();
+      // Mock to return specific hashes
+      mockHashComputation(
+        '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Hex,
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Hex,
+      );
+
+      // Only provide attestationsHash - should return false (both required)
+      expect(
+        retriever.verifyProposeCalldataHashes(proposeCalldata, {
+          attestationsHash: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Hex,
+        }),
+      ).toBe(false);
+    });
+
+    it('should return false when only payloadDigest is provided', () => {
+      const proposeCalldata = makeProposeCalldata();
+      // Mock to return specific hashes
+      mockHashComputation(
+        '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Hex,
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Hex,
+      );
+
+      // Only provide payloadDigest - should return false (both required)
+      expect(
+        retriever.verifyProposeCalldataHashes(proposeCalldata, {
+          payloadDigest: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Hex,
+        }),
+      ).toBe(false);
+    });
+
+    it('should return false for invalid calldata', () => {
+      // Invalid calldata should fail to decode and return false
+      expect(
+        retriever.verifyProposeCalldataHashes('0xinvalid' as Hex, {
+          attestationsHash: '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex,
+          payloadDigest: '0x0000000000000000000000000000000000000000000000000000000000000002' as Hex,
+        }),
+      ).toBe(false);
+    });
+  });
+
+  describe('tryDecodeMulticall3 relaxed mode', () => {
+    it('should use strict mode when all calls are valid even with hashes present', () => {
+      const proposeCalldata = makeProposeCalldata();
+      // Mock hash computation - even with hashes present, strict mode succeeds so hashes aren't needed
+      const hashes = mockHashComputation();
+
+      const tx = makeMulticall3Transaction([{ target: rollupAddress.toString() as Hex, callData: proposeCalldata }]);
+
+      const result = retriever.tryDecodeMulticall3(tx, hashes);
+      expect(result).toBe(proposeCalldata);
+    });
+
+    it('should return verified calldata in relaxed mode when unknown call + valid propose with matching hashes', () => {
+      const proposeCalldata = makeProposeCalldata();
+      // Mock to return test hashes that will validate the calldata
+      const hashes = mockHashComputation(
+        '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as Hex,
+        '0xfedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321' as Hex,
+      );
+      const unknownAddress = EthAddress.random();
+
+      const tx = makeMulticall3Transaction([
+        { target: unknownAddress.toString() as Hex, callData: '0x12345678' as Hex },
+        { target: rollupAddress.toString() as Hex, callData: proposeCalldata },
+      ]);
+
+      const result = retriever.tryDecodeMulticall3(tx, hashes);
+      expect(result).toBe(proposeCalldata);
+    });
+
+    it('should return undefined when unknown call + propose with wrong target address', () => {
+      const proposeCalldata = makeProposeCalldata();
+      const hashes = mockHashComputation();
+      const unknownAddress = EthAddress.random();
+      const wrongRollupAddress = EthAddress.random();
+
+      const tx = makeMulticall3Transaction([
+        { target: unknownAddress.toString() as Hex, callData: '0x12345678' as Hex },
+        { target: wrongRollupAddress.toString() as Hex, callData: proposeCalldata },
+      ]);
+
+      const result = retriever.tryDecodeMulticall3(tx, hashes);
+      expect(result).toBeUndefined();
+    });
+
+    it('should return undefined when unknown call + call to rollup with wrong selector', () => {
+      const hashes = mockHashComputation();
+      const unknownAddress = EthAddress.random();
+      const invalidateBadSelector = toFunctionSelector(
+        RollupAbi.find(x => x.type === 'function' && x.name === 'invalidateBadAttestation')!,
+      );
+      const nonProposeCalldata = (invalidateBadSelector + '0'.repeat(120)) as Hex;
+
+      const tx = makeMulticall3Transaction([
+        { target: unknownAddress.toString() as Hex, callData: '0x12345678' as Hex },
+        { target: rollupAddress.toString() as Hex, callData: nonProposeCalldata },
+      ]);
+
+      const result = retriever.tryDecodeMulticall3(tx, hashes);
+      expect(result).toBeUndefined();
+    });
+
+    it('should return undefined when unknown call + only one hash provided', () => {
+      const proposeCalldata = makeProposeCalldata();
+      const hashes = mockHashComputation();
+      const unknownAddress = EthAddress.random();
+
+      const tx = makeMulticall3Transaction([
+        { target: unknownAddress.toString() as Hex, callData: '0x12345678' as Hex },
+        { target: rollupAddress.toString() as Hex, callData: proposeCalldata },
+      ]);
+
+      // Only attestationsHash, no payloadDigest -> strict failure, no relaxed
+      const result = retriever.tryDecodeMulticall3(tx, { attestationsHash: hashes.attestationsHash });
+      expect(result).toBeUndefined();
+    });
+
+    it('should return undefined when unknown call + wrong hashes', () => {
+      const proposeCalldata = makeProposeCalldata();
+      const unknownAddress = EthAddress.random();
+
+      // Mock to return different hashes than what we'll pass in expectedHashes
+      mockHashComputation(
+        '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Hex,
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Hex,
+      );
+
+      const tx = makeMulticall3Transaction([
+        { target: unknownAddress.toString() as Hex, callData: '0x12345678' as Hex },
+        { target: rollupAddress.toString() as Hex, callData: proposeCalldata },
+      ]);
+
+      // Pass different hashes - validation will fail
+      const result = retriever.tryDecodeMulticall3(tx, {
+        attestationsHash: '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex,
+        payloadDigest: '0x0000000000000000000000000000000000000000000000000000000000000002' as Hex,
+      });
+      expect(result).toBeUndefined();
+    });
+
+    it('should return the verified candidate when multiple propose candidates with exactly one verified', () => {
+      const proposeCalldata1 = makeProposeCalldata();
+      const proposeCalldata2 = makeProposeCalldata();
+      const unknownAddress = EthAddress.random();
+
+      // Mock verifyProposeCalldataHashes to return true only for proposeCalldata1
+      const hashes = mockHashComputation(
+        '0x1111111111111111111111111111111111111111111111111111111111111111' as Hex,
+        '0x2222222222222222222222222222222222222222222222222222222222222222' as Hex,
+      );
+
+      // Mock verifyProposeCalldataHashes to be selective - only first calldata verifies
+      jest.spyOn(retriever, 'verifyProposeCalldataHashes').mockImplementation((calldata, _hashes) => {
+        return calldata === proposeCalldata1;
+      });
+
+      const tx = makeMulticall3Transaction([
+        { target: unknownAddress.toString() as Hex, callData: '0x12345678' as Hex },
+        { target: rollupAddress.toString() as Hex, callData: proposeCalldata1 },
+        { target: rollupAddress.toString() as Hex, callData: proposeCalldata2 },
+      ]);
+
+      const result = retriever.tryDecodeMulticall3(tx, hashes);
+      expect(result).toBe(proposeCalldata1);
+    });
+
+    it('should return undefined when multiple propose candidates with multiple verified', () => {
+      const proposeCalldata = makeProposeCalldata();
+      const hashes = mockHashComputation();
+      const unknownAddress = EthAddress.random();
+
+      // Same calldata twice -> both verify
+      const tx = makeMulticall3Transaction([
+        { target: unknownAddress.toString() as Hex, callData: '0x12345678' as Hex },
+        { target: rollupAddress.toString() as Hex, callData: proposeCalldata },
+        { target: rollupAddress.toString() as Hex, callData: proposeCalldata },
+      ]);
+
+      const result = retriever.tryDecodeMulticall3(tx, hashes);
+      expect(result).toBeUndefined();
+    });
+
+    it('should return undefined when no propose candidates in relaxed mode', () => {
+      const unknownAddress = EthAddress.random();
+
+      const tx = makeMulticall3Transaction([
+        { target: unknownAddress.toString() as Hex, callData: '0x12345678' as Hex },
+      ]);
+
+      const result = retriever.tryDecodeMulticall3(tx, {
+        attestationsHash: '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex,
+        payloadDigest: '0x0000000000000000000000000000000000000000000000000000000000000002' as Hex,
+      });
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('integration: relaxed mode', () => {
+    const checkpointNumber = CheckpointNumber(42);
+
+    it('should succeed via relaxed mode when multicall3 has unknown calls and both hashes are provided', async () => {
+      const proposeCalldata = makeProposeCalldata();
+      // Mock hash computation to return test hashes that will validate
+      const hashes = mockHashComputation(
+        '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890' as Hex,
+        '0x0fedcba987654321fedcba987654321fedcba987654321fedcba987654321fed' as Hex,
+      );
+      const unknownAddress = EthAddress.random();
+
+      const tx = makeMulticall3Transaction([
+        { target: unknownAddress.toString() as Hex, callData: '0x12345678' as Hex },
+        { target: rollupAddress.toString() as Hex, callData: proposeCalldata },
+      ]);
+
+      publicClient.getTransaction.mockResolvedValue(tx);
+
+      const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber, hashes);
+
+      expect(result.checkpointNumber).toBe(checkpointNumber);
+      expect(result.header).toBeInstanceOf(CheckpointHeader);
+      expect(result.archiveRoot).toBeInstanceOf(Fr);
+      expect(instrumentation.recordBlockProposalTxTarget).toHaveBeenCalledWith(MULTI_CALL_3_ADDRESS, false);
+    });
+
+    it('should succeed via relaxed mode through Spire-wrapped multicall3 with unknown calls', async () => {
+      const proposeCalldata = makeProposeCalldata();
+      // Mock hash computation to return test hashes that will validate
+      const hashes = mockHashComputation(
+        '0x9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba' as Hex,
+        '0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' as Hex,
+      );
+      const unknownAddress = EthAddress.random();
+
+      const multicall3Data = encodeFunctionData({
+        abi: multicall3Abi,
+        functionName: 'aggregate3',
+        args: [
+          [
+            { target: unknownAddress.toString() as Hex, allowFailure: false, callData: '0x12345678' as Hex },
+            { target: rollupAddress.toString() as Hex, allowFailure: false, callData: proposeCalldata },
+          ],
+        ],
+      });
+
+      const spireMulticallData = encodeFunctionData({
+        abi: [
+          {
+            inputs: [
+              {
+                components: [
+                  { internalType: 'address', name: 'proposer', type: 'address' },
+                  { internalType: 'address', name: 'target', type: 'address' },
+                  { internalType: 'bytes', name: 'data', type: 'bytes' },
+                  { internalType: 'uint256', name: 'value', type: 'uint256' },
+                  { internalType: 'uint256', name: 'gasLimit', type: 'uint256' },
+                ],
+                internalType: 'struct IProposerMulticall.Call[]',
+                name: '_calls',
+                type: 'tuple[]',
+              },
+            ],
+            name: 'multicall',
+            outputs: [],
+            stateMutability: 'nonpayable',
+            type: 'function',
+          },
+        ] as const,
+        functionName: 'multicall',
+        args: [
+          [
+            {
+              proposer: EthAddress.random().toString() as Hex,
+              target: MULTI_CALL_3_ADDRESS as Hex,
+              data: multicall3Data,
+              value: 0n,
+              gasLimit: 1000000n,
+            },
+          ],
+        ],
+      });
+
+      const tx = {
+        input: spireMulticallData,
+        blockHash,
+        to: SPIRE_PROPOSER_ADDRESS as Hex,
+        hash: txHash,
+      } as Transaction;
+
+      publicClient.getTransaction.mockResolvedValue(tx);
+      publicClient.getStorageAt.mockResolvedValue(
+        ('0x000000000000000000000000' + SPIRE_PROPOSER_EXPECTED_IMPLEMENTATION.slice(2)) as Hex,
+      );
+
+      const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber, hashes);
+
+      expect(result.checkpointNumber).toBe(checkpointNumber);
+      expect(result.header).toBeInstanceOf(CheckpointHeader);
+      expect(instrumentation.recordBlockProposalTxTarget).toHaveBeenCalledWith(SPIRE_PROPOSER_ADDRESS, false);
+    });
+
+    it('should fall back to trace with wrong hashes and final decode throws mismatch', async () => {
+      const proposeCalldata = makeProposeCalldata();
+      const wrongHashes = {
+        attestationsHash: '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex,
+        payloadDigest: '0x0000000000000000000000000000000000000000000000000000000000000002' as Hex,
+      };
+      const unknownAddress = EthAddress.random();
+
+      const tx = makeMulticall3Transaction([
+        { target: unknownAddress.toString() as Hex, callData: '0x12345678' as Hex },
+        { target: rollupAddress.toString() as Hex, callData: proposeCalldata },
+      ]);
+
+      publicClient.getTransaction.mockResolvedValue(tx);
+
+      // Mock trace to return the propose calldata (trace succeeds but final hash validation fails)
+      debugClient.request.mockResolvedValueOnce([
+        {
+          type: 'call',
+          action: {
+            from: EthAddress.random().toString(),
+            to: rollupAddress.toString(),
+            callType: 'call',
+            input: proposeCalldata,
+            value: '0x0',
+            gas: '0x5208',
+          },
+          result: { output: '0x', gasUsed: '0x5208' },
+          subtraces: 0,
+          traceAddress: [],
+        },
+      ]);
+
+      await expect(retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber, wrongHashes)).rejects.toThrow(
+        /hash mismatch/i,
+      );
+    });
+
+    it('should skip relaxed mode and preserve backwards-compatible behavior when no hashes provided', async () => {
+      const proposeCalldata = makeProposeCalldata();
+      const unknownAddress = EthAddress.random();
+
+      // Multicall3 with unknown call -> strict fails, no hashes -> relaxed skipped -> falls to trace
+      const tx = makeMulticall3Transaction([
+        { target: unknownAddress.toString() as Hex, callData: '0x12345678' as Hex },
+        { target: rollupAddress.toString() as Hex, callData: proposeCalldata },
+      ]);
+
+      publicClient.getTransaction.mockResolvedValue(tx);
+
+      // Trace fallback returns the propose calldata
+      debugClient.request.mockResolvedValueOnce([
+        {
+          type: 'call',
+          action: {
+            from: EthAddress.random().toString(),
+            to: rollupAddress.toString(),
+            callType: 'call',
+            input: proposeCalldata,
+            value: '0x0',
+            gas: '0x5208',
+          },
+          result: { output: '0x', gasUsed: '0x5208' },
+          subtraces: 0,
+          traceAddress: [],
+        },
+      ]);
+
+      const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber, {});
+
+      expect(result.checkpointNumber).toBe(checkpointNumber);
+      expect(result.header).toBeInstanceOf(CheckpointHeader);
+      // Should have fallen back to trace
+      expect(instrumentation.recordBlockProposalTxTarget).toHaveBeenCalledWith(MULTI_CALL_3_ADDRESS, true);
+      expect(debugClient.request).toHaveBeenCalled();
     });
   });
 });

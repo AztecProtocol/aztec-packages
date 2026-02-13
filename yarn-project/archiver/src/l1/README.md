@@ -56,38 +56,26 @@ one is the call that succeeded, so we don't know which calldata to process.
 Furthermore, since the Spire proposer is upgradeable, we check if the implementation has not changed in
 order to decode. As usual, any validation failure triggers fallback to the next step.
 
-### Verifying Multicall3 Arguments
+### Relaxed Hash-Verified Extraction (Multicall3)
 
-**This is NOT implemented for simplicity's sake**
+When strict multicall3 validation fails (e.g., due to unrecognized calls from new contract interactions),
+the retriever attempts a relaxed hash-verified extraction before falling back to trace:
 
-If the checks above don't hold, such as when there are multiple calls to `propose`, then we cannot
-reliably extract the `propose` calldata from the multicall3 arguments alone. We can try a best-effort
-where we try all `propose` calls we see and validate them against on-chain data. Note that we can use these
-same strategies if we were to obtain the calldata from another source.
+1. **Strict first**: All calls must be on the allowlist. If this passes, the single propose call is returned immediately.
+2. **Relaxed second**: If strict fails and both `attestationsHash` and `payloadDigest` are available from the
+   `CheckpointProposed` event:
+   - Filter candidate `propose` calls by matching both target address (rollup) and function selector (`propose`).
+   - Verify each candidate's calldata by computing `attestationsHash` (keccak256 of ABI-encoded attestations)
+     and `payloadDigest` (keccak256 of the consensus payload signing hash) and comparing against expected values.
+   - Return the uniquely verified candidate (exactly one must match).
+   - If zero or multiple candidates verify, return undefined and fall back to trace.
+3. **Requirements**: Relaxed mode requires **both** hashes to be present. If only one hash is available (or neither),
+   relaxed mode is skipped entirely and behavior remains backwards-compatible (falls through to trace).
 
-#### TempBlockLog Verification
+Note: `decodeAndBuildCheckpoint` continues to perform final hash validation after extraction. The extraction-time
+verification is an optimization to avoid expensive `debug_traceTransaction` / `trace_transaction` RPC calls.
 
-Read the stored `TempBlockLog` for the L2 block number from L1 and verify it matches our decoded header hash,
-since the `TempBlockLog` stores the hash of the proposed block header, the payload commitment, and the attestations.
-
-However, `TempBlockLog` is only stored temporarily and deleted after proven, so this method only works for recent
-blocks, not for historical data syncing.
-
-#### Archive Verification
-
-Verify that the archive root in the decoded propose is correct with regard to the block header. This requires
-hashing the block header we have retrieved, inserting it into the archive tree, and checking the resulting root
-against the one we got from L1.
-
-However, this requires that the archive keeps a reference to world-state, which is not the case in the current
-system.
-
-#### Emit Commitments in Rollup Contract
-
-Modify rollup contract to emit commitments to the block header in the `L2BlockProposed` event, allowing us to easily
-verify the calldata we obtained vs the emitted event.
-
-However, modifying the rollup contract is out of scope for this change. But we can implement this approach in `v2`.
+This approach also applies to multicall3 transactions wrapped by Spire Proposer.
 
 ### Debug and Trace Transaction Fallback
 
