@@ -362,17 +362,21 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_arithmetic_gate(const arithmet
  *
  * However, if the "output" of the previous gate is equal to the "input" of the current gate, i.e. (x3, y3)_{i-1} ==
  * (x1, y1)_i, we can fuse them together by simply setting the selector values of the previous gate {i-1} to q_ecc = 1
- * and q_1 = sign_coefficient (which in the relation translates to q_sign). We take advantage of this frequently when
- * performing chained additions or doubling operations.
+ * and q_sign = ±1 based on is_addition. We take advantage of this frequently when performing chained additions or
+ * doubling operations.
  *
  * @param in Elliptic curve point addition gate parameters
  */
 template <typename ExecutionTrace>
-void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gate_<FF>& in)
+void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gate_& in)
 {
     this->assert_valid_variables({ in.x1, in.x2, in.x3, in.y1, in.y2, in.y3 });
 
     auto& block = blocks.elliptic;
+
+    // Convert bool to field element for the relation: +1 for addition, -1 for subtraction
+    // The elliptic curve relation assumes q_sign² = 1 (see elliptic_relation.hpp)
+    const FF q_sign = in.is_addition ? FF(1) : FF(-1);
 
     // Determine whether we can fuse this addition operation into the previous gate in the block
     bool can_fuse_into_previous_gate =
@@ -381,13 +385,13 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gat
         block.w_o()[block.size() - 1] == in.y1;   /* output y coord of previous gate is input of this one */
 
     if (can_fuse_into_previous_gate) {
-        block.q_1().set(block.size() - 1, in.sign_coefficient); // set q_sign of previous gate
-        block.q_elliptic().set(block.size() - 1, 1);            // set q_ecc of previous gate to 1
+        block.q_1().set(block.size() - 1, q_sign);   // set q_sign of previous gate
+        block.q_elliptic().set(block.size() - 1, 1); // set q_ecc of previous gate to 1
     } else {
         block.populate_wires(this->zero_idx(), in.x1, in.y1, this->zero_idx());
         block.q_3().emplace_back(0);
         block.q_4().emplace_back(0);
-        block.q_1().emplace_back(in.sign_coefficient);
+        block.q_1().emplace_back(q_sign);
 
         block.q_2().emplace_back(0);
         block.q_m().emplace_back(0);
