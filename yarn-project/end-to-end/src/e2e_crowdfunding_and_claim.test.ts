@@ -128,15 +128,13 @@ describe('e2e_crowdfunding_and_claim', () => {
         0,
       );
       const witness = await wallet.createAuthWit(donor1Address, { caller: crowdfundingContract.address, action });
-      await crowdfundingContract.methods
-        .donate(donationAmount)
-        .send({ from: donor1Address, additionalScopes: [crowdfundingContract.address], authWitnesses: [witness] });
+      await crowdfundingContract.methods.donate(donationAmount).send({ from: donor1Address, authWitnesses: [witness] });
 
       // The donor should have exactly one note
       const pageIndex = 0;
       const notes = await crowdfundingContract.methods
         .get_donation_notes(donor1Address, pageIndex)
-        .simulate({ from: donor1Address, additionalScopes: [crowdfundingContract.address] });
+        .simulate({ from: donor1Address });
       expect(notes.len).toEqual(1n);
       uintNote = notes.storage[0];
     }
@@ -187,15 +185,13 @@ describe('e2e_crowdfunding_and_claim', () => {
       0,
     );
     const witness = await wallet.createAuthWit(donorAddress, { caller: crowdfundingContract.address, action });
-    await crowdfundingContract.methods
-      .donate(donationAmount)
-      .send({ from: donorAddress, additionalScopes: [crowdfundingContract.address], authWitnesses: [witness] });
+    await crowdfundingContract.methods.donate(donationAmount).send({ from: donorAddress, authWitnesses: [witness] });
 
     // The donor should have exactly one note
     const pageIndex = 0;
     const notes = await crowdfundingContract.methods
       .get_donation_notes(donorAddress, pageIndex)
-      .simulate({ from: donorAddress, additionalScopes: [crowdfundingContract.address] });
+      .simulate({ from: donorAddress });
     expect(notes.len).toEqual(1n);
     const anotherDonationNote = notes.storage[0];
 
@@ -251,13 +247,13 @@ describe('e2e_crowdfunding_and_claim', () => {
     const witness = await wallet.createAuthWit(donor1Address, { caller: otherCrowdfundingContract.address, action });
     await otherCrowdfundingContract.methods
       .donate(donationAmount)
-      .send({ from: donor1Address, additionalScopes: [otherCrowdfundingContract.address], authWitnesses: [witness] });
+      .send({ from: donor1Address, authWitnesses: [witness] });
 
     // 3) Get the donation note
     const pageIndex = 0;
     const notes = await otherCrowdfundingContract.methods
       .get_donation_notes(donor1Address, pageIndex)
-      .simulate({ from: donor1Address, additionalScopes: [otherCrowdfundingContract.address] });
+      .simulate({ from: donor1Address });
     expect(notes.len).toEqual(1n);
     const otherContractNote = notes.storage[0];
 
@@ -280,9 +276,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     const witness = await wallet.createAuthWit(donor2Address, { caller: crowdfundingContract.address, action });
 
     // 2) We donate to the crowdfunding contract
-    await crowdfundingContract.methods
-      .donate(donationAmount)
-      .send({ from: donor2Address, additionalScopes: [crowdfundingContract.address], authWitnesses: [witness] });
+    await crowdfundingContract.methods.donate(donationAmount).send({ from: donor2Address, authWitnesses: [witness] });
 
     // The following should fail as msg_sender != operator
     await expect(
@@ -310,9 +304,7 @@ describe('e2e_crowdfunding_and_claim', () => {
 
     // 3) We donate to the crowdfunding contract
     await expect(
-      crowdfundingContract.methods
-        .donate(donationAmount)
-        .send({ from: donor2Address, additionalScopes: [crowdfundingContract.address], authWitnesses: [witness] }),
+      crowdfundingContract.methods.donate(donationAmount).send({ from: donor2Address, authWitnesses: [witness] }),
     ).rejects.toThrow();
   });
 });

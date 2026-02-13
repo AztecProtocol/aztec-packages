@@ -95,7 +95,7 @@ describe('e2e_fees Fee Juice payments', () => {
         .simulate({ from: aliceAddress });
       const { transactionFee } = await bananaCoin.methods
         .transfer(bobAddress, 1n)
-        .send({ fee: { gasSettings }, from: aliceAddress, additionalScopes: [bobAddress] });
+        .send({ fee: { gasSettings }, from: aliceAddress });
       expect(transactionFee).toBeGreaterThan(0n);
       const endBalance = await feeJuiceContract.methods
         .balance_of_public(aliceAddress)

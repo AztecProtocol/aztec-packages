@@ -22,6 +22,7 @@ export async function deployFundedSchnorrAccounts(
     const deployMethod = await accountManager.getDeployMethod();
     await deployMethod.send({
       from: AztecAddress.ZERO,
+      additionalScopes: [accountManager.address],
       skipClassPublication: i !== 0,
       wait: waitOptions,
     });

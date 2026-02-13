@@ -79,6 +79,7 @@ export async function createAccount(
       skipInstancePublication: !publicDeploy,
       skipInitialization,
       from,
+      additionalScopes: [address],
       fee: { paymentMethod, gasSettings },
     };
 

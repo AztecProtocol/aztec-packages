@@ -884,6 +884,7 @@ export const deployAccounts =
       const deployMethod = await accountManager.getDeployMethod();
       await deployMethod.send({
         from: AztecAddress.ZERO,
+        additionalScopes: [accountManager.address],
         skipClassPublication: i !== 0, // Publish the contract class at most once.
       });
     }
