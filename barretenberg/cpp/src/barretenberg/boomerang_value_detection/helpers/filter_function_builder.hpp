@@ -1,3 +1,12 @@
+/**
+ * @file filter_function_builder.hpp
+ * @brief Helper class to build a filter function for gates
+ * @details The filter function is used to filter gates based on the given criteria (wires and selectors)
+ * it uses fluent interface to set the criteria, and if the criteria is defined, it will check if the gate matches the
+ * criteria
+ * @tparam CircuitBuilder The circuit builder type
+ * @tparam FF The field type
+ */
 #pragma once
 
 #include <algorithm>
@@ -134,6 +143,7 @@ inline FilterFunctionBuilder<CircuitBuilder, FF>& FilterFunctionBuilder<CircuitB
     return *this;
 }
 
+// Builds the filter function that will be used to filter the gates. Checks if the gate matches all set criteria
 template <typename CircuitBuilder, typename FF>
 inline std::function<bool(size_t, size_t)> FilterFunctionBuilder<CircuitBuilder, FF>::build() const
 {
@@ -180,6 +190,7 @@ inline std::function<bool(size_t, size_t)> FilterFunctionBuilder<CircuitBuilder,
     };
 }
 
+// Filters the gates based on the criteria. Returns a vector of gate locations that match the criteria.
 template <typename CircuitBuilder, typename FF>
 inline std::vector<std::pair<size_t, size_t>> FilterFunctionBuilder<CircuitBuilder, FF>::filter_gates(
     std::vector<std::pair<size_t, size_t>>& gates) const
