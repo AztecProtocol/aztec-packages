@@ -15,7 +15,7 @@ template <typename FF_> class bc_decompositionImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 64> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 4, 5, 3, 3, 3, 3, 3, 3, 4, 4, 3, 3, 5, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 5, 3, 5, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 5, 3, 3
     };
 
@@ -38,15 +38,15 @@ template <typename FF> class bc_decomposition : public Relation<bc_decomposition
     static constexpr const std::string_view NAME = "bc_decomposition";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_BYTES_REM_NON_ZERO = 1;
-    static constexpr size_t SR_LAST_CONTRACT_BYTES_REM_ONE = 2;
-    static constexpr size_t SR_TRACE_CONTINUITY = 5;
-    static constexpr size_t SR_START_AFTER_LATCH = 6;
-    static constexpr size_t SR_SEL_ON_START_OR_END = 7;
-    static constexpr size_t SR_PC_ZERO_INITIALIZATION = 8;
-    static constexpr size_t SR_PC_INCREMENTS = 9;
-    static constexpr size_t SR_BYTES_REMAINING_DECREMENTS = 10;
-    static constexpr size_t SR_ID_PROPAGATION = 11;
+    static constexpr size_t SR_TRACE_CONTINUITY = 3;
+    static constexpr size_t SR_START_AFTER_LATCH = 4;
+    static constexpr size_t SR_SEL_ON_START_OR_END = 5;
+    static constexpr size_t SR_PC_ZERO_INITIALIZATION = 6;
+    static constexpr size_t SR_PC_INCREMENTS = 7;
+    static constexpr size_t SR_BYTES_REMAINING_DECREMENTS = 8;
+    static constexpr size_t SR_ID_PROPAGATION = 9;
+    static constexpr size_t SR_BYTES_REM_NON_ZERO = 10;
+    static constexpr size_t SR_LAST_CONTRACT_BYTES_REM_ONE = 11;
     static constexpr size_t SR_IS_WINDOWS_EQ_REMAINING = 13;
     static constexpr size_t SR_SEL_WINDOWS_GT_REMAINING_INIT = 15;
     static constexpr size_t SR_SEL_WINDOWS_GT_REMAINING_PROPAGATION = 16;
@@ -61,10 +61,6 @@ template <typename FF> class bc_decomposition : public Relation<bc_decomposition
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case SR_BYTES_REM_NON_ZERO:
-            return "BYTES_REM_NON_ZERO";
-        case SR_LAST_CONTRACT_BYTES_REM_ONE:
-            return "LAST_CONTRACT_BYTES_REM_ONE";
         case SR_TRACE_CONTINUITY:
             return "TRACE_CONTINUITY";
         case SR_START_AFTER_LATCH:
@@ -79,6 +75,10 @@ template <typename FF> class bc_decomposition : public Relation<bc_decomposition
             return "BYTES_REMAINING_DECREMENTS";
         case SR_ID_PROPAGATION:
             return "ID_PROPAGATION";
+        case SR_BYTES_REM_NON_ZERO:
+            return "BYTES_REM_NON_ZERO";
+        case SR_LAST_CONTRACT_BYTES_REM_ONE:
+            return "LAST_CONTRACT_BYTES_REM_ONE";
         case SR_IS_WINDOWS_EQ_REMAINING:
             return "IS_WINDOWS_EQ_REMAINING";
         case SR_SEL_WINDOWS_GT_REMAINING_INIT:

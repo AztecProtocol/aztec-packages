@@ -22,11 +22,10 @@ include "../precomputed.pil";
  *
  * Remark: This does NOT support empty bytecode. We rely on other means to prevent processing empty bytecode:
  *         1) In the noir registration contract, we explicitly prevent empty bytecode being registered (PR #12910).
- *         2) We may still get empty bytecode (which would be invalid) via a sequencer.
+ *         2) The sequencer may still get empty bytecode (which would be invalid).
  *         3) We handle these in the same way as any bytecode that has not been registered (Merkle check of the address).
  *
- * PRECONDITIONS: As above, the bytecode must not be empty. We also assume bytecode ids are unique (i.e. after last_of_contract,
- * the bytecode_id will change to one never used before).
+ * PRECONDITIONS: As above, the bytecode must not be empty.
  *
  * USAGE: Note for all lookups below: the correctness of id (= bytecode commitment) is not constrained in this trace, rather in
  * bc_hashing via a multipermutation.
@@ -99,7 +98,7 @@ include "../precomputed.pil";
  *                --> bc_retrieval.pil                            --> precomputed.pil
  * This trace is looked up by:
  * - instr_fetching.pil: To constrain the bytecode size (#[BYTECODE_SIZE_FROM_BC_DEC]) and values (#[BYTES_FROM_BC_DEC]).
- * - bc_hashing.pil: To constrain the bytecode size (#[CHECK_FINAL_BYTES_REMAINING]) and packed field values
+ * - bc_hashing.pil: To constrain the bytecode size (#[CHECK_FINAL_BYTES_REMAINING] and #[BYTECODE_LENGTH_BYTES]) and packed field values
  *                   (#[GET_PACKED_FIELD_i] for i = 0, 1, 2) via a multipermutation. It enforces that the id is the public bytecode commitment.
  *
  * This trace looks up:
@@ -130,25 +129,9 @@ pol commit id;
 pol commit pc;
 // bytes_remaining counts from bytecode_length to 1.
 pol commit bytes_remaining;
-
 // This is the most important column. It contains the bytecode one byte at a time on each row.
 // If the TX uses several bytecodes, they should go one after the other in this column.
 pol commit bytes;
-
-// sel == 0 iff bytes_remaining == 0
-// We need the helper column for the inverse of bytes_remaining: bytes_rem_inv
-pol commit bytes_rem_inv; // @zero-check
-// Remark: Depending on how bytecode hashing constraints work, we might remove this relation.
-// MW note: We do NOT constrain this in bytecode hashing, but we could move it there. One downside of doing that is there are no lookups
-// into this trace at /each row/ (all conditional e.g. sel_not_start) so we would need something gated by sel.
-#[BYTES_REM_NON_ZERO]
-bytes_remaining * ((1 - sel) * (1 - bytes_rem_inv) + bytes_rem_inv) - sel = 0;
-
-// last_of_contract == 1 iff bytes_remaining - 1 == 0
-// We need the helper column for the inverse of bytes_remaining - 1: bytes_rem_min_one_inv
-pol commit bytes_rem_min_one_inv; // @zero-check
-#[LAST_CONTRACT_BYTES_REM_ONE]
-sel * ((bytes_remaining - 1) * (last_of_contract * (1 - bytes_rem_min_one_inv) + bytes_rem_min_one_inv) + last_of_contract - 1) = 0;
 
 ///////////////////////////////
 // Trace Shape
@@ -171,6 +154,7 @@ pol LATCH_CONDITION = precomputed.first_row + last_of_contract;
 // Note that sel cannot be activated in the first row as sel' is defined.
 // As a consequence, if a row is activated (sel == 1) somewhere in this sub-trace, then
 // the activated rows start from the second row and are contiguous.
+// See common recipes: https://hackmd.io/moq6viBpRJeLpWrHAogCZw#Contiguous-Multi-Rows-Computation-Trace
 #[TRACE_CONTINUITY]
 (1 - LATCH_CONDITION) * (sel - sel') = 0;
 
@@ -186,19 +170,36 @@ sel' * (start' - LATCH_CONDITION) = 0;
 #[PC_ZERO_INITIALIZATION]
 start * pc = 0;
 
+// Increment/decrement note: (sel - last_of_contract) implies an active non-last row since:
+//     last_of_contract == 1 ==> sel == 1 ==> sel - last_of_contract == 0
+//     sel == 0 ==> last_of_contract == 0 ==> sel - last_of_contract == 0
+//     sel == 1 & last_of_contract == 0   ==> sel - last_of_contract == 1
+
 // pc evolution (increment within bytecode)
 #[PC_INCREMENTS]
-sel * (1 - last_of_contract) * (pc' - pc - 1) = 0;
+(sel - last_of_contract) * (pc' - pc - 1) = 0;
 
 // bytes_remaining evolution (decrement within bytecode)
 #[BYTES_REMAINING_DECREMENTS]
-sel * (1 - last_of_contract) * (bytes_remaining' - bytes_remaining + 1) = 0;
+(sel - last_of_contract) * (bytes_remaining' - bytes_remaining + 1) = 0;
 
 // This is crucial to propagate bytecode_id as this is part of the unique identifier
 // for a given instruction (pair [pc, bytecode_id]). Otherwise, instruction fetching might
 // be misled to copy the wrong instruction from this subtrace.
 #[ID_PROPAGATION]
 (1 - LATCH_CONDITION) * (id' - id) = 0;
+
+// sel == 0 iff bytes_remaining == 0
+// We need the helper column for the inverse of bytes_remaining: bytes_rem_inv
+pol commit bytes_rem_inv; // @zero-check
+#[BYTES_REM_NON_ZERO]
+bytes_remaining * ((1 - sel) * (1 - bytes_rem_inv) + bytes_rem_inv) - sel = 0;
+
+// last_of_contract == 1 iff bytes_remaining - 1 == 0
+// We need the helper column for the inverse of bytes_remaining - 1: bytes_rem_min_one_inv
+pol commit bytes_rem_min_one_inv; // @zero-check
+#[LAST_CONTRACT_BYTES_REM_ONE]
+sel * ((bytes_remaining - 1) * (last_of_contract * (1 - bytes_rem_min_one_inv) + bytes_rem_min_one_inv) + last_of_contract - 1) = 0;
 
 ///////////////////////////////
 // Range Check Byte
@@ -294,7 +295,7 @@ pol commit bytes_pc_plus_1, bytes_pc_plus_2, bytes_pc_plus_3, bytes_pc_plus_4, b
 // add garbage values beyond the end of the bytecode. This is not strictly necessary
 // but this property comes at no additional cost.
 
-// Here we also enforce at that all bytes_pc_plus_XX values are zeros if we have finished
+// Here we also enforce that all bytes_pc_plus_XX values are zeros if we have finished
 // a bytecode i.e. last_of_contract => LATCH_CONDITION is on.
 // Since bytes_remaining = 1 <==> last_of_contract = 1, this constrains the bytecode length.
 
@@ -369,12 +370,9 @@ sel_packed * (1 - sel) = 0;
 start * (sel_packed - 1) = 0;
 
 // NOTE: The bytecode hashing trace constrains that every 31st pc is packed, however
-// we must duplicate this check here as we do not constrain uniqueness of bytecode ids:
-// MW note: Is this true now that we use a permutation into this trace? The perm. looks up pc (constrained to be a multiple of 31),
-// bytecode id (as above, not constrained to be unique, but is constrained to be consistent), and packed_field.
-// We should ensure that packed_field is non zero when we have bytes to pack. IIUC this is enforced by hashing trace:
-//     hashing permutations are on as long as we have not finished the bytecode => sel_packed_read[i] must be on =>
-//     sel_packed must be on every 31st byte => #[BC_DECOMPOSITION_REPACKING] must be satisfied.
+// we must duplicate this check here as we do not constrain uniqueness of bytecode ids.
+// This protects against duplicating traces for identical bytecode ids, but one has
+// sel_packed off and hence unconstrained byte values against packed_field.
 pol commit next_packed_pc;
 // next_packed_pc == pc <==> sel_packed == 1
 pol commit next_packed_pc_min_pc_inv;
@@ -389,8 +387,6 @@ sel * ((next_packed_pc - pc) * (sel_packed * (1 - next_packed_pc_min_pc_inv) + n
 // Important: this "field" is not 32 bytes (or 254 bits) long. It is 31 bytes long.
 pol commit packed_field;
 
-// TODO: Once we manually optimize the generated files, this subrelation can benefit from short-circuit multiplication.
-// MW note: Can we do this ^ now?
 #[BC_DECOMPOSITION_REPACKING]
 sel_packed * (
        2**0   * bytes_pc_plus_30 + 2**8   * bytes_pc_plus_29 + 2**16  * bytes_pc_plus_28 + 2**24  * bytes_pc_plus_27 + 2**32  * bytes_pc_plus_26 +

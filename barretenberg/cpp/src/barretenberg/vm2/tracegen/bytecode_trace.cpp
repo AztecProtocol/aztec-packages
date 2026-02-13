@@ -22,7 +22,7 @@ using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldPar
 namespace bb::avm2::tracegen {
 
 /**
- * @brief Process bytecode decomposition events and populate the and populate the relevant columns in the trace.
+ * @brief Process bytecode decomposition events and populate the relevant columns in the trace.
  *  Corresponds to bc_decomposition.pil.
  *
  *  This trace is non memory-aware and does not handle any errors. It populates the columns with bytecode values

@@ -25,17 +25,81 @@ void bc_decompositionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                    (FF(1) - static_cast<View>(in.get(C::bc_decomposition_sel)));
         std::get<0>(evals) += (tmp * scaling_factor);
     }
-    { // BYTES_REM_NON_ZERO
+    {
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::bc_decomposition_last_of_contract)) *
+                   (FF(1) - static_cast<View>(in.get(C::bc_decomposition_last_of_contract)));
+        std::get<1>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::bc_decomposition_start)) *
+                   (FF(1) - static_cast<View>(in.get(C::bc_decomposition_start)));
+        std::get<2>(evals) += (tmp * scaling_factor);
+    }
+    { // TRACE_CONTINUITY
+        using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
+        auto tmp = (FF(1) - CView(bc_decomposition_LATCH_CONDITION)) *
+                   (static_cast<View>(in.get(C::bc_decomposition_sel)) -
+                    static_cast<View>(in.get(C::bc_decomposition_sel_shift)));
+        std::get<3>(evals) += (tmp * scaling_factor);
+    }
+    { // START_AFTER_LATCH
+        using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
+        auto tmp =
+            static_cast<View>(in.get(C::bc_decomposition_sel_shift)) *
+            (static_cast<View>(in.get(C::bc_decomposition_start_shift)) - CView(bc_decomposition_LATCH_CONDITION));
+        std::get<4>(evals) += (tmp * scaling_factor);
+    }
+    { // SEL_ON_START_OR_END
+        using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::bc_decomposition_start)) +
+                    static_cast<View>(in.get(C::bc_decomposition_last_of_contract))) *
+                   (FF(1) - static_cast<View>(in.get(C::bc_decomposition_sel)));
+        std::get<5>(evals) += (tmp * scaling_factor);
+    }
+    { // PC_ZERO_INITIALIZATION
+        using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
+        auto tmp =
+            static_cast<View>(in.get(C::bc_decomposition_start)) * static_cast<View>(in.get(C::bc_decomposition_pc));
+        std::get<6>(evals) += (tmp * scaling_factor);
+    }
+    { // PC_INCREMENTS
+        using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::bc_decomposition_sel)) -
+                    static_cast<View>(in.get(C::bc_decomposition_last_of_contract))) *
+                   ((static_cast<View>(in.get(C::bc_decomposition_pc_shift)) -
+                     static_cast<View>(in.get(C::bc_decomposition_pc))) -
+                    FF(1));
+        std::get<7>(evals) += (tmp * scaling_factor);
+    }
+    { // BYTES_REMAINING_DECREMENTS
+        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::bc_decomposition_sel)) -
+                    static_cast<View>(in.get(C::bc_decomposition_last_of_contract))) *
+                   ((static_cast<View>(in.get(C::bc_decomposition_bytes_remaining_shift)) -
+                     static_cast<View>(in.get(C::bc_decomposition_bytes_remaining))) +
+                    FF(1));
+        std::get<8>(evals) += (tmp * scaling_factor);
+    }
+    { // ID_PROPAGATION
+        using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
+        auto tmp = (FF(1) - CView(bc_decomposition_LATCH_CONDITION)) *
+                   (static_cast<View>(in.get(C::bc_decomposition_id_shift)) -
+                    static_cast<View>(in.get(C::bc_decomposition_id)));
+        std::get<9>(evals) += (tmp * scaling_factor);
+    }
+    { // BYTES_REM_NON_ZERO
+        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::bc_decomposition_bytes_remaining)) *
                         ((FF(1) - static_cast<View>(in.get(C::bc_decomposition_sel))) *
                              (FF(1) - static_cast<View>(in.get(C::bc_decomposition_bytes_rem_inv))) +
                          static_cast<View>(in.get(C::bc_decomposition_bytes_rem_inv))) -
                     static_cast<View>(in.get(C::bc_decomposition_sel)));
-        std::get<1>(evals) += (tmp * scaling_factor);
+        std::get<10>(evals) += (tmp * scaling_factor);
     }
     { // LAST_CONTRACT_BYTES_REM_ONE
-        using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::bc_decomposition_sel)) *
                    (((static_cast<View>(in.get(C::bc_decomposition_bytes_remaining)) - FF(1)) *
                          (static_cast<View>(in.get(C::bc_decomposition_last_of_contract)) *
@@ -43,70 +107,6 @@ void bc_decompositionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                           static_cast<View>(in.get(C::bc_decomposition_bytes_rem_min_one_inv))) +
                      static_cast<View>(in.get(C::bc_decomposition_last_of_contract))) -
                     FF(1));
-        std::get<2>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::bc_decomposition_last_of_contract)) *
-                   (FF(1) - static_cast<View>(in.get(C::bc_decomposition_last_of_contract)));
-        std::get<3>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::bc_decomposition_start)) *
-                   (FF(1) - static_cast<View>(in.get(C::bc_decomposition_start)));
-        std::get<4>(evals) += (tmp * scaling_factor);
-    }
-    { // TRACE_CONTINUITY
-        using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
-        auto tmp = (FF(1) - CView(bc_decomposition_LATCH_CONDITION)) *
-                   (static_cast<View>(in.get(C::bc_decomposition_sel)) -
-                    static_cast<View>(in.get(C::bc_decomposition_sel_shift)));
-        std::get<5>(evals) += (tmp * scaling_factor);
-    }
-    { // START_AFTER_LATCH
-        using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::bc_decomposition_sel_shift)) *
-            (static_cast<View>(in.get(C::bc_decomposition_start_shift)) - CView(bc_decomposition_LATCH_CONDITION));
-        std::get<6>(evals) += (tmp * scaling_factor);
-    }
-    { // SEL_ON_START_OR_END
-        using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::bc_decomposition_start)) +
-                    static_cast<View>(in.get(C::bc_decomposition_last_of_contract))) *
-                   (FF(1) - static_cast<View>(in.get(C::bc_decomposition_sel)));
-        std::get<7>(evals) += (tmp * scaling_factor);
-    }
-    { // PC_ZERO_INITIALIZATION
-        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::bc_decomposition_start)) * static_cast<View>(in.get(C::bc_decomposition_pc));
-        std::get<8>(evals) += (tmp * scaling_factor);
-    }
-    { // PC_INCREMENTS
-        using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::bc_decomposition_sel)) *
-                   (FF(1) - static_cast<View>(in.get(C::bc_decomposition_last_of_contract))) *
-                   ((static_cast<View>(in.get(C::bc_decomposition_pc_shift)) -
-                     static_cast<View>(in.get(C::bc_decomposition_pc))) -
-                    FF(1));
-        std::get<9>(evals) += (tmp * scaling_factor);
-    }
-    { // BYTES_REMAINING_DECREMENTS
-        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::bc_decomposition_sel)) *
-                   (FF(1) - static_cast<View>(in.get(C::bc_decomposition_last_of_contract))) *
-                   ((static_cast<View>(in.get(C::bc_decomposition_bytes_remaining_shift)) -
-                     static_cast<View>(in.get(C::bc_decomposition_bytes_remaining))) +
-                    FF(1));
-        std::get<10>(evals) += (tmp * scaling_factor);
-    }
-    { // ID_PROPAGATION
-        using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
-        auto tmp = (FF(1) - CView(bc_decomposition_LATCH_CONDITION)) *
-                   (static_cast<View>(in.get(C::bc_decomposition_id_shift)) -
-                    static_cast<View>(in.get(C::bc_decomposition_id)));
         std::get<11>(evals) += (tmp * scaling_factor);
     }
     {
