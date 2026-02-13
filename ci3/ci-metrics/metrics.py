@@ -163,8 +163,8 @@ def _handle_test_event(channel: str, data: dict):
     _upsert_daily_stats(status, test_cmd, dashboard, timestamp)
 
     # Only persist individual rows for failed/flaked (for drill-down / log URLs).
-    # Passed events are tracked via daily stats only.
-    if status == 'passed':
+    # Passed and started events are tracked via daily stats only.
+    if status not in ('failed', 'flaked'):
         return
 
     db.execute('''
@@ -193,7 +193,7 @@ def _handle_test_event(channel: str, data: dict):
 
 def start_test_listener(redis_conn):
     """Subscribe to test event channels only. Reconnects on failure."""
-    channels = [b'ci:test:started', b'ci:test:passed', b'ci:test:failed', b'ci:test:flaked']
+    channels = [b'ci:test:passed', b'ci:test:failed', b'ci:test:flaked']
 
     def listener():
         backoff = 1
@@ -382,6 +382,9 @@ def sync_failed_tests_to_sqlite(redis_conn):
                     parsed['flake_group_id'], parsed['dashboard'],
                     parsed['timestamp'],
                 ))
+                _upsert_daily_stats(
+                    parsed['status'], parsed['test_cmd'],
+                    parsed['dashboard'], parsed['timestamp'])
                 total += 1
             except Exception as e:
                 print(f"[rk_metrics] Error inserting test event: {e}")
@@ -553,25 +556,27 @@ def sync_ci_runs_to_sqlite(redis_conn):
 
 
 def _backfill_daily_stats():
-    """Populate test_daily_stats from existing test_events rows (one-time)."""
+    """Populate test_daily_stats from existing test_events rows.
+
+    Uses INSERT OR IGNORE to fill gaps without overwriting data from the
+    real-time listener.  Safe to call repeatedly — skips dates/tests that
+    already have rows.  Only failed/flaked events are in test_events (passed
+    events come exclusively from the real-time listener).
+    """
     conn = db.get_db()
-    # Check if daily stats are already populated
-    row = conn.execute("SELECT COUNT(*) as c FROM test_daily_stats").fetchone()
-    if row['c'] > 0:
-        return
-    conn.execute('''
+    cur = conn.execute('''
         INSERT OR IGNORE INTO test_daily_stats (date, test_cmd, dashboard, passed, failed, flaked)
         SELECT substr(timestamp, 1, 10) as date, test_cmd, dashboard,
-               SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END),
+               0,
                SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END),
                SUM(CASE WHEN status = 'flaked' THEN 1 ELSE 0 END)
         FROM test_events
+        WHERE status IN ('failed', 'flaked')
         GROUP BY substr(timestamp, 1, 10), test_cmd, dashboard
     ''')
     conn.commit()
-    count = conn.execute("SELECT COUNT(*) as c FROM test_daily_stats").fetchone()['c']
-    if count:
-        print(f"[rk_metrics] Backfilled {count} daily stat rows from test_events")
+    if cur.rowcount and cur.rowcount > 0:
+        print(f"[rk_metrics] Backfilled {cur.rowcount} daily stat rows from test_events")
 
 
 # ---- CloudTrail instance type resolution ----

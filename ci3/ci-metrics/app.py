@@ -784,35 +784,51 @@ def api_test_timings():
                 })
     by_test.sort(key=lambda r: r['count'], reverse=True)
 
-    # Daily time series from daily stats
-    by_date = db.query(f'''
+    # Daily time series: merge daily_stats (has passed counts) with test_events
+    # (has timing + failed/flaked for dates where daily_stats may be missing)
+    ds_by_date = {r['date']: r for r in db.query(f'''
         SELECT date,
                SUM(passed) as passed, SUM(failed) as failed, SUM(flaked) as flaked,
                SUM(passed) + SUM(failed) + SUM(flaked) as count
         FROM test_daily_stats {ds_where}
         GROUP BY date
         ORDER BY date
-    ''', ds_params)
+    ''', ds_params)}
 
-    # Enrich with timing from test_events
-    timing_by_date = {r['date']: r for r in db.query(f'''
+    # Timing + counts from test_events (failed/flaked only, passed not stored)
+    te_by_date = {r['date']: r for r in db.query(f'''
         SELECT substr(timestamp, 1, 10) as date,
                ROUND(AVG(duration_secs), 1) as avg_secs,
-               ROUND(MAX(duration_secs), 1) as max_secs
+               ROUND(MAX(duration_secs), 1) as max_secs,
+               SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as te_failed,
+               SUM(CASE WHEN status = 'flaked' THEN 1 ELSE 0 END) as te_flaked
         FROM test_events {where}
         GROUP BY substr(timestamp, 1, 10)
     ''', params)}
-    for d in by_date:
-        t = timing_by_date.get(d['date'], {})
-        d['avg_secs'] = t.get('avg_secs')
-        d['max_secs'] = t.get('max_secs')
 
-    # Summary from daily stats
-    ds_summary = db.query(f'''
-        SELECT SUM(passed) as passed, SUM(failed) as failed, SUM(flaked) as flaked
-        FROM test_daily_stats {ds_where}
-    ''', ds_params)
-    ds_s = ds_summary[0] if ds_summary else {}
+    # Merge: prefer daily_stats counts but fill gaps from test_events
+    all_dates = sorted(set(ds_by_date.keys()) | set(te_by_date.keys()))
+    by_date = []
+    for date in all_dates:
+        ds = ds_by_date.get(date, {})
+        te = te_by_date.get(date, {})
+        passed = ds.get('passed', 0) or 0
+        failed = ds.get('failed') or te.get('te_failed', 0) or 0
+        flaked = ds.get('flaked') or te.get('te_flaked', 0) or 0
+        by_date.append({
+            'date': date,
+            'passed': passed,
+            'failed': failed,
+            'flaked': flaked,
+            'count': passed + failed + flaked,
+            'avg_secs': te.get('avg_secs'),
+            'max_secs': te.get('max_secs'),
+        })
+
+    # Summary: aggregate from merged by_date (which already combines both sources)
+    passed = sum(d['passed'] for d in by_date)
+    failed = sum(d['failed'] for d in by_date)
+    flaked = sum(d['flaked'] for d in by_date)
 
     # Timing summary from test_events
     timing_summary = db.query(f'''
@@ -822,10 +838,6 @@ def api_test_timings():
         FROM test_events {where}
     ''', params)
     ts = timing_summary[0] if timing_summary else {}
-
-    passed = ds_s.get('passed', 0) or 0
-    failed = ds_s.get('failed', 0) or 0
-    flaked = ds_s.get('flaked', 0) or 0
 
     # Slowest individual test runs
     slowest = db.query(f'''
