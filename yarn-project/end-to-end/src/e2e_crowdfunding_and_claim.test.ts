@@ -43,7 +43,7 @@ describe('e2e_crowdfunding_and_claim', () => {
   let crowdfundingContract: CrowdfundingContract;
   let claimContract: ClaimContract;
 
-  let crowdfundingSecretKey;
+  let crowdfundingSecretKey: Fr;
   let crowdfundingPublicKeys: PublicKeys;
   let cheatCodes: CheatCodes;
   let deadline: number; // end of crowdfunding period
@@ -94,7 +94,10 @@ describe('e2e_crowdfunding_and_claim', () => {
     );
     const crowdfundingInstance = await crowdfundingDeployment.getInstance();
     await wallet.registerContract(crowdfundingInstance, CrowdfundingContract.artifact, crowdfundingSecretKey);
-    crowdfundingContract = await crowdfundingDeployment.send({ from: operatorAddress });
+    crowdfundingContract = await crowdfundingDeployment.send({
+      from: operatorAddress,
+      additionalScopes: [crowdfundingInstance.address],
+    });
     logger.info(`Crowdfunding contract deployed at ${crowdfundingContract.address}`);
 
     claimContract = await ClaimContract.deploy(wallet, crowdfundingContract.address, rewardToken.address).send({
@@ -125,13 +128,15 @@ describe('e2e_crowdfunding_and_claim', () => {
         0,
       );
       const witness = await wallet.createAuthWit(donor1Address, { caller: crowdfundingContract.address, action });
-      await crowdfundingContract.methods.donate(donationAmount).send({ from: donor1Address, authWitnesses: [witness] });
+      await crowdfundingContract.methods
+        .donate(donationAmount)
+        .send({ from: donor1Address, additionalScopes: [crowdfundingContract.address], authWitnesses: [witness] });
 
       // The donor should have exactly one note
       const pageIndex = 0;
       const notes = await crowdfundingContract.methods
         .get_donation_notes(donor1Address, pageIndex)
-        .simulate({ from: donor1Address });
+        .simulate({ from: donor1Address, additionalScopes: [crowdfundingContract.address] });
       expect(notes.len).toEqual(1n);
       uintNote = notes.storage[0];
     }
@@ -151,7 +156,9 @@ describe('e2e_crowdfunding_and_claim', () => {
     expect(balanceDNTBeforeWithdrawal).toEqual(0n);
 
     // 3) At last, we withdraw the raised funds from the crowdfunding contract to the operator's address
-    await crowdfundingContract.methods.withdraw(donationAmount).send({ from: operatorAddress });
+    await crowdfundingContract.methods
+      .withdraw(donationAmount)
+      .send({ from: operatorAddress, additionalScopes: [crowdfundingContract.address] });
 
     const balanceDNTAfterWithdrawal = await donationToken.methods
       .balance_of_private(operatorAddress)
@@ -180,13 +187,15 @@ describe('e2e_crowdfunding_and_claim', () => {
       0,
     );
     const witness = await wallet.createAuthWit(donorAddress, { caller: crowdfundingContract.address, action });
-    await crowdfundingContract.methods.donate(donationAmount).send({ from: donorAddress, authWitnesses: [witness] });
+    await crowdfundingContract.methods
+      .donate(donationAmount)
+      .send({ from: donorAddress, additionalScopes: [crowdfundingContract.address], authWitnesses: [witness] });
 
     // The donor should have exactly one note
     const pageIndex = 0;
     const notes = await crowdfundingContract.methods
       .get_donation_notes(donorAddress, pageIndex)
-      .simulate({ from: donorAddress });
+      .simulate({ from: donorAddress, additionalScopes: [crowdfundingContract.address] });
     expect(notes.len).toEqual(1n);
     const anotherDonationNote = notes.storage[0];
 
@@ -221,7 +230,12 @@ describe('e2e_crowdfunding_and_claim', () => {
         deadline,
       );
 
-      otherCrowdfundingContract = await otherCrowdfundingDeployment.send({ from: operatorAddress });
+      const otherCrowdfundingInstance = await otherCrowdfundingDeployment.getInstance();
+      await wallet.registerContract(otherCrowdfundingInstance, CrowdfundingContract.artifact, crowdfundingSecretKey);
+      otherCrowdfundingContract = await otherCrowdfundingDeployment.send({
+        from: operatorAddress,
+        additionalScopes: [otherCrowdfundingInstance.address],
+      });
       logger.info(`Crowdfunding contract deployed at ${otherCrowdfundingContract.address}`);
     }
 
@@ -237,13 +251,13 @@ describe('e2e_crowdfunding_and_claim', () => {
     const witness = await wallet.createAuthWit(donor1Address, { caller: otherCrowdfundingContract.address, action });
     await otherCrowdfundingContract.methods
       .donate(donationAmount)
-      .send({ from: donor1Address, authWitnesses: [witness] });
+      .send({ from: donor1Address, additionalScopes: [otherCrowdfundingContract.address], authWitnesses: [witness] });
 
     // 3) Get the donation note
     const pageIndex = 0;
     const notes = await otherCrowdfundingContract.methods
       .get_donation_notes(donor1Address, pageIndex)
-      .simulate({ from: donor1Address });
+      .simulate({ from: donor1Address, additionalScopes: [otherCrowdfundingContract.address] });
     expect(notes.len).toEqual(1n);
     const otherContractNote = notes.storage[0];
 
@@ -266,12 +280,16 @@ describe('e2e_crowdfunding_and_claim', () => {
     const witness = await wallet.createAuthWit(donor2Address, { caller: crowdfundingContract.address, action });
 
     // 2) We donate to the crowdfunding contract
-    await crowdfundingContract.methods.donate(donationAmount).send({ from: donor2Address, authWitnesses: [witness] });
+    await crowdfundingContract.methods
+      .donate(donationAmount)
+      .send({ from: donor2Address, additionalScopes: [crowdfundingContract.address], authWitnesses: [witness] });
 
     // The following should fail as msg_sender != operator
-    await expect(crowdfundingContract.methods.withdraw(donationAmount).send({ from: donor2Address })).rejects.toThrow(
-      'Assertion failed: Not an operator',
-    );
+    await expect(
+      crowdfundingContract.methods
+        .withdraw(donationAmount)
+        .send({ from: donor2Address, additionalScopes: [crowdfundingContract.address] }),
+    ).rejects.toThrow('Assertion failed: Not an operator');
   });
 
   it('cannot donate after a deadline', async () => {
@@ -292,7 +310,9 @@ describe('e2e_crowdfunding_and_claim', () => {
 
     // 3) We donate to the crowdfunding contract
     await expect(
-      crowdfundingContract.methods.donate(donationAmount).send({ from: donor2Address, authWitnesses: [witness] }),
+      crowdfundingContract.methods
+        .donate(donationAmount)
+        .send({ from: donor2Address, additionalScopes: [crowdfundingContract.address], authWitnesses: [witness] }),
     ).rejects.toThrow();
   });
 });

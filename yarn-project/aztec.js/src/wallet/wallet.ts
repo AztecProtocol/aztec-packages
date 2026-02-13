@@ -303,6 +303,7 @@ export const SendOptionsSchema = z.object({
   capsules: optional(z.array(Capsule.schema)),
   fee: optional(GasSettingsOptionSchema),
   wait: optional(z.union([z.literal(NO_WAIT), WaitOptsSchema])),
+  additionalScopes: optional(z.array(schemas.AztecAddress)),
 });
 
 export const SimulateOptionsSchema = z.object({
@@ -313,6 +314,7 @@ export const SimulateOptionsSchema = z.object({
   skipTxValidation: optional(z.boolean()),
   skipFeeEnforcement: optional(z.boolean()),
   includeMetadata: optional(z.boolean()),
+  additionalScopes: optional(z.array(schemas.AztecAddress)),
 });
 
 export const ProfileOptionsSchema = SimulateOptionsSchema.extend({

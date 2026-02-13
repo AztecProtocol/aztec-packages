@@ -89,7 +89,11 @@ describe('e2e_fees account_init', () => {
       const [bobsInitialGas] = await t.getGasBalanceFn(bobsAddress);
       expect(bobsInitialGas).toEqual(mintAmount);
 
-      const tx = await bobsDeployMethod.send({ from: AztecAddress.ZERO, wait: { returnReceipt: true } });
+      const tx = await bobsDeployMethod.send({
+        from: AztecAddress.ZERO,
+        additionalScopes: [bobsAddress],
+        wait: { returnReceipt: true },
+      });
 
       expect(tx.transactionFee!).toBeGreaterThan(0n);
       await expect(t.getGasBalanceFn(bobsAddress)).resolves.toEqual([bobsInitialGas - tx.transactionFee!]);
@@ -100,6 +104,7 @@ describe('e2e_fees account_init', () => {
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(bobsAddress, claim);
       const tx = await bobsDeployMethod.send({
         from: AztecAddress.ZERO,
+        additionalScopes: [bobsAddress],
         fee: { paymentMethod },
         wait: { returnReceipt: true },
       });
@@ -120,6 +125,7 @@ describe('e2e_fees account_init', () => {
       const paymentMethod = new PrivateFeePaymentMethod(bananaFPC.address, bobsAddress, wallet, gasSettings);
       const tx = await bobsDeployMethod.send({
         from: AztecAddress.ZERO,
+        additionalScopes: [bobsAddress],
         fee: { paymentMethod },
         wait: { returnReceipt: true },
       });
@@ -149,6 +155,7 @@ describe('e2e_fees account_init', () => {
       const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, bobsAddress, wallet, gasSettings);
       const tx = await bobsDeployMethod.send({
         from: AztecAddress.ZERO,
+        additionalScopes: [bobsAddress],
         skipInstancePublication: false,
         fee: { paymentMethod },
         wait: { returnReceipt: true },
@@ -187,6 +194,7 @@ describe('e2e_fees account_init', () => {
         bobsSigningPubKey.y,
       ).send({
         from: aliceAddress,
+        additionalScopes: [bobsAddress],
         contractAddressSalt: bobsInstance.salt,
         skipClassPublication: true,
         skipInstancePublication: true,

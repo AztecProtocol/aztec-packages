@@ -82,6 +82,11 @@ export type SendInteractionOptionsWithoutWait = RequestInteractionOptions & {
   from: AztecAddress;
   /** The fee options for the transaction. */
   fee?: InteractionFeeOptions;
+  /**
+   * Additional addresses whose private state should be accessible during execution,
+   * beyond the sender's
+   */
+  additionalScopes?: AztecAddress[];
 };
 
 /**

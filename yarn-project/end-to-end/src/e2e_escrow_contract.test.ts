@@ -41,13 +41,13 @@ describe('e2e_escrow_contract', () => {
     const escrowDeployment = EscrowContract.deployWithPublicKeys(escrowPublicKeys, wallet, owner);
     const escrowInstance = await escrowDeployment.getInstance();
     await wallet.registerContract(escrowInstance, EscrowContract.artifact, escrowSecretKey);
-    escrowContract = await escrowDeployment.send({ from: owner });
+    escrowContract = await escrowDeployment.send({ from: owner, additionalScopes: [escrowInstance.address] });
     logger.info(`Escrow contract deployed at ${escrowContract.address}`);
 
     // Deploy Token contract and mint funds for the escrow contract
     token = await TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send({ from: owner });
 
-    await mintTokensToPrivate(token, owner, escrowContract.address, 100n);
+    await mintTokensToPrivate(token, owner, escrowContract.address, 100n, [escrowContract.address]);
 
     logger.info(`Token contract deployed at ${token.address}`);
   });
@@ -60,7 +60,9 @@ describe('e2e_escrow_contract', () => {
     await expectTokenBalance(wallet, token, escrowContract.address, 100n, logger);
 
     logger.info(`Withdrawing funds from token contract to ${recipient}`);
-    await escrowContract.methods.withdraw(token.address, 30, recipient).send({ from: owner });
+    await escrowContract.methods
+      .withdraw(token.address, 30, recipient)
+      .send({ from: owner, additionalScopes: [escrowContract.address] });
 
     await expectTokenBalance(wallet, token, owner, 0n, logger);
     await expectTokenBalance(wallet, token, recipient, 30n, logger);
@@ -69,7 +71,9 @@ describe('e2e_escrow_contract', () => {
 
   it('refuses to withdraw funds as a non-owner', async () => {
     await expect(
-      escrowContract.methods.withdraw(token.address, 30, recipient).simulate({ from: recipient }),
+      escrowContract.methods
+        .withdraw(token.address, 30, recipient)
+        .simulate({ from: recipient, additionalScopes: [escrowContract.address] }),
     ).rejects.toThrow();
   });
 
@@ -84,7 +88,7 @@ describe('e2e_escrow_contract', () => {
     await new BatchCall(wallet, [
       token.methods.transfer(recipient, 10),
       escrowContract.methods.withdraw(token.address, 20, recipient),
-    ]).send({ from: owner });
+    ]).send({ from: owner, additionalScopes: [escrowContract.address] });
     await expectTokenBalance(wallet, token, recipient, 30n, logger);
   });
 });

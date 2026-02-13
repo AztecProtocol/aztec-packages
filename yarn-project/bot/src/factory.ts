@@ -285,6 +285,7 @@ export class BotFactory {
       tokenInstance = await deploy.getInstance(deployOpts);
       token = PrivateTokenContract.at(tokenInstance.address, this.wallet);
       await this.wallet.registerContract(tokenInstance, PrivateTokenContract.artifact, tokenSecretKey);
+      deployOpts.additionalScopes = [tokenInstance.address];
     } else {
       throw new Error(`Unsupported token contract type: ${this.config.contract}`);
     }
@@ -479,8 +480,9 @@ export class BotFactory {
       return;
     }
 
+    const additionalScopes = isStandardToken ? undefined : [token.address];
     await this.withNoMinTxsPerBlock(async () => {
-      const txHash = await new BatchCall(token.wallet, calls).send({ from: minter, wait: NO_WAIT });
+      const txHash = await new BatchCall(token.wallet, calls).send({ from: minter, additionalScopes, wait: NO_WAIT });
       this.log.info(`Sent token mint tx with hash ${txHash.toString()}`);
       return waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
     });
