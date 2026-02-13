@@ -273,7 +273,7 @@ groups:
               datasourceUid: spartan-metrics-prometheus
               model:
                 editorMode: code
-                expr: sum by (k8s_namespace_name, aztec_error_type) (increase(aztec_sequencer_block_proposal_precheck_failed_count{k8s_namespace_name=~".*(fisherman|mainnet).*"}[$__rate_interval]))
+                expr: sum by (k8s_namespace_name, aztec_error_type) (increase(aztec_sequencer_checkpoint_precheck_failed_count{k8s_namespace_name=~".*(fisherman|mainnet).*"}[$__rate_interval]))
                 instant: true
                 intervalMs: 60000
                 legendFormat: __auto
