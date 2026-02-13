@@ -784,6 +784,35 @@ def resolve_unknown_instance_types():
         print(f"[rk_metrics] CloudTrail resolution failed: {e}")
 
 
+def recalculate_all_costs():
+    """Recalculate cost_usd for all ci_runs based on current instance_type and pricing."""
+    conn = db.get_db()
+    runs = conn.execute('''
+        SELECT dashboard, name, timestamp_ms, complete_ms, instance_type,
+               instance_vcpus, spot, cost_usd
+        FROM ci_runs
+        WHERE complete_ms IS NOT NULL AND complete_ms > 0
+    ''').fetchall()
+    updated = 0
+    for run in runs:
+        cost = compute_run_cost({
+            'complete': run['complete_ms'],
+            'timestamp': run['timestamp_ms'],
+            'instance_type': run['instance_type'] or 'unknown',
+            'spot': run['spot'],
+            'instance_vcpus': run['instance_vcpus'],
+        })
+        if cost is not None and cost != run['cost_usd']:
+            conn.execute('''
+                UPDATE ci_runs SET cost_usd = ?
+                WHERE dashboard = ? AND timestamp_ms = ? AND name = ?
+            ''', (cost, run['dashboard'], run['timestamp_ms'], run['name']))
+            updated += 1
+    conn.commit()
+    print(f"[rk_metrics] Recalculated costs: {updated}/{len(runs)} changed")
+    return updated
+
+
 def start_ci_run_sync(redis_conn):
     """Start periodic CI run + test event sync thread."""
     _load_seed_data()
