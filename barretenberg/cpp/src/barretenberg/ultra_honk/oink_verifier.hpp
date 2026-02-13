@@ -11,16 +11,23 @@
 namespace bb {
 
 /**
- * @brief Verifier class for all the pre-sumcheck rounds, which are shared between the folding verifier and ultra
- * verifier.
+ * @brief Verifier counterpart to OinkProver: receives witness commitments, computes relation parameters,
+ * and prepares for Sumcheck.
  *
- * Works with both native and recursive flavors. When instantiated with a recursive flavor (IsRecursiveFlavor<Flavor>),
- * automatically handles the differences in VK access and VK hash assertion.
+ * @details The rounds mirror OinkProver::prove() and proceed in order:
+ *   1. receive_vk_hash_and_public_inputs – hash the VK, assert consistency, receive public inputs
+ *   2. (ZK only) receive masking polynomial commitment
+ *   3. receive_wire_commitments – receive w_l, w_r, w_o (plus ECC-op & databus for Mega)
+ *   4. receive_lookup_counts_and_w4_commitments – get eta challenge, receive lookup counts/tags and w_4
+ *   5. receive_logderiv_commitments – get beta/gamma challenges, receive log-derivative inverses
+ *      (plus databus inverses for Mega)
+ *   6. complete_grand_product_round – compute public_input_delta, receive z_perm
+ *   7. get alpha challenge
  *
- * @tparam Flavor Native or recursive flavor
+ * Works with both native and recursive flavors. When instantiated with a recursive flavor
+ * (IsRecursiveFlavor<Flavor>), automatically handles the differences in VK access and VK hash assertion.
  */
 template <typename Flavor> class OinkVerifier {
-    using WitnessCommitments = typename Flavor::WitnessCommitments;
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
@@ -41,13 +48,11 @@ template <typename Flavor> class OinkVerifier {
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Instance> verifier_instance;
     typename Flavor::CommitmentLabels comm_labels;
-    bb::RelationParameters<FF> relation_parameters;
-    WitnessCommitments witness_comms;
     size_t num_public_inputs;
     void receive_vk_hash_and_public_inputs();
     void receive_wire_commitments();
     void receive_lookup_counts_and_w4_commitments();
     void receive_logderiv_commitments();
-    void receive_z_perm_commitment();
+    void complete_grand_product_round();
 };
 } // namespace bb

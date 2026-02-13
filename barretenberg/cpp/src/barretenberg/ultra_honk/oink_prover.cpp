@@ -14,9 +14,7 @@
 namespace bb {
 
 /**
- * @brief Oink Prover function that runs all the rounds of the verifier
- * @details Returns the witness commitments and relation_parameters
- * @tparam Flavor
+ * @brief Commit to witnesses, compute relation parameters, and prepare for Sumcheck.
  */
 template <typename Flavor> void OinkProver<Flavor>::prove()
 {
@@ -32,10 +30,7 @@ template <typename Flavor> void OinkProver<Flavor>::prove()
     commit_to_z_perm();
     prover_instance->alpha = transcript->template get_challenge<FF>("alpha");
 
-    // #ifndef __wasm__
-    // Free the commitment key
     prover_instance->commitment_key = CommitmentKey();
-    // #endif
 }
 
 /**
@@ -48,8 +43,7 @@ template <typename Flavor> typename OinkProver<Flavor>::Proof OinkProver<Flavor>
 }
 
 /**
- * @brief Add circuit size, public input size, and public inputs to transcript
- *
+ * @brief Hash the verification key and send public inputs to the transcript.
  */
 template <typename Flavor> void OinkProver<Flavor>::send_vk_hash_and_public_inputs()
 {
@@ -66,46 +60,30 @@ template <typename Flavor> void OinkProver<Flavor>::send_vk_hash_and_public_inpu
 
 /**
  * @brief Commit to the wire polynomials (part of the witness), with the exception of the fourth wire, which is
- * only commited to after adding memory records. In the Goblin Flavor, we also commit to the ECC OP wires and the
- * DataBus columns.
+ * only committed to after adding memory records. For Mega, we also commit to the ECC op wires and DataBus columns.
  */
 template <typename Flavor> void OinkProver<Flavor>::commit_to_wires()
 {
     BB_BENCH_NAME("OinkProver::commit_to_wires");
-    // Commit to the first three wire polynomials
-    // We only commit to the fourth wire polynomial after adding memory recordss
     auto batch = prover_instance->commitment_key.start_batch();
-    // Commit to the first three wire polynomials
-    // We only commit to the fourth wire polynomial after adding memory records
 
+    // Commit to the first three wire polynomials; w_4 is deferred until after memory records are added
     batch.add_to_batch(prover_instance->polynomials.w_l, commitment_labels.w_l, /*mask?*/ Flavor::HasZK);
     batch.add_to_batch(prover_instance->polynomials.w_r, commitment_labels.w_r, /*mask?*/ Flavor::HasZK);
     batch.add_to_batch(prover_instance->polynomials.w_o, commitment_labels.w_o, /*mask?*/ Flavor::HasZK);
 
     if constexpr (IsMegaFlavor<Flavor>) {
-
-        // Commit to Goblin ECC op wires.
-        // Note even with zk, we do not mask here. The masking for these is done differently.
-        // It is necessary that "random" ops are added to the op_queue, which is then used to populate these ecc op
-        // wires. This is more holistic and obviates the need to extend with random values.
-        bool mask_ecc_op_polys = false; // Flavor::HasZK
-
+        // ECC op wires are not masked here: masking is achieved by adding random ops to the op_queue instead.
         for (auto [polynomial, label] :
              zip_view(prover_instance->polynomials.get_ecc_op_wires(), commitment_labels.get_ecc_op_wires())) {
-            {
-                BB_BENCH_NAME("COMMIT::ecc_op_wires");
-                batch.add_to_batch(polynomial, label, mask_ecc_op_polys);
-            };
+            batch.add_to_batch(polynomial, label, /*mask?*/ false);
         }
 
-        // Commit to DataBus related polynomials
+        // DataBus polynomials: calldata is left unmasked, everything else is masked in ZK mode
         for (auto [polynomial, label] :
              zip_view(prover_instance->polynomials.get_databus_entities(), commitment_labels.get_databus_entities())) {
-            {
-                BB_BENCH_NAME("COMMIT::databus");
-                bool is_unmasked_databus_commitment = label == "CALLDATA";
-                batch.add_to_batch(polynomial, label, /*mask?*/ Flavor::HasZK && !is_unmasked_databus_commitment);
-            }
+            bool mask = Flavor::HasZK && (label != commitment_labels.calldata);
+            batch.add_to_batch(polynomial, label, mask);
         }
     }
 
@@ -117,13 +95,10 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_wires()
     if constexpr (IsMegaFlavor<Flavor>) {
         size_t commitment_idx = 3;
         for (auto& commitment : prover_instance->commitments.get_ecc_op_wires()) {
-            commitment = computed_commitments[commitment_idx];
-            commitment_idx++;
+            commitment = computed_commitments[commitment_idx++];
         }
-
         for (auto& commitment : prover_instance->commitments.get_databus_entities()) {
-            commitment = computed_commitments[commitment_idx];
-            commitment_idx++;
+            commitment = computed_commitments[commitment_idx++];
         }
     }
 }
@@ -200,13 +175,11 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_logderiv_inverses(
 }
 
 /**
- * @brief Compute permutation and lookup grand product polynomials and their commitments
- *
+ * @brief Compute the permutation grand product polynomial and commit to it.
  */
 template <typename Flavor> void OinkProver<Flavor>::commit_to_z_perm()
 {
     BB_BENCH_NAME("OinkProver::commit_to_z_perm");
-    // Compute the permutation grand product polynomial
 
     WitnessComputation<Flavor>::compute_grand_product_polynomial(prover_instance->polynomials,
                                                                  prover_instance->public_inputs,
@@ -214,37 +187,12 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_z_perm()
                                                                  prover_instance->relation_parameters,
                                                                  prover_instance->get_final_active_wire_idx() + 1);
 
-    {
-        BB_BENCH_NAME("COMMIT::z_perm");
-        prover_instance->commitments.z_perm =
-            commit_to_witness_polynomial(prover_instance->polynomials.z_perm, commitment_labels.z_perm);
-    }
-}
-
-/**
- * @brief A uniform method to mask, commit, and send the corresponding commitment to the verifier.
- *
- * @param polynomial
- * @param label
- * @param type
- */
-template <typename Flavor>
-Flavor::Commitment OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial,
-                                                                    const std::string& label)
-{
-    BB_BENCH_NAME("OinkProver::commit_to_witness_polynomial");
-    // Mask the polynomial when proving in zero-knowledge
+    auto& z_perm = prover_instance->polynomials.z_perm;
     if constexpr (Flavor::HasZK) {
-        polynomial.mask();
-    };
-
-    typename Flavor::Commitment commitment;
-
-    commitment = prover_instance->commitment_key.commit(polynomial);
-    // Send the commitment to the verifier
-    transcript->send_to_verifier(label, commitment);
-
-    return commitment;
+        z_perm.mask();
+    }
+    prover_instance->commitments.z_perm = prover_instance->commitment_key.commit(z_perm);
+    transcript->send_to_verifier(commitment_labels.z_perm, prover_instance->commitments.z_perm);
 }
 
 template <typename Flavor> void OinkProver<Flavor>::commit_to_masking_poly()

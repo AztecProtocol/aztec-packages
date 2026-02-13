@@ -18,12 +18,7 @@
 namespace bb {
 
 /**
- * @brief Oink Verifier function that runs all the rounds of the verifier
- * @details Returns the witness commitments and relation_parameters. If used as a standalone function, the proof
- * returned by the OinkProver must be loaded into the transcript of the OinkVerifier before calling
- * OinkVerifier::verify()
- * @tparam Flavor
- * @return OinkOutput<Flavor>
+ * @brief Receive witness commitments, compute relation parameters, and prepare for Sumcheck.
  */
 template <typename Flavor> void OinkVerifier<Flavor>::verify()
 {
@@ -35,16 +30,13 @@ template <typename Flavor> void OinkVerifier<Flavor>::verify()
     receive_wire_commitments();
     receive_lookup_counts_and_w4_commitments();
     receive_logderiv_commitments();
-    receive_z_perm_commitment();
+    complete_grand_product_round();
 
-    verifier_instance->witness_commitments = witness_comms;
-    verifier_instance->relation_parameters = relation_parameters;
     verifier_instance->alpha = transcript->template get_challenge<FF>("alpha");
 }
 
 /**
- * @brief Get circuit size, public input size, and public inputs from transcript
- *
+ * @brief Hash the verification key, assert consistency, and receive public inputs from the transcript.
  */
 template <typename Flavor> void OinkVerifier<Flavor>::receive_vk_hash_and_public_inputs()
 {
@@ -82,27 +74,26 @@ template <typename Flavor> void OinkVerifier<Flavor>::receive_vk_hash_and_public
 }
 
 /**
- * @brief Get the wire polynomials (part of the witness), with the exception of the fourth wire, which is
- * only received after adding memory records. In the Goblin Flavor, we also receive the ECC OP wires and the
- * DataBus columns.
+ * @brief Receive wire commitments (w_l, w_r, w_o). For Mega, also receive ECC op wire and DataBus commitments.
+ * The fourth wire (w_4) is received later, after memory records are incorporated.
  */
 template <typename Flavor> void OinkVerifier<Flavor>::receive_wire_commitments()
 {
     // Get commitments to first three wire polynomials
-    witness_comms.w_l = transcript->template receive_from_prover<Commitment>(comm_labels.w_l);
-    witness_comms.w_r = transcript->template receive_from_prover<Commitment>(comm_labels.w_r);
-    witness_comms.w_o = transcript->template receive_from_prover<Commitment>(comm_labels.w_o);
+    verifier_instance->witness_commitments.w_l = transcript->template receive_from_prover<Commitment>(comm_labels.w_l);
+    verifier_instance->witness_commitments.w_r = transcript->template receive_from_prover<Commitment>(comm_labels.w_r);
+    verifier_instance->witness_commitments.w_o = transcript->template receive_from_prover<Commitment>(comm_labels.w_o);
 
-    // If Goblin, get commitments to ECC op wire polynomials and DataBus columns
     if constexpr (IsMegaFlavor<Flavor>) {
         // Receive ECC op wire commitments
-        for (auto [commitment, label] : zip_view(witness_comms.get_ecc_op_wires(), comm_labels.get_ecc_op_wires())) {
+        for (auto [commitment, label] :
+             zip_view(verifier_instance->witness_commitments.get_ecc_op_wires(), comm_labels.get_ecc_op_wires())) {
             commitment = transcript->template receive_from_prover<Commitment>(label);
         }
 
         // Receive DataBus related polynomial commitments
-        for (auto [commitment, label] :
-             zip_view(witness_comms.get_databus_entities(), comm_labels.get_databus_entities())) {
+        for (auto [commitment, label] : zip_view(verifier_instance->witness_commitments.get_databus_entities(),
+                                                 comm_labels.get_databus_entities())) {
             commitment = transcript->template receive_from_prover<Commitment>(label);
         }
     }
@@ -115,51 +106,51 @@ template <typename Flavor> void OinkVerifier<Flavor>::receive_wire_commitments()
 template <typename Flavor> void OinkVerifier<Flavor>::receive_lookup_counts_and_w4_commitments()
 {
     // Get eta challenge and compute powers (eta, eta², eta³)
-    relation_parameters.compute_eta_powers(transcript->template get_challenge<FF>("eta"));
+    verifier_instance->relation_parameters.compute_eta_powers(transcript->template get_challenge<FF>("eta"));
 
     // Get commitments to lookup argument polynomials and fourth wire
-    witness_comms.lookup_read_counts =
+    verifier_instance->witness_commitments.lookup_read_counts =
         transcript->template receive_from_prover<Commitment>(comm_labels.lookup_read_counts);
-    witness_comms.lookup_read_tags = transcript->template receive_from_prover<Commitment>(comm_labels.lookup_read_tags);
-    witness_comms.w_4 = transcript->template receive_from_prover<Commitment>(comm_labels.w_4);
+    verifier_instance->witness_commitments.lookup_read_tags =
+        transcript->template receive_from_prover<Commitment>(comm_labels.lookup_read_tags);
+    verifier_instance->witness_commitments.w_4 = transcript->template receive_from_prover<Commitment>(comm_labels.w_4);
 }
 
 /**
- * @brief Get log derivative inverse polynomial and its commitment, if MegaFlavor
- *
+ * @brief Receive beta/gamma challenges and log-derivative inverse commitments (plus databus inverses for Mega).
  */
 template <typename Flavor> void OinkVerifier<Flavor>::receive_logderiv_commitments()
 {
     auto [beta, gamma] = transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
-    relation_parameters.compute_beta_powers(beta);
-    relation_parameters.gamma = gamma;
+    verifier_instance->relation_parameters.compute_beta_powers(beta);
+    verifier_instance->relation_parameters.gamma = gamma;
 
-    witness_comms.lookup_inverses = transcript->template receive_from_prover<Commitment>(comm_labels.lookup_inverses);
+    verifier_instance->witness_commitments.lookup_inverses =
+        transcript->template receive_from_prover<Commitment>(comm_labels.lookup_inverses);
 
-    // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomials
     if constexpr (IsMegaFlavor<Flavor>) {
-        for (auto [commitment, label] :
-             zip_view(witness_comms.get_databus_inverses(), comm_labels.get_databus_inverses())) {
+        for (auto [commitment, label] : zip_view(verifier_instance->witness_commitments.get_databus_inverses(),
+                                                 comm_labels.get_databus_inverses())) {
             commitment = transcript->template receive_from_prover<Commitment>(label);
         }
     }
 }
 
 /**
- * @brief Compute lookup grand product delta and get permutation and lookup grand product commitments
- *
+ * @brief Compute public_input_delta for the permutation argument and receive z_perm commitment.
  */
-template <typename Flavor> void OinkVerifier<Flavor>::receive_z_perm_commitment()
+template <typename Flavor> void OinkVerifier<Flavor>::complete_grand_product_round()
 {
     auto vk = verifier_instance->get_vk();
 
-    const FF public_input_delta = compute_public_input_delta<Flavor>(
-        verifier_instance->public_inputs, relation_parameters.beta, relation_parameters.gamma, vk->pub_inputs_offset);
+    verifier_instance->relation_parameters.public_input_delta =
+        compute_public_input_delta<Flavor>(verifier_instance->public_inputs,
+                                           verifier_instance->relation_parameters.beta,
+                                           verifier_instance->relation_parameters.gamma,
+                                           vk->pub_inputs_offset);
 
-    relation_parameters.public_input_delta = public_input_delta;
-
-    // Get commitment to permutation and lookup grand products
-    witness_comms.z_perm = transcript->template receive_from_prover<Commitment>(comm_labels.z_perm);
+    verifier_instance->witness_commitments.z_perm =
+        transcript->template receive_from_prover<Commitment>(comm_labels.z_perm);
 }
 
 // Native flavor instantiations
