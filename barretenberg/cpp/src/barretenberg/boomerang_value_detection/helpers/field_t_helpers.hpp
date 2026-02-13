@@ -1,3 +1,13 @@
+/**
+ * @file field_t_helpers.hpp
+ * @brief Helper functions for field_t
+ * @details Every helper mirrors a specific stdlib operation (e.g. get_madd_gate_output mirrors field_t.madd).
+ * The approach is: replicate the same selector/wires computations the stdlib would produces, then use FilterFunction
+ * builder (filter_function_builder.hpp) to find the matching gate.
+ * @note Every helper follow the same pattern: if an operand is a constant, stdlib doesn't create a gate (unless
+ * otherwise specified), so the helper returns early with an updated Field carrying the non-constant's witness_index.
+ */
+
 #pragma once
 
 #include "barretenberg/boomerang_value_detection/graph.hpp"
@@ -8,6 +18,12 @@
 
 namespace cdg {
 
+/**
+ * @brief field_t wrapper
+ * @tparam witness_index is the original ACIR-level index (not the real_variable_index)
+ * @tparam witness is a field_t that carries `additive_constant` and `multiplicative_constant` state.
+ * @details The witness absorbs constant folding, while the index tracks which wire to look up.
+ */
 template <typename CircuitBuilder> struct Field {
     uint32_t witness_index;
     bb::stdlib::field_t<CircuitBuilder> witness;
@@ -62,6 +78,14 @@ Field<CircuitBuilder> get_field_from_w_4(CircuitBuilder& builder, std::pair<size
                                   bb::stdlib::field_t<CircuitBuilder>::from_witness_index(&builder, result_idx) };
 }
 
+/**
+ * @brief Get the result of the fixed witness field from the circuit
+ * @details mirrors field_t::convert_constant_to_fixed_witness
+ * @param analyzer The analyzer
+ * @param builder The builder
+ * @param value The value of the fixed witness
+ * @return The resulting (witness_index, witness) of the fixed witness field
+ */
 template <typename FF, typename CircuitBuilder>
 std::optional<Field<CircuitBuilder>> find_fixed_witness_field(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
                                                               CircuitBuilder& builder,
@@ -166,6 +190,7 @@ std::optional<Field<CircuitBuilder>> get_add_gate_output(StaticAnalyzer_<FF, Cir
                              .set_w_4(builder.zero_idx())
                              .set_q_1(a.multiplicative_constant)
                              .set_q_2(b.multiplicative_constant)
+                             .set_q_3(FF::neg_one())
                              .set_q_4(FF::zero())
                              .set_q_c(a.additive_constant + b.additive_constant)
                              .set_q_m(FF::zero())

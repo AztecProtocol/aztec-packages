@@ -1,3 +1,9 @@
+/**
+ * @file cycle_group_helpers.hpp
+ * @brief Helper functions for cycle_group
+ * @details This file contains helper functions for cycle_group, which is a primitive type in the circuit builder.
+ * Every helper mirrors a specific stdlib operation (e.g. is_on_curve_check_exists mirrors cycle_group::is_on_curve).
+ */
 #pragma once
 
 #include "barretenberg/boomerang_value_detection/helpers/bool_t_helpers.hpp"
@@ -377,6 +383,7 @@ bool is_ec_add_result_constrained(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
     if (x1.witness.is_constant() && modified_y.witness.is_constant()) {
         FF x1_val = x1.witness.get_value();
         FF y1_val = modified_y.witness.get_value();
+        // y1_val is guaranteed to be non-zero by step 7
         FF lambda_dbl = (x1_val * x1_val * 3) / (y1_val + y1_val);
         FF x3_dbl = lambda_dbl * lambda_dbl - x1_val - x1_val;
         FF y3_dbl = lambda_dbl * (x1_val - x3_dbl) - y1_val;
@@ -609,12 +616,18 @@ bool is_ec_add_result_constrained(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
     // For bool_t::assert_equal (is_infinity), check copy constraint via normalization
     // bool_t::assert_equal normalizes both and then calls builder.assert_equal
     auto norm_result_inf = get_normalization_result<FF>(analyzer, builder, *result_is_infinity);
+    if (!norm_result_inf.has_value()) {
+        log_error("Failed to find normalization result for is_infinity");
+        return false;
+    }
     auto norm_tba_inf = get_normalization_result<FF>(analyzer, builder, *tba_inf);
-    if (norm_result_inf.has_value() && norm_tba_inf.has_value()) {
-        if (analyzer.to_real(norm_result_inf->witness_index) != analyzer.to_real(norm_tba_inf->witness_index)) {
-            log_error("assert_equal not found for is_infinity");
-            return false;
-        }
+    if (!norm_tba_inf.has_value()) {
+        log_error("Failed to find normalization result for is_infinity");
+        return false;
+    }
+    if (analyzer.to_real(norm_result_inf->witness_index) != analyzer.to_real(norm_tba_inf->witness_index)) {
+        log_error("assert_equal not found for is_infinity");
+        return false;
     }
 
     return true;

@@ -1,3 +1,12 @@
+/**
+ * @file bool_t_helpers.hpp
+ * @brief Helper functions for bool_t
+ * @details Every helper mirrors a specific stdlib operation (e.g. get_normalization_result mirrors bool_t.normalize).
+ * The approach is: replicate the same selector/wires computations the stdlib would produces, then use FilterFunction
+ * builder (filter_function_builder.hpp) to find the matching gate.
+ * @note Every helper follow the same pattern: if an operand is a constant, stdlib doesn't create a gate (unless
+ * otherwise specified), so the helper returns early with an updated Bool carrying the non-constant's witness_index.
+ */
 #pragma once
 
 #include "barretenberg/boomerang_value_detection/graph.hpp"
@@ -7,6 +16,12 @@
 
 namespace cdg {
 
+/**
+ * @brief bool_t wrapper
+ * @tparam witness_index is the original ACIR-level index (not the real_variable_index)
+ * @tparam witness is a bool_t that carries `witness_inverted` state.
+ * @details The witness absorbs constant folding, while the index tracks which wire to look up.
+ */
 template <typename CircuitBuilder> struct Bool {
     uint32_t witness_index;
     bb::stdlib::bool_t<CircuitBuilder> witness;
@@ -36,6 +51,7 @@ Bool<CircuitBuilder> get_bool_from_w_4(CircuitBuilder& builder, std::pair<size_t
 
 /**
  * @brief Get the result of the normalization gate from the circuit
+ * @details mirrors bool_t::normalize
  * @param analyzer The analyzer
  * @param builder The builder
  * @param a_bool The boolean_t
@@ -82,6 +98,7 @@ std::optional<Bool<CircuitBuilder>> get_normalization_result(StaticAnalyzer_<FF,
 
 /**
  * @brief Get the result of the and gate from the circuit
+ * @details mirrors bool_t::operator&
  * @param analyzer The analyzer
  * @param builder The builder
  * @param a_bool The first boolean_t
@@ -126,7 +143,6 @@ std::optional<Bool<CircuitBuilder>> get_and_result(StaticAnalyzer_<FF, CircuitBu
                              .set_q_3(q_o)
                              .set_q_4(FF::zero())
                              .set_q_c(q_c)
-                             .set_q_m(q_m)
                              .set_q_arith(FF::one());
 
     auto gates = analyzer.get_variable_gates(a_idx);
@@ -140,6 +156,7 @@ std::optional<Bool<CircuitBuilder>> get_and_result(StaticAnalyzer_<FF, CircuitBu
 
 /**
  * @brief Get the result of the or gate from the circuit
+ * @details mirrors bool_t::operator|
  * @param analyzer The analyzer
  * @param builder The builder
  * @param a_bool The first boolean_t
@@ -183,7 +200,6 @@ std::optional<Bool<CircuitBuilder>> get_or_result(StaticAnalyzer_<FF, CircuitBui
                              .set_q_3(q_o)
                              .set_q_4(FF::zero())
                              .set_q_c(q_c)
-                             .set_q_m(q_m)
                              .set_q_arith(FF::one());
 
     auto gates = analyzer.get_variable_gates(a_idx);
@@ -198,6 +214,7 @@ std::optional<Bool<CircuitBuilder>> get_or_result(StaticAnalyzer_<FF, CircuitBui
 
 /**
  * @brief Get the result of the boolean conditional assign gate from the circuit
+ * @details mirrors bool_t::conditional_assign
  * @param analyzer The analyzer
  * @param builder The builder
  * @param predicate_bool The predicate boolean_t

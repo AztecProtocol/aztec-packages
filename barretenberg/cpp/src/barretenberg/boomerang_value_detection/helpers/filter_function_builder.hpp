@@ -173,6 +173,9 @@ inline std::function<bool(size_t, size_t)> FilterFunctionBuilder<CircuitBuilder,
         if (q_arith.has_value()) {
             condition &= block.q_arith()[gate_idx] == this->q_arith.value();
         }
+        if (q_elliptic.has_value()) {
+            condition &= block.q_elliptic()[gate_idx] == this->q_elliptic.value();
+        }
         return condition;
     };
 }
