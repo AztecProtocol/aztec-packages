@@ -18,11 +18,11 @@ import {
   type L1BlobInputs,
   type L1TxConfig,
   type L1TxRequest,
+  type L1TxUtils,
   MAX_L1_TX_LIMIT,
   type TransactionStats,
   WEI_CONST,
 } from '@aztec/ethereum/l1-tx-utils';
-import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { FormattedViemError, formatViemError, mergeAbis, tryExtractEvent } from '@aztec/ethereum/utils';
 import { sumBigint } from '@aztec/foundation/bigint';
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
@@ -129,7 +129,7 @@ export class SequencerPublisher {
   // Gas report for VotingWithSigTest shows a max gas of 100k, but we've seen it cost 700k+ in testnet
   public static VOTE_GAS_GUESS: bigint = 800_000n;
 
-  public l1TxUtils: L1TxUtilsWithBlobs;
+  public l1TxUtils: L1TxUtils;
   public rollupContract: RollupContract;
   public govProposerContract: GovernanceProposerContract;
   public slashingProposerContract: EmpireSlashingProposerContract | TallySlashingProposerContract | undefined;
@@ -144,7 +144,7 @@ export class SequencerPublisher {
     deps: {
       telemetry?: TelemetryClient;
       blobClient: BlobClientInterface;
-      l1TxUtils: L1TxUtilsWithBlobs;
+      l1TxUtils: L1TxUtils;
       rollupContract: RollupContract;
       slashingProposerContract: EmpireSlashingProposerContract | TallySlashingProposerContract | undefined;
       governanceProposerContract: GovernanceProposerContract;

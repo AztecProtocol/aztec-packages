@@ -68,6 +68,7 @@
     "@aztec/archiver": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
     "@aztec/blob-client": "workspace:^",
+    "@aztec/blob-lib": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/epoch-cache": "workspace:^",
     "@aztec/ethereum": "workspace:^",

@@ -41,10 +41,10 @@ import {
   ReadOnlyL1TxUtils,
   TxUtilsState,
   UnknownMinedTxError,
-  createL1TxUtilsFromViemWallet,
+  createL1TxUtils,
   defaultL1TxUtilsConfig,
 } from './index.js';
-import { L1TxUtilsWithBlobs } from './l1_tx_utils_with_blobs.js';
+import { L1TxUtils } from './l1_tx_utils.js';
 import { createViemSigner } from './signer.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
@@ -96,8 +96,8 @@ describe('L1TxUtils', () => {
     await anvil.stop().catch(err => createLogger('cleanup').error(err));
   }, 5000);
 
-  describe('L1TxUtilsWithBlobs', () => {
-    let gasUtils: TestL1TxUtilsWithBlobs;
+  describe('L1TxUtils with blobs', () => {
+    let gasUtils: TestL1TxUtils;
     let config: Partial<L1TxUtilsConfig>;
 
     const request = {
@@ -107,7 +107,7 @@ describe('L1TxUtils', () => {
     };
 
     const createL1TxUtils = () =>
-      new TestL1TxUtilsWithBlobs(
+      new TestL1TxUtils(
         l1Client,
         EthAddress.fromString(l1Client.account.address),
         createViemSigner(l1Client),
@@ -117,6 +117,8 @@ describe('L1TxUtils', () => {
         undefined,
         undefined,
         metrics,
+        Blob.getViemKzgInstance(),
+        undefined,
       );
 
     beforeEach(() => {
@@ -1777,7 +1779,7 @@ describe('L1TxUtils', () => {
     });
 
     it('L1TxUtils can be instantiated with wallet client and has write methods', () => {
-      const l1TxUtils = createL1TxUtilsFromViemWallet(walletClient, { logger });
+      const l1TxUtils = createL1TxUtils(walletClient, { logger });
       expect(l1TxUtils).toBeDefined();
       expect(l1TxUtils.client).toBe(walletClient);
 
@@ -1789,7 +1791,7 @@ describe('L1TxUtils', () => {
     });
 
     it('L1TxUtils inherits all read-only methods from ReadOnlyL1TxUtils', () => {
-      const l1TxUtils = createL1TxUtilsFromViemWallet(walletClient, { logger });
+      const l1TxUtils = createL1TxUtils(walletClient, { logger });
 
       // Verify all read-only methods are available
       expect(l1TxUtils.getBlock).toBeDefined();
@@ -1803,13 +1805,13 @@ describe('L1TxUtils', () => {
 
     it('L1TxUtils cannot be instantiated with public client', () => {
       expect(() => {
-        createL1TxUtilsFromViemWallet(publicClient as any, { logger });
+        createL1TxUtils(publicClient as any, { logger });
       }).toThrow();
     });
   });
 });
 
-class TestL1TxUtilsWithBlobs extends L1TxUtilsWithBlobs {
+class TestL1TxUtils extends L1TxUtils {
   declare public txs: L1TxState[];
 
   public setMetrics(metrics: IL1TxMetrics) {
