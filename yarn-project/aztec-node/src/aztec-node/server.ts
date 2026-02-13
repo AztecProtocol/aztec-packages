@@ -1129,7 +1129,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
 
     const txHash = tx.getTxHash();
-    const blockNumber = BlockNumber((await this.blockSource.getBlockNumber()) + 1);
+    const latestBlockNumber = await this.blockSource.getBlockNumber();
+    const blockNumber = BlockNumber.add(latestBlockNumber, 1);
 
     // If sequencer is not initialized, we just set these values to zero for simulation.
     const coinbase = EthAddress.ZERO;
@@ -1153,6 +1154,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       blockNumber,
     });
 
+    // Ensure world-state has caught up with the latest block we loaded from the archiver
+    await this.worldStateSynchronizer.syncImmediate(latestBlockNumber);
     const merkleTreeFork = await this.worldStateSynchronizer.fork();
     try {
       const config = PublicSimulatorConfig.from({
