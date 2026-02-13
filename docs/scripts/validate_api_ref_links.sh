@@ -49,6 +49,8 @@ echo "Scanning ${#SEARCH_DIRS[@]} docs directory(ies)..."
 BROKEN_COUNT=0
 CASE_MISMATCH_COUNT=0
 TOTAL_COUNT=0
+BROKEN_DETAILS=()
+CASE_MISMATCH_DETAILS=()
 
 # Resolve a link path to a file in static/, case-insensitively.
 # Args: $1 = path relative to static/ (e.g., aztec-nr-api/devnet/noir_aztec/state_vars/struct.publicmutable)
@@ -154,6 +156,122 @@ check_case_match() {
   return 1
 }
 
+# Get PR context for Slack messages (returns formatted PR link or branch name)
+get_pr_context() {
+  if ! command -v gh &>/dev/null; then
+    echo "unknown branch"
+    return
+  fi
+
+  local branch="${GITHUB_HEAD_REF:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")}"
+
+  if [[ -z "$branch" || "$branch" == "HEAD" ]]; then
+    echo "unknown branch"
+    return
+  fi
+
+  local pr_number
+  pr_number=$(gh pr list --head "$branch" --json number --jq '.[0].number' 2>/dev/null || echo "")
+
+  if [[ -n "$pr_number" ]]; then
+    local pr_url
+    pr_url=$(gh pr view "$pr_number" --json url --jq '.url' 2>/dev/null || echo "")
+    if [[ -n "$pr_url" ]]; then
+      echo "<${pr_url}|PR #${pr_number}>"
+    else
+      echo "PR #${pr_number}"
+    fi
+  else
+    echo "branch: \`${branch}\`"
+  fi
+}
+
+# Send a Slack message to #devrel-docs-updates
+# Args: $1 = message text
+send_slack_message() {
+  local message=$1
+  if [[ -z "${SLACK_BOT_TOKEN:-}" ]]; then
+    echo "SLACK_BOT_TOKEN not set, skipping Slack notification"
+    return 0
+  fi
+
+  local data
+  data=$(jq -n --arg channel "#devrel-docs-updates" --arg text "$message" \
+    '{channel: $channel, text: $text}')
+
+  local response
+  if ! response=$(curl -s --fail-with-body -X POST https://slack.com/api/chat.postMessage \
+    -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+    -H "Content-type: application/json" \
+    --data "$data"); then
+    echo "Slack API request failed (curl error)" >&2
+    return 1
+  fi
+
+  local ok
+  if ! ok=$(echo "$response" | jq -r '.ok' 2>/dev/null); then
+    echo "Slack API returned invalid JSON: $response" >&2
+    return 1
+  fi
+
+  if [[ "$ok" != "true" ]]; then
+    local error
+    error=$(echo "$response" | jq -r '.error // "unknown error"' 2>/dev/null)
+    echo "Slack API error: $error" >&2
+    return 1
+  fi
+
+  return 0
+}
+
+# Build and send Slack alert for broken links / case mismatches
+send_alert() {
+  if [[ "${CI:-}" != "1" ]]; then
+    echo "Not in CI, skipping Slack notification."
+    return 0
+  fi
+
+  local context
+  context=$(get_pr_context)
+
+  local message=":warning: *API Reference Link Issues* (${context})"$'\n\n'
+  message+="*Summary:* ${BROKEN_COUNT} broken link(s), ${CASE_MISMATCH_COUNT} case mismatch(es) out of ${TOTAL_COUNT} total links checked."$'\n'
+
+  if [[ $BROKEN_COUNT -gt 0 ]]; then
+    message+=$'\n'"*Broken links:*"$'\n'
+    local count=0
+    for detail in "${BROKEN_DETAILS[@]}"; do
+      if [[ $count -ge 15 ]]; then
+        message+="  ... and $((BROKEN_COUNT - 15)) more"$'\n'
+        break
+      fi
+      message+="  • \`${detail}\`"$'\n'
+      count=$((count + 1))
+    done
+  fi
+
+  if [[ $CASE_MISMATCH_COUNT -gt 0 ]]; then
+    message+=$'\n'"*Case mismatches:*"$'\n'
+    local count=0
+    for detail in "${CASE_MISMATCH_DETAILS[@]}"; do
+      if [[ $count -ge 15 ]]; then
+        message+="  ... and $((CASE_MISMATCH_COUNT - 15)) more"$'\n'
+        break
+      fi
+      message+="  • \`${detail}\`"$'\n'
+      count=$((count + 1))
+    done
+  fi
+
+  message+=$'\n'"*Action required:* Run \`yarn generate:aztec-nr-api\` to regenerate the API docs."
+
+  if send_slack_message "$message"; then
+    echo "Slack notification sent to #devrel-docs-updates."
+  else
+    echo "WARNING: Failed to send Slack notification." >&2
+  fi
+}
+
 # Process a single link
 # Args: $1 = source file, $2 = line number, $3 = link path (after stripping pathname:// prefix)
 process_link() {
@@ -182,6 +300,7 @@ process_link() {
       CASE_MISMATCH_COUNT=$((CASE_MISMATCH_COUNT + 1))
       local rel_source="${source_file#$DOCS_ROOT/}"
       local actual_rel="${resolved#$DOCS_ROOT/static/}"
+      CASE_MISMATCH_DETAILS+=("$rel_source:$line_num -> Link: $link_path, Actual: $actual_rel")
       echo "  CASE MISMATCH: $rel_source:$line_num"
       echo "    Link:   $link_path"
       echo "    Actual: $actual_rel"
@@ -189,6 +308,7 @@ process_link() {
   else
     BROKEN_COUNT=$((BROKEN_COUNT + 1))
     local rel_source="${source_file#$DOCS_ROOT/}"
+    BROKEN_DETAILS+=("$rel_source:$line_num -> $link_path")
     echo "  BROKEN: $rel_source:$line_num"
     echo "    Link: $link_path"
   fi
@@ -243,6 +363,10 @@ if [[ $CASE_MISMATCH_COUNT -gt 0 ]]; then
   echo ""
   echo "WARNING: $CASE_MISMATCH_COUNT case mismatch(es) found."
   echo "These links work on Netlify (case-insensitive) but may break in other environments."
+fi
+
+if [[ $BROKEN_COUNT -gt 0 ]] || [[ $CASE_MISMATCH_COUNT -gt 0 ]]; then
+  send_alert
 fi
 
 # Exit 0 with warnings to avoid breaking builds initially
