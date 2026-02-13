@@ -43,7 +43,7 @@ export class LowPriorityPreAddRule implements PreAddRule {
     // Compare incoming tx against lowest priority tx.
     // feeOnly mode (RPC): use strict fee comparison only — avoids churn from hash ordering
     // Default (gossip): use full comparePriority (fee + tx hash tiebreaker) for determinism
-    const isHigherPriority = context?.feeOnly
+    const isHigherPriority = context?.feeComparisonOnly
       ? incomingMeta.priorityFee > lowestPriorityMeta.priorityFee
       : comparePriority(incomingMeta, lowestPriorityMeta) > 0;
 
