@@ -1400,26 +1400,15 @@ template <typename Builder> class stdlib_field : public testing::Test {
         auto m = field_ct::conditional_assign_internal(k, a, b);
         EXPECT_EQ(m.get_origin_tag(), first_second_third_merged_tag);
 
-        // Accumulate merges tags
-        const size_t MAX_ACCUMULATED_ELEMENTS = 16;
-        std::vector<field_ct> elements;
-        std::vector<OriginTag> accumulated_tags;
-        for (size_t index = 0; index < MAX_ACCUMULATED_ELEMENTS; index++) {
-            const auto current_tag = OriginTag(parent_id, index >> 1, !(index & 1));
-            if (index == 0) {
-                accumulated_tags.push_back(current_tag);
-            } else {
-                accumulated_tags.emplace_back(accumulated_tags[index - 1], current_tag);
-            }
-            auto element = field_ct(witness_ct(&builder, bb::fr::random_element()));
-            element.set_origin_tag(current_tag);
-            elements.emplace_back(element);
-        }
-
-        for (size_t index = MAX_ACCUMULATED_ELEMENTS - 1; index > 0; index--) {
-            EXPECT_EQ(field_ct::accumulate(elements).get_origin_tag(), accumulated_tags[index]);
-            elements.pop_back();
-        }
+        // Accumulate merges tags (smoke test - detailed tag logic tested in origin_tag tests)
+        std::vector<field_ct> acc_elements;
+        auto acc_a = field_ct(witness_ct(&builder, bb::fr::random_element()));
+        auto acc_b = field_ct(witness_ct(&builder, bb::fr::random_element()));
+        acc_a.set_origin_tag(submitted_value_origin_tag);
+        acc_b.set_origin_tag(challenge_origin_tag);
+        acc_elements.push_back(acc_a);
+        acc_elements.push_back(acc_b);
+        EXPECT_EQ(field_ct::accumulate(acc_elements).get_origin_tag(), first_two_merged_tag);
 
         // Split preserves tags
         const size_t num_bits = uint256_t(a.get_value()).get_msb() + 1;
