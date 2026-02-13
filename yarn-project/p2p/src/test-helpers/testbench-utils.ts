@@ -59,7 +59,7 @@ export class InMemoryTxPool extends EventEmitter implements TxPoolV2 {
 
   // === Core Operations (TxPoolV2) ===
 
-  addPendingTxs(txs: Tx[], opts?: { source?: string; feeOnly?: boolean }): Promise<AddTxsResult> {
+  addPendingTxs(txs: Tx[], opts?: { source?: string; feeComparisonOnly?: boolean }): Promise<AddTxsResult> {
     const accepted: TxHash[] = [];
     const newTxs: Tx[] = [];
     for (const tx of txs) {

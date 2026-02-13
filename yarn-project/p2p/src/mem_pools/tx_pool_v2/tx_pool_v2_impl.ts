@@ -178,14 +178,15 @@ export class TxPoolV2Impl {
     this.#log.info(`Deleted ${toDelete.length} invalid/rejected transactions on startup`, { txHashes: toDelete });
   }
 
-  async addPendingTxs(txs: Tx[], opts: { source?: string; feeOnly?: boolean }): Promise<AddTxsResult> {
+  async addPendingTxs(txs: Tx[], opts: { source?: string; feeComparisonOnly?: boolean }): Promise<AddTxsResult> {
     const accepted: TxHash[] = [];
     const ignored: TxHash[] = [];
     const rejected: TxHash[] = [];
     const acceptedPending = new Set<string>();
 
     const poolAccess = this.#createPreAddPoolAccess();
-    const preAddContext: PreAddContext | undefined = opts.feeOnly !== undefined ? { feeOnly: opts.feeOnly } : undefined;
+    const preAddContext: PreAddContext | undefined =
+      opts.feeComparisonOnly !== undefined ? { feeOnly: opts.feeComparisonOnly } : undefined;
 
     await this.#store.transactionAsync(async () => {
       for (const tx of txs) {
