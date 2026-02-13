@@ -1,3 +1,4 @@
+export * from '../../../access_scopes.js';
 export * from '../../../pxe.js';
 export * from '../../../config/index.js';
 export * from '../../../error_enriching.js';

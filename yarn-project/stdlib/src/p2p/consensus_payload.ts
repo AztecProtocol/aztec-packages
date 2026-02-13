@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, serializeSignedBigInt, serializeToBuffer } from '@aztec/foundation/serialize';
 import { hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
 
@@ -21,6 +21,8 @@ export class ConsensusPayload implements Signable {
     public readonly header: CheckpointHeader,
     /** The archive root after the block is added */
     public readonly archive: Fr,
+    /** The fee asset price modifier in basis points (from oracle) */
+    public readonly feeAssetPriceModifier: bigint = 0n,
   ) {}
 
   static get schema() {
@@ -28,12 +30,13 @@ export class ConsensusPayload implements Signable {
       .object({
         header: CheckpointHeader.schema,
         archive: schemas.Fr,
+        feeAssetPriceModifier: schemas.BigInt,
       })
-      .transform(obj => new ConsensusPayload(obj.header, obj.archive));
+      .transform(obj => new ConsensusPayload(obj.header, obj.archive, obj.feeAssetPriceModifier));
   }
 
   static getFields(fields: FieldsOf<ConsensusPayload>) {
-    return [fields.header, fields.archive] as const;
+    return [fields.header, fields.archive, fields.feeAssetPriceModifier] as const;
   }
 
   getPayloadToSign(domainSeparator: SignatureDomainSeparator): Buffer {
@@ -50,41 +53,50 @@ export class ConsensusPayload implements Signable {
     const headerHash = this.header.hash().toString();
     const encodedData = encodeAbiParameters(abi, [
       domainSeparator,
-      [archiveRoot, [0n] /* @todo See #9963 */, headerHash],
+      [archiveRoot, [this.feeAssetPriceModifier], headerHash],
     ] as const);
 
     return hexToBuffer(encodedData);
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer([this.header, this.archive]);
+    return serializeToBuffer([this.header, this.archive, serializeSignedBigInt(this.feeAssetPriceModifier)]);
   }
 
   public equals(other: ConsensusPayload | CheckpointProposal | CheckpointProposalCore): boolean {
     const otherHeader = 'checkpointHeader' in other ? other.checkpointHeader : other.header;
-    return this.header.equals(otherHeader) && this.archive.equals(other.archive);
+    const otherModifier = 'feeAssetPriceModifier' in other ? other.feeAssetPriceModifier : 0n;
+    return (
+      this.header.equals(otherHeader) &&
+      this.archive.equals(other.archive) &&
+      this.feeAssetPriceModifier === otherModifier
+    );
   }
 
   static fromBuffer(buf: Buffer | BufferReader): ConsensusPayload {
     const reader = BufferReader.asReader(buf);
-    const payload = new ConsensusPayload(reader.readObject(CheckpointHeader), reader.readObject(Fr));
+    const payload = new ConsensusPayload(
+      reader.readObject(CheckpointHeader),
+      reader.readObject(Fr),
+      reader.readInt256(),
+    );
     return payload;
   }
 
   static fromFields(fields: FieldsOf<ConsensusPayload>): ConsensusPayload {
-    return new ConsensusPayload(fields.header, fields.archive);
+    return new ConsensusPayload(fields.header, fields.archive, fields.feeAssetPriceModifier);
   }
 
   static fromCheckpoint(checkpoint: Checkpoint): ConsensusPayload {
-    return new ConsensusPayload(checkpoint.header, checkpoint.archive.root);
+    return new ConsensusPayload(checkpoint.header, checkpoint.archive.root, checkpoint.feeAssetPriceModifier);
   }
 
   static empty(): ConsensusPayload {
-    return new ConsensusPayload(CheckpointHeader.empty(), Fr.ZERO);
+    return new ConsensusPayload(CheckpointHeader.empty(), Fr.ZERO, 0n);
   }
 
   static random(): ConsensusPayload {
-    return new ConsensusPayload(CheckpointHeader.random(), Fr.random());
+    return new ConsensusPayload(CheckpointHeader.random(), Fr.random(), 0n);
   }
 
   /**
@@ -104,10 +116,11 @@ export class ConsensusPayload implements Signable {
     return {
       header: this.header.toInspect(),
       archive: this.archive.toString(),
+      feeAssetPriceModifier: this.feeAssetPriceModifier.toString(),
     };
   }
 
   toString() {
-    return `header: ${this.header.toString()}, archive: ${this.archive.toString()}}`;
+    return `header: ${this.header.toString()}, archive: ${this.archive.toString()}, feeAssetPriceModifier: ${this.feeAssetPriceModifier}}`;
   }
 }

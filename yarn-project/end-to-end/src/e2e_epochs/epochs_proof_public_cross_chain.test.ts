@@ -16,7 +16,11 @@ import { EpochsTestContext } from './epochs_test.js';
 jest.setTimeout(1000 * 60 * 10);
 
 // Proves an epoch that contains txs with public function calls that consume L1 to L2 messages
-// Regression for this issue https://aztecprotocol.slack.com/archives/C085C1942HG/p1754400213976059
+// Regression for an issue in which the sequencer correctly adds L1-to-L2 messages to its world-state fork
+// before processing txs, but the prover node's proving job creates a separate fork without inserting the
+// messages first. This causes a block header mismatch (different state roots, fees, mana) when a tx consumes
+// a message that was added to the L1-to-L2 message tree in the same block — the prover reverts the tx while
+// the sequencer processes it successfully.
 describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
   let context: EndToEndContext;
   let logger: Logger;
