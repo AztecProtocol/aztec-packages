@@ -77,7 +77,7 @@
     <a href="/test-timings">test timings</a>
   </div>
 
-  <h2 style="margin:8px 0;color:#ccc;">cost overview</h2>
+  <h2 style="margin:8px 0;color:#ccc;">cost overview <span id="period-label" style="font-size:12px;color:#666;font-weight:normal"></span></h2>
 
   <div class="controls">
     <button data-range="30">1m</button>
@@ -248,6 +248,10 @@
     function render() {
       Object.values(charts).forEach(c => c.destroy());
       charts = {};
+
+      if (apiData.period) {
+        document.getElementById('period-label').textContent = `(${apiData.period.from} to ${apiData.period.to})`;
+      }
 
       const byDate = apiData.by_date;
       const totals = apiData.totals;

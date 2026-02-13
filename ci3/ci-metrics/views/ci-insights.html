@@ -65,7 +65,7 @@
     <a href="/test-timings">test timings</a>
   </div>
 
-  <h2 style="margin:8px 0;color:#ccc;">ci insights</h2>
+  <h2 style="margin:8px 0;color:#ccc;">ci insights <span id="period-label" style="font-size:12px;color:#666;font-weight:normal"></span></h2>
 
   <div class="controls">
     <button data-range="14">2w</button>
@@ -108,7 +108,7 @@
       <div class="chart-wrap med"><canvas id="mqChart"></canvas></div>
     </div>
     <div class="chart-box">
-      <h3>flakes + test failures per day</h3>
+      <h3>test outcomes per day</h3>
       <div class="chart-wrap med"><canvas id="flakeChart"></canvas></div>
     </div>
   </div>
@@ -231,6 +231,12 @@
     function render() {
       Object.values(charts).forEach(c => c.destroy());
       charts = {};
+
+      // Show period
+      const period = perfData?.period || costData?.period;
+      if (period) {
+        document.getElementById('period-label').textContent = `(${period.from} to ${period.to})`;
+      }
 
       renderKPIs();
       renderCostChart();
@@ -400,7 +406,7 @@
       });
     }
 
-    // ---- Flake / test failure chart ----
+    // ---- Test outcomes chart (successes + flakes + failures) ----
     function renderFlakeChart() {
       const byDate = perfData?.by_date || [];
       const dates = byDate.map(d => d.date);
@@ -409,8 +415,9 @@
         data: {
           labels: dates.map(fmtDate),
           datasets: [
-            { type: 'bar', label: 'Flakes', data: byDate.map(d => d.flake_count || 0), backgroundColor: '#f0883e', borderWidth: 0, order: 2 },
-            { type: 'bar', label: 'Test Failures', data: byDate.map(d => d.test_failure_count || 0), backgroundColor: '#f85149', borderWidth: 0, order: 2 },
+            { type: 'bar', label: 'Successes', data: byDate.map(d => d.test_success_count || 0), backgroundColor: '#3fb950', borderWidth: 0, order: 3 },
+            { type: 'bar', label: 'Flakes', data: byDate.map(d => d.flake_count || 0), backgroundColor: '#f0883e', borderWidth: 0, order: 3 },
+            { type: 'bar', label: 'Test Failures', data: byDate.map(d => d.test_failure_count || 0), backgroundColor: '#f85149', borderWidth: 0, order: 3 },
             { type: 'line', label: 'CI Failure Rate %', data: byDate.map(d => d.failure_rate || 0), borderColor: '#ff7b72', borderWidth: 2, pointRadius: 0, tension: 0.3, yAxisID: 'y1', order: 1 },
           ]
         },
@@ -418,8 +425,8 @@
           responsive: true, maintainAspectRatio: false,
           interaction: { mode: 'index', intersect: false },
           scales: {
-            x: { ticks: { color: '#555', maxRotation: 45 }, grid: { color: '#181818' } },
-            y: { position: 'left', ticks: { color: '#555' }, grid: { color: '#181818' } },
+            x: { stacked: true, ticks: { color: '#555', maxRotation: 45 }, grid: { color: '#181818' } },
+            y: { stacked: true, position: 'left', ticks: { color: '#555' }, grid: { color: '#181818' } },
             y1: { position: 'right', min: 0, ticks: { color: '#ff7b72', callback: v => v + '%' }, grid: { display: false } }
           },
           plugins: {
