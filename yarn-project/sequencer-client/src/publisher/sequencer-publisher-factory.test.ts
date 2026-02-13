@@ -1,7 +1,7 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import type { EpochCache } from '@aztec/epoch-cache';
 import type { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
-import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { DateProvider } from '@aztec/foundation/timer';
@@ -17,7 +17,7 @@ import { SequencerPublisherFactory } from './sequencer-publisher-factory.js';
 describe('SequencerPublisherFactory', () => {
   let factory: SequencerPublisherFactory;
   let mockConfig: SequencerClientConfig;
-  let mockPublisherManager: MockProxy<PublisherManager<L1TxUtilsWithBlobs>>;
+  let mockPublisherManager: MockProxy<PublisherManager<L1TxUtils>>;
   let mockBlobClient: MockProxy<BlobClientInterface>;
   let mockDateProvider: MockProxy<DateProvider>;
   let mockEpochCache: MockProxy<EpochCache>;
@@ -25,7 +25,7 @@ describe('SequencerPublisherFactory', () => {
   let mockGovernanceProposerContract: MockProxy<GovernanceProposerContract>;
   let mockSlashFactoryContract: MockProxy<SlashFactoryContract>;
   let mockNodeKeyStore: MockProxy<NodeKeystoreAdapter>;
-  let mockL1TxUtils: MockProxy<L1TxUtilsWithBlobs>;
+  let mockL1TxUtils: MockProxy<L1TxUtils>;
 
   const validatorAddress = EthAddress.random();
   const publisherAddress = EthAddress.random();
@@ -35,12 +35,12 @@ describe('SequencerPublisherFactory', () => {
     mockConfig = {
       ethereumSlotDuration: 12,
     } as SequencerClientConfig;
-    mockPublisherManager = mock<PublisherManager<L1TxUtilsWithBlobs>>();
+    mockPublisherManager = mock<PublisherManager<L1TxUtils>>();
     mockBlobClient = mock<BlobClientInterface>();
     mockDateProvider = mock<DateProvider>();
     mockEpochCache = mock<EpochCache>();
     mockNodeKeyStore = mock<NodeKeystoreAdapter>();
-    mockL1TxUtils = mock<L1TxUtilsWithBlobs>();
+    mockL1TxUtils = mock<L1TxUtils>();
     mockRollupContract = mock<RollupContract>();
     mockGovernanceProposerContract = mock<GovernanceProposerContract>();
     mockSlashFactoryContract = mock<SlashFactoryContract>();

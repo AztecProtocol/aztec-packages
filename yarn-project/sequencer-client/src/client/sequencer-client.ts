@@ -3,7 +3,7 @@ import { EpochCache } from '@aztec/epoch-cache';
 import { isAnvilTestChain } from '@aztec/ethereum/chain';
 import { getPublicClient } from '@aztec/ethereum/client';
 import { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
-import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { type Delayer, L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
@@ -28,11 +28,12 @@ import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
  */
 export class SequencerClient {
   constructor(
-    protected publisherManager: PublisherManager<L1TxUtilsWithBlobs>,
+    protected publisherManager: PublisherManager<L1TxUtils>,
     protected sequencer: Sequencer,
     protected checkpointsBuilder: FullNodeCheckpointsBuilder,
     protected validatorClient?: ValidatorClient,
     private l1Metrics?: L1Metrics,
+    private delayer_?: Delayer,
   ) {}
 
   /**
@@ -62,7 +63,7 @@ export class SequencerClient {
       blobClient: BlobClientInterface;
       dateProvider: DateProvider;
       epochCache?: EpochCache;
-      l1TxUtils: L1TxUtilsWithBlobs[];
+      l1TxUtils: L1TxUtils[];
       nodeKeyStore: KeystoreManager;
     },
   ) {
@@ -171,9 +172,12 @@ export class SequencerClient {
       log,
     );
 
-    await sequencer.init();
+    sequencer.init();
 
-    return new SequencerClient(publisherManager, sequencer, checkpointsBuilder, validatorClient, l1Metrics);
+    // Extract the shared delayer from the first L1TxUtils instance (all instances share the same delayer)
+    const delayer = l1TxUtils[0]?.delayer;
+
+    return new SequencerClient(publisherManager, sequencer, checkpointsBuilder, validatorClient, l1Metrics, delayer);
   }
 
   /**
@@ -206,6 +210,11 @@ export class SequencerClient {
 
   public getSequencer(): Sequencer {
     return this.sequencer;
+  }
+
+  /** Returns the shared tx delayer for sequencer L1 txs, if enabled. Test-only. */
+  getDelayer(): Delayer | undefined {
+    return this.delayer_;
   }
 
   get validatorAddresses(): EthAddress[] | undefined {

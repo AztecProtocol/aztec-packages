@@ -75,14 +75,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   /** The maximum number of seconds that the sequencer can be into a slot to transition to a particular state. */
   protected timetable!: SequencerTimetable;
 
-  // This shouldn't be here as this gets re-created each time we build/propose a block.
-  // But we have a number of tests that abuse/rely on this class having a permanent publisher.
-  // As long as those tests only configure a single publisher they will continue to work.
-  // This will get re-assigned every time the sequencer goes to build a new block to a publisher that is valid
-  // for the block proposer.
-  // TODO(palla/mbps): Remove this field and fix tests
-  protected publisher: SequencerPublisher | undefined;
-
   /** Config for the sequencer */
   protected config: ResolvedSequencerConfig = DefaultSequencerConfig;
 
@@ -134,10 +126,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     );
   }
 
-  /** Initializes the sequencer (precomputes tables and creates a publisher). Takes about 3s. */
-  public async init() {
+  /** Initializes the sequencer (precomputes tables). Takes about 3s. */
+  public init() {
     getKzg();
-    this.publisher = (await this.publisherFactory.create(undefined)).publisher;
   }
 
   /** Starts the sequencer and moves to IDLE state. */
@@ -156,7 +147,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   public async stop(): Promise<void> {
     this.log.info(`Stopping sequencer`);
     this.setState(SequencerState.STOPPING, undefined, { force: true });
-    this.publisher?.interrupt();
+    this.publisherFactory.interruptAll();
     await this.runningPromise?.stop();
     this.setState(SequencerState.STOPPED, undefined, { force: true });
     this.log.info('Stopped sequencer');
@@ -326,7 +317,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const proposerForPublisher = this.config.fishermanMode ? undefined : proposer;
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposerForPublisher);
     this.log.verbose(`Created publisher at address ${publisher.getSenderAddress()} for attestor ${attestorAddress}`);
-    this.publisher = publisher;
 
     // In fisherman mode, set the actual proposer's address for simulations
     if (this.config.fishermanMode && proposer) {
