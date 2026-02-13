@@ -23,7 +23,7 @@ import { AuthRequest, AuthResponse, BlockProposalValidator, ReqRespSubProtocol }
 import { OffenseType, WANT_TO_SLASH_EVENT, type Watcher, type WatcherEmitter } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CommitteeAttestationsAndSigners, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
-import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
+import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
   CreateCheckpointProposalLastBlockData,
   ITxProvider,
@@ -595,7 +595,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     proposalInfo: LogData,
   ): Promise<{ isValid: true } | { isValid: false; reason: string }> {
     const slot = proposal.slotNumber;
-    const timeoutSeconds = 10; // TODO(palla/mbps): This should map to the timetable settings
+
+    // Timeout block syncing at the start of the next slot
+    const config = this.checkpointsBuilder.getConfig();
+    const nextSlotTimestampSeconds = Number(getTimestampForSlot(SlotNumber(slot + 1), config));
+    const timeoutSeconds = Math.max(1, nextSlotTimestampSeconds - Math.floor(this.dateProvider.now() / 1000));
 
     // Wait for last block to sync by archive
     let lastBlockHeader: BlockHeader | undefined;

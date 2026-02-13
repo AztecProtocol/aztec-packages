@@ -625,6 +625,30 @@ locals {
       bootstrap_nodes_path = ""
       wait                 = false
     } : null
+
+    # Optional: cross-chain message bots
+    bot_cross_chain = var.BOT_CROSS_CHAIN_REPLICAS > 0 ? {
+      name  = "${var.RELEASE_PREFIX}-bot-cross-chain"
+      chart = "aztec-bot"
+      values = [
+        "common.yaml",
+        "bot-cross-chain.yaml",
+        "bot-resources-${var.BOT_RESOURCE_PROFILE}.yaml",
+      ]
+      custom_settings = {
+        "bot.replicaCount"       = var.BOT_CROSS_CHAIN_REPLICAS
+        "bot.txIntervalSeconds"  = var.BOT_CROSS_CHAIN_TX_INTERVAL_SECONDS
+        "bot.followChain"        = var.BOT_CROSS_CHAIN_FOLLOW_CHAIN
+        "bot.pxeSyncChainTip"    = var.BOT_CROSS_CHAIN_PXE_SYNC_CHAIN_TIP
+        "bot.botPrivateKey"      = var.BOT_CROSS_CHAIN_L2_PRIVATE_KEY
+        "bot.nodeUrl"            = local.internal_rpc_url
+        "bot.mnemonic"           = var.BOT_MNEMONIC
+        "bot.mnemonicStartIndex" = var.BOT_CROSS_CHAIN_MNEMONIC_START_INDEX
+      }
+      boot_node_host_path  = ""
+      bootstrap_nodes_path = ""
+      wait                 = false
+    } : null
   }, local.validator_releases)
 }
 
