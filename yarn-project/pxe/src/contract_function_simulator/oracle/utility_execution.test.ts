@@ -220,6 +220,7 @@ describe('Utility Execution test suite', () => {
         capsuleStore,
         privateEventStore,
         jobId: 'test-job-id',
+        scopes: 'ALL_SCOPES',
       });
     });
 

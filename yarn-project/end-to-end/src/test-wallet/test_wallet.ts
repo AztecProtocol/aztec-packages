@@ -16,6 +16,7 @@ import { AccountManager, type SendOptions } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
+import type { AccessScopes } from '@aztec/pxe/client/lazy';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
 import { PXE, type PXECreationOptions, createPXE } from '@aztec/pxe/server';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
@@ -227,18 +228,18 @@ export class TestWallet extends BaseWallet {
     executionPayload: ExecutionPayload,
     from: AztecAddress,
     feeOptions: FeeOptions,
+    scopes: AccessScopes,
     skipTxValidation?: boolean,
     skipFeeEnforcement?: boolean,
-    scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
     if (!this.simulatedSimulations) {
       return super.simulateViaEntrypoint(
         executionPayload,
         from,
         feeOptions,
+        scopes,
         skipTxValidation,
         skipFeeEnforcement,
-        scopes,
       );
     }
 
