@@ -51,7 +51,7 @@ Set the required environment variables:
 
 ```bash
 export VERSION=4.0.0-devnet.1-patch.0
-export NODE_URL=https://next.devnet.aztec-labs.com/
+export NODE_URL=https://v4-devnet-1.aztec-labs.com/
 export SPONSORED_FPC_ADDRESS=0x0cc8969aefc807d1145702ef5cf7ea57801ab633fa0b5cf1527203b667812be9
 ```
 
@@ -133,7 +133,7 @@ You can connect to devnet directly from your app using AztecJS:
 import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
 
-const NODE_URL = "https://next.devnet.aztec-labs.com";
+const NODE_URL = "https://v4-devnet-1.aztec-labs.com/";
 const node = createAztecNodeClient(NODE_URL);
 const wallet = await EmbeddedWallet.create(node);
 ```
