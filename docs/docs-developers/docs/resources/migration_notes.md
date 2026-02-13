@@ -14,22 +14,26 @@ Aztec is in active development. Each version may introduce breaking changes that
 The Aztec CLI is now installed without Docker. The installation command has changed:
 
 **Old installation (deprecated):**
+
 ```bash
 bash -i <(curl -sL https://install.aztec.network)
 aztec-up <version>
 ```
 
 **New installation:**
+
 ```bash
 VERSION=<version> bash -i <(curl -sL https://install.aztec.network/<version>)
 ```
 
 For example, to install version `#include_version_without_prefix`:
+
 ```bash
 VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix)
 ```
 
 **Key changes:**
+
 - Docker is no longer required to run the Aztec CLI tools
 - The `VERSION` environment variable must be set in the installation command
 - The version must also be included in the URL path
@@ -38,12 +42,13 @@ VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec
 
 After installation, `aztec-up` functions as a version manager with the following commands:
 
-| Command | Description |
-|---------|-------------|
+| Command                      | Description                                 |
+| ---------------------------- | ------------------------------------------- |
 | `aztec-up install <version>` | Install a specific version and switch to it |
-| `aztec-up use <version>` | Switch to an already installed version |
-| `aztec-up list` | List all installed versions |
-| `aztec-up self-update` | Update aztec-up itself |
+| `aztec-up use <version>`     | Switch to an already installed version      |
+| `aztec-up list`              | List all installed versions                 |
+| `aztec-up self-update`       | Update aztec-up itself                      |
+
 ### `@aztec/test-wallet` replaced by `@aztec/wallets`
 
 The `@aztec/test-wallet` package has been removed. Use `@aztec/wallets` instead, which provides `EmbeddedWallet` with a `static create()` factory:
@@ -57,7 +62,7 @@ The `@aztec/test-wallet` package has been removed. Use `@aztec/wallets` instead,
 + const wallet = await EmbeddedWallet.create(node);
 ```
 
-For browser environments, the same import resolves to a browser-specific implementation automatically via conditional exports:X
+For browser environments, the same import resolves to a browser-specific implementation automatically via conditional exports.
 
 The `EmbeddedWallet.create()` factory accepts an optional second argument for logger injection and ephemeral storage:
 

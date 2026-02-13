@@ -7,7 +7,47 @@ tags: [migration, updating, sandbox, local network]
 
 Aztec is in active development. Each version may introduce breaking changes that affect compatibility with previous versions. This page documents common errors and difficulties you might encounter when upgrading, along with guidance on how to resolve them.
 
-## TBD
+## v4.0.0-devnet.1
+
+### [CLI] Dockerless CLI Installation
+
+The Aztec CLI is now installed without Docker. The installation command has changed:
+
+**Old installation (deprecated):**
+
+```bash
+bash -i <(curl -sL https://install.aztec.network)
+aztec-up <version>
+```
+
+**New installation:**
+
+```bash
+VERSION=<version> bash -i <(curl -sL https://install.aztec.network/<version>)
+```
+
+For example, to install version `#include_version_without_prefix`:
+
+```bash
+VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix)
+```
+
+**Key changes:**
+
+- Docker is no longer required to run the Aztec CLI tools
+- The `VERSION` environment variable must be set in the installation command
+- The version must also be included in the URL path
+
+**aztec-up is now a version manager:**
+
+After installation, `aztec-up` functions as a version manager with the following commands:
+
+| Command                      | Description                                 |
+| ---------------------------- | ------------------------------------------- |
+| `aztec-up install <version>` | Install a specific version and switch to it |
+| `aztec-up use <version>`     | Switch to an already installed version      |
+| `aztec-up list`              | List all installed versions                 |
+| `aztec-up self-update`       | Update aztec-up itself                      |
 
 ### [aztec.js] `getDecodedPublicEvents` renamed to `getPublicEvents` with new signature
 
@@ -48,6 +88,11 @@ for (const { event, metadata } of events) {
 ```
 
 ### [Aztec.nr] `nophasecheck` renamed as `allow_phase_change`
+
+```diff
+  - #[nophasecheck]
+  + #[allow_phase_change]
+```
 
 ### [AztecNode] Removed sibling path RPC methods
 
