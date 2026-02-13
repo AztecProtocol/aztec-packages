@@ -129,7 +129,7 @@ export class CheckpointProposalJob implements Traceable {
     await Promise.all(votesPromises);
 
     if (checkpoint) {
-      this.metrics.recordBlockProposalSuccess();
+      this.metrics.recordCheckpointProposalSuccess();
     }
 
     // Do not post anything to L1 if we are fishermen, but do perform L1 fee analysis
@@ -221,6 +221,7 @@ export class CheckpointProposalJob implements Traceable {
 
       let blocksInCheckpoint: L2Block[] = [];
       let blockPendingBroadcast: { block: L2Block; txs: Tx[] } | undefined = undefined;
+      const checkpointBuildTimer = new Timer();
 
       try {
         // Main loop: build blocks for the checkpoint
@@ -252,6 +253,14 @@ export class CheckpointProposalJob implements Traceable {
       // broadcasted yet, and wait to collect the committee attestations.
       this.setStateFn(SequencerState.ASSEMBLING_CHECKPOINT, this.slot);
       const checkpoint = await checkpointBuilder.completeCheckpoint();
+
+      // Record checkpoint-level build metrics
+      this.metrics.recordCheckpointBuild(
+        checkpointBuildTimer.ms(),
+        blocksInCheckpoint.length,
+        checkpoint.getStats().txCount,
+        Number(checkpoint.header.totalManaUsed.toBigInt()),
+      );
 
       // Do not collect attestations nor publish to L1 in fisherman mode
       if (this.config.fishermanMode) {
@@ -826,7 +835,7 @@ export class CheckpointProposalJob implements Traceable {
         slot: this.slot,
         feeAnalysisId: feeAnalysis?.id,
       });
-      this.metrics.recordBlockProposalFailed('block_build_failed');
+      this.metrics.recordCheckpointProposalFailed('block_build_failed');
     }
 
     this.publisher.clearPendingRequests();

@@ -306,7 +306,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         `Cannot propose block at next L2 slot ${slot} since that slot was taken by block ${syncedTo.blockNumber}`,
         { ...logCtx, block: syncedTo.block.header.toInspect() },
       );
-      this.metrics.recordBlockProposalPrecheckFailed('slot_already_taken');
+      this.metrics.recordCheckpointPrecheckFailed('slot_already_taken');
       return undefined;
     }
 
@@ -341,7 +341,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         logCtx,
       );
       this.emit('proposer-rollup-check-failed', { reason: 'Rollup contract check failed', slot });
-      this.metrics.recordBlockProposalPrecheckFailed('rollup_contract_check_failed');
+      this.metrics.recordCheckpointPrecheckFailed('rollup_contract_check_failed');
       return undefined;
     }
 
@@ -351,7 +351,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         { ...logCtx, rollup: canProposeCheck, expectedSlot: slot },
       );
       this.emit('proposer-rollup-check-failed', { reason: 'Slot mismatch', slot });
-      this.metrics.recordBlockProposalPrecheckFailed('slot_mismatch');
+      this.metrics.recordCheckpointPrecheckFailed('slot_mismatch');
       return undefined;
     }
 
@@ -361,7 +361,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         { ...logCtx, rollup: canProposeCheck, expectedSlot: slot },
       );
       this.emit('proposer-rollup-check-failed', { reason: 'Block mismatch', slot });
-      this.metrics.recordBlockProposalPrecheckFailed('block_number_mismatch');
+      this.metrics.recordCheckpointPrecheckFailed('block_number_mismatch');
       return undefined;
     }
 
