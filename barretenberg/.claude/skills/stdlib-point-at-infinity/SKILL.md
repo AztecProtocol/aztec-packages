@@ -26,7 +26,7 @@ description: Guidelines for handling point-at-infinity in stdlib circuit types. 
 ## StdlibCodec::serialize_to_fields (field_conversion.hpp)
 
 - **grumpkin_commitment**: Canonicalizes infinity to `(0,0)` via `conditional_assign`. This IS needed because the `IPA::accumulate` -> `full_verify_recursive` path computes `G_zero_1 + G_zero_2 * alpha` using `cycle_group` arithmetic, which can produce non-canonical infinity when a malicious prover sends both `G_zero` values as `(0,0)`.
-- **bn254_commitment**: Asserts no infinity (`BB_ASSERT`). For `goblin_element`, infinity is `(0,0)` by construction so serialization is inherently canonical. For `element_default`, infinity cannot reach this path in production.
+- **bn254_commitment**: Allows canonical `(0,0)` infinity; asserts (`BB_ASSERT`) that infinity points have zero coordinates. All existing code paths (public inputs, transcript) produce canonical `(0,0)` infinity, so the assert is a safety guard against misuse. No canonicalization is performed (unlike `grumpkin_commitment`), since there are no available code paths that produce non-canonical bn254 infinity.
 
 ## Analyzing whether canonicalization is needed
 
@@ -46,7 +46,7 @@ Key production paths for grumpkin commitments through `serialize_to_fields`:
 For recursive verifier circuits, the circuit must be **constructible** even with malicious witness values (it just won't be satisfiable). This means:
 - Do NOT use `BB_ASSERT` on values a malicious prover can control -- it would crash circuit construction.
 - Use `conditional_assign` canonicalization instead, which produces correct circuit constraints regardless of witness values.
-- `BB_ASSERT` is appropriate only for values that structurally cannot be infinity (e.g., `bn254_commitment` in `serialize_to_fields`, where no code path can produce an infinity point).
+- `BB_ASSERT` is appropriate for invariants that hold across all existing code paths (e.g., `bn254_commitment` in `serialize_to_fields` asserts canonical `(0,0)` form for infinity, since all paths that can reach it produce canonical infinity).
 
 ## Common bug patterns to watch for
 

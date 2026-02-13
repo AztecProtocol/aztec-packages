@@ -247,9 +247,11 @@ template <typename Field> class StdlibCodec {
             return { canon_x, canon_y };
         } else if constexpr (IsAnyOf<T, bn254_commitment>) {
             // bn254_commitment serialization does not standardize infinity (unlike grumpkin_commitment above).
-            // Currently no production code path can pass an a point at infinity here.
-            BB_ASSERT(!val.get_value().is_point_at_infinity(),
-                      "serialize_to_fields: bn254_commitment must not be a point at infinity");
+            // All existing code paths produce canonical (0,0) infinity, so just assert that invariant.
+            if (val.get_value().is_point_at_infinity()) {
+                BB_ASSERT(val.x().get_value().is_zero() && val.y().get_value().is_zero(),
+                          "serialize_to_fields: bn254_commitment point at infinity must be canonical (0,0)");
+            }
             using BaseField = typename T::BaseField;
 
             std::vector<field_ct> fr_vec_x = serialize_to_fields<BaseField>(val.x());
