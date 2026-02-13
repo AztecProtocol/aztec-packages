@@ -27,10 +27,12 @@ function test_cmds {
 
 function test {
   # Start txe server.
+  # Port is below the Linux ephemeral range (32768-60999) to avoid conflicts.
+  local txe_base_port=14730
   trap 'kill $(jobs -p)' EXIT
-  (cd $root/yarn-project/txe && LOG_LEVEL=error TXE_PORT=45730 yarn start) &
+  (cd $root/yarn-project/txe && LOG_LEVEL=error TXE_PORT=$txe_base_port yarn start) &
   echo "Waiting for TXE to start..."
-  while ! nc -z 127.0.0.1 45730 &>/dev/null; do sleep 1; done
+  while ! nc -z 127.0.0.1 $txe_base_port &>/dev/null; do sleep 1; done
 
   export NARGO_FOREIGN_CALL_TIMEOUT=300000
   test_cmds | filter_test_cmds | parallelize
