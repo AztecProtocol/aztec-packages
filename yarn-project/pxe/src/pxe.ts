@@ -92,6 +92,8 @@ export type ProfileTxOpts = {
   profileMode: 'full' | 'execution-steps' | 'gates';
   /** If true, proof generation is skipped during profiling. Defaults to true. */
   skipProofGeneration?: boolean;
+  /** Addresses whose private state and keys are accessible during private execution. */
+  scopes?: AztecAddress[];
 };
 
 /** Options for PXE.simulateTx. */
@@ -104,7 +106,7 @@ export type SimulateTxOpts = {
   skipFeeEnforcement?: boolean;
   /** State overrides for the simulation, such as contract instances and artifacts. */
   overrides?: SimulationOverrides;
-  /** The accounts whose notes we can access in this call. Defaults to all. */
+  /** Addresses whose private state and keys are accessible during private execution. Defaults to all. */
   scopes?: AztecAddress[];
 };
 
@@ -188,7 +190,9 @@ export class PXE {
         ? createLogger(loggerOrSuffix ? `pxe:service:${loggerOrSuffix}` : `pxe:service`)
         : loggerOrSuffix;
 
-    const proverEnabled = !!config.proverEnabled;
+    const info = await node.getNodeInfo();
+
+    const proverEnabled = config.proverEnabled !== undefined ? config.proverEnabled : info.realProofs;
     const addressStore = new AddressStore(store);
     const privateEventStore = new PrivateEventStore(store);
     const contractStore = new ContractStore(store);
@@ -265,7 +269,6 @@ export class PXE {
     pxe.jobQueue.start();
 
     await pxe.#registerProtocolContracts();
-    const info = await node.getNodeInfo();
     log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.rollupVersion}`);
     return pxe;
   }
@@ -365,9 +368,11 @@ export class PXE {
       await this.contractSyncService.ensureContractSynced(
         contractAddress,
         functionSelector,
-        privateSyncCall => this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, jobId),
+        (privateSyncCall, execScopes) =>
+          this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
         anchorBlockHeader,
         jobId,
+        scopes,
       );
 
       const result = await contractFunctionSimulator.run(txRequest, {
@@ -700,11 +705,12 @@ export class PXE {
    * (where validators prove the public portion).
    *
    * @param txRequest - An authenticated tx request ready for proving
+   * @param scopes - Addresses whose private state and keys are accessible during private execution.
    * @returns A result containing the proof and public inputs of the tail circuit.
    * @throws If contract code not found, or public simulation reverts.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
-  public proveTx(txRequest: TxExecutionRequest): Promise<TxProvingResult> {
+  public proveTx(txRequest: TxExecutionRequest, scopes: AztecAddress[]): Promise<TxProvingResult> {
     let privateExecutionResult: PrivateExecutionResult;
     // We disable proving concurrently mostly out of caution, since it accesses some of our stores. Proving is so
     // computationally demanding that it'd be rare for someone to try to do it concurrently regardless.
@@ -715,7 +721,7 @@ export class PXE {
         await this.blockStateSynchronizer.sync();
         const syncTime = syncTimer.ms();
         const contractFunctionSimulator = this.#getSimulatorForTx();
-        privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest, undefined, jobId);
+        privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest, scopes, jobId);
 
         const {
           publicInputs,
@@ -785,7 +791,7 @@ export class PXE {
    */
   public profileTx(
     txRequest: TxExecutionRequest,
-    { profileMode, skipProofGeneration = true }: ProfileTxOpts,
+    { profileMode, skipProofGeneration = true, scopes }: ProfileTxOpts,
   ): Promise<TxProfileResult> {
     // We disable concurrent profiles for consistency with simulateTx.
     return this.#putInJobQueue(async jobId => {
@@ -808,12 +814,7 @@ export class PXE {
         const syncTime = syncTimer.ms();
 
         const contractFunctionSimulator = this.#getSimulatorForTx();
-        const privateExecutionResult = await this.#executePrivate(
-          contractFunctionSimulator,
-          txRequest,
-          undefined,
-          jobId,
-        );
+        const privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest, scopes, jobId);
 
         const { executionSteps, timings: { proving } = {} } = await this.#prove(
           txRequest,
@@ -926,6 +927,7 @@ export class PXE {
           ({ publicInputs, executionSteps } = await generateSimulatedProvingResult(
             privateExecutionResult,
             (addr, sel) => this.contractStore.getDebugFunctionName(addr, sel),
+            this.node,
           ));
         } else {
           // Kernel logic, plus proving of all private functions and kernels.
@@ -1033,9 +1035,11 @@ export class PXE {
         await this.contractSyncService.ensureContractSynced(
           call.to,
           call.selector,
-          privateSyncCall => this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, jobId),
+          (privateSyncCall, execScopes) =>
+            this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
           anchorBlockHeader,
           jobId,
+          scopes,
         );
 
         const executionResult = await this.#simulateUtility(
@@ -1102,10 +1106,11 @@ export class PXE {
       await this.contractSyncService.ensureContractSynced(
         filter.contractAddress,
         null,
-        async privateSyncCall =>
-          await this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, jobId),
+        async (privateSyncCall, execScopes) =>
+          await this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
         anchorBlockHeader,
         jobId,
+        filter.scopes,
       );
     });
 

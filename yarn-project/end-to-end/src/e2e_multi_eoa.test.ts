@@ -14,8 +14,6 @@ import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import type { TestWallet } from '@aztec/test-wallet/server';
-import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
@@ -24,6 +22,8 @@ import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
+import { proveInteraction } from './test-wallet/utils.js';
 
 const NUM_PUBLISHERS = 4;
 

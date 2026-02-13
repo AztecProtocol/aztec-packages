@@ -40,22 +40,20 @@ describe('e2e_blacklist_token_contract unshielding', () => {
     const authwitNonce = Fr.random();
     expect(amount).toBeGreaterThan(0n);
 
-    // We need to compute the message we want to sign and add it to the wallet as approved
     const action = asset.methods.unshield(adminAddress, otherAddress, amount, authwitNonce);
+    const call = await action.getFunctionCall();
+    const witness = await wallet.createAuthWit(adminAddress, { caller: t.proxy.address, action });
 
-    // Both wallets are connected to same node and PXE so we could just insert directly
-    // But doing it in two actions to show the flow.
-    const witness = await wallet.createAuthWit(adminAddress, { caller: otherAddress, action });
-
-    await action.send({ from: otherAddress, authWitnesses: [witness] });
+    await t.proxy.methods
+      .forward_private_4(call.to, call.selector, call.args)
+      .send({ from: adminAddress, authWitnesses: [witness] });
     tokenSim.transferToPublic(adminAddress, otherAddress, amount);
 
     // Perform the transfer again, should fail
-    const txReplay = asset.methods
-      .unshield(adminAddress, otherAddress, amount, authwitNonce)
-      .send({ from: otherAddress, authWitnesses: [witness] });
+    const txReplay = t.proxy.methods
+      .forward_private_4(call.to, call.selector, call.args)
+      .send({ from: adminAddress, authWitnesses: [witness] });
     await expect(txReplay).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
-    // @todo @LHerskind This error is weird?
   });
 
   describe('failure cases', () => {

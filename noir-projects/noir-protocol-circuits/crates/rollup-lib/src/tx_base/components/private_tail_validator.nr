@@ -65,7 +65,7 @@ pub fn validate_tx_constant_data(
             },
             block_last_archive_root,
         ),
-        "Membership check failed: previous block hash not found in archive tree",
+        "Membership check failed: anchor block header hash not found in archive tree",
     );
 
     assert_eq(tx_chain_id, block_chain_id, "Mismatched chain_id between kernel and rollup");

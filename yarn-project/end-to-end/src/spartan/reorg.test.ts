@@ -6,10 +6,10 @@ import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
-import { TestWallet } from '@aztec/test-wallet/server';
 
 import { expect, jest } from '@jest/globals';
 
+import { TestWallet } from '../test-wallet/test_wallet.js';
 import {
   type TestAccounts,
   createWalletAndAztecNodeClient,

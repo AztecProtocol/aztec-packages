@@ -26,7 +26,6 @@ import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
-import { TestWallet } from '@aztec/test-wallet/server';
 
 import { MNEMONIC } from '../../fixtures/fixtures.js';
 import { type EndToEndContext, type SetupOptions, deployAccounts, setup, teardown } from '../../fixtures/setup.js';
@@ -37,6 +36,7 @@ import {
   FeeJuicePortalTestingHarnessFactory,
   type GasBridgingTestHarness,
 } from '../../shared/gas_portal_test_harness.js';
+import { TestWallet } from '../../test-wallet/test_wallet.js';
 import { ProxyLogger } from './benchmark.js';
 import { type ClientFlowsConfig, FULL_FLOWS_CONFIG, KEY_FLOWS_CONFIG } from './config.js';
 
@@ -161,15 +161,11 @@ export class ClientFlowsBenchmark {
 
   /** Admin mints bananaCoin tokens privately to the target address and redeems them. */
   async mintPrivateBananas(amount: bigint, address: AztecAddress) {
-    const balanceBefore = await this.bananaCoin.methods
-      .balance_of_private(address)
-      .simulate({ from: this.adminAddress });
+    const balanceBefore = await this.bananaCoin.methods.balance_of_private(address).simulate({ from: address });
 
     await mintTokensToPrivate(this.bananaCoin, this.adminAddress, address, amount);
 
-    const balanceAfter = await this.bananaCoin.methods
-      .balance_of_private(address)
-      .simulate({ from: this.adminAddress });
+    const balanceAfter = await this.bananaCoin.methods.balance_of_private(address).simulate({ from: address });
     expect(balanceAfter).toEqual(balanceBefore + amount);
   }
 

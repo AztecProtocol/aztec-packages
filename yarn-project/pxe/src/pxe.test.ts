@@ -75,6 +75,7 @@ describe('PXE', () => {
         instanceRegistry: await AztecAddress.random(),
         multiCallEntrypoint: await AztecAddress.random(),
       },
+      realProofs: true,
     });
 
     pxe = await PXE.create({

@@ -297,14 +297,13 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       throw new Error(message);
     }
 
-    // When `from` is the zero address (used when creating a new contract account for example),
-    // we disable scope filtering by setting effectiveScopes to undefined. This allows these operations
-    // to proceed without requiring keys registered for the zero address.
-    const effectiveScopes = from.isZero() ? undefined : [from];
+    // When `from` is the zero address (e.g. when deploying a new account contract), we return an
+    // empty scope list which acts as deny-all: no notes are visible and no keys are accessible.
+    const effectiveScopes = from.isZero() ? [] : [from];
 
     // Sync notes before executing private function to discover notes from previous transactions
-    const utilityExecutor = async (call: FunctionCall) => {
-      await this.executeUtilityCall(call, effectiveScopes);
+    const utilityExecutor = async (call: FunctionCall, execScopes: undefined | AztecAddress[]) => {
+      await this.executeUtilityCall(call, execScopes);
     };
 
     const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
@@ -314,6 +313,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       utilityExecutor,
       blockHeader,
       this.jobId,
+      effectiveScopes,
     );
 
     const blockNumber = await this.txeGetNextBlockNumber();
@@ -407,6 +407,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const { publicInputs } = await generateSimulatedProvingResult(
       result,
       (addr, sel) => this.contractStore.getDebugFunctionName(addr, sel),
+      this.stateMachine.node,
       minRevertibleSideEffectCounter,
     );
 
@@ -672,11 +673,12 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     await this.stateMachine.contractSyncService.ensureContractSynced(
       targetContractAddress,
       functionSelector,
-      async call => {
-        await this.executeUtilityCall(call);
+      async (call, execScopes) => {
+        await this.executeUtilityCall(call, execScopes);
       },
       blockHeader,
       this.jobId,
+      undefined,
     );
 
     const call = FunctionCall.from({
@@ -690,10 +692,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       returnTypes: [],
     });
 
-    return this.executeUtilityCall(call);
+    return this.executeUtilityCall(call, undefined);
   }
 
-  private async executeUtilityCall(call: FunctionCall, scopes?: AztecAddress[]): Promise<Fr[]> {
+  private async executeUtilityCall(call: FunctionCall, scopes: undefined | AztecAddress[]): Promise<Fr[]> {
     const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
     if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);

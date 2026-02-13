@@ -404,6 +404,10 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     return this.attestationPool.addOwnCheckpointAttestations(attestations);
   }
 
+  public hasBlockProposalsForSlot(slot: SlotNumber): Promise<boolean> {
+    return this.attestationPool.hasBlockProposalsForSlot(slot);
+  }
+
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
   // ^ This pattern is not my favorite (md)
   public registerBlockProposalHandler(handler: P2PBlockReceivedCallback): void {
@@ -481,6 +485,15 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   public async *iteratePendingTxs(): AsyncIterableIterator<Tx> {
     for (const txHash of await this.txPool.getPendingTxHashes()) {
+      const tx = await this.txPool.getTxByHash(txHash);
+      if (tx) {
+        yield tx;
+      }
+    }
+  }
+
+  public async *iterateEligiblePendingTxs(): AsyncIterableIterator<Tx> {
+    for (const txHash of await this.txPool.getEligiblePendingTxHashes()) {
       const tx = await this.txPool.getTxByHash(txHash);
       if (tx) {
         yield tx;

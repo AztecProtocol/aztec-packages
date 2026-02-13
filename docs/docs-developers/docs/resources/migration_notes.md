@@ -9,6 +9,65 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [CLI] Dockerless CLI Installation
+
+The Aztec CLI is now installed without Docker. The installation command has changed:
+
+**Old installation (deprecated):**
+```bash
+bash -i <(curl -sL https://install.aztec.network)
+aztec-up <version>
+```
+
+**New installation:**
+```bash
+VERSION=<version> bash -i <(curl -sL https://install.aztec.network/<version>)
+```
+
+For example, to install version `#include_version_without_prefix`:
+```bash
+VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix)
+```
+
+**Key changes:**
+- Docker is no longer required to run the Aztec CLI tools
+- The `VERSION` environment variable must be set in the installation command
+- The version must also be included in the URL path
+
+**aztec-up is now a version manager:**
+
+After installation, `aztec-up` functions as a version manager with the following commands:
+
+| Command | Description |
+|---------|-------------|
+| `aztec-up install <version>` | Install a specific version and switch to it |
+| `aztec-up use <version>` | Switch to an already installed version |
+| `aztec-up list` | List all installed versions |
+| `aztec-up self-update` | Update aztec-up itself |
+### `@aztec/test-wallet` replaced by `@aztec/wallets`
+
+The `@aztec/test-wallet` package has been removed. Use `@aztec/wallets` instead, which provides `EmbeddedWallet` with a `static create()` factory:
+
+```diff
+- import { TestWallet, registerInitialLocalNetworkAccountsInWallet } from '@aztec/test-wallet/server';
++ import { EmbeddedWallet } from '@aztec/wallets/embedded';
++ import { registerInitialLocalNetworkAccountsInWallet } from '@aztec/wallets/testing';
+
+- const wallet = await TestWallet.create(node);
++ const wallet = await EmbeddedWallet.create(node);
+```
+
+For browser environments, the same import resolves to a browser-specific implementation automatically via conditional exports:X
+
+The `EmbeddedWallet.create()` factory accepts an optional second argument for logger injection and ephemeral storage:
+
+```typescript
+const wallet = await EmbeddedWallet.create(node, {
+  logger: myLogger, // custom logger; child loggers derived via createChild()
+  ephemeral: true, // use in-memory stores (no persistence)
+});
+```
+
 ### [Aztec.nr] `debug_log` module renamed to `logging`
 
 The `debug_log` module has been renamed to `logging` to avoid naming collisions with per-level logging functions that were introduced in this PR (`warn_log`, `info_log`, `debug_log`... and the "format" versions `warn_log_format`, `debug_log_format`). Update all import paths accordingly:
@@ -37,6 +96,26 @@ Additionally, `debug_log_format_slice` has been removed. Use `debug_log_format` 
 ```
 
 This has been done as usage of Noir slices is discouraged and the function was unused in the aztec codebase.
+
+### [AztecNode] Sentinel validator status values renamed
+
+The `ValidatorStatusInSlot` values returned by `getValidatorsStats` and `getValidatorStats` have been updated to reflect the multi-block-per-slot model, where blocks and checkpoints are distinct concepts:
+
+```diff
+- 'block-mined'
++ 'checkpoint-mined'
+
+- 'block-proposed'
++ 'checkpoint-proposed'
+
+- 'block-missed'
++ 'checkpoint-missed'  // blocks were proposed but checkpoint was not attested
++ 'blocks-missed'      // no block proposals were sent at all
+```
+
+The `attestation-sent` and `attestation-missed` values are unchanged but now explicitly refer to checkpoint attestations.
+
+The `ValidatorStatusType` used for categorizing statuses has also changed from `'block' | 'attestation'` to `'proposer' | 'attestation'`.
 
 ### [aztec.js] `getDecodedPublicEvents` renamed to `getPublicEvents` with new signature
 

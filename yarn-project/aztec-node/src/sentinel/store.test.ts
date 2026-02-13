@@ -27,11 +27,12 @@ describe('sentinel-store', () => {
 
   it('inserts new validators with all statuses', async () => {
     const slot = SlotNumber(1);
-    const validators: `0x${string}`[] = times(5, () => EthAddress.random().toString());
+    const validators: `0x${string}`[] = times(6, () => EthAddress.random().toString());
     const statuses: ValidatorStatusInSlot[] = [
-      'block-mined',
-      'block-proposed',
-      'block-missed',
+      'checkpoint-mined',
+      'checkpoint-proposed',
+      'checkpoint-missed',
+      'blocks-missed',
       'attestation-sent',
       'attestation-missed',
     ];
@@ -58,15 +59,15 @@ describe('sentinel-store', () => {
     // Insert existing validators with initial statuses
     await store.updateValidators(
       SlotNumber(1),
-      Object.fromEntries(existingValidators.map(v => [v, 'block-mined'] as const)),
+      Object.fromEntries(existingValidators.map(v => [v, 'checkpoint-mined'] as const)),
     );
 
     // Insert new validators with their statuses, and append history to existing ones
     await store.updateValidators(
       SlotNumber(2),
       Object.fromEntries([
-        ...newValidators.map(v => [v, 'block-proposed'] as const),
-        ...existingValidators.map(v => [v, 'block-missed'] as const),
+        ...newValidators.map(v => [v, 'checkpoint-proposed'] as const),
+        ...existingValidators.map(v => [v, 'checkpoint-missed'] as const),
       ]),
     );
 
@@ -74,17 +75,17 @@ describe('sentinel-store', () => {
     expect(Object.keys(histories)).toHaveLength(4);
 
     expect(histories[existingValidators[0]]).toEqual([
-      { slot: SlotNumber(1), status: 'block-mined' },
-      { slot: SlotNumber(2), status: 'block-missed' },
+      { slot: SlotNumber(1), status: 'checkpoint-mined' },
+      { slot: SlotNumber(2), status: 'checkpoint-missed' },
     ]);
 
     expect(histories[existingValidators[1]]).toEqual([
-      { slot: SlotNumber(1), status: 'block-mined' },
-      { slot: SlotNumber(2), status: 'block-missed' },
+      { slot: SlotNumber(1), status: 'checkpoint-mined' },
+      { slot: SlotNumber(2), status: 'checkpoint-missed' },
     ]);
 
-    expect(histories[newValidators[0]]).toEqual([{ slot: SlotNumber(2), status: 'block-proposed' }]);
-    expect(histories[newValidators[1]]).toEqual([{ slot: SlotNumber(2), status: 'block-proposed' }]);
+    expect(histories[newValidators[0]]).toEqual([{ slot: SlotNumber(2), status: 'checkpoint-proposed' }]);
+    expect(histories[newValidators[1]]).toEqual([{ slot: SlotNumber(2), status: 'checkpoint-proposed' }]);
   });
 
   it('trims history to the specified length', async () => {
@@ -92,16 +93,16 @@ describe('sentinel-store', () => {
     const validator = EthAddress.random().toString();
 
     for (let i = 0; i < 10; i++) {
-      await store.updateValidators(SlotNumber(slot + i), { [validator]: 'block-mined' });
+      await store.updateValidators(SlotNumber(slot + i), { [validator]: 'checkpoint-mined' });
     }
 
     const histories = await store.getHistories();
     expect(histories[validator]).toHaveLength(historyLength);
     expect(histories[validator]).toEqual([
-      { slot: SlotNumber(7), status: 'block-mined' },
-      { slot: SlotNumber(8), status: 'block-mined' },
-      { slot: SlotNumber(9), status: 'block-mined' },
-      { slot: SlotNumber(10), status: 'block-mined' },
+      { slot: SlotNumber(7), status: 'checkpoint-mined' },
+      { slot: SlotNumber(8), status: 'checkpoint-mined' },
+      { slot: SlotNumber(9), status: 'checkpoint-mined' },
+      { slot: SlotNumber(10), status: 'checkpoint-mined' },
     ]);
   });
 
@@ -207,6 +208,6 @@ describe('sentinel-store', () => {
     await expect(
       store.updateProvenPerformance(EpochNumber(1), { [validator]: { missed: 2, total: 10 } }),
     ).rejects.toThrow();
-    await expect(store.updateValidators(SlotNumber(1), { [validator]: 'block-mined' })).rejects.toThrow();
+    await expect(store.updateValidators(SlotNumber(1), { [validator]: 'checkpoint-mined' })).rejects.toThrow();
   });
 });
