@@ -4,17 +4,17 @@
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
-#include "barretenberg/vm2/simulation/interfaces/emit_unencrypted_log.hpp"
+#include "barretenberg/vm2/simulation/interfaces/emit_public_log.hpp"
 
 namespace bb::avm2::simulation {
 
-class MockEmitUnencryptedLog : public EmitUnencryptedLogInterface {
+class MockEmitPublicLog : public EmitPublicLogInterface {
   public:
-    MockEmitUnencryptedLog();
-    ~MockEmitUnencryptedLog() override;
+    MockEmitPublicLog();
+    ~MockEmitPublicLog() override;
 
     MOCK_METHOD(void,
-                emit_unencrypted_log,
+                emit_public_log,
                 (MemoryInterface & memory,
                  ContextInterface& context,
                  const AztecAddress& contract_address,
