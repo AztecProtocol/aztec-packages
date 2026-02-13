@@ -17,7 +17,7 @@ struct perm_emit_public_log_read_mem_settings_ {
     static constexpr std::string_view NAME = "PERM_EMIT_PUBLIC_LOG_READ_MEM";
     static constexpr std::string_view RELATION_NAME = "emit_public_log";
     static constexpr size_t COLUMNS_PER_SET = 6;
-    static constexpr Column SRC_SELECTOR = Column::emit_public_log_sel_should_read_memory;
+    static constexpr Column SRC_SELECTOR = Column::emit_public_log_sel_read_memory;
     static constexpr Column DST_SELECTOR = Column::memory_sel_public_log_read;
     static constexpr Column INVERSES = Column::perm_emit_public_log_read_mem_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
