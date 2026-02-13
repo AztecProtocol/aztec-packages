@@ -33,13 +33,22 @@ _ci_metrics_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..',
 if not os.path.isdir(_ci_metrics_dir):
     _ci_metrics_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ci-metrics')
 if os.path.isdir(_ci_metrics_dir):
+    # Kill any stale process on the port (e.g. leftover from previous reload)
+    import signal
+    try:
+        out = subprocess.check_output(
+            ['lsof', '-ti', f':{CI_METRICS_PORT}'], stderr=subprocess.DEVNULL, text=True)
+        for pid in out.strip().split('\n'):
+            if pid:
+                os.kill(int(pid), signal.SIGTERM)
+        import time; time.sleep(0.5)
+    except (subprocess.CalledProcessError, OSError):
+        pass
     _ci_metrics_env = {**os.environ, 'CI_METRICS_PORT': str(CI_METRICS_PORT)}
     subprocess.Popen(
-        ['gunicorn', '-w', '4', '-b', f'0.0.0.0:{CI_METRICS_PORT}', 'app:app'],
+        ['gunicorn', '-w', '4', '-b', f'0.0.0.0:{CI_METRICS_PORT}', '--timeout', '120', 'app:app'],
         cwd=_ci_metrics_dir,
         env=_ci_metrics_env,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
     )
     print(f"[rk.py] ci-metrics server started on port {CI_METRICS_PORT}")
 
