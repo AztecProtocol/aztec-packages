@@ -186,7 +186,7 @@ export class TxPoolV2Impl {
 
     const poolAccess = this.#createPreAddPoolAccess();
     const preAddContext: PreAddContext | undefined =
-      opts.feeComparisonOnly !== undefined ? { feeOnly: opts.feeComparisonOnly } : undefined;
+      opts.feeComparisonOnly !== undefined ? { feeComparisonOnly: opts.feeComparisonOnly } : undefined;
 
     await this.#store.transactionAsync(async () => {
       for (const tx of txs) {

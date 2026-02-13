@@ -90,7 +90,7 @@ export interface PreAddResult {
 /** Context passed to pre-add rules from addPendingTxs. */
 export interface PreAddContext {
   /** If true, compare priority fee only (no tx hash tiebreaker). Used for RPC submissions. */
-  feeOnly?: boolean;
+  feeComparisonOnly?: boolean;
 }
 
 /**

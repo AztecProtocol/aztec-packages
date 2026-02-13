@@ -216,7 +216,7 @@ describe('EvictionManager', () => {
 
       evictionManager.registerPreAddRule(preAddRule);
       const incomingMeta = createMeta('0x1111', 100n);
-      const context = { feeOnly: true };
+      const context = { feeComparisonOnly: true };
 
       await evictionManager.runPreAddRules(incomingMeta, poolAccess, context);
 

@@ -3509,7 +3509,7 @@ describe('TxPoolV2', () => {
 
       // Same fee as the lowest — with feeOnly, no hash tiebreaker, always ignored
       const tx3 = await mockTxWithFee(3, 10);
-      const result = await pool.addPendingTxs([tx3], { feeOnly: true });
+      const result = await pool.addPendingTxs([tx3], { feeComparisonOnly: true });
 
       expect(toStrings(result.ignored)).toContain(hashOf(tx3));
       expect(result.accepted).toHaveLength(0);
@@ -3527,7 +3527,7 @@ describe('TxPoolV2', () => {
       clearCallbackTracking();
 
       const tx3 = await mockTxWithFee(3, 15);
-      const result = await pool.addPendingTxs([tx3], { feeOnly: true });
+      const result = await pool.addPendingTxs([tx3], { feeComparisonOnly: true });
 
       expect(toStrings(result.accepted)).toContain(hashOf(tx3));
       expect(await pool.getPendingTxCount()).toBe(2);
@@ -3545,7 +3545,7 @@ describe('TxPoolV2', () => {
       clearCallbackTracking();
 
       const tx3 = await mockTxWithFee(3, 5);
-      const result = await pool.addPendingTxs([tx3], { feeOnly: true });
+      const result = await pool.addPendingTxs([tx3], { feeComparisonOnly: true });
 
       expect(toStrings(result.ignored)).toContain(hashOf(tx3));
       expect(await pool.getPendingTxCount()).toBe(2);
@@ -3558,7 +3558,7 @@ describe('TxPoolV2', () => {
       const tx1 = await mockTxWithFee(1, 10);
 
       // Both modes accept when below capacity
-      const result1 = await pool.addPendingTxs([tx1], { feeOnly: true });
+      const result1 = await pool.addPendingTxs([tx1], { feeComparisonOnly: true });
       expect(result1.accepted).toHaveLength(1);
 
       const tx2 = await mockTxWithFee(2, 10);

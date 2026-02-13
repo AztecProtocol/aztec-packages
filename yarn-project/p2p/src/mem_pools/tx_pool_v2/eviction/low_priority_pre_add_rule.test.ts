@@ -168,7 +168,7 @@ describe('LowPriorityPreAddRule', () => {
         expect(result.txHashesToEvict).toContain(lowestPriorityMeta.txHash);
       });
 
-      it('uses feeOnly: same fee, incoming is ignored even if it wins hash tiebreaker', async () => {
+      it('uses feeComparisonOnly: same fee, incoming is ignored even if it wins hash tiebreaker', async () => {
         const existing = createMeta('0x1111', 100n);
         const incoming = createMeta('0x2222', 100n);
 
@@ -177,7 +177,7 @@ describe('LowPriorityPreAddRule', () => {
         const [incomingMeta, lowestPriorityMeta] = cmp > 0 ? [incoming, existing] : [existing, incoming];
 
         const poolAccess = createPoolAccess(100, lowestPriorityMeta);
-        const context: PreAddContext = { feeOnly: true };
+        const context: PreAddContext = { feeComparisonOnly: true };
 
         // feeOnly mode: same fee means ignored (no hash tiebreaker)
         const result = await rule.check(incomingMeta, poolAccess, context);
@@ -197,7 +197,7 @@ describe('LowPriorityPreAddRule', () => {
         expect(result1.txHashesToEvict).toContain('0x2222');
 
         // With feeOnly
-        const result2 = await rule.check(incomingMeta, poolAccess, { feeOnly: true });
+        const result2 = await rule.check(incomingMeta, poolAccess, { feeComparisonOnly: true });
         expect(result2.shouldIgnore).toBe(false);
         expect(result2.txHashesToEvict).toContain('0x2222');
       });
@@ -212,7 +212,7 @@ describe('LowPriorityPreAddRule', () => {
         expect(result1.shouldIgnore).toBe(true);
 
         // With feeOnly
-        const result2 = await rule.check(incomingMeta, poolAccess, { feeOnly: true });
+        const result2 = await rule.check(incomingMeta, poolAccess, { feeComparisonOnly: true });
         expect(result2.shouldIgnore).toBe(true);
       });
     });
