@@ -73,6 +73,12 @@ The protocol maintains five append-only or indexed Merkle trees. Tree heights de
 | Public Data | `PUBLIC_DATA_TREE_HEIGHT` | 40 | 1,099,511,627,776 | Average 16 updates/tx, 15 tps, 100 years |
 | L1→L2 Messages | `L1_TO_L2_MSG_TREE_HEIGHT` | 36 | 68,719,476,736 | 1024 messages/checkpoint, 72s/checkpoint, 100 years |
 
+**Empty Leaf Convention:**
+
+For all trees, an empty leaf has value `0`.
+
+For all indexed Merkle trees (Nullifier, Public Data), the 0th leaf is the "zero predecessor leaf" with a preimage where all fields are `0` (e.g., `{ nullifier: 0, next_nullifier: 0, next_index: 0 }` for the nullifier tree). This leaf is required for the indexed Merkle tree insertion algorithm to function correctly, as it serves as the initial predecessor for all subsequent insertions.
+
 **Additional Tree Constants:**
 
 | Constant | Value | Description |

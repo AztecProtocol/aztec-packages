@@ -364,6 +364,8 @@ The Reset circuit is generic over the number of each operation it can perform in
 
 Different parameter combinations yield different circuit variants, each with its own verification key. The PXE selects the smallest variant sufficient for the current transaction's needs, minimizing proving time.
 
+A single Reset invocation processes only up to the parameterized number of items for each operation. Any unprocessed read requests, key validation requests, or transient pairs are propagated unchanged to the output and MUST be resolved by a subsequent Reset circuit before the Tail circuit executes. Multiple Reset invocations may be chained (Reset → Inner → Reset, or Reset → Reset) to handle transactions that exceed a single variant's capacity.
+
 #### Operations
 
 The Reset circuit performs the following operations (each optional based on parameterization):
@@ -375,7 +377,10 @@ Read requests can be resolved in two ways:
 **Pending reads** — the requested value exists in the current transaction's accumulated data:
 - For note hash read requests: a note hash in `end.note_hashes` matches the requested value
 - For nullifier read requests: a nullifier in `end.nullifiers` matches the requested value
-- The matching item's counter is checked against the read request's counter to ensure temporal ordering
+- The matching item's counter MUST be less than the read request's counter (the value was emitted before the read)
+- The matching item's `contract_address` MUST equal the read request's `contract_address`
+
+A pending read request can only be resolved if the referenced value has already been accumulated into the kernel's public inputs. If the value was emitted in a nested execution whose Inner kernel iteration has not yet been processed, the read request cannot be verified and MUST be propagated to a subsequent Reset circuit.
 
 **Settled reads** — the requested value exists in historical state:
 - The hint provides a Merkle membership proof against the `anchor_block_header`'s tree root
@@ -403,15 +408,20 @@ After validation, processed requests are removed from the `validation_requests` 
 
 ##### Transient Data Squashing
 
-A note hash and nullifier are "transient" if:
+A note hash and nullifier are "transient" and eligible for squashing if all of the following hold:
 1. The nullifier's `note_hash` field references the note hash's value
-2. Both were created in the same transaction
+2. Both belong to the same `contract_address`
 3. The nullifier's counter is greater than the note hash's counter (temporal ordering)
+4. If the nullifier is revertible (counter > `min_revertible_side_effect_counter`), the note hash MUST also be revertible
+
+The revertibility constraint prevents squashing a non-revertible note hash with a revertible nullifier. If such a pair were squashed and public execution later reverted, the non-revertible note hash would be lost — violating the guarantee that non-revertible effects always persist.
 
 For each transient pair identified by the hints:
-1. Verify the note hash and nullifier match (value linkage)
+1. Verify the note hash and nullifier match (value linkage and contract address)
 2. Remove both from their respective arrays
-3. Remove any private logs whose `note_hash_counter` matches the squashed note hash's counter
+3. Remove any private logs whose `note_hash_counter` matches the squashed note hash's counter and whose `contract_address` matches the note hash's contract address
+
+Transient data squashing is not required to process all eligible pairs at once. If a pending note hash is still referenced by an unresolved read request, it MUST NOT be squashed until after that read request has been validated and cleared by a prior Reset invocation.
 
 ##### Siloing
 
@@ -765,6 +775,8 @@ The `PrivateVerificationKeyHints` contains data needed to validate the contract 
 | `updated_class_id_delayed_public_mutable_values` | [Field; 3] | Delayed update values |
 
 The function proof is verified using `PROOF_TYPE_OINK` for the first call (in Init) and `PROOF_TYPE_HN` for subsequent calls (in Inner). Verification is performed via `std::verify_proof_with_type` using the Chonk databus approach — public inputs are committed as part of the proof rather than passed separately.
+
+Every private function circuit has customizable private inputs (tailored to the application's needs), but MUST produce public inputs conforming to the `PrivateCircuitPublicInputs` ABI. This standardized format enables the kernel circuits to interpret and validate the actions of any private function without knowledge of that function's internal logic.
 
 The `PrivateCircuitPublicInputs` contains:
 
