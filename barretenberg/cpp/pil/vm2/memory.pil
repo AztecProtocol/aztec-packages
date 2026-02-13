@@ -97,9 +97,9 @@ pol commit sel_get_contract_instance_member_write; // @boolean
 sel_get_contract_instance_exists_write * (1 - sel_get_contract_instance_exists_write) = 0;
 sel_get_contract_instance_member_write * (1 - sel_get_contract_instance_member_write) = 0;
 
-// Permutation selectors (opcodes/emit_unencrypted_log.pil).
-pol commit sel_unencrypted_log_read; // @boolean
-sel_unencrypted_log_read * (1 - sel_unencrypted_log_read) = 0;
+// Permutation selectors (opcodes/emit_public_log.pil).
+pol commit sel_public_log_read; // @boolean
+sel_public_log_read * (1 - sel_public_log_read) = 0;
 
 // Permutation selectors (poseidon2_mem.pil).
 pol commit sel_poseidon2_read[4]; // @boolean
@@ -155,8 +155,8 @@ sel = // Addressing.
     // Get Contract Instance.
     + sel_get_contract_instance_exists_write
     + sel_get_contract_instance_member_write
-    // Unencrypted Log.
-    + sel_unencrypted_log_read
+    // Public Log.
+    + sel_public_log_read
     // Poseidon2.
     + sel_poseidon2_read[0] + sel_poseidon2_read[1] + sel_poseidon2_read[2] + sel_poseidon2_read[3]
     + sel_poseidon2_write[0] + sel_poseidon2_write[1] + sel_poseidon2_write[2] + sel_poseidon2_write[3]

@@ -36,7 +36,7 @@
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/note_hash_tree_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/nullifier_tree_check_trace.hpp"
-#include "barretenberg/vm2/tracegen/opcodes/emit_unencrypted_log_trace.hpp"
+#include "barretenberg/vm2/tracegen/opcodes/emit_public_log_trace.hpp"
 #include "barretenberg/vm2/tracegen/opcodes/get_contract_instance_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
@@ -417,10 +417,10 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                     clear_events(events.l1_to_l2_msg_tree_check_events);
                 },
                 [&]() {
-                    EmitUnencryptedLogTraceBuilder emit_unencrypted_log_builder;
-                    AVM_TRACK_TIME("tracegen/emit_unencrypted_log",
-                                   emit_unencrypted_log_builder.process(events.emit_unencrypted_log_events, trace));
-                    clear_events(events.emit_unencrypted_log_events);
+                    EmitPublicLogTraceBuilder emit_public_log_builder;
+                    AVM_TRACK_TIME("tracegen/emit_public_log",
+                                   emit_public_log_builder.process(events.emit_public_log_events, trace));
+                    clear_events(events.emit_public_log_events);
                 },
                 [&]() {
                     RetrievedBytecodesTreeCheckTraceBuilder retrieved_bytecodes_tree_check_builder;
@@ -470,7 +470,7 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
                              ContractInstanceRetrievalTraceBuilder::interactions.get_all_jobs(index_cache),
                              GetContractInstanceTraceBuilder::interactions.get_all_jobs(index_cache),
                              L1ToL2MessageTreeCheckTraceBuilder::interactions.get_all_jobs(index_cache),
-                             EmitUnencryptedLogTraceBuilder::interactions.get_all_jobs(index_cache),
+                             EmitPublicLogTraceBuilder::interactions.get_all_jobs(index_cache),
                              RetrievedBytecodesTreeCheckTraceBuilder::interactions.get_all_jobs(index_cache));
 
         // Order jobs to minimize index building contention:

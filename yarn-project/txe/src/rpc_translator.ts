@@ -849,7 +849,7 @@ export class RPCTranslator {
 
   // AVM opcodes
 
-  avmOpcodeEmitUnencryptedLog(_foreignMessage: ForeignCallArray) {
+  avmOpcodeEmitPublicLog(_foreignMessage: ForeignCallArray) {
     // TODO(#8811): Implement
     return toForeignCallResult([]);
   }
