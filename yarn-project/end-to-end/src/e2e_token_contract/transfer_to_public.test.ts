@@ -1,19 +1,20 @@
 import { computeAuthWitMessageHash } from '@aztec/aztec.js/authorization';
 import { Fr } from '@aztec/aztec.js/fields';
 
+import { sendThroughAuthwitProxy, simulateThroughAuthwitProxy } from '../fixtures/authwit_proxy.js';
 import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
 
 describe('e2e_token_contract transfer_to_public', () => {
   const t = new TokenContractTest('transfer_to_public');
-  let { asset, wallet, adminAddress, account1Address, account2Address, tokenSim } = t;
+  let { asset, wallet, adminAddress, account1Address, tokenSim } = t;
 
   beforeAll(async () => {
     t.applyBaseSnapshots();
     t.applyMintSnapshot();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ asset, wallet, adminAddress, account1Address, account2Address, tokenSim } = t);
+    ({ asset, wallet, adminAddress, account1Address, tokenSim } = t);
   });
 
   afterAll(async () => {
@@ -41,19 +42,15 @@ describe('e2e_token_contract transfer_to_public', () => {
     expect(amount).toBeGreaterThan(0n);
 
     const action = asset.methods.transfer_to_public(adminAddress, account1Address, amount, authwitNonce);
-    const call = await action.getFunctionCall();
-    const witness = await wallet.createAuthWit(adminAddress, { caller: t.proxy.address, action });
+    const witness = await wallet.createAuthWit(adminAddress, { caller: t.authwitProxy.address, action });
 
-    await t.proxy.methods
-      .forward_private_4(call.to, call.selector, call.args)
-      .send({ from: adminAddress, authWitnesses: [witness] });
+    // Admin sends through proxy so their keys are in scope, while proxy becomes msg_sender to trigger authwit.
+    await sendThroughAuthwitProxy(t.authwitProxy, action, { from: adminAddress, authWitnesses: [witness] });
     tokenSim.transferToPublic(adminAddress, account1Address, amount);
 
     // Perform the transfer again, should fail
     await expect(
-      t.proxy.methods
-        .forward_private_4(call.to, call.selector, call.args)
-        .send({ from: adminAddress, authWitnesses: [witness] }),
+      sendThroughAuthwitProxy(t.authwitProxy, action, { from: adminAddress, authWitnesses: [witness] }),
     ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
   });
 
@@ -86,16 +83,13 @@ describe('e2e_token_contract transfer_to_public', () => {
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
-      // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset.methods.transfer_to_public(adminAddress, account1Address, amount, authwitNonce);
+      const witness = await wallet.createAuthWit(adminAddress, { caller: t.authwitProxy.address, action });
 
-      // Both wallets are connected to same node and PXE so we could just insert directly
-      // But doing it in two actions to show the flow.
-      const witness = await wallet.createAuthWit(adminAddress, { caller: account1Address, action });
-
-      await expect(action.simulate({ from: account1Address, authWitnesses: [witness] })).rejects.toThrow(
-        'Assertion failed: Balance too low',
-      );
+      // Admin sends through proxy so their keys are in scope, while proxy becomes msg_sender to trigger authwit.
+      await expect(
+        simulateThroughAuthwitProxy(t.authwitProxy, action, { from: adminAddress, authWitnesses: [witness] }),
+      ).rejects.toThrow('Assertion failed: Balance too low');
     });
 
     it('on behalf of other (invalid designated caller)', async () => {
@@ -104,20 +98,19 @@ describe('e2e_token_contract transfer_to_public', () => {
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
-      // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset.methods.transfer_to_public(adminAddress, account1Address, amount, authwitNonce);
+      const call = await action.getFunctionCall();
       const expectedMessageHash = await computeAuthWitMessageHash(
-        { caller: account2Address, call: await action.getFunctionCall() },
+        { caller: t.authwitProxy.address, call },
         await wallet.getChainInfo(),
       );
 
-      // Both wallets are connected to same node and PXE so we could just insert directly
-      // But doing it in two actions to show the flow.
       const witness = await wallet.createAuthWit(adminAddress, { caller: account1Address, action });
 
-      await expect(action.simulate({ from: account2Address, authWitnesses: [witness] })).rejects.toThrow(
-        `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
-      );
+      // Admin sends through proxy so their keys are in scope, while proxy becomes msg_sender to trigger authwit.
+      await expect(
+        simulateThroughAuthwitProxy(t.authwitProxy, action, { from: adminAddress, authWitnesses: [witness] }),
+      ).rejects.toThrow(`Unknown auth witness for message hash ${expectedMessageHash.toString()}`);
     });
   });
 });
