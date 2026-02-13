@@ -160,7 +160,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     } catch (err) {
       this.emit('checkpoint-error', { error: err as Error });
       if (err instanceof SequencerTooSlowError) {
-        // TODO(palla/mbps): Add missing states
         // Log as warn only if we had to abort halfway through the block proposal
         const logLvl = [SequencerState.INITIALIZING_CHECKPOINT, SequencerState.PROPOSER_CHECK].includes(
           err.proposedState,
