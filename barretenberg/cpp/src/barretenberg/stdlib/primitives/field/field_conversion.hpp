@@ -240,12 +240,18 @@ template <typename Field> class StdlibCodec {
         } else if constexpr (IsAnyOf<T, goblin_field<Builder>>) {
             return convert_goblin_fr_to_bn254_frs(val);
         } else if constexpr (IsAnyOf<T, grumpkin_commitment>) {
-            // Canonicalize: output (0,0) for infinity points, matching native FrCodec behavior.
+            // Canonicalize: output (0,0) for infinity points, critical for the IPA accumulation flow.
             auto is_inf = val.is_point_at_infinity();
             fr canon_x = fr::conditional_assign(is_inf, fr(0), val.x());
             fr canon_y = fr::conditional_assign(is_inf, fr(0), val.y());
             return { canon_x, canon_y };
         } else if constexpr (IsAnyOf<T, bn254_commitment>) {
+            // bn254_commitment serialization does not standardize infinity (unlike grumpkin_commitment above).
+            // All existing code paths produce canonical (0,0) infinity, so just assert that invariant.
+            if (val.get_value().is_point_at_infinity()) {
+                BB_ASSERT(val.x().get_value() == 0 && val.y().get_value() == 0,
+                          "serialize_to_fields: bn254_commitment point at infinity must be canonical (0,0)");
+            }
             using BaseField = typename T::BaseField;
 
             std::vector<field_ct> fr_vec_x = serialize_to_fields<BaseField>(val.x());

@@ -1,6 +1,7 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { type Blob, getBlobsPerL1Block } from '@aztec/blob-lib';
 import type { EpochCache } from '@aztec/epoch-cache';
+import { validateFeeAssetPriceModifier } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -23,7 +24,7 @@ import { AuthRequest, AuthResponse, BlockProposalValidator, ReqRespSubProtocol }
 import { OffenseType, WANT_TO_SLASH_EVENT, type Watcher, type WatcherEmitter } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CommitteeAttestationsAndSigners, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
-import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
+import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
   CreateCheckpointProposalLastBlockData,
   ITxProvider,
@@ -471,6 +472,14 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return undefined;
     }
 
+    // Validate fee asset price modifier is within allowed range
+    if (!validateFeeAssetPriceModifier(proposal.feeAssetPriceModifier)) {
+      this.log.warn(
+        `Received checkpoint proposal with invalid feeAssetPriceModifier ${proposal.feeAssetPriceModifier} for slot ${slotNumber}`,
+      );
+      return undefined;
+    }
+
     // Check that I have any address in current committee before attesting
     const inCommittee = await this.epochCache.filterInCommittee(slotNumber, this.getValidatorAddresses());
     const partOfCommittee = inCommittee.length > 0;
@@ -595,7 +604,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     proposalInfo: LogData,
   ): Promise<{ isValid: true } | { isValid: false; reason: string }> {
     const slot = proposal.slotNumber;
-    const timeoutSeconds = 10; // TODO(palla/mbps): This should map to the timetable settings
+
+    // Timeout block syncing at the start of the next slot
+    const config = this.checkpointsBuilder.getConfig();
+    const nextSlotTimestampSeconds = Number(getTimestampForSlot(SlotNumber(slot + 1), config));
+    const timeoutSeconds = Math.max(1, nextSlotTimestampSeconds - Math.floor(this.dateProvider.now() / 1000));
 
     // Wait for last block to sync by archive
     let lastBlockHeader: BlockHeader | undefined;
@@ -661,6 +674,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       const checkpointBuilder = await this.checkpointsBuilder.openCheckpoint(
         checkpointNumber,
         constants,
+        proposal.feeAssetPriceModifier,
         l1ToL2Messages,
         previousCheckpointOutHashes,
         fork,
@@ -876,6 +890,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   async createCheckpointProposal(
     checkpointHeader: CheckpointHeader,
     archive: Fr,
+    feeAssetPriceModifier: bigint,
     lastBlockInfo: CreateCheckpointProposalLastBlockData | undefined,
     proposerAddress: EthAddress | undefined,
     options: CheckpointProposalOptions = {},
@@ -897,6 +912,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const newProposal = await this.validationService.createCheckpointProposal(
       checkpointHeader,
       archive,
+      feeAssetPriceModifier,
       lastBlockInfo,
       proposerAddress,
       options,

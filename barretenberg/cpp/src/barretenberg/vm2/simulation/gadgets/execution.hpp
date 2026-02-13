@@ -21,7 +21,7 @@
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
 #include "barretenberg/vm2/simulation/interfaces/ecc.hpp"
-#include "barretenberg/vm2/simulation/interfaces/emit_unencrypted_log.hpp"
+#include "barretenberg/vm2/simulation/interfaces/emit_public_log.hpp"
 #include "barretenberg/vm2/simulation/interfaces/execution.hpp"
 #include "barretenberg/vm2/simulation/interfaces/execution_components.hpp"
 #include "barretenberg/vm2/simulation/interfaces/gas_tracker.hpp"
@@ -54,7 +54,7 @@ class ExecutionIdManagerInterface;
 class KeccakF1600Interface;
 class GreaterThanInterface;
 class GetContractInstanceInterface;
-class EmitUnencryptedLogInterface;
+class EmitPublicLogInterface;
 class DebugLoggerInterface;
 class HighLevelMerkleDBInterface;
 class GasTrackerInterface;
@@ -78,7 +78,7 @@ class Execution : public ExecutionInterface {
               KeccakF1600Interface& keccakf1600,
               GreaterThanInterface& greater_than,
               GetContractInstanceInterface& get_contract_instance_component,
-              EmitUnencryptedLogInterface& emit_unencrypted_log_component,
+              EmitPublicLogInterface& emit_public_log_component,
               DebugLoggerInterface& debug_log_component,
               HighLevelMerkleDBInterface& merkle_db,
               CallStackMetadataCollectorInterface& call_stack_metadata_collector,
@@ -97,7 +97,7 @@ class Execution : public ExecutionInterface {
         , keccakf1600(keccakf1600)
         , greater_than(greater_than)
         , get_contract_instance_component(get_contract_instance_component)
-        , emit_unencrypted_log_component(emit_unencrypted_log_component)
+        , emit_public_log_component(emit_public_log_component)
         , debug_log_component(debug_log_component)
         , merkle_db(merkle_db)
         , events(event_emitter)
@@ -197,7 +197,7 @@ class Execution : public ExecutionInterface {
                      MemoryAddress num_limbs_addr,
                      MemoryAddress is_output_bits_addr,
                      MemoryAddress dst_addr);
-    void emit_unencrypted_log(ContextInterface& context, MemoryAddress log_size_offset, MemoryAddress log_offset);
+    void emit_public_log(ContextInterface& context, MemoryAddress log_size_offset, MemoryAddress log_offset);
     void send_l2_to_l1_msg(ContextInterface& context, MemoryAddress recipient_addr, MemoryAddress content_addr);
     void sha256_compression(ContextInterface& context,
                             MemoryAddress output_addr,
@@ -257,7 +257,7 @@ class Execution : public ExecutionInterface {
     KeccakF1600Interface& keccakf1600;
     GreaterThanInterface& greater_than;
     GetContractInstanceInterface& get_contract_instance_component;
-    EmitUnencryptedLogInterface& emit_unencrypted_log_component;
+    EmitPublicLogInterface& emit_public_log_component;
     DebugLoggerInterface& debug_log_component;
     HighLevelMerkleDBInterface& merkle_db;
 

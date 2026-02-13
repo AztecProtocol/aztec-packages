@@ -10,6 +10,7 @@ import { AmmBot } from './amm_bot.js';
 import type { BaseBot } from './base_bot.js';
 import { Bot } from './bot.js';
 import type { BotConfig } from './config.js';
+import { CrossChainBot } from './cross_chain_bot.js';
 import type { BotInfo, BotRunnerApi } from './interface.js';
 import { BotStore } from './store/index.js';
 
@@ -146,9 +147,21 @@ export class BotRunner implements BotRunnerApi, Traceable {
 
   async #createBot() {
     try {
-      this.bot = this.config.ammTxs
-        ? AmmBot.create(this.config, this.wallet, this.aztecNode, this.aztecNodeAdmin, this.store)
-        : Bot.create(this.config, this.wallet, this.aztecNode, this.aztecNodeAdmin, this.store);
+      switch (this.config.botMode) {
+        case 'crosschain':
+          this.bot = CrossChainBot.create(this.config, this.wallet, this.aztecNode, this.aztecNodeAdmin, this.store);
+          break;
+        case 'amm':
+          this.bot = AmmBot.create(this.config, this.wallet, this.aztecNode, this.aztecNodeAdmin, this.store);
+          break;
+        case 'transfer':
+          this.bot = Bot.create(this.config, this.wallet, this.aztecNode, this.aztecNodeAdmin, this.store);
+          break;
+        default: {
+          const _exhaustive: never = this.config.botMode;
+          throw new Error(`Unsupported bot mode: [${_exhaustive}]`);
+        }
+      }
       await this.bot;
     } catch (err) {
       this.log.error(`Error setting up bot: ${err}`);

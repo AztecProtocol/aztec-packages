@@ -3,9 +3,10 @@ import type { Fr } from '@aztec/foundation/schemas';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { DataInBlock } from '@aztec/stdlib/block';
-import { NoteDao, NoteStatus, type NotesFilter } from '@aztec/stdlib/note';
+import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
+import type { NotesFilter } from '../../notes_filter.js';
 import { StoredNote } from './stored_note.js';
 
 /**
@@ -105,7 +106,7 @@ export class NoteStore implements StagedStore {
    * returned once if this is the case)
    */
   getNotes(filter: NotesFilter, jobId: string): Promise<NoteDao[]> {
-    if (filter.scopes !== undefined && filter.scopes.length === 0) {
+    if (filter.scopes !== 'ALL_SCOPES' && filter.scopes.length === 0) {
       return Promise.resolve([]);
     }
 
@@ -179,7 +180,10 @@ export class NoteStore implements StagedStore {
           continue;
         }
 
-        if (filter.scopes && note.scopes.intersection(new Set(filter.scopes.map(s => s.toString()))).size === 0) {
+        if (
+          filter.scopes !== 'ALL_SCOPES' &&
+          note.scopes.intersection(new Set(filter.scopes.map(s => s.toString()))).size === 0
+        ) {
           continue;
         }
 

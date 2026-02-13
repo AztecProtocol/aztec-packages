@@ -62,23 +62,39 @@ std::vector<GtTestParams> comparison_tests = {
     // GT
     GtTestParams{ 27, 0, true },
     GtTestParams{ TWO_POW_128, 0, true },
-    GtTestParams{ -1, 0, true },
+    GtTestParams{ -1, 0, true }, // p-1 > 0
     // EQ
     GtTestParams{ 27, 27, false },
     GtTestParams{ TWO_POW_128, TWO_POW_128, false },
-    GtTestParams{ -1, -1, false },
+    GtTestParams{ -1, -1, false }, // p-1 == p-1
     // LT
     GtTestParams{ 0, 1, false },
     GtTestParams{ 0, TWO_POW_128, false },
-    GtTestParams{ 0, -1, false }
+    GtTestParams{ 0, -1, false }, // 0 < p-1
+    // Edge cases: zero
+    GtTestParams{ 0, 0, false }, // 0 == 0
+    GtTestParams{ 1, 0, true },  // 1 > 0
+    // Edge cases: maximum field element (p-1)
+    GtTestParams{ -1, 1, true },   // p-1 > 1
+    GtTestParams{ -2, -1, false }, // p-2 < p-1
+    // Edge cases: boundary at 2^128
+    GtTestParams{ TWO_POW_128 - 1, TWO_POW_128, false }, // boundary at 2^128
+    GtTestParams{ TWO_POW_128, TWO_POW_128 - 1, true }   // boundary at 2^128
 };
 
 std::vector<DecTestParams> decomposition_tests = {
+    // Basic cases
     DecTestParams{ 0, { .lo = 0, .hi = 0 } },
     DecTestParams{ 1, { .lo = 1, .hi = 0 } },
+    // Powers of 2 at 128-bit boundary
     DecTestParams{ uint256_t(1) << 128, { .lo = 0, .hi = 1 } },
+    DecTestParams{ (uint256_t(1) << 128) - 1, { .lo = static_cast<uint128_t>((uint256_t(1) << 128) - 1), .hi = 0 } },
+    // Large values
     DecTestParams{ (uint256_t(1) << 200) - 1,
                    { .lo = static_cast<uint128_t>((uint256_t(1) << 128) - 1), .hi = (uint128_t(1) << 72) - 1 } },
+    // Edge case: maximum field element (p-1)
+    // p-1 decomposes into its limbs (computed at runtime)
+    DecTestParams{ FF(-1), simulation::decompose_256(FF::modulus - 1) },
 };
 
 class GtBasicTest : public TestWithParam<GtTestParams> {};
@@ -346,12 +362,18 @@ TEST(FieldGreaterThanConstrainingTest, NegativeEraseShift)
     trace.set(Column::ff_gt_b_lo, 2, 0);
     trace.set(Column::ff_gt_b_hi, 2, 0);
     trace.set(Column::ff_gt_p_sub_b_lo, 2, 0);
-    trace.set(Column::ff_gt_p_sub_b_hi, 2, 0);
+    trace.set(Column::ff_gt_p_sub_b_hi, 2, 1);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_0), "SHIFT_0");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_1), "SHIFT_1");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_2), "SHIFT_2");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_3), "SHIFT_3");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_P_SUB_A_TO_A_LO), "SHIFT_P_SUB_A_TO_A_LO");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_P_SUB_A_TO_A_HI), "SHIFT_P_SUB_A_TO_A_HI");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_B_TO_P_SUB_A_LO), "SHIFT_B_TO_P_SUB_A_LO");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_B_TO_P_SUB_A_HI), "SHIFT_B_TO_P_SUB_A_HI");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_P_SUB_B_TO_B_LO), "SHIFT_P_SUB_B_TO_B_LO");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_P_SUB_B_TO_B_HI), "SHIFT_P_SUB_B_TO_B_HI");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_RES_TO_P_SUB_B_LO),
+                              "SHIFT_RES_TO_P_SUB_B_LO");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_RES_TO_P_SUB_B_HI),
+                              "SHIFT_RES_TO_P_SUB_B_HI");
 }
 
 } // namespace
