@@ -574,6 +574,43 @@ variable "BOT_SWAPS_L2_PRIVATE_KEY" {
   default     = null
 }
 
+variable "BOT_CROSS_CHAIN_MNEMONIC_START_INDEX" {
+  description = "The cross-chain bot mnemonic start index"
+  type        = string
+  default     = ""
+}
+
+variable "BOT_CROSS_CHAIN_REPLICAS" {
+  description = "Number of cross-chain bot replicas to deploy (0 to disable)"
+  type        = number
+  default     = 0
+}
+
+variable "BOT_CROSS_CHAIN_TX_INTERVAL_SECONDS" {
+  description = "Interval in seconds between cross-chain bot transactions"
+  type        = number
+  default     = 10
+}
+
+variable "BOT_CROSS_CHAIN_FOLLOW_CHAIN" {
+  description = "Cross-chain bot follow-chain mode"
+  type        = string
+  default     = "PENDING"
+}
+
+variable "BOT_CROSS_CHAIN_L2_PRIVATE_KEY" {
+  description = "Private key for the cross-chain bot (hex string starting with 0x)"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "BOT_CROSS_CHAIN_PXE_SYNC_CHAIN_TIP" {
+  description = "Cross-chain bot PXE sync chain tip mode (e.g., checkpointed)"
+  type        = string
+  default     = "checkpointed"
+}
+
 # RPC ingress configuration (GKE-specific)
 variable "RPC_INGRESS_ENABLED" {
   description = "Enable GKE ingress for RPC nodes"
