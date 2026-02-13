@@ -294,78 +294,78 @@ Legacy protocol spec files that need review and integration into the new specs. 
 
 | S#  | Source File                       | Status         | Notes |
 | --- | --------------------------------- | -------------- | ----- |
-| 2   | `old-protocol-specs/constants.md` | In Progress    |       |
+| 2   | `old-protocol-specs/constants.md` | Integrated     |       |
 
 ### Sources → Spec #3: Cryptographic Primitives
 
 | S#  | Source File                                                            | Status         | Notes |
 | --- | ---------------------------------------------------------------------- | -------------- | ----- |
-| 3   | `old-protocol-specs/cryptography/index.md`                             | Not Integrated |       |
-| 4   | `old-protocol-specs/cryptography/hashing/hashing.md`                   | Not Integrated |       |
-| 5   | `old-protocol-specs/cryptography/hashing/pedersen.md`                  | Not Integrated |       |
-| 6   | `old-protocol-specs/cryptography/hashing/poseidon2.md`                 | Not Integrated |       |
-| 7   | `old-protocol-specs/cryptography/merkle-trees.md`                      | Not Integrated |       |
-| 8   | `old-protocol-specs/cryptography/proving-system/overview.md`           | Not Integrated |       |
-| 9   | `old-protocol-specs/cryptography/proving-system/data-bus.md`           | Not Integrated |       |
-| 10  | `old-protocol-specs/cryptography/proving-system/performance-targets.md` | Not Integrated |       |
+| 3   | `old-protocol-specs/cryptography/index.md`                             | Integrated     |       |
+| 4   | `old-protocol-specs/cryptography/hashing/hashing.md`                   | Integrated     |       |
+| 5   | `old-protocol-specs/cryptography/hashing/pedersen.md`                  | Integrated     |       |
+| 6   | `old-protocol-specs/cryptography/hashing/poseidon2.md`                 | Integrated     |       |
+| 7   | `old-protocol-specs/cryptography/merkle-trees.md`                      | Integrated     |       |
+| 8   | `old-protocol-specs/cryptography/proving-system/overview.md`           | Integrated     | Proving system architecture (Honk, IVC, folding, PCS) — not crypto primitives. Most content outdated (UltraPlonk→Chonk, Protogalaxy→HyperNova, ZeroMorph→Shplemini). KZG/IPA still valid but don't meet compatibility criterion for this spec. Relevant content belongs in Specs #7/#9/#10. |
+| 9   | `old-protocol-specs/cryptography/proving-system/data-bus.md`           | Integrated     |       |
+| 10  | `old-protocol-specs/cryptography/proving-system/performance-targets.md` | Integrated     |       |
 
 ### Sources → Spec #4: State Model & Merkle Trees
 
 | S#  | Source File                                          | Status         | Notes |
 | --- | ---------------------------------------------------- | -------------- | ----- |
-| 11  | `old-protocol-specs/state/index.md`                  | Not Integrated |       |
-| 12  | `old-protocol-specs/state/archive.md`                | Not Integrated |       |
-| 13  | `old-protocol-specs/state/note-hash-tree.md`         | Not Integrated |       |
-| 14  | `old-protocol-specs/state/nullifier-tree.md`         | Not Integrated |       |
-| 15  | `old-protocol-specs/state/public-data-tree.md`       | Not Integrated |       |
-| 16  | `old-protocol-specs/state/tree-implementations.md`   | Not Integrated |       |
-| 17  | `old-protocol-specs/state/wonky-tree.md`             | Not Integrated |       |
+| 11  | `old-protocol-specs/state/index.md`                  | Integrated     |       |
+| 12  | `old-protocol-specs/state/archive.md`                | Integrated     |       |
+| 13  | `old-protocol-specs/state/note-hash-tree.md`         | Integrated     |       |
+| 14  | `old-protocol-specs/state/nullifier-tree.md`         | Integrated     |       |
+| 15  | `old-protocol-specs/state/public-data-tree.md`       | Integrated     |       |
+| 16  | `old-protocol-specs/state/tree-implementations.md`   | Integrated     |       |
+| 17  | `old-protocol-specs/state/wonky-tree.md`             | Integrated     |       |
 
 ### Sources → Spec #5: Transaction Format & Lifecycle
 
 | S#  | Source File                                          | Status         | Notes |
 | --- | ---------------------------------------------------- | -------------- | ----- |
-| 18  | `old-protocol-specs/transactions/index.md`           | Not Integrated |       |
-| 19  | `old-protocol-specs/transactions/local-execution.md` | Not Integrated |       |
-| 20  | `old-protocol-specs/transactions/public-execution.md` | Not Integrated |       |
-| 21  | `old-protocol-specs/transactions/tx-object.md`       | Not Integrated |       |
-| 22  | `old-protocol-specs/transactions/validity.md`        | Not Integrated |       |
-| 23  | `old-protocol-specs/calls/index.md`                  | Not Integrated |       |
-| 24  | `old-protocol-specs/calls/batched-calls.md`          | Not Integrated |       |
-| 25  | `old-protocol-specs/calls/enqueued-calls.md`         | Not Integrated |       |
-| 26  | `old-protocol-specs/calls/static-calls.md`           | Not Integrated |       |
-| 27  | `old-protocol-specs/calls/sync-calls.md`             | Not Integrated |       |
-| 28  | `old-protocol-specs/calls/unconstrained-calls.md`    | Not Integrated |       |
+| 18  | `old-protocol-specs/transactions/index.md`           | Integrated     |       |
+| 19  | `old-protocol-specs/transactions/local-execution.md` | Integrated     |       |
+| 20  | `old-protocol-specs/transactions/public-execution.md` | Integrated     |       |
+| 21  | `old-protocol-specs/transactions/tx-object.md`       | Integrated     |       |
+| 22  | `old-protocol-specs/transactions/validity.md`        | Integrated     |       |
+| 23  | `old-protocol-specs/calls/index.md`                  | Integrated     |       |
+| 24  | `old-protocol-specs/calls/batched-calls.md`          | Integrated     |       |
+| 25  | `old-protocol-specs/calls/enqueued-calls.md`         | Integrated     |       |
+| 26  | `old-protocol-specs/calls/static-calls.md`           | Integrated     |       |
+| 27  | `old-protocol-specs/calls/sync-calls.md`             | Integrated     |       |
+| 28  | `old-protocol-specs/calls/unconstrained-calls.md`    | Integrated     |       |
 
 ### Sources → Spec #7: Private Kernel Circuits
 
 | S#  | Source File                                            | Status         | Notes |
 | --- | ------------------------------------------------------ | -------------- | ----- |
-| 29  | `old-protocol-specs/circuits/high-level-topology.md`   | Not Integrated |       |
-| 30  | `old-protocol-specs/circuits/private-function.md`      | Not Integrated |       |
-| 31  | `old-protocol-specs/circuits/private-kernel-reset.md`  | Not Integrated |       |
-| 32  | `old-protocol-specs/circuits/private-kernel-tail.md`   | Not Integrated |       |
+| 29  | `old-protocol-specs/circuits/high-level-topology.md`   | Integrated     |       |
+| 30  | `old-protocol-specs/circuits/private-function.md`      | Integrated     |       |
+| 31  | `old-protocol-specs/circuits/private-kernel-reset.md`  | Integrated     |       |
+| 32  | `old-protocol-specs/circuits/private-kernel-tail.md`   | Integrated     |       |
 
 ### Sources → Spec #8: Public VM (AVM)
 
 | S#  | Source File                                                    | Status         | Notes |
 | --- | -------------------------------------------------------------- | -------------- | ----- |
-| 33  | `old-protocol-specs/bytecode/index.md`                         | Not Integrated |       |
-| 34  | `old-protocol-specs/public-vm/index.md`                        | Not Integrated |       |
-| 35  | `old-protocol-specs/public-vm/intro.md`                        | Not Integrated |       |
-| 36  | `old-protocol-specs/public-vm/execution.md`                    | Not Integrated |       |
-| 37  | `old-protocol-specs/public-vm/memory-model.md`                 | Not Integrated |       |
-| 38  | `old-protocol-specs/public-vm/state.md`                        | Not Integrated |       |
-| 39  | `old-protocol-specs/public-vm/control-flow.md`                 | Not Integrated |       |
-| 40  | `old-protocol-specs/public-vm/alu.md`                          | Not Integrated |       |
-| 41  | `old-protocol-specs/public-vm/type-structs.md`                 | Not Integrated |       |
-| 42  | `old-protocol-specs/public-vm/security.md`                     | Not Integrated |       |
-| 43  | `old-protocol-specs/public-vm/_nested-context.md`              | Not Integrated |       |
-| 44  | `old-protocol-specs/public-vm/avm-circuit.md`                  | Not Integrated |       |
-| 45  | `old-protocol-specs/public-vm/bytecode-validation-circuit.md`  | Not Integrated |       |
-| 46  | `old-protocol-specs/public-vm/circuit-index.md`                | Not Integrated |       |
-| 47  | `old-protocol-specs/circuits/public-kernel-initial.md`         | Not Integrated |       |
-| 48  | `old-protocol-specs/circuits/public-kernel-inner.md`           | Not Integrated |       |
+| 33  | `old-protocol-specs/bytecode/index.md`                         | Integrated     |       |
+| 34  | `old-protocol-specs/public-vm/index.md`                        | Integrated     |       |
+| 35  | `old-protocol-specs/public-vm/intro.md`                        | Integrated     |       |
+| 36  | `old-protocol-specs/public-vm/execution.md`                    | Integrated     |       |
+| 37  | `old-protocol-specs/public-vm/memory-model.md`                 | Integrated     |       |
+| 38  | `old-protocol-specs/public-vm/state.md`                        | Integrated     |       |
+| 39  | `old-protocol-specs/public-vm/control-flow.md`                 | Integrated     |       |
+| 40  | `old-protocol-specs/public-vm/alu.md`                          | Integrated     |       |
+| 41  | `old-protocol-specs/public-vm/type-structs.md`                 | Integrated     |       |
+| 42  | `old-protocol-specs/public-vm/security.md`                     | Integrated     |       |
+| 43  | `old-protocol-specs/public-vm/_nested-context.md`              | Integrated     |       |
+| 44  | `old-protocol-specs/public-vm/avm-circuit.md`                  | Integrated     |       |
+| 45  | `old-protocol-specs/public-vm/bytecode-validation-circuit.md`  | Integrated     |       |
+| 46  | `old-protocol-specs/public-vm/circuit-index.md`                | Integrated     |       |
+| 47  | `old-protocol-specs/circuits/public-kernel-initial.md`         | Integrated     |       |
+| 48  | `old-protocol-specs/circuits/public-kernel-inner.md`           | Integrated     |       |
 | 49  | `old-protocol-specs/circuits/public-kernel-tail.md`            | Not Integrated |       |
 
 ### Sources → Spec #9: Rollup Circuits

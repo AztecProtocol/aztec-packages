@@ -98,14 +98,25 @@ sequenceDiagram
 
 The user constructs a `TxExecutionRequest` containing the entry function, arguments, gas settings, and authorization data. The PXE converts this to a `TxRequest` by hashing the arguments and stripping data not needed for the kernel circuit.
 
+Because Aztec uses native account abstraction — where every account is backed by a contract — the transaction request specifies only the contract address, function selector, and arguments for the initial call (the **entrypoint**). Nonces, signatures, and other authentication data are arguments to the entrypoint function and are thus opaque to the protocol. The entrypoint is always a private function on the origin account contract.
+
 #### Phase 2: Private Execution
 
-The PXE executes the transaction's private functions:
+Private execution in the PXE occurs in two sub-steps:
+
+1. **Simulation**: The PXE executes all private function circuits and kernel circuits without generating witnesses or proofs. This produces the transaction's side effects and allows the PXE to return a simulated result to the caller — enabling applications to detect failed assertions or inspect outputs before committing to a proof. The private call stack is processed until empty; all enqueued private function calls MUST be resolved during this step.
+2. **Proving**: The PXE re-executes the same circuit chain, this time generating witnesses and producing a proof. It is not necessary to simulate before proving, though simulation is desirable to provide early feedback and catch failures.
+
+The kernel circuit chain during both sub-steps is:
 
 1. **Private Kernel Init**: Processes the first function call, validates it against the `TxRequest`, and generates the protocol nullifier if needed.
 2. **Private Kernel Inner** (repeated): Processes each subsequent private function call, accumulating side effects.
 3. **Private Kernel Reset** (optional, repeated): Squashes transient notes, validates read requests, and silos note hashes and nullifiers.
-4. **Private Kernel Tail** (private-only) or **Private Kernel Tail-to-Public** (has public calls): Finalizes accumulated data, sorts side effects, and produces the final kernel public inputs.
+4. **Private Kernel Tail** (private-only) or **Private Kernel Tail-to-Public** (has public calls): Finalizes accumulated data, sorts side effects, and produces the final kernel public inputs. The tail circuit validates that the private call stack is empty and all read requests and key validation requests have been resolved.
+
+The kernel processes the private call stack iteratively. The Init circuit processes the entrypoint call and pushes any nested calls onto the stack. Each Inner kernel iteration pops the top `PrivateCallRequest` from the stack, validates that the call's execution (contract address, function selector, arguments hash, static call flag) matches the request, accumulates its side effects, and pushes any further nested calls. Nested calls are pushed in reverse order so that they are processed in the original call order (LIFO). This continues until the private call stack is empty.
+
+When a private function enqueues a public function call, it does not push to the private call stack. Instead, a `PublicCallRequest` with an `args_hash` (but no execution results) is added to the `public_call_requests` accumulator. The sequencer later resolves these in the public execution phase.
 
 A **Chonk proof** is generated covering the entire private kernel circuit chain.
 
@@ -130,7 +141,9 @@ If the transaction enqueues public function calls, the sequencer executes them v
 2. **App Logic** (revertible): Main application logic
 3. **Teardown** (non-revertible): Fee payment finalization
 
-If app logic reverts, its state changes are discarded but setup and teardown effects are preserved.
+Unlike private execution — which reads from the historical state referenced by the `anchor_block_header` — public execution operates on the current world state at the time of block building. Each public function reads from and writes to the latest public data tree, and state changes from earlier calls within the same transaction are visible to later calls.
+
+Public execution can revert due to a failed assertion, running out of gas, an invalid opcode, a static call attempting state modification, a nullifier collision, or other exceptional halts. If app logic reverts, its state changes are discarded but setup and teardown effects are preserved. The transaction is still included in the block and pays fees, but is flagged with a non-OK `RevertCode`.
 
 #### Phase 6: Transaction Effect Construction
 
@@ -221,6 +234,8 @@ The `TxExecutionRequest` is the full, un-hashed version of the transaction reque
 | `auth_witnesses` | AuthWitness[] | Transient authorization witnesses |
 | `capsules` | Capsule[] | Read-only oracle data |
 | `salt` | Field | Random salt |
+
+During simulation and proving, the PXE answers oracle queries from executing functions using data from this request: when a function call is invoked with a hash of its arguments, the PXE resolves the preimage from `args_of_calls`; when a contract requests authorization for an action identified by a hash, the PXE provides the matching entry from `auth_witnesses`.
 
 The `TxExecutionRequest` is converted to a `TxRequest` by:
 
@@ -378,6 +393,35 @@ Side effects for a transaction with public calls. This structure is used twice �
 | `contract_class_logs_hashes` | ScopedLogHash[] | 1 | Contract class log hashes |
 | `public_call_requests` | PublicCallRequest[] | 32 | Enqueued public function calls |
 
+#### CallContext
+
+Shared context for any function call (private or public):
+
+| Field | Type | Size (fields) | Description |
+|---|---|---|---|
+| `msg_sender` | AztecAddress | 1 | Address of the contract that initiated the call |
+| `contract_address` | AztecAddress | 1 | Address of the contract being called |
+| `function_selector` | FunctionSelector | 1 | Selector of the function being called |
+| `is_static_call` | bool | 1 | Whether the call is static (read-only) |
+
+**Total serialized length:** `CALL_CONTEXT_LENGTH = 4` fields.
+
+#### PrivateCallRequest
+
+A request representing a synchronous private function call in the private call stack:
+
+| Field | Type | Size (fields) | Description |
+|---|---|---|---|
+| `call_context` | CallContext | 4 | Call context (sender, target, selector, static flag) |
+| `args_hash` | Field | 1 | Hash of the function arguments |
+| `returns_hash` | Field | 1 | Hash of the function return values |
+| `start_side_effect_counter` | u32 | 1 | Side-effect counter at the start of the call |
+| `end_side_effect_counter` | u32 | 1 | Side-effect counter at the end of the call |
+
+**Total serialized length:** `PRIVATE_CALL_REQUEST_LENGTH = 8` fields.
+
+The kernel circuit validates each `PrivateCallRequest` by checking that the nested execution's `CallContext` and `args_hash` match the request, and that the side-effect counters delineate a valid range. The `returns_hash` allows the caller to constrain expected return values.
+
 #### PublicCallRequest
 
 A request to execute a public function:
@@ -457,6 +501,42 @@ When the sequencer processes a transaction with public calls, it executes them v
 2. **App logic phase**: Revertible public call requests from `revertible_accumulated_data.public_call_requests`. If any call in this phase reverts, ALL revertible effects (both private and public) are discarded.
 
 3. **Teardown phase**: The `public_teardown_call_request` (if non-empty). This typically handles fee payment finalization. Teardown always executes, even if app logic reverted.
+
+### Synchronous and Enqueued Calls
+
+Function calls in the Aztec protocol fall into two categories based on execution timing:
+
+**Synchronous calls** occur when a private function calls another private function, or when a public function calls another public function. Execution jumps to the target function and returns with a result before the caller resumes. At the protocol level, each synchronous private call is represented as a `PrivateCallRequest` in the private call stack. The calling function pushes the request (containing the target contract, function selector, arguments hash, and expected return hash) onto the stack, and the kernel circuit processes it in the next iteration. The kernel validates that the nested execution matches the request — specifically, that the `CallContext`, `args_hash`, `returns_hash`, and side-effect counters are consistent — before accumulating its side effects.
+
+**Enqueued calls** occur when a private function calls a public function. Because private execution happens client-side in the PXE and public execution happens on the sequencer, these calls cannot be resolved synchronously. Instead, the private function emits a `PublicCallRequest` containing the target contract, `msg_sender`, static call flag, and a hash of the calldata. These requests are accumulated in the kernel output and resolved by the sequencer during the public execution phase.
+
+Public-to-private calls are not supported — a public function cannot invoke a private function, as the private execution environment is not available on the sequencer.
+
+### Static Calls
+
+Both private and public function calls can be executed as **static calls**, meaning the called function and all nested calls within it MUST NOT produce any state-modifying side effects. Static calls allow querying another contract while guaranteeing no state mutation occurs. This mechanism is based on [EIP-214](https://eips.ethereum.org/EIPS/eip-214).
+
+A static call is identified by the `is_static_call` flag in the `CallContext`. When a static call is made, all subsequent nested calls inherit the static flag — a static call frame cannot spawn a non-static nested call.
+
+The kernel circuit enforces that a static call emits none of the following side effects:
+
+- `note_hashes`
+- `nullifiers`
+- `l2_to_l1_msgs`
+- `private_logs`
+- `contract_class_logs_hashes`
+
+Additionally, a static call MUST NOT:
+- Nominate itself as the fee payer
+- Set the min revertible side effect counter (which would affect the revertibility boundary)
+
+For public static calls, the AVM enforces that no state-modifying opcodes are executed. Specifically, the following opcodes MUST revert with a static call alteration error:
+
+- `SSTORE` (public storage writes)
+- `EMITNOTEHASH`
+- `EMITNULLIFIER`
+- `SENDL2TOL1MSG`
+- `EMITUNENCRYPTEDLOG` (public logs)
 
 ### Transaction Effect (TxEffect)
 
@@ -601,6 +681,21 @@ classDiagram
         protocol_contracts_hash: Field
     }
 
+    class CallContext {
+        msg_sender: AztecAddress
+        contract_address: AztecAddress
+        function_selector: FunctionSelector
+        is_static_call: bool
+    }
+
+    class PrivateCallRequest {
+        call_context: CallContext
+        args_hash: Field
+        returns_hash: Field
+        start_side_effect_counter: u32
+        end_side_effect_counter: u32
+    }
+
     class TxEffect {
         revert_code: RevertCode
         tx_hash: TxHash
@@ -620,6 +715,7 @@ classDiagram
     TxContext *-- GasSettings
     TxRequest *-- TxContext
     TxRequest *-- FunctionData
+    PrivateCallRequest *-- CallContext
 ```
 
 ### Key Type Sizes
@@ -633,6 +729,8 @@ classDiagram
 | Gas | `GAS_LENGTH` | 2 |
 | GasFees | `GAS_FEES_LENGTH` | 2 |
 | TxConstantData | `TX_CONSTANT_DATA_LENGTH` | 34 |
+| CallContext | `CALL_CONTEXT_LENGTH` | 4 |
+| PrivateCallRequest | `PRIVATE_CALL_REQUEST_LENGTH` | 8 |
 | PublicCallRequest | `PUBLIC_CALL_REQUEST_LENGTH` | 4 |
 | PrivateToRollupAccumulatedData | `PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH` | 1371 |
 | PrivateToPublicAccumulatedData | `PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH` | 1499 |
@@ -642,6 +740,8 @@ classDiagram
 ## Validation Rules
 
 Transaction validation occurs at two stages: mempool admission (P2P layer) and block building (sequencer). The validators are composed in an aggregate pipeline — a transaction MUST pass ALL validators to be admitted.
+
+A subset of these rules is re-enforced by the base rollup circuit when the transaction is included in a block. Specifically, the rollup circuit re-verifies the kernel proof (V1), transaction constant data (V3), block header anchor (V4), inclusion timestamp (V5), contract class logs (V10), and fee payer balance (V8). Rules that are only checked at the mempool/sequencer layer — such as gas limit bounds (V7), calldata validation (V9), setup allow list (V11), and transaction size (V12) — are not re-enforced on-chain.
 
 ### V1: Proof Verification
 
@@ -760,6 +860,12 @@ While individual transaction contents are hidden, the following metadata is visi
 - The number of public call requests and their target contracts
 
 Sophisticated analysis could correlate these patterns. Applications requiring strong privacy should minimize distinguishability (e.g., pad to uniform effect counts).
+
+### `msg_sender` Leakage in Enqueued Public Calls
+
+When a private function enqueues a public function call, the `msg_sender` field in the `PublicCallRequest` becomes visible to the sequencer and all observers. If the `msg_sender` is the user's account contract, this directly reveals the caller's identity. If it is an application contract, it reveals which contract the user interacted with in private.
+
+To mitigate this, enqueued public calls support a `hide_msg_sender` option (incognito mode), which sets the `msg_sender` to `NULL_MSG_SENDER_CONTRACT_ADDRESS`, preventing the public call from revealing which contract initiated it. Applications requiring privacy for their public interactions SHOULD use incognito enqueued calls where feasible.
 
 ### Faerie-Gold Attacks
 

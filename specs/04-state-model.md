@@ -70,7 +70,11 @@ All five trees use Poseidon2 as the internal Merkle hash function: `merkle_hash(
 There are two structural categories:
 
 - **Append-only trees** store leaves sequentially. New leaves are always appended at the next available index. Existing leaves are never modified.
-- **Indexed trees** maintain a sorted linked list within the tree. Each leaf contains pointers (`next_key`, `next_index`) to the next leaf in sorted order. This structure supports both membership and non-membership proofs, and (for the public data tree) value updates.
+- **Indexed trees** maintain a sorted linked list within the tree. Each leaf contains pointers (`next_key`, `next_index`) to the next leaf in sorted order. This structure supports both membership and non-membership proofs, and (for the public data tree) value updates. Indexed trees are used instead of sparse Merkle trees to reduce tree height: a sparse tree would require a height of 254 (one level per bit of the key), whereas indexed trees support the same key space at much lower heights (40–42), yielding shorter membership and non-membership proofs.
+
+There is also a third structural category used in the rollup proof tree (not for persistent state):
+
+- **Unbalanced (wonky) trees** are variable-height Merkle trees that avoid empty-leaf padding. Given `N` leaves, an unbalanced tree decomposes `N` into descending powers of 2 (its binary representation), builds a balanced subtree for each power-of-2 group, and then combines these subtrees right-to-left into a single root. This produces the shallowest possible tree for `N` non-empty leaves. These trees are used within the rollup circuits to compute `out_hash` (L2-to-L1 messages, using SHA-256) and `block_headers_hash` (block header hashes, using Poseidon2) without requiring transactions or blocks to be padded to a power of 2.
 
 ### Tree Snapshots
 
@@ -168,6 +172,12 @@ The leaf value inserted into the tree is the `value` field directly (identity ma
 
 Empty leaves have value `0`.
 
+#### Application Constraints
+
+The protocol does not enforce any constraints on the values emitted as note hashes by application contracts. An application MAY emit any `Field` value as a `new_note_hash`, including values that do not correspond to an actual note. The kernel circuits silo and uniquify whatever value the application provides, but do not validate its contents.
+
+This means applications are responsible for including randomness in their note hash preimage to make the commitment _hiding_ (not just _binding_). The siloing and uniqueness layers add contract scoping and prevent duplicate leaves, but they do not add hiding — their inputs (contract address, note index, first nullifier) are all publicly derivable. If an application omits randomness and the note preimage can be guessed by an observer, the note is vulnerable to a brute-force preimage attack: the observer can compute candidate note hashes and check them against the tree.
+
 #### Insertion
 
 Note hashes are inserted in batches of `MAX_NOTE_HASHES_PER_TX = 64` per transaction (one subtree of height `NOTE_HASH_SUBTREE_HEIGHT = 6`). All 64 positions are consumed per transaction; unused slots are filled with `0`.
@@ -193,7 +203,7 @@ The note hash tree starts empty at genesis:
 
 ### Nullifier Tree
 
-The nullifier tree is an indexed Merkle tree of height `NULLIFIER_TREE_HEIGHT = 42`. It stores nullifiers that mark notes as spent.
+The nullifier tree is an indexed Merkle tree of height `NULLIFIER_TREE_HEIGHT = 42`. It stores nullifiers — unique values that, once inserted, can never be inserted again. The primary use is marking private notes as consumed (preventing double-spending), but nullifiers serve as a general-purpose uniqueness enforcement mechanism: they prevent contract re-initialization, duplicate contract deployment, authentication witness replay, and transaction replay.
 
 #### Leaf Format
 
@@ -218,6 +228,14 @@ NullifierLeafPreimage {
 **Points to infinity:** A leaf points to infinity (is the last element in the sorted list) when `next_nullifier == 0 AND next_index == 0`.
 
 **Immutability:** Once a nullifier leaf is inserted, its value MUST NOT be updated. The `next_nullifier` and `next_index` pointers MAY be updated when a new leaf is inserted between this leaf and its current successor.
+
+#### Application Constraints
+
+The protocol does not constrain how application contracts compute nullifiers. An application MAY emit any `Field` value as a nullifier. The kernel circuits silo the nullifier with the originating contract address (see Spec #3), but do not validate the nullifier's derivation logic.
+
+This means applications are responsible for ensuring **determinism**: the same logical action (e.g., consuming a specific note) must always produce the same nullifier. If an application's nullifier computation is non-deterministic, the same note could be consumed multiple times — the indexed tree enforces uniqueness of the values it receives, but cannot enforce that two different values do not correspond to the same logical action.
+
+Applications are also responsible for ensuring **privacy**: nullifiers should be computed using a deterministic secret value (such as the owner's nullifier secret key or a random value stored in an encrypted note). Without knowledge of the secret, an observer cannot compute the expected nullifier for a given note, and therefore cannot link a nullifier in the tree to its corresponding note hash. If an application derives nullifiers from publicly known values, the link between note creation and consumption becomes observable.
 
 #### Indexed Tree Invariants
 
@@ -341,6 +359,8 @@ PublicDataTreeLeaf {
 
 This represents the key-value pair being written, without the linked-list pointers.
 
+Each value is a single field element. Contracts can store arbitrary data at a given slot, but the protocol always stores and retrieves it as one field. Applications that need to store data larger than a single field element are responsible for partitioning it across multiple consecutive storage slots.
+
 #### Insertion and Update
 
 The public data tree supports two operations:
@@ -432,6 +452,8 @@ The L1-to-L2 message tree starts empty at genesis:
 ### Archive Tree
 
 The archive tree is an append-only Merkle tree of height `ARCHIVE_HEIGHT = 30`. Each leaf is the hash of a block header, providing a commitment to the entire chain history.
+
+Private execution relies on proofs generated by the user against historical state, since users cannot know the current chain head at proof generation time. The archive tree enables this: because each block header includes `last_archive` (a snapshot of the archive tree before the block) and commitments to all state tree roots, a Merkle membership proof against the archive tree root is sufficient to prove that a given block header — and therefore its committed state — is part of the canonical chain. This allows circuits to verify statements about the state at any historical block.
 
 #### Leaf Format
 
@@ -670,6 +692,81 @@ graph LR
     end
 ```
 
+### Unbalanced Tree Construction
+
+Unbalanced (wonky) trees are used by the rollup circuits to compute `out_hash` and `block_headers_hash` without padding to a power of 2. The construction is deterministic given the number of non-empty leaves.
+
+#### Algorithm
+
+Given `N` non-empty leaves, the unbalanced tree is constructed as follows:
+
+1. Decompose `N` into its binary representation, yielding a sequence of descending powers of 2: `[p_0, p_1, ..., p_k]` where `p_0 > p_1 > ... > p_k` and `N = p_0 + p_1 + ... + p_k`.
+2. Partition the leaves into groups of these sizes (left to right): the first `p_0` leaves form one group, the next `p_1` leaves form the next, and so on.
+3. Compute a balanced Merkle root for each group.
+4. Combine the subtree roots **right to left**: start with the smallest (rightmost) subtree root and iteratively hash it with the next subtree root to its left, until a single root remains.
+
+```
+function compute_unbalanced_root(leaves[N], hash_fn) -> Field:
+    // Decompose N into powers of 2 (its set bits).
+    subtree_sizes = powers_of_2_decomposition(N)  // e.g., 13 -> [8, 4, 1]
+
+    // Build balanced subtree roots for each group.
+    subtree_roots = []
+    offset = 0
+    for size in subtree_sizes:
+        subtree_roots.push(compute_balanced_root(leaves[offset..offset+size], hash_fn))
+        offset += size
+
+    // Combine right to left.
+    root = subtree_roots.last()
+    for i in (subtree_roots.len() - 2)..=0:
+        root = hash_fn(subtree_roots[i], root)
+    return root
+```
+
+**Right-to-left combination minimizes tree depth.** For example, with subtree sizes `[8, 4, 2]`: combining `4` and `2` first (depth 3) then merging with `8` (depth 3) yields depth 4. Combining `8` and `4` first (depth 4) then merging with `2` would yield depth 5.
+
+#### Special Cases
+
+- `N = 0`: The root is `0`.
+- `N = 1`: The root is the single leaf value (no hashing).
+- `N` is a power of 2: The tree is a standard balanced Merkle tree.
+
+#### Example: 7 Leaves
+
+`7 = 4 + 2 + 1`, so the tree decomposes into three balanced subtrees of sizes 4, 2, and 1. The subtree roots are combined right-to-left:
+
+```
+root = hash(balanced_root(leaves[0..4]), hash(balanced_root(leaves[4..6]), leaves[6]))
+```
+
+```mermaid
+graph TB
+    subgraph "Unbalanced Tree (7 leaves)"
+        R["Root"]
+        S4["Balanced subtree<br/>(leaves 1-4)"]
+        N1["Node"]
+        S2["Balanced subtree<br/>(leaves 5-6)"]
+        L7["Leaf 7"]
+
+        R --> S4
+        R --> N1
+        N1 --> S2
+        N1 --> L7
+    end
+```
+
+#### Usage
+
+| Context | Hash Function | Defined In |
+|---|---|---|
+| `out_hash` (L2-to-L1 messages) | SHA-256 (`sha256_to_field`) | Spec #9 (Rollup Circuits) |
+| `block_headers_hash` | Poseidon2 | Spec #6 (Blocks), Spec #9 (Rollup Circuits) |
+
+The greedy fill constraint that determines the shape of these trees is specified in Spec #9: at every merge point in the rollup proof tree, the left child contains a power-of-2 count of items and the right child contains the remainder. This constraint produces the same tree shape as the algorithm above.
+
+**Out hash special case:** When computing `out_hash`, zero values are skipped rather than hashed. If either child is zero, the non-zero child is used directly without hashing. See Spec #9 for the `accumulate_out_hash` function.
+
 ### State Transition Per Transaction
 
 Each transaction updates three of the four mutable state trees (the `PartialStateReference`):
@@ -883,6 +980,12 @@ An adversarial sequencer could attempt to produce invalid state roots. Since all
 
 **Mitigation:** The epoch proof verified on L1 covers the entire state transition including all tree operations. Invalid state roots would produce invalid proofs.
 
+### Note Hash Preimage Attack
+
+The protocol does not enforce that note hashes are hiding commitments. If an application emits a note hash without including sufficient randomness, an observer who can guess the note contents can compute the expected unique note hash (since the contract address, first nullifier, and note index are all public or derivable) and confirm it against the tree. This reveals which notes belong to which users.
+
+**Mitigation:** Application contracts MUST include a random field element in the note hash preimage. The standard note macro in `aztec-nr` generates randomness automatically. Custom note implementations that omit randomness degrade privacy for their users but do not affect protocol soundness.
+
 ### Indexed Tree Low Leaf Attacks
 
 In indexed trees, the prover must supply the correct low leaf for each insertion. An incorrect low leaf would break the sorted linked-list invariant.
@@ -901,6 +1004,7 @@ In indexed trees, the prover must supply the correct low leaf for each insertion
 
 ## References
 
+- [Indexed Merkle Trees](https://eprint.iacr.org/2021/1263.pdf) — academic paper introducing indexed Merkle trees, the basis for the nullifier and public data tree structures
 - Spec #1: Protocol Overview & Architecture — conceptual introduction to the five state trees
 - Spec #2: Constants — tree heights, subtree heights, tree IDs, serialization lengths, genesis constants
 - Spec #3: Cryptographic Primitives — hash functions, Merkle proof algorithms, note hash and nullifier derivation

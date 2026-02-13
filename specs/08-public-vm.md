@@ -199,6 +199,8 @@ The AVM uses a flat, tagged memory space. There is no separate stack or heap —
 
 Memory is per-call-context. Each external call (CALL, STATICCALL) creates a new memory space. Internal calls (INTERNALCALL/INTERNALRETURN) share the caller's memory.
 
+All elements in calldata and returndata are implicitly tagged as Field elements. To operate on calldata values as a smaller integer type, the bytecode MUST first copy the data into memory via `CALLDATACOPY` (which writes with tag `FIELD`), then use `CAST` to convert to the desired type.
+
 #### Type Tags
 
 Every memory cell carries a type tag that identifies its value type. Tags are checked by instructions before use.
@@ -221,6 +223,53 @@ Every memory cell carries a type tag that identifies its value type. Tags are ch
 - Memory addresses used for indirect addressing MUST have tag U32
 - The base address for relative addressing (memory cell 0) MUST have tag U32
 - Comparators (`EQ`, `LT`, `LTE`) output U1
+
+**Tag behavior on instruction execution:**
+
+Notation: `M[X]` denotes the value at memory address `X`; `T[X]` denotes the tag at address `X`.
+
+Arithmetic instructions check input tags against the instruction's `inTag` and tag the destination with the same tag. For example, `ADD` with `inTag = U32`:
+
+```
+# ADD aOffset bOffset dstOffset (inTag = U32)
+assert T[aOffset] == T[bOffset] == U32   // check inputs against inTag; exceptional halt on mismatch
+T[dstOffset] = U32                       // tag destination with inTag
+M[dstOffset] = M[aOffset] + M[bOffset]  // perform the operation
+```
+
+`MOV` has no `inTag` — it preserves the source cell's tag without assertion:
+
+```
+# MOV srcOffset dstOffset
+T[dstOffset] = T[srcOffset]   // preserve source tag
+M[dstOffset] = M[srcOffset]   // copy value
+```
+
+`CAST` is the only instruction that converts between tags. When the destination tag has a smaller range than the source, range constraints MUST be applied. When larger or equal, no additional constraint is needed:
+
+```
+# CAST srcOffset dstOffset (dstTag = U64)
+T[dstOffset] = U64                           // assign destination tag
+M[dstOffset] = cast<to: U64>(M[srcOffset])   // truncate to target width
+```
+
+When an operand uses indirect addressing, the resolved address MUST have tag U32. For indirect source resolution:
+
+```
+# MOV srcOffset dstOffset (indirect source)
+assert T[srcOffset] == U32       // M[srcOffset] must be a valid memory address
+T[dstOffset] = T[M[srcOffset]]  // tag from the indirectly referenced cell
+M[dstOffset] = M[M[srcOffset]]  // value from the indirectly referenced cell
+```
+
+For indirect destination resolution:
+
+```
+# MOV srcOffset dstOffset (indirect destination)
+assert T[dstOffset] == U32       // M[dstOffset] must be a valid memory address
+T[M[dstOffset]] = T[srcOffset]  // write source tag to indirect destination
+M[M[dstOffset]] = M[srcOffset]  // write source value to indirect destination
+```
 
 #### Addressing Modes
 
@@ -296,6 +345,33 @@ Accessible via the `GETENVVAR` instruction:
 ### Bytecode Format
 
 AVM bytecode is a packed sequence of variable-length instructions. Each instruction begins with a 1-byte opcode, followed by operands whose sizes are determined by the instruction's wire format.
+
+#### Public Bytecode Structure
+
+All public functions of a contract are compiled into a single AVM bytecode block with a maximum packed size of `MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS` (3,000) field elements, corresponding to a maximum raw bytecode size of `MAX_PUBLIC_BYTECODE_SIZE_IN_BYTES` (96,000) bytes. Bytecode exceeding this limit MUST be rejected at deployment time.
+
+This bytecode contains a dispatch mechanism at its entry point that routes execution to the correct function based on a function selector. The function selector is passed as the first element of calldata (`calldata[0]`) for each enqueued public call.
+
+When the AVM begins executing an enqueued call, it reads the function selector from calldata, compares it against a dispatch table compiled into the bytecode, and jumps to the matching function body. If no selector matches, the bytecode MUST revert.
+
+The bytecode commitment covering this entire dispatch-plus-function-bodies block is part of the contract class ID (see Spec #14, Contract Deployment). The sequencer fetches the bytecode using the contract's class ID and executes it with the calldata from the `PublicCallRequest`.
+
+#### Bytecode Commitment Verification
+
+The AVM circuit MUST verify that executed bytecode matches its committed value. The bytecode commitment is a Poseidon2 hash over the packed bytecode:
+
+1. The bytecode is encoded into 31-byte chunks represented as field elements
+2. The commitment is computed as `poseidon2_hash(DOM_SEP__PUBLIC_BYTECODE, packed_chunks...)`
+3. This commitment is an input to the contract class ID derivation: `class_id = poseidon2_hash(DOM_SEP__CONTRACT_CLASS_ID, artifact_hash, private_functions_root, public_bytecode_commitment)`
+
+During execution, when bytecode is fetched for a contract, the AVM circuit:
+
+1. Decompresses the packed bytecode into individual bytes
+2. Recomputes the Poseidon2 hash over the bytecode
+3. Asserts the result equals the `public_bytecode_commitment` associated with the contract's class ID
+4. Tracks retrieved contract class IDs in a transient indexed structure to avoid redundant verification within a transaction
+
+This verification is integrated into the AVM circuit's bytecode subtraces, not performed by a separate circuit.
 
 #### Instruction Encoding
 
@@ -432,6 +508,8 @@ Wire format: `[opcode, addressing, dstOffset, srcOffset, TAG:dstTag]`
 
 `INTERNALCALL` and `INTERNALRETURN` do NOT create new memory spaces. They are for subroutine calls within the same contract.
 
+Jump destinations (`JUMP`, `JUMPI`, `INTERNALCALL`) are always constants from the program bytecode, never values read from memory. This property enables static program analysis of AVM bytecode.
+
 #### Storage Instructions
 
 | Opcode | Wire Format | Operation | Tag Constraint | Notes |
@@ -456,7 +534,7 @@ siloed_slot = poseidon2_hash([contract_address, slot])
 | `NULLIFIEREXISTS` | Check if a nullifier exists | Reads from the nullifier tree |
 | `EMITNULLIFIER` | Emit a new nullifier | Siloed by the state manager; collision causes exceptional halt |
 | `L1TOL2MSGEXISTS` | Check if an L1-to-L2 message exists at a leaf index | Reads from the L1-to-L2 message tree |
-| `GETCONTRACTINSTANCE` | Load a contract instance's fields | Reads the deployer, class ID, init hash, and public keys |
+| `GETCONTRACTINSTANCE` | Load a contract instance's fields | Reads member by enum: DEPLOYER (0), CLASS_ID (1), INIT_HASH (2). Returns (exists: U1, value: Field) |
 
 **Note hash emission:**
 
@@ -593,19 +671,72 @@ All per-opcode gas costs are defined in Spec #2 (Constants), section "AVM Opcode
 
 The AVM interacts with world state through the `PublicPersistableStateManager`, which provides:
 
-1. **Public storage**: Key-value reads and writes against the public data tree, siloed by contract address
-2. **Note hashes**: Existence checks and emissions against the note hash tree
-3. **Nullifiers**: Existence checks and emissions against the nullifier tree, with collision detection
-4. **L1-to-L2 messages**: Existence checks against the L1-to-L2 message tree
-5. **Contract instances**: Lookups for contract deployment data
+| State | Tree | Tree Type | AVM Access |
+|---|---|---|---|
+| Public Storage | Public Data Tree | Updatable | Reads and writes (latest state) |
+| Note Hashes | Note Hash Tree | Append-only | Existence checks (start-of-block), appends |
+| Nullifiers | Nullifier Tree | Indexed | Existence checks (latest state), appends |
+| L1-to-L2 Messages | L1-to-L2 Message Tree | Append-only | Existence checks (start-of-block) |
+| Contract Instances | — | — | Lookups via nullifier tree |
+
+The AVM stages modifications rather than directly mutating Merkle trees. Staged modifications are applied after successful execution, or discarded on revert.
 
 #### State Forking
 
 On external calls, the state manager is forked. If the nested call succeeds, the fork is merged into the parent. If it reverts, the fork is discarded (state writes rolled back, but execution hints are preserved for proving).
 
+#### World State Access Tracing
+
+The AVM circuit does NOT perform Merkle tree operations directly. Instead, all world state accesses — reads, writes, existence checks, and emissions — are traced with a monotonically increasing side-effect counter. This trace is passed to downstream circuits (rollup circuits) for tree validation and updates.
+
+All world state accesses MUST be traced regardless of whether the containing call reverts. Reverted accesses are excluded from the final accumulated data but their hints are retained so the AVM circuit can prove that execution proceeded correctly up to the point of revert.
+
 #### State Siloing
 
 All storage operations are siloed to the calling contract's address. The AVM MUST NOT allow a contract to read or write another contract's storage directly. Cross-contract interaction MUST go through external calls.
+
+### AVM Circuit Architecture
+
+The AVM circuit proves correct execution of all public function calls within a transaction. It processes all nested calls within a single circuit instance. The circuit is organized into the following components:
+
+#### Bytecode Subtraces
+
+The bytecode system is decomposed into specialized subtraces:
+
+- **Bytecode Decomposition**: Stores bytecode as a stream of bytes indexed by bytecode ID (commitment) and program counter, with lookahead columns for multi-byte instruction parsing
+- **Bytecode Retrieval**: Validates contract instance lookups and associates contract addresses with their bytecode commitments
+- **Instruction Fetching**: Decodes instructions from the byte stream, validating opcode ranges and operand formats
+- **Bytecode Hashing**: Recomputes the Poseidon2 commitment over retrieved bytecode and asserts consistency with the contract class's committed value
+
+#### Execution Trace and Temporality Groups
+
+The main execution trace processes one instruction per row, organized into temporality groups that execute sequentially within each row:
+
+1. **Bytecode retrieval** — fetch the bytecode for the current contract
+2. **Instruction fetching** — decode the instruction at the current PC
+3. **Register read** — load operand values from registers
+4. **Gas checking** — verify sufficient gas and deduct costs
+5. **Opcode execution** — perform the instruction's operation
+6. **Register write** — store results back to registers
+
+#### Memory Controller
+
+The memory controller enforces read-write consistency across all memory accesses. Memory operations are recorded in a memory table sorted by `(space_id, address, timestamp)` where `timestamp = 2 * clk + rw` (ensuring reads sort before writes at the same clock cycle). Each memory access includes:
+
+- `space_id`: Identifies the memory space (each external call creates a new space)
+- `address`: 32-bit memory address
+- `value` and `tag`: The stored value and its type tag
+- `rw`: Read (0) or write (1)
+
+The controller enforces that each read returns the value and tag written by the most recent write to that address within the same memory space.
+
+#### ALU Chiplet
+
+The Arithmetic Logic Unit processes arithmetic, comparison, and bitwise sub-operations in a dedicated trace region. It receives inputs via three intermediate registers (`Ia`, `Ib`, `Ic`) and dispatches to specialized constraints based on the operation type. The ALU enforces tag consistency and produces tag-error flags for mismatches.
+
+#### Additional Chiplets
+
+Cryptographic gadgets (`POSEIDON2`, `SHA256COMPRESSION`, `KECCAKF1600`, `ECADD`) and type conversion (`CAST`, `TORADIXBE`) are implemented as dedicated chiplet subtraces, each with operation-specific constraints.
 
 ## Data Structures
 
@@ -816,6 +947,10 @@ Gas consumption can leak information about private execution. The protocol mitig
 ### Storage Collision
 
 Public storage slots are siloed by contract address using Poseidon2 hashing. This prevents a malicious contract from reading or writing another contract's storage through crafted slot values.
+
+### Proof Constructibility
+
+An honest prover MUST always be able to construct a valid proof for any AVM execution, including executions that revert or encounter exceptional halts. The AVM circuit constraints MUST be satisfiable for all possible execution paths. If the circuit were unsatisfiable for some error condition, an attacker could craft a transaction that cannot be proven, stalling the rollup.
 
 ## Open Questions
 

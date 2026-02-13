@@ -44,6 +44,12 @@ Hash functions used for nullifier derivation and commitment schemes MUST be prei
 
 **Rationale:** Preimage resistance is what prevents observers from linking nullifiers to note hashes, which is essential for transaction privacy.
 
+### R6: Pseudo-randomness
+
+Poseidon2 is assumed to be a pseudo-random function (PRF). Protocol operations that rely on this assumption include: Fiat-Shamir challenge generation, expanding a random seed to derive master secret keys, and nullifier derivation (where the output must be indistinguishable from random to prevent linkage).
+
+**Rationale:** If the hash output were distinguishable from random, an observer could potentially link nullifiers to their originating note hashes or deduce relationships between derived keys, breaking privacy guarantees.
+
 ## Specification
 
 ### Finite Field
@@ -1021,6 +1027,10 @@ Domain separators are 32-bit values derived by hashing unique strings. With ~40 
 ### Note Hash Uniqueness and Faerie Gold
 
 Without uniqueness injection, an attacker could create two identical note hashes for a victim. The victim could only nullify one (since nullifiers must be unique), losing the value of the second note. The three-layer hashing pipeline (inner → siloed → unique) prevents this by ensuring every leaf in the Note Hash Tree is globally unique.
+
+### Pseudo-randomness Assumption
+
+The protocol assumes Poseidon2 behaves as a pseudo-random function (PRF). This assumption is critical for: nullifier unlinkability (nullifier outputs must be indistinguishable from random to prevent correlation with note hashes), master key derivation (expanding a single secret into multiple independent keys), and Fiat-Shamir challenge generation. If this assumption were violated, an adversary could potentially link nullifiers to their source notes or derive relationships between protocol keys.
 
 ## Open Questions
 
