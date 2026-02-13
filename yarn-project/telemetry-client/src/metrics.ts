@@ -344,9 +344,9 @@ export const SEQUENCER_BLOCK_COUNT: MetricDefinition = {
   description: 'Number of blocks built by this sequencer',
   valueType: ValueType.INT,
 };
-export const SEQUENCER_CURRENT_BLOCK_REWARDS: MetricDefinition = {
-  name: 'aztec.sequencer.current_block_rewards',
-  description: 'The rewards earned',
+export const SEQUENCER_CURRENT_SLOT_REWARDS: MetricDefinition = {
+  name: 'aztec.sequencer.current_slot_rewards',
+  description: 'The rewards earned per filled slot',
   valueType: ValueType.DOUBLE,
 };
 export const SEQUENCER_SLOT_COUNT: MetricDefinition = {
@@ -369,12 +369,12 @@ export const SEQUENCER_CHECKPOINT_ATTESTATION_DELAY: MetricDefinition = {
 
 export const SEQUENCER_COLLECTED_ATTESTATIONS_COUNT: MetricDefinition = {
   name: 'aztec.sequencer.attestations.collected_count',
-  description: 'The number of attestations collected for a block proposal',
+  description: 'The number of attestations collected for a checkpoint proposal',
   valueType: ValueType.INT,
 };
 export const SEQUENCER_REQUIRED_ATTESTATIONS_COUNT: MetricDefinition = {
   name: 'aztec.sequencer.attestations.required_count',
-  description: 'The minimum number of attestations required to publish a block',
+  description: 'The minimum number of attestations required to publish a checkpoint',
   valueType: ValueType.INT,
 };
 export const SEQUENCER_COLLECT_ATTESTATIONS_DURATION: MetricDefinition = {
@@ -395,14 +395,42 @@ export const SEQUENCER_BLOCK_PROPOSAL_FAILED_COUNT: MetricDefinition = {
   description: 'The number of times block proposal failed (including validation builds)',
   valueType: ValueType.INT,
 };
-export const SEQUENCER_BLOCK_PROPOSAL_SUCCESS_COUNT: MetricDefinition = {
-  name: 'aztec.sequencer.block.proposal_success_count',
-  description: 'The number of times block proposal succeeded (including validation builds)',
+export const SEQUENCER_CHECKPOINT_PROPOSAL_SUCCESS_COUNT: MetricDefinition = {
+  name: 'aztec.sequencer.checkpoint.proposal_success_count',
+  description: 'The number of times checkpoint proposal succeeded',
   valueType: ValueType.INT,
 };
-export const SEQUENCER_BLOCK_PROPOSAL_PRECHECK_FAILED_COUNT: MetricDefinition = {
-  name: 'aztec.sequencer.block.proposal_precheck_failed_count',
-  description: 'The number of times block proposal pre-build checks failed',
+export const SEQUENCER_CHECKPOINT_PRECHECK_FAILED_COUNT: MetricDefinition = {
+  name: 'aztec.sequencer.checkpoint.precheck_failed_count',
+  description: 'The number of times checkpoint pre-build checks failed',
+  valueType: ValueType.INT,
+};
+export const SEQUENCER_CHECKPOINT_PROPOSAL_FAILED_COUNT: MetricDefinition = {
+  name: 'aztec.sequencer.checkpoint.proposal_failed_count',
+  description: 'The number of times checkpoint proposal failed',
+  valueType: ValueType.INT,
+};
+export const SEQUENCER_CHECKPOINT_BUILD_DURATION: MetricDefinition = {
+  name: 'aztec.sequencer.checkpoint.build_duration',
+  description: 'Total duration to build all blocks in a checkpoint',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const SEQUENCER_CHECKPOINT_BLOCK_COUNT: MetricDefinition = {
+  name: 'aztec.sequencer.checkpoint.block_count',
+  description: 'Number of blocks built in a checkpoint',
+  valueType: ValueType.INT,
+};
+export const SEQUENCER_CHECKPOINT_TX_COUNT: MetricDefinition = {
+  name: 'aztec.sequencer.checkpoint.tx_count',
+  description: 'Total number of transactions across all blocks in a checkpoint',
+  unit: 'tx',
+  valueType: ValueType.INT,
+};
+export const SEQUENCER_CHECKPOINT_TOTAL_MANA: MetricDefinition = {
+  name: 'aztec.sequencer.checkpoint.total_mana',
+  description: 'Total L2 mana used across all blocks in a checkpoint',
+  unit: 'mana',
   valueType: ValueType.INT,
 };
 export const SEQUENCER_SLASHING_ATTEMPTS_COUNT: MetricDefinition = {
