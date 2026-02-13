@@ -178,7 +178,7 @@ def api_ci_runs():
     ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000) if date_from else None
     ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000) if date_to else None
 
-    runs = metrics.get_ci_runs(r, ts_from, ts_to)
+    runs = metrics.get_ci_runs(ts_from, ts_to)
 
     if status_filter:
         runs = [run for run in runs if run.get('status') == status_filter]
@@ -197,7 +197,7 @@ def api_ci_runs():
 @auth.login_required
 def api_ci_stats():
     ts_from = int((datetime.now() - timedelta(days=7)).timestamp() * 1000)
-    runs = metrics.get_ci_runs(r, ts_from)
+    runs = metrics.get_ci_runs(ts_from)
 
     total = len(runs)
     passed = sum(1 for run in runs if run.get('status') == 'PASSED')
@@ -300,7 +300,7 @@ def api_costs_attribution():
     ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
     ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
 
-    runs = metrics.get_ci_runs(r, ts_from, ts_to)
+    runs = metrics.get_ci_runs(ts_from, ts_to)
     runs_with_cost = [run for run in runs if run.get('cost_usd') is not None]
 
     # Enrich merge queue runs with PR author from GitHub
@@ -435,7 +435,7 @@ def api_costs_runners():
     ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
     ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
 
-    runs = metrics.get_ci_runs(r, ts_from, ts_to)
+    runs = metrics.get_ci_runs(ts_from, ts_to)
     runs_with_cost = [run for run in runs if run.get('cost_usd') is not None]
     if dashboard:
         runs_with_cost = [run for run in runs_with_cost if run.get('dashboard') == dashboard]
@@ -511,7 +511,7 @@ def api_ci_performance():
     ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
     ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
 
-    runs = metrics.get_ci_runs(r, ts_from, ts_to)
+    runs = metrics.get_ci_runs(ts_from, ts_to)
     runs = [run for run in runs if run.get('status') in ('PASSED', 'FAILED')]
     if dashboard:
         runs = [run for run in runs if run.get('dashboard') == dashboard]
@@ -672,7 +672,7 @@ def api_pr_metrics():
     author = request.args.get('author', '')
     ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
     ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
-    ci_runs = metrics.get_ci_runs(r, ts_from, ts_to)
+    ci_runs = metrics.get_ci_runs(ts_from, ts_to)
     return _json(github_data.get_pr_metrics(date_from, date_to, author, ci_runs))
 
 
