@@ -131,7 +131,7 @@ M[dstOffset] = M[M[srcOffset]]    # Perform move from indirect source
 
 An out-of-bounds memory access can be encountered when:
 - An instruction operand uses relative addressing which derives a memory offset from the addition of two values (see [Addressing](addressing.md)).
-- An instruction operates on a _range_ of data (see [EMITUNENCRYPTEDLOG](opcodes/emitunencryptedlog.md))
+- An instruction operates on a _range_ of data (see [EMITPUBLICLOG](opcodes/emitpubliclog.md))
 
 When this happens, the instruction errors and execution in the current context exceptionally halts (see [Errors](./errors.md)).
 

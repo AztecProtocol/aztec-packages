@@ -58,7 +58,7 @@ namespace tx;
     pol commit da_gas_limit;
 
     // Prev side effect states
-    pol commit prev_num_unencrypted_log_fields;
+    pol commit prev_num_public_log_fields;
     pol commit prev_num_l2_to_l1_messages;
 
     // ==== READ START/END STATE FROM PI ====
@@ -210,7 +210,7 @@ namespace tx;
     };
 
     // Reset side effect states on start
-    start_tx * prev_num_unencrypted_log_fields = 0;
+    start_tx * prev_num_public_log_fields = 0;
     start_tx * prev_num_l2_to_l1_messages = 0;
 
     // Next Tree State
@@ -236,7 +236,7 @@ namespace tx;
     pol commit next_da_gas_used;
 
     // Next side effect states
-    pol commit next_num_unencrypted_log_fields;
+    pol commit next_num_public_log_fields;
     pol commit next_num_l2_to_l1_messages;
 
     pol NOT_LAST_ROW = sel * sel';
@@ -271,8 +271,8 @@ namespace tx;
     #[RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY]
     NOT_LAST_ROW * (next_retrieved_bytecodes_tree_size - prev_retrieved_bytecodes_tree_size') = 0;
 
-    #[NUM_UNENCRYPTED_LOGS_CONTINUITY]
-    NOT_LAST_ROW * (1 - reverted) * (next_num_unencrypted_log_fields - prev_num_unencrypted_log_fields') = 0;
+    #[NUM_PUBLIC_LOGS_CONTINUITY]
+    NOT_LAST_ROW * (1 - reverted) * (next_num_public_log_fields - prev_num_public_log_fields') = 0;
     #[NUM_L2_TO_L1_MESSAGES_CONTINUITY]
     NOT_LAST_ROW * (1 - reverted) * (next_num_l2_to_l1_messages - prev_num_l2_to_l1_messages') = 0;
 
@@ -299,7 +299,7 @@ namespace tx;
         prev_public_data_tree_size',
         prev_written_public_data_slots_tree_root',
         prev_written_public_data_slots_tree_size',
-        prev_num_unencrypted_log_fields',
+        prev_num_public_log_fields',
         prev_num_l2_to_l1_messages'
     } in
     tx.sel {
@@ -315,7 +315,7 @@ namespace tx;
         next_public_data_tree_size,
         next_written_public_data_slots_tree_root,
         next_written_public_data_slots_tree_size,
-        next_num_unencrypted_log_fields,
+        next_num_public_log_fields,
         next_num_l2_to_l1_messages
     };
 
@@ -334,7 +334,7 @@ namespace tx;
     pol SEL_CAN_EMIT_NULLIFIER = is_public_call_request + sel_non_revertible_append_nullifier + sel_revertible_append_nullifier;
     pol SEL_CAN_WRITE_PUBLIC_DATA = is_public_call_request + is_collect_fee;
     pol SEL_CAN_WRITE_WRITTEN_PUBLIC_DATA_SLOTS = is_public_call_request;
-    pol SEL_CAN_EMIT_UNENCRYPTED_LOG = is_public_call_request;
+    pol SEL_CAN_EMIT_PUBLIC_LOG = is_public_call_request;
     pol SEL_CAN_EMIT_L2_L1_MSG = is_public_call_request + sel_non_revertible_append_l2_l1_msg + sel_revertible_append_l2_l1_msg;
     // The 6 above selectors are booleans on active rows due to #[READ_PHASE_SPEC] and
     // mutual exclusivity of the selectors on the right-hand side.
@@ -369,8 +369,8 @@ namespace tx;
     #[WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY]
     (1 - SEL_CAN_WRITE_WRITTEN_PUBLIC_DATA_SLOTS) * (prev_written_public_data_slots_tree_size - next_written_public_data_slots_tree_size) = 0;
 
-    #[UNENCRYPTED_LOG_COUNT_IMMUTABILITY]
-    (1 - SEL_CAN_EMIT_UNENCRYPTED_LOG) * (prev_num_unencrypted_log_fields - next_num_unencrypted_log_fields) = 0;
+    #[PUBLIC_LOG_COUNT_IMMUTABILITY]
+    (1 - SEL_CAN_EMIT_PUBLIC_LOG) * (prev_num_public_log_fields - next_num_public_log_fields) = 0;
 
     #[L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY]
     (1 - SEL_CAN_EMIT_L2_L1_MSG) * (prev_num_l2_to_l1_messages - next_num_l2_to_l1_messages) = 0;
@@ -406,8 +406,8 @@ namespace tx;
 
     // The retrieved bytecodes tree is already immutable except for nonpadded call request rows
 
-    #[UNENCRYPTED_LOG_COUNT_PADDED_IMMUTABILITY]
-    is_padded * (prev_num_unencrypted_log_fields - next_num_unencrypted_log_fields) = 0;
+    #[PUBLIC_LOG_COUNT_PADDED_IMMUTABILITY]
+    is_padded * (prev_num_public_log_fields - next_num_public_log_fields) = 0;
     #[L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY]
     is_padded * (prev_num_l2_to_l1_messages - next_num_l2_to_l1_messages) = 0;
 
@@ -463,16 +463,16 @@ namespace tx;
         public_inputs.cols[0]
     };
 
-    // Write unencrypted log fields count to PI
-    pol commit fields_length_unencrypted_logs_pi_offset;
+    // Write public log fields count to PI
+    pol commit fields_length_public_logs_pi_offset;
 
     // The structure of public logs is [fields_length, ...[log_0_size, log_0_addr, ...log_0_fields, ...]]
-    is_cleanup * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX - fields_length_unencrypted_logs_pi_offset) = 0;
+    is_cleanup * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX - fields_length_public_logs_pi_offset) = 0;
 
-    #[PUBLIC_INPUTS_WRITE_UNENCRYPTED_LOG_COUNT]
+    #[PUBLIC_INPUTS_WRITE_PUBLIC_LOG_COUNT]
     is_cleanup {
-        fields_length_unencrypted_logs_pi_offset,
-        prev_num_unencrypted_log_fields
+        fields_length_public_logs_pi_offset,
+        prev_num_public_log_fields
     } in public_inputs.sel {
         precomputed.idx,
         public_inputs.cols[0]

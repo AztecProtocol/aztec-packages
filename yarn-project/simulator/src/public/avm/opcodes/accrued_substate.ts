@@ -204,10 +204,9 @@ export class L1ToL2MessageExists extends Instruction {
   }
 }
 
-export class EmitUnencryptedLog extends Instruction {
-  // TODO(#11124): rename unencrypted -> public
-  static type: string = 'EMITUNENCRYPTEDLOG';
-  static readonly opcode: Opcode = Opcode.EMITUNENCRYPTEDLOG;
+export class EmitPublicLog extends Instruction {
+  static type: string = 'EMITPUBLICLOG';
+  static readonly opcode: Opcode = Opcode.EMITPUBLICLOG;
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16, OperandType.UINT16];
 

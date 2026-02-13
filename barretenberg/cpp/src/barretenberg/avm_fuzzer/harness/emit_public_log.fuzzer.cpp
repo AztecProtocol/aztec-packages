@@ -1,4 +1,4 @@
-#include "barretenberg/vm2/simulation/gadgets/emit_unencrypted_log.hpp"
+#include "barretenberg/vm2/simulation/gadgets/emit_public_log.hpp"
 #include <cassert>
 #include <cstdint>
 
@@ -9,8 +9,8 @@
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
-#include "barretenberg/vm2/generated/relations/emit_unencrypted_log.hpp"
-#include "barretenberg/vm2/simulation/events/emit_unencrypted_log_event.hpp"
+#include "barretenberg/vm2/generated/relations/emit_public_log.hpp"
+#include "barretenberg/vm2/simulation/events/emit_public_log_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/interfaces/memory.hpp"
 #include "barretenberg/vm2/testing/instruction_builder.hpp"
@@ -18,7 +18,7 @@
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/gt_trace.hpp"
-#include "barretenberg/vm2/tracegen/opcodes/emit_unencrypted_log_trace.hpp"
+#include "barretenberg/vm2/tracegen/opcodes/emit_public_log_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -32,13 +32,13 @@ using bb::avm2::FF;
 using bb::avm2::MemoryTag;
 using bb::avm2::MemoryValue;
 
-using emit_log_rel = bb::avm2::emit_unencrypted_log<FF>;
+using emit_log_rel = bb::avm2::emit_public_log<FF>;
 
 const uint8_t default_log_fields = 16;
 // Set to slightly above the maximum size so we hit error_too_many_log_fields
 const uint32_t max_log_fields = FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH + 5;
 
-struct EmitUnencryptedLogFuzzerInput {
+struct EmitPublicLogFuzzerInput {
     AztecAddress contract_address;
     MemoryAddress log_offset = 1;
     uint32_t log_size = 0;
@@ -80,9 +80,9 @@ struct EmitUnencryptedLogFuzzerInput {
         std::memcpy(buffer + offset, &init_log_values[0], sizeof(FF) * init_log_values.size());
     }
 
-    static EmitUnencryptedLogFuzzerInput from_buffer(const uint8_t* buffer)
+    static EmitPublicLogFuzzerInput from_buffer(const uint8_t* buffer)
     {
-        EmitUnencryptedLogFuzzerInput input;
+        EmitPublicLogFuzzerInput input;
         size_t offset = 0;
         std::memcpy(&input.contract_address, buffer + offset, sizeof(input.contract_address));
         offset += sizeof(input.contract_address);
@@ -118,12 +118,11 @@ ContextEvent fill_context_event(std::unique_ptr<ContextInterface>& context)
              .pc = context->get_pc(),
              .contract_addr = context->get_address(),
              .is_static = context->get_is_static(),
-             .numUnencryptedLogFields =
-                 context->get_side_effect_tracker().get_side_effects().get_num_unencrypted_log_fields() };
+             .numPublicLogFields = context->get_side_effect_tracker().get_side_effects().get_num_public_log_fields() };
 }
 
 // TODO(MW): multiple events, std::vector<std::vector<FF>>
-std::vector<FF> generate_and_set_log_fields(const EmitUnencryptedLogFuzzerInput& input, MemoryInterface* mem)
+std::vector<FF> generate_and_set_log_fields(const EmitPublicLogFuzzerInput& input, MemoryInterface* mem)
 {
     std::vector<FF> log_fields;
     auto total_log_fields_size = input.log_size + PUBLIC_LOG_HEADER_LENGTH;
@@ -173,17 +172,17 @@ std::vector<FF> generate_and_set_log_fields(const EmitUnencryptedLogFuzzerInput&
 
 extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max_size, unsigned int seed)
 {
-    if (size < sizeof(EmitUnencryptedLogFuzzerInput)) {
+    if (size < sizeof(EmitPublicLogFuzzerInput)) {
         // Initialize with default input
-        EmitUnencryptedLogFuzzerInput input;
+        EmitPublicLogFuzzerInput input;
         input.to_buffer(data);
-        return sizeof(EmitUnencryptedLogFuzzerInput);
+        return sizeof(EmitPublicLogFuzzerInput);
     }
 
     std::mt19937_64 rng(seed);
 
     // Deserialize current input
-    EmitUnencryptedLogFuzzerInput input = EmitUnencryptedLogFuzzerInput::from_buffer(data);
+    EmitPublicLogFuzzerInput input = EmitPublicLogFuzzerInput::from_buffer(data);
 
     // Choose mutation case
     std::uniform_int_distribution<int> dist(0, 5);
@@ -229,7 +228,7 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
     case 5: {
         // Toggle error cases
         // Note that memory out of bounds and too many log fields are already covered by other mutations
-        // TODO(MW): Add more? E.g. set incorrect log_size/log_offset in emit_unencrypted_log call?
+        // TODO(MW): Add more? E.g. set incorrect log_size/log_offset in emit_public_log call?
         std::uniform_int_distribution<int> err_dist(0, 1);
         int choice = err_dist(rng);
         switch (choice) {
@@ -254,30 +253,29 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
     // Serialize mutated input back to buffer
     input.to_buffer(data);
 
-    if (max_size > sizeof(EmitUnencryptedLogFuzzerInput)) {
-        return sizeof(EmitUnencryptedLogFuzzerInput);
+    if (max_size > sizeof(EmitPublicLogFuzzerInput)) {
+        return sizeof(EmitPublicLogFuzzerInput);
     }
 
-    return sizeof(EmitUnencryptedLogFuzzerInput);
+    return sizeof(EmitPublicLogFuzzerInput);
 }
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
     using bb::avm2::MemoryValue;
 
-    if (size < sizeof(EmitUnencryptedLogFuzzerInput)) {
+    if (size < sizeof(EmitPublicLogFuzzerInput)) {
         return 0;
     }
 
-    EmitUnencryptedLogFuzzerInput input = EmitUnencryptedLogFuzzerInput::from_buffer(data);
+    EmitPublicLogFuzzerInput input = EmitPublicLogFuzzerInput::from_buffer(data);
     bool error = false;
 
     // Set up gadgets and event emitters
-    EventEmitter<EmitUnencryptedLogEvent> emit_log_emitter;
+    EventEmitter<EmitPublicLogEvent> emit_log_emitter;
 
     GadgetFuzzerContextHelper context_helper(input.contract_address, input.is_static, 1);
-    EmitUnencryptedLog emit_unencrypted_log(
-        context_helper.execution_id_manager, context_helper.greater_than, emit_log_emitter);
+    EmitPublicLog emit_public_log(context_helper.execution_id_manager, context_helper.greater_than, emit_log_emitter);
 
     auto context =
         context_helper.make_enqueued_fuzzing_context(input.contract_address, input.contract_address, input.is_static);
@@ -286,9 +284,9 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     std::vector<FF> log_fields = generate_and_set_log_fields(input, &context->get_memory());
 
     try {
-        emit_unencrypted_log.emit_unencrypted_log(
+        emit_public_log.emit_public_log(
             context->get_memory(), *context, input.contract_address, input.log_offset, input.log_size);
-    } catch (const EmitUnencryptedLogException& e) {
+    } catch (const EmitPublicLogException& e) {
         // TODO(MW): Ensure error is expected
         error = true;
     }
@@ -300,7 +298,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     FieldGreaterThanTraceBuilder field_gt_builder;
     GreaterThanTraceBuilder gt_builder;
     ExecutionTraceBuilder ex_builder;
-    EmitUnencryptedLogTraceBuilder builder;
+    EmitPublicLogTraceBuilder builder;
 
     uint32_t pi_row = AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX;
 
@@ -326,13 +324,13 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     precomputed_builder.process_misc(trace, pi_row + 1); // Need enough for public input columns
 
     // TODO(MW): Properly set these via calls (lookup changed to perm recently)
-    // TODO(MW): Set before_context_event.prev_num_unencrypted_log_fields in multiple calls
+    // TODO(MW): Set before_context_event.prev_num_public_log_fields in multiple calls
     ExecutionEvent ex_event = { .wire_instruction =
-                                    bb::avm2::testing::InstructionBuilder(WireOpCode::EMITUNENCRYPTEDLOG).build(),
+                                    bb::avm2::testing::InstructionBuilder(WireOpCode::EMITPUBLICLOG).build(),
                                 .inputs = { MemoryValue::from<uint32_t>(input.log_size) },
                                 .after_context_event = fill_context_event(context) };
     ex_builder.process({ ex_event }, trace);
-    auto exec_log_row = trace.get_column_rows(avm2::Column::execution_sel_exec_dispatch_emit_unencrypted_log);
+    auto exec_log_row = trace.get_column_rows(avm2::Column::execution_sel_exec_dispatch_emit_public_log);
     trace.set(avm2::Column::execution_rop_1_, exec_log_row - 1, input.log_offset);
     trace.set(avm2::Column::execution_register_0_, exec_log_row - 1, input.log_size);
     trace.set(avm2::Column::execution_sel_opcode_error, exec_log_row - 1, error ? 1 : 0);
@@ -349,8 +347,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     }
 
     check_relation<emit_log_rel>(trace);
-    check_all_interactions<EmitUnencryptedLogTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, bb::avm2::perm_execution_dispatch_to_emit_unencrypted_log_settings>(trace);
+    check_all_interactions<EmitPublicLogTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, bb::avm2::perm_execution_dispatch_to_emit_public_log_settings>(trace);
 
     return 0;
 }
