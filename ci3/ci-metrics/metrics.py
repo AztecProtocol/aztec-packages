@@ -32,7 +32,9 @@ def compute_run_cost(data: dict) -> float | None:
     is_spot = bool(data.get('spot'))
     rate = ec2_pricing.get_instance_rate(instance_type, is_spot)
     if not rate:
-        vcpus = data.get('instance_vcpus', 192)
+        vcpus = data.get('instance_vcpus')
+        if not vcpus:
+            return None  # unknown instance type and no vCPU data
         rate = vcpus * ec2_pricing.get_fallback_vcpu_rate(is_spot)
     return round(hours * rate, 4)
 
