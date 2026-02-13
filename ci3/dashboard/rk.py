@@ -55,7 +55,7 @@ if os.path.isdir(_ci_metrics_dir):
         _ci_metrics_env = {**os.environ, 'CI_METRICS_PORT': str(CI_METRICS_PORT)}
         subprocess.Popen(
             ['gunicorn', '-w', '1', '-b', f'0.0.0.0:{CI_METRICS_PORT}',
-             '--timeout', '120', '--preload', 'app:app'],
+             '--timeout', '120', 'app:app'],
             cwd=_ci_metrics_dir,
             env=_ci_metrics_env,
         )
