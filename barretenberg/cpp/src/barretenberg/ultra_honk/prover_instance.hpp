@@ -15,7 +15,6 @@
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/honk/composer/composer_lib.hpp"
-#include "barretenberg/honk/composer/permutation_lib.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/honk/execution_trace/ultra_execution_trace.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -40,19 +39,16 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using Polynomial = typename Flavor::Polynomial;
-    using SubrelationSeparator = typename Flavor::SubrelationSeparator;
-
     MetaData metadata; // circuit size and public inputs metadata
     // index of the last constrained wire in the execution trace; initialize to size_t::max to indicate uninitialized
     size_t final_active_wire_idx{ std::numeric_limits<size_t>::max() };
 
   public:
-    using Trace = TraceToPolynomials<Flavor>;
-
     std::vector<FF> public_inputs;
     ProverPolynomials polynomials; // the multilinear polynomials used by the prover
     WitnessCommitments commitments;
-    SubrelationSeparator alpha; // single challenge from which powers are computed for batching subrelations
+    typename Flavor::SubrelationSeparator
+        alpha; // single challenge from which powers are computed for batching subrelations
     bb::RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
 
@@ -63,8 +59,6 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
 
     CommitmentKey commitment_key;
 
-    void set_dyadic_size(size_t size) { metadata.dyadic_size = size; }
-    void set_final_active_wire_idx(size_t idx) { final_active_wire_idx = idx; }
     size_t dyadic_size() const { return metadata.dyadic_size; }
     size_t log_dyadic_size() const { return numeric::get_msb(dyadic_size()); }
     size_t pub_inputs_offset() const { return metadata.pub_inputs_offset; }
@@ -73,17 +67,11 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
         BB_ASSERT_EQ(metadata.num_public_inputs, public_inputs.size());
         return metadata.num_public_inputs;
     }
-    MetaData get_metadata() const { return metadata; }
     size_t get_final_active_wire_idx() const
     {
         BB_ASSERT(final_active_wire_idx != std::numeric_limits<size_t>::max(),
                   "final_active_wire_idx has not been initialized");
         return final_active_wire_idx;
-    }
-    /** @brief Get the size of the active trace range (0 to the final active wire index) */
-    size_t trace_active_range_size() const
-    {
-        return get_final_active_wire_idx() + 1; // +1 because index is inclusive
     }
 
     Flavor::PrecomputedData get_precomputed()
@@ -153,7 +141,7 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
 
         // Construct and add to proving key the wire, selector and copy constraint polynomials
         vinfo("populating trace...");
-        Trace::populate(circuit, polynomials);
+        TraceToPolynomials<Flavor>::populate(circuit, polynomials);
 
         {
             BB_BENCH_NAME("constructing prover instance after trace populate");
@@ -204,7 +192,8 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     ~ProverInstance_() = default;
 
   private:
-    static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
+    /** @brief Get the size of the active trace range (0 to the final active wire index) */
+    size_t trace_active_range_size() const { return get_final_active_wire_idx() + 1; }
 
     size_t compute_dyadic_size(Circuit&);
 
