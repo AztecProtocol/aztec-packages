@@ -589,7 +589,7 @@ describe('sentinel', () => {
         ts,
         nowMs: ts * 1000n,
       });
-      archiver.getL2Block.calledWith(blockNumber).mockResolvedValue(mockBlock);
+      archiver.getBlockHeader.calledWith(blockNumber).mockResolvedValue(mockBlock.header);
       archiver.getL1Constants.mockResolvedValue(l1Constants);
       epochCache.getL1Constants.mockReturnValue(l1Constants);
 

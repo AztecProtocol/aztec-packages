@@ -6,7 +6,13 @@ import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, CustomRange, StoreSize } from '@aztec/kv-store';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash, CheckpointedL2Block, L2Block, type ValidateCheckpointResult } from '@aztec/stdlib/block';
+import {
+  type BlockData,
+  BlockHash,
+  CheckpointedL2Block,
+  L2Block,
+  type ValidateCheckpointResult,
+} from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
@@ -367,6 +373,22 @@ export class KVArchiverDataStore implements ContractDataSource {
    */
   getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined> {
     return this.#blockStore.getBlockHeaderByArchive(archive);
+  }
+
+  /**
+   * Gets block metadata (without tx data) by block number.
+   * @param blockNumber - The block number to return.
+   */
+  getBlockData(blockNumber: BlockNumber): Promise<BlockData | undefined> {
+    return this.#blockStore.getBlockData(blockNumber);
+  }
+
+  /**
+   * Gets block metadata (without tx data) by archive root.
+   * @param archive - The archive root to return.
+   */
+  getBlockDataByArchive(archive: Fr): Promise<BlockData | undefined> {
+    return this.#blockStore.getBlockDataByArchive(archive);
   }
 
   /**

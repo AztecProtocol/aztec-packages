@@ -33,7 +33,14 @@ import {
 } from '@aztec/slasher';
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash, type BlockParameter, type DataInBlock, L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import {
+  type BlockData,
+  BlockHash,
+  type BlockParameter,
+  type DataInBlock,
+  L2Block,
+  type L2BlockSource,
+} from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
@@ -1104,6 +1111,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    */
   public async getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined> {
     return await this.blockSource.getBlockHeaderByArchive(archive);
+  }
+
+  public getBlockData(number: BlockNumber): Promise<BlockData | undefined> {
+    return this.blockSource.getBlockData(number);
+  }
+
+  public getBlockDataByArchive(archive: Fr): Promise<BlockData | undefined> {
+    return this.blockSource.getBlockDataByArchive(archive);
   }
 
   /**

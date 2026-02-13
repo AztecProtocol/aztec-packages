@@ -9,7 +9,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import type { P2P, PeerId } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
-import type { L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import {
@@ -18,7 +18,7 @@ import {
   computeInHashFromL1ToL2Messages,
 } from '@aztec/stdlib/messaging';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
-import { BlockHeader, type CheckpointGlobalVariables, type FailedTx, type Tx } from '@aztec/stdlib/tx';
+import type { CheckpointGlobalVariables, FailedTx, Tx } from '@aztec/stdlib/tx';
 import {
   ReExFailedTxsError,
   ReExStateMismatchError,
@@ -153,16 +153,16 @@ export class BlockProposalHandler {
     }
 
     // Check that the parent proposal is a block we know, otherwise reexecution would fail
-    const parentBlockHeader = await this.getParentBlock(proposal);
-    if (parentBlockHeader === undefined) {
+    const parentBlock = await this.getParentBlock(proposal);
+    if (parentBlock === undefined) {
       this.log.warn(`Parent block for proposal not found, skipping processing`, proposalInfo);
       return { isValid: false, reason: 'parent_block_not_found' };
     }
 
     // Check that the parent block's slot is not greater than the proposal's slot.
-    if (parentBlockHeader !== 'genesis' && parentBlockHeader.getSlot() > slotNumber) {
+    if (parentBlock !== 'genesis' && parentBlock.header.getSlot() > slotNumber) {
       this.log.warn(`Parent block slot is greater than proposal slot, skipping processing`, {
-        parentBlockSlot: parentBlockHeader.getSlot().toString(),
+        parentBlockSlot: parentBlock.header.getSlot().toString(),
         proposalSlot: slotNumber.toString(),
         ...proposalInfo,
       });
@@ -171,9 +171,9 @@ export class BlockProposalHandler {
 
     // Compute the block number based on the parent block
     const blockNumber =
-      parentBlockHeader === 'genesis'
+      parentBlock === 'genesis'
         ? BlockNumber(INITIAL_L2_BLOCK_NUM)
-        : BlockNumber(parentBlockHeader.getBlockNumber() + 1);
+        : BlockNumber(parentBlock.header.getBlockNumber() + 1);
 
     // Check that this block number does not exist already
     const existingBlock = await this.blockSource.getBlockHeader(blockNumber);
@@ -190,7 +190,7 @@ export class BlockProposalHandler {
     });
 
     // Compute the checkpoint number for this block and validate checkpoint consistency
-    const checkpointResult = await this.computeCheckpointNumber(proposal, parentBlockHeader, proposalInfo);
+    const checkpointResult = this.computeCheckpointNumber(proposal, parentBlock, proposalInfo);
     if (checkpointResult.reason) {
       return { isValid: false, blockNumber, reason: checkpointResult.reason };
     }
@@ -260,7 +260,7 @@ export class BlockProposalHandler {
     return { isValid: true, blockNumber, reexecutionResult };
   }
 
-  private async getParentBlock(proposal: BlockProposal): Promise<'genesis' | BlockHeader | undefined> {
+  private async getParentBlock(proposal: BlockProposal): Promise<'genesis' | BlockData | undefined> {
     const parentArchive = proposal.blockHeader.lastArchive.root;
     const slot = proposal.slotNumber;
     const config = this.checkpointsBuilder.getConfig();
@@ -276,12 +276,11 @@ export class BlockProposalHandler {
 
     try {
       return (
-        (await this.blockSource.getBlockHeaderByArchive(parentArchive)) ??
+        (await this.blockSource.getBlockDataByArchive(parentArchive)) ??
         (timeoutDurationMs <= 0
           ? undefined
           : await retryUntil(
-              () =>
-                this.blockSource.syncImmediate().then(() => this.blockSource.getBlockHeaderByArchive(parentArchive)),
+              () => this.blockSource.syncImmediate().then(() => this.blockSource.getBlockDataByArchive(parentArchive)),
               'force archiver sync',
               timeoutDurationMs / 1000,
               0.5,
@@ -297,12 +296,12 @@ export class BlockProposalHandler {
     }
   }
 
-  private async computeCheckpointNumber(
+  private computeCheckpointNumber(
     proposal: BlockProposal,
-    parentBlockHeader: 'genesis' | BlockHeader,
+    parentBlock: 'genesis' | BlockData,
     proposalInfo: object,
-  ): Promise<CheckpointComputationResult> {
-    if (parentBlockHeader === 'genesis') {
+  ): CheckpointComputationResult {
+    if (parentBlock === 'genesis') {
       // First block is in checkpoint 1
       if (proposal.indexWithinCheckpoint !== 0) {
         this.log.warn(`First block proposal has non-zero indexWithinCheckpoint`, proposalInfo);
@@ -311,19 +310,9 @@ export class BlockProposalHandler {
       return { checkpointNumber: CheckpointNumber.INITIAL };
     }
 
-    // Get the parent block to find its checkpoint number
-    // TODO(palla/mbps): The block header should include the checkpoint number to avoid this lookup,
-    // or at least the L2BlockSource should return a different struct that includes it.
-    const parentBlockNumber = parentBlockHeader.getBlockNumber();
-    const parentBlock = await this.blockSource.getL2Block(parentBlockNumber);
-    if (!parentBlock) {
-      this.log.warn(`Parent block ${parentBlockNumber} not found in archiver`, proposalInfo);
-      return { reason: 'invalid_proposal' };
-    }
-
     if (proposal.indexWithinCheckpoint === 0) {
       // If this is the first block in a new checkpoint, increment the checkpoint number
-      if (!(proposal.blockHeader.getSlot() > parentBlockHeader.getSlot())) {
+      if (!(proposal.blockHeader.getSlot() > parentBlock.header.getSlot())) {
         this.log.warn(`Slot should be greater than parent block slot for first block in checkpoint`, proposalInfo);
         return { reason: 'invalid_proposal' };
       }
@@ -335,7 +324,7 @@ export class BlockProposalHandler {
       this.log.warn(`Non-sequential indexWithinCheckpoint`, proposalInfo);
       return { reason: 'invalid_proposal' };
     }
-    if (proposal.blockHeader.getSlot() !== parentBlockHeader.getSlot()) {
+    if (proposal.blockHeader.getSlot() !== parentBlock.header.getSlot()) {
       this.log.warn(`Slot should be equal to parent block slot for non-first block in checkpoint`, proposalInfo);
       return { reason: 'invalid_proposal' };
     }
@@ -356,7 +345,7 @@ export class BlockProposalHandler {
    */
   private validateNonFirstBlockInCheckpoint(
     proposal: BlockProposal,
-    parentBlock: L2Block,
+    parentBlock: BlockData,
     proposalInfo: object,
   ): CheckpointComputationResult | undefined {
     const proposalGlobals = proposal.blockHeader.globalVariables;

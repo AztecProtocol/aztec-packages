@@ -10,7 +10,7 @@ import type { ContractArtifact } from '../abi/abi.js';
 import { FunctionSelector } from '../abi/function_selector.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { CheckpointedL2Block } from '../block/checkpointed_l2_block.js';
-import { BlockHash, CommitteeAttestation, L2Block } from '../block/index.js';
+import { type BlockData, BlockHash, CommitteeAttestation, L2Block } from '../block/index.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import type { ValidateCheckpointResult } from '../block/validate_block_result.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
@@ -108,6 +108,16 @@ describe('ArchiverApiSchema', () => {
   it('getBlockHeaderByArchive', async () => {
     const result = await context.client.getBlockHeaderByArchive(Fr.random());
     expect(result).toBeInstanceOf(BlockHeader);
+  });
+
+  it('getBlockData', async () => {
+    const result = await context.client.getBlockData(BlockNumber(1));
+    expect(result).toBeUndefined();
+  });
+
+  it('getBlockDataByArchive', async () => {
+    const result = await context.client.getBlockDataByArchive(Fr.random());
+    expect(result).toBeUndefined();
   });
 
   it('getBlockHeaderByHash', async () => {
@@ -452,6 +462,12 @@ class MockArchiver implements ArchiverApi {
   }
   getBlockHeaderByArchive(_archive: Fr): Promise<BlockHeader | undefined> {
     return Promise.resolve(BlockHeader.empty());
+  }
+  getBlockData(_number: BlockNumber): Promise<BlockData | undefined> {
+    return Promise.resolve(undefined);
+  }
+  getBlockDataByArchive(_archive: Fr): Promise<BlockData | undefined> {
+    return Promise.resolve(undefined);
   }
   getL2Block(number: BlockNumber): Promise<L2Block | undefined> {
     return L2Block.random(number);
