@@ -446,6 +446,7 @@ dependencies = [
  "ark-ff",
  "ark-grumpkin",
  "hex",
+ "lazy_static",
 ]
 
 [[package]]
