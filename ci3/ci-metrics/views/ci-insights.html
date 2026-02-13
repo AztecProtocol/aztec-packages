@@ -22,6 +22,15 @@
     .msg { color:#888; padding:8px 0; }
     .msg.err { color:#f85149; }
 
+    /* Tabs */
+    .tabs { display:flex; gap:0; margin:12px 0 0 0; }
+    .tab { background:#111; border:1px solid #333; border-bottom:none; color:#888;
+      font-family:monospace; font-size:13px; padding:6px 16px; cursor:pointer; }
+    .tab:hover { color:#ccc; }
+    .tab.active { background:#0a0a0a; color:#fff; border-color:#58a6ff; border-bottom:1px solid #0a0a0a; position:relative; z-index:1; }
+    .tab-content { display:none; border:1px solid #333; border-top:1px solid #333; padding:12px; background:#0a0a0a; margin-top:-1px; }
+    .tab-content.active { display:block; }
+
     /* KPI strip */
     .kpi-strip { display:flex; gap:12px; margin:16px 0; flex-wrap:wrap; }
     .kpi { background:#0a0a0a; border:1px solid #222; padding:12px 16px; flex:1; min-width:180px; max-height:120px; overflow:hidden; }
@@ -53,7 +62,19 @@
     .amt { font-variant-numeric:tabular-nums; text-align:right; }
     th.amt { text-align:right; }
     .detail-scroll { max-height:500px; overflow:auto; }
+    .detail-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .detail-table th { text-align:left; padding:4px 6px; border-bottom:1px solid #333; color:#888; white-space:nowrap; position:sticky; top:0; background:#0a0a0a; }
+    .detail-table td { padding:4px 6px; border-bottom:1px solid #111; white-space:nowrap; }
+    .detail-table .amt { text-align:right; font-variant-numeric:tabular-nums; }
+    .detail-table th.amt { text-align:right; }
+    .stats { margin:12px 0; color:#888; }
+    .stats span { color:#ccc; }
 
+    /* Test details */
+    .cmd { max-width:500px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .pass { color:#3fb950; }
+    .fail { color:#f85149; }
+    .flake { color:#d29922; }
   </style>
 </head>
 <body>
@@ -62,7 +83,6 @@
     <a href="/cost-overview">cost overview</a>
     <a href="/namespace-billing">namespace billing</a>
     <a href="/ci-insights" class="active">ci insights</a>
-    <a href="/test-timings">test timings</a>
   </div>
 
   <h2 style="margin:8px 0;color:#ccc;">ci insights <span id="period-label" style="font-size:12px;color:#666;font-weight:normal"></span></h2>
@@ -83,69 +103,166 @@
   </div>
 
   <div id="msg" class="msg"></div>
-  <div id="pipeline-filter" style="display:none; margin:8px 0; padding:6px 12px; background:#1a1a2e; border:1px solid #58a6ff; align-items:center; gap:8px; font-size:13px;">
-    filtered to pipeline: <span id="pf-name" style="color:#fff;font-weight:bold"></span>
-    <span id="pf-clear" style="cursor:pointer;color:#888;margin-left:8px">[clear]</span>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="overview">Overview</div>
+    <div class="tab" data-tab="test-details">Test Details</div>
+    <div class="tab" data-tab="attribution">Attribution</div>
   </div>
 
-  <!-- KPI strip -->
-  <div class="kpi-strip" id="kpis">
-    <div class="kpi"><div class="label">daily ci spend</div><div class="value" id="kv-spend">--</div><canvas class="spark" id="ks-spend"></canvas></div>
-    <div class="kpi"><div class="label">cost / merge</div><div class="value" id="kv-cpm">--</div><canvas class="spark" id="ks-cpm"></canvas></div>
-    <div class="kpi"><div class="label">mq success rate</div><div class="value" id="kv-mq">--</div><canvas class="spark" id="ks-mq"></canvas></div>
-    <div class="kpi"><div class="label">flakes / day</div><div class="value" id="kv-flakes">--</div><canvas class="spark" id="ks-flakes"></canvas></div>
-    <div class="kpi"><div class="label">prs merged / day</div><div class="value" id="kv-prs">--</div><canvas class="spark" id="ks-prs"></canvas></div>
-  </div>
-
-  <!-- Charts -->
-  <div class="charts">
-    <div class="chart-box full">
-      <h3>daily ci cost + 7-day rolling cost per merge</h3>
-      <div class="chart-wrap tall"><canvas id="costChart"></canvas></div>
+  <!-- ============ TAB: Overview ============ -->
+  <div class="tab-content active" id="tab-overview">
+    <div id="pipeline-filter" style="display:none; margin:8px 0; padding:6px 12px; background:#1a1a2e; border:1px solid #58a6ff; align-items:center; gap:8px; font-size:13px;">
+      filtered to pipeline: <span id="pf-name" style="color:#fff;font-weight:bold"></span>
+      <span id="pf-clear" style="cursor:pointer;color:#888;margin-left:8px">[clear]</span>
     </div>
-    <div class="chart-box">
-      <h3>merge queue: daily outcomes + success rate</h3>
-      <div class="chart-wrap med"><canvas id="mqChart"></canvas></div>
+
+    <div class="kpi-strip" id="kpis">
+      <div class="kpi"><div class="label">mq success rate</div><div class="value" id="kv-mq">--</div><canvas class="spark" id="ks-mq"></canvas></div>
+      <div class="kpi"><div class="label">flakes / day</div><div class="value" id="kv-flakes">--</div><canvas class="spark" id="ks-flakes"></canvas></div>
+      <div class="kpi"><div class="label">prs merged / day</div><div class="value" id="kv-prs">--</div><canvas class="spark" id="ks-prs"></canvas></div>
     </div>
-    <div class="chart-box">
-      <h3>test outcomes per day</h3>
-      <div class="chart-wrap med"><canvas id="flakeChart"></canvas></div>
+
+    <div class="charts">
+      <div class="chart-box">
+        <h3>merge queue: daily outcomes + success rate</h3>
+        <div class="chart-wrap med"><canvas id="mqChart"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <h3>test outcomes per day</h3>
+        <div class="chart-wrap med"><canvas id="flakeChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="section-title">flakes by pipeline</div>
+    <div class="detail-scroll">
+      <table>
+        <thead id="flake-thead"><tr></tr></thead>
+        <tbody id="flake-tbody"></tbody>
+      </table>
     </div>
   </div>
 
-  <!-- Flake cost ranking table -->
-  <div class="section-title">flakes by pipeline</div>
-  <div class="detail-scroll">
-    <table>
-      <thead id="flake-thead"><tr></tr></thead>
-      <tbody id="flake-tbody"></tbody>
-    </table>
+  <!-- ============ TAB: Test Details ============ -->
+  <div class="tab-content" id="tab-test-details">
+    <div style="margin:8px 0; display:flex; gap:12px; align-items:center;">
+      <label style="color:#888">pipeline</label>
+      <select id="ttDashboard">
+        <option value="">all</option>
+        <option value="prs">prs</option>
+        <option value="next">next</option>
+        <option value="master">master</option>
+      </select>
+      <label style="color:#888">status</label>
+      <select id="ttStatus">
+        <option value="">all</option>
+        <option value="passed">passed</option>
+        <option value="failed">failed</option>
+        <option value="flaked">flaked</option>
+      </select>
+    </div>
+    <div id="ttMsg" class="msg"></div>
+    <div class="kpi-strip" id="ttKpis"></div>
+    <div class="charts">
+      <div class="chart-box full">
+        <h3>avg duration by day</h3>
+        <div class="chart-wrap" id="ttChartDuration"></div>
+      </div>
+      <div class="chart-box full">
+        <h3>test run count by day</h3>
+        <div class="chart-wrap" id="ttChartCount"></div>
+      </div>
+    </div>
+    <h3 style="color:#888;font-size:12px;text-transform:uppercase;margin:24px 0 8px 0;">tests by duration</h3>
+    <div class="detail-scroll">
+      <table id="ttTestTable">
+        <thead>
+          <tr>
+            <th>test command</th>
+            <th class="amt">runs</th>
+            <th class="amt">avg (s)</th>
+            <th class="amt">min (s)</th>
+            <th class="amt">max (s)</th>
+            <th class="amt">total (h)</th>
+            <th class="amt">pass %</th>
+            <th class="amt">passed</th>
+            <th class="amt">failed</th>
+            <th class="amt">flaked</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <h3 style="color:#888;font-size:12px;text-transform:uppercase;margin:24px 0 8px 0;">slowest individual runs</h3>
+    <div class="detail-scroll">
+      <table id="ttSlowestTable">
+        <thead>
+          <tr>
+            <th>test command</th>
+            <th class="amt">duration (s)</th>
+            <th>status</th>
+            <th>date</th>
+            <th>author</th>
+            <th>pipeline</th>
+            <th>log</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 
-  <!-- Author CI profile table -->
-  <div class="section-title">author ci profile</div>
-  <div class="detail-scroll">
-    <table>
-      <thead id="author-thead"><tr></tr></thead>
-      <tbody id="author-tbody"></tbody>
-    </table>
+  <!-- ============ TAB: Attribution ============ -->
+  <div class="tab-content" id="tab-attribution">
+    <div class="stats" id="attr-stats"></div>
+    <div id="attr-user-filter" style="display:none; margin:8px 0; padding:6px 12px; background:#1a1a2e; border:1px solid #58a6ff; align-items:center; gap:8px; font-size:13px;">
+      filtered to user: <span id="attr-uf-name" style="color:#fff;font-weight:bold"></span>
+      <span id="attr-uf-clear" style="cursor:pointer;color:#888;margin-left:8px">[clear]</span>
+    </div>
+    <div id="attr-msg" class="msg"></div>
+    <div class="charts">
+      <div class="chart-box full">
+        <h3>ci cost by run type (time series)</h3>
+        <div class="chart-wrap tall"><canvas id="attrTimeSeries"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <h3>cost by user (AWS + GCP)</h3>
+        <div class="chart-wrap" style="height:400px"><canvas id="userBar"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <h3>cost by run type</h3>
+        <div class="chart-wrap med"><canvas id="typeDonut"></canvas></div>
+      </div>
+    </div>
+
+    <div class="section-title">author ci profile</div>
+    <div class="detail-scroll">
+      <table>
+        <thead id="author-thead"><tr></tr></thead>
+        <tbody id="author-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="section-title">instances</div>
+    <div class="detail-scroll" style="max-height:500px">
+      <table class="detail-table">
+        <thead id="attr-thead"><tr></tr></thead>
+        <tbody id="attr-tbody"></tbody>
+      </table>
+    </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <script>
     Chart.defaults.color = '#888';
     Chart.defaults.font.family = 'monospace';
 
-    // State
-    let costData = null, mqData = null, perfData = null, flakeData = null, prData = null;
+    // ---- Shared state ----
     let charts = {};
     let sparkCharts = {};
-    let flakeSort = { col: 'count', dir: 'desc' };
-    let authorSort = { col: 'total_cost', dir: 'desc' };
     let pipelineFilter = '';
 
     function granularity() { return document.querySelector('[data-g].active').dataset.g; }
-
     const fmt = v => v == null ? '--' : v >= 1000 ? '$' + v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : v >= 1 ? '$' + v.toFixed(2) : '$' + v.toFixed(4);
     const fmtDate = s => { const d = new Date(s + 'T00:00:00'); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
     const escapeHtml = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
@@ -168,7 +285,6 @@
       return `<span class="delta ${cls}">${sign}${d.pct.toFixed(0)}%</span>`;
     }
 
-    // Sparkline: tiny Chart.js line, no axes, no labels
     function spark(canvasId, values, color) {
       if (sparkCharts[canvasId]) sparkCharts[canvasId].destroy();
       const ctx = document.getElementById(canvasId);
@@ -188,8 +304,14 @@
       });
     }
 
-    // ---- Data loading ----
-    async function load() {
+    // ==================================================================
+    //  TAB 1: Overview
+    // ==================================================================
+    let mqData = null, perfData = null, flakeData = null, prData = null;
+    let flakeSort = { col: 'count', dir: 'desc' };
+    let authorSort = { col: 'total_cost', dir: 'desc' };
+
+    async function loadOverview() {
       const el = document.getElementById('msg');
       el.className = 'msg'; el.textContent = 'loading...';
       const f = document.getElementById('dateFrom').value;
@@ -197,7 +319,6 @@
       const g = granularity();
       const pf = pipelineFilter ? `&dashboard=${encodeURIComponent(pipelineFilter)}` : '';
 
-      // Show/hide pipeline filter indicator
       const pfEl = document.getElementById('pipeline-filter');
       if (pipelineFilter) {
         pfEl.style.display = 'inline-flex';
@@ -207,83 +328,40 @@
       }
 
       try {
-        const [costResp, mqResp, perfResp, flakeResp, prResp] = await Promise.all([
-          fetch(`/api/costs/runners?from=${f}&to=${t}&granularity=${g}${pf}`),
+        const [mqResp, perfResp, flakeResp, prResp] = await Promise.all([
           fetch(`/api/merge-queue/stats?from=${f}&to=${t}`),
           fetch(`/api/ci/performance?from=${f}&to=${t}&granularity=${g}${pf}`),
           fetch(`/api/ci/flakes-by-command?from=${f}&to=${t}${pf}`),
           fetch(`/api/prs/metrics?from=${f}&to=${t}`),
         ]);
-
-        [costData, mqData, perfData, flakeData, prData] = await Promise.all([
-          costResp.json(), mqResp.json(), perfResp.json(), flakeResp.json(), prResp.json()
+        [mqData, perfData, flakeData, prData] = await Promise.all([
+          mqResp.json(), perfResp.json(), flakeResp.json(), prResp.json()
         ]);
-
         el.textContent = '';
-        render();
+        renderOverview();
       } catch (e) {
-        el.className = 'msg err';
-        el.textContent = 'error: ' + e.message;
+        el.className = 'msg err'; el.textContent = 'error: ' + e.message;
       }
     }
 
-    // ---- Render everything ----
-    function render() {
-      Object.values(charts).forEach(c => c.destroy());
-      charts = {};
+    function renderOverview() {
+      // Destroy overview charts
+      ['mq', 'flake'].forEach(k => { if (charts[k]) { charts[k].destroy(); delete charts[k]; } });
 
-      // Show period
-      const period = perfData?.period || costData?.period;
-      if (period) {
-        document.getElementById('period-label').textContent = `(${period.from} to ${period.to})`;
-      }
+      const period = perfData?.period;
+      if (period) document.getElementById('period-label').textContent = `(${period.from} to ${period.to})`;
 
       renderKPIs();
-      renderCostChart();
       renderMQChart();
       renderFlakeChart();
       renderFlakeTable();
-      renderAuthorTable();
-      saveUrl();
     }
 
-    // ---- KPI strip ----
     function renderKPIs() {
-      const costByDate = costData?.by_date || [];
       const mqByDate = mqData?.by_date || [];
       const perfByDate = perfData?.by_date || [];
       const prByDate = prData?.by_date || [];
-      const days = costByDate.length || 1;
-
-      // Daily CI spend
-      const dailyCosts = costByDate.map(d => d.total || 0);
-      const totalCost = dailyCosts.reduce((s, v) => s + v, 0);
-      const avgDailySpend = totalCost / days;
-      document.getElementById('kv-spend').innerHTML = fmt(avgDailySpend) + deltaHtml(dailyCosts);
-      spark('ks-spend', dailyCosts, '#58a6ff');
-
-      // Cost per merge (rolling)
-      const prMergedByDate = {};
-      prByDate.forEach(d => { prMergedByDate[d.date] = d.pr_count || 0; });
-      const costByDateMap = {};
-      costByDate.forEach(d => { costByDateMap[d.date] = d.total || 0; });
-      const allDates = [...new Set([...Object.keys(prMergedByDate), ...Object.keys(costByDateMap)])].sort();
-      let totalMerged = 0;
-      allDates.forEach(date => { totalMerged += prMergedByDate[date] || 0; });
-      const avgCPM = totalMerged > 0 ? totalCost / totalMerged : null;
-      // Per-day cost-per-merge for sparkline (7d rolling)
-      const cpmSpark = [];
-      for (let i = 0; i < allDates.length; i++) {
-        let windowCost = 0, windowMerged = 0;
-        for (let j = Math.max(0, i - 6); j <= i; j++) {
-          windowCost += costByDateMap[allDates[j]] || 0;
-          windowMerged += prMergedByDate[allDates[j]] || 0;
-        }
-        cpmSpark.push(windowMerged > 0 ? windowCost / windowMerged : null);
-      }
-      const cpmFiltered = cpmSpark.filter(v => v !== null);
-      document.getElementById('kv-cpm').innerHTML = (avgCPM != null ? fmt(avgCPM) : '--') + (cpmFiltered.length > 2 ? deltaHtml(cpmFiltered) : '');
-      spark('ks-cpm', cpmFiltered, '#d2a8ff');
+      const days = perfByDate.length || 1;
 
       // MQ success rate
       const mqRates = mqByDate.map(d => d.total > 0 ? 100 * d.success / d.total : null).filter(v => v !== null);
@@ -296,82 +374,20 @@
       // Flakes per day
       const flakeCounts = perfByDate.map(d => d.flake_count || 0);
       const totalFlakes = flakeCounts.reduce((s, v) => s + v, 0);
-      const avgFlakes = (totalFlakes / days).toFixed(1);
-      document.getElementById('kv-flakes').innerHTML = avgFlakes + deltaHtml(flakeCounts);
+      document.getElementById('kv-flakes').innerHTML = (totalFlakes / days).toFixed(1) + deltaHtml(flakeCounts);
       spark('ks-flakes', flakeCounts, '#f0883e');
 
       // PRs merged per day
       const prCounts = prByDate.map(d => d.pr_count || 0);
       const totalPRs = prCounts.reduce((s, v) => s + v, 0);
-      const avgPRs = (totalPRs / days).toFixed(1);
-      document.getElementById('kv-prs').innerHTML = avgPRs + (prCounts.length > 2 ? deltaHtml(prCounts, true) : '');
+      document.getElementById('kv-prs').innerHTML = (totalPRs / days).toFixed(1) + (prCounts.length > 2 ? deltaHtml(prCounts, true) : '');
       spark('ks-prs', prCounts, '#56d364');
     }
 
-    // ---- Cost chart with rolling CPM overlay ----
-    function renderCostChart() {
-      const costByDate = costData?.by_date || [];
-      const prByDate = prData?.by_date || [];
-      const prMergedByDate = {};
-      prByDate.forEach(d => { prMergedByDate[d.date] = d.pr_count || 0; });
-
-      const dates = costByDate.map(d => d.date);
-      const spotCosts = costByDate.map(d => d.spot_cost || 0);
-      const odCosts = costByDate.map(d => d.ondemand_cost || 0);
-
-      // 7-day rolling cost per merge
-      const cpmLine = [];
-      for (let i = 0; i < dates.length; i++) {
-        let wCost = 0, wMerged = 0;
-        for (let j = Math.max(0, i - 6); j <= i; j++) {
-          wCost += (costByDate[j]?.total || 0);
-          wMerged += (prMergedByDate[dates[j]] || 0);
-        }
-        cpmLine.push(wMerged > 0 ? wCost / wMerged : null);
-      }
-
-      charts.cost = new Chart(document.getElementById('costChart').getContext('2d'), {
-        data: {
-          labels: dates.map(fmtDate),
-          datasets: [
-            { type: 'bar', label: 'Spot', data: spotCosts, backgroundColor: '#3fb950', stack: 'cost', borderWidth: 0, order: 2 },
-            { type: 'bar', label: 'On-Demand', data: odCosts, backgroundColor: '#58a6ff', stack: 'cost', borderWidth: 0, order: 2 },
-            { type: 'line', label: 'Cost/Merge (7d)', data: cpmLine, borderColor: '#d2a8ff', borderWidth: 2, pointRadius: 0, tension: 0.3, yAxisID: 'y1', order: 1, spanGaps: true },
-          ]
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          interaction: { mode: 'index', intersect: false },
-          scales: {
-            x: { stacked: true, ticks: { color: '#555', maxRotation: 45 }, grid: { color: '#181818' } },
-            y: { stacked: true, position: 'left', beginAtZero: true, ticks: { color: '#555', callback: v => '$' + v }, grid: { color: '#181818' } },
-            y1: { position: 'right', beginAtZero: true, suggestedMax: Math.max(...cpmLine.filter(v => v != null), 0) * 1.15 || 100, ticks: { color: '#d2a8ff', callback: v => '$' + Math.round(v) }, grid: { display: false } }
-          },
-          plugins: {
-            legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },
-            tooltip: {
-              callbacks: {
-                label: c => {
-                  if (c.dataset.type === 'line') return `${c.dataset.label}: ${c.raw != null ? fmt(c.raw) : '--'}`;
-                  return `${c.dataset.label}: ${fmt(c.raw)}`;
-                },
-                footer: items => {
-                  const bars = items.filter(i => i.dataset.type === 'bar');
-                  return bars.length ? `total: ${fmt(bars.reduce((s, i) => s + i.raw, 0))}` : '';
-                }
-              }
-            }
-          }
-        }
-      });
-    }
-
-    // ---- Merge queue chart ----
     function renderMQChart() {
       const byDate = mqData?.by_date || [];
       const dates = byDate.map(d => d.date);
       const successRate = byDate.map(d => d.total > 0 ? 100 * d.success / d.total : null);
-
       charts.mq = new Chart(document.getElementById('mqChart').getContext('2d'), {
         data: {
           labels: dates.map(fmtDate),
@@ -393,24 +409,15 @@
           },
           plugins: {
             legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },
-            tooltip: {
-              callbacks: {
-                label: c => {
-                  if (c.dataset.label === 'Success %') return `${c.dataset.label}: ${c.raw != null ? c.raw.toFixed(1) + '%' : '--'}`;
-                  return `${c.dataset.label}: ${c.raw}`;
-                }
-              }
-            }
+            tooltip: { callbacks: { label: c => c.dataset.label === 'Success %' ? `${c.dataset.label}: ${c.raw != null ? c.raw.toFixed(1) + '%' : '--'}` : `${c.dataset.label}: ${c.raw}` } }
           }
         }
       });
     }
 
-    // ---- Test outcomes chart (successes + flakes + failures) ----
     function renderFlakeChart() {
       const byDate = perfData?.by_date || [];
       const dates = byDate.map(d => d.date);
-
       charts.flake = new Chart(document.getElementById('flakeChart').getContext('2d'), {
         data: {
           labels: dates.map(fmtDate),
@@ -431,20 +438,12 @@
           },
           plugins: {
             legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },
-            tooltip: {
-              callbacks: {
-                label: c => {
-                  if (c.dataset.type === 'line') return `${c.dataset.label}: ${c.raw != null ? c.raw.toFixed(1) + '%' : '--'}`;
-                  return `${c.dataset.label}: ${c.raw}`;
-                }
-              }
-            }
+            tooltip: { callbacks: { label: c => c.dataset.type === 'line' ? `${c.dataset.label}: ${c.raw != null ? c.raw.toFixed(1) + '%' : '--'}` : `${c.dataset.label}: ${c.raw}` } }
           }
         }
       });
     }
 
-    // ---- Flakes table ----
     function renderFlakeTable() {
       const cmds = flakeData?.by_command || [];
       if (!cmds.length) {
@@ -452,166 +451,403 @@
         document.querySelector('#flake-thead tr').innerHTML = '';
         return;
       }
-
       if (pipelineFilter) {
-        // Filtered: show individual test commands within this pipeline
-        const allTests = cmds.flatMap(c => (c.top_tests || []).map(t => ({
-          test_cmd: t.test_cmd || '',
-          count: t.count || 0,
-        })));
-        const hdrs = [
-          { k: 'test_cmd', l: 'Test Command' },
-          { k: 'count', l: 'Flakes', cls: 'amt' },
-        ];
-        const tr = document.querySelector('#flake-thead tr');
-        tr.innerHTML = '';
-        hdrs.forEach(h => {
-          const th = document.createElement('th');
-          th.textContent = h.l;
-          if (h.cls) th.className = h.cls;
-          th.onclick = () => {
-            flakeSort = flakeSort.col === h.k ? { col: h.k, dir: flakeSort.dir === 'asc' ? 'desc' : 'asc' } : { col: h.k, dir: 'desc' };
-            renderTestRows(allTests);
-          };
-          tr.appendChild(th);
-        });
+        const allTests = cmds.flatMap(c => (c.top_tests || []).map(t => ({ test_cmd: t.test_cmd || '', count: t.count || 0 })));
+        const hdrs = [{ k: 'test_cmd', l: 'Test Command' }, { k: 'count', l: 'Flakes', cls: 'amt' }];
+        const tr = document.querySelector('#flake-thead tr'); tr.innerHTML = '';
+        hdrs.forEach(h => { const th = document.createElement('th'); th.textContent = h.l; if (h.cls) th.className = h.cls; th.onclick = () => { flakeSort = flakeSort.col === h.k ? { col: h.k, dir: flakeSort.dir === 'asc' ? 'desc' : 'asc' } : { col: h.k, dir: 'desc' }; renderTestRows(allTests); }; tr.appendChild(th); });
         renderTestRows(allTests);
       } else {
-        // Unfiltered: show pipelines, clickable to filter
-        const rows = cmds.map(c => ({
-          pipeline: c.command || '',
-          count: c.total_flakes || 0,
-          failures: c.total_failures || 0,
-        }));
-        const hdrs = [
-          { k: 'pipeline', l: 'Pipeline' },
-          { k: 'count', l: 'Flakes', cls: 'amt' },
-          { k: 'failures', l: 'Failures', cls: 'amt' },
-        ];
-        const tr = document.querySelector('#flake-thead tr');
-        tr.innerHTML = '';
-        hdrs.forEach(h => {
-          const th = document.createElement('th');
-          th.textContent = h.l;
-          if (h.cls) th.className = h.cls;
-          th.onclick = () => {
-            flakeSort = flakeSort.col === h.k ? { col: h.k, dir: flakeSort.dir === 'asc' ? 'desc' : 'asc' } : { col: h.k, dir: 'desc' };
-            renderPipelineRows(rows);
-          };
-          tr.appendChild(th);
-        });
+        const rows = cmds.map(c => ({ pipeline: c.command || '', count: c.total_flakes || 0, failures: c.total_failures || 0 }));
+        const hdrs = [{ k: 'pipeline', l: 'Pipeline' }, { k: 'count', l: 'Flakes', cls: 'amt' }, { k: 'failures', l: 'Failures', cls: 'amt' }];
+        const tr = document.querySelector('#flake-thead tr'); tr.innerHTML = '';
+        hdrs.forEach(h => { const th = document.createElement('th'); th.textContent = h.l; if (h.cls) th.className = h.cls; th.onclick = () => { flakeSort = flakeSort.col === h.k ? { col: h.k, dir: flakeSort.dir === 'asc' ? 'desc' : 'asc' } : { col: h.k, dir: 'desc' }; renderPipelineRows(rows); }; tr.appendChild(th); });
         renderPipelineRows(rows);
       }
     }
 
     function renderPipelineRows(rows) {
-      rows.sort((a, b) => {
-        const col = flakeSort.col;
-        let av = a[col], bv = b[col];
-        if (typeof av === 'string') return flakeSort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
-        return flakeSort.dir === 'asc' ? (av || 0) - (bv || 0) : (bv || 0) - (av || 0);
-      });
-
+      rows.sort((a, b) => { const col = flakeSort.col; let av = a[col], bv = b[col]; if (typeof av === 'string') return flakeSort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av); return flakeSort.dir === 'asc' ? (av||0)-(bv||0) : (bv||0)-(av||0); });
       document.getElementById('flake-tbody').innerHTML = rows.map((r, i) =>
-        `<tr style="cursor:pointer" data-idx="${i}">` +
-        `<td>${escapeHtml(r.pipeline)}</td>` +
-        `<td class="amt" style="color:#f0883e">${r.count}</td>` +
-        `<td class="amt" style="color:#f85149">${r.failures}</td>` +
-        `</tr>`
+        `<tr style="cursor:pointer" data-idx="${i}"><td>${escapeHtml(r.pipeline)}</td><td class="amt" style="color:#f0883e">${r.count}</td><td class="amt" style="color:#f85149">${r.failures}</td></tr>`
       ).join('');
-
       document.querySelectorAll('#flake-tbody tr').forEach(tr => {
-        tr.onclick = () => {
-          const row = rows[parseInt(tr.dataset.idx)];
-          if (row.pipeline) {
-            pipelineFilter = row.pipeline;
-            load();
-          }
-        };
+        tr.onclick = () => { const row = rows[parseInt(tr.dataset.idx)]; if (row.pipeline) { pipelineFilter = row.pipeline; loadOverview(); } };
       });
     }
 
     function renderTestRows(rows) {
-      rows.sort((a, b) => {
-        const col = flakeSort.col;
-        let av = a[col], bv = b[col];
-        if (typeof av === 'string') return flakeSort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
-        return flakeSort.dir === 'asc' ? (av || 0) - (bv || 0) : (bv || 0) - (av || 0);
-      });
-
+      rows.sort((a, b) => { const col = flakeSort.col; let av = a[col], bv = b[col]; if (typeof av === 'string') return flakeSort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av); return flakeSort.dir === 'asc' ? (av||0)-(bv||0) : (bv||0)-(av||0); });
       document.getElementById('flake-tbody').innerHTML = rows.map(r =>
-        `<tr>` +
-        `<td>${escapeHtml(r.test_cmd)}</td>` +
-        `<td class="amt" style="color:#f0883e">${r.count}</td>` +
-        `</tr>`
+        `<tr><td>${escapeHtml(r.test_cmd)}</td><td class="amt" style="color:#f0883e">${r.count}</td></tr>`
       ).join('');
     }
 
-    // ---- Author CI profile table ----
-    function renderAuthorTable() {
-      const authors = prData?.by_author || [];
-      if (!authors.length) {
-        document.getElementById('author-tbody').innerHTML = '<tr><td colspan="6" style="color:#888">no PR data</td></tr>';
-        return;
+    // ==================================================================
+    //  TAB 2: Test Details (from test-timings)
+    // ==================================================================
+    let ttData = null;
+
+    async function ttLoad() {
+      const el = document.getElementById('ttMsg');
+      el.className = 'msg'; el.textContent = 'loading...';
+      const p = new URLSearchParams({
+        from: document.getElementById('dateFrom').value,
+        to: document.getElementById('dateTo').value,
+        dashboard: document.getElementById('ttDashboard').value,
+        status: document.getElementById('ttStatus').value,
+      });
+      try {
+        const r = await fetch('/api/tests/timings?' + p);
+        if (!r.ok) throw new Error(r.statusText);
+        ttData = await r.json();
+        el.textContent = '';
+        ttRender();
+      } catch (e) {
+        el.className = 'msg err'; el.textContent = 'error: ' + e.message;
+      }
+    }
+
+    function ttRender() {
+      if (!ttData) return;
+      // Destroy old charts
+      ['ttDuration', 'ttCount'].forEach(k => { if (charts[k]) { charts[k].destroy(); delete charts[k]; } });
+
+      const s = ttData.summary;
+      const fmtN = v => v == null ? '-' : v.toLocaleString();
+      const fmtH = secs => secs == null ? '-' : (secs / 3600).toFixed(1);
+      const kpi = (label, value) => `<div class="kpi"><div class="label">${label}</div><div class="value">${value}</div></div>`;
+
+      document.getElementById('ttKpis').innerHTML = [
+        kpi('total runs', fmtN(s.total_runs)),
+        kpi('avg duration', s.avg_duration_secs != null ? s.avg_duration_secs + 's' : '-'),
+        kpi('max duration', s.max_duration_secs != null ? s.max_duration_secs + 's' : '-'),
+        kpi('total compute', fmtH(s.total_compute_secs) + 'h'),
+        kpi('passed', `<span class="pass">${fmtN(s.passed)}</span>`),
+        kpi('failed', `<span class="fail">${fmtN(s.failed)}</span>`),
+        kpi('flaked', `<span class="flake">${fmtN(s.flaked)}</span>`),
+      ].join('');
+
+      const dates = ttData.by_date.map(r => r.date);
+
+      // Duration chart
+      const durEl = document.getElementById('ttChartDuration');
+      durEl.innerHTML = '';
+      const durCanvas = document.createElement('canvas');
+      durEl.appendChild(durCanvas);
+      charts.ttDuration = new Chart(durCanvas, {
+        type: 'line',
+        data: {
+          labels: dates,
+          datasets: [
+            { label: 'avg (s)', data: ttData.by_date.map(r => r.avg_secs), borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.1)', fill: true, tension: 0.3, pointRadius: 1 },
+            { label: 'max (s)', data: ttData.by_date.map(r => r.max_secs), borderColor: '#f8514966', borderDash: [4, 4], tension: 0.3, pointRadius: 0 },
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: true, labels: { color: '#888', font: { family: 'monospace', size: 11 } } } },
+          scales: { x: { ticks: { color: '#555' }, grid: { color: '#111' } }, y: { ticks: { color: '#555' }, grid: { color: '#111' } } },
+        }
+      });
+
+      // Count chart
+      const cntEl = document.getElementById('ttChartCount');
+      cntEl.innerHTML = '';
+      const cntCanvas = document.createElement('canvas');
+      cntEl.appendChild(cntCanvas);
+      charts.ttCount = new Chart(cntCanvas, {
+        type: 'bar',
+        data: {
+          labels: dates,
+          datasets: [
+            { label: 'passed', data: ttData.by_date.map(r => r.passed), backgroundColor: '#238636' },
+            { label: 'failed', data: ttData.by_date.map(r => r.failed), backgroundColor: '#da3633' },
+            { label: 'flaked', data: ttData.by_date.map(r => r.flaked), backgroundColor: '#9e6a03' },
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: true, labels: { color: '#888', font: { family: 'monospace', size: 11 } } } },
+          scales: {
+            x: { stacked: true, ticks: { color: '#555' }, grid: { color: '#111' } },
+            y: { stacked: true, ticks: { color: '#555' }, grid: { color: '#111' } },
+          },
+        }
+      });
+
+      // Test table
+      const tb = document.querySelector('#ttTestTable tbody');
+      tb.innerHTML = ttData.by_test.map(t => `<tr>
+        <td class="cmd" title="${escapeHtml(t.test_cmd)}">${escapeHtml(t.test_cmd)}</td>
+        <td class="amt">${t.count}</td><td class="amt">${t.avg_secs}</td><td class="amt">${t.min_secs}</td><td class="amt">${t.max_secs}</td>
+        <td class="amt">${fmtH(t.total_time_secs)}</td><td class="amt">${t.pass_rate}%</td>
+        <td class="amt pass">${t.passed}</td><td class="amt fail">${t.failed}</td><td class="amt flake">${t.flaked}</td>
+      </tr>`).join('');
+
+      // Slowest table
+      const sb = document.querySelector('#ttSlowestTable tbody');
+      sb.innerHTML = ttData.slowest.map(t => `<tr>
+        <td class="cmd" title="${escapeHtml(t.test_cmd)}">${escapeHtml(t.test_cmd)}</td>
+        <td class="amt">${t.duration_secs}</td>
+        <td class="${t.status === 'passed' ? 'pass' : t.status === 'failed' ? 'fail' : 'flake'}">${t.status}</td>
+        <td>${t.date}</td><td>${escapeHtml(t.commit_author || '')}</td><td>${escapeHtml(t.dashboard || '')}</td>
+        <td>${t.log_url ? '<a href="' + escapeHtml(t.log_url) + '" target="_blank">log</a>' : ''}</td>
+      </tr>`).join('');
+
+      // Sort by clicking headers
+      [document.getElementById('ttTestTable'), document.getElementById('ttSlowestTable')].forEach(table => {
+        table.querySelectorAll('th').forEach((th, i) => {
+          if (th._sortBound) return;
+          th._sortBound = true;
+          th.addEventListener('click', () => {
+            const rows = [...table.querySelectorAll('tbody tr')];
+            const asc = th.dataset.sort !== 'asc';
+            th.dataset.sort = asc ? 'asc' : 'desc';
+            rows.sort((a, b) => {
+              let va = a.cells[i].textContent.replace(/[%h]/g, '');
+              let vb = b.cells[i].textContent.replace(/[%h]/g, '');
+              const na = parseFloat(va), nb = parseFloat(vb);
+              if (!isNaN(na) && !isNaN(nb)) return asc ? na - nb : nb - na;
+              return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+            });
+            table.querySelector('tbody').append(...rows);
+          });
+        });
+      });
+    }
+
+    // ==================================================================
+    //  TAB 3: Attribution (from cost-overview)
+    // ==================================================================
+    let attrData = null;
+    let attrSort = { col: 'cost_usd', dir: 'desc' };
+    let attrUserFilter = '';
+
+    function setAttrUserFilter(user) {
+      attrUserFilter = user;
+      const el = document.getElementById('attr-user-filter');
+      if (user) { el.style.display = 'inline-flex'; document.getElementById('attr-uf-name').textContent = user; }
+      else { el.style.display = 'none'; }
+      renderAttribution();
+    }
+
+    async function loadAttribution() {
+      const msg = document.getElementById('attr-msg');
+      msg.className = 'msg'; msg.textContent = 'loading...';
+      try {
+        const f = document.getElementById('dateFrom').value;
+        const t = document.getElementById('dateTo').value;
+        const g = granularity();
+        const [attrResp, prResp] = await Promise.all([
+          fetch(`/api/costs/attribution?from=${f}&to=${t}&granularity=${g}`),
+          prData ? Promise.resolve(null) : fetch(`/api/prs/metrics?from=${f}&to=${t}`),
+        ]);
+        attrData = await attrResp.json();
+        if (prResp) prData = await prResp.json();
+        msg.textContent = '';
+        renderAttribution();
+        renderAuthorTable();
+      } catch (e) {
+        msg.className = 'msg err'; msg.textContent = 'error: ' + e.message;
+      }
+    }
+
+    function renderAttribution() {
+      if (!attrData) return;
+      const { by_user, by_type, totals } = attrData;
+
+      const filteredInstances = attrUserFilter ? attrData.instances.filter(i => i.author === attrUserFilter) : attrData.instances;
+      const filteredByType = {};
+      filteredInstances.forEach(i => {
+        if (!filteredByType[i.type]) filteredByType[i.type] = { type: i.type, cost: 0, runs: 0 };
+        filteredByType[i.type].cost += i.cost_usd || 0;
+        filteredByType[i.type].runs += 1;
+      });
+      const displayByType = attrUserFilter ? Object.values(filteredByType).sort((a, b) => b.cost - a.cost) : by_type;
+
+      const filteredByDate = {};
+      filteredInstances.forEach(i => {
+        if (!filteredByDate[i.date]) filteredByDate[i.date] = {};
+        filteredByDate[i.date][i.type] = (filteredByDate[i.date][i.type] || 0) + (i.cost_usd || 0);
+      });
+
+      const filteredAws = filteredInstances.reduce((s, i) => s + (i.cost_usd || 0), 0);
+      const filteredUser = attrUserFilter ? by_user.find(u => u.author === attrUserFilter) : null;
+      const filteredGcp = filteredUser ? filteredUser.gcp_cost : 0;
+      const unattr = totals.gcp_unattributed || 0;
+
+      if (attrUserFilter) {
+        document.getElementById('attr-stats').innerHTML =
+          `<span style="color:#fff">${attrUserFilter}</span>: aws: <span>${fmt(filteredAws)}</span> &middot; gcp: <span>${fmt(filteredGcp)}</span> &middot; runs: <span>${filteredInstances.length}</span>`;
+      } else {
+        document.getElementById('attr-stats').innerHTML =
+          `ci compute (aws): <span>${fmt(totals.aws)}</span> &middot; ` +
+          `gke namespaces (gcp): <span>${fmt(totals.gcp)}</span>` +
+          (unattr > 0 ? ` <span style="color:#888">(${fmt(unattr)} unattributed)</span>` : '') + ` &middot; ` +
+          `combined: <span style="color:#fff">${fmt(totals.combined)}</span> &middot; ` +
+          `users: <span>${by_user.length}</span> &middot; instances: <span>${attrData.instances.length}</span>`;
       }
 
+      // Destroy old attribution charts
+      ['attrTimeSeries', 'userBar', 'typeDonut'].forEach(k => { if (charts[k]) { charts[k].destroy(); delete charts[k]; } });
+
+      // Time series
+      const allRunTypes = attrData.run_types || [];
+      const byDateSorted = Object.keys(filteredByDate).sort();
+      const byDate = byDateSorted.map(d => ({ date: d, ...filteredByDate[d] }));
+      const runTypes = attrUserFilter ? [...new Set(filteredInstances.map(i => i.type))].sort() : allRunTypes;
+      const typeColors = { 'merge-queue': '#58a6ff', 'pr': '#3fb950', 'nightly': '#d2a8ff', 'releases': '#f0883e', 'network': '#f85149', 'deflake': '#a5d6ff', 'other': '#555' };
+
+      if (byDate.length > 0) {
+        charts.attrTimeSeries = new Chart(document.getElementById('attrTimeSeries').getContext('2d'), {
+          type: 'bar',
+          data: { labels: byDate.map(d => fmtDate(d.date)), datasets: runTypes.map(rt => ({ label: rt, data: byDate.map(d => d[rt] || 0), backgroundColor: typeColors[rt] || '#555', borderWidth: 0 })) },
+          options: {
+            responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+            scales: {
+              x: { stacked: true, ticks: { color: '#555', maxRotation: 45 }, grid: { color: '#181818' } },
+              y: { stacked: true, ticks: { color: '#555', callback: v => '$' + v }, grid: { color: '#181818' } }
+            },
+            plugins: {
+              legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },
+              tooltip: { itemSort: (a, b) => b.raw - a.raw, filter: c => c.raw > 0, callbacks: { label: c => `${c.dataset.label}: ${fmt(c.raw)}`, footer: items => `total: ${fmt(items.reduce((s, i) => s + i.raw, 0))}` } }
+            }
+          }
+        });
+      }
+
+      // User bar
+      const topUsers = by_user.slice(0, 15);
+      charts.userBar = new Chart(document.getElementById('userBar').getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: topUsers.map(u => u.author),
+          datasets: [
+            { label: 'AWS (compute)', data: topUsers.map(u => u.aws_cost), backgroundColor: topUsers.map(u => u.author === attrUserFilter ? '#8cc9ff' : '#58a6ff'), barPercentage: 0.6 },
+            { label: 'GCP (namespace)', data: topUsers.map(u => u.gcp_cost), backgroundColor: topUsers.map(u => u.author === attrUserFilter ? '#6fdb7a' : '#3fb950'), barPercentage: 0.6 },
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+          onClick: (e, elements) => { if (elements.length > 0) { const user = topUsers[elements[0].index].author; setAttrUserFilter(attrUserFilter === user ? '' : user); } },
+          scales: {
+            x: { stacked: true, ticks: { color: '#555', callback: v => '$' + v }, grid: { color: '#181818' } },
+            y: { stacked: true, ticks: { color: '#ccc', font: { family: 'monospace' } }, grid: { display: false } }
+          },
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },
+            tooltip: { callbacks: { label: c => `${c.dataset.label}: ${fmt(c.raw)}`, footer: items => `total: ${fmt(items.reduce((s, i) => s + i.raw, 0))}` } }
+          }
+        }
+      });
+
+      // Type donut
+      charts.typeDonut = new Chart(document.getElementById('typeDonut').getContext('2d'), {
+        type: 'doughnut',
+        data: {
+          labels: displayByType.map(t => t.type),
+          datasets: [{ data: displayByType.map(t => t.cost), backgroundColor: displayByType.map(t => typeColors[t.type] || '#555'), borderColor: '#0a0a0a', borderWidth: 2 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'right', labels: { color: '#888', boxWidth: 10, padding: 6, font: { size: 10, family: 'monospace' } } },
+            tooltip: { callbacks: { label: c => `${c.label}: ${fmt(c.raw)} (${c.dataset.data.reduce((s,v) => s+v, 0) > 0 ? ((c.raw / c.dataset.data.reduce((s,v) => s+v, 0)) * 100).toFixed(1) : 0}%)` } }
+          }
+        }
+      });
+
+      renderAttrTable();
+    }
+
+    function renderAttrTable() {
+      if (!attrData) return;
       const hdrs = [
-        { k: 'author', l: 'Author' },
-        { k: 'pr_count', l: 'PRs', cls: 'amt' },
-        { k: 'total_cost', l: 'CI Cost', cls: 'amt' },
-        { k: 'avg_runs', l: 'Runs/PR', cls: 'amt' },
-        { k: 'avg_ci_time', l: 'CI Time/PR', cls: 'amt' },
-        { k: 'avg_merge_time', l: 'Merge Time', cls: 'amt' },
+        { k: 'instance_name', l: 'Instance' }, { k: 'author', l: 'Author' }, { k: 'type', l: 'Type' },
+        { k: 'branch', l: 'Branch' }, { k: 'cost_usd', l: 'Cost', cls: 'amt' }, { k: 'duration_mins', l: 'Mins', cls: 'amt' },
+        { k: 'instance_type', l: 'EC2 Type' }, { k: 'spot', l: 'Spot' }, { k: 'date', l: 'Date' },
       ];
-      const tr = document.querySelector('#author-thead tr');
-      tr.innerHTML = '';
+      const tr = document.querySelector('#attr-thead tr'); tr.innerHTML = '';
       hdrs.forEach(h => {
-        const th = document.createElement('th');
-        th.textContent = h.l;
-        if (h.cls) th.className = h.cls;
-        th.onclick = () => {
-          authorSort = authorSort.col === h.k ? { col: h.k, dir: authorSort.dir === 'asc' ? 'desc' : 'asc' } : { col: h.k, dir: 'desc' };
-          renderAuthorRows(authors);
-        };
+        const th = document.createElement('th'); th.textContent = h.l;
+        if (h.cls) th.className = h.cls; th.style.cursor = 'pointer';
+        th.onclick = () => { attrSort = attrSort.col === h.k ? { col: h.k, dir: attrSort.dir === 'asc' ? 'desc' : 'asc' } : { col: h.k, dir: 'desc' }; renderAttrTable(); };
         tr.appendChild(th);
       });
 
+      const items = attrUserFilter ? attrData.instances.filter(i => i.author === attrUserFilter) : attrData.instances.slice();
+      items.sort((a, b) => { const col = attrSort.col; let av = a[col], bv = b[col]; if (av == null) av = col === 'cost_usd' ? 0 : ''; if (bv == null) bv = col === 'cost_usd' ? 0 : ''; if (typeof av === 'string') return attrSort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av); return attrSort.dir === 'asc' ? av - bv : bv - av; });
+
+      const typeBadge = t => { const colors = { 'merge-queue': '#58a6ff', 'pr': '#3fb950', 'nightly': '#d2a8ff', 'releases': '#f0883e', 'network': '#f85149', 'deflake': '#a5d6ff' }; return `<span style="color:${colors[t] || '#888'}">${t}</span>`; };
+
+      document.getElementById('attr-tbody').innerHTML = items.map(i =>
+        `<tr>` +
+        `<td style="color:#ccc">${escapeHtml(i.instance_name)}</td>` +
+        `<td><span class="attr-user-link" style="cursor:pointer;color:#58a6ff" data-user="${escapeHtml(i.author)}">${escapeHtml(i.author)}</span></td>` +
+        `<td>${typeBadge(i.type)}</td>` +
+        `<td style="color:#888;max-width:200px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(i.branch)}</td>` +
+        `<td class="amt" style="color:#fff">${fmt(i.cost_usd)}</td>` +
+        `<td class="amt">${i.duration_mins != null ? i.duration_mins.toFixed(1) : ''}</td>` +
+        `<td style="color:#888">${escapeHtml(i.instance_type || '')}</td>` +
+        `<td>${i.spot ? '<span style="color:#3fb950">spot</span>' : '<span style="color:#f0883e">OD</span>'}</td>` +
+        `<td style="color:#888">${fmtDate(i.date)}</td>` +
+        `</tr>`
+      ).join('');
+      document.querySelectorAll('.attr-user-link').forEach(el => { el.onclick = () => setAttrUserFilter(el.dataset.user); });
+    }
+
+    function renderAuthorTable() {
+      const authors = prData?.by_author || [];
+      if (!authors.length) { document.getElementById('author-tbody').innerHTML = '<tr><td colspan="6" style="color:#888">no PR data</td></tr>'; return; }
+      const hdrs = [
+        { k: 'author', l: 'Author' }, { k: 'pr_count', l: 'PRs', cls: 'amt' }, { k: 'total_cost', l: 'CI Cost', cls: 'amt' },
+        { k: 'avg_runs', l: 'Runs/PR', cls: 'amt' }, { k: 'avg_ci_time', l: 'CI Time/PR', cls: 'amt' }, { k: 'avg_merge_time', l: 'Merge Time', cls: 'amt' },
+      ];
+      const tr = document.querySelector('#author-thead tr'); tr.innerHTML = '';
+      hdrs.forEach(h => { const th = document.createElement('th'); th.textContent = h.l; if (h.cls) th.className = h.cls; th.onclick = () => { authorSort = authorSort.col === h.k ? { col: h.k, dir: authorSort.dir === 'asc' ? 'desc' : 'asc' } : { col: h.k, dir: 'desc' }; renderAuthorRows(authors); }; tr.appendChild(th); });
       renderAuthorRows(authors);
     }
 
     function renderAuthorRows(authors) {
       const rows = authors.slice();
       rows.sort((a, b) => {
-        const col = authorSort.col;
-        let av = a[col], bv = b[col];
+        const col = authorSort.col; let av = a[col], bv = b[col];
         if (col === 'avg_runs') { av = a.avg_runs_per_pr || 0; bv = b.avg_runs_per_pr || 0; }
         if (col === 'avg_ci_time') { av = a.avg_ci_time_hrs || 0; bv = b.avg_ci_time_hrs || 0; }
         if (col === 'avg_merge_time') { av = a.avg_merge_time_hrs || 0; bv = b.avg_merge_time_hrs || 0; }
         if (typeof av === 'string') return authorSort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
-        return authorSort.dir === 'asc' ? (av || 0) - (bv || 0) : (bv || 0) - (av || 0);
+        return authorSort.dir === 'asc' ? (av||0)-(bv||0) : (bv||0)-(av||0);
       });
-
       document.getElementById('author-tbody').innerHTML = rows.map(a => {
         const runs = a.avg_runs_per_pr != null ? a.avg_runs_per_pr.toFixed(1) : '--';
         const ciTime = a.avg_ci_time_hrs != null ? a.avg_ci_time_hrs.toFixed(1) + 'h' : '--';
         const mergeTime = a.avg_merge_time_hrs != null ? a.avg_merge_time_hrs.toFixed(1) + 'h' : '--';
-        return `<tr>` +
-          `<td>${escapeHtml(a.author)}</td>` +
-          `<td class="amt">${a.pr_count}</td>` +
-          `<td class="amt" style="color:#fff">${fmt(a.total_cost)}</td>` +
-          `<td class="amt">${runs}</td>` +
-          `<td class="amt">${ciTime}</td>` +
-          `<td class="amt">${mergeTime}</td>` +
-          `</tr>`;
+        return `<tr><td>${escapeHtml(a.author)}</td><td class="amt">${a.pr_count}</td><td class="amt" style="color:#fff">${fmt(a.total_cost)}</td><td class="amt">${runs}</td><td class="amt">${ciTime}</td><td class="amt">${mergeTime}</td></tr>`;
       }).join('');
     }
 
-    // ---- URL state ----
+    // ==================================================================
+    //  Tab switching + URL state + Init
+    // ==================================================================
+    let activeTab = 'overview';
+
+    function switchTab(name) {
+      activeTab = name;
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + name));
+      if (name === 'overview' && !perfData) loadOverview();
+      if (name === 'test-details' && !ttData) ttLoad();
+      if (name === 'attribution' && !attrData) loadAttribution();
+      saveUrl();
+    }
+
     function saveUrl() {
       const p = new URLSearchParams();
       p.set('from', document.getElementById('dateFrom').value);
       p.set('to', document.getElementById('dateTo').value);
       p.set('g', granularity());
+      if (activeTab !== 'overview') p.set('tab', activeTab);
       if (pipelineFilter) p.set('pipeline', pipelineFilter);
       history.replaceState({}, '', '?' + p);
       const shared = new URLSearchParams();
@@ -628,9 +864,17 @@
       if (p.get('to')) document.getElementById('dateTo').value = p.get('to');
       if (p.get('g')) document.querySelectorAll('[data-g]').forEach(b => b.classList.toggle('active', b.dataset.g === p.get('g')));
       if (p.get('pipeline')) pipelineFilter = p.get('pipeline');
+      if (p.get('tab')) switchTab(p.get('tab'));
     }
 
-    // ---- Init ----
+    function clearAndReload() {
+      mqData = null; perfData = null; flakeData = null; prData = null; ttData = null; attrData = null;
+      attrUserFilter = ''; document.getElementById('attr-user-filter').style.display = 'none';
+      if (activeTab === 'overview') loadOverview();
+      else if (activeTab === 'test-details') ttLoad();
+      else if (activeTab === 'attribution') loadAttribution();
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
       const now = new Date(), from = new Date();
       from.setDate(from.getDate() - 30);
@@ -639,12 +883,17 @@
 
       loadUrl();
 
-      document.getElementById('pf-clear').onclick = () => { pipelineFilter = ''; load(); };
-      document.getElementById('refreshBtn').onclick = load;
+      // Tab switching
+      document.querySelectorAll('.tab').forEach(t => t.onclick = () => switchTab(t.dataset.tab));
+
+      // Controls
+      document.getElementById('pf-clear').onclick = () => { pipelineFilter = ''; loadOverview(); };
+      document.getElementById('attr-uf-clear').onclick = () => setAttrUserFilter('');
+      document.getElementById('refreshBtn').onclick = clearAndReload;
       document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
         document.querySelectorAll('[data-g]').forEach(x => x.classList.remove('active'));
         b.classList.add('active');
-        load();
+        clearAndReload();
       });
       document.querySelectorAll('[data-range]').forEach(b => b.onclick = () => {
         document.querySelectorAll('[data-range]').forEach(x => x.classList.remove('active'));
@@ -654,12 +903,17 @@
         fr.setDate(fr.getDate() - days);
         document.getElementById('dateFrom').value = fr.toISOString().split('T')[0];
         document.getElementById('dateTo').value = to.toISOString().split('T')[0];
-        load();
+        clearAndReload();
       });
-      document.getElementById('dateFrom').onchange = () => { document.querySelectorAll('[data-range]').forEach(x => x.classList.remove('active')); load(); };
-      document.getElementById('dateTo').onchange = () => { document.querySelectorAll('[data-range]').forEach(x => x.classList.remove('active')); load(); };
+      document.getElementById('dateFrom').onchange = () => { document.querySelectorAll('[data-range]').forEach(x => x.classList.remove('active')); clearAndReload(); };
+      document.getElementById('dateTo').onchange = () => { document.querySelectorAll('[data-range]').forEach(x => x.classList.remove('active')); clearAndReload(); };
 
-      load();
+      // Test details filters
+      document.getElementById('ttDashboard').onchange = () => { ttData = null; if (activeTab === 'test-details') ttLoad(); };
+      document.getElementById('ttStatus').onchange = () => { ttData = null; if (activeTab === 'test-details') ttLoad(); };
+
+      // Load default tab
+      loadOverview();
     });
   </script>
 </body>
