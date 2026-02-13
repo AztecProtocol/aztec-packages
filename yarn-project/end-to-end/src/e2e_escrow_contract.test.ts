@@ -47,7 +47,7 @@ describe('e2e_escrow_contract', () => {
     // Deploy Token contract and mint funds for the escrow contract
     token = await TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send({ from: owner });
 
-    await mintTokensToPrivate(token, owner, escrowContract.address, 100n, [escrowContract.address]);
+    await mintTokensToPrivate(token, owner, escrowContract.address, 100n);
 
     logger.info(`Token contract deployed at ${token.address}`);
   });
