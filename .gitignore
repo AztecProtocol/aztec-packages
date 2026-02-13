@@ -31,3 +31,4 @@ docs/.yarn/install-state.gz
 docs/docs/protocol-specs/public-vm/gen/
 
 __pycache__
+.spec-manager/
