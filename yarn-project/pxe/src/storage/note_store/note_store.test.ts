@@ -99,7 +99,7 @@ describe('NoteStore', () => {
       const noteStore = new NoteStore(store);
 
       await verifyAndCommitForEachJob(['pre-commit', 'post-commit'], noteStore, async (jobId: string) => {
-        const notes = await noteStore.getNotes({ contractAddress: CONTRACT_A }, jobId);
+        const notes = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: 'ALL_SCOPES' }, jobId);
         expect(Array.isArray(notes)).toBe(true);
         expect(notes).toHaveLength(0);
       });
@@ -123,8 +123,8 @@ describe('NoteStore', () => {
       const noteStore2 = new NoteStore(store);
 
       await verifyAndCommitForEachJob(['second-store', 'fresh-job'], noteStore2, async (jobId: string) => {
-        const notesA = await noteStore2.getNotes({ contractAddress: CONTRACT_A }, jobId);
-        const notesB = await noteStore2.getNotes({ contractAddress: CONTRACT_B }, jobId);
+        const notesA = await noteStore2.getNotes({ contractAddress: CONTRACT_A, scopes: 'ALL_SCOPES' }, jobId);
+        const notesB = await noteStore2.getNotes({ contractAddress: CONTRACT_B, scopes: 'ALL_SCOPES' }, jobId);
 
         expect(nullifierSet(notesA)).toEqual(nullifierSet([SILOED_NULLIFIER_1]));
         expect(nullifierSet(notesB)).toEqual(nullifierSet([SILOED_NULLIFIER_2]));
@@ -150,13 +150,16 @@ describe('NoteStore', () => {
     });
 
     it('filters notes matching only the contractAddress', async () => {
-      const notes = await noteStore.getNotes({ contractAddress: CONTRACT_A }, 'test');
+      const notes = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: 'ALL_SCOPES' }, 'test');
       // note1 and note2 match CONTRACT_A
       expect(nullifierSet(notes)).toEqual(nullifierSet([note1, note2]));
     });
 
     it('filters notes matching contractAddress and storageSlot', async () => {
-      const notes = await noteStore.getNotes({ contractAddress: CONTRACT_A, storageSlot: SLOT_Y }, 'test');
+      const notes = await noteStore.getNotes(
+        { contractAddress: CONTRACT_A, storageSlot: SLOT_Y, scopes: 'ALL_SCOPES' },
+        'test',
+      );
       expect(nullifierSet(notes)).toEqual(nullifierSet([note2]));
     });
 
@@ -207,13 +210,14 @@ describe('NoteStore', () => {
       const nullifiers = [mkNullifier(note2)];
       await expect(noteStore.applyNullifiers(nullifiers, 'test')).resolves.toEqual([note2]);
 
-      const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A }, 'test');
+      const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: 'ALL_SCOPES' }, 'test');
       expect(nullifierSet(activeNotes)).toEqual(nullifierSet([note1]));
 
       const allNotes = await noteStore.getNotes(
         {
           contractAddress: CONTRACT_A,
           status: NoteStatus.ACTIVE_OR_NULLIFIED,
+          scopes: 'ALL_SCOPES',
         },
         'test',
       );
@@ -266,6 +270,7 @@ describe('NoteStore', () => {
       const filter = {
         contractAddress: CONTRACT_A,
         siloedNullifier: note1.siloedNullifier,
+        scopes: 'ALL_SCOPES' as const,
       };
 
       const notes = await noteStore.getNotes(filter, 'test');
@@ -276,6 +281,7 @@ describe('NoteStore', () => {
         {
           contractAddress: CONTRACT_A,
           siloedNullifier: note2.siloedNullifier,
+          scopes: 'ALL_SCOPES',
         },
         'test',
       );
@@ -297,12 +303,15 @@ describe('NoteStore', () => {
     });
 
     it('returns no notes when filtering by non-existing contractAddress', async () => {
-      const notes = await noteStore.getNotes({ contractAddress: FAKE_ADDRESS }, 'test');
+      const notes = await noteStore.getNotes({ contractAddress: FAKE_ADDRESS, scopes: 'ALL_SCOPES' }, 'test');
       expect(notes).toHaveLength(0);
     });
 
     it('returns no notes when filtering by non-existing storageSlot', async () => {
-      const notes = await noteStore.getNotes({ contractAddress: CONTRACT_A, storageSlot: NON_EXISTING_SLOT }, 'test');
+      const notes = await noteStore.getNotes(
+        { contractAddress: CONTRACT_A, storageSlot: NON_EXISTING_SLOT, scopes: 'ALL_SCOPES' },
+        'test',
+      );
       expect(notes).toHaveLength(0);
     });
 
@@ -320,6 +329,7 @@ describe('NoteStore', () => {
       const filter = {
         contractAddress: CONTRACT_A,
         siloedNullifier: NON_EXISTING_SLOT,
+        scopes: 'ALL_SCOPES' as const,
       };
 
       const notes = await noteStore.getNotes(filter, 'test');
@@ -330,6 +340,7 @@ describe('NoteStore', () => {
       const filter = {
         contractAddress: CONTRACT_B,
         siloedNullifier: note2.siloedNullifier,
+        scopes: 'ALL_SCOPES' as const,
       };
 
       const notes = await noteStore.getNotes(filter, 'test');
@@ -361,11 +372,12 @@ describe('NoteStore', () => {
       const result = await noteStore.applyNullifiers([mkNullifier(note1)], 'test');
       expect(result).toEqual([note1]);
 
-      const active = await noteStore.getNotes({ contractAddress: CONTRACT_A }, 'test');
+      const active = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: 'ALL_SCOPES' }, 'test');
       const all = await noteStore.getNotes(
         {
           contractAddress: CONTRACT_A,
           status: NoteStatus.ACTIVE_OR_NULLIFIED,
+          scopes: 'ALL_SCOPES',
         },
         'test',
       );
@@ -378,8 +390,8 @@ describe('NoteStore', () => {
       const nullifiers = [mkNullifier(note1), mkNullifier(note3)];
       const result = await noteStore.applyNullifiers(nullifiers, 'test');
 
-      const activeA = await noteStore.getNotes({ contractAddress: CONTRACT_A }, 'test');
-      const activeB = await noteStore.getNotes({ contractAddress: CONTRACT_B }, 'test');
+      const activeA = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: 'ALL_SCOPES' }, 'test');
+      const activeB = await noteStore.getNotes({ contractAddress: CONTRACT_B, scopes: 'ALL_SCOPES' }, 'test');
 
       expect(result).toEqual([note1, note3]); // returned nullified notes
       expect(nullifierSet(activeA)).toEqual(nullifierSet([note2])); // note2 remains active
@@ -393,6 +405,7 @@ describe('NoteStore', () => {
         contractAddress: CONTRACT_A,
         siloedNullifier: note2.siloedNullifier,
         status: NoteStatus.ACTIVE_OR_NULLIFIED,
+        scopes: 'ALL_SCOPES' as const,
       };
 
       const notes = await noteStore.getNotes(filter, 'test');
@@ -466,7 +479,7 @@ describe('NoteStore', () => {
 
       // Verify notes are still active (transaction rolled back)
       await verifyAndCommitForEachJob(['test', 'after-job-commit'], noteStore, async (jobId: string) => {
-        const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A }, jobId);
+        const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: 'ALL_SCOPES' }, jobId);
         expect(nullifierSet(activeNotes)).toEqual(nullifierSet([note1, note2]));
       });
     });
@@ -482,7 +495,7 @@ describe('NoteStore', () => {
       expect(result).toEqual([]);
 
       await verifyAndCommitForEachJob(['test', 'after-job-commit'], noteStore, async (jobId: string) => {
-        const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A }, jobId);
+        const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: 'ALL_SCOPES' }, jobId);
         expect(nullifierSet(activeNotes)).toEqual(nullifierSet([note2]));
       });
     });
@@ -506,11 +519,11 @@ describe('NoteStore', () => {
 
       // Verify note is now in nullified state
       await verifyAndCommitForEachJob(['fresh-job', 'after-job-commit'], noteStore, async (jobId: string) => {
-        const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A }, jobId);
+        const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: 'ALL_SCOPES' }, jobId);
         expect(nullifierSet(activeNotes)).not.toContain(freshNullifier.toBigInt());
 
         const allNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, status: NoteStatus.ACTIVE_OR_NULLIFIED },
+          { contractAddress: CONTRACT_A, status: NoteStatus.ACTIVE_OR_NULLIFIED, scopes: 'ALL_SCOPES' },
           jobId,
         );
         expect(nullifierSet(allNotes)).toContain(freshNullifier.toBigInt());
@@ -540,14 +553,14 @@ describe('NoteStore', () => {
 
       // Verify all notes are nullified
       await verifyAndCommitForEachJob(['concurrent-job', 'after-job-commit'], noteStore, async (jobId: string) => {
-        const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A }, jobId);
+        const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: 'ALL_SCOPES' }, jobId);
         const activeNullifiers = nullifierSet(activeNotes);
         for (const nullifier of noteNullifiers) {
           expect(activeNullifiers).not.toContain(nullifier.toBigInt());
         }
 
         const allNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, status: NoteStatus.ACTIVE_OR_NULLIFIED },
+          { contractAddress: CONTRACT_A, status: NoteStatus.ACTIVE_OR_NULLIFIED, scopes: 'ALL_SCOPES' },
           jobId,
         );
         expect(nullifierSet(allNotes)).toEqual(nullifierSet([note1, note2, ...noteNullifiers]));
@@ -565,11 +578,11 @@ describe('NoteStore', () => {
 
       // Verify the note is in nullified state
       await verifyAndCommitForEachJob(['new-job', 'after-job-commit'], noteStore, async (jobId: string) => {
-        const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A }, jobId);
+        const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: 'ALL_SCOPES' }, jobId);
         expect(nullifierSet(activeNotes)).not.toContain(note1.siloedNullifier.toBigInt());
 
         const allNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, status: NoteStatus.ACTIVE_OR_NULLIFIED },
+          { contractAddress: CONTRACT_A, status: NoteStatus.ACTIVE_OR_NULLIFIED, scopes: 'ALL_SCOPES' },
           jobId,
         );
         expect(nullifierSet(allNotes)).toContain(note1.siloedNullifier.toBigInt());
@@ -609,7 +622,7 @@ describe('NoteStore', () => {
       // Verify the note is nullified and has both scopes
       await verifyAndCommitForEachJob(['duplicate-job', 'after-job-commit'], noteStore, async (jobId: string) => {
         const allNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, status: NoteStatus.ACTIVE_OR_NULLIFIED },
+          { contractAddress: CONTRACT_A, status: NoteStatus.ACTIVE_OR_NULLIFIED, scopes: 'ALL_SCOPES' },
           jobId,
         );
         expect(nullifierSet(allNotes)).toContain(duplicateNullifier.toBigInt());
@@ -665,7 +678,7 @@ describe('NoteStore', () => {
 
       it('restores notes that were nullified after the rollback block', async () => {
         // noteBlock2 remains active, noteBlock3 was nullified at block 4 should be restored
-        const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A }, 'test');
+        const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: 'ALL_SCOPES' }, 'test');
         expect(nullifierSet(activeNotes)).toEqual(nullifierSet([noteBlock2, noteBlock3]));
       });
 
@@ -674,6 +687,7 @@ describe('NoteStore', () => {
           {
             contractAddress: CONTRACT_A,
             status: NoteStatus.ACTIVE_OR_NULLIFIED,
+            scopes: 'ALL_SCOPES',
           },
           'test',
         );
@@ -682,13 +696,13 @@ describe('NoteStore', () => {
         expect(nullifierSet(allNotes)).toEqual(nullifierSet([noteBlock1, noteBlock2, noteBlock3]));
 
         // Verify noteBlock1 is not in active notes
-        const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A }, 'test');
+        const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: 'ALL_SCOPES' }, 'test');
         expect(nullifierSet(activeNotes)).not.toContain(noteBlock1.siloedNullifier.toBigInt());
       });
 
       it('preserves active notes created before the rollback block that were never nullified', async () => {
         // noteBlock2 was created at block 2 (before rollback block 3) and never nullified
-        const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A }, 'test');
+        const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: 'ALL_SCOPES' }, 'test');
         expect(nullifierSet(activeNotes)).toEqual(nullifierSet([noteBlock2, noteBlock3]));
       });
 
@@ -697,6 +711,7 @@ describe('NoteStore', () => {
           {
             contractAddress: CONTRACT_A,
             status: NoteStatus.ACTIVE_OR_NULLIFIED,
+            scopes: 'ALL_SCOPES',
           },
           'test',
         );
@@ -727,13 +742,14 @@ describe('NoteStore', () => {
         await noteStore.commit('test');
         await noteStore.rollback(5, 5);
 
-        const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A }, 'test');
+        const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: 'ALL_SCOPES' }, 'test');
         expect(activeNotes).toHaveLength(0);
 
         const allNotes = await noteStore.getNotes(
           {
             contractAddress: CONTRACT_A,
             status: NoteStatus.ACTIVE_OR_NULLIFIED,
+            scopes: 'ALL_SCOPES',
           },
           'test',
         );
@@ -758,13 +774,14 @@ describe('NoteStore', () => {
         await noteStore.commit('test');
         await noteStore.rollback(6, 4);
 
-        const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A }, 'test');
+        const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: 'ALL_SCOPES' }, 'test');
         expect(activeNotes).toHaveLength(0);
 
         const allNotes = await noteStore.getNotes(
           {
             contractAddress: CONTRACT_A,
             status: NoteStatus.ACTIVE_OR_NULLIFIED,
+            scopes: 'ALL_SCOPES',
           },
           'test',
         );
@@ -791,13 +808,13 @@ describe('NoteStore', () => {
 
         // note1 should be restored (nullified at block 7 > rollback block 5)
         // note2 should be deleted (created at block 10 > rollback block 5)
-        const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A }, 'test');
+        const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: 'ALL_SCOPES' }, 'test');
         expect(nullifierSet(activeNotes)).toEqual(nullifierSet([note1Nullifier]));
       });
 
       it('handles rollback on empty PXE database gracefully', async () => {
         await expect(noteStore.rollback(10, 20)).resolves.not.toThrow();
-        const notes = await noteStore.getNotes({ contractAddress: CONTRACT_A }, 'test');
+        const notes = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: 'ALL_SCOPES' }, 'test');
         expect(notes).toHaveLength(0);
       });
 

@@ -6,6 +6,7 @@ import { DelayedPublicMutableValues, DelayedPublicMutableValuesWithHash } from '
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
+import type { AccessScopes } from '../access_scopes.js';
 import { NoteService } from '../notes/note_service.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
@@ -42,11 +43,12 @@ export async function syncState(
   contractAddress: AztecAddress,
   contractStore: ContractStore,
   functionToInvokeAfterSync: FunctionSelector | null,
-  utilityExecutor: (privateSyncCall: FunctionCall) => Promise<any>,
+  utilityExecutor: (privateSyncCall: FunctionCall, scopes: AccessScopes) => Promise<any>,
   noteStore: NoteStore,
   aztecNode: AztecNode,
   anchorBlockHeader: BlockHeader,
   jobId: string,
+  scopes: AccessScopes,
 ) {
   // Protocol contracts don't have private state to sync
   if (!isProtocolContract(contractAddress)) {
@@ -61,7 +63,10 @@ export async function syncState(
 
     // Both sync_state and syncNoteNullifiers interact with the note store, but running them in parallel is safe
     // because note store is designed to handle concurrent operations.
-    await Promise.all([utilityExecutor(syncStateFunctionCall), noteService.syncNoteNullifiers(contractAddress)]);
+    await Promise.all([
+      utilityExecutor(syncStateFunctionCall, scopes),
+      noteService.syncNoteNullifiers(contractAddress, scopes),
+    ]);
   }
 }
 

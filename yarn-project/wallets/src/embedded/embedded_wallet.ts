@@ -4,6 +4,7 @@ import { AccountManager } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
+import type { AccessScopes } from '@aztec/pxe/client/lazy';
 import type { PXE } from '@aztec/pxe/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
@@ -78,9 +79,9 @@ export class EmbeddedWallet extends BaseWallet {
     executionPayload: ExecutionPayload,
     from: AztecAddress,
     feeOptions: FeeOptions,
+    scopes: AccessScopes,
     _skipTxValidation?: boolean,
     _skipFeeEnforcement?: boolean,
-    scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
     const { account: fromAccount, instance, artifact } = await this.getFakeAccountDataFor(from);
 
