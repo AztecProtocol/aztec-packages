@@ -33,6 +33,7 @@ describe('data_retrieval', () => {
       const retrievedCheckpoint: RetrievedCheckpoint = {
         checkpointNumber: CheckpointNumber(1),
         archiveRoot,
+        feeAssetPriceModifier: 0n,
         header: CheckpointHeader.random(),
         checkpointBlobData,
         l1: new L1PublishedData(1n, 1000n, '0x1234'),
@@ -94,6 +95,7 @@ describe('data_retrieval', () => {
       const retrievedCheckpoint: RetrievedCheckpoint = {
         checkpointNumber: CheckpointNumber(1),
         archiveRoot,
+        feeAssetPriceModifier: 0n,
         header: CheckpointHeader.random(),
         checkpointBlobData,
         l1: new L1PublishedData(1n, 1000n, '0x1234'),
