@@ -1,8 +1,9 @@
-"""CI metrics: direct Redis reads + test event listener.
+"""CI metrics: SQLite source of truth + Redis ingestion + test event listener.
 
-Reads CI run data directly from Redis sorted sets on each request.
+CI runs are ingested from Redis (written by log_ci_run on CI instances) and
+stored in SQLite. All reads go through SQLite so enriched fields (instance_type
+from CloudTrail, recalculated costs) are preserved.
 Test events stored in SQLite since they only arrive via pub/sub.
-CI runs periodically synced from Redis to SQLite for flake correlation.
 """
 import json
 import re
@@ -116,31 +117,14 @@ def _get_ci_runs_from_sqlite(date_from_ms=None, date_to_ms=None):
     return runs
 
 
-def get_ci_runs(redis_conn, date_from_ms=None, date_to_ms=None):
-    """Read CI runs from Redis, backfilled with SQLite for data that Redis has flushed."""
-    redis_runs = _get_ci_runs_from_redis(redis_conn, date_from_ms, date_to_ms)
+def get_ci_runs(date_from_ms=None, date_to_ms=None):
+    """Read CI runs from SQLite (the source of truth).
 
-    # Find the earliest timestamp in Redis to know what SQLite needs to fill
-    redis_keys = set()
-    redis_min_ts = float('inf')
-    for run in redis_runs:
-        ts = run.get('timestamp', 0)
-        redis_keys.add((run.get('dashboard', ''), ts, run.get('name', '')))
-        if ts < redis_min_ts:
-            redis_min_ts = ts
-
-    # If requesting data older than what Redis has, backfill from SQLite
-    sqlite_runs = []
-    need_sqlite = (date_from_ms is not None and date_from_ms < redis_min_ts) or not redis_runs
-    if need_sqlite:
-        sqlite_to = int(redis_min_ts) if redis_runs else date_to_ms
-        sqlite_runs = _get_ci_runs_from_sqlite(date_from_ms, sqlite_to)
-        # Deduplicate: only include SQLite runs not already in Redis
-        sqlite_runs = [r for r in sqlite_runs
-                       if (r.get('dashboard', ''), r.get('timestamp', 0), r.get('name', ''))
-                       not in redis_keys]
-
-    return sqlite_runs + redis_runs
+    Redis is only an ingestion pipe — sync_ci_runs_to_sqlite() copies data in.
+    All reads go through SQLite so enriched fields (instance_type from CloudTrail,
+    recalculated costs) are always reflected.
+    """
+    return _get_ci_runs_from_sqlite(date_from_ms, date_to_ms)
 
 
 def _ts_to_date(ts_ms):
@@ -496,14 +480,19 @@ _CI_SYNC_TTL = 3600  # 1 hour
 
 
 def sync_ci_runs_to_sqlite(redis_conn):
-    """Sync all CI runs from Redis into SQLite for persistence."""
+    """Ingest CI runs from Redis into SQLite.
+
+    Redis is the ingestion pipe (log_ci_run writes there from CI instances).
+    SQLite is the source of truth. Fields enriched post-ingestion (instance_type,
+    cost_usd from CloudTrail resolution) are preserved — only overwritten if
+    Redis has a non-empty value.
+    """
     global _ci_sync_ts
     now = time.time()
     if now - _ci_sync_ts < _CI_SYNC_TTL:
         return
     _ci_sync_ts = now
 
-    # Sync everything Redis has (not just 30 days)
     runs = _get_ci_runs_from_redis(redis_conn)
 
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -512,11 +501,32 @@ def sync_ci_runs_to_sqlite(redis_conn):
     for run in runs:
         try:
             conn.execute('''
-                INSERT OR REPLACE INTO ci_runs
+                INSERT INTO ci_runs
                 (dashboard, name, timestamp_ms, complete_ms, status, author,
                  pr_number, instance_type, instance_vcpus, spot, cost_usd,
                  job_id, arch, synced_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(dashboard, timestamp_ms, name) DO UPDATE SET
+                    complete_ms = excluded.complete_ms,
+                    status = excluded.status,
+                    author = excluded.author,
+                    pr_number = excluded.pr_number,
+                    instance_vcpus = excluded.instance_vcpus,
+                    spot = excluded.spot,
+                    job_id = excluded.job_id,
+                    arch = excluded.arch,
+                    synced_at = excluded.synced_at,
+                    -- Preserve enriched fields: only overwrite if Redis has real data
+                    instance_type = CASE
+                        WHEN excluded.instance_type IS NOT NULL AND excluded.instance_type != ''
+                        THEN excluded.instance_type
+                        ELSE ci_runs.instance_type
+                    END,
+                    cost_usd = CASE
+                        WHEN excluded.instance_type IS NOT NULL AND excluded.instance_type != ''
+                        THEN excluded.cost_usd
+                        ELSE ci_runs.cost_usd
+                    END
             ''', (
                 run.get('dashboard', ''),
                 run.get('name', ''),
