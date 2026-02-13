@@ -9,10 +9,10 @@
 namespace bb {
 
 enum class TamperType {
-    MODIFY_SUMCHECK_UNIVARIATE, // Tamper with coefficients of a Sumcheck Round Univariate
-    MODIFY_SUMCHECK_EVAL,       // Tamper with a multilinear evaluation of an entity
-    MODIFY_Z_PERM_COMMITMENT,   // Tamper with the commitment to z_perm
-    MODIFY_GEMINI_WITNESS,      // Tamper with a fold polynomial
+    MODIFY_SUMCHECK_UNIVARIATE, // Tamper with a sumcheck round univariate; tests round consistency constraint
+    MODIFY_SUMCHECK_EVAL,       // Tamper with a multilinear evaluation; tests final relation check constraint
+    MODIFY_KZG_WITNESS,         // Tamper with KZG opening proof; tests pairing check (circuit PASS, pairing FAIL)
+    MODIFY_LIBRA_EVAL,          // Tamper with a Libra evaluation; tests Libra consistency constraint (ZK only)
     END
 };
 
@@ -28,9 +28,12 @@ template <typename Flavor> size_t compute_proof_length_for_export(size_t num_pub
 }
 
 /**
- * @brief Test method that provides several ways to tamper with a proof.
- * TODO(https://github.com/AztecProtocol/barretenberg/issues/1298): Currently, several tests are failing due to
- * challenges not being re-computed after tampering. We need to extend this tool to allow for more elaborate tampering.
+ * @brief Test method that provides targeted ways to tamper with a proof.
+ * @details Each TamperType is designed to trigger failure in a specific verification constraint:
+ *   - MODIFY_SUMCHECK_UNIVARIATE: Triggers sumcheck round consistency check
+ *   - MODIFY_SUMCHECK_EVAL: Triggers final target sum check
+ *   - MODIFY_KZG_WITNESS: Bypasses all circuit constraints but causes pairing check failure
+ *   - MODIFY_LIBRA_EVAL: Triggers Libra consistency check (small_subgroup_ipa.hpp, ZK only)
  */
 template <typename InnerProver, typename InnerFlavor, typename ProofType>
 void tamper_with_proof(InnerProver& inner_prover, ProofType& inner_proof, TamperType type)
@@ -42,7 +45,7 @@ void tamper_with_proof(InnerProver& inner_prover, ProofType& inner_proof, Tamper
     StructuredProof<InnerFlavor> structured_proof;
     const auto num_public_inputs = inner_prover.prover_instance->num_public_inputs();
     const size_t log_n =
-        InnerFlavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : inner_prover.prover_instance->log_dyadic_size();
+        InnerFlavor::USE_PADDING ? InnerFlavor::VIRTUAL_LOG_N : inner_prover.prover_instance->log_dyadic_size();
     structured_proof.deserialize(inner_prover.transcript->test_get_proof_data(), num_public_inputs, log_n);
 
     // Apply tampering based on type
@@ -57,12 +60,15 @@ void tamper_with_proof(InnerProver& inner_prover, ProofType& inner_proof, Tamper
     case TamperType::MODIFY_SUMCHECK_EVAL:
         structured_proof.sumcheck_evaluations[FIRST_WITNESS_INDEX] = FF::random_element();
         break;
-    case TamperType::MODIFY_Z_PERM_COMMITMENT:
-        structured_proof.z_perm_comm = structured_proof.z_perm_comm * FF::random_element();
+    case TamperType::MODIFY_KZG_WITNESS:
+        // Tampering causes pairing failure but no circuit constraint violation.
+        structured_proof.kzg_w_comm = structured_proof.kzg_w_comm * FF::random_element();
         break;
-    case TamperType::MODIFY_GEMINI_WITNESS:
-        structured_proof.gemini_fold_comms[0] = structured_proof.gemini_fold_comms[0] * FF::random_element();
-        structured_proof.gemini_fold_evals[0] = FF::zero();
+    case TamperType::MODIFY_LIBRA_EVAL:
+        // Libra only used in ZK. Tampering triggers the Libra consistency check in small_subgroup_ipa.hpp
+        if constexpr (InnerFlavor::HasZK) {
+            structured_proof.libra_quotient_eval = FF::random_element();
+        }
         break;
     case TamperType::END:
         break;

@@ -298,29 +298,38 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
     }
 
     /**
-     * @brief Construct verifier circuits for proofs whose data have been tampered with. Expect failure
-     *
+     * @brief Construct verifier circuits for proofs whose data have been tampered with. Each TamperType targets a
+     * specific verification constraint to ensure it exists and is enforced in the recursive verifier circuit.
+     * @details
+     *   - MODIFY_SUMCHECK_UNIVARIATE: Tests sumcheck round consistency constraint (circuit FAIL)
+     *   - MODIFY_SUMCHECK_EVAL: Tests final relation check constraint (circuit FAIL)
+     *   - MODIFY_KZG_WITNESS: Tests pairing check (circuit PASS, pairing FAIL)
+     *   - MODIFY_LIBRA_EVAL: Tests Libra consistency constraint (circuit FAIL, ZK only)
      */
     static void test_recursive_verification_fails()
-        requires(!IsAnyOf<InnerFlavor, MegaZKFlavor, MegaFlavor>)
     {
         for (size_t idx = 0; idx < static_cast<size_t>(TamperType::END); idx++) {
+            TamperType tamper_type = static_cast<TamperType>(idx);
+
+            // MODIFY_LIBRA_EVAL only applies to ZK flavors
+            if (tamper_type == TamperType::MODIFY_LIBRA_EVAL && !InnerFlavor::HasZK) {
+                continue;
+            }
+
             // Create an arbitrary inner circuit
             auto inner_circuit = create_inner_circuit();
 
             // Generate a proof over the inner circuit
             auto prover_instance = std::make_shared<InnerProverInstance>(inner_circuit);
-            // Generate the corresponding inner verification key
             auto inner_verification_key =
                 std::make_shared<typename InnerFlavor::VerificationKey>(prover_instance->get_precomputed());
             InnerProver inner_prover(prover_instance, inner_verification_key);
             auto inner_proof = inner_prover.construct_proof();
 
             // Tamper with the proof to be verified
-            TamperType tamper_type = static_cast<TamperType>(idx);
             tamper_with_proof<InnerProver, InnerFlavor>(inner_prover, inner_proof, tamper_type);
 
-            // Create a recursive verification circuit for the proof of the inner circuit
+            // Create a recursive verification circuit for the tampered proof
             OuterBuilder outer_circuit;
             auto stdlib_vk_and_hash =
                 std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, inner_verification_key);
@@ -328,60 +337,13 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
             OuterStdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
             VerifierOutput output = verifier.verify_proof(stdlib_inner_proof);
 
-            // Wrong Gemini witnesses lead to the pairing check failure in non-ZK case but don't break any
-            // constraints. In ZK-cases, tampering with Gemini witnesses leads to SmallSubgroupIPA consistency check
-            // failure.
-            if ((tamper_type != TamperType::MODIFY_GEMINI_WITNESS) || (InnerFlavor::HasZK)) {
-                // We expect the circuit check to fail due to the bad proof.
-                EXPECT_FALSE(CircuitChecker::check(outer_circuit));
-            } else {
+            if (tamper_type == TamperType::MODIFY_KZG_WITNESS) {
+                // Expected to result in pairing failure but no circuit constraint violations
                 EXPECT_TRUE(CircuitChecker::check(outer_circuit));
                 EXPECT_FALSE(output.points_accumulator.check());
-            }
-        }
-    }
-    /**
-     * @brief Tamper with a MegaZK proof in two ways. First, we modify the first non-zero value in the proof, which has
-     * to lead to a CircuitChecker failure. Then we also modify the last commitment ("KZG:W") in the proof, in this
-     * case, CircuitChecker succeeds, but the pairing check must fail.
-     *
-     */
-    static void test_recursive_verification_fails()
-        requires(IsAnyOf<InnerFlavor, MegaZKFlavor, MegaFlavor>)
-
-    {
-        for (size_t idx = 0; idx < 2; idx++) {
-            // Create an arbitrary inner circuit
-            auto inner_circuit = create_inner_circuit();
-
-            // Generate a proof over the inner circuit
-            auto prover_instance = std::make_shared<InnerProverInstance>(inner_circuit);
-            // Generate the corresponding inner verification key
-            auto inner_verification_key =
-                std::make_shared<typename InnerFlavor::VerificationKey>(prover_instance->get_precomputed());
-            InnerProver inner_prover(prover_instance, inner_verification_key);
-            auto inner_proof = inner_prover.construct_proof();
-
-            // Tamper with the proof to be verified
-            tamper_with_proof<InnerFlavor>(inner_proof, /*end_of_proof*/ static_cast<bool>(idx));
-
-            // Create a recursive verification circuit for the proof of the inner circuit
-            OuterBuilder outer_circuit;
-            auto stdlib_vk_and_hash =
-                std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, inner_verification_key);
-            RecursiveVerifier verifier{ stdlib_vk_and_hash };
-            OuterStdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
-            VerifierOutput output = verifier.verify_proof(stdlib_inner_proof);
-
-            if (idx == 0) {
-                // We expect the circuit check to fail due to the bad proof.
-                EXPECT_FALSE(CircuitChecker::check(outer_circuit));
             } else {
-                // Wrong  witnesses lead to the pairing check failure in non-ZK case but don't break any
-                // constraints. In ZK-cases, tampering with Gemini witnesses leads to SmallSubgroupIPA consistency check
-                // failure.
-                EXPECT_TRUE(CircuitChecker::check(outer_circuit));
-                EXPECT_FALSE(output.points_accumulator.check());
+                // All other tamper types should cause a circuit constraint violation
+                EXPECT_FALSE(CircuitChecker::check(outer_circuit));
             }
         }
     }
