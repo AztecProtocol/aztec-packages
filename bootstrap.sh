@@ -240,7 +240,8 @@ function start_txes {
       kill -9 $existing_pid &>/dev/null || true
       while kill -0 $existing_pid &>/dev/null; do sleep 0.1; done
     fi
-    dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'node --no-warnings ./yarn-project/txe/dest/bin/index.js'" &
+    # Kill any process on the port before each retry attempt to handle races between the lsof check above and the bind.
+    dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'lsof -ti :$port 2>/dev/null | xargs -r kill -9 2>/dev/null; node --no-warnings ./yarn-project/txe/dest/bin/index.js'" &
     txe_pids+="$! "
   done
 
