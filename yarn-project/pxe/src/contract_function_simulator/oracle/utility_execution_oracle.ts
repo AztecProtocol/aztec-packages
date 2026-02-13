@@ -20,6 +20,7 @@ import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
 
+import type { AccessScopes } from '../../access_scopes.js';
 import { EventService } from '../../events/event_service.js';
 import { LogService } from '../../logs/log_service.js';
 import { NoteService } from '../../notes/note_service.js';
@@ -58,7 +59,7 @@ export type UtilityExecutionOracleArgs = {
   privateEventStore: PrivateEventStore;
   jobId: string;
   log?: ReturnType<typeof createLogger>;
-  scopes?: AztecAddress[];
+  scopes: AccessScopes;
 };
 
 /**
@@ -85,7 +86,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly privateEventStore: PrivateEventStore;
   protected readonly jobId: string;
   protected log: ReturnType<typeof createLogger>;
-  protected readonly scopes?: AztecAddress[];
+  protected readonly scopes: AccessScopes;
 
   constructor(args: UtilityExecutionOracleArgs) {
     this.contractAddress = args.contractAddress;
@@ -129,7 +130,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    */
   public async utilityGetKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
     // If scopes are defined, check that the key belongs to an account in the scopes.
-    if (this.scopes && this.scopes.length > 0) {
+    if (this.scopes !== 'ALL_SCOPES' && this.scopes.length > 0) {
       let hasAccess = false;
       for (let i = 0; i < this.scopes.length && !hasAccess; i++) {
         if (await this.keyStore.accountHasKey(this.scopes[i], pkMHash)) {

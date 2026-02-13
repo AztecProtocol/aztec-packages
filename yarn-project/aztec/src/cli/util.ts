@@ -3,6 +3,7 @@ import type { AccountManager } from '@aztec/aztec.js/wallet';
 import type { ViemClient } from '@aztec/ethereum/types';
 import type { ConfigMappingsType } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
 import type { SharedNodeConfig } from '@aztec/node-lib/config';
 import type { ProverConfig } from '@aztec/stdlib/interfaces/server';
@@ -375,4 +376,10 @@ export async function setupUpdateMonitor(
   });
 
   checker.start();
+}
+
+export function stringifyConfig(config: object): string {
+  return Object.entries(config)
+    .map(([key, value]) => `${key}=${jsonStringify(value)}`)
+    .join(' ');
 }

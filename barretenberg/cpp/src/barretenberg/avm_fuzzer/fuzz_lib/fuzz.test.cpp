@@ -1534,7 +1534,7 @@ TEST_F(FuzzTest, SendL2ToL1Msg)
     EXPECT_EQ(result.reverted, false);
 }
 
-TEST_F(FuzzTest, EmitUnencryptedLog)
+TEST_F(FuzzTest, EmitPublicLog)
 {
     auto log_size_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct };
     auto log_values_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct };
@@ -1549,8 +1549,8 @@ TEST_F(FuzzTest, EmitUnencryptedLog)
     instructions.push_back(SET_FF_Instruction{
         .value_tag = bb::avm2::MemoryTag::FF, .result_address = log_values_address, .value = log_value });
 
-    instructions.push_back(EMITUNENCRYPTEDLOG_Instruction{ .log_size_address = log_size_address,
-                                                           .log_values_address = log_values_address });
+    instructions.push_back(
+        EMITPUBLICLOG_Instruction{ .log_size_address = log_size_address, .log_values_address = log_values_address });
 
     auto instruction_blocks = std::vector<InstructionBlock>{ InstructionBlock{ instructions } };
     auto control_flow = ControlFlow(instruction_blocks);

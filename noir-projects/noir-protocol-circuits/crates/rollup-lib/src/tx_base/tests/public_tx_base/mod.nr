@@ -20,7 +20,7 @@ use types::{
         ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX,
         MAX_L2_TO_L1_MSGS_PER_TX, PUBLIC_CHONK_VERIFIER_VK_INDEX,
     },
-    hash::silo_l2_to_l1_message,
+    hash::compute_l2_to_l1_message_hash,
     tests::fixture_builder::FixtureBuilder,
 };
 
@@ -98,7 +98,7 @@ impl TestBuilder {
     }
 
     pub fn get_siloed_l2_to_l1_msgs(self) -> [Field; MAX_L2_TO_L1_MSGS_PER_TX] {
-        self.avm.accumulated_data.l2_to_l1_msgs.map(|msg| silo_l2_to_l1_message(
+        self.avm.accumulated_data.l2_to_l1_msgs.map(|msg| compute_l2_to_l1_message_hash(
             msg,
             self.avm.global_variables.version,
             self.avm.global_variables.chain_id,

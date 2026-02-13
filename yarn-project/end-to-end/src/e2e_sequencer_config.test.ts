@@ -40,8 +40,8 @@ describe('e2e_sequencer_config', () => {
       }));
       config = {
         ...getBotDefaultConfig(),
-        followChain: 'PENDING',
-        ammTxs: false,
+        followChain: 'CHECKPOINTED',
+        botMode: 'transfer',
         txMinedWaitSeconds: 12,
       };
       wallet = await EmbeddedWallet.create(aztecNode, { ephemeral: true });

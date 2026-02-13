@@ -108,6 +108,7 @@ describe('ValidationService', () => {
     const proposal = await spyService.createCheckpointProposal(
       checkpointHeader,
       archive,
+      0n, // feeAssetPriceModifier
       {
         blockHeader,
         indexWithinCheckpoint,

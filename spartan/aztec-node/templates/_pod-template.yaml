@@ -1,6 +1,6 @@
 {{- define "chart.podTemplate" }}
-{{- $repo := .Values.global.aztecImage.repository | required ".Values.global.aztecImage.repository is required" }}
-{{- $tag := .Values.global.aztecImage.tag | required ".Values.global.aztecImage.tag is required" }}
+{{- $repo := .Values.node.image.repository | default .Values.global.aztecImage.repository | required ".Values.global.aztecImage.repository is required" }}
+{{- $tag := .Values.node.image.tag | default .Values.global.aztecImage.tag | required ".Values.global.aztecImage.tag is required" }}
 {{- $image := printf "%s:%s" $repo $tag }}
 metadata:
   labels:

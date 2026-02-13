@@ -491,6 +491,7 @@ export class BlockProposalHandler {
     const checkpointBuilder = await this.checkpointsBuilder.openCheckpoint(
       checkpointNumber,
       constants,
+      0n, // only takes effect in the following checkpoint.
       l1ToL2Messages,
       previousCheckpointOutHashes,
       fork,

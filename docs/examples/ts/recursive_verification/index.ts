@@ -6,8 +6,8 @@ import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
 import { ValueNotEqualContract } from "./artifacts/ValueNotEqual.js";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
-import { rm } from "node:fs/promises";
 import assert from "node:assert";
+import { Fr } from "@aztec/aztec.js/fields";
 // docs:end:imports
 
 // docs:start:sample_data
@@ -34,13 +34,8 @@ const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(
 // The wallet manages accounts and sends transactions through the PXE
 export const setupWallet = async (): Promise<EmbeddedWallet> => {
   try {
-    await rm("pxe", { recursive: true, force: true });
-
     // Create wallet with embedded PXE
-    const wallet = await EmbeddedWallet.create(NODE_URL, {
-      dataDirectory: "pxe",
-      proverEnabled: true, // Enable proof generation
-    });
+    const wallet = await EmbeddedWallet.create(NODE_URL);
 
     // Register the sponsored FPC so the wallet knows about it
     await wallet.registerContract(sponsoredFPC, SponsoredFPCContract.artifact);
@@ -57,7 +52,7 @@ async function main() {
   // Step 1: Setup wallet and create account
   // Accounts in Aztec are smart contracts (account abstraction)
   const wallet = await setupWallet();
-  const account = await wallet.createAccount();
+  const account = await wallet.createSchnorrAccount(Fr.random(), Fr.random());
   const manager = await account.getDeployMethod();
 
   // Deploy the account contract

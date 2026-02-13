@@ -6,6 +6,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { DirectionalAppTaggingSecret, PendingTaggedLog, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
+import type { AccessScopes } from '../access_scopes.js';
 import type { LogRetrievalRequest } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
@@ -107,11 +108,7 @@ export class LogService {
     );
   }
 
-  public async fetchTaggedLogs(
-    contractAddress: AztecAddress,
-    pendingTaggedLogArrayBaseSlot: Fr,
-    scopes?: AztecAddress[],
-  ) {
+  public async fetchTaggedLogs(contractAddress: AztecAddress, pendingTaggedLogArrayBaseSlot: Fr, scopes: AccessScopes) {
     this.log.verbose(`Fetching tagged logs for ${contractAddress.toString()}`);
 
     // We only load logs from block up to and including the anchor block number
@@ -119,7 +116,7 @@ export class LogService {
     const anchorBlockHash = await this.anchorBlockHeader.hash();
 
     // Determine recipients: use scopes if provided, otherwise get all accounts
-    const recipients = scopes && scopes.length > 0 ? scopes : await this.keyStore.getAccounts();
+    const recipients = scopes !== 'ALL_SCOPES' && scopes.length > 0 ? scopes : await this.keyStore.getAccounts();
 
     // For each recipient, fetch secrets, load logs, and store them.
     // We run these per-recipient tasks in parallel so that logs are loaded for all recipients concurrently.

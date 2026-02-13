@@ -44,6 +44,7 @@ export class LightweightCheckpointBuilder {
   constructor(
     public readonly checkpointNumber: CheckpointNumber,
     public readonly constants: CheckpointGlobalVariables,
+    public feeAssetPriceModifier: bigint,
     public readonly l1ToL2Messages: Fr[],
     private readonly previousCheckpointOutHashes: Fr[],
     public readonly db: MerkleTreeWriteOperations,
@@ -54,7 +55,7 @@ export class LightweightCheckpointBuilder {
       instanceId: `checkpoint-${checkpointNumber}`,
     });
     this.spongeBlob = SpongeBlob.init();
-    this.logger.debug('Starting new checkpoint', { constants, l1ToL2Messages });
+    this.logger.debug('Starting new checkpoint', { constants, l1ToL2Messages, feeAssetPriceModifier });
   }
 
   static async startNewCheckpoint(
@@ -64,6 +65,7 @@ export class LightweightCheckpointBuilder {
     previousCheckpointOutHashes: Fr[],
     db: MerkleTreeWriteOperations,
     bindings?: LoggerBindings,
+    feeAssetPriceModifier: bigint = 0n,
   ): Promise<LightweightCheckpointBuilder> {
     // Insert l1-to-l2 messages into the tree.
     await db.appendLeaves(
@@ -74,6 +76,7 @@ export class LightweightCheckpointBuilder {
     return new LightweightCheckpointBuilder(
       checkpointNumber,
       constants,
+      feeAssetPriceModifier,
       l1ToL2Messages,
       previousCheckpointOutHashes,
       db,
@@ -90,6 +93,7 @@ export class LightweightCheckpointBuilder {
   static async resumeCheckpoint(
     checkpointNumber: CheckpointNumber,
     constants: CheckpointGlobalVariables,
+    feeAssetPriceModifier: bigint,
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
     db: MerkleTreeWriteOperations,
@@ -99,6 +103,7 @@ export class LightweightCheckpointBuilder {
     const builder = new LightweightCheckpointBuilder(
       checkpointNumber,
       constants,
+      feeAssetPriceModifier,
       l1ToL2Messages,
       previousCheckpointOutHashes,
       db,
@@ -268,13 +273,14 @@ export class LightweightCheckpointBuilder {
       totalManaUsed,
     });
 
-    return new Checkpoint(newArchive, header, blocks, this.checkpointNumber);
+    return new Checkpoint(newArchive, header, blocks, this.checkpointNumber, this.feeAssetPriceModifier);
   }
 
   clone() {
     const clone = new LightweightCheckpointBuilder(
       this.checkpointNumber,
       this.constants,
+      this.feeAssetPriceModifier,
       [...this.l1ToL2Messages],
       [...this.previousCheckpointOutHashes],
       this.db,

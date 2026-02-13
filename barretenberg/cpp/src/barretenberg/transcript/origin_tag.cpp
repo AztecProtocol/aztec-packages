@@ -7,30 +7,79 @@
 #include "barretenberg/transcript/origin_tag.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include <cstring>
+#include <string>
 
 namespace bb {
 using namespace numeric;
 #ifndef AZTEC_NO_ORIGIN_TAGS
 
+namespace {
+/**
+ * @brief Find the position of the highest set bit in a uint128_t
+ * @return -1 if no bits are set, otherwise the bit position (0-127)
+ */
+inline int highest_set_bit_128(uint128_t value)
+{
+    if (value == 0) {
+        return -1;
+    }
+    // Check high 64 bits first
+    auto high = static_cast<uint64_t>(value >> 64);
+    if (high != 0) {
+        return 127 - __builtin_clzll(high);
+    }
+    // Check low 64 bits
+    auto low = static_cast<uint64_t>(value);
+    return 63 - __builtin_clzll(low);
+}
+
+/**
+ * @brief Safely extract uint128_t from uint256_t data array using memcpy to avoid strict aliasing issues
+ */
+inline uint128_t extract_uint128(const uint64_t* data)
+{
+    uint128_t result = 0;
+    std::memcpy(&result, data, sizeof(uint128_t));
+    return result;
+}
+} // namespace
+
 /**
  * @brief Detect if two elements from the same transcript are performing a suspicious interaction
  *
- * @details For now this detects that 2 elements from 2 different round can't mingle without a challenge in between
+ * @details Checks that submitted values from different rounds are properly bound by challenges.
+ * The key invariant: a challenge from round N binds all data from rounds 0..N (via Fiat-Shamir hash chain).
+ * Therefore, max(challenge_rounds) must be >= max(submitted_rounds).
+ *
+ * @note A failure in this check indicates a potentially insecure pattern but there are many legitimate sources of false
+ * positives. E.g. PCS openings bind evaluations to commitments across rounds; the pattern C*z + v is actually safe if
+ * v is the evaluation of the committed polynomial at challenge z. In such cases, the evaluation can be re-tagged
+ * with the challenge that binds it after PCS verification to correctly avoid triggering an error here.
  *
  * @param provenance_a Round provenance of first element
  * @param provenance_b Round provenance of second element
  */
 void check_round_provenance(const uint256_t& provenance_a, const uint256_t& provenance_b)
 {
-    const uint128_t* challenges_a = (const uint128_t*)(&provenance_a.data[2]);
-    const uint128_t* challenges_b = (const uint128_t*)(&provenance_b.data[2]);
+    // Lower 128 bits = submitted rounds, Upper 128 bits = challenge rounds
+    const auto submitted_a = extract_uint128(&provenance_a.data[0]);
+    const auto submitted_b = extract_uint128(&provenance_b.data[0]);
 
-    const uint128_t* submitted_a = (const uint128_t*)(&provenance_a.data[0]);
-    const uint128_t* submitted_b = (const uint128_t*)(&provenance_b.data[0]);
+    // Nothing to check if either has no submitted data or both are from the same round(s)
+    if (submitted_a == 0 || submitted_b == 0 || submitted_a == submitted_b) {
+        return;
+    }
 
-    if (*challenges_a == 0 && *challenges_b == 0 && *submitted_a != 0 && *submitted_b != 0 &&
-        *submitted_a != *submitted_b) {
-        throw_or_abort("Submitted values from 2 different rounds are mixing without challenges");
+    // Ensure that values from different rounds are not mixing without max challenge round >= max submitted round
+    const auto challenges_a = extract_uint128(&provenance_a.data[2]);
+    const auto challenges_b = extract_uint128(&provenance_b.data[2]);
+    const int max_challenge_round = highest_set_bit_128(challenges_a | challenges_b);
+    const int max_submitted_round = highest_set_bit_128(submitted_a | submitted_b);
+
+    if (max_challenge_round < max_submitted_round) {
+        throw_or_abort("Round provenance check failed: max challenge round (" + std::to_string(max_challenge_round) +
+                       ") < max submitted round (" + std::to_string(max_submitted_round) + ")");
     }
 }
 

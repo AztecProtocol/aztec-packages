@@ -105,6 +105,12 @@ variable "AZTEC_DOCKER_IMAGE" {
   default     = "aztecprotocol/aztec:staging"
 }
 
+variable "PROVER_AGENT_DOCKER_IMAGE" {
+  description = "Docker image for prover agents (includes baked-in CRS). Defaults to AZTEC_DOCKER_IMAGE."
+  type        = string
+  default     = ""
+}
+
 variable "VALIDATOR_VALUES" {
   description = "The values file to apply"
   type        = string
@@ -519,6 +525,12 @@ variable "BOT_TRANSFERS_FOLLOW_CHAIN" {
   default     = "PENDING"
 }
 
+variable "BOT_TRANSFERS_PXE_SYNC_CHAIN_TIP" {
+  description = "Transfers bot PXE sync chain tip mode (e.g., checkpointed)"
+  type        = string
+  default     = "checkpointed"
+}
+
 variable "BOT_TRANSFERS_L2_PRIVATE_KEY" {
   description = "Private key for the transfers bot (hex string starting with 0x)"
   nullable    = true
@@ -549,11 +561,54 @@ variable "BOT_SWAPS_FOLLOW_CHAIN" {
   default     = "PENDING"
 }
 
+variable "BOT_SWAPS_PXE_SYNC_CHAIN_TIP" {
+  description = "AMM swaps bot PXE sync chain tip mode (e.g., checkpointed)"
+  type        = string
+  default     = "checkpointed"
+}
+
 variable "BOT_SWAPS_L2_PRIVATE_KEY" {
   description = "Private key for the AMM swaps bot (hex string starting with 0x)"
   type        = string
   nullable    = true
   default     = null
+}
+
+variable "BOT_CROSS_CHAIN_MNEMONIC_START_INDEX" {
+  description = "The cross-chain bot mnemonic start index"
+  type        = string
+  default     = ""
+}
+
+variable "BOT_CROSS_CHAIN_REPLICAS" {
+  description = "Number of cross-chain bot replicas to deploy (0 to disable)"
+  type        = number
+  default     = 0
+}
+
+variable "BOT_CROSS_CHAIN_TX_INTERVAL_SECONDS" {
+  description = "Interval in seconds between cross-chain bot transactions"
+  type        = number
+  default     = 10
+}
+
+variable "BOT_CROSS_CHAIN_FOLLOW_CHAIN" {
+  description = "Cross-chain bot follow-chain mode"
+  type        = string
+  default     = "PENDING"
+}
+
+variable "BOT_CROSS_CHAIN_L2_PRIVATE_KEY" {
+  description = "Private key for the cross-chain bot (hex string starting with 0x)"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "BOT_CROSS_CHAIN_PXE_SYNC_CHAIN_TIP" {
+  description = "Cross-chain bot PXE sync chain tip mode (e.g., checkpointed)"
+  type        = string
+  default     = "checkpointed"
 }
 
 # RPC ingress configuration (GKE-specific)
@@ -636,6 +691,25 @@ variable "BLOB_FILE_STORE_UPLOAD_URL" {
   type        = string
   nullable    = true
   default     = null
+}
+
+variable "TX_FILE_STORE_ENABLED" {
+  description = "Whether to enable uploading transactions to file storage"
+  type        = bool
+  default     = false
+}
+
+variable "TX_FILE_STORE_URL" {
+  description = "URL for uploading transactions (e.g., s3://bucket/path/, gs://bucket/path/)"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "TX_COLLECTION_FILE_STORE_URLS" {
+  description = "Comma-separated URLs for reading transactions from file storage"
+  type        = string
+  default     = ""
 }
 
 variable "PROVER_AGENT_POLL_INTERVAL_MS" {
