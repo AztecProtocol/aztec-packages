@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Planned, auditors: [Luke], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -10,10 +10,9 @@
  *
  * An unsigned 512 bit integer type.
  *
- * Constructor and all methods are constexpr. Ideally, uintx should be able to be treated like any other literal
- *type.
+ * Constructor and all methods are constexpr. Ideally, uintx should be able to be treated like any other literal type.
  *
- * Not optimized for performance, this code doesn"t touch any of our hot paths when constructing PLONK proofs
+ * Not optimized for performance, this code doesn't touch any of our hot paths when constructing PLONK proofs
  **/
 #pragma once
 
@@ -57,7 +56,7 @@ template <class base_uint> class uintx {
     uintx& operator=(uintx&& other) noexcept = default;
 
     ~uintx() = default;
-    constexpr explicit operator bool() const { return static_cast<bool>(lo); };
+    constexpr explicit operator bool() const { return static_cast<bool>(lo) || static_cast<bool>(hi); };
     constexpr explicit operator uint8_t() const { return static_cast<uint8_t>(lo); };
     constexpr explicit operator uint16_t() const { return static_cast<uint16_t>(lo); };
     constexpr explicit operator uint32_t() const { return static_cast<uint32_t>(lo); };

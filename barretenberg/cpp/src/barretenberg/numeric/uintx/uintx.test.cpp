@@ -1,9 +1,17 @@
 #include "./uintx.hpp"
 #include "../random/engine.hpp"
+#include "./uintx_impl.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
+
+// Explicit instantiation of barrett_reduction for the test-only 1024-bit modulus.
+namespace bb::numeric {
+constexpr uint512_t TEST_MODULUS(uint256_t{ "0x04689e957a1242c84a50189c6d96cadca602072d09eac1013b5458a2275d69b1" },
+                                 uint256_t{ "0x0925c4b8763cbf9c599a6f7c0348d21cb00b85511637560626edfa5c34c6b38d" });
+template std::pair<uint1024_t, uint1024_t> uintx<uint512_t>::barrett_reduction<TEST_MODULUS>() const;
+} // namespace bb::numeric
 
 namespace {
 auto& engine = numeric::get_debug_randomness();
