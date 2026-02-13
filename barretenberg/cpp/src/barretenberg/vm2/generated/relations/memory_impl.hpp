@@ -129,8 +129,8 @@ void memoryImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_unencrypted_log_read)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_unencrypted_log_read)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_public_log_read)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_public_log_read)));
         std::get<18>(evals) += (tmp * scaling_factor);
     }
     {
@@ -287,7 +287,7 @@ void memoryImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
               static_cast<View>(in.get(C::memory_sel_data_copy_write)) +
               static_cast<View>(in.get(C::memory_sel_get_contract_instance_exists_write)) +
               static_cast<View>(in.get(C::memory_sel_get_contract_instance_member_write)) +
-              static_cast<View>(in.get(C::memory_sel_unencrypted_log_read)) +
+              static_cast<View>(in.get(C::memory_sel_public_log_read)) +
               static_cast<View>(in.get(C::memory_sel_poseidon2_read_0_)) +
               static_cast<View>(in.get(C::memory_sel_poseidon2_read_1_)) +
               static_cast<View>(in.get(C::memory_sel_poseidon2_read_2_)) +

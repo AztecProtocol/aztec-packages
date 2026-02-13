@@ -654,24 +654,24 @@ TEST(ContextConstrainingTest, SideEffectStateContinuity)
         {
             // First Row of execution
             { C::execution_sel, 1 },
-            { C::execution_num_unencrypted_log_fields, 10 },
+            { C::execution_num_public_log_fields, 10 },
             { C::execution_num_l2_to_l1_messages, 11 },
         },
         {
             // Second row of execution
             { C::execution_sel, 1 },
-            { C::execution_prev_num_unencrypted_log_fields, 10 },
+            { C::execution_prev_num_public_log_fields, 10 },
             { C::execution_prev_num_l2_to_l1_messages, 11 },
         },
     });
 
     check_relation<context>(
-        trace, context::SR_NUM_UNENCRYPTED_LOGS_CONTINUITY, context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY);
+        trace, context::SR_NUM_PUBLIC_LOGS_CONTINUITY, context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY);
 
-    // Negative test: change num unencrypted logs
-    trace.set(C::execution_prev_num_unencrypted_log_fields, 2, 100);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_UNENCRYPTED_LOGS_CONTINUITY),
-                              "NUM_UNENCRYPTED_LOGS_CONTINUITY");
+    // Negative test: change num public logs
+    trace.set(C::execution_prev_num_public_log_fields, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_PUBLIC_LOGS_CONTINUITY),
+                              "NUM_PUBLIC_LOGS_CONTINUITY");
 
     // Negative test: change num l2 to l1 messages
     trace.set(C::execution_prev_num_l2_to_l1_messages, 2, 100);
@@ -876,7 +876,7 @@ TEST(ContextConstrainingTest, NegativeTreeStateOnEnterCall)
             { C::execution_public_data_tree_size, 70 },
             { C::execution_written_public_data_slots_tree_root, 400 },
             { C::execution_written_public_data_slots_tree_size, 80 },
-            { C::execution_num_unencrypted_log_fields, 5 },
+            { C::execution_num_public_log_fields, 5 },
             { C::execution_num_l2_to_l1_messages, 3 },
         },
         {
@@ -899,7 +899,7 @@ TEST(ContextConstrainingTest, NegativeTreeStateOnEnterCall)
             { C::execution_prev_public_data_tree_size, 222222 },               // Should be 70
             { C::execution_prev_written_public_data_slots_tree_root, 111111 }, // Should be 400
             { C::execution_prev_written_public_data_slots_tree_size, 99999 },  // Should be 80
-            { C::execution_prev_num_unencrypted_log_fields, 88888 },           // Should be 5
+            { C::execution_prev_num_public_log_fields, 88888 },                // Should be 5
             { C::execution_prev_num_l2_to_l1_messages, 77777 },                // Should be 3
         },
         {
@@ -930,8 +930,8 @@ TEST(ContextConstrainingTest, NegativeTreeStateOnEnterCall)
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<context>(trace, context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY),
         "WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_UNENCRYPTED_LOGS_CONTINUITY),
-                              "NUM_UNENCRYPTED_LOGS_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_PUBLIC_LOGS_CONTINUITY),
+                              "NUM_PUBLIC_LOGS_CONTINUITY");
     EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY),
                               "NUM_L2_TO_L1_MESSAGES_CONTINUITY");
 }
@@ -960,7 +960,7 @@ TEST(ContextConstrainingTest, TreeStateOnEnterCallCorrect)
             { C::execution_public_data_tree_size, 70 },
             { C::execution_written_public_data_slots_tree_root, 400 },
             { C::execution_written_public_data_slots_tree_size, 80 },
-            { C::execution_num_unencrypted_log_fields, 5 },
+            { C::execution_num_public_log_fields, 5 },
             { C::execution_num_l2_to_l1_messages, 3 },
         },
         {
@@ -982,7 +982,7 @@ TEST(ContextConstrainingTest, TreeStateOnEnterCallCorrect)
             { C::execution_prev_public_data_tree_size, 70 },
             { C::execution_prev_written_public_data_slots_tree_root, 400 },
             { C::execution_prev_written_public_data_slots_tree_size, 80 },
-            { C::execution_prev_num_unencrypted_log_fields, 5 },
+            { C::execution_prev_num_public_log_fields, 5 },
             { C::execution_prev_num_l2_to_l1_messages, 3 },
         },
         {
@@ -1002,7 +1002,7 @@ TEST(ContextConstrainingTest, TreeStateOnEnterCallCorrect)
                             context::SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY,
                             context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY,
                             context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY,
-                            context::SR_NUM_UNENCRYPTED_LOGS_CONTINUITY,
+                            context::SR_NUM_PUBLIC_LOGS_CONTINUITY,
                             context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY);
 }
 

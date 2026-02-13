@@ -237,12 +237,12 @@ describe('CheckpointProposalJob', () => {
       },
     );
     validatorClient.createCheckpointProposal.mockImplementation(
-      async (checkpointHeader, archiveRoot, lastBlockInfo) => {
+      async (checkpointHeader, archiveRoot, feeAssetPriceModifier, lastBlockInfo) => {
         if (!lastBlockInfo) {
-          return new CheckpointProposal(checkpointHeader, archiveRoot, mockedSig);
+          return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, mockedSig);
         }
         const txHashes = await Promise.all((lastBlockInfo.txs ?? []).map((tx: Tx) => tx.getTxHash()));
-        return new CheckpointProposal(checkpointHeader, archiveRoot, mockedSig, {
+        return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, mockedSig, {
           blockHeader: lastBlockInfo.blockHeader,
           indexWithinCheckpoint: lastBlockInfo.indexWithinCheckpoint,
           txHashes,

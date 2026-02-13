@@ -60,7 +60,7 @@ export type ContractClassIdPreimage = {
 };
 
 export async function computePublicBytecodeCommitment(packedBytecode: Buffer) {
-  // Encode the buffer into field elements (chunked into 32 bytes each)
+  // Encode the buffer into field elements (chunked into 31 bytes each)
   // The first element is the length of the bytecode (in bytes)
   const [bytecodeLengthAsField, ...bytecodeAsFields] = bufferAsFields(
     packedBytecode,
@@ -72,5 +72,6 @@ export async function computePublicBytecodeCommitment(packedBytecode: Buffer) {
 
   // NOTE: hash the bytecode here only up to the actual length of the bytecode.
   // We do not hash the entire max bytecode length!
-  return await poseidon2HashWithSeparator(bytecodeAsFields.slice(0, bytecodeLength), GeneratorIndex.PUBLIC_BYTECODE);
+  const sep = BigInt(GeneratorIndex.PUBLIC_BYTECODE) + (bytecodeLengthAsField.toBigInt() << 32n);
+  return await poseidon2HashWithSeparator(bytecodeAsFields.slice(0, bytecodeLength), new Fr(sep).toNumber());
 }

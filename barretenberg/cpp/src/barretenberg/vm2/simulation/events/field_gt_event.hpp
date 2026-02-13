@@ -21,18 +21,18 @@ struct LimbsComparisonWitness {
 
 // We default initialize fields which are not involved into a canonical decomposition operation.
 struct FieldGreaterThanEvent {
-    FieldGreaterOperation operation;
-    FF a;
-    FF b = FF::zero();
+    FieldGreaterOperation operation = FieldGreaterOperation::GREATER_THAN;
+    FF a = 0;
+    FF b = 0;
     U256Decomposition a_limbs = { 0, 0 };
-    LimbsComparisonWitness p_sub_a_witness;
+    LimbsComparisonWitness p_sub_a_witness = { 0, 0, false };
     U256Decomposition b_limbs = { 0, 0 };
     LimbsComparisonWitness p_sub_b_witness = { 0, 0, false };
     LimbsComparisonWitness res_witness = { 0, 0, false };
     bool gt_result = false; // Not relevant for operation == FieldGreaterOperation::CANONICAL_DECOMPOSITIONs
 
     // To be used with deduplicating event emitters.
-    using Key = std::tuple<FieldGreaterOperation, FF, FF>;
+    using Key = std::tuple<FieldGreaterOperation, const FF&, const FF&>;
     Key get_key() const { return { operation, a, b }; }
 
     bool operator==(const FieldGreaterThanEvent& other) const = default;

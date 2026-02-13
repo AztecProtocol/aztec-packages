@@ -43,7 +43,7 @@ template <typename FF> class bc_hashing : public Relation<bc_hashingImpl<FF>> {
     static constexpr size_t SR_PC_INCREMENTS_1 = 8;
     static constexpr size_t SR_PC_INCREMENTS_2 = 9;
     static constexpr size_t SR_ID_PROPAGATION = 10;
-    static constexpr size_t SR_START_IS_SEPARATOR = 11;
+    static constexpr size_t SR_START_IS_FIRST_FIELD = 11;
     static constexpr size_t SR_SEL_NOT_PADDING_1_REQUIRES_SEL = 14;
     static constexpr size_t SR_SEL_NOT_PADDING_2_REQUIRES_SEL = 15;
     static constexpr size_t SR_PADDING_CONSISTENCY = 16;
@@ -72,8 +72,8 @@ template <typename FF> class bc_hashing : public Relation<bc_hashingImpl<FF>> {
             return "PC_INCREMENTS_2";
         case SR_ID_PROPAGATION:
             return "ID_PROPAGATION";
-        case SR_START_IS_SEPARATOR:
-            return "START_IS_SEPARATOR";
+        case SR_START_IS_FIRST_FIELD:
+            return "START_IS_FIRST_FIELD";
         case SR_SEL_NOT_PADDING_1_REQUIRES_SEL:
             return "SEL_NOT_PADDING_1_REQUIRES_SEL";
         case SR_SEL_NOT_PADDING_2_REQUIRES_SEL:

@@ -10,7 +10,7 @@
 
 namespace bb::avm2 {
 
-template <typename FF_> class emit_unencrypted_logImpl {
+template <typename FF_> class emit_public_logImpl {
   public:
     using FF = FF_;
 
@@ -23,7 +23,7 @@ template <typename FF_> class emit_unencrypted_logImpl {
     {
         using C = ColumnAndShifts;
 
-        return (in.get(C::emit_unencrypted_log_sel)).is_zero();
+        return (in.get(C::emit_public_log_sel)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -33,9 +33,9 @@ template <typename FF_> class emit_unencrypted_logImpl {
                            [[maybe_unused]] const FF& scaling_factor);
 };
 
-template <typename FF> class emit_unencrypted_log : public Relation<emit_unencrypted_logImpl<FF>> {
+template <typename FF> class emit_public_log : public Relation<emit_public_logImpl<FF>> {
   public:
-    static constexpr const std::string_view NAME = "emit_unencrypted_log";
+    static constexpr const std::string_view NAME = "emit_public_log";
 
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_START_AFTER_LATCH = 5;
