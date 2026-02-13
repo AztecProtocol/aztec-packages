@@ -232,11 +232,14 @@ function start_txes {
   export TOKIO_WORKER_THREADS=1
 
   # Starting txe servers with incrementing port numbers.
+  # Base port is below the Linux ephemeral range (32768-60999) to avoid conflicts.
+  local txe_base_port=14730
   for i in $(seq 0 $((NUM_TXES-1))); do
-    port=$((45730 + i))
+    port=$((txe_base_port + i))
     existing_pid=$(lsof -ti :$port || true)
     if [ -n "$existing_pid" ]; then
       echo "Killing existing process $existing_pid on port: $port"
+      check_port $port
       kill -9 $existing_pid &>/dev/null || true
       while kill -0 $existing_pid &>/dev/null; do sleep 0.1; done
     fi
@@ -247,8 +250,12 @@ function start_txes {
   echo "Waiting for TXE's to start..."
   for i in $(seq 0 $((NUM_TXES-1))); do
       local j=0
-      while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do
-        [ $j == 60 ] && echo_stderr "TXE $i took too long to start. Exiting." && exit 1
+      while ! nc -z 127.0.0.1 $((txe_base_port + i)) &>/dev/null; do
+        if [ $j == 60 ]; then
+          echo_stderr "TXE $i failed to start on port $((txe_base_port + i)) after 60s."
+          check_port $((txe_base_port + i))
+          exit 1
+        fi
         sleep 1
         j=$((j+1))
       done
