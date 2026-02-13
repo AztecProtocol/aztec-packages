@@ -6,6 +6,7 @@ import type { Signature } from '@aztec/foundation/eth-signature';
  * Row type from PostgreSQL query
  */
 export interface DutyRow {
+  rollup_address: string;
   validator_address: string;
   slot: string;
   block_number: string;
@@ -54,6 +55,8 @@ export enum DutyStatus {
  * Record of a validator duty in the database
  */
 export interface ValidatorDutyRecord {
+  /** Ethereum address of the rollup contract */
+  rollupAddress: EthAddress;
   /** Ethereum address of the validator */
   validatorAddress: EthAddress;
   /** Slot number for this duty */
@@ -78,7 +81,7 @@ export interface ValidatorDutyRecord {
   startedAt: Date;
   /** When the duty signing was completed (success or failure) */
   completedAt?: Date;
-  /** Error message if status is 'failed' */
+  /** Error message (currently unused) */
   errorMessage?: string;
 }
 
@@ -87,6 +90,7 @@ export interface ValidatorDutyRecord {
  * blockIndexWithinCheckpoint is REQUIRED and must be >= 0.
  */
 export interface BlockProposalDutyIdentifier {
+  rollupAddress: EthAddress;
   validatorAddress: EthAddress;
   slot: SlotNumber;
   /** Block index within checkpoint (0, 1, 2...). Required for block proposals. */
@@ -99,6 +103,7 @@ export interface BlockProposalDutyIdentifier {
  * blockIndexWithinCheckpoint is not applicable (internally stored as -1).
  */
 export interface OtherDutyIdentifier {
+  rollupAddress: EthAddress;
   validatorAddress: EthAddress;
   slot: SlotNumber;
   dutyType:

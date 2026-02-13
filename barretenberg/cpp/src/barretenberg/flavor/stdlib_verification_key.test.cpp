@@ -1,7 +1,6 @@
 #include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
@@ -53,7 +52,6 @@ template <typename Flavor> class StdlibVerificationKeyTests : public ::testing::
 
 using FlavorTypes = testing::Types<UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                    UltraRecursiveFlavor_<MegaCircuitBuilder>,
-                                   UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
                                    MegaRecursiveFlavor_<MegaCircuitBuilder>>;
 TYPED_TEST_SUITE(StdlibVerificationKeyTests, FlavorTypes);
 
@@ -77,11 +75,7 @@ TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
     using InnerBuilder = typename NativeFlavor::CircuitBuilder;
 
     InnerBuilder builder;
-    if constexpr (HasIPAAccumulator<NativeFlavor>) {
-        stdlib::recursion::honk::RollupIO::add_default(builder);
-    } else {
-        stdlib::recursion::honk::DefaultIO<typename NativeFlavor::CircuitBuilder>::add_default(builder);
-    }
+    stdlib::recursion::honk::DefaultIO<typename NativeFlavor::CircuitBuilder>::add_default(builder);
     auto prover_instance = std::make_shared<ProverInstance>(builder);
     native_vk = std::make_shared<NativeVerificationKey>(prover_instance->get_precomputed());
 

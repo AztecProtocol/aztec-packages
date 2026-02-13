@@ -18,9 +18,10 @@ TYPED_TEST_SUITE(PairingPointsTests, Curves);
 
 TYPED_TEST(PairingPointsTests, ConstructDefault)
 {
-    static constexpr size_t NUM_GATES_ADDED = 20;
+    using Builder = typename TypeParam::Builder;
+    static constexpr size_t NUM_GATES_ADDED = 8;
 
-    typename TypeParam::Builder builder;
+    Builder builder;
 
     size_t num_gates = builder.num_gates();
     PairingPoints<TypeParam>::set_default_to_public(&builder);
@@ -38,8 +39,8 @@ TYPED_TEST(PairingPointsTests, TestDefault)
 
     Builder builder;
 
-    Group P0(DEFAULT_PAIRING_POINTS_P0_X, DEFAULT_PAIRING_POINTS_P0_Y, /*assert_on_curve=*/false);
-    Group P1(DEFAULT_PAIRING_POINTS_P1_X, DEFAULT_PAIRING_POINTS_P1_Y, /*assert_on_curve=*/false);
+    Group P0(DEFAULT_PAIRING_POINT_P0_X, DEFAULT_PAIRING_POINT_P0_Y, /*assert_on_curve=*/false);
+    Group P1(DEFAULT_PAIRING_POINT_P1_X, DEFAULT_PAIRING_POINT_P1_Y, /*assert_on_curve=*/false);
     P0.convert_constant_to_fixed_witness(&builder);
     P1.convert_constant_to_fixed_witness(&builder);
     PairingPoints<TypeParam> pp(P0, P1);
@@ -210,8 +211,8 @@ TYPED_TEST(PairingPointsTests, AggregateMultipleWithDuplicatePoints)
     Builder builder;
 
     // Use default pairing points that are known to satisfy the pairing equation
-    Group P0(DEFAULT_PAIRING_POINTS_P0_X, DEFAULT_PAIRING_POINTS_P0_Y, /*assert_on_curve=*/false);
-    Group P1(DEFAULT_PAIRING_POINTS_P1_X, DEFAULT_PAIRING_POINTS_P1_Y, /*assert_on_curve=*/false);
+    Group P0(DEFAULT_PAIRING_POINT_P0_X, DEFAULT_PAIRING_POINT_P0_Y, /*assert_on_curve=*/false);
+    Group P1(DEFAULT_PAIRING_POINT_P1_X, DEFAULT_PAIRING_POINT_P1_Y, /*assert_on_curve=*/false);
     P0.convert_constant_to_fixed_witness(&builder);
     P1.convert_constant_to_fixed_witness(&builder);
 
@@ -238,8 +239,8 @@ TYPED_TEST(PairingPointsTests, AggregateMultipleWithDuplicatePoints)
     using Fr = typename Curve::ScalarField;
     bb::StdlibTranscript<Builder> transcript{};
     for (size_t idx = 0; idx < 3; ++idx) {
-        transcript.add_to_hash_buffer("first_component_" + std::to_string(idx), pp_vector[idx].P0);
-        transcript.add_to_hash_buffer("second_component_" + std::to_string(idx), pp_vector[idx].P1);
+        transcript.add_to_hash_buffer("first_component_" + std::to_string(idx), pp_vector[idx].P0());
+        transcript.add_to_hash_buffer("second_component_" + std::to_string(idx), pp_vector[idx].P1());
     }
     std::array<std::string, 2> challenge_labels = { "pp_aggregation_challenge_1", "pp_aggregation_challenge_2" };
     std::array<Fr, 2> challenges = transcript.template get_challenges<Fr, 2>(challenge_labels);
@@ -253,12 +254,12 @@ TYPED_TEST(PairingPointsTests, AggregateMultipleWithDuplicatePoints)
     Group expected_P1 = P1 * total_scalar;
 
     // Verify the aggregated result matches the expected result
-    EXPECT_EQ(aggregated.P0.get_value(), expected_P0.get_value()) << "Aggregated P0 should equal (1 + r₁ + r₂)·P0";
-    EXPECT_EQ(aggregated.P1.get_value(), expected_P1.get_value()) << "Aggregated P1 should equal (1 + r₁ + r₂)·P1";
+    EXPECT_EQ(aggregated.P0().get_value(), expected_P0.get_value()) << "Aggregated P0 should equal (1 + r₁ + r₂)·P0";
+    EXPECT_EQ(aggregated.P1().get_value(), expected_P1.get_value()) << "Aggregated P1 should equal (1 + r₁ + r₂)·P1";
 
     // The result should still be a valid pairing point (scalar multiple of the original)
-    bb::PairingPoints<typename Curve::NativeCurve> native_aggregated(aggregated.P0.get_value(),
-                                                                     aggregated.P1.get_value());
+    bb::PairingPoints<typename Curve::NativeCurve> native_aggregated(aggregated.P0().get_value(),
+                                                                     aggregated.P1().get_value());
     EXPECT_TRUE(native_aggregated.check())
         << "Aggregated duplicate pairing points should still satisfy pairing equation";
 }

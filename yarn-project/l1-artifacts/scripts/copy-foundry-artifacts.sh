@@ -19,10 +19,14 @@ mkdir -p "l1-contracts/script" "l1-contracts/lib" "l1-contracts/broadcast"
 # Copy build artifacts, cache, sources, and config (preserving timestamps for cache validity)
 cp -rp "$src"/{out,cache,src,generated} "l1-contracts/"
 cp -rp "$src/script/deploy" "l1-contracts/script/"  # only deploy/, other scripts depend on test files
-# Kludge: copy one test file to appease forge cache which references test/shouting.t.sol
-mkdir -p "l1-contracts/test"
+# Kludge: copy test files that forge cache references to avoid stale artifact warnings
+mkdir -p "l1-contracts/test/script"
 cp -p "$src/test/shouting.t.sol" "l1-contracts/test/"
-cp -p "$src"/{foundry.toml,foundry.lock,solc-*} "l1-contracts/"
+cp -p "$src"/test/script/*.sol "l1-contracts/test/script/"
+cp -p "$src"/{foundry.toml,foundry.lock,package.json,solc-*} "l1-contracts/"
+# Copy the forge broadcast wrapper (now a plain .js source file).
+mkdir -p "l1-contracts/scripts"
+cp -p "$src/scripts/forge_broadcast.js" "l1-contracts/scripts/"
 abs_dest=$(pwd)/l1-contracts
 # Keep only the foundry relevant files from lib
 (cd "$src" && find lib \( -name "*.sol" -o -name "remappings.txt" -o -name "foundry.toml" \) -exec cp --parents -t "$abs_dest" {} +)

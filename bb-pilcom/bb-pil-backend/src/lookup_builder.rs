@@ -181,16 +181,16 @@ fn create_lookup_settings_data(lookup: &Lookup) -> Json {
     );
 
     // NOTE: these are hardcoded as 1 for now until more optimizations are required
-    let read_terms = 1;
-    let write_terms = 1;
+    let lookup_terms = 1;
+    let table_terms = 1;
     let lookup_tuple_size = columns_per_set;
 
     // NOTE: hardcoded until optimizations required
-    let inverse_degree = 4;
-    let read_term_degree = 0;
-    let write_term_degree = 0;
-    let read_term_types = "{0}".to_owned();
-    let write_term_types = "{0}".to_owned();
+    let inverse_degree = 2;
+    let lookup_term_degree = 0;
+    let table_term_degree = 0;
+    let lookup_term_types = "{0}".to_owned();
+    let table_term_types = "{0}".to_owned();
 
     json!({
         "lookup_name": lookup.name,
@@ -201,14 +201,14 @@ fn create_lookup_settings_data(lookup: &Lookup) -> Json {
         "rhs_cols": rhs_cols,
         "inverses_col": lookup.inverse.clone(),
         "counts_col": lookup.counts_poly,
-        "read_terms": read_terms,
-        "write_terms": write_terms,
+        "lookup_terms": lookup_terms,
+        "table_terms": table_terms,
         "lookup_tuple_size": lookup_tuple_size,
         "inverse_degree": inverse_degree,
-        "read_term_degree": read_term_degree,
-        "write_term_degree": write_term_degree,
-        "read_term_types": read_term_types,
-        "write_term_types": write_term_types,
+        "lookup_term_degree": lookup_term_degree,
+        "table_term_degree": table_term_degree,
+        "lookup_term_types": lookup_term_types,
+        "table_term_types": table_term_types,
     })
 }
 

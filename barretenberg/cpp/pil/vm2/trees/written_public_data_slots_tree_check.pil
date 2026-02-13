@@ -79,13 +79,20 @@ namespace written_public_data_slots_tree_check;
     // ========= SILOING =========
     pol commit leaf_slot;
 
-    // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
+    // Lookup constant support: Can be removed when we support constants in lookups.
     pol commit siloing_separator;
     sel * (constants.DOM_SEP__PUBLIC_LEAF_SLOT - siloing_separator) = 0;
+    pol commit const_three;
+    sel * (const_three - 3) = 0;
 
     #[SILO_POSEIDON2]
-    sel { sel, siloing_separator, address, slot, leaf_slot }
-    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+    sel {
+        siloing_separator, address, slot,
+        leaf_slot, const_three
+    } in poseidon2_hash.start {
+         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
+         poseidon2_hash.output, poseidon2_hash.input_len
+    };
 
     // ========= HANDLE REDUNDANT WRITES  =========
     pol commit should_insert;
@@ -103,19 +110,29 @@ namespace written_public_data_slots_tree_check;
     pol commit low_leaf_hash;
     // The intermediate root is the root of the tree after the low leaf update but before the new leaf is inserted.
     pol commit intermediate_root;
-    // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
+    // Lookup constant support: Can be removed when we support constants in lookups.
     pol commit tree_height;
     sel * (constants.AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT - tree_height) = 0;
 
     #[LOW_LEAF_POSEIDON2]
-    sel { sel, low_leaf_slot, low_leaf_next_slot, low_leaf_next_index, low_leaf_hash }
-    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+    sel {
+         low_leaf_slot, low_leaf_next_slot, low_leaf_next_index,
+         low_leaf_hash, const_three
+    } in poseidon2_hash.start {
+         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
+         poseidon2_hash.output, poseidon2_hash.input_len
+    };
 
     pol commit updated_low_leaf_hash;
 
     #[UPDATED_LOW_LEAF_POSEIDON2]
-    should_insert { sel, low_leaf_slot, updated_low_leaf_next_slot, updated_low_leaf_next_index, updated_low_leaf_hash }
-    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+    should_insert {
+         low_leaf_slot, updated_low_leaf_next_slot, updated_low_leaf_next_index,
+         updated_low_leaf_hash, const_three
+    } in poseidon2_hash.start {
+         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
+         poseidon2_hash.output, poseidon2_hash.input_len
+    };
 
     #[LOW_LEAF_MERKLE_CHECK]
     sel { should_insert, low_leaf_hash, updated_low_leaf_hash,
@@ -155,8 +172,13 @@ namespace written_public_data_slots_tree_check;
     pol commit new_leaf_hash;
 
     #[NEW_LEAF_POSEIDON2]
-    should_insert { sel, leaf_slot, low_leaf_next_slot, low_leaf_next_index, new_leaf_hash }
-    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+    should_insert {
+         leaf_slot, low_leaf_next_slot, low_leaf_next_index,
+         new_leaf_hash, const_three
+    } in poseidon2_hash.start {
+         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
+         poseidon2_hash.output, poseidon2_hash.input_len
+    };
 
     #[NEW_LEAF_MERKLE_CHECK]
     should_insert { sel, precomputed.zero, new_leaf_hash,

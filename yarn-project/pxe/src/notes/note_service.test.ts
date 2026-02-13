@@ -8,18 +8,17 @@ import type { CompleteAddress } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
+import { makeBlockHeader } from '@aztec/stdlib/testing';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import { BlockHeader, GlobalVariables, type IndexedTxEffect, TxEffect, TxHash } from '@aztec/stdlib/tx';
+import { type IndexedTxEffect, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
-import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
 import { NoteStore } from '../storage/note_store/note_store.js';
 import { NoteService } from './note_service.js';
 
 describe('NoteService', () => {
-  let anchorBlockStore: AnchorBlockStore;
   let noteStore: NoteStore;
   let keyStore: KeyStore;
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
@@ -29,17 +28,16 @@ describe('NoteService', () => {
 
   let noteService: NoteService;
 
+  const setSyncedBlockNumber = (blockNumber: BlockNumber) => {
+    const anchorBlockHeader = makeBlockHeader(0, { blockNumber });
+    noteService = new NoteService(noteStore, aztecNode, anchorBlockHeader, 'test');
+  };
+
   beforeEach(async () => {
     const store = await openTmpStore('test');
     keyStore = new KeyStore(store);
     noteStore = new NoteStore(store);
     aztecNode = mock<AztecNode>();
-    anchorBlockStore = new AnchorBlockStore(store);
-    await anchorBlockStore.setHeader(
-      BlockHeader.empty({
-        globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(syncedBlockNumber) }),
-      }),
-    );
 
     contractAddress = await AztecAddress.random();
 
@@ -51,7 +49,7 @@ describe('NoteService', () => {
 
     recipient = await keyStore.addAccount(new Fr(69), Fr.random());
 
-    noteService = new NoteService(noteStore, aztecNode, anchorBlockStore, 'test');
+    setSyncedBlockNumber(BlockNumber(syncedBlockNumber));
   });
 
   it('should remove notes that have been nullified', async () => {
@@ -216,14 +214,6 @@ describe('NoteService', () => {
     let indexedTxEffect: IndexedTxEffect;
     let blockNumber: BlockNumber;
 
-    const setSyncedBlockNumber = (blockNumber: BlockNumber) => {
-      return anchorBlockStore.setHeader(
-        BlockHeader.empty({
-          globalVariables: GlobalVariables.empty({ blockNumber }),
-        }),
-      );
-    };
-
     // beforeEach sets up the happy path case, so error modes are tested
     // by minimally failing happy path conditions
     beforeEach(async () => {
@@ -257,7 +247,7 @@ describe('NoteService', () => {
        ** - Node knows tx effect
        ** - Node knows unique note hash (and siloed nullifier if requested)
        */
-      await setSyncedBlockNumber(blockNumber);
+      setSyncedBlockNumber(blockNumber);
 
       aztecNode.getTxEffect.mockImplementation(queryTxHash =>
         Promise.resolve(queryTxHash == txHash ? indexedTxEffect : undefined),
@@ -335,7 +325,7 @@ describe('NoteService', () => {
     });
 
     it('should throw if tx was mined after synced block number', async () => {
-      await setSyncedBlockNumber(BlockNumber(blockNumber - 1));
+      setSyncedBlockNumber(BlockNumber(blockNumber - 1));
 
       await expect(
         noteService.validateAndStoreNote(

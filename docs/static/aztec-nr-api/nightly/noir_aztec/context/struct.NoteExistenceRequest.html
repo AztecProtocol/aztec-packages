@@ -46,7 +46,7 @@
 </code></pre>
 <div class="comments">
 <p>A request to assert the existence of a note.</p>
-<p>Used by <a href="../../noir_aztec/context/struct.PrivateContext.html#assert_note_exists">crate::context::PrivateContext::assert_note_exists</a>.</p></div>
+<p>Used by <a href="../../noir_aztec/context/struct.PrivateContext.html#assert_note_exists"><code>crate::context::PrivateContext::assert_note_exists</code></a>.</p></div>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../noir_aztec/context/struct.NoteExistenceRequest.html" class="struct">NoteExistenceRequest</a></code></h3>
 
@@ -56,7 +56,8 @@
 <p>Creates an existence request for a pending note.</p>
 <p>Pending notes have not been yet assigned a nonce, and they therefore have no unique note hash. Instead, these
 requests are created using the unsiloed note hash (i.e. from
-<a href="../../noir_aztec/note/note_interface/trait.NoteHash.html#compute_note_hash">crate::note::note_interface::NoteHash::compute_note_hash</a>) and address of the contract that created the note.</p></div>
+<a href="../../noir_aztec/note/note_interface/trait.NoteHash.html#compute_note_hash"><code>crate::note::note_interface::NoteHash::compute_note_hash</code></a>) and address of the contract that created the
+note.</p></div>
 </div><code id="for_settled" class="code-header">pub fn <a href="#for_settled"><span class="fn">for_settled</span></a>(unique_note_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
 
 <div class="padded-description"><div class="comments">

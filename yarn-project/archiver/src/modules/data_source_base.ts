@@ -4,7 +4,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { isDefined } from '@aztec/foundation/types';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CheckpointedL2Block, CommitteeAttestation, L2Block, type L2Tips } from '@aztec/stdlib/block';
+import { type BlockHash, CheckpointedL2Block, CommitteeAttestation, L2Block, type L2Tips } from '@aztec/stdlib/block';
 import { Checkpoint, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
@@ -121,7 +121,7 @@ export abstract class ArchiverDataSourceBase
     return this.store.getCheckpointedBlocks(from, limit);
   }
 
-  public getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined> {
+  public getBlockHeaderByHash(blockHash: BlockHash): Promise<BlockHeader | undefined> {
     return this.store.getBlockHeaderByHash(blockHash);
   }
 
@@ -347,7 +347,7 @@ export abstract class ArchiverDataSourceBase
     return this.store.getBlocks(from, limit);
   }
 
-  public getCheckpointedBlockByHash(blockHash: Fr): Promise<CheckpointedL2Block | undefined> {
+  public getCheckpointedBlockByHash(blockHash: BlockHash): Promise<CheckpointedL2Block | undefined> {
     return this.store.getCheckpointedBlockByHash(blockHash);
   }
 
@@ -355,7 +355,7 @@ export abstract class ArchiverDataSourceBase
     return this.store.getCheckpointedBlockByArchive(archive);
   }
 
-  public async getL2BlockByHash(blockHash: Fr): Promise<L2Block | undefined> {
+  public async getL2BlockByHash(blockHash: BlockHash): Promise<L2Block | undefined> {
     const checkpointedBlock = await this.store.getCheckpointedBlockByHash(blockHash);
     return checkpointedBlock?.block;
   }

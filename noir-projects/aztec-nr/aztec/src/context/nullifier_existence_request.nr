@@ -2,7 +2,7 @@ use crate::protocol::address::aztec_address::AztecAddress;
 
 /// A request to assert the existence of a nullifier.
 ///
-/// Used by [crate::context::private_context::PrivateContext::assert_nullifier_exists].
+/// Used by [`crate::context::private_context::PrivateContext::assert_nullifier_exists`].
 pub struct NullifierExistenceRequest {
     nullifier: Field,
     maybe_contract_address: Option<AztecAddress>,

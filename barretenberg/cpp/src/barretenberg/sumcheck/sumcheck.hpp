@@ -174,6 +174,14 @@ template <typename Flavor> struct VerifierZKCorrectionHandler<Flavor, true> {
 
         // Get the claimed evaluation of the Libra multivariate evaluated at the sumcheck challenge
         libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
+
+        // OriginTag false positive: libra_evaluation is PCS-bound (verified by Shplemini opening).
+        // Once commitments are fixed and sumcheck challenges derived, the correct evaluation is determined.
+        if constexpr (IsRecursiveFlavor<Flavor>) {
+            const auto challenge_tag = multivariate_challenge.back().get_origin_tag();
+            libra_evaluation.set_origin_tag(challenge_tag);
+        }
+
         full_honk_purported_value += libra_evaluation * libra_challenge;
     }
 
@@ -637,6 +645,7 @@ template <typename Flavor> class SumcheckProver {
             dest_view[j].shrink_end_index((limit / 2) + (limit % 2));
         });
     };
+
     /**
      * @brief Initialize partially evaluated polynomials and perform first round of partial evaluation.
      * @details Creates PartiallyEvaluatedMultivariates from full polynomials and evaluates at the first round
@@ -680,6 +689,7 @@ template <typename Flavor> class SumcheckProver {
         return multivariate_evaluations;
     };
 };
+
 /*! \brief Implementation of the sumcheck Verifier for statements of the form \f$\sum_{\vec \ell \in \{0,1\}^d}
  pow_{\beta}(\vec \ell) \cdot F \left(P_1(\vec \ell),\ldots, P_N(\vec \ell) \right)  = 0 \f$ for multilinear
  polynomials \f$P_1, \ldots, P_N \f$.
@@ -724,7 +734,6 @@ template <typename Flavor> class SumcheckVerifier {
     /**
      * @brief Container type for the evaluations of Prover Polynomials \f$P_1,\ldots,P_N\f$ at the challenge point
      * \f$(u_0,\ldots, u_{d-1}) \f$.
-     *
      */
     using ClaimedEvaluations = typename Flavor::AllValues;
     // For ZK Flavors: the verifier obtains a vector of evaluations of \f$ d \f$ univariate polynomials and uses them to
@@ -741,7 +750,6 @@ template <typename Flavor> class SumcheckVerifier {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
     /**
      * @brief The number of Prover Polynomials \f$ P_1, \ldots, P_N \f$ specified by the Flavor.
-     *
      */
     static constexpr size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
@@ -806,6 +814,15 @@ template <typename Flavor> class SumcheckVerifier {
             transcript->template receive_from_prover<std::array<FF, NUM_POLYNOMIALS>>("Sumcheck:evaluations");
         for (auto [eval, transcript_eval] : zip_view(purported_evaluations.get_all(), transcript_evaluations)) {
             eval = transcript_eval;
+        }
+
+        // OriginTag false positive: The evaluations are PCS-bound - the prover committed to the
+        // polynomials before challenges were known, and the PCS opening verifies consistency.
+        if constexpr (IsRecursiveFlavor<Flavor>) {
+            const auto challenge_tag = multivariate_challenge.back().get_origin_tag();
+            for (auto& eval : purported_evaluations.get_all()) {
+                eval.set_origin_tag(challenge_tag);
+            }
         }
 
         // Evaluate the Honk relation at the point (u_0, ..., u_{d-1}) using claimed evaluations of prover polynomials.

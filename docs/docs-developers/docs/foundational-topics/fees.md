@@ -1,8 +1,8 @@
 ---
 title: Fees
 sidebar_position: 4
-tags: [fees]
-description: Understand Aztec's fee system including mana-based transaction pricing, Aztec token payments, and how L1 and L2 costs are transparently calculated for users.
+tags: [fees, mana, gas]
+description: Understand Aztec's fee system including mana-based transaction pricing, Aztec token and Fee Juice payments, and how L1 and L2 costs are transparently calculated for users.
 references: ["yarn-project/stdlib/src/gas/gas_settings.ts"]
 ---
 
@@ -17,21 +17,42 @@ In a nutshell, the pricing of transactions transparently accounts for:
 
 This is achieved through multiple variables and calculations.
 
-## Terminology and factors
+## Terminology
 
 Familiar terms from Ethereum mainnet as referred to on the Aztec network:
 
-| Ethereum Mainnet | Aztec                | Description                                                 |
-| ---------------- | -------------------- | ----------------------------------------------------------- |
-| gas              | mana                 | unit measuring computational effort for transaction operations |
-| fee per gas      | Aztec token per mana | price per unit of mana                                      |
-| fee (wei)        | Aztec token          | total fee paid for a transaction                            |
+| Ethereum Mainnet | Aztec              | Description                                                    |
+| ---------------- | ------------------ | -------------------------------------------------------------- |
+| gas              | mana               | Unit measuring computational effort for transaction operations |
+| fee per gas      | Fee Juice per mana | Price per unit of mana                                         |
+| fee (wei)        | Fee Juice          | Total fee paid for a transaction                               |
 
-Fees on Aztec are paid in the Aztec token, which is bridged from L1. An oracle informs the price of Aztec token per wei, which can be used to calculate a transaction's fee in wei.
+## What is mana?
 
-Aztec also borrows ideas from EIP-1559, including congestion multipliers and the ability to specify base and priority fees per mana.
+Mana is Aztec's unit of computational effort, equivalent to gas on Ethereum. Every transaction consumes mana based on the operations it performs.
 
-### Aztec-specific fields
+Mana has two dimensions:
+
+- **Data Availability (DA) mana**: Cost of publishing transaction data to the data availability layer
+- **L2 mana**: Cost of executing the transaction on Aztec
+
+The total transaction fee is calculated as:
+
+```
+fee = (daMana × feePerDaMana) + (l2Mana × feePerL2Mana)
+```
+
+:::note
+The SDK and protocol code use "gas" in variable names (e.g., `daGas`, `l2Gas`, `feePerDaGas`, `feePerL2Gas`) rather than "mana". When reading code, `Gas` and mana refer to the same concept.
+:::
+
+## What is Fee Juice?
+
+Fee Juice is the native fee token on Aztec, used to pay for transaction fees. It is bridged Aztec tokens from Ethereum and is **non-transferable** on Aztec - it can only be used to pay fees, not sent between accounts.
+
+Aztec borrows ideas from EIP-1559, including congestion multipliers and the ability to specify base and priority fees per mana.
+
+## Factors affecting fees
 
 Other fields used in mana and fee calculations are determined in various ways:
 
@@ -54,15 +75,15 @@ import { Gas_Settings_Components, Gas_Settings, Tx_Teardown_Phase } from '@site/
 
 ## Fee payment
 
-A fee payer will have bridged the Aztec token from L1. On Aztec this fee asset is non-transferable, and only deducted by the protocol to pay for fees. A user can claim bridged Aztec token and use it to pay for transaction fees in the same transaction.
+A fee payer obtains Fee Juice by bridging Aztec tokens from Ethereum. The fee payer can be the account itself or a fee-paying contract (FPC), which functions similarly to a paymaster on Ethereum. On Aztec, Fee Juice is non-transferable and only deducted by the protocol to pay for fees. A user can claim bridged Fee Juice and use it to pay for transaction fees in the same transaction.
 
-The mechanism for bridging is the same as any other token. For more on this concept see the [Token Bridge Tutorial](../tutorials/js_tutorials/token_bridge.md) which describes portal contracts and [cross-chain messaging](../aztec-nr/framework-description/how_to_communicate_cross_chain.md).
+Fee Juice uses an enshrined `FeeJuicePortal` contract on Ethereum for bridging, unlike user-deployed token portals. The underlying cross-chain messaging mechanism is similar to other tokens - for more on this concept see the [Token Bridge Tutorial](../tutorials/js_tutorials/token_bridge.md) which describes portal contracts and [cross-chain messaging](../aztec-nr/framework-description/ethereum_aztec_messaging.md).
 
 ### Payment methods
 
-An account with the Aztec token can pay for its transactions directly, including deployment of a new account, if the Aztec token has been bridged to the address where the account will be deployed.
+An account with Fee Juice can pay for its transactions directly. A new account can even pay for its own deployment transaction, provided Fee Juice was bridged to its address before deployment.
 
-Alternatively, accounts can use fee-paying contracts (FPCs) to pay for transactions. FPCs accept tokens and pay fees in the Aztec token on behalf of users. Common patterns include:
+Alternatively, accounts can use [fee-paying contracts (FPCs)](../aztec-js/how_to_pay_fees.md#fee-payment-contracts-fpc) to pay for transactions. FPCs accept tokens and pay fees in Fee Juice on behalf of users. Common patterns include:
 
 - **Sponsored FPCs**: Pay fees unconditionally, enabling free transactions for users
 - **Token-accepting FPCs**: Accept a specific token in exchange for paying fees

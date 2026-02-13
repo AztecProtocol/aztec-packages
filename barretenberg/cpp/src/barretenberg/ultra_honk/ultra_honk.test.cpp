@@ -13,12 +13,10 @@ using FlavorTypes = testing::Types<UltraFlavor,
                                    UltraZKFlavor,
                                    UltraKeccakFlavor,
                                    UltraKeccakZKFlavor,
-                                   UltraRollupFlavor,
                                    UltraStarknetFlavor,
                                    UltraStarknetZKFlavor>;
 #else
-using FlavorTypes =
-    testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraRollupFlavor>;
+using FlavorTypes = testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>;
 #endif
 TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
 /**
@@ -34,9 +32,7 @@ TYPED_TEST(UltraHonkTests, ProofLengthCheck)
 {
     using Flavor = TypeParam;
     using Builder = Flavor::CircuitBuilder;
-    using IO = std::conditional_t<HasIPAAccumulator<Flavor>,
-                                  stdlib::recursion::honk::RollupIO,
-                                  stdlib::recursion::honk::DefaultIO<Builder>>;
+    using IO = typename TestFixture::IO;
     using Proof = typename Flavor::Transcript::Proof;
 
     auto builder = Builder{};
@@ -49,10 +45,6 @@ TYPED_TEST(UltraHonkTests, ProofLengthCheck)
     const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : prover_instance->log_dyadic_size();
     size_t expected_proof_length =
         ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) + IO::PUBLIC_INPUTS_SIZE;
-    // UltraRollupFlavor has HasIPAAccumulator=true, so proof includes IPA_PROOF_LENGTH
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        expected_proof_length += IPA_PROOF_LENGTH;
-    }
     EXPECT_EQ(ultra_proof.size(), expected_proof_length);
 }
 
@@ -152,17 +144,17 @@ TYPED_TEST(UltraHonkTests, TestEllipticGate)
     uint32_t x3 = circuit_builder.add_variable(p3.x);
     uint32_t y3 = circuit_builder.add_variable(p3.y);
 
-    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
+    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*is_addition=*/true });
 
     p3 = affine_element(element(p1) + element(p2));
     x3 = circuit_builder.add_variable(p3.x);
     y3 = circuit_builder.add_variable(p3.y);
-    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
+    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*is_addition=*/true });
 
     p3 = affine_element(element(p1) - element(p2));
     x3 = circuit_builder.add_variable(p3.x);
     y3 = circuit_builder.add_variable(p3.y);
-    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, -1 });
+    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*is_addition=*/false });
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
@@ -307,7 +299,7 @@ TYPED_TEST(UltraHonkTests, RangeConstraintSmallVariable)
 TYPED_TEST(UltraHonkTests, NativeVKHashMismatchDetected)
 {
     using Flavor = TypeParam;
-    using IO = std::conditional_t<HasIPAAccumulator<Flavor>, RollupIO, DefaultIO>;
+    using IO = typename TestFixture::IO;
     using Builder = typename Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
     using ProverInstance = ProverInstance_<Flavor>;

@@ -15,7 +15,7 @@ import { tmpdir } from 'os';
 import { dirname, join, resolve } from 'path';
 import readline from 'readline';
 import type { Hex } from 'viem';
-import { foundry, mainnet, sepolia } from 'viem/chains';
+import { mainnet, sepolia } from 'viem/chains';
 
 import { createEthereumChain, isAnvilTestChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
@@ -31,9 +31,9 @@ const logger = createLogger('ethereum:deploy_aztec_l1_contracts');
 const JSON_DEPLOY_RESULT_PREFIX = 'JSON DEPLOY RESULT:';
 
 /**
- * Runs a process with the given command, arguments, and environment.
- * If the process outputs a line starting with JSON_DEPLOY_RESULT_PREFIX,
- * the JSON is parsed and returned.
+ * Runs a process and parses JSON deploy results from stdout.
+ * Lines starting with JSON_DEPLOY_RESULT_PREFIX are parsed and returned.
+ * All other stdout goes to logger.info, stderr goes to logger.warn.
  */
 function runProcess<T>(
   command: string,
@@ -49,26 +49,41 @@ function runProcess<T>(
   });
 
   let result: T | undefined;
+  let parseError: Error | undefined;
+  let settled = false;
 
   readline.createInterface({ input: proc.stdout }).on('line', line => {
     const trimmedLine = line.trim();
     if (trimmedLine.startsWith(JSON_DEPLOY_RESULT_PREFIX)) {
       const jsonStr = trimmedLine.slice(JSON_DEPLOY_RESULT_PREFIX.length).trim();
-      // TODO(AD): should this be a zod parse?
-      result = JSON.parse(jsonStr);
+      try {
+        result = JSON.parse(jsonStr);
+      } catch {
+        parseError = new Error(`Failed to parse deploy result JSON: ${jsonStr.slice(0, 200)}`);
+      }
     } else {
       logger.info(line);
     }
   });
-  readline.createInterface({ input: proc.stderr }).on('line', logger.error.bind(logger));
+  readline.createInterface({ input: proc.stderr }).on('line', logger.warn.bind(logger));
 
   proc.on('error', error => {
+    if (settled) {
+      return;
+    }
+    settled = true;
     reject(new Error(`Failed to spawn ${command}: ${error.message}`));
   });
 
   proc.on('close', code => {
+    if (settled) {
+      return;
+    }
+    settled = true;
     if (code !== 0) {
-      reject(new Error(`${command} exited with code ${code}. See logs for details.\n`));
+      reject(new Error(`${command} exited with code ${code}`));
+    } else if (parseError) {
+      reject(parseError);
     } else {
       resolve(result);
     }
@@ -168,6 +183,9 @@ export function prepareL1ContractsForDeployment(): string {
   const foundryTomlPath = join(basePath, 'foundry.toml');
   let foundryToml = readFileSync(foundryTomlPath, 'utf-8');
   const solcPathMatch = foundryToml.match(/solc\s*=\s*"\.\/solc-([^"]+)"/);
+  // Did we find a hardcoded solc path that we need to make absolute?
+  // This code path happens in CI currently as we bundle solc there to avoid race conditions when
+  // downloading solc.
   if (solcPathMatch) {
     const solcVersion = solcPathMatch[1];
     const absoluteSolcPath = join(basePath, `solc-${solcVersion}`);
@@ -318,11 +336,8 @@ export async function deployAztecL1Contracts(
     );
   }
 
-  // From heuristic testing. More caused issues with anvil.
-  const MAGIC_ANVIL_BATCH_SIZE = 8;
-  // Anvil seems to stall with unbounded batch size. Otherwise no max batch size is desirable.
+  const scriptPath = join(getL1ContractsPath(), 'scripts', 'forge_broadcast.js');
   const forgeArgs = [
-    'script',
     FORGE_SCRIPT,
     '--sig',
     'run()',
@@ -330,8 +345,6 @@ export async function deployAztecL1Contracts(
     privateKey,
     '--rpc-url',
     rpcUrl,
-    '--broadcast',
-    ...(chainId === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : []),
     ...(shouldVerify ? ['--verify'] : []),
   ];
   const forgeEnv = {
@@ -340,7 +353,12 @@ export async function deployAztecL1Contracts(
     FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
     ...getDeployAztecL1ContractsEnvVars(args),
   };
-  const result = await runProcess<ForgeL1ContractsDeployResult>('forge', forgeArgs, forgeEnv, l1ContractsPath);
+  const result = await runProcess<ForgeL1ContractsDeployResult>(
+    process.execPath,
+    [scriptPath, ...forgeArgs],
+    forgeEnv,
+    l1ContractsPath,
+  );
   if (!result) {
     throw new Error('Forge script did not output deployment result');
   }
@@ -583,17 +601,8 @@ export const deployRollupForUpgrade = async (
   const FORGE_SCRIPT = 'script/deploy/DeployRollupForUpgrade.s.sol';
   await maybeForgeForceProductionBuild(l1ContractsPath, FORGE_SCRIPT, chainId);
 
-  const forgeArgs = [
-    'script',
-    FORGE_SCRIPT,
-    '--sig',
-    'run()',
-    '--private-key',
-    privateKey,
-    '--rpc-url',
-    rpcUrl,
-    '--broadcast',
-  ];
+  const scriptPath = join(getL1ContractsPath(), 'scripts', 'forge_broadcast.js');
+  const forgeArgs = [FORGE_SCRIPT, '--sig', 'run()', '--private-key', privateKey, '--rpc-url', rpcUrl];
   const forgeEnv = {
     FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
     // Env vars required by l1-contracts/script/deploy/RollupConfiguration.sol.
@@ -602,7 +611,12 @@ export const deployRollupForUpgrade = async (
     ...getDeployRollupForUpgradeEnvVars(args),
   };
 
-  const result = await runProcess<ForgeRollupUpgradeResult>('forge', forgeArgs, forgeEnv, l1ContractsPath);
+  const result = await runProcess<ForgeRollupUpgradeResult>(
+    process.execPath,
+    [scriptPath, ...forgeArgs],
+    forgeEnv,
+    l1ContractsPath,
+  );
   if (!result) {
     throw new Error('Forge script did not output deployment result');
   }

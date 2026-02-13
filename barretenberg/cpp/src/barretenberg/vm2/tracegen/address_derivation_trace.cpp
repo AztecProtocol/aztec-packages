@@ -44,7 +44,7 @@ void AddressDerivationTraceBuilder::process(
                 { C::address_derivation_const_two, 2 },
                 { C::address_derivation_const_three, 3 },
                 { C::address_derivation_const_four, 4 },
-                { C::address_derivation_const_five, 5 },
+                { C::address_derivation_const_thirteen, 13 },
                 { C::address_derivation_partial_address, event.partial_address },
                 { C::address_derivation_public_keys_hash, event.public_keys_hash },
                 { C::address_derivation_public_keys_hash_domain_separator, DOM_SEP__PUBLIC_KEYS_HASH },

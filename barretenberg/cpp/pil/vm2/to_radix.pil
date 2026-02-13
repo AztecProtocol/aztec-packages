@@ -102,7 +102,7 @@ namespace to_radix;
     sel { limb }
     in
     precomputed.sel_range_8
-        { precomputed.clk };
+        { precomputed.idx };
 
     // Limb should be less than radix
     pol commit limb_radix_diff;
@@ -112,7 +112,7 @@ namespace to_radix;
     sel { limb_radix_diff }
     in
     precomputed.sel_range_8
-        { precomputed.clk };
+        { precomputed.idx };
 
 
     // On start, current acc must be equal to limb
@@ -140,7 +140,7 @@ namespace to_radix;
     start { radix, safe_limbs }
     in
     precomputed.sel_to_radix_p_limb_counts
-        { precomputed.clk, precomputed.to_radix_safe_limbs };
+        { precomputed.idx, precomputed.to_radix_safe_limbs };
 
     pol commit is_unsafe_limb;
     is_unsafe_limb * (1 - is_unsafe_limb) = 0;
@@ -201,7 +201,7 @@ namespace to_radix;
     not_padding_limb { limb_p_diff }
     in
     precomputed.sel_range_8
-        { precomputed.clk };
+        { precomputed.idx };
 
     // acc_under_p is on start is equal to limb_lt_p
     start * (acc_under_p - limb_lt_p) = 0;

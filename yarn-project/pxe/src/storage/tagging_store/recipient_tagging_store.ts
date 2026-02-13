@@ -45,7 +45,11 @@ export class RecipientTaggingStore implements StagedStore {
   }
 
   async #readHighestAgedIndex(jobId: string, secret: string): Promise<number | undefined> {
-    return this.#getHighestAgedIndexForJob(jobId).get(secret) ?? (await this.#highestAgedIndex.getAsync(secret));
+    // Always issue DB read to keep IndexedDB transaction alive (they auto-commit when a new micro-task starts and there
+    // are no pending read requests). The staged value still takes precedence if it exists.
+    const dbValue = await this.#highestAgedIndex.getAsync(secret);
+    const staged = this.#getHighestAgedIndexForJob(jobId).get(secret);
+    return staged ?? dbValue;
   }
 
   #writeHighestAgedIndex(jobId: string, secret: string, index: number) {
@@ -62,9 +66,11 @@ export class RecipientTaggingStore implements StagedStore {
   }
 
   async #readHighestFinalizedIndex(jobId: string, secret: string): Promise<number | undefined> {
-    return (
-      this.#getHighestFinalizedIndexForJob(jobId).get(secret) ?? (await this.#highestFinalizedIndex.getAsync(secret))
-    );
+    // Always issue DB read to keep IndexedDB transaction alive (they auto-commit when a new micro-task starts and there
+    // are no pending read requests). The staged value still takes precedence if it exists.
+    const dbValue = await this.#highestFinalizedIndex.getAsync(secret);
+    const staged = this.#getHighestFinalizedIndexForJob(jobId).get(secret);
+    return staged ?? dbValue;
   }
 
   #writeHighestFinalizedIndex(jobId: string, secret: string, index: number) {
@@ -101,29 +107,33 @@ export class RecipientTaggingStore implements StagedStore {
   }
 
   getHighestAgedIndex(secret: DirectionalAppTaggingSecret, jobId: string): Promise<number | undefined> {
-    return this.#readHighestAgedIndex(jobId, secret.toString());
+    return this.#store.transactionAsync(() => this.#readHighestAgedIndex(jobId, secret.toString()));
   }
 
-  async updateHighestAgedIndex(secret: DirectionalAppTaggingSecret, index: number, jobId: string): Promise<void> {
-    const currentIndex = await this.#readHighestAgedIndex(jobId, secret.toString());
-    if (currentIndex !== undefined && index <= currentIndex) {
-      // Log sync should never set a lower highest aged index.
-      throw new Error(`New highest aged index (${index}) must be higher than the current one (${currentIndex})`);
-    }
-    this.#writeHighestAgedIndex(jobId, secret.toString(), index);
+  updateHighestAgedIndex(secret: DirectionalAppTaggingSecret, index: number, jobId: string): Promise<void> {
+    return this.#store.transactionAsync(async () => {
+      const currentIndex = await this.#readHighestAgedIndex(jobId, secret.toString());
+      if (currentIndex !== undefined && index <= currentIndex) {
+        // Log sync should never set a lower highest aged index.
+        throw new Error(`New highest aged index (${index}) must be higher than the current one (${currentIndex})`);
+      }
+      this.#writeHighestAgedIndex(jobId, secret.toString(), index);
+    });
   }
 
   getHighestFinalizedIndex(secret: DirectionalAppTaggingSecret, jobId: string): Promise<number | undefined> {
-    return this.#readHighestFinalizedIndex(jobId, secret.toString());
+    return this.#store.transactionAsync(() => this.#readHighestFinalizedIndex(jobId, secret.toString()));
   }
 
-  async updateHighestFinalizedIndex(secret: DirectionalAppTaggingSecret, index: number, jobId: string): Promise<void> {
-    const currentIndex = await this.#readHighestFinalizedIndex(jobId, secret.toString());
-    if (currentIndex !== undefined && index < currentIndex) {
-      // Log sync should never set a lower highest finalized index but it can happen that it would try to set the same
-      // one because we are loading logs from highest aged index + 1 and not from the highest finalized index.
-      throw new Error(`New highest finalized index (${index}) must be higher than the current one (${currentIndex})`);
-    }
-    this.#writeHighestFinalizedIndex(jobId, secret.toString(), index);
+  updateHighestFinalizedIndex(secret: DirectionalAppTaggingSecret, index: number, jobId: string): Promise<void> {
+    return this.#store.transactionAsync(async () => {
+      const currentIndex = await this.#readHighestFinalizedIndex(jobId, secret.toString());
+      if (currentIndex !== undefined && index < currentIndex) {
+        // Log sync should never set a lower highest finalized index but it can happen that it would try to set the same
+        // one because we are loading logs from highest aged index + 1 and not from the highest finalized index.
+        throw new Error(`New highest finalized index (${index}) must be higher than the current one (${currentIndex})`);
+      }
+      this.#writeHighestFinalizedIndex(jobId, secret.toString(), index);
+    });
   }
 }

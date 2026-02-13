@@ -232,7 +232,7 @@ Click on an opcode name to view its detailed documentation.
     ```javascript
     debugLog(level, message, M[fieldsOffset:fieldsOffset+M[fieldsSizeOffset]])
     ```
-* **[🔗POSEIDON2](opcodes/poseidon2.md)**: Poseidon2 permutation
+* **[🔗POSEIDON2PERM](opcodes/poseidon2.md)**: Poseidon2 permutation
     * Opcode `0x3F`
     ```javascript
     M[outputStateOffset:outputStateOffset+4] = poseidon2Permutation(/*input=*/M[inputStateOffset:inputStateOffset+4])

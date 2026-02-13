@@ -15,6 +15,7 @@ import { z } from 'zod';
 import type { PrivateLog } from '../logs/private_log.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { BlockHeader } from '../tx/block_header.js';
+import type { BlockHash } from './block_hash.js';
 import { Body } from './body.js';
 import type { L2BlockInfo } from './l2_block_info.js';
 
@@ -89,9 +90,8 @@ export class L2Block {
    * Returns the block's hash (hash of block header).
    * @returns The block's hash.
    */
-  public async hash(): Promise<Fr> {
-    const blockHash = await this.header.hash();
-    return blockHash.toField();
+  public hash(): Promise<BlockHash> {
+    return this.header.hash();
   }
 
   /**

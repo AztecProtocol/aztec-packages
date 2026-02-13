@@ -67,10 +67,10 @@
 <div class="comments">
 <p>A hint for a note that might exist.</p>
 <p>This contains the actual note content and all metadata that is required in order to prove note's existence,
-regardless of whether the note is pending or settled (see <a href="../../noir_aztec/note/note_metadata/struct.NoteMetadata.html">crate::note::note_metadata::NoteMetadata</a>).</p>
+regardless of whether the note is pending or settled (see <a href="../../noir_aztec/note/note_metadata/struct.NoteMetadata.html"><code>crate::note::note_metadata::NoteMetadata</code></a>).</p>
 <p>This value typically unconstrained (originating from oracles or as a contract function parameter), and can be
-converted into a <a href="../../noir_aztec/note/struct.ConfirmedNote.html">crate::note::confirmed_note::ConfirmedNote</a> via
-<a href="../../noir_aztec/history/note_inclusion/trait.ProveNoteInclusion.html#prove_note_inclusion">crate::history::note_inclusion::ProveNoteInclusion::prove_note_inclusion</a>.</p></div>
+converted into a <a href="../../noir_aztec/note/struct.ConfirmedNote.html"><code>crate::note::confirmed_note::ConfirmedNote</code></a> via
+<a href="../../noir_aztec/history/note/fn.assert_note_existed_by.html"><code>crate::history::note::assert_note_existed_by</code></a>.</p></div>
 <h2>Fields</h2>
 <div id="structfield.note" class="struct-field"><code class="code-header">note: Note</code></div>
 <div class="padded-description"></div><div id="structfield.contract_address" class="struct-field"><code class="code-header">contract_address: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
@@ -79,13 +79,13 @@ converted into a <a href="../../noir_aztec/note/struct.ConfirmedNote.html">crate
 <div class="padded-description"></div><div id="structfield.storage_slot" class="struct-field"><code class="code-header">storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.metadata" class="struct-field"><code class="code-header">metadata: <a href="../../noir_aztec/note/note_metadata/struct.NoteMetadata.html" class="struct">NoteMetadata</a></code></div>
 <div class="padded-description"></div><h2>Trait implementations</h2>
-<h3 id="impl-Deserialize-for-HintedNote<Note>"><code class="code-header">impl&lt;Note&gt; <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;
+<h3 id="impl-Deserialize-for-HintedNote<Note>"><code class="code-header">impl&lt;Note&gt; <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;
 <div class="where-clause">where
-    Note: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
+    Note: <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(
-    serialized: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; &lt;(resolved type) as Deserialize&gt;::N + 6],
-) -> Self</code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; &lt;(resolved type) as Deserialize&gt;::N + 6]) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
 
 </div><h3 id="impl-Eq-for-HintedNote<Note>"><code class="code-header">impl&lt;Note&gt; <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;
 <div class="where-clause">where
@@ -101,11 +101,13 @@ converted into a <a href="../../noir_aztec/note/struct.ConfirmedNote.html">crate
 
 <code class="code-header">pub fn <span class="fn">unpack</span>(packed: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; &lt;(resolved type) as Packable&gt;::N + 6]) -> Self</code>
 
-</div><h3 id="impl-Serialize-for-HintedNote<Note>"><code class="code-header">impl&lt;Note&gt; <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;
+</div><h3 id="impl-Serialize-for-HintedNote<Note>"><code class="code-header">impl&lt;Note&gt; <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;
 <div class="where-clause">where
-    Note: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
+    Note: <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; &lt;(resolved type) as Serialize&gt;::N + 6]</code>
+
+<code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
 
 </div></main>
 </span>

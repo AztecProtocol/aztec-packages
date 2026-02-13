@@ -1,14 +1,19 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { getDecodedPublicEvents } from '@aztec/aztec.js/events';
+import { getPublicEvents } from '@aztec/aztec.js/events';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import type { PrivateEventFilter, Wallet } from '@aztec/aztec.js/wallet';
+import type { PrivateEventFilter, PublicEventFilter, Wallet } from '@aztec/aztec.js/wallet';
 import { makeTuple } from '@aztec/foundation/array';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import type { Tuple } from '@aztec/foundation/serialize';
-import { type ExampleEvent0, type ExampleEvent1, TestLogContract } from '@aztec/noir-test-contracts.js/TestLog';
+import {
+  type ExampleEvent0,
+  type ExampleEvent1,
+  type ExampleNestedEvent,
+  TestLogContract,
+} from '@aztec/noir-test-contracts.js/TestLog';
 
 import { jest } from '@jest/globals';
 
@@ -130,18 +135,21 @@ describe('Logs', () => {
         .send({ from: account1Address });
 
       // docs:start:get_public_events
-      const collectedEvent0s = await getDecodedPublicEvents<ExampleEvent0>(
+      const publicEventFilter: PublicEventFilter = {
+        fromBlock: BlockNumber(firstTx.blockNumber!),
+        toBlock: BlockNumber(lastTx.blockNumber! + 1),
+      };
+
+      const collectedEvent0s = await getPublicEvents<ExampleEvent0>(
         aztecNode,
         TestLogContract.events.ExampleEvent0,
-        firstTx.blockNumber!,
-        lastTx.blockNumber! - firstTx.blockNumber! + 1,
+        publicEventFilter,
       );
 
-      const collectedEvent1s = await getDecodedPublicEvents<ExampleEvent1>(
+      const collectedEvent1s = await getPublicEvents<ExampleEvent1>(
         aztecNode,
         TestLogContract.events.ExampleEvent1,
-        firstTx.blockNumber!,
-        lastTx.blockNumber! - firstTx.blockNumber! + 1,
+        publicEventFilter,
       );
       // docs:end:get_public_events
 
@@ -149,14 +157,14 @@ describe('Logs', () => {
       expect(collectedEvent1s.length).toBe(5);
 
       const exampleEvent0Sort = (a: ExampleEvent0, b: ExampleEvent0) => (a.value0 > b.value0 ? 1 : -1);
-      expect(collectedEvent0s.sort(exampleEvent0Sort)).toStrictEqual(
+      expect(collectedEvent0s.map(e => e.event).sort(exampleEvent0Sort)).toStrictEqual(
         preimage
           .map(preimage => ({ value0: preimage[0].toBigInt(), value1: preimage[1].toBigInt() }))
           .sort(exampleEvent0Sort),
       );
 
       const exampleEvent1Sort = (a: ExampleEvent1, b: ExampleEvent1) => (a.value2 > b.value2 ? 1 : -1);
-      expect(collectedEvent1s.sort(exampleEvent1Sort)).toStrictEqual(
+      expect(collectedEvent1s.map(e => e.event).sort(exampleEvent1Sort)).toStrictEqual(
         preimage
           .map(preimage => ({
             value2: new AztecAddress(preimage[2]),
@@ -165,6 +173,32 @@ describe('Logs', () => {
           }))
           .sort(exampleEvent1Sort),
       );
+    });
+
+    it('decodes public events with nested structs', async () => {
+      const a = Fr.random();
+      const b = Fr.random();
+      const c = await AztecAddress.random();
+      const extra = Fr.random();
+
+      const tx = await testLogContract.methods.emit_nested_event(a, b, c, extra).send({ from: account1Address });
+
+      const collectedEvents = await getPublicEvents<ExampleNestedEvent>(
+        aztecNode,
+        TestLogContract.events.ExampleNestedEvent,
+        {
+          fromBlock: BlockNumber(tx.blockNumber!),
+          toBlock: BlockNumber(tx.blockNumber! + 1),
+        },
+      );
+
+      expect(collectedEvents.length).toBe(1);
+
+      const event = collectedEvents[0].event;
+      expect(event.nested.a).toEqual(a.toBigInt());
+      expect(event.nested.b).toEqual(b.toBigInt());
+      expect((event.nested.c as AztecAddress).equals(c)).toBe(true);
+      expect(event.extra_value).toEqual(extra.toBigInt());
     });
 
     // This test verifies that tags remain unique:

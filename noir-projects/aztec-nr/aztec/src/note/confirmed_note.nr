@@ -9,14 +9,15 @@ use crate::protocol::address::AztecAddress;
 /// Only `ConfirmedNote`s can be nullified, since emitting a nullifier for a note that does not exist is a meaningless
 /// action, and in the vast majority of cases an error.
 ///
-/// `ConfirmedNote`s can be obtained by reading notes from PXE via [crate::note::note_getter::get_note] and
-/// [crate::note::note_getter::get_notes], or by confirming a [crate::note::hinted_note::HintedNote] via
-/// [crate::history::note::assert_note_existed_by].
+/// `ConfirmedNote`s can be obtained by reading notes from PXE via [`crate::note::note_getter::get_note`] and
+/// [`crate::note::note_getter::get_notes`], or by confirming a [`crate::note::hinted_note::HintedNote`] via
+/// [`crate::history::note::assert_note_existed_by`].
 ///
 /// ## Pending Notes
 ///
-/// A pending `ConfirmedNote` (i.e. one of [crate::note::note_metadata::NoteStageEnum::PENDING_SAME_PHASE] or
-/// [crate::note::note_metadata::NoteStageEnum::PENDING_PREVIOUS_PHASE]) will **not** necessarily be inserted into the
+/// A pending `ConfirmedNote` (i.e. one of [`crate::note::note_metadata::NoteStageEnum::PENDING_SAME_PHASE`] or
+/// [`crate::note::note_metadata::NoteStageEnum::PENDING_PREVIOUS_PHASE`]) will **not** necessarily be inserted into
+/// the
 /// note hash tree: if it is nullified in the same transaction, both note hash and nullifier will be squashed (deleted)
 /// by the kernel, resulting in a _transient note_.
 pub struct ConfirmedNote<Note> {

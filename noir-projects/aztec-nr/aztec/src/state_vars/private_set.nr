@@ -29,7 +29,7 @@ mod test;
 /// }
 /// ```
 ///
-/// For more details on what "owned" means, see the documentation for the [OwnedStateVariable] trait.
+/// For more details on what "owned" means, see the documentation for the [`OwnedStateVariable`] trait.
 ///
 /// The PrivateSet facilitates: the insertion of new notes, the reading of existing notes, and the nullification of
 /// existing notes.
@@ -136,7 +136,7 @@ where
     /// - Augment the note with the `storage_slot` of this PrivateSet, to convey which set it belongs to.
     /// - Augment the note with a `note_type_id`, so that it can be correctly filed- away when it is eventually
     /// discovered, decrypted, and processed by its intended recipient. (The note_type_id is usually allocated by the
-    /// [note](crate::macros::notes::note) macro).
+    /// [`note`](crate::macros::notes::note) macro).
     /// - Provide the contents of the (augmented) note to the PXE, so that it can store all notes created by the user
     /// executing this function.
     /// - The note is also kept in the PXE's memory during execution, in case this newly-created note gets _read_ in

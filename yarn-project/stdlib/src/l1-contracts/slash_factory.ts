@@ -41,6 +41,7 @@ export class SlashFactoryContract {
 
     return {
       to: this.contract.address,
+      abi: SlashFactoryAbi,
       data: encodeFunctionData({
         abi: SlashFactoryAbi,
         functionName: 'createSlashPayload',

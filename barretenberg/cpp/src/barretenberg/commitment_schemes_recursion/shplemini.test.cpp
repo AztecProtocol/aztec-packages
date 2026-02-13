@@ -259,8 +259,7 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
             KZG<Curve>::reduce_verify_batch_opening_claim(std::move(opening_claim), stdlib_verifier_transcript));
         EXPECT_TRUE(CircuitChecker::check(builder));
 
-        VerifierCommitmentKey<NativeCurve> vk;
-        EXPECT_EQ(vk.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value()), true);
+        EXPECT_TRUE(pairing_points.check());
 
         if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
             validate_num_eccvm_rows(num_polys, num_shifted, short_scalars, &builder);

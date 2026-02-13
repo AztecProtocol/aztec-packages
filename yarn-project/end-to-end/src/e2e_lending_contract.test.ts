@@ -8,13 +8,13 @@ import type { TestDateProvider } from '@aztec/foundation/timer';
 import { LendingContract } from '@aztec/noir-contracts.js/Lending';
 import { PriceFeedContract } from '@aztec/noir-contracts.js/PriceFeed';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { afterAll, jest } from '@jest/globals';
 
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { ensureAccountContractsPublished, setup } from './fixtures/utils.js';
 import { LendingAccount, LendingSimulator, TokenSimulator } from './simulators/index.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
 
 describe('e2e_lending_contract', () => {
   jest.setTimeout(100_000);

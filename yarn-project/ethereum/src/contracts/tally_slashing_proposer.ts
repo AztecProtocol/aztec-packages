@@ -1,11 +1,12 @@
 import type { L1TxRequest } from '@aztec/ethereum/l1-tx-utils';
 import type { ViemClient } from '@aztec/ethereum/types';
-import { tryExtractEvent } from '@aztec/ethereum/utils';
+import { mergeAbis, tryExtractEvent } from '@aztec/ethereum/utils';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { hexToBuffer } from '@aztec/foundation/string';
+import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 import { TallySlashingProposerAbi } from '@aztec/l1-artifacts/TallySlashingProposerAbi';
 
 import {
@@ -160,6 +161,7 @@ export class TallySlashingProposerContract {
 
     return {
       to: this.contract.address,
+      abi: TallySlashingProposerAbi,
       data: encodeFunctionData({
         abi: TallySlashingProposerAbi,
         functionName: 'vote',
@@ -207,6 +209,7 @@ export class TallySlashingProposerContract {
   public buildVoteRequestWithSignature(votes: Hex, signature: { v: number; r: Hex; s: Hex }): L1TxRequest {
     return {
       to: this.contract.address,
+      abi: TallySlashingProposerAbi,
       data: encodeFunctionData({
         abi: TallySlashingProposerAbi,
         functionName: 'vote',
@@ -224,6 +227,7 @@ export class TallySlashingProposerContract {
   public buildExecuteRoundRequest(round: bigint, committees: EthAddress[][]): L1TxRequest {
     return {
       to: this.contract.address,
+      abi: mergeAbis([TallySlashingProposerAbi, SlasherAbi]),
       data: encodeFunctionData({
         abi: TallySlashingProposerAbi,
         functionName: 'executeRound',

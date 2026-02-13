@@ -2,7 +2,7 @@ use crate::{context::NullifierExistenceRequest, oracle::nullifiers::is_nullifier
 
 use crate::protocol::{address::aztec_address::AztecAddress, hash::compute_siloed_nullifier};
 
-/// Returns the [NullifierExistenceRequest] used to prove a nullifier exists.
+/// Returns the [`NullifierExistenceRequest`] used to prove a nullifier exists.
 pub fn compute_nullifier_existence_request(
     unsiloed_nullifier: Field,
     contract_address: AztecAddress,

@@ -9,6 +9,7 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/public_input_component/public_input_component.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 
 namespace bb {
 
@@ -21,21 +22,27 @@ class DefaultIO {
     using FF = curve::BN254::ScalarField;
     using PublicPairingPoints = PublicInputComponent<PairingPoints<curve::BN254>>;
 
-    static constexpr size_t PUBLIC_INPUTS_SIZE = DEFAULT_PUBLIC_INPUTS_SIZE;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = PairingPoints<curve::BN254>::PUBLIC_INPUTS_SIZE;
+    static constexpr bool HasIPA = false;
 
     PairingPoints<curve::BN254> pairing_inputs;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
-     *
-     * @param public_inputs Public inputs array containing the serialized kernel public inputs.
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
         // Assumes that the app-io public inputs are at the end of the public_inputs vector
         uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
-
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
+    }
+
+    /**
+     * @brief Add default IO values to a circuit builder (for native tests)
+     */
+    template <typename Builder> static void add_default(Builder& builder)
+    {
+        stdlib::recursion::honk::DefaultIO<Builder>::add_default(builder);
     }
 };
 
@@ -51,7 +58,9 @@ class HidingKernelIO {
     using PublicPairingPoints = PublicInputComponent<PairingPoints<curve::BN254>>;
     using PublicPoint = PublicInputComponent<G1>;
 
-    static constexpr size_t PUBLIC_INPUTS_SIZE = HIDING_KERNEL_PUBLIC_INPUTS_SIZE;
+    static constexpr size_t PUBLIC_INPUTS_SIZE =
+        PairingPoints<curve::BN254>::PUBLIC_INPUTS_SIZE + G1::PUBLIC_INPUTS_SIZE * (1 + MegaCircuitBuilder::NUM_WIRES);
+    static constexpr bool HasIPA = false;
 
     PairingPoints<curve::BN254> pairing_inputs;
     G1 kernel_return_data;
@@ -59,8 +68,6 @@ class HidingKernelIO {
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
-     *
-     * @param public_inputs Public inputs array containing the serialized kernel public inputs.
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
@@ -76,6 +83,14 @@ class HidingKernelIO {
             index += G1::PUBLIC_INPUTS_SIZE;
         }
     }
+
+    /**
+     * @brief Add default IO values to a circuit builder (for native tests)
+     */
+    template <typename Builder> static void add_default(Builder& builder)
+    {
+        stdlib::recursion::honk::HidingKernelIO<Builder>::add_default(builder);
+    }
 };
 
 /**
@@ -90,23 +105,30 @@ class RollupIO {
     using PublicIpaClaim = PublicInputComponent<IpaClaim>;
 
     static constexpr size_t PUBLIC_INPUTS_SIZE = ROLLUP_PUBLIC_INPUTS_SIZE;
+    static constexpr bool HasIPA = true;
 
     PairingPoints<curve::BN254> pairing_inputs;
     IpaClaim ipa_claim;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
-     *
-     * @param public_inputs Public inputs array containing the serialized kernel public inputs.
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
-        // Assumes that the app-io public inputs are at the end of the public_inputs vector
+        // Assumes that the rollup-io public inputs are at the end of the public_inputs vector
         uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
 
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
         index += PairingPoints<curve::BN254>::PUBLIC_INPUTS_SIZE;
         ipa_claim = PublicIpaClaim::reconstruct(public_inputs, PublicComponentKey{ index });
+    }
+
+    /**
+     * @brief Add default IO values to a circuit builder (for native tests)
+     */
+    template <typename Builder> static void add_default(Builder& builder)
+    {
+        stdlib::recursion::honk::RollupIO::add_default(builder);
     }
 };
 

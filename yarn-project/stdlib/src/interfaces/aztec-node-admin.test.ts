@@ -150,6 +150,8 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       slashInactivityConsecutiveEpochThreshold: 1,
       slashInactivityPenalty: 1000n,
       slashBroadcastedInvalidBlockPenalty: 1n,
+      slashDuplicateProposalPenalty: 1n,
+      slashDuplicateAttestationPenalty: 1n,
       secondsBeforeInvalidatingBlockAsCommitteeMember: 0,
       secondsBeforeInvalidatingBlockAsNonCommitteeMember: 0,
       slashProposeInvalidAttestationsPenalty: 1000n,
@@ -170,6 +172,9 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       pollingIntervalMs: 50,
       signingTimeoutMs: 3000,
       maxStuckDutiesAgeMs: 72000,
+      l1Contracts: {
+        rollupAddress: EthAddress.random(),
+      },
     });
   }
   startSnapshotUpload(_location: string): Promise<void> {

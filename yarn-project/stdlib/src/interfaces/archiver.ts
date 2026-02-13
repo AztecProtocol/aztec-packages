@@ -4,6 +4,7 @@ import type { ApiSchemaFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
+import { BlockHash } from '../block/block_hash.js';
 import { CheckpointedL2Block } from '../block/checkpointed_l2_block.js';
 import { L2Block } from '../block/l2_block.js';
 import { type L2BlockSource, L2TipsSchema } from '../block/l2_block_source.js';
@@ -99,12 +100,12 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .function()
     .args(CheckpointNumberSchema, schemas.Integer)
     .returns(z.array(PublishedCheckpoint.schema)),
-  getCheckpointedBlockByHash: z.function().args(schemas.Fr).returns(CheckpointedL2Block.schema.optional()),
+  getCheckpointedBlockByHash: z.function().args(BlockHash.schema).returns(CheckpointedL2Block.schema.optional()),
   getCheckpointedBlockByArchive: z.function().args(schemas.Fr).returns(CheckpointedL2Block.schema.optional()),
-  getBlockHeaderByHash: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),
+  getBlockHeaderByHash: z.function().args(BlockHash.schema).returns(BlockHeader.schema.optional()),
   getBlockHeaderByArchive: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),
   getL2Block: z.function().args(BlockNumberSchema).returns(L2Block.schema.optional()),
-  getL2BlockByHash: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
+  getL2BlockByHash: z.function().args(BlockHash.schema).returns(L2Block.schema.optional()),
   getL2BlockByArchive: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
   getTxEffect: z.function().args(TxHash.schema).returns(indexedTxSchema().optional()),
   getSettledTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema.optional()),

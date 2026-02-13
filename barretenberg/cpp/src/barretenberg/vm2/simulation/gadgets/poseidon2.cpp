@@ -1,13 +1,16 @@
 #include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
 
 #include <algorithm>
-#include <array>
+#include <cstddef>
 #include <cstdint>
+#include <stdexcept>
+#include <string>
+#include <utility>
 
-#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
-#include "barretenberg/vm2/simulation/gadgets/memory.hpp"
 
 using bb::crypto::Poseidon2Bn254ScalarFieldParams;
 using bb::crypto::Poseidon2Permutation;
@@ -22,9 +25,16 @@ class InternalPoseidon2Exception : public std::runtime_error {
 
 } // namespace
 
+/**
+ * @brief Hashes a vector of field elements using the Poseidon2 permutation function
+ *        in a sponge-like manner with capacity 1 and rate 3.
+ *
+ * @param input The input vector of field elements to hash.
+ * @return The hash of the input vector as a field element.
+ */
 FF Poseidon2::hash(const std::vector<FF>& input)
 {
-    size_t input_size = input.size();
+    size_t input_size = input.size(); // Will be mutated in the loop below.
     // The number of permutation events required to process the input
     auto num_perm_events = (input_size / 3) + static_cast<size_t>(input_size % 3 != 0);
     std::vector<std::array<FF, 4>> intermediate_states;
@@ -36,9 +46,6 @@ FF Poseidon2::hash(const std::vector<FF>& input)
     const uint256_t iv = static_cast<uint256_t>(input_size) << 64;
     std::array<FF, 4> perm_state = { 0, 0, 0, iv };
     intermediate_states.push_back(perm_state);
-
-    // Also referred to as cache but is the inputs that will be passed to the permutation function
-    std::vector<std::array<FF, 4>> perm_inputs;
 
     for (size_t i = 0; i < num_perm_events; i++) {
         // We can at most absorb a chunk of 3 elements
@@ -58,6 +65,12 @@ FF Poseidon2::hash(const std::vector<FF>& input)
     return perm_state[0];
 }
 
+/**
+ * @brief Applies the Poseidon2 permutation function to a single input state.
+ *
+ * @param input The input state as an array of 4 field elements to apply the permutation function to.
+ * @return The output state as an array of 4 field elements after the permutation function has been applied.
+ */
 std::array<FF, 4> Poseidon2::permutation(const std::array<FF, 4>& input)
 {
     std::array<FF, 4> output = Poseidon2Permutation<Poseidon2Bn254ScalarFieldParams>::permutation(input);
@@ -65,12 +78,23 @@ std::array<FF, 4> Poseidon2::permutation(const std::array<FF, 4>& input)
     return output;
 }
 
+/**
+ * @brief Applies the Poseidon2 permutation function to a single input state from memory.
+ *        This function reads 4 sequential elements from memory and writes 4 sequential elements to memory.
+ *
+ * @param memory The memory interface to read and write from.
+ * @param src_address The source memory address to read from.
+ * @param dst_address The destination memory address to write to.
+ * @throws Poseidon2Exception:
+ *        - if the source or destination memory slice is out of range.
+ *        - if the tags of the input memory slice are not FF.
+ */
 void Poseidon2::permutation(MemoryInterface& memory, MemoryAddress src_address, MemoryAddress dst_address)
 {
-    uint32_t execution_clk = execution_id_manager.get_execution_id();
-    uint16_t space_id = memory.get_space_id();
+    const auto execution_clk = execution_id_manager.get_execution_id();
+    const auto space_id = memory.get_space_id();
 
-    auto zero = MemoryValue::from<FF>(0);
+    const auto zero = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0);
     std::array<MemoryValue, 4> input = { zero, zero, zero, zero };
 
     // Poseidon2Perm reads and writes 4 sequential elements each. We need to ensure that these memory addresses are

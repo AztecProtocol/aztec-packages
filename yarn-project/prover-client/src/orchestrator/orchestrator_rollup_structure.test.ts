@@ -1,5 +1,5 @@
 import { BatchedBlobAccumulator } from '@aztec/blob-lib';
-import { AZTEC_MAX_EPOCH_DURATION, MAX_L2_TO_L1_MSGS_PER_TX } from '@aztec/constants';
+import { MAX_CHECKPOINTS_PER_EPOCH, MAX_L2_TO_L1_MSGS_PER_TX } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -159,11 +159,11 @@ describe('prover/orchestrator/rollup-structure', () => {
 
       const expectedCheckpointHeaderHashes = checkpoints.map(c => c.header.hash());
       expect(result.publicInputs.checkpointHeaderHashes).toEqual(
-        padArrayEnd(expectedCheckpointHeaderHashes, Fr.ZERO, AZTEC_MAX_EPOCH_DURATION),
+        padArrayEnd(expectedCheckpointHeaderHashes, Fr.ZERO, MAX_CHECKPOINTS_PER_EPOCH),
       );
 
       expect(result.publicInputs.fees).toEqual(
-        padArrayEnd(expectedFees, FeeRecipient.empty(), AZTEC_MAX_EPOCH_DURATION),
+        padArrayEnd(expectedFees, FeeRecipient.empty(), MAX_CHECKPOINTS_PER_EPOCH),
       );
 
       const batchedBlob = await BatchedBlobAccumulator.batch(context.getBlobFields());
@@ -220,10 +220,10 @@ describe('prover/orchestrator/rollup-structure', () => {
       expect(result.publicInputs.endArchiveRoot).toEqual(epochEndArchive.root);
 
       expect(result.publicInputs.checkpointHeaderHashes).toEqual(
-        padArrayEnd([header.hash()], Fr.ZERO, AZTEC_MAX_EPOCH_DURATION),
+        padArrayEnd([header.hash()], Fr.ZERO, MAX_CHECKPOINTS_PER_EPOCH),
       );
 
-      expect(result.publicInputs.fees).toEqual(Array.from({ length: AZTEC_MAX_EPOCH_DURATION }, FeeRecipient.empty));
+      expect(result.publicInputs.fees).toEqual(Array.from({ length: MAX_CHECKPOINTS_PER_EPOCH }, FeeRecipient.empty));
 
       const batchedBlob = await BatchedBlobAccumulator.batch(context.getBlobFields());
       const expectedFinalBlobAccumulator = batchedBlob.toFinalBlobAccumulator();

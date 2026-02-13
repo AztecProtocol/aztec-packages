@@ -145,7 +145,7 @@ impl PublicContext {
     /// Returns `true` if an `unsiloed_nullifier` has been emitted by `contract_address`.
     ///
     /// Note that unsiloed nullifiers are not the actual values stored in the nullifier tree: they are first siloed via
-    /// [crate::hash::compute_siloed_nullifier] with the emitting contract's address.
+    /// [`crate::hash::compute_siloed_nullifier`] with the emitting contract's address.
     ///
     /// ## Use Cases
     ///
@@ -160,7 +160,8 @@ impl PublicContext {
     ///
     /// In general, it is unsafe to check for nullifier non-existence in private, as that will not consider the
     /// possibility of the nullifier having been emitted in any transaction between the anchor block and the inclusion
-    /// block. Private functions instead prove existence via [crate::context::PrivateContext::assert_nullifier_exists]
+    /// block. Private functions instead prove existence via
+    /// [`crate::context::PrivateContext::assert_nullifier_exists`]
     /// and 'prove' non-existence by _emitting_ the nullifer, which would cause the transaction to fail if the
     /// nullifier existed.
     ///

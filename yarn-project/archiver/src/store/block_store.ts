@@ -351,7 +351,7 @@ export class BlockStore {
   }
 
   private async addBlockToDatabase(block: L2Block, checkpointNumber: number, indexWithinCheckpoint: number) {
-    const blockHash = BlockHash.fromField(await block.hash());
+    const blockHash = await block.hash();
 
     await this.#blocks.set(block.number, {
       header: block.header.toBuffer(),
@@ -624,7 +624,7 @@ export class BlockStore {
     }
   }
 
-  async getCheckpointedBlockByHash(blockHash: Fr): Promise<CheckpointedL2Block | undefined> {
+  async getCheckpointedBlockByHash(blockHash: BlockHash): Promise<CheckpointedL2Block | undefined> {
     const blockNumber = await this.#blockHashIndex.getAsync(blockHash.toString());
     if (blockNumber === undefined) {
       return undefined;

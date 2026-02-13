@@ -1285,7 +1285,7 @@ pol commit round_cst;
 pol commit state_iota_00;
 
 #[ROUND_CST]
-sel_no_error { round, round_cst } in precomputed.sel_keccak { precomputed.clk, precomputed.keccak_round_constant };
+sel_no_error { round, round_cst } in precomputed.sel_keccak { precomputed.idx, precomputed.keccak_round_constant };
 
 #[STATE_IOTA_00]
 sel_no_error { bitwise_xor_op_id, state_chi_00, round_cst, state_iota_00, tag_u64 } in

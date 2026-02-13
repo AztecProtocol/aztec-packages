@@ -95,7 +95,7 @@ describe('e2e_snapshot_sync', () => {
 
   it('creates a snapshot', async () => {
     log.warn(`Creating snapshot`);
-    await context.aztecNodeAdmin!.startSnapshotUpload(snapshotLocation);
+    await context.aztecNodeAdmin.startSnapshotUpload(snapshotLocation);
     await retryUntil(() => readdir(snapshotDir).then(files => files.length > 0), 'snapshot-created', 90, 1);
     log.warn(`Snapshot created`);
   });
@@ -113,7 +113,9 @@ describe('e2e_snapshot_sync', () => {
 
     log.warn(`Checking for L2 block ${L2_TARGET_BLOCK_NUM} with hash ${blockHash} on both nodes`);
     const getBlockHashLeafIndex = (node: AztecNode) =>
-      node.findLeavesIndexes(BlockNumber(L2_TARGET_BLOCK_NUM), MerkleTreeId.ARCHIVE, [blockHash]).then(([i]) => i);
+      node
+        .findLeavesIndexes(BlockNumber(L2_TARGET_BLOCK_NUM), MerkleTreeId.ARCHIVE, [blockHash.toFr()])
+        .then(([i]) => i);
     expect(await getBlockHashLeafIndex(context.aztecNode)).toBeDefined();
     expect(await getBlockHashLeafIndex(node)).toBeDefined();
 
@@ -228,7 +230,9 @@ describe('e2e_snapshot_sync', () => {
 
     log.warn(`Checking for L2 block ${L2_TARGET_BLOCK_NUM} with hash ${blockHash} on both nodes`);
     const getBlockHashLeafIndex = (node: AztecNode) =>
-      node.findLeavesIndexes(BlockNumber(L2_TARGET_BLOCK_NUM), MerkleTreeId.ARCHIVE, [blockHash]).then(([i]) => i);
+      node
+        .findLeavesIndexes(BlockNumber(L2_TARGET_BLOCK_NUM), MerkleTreeId.ARCHIVE, [blockHash.toFr()])
+        .then(([i]) => i);
     expect(await getBlockHashLeafIndex(context.aztecNode)).toBeDefined();
     expect(await getBlockHashLeafIndex(node)).toBeDefined();
 

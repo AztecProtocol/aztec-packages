@@ -17,8 +17,8 @@ use crate::protocol::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
 /// Core interface for interacting with aztec-nr contract features.
 ///
-/// This struct is automatically injected into every [external](crate::macros::functions::external) and
-/// [internal](crate::macros::functions::internal) contract function by the Aztec macro system and is accessible
+/// This struct is automatically injected into every [`external`](crate::macros::functions::external) and
+/// [`internal`](crate::macros::functions::internal) contract function by the Aztec macro system and is accessible
 /// through the `self` variable.
 ///
 /// ## Usage in Contract Functions
@@ -50,8 +50,8 @@ use crate::protocol::{address::AztecAddress, traits::{Deserialize, Serialize}};
 /// ## Type Parameters
 ///
 /// - `Context`: The execution context type - either `&mut PrivateContext`, `PublicContext`, or `UtilityContext`
-/// - `Storage`: The contract's storage struct (defined with [storage](crate::macros::storage::storage), or `()` if the
-/// contract has no storage
+/// - `Storage`: The contract's storage struct (defined with [`storage`](crate::macros::storage::storage), or `()` if
+/// the contract has no storage
 /// - `CallSelf`: Macro-generated type for calling contract's own non-view functions
 /// - `EnqueueSelf`: Macro-generated type for enqueuing calls to the contract's own non-view functions
 /// - `CallSelfStatic`: Macro-generated type for calling contract's own view functions
@@ -61,8 +61,8 @@ pub struct ContractSelf<Context, Storage, CallSelf, EnqueueSelf, CallSelfStatic,
     pub address: AztecAddress,
 
     /// The contract's storage instance, representing the struct to which the
-    /// [storage](crate::macros::storage::storage) macro was applied in your contract. If the contract has no storage,
-    /// the type of this will be `()`.
+    /// [`storage`](crate::macros::storage::storage) macro was applied in your contract. If the contract has no
+    /// storage, the type of this will be `()`.
     ///
     /// This storage instance is specialized for the current execution context (private, public, or utility) and
     /// provides access to the contract's state variables. Each state variable accepts the context as a generic
@@ -73,13 +73,13 @@ pub struct ContractSelf<Context, Storage, CallSelf, EnqueueSelf, CallSelfStatic,
     ///
     /// If you've arrived here while trying to access your contract's storage while the `Storage` generic type is set
     /// to unit type `()`, it means you haven't yet defined a Storage struct using the
-    /// [storage](crate::macros::storage::storage) macro in your contract. For guidance on setting this up, please
+    /// [`storage`](crate::macros::storage::storage) macro in your contract. For guidance on setting this up, please
     /// refer to our docs: https://docs.aztec.network/developers/docs/guides/smart_contracts/storage
 
     pub storage: Storage,
 
-    /// The execution context whose type is determined by the [external](crate::macros::functions::external) attribute
-    /// of the contract function based on the external function type (private, public, or utility).
+    /// The execution context whose type is determined by the [`external`](crate::macros::functions::external)
+    /// attribute of the contract function based on the external function type (private, public, or utility).
     pub context: Context,
 
     /// Provides type-safe methods for calling this contract's own non-view functions.
@@ -176,7 +176,7 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     /// executed in a transaction (i.e. transaction entrypoint) does **not** have a caller. This function panics when
     /// executed in such a context.
     ///
-    /// If you need to handle these cases, use [PrivateContext::maybe_msg_sender].
+    /// If you need to handle these cases, use [`PrivateContext::maybe_msg_sender`].
     pub fn msg_sender(self) -> AztecAddress {
         self.context.maybe_msg_sender().unwrap()
     }
@@ -184,8 +184,8 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     /// Emits an event privately.
     ///
     /// Unlike public events, private events do not reveal their contents publicly. They instead create an
-    /// [EventMessage] containing the private event information, which **MUST** be delivered to a recipient via
-    /// [EventMessage::deliver_to] in order for them to learn about the event. Multiple recipients can have the same
+    /// [`EventMessage`] containing the private event information, which **MUST** be delivered to a recipient via
+    /// [`EventMessage::deliver_to`] in order for them to learn about the event. Multiple recipients can have the same
     /// message be delivered to them.
     ///
     /// # Example
@@ -206,7 +206,7 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     /// # Cost
     ///
     /// Private event emission always results in the creation of a nullifer, which acts as a commitment to the event
-    /// and is used by third parties to verify its authenticity. See [EventMessage::deliver_to] for the costs
+    /// and is used by third parties to verify its authenticity. See [`EventMessage::deliver_to`] for the costs
     /// associated to delivery.
     ///
     /// # Privacy
@@ -335,8 +335,8 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
 
     /// Enqueues a privacy-preserving public contract call function.
     ///
-    /// This is the same as [ContractSelf::enqueue], except it hides this calling contract's address from the target
-    /// public function (i.e. [ContractSelf::msg_sender] will panic).
+    /// This is the same as [`ContractSelf::enqueue`], except it hides this calling contract's address from the target
+    /// public function (i.e. [`ContractSelf::msg_sender`] will panic).
     ///
     /// This means the origin of the call (msg_sender) will not be publicly visible to any blockchain observers, nor to
     /// the target public function. If the target public function reads `self.msg_sender()` the call will revert.
@@ -460,9 +460,9 @@ impl<Storage, CallSelf, CallSelfStatic, CallInternal> ContractSelf<PublicContext
     /// ## Incognito Calls
     ///
     /// Contracts can call public functions from private ones hiding their identity (see
-    /// [enqueue_incognito](ContractSelf::enqueue_incognito)). This function reverts when executed in such a context.
+    /// [`enqueue_incognito`](ContractSelf::enqueue_incognito)). This function reverts when executed in such a context.
     ///
-    /// If you need to handle these cases, use [PublicContext::maybe_msg_sender].
+    /// If you need to handle these cases, use [`PublicContext::maybe_msg_sender`].
     pub fn msg_sender(self: Self) -> AztecAddress {
         self.context.maybe_msg_sender().unwrap()
     }

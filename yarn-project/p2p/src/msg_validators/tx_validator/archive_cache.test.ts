@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { BlockHash } from '@aztec/stdlib/block';
 import type { MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
@@ -9,12 +9,12 @@ import { ArchiveCache } from './archive_cache.js';
 describe('ArchiveCache', () => {
   let archiveCache: ArchiveCache;
   let db: MockProxy<MerkleTreeReadOperations>;
-  let archives: Fr[];
+  let archives: BlockHash[];
 
   beforeEach(() => {
     db = mock<MerkleTreeReadOperations>();
     archiveCache = new ArchiveCache(db);
-    archives = [Fr.random(), Fr.random(), Fr.random()];
+    archives = [BlockHash.random(), BlockHash.random(), BlockHash.random()];
   });
 
   it('checks archive existence against db', async () => {

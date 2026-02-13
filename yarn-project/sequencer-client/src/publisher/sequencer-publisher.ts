@@ -18,11 +18,12 @@ import {
   type L1BlobInputs,
   type L1TxConfig,
   type L1TxRequest,
+  MAX_L1_TX_LIMIT,
   type TransactionStats,
   WEI_CONST,
 } from '@aztec/ethereum/l1-tx-utils';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
-import { FormattedViemError, formatViemError, tryExtractEvent } from '@aztec/ethereum/utils';
+import { FormattedViemError, formatViemError, mergeAbis, tryExtractEvent } from '@aztec/ethereum/utils';
 import { sumBigint } from '@aztec/foundation/bigint';
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
@@ -122,11 +123,6 @@ export class SequencerPublisher {
 
   /** L1 fee analyzer for fisherman mode */
   private l1FeeAnalyzer?: L1FeeAnalyzer;
-  // @note - with blobs, the below estimate seems too large.
-  // Total used for full block from int_l1_pub e2e test: 1m (of which 86k is 1x blob)
-  // Total used for emptier block from above test: 429k (of which 84k is 1x blob)
-  public static PROPOSE_GAS_GUESS: bigint = 12_000_000n;
-
   // A CALL to a cold address is 2700 gas
   public static MULTICALL_OVERHEAD_GAS_GUESS = 5000n;
 
@@ -273,7 +269,7 @@ export class SequencerPublisher {
     // Start the analysis
     const analysisId = await this.l1FeeAnalyzer.startAnalysis(
       l2SlotNumber,
-      gasLimit > 0n ? gasLimit : SequencerPublisher.PROPOSE_GAS_GUESS,
+      gasLimit > 0n ? gasLimit : MAX_L1_TX_LIMIT,
       l1Requests,
       blobConfig,
       onComplete,
@@ -346,7 +342,16 @@ export class SequencerPublisher {
 
     // Merge gasConfigs. Yields the sum of gasLimits, and the earliest txTimeoutAt, or undefined if no gasConfig sets them.
     const gasLimits = gasConfigs.map(g => g?.gasLimit).filter((g): g is bigint => g !== undefined);
-    const gasLimit = gasLimits.length > 0 ? sumBigint(gasLimits) : undefined; // sum
+    let gasLimit = gasLimits.length > 0 ? sumBigint(gasLimits) : undefined; // sum
+    // Cap at L1 block gas limit so the node accepts the tx ("gas limit too high" otherwise).
+    const maxGas = MAX_L1_TX_LIMIT;
+    if (gasLimit !== undefined && gasLimit > maxGas) {
+      this.log.debug('Capping bundled tx gas limit to L1 max', {
+        requested: gasLimit,
+        capped: maxGas,
+      });
+      gasLimit = maxGas;
+    }
     const txTimeoutAts = gasConfigs.map(g => g?.txTimeoutAt).filter((g): g is Date => g !== undefined);
     const txTimeoutAt = txTimeoutAts.length > 0 ? new Date(Math.min(...txTimeoutAts.map(g => g.getTime()))) : undefined; // earliest
     const txConfig: RequestWithExpiry['gasConfig'] = { gasLimit, txTimeoutAt };
@@ -517,7 +522,12 @@ export class SequencerPublisher {
     this.log.debug(`Simulating invalidate checkpoint ${checkpointNumber}`, { ...logData, request });
 
     try {
-      const { gasUsed } = await this.l1TxUtils.simulate(request, undefined, undefined, ErrorsAbi);
+      const { gasUsed } = await this.l1TxUtils.simulate(
+        request,
+        undefined,
+        undefined,
+        mergeAbis([request.abi ?? [], ErrorsAbi]),
+      );
       this.log.verbose(`Simulation for invalidate checkpoint ${checkpointNumber} succeeded`, {
         ...logData,
         request,
@@ -536,7 +546,7 @@ export class SequencerPublisher {
 
       // If the error is due to the checkpoint not being in the pending chain, and it was indeed removed by someone else,
       // we can safely ignore it and return undefined so we go ahead with checkpoint building.
-      if (viemError.message?.includes('Rollup__BlockNotInPendingChain')) {
+      if (viemError.message?.includes('Rollup__CheckpointNotInPendingChain')) {
         this.log.verbose(
           `Simulation for invalidate checkpoint ${checkpointNumber} failed due to checkpoint not being in pending chain`,
           { ...logData, request, error: viemError.message },
@@ -700,7 +710,7 @@ export class SequencerPublisher {
     });
 
     try {
-      await this.l1TxUtils.simulate(request, { time: timestamp }, [], ErrorsAbi);
+      await this.l1TxUtils.simulate(request, { time: timestamp }, [], mergeAbis([request.abi ?? [], ErrorsAbi]));
       this.log.debug(`Simulation for ${action} at slot ${slotNumber} succeeded`, { request });
     } catch (err) {
       this.log.error(`Failed simulation for ${action} at slot ${slotNumber} (enqueuing the action anyway)`, err);
@@ -999,12 +1009,14 @@ export class SequencerPublisher {
     this.log.debug(`Simulating ${action} for slot ${slotNumber}`, logData);
 
     let gasUsed: bigint;
+    const simulateAbi = mergeAbis([request.abi ?? [], ErrorsAbi]);
     try {
-      ({ gasUsed } = await this.l1TxUtils.simulate(request, { time: timestamp }, [], ErrorsAbi)); // TODO(palla/slash): Check the timestamp logic
+      ({ gasUsed } = await this.l1TxUtils.simulate(request, { time: timestamp }, [], simulateAbi)); // TODO(palla/slash): Check the timestamp logic
       this.log.verbose(`Simulation for ${action} succeeded`, { ...logData, request, gasUsed });
     } catch (err) {
-      const viemError = formatViemError(err);
+      const viemError = formatViemError(err, simulateAbi);
       this.log.error(`Simulation for ${action} at ${slotNumber} failed`, viemError, logData);
+
       return false;
     }
 
@@ -1012,10 +1024,14 @@ export class SequencerPublisher {
     const gasLimit = this.l1TxUtils.bumpGasLimit(BigInt(Math.ceil((Number(gasUsed) * 64) / 63)));
     logData.gasLimit = gasLimit;
 
+    // Store the ABI used for simulation on the request so Multicall3.forward can decode errors
+    // when the tx is sent and a revert is diagnosed via simulation.
+    const requestWithAbi = { ...request, abi: simulateAbi };
+
     this.log.debug(`Enqueuing ${action}`, logData);
     this.addRequest({
       action,
-      request,
+      request: requestWithAbi,
       gasConfig: { gasLimit },
       lastValidL2Slot: slotNumber,
       checkSuccess: (_req, result) => {
@@ -1171,20 +1187,20 @@ export class SequencerPublisher {
         {
           to: this.rollupContract.address,
           data: rollupData,
-          gas: SequencerPublisher.PROPOSE_GAS_GUESS,
+          gas: MAX_L1_TX_LIMIT,
           ...(this.proposerAddressForSimulation && { from: this.proposerAddressForSimulation.toString() }),
         },
         {
           // @note we add 1n to the timestamp because geth implementation doesn't like simulation timestamp to be equal to the current block timestamp
           time: timestamp + 1n,
           // @note reth should have a 30m gas limit per block but throws errors that this tx is beyond limit so we increase here
-          gasLimit: SequencerPublisher.PROPOSE_GAS_GUESS * 2n,
+          gasLimit: MAX_L1_TX_LIMIT * 2n,
         },
         stateOverrides,
         RollupAbi,
         {
           // @note fallback gas estimate to use if the node doesn't support simulation API
-          fallbackGasEstimate: SequencerPublisher.PROPOSE_GAS_GUESS,
+          fallbackGasEstimate: MAX_L1_TX_LIMIT,
         },
       )
       .catch(err => {
@@ -1194,7 +1210,7 @@ export class SequencerPublisher {
           this.log.debug(`Ignoring expected ValidatorSelection__MissingProposerSignature error in fisherman mode`);
           // Return a minimal simulation result with the fallback gas estimate
           return {
-            gasUsed: SequencerPublisher.PROPOSE_GAS_GUESS,
+            gasUsed: MAX_L1_TX_LIMIT,
             logs: [],
           };
         }

@@ -16,7 +16,7 @@ pub struct NewNote<Note> {
     pub(crate) owner: AztecAddress,
     pub(crate) storage_slot: Field,
     pub(crate) randomness: Field,
-    /// The [PrivateContext] side-effect counter associated with the creation of this note.
+    /// The [`PrivateContext`] side-effect counter associated with the creation of this note.
     pub(crate) note_hash_counter: u32,
 }
 

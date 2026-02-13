@@ -1,4 +1,4 @@
-import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
+import { MAX_CHECKPOINTS_PER_EPOCH } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd, timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -23,7 +23,7 @@ describe('prover/orchestrator/multi-checkpoints', () => {
   });
 
   describe('multiple checkpoints ', () => {
-    it.each([4, 5])(
+    it.each([4, 5, MAX_CHECKPOINTS_PER_EPOCH])(
       'builds an epoch with %s checkpoints in sequence',
       async (numCheckpoints: number) => {
         const numBlocksPerCheckpoint = 1;
@@ -63,7 +63,7 @@ describe('prover/orchestrator/multi-checkpoints', () => {
 
         const headerHashes = checkpoints.map(c => c.header.hash());
         expect(epoch.publicInputs.checkpointHeaderHashes).toEqual(
-          padArrayEnd(headerHashes, Fr.ZERO, AZTEC_MAX_EPOCH_DURATION),
+          padArrayEnd(headerHashes, Fr.ZERO, MAX_CHECKPOINTS_PER_EPOCH),
         );
       },
       LONG_TIMEOUT,
@@ -125,7 +125,7 @@ describe('prover/orchestrator/multi-checkpoints', () => {
 
           const headerHashes = checkpoints.map(c => c.header.hash());
           expect(epoch.publicInputs.checkpointHeaderHashes).toEqual(
-            padArrayEnd(headerHashes, Fr.ZERO, AZTEC_MAX_EPOCH_DURATION),
+            padArrayEnd(headerHashes, Fr.ZERO, MAX_CHECKPOINTS_PER_EPOCH),
           );
         }
       },

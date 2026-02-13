@@ -60,7 +60,7 @@
         self,
         owner: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
         note_hash_for_nullification: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
-    ) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a>;
+    ) -> <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>&gt;;
 }</code></pre>
 
 <h2>Required methods</h2>
@@ -75,8 +75,8 @@
 <p>Returns the non-siloed note hash, i.e. the inner hash computed by the contract during private execution. Note
 hashes are later siloed by contract address and hashed with note nonce by the kernels before being committed to
 the state tree.</p>
-<p>This should be a commitment to the packed note, including the storage slot (for indexing) and some random
-value (to prevent brute force trial-hashing attacks).</p>
+<p>This should be a commitment to the packed note, including the storage slot (for indexing) and some random value
+(to prevent brute force trial-hashing attacks).</p>
 </div>
 </div><code id="compute_nullifier" class="code-header">pub fn <a href="#compute_nullifier"><span class="fn">compute_nullifier</span></a>(
     self,
@@ -100,12 +100,14 @@ circuits.</p>
     self,
     owner: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     note_hash_for_nullification: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
-) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+) -> <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>&gt;</code>
 
 <div class="padded-description"><div class="comments">
 <p>Like <code>compute_nullifier</code>, except this variant is unconstrained: there are no guarantees on the returned value
 being correct. Because of that it doesn't need to take a context (since it won't perform any kernel key
 validation requests).</p>
+<p>Returns <code>None</code> if the nullifier cannot be computed (when the relevant keys needed for nullifier computation are
+not available).</p>
 </div>
 </div></div><h2>Implementors</h2>
 <h3 id="impl-NoteHash-for-AddressNote"><code class="code-header">impl <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a> for <a href="../../../address_note/struct.AddressNote.html" class="struct">AddressNote</a></code></h3>

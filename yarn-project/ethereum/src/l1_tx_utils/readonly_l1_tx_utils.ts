@@ -27,7 +27,7 @@ import type { ViemClient } from '../types.js';
 import { type L1TxUtilsConfig, defaultL1TxUtilsConfig, l1TxUtilsConfigMappings } from './config.js';
 import {
   BLOCK_TIME_MS,
-  LARGE_GAS_LIMIT,
+  MAX_L1_TX_LIMIT,
   MIN_BLOB_REPLACEMENT_BUMP_PERCENTAGE,
   MIN_REPLACEMENT_BUMP_PERCENTAGE,
   WEI_CONST,
@@ -249,7 +249,7 @@ export class ReadOnlyL1TxUtils {
         ...request,
         ..._blobInputs,
         maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
-        gas: LARGE_GAS_LIMIT,
+        gas: MAX_L1_TX_LIMIT,
         blockTag: 'latest',
       });
 
@@ -258,7 +258,7 @@ export class ReadOnlyL1TxUtils {
       initialEstimate = await this.client.estimateGas({
         account,
         ...request,
-        gas: LARGE_GAS_LIMIT,
+        gas: MAX_L1_TX_LIMIT,
         blockTag: 'latest',
       });
       this.logger?.trace(`Estimated gas for non-blob tx: ${initialEstimate}`);

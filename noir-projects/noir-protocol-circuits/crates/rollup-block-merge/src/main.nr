@@ -1,4 +1,4 @@
-use dep::rollup_lib::block_merge::{
+use rollup_lib::block_merge::{
     block_merge_rollup, BlockMergeRollupPrivateInputs, BlockRollupPublicInputs,
 };
 

@@ -3,6 +3,7 @@ import { chunk } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { type ISemaphore, Semaphore } from '@aztec/foundation/queue';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -22,7 +23,7 @@ import { BitVector, BlockTxsRequest, BlockTxsResponse } from '../protocols/index
 import { ReqRespStatus } from '../status.js';
 import { BatchTxRequester } from './batch_tx_requester.js';
 import { DEFAULT_BATCH_TX_REQUESTER_BAD_PEER_THRESHOLD, DEFAULT_BATCH_TX_REQUESTER_TX_BATCH_SIZE } from './config.js';
-import type { BatchTxRequesterLibP2PService } from './interface.js';
+import type { BatchTxRequesterLibP2PService, IPeerPenalizer } from './interface.js';
 import { type IPeerCollection, PeerCollection, RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL } from './peer_collection.js';
 import type { IBatchRequestTxValidator } from './tx_validator.js';
 
@@ -53,18 +54,20 @@ describe('BatchTxRequester', () => {
     logger = createLogger('test');
     connectionSampler = mock<ConnectionSampler>();
     reqResp = mock<ReqRespInterface>();
+    const peerScoring = mock<IPeerPenalizer>();
     mockP2PService = mock<BatchTxRequesterLibP2PService>({
       connectionSampler,
       reqResp,
+      peerScoring,
     });
     txValidator = new AlwaysValidTxValidator();
 
     const signer = Secp256k1Signer.random();
-    const blockHash = Fr.random();
+    const archiveRoot = Fr.random();
     blockProposal = await makeBlockProposal({
       signer,
       blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(1) }),
-      archiveRoot: blockHash,
+      archiveRoot,
       txHashes: [],
     });
   });
@@ -943,7 +946,16 @@ describe('BatchTxRequester', () => {
         new Map(),
         shortDeadline / 4,
       );
-      reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
+
+      const { promise: onFirstRequest, resolve: signalFirstRequest } = promiseWithResolvers<void>();
+      let firstRequestSent = false;
+      reqResp.sendRequestToPeer.mockImplementation(async (peerId, sub, data) => {
+        if (!firstRequestSent) {
+          firstRequestSent = true;
+          signalFirstRequest();
+        }
+        return await mockImplementation(peerId, sub, data);
+      });
 
       const clock = new TestClock();
 
@@ -964,8 +976,8 @@ describe('BatchTxRequester', () => {
 
       const runPromise = BatchTxRequester.collectAllTxs(requester.run());
 
-      // Advance clock past deadline after a short delay
-      await sleep(shortDeadline / 2);
+      // Wait for first request, then advance clock past deadline
+      await onFirstRequest;
       clock.advanceTo(shortDeadline + 1);
 
       await runPromise;

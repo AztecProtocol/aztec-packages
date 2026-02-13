@@ -12,6 +12,7 @@ import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { BlockSynchronizerConfig } from '../config/index.js';
+import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
 import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
 import { NoteStore } from '../storage/note_store/note_store.js';
 import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
@@ -26,6 +27,7 @@ describe('BlockSynchronizer', () => {
   let privateEventStore: PrivateEventStore;
   let aztecNode: MockProxy<AztecNode>;
   let blockStream: MockProxy<L2BlockStream>;
+  let contractSyncService: MockProxy<ContractSyncService>;
 
   const TestSynchronizer = class extends BlockSynchronizer {
     protected override createBlockStream(): L2BlockStream {
@@ -34,7 +36,16 @@ describe('BlockSynchronizer', () => {
   };
 
   const createSynchronizer = (config: Partial<BlockSynchronizerConfig> = {}) => {
-    return new TestSynchronizer(aztecNode, store, anchorBlockStore, noteStore, privateEventStore, tipsStore, config);
+    return new TestSynchronizer(
+      aztecNode,
+      store,
+      anchorBlockStore,
+      noteStore,
+      privateEventStore,
+      tipsStore,
+      contractSyncService,
+      config,
+    );
   };
 
   beforeEach(async () => {
@@ -45,6 +56,7 @@ describe('BlockSynchronizer', () => {
     anchorBlockStore = new AnchorBlockStore(store);
     noteStore = new NoteStore(store);
     privateEventStore = new PrivateEventStore(store);
+    contractSyncService = mock<ContractSyncService>();
     synchronizer = createSynchronizer();
   });
 
@@ -61,7 +73,7 @@ describe('BlockSynchronizer', () => {
     const block3Hash = Fr.fromString('0x3');
     aztecNode.getBlockHeader.mockImplementation(async block => {
       // For the test, when block hash matches block 3, return block header for block 3
-      if (block instanceof BlockHash && Fr.fromBuffer(block.toBuffer()).equals(block3Hash)) {
+      if (block instanceof BlockHash && block.equals(block3Hash)) {
         return (await L2Block.random(BlockNumber(3))).header;
       }
       return undefined;
@@ -85,7 +97,7 @@ describe('BlockSynchronizer', () => {
     const block3Hash = Fr.fromString('0x3');
     aztecNode.getBlockHeader.mockImplementation(async block => {
       // For the test, when block hash matches block 3, return block header for block 3
-      if (block instanceof BlockHash && Fr.fromBuffer(block.toBuffer()).equals(block3Hash)) {
+      if (block instanceof BlockHash && block.equals(block3Hash)) {
         return (await L2Block.random(BlockNumber(3))).header;
       }
       return undefined;

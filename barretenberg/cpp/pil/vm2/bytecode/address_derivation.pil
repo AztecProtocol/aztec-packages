@@ -39,19 +39,19 @@ namespace address_derivation;
     pol commit partial_address_domain_separator;
     sel * (partial_address_domain_separator - constants.DOM_SEP__PARTIAL_ADDRESS) = 0;
 
-    // TODO: We need these temporarily while we dont allow for aliases in the lookup tuple
+    // Lookup constant support: Can be removed when we support constants in lookups.
     pol commit const_two;
     sel * (const_two - 2) = 0;
     pol commit const_three;
     sel * (const_three - 3) = 0;
     pol commit const_four;
     sel * (const_four - 4) = 0;
-    pol commit const_five;
-    sel * (const_five - 5) = 0;
+    pol commit const_thirteen;
+    sel * (const_thirteen - 13) = 0;
 
     #[SALTED_INITIALIZATION_HASH_POSEIDON2_0]
-    sel { partial_address_domain_separator, salt, init_hash, salted_init_hash, const_two }
-    in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.num_perm_rounds_rem };
+    sel { partial_address_domain_separator, salt, init_hash, salted_init_hash, const_four }
+    in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.input_len };
 
     #[SALTED_INITIALIZATION_HASH_POSEIDON2_1]
     sel { deployer_addr, precomputed.zero, precomputed.zero, salted_init_hash }
@@ -63,8 +63,8 @@ namespace address_derivation;
     pol commit partial_address;
 
     #[PARTIAL_ADDRESS_POSEIDON2]
-    sel { sel /* =1 */, partial_address_domain_separator, class_id, salted_init_hash, partial_address }
-    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+    sel { partial_address_domain_separator, class_id, salted_init_hash, partial_address, const_three }
+    in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.input_len };
 
 
     // Hash the public keys
@@ -78,8 +78,8 @@ namespace address_derivation;
     // Remove all the 0s for is_infinite when removed from public_keys.nr
     // https://github.com/AztecProtocol/aztec-packages/issues/7529
     #[PUBLIC_KEYS_HASH_POSEIDON2_0]
-    sel { public_keys_hash_domain_separator, nullifier_key_x, nullifier_key_y, public_keys_hash, const_five }
-    in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.num_perm_rounds_rem };
+    sel { public_keys_hash_domain_separator, nullifier_key_x, nullifier_key_y, public_keys_hash, const_thirteen }
+    in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.input_len };
 
     #[PUBLIC_KEYS_HASH_POSEIDON2_1]
     sel { precomputed.zero, incoming_viewing_key_x, incoming_viewing_key_y, public_keys_hash, const_four }
@@ -107,8 +107,8 @@ namespace address_derivation;
     sel * (preaddress_domain_separator - constants.DOM_SEP__CONTRACT_ADDRESS_V1) = 0;
 
     #[PREADDRESS_POSEIDON2]
-    sel { sel /* =1 */, preaddress_domain_separator, public_keys_hash, partial_address, preaddress }
-    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+    sel { preaddress_domain_separator, public_keys_hash, partial_address, preaddress, const_three }
+    in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.input_len };
 
 
     // Derive preaddress public key

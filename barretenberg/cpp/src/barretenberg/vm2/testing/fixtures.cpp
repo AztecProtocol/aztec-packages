@@ -153,7 +153,7 @@ Instruction random_instruction(WireOpCode w_opcode)
 TestTraceContainer empty_trace()
 {
     using C = Column;
-    return TestTraceContainer({ { { C::precomputed_first_row, 1 } }, { { C::precomputed_clk, 1 } } });
+    return TestTraceContainer({ { { C::precomputed_first_row, 1 } }, { { C::precomputed_idx, 1 } } });
 }
 
 ContractInstance random_contract_instance()

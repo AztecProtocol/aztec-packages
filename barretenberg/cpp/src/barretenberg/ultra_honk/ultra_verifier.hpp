@@ -7,7 +7,6 @@
 #pragma once
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
@@ -159,7 +158,7 @@ template <typename Flavor, class IO> class UltraVerifier_ {
      * @return std::pair<Proof, Proof> The {honk_proof, ipa_proof} pair
      */
     std::pair<Proof, Proof> split_rollup_proof(const Proof& combined_proof) const
-        requires(HasIPAAccumulator<Flavor>);
+        requires(IO::HasIPA);
 
     /**
      * @brief Verify IPA proof for rollup circuits (native verifier only)
@@ -168,7 +167,7 @@ template <typename Flavor, class IO> class UltraVerifier_ {
      * @return bool True if IPA verification succeeds
      */
     bool verify_ipa(const Proof& ipa_proof, const IPAClaim& ipa_claim)
-        requires(!IsRecursiveFlavor<Flavor> && HasIPAAccumulator<Flavor>);
+        requires(!IsRecursiveFlavor<Flavor> && IO::HasIPA);
 
     /**
      * @brief Perform ultra verification
@@ -238,7 +237,7 @@ template <typename Flavor, class IO> class UltraVerifier_ {
 // Native verifier type aliases
 using UltraVerifier = UltraVerifier_<UltraFlavor, DefaultIO>;
 using UltraZKVerifier = UltraVerifier_<UltraZKFlavor, DefaultIO>;
-using UltraRollupVerifier = UltraVerifier_<UltraRollupFlavor, RollupIO>;
+using UltraRollupVerifier = UltraVerifier_<UltraFlavor, RollupIO>;
 using UltraKeccakVerifier = UltraVerifier_<UltraKeccakFlavor, DefaultIO>;
 using UltraKeccakZKVerifier = UltraVerifier_<UltraKeccakZKFlavor, DefaultIO>;
 #ifdef STARKNET_GARAGA_FLAVORS

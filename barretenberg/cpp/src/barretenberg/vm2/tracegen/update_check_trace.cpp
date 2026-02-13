@@ -31,6 +31,7 @@ void UpdateCheckTraceBuilder::process(
             row,
             { {
                 { C::update_check_sel, 1 },
+                { C::update_check_const_three, 3 },
                 { C::update_check_address, event.address },
                 { C::update_check_current_class_id, event.current_class_id },
                 { C::update_check_original_class_id, event.original_class_id },

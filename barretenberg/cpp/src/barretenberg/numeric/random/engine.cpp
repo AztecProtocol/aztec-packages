@@ -10,16 +10,30 @@
 #include <cstring>
 #include <functional>
 #include <random>
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#if TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR
+#include <unistd.h>
+extern "C" int getentropy(void* buffer, size_t length); // getentropy on iOS
+#else
+#include <sys/random.h> // getentropy on macOS
+#endif
+#elif defined(__ANDROID__)
+// Android API 24 doesn't have getrandom/getentropy, use /dev/urandom
+#include <fcntl.h>
+#include <unistd.h>
+#else
 #include <sys/random.h>
+#endif
 
 namespace bb::numeric {
 
 namespace {
 
-#if defined(__wasm__) || defined(__APPLE__)
+#if defined(__wasm__) || defined(__APPLE__) || defined(__ANDROID__)
 
-// In wasm and on mac os the API we are using can only give 256 bytes per call, so there is no point in creating a
-// larger buffer
+// In wasm, on mac os, and on Android the API we are using can only give 256 bytes per call,
+// so there is no point in creating a larger buffer
 constexpr size_t RANDOM_BUFFER_SIZE = 256;
 constexpr size_t BYTES_PER_GETENTROPY_READ = 256;
 
@@ -62,6 +76,14 @@ template <size_t size_in_unsigned_ints> std::array<unsigned int, size_in_unsigne
             // loop
             ssize_t read_bytes =
                 getentropy(current_offset, BYTES_PER_GETENTROPY_READ) == -1 ? -1 : BYTES_PER_GETENTROPY_READ;
+#elif defined(__ANDROID__)
+            // Android API 24 doesn't have getrandom/getentropy, read from /dev/urandom
+            static thread_local int urandom_fd = -1;
+            if (urandom_fd == -1) {
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+                urandom_fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
+            }
+            ssize_t read_bytes = ::read(urandom_fd, current_offset, BYTES_PER_GETENTROPY_READ);
 #else
             // Sample from urandom on native
             auto read_bytes = getrandom(current_offset, bytes_left, 0);

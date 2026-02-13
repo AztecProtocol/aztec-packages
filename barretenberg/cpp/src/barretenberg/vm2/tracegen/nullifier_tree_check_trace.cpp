@@ -56,6 +56,7 @@ void NullifierTreeCheckTraceBuilder::process(
 
         trace.set(row,
                   { { { C::nullifier_check_sel, 1 },
+                      { C::nullifier_check_const_three, 3 },
                       { C::nullifier_check_write, event.write },
                       { C::nullifier_check_nullifier, nullifier },
                       { C::nullifier_check_root, event.prev_snapshot.root },
@@ -109,6 +110,6 @@ const InteractionDefinition NullifierTreeCheckTraceBuilder::interactions =
         .add<lookup_nullifier_check_new_leaf_poseidon2_settings, InteractionType::LookupSequential>()
         .add<lookup_nullifier_check_new_leaf_merkle_check_settings, InteractionType::LookupSequential>()
         .add<lookup_nullifier_check_write_nullifier_to_public_inputs_settings,
-             InteractionType::LookupIntoIndexedByClk>();
+             InteractionType::LookupIntoIndexedByRow>();
 
 } // namespace bb::avm2::tracegen

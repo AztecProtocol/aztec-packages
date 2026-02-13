@@ -256,8 +256,8 @@ export class HAKeyStore implements ExtendedValidatorKeyStore {
   /**
    * Start the high-availability key store
    */
-  public start(): Promise<void> {
-    return Promise.resolve(this.haSigner.start());
+  public async start() {
+    await this.haSigner.start();
   }
 
   /**

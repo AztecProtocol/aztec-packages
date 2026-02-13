@@ -16,9 +16,9 @@ class GoblinRecursiveVerifierTests : public testing::Test {
     using ECCVMVK = Goblin::ECCVMVerificationKey;
     using TranslatorVK = Goblin::TranslatorVerificationKey;
 
-    using OuterFlavor = UltraRollupFlavor;
+    using OuterFlavor = UltraFlavor;
     using OuterProver = UltraProver_<OuterFlavor>;
-    using OuterVerifier = UltraVerifier_<OuterFlavor, bb::RollupIO>;
+    using OuterVerifier = UltraRollupVerifier;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
     using Commitment = MergeVerifier::Commitment;
@@ -314,8 +314,8 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 
         // Check that the pairing fails natively
         bb::PairingPoints<curve::BN254> native_pairing_points(
-            goblin_rec_verifier_output.translator_pairing_points.P0.get_value(),
-            goblin_rec_verifier_output.translator_pairing_points.P1.get_value());
+            goblin_rec_verifier_output.translator_pairing_points.P0().get_value(),
+            goblin_rec_verifier_output.translator_pairing_points.P1().get_value());
         bool pairing_result = native_pairing_points.check();
         EXPECT_FALSE(pairing_result);
     }
@@ -425,8 +425,8 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
 
         // Check that the pairing fails natively
         bb::PairingPoints<curve::BN254> native_pairing_points(
-            goblin_rec_verifier_output.translator_pairing_points.P0.get_value(),
-            goblin_rec_verifier_output.translator_pairing_points.P1.get_value());
+            goblin_rec_verifier_output.translator_pairing_points.P0().get_value(),
+            goblin_rec_verifier_output.translator_pairing_points.P1().get_value());
         bool pairing_result = native_pairing_points.check();
         EXPECT_FALSE(pairing_result);
     }

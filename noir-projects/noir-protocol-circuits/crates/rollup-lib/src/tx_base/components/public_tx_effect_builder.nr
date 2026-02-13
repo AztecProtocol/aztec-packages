@@ -1,14 +1,17 @@
 use crate::tx_base::components::private_tail_validator;
-use dep::types::{
+use super::log_array_length::{
+    get_contract_class_log_hash_array_length, get_private_log_array_length,
+};
+use types::{
     abis::{
         avm_circuit_public_inputs::AvmCircuitPublicInputs, contract_class_log::ContractClassLog,
         kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs, log::Log,
     },
     blob_data::{TxEffect, TxEffectArrayLengths},
     constants::{CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX},
-    hash::silo_l2_to_l1_message,
+    hash::compute_l2_to_l1_message_hash,
     traits::Hash,
-    utils::arrays::{array_length_until, array_merge},
+    utils::arrays::splice_at_count,
 };
 
 pub fn build_tx_effect(
@@ -21,9 +24,17 @@ pub fn build_tx_effect(
     let global_variables = avm.global_variables;
 
     // Compute siloed L2-to-L1 message hashes (siloed with the contract address of the function that
-    // emitted the message). We do this sequencer-side, because the hashes are computed with sha256.
-    let siloed_l2_to_l1_msgs = avm.accumulated_data.l2_to_l1_msgs.map(|message| {
-        silo_l2_to_l1_message(message, global_variables.version, global_variables.chain_id)
+    // emitted the message). We do this sequencer-side, because the hashes are computed with sha256
+    // for EVM compatibility.
+    // The private kernel init and inner circuits add l2_to_l1_msgs with non-zero contract addresses within the
+    // claimed length. The private kernel tail-to-public circuit ensures that items beyond the claimed length are empty.
+    // Therefore, the array is left-packed, and we can safely compute the hashes by checking the contract addresses.
+    let siloed_l2_to_l1_msgs = avm.accumulated_data.l2_to_l1_msgs.map(|message| if message
+        .contract_address
+        .is_zero() {
+        0
+    } else {
+        compute_l2_to_l1_message_hash(message, global_variables.version, global_variables.chain_id)
     });
 
     // If any of the public functions reverted within the `avm`, then the tx is considered to have reverted,
@@ -41,13 +52,25 @@ pub fn build_tx_effect(
     // are conditionally discarded by the avm circuit. Private logs and contract class logs are
     // different, in that they're only emitted by private functions and so the avm doesn't care about them
     // or "see" them.
+    //
+    // Note: splice_at_count is safe to use here because both input arrays were originally split from a single
+    // dense-trimmed array [T; MAX_PER_TX] in the Tail-to-Public kernel circuit.
+    // (For general arrays, dense-trimmed means all non-empty entries appear before any empty entries; for logs, all
+    // logs with nonzero length appear before any zero-length logs.)
+    // The Tail-to-Public kernel ensures the 2 split arrays are also dense-trimmed.
+    // This guarantees that merging them will never produce more than MAX_PER_TX items and no actual values will be lost
+    // or truncated. And after concatenation, the resulting array remains dense-trimmed.
 
     // Conditionally discard the revertible private logs.
     let private_logs = if reverted {
         private_to_public.non_revertible_accumulated_data.private_logs
     } else {
-        array_merge(
+        let num_non_revertible_private_logs = get_private_log_array_length(
             private_to_public.non_revertible_accumulated_data.private_logs,
+        );
+        splice_at_count(
+            private_to_public.non_revertible_accumulated_data.private_logs,
+            num_non_revertible_private_logs,
             private_to_public.revertible_accumulated_data.private_logs,
         )
     };
@@ -56,8 +79,12 @@ pub fn build_tx_effect(
     let contract_class_log_hashes = if reverted {
         private_to_public.non_revertible_accumulated_data.contract_class_logs_hashes
     } else {
-        array_merge(
+        let num_non_revertible_contract_class_log_hashes = get_contract_class_log_hash_array_length(
             private_to_public.non_revertible_accumulated_data.contract_class_logs_hashes,
+        );
+        splice_at_count(
+            private_to_public.non_revertible_accumulated_data.contract_class_logs_hashes,
+            num_non_revertible_contract_class_log_hashes,
             private_to_public.revertible_accumulated_data.contract_class_logs_hashes,
         )
     };
@@ -94,12 +121,9 @@ pub fn build_tx_effect(
         contract_class_logs,
     };
 
-    // We can use `array_length_until` to check only the length, because the kernel circuits guarantee that logs with
-    // non-zero length are left-packed. In other words, there cannot be a log with length 0 before a log with non-zero
-    // length.
-    let private_logs_array_length = array_length_until(private_logs, |log| log.length == 0);
+    let private_logs_array_length = get_private_log_array_length(private_logs);
     let contract_class_logs_array_length =
-        array_length_until(contract_class_log_hashes, |log| log.inner.length == 0);
+        get_contract_class_log_hash_array_length(contract_class_log_hashes);
 
     let tx_effect_array_lengths = TxEffectArrayLengths {
         note_hashes: avm.accumulated_data_array_lengths.note_hashes,

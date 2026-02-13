@@ -12,7 +12,8 @@ import DefaultNavbarItem from '@theme/NavbarItem/DefaultNavbarItem';
 
 // Plugin IDs for our two docs instances
 const DEVELOPER_PLUGIN_ID = 'developer';
-const NETWORK_PLUGIN_ID = 'network';
+// Note: Plugin ID is "network" for versioned docs compatibility, but URL path is "/operate"
+const OPERATE_PLUGIN_ID = 'network';
 
 /**
  * Determine which docs section we're currently in based on URL path
@@ -24,8 +25,9 @@ function useCurrentDocsSection() {
   if (pathname.startsWith('/developers')) {
     return DEVELOPER_PLUGIN_ID;
   }
-  if (pathname.startsWith('/network')) {
-    return NETWORK_PLUGIN_ID;
+  // Check for /operate URL path, which maps to 'network' plugin ID
+  if (pathname.startsWith('/operate')) {
+    return OPERATE_PLUGIN_ID;
   }
   return null;
 }
@@ -87,8 +89,8 @@ function createSectionHeader(label) {
 export default function UnifiedVersionDropdown({ mobile, ...props }) {
   const { pathname } = useLocation();
 
-  // Hide dropdown on landing page
-  if (pathname === '/' || pathname === '/networks') {
+  // Hide dropdown on landing page, networks, and participate section (participate is not versioned)
+  if (pathname === '/' || pathname === '/networks' || pathname.startsWith('/participate')) {
     return null;
   }
 
@@ -99,21 +101,21 @@ export default function UnifiedVersionDropdown({ mobile, ...props }) {
 
   // Get versions for both plugins
   const developerVersions = useVersions(DEVELOPER_PLUGIN_ID);
-  const networkVersions = useVersions(NETWORK_PLUGIN_ID);
+  const operateVersions = useVersions(OPERATE_PLUGIN_ID);
 
   // Get active contexts for both plugins
   const developerContext = useActiveDocContext(DEVELOPER_PLUGIN_ID);
-  const networkContext = useActiveDocContext(NETWORK_PLUGIN_ID);
+  const operateContext = useActiveDocContext(OPERATE_PLUGIN_ID);
 
   // Get preferred version handlers
   const { savePreferredVersionName: saveDeveloperPreferred } =
     useDocsPreferredVersion(DEVELOPER_PLUGIN_ID);
-  const { savePreferredVersionName: saveNetworkPreferred } =
-    useDocsPreferredVersion(NETWORK_PLUGIN_ID);
+  const { savePreferredVersionName: saveOperatePreferred } =
+    useDocsPreferredVersion(OPERATE_PLUGIN_ID);
 
   // Get displayed versions for label
   const displayedDeveloperVersion = useDisplayedVersion(DEVELOPER_PLUGIN_ID, developerVersions);
-  const displayedNetworkVersion = useDisplayedVersion(NETWORK_PLUGIN_ID, networkVersions);
+  const displayedOperateVersion = useDisplayedVersion(OPERATE_PLUGIN_ID, operateVersions);
 
   // Build items and label based on current section
   let items = [];
@@ -136,20 +138,20 @@ export default function UnifiedVersionDropdown({ mobile, ...props }) {
       const targetDoc = getVersionTargetDoc(displayedDeveloperVersion, developerContext);
       dropdownTo = targetDoc?.path;
     }
-  } else if (currentSection === NETWORK_PLUGIN_ID) {
-    // On network pages: show only network versions
+  } else if (currentSection === OPERATE_PLUGIN_ID) {
+    // On operate pages: show only operate versions
     items = buildVersionItems(
-      networkVersions,
-      networkContext,
-      saveNetworkPreferred,
+      operateVersions,
+      operateContext,
+      saveOperatePreferred,
       search,
       hash
     );
     dropdownLabel = mobile && items.length > 1
       ? 'Versions'
-      : `${displayedNetworkVersion?.label ?? 'Latest'}`;
+      : `${displayedOperateVersion?.label ?? 'Latest'}`;
     if (!mobile || items.length <= 1) {
-      const targetDoc = getVersionTargetDoc(displayedNetworkVersion, networkContext);
+      const targetDoc = getVersionTargetDoc(displayedOperateVersion, operateContext);
       dropdownTo = targetDoc?.path;
     }
   } else {
@@ -161,10 +163,10 @@ export default function UnifiedVersionDropdown({ mobile, ...props }) {
       search,
       hash
     );
-    const networkItems = buildVersionItems(
-      networkVersions,
-      networkContext,
-      saveNetworkPreferred,
+    const operateItems = buildVersionItems(
+      operateVersions,
+      operateContext,
+      saveOperatePreferred,
       search,
       hash
     );
@@ -172,14 +174,14 @@ export default function UnifiedVersionDropdown({ mobile, ...props }) {
     items = [
       createSectionHeader('Developer Docs'),
       ...developerItems,
-      createSectionHeader('Network Docs'),
-      ...networkItems,
+      createSectionHeader('Operate Docs'),
+      ...operateItems,
     ];
     dropdownLabel = 'Versions';
   }
 
   // Don't render if no versions available
-  if (developerVersions.length === 0 && networkVersions.length === 0) {
+  if (developerVersions.length === 0 && operateVersions.length === 0) {
     return null;
   }
 

@@ -207,24 +207,142 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
     static void test_basic_tag_logic()
     {
         auto builder = Builder();
-        auto [a_native, a_ct] = get_random_witness(&builder); // fq_native, fq_ct
 
-        a_ct.binary_basis_limbs[0].element.set_origin_tag(submitted_value_origin_tag);
-        a_ct.binary_basis_limbs[1].element.set_origin_tag(challenge_origin_tag);
-        a_ct.prime_basis_limb.set_origin_tag(next_challenge_tag);
+        // Test 1: Limb tag merging - getting tag merges from internal limbs
+        {
+            auto [a_native, a_ct] = get_random_witness(&builder);
+            a_ct.binary_basis_limbs[0].element.set_origin_tag(submitted_value_origin_tag);
+            a_ct.binary_basis_limbs[1].element.set_origin_tag(challenge_origin_tag);
+            a_ct.prime_basis_limb.set_origin_tag(next_challenge_tag);
+            EXPECT_EQ(a_ct.get_origin_tag(), first_second_third_merged_tag);
+        }
 
-        EXPECT_EQ(a_ct.get_origin_tag(), first_second_third_merged_tag);
+        // Test 2: Setting tag propagates to all limbs
+        {
+            auto [a_native, a_ct] = get_random_witness(&builder);
+            a_ct.set_origin_tag(submitted_value_origin_tag);
+            EXPECT_EQ(a_ct.binary_basis_limbs[0].element.get_origin_tag(), submitted_value_origin_tag);
+            EXPECT_EQ(a_ct.binary_basis_limbs[1].element.get_origin_tag(), submitted_value_origin_tag);
+            EXPECT_EQ(a_ct.binary_basis_limbs[2].element.get_origin_tag(), submitted_value_origin_tag);
+            EXPECT_EQ(a_ct.binary_basis_limbs[3].element.get_origin_tag(), submitted_value_origin_tag);
+            EXPECT_EQ(a_ct.prime_basis_limb.get_origin_tag(), submitted_value_origin_tag);
+        }
 
-        a_ct.set_origin_tag(clear_tag);
-        EXPECT_EQ(a_ct.binary_basis_limbs[0].element.get_origin_tag(), clear_tag);
-        EXPECT_EQ(a_ct.binary_basis_limbs[1].element.get_origin_tag(), clear_tag);
-        EXPECT_EQ(a_ct.binary_basis_limbs[2].element.get_origin_tag(), clear_tag);
-        EXPECT_EQ(a_ct.binary_basis_limbs[3].element.get_origin_tag(), clear_tag);
-        EXPECT_EQ(a_ct.prime_basis_limb.get_origin_tag(), clear_tag);
+        // Setup for operation tests
+        auto [a_native, a] = get_random_witness(&builder);
+        auto [b_native, b] = get_random_witness(&builder);
+        auto [c_native, c] = get_random_witness(&builder);
+        a.set_origin_tag(submitted_value_origin_tag);
+        b.set_origin_tag(challenge_origin_tag);
+        c.set_origin_tag(next_challenge_tag);
+
+        // Binary operators merge tags
+        EXPECT_EQ((a + b).get_origin_tag(), first_two_merged_tag);
+        EXPECT_EQ((a - b).get_origin_tag(), first_two_merged_tag);
+        EXPECT_EQ((a * b).get_origin_tag(), first_two_merged_tag);
+
+        // Assignment operators merge tags
+        {
+            auto [tmp_native, tmp] = get_random_witness(&builder);
+            tmp.set_origin_tag(submitted_value_origin_tag);
+            auto [other_native, other] = get_random_witness(&builder);
+            other.set_origin_tag(challenge_origin_tag);
+            tmp += other;
+            EXPECT_EQ(tmp.get_origin_tag(), first_two_merged_tag);
+        }
+
+        // add_two merges tags
+        EXPECT_EQ(a.add_two(b, c).get_origin_tag(), first_second_third_merged_tag);
+
+        // sum merges tags
+        {
+            std::vector<fq_ct> to_sum;
+            auto [s1_native, s1] = get_random_witness(&builder);
+            auto [s2_native, s2] = get_random_witness(&builder);
+            s1.set_origin_tag(submitted_value_origin_tag);
+            s2.set_origin_tag(challenge_origin_tag);
+            to_sum.push_back(s1);
+            to_sum.push_back(s2);
+            EXPECT_EQ(fq_ct::sum(to_sum).get_origin_tag(), first_two_merged_tag);
+        }
+
+        // madd merges tags
+        EXPECT_EQ(a.madd(b, { c }).get_origin_tag(), first_second_third_merged_tag);
+
+        // sqradd merges tags
+        EXPECT_EQ(a.sqradd({ b }).get_origin_tag(), first_two_merged_tag);
+
+        // mult_madd merges tags
+        {
+            std::vector<fq_ct> left = { a };
+            std::vector<fq_ct> right = { b };
+            std::vector<fq_ct> to_add = { c };
+            EXPECT_EQ(fq_ct::mult_madd(left, right, to_add).get_origin_tag(), first_second_third_merged_tag);
+        }
+
+        // dual_madd merges tags
+        {
+            auto [d_native, d] = get_random_witness(&builder);
+            auto [e_native, e] = get_random_witness(&builder);
+            d.set_origin_tag(submitted_value_origin_tag);
+            e.set_origin_tag(challenge_origin_tag);
+            EXPECT_EQ(fq_ct::dual_madd(a, b, a, b, { c }).get_origin_tag(), first_second_third_merged_tag);
+        }
+
+        // div_without_denominator_check merges tags
+        EXPECT_EQ(a.div_without_denominator_check(b).get_origin_tag(), first_two_merged_tag);
+
+        // conditional_select merges tags
+        {
+            auto predicate = bool_ct(witness_ct(&builder, true));
+            predicate.set_origin_tag(next_challenge_tag);
+            EXPECT_EQ(a.conditional_select(b, predicate).get_origin_tag(), first_second_third_merged_tag);
+        }
+
+        // conditional_negate merges tags
+        {
+            auto predicate = bool_ct(witness_ct(&builder, false));
+            predicate.set_origin_tag(challenge_origin_tag);
+            EXPECT_EQ(a.conditional_negate(predicate).get_origin_tag(), first_two_merged_tag);
+        }
+
+        // self_reduce preserves tag
+        {
+            auto [tmp_native, tmp] = get_random_witness(&builder);
+            tmp.set_origin_tag(submitted_value_origin_tag);
+            tmp.self_reduce();
+            EXPECT_EQ(tmp.get_origin_tag(), submitted_value_origin_tag);
+        }
+
+        // assert_is_in_field preserves tag
+        {
+            auto [tmp_native, tmp] = get_random_witness(&builder, /*reduce=*/true);
+            tmp.set_origin_tag(submitted_value_origin_tag);
+            tmp.assert_is_in_field();
+            EXPECT_EQ(tmp.get_origin_tag(), submitted_value_origin_tag);
+        }
+
+        // byte_array construction propagates tag
+        {
+            fq_native val = fq_native::random_element();
+            std::vector<uint8_t> input_bytes(sizeof(fq_native));
+            fq_native::serialize_to_buffer(val, &input_bytes[0]);
+            byte_array_ct input_arr(&builder, input_bytes);
+            input_arr.set_origin_tag(submitted_value_origin_tag);
+            fq_ct from_bytes(input_arr);
+            EXPECT_EQ(from_bytes.get_origin_tag(), submitted_value_origin_tag);
+        }
+
+        // pow preserves tag (exponent is a constant, not a circuit variable)
+        EXPECT_EQ(a.pow(5).get_origin_tag(), submitted_value_origin_tag);
 
 #ifndef NDEBUG
-        a_ct.set_origin_tag(instant_death_tag);
-        EXPECT_THROW(a_ct + a_ct, std::runtime_error);
+        // Instant death tag causes exception
+        {
+            auto [death_native, death] = get_random_witness(&builder);
+            death.set_origin_tag(instant_death_tag);
+            EXPECT_THROW(death + death, std::runtime_error);
+        }
 #endif
     }
 
@@ -355,9 +473,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             auto [b_native, b_ct] = get_random_element(&builder, b_type); // fq, fq_ct
             auto [c_native, c_ct] = get_random_element(&builder, c_type); // fq, fq_ct
 
-            a_ct.set_origin_tag(submitted_value_origin_tag);
-            b_ct.set_origin_tag(challenge_origin_tag);
-
             fq_ct d_ct;
             if (i == num_repetitions - 1) {
                 BENCH_GATE_COUNT_START(builder, "ADD_TWO");
@@ -367,9 +482,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
                 d_ct = a_ct.add_two(b_ct, c_ct);
             }
             d_ct.self_reduce();
-
-            // Addition merges tags
-            EXPECT_EQ(d_ct.get_origin_tag(), first_two_merged_tag);
 
             fq_native expected = (a_native + b_native + c_native).reduce_once().reduce_once();
             expected = expected.from_montgomery_form();
@@ -400,11 +512,9 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             std::vector<fq_ct> to_sum;
             for (size_t j = 0; j < num_elements; ++j) {
                 to_sum.push_back(a_ct[j]);
-                to_sum.back().set_origin_tag(submitted_value_origin_tag);
 
                 if (mixed_inputs) {
                     to_sum.push_back(b_ct[j]);
-                    to_sum.back().set_origin_tag(challenge_origin_tag);
                 }
             }
 
@@ -419,10 +529,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
 
             // Need to self-reduce as we are summing potentially many elements
             c_ct.self_reduce();
-
-            // Sum merges tags
-            const auto output_tag = (mixed_inputs) ? first_two_merged_tag : submitted_value_origin_tag;
-            EXPECT_EQ(c_ct.get_origin_tag(), output_tag);
 
             fq_native expected = fq_native::zero();
             for (size_t j = 0; j < num_elements; ++j) {
@@ -458,15 +564,12 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
                                              const char* op_name,
                                              size_t num_repetitions = 10,
                                              bool need_reduced_inputs = false,
-                                             bool need_reduction_after = false,
-                                             bool do_tags_merge = true)
+                                             bool need_reduction_after = false)
     {
         auto builder = Builder();
         for (size_t i = 0; i < num_repetitions; ++i) {
             auto [a_native, a_ct] = get_random_element(&builder, a_type, need_reduced_inputs); // fq_native, fq_ct
             auto [b_native, b_ct] = get_random_element(&builder, b_type, need_reduced_inputs); // fq_native, fq_ct
-            a_ct.set_origin_tag(submitted_value_origin_tag);
-            b_ct.set_origin_tag(challenge_origin_tag);
 
             fq_ct c_ct;
             if (i == num_repetitions - 1) {
@@ -481,11 +584,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             // Some operations (add, sub, div) may need a self-reduction to get back into the field range
             if (need_reduction_after) {
                 c_ct.self_reduce();
-            }
-
-            if (do_tags_merge) {
-                // Binary operations merge tags
-                EXPECT_EQ(c_ct.get_origin_tag(), first_two_merged_tag);
             }
 
             fq_native expected = native_op(a_native, b_native);
@@ -537,8 +635,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             "NEGATE",
             10,
             false, // need_reduced_inputs
-            true,  // need_reduction_after
-            false  // check_output_tag
+            true   // need_reduction_after
         );
     }
 
@@ -551,7 +648,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             [](const fq_native& a, const fq_native&) { return a.sqr(); },
             "SQR",
             10,
-            false,
             false,
             false);
     }
@@ -571,8 +667,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         for (size_t i = 0; i < num_repetitions; ++i) {
             auto [a_native, a_ct] = get_random_element(&builder, a_type, need_reduced_inputs); // fq, fq_ct
             auto [b_native, b_ct] = get_random_element(&builder, b_type, need_reduced_inputs); // fq, fq_ct
-            a_ct.set_origin_tag(submitted_value_origin_tag);
-            b_ct.set_origin_tag(challenge_origin_tag);
 
             if (i == num_repetitions - 1) {
                 std::string bench_name = std::string(op_name);
@@ -585,9 +679,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
 
             // Need to self-reduce as assignment operators do not automatically reduce
             a_ct.self_reduce();
-
-            // Assignment operations merge tags
-            EXPECT_EQ(a_ct.get_origin_tag(), first_two_merged_tag);
 
             fq_native expected = native_op(a_native, b_native);
             if (need_reduction_after) {
@@ -637,9 +728,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             auto [a_native, a_ct] = get_random_element(&builder, a_type); // fq_native, fq_ct
             auto [b_native, b_ct] = get_random_element(&builder, b_type); // fq_native, fq_ct
             auto [c_native, c_ct] = get_random_element(&builder, c_type); // fq_native, fq_ct
-            a_ct.set_origin_tag(challenge_origin_tag);
-            b_ct.set_origin_tag(submitted_value_origin_tag);
-            c_ct.set_origin_tag(next_challenge_tag);
 
             fq_ct d_ct;
             if (i == num_repetitions - 1) {
@@ -649,9 +737,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             } else {
                 d_ct = a_ct.madd(b_ct, { c_ct });
             }
-
-            // Madd merges tags
-            EXPECT_EQ(d_ct.get_origin_tag(), first_second_third_merged_tag);
 
             fq_native expected = (a_native * b_native) + c_native;
             expected = expected.from_montgomery_form();
@@ -677,8 +762,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         for (size_t i = 0; i < num_repetitions; ++i) {
             auto [a_native, a_ct] = get_random_element(&builder, a_type); // fq_native, fq_ct
             auto [b_native, b_ct] = get_random_element(&builder, b_type); // fq_native, fq_ct
-            a_ct.set_origin_tag(challenge_origin_tag);
-            b_ct.set_origin_tag(submitted_value_origin_tag);
 
             fq_ct c_ct;
             if (i == num_repetitions - 1) {
@@ -735,11 +818,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
                 to_add_ct[number_of_madds - 1] = extra_to_add_ct;
             }
 
-            // Set the origin tags of the last multiplicands and summand
-            mul_left_ct[number_of_madds - 1].set_origin_tag(submitted_value_origin_tag);
-            mul_right_ct[number_of_madds - 1].set_origin_tag(challenge_origin_tag);
-            to_add_ct[number_of_madds - 1].set_origin_tag(next_challenge_tag);
-
             fq_ct f_ct;
             if (i == num_repetitions - 1) {
                 BENCH_GATE_COUNT_START(builder, "MULT_MADD");
@@ -748,9 +826,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             } else {
                 f_ct = fq_ct::mult_madd(mul_left_ct, mul_right_ct, to_add_ct);
             }
-
-            // mult_madd merges tags
-            EXPECT_EQ(f_ct.get_origin_tag(), first_second_third_merged_tag);
 
             // Compute expected value
             fq_native expected(0);
@@ -788,10 +863,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             auto [d_native, d_ct] = get_random_witness(&builder); // fq_native, fq_ct
             auto [e_native, e_ct] = get_random_witness(&builder); // fq_native, fq_ct
 
-            a_ct.set_origin_tag(submitted_value_origin_tag);
-            d_ct.set_origin_tag(challenge_origin_tag);
-            e_ct.set_origin_tag(next_challenge_tag);
-
             fq_ct f_ct;
             if (i == num_repetitions - 1) {
                 BENCH_GATE_COUNT_START(builder, "DUAL_MADD");
@@ -800,9 +871,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             } else {
                 f_ct = fq_ct::dual_madd(a_ct, b_ct, c_ct, d_ct, { e_ct });
             }
-
-            // dual_madd merges tags
-            EXPECT_EQ(f_ct.get_origin_tag(), first_second_third_merged_tag);
 
             fq_native expected = (a_native * b_native) + (c_native * d_native) + e_native;
             expected = expected.from_montgomery_form();
@@ -832,8 +900,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             // We need reduced inputs for division.
             auto [a_native, a_ct] = get_random_element(&builder, a_type, true); // reduced fq_native, fq_ct
             auto [b_native, b_ct] = get_random_element(&builder, b_type, true); // reduced fq_native, fq_ct
-            a_ct.set_origin_tag(submitted_value_origin_tag);
-            b_ct.set_origin_tag(challenge_origin_tag);
 
             fq_ct c_ct;
             if (i == num_repetitions - 1) {
@@ -843,9 +909,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             } else {
                 c_ct = a_ct.div_without_denominator_check(b_ct);
             }
-
-            // Division without denominator check merges tags
-            EXPECT_EQ(c_ct.get_origin_tag(), first_two_merged_tag);
 
             fq_native expected = (a_native / b_native);
             expected = expected.reduce_once().reduce_once();
@@ -875,12 +938,8 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             auto [b_native, b_ct] = get_random_witness(&builder); // fq_native, fq_ct
             auto [c_native, c_ct] = get_random_witness(&builder); // fq_native, fq_ct
             auto [d_native, d_ct] = get_random_witness(&builder); // fq_native, fq_ct
-            b_ct.set_origin_tag(submitted_value_origin_tag);
-            c_ct.set_origin_tag(challenge_origin_tag);
-            d_ct.set_origin_tag(next_challenge_tag);
 
             fq_ct e = (a_ct + b_ct) / (c_ct + d_ct);
-            EXPECT_EQ(e.get_origin_tag(), first_second_third_merged_tag);
 
             fq_native expected = (a_native + b_native) / (c_native + d_native);
             expected = expected.reduce_once().reduce_once();
@@ -910,13 +969,9 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             auto [b_native, b_ct] = get_random_element(&builder, summand_type); // fq_native, fq_ct
             auto [c_native, c_ct] = get_random_witness(&builder);               // fq_native, fq_ct
             auto [d_native, d_ct] = get_random_element(&builder, summand_type); // fq_native, fq_ct
-            b_ct.set_origin_tag(submitted_value_origin_tag);
-            c_ct.set_origin_tag(challenge_origin_tag);
-            d_ct.set_origin_tag(next_challenge_tag);
 
             fq_ct e = (a_ct + b_ct) * (c_ct + d_ct);
 
-            EXPECT_EQ(e.get_origin_tag(), first_second_third_merged_tag);
             fq_native expected = (a_native + b_native) * (c_native + d_native);
             expected = expected.from_montgomery_form();
             uint512_t result = e.get_value();
@@ -944,13 +999,8 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             auto [c_native, c_ct] = get_random_witness(&builder);                  // fq_native, fq_ct
             auto [d_native, d_ct] = get_random_element(&builder, subtrahend_type); // fq_native, fq_ct
 
-            b_ct.set_origin_tag(submitted_value_origin_tag);
-            c_ct.set_origin_tag(challenge_origin_tag);
-            d_ct.set_origin_tag(next_challenge_tag);
-
             fq_ct e = (a_ct - b_ct) * (c_ct - d_ct);
 
-            EXPECT_EQ(e.get_origin_tag(), first_second_third_merged_tag);
             fq_native expected = (a_native - b_native) * (c_native - d_native);
 
             expected = expected.from_montgomery_form();
@@ -982,11 +1032,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             auto [to_sub1, to_sub1_ct] = get_random_element(&builder, to_sub_type);
             auto [to_sub2, to_sub2_ct] = get_random_element(&builder, to_sub_type);
 
-            mul_l_ct.set_origin_tag(submitted_value_origin_tag);
-            mul_r1_ct.set_origin_tag(challenge_origin_tag);
-            divisor1_ct.set_origin_tag(next_submitted_value_origin_tag);
-            to_sub1_ct.set_origin_tag(next_challenge_tag);
-
             fq_ct result_ct;
             if (i == num_repetitions - 1) {
                 BENCH_GATE_COUNT_START(builder, "MSUB_DIV");
@@ -998,7 +1043,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
                     { mul_l_ct }, { mul_r1_ct - mul_r2_ct }, divisor1_ct - divisor2_ct, { to_sub1_ct, to_sub2_ct });
             }
 
-            EXPECT_EQ(result_ct.get_origin_tag(), first_to_fourth_merged_tag);
             fq_native expected = (-(mul_l * (mul_r1 - mul_r2) + to_sub1 + to_sub2)) / (divisor1 - divisor2);
             EXPECT_EQ(result_ct.get_value().lo, uint256_t(expected));
             EXPECT_EQ(result_ct.get_value().hi, uint256_t(0));
@@ -1016,8 +1060,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
 
             auto [a_native, a_ct] = get_random_element(&builder, a_type); // fq_native, fq_ct
             auto [b_native, b_ct] = get_random_element(&builder, b_type); // fq_native, fq_ct
-            a_ct.set_origin_tag(submitted_value_origin_tag);
-            b_ct.set_origin_tag(challenge_origin_tag);
 
             bool_ct predicate_a;
             if (predicate_type == InputType::WITNESS) {
@@ -1025,14 +1067,9 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             } else {
                 predicate_a = bool_ct(&builder, true);
             }
-            predicate_a.set_origin_tag(next_challenge_tag);
 
             fq_ct c = fq_ct::conditional_assign(predicate_a, a_ct, b_ct);
             fq_ct d = fq_ct::conditional_assign(!predicate_a, a_ct, b_ct);
-
-            // Conditional assign merges tags (even if predicate is a constant)
-            EXPECT_EQ(c.get_origin_tag(), first_second_third_merged_tag);
-            EXPECT_EQ(d.get_origin_tag(), first_second_third_merged_tag);
 
             fq_ct e = c + d;
             e.self_reduce();
@@ -1060,8 +1097,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
 
             auto [a_native, a_ct] = get_random_element(&builder, a_type); // fq_native, fq_ct
             auto [b_native, b_ct] = get_random_element(&builder, b_type); // fq_native, fq_ct
-            a_ct.set_origin_tag(submitted_value_origin_tag);
-            b_ct.set_origin_tag(challenge_origin_tag);
 
             bool_ct predicate_a;
             if (predicate_type == InputType::WITNESS) {
@@ -1069,14 +1104,9 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             } else {
                 predicate_a = bool_ct(&builder, true);
             }
-            predicate_a.set_origin_tag(next_challenge_tag);
 
             fq_ct c = a_ct.conditional_select(b_ct, predicate_a);
             fq_ct d = a_ct.conditional_select(b_ct, !predicate_a);
-
-            // Conditional select merges tags (even if predicate is a constant)
-            EXPECT_EQ(c.get_origin_tag(), first_second_third_merged_tag);
-            EXPECT_EQ(d.get_origin_tag(), first_second_third_merged_tag);
 
             fq_ct e = c + d;
             e.self_reduce();
@@ -1103,7 +1133,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         for (size_t i = 0; i < num_repetitions; ++i) {
 
             auto [a_native, a_ct] = get_random_element(&builder, a_type); // fq_native, fq_ct
-            a_ct.set_origin_tag(submitted_value_origin_tag);
 
             bool_ct predicate_a;
             if (predicate_type == InputType::WITNESS) {
@@ -1111,14 +1140,9 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             } else {
                 predicate_a = bool_ct(&builder, true);
             }
-            predicate_a.set_origin_tag(challenge_origin_tag);
 
             fq_ct c = a_ct.conditional_negate(predicate_a);
             fq_ct d = a_ct.conditional_negate(!predicate_a);
-
-            // Conditional negate merges tags
-            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
-            EXPECT_EQ(d.get_origin_tag(), first_two_merged_tag);
 
             fq_ct e = c + d;
             c.self_reduce();
@@ -1208,11 +1232,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
                 expected = b_native * b_native + expected;
             }
 
-            c_ct.set_origin_tag(challenge_origin_tag);
             c_ct.self_reduce();
-
-            // self_reduce preserves tags
-            EXPECT_EQ(c_ct.get_origin_tag(), challenge_origin_tag);
 
             fq_native result = fq_native(c_ct.get_value().lo);
             EXPECT_EQ(result, expected);
@@ -1266,19 +1286,12 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
                 expected = b_native * b_native + expected;
             }
 
-            c_ct.set_origin_tag(challenge_origin_tag);
-
             // We need to reduce before calling assert_is_in_field
             c_ct.self_reduce();
             c_ct.assert_is_in_field();
 
             // We can directly call assert_is_in_field on a reduced element
-            d_ct.set_origin_tag(challenge_origin_tag);
             d_ct.assert_is_in_field();
-
-            // assert_is_in_field preserves tags
-            EXPECT_EQ(c_ct.get_origin_tag(), challenge_origin_tag);
-            EXPECT_EQ(d_ct.get_origin_tag(), challenge_origin_tag);
 
             uint256_t result = (c_ct.get_value().lo);
             EXPECT_EQ(result, uint256_t(expected));
@@ -1411,8 +1424,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
                 expected = b_native * b_native + expected;
             }
 
-            c_ct.set_origin_tag(challenge_origin_tag);
-
             // reduce c to [0, p)
             // count gates for the last iteration only
             if (i == num_repetitions - 1) {
@@ -1422,9 +1433,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             } else {
                 c_ct.reduce_mod_target_modulus();
             }
-
-            // reduce_mod_target_modulus preserves tags
-            EXPECT_EQ(c_ct.get_origin_tag(), challenge_origin_tag);
 
             uint256_t result = (c_ct.get_value().lo);
             EXPECT_EQ(result, uint256_t(expected));
@@ -1451,15 +1459,10 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             stdlib::byte_array<Builder> input_arr_a(&builder, input_a);
             stdlib::byte_array<Builder> input_arr_b(&builder, input_b);
 
-            input_arr_a.set_origin_tag(submitted_value_origin_tag);
-            input_arr_b.set_origin_tag(challenge_origin_tag);
-
             fq_ct a_ct(input_arr_a);
             fq_ct b_ct(input_arr_b);
 
             fq_ct c_ct = a_ct * b_ct;
-
-            EXPECT_EQ(c_ct.get_origin_tag(), first_two_merged_tag);
 
             fq_native expected = a_native * b_native;
             uint256_t result = (c_ct.get_value().lo);
@@ -1572,6 +1575,86 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
+    // Test assert_zero_if with a zero bigfield - should always pass regardless of predicate
+    static void test_assert_zero_if_zero_value(bool predicate_value, InputType predicate_type)
+    {
+        auto builder = Builder();
+
+        // Create a zero bigfield as witness
+        fq_ct zero_ct = fq_ct::create_from_u512_as_witness(&builder, uint256_t(0));
+
+        // Create predicate
+        bool_ct predicate;
+        if (predicate_type == InputType::WITNESS) {
+            predicate = bool_ct(witness_ct(&builder, predicate_value));
+        } else {
+            predicate = bool_ct(&builder, predicate_value);
+        }
+
+        // Should always pass: zero bigfield satisfies the constraint regardless of predicate
+        zero_ct.assert_zero_if(predicate);
+
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
+    // Test assert_zero_if with a non-zero bigfield
+    // - predicate=false: should pass (check is skipped)
+    // - predicate=true: should fail (non-zero value violates constraint)
+    static void test_assert_zero_if_nonzero_value(bool predicate_value,
+                                                  InputType value_type,
+                                                  InputType predicate_type,
+                                                  bool expect_circuit_check_pass)
+    {
+        auto builder = Builder();
+
+        // Create a non-zero bigfield
+        fq_ct nonzero_ct;
+        if (value_type == InputType::WITNESS) {
+            nonzero_ct = fq_ct::create_from_u512_as_witness(&builder, uint256_t(42));
+        } else {
+            nonzero_ct = fq_ct(&builder, uint256_t(42));
+        }
+
+        // Create predicate
+        bool_ct predicate;
+        if (predicate_type == InputType::WITNESS) {
+            predicate = bool_ct(witness_ct(&builder, predicate_value));
+        } else {
+            predicate = bool_ct(&builder, predicate_value);
+        }
+
+        nonzero_ct.assert_zero_if(predicate);
+
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, expect_circuit_check_pass);
+    }
+
+    // Test assert_zero_if with computed zero (result of subtraction) - should pass
+    static void test_assert_zero_if_computed_zero()
+    {
+        auto builder = Builder();
+
+        // Create two equal bigfields and subtract to get zero
+        auto [a_native, a_ct] = get_random_witness(&builder);
+        fq_ct b_ct = fq_ct::create_from_u512_as_witness(&builder, uint256_t(a_native));
+
+        // Compute a - a which should be zero
+        fq_ct zero_ct = a_ct - b_ct;
+
+        // We need reduction so that the value is actually zero (k * p is not allowed)
+        zero_ct.self_reduce();
+
+        // Create true predicate as witness
+        bool_ct predicate = bool_ct(witness_ct(&builder, true));
+
+        // This should pass: computed zero with true predicate
+        zero_ct.assert_zero_if(predicate);
+
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
     static void test_pow()
     {
         Builder builder;
@@ -1594,8 +1677,6 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             // Check for witness base with constant exponent
             fq_ct result_witness_base = base_witness_ct.pow(current_exponent_val);
             EXPECT_EQ(fq_native(result_witness_base.get_value()), expected);
-
-            base_witness_ct.set_origin_tag(submitted_value_origin_tag);
         }
 
         bool check_result = CircuitChecker::check(builder);
@@ -2471,4 +2552,42 @@ TYPED_TEST(stdlib_bigfield, internal_div_bug_regression)
     TestFixture::test_internal_div_regression();
     TestFixture::test_internal_div_regression2();
     TestFixture::test_internal_div_regression3();
+}
+
+// Zero value should always pass, regardless of predicate value
+TYPED_TEST(stdlib_bigfield, assert_zero_if_zero_value)
+{
+    // predicate=true, witness predicate
+    TestFixture::test_assert_zero_if_zero_value(true, InputType::WITNESS);
+    // predicate=true, constant predicate
+    TestFixture::test_assert_zero_if_zero_value(true, InputType::CONSTANT);
+    // predicate=false, witness predicate
+    TestFixture::test_assert_zero_if_zero_value(false, InputType::WITNESS);
+    // predicate=false, constant predicate
+    TestFixture::test_assert_zero_if_zero_value(false, InputType::CONSTANT);
+}
+
+// Non-zero value with false predicate should pass (check is skipped)
+TYPED_TEST(stdlib_bigfield, assert_zero_if_nonzero_value_false_predicate)
+{
+    TestFixture::test_assert_zero_if_nonzero_value(false, InputType::WITNESS, InputType::WITNESS, true);
+    TestFixture::test_assert_zero_if_nonzero_value(false, InputType::WITNESS, InputType::CONSTANT, true);
+    TestFixture::test_assert_zero_if_nonzero_value(false, InputType::CONSTANT, InputType::WITNESS, true);
+    TestFixture::test_assert_zero_if_nonzero_value(false, InputType::CONSTANT, InputType::CONSTANT, true);
+}
+
+// Non-zero value with true predicate should fail
+TYPED_TEST(stdlib_bigfield, assert_zero_if_nonzero_value_true_predicate_fails)
+{
+    TestFixture::test_assert_zero_if_nonzero_value(true, InputType::WITNESS, InputType::WITNESS, false);
+    TestFixture::test_assert_zero_if_nonzero_value(true, InputType::WITNESS, InputType::CONSTANT, false);
+    TestFixture::test_assert_zero_if_nonzero_value(true, InputType::CONSTANT, InputType::WITNESS, false);
+    // Note: We don't test (CONSTANT, CONSTANT) because when both value and predicate are constants,
+    // the assertion is evaluated at circuit construction time, not at verification time.
+}
+
+// Computed zero (from subtraction) should pass with true predicate
+TYPED_TEST(stdlib_bigfield, assert_zero_if_computed_zero)
+{
+    TestFixture::test_assert_zero_if_computed_zero();
 }

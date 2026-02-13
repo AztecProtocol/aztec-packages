@@ -56,7 +56,7 @@ describe('ServerWorldStateSynchronizer', () => {
 
     merkleTreeRead = mock<MerkleTreeReadOperations>();
     merkleTreeRead.getInitialHeader.mockReturnValue({
-      hash: () => Promise.resolve(BlockHash.fromField(Fr.random())),
+      hash: () => Promise.resolve(new BlockHash(Fr.random())),
     } as BlockHeader);
     merkleTreeRead.getLeafValue.mockResolvedValue(Fr.random());
 

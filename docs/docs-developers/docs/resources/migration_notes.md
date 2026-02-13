@@ -9,6 +9,226 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [CLI] Dockerless CLI Installation
+
+The Aztec CLI is now installed without Docker. The installation command has changed:
+
+**Old installation (deprecated):**
+```bash
+bash -i <(curl -sL https://install.aztec.network)
+aztec-up <version>
+```
+
+**New installation:**
+```bash
+VERSION=<version> bash -i <(curl -sL https://install.aztec.network/<version>)
+```
+
+For example, to install version `#include_version_without_prefix`:
+```bash
+VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix)
+```
+
+**Key changes:**
+- Docker is no longer required to run the Aztec CLI tools
+- The `VERSION` environment variable must be set in the installation command
+- The version must also be included in the URL path
+
+**aztec-up is now a version manager:**
+
+After installation, `aztec-up` functions as a version manager with the following commands:
+
+| Command | Description |
+|---------|-------------|
+| `aztec-up install <version>` | Install a specific version and switch to it |
+| `aztec-up use <version>` | Switch to an already installed version |
+| `aztec-up list` | List all installed versions |
+| `aztec-up self-update` | Update aztec-up itself |
+### `@aztec/test-wallet` replaced by `@aztec/wallets`
+
+The `@aztec/test-wallet` package has been removed. Use `@aztec/wallets` instead, which provides `EmbeddedWallet` with a `static create()` factory:
+
+```diff
+- import { TestWallet, registerInitialLocalNetworkAccountsInWallet } from '@aztec/test-wallet/server';
++ import { EmbeddedWallet } from '@aztec/wallets/embedded';
++ import { registerInitialLocalNetworkAccountsInWallet } from '@aztec/wallets/testing';
+
+- const wallet = await TestWallet.create(node);
++ const wallet = await EmbeddedWallet.create(node);
+```
+
+For browser environments, the same import resolves to a browser-specific implementation automatically via conditional exports:X
+
+The `EmbeddedWallet.create()` factory accepts an optional second argument for logger injection and ephemeral storage:
+
+```typescript
+const wallet = await EmbeddedWallet.create(node, {
+  logger: myLogger, // custom logger; child loggers derived via createChild()
+  ephemeral: true, // use in-memory stores (no persistence)
+});
+```
+
+### [Aztec.nr] `debug_log` module renamed to `logging`
+
+The `debug_log` module has been renamed to `logging` to avoid naming collisions with per-level logging functions that were introduced in this PR (`warn_log`, `info_log`, `debug_log`... and the "format" versions `warn_log_format`, `debug_log_format`). Update all import paths accordingly:
+
+```diff
+- use aztec::oracle::debug_log::debug_log;
+- use aztec::oracle::debug_log::debug_log_format;
++ use aztec::oracle::logging::debug_log;
++ use aztec::oracle::logging::debug_log_format;
+```
+
+For inline paths:
+
+```diff
+- aztec::oracle::debug_log::debug_log_format("msg: {}", [value]);
++ aztec::oracle::logging::debug_log_format("msg: {}", [value]);
+```
+
+The function names themselves (`debug_log`, `debug_log_format`, `debug_log_with_level`, `debug_log_format_with_level`) are unchanged.
+
+Additionally, `debug_log_format_slice` has been removed. Use `debug_log_format` instead, which accepts a fixed-size array of fields:
+
+```diff
+- debug_log_format_slice("values: {}", &[value1, value2]);
++ debug_log_format("values: {}", [value1, value2]);
+```
+
+This has been done as usage of Noir slices is discouraged and the function was unused in the aztec codebase.
+
+### [AztecNode] Sentinel validator status values renamed
+
+The `ValidatorStatusInSlot` values returned by `getValidatorsStats` and `getValidatorStats` have been updated to reflect the multi-block-per-slot model, where blocks and checkpoints are distinct concepts:
+
+```diff
+- 'block-mined'
++ 'checkpoint-mined'
+
+- 'block-proposed'
++ 'checkpoint-proposed'
+
+- 'block-missed'
++ 'checkpoint-missed'  // blocks were proposed but checkpoint was not attested
++ 'blocks-missed'      // no block proposals were sent at all
+```
+
+The `attestation-sent` and `attestation-missed` values are unchanged but now explicitly refer to checkpoint attestations.
+
+The `ValidatorStatusType` used for categorizing statuses has also changed from `'block' | 'attestation'` to `'proposer' | 'attestation'`.
+
+### [aztec.js] `getDecodedPublicEvents` renamed to `getPublicEvents` with new signature
+
+The `getDecodedPublicEvents` function has been renamed to `getPublicEvents` and now uses a filter object instead of positional parameters:
+
+```diff
+- import { getDecodedPublicEvents } from '@aztec/aztec.js/events';
++ import { getPublicEvents } from '@aztec/aztec.js/events';
+
+- const events = await getDecodedPublicEvents(node, eventMetadata, fromBlock, limit);
++ const events = await getPublicEvents(node, eventMetadata, {
++   fromBlock,
++   toBlock,
++   contractAddress,  // optional
++   txHash,           // optional
++ });
+```
+
+The new function returns richer metadata including `contractAddress`, `txHash`, `l2BlockNumber`, and `l2BlockHash` for each event:
+
+```typescript
+import { getPublicEvents } from "@aztec/aztec.js/events";
+import { MyContract } from "./artifacts/MyContract.js";
+
+// Query events from a contract
+const events = await getPublicEvents<{ amount: bigint; sender: AztecAddress }>(
+  aztecNode,
+  MyContract.events.Transfer,
+  { contractAddress: myContractAddress, fromBlock: BlockNumber(1) },
+);
+
+// Each event includes decoded data and metadata
+for (const { event, metadata } of events) {
+  console.log(`Transfer of ${event.amount} from ${event.sender}`);
+  console.log(`  Block: ${metadata.l2BlockNumber}, Tx: ${metadata.txHash}`);
+  console.log(`  Contract: ${metadata.contractAddress}`);
+}
+```
+
+### [Aztec.nr] `nophasecheck` renamed as `allow_phase_change`
+
+### [AztecNode] Removed sibling path RPC methods
+
+The following methods have been removed from the `AztecNode` interface:
+
+- `getNullifierSiblingPath`
+- `getNoteHashSiblingPath`
+- `getArchiveSiblingPath`
+- `getPublicDataSiblingPath`
+
+These methods were not used by PXE and returned a subset of the information already available through the corresponding membership witness methods:
+
+| Removed Method             | Use Instead                     |
+| -------------------------- | ------------------------------- |
+| `getNullifierSiblingPath`  | `getNullifierMembershipWitness` |
+| `getNoteHashSiblingPath`   | `getNoteHashMembershipWitness`  |
+| `getArchiveSiblingPath`    | `getBlockHashMembershipWitness` |
+| `getPublicDataSiblingPath` | `getPublicDataWitness`          |
+
+The membership witness methods return both the sibling path and additional context (leaf index, preimage data) needed for proofs.
+
+### [Protocol] "Nullifier secret key" renamed to "nullifier hiding key" (nsk → nhk)
+
+The nullifier secret key (`nsk_m` / `nsk_app`) has been renamed to nullifier hiding key (`nhk_m` / `nhk_app`). This is a protocol-breaking change: the domain separator string changes from `"az_nsk_m"` to `"az_nhk_m"`, producing a different constant value.
+
+**Noir changes:**
+
+```diff
+- context.request_nsk_app(npk_m_hash)
++ context.request_nhk_app(npk_m_hash)
+
+- get_nsk_app(npk_m_hash)
++ get_nhk_app(npk_m_hash)
+```
+
+**TypeScript changes:**
+
+```diff
+- import { computeAppNullifierSecretKey, deriveMasterNullifierSecretKey } from '@aztec/stdlib/keys';
++ import { computeAppNullifierHidingKey, deriveMasterNullifierHidingKey } from '@aztec/stdlib/keys';
+
+- const masterNullifierSecretKey = deriveMasterNullifierSecretKey(secret);
++ const masterNullifierHidingKey = deriveMasterNullifierHidingKey(secret);
+
+- const nskApp = await computeAppNullifierSecretKey(masterNullifierSecretKey, contractAddress);
++ const nhkApp = await computeAppNullifierHidingKey(masterNullifierHidingKey, contractAddress);
+```
+
+The `GeneratorIndex.NSK_M` enum member is now `GeneratorIndex.NHK_M`.
+
+### [AztecNode/Aztec.nr] `getArchiveMembershipWitness` renamed to `getBlockHashMembershipWitness`
+
+The `getArchiveMembershipWitness` method has been renamed to `getBlockHashMembershipWitness` to better reflect its purpose. Block hashes are the leaves of the archive tree - each time a new block is added to the chain, its block hash is appended as a new leaf. This rename clarifies that the method finds a membership witness for a block hash in the archive tree.
+
+**TypeScript (AztecNode interface):**
+
+```diff
+- const witness = await aztecNode.getArchiveMembershipWitness(blockNumber, archiveLeaf);
++ const witness = await aztecNode.getBlockHashMembershipWitness(blockNumber, blockHash);
+```
+
+The second parameter type has also changed from `Fr` to `BlockHash`.
+
+**Noir (aztec-nr):**
+
+```diff
+- use dep::aztec::oracle::get_membership_witness::get_archive_membership_witness;
++ use dep::aztec::oracle::get_membership_witness::get_block_hash_membership_witness;
+
+- let witness = get_archive_membership_witness(block_header, leaf_value);
++ let witness = get_block_hash_membership_witness(anchor_block_header, block_hash);
+```
+
 ### [Aztec.nr] `protocol_types` renamed to `protocol`
 
 The `protocol_types` re-export from the `aztec` crate has been renamed to `protocol`. Update all imports accordingly:
@@ -16,6 +236,30 @@ The `protocol_types` re-export from the `aztec` crate has been renamed to `proto
 ```diff
 - use dep::aztec::protocol_types::address::AztecAddress;
 + use dep::aztec::protocol::address::AztecAddress;
+```
+
+### Protocol contract interface separate from protocol contracts
+
+We've stripped protocol contract of `aztec-nr` macros in order for auditors to not need to audit them (protocol contracts are to be audited during the protocol circuits audit).
+This results in the nice Noir interface no longer being generated.
+
+For context, this is the interface I am talking about:
+
+```noir
+let update_delay = self.view(MyContract::at(my_contract_address).my_fn());
+```
+
+where the macros generate the `MyContract` struct.
+
+For this reason we've created place holder protocol contracts in `noir-projects/noir-contracts/contracts/protocol_interface` that still have these macros applied and hence you can use them to get the interface.
+
+On your side all you need to do is update the dependency in `Nargo.toml`:
+
+```diff
+-auth_contract = { path = "../../protocol/auth_registry_contract" }
++auth_contract = { path = "../../protocol_interface/auth_registry_interface" }
+-instance_contract = { path = "../../protocol/contract_instance_registry" }
++instance_contract = { path = "../../protocol_interface/contract_instance_registry_interface" }
 ```
 
 ### [aztec-nr] History module refactored to use standalone functions
@@ -33,19 +277,19 @@ let block_header = context.get_anchor_block_header();
 
 **Function name and module mapping:**
 
-| Old (trait method) | New (standalone function) |
-|--------------------|---------------------------|
-| `history::note_inclusion::prove_note_inclusion` | `history::note::assert_note_existed_by` |
-| `history::note_validity::prove_note_validity` | `history::note::assert_note_was_valid_by` |
-| `history::nullifier_inclusion::prove_nullifier_inclusion` | `history::nullifier::assert_nullifier_existed_by` |
-| `history::nullifier_inclusion::prove_note_is_nullified` | `history::note::assert_note_was_nullified_by` |
-| `history::nullifier_non_inclusion::prove_nullifier_non_inclusion` | `history::nullifier::assert_nullifier_did_not_exist_by` |
-| `history::nullifier_non_inclusion::prove_note_not_nullified` | `history::note::assert_note_was_not_nullified_by` |
-| `history::contract_inclusion::prove_contract_deployment` | `history::deployment::assert_contract_bytecode_was_published_by` |
-| `history::contract_inclusion::prove_contract_non_deployment` | `history::deployment::assert_contract_bytecode_was_not_published_by` |
-| `history::contract_inclusion::prove_contract_initialization` | `history::deployment::assert_contract_was_initialized_by` |
-| `history::contract_inclusion::prove_contract_non_initialization` | `history::deployment::assert_contract_was_not_initialized_by` |
-| `history::public_storage::public_storage_historical_read` | `history::storage::public_storage_historical_read` |
+| Old (trait method)                                                | New (standalone function)                                            |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `history::note_inclusion::prove_note_inclusion`                   | `history::note::assert_note_existed_by`                              |
+| `history::note_validity::prove_note_validity`                     | `history::note::assert_note_was_valid_by`                            |
+| `history::nullifier_inclusion::prove_nullifier_inclusion`         | `history::nullifier::assert_nullifier_existed_by`                    |
+| `history::nullifier_inclusion::prove_note_is_nullified`           | `history::note::assert_note_was_nullified_by`                        |
+| `history::nullifier_non_inclusion::prove_nullifier_non_inclusion` | `history::nullifier::assert_nullifier_did_not_exist_by`              |
+| `history::nullifier_non_inclusion::prove_note_not_nullified`      | `history::note::assert_note_was_not_nullified_by`                    |
+| `history::contract_inclusion::prove_contract_deployment`          | `history::deployment::assert_contract_bytecode_was_published_by`     |
+| `history::contract_inclusion::prove_contract_non_deployment`      | `history::deployment::assert_contract_bytecode_was_not_published_by` |
+| `history::contract_inclusion::prove_contract_initialization`      | `history::deployment::assert_contract_was_initialized_by`            |
+| `history::contract_inclusion::prove_contract_non_initialization`  | `history::deployment::assert_contract_was_not_initialized_by`        |
+| `history::public_storage::public_storage_historical_read`         | `history::storage::public_storage_historical_read`                   |
 
 ### [Aztec.js] Transaction sending API redesign
 

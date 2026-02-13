@@ -721,7 +721,7 @@ mod tests {
         build_uniqueness_hints, SideEffectUniquenessHints,
         validate_unique_and_within_bounds_side_effect_counters_with_hints,
     };
-    use dep::types::{
+    use types::{
         constants::{
             MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
             MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,

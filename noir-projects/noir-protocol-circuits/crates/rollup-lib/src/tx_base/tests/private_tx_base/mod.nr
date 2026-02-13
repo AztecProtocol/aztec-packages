@@ -16,7 +16,7 @@ use crate::{
         private_tx_base_rollup::{self, PrivateTxBaseRollupPrivateInputs},
     },
 };
-use dep::types::{
+use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_constant_data::BlockConstantData,
         gas::Gas, gas_fees::GasFees,
@@ -34,7 +34,7 @@ use dep::types::{
         PUBLIC_DATA_TREE_HEIGHT,
     },
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
-    hash::silo_l2_to_l1_message,
+    hash::compute_l2_to_l1_message_hash,
     merkle_tree::{LeafPreimage, MembershipWitness},
     tests::{
         fixture_builder::FixtureBuilder, merkle_tree_utils::SingleSubtreeMerkleTree, utils::pad_end,
@@ -176,7 +176,7 @@ impl TestBuilder {
     }
 
     pub fn get_siloed_l2_to_l1_msgs(self) -> [Field; MAX_L2_TO_L1_MSGS_PER_TX] {
-        self.private_tail.end.l2_to_l1_msgs.map(|msg| silo_l2_to_l1_message(
+        self.private_tail.end.l2_to_l1_msgs.map(|msg| compute_l2_to_l1_message_hash(
             msg,
             self.constants.global_variables.version,
             self.constants.global_variables.chain_id,

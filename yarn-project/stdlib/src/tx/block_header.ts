@@ -164,8 +164,8 @@ export class BlockHeader {
 
   hash(): Promise<BlockHash> {
     if (!this._cachedHash) {
-      this._cachedHash = poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.BLOCK_HEADER_HASH).then(fr =>
-        BlockHash.fromField(fr),
+      this._cachedHash = poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.BLOCK_HEADER_HASH).then(
+        fr => new BlockHash(fr),
       );
     }
     return this._cachedHash;
@@ -173,7 +173,7 @@ export class BlockHeader {
 
   /** Manually set the hash for this block header if already computed */
   setHash(hashed: Fr) {
-    this._cachedHash = Promise.resolve(BlockHash.fromField(hashed));
+    this._cachedHash = Promise.resolve(new BlockHash(hashed));
   }
 
   static random(overrides: Partial<FieldsOf<BlockHeader>> & Partial<FieldsOf<GlobalVariables>> = {}): BlockHeader {

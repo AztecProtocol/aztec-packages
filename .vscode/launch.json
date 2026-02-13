@@ -51,7 +51,7 @@
       "program": "${workspaceFolder}/barretenberg/cpp/build-debug-fast/bin/bb",
       "args": ["prove", "--scheme", "ultra_honk", "--output_path", ".", "-b", "./target/program.json", "--write_vk"],
       // Can replace with any directory containing target/program.json and target/witness.gz
-      "cwd": "${workspaceFolder}/barretenberg/acir_tests/acir_tests/embedded_curve_ops",
+      "cwd": "${workspaceFolder}/barretenberg/acir_tests/internal_test_programs/aes_wrong_padding",
       "initCommands": [
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
       ],

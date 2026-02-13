@@ -9,3 +9,4 @@ aztec = { path = "../../../../aztec-nr/aztec" }
 uint_note = { path = "../../../../aztec-nr/uint-note" }
 compressed_string = { path = "../../../../aztec-nr/compressed-string" }
 balance_set = { path = "../../../../aztec-nr/balance-set" }
+generic_proxy_contract = { path = "../../test/generic_proxy_contract" }

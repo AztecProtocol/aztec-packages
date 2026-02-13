@@ -32,13 +32,13 @@ where
         self.hash
     }
 
-    /// Reads the value stored in this [WithHash] from public storage.
+    /// Reads the value stored in this [`WithHash`] from public storage.
     ///
     /// Note that unlike a full public storage read, this will _not_ read (not return) the stored hash of the value,
     /// resulting in reduced gas costs.
     ///
-    /// This is the public counterpart to [WithHash::utility_public_storage_read] and
-    /// [WithHash::historical_public_storage_read].
+    /// This is the public counterpart to [`WithHash::utility_public_storage_read`] and
+    /// [`WithHash::historical_public_storage_read`].
     pub fn public_storage_read(context: PublicContext, storage_slot: Field) -> T {
         context.storage_read(storage_slot)
     }

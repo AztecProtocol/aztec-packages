@@ -2,6 +2,7 @@
 #include "barretenberg/stdlib/hash/blake2s/blake2s.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 
 class BlakeCircuit {
   public:
@@ -9,6 +10,7 @@ class BlakeCircuit {
     using field_ct = bb::stdlib::field_t<Builder>;
     using public_witness_ct = bb::stdlib::public_witness_t<Builder>;
     using byte_array_ct = bb::stdlib::byte_array<Builder>;
+    using IO = bb::stdlib::recursion::honk::DefaultIO<Builder>;
 
     static constexpr size_t NUM_PUBLIC_INPUTS = 4;
 
@@ -26,6 +28,8 @@ class BlakeCircuit {
         }
 
         bb::stdlib::Blake2s<Builder>::hash(input_buffer);
+
+        IO::add_default(builder);
 
         return builder;
     }

@@ -300,7 +300,7 @@ export class ServerWorldStateSynchronizer
    * @returns Whether the block handled was produced by this same node.
    */
   private async handleL2Blocks(l2Blocks: L2Block[]) {
-    this.log.trace(`Handling L2 blocks ${l2Blocks[0].number} to ${l2Blocks.at(-1)!.number}`);
+    this.log.debug(`Handling L2 blocks ${l2Blocks[0].number} to ${l2Blocks.at(-1)!.number}`);
 
     // Fetch the L1->L2 messages for the first block in a checkpoint.
     const messagesForBlocks = new Map<BlockNumber, Fr[]>();
@@ -341,10 +341,12 @@ export class ServerWorldStateSynchronizer
    * @returns Whether the block handled was produced by this same node.
    */
   private async handleL2Block(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
-    this.log.trace(`Pushing L2 block ${l2Block.number} to merkle tree db `, {
+    this.log.debug(`Pushing L2 block ${l2Block.number} to merkle tree db `, {
       blockNumber: l2Block.number,
       blockHash: await l2Block.hash().then(h => h.toString()),
       l1ToL2Messages: l1ToL2Messages.map(msg => msg.toString()),
+      blockHeader: l2Block.header.toInspect(),
+      blockStats: l2Block.getStats(),
     });
     const result = await this.merkleTreeDb.handleL2BlockAndMessages(l2Block, l1ToL2Messages);
 

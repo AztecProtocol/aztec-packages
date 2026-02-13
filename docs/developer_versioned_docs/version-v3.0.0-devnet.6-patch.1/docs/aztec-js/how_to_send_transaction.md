@@ -16,7 +16,7 @@ Transactions on Aztec execute contract functions that modify state. Unlike simpl
 - Deployed contract with its address and ABI
 - Funded account wallet (see [paying fees](./how_to_pay_fees.md))
 - Running Aztec local network or connected to a network
-- Understanding of [contract interactions](../aztec-nr/framework-description/how_to_call_contracts.md)
+- Understanding of [contract interactions](../aztec-nr/framework-description/calling_contracts.md)
 
 ## Send a transaction
 

@@ -1,8 +1,8 @@
 use crate::macros::internals_functions_generation::external_functions_registry::get_public_functions;
 use crate::protocol::meta::utils::get_params_len_quote;
+use crate::utils::cmap::CHashMap;
 use super::utils::compute_fn_selector;
-use poseidon::poseidon2::Poseidon2Hasher;
-use std::{collections::umap::UHashMap, hash::BuildHasherDefault, panic};
+use std::panic;
 
 /// Returns an `fn public_dispatch(...)` function for the given module that's assumed to be an Aztec contract.
 pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
@@ -10,7 +10,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
 
     let unit = get_type::<()>();
 
-    let seen_selectors = &mut UHashMap::<Field, Quoted, BuildHasherDefault<Poseidon2Hasher>>::default();
+    let seen_selectors = &mut CHashMap::<Field, Quoted>::new();
 
     let ifs = functions.map(|function: FunctionDefinition| {
         let parameters = function.parameters();
@@ -21,8 +21,9 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
 
         // Since function selectors are computed as the first 4 bytes of the hash of the function signature, it's
         // possible to have collisions. With the following check, we ensure it doesn't happen within the same contract.
-        if seen_selectors.contains_key(selector) {
-            let existing_fn = seen_selectors.get(selector).unwrap();
+        let existing_fn = seen_selectors.get(selector);
+        if existing_fn.is_some() {
+            let existing_fn = existing_fn.unwrap();
             panic(
                 f"Public function selector collision detected between functions '{fn_name}' and '{existing_fn}'",
             );
@@ -51,7 +52,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
             let param_name = f"arg{parameter_index_value}".quoted_contents();
             let param_type = param.1;
             let read = quote {
-                let $param_name: $param_type = reader.read_struct(aztec::protocol::traits::Deserialize::deserialize);
+                let $param_name: $param_type = aztec::protocol::traits::Deserialize::stream_deserialize(&mut reader);
             };
             *parameter_index += 1;
             quote { $read }

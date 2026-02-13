@@ -3,7 +3,6 @@
 # This script is called by aztec-up to install a specific version of the Aztec toolchain.
 # It expects VERSION and INSTALL_URI to be set.
 set -euo pipefail
-shopt -s inherit_errexit
 
 # Colors
 g="\033[32m" # Green
@@ -11,10 +10,22 @@ y="\033[33m" # Yellow
 b="\033[34m" # Blue
 r="\033[0m"  # Reset
 
+# Helper function to safely read version from versions file
+function get_version {
+  local tool="$1"
+  local version
+  version=$(grep "^$tool" "$version_path/versions" | cut -d' ' -f2) || true
+  if [ -z "$version" ]; then
+    echo "Error: Could not find $tool version in $version_path/versions" >&2
+    exit 1
+  fi
+  echo "$version"
+}
+
 # Required environment variables
 VERSION="${VERSION:?VERSION must be set}"
 AZTEC_HOME="${AZTEC_HOME:-$HOME/.aztec}"
-INSTALL_URI="${INSTALL_URI:-https://install.aztec.network}"
+INSTALL_URI="${INSTALL_URI:-https://install.aztec-labs.com}"
 
 export FORCE_COLOR=1
 
@@ -48,7 +59,7 @@ function dump_fail {
     return $?
   fi
 
-  output=$(mktemp)
+  output=$(mktemp) || { echo "Error: Failed to create temp file" >&2; exit 1; }
 
   set +e
   ($@) &>$output
@@ -85,22 +96,51 @@ function retry {
   return 1
 }
 
-function check_toolchains {
-  # Check Node.js version.
-  local node_min_version=$(cat "$version_path/versions" | grep node | cut -d' ' -f2)
-  local node_installed_version=$(node --version 2>/dev/null | cut -d 'v' -f 2 || echo "none")
-  if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
+function install_node {
+  set -euo pipefail
+  local node_min_version
+  node_min_version=$(get_version "node")
+  local node_installed_version
+  node_installed_version=$(node --version 2>/dev/null | cut -d 'v' -f 2 || echo "none")
+
+  # Check if current version is sufficient
+  if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" = "$node_min_version" ]]; then
+    return 0
+  fi
+
+  # Need to install - check if nvm is available
+  if [ -z "${NVM_DIR:-}" ] || [ ! -s "$NVM_DIR/nvm.sh" ]; then
     echo "Minimum Node.js version $node_min_version not found (got $node_installed_version)."
     echo "Installation: nvm install --lts && nvm alias default lts/*"
     exit 1
   fi
 
-  # We need python 3.11 for node gyp.
-  if [ "$os" = "Darwin" ] && [ ! -f "$(brew --prefix)/opt/python@3.11/bin/python3.11" ]; then
-    echo "Python 3.11 not found."
-    echo "Installation: brew install python@3.11"
+  # Source nvm and install
+  . "$NVM_DIR/nvm.sh"
+  nvm install --lts
+  nvm alias default lts/*
+}
+
+function install_python {
+  set -euo pipefail
+  # Only needed on macOS for node-gyp
+  if [ "$os" != "Darwin" ]; then
+    return 0
+  fi
+
+  # Check if brew is available
+  if ! command -v brew &>/dev/null; then
+    echo "Installation of python requires Homebrew."
+    echo "Install it from https://brew.sh"
     exit 1
   fi
+
+  # Check if python 3.11 is already installed
+  if [ -f "$(brew --prefix)/opt/python@3.11/bin/python3.11" ]; then
+    return 0
+  fi
+
+  brew install python@3.11
 }
 
 function install_versions_file {
@@ -116,10 +156,12 @@ function install_noir {
   if [[ -n ${NARGO:-} ]]; then
     cp "$NARGO" "$version_bin_path/nargo"
   else
-    local noir_version=$(cat "$version_path/versions" | grep noir | cut -d' ' -f2)
+    local noir_version
+    noir_version=$(get_version "noir")
 
     # Create a temp directory for noirup to install to
-    local temp_nargo_home=$(mktemp -d)
+    local temp_nargo_home
+    temp_nargo_home=$(mktemp -d) || { echo "Error: Failed to create temp directory" >&2; exit 1; }
     mkdir -p "$temp_nargo_home/bin"
 
     # Install noirup if not already present
@@ -140,10 +182,12 @@ function install_noir {
 
 function install_foundry {
   set -euo pipefail
-  local foundry_version=$(cat "$version_path/versions" | grep foundry | cut -d' ' -f2)
+  local foundry_version
+  foundry_version=$(get_version "foundry")
 
   # Create a temp directory for foundryup to install to.
-  local temp_foundry_dir=$(mktemp -d)
+  local temp_foundry_dir
+  temp_foundry_dir=$(mktemp -d) || { echo "Error: Failed to create temp directory" >&2; exit 1; }
   mkdir -p "$temp_foundry_dir/bin"
 
   # Install foundryup if not present or wrong version.
@@ -186,8 +230,17 @@ function main {
   dump_fail retry install_versions_file
   echo_green "done."
 
-  # Check Node.js version
-  check_toolchains
+  # Install node if needed
+  echo -n "Installing node... "
+  dump_fail install_node
+  echo_green "done."
+
+  # Install python if needed (macOS only)
+  if [ "$os" = "Darwin" ]; then
+    echo -n "Installing python... "
+    dump_fail install_python
+    echo_green "done."
+  fi
 
   # Install noir
   echo -n "Installing nargo... "

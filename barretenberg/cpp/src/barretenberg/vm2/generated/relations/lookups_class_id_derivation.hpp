@@ -26,14 +26,14 @@ struct lookup_class_id_derivation_class_id_poseidon2_0_settings_ {
         ColumnAndShifts::class_id_derivation_artifact_hash,
         ColumnAndShifts::class_id_derivation_private_functions_root,
         ColumnAndShifts::class_id_derivation_class_id,
-        ColumnAndShifts::class_id_derivation_const_two
+        ColumnAndShifts::class_id_derivation_const_four
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::poseidon2_hash_input_0,
         ColumnAndShifts::poseidon2_hash_input_1,
         ColumnAndShifts::poseidon2_hash_input_2,
         ColumnAndShifts::poseidon2_hash_output,
-        ColumnAndShifts::poseidon2_hash_num_perm_rounds_rem
+        ColumnAndShifts::poseidon2_hash_input_len
     };
 };
 

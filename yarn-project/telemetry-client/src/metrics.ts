@@ -474,6 +474,23 @@ export const FISHERMAN_FEE_ANALYSIS_MINED_BLOB_TX_TOTAL_COST: MetricDefinition =
   unit: 'eth',
   valueType: ValueType.DOUBLE,
 };
+export const FISHERMAN_FEE_ANALYSIS_PENDING_BLOB_COUNT: MetricDefinition = {
+  name: 'aztec.fisherman.fee_analysis.pending_blob_count',
+  description: 'Total number of blobs in pending blob transactions',
+  unit: 'blobs',
+  valueType: ValueType.INT,
+};
+export const FISHERMAN_FEE_ANALYSIS_INCLUDED_BLOB_COUNT: MetricDefinition = {
+  name: 'aztec.fisherman.fee_analysis.included_blob_count',
+  description: 'Total number of blobs included in the mined block',
+  unit: 'blobs',
+  valueType: ValueType.INT,
+};
+export const FISHERMAN_FEE_ANALYSIS_BLOCK_BLOBS_FULL: MetricDefinition = {
+  name: 'aztec.fisherman.fee_analysis.block_blobs_full',
+  description: 'Whether the mined block reached 100% blob capacity',
+  valueType: ValueType.INT,
+};
 
 export const VALIDATOR_INVALID_ATTESTATION_RECEIVED_COUNT: MetricDefinition = {
   name: 'aztec.validator.invalid_attestation_received_count',
@@ -1268,6 +1285,33 @@ export const TX_COLLECTOR_DURATION_PER_TX: MetricDefinition = {
   name: 'aztec.tx_collector.duration_per_tx',
   description: 'Average duration per tx of an individual tx collection request',
   unit: 'ms',
+  valueType: ValueType.INT,
+};
+
+export const TX_FILE_STORE_UPLOADS_SUCCESS: MetricDefinition = {
+  name: 'aztec.p2p.tx_file_store.uploads_success',
+  description: 'Number of successful tx uploads to file storage',
+  valueType: ValueType.INT,
+};
+export const TX_FILE_STORE_UPLOADS_FAILED: MetricDefinition = {
+  name: 'aztec.p2p.tx_file_store.uploads_failed',
+  description: 'Number of failed tx uploads to file storage',
+  valueType: ValueType.INT,
+};
+export const TX_FILE_STORE_UPLOADS_SKIPPED: MetricDefinition = {
+  name: 'aztec.p2p.tx_file_store.uploads_skipped',
+  description: 'Number of tx uploads skipped (duplicates)',
+  valueType: ValueType.INT,
+};
+export const TX_FILE_STORE_UPLOAD_DURATION: MetricDefinition = {
+  name: 'aztec.p2p.tx_file_store.upload_duration',
+  description: 'Duration to upload a tx to file storage',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const TX_FILE_STORE_QUEUE_SIZE: MetricDefinition = {
+  name: 'aztec.p2p.tx_file_store.queue_size',
+  description: 'Number of txs pending upload',
   valueType: ValueType.INT,
 };
 

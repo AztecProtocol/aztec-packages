@@ -4,7 +4,8 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { jest } from '@jest/globals';
 import { join } from 'path';
 
-import { DatabaseVersion, DatabaseVersionManager, type DatabaseVersionManagerFs } from './version_manager.js';
+import { DatabaseVersion } from './database_version.js';
+import { DatabaseVersionManager, type DatabaseVersionManagerFs } from './version_manager.js';
 
 describe('VersionManager', () => {
   let tempDir: string;
@@ -147,7 +148,7 @@ describe('Version', () => {
     expect(DatabaseVersion.fromBuffer(ver.toBuffer())).toEqual(ver);
   });
 
-  it('establishes a partial odering', () => {
+  it('establishes a partial ordering', () => {
     const verA = new DatabaseVersion(42, EthAddress.random());
     const verB = new DatabaseVersion(43, verA.rollupAddress);
     const verC = new DatabaseVersion(42, EthAddress.random());

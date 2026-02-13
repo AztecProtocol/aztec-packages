@@ -1,6 +1,6 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type LoggerBindings, createLogger } from '@aztec/foundation/log';
-import { DatabaseVersionManager } from '@aztec/stdlib/database-version';
+import { DatabaseVersionManager } from '@aztec/stdlib/database-version/manager';
 
 import { mkdir, mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';

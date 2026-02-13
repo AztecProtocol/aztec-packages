@@ -3,5 +3,7 @@ results
 bench-out
 example-app-ivc-inputs-out
 dumped-avm-circuit-inputs
+ultrahonk-bench-inputs
 web/main.js*
 consensys_web3signer_25.11.0
+scripts/ha/postgres_data/

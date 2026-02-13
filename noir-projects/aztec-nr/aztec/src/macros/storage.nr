@@ -1,12 +1,9 @@
-use poseidon::poseidon2::Poseidon2Hasher;
-use std::{collections::umap::UHashMap, hash::BuildHasherDefault};
-
-use super::utils::AsStrQuote;
+use crate::utils::cmap::CHashMap;
+use std::meta::unquote;
 
 /// Stores a map from a module to the name of the struct that describes its storage layout. This is then used when
 /// generating a `storage_layout()` getter on the contract struct.
-pub comptime mut global STORAGE_LAYOUT_NAME: UHashMap<Module, Quoted, BuildHasherDefault<Poseidon2Hasher>> =
-    UHashMap::default();
+pub comptime mut global STORAGE_LAYOUT_NAME: CHashMap<Module, Quoted> = CHashMap::new();
 
 /// This function
 /// - marks the contract as having storage, so that `macros::utils::module_has_storage` will return true,
@@ -83,7 +80,8 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
     let module = s.module();
     let module_name = module.name();
     let storage_layout_name = f"STORAGE_LAYOUT_{module_name}".quoted_contents();
-    let (module_name_str, module_name_len) = module_name.as_str_quote();
+    let module_name_str = f"{module_name}".as_quoted_str();
+    let module_name_len: u32 = unquote!(quote { $module_name_str.as_bytes().len()});
     STORAGE_LAYOUT_NAME.insert(module, storage_layout_name);
 
     quote {

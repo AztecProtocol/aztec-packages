@@ -17,7 +17,7 @@ export type DataInBlock<T> = {
 
 export function randomInBlock(): InBlock {
   return {
-    l2BlockNumber: BlockNumber(Math.floor(Math.random() * 1000)),
+    l2BlockNumber: BlockNumber(Math.floor(Math.random() * 1000) + 1),
     l2BlockHash: BlockHash.random(),
   };
 }
@@ -33,7 +33,7 @@ export async function wrapDataInBlock<T>(data: T, block: L2Block): Promise<DataI
   return {
     data,
     l2BlockNumber: block.number,
-    l2BlockHash: BlockHash.fromField(await block.hash()),
+    l2BlockHash: await block.hash(),
   };
 }
 

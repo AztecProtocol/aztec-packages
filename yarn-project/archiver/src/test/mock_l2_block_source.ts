@@ -195,7 +195,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return checkpoint;
   }
 
-  public async getCheckpointedBlockByHash(blockHash: Fr): Promise<CheckpointedL2Block | undefined> {
+  public async getCheckpointedBlockByHash(blockHash: BlockHash): Promise<CheckpointedL2Block | undefined> {
     for (const block of this.l2Blocks) {
       const hash = await block.hash();
       if (hash.equals(blockHash)) {
@@ -225,7 +225,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     );
   }
 
-  public async getL2BlockByHash(blockHash: Fr): Promise<L2Block | undefined> {
+  public async getL2BlockByHash(blockHash: BlockHash): Promise<L2Block | undefined> {
     for (const block of this.l2Blocks) {
       const hash = await block.hash();
       if (hash.equals(blockHash)) {
@@ -240,7 +240,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(block);
   }
 
-  public async getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined> {
+  public async getBlockHeaderByHash(blockHash: BlockHash): Promise<BlockHeader | undefined> {
     for (const block of this.l2Blocks) {
       const hash = await block.hash();
       if (hash.equals(blockHash)) {
@@ -322,7 +322,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return {
       data: txEffect,
       l2BlockNumber: block.number,
-      l2BlockHash: BlockHash.fromField(await block.hash()),
+      l2BlockHash: await block.hash(),
       txIndexInBlock: block.body.txEffects.indexOf(txEffect),
     };
   }
@@ -343,7 +343,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
             TxExecutionResult.SUCCESS,
             undefined,
             txEffect.transactionFee.toBigInt(),
-            BlockHash.fromField(await block.hash()),
+            await block.hash(),
             block.number,
           );
         }

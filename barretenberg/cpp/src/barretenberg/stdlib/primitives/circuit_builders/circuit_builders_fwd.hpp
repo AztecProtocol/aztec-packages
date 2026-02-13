@@ -27,7 +27,6 @@ class MegaZKFlavor;
 class MegaAvmFlavor;
 class UltraKeccakFlavor;
 class UltraKeccakZKFlavor;
-class UltraRollupFlavor;
 class ECCVMFlavor;
 class TranslatorFlavor;
 class TranslatorRecursiveFlavor;
@@ -45,7 +44,6 @@ using SumcheckTestFlavorGrumpkinZK = SumcheckTestFlavor_<curve::Grumpkin, true, 
 template <typename BuilderType> class UltraRecursiveFlavor_;
 template <typename BuilderType> class UltraZKRecursiveFlavor_;
 template <typename BuilderType> class UltraKeccakRecursiveFlavor_;
-template <typename BuilderType> class UltraRollupRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;
 template <typename BuilderType> class MegaZKRecursiveFlavor_;
 template <typename BuilderType> class MegaAvmRecursiveFlavor_;

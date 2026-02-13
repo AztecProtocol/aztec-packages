@@ -8,15 +8,16 @@ import { AVM_MAX_PROCESSABLE_L2_GAS, MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT } fro
 import { SecretValue } from '@aztec/foundation/config';
 import { bufferToHex } from '@aztec/foundation/string';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import type { TestWallet } from '@aztec/test-wallet/server';
+import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { jest } from '@jest/globals';
 
 import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 
 describe('e2e_bot', () => {
-  let wallet: TestWallet;
+  let wallet: EmbeddedWallet;
   let aztecNode: AztecNode;
   let teardown: () => Promise<void>;
   let aztecNodeAdmin: AztecNodeAdmin | undefined;
@@ -25,16 +26,19 @@ describe('e2e_bot', () => {
   let l1RpcUrls: string[];
 
   beforeAll(async () => {
-    const initialFundedAccounts = await getInitialTestAccountsData();
-    const setupResult = await setup(1, { initialFundedAccounts });
+    const [botAccount] = await getInitialTestAccountsData();
+    const setupResult = await setup(0, { initialFundedAccounts: [botAccount] });
     ({
       teardown,
-      wallet,
       aztecNode,
       aztecNodeAdmin,
       cheatCodes,
       config: { l1RpcUrls },
     } = setupResult);
+    wallet = await EmbeddedWallet.create(aztecNode, { ephemeral: true });
+    const accountManager = await wallet.createSchnorrAccount(botAccount.secret, botAccount.salt, botAccount.signingKey);
+    const deployMethod = await accountManager.getDeployMethod();
+    await deployMethod.send({ from: AztecAddress.ZERO });
   });
 
   afterAll(() => teardown());
@@ -44,7 +48,7 @@ describe('e2e_bot', () => {
     beforeAll(async () => {
       config = {
         ...getBotDefaultConfig(),
-        followChain: 'PENDING',
+        followChain: 'CHECKPOINTED',
         ammTxs: false,
       };
       bot = await Bot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
@@ -109,7 +113,7 @@ describe('e2e_bot', () => {
       const config: BotConfig = {
         ...getBotDefaultConfig(),
 
-        followChain: 'PENDING',
+        followChain: 'CHECKPOINTED',
         ammTxs: false,
 
         // this bot has a well defined private key and salt
@@ -147,7 +151,7 @@ describe('e2e_bot', () => {
       const config: BotConfig = {
         ...getBotDefaultConfig(),
 
-        followChain: 'PENDING',
+        followChain: 'CHECKPOINTED',
         ammTxs: false,
 
         // this bot has a well defined private key and salt
@@ -185,7 +189,7 @@ describe('e2e_bot', () => {
     beforeAll(async () => {
       config = {
         ...getBotDefaultConfig(),
-        followChain: 'PENDING',
+        followChain: 'CHECKPOINTED',
         ammTxs: true,
       };
       bot = await AmmBot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
@@ -215,7 +219,7 @@ describe('e2e_bot', () => {
     beforeAll(() => {
       config = {
         ...getBotDefaultConfig(),
-        followChain: 'PENDING',
+        followChain: 'PROPOSED',
         ammTxs: false,
         senderPrivateKey: new SecretValue(Fr.random()),
         l1PrivateKey: new SecretValue(bufferToHex(getPrivateKeyFromIndex(8)!)),

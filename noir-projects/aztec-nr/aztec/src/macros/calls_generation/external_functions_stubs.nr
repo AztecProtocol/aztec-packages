@@ -2,7 +2,7 @@
 // of manually serializing arguments and creating call interfaces, stubs allow natural syntax, e.g. for ! enqueuing
 // calls to public functions: ! !   ExternalContract.at(address).some_method(arg1, arg2).enqueue()
 
-use crate::macros::utils::{AsStrQuote, compute_fn_selector};
+use crate::macros::utils::compute_fn_selector;
 use crate::protocol::meta::utils::derive_serialization_quotes;
 use std::meta::unquote;
 
@@ -36,7 +36,7 @@ comptime fn create_stub_base(f: FunctionDefinition) -> (Quoted, Quoted, Quoted, 
         derive_serialization_quotes(fn_parameters, false);
     let serialized_args_array_len: u32 = unquote!(quote { ($serialized_args_array_len_quote) as u32 });
 
-    let (fn_name_str, _) = fn_name.as_str_quote();
+    let fn_name_str = f"\"{fn_name}\"".quoted_contents();
     let fn_name_len: u32 = unquote!(quote { $fn_name_str.as_bytes().len()});
     let fn_selector: Field = compute_fn_selector(f);
 

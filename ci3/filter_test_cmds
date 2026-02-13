@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
+# Inject MAKEFILE_TARGET into hash prefix if set (strip -tests suffix).
+# This allows bisect_flake and grind_test to do targeted builds.
+function inject_makefile_target {
+  if [ -n "${MAKEFILE_TARGET:-}" ]; then
+    local mt="${MAKEFILE_TARGET%-tests}"
+    sed "s/^\([^ ]*\) /\1:MAKEFILE_TARGET=$mt /"
+  else
+    cat
+  fi
+}
+
 # Filters any test cmd that marked to skip in the .test_patterns.yml file.
 # Then filter through cache to remove previously successfully run tests.
-grep -Ev -f <(yq e '.tests[] | select(.skip == true) | .regex' $root/.test_patterns.yml) | filter_cached_test_cmd
+grep -Ev -f <(yq e '.tests[] | select(.skip == true) | .regex' $root/.test_patterns.yml) | inject_makefile_target | filter_cached_test_cmd

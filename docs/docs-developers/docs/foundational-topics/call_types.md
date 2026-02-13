@@ -164,7 +164,7 @@ public_checks = { git = "https://github.com/AztecProtocol/aztec-packages/", tag 
 
 Even with the public checks contract, achieving good privacy is hard.
 For example, if the value being checked against is unique and stored in the contract's public storage, it's then simple to find private transactions that are using that value in the enqueued public reads, and therefore link them to this contract.
-For this reason it is encouraged to try to avoid public function calls and instead privately read [Delayed Public Mutable](../aztec-nr/framework-description/how_to_define_storage.md#delayed-public-mutable) state when possible.
+For this reason it is encouraged to try to avoid public function calls and instead privately read [Delayed Public Mutable](../aztec-nr/framework-description/state_variables.md#delayed-public-mutable) state when possible.
 
 ### Public Execution
 
@@ -197,8 +197,6 @@ There are two main ways to execute an Aztec contract function using the `aztec.j
 
 This is used to get a result out of an execution, either private or public. It creates no transaction and spends no gas. The mental model is fairly close to that of [`eth_call`](#eth_call), in that it can be used to call any type of function, simulate its execution and get a result out of it. `simulate` is also the only way to run [utility functions](#utility).
 
-#include_code public_getter /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
-
 #include_code simulate_function yarn-project/end-to-end/src/composed/docs_examples.test.ts typescript
 
 :::warning
@@ -220,4 +218,4 @@ You can also use `send` to check for execution failures in testing contexts by e
 - [State Management](./state_management.md) - Learn how private and public state works in Aztec
 - [Transactions](./transactions.md) - Understand the transaction lifecycle
 - [Contract Creation](./contract_creation.md) - Deploy and interact with contracts
-- [Declaring Storage](../aztec-nr/framework-description/how_to_define_storage.md) - Define storage in your contracts
+- [Declaring Storage](../aztec-nr/framework-description/state_variables.md) - Define storage in your contracts

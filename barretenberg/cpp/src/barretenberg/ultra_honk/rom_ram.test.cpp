@@ -10,12 +10,10 @@ using FlavorTypes = testing::Types<UltraFlavor,
                                    UltraZKFlavor,
                                    UltraKeccakFlavor,
                                    UltraKeccakZKFlavor,
-                                   UltraRollupFlavor,
                                    UltraStarknetFlavor,
                                    UltraStarknetZKFlavor>;
 #else
-using FlavorTypes =
-    testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraRollupFlavor>;
+using FlavorTypes = testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>;
 #endif
 
 template <typename Flavor> class MemoryTests_ : public UltraHonkTests<Flavor> {

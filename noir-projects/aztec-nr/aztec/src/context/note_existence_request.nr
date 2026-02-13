@@ -2,7 +2,7 @@ use crate::protocol::address::aztec_address::AztecAddress;
 
 /// A request to assert the existence of a note.
 ///
-/// Used by [crate::context::PrivateContext::assert_note_exists].
+/// Used by [`crate::context::PrivateContext::assert_note_exists`].
 pub struct NoteExistenceRequest {
     note_hash: Field,
     maybe_contract_address: Option<AztecAddress>,
@@ -13,7 +13,8 @@ impl NoteExistenceRequest {
     ///
     /// Pending notes have not been yet assigned a nonce, and they therefore have no unique note hash. Instead, these
     /// requests are created using the unsiloed note hash (i.e. from
-    /// [crate::note::note_interface::NoteHash::compute_note_hash]) and address of the contract that created the note.
+    /// [`crate::note::note_interface::NoteHash::compute_note_hash`]) and address of the contract that created the
+    /// note.
     pub fn for_pending(unsiloed_note_hash: Field, contract_address: AztecAddress) -> Self {
         // The kernel doesn't take options; it takes a note_hash and an address, and infers whether the request is
         // siloed based on whether the address is zero or non-zero. When passing the value to the kernel, we use

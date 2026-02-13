@@ -5,8 +5,8 @@ import { ethers } from "ethers";
 import solc from "solc";
 
 // Size excluding number of public inputs
-const NUMBER_OF_ELEMENTS_IN_HONK_PROOF = 457;
-const NUMBER_OF_ELEMENTS_IN_HONK_ZK_PROOF = 508;
+const NUMBER_OF_ELEMENTS_IN_HONK_PROOF = 449;
+const NUMBER_OF_ELEMENTS_IN_HONK_ZK_PROOF = 500;
 
 const WRONG_PROOF_LENGTH = "0xed74ac0a";
 const WRONG_PUBLIC_INPUTS_LENGTH = "0xfa066593";

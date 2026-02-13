@@ -113,7 +113,7 @@ namespace contract_instance_retrieval;
         derived_address_pi_index,
         derived_address
     } in public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0]
     };
 

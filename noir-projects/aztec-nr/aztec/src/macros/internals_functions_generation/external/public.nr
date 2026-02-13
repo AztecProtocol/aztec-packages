@@ -5,7 +5,6 @@ use crate::macros::{
         module_has_initializer, module_has_storage,
     },
 };
-use std::meta::ctstring::AsCtString;
 
 pub(crate) comptime fn generate_public_external(f: FunctionDefinition) -> Quoted {
     let module_has_initializer = module_has_initializer(f.module());
@@ -71,8 +70,7 @@ pub(crate) comptime fn generate_public_external(f: FunctionDefinition) -> Quoted
     };
 
     let view_check = if is_fn_view(f) {
-        let assertion_message =
-            f"Function {original_function_name} can only be called statically".as_ctstring().as_quoted_str();
+        let assertion_message = f"Function {original_function_name} can only be called statically".as_quoted_str();
         quote { assert(self.context.is_static_call(), $assertion_message); }
     } else {
         quote {}

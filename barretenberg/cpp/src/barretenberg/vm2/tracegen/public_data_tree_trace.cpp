@@ -119,7 +119,8 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
                       { C::public_data_check_low_leaf_hash, event.low_leaf_hash },
                       { C::public_data_check_intermediate_root, intermediate_root },
                       { C::public_data_check_tree_height, PUBLIC_DATA_TREE_HEIGHT },
-                      { C::public_data_check_const_two, 2 },
+                      { C::public_data_check_const_three, 3 },
+                      { C::public_data_check_const_four, 4 },
                       { C::public_data_check_updated_low_leaf_hash, updated_low_leaf_hash },
                       { C::public_data_check_should_insert, should_insert },
                       { C::public_data_check_new_leaf_hash, new_leaf_hash },
@@ -268,13 +269,13 @@ const InteractionDefinition PublicDataTreeTraceBuilder::interactions =
             Column::public_data_check_write)
         .add<perm_public_data_check_squashing_settings, InteractionType::Permutation>()
         .add<lookup_public_data_check_write_writes_length_to_public_inputs_settings,
-             InteractionType::LookupIntoIndexedByClk>()
+             InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_public_data_squash_leaf_slot_increase_ff_gt_settings, InteractionType::LookupGeneric>()
-        .add<lookup_public_data_squash_clk_diff_range_lo_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_public_data_squash_clk_diff_range_hi_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_public_data_check_clk_diff_range_lo_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_public_data_check_clk_diff_range_hi_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_public_data_squash_clk_diff_range_lo_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_public_data_squash_clk_diff_range_hi_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_public_data_check_clk_diff_range_lo_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_public_data_check_clk_diff_range_hi_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_public_data_check_write_public_data_to_public_inputs_settings,
-             InteractionType::LookupIntoIndexedByClk>();
+             InteractionType::LookupIntoIndexedByRow>();
 
 } // namespace bb::avm2::tracegen

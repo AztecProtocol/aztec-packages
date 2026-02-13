@@ -10,7 +10,7 @@ use crate::state_vars::StateVariable;
 /// values by their associated keys.
 ///
 /// You can declare a state variable contained within a Map in your contract's
-/// [storage](crate::macros::storage::storage) struct.
+/// [`storage`](crate::macros::storage::storage) struct.
 ///
 /// For example, you might use `Map<AztecAddress, PublicMutable<FieldNote, Context>, Context>` to track token balances
 /// for different users, similar to how you'd use `mapping(address => uint256)` in Solidity.
@@ -32,7 +32,7 @@ use crate::state_vars::StateVariable;
 /// - `Map`
 /// - `Context`: The execution context (handles private/public function contexts)
 ///
-/// ## Usage Maps are typically declared in your contract's [storage](crate::macros::storage::storage) struct and accessed using the `at(key)` method to get the state variable for a specific key. The resulting state variable can then be read from or written to using its own methods.
+/// ## Usage Maps are typically declared in your contract's [`storage`](crate::macros::storage::storage) struct and accessed using the `at(key)` method to get the state variable for a specific key. The resulting state variable can then be read from or written to using its own methods.
 ///
 /// Note that maps cannot be used with owned state variables (variables that implement the OwnedStateVariable trait) -
 /// those need to be wrapped in an `Owned` state variable instead.
@@ -69,7 +69,7 @@ impl<K, V, Context> StateVariable<1, Context> for Map<K, V, Context> {
 impl<K, V, Context> Map<K, V, Context> {
     /// Returns the state variable associated with the given key.
     ///
-    /// This is equivalent to accessing `mapping[key]` in Solidity. It returns the state variable instance for the
+    /// This is equivalent to accessing `mapping[`key`]` in Solidity. It returns the state variable instance for the
     /// specified key, which can then be used to read or write the value at that key.
     ///
     /// Unlike Solidity mappings which return the value directly, this returns the state variable wrapper (like

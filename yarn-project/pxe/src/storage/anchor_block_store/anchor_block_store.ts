@@ -10,6 +10,14 @@ export class AnchorBlockStore {
     this.#synchronizedHeader = this.#store.openSingleton('header');
   }
 
+  /**
+   * Sets the currently synchronized block
+   *
+   * Important: this method is only called from BlockSynchronizer, and since we need it to run atomically with other
+   * stores in the case of a reorg, it MUST NOT be wrapped in a `transactionAsync` call. Doing so would result in a
+   * deadlock when the backend is IndexedDB, because `transactionAsync` is not designed to support reentrancy.
+   *
+   */
   async setHeader(header: BlockHeader): Promise<void> {
     await this.#synchronizedHeader.set(header.toBuffer());
   }

@@ -24,13 +24,6 @@
 #include <vector>
 
 namespace bb {
-// Note that an update of this constant requires updating the inputs to noir protocol circuit (rollup-base-private,
-// rollup-base-public, rollup-block-merge, rollup-block-root, rollup-merge, rollup-root), as well as updating
-// IPA_PROOF_LENGTH in other places.
-static constexpr size_t IPA_PROOF_LENGTH = /* comms IPA_L and IPA_R */ 4 * CONST_ECCVM_LOG_N +
-                                           /* comm G_0 */ 2 +
-                                           /* eval a_0 */ 2;
-
 /**
 * @brief IPA (inner product argument) commitment scheme class.
 *
@@ -535,6 +528,14 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Step 6.
         // Receive a_zero from the prover
         const auto a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
+
+        // OriginTag false positive: G_zero and a_zero are fully determined once all round challenges are fixed - the
+        // prover must send the correct values or the final relation check fails.
+        if constexpr (Curve::is_stdlib_type) {
+            const auto last_round_tag = round_challenges.back().get_origin_tag();
+            G_zero.set_origin_tag(last_round_tag);
+            const_cast<Fr&>(a_zero).set_origin_tag(last_round_tag);
+        }
 
         // Step 7.
         // Compute R = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j - G₀ * a₀ - (f(\beta) - a₀ * b₀) ⋅ U

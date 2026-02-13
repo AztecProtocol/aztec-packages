@@ -162,21 +162,11 @@ class Bn254FqParams {
     static constexpr size_t NUM_BN254_SCALARS = 2;
     static constexpr size_t MAX_BITS_PER_ENDOMORPHISM_SCALAR = 128;
 
-    // A point in Fq is represented as a bigfield element in the public inputs, so 4 public inputs
+    // A point in Fq is represented using 2 field elements in the public inputs (matching Codec)
     static constexpr size_t PUBLIC_INPUTS_SIZE = BIGFIELD_PUBLIC_INPUTS_SIZE;
 };
 
 using fq = field<Bn254FqParams>;
-
-template <> template <> inline fq fq::reconstruct_from_public(const std::span<const bb::fr, PUBLIC_INPUTS_SIZE>& limbs)
-{
-    const uint256_t limb = static_cast<uint256_t>(limbs[0]) +
-                           (static_cast<uint256_t>(limbs[1]) << bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION) +
-                           (static_cast<uint256_t>(limbs[2]) << (bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2)) +
-                           (static_cast<uint256_t>(limbs[3]) << (bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3));
-
-    return fq(limb);
-}
 
 } // namespace bb
 

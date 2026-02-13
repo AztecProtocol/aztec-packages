@@ -12,6 +12,7 @@
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 
 namespace bb {
 class EcdsaCircuit {
@@ -22,6 +23,7 @@ class EcdsaCircuit {
     using public_witness_ct = stdlib::public_witness_t<Builder>;
     using byte_array_ct = stdlib::byte_array<Builder>;
     using curve = stdlib::secp256k1<Builder>;
+    using IO = stdlib::recursion::honk::DefaultIO<Builder>;
 
     static constexpr size_t NUM_PUBLIC_INPUTS = 6;
 
@@ -96,6 +98,8 @@ class EcdsaCircuit {
 
         // Assert the signature is true
         signature_result.assert_equal(bool_ct(true));
+
+        IO::add_default(builder);
 
         return builder;
     }

@@ -59,12 +59,12 @@ describe('e2e_simple', () => {
       const initialBlockByHash = await aztecNode.getBlock(initialHeaderHash);
       expect(initialBlockByHash).toBeDefined();
       const initialBlockHash = await initialBlockByHash!.hash();
-      expect(initialBlockHash.equals(initialHeaderHash.toField())).toBeTrue();
+      expect(initialBlockHash.equals(initialHeaderHash)).toBeTrue();
       expect(initialBlockByHash?.body.txEffects.length).toBe(0);
       const initialBlockByNumber = await aztecNode.getBlock(BlockNumber.ZERO);
       expect(initialBlockByNumber).toBeDefined();
       const initialBlockByNumberHash = await initialBlockByNumber!.hash();
-      expect(initialBlockByNumberHash.equals(initialHeaderHash.toField())).toBeTrue();
+      expect(initialBlockByNumberHash.equals(initialHeaderHash)).toBeTrue();
       expect(initialBlockByNumber?.body.txEffects.length).toBe(0);
     });
 

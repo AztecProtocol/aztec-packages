@@ -384,7 +384,7 @@ impl MessageEncryption for AES128 {
 }
 
 /// Produces a random valid address point, i.e. one that is on the curve. This is equivalent to calling
-/// [AztecAddress::to_address_point] on a random valid address.
+/// [`AztecAddress::to_address_point`] on a random valid address.
 unconstrained fn random_address_point() -> AddressPoint {
     let mut result = std::mem::zeroed();
 

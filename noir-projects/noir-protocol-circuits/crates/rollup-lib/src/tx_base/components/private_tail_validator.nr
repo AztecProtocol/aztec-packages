@@ -2,7 +2,7 @@
 // It's not straightforward to define a single function or component that validates both structs. Instead, this file
 // provides functions that can be called individually on the attributes common to both. All functions should be called
 // from both `PrivateTxBaseInputsValidator` and `PublicTxBaseInputValidator`.
-use dep::types::{
+use types::{
     abis::{
         block_constant_data::BlockConstantData, global_variables::GlobalVariables,
         log_hash::LogHash, tx_constant_data::TxConstantData,
@@ -65,7 +65,7 @@ pub fn validate_tx_constant_data(
             },
             block_last_archive_root,
         ),
-        "Membership check failed: previous block hash not found in archive tree",
+        "Membership check failed: anchor block header hash not found in archive tree",
     );
 
     assert_eq(tx_chain_id, block_chain_id, "Mismatched chain_id between kernel and rollup");

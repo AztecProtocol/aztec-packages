@@ -19,9 +19,9 @@ pub(crate) global PRIVATE_NOTE_MSG_PLAINTEXT_RANDOMNESS_INDEX: u32 = 2;
 /// encryption overhead and extra fields in the message (e.g. message type id, storage slot, randomness, etc.).
 pub global MAX_NOTE_PACKED_LEN: u32 = MAX_MESSAGE_CONTENT_LEN - PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN;
 
-/// Creates the plaintext for a private note message (i.e. one of type [PRIVATE_NOTE_MSG_TYPE_ID]).
+/// Creates the plaintext for a private note message (i.e. one of type [`PRIVATE_NOTE_MSG_TYPE_ID`]).
 ///
-/// This plaintext is meant to be decoded via [decode_private_note_message].
+/// This plaintext is meant to be decoded via [`decode_private_note_message`].
 pub fn encode_private_note_message<Note>(
     note: Note,
     owner: AztecAddress,
@@ -52,13 +52,13 @@ where
     encode_message(PRIVATE_NOTE_MSG_TYPE_ID, Note::get_id() as u64, msg_content)
 }
 
-/// Decodes the plaintext from a private note message (i.e. one of type [PRIVATE_NOTE_MSG_TYPE_ID]).
+/// Decodes the plaintext from a private note message (i.e. one of type [`PRIVATE_NOTE_MSG_TYPE_ID`]).
 ///
-/// This plaintext is meant to have originated from [encode_private_note_message].
+/// This plaintext is meant to have originated from [`encode_private_note_message`].
 ///
-/// Note that while [encode_private_note_message] returns a fixed-size array, this function takes a [BoundedVec]
+/// Note that while [`encode_private_note_message`] returns a fixed-size array, this function takes a [`BoundedVec`]
 /// instead. This is because when decoding we're typically processing runtime-sized plaintexts, more specifically,
-/// those that originate from [crate::messages::encryption::message_encryption::MessageEncryption::decrypt].
+/// those that originate from [`crate::messages::encryption::message_encryption::MessageEncryption::decrypt`].
 pub(crate) unconstrained fn decode_private_note_message(
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,

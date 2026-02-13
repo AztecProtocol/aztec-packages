@@ -1,7 +1,7 @@
 use super::TestBuilder;
 use types::{constants::AVM_MAX_PROCESSABLE_L2_GAS, tests::fixture_builder::FixtureBuilder};
 
-#[test(should_fail_with = "Membership check failed: previous block hash not found in archive tree")]
+#[test(should_fail_with = "Membership check failed: anchor block header hash not found in archive tree")]
 unconstrained fn anchor_block_header_not_in_archive() {
     let mut builder = TestBuilder::new();
 

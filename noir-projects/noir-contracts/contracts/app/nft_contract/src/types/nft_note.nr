@@ -1,6 +1,6 @@
-use dep::aztec::{
+use aztec::{
     context::{PrivateContext, PublicContext},
-    keys::getters::{get_nsk_app, get_public_keys},
+    keys::getters::{get_nhk_app, get_public_keys, try_get_public_keys},
     macros::notes::custom_note,
     messages::logs::partial_note::compute_partial_note_private_content_log,
     note::note_interface::{NoteHash, NoteType},
@@ -65,7 +65,7 @@ impl NoteHash for NFTNote {
     ) -> Field {
         let owner_npk_m = get_public_keys(owner).npk_m;
         let owner_npk_m_hash = owner_npk_m.hash();
-        let secret = context.request_nsk_app(owner_npk_m_hash);
+        let secret = context.request_nhk_app(owner_npk_m_hash);
         poseidon2_hash_with_separator(
             [note_hash_for_nullification, secret],
             DOM_SEP__NOTE_NULLIFIER,
@@ -76,14 +76,16 @@ impl NoteHash for NFTNote {
         self,
         owner: AztecAddress,
         note_hash_for_nullification: Field,
-    ) -> Field {
-        let owner_npk_m = get_public_keys(owner).npk_m;
-        let owner_npk_m_hash = owner_npk_m.hash();
-        let secret = get_nsk_app(owner_npk_m_hash);
-        poseidon2_hash_with_separator(
-            [note_hash_for_nullification, secret],
-            DOM_SEP__NOTE_NULLIFIER,
-        )
+    ) -> Option<Field> {
+        try_get_public_keys(owner).map(|public_keys| {
+            let owner_npk_m = public_keys.npk_m;
+            let owner_npk_m_hash = owner_npk_m.hash();
+            let secret = get_nhk_app(owner_npk_m_hash);
+            poseidon2_hash_with_separator(
+                [note_hash_for_nullification, secret],
+                DOM_SEP__NOTE_NULLIFIER,
+            )
+        })
     }
 }
 
@@ -240,7 +242,7 @@ impl PartialNFTNote {
 
 mod test {
     use super::{compute_partial_commitment, NFTNote, PartialNFTNote};
-    use dep::aztec::{
+    use aztec::{
         note::note_interface::NoteHash,
         protocol::{address::AztecAddress, traits::FromField},
     };

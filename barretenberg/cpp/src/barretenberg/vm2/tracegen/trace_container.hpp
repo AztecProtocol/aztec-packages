@@ -48,8 +48,8 @@ class TraceContainer {
     uint32_t get_column_rows(Column col) const;
     // Maximum number of rows in any column.
     uint32_t get_num_rows() const;
-    // Maximum number of rows in any column (ignoring clk which is always 2^21).
-    uint32_t get_num_rows_without_clk() const;
+    // Maximum number of rows in any witness column (no precomputed columns).
+    uint32_t get_num_witness_rows() const;
     // Number of columns (without shifts).
     static constexpr size_t num_columns() { return NUM_COLUMNS_WITHOUT_SHIFTS; }
 

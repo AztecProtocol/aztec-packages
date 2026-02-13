@@ -78,14 +78,20 @@ namespace note_hash_tree_check;
     #[PASSTHROUGH_SILOING]
     sel * (1 - should_silo) * (note_hash - siloed_note_hash) = 0;
 
-    // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
+    // Lookup constant support: Can be removed when we support constants in lookups.
     pol commit siloing_separator;
     sel * (constants.DOM_SEP__SILOED_NOTE_HASH - siloing_separator) = 0;
+    pol commit const_three;
+    sel * (const_three - 3) = 0;
 
     #[SILO_POSEIDON2]
-    should_silo { sel, siloing_separator, address, note_hash, siloed_note_hash }
-    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
-
+    should_silo {
+         siloing_separator, address, note_hash,
+         siloed_note_hash, const_three
+    } in poseidon2_hash.start {
+         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
+         poseidon2_hash.output, poseidon2_hash.input_len
+    };
 
     // ====== UNIQUE ======
     // If reading we should pass an already unique note hash
@@ -96,7 +102,7 @@ namespace note_hash_tree_check;
     #[PASSTHROUGH_UNIQUENESS]
     sel * (1 - should_unique) * (siloed_note_hash - unique_note_hash) = 0;
 
-    // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
+    // Lookup constant support: Can be removed when we support constants in lookups.
     pol commit first_nullifier_pi_index;
     sel * (constants.AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX - first_nullifier_pi_index) = 0;
 
@@ -108,27 +114,37 @@ namespace note_hash_tree_check;
         first_nullifier
     } in
     public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0]
     };
 
     pol commit nonce;
 
-    // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
+    // Lookup constant support: Can be removed when we support constants in lookups.
     pol commit nonce_separator;
     sel * (constants.DOM_SEP__NOTE_HASH_NONCE - nonce_separator) = 0;
 
     #[NONCE_COMPUTATION_POSEIDON2]
-    should_unique { sel, nonce_separator, first_nullifier, note_hash_index, nonce }
-    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+    should_unique {
+         nonce_separator, first_nullifier, note_hash_index,
+         nonce, const_three
+    } in poseidon2_hash.start {
+         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
+         poseidon2_hash.output, poseidon2_hash.input_len
+    };
 
-    // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
+    // Lookup constant support: Can be removed when we support constants in lookups.
     pol commit unique_note_hash_separator;
     sel * (constants.DOM_SEP__UNIQUE_NOTE_HASH - unique_note_hash_separator) = 0;
 
     #[UNIQUE_NOTE_HASH_POSEIDON2]
-    should_unique { sel, unique_note_hash_separator, nonce, siloed_note_hash, unique_note_hash }
-    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+    should_unique {
+         unique_note_hash_separator, nonce, siloed_note_hash,
+         unique_note_hash, const_three
+    } in poseidon2_hash.start {
+         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
+         poseidon2_hash.output, poseidon2_hash.input_len
+    };
 
     // ====== TREE CHECK ======
     pol commit prev_leaf_value;
@@ -142,7 +158,7 @@ namespace note_hash_tree_check;
     // If reading, next_leaf_value is unconstrained
     write * (unique_note_hash - next_leaf_value) = 0;
 
-    // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
+    // Lookup constant support: Can be removed when we support constants in lookups.
     pol commit note_hash_tree_height;
     sel * (constants.NOTE_HASH_TREE_HEIGHT - note_hash_tree_height) = 0;
 
@@ -165,6 +181,6 @@ namespace note_hash_tree_check;
         unique_note_hash
     } in
     public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0]
     };

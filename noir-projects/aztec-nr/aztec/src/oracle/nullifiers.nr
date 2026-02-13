@@ -14,7 +14,8 @@ pub fn notify_created_nullifier(inner_nullifier: Field) {
 #[oracle(privateNotifyCreatedNullifier)]
 unconstrained fn notify_created_nullifier_oracle(_inner_nullifier: Field) {}
 
-/// Returns true if the nullifier has been emitted in the same transaction, i.e. if [notify_created_nullifier] has been
+/// Returns true if the nullifier has been emitted in the same transaction, i.e. if [`notify_created_nullifier`] has
+/// been
 /// called for this inner nullifier from the contract with the specified address.
 ///
 /// Note that despite sharing pending transaction information with the app, this is not a privacy leak: anyone in the

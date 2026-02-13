@@ -1,5 +1,5 @@
 use crate::note::note_getter_options::PropertySelector;
-use std::{collections::bounded_vec::BoundedVec, meta::{ctstring::AsCtString, type_of}};
+use std::{collections::bounded_vec::BoundedVec, meta::type_of};
 
 /// Maximum number of note types within 1 contract.
 comptime global MAX_NOTE_TYPES: u32 = 128;
@@ -34,7 +34,7 @@ comptime fn get_next_note_type_id() -> Field {
 comptime fn generate_note_type_impl(s: TypeDefinition, note_type_id: Field) -> Quoted {
     let name = s.name();
     let typ = s.as_type();
-    let note_type_name: str<_> = f"{name}".as_ctstring().as_quoted_str!();
+    let note_type_name: str<_> = f"{name}".as_quoted_str!();
     let max_note_packed_len = crate::messages::logs::note::MAX_NOTE_PACKED_LEN;
 
     quote {
@@ -92,7 +92,7 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
                 // We invoke hash as a static trait function rather than calling owner_npk_m.hash() directly
                 // in the quote to avoid "trait not in scope" compiler warnings.
                 let owner_npk_m_hash = aztec::protocol::traits::Hash::hash(owner_npk_m);
-                let secret = context.request_nsk_app(owner_npk_m_hash);
+                let secret = context.request_nhk_app(owner_npk_m_hash);
                 aztec::protocol::hash::poseidon2_hash_with_separator(
                     [note_hash_for_nullification, secret],
                     aztec::protocol::constants::DOM_SEP__NOTE_NULLIFIER as Field,
@@ -103,16 +103,21 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
                 self,
                 owner: aztec::protocol::address::AztecAddress,
                 note_hash_for_nullification: Field,
-            ) -> Field {
-                let owner_npk_m = aztec::keys::getters::get_public_keys(owner).npk_m;
-                // We invoke hash as a static trait function rather than calling owner_npk_m.hash() directly
-                // in the quote to avoid "trait not in scope" compiler warnings.
-                let owner_npk_m_hash = aztec::protocol::traits::Hash::hash(owner_npk_m);
-                let secret = aztec::keys::getters::get_nsk_app(owner_npk_m_hash);
-                aztec::protocol::hash::poseidon2_hash_with_separator(
-                    [note_hash_for_nullification, secret],
-                    aztec::protocol::constants::DOM_SEP__NOTE_NULLIFIER as Field,
-                )
+            ) -> Option<Field> {
+                // Note: In the current PXE implementation, if public keys are available then the nullifier
+                // hiding key (nhk) is also available, so we don't need to handle get_nhk_app potentially
+                // failing. The Option is only needed for the try_get_public_keys call.
+                aztec::keys::getters::try_get_public_keys(owner).map(|public_keys| {
+                    let owner_npk_m = public_keys.npk_m;
+                    // We invoke hash as a static trait function rather than calling owner_npk_m.hash() directly
+                    // in the quote to avoid "trait not in scope" compiler warnings.
+                    let owner_npk_m_hash = aztec::protocol::traits::Hash::hash(owner_npk_m);
+                    let secret = aztec::keys::getters::get_nhk_app(owner_npk_m_hash);
+                    aztec::protocol::hash::poseidon2_hash_with_separator(
+                        [note_hash_for_nullification, secret],
+                        aztec::protocol::constants::DOM_SEP__NOTE_NULLIFIER as Field,
+                    )
+                })
             }
         }
     }

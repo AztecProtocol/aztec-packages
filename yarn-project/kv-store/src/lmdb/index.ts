@@ -3,12 +3,17 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { join } from 'path';
 
 import type { DataStoreConfig } from '../config.js';
-import { initStoreForRollup } from '../utils.js';
+import { initStoreForRollupAndSchemaVersion } from '../utils.js';
 import { AztecLmdbStore } from './store.js';
 
 export { AztecLmdbStore } from './store.js';
 
-export function createStore(name: string, config: DataStoreConfig, log: Logger = createLogger('kv-store')) {
+export function createStore(
+  name: string,
+  config: DataStoreConfig,
+  schemaVersion: number | undefined = undefined,
+  log: Logger = createLogger('kv-store'),
+) {
   let { dataDirectory } = config;
   if (typeof dataDirectory !== 'undefined') {
     dataDirectory = join(dataDirectory, name);
@@ -22,7 +27,7 @@ export function createStore(name: string, config: DataStoreConfig, log: Logger =
 
   const store = AztecLmdbStore.open(dataDirectory, config.dataStoreMapSizeKb, false);
   if (config.l1Contracts?.rollupAddress) {
-    return initStoreForRollup(store, config.l1Contracts.rollupAddress, log);
+    return initStoreForRollupAndSchemaVersion(store, schemaVersion, config.l1Contracts.rollupAddress, log);
   }
   return store;
 }

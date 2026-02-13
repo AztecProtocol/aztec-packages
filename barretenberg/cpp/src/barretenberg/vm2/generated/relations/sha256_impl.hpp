@@ -15,6 +15,8 @@ void sha256Impl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
+    const auto constants_AVM_BITWISE_AND_OP_ID = FF(1);
+    const auto constants_AVM_BITWISE_XOR_OP_ID = FF(4);
     const auto sha256_SEL_NO_ERR = in.get(C::sha256_sel) * (FF(1) - in.get(C::sha256_err));
     const auto sha256_NUM_ROUNDS = FF(64);
     const auto sha256_COMPUTED_W =
@@ -35,13 +37,14 @@ void sha256Impl<FF_>::accumulate(ContainerOverSubrelations& evals,
 
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::sha256_perform_round)) * (static_cast<View>(in.get(C::sha256_xor_sel)) - FF(2));
+        auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
+                   (static_cast<View>(in.get(C::sha256_xor_op_id)) - CView(constants_AVM_BITWISE_XOR_OP_ID));
         std::get<0>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_and_sel));
+        auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
+                   (static_cast<View>(in.get(C::sha256_and_op_id)) - CView(constants_AVM_BITWISE_AND_OP_ID));
         std::get<1>(evals) += (tmp * scaling_factor);
     }
     {

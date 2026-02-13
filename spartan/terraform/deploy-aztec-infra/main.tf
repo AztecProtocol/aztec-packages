@@ -84,6 +84,11 @@ locals {
     tag        = split(":", var.AZTEC_DOCKER_IMAGE)[1]
   }
 
+  prover_agent_image = var.PROVER_AGENT_DOCKER_IMAGE != "" ? {
+    repository = split(":", var.PROVER_AGENT_DOCKER_IMAGE)[0]
+    tag        = split(":", var.PROVER_AGENT_DOCKER_IMAGE)[1]
+  } : local.aztec_image
+
   # Detect local kind context (e.g., "kind-kind") to gate Service types
   is_kind = can(regex("^kind", var.K8S_CLUSTER_CONTEXT))
 
@@ -96,6 +101,7 @@ locals {
   common_settings = {
     "global.aztecImage.repository"                             = local.aztec_image.repository
     "global.aztecImage.tag"                                    = local.aztec_image.tag
+    "global.aztecImage.pullPolicy"                             = local.is_kind ? "IfNotPresent" : "Always"
     "global.useGcloudLogging"                                  = true
     "global.aztecNetwork"                                      = var.NETWORK
     "global.customAztecNetwork.registryContractAddress"        = var.REGISTRY_CONTRACT_ADDRESS
@@ -178,6 +184,8 @@ locals {
     "validator.slash.prunePenalty"                             = var.SLASH_PRUNE_PENALTY
     "validator.slash.dataWithholdingPenalty"                   = var.SLASH_DATA_WITHHOLDING_PENALTY
     "validator.slash.proposeInvalidAttestationsPenalty"        = var.SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY
+    "validator.slash.duplicateProposalPenalty"                 = var.SLASH_DUPLICATE_PROPOSAL_PENALTY
+    "validator.slash.duplicateAttestationPenalty"              = var.SLASH_DUPLICATE_ATTESTATION_PENALTY
     "validator.slash.attestDescendantOfInvalidPenalty"         = var.SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY
     "validator.slash.unknownPenalty"                           = var.SLASH_UNKNOWN_PENALTY
     "validator.slash.invalidBlockPenalty"                      = var.SLASH_INVALID_BLOCK_PENALTY
@@ -211,6 +219,7 @@ locals {
     "validator.node.env.P2P_DROP_TX"                           = var.P2P_DROP_TX
     "validator.node.env.P2P_DROP_TX_CHANCE"                    = var.P2P_DROP_TX_CHANCE
     "validator.node.env.WS_NUM_HISTORIC_BLOCKS"                = var.WS_NUM_HISTORIC_BLOCKS
+    "validator.node.env.TX_COLLECTION_FILE_STORE_URLS"         = var.TX_COLLECTION_FILE_STORE_URLS
   }
 
   # Note: nonsensitive() is required here because helm_releases is used in for_each,
@@ -290,13 +299,19 @@ locals {
         "prover.yaml",
         "prover-resources-${var.PROVER_RESOURCE_PROFILE}.yaml"
       ]
-      inline_values = [yamlencode({
+      inline_values = concat([yamlencode({
         node = {
           service = {
             p2p = { publicIP = var.P2P_PUBLIC_IP }
           }
         }
-      })]
+      })], local.is_kind ? [yamlencode({
+        agent = {
+          nodeSelector = null
+          affinity     = null
+          tolerations  = null
+        }
+      })] : [])
       custom_settings = merge(
         {
           "node.mnemonic"                                       = var.PROVER_MNEMONIC
@@ -304,6 +319,7 @@ locals {
           "node.node.proverRealProofs"                          = var.PROVER_REAL_PROOFS
           "node.node.logLevel"                                  = var.LOG_LEVEL
           "node.node.env.PROVER_FAILED_PROOF_STORE"             = var.PROVER_FAILED_PROOF_STORE
+          "node.node.env.PROVER_PROOF_STORE"                    = var.PROVER_PROOF_STORE
           "node.node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"     = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
           "node.node.env.KEY_INDEX_START"                       = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
           "node.node.env.PUBLISHER_KEY_INDEX_START"             = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
@@ -317,6 +333,10 @@ locals {
           "broker.node.proverRealProofs"                        = var.PROVER_REAL_PROOFS
           "broker.node.logLevel"                                = var.LOG_LEVEL
           "broker.node.env.BOOTSTRAP_NODES"                     = "asdf"
+          "broker.node.env.PROVER_BROKER_DEBUG_REPLAY_ENABLED"  = var.PROVER_BROKER_DEBUG_REPLAY_ENABLED
+          "agent.node.image.repository"                          = local.prover_agent_image.repository
+          "agent.node.image.tag"                                 = local.prover_agent_image.tag
+          "agent.node.env.CRS_PATH"                              = "/usr/src/crs"
           "agent.node.proverRealProofs"                         = var.PROVER_REAL_PROOFS
           "agent.node.env.PROVER_AGENT_POLL_INTERVAL_MS"        = var.PROVER_AGENT_POLL_INTERVAL_MS
           "agent.replicaCount"                                  = var.PROVER_REPLICAS
@@ -324,6 +344,7 @@ locals {
           "agent.node.env.PROVER_AGENT_COUNT"                   = var.PROVER_AGENTS_PER_PROVER
           "agent.node.env.PROVER_TEST_DELAY_TYPE"               = var.PROVER_TEST_DELAY_TYPE
           "agent.node.env.PROVER_AGENT_PROOF_TYPES"             = join(",", var.PROVER_AGENT_PROOF_TYPES)
+          "agent.node.env.PROVER_PROOF_STORE"                   = var.PROVER_PROOF_STORE
           "agent.node.otelIncludeMetrics"                       = var.PROVER_AGENT_INCLUDE_METRICS
           "agent.node.logLevel"                                 = var.LOG_LEVEL
           "node.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"       = var.PROVER_L1_PRIORITY_FEE_BUMP_PERCENTAGE
@@ -337,6 +358,7 @@ locals {
           "node.node.env.P2P_DROP_TX"                           = var.P2P_DROP_TX
           "node.node.env.P2P_DROP_TX_CHANCE"                    = var.P2P_DROP_TX_CHANCE
           "node.node.env.WS_NUM_HISTORIC_BLOCKS"                = var.WS_NUM_HISTORIC_BLOCKS
+          "node.node.env.TX_COLLECTION_FILE_STORE_URLS"         = var.TX_COLLECTION_FILE_STORE_URLS
           "node.service.p2p.nodePortEnabled"                    = var.P2P_NODEPORT_ENABLED
           "node.service.p2p.announcePort"                       = local.p2p_port_prover
           "node.service.p2p.port"                               = local.p2p_port_prover
@@ -416,6 +438,9 @@ locals {
         "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
         "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
         "node.env.WS_NUM_HISTORIC_BLOCKS"             = var.WS_NUM_HISTORIC_BLOCKS
+        "node.env.TX_FILE_STORE_ENABLED"              = var.TX_FILE_STORE_ENABLED
+        "node.env.TX_FILE_STORE_URL"                  = var.TX_FILE_STORE_URL
+        "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
         },
         # Only set RPC mnemonic config in fisherman mode)
         var.FISHERMAN_MODE ? {
@@ -470,6 +495,7 @@ locals {
         "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
         "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
         "node.env.WS_NUM_HISTORIC_BLOCKS"             = var.WS_NUM_HISTORIC_BLOCKS
+        "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
@@ -509,6 +535,7 @@ locals {
         "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
         "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
         "node.env.WS_NUM_HISTORIC_BLOCKS"             = var.WS_NUM_HISTORIC_BLOCKS
+        "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
@@ -564,6 +591,7 @@ locals {
         "bot.replicaCount"       = var.BOT_TRANSFERS_REPLICAS
         "bot.txIntervalSeconds"  = var.BOT_TRANSFERS_TX_INTERVAL_SECONDS
         "bot.followChain"        = var.BOT_TRANSFERS_FOLLOW_CHAIN
+        "bot.pxeSyncChainTip"    = var.BOT_TRANSFERS_PXE_SYNC_CHAIN_TIP
         "bot.botPrivateKey"      = var.BOT_TRANSFERS_L2_PRIVATE_KEY
         "bot.nodeUrl"            = local.internal_rpc_url
         "bot.mnemonic"           = var.BOT_MNEMONIC
@@ -587,6 +615,7 @@ locals {
         "bot.replicaCount"       = var.BOT_SWAPS_REPLICAS
         "bot.txIntervalSeconds"  = var.BOT_SWAPS_TX_INTERVAL_SECONDS
         "bot.followChain"        = var.BOT_SWAPS_FOLLOW_CHAIN
+        "bot.pxeSyncChainTip"    = var.BOT_SWAPS_PXE_SYNC_CHAIN_TIP
         "bot.botPrivateKey"      = var.BOT_SWAPS_L2_PRIVATE_KEY
         "bot.nodeUrl"            = local.internal_rpc_url
         "bot.mnemonic"           = var.BOT_MNEMONIC

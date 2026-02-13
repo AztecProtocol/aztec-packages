@@ -89,6 +89,7 @@
 <li><a href="#add_contract_class_log_hash">add_contract_class_log_hash</a></li>
 <li><a href="#add_l2_to_l1_message">add_l2_to_l1_message</a></li>
 <li><a href="#add_new_note_hash">add_new_note_hash</a></li>
+<li><a href="#add_note_hash_read_request">add_note_hash_read_request</a></li>
 <li><a href="#add_nullifier">add_nullifier</a></li>
 <li><a href="#add_nullifier_for_note_hash">add_nullifier_for_note_hash</a></li>
 <li><a href="#add_nullifier_read_request">add_nullifier_read_request</a></li>
@@ -426,6 +427,12 @@
 
 <code id="append_l2_to_l1_msgs" class="code-header">pub fn <a href="#append_l2_to_l1_msgs"><span class="fn">append_l2_to_l1_msgs</span></a>(&mut self, num: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
 
+<code id="add_note_hash_read_request" class="code-header">pub fn <a href="#add_note_hash_read_request"><span class="fn">add_note_hash_read_request</span></a>(
+    &mut self,
+    value: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+)</code>
+
 <code id="add_settled_note_hash_read_request" class="code-header">pub fn <a href="#add_settled_note_hash_read_request"><span class="fn">add_settled_note_hash_read_request</span></a>(&mut self, value: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code>
 
 <code id="add_read_request_for_pending_note_hash" class="code-header">pub fn <a href="#add_read_request_for_pending_note_hash"><span class="fn">add_read_request_for_pending_note_hash</span></a>(&mut self, note_hash_index: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code>
@@ -442,7 +449,7 @@
 
 <code id="add_request_for_key_validation" class="code-header">pub fn <a href="#add_request_for_key_validation"><span class="fn">add_request_for_key_validation</span></a>(
     &mut self,
-    pk_m: <a href="../../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a>,
+    pk_m: <a href="../../../protocol_types/point/struct.Point.html" class="struct">EmbeddedCurvePoint</a>,
     sk_app: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
     sk_app_generator: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
 )</code>

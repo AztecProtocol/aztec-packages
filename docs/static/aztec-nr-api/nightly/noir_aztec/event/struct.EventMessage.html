@@ -41,22 +41,22 @@
 <div class="comments">
 <p>A message with information about an event that was emitted in the current contract call. This message <strong>MUST</strong> be
 delivered to a recipient in order to not lose the private event information.</p>
-<p>Use <a href="../../noir_aztec/event/struct.EventMessage.html#deliver_to">EventMessage::deliver_to</a> to select a delivery mechanism.</p></div>
+<p>Use <a href="../../noir_aztec/event/struct.EventMessage.html#deliver_to"><code>EventMessage::deliver_to</code></a> to select a delivery mechanism.</p></div>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;Event&gt; <a href="../../noir_aztec/event/struct.EventMessage.html" class="struct">EventMessage</a>&lt;Event&gt;</code></h3>
 
 <div class="padded-methods"><code id="deliver_to" class="code-header">pub fn <a href="#deliver_to"><span class="fn">deliver_to</span></a>(self, recipient: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, delivery_mode: <a href="../../std/primitive.u8.html" class="primitive">u8</a>)
 <div class="where-clause">where
     Event: <a href="../../noir_aztec/event/event_interface/trait.EventInterface.html" class="trait">EventInterface</a>,
-    Event: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code>
+    Event: <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Delivers the event message to a <code>recipient</code>, providing them access to the private event information.</p>
-<p>The same message can be delivered to multiple recipients, resulting in all of them learning about the event. Any
-recipient that receives the private event information will be able to prove its emission - events have no owner,
-and as such all recipients are treated equally.</p>
+<p>The same message can be delivered to multiple recipients, resulting in all of them learning about the event.
+Any recipient that receives the private event information will be able to prove its emission - events have no
+owner, and as such all recipients are treated equally.</p>
 <p>The message is first encrypted to the recipient's public key, ensuring no other actor can read it.</p>
-<p>The <code>delivery_mode</code> must be one of <a href="../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html">crate::messages::message_delivery::MessageDeliveryEnum</a>, and will inform
+<p>The <code>delivery_mode</code> must be one of <a href="../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html"><code>crate::messages::message_delivery::MessageDeliveryEnum</code></a>, and will inform
 costs (both proving time and TX fees) as well as delivery guarantees. This value must be a compile-time
 constant.</p>
 <h4>Invalid Recipients</h4>

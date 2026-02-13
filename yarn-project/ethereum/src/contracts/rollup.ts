@@ -391,20 +391,24 @@ export class RollupContract {
     slotDuration: number;
     epochDuration: number;
     proofSubmissionEpochs: number;
+    targetCommitteeSize: number;
   }> {
-    const [l1StartBlock, l1GenesisTime, slotDuration, epochDuration, proofSubmissionEpochs] = await Promise.all([
-      this.getL1StartBlock(),
-      this.getL1GenesisTime(),
-      this.getSlotDuration(),
-      this.getEpochDuration(),
-      this.getProofSubmissionEpochs(),
-    ]);
+    const [l1StartBlock, l1GenesisTime, slotDuration, epochDuration, proofSubmissionEpochs, targetCommitteeSize] =
+      await Promise.all([
+        this.getL1StartBlock(),
+        this.getL1GenesisTime(),
+        this.getSlotDuration(),
+        this.getEpochDuration(),
+        this.getProofSubmissionEpochs(),
+        this.getTargetCommitteeSize(),
+      ]);
     return {
       l1StartBlock,
       l1GenesisTime,
       slotDuration,
       epochDuration: Number(epochDuration),
       proofSubmissionEpochs: Number(proofSubmissionEpochs),
+      targetCommitteeSize,
     };
   }
 
@@ -805,6 +809,7 @@ export class RollupContract {
   ): L1TxRequest {
     return {
       to: this.address,
+      abi: RollupAbi,
       data: encodeFunctionData({
         abi: RollupAbi,
         functionName: 'invalidateBadAttestation',
@@ -826,6 +831,7 @@ export class RollupContract {
   ): L1TxRequest {
     return {
       to: this.address,
+      abi: RollupAbi,
       data: encodeFunctionData({
         abi: RollupAbi,
         functionName: 'invalidateInsufficientAttestations',
@@ -959,6 +965,7 @@ export class RollupContract {
   setupEpoch(l1TxUtils: L1TxUtils) {
     return l1TxUtils.sendAndMonitorTransaction({
       to: this.address,
+      abi: RollupAbi,
       data: encodeFunctionData({
         abi: RollupAbi,
         functionName: 'setupEpoch',
@@ -970,6 +977,7 @@ export class RollupContract {
   vote(l1TxUtils: L1TxUtils, proposalId: bigint) {
     return l1TxUtils.sendAndMonitorTransaction({
       to: this.address,
+      abi: RollupAbi,
       data: encodeFunctionData({
         abi: RollupAbi,
         functionName: 'vote',

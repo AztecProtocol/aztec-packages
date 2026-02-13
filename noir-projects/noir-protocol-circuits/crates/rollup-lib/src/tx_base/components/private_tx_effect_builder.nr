@@ -1,5 +1,8 @@
 use crate::tx_base::components::fees::compute_transaction_fee;
-use dep::types::{
+use super::log_array_length::{
+    get_contract_class_log_hash_array_length, get_private_log_array_length,
+};
+use types::{
     abis::{
         block_constant_data::BlockConstantData, contract_class_log::ContractClassLog,
         kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs, log::Log,
@@ -11,9 +14,9 @@ use dep::types::{
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     },
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
-    hash::silo_l2_to_l1_message,
+    hash::compute_l2_to_l1_message_hash,
     traits::{Empty, Hash},
-    utils::arrays::{array_length, array_length_until},
+    utils::arrays::array_length,
 };
 
 pub fn build_tx_effect(
@@ -27,11 +30,20 @@ pub fn build_tx_effect(
     // Compute siloed L2-to-L1 message hashes (siloed with the contract address of the function that
     // emitted the message). We do this sequencer-side, because the hashes are computed with sha256
     // for EVM compatibility.
-    let l2_to_l1_msgs = accumulated_data.l2_to_l1_msgs.map(|message| silo_l2_to_l1_message(
-        message,
-        private_to_rollup.constants.tx_context.version,
-        private_to_rollup.constants.tx_context.chain_id,
-    ));
+    // The private kernel init and inner circuits add l2_to_l1_msgs with non-zero contract addresses within the
+    // claimed length. The private kernel tail circuit ensures that items beyond the claimed length are empty.
+    // Therefore, the array is left-packed, and we can safely compute the hashes by checking the contract addresses.
+    let l2_to_l1_msgs = accumulated_data.l2_to_l1_msgs.map(|message| if message
+        .contract_address
+        .is_zero() {
+        0
+    } else {
+        compute_l2_to_l1_message_hash(
+            message,
+            private_to_rollup.constants.tx_context.version,
+            private_to_rollup.constants.tx_context.chain_id,
+        )
+    });
 
     // Compute the transaction fee.
     let transaction_fee = compute_transaction_fee(
@@ -71,23 +83,23 @@ pub fn build_tx_effect(
         contract_class_logs,
     };
 
-    // We can use `array_length_until` to check only the length, because the kernel circuits guarantee that logs with
-    // non-zero length are left-packed. In other words, there cannot be a log with length 0 before a log with non-zero
-    // length.
-    let private_logs_array_length =
-        array_length_until(accumulated_data.private_logs, |log| log.length == 0);
-    let contract_class_logs_array_length = array_length_until(
-        accumulated_data.contract_class_logs_hashes,
-        |log| log.inner.length == 0,
-    );
+    // The Tail kernel circuit guarantees that all accumulated data arrays are "dense-trimmed": all actual data emitted
+    // by the tx are non-empty and appear first, followed by empty padding elements. This means it is safe to use
+    // `array_length` to get the true logical length of these arrays.
+    // For log arrays, we use specialized functions (get_private_log_array_length,
+    // get_contract_class_log_hash_array_length) that efficiently determine the length by finding the first zero-length
+    // log. Because the kernel enforces that only actual logs have nonzero length and all padding logs have zero length,
+    // these functions safely provide the correct count, independent of the log contents themselves.
 
     let tx_effect_array_lengths = TxEffectArrayLengths {
         note_hashes: array_length(accumulated_data.note_hashes),
         nullifiers: array_length(accumulated_data.nullifiers),
         l2_to_l1_msgs: array_length(l2_to_l1_msgs),
         public_data_writes: 1, // No public functions were called. This is the fee_payer's FeeJuice balance decrementation.
-        private_logs: private_logs_array_length,
-        contract_class_logs: contract_class_logs_array_length,
+        private_logs: get_private_log_array_length(accumulated_data.private_logs),
+        contract_class_logs: get_contract_class_log_hash_array_length(
+            accumulated_data.contract_class_logs_hashes,
+        ),
     };
 
     (tx_effect, tx_effect_array_lengths)

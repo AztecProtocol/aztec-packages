@@ -37,11 +37,14 @@ pub trait NoteHash {
     /// Like `compute_nullifier`, except this variant is unconstrained: there are no guarantees on the returned value
     /// being correct. Because of that it doesn't need to take a context (since it won't perform any kernel key
     /// validation requests).
+    ///
+    /// Returns `None` if the nullifier cannot be computed (when the relevant keys needed for nullifier computation are
+    /// not available).
     unconstrained fn compute_nullifier_unconstrained(
         self,
         owner: AztecAddress,
         note_hash_for_nullification: Field,
-    ) -> Field;
+    ) -> Option<Field>;
 }
 
 pub trait NoteProperties<T> {

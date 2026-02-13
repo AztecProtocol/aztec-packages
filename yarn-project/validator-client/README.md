@@ -77,6 +77,8 @@ These rules must always hold:
 2. **Global variables match within checkpoint**: All blocks within the same checkpoint must have identical global variables (except `blockNumber`), which includes the slot number
 3. **inHash is constant**: All blocks in a checkpoint share the same L1-to-L2 messages hash
 4. **Sequential indexWithinCheckpoint**: Block N must have `indexWithinCheckpoint = parent.indexWithinCheckpoint + 1`
+5. **One proposer per slot**: Each slot has exactly one designated proposer. Sending multiple proposals for the same position (slot, indexWithinCheckpoint) with different content is equivocation and slashable
+6. **One attestation per slot**: Validators should only attest to one checkpoint per slot. Attesting to different proposals (different archives) for the same slot is equivocation and slashable
 
 ## Validation Flow
 
@@ -87,15 +89,14 @@ When a `BlockProposal` is received via P2P, the `BlockProposalHandler` performs:
 ```
 1. Verify proposer signature
 2. Check proposal is from current/next slot proposer (via BlockProposalValidator)
-3. Find parent block by archive root (wait/retry if not synced)
-4. Compute checkpoint number from parent
-5. If indexWithinCheckpoint > 0:
-   - Validate global variables match parent (chainId, version, slotNumber,
-     timestamp, coinbase, feeRecipient, gasFees)
-6. Verify inHash matches computed from L1-to-L2 messages
-7. Collect transactions from pool/network/proposal
-8. Re-execute transactions (if enabled)
-9. Compare re-execution result with proposal
+3. Detect duplicate proposals (same slot + indexWithinCheckpoint, different archive) slashing proposer on equivocation
+4. Find parent block by archive root (wait/retry if not synced)
+5. Compute checkpoint number from parent
+6. If indexWithinCheckpoint > 0, then validate global variables match parent (chainId, version, slotNumber, timestamp, coinbase, feeRecipient, gasFees)
+7. Verify inHash matches computed from L1-to-L2 messages
+8. Collect transactions from pool/network/proposal
+9. Re-execute transactions (if enabled)
+10. Compare re-execution result with proposal
 ```
 
 ### Checkpoint Proposal Validation
@@ -155,15 +156,17 @@ Time | Proposer                     | Validator
 
 ## Configuration
 
-| Flag                                  | Purpose                                                               |
-| ------------------------------------- | --------------------------------------------------------------------- |
-| `validatorReexecute`                  | Re-execute transactions to verify proposals                           |
-| `fishermanMode`                       | Validate proposals but don't broadcast attestations (monitoring only) |
-| `alwaysReexecuteBlockProposals`       | Force re-execution even when not in committee                         |
-| `slashBroadcastedInvalidBlockPenalty` | Penalty amount for invalid proposals (0 = disabled)                   |
-| `validatorReexecuteDeadlineMs`        | Time reserved at end of slot for propagation/publishing               |
-| `attestationPollingIntervalMs`        | How often to poll for attestations when collecting                    |
-| `disabledValidators`                  | Validator addresses to exclude from duties                            |
+| Flag                                  | Purpose                                                                                |
+| ------------------------------------- | -------------------------------------------------------------------------------------- |
+| `validatorReexecute`                  | Re-execute transactions to verify proposals                                            |
+| `fishermanMode`                       | Validate proposals but don't broadcast attestations (monitoring only)                  |
+| `alwaysReexecuteBlockProposals`       | Force re-execution even when not in committee                                          |
+| `slashBroadcastedInvalidBlockPenalty` | Penalty amount for invalid proposals (0 = disabled)                                    |
+| `slashDuplicateProposalPenalty`       | Penalty amount for duplicate proposals (0 = disabled)                                  |
+| `slashDuplicateAttestationPenalty`    | Penalty amount for duplicate attestations (0 = disabled)                               |
+| `validatorReexecuteDeadlineMs`        | Time reserved at end of slot for propagation/publishing                                |
+| `attestationPollingIntervalMs`        | How often to poll for attestations when collecting                                     |
+| `disabledValidators`                  | Validator addresses to exclude from duties                                             |
 
 ### High Availability (HA) Keystore
 

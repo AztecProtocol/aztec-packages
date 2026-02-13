@@ -54,7 +54,7 @@ struct lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_settings_ {
         ColumnAndShifts::execution_contract_address
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::precomputed_idx,
         ColumnAndShifts::public_inputs_cols_0_,
         ColumnAndShifts::public_inputs_cols_1_,
         ColumnAndShifts::public_inputs_cols_2_

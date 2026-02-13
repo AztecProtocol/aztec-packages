@@ -25,7 +25,7 @@ where
     )
 }
 
-/// Unconstrained variant of [compute_private_event_commitment] which takes the event in serialized form.
+/// Unconstrained variant of [`compute_private_event_commitment`] which takes the event in serialized form.
 ///
 /// This function is unconstrained as the mechanism it uses to compute the commitment would be very inefficient in a
 /// constrained environment (due to the hashing of a dynamically sized array). This is not an issue as it is typically

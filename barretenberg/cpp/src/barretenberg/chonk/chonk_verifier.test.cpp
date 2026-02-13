@@ -12,9 +12,6 @@ class ChonkRecursionTests : public testing::Test {
     using ChonkVerifier = ChonkRecursiveVerifier;
     using Proof = ChonkProof;
     using StdlibProof = ChonkStdlibProof;
-    using RollupFlavor = UltraRollupRecursiveFlavor_<Builder>;
-    using NativeFlavor = RollupFlavor::NativeFlavor;
-    using UltraRecursiveVerifier = UltraVerifier_<RollupFlavor, RollupIO>;
     using MockCircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
     using VKAndHash = MegaZKFlavor::VKAndHash;
     using PairingAccumulator = PairingPoints<Builder>;

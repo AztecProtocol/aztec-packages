@@ -3,7 +3,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import type { ContractArtifact, EventMetadataDefinition } from '@aztec/stdlib/abi';
-import { EventSelector, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import { EventSelector, FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
@@ -19,6 +19,7 @@ import {
 } from '@aztec/stdlib/tx';
 
 import { type InteractionWaitOptions, NO_WAIT, type SendReturn } from '../contract/interaction_options.js';
+import type { AppCapabilities, WalletCapabilities } from './capabilities.js';
 import type {
   Aliased,
   BatchResults,
@@ -163,17 +164,20 @@ describe('WalletSchema', () => {
   });
 
   it('simulateUtility', async () => {
-    const call = {
+    const call = FunctionCall.from({
       name: 'testFunction',
       to: await AztecAddress.random(),
       selector: FunctionSelector.fromField(new Fr(1)),
       type: FunctionType.UTILITY,
-      isStatic: false,
       hideMsgSender: false,
+      isStatic: false,
       args: [Fr.random()],
       returnTypes: [],
-    };
-    const result = await context.client.simulateUtility(call, [AuthWitness.random()]);
+    });
+    const result = await context.client.simulateUtility(call, {
+      scope: await AztecAddress.random(),
+      authWitnesses: [AuthWitness.random()],
+    });
     expect(result).toBeInstanceOf(UtilitySimulationResult);
   });
 
@@ -221,6 +225,34 @@ describe('WalletSchema', () => {
     expect(result).toBeInstanceOf(AuthWitness);
   });
 
+  it('requestCapabilities', async () => {
+    const manifest: AppCapabilities = {
+      version: '1.0',
+      metadata: {
+        name: 'TestApp',
+        version: '1.0.0',
+        description: 'Test application',
+      },
+      capabilities: [
+        {
+          type: 'accounts',
+          canGet: true,
+          canCreateAuthWit: true,
+        },
+      ],
+    };
+    const result = await context.client.requestCapabilities(manifest);
+    expect(result).toEqual({
+      version: '1.0',
+      granted: expect.any(Array),
+      wallet: {
+        name: expect.any(String),
+        version: expect.any(String),
+      },
+      expiresAt: undefined,
+    });
+  });
+
   it('batch', async () => {
     const address1 = await AztecAddress.random();
     const address2 = await AztecAddress.random();
@@ -243,16 +275,16 @@ describe('WalletSchema', () => {
       profileMode: 'gates',
     };
 
-    const call = {
+    const call = FunctionCall.from({
       name: 'testFunction',
       to: address3,
       selector: FunctionSelector.fromField(new Fr(1)),
       type: FunctionType.UTILITY,
-      isStatic: false,
       hideMsgSender: false,
+      isStatic: false,
       args: [Fr.random()],
       returnTypes: [],
-    };
+    });
 
     const mockInstance: ContractInstanceWithAddress = {
       address: address2,
@@ -293,7 +325,7 @@ describe('WalletSchema', () => {
       { name: 'getAccounts', args: [] },
       { name: 'registerContract', args: [mockInstance, mockArtifact, undefined] },
       { name: 'simulateTx', args: [exec, simulateOpts] },
-      { name: 'simulateUtility', args: [call, [AuthWitness.random()]] },
+      { name: 'simulateUtility', args: [call, { scope: address3, authWitnesses: [AuthWitness.random()] }] },
       { name: 'profileTx', args: [exec, profileOpts] },
       { name: 'sendTx', args: [exec, opts] },
       { name: 'createAuthWit', args: [address1, { consumer: await AztecAddress.random(), innerHash: Fr.random() }] },
@@ -326,7 +358,6 @@ describe('WalletSchema', () => {
   });
 });
 
-// eslint-disable-next-line jsdoc/require-jsdoc
 class MockWallet implements Wallet {
   getChainInfo(): Promise<ChainInfo> {
     return Promise.resolve({
@@ -399,7 +430,10 @@ class MockWallet implements Wallet {
     return Promise.resolve(TxSimulationResult.random());
   }
 
-  simulateUtility(_call: any, _authwits?: AuthWitness[]): Promise<UtilitySimulationResult> {
+  simulateUtility(
+    _call: any,
+    _opts: { scope: AztecAddress; authWitnesses?: AuthWitness[] },
+  ): Promise<UtilitySimulationResult> {
     return Promise.resolve(UtilitySimulationResult.random());
   }
 
@@ -419,6 +453,18 @@ class MockWallet implements Wallet {
 
   createAuthWit(_from: AztecAddress, _messageHashOrIntent: any): Promise<AuthWitness> {
     return Promise.resolve(AuthWitness.random());
+  }
+
+  requestCapabilities(_manifest: AppCapabilities): Promise<WalletCapabilities> {
+    return Promise.resolve({
+      version: '1.0' as const,
+      granted: [],
+      wallet: {
+        name: 'MockWallet',
+        version: '1.0.0',
+      },
+      expiresAt: undefined,
+    });
   }
 
   async batch<const T extends readonly BatchedMethod[]>(methods: T): Promise<BatchResults<T>> {

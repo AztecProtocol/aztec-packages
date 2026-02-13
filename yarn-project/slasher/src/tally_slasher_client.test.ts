@@ -5,7 +5,6 @@ import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryFastUntil } from '@aztec/foundation/retry';
-import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
@@ -137,6 +136,7 @@ describe('TallySlasherClient', () => {
       epochDuration: 32,
       ethereumSlotDuration: 12,
       proofSubmissionEpochs: 8,
+      targetCommitteeSize: 48,
     });
 
     // Create mocks for L1 contracts
@@ -1002,20 +1002,5 @@ class TestTallySlasherClient extends TallySlasherClient {
 
   public handleWantToSlash(args: WantToSlashArgs[]) {
     return this.offensesCollector.handleWantToSlash(args);
-  }
-
-  public override async stop() {
-    for (const unwatchCallback of this.unwatchCallbacks) {
-      unwatchCallback();
-    }
-
-    this.roundMonitor.stop();
-    await this.offensesCollector.stop();
-
-    // Remove sleep if not running in CI for faster dev iteration
-    // This is here just to avoid a viem issue when uninstalling event listeners
-    if (process.env.CI) {
-      await sleep(2000);
-    }
   }
 }

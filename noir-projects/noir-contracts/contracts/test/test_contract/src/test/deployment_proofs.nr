@@ -1,5 +1,5 @@
 use crate::Test;
-use dep::aztec::{
+use aztec::{
     history::deployment::{
         assert_contract_bytecode_was_not_published_by, assert_contract_bytecode_was_published_by,
         assert_contract_was_initialized_by, assert_contract_was_not_initialized_by,

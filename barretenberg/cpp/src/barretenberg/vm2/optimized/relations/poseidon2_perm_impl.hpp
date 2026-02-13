@@ -6,6 +6,7 @@
 
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
+#include "barretenberg/vm2/constraining/relations/relation_macros.hpp"
 
 namespace bb::avm2 {
 
@@ -157,10 +158,10 @@ void optimized_poseidon2_permImpl<FF_>::accumulate(ContainerOverSubrelations& ev
     // Start Accumulation Relations
     //=========================================
     {
-        using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-        auto tmp = in.get(C::poseidon2_perm_sel) * (FF(1) - in.get(C::poseidon2_perm_sel));
-        tmp *= scaling_factor;
-        std::get<0>(evals) += typename Accumulator::View(tmp);
+        using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+                   (FF(1) - static_cast<View>(in.get(C::poseidon2_perm_sel)));
+        std::get<0>(evals) += (tmp * scaling_factor);
     }
 
     // Initial state is the input
@@ -183,28 +184,28 @@ void optimized_poseidon2_permImpl<FF_>::accumulate(ContainerOverSubrelations& ev
     external_matrix_mul(state);
     // Set the columns after the external matrix multiplication
     {
-        using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-        auto tmp = in.get(C::poseidon2_perm_sel) * (in.get(C::poseidon2_perm_EXT_LAYER_4) - state[3]);
-        tmp *= scaling_factor;
-        std::get<1>(evals) += typename Accumulator::View(tmp);
+        using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+                   (static_cast<View>(in.get(C::poseidon2_perm_EXT_LAYER_4)) - CView(state[3]));
+        std::get<1>(evals) += (tmp * scaling_factor);
     }
     {
-        using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-        auto tmp = in.get(C::poseidon2_perm_sel) * (in.get(C::poseidon2_perm_EXT_LAYER_5) - state[1]);
-        tmp *= scaling_factor;
-        std::get<2>(evals) += typename Accumulator::View(tmp);
+        using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+                   (static_cast<View>(in.get(C::poseidon2_perm_EXT_LAYER_5)) - CView(state[1]));
+        std::get<2>(evals) += (tmp * scaling_factor);
     }
     {
-        using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-        auto tmp = in.get(C::poseidon2_perm_sel) * (in.get(C::poseidon2_perm_EXT_LAYER_6) - state[0]);
-        tmp *= scaling_factor;
-        std::get<3>(evals) += typename Accumulator::View(tmp);
+        using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+                   (static_cast<View>(in.get(C::poseidon2_perm_EXT_LAYER_6)) - CView(state[0]));
+        std::get<3>(evals) += (tmp * scaling_factor);
     }
     {
-        using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-        auto tmp = in.get(C::poseidon2_perm_sel) * (in.get(C::poseidon2_perm_EXT_LAYER_7) - state[2]);
-        tmp *= scaling_factor;
-        std::get<4>(evals) += typename Accumulator::View(tmp);
+        using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+                   (static_cast<View>(in.get(C::poseidon2_perm_EXT_LAYER_7)) - CView(state[2]));
+        std::get<4>(evals) += (tmp * scaling_factor);
     }
 
     // The permutation rounds start at subrelation index 5
@@ -226,31 +227,31 @@ void optimized_poseidon2_permImpl<FF_>::accumulate(ContainerOverSubrelations& ev
         external_matrix_mul(state);
         // Set state 0
         {
-            using Accumulator = typename std::tuple_element_t<relation_offset, ContainerOverSubrelations>;
-            auto tmp = in.get(C::poseidon2_perm_sel) * (in.get(round_cols[i][0]) - state[3]);
-            tmp *= scaling_factor;
-            std::get<relation_offset>(evals) += typename Accumulator::View(tmp);
+            using View = typename std::tuple_element_t<relation_offset, ContainerOverSubrelations>::View;
+            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+                       (static_cast<View>(in.get(round_cols[i][0])) - CView(state[3]));
+            std::get<relation_offset>(evals) += (tmp * scaling_factor);
         }
         // Set state 1
         {
-            using Accumulator = typename std::tuple_element_t<relation_offset + 1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::poseidon2_perm_sel) * (in.get(round_cols[i][1]) - state[1]);
-            tmp *= scaling_factor;
-            std::get<relation_offset + 1>(evals) += typename Accumulator::View(tmp);
+            using View = typename std::tuple_element_t<relation_offset + 1, ContainerOverSubrelations>::View;
+            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+                       (static_cast<View>(in.get(round_cols[i][1])) - CView(state[1]));
+            std::get<relation_offset + 1>(evals) += (tmp * scaling_factor);
         }
         // Set state 3
         {
-            using Accumulator = typename std::tuple_element_t<relation_offset + 2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::poseidon2_perm_sel) * (in.get(round_cols[i][2]) - state[0]);
-            tmp *= scaling_factor;
-            std::get<relation_offset + 2>(evals) += typename Accumulator::View(tmp);
+            using View = typename std::tuple_element_t<relation_offset + 2, ContainerOverSubrelations>::View;
+            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+                       (static_cast<View>(in.get(round_cols[i][2])) - CView(state[0]));
+            std::get<relation_offset + 2>(evals) += (tmp * scaling_factor);
         }
         // Set state 4
         {
-            using Accumulator = typename std::tuple_element_t<relation_offset + 3, ContainerOverSubrelations>;
-            auto tmp = in.get(C::poseidon2_perm_sel) * (in.get(round_cols[i][3]) - state[2]);
-            tmp *= scaling_factor;
-            std::get<relation_offset + 3>(evals) += typename Accumulator::View(tmp);
+            using View = typename std::tuple_element_t<relation_offset + 3, ContainerOverSubrelations>::View;
+            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+                       (static_cast<View>(in.get(round_cols[i][3])) - CView(state[2]));
+            std::get<relation_offset + 3>(evals) += (tmp * scaling_factor);
         }
 
         // Set the state to be used in next round, this step helps to ensure subrelation length is correct
@@ -270,31 +271,31 @@ void optimized_poseidon2_permImpl<FF_>::accumulate(ContainerOverSubrelations& ev
         internal_matrix_mul(state, Poseidon2Params::internal_matrix_diagonal_minus_one);
         // Set the state 0
         {
-            using Accumulator = typename std::tuple_element_t<relation_offset, ContainerOverSubrelations>;
-            auto tmp = in.get(C::poseidon2_perm_sel) * (in.get(round_cols[i][0]) - state[0]);
-            tmp *= scaling_factor;
-            std::get<relation_offset>(evals) += typename Accumulator::View(tmp);
+            using View = typename std::tuple_element_t<relation_offset, ContainerOverSubrelations>::View;
+            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+                       (static_cast<View>(in.get(round_cols[i][0])) - CView(state[0]));
+            std::get<relation_offset>(evals) += (tmp * scaling_factor);
         }
         // Set the state 1
         {
-            using Accumulator = typename std::tuple_element_t<relation_offset + 1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::poseidon2_perm_sel) * (in.get(round_cols[i][1]) - state[1]);
-            tmp *= scaling_factor;
-            std::get<relation_offset + 1>(evals) += typename Accumulator::View(tmp);
+            using View = typename std::tuple_element_t<relation_offset + 1, ContainerOverSubrelations>::View;
+            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+                       (static_cast<View>(in.get(round_cols[i][1])) - CView(state[1]));
+            std::get<relation_offset + 1>(evals) += (tmp * scaling_factor);
         }
         // Set the state 2
         {
-            using Accumulator = typename std::tuple_element_t<relation_offset + 2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::poseidon2_perm_sel) * (in.get(round_cols[i][2]) - state[2]);
-            tmp *= scaling_factor;
-            std::get<relation_offset + 2>(evals) += typename Accumulator::View(tmp);
+            using View = typename std::tuple_element_t<relation_offset + 2, ContainerOverSubrelations>::View;
+            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+                       (static_cast<View>(in.get(round_cols[i][2])) - CView(state[2]));
+            std::get<relation_offset + 2>(evals) += (tmp * scaling_factor);
         }
         // Set the state 3
         {
-            using Accumulator = typename std::tuple_element_t<relation_offset + 3, ContainerOverSubrelations>;
-            auto tmp = in.get(C::poseidon2_perm_sel) * (in.get(round_cols[i][3]) - state[3]);
-            tmp *= scaling_factor;
-            std::get<relation_offset + 3>(evals) += typename Accumulator::View(tmp);
+            using View = typename std::tuple_element_t<relation_offset + 3, ContainerOverSubrelations>::View;
+            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+                       (static_cast<View>(in.get(round_cols[i][3])) - CView(state[3]));
+            std::get<relation_offset + 3>(evals) += (tmp * scaling_factor);
         }
 
         // Set the state to be used in next round, this step helps to ensure subrelation length is correct
@@ -314,31 +315,31 @@ void optimized_poseidon2_permImpl<FF_>::accumulate(ContainerOverSubrelations& ev
         external_matrix_mul(state);
         // Set the state 0
         {
-            using Accumulator = typename std::tuple_element_t<relation_offset, ContainerOverSubrelations>;
-            auto tmp = in.get(C::poseidon2_perm_sel) * (in.get(round_cols[i][0]) - state[3]);
-            tmp *= scaling_factor;
-            std::get<relation_offset>(evals) += typename Accumulator::View(tmp);
+            using View = typename std::tuple_element_t<relation_offset, ContainerOverSubrelations>::View;
+            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+                       (static_cast<View>(in.get(round_cols[i][0])) - CView(state[3]));
+            std::get<relation_offset>(evals) += (tmp * scaling_factor);
         }
         // Set the state 1
         {
-            using Accumulator = typename std::tuple_element_t<relation_offset + 1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::poseidon2_perm_sel) * (in.get(round_cols[i][1]) - state[1]);
-            tmp *= scaling_factor;
-            std::get<relation_offset + 1>(evals) += typename Accumulator::View(tmp);
+            using View = typename std::tuple_element_t<relation_offset + 1, ContainerOverSubrelations>::View;
+            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+                       (static_cast<View>(in.get(round_cols[i][1])) - CView(state[1]));
+            std::get<relation_offset + 1>(evals) += (tmp * scaling_factor);
         }
         // Set the state 2
         {
-            using Accumulator = typename std::tuple_element_t<relation_offset + 2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::poseidon2_perm_sel) * (in.get(round_cols[i][2]) - state[0]);
-            tmp *= scaling_factor;
-            std::get<relation_offset + 2>(evals) += typename Accumulator::View(tmp);
+            using View = typename std::tuple_element_t<relation_offset + 2, ContainerOverSubrelations>::View;
+            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+                       (static_cast<View>(in.get(round_cols[i][2])) - CView(state[0]));
+            std::get<relation_offset + 2>(evals) += (tmp * scaling_factor);
         }
         // Set the state 3
         {
-            using Accumulator = typename std::tuple_element_t<relation_offset + 3, ContainerOverSubrelations>;
-            auto tmp = in.get(C::poseidon2_perm_sel) * (in.get(round_cols[i][3]) - state[2]);
-            tmp *= scaling_factor;
-            std::get<relation_offset + 3>(evals) += typename Accumulator::View(tmp);
+            using View = typename std::tuple_element_t<relation_offset + 3, ContainerOverSubrelations>::View;
+            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+                       (static_cast<View>(in.get(round_cols[i][3])) - CView(state[2]));
+            std::get<relation_offset + 3>(evals) += (tmp * scaling_factor);
         }
 
         // Set the state to be used in next round, this step helps to ensure subrelation length is correct
@@ -352,28 +353,32 @@ void optimized_poseidon2_permImpl<FF_>::accumulate(ContainerOverSubrelations& ev
 
     // Write to outputs
     {
-        using Accumulator = typename std::tuple_element_t<261, ContainerOverSubrelations>;
-        auto tmp = in.get(C::poseidon2_perm_sel) * (in.get(C::poseidon2_perm_b_0) - in.get(C::poseidon2_perm_T_63_6));
-        tmp *= scaling_factor;
-        std::get<261>(evals) += typename Accumulator::View(tmp);
+        using View = typename std::tuple_element_t<261, ContainerOverSubrelations>::View;
+        auto tmp =
+            static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+            (static_cast<View>(in.get(C::poseidon2_perm_b_0)) - static_cast<View>(in.get(C::poseidon2_perm_T_63_6)));
+        std::get<261>(evals) += (tmp * scaling_factor);
     }
     {
-        using Accumulator = typename std::tuple_element_t<262, ContainerOverSubrelations>;
-        auto tmp = in.get(C::poseidon2_perm_sel) * (in.get(C::poseidon2_perm_b_1) - in.get(C::poseidon2_perm_T_63_5));
-        tmp *= scaling_factor;
-        std::get<262>(evals) += typename Accumulator::View(tmp);
+        using View = typename std::tuple_element_t<262, ContainerOverSubrelations>::View;
+        auto tmp =
+            static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+            (static_cast<View>(in.get(C::poseidon2_perm_b_1)) - static_cast<View>(in.get(C::poseidon2_perm_T_63_5)));
+        std::get<262>(evals) += (tmp * scaling_factor);
     }
     {
-        using Accumulator = typename std::tuple_element_t<263, ContainerOverSubrelations>;
-        auto tmp = in.get(C::poseidon2_perm_sel) * (in.get(C::poseidon2_perm_b_2) - in.get(C::poseidon2_perm_T_63_7));
-        tmp *= scaling_factor;
-        std::get<263>(evals) += typename Accumulator::View(tmp);
+        using View = typename std::tuple_element_t<263, ContainerOverSubrelations>::View;
+        auto tmp =
+            static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+            (static_cast<View>(in.get(C::poseidon2_perm_b_2)) - static_cast<View>(in.get(C::poseidon2_perm_T_63_7)));
+        std::get<263>(evals) += (tmp * scaling_factor);
     }
     {
-        using Accumulator = typename std::tuple_element_t<264, ContainerOverSubrelations>;
-        auto tmp = in.get(C::poseidon2_perm_sel) * (in.get(C::poseidon2_perm_b_3) - in.get(C::poseidon2_perm_T_63_4));
-        tmp *= scaling_factor;
-        std::get<264>(evals) += typename Accumulator::View(tmp);
+        using View = typename std::tuple_element_t<264, ContainerOverSubrelations>::View;
+        auto tmp =
+            static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+            (static_cast<View>(in.get(C::poseidon2_perm_b_3)) - static_cast<View>(in.get(C::poseidon2_perm_T_63_4)));
+        std::get<264>(evals) += (tmp * scaling_factor);
     }
 }
 
