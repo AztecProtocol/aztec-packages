@@ -697,8 +697,9 @@ export class SequencerPublisher {
     const cacheKey = payload.toString();
     if (!this.payloadProposedCache.has(cacheKey)) {
       try {
+        const l1StartBlock = await this.rollupContract.getL1StartBlock();
         const proposed = await retry(
-          () => base.hasPayloadBeenProposed(payload.toString()),
+          () => base.hasPayloadBeenProposed(payload.toString(), l1StartBlock),
           'Check if payload was proposed',
           makeBackoff([0, 1, 2]),
           this.log,

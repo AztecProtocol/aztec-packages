@@ -126,6 +126,7 @@ describe('SequencerPublisher', () => {
 
     rollup = mock<RollupContract>();
     rollup.validateHeader.mockReturnValue(Promise.resolve());
+    rollup.getL1StartBlock.mockResolvedValue(1n);
     (rollup as any).address = mockRollupAddress;
     forwardSpy = jest.spyOn(Multicall3, 'forward');
 

@@ -127,8 +127,8 @@ export class EmpireSlashingProposerContract extends EventEmitter implements IEmp
   }
 
   /** Checks if a payload was ever submitted to governance via submitRoundWinner. */
-  public async hasPayloadBeenProposed(payload: Hex): Promise<boolean> {
-    const events = await this.proposer.getEvents.PayloadSubmitted({ payload }, { fromBlock: 0n, strict: true });
+  public async hasPayloadBeenProposed(payload: Hex, fromBlock: bigint): Promise<boolean> {
+    const events = await this.proposer.getEvents.PayloadSubmitted({ payload }, { fromBlock, strict: true });
     return events.length > 0;
   }
 
