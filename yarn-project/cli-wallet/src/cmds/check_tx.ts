@@ -88,7 +88,7 @@ async function inspectTx(wallet: CLIWallet, aztecNode: AztecNode, txHash: TxHash
     for (const nullifier of effects.nullifiers) {
       const deployed = deployNullifiers[nullifier.toString()];
       const note = deployed
-        ? (await wallet.getNotes({ siloedNullifier: nullifier, contractAddress: deployed }))[0]
+        ? (await wallet.getNotes({ siloedNullifier: nullifier, contractAddress: deployed, scopes: 'ALL_SCOPES' }))[0]
         : undefined;
       const initialized = initNullifiers[nullifier.toString()];
       const registered = classNullifiers[nullifier.toString()];
