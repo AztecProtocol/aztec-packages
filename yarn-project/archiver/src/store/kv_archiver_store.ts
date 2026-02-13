@@ -80,6 +80,11 @@ export class KVArchiverDataStore implements ContractDataSource {
     this.#contractInstanceStore = new ContractInstanceStore(db);
   }
 
+  /** Returns the underlying block store. Used by L2TipsCache. */
+  get blockStore(): BlockStore {
+    return this.#blockStore;
+  }
+
   /** Opens a new transaction to the underlying store and runs all operations within it. */
   public transactionAsync<T>(callback: () => Promise<T>): Promise<T> {
     return this.db.transactionAsync(callback);
