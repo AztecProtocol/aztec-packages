@@ -529,9 +529,9 @@ def _load_backfill_json():
     """Load seed data from merge-queue-backfill.json if SQLite is empty."""
     import db
     from pathlib import Path
-    db = db.get_db()
+    conn = db.get_db()
 
-    count = db.execute('SELECT COUNT(*) as c FROM merge_queue_daily').fetchone()['c']
+    count = conn.execute('SELECT COUNT(*) as c FROM merge_queue_daily').fetchone()['c']
     if count > 0:
         return
 
@@ -545,25 +545,25 @@ def _load_backfill_json():
 
     print(f"[rk_github] Loading {len(data)} days from merge-queue-backfill.json...")
     for ds, summary in data.items():
-        db.execute(
+        conn.execute(
             'INSERT OR REPLACE INTO merge_queue_daily (date, total, success, failure, cancelled, in_progress) '
             'VALUES (?, ?, ?, ?, ?, ?)',
             (ds, summary['total'], summary['success'], summary['failure'],
              summary['cancelled'], summary['in_progress']))
-    db.commit()
+    conn.commit()
 
 
 def _backfill_merge_queue():
     """Backfill missing merge queue daily stats into SQLite."""
     import db
-    db = db.get_db()
+    conn = db.get_db()
 
     # Load seed data on first run
     _load_backfill_json()
 
     # Find which dates we already have
     existing = {row['date'] for row in
-                db.execute('SELECT date FROM merge_queue_daily').fetchall()}
+                conn.execute('SELECT date FROM merge_queue_daily').fetchall()}
 
     yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).date()
     # Backfill up to 365 days
@@ -584,33 +584,33 @@ def _backfill_merge_queue():
     for ds in missing:
         summary = _fetch_merge_queue_runs(ds)
         if summary['total'] == 0:
-            db.execute(
+            conn.execute(
                 'INSERT OR REPLACE INTO merge_queue_daily (date, total, success, failure, cancelled, in_progress) '
                 'VALUES (?, 0, 0, 0, 0, 0)', (ds,))
         else:
-            db.execute(
+            conn.execute(
                 'INSERT OR REPLACE INTO merge_queue_daily (date, total, success, failure, cancelled, in_progress) '
                 'VALUES (?, ?, ?, ?, ?, ?)',
                 (ds, summary['total'], summary['success'], summary['failure'],
                  summary['cancelled'], summary['in_progress']))
-        db.commit()
+        conn.commit()
 
 
 def refresh_merge_queue_today():
     """Refresh today's (and yesterday's) merge queue stats. Called periodically."""
     import db
-    db = db.get_db()
+    conn = db.get_db()
     today = datetime.now(timezone.utc).date().isoformat()
     yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).date().isoformat()
 
     for ds in [yesterday, today]:
         summary = _fetch_merge_queue_runs(ds)
-        db.execute(
+        conn.execute(
             'INSERT OR REPLACE INTO merge_queue_daily (date, total, success, failure, cancelled, in_progress) '
             'VALUES (?, ?, ?, ?, ?, ?)',
             (ds, summary['total'], summary['success'], summary['failure'],
              summary['cancelled'], summary['in_progress']))
-        db.commit()
+        conn.commit()
 
 
 _mq_backfill_lock = threading.Lock()
@@ -638,8 +638,8 @@ def get_merge_queue_stats(date_from: str, date_to: str) -> dict:
     """Get merge queue failure rate by day. Triggers backfill if needed."""
     # Ensure data is populated (async after first load)
     import db
-    db = db.get_db()
-    count = db.execute('SELECT COUNT(*) as c FROM merge_queue_daily').fetchone()['c']
+    conn = db.get_db()
+    count = conn.execute('SELECT COUNT(*) as c FROM merge_queue_daily').fetchone()['c']
     if count == 0:
         ensure_merge_queue_data()  # block on first load
     else:

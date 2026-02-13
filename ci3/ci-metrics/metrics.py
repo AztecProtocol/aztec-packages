@@ -325,13 +325,13 @@ def sync_failed_tests_to_sqlite(redis_conn):
         return
     _failed_tests_sync_ts = now
 
-    db = db.get_db()
+    conn = db.get_db()
     # Track existing entries to avoid duplicates: log_url for entries that have one,
     # (test_cmd, timestamp, dashboard) composite key for entries without log_url
-    existing_urls = {row['log_url'] for row in db.execute(
+    existing_urls = {row['log_url'] for row in conn.execute(
         "SELECT DISTINCT log_url FROM test_events WHERE log_url IS NOT NULL"
     ).fetchall()}
-    existing_keys = {(row['test_cmd'], row['timestamp'], row['dashboard']) for row in db.execute(
+    existing_keys = {(row['test_cmd'], row['timestamp'], row['dashboard']) for row in conn.execute(
         "SELECT test_cmd, timestamp, dashboard FROM test_events WHERE log_url IS NULL"
     ).fetchall()}
 
@@ -359,7 +359,7 @@ def sync_failed_tests_to_sqlite(redis_conn):
                     continue
                 existing_keys.add(composite)
             try:
-                db.execute('''
+                conn.execute('''
                     INSERT INTO test_events
                     (status, test_cmd, log_url, ref_name, commit_author,
                      commit_msg, duration_secs, flake_group_id, dashboard,
@@ -375,7 +375,7 @@ def sync_failed_tests_to_sqlite(redis_conn):
                 total += 1
             except Exception as e:
                 print(f"[rk_metrics] Error inserting test event: {e}")
-    db.commit()
+    conn.commit()
     if total:
         print(f"[rk_metrics] Synced {total} test events from Redis lists")
 
@@ -387,9 +387,9 @@ def _load_seed_data():
     import gzip
     from pathlib import Path
 
-    db = db.get_db()
-    ci_count = db.execute('SELECT COUNT(*) as c FROM ci_runs').fetchone()['c']
-    te_count = db.execute('SELECT COUNT(*) as c FROM test_events').fetchone()['c']
+    conn = db.get_db()
+    ci_count = conn.execute('SELECT COUNT(*) as c FROM ci_runs').fetchone()['c']
+    te_count = conn.execute('SELECT COUNT(*) as c FROM test_events').fetchone()['c']
     if ci_count > 0 and te_count > 0:
         return
 
@@ -406,7 +406,7 @@ def _load_seed_data():
         runs = data['ci_runs']
         for run in runs:
             try:
-                db.execute('''
+                conn.execute('''
                     INSERT OR IGNORE INTO ci_runs
                     (dashboard, name, timestamp_ms, complete_ms, status, author,
                      pr_number, instance_type, instance_vcpus, spot, cost_usd,
@@ -430,14 +430,14 @@ def _load_seed_data():
                 ))
             except Exception:
                 continue
-        db.commit()
+        conn.commit()
         print(f"[rk_metrics] Loaded {len(runs)} CI runs from seed")
 
     if te_count == 0 and data.get('test_events'):
         events = data['test_events']
         for ev in events:
             try:
-                db.execute('''
+                conn.execute('''
                     INSERT OR IGNORE INTO test_events
                     (status, test_cmd, log_url, ref_name, commit_hash, commit_author,
                      commit_msg, exit_code, duration_secs, is_scenario, owners,
@@ -461,7 +461,7 @@ def _load_seed_data():
                 ))
             except Exception:
                 continue
-        db.commit()
+        conn.commit()
         print(f"[rk_metrics] Loaded {len(events)} test events from seed")
 
 
@@ -483,11 +483,11 @@ def sync_ci_runs_to_sqlite(redis_conn):
     runs = _get_ci_runs_from_redis(redis_conn)
 
     now_iso = datetime.now(timezone.utc).isoformat()
-    db = db.get_db()
+    conn = db.get_db()
     count = 0
     for run in runs:
         try:
-            db.execute('''
+            conn.execute('''
                 INSERT OR REPLACE INTO ci_runs
                 (dashboard, name, timestamp_ms, complete_ms, status, author,
                  pr_number, instance_type, instance_vcpus, spot, cost_usd,
@@ -512,7 +512,7 @@ def sync_ci_runs_to_sqlite(redis_conn):
             count += 1
         except Exception as e:
             print(f"[rk_metrics] Error syncing run: {e}")
-    db.commit()
+    conn.commit()
     print(f"[rk_metrics] Synced {count} CI runs to SQLite")
 
 

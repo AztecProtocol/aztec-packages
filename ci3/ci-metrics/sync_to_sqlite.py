@@ -49,9 +49,9 @@ def main():
     metrics.sync_failed_tests_to_sqlite(r)
 
     # Report
-    db = db.get_db()
-    ci_count = db.execute('SELECT COUNT(*) as c FROM ci_runs').fetchone()['c']
-    te_count = db.execute('SELECT COUNT(*) as c FROM test_events').fetchone()['c']
+    conn = db.get_db()
+    ci_count = conn.execute('SELECT COUNT(*) as c FROM ci_runs').fetchone()['c']
+    te_count = conn.execute('SELECT COUNT(*) as c FROM test_events').fetchone()['c']
     elapsed = time.time() - start
     print(f"[sync] Done in {elapsed:.1f}s. SQLite: {ci_count} CI runs, {te_count} test events.")
 
