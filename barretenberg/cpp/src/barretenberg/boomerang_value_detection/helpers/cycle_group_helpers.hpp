@@ -15,12 +15,19 @@
 namespace cdg {
 
 using namespace acir_format;
+
+/**
+ * @brief holds raw ACIR witness-or-constant indices
+ */
 template <typename FF> struct Point {
     WitnessOrConstant<FF> x;
     WitnessOrConstant<FF> y;
     WitnessOrConstant<FF> is_infinity;
 };
 
+/**
+ * @brief holds the actual Field/Bool values after to_grumpkin_point processing
+ */
 template <typename CircuitBuilder> struct RealPoint {
     Field<CircuitBuilder> x;
     Field<CircuitBuilder> y;
