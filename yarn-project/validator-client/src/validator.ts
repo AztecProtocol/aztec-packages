@@ -736,7 +736,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   /**
    * Uploads blobs for a checkpoint to the filestore (fire and forget).
    */
-  private async uploadBlobsForCheckpoint(proposal: CheckpointProposalCore, proposalInfo: LogData): Promise<void> {
+  protected async uploadBlobsForCheckpoint(proposal: CheckpointProposalCore, proposalInfo: LogData): Promise<void> {
     try {
       const lastBlockHeader = await this.blockSource.getBlockHeaderByArchive(proposal.archive);
       if (!lastBlockHeader) {

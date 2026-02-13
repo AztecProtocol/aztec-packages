@@ -61,7 +61,7 @@ describe('ValidatorClient', () => {
     > & {
       disableTransactions: boolean;
     };
-  let validatorClient: ValidatorClient;
+  let validatorClient: TestValidatorClient;
   let p2pClient: MockProxy<P2P>;
   let blockSource: MockProxy<L2BlockSource & L2BlockSink>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
@@ -148,7 +148,7 @@ describe('ValidatorClient', () => {
     };
     keyStoreManager = new KeystoreManager(keyStore);
 
-    validatorClient = await ValidatorClient.new(
+    validatorClient = (await ValidatorClient.new(
       config,
       checkpointsBuilder,
       worldState,
@@ -160,7 +160,7 @@ describe('ValidatorClient', () => {
       keyStoreManager,
       blobClient,
       dateProvider,
-    );
+    )) as TestValidatorClient;
   });
 
   describe('createBlockProposal', () => {
@@ -411,6 +411,7 @@ describe('ValidatorClient', () => {
 
     it('should attest to a checkpoint proposal after validating a block for that slot', async () => {
       const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addOwnCheckpointAttestations');
+      const uploadBlobsSpy = jest.spyOn(validatorClient, 'uploadBlobsForCheckpoint');
 
       const didValidate = await validatorClient.validateBlockProposal(proposal, sender);
       expect(didValidate).toBe(true);
@@ -425,12 +426,18 @@ describe('ValidatorClient', () => {
         },
       });
 
+      // Enable blob upload for this attestation
+      blobClient.canUpload.mockReturnValue(true);
+
       validatorClient.updateConfig({ skipCheckpointProposalValidation: true });
       const attestations = await validatorClient.attestToCheckpointProposal(checkpointProposal, sender);
 
       expect(attestations).toBeDefined();
       expect(attestations).toHaveLength(1);
       expect(addCheckpointAttestationsSpy).toHaveBeenCalledTimes(1);
+      expect(uploadBlobsSpy).toHaveBeenCalled();
+
+      uploadBlobsSpy.mockRestore();
     });
 
     it('should wait for previous block to sync', async () => {
@@ -689,16 +696,6 @@ describe('ValidatorClient', () => {
       // block_proposal_handler.ts.
     });
 
-    // TODO(palla/mbps): Blob upload functionality has been moved to checkpoint proposal handling (Phase 6)
-    // These tests are skipped until the blob upload is implemented in the new location.
-    describe.skip('filestore blob upload', () => {
-      it.todo('should upload blobs to filestore after successful checkpoint proposal');
-      it.todo('should not attempt upload when fileStoreBlobUploadClient is undefined');
-      it.todo('should not fail when blob upload fails');
-      it.todo('should trigger re-execution when filestore is configured even if validatorReexecute is false');
-      it.todo('should not upload blobs when validation fails');
-    });
-
     it('should validate proposals in fisherman mode but not create or broadcast attestations', async () => {
       // Enable fisherman mode (which also triggers re-execution)
       validatorClient.updateConfig({ fishermanMode: true });
@@ -791,6 +788,42 @@ describe('ValidatorClient', () => {
     });
   });
 
+  describe('uploadBlobsForCheckpoint', () => {
+    const proposalInfo = { slotNumber: 1, archive: '0x00', proposer: '0x00', txCount: 0 };
+
+    it('should send blobs from blocks in the slot to filestore', async () => {
+      const blobFields = [Fr.random(), Fr.random()];
+      const mockBlock = { toBlobFields: () => blobFields } as unknown as L2Block;
+      blockSource.getBlockHeaderByArchive.mockResolvedValue(makeBlockHeader());
+      blockSource.getBlocksForSlot.mockResolvedValue([mockBlock]);
+
+      const proposal = await makeCheckpointProposal({ lastBlock: {} });
+      await validatorClient.uploadBlobsForCheckpoint(proposal, proposalInfo);
+
+      expect(blockSource.getBlocksForSlot).toHaveBeenCalledWith(proposal.slotNumber);
+      expect(blobClient.sendBlobsToFilestore).toHaveBeenCalled();
+    });
+
+    it('should not upload if last block header is not found', async () => {
+      blockSource.getBlockHeaderByArchive.mockResolvedValue(undefined);
+
+      const proposal = await makeCheckpointProposal({ lastBlock: {} });
+      await validatorClient.uploadBlobsForCheckpoint(proposal, proposalInfo);
+
+      expect(blobClient.sendBlobsToFilestore).not.toHaveBeenCalled();
+    });
+
+    it('should not throw when blob upload fails', async () => {
+      const mockBlock = { toBlobFields: () => [Fr.random()] } as unknown as L2Block;
+      blockSource.getBlockHeaderByArchive.mockResolvedValue(makeBlockHeader());
+      blockSource.getBlocksForSlot.mockResolvedValue([mockBlock]);
+      blobClient.sendBlobsToFilestore.mockRejectedValue(new Error('upload failed'));
+
+      const proposal = await makeCheckpointProposal({ lastBlock: {} });
+      await expect(validatorClient.uploadBlobsForCheckpoint(proposal, proposalInfo)).resolves.toBeUndefined();
+    });
+  });
+
   describe('configuration', () => {
     it('should use VALIDATOR_PRIVATE_KEY for validatorPrivateKeys when VALIDATOR_PRIVATE_KEYS is not set', () => {
       const originalEnv = process.env;
@@ -830,3 +863,10 @@ describe('ValidatorClient', () => {
     });
   });
 });
+
+/** Exposes protected methods for direct testing */
+class TestValidatorClient extends ValidatorClient {
+  declare public uploadBlobsForCheckpoint: (
+    ...args: Parameters<ValidatorClient['uploadBlobsForCheckpoint']>
+  ) => Promise<void>;
+}
