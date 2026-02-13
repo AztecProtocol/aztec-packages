@@ -17,11 +17,13 @@ fn validate_and_propagate_note_hash_read_requests() {
     builder.previous_kernel.append_note_hashes(3);
 
     // Append 3 pending note hash reads, 2 settled reads, and 2 reads without hints.
+    // The un-hinted reads use unique values (77 and 99) that won't match any hinted reads,
+    // so that deduplication doesn't merge them with validated requests.
     builder.read_pending_note_hash(0);
-    builder.previous_kernel.append_note_hash_read_requests(1);
+    builder.previous_kernel.add_note_hash_read_request(77, builder.previous_kernel.contract_address);
     builder.read_settled_note_hash(1);
     builder.read_settled_note_hash(2);
-    builder.previous_kernel.append_note_hash_read_requests(1);
+    builder.previous_kernel.add_note_hash_read_request(99, builder.previous_kernel.contract_address);
     builder.read_pending_note_hash(1);
     builder.read_pending_note_hash(2);
 

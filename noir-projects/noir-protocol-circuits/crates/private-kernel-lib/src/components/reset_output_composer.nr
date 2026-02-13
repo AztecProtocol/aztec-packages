@@ -162,20 +162,24 @@ impl ResetOutputComposer {
     unconstrained fn get_propagated_validation_requests<let KeyValidationAmount: u32>(
         self,
     ) -> PrivateValidationRequests {
-        let validation_requests = self.previous_kernel.validation_requests;
+        // Propagation works with arrays that have already been deduplicated.
+        // This is because each reset circuit iteration performs costly processing, so we eliminate duplicates up front,
+        // since doing so is comparatively cheap, to prevent redundant work on the same logical request.
+        // All corresponding hints and validation amounts are calculated after deduplication, ensuring that expensive
+        // operations are performed only on unique requests.
 
         let kept_note_hash_read_requests = get_propagated_read_requests(
-            validation_requests.note_hash_read_requests,
+            self.squashed_output_array_hints.deduped_note_hash_read_requests,
             self.note_hash_read_request_actions_hints,
         );
 
         let kept_nullifier_read_requests = get_propagated_read_requests(
-            validation_requests.nullifier_read_requests,
+            self.squashed_output_array_hints.deduped_nullifier_read_requests,
             self.nullifier_read_request_actions_hints,
         );
 
         let scoped_key_validation_requests_and_generators = get_propagated_key_validation_requests(
-            validation_requests.scoped_key_validation_requests_and_generators,
+            self.squashed_output_array_hints.deduped_key_validation_requests,
             KeyValidationAmount,
         );
 
