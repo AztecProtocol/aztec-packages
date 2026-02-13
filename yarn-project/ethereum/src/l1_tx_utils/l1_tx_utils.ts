@@ -244,6 +244,16 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         throw new InterruptError(`Transaction sending is interrupted`);
       }
 
+      // Check timeout before consuming nonce to avoid leaking a nonce that was never sent.
+      // A leaked nonce creates a gap (e.g. nonce 107 consumed but unsent), so all subsequent
+      // transactions (108, 109, ...) can never be mined since the chain expects 107 first.
+      const now = new Date(await this.getL1Timestamp());
+      if (gasConfig.txTimeoutAt && now > gasConfig.txTimeoutAt) {
+        throw new TimeoutError(
+          `Transaction timed out before sending (now ${now.toISOString()} > timeoutAt ${gasConfig.txTimeoutAt.toISOString()})`,
+        );
+      }
+
       const nonce = await this.nonceManager.consume({
         client: this.client,
         address: account,
@@ -252,13 +262,6 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
       const baseState = { request, gasLimit, blobInputs, gasPrice, nonce };
       const txData = this.makeTxData(baseState, { isCancelTx: false });
-
-      const now = new Date(await this.getL1Timestamp());
-      if (gasConfig.txTimeoutAt && now > gasConfig.txTimeoutAt) {
-        throw new TimeoutError(
-          `Transaction timed out before sending (now ${now.toISOString()} > timeoutAt ${gasConfig.txTimeoutAt.toISOString()})`,
-        );
-      }
 
       // Send the new tx
       const signedRequest = await this.prepareSignedTransaction(txData);
