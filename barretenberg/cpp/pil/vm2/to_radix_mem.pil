@@ -1,6 +1,7 @@
 include "to_radix.pil";
 include "gt.pil";
 include "precomputed.pil";
+include "memory.pil";
 
 /**
  * This handles the memory writes when the TORADIXBE opcode is executed by user code.
@@ -28,13 +29,13 @@ include "precomputed.pil";
  *     - num_limbs is tagged-checked by execution/registers to be U32 based on instruction spec.
  * - register[3]: M[is_output_bits_addr] aka is_output_bits (boolean if output should be U1 or U8)
  *     - is_output_bits is tagged-checked by execution/registers to be U1 based on instruction spec.
- * - M[rop[6]]: M[dst_addr] aka limb_value_0 (the value of the first index of the big endian decomposition)
+ * - M[rop[4]]: M[dst_addr] aka limb_value_0 (the value of the first index of the big endian decomposition)
  *     - guaranteed by this gadget to be U8 or U1 depending on is_output_bits
- * - M[rop[6] + num_limbs - 1]: M[dst_offset + num_limbs - 1] aka limb_value_n (the value of the last index of the big endian decomposition)
+ * - M[rop[4] + num_limbs - 1]: M[dst_offset + num_limbs - 1] aka limb_value_n (the value of the last index of the big endian decomposition)
  *     - guaranteed by this gadget to be U8 or U1 depending on is_output_bits
  *
  * ERROR HANDLING:
- * Two errors needs to be handled as part of this trace,
+ * The following errors needs to be handled as part of this trace,
  * (1) INVALID_RADIX_VALUE: The radix must be in the range [2, 256], if is_output_bits = 1, radix must be 2
  * (2) INVALID_NUM_LIMBS: If num_limbs = 0 while value_to_decompose != 0.
  * (3) DST_OUT_OF_BOUNDS_ACCESS: If the writes would access a memory address outside
@@ -75,26 +76,26 @@ namespace to_radix_mem;
     pol commit num_limbs;
     pol commit is_output_bits;
 
-    // Control Flow
+    // == Multi-row Computation Selectors ==
+    // See recipe in https://hackmd.io/moq6viBpRJeLpWrHAogCZw?view#Contiguous-Multi-Rows-Computation-Trace
+    // whereby `end` is denoted as `last` below.
     pol commit start;
     start * (1 - start) = 0;
     pol commit last; // Constrained in the Control flow section as depends on error
     last * (1 - last) = 0;
 
-    // Since sel has a shifted column (see CONTINUITY checks), sel must equal 0 in the first row
-    // Therefore, last must equal 0 in the first row as well.
-    #[LAST_HAS_SEL_ON] // sel = 1 when last = 1
-    last * (1 - sel) = 0;
-    // This is now guaranteed to be mututally exclusive because of the above condition
     pol LATCH_CONDITION = last + precomputed.first_row;
-    // If the next row is active and the current row is last or first, then start is active
-    // on the next row.
-    #[START_AFTER_LAST]
+
+    #[SEL_ON_START_OR_END]
+    (start + last) * (1 - sel) = 0;
+
+    #[TRACE_CONTINUITY]
+    (1 - LATCH_CONDITION) * (sel - sel') = 0;
+
+    #[START_AFTER_LATCH]
     sel' * (start' - LATCH_CONDITION) = 0;
 
     // Continuity checks
-    #[TRACE_CONTINUITY]
-    (1 - precomputed.first_row) * (1 - sel) * sel' = 0;
     #[EXEC_CLK_CONTINUITY]
     (1 - LATCH_CONDITION) * (execution_clk' - execution_clk) = 0;
     #[SPACE_ID_CONTINUITY]
@@ -152,9 +153,18 @@ namespace to_radix_mem;
     in
     gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
+    // Check whether radix == 2
+    pol commit sel_radix_eq_2;
+    sel_radix_eq_2 * (1 - sel_radix_eq_2) = 0;
+    pol RADIX_MIN_TWO = radix - 2;
+    // sel_radix_eq_2 == 1 iff RADIX_MIN_TWO == 0 (only on `start == 1`)
+    pol commit radix_min_two_inv;
+    // @zero-check
+    start * (RADIX_MIN_TWO * (sel_radix_eq_2 * (1 - radix_min_two_inv) + radix_min_two_inv) - 1 + sel_radix_eq_2) = 0;
+
     // is_output_bits already guaranteed to be boolean by execution trace tag validation
     #[IS_OUTPUT_BITS_IMPLY_RADIX_2]
-    start * is_output_bits * (1 - sel_invalid_bitwise_radix) * (radix - 2) = 0;
+    sel_invalid_bitwise_radix = start * is_output_bits * (1 - sel_radix_eq_2);
 
     /////////////////////////////////////////////////////////
     // Error Handling - Check Num Limbs and Value are valid
@@ -185,7 +195,7 @@ namespace to_radix_mem;
         * (1 - sel_invalid_num_limbs_err);
 
     pol commit limb_value;
-    // In the low level to_radix gadget, found will be on when the number has been reconstructed with the current limbs.
+    // In the low level to_radix gadget, `found == 1` the number has been reconstructed with the current limbs.
     // Refer to the table in the low level to_radix gadget for a visual example.
     pol commit value_found;
     pol commit sel_should_decompose;
@@ -227,7 +237,13 @@ namespace to_radix_mem;
     /////////////////////////////////////////////////////
     // Control flow management and terminating trace
     /////////////////////////////////////////////////////
-    pol NOT_LAST = sel * (1 - LATCH_CONDITION);
+    pol NOT_LAST = sel - last;
+    // Equivalent to sel * (1 - LATCH_CONDITION) because from #[SEL_ON_START_OR_END]
+    // we have `last * (1 - sel) == 0`, i.e., `sel * last == last`
+    // which implies that `sel * (1 - LATCH_CONDITION) == sel - first_row * sel - last`
+    // and since `first_row * sel == 0`, we have `sel * (1 - LATCH_CONDITION) == sel - last`.
+
+
     // As we process the results from to_radix, we decrement the num of limbs
     // and increment the dst address.
     #[DECR_NUM_LIMBS]
@@ -251,7 +267,8 @@ namespace to_radix_mem;
     // Introduce a selector covering all active rows except the start row with an error or the start row
     // with num_limbs == 0.
     // start * (1 - err) = start - start * err = start - err (because err is defined with a factor `start`)
-    pol NO_ERR_NOR_NUM_LIMBS_ZERO = (start - err) * (1 - sel_num_limbs_is_zero) + (1 - start) * sel; // Error can only occur on the start row.
+    // Similarly, `sel * (1 - start) = sel - sel * start = sel - start` because `start * (1 - sel) = 0`.
+    pol NO_ERR_NOR_NUM_LIMBS_ZERO = (start - err) * (1 - sel_num_limbs_is_zero) + (sel - start); // Error can only occur on the start row.
     pol NUM_LIMBS_MINUS_ONE = num_limbs - 1;
     pol commit num_limbs_minus_one_inv;
 
