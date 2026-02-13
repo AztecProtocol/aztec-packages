@@ -29,7 +29,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_debug_log.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_ecc.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_emit_unencrypted_log.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_emit_public_log.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_components.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gas_tracker.hpp"
@@ -97,7 +97,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockPoseidon2> poseidon2;
     StrictMock<MockEcc> ecc;
     StrictMock<MockToRadix> to_radix;
-    StrictMock<MockEmitUnencryptedLog> emit_unencrypted_log;
+    StrictMock<MockEmitPublicLog> emit_public_log;
     StrictMock<MockBytecodeManager> bytecode_manager;
     StrictMock<MockSha256> sha256;
     StrictMock<MockDebugLog> debug_log;
@@ -119,7 +119,7 @@ class ExecutionSimulationTest : public ::testing::Test {
                                                   keccakf1600,
                                                   greater_than,
                                                   get_contract_instance,
-                                                  emit_unencrypted_log,
+                                                  emit_public_log,
                                                   debug_log,
                                                   merkle_db,
                                                   call_stack_metadata_collector);
@@ -1099,7 +1099,7 @@ TEST_F(ExecutionSimulationTest, ToRadixBE)
     execution.to_radix_be(context, value_addr, radix_addr, num_limbs_addr, is_output_bits_addr, dst_addr);
 }
 
-TEST_F(ExecutionSimulationTest, EmitUnencryptedLog)
+TEST_F(ExecutionSimulationTest, EmitPublicLog)
 {
     MemoryAddress log_offset = 10;
     MemoryAddress log_size_offset = 20;
@@ -1111,11 +1111,11 @@ TEST_F(ExecutionSimulationTest, EmitUnencryptedLog)
 
     EXPECT_CALL(context, get_address).WillOnce(ReturnRef(address));
 
-    EXPECT_CALL(emit_unencrypted_log, emit_unencrypted_log(_, _, address, log_offset, log_size.as<uint32_t>()));
+    EXPECT_CALL(emit_public_log, emit_public_log(_, _, address, log_offset, log_size.as<uint32_t>()));
 
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ log_size.as<uint32_t>(), log_size.as<uint32_t>() }));
 
-    execution.emit_unencrypted_log(context, log_size_offset, log_offset);
+    execution.emit_public_log(context, log_size_offset, log_offset);
 }
 
 TEST_F(ExecutionSimulationTest, SendL2ToL1Msg)

@@ -4,6 +4,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
+import type { AccessScopes } from '@aztec/pxe/client/lazy';
 import {
   AddressStore,
   AnchorBlockStore,
@@ -323,6 +324,7 @@ export class TXESession implements TXESessionStateHandler {
 
     await new NoteService(this.noteStore, this.stateMachine.node, anchorBlock!, this.currentJobId).syncNoteNullifiers(
       contractAddress,
+      'ALL_SCOPES',
     );
     const latestBlock = await this.stateMachine.node.getBlockHeader('latest');
 
@@ -362,6 +364,7 @@ export class TXESession implements TXESessionStateHandler {
       privateEventStore: this.privateEventStore,
       contractSyncService: this.stateMachine.contractSyncService,
       jobId: this.currentJobId,
+      scopes: 'ALL_SCOPES',
     });
 
     // We store the note and tagging index caches fed into the PrivateExecutionOracle (along with some other auxiliary
@@ -414,7 +417,7 @@ export class TXESession implements TXESessionStateHandler {
       this.stateMachine.node,
       anchorBlockHeader,
       this.currentJobId,
-    ).syncNoteNullifiers(contractAddress);
+    ).syncNoteNullifiers(contractAddress, 'ALL_SCOPES');
 
     this.oracleHandler = new UtilityExecutionOracle({
       contractAddress,
@@ -431,6 +434,7 @@ export class TXESession implements TXESessionStateHandler {
       capsuleStore: this.capsuleStore,
       privateEventStore: this.privateEventStore,
       jobId: this.currentJobId,
+      scopes: 'ALL_SCOPES',
     });
 
     this.state = { name: 'UTILITY' };
@@ -499,7 +503,7 @@ export class TXESession implements TXESessionStateHandler {
   }
 
   private utilityExecutorForContractSync(anchorBlock: any) {
-    return async (call: FunctionCall, scopes: undefined | AztecAddress[]) => {
+    return async (call: FunctionCall, scopes: AccessScopes) => {
       const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
       if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
         throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);

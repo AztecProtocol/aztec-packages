@@ -146,6 +146,7 @@ describe('Oracle Version Check test suite', () => {
         anchorBlockHeader,
         senderForTags,
         jobId: 'test',
+        scopes: 'ALL_SCOPES',
       });
 
       expect(utilityAssertCompatibleOracleVersionSpy).toHaveBeenCalledTimes(1);

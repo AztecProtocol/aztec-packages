@@ -5,7 +5,7 @@ import { tryRecoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, serializeSignedBigInt, serializeToBuffer } from '@aztec/foundation/serialize';
 import { DutyType, type SigningContext } from '@aztec/validator-ha-signer/types';
 
 import type { L2BlockInfo } from '../block/l2_block_info.js';
@@ -81,7 +81,10 @@ export class CheckpointProposal extends Gossipable {
     /** Archive root after this checkpoint is applied */
     public readonly archive: Fr,
 
-    /** The proposer's signature over the checkpoint payload (checkpointHeader + archive) */
+    /** The fee asset price modifier in basis points (from oracle) */
+    public readonly feeAssetPriceModifier: bigint,
+
+    /** The proposer's signature over the checkpoint payload (checkpointHeader + archive + feeAssetPriceModifier) */
     public readonly signature: Signature,
 
     /** Optional last block info, including its own signature for BlockProposal extraction */
@@ -160,20 +163,31 @@ export class CheckpointProposal extends Gossipable {
 
   /**
    * Get the payload to sign for this checkpoint proposal.
-   * The signature is over the checkpoint header + archive root (for consensus).
+   * The signature is over the checkpoint header + archive root + feeAssetPriceModifier (for consensus).
    */
   getPayloadToSign(domainSeparator: SignatureDomainSeparator): Buffer {
-    return serializeToBuffer([domainSeparator, this.checkpointHeader, this.archive]);
+    return serializeToBuffer([
+      domainSeparator,
+      this.checkpointHeader,
+      this.archive,
+      serializeSignedBigInt(this.feeAssetPriceModifier),
+    ]);
   }
 
   static async createProposalFromSigner(
     checkpointHeader: CheckpointHeader,
     archiveRoot: Fr,
+    feeAssetPriceModifier: bigint,
     lastBlockInfo: CheckpointLastBlockData | undefined,
     payloadSigner: (payload: Buffer32, context: SigningContext) => Promise<Signature>,
   ): Promise<CheckpointProposal> {
     // Sign the checkpoint payload with CHECKPOINT_PROPOSAL duty type
-    const tempProposal = new CheckpointProposal(checkpointHeader, archiveRoot, Signature.empty(), undefined);
+    const tempProposal = new CheckpointProposal(
+      checkpointHeader,
+      archiveRoot,
+      feeAssetPriceModifier,
+      Signature.empty(),
+    );
     const checkpointHash = getHashedSignaturePayload(tempProposal, SignatureDomainSeparator.checkpointProposal);
 
     const checkpointContext: SigningContext = {
@@ -184,7 +198,7 @@ export class CheckpointProposal extends Gossipable {
     const checkpointSignature = await payloadSigner(checkpointHash, checkpointContext);
 
     if (!lastBlockInfo) {
-      return new CheckpointProposal(checkpointHeader, archiveRoot, checkpointSignature);
+      return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, checkpointSignature);
     }
 
     const lastBlockProposal = await BlockProposal.createProposalFromSigner(
@@ -197,7 +211,7 @@ export class CheckpointProposal extends Gossipable {
       payloadSigner,
     );
 
-    return new CheckpointProposal(checkpointHeader, archiveRoot, checkpointSignature, {
+    return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, checkpointSignature, {
       blockHeader: lastBlockInfo.blockHeader,
       indexWithinCheckpoint: lastBlockInfo.indexWithinCheckpoint,
       txHashes: lastBlockInfo.txHashes,
@@ -237,7 +251,12 @@ export class CheckpointProposal extends Gossipable {
   }
 
   toBuffer(): Buffer {
-    const buffer: any[] = [this.checkpointHeader, this.archive, this.signature];
+    const buffer: any[] = [
+      this.checkpointHeader,
+      this.archive,
+      serializeSignedBigInt(this.feeAssetPriceModifier),
+      this.signature,
+    ];
 
     if (this.lastBlock) {
       buffer.push(1); // hasLastBlock = true
@@ -264,6 +283,7 @@ export class CheckpointProposal extends Gossipable {
 
     const checkpointHeader = reader.readObject(CheckpointHeader);
     const archive = reader.readObject(Fr);
+    const feeAssetPriceModifier = reader.readInt256();
     const signature = reader.readObject(Signature);
 
     const hasLastBlock = reader.readNumber();
@@ -286,7 +306,7 @@ export class CheckpointProposal extends Gossipable {
         }
       }
 
-      return new CheckpointProposal(checkpointHeader, archive, signature, {
+      return new CheckpointProposal(checkpointHeader, archive, feeAssetPriceModifier, signature, {
         blockHeader,
         indexWithinCheckpoint,
         txHashes,
@@ -295,7 +315,7 @@ export class CheckpointProposal extends Gossipable {
       });
     }
 
-    return new CheckpointProposal(checkpointHeader, archive, signature);
+    return new CheckpointProposal(checkpointHeader, archive, feeAssetPriceModifier, signature);
   }
 
   getSize(): number {
@@ -303,6 +323,7 @@ export class CheckpointProposal extends Gossipable {
       this.checkpointHeader.toBuffer().length +
       this.archive.size +
       this.signature.getSize() +
+      8 /* feeAssetPriceModifier */ +
       4; /* hasLastBlock flag */
 
     if (this.lastBlock) {
@@ -320,11 +341,11 @@ export class CheckpointProposal extends Gossipable {
   }
 
   static empty(): CheckpointProposal {
-    return new CheckpointProposal(CheckpointHeader.empty(), Fr.ZERO, Signature.empty());
+    return new CheckpointProposal(CheckpointHeader.empty(), Fr.ZERO, 0n, Signature.empty());
   }
 
   static random(): CheckpointProposal {
-    return new CheckpointProposal(CheckpointHeader.random(), Fr.random(), Signature.random(), {
+    return new CheckpointProposal(CheckpointHeader.random(), Fr.random(), 0n, Signature.random(), {
       blockHeader: BlockHeader.random(),
       indexWithinCheckpoint: IndexWithinCheckpoint(Math.floor(Math.random() * 5)),
       txHashes: [TxHash.random(), TxHash.random()],
@@ -337,6 +358,7 @@ export class CheckpointProposal extends Gossipable {
       checkpointHeader: this.checkpointHeader.toInspect(),
       archive: this.archive.toString(),
       signature: this.signature.toString(),
+      feeAssetPriceModifier: this.feeAssetPriceModifier.toString(),
       lastBlock: this.lastBlock
         ? {
             blockHeader: this.lastBlock.blockHeader.toInspect(),
@@ -353,7 +375,7 @@ export class CheckpointProposal extends Gossipable {
    * Used when the lastBlock has been extracted and stored separately.
    */
   toCore(): CheckpointProposalCore {
-    return new CheckpointProposal(this.checkpointHeader, this.archive, this.signature);
+    return new CheckpointProposal(this.checkpointHeader, this.archive, this.feeAssetPriceModifier, this.signature);
   }
 }
 
