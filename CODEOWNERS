@@ -20,7 +20,7 @@
 /barretenberg/cpp/src/barretenberg/vm @jeanmon @IlyasRidhuan @fcarreiro
 /barretenberg/cpp/src/barretenberg/vm2 @jeanmon @IlyasRidhuan @fcarreiro
 # on changes to public context in aztec-nr
-/noir-projects/aztec-nr/aztec/src/context/public_context.nr @fcarreiro @dbanks12
+/noir-projects/aztec-nr/aztec/src/context/public_context.nr @fcarreiro @dbanks12 @nventuro
 # on changes to the AVM simulator and supporting modules
 /yarn-project/simulator/src/public @fcarreiro @dbanks12 @sirasistant
 # on changes to the AVM transpiler
@@ -35,6 +35,9 @@
 
 # Notify the circuit team of changes to the protocol circuits
 /noir-projects/noir-protocol-circuits @LeilaWang
+
+# Notify nventuro of changes to aztec-nr
+/noir-projects/aztec-nr @nventuro
 
 # Notify devrel of changes to docs examples
 /docs/examples @AztecProtocol/devrel

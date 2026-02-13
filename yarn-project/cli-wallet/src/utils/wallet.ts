@@ -13,13 +13,12 @@ import { AccountManager, type Aliased, type SimulateOptions } from '@aztec/aztec
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { LogFn } from '@aztec/foundation/log';
-import type { AccessScopes } from '@aztec/pxe/client/lazy';
+import type { AccessScopes, NotesFilter } from '@aztec/pxe/client/lazy';
 import type { PXEConfig } from '@aztec/pxe/config';
 import type { PXE } from '@aztec/pxe/server';
 import { createPXE, getPXEConfig } from '@aztec/pxe/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
-import type { NotesFilter } from '@aztec/stdlib/note';
 import { NoteDao } from '@aztec/stdlib/note';
 import type { TxProvingResult, TxSimulationResult } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
