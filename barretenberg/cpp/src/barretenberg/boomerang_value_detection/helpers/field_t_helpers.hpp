@@ -103,6 +103,7 @@ std::optional<Field<CircuitBuilder>> find_fixed_witness_field(StaticAnalyzer_<FF
 
 /**
  * @brief Get the result of field_t * field_t from the circuit
+ * @details mirrors field_t::operator*
  * @param analyzer The analyzer
  * @param builder The builder
  * @param a The first field_t
@@ -158,6 +159,7 @@ std::optional<Field<CircuitBuilder>> get_mul_gate_output(StaticAnalyzer_<FF, Cir
 
 /**
  * @brief Get the result of field_t + field_t from the circuit
+ * @details mirrors field_t::operator+
  * @param builder The builder
  * @param a The first field_t
  * @param b The second field_t
@@ -208,6 +210,7 @@ std::optional<Field<CircuitBuilder>> get_add_gate_output(StaticAnalyzer_<FF, Cir
 
 /**
  * @brief Get the result of field_t.madd(field_t, field_t) from the circuit
+ * @details mirrors field_t::madd
  * @param analyzer The analyzer
  * @param builder The builder
  * @param a The first field_t
@@ -270,6 +273,7 @@ std::optional<Field<CircuitBuilder>> get_madd_gate_output(StaticAnalyzer_<FF, Ci
 
 /**
  * @brief Get the result of field_t.add_two(field_t, field_t) from the circuit
+ * @details mirrors field_t::add_two
  * @param analyzer The analyzer
  * @param builder The builder
  * @param a The first field_t
@@ -338,6 +342,7 @@ std::optional<Field<CircuitBuilder>> get_add_two_gate_output(StaticAnalyzer_<FF,
 
 /**
  * @brief Check if the assert zero gate exists for the field_t
+ * @details mirrors field_t::is_zero
  * @param analyzer The analyzer
  * @param builder The builder
  * @param field The field_t
@@ -378,6 +383,7 @@ bool is_assert_zero_gate_exists(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
 
 /**
  * @brief Get the result of the conditional assign gate from the circuit
+ * @details mirrors field_t::conditional_assign
  * @param analyzer The analyzer
  * @param builder The builder
  * @param predicate_field The predicate field_t
@@ -480,6 +486,7 @@ std::optional<Bool<CircuitBuilder>> get_is_zero_result(StaticAnalyzer_<FF, Circu
  * @brief Get the result of field_t::operator== from the circuit
  * @details operator== calls (a - b).is_zero(). This function computes the subtraction
  *          and then finds the is_zero result.
+ * @details mirrors field_t::operator==
  * @param analyzer The analyzer
  * @param builder The builder
  * @param a_field The first field_t
@@ -534,6 +541,7 @@ std::optional<Bool<CircuitBuilder>> get_equality_result(StaticAnalyzer_<FF, Circ
  * @details evaluate_polynomial_identity creates a big_mul_add_gate constraining a*b + c + d = 0.
  *          Given a, c, d, this finds b from w_r. Used for finding lambda in EC addition.
  *          Assumes b is a fresh witness (mul=1, add=0).
+ * @details mirrors field_t::evaluate_polynomial_identity
  * @param analyzer The analyzer
  * @param builder The builder
  * @param a_field Operand a (w_l)
@@ -592,6 +600,7 @@ std::optional<Field<CircuitBuilder>> get_evaluate_polynomial_identity_b(StaticAn
  * @brief Check if field_t::assert_equal constraint exists between two fields
  * @details assert_equal either creates a copy constraint (merging real_variable_index) or
  *          an arithmetic gate (a*q_l - b*q_r + q_c = 0) depending on whether both are normalized.
+ * @details mirrors field_t::operator==
  * @param analyzer The analyzer
  * @param builder The builder
  * @param a_field The first field_t

@@ -37,6 +37,7 @@ template <typename FF> bool is_point_constant(Point<FF> point)
 /**
  * @brief Get the real point indices (after conditional_assign) from the witness indices. We need this to process
  * to_grumpkin_point, which uses conditional_assign to set the point to the generator if the predicate is false.
+ * @details mirrors cycle_group::to_grumpkin_point
  * @param analyzer The analyzer
  * @param builder The builder
  * @param point The point
@@ -120,6 +121,7 @@ std::optional<RealPoint<CircuitBuilder>> get_real_point(StaticAnalyzer_<FF, Circ
 
 /**
  * @brief Check that all gates needed for the on-curve check exist.
+ * @details mirrors cycle_group::validate_on_curve
  * @param analyzer The analyzer
  * @param builder The builder
  * @param point The point
@@ -190,6 +192,7 @@ bool is_on_curve_check_exists(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
  * @brief Find the result of an ECC doubling gate from the elliptic block
  * @details Searches the elliptic block for a gate where w_r=x1_idx, w_o=modified_y_idx, q_m=1 (is_double).
  *          Returns x3, y3 from the next gate's w_r and w_o.
+ * @details mirrors cycle_group::dbl
  * @param builder The builder
  * @param x1_field The x coordinate of the point to double
  * @param modified_y_field The modified y coordinate (conditional_assign(is_infinity, 1, y))
@@ -238,6 +241,7 @@ std::optional<std::pair<Field<CircuitBuilder>, Field<CircuitBuilder>>> get_dbl_g
  * @details Traces through cycle_group::operator+ step by step, then verifies
  *          the conditional_assign and assert_equal chain connecting the computation
  *          result to the ACIR output witnesses.
+ * @details mirrors cycle_group::operator+
  * @param analyzer The analyzer
  * @param builder The builder
  * @param input1 Point for input1 (after to_grumpkin_point processing)
