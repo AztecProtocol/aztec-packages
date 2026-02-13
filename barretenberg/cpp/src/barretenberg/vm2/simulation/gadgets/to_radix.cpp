@@ -69,9 +69,9 @@ std::pair<std::vector<bool>, /* truncated */ bool> ToRadix::to_le_bits(const FF&
     std::vector<bool> bits;
     bits.reserve(limbs.size());
 
-    std::ranges::for_each(std::as_const(limbs), [&](uint8_t val) {
+    for (uint8_t val : limbs) {
         bits.push_back(val != 0); // Convert nonzero values to `true`, zero to `false`
-    });
+    };
 
     return { bits, truncated };
 }
