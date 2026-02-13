@@ -1,6 +1,6 @@
 # @aztec/aztec.js
 
-Version: v4.0.0-nightly.20260210
+Version: v4.0.0-nightly.20260212
 
 ## Quick Import Reference
 
@@ -1189,6 +1189,7 @@ Provides basic information about the running node.
 - `l1ContractAddresses: L1ContractAddresses` - The deployed l1 contract addresses
 - `nodeVersion: string` - Version as tracked in the aztec-packages repository.
 - `protocolContractAddresses: ProtocolContractAddresses` - Protocol contract addresses
+- `realProofs: boolean` - Whether the node requires real proofs for transaction submission.
 - `rollupVersion: number` - Rollup version.
 
 ### NoirCompiledContract
@@ -1235,18 +1236,6 @@ Wallet capability response. Returned by wallet after user reviews and approves/d
 function BlockNumber(value: number) => BlockNumber
 ```
 Creates a BlockNumber from a number.
-
-### broadcastPrivateFunction
-```typescript
-function broadcastPrivateFunction(wallet: Wallet, artifact: ContractArtifact, selector: FunctionSelector) => Promise<ContractFunctionInteraction>
-```
-Sets up a call to broadcast a private function's bytecode via the ClassRegistry contract. Note that this is not required for users to call the function, but is rather a convenience to make this code publicly available so dapps or wallets do not need to redistribute it.
-
-### broadcastUtilityFunction
-```typescript
-function broadcastUtilityFunction(wallet: Wallet, artifact: ContractArtifact, selector: FunctionSelector) => Promise<ContractFunctionInteraction>
-```
-Sets up a call to broadcast a utility function's bytecode via the ClassRegistry contract. Note that this is not required for users to call the function, but is rather a convenience to make this code publicly available so dapps or wallets do not need to redistribute it.
 
 ### computeAppNullifierHidingKey
 ```typescript
@@ -1770,6 +1759,12 @@ Represents the options for simulating a contract function interaction. Allows sp
 type SimulateOptions = Omit<SimulateInteractionOptions, "fee"> & { fee?: GasSettingsOption & FeeEstimationOptions }
 ```
 Options for simulating interactions with the wallet. Overrides the fee settings of an interaction with a simplified version that only hints at the wallet whether the interaction contains a fee payment method or not
+
+### SimulateUtilityOptions
+```typescript
+type SimulateUtilityOptions = unknown
+```
+Options for simulating a utility function call.
 
 ### SimulationReturn
 ```typescript

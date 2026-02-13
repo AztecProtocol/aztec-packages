@@ -13,7 +13,7 @@ import {
   computeSecretHash,
 } from "@aztec/stdlib/hash";
 import { computeL2ToL1MembershipWitness } from "@aztec/stdlib/messaging";
-import { TestWallet } from "@aztec/test-wallet/server";
+import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { decodeEventLog, pad } from "@aztec/viem";
 import { foundry } from "@aztec/viem/chains";
 import NFTPortal from "../../../target/solidity/nft_bridge/NFTPortal.sol/NFTPortal.json" with { type: "json" };
@@ -29,7 +29,7 @@ const ownerEthAddress = l1Client.account.address;
 // Setup L2 using Aztec's local network and one of its initial accounts
 console.log("Setting up L2...\n");
 const node = createAztecNodeClient("http://localhost:8080");
-const aztecWallet = await TestWallet.create(node);
+const aztecWallet = await EmbeddedWallet.create(node);
 const [accData] = await getInitialTestAccountsData();
 const account = await aztecWallet.createSchnorrAccount(
   accData.secret,
@@ -202,7 +202,7 @@ const messageLeafIndex = new Fr(messageSentLogs[0].decoded.args.index);
 
 // docs:start:mine_blocks
 async function mine2Blocks(
-  aztecWallet: TestWallet,
+  aztecWallet: EmbeddedWallet,
   accountAddress: AztecAddress,
 ) {
   await NFTPunkContract.deploy(aztecWallet, accountAddress).send({

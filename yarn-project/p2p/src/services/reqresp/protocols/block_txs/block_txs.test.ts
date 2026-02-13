@@ -1,14 +1,14 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { BlockProposal } from '@aztec/stdlib/p2p';
+import { BlockProposal, MAX_TX_SIZE_KB } from '@aztec/stdlib/p2p';
 import { makeBlockHeader, makeBlockProposal, mockTx } from '@aztec/stdlib/testing';
 import { TxArray, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 
 import { describe, expect, it } from '@jest/globals';
 
 import { BitVector } from './bitvector.js';
-import { BlockTxsRequest, BlockTxsResponse } from './block_txs_reqresp.js';
+import { BlockTxsRequest, BlockTxsResponse, calculateBlockTxsResponseSize } from './block_txs_reqresp.js';
 
 describe('BlockTxRequest', () => {
   // eslint-disable-next-line require-await
@@ -174,5 +174,51 @@ describe('BlockTxResponse', () => {
     expect(deserialized.archiveRoot).toEqual(archiveRoot);
     expect(deserialized.txs.length).toBe(0);
     expect(deserialized.txIndices.getTrueIndices()).toEqual([]);
+  });
+});
+
+describe('calculateBlockTxsResponseSize', () => {
+  it('should return correct size based on requested tx indices', () => {
+    const archiveRoot = Fr.random();
+    const txIndices = BitVector.init(16, [0, 5, 10, 15]); // 4 txs requested
+    const request = new BlockTxsRequest(archiveRoot, new TxHashArray(), txIndices);
+    const buffer = request.toBuffer();
+
+    expect(calculateBlockTxsResponseSize(buffer)).toBe(4 * MAX_TX_SIZE_KB + 1);
+  });
+
+  it('should return correct size for a single requested tx', () => {
+    const archiveRoot = Fr.random();
+    const txIndices = BitVector.init(8, [3]); // 1 tx requested
+    const request = new BlockTxsRequest(archiveRoot, new TxHashArray(), txIndices);
+    const buffer = request.toBuffer();
+
+    expect(calculateBlockTxsResponseSize(buffer)).toBe(MAX_TX_SIZE_KB + 1);
+  });
+
+  it('should return overhead-only for request with no indices set', () => {
+    const archiveRoot = Fr.random();
+    const txIndices = BitVector.init(8, []); // 0 txs requested
+    const request = new BlockTxsRequest(archiveRoot, new TxHashArray(), txIndices);
+    const buffer = request.toBuffer();
+
+    expect(calculateBlockTxsResponseSize(buffer)).toBe(1); // just overhead
+  });
+
+  it('should return correct size for request with all indices set', () => {
+    const count = 32;
+    const allIndices = Array.from({ length: count }, (_, i) => i);
+    const archiveRoot = Fr.random();
+    const txIndices = BitVector.init(count, allIndices);
+    const request = new BlockTxsRequest(archiveRoot, new TxHashArray(), txIndices);
+    const buffer = request.toBuffer();
+
+    expect(calculateBlockTxsResponseSize(buffer)).toBe(count * MAX_TX_SIZE_KB + 1);
+  });
+
+  it('should fall back to single tx size for garbage buffer', () => {
+    const garbage = Buffer.from('not a valid buffer');
+
+    expect(calculateBlockTxsResponseSize(garbage)).toBe(MAX_TX_SIZE_KB + 1);
   });
 });

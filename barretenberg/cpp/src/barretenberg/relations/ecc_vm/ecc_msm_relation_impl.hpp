@@ -255,27 +255,28 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      * @brief Addition relation
      *
      * All addition operations in ECCVMMSMRelationImpl are conditional additions, as we sometimes want to add values and
-     * other times simply want to propagate values. (consider, e.g., when `q_add2 == 0`.) This method returns two
-     * Accumulators that represent x/y coord of output. Output is either an addition of inputs (if `selector == 1`), or
-     * xa/ya (if `selector == 0`). Additionally, we require `lambda = 0` if `selector = 0`. The `collision_relation`
-     * accumulator tracks a subrelation that validates xb != xa.
-     * Repeated calls to this method will increase the max degree of the Accumulator output:
-     * deg(x_out) = 1 + max(deg(xa, xb)), deg(y_out) = max(1 + deg(x_out), 1 + deg(ya))
-     * in our application, we chain together 4 of these with the pattern in such a way that the final x_out will have
-     * degree 5 and the final y_out will have degree 6.
+     * other times simply want to propagate values (consider, e.g., when `q_add2 == 0`).
+     *
+     * This method returns three Accumulators: (x_out, y_out, slope_relation)
+     * - x_out, y_out: Output point coordinates. Either an addition of inputs (if `selector == 1`), or xa/ya (if
+     *   `selector == 0`).
+     * - slope_relation: Constraint enforcing that lambda is computed correctly (lambda = 0 if selector = 0, else
+     *   lambda = (yb - ya) / (xb - xa))
+     *
+     * The `collision_relation` parameter tracks a subrelation that validates xb != xa. This collision check means that
+     * our system is only statistically complete, not perfectly complete. (See the `offset_generator` and the
+     * `first_add` method for details.)
+     *
+     * Repeated calls to this method will increase the max degree of the Accumulator output: deg(x_out) = 1 +
+     * max(deg(xa), deg(xb)), deg(y_out) = max(1 + deg(x_out), 1 + deg(ya)). In our application, we chain together 4 of
+     * these with the pattern in such a way that the final x_out will have degree 5 and the final y_out will have
+     * degree 6.
      */
-    auto add = [&](auto& xb,
-                   auto& yb,
-                   auto& xa,
-                   auto& ya,
-                   auto& lambda,
-                   auto& selector,
-                   auto& relation,
-                   auto& collision_relation) {
+    auto add = [&](auto& xb, auto& yb, auto& xa, auto& ya, auto& lambda, auto& selector, auto& collision_relation) {
         // computation of lambda is valid: if q == 1, then L == (yb - ya) / (xb - xa)
         // if q == 0, then L == 0. combining these into a single constraint yields:
         // q * (L * (xb - xa - 1) - (yb - ya)) + L = 0
-        relation += selector * (lambda * (xb - xa - 1) - (yb - ya)) + lambda;
+        auto slope_relation = selector * (lambda * (xb - xa - 1) - (yb - ya)) + lambda;
         collision_relation += selector * (xb - xa);
         // x_out = L.L + (-xb - xa) * q + (1 - q) xa
         // deg L = 1, deg q = 1, min(deg(xa), deg(xb))≥ 1.
@@ -285,65 +286,84 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
         // y_out = L . (xa - x_out) - ya * q + (1 - q) ya
         // hence deg(y_out) = max(1 + deg(x_out), 1 + deg(ya))
         auto y_out = lambda * (xa - x_out) + (-ya - ya) * selector + ya;
-        return std::array<Accumulator, 2>{ x_out, y_out };
+        return std::array<Accumulator, 3>{ x_out, y_out, slope_relation };
     };
 
     /**
-     * @brief First Addition relation
+     * @brief First Addition relation - handles the first addition in each row with inhomogeneous base point selection
      *
-     * The first add operation per row is treated differently.
-     * Normally we add the point xa/ya with an accumulator xb/yb,
-     * BUT, if this row STARTS a multiscalar multiplication,
-     * We need to add the point xa/ya with the "offset generator point" xo/yo
-     * The offset generator point's purpose is to ensure that no intermediate computations in the MSM will produce
-     * points at infinity, for an honest Prover.
-     * (we ensure soundness by validating the x-coordinates of xa/xb are not the same i.e. incomplete addition formula
-     * edge cases have not been hit)
-     * Note: this technique is only statistically complete, as there is a chance of an honest Prover creating a
-     * collision, but this probability is equivalent to solving the discrete logarithm problem
+     * @details The first add operation per row is treated inhomogeneously based on whether we are starting a new MSM
+     * or continuing an existing one across multiple rows.
+     *
+     * This method returns three Accumulators: (x_out, y_out, slope_relation), computed as follows:
+     *
+     * **Case 1: Continuing MSM (selector == 0, i.e., msm_transition == 0)**
+     * - Add point (xa, ya) to the accumulator (xb, yb) from the previous row
+     * - Example: In an MSM of size 9 spanning 3 rows, rows 2 and 3 use selector=0 to continue with their respective
+     *   accumulators
+     *
+     * **Case 2: Starting new MSM (selector == 1, i.e., msm_transition == 1)**
+     * - Add point (xa, ya) to the fixed "offset generator" point (xo, yo)
+     * - The offset generator serves two purposes for honest Provers:
+     *   (a) Ensures no intermediate MSM computations produce points at infinity
+     *   (b) Eliminates branch logic for the EC ops
+     * - Example: In an MSM of size 9, only row 1 has msm_transition=1 and uses the offset generator
+     *
+     * **Soundness via collision check:**
+     * We enforce soundness by constraining that the x-coordinates of the two input points must differ (xa != xb or
+     * xa != xo). This prevents the Prover from exploiting incomplete addition formula edge cases (point doubling or
+     * adding inverses). The collision_relation accumulator tracks this constraint, which is later verified via an
+     * inverse check.
+     *
+     * **Statistical completeness:**
+     * Note that this technique is only *statistically* complete. There exist valid MSM computations where an honest
+     * Prover would encounter x-coordinate collisions (xa == xb or xa == xo), causing the constraints to become
+     * unsatisfiable. However, the probability of such a collision is negligible—equivalent to solving the discrete
+     * logarithm problem.
      */
-    auto first_add = [&](auto& xb,
-                         auto& yb,
-                         auto& xa,
-                         auto& ya,
-                         auto& lambda,
-                         auto& selector,
-                         auto& relation,
-                         auto& collision_relation) {
-        // N.B. this is brittle - should be curve agnostic but we don't propagate the curve parameter into relations!
-        constexpr auto offset_generator = get_precomputed_generators<g1, "ECCVM_OFFSET_GENERATOR", 1>()[0];
-        constexpr uint256_t oxu = offset_generator.x;
-        constexpr uint256_t oyu = offset_generator.y;
-        const Accumulator xo(oxu);
-        const Accumulator yo(oyu);
-        // set (x, y) to be either accumulator if `selector == 0` or OFFSET if `selector == 1`.
-        auto x = xo * selector + xb * (-selector + 1);
-        auto y = yo * selector + yb * (-selector + 1);
-        relation += lambda * (x - xa) - (y - ya); // degree 3
-        collision_relation += (xa - x);
-        auto x_out = lambda * lambda + (-x - xa);
-        auto y_out = lambda * (xa - x_out) - ya;
-        return std::array<Accumulator, 2>{ x_out, y_out };
-    };
+    auto first_add =
+        [&](auto& xb, auto& yb, auto& xa, auto& ya, auto& lambda, auto& selector, auto& collision_relation) {
+            // N.B. this is brittle - should be curve agnostic but we don't propagate the curve parameter into
+            // relations!
+            constexpr auto offset_generator = get_precomputed_generators<g1, "ECCVM_OFFSET_GENERATOR", 1>()[0];
+            constexpr uint256_t oxu = offset_generator.x;
+            constexpr uint256_t oyu = offset_generator.y;
+            const Accumulator xo(oxu);
+            const Accumulator yo(oyu);
+            // set (x, y) to be either accumulator if `selector == 0` or OFFSET if `selector == 1`.
+            auto x = xo * selector + xb * (-selector + 1);
+            auto y = yo * selector + yb * (-selector + 1);
+            auto slope_relation = lambda * (x - xa) - (y - ya); // degree 3
+            collision_relation += (xa - x);
+            auto x_out = lambda * lambda + (-x - xa);
+            auto y_out = lambda * (xa - x_out) - ya;
+            return std::array<Accumulator, 3>{ x_out, y_out, slope_relation };
+        };
 
     // ADD operations (if row represents ADD round, not SKEW or DOUBLE)
-    Accumulator add_relation(0); // validates the correctness of all elliptic curve additions.
     Accumulator x1_collision_relation(0);
     Accumulator x2_collision_relation(0);
     Accumulator x3_collision_relation(0);
     Accumulator x4_collision_relation(0);
     // If `msm_transition == 1`, we have started a new MSM. We need to treat the current value of [Acc] as the point at
     // infinity!
-    auto [x_t1, y_t1] =
-        first_add(acc_x, acc_y, x1, y1, lambda1, msm_transition, add_relation, x1_collision_relation); // [deg 2, deg 3]
-    auto [x_t2, y_t2] = add(x2, y2, x_t1, y_t1, lambda2, add2, add_relation, x2_collision_relation);   // [deg 3, deg 4]
-    auto [x_t3, y_t3] = add(x3, y3, x_t2, y_t2, lambda3, add3, add_relation, x3_collision_relation);   // [deg 4, deg 5]
-    auto [x_t4, y_t4] = add(x4, y4, x_t3, y_t3, lambda4, add4, add_relation, x4_collision_relation);   // [deg 5, deg 6]
+    auto [x_t1, y_t1, add_slope_relation1] =
+        first_add(acc_x, acc_y, x1, y1, lambda1, msm_transition, x1_collision_relation); // [deg 2, deg 3]
+    auto [x_t2, y_t2, add_slope_relation2] =
+        add(x2, y2, x_t1, y_t1, lambda2, add2, x2_collision_relation); // [deg 3, deg 4]
+    auto [x_t3, y_t3, add_slope_relation3] =
+        add(x3, y3, x_t2, y_t2, lambda3, add3, x3_collision_relation); // [deg 4, deg 5]
+    auto [x_t4, y_t4, add_slope_relation4] =
+        add(x4, y4, x_t3, y_t3, lambda4, add4, x4_collision_relation); // [deg 5, deg 6]
 
     // Validate accumulator output matches ADD output if q_add = 1
     std::get<0>(accumulator) += q_add * (acc_x_shift - x_t4) * scaling_factor;
     std::get<1>(accumulator) += q_add * (acc_y_shift - y_t4) * scaling_factor;
-    std::get<2>(accumulator) += q_add * add_relation * scaling_factor;
+    // Validate slope relations for each addition separately to prevent cancellation attacks
+    std::get<2>(accumulator) += q_add * add_slope_relation1 * scaling_factor;
+    std::get<36>(accumulator) += q_add * add_slope_relation2 * scaling_factor;
+    std::get<37>(accumulator) += q_add * add_slope_relation3 * scaling_factor;
+    std::get<38>(accumulator) += q_add * add_slope_relation4 * scaling_factor;
 
     /**
      * @brief doubles a point.
@@ -352,12 +372,12 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      * Degree of y_out = 3
      * Degree of relation = 4
      */
-    auto dbl = [&](auto& x, auto& y, auto& lambda, auto& relation) {
+    auto dbl = [&](auto& x, auto& y, auto& lambda) {
         auto two_x = x + x;
-        relation += lambda * (y + y) - (two_x + x) * x;
+        auto slope_relation = lambda * (y + y) - (two_x + x) * x;
         auto x_out = lambda.sqr() - two_x;
         auto y_out = lambda * (x - x_out) - y;
-        return std::array<Accumulator, 2>{ x_out, y_out };
+        return std::array<Accumulator, 3>{ x_out, y_out, slope_relation };
     };
 
     /**
@@ -375,14 +395,17 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      * `q_double`. The reason for this is that `msm_round` witnesses the wNAF digit we are processing, and we only
      * perform the four doublings when we are done processing a wNAF digit. See round transition relations further down.
      */
-    Accumulator double_relation(0);
-    auto [x_d1, y_d1] = dbl(acc_x, acc_y, lambda1, double_relation);
-    auto [x_d2, y_d2] = dbl(x_d1, y_d1, lambda2, double_relation);
-    auto [x_d3, y_d3] = dbl(x_d2, y_d2, lambda3, double_relation);
-    auto [x_d4, y_d4] = dbl(x_d3, y_d3, lambda4, double_relation);
+    auto [x_d1, y_d1, double_slope_relation1] = dbl(acc_x, acc_y, lambda1);
+    auto [x_d2, y_d2, double_slope_relation2] = dbl(x_d1, y_d1, lambda2);
+    auto [x_d3, y_d3, double_slope_relation3] = dbl(x_d2, y_d2, lambda3);
+    auto [x_d4, y_d4, double_slope_relation4] = dbl(x_d3, y_d3, lambda4);
     std::get<10>(accumulator) += q_double * (acc_x_shift - x_d4) * scaling_factor;
     std::get<11>(accumulator) += q_double * (acc_y_shift - y_d4) * scaling_factor;
-    std::get<12>(accumulator) += q_double * double_relation * scaling_factor;
+    // Validate slope relations for each doubling separately to prevent cancellation attacks
+    std::get<12>(accumulator) += q_double * double_slope_relation1 * scaling_factor;
+    std::get<39>(accumulator) += q_double * double_slope_relation2 * scaling_factor;
+    std::get<40>(accumulator) += q_double * double_slope_relation3 * scaling_factor;
+    std::get<41>(accumulator) += q_double * double_slope_relation4 * scaling_factor;
 
     /**
      * @brief SKEW operations
@@ -397,7 +420,6 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      * is 32. We implement this constraint slightly differently. For more details, see the round transition relations
      * below.
      */
-    Accumulator skew_relation(0);
     static FF inverse_seven = FF(7).invert();
     auto skew1_select = slice1 * inverse_seven;
     auto skew2_select = slice2 * inverse_seven;
@@ -412,15 +434,23 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // this would increase degree of sumcheck identity vs evaluating them separately.
     // This is because, for add rounds, the result of adding [P1], [Acc] is [P1 + Acc] or [P1]
     //             but for skew rounds, the result of adding [P1], [Acc] is [P1 + Acc] or [Acc]
-    auto [x_s1, y_s1] = add(x1, y1, acc_x, acc_y, lambda1, skew1_select, skew_relation, x1_skew_collision_relation);
-    auto [x_s2, y_s2] = add(x2, y2, x_s1, y_s1, lambda2, skew2_select, skew_relation, x2_skew_collision_relation);
-    auto [x_s3, y_s3] = add(x3, y3, x_s2, y_s2, lambda3, skew3_select, skew_relation, x3_skew_collision_relation);
-    auto [x_s4, y_s4] = add(x4, y4, x_s3, y_s3, lambda4, skew4_select, skew_relation, x4_skew_collision_relation);
+    auto [x_s1, y_s1, skew_slope_relation1] =
+        add(x1, y1, acc_x, acc_y, lambda1, skew1_select, x1_skew_collision_relation);
+    auto [x_s2, y_s2, skew_slope_relation2] =
+        add(x2, y2, x_s1, y_s1, lambda2, skew2_select, x2_skew_collision_relation);
+    auto [x_s3, y_s3, skew_slope_relation3] =
+        add(x3, y3, x_s2, y_s2, lambda3, skew3_select, x3_skew_collision_relation);
+    auto [x_s4, y_s4, skew_slope_relation4] =
+        add(x4, y4, x_s3, y_s3, lambda4, skew4_select, x4_skew_collision_relation);
 
     // Validate accumulator output matches SKEW output if q_skew = 1
     std::get<3>(accumulator) += q_skew * (acc_x_shift - x_s4) * scaling_factor;
     std::get<4>(accumulator) += q_skew * (acc_y_shift - y_s4) * scaling_factor;
-    std::get<5>(accumulator) += q_skew * skew_relation * scaling_factor;
+    // Validate slope relations for each skew addition separately to prevent cancellation attacks
+    std::get<5>(accumulator) += q_skew * skew_slope_relation1 * scaling_factor;
+    std::get<42>(accumulator) += q_skew * skew_slope_relation2 * scaling_factor;
+    std::get<43>(accumulator) += q_skew * skew_slope_relation3 * scaling_factor;
+    std::get<44>(accumulator) += q_skew * skew_slope_relation4 * scaling_factor;
 
     // Check x-coordinates do not collide if row is an ADD row or a SKEW row
     // if either q_add or q_skew = 1, an inverse should exist for each computed relation

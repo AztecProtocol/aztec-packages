@@ -138,7 +138,6 @@ Included in the local network:
 - Deployed Aztec protocol contracts (for L1 and L2)
 - A set of test accounts with some test tokens to pay fees
 - Development tools to compile contracts and interact with the network (`aztec` and `aztec-wallet`)
-- All of this comes packaged in a Docker container to make it easy to install and run.
 
 ### Sequencer
 

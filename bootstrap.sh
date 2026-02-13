@@ -137,7 +137,7 @@ function check_toolchains {
     fi
   done
   # Check Node.js version.
-  local node_min_version="22.15.0"
+  local node_min_version="24.12.0"
   local node_installed_version=$(node --version | cut -d 'v' -f 2)
   if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
     encourage_dev_container
@@ -257,18 +257,6 @@ function start_txes {
 
 export test_cmds_file="/tmp/test_cmds"
 
-function test_engine_start {
-  # This trickery is to overcome an oddity in parallel.
-  # Turns out when we hold an open pipe to parallel, like we do using tail below,
-  # parallel will only process the result of job N when it receives a new job *after* job N has completed.
-  # This can prevent a "fail fast" situation, or prevent the results from the first batch of commands from showing up.
-  # Empty commands fed to run_test_cmd are no-ops, so we keep parallel processing results in timely fashion with this.
-  while ! grep -Eq '^STOP$' $test_cmds_file; do sleep 5; echo | atomic_append $test_cmds_file; done &
-  # Continuously stream the test cmds into parallelize.
-  DENOISE=0 parallelize < <(tail -n+0 -f $test_cmds_file)
-}
-export -f test_engine_start
-
 function prep {
   pull_submodules
   check_toolchains
@@ -289,7 +277,7 @@ function build_and_test {
   rm -f $test_cmds_file
   touch $test_cmds_file
   # put it in it's own process group, we can terminate on cleanup.
-  setsid color_prefix "test-engine" "denoise test_engine_start" &
+  setsid color_prefix "test-engine" "denoise \"test_engine $test_cmds_file\"" &
   test_engine_pid=$!
   test_engine_pgid=$(ps -o pgid= -p $test_engine_pid)
   echo "Started test engine with $test_engine_pid in PGID $test_engine_pgid."

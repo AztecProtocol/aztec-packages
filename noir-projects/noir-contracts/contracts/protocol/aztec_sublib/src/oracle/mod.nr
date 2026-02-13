@@ -11,9 +11,9 @@ pub mod enqueue_public_function_call;
 pub mod call_private_function;
 pub mod logs;
 
-// debug_log oracle is used by both noir-protocol-circuits and this crate and for this reason we just re-export it
+// logging oracle is used by both noir-protocol-circuits and this crate and for this reason we just re-export it
 // here from protocol_types.
-pub use protocol_types::debug_log;
+pub use protocol_types::logging;
 
 // version oracle is defined in aztec-nr and re-exported here as re-defining versions is not practical.
 pub use aztec::oracle::version;

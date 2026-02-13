@@ -4,7 +4,7 @@ use crate::messages::{
     logs::note::{decode_private_note_message, MAX_NOTE_PACKED_LEN},
     processing::enqueue_note_for_validation,
 };
-use crate::protocol::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, debug_log::debug_log_format};
+use crate::protocol::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, logging::debug_log_format};
 
 pub unconstrained fn process_private_note_msg<Env>(
     contract_address: AztecAddress,

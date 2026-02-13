@@ -900,10 +900,12 @@ field_t<Builder> field_t<Builder>::conditional_assign_internal(const bool_t<Buil
         result.set_origin_tag(OriginTag(predicate.get_origin_tag(), lhs.get_origin_tag(), rhs.get_origin_tag()));
         return result;
     }
-    // If lhs and rhs are the same witness or constant, just return it
+    // If lhs and rhs are the same witness or constant, just return it (but still merge tags)
     if (witness_indices_match(lhs, rhs) && (lhs.additive_constant == rhs.additive_constant) &&
         (lhs.multiplicative_constant == rhs.multiplicative_constant)) {
-        return lhs;
+        auto result = lhs;
+        result.set_origin_tag(OriginTag(predicate.get_origin_tag(), lhs.get_origin_tag(), rhs.get_origin_tag()));
+        return result;
     }
 
     return (lhs - rhs).madd(predicate, rhs);

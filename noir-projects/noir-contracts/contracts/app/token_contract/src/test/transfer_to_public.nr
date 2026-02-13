@@ -1,7 +1,7 @@
 use crate::test::utils;
 use crate::Token;
 use aztec::{oracle::random::random, test::helpers::authwit::add_private_authwit_from_call};
-use generic_proxy::GenericProxy;
+use generic_proxy_contract::GenericProxy;
 
 #[test]
 unconstrained fn transfer_to_public_on_behalf_of_self() {

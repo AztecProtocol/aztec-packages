@@ -175,7 +175,7 @@ describe('e2e_p2p_network', () => {
 
     // Set the system time in the node, only after we have warped the time and waited for a block
     // Time is only set in the NEXT block
-    t.ctx.dateProvider!.setTime(Number(timestamp) * 1000);
+    t.ctx.dateProvider.setTime(Number(timestamp) * 1000);
 
     // create our network of nodes and submit txs into each of them
     // the number of txs per node and the number of txs per rollup
@@ -185,7 +185,7 @@ describe('e2e_p2p_network', () => {
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider!,
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,

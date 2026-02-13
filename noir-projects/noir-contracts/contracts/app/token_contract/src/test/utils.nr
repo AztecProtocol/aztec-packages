@@ -95,13 +95,13 @@ pub unconstrained fn check_private_balance(
 pub unconstrained fn setup_and_mint_to_private_with_proxy() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, u128, AztecAddress) {
     let (mut env, token_contract_address, owner, recipient, mint_amount) =
         setup_and_mint_to_private(/* with_account_contracts */ true);
-    let proxy = env.deploy("@generic_proxy/GenericProxy").without_initializer();
+    let proxy = env.deploy("@generic_proxy_contract/GenericProxy").without_initializer();
     (env, token_contract_address, owner, recipient, mint_amount, proxy)
 }
 
 pub unconstrained fn setup_and_mint_to_public_with_proxy() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, u128, AztecAddress) {
     let (mut env, token_contract_address, owner, recipient, mint_amount) =
         setup_and_mint_to_public(/* with_account_contracts */ true);
-    let proxy = env.deploy("@generic_proxy/GenericProxy").without_initializer();
+    let proxy = env.deploy("@generic_proxy_contract/GenericProxy").without_initializer();
     (env, token_contract_address, owner, recipient, mint_amount, proxy)
 }

@@ -203,13 +203,21 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         const ecdsa_signature& signature,
         const TamperingMode mode)
     {
-        // We construct the point via its x,y-coordinates to avoid the on curve check of G1::from_witness. In this way
-        // we test the on curve check of the ecdsa verification function
+        std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
+        std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
+
+        stdlib::ecdsa_signature<Builder> sig{ stdlib::byte_array<Builder>(&builder, rr),
+                                              stdlib::byte_array<Builder>(&builder, ss) };
+
+        // We construct the point via its x,y-coordinates with an explicit infinity flag.
+        // This avoids:
+        // 1. The on-curve check of G1::from_witness (so we can test invalid points)
+        // 2. The expensive infinity auto-detection of the 2-arg constructor
         Fq x = Fq::from_witness(&builder, account.public_key.x);
         Fq y = Fq::from_witness(&builder, account.public_key.y);
         if (mode == TamperingMode::XCoordinateOverflow || mode == TamperingMode::YCoordinateOverflow) {
-            // To test the case in which one of the two coordinates is above the modulus of the base field, we need to
-            // override the limbs of the coordinates
+            // To test the case in which one of the two coordinates is above the modulus of the base field, we need
+            // to override the limbs of the coordinates
             uint256_t max_uint = (static_cast<uint256_t>(1) << 256) - 1;
             for (size_t idx = 0; idx < 4; idx++) {
                 builder.set_variable(mode == TamperingMode::XCoordinateOverflow
@@ -218,18 +226,22 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
                                      bb::fr(max_uint.slice(64 * idx, 64 * (idx + 1))));
             }
         }
+        if (mode == TamperingMode::InfinityPubKey) {
+            // Override coordinates to (0, 0) for infinity
+            x = Fq::from_witness(&builder, FqNative::zero());
+            y = Fq::from_witness(&builder, FqNative::zero());
+        }
+
+        // Create explicit infinity flag witness from the native point's infinity status
         bool_t is_infinity(
             stdlib::witness_t<Builder>(&builder, account.public_key.is_point_at_infinity() ? fr::one() : fr::zero()),
             false);
-        G1 pub_key(x, y, is_infinity, /*assert_on_curve=*/false);
+
+        // Use the test accessor to create element with explicit infinity flag (avoids expensive auto-detection)
+        G1 pub_key = stdlib::element_default::element_test_accessor::
+            create_element_with_explicit_infinity<Builder, Fq, Fr, G1Native>(
+                x, y, is_infinity, /*assert_on_curve=*/false);
         pub_key.set_free_witness_tag();
-        BB_ASSERT_EQ(pub_key.is_point_at_infinity().get_value(), account.public_key.is_point_at_infinity());
-
-        std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
-        std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
-
-        stdlib::ecdsa_signature<Builder> sig{ stdlib::byte_array<Builder>(&builder, rr),
-                                              stdlib::byte_array<Builder>(&builder, ss) };
 
         return { pub_key, sig };
     }
@@ -371,8 +383,8 @@ TYPED_TEST(EcdsaTests, VerifySignature)
 
     size_t finalized_num_gates =
         TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::None);
-    static constexpr size_t NUM_GATES_SECP256K1 = 41966;
-    static constexpr size_t NUM_GATES_SECP256R1 = IsMegaBuilder<typename Curve::Builder> ? 72025 : 72023;
+    static constexpr size_t NUM_GATES_SECP256K1 = 42284;
+    static constexpr size_t NUM_GATES_SECP256R1 = IsMegaBuilder<typename Curve::Builder> ? 72057 : 72055;
     BB_ASSERT_EQ(finalized_num_gates,
                  Curve::type == bb::CurveType::SECP256K1 ? NUM_GATES_SECP256K1 : NUM_GATES_SECP256R1,
                  "There has been a change in the number of gates for ECDSA verification");
