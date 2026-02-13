@@ -1,6 +1,7 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
+import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
@@ -406,6 +407,47 @@ describe('ValidatorClient', () => {
 
       const attestations = await validatorClient.attestToCheckpointProposal(checkpointProposal, sender);
       expect(attestations).toBeUndefined();
+      expect(addCheckpointAttestationsSpy).not.toHaveBeenCalled();
+    });
+
+    it('should not attest to a checkpoint proposal after validating a block for that slot if the fee asset price modifier is invalid', async () => {
+      const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addOwnCheckpointAttestations');
+
+      const didValidate = await validatorClient.validateBlockProposal(proposal, sender);
+      expect(didValidate).toBe(true);
+
+      const attestationsNegative = await validatorClient.attestToCheckpointProposal(
+        await makeCheckpointProposal({
+          archiveRoot: proposal.archive,
+          checkpointHeader: makeCheckpointHeader(0, { slotNumber: proposal.slotNumber }),
+          lastBlock: {
+            blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(123), slotNumber: proposal.slotNumber }),
+            indexWithinCheckpoint: IndexWithinCheckpoint(0),
+            txHashes: proposal.txHashes,
+          },
+          feeAssetPriceModifier: -MAX_FEE_ASSET_PRICE_MODIFIER_BPS - 1n,
+        }),
+        sender,
+      );
+
+      expect(attestationsNegative).toBeUndefined();
+      expect(addCheckpointAttestationsSpy).not.toHaveBeenCalled();
+
+      const attestationsPositive = await validatorClient.attestToCheckpointProposal(
+        await makeCheckpointProposal({
+          archiveRoot: proposal.archive,
+          checkpointHeader: makeCheckpointHeader(0, { slotNumber: proposal.slotNumber }),
+          lastBlock: {
+            blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(123), slotNumber: proposal.slotNumber }),
+            indexWithinCheckpoint: IndexWithinCheckpoint(0),
+            txHashes: proposal.txHashes,
+          },
+          feeAssetPriceModifier: MAX_FEE_ASSET_PRICE_MODIFIER_BPS + 1n,
+        }),
+        sender,
+      );
+
+      expect(attestationsPositive).toBeUndefined();
       expect(addCheckpointAttestationsSpy).not.toHaveBeenCalled();
     });
 

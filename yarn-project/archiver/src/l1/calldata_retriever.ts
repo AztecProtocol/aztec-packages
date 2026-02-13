@@ -92,6 +92,7 @@ export class CalldataRetriever {
     header: CheckpointHeader;
     attestations: CommitteeAttestation[];
     blockHash: string;
+    feeAssetPriceModifier: bigint;
   }> {
     this.logger.trace(`Fetching checkpoint ${checkpointNumber} from rollup tx ${txHash}`, {
       willValidateHashes: !!expectedHashes.attestationsHash || !!expectedHashes.payloadDigest,
@@ -421,6 +422,7 @@ export class CalldataRetriever {
     header: CheckpointHeader;
     attestations: CommitteeAttestation[];
     blockHash: string;
+    feeAssetPriceModifier: bigint;
   } {
     const { functionName: rollupFunctionName, args: rollupArgs } = decodeFunctionData({
       abi: RollupAbi,
@@ -476,7 +478,8 @@ export class CalldataRetriever {
     if (expectedHashes.payloadDigest) {
       // Use ConsensusPayload to compute the digest - this ensures we match the exact logic
       // used by the network for signing and verification
-      const consensusPayload = new ConsensusPayload(header, archiveRoot);
+      const feeAssetPriceModifier = decodedArgs.oracleInput.feeAssetPriceModifier;
+      const consensusPayload = new ConsensusPayload(header, archiveRoot, feeAssetPriceModifier);
       const payloadToSign = consensusPayload.getPayloadToSign(SignatureDomainSeparator.checkpointAttestation);
       const computedPayloadDigest = keccak256(payloadToSign);
 
@@ -513,6 +516,7 @@ export class CalldataRetriever {
       header,
       attestations,
       blockHash,
+      feeAssetPriceModifier: decodedArgs.oracleInput.feeAssetPriceModifier,
     };
   }
 }

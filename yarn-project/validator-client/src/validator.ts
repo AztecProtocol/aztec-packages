@@ -1,6 +1,7 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { type Blob, getBlobsPerL1Block } from '@aztec/blob-lib';
 import type { EpochCache } from '@aztec/epoch-cache';
+import { validateFeeAssetPriceModifier } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -471,6 +472,14 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return undefined;
     }
 
+    // Validate fee asset price modifier is within allowed range
+    if (!validateFeeAssetPriceModifier(proposal.feeAssetPriceModifier)) {
+      this.log.warn(
+        `Received checkpoint proposal with invalid feeAssetPriceModifier ${proposal.feeAssetPriceModifier} for slot ${slotNumber}`,
+      );
+      return undefined;
+    }
+
     // Check that I have any address in current committee before attesting
     const inCommittee = await this.epochCache.filterInCommittee(slotNumber, this.getValidatorAddresses());
     const partOfCommittee = inCommittee.length > 0;
@@ -665,6 +674,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       const checkpointBuilder = await this.checkpointsBuilder.openCheckpoint(
         checkpointNumber,
         constants,
+        proposal.feeAssetPriceModifier,
         l1ToL2Messages,
         previousCheckpointOutHashes,
         fork,
@@ -880,6 +890,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   async createCheckpointProposal(
     checkpointHeader: CheckpointHeader,
     archive: Fr,
+    feeAssetPriceModifier: bigint,
     lastBlockInfo: CreateCheckpointProposalLastBlockData | undefined,
     proposerAddress: EthAddress | undefined,
     options: CheckpointProposalOptions = {},
@@ -901,6 +912,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const newProposal = await this.validationService.createCheckpointProposal(
       checkpointHeader,
       archive,
+      feeAssetPriceModifier,
       lastBlockInfo,
       proposerAddress,
       options,
