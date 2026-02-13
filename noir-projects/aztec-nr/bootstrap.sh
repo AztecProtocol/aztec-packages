@@ -30,6 +30,7 @@ function test {
   # Port is below the Linux ephemeral range (32768-60999) to avoid conflicts.
   local txe_base_port=14730
   trap 'kill $(jobs -p)' EXIT
+  check_port $txe_base_port || echo "WARNING: port $txe_base_port is in use, TXE may fail to start"
   (cd $root/yarn-project/txe && LOG_LEVEL=error TXE_PORT=$txe_base_port yarn start) &
   echo "Waiting for TXE to start..."
   while ! nc -z 127.0.0.1 $txe_base_port &>/dev/null; do sleep 1; done
