@@ -62,7 +62,7 @@ class TimingAwareMockCheckpointBuilder extends MockCheckpointBuilder {
   public recordedBuildTimes: Array<{ blockNumber: number; startTime: number; endTime: number }> = [];
 
   constructor(
-    constants: CheckpointGlobalVariables & { timestamp: bigint },
+    constants: CheckpointGlobalVariables,
     checkpointNumber: CheckpointNumber,
     private readonly dateProvider: ManualDateProvider,
     private readonly getSecondsIntoSlot: () => number,
@@ -368,7 +368,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
     );
 
     // Create timing-aware checkpoint builder
-    const checkpointConstants: CheckpointGlobalVariables & { timestamp: bigint } = { ...globalVariables };
+    const checkpointConstants: CheckpointGlobalVariables = { ...globalVariables };
     checkpointBuilder = new TimingAwareMockCheckpointBuilder(
       checkpointConstants,
       checkpointNumber,

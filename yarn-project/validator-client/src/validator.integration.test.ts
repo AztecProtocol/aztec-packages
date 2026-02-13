@@ -279,6 +279,7 @@ describe('ValidatorClient Integration', () => {
       feeRecipient: await AztecAddress.random(),
       gasFees: GasFees.empty(),
       slotNumber: slot,
+      timestamp: BigInt(Date.now()),
     };
 
     using fork = await proposer.worldStateDb.fork();

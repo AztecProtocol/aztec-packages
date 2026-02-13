@@ -737,6 +737,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       chainId: gv.chainId,
       version: gv.version,
       slotNumber: gv.slotNumber,
+      timestamp: gv.timestamp,
       coinbase: gv.coinbase,
       feeRecipient: gv.feeRecipient,
       gasFees: gv.gasFees,

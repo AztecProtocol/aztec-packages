@@ -477,11 +477,12 @@ export class BlockProposalHandler {
     await this.worldState.syncImmediate(parentBlockNumber);
     using fork = await this.worldState.fork(parentBlockNumber);
 
-    // Build checkpoint constants from proposal (excludes blockNumber and timestamp which are per-block)
+    // Build checkpoint constants from proposal (excludes blockNumber which is per-block)
     const constants: CheckpointGlobalVariables = {
       chainId: new Fr(config.l1ChainId),
       version: new Fr(config.rollupVersion),
       slotNumber: slot,
+      timestamp: blockHeader.globalVariables.timestamp,
       coinbase: blockHeader.globalVariables.coinbase,
       feeRecipient: blockHeader.globalVariables.feeRecipient,
       gasFees: blockHeader.globalVariables.gasFees,
