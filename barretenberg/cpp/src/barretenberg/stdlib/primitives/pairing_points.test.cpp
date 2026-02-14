@@ -80,9 +80,8 @@ TYPED_TEST(PairingPointsTests, DefaultPointsAreValid)
     Builder builder;
 
     auto pp = PP::construct_default();
-    pp.P0().convert_constant_to_fixed_witness(&builder);
-    pp.P1().convert_constant_to_fixed_witness(&builder);
-    pp.set_public();
+    EXPECT_TRUE(pp.is_default());
+    pp.set_public(&builder);
     EXPECT_TRUE(CircuitChecker::check(builder));
 
     // Validate default PairingPoints via native pairing check
@@ -100,12 +99,15 @@ TYPED_TEST(PairingPointsTests, Aggregate)
 
     Builder builder;
     auto pps = TestFixture::template create_valid_pairing_points<Curve>(&builder, 2);
+    EXPECT_FALSE(pps[0].is_default());
+    EXPECT_FALSE(pps[1].is_default());
 
     // Save the original values before aggregation mutates pps[0]
     auto orig_P0 = pps[0].P0();
     auto orig_P1 = pps[0].P1();
 
     pps[0].aggregate(pps[1]);
+    EXPECT_FALSE(pps[0].is_default());
 
     // Replicate the transcript to derive the same separator
     bb::StdlibTranscript<Builder> transcript{};
@@ -138,10 +140,12 @@ TYPED_TEST(PairingPointsTests, AggregateIntoEmpty)
     // Default-constructed PairingPoints has no data
     PP empty;
     EXPECT_FALSE(empty.is_populated());
+    EXPECT_FALSE(empty.is_default());
 
-    // Aggregating into empty should just copy the other
+    // Aggregating into empty should just copy the other (including is_default flag)
     empty.aggregate(pps[0]);
     EXPECT_TRUE(empty.is_populated());
+    EXPECT_FALSE(empty.is_default());
     EXPECT_EQ(empty.P0().get_value(), pps[0].P0().get_value());
     EXPECT_EQ(empty.P1().get_value(), pps[0].P1().get_value());
 }
@@ -174,6 +178,7 @@ TYPED_TEST(PairingPointsTests, AggregateMultiple)
     std::vector<PP> pp_vec = { pps[0], pps[1], pps[2] };
     PP aggregated = PP::aggregate_multiple(pp_vec);
 
+    EXPECT_FALSE(aggregated.is_default());
     EXPECT_EQ(aggregated.P0().get_value(), expected_P0.get_value());
     EXPECT_EQ(aggregated.P1().get_value(), expected_P1.get_value());
     EXPECT_TRUE(CircuitChecker::check(builder));
@@ -190,14 +195,12 @@ TYPED_TEST(PairingPointsTests, PublicInputSerdeRoundTrip)
 
     Builder builder;
 
-    // Create witness pairing points from known defaults
+    // Create default (infinity) pairing points
     PP original = PP::construct_default();
-    original.P0().convert_constant_to_fixed_witness(&builder);
-    original.P1().convert_constant_to_fixed_witness(&builder);
     EXPECT_TRUE(original.is_populated());
 
-    // Serialize to public inputs
-    uint32_t start_idx = original.set_public();
+    // Serialize to public inputs (set_public detects default and uses set_default_to_public)
+    uint32_t start_idx = original.set_public(&builder);
 
     // Extract the public inputs as field_t elements
     std::vector<Fr> public_inputs;
