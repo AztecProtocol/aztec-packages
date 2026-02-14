@@ -643,6 +643,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return { isValid: false, reason: 'no_blocks_for_slot' };
     }
 
+    // Ensure the last block for this slot matches the archive in the checkpoint proposal
+    if (!blocks.at(-1)?.archive.root.equals(proposal.archive)) {
+      this.log.warn(`Last block archive mismatch for checkpoint proposal`, proposalInfo);
+      return { isValid: false, reason: 'last_block_archive_mismatch' };
+    }
+
     this.log.debug(`Found ${blocks.length} blocks for slot ${slot}`, {
       ...proposalInfo,
       blockNumbers: blocks.map(b => b.number),
@@ -737,6 +743,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       chainId: gv.chainId,
       version: gv.version,
       slotNumber: gv.slotNumber,
+      timestamp: gv.timestamp,
       coinbase: gv.coinbase,
       feeRecipient: gv.feeRecipient,
       gasFees: gv.gasFees,

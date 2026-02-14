@@ -639,22 +639,6 @@ export class SequencerPublisher {
     options: { forcePendingCheckpointNumber?: CheckpointNumber },
   ): Promise<bigint> {
     const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
-
-    // TODO(palla/mbps): This should not be needed, there's no flow where we propose with zero attestations. Or is there?
-    // If we have no attestations, we still need to provide the empty attestations
-    // so that the committee is recalculated correctly
-    // const ignoreSignatures = attestationsAndSigners.attestations.length === 0;
-    // if (ignoreSignatures) {
-    //   const { committee } = await this.epochCache.getCommittee(block.header.globalVariables.slotNumber);
-    //   if (!committee) {
-    //     this.log.warn(`No committee found for slot ${block.header.globalVariables.slotNumber}`);
-    //     throw new Error(`No committee found for slot ${block.header.globalVariables.slotNumber}`);
-    //   }
-    //   attestationsAndSigners.attestations = committee.map(committeeMember =>
-    //     CommitteeAttestation.fromAddress(committeeMember),
-    //   );
-    // }
-
     const blobFields = checkpoint.toBlobFields();
     const blobs = getBlobsPerL1Block(blobFields);
     const blobInput = getPrefixedEthBlobCommitments(blobs);

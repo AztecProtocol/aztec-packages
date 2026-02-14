@@ -3,17 +3,16 @@ import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/bra
 import { timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { ProtocolContractsList, protocolContractsHash } from '@aztec/protocol-contracts';
+import { ProtocolContractsList } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { EthAddress } from '@aztec/stdlib/block';
 import { GasFees } from '@aztec/stdlib/gas';
 import { accumulateCheckpointOutHashes } from '@aztec/stdlib/messaging';
-import { CheckpointConstantData } from '@aztec/stdlib/rollup';
 import { mockProcessedTx } from '@aztec/stdlib/testing';
 import { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
-import type { ProcessedTx } from '@aztec/stdlib/tx';
+import type { CheckpointGlobalVariables, ProcessedTx } from '@aztec/stdlib/tx';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
@@ -41,18 +40,16 @@ describe('LightweightCheckpointBuilder', () => {
     await worldState.close();
   });
 
-  const makeCheckpointConstants = (slotNumber: SlotNumber): CheckpointConstantData => {
-    return CheckpointConstantData.from({
+  const makeCheckpointConstants = (slotNumber: SlotNumber): CheckpointGlobalVariables => {
+    return {
       chainId: Fr.ZERO,
       version: Fr.ZERO,
-      vkTreeRoot: getVKTreeRoot(),
-      protocolContractsHash,
-      proverId: Fr.ZERO,
       slotNumber,
+      timestamp: BigInt(slotNumber) * 123n,
       coinbase: EthAddress.ZERO,
       feeRecipient: AztecAddress.ZERO,
       gasFees: GasFees.empty(),
-    });
+    };
   };
 
   const makeGlobalVariables = (blockNumber: BlockNumber, slotNumber: SlotNumber): GlobalVariables => {

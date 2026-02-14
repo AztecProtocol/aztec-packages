@@ -56,8 +56,6 @@ export class BlockProposal extends Gossipable {
     /** The per-block header containing block state and global variables */
     public readonly blockHeader: BlockHeader,
 
-    // TODO(palla/mbps): Is this really needed? Can we just derive it from the indexWithinCheckpoint of the parent block and the slot number?
-    // See the block-proposal-handler, we have a lot of extra validations to check this is correct, so maybe we can avoid storing it here.
     /** Index of this block within the checkpoint (0-indexed) */
     public readonly indexWithinCheckpoint: IndexWithinCheckpoint,
 
