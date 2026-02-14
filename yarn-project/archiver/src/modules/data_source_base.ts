@@ -4,7 +4,14 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { isDefined } from '@aztec/foundation/types';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type BlockHash, CheckpointedL2Block, CommitteeAttestation, L2Block, type L2Tips } from '@aztec/stdlib/block';
+import {
+  type BlockData,
+  type BlockHash,
+  CheckpointedL2Block,
+  CommitteeAttestation,
+  L2Block,
+  type L2Tips,
+} from '@aztec/stdlib/block';
 import { Checkpoint, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
@@ -127,6 +134,14 @@ export abstract class ArchiverDataSourceBase
 
   public getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined> {
     return this.store.getBlockHeaderByArchive(archive);
+  }
+
+  public getBlockData(number: BlockNumber): Promise<BlockData | undefined> {
+    return this.store.getBlockData(number);
+  }
+
+  public getBlockDataByArchive(archive: Fr): Promise<BlockData | undefined> {
+    return this.store.getBlockDataByArchive(archive);
   }
 
   public async getL2Block(number: BlockNumber): Promise<L2Block | undefined> {

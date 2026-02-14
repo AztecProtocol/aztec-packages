@@ -9,6 +9,7 @@ import { isDefined } from '@aztec/foundation/types';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton, Range } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  type BlockData,
   BlockHash,
   Body,
   CheckpointedL2Block,
@@ -656,6 +657,32 @@ export class BlockStore {
   }
 
   /**
+   * Gets block metadata (without tx data) by block number.
+   * @param blockNumber - The number of the block to return.
+   * @returns The requested block data.
+   */
+  async getBlockData(blockNumber: BlockNumber): Promise<BlockData | undefined> {
+    const blockStorage = await this.#blocks.getAsync(blockNumber);
+    if (!blockStorage || !blockStorage.header) {
+      return undefined;
+    }
+    return this.getBlockDataFromBlockStorage(blockStorage);
+  }
+
+  /**
+   * Gets block metadata (without tx data) by archive root.
+   * @param archive - The archive root of the block to return.
+   * @returns The requested block data.
+   */
+  async getBlockDataByArchive(archive: Fr): Promise<BlockData | undefined> {
+    const blockNumber = await this.#blockArchiveIndex.getAsync(archive.toString());
+    if (blockNumber === undefined) {
+      return undefined;
+    }
+    return this.getBlockData(BlockNumber(blockNumber));
+  }
+
+  /**
    * Gets an L2 block.
    * @param blockNumber - The number of the block to return.
    * @returns The requested L2 block.
@@ -759,15 +786,24 @@ export class BlockStore {
     }
   }
 
+  private getBlockDataFromBlockStorage(blockStorage: BlockStorage): BlockData {
+    return {
+      header: BlockHeader.fromBuffer(blockStorage.header),
+      archive: AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive),
+      blockHash: Fr.fromBuffer(blockStorage.blockHash),
+      checkpointNumber: CheckpointNumber(blockStorage.checkpointNumber),
+      indexWithinCheckpoint: IndexWithinCheckpoint(blockStorage.indexWithinCheckpoint),
+    };
+  }
+
   private async getBlockFromBlockStorage(
     blockNumber: number,
     blockStorage: BlockStorage,
   ): Promise<L2Block | undefined> {
-    const header = BlockHeader.fromBuffer(blockStorage.header);
-    const archive = AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive);
-    const blockHash = blockStorage.blockHash;
-    header.setHash(Fr.fromBuffer(blockHash));
-    const blockHashString = bufferToHex(blockHash);
+    const { header, archive, blockHash, checkpointNumber, indexWithinCheckpoint } =
+      this.getBlockDataFromBlockStorage(blockStorage);
+    header.setHash(blockHash);
+    const blockHashString = bufferToHex(blockStorage.blockHash);
     const blockTxsBuffer = await this.#blockTxs.getAsync(blockHashString);
     if (blockTxsBuffer === undefined) {
       this.#log.warn(`Could not find body for block ${header.globalVariables.blockNumber} ${blockHash}`);
@@ -786,13 +822,7 @@ export class BlockStore {
       txEffects.push(deserializeIndexedTxEffect(txEffect).data);
     }
     const body = new Body(txEffects);
-    const block = new L2Block(
-      archive,
-      header,
-      body,
-      CheckpointNumber(blockStorage.checkpointNumber!),
-      IndexWithinCheckpoint(blockStorage.indexWithinCheckpoint),
-    );
+    const block = new L2Block(archive, header, body, checkpointNumber, indexWithinCheckpoint);
 
     if (block.number !== blockNumber) {
       throw new Error(

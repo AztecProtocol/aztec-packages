@@ -23,7 +23,7 @@ import {
 } from '@aztec/p2p';
 import { OffenseType, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import type { SlasherConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -336,23 +336,19 @@ describe('ValidatorClient', () => {
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
       epochCache.isEscapeHatchOpenAtSlot.mockResolvedValue(false);
 
-      // Return parent block header when requested
-      blockSource.getBlockHeaderByArchive.mockResolvedValue({
-        getBlockNumber: () => blockNumber - 1,
-        getSlot: () => SlotNumber(Number(blockHeader.globalVariables.slotNumber) - 1),
-      } as BlockHeader);
-
-      // Return parent block when requested (needed for checkpoint number computation)
-      // The parent block has slot - 1, which is different from the proposal's slot
+      // Return parent block data when requested (includes checkpoint info, avoids loading full L2Block)
       const parentSlot = SlotNumber(Number(blockHeader.globalVariables.slotNumber) - 1);
-      blockSource.getL2Block.mockResolvedValue({
+      blockSource.getBlockDataByArchive.mockResolvedValue({
+        header: {
+          getBlockNumber: () => blockNumber - 1,
+          getSlot: () => parentSlot,
+          globalVariables: blockHeader.globalVariables,
+        },
+        archive: new AppendOnlyTreeSnapshot(Fr.random(), blockNumber - 1),
+        blockHash: Fr.random(),
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
-        header: {
-          globalVariables: blockHeader.globalVariables,
-          getSlot: () => parentSlot,
-        },
-      } as unknown as L2Block);
+      } as unknown as BlockData);
 
       blockSource.getGenesisValues.mockResolvedValue({ genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT) });
       blockSource.syncImmediate.mockImplementation(() => Promise.resolve());
@@ -484,11 +480,11 @@ describe('ValidatorClient', () => {
 
     it('should wait for previous block to sync', async () => {
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
-      blockSource.getBlockHeaderByArchive.mockResolvedValueOnce(undefined);
-      blockSource.getBlockHeaderByArchive.mockResolvedValueOnce(undefined);
-      blockSource.getBlockHeaderByArchive.mockResolvedValueOnce(undefined);
+      blockSource.getBlockDataByArchive.mockResolvedValueOnce(undefined);
+      blockSource.getBlockDataByArchive.mockResolvedValueOnce(undefined);
+      blockSource.getBlockDataByArchive.mockResolvedValueOnce(undefined);
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
-      expect(blockSource.getBlockHeaderByArchive).toHaveBeenCalledTimes(4);
+      expect(blockSource.getBlockDataByArchive).toHaveBeenCalledTimes(4);
       expect(isValid).toBe(true);
     });
 
@@ -693,23 +689,18 @@ describe('ValidatorClient', () => {
           nextSlot: SlotNumber(nonFirstBlockProposal.slotNumber + 1),
         });
 
-        // Mock parent block header returned by getBlockHeaderByArchive
-        const parentBlockHeader = {
-          getBlockNumber: () => BlockNumber(parentBlockNumber),
-          getSlot: () => SlotNumber(parentSlotNumber),
-          globalVariables: parentGlobalVariables,
-        } as BlockHeader;
-        blockSource.getBlockHeaderByArchive.mockResolvedValue(parentBlockHeader);
-
-        // Mock parent block returned by getL2Block
-        const parentBlock = {
-          checkpointNumber: parentCheckpointNumber,
-          indexWithinCheckpoint: IndexWithinCheckpoint(0), // Parent is first block in checkpoint
+        // Mock parent block data returned by getBlockDataByArchive
+        blockSource.getBlockDataByArchive.mockResolvedValue({
           header: {
+            getBlockNumber: () => BlockNumber(parentBlockNumber),
+            getSlot: () => SlotNumber(parentSlotNumber),
             globalVariables: parentGlobalVariables,
           },
-        } as unknown as L2Block;
-        blockSource.getL2Block.mockResolvedValue(parentBlock);
+          archive: new AppendOnlyTreeSnapshot(Fr.random(), parentBlockNumber),
+          blockHash: Fr.random(),
+          checkpointNumber: parentCheckpointNumber,
+          indexWithinCheckpoint: IndexWithinCheckpoint(0), // Parent is first block in checkpoint
+        } as unknown as BlockData);
 
         // Set time for the slot
         const genesisTime = 1n;

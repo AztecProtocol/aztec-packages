@@ -4,6 +4,7 @@ import type { ApiSchemaFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
+import { BlockDataSchema } from '../block/block_data.js';
 import { BlockHash } from '../block/block_hash.js';
 import { CheckpointedL2Block } from '../block/checkpointed_l2_block.js';
 import { L2Block } from '../block/l2_block.js';
@@ -104,6 +105,8 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getCheckpointedBlockByArchive: z.function().args(schemas.Fr).returns(CheckpointedL2Block.schema.optional()),
   getBlockHeaderByHash: z.function().args(BlockHash.schema).returns(BlockHeader.schema.optional()),
   getBlockHeaderByArchive: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),
+  getBlockData: z.function().args(BlockNumberSchema).returns(BlockDataSchema.optional()),
+  getBlockDataByArchive: z.function().args(schemas.Fr).returns(BlockDataSchema.optional()),
   getL2Block: z.function().args(BlockNumberSchema).returns(L2Block.schema.optional()),
   getL2BlockByHash: z.function().args(BlockHash.schema).returns(L2Block.schema.optional()),
   getL2BlockByArchive: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
