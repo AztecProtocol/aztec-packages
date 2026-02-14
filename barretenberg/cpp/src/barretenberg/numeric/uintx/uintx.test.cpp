@@ -302,6 +302,37 @@ TEST(uintx, DISABLEDRInv)
     */
 }
 
+TEST(uintx, Slice)
+{
+    // Construct a uint512_t with known lo and hi halves
+    uint256_t lo_val(1, 2, 3, 4);
+    uint256_t hi_val(5, 6, 7, 8);
+    uint512_t val(lo_val, hi_val);
+
+    // Slice the lower 256 bits
+    uint512_t lower = val.slice(0, 256);
+    EXPECT_EQ(lower.lo, lo_val);
+    EXPECT_EQ(lower.hi, uint256_t(0));
+
+    // Slice the upper 256 bits
+    uint512_t upper = val.slice(256, 512);
+    EXPECT_EQ(upper.lo, hi_val);
+    EXPECT_EQ(upper.hi, uint256_t(0));
+
+    // Slice a sub-limb range within lo
+    uint512_t small_slice = val.slice(0, 64);
+    EXPECT_EQ(static_cast<uint64_t>(small_slice), uint64_t(1));
+
+    // Slice crossing the lo/hi boundary
+    uint512_t cross_boundary = val.slice(128, 384);
+    // Should get bits [128..256) from lo (limbs 2,3) and bits [256..384) from hi (limbs 0,1)
+    uint512_t expected_cross(uint256_t(3, 4, 5, 6));
+    EXPECT_EQ(cross_boundary, expected_cross);
+
+    // Full-width slice should return the original value
+    EXPECT_EQ(val.slice(0, 512), val);
+}
+
 TEST(uintx, BarrettReductionRegression)
 {
     // Test specific modulus and self values that may cause issues
