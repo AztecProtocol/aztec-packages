@@ -30,6 +30,7 @@ import { Archiver, type ArchiverEmitter } from './archiver.js';
 import type { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
 import { KVArchiverDataStore } from './store/kv_archiver_store.js';
+import { L2TipsCache } from './store/l2_tips_cache.js';
 import { FakeL1State } from './test/fake_l1_state.js';
 
 describe('Archiver Sync', () => {
@@ -116,6 +117,9 @@ describe('Archiver Sync', () => {
     // Create event emitter shared by archiver and synchronizer
     const events = new EventEmitter() as ArchiverEmitter;
 
+    // Create L2 tips cache shared by archiver and synchronizer
+    const l2TipsCache = new L2TipsCache(archiverStore.blockStore);
+
     // Create the L1 synchronizer
     synchronizer = new ArchiverL1Synchronizer(
       publicClient,
@@ -132,6 +136,7 @@ describe('Archiver Sync', () => {
       l1Constants,
       events,
       instrumentation.tracer,
+      l2TipsCache,
       syncLogger,
     );
 
@@ -147,6 +152,7 @@ describe('Archiver Sync', () => {
       l1Constants,
       synchronizer,
       events,
+      l2TipsCache,
     );
   });
 
