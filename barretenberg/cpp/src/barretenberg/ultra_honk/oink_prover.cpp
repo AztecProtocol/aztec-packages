@@ -19,8 +19,8 @@ namespace bb {
 template <typename Flavor> void OinkProver<Flavor>::prove()
 {
     BB_BENCH_NAME("OinkProver::prove");
-    if (!prover_instance->commitment_key.initialized()) {
-        prover_instance->commitment_key = CommitmentKey(prover_instance->dyadic_size());
+    if (!commitment_key.initialized()) {
+        commitment_key = CommitmentKey(prover_instance->dyadic_size());
     }
     send_vk_hash_and_public_inputs();
     commit_to_masking_poly();
@@ -29,8 +29,6 @@ template <typename Flavor> void OinkProver<Flavor>::prove()
     commit_to_logderiv_inverses();
     commit_to_z_perm();
     prover_instance->alpha = transcript->template get_challenge<FF>("alpha");
-
-    prover_instance->commitment_key = CommitmentKey();
 }
 
 /**
@@ -65,7 +63,7 @@ template <typename Flavor> void OinkProver<Flavor>::send_vk_hash_and_public_inpu
 template <typename Flavor> void OinkProver<Flavor>::commit_to_wires()
 {
     BB_BENCH_NAME("OinkProver::commit_to_wires");
-    auto batch = prover_instance->commitment_key.start_batch();
+    auto batch = commitment_key.start_batch();
 
     // Commit to the first three wire polynomials; w_4 is deferred until after memory records are added
     batch.add_to_batch(prover_instance->polynomials.w_l, commitment_labels.w_l, /*mask?*/ Flavor::HasZK);
@@ -121,7 +119,7 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_lookup_counts_and_
                                                                      prover_instance->relation_parameters.eta_three);
 
     // Commit to lookup argument polynomials and the finalized (i.e. with memory records) fourth wire polynomial
-    auto batch = prover_instance->commitment_key.start_batch();
+    auto batch = commitment_key.start_batch();
     batch.add_to_batch(prover_instance->polynomials.lookup_read_counts,
                        commitment_labels.lookup_read_counts,
                        /*mask?*/ Flavor::HasZK);
@@ -150,7 +148,7 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_logderiv_inverses(
     WitnessComputation<Flavor>::compute_logderivative_inverses(
         prover_instance->polynomials, prover_instance->dyadic_size(), prover_instance->relation_parameters);
 
-    auto batch = prover_instance->commitment_key.start_batch();
+    auto batch = commitment_key.start_batch();
     batch.add_to_batch(prover_instance->polynomials.lookup_inverses,
                        commitment_labels.lookup_inverses,
                        /*mask?*/ Flavor::HasZK);
@@ -191,7 +189,7 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_z_perm()
     if constexpr (Flavor::HasZK) {
         z_perm.mask();
     }
-    prover_instance->commitments.z_perm = prover_instance->commitment_key.commit(z_perm);
+    prover_instance->commitments.z_perm = commitment_key.commit(z_perm);
     transcript->send_to_verifier(commitment_labels.z_perm, prover_instance->commitments.z_perm);
 }
 
@@ -203,8 +201,7 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
         prover_instance->polynomials.gemini_masking_poly = Polynomial<FF>::random(polynomial_size);
 
         // Commit to the masking polynomial and send to transcript
-        auto masking_commitment =
-            prover_instance->commitment_key.commit(prover_instance->polynomials.gemini_masking_poly);
+        auto masking_commitment = commitment_key.commit(prover_instance->polynomials.gemini_masking_poly);
         transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
     }
 };

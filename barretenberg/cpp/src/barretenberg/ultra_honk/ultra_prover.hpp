@@ -29,21 +29,29 @@ template <typename Flavor_> class UltraProver_ {
     using Proof = typename Transcript::Proof;
     using ZKData = ZKSumcheckData<Flavor>;
 
-    std::shared_ptr<ProverInstance> prover_instance;
-    std::shared_ptr<Transcript> transcript;
-
-    explicit UltraProver_(const std::shared_ptr<ProverInstance>&,
+    explicit UltraProver_(std::shared_ptr<ProverInstance>,
                           const std::shared_ptr<HonkVK>&,
-                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
+                          CommitmentKey commitment_key = CommitmentKey());
 
     Proof export_proof();
     Proof construct_proof();
 
+    size_t num_public_inputs() const { return prover_instance->num_public_inputs(); }
+    size_t log_dyadic_size() const { return prover_instance->log_dyadic_size(); }
+    const std::shared_ptr<Transcript>& get_transcript() const { return transcript; }
+
   private:
+    std::shared_ptr<ProverInstance> prover_instance;
+    std::shared_ptr<Transcript> transcript;
     std::shared_ptr<HonkVK> honk_vk;
     SumcheckOutput<Flavor> sumcheck_output;
     ZKData zk_sumcheck_data;
+    CommitmentKey commitment_key;
 
+    size_t virtual_log_n; // Set during gate challenge generation, reused by sumcheck and PCS
+
+    void initialize_commitment_key();
     BB_PROFILE void execute_sumcheck_iop();
     BB_PROFILE void execute_pcs();
     BB_PROFILE void generate_gate_challenges();

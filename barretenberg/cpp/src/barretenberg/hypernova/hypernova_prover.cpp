@@ -98,7 +98,7 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumula
 
     // Complete the incoming instance
     auto precomputed_vk = honk_vk ? honk_vk : std::make_shared<VerificationKey>(instance->get_precomputed());
-    MegaOinkProver oink_prover{ instance, precomputed_vk, transcript };
+    MegaOinkProver oink_prover{ instance, precomputed_vk, transcript, commitment_key };
     oink_prover.prove();
 
     instance->gate_challenges = transcript->template get_dyadic_powers_of_challenge<FF>(

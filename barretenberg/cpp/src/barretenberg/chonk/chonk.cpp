@@ -414,7 +414,6 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
         bn254_commitment_key = CommitmentKey<curve::BN254>(prover_instance->dyadic_size());
         goblin.commitment_key = bn254_commitment_key;
     }
-    prover_instance->commitment_key = bn254_commitment_key;
 
     // We're accumulating a kernel if the verification queue is empty (because the kernel circuit contains recursive
     // verifiers for all the entries previously present in the verification queue) and if it's not the first accumulate
@@ -436,7 +435,7 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
 
     QUEUE_TYPE queue_type = get_queue_type();
 
-    FoldingProver prover(prover_accumulation_transcript);
+    FoldingProver prover(prover_accumulation_transcript, bn254_commitment_key);
     HonkProof proof;
     switch (queue_type) {
     case QUEUE_TYPE::OINK:
@@ -535,10 +534,10 @@ void Chonk::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
 HonkProof Chonk::construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
                                                         const std::shared_ptr<MegaVerificationKey>& verification_key)
 {
-    auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit, bn254_commitment_key);
+    auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit);
 
     // Hiding kernel is proven by a MegaZKProver
-    MegaZKProver prover(hiding_prover_inst, verification_key, transcript);
+    MegaZKProver prover(hiding_prover_inst, verification_key, transcript, bn254_commitment_key);
     HonkProof proof = prover.construct_proof();
 
     return proof;

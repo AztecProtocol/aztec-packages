@@ -107,7 +107,7 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     using IPAClaim = OpeningClaim<IPACurve>;
 
     /**
-     * @brief Result of reducing ultra proof to pairing points check. Contains pairing points and the aggrefate result
+     * @brief Result of reducing ultra proof to pairing points check. Contains pairing points and the aggregate result
      * of intermediate checks.
      */
     struct ReductionResult {
@@ -230,8 +230,8 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript; // Native only
 
-    // Builder pointer (extracted from proof for recursive, nullptr for native)
-    Builder* builder;
+    // Builder pointer (extracted from VKAndHash for recursive, nullptr for native)
+    Builder* builder = nullptr;
 };
 
 // Native verifier type aliases

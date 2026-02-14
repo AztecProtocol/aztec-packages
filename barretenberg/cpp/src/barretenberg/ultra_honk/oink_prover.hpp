@@ -56,10 +56,12 @@ template <typename Flavor> class OinkProver {
   public:
     OinkProver(std::shared_ptr<ProverInstance> prover_instance,
                std::shared_ptr<HonkVK> honk_vk,
-               const std::shared_ptr<typename Flavor::Transcript>& transcript)
+               const std::shared_ptr<typename Flavor::Transcript>& transcript,
+               CommitmentKey& commitment_key)
         : prover_instance(prover_instance)
         , honk_vk(honk_vk)
         , transcript(transcript)
+        , commitment_key(commitment_key)
     {}
 
     void prove();
@@ -69,6 +71,7 @@ template <typename Flavor> class OinkProver {
     std::shared_ptr<ProverInstance> prover_instance;
     std::shared_ptr<HonkVK> honk_vk;
     std::shared_ptr<Transcript> transcript;
+    CommitmentKey& commitment_key;
     typename Flavor::CommitmentLabels commitment_labels;
     void send_vk_hash_and_public_inputs();
     void commit_to_wires();

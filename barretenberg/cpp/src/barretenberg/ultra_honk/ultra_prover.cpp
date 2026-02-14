@@ -12,20 +12,15 @@
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 namespace bb {
 
-/**
- * @brief Create UltraProver_ from a decider proving key.
- *
- * @param prover_instance key whose proof we want to generate.
- *
- * @tparam a type of UltraFlavor
- * */
 template <typename Flavor>
-UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<ProverInstance>& prover_instance,
+UltraProver_<Flavor>::UltraProver_(std::shared_ptr<ProverInstance> prover_instance,
                                    const std::shared_ptr<HonkVK>& honk_vk,
-                                   const std::shared_ptr<Transcript>& transcript)
+                                   const std::shared_ptr<Transcript>& transcript,
+                                   CommitmentKey commitment_key)
     : prover_instance(std::move(prover_instance))
     , transcript(transcript)
     , honk_vk(honk_vk)
+    , commitment_key(std::move(commitment_key))
 {}
 
 /**
@@ -58,17 +53,30 @@ template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Fla
 
 template <typename Flavor> void UltraProver_<Flavor>::generate_gate_challenges()
 {
-    // Determine the number of rounds in the sumcheck based on whether or not padding is employed
-    const size_t virtual_log_n =
+    virtual_log_n =
         Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : static_cast<size_t>(prover_instance->log_dyadic_size());
 
     prover_instance->gate_challenges =
         transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
 }
 
+template <typename Flavor> void UltraProver_<Flavor>::initialize_commitment_key()
+{
+    if (!commitment_key.initialized()) {
+        size_t key_size = prover_instance->dyadic_size();
+        if constexpr (Flavor::HasZK) {
+            constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
+            key_size = std::max(key_size, size_t{ 1 } << (log_subgroup_size + 1));
+        }
+        commitment_key = CommitmentKey(key_size);
+    }
+}
+
 template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::construct_proof()
 {
-    OinkProver<Flavor> oink_prover(prover_instance, honk_vk, transcript);
+    initialize_commitment_key();
+
+    OinkProver<Flavor> oink_prover(prover_instance, honk_vk, transcript, commitment_key);
     oink_prover.prove();
     vinfo("created oink proof");
 
@@ -85,13 +93,12 @@ template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Fla
 }
 
 /**
- * @brief Run Sumcheck to establish that ∑_i pow(\vec{β*})f_i(ω) = 0. This results in u = (u_1,...,u_d) sumcheck round
- * challenges and all evaluations at u being calculated.
- *
+ * @brief Run Sumcheck to establish that ∑_i pow(\vec{β*})f_i(ω) = 0, producing sumcheck round challenges
+ * u = (u_1,...,u_d) and claimed evaluations at u.
  */
 template <typename Flavor> void UltraProver_<Flavor>::execute_sumcheck_iop()
 {
-    const size_t virtual_log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : prover_instance->log_dyadic_size();
+    BB_BENCH_NAME("sumcheck.prove");
 
     using Sumcheck = SumcheckProver<Flavor>;
     size_t polynomial_size = prover_instance->dyadic_size();
@@ -102,36 +109,25 @@ template <typename Flavor> void UltraProver_<Flavor>::execute_sumcheck_iop()
                       prover_instance->gate_challenges,
                       prover_instance->relation_parameters,
                       virtual_log_n);
-    {
 
-        BB_BENCH_NAME("sumcheck.prove");
-
-        if constexpr (Flavor::HasZK) {
-            const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
-            CommitmentKey commitment_key(1 << (log_subgroup_size + 1));
-            zk_sumcheck_data = ZKData(numeric::get_msb(polynomial_size), transcript, commitment_key);
-            sumcheck_output = sumcheck.prove(zk_sumcheck_data);
-        } else {
-            sumcheck_output = sumcheck.prove();
-        }
+    if constexpr (Flavor::HasZK) {
+        zk_sumcheck_data = ZKData(numeric::get_msb(polynomial_size), transcript, commitment_key);
+        sumcheck_output = sumcheck.prove(zk_sumcheck_data);
+    } else {
+        sumcheck_output = sumcheck.prove();
     }
 }
 
 /**
- * @brief Produce a univariate opening claim for the sumcheck multivariate evalutions and a batched univariate claim
- * for the transcript polynomials (for the Translator consistency check). Reduce the two opening claims to a single one
- * via Shplonk and produce an opening proof with the univariate PCS of choice (IPA when operating on Grumpkin).
- *
+ * @brief Reduce the sumcheck multivariate evaluations to a single univariate opening claim via Shplemini,
+ * then produce an opening proof with the PCS (KZG or IPA).
  */
 template <typename Flavor> void UltraProver_<Flavor>::execute_pcs()
 {
     using OpeningClaim = ProverOpeningClaim<Curve>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
-    auto& ck = prover_instance->commitment_key;
-    if (!ck.initialized()) {
-        ck = CommitmentKey(prover_instance->dyadic_size());
-    }
+    auto& ck = commitment_key;
 
     PolynomialBatcher polynomial_batcher(prover_instance->dyadic_size());
     polynomial_batcher.set_unshifted(prover_instance->polynomials.get_unshifted());
