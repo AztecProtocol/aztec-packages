@@ -72,7 +72,7 @@ describe('Blob Batching', () => {
 
     // Challenge gamma
     const hashedEval = await poseidon2Hash(y.toNoirBigNum().limbs.map(Fr.fromHexString));
-    const expectedFinalGamma = BLS12Fr.fromBN254Fr(await poseidon2Hash([hashedEval, finalZ]));
+    const expectedFinalGamma = await poseidon2Hash([hashedEval, finalZ]);
     expect(finalGamma).toEqual(expectedFinalGamma);
 
     const batchedBlob = await BatchedBlobAccumulator.batch([blobFields], true /* verifyProof */);
@@ -108,8 +108,8 @@ describe('Blob Batching', () => {
     );
     updateInlineTestData(
       'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
-      'gamma_limbs_blob_400_from_ts',
-      toInlineStrArray(finalGamma.toNoirBigNum().limbs),
+      'gamma_blob_400_from_ts',
+      finalGamma.toString(),
     );
     updateInlineTestData(
       'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
@@ -119,11 +119,11 @@ describe('Blob Batching', () => {
   });
 
   it.each([
-    [3, 2 * FIELDS_PER_BLOB + 123, '0x0338a65e19e250e80342e1b1c9ea3a5a7edd96a38e51f8550be2a4c5ad587664', false],
+    [3, 2 * FIELDS_PER_BLOB + 123, '0x33a93ab792aba713eaca455f94c1b3aa342e2740491a2f2b9dd4644499a3c7df', false],
     [
       BLOBS_PER_CHECKPOINT,
       BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB,
-      '0x344cd1654b68e5ab9c592df2e6fbe6b619415b276db449810d95e318d78ac950',
+      '0x6142adb25841a62ae1bfb8fc8333fda8cee748cc89bc05c7215f378e88855f19',
       true,
     ],
   ])(
@@ -157,29 +157,38 @@ describe('Blob Batching', () => {
       const evalYs = proofObjects.map(({ y }) => y);
       const qs = proofObjects.map(({ proof }) => BLS12Point.decompress(proof));
 
-      // Challenge gamma
+      // Challenge gamma (now Fr, not BLS12Fr)
       const evalYsToBLSBignum = evalYs.map(y => y.toNoirBigNum());
       const hashedEvals = await Promise.all(evalYsToBLSBignum.map(e => poseidon2Hash(e.limbs.map(Fr.fromHexString))));
       let evaluationsHash = hashedEvals[0];
       for (let i = 1; i < numBlobs; i++) {
         evaluationsHash = await poseidon2Hash([evaluationsHash, hashedEvals[i]]);
       }
-      const finalGamma = BLS12Fr.fromBN254Fr(await poseidon2Hash([evaluationsHash, finalZ]));
+      const finalGamma = await poseidon2Hash([evaluationsHash, finalZ]);
       expect(finalGamma).toEqual(finalChallenges.gamma);
 
+      // Manual verification using nested hashing for gamma_pow
       let batchedC = BLS12Point.ZERO;
       let batchedQ = BLS12Point.ZERO;
       let finalY = BLS12Fr.ZERO;
-      let powGamma = new BLS12Fr(1n); // Since we start at gamma^0 = 1
+      // gammaPow tracks the multiplier: identity (1) for blob 0, then nested hashing for subsequent blobs
+      let gammaPow = Fr.ZERO; // initialized per blob below
       let finalBlobCommitmentsHash: Buffer = Buffer.alloc(0);
       for (let i = 0; i < numBlobs; i++) {
-        const cOperand = commitments[i].mul(powGamma);
-        const yOperand = evalYs[i].mul(powGamma);
-        const qOperand = qs[i].mul(powGamma);
+        // For blob 0: multiplier is 1 (identity). For blob i > 0: multiplier is gammaPow converted to BLS12Fr.
+        const powGammaBLS = i === 0 ? new BLS12Fr(1n) : BLS12Fr.fromBN254Fr(gammaPow);
+        const cOperand = commitments[i].mul(powGammaBLS);
+        const yOperand = evalYs[i].mul(powGammaBLS);
+        const qOperand = qs[i].mul(powGammaBLS);
         batchedC = batchedC.add(cOperand);
         batchedQ = batchedQ.add(qOperand);
         finalY = finalY.add(yOperand);
-        powGamma = powGamma.mul(finalGamma);
+        // Update gammaPow via nested hashing (mirrors Noir's accumulate logic)
+        if (i === 0) {
+          gammaPow = finalGamma;
+        } else {
+          gammaPow = await poseidon2Hash([gammaPow, finalGamma]);
+        }
         finalBlobCommitmentsHash = sha256ToField([finalBlobCommitmentsHash, blobs[i].commitment]).toBuffer();
       }
 
@@ -211,11 +220,7 @@ describe('Blob Batching', () => {
           );
         }
         updateInlineTestData(filePath, `z_${numBlobs}_blobs_from_ts`, finalZ.toString());
-        updateInlineTestData(
-          filePath,
-          `gamma_limbs_${numBlobs}_blobs_from_ts`,
-          toInlineStrArray(finalGamma.toNoirBigNum().limbs),
-        );
+        updateInlineTestData(filePath, `gamma_${numBlobs}_blobs_from_ts`, finalGamma.toString());
         updateInlineTestData(
           filePath,
           `y_limbs_${numBlobs}_blobs_from_ts`,

@@ -309,10 +309,11 @@ pub global BLS12_FQ_LIMBS: u32 = 4; // TODO(#14646): get this from bignum
 pub global BLS12_POINT_LENGTH: u32 = 2 * BLS12_FQ_LIMBS + 1; // TODO(#14646): reduce num fields needed here?
 pub global BLS12_POINT_COMPRESSED_BYTES: u32 = 48; // TODO(#14646): get this from bignum
 pub global BLOB_ACCUMULATOR_LENGTH: u32 = 3 /* v_acc, z_acc, and gamma_acc */
-    + 2 * BLS12_FR_LIMBS /* y_acc and gamma^i */
+    + BLS12_FR_LIMBS /* y_acc */
+    + 1 /* gamma_pow_acc */
     + BLS12_POINT_LENGTH /* c_acc */;
 pub global FINAL_BLOB_BATCHING_CHALLENGES_LENGTH: u32 = 1 /* z */
-    + BLS12_FR_LIMBS /* gamma */;
+    + 1 /* gamma */;
 pub global FINAL_BLOB_ACCUMULATOR_LENGTH: u32 = 1 /* blob_commitments_hash */
     + 1 /* z */
     + BLS12_FR_LIMBS /* y */

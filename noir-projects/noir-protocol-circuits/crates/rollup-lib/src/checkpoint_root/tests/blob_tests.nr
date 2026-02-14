@@ -1,5 +1,6 @@
 use super::TestBuilder;
-use bignum::{BigNum, BLS12_381_Fr};
+use bignum::bignum::BigNum;
+use bignum::BLS12_381_Fr;
 use blob::abis::{BatchingBlobCommitment, BlobAccumulator, FinalBlobBatchingChallenges};
 use types::{
     blob_data::create_checkpoint_end_marker,
@@ -197,21 +198,20 @@ fn correct_end_blob_accumulator_with_max_blobs() {
         0x18883f,
     ];
     let z_6_blobs_from_ts = 0x088572ee43f73053a094ddc7c2bafe69921f05c35ebd6a5df3dd5a9a82406431;
-    let gamma_limbs_6_blobs_from_ts =
-        [0x7403be1c3b1bbf9cbdd6c269ec7f35, 0x669161f12455557b0dd6f300cfb800, 0x1f85];
+    let gamma_6_blobs_from_ts = 0x1f85669161f12455557b0dd6f300cfb8007403be1c3b1bbf9cbdd6c269ec7f35;
     let y_limbs_6_blobs_from_ts =
-        [0x415b276db449810d95e318d78ac950, 0xd1654b68e5ab9c592df2e6fbe6b619, 0x344c];
+        [0xe748cc89bc05c7215f378e88855f19, 0xadb25841a62ae1bfb8fc8333fda8ce, 0x6142];
     let batched_c_x_limbs_6_blobs_from_ts = [
-        0x8dd7407a1b2e00c9e5fe43f00ba6ca,
-        0x089d7bd6785f37437a41ac05aa8d4b,
-        0x4d4c325a47e5f3d195c67e28b7f429,
-        0x00e361,
+        0xe950e99ff694498cefc995937c438e,
+        0x66db1661a7f9a1b28bcf9ce955c341,
+        0x2e9327c08f6d94fc84813cbe535c41,
+        0x03e879,
     ];
     let batched_c_y_limbs_6_blobs_from_ts = [
-        0x8cb0a368ecb9d0166b448100611923,
-        0x9c5f58cfc6d38c661804a46965dce6,
-        0xf62b52995cf4469df10a8be3910c86,
-        0x11bcc8,
+        0x00e15e9cc5afe041e04d945034028f,
+        0x764470135b4682428d9aad95f384d0,
+        0xfecb035fb1682515d7cf903583c1ea,
+        0x123eda,
     ];
     let blob_commitments_hash_6_blobs_from_ts =
         0x003aa7b42572dcb47fa231c81efe81564edeb146b9e13f38d84288fdbac693e7;
@@ -257,7 +257,7 @@ fn correct_end_blob_accumulator_with_max_blobs() {
         // - The final z value is injected and checked for correctness in root (see below final_acc)
         z: z_6_blobs_from_ts,
         // - The final gamma value is injected and checked for correctness in root (see below final_acc)
-        gamma: BLS12_381_Fr::from_limbs(gamma_limbs_6_blobs_from_ts),
+        gamma: gamma_6_blobs_from_ts,
     };
 
     let expected_y = BLS12_381_Fr::from_limbs(y_limbs_6_blobs_from_ts);

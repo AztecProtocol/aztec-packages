@@ -1,5 +1,4 @@
 use super::TestBuilder;
-use bignum::bignum::BigNum;
 
 #[test(should_fail_with = "Epoch did not start with empty blob state.")]
 fn start_blob_accumulator_is_not_empty() {
@@ -16,7 +15,7 @@ fn incorrect_final_blob_challenges_gamma() {
     let mut builder = TestBuilder::default();
 
     // Tweak the `gamma` of the final blob challenges.
-    let random_gamma = BigNum::from_limbs([1, 2, 3]);
+    let random_gamma = 123;
     builder.left_rollup.final_blob_challenges.gamma = random_gamma;
     builder.right_rollup.final_blob_challenges.gamma = random_gamma;
 

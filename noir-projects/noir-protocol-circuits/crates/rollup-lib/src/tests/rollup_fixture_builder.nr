@@ -2,7 +2,6 @@ use crate::abis::{
     BlockRollupPublicInputs, CheckpointRollupPublicInputs, ParityPublicInputs, TxRollupPublicInputs,
 };
 use bigcurve::BigCurve;
-use bignum::BigNum;
 use blob::abis::{BlobAccumulator, BLSPoint, FinalBlobBatchingChallenges};
 use types::{
     abis::{
@@ -421,9 +420,8 @@ impl RollupFixtureBuilder {
         // Derived from the end block accumulator of the last checkpoint in an epoch, so that the validation in root rollup will pass.
         let end_block_accumulator = self.get_blob_accumulator(self.end_slot_number);
         let z = end_block_accumulator.z_acc;
-        // Safety: This is only for testing.
-        let gamma = unsafe { __from_field(poseidon2_hash([end_block_accumulator.gamma_acc, z])) };
-        FinalBlobBatchingChallenges { z, gamma: BigNum::from_limbs(gamma) }
+        let gamma = poseidon2_hash([end_block_accumulator.gamma_acc, z]);
+        FinalBlobBatchingChallenges { z, gamma }
     }
 
     fn get_fee(_self: Self, tx_or_block_number: u32) -> Field {
@@ -532,34 +530,4 @@ impl RollupFixtureBuilder {
         let value_offset = slot_number * (seed * 37) + block_or_tx_number as Field * (seed + 11);
         make_fixture(value_offset)
     }
-}
-
-global TWO_POW_120: u128 = 0x1000000000000000000000000000000;
-
-// Copied from the noir-bignum library. For testing purposes only.
-unconstrained fn __from_field<let N: u32>(field: Field) -> [u128; N] {
-    let mut x = field;
-    let x_first_u128 = (x as u128);
-    let first: u128 = x_first_u128 % TWO_POW_120;
-    // this becomes the same as a integer division because we're removing the remainder
-    x = (x - (first as Field)) / (TWO_POW_120 as Field);
-    let x_second_u128 = (x as u128);
-    let second = x_second_u128 % TWO_POW_120;
-    x = (x - (second as Field)) / (TWO_POW_120 as Field);
-    let x_third_u128 = (x as u128);
-    let third = x_third_u128 % TWO_POW_120;
-    let mut result: [u128; N] = [0; N];
-    if N > 2 {
-        result[0] = first;
-        result[1] = second;
-        result[2] = third;
-    }
-    if N == 2 {
-        result[0] = first;
-        result[1] = second;
-    }
-    if N == 1 {
-        result[0] = first;
-    }
-    result
 }

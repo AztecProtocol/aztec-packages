@@ -49,14 +49,14 @@ pub struct BlobAccumulator {
     pub blob_commitments_hash_acc: Field,
     // Challenge at which the batched blob polynomial is evaluated (BN254Fr)
     pub z_acc: Field,
-    // Current state of y's linear combination (sum_i {gamma^i * y_i}) where y_i is blob_i's evaluation y.
+    // Current state of y's linear combination (sum_i {gamma_pow_acc_i * y_i}) where y_i is blob_i's evaluation y.
     pub y_acc: BLS12_381_Fr,
-    // Current state of C's linear combination (sum_i {gamma^i * C_i}) where C_i is blob_i's commitment C (BLS12 point: { x: BLS12Fq, y: BLS12Fq })
+    // Current state of C's linear combination (sum_i {gamma_pow_acc_i * C_i}) where C_i is blob_i's commitment C (BLS12 point: { x: BLS12Fq, y: BLS12Fq })
     pub c_acc: BLSPoint,
     // Challenge for linear combination of each blob's y and C (BLS12Fr but represented here as BN254Fr, since it is hashed natively)
     pub gamma_acc: Field,
-    // gamma^i for current blob, used above.
-    pub gamma_pow_acc: BLS12_381_Fr,
+    // Instead of gamma^i (from the plonk paper) we do cheaper nested hashing of gamma.
+    pub gamma_pow_acc: Field,
 }
 
 impl BlobAccumulator {
@@ -69,13 +69,12 @@ impl BlobAccumulator {
     * - y_acc := gamma^0 * y_0 = y_0
     * - c_acc := gamma^0 * c_0 = c_0
     * - gamma_acc := poseidon2(y_0.limbs)
-    * - gamma^(i + 1) = gamma^1 = gamma // denoted gamma_pow_acc
+    * - gamma_pow_acc := final_gamma
     *
     * For all blobs i > 0 accumulated, see the below documentation for accumulate().
     *
     */
-    pub fn init(first_output: BlobAccumulationInputs, final_gamma: BLS12_381_Fr) -> Self {
-        // TODO(#13608): use a BLS12 based hash? Is using BN based safe - since the output is smaller is there a skew?
+    pub fn init(first_output: BlobAccumulationInputs, final_gamma: Field) -> Self {
         let hashed_y_0 = poseidon2_hash(first_output.y_i.get_limbs().map(|l| l as Field));
         Self {
             blob_commitments_hash_acc: sha256_to_field(first_output.c_i.compressed),
@@ -91,15 +90,13 @@ impl BlobAccumulator {
     * LHS Accumulator: Current state of param accumulation from blob 0 to i-1
     * RHS Accumulator: Outputs from evaluation of blob i
     *
-    * NB: blob_commitments_hash is written as v below
-    *
     * Each accumulation:
     * - blob_commitments_hash_acc := sha256(blob_commitments_hash_acc, C_i)
     * - z_acc := poseidon2(z_acc, z_i)
-    * - y_acc := y_acc + (gamma^i * y_i)
-    * - c_acc := c_acc + (gamma^i * c_i)
+    * - y_acc := y_acc + (gamma_pow_acc * y_i)
+    * - c_acc := c_acc + (gamma_pow_acc * c_i)
     * - gamma_acc := poseidon2(gamma_acc, poseidon2(y_i.limbs))
-    * - gamma^(i + 1) = gamma^i * gamma // denoted gamma_pow_acc
+    * - gamma_pow_acc = h(gamma_pow_acc, gamma) (i lots of nested hashing)
     *
     * Final accumulated values (from last blob of last checkpoint of epoch):
     * - blob_commitments_hash := blob_commitments_hash_acc (hash of all commitments (C_i s) to be checked on L1)
@@ -114,14 +111,15 @@ impl BlobAccumulator {
     * - Checking final gamma_acc == gamma in root circuit
     *
     */
-    pub fn accumulate(self, other: BlobAccumulationInputs, final_gamma: BLS12_381_Fr) -> Self {
-        // TODO(#13608): use a BLS12 based hash? Is using BN based safe - since the output is smaller is there a skew?
+    pub fn accumulate(self, other: BlobAccumulationInputs, final_gamma: Field) -> Self {
         let hashed_y_i = poseidon2_hash(other.y_i.get_limbs().map(|l| l as Field));
 
-        // Equivalent to self.c_acc.add(other.c_i.point.mul(BLS12_381Scalar::from_bignum(self.gamma_pow_acc)))
+        let gamma_pow_acc_fr = BLS12_381_Fr::from(self.gamma_pow_acc);
+
+        // Equivalent to self.c_acc.add(other.c_i.point.mul(BLS12_381Scalar::from_bignum(gamma_pow_acc_fr)))
         let c_acc = BLS12_381::evaluate_linear_expression(
             [other.c_i.point],
-            [BLS12_381Scalar::from_bignum(self.gamma_pow_acc)],
+            [BLS12_381Scalar::from_bignum(gamma_pow_acc_fr)],
             [self.c_acc],
         );
 
@@ -131,10 +129,10 @@ impl BlobAccumulator {
                 .to_be_bytes::<32>()
                 .concat(other.c_i.compressed)),
             z_acc: poseidon2_hash([self.z_acc, other.z_i]),
-            y_acc: self.y_acc.add(other.y_i.mul(self.gamma_pow_acc)),
+            y_acc: self.y_acc.add(other.y_i.mul(gamma_pow_acc_fr)),
             c_acc,
             gamma_acc: poseidon2_hash([self.gamma_acc, hashed_y_i]),
-            gamma_pow_acc: self.gamma_pow_acc.mul(final_gamma),
+            gamma_pow_acc: poseidon2_hash([self.gamma_pow_acc, final_gamma]),
         }
     }
 
@@ -159,7 +157,7 @@ impl Empty for BlobAccumulator {
             y_acc: BLS12_381_Fr::zero(),
             c_acc: BLSPoint::point_at_infinity(),
             gamma_acc: 0,
-            gamma_pow_acc: BLS12_381_Fr::zero(),
+            gamma_pow_acc: 0,
         }
     }
 }
@@ -195,7 +193,7 @@ impl Serialize for BlobAccumulator {
         writer.write_array(self.c_acc.y.get_limbs().map(|l| l as Field));
         writer.write(self.c_acc.is_infinity as Field);
         writer.write(self.gamma_acc);
-        writer.write_array(self.gamma_pow_acc.get_limbs().map(|l| l as Field));
+        writer.write(self.gamma_pow_acc);
     }
 }
 
@@ -223,7 +221,7 @@ impl Deserialize for BlobAccumulator {
                 is_infinity: reader.read_bool(),
             },
             gamma_acc: reader.read(),
-            gamma_pow_acc: BLS12_381_Fr::from_limbs(reader.read_array().map(|e| e as u128)),
+            gamma_pow_acc: reader.read(),
         }
     }
 }
@@ -240,7 +238,7 @@ fn serde_test() {
             is_infinity: false,
         },
         gamma_acc: 42,
-        gamma_pow_acc: BLS12_381_Fr::from_limbs([14, 15, 16]),
+        gamma_pow_acc: 14,
     };
 
     let serialized = blob_accumulator.serialize();

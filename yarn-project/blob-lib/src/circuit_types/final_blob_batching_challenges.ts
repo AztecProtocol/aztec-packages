@@ -1,4 +1,3 @@
-import { BLS12Fr } from '@aztec/foundation/curves/bls12';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -8,7 +7,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 export class FinalBlobBatchingChallenges {
   constructor(
     public readonly z: Fr,
-    public readonly gamma: BLS12Fr,
+    public readonly gamma: Fr,
   ) {}
 
   equals(other: FinalBlobBatchingChallenges) {
@@ -16,12 +15,12 @@ export class FinalBlobBatchingChallenges {
   }
 
   static empty(): FinalBlobBatchingChallenges {
-    return new FinalBlobBatchingChallenges(Fr.ZERO, BLS12Fr.ZERO);
+    return new FinalBlobBatchingChallenges(Fr.ZERO, Fr.ZERO);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): FinalBlobBatchingChallenges {
     const reader = BufferReader.asReader(buffer);
-    return new FinalBlobBatchingChallenges(Fr.fromBuffer(reader), reader.readObject(BLS12Fr));
+    return new FinalBlobBatchingChallenges(Fr.fromBuffer(reader), Fr.fromBuffer(reader));
   }
 
   toBuffer() {

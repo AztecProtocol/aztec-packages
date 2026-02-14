@@ -275,7 +275,7 @@ function mapFinalBlobBatchingChallengesToNoir(
 ): FinalBlobBatchingChallengesNoir {
   return {
     z: mapFieldToNoir(challenges.z),
-    gamma: mapBLS12FrToNoir(challenges.gamma),
+    gamma: mapFieldToNoir(challenges.gamma),
   };
 }
 
@@ -287,7 +287,7 @@ function mapFinalBlobBatchingChallengesToNoir(
 function mapFinalBlobBatchingChallengesFromNoir(
   challenges: FinalBlobBatchingChallengesNoir,
 ): FinalBlobBatchingChallenges {
-  return new FinalBlobBatchingChallenges(mapFieldFromNoir(challenges.z), mapBLS12FrFromNoir(challenges.gamma));
+  return new FinalBlobBatchingChallenges(mapFieldFromNoir(challenges.z), mapFieldFromNoir(challenges.gamma));
 }
 
 /**
@@ -302,7 +302,7 @@ function mapBlobAccumulatorToNoir(blobPublicInputs: BlobAccumulator): BlobAccumu
     y_acc: mapBLS12FrToNoir(blobPublicInputs.yAcc),
     c_acc: mapBLS12PointToNoir(blobPublicInputs.cAcc),
     gamma_acc: mapFieldToNoir(blobPublicInputs.gammaAcc),
-    gamma_pow_acc: mapBLS12FrToNoir(blobPublicInputs.gammaPowAcc),
+    gamma_pow_acc: mapFieldToNoir(blobPublicInputs.gammaPowAcc),
   };
 }
 
@@ -318,7 +318,7 @@ function mapBlobAccumulatorFromNoir(blobPublicInputs: BlobAccumulatorNoir): Blob
     mapBLS12FrFromNoir(blobPublicInputs.y_acc),
     mapBLS12PointFromNoir(blobPublicInputs.c_acc),
     mapFieldFromNoir(blobPublicInputs.gamma_acc),
-    mapBLS12FrFromNoir(blobPublicInputs.gamma_pow_acc),
+    mapFieldFromNoir(blobPublicInputs.gamma_pow_acc),
   );
 }
 

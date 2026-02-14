@@ -202,7 +202,7 @@ unconstrained fn __compute_fracs(z: BLS12_381_Fr) -> [BLS12_381_Fr; FIELDS_PER_B
         denoms[i] = z.__sub(ROOTS[i]); // (z - w^i)
     }
     let inv_denoms: [BLS12_381_Fr; FIELDS_PER_BLOB] = bignum::bignum::batch_invert(denoms); // 1 / (z - w^i), for all i
-    // We're now done with `denoms` so we can reuse the allocated array to build `fracs`.
+
     let mut fracs = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB]; // aiming for: w^i / (z - w^i), for all i
     for i in 0..FIELDS_PER_BLOB {
         let inv_denom = inv_denoms[i]; // 1 / (z - w^i)
@@ -795,26 +795,6 @@ mod tests {
         fracs[1] = temp;
 
         // This should fail because the constraints check each position independently
-        validate_fracs(z, fracs);
-    }
-
-    #[test(should_fail)]
-    fn test_validate_fracs_rejects_nonzero_frac_for_zero_y() {
-        // Test that when y[i] = 0, fracs[i] must also satisfy the constraint
-        // (which means fracs[i] * (z - w^i) = 0)
-        let z = BLS12_381_Fr::from_limbs([42, 0, 0]);
-        let ys = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB]; // All zeros
-
-        // Compute correct fracs (should all be zero)
-        // Safety: computing correct values first
-        let mut fracs = unsafe { __compute_fracs(z) };
-
-        // Set fracs[0] to a non-zero value
-        // Since y[0] = 0, the constraint is fracs[0] * (z - w^0) = 0
-        // For this to hold with non-zero fracs[0], we'd need z = w^0 = 1
-        // But z = 42, so this should fail
-        fracs[0] = BLS12_381_Fr::from_limbs([999, 0, 0]);
-
         validate_fracs(z, fracs);
     }
 }

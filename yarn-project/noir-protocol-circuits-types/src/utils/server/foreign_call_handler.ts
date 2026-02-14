@@ -5,15 +5,9 @@ import {
   computeBlobFieldsHash,
   getBlobsPerL1Block,
 } from '@aztec/blob-lib';
-import {
-  BLOB_ACCUMULATOR_LENGTH,
-  BLS12_FQ_LIMBS,
-  BLS12_FR_LIMBS,
-  BLS12_POINT_LENGTH,
-  FIELDS_PER_BLOB,
-} from '@aztec/constants';
+import { BLOB_ACCUMULATOR_LENGTH, BLS12_FQ_LIMBS, BLS12_POINT_LENGTH, FIELDS_PER_BLOB } from '@aztec/constants';
 import { chunk } from '@aztec/foundation/collection';
-import { BLS12Fq, BLS12Fr, BLS12Point } from '@aztec/foundation/curves/bls12';
+import { BLS12Fq, BLS12Point } from '@aztec/foundation/curves/bls12';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { LogLevels, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import type { ForeignCallInput, ForeignCallOutput } from '@aztec/noir-acvm_js';
@@ -74,11 +68,10 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
       return new BLS12Point(x, y, isInfinite);
     });
 
-    // - args[5] is the challenges struct, containing z (BNFr) and gamma (BLS12Fr)
-    // TODO(#14646): Omit/compress some fields to reduce number of public inputs & outputs here?
+    // - args[5] is the challenges struct, containing z (BNFr) and gamma (BNFr)
     const finalBlobChallenges = new FinalBlobBatchingChallenges(
       Fr.fromString(flattenedArgs[offset++]),
-      BLS12Fr.fromNoirBigNum({ limbs: flattenedArgs.slice(offset, (offset += BLS12_FR_LIMBS)) }),
+      Fr.fromString(flattenedArgs[offset++]),
     );
 
     // - args[6] is the start blob batching accumulator

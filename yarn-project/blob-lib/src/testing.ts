@@ -65,7 +65,7 @@ export function makeBlobAccumulator(seed = 1): BlobAccumulator {
     new BLS12Fr(seed + 0x20),
     makeBLS12Point(seed + 0x30),
     new Fr(seed + 0x50),
-    new BLS12Fr(seed + 0x60),
+    new Fr(seed + 0x60),
   );
 }
 
@@ -79,7 +79,7 @@ export function makeFinalBlobAccumulator(seed = 1) {
 }
 
 export function makeFinalBlobBatchingChallenges(seed = 1) {
-  return new FinalBlobBatchingChallenges(new Fr(seed), new BLS12Fr(seed + 0x10));
+  return new FinalBlobBatchingChallenges(new Fr(seed), new Fr(seed + 0x10));
 }
 
 /**

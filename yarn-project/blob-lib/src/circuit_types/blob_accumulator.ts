@@ -13,11 +13,11 @@ export class BlobAccumulator {
     public yAcc: BLS12Fr,
     public cAcc: BLS12Point,
     public gammaAcc: Fr,
-    public gammaPowAcc: BLS12Fr,
+    public gammaPowAcc: Fr,
   ) {}
 
   static empty(): BlobAccumulator {
-    return new BlobAccumulator(Fr.ZERO, Fr.ZERO, BLS12Fr.ZERO, BLS12Point.ZERO, Fr.ZERO, BLS12Fr.ZERO);
+    return new BlobAccumulator(Fr.ZERO, Fr.ZERO, BLS12Fr.ZERO, BLS12Point.ZERO, Fr.ZERO, Fr.ZERO);
   }
 
   equals(other: BlobAccumulator) {
@@ -39,7 +39,7 @@ export class BlobAccumulator {
       BLS12Fr.fromBuffer(reader),
       BLS12Point.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      BLS12Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
     );
   }
 
@@ -63,7 +63,7 @@ export class BlobAccumulator {
       ...this.cAcc.y.toNoirBigNum().limbs.map(Fr.fromString),
       new Fr(this.cAcc.isInfinite),
       this.gammaAcc,
-      ...this.gammaPowAcc.toNoirBigNum().limbs.map(Fr.fromString),
+      this.gammaPowAcc,
     ];
   }
 
@@ -79,7 +79,7 @@ export class BlobAccumulator {
         reader.readBoolean(),
       ),
       reader.readField(),
-      BLS12Fr.fromNoirBigNum({ limbs: reader.readFieldArray(BLS12_FR_LIMBS).map(f => f.toString()) }),
+      reader.readField(),
     );
   }
 
@@ -90,7 +90,7 @@ export class BlobAccumulator {
       BLS12Fr.random(),
       BLS12Point.random(),
       Fr.random(),
-      BLS12Fr.random(),
+      Fr.random(),
     );
   }
 }

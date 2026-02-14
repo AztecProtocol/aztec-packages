@@ -137,7 +137,8 @@ mod tests {
     };
     use super::evaluate_blobs_and_batch;
     use bigcurve::{BigCurve, curves::bls12_381::BLS12_381 as BLSPoint};
-    use bignum::{BigNum, BLS12_381_Fr};
+    use bignum::bignum::BigNum;
+    use bignum::BLS12_381_Fr;
     use bignum::fields::bls12_381Fq::BLS12_381_Fq;
     use types::{
         constants::FIELDS_PER_BLOB,
@@ -145,6 +146,7 @@ mod tests {
         tests::utils::{pad_end, pad_end_with},
         traits::Empty,
     };
+    use types::hash::poseidon2_hash;
 
     #[test]
     unconstrained fn test_1_blob_batched() {
@@ -172,8 +174,8 @@ mod tests {
             0x1962ca,
         ];
         let z_blob_400_from_ts = 0x2386cdc1cd34e082e14fa1410694c58b99c7c9b93b8effd9ae3a6b2d819854f7;
-        let gamma_limbs_blob_400_from_ts =
-            [0x0f8e4bdfc88b8bad985c43ef399030, 0xa6111cf46305c115d0c5d3ac38c51a, 0x262d];
+        let gamma_blob_400_from_ts =
+            0x262da6111cf46305c115d0c5d3ac38c51a0f8e4bdfc88b8bad985c43ef399030;
         let y_limbs_blob_400_from_ts =
             [0xfc33eee32e4cfe0cb39ef7578a85c6, 0x2c004486b1796de6f1403c71acdba4, 0x2784];
 
@@ -187,7 +189,7 @@ mod tests {
             // = z_0
             z: z_blob_400_from_ts,
             // = H(y_0, z_0)
-            gamma: BLS12_381_Fr::from_limbs(gamma_limbs_blob_400_from_ts),
+            gamma: gamma_blob_400_from_ts,
         };
 
         let challenge_z = BLS12_381_Fr::from(final_challenges.z);
@@ -208,7 +210,7 @@ mod tests {
         let final_acc = res.finalize();
 
         assert_eq(final_acc.z, final_challenges.z);
-        // Since i = 1, gamma_pow = gamma^1 = gamma:
+        // For 1 blob, gamma_pow_acc is initialized to gamma in init():
         assert_eq(res.gamma_pow_acc, final_challenges.gamma);
 
         assert_eq(final_acc.y, BLS12_381_Fr::from_limbs(y_limbs_blob_400_from_ts));
@@ -274,21 +276,21 @@ mod tests {
             0x0c6b4d,
         ];
         let z_3_blobs_from_ts = 0x1d6f81c9ee5724f7e9d8eea03ba0c9e29e53913151a395a301e17b0901bfa68e;
-        let gamma_limbs_3_blobs_from_ts =
-            [0xcaac06f034aff18046f72a833b5e56, 0x14d28092a1b7b9b3a7f541251733c2, 0x1863];
+        let gamma_3_blobs_from_ts =
+            0x186314d28092a1b7b9b3a7f541251733c2caac06f034aff18046f72a833b5e56;
         let y_limbs_3_blobs_from_ts =
-            [0xdd96a38e51f8550be2a4c5ad587664, 0xa65e19e250e80342e1b1c9ea3a5a7e, 0x0338];
+            [0x2e2740491a2f2b9dd4644499a3c7df, 0x3ab792aba713eaca455f94c1b3aa34, 0x33a9];
         let batched_c_x_limbs_3_blobs_from_ts = [
-            0xba3b9220d2b505a37963a53b388fbb,
-            0x105b5d6a410c8e44a923538967bcf8,
-            0x415f4e2efbad9d9a9f461bddcc5863,
-            0x11c03e,
+            0x2e9f0e41fb49cbeeb6bc4b90bb4826,
+            0x91d6934a906903c9cac3a40007ef3a,
+            0x020813642b40773233357fde3f6f5c,
+            0x10f120,
         ];
         let batched_c_y_limbs_3_blobs_from_ts = [
-            0x2f053c58fd82b21f0203ed94078699,
-            0x8c9d5eeaf252eed94085bd7897c3c2,
-            0x91605fcb7bb8f16d6f01a33c0fc9d4,
-            0x0c1b2f,
+            0xf2494ac2be499c87e3976e6827f18d,
+            0x3fe6ea2c73611ade32da7be910ec19,
+            0x9b8b30364e8214635803364195e052,
+            0x0aa8ef,
         ];
         let blob_commitments_hash_3_blobs_from_ts =
             0x00993920f366febbb5cd05c6436eda28a447447f58a1b7d713c21423790c395b;
@@ -317,7 +319,7 @@ mod tests {
             // - The final z value is injected and checked for correctness in root (see below final_acc)
             z: z_3_blobs_from_ts,
             // - The final gamma value is injected and checked for correctness in root (see below final_acc)
-            gamma: BLS12_381_Fr::from_limbs(gamma_limbs_3_blobs_from_ts),
+            gamma: gamma_3_blobs_from_ts,
         };
 
         let challenge_z = BLS12_381_Fr::from(final_challenges.z);
@@ -341,10 +343,12 @@ mod tests {
         let final_acc = output.finalize();
 
         assert_eq(final_acc.z, final_challenges.z);
-        assert_eq(
-            output.gamma_pow_acc,
-            final_challenges.gamma.__pow(BLS12_381_Fr::from(num_blobs as Field)),
-        );
+        // gamma_pow_acc after 3 blobs = h(h(gamma, gamma), gamma)
+        let mut expected_gamma_pow = final_challenges.gamma;
+        for _ in 1..num_blobs {
+            expected_gamma_pow = poseidon2_hash([expected_gamma_pow, final_challenges.gamma]);
+        }
+        assert_eq(output.gamma_pow_acc, expected_gamma_pow);
 
         let expected_y = BLS12_381_Fr::from_limbs(y_limbs_3_blobs_from_ts);
 

@@ -21,20 +21,16 @@ export class BatchedBlobAccumulator {
     public readonly blobCommitmentsHashAcc: Fr,
     /** Challenge point z_acc. Final value used such that p_i(z) = y_i. */
     public readonly zAcc: Fr,
-    /** Evaluation y_acc. Final value is is linear combination of all evaluations y_i = p_i(z) with gamma. */
+    /** Evaluation y_acc. Final value is linear combination of all evaluations y_i = p_i(z) with gamma. */
     public readonly yAcc: BLS12Fr,
     /** Commitment c_acc. Final value is linear combination of all commitments C_i = [p_i] with gamma. */
     public readonly cAcc: BLS12Point,
     /** KZG opening q_acc. Final value is linear combination of all blob kzg 'proofs' Q_i with gamma. */
     public readonly qAcc: BLS12Point,
-    /**
-     * Challenge point gamma_acc for multi opening. Used with y, C, and kzg 'proof' Q above.
-     * TODO(#13608): We calculate this by hashing natively in the circuit (hence Fr representation), but it's actually used
-     * as a BLS12Fr field elt. Is this safe? Is there a skew?
-     */
+    /** Challenge point gamma_acc for multi opening. Used with y, C, and kzg 'proof' Q above. */
     public readonly gammaAcc: Fr,
-    /** Simply gamma^(i + 1) at blob i. Used for calculating the i'th element of the above linear comb.s */
-    public readonly gammaPow: BLS12Fr,
+    /** Nested hash of gamma, used as the multiplier for the i'th element of the linear combinations above. */
+    public readonly gammaPow: Fr,
     /** Final challenge values used in evaluation. Optimistically input and checked in the final acc. */
     public readonly finalBlobChallenges: FinalBlobBatchingChallenges,
   ) {}
@@ -51,7 +47,7 @@ export class BatchedBlobAccumulator {
       BLS12Point.ZERO,
       BLS12Point.ZERO,
       Fr.ZERO,
-      BLS12Fr.ZERO,
+      Fr.ZERO,
       finalBlobChallenges,
     );
   }
@@ -92,12 +88,12 @@ export class BatchedBlobAccumulator {
 
   /**
    * Gets the final challenges based on all blobs and their elements to perform a multi opening proof.
-   * Used in BatchedBlobAccumulator as 'finalZ' and finalGamma':
+   * Used in BatchedBlobAccumulator as 'finalZ' and 'finalGamma':
    *  - z = H(...H(H(z_0, z_1) z_2)..z_n)
    *    - where z_i = H(H(fields of blob_i), C_i) = Blob.challengeZ,
    *    - used such that p_i(z) = y_i = Blob.evaluationY for all n blob polynomials p_i().
    *  - gamma = H(H(...H(H(y_0, y_1) y_2)..y_n), z)
-   *    - used such that y = sum_i { gamma^i * y_i }, and C = sum_i { gamma^i * C_i }, for all blob evaluations y_i (see above) and commitments C_i.
+   *    - used as a basis for nested hashing to derive multipliers for the linear combinations of y_i and C_i.
    *
    * @param blobs - The blobs to precompute the challenges for. Each sub-array is the blobs for an L1 block.
    * @returns Challenges z and gamma.
@@ -136,7 +132,7 @@ export class BatchedBlobAccumulator {
     }
     gamma = await poseidon2Hash([gamma, z]);
 
-    return new FinalBlobBatchingChallenges(z, BLS12Fr.fromBN254Fr(gamma));
+    return new FinalBlobBatchingChallenges(z, gamma);
   }
 
   /**
@@ -155,31 +151,33 @@ export class BatchedBlobAccumulator {
        * Init the first accumulation state of the epoch.
        * - v_acc := sha256(C_0)
        * - z_acc := z_0
-       * - y_acc := gamma^0 * y_0 = y_0
-       * - c_acc := gamma^0 * c_0 = c_0
+       * - y_acc := y_0 (identity multiplier for first blob)
+       * - c_acc := c_0 (identity multiplier for first blob)
        * - gamma_acc := poseidon2(y_0.limbs)
-       * - gamma^(i + 1) = gamma^1 = gamma // denoted gamma_pow_acc
+       * - gamma_pow_acc := gamma (for next blob's multiplier)
        */
       return new BatchedBlobAccumulator(
         sha256ToField([blob.commitment]), // blobCommitmentsHashAcc = sha256(C_0)
         blobChallengeZ, // zAcc = z_0
-        thisY, // yAcc = gamma^0 * y_0 = 1 * y_0
-        thisC, // cAcc = gamma^0 * C_0 = 1 * C_0
-        thisQ, // qAcc = gamma^0 * Q_0 = 1 * Q_0
+        thisY, // yAcc = 1 * y_0
+        thisC, // cAcc = 1 * C_0
+        thisQ, // qAcc = 1 * Q_0
         await hashNoirBigNumLimbs(thisY), // gammaAcc = poseidon2(y_0.limbs)
-        this.finalBlobChallenges.gamma, // gammaPow = gamma^(i + 1) = gamma^1 = gamma
+        this.finalBlobChallenges.gamma, // gammaPow = gamma (for next blob)
         this.finalBlobChallenges,
       );
     } else {
-      // Moving from i - 1 to i, so:
+      // Moving from i - 1 to i:
+      // Convert gammaPow (Fr) to BLS12Fr for curve/field operations
+      const gammaPowBLS = BLS12Fr.fromBN254Fr(this.gammaPow);
       return new BatchedBlobAccumulator(
         sha256ToField([this.blobCommitmentsHashAcc, blob.commitment]), // blobCommitmentsHashAcc := sha256(blobCommitmentsHashAcc, C_i)
         await poseidon2Hash([this.zAcc, blobChallengeZ]), // zAcc := poseidon2(zAcc, z_i)
-        this.yAcc.add(thisY.mul(this.gammaPow)), // yAcc := yAcc + (gamma^i * y_i)
-        this.cAcc.add(thisC.mul(this.gammaPow)), // cAcc := cAcc + (gamma^i * C_i)
-        this.qAcc.add(thisQ.mul(this.gammaPow)), // qAcc := qAcc + (gamma^i * C_i)
+        this.yAcc.add(thisY.mul(gammaPowBLS)), // yAcc := yAcc + (gamma_pow_acc * y_i)
+        this.cAcc.add(thisC.mul(gammaPowBLS)), // cAcc := cAcc + (gamma_pow_acc * C_i)
+        this.qAcc.add(thisQ.mul(gammaPowBLS)), // qAcc := qAcc + (gamma_pow_acc * Q_i)
         await poseidon2Hash([this.gammaAcc, await hashNoirBigNumLimbs(thisY)]), // gammaAcc := poseidon2(gammaAcc, poseidon2(y_i.limbs))
-        this.gammaPow.mul(this.finalBlobChallenges.gamma), // gammaPow = gamma^(i + 1) = gamma^i * final_gamma
+        await poseidon2Hash([this.gammaPow, this.finalBlobChallenges.gamma]), // gammaPow := h(gammaPow, gamma)
         this.finalBlobChallenges,
       );
     }
@@ -234,9 +232,9 @@ export class BatchedBlobAccumulator {
         `Blob batching mismatch: accumulated z ${this.zAcc} does not equal injected z ${this.finalBlobChallenges.z}`,
       );
     }
-    if (!calculatedGamma.equals(this.finalBlobChallenges.gamma.toBN254Fr())) {
+    if (!calculatedGamma.equals(this.finalBlobChallenges.gamma)) {
       throw new Error(
-        `Blob batching mismatch: accumulated gamma ${calculatedGamma} does not equal injected gamma ${this.finalBlobChallenges.gamma.toBN254Fr()}`,
+        `Blob batching mismatch: accumulated gamma ${calculatedGamma} does not equal injected gamma ${this.finalBlobChallenges.gamma}`,
       );
     }
 
@@ -278,7 +276,7 @@ export class BatchedBlobAccumulator {
       BLS12Point.fromBuffer(this.cAcc.toBuffer()),
       BLS12Point.fromBuffer(this.qAcc.toBuffer()),
       Fr.fromBuffer(this.gammaAcc.toBuffer()),
-      BLS12Fr.fromBuffer(this.gammaPow.toBuffer()),
+      Fr.fromBuffer(this.gammaPow.toBuffer()),
       FinalBlobBatchingChallenges.fromBuffer(this.finalBlobChallenges.toBuffer()),
     );
   }
