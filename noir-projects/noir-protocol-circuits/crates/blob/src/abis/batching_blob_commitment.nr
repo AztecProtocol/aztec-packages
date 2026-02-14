@@ -4,7 +4,6 @@ use bigcurve::BigCurve;
 use bignum::{BigNum, BLS12_381_Fq};
 use types::{
     constants::BLS12_POINT_COMPRESSED_BYTES,
-    traits::Empty,
     utils::{arrays::subarray, field::field_from_bytes},
 };
 
@@ -38,11 +37,5 @@ impl BatchingBlobCommitment {
 impl Eq for BatchingBlobCommitment {
     fn eq(self, other: Self) -> bool {
         (self.point.eq(other.point)) & (self.compressed.eq(other.compressed))
-    }
-}
-
-impl Empty for BatchingBlobCommitment {
-    fn empty() -> Self {
-        Self { point: BLSPoint::point_at_infinity(), compressed: [0; BLS12_POINT_COMPRESSED_BYTES] }
     }
 }
