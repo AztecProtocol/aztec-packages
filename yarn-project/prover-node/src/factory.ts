@@ -231,5 +231,6 @@ export async function createProverNode(
     proverNodeConfig,
     telemetry,
     delayer,
+    dateProvider,
   );
 }

@@ -249,6 +249,15 @@ export class CheckpointProposalJob implements Traceable {
         return undefined;
       }
 
+      const minBlocksForCheckpoint = this.config.minBlocksForCheckpoint;
+      if (minBlocksForCheckpoint !== undefined && blocksInCheckpoint.length < minBlocksForCheckpoint) {
+        this.log.warn(
+          `Checkpoint has fewer blocks than minimum (${blocksInCheckpoint.length} < ${minBlocksForCheckpoint}), skipping proposal`,
+          { slot: this.slot, blocksBuilt: blocksInCheckpoint.length, minBlocksForCheckpoint },
+        );
+        return undefined;
+      }
+
       // Assemble and broadcast the checkpoint proposal, including the last block that was not
       // broadcasted yet, and wait to collect the committee attestations.
       this.setStateFn(SequencerState.ASSEMBLING_CHECKPOINT, this.slot);
