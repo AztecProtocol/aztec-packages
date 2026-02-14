@@ -540,26 +540,20 @@ def trigger_grind():
 _proxy_session = requests.Session()
 _HOP_BY_HOP = frozenset([
     'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
-    'te', 'trailers', 'transfer-encoding', 'upgrade', 'content-length',
-    # `requests` auto-decompresses gzip responses, so Content-Encoding is
-    # stale — strip it so the browser doesn't try to decompress plain content.
-    # Flask-Compress on rkapp handles browser compression.
-    'content-encoding',
+    'te', 'trailers', 'transfer-encoding', 'upgrade',
 ])
-# Don't forward Accept-Encoding — let `requests` negotiate with ci-metrics
-# (it adds its own and auto-decompresses).
-_STRIP_REQUEST_HEADERS = frozenset(['host', 'accept-encoding'])
+_STRIP_REQUEST_HEADERS = frozenset(['host'])
 
 def _proxy(path):
-    """Forward request to ci-metrics, streaming the response back."""
+    """Forward request to ci-metrics, streaming the response back.
+
+    Passes the browser's Accept-Encoding through to ci-metrics so it
+    compresses directly for the browser.  We stream the raw (still
+    compressed) bytes back without decompression.
+    """
     url = f'{CI_METRICS_URL}/{path.lstrip("/")}'
     try:
         fwd_headers = {k: v for k, v in request.headers if k.lower() not in _STRIP_REQUEST_HEADERS}
-        # Tell ci-metrics not to compress — rk.py Flask-Compress handles
-        # browser compression.  Without this, requests auto-decompresses
-        # the ci-metrics response but Flask-Compress re-compresses with
-        # deflate, which some browsers fail to decode correctly.
-        fwd_headers['Accept-Encoding'] = 'identity'
         resp = _proxy_session.request(
             method=request.method,
             url=url,
@@ -569,9 +563,9 @@ def _proxy(path):
             stream=True,
             timeout=180,
         )
-        # Strip hop-by-hop headers
+        # Stream raw bytes (skip requests auto-decompression)
         headers = {k: v for k, v in resp.headers.items() if k.lower() not in _HOP_BY_HOP}
-        return Response(resp.iter_content(chunk_size=8192),
+        return Response(resp.raw.stream(8192),
                         status=resp.status_code, headers=headers)
     except Exception as e:
         return Response(json.dumps({'error': f'ci-metrics unavailable: {e}'}),
