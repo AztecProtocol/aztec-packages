@@ -7,9 +7,12 @@
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
+#include "barretenberg/honk/library/grand_product_delta.hpp"
+#include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
+#include "barretenberg/relations/databus_lookup_relation.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
-#include "barretenberg/ultra_honk/witness_computation.hpp"
+#include "barretenberg/relations/permutation_relation.hpp"
 
 namespace bb {
 
@@ -111,12 +114,7 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_lookup_counts_and_
     // Get eta challenge and compute powers (eta, eta², eta³)
     prover_instance->relation_parameters.compute_eta_powers(transcript->template get_challenge<FF>("eta"));
 
-    WitnessComputation<Flavor>::add_ram_rom_memory_records_to_wire_4(prover_instance->polynomials,
-                                                                     prover_instance->memory_read_records,
-                                                                     prover_instance->memory_write_records,
-                                                                     prover_instance->relation_parameters.eta,
-                                                                     prover_instance->relation_parameters.eta_two,
-                                                                     prover_instance->relation_parameters.eta_three);
+    add_ram_rom_memory_records_to_wire_4(*prover_instance);
 
     // Commit to lookup argument polynomials and the finalized (i.e. with memory records) fourth wire polynomial
     auto batch = commitment_key.start_batch();
@@ -145,8 +143,7 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_logderiv_inverses(
     prover_instance->relation_parameters.gamma = gamma;
 
     // Compute the inverses used in log-derivative lookup relations
-    WitnessComputation<Flavor>::compute_logderivative_inverses(
-        prover_instance->polynomials, prover_instance->dyadic_size(), prover_instance->relation_parameters);
+    compute_logderivative_inverses(*prover_instance);
 
     auto batch = commitment_key.start_batch();
     batch.add_to_batch(prover_instance->polynomials.lookup_inverses,
@@ -179,11 +176,7 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_z_perm()
 {
     BB_BENCH_NAME("OinkProver::commit_to_z_perm");
 
-    WitnessComputation<Flavor>::compute_grand_product_polynomial(prover_instance->polynomials,
-                                                                 prover_instance->public_inputs,
-                                                                 prover_instance->pub_inputs_offset(),
-                                                                 prover_instance->relation_parameters,
-                                                                 prover_instance->get_final_active_wire_idx() + 1);
+    compute_grand_product_polynomial(*prover_instance);
 
     auto& z_perm = prover_instance->polynomials.z_perm;
     if constexpr (Flavor::HasZK) {
@@ -205,6 +198,89 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
         transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
     }
 };
+
+/**
+ * @brief Add RAM/ROM memory records to the fourth wire polynomial
+ *
+ * @details This operation must be performed after the first three wires have been
+ * committed to, hence the dependence on the `eta` challenge.
+ *
+ * @tparam Flavor
+ * @param instance prover instance whose polynomials, memory records, and eta powers are used
+ */
+template <typename Flavor> void OinkProver<Flavor>::add_ram_rom_memory_records_to_wire_4(ProverInstance& instance)
+{
+    // The memory record values are computed at the indicated indices as
+    // w4 = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag;
+    // (See the Memory relation for details)
+    auto wires = instance.polynomials.get_wires();
+    const auto& eta = instance.relation_parameters.eta;
+    const auto& eta_two = instance.relation_parameters.eta_two;
+    const auto& eta_three = instance.relation_parameters.eta_three;
+
+    // Compute read record values
+    for (const auto& gate_idx : instance.memory_read_records) {
+        wires[3].at(gate_idx) = wires[2][gate_idx] * eta_three;
+        wires[3].at(gate_idx) += wires[1][gate_idx] * eta_two;
+        wires[3].at(gate_idx) += wires[0][gate_idx] * eta;
+    }
+
+    // Compute write record values
+    for (const auto& gate_idx : instance.memory_write_records) {
+        wires[3].at(gate_idx) = wires[2][gate_idx] * eta_three;
+        wires[3].at(gate_idx) += wires[1][gate_idx] * eta_two;
+        wires[3].at(gate_idx) += wires[0][gate_idx] * eta;
+        wires[3].at(gate_idx) += 1;
+    }
+}
+
+/**
+ * @brief Compute the inverse polynomials used in the log derivative lookup relations
+ *
+ * @tparam Flavor
+ * @param instance prover instance whose polynomials and relation parameters are used
+ */
+template <typename Flavor> void OinkProver<Flavor>::compute_logderivative_inverses(ProverInstance& instance)
+{
+    BB_BENCH_NAME("compute_logderivative_inverses");
+
+    auto& polynomials = instance.polynomials;
+    auto& relation_parameters = instance.relation_parameters;
+    const size_t circuit_size = instance.dyadic_size();
+
+    // Compute inverses for conventional lookups
+    LogDerivLookupRelation<FF>::compute_logderivative_inverse(polynomials, relation_parameters, circuit_size);
+
+    if constexpr (HasDataBus<Flavor>) {
+        // Compute inverses for calldata reads
+        DatabusLookupRelation<FF>::template compute_logderivative_inverse</*bus_idx=*/0>(
+            polynomials, relation_parameters, circuit_size);
+
+        // Compute inverses for secondary_calldata reads
+        DatabusLookupRelation<FF>::template compute_logderivative_inverse</*bus_idx=*/1>(
+            polynomials, relation_parameters, circuit_size);
+
+        // Compute inverses for return data reads
+        DatabusLookupRelation<FF>::template compute_logderivative_inverse</*bus_idx=*/2>(
+            polynomials, relation_parameters, circuit_size);
+    }
+}
+
+/**
+ * @brief Computes public_input_delta and the permutation grand product polynomial
+ *
+ * @param instance prover instance whose polynomials, public inputs, and relation parameters are used
+ */
+template <typename Flavor> void OinkProver<Flavor>::compute_grand_product_polynomial(ProverInstance& instance)
+{
+    auto& relation_parameters = instance.relation_parameters;
+    relation_parameters.public_input_delta = compute_public_input_delta<Flavor>(
+        instance.public_inputs, relation_parameters.beta, relation_parameters.gamma, instance.pub_inputs_offset());
+
+    // Compute permutation grand product polynomial
+    compute_grand_product<Flavor, UltraPermutationRelation<FF>>(
+        instance.polynomials, relation_parameters, instance.get_final_active_wire_idx() + 1);
+}
 
 template class OinkProver<UltraFlavor>;
 template class OinkProver<UltraZKFlavor>;

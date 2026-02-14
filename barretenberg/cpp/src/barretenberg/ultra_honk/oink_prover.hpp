@@ -44,6 +44,10 @@ namespace bb {
  *
  * After prove() completes, the prover instance holds all committed polynomials and relation
  * parameters needed by the subsequent Sumcheck and PCS phases in UltraProver.
+ *
+ * The underlying witness computations (RAM/ROM memory records, log-derivative inverses, permutation
+ * grand product) are also exposed as public static methods so that test code can invoke them
+ * independently of the transcript-driven commit flow.
  */
 template <typename Flavor> class OinkProver {
     using CommitmentKey = typename Flavor::CommitmentKey;
@@ -66,6 +70,10 @@ template <typename Flavor> class OinkProver {
 
     void prove();
     Proof export_proof();
+
+    static void add_ram_rom_memory_records_to_wire_4(ProverInstance& instance);
+    static void compute_logderivative_inverses(ProverInstance& instance);
+    static void compute_grand_product_polynomial(ProverInstance& instance);
 
   private:
     std::shared_ptr<ProverInstance> prover_instance;

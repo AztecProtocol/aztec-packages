@@ -15,7 +15,7 @@
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
-#include "barretenberg/ultra_honk/witness_computation.hpp"
+#include "barretenberg/ultra_honk/witness_computation_test_utils.hpp"
 
 #include <gtest/gtest.h>
 using namespace bb;
@@ -206,7 +206,7 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     // Create a prover (it will compute proving key and witness)
     auto prover_inst = std::make_shared<ProverInstance_<Flavor>>(builder);
 
-    WitnessComputation<Flavor>::complete_prover_instance_for_test(prover_inst);
+    complete_prover_instance_for_test<Flavor>(prover_inst);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     for (auto selector : prover_inst->polynomials.get_gate_selectors()) {
@@ -240,7 +240,7 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     // Create a prover (it will compute proving key and witness)
     auto prover_inst = std::make_shared<ProverInstance_<Flavor>>(builder);
 
-    WitnessComputation<Flavor>::complete_prover_instance_for_test(prover_inst);
+    complete_prover_instance_for_test<Flavor>(prover_inst);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     for (auto selector : prover_inst->polynomials.get_gate_selectors()) {
