@@ -1,6 +1,6 @@
 # @aztec/wallet-sdk
 
-Version: v4.0.0-nightly.20260213
+Version: v4.0.0-nightly.20260214
 
 ## Quick Import Reference
 
@@ -83,7 +83,7 @@ new BaseWallet(pxe: PXE, aztecNode: AztecNode, log: Logger)
 - `sendTx<W extends InteractionWaitOptions>(executionPayload: ExecutionPayload, opts: SendOptions<W>) => Promise<SendReturn<W>>`
 - `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResult>` - Simulates a transaction, optimizing leading public static calls by running them directly on the node while sending the remaining calls through the standard PXE path. Return values from both paths are merged back in original call order.
 - `simulateUtility(call: FunctionCall, opts: SimulateUtilityOptions) => Promise<UtilitySimulationResult>`
-- `simulateViaEntrypoint(executionPayload: ExecutionPayload, from: AztecAddress, feeOptions: FeeOptions, skipTxValidation?: boolean, skipFeeEnforcement?: boolean, scopes?: AztecAddress[]) => Promise<TxSimulationResult>` - Simulates calls through the standard PXE path (account entrypoint).
+- `simulateViaEntrypoint(executionPayload: ExecutionPayload, from: AztecAddress, feeOptions: FeeOptions, scopes: AccessScopes, skipTxValidation?: boolean, skipFeeEnforcement?: boolean) => Promise<TxSimulationResult>` - Simulates calls through the standard PXE path (account entrypoint).
 
 ### ContentScriptConnectionHandler
 
@@ -575,7 +575,7 @@ This package references types from other Aztec packages:
 - `FieldsOf`, `Fr`, `Logger`
 
 **@aztec/pxe**
-- `PXE`
+- `AccessScopes`, `PXE`
 
 **@aztec/stdlib**
 - `AuthWitness`, `AztecAddress`, `AztecNode`, `BlockHeader`, `ContractArtifact`, `ContractInstanceWithAddress`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `GasSettings`, `TxExecutionRequest`, `TxProfileResult`, `TxSimulationResult`, `UtilitySimulationResult`
