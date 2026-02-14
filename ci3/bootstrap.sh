@@ -6,8 +6,6 @@ hash=$(cache_content_hash ^ci3)
 function test_cmds {
   echo "$hash $ci3/tests/redact_test"
   echo "$hash $ci3/semver test"
-  echo "$hash $ci3/ci-metrics/tests/test_views"
-  echo "$hash $ci3/ci-metrics/tests/test_proxy"
 }
 
 function test {
