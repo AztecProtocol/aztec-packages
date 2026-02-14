@@ -26,23 +26,6 @@ class ProverPolynomialsBase : public AllEntitiesBase {
   public:
     // Define all operations as default, except copy construction/assignment
     ProverPolynomialsBase() = default;
-    ProverPolynomialsBase(size_t circuit_size)
-    {
-        BB_BENCH_NAME("ProverPolynomials(size_t)");
-
-        for (auto& poly : this->get_to_be_shifted()) {
-            poly = Polynomial{ /*memory size*/ circuit_size - 1,
-                               /*largest possible index*/ circuit_size,
-                               /* offset */ 1 };
-        }
-        for (auto& poly : this->get_unshifted()) {
-            if (poly.is_empty()) {
-                // Not set above
-                poly = Polynomial{ /*memory size*/ circuit_size, /*largest possible index*/ circuit_size };
-            }
-        }
-        set_shifted();
-    }
     ProverPolynomialsBase& operator=(const ProverPolynomialsBase&) = delete;
     ProverPolynomialsBase(const ProverPolynomialsBase& o) = delete;
     ProverPolynomialsBase(ProverPolynomialsBase&& o) noexcept = default;
