@@ -40,6 +40,7 @@ template <typename Curve> struct PairingPoints {
     const Group& P1() const { return _points[1]; }
 
     bool is_populated() const { return has_data_; }
+    bool is_default() const { return is_default_; }
 
     PairingPoints() = default;
 
@@ -187,6 +188,7 @@ template <typename Curve> struct PairingPoints {
         transcript.add_to_hash_buffer("Aggregated_P1", other.P1());
         auto recursion_separator =
             transcript.template get_challenge<typename Curve::ScalarField>("recursion_separator");
+        is_default_ = false; // After aggregation, points are no longer default
         // If Mega Builder is in use, the EC operations are deferred via Goblin.
         // batch_mul with constant scalar 1 is optimal here (Goblin uses add instead of mul).
         if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
@@ -215,11 +217,21 @@ template <typename Curve> struct PairingPoints {
 
     /**
      * @brief Set the witness indices for the pairing points to public
+     * @details For default (infinity) pairing points, uses set_default_to_public which directly adds zero limbs
+     * as public inputs, bypassing bigfield::set_public() which cannot handle constant-coordinate infinity points.
+     * @param ctx Optional builder context; required for default pairing points which have no circuit context.
      * @return uint32_t The index into the public inputs array at which the representation is stored
      */
-    uint32_t set_public()
+    uint32_t set_public(Builder* ctx = nullptr)
     {
         BB_ASSERT(this->has_data_, "Calling set_public on empty pairing points.");
+        if (is_default_) {
+            Builder* builder = validate_context<Builder>(ctx, P0().get_context(), P1().get_context());
+            BB_ASSERT(builder != nullptr, "set_public on default pairing points requires a builder context.");
+            return set_default_to_public(builder);
+        }
+        Builder* builder = validate_context<Builder>(ctx, P0().get_context(), P1().get_context());
+        builder->pairing_points_tagging.set_public_pairing_points();
         uint32_t start_idx = P0().set_public();
         P1().set_public();
         return start_idx;
@@ -255,15 +267,13 @@ template <typename Curve> struct PairingPoints {
      */
     static uint32_t set_default_to_public(Builder* builder)
     {
+        builder->pairing_points_tagging.set_public_pairing_points();
         // Infinity is represented as (0,0) in biggroup. Directly add zero limbs as public inputs, bypassing bigfield's
         // self_reduce.
-        uint32_t start_idx = 0;
+        uint32_t start_idx = static_cast<uint32_t>(builder->num_public_inputs());
         for (size_t i = 0; i < PUBLIC_INPUTS_SIZE; i++) {
             uint32_t idx = builder->add_public_variable(bb::fr(0));
             builder->fix_witness(idx, bb::fr(0));
-            if (i == 0) {
-                start_idx = idx;
-            }
         }
         return start_idx;
     }
@@ -276,12 +286,15 @@ template <typename Curve> struct PairingPoints {
     {
         Group P0(Fq(0), Fq(0), /*assert_on_curve=*/false);
         Group P1(Fq(0), Fq(0), /*assert_on_curve=*/false);
-        return PairingPoints(P0, P1);
+        PairingPoints pp(P0, P1);
+        pp.is_default_ = true;
+        return pp;
     }
 
   private:
     std::array<Group, 2> _points;
     bool has_data_ = false;
+    bool is_default_ = false; // True for default (infinity) pairing points from construct_default()
 };
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, PairingPoints<NCT> const& as)

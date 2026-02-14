@@ -163,6 +163,13 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     {
         Builder builder;
         STANDARD_TESTING_TAGS;
+        // Suppress unused warnings for tags not used in this test
+        (void)first_and_third_merged_tag;
+        (void)first_second_third_merged_tag;
+        (void)first_to_fourth_merged_tag;
+        (void)instant_death_tag;
+        (void)next_submitted_value_origin_tag;
+        (void)next_challenge_tag;
 
         // Setup: two points with different tags
         auto [input_a, a] = get_random_point(&builder, InputType::WITNESS);
