@@ -119,10 +119,11 @@ export function createCheckpointProposal(
   block: L2Block,
   checkpointSignature: Signature,
   blockSignature?: Signature,
+  feeAssetPriceModifier: bigint = 0n,
 ): CheckpointProposal {
   const txHashes = block.body.txEffects.map(tx => tx.txHash);
   const checkpointHeader = createCheckpointHeaderFromBlock(block);
-  return new CheckpointProposal(checkpointHeader, block.archive.root, checkpointSignature, {
+  return new CheckpointProposal(checkpointHeader, block.archive.root, feeAssetPriceModifier, checkpointSignature, {
     blockHeader: block.header,
     indexWithinCheckpoint: block.indexWithinCheckpoint,
     txHashes,
@@ -139,9 +140,10 @@ export function createCheckpointAttestation(
   block: L2Block,
   signature: Signature,
   sender: EthAddress,
+  feeAssetPriceModifier: bigint = 0n,
 ): CheckpointAttestation {
   const checkpointHeader = createCheckpointHeaderFromBlock(block);
-  const payload = new ConsensusPayload(checkpointHeader, block.archive.root);
+  const payload = new ConsensusPayload(checkpointHeader, block.archive.root, feeAssetPriceModifier);
   const attestation = new CheckpointAttestation(payload, signature, signature);
   // Set sender directly for testing (bypasses signature recovery)
   (attestation as any).sender = sender;

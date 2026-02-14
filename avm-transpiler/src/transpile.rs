@@ -542,8 +542,8 @@ fn handle_foreign_call(
         "avmOpcodeStaticCall" => {
             handle_external_call(avm_instrs, destinations, inputs, AvmOpcode::STATICCALL);
         }
-        "avmOpcodeEmitUnencryptedLog" => {
-            handle_emit_unencrypted_log(avm_instrs, destinations, inputs);
+        "avmOpcodeEmitPublicLog" => {
+            handle_emit_public_log(avm_instrs, destinations, inputs);
         }
         "avmOpcodeNoteHashExists" => handle_note_hash_exists(avm_instrs, destinations, inputs),
         "avmOpcodeEmitNoteHash" | "avmOpcodeEmitNullifier" => handle_emit_note_hash_or_nullifier(
@@ -697,14 +697,14 @@ fn handle_note_hash_exists(
     });
 }
 
-fn handle_emit_unencrypted_log(
+fn handle_emit_public_log(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
 ) {
     if !destinations.is_empty() || inputs.len() != 2 {
         panic!(
-            "Transpiler expects ForeignCall::EMITUNENCRYPTEDLOG to have 0 destinations and 2 inputs, got {} and {}",
+            "Transpiler expects ForeignCall::EMITPUBLICLOG to have 0 destinations and 2 inputs, got {} and {}",
             destinations.len(),
             inputs.len()
         );
@@ -714,10 +714,10 @@ fn handle_emit_unencrypted_log(
     // The length field is redundant and we skipt it.
     let (message_offset, message_size_offset) = match &inputs[1] {
         ValueOrArray::HeapVector(vec) => (vec.pointer, vec.size),
-        _ => panic!("Unexpected inputs for ForeignCall::EMITUNENCRYPTEDLOG: {:?}", inputs),
+        _ => panic!("Unexpected inputs for ForeignCall::EMITPUBLICLOG: {:?}", inputs),
     };
     avm_instrs.push(AvmInstruction {
-        opcode: AvmOpcode::EMITUNENCRYPTEDLOG,
+        opcode: AvmOpcode::EMITPUBLICLOG,
         // The message array from Brillig is indirect (addressing mode).
         addressing_mode: Some(
             AddressingModeBuilder::default()

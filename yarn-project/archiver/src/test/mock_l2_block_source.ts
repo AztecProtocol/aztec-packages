@@ -8,6 +8,7 @@ import { createLogger } from '@aztec/foundation/log';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  type BlockData,
   BlockHash,
   CheckpointedL2Block,
   L2Block,
@@ -253,6 +254,34 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   public getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined> {
     const block = this.l2Blocks.find(b => b.archive.root.equals(archive));
     return Promise.resolve(block?.header);
+  }
+
+  public async getBlockData(number: BlockNumber): Promise<BlockData | undefined> {
+    const block = this.l2Blocks[number - 1];
+    if (!block) {
+      return undefined;
+    }
+    return {
+      header: block.header,
+      archive: block.archive,
+      blockHash: await block.hash(),
+      checkpointNumber: block.checkpointNumber,
+      indexWithinCheckpoint: block.indexWithinCheckpoint,
+    };
+  }
+
+  public async getBlockDataByArchive(archive: Fr): Promise<BlockData | undefined> {
+    const block = this.l2Blocks.find(b => b.archive.root.equals(archive));
+    if (!block) {
+      return undefined;
+    }
+    return {
+      header: block.header,
+      archive: block.archive,
+      blockHash: await block.hash(),
+      checkpointNumber: block.checkpointNumber,
+      indexWithinCheckpoint: block.indexWithinCheckpoint,
+    };
   }
 
   getBlockHeader(number: number | 'latest'): Promise<BlockHeader | undefined> {

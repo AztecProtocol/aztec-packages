@@ -69,6 +69,8 @@ export interface SequencerConfig {
   buildCheckpointIfEmpty?: boolean;
   /** Skip pushing proposed blocks to archiver (default: false) */
   skipPushProposedBlocksToArchiver?: boolean;
+  /** Minimum number of blocks required for a checkpoint proposal (test only, defaults to undefined = no minimum) */
+  minBlocksForCheckpoint?: number;
 }
 
 export const SequencerConfigSchema = zodFor<SequencerConfig>()(
@@ -103,6 +105,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     blockDurationMs: z.number().positive().optional(),
     buildCheckpointIfEmpty: z.boolean().optional(),
     skipPushProposedBlocksToArchiver: z.boolean().optional(),
+    minBlocksForCheckpoint: z.number().positive().optional(),
   }),
 );
 
@@ -117,7 +120,8 @@ type SequencerConfigOptionalKeys =
   | 'fakeThrowAfterProcessingTxCount'
   | 'l1PublishingTime'
   | 'txPublicSetupAllowList'
-  | 'minValidTxsPerBlock';
+  | 'minValidTxsPerBlock'
+  | 'minBlocksForCheckpoint';
 
 export type ResolvedSequencerConfig = Prettify<
   Required<Omit<SequencerConfig, SequencerConfigOptionalKeys>> & Pick<SequencerConfig, SequencerConfigOptionalKeys>

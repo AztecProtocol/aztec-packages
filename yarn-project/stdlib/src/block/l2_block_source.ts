@@ -20,6 +20,7 @@ import type { BlockHeader } from '../tx/block_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import type { TxHash } from '../tx/tx_hash.js';
 import type { TxReceipt } from '../tx/tx_receipt.js';
+import type { BlockData } from './block_data.js';
 import type { BlockHash } from './block_hash.js';
 import type { CheckpointedL2Block } from './checkpointed_l2_block.js';
 import type { L2Block } from './l2_block.js';
@@ -111,6 +112,20 @@ export interface L2BlockSource {
    * @returns The requested block header (or undefined if not found).
    */
   getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined>;
+
+  /**
+   * Gets block metadata (without tx data) by block number.
+   * @param number - The block number to retrieve.
+   * @returns The requested block data (or undefined if not found).
+   */
+  getBlockData(number: BlockNumber): Promise<BlockData | undefined>;
+
+  /**
+   * Gets block metadata (without tx data) by archive root.
+   * @param archive - The archive root to retrieve.
+   * @returns The requested block data (or undefined if not found).
+   */
+  getBlockDataByArchive(archive: Fr): Promise<BlockData | undefined>;
 
   /**
    * Gets an L2 block by block number.

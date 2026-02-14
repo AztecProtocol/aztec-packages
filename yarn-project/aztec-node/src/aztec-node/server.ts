@@ -33,7 +33,14 @@ import {
 } from '@aztec/slasher';
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash, type BlockParameter, type DataInBlock, L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import {
+  type BlockData,
+  BlockHash,
+  type BlockParameter,
+  type DataInBlock,
+  L2Block,
+  type L2BlockSource,
+} from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
@@ -1106,6 +1113,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return await this.blockSource.getBlockHeaderByArchive(archive);
   }
 
+  public getBlockData(number: BlockNumber): Promise<BlockData | undefined> {
+    return this.blockSource.getBlockData(number);
+  }
+
+  public getBlockDataByArchive(archive: Fr): Promise<BlockData | undefined> {
+    return this.blockSource.getBlockDataByArchive(archive);
+  }
+
   /**
    * Simulates the public part of a transaction with the current state.
    * @param tx - The transaction to simulate.
@@ -1129,7 +1144,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
 
     const txHash = tx.getTxHash();
-    const blockNumber = BlockNumber((await this.blockSource.getBlockNumber()) + 1);
+    const latestBlockNumber = await this.blockSource.getBlockNumber();
+    const blockNumber = BlockNumber.add(latestBlockNumber, 1);
 
     // If sequencer is not initialized, we just set these values to zero for simulation.
     const coinbase = EthAddress.ZERO;
@@ -1153,6 +1169,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       blockNumber,
     });
 
+    // Ensure world-state has caught up with the latest block we loaded from the archiver
+    await this.worldStateSynchronizer.syncImmediate(latestBlockNumber);
     const merkleTreeFork = await this.worldStateSynchronizer.fork();
     try {
       const config = PublicSimulatorConfig.from({

@@ -4,6 +4,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import {
   type EmpireSlashingProposerContract,
+  FeeAssetPriceOracle,
   type GovernanceProposerContract,
   type IEmpireBase,
   MULTI_CALL_3_ADDRESS,
@@ -60,6 +61,8 @@ type L1ProcessArgs = {
   attestationsAndSigners: CommitteeAttestationsAndSigners;
   /** Attestations and signers signature */
   attestationsAndSignersSignature: Signature;
+  /** The fee asset price modifier in basis points (from oracle) */
+  feeAssetPriceModifier: bigint;
 };
 
 export const Actions = [
@@ -123,6 +126,10 @@ export class SequencerPublisher {
 
   /** L1 fee analyzer for fisherman mode */
   private l1FeeAnalyzer?: L1FeeAnalyzer;
+
+  /** Fee asset price oracle for computing price modifiers from Uniswap V4 */
+  private feeAssetPriceOracle: FeeAssetPriceOracle;
+
   // A CALL to a cold address is 2700 gas
   public static MULTICALL_OVERHEAD_GAS_GUESS = 5000n;
 
@@ -188,10 +195,25 @@ export class SequencerPublisher {
         createLogger('sequencer:publisher:fee-analyzer'),
       );
     }
+
+    // Initialize fee asset price oracle
+    this.feeAssetPriceOracle = new FeeAssetPriceOracle(
+      this.l1TxUtils.client,
+      this.rollupContract,
+      createLogger('sequencer:publisher:price-oracle'),
+    );
   }
 
   public getRollupContract(): RollupContract {
     return this.rollupContract;
+  }
+
+  /**
+   * Gets the fee asset price modifier from the oracle.
+   * Returns 0n if the oracle query fails.
+   */
+  public getFeeAssetPriceModifier(): Promise<bigint> {
+    return this.feeAssetPriceOracle.computePriceModifier();
   }
 
   public getSenderAddress() {
@@ -617,22 +639,6 @@ export class SequencerPublisher {
     options: { forcePendingCheckpointNumber?: CheckpointNumber },
   ): Promise<bigint> {
     const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
-
-    // TODO(palla/mbps): This should not be needed, there's no flow where we propose with zero attestations. Or is there?
-    // If we have no attestations, we still need to provide the empty attestations
-    // so that the committee is recalculated correctly
-    // const ignoreSignatures = attestationsAndSigners.attestations.length === 0;
-    // if (ignoreSignatures) {
-    //   const { committee } = await this.epochCache.getCommittee(block.header.globalVariables.slotNumber);
-    //   if (!committee) {
-    //     this.log.warn(`No committee found for slot ${block.header.globalVariables.slotNumber}`);
-    //     throw new Error(`No committee found for slot ${block.header.globalVariables.slotNumber}`);
-    //   }
-    //   attestationsAndSigners.attestations = committee.map(committeeMember =>
-    //     CommitteeAttestation.fromAddress(committeeMember),
-    //   );
-    // }
-
     const blobFields = checkpoint.toBlobFields();
     const blobs = getBlobsPerL1Block(blobFields);
     const blobInput = getPrefixedEthBlobCommitments(blobs);
@@ -642,7 +648,7 @@ export class SequencerPublisher {
         header: checkpoint.header.toViem(),
         archive: toHex(checkpoint.archive.root.toBuffer()),
         oracleInput: {
-          feeAssetPriceModifier: 0n,
+          feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
         },
       },
       attestationsAndSigners.getPackedAttestations(),
@@ -920,12 +926,13 @@ export class SequencerPublisher {
     const blobFields = checkpoint.toBlobFields();
     const blobs = getBlobsPerL1Block(blobFields);
 
-    const proposeTxArgs = {
+    const proposeTxArgs: L1ProcessArgs = {
       header: checkpointHeader,
       archive: checkpoint.archive.root.toBuffer(),
       blobs,
       attestationsAndSigners,
       attestationsAndSignersSignature,
+      feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
     };
 
     let ts: bigint;
@@ -1113,8 +1120,7 @@ export class SequencerPublisher {
         header: encodedData.header.toViem(),
         archive: toHex(encodedData.archive),
         oracleInput: {
-          // We are currently not modifying these. See #9963
-          feeAssetPriceModifier: 0n,
+          feeAssetPriceModifier: encodedData.feeAssetPriceModifier,
         },
       },
       encodedData.attestationsAndSigners.getPackedAttestations(),
@@ -1140,7 +1146,7 @@ export class SequencerPublisher {
         readonly header: ViemHeader;
         readonly archive: `0x${string}`;
         readonly oracleInput: {
-          readonly feeAssetPriceModifier: 0n;
+          readonly feeAssetPriceModifier: bigint;
         };
       },
       ViemCommitteeAttestations,

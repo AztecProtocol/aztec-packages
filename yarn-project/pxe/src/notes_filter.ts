@@ -1,10 +1,8 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { NoteStatus } from '@aztec/stdlib/note';
 
-import { z } from 'zod';
-
-import type { AztecAddress } from '../aztec-address/index.js';
-import { type ZodFor, schemas } from '../schemas/index.js';
-import { NoteStatus } from './note_status.js';
+import type { AccessScopes } from './access_scopes.js';
 
 /**
  * A filter used to fetch notes.
@@ -24,18 +22,5 @@ export type NotesFilter = {
   status?: NoteStatus;
   /** The siloed nullifier for the note. */
   siloedNullifier?: Fr;
-  /**
-   * The scopes in which to get notes from
-   * Undefined scopes means all scopes, while empty list of scopes means no scope at all
-   */
-  scopes?: AztecAddress[];
+  scopes: AccessScopes;
 };
-
-export const NotesFilterSchema: ZodFor<NotesFilter> = z.object({
-  contractAddress: schemas.AztecAddress,
-  owner: schemas.AztecAddress.optional(),
-  storageSlot: schemas.Fr.optional(),
-  status: z.nativeEnum(NoteStatus).optional(),
-  siloedNullifier: schemas.Fr.optional(),
-  scopes: z.array(schemas.AztecAddress).optional(),
-});

@@ -1,8 +1,8 @@
 import {
-  AVM_EMITUNENCRYPTEDLOG_BASE_DA_GAS,
-  AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS,
-  AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS,
-  AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS,
+  AVM_EMITPUBLICLOG_BASE_DA_GAS,
+  AVM_EMITPUBLICLOG_BASE_L2_GAS,
+  AVM_EMITPUBLICLOG_DYN_DA_GAS,
+  AVM_EMITPUBLICLOG_DYN_L2_GAS,
   MAX_ETH_ADDRESS_VALUE,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -22,7 +22,7 @@ import { mockCheckNullifierExists, mockGetL1ToL2LeafValue, mockGetNoteHash, mock
 import {
   EmitNoteHash,
   EmitNullifier,
-  EmitUnencryptedLog,
+  EmitPublicLog,
   L1ToL2MessageExists,
   NoteHashExists,
   NullifierExists,
@@ -278,17 +278,17 @@ describe('Accrued Substate', () => {
     });
   });
 
-  describe('EmitUnencryptedLog', () => {
+  describe('EmitPublicLog', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
-        EmitUnencryptedLog.opcode, // opcode
+        EmitPublicLog.opcode, // opcode
         0x01, // indirect
         ...Buffer.from('a234', 'hex'), // length offset
         ...Buffer.from('1234', 'hex'), // log offset
       ]);
-      const inst = new EmitUnencryptedLog(/*addressing_mode=*/ 0x01, /*lengthOffset=*/ 0xa234, /*offset=*/ 0x1234);
+      const inst = new EmitPublicLog(/*addressing_mode=*/ 0x01, /*lengthOffset=*/ 0xa234, /*offset=*/ 0x1234);
 
-      expect(EmitUnencryptedLog.fromBuffer(buf)).toEqual(inst);
+      expect(EmitPublicLog.fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
     });
 
@@ -303,7 +303,7 @@ describe('Accrued Substate', () => {
       );
       context.machineState.memory.set(logSizeOffset, new Uint32(values.length));
 
-      await new EmitUnencryptedLog(/*addressing_mode=*/ 0, logSizeOffset, /*offset=*/ startOffset).execute(context);
+      await new EmitPublicLog(/*addressing_mode=*/ 0, logSizeOffset, /*offset=*/ startOffset).execute(context);
 
       expect(trace.tracePublicLog).toHaveBeenCalledTimes(1);
       expect(trace.tracePublicLog).toHaveBeenCalledWith(address, values);
@@ -322,13 +322,13 @@ describe('Accrued Substate', () => {
 
       const l2GasBefore = context.machineState.l2GasLeft;
       const daGasBefore = context.machineState.daGasLeft;
-      await new EmitUnencryptedLog(/*addressing_mode=*/ 0, logSizeOffset, /*offset=*/ startOffset).execute(context);
+      await new EmitPublicLog(/*addressing_mode=*/ 0, logSizeOffset, /*offset=*/ startOffset).execute(context);
 
       expect(context.machineState.l2GasLeft).toEqual(
-        l2GasBefore - AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS - AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS * values.length,
+        l2GasBefore - AVM_EMITPUBLICLOG_BASE_L2_GAS - AVM_EMITPUBLICLOG_DYN_L2_GAS * values.length,
       );
       expect(context.machineState.daGasLeft).toEqual(
-        daGasBefore - AVM_EMITUNENCRYPTEDLOG_BASE_DA_GAS - AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS * values.length,
+        daGasBefore - AVM_EMITPUBLICLOG_BASE_DA_GAS - AVM_EMITPUBLICLOG_DYN_DA_GAS * values.length,
       );
     });
   });
@@ -384,7 +384,7 @@ describe('Accrued Substate', () => {
     const instructions = [
       new EmitNoteHash(/*addressing_mode=*/ 0, /*offset=*/ 0),
       new EmitNullifier(/*addressing_mode=*/ 0, /*offset=*/ 0),
-      new EmitUnencryptedLog(/*addressing_mode=*/ 0, /*logSizeOffset=*/ 0, /*offset=*/ 0),
+      new EmitPublicLog(/*addressing_mode=*/ 0, /*logSizeOffset=*/ 0, /*offset=*/ 0),
       new SendL2ToL1Message(/*addressing_mode=*/ 0, /*recipientOffset=*/ 0, /*contentOffset=*/ 1),
     ];
 

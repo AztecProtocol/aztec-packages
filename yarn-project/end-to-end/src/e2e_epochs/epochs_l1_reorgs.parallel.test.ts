@@ -1,6 +1,7 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
@@ -15,6 +16,7 @@ import { AbortError } from '@aztec/foundation/error';
 import { retryUntil } from '@aztec/foundation/retry';
 import { hexToBuffer } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
+import type { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { ProverNode } from '@aztec/prover-node';
 
 import { jest } from '@jest/globals';
@@ -23,9 +25,10 @@ import { keccak256, parseTransaction } from 'viem';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import type { EndToEndContext } from '../fixtures/utils.js';
+import { proveInteraction } from '../test-wallet/utils.js';
 import { EpochsTestContext } from './epochs_test.js';
 
-jest.setTimeout(1000 * 60 * 10);
+jest.setTimeout(1000 * 60 * 20);
 
 describe('e2e_epochs/epochs_l1_reorgs', () => {
   let context: EndToEndContext;
@@ -41,18 +44,44 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
   let L2_SLOT_DURATION_IN_S: number;
 
   let test: EpochsTestContext;
+  let contract: TestContract;
+  let from: AztecAddress;
+
+  // Number of txs to send at the start of each blocks test to trigger multi-block checkpoints.
+  const TX_COUNT = 8;
+
+  /** Pre-proves and sends txs to generate L2 activity for multi-block checkpoints. */
+  const sendTransactions = async (count: number, offset = 0) => {
+    logger.warn(`Pre-proving ${count} transactions`);
+    const txs = await timesAsync(count, i =>
+      proveInteraction(context.wallet, contract.methods.emit_nullifier(new Fr(offset + i + 1)), { from }),
+    );
+    const txHashes = await Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
+    logger.warn(`Sent ${txHashes.length} transactions`);
+    return txHashes;
+  };
 
   beforeEach(async () => {
     test = await EpochsTestContext.setup({
+      numberOfAccounts: 1,
       maxSpeedUpAttempts: 0, // Do not speed up l1 txs, we dont want them to land
       cancelTxOnTimeout: false,
-      aztecEpochDuration: 8, // Bump epoch duration, epoch 0 is finishing before we had a chance to do anything
-      ethereumSlotDuration: process.env.L1_BLOCK_TIME ? parseInt(process.env.L1_BLOCK_TIME) : 4, // Got to speed these tests up for CI
+      aztecEpochDuration: 4,
+      ethereumSlotDuration: 4,
+      aztecSlotDuration: 36,
+      blockDurationMs: 8000,
+      l1PublishingTime: 2,
+      minTxsPerBlock: 0,
+      maxTxsPerBlock: 1,
+      enforceTimeTable: true,
+      aztecProofSubmissionEpochs: 1,
     });
     ({ proverDelayer, sequencerDelayer, context, logger, monitor, L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);
     node = context.aztecNode;
     archiver = (node as AztecNodeService).getBlockSource() as Archiver;
     proverNode = context.proverNode!;
+    from = context.accounts[0];
+    contract = await test.registerTestContract(context.wallet);
   });
 
   afterEach(async () => {
@@ -75,6 +104,12 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     const getProvenCheckpointNumber = (node: AztecNode) => node.getL2Tips().then(tips => tips.proven.checkpoint.number);
 
     it('prunes L2 blocks if a proof is removed due to an L1 reorg', async () => {
+      // Send txs to trigger multi-block checkpoints
+      await sendTransactions(TX_COUNT);
+
+      // Capture initial chain state
+      const initialProvenCheckpoint = (await monitor.run(true)).provenCheckpointNumber;
+
       // Wait until we have proven something and the nodes have caught up
       const epochDurationSeconds = test.constants.epochDuration * test.constants.slotDuration;
       logger.warn(`Waiting for initial proof to land`);
@@ -82,7 +117,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
         signal => {
           return new Promise<{ provenCheckpointNumber: number; l1BlockNumber: number }>((res, rej) => {
             const handleMsg = (...[ev]: ChainMonitorEventMap['checkpoint-proven']) => {
-              if (ev.provenCheckpointNumber !== 0) {
+              if (ev.provenCheckpointNumber > initialProvenCheckpoint) {
                 res(ev);
                 monitor.off('checkpoint-proven', handleMsg);
               }
@@ -104,15 +139,18 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
       // And remove the proof from L1
       await context.cheatCodes.eth.reorgTo(provenBlockEvent.l1BlockNumber - 1);
-      expect((await monitor.run(true)).provenCheckpointNumber).toEqual(0);
+      expect((await monitor.run(true)).provenCheckpointNumber).toEqual(initialProvenCheckpoint);
 
-      // Wait until the end of the proof submission window for the first epoch
-      await test.waitUntilLastSlotOfProofSubmissionWindow(0);
+      // Wait until the end of the proof submission window for the epoch of the proven checkpoint
+      const provenCheckpointEpoch = await test.rollup.getEpochNumberForCheckpoint(
+        CheckpointNumber(provenBlockEvent.provenCheckpointNumber),
+      );
+      await test.waitUntilLastSlotOfProofSubmissionWindow(provenCheckpointEpoch);
 
       // Ensure that a new node sees the reorg
       logger.warn(`Syncing new node to test reorg`);
       const newNode = await executeTimeout(() => test.createNonValidatorNode(), 10_000, `new node sync`);
-      expect(await newNode.getProvenBlockNumber()).toEqual(0);
+      expect(await getProvenCheckpointNumber(newNode)).toEqual(initialProvenCheckpoint);
 
       // Latest checkpointed block seen by the node may be from the current checkpoint, or one less if it was *just* mined.
       // This is because the call to createNonValidatorNode will block until the initial sync is completed,
@@ -123,53 +161,97 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
       // And check that the old node has processed the reorg as well
       logger.warn(`Testing old node after reorg`);
-      await retryUntil(() => node.getProvenBlockNumber().then(b => b === 0), 'prune', L2_SLOT_DURATION_IN_S * 4, 0.1);
+      await retryUntil(
+        () => getProvenCheckpointNumber(node).then(cp => cp === initialProvenCheckpoint),
+        'prune',
+        L2_SLOT_DURATION_IN_S * 4,
+        0.1,
+      );
       expect(await getCheckpointNumber(node)).toBeWithin(monitor.checkpointNumber - 1, monitor.checkpointNumber + 1);
+
+      // Verify multi-block checkpoints were built
+      await test.assertMultipleBlocksPerSlot(2);
 
       logger.warn(`Test succeeded`);
       await newNode.stop();
     });
 
     it('does not prune if a second proof lands within the submission window after the first one is reorged out', async () => {
+      // Send txs to trigger multi-block checkpoints
+      await sendTransactions(TX_COUNT);
+
+      // Capture initial chain state
+      const initialProvenCheckpoint = (await monitor.run(true)).provenCheckpointNumber;
+      const targetProvenCheckpoint = CheckpointNumber(initialProvenCheckpoint + 1);
+
       // Wait until we have proven something and the nodes have caught up
+      // Use a longer timeout since we need to wait for the epoch to complete (~288s) plus proving time
+      const epochDurationSeconds = test.constants.epochDuration * test.constants.slotDuration;
       logger.warn(`Waiting for initial proof to land`);
-      const provenCheckpoint = await test.waitUntilProvenCheckpointNumber(CheckpointNumber(1));
-      const provenBlock = Number(provenCheckpoint);
-      await retryUntil(() => node.getProvenBlockNumber().then(p => p >= provenBlock), 'node sync', 10, 0.1);
+      const provenCheckpoint = await test.waitUntilProvenCheckpointNumber(
+        targetProvenCheckpoint,
+        epochDurationSeconds * 2,
+      );
+      await retryUntil(() => getProvenCheckpointNumber(node).then(cp => cp >= provenCheckpoint), 'node sync', 10, 0.1);
 
       // Stop the prover node
       await proverNode.stop();
 
       // Remove the proof from L1 but do not change the block number
       await context.cheatCodes.eth.reorgWithReplacement(1);
-      await expect(monitor.run(true).then(m => m.provenCheckpointNumber)).resolves.toEqual(0);
+      await expect(monitor.run(true).then(m => m.provenCheckpointNumber)).resolves.toEqual(initialProvenCheckpoint);
 
       // Create another prover node so it submits a proof and wait until it is submitted
+      // Use a longer timeout to allow the new prover to sync and generate a proof
       const newProverNode = await test.createProverNode();
-      const provenCheckpointRetry = await test.waitUntilProvenCheckpointNumber(CheckpointNumber(1));
-      await expect(monitor.run(true).then(m => m.provenCheckpointNumber)).resolves.toBeGreaterThanOrEqual(1);
+      const provenCheckpointRetry = await test.waitUntilProvenCheckpointNumber(
+        targetProvenCheckpoint,
+        epochDurationSeconds,
+      );
+      await expect(monitor.run(true).then(m => m.provenCheckpointNumber)).resolves.toBeGreaterThanOrEqual(
+        targetProvenCheckpoint,
+      );
 
       // Check that the node has followed along
       logger.warn(`Testing old node`);
-      const provenBlockRetry = Number(provenCheckpointRetry);
-      await retryUntil(() => node.getProvenBlockNumber().then(b => b >= provenBlockRetry), 'proof sync', 10, 0.1);
+      await retryUntil(
+        () => getProvenCheckpointNumber(node).then(cp => cp >= provenCheckpointRetry),
+        'proof sync',
+        10,
+        0.1,
+      );
       expect(await getCheckpointNumber(node)).toBeWithin(monitor.checkpointNumber - 1, monitor.checkpointNumber + 1);
+
+      // Verify multi-block checkpoints were built
+      await test.assertMultipleBlocksPerSlot(2);
 
       logger.warn(`Test succeeded`);
       await newProverNode.stop();
     });
 
     it('restores L2 blocks if a proof is added due to an L1 reorg', async () => {
+      // Send txs to trigger multi-block checkpoints
+      await sendTransactions(TX_COUNT);
+
+      // Capture initial chain state
+      const initialProvenCheckpoint = (await monitor.run(true)).provenCheckpointNumber;
+      const initialCheckpoint = monitor.checkpointNumber;
+
       // Next proof shall not land
       proverDelayer.cancelNextTx();
 
       // Expect pending chain to advance, so there's something to be pruned
-      await retryUntil(() => node.getBlockNumber().then(b => b > 1), 'node sync', 60, 0.1);
+      await retryUntil(() => getCheckpointNumber(node).then(cp => cp > initialCheckpoint), 'node sync', 60, 0.1);
 
-      // Wait until the end of the proof submission window for the first epoch
-      await test.waitUntilLastSlotOfProofSubmissionWindow(0);
+      // Wait until the end of the proof submission window for the first unproven epoch
+      const firstUnprovenCheckpoint = CheckpointNumber(initialProvenCheckpoint + 1);
+      await test.waitUntilCheckpointNumber(firstUnprovenCheckpoint, 60);
+      const epochToWaitFor = await test.rollup.getEpochNumberForCheckpoint(firstUnprovenCheckpoint);
+      await test.waitUntilLastSlotOfProofSubmissionWindow(epochToWaitFor);
       await monitor.run(true);
-      logger.warn(`End of epoch 0 submission window (L1 block ${await monitor.run(true).then(m => m.l1BlockNumber)}).`);
+      logger.warn(
+        `End of epoch ${epochToWaitFor} submission window (L1 block ${await monitor.run(true).then(m => m.l1BlockNumber)}).`,
+      );
 
       // Grab the prover's tx to submit it later as part of a reorg and stop the prover
       const [proofTx] = proverDelayer.getCancelledTxs();
@@ -179,9 +261,14 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
       // Wait for the node to prune
       const syncTimeout = L2_SLOT_DURATION_IN_S * 2;
-      await retryUntil(() => node.getBlockNumber().then(b => b <= 1), 'node prune', syncTimeout, 0.1);
-      expect(monitor.provenCheckpointNumber).toEqual(0);
-      expect(await node.getProvenBlockNumber()).toEqual(0);
+      await retryUntil(
+        () => getCheckpointNumber(node).then(cp => cp <= initialProvenCheckpoint + 1),
+        'node prune',
+        syncTimeout,
+        0.1,
+      );
+      expect(monitor.provenCheckpointNumber).toEqual(initialProvenCheckpoint);
+      expect(await getProvenCheckpointNumber(node)).toEqual(initialProvenCheckpoint);
 
       // But not all is lost, for a reorg gets the proof back on chain!
       logger.warn(`Reorging proof back (L1 block ${await monitor.run(true).then(m => m.l1BlockNumber)}).`);
@@ -191,8 +278,8 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
       // Monitor should update to see the proof
       const { checkpointNumber, provenCheckpointNumber } = await monitor.run(true);
-      expect(checkpointNumber).toBeGreaterThan(1);
-      expect(provenCheckpointNumber).toBeGreaterThan(0);
+      expect(checkpointNumber).toBeGreaterThan(initialCheckpoint);
+      expect(provenCheckpointNumber).toBeGreaterThan(initialProvenCheckpoint);
 
       // And so the node undoes its reorg
       await retryUntil(
@@ -208,17 +295,29 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
         0.1,
       );
 
+      // Verify multi-block checkpoints were built
+      await test.assertMultipleBlocksPerSlot(2);
+
       logger.warn(`Test succeeded`);
     });
 
     it('prunes blocks from pending chain removed from L1 due to an L1 reorg', async () => {
+      // Send txs to trigger multi-block checkpoints
+      await sendTransactions(TX_COUNT);
+
+      // Capture initial chain state
+      const initialCheckpoint = (await monitor.run(true)).checkpointNumber;
+
       // Wait until CHECKPOINT_NUMBER is mined and node synced, and stop the sequencer
-      const CHECKPOINT_NUMBER = CheckpointNumber(3);
-      await test.waitUntilCheckpointNumber(CHECKPOINT_NUMBER, L2_SLOT_DURATION_IN_S * (CHECKPOINT_NUMBER + 4));
+      const CHECKPOINT_NUMBER = CheckpointNumber(initialCheckpoint + 3);
+      await test.waitUntilCheckpointNumber(CHECKPOINT_NUMBER, L2_SLOT_DURATION_IN_S * 7);
       expect(monitor.checkpointNumber).toEqual(CHECKPOINT_NUMBER);
       const l1BlockNumber = monitor.l1BlockNumber;
       // Wait for node to sync to the checkpoint.
       await retryUntil(() => getCheckpointNumber(node).then(b => b === CHECKPOINT_NUMBER), 'node sync', 10, 0.1);
+
+      // Verify multi-block checkpoints were built before we do the reorg
+      await test.assertMultipleBlocksPerSlot(2);
 
       logger.warn(`Reached checkpoint ${CHECKPOINT_NUMBER}. Stopping block production.`);
       await context.aztecNodeAdmin.setConfig({ minTxsPerBlock: 100 });
@@ -237,13 +336,22 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     });
 
     it('sees new blocks added in an L1 reorg', async () => {
+      // Send txs to trigger multi-block checkpoints
+      await sendTransactions(TX_COUNT);
+
+      // Capture initial chain state
+      const initialCheckpoint = (await monitor.run(true)).checkpointNumber;
+
       // Wait until the checkpoint *before* CHECKPOINT_NUMBER is mined and node synced
-      const CHECKPOINT_NUMBER = CheckpointNumber(3);
+      const CHECKPOINT_NUMBER = CheckpointNumber(initialCheckpoint + 3);
       const prevCheckpointNumber = CheckpointNumber(CHECKPOINT_NUMBER - 1);
-      await test.waitUntilCheckpointNumber(prevCheckpointNumber, L2_SLOT_DURATION_IN_S * (CHECKPOINT_NUMBER + 4));
+      await test.waitUntilCheckpointNumber(prevCheckpointNumber, L2_SLOT_DURATION_IN_S * 7);
       expect(monitor.checkpointNumber).toEqual(prevCheckpointNumber);
       // Wait for node to sync to the checkpoint
       await retryUntil(() => getCheckpointNumber(node).then(b => b === prevCheckpointNumber), 'node sync', 5, 0.1);
+
+      // Verify multi-block checkpoints were built before we do the reorg
+      await test.assertMultipleBlocksPerSlot(2);
 
       // Cancel the next tx to be mined and pause the sequencer
       sequencerDelayer.cancelNextTx();
@@ -308,6 +416,9 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       );
 
     it('updates L1 to L2 messages changed due to an L1 reorg', async () => {
+      // Send L2 txs to trigger multi-block checkpoints
+      await sendTransactions(TX_COUNT, 100);
+
       // Send 3 messages and wait for archiver sync
       logger.warn(`Sending 3 cross chain messages`);
       const msgs = await timesAsync(3, async (i: number) => {
@@ -335,9 +446,16 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       await retryUntil(() => node.isL1ToL2MessageSynced(newMsg.msgHash), 'new message sync', L1_BLOCK_TIME_IN_S * 6, 1);
       expect(await node.isL1ToL2MessageSynced(msgs[0].msgHash)).toBe(true);
       expect(await node.isL1ToL2MessageSynced(msgs.at(-1)!.msgHash)).toBe(false);
+
+      // Verify multi-block checkpoints were built
+      await test.assertMultipleBlocksPerSlot(2);
     });
 
     it('handles missed message inserted by an L1 reorg', async () => {
+      // Send L2 txs to trigger multi-block checkpoints and wait for them to land in a checkpoint
+      await sendTransactions(TX_COUNT, 200);
+      await test.waitUntilCheckpointNumber(CheckpointNumber(2), L2_SLOT_DURATION_IN_S * 4);
+
       // Send a message and wait for node to sync it
       logger.warn(`Sending first cross chain message`);
       const firstMsg = await sendMessage();
@@ -369,6 +487,9 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       logger.warn(`Reorged-in second message on L1 block ${secondMsg.txReceipt.blockNumber}. Sending third message.`);
       const thirdMsg = await sendMessage();
       await retryUntil(() => node.isL1ToL2MessageSynced(thirdMsg.msgHash), '3rd msg sync', L1_BLOCK_TIME_IN_S * 3, 1);
+
+      // Verify multi-block checkpoints were built
+      await test.assertMultipleBlocksPerSlot(2);
     });
   });
 });

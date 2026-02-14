@@ -11,20 +11,20 @@
 
 namespace bb::avm2::simulation {
 
-struct EmitUnencryptedLogException : public std::runtime_error {
-    explicit EmitUnencryptedLogException(const std::string& message)
-        : std::runtime_error("Error in EmitUnencryptedLog: " + message)
+struct EmitPublicLogException : public std::runtime_error {
+    explicit EmitPublicLogException(const std::string& message)
+        : std::runtime_error("Error in EmitPublicLog: " + message)
     {}
 };
 
-struct EmitUnencryptedLogWriteEvent {
+struct EmitPublicLogWriteEvent {
     uint32_t execution_clk;
     AztecAddress contract_address;
     uint16_t space_id;
     MemoryAddress log_address;
     uint32_t log_size;
-    uint32_t prev_num_unencrypted_log_fields;
-    uint32_t next_num_unencrypted_log_fields;
+    uint32_t prev_num_public_log_fields;
+    uint32_t next_num_public_log_fields;
     bool is_static;
     std::vector<MemoryValue> values;
 
@@ -32,9 +32,9 @@ struct EmitUnencryptedLogWriteEvent {
     bool error_too_many_log_fields;
     bool error_tag_mismatch;
 
-    bool operator==(const EmitUnencryptedLogWriteEvent& other) const = default;
+    bool operator==(const EmitPublicLogWriteEvent& other) const = default;
 };
 
-using EmitUnencryptedLogEvent = std::variant<EmitUnencryptedLogWriteEvent, CheckPointEventType>;
+using EmitPublicLogEvent = std::variant<EmitPublicLogWriteEvent, CheckPointEventType>;
 
 } // namespace bb::avm2::simulation

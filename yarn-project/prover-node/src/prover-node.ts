@@ -56,7 +56,6 @@ type DataStoreOptions = Pick<DataStoreConfig, 'dataDirectory'> & Pick<ChainConfi
  */
 export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable {
   private log = createLogger('prover-node');
-  private dateProvider = new DateProvider();
 
   private jobs: Map<string, EpochProvingJob> = new Map();
   private config: ProverNodeOptions;
@@ -81,6 +80,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     config: Partial<ProverNodeOptions> = {},
     protected readonly telemetryClient: TelemetryClient = getTelemetryClient(),
     private delayer?: Delayer,
+    private readonly dateProvider: DateProvider = new DateProvider(),
   ) {
     this.config = {
       proverNodePollingIntervalMs: 1_000,
