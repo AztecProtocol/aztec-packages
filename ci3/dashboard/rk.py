@@ -554,12 +554,18 @@ def _proxy(path):
     """Forward request to ci-metrics, streaming the response back."""
     url = f'{CI_METRICS_URL}/{path.lstrip("/")}'
     try:
+        fwd_headers = {k: v for k, v in request.headers if k.lower() not in _STRIP_REQUEST_HEADERS}
+        # Tell ci-metrics not to compress — rk.py Flask-Compress handles
+        # browser compression.  Without this, requests auto-decompresses
+        # the ci-metrics response but Flask-Compress re-compresses with
+        # deflate, which some browsers fail to decode correctly.
+        fwd_headers['Accept-Encoding'] = 'identity'
         resp = _proxy_session.request(
             method=request.method,
             url=url,
             params=request.args,
             data=request.get_data(),
-            headers={k: v for k, v in request.headers if k.lower() not in _STRIP_REQUEST_HEADERS},
+            headers=fwd_headers,
             stream=True,
             timeout=180,
         )
