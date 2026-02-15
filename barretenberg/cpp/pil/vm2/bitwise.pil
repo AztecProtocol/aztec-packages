@@ -85,7 +85,7 @@ sel * (1 - sel) = 0;
 
 // No relations will be checked if this identity is satisfied.
 #[skippable_if]
-sel = 0;
+sel + last = 0;
 
 pol commit start; // @boolean Identifies when we want to capture the output to the main trace.
 // Must be constrained as a boolean as any selector used in a lookup/permutation.
