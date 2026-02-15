@@ -71,6 +71,8 @@ export interface SequencerConfig {
   skipPushProposedBlocksToArchiver?: boolean;
   /** Minimum number of blocks required for a checkpoint proposal (test only, defaults to undefined = no minimum) */
   minBlocksForCheckpoint?: number;
+  /** Skip publishing checkpoint proposals probability (for testing checkpoint prunes only) */
+  skipPublishingCheckpointsPercent?: number;
 }
 
 export const SequencerConfigSchema = zodFor<SequencerConfig>()(
@@ -106,6 +108,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     buildCheckpointIfEmpty: z.boolean().optional(),
     skipPushProposedBlocksToArchiver: z.boolean().optional(),
     minBlocksForCheckpoint: z.number().positive().optional(),
+    skipPublishingCheckpointsPercent: z.number().gte(0).lte(100).optional(),
   }),
 );
 

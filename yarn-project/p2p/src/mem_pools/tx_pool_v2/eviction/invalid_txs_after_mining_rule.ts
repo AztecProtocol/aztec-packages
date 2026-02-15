@@ -35,22 +35,19 @@ export class InvalidTxsAfterMiningRule implements EvictionRule {
       for (const meta of pendingTxs) {
         // Evict pending txs that share nullifiers with mined txs
         if (meta.nullifiers.some(nullifier => minedNullifiers.has(nullifier))) {
-          this.log.verbose(`Evicting tx ${meta.txHash} from pool due to a duplicate nullifier with a mined tx`);
           txsToEvict.push(meta.txHash);
           continue;
         }
 
         // Evict pending txs with an expiration timestamp less than or equal to the mined block timestamp
         if (meta.includeByTimestamp <= timestamp) {
-          this.log.verbose(
-            `Evicting tx ${meta.txHash} from pool due to the tx being expired (includeByTimestamp: ${meta.includeByTimestamp}, mined block timestamp: ${timestamp})`,
-          );
           txsToEvict.push(meta.txHash);
           continue;
         }
       }
 
       if (txsToEvict.length > 0) {
+        this.log.info(`Evicted ${txsToEvict.length} invalid txs after block mined`);
         await pool.deleteTxs(txsToEvict, this.name);
       }
 

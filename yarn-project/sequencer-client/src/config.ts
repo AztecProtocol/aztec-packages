@@ -55,6 +55,7 @@ export const DefaultSequencerConfig: ResolvedSequencerConfig = {
   fishermanMode: false,
   shuffleAttestationOrdering: false,
   skipPushProposedBlocksToArchiver: false,
+  skipPublishingCheckpointsPercent: 0,
 };
 
 /**
@@ -207,6 +208,11 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   },
   minBlocksForCheckpoint: {
     description: 'Minimum number of blocks required for a checkpoint proposal (test only)',
+  },
+  skipPublishingCheckpointsPercent: {
+    env: 'SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT',
+    description: 'Percent probability (0 - 100) of sequencer skipping checkpoint publishing (testing only)',
+    ...numberConfigHelper(DefaultSequencerConfig.skipPublishingCheckpointsPercent),
   },
   ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowList']),
 };

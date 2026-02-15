@@ -273,6 +273,11 @@ export const ARCHIVER_BLOCK_HEIGHT: MetricDefinition = {
   description: 'The height of the latest block processed by the archiver',
   valueType: ValueType.INT,
 };
+export const ARCHIVER_CHECKPOINT_HEIGHT: MetricDefinition = {
+  name: 'aztec.archiver.checkpoint_height',
+  description: 'The height of the latest checkpoint processed by the archiver',
+  valueType: ValueType.INT,
+};
 export const ARCHIVER_ROLLUP_PROOF_DELAY: MetricDefinition = {
   name: 'aztec.archiver.rollup_proof_delay',
   description: 'Time after a block is submitted until its proof is published',

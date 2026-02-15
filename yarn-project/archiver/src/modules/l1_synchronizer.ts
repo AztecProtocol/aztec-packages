@@ -599,7 +599,7 @@ export class ArchiverL1Synchronizer implements Traceable {
             slotNumber: provenSlotNumber,
             epochNumber: provenEpochNumber,
           });
-          this.instrumentation.updateLastProvenBlock(lastBlockNumberInCheckpoint);
+          this.instrumentation.updateLastProvenCheckpoint(localCheckpointForDestinationProvenCheckpointNumber);
         } else {
           this.log.trace(`Proven checkpoint ${provenCheckpointNumber} already stored.`);
         }

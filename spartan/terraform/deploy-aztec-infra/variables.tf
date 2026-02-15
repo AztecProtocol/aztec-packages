@@ -343,6 +343,12 @@ variable "SEQ_MAX_TX_PER_BLOCK" {
   default     = "8"
 }
 
+variable "SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT" {
+  description = "Percentage probability of skipping checkpoint publishing"
+  type        = string
+  default     = "0"
+}
+
 variable "SEQ_BLOCK_DURATION_MS" {
   description = "Duration per block in milliseconds when building multiple blocks per slot"
   type        = string
