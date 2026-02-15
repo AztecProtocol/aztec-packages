@@ -32,7 +32,7 @@ struct FieldGreaterThanEvent {
     bool gt_result = false; // Not relevant for operation == FieldGreaterOperation::CANONICAL_DECOMPOSITIONs
 
     // To be used with deduplicating event emitters.
-    using Key = std::tuple<FieldGreaterOperation, const FF&, const FF&>;
+    using Key = std::tuple<FieldGreaterOperation, FF, FF>;
     Key get_key() const { return { operation, a, b }; }
 
     bool operator==(const FieldGreaterThanEvent& other) const = default;
