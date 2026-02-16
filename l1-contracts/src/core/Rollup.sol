@@ -412,6 +412,15 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   /**
+   * @notice  Get the escape hatch contract that was active at the start of a given epoch
+   * @param _epoch The epoch to look up the escape hatch for
+   * @return The escape hatch contract interface that was active at the epoch start
+   */
+  function getEscapeHatchForEpoch(Epoch _epoch) external view override(IValidatorSelection) returns (IEscapeHatch) {
+    return ValidatorOperationsExtLib.getEscapeHatchForEpoch(_epoch);
+  }
+
+  /**
    * @notice  Get the sample seed for the current epoch
    *
    * @return The sample seed for the current epoch

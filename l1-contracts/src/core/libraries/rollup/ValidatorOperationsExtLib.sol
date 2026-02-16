@@ -152,6 +152,10 @@ library ValidatorOperationsExtLib {
     return ValidatorSelectionLib.getEscapeHatch();
   }
 
+  function getEscapeHatchForEpoch(Epoch _epoch) external view returns (IEscapeHatch) {
+    return ValidatorSelectionLib.getEscapeHatchForEpoch(_epoch);
+  }
+
   function getTargetCommitteeSize() external view returns (uint256) {
     return ValidatorSelectionLib.getStorage().targetCommitteeSize;
   }
