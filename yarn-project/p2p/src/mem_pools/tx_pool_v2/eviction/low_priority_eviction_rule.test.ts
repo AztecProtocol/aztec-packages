@@ -132,7 +132,7 @@ describe('LowPriorityEvictionRule', () => {
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted).toEqual(['0x3333', '0x4444']);
-        expect(deleteTxsMock).toHaveBeenCalledWith(['0x3333', '0x4444']);
+        expect(deleteTxsMock).toHaveBeenCalledWith(['0x3333', '0x4444'], 'LowPriorityEviction');
       });
 
       it('tracks newly added transactions that were evicted', async () => {
@@ -148,7 +148,7 @@ describe('LowPriorityEvictionRule', () => {
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted).toEqual(['0x3333', '0x1111']);
-        expect(deleteTxsMock).toHaveBeenCalledWith(['0x3333', '0x1111']);
+        expect(deleteTxsMock).toHaveBeenCalledWith(['0x3333', '0x1111'], 'LowPriorityEviction');
       });
 
       it('handles all transactions being non-evictable', async () => {

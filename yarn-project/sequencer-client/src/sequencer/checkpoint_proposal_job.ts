@@ -336,6 +336,21 @@ export class CheckpointProposalJob implements Traceable {
       const aztecSlotDuration = this.l1Constants.slotDuration;
       const slotStartBuildTimestamp = this.getSlotStartBuildTimestamp();
       const txTimeoutAt = new Date((slotStartBuildTimestamp + aztecSlotDuration) * 1000);
+
+      // If we have been configured to potentially skip publishing checkpoint then roll the dice here
+      if (
+        this.config.skipPublishingCheckpointsPercent !== undefined &&
+        this.config.skipPublishingCheckpointsPercent > 0
+      ) {
+        const result = Math.max(0, randomInt(100));
+        if (result < this.config.skipPublishingCheckpointsPercent) {
+          this.log.warn(
+            `Skipping publishing proposal for checkpoint ${checkpoint.number}. Configured percentage: ${this.config.skipPublishingCheckpointsPercent}, generated value: ${result}`,
+          );
+          return checkpoint;
+        }
+      }
+
       await this.publisher.enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, {
         txTimeoutAt,
         forcePendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,

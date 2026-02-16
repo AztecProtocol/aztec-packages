@@ -167,6 +167,55 @@ export const MEMPOOL_TX_MINED_DELAY: MetricDefinition = {
   valueType: ValueType.INT,
 };
 
+export const MEMPOOL_TX_POOL_V2_EVICTED_COUNT: MetricDefinition = {
+  name: 'aztec.mempool.tx_pool_v2.evicted_count',
+  description: 'The number of transactions evicted from the tx pool',
+  valueType: ValueType.INT,
+};
+export const MEMPOOL_TX_POOL_V2_IGNORED_COUNT: MetricDefinition = {
+  name: 'aztec.mempool.tx_pool_v2.ignored_count',
+  description: 'The number of transactions ignored in addPendingTxs',
+  valueType: ValueType.INT,
+};
+export const MEMPOOL_TX_POOL_V2_REJECTED_COUNT: MetricDefinition = {
+  name: 'aztec.mempool.tx_pool_v2.rejected_count',
+  description: 'The number of transactions rejected in addPendingTxs',
+  valueType: ValueType.INT,
+};
+export const MEMPOOL_TX_POOL_V2_SOFT_DELETED_HITS: MetricDefinition = {
+  name: 'aztec.mempool.tx_pool_v2.soft_deleted_hits',
+  description: 'The number of transactions found in the soft-deleted pool',
+  valueType: ValueType.INT,
+};
+export const MEMPOOL_TX_POOL_V2_MISSING_ON_PROTECT: MetricDefinition = {
+  name: 'aztec.mempool.tx_pool_v2.missing_on_protect',
+  description: 'The number of truly missing transactions in protectTxs',
+  valueType: ValueType.INT,
+};
+export const MEMPOOL_TX_POOL_V2_MISSING_PREVIOUSLY_EVICTED: MetricDefinition = {
+  name: 'aztec.mempool.tx_pool_v2.missing_previously_evicted',
+  description: 'The number of truly missing transactions in protectTxs that were previously evicted',
+  valueType: ValueType.INT,
+};
+export const MEMPOOL_TX_POOL_V2_METADATA_MEMORY: MetricDefinition = {
+  name: 'aztec.mempool.tx_pool_v2.metadata_memory',
+  description: 'Estimated total memory consumed by in-memory transaction metadata',
+  unit: 'By',
+  valueType: ValueType.INT,
+};
+
+export const MEMPOOL_TX_POOL_V2_DUPLICATE_ADD: MetricDefinition = {
+  name: 'aztec.mempool.tx_pool_v2.duplicate_add',
+  description: 'Transactions received via addPendingTxs that were already in the pool',
+  valueType: ValueType.INT,
+};
+
+export const MEMPOOL_TX_POOL_V2_ALREADY_PROTECTED_ADD: MetricDefinition = {
+  name: 'aztec.mempool.tx_pool_v2.already_protected_add',
+  description: 'Transactions received via addPendingTxs that were already pre-protected',
+  valueType: ValueType.INT,
+};
+
 export const DB_NUM_ITEMS: MetricDefinition = {
   name: 'aztec.db.num_items',
   description: 'LMDB Num Items',
@@ -222,6 +271,11 @@ export const ARCHIVER_L1_BLOCK_HEIGHT: MetricDefinition = {
 export const ARCHIVER_BLOCK_HEIGHT: MetricDefinition = {
   name: 'aztec.archiver.block_height',
   description: 'The height of the latest block processed by the archiver',
+  valueType: ValueType.INT,
+};
+export const ARCHIVER_CHECKPOINT_HEIGHT: MetricDefinition = {
+  name: 'aztec.archiver.checkpoint_height',
+  description: 'The height of the latest checkpoint processed by the archiver',
   valueType: ValueType.INT,
 };
 export const ARCHIVER_ROLLUP_PROOF_DELAY: MetricDefinition = {
