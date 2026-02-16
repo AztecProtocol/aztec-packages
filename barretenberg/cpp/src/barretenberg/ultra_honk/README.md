@@ -53,7 +53,7 @@ Proof ──► Oink (receive commitments, derive challenges)
 A **Flavor** is a compile-time configuration bundle that fixes the field, curve, relations, polynomial layout, commitment scheme, and transcript hash for a particular Honk instantiation.
 
 The two base arithmetizations determine the relation set:
-- **Ultra** (9 relations): arithmetic, permutation, lookup, range, elliptic, memory, non-native field, Poseidon2
+- **Ultra** (9 relations): arithmetic, permutation, lookup, range, elliptic, memory, non-native field, Poseidon2 (external + internal)
 - **Mega** (11 relations): Ultra relations + EccOpQueue (for Goblin) + Databus (for inter-circuit communication in Chonk)
 
 ZK variants preserve the same algebraic relations but modify how they are enforced (via masking and row disabling). See [Zero-Knowledge](#zero-knowledge).
@@ -143,7 +143,7 @@ Several Fiat-Shamir challenges appear throughout the protocol:
 | `alpha` | Batches subrelation contributions in Sumcheck | Oink (step 6) |
 | `β_gate` (gate challenges) | Gate-separation polynomial `pow_{β_gate}` — ensures row separation in Sumcheck | Pre-Sumcheck |
 | `u_0, ..., u_{d-1}` | Sumcheck round challenges — define the evaluation point | Sumcheck rounds |
-| `ρ` (Gemini) | Batches all polynomials into a single combined polynomial for Gemini folding | PCS |
+| `ρ_gem` (Gemini) | Batches all polynomials into a single combined polynomial for Gemini folding | PCS |
 | `r` (Gemini) | Gemini folding evaluation point | PCS |
 | `ν` (Shplonk) | Batches univariate opening claims | PCS |
 
@@ -180,7 +180,7 @@ The **Oink** sub-protocol ([`oink_prover.hpp`](oink_prover.hpp)) runs the prepro
 
 ### 3. Sumcheck
 
-Each row of the execution trace corresponds to one point on the boolean hypercube `{0,1}^d` where `d = log(N)`. For each relation, a valid witness makes the relation evaluate to zero at every hypercube point. Honk batches many per-row identities into a single polynomial `F(X)` using random Fiat-Shamir challenges (`α` for subrelation batching, gate challenges for row separation via `pow_{β_gate}`). The prover then uses the Sumcheck protocol to prove that `∑_{x∈{0,1}^d} pow_{β_gate}(x)·F(x) = 0`. If any row violates a constraint, then `F(x) ≠ 0` at that point, and the randomized weighting makes it infeasible (except with negligible probability over the challenges) for violations to cancel in the global sum.
+Each row of the execution trace corresponds to one point on the boolean hypercube `{0,1}^d` where `d = log(N)`. For each relation, a valid witness makes the relation evaluate to zero at every hypercube point. Honk batches many per-row identities into a single polynomial `F(X)` using random Fiat-Shamir challenges (`α` for subrelation batching and `β_gate` for row separation via `pow_{β_gate}`). The prover then uses the Sumcheck protocol to prove that `∑_{x∈{0,1}^d} pow_{β_gate}(x)·F(x) = 0`. If any row violates a constraint, then `F(x) ≠ 0` at that point, and the randomized weighting makes it infeasible (except with negligible probability over the challenges) for violations to cancel in the global sum.
 
 Concretely, in each of `d` rounds the prover sends a round univariate `S^i`; the verifier checks `S^i(0) + S^i(1)` equals the running target from the previous round, then derives the next challenge `u_i`. After the final round the prover sends the claimed evaluations of all polynomials at the challenge point `u = (u_0, ..., u_{d-1})`; the verifier evaluates the full relation at these values and checks consistency with the last round univariate.
 
@@ -190,7 +190,7 @@ See [`sumcheck/Sumcheck.md`](../sumcheck/Sumcheck.md) for full details.
 
 After Sumcheck produces the evaluation point `u` and claimed evaluations, the polynomial commitment scheme proves these evaluations are correct:
 
-1. **Gemini**: reduces multilinear opening claims at the same point to a series of univariate opening claims. It does this by substituting the challenge variables `u_0, ..., u_{d-1}` one at a time: each step halves the polynomial's dimension by fixing one variable, producing a sequence of "fold" polynomials. After `d` steps the multilinear polynomial has been reduced to a constant, and the intermediate fold commitments/evaluations constitute the proof. See [`commitment_schemes/gemini/README.md`](../commitment_schemes/gemini/README.md).
+1. **Gemini**: reduces multilinear opening claims at the same point to a series of univariate opening claims. It does this by substituting the challenge variables `u_0, ..., u_{d-1}` one at a time: each step halves the polynomial's dimension by fixing one variable, producing a sequence of "fold" polynomials. After `d` folding steps, the original multilinear opening claim has been reduced to a small set of univariate opening claims, and the intermediate fold commitments/evaluations constitute the proof. See [`commitment_schemes/gemini/README.md`](../commitment_schemes/gemini/README.md).
 2. **Shplonk**: batches the univariate opening claims (from Gemini and, for ZK flavors, SmallSubgroupIPA) into a single claim. See [`commitment_schemes/shplonk/README.md`](../commitment_schemes/shplonk/README.md).
 3. **KZG**: produces a single-point opening proof (a group element). See [`commitment_schemes/kzg/README.md`](../commitment_schemes/kzg/README.md).
 
@@ -256,7 +256,7 @@ See [`commitment_schemes/small_subgroup_ipa/README.md`](../commitment_schemes/sm
 
 Even with all the above, the polynomial evaluations revealed during the PCS stage (Gemini fold commitments and evaluations sent to the verifier, then opened via Shplonk) would leak witness information, since they are linear combinations of the witness polynomials evaluated at the Gemini challenge.
 
-To prevent this, a random polynomial `gemini_masking_poly` of size `N` is generated and committed during Oink. It is included in the set of polynomials batched by Gemini (via `polynomial_batcher.set_unshifted`), so the batched polynomial `A_0 = Σ ρ^j · f_j` includes a `ρ^k · gemini_masking_poly` term. Since this random polynomial is known only to the prover, its contribution makes every Gemini fold evaluation (`A_l(±r^{2^l})`) uniformly random from the verifier's perspective. The verifier holds the commitment to the masking polynomial and can account for it during Shplemini verification.
+To prevent this, a random polynomial `gemini_masking_poly` of size `N` is generated and committed during Oink. It is included in the set of polynomials batched by Gemini (via `polynomial_batcher.set_unshifted`), so the batched polynomial `A_0 = Σ ρ_gem^j · f_j` includes a `ρ_gem^k · gemini_masking_poly` term. Since this random polynomial is known only to the prover, its contribution makes every Gemini fold evaluation (`A_l(±r^{2^l})`) uniformly random from the verifier's perspective. The verifier holds the commitment to the masking polynomial and can account for it during Shplemini verification.
 
 ### 6. KZG Witness
 
