@@ -9,6 +9,16 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Protocol] `include_by_timestamp` renamed to `expiration_timestamp`
+
+The `include_by_timestamp` field has been renamed to `expiration_timestamp` across the protocol to better convey its meaning.
+**Noir:**
+
+```diff
+- context.set_tx_include_by_timestamp(123456789);
++ context.set_expiration_timestamp(123456789);
+```
+
 ### [CLI] Dockerless CLI Installation
 
 The Aztec CLI is now installed without Docker. The installation command has changed:

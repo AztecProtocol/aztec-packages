@@ -4,13 +4,11 @@
 #include <cstdint>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/emit_public_log.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_emit_public_log.hpp"
-#include "barretenberg/vm2/generated/relations/perms_emit_public_log.hpp"
 #include "barretenberg/vm2/simulation/events/emit_public_log_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/gt_event.hpp"
@@ -277,6 +275,8 @@ TEST(EmitPublicLogConstrainingTest, ErrorStatic)
 
     EmitPublicLogTraceBuilder trace_builder;
     trace_builder.process({ event }, trace);
+
+    check_relation<emit_public_log>(trace);
 }
 
 TEST(EmitPublicLogConstrainingTest, Interactions)
@@ -397,56 +397,63 @@ TEST(EmitPublicLogConstrainingTest, NegativeStartAfterLatch)
                               "START_AFTER_LATCH");
 }
 
-TEST(EmitPublicLogConstrainingTest, NegativeSelectorOnStart)
+TEST(EmitPublicLogConstrainingTest, NegativeTraceContinuity)
 {
-    TestTraceContainer trace = TestTraceContainer({ {
-        { C::emit_public_log_sel, 1 },
-        { C::emit_public_log_start, 1 },
-    } });
-
-    check_relation<emit_public_log>(trace, emit_public_log::SR_SELECTOR_ON_START);
-
-    trace.set(C::emit_public_log_sel, 0, 0);
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_SELECTOR_ON_START),
-                              "SELECTOR_ON_START");
-}
-
-TEST(EmitPublicLogConstrainingTest, NegativeSelectorConsistency)
-{
+    // Once sel drops to 0, it cannot come back to 1 (on non-first rows).
+    // Row 0: first_row=1, sel=1, start=1 (LATCH_CONDITION=1 via first_row)
+    // Row 1: sel=1, end=1 (LATCH_CONDITION=1 via end, allows sel to drop)
+    // Row 2: sel=0
+    // Row 3: sel=0 (positive) / sel=1 (negative, violates continuity)
     TestTraceContainer trace = TestTraceContainer({ {
                                                         { C::precomputed_first_row, 1 },
+                                                        { C::emit_public_log_sel, 1 },
+                                                        { C::emit_public_log_start, 1 },
                                                     },
                                                     {
                                                         { C::emit_public_log_sel, 1 },
-                                                        { C::emit_public_log_start, 1 },
                                                         { C::emit_public_log_end, 1 },
+                                                    },
+                                                    {
+                                                        { C::emit_public_log_sel, 0 },
                                                     },
                                                     {
                                                         { C::emit_public_log_sel, 0 },
                                                     } });
 
-    check_relation<emit_public_log>(trace, emit_public_log::SR_SELECTOR_CONSISTENCY);
+    check_relation<emit_public_log>(trace, emit_public_log::SR_TRACE_CONTINUITY);
 
-    trace.set(C::emit_public_log_end, 1, 0);
+    // Now make sel come back to 1 after a gap.
+    trace.set(C::emit_public_log_sel, 3, 1);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_SELECTOR_CONSISTENCY),
-                              "SELECTOR_CONSISTENCY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_TRACE_CONTINUITY),
+                              "TRACE_CONTINUITY");
 }
 
-TEST(EmitPublicLogConstrainingTest, NegativeSelectorOnEnd)
+TEST(EmitPublicLogConstrainingTest, NegativeComputationFinishAtEnd)
 {
+    // sel can only turn off (sel=1 -> sel'=0) when end=1.
+    // Row 0: first_row=1, sel=1, start=1 (LATCH_CONDITION=1 via first_row)
+    // Row 1: sel=1, end=0 (sel drops to 0 on next row without end=1)
+    // Row 2: sel=0 (violates TRACE_CONTINUITY at row 1)
     TestTraceContainer trace = TestTraceContainer({ {
-        { C::emit_public_log_sel, 1 },
-        { C::emit_public_log_end, 1 },
-    } });
+                                                        { C::precomputed_first_row, 1 },
+                                                        { C::emit_public_log_sel, 1 },
+                                                        { C::emit_public_log_start, 1 },
+                                                    },
+                                                    {
+                                                        { C::emit_public_log_sel, 1 },
+                                                    },
+                                                    {
+                                                        { C::emit_public_log_sel, 0 },
+                                                    } });
 
-    check_relation<emit_public_log>(trace, emit_public_log::SR_SELECTOR_ON_END);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_TRACE_CONTINUITY),
+                              "TRACE_CONTINUITY");
 
-    trace.set(C::emit_public_log_sel, 0, 0);
+    // Adding end=1 on row 1 should satisfy the constraint.
+    trace.set(C::emit_public_log_end, 1, 1);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_SELECTOR_ON_END),
-                              "SELECTOR_ON_END");
+    check_relation<emit_public_log>(trace, emit_public_log::SR_TRACE_CONTINUITY);
 }
 
 TEST(EmitPublicLogConstrainingTest, NegativeRemainingRowsDecrement)
@@ -536,17 +543,17 @@ TEST(EmitPublicLogConstrainingTest, NegativeSelectorShouldWriteToPublicInputsCon
 {
     TestTraceContainer trace = TestTraceContainer({ {
                                                         { C::emit_public_log_sel, 1 },
-                                                        { C::emit_public_log_sel_should_write_to_public_inputs, 1 },
+                                                        { C::emit_public_log_sel_write_to_public_inputs, 1 },
                                                     },
                                                     {
                                                         { C::emit_public_log_sel, 1 },
-                                                        { C::emit_public_log_sel_should_write_to_public_inputs, 1 },
+                                                        { C::emit_public_log_sel_write_to_public_inputs, 1 },
                                                         { C::emit_public_log_end, 1 },
                                                     } });
 
     check_relation<emit_public_log>(trace, emit_public_log::SR_SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY);
 
-    trace.set(C::emit_public_log_sel_should_write_to_public_inputs, 1, 0);
+    trace.set(C::emit_public_log_sel_write_to_public_inputs, 1, 0);
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<emit_public_log>(trace, emit_public_log::SR_SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY),
@@ -643,17 +650,17 @@ TEST(EmitPublicLogConstrainingTest, NegativeContractAddressConsistency)
 // we still enforce the selector gating to prevent accidental ghost reads.
 // The vulnerability: is_write_memory_value is only boolean-constrained,
 // not constrained to be 0 when sel=0. This allows ghost rows to fire
-// the #[READ_MEM] permutation via sel_should_read_memory.
+// the #[READ_MEM] permutation via sel_read_memory.
 //
 // VULNERABILITY SUMMARY:
 // - is_write_memory_value is only boolean-constrained
 // - When sel=0, is_write_memory_value can still be set to 1
-// - This makes sel_should_read_memory = 1 (via derived constraint)
+// - This makes sel_read_memory = 1 (via derived constraint)
 // - This fires the #[READ_MEM] permutation from a ghost row
 //
 // REQUIRED FIX:
 // Gate by sel to avoid ghost rows triggering memory reads.
-// sel_should_read_memory = sel * is_write_memory_value * (1 - error_out_of_bounds);
+// sel_read_memory = sel * is_write_memory_value * (1 - error_out_of_bounds);
 
 // This test verifies that the fix for the ghost row injection vulnerability works.
 // The constraint `is_write_memory_value * (1 - sel) = 0` should prevent ghost rows
@@ -704,7 +711,7 @@ TEST(EmitPublicLogConstrainingTest, NegativeGhostRowInjectionBlocked)
                   { C::emit_public_log_sel, 0 },
                   { C::emit_public_log_is_write_memory_value, 1 },
                   { C::emit_public_log_error_out_of_bounds, 0 },
-                  { C::emit_public_log_sel_should_read_memory, 1 },
+                  { C::emit_public_log_sel_read_memory, 1 },
                   { C::emit_public_log_execution_clk, malicious_clk },
                   { C::emit_public_log_space_id, malicious_space_id },
                   { C::emit_public_log_log_address, malicious_log_addr },
@@ -715,11 +722,145 @@ TEST(EmitPublicLogConstrainingTest, NegativeGhostRowInjectionBlocked)
 
     trace.set(C::memory_sel_public_log_read, memory_row, 1);
 
-    // The fix: sel_should_read_memory = sel * is_write_memory_value * (1 - error_out_of_bounds)
+    // The fix: sel_read_memory = sel * is_write_memory_value * (1 - error_out_of_bounds)
     // Gating by sel should cause the relation check to fail
-    // because sel_should_read_memory=1 and sel=0 violates this constraint
+    // because sel_read_memory=1 and sel=0 violates this constraint
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace),
                               "SEL_SHOULD_READ_MEMORY_IS_SEL_AND_WRITE_MEM_AND_NO_ERR");
+}
+
+TEST(EmitPublicLogConstrainingTest, NegativeSelToggledAtStartEnd)
+{
+    // Constraint: (start + end) * (1 - sel) = 0
+    // If start=1, sel must be 1.
+    TestTraceContainer trace = TestTraceContainer({ {
+        { C::emit_public_log_sel, 1 },
+        { C::emit_public_log_start, 1 },
+    } });
+
+    check_relation<emit_public_log>(trace, emit_public_log::SR_SEL_ON_START_OR_END);
+
+    trace.set(C::emit_public_log_sel, 0, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_SEL_ON_START_OR_END),
+                              "SEL_ON_START_OR_END");
+}
+
+TEST(EmitPublicLogConstrainingTest, NegativeInitialSeenWrongTag)
+{
+    // Constraint: start * seen_wrong_tag = 0
+    // At start=1, seen_wrong_tag must be 0.
+    TestTraceContainer trace = TestTraceContainer({ {
+        { C::emit_public_log_sel, 1 },
+        { C::emit_public_log_start, 1 },
+        { C::emit_public_log_seen_wrong_tag, 0 },
+    } });
+
+    check_relation<emit_public_log>(trace, emit_public_log::SR_INITIAL_SEEN_WRONG_TAG);
+
+    trace.set(C::emit_public_log_seen_wrong_tag, 0, 1);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_INITIAL_SEEN_WRONG_TAG),
+                              "INITIAL_SEEN_WRONG_TAG");
+}
+
+TEST(EmitPublicLogConstrainingTest, NegativeCheckEndTagMismatch)
+{
+    // Constraint: end * (error_tag_mismatch - seen_wrong_tag) = 0
+    // At end=1, error_tag_mismatch must equal seen_wrong_tag.
+    TestTraceContainer trace = TestTraceContainer({ {
+        { C::emit_public_log_sel, 1 },
+        { C::emit_public_log_end, 1 },
+        { C::emit_public_log_error_tag_mismatch, 1 },
+        { C::emit_public_log_seen_wrong_tag, 1 },
+    } });
+
+    check_relation<emit_public_log>(trace, emit_public_log::SR_CHECK_END_TAG_MISMATCH);
+
+    trace.set(C::emit_public_log_error_tag_mismatch, 0, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_CHECK_END_TAG_MISMATCH),
+                              "CHECK_END_TAG_MISMATCH");
+}
+
+TEST(EmitPublicLogConstrainingTest, NegativeWriteContractAddressAfterStart)
+{
+    // Constraint: is_write_contract_address' = start (global, not gated by sel)
+    // Row 1's is_write_contract_address must equal row 0's start.
+    TestTraceContainer trace = TestTraceContainer({ {
+                                                        { C::emit_public_log_sel, 1 },
+                                                        { C::emit_public_log_start, 1 },
+                                                    },
+                                                    {
+                                                        { C::emit_public_log_is_write_contract_address, 1 },
+                                                    } });
+
+    check_relation<emit_public_log>(trace, emit_public_log::SR_WRITE_CONTRACT_ADDRESS_AFTER_START);
+
+    trace.set(C::emit_public_log_is_write_contract_address, 1, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<emit_public_log>(trace, emit_public_log::SR_WRITE_CONTRACT_ADDRESS_AFTER_START),
+        "WRITE_CONTRACT_ADDRESS_AFTER_START");
+}
+
+TEST(EmitPublicLogConstrainingTest, NegativeSetAndProgateValueWrite)
+{
+    // Constraint: NOT_END * (is_write_memory_value + is_write_contract_address - is_write_memory_value') = 0
+    // When sel=1 and end=0: is_write_memory_value' = is_write_memory_value + is_write_contract_address
+    TestTraceContainer trace = TestTraceContainer({ {
+                                                        { C::emit_public_log_sel, 1 },
+                                                        { C::emit_public_log_is_write_contract_address, 1 },
+                                                        { C::emit_public_log_is_write_memory_value, 0 },
+                                                    },
+                                                    {
+                                                        { C::emit_public_log_sel, 1 },
+                                                        { C::emit_public_log_end, 1 },
+                                                        { C::emit_public_log_is_write_memory_value, 1 },
+                                                    } });
+
+    check_relation<emit_public_log>(trace, emit_public_log::SR_SET_AND_PROGATE_VALUE_WRITE);
+
+    trace.set(C::emit_public_log_is_write_memory_value, 1, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_SET_AND_PROGATE_VALUE_WRITE),
+                              "SET_AND_PROGATE_VALUE_WRITE");
+}
+
+TEST(EmitPublicLogConstrainingTest, NegativeDisabledMemReadValueZero)
+{
+    // Constraint: (sel - sel_read_memory) * value = 0
+    // When memory read is disabled (sel=1, sel_read_memory=0), value must be 0.
+    TestTraceContainer trace = TestTraceContainer({ {
+        { C::emit_public_log_sel, 1 },
+        { C::emit_public_log_sel_read_memory, 0 },
+        { C::emit_public_log_value, 0 },
+    } });
+
+    check_relation<emit_public_log>(trace, emit_public_log::SR_DISABLED_MEM_READ_VALUE_ZERO);
+
+    trace.set(C::emit_public_log_value, 0, 42);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_DISABLED_MEM_READ_VALUE_ZERO),
+                              "DISABLED_MEM_READ_VALUE_ZERO");
+}
+
+TEST(EmitPublicLogConstrainingTest, NegativeDisabledMemReadTagFF)
+{
+    // Constraint: (sel - sel_read_memory) * (MEM_TAG_FF - tag) = 0
+    // When memory read is disabled (sel=1, sel_read_memory=0), tag must be MEM_TAG_FF (0).
+    TestTraceContainer trace = TestTraceContainer({ {
+        { C::emit_public_log_sel, 1 },
+        { C::emit_public_log_sel_read_memory, 0 },
+        { C::emit_public_log_tag, 0 },
+    } });
+
+    check_relation<emit_public_log>(trace, emit_public_log::SR_DISABLED_MEM_READ_TAG_FF);
+
+    trace.set(C::emit_public_log_tag, 0, 3);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_DISABLED_MEM_READ_TAG_FF),
+                              "DISABLED_MEM_READ_TAG_FF");
 }
 
 } // namespace

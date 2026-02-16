@@ -16,19 +16,19 @@ use types::abis::kernel_circuit_public_inputs::{
 pub struct TailToPublicOutputComposer {
     previous_kernel: PrivateKernelCircuitPublicInputs,
     padded_side_effect_amounts: PaddedSideEffectAmounts,
-    include_by_timestamp_upper_bound: u64,
+    expiration_timestamp_upper_bound: u64,
 }
 
 impl TailToPublicOutputComposer {
     pub unconstrained fn new(
         previous_kernel: PrivateKernelCircuitPublicInputs,
         padded_side_effect_amounts: PaddedSideEffectAmounts,
-        include_by_timestamp_upper_bound: u64,
+        expiration_timestamp_upper_bound: u64,
     ) -> Self {
         TailToPublicOutputComposer {
             previous_kernel,
             padded_side_effect_amounts,
-            include_by_timestamp_upper_bound,
+            expiration_timestamp_upper_bound,
         }
     }
 
@@ -46,9 +46,9 @@ impl TailToPublicOutputComposer {
 
         let gas_used = meter_gas_used(self.previous_kernel, true /* is_for_public */);
 
-        let include_by_timestamp = std::cmp::min(
-            source.include_by_timestamp,
-            self.include_by_timestamp_upper_bound,
+        let expiration_timestamp = std::cmp::min(
+            source.expiration_timestamp,
+            self.expiration_timestamp_upper_bound,
         );
 
         let mut output = PrivateToPublicKernelCircuitPublicInputs {
@@ -58,7 +58,7 @@ impl TailToPublicOutputComposer {
             public_teardown_call_request: source.public_teardown_call_request,
             gas_used,
             fee_payer: source.fee_payer,
-            include_by_timestamp,
+            expiration_timestamp,
         };
 
         output

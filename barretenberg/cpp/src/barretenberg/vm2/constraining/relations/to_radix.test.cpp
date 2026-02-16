@@ -11,6 +11,7 @@
 #include "barretenberg/vm2/generated/relations/perms_to_radix_mem.hpp"
 #include "barretenberg/vm2/simulation/events/gt_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
+#include "barretenberg/vm2/simulation/gadgets/gt.hpp"
 #include "barretenberg/vm2/simulation/gadgets/range_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/to_radix.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_gt.hpp"
@@ -378,26 +379,23 @@ TEST(ToRadixConstrainingTest, NegativeConsistency)
     // Disable the selector in the middle
     trace.set(Column::to_radix_sel, 6, 0);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_SELECTOR_CONSISTENCY),
-                              "SELECTOR_CONSISTENCY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_TRACE_CONTINUITY), "TRACE_CONTINUITY");
 
     // Mutate the radix
     trace.set(Column::to_radix_radix, 5, 200);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_CONSTANT_CONSISTENCY_RADIX),
-                              "CONSTANT_CONSISTENCY_RADIX");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_RADIX_CONTINUITY), "RADIX_CONTINUITY");
 
     // Mutate the value
     trace.set(Column::to_radix_value, 4, 27);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_CONSTANT_CONSISTENCY_VALUE),
-                              "CONSTANT_CONSISTENCY_VALUE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_VALUE_CONTINUITY), "VALUE_CONTINUITY");
 
     // Mutate the safe_limbs
     trace.set(Column::to_radix_safe_limbs, 3, 200);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_CONSTANT_CONSISTENCY_SAFE_LIMBS),
-                              "CONSTANT_CONSISTENCY_SAFE_LIMBS");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_SAFE_LIMBS_CONTINUITY),
+                              "SAFE_LIMBS_CONTINUITY");
 }
 
 /////////////////////////
@@ -426,6 +424,9 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             { C::gt_input_a, dst_addr + num_limbs },
             { C::gt_input_b, MAX_MEM },
             { C::gt_res, 0 }, // GT should return true
+        },
+        // Row 1
+        {
             // Execution Trace (No gas)
             { C::execution_sel, 1 },
             { C::execution_sel_exec_dispatch_to_radix, 1 },
@@ -434,10 +435,6 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             { C::execution_register_2_, num_limbs },
             { C::execution_register_3_, 0 }, // is_output_bits
             { C::execution_rop_4_, dst_addr },
-
-        },
-        // Row 1
-        {
             // To Radix Mem
             { C::to_radix_mem_sel, 1 },
             { C::to_radix_mem_max_mem_size, MAX_MEM },
@@ -461,6 +458,8 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             { C::to_radix_mem_num_limbs_inv, FF(num_limbs).invert() },
             { C::to_radix_mem_sel_value_is_zero, 0 },
             { C::to_radix_mem_value_inv, value.invert() },
+            { C::to_radix_mem_sel_radix_eq_2, 0 },
+            { C::to_radix_mem_radix_min_two_inv, (FF(radix) - FF(2)).invert() },
             // Output
             { C::to_radix_mem_limb_value, 1 },
             { C::to_radix_mem_sel_should_decompose, 1 },
@@ -668,6 +667,8 @@ TEST(ToRadixMemoryConstrainingTest, DstOutOfRange)
             { C::to_radix_mem_num_limbs_inv, FF(num_limbs).invert() },
             { C::to_radix_mem_sel_value_is_zero, 0 },
             { C::to_radix_mem_value_inv, value.invert() },
+            { C::to_radix_mem_sel_radix_eq_2, 0 },
+            { C::to_radix_mem_radix_min_two_inv, (FF(radix) - FF(2)).invert() },
         },
     });
 
@@ -723,6 +724,8 @@ TEST(ToRadixMemoryConstrainingTest, InvalidRadix)
             { C::to_radix_mem_num_limbs_inv, FF(num_limbs).invert() },
             { C::to_radix_mem_sel_value_is_zero, 0 },
             { C::to_radix_mem_value_inv, value.invert() },
+            { C::to_radix_mem_sel_radix_eq_2, 0 },
+            { C::to_radix_mem_radix_min_two_inv, (FF(radix) - FF(2)).invert() },
         },
     });
     check_relation<to_radix_mem>(trace);
@@ -777,6 +780,8 @@ TEST(ToRadixMemoryConstrainingTest, InvalidBitwiseRadix)
             { C::to_radix_mem_num_limbs_inv, FF(num_limbs).invert() },
             { C::to_radix_mem_sel_value_is_zero, 0 },
             { C::to_radix_mem_value_inv, value.invert() },
+            { C::to_radix_mem_sel_radix_eq_2, 0 },
+            { C::to_radix_mem_radix_min_two_inv, (FF(radix) - FF(2)).invert() },
         },
     });
     check_relation<to_radix_mem>(trace);
@@ -831,6 +836,8 @@ TEST(ToRadixMemoryConstrainingTest, InvalidNumLimbsForValue)
             { C::to_radix_mem_num_limbs_inv, 0 },
             { C::to_radix_mem_sel_value_is_zero, 0 },
             { C::to_radix_mem_value_inv, value.invert() },
+            { C::to_radix_mem_sel_radix_eq_2, 0 },
+            { C::to_radix_mem_radix_min_two_inv, (FF(radix) - FF(2)).invert() },
         },
     });
     check_relation<to_radix_mem>(trace);
@@ -888,6 +895,8 @@ TEST(ToRadixMemoryConstrainingTest, TruncationError)
             { C::to_radix_mem_num_limbs_inv, FF(num_limbs).invert() },
             { C::to_radix_mem_sel_value_is_zero, 0 },
             { C::to_radix_mem_value_inv, value.invert() },
+            { C::to_radix_mem_sel_radix_eq_2, 0 },
+            { C::to_radix_mem_radix_min_two_inv, (FF(radix) - FF(2)).invert() },
         },
     });
     check_relation<to_radix_mem>(trace);
@@ -949,6 +958,8 @@ TEST(ToRadixMemoryConstrainingTest, ZeroNumLimbsAndZeroValueIsNoop)
             { C::to_radix_mem_num_limbs_inv, 0 },
             { C::to_radix_mem_sel_value_is_zero, 1 },
             { C::to_radix_mem_value_inv, 0 },
+            { C::to_radix_mem_sel_radix_eq_2, 0 },
+            { C::to_radix_mem_radix_min_two_inv, (FF(radix) - FF(2)).invert() },
         },
     });
     check_relation<to_radix_mem>(trace);
@@ -1108,6 +1119,49 @@ TEST(ToRadixMemoryConstrainingTest, NegativeGhostRowInjectionBlocked)
 
     // The fix: sel_should_write_mem * (1 - sel) = 0 should cause the relation check to fail
     EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace), "SEL_SHOULD_WRITE_MEM_REQUIRES_SEL");
+}
+
+// We test that the bitwise radix error must not be raised when is_output_bits is true and radix is 2
+TEST(ToRadixMemoryConstrainingTest, NegativeBitwiseRadixError)
+{
+    TestTraceContainer trace({
+        {
+            { C::to_radix_mem_start, 1 },
+            { C::to_radix_mem_sel, 1 },
+            { C::to_radix_mem_sel_radix_eq_2, 1 },
+            { C::to_radix_mem_is_output_bits, 1 },
+        },
+    });
+
+    check_relation<to_radix_mem>(trace, to_radix_mem::SR_IS_OUTPUT_BITS_IMPLY_RADIX_2);
+
+    // Activate maliciously the sel_invalid_bitwise_radix flag
+    trace.set(C::to_radix_mem_sel_invalid_bitwise_radix, 0, 1);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_IS_OUTPUT_BITS_IMPLY_RADIX_2),
+                              "IS_OUTPUT_BITS_IMPLY_RADIX_2");
+}
+
+// We test that the bitwise radix error must be raised when is_output_bits is true and radix is not 2
+TEST(ToRadixMemoryConstrainingTest, NegativeBitwiseRadixNoError)
+{
+    TestTraceContainer trace({
+        {
+            { C::to_radix_mem_start, 1 },
+            { C::to_radix_mem_sel, 1 },
+            { C::to_radix_mem_sel_radix_eq_2, 0 },
+            { C::to_radix_mem_is_output_bits, 1 },
+            { C::to_radix_mem_sel_invalid_bitwise_radix, 1 },
+        },
+    });
+
+    check_relation<to_radix_mem>(trace, to_radix_mem::SR_IS_OUTPUT_BITS_IMPLY_RADIX_2);
+
+    // De-activate maliciously the sel_invalid_bitwise_radix flag
+    trace.set(C::to_radix_mem_sel_invalid_bitwise_radix, 0, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_IS_OUTPUT_BITS_IMPLY_RADIX_2),
+                              "IS_OUTPUT_BITS_IMPLY_RADIX_2");
 }
 
 } // namespace

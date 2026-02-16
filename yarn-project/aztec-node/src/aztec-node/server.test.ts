@@ -28,7 +28,7 @@ import {
   TX_ERROR_DUPLICATE_NULLIFIER_IN_TX,
   TX_ERROR_INCORRECT_L1_CHAIN_ID,
   TX_ERROR_INCORRECT_ROLLUP_VERSION,
-  TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP,
+  TX_ERROR_INVALID_EXPIRATION_TIMESTAMP,
   TX_ERROR_SIZE_ABOVE_LIMIT,
   Tx,
 } from '@aztec/stdlib/tx';
@@ -42,7 +42,7 @@ import { fileURLToPath } from 'url';
 import { type AztecNodeConfig, getConfigEnvVars } from './config.js';
 import { AztecNodeService } from './server.js';
 
-// Arbitrary fixed timestamp for the mock date provider. DateProvider.now() returns milliseconds but IncludeByTimestamp
+// Arbitrary fixed timestamp for the mock date provider. DateProvider.now() returns milliseconds but ExpirationTimestamp
 // is denominated in seconds.
 const NOW_MS = 1718745600000;
 const NOW_S = NOW_MS / 1000;
@@ -263,29 +263,29 @@ describe('aztec node', () => {
 
     it('tests that the node correctly validates expiration timestamps', async () => {
       const txs = await Promise.all([mockTxForRollup(0x10000), mockTxForRollup(0x20000)]);
-      const invalidIncludeByTimestampMetadata = txs[0];
-      const validIncludeByTimestampMetadata = txs[1];
+      const invalidExpirationTimestampMetadata = txs[0];
+      const validExpirationTimestampMetadata = txs[1];
 
-      invalidIncludeByTimestampMetadata.data.includeByTimestamp = BigInt(NOW_S);
-      await invalidIncludeByTimestampMetadata.recomputeHash();
+      invalidExpirationTimestampMetadata.data.expirationTimestamp = BigInt(NOW_S);
+      await invalidExpirationTimestampMetadata.recomputeHash();
 
-      validIncludeByTimestampMetadata.data.includeByTimestamp = BigInt(NOW_S + 1);
-      await validIncludeByTimestampMetadata.recomputeHash();
+      validExpirationTimestampMetadata.data.expirationTimestamp = BigInt(NOW_S + 1);
+      await validExpirationTimestampMetadata.recomputeHash();
 
       // We need to set the last block number to get this working properly because if it was set to 0, it would mean
       // that we are building block 1, and for block 1 the timestamp expiration check is skipped. For details on why
-      // see the `validate_include_by_timestamp` function in
+      // see the `validate_expiration_timestamp` function in
       // `noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/validation_requests.nr`.
       lastBlockNumber = BlockNumber(1);
 
       // Default tx with no should be valid
-      // Tx with include by timestamp < current block number should be invalid
-      expect(await node.isValidTx(invalidIncludeByTimestampMetadata)).toEqual({
+      // Tx with expiration timestamp < current block number should be invalid
+      expect(await node.isValidTx(invalidExpirationTimestampMetadata)).toEqual({
         result: 'invalid',
-        reason: [TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP],
+        reason: [TX_ERROR_INVALID_EXPIRATION_TIMESTAMP],
       });
-      // Tx with include by timestamp >= current block number should be valid
-      expect(await node.isValidTx(validIncludeByTimestampMetadata)).toEqual({ result: 'valid' });
+      // Tx with expiration timestamp >= current block number should be valid
+      expect(await node.isValidTx(validExpirationTimestampMetadata)).toEqual({ result: 'valid' });
     });
   });
 

@@ -14,9 +14,9 @@ using namespace bb::stdlib;
 
 /**
  * @brief Convert inputs representing a Grumpkin point into a cycle_group element.
- * @details Inputs x, y, and is_infinite are used to construct the point. The is_infinite flag is constrained to be
- * consistent with (0,0) coordinates (noir represents point at infinity as (0, 0, true)). The infinity flag is not
- * passed directly to cycle_group; instead, the constructor auto-detects infinity from (0,0) coordinates.
+ * @details Inputs x, y, and is_infinite are provided from the ACIR opcode, but only x and y are used to construct the
+ * cycle_group element. The cycle_group constructor auto-detects infinity from (0,0) coordinates; the is_infinite flag
+ * is not constrained against the coordinates and does not affect the output.
  *
  * We handle two special cases:
  *  1. write_vk scenario: we set the point to be the generator of Grumpkin to avoid circuit construction failures.
@@ -26,12 +26,13 @@ using namespace bb::stdlib;
  * @tparam Builder
  * @param input_x x-coordinate of the point
  * @param input_y y-coordinate of the point
- * @param input_infinite boolean indicating if the point is at infinity (must be consistent with (0,0) coordinates)
+ * @param input_infinite boolean from ACIR (unused; kept for ACIR format compatibility)
  * @param predicate A relevant predicate used to conditionally assign the point to a valid value
  * @param builder
  * @return bb::stdlib::cycle_group<Builder>
  *
- * TODO: we must get rid of input_infinite and only pass coordinates as inputs.
+ * TODO: remove input_infinite parameter once the ACIR format is updated to drop the is_infinite field for Grumpkin
+ * points. This requires a noir-side change.
  */
 template <typename Builder>
 bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<typename Builder::FF>& input_x,

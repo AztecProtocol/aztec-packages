@@ -124,7 +124,7 @@ describe('TxValidator: Benchmarks', () => {
 
     // TimestampTxValidator
     timestampTx = await mockTx(5);
-    timestampTx.data.includeByTimestamp = BigInt(Math.floor(Date.now() / 1000)) + 3600n;
+    timestampTx.data.expirationTimestamp = BigInt(Math.floor(Date.now() / 1000)) + 3600n;
     timestampValidator = new TimestampTxValidator({
       timestamp: BigInt(Math.floor(Date.now() / 1000)),
       blockNumber: BlockNumber(3),

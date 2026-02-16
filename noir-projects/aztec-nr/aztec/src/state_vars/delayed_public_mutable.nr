@@ -189,7 +189,7 @@ where
 
         // We prevent this transaction from being included in any timestamp after the time horizon, ensuring that the
         // historical public value matches the current one, since it can only change after the horizon.
-        self.context.set_include_by_timestamp(time_horizon);
+        self.context.set_expiration_timestamp(time_horizon);
 
         value_change.get_current_at(anchor_timestamp)
     }

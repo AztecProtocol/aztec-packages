@@ -134,13 +134,13 @@ export async function createTxForPublicCalls(
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
   const header = BlockHeader.empty({ globalVariables: globals });
   const constantData = new TxConstantData(header, txContext, Fr.zero(), Fr.zero());
-  const includeByTimestamp = 0n; // Not used in the simulator.
+  const expirationTimestamp = 0n; // Not used in the simulator.
 
   const txData = new PrivateKernelTailCircuitPublicInputs(
     constantData,
     /*gasUsed=*/ gasUsedByPrivate,
     feePayer,
-    includeByTimestamp,
+    expirationTimestamp,
     forPublic,
   );
 
@@ -171,13 +171,13 @@ export async function createTxForPrivateOnly(
   const gasSettings = new GasSettings(gasLimits, Gas.empty(), maxFeesPerGas, GasFees.empty());
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
   const constantData = new TxConstantData(BlockHeader.empty(), txContext, Fr.zero(), Fr.zero());
-  const includeByTimestamp = 0n; // Not used in the simulator.
+  const expirationTimestamp = 0n; // Not used in the simulator.
 
   const txData = new PrivateKernelTailCircuitPublicInputs(
     constantData,
     /*gasUsed=*/ gasUsedByPrivate,
     feePayer,
-    includeByTimestamp,
+    expirationTimestamp,
     /*forPublic=*/ undefined,
     forRollup,
   );

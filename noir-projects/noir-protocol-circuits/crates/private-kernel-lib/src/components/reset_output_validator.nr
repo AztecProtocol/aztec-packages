@@ -221,8 +221,8 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
 
         assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer);
 
-        // Reset doesn't mutate include_by_timestamp
-        assert_eq(self.output.include_by_timestamp, self.previous_kernel.include_by_timestamp);
+        // Reset doesn't mutate expiration_timestamp
+        assert_eq(self.output.expiration_timestamp, self.previous_kernel.expiration_timestamp);
 
         assert_eq(self.output.is_private_only, self.previous_kernel.is_private_only);
 

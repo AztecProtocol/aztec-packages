@@ -2,7 +2,7 @@ mod private_call_data;
 mod output_composition_tests;
 
 use crate::{
-    components::private_kernel_circuit_output_composer::get_include_by_timestamp_for_contract_updates,
+    components::private_kernel_circuit_output_composer::get_expiration_timestamp_for_contract_updates,
     private_kernel_init::{self, PrivateKernelInitCircuitPrivateInputs},
 };
 use types::{
@@ -106,11 +106,11 @@ impl TestBuilder {
         };
         assert_eq(pi.fee_payer, expected_fee_payer);
 
-        let expected_include_by_timestamp = std::cmp::min(
-            self.private_call.include_by_timestamp,
-            get_include_by_timestamp_for_contract_updates(self.private_call.to_private_call_data()),
+        let expected_expiration_timestamp = std::cmp::min(
+            self.private_call.expiration_timestamp,
+            get_expiration_timestamp_for_contract_updates(self.private_call.to_private_call_data()),
         );
-        assert_eq(pi.include_by_timestamp, expected_include_by_timestamp);
+        assert_eq(pi.expiration_timestamp, expected_expiration_timestamp);
 
         assert_eq(pi.is_private_only, self.is_private_only);
 

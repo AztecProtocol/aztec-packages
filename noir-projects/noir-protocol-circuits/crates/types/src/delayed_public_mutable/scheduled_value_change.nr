@@ -23,7 +23,7 @@ impl<T> ScheduledValueChange<T> {
     /// Returns the value stored in the data structure at a given timestamp. This function can be called both in public
     /// (where `timestamp` is simply the current timestamp, i.e. the timestamp at which the current transaction will be
     /// included) and in private (where `timestamp` is the anchor block's timestamp). Reading in private is only safe
-    /// if the transaction's `include_by_timestamp` property is set to a value lower or equal to the time horizon (see
+    /// if the transaction's `expiration_timestamp` property is set to a value lower or equal to the time horizon (see
     /// `get_time_horizon()`).
     pub fn get_current_at(self, timestamp: u64) -> T {
         // The post value becomes the current one at the timestamp of change. This means different things in each realm:
@@ -59,7 +59,7 @@ impl<T> ScheduledValueChange<T> {
     /// `ScheduledDelayChange.get_effective_minimum_delay_at`), which equals the minimum time in seconds that needs to
     /// elapse from the next block's timestamp until the value changes, regardless of further delay changes.
     /// The value returned by `get_current_at` in private when called with a anchor block's timestamp is only safe to use
-    /// if the transaction's `include_by_timestamp` property is set to a value lower or equal to the time horizon
+    /// if the transaction's `expiration_timestamp` property is set to a value lower or equal to the time horizon
     /// computed using the same anchor timestamp.
     pub fn get_time_horizon(self, anchor_timestamp: u64, minimum_delay: u64) -> u64 {
         // The time horizon is the very last timestamp in which the current value is known. Any timestamp past the

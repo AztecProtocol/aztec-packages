@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: v4.0.0-nightly.20260213
+Version: v4.0.0-nightly.20260216
 
 ## Quick Import Reference
 
@@ -3671,12 +3671,6 @@ Log filter used to fetch L2 logs.
 ```typescript
 type NodeStats = unknown
 ```
-
-### NotesFilter
-```typescript
-type NotesFilter = unknown
-```
-A filter used to fetch notes.
 
 ### OFFCHAIN_MESSAGE_IDENTIFIER
 ```typescript

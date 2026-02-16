@@ -1,3 +1,16 @@
+/// Protocol contract that manages the native gas token ("Fee Juice") used to pay transaction fees.
+///
+/// Fee Juice is minted on L2 by bridging from L1: a user deposits ERC-20 tokens into the L1 FeeJuicePortal, which
+/// sends an L1-to-L2 message. On L2, `claim` or `claim_and_end_setup` consumes that message and credits the
+/// recipient's balance via an enqueued public call to `_increase_public_balance`.
+///
+/// The protocol's base rollup circuits read directly from this contract's `balances` storage map (at slot 1) to verify
+/// fee payers can cover their transaction costs. This storage layout is protocol-critical and must not change without
+/// updating the base rollup circuits.
+///
+/// There is no withdrawal mechanism -- Fee Juice can only be bridged in, not withdrawn or transferred by users. Tokens
+/// leave the L1 portal only via `distributeFees` called by the Rollup contract to pay sequencers.
+
 mod lib;
 
 pub contract FeeJuice {
@@ -14,21 +27,23 @@ pub contract FeeJuice {
     use std::ops::Add;
 
     struct Storage<Context> {
-        // This map is accessed directly by protocol circuits to check balances for fee payment.
-        // Do not change this storage layout unless you also update the base rollup circuits.
+        // contract address --> public fee juice balance
         balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
     }
 
     global INCREASE_PUBLIC_BALANCE_SELECTOR: Field = comptime {
         FunctionSelector::from_signature("_increase_public_balance((Field),u128)").to_field()
     };
+
     global CHECK_BALANCE_SELECTOR: Field =
         comptime { FunctionSelector::from_signature("check_balance(u128)").to_field() };
+
     global BALANCE_OF_PUBLIC_SELECTOR: Field =
         comptime { FunctionSelector::from_signature("balance_of_public((Field))").to_field() };
 
-    /// Verifies that a message from L1 exists with the correct claim information, consumes it (emitting a nullifier)
-    /// and enqueues the increase in public balance of the recipient.
+    /// A helper implementing the core L1-to-L2 message claim logic shared by `claim` and `claim_and_end_setup`.
+    /// Computes the expected content hash, consumes the L1-to-L2 message (emitting a nullifier to prevent
+    /// double-claiming), and enqueues a public call to `_increase_public_balance` to credit the recipient.
     #[contract_library_method]
     fn claim_helper(
         context: &mut aztec::context::PrivateContext,
@@ -41,12 +56,10 @@ pub contract FeeJuice {
         let portal_address: EthAddress = EthAddress::from_field(FEE_JUICE_ADDRESS.to_field());
         assert(!portal_address.is_zero());
 
-        // Consume message and emit nullifier
+        // Consume the L1-to-L2 message (verifies existence + emits nullifier to prevent replay).
         context.consume_l1_to_l2_message(content_hash, secret, portal_address, message_leaf_index);
 
-        // Enqueue call to _increase_public_balance
-        // Note: The rest of the function body used to be `self.enqueue_self._increase_public_balance(to, amount);`
-        // before de-macroification.
+        // Enqueue a public call to _increase_public_balance to credit the recipient.
         let serialized_params: [Field; 2] = [to.to_field(), amount.to_field()];
         let calldata: [Field; 1 + 2] = [INCREASE_PUBLIC_BALANCE_SELECTOR].concat(serialized_params);
         let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
@@ -59,7 +72,10 @@ pub contract FeeJuice {
         );
     }
 
-    /// Claims FeeJuice by consuming an L1 to L2 message with the provided information.
+    /// Claims Fee Juice by consuming an L1-to-L2 message from the FeeJuicePortal.
+    ///
+    /// Use this variant when the claimed Fee Juice is NOT intended to pay for the current transaction's fees (e.g.,
+    /// pre-funding an account for future transactions).
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_private]
     fn claim(
         inputs: aztec::context::inputs::PrivateContextInputs,
@@ -69,7 +85,7 @@ pub contract FeeJuice {
         message_leaf_index: Field,
     ) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
         // MACRO CODE START
-        // Note: The macros initially inserted a phase check here, but since there is no phase change in this function.
+        // Note: The macros initially inserted a phase check here, but since there is no phase change in this function
         // nor in the claim helper function or the enqueued public function call, I have removed that check.
         aztec::oracle::version::assert_compatible_oracle_version();
         let serialized_params: [Field; 4] =
@@ -86,10 +102,12 @@ pub contract FeeJuice {
         // MACRO CODE END
     }
 
-    /// Claims FeeJuice by consuming an L1 to L2 message with the provided information. After enqueuing the
-    /// the balance increase it ends the setup phase, making sure the claim happens in the non-revertible phase
-    /// of the transaction. This variant should only be used when the intent is to pay the transaction fee via
-    /// the claimed fee juice in a single interaction.
+    /// Claims Fee Juice and ends the transaction setup phase.
+    ///
+    /// Use this variant when the claimed Fee Juice is intended to pay for THIS transaction's fees. By ending setup
+    /// after the claim, the balance increase is placed in the non-revertible phase, ensuring the fee payer's balance
+    /// is credited even if the revertible portion of the transaction fails. This guarantees the sequencer can collect
+    /// fees.
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_private]
     fn claim_and_end_setup(
         inputs: aztec::context::inputs::PrivateContextInputs,
@@ -110,11 +128,15 @@ pub contract FeeJuice {
         claim_helper(&mut context, to, amount, secret, message_leaf_index);
 
         // MACRO CODE START
+        // End setup: everything before this point (including the enqueued _increase_public_balance
+        // call) is non-revertible. Everything after is revertible.
         context.end_setup();
         context.finish()
         // MACRO CODE END
     }
 
+    /// Internal function that credits a recipient's Fee Juice balance. Only callable by this contract itself
+    /// (`#[only_self]`), enqueued by `claim` / `claim_and_end_setup` after consuming an L1-to-L2 message.
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_public]
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_only_self]
     unconstrained fn _increase_public_balance(to: AztecAddress, amount: u128) {
@@ -142,6 +164,8 @@ pub contract FeeJuice {
         storage.balances.at(to).write(new_balance);
     }
 
+    /// Asserts the caller has at least `fee_limit` Fee Juice. Used during transaction validation to verify the fee
+    /// payer can cover the transaction's fee limit.
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_public]
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_view]
     unconstrained fn check_balance(fee_limit: u128) {
@@ -167,6 +191,7 @@ pub contract FeeJuice {
         );
     }
 
+    /// Returns the Fee Juice balance of the given address.
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_public]
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_view]
     unconstrained fn balance_of_public(owner: AztecAddress) -> pub u128 {
@@ -260,6 +285,7 @@ pub contract FeeJuice {
             }
         }
     }
+
     pub struct _increase_public_balance_parameters {
         pub _to: AztecAddress,
         pub _amount: u128,
