@@ -2,7 +2,7 @@ use crate::protocol::{address::AztecAddress, traits::Serialize};
 
 /// A request for the `bulk_retrieve_logs` oracle to fetch either:
 /// - a public log emitted by `contract_address` with `unsiloed_tag`
-/// - a private log with tag equal to `silo_private_log(unsiloed_tag, contract_address)`.
+/// - a private log with tag equal to `compute_siloed_private_log_first_field(contract_address, unsiloed_tag)`.
 #[derive(Serialize)]
 pub(crate) struct LogRetrievalRequest {
     pub contract_address: AztecAddress,

@@ -292,6 +292,22 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         // Get Shplonk opening point z
         const Fr shplonk_evaluation_challenge = transcript->template get_challenge<Fr>("Shplonk:z");
 
+        // OriginTag false positive: All evaluations received above are PCS-bound.
+        // The prover cannot choose them freely because they must satisfy the batched opening equation
+        // verified by the pairing check. Tag them with the shplonk evaluation challenge.
+        if constexpr (Curve::is_stdlib_type) {
+            const auto challenge_tag = shplonk_evaluation_challenge.get_origin_tag();
+            // Tag the Gemini fold evaluations
+            for (auto& eval : const_cast<std::vector<Fr>&>(gemini_fold_neg_evaluations)) {
+                eval.set_origin_tag(challenge_tag);
+            }
+            // Tag the interleaved evaluations if present
+            if (claim_batcher.interleaved) {
+                const_cast<Fr&>(p_pos).set_origin_tag(challenge_tag);
+                const_cast<Fr&>(p_neg).set_origin_tag(challenge_tag);
+            }
+        }
+
         // Start computing the scalar to be multiplied by [1]₁
         Fr constant_term_accumulator = Fr(0);
 

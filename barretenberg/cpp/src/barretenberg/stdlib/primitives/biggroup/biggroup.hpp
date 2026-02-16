@@ -49,13 +49,16 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
     /**
      * @brief Set the witness indices for the x and y coordinates to public
+     * @details If the point is at infinity, coordinates are set to (0,0), so that it doesn't cause any deserialization
+     * issues in the sebsequent verification steps.
      *
      * @return uint32_t Index at which the representation is stored in the public inputs
      */
     uint32_t set_public() const
     {
-        const uint32_t start_idx = _x.set_public();
-        _y.set_public();
+        auto standard = get_standard_form(); // if point is at infinity, ensure coordinates are (0,0).
+        const uint32_t start_idx = standard._x.set_public();
+        standard._y.set_public();
 
         return start_idx;
     }
@@ -317,8 +320,14 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     };
 
     /**
-     * We can chain repeated point additions together, where we only require 2 non-native field multiplications per
-     * point addition, instead of 3
+     * @brief Optimized chained addition for non-infinity points.
+     *
+     * @pre p1 and p2 must NOT be point at infinity. Use operator+ for general addition.
+     * @pre p1.x ≠ p2.x for all points in the chain (required for the incomplete addition formula used in this method).
+     *
+     * @details We can chain repeated point additions together, where we only require 2 non-native field multiplications
+     * per point addition, instead of 3
+     *
      * NOTE: These must remain public as they are used by nested structs like batch_lookup_table_plookup
      **/
     static chain_add_accumulator chain_add_start(const element& p1, const element& p2);

@@ -418,12 +418,12 @@ abstract contract NegativeTestBase is TestBase {
         verifier.verify{gas: 15_000_000}(proof, cachedPublicInputs);
     }
 
-    /// @notice (0,0) in pairing points - no explicit check, caught via computation
-    function test_PointOfInfinity_PairingPoint() public virtual {
+    /// @notice Invalid pairing points - no explicit check, caught via computation
+    function test_InvalidPairingPoints() public virtual {
         bytes memory proof = copyProof();
 
         for (uint256 i = 0; i < 8; i++) {
-            setValue(proof, PAIRING_POINTS_OFFSET + i * 32, 0);
+            setValue(proof, PAIRING_POINTS_OFFSET + i * 32, 1);
         }
 
         vm.expectRevert(Errors.SumcheckFailed.selector);

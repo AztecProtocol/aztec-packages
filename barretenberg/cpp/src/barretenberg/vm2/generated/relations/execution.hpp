@@ -71,7 +71,7 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
     static constexpr size_t SR_NULLIFIER_TREE_ROOT_NOT_CHANGED = 81;
     static constexpr size_t SR_NULLIFIER_TREE_SIZE_NOT_CHANGED = 82;
     static constexpr size_t SR_NUM_NULLIFIERS_EMITTED_NOT_CHANGED = 83;
-    static constexpr size_t SR_NUM_UNENCRYPTED_LOGS_NOT_CHANGED = 84;
+    static constexpr size_t SR_NUM_PUBLIC_LOGS_NOT_CHANGED = 84;
     static constexpr size_t SR_NUM_L2_TO_L1_MESSAGES_NOT_CHANGED = 85;
     static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_ROOT_NOT_CHANGED = 86;
     static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED = 87;
@@ -144,8 +144,8 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
             return "NULLIFIER_TREE_SIZE_NOT_CHANGED";
         case SR_NUM_NULLIFIERS_EMITTED_NOT_CHANGED:
             return "NUM_NULLIFIERS_EMITTED_NOT_CHANGED";
-        case SR_NUM_UNENCRYPTED_LOGS_NOT_CHANGED:
-            return "NUM_UNENCRYPTED_LOGS_NOT_CHANGED";
+        case SR_NUM_PUBLIC_LOGS_NOT_CHANGED:
+            return "NUM_PUBLIC_LOGS_NOT_CHANGED";
         case SR_NUM_L2_TO_L1_MESSAGES_NOT_CHANGED:
             return "NUM_L2_TO_L1_MESSAGES_NOT_CHANGED";
         case SR_RETRIEVED_BYTECODES_TREE_ROOT_NOT_CHANGED:

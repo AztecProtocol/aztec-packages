@@ -88,6 +88,7 @@ template <typename Curve> struct MultilinearBatchingVerifierClaim {
 
         append_tagged(non_shifted_evaluation);
         append_tagged(shifted_evaluation);
+        // Note that commitments have been already deserialized and the point at infinity is constrained to (0,0)).
         append_tagged(non_shifted_commitment);
         append_tagged(shifted_commitment);
 

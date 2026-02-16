@@ -126,6 +126,7 @@ async function simulateBatchViaNode(
   const provingResult = await generateSimulatedProvingResult(
     privateResult,
     (_contractAddress: AztecAddress, _functionSelector: FunctionSelector) => Promise.resolve(''),
+    node,
     1, // minRevertibleSideEffectCounter
   );
 

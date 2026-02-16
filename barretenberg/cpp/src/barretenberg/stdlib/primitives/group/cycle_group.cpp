@@ -421,14 +421,14 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
         result = cycle_group(
             witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false, /*assert_on_curve=*/false);
 
-        context->create_ecc_add_gate(bb::ecc_add_gate_<bb::fr>{
+        context->create_ecc_add_gate(bb::ecc_add_gate_{
             .x1 = _x.get_witness_index(),
             .y1 = _y.get_witness_index(),
             .x2 = other._x.get_witness_index(),
             .y2 = other._y.get_witness_index(),
             .x3 = result._x.get_witness_index(),
             .y3 = result._y.get_witness_index(),
-            .sign_coefficient = is_addition ? 1 : -1,
+            .is_addition = is_addition,
         });
     }
 
@@ -1044,6 +1044,19 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
 #ifndef FUZZING_DISABLE_WARNINGS
                 info("Warning: Performing batch mul with constant point at infinity!");
 #endif
+                // Constant infinity * witness scalar contributes nothing to the result, however, we must still apply
+                // the range constraints that the cycle_scalar constructor defers to this method.
+                auto* ctx = scalar.get_context();
+                ctx->create_limbed_range_constraint(scalar.lo().get_witness_index(),
+                                                    cycle_scalar::LO_BITS,
+                                                    ROM_TABLE_BITS,
+                                                    "batch_mul: lo range constraint for scalar with constant "
+                                                    "infinity");
+                ctx->create_limbed_range_constraint(scalar.hi().get_witness_index(),
+                                                    cycle_scalar::HI_BITS,
+                                                    ROM_TABLE_BITS,
+                                                    "batch_mul: hi range constraint for scalar with constant "
+                                                    "infinity");
                 continue;
             }
             if (plookup::fixed_base::table::lookup_table_exists_for_point(point.get_value())) {

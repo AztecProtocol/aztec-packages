@@ -13,6 +13,7 @@
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
+#include "barretenberg/polynomials/polynomial_stats.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 
 namespace bb {

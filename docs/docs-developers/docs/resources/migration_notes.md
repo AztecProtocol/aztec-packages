@@ -9,6 +9,16 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Protocol] `include_by_timestamp` renamed to `expiration_timestamp`
+
+The `include_by_timestamp` field has been renamed to `expiration_timestamp` across the protocol to better convey its meaning.
+**Noir:**
+
+```diff
+- context.set_tx_include_by_timestamp(123456789);
++ context.set_expiration_timestamp(123456789);
+```
+
 ### [CLI] Dockerless CLI Installation
 
 The Aztec CLI is now installed without Docker. The installation command has changed:
@@ -96,6 +106,26 @@ Additionally, `debug_log_format_slice` has been removed. Use `debug_log_format` 
 ```
 
 This has been done as usage of Noir slices is discouraged and the function was unused in the aztec codebase.
+
+### [AztecNode] Sentinel validator status values renamed
+
+The `ValidatorStatusInSlot` values returned by `getValidatorsStats` and `getValidatorStats` have been updated to reflect the multi-block-per-slot model, where blocks and checkpoints are distinct concepts:
+
+```diff
+- 'block-mined'
++ 'checkpoint-mined'
+
+- 'block-proposed'
++ 'checkpoint-proposed'
+
+- 'block-missed'
++ 'checkpoint-missed'  // blocks were proposed but checkpoint was not attested
++ 'blocks-missed'      // no block proposals were sent at all
+```
+
+The `attestation-sent` and `attestation-missed` values are unchanged but now explicitly refer to checkpoint attestations.
+
+The `ValidatorStatusType` used for categorizing statuses has also changed from `'block' | 'attestation'` to `'proposer' | 'attestation'`.
 
 ### [aztec.js] `getDecodedPublicEvents` renamed to `getPublicEvents` with new signature
 

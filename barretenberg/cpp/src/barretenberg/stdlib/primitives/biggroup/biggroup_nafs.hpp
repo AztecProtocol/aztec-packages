@@ -18,6 +18,8 @@ std::pair<uint64_t, bool> element<C, Fq, Fr, G>::get_staggered_wnaf_fragment_val
                                                                                    bool is_negative,
                                                                                    bool wnaf_skew)
 {
+    BB_ASSERT_LT(stagger, 32ULL, "biggroup_nafs: stagger value ≥ 32");
+
     // If there is no stagger then there is no need to change anything
     if (stagger == 0) {
         return std::make_pair(0, wnaf_skew);
@@ -367,15 +369,15 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
     bool khi_negative = false;
     secp256k1::fr::split_into_endomorphism_scalars(k.from_montgomery_form(), klo, khi);
 
-    // The low and high scalars must be less than 2^129 in absolute value. In some cases, the khi value
-    // is returned as negative, in which case we negate it and set a flag to indicate this. This is because
-    // we decompose the scalar as:
-    // k = klo + ζ * khi (mod n)
-    //   = klo - λ * khi (mod n)
-    // where λ is the cube root of unity. If khi is negative, then -λ * khi is positive, and vice versa.
+    // The low and high scalars must be less than 2^129 in absolute value. In some cases, the klo or khi value
+    // is returned as negative, in which case we negate it and set a flag to indicate this.
     if (khi.uint256_t_no_montgomery_conversion().get_msb() >= 129) {
         khi_negative = true;
         khi = -khi;
+    }
+    if (klo.uint256_t_no_montgomery_conversion().get_msb() >= 129) {
+        klo_negative = true;
+        klo = -klo;
     }
 
     BB_ASSERT_LT(klo.uint256_t_no_montgomery_conversion().get_msb(), 129ULL, "biggroup_nafs: klo > 129 bits");

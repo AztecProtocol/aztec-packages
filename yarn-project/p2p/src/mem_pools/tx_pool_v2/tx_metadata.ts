@@ -11,7 +11,7 @@ import type { PreAddResult } from './eviction/interfaces.js';
 /** Validator-compatible data interface, mirroring the subset of PrivateKernelTailCircuitPublicInputs used by validators. */
 export type TxMetaValidationData = {
   getNonEmptyNullifiers(): Fr[];
-  includeByTimestamp: bigint;
+  expirationTimestamp: bigint;
   constants: {
     anchorBlockHeader: {
       hash(): Promise<BlockHash>;
@@ -56,10 +56,13 @@ export type TxMetaData = {
   readonly nullifiers: readonly string[];
 
   /** Timestamp by which the transaction must be included (for expiration checks) */
-  readonly includeByTimestamp: bigint;
+  readonly expirationTimestamp: bigint;
 
   /** Validator-compatible data, providing the same access patterns as Tx.data */
   readonly data: TxMetaValidationData;
+
+  /** Timestamp (ms) when the tx was received into the pool. 0 for hydrated txs (always eligible). */
+  receivedAt: number;
 };
 
 /** Transaction state derived from TxMetaData fields and pool protection status */
@@ -76,7 +79,7 @@ export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
   const nullifiers = nullifierFrs.map(n => n.toString());
   const anchorBlockHeaderHashFr = await tx.data.constants.anchorBlockHeader.hash();
   const anchorBlockHeaderHash = anchorBlockHeaderHashFr.toString();
-  const includeByTimestamp = tx.data.includeByTimestamp;
+  const expirationTimestamp = tx.data.expirationTimestamp;
   const anchorBlockNumber = tx.data.constants.anchorBlockHeader.globalVariables.blockNumber;
   const priorityFee = getTxPriorityFee(tx);
   const feePayer = tx.data.feePayer.toString();
@@ -91,10 +94,11 @@ export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
     claimAmount,
     feeLimit,
     nullifiers,
-    includeByTimestamp,
+    expirationTimestamp,
+    receivedAt: 0,
     data: {
       getNonEmptyNullifiers: () => nullifierFrs,
-      includeByTimestamp,
+      expirationTimestamp,
       constants: {
         anchorBlockHeader: {
           hash: () => Promise.resolve(anchorBlockHeaderHashFr),
@@ -193,10 +197,10 @@ export function checkNullifierConflict(
 }
 
 /** Creates a stub TxMetaValidationData for tests that don't exercise validators. */
-export function stubTxMetaValidationData(overrides: { includeByTimestamp?: bigint } = {}): TxMetaValidationData {
+export function stubTxMetaValidationData(overrides: { expirationTimestamp?: bigint } = {}): TxMetaValidationData {
   return {
     getNonEmptyNullifiers: () => [],
-    includeByTimestamp: overrides.includeByTimestamp ?? 0n,
+    expirationTimestamp: overrides.expirationTimestamp ?? 0n,
     constants: {
       anchorBlockHeader: {
         hash: () => Promise.resolve(new BlockHash(Fr.ZERO)),

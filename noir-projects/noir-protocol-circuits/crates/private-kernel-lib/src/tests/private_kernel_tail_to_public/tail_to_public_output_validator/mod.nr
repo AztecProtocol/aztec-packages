@@ -28,7 +28,7 @@ impl TestBuilder {
             output,
             previous_kernel,
             self.padded_side_effect_amounts,
-            self.include_by_timestamp_upper_bound,
+            self.expiration_timestamp_upper_bound,
         )
             .validate();
     }

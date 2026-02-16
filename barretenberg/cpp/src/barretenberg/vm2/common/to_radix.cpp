@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/common/to_radix.hpp"
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 
@@ -28,11 +29,12 @@ std::array<std::vector<uint8_t>, 257> create_p_limbs_per_radix()
     std::array<std::vector<uint8_t>, 257> limbs_per_radix;
 
     for (size_t radix = 2; radix < 257; ++radix) {
-        std::vector<uint8_t> p_limbs{};
-        p_limbs.reserve(31);
+        std::vector<uint8_t> p_limbs;
+        p_limbs.reserve(p_limbs_per_radix_sizes[radix]);
         uint256_t p = FF::modulus;
+
         while (p != 0) {
-            auto [quotient, remainder] = p.divmod(radix);
+            const auto [quotient, remainder] = p.divmod(static_cast<uint64_t>(radix));
             p_limbs.push_back(static_cast<uint8_t>(remainder));
             p = quotient;
         }
@@ -45,12 +47,25 @@ std::array<std::vector<uint8_t>, 257> create_p_limbs_per_radix()
 
 } // namespace
 
+/**
+ * @brief Gets the p limbs per radix array. Each element is a vector containing the little endian decompositions of Fr
+ *        modulus into limbs for each radix. Radix goes up to 256 so we need 257 decompositions.
+ *
+ * @return std::array<std::vector<uint8_t>, 257>
+ */
 const std::array<std::vector<uint8_t>, 257>& get_p_limbs_per_radix()
 {
     static const std::array<std::vector<uint8_t>, 257> limbs_per_radix = create_p_limbs_per_radix();
     return limbs_per_radix;
 }
 
+/**
+ * @brief Gets the number of limbs that the modulus, p, decomposes into for a given radix.
+ *
+ * @param radix The radix to get the number of limbs for. Must be in the range [0, 256]. For 0 and 1, the number of
+ * limbs is 0.
+ * @return The number of limbs for the given radix.
+ */
 size_t get_p_limbs_per_radix_size(size_t radix)
 {
     BB_ASSERT_LTE(radix, static_cast<decltype(radix)>(256), "Radix out of bounds");

@@ -1,5 +1,6 @@
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/ref_span.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
@@ -1493,7 +1494,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMulInputsAreInfinity)
     STDLIB_TYPE_ALIASES;
     auto builder = Builder();
 
-    // case 4. Inputs are points at infinity
+    // Test batch_mul with witness point at infinity
     std::vector<cycle_group_ct> points;
     std::vector<typename cycle_group_ct::cycle_scalar> scalars;
 
@@ -1520,9 +1521,9 @@ TYPED_TEST(CycleGroupTest, TestBatchMulInputsAreInfinity)
 
     // Gate count difference due to additional constants added by default in Mega builder
     if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 3546); // Mega
+        check_circuit_and_gate_count(builder, 3584); // Mega
     } else {
-        check_circuit_and_gate_count(builder, 3549); // Ultra
+        check_circuit_and_gate_count(builder, 3587); // Ultra
     }
 }
 
