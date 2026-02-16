@@ -251,10 +251,35 @@ describe('P2P Client', () => {
     );
   });
 
+  it('getTxsByHash returns all txs from pool without network request', async () => {
+    const txs = await timesAsync(5, () => mockTx());
+    txPool.getTxByHash.mockImplementation(txHash =>
+      Promise.resolve(txs.find(tx => txHash.toString() === tx.getTxHash().toString()) ?? undefined),
+    );
+    await client.start();
+
+    const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
+    const results = await client.getTxsByHash(hashes, undefined);
+
+    expect(results).toEqual(txs);
+    expect(p2pService.sendBatchRequest).not.toHaveBeenCalled();
+  });
+
+  it('getTxsByHash returns empty array for empty query', async () => {
+    await client.start();
+
+    const results = await client.getTxsByHash([], undefined);
+
+    expect(results).toEqual([]);
+    expect(p2pService.sendBatchRequest).not.toHaveBeenCalled();
+  });
+
   it('getPendingTxs respects pagination', async () => {
     const txs = await timesAsync(20, i => mockTx(i));
     txPool.getPendingTxHashes.mockResolvedValue(await Promise.all(txs.map(tx => tx.getTxHash())));
-    txPool.getTxByHash.mockImplementation(hash => Promise.resolve(txs.find(tx => hash.equals(tx.getTxHash()))));
+    txPool.getTxsByHash.mockImplementation(hashes =>
+      Promise.resolve(hashes.map(hash => txs.find(tx => hash.equals(tx.getTxHash())))),
+    );
 
     const firstPage = await client.getPendingTxs(2);
     expect(firstPage).toEqual(txs.slice(0, 2));
