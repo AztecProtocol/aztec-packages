@@ -3,24 +3,24 @@ import { createLogger } from '@aztec/aztec.js/log';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { Tx } from '@aztec/aztec.js/tx';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { retryUntil } from '@aztec/foundation/retry';
 
-import { jest } from '@jest/globals';
+import { expect, jest } from '@jest/globals';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
-import { shouldCollectMetrics } from '../../fixtures/fixtures.js';
+import { getBootNodeUdpPort, shouldCollectMetrics } from '../../fixtures/fixtures.js';
 import { createNodes } from '../../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from '../p2p_network.js';
+import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from '../p2p_network.js';
 import { prepareTransactions } from '../shared.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 export const NUM_VALIDATORS = 6;
-export const NUM_TXS_PER_NODE = 2;
-export const BOOT_NODE_UDP_PORT = 4500;
+export const NUM_TXS_PER_NODE = 4;
+export const BOOT_NODE_UDP_PORT = getBootNodeUdpPort();
 
 export const createReqrespDataDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'reqresp-'));
 
@@ -38,8 +38,14 @@ export async function createReqrespTest(options: ReqrespOptions = {}): Promise<P
     // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
     metricsPort: shouldCollectMetrics(),
     initialConfig: {
-      ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
-      aztecSlotDuration: 24,
+      ethereumSlotDuration: 8,
+      aztecSlotDuration: 36,
+      blockDurationMs: 6000,
+      l1PublishingTime: 8,
+      minTxsPerBlock: 1,
+      maxTxsPerBlock: 2,
+      enforceTimeTable: true,
+      aztecProofSubmissionEpochs: 1024, // effectively do not reorg
       ...(disableStatusHandshake ? { p2pDisableStatusHandshake: true } : {}),
       listenAddress: '127.0.0.1',
       aztecEpochDuration: 64, // stable committee
@@ -170,6 +176,28 @@ export async function runReqrespTxTest(params: {
 
   t.logger.info('All transactions mined');
 
+  // Assert that multiple blocks were built for at least one slot
+  t.logger.info('Verifying multiple blocks for at least one checkpoint');
+  const checkpoints = await nodes[0].getCheckpoints(CheckpointNumber(1), 50);
+  expect(checkpoints.length).toBeGreaterThan(0);
+
+  let mbpsFound = false;
+  let expectedBlockNumber = checkpoints[0].checkpoint.blocks[0].number;
+
+  for (const published of checkpoints) {
+    const blockCount = published.checkpoint.blocks.length;
+    mbpsFound = mbpsFound || blockCount >= 2;
+
+    for (let i = 0; i < blockCount; i++) {
+      const block = published.checkpoint.blocks[i];
+      expect(block.indexWithinCheckpoint).toBe(i);
+      expect(block.checkpointNumber).toBe(published.checkpoint.number);
+      expect(block.number).toBe(expectedBlockNumber);
+      expectedBlockNumber++;
+    }
+  }
+
+  expect(mbpsFound).toBe(true);
   return nodes;
 }
 

@@ -172,6 +172,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
       chainId: gv.chainId,
       version: gv.version,
       slotNumber: gv.slotNumber,
+      timestamp: gv.timestamp,
       coinbase: gv.coinbase,
       feeRecipient: gv.feeRecipient,
       gasFees: gv.gasFees,
@@ -181,6 +182,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     const checkpointBuilder = await this.checkpointsBuilder.startCheckpoint(
       checkpointNumber,
       constants,
+      0n, // feeAssetPriceModifier is not used for validation of the checkpoint content
       l1ToL2Messages,
       previousCheckpointOutHashes,
       fork,

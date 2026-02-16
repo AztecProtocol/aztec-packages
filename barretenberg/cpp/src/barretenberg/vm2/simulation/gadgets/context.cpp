@@ -120,7 +120,7 @@ ContextEvent EnqueuedCallContext::serialize_context_event()
         .written_public_data_slots_tree_snapshot = written_public_data_slots_tree.get_snapshot(),
         .retrieved_bytecodes_tree_snapshot = retrieved_bytecodes_tree.get_snapshot(),
         // Non-tree-tracked side effects
-        .numUnencryptedLogFields = side_effects.get_num_unencrypted_log_fields(),
+        .numPublicLogFields = side_effects.get_num_public_log_fields(),
         .numL2ToL1Messages = static_cast<uint32_t>(side_effects.l2_to_l1_messages.size()),
         // Phase
         .phase = get_phase(),
@@ -200,7 +200,7 @@ ContextEvent NestedContext::serialize_context_event()
         .written_public_data_slots_tree_snapshot = written_public_data_slots_tree.get_snapshot(),
         .retrieved_bytecodes_tree_snapshot = retrieved_bytecodes_tree.get_snapshot(),
         // Non-tree-tracked side effects
-        .numUnencryptedLogFields = side_effects.get_num_unencrypted_log_fields(),
+        .numPublicLogFields = side_effects.get_num_public_log_fields(),
         .numL2ToL1Messages = static_cast<uint32_t>(side_effects.l2_to_l1_messages.size()),
         // Phase
         .phase = get_phase(),

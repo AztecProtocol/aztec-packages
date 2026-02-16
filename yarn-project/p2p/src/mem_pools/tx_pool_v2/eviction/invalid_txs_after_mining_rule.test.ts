@@ -37,6 +37,7 @@ describe('InvalidTxsAfterMiningRule', () => {
       nullifiers,
       includeByTimestamp,
       receivedAt: 0,
+      estimatedSizeBytes: 0,
       data: stubTxMetaValidationData({ includeByTimestamp }),
     };
   };
@@ -122,7 +123,7 @@ describe('InvalidTxsAfterMiningRule', () => {
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted).toEqual(['0x1111']); // Only tx1 has duplicate nullifier
-        expect(deleteTxsMock).toHaveBeenCalledWith(['0x1111']);
+        expect(deleteTxsMock).toHaveBeenCalledWith(['0x1111'], 'InvalidTxsAfterMining');
       });
 
       it('evicts transactions with expired timestamps', async () => {
@@ -142,7 +143,7 @@ describe('InvalidTxsAfterMiningRule', () => {
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted).toEqual(['0x1111']); // Only tx1 is expired
-        expect(deleteTxsMock).toHaveBeenCalledWith(['0x1111']);
+        expect(deleteTxsMock).toHaveBeenCalledWith(['0x1111'], 'InvalidTxsAfterMining');
       });
 
       it('evicts transactions with timestamp equal to block timestamp', async () => {
@@ -162,7 +163,7 @@ describe('InvalidTxsAfterMiningRule', () => {
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted).toEqual(['0x1111']); // tx1 has timestamp <= block timestamp
-        expect(deleteTxsMock).toHaveBeenCalledWith(['0x1111']);
+        expect(deleteTxsMock).toHaveBeenCalledWith(['0x1111'], 'InvalidTxsAfterMining');
       });
 
       it('handles transactions with both duplicate nullifiers and expired timestamps', async () => {
@@ -182,7 +183,7 @@ describe('InvalidTxsAfterMiningRule', () => {
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted).toEqual(['0x1111']);
-        expect(deleteTxsMock).toHaveBeenCalledWith(['0x1111']);
+        expect(deleteTxsMock).toHaveBeenCalledWith(['0x1111'], 'InvalidTxsAfterMining');
       });
 
       it('handles empty pending transactions list', async () => {

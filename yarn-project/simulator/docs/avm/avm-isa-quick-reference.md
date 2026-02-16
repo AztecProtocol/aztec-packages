@@ -189,10 +189,10 @@ Click on an opcode name to view its detailed documentation.
     ```javascript
     M[dstOffset] = contractInstance.exists ? 1 : 0; M[dstOffset+1] = contractInstance[memberEnum]
     ```
-* **[🔗EMITUNENCRYPTEDLOG](opcodes/emitunencryptedlog.md)**: Emit public log
+* **[🔗EMITPUBLICLOG](opcodes/emitpubliclog.md)**: Emit public log
     * Opcode `0x37`
     ```javascript
-    unencryptedLogs.append(M[logOffset:logOffset+M[logSizeOffset]])
+    publicLogs.append(M[logOffset:logOffset+M[logSizeOffset]])
     ```
 * **[🔗SENDL2TOL1MSG](opcodes/sendl2tol1msg.md)**: Send L2-to-L1 message
     * Opcode `0x38`

@@ -121,6 +121,7 @@ export interface Validator {
   createCheckpointProposal(
     checkpointHeader: CheckpointHeader,
     archive: Fr,
+    feeAssetPriceModifier: bigint,
     lastBlockInfo: CreateCheckpointProposalLastBlockData | undefined,
     proposerAddress: EthAddress | undefined,
     options: CheckpointProposalOptions,

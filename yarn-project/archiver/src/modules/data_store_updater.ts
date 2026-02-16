@@ -25,6 +25,7 @@ import type { UInt64 } from '@aztec/stdlib/types';
 import groupBy from 'lodash.groupby';
 
 import type { KVArchiverDataStore } from '../store/kv_archiver_store.js';
+import type { L2TipsCache } from '../store/l2_tips_cache.js';
 
 /** Operation type for contract data updates. */
 enum Operation {
@@ -44,7 +45,10 @@ type ReconcileCheckpointsResult = {
 export class ArchiverDataStoreUpdater {
   private readonly log = createLogger('archiver:store_updater');
 
-  constructor(private store: KVArchiverDataStore) {}
+  constructor(
+    private store: KVArchiverDataStore,
+    private l2TipsCache?: L2TipsCache,
+  ) {}
 
   /**
    * Adds proposed blocks to the store with contract class/instance extraction from logs.
@@ -56,11 +60,11 @@ export class ArchiverDataStoreUpdater {
    * @param pendingChainValidationStatus - Optional validation status to set.
    * @returns True if the operation is successful.
    */
-  public addProposedBlocks(
+  public async addProposedBlocks(
     blocks: L2Block[],
     pendingChainValidationStatus?: ValidateCheckpointResult,
   ): Promise<boolean> {
-    return this.store.transactionAsync(async () => {
+    const result = await this.store.transactionAsync(async () => {
       await this.store.addProposedBlocks(blocks);
 
       const opResults = await Promise.all([
@@ -72,8 +76,10 @@ export class ArchiverDataStoreUpdater {
         ...blocks.map(block => this.addContractDataToDb(block)),
       ]);
 
+      await this.l2TipsCache?.refresh();
       return opResults.every(Boolean);
     });
+    return result;
   }
 
   /**
@@ -87,11 +93,11 @@ export class ArchiverDataStoreUpdater {
    * @param pendingChainValidationStatus - Optional validation status to set.
    * @returns Result with information about any pruned blocks.
    */
-  public addCheckpoints(
+  public async addCheckpoints(
     checkpoints: PublishedCheckpoint[],
     pendingChainValidationStatus?: ValidateCheckpointResult,
   ): Promise<ReconcileCheckpointsResult> {
-    return this.store.transactionAsync(async () => {
+    const result = await this.store.transactionAsync(async () => {
       // Before adding checkpoints, check for conflicts with local blocks if any
       const { prunedBlocks, lastAlreadyInsertedBlockNumber } = await this.pruneMismatchingLocalBlocks(checkpoints);
 
@@ -111,8 +117,10 @@ export class ArchiverDataStoreUpdater {
         ...newBlocks.map(block => this.addContractDataToDb(block)),
       ]);
 
+      await this.l2TipsCache?.refresh();
       return { prunedBlocks, lastAlreadyInsertedBlockNumber };
     });
+    return result;
   }
 
   /**
@@ -197,8 +205,8 @@ export class ArchiverDataStoreUpdater {
    * @returns The removed blocks.
    * @throws Error if any block to be removed is checkpointed.
    */
-  public removeUncheckpointedBlocksAfter(blockNumber: BlockNumber): Promise<L2Block[]> {
-    return this.store.transactionAsync(async () => {
+  public async removeUncheckpointedBlocksAfter(blockNumber: BlockNumber): Promise<L2Block[]> {
+    const result = await this.store.transactionAsync(async () => {
       // Verify we're only removing uncheckpointed blocks
       const lastCheckpointedBlockNumber = await this.store.getCheckpointedL2BlockNumber();
       if (blockNumber < lastCheckpointedBlockNumber) {
@@ -207,8 +215,11 @@ export class ArchiverDataStoreUpdater {
         );
       }
 
-      return await this.removeBlocksAfter(blockNumber);
+      const result = await this.removeBlocksAfter(blockNumber);
+      await this.l2TipsCache?.refresh();
+      return result;
     });
+    return result;
   }
 
   /**
@@ -238,17 +249,31 @@ export class ArchiverDataStoreUpdater {
    * @returns True if the operation is successful.
    */
   public async removeCheckpointsAfter(checkpointNumber: CheckpointNumber): Promise<boolean> {
-    const { blocksRemoved = [] } = await this.store.removeCheckpointsAfter(checkpointNumber);
+    return await this.store.transactionAsync(async () => {
+      const { blocksRemoved = [] } = await this.store.removeCheckpointsAfter(checkpointNumber);
 
-    const opResults = await Promise.all([
-      // Prune rolls back to the last proven block, which is by definition valid
-      this.store.setPendingChainValidationStatus({ valid: true }),
-      // Remove contract data for all blocks being removed
-      ...blocksRemoved.map(block => this.removeContractDataFromDb(block)),
-      this.store.deleteLogs(blocksRemoved),
-    ]);
+      const opResults = await Promise.all([
+        // Prune rolls back to the last proven block, which is by definition valid
+        this.store.setPendingChainValidationStatus({ valid: true }),
+        // Remove contract data for all blocks being removed
+        ...blocksRemoved.map(block => this.removeContractDataFromDb(block)),
+        this.store.deleteLogs(blocksRemoved),
+      ]);
 
-    return opResults.every(Boolean);
+      await this.l2TipsCache?.refresh();
+      return opResults.every(Boolean);
+    });
+  }
+
+  /**
+   * Updates the proven checkpoint number and refreshes the L2 tips cache.
+   * @param checkpointNumber - The checkpoint number to set as proven.
+   */
+  public async setProvenCheckpointNumber(checkpointNumber: CheckpointNumber): Promise<void> {
+    await this.store.transactionAsync(async () => {
+      await this.store.setProvenCheckpointNumber(checkpointNumber);
+      await this.l2TipsCache?.refresh();
+    });
   }
 
   /** Extracts and stores contract data from a single block. */

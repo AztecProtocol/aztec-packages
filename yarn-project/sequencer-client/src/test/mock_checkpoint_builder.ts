@@ -205,6 +205,7 @@ export class MockCheckpointsBuilder implements ICheckpointsBuilder {
     constants: CheckpointGlobalVariables;
     l1ToL2Messages: Fr[];
     previousCheckpointOutHashes: Fr[];
+    feeAssetPriceModifier: bigint;
   }> = [];
   public openCheckpointCalls: Array<{
     checkpointNumber: CheckpointNumber;
@@ -212,6 +213,7 @@ export class MockCheckpointsBuilder implements ICheckpointsBuilder {
     l1ToL2Messages: Fr[];
     previousCheckpointOutHashes: Fr[];
     existingBlocks: L2Block[];
+    feeAssetPriceModifier: bigint;
   }> = [];
   public updateConfigCalls: Array<Partial<FullNodeBlockBuilderConfig>> = [];
 
@@ -257,11 +259,18 @@ export class MockCheckpointsBuilder implements ICheckpointsBuilder {
   startCheckpoint(
     checkpointNumber: CheckpointNumber,
     constants: CheckpointGlobalVariables,
+    feeAssetPriceModifier: bigint,
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
     _fork: MerkleTreeWriteOperations,
   ): Promise<ICheckpointBlockBuilder> {
-    this.startCheckpointCalls.push({ checkpointNumber, constants, l1ToL2Messages, previousCheckpointOutHashes });
+    this.startCheckpointCalls.push({
+      checkpointNumber,
+      constants,
+      l1ToL2Messages,
+      previousCheckpointOutHashes,
+      feeAssetPriceModifier,
+    });
 
     if (!this.checkpointBuilder) {
       // Auto-create a builder if none was set
@@ -274,6 +283,7 @@ export class MockCheckpointsBuilder implements ICheckpointsBuilder {
   openCheckpoint(
     checkpointNumber: CheckpointNumber,
     constants: CheckpointGlobalVariables,
+    feeAssetPriceModifier: bigint,
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
     _fork: MerkleTreeWriteOperations,
@@ -285,6 +295,7 @@ export class MockCheckpointsBuilder implements ICheckpointsBuilder {
       l1ToL2Messages,
       previousCheckpointOutHashes,
       existingBlocks,
+      feeAssetPriceModifier,
     });
 
     if (!this.checkpointBuilder) {

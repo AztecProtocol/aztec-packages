@@ -5,11 +5,9 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import { TxStatus } from '@aztec/aztec.js/tx';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
-import { GeneratorIndex } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { times, unique } from '@aztec/foundation/collection';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -18,6 +16,7 @@ import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import { getProofSubmissionDeadlineEpoch } from '@aztec/stdlib/epoch-helpers';
+import { computeSiloedPrivateLogFirstField } from '@aztec/stdlib/hash';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 
@@ -80,8 +79,7 @@ describe('e2e_block_building', () => {
 
     afterAll(() => teardown());
 
-    // TODO(palla/mbps): We've seen these errors on syncing world state if we abort a tx processing halfway through.
-    it.skip('processes txs until hitting timetable', async () => {
+    it('processes txs until hitting timetable', async () => {
       // We send enough txs so they are spread across multiple blocks, but not
       // so many so that we don't end up hitting a reorg or timing out the tx wait().
       const TX_COUNT = 16;
@@ -439,9 +437,9 @@ describe('e2e_block_building', () => {
 
       // The last log is not encrypted.
       // The first field is the first value and is siloed with contract address by the kernel circuit.
-      const expectedFirstField = await poseidon2HashWithSeparator(
-        [testContract.address, valuesAsArray[0]],
-        GeneratorIndex.PRIVATE_LOG_FIRST_FIELD,
+      const expectedFirstField = await computeSiloedPrivateLogFirstField(
+        testContract.address,
+        new Fr(valuesAsArray[0]),
       );
       expect(privateLogs[2].fields.slice(0, 5).map((f: Fr) => f.toBigInt())).toEqual([
         expectedFirstField.toBigInt(),

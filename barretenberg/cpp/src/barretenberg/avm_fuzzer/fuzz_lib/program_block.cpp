@@ -1139,9 +1139,9 @@ void ProgramBlock::process_sendl2tol1msg_instruction(SENDL2TOL1MSG_Instruction i
     instructions.push_back(sendl2tol1msg_instruction);
 }
 
-void ProgramBlock::process_emitunencryptedlog_instruction(EMITUNENCRYPTEDLOG_Instruction instruction)
+void ProgramBlock::process_emitpubliclog_instruction(EMITPUBLICLOG_Instruction instruction)
 {
-#ifdef DISABLE_EMITUNENCRYPTEDLOG_INSTRUCTION
+#ifdef DISABLE_EMITPUBLICLOG_INSTRUCTION
     return;
 #endif
     auto log_size_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.log_size_address);
@@ -1152,12 +1152,11 @@ void ProgramBlock::process_emitunencryptedlog_instruction(EMITUNENCRYPTEDLOG_Ins
     }
     preprocess_memory_addresses(log_size_address_operand.value().first);
     preprocess_memory_addresses(log_values_address_operand.value().first);
-    auto emitunencryptedlog_instruction =
-        bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::EMITUNENCRYPTEDLOG)
-            .operand(log_size_address_operand.value().second)
-            .operand(log_values_address_operand.value().second)
-            .build();
-    instructions.push_back(emitunencryptedlog_instruction);
+    auto emitpubliclog_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::EMITPUBLICLOG)
+                                         .operand(log_size_address_operand.value().second)
+                                         .operand(log_values_address_operand.value().second)
+                                         .build();
+    instructions.push_back(emitpubliclog_instruction);
 }
 
 void ProgramBlock::process_call_instruction(CALL_Instruction instruction)
@@ -1710,8 +1709,8 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
             [this](SENDL2TOL1MSG_Instruction instruction) {
                 return this->process_sendl2tol1msg_instruction(instruction);
             },
-            [this](EMITUNENCRYPTEDLOG_Instruction instruction) {
-                return this->process_emitunencryptedlog_instruction(instruction);
+            [this](EMITPUBLICLOG_Instruction instruction) {
+                return this->process_emitpubliclog_instruction(instruction);
             },
             [this](CALL_Instruction instruction) { return this->process_call_instruction(instruction); },
             [this](RETURNDATASIZE_Instruction instruction) {

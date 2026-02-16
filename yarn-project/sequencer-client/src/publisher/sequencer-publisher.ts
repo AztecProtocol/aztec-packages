@@ -4,6 +4,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import {
   type EmpireSlashingProposerContract,
+  FeeAssetPriceOracle,
   type GovernanceProposerContract,
   type IEmpireBase,
   MULTI_CALL_3_ADDRESS,
@@ -18,11 +19,11 @@ import {
   type L1BlobInputs,
   type L1TxConfig,
   type L1TxRequest,
+  type L1TxUtils,
   MAX_L1_TX_LIMIT,
   type TransactionStats,
   WEI_CONST,
 } from '@aztec/ethereum/l1-tx-utils';
-import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { FormattedViemError, formatViemError, mergeAbis, tryExtractEvent } from '@aztec/ethereum/utils';
 import { sumBigint } from '@aztec/foundation/bigint';
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
@@ -32,6 +33,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
@@ -60,6 +62,8 @@ type L1ProcessArgs = {
   attestationsAndSigners: CommitteeAttestationsAndSigners;
   /** Attestations and signers signature */
   attestationsAndSignersSignature: Signature;
+  /** The fee asset price modifier in basis points (from oracle) */
+  feeAssetPriceModifier: bigint;
 };
 
 export const Actions = [
@@ -112,6 +116,7 @@ export class SequencerPublisher {
   protected lastActions: Partial<Record<Action, SlotNumber>> = {};
 
   private isPayloadEmptyCache: Map<string, boolean> = new Map<string, boolean>();
+  private payloadProposedCache: Set<string> = new Set<string>();
 
   protected log: Logger;
   protected ethereumSlotDuration: bigint;
@@ -123,13 +128,17 @@ export class SequencerPublisher {
 
   /** L1 fee analyzer for fisherman mode */
   private l1FeeAnalyzer?: L1FeeAnalyzer;
+
+  /** Fee asset price oracle for computing price modifiers from Uniswap V4 */
+  private feeAssetPriceOracle: FeeAssetPriceOracle;
+
   // A CALL to a cold address is 2700 gas
   public static MULTICALL_OVERHEAD_GAS_GUESS = 5000n;
 
   // Gas report for VotingWithSigTest shows a max gas of 100k, but we've seen it cost 700k+ in testnet
   public static VOTE_GAS_GUESS: bigint = 800_000n;
 
-  public l1TxUtils: L1TxUtilsWithBlobs;
+  public l1TxUtils: L1TxUtils;
   public rollupContract: RollupContract;
   public govProposerContract: GovernanceProposerContract;
   public slashingProposerContract: EmpireSlashingProposerContract | TallySlashingProposerContract | undefined;
@@ -144,7 +153,7 @@ export class SequencerPublisher {
     deps: {
       telemetry?: TelemetryClient;
       blobClient: BlobClientInterface;
-      l1TxUtils: L1TxUtilsWithBlobs;
+      l1TxUtils: L1TxUtils;
       rollupContract: RollupContract;
       slashingProposerContract: EmpireSlashingProposerContract | TallySlashingProposerContract | undefined;
       governanceProposerContract: GovernanceProposerContract;
@@ -188,10 +197,25 @@ export class SequencerPublisher {
         createLogger('sequencer:publisher:fee-analyzer'),
       );
     }
+
+    // Initialize fee asset price oracle
+    this.feeAssetPriceOracle = new FeeAssetPriceOracle(
+      this.l1TxUtils.client,
+      this.rollupContract,
+      createLogger('sequencer:publisher:price-oracle'),
+    );
   }
 
   public getRollupContract(): RollupContract {
     return this.rollupContract;
+  }
+
+  /**
+   * Gets the fee asset price modifier from the oracle.
+   * Returns 0n if the oracle query fails.
+   */
+  public getFeeAssetPriceModifier(): Promise<bigint> {
+    return this.feeAssetPriceOracle.computePriceModifier();
   }
 
   public getSenderAddress() {
@@ -617,22 +641,6 @@ export class SequencerPublisher {
     options: { forcePendingCheckpointNumber?: CheckpointNumber },
   ): Promise<bigint> {
     const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
-
-    // TODO(palla/mbps): This should not be needed, there's no flow where we propose with zero attestations. Or is there?
-    // If we have no attestations, we still need to provide the empty attestations
-    // so that the committee is recalculated correctly
-    // const ignoreSignatures = attestationsAndSigners.attestations.length === 0;
-    // if (ignoreSignatures) {
-    //   const { committee } = await this.epochCache.getCommittee(block.header.globalVariables.slotNumber);
-    //   if (!committee) {
-    //     this.log.warn(`No committee found for slot ${block.header.globalVariables.slotNumber}`);
-    //     throw new Error(`No committee found for slot ${block.header.globalVariables.slotNumber}`);
-    //   }
-    //   attestationsAndSigners.attestations = committee.map(committeeMember =>
-    //     CommitteeAttestation.fromAddress(committeeMember),
-    //   );
-    // }
-
     const blobFields = checkpoint.toBlobFields();
     const blobs = getBlobsPerL1Block(blobFields);
     const blobInput = getPrefixedEthBlobCommitments(blobs);
@@ -642,7 +650,7 @@ export class SequencerPublisher {
         header: checkpoint.header.toViem(),
         archive: toHex(checkpoint.archive.root.toBuffer()),
         oracleInput: {
-          feeAssetPriceModifier: 0n,
+          feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
         },
       },
       attestationsAndSigners.getPackedAttestations(),
@@ -688,6 +696,32 @@ export class SequencerPublisher {
 
     if (await this.isPayloadEmpty(payload)) {
       this.log.warn(`Skipping vote cast for payload with empty code`);
+      return false;
+    }
+
+    // Check if payload was already submitted to governance
+    const cacheKey = payload.toString();
+    if (!this.payloadProposedCache.has(cacheKey)) {
+      try {
+        const l1StartBlock = await this.rollupContract.getL1StartBlock();
+        const proposed = await retry(
+          () => base.hasPayloadBeenProposed(payload.toString(), l1StartBlock),
+          'Check if payload was proposed',
+          makeBackoff([0, 1, 2]),
+          this.log,
+          true,
+        );
+        if (proposed) {
+          this.payloadProposedCache.add(cacheKey);
+        }
+      } catch (err) {
+        this.log.warn(`Failed to check if payload ${payload} was proposed after retries, skipping signal`, err);
+        return false;
+      }
+    }
+
+    if (this.payloadProposedCache.has(cacheKey)) {
+      this.log.info(`Payload ${payload} was already proposed to governance, stopping signals`);
       return false;
     }
 
@@ -920,12 +954,13 @@ export class SequencerPublisher {
     const blobFields = checkpoint.toBlobFields();
     const blobs = getBlobsPerL1Block(blobFields);
 
-    const proposeTxArgs = {
+    const proposeTxArgs: L1ProcessArgs = {
       header: checkpointHeader,
       archive: checkpoint.archive.root.toBuffer(),
       blobs,
       attestationsAndSigners,
       attestationsAndSignersSignature,
+      feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
     };
 
     let ts: bigint;
@@ -1113,8 +1148,7 @@ export class SequencerPublisher {
         header: encodedData.header.toViem(),
         archive: toHex(encodedData.archive),
         oracleInput: {
-          // We are currently not modifying these. See #9963
-          feeAssetPriceModifier: 0n,
+          feeAssetPriceModifier: encodedData.feeAssetPriceModifier,
         },
       },
       encodedData.attestationsAndSigners.getPackedAttestations(),
@@ -1140,7 +1174,7 @@ export class SequencerPublisher {
         readonly header: ViemHeader;
         readonly archive: `0x${string}`;
         readonly oracleInput: {
-          readonly feeAssetPriceModifier: 0n;
+          readonly feeAssetPriceModifier: bigint;
         };
       },
       ViemCommitteeAttestations,

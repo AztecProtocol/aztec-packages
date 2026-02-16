@@ -28,6 +28,7 @@ import {
   retrievedToPublishedCheckpoint,
 } from '../l1/data_retrieval.js';
 import type { KVArchiverDataStore } from '../store/kv_archiver_store.js';
+import type { L2TipsCache } from '../store/l2_tips_cache.js';
 import type { InboxMessage } from '../structs/inbox_message.js';
 import { ArchiverDataStoreUpdater } from './data_store_updater.js';
 import type { ArchiverInstrumentation } from './instrumentation.js';
@@ -77,9 +78,10 @@ export class ArchiverL1Synchronizer implements Traceable {
     private readonly l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr },
     private readonly events: ArchiverEmitter,
     tracer: Tracer,
+    l2TipsCache?: L2TipsCache,
     private readonly log: Logger = createLogger('archiver:l1-sync'),
   ) {
-    this.updater = new ArchiverDataStoreUpdater(this.store);
+    this.updater = new ArchiverDataStoreUpdater(this.store, l2TipsCache);
     this.tracer = tracer;
   }
 
@@ -550,7 +552,7 @@ export class ArchiverL1Synchronizer implements Traceable {
       if (provenCheckpointNumber === 0) {
         const localProvenCheckpointNumber = await this.store.getProvenCheckpointNumber();
         if (localProvenCheckpointNumber !== provenCheckpointNumber) {
-          await this.store.setProvenCheckpointNumber(provenCheckpointNumber);
+          await this.updater.setProvenCheckpointNumber(provenCheckpointNumber);
           this.log.info(`Rolled back proven chain to checkpoint ${provenCheckpointNumber}`, { provenCheckpointNumber });
         }
       }
@@ -582,7 +584,7 @@ export class ArchiverL1Synchronizer implements Traceable {
       ) {
         const localProvenCheckpointNumber = await this.store.getProvenCheckpointNumber();
         if (localProvenCheckpointNumber !== provenCheckpointNumber) {
-          await this.store.setProvenCheckpointNumber(provenCheckpointNumber);
+          await this.updater.setProvenCheckpointNumber(provenCheckpointNumber);
           this.log.info(`Updated proven chain to checkpoint ${provenCheckpointNumber}`, { provenCheckpointNumber });
           const provenSlotNumber = localCheckpointForDestinationProvenCheckpointNumber.header.slotNumber;
           const provenEpochNumber: EpochNumber = getEpochAtSlot(provenSlotNumber, this.l1Constants);
@@ -597,7 +599,7 @@ export class ArchiverL1Synchronizer implements Traceable {
             slotNumber: provenSlotNumber,
             epochNumber: provenEpochNumber,
           });
-          this.instrumentation.updateLastProvenBlock(lastBlockNumberInCheckpoint);
+          this.instrumentation.updateLastProvenCheckpoint(localCheckpointForDestinationProvenCheckpointNumber);
         } else {
           this.log.trace(`Proven checkpoint ${provenCheckpointNumber} already stored.`);
         }

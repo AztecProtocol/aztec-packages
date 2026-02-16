@@ -11,7 +11,7 @@ use types::{
         transaction::tx_request::TxRequest,
     },
     address::AztecAddress,
-    hash::{create_protocol_nullifier, silo_nullifier},
+    hash::{compute_siloed_nullifier, create_protocol_nullifier},
     tests::fixture_builder::FixtureBuilder,
 };
 
@@ -87,7 +87,10 @@ impl TestBuilder {
         let mut accumulated_data = private_call.to_private_accumulated_data();
 
         let scoped_protocol_nullifier = create_protocol_nullifier(self.tx_request);
-        let protocol_nullifier = silo_nullifier(scoped_protocol_nullifier);
+        let protocol_nullifier = compute_siloed_nullifier(
+            scoped_protocol_nullifier.contract_address,
+            scoped_protocol_nullifier.innermost().value,
+        );
         if self.first_nullifier_hint == protocol_nullifier {
             accumulated_data.nullifiers.length = 1;
             accumulated_data.nullifiers.array[0] = scoped_protocol_nullifier;

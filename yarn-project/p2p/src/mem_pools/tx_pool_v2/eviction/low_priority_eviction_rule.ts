@@ -48,19 +48,18 @@ export class LowPriorityEvictionRule implements EvictionRule {
         };
       }
 
-      this.log.verbose(
-        `Evicting low priority txs. Pending tx count above limit: ${currentTxCount} > ${this.maxPoolSize}`,
-      );
+      this.log.info(`Evicting low priority txs. Pending tx count above limit: ${currentTxCount} > ${this.maxPoolSize}`);
       const numberToEvict = currentTxCount - this.maxPoolSize;
       const txsToEvict = pool.getLowestPriorityPending(numberToEvict);
+      const toEvictSet = new Set(txsToEvict);
+      const numNewTxsEvicted = context.newTxHashes.filter(newTxHash => toEvictSet.has(newTxHash)).length;
 
       if (txsToEvict.length > 0) {
-        await pool.deleteTxs(txsToEvict);
+        this.log.info(`Evicted ${txsToEvict.length} low priority txs, including ${numNewTxsEvicted} newly added txs`);
+        await pool.deleteTxs(txsToEvict, this.name);
       }
 
-      const numNewTxsEvicted = context.newTxHashes.filter(newTxHash => txsToEvict.includes(newTxHash)).length;
-
-      this.log.verbose(`Evicted ${txsToEvict.length} low priority txs, including ${numNewTxsEvicted} newly added txs`, {
+      this.log.debug(`Evicted ${txsToEvict.length} low priority txs, including ${numNewTxsEvicted} newly added txs`, {
         txHashes: txsToEvict,
       });
 

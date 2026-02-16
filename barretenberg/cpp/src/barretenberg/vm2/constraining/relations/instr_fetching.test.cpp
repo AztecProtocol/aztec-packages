@@ -9,12 +9,22 @@
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
+#include "barretenberg/vm2/generated/relations/bc_hashing.hpp"
 #include "barretenberg/vm2/generated/relations/instr_fetching.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_instr_fetching.hpp"
+#include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
+#include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
+#include "barretenberg/vm2/simulation/lib/serialization.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
+#include "barretenberg/vm2/testing/instruction_builder.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
+#include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -710,6 +720,103 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongBytecodeSizeBcDecompositionInte
                 mutated_trace)),
             "Failed.*BYTECODE_SIZE_FROM_BC_DEC. Could not find tuple in destination.");
     }
+}
+
+using ::bb::avm2::testing::InstructionBuilder;
+using simulation::EventEmitter;
+using simulation::MockExecutionIdManager;
+using simulation::MockGreaterThan;
+using simulation::Poseidon2;
+using simulation::Poseidon2HashEvent;
+using simulation::Poseidon2PermutationEvent;
+using simulation::Poseidon2PermutationMemoryEvent;
+using ::testing::StrictMock;
+using tracegen::Poseidon2TraceBuilder;
+
+TEST(InstrFetchingConstrainingTest, NegativeTruncatedBytecodeRepro)
+{
+    TestTraceContainer trace;
+    BytecodeTraceBuilder bytecode_builder;
+    PrecomputedTraceBuilder precomputed_builder;
+    RangeCheckTraceBuilder range_check_builder;
+    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
+    EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
+    EventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
+    StrictMock<MockGreaterThan> mock_gt;
+    StrictMock<MockExecutionIdManager> mock_execution_id_manager;
+    // Note: this helper expects bytecode fields without the prepended separator and does not complete decomposition
+    Poseidon2 poseidon2 =
+        Poseidon2(mock_execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
+
+    Poseidon2TraceBuilder poseidon2_builder;
+
+    // Build some good bytecode:
+    const uint32_t pc = 15;
+    std::vector<uint8_t> bytecode(pc, 0x23);
+    const auto add_instr =
+        InstructionBuilder(WireOpCode::SUB_8).operand<uint8_t>(5).operand<uint8_t>(5).operand<uint8_t>(0).build();
+    const auto instr_bytecode = add_instr.serialize();
+    bytecode.insert(
+        bytecode.end(), std::make_move_iterator(instr_bytecode.begin()), std::make_move_iterator(instr_bytecode.end()));
+
+    std::vector<FF> fields = simulation::encode_bytecode(bytecode);
+    std::vector<FF> prepended_fields = { simulation::compute_public_bytecode_first_field(bytecode.size()) };
+    prepended_fields.insert(prepended_fields.end(), fields.begin(), fields.end());
+    FF hash = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(prepended_fields);
+
+    // Remove the final byte (which has a value of zero)
+    std::vector<uint8_t> trunc_bytecode(pc, 0x23);
+    trunc_bytecode.insert(trunc_bytecode.end(),
+                          std::make_move_iterator(instr_bytecode.begin()),
+                          std::make_move_iterator(instr_bytecode.end()));
+    trunc_bytecode.resize(trunc_bytecode.size() - 1);
+    std::vector<FF> trunc_fields = simulation::encode_bytecode(trunc_bytecode);
+    std::vector<FF> trunc_prepended_fields = { DOM_SEP__PUBLIC_BYTECODE };
+    trunc_prepended_fields.insert(trunc_prepended_fields.end(), trunc_fields.begin(), trunc_fields.end());
+    FF trunc_hash = poseidon2.hash(trunc_prepended_fields);
+    // 'Real' bytecode: [ 23 23 23 23 23 23 23 23 23 23 23 23 23 23 23 02 00 05 05 00 ] of length 20 bytes
+    // We could previously process a truncated bytecode with the same id:
+    // 'Fake' bytecode: [ 23 23 23 23 23 23 23 23 23 23 23 23 23 23 23 02 00 05 05 ] of length 19 bytes
+    // Before introducing  #[BYTECODE_LENGTH_BYTES] in bc_hashing.pil and including the size in
+    // compute_public_bytecode_first_field(), (#20254) trunc_hash == hash, meaning we could use truncated bytecode.
+    ASSERT_NE(hash, trunc_hash);
+
+    // Now, we cannot process the truncated bytecode and force a good instruction on the full bytecode to fail:
+    auto trunc_bytecode_ptr = std::make_shared<std::vector<uint8_t>>(trunc_bytecode);
+    auto bytecode_ptr = std::make_shared<std::vector<uint8_t>>(bytecode);
+    InstructionFetchingEvent instr_event = {
+        .bytecode_id = hash,
+        .pc = pc,
+        .instruction = add_instr,
+        .bytecode = bytecode_ptr,
+    };
+    bytecode_builder.process_instruction_fetching({ instr_event }, trace);
+    bytecode_builder.process_hashing({ {
+                                         .bytecode_id = hash,
+                                         .bytecode_length = static_cast<uint32_t>(trunc_bytecode.size()),
+                                         .bytecode_fields = trunc_fields,
+                                     } },
+                                     trace);
+
+    bytecode_builder.process_decomposition({ {
+                                               .bytecode_id = hash,
+                                               .bytecode = trunc_bytecode_ptr,
+                                           } },
+                                           trace);
+
+    // Prep trace:
+    range_check_builder.process(gen_range_check_events({ instr_event }), trace);
+    precomputed_builder.process_misc(trace, 256);
+    precomputed_builder.process_sel_range_8(trace);
+    precomputed_builder.process_wire_instruction_spec(trace);
+    poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
+
+    tracegen::MultiPermutationBuilder<perm_bc_hashing_get_packed_field_0_settings,
+                                      perm_bc_hashing_get_packed_field_1_settings,
+                                      perm_bc_hashing_get_packed_field_2_settings>
+        perm_builder(C::bc_decomposition_sel_packed);
+    perm_builder.process(trace);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bb::avm2::bc_hashing<FF>>(trace), "HASH_IS_ID");
 }
 
 TEST(InstrFetchingConstrainingTest, NegativeWrongTagValidationInteractions)

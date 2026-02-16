@@ -171,10 +171,6 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "hasTxsInPool"');
   }
 
-  public addTxsToPool(_txs: Tx[]): Promise<number> {
-    throw new Error('DummyP2P does not implement "addTxs"');
-  }
-
   public getSyncedLatestBlockNum(): Promise<number> {
     throw new Error('DummyP2P does not implement "getSyncedLatestBlockNum"');
   }

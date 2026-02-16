@@ -1,6 +1,7 @@
 import { Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobClientInterface, createBlobClientWithFileStores } from '@aztec/blob-client/client';
+import { Blob } from '@aztec/blob-lib';
 import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
@@ -18,10 +19,7 @@ import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 import { KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
-import {
-  createForwarderL1TxUtilsFromEthSigner,
-  createL1TxUtilsWithBlobsFromEthSigner,
-} from '@aztec/node-lib/factories';
+import { createForwarderL1TxUtilsFromSigners, createL1TxUtilsFromSigners } from '@aztec/node-lib/factories';
 import { type P2P, type P2PClientDeps, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { GlobalVariableBuilder, SequencerClient, type SequencerPublisher } from '@aztec/sequencer-client';
@@ -35,7 +33,14 @@ import {
 } from '@aztec/slasher';
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash, type BlockParameter, type DataInBlock, L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import {
+  type BlockData,
+  BlockHash,
+  type BlockParameter,
+  type DataInBlock,
+  L2Block,
+  type L2BlockSource,
+} from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
@@ -413,18 +418,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       await slasherClient.start();
 
       const l1TxUtils = config.publisherForwarderAddress
-        ? await createForwarderL1TxUtilsFromEthSigner(
+        ? await createForwarderL1TxUtilsFromSigners(
             publicClient,
             keyStoreManager!.createAllValidatorPublisherSigners(),
             config.publisherForwarderAddress,
             { ...config, scope: 'sequencer' },
-            { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
+            { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider, kzg: Blob.getViemKzgInstance() },
           )
-        : await createL1TxUtilsWithBlobsFromEthSigner(
+        : await createL1TxUtilsFromSigners(
             publicClient,
             keyStoreManager!.createAllValidatorPublisherSigners(),
             { ...config, scope: 'sequencer' },
-            { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
+            { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider, kzg: Blob.getViemKzgInstance() },
           );
 
       // Create and start the sequencer client
@@ -468,7 +473,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       slotDuration: Number(slotDuration),
     });
 
-    return new AztecNodeService(
+    const node = new AztecNodeService(
       config,
       p2pClient,
       archiver,
@@ -490,6 +495,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       log,
       blobClient,
     );
+
+    return node;
   }
 
   /**
@@ -1106,6 +1113,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return await this.blockSource.getBlockHeaderByArchive(archive);
   }
 
+  public getBlockData(number: BlockNumber): Promise<BlockData | undefined> {
+    return this.blockSource.getBlockData(number);
+  }
+
+  public getBlockDataByArchive(archive: Fr): Promise<BlockData | undefined> {
+    return this.blockSource.getBlockDataByArchive(archive);
+  }
+
   /**
    * Simulates the public part of a transaction with the current state.
    * @param tx - The transaction to simulate.
@@ -1129,7 +1144,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
 
     const txHash = tx.getTxHash();
-    const blockNumber = BlockNumber((await this.blockSource.getBlockNumber()) + 1);
+    const latestBlockNumber = await this.blockSource.getBlockNumber();
+    const blockNumber = BlockNumber.add(latestBlockNumber, 1);
 
     // If sequencer is not initialized, we just set these values to zero for simulation.
     const coinbase = EthAddress.ZERO;
@@ -1153,6 +1169,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       blockNumber,
     });
 
+    // Ensure world-state has caught up with the latest block we loaded from the archiver
+    await this.worldStateSynchronizer.syncImmediate(latestBlockNumber);
     const merkleTreeFork = await this.worldStateSynchronizer.fork();
     try {
       const config = PublicSimulatorConfig.from({

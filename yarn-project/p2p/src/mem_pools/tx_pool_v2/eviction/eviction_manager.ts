@@ -9,9 +9,11 @@ import {
   EvictionEvent,
   type EvictionRule,
   type PoolOperations,
+  type PreAddContext,
   type PreAddPoolAccess,
   type PreAddResult,
   type PreAddRule,
+  type TaggedEviction,
 } from './interfaces.js';
 
 /**
@@ -47,21 +49,27 @@ export class EvictionManager {
    * Runs all pre-add rules for an incoming transaction.
    * Returns combined result of all rules.
    */
-  async runPreAddRules(incomingMeta: TxMetaData, poolAccess: PreAddPoolAccess): Promise<PreAddResult> {
-    const allTxHashesToEvict: string[] = [];
+  async runPreAddRules(
+    incomingMeta: TxMetaData,
+    poolAccess: PreAddPoolAccess,
+    context?: PreAddContext,
+  ): Promise<PreAddResult> {
+    const evictions: TaggedEviction[] = [];
+    const seen = new Set<string>();
 
     for (const rule of this.preAddRules) {
       try {
-        const result = await rule.check(incomingMeta, poolAccess);
+        const result = await rule.check(incomingMeta, poolAccess, context);
 
         if (result.shouldIgnore) {
           return result;
         }
 
-        // Collect txs to evict from all rules
+        // Collect txs to evict from all rules, tagged with the rule name
         for (const txHash of result.txHashesToEvict) {
-          if (!allTxHashesToEvict.includes(txHash)) {
-            allTxHashesToEvict.push(txHash);
+          if (!seen.has(txHash)) {
+            seen.add(txHash);
+            evictions.push({ txHash, reason: rule.name });
           }
         }
       } catch (err) {
@@ -77,7 +85,8 @@ export class EvictionManager {
 
     return {
       shouldIgnore: false,
-      txHashesToEvict: allTxHashesToEvict,
+      txHashesToEvict: evictions.map(e => e.txHash),
+      evictions,
     };
   }
 

@@ -95,6 +95,7 @@ export class ValidationService {
   public createCheckpointProposal(
     checkpointHeader: CheckpointHeader,
     archive: Fr,
+    feeAssetPriceModifier: bigint,
     lastBlockInfo: CreateCheckpointProposalLastBlockData | undefined,
     proposerAttesterAddress: EthAddress | undefined,
     options: CheckpointProposalOptions,
@@ -119,7 +120,13 @@ export class ValidationService {
       txs: options.publishFullTxs ? lastBlockInfo.txs : undefined,
     };
 
-    return CheckpointProposal.createProposalFromSigner(checkpointHeader, archive, lastBlock, payloadSigner);
+    return CheckpointProposal.createProposalFromSigner(
+      checkpointHeader,
+      archive,
+      feeAssetPriceModifier,
+      lastBlock,
+      payloadSigner,
+    );
   }
 
   /**
@@ -137,7 +144,7 @@ export class ValidationService {
     attestors: EthAddress[],
   ): Promise<CheckpointAttestation[]> {
     // Create the attestation payload from the checkpoint proposal
-    const payload = new ConsensusPayload(proposal.checkpointHeader, proposal.archive);
+    const payload = new ConsensusPayload(proposal.checkpointHeader, proposal.archive, proposal.feeAssetPriceModifier);
     const buf = Buffer32.fromBuffer(
       keccak256(payload.getPayloadToSign(SignatureDomainSeparator.checkpointAttestation)),
     );

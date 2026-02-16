@@ -220,6 +220,7 @@ locals {
     "validator.node.env.P2P_DROP_TX_CHANCE"                    = var.P2P_DROP_TX_CHANCE
     "validator.node.env.WS_NUM_HISTORIC_BLOCKS"                = var.WS_NUM_HISTORIC_BLOCKS
     "validator.node.env.TX_COLLECTION_FILE_STORE_URLS"         = var.TX_COLLECTION_FILE_STORE_URLS
+    "validator.node.env.SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT"   = var.SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT
   }
 
   # Note: nonsensitive() is required here because helm_releases is used in for_each,
@@ -620,6 +621,30 @@ locals {
         "bot.nodeUrl"            = local.internal_rpc_url
         "bot.mnemonic"           = var.BOT_MNEMONIC
         "bot.mnemonicStartIndex" = var.BOT_SWAPS_MNEMONIC_START_INDEX
+      }
+      boot_node_host_path  = ""
+      bootstrap_nodes_path = ""
+      wait                 = false
+    } : null
+
+    # Optional: cross-chain message bots
+    bot_cross_chain = var.BOT_CROSS_CHAIN_REPLICAS > 0 ? {
+      name  = "${var.RELEASE_PREFIX}-bot-cross-chain"
+      chart = "aztec-bot"
+      values = [
+        "common.yaml",
+        "bot-cross-chain.yaml",
+        "bot-resources-${var.BOT_RESOURCE_PROFILE}.yaml",
+      ]
+      custom_settings = {
+        "bot.replicaCount"       = var.BOT_CROSS_CHAIN_REPLICAS
+        "bot.txIntervalSeconds"  = var.BOT_CROSS_CHAIN_TX_INTERVAL_SECONDS
+        "bot.followChain"        = var.BOT_CROSS_CHAIN_FOLLOW_CHAIN
+        "bot.pxeSyncChainTip"    = var.BOT_CROSS_CHAIN_PXE_SYNC_CHAIN_TIP
+        "bot.botPrivateKey"      = var.BOT_CROSS_CHAIN_L2_PRIVATE_KEY
+        "bot.nodeUrl"            = local.internal_rpc_url
+        "bot.mnemonic"           = var.BOT_MNEMONIC
+        "bot.mnemonicStartIndex" = var.BOT_CROSS_CHAIN_MNEMONIC_START_INDEX
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""

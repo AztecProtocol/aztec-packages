@@ -40,10 +40,11 @@ import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { AnvilTestWatcher } from '@aztec/aztec/testing';
 import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
+import { Blob } from '@aztec/blob-lib';
 import { EpochCache } from '@aztec/epoch-cache';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { EmpireSlashingProposerContract, GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
-import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -409,9 +410,9 @@ describe('e2e_synching', () => {
 
     const sequencerPK: `0x${string}` = `0x${getPrivateKeyFromIndex(0)!.toString('hex')}`;
 
-    const l1TxUtils = createL1TxUtilsWithBlobsFromViemWallet(
+    const l1TxUtils = createL1TxUtils(
       deployL1ContractsValues.l1Client,
-      { logger, dateProvider },
+      { logger, dateProvider, kzg: Blob.getViemKzgInstance() },
       config,
     );
     const rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString();

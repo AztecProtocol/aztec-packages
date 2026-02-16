@@ -41,9 +41,15 @@ jobs:
     runs-on: ubuntu-latest
     # exclusive with ci3-external.yml: never run on forks
     # (github.event.pull_request.head.repo.fork resolves to nil if not a pull request)
-    if: github.event.pull_request.head.repo.fork != true
+    if: github.event.pull_request.head.repo.fork != true && (github.event.pull_request.draft == false || contains(github.event.pull_request.labels.*.name, 'ci-draft'))
     environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'master' || '' }}
     steps:
+      - name: Remove wakeup label
+        if: contains(github.event.pull_request.labels.*.name, 'ci-wakeup-pr-after-merge')
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-wakeup-pr-after-merge --repo ${{ github.repository }} || true
+
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -88,6 +94,7 @@ jobs:
           PR_COMMITS: ${{ github.event.pull_request.commits }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_ACTOR: ${{ github.actor }}
         # NOTE: $CI_MODE is set in the Determine CI Mode step.
         run: ./.github/ci3.sh $CI_MODE
 

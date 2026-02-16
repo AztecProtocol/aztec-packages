@@ -89,6 +89,8 @@ if [[ -f "$state_dir/sir" ]]; then
   sir=$(cat $state_dir/sir)
 fi
 iid=$(cat $state_dir/iid)
+export EC2_INSTANCE_TYPE=$(cat $state_dir/instance_type 2>/dev/null || echo "unknown")
+export EC2_SPOT=$(cat $state_dir/spot 2>/dev/null || echo "unknown")
 
 # If AWS credentials are not set, try to load them from ~/.aws/build_instance_credentials.
 if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
@@ -192,16 +194,6 @@ container_script=$(
       log_ci_run FAILED \$ci_log_id
       merge_train_failure_slack_notify \$ci_log_id
       release_canary_slack_notify \$ci_log_id
-      ci_failed_data=\$(jq -n \\
-        --arg status "failed" \\
-        --arg log_id "\$ci_log_id" \\
-        --arg ref_name "\${TARGET_BRANCH:-\$REF_NAME}" \\
-        --arg commit_hash "\$COMMIT_HASH" \\
-        --arg commit_author "\$COMMIT_AUTHOR" \\
-        --arg commit_msg "\$COMMIT_MSG" \\
-        --argjson exit_code "\$code" \\
-        '{status: \$status, log_id: \$log_id, ref_name: \$ref_name, commit_hash: \$commit_hash, commit_author: \$commit_author, commit_msg: \$commit_msg, exit_code: \$exit_code, timestamp: now | todate}')
-      redis_publish "ci:run:failed" "\$ci_failed_data"
       ;;
   esac
   exit \$code
@@ -331,6 +323,9 @@ function run {
         -e AWS_TOKEN=\$aws_token \
         -e NAMESPACE=${NAMESPACE:-} \
         -e NETWORK=${NETWORK:-} \
+        -e GITHUB_ACTOR=${GITHUB_ACTOR:-} \
+        -e EC2_INSTANCE_TYPE=${EC2_INSTANCE_TYPE:-unknown} \
+        -e EC2_SPOT=${EC2_SPOT:-unknown} \
         --pids-limit=65536 \
         --shm-size=2g \
         aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
