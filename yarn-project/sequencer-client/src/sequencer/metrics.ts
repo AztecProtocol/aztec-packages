@@ -52,6 +52,7 @@ export class SequencerMetrics {
   private fishermanPendingBlobCount: Histogram;
   private fishermanIncludedBlobCount: Histogram;
   private fishermanBlockBlobsFull: UpDownCounter;
+  private fishermanMaxBlobCapacity: Histogram;
   private fishermanCalculatedPriorityFee: Histogram;
   private fishermanPriorityFeeDelta: Histogram;
   private fishermanEstimatedCost: Histogram;
@@ -264,6 +265,12 @@ export class SequencerMetrics {
     this.fishermanBlockBlobsFull.add(0, {
       [Attributes.OK]: false,
     });
+
+    this.fishermanMaxBlobCapacity = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_MAX_BLOB_CAPACITY, {
+      description: 'Maximum blob capacity for the analyzed block based on L1 upgrade schedule',
+      unit: 'blobs',
+      valueType: ValueType.INT,
+    });
   }
 
   public recordRequiredAttestations(requiredAttestationsCount: number, allowanceMs: number) {
@@ -420,13 +427,21 @@ export class SequencerMetrics {
           this.fishermanBlockBlobsFull.add(1, { ...strategyAttributes, [Attributes.OK]: false });
         }
 
+        // Record the max blob capacity for this block
+        this.fishermanMaxBlobCapacity.record(analysis.analysis.maxBlobCapacity, strategyAttributes);
+
         // Record strategy-specific inclusion result
         if (strategyResult.wouldBeIncluded !== undefined) {
+          const inclusionAttributes = {
+            ...strategyAttributes,
+            [Attributes.BLOCK_FULL]: analysis.analysis.blockBlobsFull ? 'true' : 'false',
+          };
+
           if (strategyResult.wouldBeIncluded) {
-            this.fishermanWouldBeIncluded.add(1, { ...strategyAttributes, [Attributes.OK]: true });
+            this.fishermanWouldBeIncluded.add(1, { ...inclusionAttributes, [Attributes.OK]: true });
           } else {
             this.fishermanWouldBeIncluded.add(1, {
-              ...strategyAttributes,
+              ...inclusionAttributes,
               [Attributes.OK]: false,
               ...(strategyResult.exclusionReason && { [Attributes.ERROR_TYPE]: strategyResult.exclusionReason }),
             });
@@ -436,17 +451,29 @@ export class SequencerMetrics {
         // Record strategy-specific priority fee delta
         if (strategyResult.priorityFeeDelta !== undefined) {
           const priorityFeeDeltaGwei = Number(strategyResult.priorityFeeDelta) / 1e9;
-          this.fishermanPriorityFeeDelta.record(priorityFeeDeltaGwei, strategyAttributes);
+          const deltaAttributes = {
+            ...strategyAttributes,
+            [Attributes.BLOCK_FULL]: analysis.analysis.blockBlobsFull ? 'true' : 'false',
+          };
+          this.fishermanPriorityFeeDelta.record(priorityFeeDeltaGwei, deltaAttributes);
         }
 
         // Record estimated cost if available
         if (strategyResult.estimatedCostEth !== undefined) {
-          this.fishermanEstimatedCost.record(strategyResult.estimatedCostEth, strategyAttributes);
+          const costAttributes = {
+            ...strategyAttributes,
+            [Attributes.BLOCK_FULL]: analysis.analysis.blockBlobsFull ? 'true' : 'false',
+          };
+          this.fishermanEstimatedCost.record(strategyResult.estimatedCostEth, costAttributes);
         }
 
         // Record estimated overpayment if available
         if (strategyResult.estimatedOverpaymentEth !== undefined) {
-          this.fishermanEstimatedOverpayment.record(strategyResult.estimatedOverpaymentEth, strategyAttributes);
+          const overpaymentAttributes = {
+            ...strategyAttributes,
+            [Attributes.BLOCK_FULL]: analysis.analysis.blockBlobsFull ? 'true' : 'false',
+          };
+          this.fishermanEstimatedOverpayment.record(strategyResult.estimatedOverpaymentEth, overpaymentAttributes);
         }
       }
     }
