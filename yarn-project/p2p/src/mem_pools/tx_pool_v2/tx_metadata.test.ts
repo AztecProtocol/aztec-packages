@@ -17,7 +17,7 @@ describe('TxMetaData', () => {
       expect(meta.txHash).toBe(tx.getTxHash().toString());
       expect(meta.anchorBlockHeaderHash).toBe((await tx.data.constants.anchorBlockHeader.hash()).toString());
       expect(meta.feePayer).toBe(tx.data.feePayer.toString());
-      expect(meta.includeByTimestamp).toBe(tx.data.includeByTimestamp);
+      expect(meta.expirationTimestamp).toBe(tx.data.expirationTimestamp);
       expect(meta.minedL2BlockId).toBeUndefined();
 
       // Nullifiers should match the non-empty nullifiers from the tx
@@ -46,7 +46,7 @@ describe('TxMetaData', () => {
       claimAmount: 0n,
       feeLimit: 1000n,
       nullifiers: [],
-      includeByTimestamp: 0n,
+      expirationTimestamp: 0n,
       receivedAt: 0,
       data: stubTxMetaValidationData(),
     });
@@ -79,7 +79,7 @@ describe('TxMetaData', () => {
       claimAmount: 0n,
       feeLimit: 1000n,
       nullifiers,
-      includeByTimestamp: 0n,
+      expirationTimestamp: 0n,
       receivedAt: 0,
       data: stubTxMetaValidationData(),
     });

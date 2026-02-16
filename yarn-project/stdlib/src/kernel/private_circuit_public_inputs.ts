@@ -80,7 +80,7 @@ export class PrivateCircuitPublicInputs {
     /**
      * The highest timestamp of a block in which the transaction can still be included.
      */
-    public includeByTimestamp: UInt64,
+    public expirationTimestamp: UInt64,
     /**
      * The side effect counter at the start of this call.
      */
@@ -263,7 +263,7 @@ export class PrivateCircuitPublicInputs {
       this.txContext.isEmpty() &&
       this.minRevertibleSideEffectCounter.isZero() &&
       !this.isFeePayer &&
-      !this.includeByTimestamp &&
+      !this.expirationTimestamp &&
       this.startSideEffectCounter.isZero() &&
       this.endSideEffectCounter.isZero() &&
       this.expectedNonRevertibleSideEffectCounter.isZero() &&
@@ -296,7 +296,7 @@ export class PrivateCircuitPublicInputs {
       fields.txContext,
       fields.minRevertibleSideEffectCounter,
       fields.isFeePayer,
-      fields.includeByTimestamp,
+      fields.expirationTimestamp,
       fields.startSideEffectCounter,
       fields.endSideEffectCounter,
       fields.expectedNonRevertibleSideEffectCounter,
@@ -330,7 +330,7 @@ export class PrivateCircuitPublicInputs {
       this.txContext,
       this.minRevertibleSideEffectCounter,
       this.isFeePayer,
-      bigintToUInt64BE(this.includeByTimestamp),
+      bigintToUInt64BE(this.expirationTimestamp),
       this.startSideEffectCounter,
       this.endSideEffectCounter,
       this.expectedNonRevertibleSideEffectCounter,

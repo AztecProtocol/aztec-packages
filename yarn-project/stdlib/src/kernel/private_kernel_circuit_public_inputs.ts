@@ -41,7 +41,7 @@ export class PrivateKernelCircuitPublicInputs {
     /**
      * The timestamp by which the transaction must be included in a block.
      */
-    public includeByTimestamp: UInt64,
+    public expirationTimestamp: UInt64,
     /**
      * Wether this is a private only tx or not
      */
@@ -72,7 +72,7 @@ export class PrivateKernelCircuitPublicInputs {
       this.end,
       this.publicTeardownCallRequest,
       this.feePayer,
-      bigintToUInt64BE(this.includeByTimestamp),
+      bigintToUInt64BE(this.expirationTimestamp),
       this.isPrivateOnly,
       this.claimedFirstNullifier,
       this.claimedRevertibleCounter,

@@ -213,7 +213,7 @@ The [`EvictionManager`](eviction/eviction_manager.ts) coordinates eviction by:
 Evicts transactions that become invalid after a block is mined:
 
 - Duplicate nullifiers: Txs with nullifiers already included in the mined block
-- Expired transactions: Txs with `includeByTimestamp` ≤ mined block timestamp
+- Expired transactions: Txs with `expirationTimestamp` ≤ mined block timestamp
 
 #### 2. `InvalidTxsAfterReorgRule`
 

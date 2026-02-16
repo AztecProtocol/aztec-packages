@@ -67,7 +67,7 @@ pub fn validate_previous_kernel_for_tail(
     // TODO: use assert_not_empty after Noir #9002.
     assert(!fee_payer.is_empty(), "Fee payer can't be empty");
 
-    // --- include_by_timestamp ---
+    // --- expiration_timestamp ---
     // It's checked against the given upper bound and the output value in the output validator.
 
     // --- is_private_only ---

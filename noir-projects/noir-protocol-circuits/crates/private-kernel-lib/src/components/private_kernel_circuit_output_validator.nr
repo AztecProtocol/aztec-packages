@@ -3,7 +3,7 @@ use crate::{
         assert_array_appended, assert_array_appended_and_scoped, assert_array_appended_reversed,
         assert_array_prepended, assert_array_prepended_up_to_some_length,
     },
-    components::private_kernel_circuit_output_composer::get_include_by_timestamp_for_contract_updates::get_include_by_timestamp_for_contract_updates,
+    components::private_kernel_circuit_output_composer::get_expiration_timestamp_for_contract_updates::get_expiration_timestamp_for_contract_updates,
 };
 use types::{
     abis::{
@@ -21,7 +21,7 @@ use types::{
 /// - Initial values are correctly set (constants, tx_context, protocol contracts)
 /// - Arrays from previous kernel are correctly prepended to output arrays
 /// - Arrays from the private call are correctly appended and scoped to the calling contract
-/// - Aggregated values (fee_payer, min_revertible_counter, include_by_timestamp) are correct
+/// - Aggregated values (fee_payer, min_revertible_counter, expiration_timestamp) are correct
 ///
 /// See the README.md in this directory for more details on the composer/validator pattern.
 
@@ -70,23 +70,23 @@ impl PrivateKernelCircuitOutputValidator {
             "incorrect output min_revertible_side_effect_counter",
         );
 
-        // `include_by_timestamp` - The timestamp at which the transaction expires.
+        // `expiration_timestamp` - The timestamp at which the transaction expires.
         // This value can only decrease with each iteration. Here we take the minimum of:
         // - The value from the previous kernel iteration
-        // - The value set by the private call (via `context.set_include_by_timestamp()`)
+        // - The value set by the private call (via `context.set_expiration_timestamp()`)
         // - The timestamp before which our earlier read of the contract instance registry would
         //   become stale.
-        let include_by_timestamp = std::cmp::min(
-            previous_kernel.include_by_timestamp,
+        let expiration_timestamp = std::cmp::min(
+            previous_kernel.expiration_timestamp,
             std::cmp::min(
-                private_call.public_inputs.include_by_timestamp,
-                get_include_by_timestamp_for_contract_updates(private_call),
+                private_call.public_inputs.expiration_timestamp,
+                get_expiration_timestamp_for_contract_updates(private_call),
             ),
         );
         assert_eq(
-            self.output.include_by_timestamp,
-            include_by_timestamp,
-            "incorrect output include_by_timestamp",
+            self.output.expiration_timestamp,
+            expiration_timestamp,
+            "incorrect output expiration_timestamp",
         );
 
         // public_teardown_call_request can only be set once.
