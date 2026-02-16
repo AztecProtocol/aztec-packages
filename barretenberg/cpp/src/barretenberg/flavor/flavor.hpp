@@ -6,84 +6,29 @@
 
 /**
  * @file flavor.hpp
- * @brief Base class templates for structures that contain data parameterized by the fundamental polynomials of a Honk
- * variant (a "flavor").
+ * @brief Base class templates shared across Honk flavors.
  *
- * @details #Motivation
- * We choose the framework set out in these classes for several reasons.
+ * @details This file provides the flavor-agnostic building blocks that each concrete flavor (Ultra, Mega, etc.)
+ * composes into its own type definitions. The main components are:
  *
- * For one, it allows for a large amount of the information of a Honk flavor to be read at a glance in a single file.
- *
- * The primary motivation, however, is to reduce the sort loose of coupling that is a significant source of complexity
- * in the original plonk code. There, we find many similarly-named entities defined in many different places (to name
- * some: selector_properties; FooSelectors; PolynomialIndex; the labels given to the polynomial store; the commitment
- * label; inconsistent terminology and notation around these), and it can be difficult to discover or remember the
- * relationships between these. We aim for a more uniform treatment, to enfore identical and informative naming, and to
- * prevent the developer having to think very much about the ordering of protocol entities in disparate places.
- *
- * Another motivation is iterate on the polynomial manifest of plonk, which is nice in its compactness, but which feels
- * needlessly manual and low-level. In the past, this contained even more boolean parameters, making it quite hard to
- * parse. A typical construction is to loop over the polynomial manifest by extracting a globally-defined
- * "FOO_MANIFEST_SIZE" (the use of "manifest" here is distinct from the manifests in the transcript) to loop
- * over a C-style array, and then manually parsing the various tags of different types in the manifest entries. We
- * greatly enrich this structure by using basic C++ OOP functionality. Rather than recording the polynomial source in an
- * enum, we group polynomial handles using getter functions in our new class. We get code that is more compact,
- * more legible, and which is safer because it admits ranged `for` loops.
- *
- * Another motivation is proper and clear specification of Honk variants. The flavors are meant to be explicit and
- * easily comparable. In plonk, the various settings template parameters and objects like the CircuitType enum became
- * overloaded in time, and continue to be a point of accumulation for tech debt. We aim to remedy some of this by
- * putting proving system information in the flavor, and circuit construction information in the arithmetization (or
- * larger circuit constructor class).
- *
- * @details #Data model
- * All of the flavor classes derive from a single Entities_ template, which simply wraps a std::array (we would
- * inherit, but this is unsafe as std::array has a non-virtual destructor). The developer should think of every flavor
- * class as being:
- *  - A std::array<DataType, N> instance called _data.
- *  - An informative name for each entry of _data that is fixed at compile time.
- *  - Some classic metadata (e.g., a circuit size, a reference string, an evaluation domain).
- *  - A collection of getters that record subsets of the array that are of interest in the Honk variant.
- *
- * Each getter returns a container of HandleType's, where a HandleType is a value type that is inexpensive to create and
- * that lets one view and mutate a DataType instance. The primary example here is that std::span is the handle type
- * chosen for barrtenberg::Polynomial.
- *
- * @details #Some Notes
- *
- * @note It would be ideal to codify more structure in these base class template and to have it imposed on the actual
- * flavors, but our inheritance model is complicated as it is, and we saw no reasonable way to fix this.
- *
- * @note One asymmetry to note is in the use of the term "key". It is worthwhile to distinguish between prover/verifier
- * circuit data, and "keys" that consist of such data augmented with witness data (whether, raw, blinded, or polynomial
- * commitments). Currently the proving key contains witness data, while the verification key does not.
- * TODO(Cody): It would be nice to resolve this but it's not essential.
- *
- * @note The VerifierCommitments classes are not 'tight' in the sense that that the underlying array contains(a few)
- * empty slots. This is a conscious choice to limit complexity. Note that there is very little memory cost here since
- * the DataType size in that case is small.
- *
- * @todo TODO(#395): Getters should return arrays?
- * @todo TODO(#396): Access specifiers?
- * @todo TODO(#397): Use more handle types?
- * @todo TODO(#398): Selectors should come from arithmetization.
+ *  - MetaData / PrecomputedData_: Execution trace metadata and the precomputed polynomials whose commitments form a VK.
+ *  - NativeVerificationKey_: Base class for native verification keys (serialization, hashing, origin tagging).
+ *  - StdlibVerificationKey_: Circuit-friendly (stdlib) counterpart of the native VK.
+ *  - FixedVKAndHash_ / FixedStdlibVKAndHash_: Lightweight VK wrappers for fixed-size circuits (ECCVM, Translator)
+ *    whose VKs are hardcoded constants.
+ *  - VKAndHash_: Pairs a VK with its hash; used to bind VK identity into a proof.
+ *  - Sumcheck helpers: compile-time utilities that derive univariate container types from a flavor's relation tuple.
  */
 
 #pragma once
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/ref_vector.hpp"
-#include "barretenberg/common/std_array.hpp"
-#include "barretenberg/common/std_vector.hpp"
-#include "barretenberg/common/tuple.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
-#include "barretenberg/polynomials/barycentric.hpp"
-#include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/public_input_component/public_component_key.hpp"
-#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -91,7 +36,6 @@
 #include <array>
 #include <concepts>
 #include <cstddef>
-#include <numeric>
 #include <utility>
 #include <vector>
 
@@ -595,68 +539,6 @@ template <typename FF, typename VerificationKey> class VKAndHash_ {
     std::shared_ptr<VerificationKey> vk;
     FF hash;
 };
-
-/**
- * @brief Utility function to find max PARTIAL_RELATION_LENGTH tuples of Relations.
- * @details The "partial length" of a relation is 1 + the degree of the relation, where any challenges used in the
- * relation are as constants, not as variables..
- */
-template <typename Tuple> constexpr size_t compute_max_partial_relation_length()
-{
-    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
-    return []<std::size_t... Is>(std::index_sequence<Is...>) {
-        return std::max({ std::tuple_element_t<Is, Tuple>::RELATION_LENGTH... });
-    }(seq);
-}
-
-/**
- * @brief Utility function to find the number of subrelations.
- */
-template <typename Tuple> constexpr size_t compute_number_of_subrelations()
-{
-    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
-    return []<std::size_t... I>(std::index_sequence<I...>) {
-        return (0 + ... + std::tuple_element_t<I, Tuple>::SUBRELATION_PARTIAL_LENGTHS.size());
-    }(seq);
-}
-
-/**
- * @brief Utility function to construct a container for the subrelation accumulators of sumcheck proving.
- * @details The size of the outer tuple is equal to the number of relations. Each relation contributes an inner
- * tuple of univariates whose size is equal to the number of subrelations of the relation. The length of a
- * univariate in an inner tuple is determined by the corresponding subrelation length.
- */
-template <typename RelationsTuple> constexpr auto create_sumcheck_tuple_of_tuples_of_univariates()
-{
-    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<RelationsTuple>>();
-    return []<size_t... I>(std::index_sequence<I...>) {
-        return flat_tuple::make_tuple(
-            typename std::tuple_element_t<I, RelationsTuple>::SumcheckTupleOfUnivariatesOverSubrelations{}...);
-    }(seq);
-}
-
-/**
- * @brief Create a tuple of arrays
- *
- * @details This function is used to declare a type whose instances are containers for the evaluations of the Ultra/Mega
- * Honk subrelations. More precisely, the function returns a tuple of length equal to the number of relations defined by
- * RelationsTuple, where the element at index idx in the tuple is an array of FF elements of length equal to the number
- * of subrelations that made up the the relation at index idx in RelationsTuple.
- *
- * @example if RelationsTuple = UltraFlavor::Relations_, then the tuple returned by the function is a tuple of length 9,
- * where the first element of the tuple is an array of length 2 (as the first relation in UltraFlavor::Relations_ is the
- * ArithmeticRelation, which is made up by two subrelations).
- *
- * @tparam RelationsTuple
- */
-template <typename RelationsTuple> constexpr auto create_tuple_of_arrays_of_values()
-{
-    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<RelationsTuple>>();
-    return []<size_t... I>(std::index_sequence<I...>) {
-        return flat_tuple::make_tuple(
-            typename std::tuple_element_t<I, RelationsTuple>::SumcheckArrayOfValuesOverSubrelations{}...);
-    }(seq);
-}
 
 } // namespace bb
 

@@ -18,6 +18,7 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/relations/relation_tuple_helpers.hpp"
 #include "barretenberg/relations/translator_vm/translator_decomposition_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_extra_relations.hpp"

@@ -23,6 +23,7 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
 #include "barretenberg/relations/poseidon2_internal_relation.hpp"
+#include "barretenberg/relations/relation_tuple_helpers.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/transcript/transcript.hpp"
