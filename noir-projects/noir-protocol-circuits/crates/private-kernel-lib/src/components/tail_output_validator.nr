@@ -117,7 +117,7 @@ impl TailOutputValidator {
     }
 
     fn validate_gas_used(self) {
-        let gas_used = meter_gas_used(self.previous_kernel, false /* is_for_public */);
+        let gas_used = meter_gas_used(self.previous_kernel, false);
         assert_eq(self.output.gas_used, gas_used, "incorrect metered gas used");
 
         let limits = self.previous_kernel.constants.tx_context.gas_settings.gas_limits;
