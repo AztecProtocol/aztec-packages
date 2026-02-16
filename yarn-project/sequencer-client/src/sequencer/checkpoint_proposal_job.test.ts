@@ -24,7 +24,7 @@ import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestation, L2Block, type L2BlockSink, type L2BlockSource } from '@aztec/stdlib/block';
-import { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { Checkpoint, type CheckpointData, L1PublishedData } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import {
@@ -216,7 +216,7 @@ describe('CheckpointProposalJob', () => {
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue(Array(4).fill(Fr.ZERO));
 
     l2BlockSource = mock<L2BlockSource>();
-    l2BlockSource.getCheckpointsForEpoch.mockResolvedValue([]);
+    l2BlockSource.getCheckpointsDataForEpoch.mockResolvedValue([]);
 
     blockSink = mock<L2BlockSink>();
     blockSink.addBlock.mockResolvedValue(undefined);
@@ -369,6 +369,7 @@ describe('CheckpointProposalJob', () => {
     it('passes previous checkpoint out hashes when there are earlier checkpoints in the epoch', async () => {
       // Create two previous checkpoints in the same epoch
       const previousCheckpoints = await timesAsync(2, i => Checkpoint.random(CheckpointNumber(i + 1)));
+      const previousCheckpointsData: CheckpointData[] = previousCheckpoints.map(c => toCheckpointData(c));
 
       // Update job to be for checkpoint 3
       checkpointNumber = CheckpointNumber(3);
@@ -383,7 +384,7 @@ describe('CheckpointProposalJob', () => {
       );
 
       // Mock l2BlockSource to return the previous checkpoints
-      l2BlockSource.getCheckpointsForEpoch.mockResolvedValue(previousCheckpoints);
+      l2BlockSource.getCheckpointsDataForEpoch.mockResolvedValue(previousCheckpointsData);
 
       // Build block successfully
       const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
@@ -419,8 +420,12 @@ describe('CheckpointProposalJob', () => {
         }),
       );
 
-      // Mock l2BlockSource to return all three checkpoints
-      l2BlockSource.getCheckpointsForEpoch.mockResolvedValue([previousCheckpoint, currentCheckpoint, futureCheckpoint]);
+      // Mock l2BlockSource to return all three checkpoints as data
+      l2BlockSource.getCheckpointsDataForEpoch.mockResolvedValue([
+        toCheckpointData(previousCheckpoint),
+        toCheckpointData(currentCheckpoint),
+        toCheckpointData(futureCheckpoint),
+      ]);
 
       // Build block successfully
       const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
@@ -1113,4 +1118,18 @@ class TestCheckpointProposalJob extends CheckpointProposalJob {
   ): Promise<{ block: L2Block; usedTxs: Tx[]; remainingBlobFields: number } | { error: Error } | undefined> {
     return super.buildSingleBlock(checkpointBuilder, opts);
   }
+}
+
+/** Creates a CheckpointData from a Checkpoint for testing. */
+function toCheckpointData(checkpoint: Checkpoint): CheckpointData {
+  return {
+    checkpointNumber: checkpoint.number,
+    header: checkpoint.header,
+    archive: checkpoint.archive,
+    checkpointOutHash: checkpoint.getCheckpointOutHash(),
+    startBlock: BlockNumber(checkpoint.blocks[0]?.number ?? 1),
+    blockCount: checkpoint.blocks.length,
+    attestations: [],
+    l1: L1PublishedData.random(),
+  };
 }

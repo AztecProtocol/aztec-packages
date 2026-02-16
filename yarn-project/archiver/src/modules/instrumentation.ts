@@ -1,5 +1,6 @@
 import { createLogger } from '@aztec/foundation/log';
 import type { L2Block } from '@aztec/stdlib/block';
+import type { CheckpointData } from '@aztec/stdlib/checkpoint';
 import {
   Attributes,
   type Gauge,
@@ -12,8 +13,6 @@ import {
   type UpDownCounter,
   createUpDownCounterWithDefault,
 } from '@aztec/telemetry-client';
-
-import type { CheckpointData } from '../store/block_store.js';
 
 export class ArchiverInstrumentation {
   public readonly tracer: Tracer;
@@ -134,7 +133,7 @@ export class ArchiverInstrumentation {
   }
 
   public updateLastProvenCheckpoint(checkpoint: CheckpointData) {
-    const lastBlockNumberInCheckpoint = checkpoint.startBlock + checkpoint.numBlocks - 1;
+    const lastBlockNumberInCheckpoint = checkpoint.startBlock + checkpoint.blockCount - 1;
     this.blockHeight.record(lastBlockNumberInCheckpoint, { [Attributes.STATUS]: 'proven' });
     this.checkpointHeight.record(checkpoint.checkpointNumber, { [Attributes.STATUS]: 'proven' });
   }

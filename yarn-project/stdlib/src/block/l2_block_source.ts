@@ -13,6 +13,7 @@ import type { TypedEventEmitter } from '@aztec/foundation/types';
 import { z } from 'zod';
 
 import type { Checkpoint } from '../checkpoint/checkpoint.js';
+import type { CheckpointData } from '../checkpoint/checkpoint_data.js';
 import type { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
@@ -98,6 +99,12 @@ export interface L2BlockSource {
    * @param epochNumber - Epoch for which we want checkpoint data
    */
   getCheckpointsForEpoch(epochNumber: EpochNumber): Promise<Checkpoint[]>;
+
+  /**
+   * Gets lightweight checkpoint metadata for a given epoch, without fetching full block data.
+   * @param epochNumber - Epoch for which we want checkpoint data
+   */
+  getCheckpointsDataForEpoch(epochNumber: EpochNumber): Promise<CheckpointData[]>;
 
   /**
    * Gets a block header by its hash.

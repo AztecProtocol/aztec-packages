@@ -662,14 +662,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     // Get L1-to-L2 messages for this checkpoint
     const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
 
-    // Compute the previous checkpoint out hashes for the epoch.
-    // TODO: There can be a more efficient way to get the previous checkpoint out hashes without having to fetch the
-    // actual checkpoints and the blocks/txs in them.
+    // Collect the out hashes of all the checkpoints before this one in the same epoch
     const epoch = getEpochAtSlot(slot, this.epochCache.getL1Constants());
-    const previousCheckpoints = (await this.blockSource.getCheckpointsForEpoch(epoch))
-      .filter(b => b.number < checkpointNumber)
-      .sort((a, b) => a.number - b.number);
-    const previousCheckpointOutHashes = previousCheckpoints.map(c => c.getCheckpointOutHash());
+    const previousCheckpointOutHashes = (await this.blockSource.getCheckpointsDataForEpoch(epoch))
+      .filter(c => c.checkpointNumber < checkpointNumber)
+      .map(c => c.checkpointOutHash);
 
     // Fork world state at the block before the first block
     const parentBlockNumber = BlockNumber(firstBlock.number - 1);
