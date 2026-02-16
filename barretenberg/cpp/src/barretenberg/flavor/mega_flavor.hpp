@@ -5,10 +5,7 @@
 // =====================
 
 #pragma once
-#include <utility>
-
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
-#include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/partially_evaluated_multivariates.hpp"

@@ -6,17 +6,11 @@
 
 #pragma once
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
-#include "barretenberg/common/assert.hpp"
-#include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/partially_evaluated_multivariates.hpp"
 #include "barretenberg/flavor/prover_polynomials.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
-#include "barretenberg/honk/library/grand_product_delta.hpp"
-#include "barretenberg/honk/library/grand_product_library.hpp"
-#include "barretenberg/polynomials/barycentric.hpp"
-#include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
@@ -93,8 +87,6 @@ class UltraFlavor {
 
     static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
     static constexpr size_t num_frs_fr = FrCodec::calc_num_fields<FF>();
-
-    static constexpr bool is_decider = true;
 
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.

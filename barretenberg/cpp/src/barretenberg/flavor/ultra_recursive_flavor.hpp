@@ -6,15 +6,6 @@
 
 #pragma once
 #include "barretenberg/flavor/ultra_flavor.hpp"
-#include "barretenberg/srs/factories/crs_factory.hpp"
-
-#include <array>
-#include <concepts>
-#include <span>
-#include <string>
-#include <type_traits>
-#include <vector>
-
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 

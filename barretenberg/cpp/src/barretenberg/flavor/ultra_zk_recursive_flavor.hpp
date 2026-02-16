@@ -7,7 +7,6 @@
 #pragma once
 #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
-#include "barretenberg/stdlib/primitives/field/field.hpp"
 
 namespace bb {
 

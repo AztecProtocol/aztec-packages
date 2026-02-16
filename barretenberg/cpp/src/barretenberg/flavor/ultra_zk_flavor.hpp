@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include "barretenberg/common/assert.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 
