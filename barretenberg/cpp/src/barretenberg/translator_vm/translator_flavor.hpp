@@ -849,9 +849,7 @@ class TranslatorFlavor {
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
         CommitmentKey commitment_key;
 
-        ProvingKey(const CommitmentKey& commitment_key = CommitmentKey())
-            : commitment_key(commitment_key)
-        {}
+        ProvingKey() = default;
     };
 
     /**

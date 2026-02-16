@@ -52,7 +52,6 @@ class Goblin {
     using IPA_PCS = IPA<ECCVMFlavor::Curve, CONST_ECCVM_LOG_N>;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
-    CommitmentKey<curve::BN254> commitment_key;
 
     GoblinProof goblin_proof;
 
@@ -68,8 +67,7 @@ class Goblin {
             std::make_shared<TranslatorVerificationKey>();
     };
 
-    Goblin(CommitmentKey<curve::BN254> bn254_commitment_key = CommitmentKey<curve::BN254>(),
-           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    Goblin(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     /**
      * @brief Construct a merge proof for the goblin ECC ops in the provided circuit; append the proof to the

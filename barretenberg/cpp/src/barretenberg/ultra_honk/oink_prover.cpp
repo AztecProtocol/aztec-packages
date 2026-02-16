@@ -22,9 +22,7 @@ namespace bb {
 template <typename Flavor> void OinkProver<Flavor>::prove()
 {
     BB_BENCH_NAME("OinkProver::prove");
-    if (!commitment_key.initialized()) {
-        commitment_key = CommitmentKey(prover_instance->dyadic_size());
-    }
+    commitment_key = CommitmentKey(prover_instance->dyadic_size());
     send_vk_hash_and_public_inputs();
     commit_to_masking_poly();
     commit_to_wires();

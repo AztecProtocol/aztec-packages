@@ -31,8 +31,7 @@ template <typename Flavor_> class UltraProver_ {
 
     explicit UltraProver_(std::shared_ptr<ProverInstance>,
                           const std::shared_ptr<HonkVK>&,
-                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
-                          CommitmentKey commitment_key = CommitmentKey());
+                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     Proof export_proof();
     Proof construct_proof();
@@ -51,7 +50,6 @@ template <typename Flavor_> class UltraProver_ {
 
     size_t virtual_log_n; // Set during gate challenge generation, reused by sumcheck and PCS
 
-    void initialize_commitment_key();
     BB_PROFILE void execute_sumcheck_iop();
     BB_PROFILE void execute_pcs();
     BB_PROFILE void generate_gate_challenges();

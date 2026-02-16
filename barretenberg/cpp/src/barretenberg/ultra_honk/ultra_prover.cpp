@@ -15,12 +15,10 @@ namespace bb {
 template <typename Flavor>
 UltraProver_<Flavor>::UltraProver_(std::shared_ptr<ProverInstance> prover_instance,
                                    const std::shared_ptr<HonkVK>& honk_vk,
-                                   const std::shared_ptr<Transcript>& transcript,
-                                   CommitmentKey commitment_key)
+                                   const std::shared_ptr<Transcript>& transcript)
     : prover_instance(std::move(prover_instance))
     , transcript(transcript)
     , honk_vk(honk_vk)
-    , commitment_key(std::move(commitment_key))
 {}
 
 /**
@@ -60,23 +58,16 @@ template <typename Flavor> void UltraProver_<Flavor>::generate_gate_challenges()
         transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
 }
 
-template <typename Flavor> void UltraProver_<Flavor>::initialize_commitment_key()
-{
-    if (!commitment_key.initialized()) {
-        size_t key_size = prover_instance->dyadic_size();
-        if constexpr (Flavor::HasZK) {
-            constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
-            key_size = std::max(key_size, size_t{ 1 } << (log_subgroup_size + 1));
-        }
-        commitment_key = CommitmentKey(key_size);
-    }
-}
-
 template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::construct_proof()
 {
-    initialize_commitment_key();
+    size_t key_size = prover_instance->dyadic_size();
+    if constexpr (Flavor::HasZK) {
+        constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
+        key_size = std::max(key_size, size_t{ 1 } << (log_subgroup_size + 1));
+    }
+    commitment_key = CommitmentKey(key_size);
 
-    OinkProver<Flavor> oink_prover(prover_instance, honk_vk, transcript, commitment_key);
+    OinkProver<Flavor> oink_prover(prover_instance, honk_vk, transcript);
     oink_prover.prove();
     vinfo("created oink proof");
 

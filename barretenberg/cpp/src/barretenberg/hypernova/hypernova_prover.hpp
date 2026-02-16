@@ -52,11 +52,8 @@ class HypernovaFoldingProver {
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = MegaFlavor::NUM_UNSHIFTED_ENTITIES;
     static constexpr size_t NUM_SHIFTED_ENTITIES = MegaFlavor::NUM_SHIFTED_ENTITIES;
 
-    using CommitmentKey = Flavor::CommitmentKey;
-
-    HypernovaFoldingProver(std::shared_ptr<Transcript> transcript, CommitmentKey commitment_key = CommitmentKey())
-        : transcript(std::move(transcript))
-        , commitment_key(std::move(commitment_key)) {};
+    HypernovaFoldingProver(std::shared_ptr<Transcript> transcript)
+        : transcript(std::move(transcript)) {};
 
     /**
      * @brief Turn an instance into an accumulator by running Sumcheck.
@@ -89,7 +86,6 @@ class HypernovaFoldingProver {
 
   private:
     std::shared_ptr<Transcript> transcript;
-    CommitmentKey commitment_key;
 
     /**
      * @brief Convert the output of the sumcheck run on the incoming instance into an accumulator.

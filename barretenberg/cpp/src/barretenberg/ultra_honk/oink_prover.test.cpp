@@ -17,7 +17,6 @@ class OinkTests : public ::testing::Test {
     using Builder = Flavor::CircuitBuilder;
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
-    using CommitmentKey = Flavor::CommitmentKey;
     using VerifierInstance = VerifierInstance_<Flavor>;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); };
@@ -34,10 +33,9 @@ TEST_F(OinkTests, OinkProverIsDeterministic)
     auto prover_instance = std::make_shared<ProverInstance>(circuit);
     auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
 
-    CommitmentKey commitment_key;
     {
         // Run OinkProver for the first time
-        OinkProver prover(prover_instance, verification_key, std::make_shared<Transcript>(), commitment_key);
+        OinkProver prover(prover_instance, verification_key, std::make_shared<Transcript>());
         prover.prove();
     }
 
@@ -53,7 +51,7 @@ TEST_F(OinkTests, OinkProverIsDeterministic)
 
     {
         // Run OinkProver for the second time
-        OinkProver prover(prover_instance, verification_key, std::make_shared<Transcript>(), commitment_key);
+        OinkProver prover(prover_instance, verification_key, std::make_shared<Transcript>());
         prover.prove();
     }
 
@@ -83,8 +81,7 @@ TEST_F(OinkTests, OinkProverCommitments)
     auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(verification_key);
     auto verifier_instance = std::make_shared<VerifierInstance>(vk_and_hash);
 
-    CommitmentKey commitment_key;
-    OinkProver prover(prover_instance, verification_key, std::make_shared<Transcript>(), commitment_key);
+    OinkProver prover(prover_instance, verification_key, std::make_shared<Transcript>());
     prover.prove();
     HonkProof proof = prover.export_proof();
 
