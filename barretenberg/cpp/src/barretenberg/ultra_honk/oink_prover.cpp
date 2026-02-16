@@ -182,7 +182,10 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_z_perm()
     if constexpr (Flavor::HasZK) {
         z_perm.mask();
     }
-    prover_instance->commitments.z_perm = commitment_key.commit(z_perm);
+    {
+        BB_BENCH_NAME("COMMIT::z_perm");
+        prover_instance->commitments.z_perm = commitment_key.commit(z_perm);
+    }
     transcript->send_to_verifier(commitment_labels.z_perm, prover_instance->commitments.z_perm);
 }
 

@@ -98,14 +98,6 @@
 namespace bb {
 
 /**
- * @brief Enum to control verification key metadata serialization
- */
-enum class VKSerializationMode : std::uint8_t {
-    FULL,       // Serialize all metadata (log_circuit_size, num_public_inputs, pub_inputs_offset)
-    NO_METADATA // Serialize only commitments, no metadata
-};
-
-/**
  * @brief Dyadic trace size and public inputs metadata; Common between prover and verifier keys
  */
 struct MetaData {
@@ -163,11 +155,7 @@ class FixedVKAndHash_ : public PrecomputedCommitments {
  * @tparam Codec The codec used for serialization (e.g., FrCodec, U256Codec)
  * @tparam HashFunction The hash function used for VK hashing (e.g., Poseidon2, Keccak)
  */
-template <typename PrecomputedCommitments,
-          typename Codec,
-          typename HashFunction,
-          typename CommitmentKey = void,
-          VKSerializationMode SerializeMetadata = VKSerializationMode::FULL>
+template <typename PrecomputedCommitments, typename Codec, typename HashFunction, typename CommitmentKey = void>
 class NativeVerificationKey_ : public PrecomputedCommitments {
   public:
     using Commitment = typename PrecomputedCommitments::DataType;
@@ -211,9 +199,6 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
 
     virtual ~NativeVerificationKey_() = default;
     NativeVerificationKey_() = default;
-    NativeVerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
-        : log_circuit_size(numeric::get_msb(circuit_size))
-        , num_public_inputs(num_public_inputs) {};
 
     /**
      * @brief Construct VK from precomputed data by committing to polynomials
@@ -240,12 +225,7 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     {
         // Create a temporary instance to get the number of precomputed entities
         size_t commitments_size = PrecomputedCommitments::size() * Codec::template calc_num_fields<Commitment>();
-        size_t metadata_size = 0;
-        if constexpr (SerializeMetadata == VKSerializationMode::FULL) {
-            // 3 metadata fields + commitments
-            metadata_size = 3 * Codec::template calc_num_fields<uint64_t>();
-        }
-        // else NO_METADATA: metadata_size remains 0
+        size_t metadata_size = 3 * Codec::template calc_num_fields<uint64_t>();
         return metadata_size + commitments_size;
     }
 
@@ -264,12 +244,9 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
 
         std::vector<DataType> elements;
 
-        if constexpr (SerializeMetadata == VKSerializationMode::FULL) {
-            serialize(this->log_circuit_size, elements);
-            serialize(this->num_public_inputs, elements);
-            serialize(this->pub_inputs_offset, elements);
-        }
-        // else NO_METADATA: skip metadata serialization
+        serialize(this->log_circuit_size, elements);
+        serialize(this->num_public_inputs, elements);
+        serialize(this->pub_inputs_offset, elements);
 
         for (const Commitment& commitment : this->get_all()) {
             serialize(commitment, elements);
@@ -292,12 +269,9 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
             idx += size;
         };
 
-        if constexpr (SerializeMetadata == VKSerializationMode::FULL) {
-            deserialize(this->log_circuit_size);
-            deserialize(this->num_public_inputs);
-            deserialize(this->pub_inputs_offset);
-        }
-        // else NO_METADATA: skip metadata deserialization
+        deserialize(this->log_circuit_size);
+        deserialize(this->num_public_inputs);
+        deserialize(this->pub_inputs_offset);
 
         for (Commitment& commitment : this->get_all()) {
             deserialize(commitment);
@@ -412,12 +386,8 @@ class FixedStdlibVKAndHash_ : public PrecomputedCommitments {
  * @tparam Builder_ The circuit builder type
  * @tparam PrecomputedCommitments The precomputed entities type
  * @tparam NativeVerificationKey_ The native VK type (optional, enables native<->stdlib conversion)
- * @tparam SerializeMetadata Controls how metadata is serialized (FULL, NO_METADATA)
  */
-template <typename Builder_,
-          typename PrecomputedCommitments,
-          typename NativeVerificationKey_ = void,
-          VKSerializationMode SerializeMetadata = VKSerializationMode::FULL>
+template <typename Builder_, typename PrecomputedCommitments, typename NativeVerificationKey_ = void>
 class StdlibVerificationKey_ : public PrecomputedCommitments {
   public:
     using Builder = Builder_;
@@ -707,7 +677,6 @@ class MegaAvmFlavor;
 class TranslatorFlavor;
 class ECCVMRecursiveFlavor;
 class TranslatorRecursiveFlavor;
-class AvmRecursiveFlavor;
 class MultilinearBatchingRecursiveFlavor;
 
 template <typename BuilderType> class UltraRecursiveFlavor_;
@@ -717,19 +686,12 @@ template <typename BuilderType> class MegaZKRecursiveFlavor_;
 template <typename BuilderType> class MegaAvmRecursiveFlavor_;
 
 // Serialization methods for NativeVerificationKey_.
-// These should cover all base classes that do not need additional members, as long as the appropriate SerializeMetadata
-// is set in the template parameters.
-template <typename PrecomputedCommitments,
-          typename Codec,
-          typename HashFunction,
-          typename CommitmentKey,
-          VKSerializationMode SerializeMetadata>
-inline void read(
-    uint8_t const*& it,
-    NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey, SerializeMetadata>& vk)
+template <typename PrecomputedCommitments, typename Codec, typename HashFunction, typename CommitmentKey>
+inline void read(uint8_t const*& it,
+                 NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey>& vk)
 {
     using serialize::read;
-    using VK = NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey, SerializeMetadata>;
+    using VK = NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey>;
 
     // Get the size directly from the static method
     size_t num_frs = VK::calc_num_data_types();
@@ -743,17 +705,12 @@ inline void read(
     vk.from_field_elements(field_elements);
 }
 
-template <typename PrecomputedCommitments,
-          typename Codec,
-          typename HashFunction,
-          typename CommitmentKey,
-          VKSerializationMode SerializeMetadata>
-inline void write(
-    std::vector<uint8_t>& buf,
-    NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey, SerializeMetadata> const& vk)
+template <typename PrecomputedCommitments, typename Codec, typename HashFunction, typename CommitmentKey>
+inline void write(std::vector<uint8_t>& buf,
+                  NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey> const& vk)
 {
     using serialize::write;
-    using VK = NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey, SerializeMetadata>;
+    using VK = NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey>;
 
     size_t before = buf.size();
     // Convert to field elements and write them directly without length prefix
