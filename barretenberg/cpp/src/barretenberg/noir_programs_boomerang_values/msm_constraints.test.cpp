@@ -354,7 +354,7 @@ TEST_F(MsmConstraintsTests, DetectCorruptedScalarConstraint)
     // After conditional_assign(predicate, lo, 1) and conditional_assign(predicate, hi, 0),
     // validate_split_in_field_unsafe creates the hi_diff gate with the hi witness.
     // We corrupt the first arithmetic gate involving index 4 (hi).
-    auto hi_idx = uint32_t(4);
+    auto hi_idx = static_cast<uint32_t>(4);
     auto hi_gates = graph_analyzer.get_variable_gates(hi_idx);
     bool corrupted = false;
     for (auto [blk, gate] : hi_gates) {
