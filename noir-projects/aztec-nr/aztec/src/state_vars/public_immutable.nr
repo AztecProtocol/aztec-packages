@@ -28,10 +28,9 @@ mod test;
 /// A value stored in a `PublicImmutable` can be read and initialized from public contract functions.
 ///
 /// Unlike [`PublicMutable`](crate::state_vars::PublicMutable) it is **also** possible to read a `PublicImmutable` from
-/// a
-/// private contract function, though it is not possible to initialize one. A common pattern is to have these functions
-/// [enqueue a public self calls](crate::contract_self::ContractSelf::enqueue_self) in which the initialization
-/// operation is performed.
+/// a private contract function, though it is not possible to initialize one. A common pattern is to have these
+/// functions [enqueue a public self calls](crate::contract_self::ContractSelf::enqueue_self) in which the
+/// initialization operation is performed.
 ///
 /// For a mutable (with restrictions) variant which also can be read from private functions see
 /// [`DelayedPublicMutable`](crate::state_vars::DelayedPublicMutable).
@@ -54,26 +53,26 @@ mod test;
 ///
 /// `PublicImmutable`'s main limitation is the immutability, which in many cases leads to
 /// [`DelayedPublicMutable`](crate::state_vars::DelayedPublicMutable) being used instead. But in those cases where
-/// fixed
-/// values are not a problem, this is a fine choice for storage.
+/// fixed values are not a problem, this is a fine choice for storage.
 ///
 /// ## Examples
 ///
-/// Declaring a `PublicImmutable` in the the contract's [`storage`](crate::macros::storage::storage) struct requires
+/// Declaring a `PublicImmutable` in the contract's [`storage`](crate::macros::storage::storage) struct requires
 /// specifying the type `T` that is stored in the variable:
 ///
 /// ```noir
 /// #[storage]
-/// struct Storage<Context> {
-///     decimals: PublicImmutable<u8, Context>,
+/// struct Storage<C> {
+///     decimals: PublicImmutable<u8, C>,
 ///
-///     account_types: Map<AztecAddress, PublicImmutable<AccountType, Context>, Context>,
+///     account_types: Map<AztecAddress, PublicImmutable<AccountType, C>, C>,
 /// }
 /// ```
 ///
 /// ## Requirements
 ///
-/// The type `T` stored in the `PublicImmutable` must implement the `Packable` trait.
+/// The type `T` stored in the `PublicImmutable` must implement the `Eq` and
+/// [`Packable`](crate::protocol::traits::Packable) traits.
 ///
 /// ## Implementation Details
 ///
@@ -130,7 +129,7 @@ impl<T> PublicImmutable<T, PublicContext> {
     /// #[external("public")]
     /// #[initializer]
     /// fn initialize(decimals: u8) {
-    ///     self.storage.decimals.iniitalize(decimals);
+    ///     self.storage.decimals.initialize(decimals);
     /// }
     /// ```
     ///
@@ -139,7 +138,7 @@ impl<T> PublicImmutable<T, PublicContext> {
     /// // Can only be called once per account
     /// #[external("public")]
     /// fn set_account_type(account_type: AccountType) {
-    ///     self.storage.account_types.at(self.msg_sender()).iniitalize(account_type);
+    ///     self.storage.account_types.at(self.msg_sender()).initialize(account_type);
     /// }
     /// ```
     ///
@@ -223,7 +222,7 @@ impl<T> PublicImmutable<T, PublicContext> {
     /// #[external("public")]
     /// fn set_account_type_if_not_set(account_type: AccountType) {
     ///     if !self.storage.account_types.at(self.msg_sender()).is_initialized() {
-    ///         self.storage.account_types.at(self.msg_sender()).iniitalize(account_type);
+    ///         self.storage.account_types.at(self.msg_sender()).initialize(account_type);
     ///     }
     /// }
     /// ```
@@ -301,7 +300,7 @@ impl<T> PublicImmutable<T, &mut PrivateContext> {
     /// #[storage]
     /// struct Storage<Context> {
     ///     decimals: PublicImmutable<u8, Context>,
-    ///     symbol: PubicImmutable<FieldCompressedString, Context>,
+    ///     symbol: PublicImmutable<FieldCompressedString, Context>,
     /// }
     ///
     /// // Good: both `decimals` and `symbol` are retrieved in a single historical public storage read
