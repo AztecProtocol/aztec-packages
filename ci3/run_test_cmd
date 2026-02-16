@@ -119,6 +119,21 @@ function publish_log_final {
   cat $tmp_file 2>/dev/null | cache_persistent $log_key $expire
 }
 
+# Finalize the current log and start a fresh one with a new unique key.
+function rotate_log {
+  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+    publish_log_final "$@"
+  fi
+  log_key=$(uuid)
+  log_info=" ($(ci_term_link $log_key))"
+  > $tmp_file
+  if [ "$live_logging" -eq 1 ]; then
+    kill ${publish_pid:-} &>/dev/null
+    live_publish_log &
+    publish_pid=$!
+  fi
+}
+
 function live_publish_log {
   # Not replacing previous trap as we run this function in the background.
   trap 'kill $sleep_pid &>/dev/null; exit' SIGTERM SIGINT
@@ -336,12 +351,23 @@ flake_group_id=$(echo "$test_entries" | jq -r '.flake_group_id // empty' | head 
 if [ -z "$owners" ]; then
   fail
 else
-  echo -e "${yellow}RETRYING${reset}${log_info:-}: $test_cmd"
+  failure_log_key=$log_key
+  failure_log_info=$log_info
+  rotate_log $((60 * 60 * 24 * 7 * 12))
+
+  echo -e "${yellow}RETRYING${reset}${log_info}: $test_cmd"
 
   run_test
 
-  # Test passed. Signal it as a flake, but pass.
-  [ $code -eq 0 ] && flake
+  if [ $code -eq 0 ]; then
+    # Publish the retry's log, then point back at the failure for flake reporting.
+    if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+      publish_log_final
+    fi
+    log_key=$failure_log_key
+    log_info=$failure_log_info
+    flake
+  fi
 
   # Otherwise we failed twice in a row, so hard fail.
   fail
