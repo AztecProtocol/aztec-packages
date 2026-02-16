@@ -898,9 +898,9 @@ export class ProvingOrchestrator implements EpochProver {
         await this.verifyBuiltBlockAgainstSyncedState(provingState);
 
         if (checkpointProvingState.totalNumBlocks === 1) {
-          this.checkAndEnqueueCheckpointRootRollup(checkpointProvingState);
+          await this.checkAndEnqueueCheckpointRootRollup(checkpointProvingState);
         } else {
-          this.checkAndEnqueueNextBlockMergeRollup(checkpointProvingState, leafLocation);
+          await this.checkAndEnqueueNextBlockMergeRollup(checkpointProvingState, leafLocation);
         }
 
         // We are finished with the block at this point, ensure the fork is cleaned up
@@ -1009,14 +1009,14 @@ export class ProvingOrchestrator implements EpochProver {
         },
         signal => this.prover.getBlockMergeRollupProof(inputs, signal, provingState.epochNumber),
       ),
-      result => {
+      async result => {
         provingState.setBlockMergeRollupProof(location, result);
-        this.checkAndEnqueueNextBlockMergeRollup(provingState, location);
+        await this.checkAndEnqueueNextBlockMergeRollup(provingState, location);
       },
     );
   }
 
-  private enqueueCheckpointRootRollup(provingState: CheckpointProvingState) {
+  private async enqueueCheckpointRootRollup(provingState: CheckpointProvingState) {
     if (!provingState.verifyState()) {
       this.logger.debug('Not running checkpoint root rollup. State no longer valid.');
       return;
@@ -1031,7 +1031,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     this.logger.debug(`Enqueuing ${rollupType} for checkpoint ${provingState.index}.`);
 
-    const inputs = provingState.getCheckpointRootRollupInputs();
+    const inputs = await provingState.getCheckpointRootRollupInputs();
 
     this.deferredProving(
       provingState,
@@ -1191,25 +1191,28 @@ export class ProvingOrchestrator implements EpochProver {
     this.enqueueBlockRootRollup(provingState);
   }
 
-  private checkAndEnqueueNextBlockMergeRollup(provingState: CheckpointProvingState, currentLocation: TreeNodeLocation) {
+  private async checkAndEnqueueNextBlockMergeRollup(
+    provingState: CheckpointProvingState,
+    currentLocation: TreeNodeLocation,
+  ) {
     if (!provingState.isReadyForBlockMerge(currentLocation)) {
       return;
     }
 
     const parentLocation = provingState.getParentLocation(currentLocation);
     if (parentLocation.level === 0) {
-      this.checkAndEnqueueCheckpointRootRollup(provingState);
+      await this.checkAndEnqueueCheckpointRootRollup(provingState);
     } else {
       this.enqueueBlockMergeRollup(provingState, parentLocation);
     }
   }
 
-  private checkAndEnqueueCheckpointRootRollup(provingState: CheckpointProvingState) {
+  private async checkAndEnqueueCheckpointRootRollup(provingState: CheckpointProvingState) {
     if (!provingState.isReadyForCheckpointRoot()) {
       return;
     }
 
-    this.enqueueCheckpointRootRollup(provingState);
+    await this.enqueueCheckpointRootRollup(provingState);
   }
 
   private checkAndEnqueueNextCheckpointMergeRollup(provingState: EpochProvingState, currentLocation: TreeNodeLocation) {

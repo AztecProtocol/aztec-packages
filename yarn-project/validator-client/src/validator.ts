@@ -765,7 +765,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       }
 
       const blobFields = blocks.flatMap(b => b.toBlobFields());
-      const blobs: Blob[] = getBlobsPerL1Block(blobFields);
+      const blobs: Blob[] = await getBlobsPerL1Block(blobFields);
       await this.blobClient.sendBlobsToFilestore(blobs);
       this.log.debug(`Uploaded ${blobs.length} blobs to filestore for checkpoint at slot ${proposal.slotNumber}`, {
         ...proposalInfo,

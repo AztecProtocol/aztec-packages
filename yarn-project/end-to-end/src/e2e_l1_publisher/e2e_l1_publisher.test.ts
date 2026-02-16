@@ -457,7 +457,7 @@ describe('L1Publisher integration', () => {
         blockSource.getL1ToL2Messages.mockResolvedValueOnce(currentL1ToL2Messages);
 
         const checkpointBlobFields = checkpoint.toBlobFields();
-        const blockBlobs = getBlobsPerL1Block(checkpointBlobFields);
+        const blockBlobs = await getBlobsPerL1Block(checkpointBlobFields);
 
         let prevBlobAccumulatorHash = (await rollup.getCurrentBlobCommitmentsHash()).toBuffer();
 
