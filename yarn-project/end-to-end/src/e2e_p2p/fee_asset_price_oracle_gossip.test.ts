@@ -6,7 +6,6 @@ import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import type { ProverNode } from '@aztec/prover-node';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
@@ -47,7 +46,7 @@ const qosAlerts: AlertConfig[] = [
 describe('e2e_p2p_network', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
-  let proverNode: ProverNode;
+  let proverNode: AztecNodeService;
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
@@ -125,7 +124,7 @@ describe('e2e_p2p_network', () => {
     );
 
     t.logger.warn(`Creating prover node`);
-    proverNode = await createProverNode(
+    ({ proverNode } = await createProverNode(
       { ...t.ctx.aztecNodeConfig, minTxsPerBlock: 0 },
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
       t.bootstrapNodeEnr,
@@ -134,8 +133,7 @@ describe('e2e_p2p_network', () => {
       t.prefilledPublicData,
       `${DATA_DIR}-prover`,
       shouldCollectMetrics(),
-    );
-    await proverNode.start();
+    ));
 
     // wait a bit for peers to discover each other
     await sleep(8000);

@@ -222,12 +222,8 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       'proverNode',
       omitConfigMappings(proverNodeConfigMappings, [
         // filter out options passed separately
-        ...getKeys(archiverConfigMappings),
         ...getKeys(proverBrokerConfigMappings),
         ...getKeys(proverAgentConfigMappings),
-        ...getKeys(p2pConfigMappings),
-        ...getKeys(worldStateConfigMappings),
-        ...getKeys(sharedNodeConfigMappings),
       ]),
     ),
   ],

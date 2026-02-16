@@ -58,6 +58,9 @@
       "path": "../prover-client"
     },
     {
+      "path": "../prover-node"
+    },
+    {
       "path": "../sequencer-client"
     },
     {

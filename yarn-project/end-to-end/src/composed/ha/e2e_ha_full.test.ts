@@ -135,7 +135,7 @@ describe('HA Full Setup', () => {
       prefilledPublicData,
     } = await setup(1, {
       initialValidators,
-      publisherPrivateKeys: [new SecretValue(publisherPrivateKeys[0])],
+      sequencerPublisherPrivateKeys: [new SecretValue(publisherPrivateKeys[0])],
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
       minTxsPerBlock: 1,
       archiverPollingIntervalMS: 200,
@@ -151,12 +151,7 @@ describe('HA Full Setup', () => {
       // Enable slashing for testing governance + slashing vote coordination
       slasherFlavor: 'tally',
       slashingRoundSizeInEpochs: 1, // 32 slots (1 epoch)
-      slashingQuorum: 17, // >50% of 32 slots for tally quorum
-      // Prover node will use publisherPrivateKeys directly, not Web3Signer
-      proverNodeConfig: {
-        web3SignerUrl: undefined,
-        publisherAddresses: undefined,
-      },
+      slashingQuorum: 17, // >50% of 32 slots for tally quorum,
     }));
 
     logger.info(`Bootstrap node setup complete (validation disabled)`);
@@ -203,10 +198,10 @@ describe('HA Full Setup', () => {
         bootstrapNodes: [bootstrapNodeEnr],
         web3SignerUrl,
         validatorAddresses: attesterAddresses.map(addr => EthAddress.fromString(addr)),
-        publisherAddresses: publisherAddresses.map(addr => EthAddress.fromString(addr)),
+        sequencerPublisherAddresses: publisherAddresses.map(addr => EthAddress.fromString(addr)),
         validatorPrivateKeys: new SecretValue(attesterPrivateKeys),
         // Each node has a unique publisher key
-        publisherPrivateKeys: [new SecretValue(publisherPrivateKeys[i])],
+        sequencerPublisherPrivateKeys: [new SecretValue(publisherPrivateKeys[i])],
       };
 
       const nodeService = await withLoggerBindings({ actor: `HA-${i}` }, async () => {

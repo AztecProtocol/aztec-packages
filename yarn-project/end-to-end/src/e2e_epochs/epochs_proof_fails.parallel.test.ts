@@ -70,7 +70,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     context.proverNode = proverNode;
 
     // Get the prover delayer from the newly created prover node
-    proverDelayer = proverNode.getDelayer()!;
+    proverDelayer = proverNode.getProverNode()!.getDelayer()!;
 
     // Hold off prover tx until end epoch 1
     const [epoch2Start] = getTimestampRangeForEpoch(EpochNumber(2), constants);
@@ -111,10 +111,11 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     const proverNode = await test.createProverNode({ cancelTxOnTimeout: false, maxSpeedUpAttempts: 0 });
 
     // Get the prover delayer from the newly created prover node
-    proverDelayer = proverNode.getDelayer()!;
+    const testProverNode = proverNode.getProverNode() as TestProverNode;
+    proverDelayer = testProverNode.getDelayer()!;
 
     // Inject a delay in prover node proving equal to the length of an epoch, to make sure deadline will be hit
-    const epochProverManager = (proverNode as TestProverNode).prover;
+    const epochProverManager = testProverNode.prover;
     const originalCreate = epochProverManager.createEpochProver.bind(epochProverManager);
     const finalizeEpochPromise = promiseWithResolvers<void>();
     let hasFinalizeEpochWaited = false;
