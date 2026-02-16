@@ -7,8 +7,8 @@ fn correct_private_kernel_tail_output_propagated_values() {
 
     let constants = builder.previous_kernel.to_tx_constant_data();
     builder.previous_kernel.fee_payer = AztecAddress::from_field(90);
-    builder.include_by_timestamp_upper_bound = 999;
-    builder.previous_kernel.include_by_timestamp = 13;
+    builder.expiration_timestamp_upper_bound = 999;
+    builder.previous_kernel.expiration_timestamp = 13;
     builder.previous_kernel.append_siloed_note_hashes(2);
     builder.previous_kernel.append_siloed_nullifiers(2);
     builder.previous_kernel.append_siloed_private_logs(1);
@@ -17,8 +17,8 @@ fn correct_private_kernel_tail_output_propagated_values() {
 
     assert_eq(public_inputs.constants, constants);
     assert_eq(public_inputs.fee_payer, AztecAddress::from_field(90));
-    assert_eq(public_inputs.include_by_timestamp, 13);
-    // More scenarios for the `include_by_timestamp` value are tested in `validate_propagated_values_tests.nr`.
+    assert_eq(public_inputs.expiration_timestamp, 13);
+    // More scenarios for the `expiration_timestamp` value are tested in `validate_propagated_values_tests.nr`.
 
     // The exact values for the `gas_used` are tested in `meter_gas_used_tests.nr`.
 

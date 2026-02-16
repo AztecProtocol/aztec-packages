@@ -673,7 +673,7 @@ export function mapPrivateToPublicKernelCircuitPublicInputsFromNoir(
     mapPublicCallRequestFromNoir(inputs.public_teardown_call_request),
     mapGasFromNoir(inputs.gas_used),
     mapAztecAddressFromNoir(inputs.fee_payer),
-    mapU64FromNoir(inputs.include_by_timestamp),
+    mapU64FromNoir(inputs.expiration_timestamp),
   );
 }
 
