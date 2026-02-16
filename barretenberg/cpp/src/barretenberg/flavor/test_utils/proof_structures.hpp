@@ -13,6 +13,7 @@
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/translator_vm/translator_flavor.hpp"
 
 namespace bb {
 
@@ -585,6 +586,166 @@ template <typename Flavor> struct MegaZKStructuredProofBase : MegaStructuredProo
 };
 
 // ============================================================================
+// Translator proof structure (always ZK, with interleaved claims)
+// ============================================================================
+template <typename Flavor> struct TranslatorStructuredProofBase : StructuredProofHelper<Flavor> {
+    using Base = StructuredProofHelper<Flavor>;
+    using Base::BATCHED_RELATION_PARTIAL_LENGTH;
+    using Base::NUM_ALL_ENTITIES;
+    using typename Base::Commitment;
+    using typename Base::FF;
+    using typename Base::ProofData;
+
+    // Batch size = total committed witness entities - gemini_masking_poly - z_perm
+    // Total committed = NUM_WITNESS_ENTITIES - 3 - NUM_OP_QUEUE_WIRES (from PROOF_LENGTH formula)
+    static constexpr size_t NUM_BATCH_WITNESS_COMMS = Flavor::NUM_WITNESS_ENTITIES - 3 - Flavor::NUM_OP_QUEUE_WIRES - 2;
+
+    // Witness commitments
+    Commitment gemini_masking_poly_comm;
+    std::vector<Commitment> witness_comms; // non-opqueue wires + ordered range constraints
+    Commitment z_perm_comm;
+
+    // Libra (ZK - Translator is always ZK)
+    Commitment libra_concatenation_commitment;
+    FF libra_sum;
+
+    // Sumcheck
+    std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
+    FF libra_claimed_evaluation;
+    std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
+
+    // Post-sumcheck Libra commitments
+    Commitment libra_grand_sum_commitment;
+    Commitment libra_quotient_commitment;
+
+    // Gemini/Shplemini
+    std::vector<Commitment> gemini_fold_comms;
+    std::vector<FF> gemini_fold_evals;
+
+    // Translator-specific: Gemini evaluations for interleaved claims
+    FF gemini_p_pos_eval;
+    FF gemini_p_neg_eval;
+
+    // Libra evaluations
+    FF libra_concatenation_eval;
+    FF libra_shifted_grand_sum_eval;
+    FF libra_grand_sum_eval;
+    FF libra_quotient_eval;
+
+    // Final PCS
+    Commitment shplonk_q_comm;
+    Commitment kzg_w_comm;
+
+    void deserialize(ProofData& proof_data, size_t /*num_public_inputs*/, size_t log_n)
+    {
+        size_t offset = 0;
+        witness_comms.clear();
+        sumcheck_univariates.clear();
+        gemini_fold_comms.clear();
+        gemini_fold_evals.clear();
+
+        // Witness commitments
+        gemini_masking_poly_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        for (size_t i = 0; i < NUM_BATCH_WITNESS_COMMS; ++i) {
+            witness_comms.push_back(this->template deserialize_from_buffer<Commitment>(proof_data, offset));
+        }
+        z_perm_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+
+        // Libra pre-sumcheck
+        libra_concatenation_commitment = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        libra_sum = this->template deserialize_from_buffer<FF>(proof_data, offset);
+
+        // Sumcheck univariates
+        for (size_t i = 0; i < log_n; ++i) {
+            sumcheck_univariates.push_back(
+                this->template deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(proof_data,
+                                                                                                            offset));
+        }
+        sumcheck_evaluations =
+            this->template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, offset);
+        libra_claimed_evaluation = this->template deserialize_from_buffer<FF>(proof_data, offset);
+
+        // Libra post-sumcheck commitments
+        libra_grand_sum_commitment = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        libra_quotient_commitment = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+
+        // Gemini fold commitments and evaluations
+        for (size_t i = 0; i < log_n - 1; ++i) {
+            gemini_fold_comms.push_back(this->template deserialize_from_buffer<Commitment>(proof_data, offset));
+        }
+        for (size_t i = 0; i < log_n; ++i) {
+            gemini_fold_evals.push_back(this->template deserialize_from_buffer<FF>(proof_data, offset));
+        }
+
+        // Translator-specific: Gemini P_pos and P_neg evaluations (for interleaved claims)
+        gemini_p_pos_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+        gemini_p_neg_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+
+        // Libra evaluations
+        libra_concatenation_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+        libra_shifted_grand_sum_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+        libra_grand_sum_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+        libra_quotient_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+
+        // Final PCS
+        shplonk_q_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        kzg_w_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+    }
+
+    void serialize(ProofData& proof_data, size_t log_n) const
+    {
+        size_t old_size = proof_data.size();
+        proof_data.clear();
+
+        // Witness commitments
+        Base::serialize_to_buffer(gemini_masking_poly_comm, proof_data);
+        for (const auto& comm : witness_comms) {
+            Base::serialize_to_buffer(comm, proof_data);
+        }
+        Base::serialize_to_buffer(z_perm_comm, proof_data);
+
+        // Libra pre-sumcheck
+        Base::serialize_to_buffer(libra_concatenation_commitment, proof_data);
+        Base::serialize_to_buffer(libra_sum, proof_data);
+
+        // Sumcheck univariates
+        for (size_t i = 0; i < log_n; ++i) {
+            Base::serialize_to_buffer(sumcheck_univariates[i], proof_data);
+        }
+        Base::serialize_to_buffer(sumcheck_evaluations, proof_data);
+        Base::serialize_to_buffer(libra_claimed_evaluation, proof_data);
+
+        // Libra post-sumcheck commitments
+        Base::serialize_to_buffer(libra_grand_sum_commitment, proof_data);
+        Base::serialize_to_buffer(libra_quotient_commitment, proof_data);
+
+        // Gemini fold commitments and evaluations
+        for (size_t i = 0; i < log_n - 1; ++i) {
+            Base::serialize_to_buffer(gemini_fold_comms[i], proof_data);
+        }
+        for (size_t i = 0; i < log_n; ++i) {
+            Base::serialize_to_buffer(gemini_fold_evals[i], proof_data);
+        }
+
+        // Translator-specific: Gemini P_pos and P_neg evaluations
+        Base::serialize_to_buffer(gemini_p_pos_eval, proof_data);
+        Base::serialize_to_buffer(gemini_p_neg_eval, proof_data);
+
+        // Libra evaluations
+        Base::serialize_to_buffer(libra_concatenation_eval, proof_data);
+        Base::serialize_to_buffer(libra_shifted_grand_sum_eval, proof_data);
+        Base::serialize_to_buffer(libra_grand_sum_eval, proof_data);
+        Base::serialize_to_buffer(libra_quotient_eval, proof_data);
+
+        // Final PCS
+        Base::serialize_to_buffer(shplonk_q_comm, proof_data);
+        Base::serialize_to_buffer(kzg_w_comm, proof_data);
+
+        BB_ASSERT_EQ(proof_data.size(), old_size);
+    }
+};
+
+// ============================================================================
 // Flavor Specializations
 // ============================================================================
 
@@ -599,5 +760,8 @@ template <> struct StructuredProof<UltraKeccakZKFlavor> : UltraZKStructuredProof
 // Mega flavors
 template <> struct StructuredProof<MegaFlavor> : MegaStructuredProofBase<MegaFlavor> {};
 template <> struct StructuredProof<MegaZKFlavor> : MegaZKStructuredProofBase<MegaZKFlavor> {};
+
+// Translator flavor
+template <> struct StructuredProof<TranslatorFlavor> : TranslatorStructuredProofBase<TranslatorFlavor> {};
 
 } // namespace bb
