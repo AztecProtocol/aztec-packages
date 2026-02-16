@@ -5,7 +5,6 @@
  * - uint256_t conversion and modular arithmetic verification
  * - Direct modulus access and comparison
  * - Montgomery form with specific R values
- * - Multiplicative generator (quadratic non-residue) (AUDITTODO: kill this, or at least only force for BN254 fields.)
  *
  * Prime fields tested:
  * - BN254: fq (base field), fr (scalar field)
@@ -287,21 +286,6 @@ TYPED_TEST(PrimeFieldCubeRootTest, CubeRootOfUnity)
     F lambda_x_cubed = lambda_x * lambda_x * lambda_x;
 
     EXPECT_EQ(x_cubed, lambda_x_cubed);
-}
-
-// ================================
-// Multiplicative Generator (Quadratic Non-Residue). AUDITTODO: kill this?
-// ================================
-
-TYPED_TEST(PrimeFieldTest, MultiplicativeGenerator)
-{
-    using F = TypeParam;
-
-    // The multiplicative generator g is defined such that g^((p-1)/2) = -1
-    // This means g is a quadratic non-residue (not a perfect square in the field)
-    F g = F::multiplicative_generator();
-    uint256_t p_minus_one_over_two = (F::modulus - 1) >> 1;
-    EXPECT_EQ(g.pow(p_minus_one_over_two), -F::one());
 }
 
 // ================================

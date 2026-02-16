@@ -172,7 +172,10 @@ constexpr uint64_t field<T>::sbb(const uint64_t a,
 /**
  * @brief Computes a + 2 * b * c + carry_in_lo + 2^64 * carry_in_hi, in the form of returning a uint64_t and modifying
  * carry_lo and carry_hi. Here, carry_lo represents bits 64 - 127 of the result and carry_hi bits 128-191 of the result.
- * carry_lo can be an arbitrary uint64_t, while carry_hi is in {0, 1, 2}. AUDITTODO: CHECK THIS.
+ * carry_lo can be an arbitrary uint64_t.
+ *
+ * @note the maximal value of this function is 2^129 + 2^128 - 2^66 + 2^64 < 2^129 + 2^128. Therefore, carry_hi is
+ * always in {0, 1, 2}.
  *
  */
 template <class T>

@@ -76,11 +76,6 @@ TEST(BN254Fr, CompileTimeInversion)
 // ================================
 // BN254 Scalar Field Specific
 // ================================
-// AUDITTODO: delete this (`multiplicative_generator` is misnamed and is no longer used.)
-TEST(BN254Fr, MultiplicativeGenerator)
-{
-    EXPECT_EQ(fr::multiplicative_generator(), fr(5));
-}
 
 TEST(BN254Fr, SplitIntoEndomorphismScalars)
 {

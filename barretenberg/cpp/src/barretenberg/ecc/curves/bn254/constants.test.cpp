@@ -64,23 +64,9 @@ TEST(FqConstants, RInv)
     EXPECT_EQ(result, expected);
 }
 
-// multiplication generator for Fq
-// AUDITTODO: delete (misnamed, no longer used -- finds smallest quadratic non-residue.)
-TEST(FqConstants, MultiplicativeGenerator)
-{
-    EXPECT_EQ(fq::multiplicative_generator(), fq(3));
-}
-
 TEST(FqConstants, CubeRootOfUnity)
 {
-    // beta is be g^(2(q-1)/3) where g is the multiplicative generator
-    // AUDITTODO: if I kill multiplicative_generator, this part of test should be killed.
-    fq g = fq::multiplicative_generator();
-    uint256_t exponent = uint256_t(2) * (native_q - 1) / 3;
-    fq expected_beta = g.pow(exponent);
-
     fq beta = fq::cube_root_of_unity();
-    EXPECT_EQ(beta, expected_beta);
 
     // Verify beta^3 = 1 and beta != 1
     EXPECT_EQ(beta * beta * beta, fq::one());
@@ -214,20 +200,9 @@ TEST(FrConstants, RInv)
     EXPECT_EQ(result, expected);
 }
 
-TEST(FrConstants, MultiplicativeGenerator)
-{
-    EXPECT_EQ(fr::multiplicative_generator(), fr(5));
-}
-
 TEST(FrConstants, CubeRootOfUnity)
 {
-    // beta is be g^((r-1)/3) where g is the multiplicative generator
-    fr g = fr::multiplicative_generator();
-    uint256_t exponent = (native_r - 1) / 3;
-    fr expected_beta = g.pow(exponent);
-
     fr beta = fr::cube_root_of_unity();
-    EXPECT_EQ(beta, expected_beta);
 
     // Verify beta^3 = 1 and beta != 1
     EXPECT_EQ(beta * beta * beta, fr::one());

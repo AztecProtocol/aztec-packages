@@ -609,8 +609,6 @@ template <class Params_> struct alignas(32) field {
 
     static field random_element(numeric::RNG* engine = nullptr) noexcept;
 
-    static constexpr field multiplicative_generator() noexcept;
-
     // For serialization
     void msgpack_pack(auto& packer) const;
     void msgpack_unpack(auto o);
@@ -745,7 +743,6 @@ template <class Params_> struct alignas(32) field {
     static constexpr size_t COSET_GENERATOR_SIZE = 15;
     constexpr field tonelli_shanks_sqrt() const noexcept;
     static constexpr size_t primitive_root_log_size() noexcept;
-    static constexpr std::array<field, COSET_GENERATOR_SIZE> compute_coset_generators() noexcept;
 
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     static constexpr uint128_t lo_mask = 0xffffffffffffffffUL;

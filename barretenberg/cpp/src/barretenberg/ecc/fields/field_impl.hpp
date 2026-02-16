@@ -803,52 +803,6 @@ template <class T> constexpr size_t field<T>::primitive_root_log_size() noexcept
     return result;
 }
 
-template <class T>
-constexpr std::array<field<T>, field<T>::COSET_GENERATOR_SIZE> field<T>::compute_coset_generators() noexcept
-{
-    constexpr size_t n = COSET_GENERATOR_SIZE;
-    constexpr uint64_t subgroup_size = 1 << 30;
-
-    std::array<field, COSET_GENERATOR_SIZE> result{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-    if (n > 0) {
-        result[0] = (multiplicative_generator());
-    }
-    field work_variable = multiplicative_generator() + field(1);
-
-    size_t count = 1;
-    while (count < n) {
-        // work_variable contains a new field element, and we need to test that, for all previous vector
-        // elements, result[i] / work_variable is not a member of our subgroup
-        field work_inverse = work_variable.invert();
-        bool valid = true;
-        for (size_t j = 0; j < count; ++j) {
-            field subgroup_check = (work_inverse * result[j]).pow(subgroup_size);
-            if (subgroup_check == field(1)) {
-                valid = false;
-                break;
-            }
-        }
-        if (valid) {
-            result[count] = (work_variable);
-            ++count;
-        }
-        work_variable += field(1);
-    }
-    return result;
-}
-// constructs the smallest quadratic non-residue for a prime field. For fq and fr, these happen to be primitive roots.
-template <class T> constexpr field<T> field<T>::multiplicative_generator() noexcept
-{
-    field target(1);
-    uint256_t p_minus_one_over_two = (modulus - 1) >> 1;
-    bool found = false;
-    while (!found) {
-        target += field(1);
-        found = (target.pow(p_minus_one_over_two) == -field(1));
-    }
-    return target;
-}
-
 // This function is used to serialize a field. It matches the old serialization format by first
 // converting the field from Montgomery form, which is a special representation used for efficient
 // modular arithmetic.
