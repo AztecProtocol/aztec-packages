@@ -16,13 +16,14 @@ import { AccountManager, type SendOptions } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
+import type { AccessScopes, NotesFilter } from '@aztec/pxe/client/lazy';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
 import { PXE, type PXECreationOptions, createPXE } from '@aztec/pxe/server';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
-import type { NoteDao, NotesFilter } from '@aztec/stdlib/note';
+import type { NoteDao } from '@aztec/stdlib/note';
 import type { BlockHeader, TxHash, TxReceipt, TxSimulationResult } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 import { BaseWallet, type FeeOptions } from '@aztec/wallet-sdk/base-wallet';
@@ -227,18 +228,18 @@ export class TestWallet extends BaseWallet {
     executionPayload: ExecutionPayload,
     from: AztecAddress,
     feeOptions: FeeOptions,
+    scopes: AccessScopes,
     skipTxValidation?: boolean,
     skipFeeEnforcement?: boolean,
-    scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
     if (!this.simulatedSimulations) {
       return super.simulateViaEntrypoint(
         executionPayload,
         from,
         feeOptions,
+        scopes,
         skipTxValidation,
         skipFeeEnforcement,
-        scopes,
       );
     }
 

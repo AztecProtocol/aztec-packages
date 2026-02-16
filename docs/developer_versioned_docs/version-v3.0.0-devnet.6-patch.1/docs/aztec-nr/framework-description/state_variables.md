@@ -106,9 +106,9 @@ Below is a table comparing the key properties of the different public state vari
 
 | State variable                                                                                   | Mutable?            | Readable in private? | Writable in private? | Example use case                                                                   |
 | ------------------------------------------------------------------------------------------------ | ------------------- | -------------------- | -------------------- | ---------------------------------------------------------------------------------- |
-| [`PublicMutable`](pathname:///aztec-nr-api/devnet/noir_aztec/state_vars/struct.publicmutable)               | yes                 | no                   | no                   | Configuration of admins, global state (e.g. token total supply, total votes)       |
-| [`PublicImmutable`](pathname:///aztec-nr-api/devnet/noir_aztec/state_vars/struct.publicimmutable)           | no                  | yes                  | no                   | Fixed configuration, one-way actions (e.g. initialization settings for a proposal) |
-| [`DelayedPublicMutable`](pathname:///aztec-nr-api/devnet/noir_aztec/state_vars/struct.delayedpublicmutable) | yes (after a delay) | yes                  | no                   | Non time sensitive system configuration                                            |
+| [`PublicMutable`](pathname:///aztec-nr-api/devnet/noir_aztec/state_vars/public_mutable/struct.PublicMutable)               | yes                 | no                   | no                   | Configuration of admins, global state (e.g. token total supply, total votes)       |
+| [`PublicImmutable`](pathname:///aztec-nr-api/devnet/noir_aztec/state_vars/public_immutable/struct.PublicImmutable)           | no                  | yes                  | no                   | Fixed configuration, one-way actions (e.g. initialization settings for a proposal) |
+| [`DelayedPublicMutable`](pathname:///aztec-nr-api/devnet/noir_aztec/state_vars/delayed_public_mutable/struct.DelayedPublicMutable) | yes (after a delay) | yes                  | no                   | Non time sensitive system configuration                                            |
 
 ### PublicMutable
 
@@ -272,12 +272,12 @@ When working with private state variables, many operations return a `NoteMessage
 
 #### Delivery Methods
 
-Private notes need to be communicated to their recipients so they know the note exists and can use it. The [`NoteMessage`](pathname:///aztec-nr-api/devnet/noir_aztec/note/struct.notemessage) wrapper forces you to make an explicit choice about how this happens:
+Private notes need to be communicated to their recipients so they know the note exists and can use it. The [`NoteMessage`](pathname:///aztec-nr-api/devnet/noir_aztec/note/note_message/struct.NoteMessage) wrapper forces you to make an explicit choice about how this happens:
 [
 
-- `MessageDelivery.ONCHAIN_CONSTRAINED`](pathname:///aztec-nr-api/devnet/noir_aztec/messages/message_delivery/struct.messagedeliveryenum#structfield.ONCHAIN_UNCONSTRAINED): Verified in the circuit (most secure, but highest cost) - Use when the sender cannot be trusted to deliver correctly (e.g., protocol fees, multisig config updates). **Warning:** Currently [not fully constrained](https://github.com/AztecProtocol/aztec-packages/issues/14565) - the log's tag is unconstrained.
-- [`MessageDelivery.ONCHAIN_UNCONSTRAINED`](pathname:///aztec-nr-api/devnet/noir_aztec/messages/message_delivery/struct.messagedeliveryenum#structfield.ONCHAIN_UNCONSTRAINED): Message stored onchain but no guarantees on content - Use when the sender is incentivized to deliver correctly but may not have an offchain channel to the recipient.
-- [`MessageDelivery.OFFCHAIN`](pathname:///aztec-nr-api/devnet/noir_aztec/messages/message_delivery/struct.messagedeliveryenum#structfield.OFFCHAIN): Lowest cost, no onchain data - Use when the sender and recipient can communicate and the sender is incentivized to deliver correctly.
+- `MessageDelivery.ONCHAIN_CONSTRAINED`](pathname:///aztec-nr-api/devnet/noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum#structfield.ONCHAIN_UNCONSTRAINED): Verified in the circuit (most secure, but highest cost) - Use when the sender cannot be trusted to deliver correctly (e.g., protocol fees, multisig config updates). **Warning:** Currently [not fully constrained](https://github.com/AztecProtocol/aztec-packages/issues/14565) - the log's tag is unconstrained.
+- [`MessageDelivery.ONCHAIN_UNCONSTRAINED`](pathname:///aztec-nr-api/devnet/noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum#structfield.ONCHAIN_UNCONSTRAINED): Message stored onchain but no guarantees on content - Use when the sender is incentivized to deliver correctly but may not have an offchain channel to the recipient.
+- [`MessageDelivery.OFFCHAIN`](pathname:///aztec-nr-api/devnet/noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum#structfield.OFFCHAIN): Lowest cost, no onchain data - Use when the sender and recipient can communicate and the sender is incentivized to deliver correctly.
 
 #include_code note_delivery /noir-projects/noir-contracts/contracts/app/private_token_contract/src/main.nr rust
 
@@ -340,9 +340,9 @@ Below is a table comparing certain key properties of the different private state
 
 | State variable                                                                           | Mutable? | Cost to read? | Writable by third parties? | Example use case                                                                                               |
 | ---------------------------------------------------------------------------------------- | -------- | ------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| [`PrivateMutable`](pathname:///aztec-nr-api/devnet/noir_aztec/state_vars/struct.privatemutable)     | yes      | yes           | no                         | Mutable user state only accessible by them (e.g. user settings or keys)                                        |
-| [`PrivateImmutable`](pathname:///aztec-nr-api/devnet/noir_aztec/state_vars/struct.privateimmutable) | no       | no            | no                         | Fixed configuration, one-way actions (e.g. initialization settings for a proposal)                             |
-| [`PrivateSet`](pathname:///aztec-nr-api/devnet/noir_aztec/state_vars/struct.privateset)             | yes      | yes           | yes                        | Aggregated state others can add to, e.g. token balance (set of amount notes), nft collections (set of nft ids) |
+| [`PrivateMutable`](pathname:///aztec-nr-api/devnet/noir_aztec/state_vars/private_mutable/struct.PrivateMutable)     | yes      | yes           | no                         | Mutable user state only accessible by them (e.g. user settings or keys)                                        |
+| [`PrivateImmutable`](pathname:///aztec-nr-api/devnet/noir_aztec/state_vars/private_immutable/struct.PrivateImmutable) | no       | no            | no                         | Fixed configuration, one-way actions (e.g. initialization settings for a proposal)                             |
+| [`PrivateSet`](pathname:///aztec-nr-api/devnet/noir_aztec/state_vars/private_set/struct.PrivateSet)             | yes      | yes           | yes                        | Aggregated state others can add to, e.g. token balance (set of amount notes), nft collections (set of nft ids) |
 
 ### Owned State Variables
 

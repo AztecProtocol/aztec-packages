@@ -7,6 +7,7 @@ import { Note, NoteDao, NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
+import type { AccessScopes } from '../access_scopes.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
 
 export class NoteService {
@@ -31,7 +32,7 @@ export class NoteService {
     owner: AztecAddress | undefined,
     storageSlot: Fr,
     status: NoteStatus,
-    scopes?: AztecAddress[],
+    scopes: AccessScopes,
   ) {
     const noteDaos = await this.noteStore.getNotes(
       {
@@ -70,10 +71,10 @@ export class NoteService {
    *
    * @param contractAddress - The contract whose notes should be checked and nullified.
    */
-  public async syncNoteNullifiers(contractAddress: AztecAddress): Promise<void> {
+  public async syncNoteNullifiers(contractAddress: AztecAddress, scopes: AccessScopes): Promise<void> {
     const anchorBlockHash = await this.anchorBlockHeader.hash();
 
-    const contractNotes = await this.noteStore.getNotes({ contractAddress }, this.jobId);
+    const contractNotes = await this.noteStore.getNotes({ contractAddress, scopes }, this.jobId);
 
     if (contractNotes.length === 0) {
       return;
