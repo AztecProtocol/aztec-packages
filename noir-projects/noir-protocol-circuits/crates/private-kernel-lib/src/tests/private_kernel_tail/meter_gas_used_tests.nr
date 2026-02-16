@@ -2,7 +2,7 @@ use super::TestBuilder;
 use types::{
     abis::gas::Gas,
     constants::{
-        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, DA_GAS_PER_FIELD, L2_GAS_PER_CONTRACT_CLASS_LOG,
+        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, DA_GAS_PER_FIELD, L2_GAS_PER_CONTRACT_CLASS_LOG_FIELD,
         L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS,
@@ -88,7 +88,7 @@ fn with_contract_class_logs() {
 
     let da_gas = (11 + 1) // +1 for the contract address.
         * DA_GAS_PER_FIELD;
-    let l2_gas = 1 * L2_GAS_PER_CONTRACT_CLASS_LOG;
+    let l2_gas = 11 * L2_GAS_PER_CONTRACT_CLASS_LOG_FIELD;
     let expected_gas_used = Gas::new(da_gas, l2_gas) + get_minimum_private_tx_gas_used();
 
     let data = builder.execute();
@@ -139,7 +139,9 @@ fn full_side_effects() {
         da_gas: (CONTRACT_CLASS_LOG_SIZE_IN_FIELDS + 1) // +1 for the contract address.
             * MAX_CONTRACT_CLASS_LOGS_PER_TX
             * DA_GAS_PER_FIELD,
-        l2_gas: MAX_CONTRACT_CLASS_LOGS_PER_TX * L2_GAS_PER_CONTRACT_CLASS_LOG,
+        l2_gas: MAX_CONTRACT_CLASS_LOGS_PER_TX
+            * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS
+            * L2_GAS_PER_CONTRACT_CLASS_LOG_FIELD,
     };
 
     let data = builder.execute();

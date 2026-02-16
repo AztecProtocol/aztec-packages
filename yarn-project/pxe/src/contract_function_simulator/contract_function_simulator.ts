@@ -6,7 +6,7 @@ import {
   FIXED_AVM_STARTUP_L2_GAS,
   FIXED_DA_GAS,
   FIXED_L2_GAS,
-  L2_GAS_PER_CONTRACT_CLASS_LOG,
+  L2_GAS_PER_CONTRACT_CLASS_LOG_FIELD,
   L2_GAS_PER_L2_TO_L1_MSG,
   L2_GAS_PER_NOTE_HASH,
   L2_GAS_PER_NULLIFIER,
@@ -810,12 +810,13 @@ function meterGasUsed(data: PrivateToRollupAccumulatedData | PrivateToPublicAccu
   meteredL2Gas += numPrivatelogs * L2_GAS_PER_PRIVATE_LOG;
 
   const numContractClassLogs = arrayNonEmptyLength(data.contractClassLogsHashes, log => log.isEmpty());
-  // Every contract class log emits its length and contract address as additional fields
-  meteredDAFields += data.contractClassLogsHashes.reduce(
+  const numContractClassLogFields = data.contractClassLogsHashes.reduce(
     (acc, log) => (!log.isEmpty() ? acc + log.logHash.length + 2 : acc),
     0,
   );
-  meteredL2Gas += numContractClassLogs * L2_GAS_PER_CONTRACT_CLASS_LOG;
+  // Every contract class log emits its contract address as an additional field
+  meteredDAFields += numContractClassLogFields + numContractClassLogs;
+  meteredL2Gas += numContractClassLogFields * L2_GAS_PER_CONTRACT_CLASS_LOG_FIELD;
 
   const meteredDAGas = meteredDAFields * DA_GAS_PER_FIELD;
 

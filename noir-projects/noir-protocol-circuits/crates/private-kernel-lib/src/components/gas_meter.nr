@@ -2,8 +2,9 @@ use types::{
     abis::{gas::Gas, kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs},
     constants::{
         AVM_EMITNOTEHASH_BASE_L2_GAS, AVM_EMITNULLIFIER_BASE_L2_GAS, AVM_SENDL2TOL1MSG_BASE_L2_GAS,
-        DA_GAS_PER_FIELD, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_CONTRACT_CLASS_LOG,
-        L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
+        DA_GAS_PER_FIELD, FIXED_AVM_STARTUP_L2_GAS, FIXED_L2_GAS_FOR_TX_WITH_PUBLIC_CALLS,
+        L2_GAS_PER_CONTRACT_CLASS_LOG_FIELD, L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_NOTE_HASH,
+        L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
     },
     traits::Empty,
 };
@@ -13,7 +14,7 @@ struct BaseL2Gas {
     nullifier: u32,
     l2_to_l1_msg: u32,
     private_log: u32,
-    contract_class_log: u32,
+    contract_class_log_field: u32,
 }
 
 global PRIVATE_ONLY_TX_L2_GAS: BaseL2Gas = BaseL2Gas {
@@ -21,15 +22,16 @@ global PRIVATE_ONLY_TX_L2_GAS: BaseL2Gas = BaseL2Gas {
     nullifier: L2_GAS_PER_NULLIFIER,
     l2_to_l1_msg: L2_GAS_PER_L2_TO_L1_MSG,
     private_log: L2_GAS_PER_PRIVATE_LOG,
-    contract_class_log: L2_GAS_PER_CONTRACT_CLASS_LOG,
+    contract_class_log_field: L2_GAS_PER_CONTRACT_CLASS_LOG_FIELD,
 };
 
 global PUBLIC_TX_L2_GAS: BaseL2Gas = BaseL2Gas {
     note_hash: AVM_EMITNOTEHASH_BASE_L2_GAS,
     nullifier: AVM_EMITNULLIFIER_BASE_L2_GAS,
     l2_to_l1_msg: AVM_SENDL2TOL1MSG_BASE_L2_GAS,
+    // The AVM doesn't process private logs and contract class logs, so the gas cost is the same as for private-only tx.
     private_log: L2_GAS_PER_PRIVATE_LOG,
-    contract_class_log: L2_GAS_PER_CONTRACT_CLASS_LOG,
+    contract_class_log_field: L2_GAS_PER_CONTRACT_CLASS_LOG_FIELD,
 };
 
 /// Meter the gas used for a private or public tx.
@@ -67,15 +69,18 @@ pub fn meter_gas_used(public_inputs: PrivateKernelCircuitPublicInputs, is_for_pu
     metered_l2_gas += num_private_logs * l2_gas.private_log;
 
     let num_contract_class_logs = data.contract_class_logs_hashes.length;
-    metered_da_fields +=
+    let num_contract_class_log_fields =
         data.contract_class_logs_hashes.array.fold(0, |acc, l| acc + l.innermost().length);
+    metered_da_fields += num_contract_class_log_fields;
     // Add `num_contract_class_logs` da fields below because each contract class log emits its contract address as an
     // additional field.
     // It is slightly more efficient to account for all extra fields at once, rather than adding one field per log individually.
     metered_da_fields += num_contract_class_logs;
-    metered_l2_gas += num_contract_class_logs * l2_gas.contract_class_log;
+    metered_l2_gas += num_contract_class_log_fields * l2_gas.contract_class_log_field;
 
     if is_for_public {
+        metered_l2_gas += FIXED_L2_GAS_FOR_TX_WITH_PUBLIC_CALLS;
+
         let num_public_call_requests = data.public_call_requests.length;
         metered_l2_gas += num_public_call_requests * FIXED_AVM_STARTUP_L2_GAS;
         // Public call requests don't count towards DA fields.

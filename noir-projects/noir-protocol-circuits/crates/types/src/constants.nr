@@ -1032,42 +1032,14 @@ pub global AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED: u32 = 16400;
 pub global AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED: u32 = 1000;
 
 // GAS DEFAULTS
-// The maximum amount of l2 gas that the AVM can process safely.
-pub global AVM_MAX_PROCESSABLE_L2_GAS: u32 = 6_000_000; // Arbitrary.
-
 pub global DA_BYTES_PER_FIELD: u32 = 32;
-pub global DA_GAS_PER_BYTE: u32 = 16; // TODO: Explain this, might be arbitrary? maybe make it one? and sync it wit the tx overhead constants?
+pub global DA_GAS_PER_BYTE: u32 = 1; // Arbitrary.
 pub global DA_GAS_PER_FIELD: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
-// pays for preamble information in TX Effects
-pub global FIXED_DA_GAS: u32 = 512;
-// TODO: take into account the cost of executing and proving the rollup circuits (if they can be attributed to this tx... eg the tx base rollup, half a tx merge).
-// We need a test suite to demonstrate these measurements
-// pays for fixed tx costs like validation, and updating state roots
-pub global FIXED_L2_GAS: u32 = 512;
-// base cost for a single public call
-pub global FIXED_AVM_STARTUP_L2_GAS: u32 = 20_000;
+// A tx always emits 3 fields: tx_start_marker, tx_hash, and tx_fee.
+pub global FIXED_DA_GAS: u32 = 3 * DA_GAS_PER_FIELD;
 
 pub global MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT: u32 =
-    BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
-
-// For gas estimation, we use the theoretical maximum amounts.
-// Since we split in teardown and total, teardown has the theoretical maximum and total is that times 2.
-// After gas estimation, we tune it down to the actual amount necessary.
-// TODO: this is a wallet concern; it should not be part of the protocol
-pub global GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT: u32 = AVM_MAX_PROCESSABLE_L2_GAS;
-pub global GAS_ESTIMATION_L2_GAS_LIMIT: u32 =
-    GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT + AVM_MAX_PROCESSABLE_L2_GAS;
-
-pub global GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
-pub global GAS_ESTIMATION_DA_GAS_LIMIT: u32 =
-    GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT + MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
-
-// Default gas limits. Users should use gas estimation, or they will overpay gas fees.
-// TODO: consider moving to typescript
-pub global DEFAULT_TEARDOWN_L2_GAS_LIMIT: u32 = 1_000_000; // Arbitrary default number.
-pub global DEFAULT_L2_GAS_LIMIT: u32 = AVM_MAX_PROCESSABLE_L2_GAS; // Arbitrary default number.
-pub global DEFAULT_TEARDOWN_DA_GAS_LIMIT: u32 = 1_000_000; // Arbitrary default number.
-pub global DEFAULT_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT; // Arbitrary default number.
+    BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB * DA_GAS_PER_FIELD;
 
 // Some tree insertions incur an additional cost associated with
 // the new database entry to be stored by all network participants.
@@ -1088,15 +1060,62 @@ pub global AVM_ADDRESSING_BASE_RESOLUTION_L2_GAS: u32 = 3; // One mem access
 pub global AVM_ADDRESSING_INDIRECT_L2_GAS: u32 = 3; // One mem access
 pub global AVM_ADDRESSING_RELATIVE_L2_GAS: u32 = 3; // One range check
 
+// -----------
 // Base L2 GAS
-// TODO: Decide what the following constants should be.
+// -----------
+// The following values were calculated by running tests to benchmark AVM simulation and proving time
+// (avm_opcode_spam.test.ts) and determining the average gas per second. Then, we ran the tx validation benchmark
+// (tx_validation.test.ts) and multiplied the validation time by the average gas per second to estimate gas costs.
+pub global MANA_PER_MS: u32 = 9083;
+// The conversion rate from L1 gas to L2 gas is set to 1000.
+pub global L1_TO_L2_GAS_CONVERSION_RATE: u32 = 1000;
+// Some values are measured per checkpoint or per epoch and are distributed across all txs, assuming 1 TPS, which
+// results in 72 txs per checkpoint and 72 * 32 txs per epoch.
+// TODO: We need a test suite to formalize and validate these measurements.
+//
+// The fixed L2 gas consists of:
+// - Tx validation (common checks for both private-only and public txs): 9.86ms
+// - Updating world state (note hash, nullifier, archive trees): 308ms
+// - Simulating and proving the tx-base-private rollup: 29752ms
+// - Simulating and proving the other rollup circuits (assuming 1tps):
+//   - parity-base: 22084ms * 4
+//   - parity-root: 22825ms
+//   - tx-merge: 11892ms * 70
+//   - first-block-root: 17914ms
+//   - checkpoint-root-single-block: 54345ms
+//   - checkpoint-merge: 11884ms * 30
+//   - rollup-root: 94814ms
+// - Cost on L1 (assuming 1tps):
+//   - Propose a checkpoint: 325171 L1 gas -> 4517 per tx
+//   - Prove an epoch: 885319 L1 gas -> 384 per tx
+pub global FIXED_L2_GAS: u32 = 44374 * MANA_PER_MS + (4517 + 384) * L1_TO_L2_GAS_CONVERSION_RATE;
+// The extra cost for a tx with public calls, including:
+// - Tx validation (specific checks for public tx): 10.26ms
+// - Updating world state (public data tree): 419ms
+// - Simulating and proving of the public chonk verifier and public tx base (minus the time for private tx base):
+//   - chonk-verifier-public: 19486ms
+//   - tx-base-public: 59939ms
+pub global FIXED_L2_GAS_FOR_TX_WITH_PUBLIC_CALLS: u32 = 79854 * MANA_PER_MS;
+//
+// === L2 gas for side effects from private-only txs ===
+// The Gas for batch insert note hashes is included in the fixed L2 gas.
 pub global L2_GAS_PER_NOTE_HASH: u32 = 0;
+// The Gas for batch insert nullifiers is included in the fixed L2 gas.
+// The time for validating duplicate nullifiers is negligible.
 pub global L2_GAS_PER_NULLIFIER: u32 = 0;
-// Gas for writing message to L1 portal
-pub global L2_GAS_PER_L2_TO_L1_MSG: u32 = 200; // TODO: Update and explain this.
+// Gas for writing message on L1: 24011 L1 gas for inserting epoch out hash root to the outbox.
+// Assuming 1 l2-to-l1 message per checkpoint.
+pub global L2_GAS_PER_L2_TO_L1_MSG: u32 = 750 * L1_TO_L2_GAS_CONVERSION_RATE;
 // Zero gas because we don't have to hash and validate the private logs
 pub global L2_GAS_PER_PRIVATE_LOG: u32 = 0;
-pub global L2_GAS_PER_CONTRACT_CLASS_LOG: u32 = 0; // TODO: this should be nonzero, because the sequencer is doing work to hash this, as part of tx validation
+// Gas for hashing the full raw log to validate against the log hash in the public inputs during tx validation: 18.78ms
+// 18.78 * MANA_PER_MS / CONTRACT_CLASS_LOG_SIZE_IN_FIELDS
+pub global L2_GAS_PER_CONTRACT_CLASS_LOG_FIELD: u32 = 56;
+// Base cost for each enqueued public call.
+pub global FIXED_AVM_STARTUP_L2_GAS: u32 = 20_000;
+//
+// === L2 gas for AVM opcodes ===
+// 9083 mana/ms (from opcode_spam_proving.md, 70 samples)
 // Note: magic numbers here are derived from each op's AVM circuit trace area
 // https://docs.google.com/spreadsheets/d/1FPyLfJFPOfZTmZC-T6b_4yB5dSrOAofz3dufte23_TA/edit?usp=sharing
 // Some have a "SLOW_SIM_MUL" multiplier because they are slower to simulate and their trace-area-derived gas cost
@@ -1136,7 +1155,7 @@ pub global AVM_EMITNULLIFIER_BASE_L2_GAS: u32 = (516 + L2_GAS_DISTRIBUTED_STORAG
 pub global AVM_L1TOL2MSGEXISTS_BASE_L2_GAS: u32 = 108 * 5; // SLOW_SIM_MUL = 4 (+1 for slow proving)
 pub global AVM_GETCONTRACTINSTANCE_BASE_L2_GAS: u32 = 1527 * 4; // SLOW_SIM_MUL = 4
 pub global AVM_EMITPUBLICLOG_BASE_L2_GAS: u32 = 15;
-pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = (39 + L2_GAS_PER_L2_TO_L1_MSG) * 2; // SLOW_SIM_MUL = 2
+pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = L2_GAS_PER_L2_TO_L1_MSG + (39 * 2); // SLOW_SIM_MUL = 2
 // See PR https://github.com/AztecProtocol/aztec-packages/pull/15495 on why we need this buffer.
 pub global AVM_CALL_BASE_L2_GAS: u32 = 3312 * 3; // SLOW_SIM_MUL = 3
 pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 3312 * 3; // SLOW_SIM_MUL = 3
@@ -1157,16 +1176,39 @@ pub global AVM_BITWISE_DYN_L2_GAS: u32 = 3; // One row per byte
 pub global AVM_EMITPUBLICLOG_DYN_L2_GAS: u32 = 3;
 
 // Base DA Gas
-pub global AVM_EMITNOTEHASH_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
-pub global AVM_EMITNULLIFIER_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
-pub global AVM_SENDL2TOL1MSG_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
-pub global AVM_EMITPUBLICLOG_BASE_DA_GAS: u32 = 2 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE; // length and address
+pub global AVM_EMITNOTEHASH_BASE_DA_GAS: u32 = DA_GAS_PER_FIELD;
+pub global AVM_EMITNULLIFIER_BASE_DA_GAS: u32 = DA_GAS_PER_FIELD;
+pub global AVM_SENDL2TOL1MSG_BASE_DA_GAS: u32 = DA_GAS_PER_FIELD;
+pub global AVM_EMITPUBLICLOG_BASE_DA_GAS: u32 = 2 * DA_GAS_PER_FIELD; // length and address
 
 // Dynamic DA Gas
 // a single increment here corresponds to an entire additional field (hence x32 bytes per field)
-pub global AVM_EMITPUBLICLOG_DYN_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+pub global AVM_EMITPUBLICLOG_DYN_DA_GAS: u32 = DA_GAS_PER_FIELD;
 // Gets multiplied by 1 if actually publishing, 0 if not. 2 because of it being (slot, value) pair
-pub global AVM_SSTORE_DYN_DA_GAS: u32 = 2 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+pub global AVM_SSTORE_DYN_DA_GAS: u32 = 2 * DA_GAS_PER_FIELD;
+
+// The maximum amount of l2 gas that the AVM can process safely.
+pub global AVM_MAX_PROCESSABLE_L2_GAS: u32 =
+    FIXED_L2_GAS + FIXED_L2_GAS_FOR_TX_WITH_PUBLIC_CALLS + 6_000_000; // Arbitrary.
+
+// For gas estimation, we use the theoretical maximum amounts.
+// Since we split in teardown and total, teardown has the theoretical maximum and total is that times 2.
+// After gas estimation, we tune it down to the actual amount necessary.
+// TODO: this is a wallet concern; it should not be part of the protocol
+pub global GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT: u32 = AVM_MAX_PROCESSABLE_L2_GAS;
+pub global GAS_ESTIMATION_L2_GAS_LIMIT: u32 =
+    GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT + AVM_MAX_PROCESSABLE_L2_GAS;
+
+pub global GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
+pub global GAS_ESTIMATION_DA_GAS_LIMIT: u32 =
+    GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT + MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
+
+// Default gas limits. Users should use gas estimation, or they will overpay gas fees.
+// TODO: consider moving to typescript
+pub global DEFAULT_TEARDOWN_L2_GAS_LIMIT: u32 = 1_000_000; // Arbitrary default number.
+pub global DEFAULT_L2_GAS_LIMIT: u32 = AVM_MAX_PROCESSABLE_L2_GAS; // Arbitrary default number.
+pub global DEFAULT_TEARDOWN_DA_GAS_LIMIT: u32 = 1_000_000; // Arbitrary default number.
+pub global DEFAULT_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT; // Arbitrary default number.
 
 // BLOB PREFIXES
 // Used when decoding blobs of tightly packed effects
@@ -1360,5 +1402,4 @@ mod test {
     fn validate_max_eth_address_value_negative() {
         (MAX_ETH_ADDRESS_VALUE + 1).assert_max_bit_size::<MAX_ETH_ADDRESS_BIT_SIZE>();
     }
-
 }
