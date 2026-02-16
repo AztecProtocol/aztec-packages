@@ -303,8 +303,7 @@ library EpochProofLib {
     bytes32 providedAttestationsHash = keccak256(abi.encode(_attestations));
     require(providedAttestationsHash == checkpointLog.attestationsHash, Errors.Rollup__InvalidAttestations());
 
-    // Get the slot and epoch for the last checkpoint
-    Slot slot = checkpointLog.slotNumber.decompress();
+    // Get the epoch for the last checkpoint
     Epoch epoch = STFLib.getEpochForCheckpoint(_endCheckpointNumber);
 
     // Check if this is an escape hatch epoch - skip attestation verification if so
@@ -322,7 +321,7 @@ library EpochProofLib {
       }
     }
 
-    ValidatorSelectionLib.verifyAttestations(slot, epoch, _attestations, checkpointLog.payloadDigest);
+    ValidatorSelectionLib.verifyAttestations(epoch, _attestations, checkpointLog.payloadDigest);
   }
 
   /**

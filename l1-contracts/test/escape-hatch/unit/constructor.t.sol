@@ -127,6 +127,34 @@ contract EscapeHatchConstructorTest is EscapeHatchBase {
     _;
   }
 
+  function test_WhenBOND_SIZEEQ0(uint256 _lagInHatches, uint256 _activeDuration, uint256 _frequency)
+    external
+    whenLAG_IN_HATCHESGE1(_lagInHatches)
+    whenACTIVE_DURATIONGE2(_activeDuration)
+    whenFREQUENCYGTLAG_IN_EPOCHS_FOR_SET_SIZE(_frequency)
+    whenFREQUENCYGTACTIVE_DURATION(_frequency)
+  {
+    // it should revert {EscapeHatch__InvalidConfiguration}
+    vm.expectRevert(Errors.EscapeHatch__InvalidConfiguration.selector);
+    new EscapeHatch(
+      address(rollup),
+      address(bondToken),
+      0,
+      0,
+      0,
+      fuzzFrequency,
+      fuzzActiveDuration,
+      fuzzLagInHatches,
+      DEFAULT_PROPOSING_EXIT_DELAY
+    );
+  }
+
+  modifier whenBOND_SIZEGT0(uint96 _bondSize) {
+    // Leave room for punishment/tax > bondSize tests
+    fuzzBondSize = uint96(bound(_bondSize, 1, type(uint96).max - 1));
+    _;
+  }
+
   function test_WhenFAILED_HATCH_PUNISHMENTGTBOND_SIZE(
     uint256 _lagInHatches,
     uint256 _activeDuration,
@@ -139,16 +167,16 @@ contract EscapeHatchConstructorTest is EscapeHatchBase {
     whenACTIVE_DURATIONGE2(_activeDuration)
     whenFREQUENCYGTLAG_IN_EPOCHS_FOR_SET_SIZE(_frequency)
     whenFREQUENCYGTACTIVE_DURATION(_frequency)
+    whenBOND_SIZEGT0(_bondSize)
   {
     // it should revert {EscapeHatch__InvalidConfiguration}
-    _bondSize = uint96(bound(_bondSize, 1, type(uint96).max - 1));
-    _punishment = uint96(bound(_punishment, uint256(_bondSize) + 1, type(uint96).max));
+    _punishment = uint96(bound(_punishment, uint256(fuzzBondSize) + 1, type(uint96).max));
 
     vm.expectRevert(Errors.EscapeHatch__InvalidConfiguration.selector);
     new EscapeHatch(
       address(rollup),
       address(bondToken),
-      _bondSize,
+      fuzzBondSize,
       0,
       _punishment,
       fuzzFrequency,
@@ -158,9 +186,7 @@ contract EscapeHatchConstructorTest is EscapeHatchBase {
     );
   }
 
-  modifier whenFAILED_HATCH_PUNISHMENTLEBOND_SIZE(uint96 _bondSize, uint96 _punishment) {
-    // Leave room for tax > bondSize test
-    fuzzBondSize = uint96(bound(_bondSize, 1, type(uint96).max - 1));
+  modifier whenFAILED_HATCH_PUNISHMENTLEBOND_SIZE(uint96 _punishment) {
     fuzzFailedHatchPunishment = uint96(bound(_punishment, 0, fuzzBondSize));
     _;
   }
@@ -178,7 +204,8 @@ contract EscapeHatchConstructorTest is EscapeHatchBase {
     whenACTIVE_DURATIONGE2(_activeDuration)
     whenFREQUENCYGTLAG_IN_EPOCHS_FOR_SET_SIZE(_frequency)
     whenFREQUENCYGTACTIVE_DURATION(_frequency)
-    whenFAILED_HATCH_PUNISHMENTLEBOND_SIZE(_bondSize, _punishment)
+    whenBOND_SIZEGT0(_bondSize)
+    whenFAILED_HATCH_PUNISHMENTLEBOND_SIZE(_punishment)
   {
     // it should revert {EscapeHatch__InvalidConfiguration}
     _tax = uint96(bound(_tax, uint256(fuzzBondSize) + 1, type(uint96).max));
@@ -216,7 +243,8 @@ contract EscapeHatchConstructorTest is EscapeHatchBase {
     whenACTIVE_DURATIONGE2(_activeDuration)
     whenFREQUENCYGTLAG_IN_EPOCHS_FOR_SET_SIZE(_frequency)
     whenFREQUENCYGTACTIVE_DURATION(_frequency)
-    whenFAILED_HATCH_PUNISHMENTLEBOND_SIZE(_bondSize, _punishment)
+    whenBOND_SIZEGT0(_bondSize)
+    whenFAILED_HATCH_PUNISHMENTLEBOND_SIZE(_punishment)
     whenWITHDRAWAL_TAXLEBOND_SIZE(_tax)
   {
     // it should revert {EscapeHatch__InvalidConfiguration}
@@ -250,7 +278,8 @@ contract EscapeHatchConstructorTest is EscapeHatchBase {
     whenACTIVE_DURATIONGE2(_activeDuration)
     whenFREQUENCYGTLAG_IN_EPOCHS_FOR_SET_SIZE(_frequency)
     whenFREQUENCYGTACTIVE_DURATION(_frequency)
-    whenFAILED_HATCH_PUNISHMENTLEBOND_SIZE(_bondSize, _punishment)
+    whenBOND_SIZEGT0(_bondSize)
+    whenFAILED_HATCH_PUNISHMENTLEBOND_SIZE(_punishment)
     whenWITHDRAWAL_TAXLEBOND_SIZE(_tax)
   {
     // it should set ROLLUP immutable
