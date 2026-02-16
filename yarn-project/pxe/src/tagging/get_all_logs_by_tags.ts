@@ -1,6 +1,6 @@
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockHash } from '@aztec/stdlib/block';
-import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
+import { MAX_LOGS_PER_TAG, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/api-limit';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 
@@ -32,6 +32,26 @@ async function getAllPages<T>(numTags: number, fetchPage: (page: number) => Prom
 }
 
 /**
+ * Splits tags into chunks of MAX_RPC_LEN, fetches logs for each chunk using getAllPages, then stitches the results
+ * back into a single array preserving the original tag order.
+ */
+async function getAllPagesInBatches<Tag, T>(
+  tags: Tag[],
+  fetchAllPagesForBatch: (batch: Tag[]) => Promise<T[][]>,
+): Promise<T[][]> {
+  if (tags.length <= MAX_RPC_LEN) {
+    return fetchAllPagesForBatch(tags);
+  }
+
+  const batches: Tag[][] = [];
+  for (let i = 0; i < tags.length; i += MAX_RPC_LEN) {
+    batches.push(tags.slice(i, i + MAX_RPC_LEN));
+  }
+  const batchResults = await Promise.all(batches.map(fetchAllPagesForBatch));
+  return batchResults.flat();
+}
+
+/**
  * Fetches all private logs for the given tags, automatically paginating through all pages.
  * @param aztecNode - The Aztec node to query.
  * @param tags - The siloed tags to search for.
@@ -44,7 +64,9 @@ export function getAllPrivateLogsByTags(
   tags: SiloedTag[],
   anchorBlockHash: BlockHash,
 ): Promise<TxScopedL2Log[][]> {
-  return getAllPages(tags.length, page => aztecNode.getPrivateLogsByTags(tags, page, anchorBlockHash));
+  return getAllPagesInBatches(tags, batch =>
+    getAllPages(batch.length, page => aztecNode.getPrivateLogsByTags(batch, page, anchorBlockHash)),
+  );
 }
 
 /**
@@ -62,7 +84,9 @@ export function getAllPublicLogsByTagsFromContract(
   tags: Tag[],
   anchorBlockHash: BlockHash,
 ): Promise<TxScopedL2Log[][]> {
-  return getAllPages(tags.length, page =>
-    aztecNode.getPublicLogsByTagsFromContract(contractAddress, tags, page, anchorBlockHash),
+  return getAllPagesInBatches(tags, batch =>
+    getAllPages(batch.length, page =>
+      aztecNode.getPublicLogsByTagsFromContract(contractAddress, batch, page, anchorBlockHash),
+    ),
   );
 }
