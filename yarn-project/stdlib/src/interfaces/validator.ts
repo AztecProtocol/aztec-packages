@@ -15,12 +15,12 @@ import type {
 } from '@aztec/stdlib/p2p';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
-import { type ValidatorHASignerConfig, ValidatorHASignerConfigSchema } from '@aztec/validator-ha-signer/config';
 
 import type { PeerId } from '@libp2p/interface';
 import { z } from 'zod';
 
 import type { CommitteeAttestationsAndSigners } from '../block/index.js';
+import { type ValidatorHASignerConfig, ValidatorHASignerConfigSchema } from '../ha-signing/index.js';
 import { AllowedElementSchema } from './allowed_element.js';
 
 /**

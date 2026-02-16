@@ -6,8 +6,8 @@ import {
   secretValueConfigHelper,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { validatorHASignerConfigMappings } from '@aztec/stdlib/ha-signing';
 import type { ValidatorClientConfig } from '@aztec/stdlib/interfaces/server';
-import { validatorHASignerConfigMappings } from '@aztec/validator-ha-signer/config';
 
 export type { ValidatorClientConfig };
 

@@ -2144,7 +2144,6 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi"
-    "@aztec/validator-ha-signer": "workspace:^"
     "@google-cloud/storage": "npm:^7.15.0"
     "@jest/expect": "npm:^30.0.0"
     "@jest/globals": "npm:^30.0.0"
@@ -2287,6 +2286,8 @@ __metadata:
   dependencies:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
+    "@aztec/telemetry-client": "workspace:^"
     "@electric-sql/pglite": "npm:^0.3.14"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"

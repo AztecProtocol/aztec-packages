@@ -218,7 +218,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         ...config,
         maxStuckDutiesAgeMs: config.maxStuckDutiesAgeMs ?? epochCache.getL1Constants().slotDuration * 2 * 1000,
       };
-      const { signer } = await createHASigner(haConfig);
+      const { signer } = await createHASigner(haConfig, { telemetryClient: telemetry, dateProvider });
       validatorKeyStore = new HAKeyStore(validatorKeyStore, signer);
     }
 
