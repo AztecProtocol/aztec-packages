@@ -80,6 +80,12 @@ aztec-wallet create-account \
 The first transaction will take longer as it downloads proving keys. If you see `Timeout awaiting isMined`, the transaction is still processing - this is normal on devnet.
 :::
 
+If this happens, check the transaction against the devnet node:
+
+```bash
+aztec-wallet get-tx --node-url $NODE_URL <tx_hash>
+```
+
 ### Step 3: Deploy and interact with contracts
 
 Deploy a token contract as an example:
