@@ -45,9 +45,19 @@ import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { L1PublishCheckpointStats } from '@aztec/stdlib/stats';
 import { type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
-import { type StateOverride, type TransactionReceipt, type TypedDataDefinition, encodeFunctionData, toHex } from 'viem';
+import {
+  type Hex,
+  type StateOverride,
+  type TransactionReceipt,
+  type TypedDataDefinition,
+  encodeFunctionData,
+  keccak256,
+  multicall3Abi,
+  toHex,
+} from 'viem';
 
 import type { SequencerPublisherConfig } from './config.js';
+import { type FailedL1Tx, type L1TxFailedStore, createL1TxFailedStore } from './l1_tx_failed_store/index.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 
 /** Arguments to the process method of the rollup contract */
@@ -109,6 +119,7 @@ export class SequencerPublisher {
   private interrupted = false;
   private metrics: SequencerPublisherMetrics;
   public epochCache: EpochCache;
+  private failedTxStore?: Promise<L1TxFailedStore | undefined>;
 
   protected governanceLog = createLogger('sequencer:publisher:governance');
   protected slashingLog = createLogger('sequencer:publisher:slashing');
@@ -149,7 +160,7 @@ export class SequencerPublisher {
   protected requests: RequestWithExpiry[] = [];
 
   constructor(
-    private config: Pick<SequencerPublisherConfig, 'fishermanMode'> &
+    private config: Pick<SequencerPublisherConfig, 'fishermanMode' | 'l1TxFailedStore'> &
       Pick<L1ContractsConfig, 'ethereumSlotDuration'> & { l1ChainId: number },
     deps: {
       telemetry?: TelemetryClient;
@@ -205,6 +216,31 @@ export class SequencerPublisher {
       this.rollupContract,
       createLogger('sequencer:publisher:price-oracle'),
     );
+
+    // Initialize failed L1 tx store (optional, for test networks)
+    this.failedTxStore = createL1TxFailedStore(config.l1TxFailedStore, this.log);
+  }
+
+  /**
+   * Backs up a failed L1 transaction to the configured store for debugging.
+   * Does nothing if no store is configured.
+   */
+  private backupFailedTx(failedTx: Omit<FailedL1Tx, 'timestamp'>): void {
+    if (!this.failedTxStore) {
+      return;
+    }
+
+    const tx: FailedL1Tx = {
+      ...failedTx,
+      timestamp: Date.now(),
+    };
+
+    // Fire and forget - don't block on backup
+    void this.failedTxStore
+      .then(store => store?.saveFailedTx(tx))
+      .catch(err => {
+        this.log.warn(`Failed to backup failed L1 tx to store`, err);
+      });
   }
 
   public getRollupContract(): RollupContract {
@@ -386,6 +422,21 @@ export class SequencerPublisher {
     validRequests.sort((a, b) => compareActions(a.action, b.action));
 
     try {
+      // Capture context for failed tx backup before sending
+      const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
+      const multicallData = encodeFunctionData({
+        abi: multicall3Abi,
+        functionName: 'aggregate3',
+        args: [
+          validRequests.map(r => ({
+            target: r.request.to!,
+            callData: r.request.data!,
+            allowFailure: true,
+          })),
+        ],
+      });
+      const blobDataHex = blobConfig?.blobs?.map(b => toHex(b)) as Hex[] | undefined;
+
       this.log.debug('Forwarding transactions', {
         validRequests: validRequests.map(request => request.action),
         txConfig,
@@ -398,7 +449,12 @@ export class SequencerPublisher {
         this.rollupContract.address,
         this.log,
       );
-      const { successfulActions = [], failedActions = [] } = this.callbackBundledTransactions(validRequests, result);
+      const txContext = { multicallData, blobData: blobDataHex, l1BlockNumber };
+      const { successfulActions = [], failedActions = [] } = this.callbackBundledTransactions(
+        validRequests,
+        result,
+        txContext,
+      );
       return { result, expiredActions, sentActions: validActions, successfulActions, failedActions };
     } catch (err) {
       const viemError = formatViemError(err);
@@ -418,11 +474,25 @@ export class SequencerPublisher {
 
   private callbackBundledTransactions(
     requests: RequestWithExpiry[],
-    result?: { receipt: TransactionReceipt } | FormattedViemError,
+    result: { receipt: TransactionReceipt; errorMsg?: string } | FormattedViemError | undefined,
+    txContext: { multicallData: Hex; blobData?: Hex[]; l1BlockNumber: bigint },
   ) {
     const actionsListStr = requests.map(r => r.action).join(', ');
     if (result instanceof FormattedViemError) {
       this.log.error(`Failed to publish bundled transactions (${actionsListStr})`, result);
+      this.backupFailedTx({
+        id: keccak256(txContext.multicallData),
+        failureType: 'send-error',
+        request: { to: MULTI_CALL_3_ADDRESS, data: txContext.multicallData },
+        blobData: txContext.blobData,
+        l1BlockNumber: txContext.l1BlockNumber.toString(),
+        error: { message: result.message, name: result.name },
+        context: {
+          actions: requests.map(r => r.action),
+          requests: requests.map(r => ({ action: r.action, to: r.request.to! as Hex, data: r.request.data! })),
+          sender: this.getSenderAddress().toString(),
+        },
+      });
       return { failedActions: requests.map(r => r.action) };
     } else {
       this.log.verbose(`Published bundled transactions (${actionsListStr})`, { result, requests });
@@ -434,6 +504,30 @@ export class SequencerPublisher {
         } else {
           failedActions.push(request.action);
         }
+      }
+      // Single backup for the whole reverted tx
+      if (failedActions.length > 0 && result?.receipt?.status === 'reverted') {
+        this.backupFailedTx({
+          id: result.receipt.transactionHash,
+          failureType: 'revert',
+          request: { to: MULTI_CALL_3_ADDRESS, data: txContext.multicallData },
+          blobData: txContext.blobData,
+          l1BlockNumber: result.receipt.blockNumber.toString(),
+          receipt: {
+            transactionHash: result.receipt.transactionHash,
+            blockNumber: result.receipt.blockNumber.toString(),
+            gasUsed: (result.receipt.gasUsed ?? 0n).toString(),
+            status: 'reverted',
+          },
+          error: { message: result.errorMsg ?? 'Transaction reverted' },
+          context: {
+            actions: failedActions,
+            requests: requests
+              .filter(r => failedActions.includes(r.action))
+              .map(r => ({ action: r.action, to: r.request.to! as Hex, data: r.request.data! })),
+            sender: this.getSenderAddress().toString(),
+          },
+        });
       }
       return { successfulActions, failedActions };
     }
@@ -546,6 +640,8 @@ export class SequencerPublisher {
     const request = this.buildInvalidateCheckpointRequest(validationResult);
     this.log.debug(`Simulating invalidate checkpoint ${checkpointNumber}`, { ...logData, request });
 
+    const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
+
     try {
       const { gasUsed } = await this.l1TxUtils.simulate(
         request,
@@ -597,6 +693,18 @@ export class SequencerPublisher {
 
       // Otherwise, throw. We cannot build the next checkpoint if we cannot invalidate the previous one.
       this.log.error(`Simulation for invalidate checkpoint ${checkpointNumber} failed`, viemError, logData);
+      this.backupFailedTx({
+        id: keccak256(request.data!),
+        failureType: 'simulation',
+        request: { to: request.to!, data: request.data!, value: request.value?.toString() },
+        l1BlockNumber: l1BlockNumber.toString(),
+        error: { message: viemError.message, name: viemError.name },
+        context: {
+          actions: [`invalidate-${reason}`],
+          checkpointNumber,
+          sender: this.getSenderAddress().toString(),
+        },
+      });
       throw new Error(`Failed to simulate invalidate checkpoint ${checkpointNumber}`, { cause: viemError });
     }
   }
@@ -744,11 +852,26 @@ export class SequencerPublisher {
       lastValidL2Slot: slotNumber,
     });
 
+    const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
+
     try {
       await this.l1TxUtils.simulate(request, { time: timestamp }, [], mergeAbis([request.abi ?? [], ErrorsAbi]));
       this.log.debug(`Simulation for ${action} at slot ${slotNumber} succeeded`, { request });
     } catch (err) {
-      this.log.error(`Failed simulation for ${action} at slot ${slotNumber} (enqueuing the action anyway)`, err);
+      const viemError = formatViemError(err);
+      this.log.error(`Failed simulation for ${action} at slot ${slotNumber} (enqueuing the action anyway)`, viemError);
+      this.backupFailedTx({
+        id: keccak256(request.data!),
+        failureType: 'simulation',
+        request: { to: request.to!, data: request.data!, value: request.value?.toString() },
+        l1BlockNumber: l1BlockNumber.toString(),
+        error: { message: viemError.message, name: viemError.name },
+        context: {
+          actions: [action],
+          slot: slotNumber,
+          sender: this.getSenderAddress().toString(),
+        },
+      });
       // Yes, we enqueue the request anyway, in case there was a bug with the simulation itself
     }
 
@@ -1044,6 +1167,8 @@ export class SequencerPublisher {
 
     this.log.debug(`Simulating ${action} for slot ${slotNumber}`, logData);
 
+    const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
+
     let gasUsed: bigint;
     const simulateAbi = mergeAbis([request.abi ?? [], ErrorsAbi]);
     try {
@@ -1052,6 +1177,19 @@ export class SequencerPublisher {
     } catch (err) {
       const viemError = formatViemError(err, simulateAbi);
       this.log.error(`Simulation for ${action} at ${slotNumber} failed`, viemError, logData);
+
+      this.backupFailedTx({
+        id: keccak256(request.data!),
+        failureType: 'simulation',
+        request: { to: request.to!, data: request.data!, value: request.value?.toString() },
+        l1BlockNumber: l1BlockNumber.toString(),
+        error: { message: viemError.message, name: viemError.name },
+        context: {
+          actions: [action],
+          slot: slotNumber,
+          sender: this.getSenderAddress().toString(),
+        },
+      });
 
       return false;
     }
@@ -1136,9 +1274,27 @@ export class SequencerPublisher {
             kzg,
           },
         )
-        .catch(err => {
-          const { message, metaMessages } = formatViemError(err);
-          this.log.error(`Failed to validate blobs`, message, { metaMessages });
+        .catch(async err => {
+          const viemError = formatViemError(err);
+          this.log.error(`Failed to validate blobs`, viemError.message, { metaMessages: viemError.metaMessages });
+          const validateBlobsData = encodeFunctionData({
+            abi: RollupAbi,
+            functionName: 'validateBlobs',
+            args: [blobInput],
+          });
+          const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
+          this.backupFailedTx({
+            id: keccak256(validateBlobsData),
+            failureType: 'simulation',
+            request: { to: this.rollupContract.address as Hex, data: validateBlobsData },
+            blobData: encodedData.blobs.map(b => toHex(b.data)) as Hex[],
+            l1BlockNumber: l1BlockNumber.toString(),
+            error: { message: viemError.message, name: viemError.name },
+            context: {
+              actions: ['validate-blobs'],
+              sender: this.getSenderAddress().toString(),
+            },
+          });
           throw new Error('Failed to validate blobs');
         });
     }
@@ -1217,6 +1373,8 @@ export class SequencerPublisher {
       });
     }
 
+    const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
+
     const simulationResult = await this.l1TxUtils
       .simulate(
         {
@@ -1250,6 +1408,18 @@ export class SequencerPublisher {
           };
         }
         this.log.error(`Failed to simulate propose tx`, viemError);
+        this.backupFailedTx({
+          id: keccak256(rollupData),
+          failureType: 'simulation',
+          request: { to: this.rollupContract.address, data: rollupData },
+          l1BlockNumber: l1BlockNumber.toString(),
+          error: { message: viemError.message, name: viemError.name },
+          context: {
+            actions: ['propose'],
+            slot: Number(args[0].header.slotNumber),
+            sender: this.getSenderAddress().toString(),
+          },
+        });
         throw err;
       });
 
