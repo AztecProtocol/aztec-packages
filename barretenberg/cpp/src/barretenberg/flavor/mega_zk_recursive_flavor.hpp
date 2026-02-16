@@ -11,18 +11,9 @@
 namespace bb {
 
 /**
- * @brief The recursive counterpart to the "native" MegaZKFlavor.
- * @details This flavor can be used to instantiate a recursive Mega Honk verifier for a proof created using the
- * MegaZKFlavor. It is similar in structure to its native counterpart with two main differences: 1) the
- * curve types are stdlib types (e.g. field_t instead of field) and 2) it does not specify any Prover related types
- * (e.g. Polynomial, ExtendedEdges, etc.) since we do not emulate prover computation in circuits, i.e. it only makes
- * sense to instantiate a Verifier with this flavor.
- *
- * @note Unlike conventional flavors, "recursive" flavors are templated by a builder (much like native vs stdlib types).
- * This is because the flavor itself determines the details of the underlying verifier algorithm (i.e. the set of
- * relations), while the Builder determines the arithmetization of that algorithm into a circuit.
- *
- * @tparam BuilderType Determines the arithmetization of the verifier circuit defined based on this flavor.
+ * @brief The recursive counterpart to MegaZKFlavor.
+ * @details Adds ZK overrides (HasZK, BATCHED_RELATION_PARTIAL_LENGTH, AllValues with masking entities)
+ * on top of MegaRecursiveFlavor_.
  */
 template <typename BuilderType> class MegaZKRecursiveFlavor_ : public MegaRecursiveFlavor_<BuilderType> {
   public:
@@ -38,9 +29,6 @@ template <typename BuilderType> class MegaZKRecursiveFlavor_ : public MegaRecurs
     static constexpr size_t NUM_WITNESS_ENTITIES = NativeFlavor::NUM_WITNESS_ENTITIES;
     static constexpr size_t NUM_ALL_ENTITIES = NativeFlavor::NUM_ALL_ENTITIES;
 
-    // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
-    // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
-    // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
 
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)

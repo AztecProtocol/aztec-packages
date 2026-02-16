@@ -11,10 +11,9 @@
 
 namespace bb {
 
-/*!
-\brief Child class of MegaFlavor that runs with ZK Sumcheck.
- See more in \ref docs/src/sumcheck-outline.md "Sumcheck Outline".
-*/
+/**
+ * @brief Child class of MegaFlavor that runs with ZK Sumcheck.
+ */
 class MegaZKFlavor : public bb::MegaFlavor {
   public:
     // MegaZK is only used in production to prove the Hiding Kernel

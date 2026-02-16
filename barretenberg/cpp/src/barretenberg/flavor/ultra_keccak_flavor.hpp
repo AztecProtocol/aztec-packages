@@ -4,7 +4,6 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
-// TODO: the only change should be making honk generic over the transcript
 #pragma once
 #include "barretenberg/flavor/ultra_flavor.hpp"
 

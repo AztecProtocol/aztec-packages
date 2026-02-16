@@ -39,8 +39,6 @@ class MegaFlavor {
     using PCS = KZG<Curve>;
     using Polynomial = bb::Polynomial<FF>;
     using CommitmentKey = bb::CommitmentKey<Curve>;
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
-    using TraceBlocks = MegaExecutionTraceBlocks;
     using Codec = FrCodec;
     using HashFunction = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
     using Transcript = BaseTranscript<Codec, HashFunction>;
@@ -163,9 +161,6 @@ class MegaFlavor {
         auto get_tables() { return RefArray{ table_1, table_2, table_3, table_4 }; };
     };
 
-    // Mega needs to expose more public classes than most flavors due to MegaRecursive reuse, but these
-    // are internal:
-
     // WireEntities for basic witness entities
     template <typename DataType> class WireEntities {
       public:
@@ -275,15 +270,13 @@ class MegaFlavor {
                               z_perm_shift) // column 4
     };
 
-  public:
     /**
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
      * sumcheck) in this Honk variant along with particular subsets of interest
      * @details Used to build containers for: the prover's polynomial during sumcheck; the sumcheck's folded
-     * polynomials; the univariates consturcted during during sumcheck; the evaluations produced by sumcheck.
+     * polynomials; the univariates constructed during sumcheck; the evaluations produced by sumcheck.
      *
-     * Symbolically we have: AllEntities = PrecomputedEntities + WitnessEntities + "ShiftedEntities". It could be
-     * implemented as such, but we have this now.
+     * Symbolically we have: AllEntities = MaskingEntities + PrecomputedEntities + WitnessEntities + ShiftedEntities.
      */
     template <typename DataType, bool HasZK_ = HasZK>
     class AllEntities_ : public MaskingEntities<DataType, HasZK_>,
@@ -352,13 +345,8 @@ class MegaFlavor {
     using PrecomputedData = PrecomputedData_<Polynomial, NUM_PRECOMPUTED_ENTITIES>;
 
     /**
-     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witness)
-     * polynomials used by the verifier.
-     *
-     * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to resolve
-     * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
-     * circuits.
-     * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/876)
+     * @brief The verification key stores commitments to the precomputed (non-witness) polynomials used by the
+     * verifier.
      */
     using VerificationKey = NativeVerificationKey_<PrecomputedEntities<Commitment>, Codec, HashFunction, CommitmentKey>;
 
