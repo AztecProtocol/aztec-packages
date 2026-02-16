@@ -48,7 +48,7 @@ This will install the following tools:
 Once these have been installed, to start the local network, run:
 
 ```bash
-aztec start --local-network
+aztec start --sandbox
 ```
 
 **Congratulations, you have just installed and run the Aztec local network!**
