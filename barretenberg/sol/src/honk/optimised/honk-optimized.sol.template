@@ -17,8 +17,8 @@ uint256 constant LOG_N = 15;
 uint256 constant NUMBER_PUBLIC_INPUTS = 12;
 uint256 constant REAL_NUMBER_PUBLIC_INPUTS = 12 - 8;
 uint256 constant PUBLIC_INPUTS_OFFSET = 1;
-// LOG_N * 8
-uint256 constant NUMBER_OF_BARYCENTRIC_INVERSES = 120;
+// 120 barycentric + 1 PI delta denominator
+uint256 constant NUMBER_OF_BARYCENTRIC_INVERSES = 121;
 
 contract BlakeOptHonkVerifier is IVerifier {
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -1570,24 +1570,8 @@ contract BlakeOptHonkVerifier is IVerifier {
                 mstore(PUBLIC_INPUTS_DELTA_NUMERATOR_CHALLENGE, numerator_value)
                 mstore(PUBLIC_INPUTS_DELTA_DENOMINATOR_CHALLENGE, denominator_value)
 
-                // TODO: batch with barycentric inverses
-                let dom_inverse := 0
-                {
-                    mstore(0, 0x20)
-                    mstore(0x20, 0x20)
-                    mstore(0x40, 0x20)
-                    mstore(0x60, denominator_value)
-                    mstore(0x80, P_SUB_2)
-                    mstore(0xa0, p)
-                    if iszero(staticcall(gas(), 0x05, 0x00, 0xc0, 0x00, 0x20)) {
-                        mstore(0x00, MODEXP_FAILED_SELECTOR)
-                        revert(0x00, 0x04)
-                    }
-                    // 1 / (0 . 1 . 2 . 3 . 4 . 5 . 6 . 7)
-                    dom_inverse := mload(0x00)
-                }
-                // Calculate the public inputs delta
-                mstore(PUBLIC_INPUTS_DELTA_NUMERATOR_CHALLENGE, mulmod(numerator_value, dom_inverse, p))
+                // PI delta denominator inversion is deferred to the barycentric
+                // batch inversion below.
             }
             /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
             /*             PUBLIC INPUT DELTA - complete                  */
@@ -1662,7 +1646,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                             let round_challenge := mload(round_challenge_off)
                             let bary_lagrange_denominator_off := BARYCENTRIC_LAGRANGE_DENOMINATOR_0_LOC
 
-                            // Unrolled as this loop as it only has 8 iterations
+                            // Unrolled as this loop as it only has 8 iterations - somehow this saves >10k gas
                             {
                                 let bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
                                 let pre_inv :=
@@ -1768,6 +1752,14 @@ contract BlakeOptHonkVerifier is IVerifier {
                         }
                     }
 
+                    // Append PI delta denominator to the batch inversion (Optimization 4)
+                    {
+                        let pi_denom := mload(PUBLIC_INPUTS_DELTA_DENOMINATOR_CHALLENGE)
+                        temp := add(temp, 0x20)
+                        mstore(temp, accumulator)
+                        accumulator := mulmod(accumulator, pi_denom, p)
+                    }
+
                     // Invert all of the barycentric denominators as a single batch
                     {
                         {
@@ -1783,6 +1775,19 @@ contract BlakeOptHonkVerifier is IVerifier {
                             }
 
                             accumulator := mload(0x00)
+                        }
+
+                        // Extract PI delta denominator inverse from the batch (Optimization 4)
+                        {
+                            let pi_delta_inv := mulmod(accumulator, mload(temp), p)
+                            accumulator := mulmod(accumulator, mload(PUBLIC_INPUTS_DELTA_DENOMINATOR_CHALLENGE), p)
+                            temp := sub(temp, 0x20)
+
+                            // Finalize: public_inputs_delta = numerator * (1/denominator)
+                            mstore(
+                                PUBLIC_INPUTS_DELTA_NUMERATOR_CHALLENGE,
+                                mulmod(mload(PUBLIC_INPUTS_DELTA_NUMERATOR_CHALLENGE), pi_delta_inv, p)
+                            )
                         }
 
                         // Normalise as last loop will have incremented the offset
