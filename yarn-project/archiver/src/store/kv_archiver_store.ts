@@ -13,7 +13,7 @@ import {
   L2Block,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
-import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import type { CheckpointData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
   ContractDataSource,
@@ -31,7 +31,7 @@ import type { UInt64 } from '@aztec/stdlib/types';
 import { join } from 'path';
 
 import type { InboxMessage } from '../structs/inbox_message.js';
-import { BlockStore, type CheckpointData, type RemoveCheckpointsResult } from './block_store.js';
+import { BlockStore, type RemoveCheckpointsResult } from './block_store.js';
 import { ContractClassStore } from './contract_class_store.js';
 import { ContractInstanceStore } from './contract_instance_store.js';
 import { LogStore } from './log_store.js';
@@ -643,6 +643,11 @@ export class KVArchiverDataStore implements ContractDataSource {
    */
   getCheckpointData(checkpointNumber: CheckpointNumber): Promise<CheckpointData | undefined> {
     return this.#blockStore.getCheckpointData(checkpointNumber);
+  }
+
+  /** Returns checkpoint data for all checkpoints whose slot falls within the given range (inclusive). */
+  getCheckpointDataForSlotRange(startSlot: SlotNumber, endSlot: SlotNumber): Promise<CheckpointData[]> {
+    return this.#blockStore.getCheckpointDataForSlotRange(startSlot, endSlot);
   }
 
   /**

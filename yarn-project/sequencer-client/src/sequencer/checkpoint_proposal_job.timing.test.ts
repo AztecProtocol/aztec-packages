@@ -422,7 +422,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue(Array(4).fill(Fr.ZERO));
 
     l2BlockSource = mock<L2BlockSource>();
-    l2BlockSource.getCheckpointsForEpoch.mockResolvedValue([]);
+    l2BlockSource.getCheckpointsDataForEpoch.mockResolvedValue([]);
 
     blockSink = mock<L2BlockSink>();
     blockSink.addBlock.mockResolvedValue(undefined);

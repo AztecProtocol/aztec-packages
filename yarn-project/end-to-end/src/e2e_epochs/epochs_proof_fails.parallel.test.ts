@@ -56,13 +56,11 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     // Here we cause a re-org by not publishing the proof for epoch 0 until after the end of epoch 1
     // The proof will be rejected and a re-org will take place
 
-    // Ensure that there was at least one block mined in epoch 0, otherwise this test fails, since it
+    // Ensure that there was at least one checkpoint mined in epoch 0, otherwise this test fails, since it
     // relies on the proof for epoch zero not landing in time, which will never happen if there is
-    // nothing to prove on epoch zero. This is flakey because startup times change continuously.
-    // Also note that there should always be at least a checkpoint before we start since setup
-    // enforces it (search the comment "waiting for an empty block 1 to be mined" in `setup`).
-    const firstCheckpointNumber = (await test.monitor.run()).checkpointNumber;
-    expect(firstCheckpointNumber).toBeGreaterThanOrEqual(CheckpointNumber(1));
+    // nothing to prove on epoch zero. We need to wait for the checkpoint L1 tx to be mined, not just
+    // for the block to appear in the node's world state, since the propose tx may still be in-flight.
+    await test.waitUntilCheckpointNumber(CheckpointNumber(1));
     const firstCheckpoint = await rollup.getCheckpoint(CheckpointNumber(1));
     const firstCheckpointEpoch = getEpochAtSlot(firstCheckpoint.slotNumber, test.constants);
     expect(firstCheckpointEpoch).toEqual(EpochNumber(0));
