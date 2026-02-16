@@ -4199,8 +4199,11 @@ contract BlakeOptHonkVerifier is IVerifier {
                 )
 
                 // Accumulator = accumulator + scalar[27] * vk[26]
+                // optimization - Lagrange first is always G - (1,2)
+                //                later on we are expected to multiply constant_term_accumulator by G - (1,2)
+                //                here we can add scalars together and skip a ecMul + ecAdd for each
                 mcopy(G1_LOCATION, LAGRANGE_FIRST_X_LOC, 0x40)
-                mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_27_LOC))
+                mstore(SCALAR_LOCATION, addmod(constant_term_acc, mload(BATCH_SCALAR_27_LOC), p))
                 precomp_success_flag := and(
                     precomp_success_flag,
                     staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40)
@@ -4500,20 +4503,6 @@ contract BlakeOptHonkVerifier is IVerifier {
                 }
 
                 {
-                    // Accumulate the constant term accumulator
-                    // Accumulator = accumulator + 1 * costant term accumulator
-                    mstore(G1_LOCATION, 0x01)
-                    mstore(G1_Y_LOCATION, 0x02)
-                    mstore(SCALAR_LOCATION, constant_term_acc)
-                    precomp_success_flag := and(
-                        precomp_success_flag,
-                        staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40)
-                    )
-                    precomp_success_flag := and(
-                        precomp_success_flag,
-                        staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
-                    )
-
                     // Accumlate final quotient commitment into shplonk check
                     // Accumulator = accumulator + shplonkZ * quotient commitment
                     mcopy(G1_LOCATION, KZG_QUOTIENT_X_LOC, 0x40)
