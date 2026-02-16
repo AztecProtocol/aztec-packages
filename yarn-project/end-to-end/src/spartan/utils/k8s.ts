@@ -522,6 +522,14 @@ export function createResilientPrometheusConnection(
   return { connect, runAlertCheck };
 }
 
+/** Scales the prover-agent Deployment to the given number of replicas. */
+export async function scaleProverAgents(namespace: string, replicas: number, log: Logger): Promise<void> {
+  const label = 'app.kubernetes.io/component=prover-agent';
+  const command = `kubectl scale deployment -l ${label} -n ${namespace} --replicas=${replicas} --timeout=2m`;
+  log.info(`Scaling prover agents to ${replicas}: ${command}`);
+  await execAsync(command);
+}
+
 export function getChartDir(spartanDir: string, chartName: string) {
   return path.join(spartanDir.trim(), chartName);
 }
