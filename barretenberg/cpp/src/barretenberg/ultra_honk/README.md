@@ -1,6 +1,6 @@
 # Ultra Honk
 
-Honk is a Sumcheck-based SNARK for general-purpose circuits expressed in the **Ultra** and **Mega** arithmetizations. It proves that a witness satisfies a set of polynomial relations over the boolean hypercube, then opens the resulting evaluations via a KZG-based polynomial commitment scheme.
+Honk is a Sumcheck-based SNARK for general-purpose circuits expressed in the **Ultra** and **Mega** arithmetizations. At a high level, Honk proves that every row of a circuit satisfies a set of polynomial constraints. It converts row-wise checking into a global summation over the boolean hypercube via Sumcheck, then uses polynomial commitments (KZG) to verify the claimed evaluations efficiently.
 
 For the IVC/folding layer built on top of Honk, see the [Chonk README](../chonk/README.md).
 
@@ -18,7 +18,7 @@ Circuit Builder ──► ProverInstance ──► Oink ──► Sumcheck ─�
                                         ├─ VK hash + public inputs
                                         ├─ Masking polynomial (ZK only)
                                         ├─ Wire commitments
-                                        ├─ Lookup counts + w_4
+                                        ├─ Lookup counts/tags + w_4
                                         ├─ Log-derivative inverses
                                         └─ Z_perm (grand product)
 
@@ -56,9 +56,9 @@ The two base arithmetizations determine the relation set:
 - **Ultra** (9 relations): arithmetic, permutation, lookup, range, elliptic, memory, non-native field, Poseidon2
 - **Mega** (11 relations): Ultra relations + EccOpQueue (for Goblin) + Databus (for inter-circuit communication in Chonk)
 
-ZK variants inherit the same relations from their base; they only add masking and row-disabling machinery (see [Zero-Knowledge](#zero-knowledge)).
+ZK variants preserve the same algebraic relations but modify how they are enforced (via masking and row disabling). See [Zero-Knowledge](#zero-knowledge).
 
-All flavors use Poseidon2 for Fiat-Shamir, except the Keccak variants which use Keccak for EVM-compatible on-chain verification. ZK variants (suffix `ZK`) add witness masking, Libra, and row disabling (see [Zero-Knowledge](#zero-knowledge)).
+Fiat-Shamir challenges are derived using Poseidon2, except for Keccak variants which use Keccak for EVM-compatible on-chain verification.
 
 | Flavor | Purpose |
 |---|---|
@@ -70,7 +70,7 @@ All flavors use Poseidon2 for Fiat-Shamir, except the Keccak variants which use 
 | `MegaZKFlavor` | Hiding Kernel in Chonk |
 
 Each flavor defines:
-- **Curve / Field**: BN254 scalar field
+- **Curve / Field**: BN254; Fr (BN254 scalar field)
 - **PCS**: KZG
 - **Relations**: determined by the base arithmetization (Ultra or Mega)
 - **Polynomial entities**: precomputed, witness, shifted, and (for ZK) masking polynomials
@@ -78,13 +78,82 @@ Each flavor defines:
 
 Source: [`flavor/ultra_flavor.hpp`](../flavor/ultra_flavor.hpp), [`flavor/mega_flavor.hpp`](../flavor/mega_flavor.hpp), [`flavor/ultra_zk_flavor.hpp`](../flavor/ultra_zk_flavor.hpp), [`flavor/mega_zk_flavor.hpp`](../flavor/mega_zk_flavor.hpp), [`flavor/ultra_keccak_flavor.hpp`](../flavor/ultra_keccak_flavor.hpp)
 
+## Relations
+
+### Custom Gates and Selectors
+
+Honk's arithmetization uses **custom gates**: each row of the execution trace has four witness wires (`w_l`, `w_r`, `w_o`, `w_4`) and a set of **selector polynomials** (`q_arith`, `q_elliptic`, `q_lookup`, etc.) that control which constraint is active on that row. A selector value of zero disables the corresponding relation for that row, so different rows can enforce entirely different constraints.
+
+Selectors are committed and their evaluations are opened alongside the witness polynomials via Gemini/Shplonk.
+
+For example, the `ArithmeticRelation` is gated by `q_arith`. When `q_arith = 0` the row is unconstrained by arithmetic; when `q_arith = 1` it enforces a standard fan-in-2 gate `q_m·w_l·w_r + q_l·w_l + q_r·w_r + q_o·w_o + q_4·w_4 + q_c = 0`; higher values of `q_arith` (2, 3) activate additional sub-identities (e.g. a carry-propagation term `w_4_shift` or a cross-row difference constraint). Similarly, `q_elliptic` toggles the elliptic curve point addition/doubling gate, `q_poseidon2_external` and `q_poseidon2_internal` toggle Poseidon2 round gates, and so on.
+
+During Sumcheck, rows where a selector is zero are skipped on the prover side via the relation's `skip` method, avoiding unnecessary computation. This is a prover-only optimization — soundness is unaffected because the verifier checks the committed polynomial evaluations regardless.
+
+### Copy Constraints and the Permutation Argument
+
+Wires may need to carry the same value across different rows (e.g. the output of one gate fed as input to another). These **copy constraints** are enforced globally via a permutation argument. The idea: if two wire positions must hold the same value, they are placed in the same cycle of a permutation σ. The **grand product polynomial** `z_perm` accumulates the ratio of (wire + β·id + γ) / (wire + β·σ + γ) across all rows. If all copy constraints hold, the constructed grand product satisfies the required boundary and transition identities (with a `public_input_delta` correction for public input rows). `UltraPermutationRelation` checks that `z_perm` is constructed correctly.
+
+See [Permutation Argument README](../relations/PERMUTATION_ARGUMENT_README.md) for details.
+
+### Relation Shape and Sumcheck
+
+Each relation is a low-degree multivariate polynomial in the wire and selector values. The key structural parameters are:
+
+- **Subrelations**: a relation may contain multiple subrelation identities (e.g. `ArithmeticRelation` has 2, `EllipticRelation` has 2). Each subrelation can have a different algebraic degree.
+- **Partial length**: the degree of a subrelation as a polynomial in the witness/selector polynomials, plus 1. For example, a subrelation of degree 5 has partial length 6. The flavor's `MAX_PARTIAL_RELATION_LENGTH` is the maximum across all subrelations (7 for Ultra, 7 for Mega).
+- **Batched relation partial length**: `MAX_PARTIAL_RELATION_LENGTH + 1`, accounting for the `pow_{β_gate}` gate-separation polynomial that Sumcheck multiplies into each round univariate. For ZK flavors this is incremented by 1 again, for the row-disabling polynomial.
+
+During each Sumcheck round, every relation's `accumulate` method is called on extended edges (witness polynomial evaluations extended from degree 1 to the subrelation's partial length). Subrelation contributions are batched using powers of the **subrelation separator** challenge `α`. The result is a single round univariate of degree `BATCHED_RELATION_PARTIAL_LENGTH - 1`. Relations that would contribute zero for a given row (detected via the `skip` method checking the selector) are skipped entirely for efficiency.
+
+Not all subrelations are enforced pointwise at every row. Some identities are designed to hold only as a **global sum** over the trace (e.g. a telescoping/log-derivative style check), rather than vanishing at each row individually. For these subrelations, Honk incorporates them into the Sumcheck polynomial without row separation via `pow_{β_gate}`: the verifier only needs the summed contribution to match the expected global value. Each relation declares which of its subrelations are pointwise-enforced via the `SUBRELATION_LINEARLY_INDEPENDENT` array; by default all subrelations are pointwise. The main examples are the "lookup sum" subrelation in `LogDerivLookupRelation`, `DatabusLookupRelation`, and the generic lookup/permutation relations.
+
+
+### Ultra Relations (9)
+
+| # | Relation | Selector | Subrelations | Max Partial Length | Description |
+|---|---|---|---|---|---|
+| 1 | `ArithmeticRelation` | `q_arith` | 2 | 6 | Fan-in-2 arithmetic gate with optional carry and cross-row modes |
+| 2 | `UltraPermutationRelation` | (structural) | 2 | 6 | Grand product for wire copy constraints |
+| 3 | `LogDerivLookupRelation` | `q_lookup` | 3 | 5 | Log-derivative lookup argument (inverse, lookup, boolean check) |
+| 4 | `DeltaRangeConstraintRelation` | `q_delta_range` | 4 | 6 | Range constraints via successive-difference checks on all 4 wires |
+| 5 | `EllipticRelation` | `q_elliptic` | 2 | 6 | Short Weierstrass EC point addition and doubling |
+| 6 | `MemoryRelation` | `q_memory` | 6 | 6 | RAM/ROM read-write consistency (memory, ROM, RAM sub-checks) |
+| 7 | `NonNativeFieldRelation` | `q_nnf` | 1 | 6 | Non-native field multiplication with carry limbs |
+| 8 | `Poseidon2ExternalRelation` | `q_poseidon2_external` | 4 | 7 | Poseidon2 external (full S-box) round, one subrelation per state element |
+| 9 | `Poseidon2InternalRelation` | `q_poseidon2_internal` | 4 | 7 | Poseidon2 internal (partial S-box) round, one subrelation per state element |
+
+### Mega Additions (+2)
+
+| # | Relation | Selector | Subrelations | Max Partial Length | Description |
+|---|---|---|---|---|---|
+| 10 | `EccOpQueueRelation` | `q_busread` | 8 | 3 | ECC operation queue wire consistency (Goblin) |
+| 11 | `DatabusLookupRelation` | (structural) | 9 | 5 | Log-derivative databus reads (calldata, return data, secondary calldata; 3 subrelations each) |
+
+See also: [LogUp README](../relations/LOGUP_README.md), [Permutation Argument README](../relations/PERMUTATION_ARGUMENT_README.md), [Generic LogUp README](../relations/generic_lookup/GENERIC_LOGUP_README.md), [Generic Permutation README](../relations/generic_permutation/GENERIC_PERMUTATION_README.md)
+
+### Challenge Roles
+
+Several Fiat-Shamir challenges appear throughout the protocol:
+
+| Challenge | Role | Derived in |
+|---|---|---|
+| `eta` (+ `eta²`, `eta³`) | Combines wire values into RAM/ROM memory records | Oink (step 4) |
+| `beta`, `gamma` | Permutation argument and log-derivative lookup separators | Oink (step 5) |
+| `alpha` | Batches subrelation contributions in Sumcheck | Oink (step 6) |
+| `β_gate` (gate challenges) | Gate-separation polynomial `pow_{β_gate}` — ensures row separation in Sumcheck | Pre-Sumcheck |
+| `u_0, ..., u_{d-1}` | Sumcheck round challenges — define the evaluation point | Sumcheck rounds |
+| `ρ` (Gemini) | Batches all polynomials into a single combined polynomial for Gemini folding | PCS |
+| `r` (Gemini) | Gemini folding evaluation point | PCS |
+| `ν` (Shplonk) | Batches univariate opening claims | PCS |
+
 ## Padding
 
 Circuits have variable size, but it is convenient if recursive verifier verification keys are independent of the inner proof's circuit size. To achieve this, flavors with `USE_PADDING = true` run Sumcheck and Gemini with a fixed log-size `VIRTUAL_LOG_N`, regardless of the actual `log_circuit_size`. This produces a fixed-length proof (fixed number of Sumcheck round univariates and Gemini fold commitments/evaluations), so the recursive verifier circuit and its VK are the same for all inner circuit sizes.
 
 A **padding indicator array** (1 for real rounds, 0 for padded) is used by the verifier to neutralize padded rounds: when the indicator is 0, the Sumcheck round check reduces to a tautology (the running target sum is preserved unchanged) and the Gemini fold claim is similarly disabled, so all rounds are processed uniformly without branching.
 
-On the prover side, `virtual_log_n` is used instead of `log_circuit_size` when generating gate challenges and running Sumcheck, so the prover produces the expected number of rounds. The actual polynomial data only spans `2^log_circuit_size` entries; the extra rounds fold over trivially zero contributions.
+On the prover side, `virtual_log_n` is used instead of `log_circuit_size` when generating gate challenges and running Sumcheck, so the prover produces the expected number of rounds. The actual polynomial data only spans `2^log_circuit_size` entries.
 
 ## Proof Flow -- Prover Side
 
@@ -111,7 +180,9 @@ The **Oink** sub-protocol ([`oink_prover.hpp`](oink_prover.hpp)) runs the prepro
 
 ### 3. Sumcheck
 
-Sumcheck proves that the batched relation `pow_β(X) · F(X)` sums to zero over the boolean hypercube `{0,1}^d`, where `d = log(N)`, `F` combines all subrelations via powers of alpha, and `pow_β` is the gate-separation polynomial (its evaluation at the `i`-th hypercube point is `β^i`). In each of `d` rounds the prover sends a round univariate `S^i`; the verifier checks `S^i(0) + S^i(1)` equals the running target from the previous round, then provides the next challenge `u_i`. After the final round the prover sends the claimed evaluations of all polynomials at the challenge point `u = (u_0, ..., u_{d-1})`; the verifier evaluates the full relation at these values and checks consistency with the last round univariate.
+Each row of the execution trace corresponds to one point on the boolean hypercube `{0,1}^d` where `d = log(N)`. For each relation, a valid witness makes the relation evaluate to zero at every hypercube point. Honk batches many per-row identities into a single polynomial `F(X)` using random Fiat-Shamir challenges (`α` for subrelation batching, gate challenges for row separation via `pow_{β_gate}`). The prover then uses the Sumcheck protocol to prove that `∑_{x∈{0,1}^d} pow_{β_gate}(x)·F(x) = 0`. If any row violates a constraint, then `F(x) ≠ 0` at that point, and the randomized weighting makes it infeasible (except with negligible probability over the challenges) for violations to cancel in the global sum.
+
+Concretely, in each of `d` rounds the prover sends a round univariate `S^i`; the verifier checks `S^i(0) + S^i(1)` equals the running target from the previous round, then derives the next challenge `u_i`. After the final round the prover sends the claimed evaluations of all polynomials at the challenge point `u = (u_0, ..., u_{d-1})`; the verifier evaluates the full relation at these values and checks consistency with the last round univariate.
 
 See [`sumcheck/Sumcheck.md`](../sumcheck/Sumcheck.md) for full details.
 
@@ -119,7 +190,7 @@ See [`sumcheck/Sumcheck.md`](../sumcheck/Sumcheck.md) for full details.
 
 After Sumcheck produces the evaluation point `u` and claimed evaluations, the polynomial commitment scheme proves these evaluations are correct:
 
-1. **Gemini**: reduces multilinear opening claims at the same point to a series of univariate opening claims. See [`commitment_schemes/gemini/README.md`](../commitment_schemes/gemini/README.md).
+1. **Gemini**: reduces multilinear opening claims at the same point to a series of univariate opening claims. It does this by substituting the challenge variables `u_0, ..., u_{d-1}` one at a time: each step halves the polynomial's dimension by fixing one variable, producing a sequence of "fold" polynomials. After `d` steps the multilinear polynomial has been reduced to a constant, and the intermediate fold commitments/evaluations constitute the proof. See [`commitment_schemes/gemini/README.md`](../commitment_schemes/gemini/README.md).
 2. **Shplonk**: batches the univariate opening claims (from Gemini and, for ZK flavors, SmallSubgroupIPA) into a single claim. See [`commitment_schemes/shplonk/README.md`](../commitment_schemes/shplonk/README.md).
 3. **KZG**: produces a single-point opening proof (a group element). See [`commitment_schemes/kzg/README.md`](../commitment_schemes/kzg/README.md).
 
@@ -161,7 +232,7 @@ Each witness polynomial (wires, lookup counts/tags/inverses, z_perm, databus col
 
 ### 2. Row Disabling
 
-The 3 masked rows plus 1 adjacent row (needed for shifted polynomials) cannot satisfy the circuit relations, since the witness values there are random. To prevent this from causing Sumcheck to fail, ZK flavors multiply the entire relation by a **row-disabling polynomial** `1 - X_2·X_3·...·X_{d-1}` that evaluates to zero on the last 4 rows of the boolean hypercube. Like `pow_β`, this polynomial has a simple closed form so the verifier can evaluate it efficiently without a commitment. This increases `BATCHED_RELATION_PARTIAL_LENGTH` by 1 compared to the non-ZK flavor.
+The 3 masked rows plus 1 adjacent row (needed for shifted polynomials) cannot satisfy the circuit relations, since the witness values there are random. To prevent this from causing Sumcheck to fail, ZK flavors multiply the entire relation by a **row-disabling polynomial** `1 - X_2·X_3·...·X_{d-1}` that evaluates to zero on the last 4 rows of the boolean hypercube. Like `pow_{β_gate}`, this polynomial has a simple closed form so the verifier can evaluate it efficiently without a commitment. This increases `BATCHED_RELATION_PARTIAL_LENGTH` by 1 compared to the non-ZK flavor.
 
 ### 3. Libra Masking (Sumcheck Round Univariates)
 
@@ -213,52 +284,6 @@ Gemini fold evaluations ──► Shplonk batching ──► KZG opening proof
     ▼ all prover messages are independent of witness ✓
 ```
 
-## Relations
-
-### Custom Gates and Selectors
-
-Honk's arithmetization uses **custom gates**: each row of the execution trace has four witness wires (`w_l`, `w_r`, `w_o`, `w_4`) and a set of **selector polynomials** (`q_arith`, `q_elliptic`, `q_lookup`, etc.) that control which constraint is active on that row. A selector value of zero disables the corresponding relation for that row, so different rows can enforce entirely different constraints.
-
-Unlike some proving systems where selectors are treated as public constants inlined into the verifier, in Honk the selector polynomials are committed and their evaluations are opened alongside the witness polynomials via Gemini/Shplonk.
-
-For example, the `ArithmeticRelation` is gated by `q_arith`. When `q_arith = 0` the row is unconstrained by arithmetic; when `q_arith = 1` it enforces a standard fan-in-2 gate `q_m·w_l·w_r + q_l·w_l + q_r·w_r + q_o·w_o + q_4·w_4 + q_c = 0`; higher values of `q_arith` (2, 3) activate additional sub-identities (e.g. a carry-propagation term `w_4_shift` or a cross-row difference constraint). Similarly, `q_elliptic` toggles the elliptic curve point addition/doubling gate, `q_poseidon2_external` and `q_poseidon2_internal` toggle Poseidon2 round gates, and so on.
-
-This selector-driven design means a single circuit can mix arithmetic, elliptic curve, hash, memory, and lookup gates in the same trace. During Sumcheck, rows where a selector is zero are skipped via the relation's `skip` method, avoiding unnecessary computation — though the selector polynomials themselves are still committed and opened.
-
-### Relation Shape and Sumcheck
-
-Each relation is a low-degree multivariate polynomial in the wire and selector values. The key structural parameters are:
-
-- **Subrelations**: a relation may contain multiple subrelation identities (e.g. `ArithmeticRelation` has 2, `EllipticRelation` has 2). Each subrelation can have a different algebraic degree.
-- **Partial length**: the degree of a subrelation as a polynomial in the witness/selector polynomials, plus 1. For example, a subrelation of degree 5 has partial length 6. The flavor's `MAX_PARTIAL_RELATION_LENGTH` is the maximum across all subrelations (7 for Ultra, 7 for Mega).
-- **Batched relation partial length**: `MAX_PARTIAL_RELATION_LENGTH + 1`, accounting for the `pow` gate-separation polynomial that Sumcheck multiplies into each round univariate. For ZK flavors this is incremented by 1 again, for the row-disabling polynomial.
-
-During each Sumcheck round, every relation's `accumulate` method is called on extended edges (witness polynomial evaluations extended from degree 1 to the subrelation's partial length). Subrelation contributions are batched using powers of the **subrelation separator** challenge `α`. The result is a single round univariate of degree `BATCHED_RELATION_PARTIAL_LENGTH - 1`. Relations that would contribute zero for a given row (detected via the `skip` method checking the selector) are skipped entirely for efficiency.
-
-
-### Ultra Relations (9)
-
-| # | Relation | Selector | Subrelations | Max Partial Length | Description |
-|---|---|---|---|---|---|
-| 1 | `ArithmeticRelation` | `q_arith` | 2 | 6 | Fan-in-2 arithmetic gate with optional carry and cross-row modes |
-| 2 | `UltraPermutationRelation` | (structural) | 2 | 6 | Grand product for wire copy constraints |
-| 3 | `LogDerivLookupRelation` | `q_lookup` | 3 | 5 | Log-derivative lookup argument (inverse, lookup, boolean check) |
-| 4 | `DeltaRangeConstraintRelation` | `q_delta_range` | 4 | 6 | Range constraints via successive-difference checks on all 4 wires |
-| 5 | `EllipticRelation` | `q_elliptic` | 2 | 6 | Short Weierstrass EC point addition and doubling |
-| 6 | `MemoryRelation` | `q_memory` | 6 | 6 | RAM/ROM read-write consistency (memory, ROM, RAM sub-checks) |
-| 7 | `NonNativeFieldRelation` | `q_nnf` | 1 | 6 | Non-native field multiplication with carry limbs |
-| 8 | `Poseidon2ExternalRelation` | `q_poseidon2_external` | 4 | 7 | Poseidon2 external (full S-box) round, one subrelation per state element |
-| 9 | `Poseidon2InternalRelation` | `q_poseidon2_internal` | 4 | 7 | Poseidon2 internal (partial S-box) round, one subrelation per state element |
-
-### Mega Additions (+2)
-
-| # | Relation | Selector | Subrelations | Max Partial Length | Description |
-|---|---|---|---|---|---|
-| 10 | `EccOpQueueRelation` | `q_busread` | 8 | 3 | ECC operation queue wire consistency (Goblin) |
-| 11 | `DatabusLookupRelation` | (structural) | 9 | 5 | Log-derivative databus reads (calldata, return data, secondary calldata; 3 subrelations each) |
-
-See also: [LogUp README](../relations/LOGUP_README.md), [Permutation Argument README](../relations/PERMUTATION_ARGUMENT_README.md), [Generic LogUp README](../relations/generic_lookup/GENERIC_LOGUP_README.md), [Generic Permutation README](../relations/generic_permutation/GENERIC_PERMUTATION_README.md)
-
 ## Transcript & Fiat-Shamir
 
 The prover and verifier communicate via a **Transcript** that serializes commitments and field elements, then derives challenges using the configured hash function (Poseidon2 or Keccak). This implements the Fiat-Shamir transform, making the interactive protocol non-interactive.
@@ -295,6 +320,15 @@ Detailed documentation:
 - [Shplonk README](../commitment_schemes/shplonk/README.md)
 - [KZG README](../commitment_schemes/kzg/README.md)
 - [SmallSubgroupIPA README](../commitment_schemes/small_subgroup_ipa/README.md) (ZK only)
+
+## Security Model
+
+Honk's security relies on:
+
+- **Knowledge soundness** of KZG under discrete log assumptions in BN254 (commonly targeting ~128-bit classical security)
+- **Fiat-Shamir** in the random oracle model (Poseidon2 or Keccak)
+- **Statistical zero-knowledge** from polynomial masking and Libra/Gemini masking, with distinguishing advantage negligible in `|𝔽|`
+- **SmallSubgroupIPA** security requires that `SUBGROUP_SIZE` divides the multiplicative group order of BN254's scalar field and exceeds the total number of Libra coefficients
 
 ## Integration with Higher-Level Systems
 
