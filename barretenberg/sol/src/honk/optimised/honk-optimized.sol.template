@@ -3880,11 +3880,7 @@ contract BlakeOptHonkVerifier is IVerifier {
             let q := Q // EC group order
             {
                 // The initial accumulator = 1 * shplonk_q
-                // WORKTODO(md): we can ignore this accumulation as we are multiplying by 1,
-                // Just set the accumulator instead.
-                mstore(SCALAR_LOCATION, 0x1)
-                mcopy(G1_LOCATION, SHPLONK_Q_X_LOC, 0x40)
-                precomp_success_flag := staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR, 0x40)
+                mcopy(ACCUMULATOR, SHPLONK_Q_X_LOC, 0x40)
             }
 
             // Accumulate vk points
