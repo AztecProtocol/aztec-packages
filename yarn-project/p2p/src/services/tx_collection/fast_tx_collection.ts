@@ -183,9 +183,7 @@ export class FastTxCollection {
     opts: { deadline: Date },
   ) {
     const notFinished = () =>
-      this.dateProvider.now() <= +opts.deadline &&
-      request.missingTxTracker.numberOfMissingTxs > 0 &&
-      this.requests.has(request);
+      this.dateProvider.now() <= +opts.deadline && !request.missingTxTracker.allFetched() && this.requests.has(request);
 
     const maxParallelRequests = this.config.txCollectionFastMaxParallelRequestsPerNode;
     const maxBatchSize = this.config.txCollectionNodeRpcMaxBatchSize;
@@ -350,7 +348,7 @@ export class FastTxCollection {
           });
         }
         // If we found all txs for this request, we resolve the promise
-        if (request.missingTxTracker.numberOfMissingTxs === 0) {
+        if (request.missingTxTracker.allFetched()) {
           this.log.trace(`All txs found for fast collection request`, {
             ...request.blockInfo,
             type: request.type,
