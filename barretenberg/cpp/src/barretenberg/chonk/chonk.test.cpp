@@ -160,10 +160,9 @@ class ChonkTests : public ::testing::Test {
                 // Tamper with the specified field
                 switch (field_to_tamper) {
                 case KernelIOField::PAIRING_INPUTS: {
-                    // Replace with valid default pairing points (different from actual accumulated values)
-                    using namespace bb::stdlib::recursion;
-                    kernel_io.pairing_inputs.P0() = Commitment(DEFAULT_PAIRING_POINT_P0_X, DEFAULT_PAIRING_POINT_P0_Y);
-                    kernel_io.pairing_inputs.P1() = Commitment(DEFAULT_PAIRING_POINT_P1_X, DEFAULT_PAIRING_POINT_P1_Y);
+                    // Replace with valid pairing points at infinity (different from actual accumulated values)
+                    kernel_io.pairing_inputs.P0() = Commitment::infinity();
+                    kernel_io.pairing_inputs.P1() = Commitment::infinity();
                     EXPECT_TRUE(kernel_io.pairing_inputs.check());
                     break;
                 }
