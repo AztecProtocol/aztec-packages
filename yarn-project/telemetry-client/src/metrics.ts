@@ -491,6 +491,12 @@ export const FISHERMAN_FEE_ANALYSIS_BLOCK_BLOBS_FULL: MetricDefinition = {
   description: 'Whether the mined block reached 100% blob capacity',
   valueType: ValueType.INT,
 };
+export const FISHERMAN_FEE_ANALYSIS_MAX_BLOB_CAPACITY: MetricDefinition = {
+  name: 'aztec.fisherman.fee_analysis.max_blob_capacity',
+  description: 'Maximum blob capacity for the analyzed block based on L1 upgrade schedule',
+  unit: 'blobs',
+  valueType: ValueType.INT,
+};
 
 export const VALIDATOR_INVALID_ATTESTATION_RECEIVED_COUNT: MetricDefinition = {
   name: 'aztec.validator.invalid_attestation_received_count',
