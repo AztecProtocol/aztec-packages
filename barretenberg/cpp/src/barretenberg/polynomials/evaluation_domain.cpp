@@ -8,8 +8,8 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/common/type_traits.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/honk/types/circuit_type.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include <memory.h>
 #include <memory>

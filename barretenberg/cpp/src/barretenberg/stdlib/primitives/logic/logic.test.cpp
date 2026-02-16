@@ -3,7 +3,6 @@
 #include "../bool/bool.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/honk/types/circuit_type.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "logic.hpp"
