@@ -1020,15 +1020,13 @@ contract TallySlashingProposer is EIP712 {
   function _getEscapeHatchEpochFlags(SlashRound _round) internal view returns (bool[] memory escapeHatchEpochs) {
     escapeHatchEpochs = new bool[](ROUND_SIZE_IN_EPOCHS);
 
-    IEscapeHatch escapeHatch = IValidatorSelection(INSTANCE).getEscapeHatch();
-
-    // If no escape hatch is configured, return all-false quickly
-    if (address(escapeHatch) == address(0)) {
-      return escapeHatchEpochs;
-    }
-
     for (uint256 epochIndex; epochIndex < ROUND_SIZE_IN_EPOCHS; epochIndex++) {
-      (bool isOpen,) = escapeHatch.isHatchOpen(getSlashTargetEpoch(_round, epochIndex));
+      Epoch epoch = getSlashTargetEpoch(_round, epochIndex);
+      IEscapeHatch escapeHatch = IValidatorSelection(INSTANCE).getEscapeHatchForEpoch(epoch);
+      if (address(escapeHatch) == address(0)) {
+        continue;
+      }
+      (bool isOpen,) = escapeHatch.isHatchOpen(epoch);
       escapeHatchEpochs[epochIndex] = isOpen;
     }
   }

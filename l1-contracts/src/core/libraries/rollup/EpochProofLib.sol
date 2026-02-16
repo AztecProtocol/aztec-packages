@@ -308,9 +308,11 @@ library EpochProofLib {
     Epoch epoch = STFLib.getEpochForCheckpoint(_endCheckpointNumber);
 
     // Check if this is an escape hatch epoch - skip attestation verification if so
-    // since escape hatch blocks are proposed without committee attestations
+    // since escape hatch blocks are proposed without committee attestations.
+    // Uses epoch-stable lookup so proof verification uses the escape hatch that was
+    // active when the epoch started, not whatever is currently configured.
     {
-      IEscapeHatch escapeHatch = ValidatorSelectionLib.getEscapeHatch();
+      IEscapeHatch escapeHatch = ValidatorSelectionLib.getEscapeHatchForEpoch(epoch);
       if (address(escapeHatch) != address(0)) {
         (bool isOpen,) = escapeHatch.isHatchOpen(epoch);
         if (isOpen) {

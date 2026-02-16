@@ -100,6 +100,7 @@ library ValidatorSelectionLib {
   using TimeLib for Epoch;
   using TimeLib for Slot;
   using Checkpoints for Checkpoints.Trace224;
+  using Checkpoints for Checkpoints.Trace160;
   using SafeCast for *;
   using TransientSlot for *;
   using SlotDerivation for string;
@@ -157,7 +158,12 @@ library ValidatorSelectionLib {
    * @param _escapeHatch The address of the EscapeHatch contract, or address(0) to disable
    */
   function updateEscapeHatch(address _escapeHatch) internal {
-    getStorage().escapeHatch = IEscapeHatch(_escapeHatch);
+    // Key the checkpoint to the START of the next epoch so the change never affects
+    // the current epoch. This prevents a same-block governance action from retroactively
+    // altering the escape hatch for an epoch where proposals may have already been made.
+    Epoch nextEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp() + Epoch.wrap(1);
+    uint96 nextEpochTs = uint96(Timestamp.unwrap(nextEpoch.toTimestamp()));
+    getStorage().escapeHatchCheckpoints.push(nextEpochTs, uint160(_escapeHatch));
   }
 
   /**
@@ -589,12 +595,26 @@ library ValidatorSelectionLib {
   }
 
   /**
-   * @notice Gets the escape hatch contract
-   * @dev Returns the configured escape hatch, or a zero-address IEscapeHatch if disabled
+   * @notice Gets the current escape hatch contract (latest checkpoint)
+   * @dev Returns the most recently configured escape hatch, or a zero-address IEscapeHatch if none set
    * @return The escape hatch contract interface
    */
   function getEscapeHatch() internal view returns (IEscapeHatch) {
-    return getStorage().escapeHatch;
+    return IEscapeHatch(address(getStorage().escapeHatchCheckpoints.latest()));
+  }
+
+  /**
+   * @notice Gets the escape hatch contract that was active at the start of a given epoch
+   * @dev Uses `upperLookupRecent` to find the most recent checkpoint with key <= epoch start timestamp.
+   *      Changes pushed with `block.timestamp` during epoch N take effect for epoch N+1 (since epoch
+   *      N+1's start timestamp > the push timestamp > epoch N's start timestamp), providing implicit
+   *      epoch-boundary activation.
+   * @param _epoch The epoch to look up the escape hatch for
+   * @return The escape hatch contract interface that was active at the start of the epoch
+   */
+  function getEscapeHatchForEpoch(Epoch _epoch) internal view returns (IEscapeHatch) {
+    uint96 ts = uint96(Timestamp.unwrap(TimeLib.toTimestamp(_epoch)));
+    return IEscapeHatch(address(getStorage().escapeHatchCheckpoints.upperLookupRecent(ts)));
   }
 
   /**
