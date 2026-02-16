@@ -32,7 +32,7 @@ This spec covers:
 
 ### R1: Class–Instance Separation
 
-The protocol MUST separate contract code (classes) from deployed entities (instances). Multiple instances MUST be able to share the same class. This enables code reuse and reduces on-chain data costs.
+The protocol MUST separate contract code (classes) from deployed entities (instances). Multiple instances MUST be able to share the same class. This enables code reuse and reduces on-chain data costs: given multiple instances that share the same class, the class need only be registered once. The separation also simplifies upgradeability by decoupling state from code, making it possible for an instance to switch to different code while retaining its state.
 
 ### R2: Deterministic Addresses
 
@@ -58,6 +58,14 @@ The protocol MUST support changing an instance's class binding. Upgrades MUST en
 
 Constructor arguments MUST be committed into the contract address. The protocol MUST ensure that the constructor is called with the arguments that were committed, and that the constructor executes exactly once.
 
+### R8: Private Interaction Before Deployment
+
+A user MUST be able to privately call into a contract instance without it being publicly deployed or initialized. This enables counterfactual deployments: a user can compute an address, receive funds at it, and interact privately — all before the instance is broadcast to the network. This property is essential for diversified and stealth account contracts.
+
+### R9: Public Deployment Prerequisite
+
+All public function calls to a contract instance that has not been publicly deployed MUST fail. Since the contract class bytecode may not be known to all nodes until the instance is publicly deployed, a sequencer or validating node may not be able to execute the public bytecode. The protocol MUST enforce this at the kernel or VM level.
+
 ---
 
 ## Specification
@@ -70,12 +78,16 @@ A **contract class** represents the immutable code of a contract. It is identifi
 
 | Field | Type | Description |
 |---|---|---|
-| `version` | `u32` | Schema version; MUST be `1` |
+| `version` | `u32` | Schema version; MUST be `1`. Implicit in the domain separator (see note below) |
 | `artifact_hash` | `Field` | SHA-256-derived hash of the full artifact metadata (see Spec #3) |
 | `private_functions_root` | `Field` | Poseidon2 Merkle root of the private function tree |
 | `public_bytecode_commitment` | `Field` | Poseidon2 commitment to the packed public bytecode |
 
 A contract class also carries the packed public bytecode as auxiliary data, but this is not part of the class ID preimage beyond the commitment.
+
+Individual public functions are not first-class citizens in the protocol — the entire public bytecode for a contract is stored as a single packed blob, unlike private functions which are individually recognized by the protocol via their selectors and verification keys.
+
+Utility functions (unconstrained functions that are never invoked in private or public execution) are not part of the contract class structure. However, commitments to utility functions SHOULD be included in the `artifact_hash`, so that clients can verify the correctness of utility code they execute offchain and expose their secrets to.
 
 #### Contract Class ID Computation
 
@@ -89,6 +101,8 @@ contract_class_id = poseidon2_hash_with_separator(
 ```
 
 Where `DOM_SEP__CONTRACT_CLASS_ID` is defined in Spec #2 (Constants).
+
+The `version` field is not directly included in the class ID preimage. Instead, it is implicit in the domain separator: bumping the contract class version would require using a different domain separator for computing the class ID. Supporting new versions of contract classes would also require introducing new kernel circuits, since a transaction proof may need to switch between different kernel circuits depending on the version of the contract class used for each function call.
 
 #### Private Functions Root
 
@@ -153,7 +167,7 @@ artifact_hash = sha256_to_field(
 
 Where `artifact_metadata_hash = sha256(deterministic_json({name, outputs}))` and `sha256_to_field` reduces the 256-bit hash modulo the BN254 scalar field modulus.
 
-The artifact hash is NOT verified by the protocol circuits — it serves as an off-chain commitment that clients can verify independently to ensure they have the correct artifact for a given class.
+The artifact hash is NOT verified by the protocol circuits — it serves as an off-chain commitment that clients can verify independently to ensure they have the correct artifact for a given class. In particular, private functions may contain unconstrained Brillig bytecode; since this bytecode is not committed in the protocol-level private function tree (which only commits selectors and verification key hashes), the PXE relies on the artifact hash to verify that the unconstrained code it has been delivered offchain is correct. The PXE SHOULD receive the complete contract artifact (or the relevant function bytecodes along with sibling commitments sufficient to reconstruct the artifact hash) and verify it matches the `artifact_hash` registered on-chain for the class.
 
 ### Contract Class Registration
 
@@ -203,11 +217,18 @@ The event is serialized as a fixed-size array of `MAX_PACKED_PUBLIC_BYTECODE_SIZ
 | 4 | `private_functions_root` | `Field` | Private function tree root |
 | 5.. | `packed_public_bytecode` | `[Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS]` | The packed bytecode |
 
-This event is emitted via `context.emit_contract_class_log()`. Nodes parse these logs to reconstruct the contract class including its public bytecode.
+This event is emitted via `context.emit_contract_class_log()`. The serialized log is prepended with the address of the emitting contract (the Contract Class Registry). While only the Contract Class Registry can emit contract class logs (enforced by the kernel circuits), the address prefix allows nodes to efficiently filter and validate logs when processing blocks. Nodes parse these logs to reconstruct the contract class including its public bytecode.
 
 ### Private and Utility Function Broadcasting
 
-After initial class registration, individual private and utility functions can be broadcast separately. These broadcasts are optional — they provide the actual bytecode and membership proofs for functions that clients may want to execute.
+After initial class registration, individual private and utility functions can be broadcast separately. These broadcasts are optional — they provide the actual bytecode and membership proofs for functions that clients may want to execute. The broadcast functions are split between private and utility to allow private bytecode to be broadcast independently (valuable for composability) without requiring the cost of also broadcasting utility functions.
+
+Bytecode in broadcast events is encoded into a fixed-length array of field elements, which sets a maximum length for each function type:
+
+- `MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS`: Maximum fields for a private function's ACIR + Brillig bytecode (defined in Spec #2)
+- `MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS`: Maximum fields for a utility function's Brillig bytecode (defined in Spec #2)
+
+The encoding uses the same packing scheme as public bytecode: 31-byte chunks right-aligned into field elements, with the byte length prepended as the first field and the remainder zero-padded.
 
 #### Private Function Broadcast
 
@@ -357,13 +378,30 @@ The event is serialized as a 15-field private log:
 
 This event is emitted via `context.emit_private_log()`.
 
+#### Public Deployment as Prerequisite for Public Execution
+
+A contract instance is considered **publicly deployed** once its deployment nullifier (the contract address, scoped to the Contract Instance Registry) has been emitted. All public function calls to an address that has not been publicly deployed MUST fail. This is because the contract class bytecode may not be available to all network nodes until the instance is publicly deployed and its class registration is observable.
+
+The AVM enforces this by checking the existence of the deployment nullifier before executing public functions. Note that a public function MAY be callable within the same transaction in which the deployment nullifier is emitted.
+
+Private function calls, by contrast, do NOT require public deployment — they only require that the caller knows the address preimage and possesses the relevant verification keys.
+
 ### Contract Initialization
 
-After an instance is deployed (registered), its constructor must be executed exactly once. The initialization mechanism ensures:
+Constructors are not enshrined in the protocol — they are handled at the application circuit level. A contract may have one or more constructor functions, or none at all. The initialization mechanism ensures:
 
 1. **Argument binding**: The constructor MUST be called with the selector and arguments that were committed in the `initialization_hash`
 2. **Deployer authorization**: If the deployer is non-zero, only the deployer can call the constructor
 3. **Single execution**: The constructor emits an **initialization nullifier** to prevent re-initialization
+
+#### Initialization States
+
+A contract instance is in one of two initialization states:
+
+- **Uninitialized**: The default state for any address. The constructor has not been called and no initialization nullifier exists. A user who knows the address preimage MAY still issue private calls to the contract, provided the called function does not require initialization (i.e., the function is annotated to skip the initialization check). This enables counterfactual usage of contracts — for example, receiving funds at a pre-computed account address before any on-chain interaction.
+- **Initialized**: The constructor has been invoked and the initialization nullifier has been emitted. All functions that depend on initialization (which check for the initialization nullifier) can now be called.
+
+All non-constructor private functions that depend on contract initialization SHOULD check for the existence of the initialization nullifier. A contract MAY allow specific functions to be callable before initialization by omitting this check.
 
 #### Initialization Hash Computation
 
@@ -660,7 +698,9 @@ All constants below are defined in Spec #2 (Constants):
 |---|---|
 | `CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS` | Magic address for the class registry (`3`) |
 | `CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS` | Magic address for the instance registry (`2`) |
-| `MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS` | Maximum bytecode fields (`3000`) |
+| `MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS` | Maximum bytecode fields for public bytecode (`3000`) |
+| `MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS` | Maximum bytecode fields per private function broadcast (`3000`) |
+| `MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS` | Maximum bytecode fields per utility function broadcast (`3000`) |
 | `FUNCTION_TREE_HEIGHT` | Height of the private function tree |
 | `ARTIFACT_FUNCTION_TREE_MAX_HEIGHT` | Maximum height of artifact function trees |
 | `CONTRACT_CLASS_LOG_SIZE_IN_FIELDS` | Fixed size of contract class logs |
@@ -754,6 +794,10 @@ For every private function call, the kernel MUST verify the relationship between
 4. For protocol contracts: the derived address MUST match the expected derived address for that protocol contract
 5. For upgraded contracts: the class ID MUST match the current value in the delayed public mutable storage
 
+### V12: Public Deployment Prerequisite
+
+Public function calls to a contract instance MUST fail if the instance has not been publicly deployed. The AVM MUST verify the existence of the deployment nullifier (the contract address, scoped to the Contract Instance Registry address) before executing public bytecode for a given address. A public function call within the same transaction that emits the deployment nullifier MUST be permitted.
+
 ---
 
 ## Security Considerations
@@ -773,6 +817,26 @@ Public bytecode is emitted in contract class logs, ensuring it is available to a
 ### Initialization Replay Protection
 
 The initialization nullifier prevents constructor replay attacks. Without it, an attacker could re-invoke the constructor with the original arguments, potentially resetting contract state.
+
+---
+
+## Discarded Alternatives
+
+### Dedicated Contracts Tree
+
+Earlier versions of the protocol relied on a dedicated contracts tree, which required the kernel circuits to process deployments as a distinct output type from application circuits. By abstracting contract deployment into protocol contracts and storing deployments as nullifiers, the kernel circuit interface is simplified and has fewer responsibilities. This approach also enables multiple contract deployments within a single transaction.
+
+### Bundling Private Function Information into a Single Tree
+
+Data about private functions is split across two trees: the protocol-level private function tree (containing only selectors and verification key hashes) and the artifact tree (containing bytecode and metadata). While merging both trees would simplify the representation, it would also add non-protocol information to the circuit-verified tree and require additional hashing inside circuits. Keeping non-protocol data out of circuits minimizes in-circuit hashing costs.
+
+### Requiring Initialization for Public Deployment
+
+An earlier design required contracts to be initialized before they could be publicly deployed. While this removed the need for public functions to check the initialization nullifier independently, it mixed concerns: the Contract Instance Registry would have needed to read a nullifier emitted by another contract, coupled the registry to the initialization nullifier convention, and forced every contract to have a constructor even if none was needed. Fully separating initialization from public deployment yields a cleaner registry and allows more flexibility in how applications handle their own initialization.
+
+### Coupling Initialization and Public Deployment
+
+An alternative considered was to only allow initialization through the public deployment flow, removing the ability to privately initialize contracts. This was rejected because it would prevent counterfactual usage of contracts (calling into a pre-computed address privately before any on-chain deployment) and would undermine stealth and diversified account contract patterns. Keeping private agreements (contracts) private among their parties has compelling real-world precedent.
 
 ---
 
@@ -800,3 +864,6 @@ The initialization nullifier prevents constructor replay attacks. Without it, an
 - Spec #7: Private Kernel Circuits — contract address validation (V-Init-5)
 - Spec #8: Public VM (AVM) — `GETCONTRACTINSTANCE` opcode for reading instance fields at runtime
 - Spec #13: Addresses & Keys — complete address derivation pipeline, key types, and `ContractInstance` definition
+- [Abstracting contract deployment](https://forum.aztec.network/t/proposal-abstracting-contract-deployment/2576) — forum discussion on deployment abstraction
+- [Implementing contract upgrades](https://forum.aztec.network/t/implementing-contract-upgrades/2570) — forum discussion on upgrade mechanisms
+- [Contract classes, upgrades, and default accounts](https://forum.aztec.network/t/contract-classes-upgrades-and-default-accounts/433) — forum discussion on the class-instance model

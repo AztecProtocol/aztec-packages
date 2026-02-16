@@ -57,7 +57,11 @@ The protocol MUST support Ethereum-compatible 20-byte addresses for L1 interoper
 
 ### Key Hierarchy
 
-The Aztec key hierarchy derives four master key pairs from a single root secret key. Each key pair consists of a secret key (a Grumpkin scalar) and a public key (a Grumpkin curve point).
+The Aztec key hierarchy derives four master key pairs from a single root secret key (`sk`). Each key pair consists of a secret key (a Grumpkin scalar) and a public key (a Grumpkin curve point).
+
+The root secret key MAY itself be derived from a **seed** that lives on a cold-storage device (e.g., a hardware wallet). The seed-to-secret-key derivation is outside protocol scope, but implementations SHOULD support deriving `sk` from a seed so that users can keep the seed offline and re-derive all keys from it.
+
+Note that **authorization keys** (used for transaction authentication) are not part of this hierarchy. Because Aztec uses native account abstraction, transaction authentication is delegated entirely to account contracts, which may use any signing scheme. Authorization secret keys SHOULD NOT enter Aztec circuits; their security properties are the responsibility of wallet and account contract designers.
 
 ```mermaid
 graph TB
@@ -80,7 +84,7 @@ graph TB
 
 #### Master Key Derivation
 
-Each master secret key is derived from the root secret key using SHA-512 with a domain separator, then reduced to a Grumpkin scalar:
+Each master secret key is derived from the root secret key using SHA-512 with a domain separator, then reduced to a Grumpkin scalar. SHA-512 is used rather than a SNARK-friendly hash because master key derivation never occurs inside a circuit — it is performed exclusively by the PXE client software.
 
 ```
 function derive_master_key(secret_key: Field, domain_separator: u32) -> GrumpkinScalar:
@@ -117,6 +121,15 @@ See Spec #3 (Cryptographic Primitives) for the full key derivation algorithm.
 | Outgoing Viewing Key | `ovsk_m` / `ovpk_m` | Allows the sender to decrypt their own outgoing transaction data. Enables a sender to later reconstruct details of notes they created for others. |
 | Tagging Key | `tsk_m` / `tpk_m` | Participates in note discovery/tagging. Tagging keys enable recipients to efficiently scan for notes addressed to them without decrypting every note. |
 
+A typical nullifier derivation pattern in application contracts uses the app-siloed nullifier hiding key:
+
+```
+nsk_app = compute_app_siloed_secret_key(nhk_m, contract_address, DOM_SEP__NHK_M)
+nullifier = poseidon2_hash([note_hash, nsk_app])
+```
+
+The app circuit proves that `nsk_app` corresponds to `npk_m` (which is linked to the note owner's address) by emitting a `KeyValidationRequest`. The kernel circuit then verifies the derivation chain from the master secret key (see [Key Validation](#key-validation)).
+
 #### Key Indices
 
 Key types are referenced by a numeric index throughout the protocol:
@@ -132,7 +145,26 @@ The total number of key types is `NUM_KEY_TYPES = 4`.
 
 ### App-Siloed Key Derivation
 
-Application circuits do not receive master secret keys. Instead, they receive app-siloed secret keys scoped to a specific contract address. This prevents a malicious contract from extracting keys usable in other contracts.
+Application circuits do not receive master secret keys. Instead, they receive **hardened** app-siloed secret keys scoped to a specific contract address. This prevents a malicious contract from extracting keys usable in other contracts.
+
+The derivation is "hardened" in the BIP-32 sense: the app-siloed key is derived from the master *secret* key (not the master *public* key), so only the holder of the master secret key can compute the app-siloed key. This ensures that the master secret key is not reverse-derivable from a compromised app-siloed key.
+
+> Note: This deviates from conventional BIP-32 hardened child key derivation. The "chain code" concept has been removed, the "index" has been replaced by the contract address, and HMAC-SHA512 has been replaced with Poseidon2 (since a 512-bit output is not needed without a chain code).
+
+The protocol currently prescribes app-siloed keys for the nullifier hiding key and the outgoing viewing secret key. An app-siloed incoming viewing secret key is deliberately **not** prescribed, because exposing a siloed form of `ivsk_m` to application circuits could have security implications for the master incoming viewing secret key. The tagging key does not currently require app-siloing.
+
+The following master secret keys MUST NOT enter an application circuit:
+- `nhk_m` (nullifier hiding key) — MAY enter the kernel circuit for key validation only
+- `ivsk_m` (incoming viewing secret key) — MAY enter the kernel circuit for key validation only
+- `ovsk_m` (outgoing viewing secret key) — MAY enter the kernel circuit for key validation only
+
+#### PXE Enforcement
+
+The PXE (Private eXecution Environment) MUST enforce key access restrictions at the oracle layer:
+
+- The PXE MUST NOT return master secret keys to application circuits. When an app requests a key, the PXE MUST return only the app-siloed form, derived via `compute_app_siloed_secret_key` bound to the calling contract address.
+- The PXE MUST NOT return app-siloed keys belonging to a different contract address than the one currently executing. Implementations enforce this through scope-based access control: the PXE checks that the requesting execution context has permission for the key before returning it.
+- Siloed secret keys of other apps MUST NOT be accessible from an application circuit. A malicious app could otherwise broadcast another app's siloed keys.
 
 An app-siloed secret key is derived as:
 
@@ -538,12 +570,22 @@ Once a contract instance is deployed, its address is permanently bound to its pu
 
 ## Security Considerations
 
+### Trust Model
+
+The PXE client software, precompiled contracts (vetted application circuits), and the kernel circuit are trusted with master secret keys. The transaction authorization secret key is the exception — its security properties are delegated entirely to wallet and account contract designers and it SHOULD NOT enter any Aztec circuit.
+
 ### Master Key Compartmentalization
 
-The four-key design ensures that compromising one key type does not compromise the others. For example:
-- Sharing `ivsk_m` (incoming viewing) allows a third party to see incoming notes but not spend them or see outgoing transactions.
-- Sharing `ovsk_m` (outgoing viewing) reveals sent transaction details but not incoming notes or spending capability.
-- The nullifier hiding key (`nhk_m`) is the most sensitive, as it enables spending notes.
+The four-key design ensures that compromising one key type does not compromise the others. This enables **selective disclosure** for auditability: a user can share specific secret keys with a trusted third party (e.g., an auditor) to grant scoped visibility without exposing other capabilities. For example:
+- Sharing `ivsk_m` (incoming viewing) allows a third party to decrypt incoming notes and see their contents, but not spend them or see outgoing transactions.
+- Sharing `ovsk_m` (outgoing viewing) reveals sent transaction details (notes the user created for others) but not incoming notes or spending capability. This is useful for reconstructing outgoing transaction history if the user's database is wiped.
+- Sharing app-siloed outgoing viewing keys (`ovsk_app`) grants outgoing visibility scoped to a single contract, without revealing outgoing data from other contracts.
+- Sharing an app-siloed nullifier hiding key (`nhk_app`) would allow a third party to identify when an emitted nullifier belongs to the user and determine which note hashes have been nullified for a specific contract, but would not reveal the contents of any notes (the incoming or outgoing viewing keys would be needed for that).
+- The master nullifier hiding key (`nhk_m`) is the most sensitive, as it is the root from which all app-siloed nullifier keys are derived and enables spending notes across all contracts.
+
+Given one or more shared keys, the third party MUST NOT be able to derive any of the user's other secret keys. Furthermore:
+- Sharing any or all viewing keys MUST NOT enable the third party to perform actions on the network on behalf of the user (since authorization is handled by account contracts, not by viewing keys).
+- Sharing outgoing viewing keys MUST NOT enable the third party to emit encrypted events that could be perceived as outgoing data originating from the user. The encryption scheme must ensure that only the holder of the authorization key can create transactions, and thus only they can produce legitimate outgoing encrypted logs.
 
 ### App-Siloing Security
 
@@ -555,6 +597,12 @@ The address derivation uses a multi-layer hash chain with distinct domain separa
 - **Cross-level collisions:** Different domain separators for each hash step prevent inputs at one level from being confused with another.
 - **Address grinding:** The preaddress is used as a scalar multiplier on the Grumpkin generator, making it computationally infeasible to find a preaddress that maps to a chosen address.
 - **Key extraction from address:** Given only an address (x-coordinate), recovering the public keys or partial address requires breaking the Poseidon2 hash or the discrete logarithm problem on Grumpkin.
+
+### Grumpkin Scalar Field Distribution
+
+Master secret keys are elements of the BN254 scalar field (Fr), but they are used as scalars in Grumpkin point multiplication, where the native scalar field is Fq (the BN254 base field). Since q > r, the resulting public keys are not perfectly uniformly distributed in the Grumpkin group. The statistical distance from uniform is 2(q - r)/q, which falls between 2^{-126} and 2^{-125}. This is broadly negligible given that the BN254 curve provides fewer than 125 bits of security.
+
+The same consideration applies when converting Poseidon2 hash outputs (Fr elements) to Grumpkin scalars for app-siloed outgoing viewing keys.
 
 ### Positive Y-Coordinate Convention
 
@@ -611,9 +659,13 @@ default_public_keys_hash = 0x023547e676dba19784188825b901a0e70d8ad978300d21d6185
 
 ## Open Questions
 
-1. **Key rotation at the application layer:** The protocol does not support key rotation at the address level (changing keys changes the address). Should the spec describe application-layer patterns for key rotation (e.g., migrating to a new account contract with new keys)? Or is this purely an application concern outside protocol scope?
+1. **Key rotation at the application layer:** The protocol does not support key rotation at the address level (changing keys changes the address). Should the spec describe application-layer patterns for key rotation (e.g., migrating to a new account contract with new keys)? Or is this purely an application concern outside protocol scope? Note: nullifier key rotation introduces a specific security risk — if a user rotates their nullifier key, the nullifier for any existing note changes, potentially allowing double-spending. Any key rotation scheme must either exclude nullifier keys from rotation or require that the nullifier public key (or an identifier of it) be stored as part of the note.
 
-2. **Stealth addresses and diversified keys:** The current design does not include stealth address or diversified key schemes. Are these planned as future protocol extensions, or will they be purely application-layer constructions?
+2. **Stealth addresses and diversified keys:** The current design does not include stealth address or diversified key schemes. Are these planned as future protocol extensions, or will they be purely application-layer constructions? The two schemes serve distinct privacy goals:
+   - **Diversified keys** are derived by the recipient (Alice) herself, using a random diversifier scalar `d` to produce a diversified generator `G_d = d * G` and diversified public key `ivpk_m,d = ivsk_m * G_d`. Alice provides different diversified addresses to different counterparties. If counterparties' databases are compromised, they cannot link their interactions to the same user, since only Alice can derive the mapping between diversified addresses.
+   - **Stealth keys** invert the derivation: the sender (Bob) derives a one-time stealth public key for Alice using an ephemeral secret and ECDH shared secret against Alice's (possibly diversified) incoming viewing public key. Alice discovers her stealth addresses by scanning and decrypting tagged payloads.
+
+   A prior design explored an application-layer approach: a diversified or stealth account contract computes a deterministic address from a diversified or stealth public key, delegates entrypoint access control to the owner's master account contract, and requires no constructor or private state — allowing it to be used without deployment. A protocol-level alternative (a "diversified call" opcode allowing callers to impersonate derived addresses) was considered and rejected because it failed to handle callbacks (e.g., auth-witness checks), introduced a new call type that was difficult to reason about, and increased attack surface, while only saving one extra function call hop.
 
 3. **Address point validity:** Not all field elements correspond to valid Grumpkin curve points (approximately half will be invalid). Should the protocol define behavior for transactions sent to invalid addresses, or is this purely a client-side validation concern?
 
@@ -629,3 +681,4 @@ default_public_keys_hash = 0x023547e676dba19784188825b901a0e70d8ad978300d21d6185
 - Spec #4: State Model & Merkle Trees — nullifier tree, note hash tree
 - Spec #7: Private Kernel Circuits — key validation request processing in Reset circuit
 - Spec #8: Public VM (AVM) — `GETCONTRACTINSTANCE` opcode for reading contract instance fields
+- [ZCash Sapling and Orchard Protocol Specification](https://zips.z.cash/protocol/protocol.pdf) — the key hierarchy design draws inspiration from ZCash's approach to viewing key separation and nullifier key derivation

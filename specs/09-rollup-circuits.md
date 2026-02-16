@@ -35,7 +35,7 @@ The rollup circuits MUST aggregate proofs in a binary tree structure: transactio
 
 Each merge or root circuit MUST validate that its left child's end state matches its right child's start state. This applies to tree snapshots, sponge blob state, archive snapshots, and out hash trees at every level.
 
-**Rationale:** State continuity ensures that the sequential application of transactions, blocks, and checkpoints is faithfully represented by the binary proof tree. Without this, proofs could attest to states that skip or reorder operations.
+**Rationale:** While individual kernel proofs are validated independently, they may rely on state changes from earlier transactions in the same block. For the block to be valid, transaction `n` must be proven against the state that results from applying transactions `0` through `n-1`. If this ordering is not enforced, a kernel proof may be valid in isolation but its state changes could be invalid (e.g., double-spending a nullifier). State continuity ensures that the sequential application of transactions, blocks, and checkpoints is faithfully represented by the binary proof tree. Without this, proofs could attest to states that skip or reorder operations.
 
 ### R3: Greedy Tree Fill Order
 
@@ -59,7 +59,7 @@ Constants that are shared across a level (block constants within a block, checkp
 
 The Checkpoint Root circuit MUST validate that the blob data fields match the cumulative sponge blob state from all blocks in the checkpoint, and MUST produce a blob accumulator for L1 verification.
 
-**Rationale:** Blob data is the data availability mechanism. The circuit ensures blob commitments are consistent with the actual transaction effects, preventing data withholding.
+**Rationale:** Broadcasting all transaction data as public inputs of the root proof would be prohibitively expensive to verify on L1. Instead, the circuits iteratively build up commitments to the block's effects: a `sponge_blob_hash` (Poseidon2 sponge over all transaction effects), an `out_hash` (SHA-256 tree of L2-to-L1 messages), and an `in_hash` (SHA-256 tree of L1-to-L2 messages). The actual data is published as EIP-4844 blobs, and the circuit proves that the blob data matches the sponge blob state accumulated across all TX Base and Block Root circuits. This ensures blob commitments are consistent with the actual transaction effects, preventing data withholding.
 
 ### R7: Cross-Chain Message Integrity
 
@@ -233,17 +233,41 @@ The Private TX Base circuit processes a private-only transaction (one that has n
 | `anchor_block_archive_sibling_path` | `Field[ARCHIVE_HEIGHT]` | Merkle path for anchor block validation |
 | `tree_snapshot_diff_hints` | `TreeSnapshotDiffHints` | Hints for tree insertions |
 
+The `TreeSnapshotDiffHints` structure provides the witness data needed for tree updates:
+
+| Field | Type | Description |
+|---|---|---|
+| `note_hash_subtree_root_sibling_path` | `Field[NOTE_HASH_TREE_HEIGHT - NOTE_HASH_SUBTREE_HEIGHT]` | Sibling path for note hash subtree insertion |
+| `sorted_nullifiers` | `Field[MAX_NULLIFIERS_PER_TX]` | Nullifiers sorted for indexed-tree batch insertion |
+| `sorted_nullifier_indexes` | `u32[MAX_NULLIFIERS_PER_TX]` | Permutation mapping from original to sorted order |
+| `nullifier_predecessor_preimages` | `NullifierLeafPreimage[MAX_NULLIFIERS_PER_TX]` | Predecessor leaf preimages for each nullifier |
+| `nullifier_predecessor_membership_witnesses` | `MembershipWitness<NULLIFIER_TREE_HEIGHT>[MAX_NULLIFIERS_PER_TX]` | Membership proofs for predecessor leaves |
+| `nullifier_subtree_root_sibling_path` | `Field[NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT]` | Sibling path for nullifier subtree insertion |
+| `fee_payer_balance_membership_witness` | `MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>` | Membership proof for the fee payer's balance leaf |
+
 **Processing steps:**
 
 1. Verify the hiding kernel proof (Chonk proof type).
 2. Validate the hiding kernel's VK against the VK tree.
-3. Validate the anchor block exists in the archive tree using `anchor_block_archive_sibling_path` against `constants.last_archive`.
-4. Validate the fee payer has sufficient balance and deduct the transaction fee from the public data tree.
-5. Validate contract class log hashes from the kernel output match the provided `contract_class_log_fields`.
-6. Silo L2-to-L1 messages and compute the `out_hash` (wonky SHA-256 tree root over message hashes; zero values are skipped).
-7. Insert note hashes, nullifiers, and the fee payer balance update into their respective trees, producing `end_tree_snapshots`.
-8. Absorb the transaction effects into the sponge blob, producing `end_sponge_blob`.
-9. Output `TxRollupPublicInputs` with `num_txs = 1`.
+3. Validate the anchor block exists in the archive tree using `anchor_block_archive_sibling_path` against `constants.last_archive`. The leaf value is the anchor block header hash and the leaf index is the block number.
+4. Validate kernel constants against block constants:
+   - `tx_context.chain_id == constants.global_variables.chain_id`
+   - `tx_context.version == constants.global_variables.version`
+   - `vk_tree_root` matches between kernel and block constants
+   - `protocol_contracts_hash` matches between kernel and block constants
+   - `tx_context.gas_settings.max_fees_per_gas.fee_per_da_gas >= constants.global_variables.gas_fees.fee_per_da_gas`
+   - `tx_context.gas_settings.max_fees_per_gas.fee_per_l2_gas >= constants.global_variables.gas_fees.fee_per_l2_gas`
+   - `tx_context.gas_settings.gas_limits.l2_gas <= AVM_MAX_PROCESSABLE_L2_GAS`
+5. Validate `include_by_timestamp >= block_timestamp` (skipped when building block 1, since the genesis block has a zero timestamp and no updatable contracts exist).
+6. Validate the fee payer has sufficient balance and deduct the transaction fee from the public data tree.
+7. Validate contract class log hashes from the kernel output match the provided `contract_class_log_fields`.
+8. Silo L2-to-L1 messages and compute the `out_hash` (wonky SHA-256 tree root over message hashes; zero values are skipped).
+9. Insert note hashes, nullifiers, and the fee payer balance update into their respective trees, producing `end_tree_snapshots`:
+   - **Note hashes:** Compute the root of a subtree from the transaction's note hashes, then insert this subtree root into the note hash append-only tree using the sibling path from `tree_snapshot_diff_hints` (see Spec #4 for subtree insertion).
+   - **Nullifiers:** Perform a batch insertion into the nullifier indexed tree. The nullifiers are sorted (with the sort verified as a valid permutation of the originals), and each nullifier's predecessor is validated via its preimage and membership witness before insertion. The batch is inserted as a subtree (see Spec #4 for indexed-tree batch insertion).
+   - **Fee payer balance:** Update the fee payer's leaf in the public data tree with the new balance after fee deduction, using the membership witness from `tree_snapshot_diff_hints`.
+10. Absorb the transaction effects into the sponge blob, producing `end_sponge_blob`.
+11. Output `TxRollupPublicInputs` with `num_txs = 1`.
 
 #### Public TX Base Rollup
 
@@ -268,10 +292,12 @@ The Public TX Base circuit processes a transaction that includes public function
 4. Validate the AVM's VK.
 5. Validate consistency between the AVM output and the Private Kernel Tail-to-Public output (via the Public Chonk Verifier).
 6. Validate the anchor block exists in the archive tree.
-7. Validate contract class log hashes against the provided fields.
-8. Silo L2-to-L1 messages and compute the `out_hash`.
-9. Absorb the transaction effects into the sponge blob, producing `end_sponge_blob`.
-10. Output `TxRollupPublicInputs` with `num_txs = 1`.
+7. Validate kernel constants against block constants (same checks as Private TX Base step 4: chain_id, version, vk_tree_root, protocol_contracts_hash, gas fees, and L2 gas limit).
+8. Validate `include_by_timestamp >= block_timestamp` (same rules as Private TX Base step 5).
+9. Validate contract class log hashes against the provided fields.
+10. Silo L2-to-L1 messages and compute the `out_hash`.
+11. Absorb the transaction effects into the sponge blob, producing `end_sponge_blob`.
+12. Output `TxRollupPublicInputs` with `num_txs = 1`.
 
 The tree snapshots (`start_tree_snapshots` and `end_tree_snapshots`) come directly from the AVM's public inputs, since the AVM performs all tree updates for public transactions.
 
@@ -1054,6 +1080,18 @@ Checkpoint Merge circuits MUST validate that the total number of checkpoints doe
 ### V12: L1-to-L2 Message Tree Snapshot Consistency
 
 For first-block circuits that process L1-to-L2 messages, the `l1_to_l2_tree_snapshot` in the block's `BlockConstantData` MUST equal the L1-to-L2 tree snapshot computed after inserting the new message subtree. This ensures transactions within the block can read the newly inserted messages.
+
+### V13: Kernel-to-Block Constant Consistency
+
+TX Base circuits (both Private and Public) MUST validate that kernel constants match block constants:
+- `tx_context.chain_id == constants.global_variables.chain_id`
+- `tx_context.version == constants.global_variables.version`
+- Kernel `vk_tree_root == constants.vk_tree_root`
+- Kernel `protocol_contracts_hash == constants.protocol_contracts_hash`
+- `tx_context.gas_settings.max_fees_per_gas.fee_per_da_gas >= constants.global_variables.gas_fees.fee_per_da_gas`
+- `tx_context.gas_settings.max_fees_per_gas.fee_per_l2_gas >= constants.global_variables.gas_fees.fee_per_l2_gas`
+- `tx_context.gas_settings.gas_limits.l2_gas <= AVM_MAX_PROCESSABLE_L2_GAS`
+- `include_by_timestamp >= block_timestamp` (except for block 1)
 
 ## Open Questions
 

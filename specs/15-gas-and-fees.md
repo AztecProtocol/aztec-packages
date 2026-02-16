@@ -207,14 +207,19 @@ See Spec #2 for the authoritative table of AVM opcode gas costs.
 | L2 contract address | `FEE_JUICE_ADDRESS` (address 5) |
 | Balance storage slot | `FEE_JUICE_BALANCES_SLOT` (slot 1) |
 
+Fee Juice has the following protocol-level properties:
+
+- It is **fungible**.
+- It **cannot be transferred** between accounts on the Aztec network. Balances can only change via L1 bridge deposits or protocol-level fee deductions.
+- It only has **public balances** — there is no private balance mechanism for Fee Juice.
+- It is obtained on Aztec via the Fee Juice Portal bridge from Ethereum (see below).
+
 The fee payer's balance is stored in the public data tree at a leaf slot derived from:
 
 ```
 balance_slot = derive_storage_slot_in_map(FEE_JUICE_BALANCES_SLOT, fee_payer)
 leaf_slot = compute_public_data_leaf_slot(FEE_JUICE_ADDRESS, balance_slot)
 ```
-
-Fee payment mechanics (how fees are deducted from the fee payer) are defined in Spec #5 (Fee Payment).
 
 #### Fee Juice Portal
 
@@ -236,6 +241,83 @@ function distributeFees(to, amount):
     require(msg.sender == ROLLUP)
     transfer underlying token from portal to `to`
 ```
+
+### Fee Payer
+
+The **fee payer** is the entity that pays the transaction fee. It is determined during private execution and propagated through the kernel circuits.
+
+#### Setting the Fee Payer
+
+A private function designates its contract as the fee payer by calling `context.set_as_fee_payer()`. This sets a boolean flag `is_fee_payer` on the `PrivateCircuitPublicInputs`. The private kernel circuits inspect this flag for each call stack item:
+
+- When a call stack item has `is_fee_payer = true`, the kernel circuit sets `fee_payer` in the `PrivateKernelCircuitPublicInputs` to the `contract_address` of that call.
+- If `fee_payer` is not set by the end of private execution, the transaction is invalid.
+- If multiple call stack items attempt to set `is_fee_payer`, the transaction is invalid.
+
+The `fee_payer` address is subsequently propagated through the public kernel circuits (if any) to the final `KernelCircuitPublicInputs`.
+
+#### Fee Deduction
+
+For **private-only transactions** (no public execution), the base rollup circuit injects a `PublicDataWrite` that deducts the transaction fee from the fee payer's Fee Juice balance:
+
+```
+new_balance = fee_payer_balance - transaction_fee
+```
+
+For **public transactions**, the AVM executes a dedicated `COLLECT_GAS_FEES` phase after teardown that performs the fee deduction.
+
+In both cases, the circuit verifies the fee payer's balance is sufficient before applying the deduction (see V3).
+
+### Transaction Phases and Fee Abstraction
+
+Transactions are broken into distinct phases with different revert semantics:
+
+1. **Private execution** — processed locally by the user. If private execution fails, the user cannot generate a valid proof and the transaction cannot be included in a checkpoint. Side effects are partitioned into non-revertible (setup) and revertible (app logic) sets by the `min_revertible_side_effect_counter`.
+2. **Non-revertible insertions** — note hashes, nullifiers, and L2-to-L1 messages from the non-revertible set are inserted into trees.
+3. **Public setup** — enqueued public calls from the non-revertible partition execute. If any setup call fails, the transaction is **invalid** and cannot be included in a checkpoint.
+4. **Revertible insertions** — note hashes, nullifiers, and L2-to-L1 messages from the revertible set are inserted.
+5. **Public app logic** — enqueued public calls from the revertible partition execute. If app logic reverts, all revertible state changes are rolled back, but the transaction remains valid.
+6. **Public teardown** — the designated teardown function executes with access to the `transaction_fee`. If teardown reverts, its state changes are rolled back.
+7. **Fee collection** — the transaction fee is deducted from the fee payer's Fee Juice balance. This always occurs regardless of reverts.
+
+#### Setup and Teardown Definition
+
+The boundary between setup and app logic is set during private execution by calling `context.end_setup()`, which records the current side effect counter as `min_revertible_side_effect_counter`. Only the entrypoint function (processed by `PrivateKernelInit`) may call `end_setup()`. Side effects with counters below this value are non-revertible; those at or above it are revertible.
+
+The teardown function is specified by calling `context.set_public_teardown_function(contract_address, function_selector, args)` during private execution. This stores a `PublicCallRequest` in the `PrivateCircuitPublicInputs`. The private kernel circuits verify that at most one teardown function is specified per transaction. Unlike enqueued public calls, the teardown function is not a side effect — it has no associated side effect counter and is not subject to `min_revertible_side_effect_counter` partitioning. It is always executed during the teardown phase regardless of when it was set.
+
+#### Revert Code
+
+The transaction's revert status is encoded as a 2-bit `RevertCode`:
+
+| Value | Meaning |
+|-------|---------|
+| `0` | Success — no phase reverted |
+| `1` | App logic reverted |
+| `2` | Teardown reverted |
+| `3` | Both app logic and teardown reverted |
+
+When app logic reverts, execution proceeds to teardown. When teardown reverts, state is rolled back to the post-setup checkpoint. In both revert cases, the fee payer is still charged the full transaction fee.
+
+#### Fee Abstraction via Fee Payment Contracts
+
+The phase structure enables **fee abstraction**: users who do not hold Fee Juice can pay fees through a Fee Payment Contract (FPC). A typical FPC flow:
+
+1. **Private setup:** The user calls a private function on the FPC. The FPC designates itself as `fee_payer` via `context.set_as_fee_payer()`, specifies its teardown function via `context.set_public_teardown_function(...)`, and calls `context.end_setup()`.
+2. **Public setup:** The FPC transfers an accepted asset from the user to itself (non-revertible, so the FPC is guaranteed payment even if app logic fails).
+3. **App logic:** The user performs their intended operations.
+4. **Teardown:** The FPC reads `transaction_fee`, computes the refund, and transfers the excess accepted asset back to the user.
+5. **Fee collection:** The protocol deducts the transaction fee from the FPC's Fee Juice balance.
+
+Because public setup is non-revertible, the FPC is guaranteed to receive the user's payment even if subsequent phases revert.
+
+### Mempool Validation
+
+When a node receives a transaction for inclusion in the mempool, it MUST verify:
+
+1. The `fee_payer` is set (non-zero).
+2. For transactions **without** public execution: the `fee_payer` has a Fee Juice balance greater than or equal to the computed transaction fee.
+3. For transactions **with** public execution: the `fee_payer` has a Fee Juice balance greater than or equal to the **fee limit** (maximum possible transaction fee), since the actual fee is not known until public execution completes.
 
 ### Checkpoint-Level Fee Model
 
@@ -703,6 +785,18 @@ SubEpochRewards {
 }
 ```
 
+### RevertCode
+
+```
+RevertCode: u8
+    0 = OK                  // No phase reverted
+    1 = APP_LOGIC_REVERTED  // App logic reverted (bit 0)
+    2 = TEARDOWN_REVERTED   // Teardown reverted (bit 1)
+    3 = BOTH_REVERTED       // Both reverted (bits 0 and 1)
+```
+
+This is a 2-bit bitmask: bit 0 indicates app logic revert, bit 1 indicates teardown revert.
+
 ### Structure Relationships
 
 ```mermaid
@@ -831,11 +925,19 @@ The L1 contract MUST verify that the coinbase address is non-zero:
 assert(header.coinbase != address(0))
 ```
 
-### V9: Gas Usage Within Limits (AVM)
+### V9: Fee Payer Set (Circuit)
+
+The kernel circuit MUST verify that `fee_payer` is set (non-zero address) before producing final public inputs. A transaction without a designated fee payer is invalid.
+
+### V10: Setup Phase Non-Revertible (AVM)
+
+If any enqueued public call in the setup phase (non-revertible partition) reverts, the transaction is **invalid** and MUST NOT be included in a checkpoint. Sequencers SHOULD whitelist known-safe public setup functions to mitigate the risk of processing transactions with untrusted setup calls.
+
+### V11: Gas Usage Within Limits (AVM)
 
 During AVM execution, each instruction MUST check that sufficient gas remains before executing. If an instruction would exceed the remaining gas budget, the AVM MUST raise an `OutOfGasError`, set all remaining gas to zero, and revert the current call context. See Spec #8 for details.
 
-### V10: Fee Accumulation (Rollup Circuit)
+### V12: Fee Accumulation (Rollup Circuit)
 
 The rollup circuits MUST correctly accumulate fees across transactions and blocks:
 
@@ -862,6 +964,10 @@ The L1 gas fee oracle uses a lag-and-lifetime mechanism to prevent stale data fr
 ### Congestion Pricing Overflow
 
 The `fake_exponential` function can overflow if `excess_mana` grows very large relative to `congestion_update_fraction`. In practice, this means fees would become astronomically high before overflow occurs, which is acceptable since the network would be unusable at those fee levels anyway.
+
+### Sequencer Risk from Public Setup
+
+Because a transaction is invalid if it fails in the public setup phase, sequencers risk wasting resources processing transactions with untrusted setup functions. To mitigate this, sequencers are expected to maintain a whitelist of approved public setup functions (e.g., known FPC contracts). Transactions with unwhitelisted setup calls can be deprioritized or rejected at the mempool level.
 
 ### Prover Incentive Alignment
 
