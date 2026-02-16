@@ -12,13 +12,13 @@
 
 namespace bb {
 
-template <typename Curve>
-bool MergeVerifier_<Curve>::check_concatenation_identities(std::vector<FF>& evals, const FF& pow_kappa) const
+template <size_t BatchSize, typename Curve>
+bool MergeVerifier_<BatchSize, Curve>::check_concatenation_identities(std::vector<FF>& evals, const FF& pow_kappa) const
 {
     bool concatenation_verified = true;
     FF concatenation_diff(0);
-    for (size_t idx = 0; idx < NUM_WIRES; idx++) {
-        concatenation_diff = evals[idx] + (pow_kappa * evals[idx + NUM_WIRES]) - evals[idx + (2 * NUM_WIRES)];
+    for (size_t idx = 0; idx < NUM_COLUMNS; idx++) {
+        concatenation_diff = evals[idx] + (pow_kappa * evals[idx + NUM_COLUMNS]) - evals[idx + (2 * NUM_COLUMNS)];
         if constexpr (IsRecursive) {
             concatenation_verified &= concatenation_diff.get_value() == 0;
             concatenation_diff.assert_equal(FF(0),
@@ -30,14 +30,14 @@ bool MergeVerifier_<Curve>::check_concatenation_identities(std::vector<FF>& eval
     return concatenation_verified;
 }
 
-template <typename Curve>
-bool MergeVerifier_<Curve>::check_degree_identity(std::vector<FF>& evals,
-                                                  const FF& pow_kappa_minus_one,
-                                                  const std::vector<FF>& degree_check_challenges) const
+template <size_t BatchSize, typename Curve>
+bool MergeVerifier_<BatchSize, Curve>::check_degree_identity(std::vector<FF>& evals,
+                                                             const FF& pow_kappa_minus_one,
+                                                             const std::vector<FF>& degree_check_challenges) const
 {
     bool degree_check_verified = true;
     FF degree_check_diff(0);
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+    for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
         degree_check_diff += evals[idx] * degree_check_challenges[idx];
     }
     degree_check_diff -= evals.back() * pow_kappa_minus_one;
@@ -51,8 +51,8 @@ bool MergeVerifier_<Curve>::check_degree_identity(std::vector<FF>& evals,
     return degree_check_verified;
 }
 
-template <typename Curve>
-BatchOpeningClaim<Curve> MergeVerifier_<Curve>::compute_shplonk_opening_claim(
+template <size_t BatchSize, typename Curve>
+BatchOpeningClaim<Curve> MergeVerifier_<BatchSize, Curve>::compute_shplonk_opening_claim(
     const std::vector<Commitment>& table_commitments,
     const Commitment& shplonk_batched_quotient,
     const FF& shplonk_opening_challenge,
@@ -110,8 +110,8 @@ BatchOpeningClaim<Curve> MergeVerifier_<Curve>::compute_shplonk_opening_claim(
  * @param input_commitments Commitments to subtable (t) and previous table (T_prev)
  * @return VerificationResult containing pairing points, merged table commitments, and check results
  */
-template <typename Curve>
-typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to_pairing_check(
+template <size_t BatchSize, typename Curve>
+typename MergeVerifier_<BatchSize, Curve>::ReductionResult MergeVerifier_<BatchSize, Curve>::reduce_to_pairing_check(
     const Proof& proof, const InputCommitments& input_commitments)
 {
     transcript->load_proof(proof);
@@ -134,16 +134,16 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
     // Vector of commitments
     // The vector is composed of: [L_1], .., [L_4], [R_1], .., [R_4], [M_1], .., [M_4], [G]
     std::vector<Commitment> table_commitments;
-    table_commitments.reserve((3 * NUM_WIRES) + 1);
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+    table_commitments.reserve((3 * NUM_COLUMNS) + 1);
+    for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
         table_commitments.emplace_back(settings == MergeSettings::PREPEND ? input_commitments.t_commitments[idx]
                                                                           : input_commitments.T_prev_commitments[idx]);
     }
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+    for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
         table_commitments.emplace_back(settings == MergeSettings::PREPEND ? input_commitments.T_prev_commitments[idx]
                                                                           : input_commitments.t_commitments[idx]);
     }
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+    for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
         table_commitments.emplace_back(
             transcript->template receive_from_prover<Commitment>("MERGED_TABLE_" + std::to_string(idx)));
         merged_table_commitments[idx] = table_commitments.back();
@@ -168,14 +168,14 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
 
     // Receive evaluations of [Lᵢ], [Rᵢ], [Mᵢ] at κ
     std::vector<FF> evals;
-    evals.reserve((3 * NUM_WIRES) + 1);
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+    evals.reserve((3 * NUM_COLUMNS) + 1);
+    for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
         evals.emplace_back(transcript->template receive_from_prover<FF>("LEFT_TABLE_EVAL_" + std::to_string(idx)));
     }
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+    for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
         evals.emplace_back(transcript->template receive_from_prover<FF>("RIGHT_TABLE_EVAL_" + std::to_string(idx)));
     }
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+    for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
         evals.emplace_back(transcript->template receive_from_prover<FF>("MERGED_TABLE_EVAL_" + std::to_string(idx)));
     }
 
@@ -227,8 +227,8 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
 }
 
 // Explicit template instantiations
-template class MergeVerifier_<curve::BN254>;
-template class MergeVerifier_<stdlib::bn254<MegaCircuitBuilder>>;
-template class MergeVerifier_<stdlib::bn254<UltraCircuitBuilder>>;
+template class MergeVerifier_<1, curve::BN254>;
+template class MergeVerifier_<1, stdlib::bn254<MegaCircuitBuilder>>;
+template class MergeVerifier_<1, stdlib::bn254<UltraCircuitBuilder>>;
 
 } // namespace bb

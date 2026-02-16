@@ -20,7 +20,7 @@ namespace bb {
  * @details Works for both native verification and recursive (in-circuit) verification
  * @tparam Curve The curve type (native curve::BN254 or stdlib bn254<Builder>)
  */
-template <typename Curve> class MergeVerifier_ {
+template <size_t BatchSize, typename Curve> class MergeVerifier_ {
   public:
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
@@ -33,13 +33,17 @@ template <typename Curve> class MergeVerifier_ {
 
     // Number of columns that jointly constitute the op_queue, should be the same as the number of wires in the
     // MegaCircuitBuilder
+    static constexpr size_t BATCH_SIZE = BatchSize;
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
+    static_assert(NUM_WIRES % BATCH_SIZE == 0);
+    static constexpr size_t NUM_COLUMNS = NUM_WIRES / BATCH_SIZE;
+
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
 
     // Size of batch opening claim: [Q], [L₁..L₄], [R₁..R₄], [M₁..M₄], [G], [1]
-    static constexpr size_t MERGE_BATCHED_CLAIM_SIZE = (3 * NUM_WIRES) + 3;
+    static constexpr size_t MERGE_BATCHED_CLAIM_SIZE = (3 * NUM_COLUMNS) + 3;
 
-    using TableCommitments = std::array<Commitment, NUM_WIRES>; // Commitments to the subtables and the merged table
+    using TableCommitments = std::array<Commitment, NUM_COLUMNS>; // Commitments to the subtables and the merged table
 
     /**
      * Commitments used by the verifier to run the verification algorithm. They contain:
@@ -124,10 +128,11 @@ template <typename Curve> class MergeVerifier_ {
 };
 
 // Type aliases for convenience
-using MergeVerifier = MergeVerifier_<curve::BN254>;
+template <size_t BatchSize = 1> using MergeVerifier = MergeVerifier_<BatchSize, curve::BN254>;
 
 namespace stdlib::recursion::goblin {
-template <typename Builder> using MergeRecursiveVerifier = MergeVerifier_<bn254<Builder>>;
+template <typename Builder, size_t BatchSize = 1>
+using MergeRecursiveVerifier = MergeVerifier_<BatchSize, bn254<Builder>>;
 } // namespace stdlib::recursion::goblin
 
 } // namespace bb
