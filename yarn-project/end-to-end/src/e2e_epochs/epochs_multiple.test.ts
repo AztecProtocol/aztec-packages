@@ -50,6 +50,7 @@ describe('e2e_epochs/epochs_multiple', () => {
 
       // Check that finalized blocks are purged from world state
       // Right now finalization means a checkpoint is two L2 epochs deep. If this rule changes then this test needs to be updated.
+      // This test is setup as 1 block per checkpoint
       const provenBlockNumber = epochEndBlockNumber;
       const finalizedBlockNumber = Math.max(provenBlockNumber - context.config.aztecEpochDuration * 2, 0);
       const expectedOldestHistoricBlock = Math.max(finalizedBlockNumber - WORLD_STATE_CHECKPOINT_HISTORY + 1, 1);
