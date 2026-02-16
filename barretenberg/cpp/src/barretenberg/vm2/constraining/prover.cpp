@@ -54,7 +54,6 @@ AvmProver::AvmProver(std::shared_ptr<Flavor::ProvingKey> input_proving_key,
  */
 void AvmProver::execute_preamble_round()
 {
-
     FF vk_hash = vk->get_hash();
     transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
     vinfo("AVM vk hash in prover: ", vk_hash);

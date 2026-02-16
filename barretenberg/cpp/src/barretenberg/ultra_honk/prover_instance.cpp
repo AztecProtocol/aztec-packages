@@ -95,6 +95,10 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
 
     // Copy IPA proof if present
     ipa_proof = circuit.ipa_proof;
+
+    if (std::getenv("BB_POLY_STATS")) {
+        analyze_prover_polynomials(polynomials);
+    }
 }
 
 /**
