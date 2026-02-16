@@ -186,12 +186,14 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
         await this.handleLatestL2Blocks(event.blocks);
         break;
       case 'chain-finalized': {
+        // Finalization is monotonic, so we only need to handle the latest finalized block
         const oldFinalizedBlockNum = await this.getSyncedFinalizedBlockNum();
-        const from = BlockNumber(oldFinalizedBlockNum + 1);
-        const limit = event.block.number - from + 1;
-        if (limit > 0) {
-          const oldBlocks = await this.l2BlockSource.getBlocks(from, limit);
-          await this.handleFinalizedL2Blocks(oldBlocks);
+        if (event.block.number > oldFinalizedBlockNum) {
+          const header = await this.l2BlockSource.getBlockHeader(event.block.number);
+          if (header) {
+            await this.txPool.handleFinalizedBlock(header);
+            await this.attestationPool.deleteOlderThan(header.getSlot());
+          }
         }
         break;
       }
@@ -475,7 +477,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     const endIndex = limit !== undefined ? startIndex + limit : undefined;
     txHashes = txHashes.slice(startIndex, endIndex);
 
-    const maybeTxs = await Promise.all(txHashes.map(txHash => this.txPool.getTxByHash(txHash)));
+    const maybeTxs = await this.txPool.getTxsByHash(txHashes);
     return maybeTxs.filter((tx): tx is Tx => !!tx);
   }
 
@@ -531,39 +533,16 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    */
   async getTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId | undefined): Promise<(Tx | undefined)[]> {
     const txs = await Promise.all(txHashes.map(txHash => this.txPool.getTxByHash(txHash)));
-    const missingTxHashes = txs
-      .map((tx, index) => [tx, index] as const)
-      .filter(([tx, _index]) => !tx)
-      .map(([_tx, index]) => txHashes[index]);
+    const missingTxHashes = txHashes.filter((_, i) => txs[i] === undefined);
 
     if (missingTxHashes.length === 0) {
       return txs as Tx[];
     }
 
     const missingTxs = await this.requestTxsByHash(missingTxHashes, pinnedPeerId);
-    // TODO: optimize
-    // Merge the found txs in order
-    const mergingTxs = txHashes.map(txHash => {
-      // Is it in the txs list from the mempool?
-      for (const tx of txs) {
-        if (tx !== undefined && tx.getTxHash().equals(txHash)) {
-          return tx;
-        }
-      }
+    const missingTxsMap = new Map(missingTxs.map(tx => [tx.getTxHash().toString(), tx]));
 
-      // Is it in the fetched missing txs?
-      // Note: this is an O(n^2) operation, but we expect the number of missing txs to be small.
-      for (const tx of missingTxs) {
-        if (tx.getTxHash().equals(txHash)) {
-          return tx;
-        }
-      }
-
-      // Otherwise return undefined
-      return undefined;
-    });
-
-    return mergingTxs;
+    return txs.map((tx, i) => tx ?? missingTxsMap.get(txHashes[i].toString()));
   }
 
   /**
@@ -739,22 +718,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     } catch (err) {
       this.log.error(`Error while starting collection of missing txs for unproven blocks`, err);
     }
-  }
-
-  /**
-   * Handles new finalized blocks by deleting the txs and attestations in them.
-   * @param blocks - A list of finalized L2 blocks.
-   * @returns Empty promise.
-   */
-  private async handleFinalizedL2Blocks(blocks: L2Block[]): Promise<void> {
-    if (!blocks.length) {
-      return;
-    }
-
-    // Finalization is monotonic, so we only need to call with the last block
-    const lastBlock = blocks.at(-1)!;
-    await this.txPool.handleFinalizedBlock(lastBlock.header);
-    await this.attestationPool.deleteOlderThan(lastBlock.header.getSlot());
   }
 
   /**
