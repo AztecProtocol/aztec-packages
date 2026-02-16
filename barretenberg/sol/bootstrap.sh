@@ -45,13 +45,19 @@ function generate_vks {
     ./scripts/init_honk.sh
 }
 
+function check_generated_contracts_synced {
+    echo_header "barretenberg/sol checking generated contract templates are synced"
+    ./scripts/check_generated_contracts_synced.sh
+}
+
 function build_code {
     # These steps are sequential
+    check_generated_contracts_synced
     generate_vks
     build_sol
 }
 
-export -f build_code generate_vks build_sol
+export -f build_code check_generated_contracts_synced generate_vks build_sol
 
 function build {
   echo_header "barretenberg/sol building"
