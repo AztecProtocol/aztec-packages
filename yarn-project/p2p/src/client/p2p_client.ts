@@ -582,7 +582,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    **/
   public async sendTx(tx: Tx): Promise<void> {
     this.#assertIsReady();
-    const result = await this.txPool.addPendingTxs([tx]);
+    const result = await this.txPool.addPendingTxs([tx], { feeComparisonOnly: true });
     if (result.accepted.length === 1) {
       await this.p2pService.propagate(tx);
     } else {
@@ -590,15 +590,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
         `Tx ${tx.getTxHash()} not propagated: accepted=${result.accepted.length} ignored=${result.ignored.length} rejected=${result.rejected.length}`,
       );
     }
-  }
-
-  /**
-   * Adds transactions to the pool. Does not send to peers or validate the txs.
-   * @param txs - The transactions.
-   **/
-  public async addTxsToPool(txs: Tx[]): Promise<number> {
-    this.#assertIsReady();
-    return (await this.txPool.addPendingTxs(txs)).accepted.length;
   }
 
   /**

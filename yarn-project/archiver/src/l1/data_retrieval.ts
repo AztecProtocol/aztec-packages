@@ -38,6 +38,7 @@ import { CalldataRetriever } from './calldata_retriever.js';
 export type RetrievedCheckpoint = {
   checkpointNumber: CheckpointNumber;
   archiveRoot: Fr;
+  feeAssetPriceModifier: bigint;
   header: CheckpointHeader;
   checkpointBlobData: CheckpointBlobData;
   l1: L1PublishedData;
@@ -49,6 +50,7 @@ export type RetrievedCheckpoint = {
 export async function retrievedToPublishedCheckpoint({
   checkpointNumber,
   archiveRoot,
+  feeAssetPriceModifier,
   header: checkpointHeader,
   checkpointBlobData,
   l1,
@@ -128,6 +130,7 @@ export async function retrievedToPublishedCheckpoint({
     header: checkpointHeader,
     blocks: l2Blocks,
     number: checkpointNumber,
+    feeAssetPriceModifier: feeAssetPriceModifier,
   });
 
   return PublishedCheckpoint.from({ checkpoint, l1, attestations });

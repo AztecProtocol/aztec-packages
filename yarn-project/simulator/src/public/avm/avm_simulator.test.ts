@@ -63,7 +63,7 @@ import {
   Div,
   EmitNoteHash,
   EmitNullifier,
-  EmitUnencryptedLog,
+  EmitPublicLog,
   Instruction,
   Jump,
   Return,
@@ -1099,10 +1099,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         ['Public storage writes', () => new SStore(/*addressing_mode=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 0)],
         ['New note hashes', () => new EmitNoteHash(/*addressing_mode=*/ 0, /*noteHashOffset=*/ 0)],
         ['New nullifiers', () => new EmitNullifier(/*addressing_mode=*/ 0, /*noteHashOffset=*/ 0)],
-        [
-          'New unencrypted logs',
-          () => new EmitUnencryptedLog(/*addressing_mode=*/ 0, /*logSizeOffest=*/ 1, /*logOffset=*/ 0),
-        ],
+        ['New public logs', () => new EmitPublicLog(/*addressing_mode=*/ 0, /*logSizeOffest=*/ 1, /*logOffset=*/ 0)],
         [
           'New L1 to L2 messages',
           () => new SendL2ToL1Message(/*addressing_mode=*/ 0, /*recipientOffset=*/ 0, /*contentOffest=*/ 0),

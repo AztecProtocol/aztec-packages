@@ -34,6 +34,7 @@ type CheckpointData = {
   header: CheckpointHeader;
   attestations: CommitteeAttestation[];
   blockHash: string;
+  feeAssetPriceModifier: bigint;
 };
 
 /**
@@ -420,7 +421,8 @@ export class CalldataRetriever {
       // Verify payloadDigest
       const header = CheckpointHeader.fromViem(decodedArgs.header);
       const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)));
-      const computedPayloadDigest = this.computePayloadDigest(header, archiveRoot);
+      const feeAssetPriceModifier = decodedArgs.oracleInput.feeAssetPriceModifier;
+      const computedPayloadDigest = this.computePayloadDigest(header, archiveRoot, feeAssetPriceModifier);
       if (
         !Buffer.from(hexToBytes(computedPayloadDigest)).equals(Buffer.from(hexToBytes(expectedHashes.payloadDigest)))
       ) {
@@ -449,6 +451,7 @@ export class CalldataRetriever {
         header,
         attestations,
         blockHash,
+        feeAssetPriceModifier,
       };
     } catch {
       return undefined;
@@ -460,9 +463,9 @@ export class CalldataRetriever {
     return keccak256(encodeAbiParameters([this.getCommitteeAttestationsStructDef()], [packedAttestations]));
   }
 
-  /** Computes the keccak256 payload digest from the checkpoint header and archive root. */
-  private computePayloadDigest(header: CheckpointHeader, archiveRoot: Fr): Hex {
-    const consensusPayload = new ConsensusPayload(header, archiveRoot);
+  /** Computes the keccak256 payload digest from the checkpoint header, archive root, and fee asset price modifier. */
+  private computePayloadDigest(header: CheckpointHeader, archiveRoot: Fr, feeAssetPriceModifier: bigint): Hex {
+    const consensusPayload = new ConsensusPayload(header, archiveRoot, feeAssetPriceModifier);
     const payloadToSign = consensusPayload.getPayloadToSign(SignatureDomainSeparator.checkpointAttestation);
     return keccak256(payloadToSign);
   }

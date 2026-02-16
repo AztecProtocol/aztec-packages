@@ -39,6 +39,8 @@ export type TxPoolV2Config = {
   archivedTxLimit: number;
   /** Minimum age (ms) a transaction must have been in the pool before it's eligible for block building */
   minTxPoolAgeMs: number;
+  /** Maximum number of evicted tx hashes to remember for metrics tracking */
+  evictedTxCacheSize: number;
 };
 
 /**
@@ -48,6 +50,7 @@ export const DEFAULT_TX_POOL_V2_CONFIG: TxPoolV2Config = {
   maxPendingTxCount: 0, // 0 = disabled
   archivedTxLimit: 0, // 0 = disabled
   minTxPoolAgeMs: 2_000,
+  evictedTxCacheSize: 10_000,
 };
 
 /**
@@ -98,7 +101,7 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
    * @param opts - Optional metadata (e.g., source for logging)
    * @returns Result categorizing each transaction as accepted, rejected, or ignored
    */
-  addPendingTxs(txs: Tx[], opts?: { source?: string }): Promise<AddTxsResult>;
+  addPendingTxs(txs: Tx[], opts?: { source?: string; feeComparisonOnly?: boolean }): Promise<AddTxsResult>;
 
   /**
    * Checks if a transaction can be added without modifying the pool.

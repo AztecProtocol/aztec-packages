@@ -1,13 +1,13 @@
 [&larr; Back to Instruction Set: Quick Reference](../avm-isa-quick-reference.md)
 
-# EMITUNENCRYPTEDLOG
+# EMITPUBLICLOG
 
 Emit public log
 
 Opcode `0x37`
 
 ```javascript
-unencryptedLogs.append(M[logOffset:logOffset+M[logSizeOffset]])
+publicLogs.append(M[logOffset:logOffset+M[logSizeOffset]])
 ```
 
 ## Details
@@ -36,11 +36,11 @@ Emits a public log from the currently executing contract. Log size must be Uint3
 ## Wire Formats
 See [Wire Format](../wire-format.md) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
-**EMITUNENCRYPTEDLOG** (Opcode 0x37):
+**EMITPUBLICLOG** (Opcode 0x37):
 
 ```mermaid
 ---
-title: "EMITUNENCRYPTEDLOG"
+title: "EMITPUBLICLOG"
 config:
   packet:
     bitsPerRow: 48

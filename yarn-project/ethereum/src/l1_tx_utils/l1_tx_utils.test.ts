@@ -918,6 +918,21 @@ describe('L1TxUtils', () => {
       expect(result.receipt.status).toBe('reverted');
     });
 
+    it('does not consume nonce when transaction times out before sending', async () => {
+      // Get the expected nonce before any transaction
+      const expectedNonce = await l1Client.getTransactionCount({ address: l1Client.account.address });
+
+      // Try to send with an already-expired timeout (epoch 0 is well in the past)
+      const pastTimeout = new Date(0);
+      await expect(gasUtils.sendTransaction(request, { txTimeoutAt: pastTimeout })).rejects.toThrow(
+        /timed out before sending/,
+      );
+
+      // The next transaction should use the same nonce (not skip one due to a leaked consume)
+      const { state } = await gasUtils.sendTransaction(request);
+      expect(state.nonce).toBe(expectedNonce);
+    }, 10_000);
+
     it('stops trying after timeout once block is mined', async () => {
       await cheatCodes.setAutomine(false);
       await cheatCodes.setIntervalMining(0);

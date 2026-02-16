@@ -3,8 +3,8 @@ include "../memory.pil";
 include "../constants_gen.pil";
 
 /**
- * Dedicated opcode gadget for the EmitUnencryptedLog opcode.
- * This gadget handles the emission of unencrypted logs to public inputs, performing
+ * Dedicated opcode gadget for the EmitPublicLog opcode.
+ * This gadget handles the emission of public logs to public inputs, performing
  * validation checks and memory reads to check log entries.
  *
  * The opcode reads log data from memory starting at log_address for log_size fields,
@@ -31,7 +31,7 @@ include "../constants_gen.pil";
  * Public inputs interaction:
  * - Writes log_size (number of fields read from memory), contract_address, and log data to public inputs, in that order.
  * - Only writes if no errors occur and discard flag is not set
- * - Updates the count of emitted unencrypted logs
+ * - Updates the count of emitted public logs
  *
  * Partial trace of the gadget:
  *
@@ -63,7 +63,7 @@ include "../constants_gen.pil";
  * - Rows interact with public inputs conditionally if there is no error or no discard.
  * - Rows interact with memory conditionally if there is no addressing error. Otherwise they'll read (given they are is_write_memory_value rows).
  */
-namespace emit_unencrypted_log;
+namespace emit_public_log;
 
     pol commit sel; // @boolean
     sel * (1 - sel) = 0;
@@ -77,8 +77,8 @@ namespace emit_unencrypted_log;
     pol commit log_address;
     pol commit log_size;
     pol commit contract_address;
-    pol commit prev_num_unencrypted_log_fields;
-    pol commit next_num_unencrypted_log_fields;
+    pol commit prev_num_public_log_fields;
+    pol commit next_num_public_log_fields;
     pol commit is_static; // @boolean (when start == 1, which is the destination selector of lookup from execution)
     pol commit error; // @boolean (when start == 1, which is the destination selector of lookup from execution)
     pol commit discard; // @boolean (when start == 1, which is the destination selector of lookup from execution)
@@ -146,7 +146,7 @@ namespace emit_unencrypted_log;
 
     pol TOTAL_LOG_FIELDS_SIZE = constants.PUBLIC_LOG_HEADER_LENGTH + log_size;
     pol commit expected_next_log_fields;
-    start * (prev_num_unencrypted_log_fields + TOTAL_LOG_FIELDS_SIZE - expected_next_log_fields) = 0;
+    start * (prev_num_public_log_fields + TOTAL_LOG_FIELDS_SIZE - expected_next_log_fields) = 0;
 
 
     // TODO: Column needed until we support constants in lookups
@@ -194,7 +194,7 @@ namespace emit_unencrypted_log;
     start * ((1 - error_out_of_bounds) * (1 - error_too_many_logs_wrong_tag_is_static) - (1 - error)) = 0;
 
     // Increase next num logs emitted if error is off. We increase even in the discard case, since discard only implies not writing to public inputs.
-    start * (prev_num_unencrypted_log_fields + (1 - error) * TOTAL_LOG_FIELDS_SIZE - next_num_unencrypted_log_fields) = 0;
+    start * (prev_num_public_log_fields + (1 - error) * TOTAL_LOG_FIELDS_SIZE - next_num_public_log_fields) = 0;
 
     // =============== SEQUENCE ===============
     // We write the log length in the start row
@@ -242,7 +242,7 @@ namespace emit_unencrypted_log;
         log_address,    value,
         tag,            /*rw=0*/ precomputed.zero
     } is
-    memory.sel_unencrypted_log_read {
+    memory.sel_public_log_read {
         memory.clk,     memory.space_id,
         memory.address, memory.value,
         memory.tag,     memory.rw
@@ -272,7 +272,7 @@ namespace emit_unencrypted_log;
 
     pol commit public_inputs_index;
 
-    start * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX + constants.FLAT_PUBLIC_LOGS_HEADER_LENGTH + prev_num_unencrypted_log_fields - public_inputs_index) = 0;
+    start * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX + constants.FLAT_PUBLIC_LOGS_HEADER_LENGTH + prev_num_public_log_fields - public_inputs_index) = 0;
     // Increment public inputs index until end
     NOT_END * (public_inputs_index + 1 - public_inputs_index') = 0;
 

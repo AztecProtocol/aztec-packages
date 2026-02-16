@@ -883,8 +883,17 @@ contract TallySlashingProposer is EIP712 {
 
     unchecked {
       for (uint256 i; i < totalValidators; ++i) {
+        uint256 epochIndex = i / COMMITTEE_SIZE;
+
         // Skip validators that belong to escape-hatch epochs
-        if (escapeHatchEpochs[i / COMMITTEE_SIZE]) {
+        if (escapeHatchEpochs[epochIndex]) {
+          continue;
+        }
+
+        // Skip validators for epochs without a valid committee (e.g. early epochs
+        // before the validator set was sampled). Without this check, indexing into
+        // an empty committee array would revert and block execution of the round.
+        if (_committees[epochIndex].length != COMMITTEE_SIZE) {
           continue;
         }
 
@@ -918,11 +927,11 @@ contract TallySlashingProposer is EIP712 {
 
             // Record the slashing action
             actions[actionCount] =
-              SlashAction({validator: _committees[i / COMMITTEE_SIZE][i % COMMITTEE_SIZE], slashAmount: slashAmount});
+              SlashAction({validator: _committees[epochIndex][i % COMMITTEE_SIZE], slashAmount: slashAmount});
             ++actionCount;
 
             // Mark this committee as having at least one slashed validator
-            committeesWithSlashes[i / COMMITTEE_SIZE] = true;
+            committeesWithSlashes[epochIndex] = true;
 
             // Only slash each validator once at the highest amount that reached quorum
             break;

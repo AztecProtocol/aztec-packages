@@ -1,3 +1,4 @@
+import type { Archiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
 import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
@@ -319,7 +320,10 @@ export class EpochsTestContext {
     this.logger.info(`Waiting until last slot of submission window for epoch ${epochNumber} at ${date}`, {
       oneSlotBefore,
     });
-    await waitUntilL1Timestamp(this.l1Client, oneSlotBefore);
+    // Use a timeout that accounts for the full proof submission window
+    const proofSubmissionWindowDuration =
+      this.constants.proofSubmissionEpochs * this.epochDuration * this.L2_SLOT_DURATION_IN_S;
+    await waitUntilL1Timestamp(this.l1Client, oneSlotBefore, undefined, proofSubmissionWindowDuration * 2);
   }
 
   /** Waits for the aztec node to sync to the target block number. */
@@ -392,6 +396,38 @@ export class EpochsTestContext {
       .then(_ => true)
       .catch(_ => false);
     expect(result).toBe(expectedSuccess);
+  }
+
+  /** Verifies at least one checkpoint has the target number of blocks (for MBPS validation). */
+  public async assertMultipleBlocksPerSlot(targetBlockCount: number) {
+    const archiver = (this.context.aztecNode as AztecNodeService).getBlockSource() as Archiver;
+    const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
+
+    this.logger.warn(`Retrieved ${checkpoints.length} checkpoints from archiver`, {
+      checkpoints: checkpoints.map(pc => pc.checkpoint.getStats()),
+    });
+
+    let expectedBlockNumber = checkpoints[0].checkpoint.blocks[0].number;
+    let targetFound = false;
+
+    for (const checkpoint of checkpoints) {
+      const blockCount = checkpoint.checkpoint.blocks.length;
+      targetFound = targetFound || blockCount >= targetBlockCount;
+
+      this.logger.verbose(`Checkpoint ${checkpoint.checkpoint.number} has ${blockCount} blocks`, {
+        checkpoint: checkpoint.checkpoint.getStats(),
+      });
+
+      for (let i = 0; i < blockCount; i++) {
+        const block = checkpoint.checkpoint.blocks[i];
+        expect(block.indexWithinCheckpoint).toBe(i);
+        expect(block.checkpointNumber).toBe(checkpoint.checkpoint.number);
+        expect(block.number).toBe(expectedBlockNumber);
+        expectedBlockNumber++;
+      }
+    }
+
+    expect(targetFound).toBe(true);
   }
 
   public watchSequencerEvents(

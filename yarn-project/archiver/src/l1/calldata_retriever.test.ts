@@ -354,7 +354,7 @@ describe('CalldataRetriever', () => {
       const attestations = makeViemCommitteeAttestations();
       const archiveRoot = Fr.random();
       const archive = archiveRoot.toString() as Hex;
-      const feeAssetPriceModifier = BigInt(0);
+      const feeAssetPriceModifier = BigInt(-1);
 
       // Create propose calldata with known values
       const proposeCalldata = encodeFunctionData({
@@ -377,8 +377,9 @@ describe('CalldataRetriever', () => {
       publicClient.getTransaction.mockResolvedValue(tx);
 
       // Compute the expected payloadDigest using ConsensusPayload (same logic as the validator)
+      // Note: feeAssetPriceModifier is 0n in makeProposeCalldata
       const checkpointHeader = CheckpointHeader.fromViem(header);
-      const consensusPayload = new ConsensusPayload(checkpointHeader, archiveRoot);
+      const consensusPayload = new ConsensusPayload(checkpointHeader, archiveRoot, feeAssetPriceModifier);
       const payloadToSign = consensusPayload.getPayloadToSign(SignatureDomainSeparator.checkpointAttestation);
       const expectedPayloadDigest = keccak256(payloadToSign);
 
@@ -500,6 +501,7 @@ describe('CalldataRetriever', () => {
             header: CheckpointHeader.random(),
             attestations: [],
             blockHash,
+            feeAssetPriceModifier: 0n,
           };
         }
         return undefined;

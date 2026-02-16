@@ -354,6 +354,7 @@ describe('L1Publisher integration', () => {
       chainId: globalVariables.chainId,
       version: globalVariables.version,
       slotNumber: globalVariables.slotNumber,
+      timestamp: globalVariables.timestamp,
       coinbase: globalVariables.coinbase,
       feeRecipient: globalVariables.feeRecipient,
       gasFees: globalVariables.gasFees,

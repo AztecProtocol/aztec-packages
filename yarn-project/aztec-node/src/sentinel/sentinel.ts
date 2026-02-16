@@ -139,15 +139,15 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       return;
     }
     const blockNumber = event.block.number;
-    const block = await this.archiver.getL2Block(blockNumber);
-    if (!block) {
-      this.logger.error(`Failed to get block ${blockNumber}`, { block });
+    const header = await this.archiver.getBlockHeader(blockNumber);
+    if (!header) {
+      this.logger.error(`Failed to get block header ${blockNumber}`);
       return;
     }
 
     // TODO(palla/slash): We should only be computing proven performance if this is
     // a full proof epoch and not a partial one, otherwise we'll end up with skewed stats.
-    const epoch = getEpochAtSlot(block.header.getSlot(), this.epochCache.getL1Constants());
+    const epoch = getEpochAtSlot(header.getSlot(), this.epochCache.getL1Constants());
     this.logger.debug(`Computing proven performance for epoch ${epoch}`);
     const performance = await this.computeProvenPerformance(epoch);
     this.logger.info(`Computed proven performance for epoch ${epoch}`, performance);

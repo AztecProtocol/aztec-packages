@@ -279,12 +279,14 @@ describe('ValidatorClient Integration', () => {
       feeRecipient: await AztecAddress.random(),
       gasFees: GasFees.empty(),
       slotNumber: slot,
+      timestamp: BigInt(Date.now()),
     };
 
     using fork = await proposer.worldStateDb.fork();
     const builder = await proposer.checkpointsBuilder.startCheckpoint(
       checkpointNumber,
       globalVariables,
+      0n,
       l1ToL2Messages,
       previousCheckpointOutHashes,
       fork,
@@ -303,6 +305,7 @@ describe('ValidatorClient Integration', () => {
     const proposal = await proposer.validator.createCheckpointProposal(
       checkpoint.header,
       checkpoint.archive.root,
+      0n,
       undefined,
       proposerSigner.address,
     );
@@ -528,6 +531,7 @@ describe('ValidatorClient Integration', () => {
       const badProposal = await CheckpointProposal.createProposalFromSigner(
         checkpoint.header,
         Fr.random(), // Wrong archive root
+        0n,
         undefined,
         payload => Promise.resolve(proposerSigner.sign(payload)),
       );

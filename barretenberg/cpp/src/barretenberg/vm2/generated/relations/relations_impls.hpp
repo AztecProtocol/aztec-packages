@@ -22,7 +22,7 @@
 #include "barretenberg/vm2/generated/relations/ecc_mem_impl.hpp"
 #include "barretenberg/vm2/generated/relations/emit_notehash_impl.hpp"
 #include "barretenberg/vm2/generated/relations/emit_nullifier_impl.hpp"
-#include "barretenberg/vm2/generated/relations/emit_unencrypted_log_impl.hpp"
+#include "barretenberg/vm2/generated/relations/emit_public_log_impl.hpp"
 #include "barretenberg/vm2/generated/relations/execution_impl.hpp"
 #include "barretenberg/vm2/generated/relations/external_call_impl.hpp"
 #include "barretenberg/vm2/generated/relations/ff_gt_impl.hpp"
