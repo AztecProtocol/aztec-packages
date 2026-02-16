@@ -86,12 +86,12 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
   });
 
   describe('blocks', () => {
-    const getBlobs = (serializedTx: `0x${string}`) => {
+    const getBlobs = async (serializedTx: `0x${string}`) => {
       const parsedTx = parseTransaction(serializedTx);
       if (parsedTx.sidecars === false) {
         throw new Error('No sidecars found in tx');
       }
-      return parsedTx.sidecars!.map(sidecar => Blob.fromBlobBuffer(hexToBuffer(sidecar.blob)));
+      return await Promise.all(parsedTx.sidecars!.map(sidecar => Blob.fromBlobBuffer(hexToBuffer(sidecar.blob))));
     };
 
     /** Returns the last synced checkpoint number for a node */
@@ -383,7 +383,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
       // We also need to send the blob to the sink, so the node can get it
       logger.warn(`Sending blobs to blob client`);
-      const blobs = getBlobs(l2BlockTx);
+      const blobs = await getBlobs(l2BlockTx);
       const blobClient = createBlobClient(context.config);
       await blobClient.sendBlobsToFilestore(blobs);
 

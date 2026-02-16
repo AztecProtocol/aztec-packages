@@ -380,7 +380,7 @@ describe('Archiver Sync', () => {
       });
 
       // Create a random blob that doesn't match the checkpoint
-      const randomBlob = makeRandomBlob(3);
+      const randomBlob = await makeRandomBlob(3);
 
       // Override blob client to return the random blob instead of the correct one
       blobClient.getBlobSidecar.mockResolvedValue([randomBlob]);

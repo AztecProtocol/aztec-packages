@@ -643,7 +643,7 @@ export class SequencerPublisher {
   ): Promise<bigint> {
     const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
     const blobFields = checkpoint.toBlobFields();
-    const blobs = getBlobsPerL1Block(blobFields);
+    const blobs = await getBlobsPerL1Block(blobFields);
     const blobInput = getPrefixedEthBlobCommitments(blobs);
 
     const args = [
@@ -953,7 +953,7 @@ export class SequencerPublisher {
     const checkpointHeader = checkpoint.header;
 
     const blobFields = checkpoint.toBlobFields();
-    const blobs = getBlobsPerL1Block(blobFields);
+    const blobs = await getBlobsPerL1Block(blobFields);
 
     const proposeTxArgs: L1ProcessArgs = {
       header: checkpointHeader,

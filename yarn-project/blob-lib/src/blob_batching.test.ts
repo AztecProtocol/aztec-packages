@@ -24,9 +24,9 @@ const trustedSetup = JSON.parse(
 );
 
 describe('Blob Batching', () => {
-  it.each([10, 100, 400])('our BLS library should correctly commit to a blob of %p items', size => {
+  it.each([10, 100, 400])('our BLS library should correctly commit to a blob of %p items', async size => {
     const blobFields = [new Fr(size)].concat(Array.from({ length: size - 1 }).map((_, i) => new Fr(size + i)));
-    const ourBlob = Blob.fromFields(blobFields);
+    const ourBlob = await Blob.fromFields(blobFields);
 
     const point = BLS12Point.decompress(ourBlob.commitment);
 
@@ -49,7 +49,7 @@ describe('Blob Batching', () => {
   it('should construct and verify 1 blob', async () => {
     // Initialize 400 fields. This test shows that a single blob works with batching methods.
     const blobFields = Array.from({ length: 400 }, (_, i) => new Fr(i + 123));
-    const blobs = getBlobsPerL1Block(blobFields);
+    const blobs = await getBlobsPerL1Block(blobFields);
     expect(blobs.length).toBe(1);
     const onlyBlob = blobs[0];
 
@@ -66,7 +66,7 @@ describe('Blob Batching', () => {
     const commitment = BLS12Point.decompress(onlyBlob.commitment);
 
     // 'Batched' evaluation
-    const { y, proof } = onlyBlob.evaluate(finalZ);
+    const { y, proof } = await onlyBlob.evaluate(finalZ);
     const q = BLS12Point.decompress(proof);
     const finalBlobCommitmentsHash = sha256ToField([onlyBlob.commitment]);
 
@@ -134,7 +134,7 @@ describe('Blob Batching', () => {
         blobFields[numBlobFields - 1] = encodeCheckpointEndMarker({ numBlobFields });
       }
 
-      const blobs = getBlobsPerL1Block(blobFields);
+      const blobs = await getBlobsPerL1Block(blobFields);
       expect(blobs.length).toBe(numBlobs);
 
       const finalChallenges = await BatchedBlobAccumulator.precomputeBatchedBlobChallenges([blobFields]);
@@ -153,7 +153,7 @@ describe('Blob Batching', () => {
 
       // Batched evaluation
       // NB: we share the same finalZ between blobs
-      const proofObjects = blobs.map(b => b.evaluate(finalZ));
+      const proofObjects = await Promise.all(blobs.map(b => b.evaluate(finalZ)));
       const evalYs = proofObjects.map(({ y }) => y);
       const qs = proofObjects.map(({ proof }) => BLS12Point.decompress(proof));
 
