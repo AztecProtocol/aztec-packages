@@ -25,6 +25,7 @@ import type {
   PublicProcessorValidator,
   SequencerConfig,
 } from '@aztec/stdlib/interfaces/server';
+import type { DebugLog } from '@aztec/stdlib/logs';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
@@ -130,6 +131,7 @@ class PublicProcessorTimeoutError extends Error {
  */
 export class PublicProcessor implements Traceable {
   private metrics: PublicProcessorMetrics;
+  private collectedDebugLogs: DebugLog[] = [];
 
   constructor(
     protected globalVariables: GlobalVariables,
@@ -146,6 +148,11 @@ export class PublicProcessor implements Traceable {
 
   get tracer(): Tracer {
     return this.metrics.tracer;
+  }
+
+  /** Returns debug logs collected during processing. Only meaningful for simulation. */
+  public getCollectedDebugLogs(): DebugLog[] {
+    return this.collectedDebugLogs;
   }
 
   /**
@@ -549,6 +556,11 @@ export class PublicProcessor implements Traceable {
     const result = await this.publicTxSimulator.simulate(tx);
     // TODO: use the callStackMetadata here to extract more data about public execution
     const { hints, publicInputs, publicTxEffect, gasUsed, revertCode /*callStackMetadata*/ } = result;
+
+    // Collect debug logs from the simulation result for forwarding to PXE.
+    if (result.logs) {
+      this.collectedDebugLogs.push(...result.logs);
+    }
 
     const contractClassLogs = revertCode.isOK()
       ? tx.getContractClassLogs()

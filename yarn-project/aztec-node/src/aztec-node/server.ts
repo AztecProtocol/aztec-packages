@@ -1180,12 +1180,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       }
 
       const [processedTx] = processedTxs;
+      const debugLogs = processor.getCollectedDebugLogs();
       return new PublicSimulationOutput(
         processedTx.revertReason,
         processedTx.globalVariables,
         processedTx.txEffect,
         returns,
         processedTx.gasUsed,
+        debugLogs,
       );
     } finally {
       await merkleTreeFork.close();

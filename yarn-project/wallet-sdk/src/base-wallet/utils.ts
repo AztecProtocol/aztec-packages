@@ -3,6 +3,7 @@ import { MAX_ENQUEUED_CALLS_PER_CALL } from '@aztec/constants';
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { generateSimulatedProvingResult } from '@aztec/pxe/simulator';
 import { type FunctionCall, FunctionSelector } from '@aztec/stdlib/abi';
@@ -143,6 +144,13 @@ async function simulateBatchViaNode(
 
   if (publicOutput.revertReason) {
     throw publicOutput.revertReason;
+  }
+
+  // Display debug logs from the public simulation.
+  for (const log of publicOutput.debugLogs) {
+    const addrAbbrev = log.contractAddress.toString().slice(0, 10);
+    const logger = createLogger(`contract_log::${addrAbbrev}`);
+    logger[log.level](applyStringFormatting(log.message, log.fields));
   }
 
   return new TxSimulationResult(privateResult, provingResult.publicInputs, publicOutput, undefined);
