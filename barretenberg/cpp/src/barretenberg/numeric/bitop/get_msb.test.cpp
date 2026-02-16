@@ -40,7 +40,7 @@ TEST(bitop, GetMsbUint32AllPositions)
     for (uint32_t i = 0; i < 32; i++) {
         // Power of 2: exactly one bit set
         EXPECT_EQ(numeric::get_msb(uint32_t(1U << i)), i);
-        // All bits set up to position i (exercises the exact post-smearing pattern)
+        // All bits set up to position i (exercises the post-smearing pattern)
         uint32_t all_ones = (i == 31) ? 0xFFFFFFFF : ((1U << (i + 1)) - 1);
         EXPECT_EQ(numeric::get_msb(all_ones), i);
         // MSB set plus random low bit

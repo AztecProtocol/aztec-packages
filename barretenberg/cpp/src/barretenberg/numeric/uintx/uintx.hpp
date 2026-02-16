@@ -5,14 +5,14 @@
 // =====================
 
 /**
- * uintx
- * Copyright Aztec 2020
+ * uintx: a wide unsigned integer formed by pairing two `base_uint` halves (lo, hi).
  *
- * An unsigned 512 bit integer type.
+ * Instantiated as:
+ *   uintx<uint256_t>  = uint512_t   (two 256-bit halves)
+ *   uintx<uint512_t>  = uint1024_t  (two 512-bit halves)
  *
- * Constructor and all methods are constexpr. Ideally, uintx should be able to be treated like any other literal type.
- *
- * Not optimized for performance, this code doesn't touch any of our hot paths when constructing PLONK proofs
+ * Constructor and all methods are constexpr.
+ * Not optimized for performance; does not touch hot paths when constructing proofs.
  **/
 #pragma once
 
