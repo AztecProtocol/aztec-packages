@@ -114,7 +114,7 @@ describe('ValidatorClient Integration', () => {
       worldStateBlockCheckIntervalMS: 20,
       worldStateBlockRequestBatchSize: 10,
       worldStateDbMapSizeKb: 1024 * 1024,
-      worldStateBlockHistory: 0,
+      worldStateCheckpointHistory: 0,
     };
     const worldStateDb = await NativeWorldStateService.tmp(rollupAddress, true, prefilledPublicData);
     const synchronizer = new ServerWorldStateSynchronizer(worldStateDb, archiver, wsConfig);

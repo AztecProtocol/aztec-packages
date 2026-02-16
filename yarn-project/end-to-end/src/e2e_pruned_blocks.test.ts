@@ -31,7 +31,7 @@ describe('e2e_pruned_blocks', () => {
   const MINT_AMOUNT = 1000n;
 
   // Don't make this value too high since we need to mine this number of empty blocks, which is relatively slow.
-  const WORLD_STATE_BLOCK_HISTORY = 2;
+  const WORLD_STATE_CHECKPOINT_HISTORY = 2;
   const EPOCH_LENGTH = 2;
   const WORLD_STATE_CHECK_INTERVAL_MS = 300;
   const ARCHIVER_POLLING_INTERVAL_MS = 300;
@@ -47,7 +47,7 @@ describe('e2e_pruned_blocks', () => {
       accounts: [admin, sender, recipient],
     } = await setup(3, {
       aztecEpochDuration: EPOCH_LENGTH,
-      worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
+      worldStateCheckpointHistory: WORLD_STATE_CHECKPOINT_HISTORY,
       worldStateBlockCheckIntervalMS: WORLD_STATE_CHECK_INTERVAL_MS,
       archiverPollingIntervalMS: ARCHIVER_POLLING_INTERVAL_MS,
       aztecProofSubmissionEpochs: 1024, // effectively do not reorg
@@ -94,7 +94,7 @@ describe('e2e_pruned_blocks', () => {
     // blocks (notably the one with the minted note) being pruned. Given world state prunes based on the finalized tip,
     // and we are defining the finalized tip as two epochs behind the proven one, we need to mine two extra epochs.
     await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 0 });
-    await waitBlocks(WORLD_STATE_BLOCK_HISTORY + EPOCH_LENGTH * 2 + 1);
+    await waitBlocks(WORLD_STATE_CHECKPOINT_HISTORY + EPOCH_LENGTH * 2 + 1);
     await cheatCodes.rollup.markAsProven();
 
     // The same historical query we performed before should now fail since this block is not available anymore. We poll

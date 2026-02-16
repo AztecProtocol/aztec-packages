@@ -5,7 +5,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../fixtures/utils.js';
-import { EpochsTestContext, WORLD_STATE_BLOCK_HISTORY } from './epochs_test.js';
+import { EpochsTestContext, WORLD_STATE_CHECKPOINT_HISTORY } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 15);
 
@@ -52,7 +52,7 @@ describe('e2e_epochs/epochs_multiple', () => {
       // Right now finalization means a checkpoint is two L2 epochs deep. If this rule changes then this test needs to be updated.
       const provenBlockNumber = epochEndBlockNumber;
       const finalizedBlockNumber = Math.max(provenBlockNumber - context.config.aztecEpochDuration * 2, 0);
-      const expectedOldestHistoricBlock = Math.max(finalizedBlockNumber - WORLD_STATE_BLOCK_HISTORY + 1, 1);
+      const expectedOldestHistoricBlock = Math.max(finalizedBlockNumber - WORLD_STATE_CHECKPOINT_HISTORY + 1, 1);
       const expectedBlockRemoved = expectedOldestHistoricBlock - 1;
       await test.waitForNodeToSync(BlockNumber(expectedOldestHistoricBlock), 'historic');
       await test.verifyHistoricBlock(BlockNumber(expectedOldestHistoricBlock), true);
