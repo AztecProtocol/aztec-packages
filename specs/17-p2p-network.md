@@ -557,12 +557,14 @@ Transaction gossip validation applies the following checks in order. If any chec
 | 2 | Data validity | High | Transaction structure and field constraints |
 | 3 | Metadata validity | High | `l1ChainId`, `rollupVersion`, protocol contracts hash, VK tree root match local values |
 | 4 | Timestamp validity | Mid | Transaction timestamp is consistent with current block |
-| 5 | Double-spend check | High | Nullifiers do not conflict with committed state |
+| 5 | Double-spend check | High | Nullifiers do not conflict with committed state (see note below) |
 | 6 | Gas validity | High | Gas limits within bounds; DA gas sufficient |
 | 7 | Phases validity | Mid | Private/public function phases are correct |
 | 8 | Block header validity | High | Parent block hash matches known chain |
 | 9 | Size validity | — | Transaction size ≤ `MAX_TX_SIZE_KB × 1024` bytes |
 | 10 | Proof validity | Mid | Chonk proof verifies against the VK |
+
+**Double-spend grace period**: For nullifier checks, nodes SHOULD apply a grace period for transactions containing nullifiers that appear in very recently published blocks. A peer SHOULD NOT be penalized for propagating a transaction whose nullifiers were committed during the most recent few blocks, since the sender may not yet have processed those blocks. To avoid unknowingly propagating invalid transactions, nodes MUST NOT join the gossip mesh until they are fully synchronized with the chain tip.
 
 After all checks pass, the transaction is added to the mempool. Validation results:
 
@@ -825,6 +827,18 @@ The P2P layer detects and propagates equivocation evidence (conflicting proposal
 ### Clock Disparity
 
 The 500 ms clock tolerance window is deliberately narrow to limit the window for timing attacks while accommodating reasonable NTP drift. Nodes SHOULD maintain accurate clocks via NTP.
+
+## Discarded Alternatives
+
+### Transaction Pool Synchronization Protocol
+
+A dedicated protocol for synchronizing the full transaction pool between peers (beyond GossipSub) was considered and rejected for the following reasons:
+
+1. **Bandwidth cost** — Transactions can be up to `MAX_TX_SIZE_KB` (512 KB) each. Downloading the entire pool would require transferring hundreds of megabytes, representing both a performance burden and a DoS vector.
+2. **Redundancy** — At the point a node joins the network, block production is likely already underway. Many pooled transactions will be removed when the next block is published, making a full download wasteful.
+3. **Natural convergence** — Nodes converge on the current pool state by participating in GossipSub and observing published blocks. After one or two block cycles, a newly joined node's local pool reflects the network state. The request-response `TX` subprotocol allows targeted retrieval of specific missing transactions when needed (e.g., for block proposal processing).
+
+Implementations MUST NOT require a pool synchronization handshake for normal operation.
 
 ## Open Questions
 

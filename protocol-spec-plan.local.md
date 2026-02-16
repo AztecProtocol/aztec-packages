@@ -366,101 +366,101 @@ Legacy protocol spec files that need review and integration into the new specs. 
 | 46  | `old-protocol-specs/public-vm/circuit-index.md`                | Integrated     |       |
 | 47  | `old-protocol-specs/circuits/public-kernel-initial.md`         | Integrated     |       |
 | 48  | `old-protocol-specs/circuits/public-kernel-inner.md`           | Integrated     |       |
-| 49  | `old-protocol-specs/circuits/public-kernel-tail.md`            | Not Integrated |       |
+| 49  | `old-protocol-specs/circuits/public-kernel-tail.md`            | Integrated     |       |
 
 ### Sources → Spec #9: Rollup Circuits
 
 | S#  | Source File                                         | Status         | Notes |
 | --- | --------------------------------------------------- | -------------- | ----- |
-| 50  | `old-protocol-specs/rollup-circuits/index.md`       | Not Integrated |       |
-| 51  | `old-protocol-specs/rollup-circuits/base-rollup.md` | Not Integrated |       |
-| 52  | `old-protocol-specs/rollup-circuits/merge-rollup.md` | Not Integrated |       |
-| 53  | `old-protocol-specs/rollup-circuits/root-rollup.md` | Not Integrated |       |
-| 54  | `old-protocol-specs/rollup-circuits/tree-parity.md` | Not Integrated |       |
+| 50  | `old-protocol-specs/rollup-circuits/index.md`       | Integrated     |       |
+| 51  | `old-protocol-specs/rollup-circuits/base-rollup.md` | Integrated     |       |
+| 52  | `old-protocol-specs/rollup-circuits/merge-rollup.md` | Integrated     |       |
+| 53  | `old-protocol-specs/rollup-circuits/root-rollup.md` | Integrated     |       |
+| 54  | `old-protocol-specs/rollup-circuits/tree-parity.md` | Integrated     |       |
 
 ### Sources → Spec #10: L1 Rollup Contract
 
 | S#  | Source File                                       | Status         | Notes |
 | --- | ------------------------------------------------- | -------------- | ----- |
-| 55  | `old-protocol-specs/l1-smart-contracts/index.md`  | Not Integrated |       |
-| 56  | `old-protocol-specs/l1-smart-contracts/frontier.md` | Not Integrated |       |
+| 55  | `old-protocol-specs/l1-smart-contracts/index.md`  | Integrated     |       |
+| 56  | `old-protocol-specs/l1-smart-contracts/frontier.md` | Integrated     |       |
 
 ### Sources → Spec #11: Cross-Chain Messaging
 
 | S#  | Source File                                              | Status         | Notes |
 | --- | -------------------------------------------------------- | -------------- | ----- |
-| 57  | `old-protocol-specs/calls/public-private-messaging.md`   | Not Integrated |       |
+| 57  | `old-protocol-specs/calls/public-private-messaging.md`   | Integrated     |       |
 
 ### Sources → Spec #12: Data Availability & Blobs
 
 | S#  | Source File                                                            | Status         | Notes |
 | --- | ---------------------------------------------------------------------- | -------------- | ----- |
-| 58  | `old-protocol-specs/data-publication-and-availability/index.md`        | Not Integrated |       |
-| 59  | `old-protocol-specs/data-publication-and-availability/overview.md`     | Not Integrated |       |
-| 60  | `old-protocol-specs/data-publication-and-availability/published-data.md` | Not Integrated |       |
-| 61  | `old-protocol-specs/data-publication-and-availability/blobs.md`        | Not Integrated |       |
+| 58  | `old-protocol-specs/data-publication-and-availability/index.md`        | Integrated     |       |
+| 59  | `old-protocol-specs/data-publication-and-availability/overview.md`     | Integrated     |       |
+| 60  | `old-protocol-specs/data-publication-and-availability/published-data.md` | Integrated     |       |
+| 61  | `old-protocol-specs/data-publication-and-availability/blobs.md`        | Integrated     |       |
 
 ### Sources → Spec #13: Addresses & Keys
 
 | S#  | Source File                                                                         | Status         | Notes |
 | --- | ----------------------------------------------------------------------------------- | -------------- | ----- |
-| 62  | `old-protocol-specs/addresses-and-keys/index.md`                                   | Not Integrated |       |
-| 63  | `old-protocol-specs/addresses-and-keys/address.md`                                 | Not Integrated |       |
-| 64  | `old-protocol-specs/addresses-and-keys/keys.md`                                    | Not Integrated |       |
-| 65  | `old-protocol-specs/addresses-and-keys/keys-requirements.md`                       | Not Integrated |       |
-| 66  | `old-protocol-specs/addresses-and-keys/diversified-and-stealth.md`                 | Not Integrated |       |
-| 67  | `old-protocol-specs/addresses-and-keys/precompiles.md`                             | Not Integrated |       |
-| 68  | `old-protocol-specs/addresses-and-keys/example-usage/diversified-and-stealth-keys.md` | Not Integrated |       |
-| 69  | `old-protocol-specs/addresses-and-keys/example-usage/encrypt-and-tag.md`           | Not Integrated |       |
-| 70  | `old-protocol-specs/addresses-and-keys/example-usage/nullifier.md`                 | Not Integrated |       |
-| 71  | `old-protocol-specs/addresses-and-keys/example-usage/tag-sequence-derivation.md`   | Not Integrated |       |
+| 62  | `old-protocol-specs/addresses-and-keys/index.md`                                   | Integrated     |       |
+| 63  | `old-protocol-specs/addresses-and-keys/address.md`                                 | Integrated     |       |
+| 64  | `old-protocol-specs/addresses-and-keys/keys.md`                                    | Integrated     |       |
+| 65  | `old-protocol-specs/addresses-and-keys/keys-requirements.md`                       | Integrated     |       |
+| 66  | `old-protocol-specs/addresses-and-keys/diversified-and-stealth.md`                 | Integrated     |       |
+| 67  | `old-protocol-specs/addresses-and-keys/precompiles.md`                             | Integrated     |       |
+| 68  | `old-protocol-specs/addresses-and-keys/example-usage/diversified-and-stealth-keys.md` | Integrated     |       |
+| 69  | `old-protocol-specs/addresses-and-keys/example-usage/encrypt-and-tag.md`           | Integrated     |       |
+| 70  | `old-protocol-specs/addresses-and-keys/example-usage/nullifier.md`                 | Integrated     |       |
+| 71  | `old-protocol-specs/addresses-and-keys/example-usage/tag-sequence-derivation.md`   | Integrated     |       |
 
 ### Sources → Spec #14: Contract Deployment
 
 | S#  | Source File                                             | Status         | Notes |
 | --- | ------------------------------------------------------- | -------------- | ----- |
-| 72  | `old-protocol-specs/contract-deployment/index.md`       | Not Integrated |       |
-| 73  | `old-protocol-specs/contract-deployment/classes.md`     | Not Integrated |       |
-| 74  | `old-protocol-specs/contract-deployment/instances.md`   | Not Integrated |       |
-| 75  | `old-protocol-specs/pre-compiled-contracts/index.md`    | Not Integrated |       |
-| 76  | `old-protocol-specs/pre-compiled-contracts/registry.md` | Not Integrated |       |
+| 72  | `old-protocol-specs/contract-deployment/index.md`       | Integrated     |       |
+| 73  | `old-protocol-specs/contract-deployment/classes.md`     | Integrated     |       |
+| 74  | `old-protocol-specs/contract-deployment/instances.md`   | Integrated     |       |
+| 75  | `old-protocol-specs/pre-compiled-contracts/index.md`    | Integrated     |       |
+| 76  | `old-protocol-specs/pre-compiled-contracts/registry.md` | Integrated     |       |
 
 ### Sources → Spec #15: Gas & Fees
 
 | S#  | Source File                                                     | Status         | Notes |
 | --- | --------------------------------------------------------------- | -------------- | ----- |
-| 77  | `old-protocol-specs/gas-and-fees/index.md`                      | Not Integrated |       |
-| 78  | `old-protocol-specs/gas-and-fees/fee-juice.md`                  | Not Integrated |       |
-| 79  | `old-protocol-specs/gas-and-fees/fee-schedule.md`               | Not Integrated |       |
-| 80  | `old-protocol-specs/gas-and-fees/kernel-tracking.md`            | Not Integrated |       |
-| 81  | `old-protocol-specs/gas-and-fees/published-gas-and-fee-data.md` | Not Integrated |       |
-| 82  | `old-protocol-specs/gas-and-fees/specifying-gas-fee-info.md`    | Not Integrated |       |
-| 83  | `old-protocol-specs/gas-and-fees/tx-setup-and-teardown.md`      | Not Integrated |       |
+| 77  | `old-protocol-specs/gas-and-fees/index.md`                      | Integrated     |       |
+| 78  | `old-protocol-specs/gas-and-fees/fee-juice.md`                  | Integrated     |       |
+| 79  | `old-protocol-specs/gas-and-fees/fee-schedule.md`               | Integrated     |       |
+| 80  | `old-protocol-specs/gas-and-fees/kernel-tracking.md`            | Integrated     |       |
+| 81  | `old-protocol-specs/gas-and-fees/published-gas-and-fee-data.md` | Integrated     |       |
+| 82  | `old-protocol-specs/gas-and-fees/specifying-gas-fee-info.md`    | Integrated     |       |
+| 83  | `old-protocol-specs/gas-and-fees/tx-setup-and-teardown.md`      | Integrated     |       |
 
 ### Sources → Spec #16: Logs & Events
 
 | S#  | Source File                                                         | Status         | Notes |
 | --- | ------------------------------------------------------------------- | -------------- | ----- |
-| 84  | `old-protocol-specs/logs/index.md`                                  | Not Integrated |       |
-| 85  | `old-protocol-specs/private-message-delivery/index.md`              | Not Integrated |       |
-| 86  | `old-protocol-specs/private-message-delivery/private-msg-delivery.md` | Not Integrated |       |
-| 87  | `old-protocol-specs/private-message-delivery/send-note-guidelines.md` | Not Integrated |       |
+| 84  | `old-protocol-specs/logs/index.md`                                  | Integrated     |       |
+| 85  | `old-protocol-specs/private-message-delivery/index.md`              | Integrated     |       |
+| 86  | `old-protocol-specs/private-message-delivery/private-msg-delivery.md` | Integrated     |       |
+| 87  | `old-protocol-specs/private-message-delivery/send-note-guidelines.md` | Integrated     |       |
 
 ### Sources → Spec #17: P2P Network Protocol
 
 | S#  | Source File                                          | Status         | Notes |
 | --- | ---------------------------------------------------- | -------------- | ----- |
-| 88  | `old-protocol-specs/decentralization/p2p-network.md` | Not Integrated |       |
+| 88  | `old-protocol-specs/decentralization/p2p-network.md` | Integrated     |       |
 
 ### Sources → Spec #18: Block Production & Consensus
 
 | S#  | Source File                                                | Status         | Notes |
 | --- | ---------------------------------------------------------- | -------------- | ----- |
-| 89  | `old-protocol-specs/decentralization/actors.md`            | Not Integrated |       |
-| 90  | `old-protocol-specs/decentralization/block-production.md`  | Not Integrated |       |
+| 89  | `old-protocol-specs/decentralization/actors.md`            | Integrated     |       |
+| 90  | `old-protocol-specs/decentralization/block-production.md`  | Integrated     |       |
 
 ### Sources → Spec #19: Governance
 
 | S#  | Source File                                             | Status         | Notes |
 | --- | ------------------------------------------------------- | -------------- | ----- |
-| 91  | `old-protocol-specs/decentralization/governance.md`     | Not Integrated |       |
+| 91  | `old-protocol-specs/decentralization/governance.md`     | Integrated     |       |

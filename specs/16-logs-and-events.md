@@ -334,6 +334,13 @@ The protocol does not mandate a specific encryption scheme for private logs. Enc
 
 2. **Message structure convention:** The application-layer convention (not enforced by the protocol) structures the ciphertext portion of a private log (fields 1 through `PRIVATE_LOG_CIPHERTEXT_LEN = 17`) as an encrypted message.
 
+3. **Encryption directions:** Private logs carry one of three categories of encrypted data, each using different keys from the key hierarchy (see Spec #13):
+   - **Incoming data** — created by a sender for a recipient, encrypted to the recipient's incoming viewing public key (`ivpk_m`). Only the recipient can decrypt using their `ivsk_m`.
+   - **Outgoing data** — a copy of the sender's own note data, encrypted to the sender's outgoing viewing public key (`ovpk_m`). Allows the sender to later reconstruct details of notes they created for others.
+   - **Internal incoming data** — created by a user for themselves (self-send), encrypted to the user's own incoming or outgoing viewing key.
+
+   The protocol does not distinguish between these categories; all are opaque private logs. The distinction is enforced by the application-layer encryption, which selects the appropriate key for each direction.
+
 The current aztec-nr implementation provides two encryption schemes, both using ECDH key agreement on the Grumpkin curve:
 
 #### AES-128 Encryption (Default)

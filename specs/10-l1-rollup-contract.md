@@ -456,6 +456,49 @@ function invalidateInsufficientAttestations(checkpointNumber, attestations, comm
 
 Both functions revert the pending tip to `checkpointNumber - 1`, removing the invalid checkpoint and all subsequent ones.
 
+### Cross-Chain Message Model
+
+Cross-chain communication between L1 and L2 uses a paired inbox/outbox architecture. From the perspective of the rollup contract:
+
+- **L1 Inbox** (L1 contract) is paired with the **L2 Outbox** (L2 state: the message tree in the L2 global state). Messages inserted by L1 contracts are consumed on L2.
+- **L2 Inbox** (logical, not a contract) is paired with the **L1 Outbox** (L1 contract). Messages created by L2 transactions are consumed on L1.
+
+The L2 inbox does not exist as an independent structure because it keeps no state between blocks. Every L2-to-L1 message created in a block is consumed and moved to the L1 outbox within the same block by the rollup circuits.
+
+**Portals**: L1 contracts that communicate with L2 contracts are called portals. A portal is the L1 counterpart of an L2 contract, responsible for sending messages into the Inbox and consuming messages from the Outbox. When consuming a message from the Outbox, a portal MUST verify that the message was sent from the expected L2 contract, since multiple L2 contracts can send messages to the same L1 address.
+
+**Hash function**: Messages are hashed using SHA-256-to-field (see Spec #3) for gas efficiency on L1. The L1 Inbox builds Frontier Merkle Trees using SHA-256, which are then converted into snark-friendly trees (using Poseidon2) by the tree parity circuits (see Spec #9) before insertion into L2 state.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant P as Portal (L1)
+    participant I as Inbox (L1)
+    participant R as Rollup Contract (L1)
+    participant O as Outbox (L1)
+    participant L2 as L2 (circuits)
+
+    P->>I: sendL2Message()
+    Note over I: Populate sender from msg.sender, chainId
+
+    rect rgb(230, 230, 250)
+    Note over R,L2: Block production
+    L2->>L2: Consume L1→L2 msgs from L2 outbox (message tree)
+    L2->>L2: Create L2→L1 msgs, aggregate into out_hash
+    L2->>R: Submit checkpoint (propose)
+    R->>I: consume() — get inbox tree root
+    end
+
+    rect rgb(230, 250, 230)
+    Note over R: Epoch proof submission
+    R->>R: Verify epoch root proof
+    R->>O: insert(epoch, outHash)
+    end
+
+    P->>O: consume() — verify Merkle proof
+    Note over O: Verify recipient == msg.sender, nullify leaf
+```
+
 ### Inbox (L1-to-L2 Messages)
 
 The Inbox contract handles L1-to-L2 message passing. It uses a series of **Frontier Merkle Trees** (one per checkpoint) to accumulate messages.
@@ -502,6 +545,8 @@ The L1ToL2Msg structure:
 | `secretHash` | `bytes32` | Secret hash for private consumption on L2 |
 | `index` | `uint256` | Global leaf index across all trees |
 
+The `version` field in `L2Actor` identifies which rollup instance a message is intended for or sent from, allowing multiple rollup instances to share the same inbox/outbox contracts. Only message **hashes** are stored and moved between chains to minimize L1 storage costs; full message content is reconstructed off-chain for consumption proofs.
+
 Messages from the `FeeJuicePortal` use a magic sender address (`FEE_JUICE_ADDRESS = 5`) so the L2 fee juice contract can be initialized at genesis.
 
 #### Message Consumption (`consume`)
@@ -527,11 +572,63 @@ The **LAG** parameter ensures a minimum delay between when messages are inserted
 
 #### Frontier Merkle Tree
 
-Each message tree is a **Frontier Merkle Tree** of height `L1_TO_L2_MSG_SUBTREE_HEIGHT = 10`, supporting up to `2^10 = 1024` messages. This tree stores only the rightmost non-empty node at each level (the "frontier"), minimizing on-chain storage. It uses SHA-256 as the hash function (gas-efficient on L1).
+Each message tree is a **Frontier Merkle Tree** of height `L1_TO_L2_MSG_SUBTREE_HEIGHT = 10`, supporting up to `2^10 = 1024` messages. This tree stores only the rightmost non-empty node at each level (the "frontier"), minimizing on-chain storage. It uses SHA-256-to-field as the hash function (gas-efficient on L1).
 
-Key properties:
-- **Insertion**: The level to update equals the number of trailing ones in the binary representation of the insertion index.
-- **Root computation**: Walk up from the last-updated level, using frontier values for filled subtrees and precomputed zero hashes for empty ones.
+**State**: Each tree stores a `frontier` mapping (level to node hash) and a `nextIndex` counter. A shared `zeros` mapping (level to empty subtree root) is precomputed once and reused across all trees:
+
+```
+zeros[0] = 0x00...00
+for i in 1..HEIGHT:
+    zeros[i] = sha256ToField(zeros[i-1] || zeros[i-1])
+```
+
+**Level computation**: The level to update on insertion equals the number of trailing ones in the binary representation of the insertion index. Each `1` bit in the index represents a right-turn down the tree; counting trailing ones finds the height of the largest filled subtree.
+
+```
+function computeLevel(index) -> level:
+    count = 0
+    while (index & 1 == 1):
+        count += 1
+        index >>= 1
+    return count
+```
+
+**Insertion**: Hash the new leaf upward through existing frontier values to compute the root of the largest subtree filled by this insertion, then store the result.
+
+```
+function insertLeaf(leaf) -> index:
+    index = nextIndex
+    level = computeLevel(index)
+    right = leaf
+    for i in 0..level:
+        right = sha256ToField(frontier[i] || right)
+    frontier[level] = right
+    nextIndex += 1
+    return index
+```
+
+**Root computation**: Walk up from the last-updated frontier level, using frontier values for filled subtrees and precomputed zero hashes for empty ones.
+
+```
+function root() -> bytes32:
+    if nextIndex == 0:
+        return zeros[HEIGHT]
+    if nextIndex == SIZE:
+        return frontier[HEIGHT]
+
+    index = nextIndex - 1
+    level = computeLevel(index)
+    temp = frontier[level]
+
+    bits = index >> level
+    for i in level..HEIGHT:
+        if bits & 1 == 1:
+            temp = sha256ToField(frontier[i] || temp)
+        else:
+            temp = sha256ToField(temp || zeros[i])
+        bits >>= 1
+    return temp
+```
 
 ### Outbox (L2-to-L1 Messages)
 
@@ -596,6 +693,33 @@ The L2ToL1Msg structure:
 **Leaf ID stability**: Leaf IDs are computed as `(1 << treeHeight) + leafIndex`, which is stable across different epoch proof lengths. When a longer proof replaces a shorter one for the same epoch, previously consumed messages retain their consumed status because their leaf IDs remain unchanged.
 
 **Merkle verification**: Uses SHA-256-to-field for hashing (see Spec #3). The verification includes an index overflow check: after traversing the full path, `indexAtHeight` MUST equal 0, preventing replay attacks with oversized indices.
+
+### L2-Side Message Handling
+
+While the L1 contracts manage the L1 side of cross-chain messaging, the L2 side is handled by the kernel and rollup circuits. This section summarizes the L2 behavior that the L1 contracts depend on for correctness.
+
+#### L2 Inbox (Logical)
+
+The L2 inbox is not a contract but a logical concept. When an L2 transaction creates an L2-to-L1 message, the kernel circuit populates the sender fields:
+
+- `L2Actor.actor`: The L2 contract address sending the message
+- `L2Actor.version`: The protocol version of the L2 chain
+
+These message hashes are aggregated into a tree by the rollup circuits (see Spec #9) and the resulting `outHash` is included in the checkpoint header. The state transitioner then inserts this root into the L1 Outbox upon epoch proof verification.
+
+#### L2 Outbox (Message Tree)
+
+The L2 outbox is the message tree within the L2 global state (see Spec #4). It is populated by the state transitioner when L1-to-L2 messages are consumed from the Inbox and converted from SHA-256 trees to snark-friendly trees via the tree parity circuits (see Spec #9).
+
+To consume an L1-to-L2 message on L2, an application circuit (Aztec contract) MUST:
+
+1. Prove that the message exists in the L2 message tree (outbox)
+2. Verify that the message sender matches the expected L1 portal contract
+3. Verify that the message recipient matches the consuming contract and that the version matches
+4. Verify that the caller knows the `secret` that hashes to the message's `secretHash`
+5. Emit a nullifier computed from the `secret`, message hash, and message index in the tree to prevent double-spending
+
+The `secretHash` mechanism ensures that L1-to-L2 message consumption on L2 can be private: only actors with knowledge of the `secret` can determine when a message is spent.
 
 ### Blob Validation
 
@@ -877,7 +1001,17 @@ A message consumption from the Outbox MUST be rejected if:
 7. The message has already been consumed (nullified).
 8. The Merkle membership proof is invalid.
 
-### V5: Checkpoint Invalidation Validation
+### V5: L1-to-L2 Message Consumption on L2
+
+While L1-to-L2 message consumption occurs on L2 (in application circuits, not L1 contracts), the following rules are part of the protocol's cross-chain message integrity guarantees:
+
+1. The consuming contract SHOULD verify the `sender` details against the expected L1 portal contract.
+2. The consuming contract SHOULD verify that the `secret` provided by the caller hashes to the message's `secretHash`.
+3. The consuming contract SHOULD verify the `recipient` details against its own address and version.
+4. The consuming contract SHOULD emit a nullifier to prevent double-spending.
+5. The consuming contract SHOULD verify that the message exists in the L2 message tree.
+
+### V6: Checkpoint Invalidation Validation
 
 A checkpoint invalidation MUST be rejected if:
 1. The checkpoint number is not in the pending chain (`checkpointNumber <= proven` or `checkpointNumber > pending`).
@@ -887,7 +1021,7 @@ A checkpoint invalidation MUST be rejected if:
 5. For `invalidateBadAttestation`: the recovered address at `invalidIndex` matches the committee member (attestation is valid).
 6. For `invalidateInsufficientAttestations`: the number of valid signatures exceeds `committee.length * 2 / 3`.
 
-### V6: Pruning Validation
+### V7: Pruning Validation
 
 Pruning MUST be rejected if:
 1. The proof submission window for the oldest unproven epoch has not yet expired.

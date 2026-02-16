@@ -741,6 +741,26 @@ Governance execution explicitly prohibits calls to the ASSET token address, prev
 
 ---
 
+## Discarded Alternatives
+
+### Pro-Rata Rewards Across Historical Rollup Instances
+
+An early design proposed distributing block rewards pro-rata to all historical canonical rollup versions, weighted by the amount of stake currently deposited on each instance. The intent was to incentivize operators to continue running infrastructure for old deployments as long as users remained on them, while sharing a single token across all versions.
+
+This was rejected in favor of rewarding only the current canonical rollup. The `RewardDistributor.claim()` function is callable exclusively by the canonical rollup. Reasons for rejection include:
+
+- An inactive old instance with staked tokens could extract rewards by submitting empty blocks, without serving any users.
+- The complexity of managing reward splits across an unbounded number of historical instances was not justified given that the bonus instance mechanism (see Section 5.2) already provides a smooth migration path for validators.
+- Validators who choose to remain on old instances accept the trade-off of losing checkpoint rewards.
+
+### Security Council Pause Mechanism
+
+An early design proposed an emergency mode for the initial rollup instances, where a security council multisig could pause the rollup (but not make other changes). The pause would auto-expire after a fixed period (e.g., 180 days) to prevent permanently bricking user funds. This was intended as a "training wheel" for early deployments.
+
+This was not implemented. The `proposeWithLock` emergency proposal path (Section 3.3) serves as the emergency mechanism instead, allowing any sufficiently-capitalized token holder to bypass the GovernanceProposer and submit proposals directly. This approach avoids introducing a privileged multisig into the protocol.
+
+---
+
 ## References
 
 - [EIP-712: Typed Structured Data Hashing and Signing](https://eips.ethereum.org/EIPS/eip-712) — used for delegated signaling signatures in the GovernanceProposer
