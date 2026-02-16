@@ -1,5 +1,7 @@
 #include "./graph_description_acir.hpp"
 #include "barretenberg/boomerang_value_detection/helpers/cycle_group_helpers.hpp"
+#include "barretenberg/boomerang_value_detection/helpers/cycle_scalar_helpers.hpp"
+#include "barretenberg/boomerang_value_detection/helpers/range_helpers.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include <optional>
 #include <type_traits>
@@ -383,6 +385,9 @@ void StaticAnalyzerAcir_<FF, CircuitBuilder>::process_constraint_system()
         case AcirConstraintType::EC_ADD:
             result = process_ec_add_constraint(constraint_info.ptr);
             break;
+        case AcirConstraintType::MULTI_SCALAR_MUL:
+            result = process_multi_scalar_mul_constraints(constraint_info.ptr, next_constraint_witnesses);
+            break;
         default:
             // Constraint type not yet implemented - mark as not processed
             result = false;
@@ -631,35 +636,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_aes128_constraints(
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_range_constraint(uint32_t witness, uint32_t num_bits)
 {
-    // Range constraint consists of variable index and num bits to be constrained.
-    // num bits == 1 => bool gate
-    // num bits <= 14 => arithmetic gate + create_new_range_constraint <=> arithmetic gate + list[tag]
-    // num bits > 14 => decompose_into_default_range => decompose chain with additional range constrains for sublimbs
-    //
-    const auto& variable_gates = analyzer.get_variable_gates(analyzer.to_real(witness));
-
-    if (num_bits == 1) {
-        for (auto [block_idx, gate_idx] : variable_gates) {
-            if (is_boolean_gate(block_idx, gate_idx)) {
-                return true;
-            }
-        }
-        return false;
-    } else if (num_bits <= bb::UltraCircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM) {
-        // Small range: arithmetic gate + range list entry
-        uint64_t target_range = (1ULL << num_bits) - 1;
-        auto it = builder.range_lists.find(target_range);
-        if (it == builder.range_lists.end()) {
-            return false;
-        }
-        const auto& range_list = it->second;
-        return std::find(range_list.variable_indices.begin(), range_list.variable_indices.end(), witness) !=
-               range_list.variable_indices.end();
-    } else {
-        // Large range: decompose_into_default_range creates sublimbs with big_add gates
-        // Validate that the decompose chain was correctly created
-        return analyzer.validate_decompose_chain(witness, num_bits);
-    }
+    return cdg::validate_range_constraint<FF>(analyzer, builder, witness, num_bits);
 }
 
 template <typename FF, typename CircuitBuilder>
@@ -962,6 +939,51 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_ec_add_constraint(const Co
                                                   constraint->result_y,
                                                   constraint->result_infinite,
                                                   constraint->predicate);
+
+    return condition;
+}
+
+// Verifies MSM constraint:
+// 1. All input points are asserted to be on curve (via to_grumpkin_point)
+// 2. All scalars are field-validated (via cycle_scalar + validate_split_in_field_unsafe)
+// 3. The result is connected to batch_mul output via conditional_assign + assert_equal
+//
+// We intentionally skip tracing batch_mul internals. batch_mul is a complex multi-point
+// multiplication algorithm (Straus/Pippenger) whose internal gate structure is too complex
+// to trace statically. Instead, we verify that:
+//   - All inputs are properly constrained (on-curve + scalar field validation)
+//   - The batch_mul output is connected to the ACIR output via conditional_assign + assert_equal
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_multi_scalar_mul_constraints(
+    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& /*next_constraint_witnesses*/)
+{
+    const auto* constraint = std::get<const MultiScalarMul*>(ptr);
+
+    bool condition = true;
+
+    // 1. Verify on-curve check for all input points
+    for (size_t i = 0; i < constraint->points.size(); i += 3) {
+        Point<FF> point = { constraint->points[i], constraint->points[i + 1], constraint->points[i + 2] };
+        condition &= is_on_curve_check_exists<FF>(analyzer, builder, point, constraint->predicate);
+    }
+
+    // 2. Verify cycle_scalar field validation for all scalars
+    for (size_t i = 0; i < constraint->points.size(); i += 3) {
+        size_t scalar_idx = 2 * (i / 3);
+        condition &= is_cycle_scalar_constrained<FF>(analyzer,
+                                                     builder,
+                                                     constraint->scalars[scalar_idx],
+                                                     constraint->scalars[scalar_idx + 1],
+                                                     constraint->predicate);
+    }
+
+    // 3. Verify result connected via conditional_assign + assert_equal
+    Point<FF> output_point = {
+        WitnessOrConstant<FF>::from_index(constraint->out_point_x),
+        WitnessOrConstant<FF>::from_index(constraint->out_point_y),
+        WitnessOrConstant<FF>::from_index(constraint->out_point_is_infinite),
+    };
+    condition &= is_msm_result_constrained<FF>(analyzer, builder, output_point, constraint->predicate);
 
     return condition;
 }

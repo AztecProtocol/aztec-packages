@@ -56,6 +56,17 @@ Bool<CircuitBuilder> witness_or_constant_to_bool(const acir_format::WitnessOrCon
                                  bool_ct::from_witness_index_unsafe(&builder, witness_or_constant.index) };
 }
 
+// Takes block_idx, gate_idx from FilterFunctionBuilder::filter_gates result and returns the Field from w_r
+template <typename FF, typename CircuitBuilder>
+Field<CircuitBuilder> get_field_from_w_r(CircuitBuilder& builder, std::pair<size_t, size_t> gate_location)
+{
+    auto block_idx = gate_location.first;
+    auto gate_idx = gate_location.second;
+    auto result_idx = builder.blocks.get()[block_idx].w_r()[gate_idx];
+    return Field<CircuitBuilder>{ result_idx,
+                                  bb::stdlib::field_t<CircuitBuilder>::from_witness_index(&builder, result_idx) };
+}
+
 // Takes block_idx, gate_idx from FilterFunctionBuilder::filter_gates result and returns the Field from w_o
 template <typename FF, typename CircuitBuilder>
 Field<CircuitBuilder> get_field_from_w_o(CircuitBuilder& builder, std::pair<size_t, size_t> gate_location)
@@ -76,6 +87,53 @@ Field<CircuitBuilder> get_field_from_w_4(CircuitBuilder& builder, std::pair<size
     auto result_idx = builder.blocks.get()[block_idx].w_4()[gate_idx];
     return Field<CircuitBuilder>{ result_idx,
                                   bb::stdlib::field_t<CircuitBuilder>::from_witness_index(&builder, result_idx) };
+}
+
+/**
+ * @brief Get the result of field_t::normalize() from the circuit
+ * @details mirrors field_t::normalize(). If the field is already normalized (mul=1, add=0),
+ *          returns it as-is (no gate is created by stdlib). Otherwise, finds the normalization
+ *          gate and returns the normalized Field from w_o.
+ *
+ *          Normalization gate structure:
+ *            w_l = original_idx, w_r = zero_idx, w_o = normalized_idx, w_4 = zero_idx
+ *            q_1 = mul, q_2 = 0, q_3 = -1, q_m = 0, q_c = add, q_4 = 0, q_arith = 1
+ *
+ * @param analyzer The analyzer
+ * @param builder The builder
+ * @param field The field_t to normalize
+ * @return The normalized Field, or nullopt if the normalization gate is not found
+ */
+template <typename FF, typename CircuitBuilder>
+std::optional<Field<CircuitBuilder>> get_field_normalization_result(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                                                    CircuitBuilder& builder,
+                                                                    const Field<CircuitBuilder>& field)
+{
+    if (field.witness.is_constant() || field.witness.is_normalized()) {
+        return field;
+    }
+
+    auto idx = field.witness_index;
+    auto filter = FilterFunctionBuilder<CircuitBuilder, FF>(builder)
+                      .set_w_l(idx)
+                      .set_w_r(builder.zero_idx())
+                      .set_w_4(builder.zero_idx())
+                      .set_q_1(field.witness.multiplicative_constant)
+                      .set_q_2(FF::zero())
+                      .set_q_3(FF::neg_one())
+                      .set_q_m(FF::zero())
+                      .set_q_c(field.witness.additive_constant)
+                      .set_q_4(FF::zero())
+                      .set_q_arith(FF::one());
+
+    auto gates = analyzer.get_variable_gates(idx);
+    auto filtered = filter.filter_gates(gates);
+    if (filtered.empty()) {
+        log_error("get_field_normalization_result: no normalization gate found for ", idx);
+        return std::nullopt;
+    }
+
+    return get_field_from_w_o<FF>(builder, filtered[0]);
 }
 
 /**
@@ -427,6 +485,75 @@ std::optional<Field<CircuitBuilder>> get_the_result_of_conditional_assign_gate(
     }
 
     return get_madd_gate_output<FF>(analyzer, builder, lhs_minus_rhs, predicate_field, rhs_field);
+}
+
+/**
+ * @brief Find the unknown rhs and conditional_assign result when only predicate and lhs are known
+ * @details This is needed for MSM (MultiScalarMul) result validation. The MSM opcode computes
+ *          batch_mul(points, scalars) and then applies conditional_assign(predicate, input_result, batch_mul_result).
+ *          Tracing batch_mul internals is impractical (too complex), so batch_mul_result (rhs) is unknown.
+ *          We know the predicate and lhs (ACIR output point), and need to find rhs and the conditional_assign output.
+ *
+ *          The function traces field_t::conditional_assign_internal: (lhs - rhs).madd(predicate, rhs)
+ *            - subtract gate: w_l=lhs_idx, w_r=rhs_idx(unknown), w_o=diff_idx, w_4=zero_idx
+ *              selectors: q_1=lhs.mul, q_2=-rhs.mul, q_3=-1, q_m=0, q_c=lhs.add-rhs.add, q_4=0, q_arith=1
+ *            - madd gate found via get_madd_gate_output(diff, predicate, rhs)
+ *
+ *          Since rhs is unknown, we find the subtract gate using only the known lhs wire and selectors
+ *          (assuming both lhs and rhs are normalized, i.e. mul=1, add=0), extract rhs from w_r and
+ *          diff from w_o, then delegate to get_madd_gate_output.
+ *
+ * @param analyzer The analyzer
+ * @param builder The builder
+ * @param predicate_field The predicate field (known)
+ * @param lhs_field The lhs field (known, e.g. ACIR output witness)
+ * @return Pair of (rhs, conditional_assign_result), or nullopt if gates not found
+ */
+template <typename FF, typename CircuitBuilder>
+std::optional<std::pair<Field<CircuitBuilder>, Field<CircuitBuilder>>> find_conditional_assign_rhs_and_result(
+    StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+    CircuitBuilder& builder,
+    const Field<CircuitBuilder>& predicate_field,
+    const Field<CircuitBuilder>& lhs_field)
+{
+    if (predicate_field.witness.is_constant()) {
+        return std::nullopt;
+    }
+
+    auto lhs_idx = lhs_field.witness_index;
+
+    // Find the subtract gate: diff = lhs - rhs
+    // Both lhs and rhs are assumed normalized (mul=1, add=0), so:
+    //   w_l=lhs_idx, q_1=1, q_2=-1, q_3=-1, q_m=0, q_c=0, q_4=0, q_arith=1, w_4=zero_idx
+    auto sub_filter = FilterFunctionBuilder<CircuitBuilder, FF>(builder)
+                          .set_w_l(lhs_idx)
+                          .set_w_4(builder.zero_idx())
+                          .set_q_m(FF::zero())
+                          .set_q_1(FF::one())
+                          .set_q_2(FF::neg_one())
+                          .set_q_3(FF::neg_one())
+                          .set_q_c(FF::zero())
+                          .set_q_4(FF::zero())
+                          .set_q_arith(FF::one());
+
+    auto lhs_gates = analyzer.get_variable_gates(lhs_idx);
+    auto sub_gates = sub_filter.filter_gates(lhs_gates);
+    if (sub_gates.empty()) {
+        log_error("find_conditional_assign_rhs_and_result: no subtract gate found for lhs=", lhs_idx);
+        return std::nullopt;
+    }
+
+    auto rhs_field = get_field_from_w_r<FF>(builder, sub_gates[0]);
+    auto diff_field = get_field_from_w_o<FF>(builder, sub_gates[0]);
+
+    // Find the madd gate: result = diff.madd(predicate, rhs)
+    auto result = get_madd_gate_output<FF>(analyzer, builder, diff_field, predicate_field, rhs_field);
+    if (!result.has_value()) {
+        log_error("find_conditional_assign_rhs_and_result: no madd gate found");
+        return std::nullopt;
+    }
+
+    return std::make_pair(rhs_field, *result);
 }
 
 /**

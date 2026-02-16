@@ -644,4 +644,266 @@ bool is_ec_add_result_constrained(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
     return true;
 }
 
+/**
+ * @brief Find the standardize gate result for a coordinate, discovering is_infinity
+ * @details mirrors cycle_group::standardize():
+ *            _x = field_t::conditional_assign(_is_infinity, 0, _x)
+ *
+ *          conditional_assign(is_infinity, 0, coord) computes (0 - coord).madd(is_infinity, coord).
+ *          Since 0 is constant, the subtract folds into the diff's scaling (diff = -coord, same witness_index).
+ *          The resulting madd gate has a unique pattern: w_l = coord_idx AND w_o = coord_idx (same wire!),
+ *          because diff and rhs share the same underlying witness.
+ *
+ *          Gate selectors depend on whether is_infinity is inverted:
+ *            Non-inverted: q_m=-1, q_1=0
+ *            Inverted:     q_m=1,  q_1=-1
+ *          Common:         q_2=0, q_3=1, q_4=-1, q_c=0, q_arith=1
+ *
+ *          We search with the common selectors + w_l=w_o=coord_idx, then determine inversion from q_m.
+ *          The is_infinity Bool is extracted from w_r, and the standardized coordinate from w_4.
+ *
+ * @param analyzer The analyzer
+ * @param builder The builder
+ * @param coord_field The coordinate to find standardize for (must be non-constant)
+ * @return Pair of (is_infinity Bool, standardized coordinate Field), or nullopt if not found
+ */
+template <typename FF, typename CircuitBuilder>
+std::optional<std::pair<Bool<CircuitBuilder>, Field<CircuitBuilder>>> find_standardize_result(
+    StaticAnalyzer_<FF, CircuitBuilder>& analyzer, CircuitBuilder& builder, const Field<CircuitBuilder>& coord_field)
+{
+    if (coord_field.witness.is_constant()) {
+        log_error("find_standardize_result: coord is constant, no standardize gate expected");
+        return std::nullopt;
+    }
+
+    auto coord_idx = coord_field.witness_index;
+
+    // Search for madd gate where w_l = w_o = coord_idx (unique standardize pattern)
+    // Leave q_m and q_1 unset — they depend on is_infinity inversion and we determine that after
+    auto filter = FilterFunctionBuilder<CircuitBuilder, FF>(builder)
+                      .set_w_l(coord_idx)
+                      .set_w_o(coord_idx)
+                      .set_q_2(FF::zero())
+                      .set_q_3(FF::one())
+                      .set_q_4(FF::neg_one())
+                      .set_q_c(FF::zero())
+                      .set_q_arith(FF::one());
+
+    auto gates = analyzer.get_variable_gates(coord_idx);
+    auto filtered_gates = filter.filter_gates(gates);
+    if (filtered_gates.empty()) {
+        log_error("find_standardize_result: no standardize gate found for coord=", coord_idx);
+        return std::nullopt;
+    }
+
+    auto [blk, gate] = filtered_gates[0];
+    auto& block = builder.blocks.get()[blk];
+
+    // Determine is_infinity inversion from q_m: q_m=-1 → non-inverted, q_m=1 → inverted
+    bool inverted = (block.q_m()[gate] == FF::one());
+
+    auto is_inf_idx = block.w_r()[gate];
+    auto is_inf_bool = bb::stdlib::bool_t<CircuitBuilder>::from_witness_index_unsafe(&builder, is_inf_idx);
+    if (inverted) {
+        is_inf_bool = !is_inf_bool;
+    }
+    auto is_infinity = Bool<CircuitBuilder>{ is_inf_idx, is_inf_bool };
+
+    auto std_coord = get_field_from_w_4<FF>(builder, filtered_gates[0]);
+
+    return std::make_pair(is_infinity, std_coord);
+}
+
+/**
+ * @brief Verify that cycle_group::assert_equal gates exist between two cycle_groups
+ * @details mirrors cycle_group::assert_equal:
+ *            this->standardize();
+ *            other.standardize();
+ *            _x.assert_equal(other._x);
+ *            _y.assert_equal(other._y);
+ *            _is_infinity.assert_equal(other._is_infinity);
+ *
+ *          This helper is designed for the case where is_infinity is unknown for both groups
+ *          (e.g. MSM, where the batch_mul result and conditional_assign output have unknown
+ *          is_infinity). It discovers is_infinity from the standardize gate pattern on the
+ *          x-coordinate (find_standardize_result), then verifies y standardize with the
+ *          known is_infinity, and finally checks assert_equal for x, y, and is_infinity.
+ *
+ * @param analyzer The analyzer
+ * @param builder The builder
+ * @param lhs_x The x coordinate of the first cycle_group (before standardize)
+ * @param lhs_y The y coordinate of the first cycle_group (before standardize)
+ * @param rhs_x The x coordinate of the second cycle_group (before standardize)
+ * @param rhs_y The y coordinate of the second cycle_group (before standardize)
+ * @return True if all standardize + assert_equal gates exist
+ */
+template <typename FF, typename CircuitBuilder>
+bool is_cycle_group_assert_equal_constrained(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                             CircuitBuilder& builder,
+                                             const Field<CircuitBuilder>& lhs_x,
+                                             const Field<CircuitBuilder>& lhs_y,
+                                             const Field<CircuitBuilder>& rhs_x,
+                                             const Field<CircuitBuilder>& rhs_y)
+{
+    using field_ct = bb::stdlib::field_t<CircuitBuilder>;
+
+    // --- Standardize lhs: discover is_infinity from x coordinate ---
+    auto lhs_std = find_standardize_result<FF>(analyzer, builder, lhs_x);
+    if (!lhs_std.has_value()) {
+        log_error("is_cycle_group_assert_equal_constrained: lhs x standardize not found");
+        return false;
+    }
+    auto [lhs_inf, std_lhs_x] = *lhs_std;
+
+    // Verify lhs y standardize uses the same is_infinity
+    auto lhs_inf_field = Field<CircuitBuilder>{ lhs_inf.witness_index, field_ct(lhs_inf.witness) };
+    auto std_lhs_y = get_the_result_of_conditional_assign_gate<FF>(
+        analyzer,
+        builder,
+        lhs_inf_field,
+        Field<CircuitBuilder>{ bb::stdlib::IS_CONSTANT, field_ct(FF::zero()) },
+        lhs_y);
+    if (!std_lhs_y.has_value()) {
+        log_error("is_cycle_group_assert_equal_constrained: lhs y standardize not found");
+        return false;
+    }
+
+    // --- Standardize rhs: discover is_infinity from x coordinate ---
+    auto rhs_std = find_standardize_result<FF>(analyzer, builder, rhs_x);
+    if (!rhs_std.has_value()) {
+        log_error("is_cycle_group_assert_equal_constrained: rhs x standardize not found");
+        return false;
+    }
+    auto [rhs_inf, std_rhs_x] = *rhs_std;
+
+    // Verify rhs y standardize uses the same is_infinity
+    auto rhs_inf_field = Field<CircuitBuilder>{ rhs_inf.witness_index, field_ct(rhs_inf.witness) };
+    auto std_rhs_y = get_the_result_of_conditional_assign_gate<FF>(
+        analyzer,
+        builder,
+        rhs_inf_field,
+        Field<CircuitBuilder>{ bb::stdlib::IS_CONSTANT, field_ct(FF::zero()) },
+        rhs_y);
+    if (!std_rhs_y.has_value()) {
+        log_error("is_cycle_group_assert_equal_constrained: rhs y standardize not found");
+        return false;
+    }
+
+    // --- Verify field_t::assert_equal for x and y ---
+    if (!is_assert_equal_exists<FF>(analyzer, builder, std_lhs_x, std_rhs_x)) {
+        log_error("is_cycle_group_assert_equal_constrained: assert_equal not found for x");
+        return false;
+    }
+    if (!is_assert_equal_exists<FF>(analyzer, builder, *std_lhs_y, *std_rhs_y)) {
+        log_error("is_cycle_group_assert_equal_constrained: assert_equal not found for y");
+        return false;
+    }
+
+    // --- Verify bool_t::assert_equal for is_infinity ---
+    // bool_t::assert_equal normalizes both bools and then calls builder.assert_equal (copy constraint)
+    auto norm_lhs_inf = get_normalization_result<FF>(analyzer, builder, lhs_inf);
+    if (!norm_lhs_inf.has_value()) {
+        log_error("is_cycle_group_assert_equal_constrained: lhs is_infinity normalization not found");
+        return false;
+    }
+    auto norm_rhs_inf = get_normalization_result<FF>(analyzer, builder, rhs_inf);
+    if (!norm_rhs_inf.has_value()) {
+        log_error("is_cycle_group_assert_equal_constrained: rhs is_infinity normalization not found");
+        return false;
+    }
+    if (analyzer.to_real(norm_lhs_inf->witness_index) != analyzer.to_real(norm_rhs_inf->witness_index)) {
+        log_error("is_cycle_group_assert_equal_constrained: assert_equal not found for is_infinity");
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * @brief Check that the MSM result point is connected to batch_mul output via conditional_assign + assert_equal
+ * @details mirrors the end of create_multi_scalar_mul_constraint:
+ *            result = batch_mul(points, scalars)
+ *            tba = conditional_assign(predicate, input_result, result)
+ *            result.assert_equal(tba)
+ *
+ * Tracing batch_mul internals is impractical (complex multi-point multiplication), so the
+ * batch_mul result (rhs of the conditional_assign) is unknown. We use
+ * find_conditional_assign_rhs_and_result to discover the unknown rhs from the subtract gate
+ * pattern, using only the known lhs (ACIR output).
+ *
+ * Checks:
+ *   1. For x, y: find_conditional_assign_rhs_and_result(predicate, input_result_x/y) succeeds,
+ *      yielding the batch_mul result (rhs) and conditional_assign output (tba)
+ *   2. For is_infinity: the AND gate (predicate && input_result_inf) exists, which is part of
+ *      bool_t::conditional_assign((predicate && lhs) || (!predicate && rhs))
+ *   3. assert_equal between result and tba via is_cycle_group_assert_equal_constrained
+ *
+ * @param analyzer The analyzer
+ * @param builder The builder
+ * @param output_point The ACIR output point (out_point_x, out_point_y, out_point_is_infinite)
+ * @param predicate The predicate
+ * @return True if conditional_assign and assert_equal gates exist for all three components
+ */
+template <typename FF, typename CircuitBuilder>
+bool is_msm_result_constrained(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                               CircuitBuilder& builder,
+                               const Point<FF>& output_point,
+                               const WitnessOrConstant<FF>& predicate)
+{
+    using field_ct = bb::stdlib::field_t<CircuitBuilder>;
+    using bool_ct = bb::stdlib::bool_t<CircuitBuilder>;
+
+    auto predicate_field = witness_or_constant_to_field<FF>(predicate, builder);
+
+    // If predicate is constant, conditional_assign doesn't create gates
+    if (predicate_field.witness.is_constant()) {
+        return true;
+    }
+
+    // input_result is constructed via field_ct::from_witness_index (mul=1, add=0)
+    auto input_result_x =
+        Field<CircuitBuilder>{ output_point.x.index, field_ct::from_witness_index(&builder, output_point.x.index) };
+    auto input_result_y =
+        Field<CircuitBuilder>{ output_point.y.index, field_ct::from_witness_index(&builder, output_point.y.index) };
+
+    // --- Verify x conditional_assign, discovering batch_mul result (rhs) ---
+    auto x_result = find_conditional_assign_rhs_and_result<FF>(analyzer, builder, predicate_field, input_result_x);
+    if (!x_result.has_value()) {
+        log_error("is_msm_result_constrained: conditional_assign not found for x");
+        return false;
+    }
+    auto [batch_mul_x, tba_x] = *x_result;
+
+    // --- Verify y conditional_assign, discovering batch_mul result (rhs) ---
+    auto y_result = find_conditional_assign_rhs_and_result<FF>(analyzer, builder, predicate_field, input_result_y);
+    if (!y_result.has_value()) {
+        log_error("is_msm_result_constrained: conditional_assign not found for y");
+        return false;
+    }
+    auto [batch_mul_y, tba_y] = *y_result;
+
+    // --- Verify is_infinity is constrained ---
+    // bool_t::conditional_assign creates: ((predicate && input_inf) || (!predicate && batch_mul_inf)).normalize()
+    // The batch_mul_inf (rhs) is unknown. We verify the first AND gate (predicate && input_inf) exists,
+    // proving out_point_is_infinite is connected to the predicate in the constraint system.
+    auto predicate_bool = witness_or_constant_to_bool<FF>(predicate, builder);
+    auto out_inf_idx = output_point.is_infinity.index;
+    auto input_inf_bool =
+        Bool<CircuitBuilder>{ out_inf_idx, bool_ct::from_witness_index_unsafe(&builder, out_inf_idx) };
+    auto pred_and_inf = get_and_result<FF>(analyzer, builder, predicate_bool, input_inf_bool);
+    if (!pred_and_inf.has_value()) {
+        log_error("is_msm_result_constrained: no is_infinity AND gate found for out_inf=", out_inf_idx);
+        return false;
+    }
+
+    // --- Verify assert_equal between batch_mul result and tba ---
+    // result.assert_equal(tba) standardizes both groups and checks x, y, is_infinity
+    if (!is_cycle_group_assert_equal_constrained<FF>(analyzer, builder, batch_mul_x, batch_mul_y, tba_x, tba_y)) {
+        log_error("is_msm_result_constrained: assert_equal not found between batch_mul result and tba");
+        return false;
+    }
+
+    return true;
+}
+
 } // namespace cdg

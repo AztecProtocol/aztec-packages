@@ -120,6 +120,22 @@ Note: q_m doubling is handled inside `process_quad_constraints` when `include_ne
 The constraint's `mul_scaling` is never modified (`create_big_mul_add_gate` takes it as `const`),
 but `process_quad_constraints` knows the circuit gate has `2 * mul_scaling` and compares accordingly.
 
+#### `process_multi_scalar_mul_constraints(ptr, next_constraint_witnesses)`
+Validates a MultiScalarMul (MSM) constraint. The MSM opcode computes `batch_mul(points, scalars)` and verifies the result.
+
+**Important**: We intentionally skip tracing `batch_mul` internals — the batch multiplication algorithm (Straus MSM with ROM tables, point additions, etc.) is too complex to trace gate-by-gate. Instead, we verify three properties:
+
+Algorithm:
+1. **On-curve check**: For each input point, verify that `to_grumpkin_point` created the on-curve constraint (via `is_on_curve_check_exists`). Handles both witness and constant point coordinates.
+2. **Scalar field validation**: For each scalar, verify that `validate_split_in_field_unsafe` gates exist (via `is_cycle_scalar_constrained`). This checks the borrow, hi_diff, lo_diff arithmetic gates and their range constraints. Handles both witness and constant scalars — constant scalars require field normalization detection (via `get_field_normalization_result`).
+3. **Result connection**: Verify the MSM result is connected to the ACIR output via `conditional_assign` + `assert_equal` (via `is_msm_result_constrained`). Uses `find_conditional_assign_rhs_and_result` to discover the unknown `batch_mul` result from the known ACIR output witnesses.
+
+Key helper files:
+- `helpers/cycle_scalar_helpers.hpp` — `is_cycle_scalar_constrained`, `is_validate_split_in_field_unsafe_constrained`
+- `helpers/cycle_group_helpers.hpp` — `is_msm_result_constrained`, `find_standardize_result`, `is_cycle_group_assert_equal_constrained`
+- `helpers/range_helpers.hpp` — `validate_range_constraint` (free function)
+- `helpers/field_t_helpers.hpp` — `get_field_normalization_result`, `find_conditional_assign_rhs_and_result`
+
 ### Helper Functions
 
 - `witness_from_index(uint32_t idx)` - Creates `WitnessOrConstant<fr>` from witness index
@@ -207,7 +223,7 @@ auto cs = build_acir_format(5, xor_constraint, and_constraint, range_0, range_1,
 | ⬜ TODO | POSEIDON2 | `process_poseidon2s_constraints` | No |
 | ⬜ TODO | ECDSA_K1 | `process_ecdsa_constraints` | No |
 | ⬜ TODO | ECDSA_R1 | `process_ecdsa_constraints` | No |
-| ⬜ TODO | MULTI_SCALAR_MUL | `process_multi_scalar_mul_constraints` | No |
+| ✅ Done | MULTI_SCALAR_MUL | `process_multi_scalar_mul_constraints` | Yes |
 | ✅ Done | EC_ADD | `process_embedded_curve_add_constraints` | Yes |
 | ⬜ TODO | HONK_RECURSION | `process_recursion_constraints` | No |
 | ⬜ TODO | AVM_RECURSION | Not implemented | No |

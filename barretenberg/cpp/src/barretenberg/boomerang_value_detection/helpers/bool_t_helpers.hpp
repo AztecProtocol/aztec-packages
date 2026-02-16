@@ -38,6 +38,17 @@ Bool<CircuitBuilder> get_bool_from_w_o(CircuitBuilder& builder, std::pair<size_t
                                  bb::stdlib::bool_t<CircuitBuilder>::from_witness_index_unsafe(&builder, result_idx) };
 }
 
+// Takes block_idx, gate_idx from FilterFunctionBuilder::filter_gates result and returns the Bool from w_r
+template <typename FF, typename CircuitBuilder>
+Bool<CircuitBuilder> get_bool_from_w_r(CircuitBuilder& builder, std::pair<size_t, size_t> gate_location)
+{
+    auto block_idx = gate_location.first;
+    auto gate_idx = gate_location.second;
+    auto result_idx = builder.blocks.get()[block_idx].w_r()[gate_idx];
+    return Bool<CircuitBuilder>{ result_idx,
+                                 bb::stdlib::bool_t<CircuitBuilder>::from_witness_index_unsafe(&builder, result_idx) };
+}
+
 // Takes block_idx, gate_idx from FilterFunctionBuilder::filter_gates result and returns the Bool from w_4
 template <typename FF, typename CircuitBuilder>
 Bool<CircuitBuilder> get_bool_from_w_4(CircuitBuilder& builder, std::pair<size_t, size_t> gate_location)
