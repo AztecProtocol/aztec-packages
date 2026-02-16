@@ -143,6 +143,7 @@ export class MissingTxMetadataCollection implements ITxMetadataCollection {
       return false;
     }
 
+    txMeta.peers.add(peerId.toString());
     return this.missingTxsTracker.markFetched(tx);
   }
 
