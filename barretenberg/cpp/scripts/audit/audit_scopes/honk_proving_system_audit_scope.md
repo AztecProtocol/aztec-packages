@@ -92,6 +92,9 @@ The Honk proving system is Barretenberg's core SNARK proving system implementing
 14. `ultra_honk/rom_ram.test.cpp`
 15. `ultra_honk/range_constraint.test.cpp`
 16. `dsl/acir_format/honk_recursion_constraint.test.cpp`
+17. `stdlib/honk_verifier/ultra_recursive_verifier.test.cpp`
 
 ## Security Mechanisms
+
+- **Boomerang value detection**: `RecursiveVerifierTest::GraphAnalysisOfRecursiveVerifier` in `stdlib/honk_verifier/ultra_recursive_verifier.test.cpp` uses `StaticAnalyzer` to detect potentially unconstrained witnesses in the recursive verifier.
 
