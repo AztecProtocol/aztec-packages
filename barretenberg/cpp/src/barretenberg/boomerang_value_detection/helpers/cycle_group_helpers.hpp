@@ -855,16 +855,68 @@ bool is_msm_result_constrained(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
 
     auto predicate_field = witness_or_constant_to_field<FF>(predicate, builder);
 
-    // If predicate is constant, conditional_assign doesn't create gates
-    if (predicate_field.witness.is_constant()) {
-        return true;
-    }
-
     // input_result is constructed via field_ct::from_witness_index (mul=1, add=0)
     auto input_result_x =
         Field<CircuitBuilder>{ output_point.x.index, field_ct::from_witness_index(&builder, output_point.x.index) };
     auto input_result_y =
         Field<CircuitBuilder>{ output_point.y.index, field_ct::from_witness_index(&builder, output_point.y.index) };
+
+    if (predicate_field.witness.is_constant()) {
+        if (!predicate_field.witness.get_value()) {
+            // Predicate is constant false: constraint disabled (stdlib BB_ASSERTs prevent this path).
+            return true;
+        }
+        // Predicate is constant true: conditional_assign returns input_result directly (no gates).
+        // But result.assert_equal(input_result) still standardizes both sides and creates copy constraints.
+        // Verify standardize gates exist for the ACIR output point AND that assert_equal copy constraints
+        // were created (standardized coordinates should be merged with batch_mul's standardized coordinates).
+
+        // 1. Find standardize for input_result._x, discovering is_infinity
+        auto std_x_result = find_standardize_result<FF>(analyzer, builder, input_result_x);
+        if (!std_x_result.has_value()) {
+            log_error("is_msm_result_constrained: x standardize not found (constant predicate=true)");
+            return false;
+        }
+        auto [input_inf, std_input_x] = *std_x_result;
+
+        // 2. Verify y standardize uses the same is_infinity
+        auto input_inf_field = Field<CircuitBuilder>{ input_inf.witness_index, field_ct(input_inf.witness) };
+        auto std_input_y = get_the_result_of_conditional_assign_gate<FF>(
+            analyzer,
+            builder,
+            input_inf_field,
+            Field<CircuitBuilder>{ bb::stdlib::IS_CONSTANT, field_ct(FF::zero()) },
+            input_result_y);
+        if (!std_input_y.has_value()) {
+            log_error("is_msm_result_constrained: y standardize not found (constant predicate=true)");
+            return false;
+        }
+
+        // 3. Verify assert_equal copy constraints exist for x and y.
+        // batch_mul result is standardized first (lower witness indices), input_result second.
+        // assert_equal merges them, making the later witness point to the earlier representative.
+        if (analyzer.to_real(std_input_x.witness_index) == std_input_x.witness_index) {
+            log_error("is_msm_result_constrained: assert_equal not found for x (constant predicate=true)");
+            return false;
+        }
+        if (analyzer.to_real(std_input_y->witness_index) == std_input_y->witness_index) {
+            log_error("is_msm_result_constrained: assert_equal not found for y (constant predicate=true)");
+            return false;
+        }
+
+        // 4. Verify is_infinity assert_equal: bool_t::assert_equal normalizes both and creates copy constraint
+        auto norm_input_inf = get_normalization_result<FF>(analyzer, builder, input_inf);
+        if (!norm_input_inf.has_value()) {
+            log_error("is_msm_result_constrained: is_infinity normalization not found (constant predicate=true)");
+            return false;
+        }
+        if (analyzer.to_real(norm_input_inf->witness_index) == norm_input_inf->witness_index) {
+            log_error("is_msm_result_constrained: assert_equal not found for is_infinity (constant predicate=true)");
+            return false;
+        }
+
+        return true;
+    }
 
     // --- Verify x conditional_assign, discovering batch_mul result (rhs) ---
     auto x_result = find_conditional_assign_rhs_and_result<FF>(analyzer, builder, predicate_field, input_result_x);

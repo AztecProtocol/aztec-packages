@@ -310,6 +310,150 @@ TEST_F(MsmConstraintsTests, ValidateMsmConstraintMixedConstantWitness)
     EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty());
 }
 
+TEST_F(MsmConstraintsTests, ValidateMsmConstraintConstantPredicateTrue)
+{
+    // Single point-scalar pair, constant predicate = 1
+    // Witness layout: [point_x, point_y, point_inf, scalar_lo, scalar_hi, out_x, out_y, out_inf]
+    // Indices:         0        1        2           3          4          5      6      7
+    auto msm_constraint = MultiScalarMul{
+        .points = { WitnessOrConstant<fr>::from_index(0),
+                    WitnessOrConstant<fr>::from_index(1),
+                    WitnessOrConstant<fr>::from_index(2) },
+        .scalars = { WitnessOrConstant<fr>::from_index(3), WitnessOrConstant<fr>::from_index(4) },
+        .predicate = WitnessOrConstant<fr>::from_constant(1),
+        .out_point_x = 5,
+        .out_point_y = 6,
+        .out_point_is_infinite = 7,
+    };
+    AcirFormat constraint_system = build_acir_format(7, msm_constraint);
+
+    auto point = bb::grumpkin::g1::affine_one;
+    auto scalar = bb::grumpkin::fr::random_element();
+    auto result = bb::grumpkin::g1::affine_element(point * scalar);
+
+    uint256_t scalar_uint(scalar);
+    constexpr size_t LO_BITS = 128;
+
+    auto witness = WitnessVector{
+        point.x,  point.y,  fr(0), fr(scalar_uint.slice(0, LO_BITS)), fr(scalar_uint.slice(LO_BITS, 254)),
+        result.x, result.y, fr(0),
+    };
+
+    auto program = AcirProgram{ constraint_system, witness };
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
+    EXPECT_TRUE(CircuitChecker::check(builder));
+
+    StaticAnalyzerAcir analyzer(std::move(constraint_system), std::move(builder));
+    analyzer.process_constraint_system();
+    EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty());
+}
+
+TEST_F(MsmConstraintsTests, ValidateMsmConstraintConstantPredicateConstantPoint)
+{
+    // 2 point-scalar pairs: point 1 constant, point 2 witness, both scalars witness, constant predicate = 1
+    // Witness layout: [p2_x, p2_y, p2_inf, s1_lo, s1_hi, s2_lo, s2_hi, out_x, out_y, out_inf]
+    // Indices:         0     1     2       3      4      5      6      7      8      9
+    auto p1 = bb::grumpkin::g1::affine_one;
+    auto msm_constraint = MultiScalarMul{
+        .points = { WitnessOrConstant<fr>::from_constant(p1.x),
+                    WitnessOrConstant<fr>::from_constant(p1.y),
+                    WitnessOrConstant<fr>::from_constant(fr(0)),
+                    WitnessOrConstant<fr>::from_index(0),
+                    WitnessOrConstant<fr>::from_index(1),
+                    WitnessOrConstant<fr>::from_index(2) },
+        .scalars = { WitnessOrConstant<fr>::from_index(3),
+                     WitnessOrConstant<fr>::from_index(4),
+                     WitnessOrConstant<fr>::from_index(5),
+                     WitnessOrConstant<fr>::from_index(6) },
+        .predicate = WitnessOrConstant<fr>::from_constant(1),
+        .out_point_x = 7,
+        .out_point_y = 8,
+        .out_point_is_infinite = 9,
+    };
+    AcirFormat constraint_system = build_acir_format(9, msm_constraint);
+
+    auto p2 = bb::grumpkin::g1::affine_element(bb::grumpkin::g1::one * bb::grumpkin::fr(2));
+    auto s1 = bb::grumpkin::fr::random_element();
+    auto s2 = bb::grumpkin::fr::random_element();
+
+    constexpr size_t LO_BITS = 128;
+    uint256_t s1_uint(s1);
+    uint256_t s2_uint(s2);
+
+    auto result = bb::grumpkin::g1::affine_element(p1 * s1 + p2 * s2);
+
+    auto witness = WitnessVector{
+        p2.x,
+        p2.y,
+        fr(0),
+        fr(s1_uint.slice(0, LO_BITS)),
+        fr(s1_uint.slice(LO_BITS, 254)),
+        fr(s2_uint.slice(0, LO_BITS)),
+        fr(s2_uint.slice(LO_BITS, 254)),
+        result.x,
+        result.y,
+        fr(0),
+    };
+
+    auto program = AcirProgram{ constraint_system, witness };
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
+    EXPECT_TRUE(CircuitChecker::check(builder));
+
+    StaticAnalyzerAcir analyzer(std::move(constraint_system), std::move(builder));
+    analyzer.process_constraint_system();
+    EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty());
+}
+
+TEST_F(MsmConstraintsTests, ValidateMsmConstraintConstantPredicateConstantScalar)
+{
+    // 2 point-scalar pairs: both points witness, scalar 2 constant, constant predicate = 1
+    // Witness layout: [p1_x, p1_y, p1_inf, p2_x, p2_y, p2_inf, s1_lo, s1_hi, out_x, out_y, out_inf]
+    // Indices:         0     1     2       3     4     5       6      7      8      9      10
+    auto s2 = bb::grumpkin::fr::random_element();
+    constexpr size_t LO_BITS = 128;
+    uint256_t s2_uint(s2);
+    auto s2_lo = fr(s2_uint.slice(0, LO_BITS));
+    auto s2_hi = fr(s2_uint.slice(LO_BITS, 254));
+
+    auto msm_constraint = MultiScalarMul{
+        .points = { WitnessOrConstant<fr>::from_index(0),
+                    WitnessOrConstant<fr>::from_index(1),
+                    WitnessOrConstant<fr>::from_index(2),
+                    WitnessOrConstant<fr>::from_index(3),
+                    WitnessOrConstant<fr>::from_index(4),
+                    WitnessOrConstant<fr>::from_index(5) },
+        .scalars = { WitnessOrConstant<fr>::from_index(6),
+                     WitnessOrConstant<fr>::from_index(7),
+                     WitnessOrConstant<fr>::from_constant(s2_lo),
+                     WitnessOrConstant<fr>::from_constant(s2_hi) },
+        .predicate = WitnessOrConstant<fr>::from_constant(1),
+        .out_point_x = 8,
+        .out_point_y = 9,
+        .out_point_is_infinite = 10,
+    };
+    AcirFormat constraint_system = build_acir_format(10, msm_constraint);
+
+    auto p1 = bb::grumpkin::g1::affine_one;
+    auto p2 = bb::grumpkin::g1::affine_element(bb::grumpkin::g1::one * bb::grumpkin::fr(2));
+    auto s1 = bb::grumpkin::fr::random_element();
+    uint256_t s1_uint(s1);
+
+    auto result = bb::grumpkin::g1::affine_element(p1 * s1 + p2 * s2);
+
+    auto witness = WitnessVector{
+        p1.x,     p1.y,     fr(0), p2.x, p2.y, fr(0), fr(s1_uint.slice(0, LO_BITS)), fr(s1_uint.slice(LO_BITS, 254)),
+        result.x, result.y, fr(0),
+    };
+
+    auto program = AcirProgram{ constraint_system, witness };
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
+    EXPECT_TRUE(CircuitChecker::check(builder));
+
+    StaticAnalyzerAcir analyzer(std::move(constraint_system), std::move(builder));
+    analyzer.process_constraint_system();
+    EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty());
+}
+
 TEST_F(MsmConstraintsTests, DetectCorruptedOnCurveConstraint)
 {
     auto msm_constraint = create_single_msm_constraint();
