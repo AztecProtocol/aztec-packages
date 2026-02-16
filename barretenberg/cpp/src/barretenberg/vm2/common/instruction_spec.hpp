@@ -21,10 +21,10 @@ constexpr uint32_t DECOMPOSE_WINDOW_SIZE = 37; // Max size of instruction in byt
 
 struct ExecInstructionSpec {
     struct GasInfo {
-        uint16_t opcode_gas = 0; // Base l2 gas is computed as opcode_gas + addressing_gas
-        uint16_t base_da = 0;
-        uint16_t dyn_l2 = 0;
-        uint16_t dyn_da = 0;
+        uint32_t opcode_gas = 0; // Base l2 gas is computed as opcode_gas + addressing_gas
+        uint32_t base_da = 0;
+        uint32_t dyn_l2 = 0;
+        uint32_t dyn_da = 0;
 
         bool operator==(const GasInfo& other) const = default;
     };

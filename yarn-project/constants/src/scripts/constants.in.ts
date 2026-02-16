@@ -621,7 +621,8 @@ function evaluateExpressions(expressions: [string, string][]): { [key: string]: 
         // We split the expression into terms...
         .split(/\s+/)
         // ...and then we convert each term to a BigInt if it is a number.
-        .map(term => (isNaN(+term) ? term : `BigInt('${term}')`))
+        // We strip underscores before parsing since Number() doesn't support them (only JS literals do).
+        .map(term => (isNaN(+term.replaceAll('_', '')) ? term : `BigInt('${term.replaceAll('_', '')}')`))
         // .. also, we convert the known bigints to BigInts.
         .map(term => (knownBigInts.includes(term) ? `BigInt(${term})` : term))
         // We join the terms back together.
