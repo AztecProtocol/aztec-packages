@@ -52,7 +52,7 @@ pub struct PrivateCircuitPublicInputs {
     pub is_fee_payer: bool,
 
     // The timestamp by which the tx must be included in a block.
-    pub include_by_timestamp: u64,
+    pub expiration_timestamp: u64,
 
     // The side effect counter at the start of this function call.
     // All counted items emitted from this function call must have a counter greater than this value.
@@ -115,7 +115,7 @@ impl Empty for PrivateCircuitPublicInputs {
             returns_hash: 0,
             min_revertible_side_effect_counter: 0,
             is_fee_payer: false,
-            include_by_timestamp: 0,
+            expiration_timestamp: 0,
             note_hash_read_requests: ClaimedLengthArray::empty(),
             nullifier_read_requests: ClaimedLengthArray::empty(),
             key_validation_requests_and_generators: ClaimedLengthArray::empty(),

@@ -8,9 +8,9 @@
 /// The output generated here is validated by `PrivateKernelCircuitOutputValidator` to ensure correctness.
 /// See the README.md in this directory for more details on the composer/validator pattern.
 
-pub(crate) mod get_include_by_timestamp_for_contract_updates;
+pub(crate) mod get_expiration_timestamp_for_contract_updates;
 
-pub(crate) use get_include_by_timestamp_for_contract_updates::get_include_by_timestamp_for_contract_updates;
+pub(crate) use get_expiration_timestamp_for_contract_updates::get_expiration_timestamp_for_contract_updates;
 
 use crate::{
     accumulated_data::{
@@ -161,17 +161,17 @@ impl PrivateKernelCircuitOutputComposer {
             AztecAddress::zero()
         };
 
-        // `include_by_timestamp` - The timestamp at which the transaction expires.
+        // `expiration_timestamp` - The timestamp at which the transaction expires.
         // This value can only decrease with each kernel iteration.
         // Here we take the minimum of:
-        // - The timestamp set by this private call (via `context.set_include_by_timestamp()`)
+        // - The timestamp set by this private call (via `context.set_expiration_timestamp()`)
         // - The timestamp before which our earlier read of the contract instance registry would
         //   become stale.
         //   Recall: for the contract address of the private_call, we read whether the contract's
         //   class have ever been upgraded, and if so we read the current class_id,
         //   from a mapping in the ContractInstanceRegistry. Such reads (of DelayedPublicMutable state)
         //   are only valid for a short period of time, after which the class_id might have been
-        //   overwritten. Hence, the include_by_timestamp of this entire tx must be at most the
+        //   overwritten. Hence, the expiration_timestamp of this entire tx must be at most the
         //   timestamp at which our read becomes stale.
         //   Note: even if the contract has never upgraded its class_id, we must still read (and
         //   derive) an inclusion timestamp from its default INITIAL_DELAY in case an upgrade has
@@ -179,15 +179,15 @@ impl PrivateKernelCircuitOutputComposer {
         //   can go stale.
         //
         // Note: by default, at the time of writing, aztecnr sets the private_call.public_inputs.
-        // include_by_timestamp to be 24 hours after the anchor block's timestamp.
+        // expiration_timestamp to be 24 hours after the anchor block's timestamp.
         // Smart contract frameworks are responsible for setting such sensible values. If they were
         // to set a value of `0`, this `min` would be `0` and the tx would be out of date before it's
         // been submitted!
         let timestamp_before_registry_read_goes_stale =
-            get_include_by_timestamp_for_contract_updates(inputs.private_call);
+            get_expiration_timestamp_for_contract_updates(inputs.private_call);
 
-        let include_by_timestamp = std::cmp::min(
-            inputs.private_call.public_inputs.include_by_timestamp,
+        let expiration_timestamp = std::cmp::min(
+            inputs.private_call.public_inputs.expiration_timestamp,
             timestamp_before_registry_read_goes_stale,
         );
 
@@ -198,7 +198,7 @@ impl PrivateKernelCircuitOutputComposer {
             end,
             public_teardown_call_request,
             fee_payer,
-            include_by_timestamp,
+            expiration_timestamp,
             is_private_only: inputs.is_private_only,
             claimed_first_nullifier: inputs.first_nullifier_hint,
             claimed_revertible_counter: inputs.revertible_counter_hint,
@@ -221,7 +221,7 @@ impl PrivateKernelCircuitOutputComposer {
             end: previous_kernel.end,
             public_teardown_call_request: previous_kernel.public_teardown_call_request,
             fee_payer: previous_kernel.fee_payer,
-            include_by_timestamp: previous_kernel.include_by_timestamp,
+            expiration_timestamp: previous_kernel.expiration_timestamp,
             is_private_only: previous_kernel.is_private_only,
             claimed_first_nullifier: previous_kernel.claimed_first_nullifier,
             claimed_revertible_counter: previous_kernel.claimed_revertible_counter,
@@ -275,7 +275,7 @@ impl PrivateKernelCircuitOutputComposer {
         &mut self,
         private_call: PrivateCallData,
     ) {
-        self.propagate_include_by_timestamp(private_call);
+        self.propagate_expiration_timestamp(private_call);
 
         self.propagate_note_hash_read_requests(private_call.public_inputs);
         self.propagate_nullifier_read_requests(private_call.public_inputs);
@@ -307,17 +307,17 @@ impl PrivateKernelCircuitOutputComposer {
         };
     }
 
-    /// Updates include_by_timestamp by taking the minimum of all constraints.
+    /// Updates expiration_timestamp by taking the minimum of all constraints.
     /// Sources of timestamp constraints:
-    /// - Explicit: `context.set_include_by_timestamp()` called by the private function
+    /// - Explicit: `context.set_expiration_timestamp()` called by the private function
     /// - Implicit: Contract updates via delayed public mutable have time horizons
     /// - Initial: The initial value when this composer is constructed, which is from the previous kernel iteration.
-    unconstrained fn propagate_include_by_timestamp(&mut self, private_call: PrivateCallData) {
-        self.public_inputs.include_by_timestamp = std::cmp::min(
-            self.public_inputs.include_by_timestamp,
+    unconstrained fn propagate_expiration_timestamp(&mut self, private_call: PrivateCallData) {
+        self.public_inputs.expiration_timestamp = std::cmp::min(
+            self.public_inputs.expiration_timestamp,
             std::cmp::min(
-                private_call.public_inputs.include_by_timestamp,
-                get_include_by_timestamp_for_contract_updates(private_call),
+                private_call.public_inputs.expiration_timestamp,
+                get_expiration_timestamp_for_contract_updates(private_call),
             ),
         );
     }

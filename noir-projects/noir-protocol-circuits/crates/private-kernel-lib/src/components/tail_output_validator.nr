@@ -1,6 +1,6 @@
-mod validate_include_by_timestamp_duration;
+mod validate_expiration_timestamp;
 
-pub(crate) use validate_include_by_timestamp_duration::validate_include_by_timestamp_duration;
+pub(crate) use validate_expiration_timestamp::validate_expiration_timestamp;
 
 use crate::{
     accumulated_data::{assert_sorted_transformed_array, assert_transformed_array},
@@ -14,16 +14,16 @@ use types::abis::kernel_circuit_public_inputs::{
 pub struct TailOutputValidator {
     output: PrivateToRollupKernelCircuitPublicInputs,
     previous_kernel: PrivateKernelCircuitPublicInputs,
-    include_by_timestamp_upper_bound: u64,
+    expiration_timestamp_upper_bound: u64,
 }
 
 impl TailOutputValidator {
     pub fn new(
         output: PrivateToRollupKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
-        include_by_timestamp_upper_bound: u64,
+        expiration_timestamp_upper_bound: u64,
     ) -> Self {
-        TailOutputValidator { output, previous_kernel, include_by_timestamp_upper_bound }
+        TailOutputValidator { output, previous_kernel, expiration_timestamp_upper_bound }
     }
 
     pub fn validate(self) {
@@ -58,22 +58,22 @@ impl TailOutputValidator {
 
         assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer, "mismatch fee_payer");
 
-        // `include_by_timestamp` - The timestamp at which the transaction expires.
+        // `expiration_timestamp` - The timestamp at which the transaction expires.
         // This value can only decrease with each iteration. Here we take the minimum of:
         // - The value from the previous kernel iteration
         // - An upper bound value set by the user
-        let include_by_timestamp = std::cmp::min(
-            self.previous_kernel.include_by_timestamp,
-            self.include_by_timestamp_upper_bound,
+        let expiration_timestamp = std::cmp::min(
+            self.previous_kernel.expiration_timestamp,
+            self.expiration_timestamp_upper_bound,
         );
-        validate_include_by_timestamp_duration(
-            include_by_timestamp,
+        validate_expiration_timestamp(
+            expiration_timestamp,
             self.previous_kernel.constants.anchor_block_header.global_variables,
         );
         assert_eq(
-            self.output.include_by_timestamp,
-            include_by_timestamp,
-            "incorrect include_by_timestamp",
+            self.output.expiration_timestamp,
+            expiration_timestamp,
+            "incorrect expiration_timestamp",
         );
 
         // note_hashes

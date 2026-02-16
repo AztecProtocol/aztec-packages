@@ -29,7 +29,7 @@ describe('InvalidTxsAfterReorgRule', () => {
     claimAmount: 0n,
     feeLimit: 100n,
     nullifiers: [`0x${txHash.slice(2)}null1`],
-    includeByTimestamp: 0n,
+    expirationTimestamp: 0n,
     receivedAt: 0,
     data: stubTxMetaValidationData(),
   });

@@ -301,13 +301,13 @@ describe('KV TX pool', () => {
     expect(pendingTxHashes).toHaveLength(2);
   });
 
-  it('Evicts txs with a max inclusion timestamp lower than or equal to the timestamp of the mined block', async () => {
+  it('Evicts txs with an expiration timestamp lower than or equal to the timestamp of the mined block', async () => {
     const tx1 = await mockTx(1);
-    tx1.data.includeByTimestamp = 0n;
+    tx1.data.expirationTimestamp = 0n;
     const tx2 = await mockTx(2);
-    tx2.data.includeByTimestamp = 32n;
+    tx2.data.expirationTimestamp = 32n;
     const tx3 = await mockTx(3);
-    tx3.data.includeByTimestamp = 64n;
+    tx3.data.expirationTimestamp = 64n;
 
     await txPool.addTxs([tx1, tx2, tx3]);
     await txPool.markAsMined([tx1.getTxHash()], block2Header);

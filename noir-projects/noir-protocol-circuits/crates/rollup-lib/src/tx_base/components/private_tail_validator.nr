@@ -141,26 +141,26 @@ pub fn validate_contract_class_logs(
     }
 }
 
-/// Validate the `include_by_timestamp` of the tx against the block timestamp.
-pub fn validate_include_by_timestamp(
-    include_by_timestamp: u64,
+/// Validate the `expiration_timestamp` of the tx against the block timestamp.
+pub fn validate_expiration_timestamp(
+    expiration_timestamp: u64,
     global_variables_of_block_being_built: GlobalVariables,
 ) {
     // Skip validation when building block 1, since the genesis block header has a zero timestamp.
-    // Without this skip, no txs could be included in block 1, because `include_by_timestamp` must be at most
-    // `MAX_INCLUDE_BY_TIMESTAMP_DURATION` from the anchor block's timestamp. This means that any tx anchored to the
-    // genesis block would almost certainly have an `include_by_timestamp` earlier than the first block's timestamp,
+    // Without this skip, no txs could be included in block 1, because `expiration_timestamp` must be at most
+    // `MAX_TX_LIFETIME` from the anchor block's timestamp. This means that any tx anchored to the
+    // genesis block would almost certainly have an `expiration_timestamp` earlier than the first block's timestamp,
     // making them impossible to be included.
     //
-    // Normally, `include_by_timestamp` may change when calling an updatable contract, and this check ensures that the
+    // Normally, `expiration_timestamp` may change when calling an updatable contract, and this check ensures that the
     // tx does not call an outdated contract that has already been upgraded. However, since no updatable contracts exist
     // in the genesis block, skipping this check here is safe.
     let is_building_block_1 = global_variables_of_block_being_built.block_number == 1;
     let block_timestamp = global_variables_of_block_being_built.timestamp;
     if !is_building_block_1 {
         assert(
-            include_by_timestamp >= block_timestamp,
-            "tx include_by_timestamp is smaller than block timestamp",
+            expiration_timestamp >= block_timestamp,
+            "tx expiration_timestamp is smaller than block timestamp",
         );
     }
 }

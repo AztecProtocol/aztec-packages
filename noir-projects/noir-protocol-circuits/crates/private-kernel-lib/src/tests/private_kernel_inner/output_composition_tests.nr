@@ -250,35 +250,35 @@ fn with_both_non_empty_fee_payer() {
 }
 
 #[test]
-fn include_by_timestamp_pick_previous() {
+fn expiration_timestamp_pick_previous() {
     let mut builder = TestBuilder::new();
 
-    builder.previous_kernel.include_by_timestamp = 45;
-    builder.private_call.include_by_timestamp = 678;
+    builder.previous_kernel.expiration_timestamp = 45;
+    builder.private_call.expiration_timestamp = 678;
 
     let pi = builder.execute();
 
-    assert_eq(pi.include_by_timestamp, 45);
+    assert_eq(pi.expiration_timestamp, 45);
 }
 
 #[test]
-fn include_by_timestamp_pick_private_call() {
+fn expiration_timestamp_pick_private_call() {
     let mut builder = TestBuilder::new();
 
-    builder.previous_kernel.include_by_timestamp = 456;
-    builder.private_call.include_by_timestamp = 78;
+    builder.previous_kernel.expiration_timestamp = 456;
+    builder.private_call.expiration_timestamp = 78;
 
     let pi = builder.execute();
 
-    assert_eq(pi.include_by_timestamp, 78);
+    assert_eq(pi.expiration_timestamp, 78);
 }
 
 #[test]
 fn with_everything_non_empty() {
     let mut builder = TestBuilder::new();
 
-    builder.previous_kernel.include_by_timestamp = 45;
-    builder.private_call.include_by_timestamp = 45;
+    builder.previous_kernel.expiration_timestamp = 45;
+    builder.private_call.expiration_timestamp = 45;
 
     builder.previous_kernel.is_private_only = true;
     builder.previous_kernel.claimed_revertible_counter = 123;
@@ -352,7 +352,7 @@ fn with_everything_non_empty() {
 
     let pi = builder.execute();
 
-    assert_eq(pi.include_by_timestamp, 45);
+    assert_eq(pi.expiration_timestamp, 45);
     assert_eq(pi.is_private_only, true);
     assert_eq(pi.claimed_revertible_counter, 123);
 

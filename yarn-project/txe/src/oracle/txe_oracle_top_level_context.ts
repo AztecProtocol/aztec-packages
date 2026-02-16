@@ -591,7 +591,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       constantData,
       /*gasUsed=*/ new Gas(0, 0),
       /*feePayer=*/ AztecAddress.zero(),
-      /*includeByTimestamp=*/ 0n,
+      /*expirationTimestamp=*/ 0n,
       inputsForPublic,
       undefined,
     );
