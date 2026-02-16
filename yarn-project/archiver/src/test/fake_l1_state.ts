@@ -510,10 +510,9 @@ export class FakeL1State {
           checkpointNumber: cpData.checkpointNumber,
           archive: cpData.checkpoint.archive.root,
           versionedBlobHashes: cpData.blobHashes.map(h => Buffer.from(h.slice(2), 'hex')),
-          // These are intentionally undefined to skip hash validation in the archiver
-          // (validation is skipped when these fields are falsy)
-          payloadDigest: undefined,
-          attestationsHash: undefined,
+          // Use random hashes for testing; hash validation is mocked in CalldataRetriever tests
+          payloadDigest: Buffer32.random(),
+          attestationsHash: Buffer32.random(),
         },
       }));
   }

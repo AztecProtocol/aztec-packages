@@ -154,11 +154,6 @@ export async function retrieveCheckpointsFromRollup(
   blobClient: BlobClientInterface,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
-  contractAddresses: {
-    governanceProposerAddress: EthAddress;
-    slashFactoryAddress?: EthAddress;
-    slashingProposerAddress: EthAddress;
-  },
   instrumentation: ArchiverInstrumentation,
   logger: Logger = createLogger('archiver'),
   isHistoricalSync: boolean = false,
@@ -202,7 +197,6 @@ export async function retrieveCheckpointsFromRollup(
       blobClient,
       checkpointProposedLogs,
       rollupConstants,
-      contractAddresses,
       instrumentation,
       logger,
       isHistoricalSync,
@@ -223,7 +217,6 @@ export async function retrieveCheckpointsFromRollup(
  * @param blobClient - The blob client client for fetching blob data.
  * @param logs - CheckpointProposed logs.
  * @param rollupConstants - The rollup constants (chainId, version, targetCommitteeSize).
- * @param contractAddresses - The contract addresses (governanceProposerAddress, slashFactoryAddress, slashingProposerAddress).
  * @param instrumentation - The archiver instrumentation instance.
  * @param logger - The logger instance.
  * @param isHistoricalSync - Whether this is a historical sync.
@@ -236,11 +229,6 @@ async function processCheckpointProposedLogs(
   blobClient: BlobClientInterface,
   logs: CheckpointProposedLog[],
   { chainId, version, targetCommitteeSize }: { chainId: Fr; version: Fr; targetCommitteeSize: number },
-  contractAddresses: {
-    governanceProposerAddress: EthAddress;
-    slashFactoryAddress?: EthAddress;
-    slashingProposerAddress: EthAddress;
-  },
   instrumentation: ArchiverInstrumentation,
   logger: Logger,
   isHistoricalSync: boolean,
@@ -252,7 +240,7 @@ async function processCheckpointProposedLogs(
     targetCommitteeSize,
     instrumentation,
     logger,
-    { ...contractAddresses, rollupAddress: EthAddress.fromString(rollup.address) },
+    EthAddress.fromString(rollup.address),
   );
 
   await asyncPool(10, logs, async log => {
@@ -263,10 +251,9 @@ async function processCheckpointProposedLogs(
 
     // The value from the event and contract will match only if the checkpoint is in the chain.
     if (archive.equals(archiveFromChain)) {
-      // Build expected hashes object (fields may be undefined for backwards compatibility with older events)
       const expectedHashes = {
-        attestationsHash: log.args.attestationsHash?.toString(),
-        payloadDigest: log.args.payloadDigest?.toString(),
+        attestationsHash: log.args.attestationsHash.toString() as Hex,
+        payloadDigest: log.args.payloadDigest.toString() as Hex,
       };
 
       const checkpoint = await calldataRetriever.getCheckpointFromRollupTx(
