@@ -322,7 +322,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     /**
      * @brief Optimized chained addition for non-infinity points.
      *
-     * @pre p1 and p2 must NOT be at point at infinity. Use operator+ for general addition.
+     * @pre p1 and p2 must NOT be point at infinity. Use operator+ for general addition.
      * @pre p1.x ≠ p2.x for all points in the chain (required for the incomplete addition formula used in this method).
      *
      * @details We can chain repeated point additions together, where we only require 2 non-native field multiplications
