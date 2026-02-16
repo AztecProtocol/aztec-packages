@@ -52,8 +52,9 @@ function check_generated_contracts_synced {
 
 function build_code {
     # These steps are sequential
-    check_generated_contracts_synced
+    # generate_vks must run before the sync check because BlakeHonkOpt.sol is generated
     generate_vks
+    check_generated_contracts_synced
     build_sol
 }
 
