@@ -4,7 +4,6 @@
 #include "barretenberg/flavor/test_utils/proof_structures.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/stdlib/test_utils/tamper_proof.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 #include "barretenberg/translator_vm/translator_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -267,11 +266,14 @@ class TranslatorRecursiveTests : public ::testing::Test {
         EXPECT_EQ(proof_data, original_data);
     }
 
-    /**
-     * @brief Tamper with a Translator proof using StructuredProof for targeted modification.
-     * @details TranslatorProver doesn't have prover_instance, so this is a Translator-specific
-     * tamper helper (Translator has no public inputs and a fixed log_n).
-     */
+    enum class TamperType {
+        MODIFY_SUMCHECK_UNIVARIATE, // Tests sumcheck round consistency constraint (circuit FAIL)
+        MODIFY_SUMCHECK_EVAL,       // Tests final relation check constraint (circuit FAIL)
+        MODIFY_KZG_WITNESS,         // Tests pairing check (circuit PASS, pairing FAIL)
+        MODIFY_LIBRA_EVAL,          // Tests Libra consistency constraint (circuit FAIL)
+        END
+    };
+
     static void tamper_translator_proof(InnerProver& prover,
                                         typename InnerFlavor::Transcript::Proof& proof,
                                         TamperType tamper_type)
@@ -297,7 +299,6 @@ class TranslatorRecursiveTests : public ::testing::Test {
             structured_proof.kzg_w_comm = structured_proof.kzg_w_comm * FF::random_element();
             break;
         case TamperType::MODIFY_LIBRA_EVAL:
-            // Translator is always ZK
             structured_proof.libra_quotient_eval = FF::random_element();
             break;
         case TamperType::END:
@@ -309,15 +310,6 @@ class TranslatorRecursiveTests : public ::testing::Test {
         proof = prover.export_proof();
     }
 
-    /**
-     * @brief Construct verifier circuits for proofs whose data have been tampered with. Each TamperType targets a
-     * specific verification constraint to ensure it exists and is enforced in the recursive verifier circuit.
-     * @details
-     *   - MODIFY_SUMCHECK_UNIVARIATE: Tests sumcheck round consistency constraint (circuit FAIL)
-     *   - MODIFY_SUMCHECK_EVAL: Tests final relation check constraint (circuit FAIL)
-     *   - MODIFY_KZG_WITNESS: Tests pairing check (circuit PASS, pairing FAIL)
-     *   - MODIFY_LIBRA_EVAL: Tests Libra consistency constraint (circuit FAIL)
-     */
     static void test_recursive_verification_fails()
     {
         for (size_t idx = 0; idx < static_cast<size_t>(TamperType::END); idx++) {

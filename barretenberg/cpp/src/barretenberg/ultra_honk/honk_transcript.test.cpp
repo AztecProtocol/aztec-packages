@@ -1,12 +1,13 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/test_utils/proof_structures.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/stdlib/test_utils/tamper_proof.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -204,8 +205,8 @@ template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
     Proof export_serialized_proof(Prover& prover, const size_t num_public_inputs, const size_t log_n)
     {
         // reset internal variables needed for exporting the proof
-        // Note: compute_proof_length_for_export excludes IPA proof length since export_proof appends it separately
-        size_t proof_length = compute_proof_length_for_export<Flavor>(num_public_inputs, log_n);
+        // Note: this excludes IPA proof length since export_proof appends it separately
+        size_t proof_length = ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(log_n) + num_public_inputs;
         prover.transcript->test_set_proof_parsing_state(0, proof_length);
         return prover.export_proof();
     }

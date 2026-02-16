@@ -3,8 +3,9 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/test_utils/proof_structures.hpp"
+#include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/stdlib/test_utils/tamper_proof.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "ultra_verification_keys_comparator.hpp"
@@ -297,21 +298,60 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
         }
     }
 
-    /**
-     * @brief Construct verifier circuits for proofs whose data have been tampered with. Each TamperType targets a
-     * specific verification constraint to ensure it exists and is enforced in the recursive verifier circuit.
-     * @details
-     *   - MODIFY_SUMCHECK_UNIVARIATE: Tests sumcheck round consistency constraint (circuit FAIL)
-     *   - MODIFY_SUMCHECK_EVAL: Tests final relation check constraint (circuit FAIL)
-     *   - MODIFY_KZG_WITNESS: Tests pairing check (circuit PASS, pairing FAIL)
-     *   - MODIFY_LIBRA_EVAL: Tests Libra consistency constraint (circuit FAIL, ZK only)
-     */
+    enum class TamperType {
+        MODIFY_SUMCHECK_UNIVARIATE, // Tests sumcheck round consistency constraint (circuit FAIL)
+        MODIFY_SUMCHECK_EVAL,       // Tests final relation check constraint (circuit FAIL)
+        MODIFY_KZG_WITNESS,         // Tests pairing check (circuit PASS, pairing FAIL)
+        MODIFY_LIBRA_EVAL,          // Tests Libra consistency constraint (circuit FAIL, ZK only)
+        END
+    };
+
+    static void tamper_honk_proof(InnerProver& inner_prover,
+                                  typename InnerFlavor::Transcript::Proof& inner_proof,
+                                  TamperType type)
+    {
+        using FF = InnerFF;
+        static constexpr size_t FIRST_WITNESS_INDEX = InnerFlavor::NUM_PRECOMPUTED_ENTITIES;
+
+        StructuredProof<InnerFlavor> structured_proof;
+        const auto num_public_inputs = inner_prover.prover_instance->num_public_inputs();
+        const size_t log_n =
+            InnerFlavor::USE_PADDING ? InnerFlavor::VIRTUAL_LOG_N : inner_prover.prover_instance->log_dyadic_size();
+        structured_proof.deserialize(inner_prover.transcript->test_get_proof_data(), num_public_inputs, log_n);
+
+        switch (type) {
+        case TamperType::MODIFY_SUMCHECK_UNIVARIATE: {
+            FF delta = FF::random_element();
+            structured_proof.sumcheck_univariates[0].value_at(0) += delta;
+            structured_proof.sumcheck_univariates[0].value_at(1) -= delta;
+            break;
+        }
+        case TamperType::MODIFY_SUMCHECK_EVAL:
+            structured_proof.sumcheck_evaluations[FIRST_WITNESS_INDEX] = FF::random_element();
+            break;
+        case TamperType::MODIFY_KZG_WITNESS:
+            structured_proof.kzg_w_comm = structured_proof.kzg_w_comm * FF::random_element();
+            break;
+        case TamperType::MODIFY_LIBRA_EVAL:
+            if constexpr (InnerFlavor::HasZK) {
+                structured_proof.libra_quotient_eval = FF::random_element();
+            }
+            break;
+        case TamperType::END:
+            break;
+        }
+
+        structured_proof.serialize(inner_prover.transcript->test_get_proof_data(), log_n);
+        inner_prover.transcript->test_set_proof_parsing_state(
+            0, ProofLength::Honk<InnerFlavor>::LENGTH_WITHOUT_PUB_INPUTS(log_n) + num_public_inputs);
+        inner_proof = inner_prover.export_proof();
+    }
+
     static void test_recursive_verification_fails()
     {
         for (size_t idx = 0; idx < static_cast<size_t>(TamperType::END); idx++) {
             TamperType tamper_type = static_cast<TamperType>(idx);
 
-            // MODIFY_LIBRA_EVAL only applies to ZK flavors
             if (tamper_type == TamperType::MODIFY_LIBRA_EVAL && !InnerFlavor::HasZK) {
                 continue;
             }
@@ -327,7 +367,7 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
             auto inner_proof = inner_prover.construct_proof();
 
             // Tamper with the proof to be verified
-            tamper_with_proof<InnerProver, InnerFlavor>(inner_prover, inner_proof, tamper_type);
+            tamper_honk_proof(inner_prover, inner_proof, tamper_type);
 
             // Create a recursive verification circuit for the tampered proof
             OuterBuilder outer_circuit;
