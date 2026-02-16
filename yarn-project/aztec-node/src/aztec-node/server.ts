@@ -1153,6 +1153,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       blockNumber,
     });
 
+    // Ensure world state is synced to the latest block before forking.
+    // Without this, the fork may be behind the archiver, causing lookups
+    // (e.g. L1-to-L2 message existence checks) to fail against stale state.
+    await this.#syncWorldState();
     const merkleTreeFork = await this.worldStateSynchronizer.fork();
     try {
       const config = PublicSimulatorConfig.from({
