@@ -25,11 +25,46 @@ contract BlakeOptHonkVerifier is IVerifier {
     /*                    SLAB ALLOCATION                         */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
     /**
-     * We manually manage memory within this optimised implementation
-     * Memory is loaded into a large slab that is ordered in the following way
+     * We manually manage memory within this optimised implementation.
+     * Memory is loaded into a large slab with the following layout:
      *
-     * // TODO: ranges
-     * **
+     * HIGH MEMORY (persistent, non-overlapping regions from 0x1000 upward):
+     *
+     *                    VK Data (circuit size, num PIs, offset, 28 G1 commitment points)             [Overwritten by barycentric inverses during sumcheck;                re-loaded from bytecode via loadVk() before MSM stage]
+     *                    Proof: Pairing point limbs (8 field elements)
+     *                    Proof: Witness commitments (W_L..Z_PERM, 8 G1 points)
+     *                    Proof: Sumcheck univariates (LOG_N rounds x 8 coefficients)
+     *                    Proof: Sumcheck evaluations (41 entity evaluations)
+     *                    Proof: Gemini fold commitments (LOG_N-1 G1 points)
+     *                    Proof: Gemini A evaluations (LOG_N field elements)
+     *                    Proof: Shplonk Q + KZG quotient (2 G1 points)
+     *                    Challenges (eta..sum_u, alpha[0..26], gate + sum_u challenges)
+     *                    Subrelation evaluations (28 slots, used during sumcheck)
+     *                    Subrelation intermediates (7 slots: round target, pow, AUX)
+     *                    Powers of evaluation challenge (LOG_N slots)
+     *                    Batch scalars (69 slots, for MSM)
+                   LATER_SCRATCH_SPACE (batch inversion products marker)
+     *                    Temporary space (45 slots, ephemeral computation)
+     *
+     * LOW MEMORY / SCRATCH SPACE (two temporally disjoint overlapping phases):
+     *
+     *   Phase 1 (Sumcheck -- barycentric evaluation):
+     *                    Barycentric Lagrange denominators (8 domain points)
+     *                    Barycentric denominator inverses (LOG_N x 8 = 120 slots)
+     *                     [Slots at 0x1000-0x10E0 overlap VK data; VK is re-loaded later]
+     *
+     *   Phase 2 (Shplemini -- after sumcheck completes, reuses same addresses):
+     *                    Inverted Gemini denominators (LOG_N+1 = 16 slots)
+     *                    Batch evaluation accumulator inversions (LOG_N slots)
+     *                    Batched eval, constant term accumulator, pos/neg inv denom
+     *                    Inverted challenge^pow - u (LOG_N slots)
+     *                    Pos inverted denominators (LOG_N slots)
+     *                    Neg inverted denominators (LOG_N slots)
+     *                    Fold-pos evaluations (LOG_N slots)
+     *
+     *   Scratch aliases (0x00-0x40): CHALL_POW/SUMCHECK_U/GEMINI_A during sumcheck;
+     *   SS_POS_INV_DENOM/SS_NEG_INV_DENOM/SS_GEMINI_EVALS during shplemini.
+     *   MSM stage reuses 0x00-0xA0 for ACCUMULATOR, G1_LOCATION, SCALAR.
      */
 
     // {{ SECTION_START MEMORY_LAYOUT }}
@@ -894,7 +929,10 @@ contract BlakeOptHonkVerifier is IVerifier {
     /*                 Temporary space - COMPLETE                 */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    // Aliases for scratch space
+    // Scratch space aliases at 0x00-0x40
+    // Phase 1 (sumcheck rounds): CHALL_POW_LOC, SUMCHECK_U_LOC, GEMINI_A_LOC
+    // Phase 2 (shplemini batch scalars): SS_POS_INV_DENOM_LOC, SS_NEG_INV_DENOM_LOC, SS_GEMINI_EVALS_LOC
+    // These phases do not overlap in execution time.
     uint256 internal constant CHALL_POW_LOC = 0x0;
     uint256 internal constant SUMCHECK_U_LOC = 0x20;
     uint256 internal constant GEMINI_A_LOC = 0x40;
@@ -2979,15 +3017,15 @@ contract BlakeOptHonkVerifier is IVerifier {
             let eval_challenge := mload(SHPLONK_Z_CHALLENGE)
 
             // TO be inverted in the batch invert below
-            // TODO: maybe not needed to go in memory
+            let inverted_gemini_denominator := addmod(eval_challenge, sub(p, mload(POWERS_OF_EVALUATION_CHALLENGE_0_LOC)), p)
             mstore(
                 INVERTED_GEMINI_DENOMINATOR_0_LOC,
-                addmod(eval_challenge, sub(p, mload(POWERS_OF_EVALUATION_CHALLENGE_0_LOC)), p)
+                inverted_gemini_denominator
             )
 
             mstore(
                 POS_INVERTED_DENOM_0_LOC,
-                addmod(eval_challenge, sub(p, mload(POWERS_OF_EVALUATION_CHALLENGE_0_LOC)), p)
+                inverted_gemini_denominator
             )
             mstore(NEG_INVERTED_DENOM_0_LOC, addmod(eval_challenge, mload(POWERS_OF_EVALUATION_CHALLENGE_0_LOC), p))
 
@@ -3501,8 +3539,13 @@ contract BlakeOptHonkVerifier is IVerifier {
                 )
             }
 
-            // TODO: Write a comment that describes the process of accumulating commitments and scalars
-            // into one large value that will be used on the rhs of the pairing check
+            // Commitment Accumulation (MSM via sequential ecAdd/ecMul):
+            // For each commitment C_i with batch scalar s_i, we compute:
+            //   accumulator += s_i * C_i
+            // The commitments include: shplonk_Q, VK points, wire commitments,
+            // lookup commitments, Z_PERM, gemini fold univariates.
+            // The KZG quotient is handled separately.
+            // The final accumulator is the LHS of the pairing equation.
 
             // Accumulators
             let batching_challenge := 1
