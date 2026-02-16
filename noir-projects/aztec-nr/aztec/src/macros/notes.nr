@@ -280,7 +280,7 @@ pub comptime fn custom_note(s: TypeDefinition) -> Quoted {
     }
 }
 
-/// Asserts that the given note implements the `Packable` trait.
+/// Asserts that the given note implements the [`Packable`](crate::protocol::traits::Packable) trait.
 ///
 /// We require that notes have the `Packable` trait implemented because it is used when emitting a note in a log or as
 /// an offchain message.
