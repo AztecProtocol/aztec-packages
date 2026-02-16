@@ -1,6 +1,6 @@
 # @aztec/wallet-sdk
 
-Version: v4.0.0-devnet.1-patch.0
+Version: v4.0.0-devnet.1-patch.1
 
 ## Quick Import Reference
 

@@ -34,7 +34,7 @@ Full reference [here](../cli/aztec_wallet_cli_reference).
 
 A [Node package](https://www.npmjs.com/package/@aztec/aztec.js) to help make Aztec dApps.
 
-Read more and review the source code [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec.js).
+Read more and review the source code [here](https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-devnet.1-patch.1/yarn-project/aztec.js).
 
 ### Aztec.nr
 
@@ -79,14 +79,6 @@ Noir is a Domain Specific Language (DSL) for SNARK proving systems. It is used f
 The Noir Language Server can be used in vscode to facilitate writing programs in Noir by providing syntax highlighting, circuit introspection and an execution interface. The Noir LSP addon allows the dev to choose their tool, nargo or `aztec`, when writing a pure Noir program or an Aztec smart contract.
 
 You can find more info about the LSP [in the Noir docs](https://noir-lang.org/docs/tooling/language_server).
-
-### Oracle
-
-An oracle is a mechanism that allows Noir circuits or functions to request data from the outside world during execution. Since zero-knowledge circuits are pure, deterministic computations with no I/O capabilities, oracles act as a bridge. The circuit requests data, and the host environment (typically the PXE) provides it through unconstrained foreign calls.
-
-In Aztec, the PXE serves as the primary oracle provider, offering ~50+ oracle functions covering notes, keys, Merkle proofs, storage, logs, and more. These oracles enable private functions to access state, query databases, and interact with the broader system. Because oracle results are unconstrained, any oracle data used in constrained code must be independently validated (e.g., via Merkle proof verification).
-
-Oracles are scoped by execution context (utility, and private). The TXE (Test Execution Environment) provides equivalent oracle implementations for contract testing. Public functions don't use oracles—they use AVM opcodes instead.
 
 ### Node
 
@@ -146,6 +138,7 @@ Included in the local network:
 - Deployed Aztec protocol contracts (for L1 and L2)
 - A set of test accounts with some test tokens to pay fees
 - Development tools to compile contracts and interact with the network (`aztec` and `aztec-wallet`)
+- All of this comes packaged in a Docker container to make it easy to install and run.
 
 ### Sequencer
 

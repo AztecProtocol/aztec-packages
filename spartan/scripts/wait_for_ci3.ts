@@ -6,7 +6,7 @@
  *   wait_for_ci3.ts <tag> [repo]
  *
  * Arguments:
- *   tag  - The git tag to wait for (e.g., v4.0.0-devnet.1-patch.0)
+ *   tag  - The git tag to wait for (e.g., v4.0.0-devnet.1-patch.1)
  *   repo - Optional GitHub repo (default: GITHUB_REPOSITORY or 'AztecProtocol/aztec-packages')
  *
  * The script:
