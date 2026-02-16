@@ -293,11 +293,6 @@ bool is_ec_add_result_constrained(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
     auto y2 = (*real_input2).y;
     auto inf2 = (*real_input2).is_infinite;
 
-    // If both points are constant, operator+ is computed natively without gates
-    if (x1.witness.is_constant() && y1.witness.is_constant() && x2.witness.is_constant() && y2.witness.is_constant()) {
-        return true;
-    }
-
     // Step 1: x_coordinates_match = (x1 == x2)
     auto x_coord_match = get_equality_result<FF>(analyzer, builder, x1, x2);
     if (!x_coord_match.has_value()) {
