@@ -195,7 +195,7 @@ def print_proof(pointer: int):
     return pointer
 
 BATCHED_RELATION_PARTIAL_LENGTH = 8
-PROOF_SIZE_LOG_N = 28
+PROOF_SIZE_LOG_N = 15
 NUMBER_OF_ENTITIES = 41
 NUMBER_OF_SUBRELATIONS = 28
 NUMBER_OF_ALPHAS = NUMBER_OF_SUBRELATIONS - 1
@@ -258,17 +258,18 @@ def print_challenges(pointer: int):
     return pointer
 
 BARYCENTRIC_DOMAIN_SIZE = 8
-def print_barycentric_domain():
+def print_barycentric_domain(pointer: int):
     # use scratch space
-    bary_pointer = SCRATCH_SPACE_POINTER
     for i in range(0, BARYCENTRIC_DOMAIN_SIZE):
-        print_fr(bary_pointer, "BARYCENTRIC_LAGRANGE_DENOMINATOR_" + str(i) + "_LOC")
-        bary_pointer += 32
+        print_fr(pointer, "BARYCENTRIC_LAGRANGE_DENOMINATOR_" + str(i) + "_LOC")
+        pointer += 32
 
     for i in range(0, PROOF_SIZE_LOG_N):
         for j in range(0, BARYCENTRIC_DOMAIN_SIZE):
-            print_fr(bary_pointer, "BARYCENTRIC_DENOMINATOR_INVERSES_" + str(i) + "_" + str(j) + "_LOC")
-            bary_pointer += 32
+            print_fr(pointer, "BARYCENTRIC_DENOMINATOR_INVERSES_" + str(i) + "_" + str(j) + "_LOC")
+            pointer += 32
+
+    return pointer
 
 
 def print_subrelation_eval(pointer: int):
@@ -341,8 +342,12 @@ def print_constant_term_accumulator_location(pointer: int):
     pointer += 32
     return pointer
 
-def print_inversions():
-    pointer = SCRATCH_SPACE_POINTER
+def print_gemini_r_inv(pointer: int):
+    print_fr(pointer, "GEMINI_R_INV_LOC")
+    pointer += 32
+    return pointer
+
+def print_inversions(pointer: int):
     pointer = print_inverted_gemini_denominators(pointer)
     pointer = print_batched_evaluation_accumulator_inversions(pointer)
 
@@ -368,6 +373,8 @@ def print_inversions():
     print("")
     pointer = print_fold_pos_evaluations(pointer)
 
+    return pointer
+
 
 
 def print_pos_neg_inverted_denominators(pointer: int):
@@ -379,7 +386,7 @@ def print_pos_neg_inverted_denominators(pointer: int):
 
 def print_inverted_challenge_pow_minus_u(pointer: int):
     for i in range(0, PROOF_SIZE_LOG_N):
-        print_fr(pointer, "INVERTED_CHALLENEGE_POW_MINUS_U_" + str(i) + "_LOC")
+        print_fr(pointer, "INVERTED_CHALLENGE_POW_MINUS_U_" + str(i) + "_LOC")
         pointer += 32
     return pointer
 
@@ -494,7 +501,8 @@ def main():
     print_header_centered("SHPLEMINI - RUNTIME MEMORY - BATCH SCALARS COMPLETE")
 
     print_header_centered("SHPLEMINI - RUNTIME MEMORY - INVERSIONS")
-    print_inversions()
+    pointer = print_gemini_r_inv(pointer)
+    pointer = print_inversions(pointer)
     print_header_centered("SHPLEMINI RUNTIME MEMORY - INVERSIONS - COMPLETE")
     print_header_centered("SHPLEMINI RUNTIME MEMORY - COMPLETE")
 

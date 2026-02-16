@@ -17,7 +17,7 @@ uint256 constant LOG_N = 15;
 uint256 constant NUMBER_PUBLIC_INPUTS = 12;
 uint256 constant REAL_NUMBER_PUBLIC_INPUTS = 12 - 8;
 uint256 constant PUBLIC_INPUTS_OFFSET = 1;
-// 120 barycentric + 1 PI delta denominator
+// LOG_N * 8 barycentric + 1 PI delta denominator
 uint256 constant NUMBER_OF_BARYCENTRIC_INVERSES = 121;
 
 contract BlakeOptHonkVerifier is IVerifier {
@@ -43,24 +43,21 @@ contract BlakeOptHonkVerifier is IVerifier {
      *                    Subrelation intermediates (7 slots: round target, pow, AUX)
      *                    Powers of evaluation challenge (LOG_N slots)
      *                    Batch scalars (69 slots, for MSM)
-                   LATER_SCRATCH_SPACE (batch inversion products marker)
-     *                    Temporary space (45 slots, ephemeral computation)
-     *
-     * LOW MEMORY / SCRATCH SPACE (two temporally disjoint overlapping phases):
-     *
-     *   Phase 1 (Sumcheck -- barycentric evaluation):
-     *                    Barycentric Lagrange denominators (8 domain points)
-     *                    Barycentric denominator inverses (LOG_N x 8 = 120 slots)
-     *                     [Slots at 0x1000-0x10E0 overlap VK data; VK is re-loaded later]
-     *
-     *   Phase 2 (Shplemini -- after sumcheck completes, reuses same addresses):
+     *                    Gemini R inverse (1 slot)
      *                    Inverted Gemini denominators (LOG_N+1 = 16 slots)
      *                    Batch evaluation accumulator inversions (LOG_N slots)
      *                    Batched eval, constant term accumulator, pos/neg inv denom
      *                    Inverted challenge^pow - u (LOG_N slots)
      *                    Pos inverted denominators (LOG_N slots)
      *                    Neg inverted denominators (LOG_N slots)
-     *                    Fold-pos evaluations (LOG_N slots)
+     *                    Fold pos evaluations (LOG_N slots)
+     *                    LATER_SCRATCH_SPACE (batch inversion products marker)
+     *                    Temporary space (45 slots, ephemeral computation)
+     *
+     * LOW MEMORY / SCRATCH SPACE (barycentric evaluation during sumcheck):
+     *                    Barycentric Lagrange denominators (8 domain points)
+     *                    Barycentric denominator inverses (LOG_N x 8 slots)
+     *                     [Slots at 0x1000-0x10E0 overlap VK data; VK is re-loaded later]
      *
      *   Scratch aliases (0x00-0x40): CHALL_POW/SUMCHECK_U/GEMINI_A during sumcheck;
      *   SS_POS_INV_DENOM/SS_NEG_INV_DENOM/SS_GEMINI_EVALS during shplemini.
@@ -761,110 +758,113 @@ contract BlakeOptHonkVerifier is IVerifier {
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*          SHPLEMINI - RUNTIME MEMORY - INVERSIONS           */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_0_LOC = 0x100;
-    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_1_LOC = 0x120;
-    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_2_LOC = 0x140;
-    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_3_LOC = 0x160;
-    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_4_LOC = 0x180;
-    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_5_LOC = 0x1a0;
-    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_6_LOC = 0x1c0;
-    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_7_LOC = 0x1e0;
-    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_8_LOC = 0x200;
-    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_9_LOC = 0x220;
-    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_10_LOC = 0x240;
-    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_11_LOC = 0x260;
-    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_12_LOC = 0x280;
-    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_13_LOC = 0x2a0;
-    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_14_LOC = 0x2c0;
-    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_15_LOC = 0x2e0;
-    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_0_LOC = 0x300;
-    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_1_LOC = 0x320;
-    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_2_LOC = 0x340;
-    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_3_LOC = 0x360;
-    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_4_LOC = 0x380;
-    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_5_LOC = 0x3a0;
-    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_6_LOC = 0x3c0;
-    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_7_LOC = 0x3e0;
-    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_8_LOC = 0x400;
-    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_9_LOC = 0x420;
-    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_10_LOC = 0x440;
-    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_11_LOC = 0x460;
-    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_12_LOC = 0x480;
-    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_13_LOC = 0x4a0;
-    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_14_LOC = 0x4c0;
+    uint256 internal constant GEMINI_R_INV_LOC = 0x4bc0;
 
-    uint256 internal constant BATCHED_EVALUATION_LOC = 0x4e0;
-    uint256 internal constant CONSTANT_TERM_ACCUMULATOR_LOC = 0x500;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_0_LOC = 0x4be0;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_1_LOC = 0x4c00;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_2_LOC = 0x4c20;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_3_LOC = 0x4c40;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_4_LOC = 0x4c60;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_5_LOC = 0x4c80;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_6_LOC = 0x4ca0;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_7_LOC = 0x4cc0;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_8_LOC = 0x4ce0;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_9_LOC = 0x4d00;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_10_LOC = 0x4d20;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_11_LOC = 0x4d40;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_12_LOC = 0x4d60;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_13_LOC = 0x4d80;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_14_LOC = 0x4da0;
+    uint256 internal constant INVERTED_GEMINI_DENOMINATOR_15_LOC = 0x4dc0;
 
-    uint256 internal constant POS_INVERTED_DENOMINATOR = 0x520;
-    uint256 internal constant NEG_INVERTED_DENOMINATOR = 0x540;
+    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_0_LOC = 0x4de0;
+    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_1_LOC = 0x4e00;
+    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_2_LOC = 0x4e20;
+    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_3_LOC = 0x4e40;
+    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_4_LOC = 0x4e60;
+    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_5_LOC = 0x4e80;
+    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_6_LOC = 0x4ea0;
+    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_7_LOC = 0x4ec0;
+    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_8_LOC = 0x4ee0;
+    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_9_LOC = 0x4f00;
+    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_10_LOC = 0x4f20;
+    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_11_LOC = 0x4f40;
+    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_12_LOC = 0x4f60;
+    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_13_LOC = 0x4f80;
+    uint256 internal constant BATCH_EVALUATION_ACCUMULATOR_INVERSION_14_LOC = 0x4fa0;
+
+    uint256 internal constant BATCHED_EVALUATION_LOC = 0x4fc0;
+    uint256 internal constant CONSTANT_TERM_ACCUMULATOR_LOC = 0x4fe0;
+
+    uint256 internal constant POS_INVERTED_DENOMINATOR = 0x5000;
+    uint256 internal constant NEG_INVERTED_DENOMINATOR = 0x5020;
 
     // LOG_N challenge pow minus u
-    uint256 internal constant INVERTED_CHALLENEGE_POW_MINUS_U_0_LOC = 0x560;
-    uint256 internal constant INVERTED_CHALLENEGE_POW_MINUS_U_1_LOC = 0x580;
-    uint256 internal constant INVERTED_CHALLENEGE_POW_MINUS_U_2_LOC = 0x5a0;
-    uint256 internal constant INVERTED_CHALLENEGE_POW_MINUS_U_3_LOC = 0x5c0;
-    uint256 internal constant INVERTED_CHALLENEGE_POW_MINUS_U_4_LOC = 0x5e0;
-    uint256 internal constant INVERTED_CHALLENEGE_POW_MINUS_U_5_LOC = 0x600;
-    uint256 internal constant INVERTED_CHALLENEGE_POW_MINUS_U_6_LOC = 0x620;
-    uint256 internal constant INVERTED_CHALLENEGE_POW_MINUS_U_7_LOC = 0x640;
-    uint256 internal constant INVERTED_CHALLENEGE_POW_MINUS_U_8_LOC = 0x660;
-    uint256 internal constant INVERTED_CHALLENEGE_POW_MINUS_U_9_LOC = 0x680;
-    uint256 internal constant INVERTED_CHALLENEGE_POW_MINUS_U_10_LOC = 0x6a0;
-    uint256 internal constant INVERTED_CHALLENEGE_POW_MINUS_U_11_LOC = 0x6c0;
-    uint256 internal constant INVERTED_CHALLENEGE_POW_MINUS_U_12_LOC = 0x6e0;
-    uint256 internal constant INVERTED_CHALLENEGE_POW_MINUS_U_13_LOC = 0x700;
-    uint256 internal constant INVERTED_CHALLENEGE_POW_MINUS_U_14_LOC = 0x720;
+    uint256 internal constant INVERTED_CHALLENGE_POW_MINUS_U_0_LOC = 0x5040;
+    uint256 internal constant INVERTED_CHALLENGE_POW_MINUS_U_1_LOC = 0x5060;
+    uint256 internal constant INVERTED_CHALLENGE_POW_MINUS_U_2_LOC = 0x5080;
+    uint256 internal constant INVERTED_CHALLENGE_POW_MINUS_U_3_LOC = 0x50a0;
+    uint256 internal constant INVERTED_CHALLENGE_POW_MINUS_U_4_LOC = 0x50c0;
+    uint256 internal constant INVERTED_CHALLENGE_POW_MINUS_U_5_LOC = 0x50e0;
+    uint256 internal constant INVERTED_CHALLENGE_POW_MINUS_U_6_LOC = 0x5100;
+    uint256 internal constant INVERTED_CHALLENGE_POW_MINUS_U_7_LOC = 0x5120;
+    uint256 internal constant INVERTED_CHALLENGE_POW_MINUS_U_8_LOC = 0x5140;
+    uint256 internal constant INVERTED_CHALLENGE_POW_MINUS_U_9_LOC = 0x5160;
+    uint256 internal constant INVERTED_CHALLENGE_POW_MINUS_U_10_LOC = 0x5180;
+    uint256 internal constant INVERTED_CHALLENGE_POW_MINUS_U_11_LOC = 0x51a0;
+    uint256 internal constant INVERTED_CHALLENGE_POW_MINUS_U_12_LOC = 0x51c0;
+    uint256 internal constant INVERTED_CHALLENGE_POW_MINUS_U_13_LOC = 0x51e0;
+    uint256 internal constant INVERTED_CHALLENGE_POW_MINUS_U_14_LOC = 0x5200;
 
     // LOG_N pos_inverted_off
-    uint256 internal constant POS_INVERTED_DENOM_0_LOC = 0x740;
-    uint256 internal constant POS_INVERTED_DENOM_1_LOC = 0x760;
-    uint256 internal constant POS_INVERTED_DENOM_2_LOC = 0x780;
-    uint256 internal constant POS_INVERTED_DENOM_3_LOC = 0x7a0;
-    uint256 internal constant POS_INVERTED_DENOM_4_LOC = 0x7c0;
-    uint256 internal constant POS_INVERTED_DENOM_5_LOC = 0x7e0;
-    uint256 internal constant POS_INVERTED_DENOM_6_LOC = 0x800;
-    uint256 internal constant POS_INVERTED_DENOM_7_LOC = 0x820;
-    uint256 internal constant POS_INVERTED_DENOM_8_LOC = 0x840;
-    uint256 internal constant POS_INVERTED_DENOM_9_LOC = 0x860;
-    uint256 internal constant POS_INVERTED_DENOM_10_LOC = 0x880;
-    uint256 internal constant POS_INVERTED_DENOM_11_LOC = 0x8a0;
-    uint256 internal constant POS_INVERTED_DENOM_12_LOC = 0x8c0;
-    uint256 internal constant POS_INVERTED_DENOM_13_LOC = 0x8e0;
-    uint256 internal constant POS_INVERTED_DENOM_14_LOC = 0x900;
+    uint256 internal constant POS_INVERTED_DENOM_0_LOC = 0x5220;
+    uint256 internal constant POS_INVERTED_DENOM_1_LOC = 0x5240;
+    uint256 internal constant POS_INVERTED_DENOM_2_LOC = 0x5260;
+    uint256 internal constant POS_INVERTED_DENOM_3_LOC = 0x5280;
+    uint256 internal constant POS_INVERTED_DENOM_4_LOC = 0x52a0;
+    uint256 internal constant POS_INVERTED_DENOM_5_LOC = 0x52c0;
+    uint256 internal constant POS_INVERTED_DENOM_6_LOC = 0x52e0;
+    uint256 internal constant POS_INVERTED_DENOM_7_LOC = 0x5300;
+    uint256 internal constant POS_INVERTED_DENOM_8_LOC = 0x5320;
+    uint256 internal constant POS_INVERTED_DENOM_9_LOC = 0x5340;
+    uint256 internal constant POS_INVERTED_DENOM_10_LOC = 0x5360;
+    uint256 internal constant POS_INVERTED_DENOM_11_LOC = 0x5380;
+    uint256 internal constant POS_INVERTED_DENOM_12_LOC = 0x53a0;
+    uint256 internal constant POS_INVERTED_DENOM_13_LOC = 0x53c0;
+    uint256 internal constant POS_INVERTED_DENOM_14_LOC = 0x53e0;
 
     // LOG_N neg_inverted_off
-    uint256 internal constant NEG_INVERTED_DENOM_0_LOC = 0x920;
-    uint256 internal constant NEG_INVERTED_DENOM_1_LOC = 0x940;
-    uint256 internal constant NEG_INVERTED_DENOM_2_LOC = 0x960;
-    uint256 internal constant NEG_INVERTED_DENOM_3_LOC = 0x980;
-    uint256 internal constant NEG_INVERTED_DENOM_4_LOC = 0x9a0;
-    uint256 internal constant NEG_INVERTED_DENOM_5_LOC = 0x9c0;
-    uint256 internal constant NEG_INVERTED_DENOM_6_LOC = 0x9e0;
-    uint256 internal constant NEG_INVERTED_DENOM_7_LOC = 0xa00;
-    uint256 internal constant NEG_INVERTED_DENOM_8_LOC = 0xa20;
-    uint256 internal constant NEG_INVERTED_DENOM_9_LOC = 0xa40;
-    uint256 internal constant NEG_INVERTED_DENOM_10_LOC = 0xa60;
-    uint256 internal constant NEG_INVERTED_DENOM_11_LOC = 0xa80;
-    uint256 internal constant NEG_INVERTED_DENOM_12_LOC = 0xaa0;
-    uint256 internal constant NEG_INVERTED_DENOM_13_LOC = 0xac0;
-    uint256 internal constant NEG_INVERTED_DENOM_14_LOC = 0xae0;
+    uint256 internal constant NEG_INVERTED_DENOM_0_LOC = 0x5400;
+    uint256 internal constant NEG_INVERTED_DENOM_1_LOC = 0x5420;
+    uint256 internal constant NEG_INVERTED_DENOM_2_LOC = 0x5440;
+    uint256 internal constant NEG_INVERTED_DENOM_3_LOC = 0x5460;
+    uint256 internal constant NEG_INVERTED_DENOM_4_LOC = 0x5480;
+    uint256 internal constant NEG_INVERTED_DENOM_5_LOC = 0x54a0;
+    uint256 internal constant NEG_INVERTED_DENOM_6_LOC = 0x54c0;
+    uint256 internal constant NEG_INVERTED_DENOM_7_LOC = 0x54e0;
+    uint256 internal constant NEG_INVERTED_DENOM_8_LOC = 0x5500;
+    uint256 internal constant NEG_INVERTED_DENOM_9_LOC = 0x5520;
+    uint256 internal constant NEG_INVERTED_DENOM_10_LOC = 0x5540;
+    uint256 internal constant NEG_INVERTED_DENOM_11_LOC = 0x5560;
+    uint256 internal constant NEG_INVERTED_DENOM_12_LOC = 0x5580;
+    uint256 internal constant NEG_INVERTED_DENOM_13_LOC = 0x55a0;
+    uint256 internal constant NEG_INVERTED_DENOM_14_LOC = 0x55c0;
 
-    uint256 internal constant FOLD_POS_EVALUATIONS_0_LOC = 0xb00;
-    uint256 internal constant FOLD_POS_EVALUATIONS_1_LOC = 0xb20;
-    uint256 internal constant FOLD_POS_EVALUATIONS_2_LOC = 0xb40;
-    uint256 internal constant FOLD_POS_EVALUATIONS_3_LOC = 0xb60;
-    uint256 internal constant FOLD_POS_EVALUATIONS_4_LOC = 0xb80;
-    uint256 internal constant FOLD_POS_EVALUATIONS_5_LOC = 0xba0;
-    uint256 internal constant FOLD_POS_EVALUATIONS_6_LOC = 0xbc0;
-    uint256 internal constant FOLD_POS_EVALUATIONS_7_LOC = 0xbe0;
-    uint256 internal constant FOLD_POS_EVALUATIONS_8_LOC = 0xc00;
-    uint256 internal constant FOLD_POS_EVALUATIONS_9_LOC = 0xc20;
-    uint256 internal constant FOLD_POS_EVALUATIONS_10_LOC = 0xc40;
-    uint256 internal constant FOLD_POS_EVALUATIONS_11_LOC = 0xc60;
-    uint256 internal constant FOLD_POS_EVALUATIONS_12_LOC = 0xc80;
-    uint256 internal constant FOLD_POS_EVALUATIONS_13_LOC = 0xca0;
-    uint256 internal constant FOLD_POS_EVALUATIONS_14_LOC = 0xcc0;
+    uint256 internal constant FOLD_POS_EVALUATIONS_0_LOC = 0x55e0;
+    uint256 internal constant FOLD_POS_EVALUATIONS_1_LOC = 0x5600;
+    uint256 internal constant FOLD_POS_EVALUATIONS_2_LOC = 0x5620;
+    uint256 internal constant FOLD_POS_EVALUATIONS_3_LOC = 0x5640;
+    uint256 internal constant FOLD_POS_EVALUATIONS_4_LOC = 0x5660;
+    uint256 internal constant FOLD_POS_EVALUATIONS_5_LOC = 0x5680;
+    uint256 internal constant FOLD_POS_EVALUATIONS_6_LOC = 0x56a0;
+    uint256 internal constant FOLD_POS_EVALUATIONS_7_LOC = 0x56c0;
+    uint256 internal constant FOLD_POS_EVALUATIONS_8_LOC = 0x56e0;
+    uint256 internal constant FOLD_POS_EVALUATIONS_9_LOC = 0x5700;
+    uint256 internal constant FOLD_POS_EVALUATIONS_10_LOC = 0x5720;
+    uint256 internal constant FOLD_POS_EVALUATIONS_11_LOC = 0x5740;
+    uint256 internal constant FOLD_POS_EVALUATIONS_12_LOC = 0x5760;
+    uint256 internal constant FOLD_POS_EVALUATIONS_13_LOC = 0x5780;
+    uint256 internal constant FOLD_POS_EVALUATIONS_14_LOC = 0x57a0;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*      SHPLEMINI RUNTIME MEMORY - INVERSIONS - COMPLETE      */
@@ -874,57 +874,56 @@ contract BlakeOptHonkVerifier is IVerifier {
     /*            SHPLEMINI RUNTIME MEMORY - COMPLETE             */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    uint256 internal constant LATER_SCRATCH_SPACE = 0x4bc0;
-    uint256 internal constant SHPLEMINI_STAGING_BASE = 0x6800;
+    uint256 internal constant LATER_SCRATCH_SPACE = 0x57c0;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                      Temporary space                       */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-    uint256 internal constant TEMP_0_LOC = 0x4be0;
-    uint256 internal constant TEMP_1_LOC = 0x4c00;
-    uint256 internal constant TEMP_2_LOC = 0x4c20;
-    uint256 internal constant TEMP_3_LOC = 0x4c40;
-    uint256 internal constant TEMP_4_LOC = 0x4c60;
-    uint256 internal constant TEMP_5_LOC = 0x4c80;
-    uint256 internal constant TEMP_6_LOC = 0x4ca0;
-    uint256 internal constant TEMP_7_LOC = 0x4cc0;
-    uint256 internal constant TEMP_8_LOC = 0x4ce0;
-    uint256 internal constant TEMP_9_LOC = 0x4d00;
-    uint256 internal constant TEMP_10_LOC = 0x4d20;
-    uint256 internal constant TEMP_11_LOC = 0x4d40;
-    uint256 internal constant TEMP_12_LOC = 0x4d60;
-    uint256 internal constant TEMP_13_LOC = 0x4d80;
-    uint256 internal constant TEMP_14_LOC = 0x4da0;
-    uint256 internal constant TEMP_15_LOC = 0x4dc0;
-    uint256 internal constant TEMP_16_LOC = 0x4de0;
-    uint256 internal constant TEMP_17_LOC = 0x4e00;
-    uint256 internal constant TEMP_18_LOC = 0x4e20;
-    uint256 internal constant TEMP_19_LOC = 0x4e40;
-    uint256 internal constant TEMP_20_LOC = 0x4e60;
-    uint256 internal constant TEMP_21_LOC = 0x4e80;
-    uint256 internal constant TEMP_22_LOC = 0x4ea0;
-    uint256 internal constant TEMP_23_LOC = 0x4ec0;
-    uint256 internal constant TEMP_24_LOC = 0x4ee0;
-    uint256 internal constant TEMP_25_LOC = 0x4f00;
-    uint256 internal constant TEMP_26_LOC = 0x4f20;
-    uint256 internal constant TEMP_27_LOC = 0x4f40;
-    uint256 internal constant TEMP_28_LOC = 0x4f60;
-    uint256 internal constant TEMP_29_LOC = 0x4f80;
-    uint256 internal constant TEMP_30_LOC = 0x4fa0;
-    uint256 internal constant TEMP_31_LOC = 0x4fc0;
-    uint256 internal constant TEMP_32_LOC = 0x4fe0;
-    uint256 internal constant TEMP_33_LOC = 0x5000;
-    uint256 internal constant TEMP_34_LOC = 0x5020;
-    uint256 internal constant TEMP_35_LOC = 0x5040;
-    uint256 internal constant TEMP_36_LOC = 0x5060;
-    uint256 internal constant TEMP_37_LOC = 0x5080;
-    uint256 internal constant TEMP_38_LOC = 0x50a0;
-    uint256 internal constant TEMP_39_LOC = 0x50c0;
-    uint256 internal constant TEMP_40_LOC = 0x50e0;
-    uint256 internal constant TEMP_41_LOC = 0x5100;
-    uint256 internal constant TEMP_42_LOC = 0x5120;
-    uint256 internal constant TEMP_43_LOC = 0x5140;
-    uint256 internal constant TEMP_44_LOC = 0x5160;
+    uint256 internal constant TEMP_0_LOC = 0x57e0;
+    uint256 internal constant TEMP_1_LOC = 0x5800;
+    uint256 internal constant TEMP_2_LOC = 0x5820;
+    uint256 internal constant TEMP_3_LOC = 0x5840;
+    uint256 internal constant TEMP_4_LOC = 0x5860;
+    uint256 internal constant TEMP_5_LOC = 0x5880;
+    uint256 internal constant TEMP_6_LOC = 0x58a0;
+    uint256 internal constant TEMP_7_LOC = 0x58c0;
+    uint256 internal constant TEMP_8_LOC = 0x58e0;
+    uint256 internal constant TEMP_9_LOC = 0x5900;
+    uint256 internal constant TEMP_10_LOC = 0x5920;
+    uint256 internal constant TEMP_11_LOC = 0x5940;
+    uint256 internal constant TEMP_12_LOC = 0x5960;
+    uint256 internal constant TEMP_13_LOC = 0x5980;
+    uint256 internal constant TEMP_14_LOC = 0x59a0;
+    uint256 internal constant TEMP_15_LOC = 0x59c0;
+    uint256 internal constant TEMP_16_LOC = 0x59e0;
+    uint256 internal constant TEMP_17_LOC = 0x5a00;
+    uint256 internal constant TEMP_18_LOC = 0x5a20;
+    uint256 internal constant TEMP_19_LOC = 0x5a40;
+    uint256 internal constant TEMP_20_LOC = 0x5a60;
+    uint256 internal constant TEMP_21_LOC = 0x5a80;
+    uint256 internal constant TEMP_22_LOC = 0x5aa0;
+    uint256 internal constant TEMP_23_LOC = 0x5ac0;
+    uint256 internal constant TEMP_24_LOC = 0x5ae0;
+    uint256 internal constant TEMP_25_LOC = 0x5b00;
+    uint256 internal constant TEMP_26_LOC = 0x5b20;
+    uint256 internal constant TEMP_27_LOC = 0x5b40;
+    uint256 internal constant TEMP_28_LOC = 0x5b60;
+    uint256 internal constant TEMP_29_LOC = 0x5b80;
+    uint256 internal constant TEMP_30_LOC = 0x5ba0;
+    uint256 internal constant TEMP_31_LOC = 0x5bc0;
+    uint256 internal constant TEMP_32_LOC = 0x5be0;
+    uint256 internal constant TEMP_33_LOC = 0x5c00;
+    uint256 internal constant TEMP_34_LOC = 0x5c20;
+    uint256 internal constant TEMP_35_LOC = 0x5c40;
+    uint256 internal constant TEMP_36_LOC = 0x5c60;
+    uint256 internal constant TEMP_37_LOC = 0x5c80;
+    uint256 internal constant TEMP_38_LOC = 0x5ca0;
+    uint256 internal constant TEMP_39_LOC = 0x5cc0;
+    uint256 internal constant TEMP_40_LOC = 0x5ce0;
+    uint256 internal constant TEMP_41_LOC = 0x5d00;
+    uint256 internal constant TEMP_42_LOC = 0x5d20;
+    uint256 internal constant TEMP_43_LOC = 0x5d40;
+    uint256 internal constant TEMP_44_LOC = 0x5d60;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                 Temporary space - COMPLETE                 */
@@ -1791,7 +1790,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         }
                     }
 
-                    // Append PI delta denominator to the batch inversion (Optimization 4)
+                    // Append PI delta denominator to the batch inversion
                     {
                         let pi_denom := mload(PUBLIC_INPUTS_DELTA_DENOMINATOR_CHALLENGE)
                         temp := add(temp, 0x20)
@@ -1799,7 +1798,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         accumulator := mulmod(accumulator, pi_denom, p)
                     }
 
-                    // --- Phase 2: Shplemini forward pass (Optimization 8) ---
+                    // --- Phase 2: Shplemini forward pass ---
                     // Compute shplemini denominators and accumulate into the running product.
                     // Pre-inversion values stored in staging area (0x6800+), NOT in
                     // designated addresses, to avoid corrupting barycentric storage.
@@ -1838,176 +1837,175 @@ contract BlakeOptHonkVerifier is IVerifier {
                         mstore(POWERS_OF_EVALUATION_CHALLENGE_14_LOC, cache)
                         /// {{ UNROLL_SECTION_END POWERS_OF_EVALUATION_CHALLENGE }}
 
+                        // TODO: rename - GEMINI_R_CHALL_INV
                         // Element 0: gemini_r (seed)
                         {
                             let val := mload(GEMINI_R_CHALLENGE)
-                            mstore(SHPLEMINI_STAGING_BASE, val)
+                            mstore(GEMINI_R_INV_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
                         }
 
-                        // Elements 1..LOG_N: INVERTED_CHALLENEGE_POW_MINUS_U
-                        /// {{ UNROLL_SECTION_START PHASE2_ACCUMULATE_CHALLENEGE_POW_MINUS_U }}
-                        // INVERTED_CHALLENEGE_POW_MINUS_U_0
+                        // Elements 1..LOG_N: INVERTED_CHALLENGE_POW_MINUS_U
+                        /// {{ UNROLL_SECTION_START ACCUMULATE_INVERSES }}
+                        // INVERTED_CHALLENGE_POW_MINUS_U_0
                         {
                             let u := mload(SUM_U_CHALLENGE_0)
                             let challPow := mload(POWERS_OF_EVALUATION_CHALLENGE_0_LOC)
                             let val := addmod(mulmod(challPow, addmod(1, sub(p, u), p), p), u, p)
-                            mstore(0x6820, val)
+                            mstore(INVERTED_CHALLENGE_POW_MINUS_U_0_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
                         }
-                        // INVERTED_CHALLENEGE_POW_MINUS_U_1
+                        // INVERTED_CHALLENGE_POW_MINUS_U_1
                         {
                             let u := mload(SUM_U_CHALLENGE_1)
                             let challPow := mload(POWERS_OF_EVALUATION_CHALLENGE_1_LOC)
                             let val := addmod(mulmod(challPow, addmod(1, sub(p, u), p), p), u, p)
-                            mstore(0x6840, val)
+                            mstore(INVERTED_CHALLENGE_POW_MINUS_U_1_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
                         }
-                        // INVERTED_CHALLENEGE_POW_MINUS_U_2
+                        // INVERTED_CHALLENGE_POW_MINUS_U_2
                         {
                             let u := mload(SUM_U_CHALLENGE_2)
                             let challPow := mload(POWERS_OF_EVALUATION_CHALLENGE_2_LOC)
                             let val := addmod(mulmod(challPow, addmod(1, sub(p, u), p), p), u, p)
-                            mstore(0x6860, val)
+                            mstore(INVERTED_CHALLENGE_POW_MINUS_U_2_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
                         }
-                        // INVERTED_CHALLENEGE_POW_MINUS_U_3
+                        // INVERTED_CHALLENGE_POW_MINUS_U_3
                         {
                             let u := mload(SUM_U_CHALLENGE_3)
                             let challPow := mload(POWERS_OF_EVALUATION_CHALLENGE_3_LOC)
                             let val := addmod(mulmod(challPow, addmod(1, sub(p, u), p), p), u, p)
-                            mstore(0x6880, val)
+                            mstore(INVERTED_CHALLENGE_POW_MINUS_U_3_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
                         }
-                        // INVERTED_CHALLENEGE_POW_MINUS_U_4
+                        // INVERTED_CHALLENGE_POW_MINUS_U_4
                         {
                             let u := mload(SUM_U_CHALLENGE_4)
                             let challPow := mload(POWERS_OF_EVALUATION_CHALLENGE_4_LOC)
                             let val := addmod(mulmod(challPow, addmod(1, sub(p, u), p), p), u, p)
-                            mstore(0x68A0, val)
+                            mstore(INVERTED_CHALLENGE_POW_MINUS_U_4_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
                         }
-                        // INVERTED_CHALLENEGE_POW_MINUS_U_5
+                        // INVERTED_CHALLENGE_POW_MINUS_U_5
                         {
                             let u := mload(SUM_U_CHALLENGE_5)
                             let challPow := mload(POWERS_OF_EVALUATION_CHALLENGE_5_LOC)
                             let val := addmod(mulmod(challPow, addmod(1, sub(p, u), p), p), u, p)
-                            mstore(0x68C0, val)
+                            mstore(INVERTED_CHALLENGE_POW_MINUS_U_5_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
                         }
-                        // INVERTED_CHALLENEGE_POW_MINUS_U_6
+                        // INVERTED_CHALLENGE_POW_MINUS_U_6
                         {
                             let u := mload(SUM_U_CHALLENGE_6)
                             let challPow := mload(POWERS_OF_EVALUATION_CHALLENGE_6_LOC)
                             let val := addmod(mulmod(challPow, addmod(1, sub(p, u), p), p), u, p)
-                            mstore(0x68E0, val)
+                            mstore(INVERTED_CHALLENGE_POW_MINUS_U_6_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
                         }
-                        // INVERTED_CHALLENEGE_POW_MINUS_U_7
+                        // INVERTED_CHALLENGE_POW_MINUS_U_7
                         {
                             let u := mload(SUM_U_CHALLENGE_7)
                             let challPow := mload(POWERS_OF_EVALUATION_CHALLENGE_7_LOC)
                             let val := addmod(mulmod(challPow, addmod(1, sub(p, u), p), p), u, p)
-                            mstore(0x6900, val)
+                            mstore(INVERTED_CHALLENGE_POW_MINUS_U_7_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
                         }
-                        // INVERTED_CHALLENEGE_POW_MINUS_U_8
+                        // INVERTED_CHALLENGE_POW_MINUS_U_8
                         {
                             let u := mload(SUM_U_CHALLENGE_8)
                             let challPow := mload(POWERS_OF_EVALUATION_CHALLENGE_8_LOC)
                             let val := addmod(mulmod(challPow, addmod(1, sub(p, u), p), p), u, p)
-                            mstore(0x6920, val)
+                            mstore(INVERTED_CHALLENGE_POW_MINUS_U_8_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
                         }
-                        // INVERTED_CHALLENEGE_POW_MINUS_U_9
+                        // INVERTED_CHALLENGE_POW_MINUS_U_9
                         {
                             let u := mload(SUM_U_CHALLENGE_9)
                             let challPow := mload(POWERS_OF_EVALUATION_CHALLENGE_9_LOC)
                             let val := addmod(mulmod(challPow, addmod(1, sub(p, u), p), p), u, p)
-                            mstore(0x6940, val)
+                            mstore(INVERTED_CHALLENGE_POW_MINUS_U_9_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
                         }
-                        // INVERTED_CHALLENEGE_POW_MINUS_U_10
+                        // INVERTED_CHALLENGE_POW_MINUS_U_10
                         {
                             let u := mload(SUM_U_CHALLENGE_10)
                             let challPow := mload(POWERS_OF_EVALUATION_CHALLENGE_10_LOC)
                             let val := addmod(mulmod(challPow, addmod(1, sub(p, u), p), p), u, p)
-                            mstore(0x6960, val)
+                            mstore(INVERTED_CHALLENGE_POW_MINUS_U_10_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
                         }
-                        // INVERTED_CHALLENEGE_POW_MINUS_U_11
+                        // INVERTED_CHALLENGE_POW_MINUS_U_11
                         {
                             let u := mload(SUM_U_CHALLENGE_11)
                             let challPow := mload(POWERS_OF_EVALUATION_CHALLENGE_11_LOC)
                             let val := addmod(mulmod(challPow, addmod(1, sub(p, u), p), p), u, p)
-                            mstore(0x6980, val)
+                            mstore(INVERTED_CHALLENGE_POW_MINUS_U_11_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
                         }
-                        // INVERTED_CHALLENEGE_POW_MINUS_U_12
+                        // INVERTED_CHALLENGE_POW_MINUS_U_12
                         {
                             let u := mload(SUM_U_CHALLENGE_12)
                             let challPow := mload(POWERS_OF_EVALUATION_CHALLENGE_12_LOC)
                             let val := addmod(mulmod(challPow, addmod(1, sub(p, u), p), p), u, p)
-                            mstore(0x69A0, val)
+                            mstore(INVERTED_CHALLENGE_POW_MINUS_U_12_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
                         }
-                        // INVERTED_CHALLENEGE_POW_MINUS_U_13
+                        // INVERTED_CHALLENGE_POW_MINUS_U_13
                         {
                             let u := mload(SUM_U_CHALLENGE_13)
                             let challPow := mload(POWERS_OF_EVALUATION_CHALLENGE_13_LOC)
                             let val := addmod(mulmod(challPow, addmod(1, sub(p, u), p), p), u, p)
-                            mstore(0x69C0, val)
+                            mstore(INVERTED_CHALLENGE_POW_MINUS_U_13_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
                         }
-                        // INVERTED_CHALLENEGE_POW_MINUS_U_14
+                        // INVERTED_CHALLENGE_POW_MINUS_U_14
                         {
                             let u := mload(SUM_U_CHALLENGE_14)
                             let challPow := mload(POWERS_OF_EVALUATION_CHALLENGE_14_LOC)
                             let val := addmod(mulmod(challPow, addmod(1, sub(p, u), p), p), u, p)
-                            mstore(0x69E0, val)
+                            mstore(INVERTED_CHALLENGE_POW_MINUS_U_14_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
                         }
-                        /// {{ UNROLL_SECTION_END PHASE2_ACCUMULATE_CHALLENEGE_POW_MINUS_U }}
 
                         // Elements LOG_N+1..2*LOG_N: POS_INVERTED_DENOM
                         let eval_challenge := mload(SHPLONK_Z_CHALLENGE)
-                        /// {{ UNROLL_SECTION_START PHASE2_ACCUMULATE_POS_DENOM }}
                         // POS_INVERTED_DENOM_0
                         {
                             let val := addmod(eval_challenge, sub(p, mload(POWERS_OF_EVALUATION_CHALLENGE_0_LOC)), p)
-                            mstore(0x6A00, val)
+                            mstore(POS_INVERTED_DENOM_0_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2015,7 +2013,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // POS_INVERTED_DENOM_1
                         {
                             let val := addmod(eval_challenge, sub(p, mload(POWERS_OF_EVALUATION_CHALLENGE_1_LOC)), p)
-                            mstore(0x6A20, val)
+                            mstore(POS_INVERTED_DENOM_1_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2023,7 +2021,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // POS_INVERTED_DENOM_2
                         {
                             let val := addmod(eval_challenge, sub(p, mload(POWERS_OF_EVALUATION_CHALLENGE_2_LOC)), p)
-                            mstore(0x6A40, val)
+                            mstore(POS_INVERTED_DENOM_2_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2031,7 +2029,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // POS_INVERTED_DENOM_3
                         {
                             let val := addmod(eval_challenge, sub(p, mload(POWERS_OF_EVALUATION_CHALLENGE_3_LOC)), p)
-                            mstore(0x6A60, val)
+                            mstore(POS_INVERTED_DENOM_3_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2039,7 +2037,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // POS_INVERTED_DENOM_4
                         {
                             let val := addmod(eval_challenge, sub(p, mload(POWERS_OF_EVALUATION_CHALLENGE_4_LOC)), p)
-                            mstore(0x6A80, val)
+                            mstore(POS_INVERTED_DENOM_4_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2047,7 +2045,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // POS_INVERTED_DENOM_5
                         {
                             let val := addmod(eval_challenge, sub(p, mload(POWERS_OF_EVALUATION_CHALLENGE_5_LOC)), p)
-                            mstore(0x6AA0, val)
+                            mstore(POS_INVERTED_DENOM_5_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2055,7 +2053,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // POS_INVERTED_DENOM_6
                         {
                             let val := addmod(eval_challenge, sub(p, mload(POWERS_OF_EVALUATION_CHALLENGE_6_LOC)), p)
-                            mstore(0x6AC0, val)
+                            mstore(POS_INVERTED_DENOM_6_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2063,7 +2061,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // POS_INVERTED_DENOM_7
                         {
                             let val := addmod(eval_challenge, sub(p, mload(POWERS_OF_EVALUATION_CHALLENGE_7_LOC)), p)
-                            mstore(0x6AE0, val)
+                            mstore(POS_INVERTED_DENOM_7_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2071,7 +2069,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // POS_INVERTED_DENOM_8
                         {
                             let val := addmod(eval_challenge, sub(p, mload(POWERS_OF_EVALUATION_CHALLENGE_8_LOC)), p)
-                            mstore(0x6B00, val)
+                            mstore(POS_INVERTED_DENOM_8_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2079,7 +2077,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // POS_INVERTED_DENOM_9
                         {
                             let val := addmod(eval_challenge, sub(p, mload(POWERS_OF_EVALUATION_CHALLENGE_9_LOC)), p)
-                            mstore(0x6B20, val)
+                            mstore(POS_INVERTED_DENOM_9_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2087,7 +2085,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // POS_INVERTED_DENOM_10
                         {
                             let val := addmod(eval_challenge, sub(p, mload(POWERS_OF_EVALUATION_CHALLENGE_10_LOC)), p)
-                            mstore(0x6B40, val)
+                            mstore(POS_INVERTED_DENOM_10_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2095,7 +2093,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // POS_INVERTED_DENOM_11
                         {
                             let val := addmod(eval_challenge, sub(p, mload(POWERS_OF_EVALUATION_CHALLENGE_11_LOC)), p)
-                            mstore(0x6B60, val)
+                            mstore(POS_INVERTED_DENOM_11_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2103,7 +2101,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // POS_INVERTED_DENOM_12
                         {
                             let val := addmod(eval_challenge, sub(p, mload(POWERS_OF_EVALUATION_CHALLENGE_12_LOC)), p)
-                            mstore(0x6B80, val)
+                            mstore(POS_INVERTED_DENOM_12_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2111,7 +2109,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // POS_INVERTED_DENOM_13
                         {
                             let val := addmod(eval_challenge, sub(p, mload(POWERS_OF_EVALUATION_CHALLENGE_13_LOC)), p)
-                            mstore(0x6BA0, val)
+                            mstore(POS_INVERTED_DENOM_13_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2119,7 +2117,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // POS_INVERTED_DENOM_14
                         {
                             let val := addmod(eval_challenge, sub(p, mload(POWERS_OF_EVALUATION_CHALLENGE_14_LOC)), p)
-                            mstore(0x6BC0, val)
+                            mstore(POS_INVERTED_DENOM_14_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2131,7 +2129,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // NEG_INVERTED_DENOM_0
                         {
                             let val := addmod(eval_challenge, mload(POWERS_OF_EVALUATION_CHALLENGE_0_LOC), p)
-                            mstore(0x6BE0, val)
+                            mstore(NEG_INVERTED_DENOM_0_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2139,7 +2137,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // NEG_INVERTED_DENOM_1
                         {
                             let val := addmod(eval_challenge, mload(POWERS_OF_EVALUATION_CHALLENGE_1_LOC), p)
-                            mstore(0x6C00, val)
+                            mstore(NEG_INVERTED_DENOM_1_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2147,7 +2145,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // NEG_INVERTED_DENOM_2
                         {
                             let val := addmod(eval_challenge, mload(POWERS_OF_EVALUATION_CHALLENGE_2_LOC), p)
-                            mstore(0x6C20, val)
+                            mstore(NEG_INVERTED_DENOM_2_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2155,7 +2153,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // NEG_INVERTED_DENOM_3
                         {
                             let val := addmod(eval_challenge, mload(POWERS_OF_EVALUATION_CHALLENGE_3_LOC), p)
-                            mstore(0x6C40, val)
+                            mstore(NEG_INVERTED_DENOM_3_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2163,7 +2161,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // NEG_INVERTED_DENOM_4
                         {
                             let val := addmod(eval_challenge, mload(POWERS_OF_EVALUATION_CHALLENGE_4_LOC), p)
-                            mstore(0x6C60, val)
+                            mstore(NEG_INVERTED_DENOM_4_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2171,7 +2169,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // NEG_INVERTED_DENOM_5
                         {
                             let val := addmod(eval_challenge, mload(POWERS_OF_EVALUATION_CHALLENGE_5_LOC), p)
-                            mstore(0x6C80, val)
+                            mstore(NEG_INVERTED_DENOM_5_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2179,7 +2177,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // NEG_INVERTED_DENOM_6
                         {
                             let val := addmod(eval_challenge, mload(POWERS_OF_EVALUATION_CHALLENGE_6_LOC), p)
-                            mstore(0x6CA0, val)
+                            mstore(NEG_INVERTED_DENOM_6_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2187,7 +2185,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // NEG_INVERTED_DENOM_7
                         {
                             let val := addmod(eval_challenge, mload(POWERS_OF_EVALUATION_CHALLENGE_7_LOC), p)
-                            mstore(0x6CC0, val)
+                            mstore(NEG_INVERTED_DENOM_7_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2195,7 +2193,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // NEG_INVERTED_DENOM_8
                         {
                             let val := addmod(eval_challenge, mload(POWERS_OF_EVALUATION_CHALLENGE_8_LOC), p)
-                            mstore(0x6CE0, val)
+                            mstore(NEG_INVERTED_DENOM_8_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2203,7 +2201,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // NEG_INVERTED_DENOM_9
                         {
                             let val := addmod(eval_challenge, mload(POWERS_OF_EVALUATION_CHALLENGE_9_LOC), p)
-                            mstore(0x6D00, val)
+                            mstore(NEG_INVERTED_DENOM_9_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2211,7 +2209,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // NEG_INVERTED_DENOM_10
                         {
                             let val := addmod(eval_challenge, mload(POWERS_OF_EVALUATION_CHALLENGE_10_LOC), p)
-                            mstore(0x6D20, val)
+                            mstore(NEG_INVERTED_DENOM_10_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2219,7 +2217,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // NEG_INVERTED_DENOM_11
                         {
                             let val := addmod(eval_challenge, mload(POWERS_OF_EVALUATION_CHALLENGE_11_LOC), p)
-                            mstore(0x6D40, val)
+                            mstore(NEG_INVERTED_DENOM_11_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2227,7 +2225,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // NEG_INVERTED_DENOM_12
                         {
                             let val := addmod(eval_challenge, mload(POWERS_OF_EVALUATION_CHALLENGE_12_LOC), p)
-                            mstore(0x6D60, val)
+                            mstore(NEG_INVERTED_DENOM_12_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2235,7 +2233,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // NEG_INVERTED_DENOM_13
                         {
                             let val := addmod(eval_challenge, mload(POWERS_OF_EVALUATION_CHALLENGE_13_LOC), p)
-                            mstore(0x6D80, val)
+                            mstore(NEG_INVERTED_DENOM_13_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
@@ -2243,13 +2241,13 @@ contract BlakeOptHonkVerifier is IVerifier {
                         // NEG_INVERTED_DENOM_14
                         {
                             let val := addmod(eval_challenge, mload(POWERS_OF_EVALUATION_CHALLENGE_14_LOC), p)
-                            mstore(0x6DA0, val)
+                            mstore(NEG_INVERTED_DENOM_14_LOC, val)
                             temp := add(temp, 0x20)
                             mstore(temp, accumulator)
                             accumulator := mulmod(accumulator, val, p)
                         }
-                        /// {{ UNROLL_SECTION_END PHASE2_ACCUMULATE_NEG_DENOM }}
                     }
+                    /// {{UNROLL_SECTION_END ACCUMULATE_INVERSES}}
 
                     // Invert all elements (barycentric + PI delta + shplemini) as a single batch
                     {
@@ -2268,115 +2266,116 @@ contract BlakeOptHonkVerifier is IVerifier {
                             accumulator := mload(0x00)
                         }
 
-                        // --- Shplemini backward pass (Optimization 8) ---
+                        // --- Shplemini backward pass ---
                         // Extract shplemini inverses in strict reverse order.
                         // Write inverses back to staging (not designated addrs).
+                        /// {{ UNROLL_SECTION_START COLLECT_INVERSES }}
                         {
                             // NEG_INVERTED_DENOM (LOG_N elements, reverse) -- last group appended
                             /// {{ UNROLL_SECTION_START PHASE2_COLLECT_NEG_DENOM }}
                             // NEG_INVERTED_DENOM_14 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6DA0), p)
-                                mstore(0x6DA0, tmp)
+                                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_14_LOC), p)
+                                mstore(NEG_INVERTED_DENOM_14_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // NEG_INVERTED_DENOM_13 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6D80), p)
-                                mstore(0x6D80, tmp)
+                                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_13_LOC), p)
+                                mstore(NEG_INVERTED_DENOM_13_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // NEG_INVERTED_DENOM_12 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6D60), p)
-                                mstore(0x6D60, tmp)
+                                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_12_LOC), p)
+                                mstore(NEG_INVERTED_DENOM_12_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // NEG_INVERTED_DENOM_11 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6D40), p)
-                                mstore(0x6D40, tmp)
+                                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_11_LOC), p)
+                                mstore(NEG_INVERTED_DENOM_11_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // NEG_INVERTED_DENOM_10 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6D20), p)
-                                mstore(0x6D20, tmp)
+                                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_10_LOC), p)
+                                mstore(NEG_INVERTED_DENOM_10_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // NEG_INVERTED_DENOM_9 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6D00), p)
-                                mstore(0x6D00, tmp)
+                                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_9_LOC), p)
+                                mstore(NEG_INVERTED_DENOM_9_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // NEG_INVERTED_DENOM_8 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6CE0), p)
-                                mstore(0x6CE0, tmp)
+                                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_8_LOC), p)
+                                mstore(NEG_INVERTED_DENOM_8_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // NEG_INVERTED_DENOM_7 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6CC0), p)
-                                mstore(0x6CC0, tmp)
+                                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_7_LOC), p)
+                                mstore(NEG_INVERTED_DENOM_7_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // NEG_INVERTED_DENOM_6 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6CA0), p)
-                                mstore(0x6CA0, tmp)
+                                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_6_LOC), p)
+                                mstore(NEG_INVERTED_DENOM_6_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // NEG_INVERTED_DENOM_5 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6C80), p)
-                                mstore(0x6C80, tmp)
+                                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_5_LOC), p)
+                                mstore(NEG_INVERTED_DENOM_5_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // NEG_INVERTED_DENOM_4 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6C60), p)
-                                mstore(0x6C60, tmp)
+                                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_4_LOC), p)
+                                mstore(NEG_INVERTED_DENOM_4_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // NEG_INVERTED_DENOM_3 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6C40), p)
-                                mstore(0x6C40, tmp)
+                                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_3_LOC), p)
+                                mstore(NEG_INVERTED_DENOM_3_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // NEG_INVERTED_DENOM_2 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6C20), p)
-                                mstore(0x6C20, tmp)
+                                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_2_LOC), p)
+                                mstore(NEG_INVERTED_DENOM_2_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // NEG_INVERTED_DENOM_1 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6C00), p)
-                                mstore(0x6C00, tmp)
+                                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_1_LOC), p)
+                                mstore(NEG_INVERTED_DENOM_1_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // NEG_INVERTED_DENOM_0 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6BE0), p)
-                                mstore(0x6BE0, tmp)
+                                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_0_LOC), p)
+                                mstore(NEG_INVERTED_DENOM_0_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             /// {{ UNROLL_SECTION_END PHASE2_COLLECT_NEG_DENOM }}
@@ -2386,229 +2385,229 @@ contract BlakeOptHonkVerifier is IVerifier {
                             // POS_INVERTED_DENOM_14 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6BC0), p)
-                                mstore(0x6BC0, tmp)
+                                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_14_LOC), p)
+                                mstore(POS_INVERTED_DENOM_14_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // POS_INVERTED_DENOM_13 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6BA0), p)
-                                mstore(0x6BA0, tmp)
+                                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_13_LOC), p)
+                                mstore(POS_INVERTED_DENOM_13_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // POS_INVERTED_DENOM_12 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6B80), p)
-                                mstore(0x6B80, tmp)
+                                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_12_LOC), p)
+                                mstore(POS_INVERTED_DENOM_12_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // POS_INVERTED_DENOM_11 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6B60), p)
-                                mstore(0x6B60, tmp)
+                                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_11_LOC), p)
+                                mstore(POS_INVERTED_DENOM_11_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // POS_INVERTED_DENOM_10 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6B40), p)
-                                mstore(0x6B40, tmp)
+                                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_10_LOC), p)
+                                mstore(POS_INVERTED_DENOM_10_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // POS_INVERTED_DENOM_9 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6B20), p)
-                                mstore(0x6B20, tmp)
+                                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_9_LOC), p)
+                                mstore(POS_INVERTED_DENOM_9_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // POS_INVERTED_DENOM_8 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6B00), p)
-                                mstore(0x6B00, tmp)
+                                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_8_LOC), p)
+                                mstore(POS_INVERTED_DENOM_8_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // POS_INVERTED_DENOM_7 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6AE0), p)
-                                mstore(0x6AE0, tmp)
+                                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_7_LOC), p)
+                                mstore(POS_INVERTED_DENOM_7_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // POS_INVERTED_DENOM_6 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6AC0), p)
-                                mstore(0x6AC0, tmp)
+                                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_6_LOC), p)
+                                mstore(POS_INVERTED_DENOM_6_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // POS_INVERTED_DENOM_5 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6AA0), p)
-                                mstore(0x6AA0, tmp)
+                                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_5_LOC), p)
+                                mstore(POS_INVERTED_DENOM_5_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // POS_INVERTED_DENOM_4 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6A80), p)
-                                mstore(0x6A80, tmp)
+                                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_4_LOC), p)
+                                mstore(POS_INVERTED_DENOM_4_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // POS_INVERTED_DENOM_3 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6A60), p)
-                                mstore(0x6A60, tmp)
+                                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_3_LOC), p)
+                                mstore(POS_INVERTED_DENOM_3_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // POS_INVERTED_DENOM_2 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6A40), p)
-                                mstore(0x6A40, tmp)
+                                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_2_LOC), p)
+                                mstore(POS_INVERTED_DENOM_2_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // POS_INVERTED_DENOM_1 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6A20), p)
-                                mstore(0x6A20, tmp)
+                                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_1_LOC), p)
+                                mstore(POS_INVERTED_DENOM_1_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             // POS_INVERTED_DENOM_0 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6A00), p)
-                                mstore(0x6A00, tmp)
+                                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_0_LOC), p)
+                                mstore(POS_INVERTED_DENOM_0_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
                             /// {{ UNROLL_SECTION_END PHASE2_COLLECT_POS_DENOM }}
 
-                            // INVERTED_CHALLENEGE_POW_MINUS_U (LOG_N elements, reverse)
-                            /// {{ UNROLL_SECTION_START PHASE2_COLLECT_CHALLENEGE_POW_MINUS_U }}
-                            // INVERTED_CHALLENEGE_POW_MINUS_U_14 inverse
+                            // INVERTED_CHALLENGE_POW_MINUS_U (LOG_N elements, reverse)
+                            // INVERTED_CHALLENGE_POW_MINUS_U_14 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x69E0), p)
-                                mstore(0x69E0, tmp)
+                                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENGE_POW_MINUS_U_14_LOC), p)
+                                mstore(INVERTED_CHALLENGE_POW_MINUS_U_14_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
-                            // INVERTED_CHALLENEGE_POW_MINUS_U_13 inverse
+                            // INVERTED_CHALLENGE_POW_MINUS_U_13 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x69C0), p)
-                                mstore(0x69C0, tmp)
+                                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENGE_POW_MINUS_U_13_LOC), p)
+                                mstore(INVERTED_CHALLENGE_POW_MINUS_U_13_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
-                            // INVERTED_CHALLENEGE_POW_MINUS_U_12 inverse
+                            // INVERTED_CHALLENGE_POW_MINUS_U_12 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x69A0), p)
-                                mstore(0x69A0, tmp)
+                                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENGE_POW_MINUS_U_12_LOC), p)
+                                mstore(INVERTED_CHALLENGE_POW_MINUS_U_12_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
-                            // INVERTED_CHALLENEGE_POW_MINUS_U_11 inverse
+                            // INVERTED_CHALLENGE_POW_MINUS_U_11 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6980), p)
-                                mstore(0x6980, tmp)
+                                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENGE_POW_MINUS_U_11_LOC), p)
+                                mstore(INVERTED_CHALLENGE_POW_MINUS_U_11_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
-                            // INVERTED_CHALLENEGE_POW_MINUS_U_10 inverse
+                            // INVERTED_CHALLENGE_POW_MINUS_U_10 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6960), p)
-                                mstore(0x6960, tmp)
+                                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENGE_POW_MINUS_U_10_LOC), p)
+                                mstore(INVERTED_CHALLENGE_POW_MINUS_U_10_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
-                            // INVERTED_CHALLENEGE_POW_MINUS_U_9 inverse
+                            // INVERTED_CHALLENGE_POW_MINUS_U_9 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6940), p)
-                                mstore(0x6940, tmp)
+                                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENGE_POW_MINUS_U_9_LOC), p)
+                                mstore(INVERTED_CHALLENGE_POW_MINUS_U_9_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
-                            // INVERTED_CHALLENEGE_POW_MINUS_U_8 inverse
+                            // INVERTED_CHALLENGE_POW_MINUS_U_8 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6920), p)
-                                mstore(0x6920, tmp)
+                                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENGE_POW_MINUS_U_8_LOC), p)
+                                mstore(INVERTED_CHALLENGE_POW_MINUS_U_8_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
-                            // INVERTED_CHALLENEGE_POW_MINUS_U_7 inverse
+                            // INVERTED_CHALLENGE_POW_MINUS_U_7 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6900), p)
-                                mstore(0x6900, tmp)
+                                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENGE_POW_MINUS_U_7_LOC), p)
+                                mstore(INVERTED_CHALLENGE_POW_MINUS_U_7_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
-                            // INVERTED_CHALLENEGE_POW_MINUS_U_6 inverse
+                            // INVERTED_CHALLENGE_POW_MINUS_U_6 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x68E0), p)
-                                mstore(0x68E0, tmp)
+                                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENGE_POW_MINUS_U_6_LOC), p)
+                                mstore(INVERTED_CHALLENGE_POW_MINUS_U_6_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
-                            // INVERTED_CHALLENEGE_POW_MINUS_U_5 inverse
+                            // INVERTED_CHALLENGE_POW_MINUS_U_5 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x68C0), p)
-                                mstore(0x68C0, tmp)
+                                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENGE_POW_MINUS_U_5_LOC), p)
+                                mstore(INVERTED_CHALLENGE_POW_MINUS_U_5_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
-                            // INVERTED_CHALLENEGE_POW_MINUS_U_4 inverse
+                            // INVERTED_CHALLENGE_POW_MINUS_U_4 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x68A0), p)
-                                mstore(0x68A0, tmp)
+                                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENGE_POW_MINUS_U_4_LOC), p)
+                                mstore(INVERTED_CHALLENGE_POW_MINUS_U_4_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
-                            // INVERTED_CHALLENEGE_POW_MINUS_U_3 inverse
+                            // INVERTED_CHALLENGE_POW_MINUS_U_3 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6880), p)
-                                mstore(0x6880, tmp)
+                                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENGE_POW_MINUS_U_3_LOC), p)
+                                mstore(INVERTED_CHALLENGE_POW_MINUS_U_3_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
-                            // INVERTED_CHALLENEGE_POW_MINUS_U_2 inverse
+                            // INVERTED_CHALLENGE_POW_MINUS_U_2 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6860), p)
-                                mstore(0x6860, tmp)
+                                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENGE_POW_MINUS_U_2_LOC), p)
+                                mstore(INVERTED_CHALLENGE_POW_MINUS_U_2_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
-                            // INVERTED_CHALLENEGE_POW_MINUS_U_1 inverse
+                            // INVERTED_CHALLENGE_POW_MINUS_U_1 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6840), p)
-                                mstore(0x6840, tmp)
+                                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENGE_POW_MINUS_U_1_LOC), p)
+                                mstore(INVERTED_CHALLENGE_POW_MINUS_U_1_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
-                            // INVERTED_CHALLENEGE_POW_MINUS_U_0 inverse
+                            // INVERTED_CHALLENGE_POW_MINUS_U_0 inverse
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(0x6820), p)
-                                mstore(0x6820, tmp)
+                                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENGE_POW_MINUS_U_0_LOC), p)
+                                mstore(INVERTED_CHALLENGE_POW_MINUS_U_0_LOC, tmp)
                                 temp := sub(temp, 0x20)
                             }
-                            /// {{ UNROLL_SECTION_END PHASE2_COLLECT_CHALLENEGE_POW_MINUS_U }}
+                            /// {{ UNROLL_SECTION_END COLLECT_INVERSES }}
 
+                            // TODO: call this (STAGING BASE) something else - its such as stupid name
                             // gemini_r inverse (staging[0])
                             {
                                 let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(SHPLEMINI_STAGING_BASE), p)
-                                mstore(SHPLEMINI_STAGING_BASE, tmp) // 1/gemini_r at staging[0]
+                                accumulator := mulmod(accumulator, mload(GEMINI_R_INV_LOC), p)
+                                mstore(GEMINI_R_INV_LOC, tmp) // 1/gemini_r at staging[0]
                                 temp := sub(temp, 0x20)
                             }
                         }
 
-                        // Extract PI delta denominator inverse from the batch (Optimization 4)
+                        // Extract PI delta denominator inverse from the batch
                         {
                             let pi_delta_inv := mulmod(accumulator, mload(temp), p)
                             accumulator := mulmod(accumulator, mload(PUBLIC_INPUTS_DELTA_DENOMINATOR_CHALLENGE), p)
@@ -3795,21 +3794,20 @@ contract BlakeOptHonkVerifier is IVerifier {
             /*                       SHPLEMINI                            */
             /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-            // ============= SHPLEMINI INVERSES (Optimization 8) ==============
+            // ============= SHPLEMINI INVERSES ==============
             // Inverses were computed in the unified batch inversion above.
             // Copy from staging area to designated addresses.
             let unshifted_scalar := 0
             let shifted_scalar := 0
             {
                 // staging[0] = 1/gemini_r -- needed for shifted_scalar computation
-                let gemini_r_inv := mload(SHPLEMINI_STAGING_BASE)
+                let gemini_r_inv := mload(GEMINI_R_INV_LOC)
 
                 // staging[1..3*LOG_N] maps contiguously to:
-                //   INVERTED_CHALLENEGE_POW_MINUS_U_0..14 (0x560-0x720)
-                //   POS_INVERTED_DENOM_0..14 (0x740-0x900)
-                //   NEG_INVERTED_DENOM_0..14 (0x920-0xAE0)
-                // Total: 3*LOG_N = 45 words = 0x5A0 bytes
-                mcopy(INVERTED_CHALLENEGE_POW_MINUS_U_0_LOC, add(SHPLEMINI_STAGING_BASE, 0x20), 0x5A0)
+                //   INVERTED_CHALLENGE_POW_MINUS_U_0..14
+                //   POS_INVERTED_DENOM_0..14
+                //   NEG_INVERTED_DENOM_0..14
+                // Total: 3*LOG_N
 
                 // INVERTED_GEMINI_DENOMINATOR_0 = POS_INVERTED_DENOM_0 (same value)
                 mstore(INVERTED_GEMINI_DENOMINATOR_0_LOC, mload(POS_INVERTED_DENOM_0_LOC))
@@ -4132,7 +4130,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                 mstore(SUMCHECK_U_LOC, SUM_U_CHALLENGE_14)
                 mstore(GEMINI_A_LOC, GEMINI_A_EVAL_14)
                 // Inversion of this value was included in batch inversion above
-                let inverted_chall_pow_minus_u_loc := INVERTED_CHALLENEGE_POW_MINUS_U_14_LOC
+                let inverted_chall_pow_minus_u_loc := INVERTED_CHALLENGE_POW_MINUS_U_14_LOC
                 let fold_pos_off := FOLD_POS_EVALUATIONS_14_LOC
 
                 let batchedEvalAcc := batched_evaluation
@@ -4176,7 +4174,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                 let shplonk_nu := mload(SHPLONK_NU_CHALLENGE)
 
                 constant_term_acc := addmod(
-                    constant_term_acc,
+                   constant_term_acc,
                     mulmod(mload(GEMINI_A_EVAL_0), mulmod(shplonk_nu, mload(NEG_INVERTED_DENOM_0_LOC), p), p),
                     p
                 )
