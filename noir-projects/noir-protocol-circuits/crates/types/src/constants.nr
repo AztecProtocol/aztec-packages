@@ -163,7 +163,7 @@ pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global FIELDS_PER_BLOB: u32 = 4096;
 pub global BLOBS_PER_CHECKPOINT: u32 = 6;
 pub global MAX_CHECKPOINTS_PER_EPOCH: u32 = 32;
-pub global MAX_TX_LIFETIME: u64 = 86400; // 1 day
+pub global MAX_TX_LIFETIME: u64 = 86400; // 1 day. Arbitrarily chosen.
 // The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
 pub global GENESIS_BLOCK_HEADER_HASH: Field =
     0x2ff681dd7730c7b9e5650c70afa57ee81377792dfc95d98c11817b8c761ff965;
