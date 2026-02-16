@@ -92,7 +92,7 @@ We'll use the first test account, `test0`, throughout to pay for transactions.
 ## Creating an account in the local network
 
 ```bash
-aztec-wallet create-account -a my-wallet -f test0
+aztec-wallet create-account -a my-wallet --payment method=fee_juice,feePayer=accounts:test0
 ```
 
 :::info
