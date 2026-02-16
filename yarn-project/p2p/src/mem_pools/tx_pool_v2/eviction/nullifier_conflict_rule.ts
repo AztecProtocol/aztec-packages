@@ -23,7 +23,7 @@ export class NullifierConflictRule implements PreAddRule {
     );
 
     if (result.shouldIgnore) {
-      this.log.debug(`Ignoring tx ${incomingMeta.txHash}: ${result.reason}`);
+      this.log.debug(`Ignoring tx ${incomingMeta.txHash}: ${result.reason?.message}`);
     }
 
     return Promise.resolve(result);

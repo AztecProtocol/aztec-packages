@@ -1,5 +1,5 @@
 import { type TxMetaData, comparePriority, stubTxMetaValidationData } from '../tx_metadata.js';
-import type { PreAddContext, PreAddPoolAccess } from './interfaces.js';
+import { type PreAddContext, type PreAddPoolAccess, TxPoolRejectionCode } from './interfaces.js';
 import { LowPriorityPreAddRule } from './low_priority_pre_add_rule.js';
 
 describe('LowPriorityPreAddRule', () => {
@@ -101,7 +101,12 @@ describe('LowPriorityPreAddRule', () => {
 
         expect(result.shouldIgnore).toBe(true);
         expect(result.txHashesToEvict).toHaveLength(0);
-        expect(result.reason).toContain('lower priority');
+        expect(result.reason).toBeDefined();
+        expect(result.reason!.code).toBe(TxPoolRejectionCode.LOW_PRIORITY_FEE);
+        if (result.reason!.code === TxPoolRejectionCode.LOW_PRIORITY_FEE) {
+          expect(result.reason!.minimumPriorityFee).toBe(101n);
+          expect(result.reason!.txPriorityFee).toBe(50n);
+        }
       });
 
       it('ignores tx when incoming has equal priority to lowest', async () => {
