@@ -46,7 +46,6 @@ import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { EmpireSlashingProposerContract, GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
 import { createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
-import { SecretValue } from '@aztec/foundation/config';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -67,7 +66,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { getContract } from 'viem';
 
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
-import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEAndGetWallet } from './fixtures/utils.js';
+import { type EndToEndContext, setup, setupPXEAndGetWallet } from './fixtures/utils.js';
 import { TestWallet } from './test-wallet/test_wallet.js';
 
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
@@ -408,8 +407,6 @@ describe('e2e_synching', () => {
 
     const blobClient = await createBlobClientWithFileStores(config, createLogger('test:blob-client:client'));
 
-    const sequencerPK: `0x${string}` = `0x${getPrivateKeyFromIndex(0)!.toString('hex')}`;
-
     const l1TxUtils = createL1TxUtils(
       deployL1ContractsValues.l1Client,
       { logger, dateProvider, kzg: Blob.getViemKzgInstance() },
@@ -435,12 +432,7 @@ describe('e2e_synching', () => {
     const sequencerPublisherMetrics: MockProxy<SequencerPublisherMetrics> = mock<SequencerPublisherMetrics>();
     const publisher = new SequencerPublisher(
       {
-        l1RpcUrls: config.l1RpcUrls,
-        l1DebugRpcUrls: [],
-        l1Contracts: deployL1ContractsValues.l1ContractAddresses,
-        publisherPrivateKeys: [new SecretValue(sequencerPK)],
         l1ChainId: 31337,
-        viemPollingIntervalMS: 100,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
       },
       {

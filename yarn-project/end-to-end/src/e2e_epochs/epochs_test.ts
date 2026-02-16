@@ -22,7 +22,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
-import { ProverNode, type ProverNodeConfig } from '@aztec/prover-node';
+import type { ProverNodeConfig } from '@aztec/prover-node';
 import type { PXEConfig } from '@aztec/pxe/config';
 import { type SequencerClient, type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
 import { type BlockParameter, EthAddress } from '@aztec/stdlib/block';
@@ -76,7 +76,7 @@ export class EpochsTestContext {
   public proverDelayer!: Delayer;
   public sequencerDelayer!: Delayer;
 
-  public proverNodes: ProverNode[] = [];
+  public proverNodes: AztecNodeService[] = [];
   public nodes: AztecNodeService[] = [];
 
   public epochDuration!: number;
@@ -200,26 +200,29 @@ export class EpochsTestContext {
     const proverNodePrivateKey = this.getNextPrivateKey();
     const proverIndex = this.proverNodes.length + 1;
     const { mockGossipSubNetwork } = this.context;
-    const proverNode = await withLoggerBindings({ actor: `prover-${proverIndex}` }, () =>
+    const { proverNode } = await withLoggerBindings({ actor: `prover-${proverIndex}` }, () =>
       createAndSyncProverNode(
         proverNodePrivateKey,
         {
           ...this.context.config,
           p2pEnabled: this.context.config.p2pEnabled || mockGossipSubNetwork !== undefined,
-        },
-        {
-          dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
           proverId: EthAddress.fromNumber(proverIndex),
           dontStart: opts.dontStart,
           ...opts,
         },
-        this.context.aztecNode,
-        this.context.prefilledPublicData ?? [],
+        {
+          dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
+        },
         {
           dateProvider: this.context.dateProvider,
-          p2pClientDeps: mockGossipSubNetwork
-            ? { p2pServiceFactory: getMockPubSubP2PServiceFactory(mockGossipSubNetwork) }
-            : undefined,
+          p2pClientDeps: {
+            p2pServiceFactory: mockGossipSubNetwork ? getMockPubSubP2PServiceFactory(mockGossipSubNetwork) : undefined,
+            rpcTxProviders: [this.context.aztecNode],
+          },
+        },
+        {
+          prefilledPublicData: this.context.prefilledPublicData ?? [],
+          dontStart: opts.dontStart,
         },
       ),
     );

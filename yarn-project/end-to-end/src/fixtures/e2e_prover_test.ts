@@ -1,5 +1,5 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
-import { type Archiver, createArchiver } from '@aztec/archiver';
+import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
@@ -11,13 +11,11 @@ import {
   TestCircuitVerifier,
 } from '@aztec/bb-prover';
 import { BackendType, Barretenberg } from '@aztec/bb.js';
-import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { SecretValue } from '@aztec/foundation/config';
 import { FeeAssetHandlerAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -73,8 +71,8 @@ export class FullProverTest {
   circuitProofVerifier?: ClientProtocolCircuitVerifier;
   provenAsset!: TokenContract;
   context!: EndToEndContext;
-  private proverNode!: ProverNode;
-  private simulatedProverNode!: ProverNode;
+  private proverAztecNode!: AztecNodeService;
+  private simulatedProverAztecNode!: AztecNodeService;
   public l1Contracts!: DeployAztecL1ContractsReturnType;
   public proverAddress!: EthAddress;
   private minNumberOfTxsPerBlock: number;
@@ -146,7 +144,7 @@ export class FullProverTest {
     // We don't wish to mark as proven automatically, so we set the flag to false
     this.context.watcher.setIsMarkingAsProven(false);
 
-    this.simulatedProverNode = this.context.proverNode!;
+    this.simulatedProverAztecNode = this.context.proverNode!;
     ({
       aztecNode: this.aztecNode,
       deployL1ContractsValues: this.l1Contracts,
@@ -155,7 +153,6 @@ export class FullProverTest {
     this.aztecNodeAdmin = this.context.aztecNodeService;
 
     const config = this.context.aztecNodeConfig;
-    const blobClient = await createBlobClientWithFileStores(config, this.logger);
 
     // Configure a full prover PXE
     let acvmConfig: Awaited<ReturnType<typeof getACVMConfig>> | undefined;
@@ -217,20 +214,13 @@ export class FullProverTest {
     this.provenWallet = provenWallet;
     this.logger.info(`Full prover PXE started`);
 
-    // Shutdown the current, simulated prover node
+    // Shutdown the current, simulated prover node (by stopping its hosting aztec node)
     this.logger.verbose('Shutting down simulated prover node');
-    await this.simulatedProverNode.stop();
-
-    // Creating temp store and archiver for fully proven prover node
-    this.logger.verbose('Starting archiver for new prover node');
-    const archiver = await createArchiver(
-      { ...this.context.aztecNodeConfig, dataDirectory: undefined },
-      { blobClient, dateProvider: this.context.dateProvider },
-      { blockUntilSync: true },
-    );
+    await this.simulatedProverAztecNode.stop();
 
     // The simulated prover node (now shutdown) used private key index 2
     const proverNodePrivateKey = getPrivateKeyFromIndex(2);
+    const proverNodePrivateKeyHex = `0x${proverNodePrivateKey!.toString('hex')}` as const;
     const proverNodeSenderAddress = privateKeyToAddress(new Buffer32(proverNodePrivateKey!).toString());
     this.proverAddress = EthAddress.fromString(proverNodeSenderAddress);
 
@@ -238,14 +228,21 @@ export class FullProverTest {
     await this.mintFeeJuice(proverNodeSenderAddress);
 
     this.logger.verbose('Starting prover node');
-    const proverConfig: ProverNodeConfig = {
-      ...this.context.aztecNodeConfig,
-      txCollectionNodeRpcUrls: [],
+    const sponsoredFPCAddress = await getSponsoredFPCAddress();
+    const { prefilledPublicData } = await getGenesisValues(
+      this.context.initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
+    );
+
+    const proverNodeConfig: Parameters<typeof AztecNodeService.createAndSync>[0] = {
+      ...config,
+      enableProverNode: true,
+      disableValidator: true,
       dataDirectory: undefined,
+      txCollectionNodeRpcUrls: [],
       proverId: this.proverAddress,
       realProofs: this.realProofs,
       proverAgentCount: 2,
-      publisherPrivateKeys: [new SecretValue(`0x${proverNodePrivateKey!.toString('hex')}` as const)],
+      proverPublisherPrivateKeys: [new SecretValue(proverNodePrivateKeyHex)],
       proverNodeMaxPendingJobs: 100,
       proverNodeMaxParallelBlocksPerEpoch: 32,
       proverNodePollingIntervalMs: 100,
@@ -255,21 +252,14 @@ export class FullProverTest {
       txGatheringTimeoutMs: 24_000,
       proverNodeFailedEpochStore: undefined,
       proverNodeEpochProvingDelayMs: undefined,
+      validatorPrivateKeys: new SecretValue([]),
     };
-    const sponsoredFPCAddress = await getSponsoredFPCAddress();
-    const { prefilledPublicData } = await getGenesisValues(
-      this.context.initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
-    );
-    this.proverNode = await createProverNode(
-      proverConfig,
-      {
-        aztecNodeTxProvider: this.aztecNode,
-        archiver: archiver as Archiver,
-      },
+
+    this.proverAztecNode = await AztecNodeService.createAndSync(
+      proverNodeConfig,
+      { dateProvider: this.context.dateProvider, p2pClientDeps: { rpcTxProviders: [this.aztecNode] } },
       { prefilledPublicData },
     );
-    await this.proverNode.start();
-
     this.logger.warn(`Proofs are now enabled`, { realProofs: this.realProofs });
     return this;
   }
@@ -289,8 +279,8 @@ export class FullProverTest {
       await this.provenComponents[i].teardown();
     }
 
-    // clean up the full prover node
-    await this.proverNode.stop();
+    // clean up the full prover node (by stopping its hosting aztec node)
+    await this.proverAztecNode.stop();
 
     await Barretenberg.destroySingleton();
     await this.bbConfigCleanup?.();

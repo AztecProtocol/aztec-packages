@@ -17,11 +17,13 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
-import { KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
+import { type KeyStore, KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
 import { createForwarderL1TxUtilsFromSigners, createL1TxUtilsFromSigners } from '@aztec/node-lib/factories';
 import { type P2P, type P2PClientDeps, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { type ProverNode, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
+import { createKeyStoreForProver } from '@aztec/prover-node/config';
 import { GlobalVariableBuilder, SequencerClient, type SequencerPublisher } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import {
@@ -134,6 +136,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
     protected readonly worldStateSynchronizer: WorldStateSynchronizer,
     protected readonly sequencer: SequencerClient | undefined,
+    protected readonly proverNode: ProverNode | undefined,
     protected readonly slasherClient: SlasherClientInterface | undefined,
     protected readonly validatorsSentinel: Sentinel | undefined,
     protected readonly epochPruneWatcher: EpochPruneWatcher | undefined,
@@ -176,10 +179,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       publisher?: SequencerPublisher;
       dateProvider?: DateProvider;
       p2pClientDeps?: P2PClientDeps<P2PClientType.Full>;
+      proverNodeDeps?: Partial<ProverNodeDeps>;
     } = {},
     options: {
       prefilledPublicData?: PublicDataTreeLeaf[];
       dontStartSequencer?: boolean;
+      dontStartProverNode?: boolean;
     } = {},
   ): Promise<AztecNodeService> {
     const config = { ...inputConfig }; // Copy the config so we dont mutate the input object
@@ -189,16 +194,29 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const dateProvider = deps.dateProvider ?? new DateProvider();
     const ethereumChain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
 
-    // Build a key store from file if given or from environment otherwise
+    // Build a key store from file if given or from environment otherwise.
+    // We keep the raw KeyStore available so we can merge with prover keys if enableProverNode is set.
     let keyStoreManager: KeystoreManager | undefined;
     const keyStoreProvided = config.keyStoreDirectory !== undefined && config.keyStoreDirectory.length > 0;
     if (keyStoreProvided) {
       const keyStores = loadKeystores(config.keyStoreDirectory!);
       keyStoreManager = new KeystoreManager(mergeKeystores(keyStores));
     } else {
-      const keyStore = createKeyStoreForValidator(config);
-      if (keyStore) {
-        keyStoreManager = new KeystoreManager(keyStore);
+      const rawKeyStores: KeyStore[] = [];
+      const validatorKeyStore = createKeyStoreForValidator(config);
+      if (validatorKeyStore) {
+        rawKeyStores.push(validatorKeyStore);
+      }
+      if (config.enableProverNode) {
+        const proverKeyStore = createKeyStoreForProver(config);
+        if (proverKeyStore) {
+          rawKeyStores.push(proverKeyStore);
+        }
+      }
+      if (rawKeyStores.length > 0) {
+        keyStoreManager = new KeystoreManager(
+          rawKeyStores.length === 1 ? rawKeyStores[0] : mergeKeystores(rawKeyStores),
+        );
       }
     }
 
@@ -209,10 +227,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       if (keyStoreManager === undefined) {
         throw new Error('Failed to create key store, a requirement for running a validator');
       }
-      if (!keyStoreProvided) {
-        log.warn(
-          'KEY STORE CREATED FROM ENVIRONMENT, IT IS RECOMMENDED TO USE A FILE-BASED KEY STORE IN PRODUCTION ENVIRONMENTS',
-        );
+      if (!keyStoreProvided && process.env.NODE_ENV !== 'test') {
+        log.warn("Keystore created from env: it's recommended to use a file-based key store for production");
       }
       ValidatorClient.validateKeyStoreConfiguration(keyStoreManager, log);
     }
@@ -254,7 +270,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       );
     }
 
-    const blobClient = await createBlobClientWithFileStores(config, createLogger('node:blob-client:client'));
+    const blobClient = await createBlobClientWithFileStores(config, log.createChild('blob-client'));
 
     // attempt snapshot sync if possible
     await trySnapshotSync(config, log);
@@ -417,11 +433,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       );
       await slasherClient.start();
 
-      const l1TxUtils = config.publisherForwarderAddress
+      const l1TxUtils = config.sequencerPublisherForwarderAddress
         ? await createForwarderL1TxUtilsFromSigners(
             publicClient,
             keyStoreManager!.createAllValidatorPublisherSigners(),
-            config.publisherForwarderAddress,
+            config.sequencerPublisherForwarderAddress,
             { ...config, scope: 'sequencer' },
             { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider, kzg: Blob.getViemKzgInstance() },
           )
@@ -466,6 +482,29 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       log.warn(`Sequencer created but not started`);
     }
 
+    // Create prover node subsystem if enabled
+    let proverNode: ProverNode | undefined;
+    if (config.enableProverNode) {
+      proverNode = await createProverNode(config, {
+        ...deps.proverNodeDeps,
+        telemetry,
+        dateProvider,
+        archiver,
+        worldStateSynchronizer,
+        p2pClient,
+        epochCache,
+        blobClient,
+        keyStoreManager,
+      });
+
+      if (!options.dontStartProverNode) {
+        await proverNode.start();
+        log.info(`Prover node subsystem started`);
+      } else {
+        log.info(`Prover node subsystem created but not started`);
+      }
+    }
+
     const globalVariableBuilder = new GlobalVariableBuilder({
       ...config,
       rollupVersion: BigInt(config.rollupVersion),
@@ -482,6 +521,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       archiver,
       worldStateSynchronizer,
       sequencer,
+      proverNode,
       slasherClient,
       validatorsSentinel,
       epochPruneWatcher,
@@ -505,6 +545,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    */
   public getSequencer(): SequencerClient | undefined {
     return this.sequencer;
+  }
+
+  /** Returns the prover node subsystem, if enabled. */
+  public getProverNode(): ProverNode | undefined {
+    return this.proverNode;
   }
 
   public getBlockSource(): L2BlockSource {
@@ -810,6 +855,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     await tryStop(this.slasherClient);
     await tryStop(this.proofVerifier);
     await tryStop(this.sequencer);
+    await tryStop(this.proverNode);
     await tryStop(this.p2pClient);
     await tryStop(this.worldStateSynchronizer);
     await tryStop(this.blockSource);
