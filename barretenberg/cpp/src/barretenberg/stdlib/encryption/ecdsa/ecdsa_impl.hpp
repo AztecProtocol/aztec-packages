@@ -52,8 +52,8 @@ auto& engine = numeric::get_debug_randomness();
  *
  * @note The circuit introduces constraints for the following assertions:
  *          1. \f$P = (x,y)\f$, then x < q, y < q
- *          2. \f$P\f$ is on the curve
- *          3. \f$P\f$ is not the point at infinity
+ *          2. \f$P\f$ is not the point at infinity
+ *          3. \f$P\f$ is on the curve
  *          4. \f$0 < r < n\f$
  *          5. \f$0 < s < (n+1)/2\f$
  *          6. \f$Q := H(m) s^{-1} G + r s^{-1} P\f$ is not the point at infinity
@@ -90,54 +90,62 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     Fr z(hashed_message);
 
     // Step 1.
-    public_key.assert_coordinates_in_field(
-        "ECDSA input validation: coordinate(s) of the public key bigger than the base field modulus."); // x < q, y < q
+    auto is_x_less_than_modulus = public_key.x().is_less_than(
+        Fq::modulus, "ECDSA input validation: x coordinate of the public key bigger than the base field modulus.");
+    auto is_y_less_than_modulus = public_key.y().is_less_than(
+        Fq::modulus, "ECDSA input validation: y coordinate of the public key bigger than the base field modulus.");
 
     // Step 2.
-    public_key.validate_on_curve("ECDSA input validation: the public key is not a point on the elliptic curve.");
+    bool_t<Builder> is_point_at_infinity = public_key.is_point_at_infinity();
 
     // Step 3.
-    public_key.is_point_at_infinity().assert_equal(bool_t<Builder>(false),
-                                                   "ECDSA input validation: the public key is the point at infinity.");
+    // We conditionally select a public key whose x and y coordinates are smaller than the base field modulus. We need
+    // to do this to avoid circuit failures in the function validate_on_curve. Note that this doesn't allow any attack
+    // as the result of the verification takes into account whether the original point coordinates were valid or not.
+    G1 double_generator(Curve::g1::one + Curve::g1::one);
+    G1 corrected_public_key = G1::conditional_assign(
+        is_point_at_infinity || !is_x_less_than_modulus || !is_y_less_than_modulus, double_generator, public_key);
+    bool_t<Builder> is_point_on_curve =
+        corrected_public_key.validate_on_curve(
+            "ECDSA input validation: the public key is not a point on the elliptic curve.", false) == Fq::zero();
 
     // Step 4.
     Fr r(sig.r);
-    r.assert_is_in_field("ECDSA input validation: the r component of the signature is bigger than the order of the "
-                         "elliptic curve.");                                                                // r < n
-    r.assert_is_not_equal(Fr::zero(), "ECDSA input validation: the r component of the signature is zero."); // 0 < r
+    bool_t<Builder> is_r_in_range = r.is_less_than(
+        Fr::modulus, "ECDSA input validation: the r component of the signature is bigger than Fr::modulus.");
+    bool_t<Builder> is_r_zero = r == Fr::zero();
 
     // Step 5.
     Fr s(sig.s);
-    s.assert_less_than(
-        (Fr::modulus + 1) / 2,
-        "ECDSA input validation: the s component of the signature is bigger than (Fr::modulus + 1)/2."); // s < (n+1)/2
-    s.assert_is_not_equal(Fr::zero(), "ECDSA input validation: the s component of the signature is zero."); // 0 < s
+    bool_t<Builder> is_s_in_range =
+        s.is_less_than((Fr::modulus + 1) / 2,
+                       "ECDSA input validation: the s component of the signature is bigger than (Fr::modulus + 1)/2.");
+    bool_t<Builder> is_s_zero = s == Fr::zero();
 
     // Step 6.
-    Fr u1 = z.div_without_denominator_check(s);
-    Fr u2 = r.div_without_denominator_check(s);
+    // We conditionally select a non-zero scalar to perform the verification to avoid circuit failures when s = 0.
+    Fr corrected_s = Fr::conditional_assign(is_s_zero, Fr::one(), s);
+
+    Fr u1 = z.div_without_denominator_check(corrected_s);
+    Fr u2 = r.div_without_denominator_check(corrected_s);
 
     G1 result;
     if constexpr (Curve::type == bb::CurveType::SECP256K1) {
-        result = G1::secp256k1_ecdsa_mul(public_key, u1, u2);
+        result = G1::secp256k1_ecdsa_mul(corrected_public_key, u1, u2);
     } else {
         // This error comes from the lookup tables used in batch_mul. We could get rid of it by setting with_edgecase =
         // true. However, this would increase the gate count, and it would handle a case that should not appear in
         // general: someone using plus or minus the generator as a public key.
-        if ((public_key.get_value().x == Curve::g1::affine_one.x) && (!builder->failed())) {
+        if ((corrected_public_key.get_value().x == Curve::g1::affine_one.x) && (!builder->failed())) {
             builder->failure("ECDSA input validation: the public key is equal to plus or minus the generator point.");
         }
-        result = G1::batch_mul({ G1::one(builder), public_key }, { u1, u2 });
+        result = G1::batch_mul({ G1::one(builder), corrected_public_key }, { u1, u2 });
     }
 
     // Step 7.
-    auto result_is_infinity = result.is_point_at_infinity();
-    result_is_infinity.assert_equal(
-        bool_t<Builder>(false), "ECDSA validation: the result of the batch multiplication is the point at infinity.");
+    bool_t<Builder> result_is_infinity = result.is_point_at_infinity();
 
     // Step 8.
-    // We reduce result.x() to 2^s, where s is the smallest s.t. 2^s > q. It is cheap in terms of constraints, and
-    // avoids possible edge cases
     result.x().reduce_mod_target_modulus();
 
     // Transfer Fq value result.x() to Fr (this is just moving from a C++ class to another)
@@ -150,10 +158,11 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
         result_x_mod_r.binary_basis_limbs[idx].maximum_value = result.x().binary_basis_limbs[idx].maximum_value;
     }
 
-    // Check result.x() = r mod n AND result is not point at infinity
+    // Check result.x() = r mod n AND that no other check failed
     bool_t<Builder> x_matches = result_x_mod_r == r;
-    bool_t<Builder> is_not_infinity = !result_is_infinity;
-    bool_t<Builder> is_signature_valid = x_matches && is_not_infinity;
+    bool_t<Builder> is_signature_valid = x_matches && !is_point_at_infinity && !result_is_infinity && is_r_in_range &&
+                                         !is_r_zero && is_s_in_range && !is_s_zero && is_point_on_curve &&
+                                         is_x_less_than_modulus && is_y_less_than_modulus;
 
     // Logging
     if (is_signature_valid.get_value()) {
