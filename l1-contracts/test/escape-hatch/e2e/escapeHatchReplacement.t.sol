@@ -27,7 +27,7 @@ import {stdStorage, StdStorage} from "forge-std/Test.sol";
  * @notice E2E tests for escape hatch governance replacement scenarios.
  *
  * @dev These tests assert the DESIRED behavior when governance replaces the escape hatch.
- *      They currently FAIL because the escape hatch lookup is not epoch-stable:
+ *      They currently FAIL (before #20363) because the escape hatch lookup is not epoch-stable:
  *
  *      - ProposeLib queries the CURRENT escape hatch for the proposal path decision,
  *        so a mid-epoch replacement retroactively blocks an already-selected proposer.

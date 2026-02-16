@@ -19,6 +19,10 @@ contract FakeRollup {
   mapping(uint256 => bytes32) public archives;
   address public escapeHatchAddress;
 
+  // Per-epoch escape hatch overrides for testing partial deactivation scenarios
+  mapping(uint256 => address) internal escapeHatchByEpoch;
+  mapping(uint256 => bool) internal hasEscapeHatchByEpoch;
+
   constructor() {
     TimeLib.initialize(
       block.timestamp,
@@ -40,6 +44,11 @@ contract FakeRollup {
 
   function setEscapeHatch(address _escapeHatch) external {
     escapeHatchAddress = _escapeHatch;
+  }
+
+  function setEscapeHatchForEpoch(uint256 _epoch, address _escapeHatch) external {
+    escapeHatchByEpoch[_epoch] = _escapeHatch;
+    hasEscapeHatchByEpoch[_epoch] = true;
   }
 
   // ============ IRollup methods used by EscapeHatch ============
@@ -75,7 +84,11 @@ contract FakeRollup {
     return IEscapeHatch(escapeHatchAddress);
   }
 
-  function getEscapeHatchForEpoch(Epoch) external view returns (IEscapeHatch) {
+  function getEscapeHatchForEpoch(Epoch _epoch) external view returns (IEscapeHatch) {
+    uint256 epochNum = Epoch.unwrap(_epoch);
+    if (hasEscapeHatchByEpoch[epochNum]) {
+      return IEscapeHatch(escapeHatchByEpoch[epochNum]);
+    }
     return IEscapeHatch(escapeHatchAddress);
   }
 }

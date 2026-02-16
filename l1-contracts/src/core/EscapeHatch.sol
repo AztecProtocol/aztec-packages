@@ -163,13 +163,23 @@ contract EscapeHatch is IEscapeHatch {
   /**
    * @notice Initiate exit from the candidate set
    *
-   * @dev The exit may be immediate or delayed depending on timing relative to next hatch
+   * @dev The exit may be immediate or delayed depending on timing relative to next hatch.
+   *
+   *      Calls selectCandidates() first, which may select the caller as the designated
+   *      proposer for an upcoming hatch. If the caller is selected, their status transitions
+   *      to PROPOSING and they are removed from $activeCandidates, causing the subsequent
+   *      checks to revert. This is intentional - a designated proposer cannot exit and must
+   *      instead follow the PROPOSING -> validateProofSubmission -> EXITING -> leaveCandidateSet
+   *      flow.
    *
    * @custom:reverts EscapeHatch__NotInCandidateSet if caller is not in the candidate set
+   *                 (including when caller was just selected as proposer by selectCandidates)
    * @custom:reverts EscapeHatch__InvalidStatus if caller's status is not ACTIVE
    */
   function initiateExit() external override(IEscapeHatchCore) {
-    // Ensure current hatch is prepared (may select the caller). Makes our later checks much simpler.
+    // Prepare the current hatch. If this selects the caller as designated proposer, their
+    // status becomes PROPOSING and they are removed from $activeCandidates. The requires
+    // below will then revert, preventing a designated proposer from exiting.
     selectCandidates();
 
     address candidate = msg.sender;
@@ -278,10 +288,14 @@ contract EscapeHatch is IEscapeHatch {
     // Check if this contract was the active escape hatch for the entire active period.
     // If not, the proposer may have been unable to fulfill duties due to governance change.
     Epoch firstActiveEpoch = _getFirstEpoch(_hatch);
-    Epoch lastActiveEpoch = firstActiveEpoch + Epoch.wrap(ACTIVE_DURATION - 1);
-    bool wasActiveAtStart = address(ROLLUP.getEscapeHatchForEpoch(firstActiveEpoch)) == address(this);
-    bool wasActiveAtEnd = address(ROLLUP.getEscapeHatchForEpoch(lastActiveEpoch)) == address(this);
-    bool wasActiveEntirePeriod = wasActiveAtStart && wasActiveAtEnd;
+    bool wasActiveEntirePeriod = true;
+    for (uint256 i = 0; i < ACTIVE_DURATION; i++) {
+      Epoch epoch = firstActiveEpoch + Epoch.wrap(i);
+      if (address(ROLLUP.getEscapeHatchForEpoch(epoch)) != address(this)) {
+        wasActiveEntirePeriod = false;
+        break;
+      }
+    }
 
     bool success = true;
     uint256 punishment = 0;

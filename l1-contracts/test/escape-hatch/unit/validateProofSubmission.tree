@@ -19,7 +19,20 @@ EscapeHatchValidateProofSubmissionTest
                 │   │   ├── it should set isHatchValidated to true
                 │   │   └── it should emit ProofValidated with success true and zero punishment
                 │   └── given proposer did submit
-                │       └── it should apply normal validation (punish on failure)
+                │       ├── it should apply normal validation (punish on failure)
+                │       └── it should set isHatchValidated to true
+                ├── given middle epoch gap
+                │   ├── given middle epoch gap and proposer never submitted
+                │   │   ├── it should detect the gap via the epoch loop
+                │   │   ├── it should not apply punishment
+                │   │   ├── it should set status to EXITING
+                │   │   ├── it should clear lastCheckpointNumber and lastSubmittedArchive
+                │   │   └── it should set isHatchValidated to true
+                │   └── given middle epoch gap and proposer did submit
+                │       ├── it should detect the gap via the epoch loop
+                │       ├── it should apply normal validation and punish on failure
+                │       ├── it should set status to EXITING
+                │       └── it should set isHatchValidated to true
                 └── given escape hatch was active for entire period
                     ├── given no checkpoint was submitted
                     │   ├── it should have lastCheckpointNumber EQ zero
