@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: Complete, auditors: [Luke], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
 #include "barretenberg/numeric/uintx/uintx.hpp"
 #include "uintx_impl.hpp"
 
