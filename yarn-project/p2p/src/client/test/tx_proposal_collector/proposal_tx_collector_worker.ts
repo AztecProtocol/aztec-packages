@@ -17,9 +17,9 @@ import { peerIdFromString } from '@libp2p/peer-id';
 
 import type { P2PConfig } from '../../../config.js';
 import { BatchTxRequesterCollector, SendBatchRequestCollector } from '../../../services/index.js';
-import { MissingTxsTracker } from '../../../services/reqresp/batch-tx-requester/missing_txs.js';
 import type { IBatchRequestTxValidator } from '../../../services/reqresp/batch-tx-requester/tx_validator.js';
 import { RateLimitStatus } from '../../../services/reqresp/rate-limiter/rate_limiter.js';
+import { MissingTxsTracker } from '../../../services/tx_collection/missing_txs_tracker.js';
 import { AlwaysTrueCircuitVerifier } from '../../../test-helpers/index.js';
 import {
   BENCHMARK_CONSTANTS,

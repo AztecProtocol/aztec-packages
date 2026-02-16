@@ -6,9 +6,10 @@ import type { PeerId } from '@libp2p/interface';
 
 import { BatchTxRequester } from '../reqresp/batch-tx-requester/batch_tx_requester.js';
 import type { BatchTxRequesterConfig } from '../reqresp/batch-tx-requester/config.js';
-import type { BatchTxRequesterLibP2PService, IMissingTxsTracker } from '../reqresp/batch-tx-requester/interface.js';
+import type { BatchTxRequesterLibP2PService } from '../reqresp/batch-tx-requester/interface.js';
 import type { IBatchRequestTxValidator } from '../reqresp/batch-tx-requester/tx_validator.js';
 import { type BlockTxsSource, ReqRespSubProtocol, chunkTxHashesRequest } from '../reqresp/index.js';
+import type { IMissingTxsTracker } from './missing_txs_tracker.js';
 
 /**
  * Strategy interface for collecting missing transactions for a block or proposal.

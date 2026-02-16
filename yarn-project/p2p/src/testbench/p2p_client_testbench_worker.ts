@@ -36,11 +36,11 @@ import type { MemPools } from '../mem_pools/index.js';
 import { BatchTxRequesterCollector, LibP2PService, SendBatchRequestCollector } from '../services/index.js';
 import type { PeerManager } from '../services/peer-manager/peer_manager.js';
 import type { BatchTxRequesterLibP2PService } from '../services/reqresp/batch-tx-requester/interface.js';
-import { MissingTxsTracker } from '../services/reqresp/batch-tx-requester/missing_txs.js';
 import type { IBatchRequestTxValidator } from '../services/reqresp/batch-tx-requester/tx_validator.js';
 import { RateLimitStatus } from '../services/reqresp/rate-limiter/rate_limiter.js';
 import type { ReqResp } from '../services/reqresp/reqresp.js';
 import type { PeerDiscoveryService } from '../services/service.js';
+import { MissingTxsTracker } from '../services/tx_collection/missing_txs_tracker.js';
 import { AlwaysTrueCircuitVerifier } from '../test-helpers/index.js';
 import {
   BENCHMARK_CONSTANTS,

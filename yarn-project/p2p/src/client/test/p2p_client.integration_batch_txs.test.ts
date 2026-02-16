@@ -20,9 +20,9 @@ import type { AttestationPool } from '../../mem_pools/attestation_pool/attestati
 import type { TxPoolV2 } from '../../mem_pools/tx_pool_v2/interfaces.js';
 import { BatchTxRequester } from '../../services/reqresp/batch-tx-requester/batch_tx_requester.js';
 import type { BatchTxRequesterLibP2PService } from '../../services/reqresp/batch-tx-requester/interface.js';
-import { MissingTxsTracker } from '../../services/reqresp/batch-tx-requester/missing_txs.js';
 import type { IBatchRequestTxValidator } from '../../services/reqresp/batch-tx-requester/tx_validator.js';
 import type { ConnectionSampler } from '../../services/reqresp/connection-sampler/connection_sampler.js';
+import { MissingTxsTracker } from '../../services/tx_collection/missing_txs_tracker.js';
 import { generatePeerIdPrivateKeys } from '../../test-helpers/generate-peer-id-private-keys.js';
 import { getPorts } from '../../test-helpers/get-ports.js';
 import { makeEnrs } from '../../test-helpers/make-enrs.js';

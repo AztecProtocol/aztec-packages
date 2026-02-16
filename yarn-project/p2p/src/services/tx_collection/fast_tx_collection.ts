@@ -13,8 +13,8 @@ import type { PeerId } from '@libp2p/interface';
 
 import type { BatchTxRequesterConfig } from '../reqresp/batch-tx-requester/config.js';
 import type { BatchTxRequesterLibP2PService } from '../reqresp/batch-tx-requester/interface.js';
-import { MissingTxsTracker } from '../reqresp/batch-tx-requester/missing_txs.js';
 import type { TxCollectionConfig } from './config.js';
+import { MissingTxsTracker } from './missing_txs_tracker.js';
 import {
   BatchTxRequesterCollector,
   type MissingTxsCollector,
@@ -124,7 +124,7 @@ export class FastTxCollection {
       await Promise.race([request.promise.promise, waitBeforeReqResp]);
 
       // If we have collected all txs, we can stop here
-      if (request.missingTxTracker.numberOfMissingTxs === 0) {
+      if (request.missingTxTracker.allFetched()) {
         this.log.debug(`All txs collected for slot ${blockInfo.slotNumber} without reqresp`, blockInfo);
         return;
       }
@@ -138,7 +138,7 @@ export class FastTxCollection {
       const logCtx = {
         ...blockInfo,
         errorMessage: err instanceof Error ? err.message : undefined,
-        missingTxs: [...request.missingTxTracker.missingTxHashes].map(txHash => txHash.toString()),
+        missingTxs: request.missingTxTracker.missingTxHashes.values().map(txHash => txHash.toString()),
       };
       if (err instanceof Error && err.name === 'TimeoutError') {
         this.log.warn(`Timed out collecting txs for ${request.type} at slot ${blockInfo.slotNumber}`, logCtx);

@@ -10,6 +10,7 @@ import { Tx, TxArray, TxHash } from '@aztec/stdlib/tx';
 import type { PeerId } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
 
+import type { IMissingTxsTracker } from '../../tx_collection/missing_txs_tracker.js';
 import { ReqRespSubProtocol } from '.././interface.js';
 import { BlockTxsRequest, BlockTxsResponse, type BlockTxsSource } from '.././protocols/index.js';
 import { ReqRespStatus } from '.././status.js';
@@ -19,12 +20,7 @@ import {
   DEFAULT_BATCH_TX_REQUESTER_SMART_PARALLEL_WORKER_COUNT,
   DEFAULT_BATCH_TX_REQUESTER_TX_BATCH_SIZE,
 } from './config.js';
-import type {
-  BatchTxRequesterLibP2PService,
-  BatchTxRequesterOptions,
-  IMissingTxsTracker,
-  ITxMetadataCollection,
-} from './interface.js';
+import type { BatchTxRequesterLibP2PService, BatchTxRequesterOptions, ITxMetadataCollection } from './interface.js';
 import { MissingTxMetadataCollection } from './missing_txs.js';
 import { type IPeerCollection, PeerCollection } from './peer_collection.js';
 import { BatchRequestTxValidator, type IBatchRequestTxValidator } from './tx_validator.js';

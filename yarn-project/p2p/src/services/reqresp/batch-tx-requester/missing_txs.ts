@@ -2,39 +2,13 @@ import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
+import type { IMissingTxsTracker } from '../../tx_collection/missing_txs_tracker.js';
 import { DEFAULT_BATCH_TX_REQUESTER_TX_BATCH_SIZE } from './config.js';
-import type { IMissingTxsTracker, ITxMetadataCollection } from './interface.js';
-
-export class MissingTxsTracker implements IMissingTxsTracker {
-  public readonly collectedTxs: Tx[] = [];
-
-  private constructor(public readonly missingTxHashes: Set<string>) {}
-
-  public static fromArray(hashes: TxHash[] | string[]) {
-    return new MissingTxsTracker(new Set(hashes.map(hash => hash.toString())));
-  }
-
-  markFetched(tx: Tx): boolean {
-    if (this.missingTxHashes.delete(tx.txHash.toString())) {
-      this.collectedTxs.push(tx);
-      return true;
-    }
-    return false;
-  }
-
-  get numberOfMissingTxs(): number {
-    return this.missingTxHashes.size;
-  }
-
-  isMissing(txHash: string): boolean {
-    return this.missingTxHashes.has(txHash.toString());
-  }
-}
+import type { ITxMetadataCollection } from './interface.js';
 
 class MissingTxMetadata {
   constructor(
     public readonly txHash: string,
-    public fetched = false,
     public requestedCount = 0,
     public inFlightCount = 0,
     public tx: Tx | undefined = undefined,
@@ -55,20 +29,6 @@ class MissingTxMetadata {
 
   public isInFlight(): boolean {
     return this.inFlightCount > 0;
-  }
-
-  //Returns true if this is the first time we mark it as fetched
-  public markAsFetched(peerId: PeerId, tx: Tx): boolean {
-    if (this.fetched) {
-      return false;
-    }
-
-    this.fetched = true;
-    this.tx = tx;
-
-    this.peers.add(peerId.toString());
-
-    return true;
   }
 }
 
@@ -168,7 +128,7 @@ export class MissingTxMetadataCollection implements ITxMetadataCollection {
   }
 
   public alreadyFetched(txHash: TxHash): boolean {
-    return this.txMetadata.get(txHash.toString())?.fetched ?? false;
+    return this.missingTxsTracker.isMissing(txHash.toString());
   }
 
   public markFetched(peerId: PeerId, tx: Tx): boolean {
@@ -183,8 +143,7 @@ export class MissingTxMetadataCollection implements ITxMetadataCollection {
       return false;
     }
 
-    this.missingTxsTracker.markFetched(tx);
-    return txMeta.markAsFetched(peerId, tx);
+    return this.missingTxsTracker.markFetched(tx);
   }
 
   public markPeerHas(peerId: PeerId, txHash: TxHash[]) {
