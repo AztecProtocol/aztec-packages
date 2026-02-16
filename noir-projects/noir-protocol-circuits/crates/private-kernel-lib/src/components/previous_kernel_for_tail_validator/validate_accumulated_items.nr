@@ -56,8 +56,9 @@ pub fn validate_accumulated_items(
     // We require the entire contract class log hash to be empty because the contract address is exposed to the public.
     assert_trimmed_array(contract_class_logs_hashes, |log_hash| log_hash.is_empty());
 
-    // For `public_call_requests`, we only need to ensure that the trimmed items are nullish. Items emitted from private
-    // functions are guaranteed to be non-empty - their `msg_sender` is either the caller's contract address (which
+    // For `public_call_requests`, we only need to ensure that the trimmed items are nullish (i.e.
+    // we don't need to ensure denseness here). Items emitted from private functions are _guaranteed_
+    // to be non-empty because their `msg_sender` is either the caller's contract address (which
     // cannot be 0) or `NULL_MSG_SENDER_CONTRACT_ADDRESS`.
     // See `private_call_data_validator.nr > validate_public_call_request` for details.
     if is_for_public {
