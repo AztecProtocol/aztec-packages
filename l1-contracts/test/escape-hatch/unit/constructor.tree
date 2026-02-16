@@ -11,21 +11,24 @@ EscapeHatchConstructorTest
             ├── when FREQUENCY LE ACTIVE_DURATION
             │   └── it should revert {EscapeHatch__InvalidConfiguration}
             └── when FREQUENCY GT ACTIVE_DURATION
-                ├── when FAILED_HATCH_PUNISHMENT GT BOND_SIZE
+                ├── when BOND_SIZE EQ 0
                 │   └── it should revert {EscapeHatch__InvalidConfiguration}
-                └── when FAILED_HATCH_PUNISHMENT LE BOND_SIZE
-                    ├── when WITHDRAWAL_TAX GT BOND_SIZE
+                └── when BOND_SIZE GT 0
+                    ├── when FAILED_HATCH_PUNISHMENT GT BOND_SIZE
                     │   └── it should revert {EscapeHatch__InvalidConfiguration}
-                    └── when WITHDRAWAL_TAX LE BOND_SIZE
-                        ├── when PROPOSING_EXIT_DELAY GT 30 days
+                    └── when FAILED_HATCH_PUNISHMENT LE BOND_SIZE
+                        ├── when WITHDRAWAL_TAX GT BOND_SIZE
                         │   └── it should revert {EscapeHatch__InvalidConfiguration}
-                        └── when PROPOSING_EXIT_DELAY LE 30 days
-                            ├── it should set ROLLUP immutable
-                            ├── it should set BOND_TOKEN immutable
-                            ├── it should set BOND_SIZE immutable
-                            ├── it should set WITHDRAWAL_TAX immutable
-                            ├── it should set FAILED_HATCH_PUNISHMENT immutable
-                            ├── it should set FREQUENCY immutable
-                            ├── it should set ACTIVE_DURATION immutable
-                            ├── it should set LAG_IN_HATCHES immutable
-                            └── it should set PROPOSING_EXIT_DELAY immutable
+                        └── when WITHDRAWAL_TAX LE BOND_SIZE
+                            ├── when PROPOSING_EXIT_DELAY GT 30 days
+                            │   └── it should revert {EscapeHatch__InvalidConfiguration}
+                            └── when PROPOSING_EXIT_DELAY LE 30 days
+                                ├── it should set ROLLUP immutable
+                                ├── it should set BOND_TOKEN immutable
+                                ├── it should set BOND_SIZE immutable
+                                ├── it should set WITHDRAWAL_TAX immutable
+                                ├── it should set FAILED_HATCH_PUNISHMENT immutable
+                                ├── it should set FREQUENCY immutable
+                                ├── it should set ACTIVE_DURATION immutable
+                                ├── it should set LAG_IN_HATCHES immutable
+                                └── it should set PROPOSING_EXIT_DELAY immutable
