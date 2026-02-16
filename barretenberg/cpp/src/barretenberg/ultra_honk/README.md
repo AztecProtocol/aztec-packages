@@ -1,6 +1,6 @@
 # Ultra Honk
 
-Honk is a Sumcheck-based SNARK for general-purpose circuits expressed in the **Ultra** and **Mega** arithmetizations. It proves that a witness satisfies a set of polynomial relations over a multilinear evaluation domain, then opens the resulting evaluations via a KZG-based polynomial commitment scheme.
+Honk is a Sumcheck-based SNARK for general-purpose circuits expressed in the **Ultra** and **Mega** arithmetizations. It proves that a witness satisfies a set of polynomial relations over the boolean hypercube, then opens the resulting evaluations via a KZG-based polynomial commitment scheme.
 
 For the IVC/folding layer built on top of Honk, see the [Chonk README](../chonk/README.md).
 
@@ -40,7 +40,6 @@ Proof ──► Oink (receive commitments, derive challenges)
 | Oink prover | `ultra_honk/oink_prover.hpp`, `ultra_honk/oink_prover.cpp` |
 | Oink verifier | `ultra_honk/oink_verifier.hpp`, `ultra_honk/oink_verifier.cpp` |
 | Prover instance | `ultra_honk/prover_instance.hpp` |
-| Witness computation | `ultra_honk/witness_computation.hpp` |
 | Trace-to-polynomials | `trace_to_polynomials/trace_to_polynomials.hpp` |
 | Flavors | `flavor/ultra_flavor.hpp`, `flavor/mega_flavor.hpp` |
 | Sumcheck | `sumcheck/sumcheck.hpp` |
@@ -55,7 +54,7 @@ A **Flavor** is a compile-time configuration bundle that fixes the field, curve,
 
 The two base arithmetizations determine the relation set:
 - **Ultra** (9 relations): arithmetic, permutation, lookup, range, elliptic, memory, non-native field, Poseidon2
-- **Mega** (11 relations): Ultra relations + EccOpQueue + Databus (for Goblin integration)
+- **Mega** (11 relations): Ultra relations + EccOpQueue (for Goblin) + Databus (for inter-circuit communication in Chonk)
 
 ZK variants inherit the same relations from their base; they only add masking and row-disabling machinery (see [Zero-Knowledge](#zero-knowledge)).
 
@@ -73,11 +72,19 @@ All flavors use Poseidon2 for Fiat-Shamir, except the Keccak variants which use 
 Each flavor defines:
 - **Curve / Field**: BN254 scalar field
 - **PCS**: KZG
-- **Relations**: inherited from the base arithmetization (Ultra or Mega)
+- **Relations**: determined by the base arithmetization (Ultra or Mega)
 - **Polynomial entities**: precomputed, witness, shifted, and (for ZK) masking polynomials
 - **Transcript**: codec + hash function determining Fiat-Shamir
 
 Source: [`flavor/ultra_flavor.hpp`](../flavor/ultra_flavor.hpp), [`flavor/mega_flavor.hpp`](../flavor/mega_flavor.hpp), [`flavor/ultra_zk_flavor.hpp`](../flavor/ultra_zk_flavor.hpp), [`flavor/mega_zk_flavor.hpp`](../flavor/mega_zk_flavor.hpp), [`flavor/ultra_keccak_flavor.hpp`](../flavor/ultra_keccak_flavor.hpp)
+
+## Padding
+
+Circuits have variable size, but it is convenient if recursive verifier verification keys are independent of the inner proof's circuit size. To achieve this, flavors with `USE_PADDING = true` run Sumcheck and Gemini with a fixed log-size `VIRTUAL_LOG_N`, regardless of the actual `log_circuit_size`. This produces a fixed-length proof (fixed number of Sumcheck round univariates and Gemini fold commitments/evaluations), so the recursive verifier circuit and its VK are the same for all inner circuit sizes.
+
+A **padding indicator array** (1 for real rounds, 0 for padded) is used by the verifier to neutralize padded rounds: when the indicator is 0, the Sumcheck round check reduces to a tautology (the running target sum is preserved unchanged) and the Gemini fold claim is similarly disabled, so all rounds are processed uniformly without branching.
+
+On the prover side, `virtual_log_n` is used instead of `log_circuit_size` when generating gate challenges and running Sumcheck, so the prover produces the expected number of rounds. The actual polynomial data only spans `2^log_circuit_size` entries; the extra rounds fold over trivially zero contributions.
 
 ## Proof Flow -- Prover Side
 
@@ -93,18 +100,18 @@ See [`trace_to_polynomials/`](../trace_to_polynomials/trace_to_polynomials.hpp).
 
 ### 2. Oink Rounds
 
-The **Oink** sub-protocol ([`oink_prover.hpp`](oink_prover.hpp)) runs the preprocessing rounds shared between standalone proving and folding. Each step commits to polynomials and squeezes Fiat-Shamir challenges:
+The **Oink** sub-protocol ([`oink_prover.hpp`](oink_prover.hpp)) runs the preprocessing rounds shared between standalone proving and folding. Each step commits to polynomials and computes Fiat-Shamir challenges:
 
-1. **`send_vk_hash_and_public_inputs`** -- send verification key hash and circuit public inputs
+1. **`send_vk_hash_and_public_inputs`** -- absorb VK hash into the Fiat-Shamir state, send public inputs to the transcript
 2. **`commit_to_masking_poly`** -- (ZK flavors only) commit to the Gemini masking polynomial
-3. **`commit_to_wires`** -- commit to witness wire polynomials (w_1 ... w_3)
-4. **`commit_to_lookup_counts_and_w4`** -- compute RAM/ROM memory records into w_4, commit to lookup read/write counts and w_4
-5. **`commit_to_logderiv_inverses`** -- compute and commit to log-derivative inverse polynomials (for lookups and, in Mega, databus)
-6. **`commit_to_z_perm`** -- compute and commit to the permutation grand product polynomial
+3. **`commit_to_wires`** -- commit to w_l, w_r, w_o (plus ECC op wires and databus columns for Mega)
+4. **`commit_to_lookup_counts_and_w4`** -- derive **eta**; compute RAM/ROM memory records into w_4; commit to lookup_read_counts, lookup_read_tags, and w_4
+5. **`commit_to_logderiv_inverses`** -- derive **beta, gamma**; compute and commit to log-derivative inverse polynomials (for lookups and, in Mega, databus)
+6. **`commit_to_z_perm`** -- compute and commit to the permutation grand product polynomial; derive **alpha**
 
 ### 3. Sumcheck
 
-Sumcheck reduces the claim that the relation sum vanishes over the boolean hypercube to a single evaluation at a random challenge point `u = (u_1, ..., u_d)`. In each of `d = log(N)` rounds, the prover sends a univariate polynomial; the verifier checks its endpoint sum and provides the next challenge.
+Sumcheck proves that the batched relation `pow_β(X) · F(X)` sums to zero over the boolean hypercube `{0,1}^d`, where `d = log(N)`, `F` combines all subrelations via powers of alpha, and `pow_β` is the gate-separation polynomial (its evaluation at the `i`-th hypercube point is `β^i`). In each of `d` rounds the prover sends a round univariate `S^i`; the verifier checks `S^i(0) + S^i(1)` equals the running target from the previous round, then provides the next challenge `u_i`. After the final round the prover sends the claimed evaluations of all polynomials at the challenge point `u = (u_0, ..., u_{d-1})`; the verifier evaluates the full relation at these values and checks consistency with the last round univariate.
 
 See [`sumcheck/Sumcheck.md`](../sumcheck/Sumcheck.md) for full details.
 
@@ -112,13 +119,11 @@ See [`sumcheck/Sumcheck.md`](../sumcheck/Sumcheck.md) for full details.
 
 After Sumcheck produces the evaluation point `u` and claimed evaluations, the polynomial commitment scheme proves these evaluations are correct:
 
-1. **Gemini**: reduces multilinear evaluation claims to univariate claims via a folding scheme. See [`commitment_schemes/gemini/README.md`](../commitment_schemes/gemini/README.md).
-2. **Shplonk**: batches the univariate opening claims into a single claim. See [`commitment_schemes/shplonk/README.md`](../commitment_schemes/shplonk/README.md).
+1. **Gemini**: reduces multilinear opening claims at the same point to a series of univariate opening claims. See [`commitment_schemes/gemini/README.md`](../commitment_schemes/gemini/README.md).
+2. **Shplonk**: batches the univariate opening claims (from Gemini and, for ZK flavors, SmallSubgroupIPA) into a single claim. See [`commitment_schemes/shplonk/README.md`](../commitment_schemes/shplonk/README.md).
 3. **KZG**: produces a single-point opening proof (a group element). See [`commitment_schemes/kzg/README.md`](../commitment_schemes/kzg/README.md).
 
 In practice, Gemini and Shplonk are fused in **Shplemini** ([`commitment_schemes/shplonk/shplemini.hpp`](../commitment_schemes/shplonk/shplemini.hpp)) for efficiency.
-
-For ZK flavors, a **SmallSubgroupIPA** proof is additionally produced to verify the Libra masking evaluation. See [`commitment_schemes/small_subgroup_ipa/README.md`](../commitment_schemes/small_subgroup_ipa/README.md).
 
 ## Proof Flow -- Verifier Side
 
@@ -130,7 +135,7 @@ The [`OinkVerifier`](oink_verifier.hpp) mirrors the prover: it receives commitme
 
 ### 2. Sumcheck Verification
 
-The verifier replays Sumcheck: in each round it reads the prover's univariate, checks the degree and endpoint consistency, and derives the challenge. At the end it obtains the evaluation point `u` and the claimed relation evaluation.
+The verifier replays Sumcheck: in each round it reads the prover's round univariate (whose degree is fixed at compile time by the flavor), checks that `S^i(0) + S^i(1)` matches the running target, and derives the challenge. After the final round it receives the claimed polynomial evaluations at `u` and checks them against the full relation evaluation.
 
 ### 3. PCS Verification
 
@@ -148,17 +153,15 @@ In the broader Aztec system, the public inputs also carry **special structured d
 
 ## Zero-Knowledge
 
-ZK flavors (`UltraZKFlavor`, `UltraKeccakZKFlavor`, `MegaZKFlavor`) achieve zero-knowledge by ensuring that no prover message leaks information about the witness. The ZK mechanisms form a chain: witness polynomial masking prevents commitments from leaking, row disabling prevents the masked rows from breaking relations, Libra masking hides Sumcheck round univariates, SmallSubgroupIPA proves the Libra evaluation without revealing it, and the Gemini masking polynomial hides the individual polynomial evaluations opened in Gemini, Shplonk, and KZG.
+ZK flavors (`UltraZKFlavor`, `UltraKeccakZKFlavor`, `MegaZKFlavor`) add several mechanisms so that every prover message (commitments, round univariates, polynomial evaluations, opening proofs) is statistically independent of the witness. These mechanisms form a chain: witness polynomial masking randomizes the committed data, row disabling prevents the masked rows from breaking relations, Libra masking randomizes Sumcheck round univariates, SmallSubgroupIPA proves the Libra evaluation without revealing it, and the Gemini masking polynomial randomizes the polynomial evaluations opened in the PCS stage.
 
 ### 1. Witness Polynomial Masking
 
-Each witness polynomial (wires, lookup counts/tags/inverses, z_perm, databus columns) has its last `NUM_MASKED_ROWS = 3` entries overwritten with random field elements before commitment. This is done by `Polynomial::mask()` during Oink, called via `commit_to_witness_polynomial` and `batch.add_to_batch(..., /*mask?*/ Flavor::HasZK)`.
-
-Because the polynomial is masked *before* the commitment is computed, the commitment reveals nothing about the original witness values -- it commits to the masked polynomial, which has a random tail.
+Each witness polynomial (wires, lookup counts/tags/inverses, z_perm, databus columns) has its last `NUM_MASKED_ROWS = 3` entries overwritten with random field elements before commitment. This is done by `Polynomial::mask()` during Oink, either via `batch.add_to_batch(..., /*mask?*/ Flavor::HasZK)` (which masks before batched commitment) or explicitly before `commitment_key.commit()` (for z_perm).
 
 ### 2. Row Disabling
 
-The 3 masked rows plus 1 adjacent row (needed for shifted polynomials) cannot satisfy the circuit relations, since the witness values there are random. To prevent this from causing Sumcheck to fail, ZK flavors multiply the entire relation by a **row-disabling polynomial** that evaluates to zero on the last `NUM_DISABLED_ROWS_IN_SUMCHECK = 4` rows of the boolean hypercube. This increases `BATCHED_RELATION_PARTIAL_LENGTH` by 1 compared to the non-ZK flavor.
+The 3 masked rows plus 1 adjacent row (needed for shifted polynomials) cannot satisfy the circuit relations, since the witness values there are random. To prevent this from causing Sumcheck to fail, ZK flavors multiply the entire relation by a **row-disabling polynomial** `1 - X_2·X_3·...·X_{d-1}` that evaluates to zero on the last 4 rows of the boolean hypercube. Like `pow_β`, this polynomial has a simple closed form so the verifier can evaluate it efficiently without a commitment. This increases `BATCHED_RELATION_PARTIAL_LENGTH` by 1 compared to the non-ZK flavor.
 
 ### 3. Libra Masking (Sumcheck Round Univariates)
 
@@ -172,7 +175,7 @@ See the ZK section of [`sumcheck/Sumcheck.md`](../sumcheck/Sumcheck.md).
 
 ### 4. SmallSubgroupIPA (Libra Evaluation Proof)
 
-At the end of Sumcheck, the verifier needs to check that the Libra polynomial was evaluated correctly at the challenge point `u = (u_0, ..., u_{d-1})`. Because the Libra univariates are the prover's secret, their evaluations cannot be sent directly. Instead, the evaluation is reformulated as an inner product `⟨F, G⟩ = s` where G encodes the Libra coefficients and F encodes the challenge powers, then proved using the **SmallSubgroupIPA** protocol over a small multiplicative subgroup of BN254.
+At the end of Sumcheck, the verifier needs to check that the Libra polynomial was evaluated correctly at the challenge point `u = (u_0, ..., u_{d-1})`. Because the Libra univariates are the prover's secret, their evaluations cannot be sent directly. Instead, the evaluation is reformulated as an inner product `⟨F, G⟩ = s` where G encodes the Libra coefficients and F encodes the challenge powers, then proved using the **SmallSubgroupIPA** protocol over a multiplicative subgroup of BN254's scalar field of size `SUBGROUP_SIZE = 256`. This size must satisfy `SUBGROUP_SIZE > CONST_PROOF_SIZE_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH` (max number of Sumcheck rounds times the number of coefficients per round univariate) and divide the multiplicative group order.
 
 SmallSubgroupIPA produces 3 additional commitments (the concatenated Libra polynomial, a grand-sum accumulator, and a quotient polynomial) and 4 evaluations, all of which are batched into the Shplemini opening claim.
 
@@ -180,7 +183,7 @@ See [`commitment_schemes/small_subgroup_ipa/README.md`](../commitment_schemes/sm
 
 ### 5. Gemini Masking Polynomial (PCS Evaluation Masking)
 
-Even with all the above, the polynomial evaluations revealed during the PCS stage (Gemini fold evaluations sent to the verifier, then opened via Shplonk) would leak witness information, since they are linear combinations of the witness polynomials evaluated at the Gemini challenge.
+Even with all the above, the polynomial evaluations revealed during the PCS stage (Gemini fold commitments and evaluations sent to the verifier, then opened via Shplonk) would leak witness information, since they are linear combinations of the witness polynomials evaluated at the Gemini challenge.
 
 To prevent this, a random polynomial `gemini_masking_poly` of size `N` is generated and committed during Oink. It is included in the set of polynomials batched by Gemini (via `polynomial_batcher.set_unshifted`), so the batched polynomial `A_0 = Σ ρ^j · f_j` includes a `ρ^k · gemini_masking_poly` term. Since this random polynomial is known only to the prover, its contribution makes every Gemini fold evaluation (`A_l(±r^{2^l})`) uniformly random from the verifier's perspective. The verifier holds the commitment to the masking polynomial and can account for it during Shplemini verification.
 
@@ -216,11 +219,11 @@ Gemini fold evaluations ──► Shplonk batching ──► KZG opening proof
 
 Honk's arithmetization uses **custom gates**: each row of the execution trace has four witness wires (`w_l`, `w_r`, `w_o`, `w_4`) and a set of **selector polynomials** (`q_arith`, `q_elliptic`, `q_lookup`, etc.) that control which constraint is active on that row. A selector value of zero disables the corresponding relation for that row, so different rows can enforce entirely different constraints.
 
-Unlike some proving systems where selectors are treated as public constants inlined into the verifier, in Honk the selector polynomials are committed and their evaluations are opened alongside the witness polynomials via Gemini/Shplonk. The verification key stores only the commitments, not the full polynomials. This keeps the verifier's work independent of the selector polynomial size, which is critical for recursive verification where embedding full selector values into a circuit would be prohibitively expensive.
+Unlike some proving systems where selectors are treated as public constants inlined into the verifier, in Honk the selector polynomials are committed and their evaluations are opened alongside the witness polynomials via Gemini/Shplonk.
 
 For example, the `ArithmeticRelation` is gated by `q_arith`. When `q_arith = 0` the row is unconstrained by arithmetic; when `q_arith = 1` it enforces a standard fan-in-2 gate `q_m·w_l·w_r + q_l·w_l + q_r·w_r + q_o·w_o + q_4·w_4 + q_c = 0`; higher values of `q_arith` (2, 3) activate additional sub-identities (e.g. a carry-propagation term `w_4_shift` or a cross-row difference constraint). Similarly, `q_elliptic` toggles the elliptic curve point addition/doubling gate, `q_poseidon2_external` and `q_poseidon2_internal` toggle Poseidon2 round gates, and so on.
 
-This selector-driven design means a single circuit can mix arithmetic, elliptic curve, hash, memory, and lookup gates in the same trace without overhead for inactive constraint types.
+This selector-driven design means a single circuit can mix arithmetic, elliptic curve, hash, memory, and lookup gates in the same trace. During Sumcheck, rows where a selector is zero are skipped via the relation's `skip` method, avoiding unnecessary computation — though the selector polynomials themselves are still committed and opened.
 
 ### Relation Shape and Sumcheck
 
@@ -232,18 +235,6 @@ Each relation is a low-degree multivariate polynomial in the wire and selector v
 
 During each Sumcheck round, every relation's `accumulate` method is called on extended edges (witness polynomial evaluations extended from degree 1 to the subrelation's partial length). Subrelation contributions are batched using powers of the **subrelation separator** challenge `α`. The result is a single round univariate of degree `BATCHED_RELATION_PARTIAL_LENGTH - 1`. Relations that would contribute zero for a given row (detected via the `skip` method checking the selector) are skipped entirely for efficiency.
 
-The flavor defines the relation tuple, e.g. for Ultra:
-```cpp
-using Relations = std::tuple<ArithmeticRelation<FF>,
-                             UltraPermutationRelation<FF>,
-                             LogDerivLookupRelation<FF>,
-                             DeltaRangeConstraintRelation<FF>,
-                             EllipticRelation<FF>,
-                             MemoryRelation<FF>,
-                             NonNativeFieldRelation<FF>,
-                             Poseidon2ExternalRelation<FF>,
-                             Poseidon2InternalRelation<FF>>;
-```
 
 ### Ultra Relations (9)
 
