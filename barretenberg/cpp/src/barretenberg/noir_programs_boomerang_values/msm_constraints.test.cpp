@@ -262,7 +262,10 @@ TEST_F(MsmConstraintsTests, ValidateMsmConstraintConstantScalar)
 
 TEST_F(MsmConstraintsTests, ValidateMsmConstraintMixedConstantWitness)
 {
-    // 2 point-scalar pairs: point 1 constant + scalar 1 witness, point 2 witness + scalar 2 constant
+    // 3 point-scalar pairs:
+    // point 1 constant + scalar 1 witness,
+    // point 2 witness + scalar 2 constant,
+    // point 3 constant + scalar 3 constant
     // Witness layout: [p2_x, p2_y, p2_inf, s1_lo, s1_hi, pred, out_x, out_y, out_inf]
     // Indices:         0     1     2       3      4      5     6      7      8
     auto p1 = bb::grumpkin::g1::affine_one;
@@ -278,9 +281,14 @@ TEST_F(MsmConstraintsTests, ValidateMsmConstraintMixedConstantWitness)
                     WitnessOrConstant<fr>::from_constant(fr(0)),
                     WitnessOrConstant<fr>::from_index(0),
                     WitnessOrConstant<fr>::from_index(1),
-                    WitnessOrConstant<fr>::from_index(2) },
+                    WitnessOrConstant<fr>::from_index(2),
+                    WitnessOrConstant<fr>::from_constant(p1.x),
+                    WitnessOrConstant<fr>::from_constant(p1.y),
+                    WitnessOrConstant<fr>::from_constant(fr(0)), },
         .scalars = { WitnessOrConstant<fr>::from_index(3),
                      WitnessOrConstant<fr>::from_index(4),
+                     WitnessOrConstant<fr>::from_constant(s2_lo),
+                     WitnessOrConstant<fr>::from_constant(s2_hi),
                      WitnessOrConstant<fr>::from_constant(s2_lo),
                      WitnessOrConstant<fr>::from_constant(s2_hi) },
         .predicate = WitnessOrConstant<fr>::from_index(5),
@@ -294,7 +302,7 @@ TEST_F(MsmConstraintsTests, ValidateMsmConstraintMixedConstantWitness)
     auto s1 = bb::grumpkin::fr::random_element();
     uint256_t s1_uint(s1);
 
-    auto result = bb::grumpkin::g1::affine_element(p1 * s1 + p2 * s2);
+    auto result = bb::grumpkin::g1::affine_element(p1 * s1 + p2 * s2 + p1 * s2);
 
     auto witness = WitnessVector{
         p2.x,     p2.y,     fr(0), fr(s1_uint.slice(0, LO_BITS)), fr(s1_uint.slice(LO_BITS, 254)), fr(1),
