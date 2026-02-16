@@ -2,13 +2,13 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import { TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP } from '@aztec/stdlib/tx';
+import { TX_ERROR_INVALID_EXPIRATION_TIMESTAMP } from '@aztec/stdlib/tx';
 
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 import { proveInteraction } from './test-wallet/utils.js';
 
-describe('e2e_include_by_timestamp', () => {
+describe('e2e_expiration_timestamp', () => {
   let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
   let aztecNode: AztecNode;
@@ -31,34 +31,34 @@ describe('e2e_include_by_timestamp', () => {
   afterAll(() => teardown());
 
   describe('when requesting expiration timestamp higher than the one of a mined block', () => {
-    let includeByTimestamp: bigint;
+    let expirationTimestamp: bigint;
 
     beforeEach(async () => {
       const header = await aztecNode.getBlockHeader();
       if (!header) {
-        throw new Error('Block header not found in the setup of e2e_include_by_timestamp.test.ts');
+        throw new Error('Block header not found in the setup of e2e_expiration_timestamp.test.ts');
       }
       // The timestamp of the next slot.
-      includeByTimestamp = header.globalVariables.timestamp + aztecSlotDuration;
+      expirationTimestamp = header.globalVariables.timestamp + aztecSlotDuration;
     });
 
     describe('with no enqueued public calls', () => {
       const enqueuePublicCall = false;
 
-      it('sets the include by timestamp', async () => {
+      it('sets the expiration timestamp', async () => {
         const tx = await proveInteraction(
           wallet,
-          contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall),
+          contract.methods.set_expiration_timestamp(expirationTimestamp, enqueuePublicCall),
           { from: defaultAccountAddress },
         );
-        expect(tx.data.includeByTimestamp).toEqual(includeByTimestamp);
-        // Note: If the expected value doesn't match, it might be because the includeByTimestamp is rounded down.
-        // See compute_tx_include_by_timestamp.ts for the rounding logic.
+        expect(tx.data.expirationTimestamp).toEqual(expirationTimestamp);
+        // Note: If the expected value doesn't match, it might be because the expirationTimestamp is rounded down.
+        // See compute_tx_expiration_timestamp.ts for the rounding logic.
       });
 
       it('does not invalidate the transaction', async () => {
         await contract.methods
-          .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
+          .set_expiration_timestamp(expirationTimestamp, enqueuePublicCall)
           .send({ from: defaultAccountAddress });
       });
     });
@@ -66,88 +66,88 @@ describe('e2e_include_by_timestamp', () => {
     describe('with an enqueued public call', () => {
       const enqueuePublicCall = true;
 
-      it('sets include by timestamp', async () => {
+      it('sets expiration timestamp', async () => {
         const tx = await proveInteraction(
           wallet,
-          contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall),
+          contract.methods.set_expiration_timestamp(expirationTimestamp, enqueuePublicCall),
           { from: defaultAccountAddress },
         );
-        expect(tx.data.includeByTimestamp).toEqual(includeByTimestamp);
+        expect(tx.data.expirationTimestamp).toEqual(expirationTimestamp);
       });
 
       it('does not invalidate the transaction', async () => {
         await contract.methods
-          .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
+          .set_expiration_timestamp(expirationTimestamp, enqueuePublicCall)
           .send({ from: defaultAccountAddress });
       });
     });
   });
 
   describe('when requesting expiration timestamp lower than the next block', () => {
-    let includeByTimestamp: bigint;
+    let expirationTimestamp: bigint;
 
     beforeEach(async () => {
       const header = await aztecNode.getBlockHeader();
       if (!header) {
-        throw new Error('Block header not found in the setup of e2e_include_by_timestamp.test.ts');
+        throw new Error('Block header not found in the setup of e2e_expiration_timestamp.test.ts');
       }
       // 1n lower than the next slot.
-      includeByTimestamp = header.globalVariables.timestamp + aztecSlotDuration - 1n;
+      expirationTimestamp = header.globalVariables.timestamp + aztecSlotDuration - 1n;
     });
 
     describe('with no enqueued public calls', () => {
       const enqueuePublicCall = false;
 
-      it('sets include by timestamp', async () => {
+      it('sets expiration timestamp', async () => {
         const tx = await proveInteraction(
           wallet,
-          contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall),
+          contract.methods.set_expiration_timestamp(expirationTimestamp, enqueuePublicCall),
           { from: defaultAccountAddress },
         );
-        expect(tx.data.includeByTimestamp).toEqual(includeByTimestamp);
+        expect(tx.data.expirationTimestamp).toEqual(expirationTimestamp);
       });
 
       it('invalidates the transaction', async () => {
         await expect(
           contract.methods
-            .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
+            .set_expiration_timestamp(expirationTimestamp, enqueuePublicCall)
             .send({ from: defaultAccountAddress }),
-        ).rejects.toThrow(TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP);
+        ).rejects.toThrow(TX_ERROR_INVALID_EXPIRATION_TIMESTAMP);
       });
     });
 
     describe('with an enqueued public call', () => {
       const enqueuePublicCall = true;
 
-      it('sets include by timestamp', async () => {
+      it('sets expiration timestamp', async () => {
         const tx = await proveInteraction(
           wallet,
-          contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall),
+          contract.methods.set_expiration_timestamp(expirationTimestamp, enqueuePublicCall),
           { from: defaultAccountAddress },
         );
-        expect(tx.data.includeByTimestamp).toEqual(includeByTimestamp);
+        expect(tx.data.expirationTimestamp).toEqual(expirationTimestamp);
       });
 
       it('invalidates the transaction', async () => {
         await expect(
           contract.methods
-            .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
+            .set_expiration_timestamp(expirationTimestamp, enqueuePublicCall)
             .send({ from: defaultAccountAddress }),
-        ).rejects.toThrow(TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP);
+        ).rejects.toThrow(TX_ERROR_INVALID_EXPIRATION_TIMESTAMP);
       });
     });
   });
 
   describe('when requesting expiration timestamp lower than the one of a mined block', () => {
-    let includeByTimestamp: bigint;
+    let expirationTimestamp: bigint;
 
     beforeEach(async () => {
       const header = await aztecNode.getBlockHeader();
       if (!header) {
-        throw new Error('Block header not found in the setup of e2e_include_by_timestamp.test.ts');
+        throw new Error('Block header not found in the setup of e2e_expiration_timestamp.test.ts');
       }
       // 1n lower than the mined block.
-      includeByTimestamp = header.globalVariables.timestamp - 1n;
+      expirationTimestamp = header.globalVariables.timestamp - 1n;
     });
 
     describe('with no enqueued public calls', () => {
@@ -156,7 +156,7 @@ describe('e2e_include_by_timestamp', () => {
       it('fails to prove the tx', async () => {
         await expect(
           contract.methods
-            .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
+            .set_expiration_timestamp(expirationTimestamp, enqueuePublicCall)
             .send({ from: defaultAccountAddress }),
         ).rejects.toThrow();
       });
@@ -168,7 +168,7 @@ describe('e2e_include_by_timestamp', () => {
       it('fails to prove the tx', async () => {
         await expect(
           contract.methods
-            .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
+            .set_expiration_timestamp(expirationTimestamp, enqueuePublicCall)
             .send({ from: defaultAccountAddress }),
         ).rejects.toThrow();
       });

@@ -92,8 +92,8 @@ impl PublicTxBaseInputsValidator {
         // revertible accumulated data are merged, or after the revertible data is discarded, depending on the revert
         // flag.
 
-        private_tail_validator::validate_include_by_timestamp(
-            private_tail.include_by_timestamp,
+        private_tail_validator::validate_expiration_timestamp(
+            private_tail.expiration_timestamp,
             self.constants.global_variables,
         );
     }

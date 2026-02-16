@@ -21,7 +21,7 @@ export class PrivateToPublicKernelCircuitPublicInputs {
     public publicTeardownCallRequest: PublicCallRequest,
     public gasUsed: Gas,
     public feePayer: AztecAddress,
-    public includeByTimestamp: UInt64,
+    public expirationTimestamp: UInt64,
   ) {}
 
   toBuffer() {
@@ -32,7 +32,7 @@ export class PrivateToPublicKernelCircuitPublicInputs {
       this.publicTeardownCallRequest,
       this.gasUsed,
       this.feePayer,
-      bigintToUInt64BE(this.includeByTimestamp),
+      bigintToUInt64BE(this.expirationTimestamp),
     );
   }
 
@@ -44,7 +44,7 @@ export class PrivateToPublicKernelCircuitPublicInputs {
       fields.publicTeardownCallRequest,
       fields.gasUsed,
       fields.feePayer,
-      fields.includeByTimestamp,
+      fields.expirationTimestamp,
     ] as const;
   }
 

@@ -3586,7 +3586,7 @@ contract_class_log_fields = [
     prover_id = "0x0000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc"
 
       [inputs.public_chonk_verifier_proof_data.public_inputs.private_tail]
-      include_by_timestamp = "0x0000000000000000000000000000000000000000000000000000000069904e3d"
+      expiration_timestamp = "0x0000000000000000000000000000000000000000000000000000000069904e3d"
 
         [inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.constants]
         vk_tree_root = "0x29e314ba0e28fedb7a164aa29b135723465cce28ca3a46534b13ebcefbf7851a"

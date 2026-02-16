@@ -170,7 +170,7 @@ It is sometimes necessary to read public mutable state in private. For example, 
 
 `DelayedPublicMutable` is the same as a `PublicMutable` in that it is a public value that can be read and written, but with a caveat: writes only take effect _after some time delay_. These delays are configurable, but they're typically on the order of a couple hours, if not days, making this state variable unsuitable for actions that must be executed immediately - such as an emergency shutdown. It is these very delays that enable private contract functions to _read the current value of a public state variable_, which is otherwise typically impossible.
 
-The existence of minimum delays means that a private function that reads a public value at an anchor block has a guarantee that said historical value will remain the current value until _at least_ some time in the future - before the delay elapses. As long as the transaction gets included in a block before that time (by using the `include_by_timestamp` tx property), the read value is valid.
+The existence of minimum delays means that a private function that reads a public value at an anchor block has a guarantee that said historical value will remain the current value until _at least_ some time in the future - before the delay elapses. As long as the transaction gets included in a block before that time (by using the `expiration_timestamp` tx property), the read value is valid.
 
 #### Declaration
 
@@ -191,7 +191,7 @@ Returns the current value in a public, private or utility execution context.
 #include_code get_current_value /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
 
 :::warning Privacy Consideration
-Reading `DelayedPublicMutable` in private sets the `include_by_timestamp` property, which may reveal timing information. Choose delays that align with common values to maximize privacy sets.
+Reading `DelayedPublicMutable` in private sets the `expiration_timestamp` property, which may reveal timing information. Choose delays that align with common values to maximize privacy sets.
 :::
 
 #### `get_scheduled_value`
