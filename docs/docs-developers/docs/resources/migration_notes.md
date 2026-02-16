@@ -256,8 +256,6 @@ For this reason we've created place holder protocol contracts in `noir-projects/
 On your side all you need to do is update the dependency in `Nargo.toml`:
 
 ```diff
--auth_contract = { path = "../../protocol/auth_registry_contract" }
-+auth_contract = { path = "../../protocol_interface/auth_registry_interface" }
 -instance_contract = { path = "../../protocol/contract_instance_registry" }
 +instance_contract = { path = "../../protocol_interface/contract_instance_registry_interface" }
 ```
