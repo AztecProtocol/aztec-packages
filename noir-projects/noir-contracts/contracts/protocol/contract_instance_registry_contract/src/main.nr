@@ -1,8 +1,8 @@
-/**
- * @title ContractInstanceRegistry Contract
- * @notice Manages the registration and updating of contract instances
- * @dev This contract allows deploying new contract instances and updating their class IDs
- */
+/// Protocol contract responsible for deploying contract instances and managing contract upgrades.
+///
+/// In Aztec, contracts are split into *classes* (code, registered via ContractClassRegistry) and *instances*
+/// (deployments of a class at a unique address). This contract handles contract instance publishing and contract
+/// updates (updating instance to a new class).
 pub contract ContractInstanceRegistry {
     use aztec::{
         context::{PrivateContext, PublicContext},
@@ -17,7 +17,6 @@ pub contract ContractInstanceRegistry {
                 CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE, DEFAULT_UPDATE_DELAY, MINIMUM_UPDATE_DELAY,
             },
             contract_class_id::ContractClassId,
-            point::validate_on_curve,
             public_keys::PublicKeys,
             traits::{Deserialize, Serialize, ToField},
             utils::reader::Reader,
@@ -37,35 +36,8 @@ pub contract ContractInstanceRegistry {
         deployer: AztecAddress,
     }
 
-    // We need to impl this separately because ts deserializes a point as two fields only.
-    // We had issues that:
-    // Notice how the 'is_infinite' field is deserialized as the next point.
-    // {
-    //     masterNullifierPublicKey: Point {
-    //   x: Fr<0x0000000000000000000000000000000000000000000000000000000000000012>,
-    //   y: Fr<0x0000000000000000000000000000000000000000000000000000000000000034>,
-    //   isInfinite: false,
-    //   kind: 'point'
-    // },
-    // masterIncomingViewingPublicKey: Point {
-    //   x: Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
-    //   y: Fr<0x0000000000000000000000000000000000000000000000000000000000000056>,
-    //   isInfinite: false,
-    //   kind: 'point'
-    // },
-    // masterOutgoingViewingPublicKey: Point {
-    //   x: Fr<0x0000000000000000000000000000000000000000000000000000000000000078>,
-    //   y: Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
-    //   isInfinite: false,
-    //   kind: 'point'
-    // },
-    // masterTaggingPublicKey: Point {
-    //   x: Fr<0x0000000000000000000000000000000000000000000000000000000000000910>,
-    //   y: Fr<0x0000000000000000000000000000000000000000000000000000000000001112>,
-    //   isInfinite: false,
-    //   kind: 'point'
-    // }
-
+    // Custom serialization is required because we don't want to waste one field for the `is_infinite` flag of public
+    // key points (public key points will never be the infinity point).
     impl ContractInstancePublished {
         fn serialize_non_standard(self) -> [Field; 15] {
             [
@@ -99,9 +71,24 @@ pub contract ContractInstanceRegistry {
     }
 
     struct Storage<Context> {
+        /// Map from contract instance address to a `DelayedPublicMutable` holding the updated contract class ID.
         updated_class_ids: Map<AztecAddress, DelayedPublicMutable<ContractClassId, DEFAULT_UPDATE_DELAY, Context>, Context>,
     }
 
+    /// Publishes a new contract instance.
+    ///
+    /// The caller provides deployment parameters (salt, class_id, init_hash, public_keys, universal_deploy).
+    /// The `universal_deploy` flag controls whether the deployer address is bound into the contract address:
+    /// when true, deployer is zero (anyone can deploy the same instance); when false, deployer is the caller.
+    ///
+    /// This function:
+    /// 1. Verifies the contract class is registered in ContractClassRegistry (nullifier existence check).
+    /// 2. Validates public key points are on the Grumpkin curve (preventing AVM DoS via invalid points).
+    /// 3. Computes the deterministic contract address from the deployment parameters.
+    /// 4. Emits the address as a nullifier (proving publication preventing duplicate deployment)
+    ///    --> this address nullifier is then checked to exist by the AVM upon public function execution (if it doesn't
+    ///        exist AVM reverts)
+    /// 5. Broadcasts a `ContractInstancePublished` event so nodes can reconstruct the instance.
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_private]
     fn publish_for_public_execution(
         inputs: aztec::context::inputs::PrivateContextInputs,
@@ -128,14 +115,15 @@ pub contract ContractInstanceRegistry {
         let mut context: PrivateContext = PrivateContext::new(inputs, args_hash);
         // MACRO CODE END
 
-        // Verify that the contract class is registered
+        // Verify the contract class is registered by checking for its nullifier at the ContractClassRegistry address.
         let nullifier_existence_request = compute_nullifier_existence_request(
             contract_class_id.to_field(),
             CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
         );
         context.assert_nullifier_exists(nullifier_existence_request);
 
-        // Determine the deployer based on universal_deploy flag
+        // For universal deployments, deployer is zero so the resulting address is the same regardless of who initiates
+        // deployment.
         let deployer = if universal_deploy {
             AztecAddress::zero()
         } else {
@@ -145,22 +133,16 @@ pub contract ContractInstanceRegistry {
         let partial_address =
             PartialAddress::compute(contract_class_id, salt, initialization_hash, deployer);
 
-        // Note: Out of all the public keys, only the Ivpk_m is checked to be on the curve
-        // (implicitly as part of the `add` operation of deriving the address). This at least
-        // protects the AVM against DoS attacks.
-        // For thoroughness, we also ensure the other points are on the curve:
-        validate_on_curve(public_keys.npk_m.inner);
-        validate_on_curve(public_keys.ovpk_m.inner);
-        validate_on_curve(public_keys.tpk_m.inner);
+        // Validate public key points lie on the Grumpkin curve to prevent AVM DoS attacks.
+        public_keys.validate_on_curve();
 
         let address = AztecAddress::compute(public_keys, partial_address);
 
-        // Emit the address as a nullifier:
-        // - to demonstrate that this contract instance hasn't been published before
-        // - to enable apps to read that this contract instance has been published.
+        // Emit address as nullifier: prevents duplicate deployment and proves publication.
         context.push_nullifier(address.to_field());
 
-        // Emit the deployment event
+        // Broadcast deployment event. Uses non-standard serialization (2 fields per point,
+        // omitting is_infinite) for TypeScript SDK compatibility.
         let event = ContractInstancePublished {
             CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE,
             contract_class_id,
@@ -182,6 +164,15 @@ pub contract ContractInstanceRegistry {
         // MACRO CODE END
     }
 
+    /// Schedules an upgrade of the calling contract instance to a new contract class.
+    ///
+    /// The change is time-delayed via `DelayedPublicMutable` and only takes effect after the configured
+    /// delay has elapsed. Only the contract instance itself can call this function (msg.sender == address).
+    ///
+    /// This function:
+    /// 1. Verifies msg.sender is a deployed contract (its address nullifier exists).
+    /// 2. Verifies the new class is registered in ContractClassRegistry.
+    /// 3. Schedules the class ID change and emits a `ContractInstanceUpdated` event.
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_public]
     unconstrained fn update(new_contract_class_id: ContractClassId) {
         // MACRO CODE START
@@ -230,6 +221,9 @@ pub contract ContractInstanceRegistry {
         context.emit_public_log(event);
     }
 
+    /// Schedules a change to the upgrade delay for the calling contract instance. The delay change is
+    /// itself delayed (preventing atomically reducing delay + scheduling an instant upgrade). The new
+    /// delay must be at least `MINIMUM_UPDATE_DELAY`.
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_public]
     unconstrained fn set_update_delay(new_update_delay: u64) {
         // MACRO CODE START
@@ -256,11 +250,7 @@ pub contract ContractInstanceRegistry {
         storage.updated_class_ids.at(msg_sender).schedule_delay_change(new_update_delay);
     }
 
-    /**
-     * Gets the current update delay for the caller's contract instance.
-     *
-     * @return The current update delay value
-     */
+    /// Returns the current update delay for the calling contract instance.
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_public]
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_view]
     unconstrained fn get_update_delay() -> pub u64 {
@@ -278,9 +268,8 @@ pub contract ContractInstanceRegistry {
         storage.updated_class_ids.at(avm::sender()).get_current_delay()
     }
 
-    // // THE REST OF THE CODE IN THIS CONTRACT WAS ORIGINALLY INJECTED BY THE #[aztec] MACRO.
+    // THE REST OF THE CODE IN THIS CONTRACT WAS ORIGINALLY INJECTED BY THE #[aztec] MACRO.
 
-    // Function selectors computed at comptime from function signatures
     global UPDATE_SELECTOR: Field =
         comptime { FunctionSelector::from_signature("update((Field))").to_field() };
     global SET_UPDATE_DELAY_SELECTOR: Field =
@@ -313,8 +302,6 @@ pub contract ContractInstanceRegistry {
         panic(f"Unknown selector {selector}")
     }
 
-    // THE REST OF THE CODE IN THIS CONTRACT WAS ORIGINALLY INJECTED BY THE #[aztec] MACRO.
-
     impl<Context> Storage<Context> {
         fn init(context: Context) -> Self {
             Self {
@@ -326,7 +313,6 @@ pub contract ContractInstanceRegistry {
         }
     }
 
-    // Parameter structs for ABI
     pub struct publish_for_public_execution_parameters {
         pub _salt: Field,
         pub _contract_class_id: ContractClassId,
@@ -345,7 +331,6 @@ pub contract ContractInstanceRegistry {
 
     pub struct get_update_delay_parameters {}
 
-    // ABI structs
     #[abi(functions)]
     pub struct publish_for_public_execution_abi {
         parameters: publish_for_public_execution_parameters,
