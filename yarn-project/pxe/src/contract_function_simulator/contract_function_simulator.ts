@@ -656,7 +656,7 @@ export async function generateSimulatedProvingResult(
     constantData,
     /*gasUsed=*/ gasUsed.add(Gas.from({ l2Gas: FIXED_L2_GAS, daGas: FIXED_DA_GAS })),
     /*feePayer=*/ AztecAddress.zero(),
-    /*includeByTimestamp=*/ 0n,
+    /*expirationTimestamp=*/ 0n,
     hasPublicCalls ? inputsForPublic : undefined,
     !hasPublicCalls ? inputsForRollup : undefined,
   );

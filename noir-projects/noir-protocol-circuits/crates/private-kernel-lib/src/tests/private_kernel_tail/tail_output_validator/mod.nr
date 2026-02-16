@@ -24,7 +24,7 @@ impl TestBuilder {
         TailOutputValidator::new(
             output,
             previous_kernel,
-            self.include_by_timestamp_upper_bound,
+            self.expiration_timestamp_upper_bound,
         )
             .validate();
     }

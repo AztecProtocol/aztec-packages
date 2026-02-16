@@ -4999,7 +4999,7 @@ contract_class_log_fields = [
 ]
 
     [inputs.hiding_kernel_proof_data.public_inputs]
-    include_by_timestamp = "0x0000000000000000000000000000000000000000000000000000000069904e3d"
+    expiration_timestamp = "0x0000000000000000000000000000000000000000000000000000000069904e3d"
 
       [inputs.hiding_kernel_proof_data.public_inputs.constants]
       vk_tree_root = "0x29e314ba0e28fedb7a164aa29b135723465cce28ca3a46534b13ebcefbf7851a"

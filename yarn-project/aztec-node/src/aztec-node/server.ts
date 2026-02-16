@@ -1153,6 +1153,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       blockNumber,
     });
 
+    // Ensure world state is synced to the latest block before forking.
+    // Without this, the fork may be behind the archiver, causing lookups
+    // (e.g. L1-to-L2 message existence checks) to fail against stale state.
+    await this.#syncWorldState();
     const merkleTreeFork = await this.worldStateSynchronizer.fork();
     try {
       const config = PublicSimulatorConfig.from({
@@ -1195,7 +1199,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const db = this.worldStateSynchronizer.getCommitted();
     const verifier = isSimulation ? undefined : this.proofVerifier;
 
-    // We accept transactions if they are not expired by the next slot (checked based on the IncludeByTimestamp field)
+    // We accept transactions if they are not expired by the next slot (checked based on the ExpirationTimestamp field)
     const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
     const blockNumber = BlockNumber((await this.blockSource.getBlockNumber()) + 1);
     const validator = createValidatorForAcceptingTxs(

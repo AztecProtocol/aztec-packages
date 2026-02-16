@@ -37,7 +37,7 @@ export class PrivateToRollupKernelCircuitPublicInputs {
     /**
      * The timestamp by which the transaction must be included in a block.
      */
-    public includeByTimestamp: UInt64,
+    public expirationTimestamp: UInt64,
   ) {}
 
   getNonEmptyNullifiers() {
@@ -50,7 +50,7 @@ export class PrivateToRollupKernelCircuitPublicInputs {
       this.end,
       this.gasUsed,
       this.feePayer,
-      bigintToUInt64BE(this.includeByTimestamp),
+      bigintToUInt64BE(this.expirationTimestamp),
     );
   }
 
@@ -94,7 +94,7 @@ export class PrivateToRollupKernelCircuitPublicInputs {
   }
 
   static getFields(fields: FieldsOf<PrivateToRollupKernelCircuitPublicInputs>) {
-    return [fields.constants, fields.end, fields.gasUsed, fields.feePayer, fields.includeByTimestamp] as const;
+    return [fields.constants, fields.end, fields.gasUsed, fields.feePayer, fields.expirationTimestamp] as const;
   }
 
   /** Creates an instance from a hex string. */

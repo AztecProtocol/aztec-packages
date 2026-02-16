@@ -47,14 +47,14 @@ use crate::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
         DEFAULT_UPDATE_DELAY, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH, FUNCTION_TREE_HEIGHT,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE,
-        MAX_INCLUDE_BY_TIMESTAMP_DURATION, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-        MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
-        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_U32_VALUE, MEGA_VK_LENGTH_IN_FIELDS,
-        PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS, PUBLIC_CALL_REQUEST_LENGTH,
-        PUBLIC_DATA_TREE_HEIGHT, SIDE_EFFECT_MASKING_ADDRESS, UPDATED_CLASS_IDS_SLOT,
-        VK_TREE_HEIGHT,
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_TX_LIFETIME, MAX_U32_VALUE,
+        MEGA_VK_LENGTH_IN_FIELDS, PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS,
+        PUBLIC_CALL_REQUEST_LENGTH, PUBLIC_DATA_TREE_HEIGHT, SIDE_EFFECT_MASKING_ADDRESS,
+        UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
     },
     contract_class_id::ContractClassId,
     data::{
@@ -106,7 +106,7 @@ pub struct FixtureBuilder {
     pub is_private_only: bool,
     pub claimed_first_nullifier: Field,
     pub claimed_revertible_counter: u32,
-    pub include_by_timestamp: u64,
+    pub expiration_timestamp: u64,
 
     // Fees.
     pub is_fee_payer: bool,
@@ -207,12 +207,8 @@ impl FixtureBuilder {
         builder.global_variables.version = fixtures::VERSION;
         builder.global_variables.timestamp = fixtures::GENESIS_TIMESTAMP + 135;
 
-        let max_allowed_include_by_timestamp = builder
-            .anchor_block_header
-            .global_variables
-            .timestamp
-            + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
-        builder.include_by_timestamp = max_allowed_include_by_timestamp;
+        builder.expiration_timestamp =
+            builder.anchor_block_header.global_variables.timestamp + MAX_TX_LIFETIME;
 
         builder.vk_tree_root = vk_tree_root;
 
@@ -374,7 +370,7 @@ impl FixtureBuilder {
             returns_hash: self.returns_hash,
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             is_fee_payer: self.is_fee_payer,
-            include_by_timestamp: self.include_by_timestamp,
+            expiration_timestamp: self.expiration_timestamp,
             note_hash_read_requests: ClaimedLengthArray {
                 array: subarray(self.note_hash_read_requests.storage(), 0),
                 length: self.note_hash_read_requests.len(),
@@ -619,7 +615,7 @@ impl FixtureBuilder {
             validation_requests,
             public_teardown_call_request,
             fee_payer: self.fee_payer,
-            include_by_timestamp: self.include_by_timestamp,
+            expiration_timestamp: self.expiration_timestamp,
             is_private_only: self.is_private_only,
             claimed_first_nullifier: self.claimed_first_nullifier,
             claimed_revertible_counter: self.claimed_revertible_counter,
@@ -648,7 +644,7 @@ impl FixtureBuilder {
             public_teardown_call_request: self.public_teardown_call_request,
             gas_used: self.gas_used,
             fee_payer: self.fee_payer,
-            include_by_timestamp: self.include_by_timestamp,
+            expiration_timestamp: self.expiration_timestamp,
         }
     }
 
@@ -663,7 +659,7 @@ impl FixtureBuilder {
             constants,
             gas_used: self.gas_used,
             fee_payer: self.fee_payer,
-            include_by_timestamp: self.include_by_timestamp,
+            expiration_timestamp: self.expiration_timestamp,
         }
     }
 

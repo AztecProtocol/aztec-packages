@@ -15,18 +15,18 @@ describe('InvalidTxsAfterMiningRule', () => {
   let deleteTxsMock: jest.MockedFunction<any>;
 
   // Default timestamp used in tests - must be > block timestamp (1000n) to avoid expiration
-  const DEFAULT_INCLUDE_BY_TIMESTAMP = 2000n;
+  const DEFAULT_EXPIRATION_TIMESTAMP = 2000n;
 
   // Helper to create TxMetaData for testing
   const createMeta = (
     txHash: string,
     opts: {
       nullifiers?: string[];
-      includeByTimestamp?: bigint;
+      expirationTimestamp?: bigint;
     } = {},
   ): TxMetaData => {
     const nullifiers = opts.nullifiers ?? [`0x${txHash.slice(2)}null1`];
-    const includeByTimestamp = opts.includeByTimestamp ?? DEFAULT_INCLUDE_BY_TIMESTAMP;
+    const expirationTimestamp = opts.expirationTimestamp ?? DEFAULT_EXPIRATION_TIMESTAMP;
     return {
       txHash,
       anchorBlockHeaderHash: '0x1234',
@@ -35,9 +35,9 @@ describe('InvalidTxsAfterMiningRule', () => {
       claimAmount: 0n,
       feeLimit: 100n,
       nullifiers,
-      includeByTimestamp,
+      expirationTimestamp,
       receivedAt: 0,
-      data: stubTxMetaValidationData({ includeByTimestamp }),
+      data: stubTxMetaValidationData({ expirationTimestamp }),
     };
   };
 
@@ -126,8 +126,8 @@ describe('InvalidTxsAfterMiningRule', () => {
       });
 
       it('evicts transactions with expired timestamps', async () => {
-        const tx1 = createMeta('0x1111', { includeByTimestamp: 500n }); // Expired (500 <= 1000)
-        const tx2 = createMeta('0x2222', { includeByTimestamp: 1500n }); // Not expired (1500 > 1000)
+        const tx1 = createMeta('0x1111', { expirationTimestamp: 500n }); // Expired (500 <= 1000)
+        const tx2 = createMeta('0x2222', { expirationTimestamp: 1500n }); // Not expired (1500 > 1000)
 
         pool = createPoolOps([tx1, tx2]);
 
@@ -146,8 +146,8 @@ describe('InvalidTxsAfterMiningRule', () => {
       });
 
       it('evicts transactions with timestamp equal to block timestamp', async () => {
-        const tx1 = createMeta('0x1111', { includeByTimestamp: 1000n }); // Exactly at timestamp
-        const tx2 = createMeta('0x2222', { includeByTimestamp: 1001n }); // Just after
+        const tx1 = createMeta('0x1111', { expirationTimestamp: 1000n }); // Exactly at timestamp
+        const tx2 = createMeta('0x2222', { expirationTimestamp: 1001n }); // Just after
 
         pool = createPoolOps([tx1, tx2]);
 
@@ -166,8 +166,8 @@ describe('InvalidTxsAfterMiningRule', () => {
       });
 
       it('handles transactions with both duplicate nullifiers and expired timestamps', async () => {
-        const tx1 = createMeta('0x1111', { nullifiers: [newNullifiers[0]], includeByTimestamp: 500n }); // Both reasons
-        const tx2 = createMeta('0x2222', { nullifiers: ['0xunique'], includeByTimestamp: 1500n }); // Neither
+        const tx1 = createMeta('0x1111', { nullifiers: [newNullifiers[0]], expirationTimestamp: 500n }); // Both reasons
+        const tx2 = createMeta('0x2222', { nullifiers: ['0xunique'], expirationTimestamp: 1500n }); // Neither
 
         pool = createPoolOps([tx1, tx2]);
 
