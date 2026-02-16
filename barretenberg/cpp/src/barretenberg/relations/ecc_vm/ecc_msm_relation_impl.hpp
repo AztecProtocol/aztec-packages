@@ -482,6 +482,25 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // note that as we can expect our table to be zero padded, we _do not_ insist that q_add + q_double + q_skew == 1.
     std::get<17>(accumulator) += (q_add * q_double + q_add * q_skew + q_double * q_skew) * scaling_factor;
 
+    // ACCUMULATOR PRESERVATION ON NO-OP ROWS
+    // If no phase selector is active (q_add = q_double = q_skew = 0), the accumulator must not change.
+    // Without this constraint, a malicious prover could insert no-op rows between active rows and
+    // set arbitrary accumulator values on the next row, because the accumulator-update constraints
+    // are all gated by their respective phase selectors.
+    // We exclude two boundary cases:
+    //   - msm_transition = 1 on the current row: msm_transition marks the first row of a new MSM
+    //     (where q_add is also 1), but the final row of the entire MSM trace ALSO has msm_transition = 1
+    //     with ALL phase selectors off. On that row, acc holds the MSM output and acc_shift need not
+    //     be preserved. This is safe because the set relation constrains (pc, acc_x, acc_y, msm_size)
+    //     at transitions. (NOTE: this is a design choice specified by the builder; we could equivalently propagate the
+    //     accumulator one past the last MSM row and then not turn off the constraint when `msm_transition == 1`.)
+    //   - lagrange_first = 1 (row 0): the first row of the trace is zero-padded and the next row
+    //     starts a fresh MSM whose accumulator is initialized via first_add, not by continuity.
+    auto no_op_selector =
+        (-q_add + 1) * (-q_double + 1) * (-q_skew + 1) * (-msm_transition + 1) * (-lagrange_first + 1); // degree 5
+    std::get<45>(accumulator) += no_op_selector * (acc_x_shift - acc_x) * scaling_factor;               // degree 6
+    std::get<46>(accumulator) += no_op_selector * (acc_y_shift - acc_y) * scaling_factor;               // degree 6
+
     // Validate that if q_add = 1 or q_skew = 1, add1 also is 1
     // NOTE(#2222): could just get rid of add1 as a column, as it is a linear combination.
     std::get<32>(accumulator) += (add1 - q_add - q_skew) * scaling_factor;

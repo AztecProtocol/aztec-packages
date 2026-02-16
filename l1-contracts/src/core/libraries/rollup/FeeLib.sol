@@ -309,7 +309,11 @@ library FeeLib {
 
   function congestionMultiplier(uint256 _numerator) internal view returns (uint256) {
     FeeStore storage feeStore = getStorage();
-    return fakeExponential(MINIMUM_CONGESTION_MULTIPLIER, _numerator, feeStore.config.getCongestionUpdateFraction());
+    uint256 denominator = feeStore.config.getCongestionUpdateFraction();
+    // Cap the exponent to prevent overflow in the Taylor series.
+    // At e^100, the multiplier is ~2.69e43 * MINIMUM_CONGESTION_MULTIPLIER, more than enough
+    uint256 cappedNumerator = Math.min(_numerator, denominator * 100);
+    return fakeExponential(MINIMUM_CONGESTION_MULTIPLIER, cappedNumerator, denominator);
   }
 
   function computeManaLimit(uint256 _manaTarget) internal pure returns (uint256) {
@@ -342,7 +346,10 @@ library FeeLib {
   }
 
   function summedMinFee(ManaMinFeeComponents memory _components) internal pure returns (uint256) {
-    return _components.sequencerCost + _components.proverCost + _components.congestionCost;
+    // Cap at uint128 max to ensure the fee can always be represented in the proposal header's
+    // feePerL2Gas field (uint128). Without this cap, extreme congestion or parameter combinations
+    // could produce fees that no valid header can represent, causing a liveness failure.
+    return Math.min(_components.sequencerCost + _components.proverCost + _components.congestionCost, type(uint128).max);
   }
 
   function getStorage() internal pure returns (FeeStore storage storageStruct) {

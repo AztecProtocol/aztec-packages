@@ -196,15 +196,14 @@ export class WalletManager {
         return {
           verificationHash: connection.info.verificationHash!,
           confirm: () => {
-            return Promise.resolve(
-              ExtensionWallet.create(
-                connection.info.id,
-                connection.port,
-                connection.sharedKey,
-                chainInfo,
-                connectAppId,
-              ),
+            extensionWallet = ExtensionWallet.create(
+              connection.info.id,
+              connection.port,
+              connection.sharedKey,
+              chainInfo,
+              connectAppId,
             );
+            return Promise.resolve(extensionWallet.asWallet());
           },
           cancel: () => {
             // Send disconnect to terminate the session on the extension side
@@ -213,7 +212,6 @@ export class WalletManager {
               type: WalletMessageType.DISCONNECT,
               requestId: discoveredWallet.requestId,
             });
-            // Don't close the port - allow retry with fresh key exchange
           },
         };
       },
