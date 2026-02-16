@@ -12,15 +12,15 @@ pub struct ClaimedLengthArray<T, let N: u32> {
     pub length: u32,
 }
 
-impl<T, let N: u32> ClaimedLengthArray<T, N>
-where
-    T: Empty,
-{
+impl<T, let N: u32> ClaimedLengthArray<T, N> {
     // No constructor. Append to an empty one.
 
     // For constrained append functions, see the dedicated file: assert_array_appended.nr
 
-    pub fn assert_dense_trimmed(self) {
+    pub fn assert_dense_trimmed(self)
+    where
+        T: Empty,
+    {
         for_i_in_0_(
             self.length,
             N,
@@ -34,7 +34,10 @@ where
         );
     }
 
-    pub fn assert_empty<let S: u32>(self, msg: str<S>) {
+    pub fn assert_empty<let S: u32>(self, msg: str<S>)
+    where
+        T: Empty,
+    {
         for i in 0..N {
             self.array[i].assert_empty(msg);
         }
@@ -53,7 +56,10 @@ where
         self.length += 1;
     }
 
-    pub fn pop(&mut self) -> T {
+    pub fn pop(&mut self) -> T
+    where
+        T: Empty,
+    {
         assert(self.length != 0, "Array empty");
 
         let mut top_index = self.length - 1;

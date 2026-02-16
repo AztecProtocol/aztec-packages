@@ -1,4 +1,7 @@
+pub mod check_duplicates;
 mod validate_note_logs_linked_to_note_hashes;
+
+use check_duplicates::{are_duplicate_key_validation_requests, are_duplicate_read_requests};
 
 use crate::{
     abis::{PaddedSideEffects, PrivateKernelResetHints},
@@ -7,7 +10,10 @@ use crate::{
         assert_sorted_padded_transformed_i_array_capped_size,
     },
     components::reset_output_composer::SquashedOutputArrayHints,
-    reset::{KeyValidationRequestsValidator, ReadRequestValidator, TransientDataValidator},
+    reset::{
+        KeyValidationRequestsValidator, ReadRequestValidator, TransientDataValidator,
+        validate_deduped_array,
+    },
 };
 use types::{
     abis::{
@@ -17,7 +23,10 @@ use types::{
         private_log::{PrivateLog, PrivateLogData},
     },
     address::AztecAddress,
-    constants::{MAX_U32_VALUE, SIDE_EFFECT_MASKING_ADDRESS},
+    constants::{
+        MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_U32_VALUE, SIDE_EFFECT_MASKING_ADDRESS,
+    },
     hash::{
         compute_note_nonce_and_unique_note_hash, compute_siloed_note_hash, compute_siloed_nullifier,
         compute_siloed_private_log_first_field,
@@ -242,10 +251,37 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         let validation_requests = self.previous_kernel.validation_requests;
         let tree_snapshots = self.previous_kernel.constants.anchor_block_header.state.partial;
         let output = self.output.validation_requests;
+        let hints = self.squashed_output_array_hints;
+
+        // In this function, if we're not performing a full reset, we first check that the deduped array correctly
+        // represents the original requests, i.e., each original item maps to a matching deduped item.
+        // We then perform the expensive reset validations (Merkle membership proofs and elliptic curve operations) only
+        // on the deduped array.
+        // Deduplication is only beneficial when this reset variant processes a subset of the requests (i.e., the Amount
+        // generics are less than MAX). In these cases, eliminating duplicates means more unique requests actually get
+        // validated, and fewer requests to propagate to the next kernel circuit.
+        // If the variant is already processing all requests, the validation loops run for MAX iterations regardless of
+        // the actual array length, so deduplication simply adds unnecessary overhead.
 
         // note_hash_read_requests
+        let note_hash_read_requests = if (
+            NoteHashPendingReadAmount == MAX_NOTE_HASH_READ_REQUESTS_PER_TX
+        )
+            & (NoteHashSettledReadAmount == MAX_NOTE_HASH_READ_REQUESTS_PER_TX) {
+            // Skip deduplication if the variant is processing all requests.
+            validation_requests.note_hash_read_requests
+        } else {
+            validate_deduped_array(
+                validation_requests.note_hash_read_requests,
+                hints.deduped_note_hash_read_requests,
+                hints.note_hash_read_request_dedup_hints,
+                are_duplicate_read_requests,
+            );
+            hints.deduped_note_hash_read_requests
+        };
+
         ReadRequestValidator {
-            read_requests: validation_requests.note_hash_read_requests,
+            read_requests: note_hash_read_requests,
             pending_values: self.previous_kernel.end.note_hashes,
             tree_root: tree_snapshots.note_hash_tree.root,
             propagated_read_requests: output.note_hash_read_requests,
@@ -254,8 +290,24 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
             .validate::<NoteHashPendingReadAmount, NoteHashSettledReadAmount>();
 
         // nullifier_read_requests
+        let nullifier_read_requests = if (
+            NullifierPendingReadAmount == MAX_NULLIFIER_READ_REQUESTS_PER_TX
+        )
+            & (NullifierSettledReadAmount == MAX_NULLIFIER_READ_REQUESTS_PER_TX) {
+            // Skip deduplication if the variant is processing all requests.
+            validation_requests.nullifier_read_requests
+        } else {
+            validate_deduped_array(
+                validation_requests.nullifier_read_requests,
+                hints.deduped_nullifier_read_requests,
+                hints.nullifier_read_request_dedup_hints,
+                are_duplicate_read_requests,
+            );
+            hints.deduped_nullifier_read_requests
+        };
+
         ReadRequestValidator {
-            read_requests: validation_requests.nullifier_read_requests,
+            read_requests: nullifier_read_requests,
             pending_values: self.previous_kernel.end.nullifiers,
             tree_root: tree_snapshots.nullifier_tree.root,
             propagated_read_requests: output.nullifier_read_requests,
@@ -264,9 +316,21 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
             .validate::<NullifierPendingReadAmount, NullifierSettledReadAmount>();
 
         // key_validation_requests
+        let key_validation_requests = if KeyValidationAmount == MAX_KEY_VALIDATION_REQUESTS_PER_TX {
+            // Skip deduplication if the variant is processing all requests.
+            validation_requests.scoped_key_validation_requests_and_generators
+        } else {
+            validate_deduped_array(
+                validation_requests.scoped_key_validation_requests_and_generators,
+                hints.deduped_key_validation_requests,
+                hints.key_validation_request_dedup_hints,
+                are_duplicate_key_validation_requests,
+            );
+            hints.deduped_key_validation_requests
+        };
+
         KeyValidationRequestsValidator {
-            key_validation_requests: validation_requests
-                .scoped_key_validation_requests_and_generators,
+            key_validation_requests,
             propagated_key_validation_requests: output
                 .scoped_key_validation_requests_and_generators,
             hints: self.reset_hints.key_validation_hints,

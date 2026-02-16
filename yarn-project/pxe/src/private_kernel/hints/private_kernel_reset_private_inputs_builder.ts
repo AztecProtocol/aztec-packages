@@ -26,7 +26,7 @@ import {
   type PrivateKernelSimulateOutput,
   ReadRequestActionEnum,
   ReadRequestResetActions,
-  type ScopedKeyValidationRequestAndGenerator,
+  ScopedKeyValidationRequestAndGenerator,
   ScopedNoteHash,
   ScopedNullifier,
   ScopedReadRequest,
@@ -43,6 +43,7 @@ import { type PrivateCallExecutionResult, collectNested } from '@aztec/stdlib/tx
 import { VkData } from '@aztec/stdlib/vks';
 
 import type { PrivateKernelOracle } from '../private_kernel_oracle.js';
+import { areDuplicateKeyValidationRequests, areDuplicateReadRequests, dedupClaimedLengthArray } from './dedup_array.js';
 
 function collectNestedReadRequests<N extends number>(
   executionStack: PrivateCallExecutionResult[],
@@ -96,6 +97,18 @@ export class PrivateKernelResetPrivateInputsBuilder {
   private numTransientData?: number;
   private transientDataSquashingHints: Tuple<TransientDataSquashingHint, typeof MAX_NULLIFIERS_PER_TX>;
   private requestedDimensions: PrivateKernelResetDimensions;
+  private dedupedNoteHashReadRequests?: ClaimedLengthArray<
+    ScopedReadRequest,
+    typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX
+  >;
+  private dedupedNullifierReadRequests?: ClaimedLengthArray<
+    ScopedReadRequest,
+    typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX
+  >;
+  private dedupedKeyValidationRequests?: ClaimedLengthArray<
+    ScopedKeyValidationRequestAndGenerator,
+    typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX
+  >;
 
   constructor(
     private previousKernelOutput: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>,
@@ -169,31 +182,32 @@ export class PrivateKernelResetPrivateInputsBuilder {
     );
 
     // Execute all the expensive node querying operations in parallel.
+    // Use deduped arrays when available: the Reset circuit deduplicates validation requests before
+    // performing expensive operations, so hints must correspond to the deduped arrays.
+    const noteHashReadRequests =
+      this.dedupedNoteHashReadRequests ?? this.previousKernel.validationRequests.noteHashReadRequests;
+    const nullifierReadRequests =
+      this.dedupedNullifierReadRequests ?? this.previousKernel.validationRequests.nullifierReadRequests;
+    const keyValidationRequests =
+      this.dedupedKeyValidationRequests ??
+      this.previousKernel.validationRequests.scopedKeyValidationRequestsAndGenerators;
+
     const [previousVkMembershipWitness, noteHashReadRequestHints, nullifierReadRequestHints, keyValidationHints] =
       await Promise.all([
         oracle.getVkMembershipWitness(this.previousKernelOutput.verificationKey.keyAsFields),
         buildNoteHashReadRequestHintsFromResetActions<
           typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
           typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX
-        >(
-          oracle,
-          this.previousKernel.validationRequests.noteHashReadRequests,
-          this.previousKernel.end.noteHashes,
-          this.noteHashResetActions,
-        ),
+        >(oracle, noteHashReadRequests, this.previousKernel.end.noteHashes, this.noteHashResetActions),
         buildNullifierReadRequestHintsFromResetActions<
           typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX,
           typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX
         >(
           { getNullifierMembershipWitness: getNullifierMembershipWitnessResolver(oracle) },
-          this.previousKernel.validationRequests.nullifierReadRequests,
+          nullifierReadRequests,
           this.nullifierResetActions,
         ),
-        getMasterSecretKeysAndAppKeyGenerators(
-          this.previousKernel.validationRequests.scopedKeyValidationRequestsAndGenerators,
-          dimensions.KEY_VALIDATION,
-          oracle,
-        ),
+        getMasterSecretKeysAndAppKeyGenerators(keyValidationRequests, dimensions.KEY_VALIDATION, oracle),
       ]);
 
     const vkData = new VkData(
@@ -254,6 +268,16 @@ export class PrivateKernelResetPrivateInputsBuilder {
       return false;
     }
 
+    // Dedup before computing reset actions: the Reset circuit deduplicates read requests before
+    // performing expensive validations (Merkle membership proofs), so actions and hints must
+    // correspond to the deduped array.
+    const dedupedReadRequests = dedupClaimedLengthArray(
+      this.previousKernel.validationRequests.noteHashReadRequests,
+      areDuplicateReadRequests,
+      ScopedReadRequest.empty(),
+    );
+    this.dedupedNoteHashReadRequests = dedupedReadRequests;
+
     const futureNoteHashes = collectNested(this.executionStack, executionResult => {
       return executionResult.publicInputs.noteHashes
         .getActiveItems()
@@ -261,7 +285,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
     });
 
     const resetActions = getNoteHashReadRequestResetActions(
-      this.previousKernel.validationRequests.noteHashReadRequests,
+      dedupedReadRequests,
       this.previousKernel.end.noteHashes,
       futureNoteHashes,
     );
@@ -309,6 +333,16 @@ export class PrivateKernelResetPrivateInputsBuilder {
       return false;
     }
 
+    // Dedup before computing reset actions: the Reset circuit deduplicates read requests before
+    // performing expensive validations (Merkle membership proofs), so actions and hints must
+    // correspond to the deduped array.
+    const dedupedReadRequests = dedupClaimedLengthArray(
+      this.previousKernel.validationRequests.nullifierReadRequests,
+      areDuplicateReadRequests,
+      ScopedReadRequest.empty(),
+    );
+    this.dedupedNullifierReadRequests = dedupedReadRequests;
+
     const futureNullifiers = collectNested(this.executionStack, executionResult => {
       return executionResult.publicInputs.nullifiers
         .getActiveItems()
@@ -316,7 +350,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
     });
 
     const resetActions = getNullifierReadRequestResetActions(
-      this.previousKernel.validationRequests.nullifierReadRequests,
+      dedupedReadRequests,
       this.previousKernel.end.nullifiers,
       futureNullifiers,
     );
@@ -364,7 +398,16 @@ export class PrivateKernelResetPrivateInputsBuilder {
       return false;
     }
 
-    this.requestedDimensions.KEY_VALIDATION = numCurr;
+    // Dedup before setting the dimension: the Reset circuit deduplicates key validation requests
+    // before performing expensive EC operations, so the dimension and hints must reflect unique
+    // requests only.
+    const dedupedRequests = dedupClaimedLengthArray(
+      this.previousKernel.validationRequests.scopedKeyValidationRequestsAndGenerators,
+      areDuplicateKeyValidationRequests,
+      ScopedKeyValidationRequestAndGenerator.empty(),
+    );
+    this.dedupedKeyValidationRequests = dedupedRequests;
+    this.requestedDimensions.KEY_VALIDATION = dedupedRequests.claimedLength;
 
     return true;
   }
