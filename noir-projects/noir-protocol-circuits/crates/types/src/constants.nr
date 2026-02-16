@@ -1037,6 +1037,7 @@ pub global AVM_MAX_PROCESSABLE_L2_GAS: u32 = 6_000_000; // Arbitrary.
 
 pub global DA_BYTES_PER_FIELD: u32 = 32;
 pub global DA_GAS_PER_BYTE: u32 = 16; // TODO: Explain this, might be arbitrary? maybe make it one? and sync it wit the tx overhead constants?
+pub global DA_GAS_PER_FIELD: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
 // pays for preamble information in TX Effects
 pub global FIXED_DA_GAS: u32 = 512;
 // TODO: take into account the cost of executing and proving the rollup circuits (if they can be attributed to this tx... eg the tx base rollup, half a tx merge).

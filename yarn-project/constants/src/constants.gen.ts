@@ -388,6 +388,7 @@ export const AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED = 1000;
 export const AVM_MAX_PROCESSABLE_L2_GAS = 6000000;
 export const DA_BYTES_PER_FIELD = 32;
 export const DA_GAS_PER_BYTE = 16;
+export const DA_GAS_PER_FIELD = 512;
 export const FIXED_DA_GAS = 512;
 export const FIXED_L2_GAS = 512;
 export const FIXED_AVM_STARTUP_L2_GAS = 20000;
