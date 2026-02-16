@@ -7,9 +7,9 @@ import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import { Schnorr } from '@aztec/foundation/crypto/schnorr';
 import { SchnorrHardcodedAccountContractArtifact } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { TestWallet } from '@aztec/test-wallet/server';
 
 import { setup } from '../fixtures/utils.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
 
 const PRIVATE_KEY = GrumpkinScalar.fromHexString('0xd35d743ac0dfe3d6dbe6be8c877cb524a00ab1e3d52d7bada095dfc8894ccfa');
 

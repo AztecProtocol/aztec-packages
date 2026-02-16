@@ -48,7 +48,7 @@
     "@aztec/archiver": "link:../yarn-project/archiver",
     "@aztec/sequencer-client": "link:../yarn-project/sequencer-client",
     "@aztec/p2p": "link:../yarn-project/p2p",
-    "@aztec/test-wallet": "link:../yarn-project/test-wallet",
+    "@aztec/wallets": "link:../yarn-project/wallets",
     "@aztec/wallet-sdk": "link:../yarn-project/wallet-sdk"
   },
   "dependencies": {

@@ -6,11 +6,11 @@ import type { Wallet } from '@aztec/aztec.js/wallet';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
 import { mintNotes } from '../../fixtures/token_utils.js';
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { captureProfile } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 

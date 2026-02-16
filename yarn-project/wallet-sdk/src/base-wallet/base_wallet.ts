@@ -46,6 +46,7 @@ import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import {
+  BlockHeader,
   type TxExecutionRequest,
   type TxProfileResult,
   TxSimulationResult,
@@ -76,8 +77,6 @@ export type FeeOptions = {
  * A base class for Wallet implementations
  */
 export abstract class BaseWallet implements Wallet {
-  protected log = createLogger('wallet-sdk:base_wallet');
-
   protected minFeePadding = 0.5;
   protected cancellableTransactions = false;
 
@@ -85,6 +84,7 @@ export abstract class BaseWallet implements Wallet {
   protected constructor(
     protected readonly pxe: PXE,
     protected readonly aztecNode: AztecNode,
+    protected log = createLogger('wallet-sdk:base_wallet'),
   ) {}
 
   protected abstract getAccountFromAddress(address: AztecAddress): Promise<Account>;
@@ -300,7 +300,7 @@ export abstract class BaseWallet implements Wallet {
     skipFeeEnforcement?: boolean,
   ) {
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, from, feeOptions);
-    return this.pxe.simulateTx(txRequest, true /* simulatePublic */, skipTxValidation, skipFeeEnforcement);
+    return this.pxe.simulateTx(txRequest, { simulatePublic: true, skipTxValidation, skipFeeEnforcement });
   }
 
   /**
@@ -319,7 +319,14 @@ export abstract class BaseWallet implements Wallet {
     const remainingPayload = { ...executionPayload, calls: remainingCalls };
 
     const chainInfo = await this.getChainInfo();
-    const blockHeader = await this.pxe.getSyncedBlockHeader();
+    let blockHeader: BlockHeader;
+    // PXE might not be synced yet, so we pull the latest header from the node
+    // To keep things consistent, we'll always try with PXE first
+    try {
+      blockHeader = await this.pxe.getSyncedBlockHeader();
+    } catch {
+      blockHeader = (await this.aztecNode.getBlockHeader())!;
+    }
 
     const [optimizedResults, normalResult] = await Promise.all([
       optimizableCalls.length > 0
@@ -350,7 +357,10 @@ export abstract class BaseWallet implements Wallet {
   async profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult> {
     const feeOptions = await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
-    return this.pxe.profileTx(txRequest, opts.profileMode, opts.skipProofGeneration ?? true);
+    return this.pxe.profileTx(txRequest, {
+      profileMode: opts.profileMode,
+      skipProofGeneration: opts.skipProofGeneration ?? true,
+    });
   }
 
   public async sendTx<W extends InteractionWaitOptions = undefined>(
@@ -396,7 +406,7 @@ export abstract class BaseWallet implements Wallet {
   }
 
   simulateUtility(call: FunctionCall, authwits?: AuthWitness[]): Promise<UtilitySimulationResult> {
-    return this.pxe.simulateUtility(call, authwits);
+    return this.pxe.simulateUtility(call, { authwits });
   }
 
   async getPrivateEvents<T>(
