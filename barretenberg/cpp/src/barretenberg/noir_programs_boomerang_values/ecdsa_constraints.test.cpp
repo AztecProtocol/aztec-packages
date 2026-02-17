@@ -181,8 +181,6 @@ TEST_F(EcdsaConstraintsTests, DetectCorruptedBooleanConstraint)
     }
     ASSERT_TRUE(corrupted) << "Could not find boolean gate for result witness";
 
-    // q_arith=0 disables the gate (becomes a no-op), so CircuitChecker may not catch it
-
     AcirFormat constraint_system_copy = constraint_system;
     StaticAnalyzerAcir analyzer(std::move(constraint_system_copy), std::move(builder));
     analyzer.process_constraint_system();
@@ -202,8 +200,6 @@ TEST_F(EcdsaConstraintsTests, DetectCorruptedRangeConstraint)
     auto it = builder.range_lists.find(255);
     ASSERT_NE(it, builder.range_lists.end()) << "No 8-bit range list found";
     it->second.variable_indices.clear();
-
-    // CircuitChecker cannot detect range list clearing directly
 
     AcirFormat constraint_system_copy = constraint_system;
     StaticAnalyzerAcir analyzer(std::move(constraint_system_copy), std::move(builder));
