@@ -31,6 +31,7 @@ import { type WorkerWalletWrapper, createWorkerWalletClient } from './setup_test
 import { ProvingMetrics } from './tx_metrics.js';
 import {
   getExternalIP,
+  scaleProverAgents,
   setupEnvironment,
   startPortForwardForEthereum,
   startPortForwardForPrometeheus,
@@ -43,6 +44,8 @@ const TARGET_TPS = parseFloat(process.env.TPS ?? '1');
 if (!Number.isFinite(TARGET_TPS)) {
   throw new Error('Invalid TPS: ' + process.env.TPS);
 }
+
+const TARGET_PROVER_AGENTS = parseInt(process.env.TARGET_PROVER_AGENTS ?? '200');
 
 const epochDurationSlots = config.AZTEC_EPOCH_DURATION;
 const slotDurationSeconds = config.AZTEC_SLOT_DURATION;
@@ -357,6 +360,9 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
       );
       await sleep(secondsToWait * 1000);
     }
+
+    // scale to 10 agents in order to be able to prove the current epoch which contains up to 10 account contracts and the benchmark contract
+    await scaleProverAgents(config.NAMESPACE, 10, logger);
   });
 
   it(`sends ${TARGET_TPS} TPS for a full epoch and waits for proof`, async () => {
@@ -371,10 +377,18 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
     const msPerTx = 1000 / TARGET_TPS;
     logger.info(`Will send ${txsToSend} transactions at ${TARGET_TPS} TPS over ${epochDurationSeconds} seconds`);
 
+    const scaleUpAtTx = Math.max(0, txsToSend - Math.ceil(TARGET_TPS * 8 * slotDurationSeconds));
     const sentTxs: TxHash[] = [];
     const sendStartTime = performance.now();
 
     for (let i = 0; i < txsToSend; i++) {
+      if (i === scaleUpAtTx) {
+        logger.info(`Scaling prover agents to ${TARGET_PROVER_AGENTS} (8 slots before end of tx sending)`);
+        void scaleProverAgents(config.NAMESPACE, TARGET_PROVER_AGENTS, logger).catch(err =>
+          logger.error(`Failed to scale prover agents: ${err}`),
+        );
+      }
+
       const loopStart = performance.now();
 
       // look for a wallet with an available tx
