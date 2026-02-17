@@ -493,7 +493,15 @@ TEST_F(TranslatorTests, EvaluationPartition)
     }
     EXPECT_EQ(covered.size(), 2 * Flavor::NUM_MINICIRCUIT_WIRES + Flavor::NUM_FULL_CIRCUIT_EVALUATIONS);
 
-    // The computable precomputed selectors are the remaining 12
+    // Concat polys are reconstructed (not sent in proof), but still in AllEntities
+    for (auto& e : evals.get_concatenated()) {
+        EXPECT_TRUE(covered.insert(&e).second) << "concatenated poly overlaps with a previous entity";
+    }
+    EXPECT_EQ(covered.size(),
+              2 * Flavor::NUM_MINICIRCUIT_WIRES + Flavor::NUM_FULL_CIRCUIT_EVALUATIONS +
+                  Flavor::NUM_CONCATENATED_POLYS);
+
+    // The computable precomputed selectors are the remaining entities
     size_t remaining = Flavor::NUM_ALL_ENTITIES - covered.size();
     EXPECT_EQ(remaining, Flavor::NUM_COMPUTABLE_PRECOMPUTED);
 

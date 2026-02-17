@@ -120,48 +120,6 @@ void put_translation_data_in_relation_parameters_impl(RelationParameters<typenam
 
 } // namespace
 
-template <typename Flavor>
-std::pair<std::array<typename TranslatorVerifier_<Flavor>::FF, TranslatorFlavor::NUM_CONCATENATED_POLYS>,
-          std::array<typename TranslatorVerifier_<Flavor>::FF, TranslatorFlavor::NUM_CONCATENATED_POLYS>>
-TranslatorVerifier_<Flavor>::reconstruct_concatenated_evaluations(const std::vector<FF>& challenge,
-                                                                  const std::vector<RefVector<FF>>& groups,
-                                                                  const std::vector<RefVector<FF>>& shift_groups)
-{
-    static constexpr size_t CONCATENATION_GROUP_SIZE = TranslatorFlavor::CONCATENATION_GROUP_SIZE;
-    static constexpr size_t NUM_CONCATENATED_POLYS = TranslatorFlavor::NUM_CONCATENATED_POLYS;
-    static constexpr size_t NUM_TOP_BITS = numeric::get_msb(CONCATENATION_GROUP_SIZE);
-    static constexpr size_t LOG_N = TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
-
-    // Compute CONCATENATION_GROUP_SIZE-point Lagrange basis over the top challenges
-    std::array<FF, CONCATENATION_GROUP_SIZE> lagrange_basis;
-    for (size_t j = 0; j < CONCATENATION_GROUP_SIZE; j++) {
-        lagrange_basis[j] = FF(1);
-        for (size_t bit = 0; bit < NUM_TOP_BITS; bit++) {
-            const FF& u = challenge[LOG_N - NUM_TOP_BITS + bit];
-            lagrange_basis[j] *= ((j >> bit) & 1) ? u : (FF(1) - u);
-        }
-    }
-    // L_0 is the "padding" factor from wires having support in [1, MINI)
-    FF padding_inv = lagrange_basis[0].invert();
-
-    // Reconstruct a single concatenated eval: [1/L_0] * Σ_j L_j * wire_j(u)
-    auto reconstruct = [&](const auto& group) -> FF {
-        FF result = FF(0);
-        for (size_t j = 0; j < CONCATENATION_GROUP_SIZE; j++) {
-            result += lagrange_basis[j] * group[j];
-        }
-        return result * padding_inv;
-    };
-
-    std::array<FF, NUM_CONCATENATED_POLYS> concat_evals;
-    std::array<FF, NUM_CONCATENATED_POLYS> concat_shift_evals;
-    for (size_t g = 0; g < NUM_CONCATENATED_POLYS; g++) {
-        concat_evals[g] = reconstruct(groups[g]);
-        concat_shift_evals[g] = reconstruct(shift_groups[g]);
-    }
-    return { concat_evals, concat_shift_evals };
-}
-
 template <typename Flavor> void TranslatorVerifier_<Flavor>::put_translation_data_in_relation_parameters()
 {
     put_translation_data_in_relation_parameters_impl<Flavor>(
@@ -242,18 +200,11 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
-    // --- Concatenation consistency: reconstruct concat evals from wire evals ---
+    // Unshifted concat evals are reconstructed inside sumcheck (via complete_full_circuit_evaluations).
+    // Here we only need the shifted concat evals for PCS, which are not stored in AllEntities.
     auto& claimed = sumcheck_output.claimed_evaluations;
-    auto [concat_evals, concat_shift_evals] =
-        reconstruct_concatenated_evaluations(sumcheck_output.challenge,
-                                             claimed.get_groups_to_be_concatenated(),
-                                             claimed.get_groups_to_be_concatenated_shifted());
-
-    // Write reconstructed unshifted concat evals into AllEntities so getters work
-    auto concat_eval_refs = claimed.get_concatenated();
-    for (size_t g = 0; g < concat_evals.size(); g++) {
-        concat_eval_refs[g] = concat_evals[g];
-    }
+    auto concat_shift_evals = TranslatorFlavor::reconstruct_concatenated_evaluations(
+        claimed.get_groups_to_be_concatenated_shifted(), std::span<const FF>(sumcheck_output.challenge));
 
     // --- PCS: build opening claims and verify ---
     auto combined_unshifted_comms = commitments.get_pcs_unshifted();

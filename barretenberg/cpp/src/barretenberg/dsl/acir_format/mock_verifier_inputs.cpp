@@ -451,7 +451,7 @@ HonkProof create_mock_translator_proof()
     // 6. Sumcheck univariates
     populate_field_elements<FF>(proof, Flavor::CONST_TRANSLATOR_LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH);
 
-    // 7. Sumcheck evaluations (computable precomputed excluded)
+    // 7. Sumcheck evaluations (computable precomputed and reconstructed concat evals excluded)
     populate_field_elements<FF>(proof, Flavor::NUM_SENT_EVALUATIONS);
 
     // 8. Libra claimed evaluation

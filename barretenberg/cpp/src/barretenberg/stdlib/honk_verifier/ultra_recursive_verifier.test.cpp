@@ -458,10 +458,6 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
         // Expected variables in one gate:
         // - +1 for unused Shplonk power (non-ZK flavors only)
         size_t expected_unconstrained = 0;
-        // Add 1 for unused Shplonk power in non-ZK flavors
-        if constexpr (!RecursiveFlavor::HasZK) {
-            expected_unconstrained += 1;
-        }
         EXPECT_EQ(variables_in_one_gate.size(), expected_unconstrained);
     }
 };

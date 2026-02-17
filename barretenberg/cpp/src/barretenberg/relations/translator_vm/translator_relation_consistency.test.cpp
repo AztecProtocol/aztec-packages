@@ -130,7 +130,7 @@ TEST_F(TranslatorRelationConsistency, DeltaRangeConstraintRelation)
         const auto& ordered_range_constraints_2_shift = input_elements.ordered_range_constraints_2_shift;
         const auto& ordered_range_constraints_3_shift = input_elements.ordered_range_constraints_3_shift;
         const auto& ordered_range_constraints_4_shift = input_elements.ordered_range_constraints_4_shift;
-        const auto& lagrange_masking = input_elements.lagrange_masking;
+        const auto& lagrange_ordered_masking = input_elements.lagrange_ordered_masking;
         const auto& lagrange_real_last = input_elements.lagrange_real_last;
 
         RelationValues expected_values;
@@ -150,11 +150,11 @@ TEST_F(TranslatorRelationConsistency, DeltaRangeConstraintRelation)
         const auto delta_4 = ordered_range_constraints_3_shift - ordered_range_constraints_3;
         const auto delta_5 = ordered_range_constraints_4_shift - ordered_range_constraints_4;
 
-        const auto not_real_last_or_masked = lagrange_real_last + lagrange_masking + minus_one;
+        const auto not_last_or_masking = lagrange_real_last + lagrange_ordered_masking + minus_one;
 
         // Check the delta is {0,1,2,3}
         auto delta_in_range = [&](auto delta) {
-            return not_real_last_or_masked * delta * (delta + minus_one) * (delta + minus_two) * (delta + minus_three);
+            return not_last_or_masking * delta * (delta + minus_one) * (delta + minus_two) * (delta + minus_three);
         };
 
         // Check delta correctness

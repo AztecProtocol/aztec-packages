@@ -133,8 +133,9 @@ class TranslatorFlavor {
     // = MaskingEntities(1) + Precomputed(11) + Witness(92) + Shifted(86) = 190
     static constexpr size_t NUM_ALL_ENTITIES = 190;
 
-    // Number of evaluations sent in proof (all minus computable precomputed)
-    static constexpr size_t NUM_SENT_EVALUATIONS = NUM_ALL_ENTITIES - NUM_COMPUTABLE_PRECOMPUTED;
+    // Number of evaluations sent in proof (all minus computable precomputed minus reconstructed concat evals)
+    static constexpr size_t NUM_SENT_EVALUATIONS =
+        NUM_ALL_ENTITIES - NUM_COMPUTABLE_PRECOMPUTED - NUM_CONCATENATED_POLYS;
 
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
@@ -150,7 +151,7 @@ class TranslatorFlavor {
     // LOG_MINI_CIRCUIT_SIZE-1)
     static constexpr size_t NUM_MINICIRCUIT_WIRES = 77; // NonRangeMain(13) + RangeConstraint(64)
     static constexpr size_t NUM_MINICIRCUIT_EVALUATIONS = 2 * NUM_MINICIRCUIT_WIRES;                           // 154
-    static constexpr size_t NUM_FULL_CIRCUIT_EVALUATIONS = NUM_SENT_EVALUATIONS - NUM_MINICIRCUIT_EVALUATIONS; // 26
+    static constexpr size_t NUM_FULL_CIRCUIT_EVALUATIONS = NUM_SENT_EVALUATIONS - NUM_MINICIRCUIT_EVALUATIONS; // 21
 
     // Total number of minicircuit wires across all concatenation groups (5 groups × 16 wires each)
     static constexpr size_t NUM_CONCATENATED_WIRES = NUM_CONCATENATED_POLYS * CONCATENATION_GROUP_SIZE;
@@ -902,9 +903,10 @@ class TranslatorFlavor {
         auto get_pcs_shifted() { return ShiftedEntities<DataType>::get_pcs_shifted(); };
 
         /**
-         * @brief The 26 full-circuit entities: everything except computable precomputed and minicircuit wires/shifts.
+         * @brief Full-circuit entities sent in the proof (excludes computable precomputed, minicircuit wires,
+         * and concatenated polys whose evals are reconstructed from wire evals).
          * @details Masking(1) + ordered_extra(1) + op(1) + OpQueueTBS(3) + OrderedRange(5) + z_perm(1)
-         *          + Concatenated(5) + pcs_shifted(9) = 26
+         *          + pcs_shifted(9) = 21
          */
         auto get_full_circuit_entities()
         {
@@ -914,7 +916,6 @@ class TranslatorFlavor {
                                OpQueueWiresToBeShiftedEntities<DataType>::get_all(),
                                OrderedRangeConstraints<DataType>::get_all(),
                                DerivedWitnessEntities<DataType>::get_all(),
-                               ConcatenatedPolynomials<DataType>::get_all(),
                                ShiftedEntities<DataType>::get_pcs_shifted());
         }
 
@@ -1036,8 +1037,10 @@ class TranslatorFlavor {
     /**
      * @brief Verifier: complete full-circuit evaluations from received array and challenge.
      * @details Assumes minicircuit wire evaluations have already been placed into evals
-     * via set_minicircuit_evaluations. This method sets the full-circuit evaluations and then completes
-     * all evaluations (computable precomputed selectors + L_0 scaling of minicircuit wires).
+     * via set_minicircuit_evaluations. This method:
+     *   1. Sets the received full-circuit evaluations (excluding concatenated poly evals).
+     *   2. Completes claimed evaluations (computable precomputed selectors + L_0 scaling).
+     *   3. Reconstructs the 5 concatenated polynomial evaluations from individual wire evaluations.
      */
     template <typename FFType>
     static void complete_full_circuit_evaluations(AllEntities<FFType>& evals,
@@ -1046,10 +1049,63 @@ class TranslatorFlavor {
     {
         set_full_circuit_evaluations(evals, full_circuit);
         complete_claimed_evaluations(evals, challenge);
+
+        // Reconstruct the 5 concatenated polynomial evaluations from (now L0-scaled) wire evaluations
+        auto groups = evals.get_groups_to_be_concatenated();
+        auto concat_evals = reconstruct_concatenated_evaluations(groups, challenge);
+        auto concat_refs = evals.get_concatenated();
+        for (size_t g = 0; g < NUM_CONCATENATED_POLYS; g++) {
+            concat_refs[g] = concat_evals[g];
+        }
     }
 
     /**
-     * @brief Prover: extract the 26 full-circuit evaluations via get_full_circuit_entities().
+     * @brief Reconstruct concatenated polynomial evaluations from individual wire evaluations
+     * using the Lagrange basis over the top log2(CONCATENATION_GROUP_SIZE) challenges.
+     * @details The concatenated polynomial F(X) is laid out in CONCATENATION_GROUP_SIZE sequential blocks.
+     * Given evaluations of the individual wires f_j(u) at the sumcheck challenge u, the evaluation of F(u)
+     * is reconstructed as: F(u) = [1/L_0(u_top)] * Σ_j L_j(u_top) * f_j(u), where L_j are the Lagrange
+     * basis polynomials over the top challenges and L_0 is the "padding" factor.
+     *
+     * @param groups The 5 groups of 16 wire evaluations to reconstruct from.
+     * @param challenge The full sumcheck challenge vector.
+     * @return Array of 5 reconstructed concatenated evaluations.
+     */
+    template <typename FFType>
+    static std::array<FFType, NUM_CONCATENATED_POLYS> reconstruct_concatenated_evaluations(
+        const std::vector<RefVector<FFType>>& groups, std::span<const FFType> challenge)
+    {
+        static constexpr size_t NUM_TOP_BITS = numeric::get_msb(CONCATENATION_GROUP_SIZE);
+
+        // Compute CONCATENATION_GROUP_SIZE-point Lagrange basis over the top challenges
+        std::array<FFType, CONCATENATION_GROUP_SIZE> lagrange_basis;
+        for (size_t j = 0; j < CONCATENATION_GROUP_SIZE; j++) {
+            lagrange_basis[j] = FFType(1);
+            for (size_t bit = 0; bit < NUM_TOP_BITS; bit++) {
+                const FFType& u = challenge[CONST_TRANSLATOR_LOG_N - NUM_TOP_BITS + bit];
+                lagrange_basis[j] *= ((j >> bit) & 1) ? u : (FFType(1) - u);
+            }
+        }
+        // L_0 is the "padding" factor from wires having support in [1, MINI)
+        FFType padding_inv = lagrange_basis[0].invert();
+
+        auto reconstruct = [&](const auto& group) -> FFType {
+            FFType result = FFType(0);
+            for (size_t j = 0; j < CONCATENATION_GROUP_SIZE; j++) {
+                result += lagrange_basis[j] * group[j];
+            }
+            return result * padding_inv;
+        };
+
+        std::array<FFType, NUM_CONCATENATED_POLYS> result;
+        for (size_t g = 0; g < NUM_CONCATENATED_POLYS; g++) {
+            result[g] = reconstruct(groups[g]);
+        }
+        return result;
+    }
+
+    /**
+     * @brief Prover: extract the full-circuit evaluations via get_full_circuit_entities().
      */
     template <typename FFType>
     static std::array<FFType, NUM_FULL_CIRCUIT_EVALUATIONS> get_full_circuit_evaluations(AllEntities<FFType>& evals)
@@ -1063,7 +1119,7 @@ class TranslatorFlavor {
     }
 
     /**
-     * @brief Verifier: write the 26 full-circuit evaluations back via get_full_circuit_entities().
+     * @brief Verifier: write the full-circuit evaluations back via get_full_circuit_entities().
      */
     template <typename FFType>
     static void set_full_circuit_evaluations(AllEntities<FFType>& evals,
