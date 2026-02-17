@@ -756,7 +756,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param newCheckpoint - The checkpoint ID after the prune.
    */
   private async handlePruneL2Blocks(latestBlock: L2BlockId, newCheckpoint: CheckpointId): Promise<void> {
-    const deleteAllTxs = await this.isEpochPrune(newCheckpoint);
+    const deleteAllTxs = this.config.txPoolDeleteTxsAfterReorg && (await this.isEpochPrune(newCheckpoint));
     await this.txPool.handlePrunedBlocks(latestBlock, { deleteAllTxs });
   }
 

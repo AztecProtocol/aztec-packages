@@ -276,6 +276,7 @@ describe('P2P Client', () => {
 
   describe('Chain prunes', () => {
     it('passes deleteAllTxs: false for a single-checkpoint prune', async () => {
+      client = createClient({ txPoolDeleteTxsAfterReorg: true });
       blockSource.setProvenBlockNumber(0);
       blockSource.setCheckpointedBlockNumber(100);
       await client.start();
@@ -292,6 +293,7 @@ describe('P2P Client', () => {
     });
 
     it('passes deleteAllTxs: true for an epoch prune spanning multiple checkpoints', async () => {
+      client = createClient({ txPoolDeleteTxsAfterReorg: true });
       blockSource.setProvenBlockNumber(0);
       blockSource.setCheckpointedBlockNumber(100);
       await client.start();
@@ -303,6 +305,23 @@ describe('P2P Client', () => {
       expect(txPool.handlePrunedBlocks).toHaveBeenCalledWith(
         { number: BlockNumber(90), hash: expect.any(String) },
         { deleteAllTxs: true },
+      );
+      await client.stop();
+    });
+
+    it('passes deleteAllTxs: false for epoch prune when txPoolDeleteTxsAfterReorg is disabled', async () => {
+      // Default config has txPoolDeleteTxsAfterReorg: false
+      blockSource.setProvenBlockNumber(0);
+      blockSource.setCheckpointedBlockNumber(100);
+      await client.start();
+
+      // Prune 10 blocks: would be epoch prune, but config flag is off
+      blockSource.removeBlocks(10);
+      await client.sync();
+
+      expect(txPool.handlePrunedBlocks).toHaveBeenCalledWith(
+        { number: BlockNumber(90), hash: expect.any(String) },
+        { deleteAllTxs: false },
       );
       await client.stop();
     });
