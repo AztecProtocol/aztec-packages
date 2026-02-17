@@ -1,7 +1,7 @@
 import { createLogger } from '@aztec/foundation/log';
 
 import { type TxMetaData, checkNullifierConflict } from '../tx_metadata.js';
-import type { PreAddPoolAccess, PreAddResult, PreAddRule } from './interfaces.js';
+import type { PreAddContext, PreAddPoolAccess, PreAddResult, PreAddRule } from './interfaces.js';
 
 /**
  * Pre-add rule that checks for nullifier conflicts between incoming and existing transactions.
@@ -15,7 +15,7 @@ export class NullifierConflictRule implements PreAddRule {
 
   private log = createLogger('p2p:tx_pool_v2:nullifier_conflict_rule');
 
-  check(incomingMeta: TxMetaData, poolAccess: PreAddPoolAccess): Promise<PreAddResult> {
+  check(incomingMeta: TxMetaData, poolAccess: PreAddPoolAccess, _context?: PreAddContext): Promise<PreAddResult> {
     const result = checkNullifierConflict(
       incomingMeta,
       nullifier => poolAccess.getTxHashByNullifier(nullifier),
@@ -23,7 +23,7 @@ export class NullifierConflictRule implements PreAddRule {
     );
 
     if (result.shouldIgnore) {
-      this.log.debug(`Ignoring tx ${incomingMeta.txHash}: ${result.reason}`);
+      this.log.debug(`Ignoring tx ${incomingMeta.txHash}: ${result.reason?.message}`);
     }
 
     return Promise.resolve(result);

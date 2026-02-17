@@ -281,8 +281,17 @@ describe('e2e_epochs/epochs_mbps', () => {
 
     // Wait until all txs are mined
     const timeout = test.L2_SLOT_DURATION_IN_S * 5;
-    await Promise.all(txHashes.map(txHash => waitForTx(context.aztecNode, txHash, { timeout })));
+    const receipts = await Promise.all(txHashes.map(txHash => waitForTx(context.aztecNode, txHash, { timeout })));
     logger.warn(`All L2→L1 message txs have been mined`);
+
+    // wait for the other node to synch
+    const maxBlockNumber = Math.max(...receipts.map(r => r.blockNumber!));
+    await retryUntil(
+      async () => ((await archiver.getCheckpointedL2BlockNumber()) >= maxBlockNumber ? true : undefined),
+      `archiver to checkpoint block ${maxBlockNumber}`,
+      test.L2_SLOT_DURATION_IN_S * 3,
+      0.1,
+    );
 
     const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(EXPECTED_BLOCKS_PER_CHECKPOINT, logger);
 

@@ -343,6 +343,12 @@ variable "SEQ_MAX_TX_PER_BLOCK" {
   default     = "8"
 }
 
+variable "SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT" {
+  description = "Percentage probability of skipping checkpoint publishing"
+  type        = string
+  default     = "0"
+}
+
 variable "SEQ_BLOCK_DURATION_MS" {
   description = "Duration per block in milliseconds when building multiple blocks per slot"
   type        = string
@@ -766,8 +772,8 @@ variable "P2P_DROP_TX_CHANCE" {
   default     = 0
 }
 
-variable "WS_NUM_HISTORIC_BLOCKS" {
-  description = "Number of historic blocks for world state"
+variable "WS_NUM_HISTORIC_CHECKPOINTS" {
+  description = "Number of historic checkpoints for world state"
   type        = string
   nullable    = true
   default     = null

@@ -1,6 +1,6 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress, L2BlockId } from '@aztec/stdlib/block';
-import type { P2PApiFull } from '@aztec/stdlib/interfaces/server';
+import type { ITxProvider, P2PApiFull } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal, CheckpointAttestation, CheckpointProposal, P2PClientType } from '@aztec/stdlib/p2p';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
@@ -108,13 +108,6 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
   sendTx(tx: Tx): Promise<void>;
 
   /**
-   * Adds transactions to the pool. Does not send to peers or validate the tx.
-   * @param txs - The transactions.
-   * @returns The number of txs added to the pool. Note if the transaction already exists, it will not be added again.
-   **/
-  addTxsToPool(txs: Tx[]): Promise<number>;
-
-  /**
    * Handles failed transaction execution by removing txs from the pool.
    * @param txHashes - Hashes of the transactions that failed execution.
    **/
@@ -219,6 +212,9 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
 
   /** Identifies a p2p client. */
   isP2PClient(): true;
+
+  /** Returns the tx provider used for fetching transactions. */
+  getTxProvider(): ITxProvider;
 
   updateP2PConfig(config: Partial<P2PConfig>): Promise<void>;
 

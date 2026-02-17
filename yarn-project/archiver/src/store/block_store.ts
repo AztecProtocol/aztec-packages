@@ -9,6 +9,7 @@ import { isDefined } from '@aztec/foundation/types';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton, Range } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  type BlockData,
   BlockHash,
   Body,
   CheckpointedL2Block,
@@ -18,7 +19,7 @@ import {
   deserializeValidateCheckpointResult,
   serializeValidateCheckpointResult,
 } from '@aztec/stdlib/block';
-import { L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { type CheckpointData, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
@@ -61,20 +62,11 @@ type BlockStorage = {
 type CheckpointStorage = {
   header: Buffer;
   archive: Buffer;
+  checkpointOutHash: Buffer;
   checkpointNumber: number;
   startBlock: number;
-  numBlocks: number;
+  blockCount: number;
   l1: Buffer;
-  attestations: Buffer[];
-};
-
-export type CheckpointData = {
-  checkpointNumber: CheckpointNumber;
-  header: CheckpointHeader;
-  archive: AppendOnlyTreeSnapshot;
-  startBlock: number;
-  numBlocks: number;
-  l1: L1PublishedData;
   attestations: Buffer[];
 };
 
@@ -89,6 +81,9 @@ export class BlockStore {
 
   /** Map checkpoint number to checkpoint data */
   #checkpoints: AztecAsyncMap<number, CheckpointStorage>;
+
+  /** Map slot number to checkpoint number, for looking up checkpoints by slot range. */
+  #slotToCheckpoint: AztecAsyncMap<number, number>;
 
   /** Map block hash to list of tx hashes */
   #blockTxs: AztecAsyncMap<string, Buffer>;
@@ -130,6 +125,7 @@ export class BlockStore {
     this.#lastProvenCheckpoint = db.openSingleton('archiver_last_proven_l2_checkpoint');
     this.#pendingChainValidationStatus = db.openSingleton('archiver_pending_chain_validation_status');
     this.#checkpoints = db.openMap('archiver_checkpoints');
+    this.#slotToCheckpoint = db.openMap('archiver_slot_to_checkpoint');
   }
 
   /**
@@ -273,7 +269,7 @@ export class BlockStore {
 
       // If we have a previous checkpoint then we need to get the previous block number
       if (previousCheckpointData !== undefined) {
-        previousBlockNumber = BlockNumber(previousCheckpointData.startBlock + previousCheckpointData.numBlocks - 1);
+        previousBlockNumber = BlockNumber(previousCheckpointData.startBlock + previousCheckpointData.blockCount - 1);
         previousBlock = await this.getBlock(previousBlockNumber);
         if (previousBlock === undefined) {
           // We should be able to get the required previous block
@@ -337,12 +333,16 @@ export class BlockStore {
         await this.#checkpoints.set(checkpoint.checkpoint.number, {
           header: checkpoint.checkpoint.header.toBuffer(),
           archive: checkpoint.checkpoint.archive.toBuffer(),
+          checkpointOutHash: checkpoint.checkpoint.getCheckpointOutHash().toBuffer(),
           l1: checkpoint.l1.toBuffer(),
           attestations: checkpoint.attestations.map(attestation => attestation.toBuffer()),
           checkpointNumber: checkpoint.checkpoint.number,
           startBlock: checkpoint.checkpoint.blocks[0].number,
-          numBlocks: checkpoint.checkpoint.blocks.length,
+          blockCount: checkpoint.checkpoint.blocks.length,
         });
+
+        // Update slot-to-checkpoint index
+        await this.#slotToCheckpoint.set(checkpoint.checkpoint.header.slotNumber, checkpoint.checkpoint.number);
       }
 
       await this.#lastSynchedL1Block.set(checkpoints[checkpoints.length - 1].l1.blockNumber);
@@ -425,7 +425,7 @@ export class BlockStore {
         if (!targetCheckpoint) {
           throw new Error(`Target checkpoint ${checkpointNumber} not found in store`);
         }
-        lastBlockToKeep = BlockNumber(targetCheckpoint.startBlock + targetCheckpoint.numBlocks - 1);
+        lastBlockToKeep = BlockNumber(targetCheckpoint.startBlock + targetCheckpoint.blockCount - 1);
       }
 
       // Remove all blocks after lastBlockToKeep (both checkpointed and uncheckpointed)
@@ -433,6 +433,11 @@ export class BlockStore {
 
       // Remove all checkpoints after the target
       for (let c = latestCheckpointNumber; c > checkpointNumber; c = CheckpointNumber(c - 1)) {
+        const checkpointStorage = await this.#checkpoints.getAsync(c);
+        if (checkpointStorage) {
+          const slotNumber = CheckpointHeader.fromBuffer(checkpointStorage.header).slotNumber;
+          await this.#slotToCheckpoint.delete(slotNumber);
+        }
         await this.#checkpoints.delete(c);
         this.#log.debug(`Removed checkpoint ${c}`);
       }
@@ -461,17 +466,32 @@ export class BlockStore {
     return checkpoints;
   }
 
-  private checkpointDataFromCheckpointStorage(checkpointStorage: CheckpointStorage) {
-    const data: CheckpointData = {
+  /** Returns checkpoint data for all checkpoints whose slot falls within the given range (inclusive). */
+  async getCheckpointDataForSlotRange(startSlot: SlotNumber, endSlot: SlotNumber): Promise<CheckpointData[]> {
+    const result: CheckpointData[] = [];
+    for await (const [, checkpointNumber] of this.#slotToCheckpoint.entriesAsync({
+      start: startSlot,
+      end: endSlot + 1,
+    })) {
+      const checkpointStorage = await this.#checkpoints.getAsync(checkpointNumber);
+      if (checkpointStorage) {
+        result.push(this.checkpointDataFromCheckpointStorage(checkpointStorage));
+      }
+    }
+    return result;
+  }
+
+  private checkpointDataFromCheckpointStorage(checkpointStorage: CheckpointStorage): CheckpointData {
+    return {
       header: CheckpointHeader.fromBuffer(checkpointStorage.header),
       archive: AppendOnlyTreeSnapshot.fromBuffer(checkpointStorage.archive),
+      checkpointOutHash: Fr.fromBuffer(checkpointStorage.checkpointOutHash),
       checkpointNumber: CheckpointNumber(checkpointStorage.checkpointNumber),
-      startBlock: checkpointStorage.startBlock,
-      numBlocks: checkpointStorage.numBlocks,
+      startBlock: BlockNumber(checkpointStorage.startBlock),
+      blockCount: checkpointStorage.blockCount,
       l1: L1PublishedData.fromBuffer(checkpointStorage.l1),
-      attestations: checkpointStorage.attestations,
+      attestations: checkpointStorage.attestations.map(buf => CommitteeAttestation.fromBuffer(buf)),
     };
-    return data;
   }
 
   async getBlocksForCheckpoint(checkpointNumber: CheckpointNumber): Promise<L2Block[] | undefined> {
@@ -483,7 +503,7 @@ export class BlockStore {
     const blocksForCheckpoint = await toArray(
       this.#blocks.entriesAsync({
         start: checkpoint.startBlock,
-        end: checkpoint.startBlock + checkpoint.numBlocks,
+        end: checkpoint.startBlock + checkpoint.blockCount,
       }),
     );
 
@@ -556,7 +576,7 @@ export class BlockStore {
     if (!checkpointStorage) {
       throw new CheckpointNotFoundError(provenCheckpointNumber);
     } else {
-      return BlockNumber(checkpointStorage.startBlock + checkpointStorage.numBlocks - 1);
+      return BlockNumber(checkpointStorage.startBlock + checkpointStorage.blockCount - 1);
     }
   }
 
@@ -653,6 +673,32 @@ export class BlockStore {
         yield block;
       }
     }
+  }
+
+  /**
+   * Gets block metadata (without tx data) by block number.
+   * @param blockNumber - The number of the block to return.
+   * @returns The requested block data.
+   */
+  async getBlockData(blockNumber: BlockNumber): Promise<BlockData | undefined> {
+    const blockStorage = await this.#blocks.getAsync(blockNumber);
+    if (!blockStorage || !blockStorage.header) {
+      return undefined;
+    }
+    return this.getBlockDataFromBlockStorage(blockStorage);
+  }
+
+  /**
+   * Gets block metadata (without tx data) by archive root.
+   * @param archive - The archive root of the block to return.
+   * @returns The requested block data.
+   */
+  async getBlockDataByArchive(archive: Fr): Promise<BlockData | undefined> {
+    const blockNumber = await this.#blockArchiveIndex.getAsync(archive.toString());
+    if (blockNumber === undefined) {
+      return undefined;
+    }
+    return this.getBlockData(BlockNumber(blockNumber));
   }
 
   /**
@@ -759,15 +805,24 @@ export class BlockStore {
     }
   }
 
+  private getBlockDataFromBlockStorage(blockStorage: BlockStorage): BlockData {
+    return {
+      header: BlockHeader.fromBuffer(blockStorage.header),
+      archive: AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive),
+      blockHash: Fr.fromBuffer(blockStorage.blockHash),
+      checkpointNumber: CheckpointNumber(blockStorage.checkpointNumber),
+      indexWithinCheckpoint: IndexWithinCheckpoint(blockStorage.indexWithinCheckpoint),
+    };
+  }
+
   private async getBlockFromBlockStorage(
     blockNumber: number,
     blockStorage: BlockStorage,
   ): Promise<L2Block | undefined> {
-    const header = BlockHeader.fromBuffer(blockStorage.header);
-    const archive = AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive);
-    const blockHash = blockStorage.blockHash;
-    header.setHash(Fr.fromBuffer(blockHash));
-    const blockHashString = bufferToHex(blockHash);
+    const { header, archive, blockHash, checkpointNumber, indexWithinCheckpoint } =
+      this.getBlockDataFromBlockStorage(blockStorage);
+    header.setHash(blockHash);
+    const blockHashString = bufferToHex(blockStorage.blockHash);
     const blockTxsBuffer = await this.#blockTxs.getAsync(blockHashString);
     if (blockTxsBuffer === undefined) {
       this.#log.warn(`Could not find body for block ${header.globalVariables.blockNumber} ${blockHash}`);
@@ -786,13 +841,7 @@ export class BlockStore {
       txEffects.push(deserializeIndexedTxEffect(txEffect).data);
     }
     const body = new Body(txEffects);
-    const block = new L2Block(
-      archive,
-      header,
-      body,
-      CheckpointNumber(blockStorage.checkpointNumber!),
-      IndexWithinCheckpoint(blockStorage.indexWithinCheckpoint),
-    );
+    const block = new L2Block(archive, header, body, checkpointNumber, indexWithinCheckpoint);
 
     if (block.number !== blockNumber) {
       throw new Error(
@@ -892,7 +941,7 @@ export class BlockStore {
     if (!checkpoint) {
       return BlockNumber(INITIAL_L2_BLOCK_NUM - 1);
     }
-    return BlockNumber(checkpoint.startBlock + checkpoint.numBlocks - 1);
+    return BlockNumber(checkpoint.startBlock + checkpoint.blockCount - 1);
   }
 
   async getLatestL2BlockNumber(): Promise<BlockNumber> {

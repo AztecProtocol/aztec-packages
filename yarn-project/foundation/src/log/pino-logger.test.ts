@@ -188,6 +188,91 @@ describe('pino-logger', () => {
     });
   });
 
+  it('converts bigints to strings recursively ', () => {
+    const testLogger = createLogger('bigint-test');
+    capturingStream.clear();
+
+    testLogger.info('comprehensive bigint conversion', {
+      // Top-level bigints
+      amount: 123456789012345678901234n,
+      slot: 42n,
+      // Nested objects
+      nested: {
+        value: 999999999999999999n,
+        deepNested: {
+          id: 12345678901234567890n,
+        },
+      },
+      // Arrays with bigints
+      array: [1n, 2n, 3n],
+      mixedArray: [{ id: 999n }, { id: 888n }],
+      // Mixed types
+      numberValue: 123,
+      stringValue: 'test',
+      boolValue: true,
+      nullValue: null,
+    });
+
+    const entries = capturingStream.getJsonLines();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      module: 'bigint-test',
+      msg: 'comprehensive bigint conversion',
+      // All bigints converted to strings
+      amount: '123456789012345678901234',
+      slot: '42',
+      nested: {
+        value: '999999999999999999',
+        deepNested: {
+          id: '12345678901234567890',
+        },
+      },
+      array: ['1', '2', '3'],
+      mixedArray: [{ id: '999' }, { id: '888' }],
+      // Other types preserved
+      numberValue: 123,
+      stringValue: 'test',
+      boolValue: true,
+      nullValue: null,
+    });
+  });
+
+  it('does not mutate the original log data object', () => {
+    const testLogger = createLogger('mutation-test');
+    capturingStream.clear();
+
+    const originalData = {
+      amount: 123456789012345678901234n,
+      nested: {
+        value: 999n,
+      },
+      array: [1n, 2n, 3n],
+    };
+
+    // Keep references to verify mutation
+    const originalAmount = originalData.amount;
+    const originalNestedValue = originalData.nested.value;
+    const originalArrayItem = originalData.array[0];
+
+    testLogger.info('mutation test', originalData);
+
+    // Verify the original object was NOT mutated
+    expect(originalData.amount).toBe(originalAmount);
+    expect(typeof originalData.amount).toBe('bigint');
+    expect(originalData.nested.value).toBe(originalNestedValue);
+    expect(typeof originalData.nested.value).toBe('bigint');
+    expect(originalData.array[0]).toBe(originalArrayItem);
+    expect(typeof originalData.array[0]).toBe('bigint');
+
+    // But the logged version should have strings
+    const entries = capturingStream.getJsonLines();
+    expect(entries[0]).toMatchObject({
+      amount: '123456789012345678901234',
+      nested: { value: '999' },
+      array: ['1', '2', '3'],
+    });
+  });
+
   it('returns bindings via getBindings', () => {
     const testLogger = createLogger('bindings-test', { actor: 'main', instanceId: 'id-123' });
     const bindings = testLogger.getBindings();

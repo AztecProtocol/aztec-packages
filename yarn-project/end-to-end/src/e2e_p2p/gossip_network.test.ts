@@ -4,7 +4,6 @@ import { waitForTx } from '@aztec/aztec.js/node';
 import { TxHash } from '@aztec/aztec.js/tx';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
-import type { ProverNode } from '@aztec/prover-node';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
@@ -49,7 +48,7 @@ const qosAlerts: AlertConfig[] = [
 describe('e2e_p2p_network', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
-  let proverNode: ProverNode;
+  let proverAztecNode: AztecNodeService;
   let monitoringNode: AztecNodeService;
 
   beforeEach(async () => {
@@ -75,7 +74,7 @@ describe('e2e_p2p_network', () => {
   });
 
   afterEach(async () => {
-    await tryStop(proverNode);
+    await tryStop(proverAztecNode);
     await tryStop(monitoringNode);
     await t.stopNodes(nodes);
     await t.teardown();
@@ -119,7 +118,7 @@ describe('e2e_p2p_network', () => {
 
     // create a prover node that uses p2p only (not rpc) to gather txs to test prover tx collection
     t.logger.warn(`Creating prover node`);
-    proverNode = await createProverNode(
+    ({ proverNode: proverAztecNode } = await createProverNode(
       t.ctx.aztecNodeConfig,
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
       t.bootstrapNodeEnr,
@@ -128,8 +127,7 @@ describe('e2e_p2p_network', () => {
       t.prefilledPublicData,
       `${DATA_DIR}-prover`,
       shouldCollectMetrics(),
-    );
-    await proverNode.start();
+    ));
 
     t.logger.warn(`Creating non validator node`);
     const monitoringNodeConfig: AztecNodeConfig = { ...t.ctx.aztecNodeConfig, alwaysReexecuteBlockProposals: true };

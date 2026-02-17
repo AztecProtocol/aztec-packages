@@ -1,5 +1,5 @@
 import { omit } from '@aztec/foundation/collection';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { DateProvider } from '@aztec/foundation/timer';
 
@@ -9,14 +9,16 @@ import {
   type Hex,
   type PublicClient,
   type TransactionSerializableEIP4844,
+  type TransactionSerialized,
   keccak256,
   parseTransaction,
   publicActions,
+  recoverTransactionAddress,
   serializeTransaction,
   walletActions,
 } from 'viem';
 
-import { type ViemClient, isExtendedClient } from '../types.js';
+import type { ExtendedViemWalletClient, ViemClient } from '../types.js';
 
 const MAX_WAIT_TIME_SECONDS = 180;
 
@@ -73,33 +75,9 @@ export function waitUntilL1Timestamp<T extends Client>(
   );
 }
 
-export interface Delayer {
-  /** Returns the hashes of all effectively sent txs. */
-  getSentTxHashes(): Hex[];
-  /** Returns the raw hex for all cancelled txs. */
-  getCancelledTxs(): Hex[];
-  /** Delays the next tx to be sent so it lands on the given L1 block number. */
-  pauseNextTxUntilBlock(l1BlockNumber: number | bigint | undefined): void;
-  /** Delays the next tx to be sent so it lands on the given timestamp. */
-  pauseNextTxUntilTimestamp(l1Timestamp: number | bigint | undefined): void;
-  /** Delays the next tx to be sent indefinitely. */
-  cancelNextTx(): void;
-  /**
-   * Sets max inclusion time into slot. If more than this many seconds have passed
-   * since the last L1 block was mined, then any tx will not be mined in the current
-   * L1 slot but will be deferred for the next one.
-   */
-  setMaxInclusionTimeIntoSlot(seconds: number | bigint | undefined): void;
-}
-
-class DelayerImpl implements Delayer {
-  private logger = createLogger('ethereum:tx_delayer');
-  constructor(
-    public dateProvider: DateProvider,
-    opts: { ethereumSlotDuration: bigint | number },
-  ) {
-    this.ethereumSlotDuration = BigInt(opts.ethereumSlotDuration);
-  }
+/** Manages tx delaying for testing, intercepting sendRawTransaction calls to delay or cancel them. */
+export class Delayer {
+  private logger: Logger;
 
   public maxInclusionTimeIntoSlot: number | undefined = undefined;
   public ethereumSlotDuration: bigint;
@@ -107,48 +85,88 @@ class DelayerImpl implements Delayer {
   public sentTxHashes: Hex[] = [];
   public cancelledTxs: Hex[] = [];
 
+  constructor(
+    public dateProvider: DateProvider,
+    opts: { ethereumSlotDuration: bigint | number },
+    bindings: LoggerBindings,
+  ) {
+    this.ethereumSlotDuration = BigInt(opts.ethereumSlotDuration);
+    this.logger = createLogger('ethereum:tx_delayer', bindings);
+  }
+
+  /** Returns the logger instance used by this delayer. */
+  getLogger(): Logger {
+    return this.logger;
+  }
+
+  /** Returns the hashes of all effectively sent txs. */
   getSentTxHashes() {
     return this.sentTxHashes;
   }
 
+  /** Returns the raw hex for all cancelled txs. */
   getCancelledTxs(): Hex[] {
     return this.cancelledTxs;
   }
 
+  /** Delays the next tx to be sent so it lands on the given L1 block number. */
   pauseNextTxUntilBlock(l1BlockNumber: number | bigint) {
     this.nextWait = { l1BlockNumber: BigInt(l1BlockNumber) };
   }
 
+  /** Delays the next tx to be sent so it lands on the given timestamp. */
   pauseNextTxUntilTimestamp(l1Timestamp: number | bigint) {
     this.nextWait = { l1Timestamp: BigInt(l1Timestamp) };
   }
 
+  /** Delays the next tx to be sent indefinitely. */
   cancelNextTx() {
     this.nextWait = { indefinitely: true };
   }
 
+  /**
+   * Sets max inclusion time into slot. If more than this many seconds have passed
+   * since the last L1 block was mined, then any tx will not be mined in the current
+   * L1 slot but will be deferred for the next one.
+   */
   setMaxInclusionTimeIntoSlot(seconds: number | undefined) {
     this.maxInclusionTimeIntoSlot = seconds;
   }
 }
 
 /**
- * Returns a new client (without modifying the one passed in) with an injected tx delayer.
- * The delayer can be used to hold off the next tx to be sent until a given block number.
- * TODO(#10824): This doesn't play along well with blob txs for some reason.
+ * Creates a new Delayer instance. Exposed so callers can create a single shared delayer
+ * and pass it to multiple `wrapClientWithDelayer` calls.
  */
-export function withDelayer<T extends ViemClient>(
-  client: T,
+export function createDelayer(
   dateProvider: DateProvider,
   opts: { ethereumSlotDuration: bigint | number },
-): { client: T; delayer: Delayer } {
-  if (!isExtendedClient(client)) {
-    throw new Error('withDelayer has to be instantiated with a wallet viem client.');
-  }
-  const logger = createLogger('ethereum:tx_delayer');
-  const delayer = new DelayerImpl(dateProvider, opts);
+  bindings: LoggerBindings,
+): Delayer {
+  return new Delayer(dateProvider, opts, bindings);
+}
 
-  const extended = client
+/** Tries to recover the sender address from a serialized signed transaction. */
+async function tryRecoverSender(serializedTransaction: Hex): Promise<string | undefined> {
+  try {
+    return await recoverTransactionAddress({
+      serializedTransaction: serializedTransaction as TransactionSerialized,
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Wraps a viem client with tx delaying logic. Returns the wrapped client.
+ * The delayer intercepts sendRawTransaction calls and delays them based on the delayer's state.
+ */
+export function wrapClientWithDelayer<T extends ViemClient>(client: T, delayer: Delayer): T {
+  const logger = delayer.getLogger();
+
+  // Cast to ExtendedViemWalletClient for the extend chain since it has sendRawTransaction.
+  // The sendRawTransaction override is applied to all clients regardless of type.
+  const withRawTx = (client as unknown as ExtendedViemWalletClient)
     // Tweak sendRawTransaction so it uses the delay defined in the delayer.
     // Note that this will only work with local accounts (ie accounts for which we have the private key).
     // Transactions signed by the node will not be delayed since they use sendTransaction directly,
@@ -160,6 +178,7 @@ export function withDelayer<T extends ViemClient>(
 
         const { serializedTransaction } = args[0];
         const publicClient = client as unknown as PublicClient;
+        const sender = await tryRecoverSender(serializedTransaction);
 
         if (delayer.nextWait !== undefined) {
           // Check if we have been instructed to delay the next tx.
@@ -171,7 +190,7 @@ export function withDelayer<T extends ViemClient>(
 
           // Cancel tx outright if instructed
           if ('indefinitely' in waitUntil && waitUntil.indefinitely) {
-            logger.info(`Cancelling tx ${txHash}`);
+            logger.info(`Cancelling tx ${txHash}`, { sender });
             delayer.cancelledTxs.push(serializedTransaction);
             return Promise.resolve(txHash);
           }
@@ -185,6 +204,7 @@ export function withDelayer<T extends ViemClient>(
                 : undefined;
 
           logger.info(`Delaying tx ${txHash} until ${inspect(waitUntil)}`, {
+            sender,
             argsLen: args.length,
             ...omit(parseTransaction(serializedTransaction), 'data', 'sidecars'),
           });
@@ -196,6 +216,7 @@ export function withDelayer<T extends ViemClient>(
 
           txHash = computeTxHash(serializedTransaction);
           const logData = {
+            sender,
             ...omit(parseTransaction(serializedTransaction), 'data', 'sidecars'),
             lastBlockTimestamp,
             now,
@@ -225,28 +246,35 @@ export function withDelayer<T extends ViemClient>(
                   computedTxHash: txHash,
                 });
               }
-              logger.info(`Sent previously delayed tx ${clientTxHash}`);
+              logger.info(`Sent previously delayed tx ${clientTxHash}`, { sender });
               delayer.sentTxHashes.push(clientTxHash);
             })
             .catch(err => logger.error(`Error sending tx after delay`, err));
           return Promise.resolve(txHash!);
         } else {
           const txHash = await client.sendRawTransaction(...args);
-          logger.debug(`Sent tx immediately ${txHash}`);
+          logger.debug(`Sent tx immediately ${txHash}`, { sender });
           delayer.sentTxHashes.push(txHash);
           return txHash;
         }
       },
-    }))
-    // Re-extend with sendTransaction so it uses the modified sendRawTransaction.
-    .extend(client => ({ sendTransaction: walletActions(client).sendTransaction }))
-    // And with the actions that depend on the modified sendTransaction
-    .extend(client => ({
-      writeContract: walletActions(client).writeContract,
-      deployContract: walletActions(client).deployContract,
-    })) as T;
+    }));
 
-  return { client: extended, delayer };
+  // Only re-bind wallet actions (sendTransaction, writeContract, deployContract) for wallet clients.
+  // This is needed for tests that use wallet actions directly rather than sendRawTransaction.
+  const isWalletClient = 'account' in client && client.account !== undefined;
+  const extended = isWalletClient
+    ? withRawTx
+        // Re-extend with sendTransaction so it uses the modified sendRawTransaction.
+        .extend(client => ({ sendTransaction: walletActions(client).sendTransaction }))
+        // And with the actions that depend on the modified sendTransaction
+        .extend(client => ({
+          writeContract: walletActions(client).writeContract,
+          deployContract: walletActions(client).deployContract,
+        }))
+    : withRawTx;
+
+  return extended as T;
 }
 
 /**
