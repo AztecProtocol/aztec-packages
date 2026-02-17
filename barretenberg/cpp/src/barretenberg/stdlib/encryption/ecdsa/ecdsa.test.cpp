@@ -284,6 +284,41 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
             builder, hashed_message, account, signature, signature_verification_result, true, mode);
     }
 
+    // Test deterministic failure when P = ±G for secp256r1
+    void test_signature_generator(bool is_minus_generator, bool signature_result, bool expected_circuit_result)
+    {
+        std::string message_string = "Goblin";
+        std::vector<uint8_t> message_bytes(message_string.begin(), message_string.end());
+        std::array<uint8_t, 32> hashed_message_bytes_ = Sha256Hasher::hash(message_bytes);
+        std::vector<uint8_t> hashed_message_bytes;
+        hashed_message_bytes.reserve(32);
+        for (auto byte : hashed_message_bytes_) {
+            hashed_message_bytes.emplace_back(byte);
+        }
+
+        // Generate a signature with P = 2G
+        ecdsa_key_pair<FrNative, G1Native> account;
+
+        account.private_key = is_minus_generator ? FrNative(-1) : FrNative(1);
+        account.public_key = G1Native::one * account.private_key;
+
+        ecdsa_signature signature =
+            ecdsa_construct_signature<Sha256Hasher, FqNative, FrNative, G1Native>(message_string, account);
+
+        // Create ECDSA verification circuit
+        Builder builder;
+        stdlib::byte_array<Builder> hashed_message(&builder, hashed_message_bytes);
+
+        // ECDSA verification
+        ecdsa_verification_circuit(builder,
+                                   hashed_message,
+                                   account,
+                                   signature,
+                                   signature_result,
+                                   expected_circuit_result,
+                                   TamperingMode::None);
+    }
+
     // This test covers a specific behaviour of the implementation. If either the x or y coordinate of the public key
     // are bigger than the base field modulus, the ECDSA verification algorithm substitutes the public key with 2G to
     // avoid circuit failures. This means that an attacker could craft a valid signature for 2G and submit such
@@ -457,6 +492,16 @@ TYPED_TEST(EcdsaTests, Wycherproof)
 TYPED_TEST(EcdsaTests, SignatureDoubleGenerator)
 {
     TestFixture::test_signature_double_generator();
+}
+
+TYPED_TEST(EcdsaTests, SignatureGenerator)
+{
+    // Circuit works for Secp256k1, fails for Secp256r1
+    bool signature_result = (TypeParam::type == bb::CurveType::SECP256K1);
+    bool expected_circuit_result = (TypeParam::type == bb::CurveType::SECP256K1);
+
+    TestFixture::test_signature_generator(false, signature_result, expected_circuit_result);
+    TestFixture::test_signature_generator(true, signature_result, expected_circuit_result);
 }
 
 TEST(EcdsaTests, Secp256k1PointAtInfinityRegression)
