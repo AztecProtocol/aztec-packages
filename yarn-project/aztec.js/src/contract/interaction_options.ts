@@ -156,9 +156,9 @@ export type TxSendResultImmediate = {
 };
 
 /** Result of sendTx when waiting for mining. */
-export type TxSendResultMined = {
+export type TxSendResultMined<TReturn = TxReceipt> = {
   /** The transaction receipt. */
-  receipt: TxReceipt;
+  receipt: TReturn;
   /** Offchain effects generated during proving. */
   offchainEffects: OffchainEffect[];
 };
@@ -170,12 +170,7 @@ export type TxSendResultMined = {
  */
 export type SendReturn<T extends InteractionWaitOptions, TReturn = TxReceipt> = T extends NoWait
   ? TxSendResultImmediate
-  : {
-      /** The transaction receipt. */
-      receipt: TReturn;
-      /** Offchain effects generated during proving. */
-      offchainEffects: OffchainEffect[];
-    };
+  : TxSendResultMined<TReturn>;
 
 /**
  * Transforms and cleans up the higher level SendInteractionOptions defined by the interaction into

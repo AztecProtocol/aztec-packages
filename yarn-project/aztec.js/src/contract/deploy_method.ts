@@ -28,6 +28,7 @@ import {
   type SimulationInteractionFeeOptions,
   type SimulationReturn,
   type TxSendResultImmediate,
+  type TxSendResultMined,
   toProfileOptions,
   toSendOptions,
   toSimulateOptions,
@@ -136,23 +137,22 @@ type WaitWithReturnReceipt = {
  * - If wait has returnReceipt: true, returns DeployTxReceipt after waiting.
  * - Otherwise (undefined or DeployWaitOptions without returnReceipt), returns TContract after waiting.
  */
+/** Result of deploying a contract when waiting for mining (default case). */
+export type DeployResultMined<TContract extends ContractBase> = {
+  /** The deployed contract instance. */
+  contract: TContract;
+  /** The deploy transaction receipt. */
+  receipt: DeployTxReceipt<TContract>;
+  /** Offchain effects generated during proving. */
+  offchainEffects: OffchainEffect[];
+};
+
+/** Conditional return type for deploy based on wait options. */
 export type DeployReturn<TContract extends ContractBase, W extends DeployInteractionWaitOptions> = W extends NoWait
   ? TxSendResultImmediate
   : W extends WaitWithReturnReceipt
-    ? {
-        /** The deploy transaction receipt. */
-        receipt: DeployTxReceipt<TContract>;
-        /** Offchain effects generated during proving. */
-        offchainEffects: OffchainEffect[];
-      }
-    : {
-        /** The deployed contract instance. */
-        contract: TContract;
-        /** The deploy transaction receipt. */
-        receipt: DeployTxReceipt<TContract>;
-        /** Offchain effects generated during proving. */
-        offchainEffects: OffchainEffect[];
-      };
+    ? TxSendResultMined<DeployTxReceipt<TContract>>
+    : DeployResultMined<TContract>;
 
 /**
  * Contract interaction for deployment.
@@ -352,9 +352,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    * @returns TxHash (if wait is NO_WAIT), TContract (if wait is undefined or doesn't have returnReceipt), or DeployTxReceipt (if wait.returnReceipt is true)
    */
   // Overload for when wait is not specified at all - returns the contract
-  public override send(
-    options: DeployOptionsWithoutWait,
-  ): Promise<{ contract: TContract; receipt: DeployTxReceipt<TContract>; offchainEffects: OffchainEffect[] }>;
+  public override send(options: DeployOptionsWithoutWait): Promise<DeployResultMined<TContract>>;
   // eslint-disable-next-line jsdoc/require-jsdoc
   public override send<W extends DeployInteractionWaitOptions>(
     options: DeployOptions<W>,
