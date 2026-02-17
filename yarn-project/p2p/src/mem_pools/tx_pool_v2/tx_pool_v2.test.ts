@@ -25,6 +25,11 @@ import { AztecKVTxPoolV2 } from './tx_pool_v2.js';
 // Tx type alias for cleaner type annotations
 type MockTx = Awaited<ReturnType<typeof mockTx>>;
 
+// Default maxFeesPerGas used by mockTx is GasFees(10, 10).
+// Fee limit per tx = DEFAULT_L2_GAS_LIMIT * 10 + DEFAULT_DA_GAS_LIMIT * 10.
+const DEFAULT_MAX_FEES_PER_GAS = new GasFees(10, 10);
+const DEFAULT_TX_FEE_LIMIT = GasSettings.default({ maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS }).getFeeLimit().toBigInt();
+
 /** A validator that accepts all transactions. Used in tests that don't need validation. */
 const alwaysValidValidator: TxValidator<TxMetaData> = {
   validateTx: () => Promise.resolve({ result: 'valid' }),
@@ -944,7 +949,7 @@ describe('TxPoolV2', () => {
       it('pre-protected tx does not trigger post-add eviction rules', async () => {
         const sharedFeePayer = AztecAddress.fromBigInt(999n);
         // Balance covers only one tx
-        setFeePayerBalanceForPreProtect(BigInt(2e8));
+        setFeePayerBalanceForPreProtect(DEFAULT_TX_FEE_LIMIT + DEFAULT_TX_FEE_LIMIT / 2n);
 
         // Add a pending tx first
         const txPending = await mockTx(1, {
@@ -2845,9 +2850,8 @@ describe('TxPoolV2', () => {
 
     it('high priority tx evicts lower priority tx from same fee payer', async () => {
       const sharedFeePayer = AztecAddress.fromBigInt(999n);
-      // Fee limit per tx is ~186M (DEFAULT_L2_GAS_LIMIT * 10 + DEFAULT_DA_GAS_LIMIT * 10)
       // Set balance to cover only one tx
-      setFeePayerBalance(BigInt(2e8));
+      setFeePayerBalance(DEFAULT_TX_FEE_LIMIT + DEFAULT_TX_FEE_LIMIT / 2n);
 
       // Add low priority tx first
       const txLow = await mockTx(1, {
@@ -2876,7 +2880,7 @@ describe('TxPoolV2', () => {
     it('low priority tx ignored when fee payer balance exhausted by existing tx', async () => {
       const sharedFeePayer = AztecAddress.fromBigInt(999n);
       // Balance covers only one tx
-      setFeePayerBalance(BigInt(2e8));
+      setFeePayerBalance(DEFAULT_TX_FEE_LIMIT + DEFAULT_TX_FEE_LIMIT / 2n);
 
       // Add high priority tx first
       const txHigh = await mockTx(1, {
@@ -2903,8 +2907,8 @@ describe('TxPoolV2', () => {
 
     it('batch from same fee payer - only top N by priority accepted', async () => {
       const sharedFeePayer = AztecAddress.fromBigInt(999n);
-      // Balance covers exactly 2 tx fee limits (~372M for 2 txs)
-      setFeePayerBalance(BigInt(4e8));
+      // Balance covers exactly 2 tx fee limits
+      setFeePayerBalance(DEFAULT_TX_FEE_LIMIT * 2n + DEFAULT_TX_FEE_LIMIT / 2n);
 
       // Add 3 txs in one batch, all from same fee payer
       const tx1 = await mockTx(1, {
@@ -2952,7 +2956,7 @@ describe('TxPoolV2', () => {
     it('evicts low-priority txs after BLOCK_MINED when balance is insufficient', async () => {
       const sharedFeePayer = AztecAddress.fromBigInt(999n);
       // Initial balance covers all 3 txs
-      setFeePayerBalance(BigInt(6e8));
+      setFeePayerBalance(DEFAULT_TX_FEE_LIMIT * 3n + DEFAULT_TX_FEE_LIMIT / 2n);
 
       // Add three txs from same fee payer
       const txLow = await mockTx(1, {
@@ -2976,7 +2980,7 @@ describe('TxPoolV2', () => {
 
       // Simulate block mined that reduced fee payer's balance
       // After mining txHigh, balance only covers one more tx
-      setFeePayerBalance(BigInt(2e8));
+      setFeePayerBalance(DEFAULT_TX_FEE_LIMIT + DEFAULT_TX_FEE_LIMIT / 2n);
 
       // Mine the highest priority tx - this triggers balance check for sharedFeePayer
       // The fee payer balance rule will check remaining pending txs from this fee payer
@@ -2993,7 +2997,7 @@ describe('TxPoolV2', () => {
     it('evicts low-priority txs after CHAIN_PRUNED when balance is insufficient', async () => {
       const sharedFeePayer = AztecAddress.fromBigInt(999n);
       // Initial balance covers both txs
-      setFeePayerBalance(BigInt(4e8));
+      setFeePayerBalance(DEFAULT_TX_FEE_LIMIT * 2n + DEFAULT_TX_FEE_LIMIT / 2n);
 
       db.findLeafIndices.mockResolvedValue([1n]); // Anchor blocks valid
 
@@ -3015,7 +3019,7 @@ describe('TxPoolV2', () => {
       expect(await pool.getTxStatus(txHigh.getTxHash())).toBe('mined');
 
       // Simulate reorg - balance reduced (e.g., another tx was restored)
-      setFeePayerBalance(BigInt(2e8)); // Only enough for one tx
+      setFeePayerBalance(DEFAULT_TX_FEE_LIMIT + DEFAULT_TX_FEE_LIMIT / 2n); // Only enough for one tx
 
       await pool.handlePrunedBlocks(block0Id);
 
@@ -3027,7 +3031,7 @@ describe('TxPoolV2', () => {
     it('priority ordering is correct - highest priority funded first', async () => {
       const sharedFeePayer = AztecAddress.fromBigInt(999n);
       // Initial balance covers all 3 txs
-      setFeePayerBalance(BigInt(6e8));
+      setFeePayerBalance(DEFAULT_TX_FEE_LIMIT * 3n + DEFAULT_TX_FEE_LIMIT / 2n);
 
       db.findLeafIndices.mockResolvedValue([1n]); // Anchor blocks valid
 
@@ -3053,7 +3057,7 @@ describe('TxPoolV2', () => {
       await pool.handleMinedBlock(makeBlock([txPriority1, txPriority5, txPriority10], slot1Header));
 
       // Reduce balance to only cover 2 txs before reorg
-      setFeePayerBalance(BigInt(4e8));
+      setFeePayerBalance(DEFAULT_TX_FEE_LIMIT * 2n + DEFAULT_TX_FEE_LIMIT / 2n);
 
       // Reorg - triggers balance eviction
       await pool.handlePrunedBlocks(block0Id);
@@ -4145,7 +4149,11 @@ describe('TxPoolV2', () => {
       db.getLeafPreimage.mockImplementation((tree, index) => {
         if (tree === MerkleTreeId.PUBLIC_DATA_TREE) {
           return Promise.resolve(
-            new PublicDataTreeLeafPreimage(new PublicDataTreeLeaf(new Fr(index), new Fr(BigInt(2e8))), Fr.ONE, 1n),
+            new PublicDataTreeLeafPreimage(
+              new PublicDataTreeLeaf(new Fr(index), new Fr(DEFAULT_TX_FEE_LIMIT + DEFAULT_TX_FEE_LIMIT / 2n)),
+              Fr.ONE,
+              1n,
+            ),
           );
         }
         return Promise.resolve(undefined);
