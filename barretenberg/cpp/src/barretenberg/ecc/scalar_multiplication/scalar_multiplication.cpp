@@ -86,7 +86,6 @@ template <typename Curve>
 std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
     std::span<std::span<ScalarField>> scalars, std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept
 {
-
     const size_t num_msms = scalars.size();
     msm_scalar_indices.resize(num_msms);
     for (size_t i = 0; i < num_msms; ++i) {
@@ -243,11 +242,10 @@ void MSM<Curve>::add_affine_points(typename Curve::AffineElement* points,
     using AffineElement = typename Curve::AffineElement;
     using BaseField = typename Curve::BaseField;
 
-    // Use interleaved array policy: pairs are (points[2i], points[2i+1]), output in points[num_pairs + 1]
-    // This includes prefetching for non-sequential output access
-    const size_t num_pairs = num_points / 2;
-    bb::group_elements::batch_affine_add_impl<bb::group_elements::InterleavedArrayPolicy, AffineElement, BaseField>(
-        points, points, num_pairs, scratch_space);
+    // Pippenger-specific interleaved batch add with direct prefetch and no aliasing overhead.
+    // The generic batch_affine_add_impl suffers from aliasing (lhs_base == rhs_base) causing
+    // the compiler to reload lhs coordinates after writing output. This version avoids that.
+    bb::group_elements::batch_affine_add_interleaved<AffineElement, BaseField>(points, num_points, scratch_space);
 }
 
 template <typename Curve>
