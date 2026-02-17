@@ -24,7 +24,12 @@ describe('e2e_epochs/epochs_long_proving_time', () => {
     const { aztecSlotDuration } = EpochsTestContext.getSlotDurations({ aztecEpochDuration });
     const epochDurationInSeconds = aztecSlotDuration * aztecEpochDuration;
     const proverTestDelayMs = (epochDurationInSeconds * 1000 * 3) / 4;
-    test = await EpochsTestContext.setup({ aztecEpochDuration, aztecProofSubmissionEpochs: 8, proverTestDelayMs });
+    test = await EpochsTestContext.setup({
+      aztecEpochDuration,
+      aztecProofSubmissionEpochs: 8,
+      proverTestDelayMs,
+      proverNodeConfig: { proverNodeMaxPendingJobs: 1 },
+    });
     ({ logger, monitor, L1_BLOCK_TIME_IN_S } = test);
     logger.warn(`Initialized with prover delay set to ${proverTestDelayMs}ms (epoch is ${epochDurationInSeconds}s)`);
   });
