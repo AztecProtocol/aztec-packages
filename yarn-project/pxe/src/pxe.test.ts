@@ -326,6 +326,6 @@ describe('PXE', () => {
       });
     });
   });
-  // Note: Not testing a successful run of `proveTx`, `sendTx`, `getTxReceipt` and `simulateUtility` here as it
+  // Note: Not testing a successful run of `proveTx`, `sendTx`, `getTxReceipt` and `executeUtility` here as it
   //       requires a larger setup and it's sufficiently tested in the e2e tests.
 });
