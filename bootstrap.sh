@@ -496,6 +496,7 @@ function release {
   projects=(
     barretenberg/cpp
     barretenberg/ts
+    barretenberg/rust
     noir
     l1-contracts
     noir-projects/aztec-nr
