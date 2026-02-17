@@ -48,12 +48,14 @@ When using `NO_WAIT`, returns `{ txHash, offchainEffects }` instead of a bare `T
 + const { txHash } = await contract.methods.foo(args).send({ from: sender, wait: NO_WAIT });
 ```
 
-**Deploy — returns `{ contract, offchainEffects }` object:**
+**Deploy — returns `{ contract, receipt, offchainEffects }` object:**
 
 ```diff
 - const myContract = await MyContract.deploy(wallet, ...args).send({ from: sender });
 + const { contract: myContract } = await MyContract.deploy(wallet, ...args).send({ from: sender });
 ```
+
+The deploy receipt is also available via `receipt` if needed (e.g. for `receipt.txHash` or `receipt.transactionFee`).
 
 **Custom wallet implementations — `sendTx()` must return objects:**
 
