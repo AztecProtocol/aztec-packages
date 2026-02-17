@@ -17,6 +17,7 @@ import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import { getAllFunctionAbis } from '@aztec/stdlib/abi';
 import { getProofSubmissionDeadlineEpoch } from '@aztec/stdlib/epoch-helpers';
+import { GasFees } from '@aztec/stdlib/gas';
 import { computeSiloedPrivateLogFirstField } from '@aztec/stdlib/hash';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
@@ -243,10 +244,8 @@ describe('e2e_block_building', () => {
       logger.info(`Txs sent`);
     });
 
-    // This works! But we cannot guarantee that the deployTx will land in the block before the callTx.
-    // So we skip to avoid flakes. To unskip, we could use priority fees (proposers order txs by
-    // priority fee) to guarantee the deploy tx is ordered before the call tx.
-    it.skip('can call public function from different tx in same block as deployed', async () => {
+    // Uses priority fees to guarantee the deploy tx is ordered before the call tx within the same block.
+    it('can call public function from different tx in same block as deployed', async () => {
       // Ensure both txs will land on the same block
       await aztecNodeAdmin.setConfig({ minTxsPerBlock: 2 });
 
@@ -264,11 +263,21 @@ describe('e2e_block_building', () => {
         [minterAddress, true],
       );
 
-      // Send deploy tx with NO_WAIT first to ensure it enters the mempool before the call tx.
-      // This way the sequencer will order them correctly (deploy before call).
-      const deployTxHash = await deployMethod.send({ from: ownerAddress, wait: NO_WAIT });
-      await sleep(100); // Brief wait to ensure ordering
-      const callTxHash = await callInteraction.send({ from: ownerAddress, wait: NO_WAIT });
+      // Use priority fees to guarantee ordering: deploy tx gets higher priority so the
+      // sequencer places it before the call tx in the block.
+      const highPriority = new GasFees(100, 100);
+      const lowPriority = new GasFees(1, 1);
+
+      const deployTxHash = await deployMethod.send({
+        from: ownerAddress,
+        fee: { gasSettings: { maxPriorityFeesPerGas: highPriority } },
+        wait: NO_WAIT,
+      });
+      const callTxHash = await callInteraction.send({
+        from: ownerAddress,
+        fee: { gasSettings: { maxPriorityFeesPerGas: lowPriority } },
+        wait: NO_WAIT,
+      });
 
       const [deployTxReceipt, callTxReceipt] = await Promise.all([
         waitForTx(aztecNode, deployTxHash),
