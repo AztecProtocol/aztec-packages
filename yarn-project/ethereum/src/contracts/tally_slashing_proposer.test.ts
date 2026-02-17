@@ -1,16 +1,10 @@
-import type { DeployL1ContractsArgs, ExtendedViemWalletClient } from '@aztec/ethereum';
-import {
-  DefaultL1ContractsConfig,
-  RollupContract,
-  createExtendedL1Client,
-  decodeSlashConsensusVotes,
-  deployL1Contracts,
-} from '@aztec/ethereum';
 import { EthCheatCodes, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider } from '@aztec/foundation/timer';
 import { TallySlashingProposerAbi } from '@aztec/l1-artifacts/TallySlashingProposerAbi';
@@ -20,13 +14,17 @@ import { type Hex, type TypedDataDefinition, encodeFunctionData, hashTypedData }
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
+import { createExtendedL1Client } from '../client.js';
+import { DefaultL1ContractsConfig } from '../config.js';
+import { type DeployAztecL1ContractsArgs, deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
+import { RollupContract, decodeSlashConsensusVotes } from './index.js';
 import { TallySlashingProposerContract } from './tally_slashing_proposer.js';
 
 describe('TallySlashingProposer', () => {
   let anvil: Anvil;
   let rpcUrl: string;
+  let deployerPrivateKeyRaw: Hex;
   let deployerPrivateKey: PrivateKeyAccount;
-  let logger: Logger;
   let writeClient: ExtendedViemWalletClient;
 
   let validatorsPrivateKeys: PrivateKeyAccount[];
@@ -37,7 +35,7 @@ describe('TallySlashingProposer', () => {
   let rollup: RollupContract;
   let tallySlashingProposer: TallySlashingProposerContract;
   let tallySlashingProposerAddress: EthAddress;
-  let testConfig: DeployL1ContractsArgs;
+  let testConfig: DeployAztecL1ContractsArgs;
 
   const mockSignature = {
     v: 27,
@@ -49,8 +47,8 @@ describe('TallySlashingProposer', () => {
   const testSlashingRoundSize = 192;
 
   beforeAll(async () => {
-    logger = createLogger('ethereum:test:tally_slashing_proposer');
-    deployerPrivateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
+    deployerPrivateKeyRaw = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba';
+    deployerPrivateKey = privateKeyToAccount(deployerPrivateKeyRaw);
 
     ({ anvil, rpcUrl } = await startAnvil());
 
@@ -66,7 +64,6 @@ describe('TallySlashingProposer', () => {
 
     testConfig = {
       ...DefaultL1ContractsConfig,
-      salt: undefined,
       vkTreeRoot: Fr.random(),
       protocolContractsHash: Fr.random(),
       genesisArchiveRoot: Fr.random(),
@@ -82,7 +79,7 @@ describe('TallySlashingProposer', () => {
       })),
     };
 
-    const deployed = await deployL1Contracts([rpcUrl], deployerPrivateKey, foundry, logger, testConfig);
+    const deployed = await deployAztecL1Contracts(rpcUrl, deployerPrivateKeyRaw, foundry.id, testConfig);
     cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
     rollupCheatCodes = new RollupCheatCodes(cheatCodes, deployed.l1ContractAddresses);
 
@@ -182,17 +179,17 @@ describe('TallySlashingProposer', () => {
 
     it('builds correct typed data to sign', async () => {
       const votes = bufferToHex(Buffer.alloc(testSlashingRoundSize / testConfig.aztecEpochDuration, 1));
-      const slot = 1n;
+      const slot = SlotNumber(1);
       const typedData = tallySlashingProposer.buildVoteTypedData(votes, slot);
       const expectedDigest = await tallySlashingProposer.getVoteDataDigest(votes, slot);
       expect(hashTypedData(typedData)).toEqual(expectedDigest.toString());
     });
 
     it('builds vote request with signer', async () => {
-      await rollupCheatCodes.advanceToEpoch(12n);
+      await rollupCheatCodes.advanceToEpoch(EpochNumber(12));
       const votes = bufferToHex(Buffer.alloc(testSlashingRoundSize / testConfig.aztecEpochDuration, 1));
       const slot = await rollup.getSlotNumber();
-      const proposer = EthAddress.fromString(await rollup.getCurrentProposer());
+      const proposer = await rollup.getCurrentProposer();
       const proposerIndex = validatorsAddresses.findIndex(addr => addr.equals(proposer));
       expect(proposerIndex).toBeGreaterThanOrEqual(0);
       const proposerKey = validatorsPrivateKeys[proposerIndex];

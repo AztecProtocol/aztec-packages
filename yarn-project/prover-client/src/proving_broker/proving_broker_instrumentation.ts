@@ -8,7 +8,7 @@ import {
   type ObservableResult,
   type TelemetryClient,
   type UpDownCounter,
-  ValueType,
+  createUpDownCounterWithDefault,
 } from '@aztec/telemetry-client';
 
 export type MonitorCallback = (proofType: ProvingRequestType) => number;
@@ -28,49 +28,28 @@ export class ProvingBrokerInstrumentation {
   constructor(client: TelemetryClient, name = 'ProvingBroker') {
     const meter = client.getMeter(name);
 
-    this.queueSize = meter.createObservableGauge(Metrics.PROVING_QUEUE_SIZE, {
-      valueType: ValueType.INT,
-    });
+    this.queueSize = meter.createObservableGauge(Metrics.PROVING_QUEUE_SIZE);
 
-    this.activeJobs = meter.createObservableGauge(Metrics.PROVING_QUEUE_ACTIVE_JOBS, {
-      valueType: ValueType.INT,
-    });
+    this.activeJobs = meter.createObservableGauge(Metrics.PROVING_QUEUE_ACTIVE_JOBS);
 
-    this.resolvedJobs = meter.createUpDownCounter(Metrics.PROVING_QUEUE_RESOLVED_JOBS, {
-      valueType: ValueType.INT,
-    });
+    const provingJobTypes = Object.values(ProvingRequestType).filter(v => typeof v === 'string');
+    const provingJobAttrs = { [Attributes.PROVING_JOB_TYPE]: provingJobTypes };
 
-    this.rejectedJobs = meter.createUpDownCounter(Metrics.PROVING_QUEUE_REJECTED_JOBS, {
-      valueType: ValueType.INT,
-    });
+    this.resolvedJobs = createUpDownCounterWithDefault(meter, Metrics.PROVING_QUEUE_RESOLVED_JOBS, provingJobAttrs);
 
-    this.retriedJobs = meter.createUpDownCounter(Metrics.PROVING_QUEUE_RETRIED_JOBS, {
-      valueType: ValueType.INT,
-    });
+    this.rejectedJobs = createUpDownCounterWithDefault(meter, Metrics.PROVING_QUEUE_REJECTED_JOBS, provingJobAttrs);
 
-    this.timedOutJobs = meter.createUpDownCounter(Metrics.PROVING_QUEUE_TIMED_OUT_JOBS, {
-      valueType: ValueType.INT,
-    });
+    this.retriedJobs = createUpDownCounterWithDefault(meter, Metrics.PROVING_QUEUE_RETRIED_JOBS, provingJobAttrs);
 
-    this.cachedJobs = meter.createUpDownCounter(Metrics.PROVING_QUEUE_CACHED_JOBS, {
-      valueType: ValueType.INT,
-    });
+    this.timedOutJobs = createUpDownCounterWithDefault(meter, Metrics.PROVING_QUEUE_TIMED_OUT_JOBS, provingJobAttrs);
 
-    this.totalJobs = meter.createUpDownCounter(Metrics.PROVING_QUEUE_TOTAL_JOBS, {
-      valueType: ValueType.INT,
-    });
+    this.cachedJobs = createUpDownCounterWithDefault(meter, Metrics.PROVING_QUEUE_CACHED_JOBS, provingJobAttrs);
 
-    this.jobWait = meter.createHistogram(Metrics.PROVING_QUEUE_JOB_WAIT, {
-      description: 'Records how long a job sits in the queue',
-      unit: 'ms',
-      valueType: ValueType.INT,
-    });
+    this.totalJobs = createUpDownCounterWithDefault(meter, Metrics.PROVING_QUEUE_TOTAL_JOBS, provingJobAttrs);
 
-    this.jobDuration = meter.createHistogram(Metrics.PROVING_QUEUE_JOB_DURATION, {
-      description: 'Records how long a job takes to complete',
-      unit: 'ms',
-      valueType: ValueType.INT,
-    });
+    this.jobWait = meter.createHistogram(Metrics.PROVING_QUEUE_JOB_WAIT);
+
+    this.jobDuration = meter.createHistogram(Metrics.PROVING_QUEUE_JOB_DURATION);
   }
 
   monitorQueueDepth(fn: MonitorCallback) {

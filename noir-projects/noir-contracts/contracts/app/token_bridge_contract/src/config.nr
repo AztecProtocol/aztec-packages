@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::{
+use aztec::protocol::{
     address::{AztecAddress, EthAddress},
     traits::{Deserialize, Packable, Serialize},
 };

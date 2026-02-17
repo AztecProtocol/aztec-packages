@@ -3,8 +3,9 @@ mod consecutive_tx_rollups_tests;
 mod rollup_structure_tests;
 
 use crate::{
-    abis::TxRollupPublicInputs, tests::RollupFixtureBuilder,
-    tx_merge::tx_merge_rollup_private_inputs::TxMergeRollupPrivateInputs,
+    abis::TxRollupPublicInputs,
+    tests::RollupFixtureBuilder,
+    tx_merge::tx_merge_rollup::{self, TxMergeRollupPrivateInputs},
 };
 use types::{
     constants::{
@@ -80,7 +81,8 @@ impl TestBuilder {
             RollupFixtureBuilder::make_proof_data(self.left_rollup, self.left_rollup_vk_index),
             RollupFixtureBuilder::make_proof_data(self.right_rollup, self.right_rollup_vk_index),
         ];
-        TxMergeRollupPrivateInputs { previous_rollups }.execute()
+        let inputs = TxMergeRollupPrivateInputs { previous_rollups };
+        tx_merge_rollup::execute(inputs)
     }
 
     pub fn execute_and_fail(self) {

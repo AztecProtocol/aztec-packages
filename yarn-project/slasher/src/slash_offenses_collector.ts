@@ -85,7 +85,11 @@ export class SlashOffensesCollector {
         }
       }
 
-      this.log.info(`Adding pending offense for validator ${arg.validator}`, pendingOffense);
+      this.log.info(`Adding pending offense for validator ${arg.validator}`, {
+        ...pendingOffense,
+        epochOrSlot: pendingOffense.epochOrSlot.toString(),
+        amount: pendingOffense.amount.toString(),
+      });
       await this.offensesStore.addPendingOffense(pendingOffense);
     }
   }

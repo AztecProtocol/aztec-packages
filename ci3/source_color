@@ -29,7 +29,7 @@ export link_open='\033]8;;'
 export link_close='\x07'
 
 function term_link {
-  echo -e "${link_open}$1${link_close}$2${link_open}${link_close}"
+  echo -e "${yellow}${link_open}$1${link_close}$2${link_open}${link_close}${reset}"
 }
 
 function ci_term_link {
@@ -41,7 +41,7 @@ function pr_link {
   if [[ $line =~ \(#([0-9]+)\) ]]; then
     pr_number="${BASH_REMATCH[1]}"
     link=$(term_link https://github.com/aztecprotocol/aztec-packages/pull/$pr_number $pr_number)
-    echo -e "${line/\(#${pr_number}\)/(#${yellow}${link}${reset})}"
+    echo -e "${line/\(#${pr_number}\)/(#${link})}"
   else
     echo -e "$line"
   fi

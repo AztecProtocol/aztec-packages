@@ -1,17 +1,18 @@
 import { FIELDS_PER_BLOB } from '@aztec/constants';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { toInlineStrArray } from '@aztec/foundation/testing';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
 import { Blob } from './blob.js';
 import { commitmentToFields } from './hash.js';
-import { BYTES_PER_BLOB, kzg } from './kzg_context.js';
+import { BYTES_PER_BLOB, getKzg } from './kzg_context.js';
 import { makeRandomBlob } from './testing.js';
 
 describe('blob', () => {
-  it('c-kzg lib should verify a batch of blobs', () => {
+  it('kzg lib should verify a batch of blobs', () => {
     // This test is taken from the blob-lib repo
+    const kzg = getKzg();
     const BATCH_SIZE = 3;
     const blobs: Uint8Array[] = [];
     const commitments: Uint8Array[] = [];
@@ -31,6 +32,7 @@ describe('blob', () => {
 
   it('should verify a kzg precise proof', () => {
     // This test is taken from the blob-lib repo
+    const kzg = getKzg();
     const zBytes = Buffer.alloc(32);
 
     // blobs[0][31] = x, and z = 0x01 results in y = x.
@@ -53,7 +55,7 @@ describe('blob', () => {
   });
 
   it('should evaluate a blob of 400 items', async () => {
-    // This test ensures that the Blob class correctly matches the c-kzg lib
+    // This test ensures that the noir blob lib correctly matches the kzg lib
     const blobFields = Array(400).fill(new Fr(3));
     const blobFieldsHash = await poseidon2Hash(blobFields);
     const blob = Blob.fromFields(blobFields);
@@ -83,7 +85,7 @@ describe('blob', () => {
   });
 
   it('should evaluate full blob', async () => {
-    // This test ensures that the Blob class correctly matches the c-kzg lib
+    // This test ensures that the noir blob lib correctly matches the kzg lib
     const blobFields = Array.from({ length: FIELDS_PER_BLOB }).map((_, i) => new Fr(i + 2));
     const blobFieldsHash = await poseidon2Hash(blobFields);
     const blob = Blob.fromFields(blobFields);
@@ -120,8 +122,7 @@ describe('blob', () => {
 
   it('should create a blob from a JSON object', () => {
     const blob = makeRandomBlob(7);
-    const blobIndex = 1;
-    const blobJson = blob.toJson(blobIndex);
+    const blobJson = blob.toJSON();
     expect(Blob.fromJson(blobJson)).toEqual(blob);
   });
 });

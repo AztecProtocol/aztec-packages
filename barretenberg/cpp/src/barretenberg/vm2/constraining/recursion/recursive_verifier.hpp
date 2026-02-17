@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: Completed, auditors: [Federico], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
 #pragma once
 
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
@@ -18,28 +24,33 @@ class AvmRecursiveVerifier {
     using NativeVerificationKey = typename Flavor::NativeVerificationKey;
     using Builder = typename Flavor::CircuitBuilder;
     using PCS = typename Flavor::PCS;
-    using Transcript = StdlibTranscript<Builder>;
+    using Transcript = Flavor::Transcript;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using PairingPoints = stdlib::recursion::PairingPoints<Curve>;
     using StdlibProof = stdlib::Proof<Builder>;
 
   public:
-    explicit AvmRecursiveVerifier(Builder& builder, const std::shared_ptr<VerificationKey>& vkey);
+    explicit AvmRecursiveVerifier(Builder& builder,
+                                  const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] PairingPoints verify_proof(
-        const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt);
-    [[nodiscard("IPA claim and Pairing points should be accumulated")]] PairingPoints verify_proof(
-        const StdlibProof& stdlib_proof_with_pi_flag, // TODO(#14234)[Unconditional PIs validation]: rename
-                                                      // stdlib_proof_with_pi_flag to stdlib_proof
-        const std::vector<std::vector<typename Flavor::FF>>& public_inputs);
+        const StdlibProof& stdlib_proof, const std::vector<std::vector<typename Flavor::FF>>& public_inputs);
 
-    Builder& builder;
-    std::shared_ptr<VerificationKey> key;
-    FF vk_hash;
-    std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
+    /**
+     * @brief Hash the transcript after verification is complete to produce a hash of the public inputs and proofs that
+     * have been verified.
+     *
+     */
+    FF hash_avm_transcript(const StdlibProof& stdlib_proof);
 
   private:
-    FF evaluate_public_input_column(const std::vector<FF>& points, const std::vector<FF>& challenges);
+    Builder& builder;
+    std::shared_ptr<VerificationKey> key;
+    std::shared_ptr<Transcript> transcript;
+
+    bool is_verification_complete = false;
+
+    static FF evaluate_public_input_column(const std::vector<FF>& points, const std::vector<FF>& challenges);
 };
 
 } // namespace bb::avm2

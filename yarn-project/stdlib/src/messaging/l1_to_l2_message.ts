@@ -1,6 +1,6 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import { sha256ToField } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { sha256ToField } from '@aztec/foundation/crypto/sha256';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex } from '@aztec/foundation/string';
 import { SiblingPath } from '@aztec/foundation/trees';
@@ -84,6 +84,7 @@ export async function getNonNullifiedL1ToL2MessageWitness(
   if (!response) {
     throw new Error(`No L1 to L2 message found for message hash ${messageHash.toString()}`);
   }
+
   const [messageIndex, siblingPath] = response;
 
   const messageNullifier = await computeL1ToL2MessageNullifier(contractAddress, messageHash, secret);

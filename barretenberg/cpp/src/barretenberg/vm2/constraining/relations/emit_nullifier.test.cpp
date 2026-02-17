@@ -141,7 +141,7 @@ TEST(EmitNullifierConstrainingTest, Interactions)
 
     AppendOnlyTreeSnapshot prev_snapshot = AppendOnlyTreeSnapshot{
         .root = pre_write_root,
-        .nextAvailableLeafIndex = 128,
+        .next_available_leaf_index = 128,
     };
     uint32_t prev_num_nullifiers_emitted = 2;
 
@@ -180,8 +180,8 @@ TEST(EmitNullifierConstrainingTest, Interactions)
         { C::execution_num_nullifiers_emitted, prev_num_nullifiers_emitted + 1 }, // increment on success
         { C::execution_prev_nullifier_tree_root, prev_snapshot.root },
         { C::execution_nullifier_tree_root, next_snapshot.root },
-        { C::execution_prev_nullifier_tree_size, prev_snapshot.nextAvailableLeafIndex },
-        { C::execution_nullifier_tree_size, next_snapshot.nextAvailableLeafIndex },
+        { C::execution_prev_nullifier_tree_size, prev_snapshot.next_available_leaf_index },
+        { C::execution_nullifier_tree_size, next_snapshot.next_available_leaf_index },
         { C::execution_contract_address, contract_address },
     } });
 
@@ -210,7 +210,7 @@ TEST(EmitNullifierConstrainingTest, InteractionsCollision)
 
     AppendOnlyTreeSnapshot prev_snapshot = AppendOnlyTreeSnapshot{
         .root = pre_write_root,
-        .nextAvailableLeafIndex = 128,
+        .next_available_leaf_index = 128,
     };
     uint32_t prev_num_nullifiers_emitted = 2;
 
@@ -243,8 +243,8 @@ TEST(EmitNullifierConstrainingTest, InteractionsCollision)
         { C::execution_num_nullifiers_emitted, prev_num_nullifiers_emitted }, // No increment on error
         { C::execution_prev_nullifier_tree_root, prev_snapshot.root },
         { C::execution_nullifier_tree_root, next_snapshot.root },
-        { C::execution_prev_nullifier_tree_size, prev_snapshot.nextAvailableLeafIndex },
-        { C::execution_nullifier_tree_size, next_snapshot.nextAvailableLeafIndex },
+        { C::execution_prev_nullifier_tree_size, prev_snapshot.next_available_leaf_index },
+        { C::execution_nullifier_tree_size, next_snapshot.next_available_leaf_index },
         { C::execution_contract_address, contract_address },
     } });
 

@@ -1,0 +1,104 @@
+node:
+  hostNetwork: true
+  node:
+    enableInspector: true
+    nodeJsOptions:
+      - "--max-old-space-size=65536"
+    resources:
+      requests:
+        cpu: "6"
+        memory: "54Gi"
+
+  nodeSelector:
+    local-ssd: "false"
+    node-type: "network"
+    cores: "8"
+    hi-mem: "true"
+
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - node
+          topologyKey: "kubernetes.io/hostname"
+          namespaceSelector: {}
+
+  persistence:
+    enabled: true
+  statefulSet:
+    volumeClaimTemplates:
+      - metadata:
+          name: data
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 16Gi
+
+broker:
+  replicaCount: 1
+
+  nodeSelector:
+    local-ssd: "false"
+    node-type: "network"
+    cores: "8"
+    hi-mem: "true"
+
+  persistence:
+    enabled: true
+  statefulSet:
+    volumeClaimTemplates:
+      - metadata:
+          name: data
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 32Gi
+  node:
+    enableInspector: true
+    nodeJsOptions:
+      - "--max-old-space-size=65536"
+    resources:
+      requests:
+        # should land on a 8-core node
+        cpu: "5"
+        memory: "54Gi"
+
+agent:
+  replicaCount: 4
+
+  node:
+    env:
+      HARDWARE_CONCURRENCY: "1"
+    nodeJsOptions:
+      - "--max-old-space-size=512"
+    resources:
+      requests:
+        cpu: "0.025"
+        memory: "0.5Gi"
+      limits:
+        cpu: "0.1"
+        memory: "0.75Gi"
+
+  nodeSelector:
+    cores: "2"
+    pool: "spot"
+
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: cloud.google.com/gke-spot
+                operator: Exists
+
+  tolerations:
+    - key: "cloud.google.com/gke-spot"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"

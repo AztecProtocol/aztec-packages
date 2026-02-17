@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cmd=${1:-}
-[ -n "$cmd" ] && shift
-
 function hash {
   hash_str \
     $(../noir/bootstrap.sh hash) \
@@ -16,69 +13,103 @@ function compile_project {
   parallel -j16 --line-buffered --tag 'cd {} && ../node_modules/.bin/swc src -d dest --config-file=../.swcrc --strip-leading-paths' "$@"
 }
 
-# Returns a list of projects to compile/lint/publish.
+# Returns a list of project paths to compile/lint/publish.
 # Ensure exclusions are matching in both cases.
 function get_projects {
   if [ "${1:-}" == 'topological' ]; then
     yarn workspaces foreach --topological-dev -A \
       --exclude @aztec/aztec3-packages \
       --exclude @aztec/scripts \
-      exec 'basename $(pwd)' | cat | grep -v "Done"
+      exec 'echo $(pwd)' | cat | grep -v "Done"
   else
-    dirname */src l1-artifacts/generated
+    dirname */src | xargs realpath
   fi
 }
 
 function format {
   local arg="-w"
-  local package=""
-  local pattern="./*/src"
+  local packages=()
 
-  # Check if first arg is a format option
-  if [ "${1:-}" == "--check" ]; then
-    arg="--check"
-    shift 1
-  elif [ "${1:-}" == "-w" ] || [ "${1:-}" == "--write" ]; then
-    arg="-w"
-    shift 1
+  # Parse all arguments
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --check)
+        arg="--check"
+        ;;
+      -w|--write)
+        arg="-w"
+        ;;
+      -*)
+        echo "Unknown flag: $1" >&2
+        return 1
+        ;;
+      *)
+        packages+=("$1")
+        ;;
+    esac
+    shift
+  done
+
+  # Build the paths array to search
+  local paths=()
+  if [ ${#packages[@]} -eq 0 ]; then
+    paths=(./*/src)
+  else
+    for pkg in "${packages[@]}"; do
+      if [ ! -d "./$pkg/src" ]; then
+        echo "Error: Package '$pkg' not found or has no src directory" >&2
+        return 1
+      fi
+      paths+=("./$pkg/src")
+    done
   fi
 
-  # Check if next arg is a package name (doesn't start with -)
-  if [ -n "${1:-}" ] && [[ ! "$1" =~ ^- ]]; then
-    package="$1"
-    pattern="./$package/src"
-  fi
-
-  find $pattern -type f -regex '.*\.\(json\|js\|mjs\|cjs\|ts\)$' 2>/dev/null | \
+  find "${paths[@]}" -type f -regex '.*\.\(json\|js\|mjs\|cjs\|ts\)$' | \
     parallel -N30 ./node_modules/.bin/prettier --log-level warn "$arg"
 }
 
 function lint {
   local arg="--fix"
-  local package=""
+  local packages=()
 
-  # Check if first arg is a lint option
-  if [ "${1-}" == "--check" ]; then
-    arg=""
-    shift 1
-  elif [ "${1-}" == "--fix" ]; then
-    arg="--fix"
-    shift 1
-  fi
+  # Parse all arguments
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --check)
+        arg=""
+        ;;
+      --fix)
+        arg="--fix"
+        ;;
+      -*)
+        echo "Unknown flag: $1" >&2
+        return 1
+        ;;
+      *)
+        packages+=("$1")
+        ;;
+    esac
+    shift
+  done
 
-  # Check if next arg is a package name (and not empty)
-  if [ -n "${1:-}" ] && [[ ! "$1" =~ ^- ]]; then
-    package="$1"
-    shift 1
-  fi
-
-  if [ -n "$package" ]; then
-    # Lint single package
-    cd "$package" && ../node_modules/.bin/eslint "$@" --cache $arg ./src
+  if [ ${#packages[@]} -gt 0 ]; then
+    # Validate packages exist
+    for pkg in "${packages[@]}"; do
+      if [ ! -d "./$pkg/src" ]; then
+        echo "Error: Package '$pkg' not found or has no src directory" >&2
+        return 1
+      fi
+    done
+    # Lint specified packages in parallel (use at most half of CPU cores)
+    printf '%s\n' "${packages[@]}" | parallel -j 50% "cd {} && ../node_modules/.bin/eslint --cache $arg ./src"
   else
-    # Lint all packages
-    get_projects | parallel "cd {} && ../node_modules/.bin/eslint $@ --cache $arg ./src"
+    # Lint all packages in parallel (use at most half of CPU cores)
+    get_projects | parallel -j 50% "cd {} && ../node_modules/.bin/eslint --cache $arg ./src"
   fi
+}
+
+function compile_all_projects {
+  get_projects | compile_project
 }
 
 function compile_all {
@@ -93,10 +124,13 @@ function compile_all {
   # Call all projects that have a generation stage.
   parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
     accounts \
+    aztec.js \
+    cli \
+    ethereum \
+    slasher \
     stdlib \
     ivc-integration \
     l1-artifacts \
-    native \
     noir-contracts.js \
     noir-test-contracts.js \
     noir-protocol-circuits-types \
@@ -110,13 +144,9 @@ function compile_all {
   cd pxe && yarn check_oracle_version
   cd ..
 
-  cmds=('format --check')
-  if [ "${TYPECHECK:-0}" -eq 1 ] || [ "${CI:-0}" -eq 1 ]; then
-    # Fully type check and lint.
-    cmds+=('yarn tsc -b --emitDeclarationOnly && lint --check')
-  else
-    # We just need the type declarations required for downstream consumers.
-    cmds+=('cd aztec.js && yarn tsc -b --emitDeclarationOnly')
+  cmds=('format --check' 'yarn tsgo -b --emitDeclarationOnly')
+  if [ "${CI:-0}" -eq 1 ]; then
+    cmds+=('lint --check')
   fi
   parallel --joblog joblog.txt --tag denoise ::: "${cmds[@]}"
   cat joblog.txt
@@ -131,30 +161,30 @@ export -f compile_project format lint get_projects compile_all hash
 function build {
   echo_header "yarn-project build"
   denoise "./bootstrap.sh clean-lite"
-  npm_install_deps
+  npm_install_deps ../noir
   denoise "compile_all"
 }
 
 function test_cmds {
   local hash=$(hash)
-  local avm_flag=$(../barretenberg/cpp/bootstrap.sh hash | grep -qE no-avm && echo "no-avm" || echo "avm")
 
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
   # kv-store: Uses mocha so will need different treatment.
   for test in !(end-to-end|kv-store|aztec)/src/**/*.test.ts; do
-    # If AVM is disabled, filter out avm_proving_tests/*.test.ts and avm_integration.test.ts
-    # Also must filter out rollup_ivc_integration.test.ts as it includes AVM proving.
-    if [[ $avm_flag == "no-avm" && "$test" =~ (avm_proving_tests|avm_integration|rollup_ivc_integration) ]]; then
-      continue
-    fi
+    # Skip benchmarks here.
+    [[ "$test" =~ \.bench\.test\.ts$ ]] && continue
 
     local prefix=$hash
     local cmd_env=""
 
     # These need isolation due to network stack usage (p2p, anvil, etc).
-    if [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test|stdlib/src/l1-contracts)/ ]]; then
+    if [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test|stdlib/src/l1-contracts|ivc-integration/src/chonk_browser|blob-client/src/server) ]]; then
       prefix+=":ISOLATE=1:NAME=$test"
+    fi
+
+    if [[ "$test" =~ ^ivc-integration/src/chonk_browser ]]; then
+      prefix+=":NET=1"
     fi
 
     # Boost some tests resources.
@@ -189,11 +219,11 @@ function test_cmds {
   done
 
   # Uses mocha for browser tests, so we have to treat it differently.
-  echo "$hash cd yarn-project/kv-store && yarn test"
-  echo "$hash cd yarn-project/ivc-integration && yarn test:browser"
+  echo "$hash:ISOLATE=1 cd yarn-project/kv-store && yarn test"
 
   if [[ "${TARGET_BRANCH:-}" =~ ^v[0-9]+$ ]]; then
     echo "$hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"
+    echo "$hash yarn-project/scripts/run_test.sh aztec/src/mainnet_compatibility.test.ts"
   fi
 }
 
@@ -208,6 +238,9 @@ function bench_cmds {
   echo "$hash BENCH_OUTPUT=bench-out/native_world_state.bench.json yarn-project/scripts/run_test.sh world-state/src/native/native_bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/kv_store.bench.json yarn-project/scripts/run_test.sh kv-store/src/bench/map_bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/tx_pool.bench.json yarn-project/scripts/run_test.sh p2p/src/mem_pools/tx_pool/tx_pool_bench.test.ts"
+  echo "$hash BENCH_OUTPUT=bench-out/tx_pool_v2.bench.json yarn-project/scripts/run_test.sh p2p/src/mem_pools/tx_pool_v2/tx_pool_v2_bench.test.ts"
+  echo "$hash BENCH_OUTPUT=bench-out/tx_validator.bench.json yarn-project/scripts/run_test.sh p2p/src/msg_validators/tx_validator/tx_validator_bench.test.ts"
+  echo "$hash:ISOLATE=1:CPUS=16:MEM=32g:TIMEOUT=1200 BENCH_OUTPUT=bench-out/p2p_client_proposal_tx_collector.bench.json yarn-project/scripts/run_test.sh p2p/src/client/test/tx_proposal_collector/p2p_client.proposal_tx_collector.bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/tx.bench.json yarn-project/scripts/run_test.sh stdlib/src/tx/tx_bench.test.ts"
   echo "$hash:ISOLATE=1:CPUS=10:MEM=16g:LOG_LEVEL=silent BENCH_OUTPUT=bench-out/proving_broker.bench.json yarn-project/scripts/run_test.sh prover-client/src/test/proving_broker_testbench.test.ts"
   echo "$hash:ISOLATE=1:CPUS=16:MEM=16g BENCH_OUTPUT=bench-out/avm_bulk_test.bench.json yarn-project/scripts/run_test.sh bb-prover/src/avm_proving_tests/avm_bulk.test.ts"
@@ -216,6 +249,14 @@ function bench_cmds {
 function release_packages {
   echo "Computing packages to publish..."
   local packages=$(get_projects topological)
+
+  # Strip platform-specific solc binary from l1-artifacts before npm publish.
+  # Replace solc="./solc-X.Y.Z" with solc_version="X.Y.Z" so forge auto-downloads
+  # the correct binary via SVM on the end-user's machine.
+  local l1_artifacts="l1-artifacts/l1-contracts"
+  rm -f "$l1_artifacts"/solc-*
+  sed -i 's|^solc = "\./solc-\(.*\)"|solc_version = "\1"|' "$l1_artifacts/foundry.toml"
+
   local package_list=()
   for package in $packages; do
     (cd $package && retry "deploy_npm $1 $2")
@@ -240,7 +281,7 @@ function release {
 
 case "$cmd" in
   "clean")
-    [ -n "${2:-}" ] && cd $2
+    [ -n "${1:-}" ] && cd $1
     git clean -fdx
     ;;
   "clean-lite")
@@ -249,15 +290,8 @@ case "$cmd" in
       echo "$files" | xargs rm -rf
     fi
     ;;
-  "ci")
+  "")
     build
-    test
-    ;;
-  ""|"fast")
-    build
-    ;;
-  "full")
-    TYPECHECK=1 build
     ;;
   "compile")
     if [ -n "${1:-}" ]; then
@@ -295,14 +329,7 @@ case "$cmd" in
     trap cleanup_instrumentation EXIT
     eval "$cmd"
     ;;
-  lint|format)
-    $cmd "$@"
-    ;;
-  test|test_cmds|bench_cmds|hash|release|format)
-    $cmd
-    ;;
   *)
-    echo "Unknown command: $cmd"
-    exit 1
-  ;;
+    default_cmd_handler "$@"
+    ;;
 esac

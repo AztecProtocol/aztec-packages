@@ -1,10 +1,10 @@
-import type { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { z } from 'zod';
 
-import type { AztecAddress } from '../../aztec-address/index.js';
+import { AztecAddress } from '../../aztec-address/index.js';
 import { PublicKeys } from '../../keys/public_keys.js';
-import { type ZodFor, schemas } from '../../schemas/index.js';
+import { schemas, zodFor } from '../../schemas/index.js';
 
 const VERSION = 1 as const;
 
@@ -32,16 +32,48 @@ export interface ContractInstance {
 
 export type ContractInstanceWithAddress = ContractInstance & { address: AztecAddress };
 
-export const ContractInstanceSchema = z.object({
-  version: z.literal(VERSION),
-  salt: schemas.Fr,
-  deployer: schemas.AztecAddress,
-  currentContractClassId: schemas.Fr,
-  originalContractClassId: schemas.Fr,
-  initializationHash: schemas.Fr,
-  publicKeys: PublicKeys.schema,
-}) satisfies ZodFor<ContractInstance>;
+export const ContractInstanceSchema = zodFor<ContractInstance>()(
+  z.object({
+    version: z.literal(VERSION),
+    salt: schemas.Fr,
+    deployer: schemas.AztecAddress,
+    currentContractClassId: schemas.Fr,
+    originalContractClassId: schemas.Fr,
+    initializationHash: schemas.Fr,
+    publicKeys: PublicKeys.schema,
+  }),
+);
 
-export const ContractInstanceWithAddressSchema = ContractInstanceSchema.and(
-  z.object({ address: schemas.AztecAddress }),
-) satisfies ZodFor<ContractInstanceWithAddress>;
+export const ContractInstanceWithAddressSchema = zodFor<ContractInstanceWithAddress>()(
+  ContractInstanceSchema.and(z.object({ address: schemas.AztecAddress })),
+);
+
+/**
+ * Creates a ContractInstance from a plain object without Zod validation.
+ * Suitable for deserializing trusted data (e.g., from C++ via MessagePack).
+ */
+export function contractInstanceFromPlainObject(obj: any): ContractInstance {
+  return {
+    version: 1,
+    salt: Fr.fromPlainObject(obj.salt),
+    deployer: AztecAddress.fromPlainObject(obj.deployer),
+    currentContractClassId: Fr.fromPlainObject(obj.currentContractClassId),
+    originalContractClassId: Fr.fromPlainObject(obj.originalContractClassId),
+    initializationHash: Fr.fromPlainObject(obj.initializationHash),
+    publicKeys: PublicKeys.fromPlainObject(obj.publicKeys),
+  };
+}
+
+/**
+ * Creates a ContractInstanceWithAddress from a plain object without Zod validation.
+ * Suitable for deserializing trusted data (e.g., from C++ via MessagePack).
+ */
+export function contractInstanceWithAddressFromPlainObject(
+  address: AztecAddress,
+  obj: any,
+): ContractInstanceWithAddress {
+  return {
+    ...contractInstanceFromPlainObject(obj),
+    address,
+  };
+}

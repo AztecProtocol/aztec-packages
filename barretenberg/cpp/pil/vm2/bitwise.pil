@@ -2,6 +2,44 @@ include "precomputed.pil";
 include "constants_gen.pil";
 
 /**
+ * ==============================
+ * INVOCATION WITH ERROR HANDLING
+ * ==============================
+ * Used by execution dispatch #[DISPATCH_TO_BITWISE] in execution.pil for bitwise opcodes
+ * and reads back the tag error flag.
+ *
+ * sel_exec_dispatch_bitwise {
+ *    subtrace_operation_id, sel_opcode_error,
+ *    register[0], mem_tag_reg[0],
+ *    register[1], mem_tag_reg[1],
+ *    register[2], mem_tag_reg[2]
+ * } in bitwise.start {
+ *    bitwise.op_id, bitwise.err,
+ *    bitwise.acc_ia, bitwise.tag_a,
+ *    bitwise.acc_ib, bitwise.tag_b,
+ *    bitwise.acc_ic, bitwise.tag_c
+ * };
+ *
+ * =================================
+ * INVOCATION WITHOUT ERROR HANDLING
+ * =================================
+ *
+ * Used by both `keccakf1600.pil` and `sha256.pil` sub-traces using their respective selectors:
+ * `start_keccak` and `start_sha256`. It assumes that the bitwise operation is always performed
+ * as tags of both inputs are known to be valid. Therefore, there is no error handling. However,
+ * tracegen still needs to populate the trace to satisfy the constraints related to error handling.
+ *
+ * Usage is of the form:
+ *
+ * sel_XXX { a, b, c, xor_sel, tag_a }
+ * in
+ * bitwise.start_XXX { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+ *
+ * where start_XXX is either start_keccak or start_sha256.
+ * Note that the order of the tuple columns might differ though. As long as the correct columns
+ * are passed, the usage is sound.
+ *
+ *
  * The bitwise trace performs AND/OR/XOR operations on non-FF types. It does
  * this by decomposing the inputs into 8-bit chunks and looks up the resulting
  * chunk of the operation in the precomputed bitwise table. The final output is
@@ -42,23 +80,32 @@ namespace bitwise;
 //    1     1      0      1       0x52        0x42          0x52        0x42
 
 // Selector for Bitwise Operation
-pol commit sel;
+pol commit sel; // @boolean
 sel * (1 - sel) = 0;
 
 // No relations will be checked if this identity is satisfied.
 #[skippable_if]
-sel = 0;
+sel + last = 0;
 
-pol commit start; // Identifies when we want to capture the output to the main trace.
+pol commit start; // @boolean Identifies when we want to capture the output to the main trace.
 // Must be constrained as a boolean as any selector used in a lookup/permutation.
 start * (1 - start) = 0;
 
 // This is used to decouple generation of inverses of lookups into this trace.
-pol commit start_keccak;
-pol commit start_sha256;
+pol commit start_keccak; // @boolean
+pol commit start_sha256; // @boolean
 start_keccak * (1 - start_keccak) = 0;
+start_sha256 * (1 - start_sha256) = 0;
 // If any of the above selectors is 1, then start must be 1.
 (start_keccak + start_sha256) * (1 - start) = 0;
+
+// Crucial constraint to prevent the vulnerability described in PR #19875 consisting
+// of maliciously setting start=1 on inactive rows (sel=0) by toggling an error
+// and forging in any bitwise operation result.
+#[BITW_START_ONLY_WHEN_SEL]
+(start_keccak + start_sha256) * (1 - sel) = 0;
+// Note: the more general `start * (1 - sel) = 0` would be too aggressive since error rows
+// legitimately need start=1 with sel=0 for the execution dispatch (#[DISPATCH_TO_BITWISE]).
 
 // To support dynamically sized memory operands we use a counter against a lookup
 // This decrementing counter goes from [TAG_LEN, 0] where TAG_LEN is the number of bytes in the
@@ -67,16 +114,16 @@ start_keccak * (1 - start_keccak) = 0;
 pol commit ctr;
 
 // The error flags for this subtrace
-pol commit sel_tag_ff_err;
+pol commit sel_tag_ff_err; // @boolean
 sel_tag_ff_err * (1 - sel_tag_ff_err) = 0;
-pol commit sel_tag_mismatch_err;
+pol commit sel_tag_mismatch_err; // @boolean
 sel_tag_mismatch_err * (1 - sel_tag_mismatch_err) = 0;
 
 // Consolidated error flag
-pol commit err;
+pol commit err; // @boolean (by definition)
 err = 1 - (1 - sel_tag_mismatch_err) * (1 - sel_tag_ff_err);
 // last is a boolean which serves to mark the end of the computation (end of latch)
-pol commit last;
+pol commit last; // @boolean
 last * (1 - last) = 0;
 #[LAST_ON_ERROR] // last = 1 if err = 1
 err * (last - 1) = 0;
@@ -93,8 +140,9 @@ pol commit tag_a;
 pol commit tag_b;
 pol commit tag_c; // This is the tag of the result
 // Sufficient to set tag_c == tag_a because we check that tag_a == tag_b
+// If there is an error, we relax this constraint as we want the flexibility to set the register in execution to FF(0)
 #[RES_TAG_SHOULD_MATCH_INPUT]
-start * (tag_c - tag_a) = 0;
+(1 - err) * start * (tag_c - tag_a) = 0;
 
 // Check that tag_a is not FF
 pol commit tag_a_inv;
@@ -168,19 +216,41 @@ last * (acc_ic - ic_byte) = 0;
 
 // If we encounter an error, we do not want to perform a lookup to retrieve ctr.
 // In the case of an error, ctr is unconstrained (ideally set to 0).
-pol commit sel_get_ctr;
+pol commit sel_get_ctr; // @boolean
 sel_get_ctr = start * (1 - err);
 
 #[INTEGRAL_TAG_LENGTH]
 sel_get_ctr { tag_a, ctr }
 in
-precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_byte_length };
+precomputed.sel_tag_parameters { precomputed.idx, precomputed.tag_byte_length };
 
+pol commit sel_and;
+pol commit sel_or;
+pol commit sel_xor;
+sel_and * (1 - sel_and) = 0;
+sel_or * (1 - sel_or) = 0;
+sel_xor * (1 - sel_xor) = 0;
+// op_id dispatch for byte operations
+sel * op_id = sel_and * constants.AVM_BITWISE_AND_OP_ID
+            + sel_or * constants.AVM_BITWISE_OR_OP_ID
+            + sel_xor * constants.AVM_BITWISE_XOR_OP_ID;
+
+pol commit output_and;
+pol commit output_or;
+pol commit output_xor;
+
+// We fetch all the byte operations in one lookup for efficiency purposes.
 #[BYTE_OPERATIONS]
-sel { op_id, ia_byte, ib_byte, ic_byte }
-in
-precomputed.sel_bitwise { precomputed.bitwise_op_id, precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output };
+sel {
+     ia_byte, ib_byte,
+     output_and, output_or, output_xor
+} in precomputed.sel_range_16 {
+     precomputed.bitwise_input_a, precomputed.bitwise_input_b,
+     precomputed.bitwise_output_and, precomputed.bitwise_output_or, precomputed.bitwise_output_xor
+};
 
+// Dispatch the relevant output value to the output.
+ic_byte = sel_and * output_and + sel_or * output_or + sel_xor * output_xor;
 
 // Potential improvements: See the following paragraphs
 

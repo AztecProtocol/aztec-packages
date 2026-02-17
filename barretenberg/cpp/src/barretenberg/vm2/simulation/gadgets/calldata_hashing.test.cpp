@@ -46,7 +46,7 @@ class CalldataHashingTest : public ::testing::Test {
 TEST_F(CalldataHashingTest, SimpleHash)
 {
     // The hardcoded value is taken from noir-projects/aztec-nr/aztec/src/hash.nr:
-    FF hash = FF("0x191383c9f8964afd3ea8879a03b7dda65d6724773966d18dcf80e452736fc1f3");
+    FF hash = FF("0x14a1539bdb1d26e03097cf4d40c87e02ca03f0bb50a3e617ace5a7bfd3943944");
 
     std::vector<FF> calldata_fields = {};
     calldata_fields.reserve(100);
@@ -54,53 +54,49 @@ TEST_F(CalldataHashingTest, SimpleHash)
         calldata_fields.push_back(FF(i));
     }
 
-    std::vector<FF> prepended_calldata_fields = { GENERATOR_INDEX__PUBLIC_CALLDATA };
+    std::vector<FF> prepended_calldata_fields = { DOM_SEP__PUBLIC_CALLDATA };
     prepended_calldata_fields.insert(prepended_calldata_fields.end(), calldata_fields.begin(), calldata_fields.end());
 
     EXPECT_CALL(poseidon2, hash(prepended_calldata_fields)).WillOnce(Return(hash));
 
-    auto output_hash = calldata_hasher.compute_calldata_hash(calldata_fields);
+    calldata_hasher.assert_calldata_hash(hash, calldata_fields);
 
-    EXPECT_EQ(output_hash, hash);
-    EXPECT_THAT(calldata_events.dump_events(),
-                AllOf(SizeIs(1),
-                      ElementsAre(AllOf(Field(&CalldataEvent::context_id, 1),
-                                        Field(&CalldataEvent::calldata_size, 100),
-                                        Field(&CalldataEvent::calldata, SizeIs(100))))));
+    EXPECT_THAT(
+        calldata_events.dump_events(),
+        AllOf(SizeIs(1),
+              ElementsAre(AllOf(Field(&CalldataEvent::context_id, 1), Field(&CalldataEvent::calldata, SizeIs(100))))));
 }
 
 TEST_F(CalldataHashingTest, Hash)
 {
     std::vector<FF> calldata = testing::random_fields(500);
-    std::vector<FF> prepended_calldata_fields = { GENERATOR_INDEX__PUBLIC_CALLDATA };
+    std::vector<FF> prepended_calldata_fields = { DOM_SEP__PUBLIC_CALLDATA };
     prepended_calldata_fields.insert(prepended_calldata_fields.end(), calldata.begin(), calldata.end());
 
     auto hash = RawPoseidon2::hash(prepended_calldata_fields);
     EXPECT_CALL(poseidon2, hash(prepended_calldata_fields)).WillOnce(Return(hash));
 
-    calldata_hasher.compute_calldata_hash(calldata);
-    EXPECT_THAT(calldata_events.dump_events(),
-                AllOf(SizeIs(1),
-                      ElementsAre(AllOf(Field(&CalldataEvent::context_id, 1),
-                                        Field(&CalldataEvent::calldata_size, 500),
-                                        Field(&CalldataEvent::calldata, calldata)))));
+    calldata_hasher.assert_calldata_hash(hash, calldata);
+    EXPECT_THAT(
+        calldata_events.dump_events(),
+        AllOf(SizeIs(1),
+              ElementsAre(AllOf(Field(&CalldataEvent::context_id, 1), Field(&CalldataEvent::calldata, calldata)))));
 }
 
 TEST_F(CalldataHashingTest, Empty)
 {
     std::vector<FF> calldata = {};
     // If we recieve empty calldata, we just hash the separator:
-    std::vector<FF> prepended_calldata_fields = { GENERATOR_INDEX__PUBLIC_CALLDATA };
+    std::vector<FF> prepended_calldata_fields = { DOM_SEP__PUBLIC_CALLDATA };
 
     auto hash = RawPoseidon2::hash(prepended_calldata_fields);
     EXPECT_CALL(poseidon2, hash(prepended_calldata_fields)).WillOnce(Return(hash));
 
-    calldata_hasher.compute_calldata_hash(calldata);
-    EXPECT_THAT(calldata_events.dump_events(),
-                AllOf(SizeIs(1),
-                      ElementsAre(AllOf(Field(&CalldataEvent::context_id, 1),
-                                        Field(&CalldataEvent::calldata_size, 0),
-                                        Field(&CalldataEvent::calldata, calldata)))));
+    calldata_hasher.assert_calldata_hash(hash, calldata);
+    EXPECT_THAT(
+        calldata_events.dump_events(),
+        AllOf(SizeIs(1),
+              ElementsAre(AllOf(Field(&CalldataEvent::context_id, 1), Field(&CalldataEvent::calldata, calldata)))));
 }
 
 } // namespace

@@ -1,12 +1,14 @@
 import { BlobAccumulator, FinalBlobBatchingChallenges } from '@aztec/blob-lib/types';
-import { ARCHIVE_HEIGHT, BLOBS_PER_BLOCK, FIELDS_PER_BLOB } from '@aztec/constants';
-import { BLS12Point, Fr } from '@aztec/foundation/fields';
+import { ARCHIVE_HEIGHT, BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB, OUT_HASH_TREE_HEIGHT } from '@aztec/constants';
+import { BLS12Point } from '@aztec/foundation/curves/bls12';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { ProofData, type RollupHonkProofData } from '../proofs/proof_data.js';
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { BlockRollupPublicInputs } from './block_rollup_public_inputs.js';
 
@@ -21,6 +23,14 @@ export class CheckpointRootRollupHints {
      */
     public previousArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     /**
+     * The out hash tree snapshot immediately before this checkpoint.
+     */
+    public previousOutHash: AppendOnlyTreeSnapshot,
+    /**
+     * Hint for inserting the new out hash into the out hash tree.
+     */
+    public newOutHashSiblingPath: Tuple<Fr, typeof OUT_HASH_TREE_HEIGHT>,
+    /**
      * The current blob accumulation state across the epoch.
      */
     public startBlobAccumulator: BlobAccumulator,
@@ -31,13 +41,13 @@ export class CheckpointRootRollupHints {
     /**
      * Flat list of all tx effects which will be added to the blob.
      * Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-     * Tuple<Fr, FIELDS_PER_BLOB * BLOBS_PER_BLOCK>
+     * Tuple<Fr, FIELDS_PER_BLOB * BLOBS_PER_CHECKPOINT>
      */
     public blobFields: Fr[],
     /**
      * KZG commitments representing the blob (precomputed in ts, injected to use inside circuit).
      */
-    public blobCommitments: Tuple<BLS12Point, typeof BLOBS_PER_BLOCK>,
+    public blobCommitments: Tuple<BLS12Point, typeof BLOBS_PER_CHECKPOINT>,
     /**
      * The hash of eth blob hashes for this block
      * See yarn-project/foundation/src/blob/index.ts or body.ts for calculation
@@ -53,6 +63,8 @@ export class CheckpointRootRollupHints {
     return [
       fields.previousBlockHeader,
       fields.previousArchiveSiblingPath,
+      fields.previousOutHash,
+      fields.newOutHashSiblingPath,
       fields.startBlobAccumulator,
       fields.finalBlobChallenges,
       fields.blobFields,
@@ -70,12 +82,14 @@ export class CheckpointRootRollupHints {
     return new CheckpointRootRollupHints(
       BlockHeader.fromBuffer(reader),
       reader.readArray(ARCHIVE_HEIGHT, Fr),
+      reader.readObject(AppendOnlyTreeSnapshot),
+      reader.readArray(OUT_HASH_TREE_HEIGHT, Fr),
       reader.readObject(BlobAccumulator),
       reader.readObject(FinalBlobBatchingChallenges),
       // Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
       // reader.readArray(FIELDS_PER_BLOB, Fr),
-      Array.from({ length: FIELDS_PER_BLOB * BLOBS_PER_BLOCK }, () => Fr.fromBuffer(reader)),
-      reader.readArray(BLOBS_PER_BLOCK, BLS12Point),
+      Array.from({ length: FIELDS_PER_BLOB * BLOBS_PER_CHECKPOINT }, () => Fr.fromBuffer(reader)),
+      reader.readArray(BLOBS_PER_CHECKPOINT, BLS12Point),
       Fr.fromBuffer(reader),
     );
   }

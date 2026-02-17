@@ -1,6 +1,7 @@
 import { fromHex, toBigIntBE } from '@aztec/foundation/bigint-buffer';
-import { poseidon2HashBytes, randomBytes } from '@aztec/foundation/crypto';
-import type { Fr } from '@aztec/foundation/fields';
+import { poseidon2HashBytes } from '@aztec/foundation/crypto/poseidon';
+import { randomBytes } from '@aztec/foundation/crypto/random';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader } from '@aztec/foundation/serialize';
 

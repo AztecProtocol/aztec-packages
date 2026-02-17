@@ -3,7 +3,7 @@ import { type AztecNodeConfig, aztecNodeConfigMappings, getConfigEnvVars } from 
 import { Fr } from '@aztec/aztec.js/fields';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { getL1Config } from '@aztec/cli/config';
-import { getPublicClient } from '@aztec/ethereum';
+import { getPublicClient } from '@aztec/ethereum/client';
 import { SecretValue } from '@aztec/foundation/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
@@ -15,10 +15,10 @@ import {
   initTelemetryClient,
   telemetryClientConfigMappings,
 } from '@aztec/telemetry-client';
-import { TestWallet } from '@aztec/test-wallet/server';
+import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { createAztecNode } from '../../sandbox/index.js';
+import { createAztecNode } from '../../local-network/index.js';
 import {
   extractNamespacedOptions,
   extractRelevantOptions,
@@ -93,7 +93,7 @@ export async function startNode(
     ...config,
   };
 
-  if (!options.sequencer) {
+  if (!options.sequencer && !nodeConfig.fishermanMode) {
     nodeConfig.disableValidator = true;
   } else {
     const sequencerConfig = {
@@ -117,7 +117,7 @@ export async function startNode(
   }
 
   const telemetryConfig = extractRelevantOptions<TelemetryClientConfig>(options, telemetryClientConfigMappings, 'tel');
-  const telemetry = initTelemetryClient(telemetryConfig);
+  const telemetry = await initTelemetryClient(telemetryConfig);
 
   // Create and start Aztec Node
   const node = await createAztecNode(nodeConfig, { telemetry }, { prefilledPublicData });
@@ -135,7 +135,7 @@ export async function startNode(
     const { addBot } = await import('./start_bot.js');
 
     const pxeConfig = extractRelevantOptions<PXEConfig & CliPXEOptions>(options, allPxeConfigMappings, 'pxe');
-    const wallet = await TestWallet.create(node, pxeConfig);
+    const wallet = await EmbeddedWallet.create(node, { pxeConfig });
 
     await addBot(options, signalHandlers, services, wallet, node, telemetry, undefined);
   }

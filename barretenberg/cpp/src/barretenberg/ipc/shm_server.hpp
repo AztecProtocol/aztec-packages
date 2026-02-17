@@ -1,39 +1,41 @@
 #pragma once
 
-#include "barretenberg/ipc/ipc_server.hpp"
-#include "barretenberg/ipc/shm/mpsc_shm.hpp"
-#include "barretenberg/ipc/shm/spsc_shm.hpp"
-#include <atomic>
+#include "barretenberg/common/throw_or_abort.hpp"
+#include "ipc_server.hpp"
+#include "shm/spsc_shm.hpp"
+#include "shm_common.hpp"
 #include <cstdint>
 #include <cstring>
 #include <fcntl.h>
+#include <iostream>
 #include <optional>
 #include <string>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <utility>
-#include <vector>
 
 namespace bb::ipc {
 
 /**
  * @brief IPC server implementation using shared memory
  *
- * Uses MPSC (multi-producer single-consumer) for receiving requests from multiple clients.
- * Each client gets a dedicated SPSC ring for responses.
+ * Uses SPSC (single-producer single-consumer) for both requests and responses.
+ * Simple 1:1 client-server communication.
  */
 class ShmServer : public IpcServer {
   public:
     static constexpr size_t DEFAULT_RING_SIZE = 1 << 20; // 1MB
 
-    ShmServer(std::string base_name, size_t max_clients, size_t ring_size = DEFAULT_RING_SIZE)
+    ShmServer(std::string base_name,
+              size_t request_ring_size = DEFAULT_RING_SIZE,
+              size_t response_ring_size = DEFAULT_RING_SIZE)
         : base_name_(std::move(base_name))
-        , max_clients_(max_clients)
-        , ring_size_(ring_size)
+        , request_ring_size_(request_ring_size)
+        , response_ring_size_(response_ring_size)
     {}
 
-    ~ShmServer() override { close_internal(); }
+    ~ShmServer() override { close(); }
 
     // Non-copyable, non-movable (owns shared memory resources)
     ShmServer(const ShmServer&) = delete;
@@ -43,57 +45,22 @@ class ShmServer : public IpcServer {
 
     bool listen() override
     {
-        if (consumer_.has_value()) {
+        if (request_ring_.has_value()) {
             return true; // Already listening
         }
 
         // Clean up any leftover shared memory
-        MpscConsumer::unlink(base_name_, max_clients_);
-        for (size_t i = 0; i < max_clients_; i++) {
-            std::string resp_name = base_name_ + "_response_" + std::to_string(i);
-            SpscShm::unlink(resp_name);
-        }
-        std::string id_name = base_name_ + "_next_id";
-        shm_unlink(id_name.c_str());
+        std::string req_name = base_name_ + "_request";
+        std::string resp_name = base_name_ + "_response";
+        SpscShm::unlink(req_name);
+        SpscShm::unlink(resp_name);
 
         try {
-            // Create MPSC consumer for requests
-            consumer_ = MpscConsumer::create(base_name_, max_clients_, ring_size_);
+            // Create SPSC ring for requests (client writes, server reads)
+            request_ring_ = SpscShm::create(req_name, request_ring_size_);
 
-            // Create client ID allocator in shared memory
-            int id_fd = shm_open(id_name.c_str(), O_CREAT | O_RDWR, 0666);
-            if (id_fd < 0) {
-                consumer_.reset();
-                return false;
-            }
-
-            if (ftruncate(id_fd, sizeof(std::atomic<uint32_t>)) < 0) {
-                ::close(id_fd);
-                shm_unlink(id_name.c_str());
-                consumer_.reset();
-                return false;
-            }
-
-            auto* next_id = static_cast<std::atomic<uint32_t>*>(
-                mmap(nullptr, sizeof(std::atomic<uint32_t>), PROT_READ | PROT_WRITE, MAP_SHARED, id_fd, 0));
-
-            if (next_id == MAP_FAILED) {
-                ::close(id_fd);
-                shm_unlink(id_name.c_str());
-                consumer_.reset();
-                return false;
-            }
-
-            next_id->store(0, std::memory_order_relaxed);
-            munmap(next_id, sizeof(std::atomic<uint32_t>));
-            ::close(id_fd);
-
-            // Pre-create all response rings
-            response_rings_.reserve(max_clients_);
-            for (size_t i = 0; i < max_clients_; i++) {
-                std::string resp_name = base_name_ + "_response_" + std::to_string(i);
-                response_rings_.push_back(SpscShm::create(resp_name, ring_size_));
-            }
+            // Create SPSC ring for responses (server writes, client reads)
+            response_ring_ = SpscShm::create(resp_name, response_ring_size_);
 
             return true;
         } catch (...) {
@@ -104,116 +71,83 @@ class ShmServer : public IpcServer {
 
     int wait_for_data(uint64_t timeout_ns) override
     {
-        if (!consumer_.has_value()) {
+        assert(request_ring_);
+        if (!request_ring_.has_value()) {
             return -1;
         }
 
-        uint64_t timeout_us = timeout_ns > 0 ? timeout_ns / 1000 : 100000; // Default 100ms
-        return consumer_->wait_for_data(static_cast<uint32_t>(timeout_us));
+        // Wait for data in request ring, return client ID 0 (always single client)
+        if (request_ring_->wait_for_data(sizeof(uint32_t), static_cast<uint32_t>(timeout_ns))) {
+            return 0; // Single client, always ID 0
+        }
+        return -1; // Timeout
     }
 
-    ssize_t recv(int client_id, void* buffer, size_t max_len) override
+    std::span<const uint8_t> receive([[maybe_unused]] int client_id) override
     {
-        if (!consumer_.has_value() || client_id < 0) {
-            return -1;
+        if (!request_ring_.has_value()) {
+            return {};
         }
-        const auto client_idx = static_cast<size_t>(client_id);
-        if (client_idx >= max_clients_) {
-            return -1;
-        }
-
-        // Peek now skips padding automatically
-        size_t n = 0;
-        void* data = consumer_->peek(client_idx, &n);
-        if (data == nullptr || n < sizeof(uint32_t)) {
-            if (n > 0) {
-                consumer_->release(client_idx, n);
-            }
-            return -1;
-        }
-
-        // Read length prefix
-        uint32_t msg_len = 0;
-        std::memcpy(&msg_len, data, sizeof(uint32_t));
-
-        if (n < sizeof(uint32_t) + msg_len) {
-            consumer_->release(client_idx, n);
-            return -1; // Incomplete message
-        }
-
-        if (msg_len > max_len) {
-            consumer_->release(client_idx, sizeof(uint32_t) + msg_len);
-            return -1; // Buffer too small
-        }
-
-        // Copy message data (skip length prefix)
-        std::memcpy(buffer, static_cast<const uint8_t*>(data) + sizeof(uint32_t), msg_len);
-        consumer_->release(client_idx, sizeof(uint32_t) + msg_len);
-
-        return static_cast<ssize_t>(msg_len);
+        // TODO: Plumb timeout.
+        return ring_receive_msg(request_ring_.value(), 100000000); // 100ms timeout
     }
 
-    bool send(int client_id, const void* data, size_t len) override
+    void release([[maybe_unused]] int client_id, size_t message_size) override
     {
-        if (!consumer_.has_value() || client_id < 0) {
-            return false;
+        if (!request_ring_.has_value()) {
+            return;
         }
-        const auto client_idx = static_cast<size_t>(client_id);
-        if (client_idx >= max_clients_) {
-            return false;
-        }
-
-        SpscShm& response_ring = response_rings_[client_idx];
-
-        // Add 4-byte length prefix to match socket behavior
-        size_t total_len = sizeof(uint32_t) + len;
-
-        if (!response_ring.wait_for_space(total_len, 10000000)) { // 10ms
-            return false;
-        }
-
-        // Claim handles wrapping internally
-        size_t granted = 0;
-        void* buf = response_ring.claim(total_len, &granted);
-        if (granted < total_len) {
-            return false;
-        }
-
-        // Write length prefix then data
-        auto len_u32 = static_cast<uint32_t>(len);
-        std::memcpy(buf, &len_u32, sizeof(uint32_t));
-        std::memcpy(static_cast<uint8_t*>(buf) + sizeof(uint32_t), data, len);
-        response_ring.publish(total_len);
-
-        return true;
+        request_ring_->release(sizeof(uint32_t) + message_size);
     }
 
-    void close() override { close_internal(); }
-
-  private:
-    void close_internal()
+    bool send([[maybe_unused]] int client_id, const void* data, size_t len) override
     {
-        // Close all response rings
-        response_rings_.clear();
+        if (!response_ring_.has_value()) {
+            return false;
+        }
+        return ring_send_msg(response_ring_.value(), data, len, 100000000);
+    }
 
-        // Close consumer
-        consumer_.reset();
+    void close() override
+    {
+        // Close rings
+        request_ring_.reset();
+        response_ring_.reset();
 
         // Clean up shared memory
-        MpscConsumer::unlink(base_name_, max_clients_);
-        for (size_t i = 0; i < max_clients_; i++) {
-            std::string resp_name = base_name_ + "_response_" + std::to_string(i);
-            SpscShm::unlink(resp_name);
-        }
-        std::string id_name = base_name_ + "_next_id";
-        shm_unlink(id_name.c_str());
+        std::string req_name = base_name_ + "_request";
+        std::string resp_name = base_name_ + "_response";
+        SpscShm::unlink(req_name);
+        SpscShm::unlink(resp_name);
     }
 
+    void wakeup_all() override
+    {
+        // Wake any threads blocked in wait/peek/claim
+        if (request_ring_.has_value()) {
+            request_ring_->wakeup_all();
+        }
+        if (response_ring_.has_value()) {
+            response_ring_->wakeup_all();
+        }
+    }
+
+    void debug_dump() const
+    {
+        if (request_ring_.has_value()) {
+            request_ring_->debug_dump("Server REQ");
+        }
+        if (response_ring_.has_value()) {
+            response_ring_->debug_dump("Server RESP");
+        }
+    }
+
+  private:
     std::string base_name_;
-    size_t max_clients_;
-    size_t ring_size_;
-    std::optional<MpscConsumer> consumer_;
-    std::vector<SpscShm> response_rings_;
+    size_t request_ring_size_;
+    size_t response_ring_size_;
+    std::optional<SpscShm> request_ring_;  // Server reads from this
+    std::optional<SpscShm> response_ring_; // Server writes to this
 };
 
 } // namespace bb::ipc

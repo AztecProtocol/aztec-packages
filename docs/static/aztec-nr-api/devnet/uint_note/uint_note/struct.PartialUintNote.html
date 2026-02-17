@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
+<title>Struct PartialUintNote documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">PartialUintNote</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">uint_note</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct PartialUintNote</a></h2>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#complete">complete</a></li>
+<li><a href="#complete_from_private">complete_from_private</a></li>
+<li><a href="#compute_validity_commitment">compute_validity_commitment</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-PartialUintNote">Deserialize</a></li>
+<li><a href="#impl-Eq-for-PartialUintNote">Eq</a></li>
+<li><a href="#impl-FromField-for-PartialUintNote">FromField</a></li>
+<li><a href="#impl-Packable-for-PartialUintNote">Packable</a></li>
+<li><a href="#impl-Serialize-for-PartialUintNote">Serialize</a></li>
+<li><a href="#impl-ToField-for-PartialUintNote">ToField</a></li>
+</ul>
+<h2>In module uint_note</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.PartialUintNote.html">PartialUintNote</a></div></li>
+<li><a href="struct.UintNote.html">UintNote</a></div></li>
+<li><a href="struct.UintNoteProperties.html">UintNoteProperties</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">uint_note</a>::<a href="index.html">uint_note</a></div>
+<h1>Struct <span id="struct" class="struct">PartialUintNote</span></h1>
+<pre><code>pub struct PartialUintNote
+{ <span class="comment">/* private fields */</span> }
+</code></pre>
+<div class="comments">
+<p>A partial instance of a UintNote. This value represents a private commitment to the owner, randomness and storage
+slot, but the value field has not yet been set. A partial note can be completed in public with the <code>complete</code>
+function (revealing the value to the public), resulting in a UintNote that can be used like any other one (except
+of course that its value is known).</p>
+</div>
+<h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../uint_note/uint_note/struct.PartialUintNote.html" class="struct">PartialUintNote</a></code></h3>
+
+<div class="padded-methods"><code id="complete" class="code-header">pub fn <a href="#complete"><span class="fn">complete</span></a>(self, context: <a href="../../noir_aztec/context/public_context/struct.PublicContext.html" class="struct">PublicContext</a>, completer: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, value: <a href="../../std/primitive.u128.html" class="primitive">u128</a>)</code>
+
+<div class="padded-description"><div class="comments">
+<p>Completes the partial note, creating a new note that can be used like any other UintNote.</p>
+</div>
+</div><code id="complete_from_private" class="code-header">pub fn <a href="#complete_from_private"><span class="fn">complete_from_private</span></a>(
+    self,
+    context: &mut <a href="../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>,
+    completer: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    value: <a href="../../std/primitive.u128.html" class="primitive">u128</a>,
+)</code>
+
+<div class="padded-description"><div class="comments">
+<p>Completes the partial note, creating a new note that can be used like any other UintNote. Same as <code>complete</code>
+function but works from private context.</p>
+</div>
+</div><code id="compute_validity_commitment" class="code-header">pub fn <a href="#compute_validity_commitment"><span class="fn">compute_validity_commitment</span></a>(self, completer: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Computes a validity commitment for this partial note. The commitment cryptographically binds the note's private
+data with the designated completer address. When the note is later completed in public execution, we can load
+this commitment from the nullifier tree and verify that both the partial note (e.g. that the storage slot
+corresponds to the correct owner, and that we're using the correct state variable) and completer are
+legitimate.</p>
+</div>
+</div></div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-PartialUintNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../uint_note/uint_note/struct.PartialUintNote.html" class="struct">PartialUintNote</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(serialized: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 1]) -> Self</code>
+
+</div><h3 id="impl-Eq-for-PartialUintNote"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../uint_note/uint_note/struct.PartialUintNote.html" class="struct">PartialUintNote</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-FromField-for-PartialUintNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.FromField.html" class="trait">FromField</a> for <a href="../../uint_note/uint_note/struct.PartialUintNote.html" class="struct">PartialUintNote</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">from_field</span>(field: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+
+</div><h3 id="impl-Packable-for-PartialUintNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../uint_note/uint_note/struct.PartialUintNote.html" class="struct">PartialUintNote</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">pack</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 1]</code>
+
+<code class="code-header">pub fn <span class="fn">unpack</span>(packed: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 1]) -> Self</code>
+
+</div><h3 id="impl-Serialize-for-PartialUintNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../uint_note/uint_note/struct.PartialUintNote.html" class="struct">PartialUintNote</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 1]</code>
+
+</div><h3 id="impl-ToField-for-PartialUintNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.ToField.html" class="trait">ToField</a> for <a href="../../uint_note/uint_note/struct.PartialUintNote.html" class="struct">PartialUintNote</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">to_field</span>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div></main>
+</span>
+</body>
+</html>

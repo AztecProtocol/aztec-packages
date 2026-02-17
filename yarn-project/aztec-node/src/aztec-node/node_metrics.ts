@@ -4,7 +4,7 @@ import {
   Metrics,
   type TelemetryClient,
   type UpDownCounter,
-  ValueType,
+  createUpDownCounterWithDefault,
 } from '@aztec/telemetry-client';
 
 export class NodeMetrics {
@@ -16,25 +16,14 @@ export class NodeMetrics {
 
   constructor(client: TelemetryClient, name = 'AztecNode') {
     const meter = client.getMeter(name);
-    this.receiveTxCount = meter.createUpDownCounter(Metrics.NODE_RECEIVE_TX_COUNT, {});
-    this.receiveTxDuration = meter.createHistogram(Metrics.NODE_RECEIVE_TX_DURATION, {
-      description: 'The duration of the receiveTx method',
-      unit: 'ms',
-      valueType: ValueType.INT,
+    this.receiveTxCount = createUpDownCounterWithDefault(meter, Metrics.NODE_RECEIVE_TX_COUNT, {
+      [Attributes.OK]: [true, false],
     });
+    this.receiveTxDuration = meter.createHistogram(Metrics.NODE_RECEIVE_TX_DURATION);
 
-    this.snapshotDuration = meter.createHistogram(Metrics.NODE_SNAPSHOT_DURATION, {
-      description: 'How long taking a snapshot takes',
-      unit: 'ms',
-      valueType: ValueType.INT,
-    });
+    this.snapshotDuration = meter.createHistogram(Metrics.NODE_SNAPSHOT_DURATION);
 
-    this.snapshotErrorCount = meter.createUpDownCounter(Metrics.NODE_SNAPSHOT_ERROR_COUNT, {
-      description: 'How many snapshot errors have happened',
-      valueType: ValueType.INT,
-    });
-
-    this.snapshotErrorCount.add(0);
+    this.snapshotErrorCount = createUpDownCounterWithDefault(meter, Metrics.NODE_SNAPSHOT_ERROR_COUNT);
   }
 
   receivedTx(durationMs: number, isAccepted: boolean) {

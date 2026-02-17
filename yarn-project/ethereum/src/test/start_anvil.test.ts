@@ -32,7 +32,7 @@ describe('start_anvil', () => {
     const host = new URL(rpcUrl).hostname;
     expect(anvil.host).toEqual(host);
 
-    const publicClient = createPublicClient({ transport: http(rpcUrl) });
+    const publicClient = createPublicClient({ transport: http(rpcUrl, { batch: false }) });
     const chainId = await publicClient.getChainId();
     expect(chainId).toEqual(31337);
     expect(anvil.status).toEqual('listening');
@@ -42,7 +42,7 @@ describe('start_anvil', () => {
   });
 
   it('ignores errors uninstalling filters during teardown', async () => {
-    const publicClient = createPublicClient({ transport: http(rpcUrl) });
+    const publicClient = createPublicClient({ transport: http(rpcUrl, { batch: false }) });
     const abiItem = parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 value)');
 
     const stopWatching = publicClient.watchEvent({ event: abiItem, onLogs: () => {} });

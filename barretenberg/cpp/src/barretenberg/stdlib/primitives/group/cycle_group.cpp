@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Luke], commit: a48c205d6dcd4338f5b83b4fda18bff6015be07b}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "../field/field.hpp"
@@ -24,28 +24,68 @@ namespace bb::stdlib {
  *
  * @note Don't use this constructor in case you want to assign the coordinates later.
  */
-// AUDITTODO: Used only by fuzzer. Remove if possible, otherwise mark it accordingly.
 template <typename Builder> cycle_group<Builder>::cycle_group(Builder* _context)
 {
     *this = constant_infinity(_context);
 }
 
 /**
- * @brief Construct a new cycle group<Builder>::cycle group object
- * @warning This constructor constrains the point to be on the curve by default, however this can be disabled by passing
- * `false` for the `assert_on_curve` parameter. This is intended for cases where points are implicitly known to be on
- * the curve such as the result of a point addition or doubling.
+ * @brief Construct a point from the coordinates. Auto-detects infinity flag if x = y = 0.
  *
+ * @param x The x coordinate
+ * @param y The y coordinate
+ * @param assert_on_curve If true, validate that (x, y) satisfies the curve equation
+ */
+template <typename Builder>
+cycle_group<Builder>::cycle_group(const field_t& x, const field_t& y, bool assert_on_curve)
+    : _x(x)
+    , _y(y)
+    , context(nullptr)
+{
+    if (_x.get_context() != nullptr) {
+        context = _x.get_context();
+    } else if (_y.get_context() != nullptr) {
+        context = _y.get_context();
+    }
+
+    // Auto-detect infinity: point is at infinity iff both coordinates are zero
+    // we can check this efficiently using the observation that:
+    // (x^2 + 5 * y^2 = 0) has no non-trivial solutions in fr, since fr modulus p == 2 mod 5
+    const field_t x_sqr = _x.sqr();
+    const field_t five_y = _y * bb::fr(5);
+    _is_infinity = (_y.madd(five_y, x_sqr).is_zero());
+
+    // For the simplicity of methods in this class, we ensure that the coordinates of a point always have the same
+    // constancy. If they don't, we convert the non-constant coordinate to a fixed witness. Should be rare.
+    if (_x.is_constant() != _y.is_constant()) {
+        if (_x.is_constant()) {
+            _x.convert_constant_to_fixed_witness(context);
+        } else {
+            _y.convert_constant_to_fixed_witness(context);
+        }
+    }
+
+    // Elements are always expected to be on the curve but may or may not be constrained as such.
+    BB_ASSERT(get_value().on_curve(), "cycle_group: Point is not on curve");
+    if (assert_on_curve) {
+        validate_on_curve();
+    }
+}
+
+/**
+ * @brief Private constructor with explicit infinity flag control.
+ * @warning This constructor is private because it gives too much control - external users should use
+ * the public constructors which auto-detect infinity from (x == 0 && y == 0).
+ * Internal operations use this for efficiency when the infinity flag is computed separately.
  * @param _x
  * @param _y
  * @param is_infinity
  */
 template <typename Builder>
-cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity, bool assert_on_curve)
-    : _x(_x)
-    , _y(_y)
+cycle_group<Builder>::cycle_group(const field_t& x, const field_t& y, bool_t is_infinity, bool assert_on_curve)
+    : _x(x)
+    , _y(y)
     , _is_infinity(is_infinity)
-    , _is_standard(is_infinity.is_constant())
 {
     if (_x.get_context() != nullptr) {
         context = _x.get_context();
@@ -59,38 +99,27 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity, bo
         *this = constant_infinity(this->context);
     }
 
-    // We don't support points with only one constant coordinate since valid use-cases are limited and it complicates
-    // the logic
-    BB_ASSERT(_x.is_constant() == _y.is_constant(), "cycle_group: Inconsistent constancy of coordinates");
+    // For the simplicity of methods in this class, we ensure that the coordinates of a point always have the same
+    // constancy. If they don't, we convert the non-constant coordinate to a fixed witness. Should be rare.
+    if (_x.is_constant() != _y.is_constant()) {
+        if (_x.is_constant()) {
+            _x.convert_constant_to_fixed_witness(context);
+        } else {
+            _y.convert_constant_to_fixed_witness(context);
+        }
+    }
+
+    // If both coordinates are constant, enforce that is_infinity is also constant.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1584): make this an assertion when possible
+    if (_x.is_constant() && _y.is_constant() && !_is_infinity.is_constant()) {
+        _is_infinity = bool_t(_is_infinity.get_value());
+    }
 
     // Elements are always expected to be on the curve but may or may not be constrained as such.
     BB_ASSERT(get_value().on_curve(), "cycle_group: Point is not on curve");
     if (assert_on_curve) {
         validate_on_curve();
     }
-}
-
-/**
- * @brief Construct a constant cycle_group object from raw field elements and a boolean
- *
- * @details is_infinity is a circuit constant. We EXPLICITLY require that whether this point is infinity/not infinity is
- * known at circuit-construction time *and* we know this point is on the curve. These checks are not constrained. Use
- * from_witness if these conditions are not met. Examples of when conditions are met: point is a derived from a point
- * that is on the curve + not at infinity. e.g. output of a doubling operation
- * @tparam Builder
- * @param _x
- * @param _y
- * @param is_infinity
- */
-template <typename Builder>
-cycle_group<Builder>::cycle_group(const bb::fr& _x, const bb::fr& _y, bool is_infinity)
-    : _x(is_infinity ? 0 : _x)
-    , _y(is_infinity ? 0 : _y)
-    , _is_infinity(is_infinity)
-    , _is_standard(true)
-    , context(nullptr)
-{
-    BB_ASSERT(get_value().on_curve());
 }
 
 /**
@@ -107,7 +136,6 @@ cycle_group<Builder>::cycle_group(const AffineElement& _in)
     : _x(_in.is_point_at_infinity() ? 0 : _in.x)
     , _y(_in.is_point_at_infinity() ? 0 : _in.y)
     , _is_infinity(_in.is_point_at_infinity())
-    , _is_standard(true)
     , context(nullptr)
 {}
 
@@ -122,9 +150,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::one(Build
 {
     field_t x(_context, Group::one.x);
     field_t y(_context, Group::one.y);
-    bool_t is_infinity(_context, false);
-
-    return cycle_group<Builder>(x, y, is_infinity, /*assert_on_curve=*/false);
+    // Generator point is known to be on the curve
+    return cycle_group<Builder>(x, y, /*assert_on_curve=*/false);
 }
 
 /**
@@ -133,7 +160,9 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::one(Build
  */
 template <typename Builder> cycle_group<Builder> cycle_group<Builder>::constant_infinity(Builder* _context)
 {
-    cycle_group result(bb::fr(0), bb::fr(0), /*is_infinity=*/true);
+    // Use the AffineElement constructor with an infinity point
+    // This properly sets (0, 0) coordinates and is_infinity = true
+    cycle_group result(AffineElement::infinity());
 
     // If context provided, create field_t/bool_t with that context
     if (_context != nullptr) {
@@ -149,9 +178,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::constant_
 /**
  * @brief Converts an AffineElement into a circuit witness.
  *
- * @details Somewhat expensive as we do an on-curve check and `_is_infinity` is a witness and not a constant.
- *          If an element is being converted where it is known the element is on the curve and/or cannot be point at
- *          infinity, it is best to use other methods (e.g. direct conversion of field_t coordinates)
+ * @details Creates witness field elements for (x, y) and uses a constructor that auto-detects infinity from coordinates
+ * (x == 0 && y == 0) and validates the point is on the curve.
  *
  * @tparam Builder
  * @param _context
@@ -161,19 +189,13 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::constant_
 template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::from_witness(Builder* _context, const AffineElement& _in)
 {
-    cycle_group result(_context);
-
     // By convention we set the coordinates of the point at infinity to (0,0).
-    if (_in.is_point_at_infinity()) {
-        result._x = field_t::from_witness(_context, bb::fr::zero());
-        result._y = field_t::from_witness(_context, bb::fr::zero());
-    } else {
-        result._x = field_t::from_witness(_context, _in.x);
-        result._y = field_t::from_witness(_context, _in.y);
-    }
-    result._is_infinity = bool_t(witness_t(_context, _in.is_point_at_infinity()));
-    result._is_standard = true;
-    result.validate_on_curve();
+    field_t x_val = _in.is_point_at_infinity() ? field_t::from_witness(_context, bb::fr::zero())
+                                               : field_t::from_witness(_context, _in.x);
+    field_t y_val = _in.is_point_at_infinity() ? field_t::from_witness(_context, bb::fr::zero())
+                                               : field_t::from_witness(_context, _in.y);
+    // The constructor auto-detects infinity from coordinates and validates on curve.
+    cycle_group result(x_val, y_val, /*assert_on_curve=*/true);
     result.set_free_witness_tag();
     return result;
 }
@@ -205,7 +227,6 @@ cycle_group<Builder> cycle_group<Builder>::from_constant_witness(Builder* _conte
     }
     // point at infinity is circuit constant
     result._is_infinity = _in.is_point_at_infinity();
-    result._is_standard = true;
     result.unset_free_witness_tag();
     return result;
 }
@@ -229,7 +250,8 @@ template <typename Builder> typename cycle_group<Builder>::AffineElement cycle_g
 
 /**
  * @brief On-curve check.
- * @details Validates that the point satisfies the curve equation \f$y^2 = x^3 + b\f$ or is the point at infinity.
+ * @details Validates that the point satisfies the curve equation \f$y^2 = x^3 + b\f$ or is the point at infinity. This
+ * method does not constrain coordinates to be (0, 0) if the point is at infinity.
  *
  * @tparam Builder
  */
@@ -247,102 +269,31 @@ template <typename Builder> void cycle_group<Builder>::validate_on_curve() const
 
 /**
  * @brief Convert the point to standard form.
- * @details If the point is a point at infinity, ensure the coordinates are (0,0). If the point is already standard
- * nothing changes.
- *
- */
-template <typename Builder> cycle_group<Builder> cycle_group<Builder>::get_standard_form()
-{
-    this->standardize();
-    return *this;
-}
-
-#ifdef FUZZING
-/**
- * @brief  Set the point to the point at infinity.
- * Depending on constant'ness of the predicate put the coordinates in an apropriate standard form.
- *
- */
-template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(const bool_t& is_infinity)
-{
-    this->_is_standard = true;
-
-    if (is_infinity.is_constant() && this->_is_infinity.is_constant()) {
-        // Check that it's not possible to enter the case when
-        // The point is already infinity, but `is_infinity` = false
-        BB_ASSERT((this->_is_infinity.get_value() == is_infinity.get_value()) || is_infinity.get_value());
-
-        if (is_infinity.get_value()) {
-            *this = constant_infinity(this->context);
-        }
-        return;
-    }
-
-    if (is_infinity.is_constant() && !this->_is_infinity.is_constant()) {
-        if (is_infinity.get_value()) {
-            *this = constant_infinity(this->context);
-        } else {
-            this->_is_infinity.assert_equal(false);
-            this->_is_infinity = false;
-        }
-        return;
-    }
-
-    if (this->is_constant_point_at_infinity()) {
-        // I can't imagine this case happening, but still
-        is_infinity.assert_equal(true);
-
-        *this = constant_infinity(this->context);
-        return;
-    }
-
-    this->_x = field_t::conditional_assign(is_infinity, 0, this->_x).normalize();
-    this->_y = field_t::conditional_assign(is_infinity, 0, this->_y).normalize();
-
-    // We won't bump into the case where we end up with non constant coordinates
-    BB_ASSERT(!this->_x.is_constant());
-    BB_ASSERT(!this->_y.is_constant());
-
-    // We have to check this to avoid the situation, where we change the infinity
-    bool_t set_allowed = (this->_is_infinity == is_infinity) || is_infinity;
-    set_allowed.assert_equal(true);
-    this->_is_infinity = is_infinity;
-
-    // In case we set point at infinity on a constant without an existing context
-    if (this->context == nullptr) {
-        this->context = is_infinity.get_context();
-    }
-}
-#endif
-
-/**
- * @brief Convert the point to standard form.
- * @details If the point is a point at infinity, ensure the coordinates are (0,0). If the point is already standard
- * nothing changes.
+ * @details If the point is a point at infinity, ensure the coordinates are (0,0).
  *
  */
 template <typename Builder> void cycle_group<Builder>::standardize()
 {
-    if (this->is_constant_point_at_infinity()) {
-        BB_ASSERT(this->is_constant());
-        BB_ASSERT(this->_is_standard);
-    }
-
-    if (this->_is_standard) {
-        return;
-    }
-    this->_is_standard = true;
-
+    // Set coordinates to (0, 0) if point is at infinity for canonical representation
     this->_x = field_t::conditional_assign(this->_is_infinity, 0, this->_x);
     this->_y = field_t::conditional_assign(this->_is_infinity, 0, this->_y);
+    // Mark witnesses as used to prevent boomerang detection false positives when
+    // this is the final operation (e.g., final batch_mul output)
+    mark_witness_as_used(this->_x);
+    mark_witness_as_used(this->_y);
 }
 
 /**
  * @brief Evaluates a point doubling using Ultra ECC double gate (if non-constant)
  *
+ * @note Result coordinates are not standardized meaning the point at infinity may have coordinates that are not (0,0).
+ * Standardization is deferred to observation boundaries (e.g., serialize_to_fields, set_public, operator==,
+ * assert_equal) to allow for more efficient chaining of operations that may produce intermediate non-canonical infinity
+ * representations.
+ *
  * @tparam Builder
  * @param hint native result of the doubling (optional; used to avoid modular inversions during witgen)
- * @return cycle_group<Builder> The doubled point
+ * @return cycle_group<Builder> The doubled point (may be non-canonical if infinity; canonicalized at boundaries)
  */
 template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement> hint) const
@@ -405,7 +356,7 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
 
 /**
  * @brief Will evaluate ECC point addition or subtraction over `*this` and `other`.
- * @details Incomplete addition formula edge cases are *NOT* checked! Only use this method if you know the x-coordinates
+ * @warning Incomplete addition formula edge cases are *NOT* checked! Only use this method if you know the x-coordinates
  * of the operands cannot collide and none of the operands is a point at infinity. Uses Ultra-arithmetic elliptic curve
  * addition gate.
  *
@@ -459,22 +410,25 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
     }
 
     // Construct the result based on whether inputs are constant or witness
+    // Note: this code path is for non-infinity points, so result cannot be at infinity
+    // We use the private 4-arg constructor to explicitly set is_infinity=false, avoiding the
+    // auto-detection gates that the 2-arg constructor would add.
     cycle_group result;
     if (lhs_constant && rhs_constant) {
-        result = cycle_group(x3, y3, /*is_infinity=*/false, /*assert_on_curve=*/false);
+        result = cycle_group(x3, y3, /*is_infinity=*/bool_t(false), /*assert_on_curve=*/false);
     } else {
         // Both points are witnesses - create result witness and construct ECC add constraint
         result = cycle_group(
             witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false, /*assert_on_curve=*/false);
 
-        context->create_ecc_add_gate(bb::ecc_add_gate_<bb::fr>{
+        context->create_ecc_add_gate(bb::ecc_add_gate_{
             .x1 = _x.get_witness_index(),
             .y1 = _y.get_witness_index(),
             .x2 = other._x.get_witness_index(),
             .y2 = other._y.get_witness_index(),
             .x3 = result._x.get_witness_index(),
             .y3 = result._y.get_witness_index(),
-            .sign_coefficient = is_addition ? 1 : -1,
+            .is_addition = is_addition,
         });
     }
 
@@ -484,6 +438,12 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
     return result;
 }
 
+/**
+ * @brief Evaluate incomplete ECC point addition over `*this` and `other`.
+ * @warning Incomplete addition formula edge cases are *NOT* checked! Only use this method if you know the x-coordinates
+ * of the operands cannot collide and none of the operands is a point at infinity. Uses Ultra-arithmetic elliptic curve
+ * addition gate.
+ */
 template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& other,
                                                              const std::optional<AffineElement> hint) const
@@ -491,6 +451,12 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
     return _unconditional_add_or_subtract(other, /*is_addition=*/true, hint);
 }
 
+/**
+ * @brief Evaluate incomplete ECC point subtraction over `*this` and `other`.
+ * @warning Incomplete subtraction formula edge cases are *NOT* checked! Only use this method if you know the
+ * x-coordinates of the operands cannot collide and none of the operands is a point at infinity. Uses Ultra-arithmetic
+ * elliptic curve subtraction gate.
+ */
 template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_group& other,
                                                                   const std::optional<AffineElement> hint) const
@@ -499,7 +465,7 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_gr
 }
 
 /**
- * @brief Will evaluate ECC point addition over `*this` and `other`.
+ * @brief Evaluate incomplete ECC point addition over `*this` and `other`, with x-coordinate collision checks
  * @details Uses incomplete addition formula. If incomplete addition formula edge cases are triggered (x-coordinates of
  * operands collide), the constraints produced by this method will be unsatisfiable. Useful when an honest prover will
  * not produce a point collision with overwhelming probability, but a cheating prover will be able to.
@@ -523,10 +489,11 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_add(const cycle
 }
 
 /**
- * @brief Will evaluate ECC point subtraction over `*this` and `other`.
- * @details Uses incomplete addition formula. If incomplete addition formula edge cases are triggered (x-coordinates of
- * operands collide), the constraints produced by this method will be unsatisfiable. Useful when an honest prover will
- * not produce a point collision with overwhelming probability, but a cheating prover will be able to.
+ * @brief Evaluate incomplete ECC point subtraction over `*this` and `other`, with x-coordinate collision checks
+ * @details Uses incomplete subtraction formula. If incomplete subtraction formula edge cases are triggered
+ * (x-coordinates of operands collide), the constraints produced by this method will be unsatisfiable. Useful when an
+ * honest prover will not produce a point collision with overwhelming probability, but a cheating prover will be able
+ * to.
  *
  * @tparam Builder
  * @param other Point to subtract
@@ -547,10 +514,15 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_subtract(const 
 }
 
 /**
- * @brief Will evaluate ECC point addition over `*this` and `other`.
+ * @brief Evaluate ECC point addition over `*this` and `other`.
  * @details This method uses complete addition i.e. is compatible with all edge cases and is therefore expensive. To
  * handle the possibility of x-coordinate collisions we evaluate both an addition (modified to avoid division by zero)
  * and and a doubling, then conditionally assign the result.
+ *
+ * @note Result coordinates are not standardized meaning the point at infinity may have coordinates that are not (0,0).
+ * Standardization is deferred to observation boundaries (e.g., serialize_to_fields, set_public, operator==,
+ * assert_equal) to allow for more efficient chaining of operations that may produce intermediate non-canonical infinity
+ * representations.
  *
  * @tparam Builder
  * @param other Point to add
@@ -621,10 +593,15 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
 }
 
 /**
- * @brief Will evaluate ECC point subtraction over `*this` and `other`.
+ * @brief Evaluate ECC point subtraction over `*this` and `other`.
  * @details This method uses complete subtraction i.e. is compatible with all edge cases and is therefore expensive. To
  * handle the possibility of x-coordinate collisions we evaluate both a subtraction (modified to avoid division by zero)
  * and a doubling, then conditionally assign the result.
+ *
+ * @note Result coordinates are not standardized meaning the point at infinity may have coordinates that are not (0,0).
+ * Standardization is deferred to observation boundaries (e.g., serialize_to_fields, set_public, operator==,
+ * assert_equal) to allow for more efficient chaining of operations that may produce intermediate non-canonical infinity
+ * representations.
  *
  * @tparam Builder
  * @param other Point to subtract
@@ -774,12 +751,8 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         }
     }
 
-    // Validate all scalars have the same bit length (required for Straus algorithm to process slices)
-    size_t num_bits = scalars[0].num_bits();
-    for (auto& s : scalars) {
-        BB_ASSERT_EQ(s.num_bits(), num_bits, "Scalars of different bit-lengths not supported!");
-    }
-    size_t num_rounds = numeric::ceil_div(num_bits, ROM_TABLE_BITS);
+    // All cycle_scalars are guaranteed to be 254 bits
+    constexpr size_t num_rounds = numeric::ceil_div(cycle_scalar::NUM_BITS, ROM_TABLE_BITS);
 
     // Decompose each scalar into 4-bit slices. Note: This operation enforces range constraints on the lo/hi limbs of
     // each scalar (LO_BITS and (num_bits - LO_BITS) respectively).
@@ -844,11 +817,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     std::vector<straus_lookup_table> point_tables;
     point_tables.reserve(num_points);
     const size_t hints_per_table = (1ULL << ROM_TABLE_BITS) - 1;
-    OriginTag tag{};
     for (size_t i = 0; i < num_points; ++i) {
-        // Merge tags
-        tag = OriginTag(tag, scalars[i].get_origin_tag(), base_points[i].get_origin_tag());
-
         // Construct Straus table
         std::span<AffineElement> table_hints(&operation_hints[i * hints_per_table], hints_per_table);
         straus_lookup_table table(context, base_points[i], offset_generators[i + 1], ROM_TABLE_BITS, table_hints);
@@ -889,8 +858,9 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         coordinate_check_product.assert_is_not_zero("_variable_base_batch_mul_internal x-coordinate collision");
     }
 
-    // Set the final accumulator's tag to the union of all points' and scalars' tags
-    accumulator.set_origin_tag(tag);
+    // Set CONSTANT tag on accumulator to avoid tag conflicts during intermediate operations
+    // The final tag will be set in batch_mul from result_tag
+    accumulator.set_origin_tag(OriginTag::constant());
 
     // Note: offset_generator_accumulator represents the sum of all the offset generator terms present in `accumulator`.
     // We don't subtract it off yet as we may be able to combine it with other constant terms in `batch_mul` before
@@ -934,16 +904,12 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     std::vector<MultiTableId> multitable_ids;
     std::vector<field_t> scalar_limbs;
 
-    OriginTag tag{};
     for (const auto [point, scalar] : zip_view(base_points, scalars)) {
-        // Merge all scalar tags
-        // AUDITTODO: in the variable base method we combine point and scalar tags - should we do the same here?
-        tag = OriginTag(tag, scalar.get_origin_tag());
         std::array<MultiTableId, 2> table_id = table::get_lookup_table_ids_for_point(point);
         multitable_ids.push_back(table_id[0]);
         multitable_ids.push_back(table_id[1]);
-        scalar_limbs.push_back(scalar.lo);
-        scalar_limbs.push_back(scalar.hi);
+        scalar_limbs.push_back(scalar.lo());
+        scalar_limbs.push_back(scalar.hi());
     }
 
     // Look up the multiples of each slice of each lo/hi scalar limb in the corresponding plookup table.
@@ -957,7 +923,10 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         for (size_t j = 0; j < lookup_data[ColumnIdx::C2].size(); ++j) {
             const field_t x = lookup_data[ColumnIdx::C2][j];
             const field_t y = lookup_data[ColumnIdx::C3][j];
-            lookup_points.emplace_back(x, y, /*is_infinity=*/false, /*assert_on_curve=*/false);
+            // Lookup table points are never at infinity (they are precomputed points on the curve).
+            // Use private constructor to avoid auto-detection gates.
+            auto is_infinity = bool_t(x.get_context(), false);
+            lookup_points.push_back(cycle_group(x, y, is_infinity, /*assert_on_curve=*/false));
         }
         // Update offset accumulator with the total offset for the corresponding multitable
         offset_generator_accumulator += table::get_generator_offset_for_table_id(table_id);
@@ -984,6 +953,12 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 
     // Perform the in-circuit point additions sequentially. Each addition costs 1 gate iff additions are chained such
     // that the output of each addition is the input to the next. Otherwise, each addition costs 2 gates.
+    // Set all lookup_points to have CONSTANT tags to avoid tag conflicts during intermediate operations
+    // The final tag will be set in batch_mul from result_tag
+    auto const_tag = OriginTag::constant();
+    for (auto& point : lookup_points) {
+        point.set_origin_tag(const_tag);
+    }
     cycle_group accumulator = lookup_points[0];
     for (size_t i = 1; i < lookup_points.size(); ++i) {
         accumulator = accumulator.unconditional_add(lookup_points[i], operation_hints[i - 1]);
@@ -992,7 +967,6 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     // The offset_generator_accumulator represents the sum of all the offset generator terms present in `accumulator`.
     // We don't subtract off yet, as we may be able to combine `offset_generator_accumulator` with other constant
     // terms in `batch_mul` before performing the subtraction.
-    accumulator.set_origin_tag(tag); // Set accumulator's origin tag to the union of all scalars' tags
     return { accumulator, offset_generator_accumulator };
 }
 
@@ -1030,7 +1004,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
  * @param scalars
  * @param base_points
  * @param offset_generator_data
- * @return cycle_group<Builder>
+ * @return cycle_group<Builder> (may be non-canonical if infinity; canonicalized at boundaries)
  */
 template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_group>& base_points,
@@ -1050,19 +1024,10 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
     std::vector<AffineElement> fixed_base_points;
 
     // Merge all tags
-    OriginTag result_tag;
+    OriginTag result_tag = OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
     for (auto [point, scalar] : zip_view(base_points, scalars)) {
         result_tag = OriginTag(result_tag, OriginTag(point.get_origin_tag(), scalar.get_origin_tag()));
     }
-
-    // Determine scalar bit length (for simplicity we require all scalars to have the same bit length)
-    size_t num_bits = scalars[0].num_bits();
-    for (auto& s : scalars) {
-        BB_ASSERT_EQ(num_bits, s.num_bits());
-    }
-
-    // If scalars are not full sized, we skip lookup-version of fixed-base scalar mul. too much complexity
-    bool scalars_are_full_sized = (num_bits == NUM_BITS_FULL_FIELD_SIZE);
 
     // We can unconditionally add in the variable-base algorithm iff all of the input points are fixed-base points (i.e.
     // we are doing fixed-base mul over points not present in our plookup tables)
@@ -1076,13 +1041,25 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
         } else if (!scalar.is_constant() && point.is_constant()) {
             if (point.get_value().is_point_at_infinity()) {
                 // oi mate, why are you creating a circuit that multiplies a known point at infinity?
-#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+#ifndef FUZZING_DISABLE_WARNINGS
                 info("Warning: Performing batch mul with constant point at infinity!");
 #endif
+                // Constant infinity * witness scalar contributes nothing to the result, however, we must still apply
+                // the range constraints that the cycle_scalar constructor defers to this method.
+                auto* ctx = scalar.get_context();
+                ctx->create_limbed_range_constraint(scalar.lo().get_witness_index(),
+                                                    cycle_scalar::LO_BITS,
+                                                    ROM_TABLE_BITS,
+                                                    "batch_mul: lo range constraint for scalar with constant "
+                                                    "infinity");
+                ctx->create_limbed_range_constraint(scalar.hi().get_witness_index(),
+                                                    cycle_scalar::HI_BITS,
+                                                    ROM_TABLE_BITS,
+                                                    "batch_mul: hi range constraint for scalar with constant "
+                                                    "infinity");
                 continue;
             }
-            if (scalars_are_full_sized &&
-                plookup::fixed_base::table::lookup_table_exists_for_point(point.get_value())) {
+            if (plookup::fixed_base::table::lookup_table_exists_for_point(point.get_value())) {
                 // Case 2A: constant point is one of two for which we have plookup tables; use fixed-base Straus
                 fixed_base_scalars.push_back(scalar);
                 fixed_base_points.push_back(point.get_value());
@@ -1162,7 +1139,7 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
         // points). We could do the following which would be slightly cheaper than operator-:
         // 1. If x-coords match, assert y-coords do not match
         // 2. If x-coords match, return point at infinity, else unconditionally compute result - offset_accumulator.
-        result = result - AffineElement(offset_accumulator);
+        result = result - cycle_group(AffineElement(offset_accumulator));
     }
     // Ensure the tag of the result is a union of all inputs
     result.set_origin_tag(result_tag);
@@ -1218,28 +1195,9 @@ cycle_group<Builder> cycle_group<Builder>::conditional_assign(const bool_t& pred
     auto _is_infinity_res =
         bool_t::conditional_assign(predicate, lhs.is_point_at_infinity(), rhs.is_point_at_infinity());
 
-    bool _is_standard_res = lhs._is_standard && rhs._is_standard;
-    if (predicate.is_constant()) {
-        _is_standard_res = predicate.get_value() ? lhs._is_standard : rhs._is_standard;
-    }
-
-    // AUDITTODO: Talk to Sasha. Comment seems to be unrelated and its not clear why the logic is needed.
-    // Rare case when we bump into two constants, s.t. lhs = -rhs
-    if (x_res.is_constant() && !y_res.is_constant()) {
-        auto ctx = predicate.get_context();
-        x_res = field_t::from_witness_index(ctx, ctx->put_constant_variable(x_res.get_value()));
-    }
-
     cycle_group<Builder> result(x_res, y_res, _is_infinity_res, /*assert_on_curve=*/false);
-    result._is_standard = _is_standard_res;
     return result;
 };
-
-template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator/(const cycle_group& /*unused*/) const
-{
-    // TODO(@kevaundray solve the discrete logarithm problem)
-    throw_or_abort("Implementation under construction...");
-}
 
 template class cycle_group<bb::UltraCircuitBuilder>;
 template class cycle_group<bb::MegaCircuitBuilder>;

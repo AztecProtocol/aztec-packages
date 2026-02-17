@@ -22,8 +22,8 @@ struct lookup_to_radix_mem_check_dst_addr_in_range_settings_ {
     static constexpr Column COUNTS = Column::lookup_to_radix_mem_check_dst_addr_in_range_counts;
     static constexpr Column INVERSES = Column::lookup_to_radix_mem_check_dst_addr_in_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::to_radix_mem_max_write_addr,
-        ColumnAndShifts::to_radix_mem_max_mem_addr,
+        ColumnAndShifts::to_radix_mem_write_addr_upper_bound,
+        ColumnAndShifts::to_radix_mem_max_mem_size,
         ColumnAndShifts::to_radix_mem_sel_dst_out_of_range_err
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,

@@ -20,8 +20,4 @@ pub struct PrivateKernelResetHints<let NoteHashPendingReadHintsLen: u32, let Not
     pub nullifier_read_request_hints: NullifierReadRequestHints<NullifierPendingReadHintsLen, NullifierSettledReadHintsLen>,
     pub key_validation_hints: [KeyValidationHint; KeyValidationHintsLen],
     pub transient_data_squashing_hints: [TransientDataSquashingHint; TransientDataSquashingHintsLen],
-    // Provided as a hint because the `min_revertible_side_effect_counter` might not be set yet at the time a reset
-    // circuit is executed. This counter is used to squash transient data. It will be set to `validation_requests` and
-    // checked against the actual `min_revertible_side_effect_counter` in the tail circuit.
-    pub min_revertible_side_effect_counter: u32,
 }

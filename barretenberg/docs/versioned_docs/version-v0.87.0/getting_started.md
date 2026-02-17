@@ -11,7 +11,7 @@ sidebar_position: 1
 
 Barretenberg (or `bb` for short) is an optimized elliptic curve library for the bn128 curve, and a PLONK SNARK prover.
 
-Although it is a standandalone prover, Barretenberg is designed to be used with [Noir](https://noir-lang.org). It is highly recommended to start by creating a Noir project with the [Noir guickstart guide](https://noir-lang.org/docs/getting_started/quick_start) before this guide!
+Although it is a standalone prover, Barretenberg is designed to be used with [Noir](https://noir-lang.org). It is highly recommended to start by creating a Noir project with the [Noir quickstart guide](https://noir-lang.org/docs/getting_started/quick_start) before this guide!
 
 ## Installation
 

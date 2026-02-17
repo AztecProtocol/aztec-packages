@@ -1,4 +1,4 @@
-import { createLogger } from '../../log/pino-logger.js';
+import { type Logger, type LoggerBindings, createLogger } from '../../log/pino-logger.js';
 
 /**
  * A number generator which is used as a source of randomness in the system. If the SEED env variable is set, the
@@ -12,11 +12,13 @@ export class RandomnessSingleton {
   private static instance: RandomnessSingleton;
 
   private counter = 0;
+  private log: Logger;
 
   private constructor(
     private readonly seed?: number,
-    private readonly log = createLogger('foundation:randomness_singleton'),
+    bindings?: LoggerBindings,
   ) {
+    this.log = createLogger('foundation:randomness_singleton', bindings);
     if (seed !== undefined) {
       this.log.debug(`Using pseudo-randomness with seed: ${seed}`);
       this.counter = seed;
@@ -25,10 +27,10 @@ export class RandomnessSingleton {
     }
   }
 
-  public static getInstance(): RandomnessSingleton {
+  public static getInstance(bindings?: LoggerBindings): RandomnessSingleton {
     if (!RandomnessSingleton.instance) {
       const seed = process.env.SEED ? Number(process.env.SEED) : undefined;
-      RandomnessSingleton.instance = new RandomnessSingleton(seed);
+      RandomnessSingleton.instance = new RandomnessSingleton(seed, bindings);
     }
 
     return RandomnessSingleton.instance;

@@ -86,7 +86,7 @@ void GetContractInstanceTraceBuilder::process(
                 { C::get_contract_instance_retrieved_init_hash, event.retrieved_init_hash },
                 { C::get_contract_instance_selected_member, selected_member },
                 // Memory writing
-                { C::get_contract_instance_member_write_offset, event.dst_offset + 1 },
+                { C::get_contract_instance_member_write_offset, writes_are_in_bounds ? (event.dst_offset + 1) : 0 },
                 { C::get_contract_instance_exists_tag, writes_are_in_bounds ? static_cast<uint8_t>(ValueTag::U1) : 0 },
                 { C::get_contract_instance_member_tag, writes_are_in_bounds ? static_cast<uint8_t>(ValueTag::FF) : 0 },
             } });
@@ -100,7 +100,7 @@ void GetContractInstanceTraceBuilder::process(
 
 const InteractionDefinition GetContractInstanceTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_get_contract_instance_precomputed_info_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_get_contract_instance_precomputed_info_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_get_contract_instance_contract_instance_retrieval_settings, InteractionType::LookupSequential>();
 
 } // namespace bb::avm2::tracegen

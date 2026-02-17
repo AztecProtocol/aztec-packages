@@ -1,67 +1,44 @@
 use super::TestBuilder;
 use bignum::{BigNum, BLS12_381_Fr};
 use blob::abis::{BatchingBlobCommitment, BlobAccumulator, FinalBlobBatchingChallenges};
-use types::{constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB}, hash::poseidon2_hash, traits::Empty};
+use types::{
+    blob_data::create_checkpoint_end_marker,
+    constants::{BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB},
+    hash::poseidon2_hash,
+    traits::Empty,
+};
 
 impl TestBuilder {
     pub fn new_with_one_blob() -> Self {
-        Self::new_with_one_blob_and_validate_fixtures(false)
-    }
-
-    pub fn new_with_one_blob_and_validate_fixtures(validate_fixtures: bool) -> Self {
         // The below values are generated from block_building_helpers.test.ts.
         let blob_fields_from_ts = [
-            0x000000000000000000000000000000000000000000000000000000000000000b,
-            0x00000074785f7374617274000000010000000000000000000000000000000004,
-            0x000000000000000000000000000000000000000000000000000000000000002a,
-            0x000000000000000000000000000000000000000000000000000000000000002a,
-            0x0000000000000000000000000000000000000000000000000000000000000123,
-            0x00000074785f7374617274000100010000000000000000000000000000000005,
-            0x000000000000000000000000000000000000000000000000000000000000002b,
-            0x000000000000000000000000000000000000000000000000000000000000003b,
-            0x0000000000000000000000000000000000000000000000000000000000006789,
-            0x0000000000000000000000000000000000000000000000000000000000000045,
-            0x000000000000000000000000000000000000000000626c6f636b5f656e640002,
+            0x0000000000000000000000000000000000000000000000000000007affffff85,
+            0x0000000000000000000000000000000000000000000000000000007bffffff84,
+            0x0000000000000000000000000000000000000000000000000000007cffffff83,
+            0x0000000000000000000000000000000000000000000000000000007dffffff82,
+            0x0000000000000000000000000000000000000000000000000000007effffff81,
+            0x0000000000000000000000000000000000000000000000008c63744300000006,
         ];
         let blob_commitment_limbs_x_from_ts = [
-            0xeea216aca5086cb82514e36d660943,
-            0x318e0c91287de690d12b98782065e0,
-            0x5a56d0e4959d5ff1310b8f4e9be4ce,
-            0x0df032,
+            0x6b6d91f1569e91e7353f2686151c4f,
+            0x200543e0d0c63d9466aaf8238cc422,
+            0xff58b30787118558b932c9782f8b6d,
+            0x0237b1,
         ];
         let blob_commitment_limbs_y_from_ts = [
-            0xbdeba780b415c20a3d8f999999bfa2,
-            0xe584b1462977e23d28ca73625b8ffd,
-            0x4ebbeb8dd82c036238216f5ecb8191,
-            0x0845a8,
+            0x19ade85454853199c24f5f5c55bb9f,
+            0x89ddb964c66bf6340b4a43fb88b218,
+            0x7bfd78cdc7f3b66e60effa134308ed,
+            0x0c6eb1,
         ];
         let blob_commitment = BatchingBlobCommitment::from_limbs(
             blob_commitment_limbs_x_from_ts,
             blob_commitment_limbs_y_from_ts,
         );
-        let blob_commitment_fields_from_ts = [
-            0x008df0325a56d0e4959d5ff1310b8f4e9be4ce318e0c91287de690d12b987820,
-            0x00000000000000000000000000000065e0eea216aca5086cb82514e36d660943,
-        ];
         let challenge_z_from_ts =
-            0x0cfa1559ddd669051b7f6a7158c27c5dea85956d05501aa998210831392e370a;
+            0x11d6daed56531bd5c5acf341663d21089bb96913f4e716dca3cdb01b8d5735a3;
 
         let mut builder = Self::default_with_blob_fields(blob_fields_from_ts);
-
-        if (validate_fixtures) {
-            let blob_commitment_fields = blob_commitment.to_compressed_fields();
-            // Check that the hard-coded limbs generate the same blob commitment fields from ts.
-            assert_eq(blob_commitment_fields, blob_commitment_fields_from_ts);
-
-            let mut end_sponge_blob = builder.right_rollup.end_sponge_blob;
-            let challenge_z = poseidon2_hash([
-                end_sponge_blob.squeeze(),
-                blob_commitment_fields[0],
-                blob_commitment_fields[1],
-            ]);
-            assert_eq(challenge_z, challenge_z_from_ts);
-        }
-
         builder.hints.blob_commitments[0] = blob_commitment.point;
         builder.hints.start_blob_accumulator = BlobAccumulator::empty();
         builder.hints.final_blob_challenges.z = challenge_z_from_ts;
@@ -74,28 +51,40 @@ impl TestBuilder {
 fn overfilled_blob_fields() {
     let mut builder = TestBuilder::default();
 
-    builder.right_rollup.end_sponge_blob.num_expected_fields =
-        FIELDS_PER_BLOB * BLOBS_PER_BLOCK + 1;
     builder.right_rollup.end_sponge_blob.num_absorbed_fields =
-        FIELDS_PER_BLOB * BLOBS_PER_BLOCK + 1;
+        FIELDS_PER_BLOB * BLOBS_PER_CHECKPOINT;
 
     builder.execute_with_mock_and_fail();
 }
 
-#[test(should_fail_with = "Mismatched expected and actual number of blob fields")]
-fn absorbed_too_many_fields() {
-    let mut builder = TestBuilder::default_single_block();
+#[test(should_fail_with = "Provided blob fields do not match the fields that were absorbed")]
+fn incorrect_injected_blob_fields() {
+    let mut builder = TestBuilder::new_with_one_blob();
 
-    builder.left_rollup.end_sponge_blob.num_expected_fields -= 1;
+    // Change the second field.
+    builder.hints.blobs_fields[2] += 1;
 
     builder.execute_with_mock_and_fail();
 }
 
-#[test(should_fail_with = "Mismatched expected and actual number of blob fields")]
-fn absorbed_too_few_fields() {
-    let mut builder = TestBuilder::default();
+#[test(should_fail_with = "Provided blob fields do not match the fields that were absorbed")]
+fn incorrect_checkpoint_end_marker_in_injected_blob_fields() {
+    let mut builder = TestBuilder::new_with_one_blob();
 
-    builder.right_rollup.end_sponge_blob.num_expected_fields += 1;
+    let num_block_blob_fields = builder.right_rollup.end_sponge_blob.num_absorbed_fields;
+    // Override the checkpoint end marker with a random field.
+    builder.hints.blobs_fields[num_block_blob_fields] = 99;
+
+    builder.execute_with_mock_and_fail();
+}
+
+#[test(should_fail_with = "Found non-zero field after breakpoint")]
+fn non_zero_blob_fields_beyond_absorbed_length() {
+    let mut builder = TestBuilder::new_with_one_blob();
+
+    let num_block_blob_fields = builder.right_rollup.end_sponge_blob.num_absorbed_fields;
+    // Add a random field beyond the absorbed fields. +1 to take into account the checkpoint end marker.
+    builder.hints.blobs_fields[num_block_blob_fields + 1] = 99;
 
     builder.execute_with_mock_and_fail();
 }
@@ -103,7 +92,7 @@ fn absorbed_too_few_fields() {
 // TODO(#10323): remove the oracle and switch this test to unconstrained.
 #[test]
 fn correct_end_blob_accumulator_with_one_blob() {
-    let builder = TestBuilder::new_with_one_blob_and_validate_fixtures(true);
+    let builder = TestBuilder::new_with_one_blob();
 
     let public_inputs = builder.execute();
 
@@ -124,32 +113,28 @@ fn correct_end_blob_accumulator_with_one_blob() {
 // TODO(#10323): remove the oracle and switch this test to unconstrained.
 #[test]
 fn correct_end_blob_accumulator_with_max_blobs() {
-    // Create BLOBS_PER_BLOCK-1 full blobs and 1 blob with 123 fields.
-    // Fill BLOBS_PER_BLOCK blobs completely with different values (to avoid a constant polynomial)
-    let mut blob_fields = [0; FIELDS_PER_BLOB * (BLOBS_PER_BLOCK - 1) + 123];
-
-    blob_fields[0] = blob_fields.len() as Field;
-    for i in 1..blob_fields.len() {
+    // Create BLOBS_PER_CHECKPOINT full blobs.
+    // Fill the blobs completely with different values (to avoid a constant polynomial)
+    let mut blob_fields = [0; FIELDS_PER_BLOB * BLOBS_PER_CHECKPOINT];
+    for i in 0..blob_fields.len() - 1 {
         blob_fields[i] = 456 + i as Field;
     }
+    blob_fields[blob_fields.len() - 1] = create_checkpoint_end_marker(blob_fields.len());
 
     let mut builder = TestBuilder::default_with_blob_fields(blob_fields);
 
-    // All hardcoded values in this test are taken from
-    // yarn-project/blob-lib/src/blob_batching.test.ts -> 'should construct and verify a batch of BLOBS_PER_BLOCK full blobs'
-    // These values are also used in blob_batching.nr -> test_max_blobs_batched(), but the below ensures inputs are
-    // propagated properly through the circuit.
+    // All hardcoded values in this test are generated from yarn-project/blob-lib/src/blob_batching.test.ts
     let kzg_commitment_x_limbs_blob_0_from_ts = [
-        0xd98821307463f0f2453a6596b611d7,
-        0x3553efff4ebfa752f0c2a7e37ae201,
-        0x5656fb0ec77fc885c126e2d7222567,
-        0x0ada2f,
+        0xc1c8bbec58d7e25cc840d31e1a0361,
+        0xdfebfabcadc58a67da75e8c3ee4a09,
+        0x5504cd781b65efd4f539e321e4d17a,
+        0x171570,
     ];
     let kzg_commitment_y_limbs_blob_0_from_ts = [
-        0x4b40f6074b53e460406a04e2897cf4,
-        0xb6354d81981823c4620865243f3a07,
-        0x3fe19618b6a81b4dbe28782c7ff05f,
-        0x0e99c2,
+        0x96af7267d106a96b4353b5ed0bf0a6,
+        0xb785a85e0f1404abe16503604906e6,
+        0x471e2147e13fe3eaa97ada6f828112,
+        0x15e24d,
     ];
     let kzg_commitment_x_limbs_blob_1_from_ts = [
         0xab3ed5948aa3d00fe77b1b2876ecd7,
@@ -200,36 +185,36 @@ fn correct_end_blob_accumulator_with_max_blobs() {
         0x080795,
     ];
     let kzg_commitment_x_limbs_blob_5_from_ts = [
-        0x4180193fcc19faef8b549feed11bd9,
-        0xfea2e4d547d062520dc1f07c46ec36,
-        0x6759dee549e2cac51898e1015dab52,
-        0x02c558,
+        0xe4b918b6a213ea1acca9574d9a94bc,
+        0x5a6853e4bdbc84ca90cf39b7bf0b72,
+        0xa27b42dc96614a6e330e825fc564a8,
+        0x1418d3,
     ];
     let kzg_commitment_y_limbs_blob_5_from_ts = [
-        0x915c85bd0a86e17554a61e2a78ab90,
-        0xb8d17f1a895b20bed80d82831829b6,
-        0xa2ed663b09d9b137725c89ceb05570,
-        0x12faab,
+        0x66f8e0d7a76db22640553c0ce97e2f,
+        0xd443fc94d99bc9a5fe7c6591d9f02e,
+        0xa4269746c44c705269f7ff3338e98a,
+        0x18883f,
     ];
-    let z_6_blobs_from_ts = 0x290028c04e1c668964107b6c7bd0d788e34ba66774e19d535d4e0001ad50425f;
+    let z_6_blobs_from_ts = 0x088572ee43f73053a094ddc7c2bafe69921f05c35ebd6a5df3dd5a9a82406431;
     let gamma_limbs_6_blobs_from_ts =
-        [0x9727d3cd1ba9a0c112cf261ab67d8a, 0xf275e92ed252cb59189a91bdb04851, 0x2c0d];
+        [0x7403be1c3b1bbf9cbdd6c269ec7f35, 0x669161f12455557b0dd6f300cfb800, 0x1f85];
     let y_limbs_6_blobs_from_ts =
-        [0x0b6956714bd922f3f75bb37bc1ad7b, 0x3d3ed3ccecbc6dbf093e8e7dabcc5a, 0x1116];
+        [0x415b276db449810d95e318d78ac950, 0xd1654b68e5ab9c592df2e6fbe6b619, 0x344c];
     let batched_c_x_limbs_6_blobs_from_ts = [
-        0x5590379c09358bc9d4cfaacce118bf,
-        0x576ec13daa7bcd9002dbc0e7a1bb20,
-        0x2911a2aad64c7b41120f18efd47dfe,
-        0x04ac80,
+        0x8dd7407a1b2e00c9e5fe43f00ba6ca,
+        0x089d7bd6785f37437a41ac05aa8d4b,
+        0x4d4c325a47e5f3d195c67e28b7f429,
+        0x00e361,
     ];
     let batched_c_y_limbs_6_blobs_from_ts = [
-        0x0cc496dec19c9b69212cb819d6f409,
-        0x15243e2ecd073f6075e047365309d8,
-        0x65b1a913e7af6c2b9520c957c3a21e,
-        0x0f974a,
+        0x8cb0a368ecb9d0166b448100611923,
+        0x9c5f58cfc6d38c661804a46965dce6,
+        0xf62b52995cf4469df10a8be3910c86,
+        0x11bcc8,
     ];
     let blob_commitments_hash_6_blobs_from_ts =
-        0x00b474d73f8677cb2eb1b2e5278ee12e8611c35bf86326db8b2cd5c6e102e482;
+        0x003aa7b42572dcb47fa231c81efe81564edeb146b9e13f38d84288fdbac693e7;
 
     // Init. injected values:
     // - Commitments are injected and checked for correctness on L1 via acc.v
@@ -297,16 +282,4 @@ fn correct_end_blob_accumulator_with_max_blobs() {
         end_blob_accumulator.blob_commitments_hash_acc,
         blob_commitments_hash_6_blobs_from_ts,
     );
-}
-
-// TODO(#10323): remove the oracle and switch this test to unconstrained.
-#[test(should_fail_with = "Mismatched blob fields hash")]
-fn incorrect_injected_blob_fields() {
-    let mut builder = TestBuilder::new_with_one_blob();
-
-    let num_blob_fields = builder.left_rollup.start_sponge_blob.num_expected_fields;
-    // Set the last field to 0 to make it different from the one that was absorbed.
-    builder.hints.blobs_fields[num_blob_fields - 1] = 0;
-
-    builder.execute_and_fail();
 }

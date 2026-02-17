@@ -6,7 +6,6 @@ describe('e2e_blacklist_token_contract access control', () => {
   const t = new BlacklistTokenContractTest('access_control');
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
     await t.setup();
   });
 
@@ -20,10 +19,7 @@ describe('e2e_blacklist_token_contract access control', () => {
 
   it('grant mint permission to the admin', async () => {
     const adminMinterRole = new Role().withAdmin().withMinter();
-    await t.asset.methods
-      .update_roles(t.adminAddress, adminMinterRole.toNoirStruct())
-      .send({ from: t.adminAddress })
-      .wait();
+    await t.asset.methods.update_roles(t.adminAddress, adminMinterRole.toNoirStruct()).send({ from: t.adminAddress });
 
     await t.crossTimestampOfChange();
 
@@ -34,7 +30,7 @@ describe('e2e_blacklist_token_contract access control', () => {
 
   it('create a new admin', async () => {
     const adminRole = new Role().withAdmin();
-    await t.asset.methods.update_roles(t.otherAddress, adminRole.toNoirStruct()).send({ from: t.adminAddress }).wait();
+    await t.asset.methods.update_roles(t.otherAddress, adminRole.toNoirStruct()).send({ from: t.adminAddress });
 
     await t.crossTimestampOfChange();
 
@@ -45,7 +41,7 @@ describe('e2e_blacklist_token_contract access control', () => {
 
   it('revoke the new admin', async () => {
     const noRole = new Role();
-    await t.asset.methods.update_roles(t.otherAddress, noRole.toNoirStruct()).send({ from: t.adminAddress }).wait();
+    await t.asset.methods.update_roles(t.otherAddress, noRole.toNoirStruct()).send({ from: t.adminAddress });
 
     await t.crossTimestampOfChange();
 
@@ -58,8 +54,7 @@ describe('e2e_blacklist_token_contract access control', () => {
     const blacklistRole = new Role().withBlacklisted();
     await t.asset.methods
       .update_roles(t.blacklistedAddress, blacklistRole.toNoirStruct())
-      .send({ from: t.adminAddress })
-      .wait();
+      .send({ from: t.adminAddress });
 
     await t.crossTimestampOfChange();
 

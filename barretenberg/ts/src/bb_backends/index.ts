@@ -3,13 +3,13 @@
  */
 export enum BackendType {
   /** WASM direct execution (no worker) */
-  Wasm = 'wasm',
+  Wasm = 'Wasm',
   /** WASM with worker threads */
-  WasmWorker = 'wasm-worker',
+  WasmWorker = 'WasmWorker',
   /** Native via Unix domain socket (async only) */
-  NativeUnixSocket = 'native-unix-socket',
-  /** Native via shared memory (sync only currently) */
-  NativeSharedMemory = 'native-shared-mem',
+  NativeUnixSocket = 'NativeUnixSocket',
+  /** Native via shared memory */
+  NativeSharedMemory = 'NativeSharedMemory',
 }
 
 export type BackendOptions = {
@@ -28,7 +28,13 @@ export type BackendOptions = {
   /** @description Custom path to bb binary for native backend (overrides automatic detection) */
   bbPath?: string;
 
-  /** @description Logging function */
+  /** @description Custom path to bb NAPI module for native backend (overrides automatic detection) */
+  napiPath?: string;
+
+  /**
+   * @description Logging function
+   * Warning: Attaching a logger can prevent nodejs from exiting without explicitly destroying the backend.
+   */
   logger?: (msg: string) => void;
 
   /**

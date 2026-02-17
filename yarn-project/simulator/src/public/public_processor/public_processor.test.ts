@@ -1,14 +1,18 @@
+import { CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE, CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
-import { AvmCircuitInputs, PublicDataWrite, RevertCode } from '@aztec/stdlib/avm';
+import { bufferAsFields } from '@aztec/stdlib/abi';
+import { PublicDataWrite, PublicTxResult, RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { SimulationError } from '@aztec/stdlib/errors';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
-import { ProvingRequestType } from '@aztec/stdlib/proofs';
-import { mockTx } from '@aztec/stdlib/testing';
+import { LogHash } from '@aztec/stdlib/kernel';
+import { ContractClassLogFields } from '@aztec/stdlib/logs';
+import { makeContractClassPublic, mockTx } from '@aztec/stdlib/testing';
 import { type MerkleTreeWriteOperations, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { GlobalVariables, StateReference, Tx, type TxValidator } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
@@ -17,13 +21,13 @@ import { strict as assert } from 'assert';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { PublicContractsDB } from '../public_db_sources.js';
-import type { PublicTxResult, PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
+import type { PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
 import { GuardedMerkleTreeOperations } from './guarded_merkle_tree.js';
 import { PublicProcessor } from './public_processor.js';
 
 describe('public_processor', () => {
   let merkleTree: MockProxy<MerkleTreeWriteOperations>;
-  let contractsDB: MockProxy<PublicContractsDB>;
+  let contractsDB: PublicContractsDB;
   let publicTxSimulator: MockProxy<PublicTxSimulator>;
 
   let mockedEnqueuedCallsResult: PublicTxResult;
@@ -39,29 +43,45 @@ describe('public_processor', () => {
   const mockTxWithPublicCalls = ({ seed = 1, feePayer }: { seed?: number; feePayer?: AztecAddress } = {}) =>
     mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 1, numberOfRevertiblePublicCallRequests: 1, feePayer });
 
+  const mockContractClassForTx = async (tx: Tx, revertible = true) => {
+    const publicContractClass = await makeContractClassPublic(42);
+    const contractClassLogFields = [
+      new Fr(CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE),
+      publicContractClass.id,
+      new Fr(publicContractClass.version),
+      publicContractClass.artifactHash,
+      publicContractClass.privateFunctionsRoot,
+      ...bufferAsFields(
+        publicContractClass.packedBytecode,
+        Math.ceil(publicContractClass.packedBytecode.length / 31) + 1,
+      ),
+    ];
+    const contractAddress = new AztecAddress(new Fr(CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS));
+    const emittedLength = contractClassLogFields.length;
+    const logFields = ContractClassLogFields.fromEmittedFields(contractClassLogFields);
+
+    tx.contractClassLogFields.push(logFields);
+
+    const contractClassLogHash = LogHash.from({
+      value: await logFields.hash(),
+      length: emittedLength,
+    }).scope(contractAddress);
+    if (revertible) {
+      tx.data.forPublic!.revertibleAccumulatedData.contractClassLogsHashes[0] = contractClassLogHash;
+    } else {
+      tx.data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes[0] = contractClassLogHash;
+    }
+
+    return publicContractClass.id;
+  };
+
   beforeEach(() => {
     merkleTree = mock<MerkleTreeWriteOperations>();
-    contractsDB = mock<PublicContractsDB>();
+    contractsDB = new PublicContractsDB(mock<ContractDataSource>());
     publicTxSimulator = mock();
 
     const stateReference = StateReference.empty();
-
-    const avmCircuitInputs = AvmCircuitInputs.empty();
-    mockedEnqueuedCallsResult = {
-      avmProvingRequest: {
-        type: ProvingRequestType.PUBLIC_VM,
-        inputs: avmCircuitInputs,
-      },
-      gasUsed: {
-        totalGas: Gas.empty(),
-        teardownGas: Gas.empty(),
-        publicGas: Gas.empty(),
-        billedGas: Gas.empty(),
-      },
-      revertCode: RevertCode.OK,
-      processedPhases: [],
-      logs: [],
-    };
+    mockedEnqueuedCallsResult = PublicTxResult.empty();
 
     merkleTree.getPreviousValueIndex.mockResolvedValue({
       index: 0n,
@@ -83,6 +103,7 @@ describe('public_processor', () => {
       publicTxSimulator,
       new TestDateProvider(),
       getTelemetryClient(),
+      createLogger('simulator:public-processor'),
     );
   });
 
@@ -115,7 +136,6 @@ describe('public_processor', () => {
       const tx = await mockTxWithPublicCalls();
 
       mockedEnqueuedCallsResult.revertCode = RevertCode.APP_LOGIC_REVERTED;
-      mockedEnqueuedCallsResult.revertReason = new SimulationError(`Failed`, []);
 
       const [processed, failed] = await processor.process([tx]);
 
@@ -181,13 +201,16 @@ describe('public_processor', () => {
       const maxBlobFields = actualBlobFields * 2;
 
       // Process all 3 transactions with the blob field limit
-      const [processed, failed] = await processor.process(txs, { maxBlobFields });
+      const [processed, failed, _usedTxs, _returns, usedTxBlobFields] = await processor.process(txs, { maxBlobFields });
 
       // Should only process 2 transactions due to blob field limit
       expect(processed.length).toBe(2);
       expect(processed[0].hash).toEqual(txs[0].getTxHash());
       expect(processed[1].hash).toEqual(txs[1].getTxHash());
       expect(failed).toEqual([]);
+
+      const expectedBlobFields = actualBlobFields * 2;
+      expect(usedTxBlobFields).toBe(expectedBlobFields);
     });
 
     it('does not send a transaction to the prover if pre validation fails', async function () {
@@ -281,5 +304,28 @@ describe('public_processor', () => {
       expect(merkleTree.revertCheckpoint).toHaveBeenCalledTimes(1);
       expect(merkleTree.sequentialInsert).toHaveBeenCalledTimes(0);
     });
+  });
+
+  // on uncaught error, public processor clears the tx-level cache entirely
+  it('clears the tx-level cache entirely on uncaught error (like SETUP failure)', async function () {
+    const tx = await mockTxWithPublicCalls();
+
+    // we want to confirm that even non-revertibles get cleared
+    const contractClassId = await mockContractClassForTx(tx, /*revertible=*/ false);
+
+    publicTxSimulator.simulate.mockImplementation(async (simulatedTx: Tx) => {
+      await contractsDB.addNewContracts(simulatedTx);
+      throw new Error('Uncaught error');
+    });
+
+    const [processed, failed] = await processor.process([tx]);
+
+    expect(processed).toEqual([]);
+    expect(failed).toEqual([expect.objectContaining({ error: new Error(`Uncaught error`) })]);
+
+    // Check whether the contract class is in the DB based on whether it was revertible
+    const contractClass = await contractsDB.getContractClass(contractClassId);
+    // On uncaught error, the public processor clears the tx-level cache entirely
+    expect(contractClass).toBeUndefined();
   });
 });

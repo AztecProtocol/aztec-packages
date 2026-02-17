@@ -1,5 +1,5 @@
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 
@@ -28,6 +28,17 @@ export class L2ToL1Message {
    */
   static empty(): L2ToL1Message {
     return new L2ToL1Message(EthAddress.ZERO, Fr.zero());
+  }
+
+  /**
+   * Creates an L2ToL1Message instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing L2ToL1Message fields
+   * @returns An L2ToL1Message instance
+   */
+  static fromPlainObject(obj: any): L2ToL1Message {
+    return new L2ToL1Message(EthAddress.fromPlainObject(obj.recipient), Fr.fromPlainObject(obj.content));
   }
 
   /**
@@ -147,6 +158,24 @@ export class ScopedL2ToL1Message {
 
   static empty() {
     return new ScopedL2ToL1Message(L2ToL1Message.empty(), AztecAddress.ZERO);
+  }
+
+  equals(other: ScopedL2ToL1Message): boolean {
+    return this.message.equals(other.message) && this.contractAddress.equals(other.contractAddress);
+  }
+
+  /**
+   * Creates a ScopedL2ToL1Message instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing ScopedL2ToL1Message fields
+   * @returns A ScopedL2ToL1Message instance
+   */
+  static fromPlainObject(obj: any): ScopedL2ToL1Message {
+    return new ScopedL2ToL1Message(
+      L2ToL1Message.fromPlainObject(obj.message),
+      AztecAddress.fromPlainObject(obj.contractAddress),
+    );
   }
 
   isEmpty(): boolean {

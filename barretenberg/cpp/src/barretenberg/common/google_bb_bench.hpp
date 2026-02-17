@@ -2,7 +2,7 @@
 #pragma once
 #include <benchmark/benchmark.h>
 
-#ifdef __wasm__
+#if defined(__wasm__) && !defined(ENABLE_WASM_BENCH)
 namespace bb {
 struct GoogleBbBenchReporter {
     GoogleBbBenchReporter(::benchmark::State& state)

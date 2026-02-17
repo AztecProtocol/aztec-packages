@@ -37,7 +37,7 @@ describe('tx_delayer', () => {
     account = privateKeyToAccount('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80');
     dateProvider = new TestDateProvider();
     const _client = createWalletClient({
-      transport: fallback([http(rpcUrl)]),
+      transport: fallback([http(rpcUrl, { batch: false })]),
       chain: foundry,
       account,
     }).extend(publicActions);

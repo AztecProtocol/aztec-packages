@@ -6,6 +6,7 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
+#include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/ecc/groups/element.hpp"
 #include "barretenberg/serialize/test_helper.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
@@ -294,32 +295,17 @@ TYPED_TEST(TestAffineElement, MulWithEndomorphismMatchesMulWithoutEndomorphism)
 TEST(AffineElementFromPublicInputs, Bn254FromPublicInputs)
 {
     using Curve = curve::BN254;
-    using Fq = Curve::BaseField;
     using Fr = Curve::ScalarField;
     using AffineElement = Curve::AffineElement;
 
     AffineElement point = AffineElement::random_element();
-    uint256_t x(point.x);
-    uint256_t y(point.y);
 
-    // Construct public inputs
-    std::vector<Fr> public_inputs;
-    size_t index = 0;
-    for (size_t idx = 0; idx < Fq::PUBLIC_INPUTS_SIZE; idx++) {
-        auto limb = x.slice(index, index + bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION);
-        public_inputs.emplace_back(Fr(limb));
-        index += bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
-    }
-    index = 0;
-    for (size_t idx = 0; idx < Fq::PUBLIC_INPUTS_SIZE; idx++) {
-        auto limb = y.slice(index, index + bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION);
-        public_inputs.emplace_back(Fr(limb));
-        index += bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
-    }
+    // Construct public inputs using FrCodec format (2 limbs of 136 bits per coordinate)
+    std::vector<Fr> public_inputs = FrCodec::serialize_to_fields(point);
 
     std::span<Fr, AffineElement::PUBLIC_INPUTS_SIZE> limbs(public_inputs.data(), AffineElement::PUBLIC_INPUTS_SIZE);
 
-    auto reconstructed = AffineElement::reconstruct_from_public(limbs);
+    auto reconstructed = FrCodec::deserialize_from_fields<AffineElement>(limbs);
 
     EXPECT_EQ(reconstructed, point);
 }
@@ -328,16 +314,16 @@ TEST(AffineElementFromPublicInputs, GrumpkinFromPublicInputs)
 {
     using Curve = curve::Grumpkin;
     using AffineElement = Curve::AffineElement;
-    using Fq = Curve::BaseField;
+    using Fr = bb::fr;
 
     AffineElement point = AffineElement::random_element();
 
-    // Construct public inputs
-    std::vector<Fq> public_inputs = { point.x, point.y };
+    // Construct public inputs using FrCodec format
+    std::vector<Fr> public_inputs = FrCodec::serialize_to_fields(point);
 
-    std::span<Fq, AffineElement::PUBLIC_INPUTS_SIZE> limbs(public_inputs.data(), AffineElement::PUBLIC_INPUTS_SIZE);
+    std::span<Fr, AffineElement::PUBLIC_INPUTS_SIZE> limbs(public_inputs.data(), AffineElement::PUBLIC_INPUTS_SIZE);
 
-    auto reconstructed = AffineElement::reconstruct_from_public(limbs);
+    auto reconstructed = FrCodec::deserialize_from_fields<AffineElement>(limbs);
 
     EXPECT_EQ(reconstructed, point);
 }

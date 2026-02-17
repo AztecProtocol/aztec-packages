@@ -1,5 +1,5 @@
 use super::TestBuilder;
-use types::abis::sponge_blob::SpongeBlob;
+use types::blob_data::SpongeBlob;
 
 #[test]
 fn correct_default_inputs() {
@@ -9,48 +9,53 @@ fn correct_default_inputs() {
     builder.assert_mock_called(mock);
 }
 
-#[test(should_fail_with = "The start blob sponge was not initialized with the expected number of fields")]
-fn start_sponge_blob_incorrect_initial_length() {
+#[test(should_fail_with = "The start blob sponge was not correctly initialized")]
+fn start_sponge_blob_not_empty() {
     let mut builder = TestBuilder::default();
 
-    let num_expected_fields = builder.hints.blobs_fields[0];
-    // Initialize the start sponge blob with a value that is different from the expected number of fields.
-    let mut start_sponge_blob = SpongeBlob::new(1 + num_expected_fields as u32);
-    start_sponge_blob.absorb([num_expected_fields], 1);
+    // The start sponge blob has absorbed a value.
+    let mut start_sponge_blob = SpongeBlob::init();
+    start_sponge_blob.absorb([123], 1);
     builder.left_rollup.start_sponge_blob = start_sponge_blob;
 
     builder.execute_with_mock_and_fail();
 }
 
-#[test(should_fail_with = "The start blob sponge was not initialized with the expected number of fields")]
-fn start_sponge_blob_incorrect_prefix_field() {
+#[test(should_fail_with = "The start blob sponge was not correctly initialized")]
+fn start_sponge_blob_with_non_zero_cache_size() {
     let mut builder = TestBuilder::default();
 
-    let num_expected_fields = builder.hints.blobs_fields[0];
-    let mut start_sponge_blob = SpongeBlob::new(num_expected_fields as u32);
-    // Absorb a value that is different from the expected number of fields.
-    start_sponge_blob.absorb([num_expected_fields + 1], 1);
-    builder.left_rollup.start_sponge_blob = start_sponge_blob;
+    // Tweak the cache size to be non-zero.
+    builder.left_rollup.start_sponge_blob.sponge.cache_size = 1;
 
     builder.execute_with_mock_and_fail();
 }
 
-#[test(should_fail_with = "The start blob sponge was not initialized with the expected number of fields")]
-fn start_sponge_blob_incorrect_length() {
+#[test(should_fail_with = "The start blob sponge was not correctly initialized")]
+fn start_sponge_blob_with_non_empty_state() {
     let mut builder = TestBuilder::default();
 
-    // Tweak the length of the absorbed fields of the start sponge blob to be 0.
-    builder.left_rollup.start_sponge_blob.num_absorbed_fields = 0;
+    // Set a value to the initial state
+    builder.left_rollup.start_sponge_blob.sponge.state[2] = 1;
 
     builder.execute_with_mock_and_fail();
 }
 
-#[test(should_fail_with = "The start blob sponge was not initialized with the expected number of fields")]
-fn start_sponge_blob_with_extra_field() {
+#[test(should_fail_with = "The start blob sponge was not correctly initialized")]
+fn start_sponge_blob_with_non_zero_num_absorbed_fields() {
     let mut builder = TestBuilder::default();
 
-    // Absorb another field to the start sponge blob.
-    builder.left_rollup.start_sponge_blob.absorb([123], 1);
+    // Tweak the number of the absorbed fields to be non-zero.
+    builder.left_rollup.start_sponge_blob.num_absorbed_fields = 1;
+
+    builder.execute_with_mock_and_fail();
+}
+
+#[test(should_fail_with = "The start blob sponge was not correctly initialized")]
+fn start_sponge_blob_already_squeezed() {
+    let mut builder = TestBuilder::default();
+
+    builder.left_rollup.start_sponge_blob.sponge.squeeze_mode = true;
 
     builder.execute_with_mock_and_fail();
 }
@@ -136,23 +141,27 @@ fn mismatch_public_data_tree_next_available_leaf_index() {
 }
 
 #[test(should_fail_with = "The start timestamp must be after the previous block's timestamp")]
-fn start_timestamp_before_previous_block_timestamp() {
+fn timestamp_less_than_previous_checkpoint_timestamp() {
     let mut builder = TestBuilder::default();
 
-    // Tweak the start timestamp of the left rollup to be before the previous block's timestamp.
-    let previous_block_header = builder.hints.previous_block_header;
-    builder.left_rollup.start_timestamp = previous_block_header.global_variables.timestamp - 1;
+    // Tweak the timestamp of the blocks to be less than the previous checkpoint's timestamp.
+    let previous_checkpoint_timestamp =
+        builder.hints.previous_block_header.global_variables.timestamp;
+    builder.left_rollup.timestamp = previous_checkpoint_timestamp - 1;
+    builder.right_rollup.timestamp = previous_checkpoint_timestamp - 1;
 
     builder.execute_with_mock_and_fail();
 }
 
 #[test(should_fail_with = "The start timestamp must be after the previous block's timestamp")]
-fn start_timestamp_equals_previous_block_timestamp() {
+fn timestamp_equals_previous_checkpoint_timestamp() {
     let mut builder = TestBuilder::default();
 
-    // Tweak the start timestamp of the left rollup to be equal to the previous block's timestamp.
-    let previous_block_header = builder.hints.previous_block_header;
-    builder.left_rollup.start_timestamp = previous_block_header.global_variables.timestamp;
+    // Tweak the timestamp of the blocks to be equal to the previous checkpoint's timestamp.
+    let previous_checkpoint_timestamp =
+        builder.hints.previous_block_header.global_variables.timestamp;
+    builder.left_rollup.timestamp = previous_checkpoint_timestamp;
+    builder.right_rollup.timestamp = previous_checkpoint_timestamp;
 
     builder.execute_with_mock_and_fail();
 }

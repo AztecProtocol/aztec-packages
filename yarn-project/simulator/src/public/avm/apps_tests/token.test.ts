@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
@@ -79,6 +79,6 @@ describe('AVM simulator apps tests: TokenContract', () => {
       /*isStaticCall=*/ true,
     );
     expect(balResult.reverted).toBe(false);
-    expect(balResult.output).toEqual([new Fr(expectedBalance)]);
+    expect(balResult.output.readAll()).toEqual([new Fr(expectedBalance)]);
   };
 });

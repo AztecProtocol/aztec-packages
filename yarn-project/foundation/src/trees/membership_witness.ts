@@ -1,6 +1,6 @@
 import { assertMemberLength } from '../array/array.js';
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
-import { Fr } from '../fields/fields.js';
+import { Fr } from '../curves/bn254/field.js';
 import { schemas } from '../schemas/schemas.js';
 import { BufferReader, type Tuple, serializeToBuffer } from '../serialize/index.js';
 import type { SiblingPath } from './sibling_path.js';
@@ -36,6 +36,14 @@ export class MembershipWitness<N extends number> {
 
   toFields(): Fr[] {
     return [new Fr(this.leafIndex), ...this.siblingPath];
+  }
+
+  /**
+   * Returns a representation of the membership witness as expected by intrinsic Noir deserialization.
+   */
+  public toNoirRepresentation(): (string | string[])[] {
+    // TODO(#12874): remove the stupid as string conversion by modifying ForeignCallOutput type in acvm.js
+    return [new Fr(this.leafIndex).toString() as string, this.siblingPath.map(fr => fr.toString()) as string[]];
   }
 
   static schemaFor<N extends number>(size: N) {

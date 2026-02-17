@@ -1,6 +1,6 @@
 pub(crate) mod single_subtree_merkle_tree;
 
-use crate::{hash::merkle_hash, merkle_tree::{calculate_empty_tree_root, merkle_tree, MerkleTree}};
+use crate::merkle_tree::{compute_empty_tree_root, merkle_hash, merkle_tree, MerkleTree};
 
 pub use single_subtree_merkle_tree::SingleSubtreeMerkleTree;
 
@@ -59,9 +59,19 @@ fn test_merkle_tree_update_leaf() {
 #[test]
 fn test_merkle_tree_update_leaf_three_layers() {
     let mut tree = MerkleTree::new([1, 2, 3, 4, 5, 6, 7, 8]);
+    let original_root = tree.get_root();
 
+    // Update all leaves to zero.
     for i in 0..8 {
         tree.update_leaf::<3>(i, 0);
     }
-    assert_eq(tree.get_root(), calculate_empty_tree_root(3));
+    let empty_root = compute_empty_tree_root::<3>();
+    assert_eq(tree.get_root(), empty_root);
+    assert(empty_root != original_root);
+
+    // Restore original leaves.
+    for i in 0..8 {
+        tree.update_leaf::<3>(i, (i + 1) as Field);
+    }
+    assert_eq(tree.get_root(), original_root);
 }

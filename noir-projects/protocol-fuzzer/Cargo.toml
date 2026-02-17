@@ -1,0 +1,14 @@
+[package]
+name = "aztec-protocol-fuzzer"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.100"
+arbitrary = "1.4.2"
+arbtest = "0.2"
+clap = { version = "4.5.47", features = ["derive"] }
+env_logger = "0.11.8"
+log = "0.4.29"
+regex = "1.12.2"
+rsbash = "2.1.0"

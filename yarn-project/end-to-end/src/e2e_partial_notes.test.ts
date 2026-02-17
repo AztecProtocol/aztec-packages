@@ -34,7 +34,8 @@ describe('partial notes', () => {
       logger,
     } = await setup(2));
 
-    token0 = await deployToken(wallet, adminAddress, 0n, logger);
+    const { contract } = await deployToken(wallet, adminAddress, 0n, logger);
+    token0 = contract;
   });
 
   afterAll(() => teardown());

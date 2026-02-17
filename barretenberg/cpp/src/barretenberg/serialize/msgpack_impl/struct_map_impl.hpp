@@ -5,8 +5,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-#define MSGPACK_NO_BOOST
-#define MSGPACK_USE_STD_VARIANT_ADAPTOR
+
 #include "concepts.hpp"
 #include "drop_keys.hpp"
 #include <msgpack.hpp>

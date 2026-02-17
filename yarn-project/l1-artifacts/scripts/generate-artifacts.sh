@@ -12,6 +12,7 @@ cd $(git rev-parse --show-toplevel)/yarn-project/l1-artifacts
 
 contracts=(
   "CoinIssuer"
+  "EscapeHatch"
   "TallySlashingProposer"
   "EmpireBase"
   "EmpireSlashingProposer"
@@ -135,6 +136,19 @@ done
 
 # Update index.ts exports
 echo "export * from './RollupStorage.js';" >>"src/index.ts"
+
+# Generate EscapeHatchStorage.ts
+(
+  echo "/**"
+  echo " * Escape hatch storage."
+  echo " */"
+  echo -n "export const EscapeHatchStorage = "
+  jq -j '.storage' "../../l1-contracts/out/EscapeHatch.sol/storage.json"
+  echo " as const;"
+) >"src/EscapeHatchStorage.ts"
+
+# Update index.ts exports
+echo "export * from './EscapeHatchStorage.js';" >>"src/index.ts"
 
 # Write abis hash. Consider excluding some contracts from this hash if
 # we don't want to consider them as breaking for the interfaces.

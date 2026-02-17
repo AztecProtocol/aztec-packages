@@ -1,4 +1,5 @@
-/// Delineates the indices of a note hash and nullifier pair that can be squashed.
+/// Delineates the indices* of a note hash and nullifier pair that can be squashed.
+/// *the indices relate to the note_hashes and nullifiers arrays of the previous_kernel's public_inputs.
 pub struct TransientDataSquashingHint {
     pub note_hash_index: u32,
     pub nullifier_index: u32,

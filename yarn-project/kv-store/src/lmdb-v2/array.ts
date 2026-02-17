@@ -4,8 +4,8 @@ import type { AztecAsyncArray } from '../interfaces/array.js';
 import type { Value } from '../interfaces/common.js';
 import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
 import type { ReadTransaction } from './read_transaction.js';
-// eslint-disable-next-line import/no-cycle
-import { AztecLMDBStoreV2, execInReadTx, execInWriteTx } from './store.js';
+import type { AztecLMDBStoreV2 } from './store.js';
+import { execInReadTx, execInWriteTx } from './tx-helpers.js';
 import { deserializeKey, serializeKey } from './utils.js';
 
 export class LMDBArray<T extends Value> implements AztecAsyncArray<T> {

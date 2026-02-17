@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Luke, Raju], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -9,15 +9,23 @@
 
 namespace bb {
 
+/**
+ * @brief Delta Range Constraint Relation for efficient range checks
+ *
+ * @details This relation enables efficient range proofs by enforcing that consecutive wire values differ by at most 3.
+ * When witnesses are sorted in ascending order, constraining adjacent differences to be in {0, 1, 2, 3} proves that
+ * the full range of values lies within a bounded interval.
+ *
+ */
 template <typename FF_> class DeltaRangeConstraintRelationImpl {
   public:
     using FF = FF_;
 
     static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS{
-        6, // range constrain sub-relation 1
-        6, // range constrain sub-relation 2
-        6, // range constrain sub-relation 3
-        6  // range constrain sub-relation 4
+        6, // sub-relation 1: D_0 = w_2 - w_1
+        6, // sub-relation 2: D_1 = w_3 - w_2
+        6, // sub-relation 3: D_2 = w_4 - w_3
+        6  // sub-relation 4: D_3 = w_1_shifst - w_4
     };
 
     /**
@@ -41,13 +49,13 @@ template <typename FF_> class DeltaRangeConstraintRelationImpl {
      *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Univariate edges.
-     * @param parameters contains beta, gamma, and public_input_delta, ....
+     * @param parameters unused
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     inline static void accumulate(ContainerOverSubrelations& accumulators,
                                   const AllEntities& in,
-                                  const Parameters&,
+                                  BB_UNUSED const Parameters&,
                                   const FF& scaling_factor)
     {
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -68,6 +76,8 @@ template <typename FF_> class DeltaRangeConstraintRelationImpl {
         auto delta_2 = Accumulator(w_3 - w_2);
         auto delta_3 = Accumulator(w_4 - w_3);
         auto delta_4 = Accumulator(w_1_shift - w_4);
+
+        // Polynomial trick: if T = (D - 3) * D, then T * (T + 2) == D * (D - 1) * (D - 2) * (D - 3)
 
         // Contribution (1)
         auto tmp_1 = (delta_1 - FF(3)) * delta_1;

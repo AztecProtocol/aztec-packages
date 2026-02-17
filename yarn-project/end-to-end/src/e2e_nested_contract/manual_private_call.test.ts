@@ -5,9 +5,8 @@ describe('e2e_nested_contract manual', () => {
   let { parentContract, childContract, defaultAccountAddress } = t;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyManualSnapshots();
     await t.setup();
+    await t.applyManual();
     ({ parentContract, childContract, defaultAccountAddress } = t);
   });
 
@@ -18,7 +17,6 @@ describe('e2e_nested_contract manual', () => {
   it('performs nested calls', async () => {
     await parentContract.methods
       .entry_point(childContract.address, await childContract.methods.value.selector())
-      .send({ from: defaultAccountAddress })
-      .wait();
+      .send({ from: defaultAccountAddress });
   });
 });

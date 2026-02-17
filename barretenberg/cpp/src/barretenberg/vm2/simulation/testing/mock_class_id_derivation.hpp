@@ -12,7 +12,7 @@ class MockClassIdDerivation : public ClassIdDerivationInterface {
     MockClassIdDerivation();
     ~MockClassIdDerivation() override;
 
-    MOCK_METHOD(void, assert_derivation, (const ContractClassId& class_id, const ContractClass& klass), (override));
+    MOCK_METHOD(void, assert_derivation, (const ContractClassWithCommitment& klass), (override));
 };
 
 } // namespace bb::avm2::simulation

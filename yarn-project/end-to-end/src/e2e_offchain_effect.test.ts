@@ -2,15 +2,16 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { OffchainEffectContract, type TestEvent } from '@aztec/noir-test-contracts.js/OffchainEffect';
 import { MessageContext } from '@aztec/stdlib/logs';
 import { OFFCHAIN_MESSAGE_IDENTIFIER } from '@aztec/stdlib/tx';
-import type { TestWallet } from '@aztec/test-wallet/server';
-import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
+import { proveInteraction } from './test-wallet/utils.js';
 
 const TIMEOUT = 120_000;
 
@@ -32,8 +33,8 @@ describe('e2e_offchain_effect', () => {
       accounts: [defaultAccountAddress],
       aztecNode,
     } = await setup(1));
-    contract1 = await OffchainEffectContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
-    contract2 = await OffchainEffectContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
+    contract1 = await OffchainEffectContract.deploy(wallet).send({ from: defaultAccountAddress });
+    contract2 = await OffchainEffectContract.deploy(wallet).send({ from: defaultAccountAddress });
   });
 
   afterAll(() => teardown());
@@ -77,7 +78,7 @@ describe('e2e_offchain_effect', () => {
       contract1.methods.emit_event_as_offchain_message_for_msg_sender(a, b, c),
       { from: defaultAccountAddress },
     );
-    const { txHash, blockNumber } = await provenTx.send().wait();
+    const { txHash, blockNumber, blockHash } = await provenTx.send();
 
     const offchainEffects = provenTx.offchainEffects;
     expect(offchainEffects).toHaveLength(1);
@@ -106,19 +107,25 @@ describe('e2e_offchain_effect', () => {
       .simulate({ from: defaultAccountAddress });
 
     // Get the event from PXE
-    const events = await wallet.getPrivateEvents<TestEvent>(
-      contract1.address,
-      OffchainEffectContract.events.TestEvent,
-      blockNumber!,
-      1,
-      [recipient],
-    );
+    const events = await wallet.getPrivateEvents<TestEvent>(OffchainEffectContract.events.TestEvent, {
+      contractAddress: contract1.address,
+      fromBlock: BlockNumber(blockNumber!),
+      toBlock: BlockNumber(blockNumber! + 1),
+      scopes: [recipient],
+    });
 
     expect(events.length).toBe(1);
     expect(events[0]).toEqual({
-      a,
-      b,
-      c,
+      event: {
+        a,
+        b,
+        c,
+      },
+      metadata: {
+        l2BlockNumber: blockNumber,
+        l2BlockHash: blockHash,
+        txHash,
+      },
     });
   });
 
@@ -128,7 +135,7 @@ describe('e2e_offchain_effect', () => {
     const provenTx = await proveInteraction(wallet, contract1.methods.emit_note_as_offchain_message(value, owner), {
       from: defaultAccountAddress,
     });
-    const { txHash } = await provenTx.send().wait();
+    const { txHash } = await provenTx.send();
 
     const offchainEffects = provenTx.offchainEffects;
     expect(offchainEffects).toHaveLength(1);

@@ -91,6 +91,13 @@ function(barretenberg_module_with_sources MODULE_NAME)
                 PRIVATE
                 -fsanitize=fuzzer-no-link
             )
+            if(FUZZING_AVM)
+                target_compile_options(
+                    ${MODULE_NAME}_objects
+                    PRIVATE
+                    -fsanitize-coverage-ignorelist=${CMAKE_SOURCE_DIR}/cmake/fuzzing-avm-ignorelist.txt
+                )
+            endif()
         endif()
 
         # enable msgpack downloading via dependency (solves race condition)
@@ -98,12 +105,18 @@ function(barretenberg_module_with_sources MODULE_NAME)
         add_dependencies(${MODULE_NAME}_objects msgpack-c)
 
         # enable lmdb downloading via dependency (solves race condition)
-        if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32")
+        if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32" AND NOT MOBILE)
             add_dependencies(${MODULE_NAME} lmdb_repo)
             add_dependencies(${MODULE_NAME}_objects lmdb_repo)
         endif()
         list(APPEND lib_targets ${MODULE_NAME})
 
+        set(MODULE_LINK_NAME ${MODULE_NAME})
+    elseif(MODULE_DEPENDENCIES AND NOT BENCH_SOURCE_FILES AND NOT FUZZERS_SOURCE_FILES)
+        # Header-only module with dependencies: create an INTERFACE library
+        # so dependents can still reference this module by name.
+        add_library(${MODULE_NAME} INTERFACE)
+        target_link_libraries(${MODULE_NAME} INTERFACE ${MODULE_DEPENDENCIES})
         set(MODULE_LINK_NAME ${MODULE_NAME})
     endif()
 
@@ -185,7 +198,7 @@ function(barretenberg_module_with_sources MODULE_NAME)
         add_dependencies(${MODULE_NAME}_tests msgpack-c)
 
         # enable lmdb downloading via dependency (solves race condition)
-        if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32")
+        if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32" AND NOT MOBILE)
             add_dependencies(${MODULE_NAME}_test_objects lmdb_repo)
             add_dependencies(${MODULE_NAME}_tests lmdb_repo)
         endif()
@@ -291,15 +304,10 @@ function(barretenberg_module_with_sources MODULE_NAME)
             add_dependencies(${BENCHMARK_NAME}_bench msgpack-c)
 
             # enable lmdb downloading via dependency (solves race condition)
-            if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32")
+            if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32" AND NOT MOBILE)
                 add_dependencies(${BENCHMARK_NAME}_bench_objects lmdb_repo)
                 add_dependencies(${BENCHMARK_NAME}_bench lmdb_repo)
             endif()
-            add_custom_target(
-                run_${BENCHMARK_NAME}_bench
-                COMMAND ${BENCHMARK_NAME}_bench
-                WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-            )
         endforeach()
     endif()
 

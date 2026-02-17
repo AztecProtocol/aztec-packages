@@ -8,18 +8,17 @@ import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { CheatCodes } from '@aztec/aztec/testing';
-import {
-  type DeployL1ContractsReturnType,
-  RollupContract,
-  createExtendedL1Client,
-  getL1ContractsConfigEnvVars,
-} from '@aztec/ethereum';
+import { createExtendedL1Client } from '@aztec/ethereum/client';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
+import { RollupContract } from '@aztec/ethereum/contracts';
+import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
-import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
+import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 
 import { getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -39,7 +38,7 @@ describe('e2e_multi_validator_node', () => {
   let aztecNode: AztecNode;
   let config: AztecNodeConfig;
   let logger: Logger;
-  let deployL1ContractsValues: DeployL1ContractsReturnType;
+  let deployL1ContractsValues: DeployAztecL1ContractsReturnType;
   let rollup: RollupContract;
   let cheatCodes: CheatCodes;
   const artifact = StatefulTestContractArtifact;
@@ -83,7 +82,7 @@ describe('e2e_multi_validator_node', () => {
       publisherPrivateKeys: publisherPrivateKeys.map(k => new SecretValue(k)),
       minTxsPerBlock: 1,
       archiverPollingIntervalMS: 200,
-      transactionPollingIntervalMS: 200,
+      sequencerPollingIntervalMS: 200,
       worldStateBlockCheckIntervalMS: 200,
       blockCheckIntervalMS: 200,
       startProverNode: true,
@@ -115,26 +114,25 @@ describe('e2e_multi_validator_node', () => {
 
     const sender = ownerAddress;
     logger.info(`Deploying contract from ${sender}`);
-    const tx = await deployer
-      .deploy(ownerAddress, sender, 1)
-      .send({
-        from: ownerAddress,
-        contractAddressSalt: new Fr(BigInt(1)),
-        skipClassPublication: true,
-        skipInstancePublication: true,
-      })
-      .wait();
+    const tx = await deployer.deploy(ownerAddress, sender, 1).send({
+      from: ownerAddress,
+      contractAddressSalt: new Fr(BigInt(1)),
+      skipClassPublication: true,
+      skipInstancePublication: true,
+      wait: { returnReceipt: true },
+    });
     await waitForProven(aztecNode, tx, {
       provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
     });
     expect(tx.blockNumber).toBeDefined();
 
-    const dataStore = ((aztecNode as AztecNodeService).getBlockSource() as Archiver).dataStore;
-    const [block] = await dataStore.getPublishedBlocks(tx.blockNumber!, tx.blockNumber!);
-    const payload = ConsensusPayload.fromBlock(block.block);
-    const attestations = block.attestations
+    const dataStore = (aztecNode as AztecNodeService).getBlockSource() as Archiver;
+    const checkpointedBlock = await dataStore.getCheckpointedBlock(tx.blockNumber!);
+    const [publishedCheckpoint] = await dataStore.getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
+    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
+    const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
-      .map(a => new BlockAttestation(payload, a.signature, Signature.empty()));
+      .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
 
     expect(attestations.length).toBeGreaterThanOrEqual((COMMITTEE_SIZE * 2) / 3 + 1);
 
@@ -142,6 +140,7 @@ describe('e2e_multi_validator_node', () => {
 
     expect(signers.every(s => validatorAddresses.includes(s))).toBe(true);
   });
+
   it('should attest ONLY with the correct validator keys', async () => {
     const rollupContract1 = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
@@ -163,7 +162,11 @@ describe('e2e_multi_validator_node', () => {
       validatorAddresses[VALIDATOR_COUNT - 2],
     ]);
 
-    await cheatCodes.rollup.advanceToEpoch((await cheatCodes.rollup.getEpoch()) + BigInt(config.lagInEpochs + 1));
+    await cheatCodes.rollup.advanceToEpoch(
+      EpochNumber.fromBigInt(
+        BigInt(await cheatCodes.rollup.getEpoch()) + BigInt(config.lagInEpochsForValidatorSet + 1),
+      ),
+    );
 
     // check that the committee is undefined
     const committee = await rollup.getCurrentEpochCommittee();
@@ -174,26 +177,25 @@ describe('e2e_multi_validator_node', () => {
 
     logger.info(`Deploying contract from ${sender}`);
     const deployer = new ContractDeployer(artifact, wallet);
-    const tx = await deployer
-      .deploy(ownerAddress, sender, 1)
-      .send({
-        from: ownerAddress,
-        contractAddressSalt: new Fr(BigInt(1)),
-        skipClassPublication: true,
-        skipInstancePublication: true,
-      })
-      .wait();
+    const tx = await deployer.deploy(ownerAddress, sender, 1).send({
+      from: ownerAddress,
+      contractAddressSalt: new Fr(BigInt(1)),
+      skipClassPublication: true,
+      skipInstancePublication: true,
+      wait: { returnReceipt: true },
+    });
     await waitForProven(aztecNode, tx, {
       provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
     });
     expect(tx.blockNumber).toBeDefined();
 
-    const dataStore = ((aztecNode as AztecNodeService).getBlockSource() as Archiver).dataStore;
-    const [block] = await dataStore.getPublishedBlocks(tx.blockNumber!, tx.blockNumber!);
-    const payload = ConsensusPayload.fromBlock(block.block);
-    const attestations = block.attestations
+    const dataStore = (aztecNode as AztecNodeService).getBlockSource() as Archiver;
+    const checkpointedBlock = await dataStore.getCheckpointedBlock(tx.blockNumber!);
+    const [publishedCheckpoint] = await dataStore.getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
+    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
+    const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
-      .map(a => new BlockAttestation(payload, a.signature, Signature.empty()));
+      .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
 
     expect(attestations.length).toBeGreaterThanOrEqual((COMMITTEE_SIZE * 2) / 3 + 1);
 

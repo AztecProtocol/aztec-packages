@@ -2,7 +2,6 @@
 
 #include <memory>
 
-#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"

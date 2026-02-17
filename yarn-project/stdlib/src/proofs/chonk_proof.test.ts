@@ -1,5 +1,5 @@
 import { CHONK_PROOF_LENGTH } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { ChonkProof, ChonkProofWithPublicInputs } from './chonk_proof.js';
 

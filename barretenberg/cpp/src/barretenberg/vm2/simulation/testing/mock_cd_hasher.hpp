@@ -11,6 +11,6 @@ class MockCalldataHasher : public CalldataHashingInterface {
     MockCalldataHasher();
     ~MockCalldataHasher() override;
 
-    MOCK_METHOD(FF, compute_calldata_hash, (const std::span<const FF> calldata), (override));
+    MOCK_METHOD(void, assert_calldata_hash, (const FF& cd_hash, std::span<const FF> calldata), (override));
 };
 } // namespace bb::avm2::simulation

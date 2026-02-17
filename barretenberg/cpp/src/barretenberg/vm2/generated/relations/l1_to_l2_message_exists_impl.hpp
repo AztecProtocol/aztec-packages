@@ -38,12 +38,6 @@ void l1_to_l2_message_existsImpl<FF_>::accumulate(ContainerOverSubrelations& eva
                    (CView(constants_MEM_TAG_U1) - static_cast<View>(in.get(C::execution_mem_tag_reg_2_)));
         std::get<2>(evals) += (tmp * scaling_factor);
     }
-    { // L1_TO_L2_MSG_EXISTS_SUCCESS
-        using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_l1_to_l2_message_exists)) *
-                   static_cast<View>(in.get(C::execution_sel_opcode_error));
-        std::get<3>(evals) += (tmp * scaling_factor);
-    }
 }
 
 } // namespace bb::avm2

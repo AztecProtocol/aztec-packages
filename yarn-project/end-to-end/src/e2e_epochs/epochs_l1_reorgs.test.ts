@@ -4,10 +4,11 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
+import { createBlobClient } from '@aztec/blob-client/client';
 import { Blob } from '@aztec/blob-lib';
-import { createBlobSinkClient } from '@aztec/blob-sink/client';
-import type { ExtendedViemWalletClient } from '@aztec/ethereum';
 import type { ChainMonitor, ChainMonitorEventMap, Delayer } from '@aztec/ethereum/test';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { AbortError } from '@aztec/foundation/error';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -66,37 +67,43 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       return parsedTx.sidecars!.map(sidecar => Blob.fromBlobBuffer(hexToBuffer(sidecar.blob)));
     };
 
+    /** Returns the last synced checkpoint number for a node */
+    const getCheckpointNumber = (node: AztecNode) => node.getL2Tips().then(tips => tips.checkpointed.checkpoint.number);
+
+    /** Returns the last proven checkpoint number for a node */
+    const getProvenCheckpointNumber = (node: AztecNode) => node.getL2Tips().then(tips => tips.proven.checkpoint.number);
+
     it('prunes L2 blocks if a proof is removed due to an L1 reorg', async () => {
       // Wait until we have proven something and the nodes have caught up
       const epochDurationSeconds = test.constants.epochDuration * test.constants.slotDuration;
       logger.warn(`Waiting for initial proof to land`);
       const provenBlockEvent = await executeTimeout(
         signal => {
-          return new Promise<{ l2ProvenBlockNumber: number; l1BlockNumber: number }>((res, rej) => {
-            const handleMsg = (...[ev]: ChainMonitorEventMap['l2-block-proven']) => {
-              if (ev.l2ProvenBlockNumber !== 0) {
+          return new Promise<{ provenCheckpointNumber: number; l1BlockNumber: number }>((res, rej) => {
+            const handleMsg = (...[ev]: ChainMonitorEventMap['checkpoint-proven']) => {
+              if (ev.provenCheckpointNumber !== 0) {
                 res(ev);
-                monitor.off('l2-block-proven', handleMsg);
+                monitor.off('checkpoint-proven', handleMsg);
               }
             };
 
             signal.onabort = () => {
-              monitor.off('l2-block-proven', handleMsg);
+              monitor.off('checkpoint-proven', handleMsg);
               rej(new AbortError());
             };
-            monitor.on('l2-block-proven', handleMsg);
+            monitor.on('checkpoint-proven', handleMsg);
           });
         },
         epochDurationSeconds * 4 * 1000,
       );
 
       // Stop the prover node so it doesn't re-submit the proof after we've removed it
-      logger.warn(`Proof for block ${provenBlockEvent.l2ProvenBlockNumber} mined, stopping prover node`);
+      logger.warn(`Proof for block ${provenBlockEvent.provenCheckpointNumber} mined, stopping prover node`);
       await proverNode.stop();
 
       // And remove the proof from L1
       await context.cheatCodes.eth.reorgTo(provenBlockEvent.l1BlockNumber - 1);
-      expect((await monitor.run(true)).l2ProvenBlockNumber).toEqual(0);
+      expect((await monitor.run(true)).provenCheckpointNumber).toEqual(0);
 
       // Wait until the end of the proof submission window for the first epoch
       await test.waitUntilLastSlotOfProofSubmissionWindow(0);
@@ -106,17 +113,17 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       const newNode = await executeTimeout(() => test.createNonValidatorNode(), 10_000, `new node sync`);
       expect(await newNode.getProvenBlockNumber()).toEqual(0);
 
-      // Latest block number seen by the node may be the current one, or one less if it was *just* mined.
+      // Latest checkpointed block seen by the node may be from the current checkpoint, or one less if it was *just* mined.
       // This is because the call to createNonValidatorNode will block until the initial sync is completed,
       // but the initial sync is done to the latest L1 block _at the time the initial sync starts_. So a new
-      // node may have appeared while the initial sync runs, that's why we account for a small span of blocks.
-      const currentBlock = (await monitor.run(true)).l2BlockNumber;
-      expect(await newNode.getBlockNumber()).toBeWithin(currentBlock - 1, currentBlock + 1);
+      // checkpoint may have appeared while the initial sync runs, that's why we account for a small span.
+      const currentCheckpointNumber = (await monitor.run(true)).checkpointNumber;
+      expect(await getCheckpointNumber(newNode)).toBeWithin(currentCheckpointNumber - 1, currentCheckpointNumber + 1);
 
       // And check that the old node has processed the reorg as well
       logger.warn(`Testing old node after reorg`);
       await retryUntil(() => node.getProvenBlockNumber().then(b => b === 0), 'prune', L2_SLOT_DURATION_IN_S * 4, 0.1);
-      expect(await node.getBlockNumber()).toBeWithin(monitor.l2BlockNumber - 1, monitor.l2BlockNumber + 1);
+      expect(await getCheckpointNumber(node)).toBeWithin(monitor.checkpointNumber - 1, monitor.checkpointNumber + 1);
 
       logger.warn(`Test succeeded`);
       await newNode.stop();
@@ -125,7 +132,8 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     it('does not prune if a second proof lands within the submission window after the first one is reorged out', async () => {
       // Wait until we have proven something and the nodes have caught up
       logger.warn(`Waiting for initial proof to land`);
-      const provenBlock = await test.waitUntilProvenL2BlockNumber(1);
+      const provenCheckpoint = await test.waitUntilProvenCheckpointNumber(CheckpointNumber(1));
+      const provenBlock = Number(provenCheckpoint);
       await retryUntil(() => node.getProvenBlockNumber().then(p => p >= provenBlock), 'node sync', 10, 0.1);
 
       // Stop the prover node
@@ -133,17 +141,18 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
       // Remove the proof from L1 but do not change the block number
       await context.cheatCodes.eth.reorgWithReplacement(1);
-      await expect(monitor.run(true).then(m => m.l2ProvenBlockNumber)).resolves.toEqual(0);
+      await expect(monitor.run(true).then(m => m.provenCheckpointNumber)).resolves.toEqual(0);
 
       // Create another prover node so it submits a proof and wait until it is submitted
       const newProverNode = await test.createProverNode();
-      const provenBlockRetry = await test.waitUntilProvenL2BlockNumber(1);
-      await expect(monitor.run(true).then(m => m.l2ProvenBlockNumber)).resolves.toBeGreaterThanOrEqual(1);
+      const provenCheckpointRetry = await test.waitUntilProvenCheckpointNumber(CheckpointNumber(1));
+      await expect(monitor.run(true).then(m => m.provenCheckpointNumber)).resolves.toBeGreaterThanOrEqual(1);
 
       // Check that the node has followed along
       logger.warn(`Testing old node`);
+      const provenBlockRetry = Number(provenCheckpointRetry);
       await retryUntil(() => node.getProvenBlockNumber().then(b => b >= provenBlockRetry), 'proof sync', 10, 0.1);
-      expect(await node.getBlockNumber()).toBeWithin(monitor.l2BlockNumber - 1, monitor.l2BlockNumber + 1);
+      expect(await getCheckpointNumber(node)).toBeWithin(monitor.checkpointNumber - 1, monitor.checkpointNumber + 1);
 
       logger.warn(`Test succeeded`);
       await newProverNode.stop();
@@ -170,7 +179,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       // Wait for the node to prune
       const syncTimeout = L2_SLOT_DURATION_IN_S * 2;
       await retryUntil(() => node.getBlockNumber().then(b => b <= 1), 'node prune', syncTimeout, 0.1);
-      expect(monitor.l2ProvenBlockNumber).toEqual(0);
+      expect(monitor.provenCheckpointNumber).toEqual(0);
       expect(await node.getProvenBlockNumber()).toEqual(0);
 
       // But not all is lost, for a reorg gets the proof back on chain!
@@ -180,50 +189,66 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       expect(proofTxReceipt.status).toEqual('success');
 
       // Monitor should update to see the proof
-      const { l2BlockNumber, l2ProvenBlockNumber } = await monitor.run(true);
-      expect(l2BlockNumber).toBeGreaterThan(1);
-      expect(l2ProvenBlockNumber).toBeGreaterThan(0);
+      const { checkpointNumber, provenCheckpointNumber } = await monitor.run(true);
+      expect(checkpointNumber).toBeGreaterThan(1);
+      expect(provenCheckpointNumber).toBeGreaterThan(0);
 
       // And so the node undoes its reorg
-      await retryUntil(() => node.getBlockNumber().then(b => b >= l2BlockNumber), 'node resync', syncTimeout, 0.1);
-      await retryUntil(() => node.getProvenBlockNumber().then(b => b >= l2ProvenBlockNumber), 'proof sync', 1, 0.1);
+      await retryUntil(
+        () => getCheckpointNumber(node).then(b => b >= checkpointNumber),
+        'node resync',
+        syncTimeout,
+        0.1,
+      );
+      await retryUntil(
+        () => getProvenCheckpointNumber(node).then(b => b >= provenCheckpointNumber),
+        'proof sync',
+        1,
+        0.1,
+      );
 
       logger.warn(`Test succeeded`);
     });
 
-    it('prunes L2 blocks from pending chain removed from L1 due to an L1 reorg', async () => {
-      // Wait until L2_BLOCK_NUMBER is mined and node synced, and stop the sequencer
-      const L2_BLOCK_NUMBER = 3;
-      await test.waitUntilL2BlockNumber(L2_BLOCK_NUMBER, L2_SLOT_DURATION_IN_S * (L2_BLOCK_NUMBER + 4));
-      expect(monitor.l2BlockNumber).toEqual(L2_BLOCK_NUMBER);
+    it('prunes blocks from pending chain removed from L1 due to an L1 reorg', async () => {
+      // Wait until CHECKPOINT_NUMBER is mined and node synced, and stop the sequencer
+      const CHECKPOINT_NUMBER = CheckpointNumber(3);
+      await test.waitUntilCheckpointNumber(CHECKPOINT_NUMBER, L2_SLOT_DURATION_IN_S * (CHECKPOINT_NUMBER + 4));
+      expect(monitor.checkpointNumber).toEqual(CHECKPOINT_NUMBER);
       const l1BlockNumber = monitor.l1BlockNumber;
-      await retryUntil(() => node.getBlockNumber().then(b => b === L2_BLOCK_NUMBER), 'node sync', 10, 0.1);
+      // Wait for node to sync to the checkpoint.
+      await retryUntil(() => getCheckpointNumber(node).then(b => b === CHECKPOINT_NUMBER), 'node sync', 10, 0.1);
 
-      logger.warn(`Reached block ${L2_BLOCK_NUMBER}. Stopping block production.`);
-      await context.aztecNodeAdmin!.setConfig({ minTxsPerBlock: 100 });
+      logger.warn(`Reached checkpoint ${CHECKPOINT_NUMBER}. Stopping block production.`);
+      await context.aztecNodeAdmin.setConfig({ minTxsPerBlock: 100 });
 
       // Remove the L2 block from L1
       const l1BlocksToReorg = monitor.l1BlockNumber - l1BlockNumber + 1;
       await context.cheatCodes.eth.reorgWithReplacement(l1BlocksToReorg);
-      expect(await monitor.run(true).then(monitor => monitor.l2BlockNumber)).toEqual(L2_BLOCK_NUMBER - 1);
-      logger.warn(`Removed block ${L2_BLOCK_NUMBER} via L1 reorg`);
+      expect(await monitor.run(true).then(monitor => monitor.checkpointNumber)).toEqual(
+        CheckpointNumber(CHECKPOINT_NUMBER - 1),
+      );
+      logger.warn(`Removed checkpoint ${CHECKPOINT_NUMBER} via L1 reorg`);
 
       // And expect the node to prune the block
-      await retryUntil(() => node.getBlockNumber().then(b => b === L2_BLOCK_NUMBER - 1), 'node sync', 30, 0.1);
+      const expectedCheckpointNumber = CHECKPOINT_NUMBER - 1;
+      await retryUntil(() => getCheckpointNumber(node).then(b => b === expectedCheckpointNumber), 'node sync', 30, 0.1);
     });
 
     it('sees new blocks added in an L1 reorg', async () => {
-      // Wait until the block *before* L2_BLOCK_NUMBER is mined and node synced
-      const L2_BLOCK_NUMBER = 3;
-      await test.waitUntilL2BlockNumber(L2_BLOCK_NUMBER - 1, L2_SLOT_DURATION_IN_S * (L2_BLOCK_NUMBER + 4));
-      expect(monitor.l2BlockNumber).toEqual(L2_BLOCK_NUMBER - 1);
-      await retryUntil(() => node.getBlockNumber().then(b => b === L2_BLOCK_NUMBER - 1), 'node sync', 5, 0.1);
+      // Wait until the checkpoint *before* CHECKPOINT_NUMBER is mined and node synced
+      const CHECKPOINT_NUMBER = CheckpointNumber(3);
+      const prevCheckpointNumber = CheckpointNumber(CHECKPOINT_NUMBER - 1);
+      await test.waitUntilCheckpointNumber(prevCheckpointNumber, L2_SLOT_DURATION_IN_S * (CHECKPOINT_NUMBER + 4));
+      expect(monitor.checkpointNumber).toEqual(prevCheckpointNumber);
+      // Wait for node to sync to the checkpoint
+      await retryUntil(() => getCheckpointNumber(node).then(b => b === prevCheckpointNumber), 'node sync', 5, 0.1);
 
       // Cancel the next tx to be mined and pause the sequencer
       sequencerDelayer.cancelNextTx();
       await retryUntil(() => sequencerDelayer.getCancelledTxs().length, 'next block', L2_SLOT_DURATION_IN_S * 2, 0.1);
       const [l2BlockTx] = sequencerDelayer.getCancelledTxs();
-      await context.aztecNodeAdmin!.setConfig({ minTxsPerBlock: 100 });
+      await context.aztecNodeAdmin.setConfig({ minTxsPerBlock: 100 });
 
       // Save the L1 block number when the L2 block would have been mined
       const l1BlockNumber = monitor.l1BlockNumber;
@@ -231,11 +256,11 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       // Wait until a few more L1 blocks go by
       await retryUntil(() => monitor.l1BlockNumber > l1BlockNumber + 1, 'l1 block number', L1_BLOCK_TIME_IN_S * 4, 0.1);
       await retryUntil(() => archiver.getL1BlockNumber()! > l1BlockNumber + 1, 'archiver sync', 10, 0.1);
-      expect(await node.getBlockNumber()).toEqual(L2_BLOCK_NUMBER - 1);
+      expect(await getCheckpointNumber(node)).toEqual(prevCheckpointNumber);
 
       // Manually update the archiver's L1 syncpoint to ensure we look back when needed
       // Otherwise this test just passes because we do not update the L1 syncpoint in the archiver since there are no new blocks
-      await archiver.dataStore.setBlockSynchedL1BlockNumber(BigInt(archiver.getL1BlockNumber()!));
+      await archiver.dataStore.setCheckpointSynchedL1BlockNumber(BigInt(archiver.getL1BlockNumber()!));
 
       // Now trigger the reorg. Note that we cannot use reorgWithReplacement here for the reorg, due to an anvil bug with
       // blob txs (now fixed, we can just update its version), so we reorg, then replay the tx, and then mine.
@@ -254,16 +279,16 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       logger.warn(`L2 block tx trace`, { trace: await context.cheatCodes.eth.traceTransaction(txHash) });
       expect(txReceipt.status).toEqual('success');
       expect(txReceipt.blobGasUsed).toBeGreaterThan(0n);
-      expect(await monitor.run(true).then(m => m.l2BlockNumber)).toEqual(L2_BLOCK_NUMBER);
+      expect(await monitor.run(true).then(m => m.checkpointNumber)).toEqual(CHECKPOINT_NUMBER);
 
       // We also need to send the blob to the sink, so the node can get it
-      logger.warn(`Sending blobs to blob sink`);
+      logger.warn(`Sending blobs to blob client`);
       const blobs = getBlobs(l2BlockTx);
-      const blobSinkClient = createBlobSinkClient(context.config);
-      await blobSinkClient.sendBlobsToBlobSink(blobs);
+      const blobClient = createBlobClient(context.config);
+      await blobClient.sendBlobsToFilestore(blobs);
 
       // And wait for the node to see the new block
-      await retryUntil(() => node.getBlockNumber().then(b => b === L2_BLOCK_NUMBER), 'node sync', 20, 0.1);
+      await retryUntil(() => getCheckpointNumber(node).then(b => b === CHECKPOINT_NUMBER), 'node sync', 20, 0.1);
     });
   });
 

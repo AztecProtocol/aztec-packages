@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Suyash], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -24,17 +24,22 @@ namespace bb::stdlib {
 template <typename Builder, typename T>
 bigfield<Builder, T>::bigfield(Builder* parent_context)
     : context(parent_context)
-    , binary_basis_limbs{ Limb(bb::fr(0)), Limb(bb::fr(0)), Limb(bb::fr(0)), Limb(bb::fr(0)) }
+    , binary_basis_limbs{ Limb(field_t<Builder>(parent_context, bb::fr(0))),
+                          Limb(field_t<Builder>(parent_context, bb::fr(0))),
+                          Limb(field_t<Builder>(parent_context, bb::fr(0))),
+                          Limb(field_t<Builder>(parent_context, bb::fr(0))) }
     , prime_basis_limb(context, 0)
 {}
 
 template <typename Builder, typename T>
 bigfield<Builder, T>::bigfield(Builder* parent_context, const uint256_t& value)
     : context(parent_context)
-    , binary_basis_limbs{ Limb(bb::fr(value.slice(0, NUM_LIMB_BITS))),
-                          Limb(bb::fr(value.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2))),
-                          Limb(bb::fr(value.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3))),
-                          Limb(bb::fr(value.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4))) }
+    , binary_basis_limbs{ Limb(field_t<Builder>(parent_context, bb::fr(value.slice(0, NUM_LIMB_BITS)))),
+                          Limb(field_t<Builder>(parent_context, bb::fr(value.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2)))),
+                          Limb(field_t<Builder>(parent_context,
+                                                bb::fr(value.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3)))),
+                          Limb(field_t<Builder>(parent_context,
+                                                bb::fr(value.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4)))) }
     , prime_basis_limb(context, value)
 {
     BB_ASSERT_LT(value, modulus);
@@ -62,7 +67,7 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
     if (!low_bits_in.is_constant()) {
         // Decompose the low bits into 2 limbs and range constrain them.
         const auto limb_witnesses =
-            context->decompose_non_native_field_double_width_limb(low_bits_in.get_witness_index());
+            decompose_non_native_field_double_width_limb(context, low_bits_in.get_witness_index());
         limb_0.witness_index = limb_witnesses[0];
         limb_1.witness_index = limb_witnesses[1];
         field_t<Builder>::evaluate_linear_identity(low_bits_in, -limb_0, -limb_1 * shift_1, field_t<Builder>(0));
@@ -88,8 +93,8 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
     const uint64_t num_high_limb_bits = NUM_LIMB_BITS + num_last_limb_bits;
     if (!high_bits_in.is_constant()) {
         // Decompose the high bits into 2 limbs and range constrain them.
-        const auto limb_witnesses = context->decompose_non_native_field_double_width_limb(
-            high_bits_in.get_witness_index(), static_cast<size_t>(num_high_limb_bits));
+        const auto limb_witnesses = decompose_non_native_field_double_width_limb(
+            context, high_bits_in.get_witness_index(), static_cast<size_t>(num_high_limb_bits));
         limb_2.witness_index = limb_witnesses[0];
         limb_3.witness_index = limb_witnesses[1];
         field_t<Builder>::evaluate_linear_identity(high_bits_in, -limb_2, -limb_3 * shift_1, field_t<Builder>(0));
@@ -1274,7 +1279,7 @@ bigfield<Builder, T> bigfield<Builder, T>::mult_madd(const std::vector<bigfield>
     bool add_constant = true;
     std::vector<bigfield> new_to_add;
 
-    OriginTag new_tag{};
+    OriginTag new_tag = OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
     // Merge all tags. Do it in pairs (logically a submitted value can be masked by a challenge)
     for (auto [left_element, right_element] : zip_view(mul_left, mul_right)) {
         new_tag = OriginTag(new_tag, OriginTag(left_element.get_origin_tag(), right_element.get_origin_tag()));
@@ -1486,7 +1491,7 @@ bigfield<Builder, T> bigfield<Builder, T>::msub_div(const std::vector<bigfield>&
 {
     // Check the basics
     BB_ASSERT_EQ(mul_left.size(), mul_right.size());
-    BB_ASSERT(divisor.get_value() != 0);
+    BB_ASSERT((divisor.get_value() % modulus_u512) != 0, "bigfield: Division by zero in msub_div");
 
     OriginTag new_tag = divisor.get_origin_tag();
     for (auto [left_element, right_element] : zip_view(mul_left, mul_right)) {
@@ -1799,6 +1804,18 @@ template <typename Builder, typename T> void bigfield<Builder, T>::sanity_check(
                 limb_overflow_test_2 || limb_overflow_test_3));
 }
 
+template <typename Builder, typename T>
+void bigfield<Builder, T>::assert_zero_if(const bool_t<Builder>& predicate, std::string const& msg) const
+{
+    // Assert that all limbs are zero when predicate is true
+    const field_ct predicate_field = field_ct(predicate);
+    (binary_basis_limbs[0].element * predicate_field).assert_is_zero(msg + ": binary limb 0 not zero");
+    (binary_basis_limbs[1].element * predicate_field).assert_is_zero(msg + ": binary limb 1 not zero");
+    (binary_basis_limbs[2].element * predicate_field).assert_is_zero(msg + ": binary limb 2 not zero");
+    (binary_basis_limbs[3].element * predicate_field).assert_is_zero(msg + ": binary limb 3 not zero");
+    (prime_basis_limb * predicate_field).assert_is_zero(msg + ": prime limb not zero");
+}
+
 // Underneath performs unsafe_assert_less_than(modulus)
 // create a version with mod 2^t element part in [0,p-1]
 // After range-constraining to size 2^s, we check (p-1)-a is non-negative as integer.
@@ -1816,6 +1833,12 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_is_in_
 template <typename Builder, typename T>
 void bigfield<Builder, T>::assert_less_than(const uint256_t& upper_limit, std::string const& msg) const
 {
+    // For constant bigfields, just verify the value is in range (no circuit constraints needed)
+    if (is_constant()) {
+        BB_ASSERT((get_value() % modulus_u512).lo < upper_limit, msg);
+        return;
+    }
+
     bool is_default_msg = msg == "bigfield::assert_less_than";
 
     // Range constrain the binary basis limbs of the element to respective limb sizes.
@@ -1969,8 +1992,9 @@ void bigfield<Builder, T>::assert_equal(const bigfield& other, std::string const
         // Remove tags, we don't want to cause violations on assert_equal
         const auto original_tag = get_origin_tag();
         const auto other_original_tag = other.get_origin_tag();
-        set_origin_tag(OriginTag());
-        other.set_origin_tag(OriginTag());
+        auto empty_tag = OriginTag::constant(); // Disable origin checking during intermediate operations
+        set_origin_tag(empty_tag);
+        other.set_origin_tag(empty_tag);
 
         bigfield diff = *this - other;
         const uint512_t diff_val = diff.get_value();
@@ -2067,8 +2091,8 @@ template <typename Builder, typename T> void bigfield<Builder, T>::self_reduce()
     BB_ASSERT_LTE(maximum_quotient_bits, NUM_LIMB_BITS);
     uint32_t quotient_limb_index = context->add_variable(bb::fr(quotient_value.lo));
     field_t<Builder> quotient_limb = field_t<Builder>::from_witness_index(context, quotient_limb_index);
-    context->decompose_into_default_range(quotient_limb.get_witness_index(),
-                                          static_cast<size_t>(maximum_quotient_bits));
+    context->create_limbed_range_constraint(quotient_limb.get_witness_index(),
+                                            static_cast<size_t>(maximum_quotient_bits));
 
     BB_ASSERT_LT((uint1024_t(1) << maximum_quotient_bits) * uint1024_t(modulus_u512) + DEFAULT_MAXIMUM_REMAINDER,
                  get_maximum_crt_product());
@@ -2220,6 +2244,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
     //
     const auto convert_constant_to_fixed_witness = [ctx](const bigfield& input) {
         bigfield output(input);
+        // Save the original tag before converting to witnesses
+        auto original_tag = input.get_origin_tag();
         output.prime_basis_limb =
             field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(input.prime_basis_limb.get_value()));
         output.binary_basis_limbs[0].element = field_t<Builder>::from_witness_index(
@@ -2231,6 +2257,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         output.binary_basis_limbs[3].element = field_t<Builder>::from_witness_index(
             ctx, ctx->put_constant_variable(input.binary_basis_limbs[3].element.get_value()));
         output.context = ctx;
+        // Restore the original tag after converting to witnesses
+        output.set_origin_tag(original_tag);
         return output;
     };
     if (left.is_constant()) {
@@ -2486,6 +2514,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     const auto convert_constant_to_fixed_witness = [ctx](const bigfield& input) {
         BB_ASSERT(input.is_constant());
         bigfield output(input);
+        // Save the original tag before converting to witnesses
+        auto original_tag = input.get_origin_tag();
         output.prime_basis_limb =
             field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(input.prime_basis_limb.get_value()));
         output.binary_basis_limbs[0].element = field_t<Builder>::from_witness_index(
@@ -2497,6 +2527,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         output.binary_basis_limbs[3].element = field_t<Builder>::from_witness_index(
             ctx, ctx->put_constant_variable(input.binary_basis_limbs[3].element.get_value()));
         output.context = ctx;
+        // Restore the original tag after converting to witnesses
+        output.set_origin_tag(original_tag);
         return output;
     };
 
@@ -2532,6 +2564,11 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
 
             field_t<Builder> lo_2 = field_t<Builder>::from_witness_index(ctx, lo_2_idx);
             field_t<Builder> hi_2 = field_t<Builder>::from_witness_index(ctx, hi_2_idx);
+            // Set CONSTANT tags so these intermediate results are absorbed during tag merging
+            // The final tag will come from the remainders which have properly merged tags from mult_madd
+            auto const_tag = OriginTag::constant();
+            lo_2.set_origin_tag(const_tag);
+            hi_2.set_origin_tag(const_tag);
 
             limb_0_accumulator.emplace_back(-lo_2);
             limb_2_accumulator.emplace_back(-hi_2);
@@ -2766,6 +2803,41 @@ std::pair<uint512_t, uint512_t> bigfield<Builder, T>::compute_partial_schoolbook
     const uint512_t lo_val = r0_inner + (r1_inner << NUM_LIMB_BITS);      // lo := c0 + c1 * 2^b
     const uint512_t hi_val = r2_inner + (r3_inner << NUM_LIMB_BITS);      // hi := c2 + c3 * 2^b
     return std::pair<uint512_t, uint512_t>(lo_val, hi_val);
+}
+
+/**
+ * @brief Decompose a single witness into two limbs, range constrained to NUM_LIMB_BITS (68) and
+ * num_limb_bits - NUM_LIMB_BITS, respectively.
+ *
+ * @details Doesn't create gates constraining the limbs to each other.
+ *
+ * @param ctx The circuit context
+ * @param limb_idx The index of the limb that will be decomposed
+ * @param num_limb_bits The range we want to constrain the original limb to
+ * @return std::array<uint32_t, 2> The indices of new limbs.
+ */
+template <typename Builder, typename T>
+std::array<uint32_t, 2> bigfield<Builder, T>::decompose_non_native_field_double_width_limb(Builder* ctx,
+                                                                                           const uint32_t limb_idx,
+                                                                                           const size_t num_limb_bits)
+{
+    BB_ASSERT_LT(uint256_t(ctx->get_variable(limb_idx)), (uint256_t(1) << num_limb_bits));
+    constexpr bb::fr LIMB_MASK = (uint256_t(1) << NUM_LIMB_BITS) - 1;
+    const uint256_t value = ctx->get_variable(limb_idx);
+    const uint256_t low = value & LIMB_MASK;
+    const uint256_t hi = value >> NUM_LIMB_BITS;
+    BB_ASSERT_EQ(low + (hi << NUM_LIMB_BITS), value);
+
+    const uint32_t low_idx = ctx->add_variable(bb::fr(low));
+    const uint32_t hi_idx = ctx->add_variable(bb::fr(hi));
+
+    BB_ASSERT_GT(num_limb_bits, NUM_LIMB_BITS);
+    const size_t lo_bits = NUM_LIMB_BITS;
+    const size_t hi_bits = num_limb_bits - NUM_LIMB_BITS;
+    ctx->range_constrain_two_limbs(
+        low_idx, hi_idx, lo_bits, hi_bits, "decompose_non_native_field_double_width_limb: limbs too large");
+
+    return std::array<uint32_t, 2>{ low_idx, hi_idx };
 }
 
 } // namespace bb::stdlib

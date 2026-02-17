@@ -1,0 +1,142 @@
+name: Alpha Team Canary
+
+on:
+  push:
+    branches:
+      - next
+    paths:
+      # Match any file named bootstrap.sh
+      - '**/bootstrap.sh'
+      # Anything in ci3 folder
+      - 'ci3/**'
+      # Anything in yarn-project
+      - 'yarn-project/**'
+
+env:
+  CANARY_BRANCH: ad/chore/ci-release-pr-canary
+  PR_TITLE: "no-merge: alpha canary PR"
+
+jobs:
+  update-canary-pr:
+    name: Update alpha team canary PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config --global user.name AztecBot
+          git config --global user.email tech@aztecprotocol.com
+
+      - name: Detect changed paths
+        id: detect
+        run: |
+          changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+          echo "Changed files:"
+          echo "$changed_files"
+
+          # Check for bootstrap.sh or ci3/ changes -> ci-release-pr label
+          if echo "$changed_files" | grep -qE '(bootstrap\.sh|^ci3/)'; then
+            echo "release_pr=true" >> $GITHUB_OUTPUT
+          else
+            echo "release_pr=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Check for yarn-project/ changes -> ci-network-kind label
+          if echo "$changed_files" | grep -q '^yarn-project/'; then
+            echo "network_kind=true" >> $GITHUB_OUTPUT
+          else
+            echo "network_kind=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Ensure canary branch and PR exist
+        id: ensure-pr
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          # Check if branch exists
+          if ! git ls-remote --exit-code --heads origin "$CANARY_BRANCH" >/dev/null 2>&1; then
+            echo "Creating canary branch from next"
+            git checkout -b "$CANARY_BRANCH" origin/next
+            git push -u origin "$CANARY_BRANCH"
+          fi
+
+          # Check if PR exists
+          pr_number=$(gh pr list --state open --head "$CANARY_BRANCH" --json number --jq '.[0].number')
+
+          if [[ -z "$pr_number" ]]; then
+            echo "Creating canary PR"
+            pr_url=$(gh pr create \
+              --head "$CANARY_BRANCH" \
+              --base next \
+              --title "$PR_TITLE" \
+              --body "This PR tests certain CI labels periodically. Any failures in this branch log to alpha-team channel with slack.
+
+          This PR is automatically updated when \`**/bootstrap.sh\`, \`ci3/**\`, or \`yarn-project/**\` files are pushed to \`next\`.
+
+          **Important:** This PR should never be merged. It exists solely to test CI labels.")
+
+            pr_number=$(gh pr list --state open --head "$CANARY_BRANCH" --json number --jq '.[0].number')
+            echo "Created canary PR #$pr_number"
+          fi
+
+          echo "pr_number=$pr_number" >> $GITHUB_OUTPUT
+
+      - name: Check if CI is already running
+        id: check-ci
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          pr_number="${{ steps.ensure-pr.outputs.pr_number }}"
+
+          # Check if CI is currently running on this PR
+          running_ci=$(gh run list --branch "$CANARY_BRANCH" --workflow ci3.yml --status in_progress --json databaseId --jq 'length')
+
+          if [[ "$running_ci" -gt 0 ]]; then
+            echo "CI is already running on canary PR #$pr_number, skipping update"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "No CI running, proceeding with update"
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Merge next into canary branch
+        if: steps.check-ci.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          pr_number="${{ steps.ensure-pr.outputs.pr_number }}"
+
+          # Fetch both branches
+          git fetch origin "$CANARY_BRANCH" next
+
+          # Checkout the canary branch
+          git checkout "$CANARY_BRANCH"
+
+          # Merge next into canary branch
+          if git merge origin/next --no-edit -m "Merge branch 'next' into $CANARY_BRANCH"; then
+            echo "Successfully merged next into $CANARY_BRANCH"
+            git push origin "$CANARY_BRANCH"
+            echo "Pushed update to $CANARY_BRANCH"
+
+            # Add labels based on what changed
+            labels=""
+            if [[ "${{ steps.detect.outputs.release_pr }}" == "true" ]]; then
+              labels="$labels --add-label ci-release-pr"
+            fi
+            if [[ "${{ steps.detect.outputs.network_kind }}" == "true" ]]; then
+              labels="$labels --add-label ci-network-kind"
+            fi
+            if [[ -n "$labels" ]]; then
+              gh pr edit "$pr_number" $labels
+              echo "Added labels to PR #$pr_number: $labels"
+            fi
+          else
+            echo "Merge conflict detected, aborting"
+            git merge --abort
+            exit 1
+          fi

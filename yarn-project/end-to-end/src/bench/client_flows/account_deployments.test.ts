@@ -2,11 +2,12 @@ import { EcdsaRAccountContractArtifact } from '@aztec/accounts/ecdsa';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { publishContractClass } from '@aztec/aztec.js/deployment';
 import type { DeployAccountOptions, Wallet } from '@aztec/aztec.js/wallet';
-import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
-import type { TestWallet } from '@aztec/test-wallet/server';
+import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { jest } from '@jest/globals';
 
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { captureProfile } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
@@ -19,21 +20,21 @@ describe('Deployment benchmark', () => {
   // The admin that aids in the setup of the test
   let adminAddress: AztecAddress;
   // Sponsored FPC contract
-  let sponsoredFPC: SponsoredFPCContract;
+  let sponsoredFPCInstance: ContractInstanceWithAddress;
   // Benchmarking configuration
   const config = t.config.accountDeployments;
   // Benchmarking user's Wallet
   let userWallet: TestWallet;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyDeploySponsoredFPCSnapshot();
-    ({ adminWallet, adminAddress, sponsoredFPC, userWallet } = await t.setup());
+    await t.setup();
+    await t.applyDeploySponsoredFPC();
+    ({ adminWallet, adminAddress, userWallet, sponsoredFPCInstance } = t);
     // Ensure the ECDSAR1 contract is already registered, to avoid benchmarking an extra call to the ContractClassRegistry
     // The typical interaction would be for a user to deploy an account contract that is already registered in the
     // network.
     const publishContractClassInteraction = await publishContractClass(adminWallet, EcdsaRAccountContractArtifact);
-    await publishContractClassInteraction.send({ from: adminAddress }).wait();
+    await publishContractClassInteraction.send({ from: adminAddress });
   });
 
   afterAll(async () => {
@@ -51,7 +52,7 @@ describe('Deployment benchmark', () => {
           const benchysAccountManager = await t.createBenchmarkingAccountManager(userWallet, accountType);
 
           if (benchmarkingPaymentMethod === 'sponsored_fpc') {
-            await userWallet.registerContract(sponsoredFPC);
+            await userWallet.registerContract(sponsoredFPCInstance, SponsoredFPCContract.artifact);
           }
 
           const benchysAddress = benchysAccountManager.address;
@@ -80,7 +81,6 @@ describe('Deployment benchmark', () => {
             1 + // Multicall entrypoint
               1 + // Kernel init
               2 + // ContractInstanceRegistry publish + kernel inner
-              2 + // ContractClassRegistry assert_class_id_is_published + kernel inner
               2 + // Account constructor + kernel inner
               2 + // Account entrypoint (wrapped fee payload) + kernel inner
               paymentMethodManager.circuits + // Payment method circuits
@@ -91,7 +91,7 @@ describe('Deployment benchmark', () => {
 
           if (process.env.SANITY_CHECKS) {
             // Ensure we paid a fee
-            const tx = await deploymentInteraction.send(options).wait();
+            const tx = await deploymentInteraction.send({ ...options, wait: { returnReceipt: true } });
             expect(tx.transactionFee!).toBeGreaterThan(0n);
           }
         });

@@ -11,15 +11,6 @@ import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
 export { getPackageInfo } from './package_info.js';
 
 /**
- * Temporary configuration until WASM can be used instead of native
- */
-export interface BBProverConfig {
-  bbWorkingDirectory?: string;
-  bbBinaryPath?: string;
-  bbSkipCleanup?: boolean;
-}
-
-/**
  * Configuration settings for the prover factory
  */
 export interface KernelProverConfig {
@@ -28,14 +19,16 @@ export interface KernelProverConfig {
 }
 
 /**
- * Configuration settings for the synchronizer.
+ * Configuration settings for the block synchronizer.
  */
-export interface SynchronizerConfig {
+export interface BlockSynchronizerConfig {
   /** Maximum amount of blocks to pull from the stream in one request when synchronizing */
   l2BlockBatchSize: number;
+  /** Which chain tip to sync to (proposed, checkpointed, proven, finalized) */
+  syncChainTip?: 'proposed' | 'checkpointed' | 'proven' | 'finalized';
 }
 
-export type PXEConfig = KernelProverConfig & BBProverConfig & DataStoreConfig & ChainConfig & SynchronizerConfig;
+export type PXEConfig = KernelProverConfig & DataStoreConfig & ChainConfig & BlockSynchronizerConfig;
 
 export type CliPXEOptions = {
   /** Custom Aztec Node URL to connect to  */
@@ -50,23 +43,29 @@ export const pxeConfigMappings: ConfigMappingsType<PXEConfig> = {
     ...numberConfigHelper(50),
     description: 'Maximum amount of blocks to pull from the stream in one request when synchronizing',
   },
-  bbBinaryPath: {
-    env: 'BB_BINARY_PATH',
-    description: 'Path to the BB binary',
-  },
-  bbWorkingDirectory: {
-    env: 'BB_WORKING_DIRECTORY',
-    description: 'Working directory for the BB binary',
-  },
-  bbSkipCleanup: {
-    env: 'BB_SKIP_CLEANUP',
-    description: 'True to skip cleanup of temporary files for debugging purposes',
-    ...booleanConfigHelper(),
-  },
+  // TODO: We're losing this feature in moving to bb.js api.
+  // Reimplement it as a setting that dumps the msgpack data on the bb.js backend if needed.
+  // bbSkipCleanup: {
+  //   env: 'BB_SKIP_CLEANUP',
+  //   description: 'True to skip cleanup of temporary files for debugging purposes',
+  //   ...booleanConfigHelper(),
+  // },
   proverEnabled: {
     env: 'PXE_PROVER_ENABLED',
     description: 'Enable real proofs',
     ...booleanConfigHelper(true),
+  },
+  syncChainTip: {
+    env: 'PXE_SYNC_CHAIN_TIP',
+    description: 'Which chain tip to sync to (proposed, checkpointed, proven, finalized)',
+    defaultValue: 'proposed',
+    parseEnv: (val: string) => {
+      const allowedValues = ['proposed', 'checkpointed', 'proven', 'finalized'];
+      if (allowedValues.includes(val)) {
+        return val;
+      }
+      throw new Error(`Invalid value for PXE_SYNC_CHAIN_TIP: ${val}. Allowed values are: ${allowedValues.join(', ')}`);
+    },
   },
 };
 

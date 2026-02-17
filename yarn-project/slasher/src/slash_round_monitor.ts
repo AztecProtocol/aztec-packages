@@ -1,3 +1,4 @@
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { Prettify } from '@aztec/foundation/types';
@@ -48,12 +49,12 @@ export class SlashRoundMonitor {
   }
 
   /** Returns the slashing round number and the voting slot within the round based on the L2 chain slot */
-  public getRoundForSlot(slotNumber: bigint): { round: bigint; votingSlot: bigint } {
+  public getRoundForSlot(slotNumber: SlotNumber): { round: bigint; votingSlot: SlotNumber } {
     return getRoundForSlot(slotNumber, this.settings);
   }
 
   /** Returns the current slashing round and voting slot within the round */
-  public getCurrentRound(): { round: bigint; votingSlot: bigint } {
+  public getCurrentRound(): { round: bigint; votingSlot: SlotNumber } {
     const now = this.dateProvider.nowInSeconds();
     const currentSlot = getSlotAtTimestamp(BigInt(now), this.settings);
     return this.getRoundForSlot(currentSlot);

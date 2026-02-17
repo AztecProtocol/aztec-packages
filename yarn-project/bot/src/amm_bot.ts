@@ -1,12 +1,12 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { SentTx } from '@aztec/aztec.js/contracts';
+import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
-import { TxReceipt } from '@aztec/aztec.js/tx';
+import { TxHash, TxReceipt } from '@aztec/aztec.js/tx';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import type { TestWallet } from '@aztec/test-wallet/server';
+import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { BaseBot } from './base_bot.js';
 import type { BotConfig } from './config.js';
@@ -21,7 +21,7 @@ type Balances = { token0: bigint; token1: bigint };
 export class AmmBot extends BaseBot {
   protected constructor(
     node: AztecNode,
-    wallet: TestWallet,
+    wallet: EmbeddedWallet,
     defaultAccountAddress: AztecAddress,
     public readonly amm: AMMContract,
     public readonly token0: TokenContract,
@@ -33,7 +33,7 @@ export class AmmBot extends BaseBot {
 
   static async create(
     config: BotConfig,
-    wallet: TestWallet,
+    wallet: EmbeddedWallet,
     aztecNode: AztecNode,
     aztecNodeAdmin: AztecNodeAdmin | undefined,
     store: BotStore,
@@ -48,7 +48,7 @@ export class AmmBot extends BaseBot {
     return new AmmBot(aztecNode, wallet, defaultAccountAddress, amm, token0, token1, config);
   }
 
-  protected async createAndSendTx(logCtx: object): Promise<SentTx> {
+  protected async createAndSendTx(logCtx: object): Promise<TxHash> {
     const { feePaymentMethod } = this.config;
     const { wallet, amm, token0, token1 } = this;
 
@@ -89,7 +89,7 @@ export class AmmBot extends BaseBot {
 
     this.log.verbose(`Sending transaction`, logCtx);
     this.log.info(`Tx. Balances: ${jsonStringify(balances)}`, { ...logCtx, balances });
-    return swapExactTokensInteraction.send(opts);
+    return swapExactTokensInteraction.send({ ...opts, wait: NO_WAIT });
   }
 
   protected override async onTxMined(receipt: TxReceipt, logCtx: object): Promise<void> {

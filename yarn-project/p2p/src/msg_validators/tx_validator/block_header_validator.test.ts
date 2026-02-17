@@ -1,13 +1,14 @@
-import { Fr } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockHash } from '@aztec/stdlib/block';
 import { mockTxForRollup } from '@aztec/stdlib/testing';
-import { type AnyTx, TX_ERROR_BLOCK_HEADER, type TxValidationResult } from '@aztec/stdlib/tx';
+import { TX_ERROR_BLOCK_HEADER, type Tx, type TxValidationResult } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
 import { type ArchiveSource, BlockHeaderTxValidator } from './block_header_validator.js';
 
 describe('BlockHeaderTxValidator', () => {
-  let txValidator: BlockHeaderTxValidator<AnyTx>;
+  let txValidator: BlockHeaderTxValidator<Tx>;
   let archiveSource: MockProxy<ArchiveSource>;
 
   beforeEach(() => {
@@ -21,14 +22,17 @@ describe('BlockHeaderTxValidator', () => {
 
   it('rejects tx with invalid block header', async () => {
     const badTx = await mockTxForRollup();
-    badTx.data.constants.anchorBlockHeader.globalVariables.blockNumber += 1;
+    badTx.data.constants.anchorBlockHeader.globalVariables.blockNumber = BlockNumber(
+      badTx.data.constants.anchorBlockHeader.globalVariables.blockNumber + 1,
+    );
 
     const goodTx = await mockTxForRollup();
-    archiveSource.getArchiveIndices.mockImplementation(async (archives: Fr[]) => {
-      if (archives[0].equals(await goodTx.data.constants.anchorBlockHeader.hash())) {
-        return [1n];
+    const goodTxHeaderHash = await goodTx.data.constants.anchorBlockHeader.hash();
+    archiveSource.getArchiveIndices.mockImplementation((archives: BlockHash[]) => {
+      if (archives[0].equals(goodTxHeaderHash)) {
+        return Promise.resolve([1n]);
       } else {
-        return [undefined];
+        return Promise.resolve([undefined]);
       }
     });
     await expect(txValidator.validateTx(goodTx)).resolves.toEqual({ result: 'valid' } satisfies TxValidationResult);

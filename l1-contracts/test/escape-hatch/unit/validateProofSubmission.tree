@@ -1,0 +1,61 @@
+EscapeHatchValidateProofSubmissionTest
+├── given hatch has already been validated
+│   └── it should revert {EscapeHatch__AlreadyValidated}
+└── given hatch has not been validated
+    ├── given no proposer was designated for the hatch
+    │   └── it should revert {EscapeHatch__NoDesignatedProposer}
+    └── given proposer was designated for the hatch
+        ├── given proposer status is not PROPOSING
+        │   └── it should revert {EscapeHatch__InvalidStatus}
+        └── given proposer status is PROPOSING
+            ├── when exitableAt has not been reached
+            │   └── it should revert {EscapeHatch__NotExitableYet}
+            └── when exitableAt has been reached
+                ├── given escape hatch was NOT active for entire period
+                │   ├── given proposer never submitted
+                │   │   ├── it should not apply punishment
+                │   │   ├── it should set status to EXITING
+                │   │   ├── it should clear lastCheckpointNumber and lastSubmittedArchive
+                │   │   ├── it should set isHatchValidated to true
+                │   │   └── it should emit ProofValidated with success true and zero punishment
+                │   └── given proposer did submit
+                │       ├── it should apply normal validation (punish on failure)
+                │       └── it should set isHatchValidated to true
+                ├── given middle epoch gap
+                │   ├── given middle epoch gap and proposer never submitted
+                │   │   ├── it should detect the gap via the epoch loop
+                │   │   ├── it should not apply punishment
+                │   │   ├── it should set status to EXITING
+                │   │   ├── it should clear lastCheckpointNumber and lastSubmittedArchive
+                │   │   └── it should set isHatchValidated to true
+                │   └── given middle epoch gap and proposer did submit
+                │       ├── it should detect the gap via the epoch loop
+                │       ├── it should apply normal validation and punish on failure
+                │       ├── it should set status to EXITING
+                │       └── it should set isHatchValidated to true
+                └── given escape hatch was active for entire period
+                    ├── given no checkpoint was submitted
+                    │   ├── it should have lastCheckpointNumber EQ zero
+                    │   ├── it should apply FAILED_HATCH_PUNISHMENT
+                    │   ├── it should set status to EXITING
+                    │   ├── it should clear lastCheckpointNumber and lastSubmittedArchive
+                    │   ├── it should set isHatchValidated to true
+                    │   └── it should emit ProofValidated with success false
+                    ├── given proofs not submitted up to checkpoint
+                    │   ├── it should apply FAILED_HATCH_PUNISHMENT
+                    │   ├── it should set status to EXITING
+                    │   ├── it should clear lastCheckpointNumber and lastSubmittedArchive
+                    │   ├── it should set isHatchValidated to true
+                    │   └── it should emit ProofValidated with success false
+                    ├── given checkpoint archive was pruned
+                    │   ├── it should apply FAILED_HATCH_PUNISHMENT
+                    │   ├── it should set status to EXITING
+                    │   ├── it should clear lastCheckpointNumber and lastSubmittedArchive
+                    │   ├── it should set isHatchValidated to true
+                    │   └── it should emit ProofValidated with success false
+                    └── given all conditions pass
+                        ├── it should not apply punishment
+                        ├── it should set status to EXITING
+                        ├── it should clear lastCheckpointNumber and lastSubmittedArchive
+                        ├── it should set isHatchValidated to true
+                        └── it should emit ProofValidated with success true

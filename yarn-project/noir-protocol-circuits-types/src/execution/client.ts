@@ -29,6 +29,7 @@ import {
 } from '../conversion/client.js';
 import {
   mapFieldToNoir,
+  mapNumberToNoir,
   mapPrivateToPublicKernelCircuitPublicInputsToNoir,
   mapPrivateToRollupKernelCircuitPublicInputsToNoir,
   mapProtocolContractsToNoir,
@@ -68,6 +69,7 @@ export function convertPrivateKernelInitInputsToWitnessMapWithAbi(
     private_call: mapPrivateCallDataToNoir(privateKernelInitCircuitPrivateInputs.privateCall),
     is_private_only: privateKernelInitCircuitPrivateInputs.isPrivateOnly,
     first_nullifier_hint: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.firstNullifierHint),
+    revertible_counter_hint: mapNumberToNoir(privateKernelInitCircuitPrivateInputs.revertibleCounterHint),
     app_public_inputs: mapPrivateCircuitPublicInputsToNoir(
       privateKernelInitCircuitPrivateInputs.privateCall.publicInputs,
     ),
@@ -150,7 +152,7 @@ export function convertPrivateKernelTailInputsToWitnessMapWithAbi(
     previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
       privateKernelTailCircuitPrivateInputs.previousKernel.publicInputs,
     ),
-    include_by_timestamp_upper_bound: mapU64ToNoir(privateKernelTailCircuitPrivateInputs.includeByTimestampUpperBound),
+    expiration_timestamp_upper_bound: mapU64ToNoir(privateKernelTailCircuitPrivateInputs.expirationTimestampUpperBound),
   };
   pushTestData('private-kernel-tail', mapped);
   const initialWitnessMap = abiEncode(privateKernelTailAbi, mapped);
@@ -174,8 +176,8 @@ export function convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi(
     padded_side_effect_amounts: mapPaddedSideEffectAmountsToNoir(
       privateKernelTailToPublicCircuitPrivateInputs.paddedSideEffectAmounts,
     ),
-    include_by_timestamp_upper_bound: mapU64ToNoir(
-      privateKernelTailToPublicCircuitPrivateInputs.includeByTimestampUpperBound,
+    expiration_timestamp_upper_bound: mapU64ToNoir(
+      privateKernelTailToPublicCircuitPrivateInputs.expirationTimestampUpperBound,
     ),
   };
   pushTestData('private-kernel-tail-to-public', mapped);

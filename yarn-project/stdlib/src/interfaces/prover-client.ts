@@ -3,7 +3,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { z } from 'zod';
 
-import { type ZodFor, schemas } from '../schemas/index.js';
+import { schemas, zodFor } from '../schemas/index.js';
 import type { TxHash } from '../tx/tx_hash.js';
 import type { EpochProver } from './epoch-prover.js';
 import type { ProvingJobConsumer } from './prover-broker.js';
@@ -17,6 +17,12 @@ export type ActualProverConfig = {
   proverTestDelayMs: number;
   /** If using realistic delays, what percentage of realistic times to apply. */
   proverTestDelayFactor: number;
+  /**
+   * Whether to abort pending proving jobs when the orchestrator is cancelled.
+   * When false (default), jobs remain in the broker queue and can be reused on restart/reorg.
+   * When true, jobs are explicitly cancelled with the broker, which prevents reuse.
+   */
+  cancelJobsOnStop: boolean;
 };
 
 /**
@@ -29,19 +35,26 @@ export type ProverConfig = ActualProverConfig & {
   proverId?: EthAddress;
   /** Number of proving agents to start within the prover. */
   proverAgentCount: number;
+  /** Where to store proving request. Must be accessible to both prover node and agents. If not set will inline-encode the parameters */
+  proofStore?: string;
   /** Store for failed proof inputs. */
   failedProofStore?: string;
 };
 
-export const ProverConfigSchema = z.object({
-  nodeUrl: z.string().optional(),
-  realProofs: z.boolean(),
-  proverId: schemas.EthAddress.optional(),
-  proverTestDelayType: z.enum(['fixed', 'realistic']),
-  proverTestDelayMs: z.number(),
-  proverTestDelayFactor: z.number(),
-  proverAgentCount: z.number(),
-}) satisfies ZodFor<ProverConfig>;
+export const ProverConfigSchema = zodFor<ProverConfig>()(
+  z.object({
+    nodeUrl: z.string().optional(),
+    realProofs: z.boolean(),
+    proverId: schemas.EthAddress.optional(),
+    proverTestDelayType: z.enum(['fixed', 'realistic']),
+    proverTestDelayMs: z.number(),
+    proverTestDelayFactor: z.number(),
+    proverAgentCount: z.number(),
+    proofStore: z.string().optional(),
+    failedProofStore: z.string().optional(),
+    cancelJobsOnStop: z.boolean(),
+  }),
+);
 
 export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
   nodeUrl: {
@@ -77,10 +90,22 @@ export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
     description: 'The number of prover agents to start',
     ...numberConfigHelper(1),
   },
+  proofStore: {
+    env: 'PROVER_PROOF_STORE',
+    description: 'Optional proof input store for the prover',
+  },
   failedProofStore: {
     env: 'PROVER_FAILED_PROOF_STORE',
     description:
       'Store for failed proof inputs. Google cloud storage is only supported at the moment. Set this value as gs://bucket-name/path/to/store.',
+  },
+  cancelJobsOnStop: {
+    env: 'PROVER_CANCEL_JOBS_ON_STOP',
+    description:
+      'Whether to abort pending proving jobs when the orchestrator is cancelled. ' +
+      'When false (default), jobs remain in the broker queue and can be reused on restart/reorg. ' +
+      'When true, jobs are explicitly cancelled with the broker, which prevents reuse.',
+    ...booleanConfigHelper(false),
   },
 };
 

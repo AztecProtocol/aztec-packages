@@ -91,18 +91,19 @@ export type ValidatorKeyStore = {
   attester: AttesterAccounts;
   /**
    * Coinbase address to use when proposing an L2 block as any of the validators in this configuration block.
-   * Falls back to the attester address if not set.
+   * Falls back to the keystore-level coinbase, then to the attester address if not set.
    */
   coinbase?: EthAddress;
   /**
    * One or more EOAs used for sending block proposal L1 txs for all validators in this configuration block.
-   * Falls back to the attester account if not set.
+   * Falls back to the keystore-level publisher, then to the attester account if not set.
    */
   publisher?: EthAccounts;
   /**
    * Fee recipient address to use when proposing an L2 block as any of the validators in this configuration block.
+   * Falls back to the keystore-level feeRecipient if not set.
    */
-  feeRecipient: AztecAddress;
+  feeRecipient?: AztecAddress;
   /**
    * Default remote signer for all accounts in this block.
    */
@@ -114,8 +115,8 @@ export type ValidatorKeyStore = {
 };
 
 export type KeyStore = {
-  /** Schema version of this keystore file (initially 1). */
-  schemaVersion: number;
+  /** Schema version of this keystore file (1 or 2). */
+  schemaVersion: 1 | 2;
   /** Validator configurations. */
   validators?: ValidatorKeyStore[];
   /** One or more accounts used for creating slash payloads on L1. Does not create slash payloads if not set. */
@@ -126,4 +127,10 @@ export type KeyStore = {
   prover?: ProverKeyStore;
   /** Used for automatically funding publisher accounts if there is none defined in the corresponding  ValidatorKeyStore*/
   fundingAccount?: EthAccount;
+  /** Default publisher accounts for all validators in this keystore. Can be overridden by individual validator configs. */
+  publisher?: EthAccounts;
+  /** Default coinbase address for all validators in this keystore. Can be overridden by individual validator configs. */
+  coinbase?: EthAddress;
+  /** Default fee recipient address for all validators in this keystore. Can be overridden by individual validator configs. */
+  feeRecipient?: AztecAddress;
 };

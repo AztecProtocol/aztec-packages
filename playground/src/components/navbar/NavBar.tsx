@@ -1,7 +1,6 @@
 import { css } from '@mui/styled-engine';
 import { NetworkSelector } from './components/NetworkSelector';
 import { AccountSelector } from './components/AccountSelector';
-import { AddressBook } from '../../wallet/components/AddressBook';
 import { ContractSelector } from './components/ContractSelector';
 import { NetworkCongestionNotice } from './components/NetworkCongestionNotice';
 import { WalletHub } from './components/WalletHub';

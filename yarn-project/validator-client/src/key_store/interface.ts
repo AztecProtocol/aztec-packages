@@ -3,6 +3,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import type { EthRemoteSignerConfig } from '@aztec/node-keystore';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { SigningContext } from '@aztec/validator-ha-signer/types';
 
 import type { TypedDataDefinition } from 'viem';
 
@@ -26,17 +27,45 @@ export interface ValidatorKeyStore {
    */
   getAddresses(): EthAddress[];
 
-  signTypedData(typedData: TypedDataDefinition): Promise<Signature[]>;
-  signTypedDataWithAddress(address: EthAddress, typedData: TypedDataDefinition): Promise<Signature>;
+  /**
+   * Sign typed data with all keystore private keys
+   * @param typedData - The complete EIP-712 typed data structure
+   * @param context - Signing context for HA slashing protection
+   * @returns signatures (when context provided with HA, only successfully claimed signatures are returned)
+   */
+  signTypedData(typedData: TypedDataDefinition, context: SigningContext): Promise<Signature[]>;
+
+  /**
+   * Sign typed data with a specific address's private key
+   * @param address - The address of the signer to use
+   * @param typedData - The complete EIP-712 typed data structure
+   * @param context - Signing context for HA slashing protection
+   * @returns signature
+   */
+  signTypedDataWithAddress(
+    address: EthAddress,
+    typedData: TypedDataDefinition,
+    context: SigningContext,
+  ): Promise<Signature>;
+
   /**
    * Flavor of sign message that followed EIP-712 eth signed message prefix
    * Note: this is only required when we are using ecdsa signatures over secp256k1
    *
    * @param message - The message to sign.
-   * @returns The signatures.
+   * @param context - Signing context for HA slashing protection
+   * @returns The signatures (when context provided with HA, only successfully claimed signatures are returned).
    */
-  signMessage(message: Buffer32): Promise<Signature[]>;
-  signMessageWithAddress(address: EthAddress, message: Buffer32): Promise<Signature>;
+  signMessage(message: Buffer32, context: SigningContext): Promise<Signature[]>;
+
+  /**
+   * Sign a message with a specific address's private key
+   * @param address - The address of the signer to use
+   * @param message - The message to sign
+   * @param context - Signing context for HA slashing protection
+   * @returns signature
+   */
+  signMessageWithAddress(address: EthAddress, message: Buffer32, context: SigningContext): Promise<Signature>;
 }
 
 /**
@@ -79,4 +108,14 @@ export interface ExtendedValidatorKeyStore extends ValidatorKeyStore {
    * @returns the remote signer configuration or undefined
    */
   getRemoteSignerConfig(attesterAddress: EthAddress): EthRemoteSignerConfig | undefined;
+
+  /**
+   * Start the key store
+   */
+  start(): Promise<void>;
+
+  /**
+   * Stop the key store
+   */
+  stop(): Promise<void>;
 }

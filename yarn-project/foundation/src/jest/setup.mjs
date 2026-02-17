@@ -1,3 +1,4 @@
+import { parseBooleanEnv } from '@aztec/foundation/config';
 import { overwriteLoggingStream, pinoPrettyOpts } from '@aztec/foundation/log';
 
 import pretty from 'pino-pretty';
@@ -6,4 +7,6 @@ import pretty from 'pino-pretty';
 // file so we don't mess up with dependencies in non-testing environments,
 // since pino-pretty messes up with browser bundles.
 // See also https://www.npmjs.com/package/pino-pretty?activeTab=readme#user-content-usage-with-jest
-overwriteLoggingStream(pretty(pinoPrettyOpts));
+if (!parseBooleanEnv(process.env.LOG_JSON)) {
+  overwriteLoggingStream(pretty(pinoPrettyOpts));
+}

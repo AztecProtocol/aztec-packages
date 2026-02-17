@@ -1,11 +1,16 @@
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
 import { TX_ERROR_INVALID_PROOF, Tx, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
 
 export class TxProofValidator implements TxValidator<Tx> {
-  #log = createLogger('p2p:tx_validator:private_proof');
+  #log: Logger;
 
-  constructor(private verifier: ClientProtocolCircuitVerifier) {}
+  constructor(
+    private verifier: ClientProtocolCircuitVerifier,
+    bindings?: LoggerBindings,
+  ) {
+    this.#log = createLogger('p2p:tx_validator:proof', bindings);
+  }
 
   async validateTx(tx: Tx): Promise<TxValidationResult> {
     const result = await this.verifier.verifyProof(tx);

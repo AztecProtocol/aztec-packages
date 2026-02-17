@@ -1,26 +1,15 @@
-hostNetwork: true
-
 nodeSelector:
   local-ssd: "false"
   node-type: "network"
 
-affinity:
-  podAntiAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-      - labelSelector:
-          matchExpressions:
-            - key: app
-              operator: In
-              values:
-                - node
-        topologyKey: "kubernetes.io/hostname"
-        namespaceSelector: {}
-
 node:
   resources:
     requests:
+      cpu: "0.5"
+      memory: "0.5Gi"
+    limits:
       cpu: "1"
-      memory: "2Gi"
+      memory: "1Gi"
 
 persistence:
   enabled: true

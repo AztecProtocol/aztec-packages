@@ -1,7 +1,7 @@
 use crate::{
     abis::{function_data::FunctionData, transaction::tx_context::TxContext},
     address::AztecAddress,
-    constants::GENERATOR_INDEX__TX_REQUEST,
+    constants::DOM_SEP__TX_REQUEST,
     hash::poseidon2_hash_with_separator,
     traits::{Deserialize, Empty, Hash, Serialize},
 };
@@ -9,10 +9,17 @@ use std::meta::derive;
 
 #[derive(Deserialize, Eq, Serialize)]
 pub struct TxRequest {
+    // The contract from which the transaction originates. This is the contract address of the first function call in
+    // the transaction.
     pub origin: AztecAddress,
+    // The hash of the arguments for the first function call in the transaction.
     pub args_hash: Field,
+    // The execution context of the transaction, including chain ID, rollup contract version, and gas settings.
     pub tx_context: TxContext,
+    // The data of the first function call in the transaction.
     pub function_data: FunctionData,
+    // A salt to make the hash of `TxRequest` difficult to predict. The hash is used as the first nullifier if no
+    // nullifier is emitted by any private function throughout the transaction.
     pub salt: Field,
 }
 
@@ -30,7 +37,7 @@ impl Empty for TxRequest {
 
 impl Hash for TxRequest {
     fn hash(self) -> Field {
-        poseidon2_hash_with_separator(self.serialize(), GENERATOR_INDEX__TX_REQUEST)
+        poseidon2_hash_with_separator(self.serialize(), DOM_SEP__TX_REQUEST)
     }
 }
 
@@ -79,7 +86,7 @@ mod tests {
         };
         // Value from tx_request.test.ts "compute hash" test
         let test_data_tx_request_hash =
-            0x1ace39154192fe8eb9e5531033fb653cc11561fa8a0975bcd839e83391596300;
+            0x09c2372649f434fc01e3c010792c33b383bfff50f7e6ed7b6ba689d6d7b1f109;
         assert(tx_request.hash() == test_data_tx_request_hash);
     }
 }

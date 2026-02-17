@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Luke], commit: a48c205d6dcd4338f5b83b4fda18bff6015be07b}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "./straus_lookup_table.hpp"
@@ -75,7 +75,10 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
         field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.x(), base_point.x());
     field_t modded_y =
         field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.y(), base_point.y());
-    cycle_group<Builder> modded_base_point(modded_x, modded_y, false, /*assert_on_curve=*/false);
+    // The modded point is never at infinity since we fallback to Group::one when the base point is infinity.
+    // Use the private 4-arg constructor to avoid auto-detection gates.
+    cycle_group<Builder> modded_base_point(
+        modded_x, modded_y, /*is_infinity=*/bool_t<Builder>(modded_x.get_context(), false), /*assert_on_curve=*/false);
     // We assume that the native hints (if present) do not account for the point at infinity edge case in the same way
     // as above (i.e. replacing with "one") so we avoid using any provided hints in this case. (N.B. No efficiency is
     // lost here since native addition with the point at infinity is nearly free).
@@ -95,11 +98,14 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
         modded_base_point = cycle_group<Builder>::from_constant_witness(_context, modded_base_point.get_value());
         point_table[0] = cycle_group<Builder>::from_constant_witness(_context, offset_generator.get_value());
         for (size_t i = 1; i < table_size; ++i) {
+            // Safe to use unconditional_add without collision checking due to constant points and inclusion of offset
+            // generator in table entries
             point_table[i] = point_table[i - 1].unconditional_add(modded_base_point, get_hint(i - 1));
         }
     } else {
-        // Case 2: Point is non-constant so the table is derived via unconditional additions. We check the x_coordinates
-        // of all summand pairs are distinct via a batched product check to avoid individual modular inversions.
+        // Case 2: Point is non-constant witness so the table is derived via unconditional additions. We check the
+        // x_coordinates of all summand pairs are distinct via a batched product check to avoid individual modular
+        // inversions.
         field_t coordinate_check_product = 1;
         point_table[0] = offset_generator;
         for (size_t i = 1; i < table_size; ++i) {
@@ -156,8 +162,9 @@ template <typename Builder> cycle_group<Builder> straus_lookup_table<Builder>::r
     x.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
     y.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
 
-    // The result is known to not be the point at infinity due to the use of offset generators in the table
-    return cycle_group<Builder>(x, y, /*is_infinity=*/false, /*assert_on_curve=*/false);
+    // The result is known to not be the point at infinity due to the use of offset generators in the table.
+    // Use the private 4-arg constructor to avoid auto-detection gates.
+    return cycle_group<Builder>(x, y, /*is_infinity=*/bool_t<Builder>(_context, false), /*assert_on_curve=*/false);
 }
 
 template class straus_lookup_table<bb::UltraCircuitBuilder>;

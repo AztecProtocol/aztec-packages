@@ -1,17 +1,8 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
 import { VerificationKeyAsFields, VerificationKeyData } from '@aztec/stdlib/vks';
 
-// Type for VK-only JSON files
-interface VkOnlyJson {
-  verificationKey: {
-    bytes: string;
-    fields: string[];
-    hash: string;
-  };
-}
-
-export function abiToVKData(json: NoirCompiledCircuit | VkOnlyJson): VerificationKeyData {
+export function abiToVKData(json: NoirCompiledCircuit): VerificationKeyData {
   const { verificationKey } = json;
   return new VerificationKeyData(
     new VerificationKeyAsFields(

@@ -54,12 +54,12 @@ GetEnvVarSpec::Table GetEnvVarSpec::get_table(uint8_t envvar)
         table.envvar_pi_row_idx = AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX;
         table.out_tag = static_cast<uint8_t>(ValueTag::U64);
         return table;
-    case EnvironmentVariable::BASEFEEPERL2GAS:
+    case EnvironmentVariable::MINFEEPERL2GAS:
         table.envvar_pi_lookup_col1 = true; // Only case where we lookup from col1
         table.envvar_pi_row_idx = AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX;
         table.out_tag = static_cast<uint8_t>(ValueTag::U128);
         return table;
-    case EnvironmentVariable::BASEFEEPERDAGAS:
+    case EnvironmentVariable::MINFEEPERDAGAS:
         table.envvar_pi_lookup_col0 = true;
         table.envvar_pi_row_idx = AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX;
         table.out_tag = static_cast<uint8_t>(ValueTag::U128);

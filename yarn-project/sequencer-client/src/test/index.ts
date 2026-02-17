@@ -1,7 +1,7 @@
-import type { PublisherManager } from '@aztec/ethereum';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import type { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import type { PublicProcessorFactory } from '@aztec/simulator/server';
-import type { ValidatorClient } from '@aztec/validator-client';
+import type { FullNodeCheckpointsBuilder, ValidatorClient } from '@aztec/validator-client';
 
 import { SequencerClient } from '../client/sequencer-client.js';
 import type { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
@@ -15,6 +15,7 @@ class TestSequencer_ extends Sequencer {
   declare public publisher: SequencerPublisher;
   declare public publisherFactory: SequencerPublisherFactory;
   declare public validatorClient: ValidatorClient;
+  declare public checkpointsBuilder: FullNodeCheckpointsBuilder;
 }
 
 export type TestSequencer = TestSequencer_;

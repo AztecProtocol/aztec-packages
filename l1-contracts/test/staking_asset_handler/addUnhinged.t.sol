@@ -10,11 +10,6 @@ import {Ownable} from "@oz/access/Ownable.sol";
 // solhint-disable ordering
 
 contract AddUnhingedTest is StakingAssetHandlerBase {
-  function setUp() public override {
-    depositsPerMint = 100;
-    super.setUp();
-  }
-
   function test_WhenCallerOfAddUnhingedIsNotOwner(address _caller) external {
     // it reverts
     vm.assume(_caller != address(this));

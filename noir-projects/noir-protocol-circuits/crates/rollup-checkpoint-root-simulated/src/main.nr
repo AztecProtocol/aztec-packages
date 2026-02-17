@@ -1,9 +1,9 @@
-use dep::rollup_lib::checkpoint_root::{
-    CheckpointRollupPublicInputs, CheckpointRootRollupPrivateInputs,
+use rollup_lib::checkpoint_root::{
+    checkpoint_root_rollup, CheckpointRollupPublicInputs, CheckpointRootRollupPrivateInputs,
 };
 
 unconstrained fn main(
     inputs: CheckpointRootRollupPrivateInputs,
 ) -> pub CheckpointRollupPublicInputs {
-    inputs.execute()
+    checkpoint_root_rollup::execute(inputs)
 }

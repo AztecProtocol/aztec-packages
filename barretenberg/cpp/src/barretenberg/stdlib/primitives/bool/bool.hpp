@@ -1,7 +1,8 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Sergei], commit: 72f52e7bad0fc1e36da575fbc2e6bfa1b1104aec}
+// external_1:  { status: Complete, auditors: [@ed25519, @JakubHeba (Spearbit)], commit:
+// b463d7c1c52fec2f4e39acfd21219464b00a39d8}
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -154,6 +155,7 @@ template <typename Builder> class bool_t {
     OriginTag get_origin_tag() const { return tag; }
     void set_free_witness_tag() { tag.set_free_witness(); }
     void unset_free_witness_tag() { tag.unset_free_witness(); }
+    void clear_round_provenance() const { tag.clear_round_provenance(); }
     void fix_witness()
     {
         BB_ASSERT(!is_constant());
@@ -174,7 +176,7 @@ template <typename Builder> class bool_t {
      * the actual boolean value (not inverted). Direct access is restricted to internal bool_t methods.
      */
     mutable uint32_t witness_index = IS_CONSTANT;
-    mutable OriginTag tag{};
+    mutable OriginTag tag;
 
     template <typename, typename> friend class bigfield;
     template <typename> friend class field_t;

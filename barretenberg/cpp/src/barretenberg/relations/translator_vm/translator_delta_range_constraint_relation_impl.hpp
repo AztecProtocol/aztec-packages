@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -13,8 +13,9 @@ namespace bb {
  * @brief Expression for the generalized permutation sort relation
  *
  * @details The relation enforces 2 constraints on each of the ordered_range_constraints wires:
- * 1) 2 sequential values are non-descending and have a difference of at most 3, except for the value at last index
- * 2) The value at last index is  2¹⁴ - 1
+ * 1) 2 sequential values are non-descending and have a difference of at most 3. This check is skipped
+ *    at the real_last index (lagrange_real_last = 1) and in the masking region (lagrange_masking = 1).
+ * 2) The value at the real_last index is 2¹⁴ - 1.
  *
  * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
  * @param in an std::array containing the fully extended Univariate edges.
@@ -25,7 +26,7 @@ template <typename FF>
 template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
 void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulators,
                                                                 const AllEntities& in,
-                                                                const Parameters&,
+                                                                const Parameters& /*unused*/,
                                                                 const FF& scaling_factor)
 {
     static const FF minus_one = FF(-1);
@@ -47,11 +48,15 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
         auto ordered_range_constraints_2_shift = View(in.ordered_range_constraints_2_shift);
         auto ordered_range_constraints_3_shift = View(in.ordered_range_constraints_3_shift);
         auto ordered_range_constraints_4_shift = View(in.ordered_range_constraints_4_shift);
-        // Represents the positon of the final non masked witness index
-        auto lagrange_real_last = View(in.lagrange_real_last);
-        auto lagrange_masking = View(in.lagrange_masking);
 
-        auto is_last_witness_or_masking = (lagrange_real_last + minus_one) * (lagrange_masking + minus_one);
+        // Represents the position of the final non-masked witness index
+        const auto lagrange_real_last = View(in.lagrange_real_last);
+        const auto lagrange_masking = View(in.lagrange_masking);
+
+        // This selector is 0 at the real_last row and in masking rows (where delta checks are skipped),
+        // and -1 at all other rows (where delta checks are enforced). The naming reflects that it is
+        // NOT at the last row or masking region when non-zero.
+        const auto not_last_or_masking = (lagrange_real_last + lagrange_masking + minus_one);
 
         // Compute wire differences
         auto delta_1 = ordered_range_constraints_0_shift - ordered_range_constraints_0;
@@ -65,7 +70,7 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
         tmp_1 *= (delta_1 + minus_one);
         tmp_1 *= (delta_1 + minus_two);
         tmp_1 *= (delta_1 + minus_three);
-        tmp_1 *= is_last_witness_or_masking;
+        tmp_1 *= not_last_or_masking;
         tmp_1 *= scaling_factor;
         std::get<0>(accumulators) += tmp_1;
 
@@ -74,7 +79,7 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
         tmp_2 *= (delta_2 + minus_one);
         tmp_2 *= (delta_2 + minus_two);
         tmp_2 *= (delta_2 + minus_three);
-        tmp_2 *= is_last_witness_or_masking;
+        tmp_2 *= not_last_or_masking;
         tmp_2 *= scaling_factor;
 
         std::get<1>(accumulators) += tmp_2;
@@ -84,7 +89,7 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
         tmp_3 *= (delta_3 + minus_one);
         tmp_3 *= (delta_3 + minus_two);
         tmp_3 *= (delta_3 + minus_three);
-        tmp_3 *= is_last_witness_or_masking;
+        tmp_3 *= not_last_or_masking;
         tmp_3 *= scaling_factor;
         std::get<2>(accumulators) += tmp_3;
 
@@ -93,7 +98,7 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
         tmp_4 *= (delta_4 + minus_one);
         tmp_4 *= (delta_4 + minus_two);
         tmp_4 *= (delta_4 + minus_three);
-        tmp_4 *= is_last_witness_or_masking;
+        tmp_4 *= not_last_or_masking;
         tmp_4 *= scaling_factor;
         std::get<3>(accumulators) += tmp_4;
 
@@ -102,7 +107,7 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
         tmp_5 *= (delta_5 + minus_one);
         tmp_5 *= (delta_5 + minus_two);
         tmp_5 *= (delta_5 + minus_three);
-        tmp_5 *= is_last_witness_or_masking;
+        tmp_5 *= not_last_or_masking;
         tmp_5 *= scaling_factor;
         std::get<4>(accumulators) += tmp_5;
     }();
@@ -115,7 +120,7 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
         auto ordered_range_constraints_2 = View(in.ordered_range_constraints_2);
         auto ordered_range_constraints_3 = View(in.ordered_range_constraints_3);
         auto ordered_range_constraints_4 = View(in.ordered_range_constraints_4);
-        auto lagrange_real_last = View(in.lagrange_real_last);
+        const auto lagrange_real_last = View(in.lagrange_real_last);
 
         // Contribution (6) (Contributions 6-10 ensure that the last value is the designated maximum value. We don't
         // need to constrain the first value to be 0, because the shift mechanic does this for us)

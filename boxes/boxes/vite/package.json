@@ -4,15 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "compile": "cd src/contracts && ${AZTEC_NARGO:-aztec-nargo} compile --silence-warnings && ${AZTEC_POSTPROCESS_CONTRACT:-aztec-postprocess-contract}",
-    "codegen": "${AZTEC_BUILDER:-aztec} codegen src/contracts/target -o artifacts",
-    "clean": "rm -rf ./dist .tsbuildinfo ./codegenCache.json ./artifacts ./src/contracts/target",
-    "prep": "yarn clean && yarn compile && yarn codegen",
-    "build": "yarn prep && tsc -b && vite build",
+    "build": "yarn clean && yarn compile && yarn codegen && tsc -b && vite build",
+    "clean": "rm -rf ./dist .tsbuildinfo ./codegenCache.json ./artifacts ./src/contracts/target ./test-results || true",
+    "compile": "cd src/contracts && ${AZTEC:-aztec} compile --silence-warnings",
+    "codegen": "${AZTEC:-aztec} codegen src/contracts/target -o artifacts",
     "serve": "vite",
     "test": "playwright test",
-    "formatting": "prettier --check ./src && eslint ./src",
-    "formatting:fix": "prettier -w ./src",
+    "lint": "prettier --check ./src && eslint ./src",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -20,7 +18,7 @@
     "@aztec/aztec.js": "latest",
     "@aztec/pxe": "latest",
     "@aztec/stdlib": "latest",
-    "@aztec/test-wallet": "latest",
+    "@aztec/wallets": "latest",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-toastify": "^10.0.6"
@@ -30,6 +28,7 @@
     "@playwright/test": "1.49.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "@typescript/native-preview": "7.0.0-dev.20251126.1",
     "@vitejs/plugin-react-swc": "^3.7.2",
     "eslint": "^9.26.0",
     "eslint-plugin-react-hooks": "^5.1.0",

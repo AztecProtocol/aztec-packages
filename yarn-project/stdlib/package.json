@@ -7,8 +7,10 @@
     "./package.local.json"
   ],
   "exports": {
+    "./deserialization": "./dest/deserialization/index.js",
     "./aztec-address": "./dest/aztec-address/index.js",
     "./abi": "./dest/abi/index.js",
+    "./abi/function-selector": "./dest/abi/function_selector.js",
     "./hash": "./dest/hash/index.js",
     "./keys": "./dest/keys/index.js",
     "./testing": "./dest/tests/index.js",
@@ -21,6 +23,7 @@
     "./kernel": "./dest/kernel/index.js",
     "./trees": "./dest/trees/index.js",
     "./logs": "./dest/logs/index.js",
+    "./logs/log-id": "./dest/logs/log_id.js",
     "./avm": "./dest/avm/index.js",
     "./schemas": "./dest/schemas/index.js",
     "./noir": "./dest/noir/index.js",
@@ -31,6 +34,7 @@
     "./messaging": "./dest/messaging/index.js",
     "./gas": "./dest/gas/index.js",
     "./tx": "./dest/tx/index.js",
+    "./tx/tx-hash": "./dest/tx/tx_hash.js",
     "./fees": "./dest/fees/index.js",
     "./note": "./dest/note/index.js",
     "./p2p": "./dest/p2p/index.js",
@@ -43,10 +47,13 @@
     "./versioning": "./dest/versioning/index.js",
     "./interfaces/client": "./dest/interfaces/client.js",
     "./interfaces/server": "./dest/interfaces/server.js",
+    "./interfaces/prover-config": "./dest/interfaces/prover-client.js",
+    "./interfaces/api-limit": "./dest/interfaces/api_limit.js",
     "./epoch-helpers": "./dest/epoch-helpers/index.js",
     "./config": "./dest/config/index.js",
     "./testing/jest": "./dest/tests/jest.js",
-    "./database-version": "./dest/database-version/index.js",
+    "./database-version/version": "./dest/database-version/database_version.js",
+    "./database-version/manager": "./dest/database-version/version_manager.js",
     "./validators": "./dest/validators/index.js",
     "./file-store": "./dest/file-store/index.js",
     "./snapshots": "./dest/snapshots/index.js",
@@ -54,19 +61,30 @@
     "./zkpassport": "./dest/zkpassport/index.js",
     "./slashing": "./dest/slashing/index.js",
     "./l1-contracts": "./dest/l1-contracts/index.js",
-    "./world-state": "./dest/world-state/index.js"
+    "./world-state": "./dest/world-state/index.js",
+    "./timetable": "./dest/timetable/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
-      "./src/index.ts"
+      "./src/abi/index.ts",
+      "./src/aztec-address/index.ts",
+      "./src/block/index.ts",
+      "./src/contract/index.ts",
+      "./src/gas/index.ts",
+      "./src/hash/index.ts",
+      "./src/keys/index.ts",
+      "./src/logs/index.ts",
+      "./src/note/index.ts",
+      "./src/proofs/index.ts",
+      "./src/tx/index.ts"
     ],
     "name": "stdlib",
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && yarn generate && tsc -b",
+    "build": "yarn clean && yarn generate && ../scripts/tsc.sh",
     "generate": "./scripts/copy-contracts.sh",
-    "build:dev": "tsc -b --watch",
+    "build:dev": "../scripts/tsc.sh --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
@@ -79,6 +97,7 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi",
+    "@aztec/validator-ha-signer": "workspace:^",
     "@google-cloud/storage": "^7.15.0",
     "axios": "^1.12.0",
     "json-stringify-deterministic": "1.0.12",
@@ -89,7 +108,7 @@
     "msgpackr": "^1.11.2",
     "pako": "^2.1.0",
     "tslib": "^2.4.0",
-    "viem": "npm:@spalladino/viem@2.38.2-eip7594.0",
+    "viem": "npm:@aztec/viem@2.38.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -103,6 +122,7 @@
     "@types/lodash.times": "^4.3.9",
     "@types/node": "^22.15.17",
     "@types/pako": "^2.0.3",
+    "@typescript/native-preview": "7.0.0-dev.20260113.1",
     "eslint": "^9.26.0",
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",

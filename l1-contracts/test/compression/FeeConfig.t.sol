@@ -15,7 +15,7 @@ contract FeeConfigTest is Test {
   using FeeConfigLib for CompressedFeeConfig;
 
   function test_compressAndDecompress(
-    uint64 _manaTarget,
+    uint32 _manaTarget,
     uint128 _congestionUpdateFraction,
     uint64 _provingCostPerMana
   ) public pure {

@@ -1,79 +1,28 @@
-pub(crate) mod find_index_of_first_fully_revertible_private_call_request;
 mod validate_contract_address;
-mod validate_min_revertible_side_effect_counter;
+pub(crate) mod validate_side_effect_counters;
 
-use dep::types::{
+use types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_call_request::PrivateCallRequest,
         private_kernel::private_call_data::PrivateCallData, protocol_contracts::ProtocolContracts,
-        public_call_request::PublicCallRequest, transaction::tx_request::TxRequest,
+        transaction::tx_request::TxRequest,
     },
     constants::NULL_MSG_SENDER_CONTRACT_ADDRESS,
-    side_effect::{Ordered, RangeOrdered},
-    utils::arrays::ClaimedLengthArray,
+    traits::Empty,
 };
 use validate_contract_address::validate_contract_address;
-use validate_min_revertible_side_effect_counter::validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame;
+use validate_side_effect_counters::validate_unique_and_within_bounds_side_effect_counters;
 
-fn validate_incrementing_counters_within_range<T, let N: u32>(
-    counter_start: u32,
-    counter_end: u32,
-    items: ClaimedLengthArray<T, N>,
-)
-where
-    T: Ordered,
-{
-    let num_items = items.length;
-    let mut prev_counter = counter_start;
-    let mut should_check = true;
-
-    for i in 0..N {
-        should_check &= i != num_items;
-        if should_check {
-            let item = items.array[i];
-            assert(
-                item.counter() > prev_counter,
-                "counter must be larger than the counter of the previous item",
-            );
-            prev_counter = item.counter();
-        }
-    }
-    assert(prev_counter < counter_end, "counter must be smaller than the end counter of the call");
-}
-
-fn validate_incrementing_counter_ranges_within_range<T, let N: u32>(
-    counter_start: u32,
-    counter_end: u32,
-    items: ClaimedLengthArray<T, N>,
-)
-where
-    T: RangeOrdered,
-{
-    let num_items = items.length;
-    let mut prev_counter = counter_start;
-    let mut should_check = true;
-
-    for i in 0..N {
-        should_check &= i != num_items;
-        if should_check {
-            let item = items.array[i];
-            assert(
-                item.counter_start() > prev_counter,
-                "start counter must be larger than the end counter of the previous call",
-            );
-            assert(
-                item.counter_end() > item.counter_start(),
-                "nested call has incorrect counter range",
-            );
-            prev_counter = item.counter_end();
-        }
-    }
-    assert(
-        prev_counter < counter_end,
-        "end counter must be smaller than the end counter of the parent call",
-    );
-}
+/// Validates the data from a private function call before it can be propagated.
+///
+/// This validator ensures that:
+/// - The proof of the private call verifies correctly
+/// - The contract address is correctly derived (handles regular, protocol, and updated contracts)
+/// - Side effect counters are unique and within the call's counter bounds
+/// - Call requests have valid msg_senders
+/// - Static call restrictions are enforced (no state changes)
+/// - The call matches either the tx_request (for Init) or a call request from the previous kernel's call stack (for Inner)
 
 pub struct PrivateCallDataValidator {
     data: PrivateCallData,
@@ -84,53 +33,108 @@ impl PrivateCallDataValidator {
         PrivateCallDataValidator { data }
     }
 
-    pub fn verify_proof(self, is_first_app: bool) {
-        if !std::runtime::is_unconstrained() {
-            self.data.verify(is_first_app);
-        }
-    }
+    /// Called by the Init circuit.
+    pub fn validate_as_first_call(
+        self,
+        tx_request: TxRequest,
+        protocol_contracts: ProtocolContracts,
+        first_nullifier_hint: Field,
+        claimed_revertible_counter: u32,
+    ) {
+        self.validate_common(
+            true /* is_first_function_call */,
+            protocol_contracts,
+            claimed_revertible_counter,
+        );
 
-    /// Validate properties of the PrivateCallData, which are "common" to both
-    /// the Init and Inner circuits.
-    pub fn validate_common(self, protocol_contracts: ProtocolContracts) {
-        // Validate that the vk exists within the called contract address:
-        validate_contract_address(self.data, protocol_contracts);
+        // There must be at least one nullifier for the private execution, which is used to compute note hash nonces.
+        assert(!first_nullifier_hint.is_empty(), "first_nullifier_hint cannot be empty");
 
-        self.restrict_side_effects();
+        self.validate_against_tx_request(tx_request);
 
-        self.validate_private_call_requests();
-        self.validate_public_call_requests();
+        // Validate properties specific to the first call.
 
-        self.validate_that_side_effect_counters_are_strictly_increasing_and_within_bounds();
-    }
+        let this_call = self.data.public_inputs;
 
-    /// For Init only.
-    /// Asserts: No static calls. No msg_sender.
-    pub fn validate_as_first_call(self) {
-        let public_inputs = self.data.public_inputs;
-        let call_context = public_inputs.call_context;
-
-        assert_eq(call_context.is_static_call, false, "Users cannot make a static call");
-
-        // Notice: msg_sender MUST be "null" for the first function call in a tx.
-        assert(
-            call_context.msg_sender == NULL_MSG_SENDER_CONTRACT_ADDRESS,
+        // The first function call has no caller, so msg_sender must be the "null" address.
+        assert_eq(
+            this_call.call_context.msg_sender,
+            NULL_MSG_SENDER_CONTRACT_ADDRESS,
             "Users cannot set msg_sender in first call",
+        );
+
+        // The first function call in a tx cannot be static. If it were static, every subsequent call would also be
+        // static, making the entire tx effectively a no-op. Enforcing this in the circuit prevents users from
+        // unintentionally paying for a tx that performs no work other than emitting the protocol nullifier.
+        assert_eq(
+            this_call.call_context.is_static_call,
+            false,
+            "First call in a tx cannot be static",
+        );
+
+        // Counters 0 and 1 are reserved: counter 0 is unused, counter 1 is for the protocol nullifier.
+        // The first call's side effects must start at counter 2 or higher.
+        // It's not possible for subsequent calls to maliciously set counters <=2, due to the checks
+        // in `validate_increasing_counters()`.
+        assert(
+            this_call.start_side_effect_counter > 1,
+            "start_side_effect_counter must be greater than 1",
         );
     }
 
+    /// Called by the Inner circuit.
+    pub fn validate_as_inner_call(self, previous_kernel: PrivateKernelCircuitPublicInputs) {
+        self.validate_common(
+            false /* is_first_function_call */,
+            previous_kernel.constants.protocol_contracts,
+            previous_kernel.claimed_revertible_counter,
+        );
+
+        self.validate_against_previous_kernel(previous_kernel);
+
+        // The call request at the top of the stack should match the current call being executed.
+        let private_call_stack_length = previous_kernel.end.private_call_stack.length;
+        let call_request =
+            previous_kernel.end.private_call_stack.array[private_call_stack_length - 1];
+        self.validate_against_call_request(call_request);
+    }
+
+    /// For Init and Inner.
+    /// Validates properties common to both Init and Inner circuits.
+    fn validate_common(
+        self,
+        is_first_function_call: bool,
+        protocol_contracts: ProtocolContracts,
+        claimed_revertible_counter: u32,
+    ) {
+        if !std::runtime::is_unconstrained() {
+            self.data.verify(is_first_function_call);
+        }
+
+        // Validate that the function being processed belongs to the contract address that was called.
+        validate_contract_address(self.data, protocol_contracts);
+
+        self.validate_claimed_lengths();
+
+        self.validate_msg_senders();
+
+        self.validate_expected_counters(claimed_revertible_counter);
+
+        validate_unique_and_within_bounds_side_effect_counters(self.data.public_inputs);
+    }
+
     /// For Init only.
-    /// Confirm that the TxRequest (user's intent) matches the private call being executed.
-    pub fn validate_against_tx_request(self, tx_request: TxRequest) {
-        let public_inputs = self.data.public_inputs;
+    /// Validates that the first private call matches the tx_request (user's intent).
+    fn validate_against_tx_request(self, tx_request: TxRequest) {
+        let this_call = self.data.public_inputs;
         assert_eq(
             tx_request.origin,
-            public_inputs.call_context.contract_address,
+            this_call.call_context.contract_address,
             "contract address does not match origin",
         );
         assert_eq(
             tx_request.function_data.selector,
-            public_inputs.call_context.function_selector,
+            this_call.call_context.function_selector,
             "function_selector in call_context does not match the value in tx_request",
         );
         assert(
@@ -139,230 +143,236 @@ impl PrivateCallDataValidator {
         );
         assert_eq(
             tx_request.args_hash,
-            public_inputs.args_hash,
+            this_call.args_hash,
             "args_hash in private call does not match the value in tx_request",
         );
         assert_eq(
             tx_request.tx_context,
-            public_inputs.tx_context,
+            this_call.tx_context,
             "tx_context in private call does not match the value in tx_request",
         );
     }
 
     /// For Inner only.
-    pub fn validate_against_call_request(self, request: PrivateCallRequest) {
-        let public_inputs = self.data.public_inputs;
-        assert_eq(
-            request.call_context,
-            public_inputs.call_context,
-            "call_context does not match call request",
-        );
-        // If you get this error, you've most likely made a mistake in serialization of the contract function
-        // arguments. Thoroughly check that the implementations of Serialize and Deserialize of all the function
-        // arguments follow Noir's intrinsic serialization rules (i.e. the order in the serialized array has to
-        // match the order of the struct fields in the struct body).
-        assert_eq(
-            request.args_hash,
-            public_inputs.args_hash,
-            "args_hash does not match call request",
-        );
-        assert_eq(
-            request.returns_hash,
-            public_inputs.returns_hash,
-            "returns_hash does not match call request",
-        );
-        assert_eq(
-            request.start_side_effect_counter,
-            public_inputs.start_side_effect_counter,
-            "start_side_effect_counter does not match call request",
-        );
-        assert_eq(
-            request.end_side_effect_counter,
-            public_inputs.end_side_effect_counter,
-            "end_side_effect_counter does not match call request",
-        );
-    }
-
-    /// For Inner only.
-    /// Ensures that data that must be consistent between the previous kernel and
-    /// this private call _is_ consistent.
+    /// Validates that constant data matches between the previous kernel and this private call.
     pub fn validate_against_previous_kernel(
         self,
         previous_kernel: PrivateKernelCircuitPublicInputs,
     ) {
         let constants = previous_kernel.constants;
-        let public_inputs = self.data.public_inputs;
+        let this_call = self.data.public_inputs;
         assert_eq(
-            public_inputs.anchor_block_header,
+            this_call.anchor_block_header,
             constants.anchor_block_header,
             "anchor block header mismatch",
         );
-        assert_eq(public_inputs.tx_context, constants.tx_context, "mismatch tx context");
-        // constants.global_variables is not relevant to private functions and is ensured to be empty in PrivateKernelCircuitOutputValidator.
+        assert_eq(this_call.tx_context, constants.tx_context, "mismatch tx context");
     }
 
-    fn restrict_side_effects(self) {
-        let call_context = self.data.public_inputs.call_context;
-        // Note: See `validate_private_call_requests` for how we ensure that _nested calls_
-        // of a staticcall are also staticcalls.
-        // TODO: When we introduce a dedicated static_call kernel, we might want to consider disallowing static_calls to come through this circuit at all.
-        if call_context.is_static_call {
-            // No state changes are allowed for static calls.
-            // Note: Although a EmptyRHSArray usually gives weak guarantees, if its
-            // length is 0, then the array is _guaranteed_ to be empty.
-            assert_eq(
-                self.data.public_inputs.note_hashes.length,
-                0,
-                "note_hashes must be empty for static calls",
-            );
-            assert_eq(
-                self.data.public_inputs.nullifiers.length,
-                0,
-                "nullifiers must be empty for static calls",
-            );
-            assert_eq(
-                self.data.public_inputs.l2_to_l1_msgs.length,
-                0,
-                "l2_to_l1_msgs must be empty for static calls",
-            );
-            assert_eq(
-                self.data.public_inputs.private_logs.length,
-                0,
-                "private_logs must be empty for static calls",
-            );
-            assert_eq(
-                self.data.public_inputs.contract_class_logs_hashes.length,
-                0,
-                "contract_class_logs_hashes must be empty for static calls",
-            );
+    /// For Inner only.
+    /// Validates that the call request matches the current private call.
+    fn validate_against_call_request(self, request: PrivateCallRequest) {
+        let this_call = self.data.public_inputs;
+        assert_eq(
+            request.call_context,
+            this_call.call_context,
+            "call_context does not match call request",
+        );
+        // @dev: If you get this error, you've most likely made a mistake in serialization of the contract function
+        // arguments. Thoroughly check that the implementations of Serialize and Deserialize of all the function
+        // arguments follow Noir's intrinsic serialization rules (i.e. the order in the serialized array has to
+        // match the order of the struct fields in the struct body).
+        assert_eq(request.args_hash, this_call.args_hash, "args_hash does not match call request");
+        assert_eq(
+            request.returns_hash,
+            this_call.returns_hash,
+            "returns_hash does not match call request",
+        );
+        assert_eq(
+            request.start_side_effect_counter,
+            this_call.start_side_effect_counter,
+            "start_side_effect_counter does not match call request",
+        );
+        assert_eq(
+            request.end_side_effect_counter,
+            this_call.end_side_effect_counter,
+            "end_side_effect_counter does not match call request",
+        );
+
+        if this_call.call_context.is_static_call {
+            self.validate_for_static_call();
         }
     }
 
-    // TODO: Maybe we should loop once over each array. This will be the 2nd time we iterate over this array (the first time being the length validation).
-    fn validate_private_call_requests(self) {
-        let public_inputs = self.data.public_inputs;
-        let call_requests = public_inputs.private_call_requests;
-        let num_requests = call_requests.length;
-        let mut should_check = true;
-        for i in 0..call_requests.array.len() {
-            should_check &= i != num_requests;
-            if should_check {
-                let call_request = call_requests.array[i];
-                assert_eq(
-                    call_request.call_context.msg_sender,
-                    public_inputs.call_context.contract_address,
-                    "incorrect msg_sender for call request",
-                );
-                if !call_request.call_context.is_static_call {
-                    assert(
-                        public_inputs.call_context.is_static_call == false,
-                        "static call cannot make non-static calls",
-                    );
-                }
-            }
+    /// For Inner only.
+    /// Enforces static call restrictions: no state-changing side effects are allowed.
+    fn validate_for_static_call(self) {
+        let this_call = self.data.public_inputs;
+
+        // We only need to check that claimed lengths are zero. Any garbage data after the claimed length
+        // won't be processed by Reset or propagated by Tail.
+        assert_eq(this_call.note_hashes.length, 0, "note_hashes must be empty for static calls");
+        assert_eq(this_call.nullifiers.length, 0, "nullifiers must be empty for static calls");
+        assert_eq(
+            this_call.l2_to_l1_msgs.length,
+            0,
+            "l2_to_l1_msgs must be empty for static calls",
+        );
+        assert_eq(this_call.private_logs.length, 0, "private_logs must be empty for static calls");
+        assert_eq(
+            this_call.contract_class_logs_hashes.length,
+            0,
+            "contract_class_logs_hashes must be empty for static calls",
+        );
+
+        // All nested calls must also be static.
+        this_call.private_call_requests.for_each(|call_request| {
+            assert_eq(
+                call_request.call_context.is_static_call,
+                true,
+                "nested private call of a static call must be static",
+            );
+        });
+        this_call.public_call_requests.for_each(|call_request| {
+            assert_eq(
+                call_request.inner.is_static_call,
+                true,
+                "nested public call of a static call must be static",
+            );
+        });
+        let public_teardown_call_request = this_call.public_teardown_call_request;
+        if !public_teardown_call_request.is_empty() {
+            assert_eq(
+                public_teardown_call_request.is_static_call,
+                true,
+                "static call cannot make non-static public teardown call",
+            );
         }
 
-        let min_revertible_side_effect_counter = public_inputs.min_revertible_side_effect_counter;
-        validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame(
-            min_revertible_side_effect_counter,
-            public_inputs.private_call_requests,
+        // A static call cannot nominate itself as fee payer, because that directly results in the fee payer's FeeJuice
+        // balance being decremented by the AVM or the Private Tx Base Rollup circuit, which is technically a state
+        // change that violates the notion of "static call".
+        assert_eq(this_call.is_fee_payer, false, "static call cannot nominate itself as fee payer");
+
+        // A static call cannot set the min revertible side effect counter, which would affect whether a side effect
+        // should be retained or discarded if the tx reverts.
+        assert_eq(
+            this_call.min_revertible_side_effect_counter,
+            0,
+            "static call cannot set the min revertible side effect counter",
         );
     }
 
-    fn validate_public_call_requests(self) {
-        let public_inputs = self.data.public_inputs;
-        let call_requests = public_inputs.public_call_requests;
-        call_requests.for_each(|call_request| {
-            self.validate_public_call_request(call_request.inner);
+    /// For Init and Inner.
+    /// Validates that claimed array lengths don't exceed maximum bounds.
+    /// Without these checks, you could get weird results: when appending the data from a `source` array to the
+    /// larger output `dest` arrays, the `dest` array increments its length by the claimed `source` length.
+    /// A `source` length beyond the `source.len()` would result in the `dest` array's length jumping over some
+    /// unallocated `dest` indices.
+    fn validate_claimed_lengths(self) {
+        self.data.public_inputs.note_hash_read_requests.assert_length_within_bounds(
+            "note_hash_read_requests length out of bounds",
+        );
+        self.data.public_inputs.nullifier_read_requests.assert_length_within_bounds(
+            "nullifier_read_requests length out of bounds",
+        );
+        self.data.public_inputs.key_validation_requests_and_separators.assert_length_within_bounds(
+            "key_validation_requests_and_separators length out of bounds",
+        );
+        self.data.public_inputs.private_call_requests.assert_length_within_bounds(
+            "private_call_requests length out of bounds",
+        );
+        self.data.public_inputs.public_call_requests.assert_length_within_bounds(
+            "public_call_requests length out of bounds",
+        );
+        self.data.public_inputs.note_hashes.assert_length_within_bounds(
+            "note_hashes length out of bounds",
+        );
+        self.data.public_inputs.nullifiers.assert_length_within_bounds(
+            "nullifiers length out of bounds",
+        );
+        self.data.public_inputs.l2_to_l1_msgs.assert_length_within_bounds(
+            "l2_to_l1_msgs length out of bounds",
+        );
+        self.data.public_inputs.private_logs.assert_length_within_bounds(
+            "private_logs length out of bounds",
+        );
+        self.data.public_inputs.contract_class_logs_hashes.assert_length_within_bounds(
+            "contract_class_logs_hashes length out of bounds",
+        );
+    }
+
+    /// For Init and Inner.
+    /// Validates that msg_sender is correctly set for all outgoing call requests.
+    fn validate_msg_senders(self) {
+        let this_call = self.data.public_inputs;
+        let expected_msg_sender = this_call.call_context.contract_address;
+
+        this_call.private_call_requests.for_each(|call_request| {
+            assert_eq(
+                call_request.call_context.msg_sender,
+                expected_msg_sender,
+                "incorrect msg_sender for private call request",
+            );
         });
 
-        // We also process the enqueued teardown call request:
-        if !public_inputs.public_teardown_call_request.contract_address.is_zero() {
-            self.validate_public_call_request(public_inputs.public_teardown_call_request);
+        // For public calls, msg_sender can be "null" to hide which contract made the call (for privacy).
+        // It is up to the called public function to determine whether a "null" value is acceptable for its use case, and revert if not.
+        // If msg_sender is not null, it must be this contract's address.
+        this_call.public_call_requests.for_each(|call_request| {
+            if call_request.inner.msg_sender != NULL_MSG_SENDER_CONTRACT_ADDRESS {
+                assert_eq(
+                    call_request.inner.msg_sender,
+                    expected_msg_sender,
+                    "incorrect msg_sender for public call request",
+                );
+            }
+        });
+
+        let teardown_call_request = this_call.public_teardown_call_request;
+        if !teardown_call_request.is_empty() {
+            if teardown_call_request.msg_sender != NULL_MSG_SENDER_CONTRACT_ADDRESS {
+                assert_eq(
+                    teardown_call_request.msg_sender,
+                    expected_msg_sender,
+                    "incorrect msg_sender for public teardown call request",
+                );
+            }
         }
     }
 
-    fn validate_public_call_request(self, call_request: PublicCallRequest) {
-        let this_context = self.data.public_inputs.call_context;
+    /// For Init and Inner.
+    /// Validates the expected revertible/non-revertible phase counters.
+    ///
+    /// Private functions can request to know whether they're executing in the revertible or non-revertible
+    /// phase of the transaction by setting `expected_non_revertible_side_effect_counter` or
+    /// `expected_revertible_side_effect_counter`. This validation ensures those expectations are met.
+    ///
+    /// - If `expected_non_revertible_side_effect_counter` is set, the function expects to be in the
+    ///   non-revertible phase (counter < claimed_revertible_counter, or all counters are non-revertible)
+    /// - If `expected_revertible_side_effect_counter` is set, the function expects to be in the
+    ///   revertible phase (counter >= claimed_revertible_counter)
+    fn validate_expected_counters(self, claimed_revertible_counter: u32) {
+        let expected_non_revertible_side_effect_counter =
+            self.data.public_inputs.expected_non_revertible_side_effect_counter;
+        let expected_revertible_side_effect_counter =
+            self.data.public_inputs.expected_revertible_side_effect_counter;
 
-        if call_request.msg_sender != NULL_MSG_SENDER_CONTRACT_ADDRESS {
-            // We assert that the caller's address is copied-over as the
-            // msg_sender of the called function (the call_request), with one
-            // exception:
-            // The calling contract can instead elect to set the msg_sender as
-            // the `NULL_MSG_SENDER_CONTRACT_ADDRESS`, so as not to leak to
-            // the world which address made the public call.
-            // It is up to the called public function to determine whether a
-            // "null" value is acceptable for its use case, and revert if not.
-            assert_eq(
-                call_request.msg_sender,
-                this_context.contract_address,
-                "incorrect msg_sender for call request",
-            );
-        }
-
-        if !call_request.is_static_call {
+        if expected_non_revertible_side_effect_counter != 0 {
+            // If `claimed_revertible_counter` is 0, it means that the `min_revertible_side_effect_counter` was never set by
+            // any private function call in the tx, so everything is non revertible.
             assert(
-                this_context.is_static_call == false,
-                "static call cannot make non-static calls",
-            );
+                (claimed_revertible_counter == 0)
+                    | (expected_non_revertible_side_effect_counter < claimed_revertible_counter),
+                "Failed to validate expected non revertible side effect counter",
+            )
         }
-    }
-
-    // Tested with validate_counters.nr
-    fn validate_that_side_effect_counters_are_strictly_increasing_and_within_bounds(self) {
-        let public_inputs = self.data.public_inputs;
-        let counter_start = public_inputs.start_side_effect_counter;
-        let counter_end = public_inputs.end_side_effect_counter;
-
-        assert(counter_start < counter_end, "private call has incorrect counter range");
-
-        validate_incrementing_counters_within_range(
-            counter_start,
-            counter_end,
-            public_inputs.note_hash_read_requests,
-        );
-        validate_incrementing_counters_within_range(
-            counter_start,
-            counter_end,
-            public_inputs.nullifier_read_requests,
-        );
-        validate_incrementing_counters_within_range(
-            counter_start,
-            counter_end,
-            public_inputs.note_hashes,
-        );
-        validate_incrementing_counters_within_range(
-            counter_start,
-            counter_end,
-            public_inputs.nullifiers,
-        );
-        validate_incrementing_counters_within_range(
-            counter_start,
-            counter_end,
-            public_inputs.l2_to_l1_msgs,
-        );
-        validate_incrementing_counters_within_range(
-            counter_start,
-            counter_end,
-            public_inputs.private_logs,
-        );
-        validate_incrementing_counters_within_range(
-            counter_start,
-            counter_end,
-            public_inputs.contract_class_logs_hashes,
-        );
-        validate_incrementing_counter_ranges_within_range(
-            counter_start,
-            counter_end,
-            public_inputs.private_call_requests,
-        );
-
-        // Validate the public call requests by checking their start counters only, as their end counters are unknown.
-        validate_incrementing_counters_within_range(
-            counter_start,
-            counter_end,
-            public_inputs.public_call_requests,
-        );
+        if expected_revertible_side_effect_counter != 0 {
+            assert(
+                (claimed_revertible_counter != 0)
+                    & (expected_revertible_side_effect_counter >= claimed_revertible_counter),
+                "Failed to validate expected revertible side effect counter",
+            )
+        }
     }
 }

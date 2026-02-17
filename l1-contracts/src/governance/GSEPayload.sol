@@ -13,7 +13,7 @@ import {IProposerPayload} from "./interfaces/IProposerPayload.sol";
  *
  * @notice  This contract is used by the GovernanceProposer to enforce checks on an existing payload.
  *
- * In the GovernanceProposer, support for payloads may be signalled by the current block proposer of the
+ * In the GovernanceProposer, support for payloads may be signalled by the current checkpoint proposer of the
  * current canonical rollup according to the Registry. Once a payload receives enough support,
  * it may be submitted by the GovernanceProposer.
  *

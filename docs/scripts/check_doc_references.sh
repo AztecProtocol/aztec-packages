@@ -7,7 +7,8 @@ set -euo pipefail
 # 1. Extracts all 'references' fields from documentation markdown frontmatter
 # 2. Checks if any referenced files were changed in the current PR
 # 3. Requests AztecProtocol/devrel team as reviewers if files changed and PR is not draft
-# 4. Skips if devrel team is already requested as a reviewer
+# 4. Sends a Slack message to #devrel-docs-updates showing which changed files are referenced by which docs
+# 5. Skips reviewer request if devrel team is already requested or a member has approved
 #
 # Usage: check_doc_references.sh [pr_number] [docs_dir]
 #
@@ -15,10 +16,15 @@ set -euo pipefail
 #   pr_number - (Optional) PR number. If not provided, will attempt auto-detection
 #   docs_dir  - (Optional) Documentation directory. Default: docs
 #
+# Reference Format:
+#   - Individual files: "yarn-project/stdlib/src/interfaces/aztec-node.ts"
+#   - Directories (all files within): "noir-projects/aztec-nr/aztec/src/context/*"
+#
 # Environment:
 #   GITHUB_REF - May contain PR number in format refs/pull/123/merge
 #   GITHUB_BASE_REF - Base branch name (set by GitHub Actions)
 #   GITHUB_TOKEN - GitHub token for gh CLI (set by GitHub Actions)
+#   SLACK_BOT_TOKEN - Required for sending Slack messages
 #   CI - Set to 1 in CI environment
 
 # Only run in CI environment to avoid accidental local execution
@@ -27,6 +33,46 @@ if [[ "${CI:-0}" != "1" ]]; then
   exit 0
 fi
 
+# Function to send Slack message
+send_slack_message() {
+  local message=$1
+  if [[ -z "${SLACK_BOT_TOKEN:-}" ]]; then
+    echo "SLACK_BOT_TOKEN not set, skipping Slack notification"
+    return 0
+  fi
+
+  local data=$(cat <<EOF
+{
+  "channel": "#devrel-docs-updates",
+  "text": "$message"
+}
+EOF
+)
+  local response
+  if ! response=$(curl -s --fail-with-body -X POST https://slack.com/api/chat.postMessage \
+    -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+    -H "Content-type: application/json" \
+    --data "$data"); then
+    echo "Slack API request failed (curl error)" >&2
+    return 1
+  fi
+
+  # Check if Slack API returned ok: true (Slack returns 200 even on errors)
+  local ok
+  if ! ok=$(echo "$response" | jq -r '.ok' 2>/dev/null); then
+    echo "Slack API returned invalid JSON: $response" >&2
+    return 1
+  fi
+
+  if [[ "$ok" != "true" ]]; then
+    local error
+    error=$(echo "$response" | jq -r '.error // "unknown error"' 2>/dev/null)
+    echo "Slack API error: $error" >&2
+    return 1
+  fi
+
+  return 0
+}
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "$REPO_ROOT"
@@ -116,9 +162,17 @@ fi
 # Extract all reference file paths from markdown frontmatter
 # Expected format: references: ["path/from/repo/root/file.ts", "another/file.ts"]
 # Paths should be absolute from repository root (not relative with ../)
-echo "Extracting references from markdown files in $DOCS_DIR..."
-REFERENCE_FILES=$(
-  find "$DOCS_DIR" -type f -name "*.md" -exec awk '
+# Also create a mapping of source files to documentation files
+# Note: We only scan docs/docs/ (current docs), not versioned_docs/
+# Versioned docs are historical snapshots and should not be modified when references change
+echo "Extracting references from markdown files in $DOCS_DIR/docs..."
+
+# Create a temporary file to store the mapping
+MAPPING_FILE=$(mktemp)
+trap "rm -f $MAPPING_FILE" EXIT
+
+find "$DOCS_DIR/docs" -type f -name "*.md" -print0 | while IFS= read -r -d '' doc_file; do
+  awk -v doc="$doc_file" '
     BEGIN { in_frontmatter = 0 }
     /^---$/ {
       if (NR == 1) {
@@ -136,13 +190,35 @@ REFERENCE_FILES=$(
         split(refs, arr, /,[ ]*/)
         for (i in arr) {
           if (arr[i] != "") {
-            print arr[i]
+            # Output format: source_file|doc_file
+            print arr[i] "|" doc
           }
         }
       }
     }
-  ' {} \; | sort -u
-)
+  ' "$doc_file"
+done > "$MAPPING_FILE"
+# Validate all referenced paths exist (can be files or directories)
+# Directory references use /* suffix (e.g., "src/context/*" means all files in that directory)
+echo "Validating referenced paths exist..."
+MISSING_PATHS=""
+while IFS='|' read -r ref_path doc_file; do
+  # Strip /* suffix for directory references before checking existence
+  check_path="${ref_path%/\*}"
+  if [[ ! -e "$check_path" ]]; then
+    MISSING_PATHS="${MISSING_PATHS}  - ${ref_path} (referenced in ${doc_file})\n"
+  fi
+done < "$MAPPING_FILE"
+
+if [[ -n "$MISSING_PATHS" ]]; then
+  echo ""
+  echo "ERROR: The following referenced paths do not exist:"
+  echo -e "$MISSING_PATHS"
+  echo "Please update the 'references' frontmatter in the affected documentation files."
+  exit 1
+fi
+# Extract unique referenced files
+REFERENCE_FILES=$(cut -d'|' -f1 "$MAPPING_FILE" | sort -u)
 
 if [[ -z "$REFERENCE_FILES" ]]; then
   echo "No reference files found in documentation frontmatter."
@@ -195,12 +271,29 @@ if [[ -z "$CHANGED_FILES" ]]; then
 fi
 echo "Found $(echo "$CHANGED_FILES" | wc -l) changed file(s) in PR."
 
-# Check if any referenced files were changed
+# Check if any referenced files were changed and build mapping
 # Reference paths are absolute from repo root, so we can compare directly
+# Directory references use /* suffix - strip it for matching (e.g., "src/context/*" matches "src/context/file.nr")
 CHANGED_REFERENCES=""
+declare -A FILE_TO_DOCS_MAP
+
 while IFS= read -r ref_file; do
-  if echo "$CHANGED_FILES" | grep -qF "$ref_file"; then
+  # Strip /* suffix for directory references before matching
+  match_pattern="${ref_file%/\*}"
+  if echo "$CHANGED_FILES" | grep -qF "$match_pattern"; then
     CHANGED_REFERENCES="${CHANGED_REFERENCES}${ref_file}\n"
+
+    # Find all docs that reference this changed file
+    while IFS='|' read -r src_file doc_file; do
+      if [[ "$src_file" == "$ref_file" ]]; then
+        # Store in associative array (append to existing value if key exists)
+        if [[ -n "${FILE_TO_DOCS_MAP[$ref_file]}" ]]; then
+          FILE_TO_DOCS_MAP[$ref_file]="${FILE_TO_DOCS_MAP[$ref_file]}|${doc_file}"
+        else
+          FILE_TO_DOCS_MAP[$ref_file]="$doc_file"
+        fi
+      fi
+    done < "$MAPPING_FILE"
   fi
 done <<< "$REFERENCE_FILES"
 
@@ -213,26 +306,66 @@ echo ""
 echo "The following referenced files were changed in this PR:"
 echo -e "$CHANGED_REFERENCES"
 echo ""
+
+# Build Slack message with file-to-docs mapping
+# Get PR URL for linking
+PR_URL=$(gh pr view "$PR_NUMBER" --json url -q .url 2>/dev/null || echo "https://github.com/AztecProtocol/aztec-packages/pull/$PR_NUMBER")
+
+SLACK_MESSAGE="📚 *Documentation References Updated*\\n\\nThe following source files changed in <$PR_URL|PR #$PR_NUMBER> are referenced by documentation:\\n"
+
+# Get unique doc files count
+ALL_DOCS=""
+CHANGED_FILE_COUNT=0
+
+# Sort the keys for consistent output
+SORTED_KEYS=$(for key in "${!FILE_TO_DOCS_MAP[@]}"; do echo "$key"; done | sort)
+
+while IFS= read -r changed_file; do
+  [[ -z "$changed_file" ]] && continue
+  CHANGED_FILE_COUNT=$((CHANGED_FILE_COUNT + 1))
+
+  SLACK_MESSAGE="${SLACK_MESSAGE}\\n*\`${changed_file}\`*"
+
+  # Get docs for this file and split by pipe
+  docs="${FILE_TO_DOCS_MAP[$changed_file]}"
+
+  # Convert pipe-separated list to array and iterate
+  IFS='|' read -ra DOC_ARRAY <<< "$docs"
+  for doc_file in "${DOC_ARRAY[@]}"; do
+    SLACK_MESSAGE="${SLACK_MESSAGE}\\n  • \`${doc_file}\`"
+
+    # Track all unique docs
+    if ! echo "$ALL_DOCS" | grep -qF "$doc_file"; then
+      ALL_DOCS="${ALL_DOCS}${doc_file}\n"
+    fi
+  done
+done <<< "$SORTED_KEYS"
+
+# Count unique docs
+DOC_FILE_COUNT=$(echo -e "$ALL_DOCS" | grep -v '^$' | sort -u | wc -l)
+
+SLACK_MESSAGE="${SLACK_MESSAGE}\\n\\n*Summary:* ${CHANGED_FILE_COUNT} changed file(s) referenced by ${DOC_FILE_COUNT} documentation file(s)"
+
 echo "Requesting AztecProtocol/devrel team as a reviewer for PR #$PR_NUMBER..."
 
 # Request AztecProtocol/devrel team as a reviewer
+REVIEWER_REQUESTED=false
 if gh pr edit "$PR_NUMBER" --add-reviewer AztecProtocol/devrel 2>/dev/null; then
   echo "✓ Successfully requested AztecProtocol/devrel team as a reviewer."
+  REVIEWER_REQUESTED=true
+  SLACK_MESSAGE="${SLACK_MESSAGE}\\n\\n@AztecProtocol/devrel team has been requested for review."
 else
   echo "⚠ Failed to request AztecProtocol/devrel team as a reviewer. They may need to be added manually."
-
-  # Add a PR comment to notify about the failure
-  COMMENT_BODY="⚠️ **Documentation Reference Check**
-
-Failed to automatically request @AztecProtocol/devrel as reviewers.
-
-**Referenced files changed:**
-$(echo -e "$CHANGED_REFERENCES" | sed 's/^/- /')
-
-Please manually request @AztecProtocol/devrel as reviewers for this PR."
-
-  gh pr comment "$PR_NUMBER" --body "$COMMENT_BODY" 2>/dev/null || echo "Note: Could not add PR comment."
-
-  # Don't block the build
-  exit 0
+  SLACK_MESSAGE="${SLACK_MESSAGE}\\n\\n⚠️ Failed to automatically add @AztecProtocol/devrel as reviewers. Please add them manually."
 fi
+
+# Send Slack notification
+echo "Sending Slack notification to #devrel-docs-updates..."
+if send_slack_message "$SLACK_MESSAGE"; then
+  echo "✓ Successfully sent Slack notification."
+else
+  echo "⚠ Failed to send Slack notification." >&2
+fi
+
+# Exit successfully even if Slack notification fails (don't block builds)
+exit 0

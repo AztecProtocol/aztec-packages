@@ -9,7 +9,7 @@ import { AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
 import { getVersioningMiddleware } from '@aztec/stdlib/versioning';
 import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
 
-import { createSandbox } from '../sandbox/index.js';
+import { createLocalNetwork } from '../local-network/index.js';
 import { github, splash } from '../splash.js';
 import { getCliVersion } from './release_version.js';
 import { extractNamespacedOptions, installSignalHandlers } from './util.js';
@@ -22,20 +22,24 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
   const adminServices: NamespacedApiHandlers = {};
   let config: ChainConfig | undefined = undefined;
 
-  if (options.sandbox) {
+  if (options.localNetwork) {
     const cliVersion = getCliVersion();
-    const sandboxOptions = extractNamespacedOptions(options, 'sandbox');
-    sandboxOptions.testAccounts = true;
+    const localNetwork = extractNamespacedOptions(options, 'local-network');
+    localNetwork.testAccounts = true;
     userLog(`${splash}\n${github}\n\n`);
-    userLog(`Setting up Aztec Sandbox ${cliVersion}, please stand by...`);
+    userLog(`Setting up Aztec local network ${cliVersion}, please stand by...`);
 
-    const { node, stop } = await createSandbox(
+    const { node, stop } = await createLocalNetwork(
       {
-        l1Mnemonic: sandboxOptions.l1Mnemonic,
+        l1Mnemonic: localNetwork.l1Mnemonic,
         l1RpcUrls: options.l1RpcUrls,
-        deployAztecContractsSalt: sandboxOptions.deployAztecContractsSalt,
-        testAccounts: sandboxOptions.testAccounts,
+        testAccounts: localNetwork.testAccounts,
         realProofs: false,
+        // Setting the epoch duration to 4 by default for local network. This allows the epoch to be "proven" faster, so
+        // the users can consume out hash without having to wait for a long time.
+        // Note: We are not proving anything in the local network (realProofs == false). But in `createLocalNetwork`,
+        // the EpochTestSettler will set the out hash to the outbox when an epoch is complete.
+        aztecEpochDuration: 4,
       },
       userLog,
     );
@@ -53,9 +57,6 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     } else if (options.proverNode) {
       const { startProverNode } = await import('./cmds/start_prover_node.js');
       ({ config } = await startProverNode(options, signalHandlers, services, userLog));
-    } else if (options.blobSink) {
-      const { startBlobSink } = await import('./cmds/start_blob_sink.js');
-      await startBlobSink(options, signalHandlers, userLog);
     } else if (options.archiver) {
       const { startArchiver } = await import('./cmds/start_archiver.js');
       ({ config } = await startArchiver(options, signalHandlers, services));

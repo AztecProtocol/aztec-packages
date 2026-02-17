@@ -13,7 +13,25 @@ pub fn validate_consecutive_tx_rollups(left: TxRollupPublicInputs, right: TxRoll
 /// When called from the `tx_merge` or `block_root`, it represents the total number of `tx_base` rollups.
 /// When called from the `block_merge` or `checkpoint_root`, it represents the total number of `block_root` rollups.
 /// When called from the `checkpoint_merge` or `root`, it represents the total number of `checkpoint_root` rollups.
+///
+/// Valid configurations:
+///
+///   2         3           4                 5                   6                      7
+///   .         .           .                 .                   .                      .
+///  / \       / \        /   \              / \               /     \               /        \
+/// .   .     .   .     .       .           .   .            .         .          .             .
+///          / \       / \     / \        /   \            /   \      / \       /   \          / \
+///         .   .     .   .   .   .     .       .        .       .   .   .    .       .       .   .
+///                                    / \     / \      / \     / \          / \     / \     / \
+///                                   .   .   .   .    .   .   .   .        .   .   .   .   .   .
+///
+/// etc...
+///
+/// See also: https://hackmd.io/CKdVk7zZS2qWd0vBN7e1SA
+///
 pub fn assert_rollups_filled_greedily(num_left_rollups: u16, num_right_rollups: u16) {
+    assert(num_right_rollups != 0, "num_right_rollups must not be 0");
+
     // The left rollup must be a balanced tree (i.e., `num_left_rollups` is a power of 2).
     assert(
         is_power_of_2(num_left_rollups),

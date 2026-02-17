@@ -7,16 +7,26 @@ use crate::{
 };
 use std::meta::derive;
 
-// Constants used throughout the executions of private functions.
+/// Constants used throughout the executions of private functions.
 #[derive(Eq)]
 pub struct PrivateTxConstantData {
+    // The header of the block whose state is used during the private execution (not the block the transaction is
+    // included in).
     pub anchor_block_header: BlockHeader,
+    // The context of the transaction that is being executed.
     // Note: `chain_id` and `version` in tx_context are not redundant to the values in
     // self.anchor_block_header.global_variables because they can be different in case of a protocol upgrade. In such
     // a situation we could be using header from a block before the upgrade took place but be using the updated
     // protocol to execute and prove the transaction.
     pub tx_context: TxContext,
+    // The root of the vk tree for the protocol circuits. Used for validating the protocol circuits being used.
+    // This value must remain the same throughout the private execution and the rollups. It will be output from the root
+    // rollup and checked on L1.
     pub vk_tree_root: Field,
+    // A list of the protocol contract addresses. Used for validating the "magic" addresses called by the apps.
+    // It must remain the same throughout the tx execution. The hash of this list will be output from the
+    // Tail(-to-Public) circuits, which must remain the same for all rollups and output from the root rollup to be
+    // checked on L1.
     pub protocol_contracts: ProtocolContracts,
 }
 

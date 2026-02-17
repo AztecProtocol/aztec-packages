@@ -1,7 +1,6 @@
 use crate::{
-    hash::compute_siloed_nullifier,
     merkle_tree::{IndexedTreeLeafPreimage, LeafPreimage},
-    side_effect::{Counted, Readable, Scoped},
+    side_effect::Readable,
     traits::{Deserialize, Empty, Hash, Serialize},
 };
 
@@ -21,6 +20,9 @@ impl Empty for NullifierLeafPreimage {
 impl Hash for NullifierLeafPreimage {
     fn hash(self) -> Field {
         if self.is_empty() {
+            // Note: Empty leaf preimages are used to pad the nullifiers emitted from a transaction so they can be
+            // inserted into the tree in a fixed-size batch. The hash of these padded leaves must be 0 so that the
+            // tree root does not change when a batch contains no transaction nullifiers.
             0
         } else {
             crate::hash::poseidon2_hash(self.serialize())
@@ -62,12 +64,10 @@ impl IndexedTreeLeafPreimage<Field> for NullifierLeafPreimage {
 }
 
 impl Readable for NullifierLeafPreimage {
-    fn assert_match_read_request(self, read_request: Scoped<Counted<Field>>) {
-        let siloed_value =
-            compute_siloed_nullifier(read_request.contract_address, read_request.innermost());
+    fn assert_match_read_request(self, read_request: Field) {
         assert_eq(
             self.nullifier,
-            siloed_value,
+            read_request,
             "Value of the nullifier leaf does not match read request",
         );
     }

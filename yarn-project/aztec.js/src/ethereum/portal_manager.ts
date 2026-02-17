@@ -1,8 +1,9 @@
-import type { ExtendedViemWalletClient, ViemContract } from '@aztec/ethereum';
+import type { ExtendedViemWalletClient, ViemContract } from '@aztec/ethereum/types';
 import { extractEvent } from '@aztec/ethereum/utils';
-import { sha256ToField } from '@aztec/foundation/crypto';
+import type { EpochNumber } from '@aztec/foundation/branded-types';
+import { sha256ToField } from '@aztec/foundation/crypto/sha256';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
 import type { SiblingPath } from '@aztec/foundation/trees';
 import { FeeAssetHandlerAbi } from '@aztec/l1-artifacts/FeeAssetHandlerAbi';
@@ -132,7 +133,7 @@ export class L1FeeJuicePortalManager {
   constructor(
     portalAddress: EthAddress,
     tokenAddress: EthAddress,
-    handlerAddress: EthAddress,
+    handlerAddress: EthAddress | undefined,
     private readonly extendedClient: ExtendedViemWalletClient,
     private readonly logger: Logger,
   ) {
@@ -157,9 +158,9 @@ export class L1FeeJuicePortalManager {
    */
   public async bridgeTokensPublic(to: AztecAddress, amount: bigint | undefined, mint = false): Promise<L2AmountClaim> {
     const [claimSecret, claimSecretHash] = await generateClaimSecret();
-    const mintableAmount = await this.tokenManager.getMintAmount();
-    const amountToBridge = amount ?? mintableAmount;
+    const amountToBridge = amount ?? (await this.tokenManager.getMintAmount());
     if (mint) {
+      const mintableAmount = await this.tokenManager.getMintAmount();
       if (amountToBridge !== mintableAmount) {
         throw new Error(`Minting amount must be ${mintableAmount}`);
       }
@@ -177,17 +178,32 @@ export class L1FeeJuicePortalManager {
       hash: await this.contract.write.depositToAztecPublic(args),
     });
 
-    this.logger.info('Deposited to Aztec public successfully');
+    this.logger.info('Deposited to Aztec public successfully', { txReceipt });
 
     const log = extractEvent(
       txReceipt.logs,
       this.contract.address,
       this.contract.abi,
       'DepositToAztecPublic',
-      log =>
-        log.args.secretHash === claimSecretHash.toString() &&
-        log.args.amount === amountToBridge &&
-        log.args.to === to.toString(),
+      log => {
+        // Normalize hex strings for comparison (case-insensitive, handle different formats)
+        const normalizeHex = (val: string | bigint | number) => {
+          const hexStr = typeof val === 'string' ? val : `0x${val.toString(16).padStart(64, '0')}`;
+          return hexStr.toLowerCase();
+        };
+
+        const secretHashMatch = normalizeHex(log.args.secretHash) === normalizeHex(claimSecretHash.toString());
+        const amountMatch = log.args.amount === amountToBridge;
+        const toMatch = normalizeHex(log.args.to) === normalizeHex(to.toString());
+
+        this.logger.debug(
+          `Event filter matching: secretHash=${secretHashMatch} (${log.args.secretHash} vs ${claimSecretHash.toString()}), ` +
+            `amount=${amountMatch} (${log.args.amount} vs ${amountToBridge}), ` +
+            `to=${toMatch} (${log.args.to} vs ${to.toString()})`,
+        );
+
+        return secretHashMatch && amountMatch && toMatch;
+      },
       this.logger,
     );
 
@@ -218,17 +234,12 @@ export class L1FeeJuicePortalManager {
     if (feeJuiceAddress.isZero() || feeJuicePortalAddress.isZero()) {
       throw new Error('Portal or token not deployed on L1');
     }
-    if (!feeAssetHandlerAddress || feeAssetHandlerAddress.isZero()) {
-      throw new Error('Handler not deployed on L1, or handler address is zero');
-    }
 
-    return new L1FeeJuicePortalManager(
-      feeJuicePortalAddress,
-      feeJuiceAddress,
-      feeAssetHandlerAddress,
-      extendedClient,
-      logger,
-    );
+    // Handler is optional - it's only needed for minting tokens during testing
+    const handlerAddress =
+      feeAssetHandlerAddress && !feeAssetHandlerAddress.isZero() ? feeAssetHandlerAddress : undefined;
+
+    return new L1FeeJuicePortalManager(feeJuicePortalAddress, feeJuiceAddress, handlerAddress, extendedClient, logger);
   }
 }
 
@@ -282,10 +293,19 @@ export class L1ToL2TokenPortalManager {
       this.portal.address,
       this.portal.abi,
       'DepositToAztecPublic',
-      log =>
-        log.args.secretHash === claimSecretHash.toString() &&
-        log.args.amount === amount &&
-        log.args.to === to.toString(),
+      log => {
+        // Normalize hex strings for comparison (case-insensitive, handle different formats)
+        const normalizeHex = (val: string | bigint | number) => {
+          const hexStr = typeof val === 'string' ? val : `0x${val.toString(16).padStart(64, '0')}`;
+          return hexStr.toLowerCase();
+        };
+
+        return (
+          normalizeHex(log.args.secretHash) === normalizeHex(claimSecretHash.toString()) &&
+          log.args.amount === amount &&
+          normalizeHex(log.args.to) === normalizeHex(to.toString())
+        );
+      },
       this.logger,
     );
 
@@ -323,7 +343,18 @@ export class L1ToL2TokenPortalManager {
       this.portal.address,
       this.portal.abi,
       'DepositToAztecPrivate',
-      log => log.args.amount === amount && log.args.secretHashForL2MessageConsumption === claimSecretHash.toString(),
+      log => {
+        // Normalize hex strings for comparison (case-insensitive, handle different formats)
+        const normalizeHex = (val: string | bigint | number) => {
+          const hexStr = typeof val === 'string' ? val : `0x${val.toString(16).padStart(64, '0')}`;
+          return hexStr.toLowerCase();
+        };
+
+        return (
+          log.args.amount === amount &&
+          normalizeHex(log.args.secretHashForL2MessageConsumption) === normalizeHex(claimSecretHash.toString())
+        );
+      },
       this.logger,
     );
 
@@ -378,26 +409,26 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
    * Withdraws funds from the portal by consuming an L2 to L1 message. Returns once the tx is mined on L1.
    * @param amount - Amount to withdraw.
    * @param recipient - Who will receive the funds.
-   * @param blockNumber - L2 block number of the message.
+   * @param epochNumber - Epoch number of the message.
    * @param messageIndex - Index of the message.
    * @param siblingPath - Sibling path of the message.
    */
   public async withdrawFunds(
     amount: bigint,
     recipient: EthAddress,
-    blockNumber: bigint,
+    epochNumber: EpochNumber,
     messageIndex: bigint,
     siblingPath: SiblingPath<number>,
   ) {
     this.logger.info(
-      `Sending L1 tx to consume message at block ${blockNumber} index ${messageIndex} to withdraw ${amount}`,
+      `Sending L1 tx to consume message at epoch ${epochNumber} index ${messageIndex} to withdraw ${amount}`,
     );
 
     const messageLeafId = getL2ToL1MessageLeafId({ leafIndex: messageIndex, siblingPath });
-    const isConsumedBefore = await this.outbox.read.hasMessageBeenConsumedAtBlock([blockNumber, messageLeafId]);
+    const isConsumedBefore = await this.outbox.read.hasMessageBeenConsumedAtEpoch([BigInt(epochNumber), messageLeafId]);
     if (isConsumedBefore) {
       throw new Error(
-        `L1 to L2 message at block ${blockNumber} index ${messageIndex} height ${siblingPath.pathSize} has already been consumed`,
+        `L2 to L1 message at epoch ${epochNumber} index ${messageIndex} height ${siblingPath.pathSize} has already been consumed`,
       );
     }
 
@@ -406,7 +437,7 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
       recipient.toString(),
       amount,
       false,
-      BigInt(blockNumber),
+      BigInt(epochNumber),
       messageIndex,
       siblingPath.toBufferArray().map((buf: Buffer): Hex => `0x${buf.toString('hex')}`),
     ]);
@@ -415,10 +446,10 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
       hash: await this.extendedClient.writeContract(withdrawRequest),
     });
 
-    const isConsumedAfter = await this.outbox.read.hasMessageBeenConsumedAtBlock([blockNumber, messageLeafId]);
+    const isConsumedAfter = await this.outbox.read.hasMessageBeenConsumedAtEpoch([BigInt(epochNumber), messageLeafId]);
     if (!isConsumedAfter) {
       throw new Error(
-        `L1 to L2 message at block ${blockNumber} index ${messageIndex} height ${siblingPath.pathSize} not consumed after withdrawal`,
+        `L2 to L1 message at epoch ${epochNumber} index ${messageIndex} height ${siblingPath.pathSize} not consumed after withdrawal`,
       );
     }
   }

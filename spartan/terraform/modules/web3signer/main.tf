@@ -35,6 +35,7 @@ resource "helm_release" "keystore_setup" {
       attesters = {
         attestersPerNode   = var.ATTESTERS_PER_NODE
         nodeCount          = var.NODE_COUNT
+        haCount            = var.VALIDATOR_HA_REPLICAS
         mnemonicStartIndex = var.VALIDATOR_MNEMONIC_START_INDEX
 
         addressConfigMap = {
@@ -43,7 +44,7 @@ resource "helm_release" "keystore_setup" {
         }
       }
       publishers = {
-        perValidatorKey    = var.ATTESTERS_PER_NODE
+        perValidatorKey    = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
         mnemonicStartIndex = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
       }
       provers = {

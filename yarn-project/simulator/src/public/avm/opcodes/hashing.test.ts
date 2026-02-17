@@ -1,4 +1,5 @@
-import { keccakf1600, sha256Compression } from '@aztec/foundation/crypto';
+import { keccakf1600 } from '@aztec/foundation/crypto/keccak';
+import { sha256Compression } from '@aztec/foundation/crypto/sha256';
 
 import type { AvmContext } from '../avm_context.js';
 import { Field, TaggedMemory, Uint32, Uint64 } from '../avm_memory_types.js';
@@ -23,7 +24,7 @@ describe('Hashing Opcodes', () => {
         ...Buffer.from('1234', 'hex'), // inputStateOffset
         ...Buffer.from('2345', 'hex'), // outputStateOffset
       ]);
-      const inst = new Poseidon2(/*indirect=*/ 1, /*dstOffset=*/ 0x1234, /*messageOffset=*/ 0x2345);
+      const inst = new Poseidon2(/*addressing_mode=*/ 1, /*dstOffset=*/ 0x1234, /*messageOffset=*/ 0x2345);
 
       expect(Poseidon2.fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
@@ -97,7 +98,7 @@ describe('Hashing Opcodes', () => {
         ...Buffer.from('1234', 'hex'), // dstOffset
         ...Buffer.from('2345', 'hex'), // inputOffset
       ]);
-      const inst = new KeccakF1600(/*indirect=*/ 1, /*dstOffset=*/ 0x1234, /*inputOffset=*/ 0x2345);
+      const inst = new KeccakF1600(/*addressing_mode=*/ 1, /*dstOffset=*/ 0x1234, /*inputOffset=*/ 0x2345);
 
       expect(KeccakF1600.fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
@@ -151,7 +152,7 @@ describe('Hashing Opcodes', () => {
         ...Buffer.from('4567', 'hex'), // inputsOffset
       ]);
       const inst = new Sha256Compression(
-        /*indirect=*/ 1,
+        /*addressing_mode=*/ 1,
         /*dstOffset=*/ 0x1234,
         /*stateOffset=*/ 0x2345,
         /*inputsOffset=*/ 0x4567,

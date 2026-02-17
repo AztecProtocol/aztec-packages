@@ -2,8 +2,8 @@
 members = [
   "address-note",
   "aztec",
+  "balance-set",
   "compressed-string",
-  "easy-private-state",
-  "value-note",
+  "field-note",
   "uint-note",
 ]

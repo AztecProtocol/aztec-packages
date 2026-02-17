@@ -11,6 +11,7 @@ export interface TelemetryClientConfig {
   otelCollectIntervalMs: number;
   otelExportTimeoutMs: number;
   otelExcludeMetrics: string[];
+  otelIncludeMetrics: string[];
 }
 
 export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientConfig> = {
@@ -53,6 +54,18 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
         : [],
     defaultValue: [],
   },
+  otelIncludeMetrics: {
+    env: 'OTEL_INCLUDE_METRICS',
+    description: 'A list of metric prefixes to include in export (ignored if OTEL_EXCLUDE_METRICS is set)',
+    parseEnv: (val: string) =>
+      val
+        ? val
+            .split(',')
+            .map(s => s.trim())
+            .filter(s => s.length > 0)
+        : [],
+    defaultValue: [],
+  },
 
   publicMetricsCollectorUrl: {
     env: 'PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT',
@@ -86,7 +99,7 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
   publicMetricsOptOut: {
     env: 'PUBLIC_OTEL_OPT_OUT',
     description: 'Whether to opt out of sharing optional telemetry',
-    ...booleanConfigHelper(false),
+    ...booleanConfigHelper(true),
   },
 };
 

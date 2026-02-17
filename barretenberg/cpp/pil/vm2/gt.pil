@@ -20,15 +20,15 @@ include "range_check.pil";
 // - sel_others
 namespace gt;
 
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     // This is used to decouple generation of inverses of lookups into this trace.
-    pol commit sel_sha256;
-    pol commit sel_addressing;
-    pol commit sel_alu;
-    pol commit sel_gas;
-    pol commit sel_others;  // Any other lookup into this trace.
+    pol commit sel_sha256; // @boolean
+    pol commit sel_addressing; // @boolean
+    pol commit sel_alu; // @boolean
+    pol commit sel_gas; // @boolean
+    pol commit sel_others; // @boolean Any other lookup into this trace.
     sel_sha256 * (1 - sel_sha256) = 0;
     sel_addressing * (1 - sel_addressing) = 0;
     sel_alu * (1 - sel_alu) = 0;
@@ -43,7 +43,7 @@ namespace gt;
     pol commit input_a;
     pol commit input_b;
 
-    pol commit res; // Boolean
+    pol commit res; // @boolean
     res * (1 - res) = 0;
 
     pol A_LTE_B = input_b - input_a;

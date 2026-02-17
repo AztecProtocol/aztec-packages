@@ -37,6 +37,7 @@ template <typename FF> class sstore : public Relation<sstoreImpl<FF>> {
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_SSTORE_MAX_DATA_WRITES_REACHED = 1;
     static constexpr size_t SR_OPCODE_ERROR_IF_OVERFLOW_OR_STATIC = 2;
+    static constexpr size_t SR_SEL_WRITE_PUBLIC_DATA_IS_EXECUTE_AND_NOT_ERROR = 3;
     static constexpr size_t SR_SSTORE_WRITTEN_SLOTS_ROOT_NOT_CHANGED = 4;
     static constexpr size_t SR_SSTORE_WRITTEN_SLOTS_SIZE_NOT_CHANGED = 5;
     static constexpr size_t SR_SSTORE_PUBLIC_DATA_TREE_ROOT_NOT_CHANGED = 6;
@@ -49,6 +50,8 @@ template <typename FF> class sstore : public Relation<sstoreImpl<FF>> {
             return "SSTORE_MAX_DATA_WRITES_REACHED";
         case SR_OPCODE_ERROR_IF_OVERFLOW_OR_STATIC:
             return "OPCODE_ERROR_IF_OVERFLOW_OR_STATIC";
+        case SR_SEL_WRITE_PUBLIC_DATA_IS_EXECUTE_AND_NOT_ERROR:
+            return "SEL_WRITE_PUBLIC_DATA_IS_EXECUTE_AND_NOT_ERROR";
         case SR_SSTORE_WRITTEN_SLOTS_ROOT_NOT_CHANGED:
             return "SSTORE_WRITTEN_SLOTS_ROOT_NOT_CHANGED";
         case SR_SSTORE_WRITTEN_SLOTS_SIZE_NOT_CHANGED:

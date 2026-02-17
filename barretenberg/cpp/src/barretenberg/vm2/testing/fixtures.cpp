@@ -51,7 +51,7 @@ std::vector<ScopedL2ToL1Message> random_l2_to_l1_messages(size_t n)
                     .recipient = FF::random_element(),
                     .content = FF::random_element(),
                 },
-            .contractAddress = FF::random_element(),
+            .contract_address = FF::random_element(),
         });
     }
     return messages;
@@ -64,9 +64,9 @@ std::vector<PublicCallRequestWithCalldata> random_enqueued_calls(size_t n)
     for (size_t i = 0; i < n; ++i) {
         calls.push_back(PublicCallRequestWithCalldata{
             .request{
-                .msgSender = FF::random_element(),
-                .contractAddress = FF::random_element(),
-                .isStaticCall = rand() % 2 == 0,
+                .msg_sender = FF::random_element(),
+                .contract_address = FF::random_element(),
+                .is_static_call = rand() % 2 == 0,
             },
             .calldata = random_fields(5),
         });
@@ -126,16 +126,16 @@ Instruction random_instruction(WireOpCode w_opcode)
 {
     const auto format = simulation::testonly::get_instruction_wire_formats().at(w_opcode);
     std::vector<Operand> operands;
-    uint16_t indirect = 0;
-    operands.reserve(format.size()); // Might be a bit larger (due to indirect)
+    uint16_t addressing_mode = 0;
+    operands.reserve(format.size()); // Might be a bit larger (due to addressing_mode)
 
     for (const auto& operand_type : format) {
         switch (operand_type) {
         case OperandType::INDIRECT8:
-            indirect = random_operand(operand_type).as<uint8_t>();
+            addressing_mode = random_operand(operand_type).as<uint8_t>();
             break;
         case OperandType::INDIRECT16:
-            indirect = random_operand(operand_type).as<uint16_t>();
+            addressing_mode = random_operand(operand_type).as<uint16_t>();
             break;
         default:
             operands.emplace_back(random_operand(operand_type));
@@ -145,7 +145,7 @@ Instruction random_instruction(WireOpCode w_opcode)
 
     return Instruction{
         .opcode = w_opcode,
-        .indirect = indirect,
+        .addressing_mode = addressing_mode,
         .operands = std::move(operands),
     };
 }
@@ -153,16 +153,16 @@ Instruction random_instruction(WireOpCode w_opcode)
 TestTraceContainer empty_trace()
 {
     using C = Column;
-    return TestTraceContainer({ { { C::precomputed_first_row, 1 } }, { { C::precomputed_clk, 1 } } });
+    return TestTraceContainer({ { { C::precomputed_first_row, 1 } }, { { C::precomputed_idx, 1 } } });
 }
 
 ContractInstance random_contract_instance()
 {
     ContractInstance instance = { .salt = FF::random_element(),
-                                  .deployer_addr = FF::random_element(),
-                                  .current_class_id = FF::random_element(),
-                                  .original_class_id = FF::random_element(),
-                                  .initialisation_hash = FF::random_element(),
+                                  .deployer = FF::random_element(),
+                                  .current_contract_class_id = FF::random_element(),
+                                  .original_contract_class_id = FF::random_element(),
+                                  .initialization_hash = FF::random_element(),
                                   .public_keys = PublicKeys{
                                       .nullifier_key = AffinePoint::random_element(),
                                       .incoming_viewing_key = AffinePoint::random_element(),
@@ -174,9 +174,9 @@ ContractInstance random_contract_instance()
 
 ContractClass random_contract_class(size_t bytecode_size)
 {
-    return ContractClass{ .artifact_hash = FF::random_element(),
-                          .private_function_root = FF::random_element(),
-                          .public_bytecode_commitment = FF::random_element(),
+    return ContractClass{ .id = FF::random_element(),
+                          .artifact_hash = FF::random_element(),
+                          .private_functions_root = FF::random_element(),
                           .packed_bytecode = random_bytes(bytecode_size) };
 }
 
@@ -191,9 +191,9 @@ std::pair<tracegen::TraceContainer, PublicInputs> get_minimal_trace_with_pi()
     auto events = simulation_helper.simulate_for_witgen(inputs.hints);
 
     AvmTraceGenHelper trace_gen_helper;
-    auto trace = trace_gen_helper.generate_trace(std::move(events), inputs.publicInputs);
+    auto trace = trace_gen_helper.generate_trace(std::move(events), inputs.public_inputs);
 
-    return { std::move(trace), inputs.publicInputs };
+    return { std::move(trace), inputs.public_inputs };
 }
 
 bool skip_slow_tests()

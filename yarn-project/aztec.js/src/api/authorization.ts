@@ -2,6 +2,7 @@ export { AuthWitness } from '@aztec/stdlib/auth-witness';
 export {
   SetPublicAuthwitContractInteraction,
   type ContractFunctionInteractionCallIntent,
+  isContractFunctionInteractionCallIntent,
   getMessageHashFromIntent,
   computeAuthWitMessageHash,
   computeInnerAuthWitHashFromAction,

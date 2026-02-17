@@ -1,18 +1,19 @@
 import { computeAuthWitMessageHash, computeInnerAuthWitHashFromAction } from '@aztec/aztec.js/authorization';
 import { Fr } from '@aztec/aztec.js/fields';
 
+import { sendThroughAuthwitProxy, simulateThroughAuthwitProxy } from '../fixtures/authwit_proxy.js';
 import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
 
 describe('e2e_token_contract transfer private', () => {
   const t = new TokenContractTest('transfer_private');
-  let { asset, tokenSim, wallet, adminAddress, account1Address, account2Address, badAccount } = t;
+  let { asset, tokenSim, wallet, adminAddress, account1Address, badAccount } = t;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyMintSnapshot();
+    t.applyBaseSnapshots();
+    t.applyMintSnapshot();
     await t.setup();
-    ({ asset, tokenSim, wallet, adminAddress, account1Address, account2Address, badAccount } = t);
+    ({ asset, tokenSim, wallet, adminAddress, account1Address, badAccount } = t);
   });
 
   afterAll(async () => {
@@ -29,20 +30,17 @@ describe('e2e_token_contract transfer private', () => {
     const authwitNonce = Fr.random();
     expect(amount).toBeGreaterThan(0n);
 
-    // We need to compute the message we want to sign and add it to the wallet as approved
     const action = asset.methods.transfer_in_private(adminAddress, account1Address, amount, authwitNonce);
+    const witness = await wallet.createAuthWit(adminAddress, { caller: t.authwitProxy.address, action });
 
-    const witness = await wallet.createAuthWit(adminAddress, { caller: account1Address, action });
-
-    // Perform the transfer
-    await action.send({ from: account1Address, authWitnesses: [witness] }).wait();
+    // Admin sends through proxy so their keys are in scope, while proxy becomes msg_sender to trigger authwit.
+    await sendThroughAuthwitProxy(t.authwitProxy, action, { from: adminAddress, authWitnesses: [witness] });
     tokenSim.transferPrivate(adminAddress, account1Address, amount);
 
     // Perform the transfer again, should fail
-    const txReplay = asset.methods
-      .transfer_in_private(adminAddress, account1Address, amount, authwitNonce)
-      .send({ from: account1Address, authWitnesses: [witness] });
-    await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
+    await expect(
+      sendThroughAuthwitProxy(t.authwitProxy, action, { from: adminAddress, authWitnesses: [witness] }),
+    ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
   });
 
   describe('failure cases', () => {
@@ -69,15 +67,13 @@ describe('e2e_token_contract transfer private', () => {
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
-      // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset.methods.transfer_in_private(adminAddress, account1Address, amount, authwitNonce);
+      const witness = await wallet.createAuthWit(adminAddress, { caller: t.authwitProxy.address, action });
 
-      const witness = await wallet.createAuthWit(adminAddress, { caller: account1Address, action });
-
-      // Perform the transfer
-      await expect(action.simulate({ from: account1Address, authWitnesses: [witness] })).rejects.toThrow(
-        'Assertion failed: Balance too low',
-      );
+      // Admin sends through proxy so their keys are in scope, while proxy becomes msg_sender to trigger authwit.
+      await expect(
+        simulateThroughAuthwitProxy(t.authwitProxy, action, { from: adminAddress, authWitnesses: [witness] }),
+      ).rejects.toThrow('Assertion failed: Balance too low');
       expect(await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress })).toEqual(balance0);
       expect(await asset.methods.balance_of_private(account1Address).simulate({ from: account1Address })).toEqual(
         balance1,
@@ -97,14 +93,15 @@ describe('e2e_token_contract transfer private', () => {
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
-      // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset.methods.transfer_in_private(adminAddress, account1Address, amount, authwitNonce);
+      const call = await action.getFunctionCall();
       const messageHash = await computeAuthWitMessageHash(
-        { caller: account1Address, call: await action.getFunctionCall() },
+        { caller: t.authwitProxy.address, call },
         await wallet.getChainInfo(),
       );
 
-      await expect(action.simulate({ from: account1Address })).rejects.toThrow(
+      // Admin sends through proxy so their keys are in scope, while proxy becomes msg_sender to trigger authwit.
+      await expect(simulateThroughAuthwitProxy(t.authwitProxy, action, { from: adminAddress })).rejects.toThrow(
         `Unknown auth witness for message hash ${messageHash.toString()}`,
       );
     });
@@ -115,18 +112,19 @@ describe('e2e_token_contract transfer private', () => {
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
-      // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset.methods.transfer_in_private(adminAddress, account1Address, amount, authwitNonce);
+      const call = await action.getFunctionCall();
       const expectedMessageHash = await computeAuthWitMessageHash(
-        { caller: account2Address, call: await action.getFunctionCall() },
+        { caller: t.authwitProxy.address, call },
         await wallet.getChainInfo(),
       );
 
       const witness = await wallet.createAuthWit(adminAddress, { caller: account1Address, action });
 
-      await expect(action.simulate({ from: account2Address, authWitnesses: [witness] })).rejects.toThrow(
-        `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
-      );
+      // Admin sends through proxy so their keys are in scope, while proxy becomes msg_sender to trigger authwit.
+      await expect(
+        simulateThroughAuthwitProxy(t.authwitProxy, action, { from: adminAddress, authWitnesses: [witness] }),
+      ).rejects.toThrow(`Unknown auth witness for message hash ${expectedMessageHash.toString()}`);
       expect(await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress })).toEqual(balance0);
     });
 
@@ -136,21 +134,20 @@ describe('e2e_token_contract transfer private', () => {
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
-      // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset.methods.transfer_in_private(adminAddress, account1Address, amount, authwitNonce);
 
-      const intent = { caller: account1Address, action };
+      const intent = { caller: t.authwitProxy.address, action };
 
       const witness = await wallet.createAuthWit(adminAddress, intent);
 
-      const innerHash = await computeInnerAuthWitHashFromAction(account1Address, action);
-      await asset.methods.cancel_authwit(innerHash).send({ from: adminAddress }).wait();
+      const innerHash = await computeInnerAuthWitHashFromAction(t.authwitProxy.address, action);
+      await asset.methods.cancel_authwit(innerHash).send({ from: adminAddress });
 
-      // Perform the transfer, should fail because nullifier already emitted
-      const txCancelledAuthwit = asset.methods
-        .transfer_in_private(adminAddress, account1Address, amount, authwitNonce)
-        .send({ from: account1Address, authWitnesses: [witness] });
-      await expect(txCancelledAuthwit.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
+      // Admin sends through proxy so their keys are in scope, while proxy becomes msg_sender to trigger authwit.
+      // The transfer should fail because nullifier already emitted
+      await expect(
+        sendThroughAuthwitProxy(t.authwitProxy, action, { from: adminAddress, authWitnesses: [witness] }),
+      ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
     });
 
     it('transfer on behalf of other, invalid verify_private_authwit on "from"', async () => {

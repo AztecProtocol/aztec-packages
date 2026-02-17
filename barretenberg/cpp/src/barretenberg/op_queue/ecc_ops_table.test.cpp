@@ -134,7 +134,7 @@ TEST(EccOpsTableTest, UltraOpsTablePrependOnly)
 
     // Check that the ultra ops table internal to the op queue has the correct size
     auto expected_num_ops = std::accumulate(subtable_op_counts.begin(), subtable_op_counts.end(), size_t(0));
-    EXPECT_EQ(ultra_ops_table.size(), expected_num_ops);
+    EXPECT_EQ(ultra_ops_table.num_ops(), expected_num_ops);
 
     // Construct polynomials corresponding to the columns of the ultra ops table
     std::array<Polynomial<Fr>, 4> ultra_ops_table_polynomials = ultra_ops_table.construct_table_columns();
@@ -183,7 +183,7 @@ TEST(EccOpsTableTest, UltraOpsPrependThenAppend)
 
     // Check that the ultra ops table internal to the op queue has the correct size
     auto expected_num_ops = std::accumulate(subtable_op_counts.begin(), subtable_op_counts.end(), size_t(0));
-    EXPECT_EQ(ultra_ops_table.size(), expected_num_ops);
+    EXPECT_EQ(ultra_ops_table.num_ops(), expected_num_ops);
 
     // Construct polynomials corresponding to the columns of the ultra ops table
     std::array<Polynomial<Fr>, 4> ultra_ops_table_polynomials = ultra_ops_table.construct_table_columns();
@@ -232,7 +232,7 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendNoGap)
 
     // Check that the ultra ops table has the correct size
     auto expected_num_ops = std::accumulate(subtable_op_counts.begin(), subtable_op_counts.end(), size_t(0));
-    EXPECT_EQ(ultra_ops_table.size(), expected_num_ops);
+    EXPECT_EQ(ultra_ops_table.num_ops(), expected_num_ops);
 
     // Construct polynomials corresponding to the columns of the ultra ops table
     std::array<Polynomial<Fr>, 4> ultra_ops_table_polynomials = ultra_ops_table.construct_table_columns();
@@ -288,11 +288,11 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendWithGap)
 
     // Check that the ultra ops table has the correct total size (gap is not present in raw ops table)
     auto expected_num_ops = std::accumulate(subtable_op_counts.begin(), subtable_op_counts.end(), size_t(0));
-    EXPECT_EQ(ultra_ops_table.size(), expected_num_ops);
+    EXPECT_EQ(ultra_ops_table.num_ops(), expected_num_ops);
 
     // Check that the polynomials have the correct size (including gap)
     size_t expected_poly_size = fixed_offset_num_rows + (subtable_op_counts[2] * ULTRA_ROWS_PER_OP);
-    EXPECT_EQ(ultra_ops_table.ultra_table_size(), expected_poly_size);
+    EXPECT_EQ(ultra_ops_table.num_ultra_rows(), expected_poly_size);
 
     // Construct polynomials corresponding to the columns of the ultra ops table
     std::array<Polynomial<Fr>, 4> ultra_ops_table_polynomials = ultra_ops_table.construct_table_columns();

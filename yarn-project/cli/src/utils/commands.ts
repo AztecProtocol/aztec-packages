@@ -1,11 +1,12 @@
-import { FunctionSelector } from '@aztec/aztec.js/abi';
-import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
-import { Fr } from '@aztec/aztec.js/fields';
-import { LogId } from '@aztec/aztec.js/log';
-import { TxHash } from '@aztec/aztec.js/tx';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
 import type { PXE } from '@aztec/pxe/server';
+import { FunctionSelector } from '@aztec/stdlib/abi/function-selector';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { PublicKeys } from '@aztec/stdlib/keys';
+import { LogId } from '@aztec/stdlib/logs/log-id';
+import { TxHash } from '@aztec/stdlib/tx/tx-hash';
 
 import { type Command, CommanderError, InvalidArgumentError, Option } from 'commander';
 import { lookup } from 'dns/promises';

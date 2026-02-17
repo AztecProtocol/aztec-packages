@@ -1,17 +1,17 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "barretenberg/ultra_honk/witness_computation.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
+#include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
@@ -102,7 +102,6 @@ template <IsUltraOrMegaHonk Flavor>
 void WitnessComputation<Flavor>::compute_grand_product_polynomial(Flavor::ProverPolynomials& polynomials,
                                                                   std::vector<FF>& public_inputs,
                                                                   const size_t pub_inputs_offset,
-                                                                  ActiveRegionData& active_region_data,
                                                                   RelationParameters<FF>& relation_parameters,
                                                                   size_t size_override)
 {
@@ -110,8 +109,7 @@ void WitnessComputation<Flavor>::compute_grand_product_polynomial(Flavor::Prover
         public_inputs, relation_parameters.beta, relation_parameters.gamma, pub_inputs_offset);
 
     // Compute permutation grand product polynomial
-    compute_grand_product<Flavor, UltraPermutationRelation<FF>>(
-        polynomials, relation_parameters, size_override, active_region_data);
+    compute_grand_product<Flavor, UltraPermutationRelation<FF>>(polynomials, relation_parameters, size_override);
 }
 
 /**
@@ -124,12 +122,10 @@ template <IsUltraOrMegaHonk Flavor>
 void WitnessComputation<Flavor>::complete_prover_instance_for_test(
     const std::shared_ptr<ProverInstance_<Flavor>>& prover_inst)
 {
-    // Generate random eta, beta and gamma
-    prover_inst->relation_parameters.eta = FF::random_element();
-    prover_inst->relation_parameters.eta = FF::random_element();
-    prover_inst->relation_parameters.eta_two = FF::random_element();
-    prover_inst->relation_parameters.eta_three = FF::random_element();
-    prover_inst->relation_parameters.beta = FF::random_element();
+    // Generate random eta, beta, gamma, compute powers
+    prover_inst->relation_parameters.compute_eta_powers(FF::random_element()); // eta, eta_two = eta², eta_three = eta³
+    prover_inst->relation_parameters.compute_beta_powers(
+        FF::random_element()); // beta, beta_sqr = beta², beta_cube = beta³
     prover_inst->relation_parameters.gamma = FF::random_element();
 
     add_ram_rom_memory_records_to_wire_4(prover_inst->polynomials,
@@ -145,7 +141,6 @@ void WitnessComputation<Flavor>::complete_prover_instance_for_test(
     compute_grand_product_polynomial(prover_inst->polynomials,
                                      prover_inst->public_inputs,
                                      prover_inst->pub_inputs_offset(),
-                                     prover_inst->active_region_data,
                                      prover_inst->relation_parameters,
                                      prover_inst->get_final_active_wire_idx() + 1);
 }
@@ -158,8 +153,8 @@ template class WitnessComputation<UltraStarknetFlavor>;
 template class WitnessComputation<UltraStarknetZKFlavor>;
 #endif
 template class WitnessComputation<UltraKeccakZKFlavor>;
-template class WitnessComputation<UltraRollupFlavor>;
 template class WitnessComputation<MegaFlavor>;
 template class WitnessComputation<MegaZKFlavor>;
+template class WitnessComputation<MegaAvmFlavor>;
 
 } // namespace bb

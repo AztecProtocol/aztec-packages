@@ -180,31 +180,60 @@ TEST(MerkleCheckTraceGenTest, MixedEvents)
     TestTraceContainer trace;
     MerkleCheckTraceBuilder builder;
 
-    // First event
+    // First event - leaf_index 6 needs path_len 3 to reach root
+    // Binary 110: 6 -> 3 -> 1 -> 0
     FF leaf_value_1 = FF(111);
     uint64_t leaf_index_1 = 6;
-    FF sibling_value_1 = FF(222);
-    FF output_hash_1 = Poseidon2::hash({ leaf_value_1, sibling_value_1 });
+    FF sibling_1_level_0 = FF(222);
+    FF sibling_1_level_1 = FF(333);
+    FF sibling_1_level_2 = FF(444);
+
+    // Level 0: index 6 (even), so leaf is left, sibling is right
+    FF hash_1_level_0 = Poseidon2::hash({ leaf_value_1, sibling_1_level_0 });
+    // Level 1: index 3 (odd), so hash is right, sibling is left
+    FF hash_1_level_1 = Poseidon2::hash({ sibling_1_level_1, hash_1_level_0 });
+    // Level 2: index 1 (odd), so hash is right, sibling is left
+    FF root_1 = Poseidon2::hash({ sibling_1_level_2, hash_1_level_1 });
 
     MerkleCheckEvent event1 = { .leaf_value = leaf_value_1,
                                 .leaf_index = leaf_index_1,
-                                .sibling_path = { sibling_value_1 },
-                                .root = output_hash_1 };
+                                .sibling_path = { sibling_1_level_0, sibling_1_level_1, sibling_1_level_2 },
+                                .root = root_1 };
 
-    // Second event
-    FF leaf_value_2 = FF(333);
-    FF new_leaf_value_2 = FF(444);
+    // Second event - leaf_index 11 needs path_len 4 to reach root
+    // Binary 1011: 11 -> 5 -> 2 -> 1 -> 0
+    FF leaf_value_2 = FF(555);
+    FF new_leaf_value_2 = FF(666);
     uint64_t leaf_index_2 = 11;
-    FF sibling_value_2 = FF(444);
-    FF read_output_hash_2 = Poseidon2::hash({ sibling_value_2, leaf_value_2 });
-    FF write_output_hash_2 = Poseidon2::hash({ sibling_value_2, new_leaf_value_2 });
+    FF sibling_2_level_0 = FF(777);
+    FF sibling_2_level_1 = FF(888);
+    FF sibling_2_level_2 = FF(999);
+    FF sibling_2_level_3 = FF(1010);
 
-    MerkleCheckEvent event2 = { .leaf_value = leaf_value_2,
-                                .new_leaf_value = new_leaf_value_2,
-                                .leaf_index = leaf_index_2,
-                                .sibling_path = { sibling_value_2 },
-                                .root = read_output_hash_2,
-                                .new_root = write_output_hash_2 };
+    // Read path
+    // Level 0: index 11 (odd), so sibling is left, leaf is right
+    FF read_hash_2_level_0 = Poseidon2::hash({ sibling_2_level_0, leaf_value_2 });
+    // Level 1: index 5 (odd), so sibling is left, hash is right
+    FF read_hash_2_level_1 = Poseidon2::hash({ sibling_2_level_1, read_hash_2_level_0 });
+    // Level 2: index 2 (even), so hash is left, sibling is right
+    FF read_hash_2_level_2 = Poseidon2::hash({ read_hash_2_level_1, sibling_2_level_2 });
+    // Level 3: index 1 (odd), so sibling is left, hash is right
+    FF read_root_2 = Poseidon2::hash({ sibling_2_level_3, read_hash_2_level_2 });
+
+    // Write path
+    FF write_hash_2_level_0 = Poseidon2::hash({ sibling_2_level_0, new_leaf_value_2 });
+    FF write_hash_2_level_1 = Poseidon2::hash({ sibling_2_level_1, write_hash_2_level_0 });
+    FF write_hash_2_level_2 = Poseidon2::hash({ write_hash_2_level_1, sibling_2_level_2 });
+    FF write_root_2 = Poseidon2::hash({ sibling_2_level_3, write_hash_2_level_2 });
+
+    MerkleCheckEvent event2 = {
+        .leaf_value = leaf_value_2,
+        .new_leaf_value = new_leaf_value_2,
+        .leaf_index = leaf_index_2,
+        .sibling_path = { sibling_2_level_0, sibling_2_level_1, sibling_2_level_2, sibling_2_level_3 },
+        .root = read_root_2,
+        .new_root = write_root_2
+    };
 
     builder.process({ event1, event2 }, trace);
 
@@ -212,41 +241,131 @@ TEST(MerkleCheckTraceGenTest, MixedEvents)
                 ElementsAre(
                     // First row is empty
                     AllOf(ROW_FIELD_EQ(merkle_check_sel, 0)),
-                    // First real row (read)
+                    // Event 1 - Row 1: Level 0 (leaf_index 6)
                     AllOf(ROW_FIELD_EQ(merkle_check_sel, 1),
                           ROW_FIELD_EQ(merkle_check_write, 0),
                           ROW_FIELD_EQ(merkle_check_read_node, leaf_value_1),
-                          ROW_FIELD_EQ(merkle_check_index, leaf_index_1),
-                          ROW_FIELD_EQ(merkle_check_path_len, 1),
-                          ROW_FIELD_EQ(merkle_check_path_len_min_one_inv, 0),
-                          ROW_FIELD_EQ(merkle_check_read_root, output_hash_1),
-                          ROW_FIELD_EQ(merkle_check_sibling, sibling_value_1),
+                          ROW_FIELD_EQ(merkle_check_index, 6),
+                          ROW_FIELD_EQ(merkle_check_path_len, 3),
+                          ROW_FIELD_EQ(merkle_check_path_len_min_one_inv, FF(2).invert()),
+                          ROW_FIELD_EQ(merkle_check_read_root, root_1),
+                          ROW_FIELD_EQ(merkle_check_sibling, sibling_1_level_0),
                           ROW_FIELD_EQ(merkle_check_start, 1),
-                          ROW_FIELD_EQ(merkle_check_end, 1),
+                          ROW_FIELD_EQ(merkle_check_end, 0),
                           ROW_FIELD_EQ(merkle_check_index_is_even, 1),
                           ROW_FIELD_EQ(merkle_check_read_left_node, leaf_value_1),
-                          ROW_FIELD_EQ(merkle_check_read_right_node, sibling_value_1),
-                          ROW_FIELD_EQ(merkle_check_read_output_hash, output_hash_1)),
-                    // Second real row (write)
+                          ROW_FIELD_EQ(merkle_check_read_right_node, sibling_1_level_0),
+                          ROW_FIELD_EQ(merkle_check_read_output_hash, hash_1_level_0)),
+                    // Event 1 - Row 2: Level 1 (index 3)
+                    AllOf(ROW_FIELD_EQ(merkle_check_sel, 1),
+                          ROW_FIELD_EQ(merkle_check_write, 0),
+                          ROW_FIELD_EQ(merkle_check_read_node, hash_1_level_0),
+                          ROW_FIELD_EQ(merkle_check_index, 3),
+                          ROW_FIELD_EQ(merkle_check_path_len, 2),
+                          ROW_FIELD_EQ(merkle_check_path_len_min_one_inv, FF(1).invert()),
+                          ROW_FIELD_EQ(merkle_check_read_root, root_1),
+                          ROW_FIELD_EQ(merkle_check_sibling, sibling_1_level_1),
+                          ROW_FIELD_EQ(merkle_check_start, 0),
+                          ROW_FIELD_EQ(merkle_check_end, 0),
+                          ROW_FIELD_EQ(merkle_check_index_is_even, 0),
+                          ROW_FIELD_EQ(merkle_check_read_left_node, sibling_1_level_1),
+                          ROW_FIELD_EQ(merkle_check_read_right_node, hash_1_level_0),
+                          ROW_FIELD_EQ(merkle_check_read_output_hash, hash_1_level_1)),
+                    // Event 1 - Row 3: Level 2 (index 1, final)
+                    AllOf(ROW_FIELD_EQ(merkle_check_sel, 1),
+                          ROW_FIELD_EQ(merkle_check_write, 0),
+                          ROW_FIELD_EQ(merkle_check_read_node, hash_1_level_1),
+                          ROW_FIELD_EQ(merkle_check_index, 1),
+                          ROW_FIELD_EQ(merkle_check_path_len, 1),
+                          ROW_FIELD_EQ(merkle_check_path_len_min_one_inv, 0),
+                          ROW_FIELD_EQ(merkle_check_read_root, root_1),
+                          ROW_FIELD_EQ(merkle_check_sibling, sibling_1_level_2),
+                          ROW_FIELD_EQ(merkle_check_start, 0),
+                          ROW_FIELD_EQ(merkle_check_end, 1),
+                          ROW_FIELD_EQ(merkle_check_index_is_even, 0),
+                          ROW_FIELD_EQ(merkle_check_read_left_node, sibling_1_level_2),
+                          ROW_FIELD_EQ(merkle_check_read_right_node, hash_1_level_1),
+                          ROW_FIELD_EQ(merkle_check_read_output_hash, root_1)),
+                    // Event 2 - Row 1: Level 0 (leaf_index 11)
                     AllOf(ROW_FIELD_EQ(merkle_check_sel, 1),
                           ROW_FIELD_EQ(merkle_check_write, 1),
                           ROW_FIELD_EQ(merkle_check_read_node, leaf_value_2),
                           ROW_FIELD_EQ(merkle_check_write_node, new_leaf_value_2),
-                          ROW_FIELD_EQ(merkle_check_index, leaf_index_2),
+                          ROW_FIELD_EQ(merkle_check_index, 11),
+                          ROW_FIELD_EQ(merkle_check_path_len, 4),
+                          ROW_FIELD_EQ(merkle_check_path_len_min_one_inv, FF(3).invert()),
+                          ROW_FIELD_EQ(merkle_check_read_root, read_root_2),
+                          ROW_FIELD_EQ(merkle_check_write_root, write_root_2),
+                          ROW_FIELD_EQ(merkle_check_sibling, sibling_2_level_0),
+                          ROW_FIELD_EQ(merkle_check_start, 1),
+                          ROW_FIELD_EQ(merkle_check_end, 0),
+                          ROW_FIELD_EQ(merkle_check_index_is_even, 0),
+                          ROW_FIELD_EQ(merkle_check_read_left_node, sibling_2_level_0),
+                          ROW_FIELD_EQ(merkle_check_read_right_node, leaf_value_2),
+                          ROW_FIELD_EQ(merkle_check_write_left_node, sibling_2_level_0),
+                          ROW_FIELD_EQ(merkle_check_write_right_node, new_leaf_value_2),
+                          ROW_FIELD_EQ(merkle_check_read_output_hash, read_hash_2_level_0),
+                          ROW_FIELD_EQ(merkle_check_write_output_hash, write_hash_2_level_0)),
+                    // Event 2 - Row 2: Level 1 (index 5)
+                    AllOf(ROW_FIELD_EQ(merkle_check_sel, 1),
+                          ROW_FIELD_EQ(merkle_check_write, 1),
+                          ROW_FIELD_EQ(merkle_check_read_node, read_hash_2_level_0),
+                          ROW_FIELD_EQ(merkle_check_write_node, write_hash_2_level_0),
+                          ROW_FIELD_EQ(merkle_check_index, 5),
+                          ROW_FIELD_EQ(merkle_check_path_len, 3),
+                          ROW_FIELD_EQ(merkle_check_path_len_min_one_inv, FF(2).invert()),
+                          ROW_FIELD_EQ(merkle_check_read_root, read_root_2),
+                          ROW_FIELD_EQ(merkle_check_write_root, write_root_2),
+                          ROW_FIELD_EQ(merkle_check_sibling, sibling_2_level_1),
+                          ROW_FIELD_EQ(merkle_check_start, 0),
+                          ROW_FIELD_EQ(merkle_check_end, 0),
+                          ROW_FIELD_EQ(merkle_check_index_is_even, 0),
+                          ROW_FIELD_EQ(merkle_check_read_left_node, sibling_2_level_1),
+                          ROW_FIELD_EQ(merkle_check_read_right_node, read_hash_2_level_0),
+                          ROW_FIELD_EQ(merkle_check_write_left_node, sibling_2_level_1),
+                          ROW_FIELD_EQ(merkle_check_write_right_node, write_hash_2_level_0),
+                          ROW_FIELD_EQ(merkle_check_read_output_hash, read_hash_2_level_1),
+                          ROW_FIELD_EQ(merkle_check_write_output_hash, write_hash_2_level_1)),
+                    // Event 2 - Row 3: Level 2 (index 2)
+                    AllOf(ROW_FIELD_EQ(merkle_check_sel, 1),
+                          ROW_FIELD_EQ(merkle_check_write, 1),
+                          ROW_FIELD_EQ(merkle_check_read_node, read_hash_2_level_1),
+                          ROW_FIELD_EQ(merkle_check_write_node, write_hash_2_level_1),
+                          ROW_FIELD_EQ(merkle_check_index, 2),
+                          ROW_FIELD_EQ(merkle_check_path_len, 2),
+                          ROW_FIELD_EQ(merkle_check_path_len_min_one_inv, FF(1).invert()),
+                          ROW_FIELD_EQ(merkle_check_read_root, read_root_2),
+                          ROW_FIELD_EQ(merkle_check_write_root, write_root_2),
+                          ROW_FIELD_EQ(merkle_check_sibling, sibling_2_level_2),
+                          ROW_FIELD_EQ(merkle_check_start, 0),
+                          ROW_FIELD_EQ(merkle_check_end, 0),
+                          ROW_FIELD_EQ(merkle_check_index_is_even, 1),
+                          ROW_FIELD_EQ(merkle_check_read_left_node, read_hash_2_level_1),
+                          ROW_FIELD_EQ(merkle_check_read_right_node, sibling_2_level_2),
+                          ROW_FIELD_EQ(merkle_check_write_left_node, write_hash_2_level_1),
+                          ROW_FIELD_EQ(merkle_check_write_right_node, sibling_2_level_2),
+                          ROW_FIELD_EQ(merkle_check_read_output_hash, read_hash_2_level_2),
+                          ROW_FIELD_EQ(merkle_check_write_output_hash, write_hash_2_level_2)),
+                    // Event 2 - Row 4: Level 3 (index 1, final)
+                    AllOf(ROW_FIELD_EQ(merkle_check_sel, 1),
+                          ROW_FIELD_EQ(merkle_check_write, 1),
+                          ROW_FIELD_EQ(merkle_check_read_node, read_hash_2_level_2),
+                          ROW_FIELD_EQ(merkle_check_write_node, write_hash_2_level_2),
+                          ROW_FIELD_EQ(merkle_check_index, 1),
                           ROW_FIELD_EQ(merkle_check_path_len, 1),
                           ROW_FIELD_EQ(merkle_check_path_len_min_one_inv, 0),
-                          ROW_FIELD_EQ(merkle_check_read_root, read_output_hash_2),
-                          ROW_FIELD_EQ(merkle_check_write_root, write_output_hash_2),
-                          ROW_FIELD_EQ(merkle_check_sibling, sibling_value_2),
-                          ROW_FIELD_EQ(merkle_check_start, 1),
+                          ROW_FIELD_EQ(merkle_check_read_root, read_root_2),
+                          ROW_FIELD_EQ(merkle_check_write_root, write_root_2),
+                          ROW_FIELD_EQ(merkle_check_sibling, sibling_2_level_3),
+                          ROW_FIELD_EQ(merkle_check_start, 0),
                           ROW_FIELD_EQ(merkle_check_end, 1),
                           ROW_FIELD_EQ(merkle_check_index_is_even, 0),
-                          ROW_FIELD_EQ(merkle_check_read_left_node, sibling_value_2),
-                          ROW_FIELD_EQ(merkle_check_read_right_node, leaf_value_2),
-                          ROW_FIELD_EQ(merkle_check_write_left_node, sibling_value_2),
-                          ROW_FIELD_EQ(merkle_check_write_right_node, new_leaf_value_2),
-                          ROW_FIELD_EQ(merkle_check_read_output_hash, read_output_hash_2),
-                          ROW_FIELD_EQ(merkle_check_write_output_hash, write_output_hash_2))));
+                          ROW_FIELD_EQ(merkle_check_read_left_node, sibling_2_level_3),
+                          ROW_FIELD_EQ(merkle_check_read_right_node, read_hash_2_level_2),
+                          ROW_FIELD_EQ(merkle_check_write_left_node, sibling_2_level_3),
+                          ROW_FIELD_EQ(merkle_check_write_right_node, write_hash_2_level_2),
+                          ROW_FIELD_EQ(merkle_check_read_output_hash, read_root_2),
+                          ROW_FIELD_EQ(merkle_check_write_output_hash, write_root_2))));
 }
 
 } // namespace

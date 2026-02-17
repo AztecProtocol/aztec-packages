@@ -1,9 +1,9 @@
-import { EmpireSlashingProposerContract, RollupContract, SlasherContract } from '@aztec/ethereum';
+import { EmpireSlashingProposerContract, RollupContract, SlasherContract } from '@aztec/ethereum/contracts';
 import { sumBigint } from '@aztec/foundation/bigint';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, filterAsync, maxBy, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
-import { sleep } from '@aztec/foundation/sleep';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
@@ -195,13 +195,6 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
     this.roundMonitor.stop();
     await this.offensesCollector.stop();
 
-    // Viem calls eth_uninstallFilter under the hood when uninstalling event watchers, but these calls are not awaited,
-    // meaning that any error that happens during the uninstallation will not be caught. This causes errors during jest teardowns,
-    // where we stop anvil after all other processes are stopped, so sometimes the eth_uninstallFilter call fails because anvil
-    // is already stopped. We add a sleep here to give the uninstallation some time to complete, but the proper fix is for
-    // viem to await the eth_uninstallFilter calls, or to catch any errors that happen during the uninstallation.
-    // See https://github.com/wevm/viem/issues/3714.
-    await sleep(2000);
     this.log.info('Empire Slasher client stopped');
   }
 
@@ -369,7 +362,7 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
    * @param slotNumber - The current slot number
    * @returns The actions to take
    */
-  public async getProposerActions(slotNumber: bigint): Promise<ProposerSlashAction[]> {
+  public async getProposerActions(slotNumber: SlotNumber): Promise<ProposerSlashAction[]> {
     const [executeAction, proposePayloadActions] = await Promise.all([
       this.getExecutePayloadAction(slotNumber),
       this.getProposePayloadActions(slotNumber),
@@ -379,7 +372,7 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
   }
 
   /** Returns an execute payload action if there are any payloads ready to be executed */
-  protected async getExecutePayloadAction(slotNumber: bigint): Promise<ProposerSlashAction | undefined> {
+  protected async getExecutePayloadAction(slotNumber: SlotNumber): Promise<ProposerSlashAction | undefined> {
     const { round } = this.roundMonitor.getRoundForSlot(slotNumber);
     const toRemove: PayloadWithRound[] = [];
 
@@ -430,7 +423,7 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
   }
 
   /** Returns a vote or create payload action based on payload scoring */
-  protected async getProposePayloadActions(slotNumber: bigint): Promise<ProposerSlashAction[]> {
+  protected async getProposePayloadActions(slotNumber: SlotNumber): Promise<ProposerSlashAction[]> {
     // Compute what round we are in based on the slot number
     const { round, votingSlot } = this.roundMonitor.getRoundForSlot(slotNumber);
     const { slashingRoundSize: roundSize, slashingQuorumSize: quorumSize } = this.settings;
@@ -473,7 +466,7 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
     // Find the best existing payload. We filter out those that have no chance of winning given how many voting
     // slots are left in the round, and then filter by those we agree with.
     const feasiblePayloads = existingPayloads.filter(
-      p => BigInt(quorumSize) - p.votes <= BigInt(roundSize) - votingSlot,
+      p => BigInt(quorumSize) - p.votes <= BigInt(roundSize) - BigInt(votingSlot),
     );
     const requiredOffenses = await this.getPendingUncontroversialOffensesForRound(round);
     const agreedPayloads = await filterAsync(feasiblePayloads, p => this.agreeWithPayload(p, round, requiredOffenses));

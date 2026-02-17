@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Sergei], commit: 777717f6af324188ecd6bb68c3c86ee7befef94d}
+// external_1:  { status: Complete, auditors: [@ed25519 (Spearbit)], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -114,9 +114,10 @@ template <typename Builder> class FieldSponge {
         field_t output = sponge.squeeze();
 
         // The final state consists of 4 elements, we only use the first element, which means that the remaining
-        // 3 witnesses are only used in a single gate.
-        for (const auto& elem : sponge.state) {
-            mark_witness_as_used(elem);
+        // 3 witnesses are only used in a single gate. We only mark these 3 as used, leaving the output unmarked
+        // so that circuit static analyzer can detect if the caller forgets to use the output.
+        for (size_t i = 1; i < t; i++) {
+            mark_witness_as_used(sponge.state[i]);
         }
         return output;
     }

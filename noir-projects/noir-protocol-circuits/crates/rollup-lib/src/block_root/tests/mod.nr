@@ -4,23 +4,22 @@ mod failures_tests;
 mod rollup_structure_tests;
 
 use crate::{
-    abis::{BlockRollupPublicInputs, TxRollupPublicInputs},
+    abis::{BlockRollupPublicInputs, ParityPublicInputs, TxRollupPublicInputs},
     block_root::{
-        block_root_empty_tx_first_rollup_private_inputs::BlockRootEmptyTxFirstRollupPrivateInputs,
-        block_root_first_rollup_private_inputs::BlockRootFirstRollupPrivateInputs,
-        block_root_rollup_private_inputs::BlockRootRollupPrivateInputs,
-        block_root_single_tx_first_rollup_private_inputs::BlockRootSingleTxFirstRollupPrivateInputs,
-        block_root_single_tx_rollup_private_inputs::BlockRootSingleTxRollupPrivateInputs,
-        components::BlockRollupPublicInputsComposer,
+        block_root_empty_tx_first_rollup::{self, BlockRootEmptyTxFirstRollupPrivateInputs},
+        block_root_first_rollup::{self, BlockRootFirstRollupPrivateInputs},
+        block_root_rollup::{self, BlockRootRollupPrivateInputs},
+        block_root_single_tx_first_rollup::{self, BlockRootSingleTxFirstRollupPrivateInputs},
+        block_root_single_tx_rollup::{self, BlockRootSingleTxRollupPrivateInputs},
     },
     tests::RollupFixtureBuilder,
 };
-use parity_lib::ParityPublicInputs;
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_header::BlockHeader,
         checkpoint_constant_data::CheckpointConstantData, state_reference::StateReference,
     },
+    blob_data::SpongeBlob,
     constants::{
         ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH, PARITY_ROOT_VK_INDEX,
         PRIVATE_TX_BASE_ROLLUP_VK_INDEX, PUBLIC_TX_BASE_ROLLUP_VK_INDEX, TX_MERGE_ROLLUP_VK_INDEX,
@@ -173,35 +172,37 @@ impl TestBuilder {
                 l1_to_l2_message_tree: self.previous_l1_to_l2,
                 partial: self.left_rollup.start_tree_snapshots,
             };
-            BlockRootEmptyTxFirstRollupPrivateInputs {
-                parity_root,
-                previous_archive: left.constants.last_archive,
-                previous_state,
-                constants: self.checkpoint_constants,
-                start_sponge_blob: left.start_sponge_blob,
-                timestamp: left.constants.global_variables.timestamp,
-                new_l1_to_l2_message_subtree_root_sibling_path,
-                new_archive_sibling_path,
-            }
-                .execute()
+            block_root_empty_tx_first_rollup::execute(
+                BlockRootEmptyTxFirstRollupPrivateInputs {
+                    parity_root,
+                    previous_archive: left.constants.last_archive,
+                    previous_state,
+                    constants: self.checkpoint_constants,
+                    timestamp: left.constants.global_variables.timestamp,
+                    new_l1_to_l2_message_subtree_root_sibling_path,
+                    new_archive_sibling_path,
+                },
+            )
         } else if self.num_right_txs == 0 {
-            BlockRootSingleTxFirstRollupPrivateInputs {
-                parity_root,
-                previous_rollup: previous_rollups[0],
-                previous_l1_to_l2: self.previous_l1_to_l2,
-                new_l1_to_l2_message_subtree_root_sibling_path,
-                new_archive_sibling_path,
-            }
-                .execute()
+            block_root_single_tx_first_rollup::execute(
+                BlockRootSingleTxFirstRollupPrivateInputs {
+                    parity_root,
+                    previous_rollup: previous_rollups[0],
+                    previous_l1_to_l2: self.previous_l1_to_l2,
+                    new_l1_to_l2_message_subtree_root_sibling_path,
+                    new_archive_sibling_path,
+                },
+            )
         } else {
-            BlockRootFirstRollupPrivateInputs {
-                parity_root,
-                previous_rollups,
-                previous_l1_to_l2: self.previous_l1_to_l2,
-                new_l1_to_l2_message_subtree_root_sibling_path,
-                new_archive_sibling_path,
-            }
-                .execute()
+            block_root_first_rollup::execute(
+                BlockRootFirstRollupPrivateInputs {
+                    parity_root,
+                    previous_rollups,
+                    previous_l1_to_l2: self.previous_l1_to_l2,
+                    new_l1_to_l2_message_subtree_root_sibling_path,
+                    new_archive_sibling_path,
+                },
+            )
         }
     }
 
@@ -214,13 +215,16 @@ impl TestBuilder {
         let new_archive_sibling_path = self.new_archive_sibling_path;
 
         if self.num_right_txs == 0 {
-            BlockRootSingleTxRollupPrivateInputs {
-                previous_rollup: previous_rollups[0],
-                new_archive_sibling_path,
-            }
-                .execute()
+            block_root_single_tx_rollup::execute(
+                BlockRootSingleTxRollupPrivateInputs {
+                    previous_rollup: previous_rollups[0],
+                    new_archive_sibling_path,
+                },
+            )
         } else {
-            BlockRootRollupPrivateInputs { previous_rollups, new_archive_sibling_path }.execute()
+            block_root_rollup::execute(
+                BlockRootRollupPrivateInputs { previous_rollups, new_archive_sibling_path },
+            )
         }
     }
 
@@ -256,13 +260,28 @@ impl TestBuilder {
 
         // --- Sponge blobs ---
 
-        assert_eq(pi.start_sponge_blob, left.start_sponge_blob);
+        let expected_start_sponge_blob = if is_empty_block {
+            SpongeBlob::init()
+        } else {
+            // Although the first block should always have an empty start sponge blob, but it's not checked in this
+            // circuit. So here we simply check that the output is whatever value assigned to the left rollup.
+            left.start_sponge_blob
+        };
+        assert_eq(pi.start_sponge_blob, expected_start_sponge_blob);
 
-        let block_end_marker = BlockRollupPublicInputsComposer::create_block_end_marker(
+        let mut expected_end_sponge_blob = if is_empty_block {
+            SpongeBlob::init()
+        } else {
+            right.end_sponge_blob
+        };
+        expected_end_sponge_blob.absorb_block_end_data(
+            left.constants.global_variables,
+            pi.previous_archive,
+            pi.end_state,
             self.num_left_txs + self.num_right_txs,
+            pi.accumulated_mana_used,
+            self.is_first_block_root,
         );
-        let mut expected_end_sponge_blob = right.end_sponge_blob;
-        expected_end_sponge_blob.absorb([block_end_marker], 1);
         assert_eq(pi.end_sponge_blob, expected_end_sponge_blob);
 
         // --- Archive ---
@@ -279,8 +298,9 @@ impl TestBuilder {
             total_fees: pi.accumulated_fees,
             total_mana_used: pi.accumulated_mana_used,
         };
+        let block_header_hash = block_header.hash();
         let expected_archive_root = root_from_sibling_path(
-            block_header.hash(),
+            block_header_hash,
             pi.previous_archive.next_available_leaf_index,
             self.new_archive_sibling_path,
         );
@@ -290,6 +310,10 @@ impl TestBuilder {
             pi.new_archive.next_available_leaf_index,
             pi.previous_archive.next_available_leaf_index + 1,
         );
+
+        // --- Block headers hash ---
+
+        assert_eq(pi.block_headers_hash, block_header_hash);
 
         // --- Partial state ---
 
@@ -317,8 +341,7 @@ impl TestBuilder {
 
         // --- Timestamps ---
 
-        assert_eq(pi.start_timestamp, left.constants.global_variables.timestamp);
-        assert_eq(pi.start_timestamp, pi.end_timestamp);
+        assert_eq(pi.timestamp, left.constants.global_variables.timestamp);
 
         // --- In hash ---
 

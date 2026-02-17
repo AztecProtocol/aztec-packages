@@ -1,7 +1,8 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Sergei], commit: 458fb330efa8c470567ab4b84a8a92a58b00586a}
+// external_1:  { status: Complete, auditors: [@ed25519, @JakubHeba (Spearbit)], commit:
+// 4433c06ae693451c6f69a2f63b7da6628078d872}
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "field.hpp"
@@ -22,7 +23,9 @@ field_t<Builder>::field_t(Builder* parent_context)
     , additive_constant(bb::fr::zero())
     , multiplicative_constant(bb::fr::one())
     , witness_index(IS_CONSTANT)
-{}
+{
+    tag = OriginTag::constant();
+}
 
 template <typename Builder>
 field_t<Builder>::field_t(const witness_t<Builder>& value)
@@ -40,7 +43,9 @@ field_t<Builder>::field_t(Builder* parent_context, const bb::fr& value)
     , additive_constant(value)
     , multiplicative_constant(bb::fr::one())
     , witness_index(IS_CONSTANT)
-{}
+{
+    tag = OriginTag::constant();
+}
 
 template <typename Builder>
 field_t<Builder>::field_t(const bool_t<Builder>& other)
@@ -63,6 +68,9 @@ field_t<Builder> field_t<Builder>::from_witness_index(Builder* ctx, const uint32
 {
     field_t<Builder> result(ctx);
     result.witness_index = witness_index;
+    // Since this is now a witness (not a constant), set the free witness tag
+    // The caller should set the appropriate tag if this element has a known provenance
+    result.set_free_witness_tag();
     return result;
 }
 
@@ -79,7 +87,8 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
     // After ensuring that `additive_constant` \in {0, 1}, we set the `.witness_bool` field of `result` to match the
     // value of `additive_constant`.
     if (is_constant()) {
-        BB_ASSERT(additive_constant == bb::fr::one() || additive_constant == bb::fr::zero());
+        BB_ASSERT(additive_constant == bb::fr::one() || additive_constant == bb::fr::zero(),
+                  "Attempting to create a bool_t from a witness_t not satisfying x^2 - x = 0");
         bool_t<Builder> result(context);
         result.witness_bool = (additive_constant == bb::fr::one());
         result.set_origin_tag(tag);
@@ -106,9 +115,8 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
     }
     // Get the normalized value of the witness
     bb::fr witness = context->get_variable(witness_idx);
-    BB_ASSERT_EQ((witness == bb::fr::zero()) || (witness == bb::fr::one()),
-                 true,
-                 "Attempting to create a bool_t from a witness_t not satisfying x^2 - x = 0");
+    BB_ASSERT(witness == bb::fr::zero() || witness == bb::fr::one(),
+              "Attempting to create a bool_t from a witness_t not satisfying x^2 - x = 0");
     bool_t result(context, witness == bb::fr::one());
     result.witness_inverted = result_inverted;
     result.witness_index = witness_idx;
@@ -275,14 +283,14 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
         result.witness_index = ctx->add_variable(result_value);
         // Constrain
         //    a.v * b.v * q_m + a.v * q_l + b_v * q_r + q_c + result.v * q_o = 0
-        ctx->create_poly_gate({ .a = witness_index,
-                                .b = other.witness_index,
-                                .c = result.witness_index,
-                                .q_m = q_m,
-                                .q_l = q_l,
-                                .q_r = q_r,
-                                .q_o = bb::fr::neg_one(),
-                                .q_c = q_c });
+        ctx->create_arithmetic_gate({ .a = witness_index,
+                                      .b = other.witness_index,
+                                      .c = result.witness_index,
+                                      .q_m = q_m,
+                                      .q_l = q_l,
+                                      .q_r = q_r,
+                                      .q_o = bb::fr::neg_one(),
+                                      .q_c = q_c });
     }
     result.tag = OriginTag(tag, other.tag);
     return result;
@@ -357,7 +365,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
 
             bb::fr out(numerator * denominator_inv);
             result.witness_index = ctx->add_variable(out);
-            // Define non-zero selector values for a `poly` gate
+            // Define non-zero selector values for an arithmetic gate
             // q_m := b.mul
             // q_l := b.add
             // q_c := a     (= a.add, since a is constant)
@@ -366,16 +374,16 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
             bb::fr q_c = -get_value();
             // The value of the quotient q = a / b has to satisfy
             //      q * (b.v * b.mul +  b.add) = a
-            // Create a `poly` gate to constrain the quotient.
+            // Create an arithmetic gate to constrain the quotient.
             // q * b.v * q_m +  q * q_l + 0 * b + 0 * c + q_c = 0
-            ctx->create_poly_gate({ .a = result.witness_index,
-                                    .b = other.witness_index,
-                                    .c = result.witness_index,
-                                    .q_m = q_m,
-                                    .q_l = q_l,
-                                    .q_r = 0,
-                                    .q_o = 0,
-                                    .q_c = q_c });
+            ctx->create_arithmetic_gate({ .a = result.witness_index,
+                                          .b = other.witness_index,
+                                          .c = result.witness_index,
+                                          .q_m = q_m,
+                                          .q_l = q_l,
+                                          .q_r = 0,
+                                          .q_o = 0,
+                                          .q_c = q_c });
         }
     } else {
         // Both numerator and denominator are circuit variables. Create a new circuit variable with the value a / b.
@@ -388,9 +396,9 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
 
         // The value of the quotient q = a / b has to satisfy
         //      q * (b.v * b.mul +  b.add) = a.v * a.mul + a.add
-        // Create a `poly` gate to constrain the quotient
+        // Create an arithmetic gate to constrain the quotient
         //  	q * b.v * q_m +  q * q_l + 0 * c + a.v * q_o + q_c = 0,
-        // where the `poly_gate` selector values are defined as follows:
+        // where the selector values are defined as follows:
         //  	q_m = b.mul;
         //      q_l = b.add;
         //      q_r = 0;
@@ -402,14 +410,14 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
         bb::fr q_o = -multiplicative_constant;
         bb::fr q_c = -additive_constant;
 
-        ctx->create_poly_gate({ .a = result.witness_index,
-                                .b = other.witness_index,
-                                .c = witness_index,
-                                .q_m = q_m,
-                                .q_l = q_l,
-                                .q_r = q_r,
-                                .q_o = q_o,
-                                .q_c = q_c });
+        ctx->create_arithmetic_gate({ .a = result.witness_index,
+                                      .b = other.witness_index,
+                                      .c = witness_index,
+                                      .q_m = q_m,
+                                      .q_l = q_l,
+                                      .q_r = q_r,
+                                      .q_o = q_o,
+                                      .q_c = q_c });
     }
     result.tag = OriginTag(tag, other.tag);
     return result;
@@ -459,7 +467,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const uint32_
 template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t& exponent) const
 {
     uint256_t exponent_value = exponent.get_value();
-    BB_ASSERT_LT(exponent_value.get_msb(), 32U);
+    BB_ASSERT_LT(exponent_value.get_msb(), 32U, "Exponent too large in field_t::pow");
 
     if (is_constant() && exponent.is_constant()) {
         return field_t(get_value().pow(exponent_value));
@@ -553,7 +561,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_
 
     field_t<Builder> result(ctx);
     result.witness_index = ctx->add_variable(out);
-    ctx->create_big_mul_gate({
+    ctx->create_big_mul_add_gate({
         .a = is_constant() ? ctx->zero_idx() : witness_index,
         .b = to_mul.is_constant() ? ctx->zero_idx() : to_mul.witness_index,
         .c = to_add.is_constant() ? ctx->zero_idx() : to_add.witness_index,
@@ -612,7 +620,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
     result.witness_index = ctx->add_variable(out);
 
     // Constrain the result
-    ctx->create_big_mul_gate({
+    ctx->create_big_mul_add_gate({
         .a = is_constant() ? ctx->zero_idx() : witness_index,
         .b = add_b.is_constant() ? ctx->zero_idx() : add_b.witness_index,
         .c = add_c.is_constant() ? ctx->zero_idx() : add_c.witness_index,
@@ -687,12 +695,12 @@ template <typename Builder> void field_t<Builder>::assert_is_zero(std::string co
     if ((get_value() != bb::fr::zero()) && !context->failed()) {
         context->failure(msg);
     }
-    // Aim of a new `poly` gate: constrain this.v * this.mul + this.add == 0
+    // Aim of a new arithmetic gate: constrain this.v * this.mul + this.add == 0
     // I.e.:
     // this.v * 0 * [ 0 ] + this.v * [this.mul] + 0 * [ 0 ] + 0 * [ 0 ] + [this.add] == 0
     // this.v * 0 * [q_m] + this.v * [   q_l  ] + 0 * [q_r] + 0 * [q_o] + [   q_c  ] == 0
 
-    context->create_poly_gate({
+    context->create_arithmetic_gate({
         .a = witness_index,
         .b = context->zero_idx(),
         .c = context->zero_idx(),
@@ -727,14 +735,14 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
     // and it won't be used anymore, so it's needed to add this element in used witnesses
     mark_witness_as_used(inverse);
 
-    // Aim of a new `poly` gate: `this` has an inverse (hence is not zero).
+    // Aim of a new arithmetic gate: `this` has an inverse (hence is not zero).
     // I.e.:
     //     (this.v * this.mul + this.add) * inverse.v == 1;
     // <=> this.v * inverse.v * [this.mul] + this.v * [ 0 ] + inverse.v * [this.add] + 0 * [ 0 ] + [ -1] == 0
     // <=> this.v * inverse.v * [   q_m  ] + this.v * [q_l] + inverse.v * [   q_r  ] + 0 * [q_o] + [q_c] == 0
 
     // (a * mul_const + add_const) * b - 1 = 0
-    context->create_poly_gate({
+    context->create_arithmetic_gate({
         .a = witness_index,             // input value
         .b = inverse.witness_index,     // inverse
         .c = context->zero_idx(),       // no output
@@ -892,10 +900,12 @@ field_t<Builder> field_t<Builder>::conditional_assign_internal(const bool_t<Buil
         result.set_origin_tag(OriginTag(predicate.get_origin_tag(), lhs.get_origin_tag(), rhs.get_origin_tag()));
         return result;
     }
-    // If lhs and rhs are the same witness or constant, just return it
+    // If lhs and rhs are the same witness or constant, just return it (but still merge tags)
     if (witness_indices_match(lhs, rhs) && (lhs.additive_constant == rhs.additive_constant) &&
         (lhs.multiplicative_constant == rhs.multiplicative_constant)) {
-        return lhs;
+        auto result = lhs;
+        result.set_origin_tag(OriginTag(predicate.get_origin_tag(), lhs.get_origin_tag(), rhs.get_origin_tag()));
+        return result;
     }
 
     return (lhs - rhs).madd(predicate, rhs);
@@ -914,7 +924,7 @@ void field_t<Builder>::create_range_constraint(const size_t num_bits, std::strin
         if (is_constant()) {
             BB_ASSERT_LT(uint256_t(get_value()).get_msb(), num_bits, msg);
         } else {
-            context->decompose_into_default_range(
+            context->create_limbed_range_constraint(
                 normalize().witness_index, num_bits, bb::UltraCircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM, msg);
         }
     }
@@ -940,6 +950,14 @@ template <typename Builder> void field_t<Builder>::assert_equal(const field_t& r
     } else if (rhs.is_constant()) {
         ctx->assert_equal_constant(lhs.get_witness_index(), rhs.get_value(), msg);
     } else {
+        // Both are witnesses - save original tags and clear them to allow different transcript/free witness sources
+        // (e.g., proving 2 separate properties about same object through 2 different transcripts)
+        const auto lhs_original_tag = lhs.get_origin_tag();
+        const auto rhs_original_tag = rhs.get_origin_tag();
+        auto empty_tag = OriginTag::constant(); // Disable origin checking during intermediate operations
+        lhs.set_origin_tag(empty_tag);
+        rhs.set_origin_tag(empty_tag);
+
         if (lhs.is_normalized() || rhs.is_normalized()) {
             ctx->assert_equal(lhs.get_witness_index(), rhs.get_witness_index(), msg);
         } else {
@@ -956,6 +974,10 @@ template <typename Builder> void field_t<Builder>::assert_equal(const field_t& r
                 ctx->failure(msg);
             }
         }
+
+        // Restore tags
+        lhs.set_origin_tag(lhs_original_tag);
+        rhs.set_origin_tag(rhs_original_tag);
     }
 }
 /**
@@ -1133,7 +1155,7 @@ void field_t<Builder>::evaluate_polynomial_identity(
     bb::fr d_scaling = d.multiplicative_constant;
     bb::fr const_scaling = a.additive_constant * b.additive_constant + c.additive_constant + d.additive_constant;
 
-    ctx->create_big_mul_gate({
+    ctx->create_big_mul_add_gate({
         .a = a.is_constant() ? ctx->zero_idx() : a.witness_index,
         .b = b.is_constant() ? ctx->zero_idx() : b.witness_index,
         .c = c.is_constant() ? ctx->zero_idx() : c.witness_index,
@@ -1260,7 +1282,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
                          accumulator[3 * last_gate_idx + 1].additive_constant +
                          accumulator[3 * last_gate_idx + 2].additive_constant,
     });
-    OriginTag new_tag{};
+    OriginTag new_tag = OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
     for (const auto& single_input : input) {
         new_tag = OriginTag(new_tag, single_input.tag);
     }

@@ -78,12 +78,6 @@ impl Poseidon2Sponge {
             }
         }
 
-        // In the case where the hash preimage is variable-length, we append `1` to the end of the input, to distinguish
-        // from fixed-length hashes. (the combination of this additional field element + the hash IV ensures
-        // fixed-length and variable-length hashes do not collide)
-        if is_variable_length {
-            sponge.absorb(1);
-        }
         sponge.squeeze()
     }
 }

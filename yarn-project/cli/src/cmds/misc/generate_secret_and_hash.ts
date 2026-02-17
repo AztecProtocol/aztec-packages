@@ -1,5 +1,5 @@
 import { computeSecretHash } from '@aztec/aztec.js/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { LogFn } from '@aztec/foundation/log';
 
 export async function generateSecretAndHash(log: LogFn) {

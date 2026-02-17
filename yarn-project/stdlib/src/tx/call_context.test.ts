@@ -1,5 +1,5 @@
 import { CALL_CONTEXT_LENGTH } from '@aztec/constants';
-import { randomInt } from '@aztec/foundation/crypto';
+import { randomInt } from '@aztec/foundation/crypto/random';
 
 import { makeCallContext } from '../tests/factories.js';
 import { CallContext } from './call_context.js';

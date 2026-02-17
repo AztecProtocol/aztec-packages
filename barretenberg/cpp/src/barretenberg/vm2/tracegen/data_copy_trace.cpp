@@ -121,7 +121,7 @@ void DataCopyTraceBuilder::process(
 
         // If there is an error, the copying data is empty. Therefore, we have to perform this
         // assertion after the error check.
-        assert(event.copying_data.size() == copy_size);
+        BB_ASSERT_EQ(event.copying_data.size(), copy_size, "Copying data size is not equal to copy size");
 
         /////////////////////////////
         // Check for Zero Sized Copy

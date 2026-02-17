@@ -28,7 +28,7 @@ export function useNumber({ contract }: { contract: Contract }) {
       const value = BigInt(el.value);
       const defaultAccountAddress = deployerEnv.getDefaultAccountAddress();
       await toast.promise(
-        contract!.methods.setNumber(value, defaultAccountAddress).send({ from: defaultAccountAddress }).wait(),
+        contract!.methods.setNumber(value, defaultAccountAddress).send({ from: defaultAccountAddress }),
         {
           pending: 'Setting number...',
           success: `Number set to: ${value}`,

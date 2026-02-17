@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: not started, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "barretenberg/crypto/generators/generator_data.hpp"
@@ -154,6 +154,14 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* Data, size_t Size)
 
     // Create op queue
     std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+
+    // Add the required hiding op for ZK (row 1 of the transcript)
+    // Use some of the precomputed scalars for the hiding op Px, Py values
+    // These don't need to be on the curve - they're just random field elements for ZK hiding
+    using Fq = curve::BN254::BaseField;
+    Fq hiding_Px = Fq(precomputed_scalars[0]);
+    Fq hiding_Py = Fq(precomputed_scalars[1]);
+    op_queue->append_hiding_op(hiding_Px, hiding_Py);
 
     // Store operation details for potential failure reporting
     std::vector<OperationDetail> operation_details;

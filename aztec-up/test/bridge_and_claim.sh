@@ -1,36 +1,10 @@
 #!/usr/bin/env bash
-set -eu
+set -euo pipefail
 
-# Check we're in the test container.
-if [ ! -f /aztec_release_test_container ]; then
-  echo "Not running inside the aztec release test container. Exiting."
-  exit 1
-fi
-
-if [ "$(whoami)" != "ubuntu" ]; then
-  echo "Not running as ubuntu. Exiting."
-  exit 1
-fi
-
-export SKIP_PULL=1
-export NO_NEW_SHELL=1
-export INSTALL_URI=file:///home/ubuntu/aztec-packages/aztec-up/bin
-
-if [ -t 0 ]; then
-  bash_args="-i"
-else
-  export NON_INTERACTIVE=1
-fi
-
-bash ${bash_args:-} <(curl -s $INSTALL_URI/aztec-install)
-
-# We can't create a new shell for this test, so just re-source our modified .bashrc to get updated PATH.
-PS1=" " source ~/.bash_profile
-
-# Start sandbox and wait for port to open.
-aztec start --sandbox &
-sandbox_pid=$!
-trap 'echo "Sending kill to pid $sandbox_pid"; kill $sandbox_pid &>/dev/null; wait $sandbox_pid' EXIT
+# Start local network and wait for port to open.
+aztec start --local-network &
+local_network_pid=$!
+trap 'set +e; kill $local_network_pid &>/dev/null; wait $local_network_pid' EXIT
 while ! curl -fs localhost:8080/status &>/dev/null; do sleep 1; done
 
 # Execute wallet commands as per: https://docs.aztec.network/guides/getting_started

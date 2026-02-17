@@ -1,10 +1,13 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { keccak256, makeEthSignDigest } from '@aztec/foundation/crypto';
+import { keccak256 } from '@aztec/foundation/crypto/keccak';
+import { makeEthSignDigest } from '@aztec/foundation/crypto/secp256k1-signer';
 
 export enum SignatureDomainSeparator {
   blockProposal = 0,
-  blockAttestation = 1,
+  checkpointAttestation = 1,
   attestationsAndSigners = 2,
+  checkpointProposal = 3,
+  signedTxs = 4,
 }
 
 export interface Signable {

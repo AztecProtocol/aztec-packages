@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { ProtocolContracts } from '../tx/protocol_contracts.js';
@@ -34,6 +34,10 @@ export class PrivateKernelInitCircuitPrivateInputs {
      * A hint to what will be the first nullifier of the transaction, used for nonce generation.
      */
     public firstNullifierHint: Fr,
+    /**
+     * A claim to the final min revertible side effect counter of a tx.
+     */
+    public revertibleCounterHint: number,
   ) {}
 
   /**
@@ -47,6 +51,7 @@ export class PrivateKernelInitCircuitPrivateInputs {
       this.protocolContracts,
       this.privateCall,
       this.firstNullifierHint,
+      this.revertibleCounterHint,
     );
   }
 
@@ -64,6 +69,7 @@ export class PrivateKernelInitCircuitPrivateInputs {
       reader.readObject(PrivateCallData),
       reader.readBoolean(),
       Fr.fromBuffer(reader),
+      reader.readNumber(),
     );
   }
 }

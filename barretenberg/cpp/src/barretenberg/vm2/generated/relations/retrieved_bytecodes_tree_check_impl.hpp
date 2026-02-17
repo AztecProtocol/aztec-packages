@@ -85,8 +85,14 @@ void retrieved_bytecodes_tree_checkImpl<FF_>::accumulate(ContainerOverSubrelatio
                     static_cast<View>(in.get(C::retrieved_bytecodes_tree_check_tree_height)));
         std::get<8>(evals) += (tmp * scaling_factor);
     }
-    { // EXISTS_CHECK
+    {
         using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::retrieved_bytecodes_tree_check_sel)) *
+                   (static_cast<View>(in.get(C::retrieved_bytecodes_tree_check_const_three)) - FF(3));
+        std::get<9>(evals) += (tmp * scaling_factor);
+    }
+    { // EXISTS_CHECK
+        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::retrieved_bytecodes_tree_check_sel)) *
             ((CView(retrieved_bytecodes_tree_check_CLASS_ID_LOW_LEAF_CLASS_ID_DIFF) *
@@ -96,16 +102,16 @@ void retrieved_bytecodes_tree_checkImpl<FF_>::accumulate(ContainerOverSubrelatio
                    static_cast<View>(in.get(C::retrieved_bytecodes_tree_check_class_id_low_leaf_class_id_diff_inv))) -
               FF(1)) +
              CView(retrieved_bytecodes_tree_check_EXISTS));
-        std::get<9>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::retrieved_bytecodes_tree_check_next_class_id_is_nonzero)) *
-                   (FF(1) - static_cast<View>(in.get(C::retrieved_bytecodes_tree_check_next_class_id_is_nonzero)));
         std::get<10>(evals) += (tmp * scaling_factor);
     }
-    { // NEXT_CLASS_ID_IS_ZERO_CHECK
+    {
         using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::retrieved_bytecodes_tree_check_next_class_id_is_nonzero)) *
+                   (FF(1) - static_cast<View>(in.get(C::retrieved_bytecodes_tree_check_next_class_id_is_nonzero)));
+        std::get<11>(evals) += (tmp * scaling_factor);
+    }
+    { // NEXT_CLASS_ID_IS_ZERO_CHECK
+        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::retrieved_bytecodes_tree_check_leaf_not_exists)) *
                    ((static_cast<View>(in.get(C::retrieved_bytecodes_tree_check_low_leaf_next_class_id)) *
                          (CView(retrieved_bytecodes_tree_check_NEXT_CLASS_ID_IS_ZERO) *
@@ -113,7 +119,7 @@ void retrieved_bytecodes_tree_checkImpl<FF_>::accumulate(ContainerOverSubrelatio
                           static_cast<View>(in.get(C::retrieved_bytecodes_tree_check_next_class_id_inv))) -
                      FF(1)) +
                     CView(retrieved_bytecodes_tree_check_NEXT_CLASS_ID_IS_ZERO));
-        std::get<11>(evals) += (tmp * scaling_factor);
+        std::get<12>(evals) += (tmp * scaling_factor);
     }
 }
 

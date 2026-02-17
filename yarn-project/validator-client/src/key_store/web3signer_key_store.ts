@@ -1,7 +1,8 @@
 import type { Buffer32 } from '@aztec/foundation/buffer';
-import { normalizeSignature } from '@aztec/foundation/crypto';
+import { normalizeSignature } from '@aztec/foundation/crypto/secp256k1-signer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
+import type { SigningContext } from '@aztec/validator-ha-signer/types';
 
 import type { TypedDataDefinition } from 'viem';
 
@@ -44,9 +45,10 @@ export class Web3SignerKeyStore implements ValidatorKeyStore {
   /**
    * Sign EIP-712 typed data with all keystore addresses
    * @param typedData - The complete EIP-712 typed data structure (domain, types, primaryType, message)
+   * @param _context - Signing context (ignored by Web3SignerKeyStore, used for HA protection)
    * @return signatures
    */
-  public signTypedData(typedData: TypedDataDefinition): Promise<Signature[]> {
+  public signTypedData(typedData: TypedDataDefinition, _context: SigningContext): Promise<Signature[]> {
     return Promise.all(this.addresses.map(address => this.makeJsonRpcSignTypedDataRequest(address, typedData)));
   }
 
@@ -54,10 +56,15 @@ export class Web3SignerKeyStore implements ValidatorKeyStore {
    * Sign EIP-712 typed data with a specific address
    * @param address - The address of the signer to use
    * @param typedData - The complete EIP-712 typed data structure (domain, types, primaryType, message)
+   * @param _context - Signing context (ignored by Web3SignerKeyStore, used for HA protection)
    * @returns signature for the specified address
    * @throws Error if the address is not found in the keystore or signing fails
    */
-  public async signTypedDataWithAddress(address: EthAddress, typedData: TypedDataDefinition): Promise<Signature> {
+  public async signTypedDataWithAddress(
+    address: EthAddress,
+    typedData: TypedDataDefinition,
+    _context: SigningContext,
+  ): Promise<Signature> {
     if (!this.addresses.some(addr => addr.equals(address))) {
       throw new Error(`Address ${address.toString()} not found in keystore`);
     }
@@ -69,9 +76,10 @@ export class Web3SignerKeyStore implements ValidatorKeyStore {
    * Sign a message with all keystore addresses using EIP-191 prefix
    *
    * @param message - The message to sign
+   * @param _context - Signing context (ignored by Web3SignerKeyStore, used for HA protection)
    * @return signatures
    */
-  public signMessage(message: Buffer32): Promise<Signature[]> {
+  public signMessage(message: Buffer32, _context: SigningContext): Promise<Signature[]> {
     return Promise.all(this.addresses.map(address => this.makeJsonRpcSignRequest(address, message)));
   }
 
@@ -79,10 +87,15 @@ export class Web3SignerKeyStore implements ValidatorKeyStore {
    * Sign a message with a specific address using EIP-191 prefix
    * @param address - The address of the signer to use
    * @param message - The message to sign
+   * @param _context - Signing context (ignored by Web3SignerKeyStore, used for HA protection)
    * @returns signature for the specified address
    * @throws Error if the address is not found in the keystore or signing fails
    */
-  public async signMessageWithAddress(address: EthAddress, message: Buffer32): Promise<Signature> {
+  public async signMessageWithAddress(
+    address: EthAddress,
+    message: Buffer32,
+    _context: SigningContext,
+  ): Promise<Signature> {
     if (!this.addresses.some(addr => addr.equals(address))) {
       throw new Error(`Address ${address.toString()} not found in keystore`);
     }

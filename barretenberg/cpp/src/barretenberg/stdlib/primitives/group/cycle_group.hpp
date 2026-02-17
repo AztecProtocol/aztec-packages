@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Luke], commit: a48c205d6dcd4338f5b83b4fda18bff6015be07b}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -25,6 +25,14 @@ namespace bb::stdlib {
  * @brief cycle_group represents a group Element of the proving system's embedded curve, i.e. a curve with a cofactor 1
  * defined over a field equal to the circuit's native field Builder::FF
  * @details In barretenberg, cycle group is used to represent the Grumpkin curve defined over the bn254 scalar field.
+ * The point at infinity is tracked via an `is_infinity` flag. At observation boundaries (serialize_to_fields,
+ * set_public, operator==, assert_equal), coordinates are canonicalized to (0, 0) when is_infinity is true.
+ * Intermediate arithmetic results may have non-canonical coordinates when is_infinity is true.
+ *
+ * @note For the honest prover, we restrict the construction of cycle group elements in the following ways: (1) x and y
+ * coordinates of a point must have matching constancy, i.e. both are constants or both are witnesses, enforced via a
+ * runtime assert. (2) We disallow construction of points not on the curve via runtime asserts (always) and via circuit
+ * constraints in select situations, e.g. EC operations from noir in DSL.
  *
  * @tparam Builder
  */
@@ -67,8 +75,8 @@ template <typename Builder> class cycle_group {
 
   public:
     cycle_group(Builder* _context = nullptr);
-    cycle_group(field_t _x, field_t _y, bool_t _is_infinity, bool assert_on_curve);
-    cycle_group(const bb::fr& _x, const bb::fr& _y, bool _is_infinity);
+    // Construct from coordinates. Infinity is auto-detected from (x == 0 && y == 0).
+    explicit cycle_group(const field_t& x, const field_t& y, bool assert_on_curve = true);
     cycle_group(const AffineElement& _in);
     static cycle_group one(Builder* _context);
     static cycle_group constant_infinity(Builder* _context = nullptr);
@@ -90,13 +98,9 @@ template <typename Builder> class cycle_group {
     {
         return _is_infinity.is_constant() && _is_infinity.get_value();
     }
-#ifdef FUZZING
-    void set_point_at_infinity(const bool_t& is_infinity);
-#endif
     void standardize();
-    bool is_standard() const { return this->_is_standard; };
-    cycle_group get_standard_form();
     void validate_on_curve() const;
+
     cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const;
     cycle_group unconditional_add(const cycle_group& other,
                                   const std::optional<AffineElement> hint = std::nullopt) const;
@@ -131,7 +135,6 @@ template <typename Builder> class cycle_group {
     bool_t operator==(cycle_group& other);
     void assert_equal(cycle_group& other, std::string const& msg = "cycle_group::assert_equal");
     static cycle_group conditional_assign(const bool_t& predicate, const cycle_group& lhs, const cycle_group& rhs);
-    cycle_group operator/(const cycle_group& other) const;
 
     /**
      * @brief Set the origin tag for x, y and _is_infinity members of cycle_group
@@ -195,37 +198,23 @@ template <typename Builder> class cycle_group {
      */
     uint32_t set_public()
     {
+        standardize(); // if point is at infinity, ensure coordinates are (0,0).
         uint32_t start_idx = _x.set_public();
         _y.set_public();
         return start_idx;
     }
 
-    /**
-     * @brief Reconstruct a cycle_group from limbs (generally stored in the public inputs)
-     * @details The base field of the cycle_group curve is the same as the circuit's native field so each coordinate is
-     * represented by a single "limb".
-     *
-     * @param limbs The coordinates of the cycle_group element
-     * @return cycle_group
-     */
-    static cycle_group reconstruct_from_public(const std::span<const field_t, 2>& limbs)
-    {
-        cycle_group result(limbs[0], limbs[1], false, /*assert_on_curve=*/true);
-        return result;
-    }
-
   private:
+    // Allow straus_lookup_table to access the private constructor for efficiency
+    friend class ::bb::stdlib::straus_lookup_table<Builder>;
+
+    // Private constructor that allows explicit control over infinity flag.
+    // Use public constructors or factory methods instead - they auto-detect infinity from coordinates.
+    cycle_group(const field_t& x, const field_t& y, bool_t is_infinity, bool assert_on_curve);
+
     field_t _x;
     field_t _y;
     bool_t _is_infinity;
-    // The point is considered to be `standard` or in `standard form` when:
-    // - It's not a point at infinity, and the coordinates belong to the curve
-    // - It's a point at infinity and both of the coordinates are set to be 0. (0, 0)
-    // Most of the time it is true, so we won't need to do extra conditional_assign
-    // during `get_standard_form`, `assert_equal` or `==` calls
-    // However sometimes it won't be the case(due to some previous design choices),
-    // so we can handle these cases using this flag
-    bool _is_standard;
     Builder* context;
 
     static batch_mul_internal_output _variable_base_batch_mul_internal(std::span<cycle_scalar> scalars,

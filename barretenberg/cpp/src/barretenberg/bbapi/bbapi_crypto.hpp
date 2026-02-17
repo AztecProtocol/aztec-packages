@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], commit: dd03c4a23ab067274b4964cacb36d1545f73fb14}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
 #pragma once
 /**
  * @file bbapi_crypto.hpp
@@ -55,26 +61,6 @@ struct Poseidon2Permutation {
     Response execute(BBApiRequest& request) &&;
     MSGPACK_FIELDS(inputs);
     bool operator==(const Poseidon2Permutation&) const = default;
-};
-
-/**
- * @struct Poseidon2HashAccumulate
- * @brief Compute accumulated Poseidon2 hash
- */
-struct Poseidon2HashAccumulate {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Poseidon2HashAccumulate";
-
-    struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Poseidon2HashAccumulateResponse";
-        fr hash;
-        MSGPACK_FIELDS(hash);
-        bool operator==(const Response&) const = default;
-    };
-
-    std::vector<fr> inputs;
-    Response execute(BBApiRequest& request) &&;
-    MSGPACK_FIELDS(inputs);
-    bool operator==(const Poseidon2HashAccumulate&) const = default;
 };
 
 /**

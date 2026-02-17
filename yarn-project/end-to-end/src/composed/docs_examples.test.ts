@@ -3,15 +3,16 @@ import { Contract } from '@aztec/aztec.js/contracts';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
-import { TestWallet } from '@aztec/test-wallet/server';
 
-// To run these tests against a local sandbox:
+import { TestWallet } from '../test-wallet/test_wallet.js';
+
+// To run these tests against a local network:
 // 1. Start a local Ethereum node (Anvil):
 //    anvil --host 127.0.0.1 --port 8545
 //
-// 2. Start the Aztec sandbox:
+// 2. Start the Aztec local network:
 //    cd yarn-project/aztec
-//    NODE_NO_WARNINGS=1 ETHEREUM_HOSTS=http://127.0.0.1:8545 node ./dest/bin/index.js start --sandbox
+//    NODE_NO_WARNINGS=1 ETHEREUM_HOSTS=http://127.0.0.1:8545 node ./dest/bin/index.js start --local-network
 //
 // 3. Run the tests:
 //    yarn test:e2e docs_examples.test.ts
@@ -29,7 +30,7 @@ describe('docs_examples', () => {
     const prefundedAccount = await wallet.createSchnorrAccount(accountData.secret, accountData.salt);
     const newAccountManager = await wallet.createSchnorrAccount(secretKey, Fr.random(), signingPrivateKey);
     const newAccountDeployMethod = await newAccountManager.getDeployMethod();
-    await newAccountDeployMethod.send({ from: prefundedAccount.address }).wait();
+    await newAccountDeployMethod.send({ from: prefundedAccount.address });
     const newAccountAddress = newAccountManager.address;
     const defaultAccountAddress = prefundedAccount.address;
 
@@ -39,13 +40,11 @@ describe('docs_examples', () => {
       'TokenName', // constructor arg1
       'TokenSymbol', // constructor arg2
       18,
-    )
-      .send({ from: defaultAccountAddress })
-      .deployed();
+    ).send({ from: defaultAccountAddress });
 
-    const contract = await Contract.at(deployedContract.address, TokenContractArtifact, wallet);
+    const contract = Contract.at(deployedContract.address, TokenContractArtifact, wallet);
 
-    await contract.methods.mint_to_public(newAccountAddress, 1).send({ from: defaultAccountAddress }).wait();
+    await contract.methods.mint_to_public(newAccountAddress, 1).send({ from: defaultAccountAddress });
 
     // docs:start:simulate_function
     const balance = await contract.methods.balance_of_public(newAccountAddress).simulate({ from: newAccountAddress });

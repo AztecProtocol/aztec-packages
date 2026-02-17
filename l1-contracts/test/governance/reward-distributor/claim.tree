@@ -5,5 +5,5 @@ ClaimTest
     ├── given balance is 0
     │   └── it return 0
     └── given balance gt 0
-        ├── it transfer min(balance, BLOCK_REWARD)
-        └── it return min(balance, BLOCK_REWARD)
+        ├── it transfer min(balance, CHECKPOINT_REWARD)
+        └── it return min(balance, CHECKPOINT_REWARD)

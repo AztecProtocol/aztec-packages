@@ -1,14 +1,14 @@
-import { GeneratorIndex } from '@aztec/constants';
+import { DomainSeparator } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { FunctionCall, FunctionType } from '@aztec/stdlib/abi';
 import { HashedValues } from '@aztec/stdlib/tx';
 
 // These must match the values defined in:
 // - noir-projects/aztec-nr/aztec/src/entrypoint/app.nr
-const APP_MAX_CALLS = 5;
+export const APP_MAX_CALLS = 5;
 
 /** Encoded function call for an Aztec entrypoint */
 export type EncodedFunctionCall = {
@@ -47,7 +47,7 @@ export class EncodedAppEntrypointCalls implements EncodedCalls {
     /** The hashed args for the call, ready to be injected in the execution cache */
     public hashedArguments: HashedValues[],
     /** The index of the generator to use for hashing */
-    public generatorIndex: number,
+    public domainSeparator: number,
     /**
      * A nonce to inject into the payload of the transaction. When used with cancellable=true, this nonce will be
      * used to compute a nullifier that allows cancelling this transaction by submitting a new one with the same nonce
@@ -80,7 +80,7 @@ export class EncodedAppEntrypointCalls implements EncodedCalls {
    * @returns The hash of the payload
    */
   hash() {
-    return poseidon2HashWithSeparator(this.toFields(), this.generatorIndex);
+    return poseidon2HashWithSeparator(this.toFields(), this.domainSeparator);
   }
 
   /** Serializes the function calls to an array of fields. */
@@ -114,7 +114,7 @@ export class EncodedAppEntrypointCalls implements EncodedCalls {
     return new EncodedAppEntrypointCalls(
       encoded.encodedFunctionCalls,
       encoded.hashedArguments,
-      GeneratorIndex.SIGNATURE_PAYLOAD,
+      DomainSeparator.SIGNATURE_PAYLOAD,
       txNonce,
     );
   }

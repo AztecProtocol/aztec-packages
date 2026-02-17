@@ -1,5 +1,5 @@
 import { PUBLIC_DATA_WRITE_LENGTH } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -61,7 +61,7 @@ export class PublicDataWrite {
     return new PublicDataWrite(reader.readField(), reader.readField());
   }
 
-  toBlobFields(): Fr[] {
+  toBlobFields(): [Fr, Fr] {
     return [this.leafSlot, this.value];
   }
 
@@ -84,6 +84,17 @@ export class PublicDataWrite {
 
   static empty() {
     return new PublicDataWrite(Fr.ZERO, Fr.ZERO);
+  }
+
+  /**
+   * Creates a PublicDataWrite instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing PublicDataWrite fields
+   * @returns A PublicDataWrite instance
+   */
+  static fromPlainObject(obj: any): PublicDataWrite {
+    return new PublicDataWrite(Fr.fromPlainObject(obj.leafSlot), Fr.fromPlainObject(obj.value));
   }
 
   static random() {

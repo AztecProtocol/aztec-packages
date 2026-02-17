@@ -1,14 +1,14 @@
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import { Fq } from '@aztec/foundation/fields';
+import { Fq } from '@aztec/foundation/curves/bn254';
 import { sleep } from '@aztec/foundation/sleep';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import type { Hex } from 'viem';
 
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { FeesTest } from './fees_test.js';
 
 jest.setTimeout(300_000);
@@ -26,11 +26,8 @@ describe('e2e_fees bridging_race', () => {
   });
 
   beforeAll(async () => {
-    await t.applyInitialAccountsSnapshot();
-    await t.applyPublicDeployAccountsSnapshot();
-    await t.applySetupFeeJuiceSnapshot();
-
-    ({ wallet, logger } = await t.setup());
+    await t.setup();
+    ({ wallet, logger } = t);
   });
 
   afterAll(async () => {
@@ -60,7 +57,7 @@ describe('e2e_fees bridging_race', () => {
     const origApprove = l1TokenManager.approve.bind(l1TokenManager);
     l1TokenManager.approve = async (amount: bigint, address: Hex, addressName = '') => {
       await origApprove(amount, address, addressName);
-      const sleepTime = (Number(t.chainMonitor.l2BlockTimestamp) + AZTEC_SLOT_DURATION) * 1000 - Date.now() - 500;
+      const sleepTime = (Number(t.chainMonitor.checkpointTimestamp) + AZTEC_SLOT_DURATION) * 1000 - Date.now() - 500;
       logger.info(`Sleeping for ${sleepTime}ms until near end of L2 slot before sending L1 fee juice to L2 inbox`);
       await sleep(sleepTime);
     };
@@ -70,10 +67,7 @@ describe('e2e_fees bridging_race', () => {
     // Yes, we need to REFACTOR it at some point
     const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(bobsAddress);
     const { claimSecret: secret, messageLeafIndex: index } = claim;
-    await t.feeJuiceContract.methods
-      .claim(bobsAddress, claim.claimAmount, secret, index)
-      .send({ from: bobsAddress })
-      .wait();
+    await t.feeJuiceContract.methods.claim(bobsAddress, claim.claimAmount, secret, index).send({ from: bobsAddress });
     const [balance] = await t.getGasBalanceFn(bobsAddress);
     expect(balance).toEqual(claim.claimAmount);
   });

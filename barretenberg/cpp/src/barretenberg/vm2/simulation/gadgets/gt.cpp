@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/simulation/gadgets/gt.hpp"
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/field.hpp"
@@ -16,8 +17,9 @@ bool GreaterThan::gt(const uint128_t& a, const uint128_t& b)
 {
     bool res = a > b;
     const uint128_t abs_diff = res ? a - b - 1 : b - a;
-    const uint8_t num_bits_bound = static_cast<uint8_t>(uint256_t::from_uint128(abs_diff).get_msb() + 1);
-    const uint8_t num_bits_bound_16 = ((num_bits_bound - 1) / 16 + 1) * 16; // round up to multiple of 16
+    const uint8_t num_bits_bound = static_cast<uint8_t>(static_cast<uint256_t>(abs_diff).get_msb() + 1);
+    const uint8_t num_bits_bound_16 =
+        static_cast<uint8_t>(((num_bits_bound - 1) / 16 + 1) * 16); // round up to multiple of 16
     range_check.assert_range(abs_diff, num_bits_bound_16);
     events.emit({
         .a = a,
@@ -35,8 +37,8 @@ bool GreaterThan::gt(const MemoryValue& a, const MemoryValue& b)
         return gt(a_ff, b_ff);
     }
     // It is a precondition that the memory value is <= 128 bits.
-    assert(get_tag_bits(a.get_tag()) <= get_tag_bits(ValueTag::U128));
-    assert(get_tag_bits(b.get_tag()) <= get_tag_bits(ValueTag::U128));
+    BB_ASSERT(a.get_tag() != MemoryTag::FF);
+    BB_ASSERT(b.get_tag() != MemoryTag::FF);
     return gt(static_cast<uint128_t>(a_ff), static_cast<uint128_t>(b_ff));
 }
 

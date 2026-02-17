@@ -1,0 +1,7 @@
+EscapeHatchUpdateSubmittedArchiveTest
+├── when caller is not the Rollup contract
+│   └── it should revert {EscapeHatch__OnlyRollup}
+└── when caller is the Rollup contract
+    ├── it should update proposer lastCheckpointNumber
+    ├── it should update proposer lastSubmittedArchive
+    └── it should emit ArchiveUpdated event

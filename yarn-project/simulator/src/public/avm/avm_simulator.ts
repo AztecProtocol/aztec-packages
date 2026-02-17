@@ -1,6 +1,7 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import type { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GlobalVariables } from '@aztec/stdlib/tx';
 
@@ -14,6 +15,7 @@ import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import type { Gas } from './avm_gas.js';
 import { AvmMachineState } from './avm_machine_state.js';
 import type { AvmSimulatorInterface } from './avm_simulator_interface.js';
+import { type CallData, ReturnDataArray } from './calldata.js';
 import { AvmRevertReason, InvalidProgramCounterError } from './errors.js';
 import type { Instruction } from './opcodes/instruction.js';
 import { revertReasonFromExceptionalHalt, revertReasonFromExplicitRevert } from './revert_reason.js';
@@ -48,7 +50,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
     // This will be used by the CALL opcode to create a new simulator. It is required to
     // avoid a dependency cycle.
     context.provideSimulator = AvmSimulator.build;
-    this.log = createLogger(`simulator:avm(calldata[0]: ${context.environment.calldata[0]})`);
+    this.log = createLogger(`simulator:avm(calldata[0]: ${context.environment.calldata.read(0)})`);
     // Turn on tallying if explicitly enabled or if trace logging
     if (enableTallying || this.log.isLevelEnabled('trace')) {
       this.tallyPrintFunction = this.printOpcodeTallies;
@@ -73,10 +75,9 @@ export class AvmSimulator implements AvmSimulatorInterface {
     transactionFee: Fr,
     globals: GlobalVariables,
     isStaticCall: boolean,
-    calldata: Fr[],
+    calldata: CallData,
     allocatedGas: Gas,
-    clientInitiatedSimulation: boolean = false,
-    maxDebugLogMemoryReads?: number,
+    config: PublicSimulatorConfig,
   ) {
     const avmExecutionEnv = new AvmExecutionEnvironment(
       address,
@@ -86,8 +87,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
       globals,
       isStaticCall,
       calldata,
-      clientInitiatedSimulation,
-      maxDebugLogMemoryReads,
+      config,
     );
 
     const avmMachineState = new AvmMachineState(allocatedGas);
@@ -105,7 +105,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
 
     if (!bytecode) {
       return await this.handleFailureToRetrieveBytecode(
-        `No bytecode found, or limit encountered for max calls to unique contract class IDs. Contract address: ${this.context.environment.address}. Reverting...`,
+        `No bytecode found. Contract is not deployed, or limit encountered for max calls to unique contract class IDs. Contract address: ${this.context.environment.address}. Reverting...`,
       );
     }
 
@@ -178,13 +178,15 @@ export class AvmSimulator implements AvmSimulatorInterface {
 
         if (machineState.pc >= bytecode.length) {
           this.log.warn('Passed end of program');
-          throw new InvalidProgramCounterError(machineState.pc, /*max=*/ bytecode.length);
+          throw new InvalidProgramCounterError(machineState.pc, /*max=*/ bytecode.length - 1);
         }
       }
 
       const output = machineState.getOutput();
       const reverted = machineState.getReverted();
-      const revertReason = reverted ? await revertReasonFromExplicitRevert(output, this.context) : undefined;
+      const revertReason = reverted
+        ? await revertReasonFromExplicitRevert(output.bestEffortReadAll(), this.context)
+        : undefined;
       const results = new AvmContractCallResult(
         reverted,
         output,
@@ -221,7 +223,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
       // Note: "exceptional halts" cannot return data, hence [].
       const results = new AvmContractCallResult(
         /*reverted=*/ true,
-        /*output=*/ [],
+        /*output=*/ new ReturnDataArray([]),
         noGasLeft,
         revertReason,
         machineState.instrCounter,
@@ -236,19 +238,22 @@ export class AvmSimulator implements AvmSimulatorInterface {
 
   private async handleFailureToRetrieveBytecode(message: string): Promise<AvmContractCallResult> {
     // revert, consuming all gas
-    const fnName = await this.context.persistableState.getPublicFunctionDebugName(this.context.environment);
+    const { functionSelector, functionName } = await this.context.persistableState.getPublicFunctionSelectorAndName(
+      this.context.environment,
+    );
     const revertReason = new AvmRevertReason(
       message,
       /*failingFunction=*/ {
         contractAddress: this.context.environment.address,
-        functionName: fnName,
+        functionSelector,
+        functionName,
       },
       /*noirCallStack=*/ [],
     );
     this.log.warn(message);
     return new AvmContractCallResult(
       /*reverted=*/ true,
-      /*output=*/ [],
+      /*output=*/ new ReturnDataArray([]),
       /*gasLeft=*/ { l2Gas: 0, daGas: 0 }, // consumes all allocated gas
       revertReason,
     );

@@ -15,7 +15,7 @@ use base64 as _;
 use fxhash as _;
 use libc as _;
 use noirc_abi as _;
-use noirc_errors as _;
+use noirc_artifacts as _;
 use noirc_evaluator as _;
 use noirc_frontend as _;
 use once_cell as _;

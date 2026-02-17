@@ -1,9 +1,13 @@
-import { GeneratorIndex } from '@aztec/constants';
+import { DomainSeparator } from '@aztec/constants';
 
 import type { KeyGenerator, KeyPrefix } from './key_types.js';
 
 export function getKeyGenerator(prefix: KeyPrefix): KeyGenerator {
-  // We get enum key by capitalizing key prefix and concatenating it with 'SK_M'
-  const enumKey = `${prefix.toUpperCase()}SK_M`;
-  return GeneratorIndex[enumKey as keyof typeof GeneratorIndex] as KeyGenerator;
+  const map: Record<KeyPrefix, KeyGenerator> = {
+    n: DomainSeparator.NHK_M,
+    iv: DomainSeparator.IVSK_M,
+    ov: DomainSeparator.OVSK_M,
+    t: DomainSeparator.TSK_M,
+  };
+  return map[prefix];
 }

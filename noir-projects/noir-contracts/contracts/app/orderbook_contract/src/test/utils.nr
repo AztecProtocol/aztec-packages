@@ -1,7 +1,5 @@
 use crate::Orderbook;
-use aztec::{
-    protocol_types::address::AztecAddress, test::helpers::test_environment::TestEnvironment,
-};
+use aztec::{protocol::address::AztecAddress, test::helpers::test_environment::TestEnvironment};
 use token::Token;
 
 // Sets up test env with orderbook with two tokens and a minter account.

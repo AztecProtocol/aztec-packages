@@ -8,11 +8,11 @@
 anvil --host 127.0.0.1 --port 8545
 ```
 
-2) In another terminal, start the Aztec sandbox from `yarn-project/aztec`:
+2) In another terminal, start the Aztec local network from `yarn-project/aztec`:
 
 ```bash
 cd yarn-project/aztec
-NODE_NO_WARNINGS=1 ETHEREUM_HOSTS=http://127.0.0.1:8545 node ./dest/bin/index.js start --sandbox
+NODE_NO_WARNINGS=1 ETHEREUM_HOSTS=http://127.0.0.1:8545 node ./dest/bin/index.js start --local-network
 ```
 
 3) Run the wallet tests from `yarn-project/cli-wallet/test`:

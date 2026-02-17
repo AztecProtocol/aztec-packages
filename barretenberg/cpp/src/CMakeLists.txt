@@ -7,7 +7,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 # module's own CMakeLists.txt by adding conditional compilation flags like the following
 # ```
 # if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-# target_compile_options(crypto_blake3s_full_objects PRIVATE -Wno-error=shorten-64-to-32)
+# target_compile_options(my_module_objects PRIVATE -Wno-error=shorten-64-to-32)
 # endif()
 # ```
 # Specifying `-Wno-${ERROR_NAME}` will silence the error completely.
@@ -16,6 +16,9 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 add_compile_options(-Werror -Wall -Wextra -Wconversion -Wsign-conversion -Wfatal-errors)
 # Needed until https://github.com/codeinred/tuplet/issues/37 is solved.
 add_compile_options(-Wno-missing-braces)
+
+# For MessagePack.
+add_definitions(-DMSGPACK_NO_BOOST -DMSGPACK_USE_STD_VARIANT_ADAPTOR)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-fcolor-diagnostics -fconstexpr-steps=100000000)
@@ -31,6 +34,11 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         # This gets in the way of a partial object initialization (i.e. MyClass my_class{ .my_member = init_value })
         add_compile_options(-Wno-missing-field-initializers)
         # CLI11.hpp
+        add_compile_options(-Wno-deprecated-declarations)
+    endif()
+    if(MOBILE)
+        # iOS builds use Apple Clang which has stricter defaults but doesn't support -Wno-vla-cxx-extension
+        add_compile_options(-Wno-missing-field-initializers)
         add_compile_options(-Wno-deprecated-declarations)
     endif()
 endif()
@@ -93,6 +101,7 @@ add_subdirectory(barretenberg/ext/starknet/crypto)
 add_subdirectory(barretenberg/ext/starknet/transcript)
 add_subdirectory(barretenberg/flavor)
 add_subdirectory(barretenberg/goblin)
+add_subdirectory(barretenberg/goblin_avm)
 add_subdirectory(barretenberg/grumpkin_srs_gen)
 add_subdirectory(barretenberg/multilinear_batching)
 add_subdirectory(barretenberg/numeric)
@@ -110,10 +119,14 @@ add_subdirectory(barretenberg/translator_vm)
 add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm2_stub)
 add_subdirectory(barretenberg/wasi)
-add_subdirectory(barretenberg/lmdblib)
 
-if(NOT FUZZING AND NOT WASM)
+if(NOT MOBILE)
+    add_subdirectory(barretenberg/lmdblib)
+endif()
+
+if(NOT FUZZING AND NOT WASM AND NOT MOBILE)
     # Fuzzing preset cannot be built with world_state as world_state cannot compile with MULTITHREADING=OFF
+    # Mobile builds exclude these modules that require LMDB or aren't needed on mobile
     add_subdirectory(barretenberg/world_state)
     # NOTE: Do not conditionally base this on the AVM flag as it defines a necessary vm2_sim library.
     add_subdirectory(barretenberg/vm2)
@@ -122,8 +135,11 @@ if(NOT FUZZING AND NOT WASM)
 endif()
 
 if(FUZZING_AVM)
-    add_subdirectory(barretenberg/world_state)
-    add_subdirectory(barretenberg/vm2)
+    if(FUZZING)
+        # Only add these if they weren't added above (when NOT FUZZING AND NOT WASM)
+        add_subdirectory(barretenberg/world_state)
+        add_subdirectory(barretenberg/vm2)
+    endif()
     add_subdirectory(barretenberg/avm_fuzzer)
 endif()
 
@@ -149,13 +165,10 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:common_objects>
     $<TARGET_OBJECTS:crypto_aes128_objects>
     $<TARGET_OBJECTS:crypto_blake2s_objects>
-    $<TARGET_OBJECTS:crypto_blake3s_objects>
-    $<TARGET_OBJECTS:crypto_ecdsa_objects>
     $<TARGET_OBJECTS:crypto_keccak_objects>
     $<TARGET_OBJECTS:crypto_pedersen_commitment_objects>
     $<TARGET_OBJECTS:crypto_pedersen_hash_objects>
     $<TARGET_OBJECTS:crypto_poseidon2_objects>
-    $<TARGET_OBJECTS:crypto_schnorr_objects>
     $<TARGET_OBJECTS:crypto_sha256_objects>
     $<TARGET_OBJECTS:dsl_objects>
     $<TARGET_OBJECTS:ecc_objects>
@@ -164,6 +177,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:trace_to_polynomials_objects>
     $<TARGET_OBJECTS:flavor_objects>
     $<TARGET_OBJECTS:goblin_objects>
+    $<TARGET_OBJECTS:goblin_avm_objects>
     $<TARGET_OBJECTS:hypernova_objects>
     $<TARGET_OBJECTS:honk>
     $<TARGET_OBJECTS:multilinear_batching_objects>
@@ -176,13 +190,9 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:stdlib_blake2s_objects>
     $<TARGET_OBJECTS:stdlib_blake3s_objects>
     $<TARGET_OBJECTS:stdlib_circuit_builders_objects>
-    $<TARGET_OBJECTS:stdlib_chonk_verifier_objects>
     $<TARGET_OBJECTS:stdlib_eccvm_verifier_objects>
     $<TARGET_OBJECTS:stdlib_honk_verifier_objects>
-    $<TARGET_OBJECTS:stdlib_goblin_verifier_objects>
     $<TARGET_OBJECTS:stdlib_keccak_objects>
-    $<TARGET_OBJECTS:stdlib_pedersen_commitment_objects>
-    $<TARGET_OBJECTS:stdlib_pedersen_hash_objects>
     $<TARGET_OBJECTS:stdlib_poseidon2_objects>
     $<TARGET_OBJECTS:stdlib_primitives_objects>
     $<TARGET_OBJECTS:stdlib_sha256_objects>
@@ -192,8 +202,8 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:translator_vm_objects>
     $<TARGET_OBJECTS:ultra_honk_objects>)
 
-if(NOT WASM AND NOT FUZZING)
-    # enable merkle trees and lmdb
+if(NOT WASM AND NOT FUZZING AND NOT MOBILE)
+    # enable merkle trees and lmdb (not for mobile builds)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:crypto_merkle_tree_objects>)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:lmdblib_objects>)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:api_objects>)
@@ -206,6 +216,19 @@ add_library(
     ${BARRETENBERG_TARGET_OBJECTS}
 )
 
+# bb-external: A complete static library for external consumers (e.g. barretenberg-rs).
+# Includes everything from libbarretenberg.a plus env and vm2_stub.
+# This provides a single library file that external bindings can link against.
+if(NOT WASM)
+    add_library(
+        bb-external
+        STATIC
+        ${BARRETENBERG_TARGET_OBJECTS}
+        $<TARGET_OBJECTS:env_objects>
+        $<TARGET_OBJECTS:vm2_stub>
+    )
+endif()
+
 if(WASM)
     # When building this wasm "executable", we include the wasi module but exclude the env module.
     # That's because we expect this wasm to be run as a wasi "reactor" and for the host environment
@@ -214,7 +237,8 @@ if(WASM)
         barretenberg-debug.wasm
         ${BARRETENBERG_TARGET_OBJECTS}
         $<TARGET_OBJECTS:wasi_objects>
-        $<TARGET_OBJECTS:vm2_stub_objects>
+        # This is an object library, so doesn't need _objects.
+        $<TARGET_OBJECTS:vm2_stub>
     )
 
     target_link_options(

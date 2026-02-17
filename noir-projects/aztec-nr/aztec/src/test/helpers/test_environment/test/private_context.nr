@@ -1,17 +1,13 @@
-use crate::oracle::notes::check_nullifier_exists;
+use crate::oracle::nullifiers::check_nullifier_exists;
+use crate::protocol::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::FromField};
 use crate::test::helpers::test_environment::{PrivateContextOptions, TestEnvironment};
-use protocol_types::{
-    abis::function_selector::FunctionSelector, address::AztecAddress, traits::FromField,
-};
 
 #[test]
 unconstrained fn at_sets_contract_address() {
     let env = TestEnvironment::new();
     let contract_address = AztecAddress::from_field(17);
 
-    env.private_context_at(contract_address, |context| {
-        assert_eq(context.this_address(), contract_address);
-    });
+    env.private_context_at(contract_address, |context| { assert_eq(context.this_address(), contract_address); });
 }
 
 #[test]
@@ -23,31 +19,19 @@ unconstrained fn opts_sets_contract_address_and_anchor_block_number() {
 
     let contract_address = AztecAddress::from_field(17);
 
-    env.private_context_opts(
-        PrivateContextOptions::new().at_contract_address(contract_address),
-        |context| { assert_eq(context.this_address(), contract_address); },
-    );
+    env.private_context_opts(PrivateContextOptions::new().at_contract_address(contract_address), |context| {
+        assert_eq(context.this_address(), contract_address);
+    });
+
+    env.private_context_opts(PrivateContextOptions::new().at_anchor_block_number(anchor_block_number), |context| {
+        assert_eq(context.get_anchor_block_header().global_variables.block_number, anchor_block_number);
+    });
 
     env.private_context_opts(
-        PrivateContextOptions::new().at_anchor_block_number(anchor_block_number),
-        |context| {
-            assert_eq(
-                context.get_anchor_block_header().global_variables.block_number,
-                anchor_block_number,
-            );
-        },
-    );
-
-    env.private_context_opts(
-        PrivateContextOptions::new().at_contract_address(contract_address).at_anchor_block_number(
-            anchor_block_number,
-        ),
+        PrivateContextOptions::new().at_contract_address(contract_address).at_anchor_block_number(anchor_block_number),
         |context| {
             assert_eq(context.this_address(), contract_address);
-            assert_eq(
-                context.get_anchor_block_header().global_variables.block_number,
-                anchor_block_number,
-            );
+            assert_eq(context.get_anchor_block_header().global_variables.block_number, anchor_block_number);
         },
     );
 }
@@ -59,10 +43,7 @@ unconstrained fn uses_last_block_number() {
     let last_block_number = env.last_block_number();
 
     env.private_context(|context| {
-        assert_eq(
-            last_block_number,
-            context.get_anchor_block_header().global_variables.block_number,
-        );
+        assert_eq(last_block_number, context.get_anchor_block_header().global_variables.block_number);
     });
 }
 
@@ -70,12 +51,10 @@ unconstrained fn uses_last_block_number() {
 unconstrained fn advances_block_number() {
     let env = TestEnvironment::new();
 
-    let first_block_number = env.private_context(|context| {
-        context.get_anchor_block_header().global_variables.block_number
-    });
-    let second_block_number = env.private_context(|context| {
-        context.get_anchor_block_header().global_variables.block_number
-    });
+    let first_block_number =
+        env.private_context(|context| context.get_anchor_block_header().global_variables.block_number);
+    let second_block_number =
+        env.private_context(|context| context.get_anchor_block_header().global_variables.block_number);
 
     assert_eq(second_block_number, first_block_number + 1);
 }
@@ -126,8 +105,7 @@ unconstrained fn private_call_fails() {
     let env = TestEnvironment::new();
 
     env.private_context(|context| {
-        let _ =
-            context.call_private_function_no_args(AztecAddress::zero(), FunctionSelector::zero());
+        let _ = context.call_private_function_no_args(AztecAddress::zero(), FunctionSelector::zero());
     });
 }
 
@@ -136,11 +114,7 @@ unconstrained fn public_call_fails() {
     let env = TestEnvironment::new();
 
     env.private_context(|context| {
-        let _ = context.call_public_function_no_args(
-            AztecAddress::zero(),
-            FunctionSelector::zero(),
-            false,
-        );
+        let _ = context.call_public_function_no_args(AztecAddress::zero(), FunctionSelector::zero(), false);
     });
 }
 
@@ -149,12 +123,7 @@ unconstrained fn set_teardown_fails() {
     let env = TestEnvironment::new();
 
     env.private_context(|context| {
-        let _ = context.set_public_teardown_function(
-            AztecAddress::zero(),
-            FunctionSelector::zero(),
-            [],
-            false,
-        );
+        let _ = context.set_public_teardown_function(AztecAddress::zero(), FunctionSelector::zero(), [], false);
     });
 }
 

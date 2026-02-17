@@ -1,3 +1,4 @@
+export * from './batched_blob.js';
 export * from './circuit_types/index.js';
 export * from './interface.js';
 export * from './sponge_blob.js';

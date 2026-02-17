@@ -1,4 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { OffenseType } from '@aztec/slasher';
 
@@ -73,8 +74,8 @@ describe('e2e_p2p_data_withholding_slash', () => {
       },
     });
 
-    await t.applyBaseSnapshots();
     await t.setup();
+    await t.applyBaseSetup();
   });
 
   afterEach(async () => {
@@ -97,7 +98,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
     const { rollup, slashingProposer, slashFactory } = await t.getContracts();
 
     // Jump forward to an epoch in the future such that the validator set is not empty
-    await t.ctx.cheatCodes.rollup.advanceToEpoch(4n);
+    await t.ctx.cheatCodes.rollup.advanceToEpoch(EpochNumber(4));
     await debugRollup();
 
     const [activationThreshold, ejectionThreshold, localEjectionThreshold] = await Promise.all([
@@ -142,7 +143,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
     // Considering the slot duration is 32 seconds,
     // Considering the epoch duration is 2 slots,
     // we have ~64 seconds to do this.
-    await t.ctx.cheatCodes.rollup.advanceToEpoch(8n);
+    await t.ctx.cheatCodes.rollup.advanceToEpoch(EpochNumber(8));
     await t.sendDummyTx();
     await debugRollup();
 
@@ -184,7 +185,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
     });
 
     // Check offenses are correct
-    expect(offenses.map(o => o.validator.toChecksumString()).sort()).toEqual(committee.map(a => a.toString()).sort());
+    expect(offenses.map(o => o.validator.toString()).sort()).toEqual(committee.map(a => a.toString()).sort());
     expect(offenses.map(o => o.offenseType)).toEqual(times(COMMITTEE_SIZE, () => OffenseType.DATA_WITHHOLDING));
     const offenseEpoch = Number(offenses[0].epochOrSlot);
 

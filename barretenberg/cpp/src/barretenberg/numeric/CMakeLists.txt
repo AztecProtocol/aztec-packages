@@ -1,1 +1,2 @@
 barretenberg_module(numeric common)
+set_target_properties(numeric_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)

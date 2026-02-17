@@ -166,4 +166,91 @@ describe('BatchConnectionSampler', () => {
     expect(samplerWithMorePeers.getPeerForRequest(0)).toBe(peers[0]);
     expect(samplerWithMorePeers.getPeerForRequest(1)).toBe(peers[1]);
   });
+
+  it('skips failed peer-index combinations and tries next peer', () => {
+    mockRandomSampler.random.mockImplementation(() => 0);
+
+    // 6 requests across 3 peers (2 per peer)
+    // Peer 0: 0,1  Peer 1: 2,3  Peer 2: 4,5
+    const sampler = new BatchConnectionSampler(connectionSampler, /* batchSize */ 6, /* maxPeers */ 3);
+
+    // Initially, request 0 goes to peer 0
+    expect(sampler.getPeerForRequest(0)).toBe(peers[0]);
+
+    // Mark peer 0 as failed for index 0
+    sampler.markPeerFailedForIndex(peers[0], 0);
+
+    // Now request 0 should go to the next peer (peer 1)
+    expect(sampler.getPeerForRequest(0)).toBe(peers[1]);
+
+    // Mark peer 1 as also failed for index 0
+    sampler.markPeerFailedForIndex(peers[1], 0);
+
+    // Now request 0 should go to peer 2
+    expect(sampler.getPeerForRequest(0)).toBe(peers[2]);
+
+    // Request 1 should still go to peer 0 (only index 0 was failed)
+    expect(sampler.getPeerForRequest(1)).toBe(peers[0]);
+  });
+
+  it('samples new peer when all batch peers have failed for an index', () => {
+    mockRandomSampler.random.mockImplementation(() => 0);
+
+    // 4 requests across 2 peers (peers[0] and peers[1])
+    const sampler = new BatchConnectionSampler(connectionSampler, /* batchSize */ 4, /* maxPeers */ 2);
+    expect(sampler.activePeerCount).toBe(2);
+
+    // Mark both batch peers as failed for index 0
+    sampler.markPeerFailedForIndex(peers[0], 0);
+    sampler.markPeerFailedForIndex(peers[1], 0);
+
+    // Should sample a new peer (peers[2]) and return it
+    mockRandomSampler.random.mockImplementation(() => 2);
+    expect(sampler.getPeerForRequest(0)).toBe(peers[2]);
+    expect(sampler.activePeerCount).toBe(3); // New peer was added to batch
+
+    // Other indices still work with original peers
+    expect(sampler.getPeerForRequest(1)).toBe(peers[0]);
+    expect(sampler.getPeerForRequest(2)).toBe(peers[1]);
+  });
+
+  it('returns undefined when all peers exhausted and no new peers available', () => {
+    mockRandomSampler.random.mockImplementation(() => 0);
+
+    // 4 requests across 2 peers
+    const sampler = new BatchConnectionSampler(connectionSampler, /* batchSize */ 4, /* maxPeers */ 2);
+
+    // Mark both peers as failed for index 0
+    sampler.markPeerFailedForIndex(peers[0], 0);
+    sampler.markPeerFailedForIndex(peers[1], 0);
+
+    // No more peers available to sample
+    libp2p.getPeers.mockReturnValue([peers[0], peers[1]]); // Only return already-used peers
+
+    // No peer available for index 0
+    expect(sampler.getPeerForRequest(0)).toBeUndefined();
+  });
+
+  it('failed peer-index tracking survives peer replacement', () => {
+    mockRandomSampler.random.mockImplementation(() => 0);
+
+    // 4 requests across 2 peers
+    const sampler = new BatchConnectionSampler(connectionSampler, /* batchSize */ 4, /* maxPeers */ 2);
+
+    // Mark peer 0 as failed for index 0
+    sampler.markPeerFailedForIndex(peers[0], 0);
+
+    // Request 0 now goes to peer 1
+    expect(sampler.getPeerForRequest(0)).toBe(peers[1]);
+
+    // Replace peer 0 with peer 2
+    mockRandomSampler.random.mockImplementation(() => 2);
+    sampler.removePeerAndReplace(peers[0]);
+
+    // Request 0 should still go to peer 1 (the replacement peer 2 is now in slot 0,
+    // but peer 0's failure record should not affect the new peer)
+    // Actually, the failure is tracked by peer ID, so peer 2 is a fresh peer
+    // Request 0's primary is now peer 2 (in slot 0), which hasn't failed
+    expect(sampler.getPeerForRequest(0)).toBe(peers[2]);
+  });
 });

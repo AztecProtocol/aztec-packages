@@ -1,11 +1,5 @@
 import * as Metrics from './metrics.js';
-import {
-  type AttributesType,
-  type BatchObservableResult,
-  type Meter,
-  type ObservableGauge,
-  ValueType,
-} from './telemetry.js';
+import type { AttributesType, BatchObservableResult, Meter, ObservableGauge } from './telemetry.js';
 
 export type LmdbStatsCallback = () => Promise<{
   mappingSize: number;
@@ -25,25 +19,10 @@ export class LmdbMetrics {
     private attributes?: AttributesType,
     private getStats?: LmdbStatsCallback,
   ) {
-    this.dbMapSize = meter.createObservableGauge(Metrics.DB_MAP_SIZE, {
-      description: 'LMDB Map Size',
-      valueType: ValueType.INT,
-      unit: 'By',
-    });
-    this.dbPhysicalFileSize = meter.createObservableGauge(Metrics.DB_PHYSICAL_FILE_SIZE, {
-      description: 'LMDB Physical File Size',
-      valueType: ValueType.INT,
-      unit: 'By',
-    });
-    this.dbUsedSize = meter.createObservableGauge(Metrics.DB_USED_SIZE, {
-      description: 'LMDB Used Size',
-      valueType: ValueType.INT,
-      unit: 'By',
-    });
-    this.dbNumItems = meter.createObservableGauge(Metrics.DB_NUM_ITEMS, {
-      description: 'LMDB Num Items',
-      valueType: ValueType.INT,
-    });
+    this.dbMapSize = meter.createObservableGauge(Metrics.DB_MAP_SIZE);
+    this.dbPhysicalFileSize = meter.createObservableGauge(Metrics.DB_PHYSICAL_FILE_SIZE);
+    this.dbUsedSize = meter.createObservableGauge(Metrics.DB_USED_SIZE);
+    this.dbNumItems = meter.createObservableGauge(Metrics.DB_NUM_ITEMS);
 
     meter.addBatchObservableCallback(this.recordDBMetrics, [
       this.dbMapSize,

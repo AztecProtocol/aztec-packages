@@ -1,4 +1,5 @@
 barretenberg_module(ecc numeric crypto_keccak crypto_sha256)
+set_target_properties(ecc_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 if(DISABLE_ADX)
     message(STATUS "Disabling ADX assembly variant.")

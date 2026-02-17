@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Trait IndexedTreeLeafPreimage documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">IndexedTreeLeafPreimage</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">protocol_types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#trait">Trait IndexedTreeLeafPreimage</a></h2>
+<h3>Required methods</h3>
+<ul class="sidebar-list">
+<li><a href="#build_insertion_leaf">build_insertion_leaf</a></li>
+<li><a href="#get_next_key">get_next_key</a></li>
+<li><a href="#points_to_infinity">points_to_infinity</a></li>
+<li><a href="#update_pointers">update_pointers</a></li>
+<li><a href="#update_value">update_value</a></li>
+</ul>
+<h3>Implementors</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-IndexedTreeLeafPreimage&lt;Field&gt;-for-NullifierLeafPreimage">NullifierLeafPreimage</a></li>
+<li><a href="#impl-IndexedTreeLeafPreimage&lt;PublicDataTreeLeaf&gt;-for-PublicDataTreeLeafPreimage">PublicDataTreeLeafPreimage</a></li>
+<li><a href="#impl-IndexedTreeLeafPreimage&lt;Field&gt;-for-TestLeafPreimage">TestLeafPreimage</a></li>
+</ul>
+<h2>In module leaf_preimage</h2>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.IndexedTreeLeafPreimage.html">IndexedTreeLeafPreimage</a></div></li>
+<li><a href="trait.IndexedTreeLeafValue.html">IndexedTreeLeafValue</a></div></li>
+<li><a href="trait.LeafPreimage.html">LeafPreimage</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">protocol_types</a>::<a href="../index.html">merkle_tree</a>::<a href="index.html">leaf_preimage</a></div>
+<h1>Trait <span id="trait" class="trait">IndexedTreeLeafPreimage</span></h1>
+<pre><code>pub trait IndexedTreeLeafPreimage&lt;Value&gt;:
+    <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a>
+    + <a href="../../../protocol_types/merkle_tree/leaf_preimage/trait.LeafPreimage.html" class="trait">LeafPreimage</a>
+{
+    <span class="comment">// Required methods</span>
+    pub fn <a href="#get_next_key"><span class="fn">get_next_key</span></a>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a>;
+    pub fn <a href="#points_to_infinity"><span class="fn">points_to_infinity</span></a>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a>;
+    pub fn <a href="#update_pointers"><span class="fn">update_pointers</span></a>(self, next_key: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, next_index: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self;
+    pub fn <a href="#update_value"><span class="fn">update_value</span></a>(self, value: Value) -> Self;
+    pub fn <a href="#build_insertion_leaf"><span class="fn">build_insertion_leaf</span></a>(value: Value, low_leaf: Self) -> Self;
+}</code></pre>
+
+<h2>Required methods</h2>
+<div class="padded-methods"><code id="get_next_key" class="code-header">pub fn <a href="#get_next_key"><span class="fn">get_next_key</span></a>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+<code id="points_to_infinity" class="code-header">pub fn <a href="#points_to_infinity"><span class="fn">points_to_infinity</span></a>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code id="update_pointers" class="code-header">pub fn <a href="#update_pointers"><span class="fn">update_pointers</span></a>(self, next_key: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, next_index: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+
+<code id="update_value" class="code-header">pub fn <a href="#update_value"><span class="fn">update_value</span></a>(self, value: Value) -> Self</code>
+
+<code id="build_insertion_leaf" class="code-header">pub fn <a href="#build_insertion_leaf"><span class="fn">build_insertion_leaf</span></a>(value: Value, low_leaf: Self) -> Self</code>
+
+</div><h2>Implementors</h2>
+<h3 id="impl-IndexedTreeLeafPreimage&lt;Field&gt;-for-NullifierLeafPreimage"><code class="code-header">impl <a href="../../../protocol_types/merkle_tree/leaf_preimage/trait.IndexedTreeLeafPreimage.html" class="trait">IndexedTreeLeafPreimage</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../../protocol_types/abis/nullifier_leaf_preimage/struct.NullifierLeafPreimage.html" class="struct">NullifierLeafPreimage</a></code></h3>
+
+<h3 id="impl-IndexedTreeLeafPreimage&lt;PublicDataTreeLeaf&gt;-for-PublicDataTreeLeafPreimage"><code class="code-header">impl <a href="../../../protocol_types/merkle_tree/leaf_preimage/trait.IndexedTreeLeafPreimage.html" class="trait">IndexedTreeLeafPreimage</a>&lt;<a href="../../../protocol_types/data/public_data_tree_leaf/struct.PublicDataTreeLeaf.html" class="struct">PublicDataTreeLeaf</a>&gt; for <a href="../../../protocol_types/data/public_data_tree_leaf_preimage/struct.PublicDataTreeLeafPreimage.html" class="struct">PublicDataTreeLeafPreimage</a></code></h3>
+
+<h3 id="impl-IndexedTreeLeafPreimage&lt;Field&gt;-for-TestLeafPreimage"><code class="code-header">impl <a href="../../../protocol_types/merkle_tree/leaf_preimage/trait.IndexedTreeLeafPreimage.html" class="trait">IndexedTreeLeafPreimage</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../../protocol_types/tests/types/struct.TestLeafPreimage.html" class="struct">TestLeafPreimage</a></code></h3>
+
+</main>
+</span>
+</body>
+</html>

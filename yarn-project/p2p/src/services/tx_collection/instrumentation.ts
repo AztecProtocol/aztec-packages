@@ -4,7 +4,7 @@ import {
   Metrics,
   type TelemetryClient,
   type UpDownCounter,
-  ValueType,
+  createUpDownCounterWithDefault,
 } from '@aztec/telemetry-client';
 
 import type { CollectionMethod } from './tx_collection.js';
@@ -17,21 +17,13 @@ export class TxCollectionInstrumentation {
   constructor(client: TelemetryClient, name: string) {
     const meter = client.getMeter(name);
 
-    this.txsCollected = meter.createUpDownCounter(Metrics.TX_COLLECTOR_COUNT, {
-      description: 'The number of txs collected',
+    this.txsCollected = createUpDownCounterWithDefault(meter, Metrics.TX_COLLECTOR_COUNT, {
+      [Attributes.TX_COLLECTION_METHOD]: ['fast-req-resp', 'fast-node-rpc', 'slow-req-resp', 'slow-node-rpc'],
     });
 
-    this.collectionDurationPerTx = meter.createHistogram(Metrics.TX_COLLECTOR_DURATION_PER_TX, {
-      unit: 'ms',
-      description: 'Average duration per tx of an individual tx collection request',
-      valueType: ValueType.INT,
-    });
+    this.collectionDurationPerTx = meter.createHistogram(Metrics.TX_COLLECTOR_DURATION_PER_TX);
 
-    this.collectionDurationPerRequest = meter.createHistogram(Metrics.TX_COLLECTOR_DURATION_PER_REQUEST, {
-      unit: 'ms',
-      description: 'Total duration of an individual tx collection request',
-      valueType: ValueType.INT,
-    });
+    this.collectionDurationPerRequest = meter.createHistogram(Metrics.TX_COLLECTOR_DURATION_PER_REQUEST);
   }
 
   increaseTxsFor(what: CollectionMethod, count: number, duration: number) {

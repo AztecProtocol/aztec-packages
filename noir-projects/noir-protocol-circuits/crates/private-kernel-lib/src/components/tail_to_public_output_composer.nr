@@ -1,42 +1,45 @@
-mod meter_gas_used;
 mod split_to_public;
 
-pub(crate) use meter_gas_used::meter_gas_used;
 pub(crate) use split_to_public::split_to_public;
 
 use crate::{
     abis::PaddedSideEffectAmounts,
-    components::private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer,
+    components::{
+        gas_meter::meter_gas_used,
+        private_kernel_circuit_output_composer::PrivateKernelCircuitOutputComposer,
+    },
 };
-use dep::types::abis::kernel_circuit_public_inputs::{
-    PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
+use types::{
+    abis::kernel_circuit_public_inputs::{
+        PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
+    },
+    constants::MAX_TX_LIFETIME,
 };
 
 pub struct TailToPublicOutputComposer {
-    output_composer: PrivateKernelCircuitPublicInputsComposer,
+    previous_kernel: PrivateKernelCircuitPublicInputs,
     padded_side_effect_amounts: PaddedSideEffectAmounts,
-    include_by_timestamp_upper_bound: u64,
+    expiration_timestamp_upper_bound: u64,
 }
 
 impl TailToPublicOutputComposer {
     pub unconstrained fn new(
         previous_kernel: PrivateKernelCircuitPublicInputs,
         padded_side_effect_amounts: PaddedSideEffectAmounts,
-        include_by_timestamp_upper_bound: u64,
+        expiration_timestamp_upper_bound: u64,
     ) -> Self {
-        let mut output_composer =
-            PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(previous_kernel);
-        output_composer.sort_ordered_values();
-
         TailToPublicOutputComposer {
-            output_composer,
+            previous_kernel,
             padded_side_effect_amounts,
-            include_by_timestamp_upper_bound,
+            expiration_timestamp_upper_bound,
         }
     }
 
     pub unconstrained fn finish(self) -> PrivateToPublicKernelCircuitPublicInputs {
-        let source = self.output_composer.public_inputs_builder;
+        let mut output_composer =
+            PrivateKernelCircuitOutputComposer::new_from_previous_kernel(self.previous_kernel);
+        output_composer.sort_ordered_values();
+        let source = output_composer.finish();
 
         let (non_revertible_accumulated_data, revertible_accumulated_data) = split_to_public(
             source.end,
@@ -44,16 +47,16 @@ impl TailToPublicOutputComposer {
             self.padded_side_effect_amounts,
         );
 
-        let gas_used = meter_gas_used(
-            non_revertible_accumulated_data,
-            revertible_accumulated_data,
-            source.public_teardown_call_request,
-            source.constants.tx_context.gas_settings.teardown_gas_limits,
-        );
+        let gas_used = meter_gas_used(self.previous_kernel, true /* is_for_public */);
 
-        let include_by_timestamp = std::cmp::min(
-            source.include_by_timestamp,
-            self.include_by_timestamp_upper_bound,
+        let max_timestamp =
+            source.constants.anchor_block_header.global_variables.timestamp + MAX_TX_LIFETIME;
+        let expiration_timestamp = std::cmp::min(
+            std::cmp::min(
+                source.expiration_timestamp,
+                self.expiration_timestamp_upper_bound,
+            ),
+            max_timestamp,
         );
 
         let mut output = PrivateToPublicKernelCircuitPublicInputs {
@@ -63,7 +66,7 @@ impl TailToPublicOutputComposer {
             public_teardown_call_request: source.public_teardown_call_request,
             gas_used,
             fee_payer: source.fee_payer,
-            include_by_timestamp,
+            expiration_timestamp,
         };
 
         output

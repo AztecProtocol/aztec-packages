@@ -8,7 +8,7 @@ import {
   type ObservableGauge,
   type TelemetryClient,
   type UpDownCounter,
-  ValueType,
+  createUpDownCounterWithDefault,
 } from '@aztec/telemetry-client';
 
 import { type RecordableHistogram, createHistogram } from 'node:perf_hooks';
@@ -17,6 +17,7 @@ export class P2PInstrumentation {
   private messageValidationDuration: Histogram;
   private messagePrevalidationCount: UpDownCounter;
   private messageLatency: Histogram;
+  private txReceivedCount: UpDownCounter;
 
   private aggLatencyHisto = new Map<TopicType, RecordableHistogram>();
   private aggValidationHisto = new Map<TopicType, RecordableHistogram>();
@@ -27,77 +28,40 @@ export class P2PInstrumentation {
   constructor(client: TelemetryClient, name: string) {
     const meter = client.getMeter(name);
 
-    this.messageValidationDuration = meter.createHistogram(Metrics.P2P_GOSSIP_MESSAGE_VALIDATION_DURATION, {
-      unit: 'ms',
-      description: 'How long validating a gossiped message takes',
-      valueType: ValueType.INT,
-    });
+    this.messageValidationDuration = meter.createHistogram(Metrics.P2P_GOSSIP_MESSAGE_VALIDATION_DURATION);
 
-    this.messagePrevalidationCount = meter.createUpDownCounter(Metrics.P2P_GOSSIP_MESSAGE_PREVALIDATION_COUNT, {
-      description: 'How many message pass/fail prevalidation',
-      valueType: ValueType.INT,
-    });
+    this.messagePrevalidationCount = createUpDownCounterWithDefault(
+      meter,
+      Metrics.P2P_GOSSIP_MESSAGE_PREVALIDATION_COUNT,
+      {
+        [Attributes.TOPIC_NAME]: [
+          TopicType.tx,
+          TopicType.block_proposal,
+          TopicType.checkpoint_proposal,
+          TopicType.checkpoint_attestation,
+        ],
+        [Attributes.OK]: [true, false],
+      },
+    );
 
-    this.messageLatency = meter.createHistogram(Metrics.P2P_GOSSIP_MESSAGE_LATENCY, {
-      unit: 'ms',
-      description: 'P2P message latency',
-      valueType: ValueType.INT,
-    });
+    this.messageLatency = meter.createHistogram(Metrics.P2P_GOSSIP_MESSAGE_LATENCY);
+
+    this.txReceivedCount = createUpDownCounterWithDefault(meter, Metrics.P2P_GOSSIP_TX_RECEIVED_COUNT);
 
     this.aggLatencyMetrics = {
-      avg: meter.createObservableGauge(Metrics.P2P_GOSSIP_AGG_MESSAGE_LATENCY_AVG, {
-        valueType: ValueType.DOUBLE,
-        description: 'AVG msg latency',
-        unit: 'ms',
-      }),
-      max: meter.createObservableGauge(Metrics.P2P_GOSSIP_AGG_MESSAGE_LATENCY_MAX, {
-        valueType: ValueType.DOUBLE,
-        description: 'MAX msg latency',
-        unit: 'ms',
-      }),
-      min: meter.createObservableGauge(Metrics.P2P_GOSSIP_AGG_MESSAGE_LATENCY_MIN, {
-        valueType: ValueType.DOUBLE,
-        description: 'MIN msg latency',
-        unit: 'ms',
-      }),
-      p50: meter.createObservableGauge(Metrics.P2P_GOSSIP_AGG_MESSAGE_LATENCY_P50, {
-        valueType: ValueType.DOUBLE,
-        description: 'P50 msg latency',
-        unit: 'ms',
-      }),
-      p90: meter.createObservableGauge(Metrics.P2P_GOSSIP_AGG_MESSAGE_LATENCY_P90, {
-        valueType: ValueType.DOUBLE,
-        description: 'P90 msg latency',
-        unit: 'ms',
-      }),
+      avg: meter.createObservableGauge(Metrics.P2P_GOSSIP_AGG_MESSAGE_LATENCY_AVG),
+      max: meter.createObservableGauge(Metrics.P2P_GOSSIP_AGG_MESSAGE_LATENCY_MAX),
+      min: meter.createObservableGauge(Metrics.P2P_GOSSIP_AGG_MESSAGE_LATENCY_MIN),
+      p50: meter.createObservableGauge(Metrics.P2P_GOSSIP_AGG_MESSAGE_LATENCY_P50),
+      p90: meter.createObservableGauge(Metrics.P2P_GOSSIP_AGG_MESSAGE_LATENCY_P90),
     };
 
     this.aggValidationMetrics = {
-      avg: meter.createObservableGauge(Metrics.P2P_GOSSIP_AGG_MESSAGE_VALIDATION_DURATION_AVG, {
-        valueType: ValueType.DOUBLE,
-        description: 'AVG msg validation',
-        unit: 'ms',
-      }),
-      max: meter.createObservableGauge(Metrics.P2P_GOSSIP_AGG_MESSAGE_VALIDATION_DURATION_MAX, {
-        valueType: ValueType.DOUBLE,
-        description: 'MAX msg validation',
-        unit: 'ms',
-      }),
-      min: meter.createObservableGauge(Metrics.P2P_GOSSIP_AGG_MESSAGE_VALIDATION_DURATION_MIN, {
-        valueType: ValueType.DOUBLE,
-        description: 'MIN msg validation',
-        unit: 'ms',
-      }),
-      p50: meter.createObservableGauge(Metrics.P2P_GOSSIP_AGG_MESSAGE_VALIDATION_DURATION_P50, {
-        valueType: ValueType.DOUBLE,
-        description: 'P50 msg validation',
-        unit: 'ms',
-      }),
-      p90: meter.createObservableGauge(Metrics.P2P_GOSSIP_AGG_MESSAGE_VALIDATION_DURATION_P90, {
-        valueType: ValueType.DOUBLE,
-        description: 'P90 msg validation',
-        unit: 'ms',
-      }),
+      avg: meter.createObservableGauge(Metrics.P2P_GOSSIP_AGG_MESSAGE_VALIDATION_DURATION_AVG),
+      max: meter.createObservableGauge(Metrics.P2P_GOSSIP_AGG_MESSAGE_VALIDATION_DURATION_MAX),
+      min: meter.createObservableGauge(Metrics.P2P_GOSSIP_AGG_MESSAGE_VALIDATION_DURATION_MIN),
+      p50: meter.createObservableGauge(Metrics.P2P_GOSSIP_AGG_MESSAGE_VALIDATION_DURATION_P50),
+      p90: meter.createObservableGauge(Metrics.P2P_GOSSIP_AGG_MESSAGE_VALIDATION_DURATION_P90),
     };
 
     meter.addBatchObservableCallback(this.aggregate, [
@@ -119,6 +83,10 @@ export class P2PInstrumentation {
     validationHistogram.record(Math.max(ms, 1));
   }
 
+  public incrementTxReceived(count: number) {
+    this.txReceivedCount.add(count);
+  }
+
   public incMessagePrevalidationStatus(passed: boolean, topicName: TopicType | undefined) {
     this.messagePrevalidationCount.add(1, { [Attributes.TOPIC_NAME]: topicName, [Attributes.OK]: passed });
   }
@@ -129,7 +97,7 @@ export class P2PInstrumentation {
 
     let latencyHistogram = this.aggLatencyHisto.get(topicName);
     if (!latencyHistogram) {
-      latencyHistogram = createHistogram({ min: 1, max: 24 * 60 * 60 * 1000 }); // 24hrs
+      latencyHistogram = createHistogram({ min: 1, max: 60 * 1000 }); // Max: 1 minute
       this.aggLatencyHisto.set(topicName, latencyHistogram);
     }
 
@@ -147,11 +115,11 @@ export class P2PInstrumentation {
           continue;
         }
 
-        res.observe(metrics.avg, histogram.mean, { [Attributes.TOPIC_NAME]: topicName });
-        res.observe(metrics.max, histogram.max, { [Attributes.TOPIC_NAME]: topicName });
-        res.observe(metrics.min, histogram.min, { [Attributes.TOPIC_NAME]: topicName });
-        res.observe(metrics.p50, histogram.percentile(50), { [Attributes.TOPIC_NAME]: topicName });
-        res.observe(metrics.p90, histogram.percentile(90), { [Attributes.TOPIC_NAME]: topicName });
+        res.observe(metrics.avg, Math.ceil(histogram.mean), { [Attributes.TOPIC_NAME]: topicName });
+        res.observe(metrics.max, Math.ceil(histogram.max), { [Attributes.TOPIC_NAME]: topicName });
+        res.observe(metrics.min, Math.ceil(histogram.min), { [Attributes.TOPIC_NAME]: topicName });
+        res.observe(metrics.p50, Math.ceil(histogram.percentile(50)), { [Attributes.TOPIC_NAME]: topicName });
+        res.observe(metrics.p90, Math.ceil(histogram.percentile(90)), { [Attributes.TOPIC_NAME]: topicName });
       }
     }
   };

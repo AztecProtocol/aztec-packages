@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Raju], commit: 05a381f8b31ae4648e480f1369e911b148216e8b}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -13,21 +13,21 @@ namespace bb::stdlib {
 
 // A runtime-defined read-write memory table. Table entries must be initialized in the constructor.
 // Works with UltraBuilder and MegaBuilder.
-template <typename Builder> class ram_table {
+template <IsUltraOrMegaBuilder Builder> class ram_table {
   private:
     typedef field_t<Builder> field_pt;
 
   public:
     ram_table() {}
-    ram_table(Builder* builder, const size_t table_size);
+    ram_table(Builder* builder, const std::vector<field_pt>& table_entries);
     ram_table(const std::vector<field_pt>& table_entries);
     ram_table(const ram_table& other);
-    ram_table(ram_table&& other);
+    ram_table(ram_table&& other) noexcept;
 
     void initialize_table() const;
 
     ram_table& operator=(const ram_table& other);
-    ram_table& operator=(ram_table&& other);
+    ram_table& operator=(ram_table&& other) noexcept;
 
     field_pt read(const field_pt& index) const;
 

@@ -52,25 +52,29 @@ export interface AztecNodeAdmin {
   getSlashOffenses(round: bigint | 'all' | 'current'): Promise<Offense[]>;
 }
 
-export type AztecNodeAdminConfig = ValidatorClientFullConfig &
+// L1 contracts are not mutable via admin updates.
+export type AztecNodeAdminConfig = Omit<ValidatorClientFullConfig, 'l1Contracts'> &
   SequencerConfig &
   ProverConfig &
   SlasherConfig &
-  Pick<ArchiverSpecificConfig, 'archiverPollingIntervalMS' | 'skipValidateBlockAttestations' | 'archiverBatchSize'> & {
-    maxTxPoolSize: number;
+  Pick<
+    ArchiverSpecificConfig,
+    'archiverPollingIntervalMS' | 'archiverBatchSize' | 'skipValidateCheckpointAttestations'
+  > & {
+    maxPendingTxCount: number;
   };
 
 export const AztecNodeAdminConfigSchema = SequencerConfigSchema.merge(ProverConfigSchema)
   .merge(SlasherConfigSchema)
-  .merge(ValidatorClientFullConfigSchema)
+  .merge(ValidatorClientFullConfigSchema.omit({ l1Contracts: true }))
   .merge(
     ArchiverSpecificConfigSchema.pick({
       archiverPollingIntervalMS: true,
-      skipValidateBlockAttestations: true,
       archiverBatchSize: true,
+      skipValidateCheckpointAttestations: true,
     }),
   )
-  .merge(z.object({ maxTxPoolSize: z.number() }));
+  .merge(z.object({ maxPendingTxCount: z.number() }));
 
 export const AztecNodeAdminApiSchema: ApiSchemaFor<AztecNodeAdmin> = {
   getConfig: z.function().returns(AztecNodeAdminConfigSchema),

@@ -25,7 +25,6 @@
 
 namespace bb::avm2 {
 
-INSTANTIATE_LOOKUP(lookup_internal_call_push_call_stack_relation);
 INSTANTIATE_LOOKUP(lookup_internal_call_unwind_call_stack_relation);
 
 } // namespace bb::avm2

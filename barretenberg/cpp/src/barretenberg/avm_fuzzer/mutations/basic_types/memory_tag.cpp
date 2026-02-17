@@ -53,3 +53,12 @@ void mutate_memory_tag(MemoryTag& value, std::mt19937_64& rng, const MemoryTagMu
         break;
     }
 }
+
+void mutate_or_default_tag(MemoryTag& value, std::mt19937_64& rng, MemoryTag default_tag, double probability = 0.1)
+{
+    if (std::uniform_real_distribution<double>(0.0, 1.0)(rng) < probability) {
+        mutate_memory_tag(value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
+    } else {
+        value = default_tag;
+    }
+}

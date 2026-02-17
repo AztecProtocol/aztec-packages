@@ -1,10 +1,13 @@
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { TestCircuitVerifier } from '@aztec/bb-prover/test';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
-import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import { SyncDataProvider } from '@aztec/pxe/server';
-import { type L2Block, PublishedL2Block } from '@aztec/stdlib/block';
+import { type AnchorBlockStore, type ContractStore, ContractSyncService, type NoteStore } from '@aztec/pxe/server';
+import { L2Block } from '@aztec/stdlib/block';
+import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
 import { TXEArchiver } from './archiver.js';
@@ -21,14 +24,17 @@ export class TXEStateMachine {
     public node: AztecNode,
     public synchronizer: TXESynchronizer,
     public archiver: TXEArchiver,
-    public syncDataProvider: SyncDataProvider,
+    public anchorBlockStore: AnchorBlockStore,
+    public contractSyncService: ContractSyncService,
   ) {}
 
-  public static async create(db: AztecAsyncKVStore) {
-    const archiver = new TXEArchiver(db);
+  public static async create(
+    archiver: TXEArchiver,
+    anchorBlockStore: AnchorBlockStore,
+    contractStore: ContractStore,
+    noteStore: NoteStore,
+  ) {
     const synchronizer = await TXESynchronizer.create();
-    const syncDataProvider = new SyncDataProvider(db);
-
     const aztecNodeConfig = {} as AztecNodeConfig;
 
     const log = createLogger('txe_node');
@@ -54,24 +60,56 @@ export class TXEStateMachine {
       log,
     );
 
-    return new this(node, synchronizer, archiver, syncDataProvider);
+    const contractSyncService = new ContractSyncService(
+      node,
+      contractStore,
+      noteStore,
+      createLogger('txe:contract_sync'),
+    );
+
+    return new this(node, synchronizer, archiver, anchorBlockStore, contractSyncService);
   }
 
   public async handleL2Block(block: L2Block) {
+    // Create a checkpoint from the block manually.
+    // TXE uses 1-block-per-checkpoint for testing simplicity, so we can use block number as checkpoint number.
+    // This uses the deprecated fromBlockNumber method intentionally for the TXE testing environment.
+    const checkpointNumber = CheckpointNumber.fromBlockNumber(block.number);
+    const checkpoint = new Checkpoint(
+      block.archive,
+      CheckpointHeader.from({
+        lastArchiveRoot: block.header.lastArchive.root,
+        inHash: Fr.ZERO,
+        blobsHash: Fr.ZERO,
+        blockHeadersHash: Fr.ZERO,
+        epochOutHash: Fr.ZERO,
+        slotNumber: block.header.globalVariables.slotNumber,
+        timestamp: block.header.globalVariables.timestamp,
+        coinbase: block.header.globalVariables.coinbase,
+        feeRecipient: block.header.globalVariables.feeRecipient,
+        gasFees: block.header.globalVariables.gasFees,
+        totalManaUsed: block.header.totalManaUsed,
+      }),
+      [block],
+      checkpointNumber,
+    );
+
+    const publishedCheckpoint = new PublishedCheckpoint(
+      checkpoint,
+      new L1PublishedData(
+        BigInt(block.header.globalVariables.blockNumber),
+        block.header.globalVariables.timestamp,
+        block.header.globalVariables.blockNumber.toString(),
+      ),
+      [],
+    );
+    // Wipe contract sync cache when anchor block changes (mirrors BlockSynchronizer behavior)
+    this.contractSyncService.wipe();
+
     await Promise.all([
       this.synchronizer.handleL2Block(block),
-      this.archiver.addBlocks([
-        PublishedL2Block.fromFields({
-          block,
-          l1: {
-            blockHash: block.header.globalVariables.blockNumber.toString(),
-            blockNumber: BigInt(block.header.globalVariables.blockNumber),
-            timestamp: block.header.globalVariables.timestamp,
-          },
-          attestations: [],
-        }),
-      ]),
-      this.syncDataProvider.setHeader(block.getBlockHeader()),
+      this.archiver.addCheckpoints([publishedCheckpoint], undefined),
+      this.anchorBlockStore.setHeader(block.header),
     ]);
   }
 }

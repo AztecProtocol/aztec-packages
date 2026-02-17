@@ -1,11 +1,12 @@
 #pragma once
 
+#include <cstdint>
 #include <ostream>
 #include <string>
 
 namespace bb::avm2 {
 
-enum class WireOpCode {
+enum class WireOpCode : uint8_t {
     // Compute
     ADD_8,
     ADD_16,
@@ -73,7 +74,7 @@ enum class WireOpCode {
     GETCONTRACTINSTANCE,
 
     // Accrued Substate
-    EMITUNENCRYPTEDLOG,
+    EMITPUBLICLOG,
     SENDL2TOL1MSG, // Messages
 
     // Control Flow - Contract Calls
@@ -103,7 +104,7 @@ std::ostream& operator<<(std::ostream& os, const WireOpCode& op);
 // List of opcodes that can be executed.
 // This is like WireOpCode but without the variants.
 // Order doesn't really matter as long as it's in sync with the circuit.
-enum class ExecutionOpCode {
+enum class ExecutionOpCode : uint8_t {
     ADD,
     SUB,
     MUL,
@@ -138,7 +139,7 @@ enum class ExecutionOpCode {
     EMITNULLIFIER,
     L1TOL2MSGEXISTS,
     GETCONTRACTINSTANCE,
-    EMITUNENCRYPTEDLOG,
+    EMITPUBLICLOG,
     SENDL2TOL1MSG,
     CALL,
     STATICCALL,

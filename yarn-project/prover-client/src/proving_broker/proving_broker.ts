@@ -1,3 +1,4 @@
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { PriorityMemoryQueue } from '@aztec/foundation/queue';
@@ -6,6 +7,7 @@ import {
   type GetProvingJobResponse,
   type ProofUri,
   type ProvingJob,
+  type ProvingJobBrokerDebug,
   type ProvingJobConsumer,
   type ProvingJobFilter,
   type ProvingJobId,
@@ -15,13 +17,7 @@ import {
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
-import {
-  type TelemetryClient,
-  type Traceable,
-  type Tracer,
-  getTelemetryClient,
-  trackSpan,
-} from '@aztec/telemetry-client';
+import { type TelemetryClient, type Traceable, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import assert from 'assert';
 
@@ -41,7 +37,7 @@ type EnqueuedProvingJob = Pick<ProvingJob, 'id' | 'epochNumber'>;
  * A broker that manages proof requests and distributes them to workers based on their priority.
  * It takes a backend that is responsible for storing and retrieving proof requests and results.
  */
-export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Traceable {
+export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, ProvingJobBrokerDebug, Traceable {
   private queues: ProvingQueues = {
     [ProvingRequestType.PUBLIC_VM]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.PUBLIC_CHONK_VERIFIER]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
@@ -119,6 +115,8 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
 
   private started = false;
 
+  private debugReplayEnabled: boolean;
+
   public constructor(
     private database: ProvingBrokerDatabase,
     {
@@ -126,6 +124,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
       proverBrokerPollIntervalMs,
       proverBrokerJobMaxRetries,
       proverBrokerMaxEpochsToKeepResultsFor,
+      proverBrokerDebugReplayEnabled,
     }: Required<
       Pick<
         ProverBrokerConfig,
@@ -133,6 +132,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
         | 'proverBrokerPollIntervalMs'
         | 'proverBrokerJobMaxRetries'
         | 'proverBrokerMaxEpochsToKeepResultsFor'
+        | 'proverBrokerDebugReplayEnabled'
       >
     > = defaultProverBrokerConfig,
     client: TelemetryClient = getTelemetryClient(),
@@ -144,6 +144,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     this.jobTimeoutMs = proverBrokerJobTimeoutMs!;
     this.maxRetries = proverBrokerJobMaxRetries!;
     this.maxEpochsToKeepResultsFor = proverBrokerMaxEpochsToKeepResultsFor!;
+    this.debugReplayEnabled = proverBrokerDebugReplayEnabled ?? false;
   }
 
   private measureQueueDepth: MonitorCallback = (type: ProvingRequestType) => {
@@ -246,6 +247,29 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     return Promise.resolve(this.#reportProvingJobProgress(id, startedAt, filter));
   }
 
+  public async replayProvingJob(
+    jobId: ProvingJobId,
+    type: ProvingRequestType,
+    epochNumber: EpochNumber,
+    inputsUri: ProofUri,
+  ): Promise<ProvingJobStatus> {
+    if (!this.debugReplayEnabled) {
+      throw new Error('Debug replay not enabled. Set PROVER_BROKER_DEBUG_REPLAY_ENABLED=true');
+    }
+
+    this.logger.info(`Replaying proving job`, { provingJobId: jobId, epochNumber, inputsUri });
+
+    // Clear existing state and enqueue
+    this.cleanUpProvingJobState([jobId]);
+
+    const job: ProvingJob = { id: jobId, type, epochNumber, inputsUri };
+    this.jobsCache.set(jobId, job);
+    await this.database.addProvingJob(job);
+    this.enqueueJobInternal(job);
+
+    return { status: 'in-queue' };
+  }
+
   async #enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus> {
     // We return the job status at the start of this call
     const jobStatus = this.#getProvingJobStatus(job.id);
@@ -301,6 +325,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
       this.resultsCache.delete(id);
       this.inProgress.delete(id);
       this.retries.delete(id);
+      this.enqueuedAt.delete(id);
     }
   }
 
@@ -353,6 +378,8 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
           const enqueuedAt = this.enqueuedAt.get(job.id);
           if (enqueuedAt) {
             this.instrumentation.recordJobWait(job.type, enqueuedAt);
+            // we can clear this flag now.
+            this.enqueuedAt.delete(job.id);
           }
 
           return { job, time };
@@ -561,13 +588,12 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     return this.#getProvingJob(filter);
   }
 
-  @trackSpan('ProvingBroker.cleanupPass')
   private async cleanupPass() {
     this.cleanupStaleJobs();
     this.reEnqueueExpiredJobs();
     const oldestEpochToKeep = this.oldestEpochToKeep();
     if (oldestEpochToKeep > 0) {
-      await this.database.deleteAllProvingJobsOlderThanEpoch(oldestEpochToKeep);
+      await this.database.deleteAllProvingJobsOlderThanEpoch(EpochNumber(oldestEpochToKeep));
       this.logger.trace(`Deleted all epochs older than ${oldestEpochToKeep}`);
     }
   }

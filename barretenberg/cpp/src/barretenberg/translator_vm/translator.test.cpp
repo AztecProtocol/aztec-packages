@@ -3,6 +3,7 @@
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
+#include "barretenberg/transcript/transcript_manifest.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
 #include "barretenberg/translator_vm/translator_verifier.hpp"
@@ -15,13 +16,173 @@ using Transcript = TranslatorFlavor::Transcript;
 using OpQueue = ECCOpQueue;
 static auto& engine = numeric::get_debug_randomness();
 
+// Test helper: Create a VK by committing to proving key polynomials (for comparing with fixed VK)
+TranslatorFlavor::VerificationKey create_vk_from_proving_key(
+    const std::shared_ptr<TranslatorFlavor::ProvingKey>& proving_key)
+{
+    TranslatorFlavor::VerificationKey vk;
+    // Overwrite fixed commitments with computed commitments from the proving key
+    for (auto [polynomial, commitment] : zip_view(proving_key->polynomials.get_precomputed(), vk.get_all())) {
+        commitment = proving_key->commitment_key.commit(polynomial);
+    }
+    return vk;
+}
+
+// Compute VK hash from fixed commitments (for test verification that vk_hash() is correct)
+TranslatorFlavor::FF compute_translator_vk_hash()
+{
+    std::vector<TranslatorFlavor::FF> elements;
+    // Serialize commitments using the Codec
+    for (const auto& commitment : TranslatorHardcodedVKAndHash::get_all()) {
+        auto frs = TranslatorFlavor::Codec::serialize_to_fields(commitment);
+        for (const auto& fr : frs) {
+            elements.push_back(fr);
+        }
+    }
+    return TranslatorFlavor::HashFunction::hash(elements);
+}
+
 class TranslatorTests : public ::testing::Test {
     using G1 = g1::affine_element;
     using Fr = fr;
     using Fq = fq;
+    using Flavor = TranslatorFlavor;
+    using FF = Flavor::FF;
+    using Commitment = Flavor::Commitment;
 
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+
+    /**
+     * @brief Build the expected transcript manifest for Translator verification
+     * @details The manifest has 26 rounds total:
+     * - Round 0: vk_hash, Gemini masking, 82 wire commitments -> beta challenge
+     * - Round 1: (empty) -> gamma challenge
+     * - Round 2: Z_PERM -> Sumcheck:alpha + all gate challenges
+     * - Round 3: Libra:concatenation_commitment + Sum -> Libra:Challenge
+     * - Rounds 4-20: Sumcheck univariates (17 rounds)
+     * - Round 21: Sumcheck evaluations + Libra commitments -> rho
+     * - Round 22: Gemini fold commitments -> Gemini:r
+     * - Round 23: Gemini evaluations + Libra evals -> Shplonk:nu
+     * - Round 24: Shplonk:Q -> Shplonk:z
+     * - Round 25: KZG:W -> KZG:masking_challenge
+     */
+    static TranscriptManifest build_expected_translator_manifest()
+    {
+        TranscriptManifest manifest;
+        constexpr size_t frs_per_G = FrCodec::calc_num_fields<Flavor::Commitment>();
+        constexpr size_t NUM_SUMCHECK_ROUNDS = 17; // CONST_TRANSLATOR_LOG_N + 2
+
+        // Round 0: vk_hash, Gemini masking, wire commitments
+        manifest.add_entry(0, "vk_hash", 1);
+        manifest.add_entry(0, "Gemini:masking_poly_comm", frs_per_G);
+
+        // Wire commitments (82 total, in order from the manifest dump)
+        // clang-format off
+        std::vector<std::string> wire_labels = {
+            "P_X_LOW_LIMBS", "P_X_HIGH_LIMBS", "P_Y_LOW_LIMBS", "P_Y_HIGH_LIMBS",
+            "Z_LOw_LIMBS", "Z_HIGH_LIMBS",
+            "ACCUMULATORS_BINARY_LIMBS_0", "ACCUMULATORS_BINARY_LIMBS_1",
+            "ACCUMULATORS_BINARY_LIMBS_2", "ACCUMULATORS_BINARY_LIMBS_3",
+            "QUOTIENT_LOW_BINARY_LIMBS", "QUOTIENT_HIGH_BINARY_LIMBS",
+            "RELATION_WIDE_LIMBS",
+            "P_X_LOW_LIMBS_RANGE_CONSTRAINT_0", "P_X_LOW_LIMBS_RANGE_CONSTRAINT_1",
+            "P_X_LOW_LIMBS_RANGE_CONSTRAINT_2", "P_X_LOW_LIMBS_RANGE_CONSTRAINT_3",
+            "P_X_LOW_LIMBS_RANGE_CONSTRAINT_4", "P_X_LOW_LIMBS_RANGE_CONSTRAINT_TAIL",
+            "P_X_HIGH_LIMBS_RANGE_CONSTRAINT_0", "P_X_HIGH_LIMBS_RANGE_CONSTRAINT_1",
+            "P_X_HIGH_LIMBS_RANGE_CONSTRAINT_2", "P_X_HIGH_LIMBS_RANGE_CONSTRAINT_3",
+            "P_X_HIGH_LIMBS_RANGE_CONSTRAINT_4", "P_X_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL",
+            "P_Y_LOW_LIMBS_RANGE_CONSTRAINT_0", "P_Y_LOW_LIMBS_RANGE_CONSTRAINT_1",
+            "P_Y_LOW_LIMBS_RANGE_CONSTRAINT_2", "P_Y_LOW_LIMBS_RANGE_CONSTRAINT_3",
+            "P_Y_LOW_LIMBS_RANGE_CONSTRAINT_4", "P_Y_LOW_LIMBS_RANGE_CONSTRAINT_TAIL",
+            "P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_0", "P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_1",
+            "P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_2", "P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_3",
+            "P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_4", "P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL",
+            "Z_LOW_LIMBS_RANGE_CONSTRAINT_0", "Z_LOW_LIMBS_RANGE_CONSTRAINT_1",
+            "Z_LOW_LIMBS_RANGE_CONSTRAINT_2", "Z_LOW_LIMBS_RANGE_CONSTRAINT_3",
+            "Z_LOW_LIMBS_RANGE_CONSTRAINT_4", "Z_LOW_LIMBS_RANGE_CONSTRAINT_TAIL",
+            "Z_HIGH_LIMBS_RANGE_CONSTRAINT_0", "Z_HIGH_LIMBS_RANGE_CONSTRAINT_1",
+            "Z_HIGH_LIMBS_RANGE_CONSTRAINT_2", "Z_HIGH_LIMBS_RANGE_CONSTRAINT_3",
+            "Z_HIGH_LIMBS_RANGE_CONSTRAINT_4", "Z_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL",
+            "ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_0", "ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_1",
+            "ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_2", "ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_3",
+            "ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_4", "ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_TAIL",
+            "ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_0", "ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_1",
+            "ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_2", "ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_3",
+            "ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_4", "ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL",
+            "QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_0", "QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_1",
+            "QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_2", "QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_3",
+            "QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_4", "QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_TAIL",
+            "QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_0", "QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_1",
+            "QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_2", "QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_3",
+            "QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_4", "QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL",
+            "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0", "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1",
+            "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2", "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_3",
+            "ORDERED_RANGE_CONSTRAINTS_0", "ORDERED_RANGE_CONSTRAINTS_1",
+            "ORDERED_RANGE_CONSTRAINTS_2", "ORDERED_RANGE_CONSTRAINTS_3",
+            "ORDERED_RANGE_CONSTRAINTS_4",
+        };
+        // clang-format on
+        for (const auto& label : wire_labels) {
+            manifest.add_entry(0, label, frs_per_G);
+        }
+        // beta and gamma are consecutive challenges (no data between), so both in round 0
+        manifest.add_challenge(0, "beta");
+        manifest.add_challenge(0, "gamma");
+
+        // Round 1: Z_PERM -> Sumcheck:alpha + all gate challenges (same round, no data between them)
+        manifest.add_entry(1, "Z_PERM", frs_per_G);
+        manifest.add_challenge(1, "Sumcheck:alpha");
+        for (size_t i = 0; i < NUM_SUMCHECK_ROUNDS; ++i) {
+            manifest.add_challenge(1, "Sumcheck:gate_challenge_" + std::to_string(i));
+        }
+
+        // Round 2: Libra concatenation commitment + Sum -> Libra:Challenge
+        manifest.add_entry(2, "Libra:concatenation_commitment", frs_per_G);
+        manifest.add_entry(2, "Libra:Sum", 1);
+        manifest.add_challenge(2, "Libra:Challenge");
+
+        // Rounds 3-19: Sumcheck univariates (17 rounds)
+        for (size_t i = 0; i < NUM_SUMCHECK_ROUNDS; ++i) {
+            manifest.add_entry(3 + i, "Sumcheck:univariate_" + std::to_string(i), 9);
+            manifest.add_challenge(3 + i, "Sumcheck:u_" + std::to_string(i));
+        }
+
+        // Round 20: Sumcheck evaluations + Libra commitments -> rho
+        manifest.add_entry(20, "Sumcheck:evaluations", 188);
+        manifest.add_entry(20, "Libra:claimed_evaluation", 1);
+        manifest.add_entry(20, "Libra:grand_sum_commitment", frs_per_G);
+        manifest.add_entry(20, "Libra:quotient_commitment", frs_per_G);
+        manifest.add_challenge(20, "rho");
+
+        // Round 21: Gemini fold commitments -> Gemini:r
+        for (size_t i = 1; i <= 16; ++i) {
+            manifest.add_entry(21, "Gemini:FOLD_" + std::to_string(i), frs_per_G);
+        }
+        manifest.add_challenge(21, "Gemini:r");
+
+        // Round 22: Gemini evaluations + Libra evals -> Shplonk:nu
+        for (size_t i = 1; i <= 17; ++i) {
+            manifest.add_entry(22, "Gemini:a_" + std::to_string(i), 1);
+        }
+        manifest.add_entry(22, "Gemini:P_pos", 1);
+        manifest.add_entry(22, "Gemini:P_neg", 1);
+        manifest.add_entry(22, "Libra:concatenation_eval", 1);
+        manifest.add_entry(22, "Libra:shifted_grand_sum_eval", 1);
+        manifest.add_entry(22, "Libra:grand_sum_eval", 1);
+        manifest.add_entry(22, "Libra:quotient_eval", 1);
+        manifest.add_challenge(22, "Shplonk:nu");
+
+        // Round 23: Shplonk:Q -> Shplonk:z
+        manifest.add_entry(23, "Shplonk:Q", frs_per_G);
+        manifest.add_challenge(23, "Shplonk:z");
+
+        // Round 24: KZG:W -> KZG:masking_challenge
+        manifest.add_entry(24, "KZG:W", frs_per_G);
+        manifest.add_challenge(24, "KZG:masking_challenge");
+
+        return manifest;
+    }
 
     // Helper function to add no-ops
     static void add_random_ops(std::shared_ptr<bb::ECCOpQueue>& op_queue, size_t count = 1)
@@ -72,8 +233,7 @@ class TranslatorTests : public ::testing::Test {
         auto initial_transcript = prover_transcript->export_proof();
 
         // Setup verifier transcript
-        auto verifier_transcript = std::make_shared<Transcript>();
-        verifier_transcript->load_proof(initial_transcript);
+        auto verifier_transcript = std::make_shared<Transcript>(initial_transcript);
         verifier_transcript->template receive_from_prover<Fq>("init");
 
         // Create proving key and prover
@@ -83,12 +243,31 @@ class TranslatorTests : public ::testing::Test {
         // Generate proof
         auto proof = prover.construct_proof();
 
-        // Create verifier
-        auto verification_key = std::make_shared<TranslatorFlavor::VerificationKey>(proving_key->proving_key);
-        TranslatorVerifier verifier(verification_key, verifier_transcript);
+        // Commit to op queue wires
+        std::array<TranslatorFlavor::Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> op_queue_commitments;
+        op_queue_commitments[0] =
+            proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.op);
+        op_queue_commitments[1] =
+            proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.x_lo_y_hi);
+        op_queue_commitments[2] =
+            proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.x_hi_z_1);
+        op_queue_commitments[3] =
+            proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.y_lo_z_2);
 
-        // Verify proof and return result
-        return verifier.verify_proof(proof, evaluation_challenge_x, batching_challenge_v);
+        // Get accumulated_result from the prover
+        uint256_t accumulated_result = prover.get_accumulated_result();
+
+        // Create verifier
+        TranslatorVerifier verifier(verifier_transcript,
+                                    proof,
+                                    evaluation_challenge_x,
+                                    batching_challenge_v,
+                                    accumulated_result,
+                                    op_queue_commitments);
+
+        // Verify proof: get reduction result and check all components
+        auto result = verifier.reduce_to_pairing_check();
+        return result.pairing_points.check() && result.reduction_succeeded;
     }
 };
 
@@ -119,7 +298,7 @@ TEST_F(TranslatorTests, ProofLengthCheck)
     // Generate proof
     auto proof = prover.construct_proof();
 
-    EXPECT_EQ(proof.size(), TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    EXPECT_EQ(proof.size(), TranslatorFlavor::PROOF_LENGTH);
 }
 
 /**
@@ -170,7 +349,7 @@ TEST_F(TranslatorTests, BasicAvmMode)
  * @brief Ensure that the fixed VK from the default constructor agrees with those computed manually for an arbitrary
  * circuit
  * @note If this test fails, it may be because the constant CONST_TRANSLATOR_LOG_N has changed and the fixed VK
- * commitments in TranslatorFixedVKCommitments must be updated accordingly. Their values can be taken right from the
+ * commitments in TranslatorHardcodedVKAndHash must be updated accordingly. Their values can be taken right from the
  * output of this test.
  *
  */
@@ -193,7 +372,7 @@ TEST_F(TranslatorTests, FixedVK)
             generate_test_circuit(batching_challenge_v, evaluation_challenge_x, circuit_size_parameter);
         auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
         TranslatorProver prover{ proving_key, prover_transcript };
-        TranslatorFlavor::VerificationKey computed_vk(proving_key->proving_key);
+        TranslatorFlavor::VerificationKey computed_vk = create_vk_from_proving_key(proving_key->proving_key);
         auto labels = TranslatorFlavor::VerificationKey::get_labels();
         size_t index = 0;
         for (auto [vk_commitment, fixed_commitment] : zip_view(computed_vk.get_all(), fixed_vk.get_all())) {
@@ -211,4 +390,70 @@ TEST_F(TranslatorTests, FixedVK)
 
     compare_computed_vk_against_fixed(circuit_size_parameter_1);
     compare_computed_vk_against_fixed(circuit_size_parameter_2);
+
+    // Verify that the hardcoded VK hash matches the computed hash
+    auto computed_hash = compute_translator_vk_hash();
+    auto hardcoded_hash = TranslatorHardcodedVKAndHash::vk_hash();
+    if (computed_hash != hardcoded_hash) {
+        info("VK hash mismatch! Update TranslatorHardcodedVKAndHash::vk_hash() with:");
+        info("0x", computed_hash);
+    }
+    EXPECT_EQ(computed_hash, hardcoded_hash) << "Hardcoded VK hash does not match computed hash";
+}
+
+/**
+ * @brief Pin the Translator transcript manifest
+ * @details Verifies that the verifier transcript matches the expected hardcoded structure.
+ * Prover correctness follows by transitivity (prover/verifier must match for verification to succeed).
+ */
+TEST_F(TranslatorTests, TranscriptPinned)
+{
+    using Fq = fq;
+
+    Fq batching_challenge_v = Fq::random_element();
+    Fq evaluation_challenge_x = Fq::random_element();
+
+    CircuitBuilder circuit_builder = generate_test_circuit(batching_challenge_v, evaluation_challenge_x);
+
+    // Create proving key and prover
+    auto prover_transcript = std::make_shared<Transcript>();
+    auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
+    TranslatorProver prover{ proving_key, prover_transcript };
+
+    // Generate proof
+    auto proof = prover.construct_proof();
+
+    // Setup verifier transcript with manifest tracking
+    auto verifier_transcript = std::make_shared<Transcript>(proof);
+    verifier_transcript->enable_manifest();
+
+    // Get accumulated_result from the prover
+    uint256_t accumulated_result = prover.get_accumulated_result();
+
+    // Commit to op queue wires
+    std::array<TranslatorFlavor::Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> op_queue_commitments;
+    op_queue_commitments[0] = proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.op);
+    op_queue_commitments[1] =
+        proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.x_lo_y_hi);
+    op_queue_commitments[2] =
+        proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.x_hi_z_1);
+    op_queue_commitments[3] =
+        proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.y_lo_z_2);
+
+    // Create verifier with all required inputs
+    TranslatorVerifier verifier(verifier_transcript,
+                                proof,
+                                evaluation_challenge_x,
+                                batching_challenge_v,
+                                accumulated_result,
+                                op_queue_commitments);
+
+    // Run verification - just reduce to pairing check to exercise the transcript
+    [[maybe_unused]] auto result = verifier.reduce_to_pairing_check();
+
+    // Compare verifier manifest against hardcoded expected structure
+    auto expected_manifest = build_expected_translator_manifest();
+    auto verifier_manifest = verifier_transcript->get_manifest();
+
+    EXPECT_EQ(verifier_manifest, expected_manifest);
 }

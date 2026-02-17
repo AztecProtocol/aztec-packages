@@ -1,5 +1,5 @@
 import { CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { FieldReader } from '@aztec/foundation/serialize';
 import { bufferFromFields } from '@aztec/stdlib/abi';
 import {
@@ -29,7 +29,7 @@ export class ContractClassPublishedEvent {
   }
 
   static fromLog(log: ContractClassLog) {
-    // See how the log is serialized in `noir-projects/noir-contracts/contracts/protocol/contract_class_registry/src/events/class_published.nr`.
+    // See how the log is serialized in `noir-projects/noir-contracts/contracts/protocol/contract_class_registry_contract/src/events/class_published.nr`.
     const fieldsWithoutTag = log.fields.fields.slice(1);
     const reader = new FieldReader(fieldsWithoutTag);
     const contractClassId = reader.readField();
@@ -73,5 +73,11 @@ export class ContractClassPublishedEvent {
       privateFunctions: [],
       utilityFunctions: [],
     };
+  }
+
+  public static extractContractClassEvents(logs: ContractClassLog[]): ContractClassPublishedEvent[] {
+    return logs
+      .filter((log: ContractClassLog) => ContractClassPublishedEvent.isContractClassPublishedEvent(log))
+      .map((log: ContractClassLog) => ContractClassPublishedEvent.fromLog(log));
   }
 }

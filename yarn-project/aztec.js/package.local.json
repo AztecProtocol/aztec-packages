@@ -1,5 +1,6 @@
 {
   "scripts": {
-    "clean": "rm -rf ./dest .tsbuildinfo ./src/account_contract/artifacts"
+    "build": "yarn clean && yarn generate && ../scripts/tsc.sh",
+    "clean": "rm -rf ./dest .tsbuildinfo ./src/account_contract/artifacts ./src/contract/protocol_contracts"
   }
 }

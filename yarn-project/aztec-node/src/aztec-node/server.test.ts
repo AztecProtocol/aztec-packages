@@ -1,8 +1,9 @@
 import { TestCircuitVerifier } from '@aztec/bb-prover';
 import { EpochCache } from '@aztec/epoch-cache';
-import type { RollupContract } from '@aztec/ethereum';
+import type { RollupContract } from '@aztec/ethereum/contracts';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { DateProvider } from '@aztec/foundation/timer';
 import { unfreeze } from '@aztec/foundation/types';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -22,10 +23,14 @@ import { MerkleTreeId, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@a
 import {
   BlockHeader,
   GlobalVariables,
+  HashedValues,
+  TX_ERROR_CALLDATA_COUNT_MISMATCH,
   TX_ERROR_DUPLICATE_NULLIFIER_IN_TX,
   TX_ERROR_INCORRECT_L1_CHAIN_ID,
   TX_ERROR_INCORRECT_ROLLUP_VERSION,
-  TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP,
+  TX_ERROR_INVALID_EXPIRATION_TIMESTAMP,
+  TX_ERROR_SIZE_ABOVE_LIMIT,
+  Tx,
 } from '@aztec/stdlib/tx';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
@@ -37,7 +42,7 @@ import { fileURLToPath } from 'url';
 import { type AztecNodeConfig, getConfigEnvVars } from './config.js';
 import { AztecNodeService } from './server.js';
 
-// Arbitrary fixed timestamp for the mock date provider. DateProvider.now() returns milliseconds but IncludeByTimestamp
+// Arbitrary fixed timestamp for the mock date provider. DateProvider.now() returns milliseconds but ExpirationTimestamp
 // is denominated in seconds.
 const NOW_MS = 1718745600000;
 const NOW_S = NOW_MS / 1000;
@@ -54,7 +59,7 @@ describe('aztec node', () => {
   let globalVariablesBuilder: MockProxy<GlobalVariableBuilder>;
   let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
   let l2BlockSource: MockProxy<L2BlockSource>;
-  let lastBlockNumber: number;
+  let lastBlockNumber: BlockNumber;
   let node: AztecNodeService;
   let feePayer: AztecAddress;
   let epochCache: EpochCache;
@@ -76,7 +81,7 @@ describe('aztec node', () => {
   };
 
   beforeEach(async () => {
-    lastBlockNumber = 0;
+    lastBlockNumber = BlockNumber.ZERO;
 
     feePayer = await AztecAddress.random();
     const feePayerSlot = await computeFeePayerBalanceLeafSlot(feePayer);
@@ -86,7 +91,7 @@ describe('aztec node', () => {
     p2p = mock<P2P>();
 
     globalVariablesBuilder = mock<GlobalVariableBuilder>();
-    globalVariablesBuilder.getCurrentBaseFees.mockResolvedValue(new GasFees(0, 0));
+    globalVariablesBuilder.getCurrentMinFees.mockResolvedValue(new GasFees(0, BlockNumber.ZERO));
 
     merkleTreeOps = mock<MerkleTreeReadOperations>();
     merkleTreeOps.findLeafIndices.mockImplementation((treeId: MerkleTreeId, _value: any[]) => {
@@ -150,7 +155,11 @@ describe('aztec node', () => {
     // on the epoch cache is used so a simple mock will suffice.
     const rollupContract = mock<RollupContract>();
     // We pass MockDateProvider to the epoch cache to have control over the next slot timestamp
-    epochCache = new EpochCache(rollupContract, EmptyL1RollupConstants, new MockDateProvider());
+    epochCache = new EpochCache(
+      rollupContract,
+      { ...EmptyL1RollupConstants, lagInEpochsForValidatorSet: 0, lagInEpochsForRandao: 0 },
+      new MockDateProvider(),
+    );
 
     node = new AztecNodeService(
       nodeConfig,
@@ -178,7 +187,7 @@ describe('aztec node', () => {
       const txs = await Promise.all([mockTxForRollup(0x10000), mockTxForRollup(0x20000)]);
       const doubleSpendTx = txs[0];
       const doubleSpendWithExistingTx = txs[1];
-      lastBlockNumber += 1;
+      lastBlockNumber = BlockNumber(lastBlockNumber + 1);
 
       expect(await node.isValidTx(doubleSpendTx)).toEqual({ result: 'valid' });
 
@@ -209,7 +218,7 @@ describe('aztec node', () => {
         result: 'invalid',
         reason: ['Existing nullifier'],
       });
-      lastBlockNumber = 0;
+      lastBlockNumber = BlockNumber.ZERO;
     });
 
     it('tests that the node correctly validates chain id', async () => {
@@ -234,31 +243,48 @@ describe('aztec node', () => {
       expect(await node.isValidTx(tx)).toEqual({ result: 'invalid', reason: [TX_ERROR_INCORRECT_ROLLUP_VERSION] });
     });
 
+    it('tests that the node correctly validates oversized transactions', async () => {
+      const originalTx = await mockTxForRollup(0x10000);
+      const newPublicFunctionCalldata = [new HashedValues(Array(100000).fill(Fr.random()), Fr.random())];
+      const tx = new Tx(
+        originalTx.txHash,
+        originalTx.data,
+        originalTx.chonkProof,
+        originalTx.contractClassLogFields,
+        newPublicFunctionCalldata,
+      );
+      await tx.recomputeHash();
+      expect(await node.isValidTx(tx)).toEqual({
+        result: 'invalid',
+        reason: [TX_ERROR_SIZE_ABOVE_LIMIT, TX_ERROR_CALLDATA_COUNT_MISMATCH],
+      });
+    });
+
     it('tests that the node correctly validates expiration timestamps', async () => {
       const txs = await Promise.all([mockTxForRollup(0x10000), mockTxForRollup(0x20000)]);
-      const invalidIncludeByTimestampMetadata = txs[0];
-      const validIncludeByTimestampMetadata = txs[1];
+      const invalidExpirationTimestampMetadata = txs[0];
+      const validExpirationTimestampMetadata = txs[1];
 
-      invalidIncludeByTimestampMetadata.data.includeByTimestamp = BigInt(NOW_S);
-      await invalidIncludeByTimestampMetadata.recomputeHash();
+      invalidExpirationTimestampMetadata.data.expirationTimestamp = BigInt(NOW_S);
+      await invalidExpirationTimestampMetadata.recomputeHash();
 
-      validIncludeByTimestampMetadata.data.includeByTimestamp = BigInt(NOW_S + 1);
-      await validIncludeByTimestampMetadata.recomputeHash();
+      validExpirationTimestampMetadata.data.expirationTimestamp = BigInt(NOW_S + 1);
+      await validExpirationTimestampMetadata.recomputeHash();
 
       // We need to set the last block number to get this working properly because if it was set to 0, it would mean
       // that we are building block 1, and for block 1 the timestamp expiration check is skipped. For details on why
-      // see the `validate_include_by_timestamp` function in
+      // see the `validate_expiration_timestamp` function in
       // `noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/validation_requests.nr`.
-      lastBlockNumber = 1;
+      lastBlockNumber = BlockNumber(1);
 
       // Default tx with no should be valid
-      // Tx with include by timestamp < current block number should be invalid
-      expect(await node.isValidTx(invalidIncludeByTimestampMetadata)).toEqual({
+      // Tx with expiration timestamp < current block number should be invalid
+      expect(await node.isValidTx(invalidExpirationTimestampMetadata)).toEqual({
         result: 'invalid',
-        reason: [TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP],
+        reason: [TX_ERROR_INVALID_EXPIRATION_TIMESTAMP],
       });
-      // Tx with include by timestamp >= current block number should be valid
-      expect(await node.isValidTx(validIncludeByTimestampMetadata)).toEqual({ result: 'valid' });
+      // Tx with expiration timestamp >= current block number should be valid
+      expect(await node.isValidTx(validExpirationTimestampMetadata)).toEqual({ result: 'valid' });
     });
   });
 
@@ -266,7 +292,7 @@ describe('aztec node', () => {
     describe('config', () => {
       it('returns the correct config', async () => {
         const config = await node.getConfig();
-        expect(config.maxTxPoolSize).toEqual(nodeConfig.maxTxPoolSize);
+        expect(config.maxPendingTxCount).toEqual(nodeConfig.maxPendingTxCount);
         expect('nonExistingConfig' in config).toBe(false);
       });
     });
@@ -289,17 +315,21 @@ describe('aztec node', () => {
       let header2: BlockHeader;
 
       beforeEach(() => {
-        initialHeader = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: 0 }) });
-        header1 = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: 1 }) });
-        header2 = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: 2 }) });
+        initialHeader = BlockHeader.empty({
+          globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber.ZERO }),
+        });
+        header1 = BlockHeader.empty({
+          globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(1) }),
+        });
+        header2 = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(2) }) });
 
         merkleTreeOps.getInitialHeader.mockReturnValue(initialHeader);
-        l2BlockSource.getBlockNumber.mockResolvedValue(2);
+        l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber(2));
       });
 
       it('returns requested block number', async () => {
         l2BlockSource.getBlockHeader.mockResolvedValue(header1);
-        expect(await node.getBlockHeader(1)).toEqual(header1);
+        expect(await node.getBlockHeader(BlockNumber(1))).toEqual(header1);
       });
 
       it('returns latest', async () => {
@@ -308,17 +338,17 @@ describe('aztec node', () => {
       });
 
       it('returns initial header on zero', async () => {
-        expect(await node.getBlockHeader(0)).toEqual(initialHeader);
+        expect(await node.getBlockHeader(BlockNumber.ZERO)).toEqual(initialHeader);
       });
 
       it('returns initial header if no blocks mined', async () => {
-        l2BlockSource.getBlockNumber.mockResolvedValue(0);
+        l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber.ZERO);
         expect(await node.getBlockHeader('latest')).toEqual(initialHeader);
       });
 
       it('returns undefined for non-existent block', async () => {
         l2BlockSource.getBlockHeader.mockResolvedValue(undefined);
-        expect(await node.getBlockHeader(3)).toEqual(undefined);
+        expect(await node.getBlockHeader(BlockNumber(3))).toEqual(undefined);
       });
     });
 
@@ -330,25 +360,25 @@ describe('aztec node', () => {
         block1 = L2Block.empty();
         block2 = L2Block.empty();
 
-        l2BlockSource.getBlockNumber.mockResolvedValue(2);
+        l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber(2));
       });
 
       it('returns requested block number', async () => {
-        l2BlockSource.getBlock.mockResolvedValue(block1);
-        expect(await node.getBlock(1)).toEqual(block1);
-        expect(l2BlockSource.getBlock).toHaveBeenCalledWith(1);
+        l2BlockSource.getL2Block.mockResolvedValue(block1);
+        expect(await node.getBlock(BlockNumber(1))).toEqual(block1);
+        expect(l2BlockSource.getL2Block).toHaveBeenCalledWith(BlockNumber(1));
       });
 
       it('returns latest block', async () => {
-        l2BlockSource.getBlock.mockResolvedValue(block2);
+        l2BlockSource.getL2Block.mockResolvedValue(block2);
         expect(await node.getBlock('latest')).toEqual(block2);
-        expect(l2BlockSource.getBlock).toHaveBeenCalledWith(2);
+        expect(l2BlockSource.getL2Block).toHaveBeenCalledWith(2);
       });
 
       it('returns undefined for non-existent block', async () => {
-        l2BlockSource.getBlock.mockResolvedValue(undefined);
-        expect(await node.getBlock(3)).toEqual(undefined);
-        expect(l2BlockSource.getBlock).toHaveBeenCalledWith(3);
+        l2BlockSource.getL2Block.mockResolvedValue(undefined);
+        expect(await node.getBlock(BlockNumber(3))).toEqual(undefined);
+        expect(l2BlockSource.getL2Block).toHaveBeenCalledWith(3);
       });
     });
   });

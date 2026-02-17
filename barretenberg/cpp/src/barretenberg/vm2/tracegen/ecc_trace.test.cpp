@@ -93,7 +93,7 @@ TEST(EccTraceGenTest, TraceGenerationDouble)
                           ROW_FIELD_EQ(ecc_y_match, 1))));
 }
 
-TEST(EccTraceGenTest, TraceGenerationInf)
+TEST(EccTraceGenTest, TraceGenerationInfResult)
 {
     TestTraceContainer trace;
     EccTraceBuilder builder;
@@ -129,6 +129,79 @@ TEST(EccTraceGenTest, TraceGenerationInf)
                           ROW_FIELD_EQ(ecc_sel, 1),
                           ROW_FIELD_EQ(ecc_x_match, 1),
                           ROW_FIELD_EQ(ecc_y_match, 0))));
+}
+
+TEST(EccTraceGenTest, TraceGenerationInfAdd)
+{
+    TestTraceContainer trace;
+    EccTraceBuilder builder;
+
+    FF p_x("0x04c95d1b26d63d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
+    FF p_y("0x035b6dd9e63c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60");
+    EmbeddedCurvePoint p(p_x, p_y, false);
+
+    // We always assume infinity coordinates have been normalized to (0,0) before reaching tracegen
+    EmbeddedCurvePoint q = EmbeddedCurvePoint::infinity();
+    EmbeddedCurvePoint r = p;
+
+    builder.process_add({ { .p = p, .q = q, .result = r } }, trace);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // Only one row.
+                    AllOf(ROW_FIELD_EQ(ecc_add_op, 1),
+                          ROW_FIELD_EQ(ecc_double_op, 0),
+                          ROW_FIELD_EQ(ecc_inv_2_p_y, 0),
+                          ROW_FIELD_EQ(ecc_inv_x_diff, (q.x() - p.x()).invert()),
+                          ROW_FIELD_EQ(ecc_inv_y_diff, (q.y() - p.y()).invert()),
+                          ROW_FIELD_EQ(ecc_lambda, (q.y() - p.y()) / (q.x() - p.x())),
+                          ROW_FIELD_EQ(ecc_p_is_inf, p.is_infinity()),
+                          ROW_FIELD_EQ(ecc_p_x, p.x()),
+                          ROW_FIELD_EQ(ecc_p_y, p.y()),
+                          ROW_FIELD_EQ(ecc_q_is_inf, q.is_infinity()),
+                          ROW_FIELD_EQ(ecc_q_x, q.x()),
+                          ROW_FIELD_EQ(ecc_q_y, q.y()),
+                          ROW_FIELD_EQ(ecc_r_is_inf, r.is_infinity()),
+                          ROW_FIELD_EQ(ecc_r_x, r.x()),
+                          ROW_FIELD_EQ(ecc_r_y, r.y()),
+                          ROW_FIELD_EQ(ecc_result_infinity, 0),
+                          ROW_FIELD_EQ(ecc_sel, 1),
+                          ROW_FIELD_EQ(ecc_x_match, 0),
+                          ROW_FIELD_EQ(ecc_y_match, 0))));
+}
+
+TEST(EccTraceGenTest, TraceGenerationInfDouble)
+{
+    TestTraceContainer trace;
+    EccTraceBuilder builder;
+
+    EmbeddedCurvePoint p = EmbeddedCurvePoint::infinity();
+    EmbeddedCurvePoint r = p;
+
+    builder.process_add({ { .p = p, .q = p, .result = r } }, trace);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // Only one row.
+                    AllOf(ROW_FIELD_EQ(ecc_add_op, 0),
+                          ROW_FIELD_EQ(ecc_double_op, 1),
+                          ROW_FIELD_EQ(ecc_inv_2_p_y, 0),
+                          ROW_FIELD_EQ(ecc_inv_x_diff, 0),
+                          ROW_FIELD_EQ(ecc_inv_y_diff, 0),
+                          ROW_FIELD_EQ(ecc_lambda, 0),
+                          ROW_FIELD_EQ(ecc_p_is_inf, p.is_infinity()),
+                          ROW_FIELD_EQ(ecc_p_x, p.x()),
+                          ROW_FIELD_EQ(ecc_p_y, p.y()),
+                          ROW_FIELD_EQ(ecc_q_is_inf, p.is_infinity()),
+                          ROW_FIELD_EQ(ecc_q_x, p.x()),
+                          ROW_FIELD_EQ(ecc_q_y, p.y()),
+                          ROW_FIELD_EQ(ecc_r_is_inf, r.is_infinity()),
+                          ROW_FIELD_EQ(ecc_r_x, r.x()),
+                          ROW_FIELD_EQ(ecc_r_y, r.y()),
+                          ROW_FIELD_EQ(ecc_result_infinity, 1),
+                          ROW_FIELD_EQ(ecc_sel, 1),
+                          ROW_FIELD_EQ(ecc_x_match, 1),
+                          ROW_FIELD_EQ(ecc_y_match, 1))));
 }
 
 } // namespace

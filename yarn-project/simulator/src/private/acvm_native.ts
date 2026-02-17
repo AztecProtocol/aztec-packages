@@ -1,5 +1,5 @@
 import { runInDirectory } from '@aztec/foundation/fs';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, resolveLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { ForeignCallHandler, WitnessMap } from '@aztec/noir-acvm_js';
 import type { FunctionArtifactWithContractName } from '@aztec/stdlib/abi';
@@ -11,8 +11,6 @@ import { promises as fs } from 'fs';
 import type { ACIRCallback, ACIRExecutionResult } from './acvm/acvm.js';
 import type { ACVMWitness } from './acvm/acvm_types.js';
 import type { CircuitSimulator } from './circuit_simulator.js';
-
-const logger = createLogger('simulator:acvm-native');
 
 export enum ACVM_RESULT {
   SUCCESS,
@@ -64,7 +62,9 @@ export async function executeNativeCircuit(
   workingDirectory: string,
   pathToAcvm: string,
   outputFilename?: string,
+  loggerOrBindings?: Logger | LoggerBindings,
 ): Promise<ACVMResult> {
+  const logger = resolveLogger('simulator:acvm-native', loggerOrBindings);
   const bytecodeFilename = 'bytecode';
   const witnessFilename = 'input_witness.toml';
 
@@ -145,11 +145,16 @@ export async function executeNativeCircuit(
 }
 
 export class NativeACVMSimulator implements CircuitSimulator {
+  private logger: Logger;
+
   constructor(
     private workingDirectory: string,
     private pathToAcvm: string,
     private witnessFilename?: string,
-  ) {}
+    loggerOrBindings?: Logger | LoggerBindings,
+  ) {
+    this.logger = resolveLogger('simulator:acvm-native', loggerOrBindings);
+  }
 
   async executeProtocolCircuit(
     input: ACVMWitness,
@@ -172,6 +177,7 @@ export class NativeACVMSimulator implements CircuitSimulator {
         directory,
         this.pathToAcvm,
         this.witnessFilename,
+        this.logger,
       );
 
       if (result.status == ACVM_RESULT.FAILURE) {
@@ -181,7 +187,7 @@ export class NativeACVMSimulator implements CircuitSimulator {
       return result;
     };
 
-    return await runInDirectory(this.workingDirectory, operation, false, logger);
+    return await runInDirectory(this.workingDirectory, operation, false, this.logger);
   }
 
   executeUserCircuit(

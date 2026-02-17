@@ -1,7 +1,8 @@
-import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import type { BlobClientInterface } from '@aztec/blob-client/client';
 import type { EpochCache } from '@aztec/epoch-cache';
-import type { GovernanceProposerContract, PublisherManager, RollupContract } from '@aztec/ethereum';
+import type { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import type { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { DateProvider } from '@aztec/foundation/timer';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
@@ -17,7 +18,7 @@ describe('SequencerPublisherFactory', () => {
   let factory: SequencerPublisherFactory;
   let mockConfig: SequencerClientConfig;
   let mockPublisherManager: MockProxy<PublisherManager<L1TxUtilsWithBlobs>>;
-  let mockBlobSinkClient: MockProxy<BlobSinkClientInterface>;
+  let mockBlobClient: MockProxy<BlobClientInterface>;
   let mockDateProvider: MockProxy<DateProvider>;
   let mockEpochCache: MockProxy<EpochCache>;
   let mockRollupContract: MockProxy<RollupContract>;
@@ -35,7 +36,7 @@ describe('SequencerPublisherFactory', () => {
       ethereumSlotDuration: 12,
     } as SequencerClientConfig;
     mockPublisherManager = mock<PublisherManager<L1TxUtilsWithBlobs>>();
-    mockBlobSinkClient = mock<BlobSinkClientInterface>();
+    mockBlobClient = mock<BlobClientInterface>();
     mockDateProvider = mock<DateProvider>();
     mockEpochCache = mock<EpochCache>();
     mockNodeKeyStore = mock<NodeKeystoreAdapter>();
@@ -51,7 +52,7 @@ describe('SequencerPublisherFactory', () => {
     factory = new SequencerPublisherFactory(mockConfig, {
       telemetry: getTelemetryClient(),
       publisherManager: mockPublisherManager,
-      blobSinkClient: mockBlobSinkClient,
+      blobClient: mockBlobClient,
       dateProvider: mockDateProvider,
       epochCache: mockEpochCache,
       governanceProposerContract: mockGovernanceProposerContract,

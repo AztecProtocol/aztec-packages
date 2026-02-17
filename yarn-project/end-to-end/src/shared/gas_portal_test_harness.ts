@@ -4,7 +4,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import type { ExtendedViemWalletClient } from '@aztec/ethereum';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -43,7 +43,7 @@ export class FeeJuicePortalTestingHarnessFactory {
       throw new Error('Fee Juice portal not deployed on L1');
     }
 
-    const gasL2 = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, wallet);
+    const gasL2 = FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, wallet);
 
     return new GasBridgingTestHarness(
       aztecNode,
@@ -127,7 +127,7 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
   async consumeMessageOnAztecAndClaimPrivately(owner: AztecAddress, claimer: AztecAddress, claim: L2AmountClaim) {
     this.logger.info('Consuming messages on L2 Privately');
     const { claimAmount, claimSecret, messageLeafIndex } = claim;
-    await this.feeJuice.methods.claim(owner, claimAmount, claimSecret, messageLeafIndex).send({ from: claimer }).wait();
+    await this.feeJuice.methods.claim(owner, claimAmount, claimSecret, messageLeafIndex).send({ from: claimer });
   }
 
   async getL2PublicBalanceOf(owner: AztecAddress) {

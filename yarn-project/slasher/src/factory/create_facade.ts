@@ -1,6 +1,7 @@
 import { EpochCache } from '@aztec/epoch-cache';
-import type { L1ReaderConfig, ViemClient } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
+import type { L1ReaderConfig } from '@aztec/ethereum/l1-reader';
+import type { ViemClient } from '@aztec/ethereum/types';
 import { unique } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
@@ -30,7 +31,7 @@ export async function createSlasherFacade(
     throw new Error('Cannot initialize SlasherClient without a Rollup address');
   }
 
-  const kvStore = await createStore('slasher', SCHEMA_VERSION, config, createLogger('slasher:lmdb'));
+  const kvStore = await createStore('slasher', SCHEMA_VERSION, config, logger.getBindings());
   const rollup = new RollupContract(l1Client, l1Contracts.rollupAddress);
 
   const slashValidatorsNever = config.slashSelfAllowed

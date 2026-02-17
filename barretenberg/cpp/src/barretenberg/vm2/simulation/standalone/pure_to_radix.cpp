@@ -17,13 +17,12 @@ std::pair<std::vector<uint8_t>, /* truncated */ bool> PureToRadix::to_le_radix(c
 {
     BB_BENCH_NAME("PureToRadix::to_le_radix");
 
-    uint256_t radix_integer = static_cast<uint256_t>(radix);
     uint256_t value_integer = static_cast<uint256_t>(value);
     std::vector<uint8_t> limbs;
     limbs.reserve(num_limbs);
 
     for (uint32_t i = 0; i < num_limbs; i++) {
-        auto [quotient, remainder] = value_integer.divmod(radix_integer);
+        auto [quotient, remainder] = value_integer.divmod(static_cast<uint64_t>(radix));
         limbs.push_back(static_cast<uint8_t>(remainder));
         value_integer = quotient;
     }
@@ -54,8 +53,8 @@ void PureToRadix::to_be_radix(MemoryInterface& memory,
 {
     BB_BENCH_NAME("PureToRadix::to_be_radix");
 
-    uint64_t max_write_address = static_cast<uint64_t>(dst_addr) + num_limbs - 1;
-    bool dst_out_of_range = max_write_address > AVM_HIGHEST_MEM_ADDRESS;
+    uint64_t write_addr_upper_bound = static_cast<uint64_t>(dst_addr) + num_limbs;
+    bool dst_out_of_range = write_addr_upper_bound > AVM_MEMORY_SIZE;
     // Error handling - check that the radix value is within the valid range
     // The valid range is [2, 256]. Therefore, the radix is invalid if (2 > radix) or (radix > 256)
     // We need to perform both checks explicitly since that is what the circuit would do

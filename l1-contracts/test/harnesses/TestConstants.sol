@@ -3,7 +3,13 @@
 
 pragma solidity >=0.8.27;
 
-import {RollupConfigInput, GenesisState, EthValue, RewardConfig} from "@aztec/core/interfaces/IRollup.sol";
+import {
+  RollupConfigInput,
+  GenesisState,
+  EthValue,
+  RewardConfig,
+  EthPerFeeAssetE12
+} from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
@@ -18,7 +24,9 @@ library TestConstants {
   uint256 internal constant AZTEC_SLOT_DURATION = 36;
   uint256 internal constant AZTEC_EPOCH_DURATION = 32;
   uint256 internal constant AZTEC_TARGET_COMMITTEE_SIZE = 48;
-  uint256 internal constant AZTEC_LAG_IN_EPOCHS = 2;
+  uint256 internal constant AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET = 3;
+  uint256 internal constant AZTEC_LAG_IN_EPOCHS_FOR_RANDAO = 2;
+  uint256 internal constant AZTEC_INBOX_LAG = 2;
   uint256 internal constant AZTEC_PROOF_SUBMISSION_EPOCHS = 1;
   uint256 internal constant AZTEC_SLASHING_QUORUM = 6;
   uint256 internal constant AZTEC_SLASHING_ROUND_SIZE = 10;
@@ -38,6 +46,7 @@ library TestConstants {
   uint256 internal constant AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE = 480;
   uint256 internal constant AZTEC_EXIT_DELAY_SECONDS = 2 * 24 * 60 * 60; // 2 days
   EthValue internal constant AZTEC_PROVING_COST_PER_MANA = EthValue.wrap(100);
+  EthPerFeeAssetE12 internal constant AZTEC_INITIAL_ETH_PER_FEE_ASSET = EthPerFeeAssetE12.wrap(1e12 / 1e5);
   uint256 internal constant AZTEC_COIN_ISSUER_RATE = uint256(25_000_000_000e18) / uint256(60 * 60 * 24 * 365);
 
   uint256 internal constant ACTIVATION_THRESHOLD = 100e18;
@@ -78,7 +87,7 @@ library TestConstants {
       rewardDistributor: IRewardDistributor(address(0)),
       sequencerBps: Bps.wrap(5000),
       booster: IBoosterCore(address(0)), // Will cause a deployment
-      blockReward: 50e18
+      checkpointReward: 50e18
     });
   }
 
@@ -98,7 +107,8 @@ library TestConstants {
       aztecEpochDuration: AZTEC_EPOCH_DURATION,
       aztecProofSubmissionEpochs: AZTEC_PROOF_SUBMISSION_EPOCHS,
       targetCommitteeSize: AZTEC_TARGET_COMMITTEE_SIZE,
-      lagInEpochs: AZTEC_LAG_IN_EPOCHS,
+      lagInEpochsForValidatorSet: AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET,
+      lagInEpochsForRandao: AZTEC_LAG_IN_EPOCHS_FOR_RANDAO,
       slashingQuorum: AZTEC_SLASHING_QUORUM,
       slashingRoundSize: AZTEC_SLASHING_ROUND_SIZE,
       slashingLifetimeInRounds: AZTEC_SLASHING_LIFETIME_IN_ROUNDS,
@@ -109,6 +119,7 @@ library TestConstants {
       manaTarget: AZTEC_MANA_TARGET,
       exitDelaySeconds: AZTEC_EXIT_DELAY_SECONDS,
       provingCostPerMana: AZTEC_PROVING_COST_PER_MANA,
+      initialEthPerFeeAsset: AZTEC_INITIAL_ETH_PER_FEE_ASSET,
       version: 0,
       rewardConfig: getRewardConfig(),
       rewardBoostConfig: getRewardBoostConfig(),
@@ -116,7 +127,8 @@ library TestConstants {
       slashAmounts: [AZTEC_SLASH_AMOUNT_SMALL, AZTEC_SLASH_AMOUNT_MEDIUM, AZTEC_SLASH_AMOUNT_LARGE],
       slasherFlavor: SlasherFlavor.EMPIRE,
       localEjectionThreshold: 0, // The same as it being off, and only using the global.
-      earliestRewardsClaimableTimestamp: Timestamp.wrap(0) // Default to 0 (no restriction)
+      earliestRewardsClaimableTimestamp: Timestamp.wrap(0), // Default to 0 (no restriction)
+      inboxLag: AZTEC_INBOX_LAG
     });
 
     // For the version we derive it based on the config (with a 0 version)

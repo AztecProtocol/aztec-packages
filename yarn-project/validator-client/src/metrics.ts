@@ -1,12 +1,15 @@
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import {
   Attributes,
+  type Gauge,
   type Histogram,
   Metrics,
   type TelemetryClient,
   type UpDownCounter,
-  ValueType,
+  createUpDownCounterWithDefault,
 } from '@aztec/telemetry-client';
+
+import type { BlockProposalValidationFailureReason } from './block_proposal_handler.js';
 
 export class ValidatorMetrics {
   private failedReexecutionCounter: UpDownCounter;
@@ -16,55 +19,56 @@ export class ValidatorMetrics {
 
   private reexMana: Histogram;
   private reexTx: Histogram;
-  private reexDuration: Histogram;
+  private reexDuration: Gauge;
 
   constructor(telemetryClient: TelemetryClient) {
     const meter = telemetryClient.getMeter('Validator');
 
-    this.failedReexecutionCounter = meter.createUpDownCounter(Metrics.VALIDATOR_FAILED_REEXECUTION_COUNT, {
-      description: 'The number of failed re-executions',
-      unit: 'count',
-      valueType: ValueType.INT,
+    this.failedReexecutionCounter = createUpDownCounterWithDefault(meter, Metrics.VALIDATOR_FAILED_REEXECUTION_COUNT, {
+      [Attributes.STATUS]: ['failed'],
     });
 
-    this.successfulAttestationsCount = meter.createUpDownCounter(Metrics.VALIDATOR_ATTESTATION_SUCCESS_COUNT, {
-      description: 'The number of successful attestations',
-      valueType: ValueType.INT,
-    });
+    this.successfulAttestationsCount = createUpDownCounterWithDefault(
+      meter,
+      Metrics.VALIDATOR_ATTESTATION_SUCCESS_COUNT,
+    );
 
-    this.failedAttestationsBadProposalCount = meter.createUpDownCounter(
+    this.failedAttestationsBadProposalCount = createUpDownCounterWithDefault(
+      meter,
       Metrics.VALIDATOR_ATTESTATION_FAILED_BAD_PROPOSAL_COUNT,
       {
-        description: 'The number of failed attestations due to invalid block proposals',
-        valueType: ValueType.INT,
+        [Attributes.ERROR_TYPE]: [
+          'invalid_proposal',
+          'state_mismatch',
+          'failed_txs',
+          'in_hash_mismatch',
+          'parent_block_wrong_slot',
+        ],
+        [Attributes.IS_COMMITTEE_MEMBER]: [true, false],
       },
     );
 
-    this.failedAttestationsNodeIssueCount = meter.createUpDownCounter(
+    this.failedAttestationsNodeIssueCount = createUpDownCounterWithDefault(
+      meter,
       Metrics.VALIDATOR_ATTESTATION_FAILED_NODE_ISSUE_COUNT,
       {
-        description: 'The number of failed attestations due to node issues (timeout, missing data, etc.)',
-        valueType: ValueType.INT,
+        [Attributes.ERROR_TYPE]: [
+          'parent_block_not_found',
+          'global_variables_mismatch',
+          'block_number_already_exists',
+          'txs_not_available',
+          'timeout',
+          'unknown_error',
+        ],
+        [Attributes.IS_COMMITTEE_MEMBER]: [true, false],
       },
     );
 
-    this.reexMana = meter.createHistogram(Metrics.VALIDATOR_RE_EXECUTION_MANA, {
-      description: 'The mana consumed by blocks',
-      valueType: ValueType.DOUBLE,
-      unit: 'Mmana',
-    });
+    this.reexMana = meter.createHistogram(Metrics.VALIDATOR_RE_EXECUTION_MANA);
 
-    this.reexTx = meter.createHistogram(Metrics.VALIDATOR_RE_EXECUTION_TX_COUNT, {
-      description: 'The number of txs in a block proposal',
-      valueType: ValueType.INT,
-      unit: 'tx',
-    });
+    this.reexTx = meter.createHistogram(Metrics.VALIDATOR_RE_EXECUTION_TX_COUNT);
 
-    this.reexDuration = meter.createGauge(Metrics.VALIDATOR_RE_EXECUTION_TIME, {
-      description: 'The time taken to re-execute a transaction',
-      unit: 'ms',
-      valueType: ValueType.INT,
-    });
+    this.reexDuration = meter.createGauge(Metrics.VALIDATOR_RE_EXECUTION_TIME);
   }
 
   public recordReex(time: number, txs: number, mManaTotal: number) {
@@ -85,14 +89,22 @@ export class ValidatorMetrics {
     this.successfulAttestationsCount.add(num);
   }
 
-  public incFailedAttestationsBadProposal(num: number, reason: string, inCommittee: boolean) {
+  public incFailedAttestationsBadProposal(
+    num: number,
+    reason: BlockProposalValidationFailureReason,
+    inCommittee: boolean,
+  ) {
     this.failedAttestationsBadProposalCount.add(num, {
       [Attributes.ERROR_TYPE]: reason,
       [Attributes.IS_COMMITTEE_MEMBER]: inCommittee,
     });
   }
 
-  public incFailedAttestationsNodeIssue(num: number, reason: string, inCommittee: boolean) {
+  public incFailedAttestationsNodeIssue(
+    num: number,
+    reason: BlockProposalValidationFailureReason,
+    inCommittee: boolean,
+  ) {
     this.failedAttestationsNodeIssueCount.add(num, {
       [Attributes.ERROR_TYPE]: reason,
       [Attributes.IS_COMMITTEE_MEMBER]: inCommittee,

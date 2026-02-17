@@ -1,15 +1,17 @@
-use crate::{abis::{BlockRollupPublicInputs, TxRollupPublicInputs}, tx_merge::merge_tx_rollups};
-use parity_lib::ParityPublicInputs;
+use crate::{
+    abis::{BlockRollupPublicInputs, ParityPublicInputs, TxRollupPublicInputs},
+    tx_merge::merge_tx_rollups,
+};
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_header::BlockHeader,
         checkpoint_constant_data::CheckpointConstantData, global_variables::GlobalVariables,
-        partial_state_reference::PartialStateReference, sponge_blob::SpongeBlob,
-        state_reference::StateReference,
+        partial_state_reference::PartialStateReference, state_reference::StateReference,
     },
+    blob_data::SpongeBlob,
     constants::{
-        ARCHIVE_HEIGHT, BLOCK_END_PREFIX, L1_TO_L2_MSG_SUBTREE_HEIGHT,
-        L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH, L1_TO_L2_MSG_TREE_HEIGHT,
+        ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_HEIGHT, L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
+        L1_TO_L2_MSG_TREE_HEIGHT,
     },
     merkle_tree::append_only_tree,
     traits::Hash,
@@ -28,7 +30,7 @@ pub struct BlockRollupPublicInputsComposer {
     out_hash: Field,
     accumulated_fees: Field,
     accumulated_mana_used: Field,
-
+    num_txs: u16,
     // The followings are set by calling `with_new_l1_to_l2_messages` explicitly.
     in_hash: Field,
     new_l1_to_l2: AppendOnlyTreeSnapshot,
@@ -39,12 +41,9 @@ impl BlockRollupPublicInputsComposer {
         previous_archive: AppendOnlyTreeSnapshot,
         previous_state: StateReference,
         constants: CheckpointConstantData,
-        start_sponge_blob: SpongeBlob,
         timestamp: u64,
     ) -> Self {
-        let block_end_marker = Self::create_block_end_marker(0 /* num_txs */);
-        let mut end_sponge_blob = start_sponge_blob;
-        end_sponge_blob.absorb([block_end_marker], 1 /* num_fields */);
+        let empty_sponge_blob = SpongeBlob::init();
 
         Self {
             constants,
@@ -53,13 +52,15 @@ impl BlockRollupPublicInputsComposer {
             // The state remains the same since there are no tx effects in this block.
             start_tree_snapshots: previous_state.partial,
             end_tree_snapshots: previous_state.partial,
-            start_sponge_blob,
-            end_sponge_blob,
+            // Since it's the first block in a checkpoint, the start sponge blob is empty.
+            start_sponge_blob: empty_sponge_blob,
+            end_sponge_blob: empty_sponge_blob,
             timestamp,
             // The followings are 0 since there are no tx effects in this block.
             out_hash: 0,
             accumulated_fees: 0,
             accumulated_mana_used: 0,
+            num_txs: 0,
             // The followings are updated by calling `with_new_l1_to_l2_messages` explicitly.
             in_hash: 0,
             new_l1_to_l2: previous_state.l1_to_l2_message_tree,
@@ -80,9 +81,8 @@ impl BlockRollupPublicInputsComposer {
             gas_fees: global_variables.gas_fees,
         };
 
-        let mut end_sponge_blob = rollup.end_sponge_blob;
-        let block_end_marker = Self::create_block_end_marker(rollup.num_txs);
-        end_sponge_blob.absorb([block_end_marker], 1 /* num_fields */);
+        // This should never bite, because both private/public tx base rollups set num_txs to 1. Nevertheless, it's here.
+        assert(rollup.num_txs != 0, "Must use new_from_no_rollups instead.");
 
         Self {
             constants,
@@ -90,11 +90,12 @@ impl BlockRollupPublicInputsComposer {
             start_tree_snapshots: rollup.start_tree_snapshots,
             end_tree_snapshots: rollup.end_tree_snapshots,
             start_sponge_blob: rollup.start_sponge_blob,
-            end_sponge_blob,
+            end_sponge_blob: rollup.end_sponge_blob,
             timestamp: global_variables.timestamp,
             out_hash: rollup.out_hash,
             accumulated_fees: rollup.accumulated_fees,
             accumulated_mana_used: rollup.accumulated_mana_used,
+            num_txs: rollup.num_txs,
             // The followings are updated by calling `update_l1_to_l2_tree_snapshots` explicitly.
             previous_l1_to_l2: rollup.constants.l1_to_l2_tree_snapshot,
             in_hash: 0,
@@ -142,12 +143,12 @@ impl BlockRollupPublicInputsComposer {
         new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
     ) -> BlockRollupPublicInputs {
         // Build the header of this block and then insert its hash to the archive tree.
-        let block_header = self.create_block_header();
-        let block_hash = block_header.hash();
+        let (block_header, end_sponge_blob) = self.create_block_header_and_end_sponge_blob();
+        let block_header_hash = block_header.hash();
         let new_archive = append_only_tree::append_leaf_to_snapshot::<ARCHIVE_HEIGHT>(
             self.previous_archive,
             new_archive_sibling_path,
-            block_hash,
+            block_header_hash,
         );
 
         let start_state = StateReference {
@@ -162,9 +163,9 @@ impl BlockRollupPublicInputsComposer {
             start_state,
             end_state: block_header.state,
             start_sponge_blob: self.start_sponge_blob,
-            end_sponge_blob: self.end_sponge_blob,
-            start_timestamp: self.timestamp,
-            end_timestamp: self.timestamp,
+            end_sponge_blob,
+            timestamp: self.timestamp,
+            block_headers_hash: block_header_hash,
             in_hash: self.in_hash,
             out_hash: self.out_hash,
             accumulated_fees: self.accumulated_fees,
@@ -172,29 +173,22 @@ impl BlockRollupPublicInputsComposer {
         }
     }
 
-    /// Demarcates the end of a block in a checkpoint's blobs.
-    pub fn create_block_end_marker(num_txs: u16) -> Field {
-        // BLOCK_END_PREFIX | num_txs (2 bytes)
-        (BLOCK_END_PREFIX * 256 * 256) + num_txs as Field
-    }
+    fn create_block_header_and_end_sponge_blob(self) -> (BlockHeader, SpongeBlob) {
+        let last_archive = self.previous_archive;
 
-    fn create_block_header(self) -> BlockHeader {
         let state = StateReference {
             l1_to_l2_message_tree: self.new_l1_to_l2,
             partial: self.end_tree_snapshots,
         };
 
-        // Assign the `end_sponge_blob` to a mutable variable so that we can squeeze it.
-        // This is because `squeeze` will mutate the sponge to be in squeeze mode (and may absorb an extra field if not
-        // full). But we want to propagate the un-squeezed sponge so that it can keep absorbing data in the next blocks.
-        let mut end_sponge_blob_for_block = self.end_sponge_blob;
-        let sponge_blob_hash = end_sponge_blob_for_block.squeeze();
-
         // Block number equals the index at which the new block header hash is inserted into the archive tree.
         let block_number = self.previous_archive.next_available_leaf_index as u32;
 
+        // TODO: this feels like "validation" that should therefore be done by the "Validator", rather than this "Composer".
+        // TODO: consider doing this as part of the "empty" variant's validation. It doesn't seem to belong here?
+
         // Note: For non-empty blocks, a check is performed in `block_root_rollup_inputs_validator.nr` to ensure that
-        // the leaf index matches the block number (u32) in the tx constants, which implies that the leaf index does not
+        // the leaf index (field) matches the block number (u32) in the tx constants, which implies that the leaf index does not
         // exceed u32. However, for empty blocks, without the check below, the block number would be truncated to a
         // smaller value (dropping the high bits) if the leaf index exceeded u32. This would allow the block to follow
         // a block with a much smaller block number, while `last_archive` would still contain the large index.
@@ -203,6 +197,10 @@ impl BlockRollupPublicInputsComposer {
         // Note: An empty block with a mismatched `last_archive` leaf index could be rolled up if it is in the first
         // checkpoint of an epoch, since only the `last_archive.root` is output from the root rollup and checked on L1.
         self.previous_archive.next_available_leaf_index.assert_max_bit_size::<32>();
+        std::static_assert(
+            ARCHIVE_HEIGHT <= 32,
+            "You need to update the max bit size on the line above",
+        );
 
         let global_variables = GlobalVariables {
             chain_id: self.constants.chain_id,
@@ -215,13 +213,40 @@ impl BlockRollupPublicInputsComposer {
             gas_fees: self.constants.gas_fees,
         };
 
-        BlockHeader {
-            last_archive: self.previous_archive,
+        // Absorb data for this block into the end sponge blob.
+        let mut block_end_sponge_blob = self.end_sponge_blob;
+
+        // `in_hash` is not 0 if and only if it's the first block in the checkpoint.
+        // Note: the `in_hash` of the first block in the checkpoint is asserted to be nonzero
+        // by the Checkpoint Root circuit.
+        // Note: the `in_hash` of subsequent blocks in the checkpoint is asserted to be 0
+        // within `validate_consecutive_block_rollups.nr`, by asserting that the `in_hash` of all
+        // "right" rollups is `0`.
+        let is_first_block_in_checkpoint = self.in_hash != 0;
+        block_end_sponge_blob.absorb_block_end_data(
+            global_variables,
+            last_archive,
+            state,
+            self.num_txs,
+            self.accumulated_mana_used,
+            is_first_block_in_checkpoint,
+        );
+
+        // Duplicate the `block_end_sponge_blob` so that we can squeeze it.
+        // This is because `squeeze` will mutate the sponge to be in squeeze mode to update the state. But we want to
+        // propagate the un-squeezed sponge so that it can keep absorbing data in the next block.
+        let mut duplicated_end_sponge_blob = block_end_sponge_blob;
+        let sponge_blob_hash = duplicated_end_sponge_blob.squeeze();
+
+        let block_header = BlockHeader {
+            last_archive,
             state,
             sponge_blob_hash,
             global_variables,
             total_fees: self.accumulated_fees,
             total_mana_used: self.accumulated_mana_used,
-        }
+        };
+
+        (block_header, block_end_sponge_blob)
     }
 }

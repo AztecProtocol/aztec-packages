@@ -3,7 +3,6 @@ use std::io::Write;
 use std::path::Path;
 
 pub struct BBFiles {
-    pub vm_name: String,
     pub base_dir: String,
     pub relations: String,
 }
@@ -17,7 +16,6 @@ impl BBFiles {
         let relations = relations.unwrap_or("relations").to_owned();
 
         Self {
-            vm_name: vm_name.to_owned(),
             base_dir,
             relations,
         }

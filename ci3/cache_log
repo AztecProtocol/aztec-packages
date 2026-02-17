@@ -9,16 +9,31 @@ source $ci3/source_cache
 name=$1
 
 key=${2:-$(uuid)}
-outfile=/tmp/$key
 dup=${DUP:-0}
+outfile=/tmp/$key
+touch $outfile
 trap 'rm -f $outfile' EXIT
-echo -e "Parent Log: ${PARENT_LOG_URL:-none}\n" >$outfile
+if [ -n "${PARENT_LOG_ID:-}" ]; then
+  echo -e "Parent Log: $(ci_term_link $PARENT_LOG_ID)" >>$outfile
+else
+  echo -e "Parent Log: none" >>$outfile
+fi
+echo -e "Started: $(date)" >>$outfile
+echo -e "Completed: in-progress" >>$outfile
+echo -e "Took: in-progress\n" >>$outfile
+
+function finalize_log {
+  # Use sed to update the header.
+  sed -i "3c Completed: $(date)" "$outfile"
+  sed -i "4c Took: ${SECONDS}s" "$outfile"
+}
 
 function publish_log {
   cat $outfile | redis_setexz $key $CI_REDIS_EXPIRE
 }
 
 function publish_log_final {
+  finalize_log
   cat $outfile | cache_persistent $key $CI_REDIS_EXPIRE
 }
 
@@ -37,6 +52,11 @@ function live_publish_log {
 if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   log_str="$name log id: ${yellow}http://ci.aztec-labs.com/$key${reset}"
   echo_stderr -e "$log_str"
+  # Close stderr to prevent holding inherited pipeline FDs open.
+  # When cache_log runs inside a process substitution within a pipeline (e.g. in bootstrap_ec2),
+  # FD 2 points to the pipeline pipe. If we (or live_publish_log) hold it open, the pipeline
+  # hangs waiting for EOF even after the main command has finished.
+  exec 2>/dev/null
   live_publish_log &
   if [ "$dup" -eq 1 ]; then
     redact | tee -a $outfile

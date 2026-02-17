@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 import type { Writeable } from '@aztec/foundation/types';
 
@@ -33,7 +33,7 @@ describe('computeTransactionFee', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/fees.nr',
+      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/tx_base/components/fees.nr',
       'expected_fee',
       feeStr,
     );
@@ -47,7 +47,7 @@ describe('computeTransactionFee', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/fees.nr',
+      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/tx_base/components/fees.nr',
       'expected_fee_empty_priority',
       feeStr,
     );
@@ -62,7 +62,7 @@ describe('computeTransactionFee', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/fees.nr',
+      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/tx_base/components/fees.nr',
       'expected_max_fee',
       feeStr,
     );

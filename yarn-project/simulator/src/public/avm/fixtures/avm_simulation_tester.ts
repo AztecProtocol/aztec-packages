@@ -1,5 +1,6 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { encodeArguments } from '@aztec/stdlib/abi';
+import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
@@ -12,6 +13,7 @@ import { SimpleContractDataSource } from '../../fixtures/simple_contract_data_so
 import { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
 import { PublicPersistableStateManager } from '../../state_manager/state_manager.js';
 import { AvmSimulator } from '../avm_simulator.js';
+import { CallDataArray } from '../calldata.js';
 import { BaseAvmSimulationTester } from './base_avm_simulation_tester.js';
 import { initContext, initExecutionEnvironment } from './initializers.js';
 import {
@@ -51,7 +53,6 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
       treesDB,
       contractsDB,
       trace,
-      /*doMerkleOperations=*/ false,
       firstNullifier,
       DEFAULT_TIMESTAMP,
     );
@@ -81,12 +82,20 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
     globals.timestamp = DEFAULT_TIMESTAMP;
     globals.gasFees = DEFAULT_GAS_FEES;
 
+    const config = PublicSimulatorConfig.from({
+      skipFeeEnforcement: false,
+      collectDebugLogs: true,
+      collectHints: false,
+      collectStatistics: false,
+      collectCallMetadata: true,
+    });
     const environment = initExecutionEnvironment({
-      calldata,
+      calldata: new CallDataArray(calldata),
       globals,
       address,
       sender,
       isStaticCall,
+      config,
     });
     const persistableState = await this.stateManager.fork();
     const context = initContext({ env: environment, persistableState });
@@ -97,7 +106,12 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
     if (result.reverted) {
       this.logger.error(`Error in ${fnName}:`);
       this.logger.error(
-        resolveContractAssertionMessage(fnName, result.revertReason!, result.output, contractArtifact)!,
+        resolveContractAssertionMessage(
+          fnName,
+          result.revertReason!,
+          result.output.bestEffortReadAll(),
+          contractArtifact,
+        )!,
       );
     } else {
       this.logger.info(`Simulation of function ${fnName} succeeded!`);

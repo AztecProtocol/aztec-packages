@@ -1,7 +1,7 @@
 import { FinalBlobAccumulator } from '@aztec/blob-lib/types';
-import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
+import { MAX_CHECKPOINTS_PER_EPOCH } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -21,8 +21,14 @@ export class RootRollupPublicInputs {
     public previousArchiveRoot: Fr,
     /** Root of the archive tree after this rollup is processed */
     public endArchiveRoot: Fr,
-    public checkpointHeaderHashes: Tuple<Fr, typeof AZTEC_MAX_EPOCH_DURATION>,
-    public fees: Tuple<FeeRecipient, typeof AZTEC_MAX_EPOCH_DURATION>,
+    /**
+     * Root of the balanced merkle tree consisting of the out hashes of all checkpoints in this epoch.
+     * The out hash of the first checkpoint in the epoch is inserted at index 0, the second at index 1, and so on.
+     */
+    public outHash: Fr,
+    /** Hashes of checkpoint headers for this rollup. */
+    public checkpointHeaderHashes: Tuple<Fr, typeof MAX_CHECKPOINTS_PER_EPOCH>,
+    public fees: Tuple<FeeRecipient, typeof MAX_CHECKPOINTS_PER_EPOCH>,
     public constants: EpochConstantData,
     public blobPublicInputs: FinalBlobAccumulator,
   ) {}
@@ -31,6 +37,7 @@ export class RootRollupPublicInputs {
     return [
       fields.previousArchiveRoot,
       fields.endArchiveRoot,
+      fields.outHash,
       fields.checkpointHeaderHashes,
       fields.fees,
       fields.constants,
@@ -60,8 +67,9 @@ export class RootRollupPublicInputs {
     return new RootRollupPublicInputs(
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      reader.readArray(AZTEC_MAX_EPOCH_DURATION, Fr),
-      reader.readArray(AZTEC_MAX_EPOCH_DURATION, FeeRecipient),
+      Fr.fromBuffer(reader),
+      reader.readArray(MAX_CHECKPOINTS_PER_EPOCH, Fr),
+      reader.readArray(MAX_CHECKPOINTS_PER_EPOCH, FeeRecipient),
       EpochConstantData.fromBuffer(reader),
       reader.readObject(FinalBlobAccumulator),
     );
@@ -90,8 +98,9 @@ export class RootRollupPublicInputs {
     return new RootRollupPublicInputs(
       Fr.random(),
       Fr.random(),
-      makeTuple(AZTEC_MAX_EPOCH_DURATION, Fr.random),
-      makeTuple(AZTEC_MAX_EPOCH_DURATION, FeeRecipient.random),
+      Fr.random(),
+      makeTuple(MAX_CHECKPOINTS_PER_EPOCH, Fr.random),
+      makeTuple(MAX_CHECKPOINTS_PER_EPOCH, FeeRecipient.random),
       new EpochConstantData(Fr.random(), Fr.random(), Fr.random(), Fr.random(), Fr.random()),
       FinalBlobAccumulator.random(),
     );

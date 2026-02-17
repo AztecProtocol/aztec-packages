@@ -6,14 +6,14 @@ use types::{
 /// Validates that a (note hash, nullifier) pair is eligible to be squashed.
 ///
 /// A note hash and its corresponding nullifier can only be squashed if:
-/// - The nullifier explicitly nullifies the given note hash.
-/// - Both belong to the same contract.
+/// - The nullifier explicitly nullifies the given note hash (which the nullifier conveys through its `note_hash` field).
+/// - Both belong to the same contract_address.
 /// - The nullifier was created after the note hash (i.e., has a greater counter).
-/// - If the nullifier is revertible, then the note hash must also be revertible.
+/// - If the nullifier is revertible, then the note hash must also be revertible (see below for why).
 pub fn validate_squashable_note_hash_nullifier_pair(
     note_hash: Scoped<Counted<NoteHash>>,
     nullifier: Scoped<Counted<Nullifier>>,
-    min_revertible_side_effect_counter: u32,
+    split_counter: u32,
 ) {
     // Ensure the nullifier refers to the note hash.
     assert_eq(
@@ -35,19 +35,28 @@ pub fn validate_squashable_note_hash_nullifier_pair(
         "Cannot nullify a note hash created afterwards",
     );
 
-    // If the nullifier is revertible (i.e., counter >= `min_revertible_side_effect_counter`), the note hash must also
-    // be revertible.
+    // If the nullifier is revertible (i.e., counter > `split_counter`), the note hash must also be revertible.
     //
     // A revertible nullifier and non-revertible note hash pair can't be squashed; they must be propagated.
-    // That is because, if the transaction reverts, the non-revertible note hash will be kept, and the revertible
-    // nullifier will be discarded. If we squash the pair, we would lose the non-revertible note hash that is no longer
-    // nullified when the transaction reverts.
+    // This is because if the tx were to then revert (in some public function), the revertible nullifier must be discarded
+    // (by the definition of "revertible"), but the non-revertible note must still be inserted
+    // (by the definition of "non-revertible"). But if we were to have squashed this (note, nullifier) pair
+    // within private-land, then the non-revertible note would be lost, and a reverting public function would
+    // not know of it in order to fullfil its job of inserting all non-revertible side-effects.
     //
     // Note: No need to check the other way around. Since the nullifier counter must be larger than the note hash
-    // counter, it's not possible to have a non-revertible nullifier nullifying a revertible note hash.
-    if nullifier.counter() >= min_revertible_side_effect_counter {
+    // counter, and since all non-revertible counters come _before_ revertible counters in a tx, it's not possible
+    // to have a non-revertible nullifier nullifying a revertible note hash.
+    //
+    // Note: for private-only txs (where this is not a concern), `split_counter` has already been set as
+    // `0` within `validate_transient_data`.
+    // Note: if it's private-only and `split_counter` is therefore `0`, it is not possible for any
+    // side-effect counter to be `0` (as enforced by the init and inner kernel circuits).
+    // Otherwise, `split_counter` is the `min_revertible_side_effect_counter` of the tx, which is
+    // asserted to be distinct from all other counters in the init and inner kernel circuits.
+    if nullifier.counter() > split_counter {
         assert(
-            note_hash.counter() >= min_revertible_side_effect_counter,
+            note_hash.counter() > split_counter,
             "Cannot squash a non-revertible note hash with a revertible nullifier",
         );
     }
@@ -124,7 +133,39 @@ mod tests {
         builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(5)]);
 
         // Make the note hash non-revertible and the nullifier revertible.
-        builder.min_revertible_side_effect_counter = 3;
+        builder.split_counter = 3;
+
+        builder.add_squashing_hint(0, 0);
+
+        builder.validate();
+    }
+
+    #[test]
+    fn succeeds_squash_both_revertible() {
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        builder.add_note_hashes([Counted::new(11, 5)]);
+
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(9)]);
+
+        // Both counters (5 and 9) are > split_counter (3), so both are revertible.
+        builder.split_counter = 3;
+
+        builder.add_squashing_hint(0, 0);
+
+        builder.validate();
+    }
+
+    #[test]
+    fn succeeds_squash_both_non_revertible() {
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        builder.add_note_hashes([Counted::new(11, 1)]);
+
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(5)]);
+
+        // Both counters (1 and 5) are < split_counter (10), so both are non-revertible.
+        builder.split_counter = 10;
 
         builder.add_squashing_hint(0, 0);
 

@@ -1,8 +1,8 @@
-#include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
+#include "barretenberg/boomerang_value_detection/graph.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
+#include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/test_utils/tamper_proof.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -11,16 +11,25 @@
 
 namespace bb::stdlib::recursion::honk {
 
+// Test parameters: <RecursiveFlavor, IO>
+// IO determines the public inputs structure (DefaultIO or RollupIO) for both inner and outer circuits
+template <typename RecursiveFlavor_, typename IO_> struct RecursiveVerifierTestParams {
+    using RecursiveFlavor = RecursiveFlavor_;
+    using IO = IO_;
+};
+
 // Run the recursive verifier tests with conventional Ultra builder and Goblin builder
-using Flavors = testing::Types<MegaRecursiveFlavor_<MegaCircuitBuilder>,
-                               MegaRecursiveFlavor_<UltraCircuitBuilder>,
-                               UltraRecursiveFlavor_<UltraCircuitBuilder>,
-                               UltraRecursiveFlavor_<MegaCircuitBuilder>,
-                               UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
-                               UltraZKRecursiveFlavor_<MegaCircuitBuilder>,
-                               UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
-                               MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
-                               MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
+// Note: UltraRecursiveFlavor_<UltraCircuitBuilder> + RollupIO covers the rollup case
+using TestConfigs = testing::Types<
+    RecursiveVerifierTestParams<MegaRecursiveFlavor_<MegaCircuitBuilder>, DefaultIO<MegaCircuitBuilder>>,
+    RecursiveVerifierTestParams<MegaRecursiveFlavor_<UltraCircuitBuilder>, DefaultIO<UltraCircuitBuilder>>,
+    RecursiveVerifierTestParams<UltraRecursiveFlavor_<UltraCircuitBuilder>, DefaultIO<UltraCircuitBuilder>>,
+    RecursiveVerifierTestParams<UltraRecursiveFlavor_<UltraCircuitBuilder>, RollupIO>, // Rollup case
+    RecursiveVerifierTestParams<UltraRecursiveFlavor_<MegaCircuitBuilder>, DefaultIO<MegaCircuitBuilder>>,
+    RecursiveVerifierTestParams<UltraZKRecursiveFlavor_<UltraCircuitBuilder>, DefaultIO<UltraCircuitBuilder>>,
+    RecursiveVerifierTestParams<UltraZKRecursiveFlavor_<MegaCircuitBuilder>, DefaultIO<MegaCircuitBuilder>>,
+    RecursiveVerifierTestParams<MegaZKRecursiveFlavor_<MegaCircuitBuilder>, DefaultIO<MegaCircuitBuilder>>,
+    RecursiveVerifierTestParams<MegaZKRecursiveFlavor_<UltraCircuitBuilder>, DefaultIO<UltraCircuitBuilder>>>;
 
 /**
  * @brief Test suite for recursive verification of  Honk proofs for both Ultra and Mega arithmetisation.
@@ -28,40 +37,38 @@ using Flavors = testing::Types<MegaRecursiveFlavor_<MegaCircuitBuilder>,
  * to recursively verify. `Outer*` describes the arithmetisation of the recursive verifier circuit and the types
  * required to ensure the recursive verifier circuit is correct (i.e. by producing a proof and verifying it).
  *
- * @tparam RecursiveFlavor defines the recursive verifier, what the arithmetisation of its circuit should be and what
- * types of proofs it recursively verifies.
+ * @tparam Params contains RecursiveFlavor and IO type for the test
  */
-template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing::Test {
+template <typename Params> class RecursiveVerifierTest : public testing::Test {
+
+    using RecursiveFlavor = typename Params::RecursiveFlavor;
+    using IO = typename Params::IO;
 
     // Define types for the inner circuit, i.e. the circuit whose proof will be recursively verified
     using InnerFlavor = typename RecursiveFlavor::NativeFlavor;
     using InnerProver = UltraProver_<InnerFlavor>;
-    using InnerVerifier = UltraVerifier_<InnerFlavor>;
     using InnerBuilder = typename InnerFlavor::CircuitBuilder;
     using InnerProverInstance = ProverInstance_<InnerFlavor>;
     using InnerCommitment = InnerFlavor::Commitment;
     using InnerFF = InnerFlavor::FF;
-    using InnerIO = std::conditional_t<HasIPAAccumulator<RecursiveFlavor>,
-                                       bb::stdlib::recursion::honk::RollupIO, // If RecursiveFlavor has IPA, then
-                                                                              // OuterVerifier is Rollup flavor
-                                       bb::stdlib::recursion::honk::DefaultIO<InnerBuilder>>;
+    using InnerProof = std::vector<InnerFF>;
+
+    // IO types: InnerIO uses InnerBuilder, OuterIO uses OuterBuilder
+    using NativeIO = std::conditional_t<IO::HasIPA, bb::RollupIO, bb::DefaultIO>;
+    using InnerVerifier = bb::UltraVerifier_<InnerFlavor, NativeIO>;
+    using InnerIO = std::conditional_t<IO::HasIPA, RollupIO, DefaultIO<InnerBuilder>>;
 
     // Defines types for the outer circuit, i.e. the circuit of the recursive verifier
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
-    using OuterFlavor =
-        std::conditional_t<IsMegaBuilder<OuterBuilder>,
-                           MegaFlavor,
-                           std::conditional_t<HasIPAAccumulator<RecursiveFlavor>, UltraRollupFlavor, UltraFlavor>>;
+    using OuterFlavor = std::conditional_t<IsMegaBuilder<OuterBuilder>, MegaFlavor, UltraFlavor>;
     using OuterProver = UltraProver_<OuterFlavor>;
-    using OuterVerifier = UltraVerifier_<OuterFlavor>;
+    using OuterVerifier = bb::UltraVerifier_<OuterFlavor, NativeIO>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
     using OuterStdlibProof = bb::stdlib::Proof<OuterBuilder>;
-    using OuterIO = std::conditional_t<HasIPAAccumulator<RecursiveFlavor>,
-                                       bb::stdlib::recursion::honk::RollupIO, // If RecursiveFlavor has IPA, then
-                                                                              // OuterVerifier is Rollup flavor
-                                       bb::stdlib::recursion::honk::DefaultIO<OuterBuilder>>;
+    using OuterIO = IO;
 
-    using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
+    // RecursiveVerifier uses IO that matches the test's IO type
+    using RecursiveVerifier = bb::UltraVerifier_<RecursiveFlavor, IO>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
     using PairingObject = PairingPoints<OuterBuilder>;
@@ -131,15 +138,17 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         auto honk_vk = std::make_shared<typename InnerFlavor::VerificationKey>(prover_instance->get_precomputed());
         auto stdlib_vk_and_hash = std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, honk_vk);
         // Instantiate the recursive verifier using the native verification key
-        RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
+        RecursiveVerifier verifier{ stdlib_vk_and_hash };
 
         // Spot check some values in the recursive VK to ensure it was constructed correctly
-        EXPECT_EQ(static_cast<uint64_t>(verifier.verifier_instance->vk_and_hash->vk->log_circuit_size.get_value()),
-                  honk_vk->log_circuit_size);
-        EXPECT_EQ(static_cast<uint64_t>(verifier.verifier_instance->vk_and_hash->vk->num_public_inputs.get_value()),
-                  honk_vk->num_public_inputs);
+        EXPECT_EQ(
+            static_cast<uint64_t>(verifier.get_verifier_instance()->vk_and_hash->vk->log_circuit_size.get_value()),
+            honk_vk->log_circuit_size);
+        EXPECT_EQ(
+            static_cast<uint64_t>(verifier.get_verifier_instance()->vk_and_hash->vk->num_public_inputs.get_value()),
+            honk_vk->num_public_inputs);
         for (auto [vk_poly, native_vk_poly] :
-             zip_view(verifier.verifier_instance->vk_and_hash->vk->get_all(), honk_vk->get_all())) {
+             zip_view(verifier.get_verifier_instance()->vk_and_hash->vk->get_all(), honk_vk->get_all())) {
             EXPECT_EQ(vk_poly.get_value(), native_vk_poly);
         }
     }
@@ -170,16 +179,16 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             OuterBuilder outer_circuit;
             auto stdlib_vk_and_hash =
                 std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, verification_key);
-            RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
+            RecursiveVerifier verifier{ stdlib_vk_and_hash };
 
+            // Convert native proof to stdlib and verify (verifier handles IPA splitting internally)
             OuterStdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
-            typename RecursiveVerifier::Output verifier_output =
-                verifier.template verify_proof<OuterIO>(stdlib_inner_proof);
+            typename RecursiveVerifier::Output verifier_output = verifier.verify_proof(stdlib_inner_proof);
 
             // IO of outer_circuit
             OuterIO inputs;
             inputs.pairing_inputs = verifier_output.points_accumulator;
-            if constexpr (HasIPAAccumulator<OuterFlavor>) {
+            if constexpr (IO::HasIPA) {
                 // Add ipa claim
                 inputs.ipa_claim = verifier_output.ipa_claim;
 
@@ -222,16 +231,17 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         OuterBuilder outer_circuit;
         auto stdlib_vk_and_hash =
             std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, verification_key);
-        RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
-        verifier.transcript->enable_manifest();
+        auto recursive_transcript = std::make_shared<typename RecursiveFlavor::Transcript>();
+        recursive_transcript->enable_manifest();
+        RecursiveVerifier verifier{ stdlib_vk_and_hash, recursive_transcript };
 
         OuterStdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
-        VerifierOutput output = verifier.template verify_proof<OuterIO>(stdlib_inner_proof);
+        VerifierOutput output = verifier.verify_proof(stdlib_inner_proof);
 
         // IO of outer_circuit
         OuterIO inputs;
         inputs.pairing_inputs = output.points_accumulator;
-        if constexpr (HasIPAAccumulator<OuterFlavor>) {
+        if constexpr (IO::HasIPA) {
             // Add ipa claim
             inputs.ipa_claim = output.ipa_claim;
 
@@ -245,29 +255,21 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 
         // Check 1: Perform native verification then perform the pairing on the outputs of the recursive
         // verifier and check that the result agrees.
-        bool native_result = false;
-        InnerVerifier native_verifier(verification_key);
-        native_verifier.transcript->enable_manifest();
-        if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
-            native_verifier.ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N);
-            native_result =
-                native_verifier.template verify_proof<bb::RollupIO>(inner_proof, output.ipa_proof.get_value()).result;
-        } else {
-            native_result = native_verifier.template verify_proof<bb::DefaultIO>(inner_proof).result;
-        }
+        auto vk_and_hash = std::make_shared<typename InnerFlavor::VKAndHash>(verification_key);
+        auto native_transcript = std::make_shared<typename InnerFlavor::Transcript>();
+        native_transcript->enable_manifest();
+        InnerVerifier native_verifier(vk_and_hash, native_transcript);
+        // inner_proof already contains combined honk + IPA for rollup flavors
+        bool native_result = native_verifier.verify_proof(inner_proof).result;
 
-        NativeVerifierCommitmentKey pcs_vkey{};
-        bool result =
-            pcs_vkey.pairing_check(output.points_accumulator.P0.get_value(), output.points_accumulator.P1.get_value());
+        bool result = output.points_accumulator.check();
         info("input pairing points result: ", result);
-        auto recursive_result =
-            pcs_vkey.pairing_check(output.points_accumulator.P0.get_value(), output.points_accumulator.P1.get_value());
-        EXPECT_EQ(recursive_result, native_result);
+        EXPECT_EQ(result, native_result);
 
         // Check 2: Ensure that the underlying native and recursive verification algorithms agree by ensuring
         // the manifests produced by each agree.
-        auto recursive_manifest = verifier.transcript->get_manifest();
-        auto native_manifest = native_verifier.transcript->get_manifest();
+        auto recursive_manifest = verifier.get_transcript()->get_manifest();
+        auto native_manifest = native_verifier.get_transcript()->get_manifest();
         for (size_t i = 0; i < recursive_manifest.size(); ++i) {
             EXPECT_EQ(recursive_manifest[i], native_manifest[i]);
         }
@@ -279,22 +281,17 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
                 std::make_shared<typename OuterFlavor::VerificationKey>(prover_instance->get_precomputed());
             info("Recursive Verifier: num gates = ", outer_circuit.get_num_finalized_gates());
             OuterProver prover(prover_instance, verification_key);
+            // construct_proof() already returns combined proof (honk + IPA) for rollup flavors
             auto proof = prover.construct_proof();
-            if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
-                VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key = (1 << CONST_ECCVM_LOG_N);
-                OuterVerifier verifier(verification_key, ipa_verification_key);
-                bool result = verifier.template verify_proof<bb::RollupIO>(proof, prover_instance->ipa_proof).result;
-                ASSERT_TRUE(result);
-            } else {
-                OuterVerifier verifier(verification_key);
-                bool result = verifier.template verify_proof<bb::DefaultIO>(proof).result;
-                ASSERT_TRUE(result);
-            }
+            auto outer_vk_and_hash = std::make_shared<typename OuterFlavor::VKAndHash>(verification_key);
+            OuterVerifier verifier(outer_vk_and_hash);
+            bool result = verifier.verify_proof(proof).result;
+            ASSERT_TRUE(result);
         }
         // Check the size of the recursive verifier
         if constexpr (std::same_as<RecursiveFlavor, MegaZKRecursiveFlavor_<UltraCircuitBuilder>>) {
-            uint32_t NUM_GATES_EXPECTED = 860190;
-            ASSERT_EQ(static_cast<uint32_t>(outer_circuit.get_num_finalized_gates()), NUM_GATES_EXPECTED)
+            const auto expected_gate_count = std::get<0>(acir_format::HONK_RECURSION_CONSTANTS<RecursiveFlavor>());
+            ASSERT_EQ(outer_circuit.get_num_finalized_gates(), expected_gate_count)
                 << "MegaZKHonk Recursive verifier changed in Ultra gate count! Update this value if you "
                    "are sure this is expected.";
         }
@@ -327,9 +324,9 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             OuterBuilder outer_circuit;
             auto stdlib_vk_and_hash =
                 std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, inner_verification_key);
-            RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
+            RecursiveVerifier verifier{ stdlib_vk_and_hash };
             OuterStdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
-            VerifierOutput output = verifier.template verify_proof<OuterIO>(stdlib_inner_proof);
+            VerifierOutput output = verifier.verify_proof(stdlib_inner_proof);
 
             // Wrong Gemini witnesses lead to the pairing check failure in non-ZK case but don't break any
             // constraints. In ZK-cases, tampering with Gemini witnesses leads to SmallSubgroupIPA consistency check
@@ -339,10 +336,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
                 EXPECT_FALSE(CircuitChecker::check(outer_circuit));
             } else {
                 EXPECT_TRUE(CircuitChecker::check(outer_circuit));
-                NativeVerifierCommitmentKey pcs_vkey{};
-                bool result = pcs_vkey.pairing_check(output.points_accumulator.P0.get_value(),
-                                                     output.points_accumulator.P1.get_value());
-                EXPECT_FALSE(result);
+                EXPECT_FALSE(output.points_accumulator.check());
             }
         }
     }
@@ -369,15 +363,15 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             auto inner_proof = inner_prover.construct_proof();
 
             // Tamper with the proof to be verified
-            tamper_with_proof<InnerProver, InnerFlavor>(inner_proof, /*end_of_proof*/ static_cast<bool>(idx));
+            tamper_with_proof<InnerFlavor>(inner_proof, /*end_of_proof*/ static_cast<bool>(idx));
 
             // Create a recursive verification circuit for the proof of the inner circuit
             OuterBuilder outer_circuit;
             auto stdlib_vk_and_hash =
                 std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, inner_verification_key);
-            RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
+            RecursiveVerifier verifier{ stdlib_vk_and_hash };
             OuterStdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
-            VerifierOutput output = verifier.template verify_proof<OuterIO>(stdlib_inner_proof);
+            VerifierOutput output = verifier.verify_proof(stdlib_inner_proof);
 
             if (idx == 0) {
                 // We expect the circuit check to fail due to the bad proof.
@@ -387,16 +381,93 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
                 // constraints. In ZK-cases, tampering with Gemini witnesses leads to SmallSubgroupIPA consistency check
                 // failure.
                 EXPECT_TRUE(CircuitChecker::check(outer_circuit));
-                NativeVerifierCommitmentKey pcs_vkey{};
-                bool result = pcs_vkey.pairing_check(output.points_accumulator.P0.get_value(),
-                                                     output.points_accumulator.P1.get_value());
-                EXPECT_FALSE(result);
+                EXPECT_FALSE(output.points_accumulator.check());
             }
         }
     }
+
+    /**
+     * @brief Test recursive verification with static graph analysis to detect unconstrained variables
+     * @details This test constructs a recursive verification circuit and uses the StaticAnalyzer
+     * to verify that all variables are properly constrained, with the expected exception of variables
+     * that appear in only one gate (e.g., unused Shplonk powers due to PCS structure).
+     *
+     * This test was moved from graph_description_ultra_recursive_verifier.test.cpp to consolidate
+     * recursive verifier testing.
+     */
+    static void test_recursive_verification_with_graph_analysis()
+    {
+        // Create an arbitrary inner circuit
+        auto inner_circuit = create_inner_circuit();
+
+        // Generate a proof over the inner circuit
+        auto prover_instance = std::make_shared<InnerProverInstance>(inner_circuit);
+        auto verification_key =
+            std::make_shared<typename InnerFlavor::VerificationKey>(prover_instance->get_precomputed());
+        InnerProver inner_prover(prover_instance, verification_key);
+        auto inner_proof = inner_prover.construct_proof();
+
+        // Create a recursive verification circuit for the proof of the inner circuit
+        OuterBuilder outer_circuit;
+        auto stdlib_vk_and_hash =
+            std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, verification_key);
+        RecursiveVerifier verifier{ stdlib_vk_and_hash };
+
+        // Fix witness for VK fields to ensure they're properly constrained
+        verifier.get_verifier_instance()->vk_and_hash->vk->num_public_inputs.fix_witness();
+        verifier.get_verifier_instance()->vk_and_hash->vk->pub_inputs_offset.fix_witness();
+        verifier.get_verifier_instance()->vk_and_hash->vk->log_circuit_size.fix_witness();
+
+        OuterStdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
+        VerifierOutput output = verifier.verify_proof(stdlib_inner_proof);
+        auto pairing_points = output.points_accumulator;
+
+        // The pairing points are public outputs from the recursive verifier that will be verified externally via a
+        // pairing check. While they are computed within the circuit (via batch_mul for P0 and negation for P1), their
+        // output coordinates may not appear in multiple constraint gates. Calling fix_witness() adds explicit
+        // constraints on these values. Without these constraints, the StaticAnalyzer detects unconstrained variables
+        // (coordinate limbs) that appear in only one gate. This ensures the pairing point coordinates are properly
+        // constrained within the circuit itself, rather than relying solely on them being public outputs.
+        pairing_points.fix_witness();
+
+        // For RollupIO: Fix the IPA claim's bigfield elements (challenge and evaluation).
+        // When reconstructed from public inputs, bigfield::construct_from_limbs creates a prime_basis_limb
+        // that's computed as a linear combination of the binary limbs. Since the IPA claim is just propagated, this
+        // prime_basis_limb appears in only one gate.
+        if constexpr (IO::HasIPA) {
+            output.ipa_claim.opening_pair.challenge.fix_witness();
+            output.ipa_claim.opening_pair.evaluation.fix_witness();
+        }
+
+        info("Recursive Verifier: num gates = ", outer_circuit.get_num_finalized_gates_inefficient());
+
+        // Check for a failure flag in the recursive verifier circuit
+        EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
+
+        outer_circuit.finalize_circuit(false);
+
+        // Run static analysis to detect unconstrained variables
+        // Use the appropriate analyzer based on the outer builder type
+        using Analyzer =
+            std::conditional_t<IsMegaBuilder<OuterBuilder>, cdg::MegaStaticAnalyzer, cdg::UltraStaticAnalyzer>;
+        auto graph = Analyzer(outer_circuit);
+        auto [cc, variables_in_one_gate] = graph.analyze_circuit(/*filter_cc=*/true);
+
+        // We expect exactly one connected component (all variables properly connected)
+        EXPECT_EQ(cc.size(), 1);
+
+        // Expected variables in one gate:
+        // - +1 for unused Shplonk power (non-ZK flavors only)
+        size_t expected_unconstrained = 0;
+        // Add 1 for unused Shplonk power in non-ZK flavors
+        if constexpr (!RecursiveFlavor::HasZK) {
+            expected_unconstrained += 1;
+        }
+        EXPECT_EQ(variables_in_one_gate.size(), expected_unconstrained);
+    }
 };
 
-TYPED_TEST_SUITE(RecursiveVerifierTest, Flavors);
+TYPED_TEST_SUITE(RecursiveVerifierTest, TestConfigs);
 
 HEAVY_TYPED_TEST(RecursiveVerifierTest, InnerCircuit)
 {
@@ -415,10 +486,10 @@ HEAVY_TYPED_TEST(RecursiveVerifierTest, SingleRecursiveVerification)
 
 HEAVY_TYPED_TEST(RecursiveVerifierTest, IndependentVKHash)
 {
-    if constexpr (IsAnyOf<TypeParam,
+    using RecursiveFlavor = typename TypeParam::RecursiveFlavor;
+    if constexpr (IsAnyOf<RecursiveFlavor,
                           UltraRecursiveFlavor_<UltraCircuitBuilder>,
                           UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
-                          UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
                           MegaZKRecursiveFlavor_<UltraCircuitBuilder>>) {
         TestFixture::test_independent_vk_hash();
     } else {
@@ -429,6 +500,17 @@ HEAVY_TYPED_TEST(RecursiveVerifierTest, IndependentVKHash)
 HEAVY_TYPED_TEST(RecursiveVerifierTest, SingleRecursiveVerificationFailure)
 {
     TestFixture::test_recursive_verification_fails();
+};
+
+/**
+ * @brief Test recursive verification circuit with graph analysis for unconstrained variables
+ * @details Uses StaticAnalyzer to verify all circuit variables are properly constrained.
+ * Originally a separate test in graph_description_ultra_recursive_verifier.test.cpp, now
+ * consolidated into the main recursive verifier test suite.
+ */
+HEAVY_TYPED_TEST(RecursiveVerifierTest, GraphAnalysisOfRecursiveVerifier)
+{
+    TestFixture::test_recursive_verification_with_graph_analysis();
 };
 
 #ifdef DISABLE_HEAVY_TESTS

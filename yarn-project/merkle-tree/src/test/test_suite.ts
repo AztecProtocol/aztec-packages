@@ -3,7 +3,7 @@ import type { Hasher } from '@aztec/foundation/trees';
 import type { AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 
-import { Pedersen } from '../index.js';
+import { Poseidon } from '../index.js';
 import type { AppendOnlyTree } from '../interfaces/append_only_tree.js';
 import type { UpdateOnlyTree } from '../interfaces/update_only_tree.js';
 import { appendLeaves } from './utils/append_leaves.js';
@@ -36,7 +36,7 @@ export const treeTestSuite = (
 ) => {
   describe(testName, () => {
     const values: Buffer[] = [];
-    let pedersen: Pedersen;
+    let poseidon: Poseidon;
 
     beforeAll(() => {
       for (let i = 0; i < 32; ++i) {
@@ -47,15 +47,15 @@ export const treeTestSuite = (
     });
 
     beforeEach(() => {
-      pedersen = new Pedersen();
+      poseidon = new Poseidon();
     });
 
     it('should revert changes on rollback', async () => {
       const dbEmpty = openTmpStore();
-      const emptyTree = await createDb(dbEmpty, pedersen, 'test', 10);
+      const emptyTree = await createDb(dbEmpty, poseidon, 'test', 10);
 
       const db = openTmpStore();
-      const tree = await createDb(db, pedersen, 'test2', 10);
+      const tree = await createDb(db, poseidon, 'test2', 10);
       await appendLeaves(tree, values.slice(0, 4));
 
       const firstRoot = tree.getRoot(true);
@@ -87,10 +87,10 @@ export const treeTestSuite = (
 
     it('should not revert changes after commit', async () => {
       const dbEmpty = openTmpStore();
-      const emptyTree = await createDb(dbEmpty, pedersen, 'test', 10);
+      const emptyTree = await createDb(dbEmpty, poseidon, 'test', 10);
 
       const db = openTmpStore();
-      const tree = await createDb(db, pedersen, 'test2', 10);
+      const tree = await createDb(db, poseidon, 'test2', 10);
       await appendLeaves(tree, values.slice(0, 4));
 
       expect(tree.getRoot(true)).not.toEqual(emptyTree.getRoot(true));
@@ -106,11 +106,11 @@ export const treeTestSuite = (
 
     it('should be able to restore from previous committed data', async () => {
       const db = openTmpStore();
-      const tree = await createDb(db, pedersen, 'test', 10);
+      const tree = await createDb(db, poseidon, 'test', 10);
       await appendLeaves(tree, values.slice(0, 4));
       await tree.commit();
 
-      const tree2 = await createFromName(db, pedersen, 'test');
+      const tree2 = await createFromName(db, poseidon, 'test');
 
       // both committed and uncommitted should be equal to the restored data
       expect(tree.getRoot(true)).toEqual(tree2.getRoot(true));
@@ -125,14 +125,14 @@ export const treeTestSuite = (
       const db = openTmpStore();
       await expect(
         (async () => {
-          await createFromName(db, pedersen, 'a_whole_new_tree');
+          await createFromName(db, poseidon, 'a_whole_new_tree');
         })(),
       ).rejects.toThrow();
     });
 
     it('should serialize sibling path data to a buffer and be able to deserialize it back', async () => {
       const db = openTmpStore();
-      const tree = await createDb(db, pedersen, 'test', 10);
+      const tree = await createDb(db, poseidon, 'test', 10);
       await appendLeaves(tree, values.slice(0, 1));
 
       const siblingPath = await tree.getSiblingPath(0n, true);

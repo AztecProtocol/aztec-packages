@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -24,7 +24,7 @@ namespace bb {
  * OP | X_LO | X_HI | Y_LO
  * 0  | Y_HI | Z1   | Z2
  *
- *  OP is supposed to be { 0, 1, 2, 3, 4, 8 }. X_LO and Y_LO need to be < 2¹³⁶, X_HI and Y_LO < 2¹¹⁸, Z1 and Z2 < 2¹²⁸.
+ *  OP is supposed to be { 0, 3, 4, 8 }. X_LO and Y_LO need to be < 2¹³⁶, X_HI and Y_LO < 2¹¹⁸, Z1 and Z2 < 2¹²⁸.
  *  X_* and Y_* are supposed to be the decompositions of bn254 base fields elements P.x and P.y and are split into two
  * chunks each because the scalar field we are operating on can't fit them
  *
@@ -77,20 +77,12 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     static constexpr size_t NUM_WIRES = 81;
     static constexpr size_t NUM_SELECTORS = 0;
 
-    /**
-     * We won't need these standard gates that are defined as virtual in circuit builder base
-     *
-     */
-    void create_add_gate(const add_triple_<Fr>&) override {};
-    void create_mul_gate(const mul_triple_<Fr>&) override {};
-    void create_bool_gate(const uint32_t) override {};
-    void create_poly_gate(const poly_triple_<Fr>&) override {};
     [[nodiscard]] size_t get_num_constant_gates() const override { return 0; };
 
     /**
      * @brief There are so many wires that naming them has no sense, it is easier to access them with enums
      */
-    enum WireIds : size_t {
+    enum WireIds : uint8_t {
         OP, // The first 4 wires contain the standard values from the EccQueue wire
         X_LOW_Y_HI,
         X_HIGH_Z_1,
@@ -192,7 +184,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     static constexpr size_t NUM_LIMB_BITS = 68;
 
     // For soundness we need to constrain the highest limb so that the whole value is at most 50 bits
-    static constexpr size_t NUM_LAST_LIMB_BITS = Fq::modulus.get_msb() + 1 - 3 * NUM_LIMB_BITS;
+    static constexpr size_t NUM_LAST_LIMB_BITS = Fq::modulus.get_msb() + 1 - (3 * NUM_LIMB_BITS);
 
     // 128-bit z_1 and z_2 are split into 2 limbs each
     static constexpr size_t NUM_Z_LIMBS = 2;
@@ -201,7 +193,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     static constexpr size_t NUM_QUOTIENT_BITS = 256;
 
     // Number of bits in the quotient highest limb
-    static constexpr size_t NUM_LAST_QUOTIENT_LIMB_BITS = 256 - 3 * NUM_LIMB_BITS;
+    static constexpr size_t NUM_LAST_QUOTIENT_LIMB_BITS = 256 - (3 * NUM_LIMB_BITS);
 
     // Number of bits in Z scalars
     static constexpr size_t NUM_Z_BITS = 128;
@@ -238,6 +230,9 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     // Maximum size of 2 higher limbs concatenated
     static constexpr auto MAX_HIGH_WIDE_LIMB_SIZE = (uint256_t(1) << (NUM_LIMB_BITS + NUM_LAST_LIMB_BITS)) - 1;
 
+    // Maximum size of z limbs
+    static constexpr auto MAX_Z_LIMB_SIZE = (uint256_t(1) << NUM_Z_BITS) - 1;
+
     // Index at which the accumulation result is stored in the circuit, preceeded by one no-op that ensures translator
     // polynomials are shiftable and three random ops that contribute to ensuring the Translator proof does not leak
     // information about the op queue content linked to the circuits being proven
@@ -267,10 +262,10 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     // The modulus of the target emulated field as a 512-bit integer
     static constexpr uint512_t MODULUS_U512 = uint512_t(Fq::modulus);
 
-    // The binary modulus used in the CRT computation
+    // The binary modulus used in the CRT computation (2²⁷²)
     static constexpr uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (NUM_LIMB_BITS << 2);
 
-    // Negated modulus of the target emulated field in the binary modulus
+    // Negated modulus of the target emulated field in the binary modulus (2²⁷² - q)
     static constexpr uint512_t NEGATIVE_PRIME_MODULUS = BINARY_BASIS_MODULUS - MODULUS_U512;
 
     // Negated modulus of the target emulated field in the binary modulus split into 4 binary limbs + the final limb is
@@ -310,7 +305,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         std::array<Fr, NUM_BINARY_LIMBS> quotient_binary_limbs;
         std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_BINARY_LIMBS> quotient_microlimbs;
         std::array<Fr, NUM_RELATION_WIDE_LIMBS> relation_wide_limbs;
-        std::array<std::array<Fr, NUM_MICRO_LIMBS>, 2> relation_wide_microlimbs;
+        std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_RELATION_WIDE_LIMBS> relation_wide_microlimbs;
     };
 
     static constexpr std::string_view NAME_STRING = "TranslatorCircuitBuilder";
@@ -323,7 +318,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
 
     bool avm_mode = false;
 
-    std::array<SlabVector<uint32_t>, NUM_WIRES> wires;
+    std::array<std::vector<uint32_t>, NUM_WIRES> wires;
 
     /**
      * @brief Construct a new Translator Circuit Builder object
@@ -334,8 +329,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
      * @param evaluation_input_x_
      */
     TranslatorCircuitBuilder(Fq batching_challenge_v_, Fq evaluation_input_x_, bool avm_mode_ = false)
-        : CircuitBuilderBase(DEFAULT_TRANSLATOR_VM_LENGTH)
-        , batching_challenge_v(batching_challenge_v_)
+        : batching_challenge_v(batching_challenge_v_)
         , evaluation_input_x(evaluation_input_x_)
         , avm_mode(avm_mode_)
     {
@@ -380,6 +374,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
      *
      * @details We transform Fq into an integer and then split it into 68-bit limbs, then convert them to Fr.
      *
+     * @param base The Fq element to split
      */
     static std::array<Fr, NUM_BINARY_LIMBS> split_fq_into_limbs(const Fq& base)
     {
@@ -392,13 +387,22 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         });
     }
 
+    /**
+     * @brief Ensures the ultra op is well-formed and can be used to create a gate.
+     *
+     * @details There are two main types of checks: that members of the UltraOp are within the appropriate ranges and
+     * that op is one of { 0, 3, 4, 8 }.
+     *
+     * @param ultra_op
+     */
     static void assert_well_formed_ultra_op(const UltraOp& ultra_op);
 
     /**
      * @brief Ensures the accumulation input is well-formed and can be used to create a gate.
+     *
      * @details There are two main types of checks: that members of the AccumulationInput are within the appropriate
      * ranges and that the members containing `*limbs` have been constructed appropriately from the original values,
-     *  present in the AccumulationInput.
+     * present in the AccumulationInput.
      *
      * @param acc_step
      */

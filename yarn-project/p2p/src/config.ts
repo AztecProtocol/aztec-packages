@@ -2,31 +2,51 @@ import {
   type ConfigMappingsType,
   SecretValue,
   booleanConfigHelper,
-  floatConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
+  percentageConfigHelper,
   pickConfigMappings,
   secretStringConfigHelper,
 } from '@aztec/foundation/config';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
-import { FunctionSelector } from '@aztec/stdlib/abi';
+import { FunctionSelector } from '@aztec/stdlib/abi/function-selector';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type AllowedElement, type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
+import {
+  type AllowedElement,
+  type ChainConfig,
+  type SequencerConfig,
+  chainConfigMappings,
+  sharedSequencerConfigMappings,
+} from '@aztec/stdlib/config';
 
+import {
+  type BatchTxRequesterConfig,
+  batchTxRequesterConfigMappings,
+} from './services/reqresp/batch-tx-requester/config.js';
 import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './services/reqresp/config.js';
 import { type TxCollectionConfig, txCollectionConfigMappings } from './services/tx_collection/config.js';
+import { type TxFileStoreConfig, txFileStoreConfigMappings } from './services/tx_file_store/config.js';
 
 /**
  * P2P client configuration values.
  */
-export interface P2PConfig extends P2PReqRespConfig, ChainConfig, TxCollectionConfig {
+export interface P2PConfig
+  extends P2PReqRespConfig,
+    BatchTxRequesterConfig,
+    ChainConfig,
+    TxCollectionConfig,
+    TxFileStoreConfig,
+    Pick<SequencerConfig, 'blockDurationMs'> {
   /** A flag dictating whether the P2P subsystem should be enabled. */
   p2pEnabled: boolean;
 
   /** The frequency in which to check for new L2 blocks. */
   blockCheckIntervalMS: number;
+
+  /** The frequency in which to check for new L2 slots. */
+  slotCheckIntervalMS: number;
 
   /** The number of blocks to fetch in a single batch. */
   blockRequestBatchSize: number;
@@ -133,11 +153,8 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig, TxCollectionCo
   /** Which calls are allowed in the public setup phase of a tx. */
   txPublicSetupAllowList: AllowedElement[];
 
-  /** The maximum cumulative tx size (in bytes) of pending txs before evicting lower priority txs. */
-  maxTxPoolSize: number;
-
-  /** If the pool is full, it will still accept a few more txs until it reached maxTxPoolOverspillFactor * maxTxPoolSize. Then it will evict */
-  txPoolOverflowFactor: number;
+  /** The maximum number of pending txs before evicting lower priority txs. */
+  maxPendingTxCount: number;
 
   /** The node's seen message ID cache size */
   seenMessageCacheSize: number;
@@ -164,6 +181,18 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig, TxCollectionCo
 
   /** Whether to delete transactions from the pool after a reorg instead of moving them back to pending. */
   txPoolDeleteTxsAfterReorg: boolean;
+
+  /** Alters the format of p2p messages to include things like broadcast timestamp FOR TESTING ONLY */
+  debugP2PInstrumentMessages: boolean;
+
+  /** Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus */
+  fishermanMode: boolean;
+
+  /** Broadcast block proposals even when a conflicting proposal for the same slot already exists in the pool (for testing purposes only). */
+  broadcastEquivocatedProposals?: boolean;
+
+  /** Minimum age (ms) a transaction must have been in the pool before it's eligible for block building. */
+  minTxPoolAgeMs: number;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
@@ -183,6 +212,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_BLOCK_CHECK_INTERVAL_MS',
     description: 'The frequency in which to check for new L2 blocks.',
     ...numberConfigHelper(100),
+  },
+  slotCheckIntervalMS: {
+    env: 'P2P_SLOT_CHECK_INTERVAL_MS',
+    description: 'The frequency in which to check for new L2 slots.',
+    ...numberConfigHelper(1000),
   },
   debugDisableColocationPenalty: {
     env: 'DEBUG_P2P_DISABLE_COLOCATION_PENALTY',
@@ -369,15 +403,12 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     printDefault: () =>
       'AuthRegistry, FeeJuice.increase_public_balance, Token.increase_public_balance, FPC.prepare_fee',
   },
-  maxTxPoolSize: {
-    env: 'P2P_MAX_TX_POOL_SIZE',
-    description: 'The maximum cumulative tx size of pending txs (in bytes) before evicting lower priority txs.',
-    ...numberConfigHelper(100_000_000), // 100MB
-  },
-  txPoolOverflowFactor: {
-    env: 'P2P_TX_POOL_OVERFLOW_FACTOR',
-    description: 'How much the tx pool can overflow before it starts evicting txs. Must be greater than 1',
-    ...floatConfigHelper(1.1), // 10% overflow
+  maxPendingTxCount: {
+    env: 'P2P_MAX_PENDING_TX_COUNT',
+    description: 'The maximum number of pending txs before evicting lower priority txs.',
+    // Worst case scenario: Uncompressed public/private tx is ~ 156kb
+    // This implies we are using ~156MB of memory for pending pool
+    ...numberConfigHelper(1_000),
   },
   seenMessageCacheSize: {
     env: 'P2P_SEEN_MSG_CACHE_SIZE',
@@ -406,8 +437,8 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   },
   dropTransactionsProbability: {
     env: 'P2P_DROP_TX_CHANCE',
-    description: 'The probability that a transaction is discarded. - For testing purposes only',
-    ...floatConfigHelper(0),
+    description: 'The probability that a transaction is discarded (0 - 1). - For testing purposes only',
+    ...percentageConfigHelper(0),
   },
   disableTransactions: {
     env: 'TRANSACTIONS_DISABLED',
@@ -420,9 +451,33 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'Whether to delete transactions from the pool after a reorg instead of moving them back to pending.',
     ...booleanConfigHelper(false),
   },
+  debugP2PInstrumentMessages: {
+    env: 'DEBUG_P2P_INSTRUMENT_MESSAGES',
+    description: 'Alters the format of p2p messages to include things like broadcast timestamp FOR TESTING ONLY',
+    ...booleanConfigHelper(false),
+  },
+  fishermanMode: {
+    env: 'FISHERMAN_MODE',
+    description:
+      'Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus.',
+    ...booleanConfigHelper(false),
+  },
+  broadcastEquivocatedProposals: {
+    description:
+      'Broadcast block proposals even when a conflicting proposal for the same slot already exists in the pool (for testing purposes only).',
+    ...booleanConfigHelper(false),
+  },
+  minTxPoolAgeMs: {
+    env: 'P2P_MIN_TX_POOL_AGE_MS',
+    description: 'Minimum age (ms) a transaction must have been in the pool before it is eligible for block building.',
+    ...numberConfigHelper(2_000),
+  },
+  ...sharedSequencerConfigMappings,
   ...p2pReqRespConfigMappings,
+  ...batchTxRequesterConfigMappings,
   ...chainConfigMappings,
   ...txCollectionConfigMappings,
+  ...txFileStoreConfigMappings,
 };
 
 /**

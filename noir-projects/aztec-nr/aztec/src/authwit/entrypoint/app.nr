@@ -1,6 +1,6 @@
-use crate::{authwit::entrypoint::function_call::FunctionCall, context::PrivateContext};
-use dep::protocol_types::{
-    constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD,
+use crate::{authwit::entrypoint::FunctionCall, context::PrivateContext};
+use crate::protocol::{
+    constants::DOM_SEP__SIGNATURE_PAYLOAD,
     hash::poseidon2_hash_with_separator,
     traits::{Hash, Serialize},
 };
@@ -24,7 +24,7 @@ pub struct AppPayload {
 
 impl Hash for AppPayload {
     fn hash(self) -> Field {
-        poseidon2_hash_with_separator(self.serialize(), GENERATOR_INDEX__SIGNATURE_PAYLOAD)
+        poseidon2_hash_with_separator(self.serialize(), DOM_SEP__SIGNATURE_PAYLOAD)
     }
 }
 

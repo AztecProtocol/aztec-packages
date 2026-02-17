@@ -1,13 +1,13 @@
 // A contract used along with `Child` contract to test nested calls.
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract Parent {
-    use dep::aztec::{context::gas::GasOpts, macros::functions::external};
-    use dep::aztec::protocol_types::constants::MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS;
-    use aztec::protocol_types::{
+    use aztec::{context::gas::GasOpts, macros::functions::external};
+    use aztec::protocol::{
         abis::function_selector::FunctionSelector, address::AztecAddress, traits::ToField,
     };
+    use aztec::protocol::constants::MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS;
     // Private function to call another private function in the target_contract using the provided selector
     #[external("private")]
     fn entry_point(target_contract: AztecAddress, target_selector: FunctionSelector) -> Field {
@@ -24,7 +24,7 @@ pub contract Parent {
         self.context.call_public_function(
             target_contract,
             target_selector,
-            [init_value].as_slice(),
+            [init_value],
             GasOpts::default(),
         )[0]
     }
@@ -38,13 +38,13 @@ pub contract Parent {
         let return_value: Field = self.context.call_public_function(
             target_contract,
             target_selector,
-            [init_value].as_slice(),
+            [init_value],
             GasOpts::default(),
         )[0];
         self.context.call_public_function(
             target_contract,
             target_selector,
-            [return_value].as_slice(),
+            [return_value],
             GasOpts::default(),
         )[0]
     }
@@ -218,7 +218,7 @@ pub contract Parent {
         self.context.static_call_public_function(
             target_contract,
             target_selector,
-            args.as_slice(),
+            args,
             GasOpts::default(),
         )[0]
     }
@@ -235,7 +235,7 @@ pub contract Parent {
         self.context.static_call_public_function(
             self.address,
             pub_entry_point_selector,
-            [target_contract.to_field(), target_selector.to_field(), args[0]].as_slice(),
+            [target_contract.to_field(), target_selector.to_field(), args[0]],
             GasOpts::default(),
         )[0]
     }
@@ -266,8 +266,8 @@ pub contract Parent {
         // Call the target private function
         self.context.static_call_public_function(target_contract, target_selector, args, false);
     }
-    use dep::aztec::test::helpers::test_environment::TestEnvironment;
-    use dep::child_contract::Child;
+    use aztec::test::helpers::test_environment::TestEnvironment;
+    use child_contract::Child;
 
     #[test]
     unconstrained fn test_private_call() {

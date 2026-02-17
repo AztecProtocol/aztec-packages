@@ -1,6 +1,6 @@
 use crate::Counter;
 use aztec::{
-    oracle::notes::set_sender_for_tags, protocol_types::address::AztecAddress,
+    oracle::notes::set_sender_for_tags, protocol::address::AztecAddress,
     test::helpers::test_environment::TestEnvironment,
 };
 

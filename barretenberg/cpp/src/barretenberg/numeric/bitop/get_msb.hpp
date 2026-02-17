@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -47,6 +47,27 @@ constexpr inline uint64_t get_msb64(const uint64_t in)
 template <typename T> constexpr inline T get_msb(const T in)
 {
     return (sizeof(T) <= 4) ? get_msb32(in) : get_msb64(in);
+}
+
+constexpr inline uint32_t get_lsb32(const uint32_t in)
+{
+    if (in == 0) {
+        return 0;
+    }
+    return static_cast<uint32_t>(__builtin_ctz(in));
+}
+
+constexpr inline uint64_t get_lsb64(const uint64_t in)
+{
+    if (in == 0) {
+        return 0;
+    }
+    return static_cast<uint64_t>(__builtin_ctzll(in));
+}
+
+template <typename T> constexpr inline T get_lsb(const T in)
+{
+    return (sizeof(T) <= 4) ? get_lsb32(in) : get_lsb64(in);
 }
 
 template <typename T> constexpr inline T round_up_power_2(const T in)

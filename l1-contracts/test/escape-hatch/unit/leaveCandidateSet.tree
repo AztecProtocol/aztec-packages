@@ -1,0 +1,15 @@
+EscapeHatchLeaveCandidateSetTest
+├── given caller status is not EXITING
+│   └── it should revert {EscapeHatch__InvalidStatus}
+└── given caller status is EXITING
+    ├── when exitableAt has not been reached
+    │   └── it should revert {EscapeHatch__NotExitableYet}
+    └── when exitableAt has been reached
+        ├── given caller was not punished
+        │   ├── it should delete candidate data
+        │   ├── it should transfer correct refund to caller
+        │   └── it should emit CandidateExited event
+        └── given caller was punished
+            ├── it should delete candidate data
+            ├── it should transfer correct refund to caller
+            └── it should emit CandidateExited event

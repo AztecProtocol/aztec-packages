@@ -18,33 +18,46 @@ The verifier uses SMT (Satisfiability Modulo Theories) solving to formally verif
 
 ### Results
 
-| Opcode      | Lhs type/size | Rhs type/size | Time/seconds | Memory/GB | Success | SMT Term Type    | Reason                                                                                                        |
-| ----------- | ------------- | ------------- | ------------ | --------- | ------- | ---------------- | ------------------------------------------------------------------------------------------------------------- |
-| Binary::Add | Field         | Field         | 0.024        | -         | &check; | TermType::FFTerm | - |
-| Binary::Add | Unsigned_127  | Unsigned_127  | 2.8          | -         | &check; | TermType::BVTerm | - |
-| Binary::And | Unsigned_32   | Unsigned_32   | 6.7          | -         | &check; | TermType::BVTerm | - |
-| Binary::And | Unsigned_127  | Unsigned_127  | 7.5          | -         | &cross; | TermType::BVTerm | [smt solver lookup doesnt support 2bits tables](https://github.com/AztecProtocol/aztec-packages/issues/11721) |
-| Binary::Div | Field         | Field         | 0.024        | -         | &check; | TermType::FFTerm | - |
-| Binary::Div | Unsigned_126  | Unsigned_126  | >130 days    | 20        | &cross; | TermType::BVTerm | Test takes too long |
-| Binary::Div | Signed_126    | Signed_126    | >130 days    | 20        | &cross; | TermType::BVTerm | Test takes too long |
-| Binary::Eq  | Field         | Field         | 19.2         | -         | &check; | TermType::FFTerm | - |
-| Binary::Eq  | Unsigned_127  | Unsigned_127  | 22.8         | -         | &check; | TermType::BVTerm | - |
-| Binary::Lt  | Unsigned_127  | Unsigned_127  | 56.7         | -         | &check; | TermType::BVTerm | - |
-| Binary::Mod | Unsigned_127  | Unsigned_127  | >130 days    | 3.2       | &cross; | TermType::BVTerm | Test takes too long |
-| Binary::Mul | Field         | Field         | 0.024        | -         | &check; | TermType::FFTerm | - |
-| Binary::Mul | Unsigned_127  | Unsigned_127  | 10.0         | -         | &check; | TermType::BVTerm | - |
-| Binary::Or  | Unsigned_32   | Unsigned_32   | 18.0         | -         | &check; | TermType::BVTerm | - |
-| Binary::Or  | Unsigned_127  | Unsigned_127  | 7.5          | -         | &cross; | TermType::BVTerm | [smt solver lookup doesnt support 2bits tables](https://github.com/AztecProtocol/aztec-packages/issues/11721) |
-| Binary::Shl | Unsigned_64   | Unsigned_8    | 42331.61     | 63.2      | &check; | TermType::BVTerm | - |
-| Binary::Shl | Unsigned_32   | Unsigned_8    | 4574.0       | 30        | &check; | TermType::BVTerm | - |
-| Binary::Shr | Unsigned_64   | Unsigned_8    | 3927.88      | 10        | &check; | TermType::BVTerm | - |
-| Binary::Sub | Unsigned_127  | Unsigned_127  | 3.3          | -         | &check; | TermType::BVTerm | - |
-| Binary::Xor | Unsigned_32   | Unsigned_32   | 14.7         | -         | &check; | TermType::BVTerm | - |
-| Binary::Xor | Unsigned_127  | Unsigned_127  | 7.5          | -         | &cross; | TermType::BVTerm | [smt solver lookup doesnt support 2bits tables](https://github.com/AztecProtocol/aztec-packages/issues/11721) |
-| Not         | Unsigned_127  | -             | 0.2          | -         | &check; | TermType::BVTerm | - |
-| Cast        | Field         | Unsigned_64   | 0.05         | -         | &check; | TermType::FFTerm | - |
-| Cast        | Unsigned_64   | Unsigned_8    | 0.07         | -         | &check; | TermType::BVTerm | - |
-| Cast        | Unsigned_8    | Unsigned_64   | 0.6          | -         | &check; | TermType::BVTerm | - |
+| Opcode      | Lhs type/size | Rhs type/size | Time/seconds | Memory/GB | Success | SMT Term Type    | Reason | Last Check (D/M/Y) |
+| ----------- | ------------- | ------------- | ------------ | --------- | ------- | ---------------- | ------ | ---------- |
+| Binary::Add | Field         | Field         | 0.024        | -         | &check; | TermType::FFTerm | -      | 01.12.2025 |
+| Binary::Add | Unsigned_128  | Unsigned_128  | 5.9          | 240MiB    | &check; | TermType::BVTerm | -      | 01.12.2025 |
+| Binary::And | Unsigned_32   | Unsigned_32   | 6.7          | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
+| Binary::And | Unsigned_128  | Unsigned_128  | 176          | 985MB     | &check; | TermType::BVTerm | -      | 01.12.2025 |
+| Binary::Div | Field         | Field         | 0.024        | -         | &check; | TermType::FFTerm | -      | 01.12.2025 |
+| Binary::Div | Unsigned_128  | Unsigned_128  | ???          | 20        | &cross; | TermType::BVTerm | Test takes too long | 01.12.2025 |
+| Binary::Div | Signed_64     | Signed_64     | ????         | 20        | &cross; | TermType::BVTerm | Test takes too long | 01.01.2025 |
+| Binary::Eq  | Field         | Field         | 17ms         | -         | &check; | TermType::FFTerm | -      | 01.12.2025 |
+| Binary::Eq  | Unsigned_128  | Unsigned_128  | 34.4         | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
+| Binary::Lt  | Unsigned_128  | Unsigned_128  | 87.1         | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
+| Binary::Mod | Unsigned_127  | Unsigned_127  | >130 days    | 3.2       | &cross; | TermType::BVTerm | Test takes too long | 01.01.2025 |
+| Binary::Mul | Field         | Field         | 0.024        | -         | &check; | TermType::FFTerm | -      | 01.12.2025 |
+| Binary::Mul | Unsigned_128  | Unsigned_128  | 52.3         | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
+| Binary::Or  | Unsigned_32   | Unsigned_32   | 18.0         | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
+| Binary::Or  | Unsigned_128  | Unsigned_128  | 7.5          | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
+| Binary::Shl | Unsigned_64   | Unsigned_8    | 42331.61     | 63.2      | &check; | TermType::BVTerm | -      | 01.01.2025 |
+| Binary::Shl | Unsigned_32   | Unsigned_8    | 4574.0       | 30        | &check; | TermType::BVTerm | -      | 01.01.2025 |
+| Binary::Shr | Unsigned_64   | Unsigned_8    | 3927.88      | 10        | &check; | TermType::BVTerm | -      | 01.01.2025 |
+| Binary::Sub | Unsigned_128  | Unsigned_128  | 5.7          | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
+| Binary::Xor | Unsigned_32   | Unsigned_32   | 14.7         | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
+| Binary::Xor | Unsigned_128  | Unsigned_128  | 355.2        | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
+| Not         | Unsigned_128  | -             | 10.2         | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
+| Truncate    | Field         | Unsigned_64   | ????         | -         | &cross; | TermType::FFTerm | TO INVESTIGATE (the test fails with SIGKILL after 2 hours) | 01.12.2025|
+| Truncate    | Unsigned_64   | Unsigned_8    | 3.7          | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
+| Truncate    | Signed_64     | Unsigned_8    | 3.2          | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
+| Binary::Xor | Signed_64     | Signed_64     | 67.2         | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
+| Binary::Shr | Signed_8      | Signed_8      | 266          | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
+| Binary::Shl | Signed_8      | Signed_8      | 50           | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
+| Not         | Signed_64     | -             | 0.7          | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
+| Binary::Add | Signed_64     | Signed_64     | 97           | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
+| Binary::And | Signed_64     | Signed_64     | 97           | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
+| Binary::Sub | Signed_64     | Signed_64     | 85           | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
+| Binary::Eq  | Signed_64     | Signed_64     | 34.4         | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
+| Binary::Mul | Signed_64     | Signed_64     | 95           | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
+
+
+
+
 
 Each test attempts to find counterexamples that violate the expected behavior. A passing test indicates the operation is correctly implemented, while a failing test reveals potential issues.
 

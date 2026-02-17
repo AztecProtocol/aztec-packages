@@ -1,20 +1,22 @@
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ABIParameterVisibility, type FunctionAbi, type FunctionCall, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness, computeInnerAuthWitHash, computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeVarArgsHash } from '@aztec/stdlib/hash';
-import type { TxProfileResult } from '@aztec/stdlib/tx';
+import type { TxHash, TxProfileResult, TxReceipt } from '@aztec/stdlib/tx';
 
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import type {
+  InteractionWaitOptions,
   ProfileInteractionOptions,
   SendInteractionOptions,
+  SendInteractionOptionsWithoutWait,
+  SendReturn,
   SimulateInteractionOptions,
   SimulationReturn,
 } from '../contract/interaction_options.js';
-import type { SentTx } from '../contract/sent_tx.js';
 import type { Wallet } from '../wallet/index.js';
 
 /** Intent with an inner hash */
@@ -22,7 +24,7 @@ export type IntentInnerHash = {
   /** The consumer   */
   consumer: AztecAddress;
   /** The action to approve */
-  innerHash: Buffer<ArrayBuffer> | Fr;
+  innerHash: Fr;
 };
 
 /** Intent with a call */
@@ -42,8 +44,8 @@ export type ContractFunctionInteractionCallIntent = {
 };
 
 /** Identifies ContractFunctionInteractionCallIntents */
-function isContractFunctionIntractionCallIntent(
-  messageHashOrIntent: Fr | Buffer | IntentInnerHash | CallIntent | ContractFunctionInteractionCallIntent,
+export function isContractFunctionInteractionCallIntent(
+  messageHashOrIntent: Fr | IntentInnerHash | CallIntent | ContractFunctionInteractionCallIntent,
 ): messageHashOrIntent is ContractFunctionInteractionCallIntent {
   return (
     'caller' in messageHashOrIntent &&
@@ -81,7 +83,7 @@ export const computeAuthWitMessageHash = async (
   const version = metadata.version;
 
   if ('caller' in intent) {
-    const call = isContractFunctionIntractionCallIntent(intent) ? await intent.action.getFunctionCall() : intent.call;
+    const call = isContractFunctionInteractionCallIntent(intent) ? await intent.action.getFunctionCall() : intent.call;
     return computeOuterAuthWitHash(
       call.to,
       chainId,
@@ -102,14 +104,12 @@ export const computeAuthWitMessageHash = async (
  * @returns The message hash for the intent
  */
 export async function getMessageHashFromIntent(
-  messageHashOrIntent: Fr | Buffer | IntentInnerHash | CallIntent | ContractFunctionInteractionCallIntent,
+  messageHashOrIntent: Fr | IntentInnerHash | CallIntent | ContractFunctionInteractionCallIntent,
   chainInfo: ChainInfo,
 ) {
   let messageHash: Fr;
   const { chainId, version } = chainInfo;
-  if (Buffer.isBuffer(messageHashOrIntent)) {
-    messageHash = Fr.fromBuffer(messageHashOrIntent);
-  } else if (messageHashOrIntent instanceof Fr) {
+  if (messageHashOrIntent instanceof Fr) {
     messageHash = messageHashOrIntent;
   } else {
     messageHash = await computeAuthWitMessageHash(messageHashOrIntent, { chainId, version });
@@ -156,12 +156,9 @@ export async function lookupValidity(
 }> {
   let innerHash, consumer;
   if ('caller' in intent) {
-    const call = isContractFunctionIntractionCallIntent(intent) ? await intent.action.getFunctionCall() : intent.call;
+    const call = isContractFunctionInteractionCallIntent(intent) ? await intent.action.getFunctionCall() : intent.call;
     innerHash = await computeInnerAuthWitHashFromAction(intent.caller, call);
     consumer = call.to;
-  } else if (Buffer.isBuffer(intent.innerHash)) {
-    innerHash = Fr.fromBuffer(intent.innerHash);
-    consumer = intent.consumer;
   } else {
     ({ innerHash, consumer } = intent);
   }
@@ -174,9 +171,20 @@ export async function lookupValidity(
     name: 'lookup_validity',
     isInitializer: false,
     functionType: FunctionType.UTILITY,
-    isInternal: false,
+    isOnlySelf: false,
     isStatic: false,
-    parameters: [{ name: 'message_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility }],
+    parameters: [
+      {
+        name: 'consumer',
+        type: {
+          fields: [{ name: 'inner', type: { kind: 'field' } }],
+          kind: 'struct',
+          path: 'aztec::protocol_types::address::aztec_address::AztecAddress',
+        },
+        visibility: 'private' as ABIParameterVisibility,
+      },
+      { name: 'inner_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility },
+    ],
     returnTypes: [{ kind: 'boolean' }],
     errorTypes: {},
   } as FunctionAbi;
@@ -194,7 +202,7 @@ export async function lookupValidity(
     name: 'utility_is_consumable',
     isInitializer: false,
     functionType: FunctionType.UTILITY,
-    isInternal: false,
+    isOnlySelf: false,
     isStatic: false,
     parameters: [
       {
@@ -240,7 +248,7 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
   static async create(
     wallet: Wallet,
     from: AztecAddress,
-    messageHashOrIntent: Fr | Buffer | IntentInnerHash | CallIntent | ContractFunctionInteractionCallIntent,
+    messageHashOrIntent: Fr | IntentInnerHash | CallIntent | ContractFunctionInteractionCallIntent,
     authorized: boolean,
   ) {
     const chainInfo = await wallet.getChainInfo();
@@ -280,9 +288,19 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
    * Overrides the send method, adding the sender of the authwit (authorizer) as from
    * and preventing misuse
    * @param options - An optional object containing 'fee' options information
-   * @returns A SentTx instance for tracking the transaction status and information.
+   * @returns A TxReceipt (if wait is true/undefined) or TxHash (if wait is false)
    */
-  public override send(options: Omit<SendInteractionOptions, 'from'> = {}): SentTx {
+  // Overload for when wait is not specified at all - returns TxReceipt
+  public override send(options?: Omit<SendInteractionOptionsWithoutWait, 'from'>): Promise<TxReceipt>;
+  // Generic overload for explicit wait values
+  // eslint-disable-next-line jsdoc/require-jsdoc
+  public override send<W extends InteractionWaitOptions>(
+    options?: Omit<SendInteractionOptions<W>, 'from'>,
+  ): Promise<SendReturn<W>>;
+  // eslint-disable-next-line jsdoc/require-jsdoc
+  public override send(
+    options?: Omit<SendInteractionOptions<InteractionWaitOptions>, 'from'>,
+  ): Promise<TxReceipt | TxHash> {
     return super.send({ ...options, from: this.from });
   }
 
@@ -291,7 +309,7 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
       name: 'set_authorized',
       isInitializer: false,
       functionType: FunctionType.PUBLIC,
-      isInternal: true,
+      isOnlySelf: true,
       isStatic: false,
       parameters: [
         {

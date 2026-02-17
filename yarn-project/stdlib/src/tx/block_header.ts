@@ -1,6 +1,8 @@
-import { BLOCK_HEADER_LENGTH, GeneratorIndex } from '@aztec/constants';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { BLOCK_HEADER_LENGTH, DomainSeparator } from '@aztec/constants';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
+import { randomInt } from '@aztec/foundation/crypto/random';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -9,28 +11,31 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { inspect } from 'util';
 import { z } from 'zod';
 
+import { BlockHash } from '../block/block_hash.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { GlobalVariables } from './global_variables.js';
 import { StateReference } from './state_reference.js';
 
 /** A header of an L2 block. */
 export class BlockHeader {
+  private _cachedHash?: Promise<BlockHash>;
+
   constructor(
     /** Snapshot of archive before the block is applied. */
-    public lastArchive: AppendOnlyTreeSnapshot,
+    public readonly lastArchive: AppendOnlyTreeSnapshot,
     /** State reference. */
-    public state: StateReference,
+    public readonly state: StateReference,
     /**
      * Hash of the sponge blob after the tx effects of this block has been applied.
      * May contain tx effects from the previous blocks in the same checkpoint.
      */
-    public spongeBlobHash: Fr,
+    public readonly spongeBlobHash: Fr,
     /** Global variables of an L2 block. */
-    public globalVariables: GlobalVariables,
+    public readonly globalVariables: GlobalVariables,
     /** Total fees in the block, computed by the root rollup circuit */
-    public totalFees: Fr,
+    public readonly totalFees: Fr,
     /** Total mana used in the block, computed by the root rollup circuit */
-    public totalManaUsed: Fr,
+    public readonly totalManaUsed: Fr,
   ) {}
 
   static get schema(): ZodFor<BlockHeader> {
@@ -61,11 +66,11 @@ export class BlockHeader {
     return new BlockHeader(...BlockHeader.getFields(fields));
   }
 
-  getSlot() {
-    return this.globalVariables.slotNumber.toBigInt();
+  getSlot(): SlotNumber {
+    return this.globalVariables.slotNumber;
   }
 
-  getBlockNumber() {
+  getBlockNumber(): BlockNumber {
     return this.globalVariables.blockNumber;
   }
 
@@ -157,8 +162,30 @@ export class BlockHeader {
     return BlockHeader.fromBuffer(hexToBuffer(str));
   }
 
-  hash(): Promise<Fr> {
-    return poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.BLOCK_HASH);
+  hash(): Promise<BlockHash> {
+    if (!this._cachedHash) {
+      this._cachedHash = poseidon2HashWithSeparator(this.toFields(), DomainSeparator.BLOCK_HEADER_HASH).then(
+        fr => new BlockHash(fr),
+      );
+    }
+    return this._cachedHash;
+  }
+
+  /** Manually set the hash for this block header if already computed */
+  setHash(hashed: Fr) {
+    this._cachedHash = Promise.resolve(new BlockHash(hashed));
+  }
+
+  static random(overrides: Partial<FieldsOf<BlockHeader>> & Partial<FieldsOf<GlobalVariables>> = {}): BlockHeader {
+    return BlockHeader.from({
+      lastArchive: AppendOnlyTreeSnapshot.random(),
+      state: StateReference.random(),
+      spongeBlobHash: Fr.random(),
+      globalVariables: GlobalVariables.random(overrides),
+      totalFees: new Fr(randomInt(100_000)),
+      totalManaUsed: new Fr(randomInt(100_000_000)),
+      ...overrides,
+    });
   }
 
   toInspect() {

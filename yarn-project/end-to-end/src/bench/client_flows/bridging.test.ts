@@ -1,8 +1,8 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
-import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
+import { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
@@ -19,21 +19,15 @@ describe('Bridging benchmark', () => {
   let userWallet: Wallet;
   // The admin that aids in the setup of the test
   let adminAddress: AztecAddress;
-  // FPC that accepts bananas
-  let bananaFPC: FPCContract;
-  // BananaCoin Token contract, which we want to use to pay for the bridging
-  let bananaCoin: TokenContract;
-  // Sponsored FPC contract
-  let sponsoredFPC: SponsoredFPCContract;
   // Benchmarking configuration
   const config = t.config.bridging;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyDeployBananaTokenSnapshot();
-    await t.applyFPCSetupSnapshot();
-    await t.applyDeploySponsoredFPCSnapshot();
-    ({ userWallet, bananaFPC, bananaCoin, adminAddress, sponsoredFPC } = await t.setup());
+    await t.setup();
+    await t.applyDeployBananaToken();
+    await t.applyFPCSetup();
+    await t.applyDeploySponsoredFPC();
+    ({ userWallet, adminAddress } = t);
   });
 
   afterAll(async () => {
@@ -52,6 +46,7 @@ describe('Bridging benchmark', () => {
       let crossChainTestHarness: CrossChainTestHarness;
 
       beforeEach(async () => {
+        const { bananaFPCInstance, bananaCoinInstance, sponsoredFPCInstance } = t;
         benchysAddress = await t.createAndFundBenchmarkingAccountOnUserWallet(accountType);
         // Benchy has FeeJuice now, so it can deploy the Token and bridge. This is required because
         // the brigde has an owner, which is the only one that can claim
@@ -61,10 +56,10 @@ describe('Bridging benchmark', () => {
         // Register admin as sender in benchy's wallet, since we need it to discover the minted bananas
         await userWallet.registerSender(adminAddress);
         // Register both FPC and BananCoin on the user's PXE so we can simulate and prove
-        await userWallet.registerContract(bananaFPC);
-        await userWallet.registerContract(bananaCoin);
+        await userWallet.registerContract(bananaFPCInstance, FPCContract.artifact);
+        await userWallet.registerContract(bananaCoinInstance, TokenContract.artifact);
         // Register the sponsored FPC on the user's PXE so we can simulate and prove
-        await userWallet.registerContract(sponsoredFPC);
+        await userWallet.registerContract(sponsoredFPCInstance, SponsoredFPCContract.artifact);
       });
 
       function privateClaimTest(benchmarkingPaymentMethod: BenchmarkingFeePaymentMethod) {
@@ -111,7 +106,7 @@ describe('Bridging benchmark', () => {
 
           if (process.env.SANITY_CHECKS) {
             // Ensure we paid a fee
-            const tx = await claimInteraction.send(options).wait();
+            const tx = await claimInteraction.send(options);
             expect(tx.transactionFee!).toBeGreaterThan(0n);
 
             // 4. Check the balance

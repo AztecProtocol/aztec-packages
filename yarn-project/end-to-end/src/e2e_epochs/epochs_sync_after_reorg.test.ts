@@ -1,5 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import type { Logger } from '@aztec/aztec.js/log';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { executeTimeout } from '@aztec/foundation/timer';
 
 import { jest } from '@jest/globals';
@@ -30,8 +31,8 @@ describe('e2e_epochs/epochs_sync_after_reorg', () => {
 
   // Regression for https://github.com/AztecProtocol/aztec-packages/issues/12206
   it('new node can sync world-state after unpruned reorg', async () => {
-    // Wait until there are a few blocks in there
-    await test.waitUntilL2BlockNumber(5, L2_SLOT_DURATION_IN_S * 5 + 30);
+    // Wait until there are a few checkpoints in there
+    await test.waitUntilCheckpointNumber(CheckpointNumber(5), L2_SLOT_DURATION_IN_S * 5 + 30);
 
     // Stop the node generating blocks
     logger.warn(`Stopping the main node`);

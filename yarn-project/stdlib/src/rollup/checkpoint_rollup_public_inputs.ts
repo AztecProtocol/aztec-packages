@@ -1,7 +1,7 @@
 import { BlobAccumulator, FinalBlobBatchingChallenges } from '@aztec/blob-lib/types';
-import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
+import { MAX_CHECKPOINTS_PER_EPOCH } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -28,13 +28,21 @@ export class CheckpointRollupPublicInputs {
      */
     public newArchive: AppendOnlyTreeSnapshot,
     /**
+     * The out hash tree snapshot immediately before this checkpoint range.
+     */
+    public previousOutHash: AppendOnlyTreeSnapshot,
+    /**
+     * The out hash tree snapshot after applying this checkpoint range.
+     */
+    public newOutHash: AppendOnlyTreeSnapshot,
+    /**
      * The hashes of the headers of the constituent checkpoints.
      */
-    public checkpointHeaderHashes: Tuple<Fr, typeof AZTEC_MAX_EPOCH_DURATION>,
+    public checkpointHeaderHashes: Tuple<Fr, typeof MAX_CHECKPOINTS_PER_EPOCH>,
     /**
      * The summed transaction fees and recipients of the constituent checkpoints.
      */
-    public fees: Tuple<FeeRecipient, typeof AZTEC_MAX_EPOCH_DURATION>,
+    public fees: Tuple<FeeRecipient, typeof MAX_CHECKPOINTS_PER_EPOCH>,
     /**
      * Accumulated opening proofs for all blobs before this checkpoint range.
      */
@@ -55,8 +63,10 @@ export class CheckpointRollupPublicInputs {
       reader.readObject(EpochConstantData),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readArray(AZTEC_MAX_EPOCH_DURATION, Fr),
-      reader.readArray(AZTEC_MAX_EPOCH_DURATION, FeeRecipient),
+      reader.readObject(AppendOnlyTreeSnapshot),
+      reader.readObject(AppendOnlyTreeSnapshot),
+      reader.readArray(MAX_CHECKPOINTS_PER_EPOCH, Fr),
+      reader.readArray(MAX_CHECKPOINTS_PER_EPOCH, FeeRecipient),
       reader.readObject(BlobAccumulator),
       reader.readObject(BlobAccumulator),
       reader.readObject(FinalBlobBatchingChallenges),
@@ -68,6 +78,8 @@ export class CheckpointRollupPublicInputs {
       this.constants,
       this.previousArchive,
       this.newArchive,
+      this.previousOutHash,
+      this.newOutHash,
       this.checkpointHeaderHashes,
       this.fees,
       this.startBlobAccumulator,

@@ -3,7 +3,6 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
@@ -27,10 +26,11 @@ using AggregationState = stdlib::recursion::PairingPoints<UltraCircuitBuilder>;
 
 template <typename Flavor> class UltraHonkTests : public ::testing::Test {
   public:
+    using IO = DefaultIO;
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using Prover = UltraProver_<Flavor>;
-    using Verifier = UltraVerifier_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor, IO>;
 
     std::vector<uint32_t> add_variables(auto& circuit_builder, std::vector<bb::fr> variables)
     {
@@ -41,13 +41,9 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
         return res;
     }
 
-    void set_default_pairing_points_and_ipa_claim_and_proof(UltraCircuitBuilder& builder)
+    void set_default_pairing_points_and_ipa_claim_and_proof(typename Flavor::CircuitBuilder& builder)
     {
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            stdlib::recursion::honk::RollupIO::add_default(builder);
-        } else {
-            stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>::add_default(builder);
-        }
+        IO::add_default(builder);
     }
 
     void prove_and_verify(typename Flavor::CircuitBuilder& circuit_builder, bool expected_result)
@@ -59,18 +55,12 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
     void prove_and_verify(const std::shared_ptr<ProverInstance>& prover_instance, bool expected_result)
     {
         auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+        auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(verification_key);
         Prover prover(prover_instance, verification_key);
         auto proof = prover.construct_proof();
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
-            Verifier verifier(verification_key, ipa_verification_key);
-            bool result = verifier.template verify_proof<RollupIO>(proof, prover_instance->ipa_proof).result;
-            EXPECT_EQ(result, expected_result);
-        } else {
-            Verifier verifier(verification_key);
-            bool result = verifier.template verify_proof<DefaultIO>(proof).result;
-            EXPECT_EQ(result, expected_result);
-        }
+        Verifier verifier(vk_and_hash);
+        bool result = verifier.verify_proof(proof).result;
+        EXPECT_EQ(result, expected_result);
     };
 
   protected:

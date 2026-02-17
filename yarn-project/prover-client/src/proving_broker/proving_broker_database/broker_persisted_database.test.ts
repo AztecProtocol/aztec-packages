@@ -1,3 +1,4 @@
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { toArray } from '@aztec/foundation/iterable';
 import type { ProofUri, ProvingJob, ProvingJobSettledResult } from '@aztec/stdlib/interfaces/server';
@@ -29,10 +30,12 @@ describe('ProvingBrokerPersistedDatabase', () => {
       proverBrokerBatchSize: 1,
       proverBrokerBatchIntervalMs: 10,
       proverBrokerMaxEpochsToKeepResultsFor: 1,
+      proverBrokerDebugReplayEnabled: false,
       l1Contracts: {
         rollupAddress: EthAddress.random(),
       } as any,
       l1RpcUrls: [],
+      l1DebugRpcUrls: [],
       l1ChainId: 42,
       viemPollingIntervalMS: 100,
       rollupVersion: 42,
@@ -45,11 +48,11 @@ describe('ProvingBrokerPersistedDatabase', () => {
   });
 
   it('can add a proving job', async () => {
-    const id = makeRandomProvingJobId(42);
+    const id = makeRandomProvingJobId(EpochNumber(42));
     await expect(
       db.addProvingJob({
         id,
-        epochNumber: 42,
+        epochNumber: EpochNumber(42),
         type: ProvingRequestType.PARITY_BASE,
         inputsUri: makeInputsUri(),
       }),
@@ -59,11 +62,11 @@ describe('ProvingBrokerPersistedDatabase', () => {
   it('can add multiple proving jobs', async () => {
     const numJobs = 5;
     for (let i = 0; i < numJobs; i++) {
-      const id = makeRandomProvingJobId(42);
+      const id = makeRandomProvingJobId(EpochNumber(42));
       await expect(
         db.addProvingJob({
           id,
-          epochNumber: 42,
+          epochNumber: EpochNumber(42),
           type: ProvingRequestType.PARITY_BASE,
           inputsUri: makeInputsUri(),
         }),
@@ -73,10 +76,10 @@ describe('ProvingBrokerPersistedDatabase', () => {
 
   it('can add a proving success', async () => {
     // need to add the epoch via a new job
-    const id = makeRandomProvingJobId(42);
+    const id = makeRandomProvingJobId(EpochNumber(42));
     await db.addProvingJob({
       id,
-      epochNumber: 42,
+      epochNumber: EpochNumber(42),
       type: ProvingRequestType.PARITY_BASE,
       inputsUri: makeInputsUri(),
     });
@@ -85,27 +88,27 @@ describe('ProvingBrokerPersistedDatabase', () => {
 
   it('can add multiple proving successes', async () => {
     // need to add the epoch via a new job
-    const id = makeRandomProvingJobId(42);
+    const id = makeRandomProvingJobId(EpochNumber(42));
     await db.addProvingJob({
       id,
-      epochNumber: 42,
+      epochNumber: EpochNumber(42),
       type: ProvingRequestType.PARITY_BASE,
       inputsUri: makeInputsUri(),
     });
 
     const numJobs = 5;
     for (let i = 0; i < numJobs; i++) {
-      const id = makeRandomProvingJobId(42);
+      const id = makeRandomProvingJobId(EpochNumber(42));
       await expect(db.setProvingJobResult(id, 'Proof' as ProofUri)).resolves.not.toThrow();
     }
   });
 
   it('can add a proving error', async () => {
     // need to add the epoch via a new job
-    const id = makeRandomProvingJobId(42);
+    const id = makeRandomProvingJobId(EpochNumber(42));
     await db.addProvingJob({
       id,
-      epochNumber: 42,
+      epochNumber: EpochNumber(42),
       type: ProvingRequestType.PARITY_BASE,
       inputsUri: makeInputsUri(),
     });
@@ -115,17 +118,17 @@ describe('ProvingBrokerPersistedDatabase', () => {
 
   it('can add multiple proving errors', async () => {
     // need to add the epoch via a new job
-    const id = makeRandomProvingJobId(42);
+    const id = makeRandomProvingJobId(EpochNumber(42));
     await db.addProvingJob({
       id,
-      epochNumber: 42,
+      epochNumber: EpochNumber(42),
       type: ProvingRequestType.PARITY_BASE,
       inputsUri: makeInputsUri(),
     });
 
     const numJobs = 5;
     for (let i = 0; i < numJobs; i++) {
-      const id = makeRandomProvingJobId(42);
+      const id = makeRandomProvingJobId(EpochNumber(42));
       await expect(db.setProvingJobError(id, 'Proof Failed')).resolves.not.toThrow();
     }
   });
@@ -134,11 +137,11 @@ describe('ProvingBrokerPersistedDatabase', () => {
     const numJobs = 5;
     const startEpoch = 12;
     for (let i = 0; i < numJobs; i++) {
-      const id = makeRandomProvingJobId(startEpoch + i);
+      const id = makeRandomProvingJobId(EpochNumber(startEpoch + i));
       await expect(
         db.addProvingJob({
           id,
-          epochNumber: startEpoch + i,
+          epochNumber: EpochNumber(startEpoch + i),
           type: ProvingRequestType.PARITY_BASE,
           inputsUri: makeInputsUri(),
         }),
@@ -153,10 +156,10 @@ describe('ProvingBrokerPersistedDatabase', () => {
     const startEpoch = 12;
     const expectedJobs: [ProvingJob, ProvingJobSettledResult | undefined][] = [];
     for (let i = 0; i < numJobs; i++) {
-      const id = makeRandomProvingJobId(startEpoch + i);
+      const id = makeRandomProvingJobId(EpochNumber(startEpoch + i));
       const job: ProvingJob = {
         id,
-        epochNumber: startEpoch + i,
+        epochNumber: EpochNumber(startEpoch + i),
         type: ProvingRequestType.PARITY_BASE,
         inputsUri: makeInputsUri(),
       };
@@ -183,10 +186,10 @@ describe('ProvingBrokerPersistedDatabase', () => {
     const startEpoch = 12;
     const epochs = [];
     for (let i = 0; i < numJobs; i++) {
-      const id = makeRandomProvingJobId(startEpoch + i);
+      const id = makeRandomProvingJobId(EpochNumber(startEpoch + i));
       await db.addProvingJob({
         id,
-        epochNumber: startEpoch + i,
+        epochNumber: EpochNumber(startEpoch + i),
         type: ProvingRequestType.PARITY_BASE,
         inputsUri: makeInputsUri(),
       });
@@ -200,10 +203,10 @@ describe('ProvingBrokerPersistedDatabase', () => {
     const startEpoch = 12;
     const expectedJobs: [ProvingJob, ProvingJobSettledResult | undefined][] = [];
     for (let i = 0; i < numJobs; i++) {
-      const id = makeRandomProvingJobId(startEpoch + i);
+      const id = makeRandomProvingJobId(EpochNumber(startEpoch + i));
       const job: ProvingJob = {
         id,
-        epochNumber: startEpoch + i,
+        epochNumber: EpochNumber(startEpoch + i),
         type: ProvingRequestType.PARITY_BASE,
         inputsUri: makeInputsUri(),
       };
@@ -220,22 +223,22 @@ describe('ProvingBrokerPersistedDatabase', () => {
         expectedJobs.push([job, result]);
       }
     }
-    const epochNumbers = expectedJobs.map(x => x[0].epochNumber);
+    const epochNumbers = expectedJobs.map(x => Number(x[0].epochNumber));
     expectSubdirectoriesExist(directory, epochNumbers, true);
-    const expectedJobsAfterEpoch14 = expectedJobs.filter(x => x[0].epochNumber > 14);
-    await db.deleteAllProvingJobsOlderThanEpoch(15);
+    const expectedJobsAfterEpoch14 = expectedJobs.filter(x => Number(x[0].epochNumber) > 14);
+    await db.deleteAllProvingJobsOlderThanEpoch(EpochNumber(15));
     const allJobs = await toArray(db.allProvingJobs());
     expect(allJobs.length).toBe(expectedJobsAfterEpoch14.length);
     expectArrayEquivalence(expectedJobsAfterEpoch14, allJobs);
 
     expectSubdirectoriesExist(
       directory,
-      epochNumbers.filter(x => x > 14),
+      epochNumbers.filter(x => Number(x) > 14),
       true,
     );
     expectSubdirectoriesExist(
       directory,
-      epochNumbers.filter(x => x <= 14),
+      epochNumbers.filter(x => Number(x) <= 14),
       false,
     );
   });
@@ -245,10 +248,10 @@ describe('ProvingBrokerPersistedDatabase', () => {
     const startEpoch = 12;
     const expectedJobs: [ProvingJob, ProvingJobSettledResult | undefined][] = [];
     for (let i = 0; i < numJobs; i++) {
-      const id = makeRandomProvingJobId(startEpoch + i);
+      const id = makeRandomProvingJobId(EpochNumber(startEpoch + i));
       const job: ProvingJob = {
         id,
-        epochNumber: startEpoch + i,
+        epochNumber: EpochNumber(startEpoch + i),
         type: ProvingRequestType.PARITY_BASE,
         inputsUri: makeInputsUri(),
       };
@@ -285,10 +288,10 @@ describe('ProvingBrokerPersistedDatabase', () => {
     const startEpoch = 12;
     const expectedJobs: [ProvingJob, ProvingJobSettledResult | undefined][] = [];
     for (let i = 0; i < numJobs; i++) {
-      const id = makeRandomProvingJobId(startEpoch + i);
+      const id = makeRandomProvingJobId(EpochNumber(startEpoch + i));
       const job: ProvingJob = {
         id,
-        epochNumber: startEpoch + i,
+        epochNumber: EpochNumber(startEpoch + i),
         type: ProvingRequestType.PARITY_BASE,
         inputsUri: makeInputsUri(),
       };
@@ -337,10 +340,12 @@ describe('ProvingBrokerPersistedDatabase', () => {
         proverBrokerBatchSize: batchSize,
         proverBrokerBatchIntervalMs: 10,
         proverBrokerMaxEpochsToKeepResultsFor: 1,
+        proverBrokerDebugReplayEnabled: false,
         l1Contracts: {
           rollupAddress: EthAddress.random(),
         } as any,
         l1RpcUrls: [],
+        l1DebugRpcUrls: [],
         l1ChainId: 42,
         viemPollingIntervalMS: 100,
         rollupVersion: 42,
@@ -352,11 +357,11 @@ describe('ProvingBrokerPersistedDatabase', () => {
     it('batches jobs in a single transaction', async () => {
       const promises: Promise<void>[] = [];
       for (let i = 0; i < batchSize; i++) {
-        const id = makeRandomProvingJobId(42);
+        const id = makeRandomProvingJobId(EpochNumber(42));
         promises.push(
           db.addProvingJob({
             id,
-            epochNumber: 42,
+            epochNumber: EpochNumber(42),
             type: ProvingRequestType.PARITY_BASE,
             inputsUri: makeInputsUri(),
           }),
@@ -370,7 +375,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
     it('batches job results in a single transaction', async () => {
       const promises: Promise<void>[] = [];
       for (let i = 0; i < batchSize; i++) {
-        const id = makeRandomProvingJobId(42);
+        const id = makeRandomProvingJobId(EpochNumber(42));
         promises.push(db.setProvingJobResult(id, 'test' as ProofUri));
       }
 
@@ -382,30 +387,30 @@ describe('ProvingBrokerPersistedDatabase', () => {
       const promises: Promise<void>[] = [];
       promises.push(
         db.addProvingJob({
-          id: makeRandomProvingJobId(42),
-          epochNumber: 42,
+          id: makeRandomProvingJobId(EpochNumber(42)),
+          epochNumber: EpochNumber(42),
           type: ProvingRequestType.PARITY_BASE,
           inputsUri: makeInputsUri(),
         }),
       );
       promises.push(
         db.addProvingJob({
-          id: makeRandomProvingJobId(42),
-          epochNumber: 42,
+          id: makeRandomProvingJobId(EpochNumber(42)),
+          epochNumber: EpochNumber(42),
           type: ProvingRequestType.PARITY_BASE,
           inputsUri: makeInputsUri(),
         }),
       );
       promises.push(
         db.addProvingJob({
-          id: makeRandomProvingJobId(42),
-          epochNumber: 42,
+          id: makeRandomProvingJobId(EpochNumber(42)),
+          epochNumber: EpochNumber(42),
           type: ProvingRequestType.PARITY_BASE,
           inputsUri: makeInputsUri(),
         }),
       );
-      promises.push(db.setProvingJobError(makeRandomProvingJobId(42), 'test'));
-      promises.push(db.setProvingJobResult(makeRandomProvingJobId(42), 'test' as ProofUri));
+      promises.push(db.setProvingJobError(makeRandomProvingJobId(EpochNumber(42)), 'test'));
+      promises.push(db.setProvingJobResult(makeRandomProvingJobId(EpochNumber(42)), 'test' as ProofUri));
 
       await Promise.all(promises);
       expect(commitSpy).toHaveBeenCalledTimes(1);
@@ -416,14 +421,14 @@ describe('ProvingBrokerPersistedDatabase', () => {
 
       promises.push(
         db.addProvingJob({
-          id: makeRandomProvingJobId(42),
-          epochNumber: 42,
+          id: makeRandomProvingJobId(EpochNumber(42)),
+          epochNumber: EpochNumber(42),
           type: ProvingRequestType.PARITY_BASE,
           inputsUri: makeInputsUri(),
         }),
       );
-      promises.push(db.setProvingJobError(makeRandomProvingJobId(42), 'test'));
-      promises.push(db.setProvingJobResult(makeRandomProvingJobId(42), 'test' as ProofUri));
+      promises.push(db.setProvingJobError(makeRandomProvingJobId(EpochNumber(42)), 'test'));
+      promises.push(db.setProvingJobResult(makeRandomProvingJobId(EpochNumber(42)), 'test' as ProofUri));
 
       await Promise.all(promises);
       expect(commitSpy).toHaveBeenCalledTimes(1);
@@ -432,7 +437,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
     it('splits writes over multiple batches', async () => {
       const promises: Promise<void>[] = [];
       for (let i = 0; i < 2 * batchSize; i++) {
-        const id = makeRandomProvingJobId(42);
+        const id = makeRandomProvingJobId(EpochNumber(42));
         promises.push(db.setProvingJobResult(id, 'test' as ProofUri));
       }
 
@@ -443,12 +448,12 @@ describe('ProvingBrokerPersistedDatabase', () => {
     it('splits writes across epochs', async () => {
       const promises: Promise<void>[] = [];
       for (let i = 0; i < batchSize / 2; i++) {
-        const id = makeRandomProvingJobId(42);
+        const id = makeRandomProvingJobId(EpochNumber(42));
         promises.push(db.setProvingJobResult(id, 'test' as ProofUri));
       }
 
       for (let i = 0; i < batchSize / 2; i++) {
-        const id = makeRandomProvingJobId(43);
+        const id = makeRandomProvingJobId(EpochNumber(43));
         promises.push(db.setProvingJobResult(id, 'test' as ProofUri));
       }
 

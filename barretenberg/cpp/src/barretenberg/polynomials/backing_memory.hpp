@@ -1,12 +1,11 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
 
-#include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "unistd.h"
 #include <atomic>
@@ -109,8 +108,8 @@ template <typename Fr> struct BackingMemory {
   private:
     static void allocate_aligned(BackingMemory& memory, size_t size)
     {
-        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-        memory.aligned_memory = std::static_pointer_cast<Fr[]>(std::move(bb::get_mem_slab(sizeof(Fr) * size)));
+        // Fr has alignas on it so this is fine post c++20.
+        memory.aligned_memory = std::make_shared<Fr[]>(size);
         memory.raw_data = memory.aligned_memory.get();
     }
 

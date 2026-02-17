@@ -1,0 +1,6 @@
+InitializeTest
+├── when mana limit GT uint32
+│   └── it reverts with {FeeLib__InvalidManaLimitTarget}
+└── when mana limit LE uint32
+    ├── it store the config
+    └── it store the l1 gas oracle values

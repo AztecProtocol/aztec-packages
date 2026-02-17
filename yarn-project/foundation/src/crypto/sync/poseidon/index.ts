@@ -1,6 +1,6 @@
 import { BarretenbergSync } from '@aztec/bb.js';
 
-import { Fr } from '../../../fields/fields.js';
+import { Fr } from '../../../curves/bn254/field.js';
 import { type Fieldable, serializeToFields } from '../../../serialize/serialize.js';
 
 /**
@@ -29,15 +29,6 @@ export function poseidon2HashWithSeparator(input: Fieldable[], separator: number
 
   const api = BarretenbergSync.getSingleton();
   const response = api.poseidon2Hash({
-    inputs: inputFields.map(i => i.toBuffer()),
-  });
-  return Fr.fromBuffer(Buffer.from(response.hash));
-}
-
-export function poseidon2HashAccumulate(input: Fieldable[]): Fr {
-  const inputFields = serializeToFields(input);
-  const api = BarretenbergSync.getSingleton();
-  const response = api.poseidon2HashAccumulate({
     inputs: inputFields.map(i => i.toBuffer()),
   });
   return Fr.fromBuffer(Buffer.from(response.hash));

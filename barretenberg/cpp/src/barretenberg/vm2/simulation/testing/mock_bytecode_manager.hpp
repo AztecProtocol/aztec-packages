@@ -17,7 +17,7 @@ class MockBytecodeManager : public BytecodeManagerInterface {
     MockBytecodeManager();
     ~MockBytecodeManager() override;
 
-    MOCK_METHOD(Instruction, read_instruction, (uint32_t pc), (override));
+    MOCK_METHOD(Instruction, read_instruction, (PC pc), (override));
     MOCK_METHOD(BytecodeId, get_bytecode_id, (), (override));
     MOCK_METHOD(std::optional<BytecodeId>, get_retrieved_bytecode_id, (), (override));
 };

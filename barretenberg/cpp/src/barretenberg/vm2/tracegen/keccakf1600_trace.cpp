@@ -369,13 +369,13 @@ constexpr std::array<std::array<C, 5>, 5> STATE_CHI_COLS = {
 // Mapping 1-dimensional array indices of read/write memory slice values to columns.
 constexpr std::array<C, AVM_KECCAKF1600_STATE_SIZE> MEM_VAL_COLS = {
     {
-        C::keccak_memory_val00, C::keccak_memory_val01, C::keccak_memory_val02, C::keccak_memory_val03,
-        C::keccak_memory_val04, C::keccak_memory_val10, C::keccak_memory_val11, C::keccak_memory_val12,
-        C::keccak_memory_val13, C::keccak_memory_val14, C::keccak_memory_val20, C::keccak_memory_val21,
-        C::keccak_memory_val22, C::keccak_memory_val23, C::keccak_memory_val24, C::keccak_memory_val30,
-        C::keccak_memory_val31, C::keccak_memory_val32, C::keccak_memory_val33, C::keccak_memory_val34,
-        C::keccak_memory_val40, C::keccak_memory_val41, C::keccak_memory_val42, C::keccak_memory_val43,
-        C::keccak_memory_val44,
+        C::keccak_memory_val_0_,  C::keccak_memory_val_1_,  C::keccak_memory_val_2_,  C::keccak_memory_val_3_,
+        C::keccak_memory_val_4_,  C::keccak_memory_val_5_,  C::keccak_memory_val_6_,  C::keccak_memory_val_7_,
+        C::keccak_memory_val_8_,  C::keccak_memory_val_9_,  C::keccak_memory_val_10_, C::keccak_memory_val_11_,
+        C::keccak_memory_val_12_, C::keccak_memory_val_13_, C::keccak_memory_val_14_, C::keccak_memory_val_15_,
+        C::keccak_memory_val_16_, C::keccak_memory_val_17_, C::keccak_memory_val_18_, C::keccak_memory_val_19_,
+        C::keccak_memory_val_20_, C::keccak_memory_val_21_, C::keccak_memory_val_22_, C::keccak_memory_val_23_,
+        C::keccak_memory_val_24_,
     },
 };
 
@@ -412,21 +412,20 @@ void KeccakF1600TraceBuilder::process_single_slice(const simulation::KeccakF1600
     size_t num_rows = AVM_KECCAKF1600_STATE_SIZE;
 
     // The relevant state and read/write memory values depending on read/write boolean.
-    std::array<std::array<FF, 5>, 5> state_ff;
+    std::array<FF, AVM_KECCAKF1600_STATE_SIZE> slice_ff;
     if (write) {
         for (size_t i = 0; i < 5; i++) {
             for (size_t j = 0; j < 5; j++) {
-                state_ff[i][j] = event.rounds[AVM_KECCAKF1600_NUM_ROUNDS - 1].state_chi[i][j];
+                // Standard Keccak layout: memory[(5 * j) + i] = A[i][j].
+                slice_ff[(5 * j) + i] = event.rounds[AVM_KECCAKF1600_NUM_ROUNDS - 1].state_chi[i][j];
             }
         }
-        state_ff[0][0] = event.rounds[AVM_KECCAKF1600_NUM_ROUNDS - 1].state_iota_00;
+        slice_ff[0] = event.rounds[AVM_KECCAKF1600_NUM_ROUNDS - 1].state_iota_00;
     } else {
         // While reading we need to check the tag for each slice value.
         for (size_t k = 0; k < AVM_KECCAKF1600_STATE_SIZE; k++) {
-            const size_t i = k / 5;
-            const size_t j = k % 5;
-            const auto& mem_val = event.src_mem_values[i][j];
-            state_ff[i][j] = mem_val.as_ff();
+            const auto& mem_val = event.src_mem_values[k];
+            slice_ff[k] = mem_val.as_ff();
             tags[k] = mem_val.get_tag();
             if (tags[k] != MemoryTag::U64) {
                 single_tag_errors.at(k) = true;
@@ -469,9 +468,9 @@ void KeccakF1600TraceBuilder::process_single_slice(const simulation::KeccakF1600
                 { C::keccak_memory_num_rounds, AVM_KECCAKF1600_NUM_ROUNDS },
             } });
 
-        // We get a "triangle" when shifting values to their columns from val00 bottom-up.
+        // We get a "triangle" when shifting values to their columns from val_0_ bottom-up.
         for (size_t j = i; j < num_rows; j++) {
-            trace.set(MEM_VAL_COLS.at(j - i), row, state_ff[j / 5][j % 5]);
+            trace.set(MEM_VAL_COLS.at(j - i), row, slice_ff[j]);
         }
 
         row++;
@@ -481,13 +480,6 @@ void KeccakF1600TraceBuilder::process_single_slice(const simulation::KeccakF1600
 void KeccakF1600TraceBuilder::process_permutation(
     const simulation::EventEmitterInterface<simulation::KeccakF1600Event>::Container& events, TraceContainer& trace)
 {
-    // Important to not set last to 1 in the first row if there are no events. Otherwise, the skippable condition
-    // would be skipped wrongly as the sub-relation last * (1 - last) = 0 cannot be satisified (after the
-    // randomization process happening in the sumcheck protocol).
-    if (!events.empty()) {
-        trace.set(C::keccakf1600_last, 0, 1);
-    }
-
     constexpr MemoryAddress HIGHEST_SLICE_ADDRESS = AVM_HIGHEST_MEM_ADDRESS - AVM_KECCAKF1600_STATE_SIZE + 1;
 
     uint32_t row = 1;
@@ -560,12 +552,12 @@ void KeccakF1600TraceBuilder::process_permutation(
             // When no out-of-range value occured but a tag value error, we
             // need to set the initial state values in the first round.
             if (!out_of_range && event.tag_error && round_idx == 0) {
-                for (size_t i = 0; i < 5; i++) {
-                    for (size_t j = 0; j < 5; j++) {
-                        // In simulation we set src_mem_values[i][j] to be the memory value when
-                        // tag is U64, otherwise we set it to zero.
-                        trace.set(STATE_IN_COLS[i][j], row, event.src_mem_values[i][j]);
-                    }
+                for (size_t k = 0; k < AVM_KECCAKF1600_STATE_SIZE; k++) {
+                    const size_t i = k % 5; // Keccak layout: memory[k] = A[k%5][k/5]
+                    const size_t j = k / 5;
+                    // In simulation we set src_mem_values[i][j] to be the memory value when
+                    // tag is U64, otherwise we set it to zero.
+                    trace.set(STATE_IN_COLS[i][j], row, event.src_mem_values[k]);
                 }
             }
 
@@ -653,17 +645,6 @@ void KeccakF1600TraceBuilder::process_permutation(
 void KeccakF1600TraceBuilder::process_memory_slices(
     const simulation::EventEmitterInterface<simulation::KeccakF1600Event>::Container& events, TraceContainer& trace)
 {
-    // Important to not set last or ctr_end to 1 in the first row if there are no events. Otherwise, the skippable
-    // condition would be skipped wrongly as the sub-relation ctr_end * (1 - ctr_end) = 0 cannot be satisified (after
-    // the randomization process happening in the sumcheck protocol).
-    if (!events.empty()) {
-        trace.set(0,
-                  { {
-                      { C::keccak_memory_last, 1 },
-                      { C::keccak_memory_ctr_end, 1 },
-                  } });
-    }
-
     uint32_t row = 1;
     for (const auto& event : events) {
         // Skip the event if there is an out of range error.
@@ -682,58 +663,58 @@ void KeccakF1600TraceBuilder::process_memory_slices(
 const InteractionDefinition KeccakF1600TraceBuilder::interactions =
     InteractionDefinition()
         // Theta XOR values
-        .add<lookup_keccakf1600_theta_xor_01_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_theta_xor_02_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_theta_xor_03_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_theta_xor_row_0_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_theta_xor_11_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_theta_xor_12_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_theta_xor_13_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_theta_xor_row_1_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_theta_xor_21_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_theta_xor_22_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_theta_xor_23_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_theta_xor_row_2_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_theta_xor_31_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_theta_xor_32_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_theta_xor_33_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_theta_xor_row_3_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_theta_xor_41_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_theta_xor_42_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_theta_xor_43_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_theta_xor_row_4_settings, InteractionType::LookupSequential>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_xor_01_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_xor_02_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_xor_03_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_xor_row_0_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_xor_11_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_xor_12_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_xor_13_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_xor_row_1_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_xor_21_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_xor_22_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_xor_23_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_xor_row_2_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_xor_31_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_xor_32_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_xor_33_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_xor_row_3_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_xor_41_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_xor_42_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_xor_43_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_xor_row_4_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
         // Theta XOR combined values
-        .add<lookup_keccakf1600_theta_combined_xor_0_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_theta_combined_xor_1_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_theta_combined_xor_2_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_theta_combined_xor_3_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_theta_combined_xor_4_settings, InteractionType::LookupSequential>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_combined_xor_0_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_combined_xor_1_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_combined_xor_2_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_combined_xor_3_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_theta_combined_xor_4_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
         // State Theta final values
-        .add<lookup_keccakf1600_state_theta_00_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_theta_01_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_theta_02_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_theta_03_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_theta_04_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_theta_10_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_theta_11_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_theta_12_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_theta_13_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_theta_14_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_theta_20_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_theta_21_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_theta_22_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_theta_23_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_theta_24_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_theta_30_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_theta_31_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_theta_32_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_theta_33_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_theta_34_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_theta_40_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_theta_41_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_theta_42_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_theta_43_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_theta_44_settings, InteractionType::LookupSequential>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_00_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_01_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_02_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_03_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_04_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_10_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_11_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_12_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_13_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_14_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_20_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_21_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_22_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_23_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_24_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_30_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_31_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_32_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_33_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_34_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_40_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_41_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_42_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_43_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_theta_44_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
         // Range check on some state theta limbs
         .add<lookup_keccakf1600_theta_limb_01_range_settings, InteractionType::LookupGeneric>(Column::range_check_sel)
         .add<lookup_keccakf1600_theta_limb_02_range_settings, InteractionType::LookupGeneric>(Column::range_check_sel)
@@ -760,61 +741,61 @@ const InteractionDefinition KeccakF1600TraceBuilder::interactions =
         .add<lookup_keccakf1600_theta_limb_43_range_settings, InteractionType::LookupGeneric>(Column::range_check_sel)
         .add<lookup_keccakf1600_theta_limb_44_range_settings, InteractionType::LookupGeneric>(Column::range_check_sel)
         // "pi and" values
-        .add<lookup_keccakf1600_state_pi_and_00_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_pi_and_01_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_pi_and_02_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_pi_and_03_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_pi_and_04_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_pi_and_10_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_pi_and_11_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_pi_and_12_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_pi_and_13_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_pi_and_14_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_pi_and_20_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_pi_and_21_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_pi_and_22_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_pi_and_23_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_pi_and_24_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_pi_and_30_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_pi_and_31_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_pi_and_32_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_pi_and_33_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_pi_and_34_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_pi_and_40_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_pi_and_41_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_pi_and_42_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_pi_and_43_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_pi_and_44_settings, InteractionType::LookupSequential>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_00_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_01_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_02_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_03_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_04_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_10_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_11_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_12_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_13_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_14_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_20_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_21_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_22_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_23_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_24_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_30_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_31_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_32_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_33_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_34_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_40_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_41_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_42_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_43_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_pi_and_44_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
         // chi values
-        .add<lookup_keccakf1600_state_chi_00_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_chi_01_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_chi_02_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_chi_03_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_chi_04_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_chi_10_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_chi_11_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_chi_12_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_chi_13_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_chi_14_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_chi_20_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_chi_21_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_chi_22_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_chi_23_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_chi_24_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_chi_30_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_chi_31_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_chi_32_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_chi_33_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_chi_34_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_chi_40_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_chi_41_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_chi_42_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_chi_43_settings, InteractionType::LookupSequential>(Column::bitwise_start)
-        .add<lookup_keccakf1600_state_chi_44_settings, InteractionType::LookupSequential>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_00_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_01_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_02_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_03_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_04_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_10_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_11_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_12_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_13_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_14_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_20_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_21_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_22_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_23_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_24_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_30_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_31_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_32_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_33_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_34_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_40_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_41_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_42_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_43_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_chi_44_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
         // iota_00
-        .add<lookup_keccakf1600_state_iota_00_settings, InteractionType::LookupSequential>(Column::bitwise_start)
+        .add<lookup_keccakf1600_state_iota_00_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
         // round constants lookup
-        .add<lookup_keccakf1600_round_cst_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_keccakf1600_round_cst_settings, InteractionType::LookupIntoIndexedByRow>()
         // Memory slices permutations
         .add<perm_keccakf1600_read_to_slice_settings, InteractionType::Permutation>()
         .add<perm_keccakf1600_write_to_slice_settings, InteractionType::Permutation>()

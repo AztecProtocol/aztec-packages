@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -11,6 +11,7 @@ namespace bb {
 /**
  * @brief Expression for the computation of Translator accumulator in integers through 68-bit limbs and
  * native field (prime) limb
+ *
  * @details This relation is a part of system of relations that enforce a formula in non-native field (base field of
  * bn254 curve Fp (p - modulus of Fp)). We are trying to compute:
  *
@@ -84,12 +85,12 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
     using View = typename Accumulator::View;
 
     static constexpr size_t NUM_LIMB_BITS = 68;
-    static FF shift = FF(uint256_t(1) << NUM_LIMB_BITS);
-    static FF shiftx2 = FF(uint256_t(1) << (NUM_LIMB_BITS * 2));
-    static FF shiftx3 = FF(uint256_t(1) << (NUM_LIMB_BITS * 3));
-    static uint512_t MODULUS_U512 = uint512_t(curve::BN254::BaseField::modulus);
-    static uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (NUM_LIMB_BITS << 2);
-    static uint512_t NEGATIVE_PRIME_MODULUS = BINARY_BASIS_MODULUS - MODULUS_U512;
+    static const FF shift = FF(uint256_t(1) << NUM_LIMB_BITS);
+    static const FF shiftx2 = FF(uint256_t(1) << (NUM_LIMB_BITS * 2));
+    static const FF shiftx3 = FF(uint256_t(1) << (NUM_LIMB_BITS * 3));
+    static constexpr uint512_t MODULUS_U512 = uint512_t(curve::BN254::BaseField::modulus);
+    static constexpr uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (NUM_LIMB_BITS << 2);
+    static constexpr uint512_t NEGATIVE_PRIME_MODULUS = BINARY_BASIS_MODULUS - MODULUS_U512;
     static const std::array<FF, 5> NEGATIVE_MODULUS_LIMBS = {
         FF(NEGATIVE_PRIME_MODULUS.slice(0, NUM_LIMB_BITS).lo),
         FF(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo),
@@ -98,185 +99,216 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
         -FF(curve::BN254::BaseField::modulus)
     };
 
+    // Limbs of evaluation challenge x
     const auto& evaluation_input_x_0 = params.evaluation_input_x[0];
     const auto& evaluation_input_x_1 = params.evaluation_input_x[1];
     const auto& evaluation_input_x_2 = params.evaluation_input_x[2];
     const auto& evaluation_input_x_3 = params.evaluation_input_x[3];
     const auto& evaluation_input_x_4 = params.evaluation_input_x[4];
-    // for j < 4,  v_i_j is the j-th limb of v^{1+i}
-    // v_i_4 is v^{1+i} in the native field
-    const auto& v_0_0 = params.batching_challenge_v[0][0];
-    const auto& v_0_1 = params.batching_challenge_v[0][1];
-    const auto& v_0_2 = params.batching_challenge_v[0][2];
-    const auto& v_0_3 = params.batching_challenge_v[0][3];
-    const auto& v_0_4 = params.batching_challenge_v[0][4];
-    const auto& v_1_0 = params.batching_challenge_v[1][0];
-    const auto& v_1_1 = params.batching_challenge_v[1][1];
-    const auto& v_1_2 = params.batching_challenge_v[1][2];
-    const auto& v_1_3 = params.batching_challenge_v[1][3];
-    const auto& v_1_4 = params.batching_challenge_v[1][4];
-    const auto& v_2_0 = params.batching_challenge_v[2][0];
-    const auto& v_2_1 = params.batching_challenge_v[2][1];
-    const auto& v_2_2 = params.batching_challenge_v[2][2];
-    const auto& v_2_3 = params.batching_challenge_v[2][3];
-    const auto& v_2_4 = params.batching_challenge_v[2][4];
-    const auto& v_3_0 = params.batching_challenge_v[3][0];
-    const auto& v_3_1 = params.batching_challenge_v[3][1];
-    const auto& v_3_2 = params.batching_challenge_v[3][2];
-    const auto& v_3_3 = params.batching_challenge_v[3][3];
-    const auto& v_3_4 = params.batching_challenge_v[3][4];
 
+    // Limbs of batching challenge v
+    const auto& v_0 = params.batching_challenge_v[0][0];
+    const auto& v_1 = params.batching_challenge_v[0][1];
+    const auto& v_2 = params.batching_challenge_v[0][2];
+    const auto& v_3 = params.batching_challenge_v[0][3];
+    const auto& v_4 = params.batching_challenge_v[0][4];
+
+    // Limbs of batching challenge v²
+    const auto& v_sqr_0 = params.batching_challenge_v[1][0];
+    const auto& v_sqr_1 = params.batching_challenge_v[1][1];
+    const auto& v_sqr_2 = params.batching_challenge_v[1][2];
+    const auto& v_sqr_3 = params.batching_challenge_v[1][3];
+    const auto& v_sqr_4 = params.batching_challenge_v[1][4];
+
+    // Limbs of batching challenge v³
+    const auto& v_cube_0 = params.batching_challenge_v[2][0];
+    const auto& v_cube_1 = params.batching_challenge_v[2][1];
+    const auto& v_cube_2 = params.batching_challenge_v[2][2];
+    const auto& v_cube_3 = params.batching_challenge_v[2][3];
+    const auto& v_cube_4 = params.batching_challenge_v[2][4];
+
+    // Limbs of batching challenge v⁴
+    const auto& v_quad_0 = params.batching_challenge_v[3][0];
+    const auto& v_quad_1 = params.batching_challenge_v[3][1];
+    const auto& v_quad_2 = params.batching_challenge_v[3][2];
+    const auto& v_quad_3 = params.batching_challenge_v[3][3];
+    const auto& v_quad_4 = params.batching_challenge_v[3][4];
+
+    // Fetch witness values
+    // Pₓ = (Pₓ,₃ || Pₓ,₂ || Pₓ,₁ || Pₓ,₀)
+    // Pᵧ = (Pᵧ,₃ || Pᵧ,₂ || Pᵧ,₁ || Pᵧ,₀)
+    // z₁ = (z₁,₁ || z₁,₀)
+    // z₂ = (z₂,₁ || z₂,₀)
+    // Q  = (q₃ || q₂ || q₁ || q₀)
     const auto& op = View(in.op);
-    const auto& p_x_low_limbs = View(in.p_x_low_limbs);
-    const auto& p_y_low_limbs = View(in.p_y_low_limbs);
-    const auto& p_x_high_limbs = View(in.p_x_high_limbs);
-    const auto& p_y_high_limbs = View(in.p_y_high_limbs);
+    const auto& p_x_limb_0 = View(in.p_x_low_limbs);
+    const auto& p_y_limb_0 = View(in.p_y_low_limbs);
+    const auto& p_x_limb_2 = View(in.p_x_high_limbs);
+    const auto& p_y_limb_2 = View(in.p_y_high_limbs);
     const auto& accumulators_binary_limbs_0 = View(in.accumulators_binary_limbs_0);
     const auto& accumulators_binary_limbs_1 = View(in.accumulators_binary_limbs_1);
     const auto& accumulators_binary_limbs_2 = View(in.accumulators_binary_limbs_2);
     const auto& accumulators_binary_limbs_3 = View(in.accumulators_binary_limbs_3);
-    const auto& z_low_limbs = View(in.z_low_limbs);
-    const auto& z_high_limbs = View(in.z_high_limbs);
-    const auto& quotient_low_binary_limbs = View(in.quotient_low_binary_limbs);
-    const auto& quotient_high_binary_limbs = View(in.quotient_high_binary_limbs);
-    const auto& p_x_low_limbs_shift = View(in.p_x_low_limbs_shift);
-    const auto& p_y_low_limbs_shift = View(in.p_y_low_limbs_shift);
-    const auto& p_x_high_limbs_shift = View(in.p_x_high_limbs_shift);
-    const auto& p_y_high_limbs_shift = View(in.p_y_high_limbs_shift);
-    const auto& accumulators_binary_limbs_0_shift = View(in.accumulators_binary_limbs_0_shift);
-    const auto& accumulators_binary_limbs_1_shift = View(in.accumulators_binary_limbs_1_shift);
-    const auto& accumulators_binary_limbs_2_shift = View(in.accumulators_binary_limbs_2_shift);
-    const auto& accumulators_binary_limbs_3_shift = View(in.accumulators_binary_limbs_3_shift);
-    const auto& z_low_limbs_shift = View(in.z_low_limbs_shift);
-    const auto& z_high_limbs_shift = View(in.z_high_limbs_shift);
-    const auto& quotient_low_binary_limbs_shift = View(in.quotient_low_binary_limbs_shift);
-    const auto& quotient_high_binary_limbs_shift = View(in.quotient_high_binary_limbs_shift);
-    const auto& relation_wide_limbs = View(in.relation_wide_limbs);
-    const auto& relation_wide_limbs_shift = View(in.relation_wide_limbs_shift);
+    const auto& z_first_limb_0 = View(in.z_low_limbs);
+    const auto& z_first_limb_1 = View(in.z_high_limbs);
+    const auto& quotient_binary_limbs_0 = View(in.quotient_low_binary_limbs);
+    const auto& quotient_binary_limbs_1 = View(in.quotient_low_binary_limbs_shift);
+    const auto& p_x_limb_1 = View(in.p_x_low_limbs_shift);
+    const auto& p_y_limb_1 = View(in.p_y_low_limbs_shift);
+    const auto& p_x_limb_3 = View(in.p_x_high_limbs_shift);
+    const auto& p_y_limb_3 = View(in.p_y_high_limbs_shift);
+    const auto& prev_accumulators_binary_limbs_0 = View(in.accumulators_binary_limbs_0_shift);
+    const auto& prev_accumulators_binary_limbs_1 = View(in.accumulators_binary_limbs_1_shift);
+    const auto& prev_accumulators_binary_limbs_2 = View(in.accumulators_binary_limbs_2_shift);
+    const auto& prev_accumulators_binary_limbs_3 = View(in.accumulators_binary_limbs_3_shift);
+    const auto& z_second_limb_0 = View(in.z_low_limbs_shift);
+    const auto& z_second_limb_1 = View(in.z_high_limbs_shift);
+    const auto& quotient_binary_limbs_2 = View(in.quotient_high_binary_limbs);
+    const auto& quotient_binary_limbs_3 = View(in.quotient_high_binary_limbs_shift);
+    const auto& relation_wide_limbs_lo = View(in.relation_wide_limbs);
+    const auto& relation_wide_limbs_hi = View(in.relation_wide_limbs_shift);
     const auto& lagrange_even_in_minicircuit = View(in.lagrange_even_in_minicircuit);
 
-    // Contribution (1) Computing the mod 2²⁷² relation over lower 136 bits
+    /**
+     * Contribution (1): Subrelation 1 - Lower Mod 2¹³⁶ Check
+     *
+     * Proves that the accumulation formula holds for the lower 136 bits (limbs 0 and 1).
+     * Computes: T₀ + 2⁶⁸·T₁ - 2¹³⁶·c_lo = 0
+     * where T₀ and T₁ are linear combinations of limb-0 and limb-1 products respectively,
+     * and c_lo is the carry to the higher 136 bits.
+     */
     // clang-format off
-        // the index-0 limb
-        auto tmp = accumulators_binary_limbs_0_shift * evaluation_input_x_0
+        // T₀: Limb 0 contribution (all products contributing at weight 2⁰)
+        auto tmp = prev_accumulators_binary_limbs_0 * evaluation_input_x_0
                    + op
-                   + p_x_low_limbs     * v_0_0
-                   + p_y_low_limbs     * v_1_0
-                   + z_low_limbs       * v_2_0
-                   + z_low_limbs_shift * v_3_0
-                   + quotient_low_binary_limbs * NEGATIVE_MODULUS_LIMBS[0]
+                   + p_x_limb_0 * v_0
+                   + p_y_limb_0 * v_sqr_0
+                   + z_first_limb_0 * v_cube_0
+                   + z_second_limb_0 * v_quad_0
+                   + quotient_binary_limbs_0 * NEGATIVE_MODULUS_LIMBS[0]
                    - accumulators_binary_limbs_0;
 
-        // the index-1 limb
-        tmp += (accumulators_binary_limbs_1_shift   * evaluation_input_x_0
-                   + accumulators_binary_limbs_0_shift * evaluation_input_x_1
-                   + p_x_low_limbs       * v_0_1
-                   + p_x_low_limbs_shift * v_0_0
-                   + p_y_low_limbs       * v_1_1
-                   + p_y_low_limbs_shift * v_1_0
-                   + z_low_limbs         * v_2_1
-                   + z_high_limbs        * v_2_0
-                   + z_low_limbs_shift   * v_3_1
-                   + z_high_limbs_shift  * v_3_0
-                   + quotient_low_binary_limbs       * NEGATIVE_MODULUS_LIMBS[1]
-                   + quotient_low_binary_limbs_shift * NEGATIVE_MODULUS_LIMBS[0]
+        // T₁: Limb 1 contribution (all cross-products contributing at weight 2⁶⁸)
+        tmp += (prev_accumulators_binary_limbs_1      * evaluation_input_x_0
+                   + prev_accumulators_binary_limbs_0 * evaluation_input_x_1
+                   + p_x_limb_0 * v_1
+                   + p_x_limb_1 * v_0
+                   + p_y_limb_0 * v_sqr_1
+                   + p_y_limb_1 * v_sqr_0
+                   + z_first_limb_0 * v_cube_1
+                   + z_first_limb_1 * v_cube_0
+                   + z_second_limb_0 * v_quad_1
+                   + z_second_limb_1 * v_quad_0
+                   + quotient_binary_limbs_0 * NEGATIVE_MODULUS_LIMBS[1]
+                   + quotient_binary_limbs_1 * NEGATIVE_MODULUS_LIMBS[0]
                    - accumulators_binary_limbs_1)
                 * shift ;
     // clang-format on
-    // subtract large value; vanishing shows the desired relation holds on low 136-bit limb
-    tmp -= relation_wide_limbs * shiftx2;
+    // Subtract 2¹³⁶·c_lo: if the result is zero, lower 136 bits are correct
+    tmp -= relation_wide_limbs_lo * shiftx2;
     tmp *= lagrange_even_in_minicircuit * op;
     tmp *= scaling_factor;
     std::get<0>(accumulators) += tmp;
 
-    // Contribution (2) Computing the 2²⁷² relation over higher 136 bits
-    // why declare another temporary?
+    /**
+     * Contribution (2): Subrelation 2 - Higher Mod 2¹³⁶ Check
+     *
+     * Proves that the accumulation formula holds for the higher 136 bits (limbs 2 and 3).
+     * Computes: T₂ + 2⁶⁸·T₃ - 2¹³⁶·c_hi = 0
+     * where T₂ includes the carry c_lo from subrelation 1, T₃ contains limb-3 products,
+     * and c_hi is the overflow carry (should be range-constrained to ensure soundness).
+     * Together with Subrelation 1, this proves the relation holds mod 2²⁷².
+     */
     // clang-format off
-        // the index-2 limb, with a carry from the previous calculation
-        tmp = relation_wide_limbs
-              + accumulators_binary_limbs_2_shift * evaluation_input_x_0
-              + accumulators_binary_limbs_1_shift * evaluation_input_x_1
-              + accumulators_binary_limbs_0_shift * evaluation_input_x_2
-              + p_x_high_limbs      * v_0_0
-              + p_x_low_limbs_shift * v_0_1
-              + p_x_low_limbs       * v_0_2
-              + p_y_high_limbs      * v_1_0
-              + p_y_low_limbs_shift * v_1_1
-              + p_y_low_limbs       * v_1_2
-              + z_high_limbs        * v_2_1
-              + z_low_limbs         * v_2_2
-              + z_high_limbs_shift  * v_3_1
-              + z_low_limbs_shift   * v_3_2
-              + quotient_high_binary_limbs      * NEGATIVE_MODULUS_LIMBS[0]
-              + quotient_low_binary_limbs_shift * NEGATIVE_MODULUS_LIMBS[1]
-              + quotient_low_binary_limbs       * NEGATIVE_MODULUS_LIMBS[2]
+        // T₂: Limb 2 contribution (with carry from lower 136 bits)
+        tmp = relation_wide_limbs_lo
+              + prev_accumulators_binary_limbs_2 * evaluation_input_x_0
+              + prev_accumulators_binary_limbs_1 * evaluation_input_x_1
+              + prev_accumulators_binary_limbs_0 * evaluation_input_x_2
+              + p_x_limb_2 * v_0
+              + p_x_limb_1 * v_1
+              + p_x_limb_0 * v_2
+              + p_y_limb_2 * v_sqr_0
+              + p_y_limb_1 * v_sqr_1
+              + p_y_limb_0 * v_sqr_2
+              + z_first_limb_1 * v_cube_1
+              + z_first_limb_0 * v_cube_2
+              + z_second_limb_1 * v_quad_1
+              + z_second_limb_0 * v_quad_2
+              + quotient_binary_limbs_2 * NEGATIVE_MODULUS_LIMBS[0]
+              + quotient_binary_limbs_1 * NEGATIVE_MODULUS_LIMBS[1]
+              + quotient_binary_limbs_0 * NEGATIVE_MODULUS_LIMBS[2]
               - accumulators_binary_limbs_2;
 
-        // the index-2 limb
-        tmp += (accumulators_binary_limbs_3_shift   * evaluation_input_x_0
-                   + accumulators_binary_limbs_2_shift   * evaluation_input_x_1
-                   + accumulators_binary_limbs_1_shift * evaluation_input_x_2
-                   + accumulators_binary_limbs_0_shift * evaluation_input_x_3
-                   + p_x_high_limbs_shift * v_0_0
-                   + p_x_high_limbs       * v_0_1
-                   + p_x_low_limbs_shift  * v_0_2
-                   + p_x_low_limbs        * v_0_3
-                   + p_y_high_limbs_shift * v_1_0
-                   + p_y_high_limbs       * v_1_1
-                   + p_y_low_limbs_shift  * v_1_2
-                   + p_y_low_limbs        * v_1_3
-                   + z_high_limbs         * v_2_2
-                   + z_low_limbs          * v_2_3
-                   + z_high_limbs_shift   * v_3_2
-                   + z_low_limbs_shift    * v_3_3
-                   + quotient_high_binary_limbs_shift * NEGATIVE_MODULUS_LIMBS[0]
-                   + quotient_high_binary_limbs       * NEGATIVE_MODULUS_LIMBS[1]
-                   + quotient_low_binary_limbs_shift  * NEGATIVE_MODULUS_LIMBS[2]
-                   + quotient_low_binary_limbs        * NEGATIVE_MODULUS_LIMBS[3]
+        // T₃: Limb 3 contribution (all cross-products contributing at weight 2²⁰⁴)
+        tmp += (prev_accumulators_binary_limbs_3      * evaluation_input_x_0
+                   + prev_accumulators_binary_limbs_2 * evaluation_input_x_1
+                   + prev_accumulators_binary_limbs_1 * evaluation_input_x_2
+                   + prev_accumulators_binary_limbs_0 * evaluation_input_x_3
+                   + p_x_limb_3 * v_0
+                   + p_x_limb_2 * v_1
+                   + p_x_limb_1 * v_2
+                   + p_x_limb_0 * v_3
+                   + p_y_limb_3 * v_sqr_0
+                   + p_y_limb_2 * v_sqr_1
+                   + p_y_limb_1 * v_sqr_2
+                   + p_y_limb_0 * v_sqr_3
+                   + z_first_limb_1 * v_cube_2
+                   + z_first_limb_0 * v_cube_3
+                   + z_second_limb_1 * v_quad_2
+                   + z_second_limb_0 * v_quad_3
+                   + quotient_binary_limbs_3 * NEGATIVE_MODULUS_LIMBS[0]
+                   + quotient_binary_limbs_2 * NEGATIVE_MODULUS_LIMBS[1]
+                   + quotient_binary_limbs_1 * NEGATIVE_MODULUS_LIMBS[2]
+                   + quotient_binary_limbs_0 * NEGATIVE_MODULUS_LIMBS[3]
                    - accumulators_binary_limbs_3)
                 * shift;
     // clang-format on
-    // subtract large value; vanishing shows the desired relation holds on high 136-bit limb
-    tmp -= relation_wide_limbs_shift * shiftx2;
+    // Subtract 2¹³⁶·c_hi: if the result is zero, higher 136 bits are correct
+    tmp -= relation_wide_limbs_hi * shiftx2;
     tmp *= lagrange_even_in_minicircuit * op;
     tmp *= scaling_factor;
     std::get<1>(accumulators) += tmp;
 
+    // Helper functions to reconstruct field elements from limbs
     const auto reconstruct_from_two = [](const auto& l0, const auto& l1) { return l0 + l1 * shift; };
 
     const auto reconstruct_from_four = [](const auto& l0, const auto& l1, const auto& l2, const auto& l3) {
         return l0 + l1 * shift + l2 * shiftx2 + l3 * shiftx3;
     };
 
-    // Reconstructing native versions of values
-    auto reconstructed_p_x =
-        reconstruct_from_four(p_x_low_limbs, p_x_low_limbs_shift, p_x_high_limbs, p_x_high_limbs_shift);
-    auto reconstructed_p_y =
-        reconstruct_from_four(p_y_low_limbs, p_y_low_limbs_shift, p_y_high_limbs, p_y_high_limbs_shift);
-    auto reconstructed_previous_accumulator = reconstruct_from_four(accumulators_binary_limbs_0_shift,
-                                                                    accumulators_binary_limbs_1_shift,
-                                                                    accumulators_binary_limbs_2_shift,
-                                                                    accumulators_binary_limbs_3_shift);
+    // Reconstruct native 𝔽ᵣ representations from binary limbs
+    auto reconstructed_p_x = reconstruct_from_four(p_x_limb_0, p_x_limb_1, p_x_limb_2, p_x_limb_3);
+    auto reconstructed_p_y = reconstruct_from_four(p_y_limb_0, p_y_limb_1, p_y_limb_2, p_y_limb_3);
+    auto reconstructed_previous_accumulator = reconstruct_from_four(prev_accumulators_binary_limbs_0,
+                                                                    prev_accumulators_binary_limbs_1,
+                                                                    prev_accumulators_binary_limbs_2,
+                                                                    prev_accumulators_binary_limbs_3);
     auto reconstructed_current_accumulator = reconstruct_from_four(accumulators_binary_limbs_0,
                                                                    accumulators_binary_limbs_1,
                                                                    accumulators_binary_limbs_2,
                                                                    accumulators_binary_limbs_3);
-    auto reconstructed_z1 = reconstruct_from_two(z_low_limbs, z_high_limbs);
-    auto reconstructed_z2 = reconstruct_from_two(z_low_limbs_shift, z_high_limbs_shift);
-    auto reconstructed_quotient = reconstruct_from_four(quotient_low_binary_limbs,
-                                                        quotient_low_binary_limbs_shift,
-                                                        quotient_high_binary_limbs,
-                                                        quotient_high_binary_limbs_shift);
+    auto reconstructed_z1 = reconstruct_from_two(z_first_limb_0, z_first_limb_1);
+    auto reconstructed_z2 = reconstruct_from_two(z_second_limb_0, z_second_limb_1);
+    auto reconstructed_quotient = reconstruct_from_four(
+        quotient_binary_limbs_0, quotient_binary_limbs_1, quotient_binary_limbs_2, quotient_binary_limbs_3);
 
-    // Contribution (3). Evaluating integer relation over native field
+    /**
+     * Contribution (3): Subrelation 3 - Native Field Check
+     *
+     * Proves the accumulation formula holds when computed directly in 𝔽ᵣ.
+     * Uses reconstructed native field representations (tilde notation in docs).
+     * Combined with mod 2²⁷² checks (Subrelations 1 & 2), this proves the relation
+     * holds in integers via Chinese Remainder Theorem, which implies it holds mod q.
+     */
     // clang-format off
-        // the native limb index is 4
+        // Compute accumulation formula using native 𝔽ᵣ arithmetic (limb index 4)
         tmp = reconstructed_previous_accumulator * evaluation_input_x_4
                      + op
-                     + reconstructed_p_x * v_0_4
-                     + reconstructed_p_y * v_1_4
-                     + reconstructed_z1  * v_2_4
-                     + reconstructed_z2  * v_3_4
+                     + reconstructed_p_x * v_4
+                     + reconstructed_p_y * v_sqr_4
+                     + reconstructed_z1  * v_cube_4
+                     + reconstructed_z2  * v_quad_4
                      + reconstructed_quotient * NEGATIVE_MODULUS_LIMBS[4]
                      - reconstructed_current_accumulator;
     // clang-format on

@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Suyash], commit: 553c5eb82901955c638b943065acd3e47fc918c0}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -18,6 +18,8 @@ std::pair<uint64_t, bool> element<C, Fq, Fr, G>::get_staggered_wnaf_fragment_val
                                                                                    bool is_negative,
                                                                                    bool wnaf_skew)
 {
+    BB_ASSERT_LT(stagger, 32ULL, "biggroup_nafs: stagger value ≥ 32");
+
     // If there is no stagger then there is no need to change anything
     if (stagger == 0) {
         return std::make_pair(0, wnaf_skew);
@@ -345,11 +347,11 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
      *
      * which we can reduce to:
      *
-     * ACC = ACC.montgomery_ladder(A)
-     * ACC = ACC.montgomery_ladder(B)
+     * ACC = ACC.dbl() + A
+     * ACC = ACC.dbl() + B
      *
      * This is more efficient than the non-staggered approach as we save 1 non-native field multiplication when we
-     * replace a DBL, ADD subroutine with a call to the montgomery ladder
+     * combine the DBL and ADD operations
      */
     C* builder = scalar.get_context();
 
@@ -367,15 +369,15 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
     bool khi_negative = false;
     secp256k1::fr::split_into_endomorphism_scalars(k.from_montgomery_form(), klo, khi);
 
-    // The low and high scalars must be less than 2^129 in absolute value. In some cases, the khi value
-    // is returned as negative, in which case we negate it and set a flag to indicate this. This is because
-    // we decompose the scalar as:
-    // k = klo + ζ * khi (mod n)
-    //   = klo - λ * khi (mod n)
-    // where λ is the cube root of unity. If khi is negative, then -λ * khi is positive, and vice versa.
+    // The low and high scalars must be less than 2^129 in absolute value. In some cases, the klo or khi value
+    // is returned as negative, in which case we negate it and set a flag to indicate this.
     if (khi.uint256_t_no_montgomery_conversion().get_msb() >= 129) {
         khi_negative = true;
         khi = -khi;
+    }
+    if (klo.uint256_t_no_montgomery_conversion().get_msb() >= 129) {
+        klo_negative = true;
+        klo = -klo;
     }
 
     BB_ASSERT_LT(klo.uint256_t_no_montgomery_conversion().get_msb(), 129ULL, "biggroup_nafs: klo > 129 bits");
@@ -393,6 +395,14 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
     Fr minus_lambda(bb::fr(minus_lambda_val.slice(0, 136)), bb::fr(minus_lambda_val.slice(136, 256)), false);
 
     Fr reconstructed_scalar = khi_reconstructed.madd(minus_lambda, { klo_reconstructed });
+
+    // Constant scalars are always reduced mod n by design (scalar < n), however
+    // the reconstructed_scalar may be larger than n as it's a witness. So we need to
+    // reduce the reconstructed_scalar mod n explicitly to match the original scalar.
+    // This is necessary for assert_equal to pass.
+    if (scalar.is_constant()) {
+        reconstructed_scalar.self_reduce();
+    }
 
     // Validate that the reconstructed scalar matches the original scalar in circuit
     scalar.assert_equal(reconstructed_scalar, "biggroup_nafs: reconstructed scalar does not match reduced input");
@@ -488,17 +498,42 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
             lo_accumulators = reconstruct_half_naf(&naf_entries[midpoint], num_rounds - midpoint);
         } else {
             // If the number of rounds is ≤ (2 * Fr::NUM_LIMB_BITS), the high bits of the resulting Fr element are 0.
-            const field_ct zero = field_ct::from_witness_index(builder, builder->zero_idx());
+            field_ct zero = field_ct::from_witness_index(builder, builder->zero_idx());
+            // The zero_idx is a constant zero, so set the CONSTANT tag to allow merging with origin-tagged elements
+            auto const_tag = OriginTag::constant();
+            zero.set_origin_tag(const_tag);
             lo_accumulators = reconstruct_half_naf(&naf_entries[0], num_rounds);
             hi_accumulators = std::make_pair(zero, zero);
         }
 
-        // Add the skew bit to the low accumulator's negative part
-        lo_accumulators.second = lo_accumulators.second + field_ct(naf_entries[num_rounds]);
+        // Add the skew bit to the low accumulator's negative part.
+        // This addition can produce exactly 2^136 if negative accumulator is 2^136-1 and skew is 1.
+        // When this happens, we need to carry the overflow to the high bits.
+        field_ct lo_neg_with_skew = lo_accumulators.second + field_ct(naf_entries[num_rounds]);
+
+        // Detect if we hit exactly 2^136 (the only overflow case possible)
+        const uint256_t two_pow_136 = uint256_t(1) << (Fr::NUM_LIMB_BITS * 2);
+        field_ct overflow_check = lo_neg_with_skew - field_ct(two_pow_136);
+        bool_ct has_overflow = overflow_check.is_zero();
+
+        // If overflow: set lo to 0, carry 1 to hi_neg
+        // If no overflow: keep lo_neg_with_skew, hi_neg unchanged
+        lo_accumulators.second = lo_neg_with_skew * field_ct(!has_overflow);
+        hi_accumulators.second = hi_accumulators.second + field_ct(has_overflow);
 
         Fr reconstructed_positive = Fr(lo_accumulators.first, hi_accumulators.first);
         Fr reconstructed_negative = Fr(lo_accumulators.second, hi_accumulators.second);
         Fr accumulator = reconstructed_positive - reconstructed_negative;
+
+        // Constant scalars are always reduced mod n by design (scalar < n), however
+        // the reconstructed accumulator may be larger than n as its a witness. So we need to
+        // reduce the reconstructed accumulator mod n explicitly to match the original scalar.
+        // This is necessary for assert_equal to pass.
+        if (scalar.is_constant()) {
+            accumulator.self_reduce();
+        }
+
+        // Validate that the reconstructed scalar matches the original scalar in circuit
         accumulator.assert_equal(scalar);
     }
 

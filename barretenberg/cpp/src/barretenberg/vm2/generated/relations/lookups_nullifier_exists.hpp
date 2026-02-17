@@ -16,24 +16,22 @@ namespace bb::avm2 {
 struct lookup_nullifier_exists_nullifier_exists_check_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_NULLIFIER_EXISTS_NULLIFIER_EXISTS_CHECK";
     static constexpr std::string_view RELATION_NAME = "nullifier_exists";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_nullifier_exists;
     static constexpr Column DST_SELECTOR = Column::nullifier_check_sel;
     static constexpr Column COUNTS = Column::lookup_nullifier_exists_nullifier_exists_check_counts;
     static constexpr Column INVERSES = Column::lookup_nullifier_exists_nullifier_exists_check_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_register_2_,
+        ColumnAndShifts::execution_register_1_,
         ColumnAndShifts::execution_register_0_,
         ColumnAndShifts::execution_prev_nullifier_tree_root,
-        ColumnAndShifts::execution_sel_execute_nullifier_exists,
-        ColumnAndShifts::execution_register_1_
+        ColumnAndShifts::precomputed_zero
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::nullifier_check_exists,
         ColumnAndShifts::nullifier_check_nullifier,
         ColumnAndShifts::nullifier_check_root,
-        ColumnAndShifts::nullifier_check_should_silo,
-        ColumnAndShifts::nullifier_check_address
+        ColumnAndShifts::nullifier_check_should_silo
     };
 };
 

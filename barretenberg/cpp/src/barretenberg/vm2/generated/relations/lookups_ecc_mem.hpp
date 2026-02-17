@@ -48,8 +48,8 @@ struct lookup_ecc_mem_input_output_ecc_add_settings_ {
     static constexpr Column COUNTS = Column::lookup_ecc_mem_input_output_ecc_add_counts;
     static constexpr Column INVERSES = Column::lookup_ecc_mem_input_output_ecc_add_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::ecc_add_mem_p_x,   ColumnAndShifts::ecc_add_mem_p_y,   ColumnAndShifts::ecc_add_mem_p_is_inf,
-        ColumnAndShifts::ecc_add_mem_q_x,   ColumnAndShifts::ecc_add_mem_q_y,   ColumnAndShifts::ecc_add_mem_q_is_inf,
+        ColumnAndShifts::ecc_add_mem_p_x_n, ColumnAndShifts::ecc_add_mem_p_y_n, ColumnAndShifts::ecc_add_mem_p_is_inf,
+        ColumnAndShifts::ecc_add_mem_q_x_n, ColumnAndShifts::ecc_add_mem_q_y_n, ColumnAndShifts::ecc_add_mem_q_is_inf,
         ColumnAndShifts::ecc_add_mem_res_x, ColumnAndShifts::ecc_add_mem_res_y, ColumnAndShifts::ecc_add_mem_res_is_inf
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {

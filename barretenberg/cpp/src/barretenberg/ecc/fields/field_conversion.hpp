@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [Raju], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -21,8 +21,8 @@ class FrCodec {
     using DataType = bb::fr;
     using fr = bb::fr;
     using fq = grumpkin::fr;
-    using bn254_point = curve::BN254::AffineElement;
-    using grumpkin_point = curve::Grumpkin::AffineElement;
+    using bn254_commitment = curve::BN254::AffineElement;
+    using grumpkin_commitment = curve::Grumpkin::AffineElement;
 
     // Size calculators
     template <typename T> static constexpr size_t calc_num_fields()
@@ -31,7 +31,7 @@ class FrCodec {
             return 1;
         } else if constexpr (IsAnyOf<T, bb::fr, fq>) {
             return T::Params::NUM_BN254_SCALARS;
-        } else if constexpr (IsAnyOf<T, bn254_point, grumpkin_point>) {
+        } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
             return 2 * calc_num_fields<typename T::Fq>();
         } else {
             // Array or Univariate
@@ -40,8 +40,27 @@ class FrCodec {
     }
 
     /**
+     * @brief Check whether raw limbs represent the point at infinity (all limbs zero).
+     * @details This matches the circuit behavior in StdlibCodec::check_point_at_infinity.
+     * We check raw limbs BEFORE deserializing to field elements to ensure that alias
+     * values (e.g., x=modulus, y=modulus) are NOT treated as point at infinity.
+     * Only the canonical (0,0) representation with all-zero limbs is accepted.
+     */
+    template <typename T> static bool check_point_at_infinity(std::span<const bb::fr> fr_vec)
+    {
+        // Check if all limbs are zero - this is the only canonical representation of infinity
+        for (const auto& limb : fr_vec) {
+            if (!limb.is_zero()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * @brief Converts 2 bb::fr elements to fq
      * @details Splits into 136-bit lower chunk and 118-bit upper chunk to mirror stdlib bigfield limbs (68-bit each).
+     * Rejects aliased values (>= fq::modulus) to ensure canonical representation.
      */
     static fq convert_grumpkin_fr_from_bn254_frs(std::span<const bb::fr> fr_vec)
     {
@@ -57,6 +76,10 @@ class FrCodec {
                      "Conversion error here usually implies some bad proof serde or parsing");
 
         const uint256_t value = uint256_t(fr_vec[0]) + (uint256_t(fr_vec[1]) << (NUM_LIMB_BITS * 2));
+
+        // Reject aliased values to ensure canonical representation.
+        // This matches the circuit behavior in StdlibCodec where assert_is_in_field is called.
+        BB_ASSERT_LT(value, fq::modulus, "Non-canonical field element: value >= fq::modulus");
 
         return fq(value);
     }
@@ -95,15 +118,21 @@ class FrCodec {
             return static_cast<T>(fr_vec[0]);
         } else if constexpr (IsAnyOf<T, fq>) {
             return convert_grumpkin_fr_from_bn254_frs(fr_vec);
-        } else if constexpr (IsAnyOf<T, bn254_point, grumpkin_point>) {
+        } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
             using BaseField = typename T::Fq;
             constexpr size_t BASE = calc_num_fields<BaseField>();
+
+            // Check for point at infinity BEFORE deserializing to avoid alias issues.
+            // Only canonical (0,0) with all-zero limbs is accepted as infinity.
+            // This matches circuit behavior in StdlibCodec::check_point_at_infinity.
+            if (check_point_at_infinity<T>(fr_vec)) {
+                return T::infinity();
+            }
+
+            // Deserialize coordinates (this will reject non-canonical values via BB_ASSERT)
             T val;
             val.x = deserialize_from_fields<BaseField>(fr_vec.subspan(0, BASE));
             val.y = deserialize_from_fields<BaseField>(fr_vec.subspan(BASE, BASE));
-            if (val.x == BaseField::zero() && val.y == BaseField::zero()) {
-                val.self_set_infinity();
-            }
             BB_ASSERT(val.on_curve());
             return val;
         } else {
@@ -128,34 +157,35 @@ class FrCodec {
             return { val };
         } else if constexpr (IsAnyOf<T, fq>) {
             return convert_grumpkin_fr_to_bn254_frs(val);
-        } else if constexpr (IsAnyOf<T, bn254_point, grumpkin_point>) {
+        } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
             using BaseField = typename T::Fq;
-            std::vector<bb::fr> fr_vec_x;
-            std::vector<bb::fr> fr_vec_y;
-            if (val.is_point_at_infinity()) {
-                fr_vec_x = serialize_to_fields(BaseField::zero());
-                fr_vec_y = serialize_to_fields(BaseField::zero());
-            } else {
-                fr_vec_x = serialize_to_fields(val.x);
-                fr_vec_y = serialize_to_fields(val.y);
+            std::vector<bb::fr> fr_vec_x =
+                val.is_point_at_infinity() ? serialize_to_fields(BaseField::zero()) : serialize_to_fields(val.x);
+            std::vector<bb::fr> fr_vec_y =
+                val.is_point_at_infinity() ? serialize_to_fields(BaseField::zero()) : serialize_to_fields(val.y);
+            // Use move + append to avoid iterator-based insert that triggers GCC false positive
+            std::vector<bb::fr> fr_vec = std::move(fr_vec_x);
+            fr_vec.reserve(fr_vec.size() + fr_vec_y.size());
+            for (auto& e : fr_vec_y) {
+                fr_vec.push_back(std::move(e));
             }
-            std::vector<bb::fr> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
-            fr_vec.insert(fr_vec.end(), fr_vec_y.begin(), fr_vec_y.end());
             return fr_vec;
         } else {
             // Array or Univariate
             std::vector<fr> out;
             for (auto& x : val) {
                 auto tmp = serialize_to_fields(x);
-                out.insert(out.end(), tmp.begin(), tmp.end());
+                for (auto& e : tmp) {
+                    out.push_back(std::move(e));
+                }
             }
             return out;
         }
     }
 
     /**
-     * @brief Split a challenge field element into two half-width challenges
-     * @details `lo` is 128 bits and `hi` is 126 bits which should provide significantly more than our security
+     * @brief Split a challenge field element into two equal-width challenges
+     * @details Both `lo` and `hi` are 127 bits each (254/2) which provides significantly more than our security
      * parameter bound: 100 bits. The decomposition is constrained to be unique.
      *
      * @param challenge
@@ -163,8 +193,9 @@ class FrCodec {
      */
     static std::array<bb::fr, 2> split_challenge(const bb::fr& challenge)
     {
-        static constexpr size_t LO_BITS = bb::fr::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR; // 128
-        static constexpr size_t HI_BITS = bb::fr::modulus.get_msb() + 1 - LO_BITS;          // 126
+        static constexpr size_t TOTAL_BITS = bb::fr::modulus.get_msb() + 1; // 254
+        static constexpr size_t LO_BITS = TOTAL_BITS / 2;                   // 127
+        static constexpr size_t HI_BITS = TOTAL_BITS - LO_BITS;             // 127
 
         const uint256_t u = static_cast<uint256_t>(challenge);
         const uint256_t lo = u.slice(0, LO_BITS);
@@ -194,15 +225,15 @@ class U256Codec {
     using DataType = uint256_t;
     using fr = bb::fr;
     using fq = grumpkin::fr;
-    using bn254_point = curve::BN254::AffineElement;
-    using grumpkin_point = curve::Grumpkin::AffineElement;
+    using bn254_commitment = curve::BN254::AffineElement;
+    using grumpkin_commitment = curve::Grumpkin::AffineElement;
 
     // Size calculators
     template <typename T> static constexpr size_t calc_num_fields()
     {
         if constexpr (IsAnyOf<T, uint32_t, uint64_t, uint256_t, bool, fq, bb::fr>) {
             return 1;
-        } else if constexpr (IsAnyOf<T, bn254_point, grumpkin_point>) {
+        } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
             // In contrast to bb::fr, bn254 points can be represented by only 2 uint256_t elements
             return 2;
         } else {
@@ -221,7 +252,7 @@ class U256Codec {
             return static_cast<bool>(vec[0]);
         } else if constexpr (IsAnyOf<T, uint32_t, uint64_t, uint256_t, bb::fr, fq>) {
             return static_cast<T>(vec[0]);
-        } else if constexpr (IsAnyOf<T, bn254_point, grumpkin_point>) {
+        } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
             using BaseField = typename T::Fq;
             constexpr size_t N = calc_num_fields<BaseField>();
             T val;
@@ -252,7 +283,7 @@ class U256Codec {
     {
         if constexpr (IsAnyOf<T, bool, uint32_t, uint64_t, uint256_t, bb::fr, fq>) {
             return { val };
-        } else if constexpr (IsAnyOf<T, bn254_point, grumpkin_point>) {
+        } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
             using BaseField = typename T::Fq;
             std::vector<uint256_t> uint256_vec_x;
             std::vector<uint256_t> uint256_vec_y;
@@ -280,8 +311,8 @@ class U256Codec {
     }
 
     /**
-     * @brief Split a challenge field element into two half-width challenges
-     * @details `lo` is 128 bits and `hi` is 126 bits which should provide significantly more than our security
+     * @brief Split a challenge field element into two equal-width challenges
+     * @details Both `lo` and `hi` are 127 bits each (254/2) which provides significantly more than our security
      * parameter bound: 100 bits. The decomposition is constrained to be unique.
      *
      * @param challenge
@@ -289,8 +320,9 @@ class U256Codec {
      */
     static std::array<uint256_t, 2> split_challenge(const uint256_t& challenge)
     {
-        static constexpr size_t LO_BITS = bb::fr::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR; // 128
-        static constexpr size_t HI_BITS = bb::fr::modulus.get_msb() + 1 - LO_BITS;          // 126
+        static constexpr size_t TOTAL_BITS = bb::fr::modulus.get_msb() + 1; // 254
+        static constexpr size_t LO_BITS = TOTAL_BITS / 2;                   // 127
+        static constexpr size_t HI_BITS = TOTAL_BITS - LO_BITS;             // 127
 
         const uint256_t u = static_cast<uint256_t>(challenge);
         const uint256_t lo = u.slice(0, LO_BITS);

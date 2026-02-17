@@ -21,6 +21,15 @@ void debug_solution(smt_solver::Solver* solver, std::unordered_map<std::string, 
 bool verify_add(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit);
 
 /**
+ * @brief Verify addition operation: c = a + b + truncate to `bit_size` bits
+ * @param solver SMT solver instance
+ * @param circuit Circuit containing variables a, b, c
+ * @param bit_size Bit size to truncate to
+ * @return true if a counterexample is found (verification fails)
+ */
+bool verify_add_signed(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit, uint32_t bit_size = 64);
+
+/**
  * @brief Verify subtraction operation: c = a - b
  * @param solver SMT solver instance
  * @param circuit Circuit containing variables a, b, c
@@ -29,12 +38,30 @@ bool verify_add(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit);
 bool verify_sub(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit);
 
 /**
+ * @brief Verify subtraction operation: c = a - b + truncate to `bit_size` bits
+ * @param solver SMT solver instance
+ * @param circuit Circuit containing variables a, b, c
+ * @param bit_size Bit size to truncate to
+ * @return true if a counterexample is found (verification fails)
+ */
+bool verify_sub_signed(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit, uint32_t bit_size = 64);
+
+/**
  * @brief Verify multiplication operation: c = a * b
  * @param solver SMT solver instance
  * @param circuit Circuit containing variables a, b, c
  * @return true if a counterexample is found (verification fails)
  */
 bool verify_mul(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit);
+
+/**
+ * @brief Verify multiplication operation: c = a * b with signed operands and truncate to `bit_size` bits
+ * @param solver SMT solver instance
+ * @param circuit Circuit containing variables a, b, c
+ * @param bit_size Bit size to truncate to
+ * @return true if a counterexample is found (verification fails)
+ */
+bool verify_mul_signed(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit, uint32_t bit_size = 64);
 
 /**
  * @brief Verify integer division operation: c = a / b
@@ -85,12 +112,20 @@ bool verify_and(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit);
 bool verify_xor(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit);
 
 /**
- * @brief Verify NOT operation on 127 bits: b = ~a
+ * @brief Verify NOT operation on 64 bits: b = ~a
  * @param solver SMT solver instance
  * @param circuit Circuit containing variables a, b
  * @return true if a counterexample is found (verification fails)
  */
-bool verify_not_127(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit);
+bool verify_not_64(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit);
+
+/**
+ * @brief Verify NOT operation on 128 bits: b = ~a
+ * @param solver SMT solver instance
+ * @param circuit Circuit containing variables a, b
+ * @return true if a counterexample is found (verification fails)
+ */
+bool verify_not_128(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit);
 
 /**
  * @brief Verify 32-bit left shift operation: c = a << b
@@ -107,6 +142,14 @@ bool verify_shl32(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit)
  * @return true if a counterexample is found (verification fails)
  */
 bool verify_shl64(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit);
+
+/**
+ * @brief Verify 8-bit left shift operation: c = a << b
+ * @param solver SMT solver instance
+ * @param circuit Circuit containing variables a, b, c
+ * @return true if a counterexample is found (verification fails)
+ */
+bool verify_shl8(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit);
 
 /**
  * @brief Verify right shift operation: c = a >> b

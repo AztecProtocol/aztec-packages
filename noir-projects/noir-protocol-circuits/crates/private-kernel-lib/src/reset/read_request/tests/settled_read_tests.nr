@@ -1,5 +1,5 @@
 use super::TestBuilder;
-use dep::types::tests::utils::assert_array_eq;
+use types::tests::utils::assert_array_eq;
 
 impl TestBuilder {
     pub fn new_all_settled() -> Self {
@@ -58,6 +58,17 @@ fn duplicate_settled_read_requests() {
 
     assert_eq(builder.propagated_read_requests.length, 0);
     assert_array_eq(builder.propagated_read_requests.array, []);
+}
+
+#[test(should_fail_with = "Settled read request must have zero contract address")]
+fn with_non_zero_contract_address() {
+    let mut builder = TestBuilder::new();
+
+    // Add a read request with a non-zero contract address.
+    builder.add_settled_read(1);
+    builder.read_requests.array[0].contract_address.inner = 99;
+
+    builder.validate();
 }
 
 #[test(should_fail_with = "Hinted test leaf preimage does not match read request")]

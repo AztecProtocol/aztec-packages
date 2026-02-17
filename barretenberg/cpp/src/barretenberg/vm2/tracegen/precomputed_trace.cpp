@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
@@ -19,66 +20,44 @@
 
 namespace bb::avm2::tracegen {
 
+using C = Column;
+
 void PrecomputedTraceBuilder::process_misc(TraceContainer& trace, const uint32_t num_rows)
 {
-    using C = Column;
-
     // First row.
     trace.set(C::precomputed_first_row, 0, 1);
 
-    // Clk
-    // TODO: What a waste of 64MB. Can we elegantly have a flag for this?
-    trace.reserve_column(C::precomputed_clk, num_rows);
+    // Idx
+    trace.reserve_column(C::precomputed_idx, num_rows);
     for (uint32_t i = 0; i < num_rows; i++) {
-        trace.set(C::precomputed_clk, i, i);
+        trace.set(C::precomputed_idx, i, i);
     }
 }
 
 void PrecomputedTraceBuilder::process_bitwise(TraceContainer& trace)
 {
-    using C = Column;
-
     // 256 per input (a and b), and 3 different bitwise ops
-    constexpr auto num_rows = 256 * 256 * 3;
-    trace.reserve_column(C::precomputed_sel_bitwise, num_rows);
+    constexpr auto num_rows = 256 * 256;
+    static_assert(num_rows <= PRECOMPUTED_TRACE_SIZE);
     trace.reserve_column(C::precomputed_bitwise_input_a, num_rows);
     trace.reserve_column(C::precomputed_bitwise_input_b, num_rows);
-    trace.reserve_column(C::precomputed_bitwise_output, num_rows);
+    trace.reserve_column(C::precomputed_bitwise_output_and, num_rows);
+    trace.reserve_column(C::precomputed_bitwise_output_or, num_rows);
+    trace.reserve_column(C::precomputed_bitwise_output_xor, num_rows);
 
     // row # is derived as:
     //     - input_b: bits 0...7 (0 being LSB)
     //     - input_a: bits 8...15
-    //     - op_id: bits 16...
-    // In other words, the first 256*256 rows are for op_id 0. Next are for op_id 1, followed by op_id 2.
-    auto row_from_inputs = [](BitwiseOperation op_id, uint32_t input_a, uint32_t input_b) -> uint32_t {
-        return (static_cast<uint32_t>(op_id) << 16) | (input_a << 8) | input_b;
-    };
-    auto compute_operation = [](BitwiseOperation op_id, uint32_t a, uint32_t b) -> uint32_t {
-        switch (op_id) {
-        case BitwiseOperation::AND:
-            return a & b;
-        case BitwiseOperation::OR:
-            return a | b;
-        case BitwiseOperation::XOR:
-            return a ^ b;
-        }
-
-        assert(false && "This should not happen");
-        return 0; // Should never happen. To please the compiler.
-    };
-
-    for (const auto op_id : { BitwiseOperation::AND, BitwiseOperation::OR, BitwiseOperation::XOR }) {
-        for (uint32_t a = 0; a < 256; a++) {
-            for (uint32_t b = 0; b < 256; b++) {
-                trace.set(row_from_inputs(op_id, a, b),
-                          { {
-                              { C::precomputed_sel_bitwise, 1 },
-                              { C::precomputed_bitwise_op_id, static_cast<uint8_t>(op_id) },
-                              { C::precomputed_bitwise_input_a, FF(a) },
-                              { C::precomputed_bitwise_input_b, FF(b) },
-                              { C::precomputed_bitwise_output, FF(compute_operation(op_id, a, b)) },
-                          } });
-            }
+    for (uint32_t a = 0; a < 256; a++) {
+        for (uint32_t b = 0; b < 256; b++) {
+            trace.set((a << 8) | b,
+                      { {
+                          { C::precomputed_bitwise_input_a, FF(a) },
+                          { C::precomputed_bitwise_input_b, FF(b) },
+                          { C::precomputed_bitwise_output_and, FF(a & b) },
+                          { C::precomputed_bitwise_output_or, FF(a | b) },
+                          { C::precomputed_bitwise_output_xor, FF(a ^ b) },
+                      } });
         }
     }
 }
@@ -87,15 +66,13 @@ void PrecomputedTraceBuilder::process_bitwise(TraceContainer& trace)
  * Generate a selector column that activates the first 2^8 (256) rows.
  * We can enforce that a value X is <= 8 bits via a lookup that checks
  * whether the selector (sel_range_8) is high at the corresponding
- * clk's row (X==clk).
+ * idx's row (X==idx).
  */
 void PrecomputedTraceBuilder::process_sel_range_8(TraceContainer& trace)
 {
-    using C = Column;
-
     constexpr auto num_rows = 1 << 8; // 256
     // Set this selector high for the first 2^8 rows
-    // For these rows, clk will be 0...255
+    // For these rows, idx will be 0...255
     trace.reserve_column(C::precomputed_sel_range_8, num_rows);
     for (uint32_t i = 0; i < num_rows; i++) {
         trace.set(C::precomputed_sel_range_8, i, 1);
@@ -106,15 +83,13 @@ void PrecomputedTraceBuilder::process_sel_range_8(TraceContainer& trace)
  * Generate a selector column that activates the first 2^16 rows.
  * We can enforce that a value X is <= 16 bits via a lookup that checks
  * whether the selector (sel_range_16) is high at the corresponding
- * clk's row (X==clk).
+ * idx's row (X==idx).
  */
 void PrecomputedTraceBuilder::process_sel_range_16(TraceContainer& trace)
 {
-    using C = Column;
-
     constexpr auto num_rows = 1 << 16; // 2^16
     // Set this selector high for the first 2^16 rows
-    // For these rows, clk will be 0...2^16-1
+    // For these rows, idx will be 0...2^16-1
     trace.reserve_column(C::precomputed_sel_range_16, num_rows);
     for (uint32_t i = 0; i < num_rows; i++) {
         trace.set(C::precomputed_sel_range_16, i, 1);
@@ -122,13 +97,11 @@ void PrecomputedTraceBuilder::process_sel_range_16(TraceContainer& trace)
 }
 
 /**
- * Generate a column where each row is a power of 2 (2^clk).
+ * Generate a column where each row is a power of 2 (2^idx).
  * Populate the first 256 rows.
  */
 void PrecomputedTraceBuilder::process_power_of_2(TraceContainer& trace)
 {
-    using C = Column;
-
     constexpr auto num_rows = 1 << 8; // 2^8 = 256
     trace.reserve_column(C::precomputed_power_of_2, num_rows);
     for (uint32_t i = 0; i < num_rows; i++) {
@@ -138,8 +111,6 @@ void PrecomputedTraceBuilder::process_power_of_2(TraceContainer& trace)
 
 void PrecomputedTraceBuilder::process_sha256_round_constants(TraceContainer& trace)
 {
-    using C = Column;
-
     constexpr std::array<uint32_t, 64> round_constants{
         0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
         0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
@@ -162,7 +133,6 @@ void PrecomputedTraceBuilder::process_sha256_round_constants(TraceContainer& tra
 
 void PrecomputedTraceBuilder::process_tag_parameters(TraceContainer& trace)
 {
-    using C = Column;
     using bb::avm2::MemoryTag;
 
     constexpr uint32_t NUM_TAGS = static_cast<uint32_t>(MemoryTag::MAX) + 1;
@@ -180,7 +150,6 @@ void PrecomputedTraceBuilder::process_tag_parameters(TraceContainer& trace)
 
 void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trace)
 {
-    using C = Column;
     const std::array<Column, NUM_OP_DC_SELECTORS> sel_op_dc_columns = {
         C::precomputed_sel_op_dc_0,  C::precomputed_sel_op_dc_1,  C::precomputed_sel_op_dc_2,
         C::precomputed_sel_op_dc_3,  C::precomputed_sel_op_dc_4,  C::precomputed_sel_op_dc_5,
@@ -205,7 +174,7 @@ void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trac
     trace.reserve_column(C::precomputed_instr_size, num_opcodes);
 
     // Fill the lookup tables with the operand decomposition selectors.
-    for (const auto& [wire_opcode, wire_instruction_spec] : WIRE_INSTRUCTION_SPEC) {
+    for (const auto& [wire_opcode, wire_instruction_spec] : get_wire_instruction_spec()) {
         for (size_t i = 0; i < NUM_OP_DC_SELECTORS; i++) {
             trace.set(sel_op_dc_columns.at(i),
                       static_cast<uint32_t>(wire_opcode),
@@ -228,8 +197,6 @@ void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trac
 
 void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trace)
 {
-    using C = Column;
-
     constexpr std::array<Column, AVM_MAX_REGISTERS> MEM_OP_REG_COLUMNS = {
         Column::precomputed_sel_mem_op_reg_0_, Column::precomputed_sel_mem_op_reg_1_,
         Column::precomputed_sel_mem_op_reg_2_, Column::precomputed_sel_mem_op_reg_3_,
@@ -257,7 +224,7 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
         Column::precomputed_sel_op_is_address_6_,
     };
 
-    for (const auto& [exec_opcode, exec_instruction_spec] : EXEC_INSTRUCTION_SPEC) {
+    for (const auto& [exec_opcode, exec_instruction_spec] : get_exec_instruction_spec()) {
         // Basic information.
         trace.set(static_cast<uint32_t>(exec_opcode),
                   { {
@@ -269,7 +236,7 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
                   } });
 
         // Register information.
-        const auto& register_info = EXEC_INSTRUCTION_SPEC.at(exec_opcode).register_info;
+        const auto& register_info = get_exec_instruction_spec().at(exec_opcode).register_info;
         for (size_t i = 0; i < AVM_MAX_REGISTERS; i++) {
             trace.set(MEM_OP_REG_COLUMNS.at(i), static_cast<uint32_t>(exec_opcode), register_info.is_active(i) ? 1 : 0);
             trace.set(RW_COLUMNS.at(i), static_cast<uint32_t>(exec_opcode), register_info.is_write(i) ? 1 : 0);
@@ -289,7 +256,7 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
         }
 
         // Gadget / Subtrace Selectors / Decomposable selectors
-        auto dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(exec_opcode);
+        auto dispatch_to_subtrace = get_subtrace_info_map().at(exec_opcode);
         trace.set(static_cast<uint32_t>(exec_opcode),
                   { { { C::precomputed_subtrace_id, get_subtrace_id(dispatch_to_subtrace.subtrace_selector) },
                       { C::precomputed_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id },
@@ -299,8 +266,6 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
 
 void PrecomputedTraceBuilder::process_to_radix_safe_limbs(TraceContainer& trace)
 {
-    using C = Column;
-
     const auto& p_limbs_per_radix = get_p_limbs_per_radix();
 
     trace.reserve_column(C::precomputed_sel_to_radix_p_limb_counts, p_limbs_per_radix.size());
@@ -308,18 +273,17 @@ void PrecomputedTraceBuilder::process_to_radix_safe_limbs(TraceContainer& trace)
 
     for (size_t i = 0; i < p_limbs_per_radix.size(); ++i) {
         size_t decomposition_len = p_limbs_per_radix[i].size();
-        if (decomposition_len > 0) {
-            trace.set(C::precomputed_sel_to_radix_p_limb_counts, static_cast<uint32_t>(i), 1);
-            trace.set(C::precomputed_to_radix_safe_limbs, static_cast<uint32_t>(i), decomposition_len - 1);
-            trace.set(C::precomputed_to_radix_num_limbs_for_p, static_cast<uint32_t>(i), decomposition_len);
-        }
+        trace.set(C::precomputed_sel_to_radix_p_limb_counts, static_cast<uint32_t>(i), 1);
+        // Use 0 as fallback when decomposition_len == 0 (i.e. p_limbs_per_radix[0] and p_limbs_per_radix[1])
+        trace.set(C::precomputed_to_radix_safe_limbs,
+                  static_cast<uint32_t>(i),
+                  decomposition_len > 0 ? decomposition_len - 1 : 0);
+        trace.set(C::precomputed_to_radix_num_limbs_for_p, static_cast<uint32_t>(i), decomposition_len);
     }
 }
 
 void PrecomputedTraceBuilder::process_to_radix_p_decompositions(TraceContainer& trace)
 {
-    using C = Column;
-
     const auto& p_limbs_per_radix = get_p_limbs_per_radix();
 
     uint32_t row = 0;
@@ -337,8 +301,6 @@ void PrecomputedTraceBuilder::process_to_radix_p_decompositions(TraceContainer& 
 
 void PrecomputedTraceBuilder::process_memory_tag_range(TraceContainer& trace)
 {
-    using C = Column;
-
     constexpr uint32_t num_rows = 1 << 8; // 256
 
     for (uint32_t i = static_cast<uint32_t>(MemoryTag::MAX) + 1; i < num_rows; i++) {
@@ -348,8 +310,6 @@ void PrecomputedTraceBuilder::process_memory_tag_range(TraceContainer& trace)
 
 void PrecomputedTraceBuilder::process_addressing_gas(TraceContainer& trace)
 {
-    using C = Column;
-
     constexpr uint32_t num_rows = 1 << 16; // 65536
     trace.reserve_column(C::precomputed_sel_addressing_gas, num_rows);
     trace.reserve_column(C::precomputed_addressing_gas, num_rows);
@@ -364,197 +324,35 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
 {
     using C = Column;
 
-    // Non Revertible Nullifiers
-    auto nr_nullifiers = TxPhaseOffsetsTable::get_offsets(TransactionPhase::NR_NULLIFIER_INSERTION);
-    trace.set(0,
-              {
-                  {
-                      { C::precomputed_sel_phase, 1 },
-                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NULLIFIER_INSERTION) },
-                      { C::precomputed_sel_non_revertible_append_nullifier, 1 },
+    for (const auto& [phase_value, spec] : get_tx_phase_spec_map()) {
 
-                      { C::precomputed_read_public_input_offset, nr_nullifiers.read_pi_offset },
-                      { C::precomputed_read_public_input_length_offset, nr_nullifiers.read_pi_length_offset },
-                      { C::precomputed_sel_can_emit_nullifier, 1 },
-                  },
-              });
-    // Non Revertible Note Hash
-    auto nr_note_hash = TxPhaseOffsetsTable::get_offsets(TransactionPhase::NR_NOTE_INSERTION);
-    trace.set(1,
-              {
-                  {
-                      { C::precomputed_sel_phase, 1 },
-                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NOTE_INSERTION) },
-                      { C::precomputed_sel_non_revertible_append_note_hash, 1 },
+        const uint32_t row = static_cast<uint32_t>(phase_value);
+        // Populate all columns that are part of the #[READ_PHASE_SPEC] lookup in tx.pil.
+        std::vector<std::pair<Column, FF>> row_data = {
+            { C::precomputed_sel_phase, 1 },
+            { C::precomputed_is_public_call_request, spec.is_public_call_request ? 1 : 0 },
+            { C::precomputed_is_teardown, spec.is_teardown ? 1 : 0 },
+            { C::precomputed_is_collect_fee, spec.is_collect_fee ? 1 : 0 },
+            { C::precomputed_is_tree_padding, spec.is_tree_padding ? 1 : 0 },
+            { C::precomputed_is_cleanup, spec.is_cleanup ? 1 : 0 },
+            { C::precomputed_is_revertible, spec.is_revertible ? 1 : 0 },
+            { C::precomputed_read_pi_start_offset, spec.read_pi_start_offset },
+            { C::precomputed_read_pi_length_offset, spec.read_pi_length_offset },
+            { C::precomputed_sel_non_revertible_append_note_hash, spec.non_revertible_append_note_hash ? 1 : 0 },
+            { C::precomputed_sel_non_revertible_append_nullifier, spec.non_revertible_append_nullifier ? 1 : 0 },
+            { C::precomputed_sel_non_revertible_append_l2_l1_msg, spec.non_revertible_append_l2_l1_msg ? 1 : 0 },
+            { C::precomputed_sel_revertible_append_note_hash, spec.revertible_append_note_hash ? 1 : 0 },
+            { C::precomputed_sel_revertible_append_nullifier, spec.revertible_append_nullifier ? 1 : 0 },
+            { C::precomputed_sel_revertible_append_l2_l1_msg, spec.revertible_append_l2_l1_msg ? 1 : 0 },
+            { C::precomputed_next_phase_on_revert, spec.next_phase_on_revert },
+        };
 
-                      { C::precomputed_read_public_input_offset, nr_note_hash.read_pi_offset },
-                      { C::precomputed_read_public_input_length_offset, nr_note_hash.read_pi_length_offset },
-                      { C::precomputed_sel_can_emit_note_hash, 1 },
-                  },
-              });
-    // Non Revertible L2 to L1 Messages
-    auto nr_l2_to_l1_msgs = TxPhaseOffsetsTable::get_offsets(TransactionPhase::NR_L2_TO_L1_MESSAGE);
-    trace.set(2,
-              {
-                  {
-                      { C::precomputed_sel_phase, 1 },
-                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::NR_L2_TO_L1_MESSAGE) },
-                      { C::precomputed_sel_non_revertible_append_l2_l1_msg, 1 },
-
-                      { C::precomputed_read_public_input_offset, nr_l2_to_l1_msgs.read_pi_offset },
-                      { C::precomputed_read_public_input_length_offset, nr_l2_to_l1_msgs.read_pi_length_offset },
-                      { C::precomputed_sel_can_emit_l2_l1_msg, 1 },
-                  },
-              });
-    // Setup
-    auto setup = TxPhaseOffsetsTable::get_offsets(TransactionPhase::SETUP);
-    trace.set(3,
-              {
-                  {
-                      { C::precomputed_sel_phase, 1 },
-                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
-                      { C::precomputed_is_public_call_request_phase, 1 },
-
-                      { C::precomputed_read_public_input_offset, setup.read_pi_offset },
-                      { C::precomputed_read_public_input_length_offset, setup.read_pi_length_offset },
-                      { C::precomputed_sel_can_emit_note_hash, 1 },
-                      { C::precomputed_sel_can_emit_nullifier, 1 },
-                      { C::precomputed_sel_can_write_public_data, 1 },
-                      { C::precomputed_sel_can_emit_unencrypted_log, 1 },
-                      { C::precomputed_sel_can_emit_l2_l1_msg, 1 },
-                  },
-              });
-    // Revertible Nullifiers
-    auto r_nullifiers = TxPhaseOffsetsTable::get_offsets(TransactionPhase::R_NULLIFIER_INSERTION);
-    trace.set(4,
-              {
-                  {
-                      { C::precomputed_sel_phase, 1 },
-                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::R_NULLIFIER_INSERTION) },
-                      { C::precomputed_sel_revertible_append_nullifier, 1 },
-                      { C::precomputed_is_revertible, 1 },
-                      { C::precomputed_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
-
-                      { C::precomputed_read_public_input_offset, r_nullifiers.read_pi_offset },
-                      { C::precomputed_read_public_input_length_offset, r_nullifiers.read_pi_length_offset },
-                      { C::precomputed_sel_can_emit_nullifier, 1 },
-                  },
-              });
-    // Revertible Note Hash
-    auto r_note_hash = TxPhaseOffsetsTable::get_offsets(TransactionPhase::R_NOTE_INSERTION);
-    trace.set(5,
-              {
-                  {
-                      { C::precomputed_sel_phase, 1 },
-                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::R_NOTE_INSERTION) },
-                      { C::precomputed_sel_revertible_append_note_hash, 1 },
-                      { C::precomputed_is_revertible, 1 },
-                      { C::precomputed_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
-
-                      { C::precomputed_read_public_input_offset, r_note_hash.read_pi_offset },
-                      { C::precomputed_read_public_input_length_offset, r_note_hash.read_pi_length_offset },
-                      { C::precomputed_sel_can_emit_note_hash, 1 },
-                  },
-              });
-    // Revertible L2 to L1 Messages
-    auto r_l2_to_l1_msgs = TxPhaseOffsetsTable::get_offsets(TransactionPhase::R_L2_TO_L1_MESSAGE);
-    trace.set(6,
-              {
-                  {
-                      { C::precomputed_sel_phase, 1 },
-                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::R_L2_TO_L1_MESSAGE) },
-                      { C::precomputed_sel_revertible_append_l2_l1_msg, 1 },
-                      { C::precomputed_is_revertible, 1 },
-                      { C::precomputed_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
-
-                      { C::precomputed_read_public_input_offset, r_l2_to_l1_msgs.read_pi_offset },
-                      { C::precomputed_read_public_input_length_offset, r_l2_to_l1_msgs.read_pi_length_offset },
-                      { C::precomputed_sel_can_emit_l2_l1_msg, 1 },
-                  },
-              });
-    // App Logic
-    auto app_logic = TxPhaseOffsetsTable::get_offsets(TransactionPhase::APP_LOGIC);
-    trace.set(7,
-              {
-                  {
-                      { C::precomputed_sel_phase, 1 },
-                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::APP_LOGIC) },
-                      { C::precomputed_is_public_call_request_phase, 1 },
-                      { C::precomputed_is_revertible, 1 },
-                      { C::precomputed_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
-
-                      { C::precomputed_read_public_input_offset, app_logic.read_pi_offset },
-                      { C::precomputed_read_public_input_length_offset, app_logic.read_pi_length_offset },
-                      { C::precomputed_sel_can_emit_note_hash, 1 },
-                      { C::precomputed_sel_can_emit_nullifier, 1 },
-                      { C::precomputed_sel_can_write_public_data, 1 },
-                      { C::precomputed_sel_can_emit_unencrypted_log, 1 },
-                      { C::precomputed_sel_can_emit_l2_l1_msg, 1 },
-                  },
-              });
-    // Teardown
-    auto teardown = TxPhaseOffsetsTable::get_offsets(TransactionPhase::TEARDOWN);
-    trace.set(8,
-              {
-                  {
-                      { C::precomputed_sel_phase, 1 },
-                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
-                      { C::precomputed_is_public_call_request_phase, 1 },
-                      { C::precomputed_is_revertible, 1 },
-                      { C::precomputed_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::COLLECT_GAS_FEES) },
-
-                      { C::precomputed_read_public_input_offset, teardown.read_pi_offset },
-                      { C::precomputed_read_public_input_length_offset, teardown.read_pi_length_offset },
-                      { C::precomputed_sel_can_emit_note_hash, 1 },
-                      { C::precomputed_sel_can_emit_nullifier, 1 },
-                      { C::precomputed_sel_can_write_public_data, 1 },
-                      { C::precomputed_sel_can_emit_unencrypted_log, 1 },
-                      { C::precomputed_sel_can_emit_l2_l1_msg, 1 },
-                  },
-              });
-    // TODO: Complete Collect Gas Fee and Pad Tree phases
-    auto pay_gas = TxPhaseOffsetsTable::get_offsets(TransactionPhase::COLLECT_GAS_FEES);
-    trace.set(9,
-              {
-                  {
-                      { C::precomputed_sel_phase, 1 },
-                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::COLLECT_GAS_FEES) },
-                      { C::precomputed_sel_collect_fee, 1 },
-                      { C::precomputed_is_revertible, 0 },
-
-                      { C::precomputed_read_public_input_offset, pay_gas.read_pi_offset },
-                      { C::precomputed_read_public_input_length_offset, pay_gas.read_pi_length_offset },
-                      { C::precomputed_sel_can_write_public_data, 1 },
-                  },
-              });
-
-    trace.set(10,
-              {
-                  {
-                      { C::precomputed_sel_phase, 1 },
-                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::TREE_PADDING) },
-                      { C::precomputed_sel_tree_padding, 1 },
-                      { C::precomputed_is_revertible, 0 },
-                      { C::precomputed_sel_can_emit_note_hash, 1 },
-                      { C::precomputed_sel_can_emit_nullifier, 1 },
-                  },
-              });
-
-    trace.set(11,
-              {
-                  {
-                      { C::precomputed_sel_phase, 1 },
-                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::CLEANUP) },
-                      { C::precomputed_sel_cleanup, 1 },
-                      { C::precomputed_is_revertible, 0 },
-                  },
-              });
+        trace.set(row, row_data);
+    }
 }
 
 void PrecomputedTraceBuilder::process_keccak_round_constants(TraceContainer& trace)
 {
-    using C = Column;
-
     uint32_t row = 1;
     for (const auto& round_constant : simulation::keccak_round_constants) {
         trace.set(row,
@@ -571,8 +369,6 @@ void PrecomputedTraceBuilder::process_keccak_round_constants(TraceContainer& tra
  */
 void PrecomputedTraceBuilder::process_get_env_var_table(TraceContainer& trace)
 {
-    using C = Column;
-
     constexpr uint32_t NUM_ROWS = 1 << 8;
 
     // Start by flagging `invalid_envvar_enum` as 1 for all rows.
@@ -605,8 +401,6 @@ void PrecomputedTraceBuilder::process_get_env_var_table(TraceContainer& trace)
  */
 void PrecomputedTraceBuilder::process_get_contract_instance_table(TraceContainer& trace)
 {
-    using C = Column;
-
     // Set valid rows based on the precomputed table
     for (uint8_t enum_value = 0; enum_value <= static_cast<uint8_t>(ContractInstanceMember::MAX); enum_value++) {
         const auto& spec = GetContractInstanceSpec::get_table(enum_value);

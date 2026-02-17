@@ -16,7 +16,7 @@ class ClassIdDerivation : public ClassIdDerivationInterface {
         , poseidon2(poseidon2)
     {}
 
-    void assert_derivation(const ContractClassId& class_id, const ContractClass& klass) override;
+    void assert_derivation(const ContractClassWithCommitment& klass) override;
 
   private:
     EventEmitterInterface<ClassIdDerivationEvent>& events;

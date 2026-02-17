@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Khashayar], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -263,9 +263,7 @@ template <typename Flavor> struct ZKSumcheckData {
      last univariate in the table \f$\texttt{libra_univariates}\f$ and dividing the result by \f$
      \texttt{libra_challenge} \f$.
         -  update the table of Libra univariates by multiplying every term by \f$\texttt{libra_challenge}^{-1}\f$.
-     @todo Refactor once the Libra univariates are extracted from the Proving Key. Then the prover does not need to
-        update the first round_idx - 1 univariates and could release the memory. Also, use batch_invert / reduce
-        the number of divisions by 2.
+
      * @param libra_univariates
      * @param round_challenge
      * @param round_idx

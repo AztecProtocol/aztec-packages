@@ -1,15 +1,16 @@
 import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
 import { Fr, Point } from '@aztec/aztec.js/fields';
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import {
   type IMiscOracle,
   type IPrivateExecutionOracle,
   type IUtilityExecutionOracle,
-  packAsRetrievedNote,
+  packAsHintedNote,
 } from '@aztec/pxe/simulator';
-import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { MerkleTreeId } from '@aztec/stdlib/trees';
+import { BlockHash } from '@aztec/stdlib/block';
 
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import type { TXESessionStateHandler } from './txe_session.js';
@@ -28,6 +29,9 @@ import {
   toForeignCallResult,
   toSingle,
 } from './util/encoding.js';
+
+const MAX_EVENT_LEN = 12; // This is MAX_MESSAGE_CONTENT_LEN - PRIVATE_EVENT_RESERVED_FIELDS
+const MAX_PRIVATE_EVENTS_PER_TXE_QUERY = 5;
 
 export class UnavailableOracleError extends Error {
   constructor(oracleName: string) {
@@ -117,7 +121,7 @@ export class RPCTranslator {
       : undefined;
 
     const anchorBlockNumber = fromSingle(foreignAnchorBlockNumberIsSome).toBool()
-      ? fromSingle(foreignAnchorBlockNumberValue).toNumber()
+      ? BlockNumber(fromSingle(foreignAnchorBlockNumberValue).toNumber())
       : undefined;
 
     const privateContextInputs = await this.stateHandler.enterPrivateState(contractAddress, anchorBlockNumber);
@@ -154,6 +158,12 @@ export class RPCTranslator {
   // Other oracles - these get handled by the oracle handler
 
   // TXE-specific oracles
+
+  txeGetDefaultAddress() {
+    const defaultAddress = this.handlerAsTxe().txeGetDefaultAddress();
+
+    return toForeignCallResult([toSingle(defaultAddress)]);
+  }
 
   async txeGetNextBlockNumber() {
     const nextBlockNumber = await this.handlerAsTxe().txeGetNextBlockNumber();
@@ -266,12 +276,40 @@ export class RPCTranslator {
     ]);
   }
 
-  // Since the argument is a slice, noir automatically adds a length field to oracle call.
-  privateStoreInExecutionCache(
-    _foreignLength: ForeignCallSingle,
-    foreignValues: ForeignCallArray,
-    foreignHash: ForeignCallSingle,
+  async txeGetPrivateEvents(
+    foreignSelector: ForeignCallSingle,
+    foreignContractAddress: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
   ) {
+    const selector = EventSelector.fromField(fromSingle(foreignSelector));
+    const contractAddress = addressFromSingle(foreignContractAddress);
+    const scope = addressFromSingle(foreignScope);
+
+    const events = await this.handlerAsTxe().txeGetPrivateEvents(selector, contractAddress, scope);
+
+    if (events.length > MAX_PRIVATE_EVENTS_PER_TXE_QUERY) {
+      throw new Error(`Array of length ${events.length} larger than maxLen ${MAX_PRIVATE_EVENTS_PER_TXE_QUERY}`);
+    }
+
+    if (events.some(e => e.length > MAX_EVENT_LEN)) {
+      throw new Error(`Some private event has length larger than maxLen ${MAX_EVENT_LEN}`);
+    }
+
+    // This is a workaround as Noir does not currently let us return nested structs with arrays. We instead return a raw
+    // multidimensional array in get_private_events_oracle and create the BoundedVecs here.
+    const rawArrayStorage = events
+      .map(e => e.concat(Array(MAX_EVENT_LEN - e.length).fill(new Fr(0))))
+      .concat(Array(MAX_PRIVATE_EVENTS_PER_TXE_QUERY - events.length).fill(Array(MAX_EVENT_LEN).fill(new Fr(0))))
+      .flat();
+    const eventLengths = events
+      .map(e => new Fr(e.length))
+      .concat(Array(MAX_PRIVATE_EVENTS_PER_TXE_QUERY - events.length).fill(new Fr(0)));
+    const queryLength = new Fr(events.length);
+
+    return toForeignCallResult([toArray(rawArrayStorage), toArray(eventLengths), toSingle(queryLength)]);
+  }
+
+  privateStoreInExecutionCache(foreignValues: ForeignCallArray, foreignHash: ForeignCallSingle) {
     const values = fromArray(foreignValues);
     const hash = fromSingle(foreignHash);
 
@@ -290,7 +328,7 @@ export class RPCTranslator {
 
   // When the argument is a slice, noir automatically adds a length field to oracle call.
   // When the argument is an array, we add the field length manually to the signature.
-  utilityDebugLog(
+  async utilityLog(
     foreignLevel: ForeignCallSingle,
     foreignMessage: ForeignCallArray,
     _foreignLength: ForeignCallSingle,
@@ -302,45 +340,47 @@ export class RPCTranslator {
       .join('');
     const fields = fromArray(foreignFields);
 
-    this.handlerAsMisc().utilityDebugLog(level, message, fields);
+    await this.handlerAsMisc().utilityLog(level, message, fields);
 
     return toForeignCallResult([]);
   }
 
   async utilityStorageRead(
+    foreignBlockHash: ForeignCallSingle,
     foreignContractAddress: ForeignCallSingle,
     foreignStartStorageSlot: ForeignCallSingle,
-    foreignBlockNumber: ForeignCallSingle,
     foreignNumberOfElements: ForeignCallSingle,
   ) {
+    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
     const contractAddress = addressFromSingle(foreignContractAddress);
     const startStorageSlot = fromSingle(foreignStartStorageSlot);
-    const blockNumber = fromSingle(foreignBlockNumber).toNumber();
     const numberOfElements = fromSingle(foreignNumberOfElements).toNumber();
 
     const values = await this.handlerAsUtility().utilityStorageRead(
+      blockHash,
       contractAddress,
       startStorageSlot,
-      blockNumber,
       numberOfElements,
     );
 
     return toForeignCallResult([toArray(values)]);
   }
 
-  async utilityGetPublicDataWitness(foreignBlockNumber: ForeignCallSingle, foreignLeafSlot: ForeignCallSingle) {
-    const blockNumber = fromSingle(foreignBlockNumber).toNumber();
+  async utilityGetPublicDataWitness(foreignBlockHash: ForeignCallSingle, foreignLeafSlot: ForeignCallSingle) {
+    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
     const leafSlot = fromSingle(foreignLeafSlot);
 
-    const witness = await this.handlerAsUtility().utilityGetPublicDataWitness(blockNumber, leafSlot);
+    const witness = await this.handlerAsUtility().utilityGetPublicDataWitness(blockHash, leafSlot);
 
     if (!witness) {
-      throw new Error(`Public data witness not found for slot ${leafSlot} at block ${blockNumber}.`);
+      throw new Error(`Public data witness not found for slot ${leafSlot} at block ${blockHash.toString()}.`);
     }
     return toForeignCallResult(witness.toNoirRepresentation());
   }
 
   async utilityGetNotes(
+    foreignOwnerIsSome: ForeignCallSingle,
+    foreignOwnerValue: ForeignCallSingle,
     foreignStorageSlot: ForeignCallSingle,
     foreignNumSelects: ForeignCallSingle,
     foreignSelectByIndexes: ForeignCallArray,
@@ -356,8 +396,12 @@ export class RPCTranslator {
     foreignOffset: ForeignCallSingle,
     foreignStatus: ForeignCallSingle,
     foreignMaxNotes: ForeignCallSingle,
-    foreignPackedRetrievedNoteLength: ForeignCallSingle,
+    foreignPackedHintedNoteLength: ForeignCallSingle,
   ) {
+    // Parse Option<AztecAddress>: ownerIsSome is 0 for None, 1 for Some
+    const owner = fromSingle(foreignOwnerIsSome).toBool()
+      ? AztecAddress.fromField(fromSingle(foreignOwnerValue))
+      : undefined;
     const storageSlot = fromSingle(foreignStorageSlot);
     const numSelects = fromSingle(foreignNumSelects).toNumber();
     const selectByIndexes = fromArray(foreignSelectByIndexes).map(fr => fr.toNumber());
@@ -373,9 +417,10 @@ export class RPCTranslator {
     const offset = fromSingle(foreignOffset).toNumber();
     const status = fromSingle(foreignStatus).toNumber();
     const maxNotes = fromSingle(foreignMaxNotes).toNumber();
-    const packedRetrievedNoteLength = fromSingle(foreignPackedRetrievedNoteLength).toNumber();
+    const packedHintedNoteLength = fromSingle(foreignPackedHintedNoteLength).toNumber();
 
     const noteDatas = await this.handlerAsUtility().utilityGetNotes(
+      owner,
       storageSlot,
       numSelects,
       selectByIndexes,
@@ -392,7 +437,17 @@ export class RPCTranslator {
       status,
     );
 
-    const returnDataAsArrayOfArrays = noteDatas.map(packAsRetrievedNote);
+    const returnDataAsArrayOfArrays = noteDatas.map(noteData =>
+      packAsHintedNote({
+        contractAddress: noteData.contractAddress,
+        owner: noteData.owner,
+        randomness: noteData.randomness,
+        storageSlot: noteData.storageSlot,
+        noteNonce: noteData.noteNonce,
+        isPending: noteData.isPending,
+        note: noteData.note,
+      }),
+    );
 
     // Now we convert each sub-array to an array of ForeignCallSingles
     const returnDataAsArrayOfForeignCallSingleArrays = returnDataAsArrayOfArrays.map(subArray =>
@@ -401,28 +456,36 @@ export class RPCTranslator {
 
     // At last we convert the array of arrays to a bounded vec of arrays
     return toForeignCallResult(
-      arrayOfArraysToBoundedVecOfArrays(
-        returnDataAsArrayOfForeignCallSingleArrays,
-        maxNotes,
-        packedRetrievedNoteLength,
-      ),
+      arrayOfArraysToBoundedVecOfArrays(returnDataAsArrayOfForeignCallSingleArrays, maxNotes, packedHintedNoteLength),
     );
   }
 
   privateNotifyCreatedNote(
+    foreignOwner: ForeignCallSingle,
     foreignStorageSlot: ForeignCallSingle,
+    foreignRandomness: ForeignCallSingle,
     foreignNoteTypeId: ForeignCallSingle,
     foreignNote: ForeignCallArray,
     foreignNoteHash: ForeignCallSingle,
     foreignCounter: ForeignCallSingle,
   ) {
+    const owner = addressFromSingle(foreignOwner);
     const storageSlot = fromSingle(foreignStorageSlot);
+    const randomness = fromSingle(foreignRandomness);
     const noteTypeId = NoteSelector.fromField(fromSingle(foreignNoteTypeId));
     const note = fromArray(foreignNote);
     const noteHash = fromSingle(foreignNoteHash);
     const counter = fromSingle(foreignCounter).toNumber();
 
-    this.handlerAsPrivate().privateNotifyCreatedNote(storageSlot, noteTypeId, note, noteHash, counter);
+    this.handlerAsPrivate().privateNotifyCreatedNote(
+      owner,
+      storageSlot,
+      randomness,
+      noteTypeId,
+      note,
+      noteHash,
+      counter,
+    );
 
     return toForeignCallResult([]);
   }
@@ -449,6 +512,15 @@ export class RPCTranslator {
     return toForeignCallResult([]);
   }
 
+  async privateIsNullifierPending(foreignInnerNullifier: ForeignCallSingle, foreignContractAddress: ForeignCallSingle) {
+    const innerNullifier = fromSingle(foreignInnerNullifier);
+    const contractAddress = addressFromSingle(foreignContractAddress);
+
+    const isPending = await this.handlerAsPrivate().privateIsNullifierPending(innerNullifier, contractAddress);
+
+    return toForeignCallResult([toSingle(new Fr(isPending))]);
+  }
+
   async utilityCheckNullifierExists(foreignInnerNullifier: ForeignCallSingle) {
     const innerNullifier = fromSingle(foreignInnerNullifier);
 
@@ -473,12 +545,23 @@ export class RPCTranslator {
     );
   }
 
-  async utilityGetPublicKeysAndPartialAddress(foreignAddress: ForeignCallSingle) {
+  async utilityTryGetPublicKeysAndPartialAddress(foreignAddress: ForeignCallSingle) {
     const address = addressFromSingle(foreignAddress);
 
-    const { publicKeys, partialAddress } = await this.handlerAsUtility().utilityGetPublicKeysAndPartialAddress(address);
+    const result = await this.handlerAsUtility().utilityTryGetPublicKeysAndPartialAddress(address);
 
-    return toForeignCallResult([toArray([...publicKeys.toFields(), partialAddress])]);
+    // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
+    // with two fields: `some` (a boolean) and `value` (a field array in this case).
+    if (result === undefined) {
+      // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
+      return toForeignCallResult([toSingle(new Fr(0)), toArray(Array(13).fill(new Fr(0)))]);
+    } else {
+      // Data was found so we set `some` to 1 and return it along with `value`.
+      return toForeignCallResult([
+        toSingle(new Fr(1)),
+        toArray([...result.publicKeys.toFields(), result.partialAddress]),
+      ]);
+    }
   }
 
   async utilityGetKeyValidationRequest(foreignPkMHash: ForeignCallSingle) {
@@ -501,17 +584,14 @@ export class RPCTranslator {
     );
   }
 
-  async utilityGetNullifierMembershipWitness(
-    foreignBlockNumber: ForeignCallSingle,
-    foreignNullifier: ForeignCallSingle,
-  ) {
-    const blockNumber = fromSingle(foreignBlockNumber).toNumber();
+  async utilityGetNullifierMembershipWitness(foreignBlockHash: ForeignCallSingle, foreignNullifier: ForeignCallSingle) {
+    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
     const nullifier = fromSingle(foreignNullifier);
 
-    const witness = await this.handlerAsUtility().utilityGetNullifierMembershipWitness(blockNumber, nullifier);
+    const witness = await this.handlerAsUtility().utilityGetNullifierMembershipWitness(blockHash, nullifier);
 
     if (!witness) {
-      throw new Error(`Nullifier membership witness not found at block ${blockNumber}.`);
+      throw new Error(`Nullifier membership witness not found at block ${blockHash}.`);
     }
     return toForeignCallResult(witness.toNoirRepresentation());
   }
@@ -549,14 +629,20 @@ export class RPCTranslator {
     throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
   }
 
-  async utilityGetUtilityContext() {
-    const context = await this.handlerAsUtility().utilityGetUtilityContext();
+  public async privateIsSideEffectCounterRevertible(foreignSideEffectCounter: ForeignCallSingle) {
+    const sideEffectCounter = fromSingle(foreignSideEffectCounter).toNumber();
+    const isRevertible = await this.handlerAsPrivate().privateIsSideEffectCounterRevertible(sideEffectCounter);
+    return toForeignCallResult([toSingle(new Fr(isRevertible))]);
+  }
+
+  utilityGetUtilityContext() {
+    const context = this.handlerAsUtility().utilityGetUtilityContext();
 
     return toForeignCallResult(context.toNoirRepresentation());
   }
 
   async utilityGetBlockHeader(foreignBlockNumber: ForeignCallSingle) {
-    const blockNumber = fromSingle(foreignBlockNumber).toNumber();
+    const blockNumber = BlockNumber(fromSingle(foreignBlockNumber).toNumber());
 
     const header = await this.handlerAsUtility().utilityGetBlockHeader(blockNumber);
 
@@ -566,36 +652,49 @@ export class RPCTranslator {
     return toForeignCallResult(header.toFields().map(toSingle));
   }
 
-  async utilityGetMembershipWitness(
-    foreignBlockNumber: ForeignCallSingle,
-    foreignTreeId: ForeignCallSingle,
-    foreignLeafValue: ForeignCallSingle,
+  async utilityGetNoteHashMembershipWitness(
+    foreignAnchorBlockHash: ForeignCallSingle,
+    foreignNoteHash: ForeignCallSingle,
   ) {
-    const blockNumber = fromSingle(foreignBlockNumber).toNumber();
-    const treeId = fromSingle(foreignTreeId).toNumber();
-    const leafValue = fromSingle(foreignLeafValue);
+    const blockHash = new BlockHash(fromSingle(foreignAnchorBlockHash));
+    const noteHash = fromSingle(foreignNoteHash);
 
-    const witness = await this.handlerAsUtility().utilityGetMembershipWitness(blockNumber, treeId, leafValue);
+    const witness = await this.handlerAsUtility().utilityGetNoteHashMembershipWitness(blockHash, noteHash);
+
+    if (!witness) {
+      throw new Error(`Note hash ${noteHash} not found in the note hash tree at block ${blockHash.toString()}.`);
+    }
+    return toForeignCallResult(witness.toNoirRepresentation());
+  }
+
+  async utilityGetBlockHashMembershipWitness(
+    foreignAnchorBlockHash: ForeignCallSingle,
+    foreignBlockHash: ForeignCallSingle,
+  ) {
+    const anchorBlockHash = new BlockHash(fromSingle(foreignAnchorBlockHash));
+    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
+
+    const witness = await this.handlerAsUtility().utilityGetBlockHashMembershipWitness(anchorBlockHash, blockHash);
 
     if (!witness) {
       throw new Error(
-        `Membership witness in tree ${MerkleTreeId[treeId]} not found for value ${leafValue} at block ${blockNumber}.`,
+        `Block hash ${blockHash.toString()} not found in the archive tree at anchor block ${anchorBlockHash.toString()}.`,
       );
     }
-    return toForeignCallResult([toSingle(witness[0]), toArray(witness.slice(1))]);
+    return toForeignCallResult(witness.toNoirRepresentation());
   }
 
   async utilityGetLowNullifierMembershipWitness(
-    foreignBlockNumber: ForeignCallSingle,
+    foreignBlockHash: ForeignCallSingle,
     foreignNullifier: ForeignCallSingle,
   ) {
-    const blockNumber = fromSingle(foreignBlockNumber).toNumber();
+    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
     const nullifier = fromSingle(foreignNullifier);
 
-    const witness = await this.handlerAsUtility().utilityGetLowNullifierMembershipWitness(blockNumber, nullifier);
+    const witness = await this.handlerAsUtility().utilityGetLowNullifierMembershipWitness(blockHash, nullifier);
 
     if (!witness) {
-      throw new Error(`Low nullifier witness not found for nullifier ${nullifier} at block ${blockNumber}.`);
+      throw new Error(`Low nullifier witness not found for nullifier ${nullifier} at block ${blockHash}.`);
     }
     return toForeignCallResult(witness.toNoirRepresentation());
   }
@@ -608,7 +707,7 @@ export class RPCTranslator {
     return toForeignCallResult([]);
   }
 
-  public async utilityValidateEnqueuedNotesAndEvents(
+  public async utilityValidateAndStoreEnqueuedNotesAndEvents(
     foreignContractAddress: ForeignCallSingle,
     foreignNoteValidationRequestsArrayBaseSlot: ForeignCallSingle,
     foreignEventValidationRequestsArrayBaseSlot: ForeignCallSingle,
@@ -617,7 +716,7 @@ export class RPCTranslator {
     const noteValidationRequestsArrayBaseSlot = fromSingle(foreignNoteValidationRequestsArrayBaseSlot);
     const eventValidationRequestsArrayBaseSlot = fromSingle(foreignEventValidationRequestsArrayBaseSlot);
 
-    await this.handlerAsUtility().utilityValidateEnqueuedNotesAndEvents(
+    await this.handlerAsUtility().utilityValidateAndStoreEnqueuedNotesAndEvents(
       contractAddress,
       noteValidationRequestsArrayBaseSlot,
       eventValidationRequestsArrayBaseSlot,
@@ -750,15 +849,16 @@ export class RPCTranslator {
 
   // AVM opcodes
 
-  avmOpcodeEmitUnencryptedLog(_foreignMessage: ForeignCallArray) {
+  avmOpcodeEmitPublicLog(_foreignMessage: ForeignCallArray) {
     // TODO(#8811): Implement
     return toForeignCallResult([]);
   }
 
-  async avmOpcodeStorageRead(foreignSlot: ForeignCallSingle) {
+  async avmOpcodeStorageRead(foreignSlot: ForeignCallSingle, foreignContractAddress: ForeignCallSingle) {
     const slot = fromSingle(foreignSlot);
+    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
 
-    const value = (await this.handlerAsAvm().avmOpcodeStorageRead(slot)).value;
+    const value = (await this.handlerAsAvm().avmOpcodeStorageRead(slot, contractAddress)).value;
 
     return toForeignCallResult([toSingle(new Fr(value))]);
   }
@@ -830,11 +930,10 @@ export class RPCTranslator {
     return toForeignCallResult([]);
   }
 
-  async avmOpcodeNullifierExists(foreignInnerNullifier: ForeignCallSingle, foreignTargetAddress: ForeignCallSingle) {
-    const innerNullifier = fromSingle(foreignInnerNullifier);
-    const targetAddress = AztecAddress.fromField(fromSingle(foreignTargetAddress));
+  async avmOpcodeNullifierExists(foreignSiloedNullifier: ForeignCallSingle) {
+    const siloedNullifier = fromSingle(foreignSiloedNullifier);
 
-    const exists = await this.handlerAsAvm().avmOpcodeNullifierExists(innerNullifier, targetAddress);
+    const exists = await this.handlerAsAvm().avmOpcodeNullifierExists(siloedNullifier);
 
     return toForeignCallResult([toSingle(new Fr(exists))]);
   }
@@ -921,7 +1020,6 @@ export class RPCTranslator {
     foreignFrom: ForeignCallSingle,
     foreignTargetContractAddress: ForeignCallSingle,
     foreignFunctionSelector: ForeignCallSingle,
-    _foreignArgsLength: ForeignCallSingle,
     foreignArgs: ForeignCallArray,
     foreignArgsHash: ForeignCallSingle,
     foreignIsStaticCall: ForeignCallSingle,
@@ -948,7 +1046,6 @@ export class RPCTranslator {
   async txeSimulateUtilityFunction(
     foreignTargetContractAddress: ForeignCallSingle,
     foreignFunctionSelector: ForeignCallSingle,
-    _foreignArgsLength: ForeignCallSingle,
     foreignArgs: ForeignCallArray,
   ) {
     const targetContractAddress = addressFromSingle(foreignTargetContractAddress);
@@ -967,7 +1064,6 @@ export class RPCTranslator {
   async txePublicCallNewFlow(
     foreignFrom: ForeignCallSingle,
     foreignAddress: ForeignCallSingle,
-    _foreignLength: ForeignCallSingle,
     foreignCalldata: ForeignCallArray,
     foreignIsStaticCall: ForeignCallSingle,
   ) {

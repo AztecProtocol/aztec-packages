@@ -149,7 +149,6 @@ service:
 | node.remoteUrl.archiver | - | Remote URL for archiver |
 | node.remoteUrl.proverBroker | - | Remote URL for prover broker |
 | node.remoteUrl.proverCoordinationNodes | [] | Remote URLs for prover coordination nodes |
-| node.remoteUrl.blobSink | - | Remote URL for blob sink |
 | node.coinbase | - | Address that will receive block or proof rewards |
 | node.sentinel.enabled | false | Enable sentinel configuration for slashing information |
 | node.metrics.otelExcludeMetrics | "" | Comma-separated list of metrics to exclude |

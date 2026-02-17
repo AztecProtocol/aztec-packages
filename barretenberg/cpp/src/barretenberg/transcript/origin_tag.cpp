@@ -1,42 +1,91 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "barretenberg/transcript/origin_tag.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include <cstring>
+#include <string>
 
 namespace bb {
 using namespace numeric;
 #ifndef AZTEC_NO_ORIGIN_TAGS
 
+namespace {
+/**
+ * @brief Find the position of the highest set bit in a uint128_t
+ * @return -1 if no bits are set, otherwise the bit position (0-127)
+ */
+inline int highest_set_bit_128(uint128_t value)
+{
+    if (value == 0) {
+        return -1;
+    }
+    // Check high 64 bits first
+    auto high = static_cast<uint64_t>(value >> 64);
+    if (high != 0) {
+        return 127 - __builtin_clzll(high);
+    }
+    // Check low 64 bits
+    auto low = static_cast<uint64_t>(value);
+    return 63 - __builtin_clzll(low);
+}
+
+/**
+ * @brief Safely extract uint128_t from uint256_t data array using memcpy to avoid strict aliasing issues
+ */
+inline uint128_t extract_uint128(const uint64_t* data)
+{
+    uint128_t result = 0;
+    std::memcpy(&result, data, sizeof(uint128_t));
+    return result;
+}
+} // namespace
+
 /**
  * @brief Detect if two elements from the same transcript are performing a suspicious interaction
  *
- * @details For now this detects that 2 elements from 2 different round can't mingle without a challenge in between
+ * @details Checks that submitted values from different rounds are properly bound by challenges.
+ * The key invariant: a challenge from round N binds all data from rounds 0..N (via Fiat-Shamir hash chain).
+ * Therefore, max(challenge_rounds) must be >= max(submitted_rounds).
  *
- * @param tag_a
- * @param tag_b
+ * @note A failure in this check indicates a potentially insecure pattern but there are many legitimate sources of false
+ * positives. E.g. PCS openings bind evaluations to commitments across rounds; the pattern C*z + v is actually safe if
+ * v is the evaluation of the committed polynomial at challenge z. In such cases, the evaluation can be re-tagged
+ * with the challenge that binds it after PCS verification to correctly avoid triggering an error here.
+ *
+ * @param provenance_a Round provenance of first element
+ * @param provenance_b Round provenance of second element
  */
-void check_child_tags(const uint256_t& tag_a, const uint256_t& tag_b)
+void check_round_provenance(const uint256_t& provenance_a, const uint256_t& provenance_b)
 {
-    const uint128_t* challenges_a = (const uint128_t*)(&tag_a.data[2]);
-    const uint128_t* challenges_b = (const uint128_t*)(&tag_b.data[2]);
+    // Lower 128 bits = submitted rounds, Upper 128 bits = challenge rounds
+    const auto submitted_a = extract_uint128(&provenance_a.data[0]);
+    const auto submitted_b = extract_uint128(&provenance_b.data[0]);
 
-    const uint128_t* submitted_a = (const uint128_t*)(&tag_a.data[0]);
-    const uint128_t* submitted_b = (const uint128_t*)(&tag_b.data[0]);
+    // Nothing to check if either has no submitted data or both are from the same round(s)
+    if (submitted_a == 0 || submitted_b == 0 || submitted_a == submitted_b) {
+        return;
+    }
 
-    if (*challenges_a == 0 && *challenges_b == 0 && *submitted_a != 0 && *submitted_b != 0 &&
-        *submitted_a != *submitted_b) {
-        throw_or_abort("Submitted values from 2 different rounds are mixing without challenges");
+    // Ensure that values from different rounds are not mixing without max challenge round >= max submitted round
+    const auto challenges_a = extract_uint128(&provenance_a.data[2]);
+    const auto challenges_b = extract_uint128(&provenance_b.data[2]);
+    const int max_challenge_round = highest_set_bit_128(challenges_a | challenges_b);
+    const int max_submitted_round = highest_set_bit_128(submitted_a | submitted_b);
+
+    if (max_challenge_round < max_submitted_round) {
+        throw_or_abort("Round provenance check failed: max challenge round (" + std::to_string(max_challenge_round) +
+                       ") < max submitted round (" + std::to_string(max_submitted_round) + ")");
     }
 }
 
 bool OriginTag::operator==(const OriginTag& other) const
 {
-    return this->parent_tag == other.parent_tag && this->child_tag == other.child_tag &&
+    return this->transcript_index == other.transcript_index && this->round_provenance == other.round_provenance &&
            this->instant_death == other.instant_death;
 }
 OriginTag::OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
@@ -46,11 +95,11 @@ OriginTag::OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
         throw_or_abort("Touched an element that should not have been touched");
     }
     // If one of the tags is a constant, just use the other tag
-    if (tag_a.parent_tag == CONSTANT) {
+    if (tag_a.transcript_index == CONSTANT) {
         *this = tag_b;
         return;
     }
-    if (tag_b.parent_tag == CONSTANT) {
+    if (tag_b.transcript_index == CONSTANT) {
         *this = tag_a;
         return;
     }
@@ -75,16 +124,14 @@ OriginTag::OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
         }
     }
     // Elements from different transcripts shouldn't interact
-#ifndef DISABLE_DIFFERENT_TRANSCRIPT_CHECKS
-    if (tag_a.parent_tag != tag_b.parent_tag) {
+    if (tag_a.transcript_index != tag_b.transcript_index) {
         throw_or_abort("Tags from different transcripts were involved in the same computation");
     }
-#endif
-#ifndef DISABLE_CHILD_TAG_CHECKS
-    check_child_tags(tag_a.child_tag, tag_b.child_tag);
-#endif
-    parent_tag = tag_a.parent_tag;
-    child_tag = tag_a.child_tag | tag_b.child_tag;
+    // Check that submitted values from different rounds don't mix without challenges
+    check_round_provenance(tag_a.round_provenance, tag_b.round_provenance);
+
+    transcript_index = tag_a.transcript_index;
+    round_provenance = tag_a.round_provenance | tag_b.round_provenance;
 }
 
 #else

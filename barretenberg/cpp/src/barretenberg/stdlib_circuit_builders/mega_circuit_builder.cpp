@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Luke, Raju], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "mega_circuit_builder.hpp"
@@ -34,10 +34,6 @@ template <typename FF> void MegaCircuitBuilder_<FF>::finalize_circuit(const bool
  *
  * @param in Structure containing variables and witness selectors
  */
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1066): This function adds valid (but arbitrary) gates to
-// ensure that the circuit which includes them will not result in any zero-polynomials. This method is designed to be
-// used in conjunction with the corresponding method on the Ultra builder. It handles databus and ecc-op related
-// polynomials.
 template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_all_polys_are_non_zero()
 {
     // Add a single default value to all databus columns. Note: This value must be equal across all columns in order for
@@ -76,9 +72,6 @@ template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_al
  *
  * @param in Structure containing variables and witness selectors
  */
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1066): This function adds valid (but arbitrary) gates to
-// ensure that the circuit which includes them will not result in any zero-polynomials. It also ensures that the first
-// coefficient of the wire polynomials is zero, which is required for them to be shiftable.
 template <typename FF> void MegaCircuitBuilder_<FF>::add_ultra_and_mega_gates_to_ensure_all_polys_are_non_zero()
 {
     // Most polynomials are handled via the conventional Ultra method
@@ -160,10 +153,14 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_no_op()
 /**
  * @brief Add goblin ecc op gates for a single operation
  *
+ * @details Given an `UltraOp`, corresponding to a point (x,y) on the curve and a scalar z, write this data in an
+ * Ultra-legible way to the trace. This information will eventually be captured in certain derived witnesses, and we
+ * delegate computation of the logged elliptic curve operations to the ECCVM.
  * @param ultra_op Operation data expressed in the ultra format
- * @param in_finalize It's used in boomerang catcher to mark
+ * @param in_finalize Used in boomerang catcher to mark
  * that all variables from some connected component were created after finalize method was called
  * @note All selectors are set to 0 since the ecc op selector is derived later based on the block size/location.
+ * @note No on-curve checks, this is done in ECCVM.
  */
 template <typename FF>
 ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wires(const UltraOp& ultra_op, bool in_finalize)
@@ -185,12 +182,13 @@ ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wires(const UltraOp& ultra
         op_val_idx_1 = this->add_variable(ultra_op.op_code.random_value_1);
         op_val_idx_2 = this->add_variable(ultra_op.op_code.random_value_2);
     }
-
+    // Populate the ecc_op block with TWO rows (matching Ultra format)
+    // Row 1: OP   | x_lo | x_hi | y_lo
+    // Row 2: 0    | y_hi | z_1  | z_2
     this->blocks.ecc_op.populate_wires(op_val_idx_1, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo);
     for (auto& selector : this->blocks.ecc_op.get_selectors()) {
         selector.emplace_back(0);
     }
-
     this->blocks.ecc_op.populate_wires(op_val_idx_2, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2);
     for (auto& selector : this->blocks.ecc_op.get_selectors()) {
         selector.emplace_back(0);
@@ -220,6 +218,27 @@ template <typename FF> void MegaCircuitBuilder_<FF>::queue_ecc_random_op()
 
     // Add corresponding gates for the operation
     (void)populate_ecc_op_wires(ultra_op);
+}
+
+/**
+ * @brief Add a hiding op with random (possibly non-curve) Px, Py values to the op queue and circuit.
+ *
+ * @details This op provides statistical hiding (~508 bits) for the accumulated_result in Translator/ECCVM.
+ * The Px, Py values are random field elements that may not be on the curve. The op uses opcode 3 (eq+reset)
+ * for Translator compatibility. In ECCVM, this op is prepended to land at row 1 (lagrange_second == 1),
+ * since row 0 is identically zero (for shifts).
+ *
+ * @param Px Random field element for x-coordinate
+ * @param Py Random field element for y-coordinate
+ */
+template <typename FF>
+void MegaCircuitBuilder_<FF>::queue_ecc_hiding_op(const curve::BN254::BaseField& Px, const curve::BN254::BaseField& Py)
+{
+    // Add the operation to the op queue (returns the UltraOp for gate creation)
+    auto ultra_op = op_queue->append_hiding_op(Px, Py);
+
+    // Add corresponding gates for the operation
+    populate_ecc_op_wires(ultra_op);
 }
 
 template <typename FF> void MegaCircuitBuilder_<FF>::set_goblin_ecc_op_code_constant_variables()

@@ -1,13 +1,20 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { L2Block } from '@aztec/stdlib/block';
+import { MAX_L2_BLOCK_SIZE_KB } from '@aztec/stdlib/p2p';
 import { TxArray, TxHashArray } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
 import type { P2PReqRespConfig } from './config.js';
+import type { ConnectionSampler } from './connection-sampler/connection_sampler.js';
 import { AuthRequest, AuthResponse } from './protocols/auth.js';
-import { BlockTxsRequest, BlockTxsResponse } from './protocols/block_txs/block_txs_reqresp.js';
+import {
+  BlockTxsRequest,
+  BlockTxsResponse,
+  calculateBlockTxsResponseSize,
+} from './protocols/block_txs/block_txs_reqresp.js';
 import { StatusMessage } from './protocols/status.js';
+import { calculateTxResponseSize } from './protocols/tx.js';
 import type { ReqRespStatus } from './status.js';
 
 /*
@@ -210,6 +217,25 @@ export const subProtocolMap = {
   },
 };
 
+/**
+ * Type for a function that calculates the expected response size in KB for a given request.
+ */
+export type ExpectedResponseSizeCalculator = (requestBuffer: Buffer) => number;
+
+/**
+ * Map of sub-protocols to their expected response size calculators.
+ * These are used to validate that responses don't exceed expected sizes based on request parameters.
+ */
+export const subProtocolSizeCalculators: Record<ReqRespSubProtocol, ExpectedResponseSizeCalculator> = {
+  [ReqRespSubProtocol.TX]: calculateTxResponseSize,
+  [ReqRespSubProtocol.BLOCK_TXS]: calculateBlockTxsResponseSize,
+  [ReqRespSubProtocol.BLOCK]: () => MAX_L2_BLOCK_SIZE_KB,
+  [ReqRespSubProtocol.STATUS]: () => 1,
+  [ReqRespSubProtocol.PING]: () => 1,
+  [ReqRespSubProtocol.AUTH]: () => 1,
+  [ReqRespSubProtocol.GOODBYE]: () => 1, // No response expected, but provide minimal limit
+};
+
 export interface ReqRespInterface {
   start(
     subProtocolHandlers: Partial<ReqRespSubProtocolHandlers>,
@@ -237,4 +263,6 @@ export interface ReqRespInterface {
   ): Promise<ReqRespResponse>;
 
   updateConfig(config: Partial<P2PReqRespConfig>): void;
+
+  getConnectionSampler(): Pick<ConnectionSampler, 'getPeerListSortedByConnectionCountAsc'>;
 }

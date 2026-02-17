@@ -2,7 +2,7 @@ import { css, Global } from '@emotion/react';
 import { AztecContext } from '../../aztecContext';
 import { useContext } from 'react';
 import CssBaseline from '@mui/material/CssBaseline';
-import ExpandCircleDownIcon from '@mui/icons-material/ExpandCircleDown';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDropDown';
 import SwipeableDrawer from '@mui/material/SwipeableDrawer';
 import Typography from '@mui/material/Typography';
 import CloseButton from '@mui/icons-material/Close';
@@ -10,7 +10,8 @@ import { styled } from '@mui/material/styles';
 import IconButton from '@mui/material/IconButton';
 import DownloadIcon from '@mui/icons-material/Download';
 import Tooltip from '@mui/material/Tooltip';
-import { ButtonGroup } from '@mui/material';
+import { ButtonGroup, useMediaQuery } from '@mui/material';
+import { colors, commonStyles } from '../../global.styles';
 
 const Root = styled('div')(({ theme }) => ({
   ...theme.applyStyles('dark', {
@@ -19,38 +20,42 @@ const Root = styled('div')(({ theme }) => ({
 }));
 
 const StyledBox = styled('div')(({ theme }) => ({
-  backgroundColor: '#fff',
   ...theme.applyStyles('dark', {
-    backgroundColor: 'var(--mui-palette-primary)',
+    backgroundColor: commonStyles.glassPaperDark,
+    backdropFilter: commonStyles.backdropBlur,
   }),
 }));
 
 const Puller = styled('div')(({ theme }) => ({
   width: 30,
   height: 6,
-  backgroundColor: 'var(--mui-palette-primary-light)',
-  borderRadius: 3,
+  backgroundColor: colors.primary.main,
+  borderRadius: commonStyles.borderRadius,
   position: 'absolute',
   top: 8,
   left: 'calc(50% - 20px)',
   ...theme.applyStyles('dark', {
-    backgroundColor: 'var(--mui-palette-primary-dark)',
+    backgroundColor: colors.primary.main,
   }),
 }));
 
 const logContainer = css({
   display: 'flex',
   flexDirection: 'row',
-  backgroundColor: 'var(--mui-palette-primary-light)',
+  backgroundColor: commonStyles.glassDarker,
+  border: commonStyles.borderNormal,
+  color: colors.text.primary,
   margin: '0.1rem',
-  padding: '0.1rem 0.25rem',
-  borderRadius: '0.5rem',
+  padding: '0.5rem 0.75rem',
+  borderRadius: commonStyles.borderRadius,
 });
 
 const logPrefix = css({
   width: '8rem',
   minWidth: '8rem',
   overflow: 'hidden',
+  color: colors.primary.main,
+  fontWeight: 600,
 });
 
 const logContent = css({
@@ -58,6 +63,7 @@ const logContent = css({
   textOverflow: 'ellipsis',
   flexGrow: 1,
   overflow: 'hidden',
+  color: colors.text.primary,
   ':hover': css({
     whiteSpace: 'unset',
     textOverflow: 'unset',
@@ -72,6 +78,7 @@ const drawerBleeding = 56;
 
 export function LogPanel() {
   const { logs, logsOpen, totalLogCount, setLogsOpen } = useContext(AztecContext);
+  const isMobile = useMediaQuery('(max-width: 900px)');
 
   const downloadLogs = () => {
     const element = document.createElement('a');
@@ -95,6 +102,25 @@ export function LogPanel() {
 
   return (
     <>
+      {!logsOpen && !isMobile && (
+        <Tooltip title="Open logs">
+          <IconButton
+            sx={{
+              backgroundColor: colors.secondary.main,
+              position: 'fixed',
+              bottom: '4rem',
+              right: '1rem',
+              width: '2rem',
+              height: '2rem',
+              zIndex: 999999,
+              pointerEvents: 'auto',
+            }}
+            onClick={() => setLogsOpen(true)}
+          >
+            <ArrowDownwardIcon sx={{ transform: 'rotate(180deg)' }} />
+          </IconButton>
+        </Tooltip>
+      )}
       <Root>
         <CssBaseline />
         <Global
@@ -105,21 +131,6 @@ export function LogPanel() {
             },
           }}
         />
-        {!logsOpen && (
-          <Tooltip title="Open logs">
-            <IconButton
-              sx={{
-                position: 'fixed',
-                bottom: '0.5rem',
-                right: '0.5rem',
-                zIndex: 10000,
-              }}
-              onClick={() => setLogsOpen(true)}
-            >
-              <ExpandCircleDownIcon sx={{ transform: 'rotate(180deg)' }} />
-            </IconButton>
-          </Tooltip>
-        )}
         <SwipeableDrawer
           anchor="bottom"
           open={logsOpen}
@@ -137,8 +148,10 @@ export function LogPanel() {
               flexDirection: 'row',
               position: 'absolute',
               top: -drawerBleeding,
-              borderTopLeftRadius: 8,
-              borderTopRightRadius: 8,
+              borderTopLeftRadius: 0,
+              borderTopRightRadius: 0,
+              border: '1px solid rgba(212, 255, 40, 0.2)',
+              borderBottom: 'none',
               visibility: 'visible',
               right: 0,
               left: 0,
@@ -146,7 +159,9 @@ export function LogPanel() {
             }}
           >
             <Puller />
-            <Typography sx={{ p: 2, color: 'text.secondary' }}>{totalLogCount}&nbsp;logs</Typography>
+            <Typography sx={{ p: 2, color: colors.primary.main, fontWeight: 600 }}>
+              {totalLogCount}&nbsp;logs
+            </Typography>
             <div style={{ flexGrow: 1, margin: 'auto' }} />
             {logsOpen && (
               <ButtonGroup>
@@ -176,7 +191,10 @@ export function LogPanel() {
                   </Typography>
                 </div>
                 <div>
-                  <Typography sx={{ marginLeft: '1rem' }} variant="body2">
+                  <Typography
+                    sx={{ marginLeft: '1rem', color: colors.secondary.main, fontWeight: 500 }}
+                    variant="body2"
+                  >
                     +{log.timestamp - (logs[index + 1]?.timestamp ?? log.timestamp)}
                     ms
                   </Typography>

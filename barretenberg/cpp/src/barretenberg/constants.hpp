@@ -10,7 +10,7 @@ constexpr uint32_t PERMUTATION_ARGUMENT_VALUE_SEPARATOR = 1 << 28;
 
 // The fixed size of the Translator trace where each accumulation gate, corresponding to one UltraOp, will occupy two
 // rows.
-static constexpr uint32_t CONST_TRANSLATOR_MINI_CIRCUIT_LOG_SIZE = 14;
+static constexpr uint32_t CONST_TRANSLATOR_MINI_CIRCUIT_LOG_SIZE = 13;
 
 // -1 as each op occupies two rows in Translator trace
 static constexpr uint32_t CONST_OP_QUEUE_LOG_SIZE = CONST_TRANSLATOR_MINI_CIRCUIT_LOG_SIZE - 1;
@@ -22,12 +22,18 @@ static constexpr uint32_t CONST_PROOF_SIZE_LOG_N = 28;
 // The log of the max circuit size of circuits being folded. This size is assumed by the HN prover and verifier in order
 // to ensure a constant HN proof size and a HN recursive verifier circuit that is independent of the size of the
 // circuits being folded.
-static constexpr uint32_t CONST_PG_LOG_N = 21;
-
+static constexpr uint32_t CONST_FOLDING_LOG_N = 21;
+// Hiding kernel is a constant circuit that is being proven with MegaZKFlavor as a part Chonk
+static constexpr uint32_t HIDING_KERNEL_LOG_N = 16;
 // The size of the AVMRecursiveVerifier circuit arithmetized with Mega.
 static constexpr uint32_t MEGA_AVM_LOG_N = 21;
 
-static constexpr uint32_t CONST_ECCVM_LOG_N = 16;
+static constexpr uint32_t CONST_ECCVM_LOG_N = 15;
+
+// IPA proof length: 4 * CONST_ECCVM_LOG_N (L and R commitments) + 2 (G_0) + 2 (a_0)
+// Note: Updating this requires updating noir protocol circuits (rollup-base-private,
+// rollup-base-public, rollup-block-merge, rollup-block-root, rollup-merge, rollup-root)
+static constexpr size_t IPA_PROOF_LENGTH = (4 * CONST_ECCVM_LOG_N) + 4;
 
 // The number of last rows in ProverPolynomials that are randomized to mask
 // 1) witness commitments,
@@ -48,7 +54,7 @@ static constexpr uint32_t NUM_LIBRA_COMMITMENTS = 3;
 // extra evaluations
 static constexpr uint32_t NUM_SMALL_IPA_EVALUATIONS = 4;
 
-static constexpr uint32_t MERGE_PROOF_SIZE = 49; // used to ensure mock proofs are generated correctly
+static constexpr uint32_t MERGE_PROOF_SIZE = 42; // used to ensure mock proofs are generated correctly
 
 // There are 5 distinguished wires in ECCVM that have to be opened as univariates to establish the connection between
 // ECCVM and Translator
@@ -57,8 +63,6 @@ static constexpr uint32_t NUM_TRANSLATION_EVALUATIONS = 5;
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1293): Decouple Gemini from Interleaving
 static constexpr uint32_t NUM_INTERLEAVING_CLAIMS = 2;
 
-// When we branch a transcript, we want to clearly distinguish between what happened before and after the branching. We
-// increase the `round_index` of the original transcript by `BRANCHING_JUMP`, so that there is a gap of `BRANCHING_JUMP`
-// round indices between what happened before and after the branching. This constant is arbitrary.
-static constexpr size_t BRANCHING_JUMP = 5;
+// The number of leading zero rows in the execution trace. Used to enable shifted polynomials.
+static constexpr size_t NUM_ZERO_ROWS = 1;
 } // namespace bb

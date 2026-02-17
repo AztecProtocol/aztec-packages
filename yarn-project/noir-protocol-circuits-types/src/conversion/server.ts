@@ -6,15 +6,18 @@ import {
   SpongeBlob,
 } from '@aztec/blob-lib/types';
 import {
-  AZTEC_MAX_EPOCH_DURATION,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   BLS12_FQ_LIMBS,
   BLS12_FR_LIMBS,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH,
+  MAX_CHECKPOINTS_PER_EPOCH,
   type NULLIFIER_TREE_HEIGHT,
   ULTRA_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
-import { BLS12Fq, BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
+import { SlotNumber } from '@aztec/foundation/branded-types';
+import { BLS12Fq, BLS12Fr, BLS12Point } from '@aztec/foundation/curves/bls12';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Bufferable, assertLength, mapTuple } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import {
@@ -30,7 +33,7 @@ import {
 } from '@aztec/stdlib/kernel';
 import type { FlatPublicLogs } from '@aztec/stdlib/logs';
 import { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
-import type { ProofData, RecursiveProof } from '@aztec/stdlib/proofs';
+import type { ProofData, ProofDataForFixedVk, RecursiveProof } from '@aztec/stdlib/proofs';
 import {
   BlockConstantData,
   BlockMergeRollupPrivateInputs,
@@ -96,6 +99,7 @@ import type {
   PrivateToAvmAccumulatedData as PrivateToAvmAccumulatedDataNoir,
   PrivateToPublicKernelCircuitPublicInputs as PrivateToPublicKernelCircuitPublicInputsNoir,
   PrivateTxBaseRollupPrivateInputs as PrivateTxBaseRollupPrivateInputsNoir,
+  ProofDataForFixedVk as ProofDataForFixedVkNoir,
   ProofData as ProofDataNoir,
   PublicChonkVerifierPrivateInputs as PublicChonkVerifierPrivateInputsNoir,
   PublicChonkVerifierPublicInputs as PublicChonkVerifierPublicInputsNoir,
@@ -246,7 +250,6 @@ function mapSpongeBlobToNoir(spongeBlob: SpongeBlob): SpongeBlobNoir {
   return {
     sponge: mapPoseidon2SpongeToNoir(spongeBlob.sponge),
     num_absorbed_fields: mapNumberToNoir(spongeBlob.numAbsorbedFields),
-    num_expected_fields: mapNumberToNoir(spongeBlob.numExpectedFields),
   };
 }
 
@@ -259,7 +262,6 @@ function mapSpongeBlobFromNoir(spongeBlob: SpongeBlobNoir): SpongeBlob {
   return new SpongeBlob(
     mapPoseidon2SpongeFromNoir(spongeBlob.sponge),
     mapNumberFromNoir(spongeBlob.num_absorbed_fields),
-    mapNumberFromNoir(spongeBlob.num_expected_fields),
   );
 }
 
@@ -363,7 +365,7 @@ function mapCheckpointConstantDataFromNoir(constants: CheckpointConstantDataNoir
     mapFieldFromNoir(constants.vk_tree_root),
     mapFieldFromNoir(constants.protocol_contracts_hash),
     mapFieldFromNoir(constants.prover_id),
-    mapFieldFromNoir(constants.slot_number),
+    SlotNumber(mapFieldFromNoir(constants.slot_number).toNumber()),
     mapEthAddressFromNoir(constants.coinbase),
     mapAztecAddressFromNoir(constants.fee_recipient),
     mapGasFeesFromNoir(constants.gas_fees),
@@ -377,7 +379,7 @@ function mapCheckpointConstantDataToNoir(constants: CheckpointConstantData): Che
     vk_tree_root: mapFieldToNoir(constants.vkTreeRoot),
     protocol_contracts_hash: mapFieldToNoir(constants.protocolContractsHash),
     prover_id: mapFieldToNoir(constants.proverId),
-    slot_number: mapFieldToNoir(constants.slotNumber),
+    slot_number: mapFieldToNoir(new Fr(constants.slotNumber)),
     coinbase: mapEthAddressToNoir(constants.coinbase),
     fee_recipient: mapAztecAddressToNoir(constants.feeRecipient),
     gas_fees: mapGasFeesToNoir(constants.gasFees),
@@ -453,6 +455,16 @@ function mapProofDataToNoir<T extends Bufferable, TN, PROOF_LENGTH extends numbe
   };
 }
 
+// Not generic since only one type exists on noir.
+export function mapAvmProofDataToNoir(
+  proofData: ProofDataForFixedVk<AvmCircuitPublicInputs, typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>,
+): ProofDataForFixedVkNoir {
+  return {
+    public_inputs: mapAvmCircuitPublicInputsToNoir(proofData.publicInputs),
+    proof: mapFieldArrayToNoir(proofData.proof.proof),
+  };
+}
+
 function mapParityPublicInputsToNoir(parityPublicInputs: ParityPublicInputs): ParityPublicInputsNoir {
   return {
     sha_root: mapFieldToNoir(parityPublicInputs.shaRoot),
@@ -472,8 +484,9 @@ export function mapRootRollupPublicInputsFromNoir(
   return new RootRollupPublicInputs(
     mapFieldFromNoir(rootRollupPublicInputs.previous_archive_root),
     mapFieldFromNoir(rootRollupPublicInputs.new_archive_root),
-    mapTupleFromNoir(rootRollupPublicInputs.checkpoint_header_hashes, AZTEC_MAX_EPOCH_DURATION, mapFieldFromNoir),
-    mapTupleFromNoir(rootRollupPublicInputs.fees, AZTEC_MAX_EPOCH_DURATION, mapFeeRecipientFromNoir),
+    mapFieldFromNoir(rootRollupPublicInputs.out_hash),
+    mapTupleFromNoir(rootRollupPublicInputs.checkpoint_header_hashes, MAX_CHECKPOINTS_PER_EPOCH, mapFieldFromNoir),
+    mapTupleFromNoir(rootRollupPublicInputs.fees, MAX_CHECKPOINTS_PER_EPOCH, mapFeeRecipientFromNoir),
     mapEpochConstantDataFromNoir(rootRollupPublicInputs.constants),
     mapFinalBlobAccumulatorFromNoir(rootRollupPublicInputs.blob_public_inputs),
   );
@@ -591,8 +604,8 @@ export function mapBlockRollupPublicInputsFromNoir(inputs: BlockRollupPublicInpu
     mapStateReferenceFromNoir(inputs.end_state),
     mapSpongeBlobFromNoir(inputs.start_sponge_blob),
     mapSpongeBlobFromNoir(inputs.end_sponge_blob),
-    mapU64FromNoir(inputs.start_timestamp),
-    mapU64FromNoir(inputs.end_timestamp),
+    mapU64FromNoir(inputs.timestamp),
+    mapFieldFromNoir(inputs.block_headers_hash),
     mapFieldFromNoir(inputs.in_hash),
     mapFieldFromNoir(inputs.out_hash),
     mapFieldFromNoir(inputs.accumulated_fees),
@@ -609,8 +622,8 @@ export function mapBlockRollupPublicInputsToNoir(inputs: BlockRollupPublicInputs
     end_state: mapStateReferenceToNoir(inputs.endState),
     start_sponge_blob: mapSpongeBlobToNoir(inputs.startSpongeBlob),
     end_sponge_blob: mapSpongeBlobToNoir(inputs.endSpongeBlob),
-    start_timestamp: mapU64ToNoir(inputs.startTimestamp),
-    end_timestamp: mapU64ToNoir(inputs.endTimestamp),
+    timestamp: mapU64ToNoir(inputs.timestamp),
+    block_headers_hash: mapFieldToNoir(inputs.blockHeadersHash),
     in_hash: mapFieldToNoir(inputs.inHash),
     out_hash: mapFieldToNoir(inputs.outHash),
     accumulated_fees: mapFieldToNoir(inputs.accumulatedFees),
@@ -623,8 +636,10 @@ export function mapCheckpointRollupPublicInputsFromNoir(inputs: CheckpointRollup
     mapEpochConstantDataFromNoir(inputs.constants),
     mapAppendOnlyTreeSnapshotFromNoir(inputs.previous_archive),
     mapAppendOnlyTreeSnapshotFromNoir(inputs.new_archive),
-    mapTupleFromNoir(inputs.checkpoint_header_hashes, AZTEC_MAX_EPOCH_DURATION, mapFieldFromNoir),
-    mapTupleFromNoir(inputs.fees, AZTEC_MAX_EPOCH_DURATION, mapFeeRecipientFromNoir),
+    mapAppendOnlyTreeSnapshotFromNoir(inputs.previous_out_hash),
+    mapAppendOnlyTreeSnapshotFromNoir(inputs.new_out_hash),
+    mapTupleFromNoir(inputs.checkpoint_header_hashes, MAX_CHECKPOINTS_PER_EPOCH, mapFieldFromNoir),
+    mapTupleFromNoir(inputs.fees, MAX_CHECKPOINTS_PER_EPOCH, mapFeeRecipientFromNoir),
     mapBlobAccumulatorFromNoir(inputs.start_blob_accumulator),
     mapBlobAccumulatorFromNoir(inputs.end_blob_accumulator),
     mapFinalBlobBatchingChallengesFromNoir(inputs.final_blob_challenges),
@@ -638,6 +653,8 @@ export function mapCheckpointRollupPublicInputsToNoir(
     constants: mapEpochConstantDataToNoir(inputs.constants),
     previous_archive: mapAppendOnlyTreeSnapshotToNoir(inputs.previousArchive),
     new_archive: mapAppendOnlyTreeSnapshotToNoir(inputs.newArchive),
+    previous_out_hash: mapAppendOnlyTreeSnapshotToNoir(inputs.previousOutHash),
+    new_out_hash: mapAppendOnlyTreeSnapshotToNoir(inputs.newOutHash),
     checkpoint_header_hashes: mapTuple(inputs.checkpointHeaderHashes, mapFieldToNoir),
     fees: mapTuple(inputs.fees, mapFeeRecipientToNoir),
     start_blob_accumulator: mapBlobAccumulatorToNoir(inputs.startBlobAccumulator),
@@ -656,7 +673,7 @@ export function mapPrivateToPublicKernelCircuitPublicInputsFromNoir(
     mapPublicCallRequestFromNoir(inputs.public_teardown_call_request),
     mapGasFromNoir(inputs.gas_used),
     mapAztecAddressFromNoir(inputs.fee_payer),
-    mapU64FromNoir(inputs.include_by_timestamp),
+    mapU64FromNoir(inputs.expiration_timestamp),
   );
 }
 
@@ -751,7 +768,7 @@ export function mapPublicTxBaseRollupPrivateInputsToNoir(
       inputs.publicChonkVerifierProofData,
       mapPublicChonkVerifierPublicInputsToNoir,
     ),
-    avm_proof_data: mapProofDataToNoir(inputs.avmProofData, mapAvmCircuitPublicInputsToNoir),
+    avm_proof_data: mapAvmProofDataToNoir(inputs.avmProofData),
     start_sponge_blob: mapSpongeBlobToNoir(inputs.hints.startSpongeBlob),
     last_archive: mapAppendOnlyTreeSnapshotToNoir(inputs.hints.lastArchive),
     anchor_block_archive_sibling_path: mapFieldArrayToNoir(inputs.hints.anchorBlockArchiveSiblingPath),
@@ -821,7 +838,6 @@ export function mapBlockRootEmptyTxFirstRollupPrivateInputsToNoir(
     previous_archive: mapAppendOnlyTreeSnapshotToNoir(inputs.previousArchive),
     previous_state: mapStateReferenceToNoir(inputs.previousState),
     constants: mapCheckpointConstantDataToNoir(inputs.constants),
-    start_sponge_blob: mapSpongeBlobToNoir(inputs.startSpongeBlob),
     timestamp: mapU64ToNoir(inputs.timestamp),
     new_l1_to_l2_message_subtree_root_sibling_path: mapTuple(
       inputs.newL1ToL2MessageSubtreeRootSiblingPath,
@@ -867,6 +883,8 @@ function mapCheckpointRootRollupHintsToNoir(hints: CheckpointRootRollupHints): C
   return {
     previous_block_header: mapBlockHeaderToNoir(hints.previousBlockHeader),
     previous_archive_sibling_path: mapTuple(hints.previousArchiveSiblingPath, mapFieldToNoir),
+    previous_out_hash: mapAppendOnlyTreeSnapshotToNoir(hints.previousOutHash),
+    new_out_hash_sibling_path: mapTuple(hints.newOutHashSiblingPath, mapFieldToNoir),
     start_blob_accumulator: mapBlobAccumulatorToNoir(hints.startBlobAccumulator),
     final_blob_challenges: mapFinalBlobBatchingChallengesToNoir(hints.finalBlobChallenges),
     blobs_fields: mapFieldArrayToNoir(hints.blobFields),

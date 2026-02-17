@@ -63,7 +63,7 @@ void eccvm_prove(State& state) noexcept
     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
     ECCVMProver prover(builder, prover_transcript);
     for (auto _ : state) {
-        ECCVMProof proof = prover.construct_proof();
+        auto [proof, ipa_claim] = prover.construct_proof();
     };
 }
 

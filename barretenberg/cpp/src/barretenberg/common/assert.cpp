@@ -11,7 +11,9 @@ AssertMode& get_assert_mode()
 void assert_failure(std::string const& err)
 {
     if (get_assert_mode() == AssertMode::WARN) {
+#ifndef FUZZING_DISABLE_WARNINGS
         info("NOT FOR PROD - assert as warning: ", err);
+#endif
         return;
     }
     throw_or_abort(err);

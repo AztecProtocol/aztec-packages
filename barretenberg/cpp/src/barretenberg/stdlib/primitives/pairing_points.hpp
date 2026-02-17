@@ -1,33 +1,26 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: complete, auditors: [Luke], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
+#include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include <type_traits>
 
 namespace bb::stdlib::recursion {
-
-static constexpr bb::fq DEFAULT_PAIRING_POINTS_P0_X(
-    "0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
-static constexpr bb::fq DEFAULT_PAIRING_POINTS_P0_Y(
-    "0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
-static constexpr bb::fq DEFAULT_PAIRING_POINTS_P1_X(
-    "0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
-static constexpr bb::fq DEFAULT_PAIRING_POINTS_P1_Y(
-    "0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f");
 
 /**
  * @brief An object storing two EC points that represent the inputs to a pairing check.
  * @details The points may represent the output of a single partial recursive verification or the linear combination of
  * multiple sets of pairing points.
  *
- * TODO(https://github.com/AztecProtocol/barretenberg/issues/1421): Proper tests for `PairingPoints`
- * TODO(https://github.com/AztecProtocol/barretenberg/issues/1571): Implement tagging mechanism
  * @tparam Builder_
  */
 template <typename Curve> struct PairingPoints {
@@ -35,54 +28,72 @@ template <typename Curve> struct PairingPoints {
     using Group = Curve::Group;
     using Fq = Curve::BaseField;
     using Fr = Curve::ScalarField;
-    Group P0;
-    Group P1;
 
-    bool has_data = false;
+    // Number of bb::fr field elements used to represent pairing points in public inputs
+    static constexpr size_t PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
+
     uint32_t tag_index = 0; // Index of the tag for tracking pairing point aggregation
 
-    // Number of bb::fr field elements used to represent a goblin element in the public inputs
-    static constexpr size_t PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
+    Group& P0() { return _points[0]; }
+    Group& P1() { return _points[1]; }
+    const Group& P0() const { return _points[0]; }
+    const Group& P1() const { return _points[1]; }
+
+    bool is_populated() const { return has_data_; }
+    bool is_default() const { return is_default_; }
 
     PairingPoints() = default;
 
-    PairingPoints(const Group& P0, const Group& P1)
-        : P0(P0)
-        , P1(P1)
-        , has_data(true)
+    PairingPoints(const Group& p0, const Group& p1)
+        : _points{ p0, p1 }
+        , has_data_(true)
     {
-        // Get the builder from the group elements and assign a new tag
-        Builder* builder = P0.get_context();
+        Builder* builder = validate_context<Builder>(p0.get_context(), p1.get_context());
         if (builder != nullptr) {
             tag_index = builder->pairing_points_tagging.create_pairing_point_tag();
         }
+
+#ifndef NDEBUG
+        bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0().get_value(), P1().get_value());
+        info("Are Pairing Points with tag ", tag_index, " valid? ", native_pp.check() ? "true" : "false");
+#endif
     }
-
-    PairingPoints(std::array<Group, 2> const& points)
-        : PairingPoints(points[0], points[1])
-    {}
-
-    Group& operator[](size_t idx)
-    {
-        BB_ASSERT(idx < 2, "Index out of bounds");
-        return idx == 0 ? P0 : P1;
-    }
-
-    const Group& operator[](size_t idx) const
-    {
-        BB_ASSERT(idx < 2, "Index out of bounds");
-        return idx == 0 ? P0 : P1;
-    }
-
-    typename Curve::bool_ct operator==(PairingPoints const& other) const { return P0 == other.P0 && P1 == other.P1; };
 
     /**
-     * @brief Aggregate multiple PairingPoints
-     *
-     * @details The pairing points are aggregated using challenges generated as the consecutive hashes of the pairing
-     * points being aggregated.
+     * @brief Reconstruct PairingPoints from public input limbs.
      */
-    static PairingPoints aggregate_multiple(std::vector<PairingPoints>& pairing_points)
+    static PairingPoints reconstruct_from_public(
+        const std::span<const stdlib::field_t<Builder>, PUBLIC_INPUTS_SIZE>& limbs)
+    {
+        using Codec = StdlibCodec<stdlib::field_t<Builder>>;
+        constexpr size_t GROUP_SIZE = Codec::template calc_num_fields<Group>();
+        Group p0 = Codec::template deserialize_from_fields<Group>(limbs.template subspan<0, GROUP_SIZE>());
+        Group p1 = Codec::template deserialize_from_fields<Group>(limbs.template subspan<GROUP_SIZE, GROUP_SIZE>());
+        return PairingPoints(p0, p1);
+    }
+
+    // Iterator support (used by validate_context to extract Builder* from the contained group elements)
+    auto begin() { return _points.begin(); }
+    auto end() { return _points.end(); }
+    auto begin() const { return _points.begin(); }
+    auto end() const { return _points.end(); }
+
+    /**
+     * @brief Aggregate multiple PairingPoints using random linear combination
+     *
+     * @details Computes: P_agg = P₀ + r₁·P₁ + r₂·P₂ + ... + rₙ₋₁·Pₙ₋₁ where r₁,...,rₙ₋₁ are 128-bit challenges
+     * depending on all input points.
+     *
+     * @param pairing_points Vector of pairing points to aggregate (requires size > 1)
+     * @param handle_edge_cases If true, batch_mul handles edge cases where points might be zero or challenges might
+     * cause numerical issues. If false, assumes all points are non-zero and non-colliding (saves circuit gates).
+     *
+     * Safety of handle_edge_cases=false:
+     * - Safe when all points are verifier-computed (deterministic, won't collide)
+     * - Safe even with untrusted public input points, as the random challenges make collisions negligible
+     * - Provides significant circuit gate savings in recursive verification
+     */
+    static PairingPoints aggregate_multiple(std::vector<PairingPoints>& pairing_points, bool handle_edge_cases = true)
     {
         size_t num_points = pairing_points.size();
         BB_ASSERT_GT(num_points, 1UL, "This method should be used only with more than one pairing point.");
@@ -92,26 +103,53 @@ template <typename Curve> struct PairingPoints {
         std::vector<Group> second_components;
         second_components.reserve(num_points);
         for (const auto& points : pairing_points) {
-            first_components.emplace_back(points.P0);
-            second_components.emplace_back(points.P1);
+            first_components.emplace_back(points.P0());
+            second_components.emplace_back(points.P1());
         }
 
-        // Fiat-Shamir
+        // Fiat-Shamir: hash all points for binding, but only need n-1 challenges
         StdlibTranscript<Builder> transcript{};
         std::vector<std::string> labels;
-        labels.reserve(num_points);
+        labels.reserve(num_points - 1); // Only need n-1 challenges
         for (size_t idx = 0; auto [first, second] : zip_view(first_components, second_components)) {
             transcript.add_to_hash_buffer("first_component_" + std::to_string(idx), first);
             transcript.add_to_hash_buffer("second_component_" + std::to_string(idx), second);
-            labels.emplace_back("pp_aggregation_challenge_" + std::to_string(idx));
+            // Generate challenges for points 1..n-1 (skip the first point)
+            if (idx > 0) {
+                labels.emplace_back("pp_aggregation_challenge_" + std::to_string(idx));
+            }
             idx++;
         }
 
         std::vector<Fr> challenges = transcript.template get_challenges<Fr>(labels);
 
-        // Batch mul
-        auto P0 = Group::batch_mul(first_components, challenges);
-        auto P1 = Group::batch_mul(second_components, challenges);
+        // Aggregate: P_agg = P₀ + r₁·P₁ + r₂·P₂ + ... + rₙ₋₁·Pₙ₋₁
+        Group P0;
+        Group P1;
+
+        // For MegaCircuitBuilder (Goblin): batch_mul optimizes constant scalar 1 (uses add instead of mul)
+        // so we can include all points in a single batch_mul with scalar [1, r₁, r₂, ..., rₙ₋₁]
+        // For UltraCircuitBuilder: no optimization for witness point × constant(1), so keep first point separate
+        if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
+            // Single batch_mul for all points (efficient for Goblin with constant scalar 1)
+            std::vector<Fr> scalars;
+            scalars.reserve(num_points);
+            scalars.push_back(Fr(1)); // Optimized by Goblin: add instead of mul
+            scalars.insert(scalars.end(), challenges.begin(), challenges.end());
+
+            P0 = Group::batch_mul(first_components, scalars);
+            P1 = Group::batch_mul(second_components, scalars);
+        } else {
+            // Use first point as base, then batch_mul remaining points
+            std::vector<Group> remaining_first(first_components.begin() + 1, first_components.end());
+            std::vector<Group> remaining_second(second_components.begin() + 1, second_components.end());
+
+            P0 = first_components[0];
+            P1 = second_components[0];
+
+            P0 += Group::batch_mul(remaining_first, challenges, 128, handle_edge_cases);
+            P1 += Group::batch_mul(remaining_second, challenges, 128, handle_edge_cases);
+        }
 
         PairingPoints aggregated_points(P0, P1);
 
@@ -127,147 +165,143 @@ template <typename Curve> struct PairingPoints {
     }
 
     /**
-     * @brief Compute a linear combination of the present pairing points with an input set of pairing points
-     * @details The linear combination is done with a recursion separator that is the hash of the two sets of pairing
-     * points.
-     * @param other
-     * @param recursion_separator
+     * @brief Aggregate another PairingPoints into this one via random linear combination.
+     * @details Computes: this = this + r · other, where r is a 128-bit Fiat-Shamir challenge depending on
+     * both sets of points. If this is unpopulated (default-constructed), simply copies other.
+     *
+     * @param other The PairingPoints to aggregate (must be populated).
      */
     void aggregate(PairingPoints const& other)
     {
-        BB_ASSERT(other.has_data, "Cannot aggregate null pairing points.");
+        BB_ASSERT(other.has_data_, "Cannot aggregate null pairing points.");
 
         // If LHS is empty, simply set it equal to the incoming pairing points
-        if (!this->has_data && other.has_data) {
+        if (!this->has_data_ && other.has_data_) {
             *this = other;
             return;
         }
-        // We use a Transcript because it provides us an easy way to hash to get a "random" separator.
+        // Use transcript to hash all four points to derive a binding challenge
         StdlibTranscript<Builder> transcript{};
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1375): Sometimes unnecesarily hashing constants
-        transcript.add_to_hash_buffer("Accumulator_P0", P0);
-        transcript.add_to_hash_buffer("Accumulator_P1", P1);
-        transcript.add_to_hash_buffer("Aggregated_P0", other.P0);
-        transcript.add_to_hash_buffer("Aggregated_P1", other.P1);
+        transcript.add_to_hash_buffer("Accumulator_P0", P0());
+        transcript.add_to_hash_buffer("Accumulator_P1", P1());
+        transcript.add_to_hash_buffer("Aggregated_P0", other.P0());
+        transcript.add_to_hash_buffer("Aggregated_P1", other.P1());
         auto recursion_separator =
             transcript.template get_challenge<typename Curve::ScalarField>("recursion_separator");
-        // If Mega Builder is in use, the EC operations are deferred via Goblin
+        is_default_ = false; // After aggregation, points are no longer default
+        // If Mega Builder is in use, the EC operations are deferred via Goblin.
+        // batch_mul with constant scalar 1 is optimal here (Goblin uses add instead of mul).
         if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1385): Can we improve efficiency here?
-            P0 = Group::batch_mul({ P0, other.P0 }, { 1, recursion_separator });
-            P1 = Group::batch_mul({ P1, other.P1 }, { 1, recursion_separator });
+            // Goblin: batch_mul with constant scalar 1 uses add instead of mul
+            P0() = Group::batch_mul({ P0(), other.P0() }, { 1, recursion_separator });
+            P1() = Group::batch_mul({ P1(), other.P1() }, { 1, recursion_separator });
         } else {
-            // Save gates using short scalars.
-            Group point_to_aggregate = other.P0.scalar_mul(recursion_separator, 128);
-            P0 += point_to_aggregate;
-            point_to_aggregate = other.P1.scalar_mul(recursion_separator, 128);
-            P1 += point_to_aggregate;
+            // Ultra: 128-bit scalar mul to save gates
+            Group point_to_aggregate = other.P0().scalar_mul(recursion_separator, 128);
+            P0() += point_to_aggregate;
+            point_to_aggregate = other.P1().scalar_mul(recursion_separator, 128);
+            P1() += point_to_aggregate;
         }
 
         // Merge the tags in the builder
-        Builder* builder = P0.get_context();
+        Builder* builder = P0().get_context();
         if (builder != nullptr) {
             builder->pairing_points_tagging.merge_pairing_point_tags(this->tag_index, other.tag_index);
         }
+
+#ifndef NDEBUG
+        bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0().get_value(), P1().get_value());
+        info("Are aggregated Pairing Points with tag ", tag_index, " valid? ", native_pp.check() ? "true" : "false");
+#endif
     }
 
     /**
-     * @brief Set the witness indices for the limbs of the pairing points to public
-     *
+     * @brief Set the witness indices for the pairing points to public
+     * @details For default (infinity) pairing points, uses set_default_to_public which directly adds zero limbs
+     * as public inputs, bypassing bigfield::set_public() which cannot handle constant-coordinate infinity points.
+     * @param ctx Optional builder context; required for default pairing points which have no circuit context.
      * @return uint32_t The index into the public inputs array at which the representation is stored
      */
-    uint32_t set_public()
+    uint32_t set_public(Builder* ctx = nullptr)
     {
-        BB_ASSERT(this->has_data, "Calling set_public on empty pairing points.");
-        uint32_t start_idx = P0.set_public();
-        P1.set_public();
-
+        BB_ASSERT(this->has_data_, "Calling set_public on empty pairing points.");
+        if (is_default_) {
+            Builder* builder = validate_context<Builder>(ctx, P0().get_context(), P1().get_context());
+            BB_ASSERT(builder != nullptr, "set_public on default pairing points requires a builder context.");
+            return set_default_to_public(builder);
+        }
+        Builder* builder = validate_context<Builder>(ctx, P0().get_context(), P1().get_context());
+        builder->pairing_points_tagging.set_public_pairing_points();
+        uint32_t start_idx = P0().set_public();
+        P1().set_public();
         return start_idx;
     }
 
     /**
-     * @brief Set the witness indices for the default limbs of the pairing points to public.
+     * @brief Record the witness values of pairing points' coordinates in the selectors
+     */
+    void fix_witness()
+    {
+        BB_ASSERT(this->has_data_, "Calling fix_witness on empty pairing points.");
+        P0().fix_witness();
+        P1().fix_witness();
+    }
+
+    /**
+     * @brief Perform native pairing check on the witness values
+     * @details Extracts native values from P0 and P1 and performs the pairing verification.
+     */
+    bool check() const
+    {
+        BB_ASSERT(this->has_data_, "Calling check on empty pairing points.");
+        bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0().get_value(), P1().get_value());
+        return native_pp.check();
+    }
+
+    /**
+     * @brief Set the witness indices for the default (infinity) pairing points to public.
+     * @details Optimized version that directly sets zero Fr limb values as public inputs, avoiding expensive bigfield
+     * operations. The default pairing points are at infinity, which trivially satisfies the pairing equation
      *
      * @return uint32_t The index into the public inputs array at which the representation is stored
      */
     static uint32_t set_default_to_public(Builder* builder)
     {
-        uint32_t start_idx = 0;
-        for (size_t idx = 0; auto const& coordinate : { DEFAULT_PAIRING_POINTS_P0_X,
-                                                        DEFAULT_PAIRING_POINTS_P0_Y,
-                                                        DEFAULT_PAIRING_POINTS_P1_X,
-                                                        DEFAULT_PAIRING_POINTS_P1_Y }) {
-            bigfield<Builder, bb::Bn254FqParams> bigfield_coordinate(coordinate);
-            bigfield_coordinate.convert_constant_to_fixed_witness(builder);
-            uint32_t index = bigfield_coordinate.set_public();
-            start_idx = idx == 0 ? index : start_idx;
-            idx++;
+        builder->pairing_points_tagging.set_public_pairing_points();
+        // Infinity is represented as (0,0) in biggroup. Directly add zero limbs as public inputs, bypassing bigfield's
+        // self_reduce.
+        uint32_t start_idx = static_cast<uint32_t>(builder->num_public_inputs());
+        for (size_t i = 0; i < PUBLIC_INPUTS_SIZE; i++) {
+            uint32_t idx = builder->add_public_variable(bb::fr(0));
+            builder->fix_witness(idx, bb::fr(0));
         }
-
         return start_idx;
     }
 
     /**
-     * @brief Reconstruct an PairingPoints from its representation as limbs (generally stored in the public inputs)
-     *
-     * @param limbs The limbs of the pairing points
-     * @return PairingPoints<Curve>
-     */
-    static PairingPoints<Curve> reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs)
-    {
-        const size_t FRS_PER_POINT = Group::PUBLIC_INPUTS_SIZE;
-        std::span<const Fr, FRS_PER_POINT> P0_limbs{ limbs.data(), FRS_PER_POINT };
-        std::span<const Fr, FRS_PER_POINT> P1_limbs{ limbs.data() + FRS_PER_POINT, FRS_PER_POINT };
-        Group P0 = Group::reconstruct_from_public(P0_limbs);
-        Group P1 = Group::reconstruct_from_public(P1_limbs);
-        return { P0, P1 };
-    }
-
-    static std::array<fr, PUBLIC_INPUTS_SIZE> construct_dummy()
-    {
-        // We just biggroup here instead of Group (which is either biggroup or biggroup_goblin) because this is the most
-        // efficient way of setting the default pairing points. If we use biggroup_goblin elements, we have to convert
-        // them back to biggroup elements anyway to add them to the public inputs...
-        using BigGroup = element_default::
-            element<Builder, bigfield<Builder, bb::Bn254FqParams>, field_t<Builder>, curve::BN254::Group>;
-        std::array<fr, PUBLIC_INPUTS_SIZE> dummy_pairing_points_values;
-        size_t idx = 0;
-        for (size_t i = 0; i < 2; i++) {
-            std::array<fr, BigGroup::PUBLIC_INPUTS_SIZE> element_vals = BigGroup::construct_dummy();
-            for (auto& val : element_vals) {
-                dummy_pairing_points_values[idx++] = val;
-            }
-        }
-
-        return dummy_pairing_points_values;
-    }
-
-    /**
-     * @brief Construct default pairing points.
-     *
-     * @param builder
+     * @brief Construct default pairing points (both at infinity).
+     * @details The point at infinity trivially satisfies the pairing equation: e(∞, Q) = 1.
      */
     static PairingPoints construct_default()
     {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from a
-        // valid proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
-        Fq x0(DEFAULT_PAIRING_POINTS_P0_X);
-        Fq y0(DEFAULT_PAIRING_POINTS_P0_Y);
-        Fq x1(DEFAULT_PAIRING_POINTS_P1_X);
-        Fq y1(DEFAULT_PAIRING_POINTS_P1_Y);
-
-        Group P0(x0, y0);
-        Group P1(x1, y1);
-
-        return { P0, P1 };
+        Group P0(Fq(0), Fq(0), /*assert_on_curve=*/false);
+        Group P1(Fq(0), Fq(0), /*assert_on_curve=*/false);
+        PairingPoints pp(P0, P1);
+        pp.is_default_ = true;
+        return pp;
     }
+
+  private:
+    std::array<Group, 2> _points;
+    bool has_data_ = false;
+    bool is_default_ = false; // True for default (infinity) pairing points from construct_default()
 };
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, PairingPoints<NCT> const& as)
 {
-    return os << "P0: " << as.P0 << "\n"
-              << "P1: " << as.P1 << "\n"
-              << "has_data: " << as.has_data << "\n"
+    return os << "P0: " << as.P0() << "\n"
+              << "P1: " << as.P1() << "\n"
+              << "is_populated: " << as.is_populated() << "\n"
               << "tag_index: " << as.tag_index << "\n";
 }
 

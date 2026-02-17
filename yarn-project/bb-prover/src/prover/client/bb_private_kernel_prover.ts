@@ -1,4 +1,7 @@
-import { createLogger } from '@aztec/foundation/log';
+import { AztecClientBackend, type BackendOptions, Barretenberg } from '@aztec/bb.js';
+import { type LogLevel, type Logger, createLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
+import { serializeWitness } from '@aztec/noir-noirc_abi';
 import {
   convertHidingKernelPublicInputsToWitnessMapWithAbi,
   convertHidingKernelToRollupInputsToWitnessMapWithAbi,
@@ -37,15 +40,22 @@ import type {
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
 import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
-import type { ChonkProofWithPublicInputs } from '@aztec/stdlib/proofs';
+import { ChonkProofWithPublicInputs } from '@aztec/stdlib/proofs';
 import type { CircuitSimulationStats, CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 
+import { ungzip } from 'pako';
+
+export type BBPrivateKernelProverOptions = Omit<BackendOptions, 'logger'> & { logger?: Logger };
 export abstract class BBPrivateKernelProver implements PrivateKernelProver {
+  private log: Logger;
+
   constructor(
     protected artifactProvider: ArtifactProvider,
     protected simulator: CircuitSimulator,
-    protected log = createLogger('bb-prover'),
-  ) {}
+    protected options: BBPrivateKernelProverOptions = {},
+  ) {
+    this.log = options.logger || createLogger('bb-prover:private-kernel');
+  }
 
   public async generateInitOutput(
     inputs: PrivateKernelInitCircuitPrivateInputs,
@@ -263,11 +273,39 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     return kernelProofOutput;
   }
 
-  public createChonkProof(_executionSteps: PrivateExecutionStep[]): Promise<ChonkProofWithPublicInputs> {
-    throw new Error('Not implemented');
+  public async createChonkProof(executionSteps: PrivateExecutionStep[]): Promise<ChonkProofWithPublicInputs> {
+    const timer = new Timer();
+    this.log.info(`Generating ClientIVC proof...`);
+    const barretenberg = await Barretenberg.initSingleton({
+      ...this.options,
+      logger: this.options.logger?.[(process.env.LOG_LEVEL as LogLevel) || 'verbose'],
+    });
+    const backend = new AztecClientBackend(
+      executionSteps.map(step => ungzip(step.bytecode)),
+      barretenberg,
+      executionSteps.map(step => step.functionName),
+    );
+
+    const [proof] = await backend.prove(
+      executionSteps.map(step => ungzip(serializeWitness(step.witness))),
+      executionSteps.map(step => step.vk),
+    );
+    this.log.info(`Generated ClientIVC proof`, {
+      eventName: 'client-ivc-proof-generation',
+      duration: timer.ms(),
+      proofSize: proof.length,
+    });
+    return ChonkProofWithPublicInputs.fromBufferArray(proof);
   }
 
-  public computeGateCountForCircuit(_bytecode: Buffer, _circuitName: string): Promise<number> {
-    throw new Error('Not implemented');
+  public async computeGateCountForCircuit(_bytecode: Buffer, _circuitName: string): Promise<number> {
+    // Note we do not pass the vk to the backend. This is unneeded for gate counts.
+    const barretenberg = await Barretenberg.initSingleton({
+      ...this.options,
+      logger: this.options.logger?.[(process.env.LOG_LEVEL as LogLevel) || 'verbose'],
+    });
+    const backend = new AztecClientBackend([ungzip(_bytecode)], barretenberg, [_circuitName]);
+    const gateCount = await backend.gates();
+    return gateCount[0];
   }
 }

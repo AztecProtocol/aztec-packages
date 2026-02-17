@@ -1,5 +1,5 @@
-import { SHA256Trunc, sha256Trunc } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { SHA256Trunc, sha256Trunc } from '@aztec/foundation/crypto/sha256';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { FromBuffer } from '@aztec/foundation/serialize';
 import type { Hasher } from '@aztec/foundation/trees';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
@@ -11,8 +11,7 @@ const noopDeserializer: FromBuffer<Buffer> = {
   fromBuffer: (buffer: Buffer) => buffer,
 };
 
-// Follows sol implementation and tests in UnbalancedMerkle.t.sol
-describe('Wonky tree', () => {
+describe('Unbalanced tree', () => {
   let hasher: Hasher;
   let tree: UnbalancedTree<Buffer>;
   let leaves: Buffer[];

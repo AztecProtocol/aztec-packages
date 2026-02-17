@@ -1,4 +1,5 @@
 import { RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { AbortError } from '@aztec/foundation/error';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
@@ -26,8 +27,8 @@ describe('ProvingJobController', () => {
         type: ProvingRequestType.PARITY_BASE,
         inputs: makeParityBasePrivateInputs(),
       },
+      EpochNumber(0),
       42,
-      0,
       prover,
       onComplete,
     );

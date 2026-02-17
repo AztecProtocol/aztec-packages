@@ -1,4 +1,4 @@
-import { randomInt } from '@aztec/foundation/crypto';
+import { randomInt } from '@aztec/foundation/crypto/random';
 import { createLogger } from '@aztec/foundation/log';
 import { AvmGadgetsTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
 import { TestExecutorMetrics, defaultGlobals } from '@aztec/simulator/public/fixtures';

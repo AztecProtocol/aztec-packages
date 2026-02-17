@@ -28,7 +28,7 @@ import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
  * @dev This library serves as an external library for the Rollup contract, splitting off proposal-related
  *      functionality to keep the main contract within the maximum contract size limit. The library contains
  *      external functions primarily focused on:
- *      - Block proposal submission and validation
+ *      - Checkpoint proposal submission and validation
  *      - Epoch proof submission and verification
  *      - Blob validation and commitment management
  *      - Chain pruning operations
@@ -55,7 +55,7 @@ library RollupOperationsExtLib {
 
     Slot slot = _args.header.slotNumber;
     Epoch epoch = slot.epochFromSlot();
-    ValidatorSelectionLib.verifyAttestations(slot, epoch, _attestations, _args.digest);
+    ValidatorSelectionLib.verifyAttestations(epoch, _attestations, _args.digest);
     ValidatorSelectionLib.verifyProposer(
       slot, epoch, _attestations, _signers, _args.digest, _attestationsAndSignersSignature, false
     );

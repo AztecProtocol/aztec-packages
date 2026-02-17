@@ -1,0 +1,8 @@
+submitEpochRootProofTest
+├── given escape hatch is not configured
+│   └── it should verify attestations normally
+└── given escape hatch is configured
+    ├── when escape hatch is not open for the proof epoch
+    │   └── it should verify attestations normally
+    └── when escape hatch is open for the proof epoch
+        └── it should skip attestation verification

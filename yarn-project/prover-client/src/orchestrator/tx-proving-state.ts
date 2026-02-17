@@ -1,14 +1,9 @@
-import {
-  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
-  AVM_VK_INDEX,
-  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-} from '@aztec/constants';
-import type { Fr } from '@aztec/foundation/fields';
+import { AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH } from '@aztec/constants';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { getVkData } from '@aztec/noir-protocol-circuits-types/server/vks';
-import { getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
-import type { ProofAndVerificationKey, PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
-import { ProofData } from '@aztec/stdlib/proofs';
+import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
+import { ProofData, ProofDataForFixedVk, RecursiveProof } from '@aztec/stdlib/proofs';
 import {
   type BaseRollupHints,
   PrivateBaseRollupHints,
@@ -20,7 +15,6 @@ import {
 import type { CircuitName } from '@aztec/stdlib/stats';
 import type { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import type { ProcessedTx } from '@aztec/stdlib/tx';
-import { VerificationKeyData, VkData } from '@aztec/stdlib/vks';
 
 import {
   getChonkProofFromTx,
@@ -38,7 +32,7 @@ export class TxProvingState {
     PublicChonkVerifierPublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >;
-  private avm?: ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>;
+  private avmProof?: RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>;
 
   constructor(
     public readonly processedTx: ProcessedTx,
@@ -52,7 +46,7 @@ export class TxProvingState {
   }
 
   public ready() {
-    return !this.requireAvmProof || (!!this.avm && !!this.publicChonkVerifier);
+    return !this.requireAvmProof || (!!this.avmProof && !!this.publicChonkVerifier);
   }
 
   public getAvmInputs(): AvmCircuitInputs {
@@ -86,8 +80,8 @@ export class TxProvingState {
     this.publicChonkVerifier = publicChonkVerifierProofAndVk;
   }
 
-  public setAvmProof(avmProofAndVk: ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>) {
-    this.avm = avmProofAndVk;
+  public setAvmProof(avmProof: RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>) {
+    this.avmProof = avmProof;
   }
 
   #getPrivateBaseInputs() {
@@ -111,7 +105,7 @@ export class TxProvingState {
     if (!this.publicChonkVerifier) {
       throw new Error('Tx not ready for proving base rollup: public chonk verifier proof undefined');
     }
-    if (!this.avm) {
+    if (!this.avmProof) {
       throw new Error('Tx not ready for proving base rollup: avm proof undefined');
     }
     if (!(this.baseRollupHints instanceof PublicBaseRollupHints)) {
@@ -120,19 +114,8 @@ export class TxProvingState {
 
     const publicChonkVerifierProofData = toProofData(this.publicChonkVerifier);
 
-    const avmProofData = new ProofData(
-      this.processedTx.avmProvingRequest.inputs.publicInputs,
-      this.avm.proof,
-      this.#getVkData(this.avm!.verificationKey, AVM_VK_INDEX),
-    );
+    const avmProofData = new ProofDataForFixedVk(this.processedTx.avmProvingRequest.inputs.publicInputs, this.avmProof);
 
     return new PublicTxBaseRollupPrivateInputs(publicChonkVerifierProofData, avmProofData, this.baseRollupHints);
-  }
-
-  #getVkData(verificationKey: VerificationKeyData, vkIndex: number) {
-    // TODO(#17162): Add avm vk hash to the tree and call `getVkData('AVM')` instead.
-    // Below will return a path to an empty leaf.
-    const vkPath = getVKSiblingPath(vkIndex);
-    return new VkData(verificationKey, vkIndex, vkPath);
   }
 }

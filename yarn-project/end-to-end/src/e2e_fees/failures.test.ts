@@ -4,13 +4,13 @@ import { EthAddress } from '@aztec/aztec.js/addresses';
 import { SetPublicAuthwitContractInteraction } from '@aztec/aztec.js/authorization';
 import { PrivateFeePaymentMethod, PublicFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { Fr } from '@aztec/aztec.js/fields';
-import { TxStatus } from '@aztec/aztec.js/tx';
+import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
-import { FunctionType } from '@aztec/stdlib/abi';
+import { FunctionCall, FunctionType } from '@aztec/stdlib/abi';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
+import { ExecutionPayload } from '@aztec/stdlib/tx';
 
 import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { expectMapping } from '../fixtures/utils.js';
@@ -28,9 +28,9 @@ describe('e2e_fees failures', () => {
   const t = new FeesTest('failures', 3, { coinbase });
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyFPCSetupSnapshot();
-    ({ wallet, aliceAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings } = await t.setup());
+    await t.setup();
+    await t.applyFPCSetup();
+    ({ wallet, aliceAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings } = t);
 
     // Prove up until the current state by just marking it as proven.
     // Then turn off the watcher to prevent it from keep proving
@@ -91,10 +91,10 @@ describe('e2e_fees failures', () => {
         fee: {
           paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
         },
-      })
-      .wait({ dontThrowOnRevert: true });
+        wait: { dontThrowOnRevert: true },
+      });
 
-    expect(txReceipt.status).toBe(TxStatus.APP_LOGIC_REVERTED);
+    expect(txReceipt.executionResult).toBe(TxExecutionResult.APP_LOGIC_REVERTED);
 
     const { sequencerBlockRewards } = await t.getBlockRewards();
 
@@ -149,10 +149,7 @@ describe('e2e_fees failures', () => {
       bananaFPC.address,
     );
 
-    await bananaCoin.methods
-      .mint_to_public(aliceAddress, publicMintedAlicePublicBananas)
-      .send({ from: aliceAddress })
-      .wait();
+    await bananaCoin.methods.mint_to_public(aliceAddress, publicMintedAlicePublicBananas).send({ from: aliceAddress });
 
     const [initialAliceGas, initialFPCGas, initialSequencerGas] = await t.getGasBalanceFn(
       aliceAddress,
@@ -197,10 +194,10 @@ describe('e2e_fees failures', () => {
         fee: {
           paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
         },
-      })
-      .wait({ dontThrowOnRevert: true });
+        wait: { dontThrowOnRevert: true },
+      });
 
-    expect(txReceipt.status).toBe(TxStatus.APP_LOGIC_REVERTED);
+    expect(txReceipt.executionResult).toBe(TxExecutionResult.APP_LOGIC_REVERTED);
     const feeAmount = txReceipt.transactionFee!;
 
     // and thus we paid the fee
@@ -234,7 +231,7 @@ describe('e2e_fees failures', () => {
             paymentMethod: new BuggedSetupFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
           },
         }),
-    ).rejects.toThrow(/Setup phase reverted/);
+    ).rejects.toThrow(/\[SETUP\] UNRECOVERABLE ERROR/);
 
     // so does the sequencer
     await expect(
@@ -245,9 +242,8 @@ describe('e2e_fees failures', () => {
           fee: {
             paymentMethod: new BuggedSetupFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
           },
-        })
-        .wait(),
-    ).rejects.toThrow(/Transaction (0x)?[0-9a-fA-F]{64} was dropped\. Reason: Tx dropped by P2P node\./);
+        }),
+    ).rejects.toThrow(/Transaction (0x)?[0-9a-fA-F]{64} was dropped/i);
   });
 
   it('includes transaction that error in teardown', async () => {
@@ -265,10 +261,7 @@ describe('e2e_fees failures', () => {
       bananaFPC.address,
     );
 
-    await bananaCoin.methods
-      .mint_to_public(aliceAddress, publicMintedAlicePublicBananas)
-      .send({ from: aliceAddress })
-      .wait();
+    await bananaCoin.methods.mint_to_public(aliceAddress, publicMintedAlicePublicBananas).send({ from: aliceAddress });
 
     const [initialAliceGas, initialFPCGas, initialSequencerGas] = await t.getGasBalanceFn(
       aliceAddress,
@@ -299,11 +292,9 @@ describe('e2e_fees failures', () => {
         fee: {
           paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, badGas),
         },
-      })
-      .wait({
-        dontThrowOnRevert: true,
+        wait: { dontThrowOnRevert: true },
       });
-    expect(receipt.status).toEqual(TxStatus.TEARDOWN_REVERTED);
+    expect(receipt.executionResult).toEqual(TxExecutionResult.TEARDOWN_REVERTED);
     expect(receipt.transactionFee).toBeGreaterThan(0n);
 
     await expectMapping(
@@ -343,16 +334,16 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
       this.sender,
       {
         caller: this.paymentContract,
-        call: {
+        call: FunctionCall.from({
           name: 'transfer_in_public',
-          args: [this.sender.toField(), this.paymentContract.toField(), maxFee, authwitNonce],
+          to: asset,
           selector: await FunctionSelector.fromSignature('transfer_in_public((Field),(Field),u128,Field)'),
           type: FunctionType.PUBLIC,
           hideMsgSender: false /** the target function performs an authwit, so msg_sender is needed */,
           isStatic: false,
-          to: asset,
+          args: [this.sender.toField(), this.paymentContract.toField(), maxFee, authwitNonce],
           returnTypes: [],
-        },
+        }),
       },
       true,
     );
@@ -360,7 +351,7 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
     return new ExecutionPayload(
       [
         ...(await setPublicAuthWitInteraction.request()).calls,
-        {
+        FunctionCall.from({
           name: 'fee_entrypoint_public',
           to: this.paymentContract,
           selector: await FunctionSelector.fromSignature('fee_entrypoint_public(u128,Field)'),
@@ -369,10 +360,12 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
           isStatic: false,
           args: [tooMuchFee, authwitNonce],
           returnTypes: [],
-        },
+        }),
       ],
       [],
       [],
+      [],
+      this.paymentContract, // feePayer
     );
   }
 }

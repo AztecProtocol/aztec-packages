@@ -1,4 +1,5 @@
 import type { RevertCode } from '@aztec/stdlib/avm';
+import type { GasUsed } from '@aztec/stdlib/gas';
 import {
   Attributes,
   type Histogram,
@@ -6,7 +7,7 @@ import {
   type TelemetryClient,
   type Tracer,
   type UpDownCounter,
-  ValueType,
+  createUpDownCounterWithDefault,
 } from '@aztec/telemetry-client';
 
 import type { ExecutorMetricsInterface } from './executor_metrics_interface.js';
@@ -25,52 +26,28 @@ export class ExecutorMetrics implements ExecutorMetricsInterface {
     this.tracer = client.getTracer(name);
     const meter = client.getMeter(name);
 
-    this.fnCount = meter.createUpDownCounter(Metrics.PUBLIC_EXECUTOR_SIMULATION_COUNT, {
-      description: 'Number of functions executed',
+    this.fnCount = createUpDownCounterWithDefault(meter, Metrics.PUBLIC_EXECUTOR_SIMULATION_COUNT, {
+      [Attributes.OK]: [true, false],
     });
 
-    this.fnDuration = meter.createHistogram(Metrics.PUBLIC_EXECUTOR_SIMULATION_DURATION, {
-      description: 'How long it takes to execute a function',
-      unit: 'ms',
-      valueType: ValueType.INT,
-    });
+    this.fnDuration = meter.createHistogram(Metrics.PUBLIC_EXECUTOR_SIMULATION_DURATION);
 
-    this.manaPerSecond = meter.createHistogram(Metrics.PUBLIC_EXECUTOR_SIMULATION_MANA_PER_SECOND, {
-      description: 'Mana used per second',
-      unit: 'mana/s',
-      valueType: ValueType.INT,
-    });
+    this.manaPerSecond = meter.createHistogram(Metrics.PUBLIC_EXECUTOR_SIMULATION_MANA_PER_SECOND);
 
-    this.manaUsed = meter.createHistogram(Metrics.PUBLIC_EXECUTOR_SIMULATION_MANA_USED, {
-      description: 'Total mana used',
-      unit: 'mana',
-      valueType: ValueType.INT,
-    });
+    this.manaUsed = meter.createHistogram(Metrics.PUBLIC_EXECUTOR_SIMULATION_MANA_USED);
 
-    this.totalInstructionsExecuted = meter.createHistogram(Metrics.PUBLIC_EXECUTOR_SIMULATION_TOTAL_INSTRUCTIONS, {
-      description: 'Total number of instructions executed',
-      unit: '#instructions',
-      valueType: ValueType.INT,
-    });
+    this.totalInstructionsExecuted = meter.createHistogram(Metrics.PUBLIC_EXECUTOR_SIMULATION_TOTAL_INSTRUCTIONS);
 
-    this.txHashing = meter.createHistogram(Metrics.PUBLIC_EXECUTOR_TX_HASHING, {
-      description: 'Tx hashing time',
-      unit: 'ms',
-      valueType: ValueType.INT,
-    });
+    this.txHashing = meter.createHistogram(Metrics.PUBLIC_EXECUTOR_TX_HASHING);
 
-    this.privateEffectsInsertions = meter.createHistogram(Metrics.PUBLIC_EXECUTOR_PRIVATE_EFFECTS_INSERTION, {
-      description: 'Private effects insertion time',
-      unit: 'us',
-      valueType: ValueType.INT,
-    });
+    this.privateEffectsInsertions = meter.createHistogram(Metrics.PUBLIC_EXECUTOR_PRIVATE_EFFECTS_INSERTION);
   }
 
   startRecordingTxSimulation(_txLabel: string) {
     // do nothing (unimplemented)
   }
 
-  stopRecordingTxSimulation(_txLabel: string, _revertedCode?: RevertCode) {
+  stopRecordingTxSimulation(_txLabel: string, _gasUsed?: GasUsed, _revertedCode?: RevertCode) {
     // do nothing (unimplemented)
   }
 

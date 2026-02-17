@@ -11,18 +11,15 @@ void BytecodeHasher::assert_public_bytecode_commitment(const BytecodeId& bytecod
                                                        const FF& public_bytecode_commitment)
 {
     BB_BENCH_NAME("BytecodeHasher::assert_public_bytecode_commitment");
-    // TODO(MW): Remove bytecode length from event?
-    [[maybe_unused]] auto bytecode_length_in_bytes = static_cast<uint32_t>(bytecode.size());
+    auto bytecode_length_in_bytes = static_cast<uint32_t>(bytecode.size());
 
-    std::vector<FF> inputs = { GENERATOR_INDEX__PUBLIC_BYTECODE };
+    std::vector<FF> inputs = { compute_public_bytecode_first_field(bytecode_length_in_bytes) };
     auto bytecode_as_fields = encode_bytecode(bytecode);
     inputs.insert(inputs.end(), bytecode_as_fields.begin(), bytecode_as_fields.end());
 
     FF hash = hasher.hash(inputs);
-    assert(hash == public_bytecode_commitment);
-    // To please the compiler.
-    (void)hash;
-    (void)public_bytecode_commitment;
+    // This will throw an unexpected exception if it fails.
+    BB_ASSERT_EQ(hash, public_bytecode_commitment, "Public bytecode commitment hash mismatch");
 
     events.emit({ .bytecode_id = bytecode_id,
                   .bytecode_length = bytecode_length_in_bytes,

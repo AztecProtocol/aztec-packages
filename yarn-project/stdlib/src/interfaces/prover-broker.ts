@@ -1,3 +1,5 @@
+import type { EpochNumber } from '@aztec/foundation/branded-types';
+
 import type { ProvingRequestType } from '../proofs/proving_request_type.js';
 import type { ProofUri, ProvingJob, ProvingJobId, ProvingJobStatus } from './proving-job.js';
 
@@ -88,3 +90,23 @@ export interface ProvingJobConsumer {
 }
 
 export interface ProvingJobBroker extends ProvingJobProducer, ProvingJobConsumer {}
+
+/**
+ * Debug interface for replaying proving jobs from stored inputs.
+ * Used for benchmarking different agent configurations against the same workload.
+ */
+export interface ProvingJobBrokerDebug {
+  /**
+   * Replays a proving job by re-enqueuing it with inputs from the configured proof store.
+   * The proof type is parsed from the job ID (format: epoch:typeName:hash).
+   * @param jobId - The original job ID to replay
+   * @param epochNumber - The epoch number to assign
+   * @param inputsUri - The proof inputs location
+   */
+  replayProvingJob(
+    jobId: ProvingJobId,
+    type: ProvingRequestType,
+    epochNumber: EpochNumber,
+    inputsUri: ProofUri,
+  ): Promise<ProvingJobStatus>;
+}

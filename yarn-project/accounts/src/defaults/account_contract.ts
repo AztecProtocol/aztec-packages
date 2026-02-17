@@ -1,8 +1,7 @@
-import type { AccountContract, AccountInterface, AuthWitnessProvider, ChainInfo } from '@aztec/aztec.js/account';
+import { type Account, type AccountContract, type AuthWitnessProvider, BaseAccount } from '@aztec/aztec.js/account';
+import { DefaultAccountEntrypoint } from '@aztec/entrypoints/account';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
-
-import { DefaultAccountInterface } from '../defaults/account_interface.js';
 
 /**
  * Base class for implementing an account contract. Requires that the account uses the
@@ -23,7 +22,12 @@ export abstract class DefaultAccountContract implements AccountContract {
 
   constructor() {}
 
-  getInterface(address: CompleteAddress, chainInfo: ChainInfo): AccountInterface {
-    return new DefaultAccountInterface(this.getAuthWitnessProvider(address), address, chainInfo);
+  getAccount(completeAddress: CompleteAddress): Account {
+    const authWitnessProvider = this.getAuthWitnessProvider(completeAddress);
+    return new BaseAccount(
+      new DefaultAccountEntrypoint(completeAddress.address, authWitnessProvider),
+      authWitnessProvider,
+      completeAddress,
+    );
   }
 }

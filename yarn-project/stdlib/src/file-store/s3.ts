@@ -12,7 +12,7 @@ import { mkdir, mkdtemp, stat, unlink } from 'fs/promises';
 import { tmpdir } from 'os';
 import { basename, dirname, join } from 'path';
 import { Readable } from 'stream';
-import { finished } from 'stream/promises';
+import { pipeline } from 'stream/promises';
 import { createGzip } from 'zlib';
 
 import type { FileStore, FileStoreSaveOptions } from './interface.js';
@@ -88,11 +88,8 @@ export class S3FileStore implements FileStore {
       // Pre-gzip to a temp file so we know the exact length for R2/S3 headers
       const tmpDir = await mkdtemp(join(tmpdir(), 's3-upload-'));
       const gzPath = join(tmpDir, `${basename(srcPath)}.gz`);
-      const source = createReadStream(srcPath);
-      const gz = createGzip();
-      const out = createWriteStream(gzPath);
       try {
-        await finished(source.pipe(gz).pipe(out));
+        await pipeline(createReadStream(srcPath), createGzip(), createWriteStream(gzPath));
         const st = await stat(gzPath);
         contentLength = st.size;
         bodyPath = gzPath;
@@ -144,8 +141,7 @@ export class S3FileStore implements FileStore {
     const { bucket, key } = this.getBucketAndKey(pathOrUrlStr);
     const out: GetObjectCommandOutput = await this.s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
     await mkdir(dirname(destPath), { recursive: true });
-    const write = createWriteStream(destPath);
-    await finished((out.Body as Readable).pipe(write));
+    await pipeline(out.Body as Readable, createWriteStream(destPath));
   }
 
   public async exists(pathOrUrlStr: string): Promise<boolean> {

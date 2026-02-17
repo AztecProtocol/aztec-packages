@@ -1,3 +1,4 @@
+import { toBigIntBE } from '../bigint-buffer/index.js';
 import type { Tuple } from './types.js';
 
 /**
@@ -130,6 +131,20 @@ export class BufferReader {
     return result;
   }
 
+  /**
+   * Reads a 256-bit signed integer (two's complement) from the buffer at the current index position.
+   * Updates the index position by 32 bytes after reading the number.
+   *
+   * @returns The read 256 bit signed value as a bigint.
+   */
+  public readInt256(): bigint {
+    this.#rangeCheck(32);
+    const unsigned = toBigIntBE(this.buffer.subarray(this.index, this.index + 32));
+    this.index += 32;
+    const signBit = 1n << 255n;
+    return unsigned >= signBit ? unsigned - (1n << 256n) : unsigned;
+  }
+
   /** Alias for readUInt256 */
   public readBigInt(): bigint {
     return this.readUInt256();
@@ -224,15 +239,22 @@ export class BufferReader {
    * deserializing each one using the 'fromBuffer' method of 'itemDeserializer'.
    *
    * @param itemDeserializer - Object with 'fromBuffer' method to deserialize vector elements.
+   * @param maxSize - Optional maximum allowed size for the vector. If the size exceeds this, an error is thrown.
    * @returns An array of deserialized elements of type T.
    */
-  public readVector<T>(itemDeserializer: {
-    /**
-     * A method to deserialize data from a buffer.
-     */
-    fromBuffer: (reader: BufferReader) => T;
-  }): T[] {
+  public readVector<T>(
+    itemDeserializer: {
+      /**
+       * A method to deserialize data from a buffer.
+       */
+      fromBuffer: (reader: BufferReader) => T;
+    },
+    maxSize?: number,
+  ): T[] {
     const size = this.readNumber();
+    if (maxSize !== undefined && size > maxSize) {
+      throw new Error(`Vector size ${size} exceeds maximum allowed ${maxSize}`);
+    }
     const result = new Array<T>(size);
     for (let i = 0; i < size; i++) {
       result[i] = itemDeserializer.fromBuffer(this);
@@ -344,10 +366,11 @@ export class BufferReader {
    * The method first reads the size of the string, then reads the corresponding
    * number of bytes from the buffer and converts them to a string.
    *
+   * @param maxSize - Optional maximum allowed size for the string buffer. If the size exceeds this, an error is thrown.
    * @returns The read string from the buffer.
    */
-  public readString(): string {
-    return this.readBuffer().toString();
+  public readString(maxSize?: number): string {
+    return this.readBuffer(maxSize).toString();
   }
 
   /**
@@ -356,10 +379,14 @@ export class BufferReader {
    * a Buffer with that size containing the bytes. Useful for reading variable-length
    * binary data encoded as (size, data) format.
    *
+   * @param maxSize - Optional maximum allowed size for the buffer. If the size exceeds this, an error is thrown.
    * @returns A Buffer containing the read bytes.
    */
-  public readBuffer(): Buffer {
+  public readBuffer(maxSize?: number): Buffer {
     const size = this.readNumber();
+    if (maxSize !== undefined && size > maxSize) {
+      throw new Error(`Buffer size ${size} exceeds maximum allowed ${maxSize}`);
+    }
     this.#rangeCheck(size);
     return this.readBytes(size);
   }

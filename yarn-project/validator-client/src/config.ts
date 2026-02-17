@@ -7,6 +7,7 @@ import {
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ValidatorClientConfig } from '@aztec/stdlib/interfaces/server';
+import { validatorHASignerConfigMappings } from '@aztec/validator-ha-signer/config';
 
 export type { ValidatorClientConfig };
 
@@ -53,17 +54,30 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     description: 'Re-execute transactions before attesting',
     ...booleanConfigHelper(true),
   },
-  validatorReexecuteDeadlineMs: {
-    env: 'VALIDATOR_REEXECUTE_DEADLINE_MS',
-    description: 'Will re-execute until this many milliseconds are left in the slot',
-    ...numberConfigHelper(6000),
-  },
   alwaysReexecuteBlockProposals: {
-    env: 'ALWAYS_REEXECUTE_BLOCK_PROPOSALS',
     description:
       'Whether to always reexecute block proposals, even for non-validator nodes (useful for monitoring network status).',
+    defaultValue: true,
+  },
+  fishermanMode: {
+    env: 'FISHERMAN_MODE',
+    description:
+      'Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus.',
     ...booleanConfigHelper(false),
   },
+  skipCheckpointProposalValidation: {
+    description: 'Skip checkpoint proposal validation and always attest (default: false)',
+    defaultValue: false,
+  },
+  skipPushProposedBlocksToArchiver: {
+    description: 'Skip pushing re-executed blocks to archiver (default: false)',
+    defaultValue: false,
+  },
+  attestToEquivocatedProposals: {
+    description: 'Agree to attest to equivocated checkpoint proposals (for testing purposes only)',
+    ...booleanConfigHelper(false),
+  },
+  ...validatorHASignerConfigMappings,
 };
 
 /**

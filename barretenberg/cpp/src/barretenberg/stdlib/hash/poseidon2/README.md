@@ -109,6 +109,10 @@ M_I =
     \end{bmatrix}
 \f]
 
+**Implementation note:** The code stores `internal_matrix_diagonal_minus_one[i] = D_i - 1` (not the actual diagonal values \f$D_i\f$).
+This is because the algorithm computes \f$v_i = (D_i - 1) \cdot u_i + \text{sum}\f$ where \f$\text{sum} = u_1 + u_2 + u_3 + u_4\f$,
+which equals \f$D_i \cdot u_i + (\text{sum of other elements})\f$.
+
 ### Constants
 
 The constants are generated using the sage [script authored by Markus Schofnegger](https://github.com/HorizenLabs/poseidon2/blob/main/poseidon2_rust_params.sage) from Horizen Labs.

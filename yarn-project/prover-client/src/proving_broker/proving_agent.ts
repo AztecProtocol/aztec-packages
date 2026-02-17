@@ -1,5 +1,5 @@
 import { AbortError } from '@aztec/foundation/error';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { truncate } from '@aztec/foundation/string';
 import { ProvingError } from '@aztec/stdlib/errors';
@@ -13,27 +13,17 @@ import type {
   ServerCircuitProver,
 } from '@aztec/stdlib/interfaces/server';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
-import {
-  type TelemetryClient,
-  type Traceable,
-  type Tracer,
-  getTelemetryClient,
-  trackSpan,
-} from '@aztec/telemetry-client';
 
 import type { ProofStore } from './proof_store/index.js';
-import { ProvingAgentInstrumentation } from './proving_agent_instrumentation.js';
 import { ProvingJobController, ProvingJobControllerStatus } from './proving_job_controller.js';
 
 /**
  * A helper class that encapsulates a circuit prover and connects it to a job source.
  */
-export class ProvingAgent implements Traceable {
+export class ProvingAgent {
   private currentJobController?: ProvingJobController;
   private runningPromise: RunningPromise;
-  private instrumentation: ProvingAgentInstrumentation;
-
-  public readonly tracer: Tracer;
+  private log: Logger;
 
   constructor(
     /** The source of proving jobs */
@@ -46,12 +36,9 @@ export class ProvingAgent implements Traceable {
     private proofAllowList: Array<ProvingRequestType> = [],
     /** How long to wait between jobs */
     private pollIntervalMs = 1000,
-    /** A telemetry client through which to emit metrics */
-    client: TelemetryClient = getTelemetryClient(),
-    private log = createLogger('prover-client:proving-agent'),
+    bindings?: LoggerBindings,
   ) {
-    this.tracer = client.getTracer('ProvingAgent');
-    this.instrumentation = new ProvingAgentInstrumentation(client);
+    this.log = createLogger('prover-client:proving-agent', bindings);
     this.runningPromise = new RunningPromise(this.work.bind(this), this.log, this.pollIntervalMs);
   }
 
@@ -85,7 +72,6 @@ export class ProvingAgent implements Traceable {
     return this.runningPromise.isRunning() ? { status: 'running' } : { status: 'stopped' };
   }
 
-  @trackSpan('ProvingAgent.safeWork')
   private async work() {
     // every tick we need to take one of the following actions:
     // 1. send a hearbeat to the broker that we're working on some job
@@ -175,6 +161,7 @@ export class ProvingAgent implements Traceable {
         // no need to await this here. The controller will stay alive (in DONE state) until the result is send to the broker
         void this.runningPromise.trigger();
       },
+      this.log.getBindings(),
     );
 
     if (abortedProofJobId) {

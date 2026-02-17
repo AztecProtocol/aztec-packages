@@ -9,7 +9,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { mkdirSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { mnemonicToAccount } from 'viem/accounts';
+import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { KeystoreError, KeystoreManager } from '../src/keystore_manager.js';
 import { LocalSigner, RemoteSigner } from '../src/signer.js';
@@ -68,7 +68,7 @@ describe('KeystoreManager', () => {
 
       const received: EthAddress = validator.attester as EthAddress;
       expect(received.equals(attester)).toBeTruthy();
-      expect(validator.feeRecipient.equals(feeRecipient)).toBeTruthy();
+      expect(validator.feeRecipient!.equals(feeRecipient)).toBeTruthy();
     });
 
     it('should throw for out of bounds validator index', async () => {
@@ -293,6 +293,150 @@ describe('KeystoreManager', () => {
       expect(coinbase0.toString()).toBe(attesterSigners[0].address.toString());
       expect(coinbase1.toString()).toBe(attesterSigners[1].address.toString());
       expect(coinbase2.toString()).toBe(attesterSigners[2].address.toString());
+    });
+
+    it('should get coinbase from top-level default when validator has no coinbase', async () => {
+      const topLevelCoinbase = '0x9999999999999999999999999999999999999999' as any;
+      const keystore: KeyStore = {
+        schemaVersion: 2,
+        coinbase: topLevelCoinbase,
+        validators: [
+          {
+            attester: '0x1234567890123456789012345678901234567890123456789012345678901234' as any,
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+      };
+
+      const manager = new KeystoreManager(keystore);
+      const attesterSigners = manager.createAttesterSigners(0);
+      const coinbase = manager.getCoinbaseAddress(0, attesterSigners[0].address);
+
+      expect(coinbase.toString()).toBe(topLevelCoinbase);
+    });
+
+    it('should override top-level coinbase with validator-level coinbase', async () => {
+      const topLevelCoinbase = '0x9999999999999999999999999999999999999999' as any;
+      const validatorCoinbase = '0x8888888888888888888888888888888888888888' as any;
+      const keystore: KeyStore = {
+        schemaVersion: 2,
+        coinbase: topLevelCoinbase,
+        validators: [
+          {
+            attester: '0x1234567890123456789012345678901234567890123456789012345678901234' as any,
+            coinbase: validatorCoinbase,
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+      };
+
+      const manager = new KeystoreManager(keystore);
+      const attesterSigners = manager.createAttesterSigners(0);
+      const coinbase = manager.getCoinbaseAddress(0, attesterSigners[0].address);
+
+      expect(coinbase.toString()).toBe(validatorCoinbase);
+    });
+
+    it('should get feeRecipient from top-level default when validator has no feeRecipient', async () => {
+      const topLevelFeeRecipient = await AztecAddress.random();
+      const keystore: KeyStore = {
+        schemaVersion: 2,
+        feeRecipient: topLevelFeeRecipient,
+        validators: [
+          {
+            attester: '0x1234567890123456789012345678901234567890123456789012345678901234' as any,
+          },
+        ],
+      };
+
+      const manager = new KeystoreManager(keystore);
+      const feeRecipient = manager.getFeeRecipient(0);
+
+      expect(feeRecipient.equals(topLevelFeeRecipient)).toBeTruthy();
+    });
+
+    it('should override top-level feeRecipient with validator-level feeRecipient', async () => {
+      const topLevelFeeRecipient = await AztecAddress.random();
+      const validatorFeeRecipient = await AztecAddress.random();
+      const keystore: KeyStore = {
+        schemaVersion: 2,
+        feeRecipient: topLevelFeeRecipient,
+        validators: [
+          {
+            attester: '0x1234567890123456789012345678901234567890123456789012345678901234' as any,
+            feeRecipient: validatorFeeRecipient,
+          },
+        ],
+      };
+
+      const manager = new KeystoreManager(keystore);
+      const feeRecipient = manager.getFeeRecipient(0);
+
+      expect(feeRecipient.equals(validatorFeeRecipient)).toBeTruthy();
+      expect(feeRecipient.equals(topLevelFeeRecipient)).toBeFalsy();
+    });
+
+    it('should throw when no feeRecipient is set at any level', () => {
+      const keystore: KeyStore = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: '0x1234567890123456789012345678901234567890123456789012345678901234' as any,
+          },
+        ],
+      };
+
+      const manager = new KeystoreManager(keystore);
+      expect(() => manager.getFeeRecipient(0)).toThrow(/feeRecipient/);
+    });
+
+    it('should get publisher from top-level default when validator has no publisher', async () => {
+      const topLevelPublisher = '0x9999999999999999999999999999999999999999999999999999999999999999' as any;
+      const topLevelPublisherAcc = privateKeyToAccount(topLevelPublisher);
+      const keystore: KeyStore = {
+        schemaVersion: 2,
+        publisher: topLevelPublisher,
+        validators: [
+          {
+            attester: '0x1234567890123456789012345678901234567890123456789012345678901234' as any,
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+      };
+
+      const manager = new KeystoreManager(keystore);
+      const publishers = manager.createPublisherSigners(0);
+
+      expect(publishers).toHaveLength(1);
+      expect(publishers[0].address.toString().toLowerCase()).toBe(
+        topLevelPublisherAcc.address.toString().toLowerCase(),
+      );
+    });
+
+    it('should override top-level publisher with validator-level publisher', async () => {
+      const topLevelPublisher = '0x9999999999999999999999999999999999999999999999999999999999999999' as any;
+      const validatorPublisher = '0x8888888888888888888888888888888888888888888888888888888888888888' as any;
+      const validatorPublisherAcc = privateKeyToAccount(validatorPublisher);
+      const keystore: KeyStore = {
+        schemaVersion: 2,
+        publisher: topLevelPublisher,
+        validators: [
+          {
+            attester: '0x1234567890123456789012345678901234567890123456789012345678901234' as any,
+            publisher: validatorPublisher,
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+      };
+
+      const manager = new KeystoreManager(keystore);
+      const publishers = manager.createPublisherSigners(0);
+
+      expect(publishers).toHaveLength(1);
+      // Publisher should be from validator-level, not top-level or attester
+      expect(publishers[0].address.toString().toLowerCase()).toBe(
+        validatorPublisherAcc.address.toString().toLowerCase(),
+      );
     });
   });
 
@@ -1298,7 +1442,7 @@ describe('KeystoreManager', () => {
       expect(validateAccessSpy).toHaveBeenCalledWith(testUrl, [publisherAddress.toString()]);
     });
 
-    it('should handle validation errors', async () => {
+    it('should handle validation errors after retries are exhausted', async () => {
       const testUrl = 'http://test-signer:9000';
       const address = EthAddress.random();
 
@@ -1312,11 +1456,52 @@ describe('KeystoreManager', () => {
         ],
       };
 
+      const manager = new KeystoreManager(keystore);
+
       using validateAccessSpy = jest.spyOn(RemoteSigner, 'validateAccess');
-      validateAccessSpy.mockRejectedValueOnce(new Error('Connection refused'));
+      validateAccessSpy.mockRejectedValue(new Error('Connection refused'));
+
+      jest.useFakeTimers();
+
+      const promise = manager.validateSigners().catch(err => err);
+      await jest.advanceTimersByTimeAsync(32_000);
+      const error = await promise;
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toBe('Connection refused');
+
+      jest.useRealTimers();
+    });
+
+    it('should retry and succeed when validateAccess fails transiently', async () => {
+      const testUrl = 'http://test-signer:9000';
+      const address = EthAddress.random();
+
+      const keystore: KeyStore = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: { address, remoteSignerUrl: testUrl },
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+      };
 
       const manager = new KeystoreManager(keystore);
-      await expect(manager.validateSigners()).rejects.toThrow('Connection refused');
+
+      using validateAccessSpy = jest.spyOn(RemoteSigner, 'validateAccess');
+      validateAccessSpy
+        .mockRejectedValueOnce(new Error('ECONNREFUSED'))
+        .mockRejectedValueOnce(new Error('ECONNREFUSED'))
+        .mockResolvedValueOnce(undefined);
+
+      jest.useFakeTimers();
+
+      const promise = manager.validateSigners();
+      await jest.advanceTimersByTimeAsync(4_000);
+      await expect(promise).resolves.not.toThrow();
+      expect(validateAccessSpy).toHaveBeenCalledTimes(3);
+
+      jest.useRealTimers();
     });
 
     it('should skip validation for mnemonic and JSON V3 configs', async () => {

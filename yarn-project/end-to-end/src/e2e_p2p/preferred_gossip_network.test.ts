@@ -1,11 +1,12 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { SentTx } from '@aztec/aztec.js/contracts';
+import { waitForTx } from '@aztec/aztec.js/node';
+import { TxHash } from '@aztec/aztec.js/tx';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
 import { ENR, type P2PClient, type P2PService, type PeerId } from '@aztec/p2p';
 import type { SequencerClient } from '@aztec/sequencer-client';
-import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
+import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
@@ -14,7 +15,7 @@ import path from 'path';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
-import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
+import { type AlertConfig, GrafanaClient } from '../quality_of_service/grafana_client.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { submitTransactions } from './shared.js';
 
@@ -106,7 +107,7 @@ describe('e2e_p2p_preferred_network', () => {
     p2pService.processBlockFromPeer = handleGossipedProposalSpy;
 
     // @ts-expect-error - we want to spy on received attestation handler
-    const oldAttestationHandler = p2pService.processAttestationFromPeer.bind(p2pService);
+    const oldAttestationHandler = p2pService.processCheckpointAttestationFromPeer.bind(p2pService);
 
     // Mock the function to just call the old one
     const handleGossipedAttestationSpy = jest.fn(async (payload: Buffer, msgId: string, source: PeerId) => {
@@ -114,7 +115,7 @@ describe('e2e_p2p_preferred_network', () => {
       await oldAttestationHandler(payload, msgId, source);
     });
     // @ts-expect-error - replace with our own handler
-    p2pService.processAttestationFromPeer = handleGossipedAttestationSpy;
+    p2pService.processCheckpointAttestationFromPeer = handleGossipedAttestationSpy;
   };
 
   const mockFailedAuthHandler = (node: AztecNodeService) => {
@@ -134,6 +135,8 @@ describe('e2e_p2p_preferred_network', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
+        aztecSlotDuration: 24,
+        aztecEpochDuration: 4,
         listenAddress: '127.0.0.1',
         p2pDisableStatusHandshake: false,
         // Just for testing be aggressive here, don't allow any auth handshake failures
@@ -141,12 +144,12 @@ describe('e2e_p2p_preferred_network', () => {
       },
     });
 
-    await t.applyBaseSnapshots();
     await t.setup();
+    await t.applyBaseSetup();
   });
 
   afterEach(async () => {
-    await t.stopNodes([t.ctx.aztecNode].concat(nodes).concat(validators).concat(preferredNodes));
+    await t.stopNodes([t.ctx.aztecNodeService].concat(nodes).concat(validators).concat(preferredNodes));
     await t.teardown();
     for (let i = 0; i < NUM_NODES + NUM_VALIDATORS + NUM_PREFERRED_NODES; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
@@ -155,7 +158,7 @@ describe('e2e_p2p_preferred_network', () => {
 
   afterAll(async () => {
     if (CHECK_ALERTS) {
-      const checker = new AlertChecker(t.logger);
+      const checker = new GrafanaClient(t.logger);
       await checker.runAlertCheck(qosAlerts);
     }
   });
@@ -180,7 +183,7 @@ describe('e2e_p2p_preferred_network', () => {
     // the number of txs per node and the number of txs per rollup
     // should be set so that the only way for rollups to be built
     // is if the txs are successfully gossiped around the nodes.
-    const txsSentViaDifferentNodes: SentTx[][] = [];
+    const txsSentViaDifferentNodes: TxHash[][] = [];
     let indexOffset = 0;
 
     t.logger.info('Creating preferred nodes');
@@ -279,7 +282,7 @@ describe('e2e_p2p_preferred_network', () => {
       indexOffset,
     );
 
-    const allNodes = [...nodes, ...preferredNodes, ...validators, ...noDiscoveryValidators, t.ctx.aztecNode];
+    const allNodes = [...nodes, ...preferredNodes, ...validators, ...noDiscoveryValidators, t.ctx.aztecNodeService];
     const identifiers = nodes
       .map((_, i) => `Node ${i + 1}`)
       .concat(preferredNodes.map((_, i) => `Preferred Node ${i + 1}`))
@@ -342,24 +345,25 @@ describe('e2e_p2p_preferred_network', () => {
 
     t.logger.info('Waiting for transactions to be mined');
     // now ensure that all txs were successfully mined
-    await Promise.all(
+    const receipts = await Promise.all(
       txsSentViaDifferentNodes.flatMap((txs, i) =>
-        txs.map(async (tx, j) => {
-          t.logger.info(`Waiting for tx ${i}-${j}: ${await tx.getTxHash()} to be mined`);
-          return tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT });
+        txs.map((txHash, j) => {
+          t.logger.info(`Waiting for tx ${i}-${j}: ${txHash.toString()} to be mined`);
+          return waitForTx(nodes[0], txHash, { timeout: WAIT_FOR_TX_TIMEOUT });
         }),
       ),
     );
     t.logger.info('All transactions mined');
 
     // Gather signers from attestations downloaded from L1
-    const blockNumber = await txsSentViaDifferentNodes[0][0].getReceipt().then(r => r.blockNumber!);
-    const dataStore = ((nodes[0] as AztecNodeService).getBlockSource() as Archiver).dataStore;
-    const [block] = await dataStore.getPublishedBlocks(blockNumber, blockNumber);
-    const payload = ConsensusPayload.fromBlock(block.block);
-    const attestations = block.attestations
+    const blockNumber = receipts[0].blockNumber!;
+    const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
+    const checkpointedBlock = await dataStore.getCheckpointedBlock(blockNumber);
+    const [publishedCheckpoint] = await dataStore.getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
+    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
+    const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
-      .map(a => new BlockAttestation(payload, a.signature, Signature.empty()));
+      .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
     const signers = await Promise.all(attestations.map(att => att.getSender()!.toString()));
     t.logger.info(`Attestation signers`, { signers });
 

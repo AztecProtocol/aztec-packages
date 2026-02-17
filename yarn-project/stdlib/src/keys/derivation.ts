@@ -1,14 +1,17 @@
-import { GeneratorIndex } from '@aztec/constants';
-import { Grumpkin, poseidon2HashWithSeparator, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
-import { Fq, Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { DomainSeparator } from '@aztec/constants';
+import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
+import { sha512ToGrumpkinScalar } from '@aztec/foundation/crypto/sha512';
+import { Fq, Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import type { KeyPrefix } from './key_types.js';
 import { PublicKeys } from './public_keys.js';
 import { getKeyGenerator } from './utils.js';
 
-export function computeAppNullifierSecretKey(masterNullifierSecretKey: GrumpkinScalar, app: AztecAddress): Promise<Fr> {
-  return computeAppSecretKey(masterNullifierSecretKey, app, 'n'); // 'n' is the key prefix for nullifier secret key
+export function computeAppNullifierHidingKey(masterNullifierHidingKey: GrumpkinScalar, app: AztecAddress): Promise<Fr> {
+  return computeAppSecretKey(masterNullifierHidingKey, app, 'n'); // 'n' is the key prefix for nullifier hiding key
 }
 
 export function computeAppSecretKey(skM: GrumpkinScalar, app: AztecAddress, keyPrefix: KeyPrefix): Promise<Fr> {
@@ -23,30 +26,30 @@ export async function computeOvskApp(ovsk: GrumpkinScalar, app: AztecAddress): P
   return GrumpkinScalar.fromBuffer(ovskAppFr.toBuffer());
 }
 
-export function deriveMasterNullifierSecretKey(secretKey: Fr): GrumpkinScalar {
-  return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.NSK_M]);
+export function deriveMasterNullifierHidingKey(secretKey: Fr): GrumpkinScalar {
+  return sha512ToGrumpkinScalar([secretKey, DomainSeparator.NHK_M]);
 }
 
 export function deriveMasterIncomingViewingSecretKey(secretKey: Fr): GrumpkinScalar {
-  return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.IVSK_M]);
+  return sha512ToGrumpkinScalar([secretKey, DomainSeparator.IVSK_M]);
 }
 
 export function deriveMasterOutgoingViewingSecretKey(secretKey: Fr): GrumpkinScalar {
-  return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.OVSK_M]);
+  return sha512ToGrumpkinScalar([secretKey, DomainSeparator.OVSK_M]);
 }
 
 export function deriveSigningKey(secretKey: Fr): GrumpkinScalar {
   // TODO(#5837): come up with a standard signing key derivation scheme instead of using ivsk_m as signing keys here
-  return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.IVSK_M]);
+  return sha512ToGrumpkinScalar([secretKey, DomainSeparator.IVSK_M]);
 }
 
 export function computePreaddress(publicKeysHash: Fr, partialAddress: Fr) {
-  return poseidon2HashWithSeparator([publicKeysHash, partialAddress], GeneratorIndex.CONTRACT_ADDRESS_V1);
+  return poseidon2HashWithSeparator([publicKeysHash, partialAddress], DomainSeparator.CONTRACT_ADDRESS_V1);
 }
 
 export async function computeAddress(publicKeys: PublicKeys, partialAddress: Fr): Promise<AztecAddress> {
   // Given public keys and a partial address, we can compute our address in the following steps.
-  // 1. preaddress = poseidon2([publicKeysHash, partialAddress], GeneratorIndex.CONTRACT_ADDRESS_V1);
+  // 1. preaddress = poseidon2([publicKeysHash, partialAddress], DomainSeparator.CONTRACT_ADDRESS_V1);
   // 2. addressPoint = (preaddress * G) + ivpk_m
   // 3. address = addressPoint.x
   const preaddress = await computePreaddress(await publicKeys.hash(), partialAddress);
@@ -90,15 +93,15 @@ export function derivePublicKeyFromSecretKey(secretKey: Fq) {
  * @returns The derived keys.
  */
 export async function deriveKeys(secretKey: Fr) {
-  // First we derive master secret keys -  we use sha512 here because this derivation will never take place
+  // First we derive master secret/hiding keys -  we use sha512 here because this derivation will never take place
   // in a circuit
-  const masterNullifierSecretKey = deriveMasterNullifierSecretKey(secretKey);
+  const masterNullifierHidingKey = deriveMasterNullifierHidingKey(secretKey);
   const masterIncomingViewingSecretKey = deriveMasterIncomingViewingSecretKey(secretKey);
   const masterOutgoingViewingSecretKey = deriveMasterOutgoingViewingSecretKey(secretKey);
-  const masterTaggingSecretKey = sha512ToGrumpkinScalar([secretKey, GeneratorIndex.TSK_M]);
+  const masterTaggingSecretKey = sha512ToGrumpkinScalar([secretKey, DomainSeparator.TSK_M]);
 
   // Then we derive master public keys
-  const masterNullifierPublicKey = await derivePublicKeyFromSecretKey(masterNullifierSecretKey);
+  const masterNullifierPublicKey = await derivePublicKeyFromSecretKey(masterNullifierHidingKey);
   const masterIncomingViewingPublicKey = await derivePublicKeyFromSecretKey(masterIncomingViewingSecretKey);
   const masterOutgoingViewingPublicKey = await derivePublicKeyFromSecretKey(masterOutgoingViewingSecretKey);
   const masterTaggingPublicKey = await derivePublicKeyFromSecretKey(masterTaggingSecretKey);
@@ -112,7 +115,7 @@ export async function deriveKeys(secretKey: Fr) {
   );
 
   return {
-    masterNullifierSecretKey,
+    masterNullifierHidingKey,
     masterIncomingViewingSecretKey,
     masterOutgoingViewingSecretKey,
     masterTaggingSecretKey,

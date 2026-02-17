@@ -1,6 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import { type Offense, OffenseType } from '@aztec/stdlib/slashing';
@@ -8,12 +7,10 @@ import { type Offense, OffenseType } from '@aztec/stdlib/slashing';
 import { DefaultSlasherConfig } from './config.js';
 import { SlashOffensesCollector, type SlashOffensesCollectorSettings } from './slash_offenses_collector.js';
 import { SlasherOffensesStore } from './stores/offenses_store.js';
-import { DummyWatcher } from './test/dummy_watcher.js';
 import type { WantToSlashArgs } from './watcher.js';
 
 describe('SlashOffensesCollector', () => {
   let offensesCollector: SlashOffensesCollector;
-  let dummyWatcher: DummyWatcher;
   let kvStore: ReturnType<typeof openTmpStore>;
   let offensesStore: SlasherOffensesStore;
   let logger: Logger;
@@ -36,20 +33,16 @@ describe('SlashOffensesCollector', () => {
       epochDuration: 32,
       slashOffenseExpirationRounds: 4,
     });
-    dummyWatcher = new DummyWatcher();
     logger = createLogger('test');
 
-    offensesCollector = new SlashOffensesCollector(config, settings, [dummyWatcher], offensesStore, logger);
+    offensesCollector = new SlashOffensesCollector(config, settings, [], offensesStore, logger);
   });
 
   afterEach(async () => {
-    await offensesCollector.stop();
     await kvStore.close();
   });
 
-  it('should handle want-to-slash events from watchers', async () => {
-    await offensesCollector.start();
-
+  it('should handle want-to-slash events', async () => {
     const wantToSlashArgs: WantToSlashArgs[] = [
       {
         validator: EthAddress.random(),
@@ -59,13 +52,8 @@ describe('SlashOffensesCollector', () => {
       },
     ];
 
-    // Mock the watcher emitting a want-to-slash event
-    dummyWatcher.triggerSlash(wantToSlashArgs);
+    await offensesCollector.handleWantToSlash(wantToSlashArgs);
 
-    // Give it a moment to process
-    await sleep(100);
-
-    // Check that the offense was stored
     const pendingOffenses = await offensesStore.getPendingOffenses();
     expect(pendingOffenses).toHaveLength(1);
     expect(pendingOffenses[0]).toMatchObject({
@@ -77,8 +65,6 @@ describe('SlashOffensesCollector', () => {
   });
 
   it('should skip duplicate offenses', async () => {
-    await offensesCollector.start();
-
     const validator = EthAddress.random();
     const wantToSlashArgs: WantToSlashArgs[] = [
       {
@@ -89,15 +75,11 @@ describe('SlashOffensesCollector', () => {
       },
     ];
 
-    // Emit the same offense twice
-    dummyWatcher.triggerSlash(wantToSlashArgs);
-    await sleep(100);
+    // Handle the same offense twice
+    await offensesCollector.handleWantToSlash(wantToSlashArgs);
+    await offensesCollector.handleWantToSlash(wantToSlashArgs);
 
-    // Emit the exact same offense again
-    dummyWatcher.triggerSlash(wantToSlashArgs);
-    await sleep(100);
-
-    // Check that only one offense was stored
+    // Check that only one offense was stored (duplicate was skipped)
     const pendingOffenses = await offensesStore.getPendingOffenses();
     expect(pendingOffenses).toHaveLength(1);
     expect(pendingOffenses[0]).toMatchObject({
@@ -109,8 +91,6 @@ describe('SlashOffensesCollector', () => {
   });
 
   it('should skip offenses that happen during grace period', async () => {
-    await offensesCollector.start();
-
     const validator1 = EthAddress.random();
     const validator2 = EthAddress.random();
 
@@ -134,12 +114,9 @@ describe('SlashOffensesCollector', () => {
       },
     ];
 
-    // Emit both offenses
-    dummyWatcher.triggerSlash(gracePeriodOffense);
-    await sleep(100);
-
-    dummyWatcher.triggerSlash(validOffense);
-    await sleep(100);
+    // Handle both offenses
+    await offensesCollector.handleWantToSlash(gracePeriodOffense);
+    await offensesCollector.handleWantToSlash(validOffense);
 
     // Check that only the valid offense (after grace period) was stored
     const pendingOffenses = await offensesStore.getPendingOffenses();
@@ -152,9 +129,7 @@ describe('SlashOffensesCollector', () => {
     });
   });
 
-  it('should handle event with multiple items making multiple insertions', async () => {
-    await offensesCollector.start();
-
+  it('should handle multiple offenses in a single call', async () => {
     const validator1 = EthAddress.random();
     const validator2 = EthAddress.random();
     const validator3 = EthAddress.random();
@@ -181,9 +156,7 @@ describe('SlashOffensesCollector', () => {
       },
     ];
 
-    // Emit all offenses in a single event
-    dummyWatcher.triggerSlash(multipleOffensesArgs);
-    await sleep(100);
+    await offensesCollector.handleWantToSlash(multipleOffensesArgs);
 
     // Check that all three offenses were stored
     const pendingOffenses = await offensesStore.getPendingOffenses();

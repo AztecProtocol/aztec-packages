@@ -1,0 +1,8 @@
+invalidateTest
+├── given escape hatch is not configured
+│   └── it should proceed with normal invalidation logic
+└── given escape hatch is configured
+    ├── when escape hatch is not open for the checkpoint epoch
+    │   └── it should proceed with normal invalidation logic
+    └── when escape hatch is open for the checkpoint epoch
+        └── it should revert with Rollup__CannotInvalidateEscapeHatch

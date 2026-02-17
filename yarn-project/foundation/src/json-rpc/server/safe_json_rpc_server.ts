@@ -35,7 +35,7 @@ export type SafeJsonRpcServerConfig = {
 const defaultServerConfig: SafeJsonRpcServerConfig = {
   http200OnError: false,
   maxBatchSize: 100,
-  maxBodySizeBytes: '50mb',
+  maxBodySizeBytes: '1mb',
 };
 
 export class SafeJsonRpcServer {

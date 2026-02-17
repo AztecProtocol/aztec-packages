@@ -40,18 +40,18 @@ if [ "$CI_REDIS_AVAILABLE" -eq 0 ]; then
   export USE_TEST_CACHE=0
 fi
 
-# Will set log expiry to 2 weeks in CI, and 8 hours for local runs.
+# Will set log expiry to 2 weeks in CI, and 2 days for local runs.
 if [ "${CI:-0}" -eq 1 ]; then
   CI_REDIS_EXPIRE=$((60 * 60 * 24 * 14))
 else
-  CI_REDIS_EXPIRE=$((60 * 60 * 8))
+  CI_REDIS_EXPIRE=$((60 * 60 * 24 * 2))
 fi
 
 # Help function to avoid having to constantly specify args.
 # Noop when redis is unavailable.
 function redis_cli {
   if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
-    redis-cli --raw -h $CI_REDIS "$@"
+    redis-cli --raw -h $CI_REDIS "$@" || true
   fi
 }
 

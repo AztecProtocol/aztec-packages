@@ -21,10 +21,12 @@ describe('Arithmetic Instructions', () => {
         ...Buffer.from('2345', 'hex'), // bOffset
         ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
-      const inst = new Add(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*bOffset=*/ 0x2345, /*dstOffset=*/ 0x3456).as(
-        Opcode.ADD_16,
-        Add.wireFormat16,
-      );
+      const inst = new Add(
+        /*addressing_mode=*/ 0x01,
+        /*aOffset=*/ 0x1234,
+        /*bOffset=*/ 0x2345,
+        /*dstOffset=*/ 0x3456,
+      ).as(Opcode.ADD_16, Add.wireFormat16);
 
       expect(Add.as(Add.wireFormat16).fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
@@ -42,7 +44,7 @@ describe('Arithmetic Instructions', () => {
         context.machineState.memory.set(0, a);
         context.machineState.memory.set(1, b);
 
-        await new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+        await new Add(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
         const actual = context.machineState.memory.get(2);
         expect(actual).toEqual(expected);
@@ -60,7 +62,7 @@ describe('Arithmetic Instructions', () => {
       context.machineState.memory.set(32, new Uint32(5)); // indirect
 
       await new Add(
-        /*indirect=*/ Addressing.fromModes([
+        /*addressing_mode=*/ Addressing.fromModes([
           /*aOffset*/ AddressingMode.DIRECT,
           /*bOffset*/ AddressingMode.DIRECT,
           /*dstOffset*/ AddressingMode.INDIRECT | AddressingMode.RELATIVE,
@@ -85,7 +87,7 @@ describe('Arithmetic Instructions', () => {
       it(`${TypeTag[tag]}`, async () => {
         context.machineState.memory.set(0, a);
 
-        await new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 2).execute(context);
+        await new Add(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 2).execute(context);
 
         const actual = context.machineState.memory.get(2);
         expect(actual).toEqual(expected);
@@ -102,10 +104,12 @@ describe('Arithmetic Instructions', () => {
         ...Buffer.from('2345', 'hex'), // bOffset
         ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
-      const inst = new Sub(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*bOffset=*/ 0x2345, /*dstOffset=*/ 0x3456).as(
-        Opcode.SUB_16,
-        Sub.wireFormat16,
-      );
+      const inst = new Sub(
+        /*addressing_mode=*/ 0x01,
+        /*aOffset=*/ 0x1234,
+        /*bOffset=*/ 0x2345,
+        /*dstOffset=*/ 0x3456,
+      ).as(Opcode.SUB_16, Sub.wireFormat16);
 
       expect(Sub.as(Sub.wireFormat16).fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
@@ -123,7 +127,7 @@ describe('Arithmetic Instructions', () => {
         context.machineState.memory.set(0, a);
         context.machineState.memory.set(1, b);
 
-        await new Sub(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+        await new Sub(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
         const actual = context.machineState.memory.get(2);
         expect(actual).toEqual(expected);
@@ -147,7 +151,7 @@ describe('Arithmetic Instructions', () => {
         context.machineState.memory.set(0, a);
         context.machineState.memory.set(1, b);
 
-        await new Sub(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+        await new Sub(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
         const actual = context.machineState.memory.get(2);
         expect(actual).toEqual(expected);
@@ -164,10 +168,12 @@ describe('Arithmetic Instructions', () => {
         ...Buffer.from('2345', 'hex'), // bOffset
         ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
-      const inst = new Mul(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*bOffset=*/ 0x2345, /*dstOffset=*/ 0x3456).as(
-        Opcode.MUL_16,
-        Mul.wireFormat16,
-      );
+      const inst = new Mul(
+        /*addressing_mode=*/ 0x01,
+        /*aOffset=*/ 0x1234,
+        /*bOffset=*/ 0x2345,
+        /*dstOffset=*/ 0x3456,
+      ).as(Opcode.MUL_16, Mul.wireFormat16);
 
       expect(Mul.as(Mul.wireFormat16).fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
@@ -185,7 +191,7 @@ describe('Arithmetic Instructions', () => {
         context.machineState.memory.set(0, a);
         context.machineState.memory.set(1, b);
 
-        await new Mul(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+        await new Mul(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
         const actual = context.machineState.memory.get(2);
         expect(actual).toEqual(expected);
@@ -204,7 +210,7 @@ describe('Arithmetic Instructions', () => {
         context.machineState.memory.set(0, a);
         context.machineState.memory.set(1, b);
 
-        await new Mul(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+        await new Mul(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
         const actual = context.machineState.memory.get(2);
         expect(actual).toEqual(expected);
@@ -221,10 +227,12 @@ describe('Arithmetic Instructions', () => {
         ...Buffer.from('2345', 'hex'), // bOffset
         ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
-      const inst = new Div(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*bOffset=*/ 0x2345, /*dstOffset=*/ 0x3456).as(
-        Opcode.DIV_16,
-        Div.wireFormat16,
-      );
+      const inst = new Div(
+        /*addressing_mode=*/ 0x01,
+        /*aOffset=*/ 0x1234,
+        /*bOffset=*/ 0x2345,
+        /*dstOffset=*/ 0x3456,
+      ).as(Opcode.DIV_16, Div.wireFormat16);
 
       expect(Div.as(Div.wireFormat16).fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
@@ -241,7 +249,7 @@ describe('Arithmetic Instructions', () => {
         context.machineState.memory.set(0, a);
         context.machineState.memory.set(1, b);
 
-        await new Div(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+        await new Div(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
         const actual = context.machineState.memory.get(2);
         expect(actual).toEqual(expected);
@@ -258,10 +266,12 @@ describe('Arithmetic Instructions', () => {
         ...Buffer.from('2345', 'hex'), // bOffset
         ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
-      const inst = new FieldDiv(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*bOffset=*/ 0x2345, /*dstOffset=*/ 0x3456).as(
-        Opcode.FDIV_16,
-        FieldDiv.wireFormat16,
-      );
+      const inst = new FieldDiv(
+        /*addressing_mode=*/ 0x01,
+        /*aOffset=*/ 0x1234,
+        /*bOffset=*/ 0x2345,
+        /*dstOffset=*/ 0x3456,
+      ).as(Opcode.FDIV_16, FieldDiv.wireFormat16);
 
       expect(FieldDiv.as(FieldDiv.wireFormat16).fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
@@ -274,7 +284,7 @@ describe('Arithmetic Instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      await new FieldDiv(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new FieldDiv(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
       const actual = context.machineState.memory.get(2);
       expect(actual).toEqual(new Field(2));
@@ -290,10 +300,12 @@ describe('Arithmetic Instructions', () => {
         ...Buffer.from('2345', 'hex'), // bOffset
         ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
-      const inst = new Shr(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*bOffset=*/ 0x2345, /*dstOffset=*/ 0x3456).as(
-        Opcode.SHR_16,
-        Shr.wireFormat16,
-      );
+      const inst = new Shr(
+        /*addressing_mode=*/ 0x01,
+        /*aOffset=*/ 0x1234,
+        /*bOffset=*/ 0x2345,
+        /*dstOffset=*/ 0x3456,
+      ).as(Opcode.SHR_16, Shr.wireFormat16);
 
       expect(Shr.as(Shr.wireFormat16).fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
@@ -307,7 +319,8 @@ describe('Arithmetic Instructions', () => {
       context.machineState.memory.set(1, b);
 
       await expect(
-        async () => await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context),
+        async () =>
+          await new Shr(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context),
       ).rejects.toThrow(/got UINT8, expected UINT32/);
     });
 
@@ -318,7 +331,7 @@ describe('Arithmetic Instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Shr(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
       const expected = a;
       const actual = context.machineState.memory.get(2);
@@ -332,7 +345,7 @@ describe('Arithmetic Instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Shr(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
       const expected = new Uint32(0b00111111100100111001n);
       const actual = context.machineState.memory.get(2);
@@ -346,7 +359,7 @@ describe('Arithmetic Instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Shr(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
       const expected = new Uint32(0b01n);
       const actual = context.machineState.memory.get(2);
@@ -363,10 +376,12 @@ describe('Arithmetic Instructions', () => {
         ...Buffer.from('2345', 'hex'), // bOffset
         ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
-      const inst = new Shl(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*bOffset=*/ 0x2345, /*dstOffset=*/ 0x3456).as(
-        Opcode.SHL_16,
-        Shl.wireFormat16,
-      );
+      const inst = new Shl(
+        /*addressing_mode=*/ 0x01,
+        /*aOffset=*/ 0x1234,
+        /*bOffset=*/ 0x2345,
+        /*dstOffset=*/ 0x3456,
+      ).as(Opcode.SHL_16, Shl.wireFormat16);
 
       expect(Shl.as(Shl.wireFormat16).fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
@@ -380,7 +395,8 @@ describe('Arithmetic Instructions', () => {
       context.machineState.memory.set(1, b);
 
       await expect(
-        async () => await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context),
+        async () =>
+          await new Shl(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context),
       ).rejects.toThrow(/got UINT8, expected UINT32/);
     });
 
@@ -391,7 +407,7 @@ describe('Arithmetic Instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Shl(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
       const expected = a;
       const actual = context.machineState.memory.get(2);
@@ -405,7 +421,7 @@ describe('Arithmetic Instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Shl(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
       const expected = new Uint32(0b1111111001001110010000n);
       const actual = context.machineState.memory.get(2);
@@ -419,7 +435,7 @@ describe('Arithmetic Instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Shl(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
       const expected = new Uint16(0n);
       const actual = context.machineState.memory.get(2);
@@ -433,7 +449,7 @@ describe('Arithmetic Instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Shl(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
       const expected = new Uint16(0b1001001110011100n);
       const actual = context.machineState.memory.get(2);
@@ -447,7 +463,7 @@ describe('Arithmetic Instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, hugeShift);
 
-      await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Shl(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
       const expected = new Uint32(0n);
       const actual = context.machineState.memory.get(2);
@@ -460,7 +476,7 @@ describe('Arithmetic Instructions', () => {
       const maxShift8 = new Uint8((1n << 8n) - 1n); // Max value for Uint8
       context.machineState.memory.set(0, a8);
       context.machineState.memory.set(1, maxShift8);
-      await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Shl(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
       expect(context.machineState.memory.get(2)).toEqual(new Uint8(0n));
 
       // Test Uint16
@@ -468,7 +484,7 @@ describe('Arithmetic Instructions', () => {
       const maxShift16 = new Uint16((1n << 16n) - 1n); // Max value for Uint16
       context.machineState.memory.set(10, a16);
       context.machineState.memory.set(11, maxShift16);
-      await new Shl(/*indirect=*/ 0, /*aOffset=*/ 10, /*bOffset=*/ 11, /*dstOffset=*/ 12).execute(context);
+      await new Shl(/*addressing_mode=*/ 0, /*aOffset=*/ 10, /*bOffset=*/ 11, /*dstOffset=*/ 12).execute(context);
       expect(context.machineState.memory.get(12)).toEqual(new Uint16(0n));
 
       // Test Uint32
@@ -476,8 +492,21 @@ describe('Arithmetic Instructions', () => {
       const maxShift32 = new Uint32((1n << 32n) - 1n); // Max value for Uint32
       context.machineState.memory.set(20, a32);
       context.machineState.memory.set(21, maxShift32);
-      await new Shl(/*indirect=*/ 0, /*aOffset=*/ 20, /*bOffset=*/ 21, /*dstOffset=*/ 22).execute(context);
+      await new Shl(/*addressing_mode=*/ 0, /*aOffset=*/ 20, /*bOffset=*/ 21, /*dstOffset=*/ 22).execute(context);
       expect(context.machineState.memory.get(22)).toEqual(new Uint32(0n));
+    });
+
+    it('Should reject Field type for SHL', async () => {
+      const a = new Field(100n);
+      const b = new Field(2n);
+
+      context.machineState.memory.set(0, a);
+      context.machineState.memory.set(1, b);
+
+      await expect(
+        async () =>
+          await new Shl(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context),
+      ).rejects.toThrow(/expected integral/i);
     });
   });
 
@@ -489,7 +518,7 @@ describe('Arithmetic Instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, hugeShift);
 
-      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Shr(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
       const expected = new Uint32(0n);
       const actual = context.machineState.memory.get(2);
@@ -502,7 +531,7 @@ describe('Arithmetic Instructions', () => {
       const maxShift8 = new Uint8((1n << 8n) - 1n); // Max value for Uint8
       context.machineState.memory.set(0, a8);
       context.machineState.memory.set(1, maxShift8);
-      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Shr(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
       expect(context.machineState.memory.get(2)).toEqual(new Uint8(0n));
 
       // Test Uint16
@@ -510,7 +539,7 @@ describe('Arithmetic Instructions', () => {
       const maxShift16 = new Uint16((1n << 16n) - 1n); // Max value for Uint16
       context.machineState.memory.set(10, a16);
       context.machineState.memory.set(11, maxShift16);
-      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 10, /*bOffset=*/ 11, /*dstOffset=*/ 12).execute(context);
+      await new Shr(/*addressing_mode=*/ 0, /*aOffset=*/ 10, /*bOffset=*/ 11, /*dstOffset=*/ 12).execute(context);
       expect(context.machineState.memory.get(12)).toEqual(new Uint16(0n));
 
       // Test Uint32
@@ -518,7 +547,7 @@ describe('Arithmetic Instructions', () => {
       const maxShift32 = new Uint32((1n << 32n) - 1n); // Max value for Uint32
       context.machineState.memory.set(20, a32);
       context.machineState.memory.set(21, maxShift32);
-      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 20, /*bOffset=*/ 21, /*dstOffset=*/ 22).execute(context);
+      await new Shr(/*addressing_mode=*/ 0, /*aOffset=*/ 20, /*bOffset=*/ 21, /*dstOffset=*/ 22).execute(context);
       expect(context.machineState.memory.get(22)).toEqual(new Uint32(0n));
 
       // Test Uint64
@@ -526,7 +555,7 @@ describe('Arithmetic Instructions', () => {
       const maxShift64 = new Uint64((1n << 64n) - 1n); // Max value for Uint64
       context.machineState.memory.set(30, a64);
       context.machineState.memory.set(31, maxShift64);
-      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 30, /*bOffset=*/ 31, /*dstOffset=*/ 32).execute(context);
+      await new Shr(/*addressing_mode=*/ 0, /*aOffset=*/ 30, /*bOffset=*/ 31, /*dstOffset=*/ 32).execute(context);
       expect(context.machineState.memory.get(32)).toEqual(new Uint64(0n));
 
       // Test Uint128
@@ -534,7 +563,7 @@ describe('Arithmetic Instructions', () => {
       const maxShift128 = new Uint128((1n << 128n) - 1n); // Max value for Uint128
       context.machineState.memory.set(40, a128);
       context.machineState.memory.set(41, maxShift128);
-      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 40, /*bOffset=*/ 41, /*dstOffset=*/ 42).execute(context);
+      await new Shr(/*addressing_mode=*/ 0, /*aOffset=*/ 40, /*bOffset=*/ 41, /*dstOffset=*/ 42).execute(context);
       expect(context.machineState.memory.get(42)).toEqual(new Uint128(0n));
     });
 
@@ -546,7 +575,7 @@ describe('Arithmetic Instructions', () => {
       context.machineState.memory.set(0, a32);
       context.machineState.memory.set(1, exactBitSize);
 
-      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Shr(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
       const expected = new Uint32(0n);
       const actual = context.machineState.memory.get(2);
@@ -561,11 +590,24 @@ describe('Arithmetic Instructions', () => {
       context.machineState.memory.set(0, a32);
       context.machineState.memory.set(1, justBelowBitSize);
 
-      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Shr(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
       const expected = new Uint32(1n); // Only the MSB remains
       const actual = context.machineState.memory.get(2);
       expect(actual).toEqual(expected);
+    });
+
+    it('Should reject Field type for SHR', async () => {
+      const a = new Field(100n);
+      const b = new Field(2n);
+
+      context.machineState.memory.set(0, a);
+      context.machineState.memory.set(1, b);
+
+      await expect(
+        async () =>
+          await new Shr(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context),
+      ).rejects.toThrow(/expected integral/i);
     });
   });
 });

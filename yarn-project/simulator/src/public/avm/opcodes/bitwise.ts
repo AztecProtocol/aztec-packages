@@ -9,7 +9,7 @@ import { ThreeOperandInstruction } from './instruction_impl.js';
 abstract class ThreeOperandBitwiseInstruction extends ThreeOperandInstruction {
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -87,7 +87,7 @@ export class Not extends Instruction {
   static readonly wireFormat16 = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16, OperandType.UINT16];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private srcOffset: number,
     private dstOffset: number,
   ) {
@@ -96,7 +96,7 @@ export class Not extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),

@@ -223,13 +223,16 @@ describe('OtelAvgMinMax', () => {
 
   test('creates three gauges with correct names and descriptions', () => {
     otelAvgMinMax = new OtelAvgMinMax(mockLogger, mockMeter, 'test_avgminmax', 'Test AvgMinMax');
-    expect(mockMeter.createObservableGauge).toHaveBeenCalledWith('test_avgminmax_avg', {
+    expect(mockMeter.createObservableGauge).toHaveBeenCalledWith({
+      name: 'test_avgminmax_avg',
       description: 'Test AvgMinMax (average)',
     });
-    expect(mockMeter.createObservableGauge).toHaveBeenCalledWith('test_avgminmax_min', {
+    expect(mockMeter.createObservableGauge).toHaveBeenCalledWith({
+      name: 'test_avgminmax_min',
       description: 'Test AvgMinMax (minimum)',
     });
-    expect(mockMeter.createObservableGauge).toHaveBeenCalledWith('test_avgminmax_max', {
+    expect(mockMeter.createObservableGauge).toHaveBeenCalledWith({
+      name: 'test_avgminmax_max',
       description: 'Test AvgMinMax (maximum)',
     });
   });

@@ -1,14 +1,14 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
 #include "barretenberg/ecc/fields/field.hpp"
 #include <array>
 
-// TODO(#674): We need the functionality of BarycentricData for both field (native) and field_t (stdlib). The former is
+// TODO(#674): We need the functionality of BarycentricData for both field (native) and field_t (stdlib). The former
 // is compatible with constexpr operations, and the former is not. The functions for computing the
 // pre-computable arrays in BarycentricData need to be constexpr and it takes some trickery to share these functions
 // with the non-constexpr setting. Right now everything is more or less duplicated across BarycentricDataCompileTime and

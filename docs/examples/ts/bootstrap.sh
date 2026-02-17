@@ -29,13 +29,9 @@ validate_config() {
         return 1
     fi
 
-    # Check contracts array is not empty
+    # Check contracts count (can be empty if using pre-built packages like @aztec/noir-contracts.js)
     local contract_count
     contract_count="$(yq eval '.contracts | length' "$config_file")"
-    if [ "$contract_count" -eq 0 ]; then
-        echo_stderr "ERROR: No contracts specified in '${config_file}'"
-        return 1
-    fi
 
     # Check dependencies section exists and is an array (!!seq in YAML)
     local deps_type
@@ -45,15 +41,17 @@ validate_config() {
         return 1
     fi
 
-    # Validate all contract artifacts exist
-    local contract_name
-    while IFS= read -r contract_name; do
-        local artifact="$ARTIFACTS_DIR/${contract_name}.json"
-        if [ ! -f "$artifact" ]; then
-            echo_stderr "ERROR: Artifact not found for '${project_name}': ${artifact}"
-            return 1
-        fi
-    done < <(yq eval '.contracts[]' "$config_file")
+    # Validate all contract artifacts exist (if any contracts specified)
+    if [ "$contract_count" -gt 0 ]; then
+        local contract_name
+        while IFS= read -r contract_name; do
+            local artifact="$ARTIFACTS_DIR/${contract_name}.json"
+            if [ ! -f "$artifact" ]; then
+                echo_stderr "ERROR: Artifact not found for '${project_name}': ${artifact}"
+                return 1
+            fi
+        done < <(yq eval '.contracts[]' "$config_file")
+    fi
 
     return 0
 }
@@ -111,15 +109,22 @@ validate_project() {
         trap cleanup EXIT
 
         # Read contracts from config.yaml (already validated above)
-        echo_stderr "Compiling contracts for '${project_name}'..."
+        local contract_count
+        contract_count="$(yq eval '.contracts | length' config.yaml)"
 
-        # Process each contract
-        local contract_name
-        while IFS= read -r contract_name; do
-            local artifact="$ARTIFACTS_DIR/${contract_name}.json"
-            echo_stderr "Running codegen for '${contract_name}'..."
-            node --no-warnings "$BUILDER_CLI" codegen "$artifact" -o artifacts
-        done < <(yq eval '.contracts[]' config.yaml)
+        if [ "$contract_count" -gt 0 ]; then
+            echo_stderr "Running codegen for '${project_name}'..."
+
+            # Process each contract
+            local contract_name
+            while IFS= read -r contract_name; do
+                local artifact="$ARTIFACTS_DIR/${contract_name}.json"
+                echo_stderr "  - ${contract_name}..."
+                node --no-warnings "$BUILDER_CLI" codegen "$artifact" -o artifacts
+            done < <(yq eval '.contracts[]' config.yaml)
+        else
+            echo_stderr "No custom contracts for '${project_name}', skipping codegen..."
+        fi
 
         # Setup yarn
         echo_stderr "Setting up yarn for '${project_name}'..."
@@ -134,6 +139,7 @@ validate_project() {
 
         # Separate @aztec packages (linked) from npm packages (external)
         local aztec_deps=()
+        local explicit_link_deps=()
         local npm_deps=()
         local pkg
         local has_deps=false
@@ -154,24 +160,38 @@ validate_project() {
                 # External package: npm:viem -> viem
                 local npm_pkg="${pkg#npm:}"
                 npm_deps+=("$npm_pkg")
+            elif [[ "$pkg" =~ ^link: ]]; then
+                # Explicit link: link:@aztec/bb.js:barretenberg/ts -> @aztec/bb.js@link:$REPO_ROOT/barretenberg/ts
+                local link_spec="${pkg#link:}"
+                local link_pkg_name="${link_spec%%:*}"
+                local link_path="${link_spec#*:}"
+                explicit_link_deps+=("${link_pkg_name}@link:$REPO_ROOT/${link_path}")
             elif [[ "$pkg" =~ ^@ ]]; then
                 # @aztec/* package - auto-link from yarn-project/
                 local pkg_name="${pkg#@aztec/}"
                 aztec_deps+=("${pkg}@link:$REPO_ROOT/yarn-project/${pkg_name}")
             else
-                echo_stderr "Warning: Unknown dependency format '$pkg' (use '@aztec/pkg' or 'npm:pkg')"
+                echo_stderr "Warning: Unknown dependency format '$pkg' (use '@aztec/pkg', 'link:pkg:path', or 'npm:pkg')"
             fi
         done < <(yq eval '.dependencies[]' config.yaml)
 
         if [ "$has_deps" = true ]; then
-            # Install linked @aztec dependencies
+            # Install linked @aztec dependencies from yarn-project/
             if [ ${#aztec_deps[@]} -gt 0 ]; then
-                yarn add "${aztec_deps[@]}" >/dev/null 2>&1
+                echo_stderr "Adding aztec deps: ${aztec_deps[*]}"
+                yarn add "${aztec_deps[@]}"
+            fi
+
+            # Install explicit link dependencies (packages outside yarn-project/)
+            if [ ${#explicit_link_deps[@]} -gt 0 ]; then
+                echo_stderr "Adding explicit link deps: ${explicit_link_deps[*]}"
+                yarn add "${explicit_link_deps[@]}"
             fi
 
             # Install external npm dependencies
             if [ ${#npm_deps[@]} -gt 0 ]; then
-                yarn add "${npm_deps[@]}" >/dev/null 2>&1
+                echo_stderr "Adding npm deps: ${npm_deps[*]}"
+                yarn add "${npm_deps[@]}"
             fi
         else
             # Fallback to default dependencies if none specified
@@ -179,10 +199,67 @@ validate_project() {
             yarn add \
                 @aztec/aztec.js@link:$REPO_ROOT/yarn-project/aztec.js \
                 @aztec/accounts@link:$REPO_ROOT/yarn-project/accounts \
-                @aztec/test-wallet@link:$REPO_ROOT/yarn-project/test-wallet \
-                @aztec/kv-store@link:$REPO_ROOT/yarn-project/kv-store \
-                >/dev/null 2>&1
+                @aztec/wallets@link:$REPO_ROOT/yarn-project/wallets \
+                @aztec/kv-store@link:$REPO_ROOT/yarn-project/kv-store
         fi
+
+        # Verify linked packages exist and have built artifacts
+        echo_stderr "Verifying linked packages..."
+        for dep in "${aztec_deps[@]}"; do
+            # Extract package name from @aztec/foo@link:... format
+            local pkg_full=$(echo "$dep" | cut -d'@' -f2)  # aztec/foo
+            local pkg_name=${pkg_full#aztec/}  # foo
+            local link_target="$REPO_ROOT/yarn-project/$pkg_name"
+
+            if [ ! -d "$link_target" ]; then
+                echo_stderr "ERROR: Link target does not exist: $link_target"
+                return 1
+            fi
+
+            if [ ! -d "$link_target/dest" ]; then
+                echo_stderr "ERROR: Package not built (no dest/): $link_target"
+                ls -la "$link_target" || true
+                return 1
+            fi
+
+            # Check for .d.ts files (type declarations)
+            local dts_count=$(find "$link_target/dest" -name "*.d.ts" 2>/dev/null | wc -l)
+            if [ "$dts_count" -eq 0 ]; then
+                echo_stderr "ERROR: No .d.ts files found in $link_target/dest"
+                ls -la "$link_target/dest" | head -20 || true
+                return 1
+            fi
+
+            echo_stderr "  ✓ @aztec/$pkg_name: $dts_count .d.ts files"
+        done
+
+        # Verify explicit link packages
+        for dep in "${explicit_link_deps[@]}"; do
+            # Extract path from @aztec/pkg@link:$REPO_ROOT/path format
+            local link_target="${dep#*@link:}"
+            local pkg_name="${dep%%@link:*}"
+
+            if [ ! -d "$link_target" ]; then
+                echo_stderr "ERROR: Link target does not exist: $link_target"
+                return 1
+            fi
+
+            # Check for .d.ts files in dest/ or lib/ (different packages use different output dirs)
+            local dts_count=0
+            if [ -d "$link_target/dest" ]; then
+                dts_count=$(find "$link_target/dest" -name "*.d.ts" 2>/dev/null | wc -l)
+            elif [ -d "$link_target/lib" ]; then
+                dts_count=$(find "$link_target/lib" -name "*.d.ts" 2>/dev/null | wc -l)
+            fi
+
+            if [ "$dts_count" -eq 0 ]; then
+                echo_stderr "ERROR: No .d.ts files found in $link_target (checked dest/ and lib/)"
+                ls -la "$link_target" | head -20 || true
+                return 1
+            fi
+
+            echo_stderr "  ✓ $pkg_name: $dts_count .d.ts files"
+        done
 
         yarn add -D typescript >/dev/null 2>&1
 
@@ -217,12 +294,21 @@ get_all_projects() {
     done
 }
 
-# Main logic
-cmd=${1:-}
-shift || true
+# In CI, validate all yarn.lock files are empty (they must exist but contain no content).
+# Locally, the pre-commit hook handles this; here we catch it in case hooks were bypassed.
+if [ "${CI:-0}" != "0" ]; then
+    for lockfile in */yarn.lock; do
+        [ -f "$lockfile" ] || continue
+        if [ -s "$lockfile" ]; then
+            echo_stderr "ERROR: $lockfile is not empty. These files must be committed empty."
+            echo_stderr "       Run: > $lockfile && git add $lockfile"
+            exit 1
+        fi
+    done
+fi
 
 case "$cmd" in
-    ""|"full"|"fast")
+    "")
         # Validate all projects in parallel
         echo_header "Validating TypeScript examples"
 

@@ -25,7 +25,6 @@
 
 namespace bb::avm2 {
 
-INSTANTIATE_LOOKUP(lookup_context_ctx_stack_call_relation);
 INSTANTIATE_LOOKUP(lookup_context_ctx_stack_rollback_relation);
 INSTANTIATE_LOOKUP(lookup_context_ctx_stack_return_relation);
 

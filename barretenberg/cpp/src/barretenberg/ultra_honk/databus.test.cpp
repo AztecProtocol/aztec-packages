@@ -26,18 +26,19 @@ template <typename Flavor> class DataBusTests : public ::testing::Test {
     using FF = Curve::ScalarField;
     using Builder = typename Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
-    using Verifier = UltraVerifier_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor, DefaultIO>;
 
     // Construct and verify a MegaHonk proof for a given circuit
     static bool construct_and_verify_proof(MegaCircuitBuilder& builder)
     {
         auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
         auto verification_key = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
+        auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(verification_key);
 
         Prover prover{ prover_instance, verification_key };
         auto proof = prover.construct_proof();
-        Verifier verifier{ verification_key };
-        bool result = verifier.template verify_proof<DefaultIO>(proof).result;
+        Verifier verifier{ vk_and_hash };
+        bool result = verifier.verify_proof(proof).result;
         return result;
     }
 

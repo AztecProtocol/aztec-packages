@@ -16,3 +16,8 @@ barretenberg_modules.png
 src/barretenberg/bb/config.hpp
 bench-out
 *.bak
+src/barretenberg/avm_fuzzer/corpus/**
+src/barretenberg/avm_fuzzer/coverage/**
+out
+ios-sdk/
+android-sysroot/

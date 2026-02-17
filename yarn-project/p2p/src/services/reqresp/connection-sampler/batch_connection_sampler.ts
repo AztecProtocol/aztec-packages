@@ -20,6 +20,8 @@ import type { ConnectionSampler } from './connection_sampler.js';
 export class BatchConnectionSampler {
   private readonly batch: PeerId[] = [];
   private readonly requestsPerPeer: number;
+  /** Tracks peer-index combinations that returned empty/invalid responses */
+  private readonly failedPeerIndices: Map<string, Set<number>> = new Map();
 
   constructor(
     private readonly connectionSampler: ConnectionSampler,
@@ -44,10 +46,12 @@ export class BatchConnectionSampler {
   }
 
   /**
-   * Gets the peer responsible for handling a specific request index
+   * Gets the peer responsible for handling a specific request index.
+   * If the primary peer has previously failed for this index, tries other peers.
+   * If all batch peers have failed, attempts to sample a new peer.
    *
    * @param index - The request index
-   * @returns The peer assigned to handle this request
+   * @returns The peer assigned to handle this request, or undefined if no peer available
    */
   getPeerForRequest(index: number): PeerId | undefined {
     if (this.batch.length === 0) {
@@ -55,8 +59,65 @@ export class BatchConnectionSampler {
     }
 
     // Calculate which peer bucket this index belongs to
-    const peerIndex = Math.floor(index / this.requestsPerPeer) % this.batch.length;
-    return this.batch[peerIndex];
+    const primaryPeerIndex = Math.floor(index / this.requestsPerPeer) % this.batch.length;
+
+    // Try peers starting from primary, wrapping around
+    for (let offset = 0; offset < this.batch.length; offset++) {
+      const peerIndex = (primaryPeerIndex + offset) % this.batch.length;
+      const peer = this.batch[peerIndex];
+      const peerKey = peer.toString();
+
+      const failedIndices = this.failedPeerIndices.get(peerKey);
+      if (!failedIndices || !failedIndices.has(index)) {
+        return peer;
+      }
+    }
+
+    // All batch peers have failed for this index - try to sample a new peer
+    const newPeer = this.sampleNewPeer();
+    if (newPeer) {
+      return newPeer;
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Attempts to sample a new peer that isn't already in the batch.
+   * If successful, adds the peer to the batch.
+   *
+   * @returns The new peer if one was sampled, undefined otherwise
+   */
+  private sampleNewPeer(): PeerId | undefined {
+    // Exclude all current batch peers
+    const excluding = new Map(this.batch.map(p => [p.toString(), true] as const));
+    const newPeer = this.connectionSampler.getPeer(excluding);
+
+    if (newPeer) {
+      this.batch.push(newPeer);
+      this.logger.trace('Sampled new peer for exhausted index', { newPeer: newPeer.toString() });
+      return newPeer;
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Marks that a peer returned an empty/invalid response for a specific request index.
+   * The peer will not be assigned this index again.
+   *
+   * @param peerId - The peer that failed
+   * @param index - The request index that failed
+   */
+  markPeerFailedForIndex(peerId: PeerId, index: number): void {
+    const peerKey = peerId.toString();
+    let failedIndices = this.failedPeerIndices.get(peerKey);
+    if (!failedIndices) {
+      failedIndices = new Set();
+      this.failedPeerIndices.set(peerKey, failedIndices);
+    }
+    failedIndices.add(index);
+    this.logger.trace('Marked peer failed for index', { peerId: peerKey, index });
   }
 
   /**

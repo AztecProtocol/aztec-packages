@@ -4,20 +4,20 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <utility>
 #include <vector>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
-#include "barretenberg/vm2/simulation/events/calldata_event.hpp"
 #include "barretenberg/vm2/simulation/events/context_events.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/events/memory_event.hpp"
-#include "barretenberg/vm2/simulation/gadgets/bytecode_manager.hpp"
-#include "barretenberg/vm2/simulation/gadgets/internal_call_stack_manager.hpp"
-#include "barretenberg/vm2/simulation/gadgets/memory.hpp"
-#include "barretenberg/vm2/simulation/gadgets/written_public_data_slots_tree_check.hpp"
+#include "barretenberg/vm2/simulation/interfaces/bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/interfaces/context.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
+#include "barretenberg/vm2/simulation/interfaces/internal_call_stack_manager.hpp"
+#include "barretenberg/vm2/simulation/interfaces/memory.hpp"
+#include "barretenberg/vm2/simulation/interfaces/retrieved_bytecodes_tree_check.hpp"
+#include "barretenberg/vm2/simulation/interfaces/written_public_data_slots_tree_check.hpp"
 #include "barretenberg/vm2/simulation/lib/side_effect_tracker.hpp"
 
 namespace bb::avm2::simulation {
@@ -65,16 +65,17 @@ class BaseContext : public ContextInterface {
     // Having getters and setters make it easier to mock the context.
     // Machine state.
     MemoryInterface& get_memory() override { return *memory; }
+    const MemoryInterface& get_memory() const override { return *memory; }
     BytecodeManagerInterface& get_bytecode_manager() override { return *bytecode; }
     InternalCallStackManagerInterface& get_internal_call_stack_manager() override
     {
         return *internal_call_stack_manager;
     }
 
-    uint32_t get_pc() const override { return pc; }
-    void set_pc(uint32_t new_pc) override { pc = new_pc; }
-    uint32_t get_next_pc() const override { return next_pc; }
-    void set_next_pc(uint32_t new_next_pc) override { next_pc = new_next_pc; }
+    PC get_pc() const override { return pc; }
+    void set_pc(PC new_pc) override { pc = new_pc; }
+    PC get_next_pc() const override { return next_pc; }
+    void set_next_pc(PC new_next_pc) override { next_pc = new_next_pc; }
     bool halted() const override { return has_halted; }
     void halt() override { has_halted = true; }
 
@@ -96,6 +97,7 @@ class BaseContext : public ContextInterface {
     const GlobalVariables& get_globals() const override { return globals; }
 
     ContextInterface& get_child_context() override { return *child_context; }
+    const ContextInterface& get_child_context() const override { return *child_context; }
     void set_child_context(std::unique_ptr<ContextInterface> child_ctx) override
     {
         child_context = std::move(child_ctx);
@@ -120,7 +122,7 @@ class BaseContext : public ContextInterface {
     uint32_t get_checkpoint_id_at_creation() const override { return checkpoint_id_at_creation; }
 
     // Input / Output
-    std::vector<MemoryValue> get_returndata(uint32_t rd_offset, uint32_t rd_copy_size) override;
+    std::vector<MemoryValue> get_returndata(uint32_t rd_offset, uint32_t rd_copy_size) const override;
 
   protected:
     HighLevelMerkleDBInterface& merkle_db;
@@ -140,8 +142,8 @@ class BaseContext : public ContextInterface {
     uint32_t context_id;
 
     // Machine state.
-    uint32_t pc = 0;
-    uint32_t next_pc = 0;
+    PC pc = 0;
+    PC next_pc = 0;
     bool has_halted = false;
     Gas gas_used;
     Gas gas_limit;
@@ -158,7 +160,6 @@ class BaseContext : public ContextInterface {
     TransactionPhase phase;
 };
 
-// TODO(ilyas): move to cpp file
 class EnqueuedCallContext : public BaseContext {
   public:
     EnqueuedCallContext(uint32_t context_id,

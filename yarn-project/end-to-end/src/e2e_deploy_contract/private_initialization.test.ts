@@ -8,8 +8,8 @@ import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { DeployTest, type StatefulContractCtorArgs } from './deploy_test.js';
 
 describe('e2e_deploy_contract private initialization', () => {
@@ -31,7 +31,7 @@ describe('e2e_deploy_contract private initialization', () => {
   // The function has a noinitcheck flag so it can be called without initialization.
   it('executes a noinitcheck function in an uninitialized contract', async () => {
     const contract = await t.registerContract(wallet, TestContract);
-    const receipt = await contract.methods.emit_nullifier(10).send({ from: defaultAccountAddress }).wait();
+    const receipt = await contract.methods.emit_nullifier(10).send({ from: defaultAccountAddress });
     const txEffects = await aztecNode.getTxEffect(receipt.txHash);
 
     const expected = await siloNullifier(contract.address, new Fr(10));
@@ -44,11 +44,11 @@ describe('e2e_deploy_contract private initialization', () => {
   it('executes a function in a contract without initializer', async () => {
     const contract = await t.registerContract(wallet, NoConstructorContract);
     await expect(
-      contract.methods.is_private_mutable_initialized().simulate({ from: defaultAccountAddress }),
+      contract.methods.is_private_mutable_initialized(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
     ).resolves.toEqual(false);
-    await contract.methods.initialize_private_mutable(42).send({ from: defaultAccountAddress }).wait();
+    await contract.methods.initialize_private_mutable(42).send({ from: defaultAccountAddress });
     await expect(
-      contract.methods.is_private_mutable_initialized().simulate({ from: defaultAccountAddress }),
+      contract.methods.is_private_mutable_initialized(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
     ).resolves.toEqual(true);
   });
 
@@ -58,15 +58,12 @@ describe('e2e_deploy_contract private initialization', () => {
     const initArgs: StatefulContractCtorArgs = [owner, 42];
     const contract = await t.registerContract(wallet, StatefulTestContract, { initArgs });
     logger.info(`Calling the constructor for ${contract.address}`);
-    await contract.methods
-      .constructor(...initArgs)
-      .send({ from: defaultAccountAddress })
-      .wait();
+    await contract.methods.constructor(...initArgs).send({ from: defaultAccountAddress });
     logger.info(`Checking if the constructor was run for ${contract.address}`);
-    expect(await contract.methods.summed_values(owner).simulate({ from: defaultAccountAddress })).toEqual(42n);
+    expect(await contract.methods.summed_values(owner).simulate({ from: owner })).toEqual(42n);
     logger.info(`Calling a private function that requires initialization on ${contract.address}`);
-    await contract.methods.create_note(owner, 10).send({ from: defaultAccountAddress }).wait();
-    expect(await contract.methods.summed_values(owner).simulate({ from: defaultAccountAddress })).toEqual(52n);
+    await contract.methods.create_note(owner, 10).send({ from: defaultAccountAddress });
+    expect(await contract.methods.summed_values(owner).simulate({ from: owner })).toEqual(52n);
   });
 
   // Tests privately initializing multiple undeployed contracts on the same tx through an account contract.
@@ -77,9 +74,9 @@ describe('e2e_deploy_contract private initialization', () => {
       initArgs.map(initArgs => t.registerContract(wallet, StatefulTestContract, { initArgs })),
     );
     const calls = contracts.map((c, i) => c.methods.constructor(...initArgs[i]));
-    await new BatchCall(wallet, calls).send({ from: defaultAccountAddress }).wait();
-    expect(await contracts[0].methods.summed_values(owner).simulate({ from: defaultAccountAddress })).toEqual(42n);
-    expect(await contracts[1].methods.summed_values(owner).simulate({ from: defaultAccountAddress })).toEqual(52n);
+    await new BatchCall(wallet, calls).send({ from: defaultAccountAddress });
+    expect(await contracts[0].methods.summed_values(owner).simulate({ from: owner })).toEqual(42n);
+    expect(await contracts[1].methods.summed_values(owner).simulate({ from: owner })).toEqual(52n);
   });
 
   it('initializes and calls a private function in a single tx', async () => {
@@ -91,24 +88,18 @@ describe('e2e_deploy_contract private initialization', () => {
       contract.methods.create_note(owner, 10),
     ]);
     logger.info(`Executing constructor and private function in batch at ${contract.address}`);
-    await batch.send({ from: defaultAccountAddress }).wait();
-    expect(await contract.methods.summed_values(owner).simulate({ from: defaultAccountAddress })).toEqual(52n);
+    await batch.send({ from: defaultAccountAddress });
+    expect(await contract.methods.summed_values(owner).simulate({ from: owner })).toEqual(52n);
   });
 
   it('refuses to initialize a contract twice', async () => {
     const owner = (await wallet.createAccount()).address;
     const initArgs: StatefulContractCtorArgs = [owner, 42];
     const contract = await t.registerContract(wallet, StatefulTestContract, { initArgs });
-    await contract.methods
-      .constructor(...initArgs)
-      .send({ from: defaultAccountAddress })
-      .wait();
-    await expect(
-      contract.methods
-        .constructor(...initArgs)
-        .send({ from: defaultAccountAddress })
-        .wait(),
-    ).rejects.toThrow(TX_ERROR_EXISTING_NULLIFIER);
+    await contract.methods.constructor(...initArgs).send({ from: defaultAccountAddress });
+    await expect(contract.methods.constructor(...initArgs).send({ from: defaultAccountAddress })).rejects.toThrow(
+      TX_ERROR_EXISTING_NULLIFIER,
+    );
   });
 
   it('refuses to call a private function that requires initialization', async () => {
@@ -116,7 +107,7 @@ describe('e2e_deploy_contract private initialization', () => {
     const initArgs: StatefulContractCtorArgs = [owner, 42];
     const contract = await t.registerContract(wallet, StatefulTestContract, { initArgs });
     // TODO(@spalladino): It'd be nicer to be able to fail the assert with a more descriptive message.
-    await expect(contract.methods.create_note(owner, 10).send({ from: defaultAccountAddress }).wait()).rejects.toThrow(
+    await expect(contract.methods.create_note(owner, 10).send({ from: defaultAccountAddress })).rejects.toThrow(
       /Cannot find the leaf for nullifier/i,
     );
   });

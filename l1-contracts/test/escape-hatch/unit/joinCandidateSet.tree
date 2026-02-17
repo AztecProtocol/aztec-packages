@@ -1,0 +1,21 @@
+EscapeHatchJoinCandidateSetTest
+├── given system is in early period
+│   └── it should revert {EscapeHatch__HatchTooEarly}
+└── given system is past early period
+    ├── given caller is already in candidate set
+    │   └── it should revert {EscapeHatch__AlreadyInCandidateSet}
+    └── given caller is not in candidate set
+        ├── given caller has non-NONE status
+        │   └── it should revert {EscapeHatch__InvalidStatus}
+        └── given caller has NONE status
+            ├── given caller has insufficient bond token balance
+            │   └── it should revert
+            └── given caller has sufficient bond token balance
+                ├── given caller has not approved bond token
+                │   └── it should revert
+                └── given caller has approved bond token
+                    ├── it should add caller to active candidates
+                    ├── it should set caller status to ACTIVE
+                    ├── it should set caller amount to BOND_SIZE
+                    ├── it should transfer BOND_SIZE from caller
+                    └── it should emit CandidateJoined event

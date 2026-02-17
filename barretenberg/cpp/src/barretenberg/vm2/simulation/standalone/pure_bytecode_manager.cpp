@@ -34,6 +34,23 @@ PureTxBytecodeManager::~PureTxBytecodeManager()
           " kB.");
 }
 
+/**
+ * @brief Retrieves and validates bytecode from the PureTxBytecodeManager's ContractDBInterface.
+ *
+ *  If we have not yet processed the gathered bytecode instance, we store the packed bytecode in the
+ *  flat map bytecodes against the class id.
+ *
+ * @throws BytecodeRetrievalError if
+ *        - the contract at the given address is not deployed
+ *        - we have reached the limit of the number of bytecodes to retrieve for this tx
+ * @throws Unexpected exception if
+ *        - the contract class for the retrieved instance does not exist
+ *          Note: the deployer contract guarantees that if we have a deployed instance, its contract class
+ *          must exist. If the contract is not deployed, this is caught by the above BytecodeRetrievalError.
+ *
+ * @param address The address of the contract instance to retrieve bytecode for.
+ * @return The id (=class_id here) of the bytecode.
+ */
 BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
 {
     BB_BENCH_NAME("PureTxBytecodeManager::get_bytecode");
@@ -48,7 +65,7 @@ BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
     }
 
     ContractInstance instance = maybe_instance.value();
-    ContractClassId current_class_id = instance.current_class_id;
+    ContractClassId current_class_id = instance.current_contract_class_id;
 
     bool is_new_class = !retrieved_class_ids.contains(current_class_id);
     size_t retrieved_bytecodes_count = retrieved_class_ids.size();
@@ -61,28 +78,32 @@ BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
 
     retrieved_class_ids.insert(current_class_id);
 
-    // Contract class retrieval and class ID validation
-    std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(current_class_id);
-    // Note: we don't need to silo and check the class id because the deployer contract guarrantees
-    // that if a contract instance exists, the class has been registered.
-    assert(maybe_klass.has_value());
-    auto& klass = maybe_klass.value();
-    debug("Bytecode for ", address, " successfully retrieved!");
+    // For fast simulation, we use the class_id as the bytecode_id instead of computing the
+    // expensive bytecode commitment hash. This is safe because class_id uniquely identifies
+    // the bytecode. The actual commitment is only needed for trace generation / witgen.
+    BytecodeId bytecode_id = current_class_id;
 
-    // Bytecode hashing and decomposition, deduplicated by bytecode_id (commitment)
-    BytecodeId bytecode_id = klass.public_bytecode_commitment;
-
-    // Check if we've already processed this bytecode.
+    // Check if we've already processed this class id.
+    // NOTE: If two different classes have the same bytecode, we cannot deduplicate them.
+    // This is the downside of using the class id as the bytecode id.
     if (bytecodes.contains(bytecode_id)) {
         return bytecode_id;
     }
 
-    // We now save the bytecode so that we don't repeat this process.
+    // Contract class retrieval and class ID validation
+    std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(current_class_id);
+    // Note: we don't need to silo and check the class id because the deployer contract guarantees
+    // that if a contract instance exists, the class has been registered.
+    BB_ASSERT(maybe_klass.has_value(), "Contract class not found");
+    auto& klass = maybe_klass.value();
+    debug("Bytecode for ", address, " successfully retrieved!");
+
+    // We now save the bytecode against the class id so that we don't repeat this process for the same class.
     bytecodes[bytecode_id] = std::make_shared<std::vector<uint8_t>>(std::move(klass.packed_bytecode));
     return bytecode_id;
 }
 
-Instruction PureTxBytecodeManager::read_instruction(const BytecodeId& bytecode_id, uint32_t pc)
+Instruction PureTxBytecodeManager::read_instruction(const BytecodeId& bytecode_id, PC pc)
 {
     // The corresponding bytecode is already stored in the cache if we call this routine. This is safe-guarded by the
     // fact that it is added in the cache when we retrieve the bytecode_id.
@@ -91,7 +112,7 @@ Instruction PureTxBytecodeManager::read_instruction(const BytecodeId& bytecode_i
 
 Instruction PureTxBytecodeManager::read_instruction(const BytecodeId&,
                                                     std::shared_ptr<std::vector<uint8_t>> bytecode_ptr,
-                                                    uint32_t pc)
+                                                    PC pc)
 {
     BB_BENCH_NAME("TxBytecodeManager::read_instruction");
 
@@ -109,12 +130,17 @@ Instruction PureTxBytecodeManager::read_instruction(const BytecodeId&,
     try {
         instruction = deserialize_instruction(bytecode, pc);
     } catch (const InstrDeserializationError& error) {
-        throw InstructionFetchingError("Instruction fetching error: " + std::to_string(static_cast<int>(error)));
+        std::string error_msg = format("Instruction fetching error at pc ", pc);
+        if (error.message.has_value()) {
+            error_msg = format(error_msg, ": ", error.message.value());
+        }
+        throw InstructionFetchingError(error_msg);
     }
 
     // If the following code is executed, no error was thrown in deserialize_instruction().
     if (!check_tag(instruction)) {
-        throw InstructionFetchingError("Tag check failed");
+        std::string error_msg = format("Instruction fetching error at pc ", pc, ": Tag check failed");
+        throw InstructionFetchingError(error_msg);
     };
 
     // Save the instruction to the cache.
@@ -124,7 +150,9 @@ Instruction PureTxBytecodeManager::read_instruction(const BytecodeId&,
 
 std::shared_ptr<std::vector<uint8_t>> PureTxBytecodeManager::get_bytecode_data(const BytecodeId& bytecode_id)
 {
-    return bytecodes.at(bytecode_id);
+    auto it = bytecodes.find(bytecode_id);
+    BB_ASSERT_DEBUG(it != bytecodes.end(), "Bytecode not found for the given bytecode_id");
+    return it->second;
 }
 
 } // namespace bb::avm2::simulation

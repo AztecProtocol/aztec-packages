@@ -13,7 +13,8 @@ import {
   FIELDS_PER_BLOB,
 } from '@aztec/constants';
 import { chunk } from '@aztec/foundation/collection';
-import { BLS12Fq, BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
+import { BLS12Fq, BLS12Fr, BLS12Point } from '@aztec/foundation/curves/bls12';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { LogLevels, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import type { ForeignCallInput, ForeignCallOutput } from '@aztec/noir-acvm_js';
 
@@ -23,7 +24,7 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
   // ForeignCallInput is actually a string[], so the args are string[][].
   const log = createLogger('noir-protocol-circuits:oracle');
 
-  if (name === 'utilityDebugLog') {
+  if (name === 'utilityLog') {
     assert(args.length === 4, 'expected 4 arguments for debugLog: level, msg, fields_length, fields');
     const [levelInput, msgRaw, _ignoredFieldsSize, fields] = args;
     const levelNumber = Fr.fromString(levelInput[0]).toNumber();
@@ -85,15 +86,15 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
     const startBlobAccumulatorFields = flattenedArgs.slice(offset, (offset += BLOB_ACCUMULATOR_LENGTH));
     const startBlobAccumulator = BlobAccumulator.fromFields(startBlobAccumulatorFields.map(Fr.fromString));
 
-    const blobsAsFr = paddedBlobsAsFr.slice(0, numBlobFields);
-    const blobFieldsHash = await computeBlobFieldsHash(blobsAsFr);
+    const blobFields = paddedBlobsAsFr.slice(0, numBlobFields);
+    const blobFieldsHash = await computeBlobFieldsHash(blobFields);
     if (!expectedBlobFieldsHash.equals(blobFieldsHash)) {
       throw new Error(
         `Injected blob fields do not match rolled up fields. Computed hash: ${blobFieldsHash}. Hash used in circuits: ${expectedBlobFieldsHash}.`,
       );
     }
 
-    const blobs = getBlobsPerL1Block(blobsAsFr);
+    const blobs = getBlobsPerL1Block(blobFields);
     blobs.forEach((blob, i) => {
       const injected = kzgCommitments[i];
       const calculated = BLS12Point.decompress(blob.commitment);
@@ -112,7 +113,7 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
       startBlobAccumulator.gammaPowAcc,
       finalBlobChallenges,
     );
-    const endBatchedBlobAccumulator = await batchedBlobAccumulator.accumulateBlobs(blobs);
+    const endBatchedBlobAccumulator = await batchedBlobAccumulator.accumulateFields(blobFields);
     const endBlobAccumulator = endBatchedBlobAccumulator.toBlobAccumulator();
     return Promise.resolve([endBlobAccumulator.toFields().map(field => field.toString())]);
   } else if (name === 'noOp') {

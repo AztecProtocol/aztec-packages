@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [Raju], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -118,9 +118,9 @@ struct PublicDataLeafValue {
 
     bool is_empty() const { return slot == fr::zero() && value == fr::zero(); }
 
-    std::vector<fr> get_hash_inputs(fr nextValue, fr nextIndex) const
+    std::vector<fr> get_hash_inputs(fr nextSlot, fr nextIndex) const
     {
-        return std::vector<fr>({ slot, value, nextIndex, nextValue });
+        return std::vector<fr>({ slot, value, nextSlot, nextIndex });
     }
 
     operator uint256_t() const { return get_key(); }

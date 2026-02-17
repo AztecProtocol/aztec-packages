@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -13,12 +13,12 @@
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/honk/composer/composer_lib.hpp"
 #include "barretenberg/honk/composer/permutation_lib.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/honk/execution_trace/ultra_execution_trace.hpp"
+#include "barretenberg/polynomials/polynomial_stats.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 #include <chrono>
@@ -27,43 +27,7 @@ namespace bb {
 
 /**
  * @brief A ProverInstance is normally constructed from a finalized circuit and it contains all the information
- * required by a Mega Honk prover to create a proof. A ProverInstance is also the result of running the
- * Protogalaxy prover, in which case it becomes a relaxed counterpart with the folding parameters (target sum and gate
- * challenges set to non-zero values).
- *
- * @details A ProverInstance is the equivalent of \f$\omega\f$ in the Protogalaxy paper.
- *
- * Our arithmetization works as follows. The Flavor defines \f$fM\f$ (Flavor::NUM_ALL_ENTITIES) and a series of
- * relations
- * \f$R_1, \dots, R_n\f$ (Flavor::Relations_). Each relation is made up by a series of subrelations: \f$R_i =
- * (R_{i,1}, \dots, R_{i,r_i})\f$.
- *
- * Write \f$p_1, \dots, p_M\f$ for the prover polynomials and \f$p_{i,k}\f$ for the \f$k\f$-th coefficient of \f$p_i\f$.
- * Write \f$\theta_1, \dots, \theta_6\f$ for the relation parameters. Let \f$n\f$ be the max degree of the prover
- * polynomials. A pure ProverInstance is valid if for all \f$i, j, k\f$ we have \f$R_{i,j}(p_{1,k}, \dots,
- * p_{M,k}, \theta_1, \dots, \theta_6) = 0\f$.
- *
- * Instead of checking each equality separately, we batch them using challenges that we call `alphas`. Thus, a
- * ProverInstance is valid if for each \f$k = 0, \dots, n\f$.
- * \f[
- *  f_k(\omega) := \sum_{i, j} \alpha_{i,j} R_{i,j}(p_{1,k}, \dots, p_{M,k}, \theta_1, \dots, \theta_6) = 0
- * \f]
- *
- * Instead of checking each equality separately, we once again batch them using challenges. These challenges are the
- * \f$pow_i(\beta)\f$ in the Protogalaxy paper, and are derived using the vector `gate_challenges` as the vector
- * \f$\beta\f$. Write \f$gc\f$ for the vector `gate_challenges`. Then, a ProverInstance is valid if
- * \f[
- *  \sum_{k} pow_k(gc) f_k(\omega) = 0
- * \f]
- * The equation is modified for a relaxed ProverInstance to
- * \f[
- *  \sum_{k} pow_k(gc) f_k(\omega) = ts
- * \f]
- * where we write \f$ts\f$ for the vector `target_sum`.
- *
- * Hence, the correspondence between the class below and the Protogalaxy paper is \f$\omega = (p_1, \dots, p_M, ,
- * \theta_1, \dots, \theta_6, \alpha_{1,1}, \dots, \alpha_{n,r_n})\f$, \f$\beta\f$ are the `gate_challenges`, and
- * \f$e\f$ is `target_sum`.
+ * required by a Mega Honk prover to create a proof.
  */
 
 template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
@@ -92,18 +56,13 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     SubrelationSeparator alpha; // single challenge from which powers are computed for batching subrelations
     bb::RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
-    FF target_sum{ 0 }; // Sumcheck target sum
 
-    HonkProof ipa_proof; // utilized only for UltraRollupFlavor
+    HonkProof ipa_proof; // utilized for rollup proofs (IO::HasIPA)
 
-    bool is_relaxed_instance = false; // whether this instance is relaxed or not
-    bool is_complete = false;         // whether this instance has been completely populated
     std::vector<uint32_t> memory_read_records;
     std::vector<uint32_t> memory_write_records;
 
     CommitmentKey commitment_key;
-
-    ActiveRegionData active_region_data; // specifies active regions of execution trace
 
     void set_dyadic_size(size_t size) { metadata.dyadic_size = size; }
     void set_final_active_wire_idx(size_t idx) { final_active_wire_idx = idx; }
@@ -144,9 +103,8 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
         // or all pairing points have been aggregated into a single equivalence class
         BB_ASSERT(circuit.pairing_points_tagging.has_single_pairing_point_tag(),
                   "Pairing points must all be aggregated together. Either no pairing points should be created, or "
-                  "all created pairing points must be aggregated into a single pairing point. Found ",
-                  circuit.pairing_points_tagging.num_unique_pairing_points(),
-                  " different pairing points.");
+                  "all created pairing points must be aggregated into a single pairing point. Found "
+                      << circuit.pairing_points_tagging.num_unique_pairing_points() << " different pairing points.");
         // Check pairing point tagging: check that the pairing points have been set to public
         BB_ASSERT(circuit.pairing_points_tagging.has_public_pairing_points() ||
                       !circuit.pairing_points_tagging.has_pairing_points(),
@@ -196,7 +154,7 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
 
         // Construct and add to proving key the wire, selector and copy constraint polynomials
         vinfo("populating trace...");
-        Trace::populate(circuit, polynomials, active_region_data);
+        Trace::populate(circuit, polynomials);
 
         {
             BB_BENCH_NAME("constructing prover instance after trace populate");
@@ -231,13 +189,16 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
                 public_inputs.emplace_back(polynomials.w_r[idx]);
             }
 
-            if constexpr (HasIPAAccumulator<Flavor>) { // Set the IPA claim indices
-                ipa_proof = circuit.ipa_proof;
-            }
+            // Copy IPA proof if present (data-driven, not flavor-dependent)
+            ipa_proof = circuit.ipa_proof;
         }
         auto end = std::chrono::steady_clock::now();
         auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         vinfo("time to construct proving key: ", diff.count(), " ms.");
+
+        if (std::getenv("BB_POLY_STATS")) {
+            analyze_prover_polynomials(polynomials);
+        }
     }
 
     ProverInstance_() = default;
@@ -248,7 +209,6 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     ~ProverInstance_() = default;
 
   private:
-    static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
     static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
 
     size_t compute_dyadic_size(Circuit&);

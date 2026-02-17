@@ -1,7 +1,7 @@
 mod validate_squashable_note_hash_nullifier_pair;
 
 use crate::reset::transient_data::transient_data_squashing_hint::TransientDataSquashingHint;
-use dep::types::{
+use types::{
     abis::{note_hash::NoteHash, nullifier::Nullifier},
     side_effect::{Counted, Scoped},
     utils::arrays::ClaimedLengthArray,
@@ -20,7 +20,7 @@ pub fn validate_note_hash_nullifier_squashing<let NoteHashesLen: u32, let Nullif
     nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, NullifiersLen>,
     expected_kept_note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
     expected_kept_nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, NullifiersLen>,
-    min_revertible_side_effect_counter: u32,
+    split_counter: u32,
     transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
     num_active_squashing_hints: u32,
     note_hash_squash_flags: [bool; NoteHashesLen],
@@ -48,11 +48,7 @@ pub fn validate_note_hash_nullifier_squashing<let NoteHashesLen: u32, let Nullif
             let note_hash = note_hashes.array[hint.note_hash_index];
 
             // Ensure the (note hash, nullifier) pair can be squashed.
-            validate_squashable_note_hash_nullifier_pair(
-                note_hash,
-                nullifier,
-                min_revertible_side_effect_counter,
-            );
+            validate_squashable_note_hash_nullifier_pair(note_hash, nullifier, split_counter);
 
             // Validate the squash flags are correctly set.
             // They are used later to check that the kept note hashes and nullifiers are correctly propagated.
@@ -70,11 +66,17 @@ pub fn validate_note_hash_nullifier_squashing<let NoteHashesLen: u32, let Nullif
     // Iterate over the `note_hash_squash_flags` and check that the non-squashed note hashes are propagated correctly.
     //
     // Earlier we ensured that a note hash's corresponding flag in `note_hash_squash_flags` is set to `true` when
-    // it is squashed. Here we propagate the note hashes whose flags are `false`, and check that they match the expected
+    // it is squashed.
+    // Here we propagate the note hashes whose flags are `false`, and check that they match the expected
     // kept note hashes.
     let mut kept_note_hashes_counter = 0;
     for i in 0..NoteHashesLen {
         if !note_hash_squash_flags[i] {
+            // Notice: we're iterating over the whole array (beyond the `.length` to save constraints).
+            // Notice: there will be `num_squashed_pairs` positions on the rhs of the `expected_kept_note_hashes`
+            // array which are NOT asserted to be anything by this circuit. We will either overwrite these
+            // positions with valid data in future Inner iterations, or we rely on the later Tail circuit
+            // to ensure that these items are empty.
             assert_eq(
                 expected_kept_note_hashes.array[kept_note_hashes_counter],
                 note_hashes.array[i],
@@ -85,6 +87,8 @@ pub fn validate_note_hash_nullifier_squashing<let NoteHashesLen: u32, let Nullif
     }
     // If a flag is set to `true` for a note hash that is not squashed, the `kept_note_hashes_counter` will be smaller
     // than it should be, and the below check will fail.
+    // This also implies that the flags of all non-squashed items are set to `false`, otherwise this
+    // sum wouldn't be large enough.
     assert_eq(
         kept_note_hashes_counter + num_squashed_pairs,
         NoteHashesLen,
@@ -98,6 +102,7 @@ pub fn validate_note_hash_nullifier_squashing<let NoteHashesLen: u32, let Nullif
     );
 
     // === Validate the expected kept nullifiers ===
+    //
     // Iterate over the `nullifier_squash_flags` and check that the non-squashed nullifiers are propagated correctly.
     //
     // Earlier we ensured that a nullifier's corresponding flag in `nullifier_squash_flags` is set to `true` when
@@ -106,6 +111,11 @@ pub fn validate_note_hash_nullifier_squashing<let NoteHashesLen: u32, let Nullif
     let mut kept_nullifiers_counter = 0;
     for i in 0..NullifiersLen {
         if !nullifier_squash_flags[i] {
+            // Notice: we're iterating over the whole array (beyond the `.length` to save constraints).
+            // Notice: there will be `num_squashed_pairs` positions on the rhs of the `expected_kept_note_hashes`
+            // array which are NOT asserted to be anything by this circuit. We will either overwrite these
+            // positions with valid data in future Inner iterations, or we rely on the later Tail circuit
+            // to ensure that these items are empty.
             assert_eq(
                 expected_kept_nullifiers.array[kept_nullifiers_counter],
                 nullifiers.array[i],
@@ -116,6 +126,8 @@ pub fn validate_note_hash_nullifier_squashing<let NoteHashesLen: u32, let Nullif
     }
     // If a flag is set to `true` for a nullifier that is not squashed, the `kept_nullifiers_counter` will be smaller
     // than it should be, and the below check will fail.
+    // This also implies that the flags of all non-squashed items are set to `false`, otherwise this
+    // sum wouldn't be large enough.
     assert_eq(
         kept_nullifiers_counter + num_squashed_pairs,
         NullifiersLen,
@@ -313,6 +325,39 @@ mod tests {
         derived_hints.note_hash_squash_flags[0] = false;
 
         builder.validate_with_derived_hints(derived_hints);
+    }
+
+    #[test]
+    fn succeeds_squash_multiple_pairs() {
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        builder.add_note_hashes([Counted::new(11, 1), Counted::new(22, 2), Counted::new(33, 3)]);
+
+        builder.add_nullifiers([
+            Nullifier { value: 505, note_hash: 11 }.count(5),
+            Nullifier { value: 606, note_hash: 33 }.count(6),
+        ]);
+
+        // Squash note_hashes[0] with nullifiers[0], and note_hashes[2] with nullifiers[1].
+        builder.add_squashing_hint(0, 0);
+        builder.add_squashing_hint(2, 1);
+
+        // Only note_hashes[1] is kept.
+        builder.keep_note_hashes([1]);
+
+        builder.validate();
+    }
+
+    #[test(should_fail_with = "Propagated note hash does not match")]
+    fn fails_expected_kept_note_hashes_wrong_order() {
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        builder.add_note_hashes([Counted::new(11, 1), Counted::new(22, 2)]);
+
+        // Keep both note hashes but in the wrong order.
+        builder.keep_note_hashes([1, 0]);
+
+        builder.validate();
     }
 
     // ==========
@@ -515,5 +560,40 @@ mod tests {
         derived_hints.nullifier_squash_flags[0] = false;
 
         builder.validate_with_derived_hints(derived_hints);
+    }
+
+    #[test(should_fail_with = "Propagated nullifier does not match")]
+    fn fails_expected_kept_nullifiers_wrong_order() {
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        builder.add_nullifiers([
+            Nullifier { value: 505, note_hash: 11 }.count(5),
+            Nullifier { value: 606, note_hash: 22 }.count(6),
+        ]);
+
+        // Keep both nullifiers but in the wrong order.
+        builder.keep_nullifiers([1, 0]);
+
+        builder.validate();
+    }
+
+    #[test]
+    fn succeeds_squash_all_note_hashes_and_nullifiers() {
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        builder.add_note_hashes([Counted::new(11, 1), Counted::new(22, 2)]);
+
+        builder.add_nullifiers([
+            Nullifier { value: 505, note_hash: 11 }.count(5),
+            Nullifier { value: 606, note_hash: 22 }.count(6),
+        ]);
+
+        // Squash all pairs.
+        builder.add_squashing_hint(0, 0);
+        builder.add_squashing_hint(1, 1);
+
+        // Nothing is kept.
+
+        builder.validate();
     }
 }

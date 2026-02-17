@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -27,7 +27,7 @@ class Bn254FqParams {
     static constexpr uint64_t modulus_3 = 0x30644e72e131a029UL;
 
     // A little-endian representation of R^2 modulo the modulus (R=2^256 mod modulus) split into 4 64-bit words
-    // This paremeter is used to convert an element of Fq in standard from to Montgomery form
+    // This parameter is used to convert an element of Fq in standard form to Montgomery form
     static constexpr uint64_t r_squared_0 = 0xF32CFC5B538AFA89UL;
     static constexpr uint64_t r_squared_1 = 0xB5E71911D44501FBUL;
     static constexpr uint64_t r_squared_2 = 0x47AB1EFF0A417FF6UL;
@@ -162,21 +162,11 @@ class Bn254FqParams {
     static constexpr size_t NUM_BN254_SCALARS = 2;
     static constexpr size_t MAX_BITS_PER_ENDOMORPHISM_SCALAR = 128;
 
-    // A point in Fq is represented as a bigfield element in the public inputs, so 4 public inputs
+    // A point in Fq is represented using 2 field elements in the public inputs (matching Codec)
     static constexpr size_t PUBLIC_INPUTS_SIZE = BIGFIELD_PUBLIC_INPUTS_SIZE;
 };
 
 using fq = field<Bn254FqParams>;
-
-template <> template <> inline fq fq::reconstruct_from_public(const std::span<const bb::fr, PUBLIC_INPUTS_SIZE>& limbs)
-{
-    const uint256_t limb = static_cast<uint256_t>(limbs[0]) +
-                           (static_cast<uint256_t>(limbs[1]) << bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION) +
-                           (static_cast<uint256_t>(limbs[2]) << (bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2)) +
-                           (static_cast<uint256_t>(limbs[3]) << (bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3));
-
-    return fq(limb);
-}
 
 } // namespace bb
 

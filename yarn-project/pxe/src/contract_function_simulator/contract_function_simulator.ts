@@ -8,19 +8,24 @@ import {
   FIXED_DA_GAS,
   FIXED_L2_GAS,
   L2_GAS_PER_CONTRACT_CLASS_LOG,
+  L2_GAS_PER_L2_TO_L1_MSG,
+  L2_GAS_PER_NOTE_HASH,
+  L2_GAS_PER_NULLIFIER,
   L2_GAS_PER_PRIVATE_LOG,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIERS_PER_TX,
+  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
 } from '@aztec/constants';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import type { KeyStore } from '@aztec/key-store';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import {
@@ -32,85 +37,162 @@ import {
   toACVMWitness,
   witnessMapToFields,
 } from '@aztec/simulator/client';
-import type { AbiDecoded, FunctionCall } from '@aztec/stdlib/abi';
-import { FunctionSelector, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
+import type { FunctionCall } from '@aztec/stdlib/abi';
+import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { BlockParameter } from '@aztec/stdlib/block';
 import { Gas } from '@aztec/stdlib/gas';
-import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import {
+  computeNoteHashNonce,
+  computeProtocolNullifier,
+  computeSiloedPrivateLogFirstField,
+  computeUniqueNoteHash,
+  siloNoteHash,
+  siloNullifier,
+} from '@aztec/stdlib/hash';
+import type { AztecNode } from '@aztec/stdlib/interfaces/server';
+import {
+  ClaimedLengthArray,
   PartialPrivateTailPublicInputsForPublic,
   PartialPrivateTailPublicInputsForRollup,
   type PrivateExecutionStep,
   type PrivateKernelExecutionProofOutput,
   PrivateKernelTailCircuitPublicInputs,
+  PrivateLogData,
   PrivateToPublicAccumulatedData,
   PrivateToRollupAccumulatedData,
   PublicCallRequest,
+  ReadRequestActionEnum,
   ScopedLogHash,
+  ScopedNoteHash,
+  ScopedNullifier,
+  ScopedReadRequest,
+  buildTransientDataHints,
+  getNoteHashReadRequestResetActions,
+  getNullifierReadRequestResetActions,
 } from '@aztec/stdlib/kernel';
 import { PrivateLog } from '@aztec/stdlib/logs';
 import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import {
+  BlockHeader,
   CallContext,
   HashedValues,
   PrivateExecutionResult,
   TxConstantData,
   TxExecutionRequest,
   collectNested,
+  collectNoteHashNullifierCounterMap,
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/stdlib/tx';
 
-import type { ContractDataProvider } from '../storage/index.js';
-import type { ExecutionDataProvider } from './execution_data_provider.js';
+import type { AccessScopes } from '../access_scopes.js';
+import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
+import type { AddressStore } from '../storage/address_store/address_store.js';
+import type { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
+import type { ContractStore } from '../storage/contract_store/contract_store.js';
+import type { NoteStore } from '../storage/note_store/note_store.js';
+import type { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
+import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
+import type { SenderAddressBookStore } from '../storage/tagging_store/sender_address_book_store.js';
+import type { SenderTaggingStore } from '../storage/tagging_store/sender_tagging_store.js';
+import type { BenchmarkedNode } from './benchmarked_node.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
 import { HashedValuesCache } from './hashed_values_cache.js';
 import { Oracle } from './oracle/oracle.js';
-import { executePrivateFunction, verifyCurrentClassId } from './oracle/private_execution.js';
+import { executePrivateFunction } from './oracle/private_execution.js';
 import { PrivateExecutionOracle } from './oracle/private_execution_oracle.js';
 import { UtilityExecutionOracle } from './oracle/utility_execution_oracle.js';
+
+/** Options for ContractFunctionSimulator.run. */
+export type ContractSimulatorRunOpts = {
+  /** The address of the contract (should match request.origin). */
+  contractAddress: AztecAddress;
+  /** The function selector of the entry point. */
+  selector: FunctionSelector;
+  /** The address calling the function. Can be replaced to simulate a call from another contract or account. */
+  msgSender?: AztecAddress;
+  /** The block header to use as base state for this run. */
+  anchorBlockHeader: BlockHeader;
+  /** The address used as a tagging sender when emitting private logs. */
+  senderForTags?: AztecAddress;
+  /** The accounts whose notes we can access in this call. */
+  scopes: AccessScopes;
+  /** The job ID for staged writes. */
+  jobId: string;
+};
+
+/** Args for ContractFunctionSimulator constructor. */
+export type ContractFunctionSimulatorArgs = {
+  contractStore: ContractStore;
+  noteStore: NoteStore;
+  keyStore: KeyStore;
+  addressStore: AddressStore;
+  aztecNode: AztecNode;
+  senderTaggingStore: SenderTaggingStore;
+  recipientTaggingStore: RecipientTaggingStore;
+  senderAddressBookStore: SenderAddressBookStore;
+  capsuleStore: CapsuleStore;
+  privateEventStore: PrivateEventStore;
+  simulator: CircuitSimulator;
+  contractSyncService: ContractSyncService;
+};
 
 /**
  * The contract function simulator.
  */
 export class ContractFunctionSimulator {
-  private log: Logger;
+  private readonly log: Logger;
+  private readonly contractStore: ContractStore;
+  private readonly noteStore: NoteStore;
+  private readonly keyStore: KeyStore;
+  private readonly addressStore: AddressStore;
+  private readonly aztecNode: AztecNode;
+  private readonly senderTaggingStore: SenderTaggingStore;
+  private readonly recipientTaggingStore: RecipientTaggingStore;
+  private readonly senderAddressBookStore: SenderAddressBookStore;
+  private readonly capsuleStore: CapsuleStore;
+  private readonly privateEventStore: PrivateEventStore;
+  private readonly simulator: CircuitSimulator;
+  private readonly contractSyncService: ContractSyncService;
 
-  constructor(
-    private executionDataProvider: ExecutionDataProvider,
-    private simulator: CircuitSimulator,
-  ) {
+  constructor(args: ContractFunctionSimulatorArgs) {
+    this.contractStore = args.contractStore;
+    this.noteStore = args.noteStore;
+    this.keyStore = args.keyStore;
+    this.addressStore = args.addressStore;
+    this.aztecNode = args.aztecNode;
+    this.senderTaggingStore = args.senderTaggingStore;
+    this.recipientTaggingStore = args.recipientTaggingStore;
+    this.senderAddressBookStore = args.senderAddressBookStore;
+    this.capsuleStore = args.capsuleStore;
+    this.privateEventStore = args.privateEventStore;
+    this.simulator = args.simulator;
+    this.contractSyncService = args.contractSyncService;
     this.log = createLogger('simulator');
   }
 
   /**
    * Runs a private function.
    * @param request - The transaction request.
-   * @param entryPointArtifact - The artifact of the entry point function.
-   * @param contractAddress - The address of the contract (should match request.origin)
-   * @param msgSender - The address calling the function. This can be replaced to simulate a call from another contract
-   * or a specific account.
-   * @param senderForTags - The address that is used as a tagging sender when emitting private logs. Returned from
-   * the `privateGetSenderForTags` oracle.
-   * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
-   * @returns The result of the execution.
    */
   public async run(
     request: TxExecutionRequest,
-    contractAddress: AztecAddress,
-    selector: FunctionSelector,
-    msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
-    senderForTags?: AztecAddress,
-    scopes?: AztecAddress[],
+    {
+      contractAddress,
+      selector,
+      msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
+      anchorBlockHeader,
+      senderForTags,
+      scopes,
+      jobId,
+    }: ContractSimulatorRunOpts,
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
-    const anchorBlockHeader = await this.executionDataProvider.getAnchorBlockHeader();
 
-    await verifyCurrentClassId(contractAddress, this.executionDataProvider);
-
-    const entryPointArtifact = await this.executionDataProvider.getFunctionArtifact(contractAddress, selector);
+    const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(contractAddress, selector);
 
     if (entryPointArtifact.functionType !== FunctionType.PRIVATE) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as private`);
@@ -123,7 +205,7 @@ export class ContractFunctionSimulator {
     }
 
     // reserve the first side effect for the tx hash (inserted by the private kernel)
-    const startSideEffectCounter = 1;
+    const startSideEffectCounter = 2;
 
     const callContext = new CallContext(
       msgSender,
@@ -132,28 +214,41 @@ export class ContractFunctionSimulator {
       entryPointArtifact.isStatic,
     );
 
-    const txRequestHash = await request.toTxRequest().hash();
-    const noteCache = new ExecutionNoteCache(txRequestHash);
+    const protocolNullifier = await computeProtocolNullifier(await request.toTxRequest().hash());
+    const noteCache = new ExecutionNoteCache(protocolNullifier);
     const taggingIndexCache = new ExecutionTaggingIndexCache();
 
-    const privateExecutionOracle = new PrivateExecutionOracle(
-      request.firstCallArgsHash,
-      request.txContext,
+    const privateExecutionOracle = new PrivateExecutionOracle({
+      argsHash: request.firstCallArgsHash,
+      txContext: request.txContext,
       callContext,
       anchorBlockHeader,
-      request.authWitnesses,
-      request.capsules,
-      HashedValuesCache.create(request.argsOfCalls),
+      utilityExecutor: async (call, execScopes) => {
+        await this.runUtility(call, [], anchorBlockHeader, execScopes, jobId);
+      },
+      authWitnesses: request.authWitnesses,
+      capsules: request.capsules,
+      executionCache: HashedValuesCache.create(request.argsOfCalls),
       noteCache,
       taggingIndexCache,
-      this.executionDataProvider,
-      0, // totalPublicArgsCount
-      startSideEffectCounter,
-      undefined, // log
+      contractStore: this.contractStore,
+      noteStore: this.noteStore,
+      keyStore: this.keyStore,
+      addressStore: this.addressStore,
+      aztecNode: this.aztecNode,
+      senderTaggingStore: this.senderTaggingStore,
+      recipientTaggingStore: this.recipientTaggingStore,
+      senderAddressBookStore: this.senderAddressBookStore,
+      capsuleStore: this.capsuleStore,
+      privateEventStore: this.privateEventStore,
+      contractSyncService: this.contractSyncService,
+      jobId,
+      totalPublicCalldataCount: 0,
+      sideEffectCounter: startSideEffectCounter,
       scopes,
       senderForTags,
-      this.simulator,
-    );
+      simulator: this.simulator,
+    });
 
     const setupTime = simulatorSetupTimer.ms();
 
@@ -170,8 +265,9 @@ export class ContractFunctionSimulator {
         request.functionSelector,
       );
       const simulatorTeardownTimer = new Timer();
-      const { usedTxRequestHashForNonces } = noteCache.finish();
-      const firstNullifierHint = usedTxRequestHashForNonces ? Fr.ZERO : noteCache.getAllNullifiers()[0];
+
+      noteCache.finish();
+      const firstNullifierHint = noteCache.getNonceGenerator();
 
       const publicCallRequests = collectNested([executionResult], r =>
         r.publicInputs.publicCallRequests
@@ -207,20 +303,41 @@ export class ContractFunctionSimulator {
    * Runs a utility function.
    * @param call - The function call to execute.
    * @param authwits - Authentication witnesses required for the function call.
+   * @param anchorBlockHeader - The block header to use as base state for this run.
    * @param scopes - Optional array of account addresses whose notes can be accessed in this call. Defaults to all
    * accounts if not specified.
-   * @returns A decoded ABI value containing the function's return data.
+   * @returns A return value of the utility function in a form as returned by the simulator (Noir fields)
    */
-  public async runUtility(call: FunctionCall, authwits: AuthWitness[], scopes?: AztecAddress[]): Promise<AbiDecoded> {
-    await verifyCurrentClassId(call.to, this.executionDataProvider);
-
-    const entryPointArtifact = await this.executionDataProvider.getFunctionArtifact(call.to, call.selector);
+  public async runUtility(
+    call: FunctionCall,
+    authwits: AuthWitness[],
+    anchorBlockHeader: BlockHeader,
+    scopes: AccessScopes,
+    jobId: string,
+  ): Promise<Fr[]> {
+    const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
 
     if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
     }
 
-    const oracle = new UtilityExecutionOracle(call.to, authwits, [], this.executionDataProvider, undefined, scopes);
+    const oracle = new UtilityExecutionOracle({
+      contractAddress: call.to,
+      authWitnesses: authwits,
+      capsules: [],
+      anchorBlockHeader,
+      contractStore: this.contractStore,
+      noteStore: this.noteStore,
+      keyStore: this.keyStore,
+      addressStore: this.addressStore,
+      aztecNode: this.aztecNode,
+      recipientTaggingStore: this.recipientTaggingStore,
+      senderAddressBookStore: this.senderAddressBookStore,
+      capsuleStore: this.capsuleStore,
+      privateEventStore: this.privateEventStore,
+      jobId,
+      scopes,
+    });
 
     try {
       this.log.verbose(`Executing utility function ${entryPointArtifact.name}`, {
@@ -244,17 +361,28 @@ export class ContractFunctionSimulator {
           );
         });
 
-      const returnWitness = witnessMapToFields(acirExecutionResult.returnWitness);
       this.log.verbose(`Utility simulation for ${call.to}.${call.selector} completed`);
-      return decodeFromAbi(entryPointArtifact.returnTypes, returnWitness);
+      return witnessMapToFields(acirExecutionResult.returnWitness);
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
     }
   }
   // docs:end:execute_utility_function
 
+  /**
+   * Returns the execution statistics collected during the simulator run.
+   * @returns The execution statistics.
+   */
   getStats() {
-    return this.executionDataProvider.getStats();
+    const nodeRPCCalls =
+      typeof (this.aztecNode as BenchmarkedNode).getStats === 'function'
+        ? (this.aztecNode as BenchmarkedNode).getStats()
+        : {
+            perMethod: {},
+            roundTrips: { roundTrips: 0, totalBlockingTime: 0, roundTripDurations: [], roundTripMethods: [] },
+          };
+
+    return { nodeRPCCalls };
   }
 }
 
@@ -275,23 +403,32 @@ class OrderedSideEffect<T> {
  * (allowing state overrides) and is much faster, while still generating a valid
  * output that can be sent to the node for public simulation
  * @param privateExecutionResult - The result of the private execution.
- * @param nonceGenerator - A nonce generator for note hashes. According to the protocol rules,
- * it can either be the first nullifier in the tx or the hash of the initial tx request if there are none.
- * @param contractDataProvider - A provider for contract data in order to get function names and debug info.
+ * @param debugFunctionNameGetter - A provider for contract data in order to get function names and debug info.
+ * @param node - AztecNode for verifying settled read requests against the note hash and nullifier trees.
+ * @param minRevertibleSideEffectCounterOverride - Optional override for the min revertible side effect counter.
+ * Used by TXE to simulate account contract behavior (setting the counter before app execution).
  * @returns The simulated proving result.
  */
 export async function generateSimulatedProvingResult(
   privateExecutionResult: PrivateExecutionResult,
-  nonceGenerator: Fr,
-  contractDataProvider: ContractDataProvider,
+  debugFunctionNameGetter: (contractAddress: AztecAddress, functionSelector: FunctionSelector) => Promise<string>,
+  node: AztecNode,
+  minRevertibleSideEffectCounterOverride?: number,
 ): Promise<PrivateKernelExecutionProofOutput<PrivateKernelTailCircuitPublicInputs>> {
-  const siloedNoteHashes: OrderedSideEffect<Fr>[] = [];
-  const nullifiers: OrderedSideEffect<Fr>[] = [];
-  const taggedPrivateLogs: OrderedSideEffect<PrivateLog>[] = [];
+  const taggedPrivateLogs: OrderedSideEffect<PrivateLogData>[] = [];
   const l2ToL1Messages: OrderedSideEffect<ScopedL2ToL1Message>[] = [];
   const contractClassLogsHashes: OrderedSideEffect<ScopedLogHash>[] = [];
   const publicCallRequests: OrderedSideEffect<PublicCallRequest>[] = [];
   const executionSteps: PrivateExecutionStep[] = [];
+
+  // Unsiloed scoped arrays — used for squashing, read request verification,
+  // and siloed at the end only for the surviving items
+  const scopedNoteHashes: ScopedNoteHash[] = [];
+  const scopedNullifiers: ScopedNullifier[] = [];
+
+  // Read requests for verification
+  const noteHashReadRequests: ScopedReadRequest[] = [];
+  const nullifierReadRequests: ScopedReadRequest[] = [];
 
   let publicTeardownCallRequest;
 
@@ -303,35 +440,25 @@ export async function generateSimulatedProvingResult(
 
     const { contractAddress } = execution.publicInputs.callContext;
 
-    const noteHashesFromExecution = await Promise.all(
-      execution.publicInputs.noteHashes
+    scopedNoteHashes.push(
+      ...execution.publicInputs.noteHashes
         .getActiveItems()
-        .filter(noteHash => !noteHash.isEmpty())
-        .map(
-          async noteHash =>
-            new OrderedSideEffect(await siloNoteHash(contractAddress, noteHash.value), noteHash.counter),
-        ),
+        .filter(nh => !nh.isEmpty())
+        .map(nh => nh.scope(contractAddress)),
+    );
+    scopedNullifiers.push(...execution.publicInputs.nullifiers.getActiveItems().map(n => n.scope(contractAddress)));
+
+    taggedPrivateLogs.push(
+      ...(await Promise.all(
+        execution.publicInputs.privateLogs.getActiveItems().map(async metadata => {
+          metadata.log.fields[0] = await computeSiloedPrivateLogFirstField(contractAddress, metadata.log.fields[0]);
+          return new OrderedSideEffect(metadata, metadata.counter);
+        }),
+      )),
     );
 
-    const nullifiersFromExecution = await Promise.all(
-      execution.publicInputs.nullifiers
-        .getActiveItems()
-        .map(
-          async nullifier =>
-            new OrderedSideEffect(await siloNullifier(contractAddress, nullifier.value), nullifier.counter),
-        ),
-    );
-
-    const privateLogsFromExecution = await Promise.all(
-      execution.publicInputs.privateLogs.getActiveItems().map(async metadata => {
-        metadata.log.fields[0] = await poseidon2Hash([contractAddress, metadata.log.fields[0]]);
-        return new OrderedSideEffect(metadata.log, metadata.counter);
-      }),
-    );
-
-    siloedNoteHashes.push(...noteHashesFromExecution);
-    taggedPrivateLogs.push(...privateLogsFromExecution);
-    nullifiers.push(...nullifiersFromExecution);
+    noteHashReadRequests.push(...execution.publicInputs.noteHashReadRequests.getActiveItems());
+    nullifierReadRequests.push(...execution.publicInputs.nullifierReadRequests.getActiveItems());
     l2ToL1Messages.push(
       ...execution.publicInputs.l2ToL1Msgs
         .getActiveItems()
@@ -360,7 +487,7 @@ export async function generateSimulatedProvingResult(
       : execution.publicInputs.publicTeardownCallRequest;
 
     executionSteps.push({
-      functionName: await contractDataProvider.getDebugFunctionName(
+      functionName: await debugFunctionNameGetter(
         execution.publicInputs.callContext.contractAddress,
         execution.publicInputs.callContext.functionSelector,
       ),
@@ -370,6 +497,47 @@ export async function generateSimulatedProvingResult(
       witness: execution.partialWitness,
     });
   }
+
+  const noteHashNullifierCounterMap = collectNoteHashNullifierCounterMap(privateExecutionResult);
+  const minRevertibleSideEffectCounter =
+    minRevertibleSideEffectCounterOverride ?? getFinalMinRevertibleSideEffectCounter(privateExecutionResult);
+
+  const scopedNoteHashesCLA = new ClaimedLengthArray<ScopedNoteHash, typeof MAX_NOTE_HASHES_PER_TX>(
+    padArrayEnd(scopedNoteHashes, ScopedNoteHash.empty(), MAX_NOTE_HASHES_PER_TX),
+    scopedNoteHashes.length,
+  );
+  const scopedNullifiersCLA = new ClaimedLengthArray<ScopedNullifier, typeof MAX_NULLIFIERS_PER_TX>(
+    padArrayEnd(scopedNullifiers, ScopedNullifier.empty(), MAX_NULLIFIERS_PER_TX),
+    scopedNullifiers.length,
+  );
+
+  const { filteredNoteHashes, filteredNullifiers, filteredPrivateLogs } = squashTransientSideEffects(
+    taggedPrivateLogs,
+    scopedNoteHashesCLA,
+    scopedNullifiersCLA,
+    noteHashNullifierCounterMap,
+    minRevertibleSideEffectCounter,
+  );
+
+  await verifyReadRequests(
+    node,
+    await privateExecutionResult.entrypoint.publicInputs.anchorBlockHeader.hash(),
+    noteHashReadRequests,
+    nullifierReadRequests,
+    scopedNoteHashesCLA,
+    scopedNullifiersCLA,
+  );
+
+  const siloedNoteHashes = await Promise.all(
+    filteredNoteHashes
+      .sort((a, b) => a.counter - b.counter)
+      .map(async nh => new OrderedSideEffect(await siloNoteHash(nh.contractAddress, nh.value), nh.counter)),
+  );
+  const siloedNullifiers = await Promise.all(
+    filteredNullifiers
+      .sort((a, b) => a.counter - b.counter)
+      .map(async n => new OrderedSideEffect(await siloNullifier(n.contractAddress, n.value), n.counter)),
+  );
 
   const constantData = new TxConstantData(
     privateExecutionResult.entrypoint.publicInputs.anchorBlockHeader,
@@ -387,23 +555,23 @@ export async function generateSimulatedProvingResult(
   const getEffect = <T>(orderedSideEffect: OrderedSideEffect<T>) => orderedSideEffect.sideEffect;
 
   const isPrivateOnlyTx = privateExecutionResult.publicFunctionCalldata.length === 0;
-  const minRevertibleSideEffectCounter = getFinalMinRevertibleSideEffectCounter(privateExecutionResult);
 
   const [nonRevertibleNullifiers, revertibleNullifiers] = splitOrderedSideEffects(
-    nullifiers.sort(sortByCounter),
+    siloedNullifiers,
     minRevertibleSideEffectCounter,
   );
-  if (nonRevertibleNullifiers.length > 0 && !nonRevertibleNullifiers[0].equals(nonceGenerator)) {
+  const nonceGenerator = privateExecutionResult.firstNullifier;
+  if (nonRevertibleNullifiers.length === 0) {
+    nonRevertibleNullifiers.push(nonceGenerator);
+  } else if (!nonRevertibleNullifiers[0].equals(nonceGenerator)) {
     throw new Error('The first non revertible nullifier should be equal to the nonce generator. This is a bug!');
-  } else {
-    nonRevertibleNullifiers.unshift(nonceGenerator);
   }
 
   if (isPrivateOnlyTx) {
     // We must make the note hashes unique by using the
     // nonce generator and their index in the tx.
     const uniqueNoteHashes = await Promise.all(
-      siloedNoteHashes.sort(sortByCounter).map(async (orderedSideEffect, i) => {
+      siloedNoteHashes.map(async (orderedSideEffect, i) => {
         const siloedNoteHash = orderedSideEffect.sideEffect;
         const nonce = await computeNoteHashNonce(nonceGenerator, i);
         const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNoteHash);
@@ -418,26 +586,32 @@ export async function generateSimulatedProvingResult(
         ScopedL2ToL1Message.empty(),
         MAX_L2_TO_L1_MSGS_PER_TX,
       ),
-      padArrayEnd(taggedPrivateLogs.sort(sortByCounter).map(getEffect), PrivateLog.empty(), MAX_PRIVATE_LOGS_PER_TX),
+      padArrayEnd(filteredPrivateLogs.sort(sortByCounter).map(getEffect), PrivateLog.empty(), MAX_PRIVATE_LOGS_PER_TX),
       padArrayEnd(
         contractClassLogsHashes.sort(sortByCounter).map(getEffect),
         ScopedLogHash.empty(),
         MAX_CONTRACT_CLASS_LOGS_PER_TX,
       ),
     );
-    gasUsed = meterGasUsed(accumulatedDataForRollup);
+    gasUsed = meterGasUsed(accumulatedDataForRollup, isPrivateOnlyTx);
     inputsForRollup = new PartialPrivateTailPublicInputsForRollup(accumulatedDataForRollup);
   } else {
     const [nonRevertibleNoteHashes, revertibleNoteHashes] = splitOrderedSideEffects(
-      siloedNoteHashes.sort(sortByCounter),
+      siloedNoteHashes,
       minRevertibleSideEffectCounter,
+    );
+    const nonRevertibleUniqueNoteHashes = await Promise.all(
+      nonRevertibleNoteHashes.map(async (noteHash, i) => {
+        const nonce = await computeNoteHashNonce(nonceGenerator, i);
+        return await computeUniqueNoteHash(nonce, noteHash);
+      }),
     );
     const [nonRevertibleL2ToL1Messages, revertibleL2ToL1Messages] = splitOrderedSideEffects(
       l2ToL1Messages.sort(sortByCounter),
       minRevertibleSideEffectCounter,
     );
     const [nonRevertibleTaggedPrivateLogs, revertibleTaggedPrivateLogs] = splitOrderedSideEffects(
-      taggedPrivateLogs,
+      filteredPrivateLogs,
       minRevertibleSideEffectCounter,
     );
     const [nonRevertibleContractClassLogHashes, revertibleContractClassLogHashes] = splitOrderedSideEffects(
@@ -450,7 +624,7 @@ export async function generateSimulatedProvingResult(
     );
 
     const nonRevertibleData = new PrivateToPublicAccumulatedData(
-      padArrayEnd(nonRevertibleNoteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
+      padArrayEnd(nonRevertibleUniqueNoteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
       padArrayEnd(nonRevertibleNullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
       padArrayEnd(nonRevertibleL2ToL1Messages, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
       padArrayEnd(nonRevertibleTaggedPrivateLogs, PrivateLog.empty(), MAX_PRIVATE_LOGS_PER_TX),
@@ -466,9 +640,9 @@ export async function generateSimulatedProvingResult(
       padArrayEnd(revertibleContractClassLogHashes, ScopedLogHash.empty(), MAX_CONTRACT_CLASS_LOGS_PER_TX),
       padArrayEnd(revertiblePublicCallRequests, PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
     );
-    gasUsed = meterGasUsed(revertibleData).add(meterGasUsed(nonRevertibleData));
+    gasUsed = meterGasUsed(revertibleData, isPrivateOnlyTx).add(meterGasUsed(nonRevertibleData, isPrivateOnlyTx));
     if (publicTeardownCallRequest) {
-      gasUsed.add(privateExecutionResult.entrypoint.publicInputs.txContext.gasSettings.teardownGasLimits);
+      gasUsed = gasUsed.add(privateExecutionResult.entrypoint.publicInputs.txContext.gasSettings.teardownGasLimits);
     }
 
     inputsForPublic = new PartialPrivateTailPublicInputsForPublic(
@@ -482,7 +656,7 @@ export async function generateSimulatedProvingResult(
     constantData,
     /*gasUsed=*/ gasUsed.add(Gas.from({ l2Gas: FIXED_L2_GAS, daGas: FIXED_DA_GAS })),
     /*feePayer=*/ AztecAddress.zero(),
-    /*includeByTimestamp=*/ 0n,
+    /*expirationTimestamp=*/ 0n,
     hasPublicCalls ? inputsForPublic : undefined,
     !hasPublicCalls ? inputsForRollup : undefined,
   );
@@ -494,11 +668,116 @@ export async function generateSimulatedProvingResult(
   };
 }
 
+/**
+ * Squashes transient note hashes and nullifiers, mimicking the behavior
+ * of the reset kernels. Returns the filtered (surviving) scoped items and private logs.
+ */
+function squashTransientSideEffects(
+  taggedPrivateLogs: OrderedSideEffect<PrivateLogData>[],
+  scopedNoteHashesCLA: ClaimedLengthArray<ScopedNoteHash, typeof MAX_NOTE_HASHES_PER_TX>,
+  scopedNullifiersCLA: ClaimedLengthArray<ScopedNullifier, typeof MAX_NULLIFIERS_PER_TX>,
+  noteHashNullifierCounterMap: Map<number, number>,
+  minRevertibleSideEffectCounter: number,
+) {
+  const { numTransientData, hints: transientDataHints } = buildTransientDataHints(
+    scopedNoteHashesCLA,
+    scopedNullifiersCLA,
+    /*futureNoteHashReads=*/ [],
+    /*futureNullifierReads=*/ [],
+    noteHashNullifierCounterMap,
+    minRevertibleSideEffectCounter,
+  );
+
+  const squashedNoteHashCounters = new Set<number>();
+  const squashedNullifierCounters = new Set<number>();
+  for (let i = 0; i < numTransientData; i++) {
+    const hint = transientDataHints[i];
+    squashedNoteHashCounters.add(scopedNoteHashesCLA.array[hint.noteHashIndex].counter);
+    squashedNullifierCounters.add(scopedNullifiersCLA.array[hint.nullifierIndex].counter);
+  }
+
+  return {
+    filteredNoteHashes: scopedNoteHashesCLA.getActiveItems().filter(nh => !squashedNoteHashCounters.has(nh.counter)),
+    filteredNullifiers: scopedNullifiersCLA.getActiveItems().filter(n => !squashedNullifierCounters.has(n.counter)),
+    filteredPrivateLogs: taggedPrivateLogs
+      .filter(item => !squashedNoteHashCounters.has(item.sideEffect.noteHashCounter))
+      .map(item => new OrderedSideEffect(item.sideEffect.log, item.counter)),
+  };
+}
+
+/**
+ * Verifies settled read requests by checking membership in the note hash and nullifier trees
+ * at the tx's anchor block, mimicking the behavior of the kernels
+ */
+async function verifyReadRequests(
+  node: Pick<AztecNode, 'getNoteHashMembershipWitness' | 'getNullifierMembershipWitness'>,
+  anchorBlockHash: BlockParameter,
+  noteHashReadRequests: ScopedReadRequest[],
+  nullifierReadRequests: ScopedReadRequest[],
+  scopedNoteHashesCLA: ClaimedLengthArray<ScopedNoteHash, typeof MAX_NOTE_HASHES_PER_TX>,
+  scopedNullifiersCLA: ClaimedLengthArray<ScopedNullifier, typeof MAX_NULLIFIERS_PER_TX>,
+) {
+  const noteHashReadRequestsCLA = new ClaimedLengthArray<ScopedReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>(
+    padArrayEnd(noteHashReadRequests, ScopedReadRequest.empty(), MAX_NOTE_HASH_READ_REQUESTS_PER_TX),
+    noteHashReadRequests.length,
+  );
+  const nullifierReadRequestsCLA = new ClaimedLengthArray<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>(
+    padArrayEnd(nullifierReadRequests, ScopedReadRequest.empty(), MAX_NULLIFIER_READ_REQUESTS_PER_TX),
+    nullifierReadRequests.length,
+  );
+
+  const noteHashResetActions = getNoteHashReadRequestResetActions(
+    noteHashReadRequestsCLA,
+    scopedNoteHashesCLA,
+    /*futureNoteHashes=*/ [],
+  );
+  const nullifierResetActions = getNullifierReadRequestResetActions(
+    nullifierReadRequestsCLA,
+    scopedNullifiersCLA,
+    /*futureNullifiers=*/ [],
+  );
+
+  const settledNoteHashReads: { index: number; value: Fr }[] = [];
+  for (let i = 0; i < noteHashResetActions.actions.length; i++) {
+    if (noteHashResetActions.actions[i] === ReadRequestActionEnum.READ_AS_SETTLED) {
+      settledNoteHashReads.push({ index: i, value: noteHashReadRequests[i].value });
+    }
+  }
+
+  const settledNullifierReads: { index: number; value: Fr }[] = [];
+  for (let i = 0; i < nullifierResetActions.actions.length; i++) {
+    if (nullifierResetActions.actions[i] === ReadRequestActionEnum.READ_AS_SETTLED) {
+      settledNullifierReads.push({ index: i, value: nullifierReadRequests[i].value });
+    }
+  }
+
+  const [noteHashWitnesses, nullifierWitnesses] = await Promise.all([
+    Promise.all(settledNoteHashReads.map(({ value }) => node.getNoteHashMembershipWitness(anchorBlockHash, value))),
+    Promise.all(settledNullifierReads.map(({ value }) => node.getNullifierMembershipWitness(anchorBlockHash, value))),
+  ]);
+
+  for (let i = 0; i < settledNoteHashReads.length; i++) {
+    if (!noteHashWitnesses[i]) {
+      throw new Error(
+        `Note hash read request at index ${settledNoteHashReads[i].index} is reading an unknown note hash: ${settledNoteHashReads[i].value}`,
+      );
+    }
+  }
+
+  for (let i = 0; i < settledNullifierReads.length; i++) {
+    if (!nullifierWitnesses[i]) {
+      throw new Error(
+        `Nullifier read request at index ${settledNullifierReads[i].index} is reading an unknown nullifier: ${settledNullifierReads[i].value}`,
+      );
+    }
+  }
+}
+
 function splitOrderedSideEffects<T>(effects: OrderedSideEffect<T>[], minRevertibleSideEffectCounter: number) {
   const revertibleSideEffects: T[] = [];
   const nonRevertibleSideEffects: T[] = [];
   effects.forEach(effect => {
-    if (effect.counter < minRevertibleSideEffectCounter) {
+    if (minRevertibleSideEffectCounter === 0 || effect.counter < minRevertibleSideEffectCounter) {
       nonRevertibleSideEffects.push(effect.sideEffect);
     } else {
       revertibleSideEffects.push(effect.sideEffect);
@@ -507,21 +786,24 @@ function splitOrderedSideEffects<T>(effects: OrderedSideEffect<T>[], minRevertib
   return [nonRevertibleSideEffects, revertibleSideEffects];
 }
 
-function meterGasUsed(data: PrivateToRollupAccumulatedData | PrivateToPublicAccumulatedData) {
+function meterGasUsed(data: PrivateToRollupAccumulatedData | PrivateToPublicAccumulatedData, isPrivateOnlyTx: boolean) {
   let meteredDAFields = 0;
   let meteredL2Gas = 0;
 
   const numNoteHashes = arrayNonEmptyLength(data.noteHashes, hash => hash.isEmpty());
   meteredDAFields += numNoteHashes;
-  meteredL2Gas += numNoteHashes * AVM_EMITNOTEHASH_BASE_L2_GAS;
+  const noteHashBaseGas = isPrivateOnlyTx ? L2_GAS_PER_NOTE_HASH : AVM_EMITNOTEHASH_BASE_L2_GAS;
+  meteredL2Gas += numNoteHashes * noteHashBaseGas;
 
   const numNullifiers = arrayNonEmptyLength(data.nullifiers, nullifier => nullifier.isEmpty());
   meteredDAFields += numNullifiers;
-  meteredL2Gas += numNullifiers * AVM_EMITNULLIFIER_BASE_L2_GAS;
+  const nullifierBaseGas = isPrivateOnlyTx ? L2_GAS_PER_NULLIFIER : AVM_EMITNULLIFIER_BASE_L2_GAS;
+  meteredL2Gas += numNullifiers * nullifierBaseGas;
 
   const numL2toL1Messages = arrayNonEmptyLength(data.l2ToL1Msgs, msg => msg.isEmpty());
   meteredDAFields += numL2toL1Messages;
-  meteredL2Gas += numL2toL1Messages * AVM_SENDL2TOL1MSG_BASE_L2_GAS;
+  const l2ToL1MessageBaseGas = isPrivateOnlyTx ? L2_GAS_PER_L2_TO_L1_MSG : AVM_SENDL2TOL1MSG_BASE_L2_GAS;
+  meteredL2Gas += numL2toL1Messages * l2ToL1MessageBaseGas;
 
   const numPrivatelogs = arrayNonEmptyLength(data.privateLogs, log => log.isEmpty());
   // Every private log emits its length as an additional field

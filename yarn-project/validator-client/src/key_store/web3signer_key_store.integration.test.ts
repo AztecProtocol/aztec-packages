@@ -1,13 +1,24 @@
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { makeEthSignDigest, recoverAddress } from '@aztec/foundation/crypto';
+import { makeEthSignDigest, recoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { DutyType, type SigningContext } from '@aztec/validator-ha-signer/types';
 
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type TypedDataDefinition, hashTypedData } from 'viem';
 
 import { LocalKeyStore } from './local_key_store.js';
 import { Web3SignerKeyStore } from './web3signer_key_store.js';
+
+// Helper to create a mock signing context for testing
+function createMockContext(): SigningContext {
+  return {
+    slot: SlotNumber(1),
+    blockNumber: BlockNumber(1),
+    dutyType: DutyType.ATTESTATION,
+  };
+}
 
 describe('Web3SignerKeyStore Integration Tests', () => {
   const WEB3_SIGNER_URL = 'http://localhost:9000';
@@ -113,7 +124,7 @@ describe('Web3SignerKeyStore Integration Tests', () => {
           }),
       } as Response);
 
-      const signatures = await keyStore.signMessage(digest);
+      const signatures = await keyStore.signMessage(digest, createMockContext());
 
       expect(signatures).toHaveLength(TEST_ADDRESSES.length);
       // Each address requires 1 JSON-RPC call
@@ -136,7 +147,7 @@ describe('Web3SignerKeyStore Integration Tests', () => {
           }),
       } as Response);
 
-      const signature = await keyStore.signMessageWithAddress(address, digest);
+      const signature = await keyStore.signMessageWithAddress(address, digest, createMockContext());
 
       expect(signature).toBeInstanceOf(Signature);
       expect(mockFetch).toHaveBeenCalledWith(WEB3_SIGNER_URL, {
@@ -157,7 +168,7 @@ describe('Web3SignerKeyStore Integration Tests', () => {
       const digest = Buffer32.random();
       const unknownAddress = EthAddress.fromString('0x9999999999999999999999999999999999999999');
 
-      await expect(keyStore.signMessageWithAddress(unknownAddress, digest)).rejects.toThrow(
+      await expect(keyStore.signMessageWithAddress(unknownAddress, digest, createMockContext())).rejects.toThrow(
         `Address ${unknownAddress.toString()} not found in keystore`,
       );
 
@@ -179,7 +190,7 @@ describe('Web3SignerKeyStore Integration Tests', () => {
           }),
       } as Response);
 
-      const signatures = await keyStore.signMessage(message);
+      const signatures = await keyStore.signMessage(message, createMockContext());
 
       expect(signatures).toHaveLength(TEST_ADDRESSES.length);
       expect(mockFetch).toHaveBeenCalledTimes(TEST_ADDRESSES.length);
@@ -201,7 +212,7 @@ describe('Web3SignerKeyStore Integration Tests', () => {
           }),
       } as Response);
 
-      const signature = await keyStore.signMessageWithAddress(address, message);
+      const signature = await keyStore.signMessageWithAddress(address, message, createMockContext());
 
       expect(signature).toBeInstanceOf(Signature);
       expect(mockFetch).toHaveBeenCalledWith(WEB3_SIGNER_URL, {
@@ -232,7 +243,7 @@ describe('Web3SignerKeyStore Integration Tests', () => {
           }),
       } as Response);
 
-      const signatures = await keyStore.signTypedData(TEST_TYPED_DATA);
+      const signatures = await keyStore.signTypedData(TEST_TYPED_DATA, createMockContext());
 
       expect(signatures).toHaveLength(TEST_ADDRESSES.length);
       expect(mockFetch).toHaveBeenCalledTimes(TEST_ADDRESSES.length);
@@ -269,7 +280,7 @@ describe('Web3SignerKeyStore Integration Tests', () => {
           }),
       } as Response);
 
-      const signature = await keyStore.signTypedDataWithAddress(address, TEST_TYPED_DATA);
+      const signature = await keyStore.signTypedDataWithAddress(address, TEST_TYPED_DATA, createMockContext());
 
       expect(signature).toBeInstanceOf(Signature);
       expect(mockFetch).toHaveBeenCalledWith(WEB3_SIGNER_URL, {
@@ -289,9 +300,9 @@ describe('Web3SignerKeyStore Integration Tests', () => {
     it('should throw error for unknown address when signing typed data', async () => {
       const unknownAddress = EthAddress.fromString('0x9999999999999999999999999999999999999999');
 
-      await expect(keyStore.signTypedDataWithAddress(unknownAddress, TEST_TYPED_DATA)).rejects.toThrow(
-        `Address ${unknownAddress.toString()} not found in keystore`,
-      );
+      await expect(
+        keyStore.signTypedDataWithAddress(unknownAddress, TEST_TYPED_DATA, createMockContext()),
+      ).rejects.toThrow(`Address ${unknownAddress.toString()} not found in keystore`);
 
       expect(mockFetch).not.toHaveBeenCalled();
     });
@@ -312,7 +323,7 @@ describe('Web3SignerKeyStore Integration Tests', () => {
           }),
       } as Response);
 
-      const signature = await keyStore.signMessageWithAddress(address, digest);
+      const signature = await keyStore.signMessageWithAddress(address, digest, createMockContext());
 
       expect(signature).toBeInstanceOf(Signature);
     });
@@ -333,7 +344,7 @@ describe('Web3SignerKeyStore Integration Tests', () => {
           }),
       } as Response);
 
-      const signature = await keyStore.signMessageWithAddress(address, digest);
+      const signature = await keyStore.signMessageWithAddress(address, digest, createMockContext());
 
       expect(signature).toBeInstanceOf(Signature);
     });
@@ -353,7 +364,7 @@ describe('Web3SignerKeyStore Integration Tests', () => {
           }),
       } as Response);
 
-      const signature = await keyStore.signTypedDataWithAddress(address, TEST_TYPED_DATA);
+      const signature = await keyStore.signTypedDataWithAddress(address, TEST_TYPED_DATA, createMockContext());
 
       expect(signature).toBeInstanceOf(Signature);
     });
@@ -375,7 +386,7 @@ describe('Web3SignerKeyStore Integration Tests', () => {
           }),
       } as Response);
 
-      await expect(keyStore.signMessageWithAddress(address, digest)).rejects.toThrow(
+      await expect(keyStore.signMessageWithAddress(address, digest, createMockContext())).rejects.toThrow(
         'Web3Signer JSON-RPC error: -32602 - Invalid params',
       );
     });
@@ -396,7 +407,7 @@ describe('Web3SignerKeyStore Integration Tests', () => {
           }),
       } as Response);
 
-      await expect(keyStore.signTypedDataWithAddress(address, TEST_TYPED_DATA)).rejects.toThrow(
+      await expect(keyStore.signTypedDataWithAddress(address, TEST_TYPED_DATA, createMockContext())).rejects.toThrow(
         'Web3Signer JSON-RPC error: -32602 - Invalid params',
       );
     });
@@ -412,7 +423,7 @@ describe('Web3SignerKeyStore Integration Tests', () => {
         text: () => Promise.resolve('Invalid signing request'),
       } as Response);
 
-      await expect(keyStore.signMessageWithAddress(address, digest)).rejects.toThrow(
+      await expect(keyStore.signMessageWithAddress(address, digest, createMockContext())).rejects.toThrow(
         'Web3Signer request failed: 400 Bad Request - Invalid signing request',
       );
     });
@@ -427,7 +438,7 @@ describe('Web3SignerKeyStore Integration Tests', () => {
         text: () => Promise.resolve('Invalid signing request'),
       } as Response);
 
-      await expect(keyStore.signTypedDataWithAddress(address, TEST_TYPED_DATA)).rejects.toThrow(
+      await expect(keyStore.signTypedDataWithAddress(address, TEST_TYPED_DATA, createMockContext())).rejects.toThrow(
         'Web3Signer request failed: 400 Bad Request - Invalid signing request',
       );
     });
@@ -438,7 +449,9 @@ describe('Web3SignerKeyStore Integration Tests', () => {
 
       mockFetch.mockRejectedValue(new Error('Network error'));
 
-      await expect(keyStore.signMessageWithAddress(address, digest)).rejects.toThrow('Network error');
+      await expect(keyStore.signMessageWithAddress(address, digest, createMockContext())).rejects.toThrow(
+        'Network error',
+      );
     });
 
     it('should handle network errors for typed data', async () => {
@@ -446,7 +459,9 @@ describe('Web3SignerKeyStore Integration Tests', () => {
 
       mockFetch.mockRejectedValue(new Error('Network error'));
 
-      await expect(keyStore.signTypedDataWithAddress(address, TEST_TYPED_DATA)).rejects.toThrow('Network error');
+      await expect(keyStore.signTypedDataWithAddress(address, TEST_TYPED_DATA, createMockContext())).rejects.toThrow(
+        'Network error',
+      );
     });
 
     it('should handle empty response', async () => {
@@ -463,7 +478,7 @@ describe('Web3SignerKeyStore Integration Tests', () => {
           }),
       } as Response);
 
-      await expect(keyStore.signMessageWithAddress(address, digest)).rejects.toThrow(
+      await expect(keyStore.signMessageWithAddress(address, digest, createMockContext())).rejects.toThrow(
         'Invalid response from Web3Signer: no result found',
       );
     });
@@ -481,7 +496,7 @@ describe('Web3SignerKeyStore Integration Tests', () => {
           }),
       } as Response);
 
-      await expect(keyStore.signTypedDataWithAddress(address, TEST_TYPED_DATA)).rejects.toThrow(
+      await expect(keyStore.signTypedDataWithAddress(address, TEST_TYPED_DATA, createMockContext())).rejects.toThrow(
         'Invalid response from Web3Signer: no result found',
       );
     });
@@ -526,7 +541,7 @@ describe('Web3SignerKeyStore Integration Tests', () => {
 
       expect(address.toString()).toBe(localAddress.toString());
 
-      const signature = await keyStore.signMessageWithAddress(address, digest);
+      const signature = await keyStore.signMessageWithAddress(address, digest, createMockContext());
 
       // For Web3Signer (eth_sign), we  use makeEthSignDigest on recovery
       // because eth_sign automatically applies Ethereum message prefixing
@@ -546,7 +561,7 @@ describe('Web3SignerKeyStore Integration Tests', () => {
 
       const address = keyStore.getAddress(0);
 
-      const signature = await keyStore.signTypedDataWithAddress(address, TEST_TYPED_DATA);
+      const signature = await keyStore.signTypedDataWithAddress(address, TEST_TYPED_DATA, createMockContext());
 
       expect(signature).toBeInstanceOf(Signature);
 

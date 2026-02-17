@@ -1,75 +1,242 @@
-/// Specifies the configuration parameters for message delivery. There are two fundamental aspects to consider:
+use crate::{
+    context::PrivateContext,
+    messages::{
+        encryption::{aes128::AES128, message_encryption::MessageEncryption},
+        logs::utils::prefix_with_tag,
+        offchain_messages::deliver_offchain_message,
+    },
+    utils::remove_constraints::remove_constraints_if,
+};
+use crate::protocol::address::AztecAddress;
+
+/// Placeholder struct until Noir adds `enum` support.
 ///
-/// +----------------------------------------------------------------------------------------------------------+
-/// | 1. Delivery Mechanism                                                                                    |
-/// | - Messages can be delivered either onchain or offchain                                               |
-/// | - Onchain delivery uses the Aztec protocol's private log stream, submitted to L1 blobs and consuming DA |
-/// | - Offchain delivery is implemented by the application (e.g. storing ciphertexts in cloud storage)     |
-/// | - Offchain delivery cannot have any cryptographic constraints since messages are never stored onchain|
-/// +----------------------------------------------------------------------------------------------------------+
-///
-/// For onchain delivery, we must also consider:
-///
-/// +----------------------------------------------------------------------------------------------------------+
-/// | 2. Message Encryption and Tagging                                                                        |
-/// | - Messages can use either constrained or unconstrained encryption                                        |
-/// | - Constrained encryption guarantees the ciphertext is formed correctly but costs more in constraints,    |
-/// |   which results in slower proving times                                                                  |
-/// | - Unconstrained encryption trusts the sender but is cheaper constraint-wise and hence faster to prove    |
-/// | - Tagging is an indexing mechanism that helps recipients locate their messages                           |
-/// | - If tagging is not performed correctly by the sender, the recipient will not be able to find the message|
-/// +----------------------------------------------------------------------------------------------------------+
-///
-/// For offchain delivery, constrained encryption is not relevant since it doesn't provide any additional guarantees
-/// over unconstrained encryption and is slower to prove (requiring more constraints).
-///
-/// There are three available delivery modes described below.
-// TODO(#16771): This is now used by notes as well. Move it.
+/// See [`MessageDelivery`] instead.
 pub struct MessageDeliveryEnum {
-    /// 1. Constrained Onchain
-    /// - Uses constrained encryption and in the future constrained tagging (issue #14565) with onchain delivery
-    /// - Provides cryptographic guarantees that recipients can discover and decrypt messages (once #14565 is tackled)
-    /// - Slowest proving times since encryption is constrained
-    /// - Expensive since it consumes L1 blob space
-    /// - Use when smart contracts need to make decisions based on message contents
-    /// - Example 1: An escrow contract facilitating a private NFT sale that needs to verify payment before releasing
-    ///   the NFT to the buyer.
-    /// - Example 2: An application with private configuration where changes must be broadcast to all participants.
-    ///   This ensures every user can access the latest configuration. Without notification of config changes,
-    ///   users would be unable to read updated variables and therefore blocked from using the application's
-    ///   functions. This pattern applies to all critical events that require universal broadcast.
+    /// Delivers the message fully off-chain, with no guarantees whatsoever.
     ///
-    /// Safety: Despite being called CONSTRAINED_ONCHAIN, this delivery mode is currently NOT fully constrained.
-    /// The tag prefixing is unconstrained, meaning a malicious sender could manipulate the tag to prevent
-    /// recipient decryption. TODO(#14565): Implement proper constrained tag prefixing.
-    pub CONSTRAINED_ONCHAIN: u8,
+    /// ## Use Cases
+    ///
+    /// This delivery method is suitable when the sender is required to send the message to the recipient because of
+    /// some external reason, and where the sender is able to directly contact the recipient off-chain. In these cases,
+    /// it might be unnecessary to force the sender to spend proving time guaranteeing message correctness, or to pay
+    /// transaction fees in order to use the chain as a medium.
+    ///
+    /// For example, if performing a payment in exchange for some good or service, the recipient will only accept the
+    /// payment once they receive note and event messages, allowing them to observe the balance increase. The sender
+    /// has no reason not to deliver the message correctly to the recipient, and in all likelihood has a way to send it
+    /// to them.
+    ///
+    /// Similarly, in games and other applications that might rely on some server processing state, players might be
+    /// required to update the server with their current state.
+    ///
+    /// Finally, any messages for which the recipient is a local account (e.g.: the message for the change note in a
+    /// token transfer) work well with this delivery option, since the sender would only be harming themselves by not
+    /// delivering correctly.
+    ///
+    /// ## Guarantees
+    ///
+    /// The sender of the message is free to both not deliver the message to the recipient at all (since no delivery
+    /// occurs on-chain), and to alter the message contents (possibly resulting in an undecryptable message, or one
+    /// with incorrect content).
+    ///
+    /// An undecryptable or otherwise invalid note or event message will however simply be ignored by the recipient,
+    /// who can always validate the existence of the note or event on-chain.
+    ///
+    /// Because the message is not stored on-chain, it is the sender's (and eventually recipient's) responsability to
+    /// back it up and make sure it is not lost.
+    ///
+    /// ## Costs
+    ///
+    /// Because no data is emitted on-chain, this delivery option is the cheapest one in terms of transaction fees:
+    /// these are zero.
+    ///
+    /// Additionally, no circuit gates are introduced when the message is encrypted, since its provenance cannot be
+    /// authenticated anyway. Therefore, off-chain messages do not affect proving time at all.
+    ///
+    /// ## Privacy
+    ///
+    /// No information is revelead on-chain about sender, recipient, or the message contents. The message itself
+    /// reveals no information about the sender or recipient, and requires knowledge of the recipient's private address
+    /// keys in order to obtain the plaintext.
+    pub OFFCHAIN: u8,
 
-    /// 2. Unconstrained Onchain
-    /// - Uses unconstrained encryption and tagging with onchain delivery
-    /// - Faster proving times since no constraints are used for encryption
-    /// - Expensive since it consumes L1 blob space
-    /// - Suitable when recipients can verify message validity through other means
-    /// - Use this if you don't need the cryptographic guarantees of constrained encryption and tagging but
-    ///   don't want to deal with setting up offchain delivery infrastructure as required by mode 3
-    /// - Example: Depositing a privately-held NFT into an NFT-sale escrow contract. The buyers know the escrow
-    ///   contract's decryption keys, they receive the message onchain and are willing to buy the NFT only if the NFT
-    ///   contained in the message is legitimate.
-    pub UNCONSTRAINED_ONCHAIN: u8,
+    /// Delivers the message on-chain, but with no guarantees on the content.
+    ///
+    /// ## Use Cases
+    ///
+    /// This delivery method is suitable when the sender is required to send the message to the recipient because of
+    /// some external reason, but might not have a way to contact them off-chain, or does not wish to bear the
+    /// responsability of keeping backups. In these cases, it might be unnecessary to force the sender to spend proving
+    /// time guaranteeing message correctness.
+    ///
+    /// For example, when depositing funds into an escrow or sale contract the sender may not have an off-chain channel
+    /// through which they could send the recipient a message. But since the recipient will not acknowledge receipt and
+    /// proceed with the exchange unless they obtain the message, the sender has no reason not to deliver the message
+    /// correctly.
+    ///
+    /// ## Guarantees
+    ///
+    /// The message will be stored on-chain in a private log, as part of the transaction's effects, and will be
+    /// retrievable in the future without requiring any backups. However, the sender is free to alter the message
+    /// contents (possibly resulting in an undecryptable message, or one with incorrect content), including making it
+    /// so that the recipient cannot find it.
+    ///
+    /// An undecryptable or otherwise invalid note or event message will however simply be ignored by the recipient,
+    /// who can always validate the existence of the note or event on-chain.
+    ///
+    /// These guarantees make this delivery mechanism be quite similar to [`MessageDeliveryEnum::OFFCHAIN`], except the
+    /// sender does not need to establish an off-chain communication channel with the recipient, and neither party
+    /// needs to worry about backups.
+    ///
+    /// ## Costs
+    ///
+    /// Because the encrypted message is emitted on-chain as transaction private logs, this delivery option results in
+    /// transaction fees associated with DA gas. The length of the original message is irrelevant to this cost, since
+    /// all private logs are padded to the same length with random data to enhance privacy.
+    ///
+    /// However, no circuit gates are introduced when the message is encrypted. Therefore, on-chain unconstrained
+    /// messages do not affect proving time at all.
+    ///
+    /// ## Privacy
+    ///
+    /// No information is revealed on-chain about sender, recipient, or the message contents. The message itself
+    /// reveals no information about the sender or recipient, and requires knowledge of the recipient's private address
+    /// keys in order to obtain the plaintext.
+    ///
+    /// Delivering the message does produce on-chain information in the form of private logs, so transactions that
+    /// deliver many messages this way might be identifiable by the large number of logs.
+    ///
+    /// Identifying that a log corresponds to a message between a given sender and recipient requires, among other
+    /// things, knowledge of both of their addresses **and** either the sender's or recipient's private address key.
+    pub ONCHAIN_UNCONSTRAINED: u8,
 
-    /// 3. Offchain
-    /// - Uses unconstrained encryption with offchain delivery
-    /// - Lowest cost since no onchain storage is needed and short proving times since no constraints are used
-    ///   for encryption
-    /// - Suitable when recipients can verify message validity through other means
-    /// - Requires setting up custom infrastructure for handling offchain delivery (e.g. cloud storage)
-    /// - Example: A payment app where a merchant receives the message offchain and is willing to release the goods
-    ///   once he verifies that the payment is correct (i.e. can decrypt the message and verify that it contains
-    ///   a legitimate token note - note with note commitment in the note hash tree).
-    pub UNCONSTRAINED_OFFCHAIN: u8,
+    /// Delivers the message on-chain, guaranteeing the recipient will receive the correct content.
+    ///
+    /// >**WARNING**: this delivery mode is [currently NOT fully
+    /// constrained](https://github.com/AztecProtocol/aztec-packages/issues/14565). The log's tag is unconstrained,
+    /// meaning a malicious sender could manipulate it to prevent the recipient from  finding the message.
+    ///
+    /// ## Use Cases
+    ///
+    /// This delivery method is suitable for all use cases, since it always works as expected. It is however the most
+    /// costly method, and there are multiple scenarios where alternatives such as [`MessageDeliveryEnum::OFFCHAIN`] or
+    /// [`MessageDeliveryEnum::ONCHAIN_UNCONSTRAINED`] will suffice.
+    ///
+    /// If the sender cannot be relied on to correctly send the message to the recipient (e.g. because they have no
+    /// incentive to do so, such as when paying a fee to a protocol, creating the change note after spending a third
+    /// party's tokens, or updating the configuration of a shared system like a multisig) then this is the only
+    /// suitable delivery option.
+    ///
+    /// ## Guarantees
+    ///
+    /// The message will be stored on-chain in a private log, as part of the transaction's effects, and will be
+    /// retrievable in the future without requiring any backups. The ciphertext will be decryptable by the recipient
+    /// using their address private key and the ephemeral public key that accompanies the message.
+    ///
+    /// The log will be tagged in such a way that the recipient will be able to efficiently find it after querying for
+    /// handshakes.
+    ///
+    /// ## Costs
+    ///
+    /// Because the encrypted message is emitted on-chain as transaction private logs, this delivery option results in
+    /// transaction fees associated with DA gas. The length of the original message is irrelevant to this cost, since
+    /// all private logs are padded to the same length with random data to enhance privacy.
+    ///
+    /// Additionally, the constraining of the log's tag results in additional DA usage and hence transaction fees due
+    /// to the emission of nullifiers.
+    ///
+    /// Proving time is also increased as circuit gates are introduced to guarantee both the correct encryption of the
+    /// message, and selection of log tag.
+    ///
+    /// ## Privacy
+    ///
+    /// No information is revelead on-chain about sender, recipient, or the message contents. The message itself
+    /// reveals no information about the sender or recipient, and requires knowledge of the recipient's private address
+    /// keys in order to obtain the plaintext.
+    ///
+    /// Delivering the message does produce on-chain information in the form of private logs and nullifiers, so
+    /// transactions that deliver many messages this way might be identifiable by these markers.
+    ///
+    /// Identifying that a log corresponds to a message between a given sender and recipient requires, among other
+    /// things, knowledge of both of their addresses **and** either the sender's or recipient's private address key.
+    pub ONCHAIN_CONSTRAINED: u8,
 }
 
-pub global MessageDelivery: MessageDeliveryEnum = MessageDeliveryEnum {
-    CONSTRAINED_ONCHAIN: 1,
-    UNCONSTRAINED_ONCHAIN: 2,
-    UNCONSTRAINED_OFFCHAIN: 3,
-};
+/// Specifies how to deliver a message to a recipient.
+///
+/// All messages are delivered encrypted to their recipient's public address key, so no other account will be able to
+/// read their contents. This enum instead configures which **guarantees** exist regarding delivery.
+///
+/// There are two aspects to delivery guarantees:
+/// - the medium on which the message is sent (off-chain or on-chain)
+/// - whether the contract constrains the message to be constructed correctly
+///
+/// For scenarios where the sender is incentivized to deliver the message correctly, use
+/// [`MessageDeliveryEnum::OFFCHAIN`] (the cheapest delivery option, but requiring that sender and recipient can
+/// communicate off-chain) or [`MessageDeliveryEnum::ONCHAIN_UNCONSTRAINED`]. If the sender cannot be trusted to send
+/// the
+/// message to the recipient, use [`MessageDeliveryEnum::ONCHAIN_CONSTRAINED`].
+pub global MessageDelivery: MessageDeliveryEnum =
+    MessageDeliveryEnum { OFFCHAIN: 1, ONCHAIN_UNCONSTRAINED: 2, ONCHAIN_CONSTRAINED: 3 };
+
+/// Performs private delivery of a message to `recipient` according to `delivery_mode`.
+///
+/// The message is encoded into plaintext and then encrypted for `recipient`. This function takes a _function_ that
+/// returns the plaintext instead of taking the plaintext directly in order to not waste constraints encoding the
+/// message in scenarios where the plaintext will be encrypted with unconstrained encryption.
+///
+/// `maybe_note_hash_counter` is only relevant for on-chain delivery modes (i.e. via protocol logs): if a newly created
+/// note hash's side effect counter is passed, then the log will be squashed alongside the note should its nullifier be
+/// emitted in the current transaction. This is typically only used for note messages: since the note will not actually
+/// be created, there is no point in delivering the message.
+///
+/// `delivery_mode` must be one of [`MessageDeliveryEnum`].
+pub(crate) fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
+    context: &mut PrivateContext,
+    encode_into_message_plaintext: fn[Env]() -> [Field; MESSAGE_PLAINTEXT_LEN],
+    maybe_note_hash_counter: Option<u32>,
+    recipient: AztecAddress,
+    delivery_mode: u8,
+) {
+    // This function relies on `delivery_mode` being a constant in order to reduce circuit constraints when
+    // unconstrained usage is requested. If `delivery_mode` were a runtime value the compiler would be unable to
+    // perform dead-code elimination.
+    assert_constant(delivery_mode);
+
+    // The following maps out the 3 dimensions across which we configure message delivery.
+    let constrained_encryption = delivery_mode == MessageDelivery.ONCHAIN_UNCONSTRAINED;
+    let deliver_as_offchain_message = delivery_mode == MessageDelivery.OFFCHAIN;
+    // TODO(#14565): Add constrained tagging
+    let _constrained_tagging = delivery_mode == MessageDelivery.ONCHAIN_CONSTRAINED;
+
+    let ciphertext = remove_constraints_if(
+        !constrained_encryption,
+        || AES128::encrypt(encode_into_message_plaintext(), recipient),
+    );
+
+    if deliver_as_offchain_message {
+        deliver_offchain_message(ciphertext, recipient);
+    } else {
+        // Safety: Currently unsafe. See description of ONCHAIN_CONSTRAINED in MessageDeliveryEnum. TODO(#14565):
+        // Implement proper constrained tag prefixing to make this truly ONCHAIN_CONSTRAINED
+        let log_content = prefix_with_tag(ciphertext, recipient);
+
+        // We forbid this value not being constant to avoid predicating the context calls below, which might result in
+        // the context's arrays having unknown compile time write indices and hence dramatically increasing constraints
+        // when accessing them. In practice this restriction is not a problem as we always know at compile time whether
+        // we're emitting a note or non-note message.
+        assert_constant(maybe_note_hash_counter.is_some());
+
+        if maybe_note_hash_counter.is_some() {
+            // We associate the log with the note's side effect counter, so that if the note ends up being squashed in
+            // the current transaction, the log will be removed as well.
+            //
+            // Note that the log always has the same length regardless of `MESSAGE_PLAINTEXT_LEN`, because all message
+            // ciphertexts also have the same length. This prevents accidental privacy leakage via the log length.
+            context.emit_raw_note_log(log_content, log_content.len(), maybe_note_hash_counter.unwrap());
+        } else {
+            context.emit_private_log(log_content, log_content.len());
+        }
+    }
+}

@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { strict as assert } from 'assert';
 
@@ -70,7 +70,7 @@ export enum Opcode {
   EMITNULLIFIER,
   L1TOL2MSGEXISTS,
   GETCONTRACTINSTANCE,
-  EMITUNENCRYPTEDLOG,
+  EMITPUBLICLOG,
   SENDL2TOL1MSG,
   // External calls
   CALL,

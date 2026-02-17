@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Sergei], commit: 777717f6af324188ecd6bb68c3c86ee7befef94d}
+// external_1:  { status: Complete, auditors: [@ed25519 (Spearbit)], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "./field_utils.hpp"
@@ -11,10 +11,10 @@
 namespace bb::stdlib {
 
 template <typename Builder>
-void validate_split_in_field(const field_t<Builder>& lo,
-                             const field_t<Builder>& hi,
-                             const size_t lo_bits,
-                             const uint256_t& field_modulus)
+void validate_split_in_field_unsafe(const field_t<Builder>& lo,
+                                    const field_t<Builder>& hi,
+                                    const size_t lo_bits,
+                                    const uint256_t& field_modulus)
 {
     const size_t hi_bits = static_cast<size_t>(field_modulus.get_msb()) + 1 - lo_bits;
 
@@ -22,24 +22,35 @@ void validate_split_in_field(const field_t<Builder>& lo,
     const uint256_t r_lo = field_modulus.slice(0, lo_bits);
     const uint256_t r_hi = field_modulus.slice(lo_bits, field_modulus.get_msb() + 1);
 
-    // Check if we need to borrow
-    bool need_borrow = uint256_t(lo.get_value()) > r_lo;
-    field_t<Builder> borrow =
-        lo.is_constant()
-            ? need_borrow
-            : field_t<Builder>::from_witness(lo.get_context(), typename field_t<Builder>::native(need_borrow));
+    // Algorithm: Validate lo + hi * 2^lo_bits < field_modulus using borrow logic
+    //
+    // We want: value < modulus, i.e., value <= modulus - 1
+    // We compute: hi_diff = r_hi - hi - borrow, lo_diff = (r_lo - 1) - lo + borrow * 2^lo_bits
+    // Both must be in range [0, 2^{*_bits}) for the check to pass.
+    //
+    //   - If lo <= r_lo - 1: no borrow needed
+    //   - If lo > r_lo - 1 (i.e., lo >= r_lo): set borrow=1, which reduces the allowed hi value by 1
+    bool need_borrow = uint256_t(lo.get_value()) > r_lo - 1;
 
-    // directly call `create_new_range_constraint` to avoid creating an arithmetic gate
-    if (!lo.is_constant()) {
+    // If both lo and hi are constant, the validation is straightforward
+    const bool both_constant = lo.is_constant() && hi.is_constant();
+    Builder* ctx = validate_context(lo.get_context(), hi.get_context());
+
+    field_t<Builder> borrow = both_constant
+                                  ? need_borrow
+                                  : field_t<Builder>::from_witness(ctx, typename field_t<Builder>::native(need_borrow));
+
+    // Constrain borrow to be boolean (0 or 1) unless both inputs are constant.
+    if (!both_constant) {
         // We need to manually propagate the origin tag
-        borrow.set_origin_tag(lo.get_origin_tag());
-        lo.get_context()->create_new_range_constraint(borrow.get_witness_index(), 1, "borrow");
+        borrow.set_origin_tag(lo.is_constant() ? hi.get_origin_tag() : lo.get_origin_tag());
+        ctx->create_small_range_constraint(borrow.get_witness_index(), 1, "borrow");
     }
 
     // Hi range check = r_hi - hi - borrow
-    // Lo range check = r_lo - lo + borrow * 2^lo_bits
+    // Lo range check = (r_lo - 1) - lo + borrow * 2^lo_bits
     field_t<Builder> hi_diff = (-hi + r_hi) - borrow;
-    field_t<Builder> lo_diff = (-lo + r_lo) + (borrow * (uint256_t(1) << lo_bits));
+    field_t<Builder> lo_diff = (-lo + (r_lo - fr(1))) + (borrow * (uint256_t(1) << lo_bits));
 
     hi_diff.create_range_constraint(hi_bits);
     lo_diff.create_range_constraint(lo_bits);
@@ -79,13 +90,14 @@ std::pair<field_t<Builder>, field_t<Builder>> split_unique(const field_t<Builder
     hi.set_origin_tag(field.get_origin_tag());
 
     // Component 2: Field validation against bn254 scalar field modulus
-    validate_split_in_field(lo, hi, lo_bits, native::modulus);
+    // Note: We use _unsafe variant because Component 3 applies range constraints (unless explicitly skipped). When
+    // range constraints are skipped, caller must ensure they are applied elsewhere.
+    validate_split_in_field_unsafe(lo, hi, lo_bits, native::modulus);
 
     // Component 3: Range constraints (unless skipped)
     if (!skip_range_constraints) {
         lo.create_range_constraint(lo_bits);
-        // For bn254 scalar field, hi_bits = 254 - lo_bits
-        const size_t hi_bits = 254 - lo_bits;
+        const size_t hi_bits = max_bits - lo_bits;
         hi.create_range_constraint(hi_bits);
     }
 
@@ -106,15 +118,15 @@ template std::pair<field_t<bb::UltraCircuitBuilder>, field_t<bb::UltraCircuitBui
 template std::pair<field_t<bb::MegaCircuitBuilder>, field_t<bb::MegaCircuitBuilder>> split_unique(
     const field_t<bb::MegaCircuitBuilder>& field, const size_t lo_bits, const bool skip_range_constraints);
 
-// Explicit instantiations for validate_split_in_field
-template void validate_split_in_field(const field_t<bb::UltraCircuitBuilder>& lo,
-                                      const field_t<bb::UltraCircuitBuilder>& hi,
-                                      const size_t lo_bits,
-                                      const uint256_t& field_modulus);
-template void validate_split_in_field(const field_t<bb::MegaCircuitBuilder>& lo,
-                                      const field_t<bb::MegaCircuitBuilder>& hi,
-                                      const size_t lo_bits,
-                                      const uint256_t& field_modulus);
+// Explicit instantiations for validate_split_in_field_unsafe
+template void validate_split_in_field_unsafe(const field_t<bb::UltraCircuitBuilder>& lo,
+                                             const field_t<bb::UltraCircuitBuilder>& hi,
+                                             const size_t lo_bits,
+                                             const uint256_t& field_modulus);
+template void validate_split_in_field_unsafe(const field_t<bb::MegaCircuitBuilder>& lo,
+                                             const field_t<bb::MegaCircuitBuilder>& hi,
+                                             const size_t lo_bits,
+                                             const uint256_t& field_modulus);
 
 // Explicit instantiations for mark_witness_as_used
 template void mark_witness_as_used(const field_t<bb::UltraCircuitBuilder>& field);

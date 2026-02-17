@@ -5,12 +5,28 @@ pragma solidity >=0.8.27;
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
+// Represents a value denominated in ETH (wei).
 type EthValue is uint256;
 
+// Represents a value denominated in the fee asset (e.g., AZTEC token).
 type FeeAssetValue is uint256;
 
-// Precision of 1e9
-type FeeAssetPerEthE9 is uint256;
+/*
+ * ETH per fee asset price with 1e12 precision.
+ * Higher stored value = more expensive fee asset (more ETH needed per 1 fee asset).
+ * actual_eth_per_fee_asset = stored_value / ETH_PER_FEE_ASSET_PRECISION (decimals)
+ *
+ * We use 1e12 precision because:
+ * 1. The value must fit in 48 bits when compressed in FeeHeader (max ~2.8e14)
+ * 2. Higher precision allows representing very low prices (down to 1e-10 ETH)
+ * 3. Reduces rounding errors during ETH <-> FeeAsset conversions
+ *
+ * See FeeLib.sol for the MIN/MAX bounds and detailed documentation.
+ */
+type EthPerFeeAssetE12 is uint256;
+
+// Precision multiplier for ETH per fee asset
+uint256 constant ETH_PER_FEE_ASSET_PRECISION = 1e12;
 
 function addEthValue(EthValue _a, EthValue _b) pure returns (EthValue) {
   return EthValue.wrap(EthValue.unwrap(_a) + EthValue.unwrap(_b));
@@ -22,7 +38,7 @@ function subEthValue(EthValue _a, EthValue _b) pure returns (EthValue) {
 
 using {addEthValue as +, subEthValue as -} for EthValue global;
 
-// 64 bit manaTarget, 128 bit congestionUpdateFraction, 64 bit provingCostPerMana
+// 32 bit manaTarget, 128 bit congestionUpdateFraction, 64 bit provingCostPerMana
 type CompressedFeeConfig is uint256;
 
 struct FeeConfig {
@@ -31,18 +47,41 @@ struct FeeConfig {
   EthValue provingCostPerMana;
 }
 
+/// @notice Library for converting between ETH and fee asset values using the price oracle.
 library PriceLib {
-  function toEth(FeeAssetValue _feeAssetValue, FeeAssetPerEthE9 _feeAssetPerEth) internal pure returns (EthValue) {
+  /**
+   * @notice Converts a fee asset amount to its ETH equivalent.
+   * @dev ethValue = feeAssetAmount * ethPerFeeAsset / precision
+   * @param _feeAssetValue The amount in fee asset units
+   * @param _ethPerFeeAsset The current price (ETH per fee asset with 1e12 precision)
+   * @return The equivalent value in ETH (wei), rounded up
+   */
+  function toEth(FeeAssetValue _feeAssetValue, EthPerFeeAssetE12 _ethPerFeeAsset) internal pure returns (EthValue) {
     return EthValue.wrap(
       Math.mulDiv(
-        FeeAssetValue.unwrap(_feeAssetValue), 1e9, FeeAssetPerEthE9.unwrap(_feeAssetPerEth), Math.Rounding.Ceil
+        FeeAssetValue.unwrap(_feeAssetValue),
+        EthPerFeeAssetE12.unwrap(_ethPerFeeAsset),
+        ETH_PER_FEE_ASSET_PRECISION,
+        Math.Rounding.Ceil
       )
     );
   }
 
-  function toFeeAsset(EthValue _ethValue, FeeAssetPerEthE9 _feeAssetPerEth) internal pure returns (FeeAssetValue) {
+  /**
+   * @notice Converts an ETH amount to its fee asset equivalent.
+   * @dev feeAssetAmount = ethValue * precision / ethPerFeeAsset
+   * @param _ethValue The amount in ETH (wei)
+   * @param _ethPerFeeAsset The current price (ETH per fee asset with 1e12 precision)
+   * @return The equivalent value in fee asset units, rounded up
+   */
+  function toFeeAsset(EthValue _ethValue, EthPerFeeAssetE12 _ethPerFeeAsset) internal pure returns (FeeAssetValue) {
     return FeeAssetValue.wrap(
-      Math.mulDiv(EthValue.unwrap(_ethValue), FeeAssetPerEthE9.unwrap(_feeAssetPerEth), 1e9, Math.Rounding.Ceil)
+      Math.mulDiv(
+        EthValue.unwrap(_ethValue),
+        ETH_PER_FEE_ASSET_PRECISION,
+        EthPerFeeAssetE12.unwrap(_ethPerFeeAsset),
+        Math.Rounding.Ceil
+      )
     );
   }
 }
@@ -50,11 +89,12 @@ library PriceLib {
 library FeeConfigLib {
   using SafeCast for uint256;
 
+  uint256 private constant MASK_32_BITS = 0xFFFFFFFF;
   uint256 private constant MASK_64_BITS = 0xFFFFFFFFFFFFFFFF;
   uint256 private constant MASK_128_BITS = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
 
   function getManaTarget(CompressedFeeConfig _compressedFeeConfig) internal pure returns (uint256) {
-    return (CompressedFeeConfig.unwrap(_compressedFeeConfig) >> 192) & MASK_64_BITS;
+    return (CompressedFeeConfig.unwrap(_compressedFeeConfig) >> 192) & MASK_32_BITS;
   }
 
   function getCongestionUpdateFraction(CompressedFeeConfig _compressedFeeConfig) internal pure returns (uint256) {
@@ -69,7 +109,7 @@ library FeeConfigLib {
     uint256 value = 0;
     value |= uint256(EthValue.unwrap(_config.provingCostPerMana).toUint64());
     value |= uint256(_config.congestionUpdateFraction.toUint128()) << 64;
-    value |= uint256(_config.manaTarget.toUint64()) << 192;
+    value |= uint256(_config.manaTarget.toUint32()) << 192;
 
     return CompressedFeeConfig.wrap(value);
   }

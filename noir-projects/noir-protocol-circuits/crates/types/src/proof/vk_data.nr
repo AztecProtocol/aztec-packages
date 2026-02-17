@@ -1,5 +1,7 @@
 use crate::{
-    constants::VK_TREE_HEIGHT, merkle_tree::check_membership, traits::Empty,
+    constants::VK_TREE_HEIGHT,
+    merkle_tree::{check_membership, MembershipWitness},
+    traits::Empty,
     utils::arrays::find_first_index,
 };
 use super::verification_key::VerificationKey;
@@ -34,8 +36,10 @@ impl<let VK_LENGTH: u32> VkData<VK_LENGTH> {
         assert(
             check_membership(
                 self.vk.hash,
-                self.leaf_index as Field,
-                self.sibling_path,
+                MembershipWitness {
+                    leaf_index: self.leaf_index as Field,
+                    sibling_path: self.sibling_path,
+                },
                 vk_tree_root,
             ),
             "Membership check failed: vk hash not found in vk tree",

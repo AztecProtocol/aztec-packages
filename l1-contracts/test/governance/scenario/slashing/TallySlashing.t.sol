@@ -121,6 +121,12 @@ contract SlashingTest is TestBase {
     // Cast votes in multiple slots to reach quorum
     uint256 quorum = slashingProposer.QUORUM();
     for (uint256 i = 0; i < quorum; i++) {
+      // Setup epoch if we've crossed into a new one to avoid expensive sampling
+      Epoch currentEpoch = rollup.getCurrentEpoch();
+      if (currentEpoch >= Epoch.wrap(rollup.getLagInEpochsForValidatorSet())) {
+        rollup.setupEpoch();
+      }
+
       address proposer = rollup.getCurrentProposer();
       uint256 proposerKey = _getProposerKey();
 
@@ -192,8 +198,9 @@ contract SlashingTest is TestBase {
     // We jump forward enough epochs so that when we vote for slashing epochs from the past,
     // those epochs actually have validators in them. With SLASH_OFFSET_IN_ROUNDS = 2,
     // we need to be far enough ahead that the epochs we're slashing had validators.
+    uint256 lagInEpochsForValidatorSet = rollup.getLagInEpochsForValidatorSet();
     while (rollup.getCurrentEpoch() < Epoch.wrap(INITIAL_EPOCH)) {
-      if (rollup.getCurrentEpoch() > Epoch.wrap(1)) rollup.setupEpoch();
+      if (rollup.getCurrentEpoch() >= Epoch.wrap(lagInEpochsForValidatorSet)) rollup.setupEpoch();
       timeCheater.cheat__progressEpoch();
     }
 

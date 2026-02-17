@@ -1,4 +1,4 @@
-import type { ProofData } from "@aztec/bb.js";
+import { Barretenberg, type ProofData } from "@aztec/bb.js";
 import { pino } from "pino";
 import { unpack } from "msgpackr";
 import { ungzip } from "pako";
@@ -6,6 +6,15 @@ import { ungzip } from "pako";
 const logger = pino({
   name: "browser-test-app",
 });
+
+// Create a logger wrapper for bb.js internal logging
+// Note: We log to both pino (for structured logging) and console.log (for CI parsing)
+// because bb.js internal logs include memory stats in the format "(mem: X.XMiB)"
+// that the CI benchmark script needs to parse from plain-text console output
+const bbLogger = (msg: string) => {
+  logger.debug({ source: 'bb.js' }, msg);
+  console.log(msg);
+};
 
 function installUltraHonkGlobals() {
   async function prove(
@@ -16,16 +25,14 @@ function installUltraHonkGlobals() {
     const { UltraHonkBackend } = await import("@aztec/bb.js");
 
     logger.debug("starting test...");
-    const backend = new UltraHonkBackend(bytecode, {
-      threads,
-      logger: console.log,
-    });
+    const bb = await Barretenberg.new({ threads, logger: bbLogger });
+    const backend = new UltraHonkBackend(bytecode, bb);
     const proofData = await backend.generateProof(witness);
 
     logger.debug(`getting the verification key...`);
     const verificationKey = await backend.getVerificationKey();
     logger.debug(`destroying the backend...`);
-    await backend.destroy();
+    await bb.destroy();
     return { proofData, verificationKey };
   }
 
@@ -33,13 +40,15 @@ function installUltraHonkGlobals() {
     const { UltraHonkVerifierBackend } = await import("@aztec/bb.js");
 
     logger.debug(`verifying...`);
-    const backend = new UltraHonkVerifierBackend();
-    const verified = await backend.verifyProof(
-      {...proofData, verificationKey}
-    );
+    const bb = await Barretenberg.new({ threads: 1, logger: bbLogger });
+    const backend = new UltraHonkVerifierBackend(bb);
+    const verified = await backend.verifyProof({
+      ...proofData,
+      verificationKey,
+    });
     logger.debug(`verified: ${verified}`);
 
-    await backend.destroy();
+    await bb.destroy();
 
     logger.debug("test complete.");
     return verified;
@@ -59,39 +68,40 @@ function installChonkGlobal() {
   }
 
   async function processChonkInputs(
-    ivcInputsBuf: Uint8Array,
-  ): Promise<[Uint8Array[], Uint8Array[], Uint8Array[]]> {
+    ivcInputsBuf: Uint8Array
+  ): Promise<[Uint8Array[], Uint8Array[], Uint8Array[], string[]]> {
     const acirBufs: Uint8Array[] = [];
     const vkBufs: Uint8Array[] = [];
     const witnessBufs: Uint8Array[] = [];
+    const names: string[] = [];
     // Unpack the msgpack data into the format AztecClientBackend expects
     const steps: PrivateExecutionStepRaw[] = unpack(ivcInputsBuf);
     for (const step of steps) {
       acirBufs.push(ungzip(step.bytecode));
       vkBufs.push(step.vk);
       witnessBufs.push(ungzip(step.witness));
+      names.push(step.functionName);
     }
-    return [acirBufs, witnessBufs, vkBufs];
+    return [acirBufs, witnessBufs, vkBufs, names];
   }
 
   async function proveChonk(
     ivcInputsBuf: Uint8Array,
-    threads?: number,
+    threads?: number
   ): Promise<{ proof: Uint8Array; verificationKey: Uint8Array }> {
     const { AztecClientBackend } = await import("@aztec/bb.js");
 
-    const [acirBufs, witnessBufs, vkBufs] =
-      await processChonkInputs(ivcInputsBuf);
+    const [acirBufs, witnessBufs, vkBufs, circuitNames] = await processChonkInputs(
+      ivcInputsBuf
+    );
     logger.debug("starting test...");
-    const backend = new AztecClientBackend(acirBufs, {
-      threads,
-      logger: console.log,
-    });
+    const bb = await Barretenberg.new({ threads, logger: bbLogger });
+    const backend = new AztecClientBackend(acirBufs, bb, circuitNames);
     const [_, proof, verificationKey] = await backend.prove(
       witnessBufs,
       vkBufs
     );
-    await backend.destroy();
+    await bb.destroy();
     return { proof, verificationKey };
   }
 
@@ -99,6 +109,13 @@ function installChonkGlobal() {
 }
 
 installChonkGlobal();
+
+// Add test function to verify bbLogger works
+(window as any).testBbLogger = async function() {
+  const bb = await Barretenberg.new({ threads: 1, logger: bbLogger });
+  await bb.destroy();
+  return true;
+};
 
 document.addEventListener("DOMContentLoaded", function () {
   const ultraHonkButton = document.createElement("button");
@@ -127,7 +144,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const { proofData, verificationKey } = await (window as any).prove(
       acir,
-      witness,
+      witness
     );
     await (window as any).verify(proofData, verificationKey);
   });
@@ -137,9 +154,9 @@ document.addEventListener("DOMContentLoaded", function () {
   chonkButton.innerText = "Run Chonk Proving";
   chonkButton.addEventListener("click", async () => {
     const ivcInputsFile = await new Promise<File>((resolve) => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.msgpack';
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".msgpack";
       input.onchange = (e) => resolve((e.target as HTMLInputElement).files![0]);
       input.click();
     });

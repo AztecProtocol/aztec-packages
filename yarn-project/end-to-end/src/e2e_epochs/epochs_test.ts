@@ -6,18 +6,23 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { MerkleTreeId } from '@aztec/aztec.js/trees';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { EpochCache } from '@aztec/epoch-cache';
-import { DefaultL1ContractsConfig, type ExtendedViemWalletClient, createExtendedL1Client } from '@aztec/ethereum';
+import { createExtendedL1Client } from '@aztec/ethereum/client';
+import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp, withDelayer } from '@aztec/ethereum/test';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
+import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
-import { randomBytes } from '@aztec/foundation/crypto';
-import { withLogNameSuffix } from '@aztec/foundation/log';
+import { randomBytes } from '@aztec/foundation/crypto/random';
+import { withLoggerBindings } from '@aztec/foundation/log/server';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import { ProverNode, type ProverNodeConfig, ProverNodePublisher } from '@aztec/prover-node';
 import type { TestProverNode } from '@aztec/prover-node/test';
+import type { PXEConfig } from '@aztec/pxe/config';
 import {
   type SequencerClient,
   type SequencerEvents,
@@ -25,7 +30,7 @@ import {
   SequencerState,
 } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
-import { EthAddress, type L2BlockNumber } from '@aztec/stdlib/block';
+import { type BlockParameter, EthAddress } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 
@@ -46,7 +51,11 @@ export const WORLD_STATE_BLOCK_CHECK_INTERVAL = 50;
 export const ARCHIVER_POLL_INTERVAL = 50;
 export const DEFAULT_L1_BLOCK_TIME = process.env.CI ? 12 : 8;
 
-export type EpochsTestOpts = Partial<SetupOptions> & { numberOfAccounts?: number };
+export type EpochsTestOpts = Partial<SetupOptions> & {
+  numberOfAccounts?: number;
+  pxeOpts?: Partial<PXEConfig>;
+  aztecSlotDurationInL1Slots?: number;
+};
 
 export type TrackedSequencerEvent = {
   [K in keyof SequencerEvents]: Parameters<SequencerEvents[K]>[0] & {
@@ -91,46 +100,63 @@ export class EpochsTestContext {
       ? parseInt(process.env.L1_BLOCK_TIME)
       : DEFAULT_L1_BLOCK_TIME;
     const ethereumSlotDuration = opts.ethereumSlotDuration ?? envEthereumSlotDuration;
-    const aztecSlotDuration = opts.aztecSlotDuration ?? ethereumSlotDuration * 2;
+    const aztecSlotDuration = opts.aztecSlotDuration ?? (opts.aztecSlotDurationInL1Slots ?? 2) * ethereumSlotDuration;
     const aztecEpochDuration = opts.aztecEpochDuration ?? 6;
     const aztecProofSubmissionEpochs = opts.aztecProofSubmissionEpochs ?? 1;
-    return { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionEpochs };
+    const l1PublishingTime = opts.l1PublishingTime ?? 1;
+    return {
+      l1PublishingTime,
+      ethereumSlotDuration,
+      aztecSlotDuration,
+      aztecEpochDuration,
+      aztecProofSubmissionEpochs,
+    };
   }
 
   public async setup(opts: EpochsTestOpts = {}) {
-    const { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionEpochs } =
-      EpochsTestContext.getSlotDurations(opts);
+    const {
+      ethereumSlotDuration,
+      aztecSlotDuration,
+      aztecEpochDuration,
+      aztecProofSubmissionEpochs,
+      l1PublishingTime,
+    } = EpochsTestContext.getSlotDurations(opts);
 
     this.L1_BLOCK_TIME_IN_S = ethereumSlotDuration;
     this.L2_SLOT_DURATION_IN_S = aztecSlotDuration;
 
     // Set up system without any account nor protocol contracts
     // and with faster block times and shorter epochs.
-    const context = await setup(opts.numberOfAccounts ?? 0, {
-      automineL1Setup: true,
-      checkIntervalMs: 50,
-      archiverPollingIntervalMS: ARCHIVER_POLL_INTERVAL,
-      worldStateBlockCheckIntervalMS: WORLD_STATE_BLOCK_CHECK_INTERVAL,
-      skipProtocolContracts: true,
-      salt: 1,
-      aztecEpochDuration,
-      aztecSlotDuration,
-      ethereumSlotDuration,
-      aztecProofSubmissionEpochs,
-      aztecTargetCommitteeSize: opts.initialValidators?.length ?? 0,
-      minTxsPerBlock: 0,
-      realProofs: false,
-      startProverNode: true,
-      proverTestDelayMs: opts.proverTestDelayMs ?? 0,
-      // We use numeric incremental prover ids for simplicity, but we can switch to
-      // using the prover's eth address if the proverId is used for something in the rollup contract
-      // Use numeric EthAddress for deterministic prover id
-      proverId: EthAddress.fromNumber(1),
-      worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
-      exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
-      slasherFlavor: 'none',
-      ...opts,
-    });
+    const context = await setup(
+      opts.numberOfAccounts ?? 0,
+      {
+        automineL1Setup: true,
+        checkIntervalMs: 50,
+        archiverPollingIntervalMS: ARCHIVER_POLL_INTERVAL,
+        worldStateBlockCheckIntervalMS: WORLD_STATE_BLOCK_CHECK_INTERVAL,
+        aztecEpochDuration,
+        aztecSlotDuration,
+        ethereumSlotDuration,
+        aztecProofSubmissionEpochs,
+        aztecTargetCommitteeSize: opts.initialValidators?.length ?? 0,
+        minTxsPerBlock: 0,
+        realProofs: false,
+        startProverNode: true,
+        proverTestDelayMs: opts.proverTestDelayMs ?? 0,
+        // We use numeric incremental prover ids for simplicity, but we can switch to
+        // using the prover's eth address if the proverId is used for something in the rollup contract
+        // Use numeric EthAddress for deterministic prover id
+        proverId: EthAddress.fromNumber(1),
+        worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
+        exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
+        slasherFlavor: 'none',
+        l1PublishingTime,
+        ...opts,
+      },
+      // Use checkpointed chain tip for PXE by default to avoid issues with blocks being dropped due to pruned anchor blocks.
+      // Can be overridden via opts.pxeOpts.
+      { syncChainTip: 'checkpointed', ...opts.pxeOpts },
+    );
 
     this.context = context;
     this.proverNodes = context.proverNode ? [context.proverNode] : [];
@@ -168,6 +194,7 @@ export class EpochsTestContext {
       l1GenesisTime: await this.rollup.getL1GenesisTime(),
       ethereumSlotDuration,
       proofSubmissionEpochs: Number(await this.rollup.getProofSubmissionEpochs()),
+      targetCommitteeSize: await this.rollup.getTargetCommitteeSize(),
     };
 
     this.logger.info(
@@ -185,20 +212,29 @@ export class EpochsTestContext {
   public async createProverNode(opts: { dontStart?: boolean } & Partial<ProverNodeConfig> = {}) {
     this.logger.warn('Creating and syncing a simulated prover node...');
     const proverNodePrivateKey = this.getNextPrivateKey();
-    const suffix = (this.proverNodes.length + 1).toString();
-    const proverNode = await withLogNameSuffix(suffix, () =>
+    const proverIndex = this.proverNodes.length + 1;
+    const { mockGossipSubNetwork } = this.context;
+    const proverNode = await withLoggerBindings({ actor: `prover-${proverIndex}` }, () =>
       createAndSyncProverNode(
         proverNodePrivateKey,
-        { ...this.context.config },
+        {
+          ...this.context.config,
+          p2pEnabled: this.context.config.p2pEnabled || mockGossipSubNetwork !== undefined,
+        },
         {
           dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
-          proverId: EthAddress.fromNumber(parseInt(suffix, 10)),
+          proverId: EthAddress.fromNumber(proverIndex),
           dontStart: opts.dontStart,
           ...opts,
         },
         this.context.aztecNode,
-        undefined,
-        { dateProvider: this.context.dateProvider },
+        this.context.prefilledPublicData ?? [],
+        {
+          dateProvider: this.context.dateProvider,
+          p2pClientDeps: mockGossipSubNetwork
+            ? { p2pServiceFactory: getMockPubSubP2PServiceFactory(mockGossipSubNetwork) }
+            : undefined,
+        },
       ),
     );
     this.proverNodes.push(proverNode);
@@ -221,12 +257,13 @@ export class EpochsTestContext {
   private async createNode(
     opts: Partial<AztecNodeConfig> & { txDelayerMaxInclusionTimeIntoSlot?: number; dontStartSequencer?: boolean } = {},
   ) {
-    const suffix = (this.nodes.length + 1).toString();
+    const nodeIndex = this.nodes.length + 1;
+    const actorPrefix = opts.disableValidator ? 'node' : 'validator';
     const { mockGossipSubNetwork } = this.context;
     const resolvedConfig = { ...this.context.config, ...opts };
     const p2pEnabled = resolvedConfig.p2pEnabled || mockGossipSubNetwork !== undefined;
     const p2pIp = resolvedConfig.p2pIp ?? (p2pEnabled ? '127.0.0.1' : undefined);
-    const node = await withLogNameSuffix(suffix, () =>
+    const node = await withLoggerBindings({ actor: `${actorPrefix}-${nodeIndex}` }, () =>
       AztecNodeService.createAndSync(
         {
           ...resolvedConfig,
@@ -279,7 +316,7 @@ export class EpochsTestContext {
 
   /** Waits until the epoch begins (ie until the immediately previous L1 block is mined). */
   public async waitUntilEpochStarts(epoch: number) {
-    const [start] = getTimestampRangeForEpoch(BigInt(epoch), this.constants);
+    const [start] = getTimestampRangeForEpoch(EpochNumber(epoch), this.constants);
     this.logger.info(`Waiting until L1 timestamp ${start} is reached as the start of epoch ${epoch}`);
     await waitUntilL1Timestamp(
       this.l1Client,
@@ -290,30 +327,30 @@ export class EpochsTestContext {
     return start;
   }
 
-  /** Waits until the given L2 block number is mined. */
-  public async waitUntilL2BlockNumber(target: number, timeout = 60) {
+  /** Waits until the given checkpoint number is mined. */
+  public async waitUntilCheckpointNumber(target: CheckpointNumber, timeout = 120) {
     await retryUntil(
-      () => Promise.resolve(target <= this.monitor.l2BlockNumber),
-      `Wait until L2 block ${target}`,
+      () => Promise.resolve(target <= this.monitor.checkpointNumber),
+      `Wait until checkpoint ${target}`,
       timeout,
       0.1,
     );
   }
 
-  /** Waits until the given L2 block number is marked as proven. */
-  public async waitUntilProvenL2BlockNumber(t: number, timeout = 60) {
+  /** Waits until the given checkpoint number is marked as proven. */
+  public async waitUntilProvenCheckpointNumber(target: CheckpointNumber, timeout = 120) {
     await retryUntil(
-      () => Promise.resolve(t <= this.monitor.l2ProvenBlockNumber),
-      `Wait proven L2 block ${t}`,
+      () => Promise.resolve(target <= this.monitor.provenCheckpointNumber),
+      `Wait proven checkpoint ${target}`,
       timeout,
       0.1,
     );
-    return this.monitor.l2ProvenBlockNumber;
+    return this.monitor.provenCheckpointNumber;
   }
 
   /** Waits until the last slot of the proof submission window for a given epoch. */
   public async waitUntilLastSlotOfProofSubmissionWindow(epochNumber: number | bigint) {
-    const deadline = getProofSubmissionDeadlineTimestamp(BigInt(epochNumber), this.constants);
+    const deadline = getProofSubmissionDeadlineTimestamp(EpochNumber.fromBigInt(BigInt(epochNumber)), this.constants);
     const oneSlotBefore = deadline - BigInt(this.constants.slotDuration);
     const date = new Date(Number(oneSlotBefore) * 1000);
     this.logger.info(`Waiting until last slot of submission window for epoch ${epochNumber} at ${date}`, {
@@ -323,7 +360,7 @@ export class EpochsTestContext {
   }
 
   /** Waits for the aztec node to sync to the target block number. */
-  public async waitForNodeToSync(blockNumber: number, type: 'proven' | 'finalized' | 'historic') {
+  public async waitForNodeToSync(blockNumber: BlockNumber, type: 'proven' | 'finalized' | 'historic') {
     const waitTime = ARCHIVER_POLL_INTERVAL + WORLD_STATE_BLOCK_CHECK_INTERVAL;
     let synched = false;
     while (!synched) {
@@ -334,7 +371,7 @@ export class EpochsTestContext {
       ]);
       this.logger.info(`Wait for node synch ${blockNumber} ${type}`, { blockNumber, type, syncState, tips });
       if (type === 'proven') {
-        synched = tips.proven.number >= blockNumber && syncState.latestBlockNumber >= blockNumber;
+        synched = tips.proven.block.number >= blockNumber && syncState.latestBlockNumber >= blockNumber;
       } else if (type === 'finalized') {
         synched = syncState.finalizedBlockNumber >= blockNumber;
       } else {
@@ -356,6 +393,19 @@ export class EpochsTestContext {
     return SpamContract.at(instance.address, wallet);
   }
 
+  /** Registers the TestContract on the given wallet. */
+  public async registerTestContract(wallet: Wallet, salt = Fr.ZERO) {
+    const instance = await getContractInstanceFromInstantiationParams(TestContract.artifact, {
+      constructorArgs: [],
+      constructorArtifact: undefined,
+      salt,
+      publicKeys: undefined,
+      deployer: undefined,
+    });
+    await wallet.registerContract(instance, TestContract.artifact);
+    return TestContract.at(instance.address, wallet);
+  }
+
   /** Creates an L1 client using a fresh account with funds from anvil, with a tx delayer already set up. */
   public async createL1Client() {
     const { client, delayer } = withDelayer(
@@ -364,7 +414,7 @@ export class EpochsTestContext {
         privateKeyToAccount(this.getNextPrivateKey()),
         this.l1Client.chain,
       ),
-      this.context.dateProvider!,
+      this.context.dateProvider,
       { ethereumSlotDuration: this.L1_BLOCK_TIME_IN_S },
     );
     expect(await client.getBalance({ address: client.account.address })).toBeGreaterThan(0n);
@@ -372,7 +422,7 @@ export class EpochsTestContext {
   }
 
   /** Verifies whether the given block number is found on the aztec node. */
-  public async verifyHistoricBlock(blockNumber: L2BlockNumber, expectedSuccess: boolean) {
+  public async verifyHistoricBlock(blockNumber: BlockParameter, expectedSuccess: boolean) {
     // We use `findLeavesIndexes` here, but could use any function that queries the world-state
     // at a particular block, so we know whether that historic block is available or has been
     // pruned. Note that `getBlock` would not work here, since it only hits the archiver.
@@ -390,11 +440,11 @@ export class EpochsTestContext {
     const stateChanges: TrackedSequencerEvent[] = [];
     const failEvents: TrackedSequencerEvent[] = [];
 
-    // Note we do not include the 'tx-count-check-failed' event here, since it is fine if we dont build
+    // Note we do not include the 'block-tx-count-check-failed' event here, since it is fine if we dont build
     // due to lack of txs available.
     const failEventsKeys: (keyof SequencerEvents)[] = [
       'block-build-failed',
-      'block-publish-failed',
+      'checkpoint-publish-failed',
       'proposer-rollup-check-failed',
     ];
 

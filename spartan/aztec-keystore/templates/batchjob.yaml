@@ -31,6 +31,7 @@ spec:
             - |
               set -euo pipefail
               NODES="{{ .Values.attesters.nodeCount }}"
+              HA_COUNT="{{ .Values.attesters.haCount }}"
               ATTESTERS_PER_NODE="{{ .Values.attesters.attestersPerNode }}"
               PUBLISHERS_PER_VALIDATOR_KEY="{{ .Values.publishers.perValidatorKey }}"
               ATTESTER_KEY_INDEX_START="{{ .Values.attesters.mnemonicStartIndex }}"
@@ -93,6 +94,38 @@ spec:
                 echo "Generated config for attesters on node $i"
               done
 
+              # Generate HA publisher keys (separate key ranges for each HA release)
+              PUBLISHERS_PER_STS=$((NODES * ATTESTERS_PER_NODE * PUBLISHERS_PER_VALIDATOR_KEY))
+
+              for ((ha=0;ha<HA_COUNT;ha++)); do
+                HA_PUB_KS_FILE=/shared/publishers/keystores/ha_${ha}.yaml
+                HA_PUB_ADDR_FILE=/shared/publishers/addresses/ha_${ha}
+
+                mkdir -p $(dirname $HA_PUB_KS_FILE) $(dirname $HA_PUB_ADDR_FILE)
+                truncate -s 0 "$HA_PUB_KS_FILE"
+                truncate -s 0 "$HA_PUB_ADDR_FILE"
+
+                # HA release N uses keys starting after primary + previous HA releases
+                # HA release 0 (first HA) starts at PUBLISHER_KEY_INDEX_START + PUBLISHERS_PER_STS
+                pub_base=$((PUBLISHER_KEY_INDEX_START + (ha + 1) * PUBLISHERS_PER_STS))
+
+                for ((p=0;p<PUBLISHERS_PER_STS;p++)); do
+                  pub_idx=$((pub_base + p))
+                  ppk="$(cast wallet private-key --mnemonic "$MNEMONIC" --mnemonic-index "$pub_idx")"
+                  paddr="$(cast wallet address --private-key $ppk)"
+
+                  # write keystore file-separated entries
+                  [[ $p -gt 0 ]] && echo '---' >> "$HA_PUB_KS_FILE"
+                  printf 'type: file-raw\nkeyType: SECP256K1\nprivateKey: %s\n' "$ppk" >> "$HA_PUB_KS_FILE"
+
+                  # write addresses CSV
+                  [[ $p -gt 0 ]] && printf ',' >> "$HA_PUB_ADDR_FILE"
+                  printf '%s' "$paddr" >> "$HA_PUB_ADDR_FILE"
+                done
+
+                echo "Generated config for HA release $ha publishers (indices $pub_base to $((pub_base + PUBLISHERS_PER_STS - 1)))"
+              done
+
               # Generate prover publisher keys
               for ((i=0;i<PROVER_COUNT;i++)); do
                 PROVER_PUB_KS_FILE=/shared/prover-publishers/keystores/prover_$i.yaml
@@ -151,8 +184,13 @@ spec:
               [ -f "$f" ] && cp "$f" "/shared/all-keystores/attester-$(basename $f)"
             done
 
-            # Copy and rename publisher keystores
+            # Copy and rename publisher keystores (primary)
             for f in /shared/publishers/keystores/node_*.yaml; do
+              [ -f "$f" ] && cp "$f" "/shared/all-keystores/publisher-$(basename $f)"
+            done
+
+            # Copy and rename HA publisher keystores
+            for f in /shared/publishers/keystores/ha_*.yaml; do
               [ -f "$f" ] && cp "$f" "/shared/all-keystores/publisher-$(basename $f)"
             done
 

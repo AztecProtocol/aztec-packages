@@ -22,15 +22,15 @@ TEST(InternalCallStack, TraceGenerationSnapshot)
     builder.process({ {
                           .context_id = 1,
                           .entered_call_id = 2,
-                          .id = 1,
-                          .return_id = 0,
+                          .call_id = 1,
+                          .return_call_id = 0,
                           .return_pc = 5,
                       },
                       {
                           .context_id = 1,
                           .entered_call_id = 3,
-                          .id = 2,
-                          .return_id = 1,
+                          .call_id = 2,
+                          .return_call_id = 1,
                           .return_pc = 10,
                       } },
                     trace);
@@ -38,15 +38,15 @@ TEST(InternalCallStack, TraceGenerationSnapshot)
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(
                     // Only one row.
-                    AllOf(ROW_FIELD_EQ(internal_call_stack_id, 1),
+                    AllOf(ROW_FIELD_EQ(internal_call_stack_call_id, 1),
                           ROW_FIELD_EQ(internal_call_stack_entered_call_id, 2),
-                          ROW_FIELD_EQ(internal_call_stack_id, 1),
-                          ROW_FIELD_EQ(internal_call_stack_return_id, 0),
+                          ROW_FIELD_EQ(internal_call_stack_call_id, 1),
+                          ROW_FIELD_EQ(internal_call_stack_return_call_id, 0),
                           ROW_FIELD_EQ(internal_call_stack_return_pc, 5)),
-                    AllOf(ROW_FIELD_EQ(internal_call_stack_id, 2),
+                    AllOf(ROW_FIELD_EQ(internal_call_stack_call_id, 2),
                           ROW_FIELD_EQ(internal_call_stack_entered_call_id, 3),
-                          ROW_FIELD_EQ(internal_call_stack_id, 2),
-                          ROW_FIELD_EQ(internal_call_stack_return_id, 1),
+                          ROW_FIELD_EQ(internal_call_stack_call_id, 2),
+                          ROW_FIELD_EQ(internal_call_stack_return_call_id, 1),
                           ROW_FIELD_EQ(internal_call_stack_return_pc, 10))));
 }
 

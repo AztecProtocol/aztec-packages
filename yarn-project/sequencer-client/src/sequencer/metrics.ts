@@ -1,5 +1,7 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
-import type { RollupContract } from '@aztec/ethereum';
+import type { RollupContract } from '@aztec/ethereum/contracts';
+import type { L1FeeAnalysisResult } from '@aztec/ethereum/l1-fee-analysis';
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import {
   Attributes,
   type Gauge,
@@ -9,13 +11,14 @@ import {
   type TelemetryClient,
   type Tracer,
   type UpDownCounter,
-  ValueType,
+  createUpDownCounterWithDefault,
 } from '@aztec/telemetry-client';
 
 import { type Hex, formatUnits } from 'viem';
 
 import type { SequencerState } from './utils.js';
 
+// TODO(palla/mbps): Review all metrics and add any missing ones per checkpoint
 export class SequencerMetrics {
   public readonly tracer: Tracer;
   private meter: Meter;
@@ -36,7 +39,30 @@ export class SequencerMetrics {
   private slots: UpDownCounter;
   private filledSlots: UpDownCounter;
 
-  private lastSeenSlot?: bigint;
+  private blockProposalFailed: UpDownCounter;
+  private blockProposalSuccess: UpDownCounter;
+  private blockProposalPrecheckFailed: UpDownCounter;
+  private checkpointSuccess: UpDownCounter;
+  private slashingAttempts: UpDownCounter;
+  private checkpointAttestationDelay: Histogram;
+
+  // Fisherman fee analysis metrics
+  private fishermanWouldBeIncluded: UpDownCounter;
+  private fishermanTimeBeforeBlock: Histogram;
+  private fishermanPendingBlobTxCount: Histogram;
+  private fishermanIncludedBlobTxCount: Histogram;
+  private fishermanPendingBlobCount: Histogram;
+  private fishermanIncludedBlobCount: Histogram;
+  private fishermanBlockBlobsFull: UpDownCounter;
+  private fishermanMaxBlobCapacity: Histogram;
+  private fishermanCalculatedPriorityFee: Histogram;
+  private fishermanPriorityFeeDelta: Histogram;
+  private fishermanEstimatedCost: Histogram;
+  private fishermanEstimatedOverpayment: Histogram;
+  private fishermanMinedBlobTxPriorityFee: Histogram;
+  private fishermanMinedBlobTxTotalCost: Histogram;
+
+  private lastSeenSlot?: SlotNumber;
 
   constructor(
     client: TelemetryClient,
@@ -46,81 +72,114 @@ export class SequencerMetrics {
     this.meter = client.getMeter(name);
     this.tracer = client.getTracer(name);
 
-    this.blockCounter = this.meter.createUpDownCounter(Metrics.SEQUENCER_BLOCK_COUNT);
-
-    this.blockBuildDuration = this.meter.createHistogram(Metrics.SEQUENCER_BLOCK_BUILD_DURATION, {
-      unit: 'ms',
-      description: 'Duration to build a block',
-      valueType: ValueType.INT,
+    this.blockCounter = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_BLOCK_COUNT, {
+      [Attributes.STATUS]: ['failed', 'built'],
     });
 
-    this.blockBuildManaPerSecond = this.meter.createGauge(Metrics.SEQUENCER_BLOCK_BUILD_MANA_PER_SECOND, {
-      unit: 'mana/s',
-      description: 'Mana per second when building a block',
-      valueType: ValueType.INT,
-    });
+    this.blockBuildDuration = this.meter.createHistogram(Metrics.SEQUENCER_BLOCK_BUILD_DURATION);
 
-    this.stateTransitionBufferDuration = this.meter.createHistogram(
-      Metrics.SEQUENCER_STATE_TRANSITION_BUFFER_DURATION,
-      {
-        unit: 'ms',
-        description:
-          'The time difference between when the sequencer needed to transition to a new state and when it actually did.',
-        valueType: ValueType.INT,
-      },
-    );
+    this.blockBuildManaPerSecond = this.meter.createGauge(Metrics.SEQUENCER_BLOCK_BUILD_MANA_PER_SECOND);
 
-    // Init gauges and counters
-    this.blockCounter.add(0, {
-      [Attributes.STATUS]: 'failed',
-    });
-    this.blockCounter.add(0, {
-      [Attributes.STATUS]: 'built',
-    });
+    this.stateTransitionBufferDuration = this.meter.createHistogram(Metrics.SEQUENCER_STATE_TRANSITION_BUFFER_DURATION);
 
-    this.rewards = this.meter.createGauge(Metrics.SEQUENCER_CURRENT_BLOCK_REWARDS, {
-      valueType: ValueType.DOUBLE,
-      description: 'The rewards earned',
-    });
+    this.checkpointAttestationDelay = this.meter.createHistogram(Metrics.SEQUENCER_CHECKPOINT_ATTESTATION_DELAY);
 
-    this.slots = this.meter.createUpDownCounter(Metrics.SEQUENCER_SLOT_COUNT, {
-      valueType: ValueType.INT,
-      description: 'The number of slots this sequencer was selected for',
-    });
+    this.rewards = this.meter.createGauge(Metrics.SEQUENCER_CURRENT_BLOCK_REWARDS);
+
+    this.slots = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_SLOT_COUNT);
 
     /**
      * NOTE: we do not track missed slots as a separate metric. That would be difficult to determine
      * Instead, use a computed metric, `slots - filledSlots` to get the number of slots a sequencer has missed.
      */
-    this.filledSlots = this.meter.createUpDownCounter(Metrics.SEQUENCER_FILLED_SLOT_COUNT, {
-      valueType: ValueType.INT,
-      description: 'The number of slots this sequencer has filled',
-    });
+    this.filledSlots = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_FILLED_SLOT_COUNT);
 
-    this.timeToCollectAttestations = this.meter.createGauge(Metrics.SEQUENCER_COLLECT_ATTESTATIONS_DURATION, {
-      description: 'The time spent collecting attestations from committee members',
-      unit: 'ms',
-      valueType: ValueType.INT,
-    });
+    this.timeToCollectAttestations = this.meter.createGauge(Metrics.SEQUENCER_COLLECT_ATTESTATIONS_DURATION);
 
-    this.allowanceToCollectAttestations = this.meter.createGauge(
-      Metrics.SEQUENCER_COLLECT_ATTESTATIONS_TIME_ALLOWANCE,
+    this.allowanceToCollectAttestations = this.meter.createGauge(Metrics.SEQUENCER_COLLECT_ATTESTATIONS_TIME_ALLOWANCE);
+
+    this.requiredAttestions = this.meter.createGauge(Metrics.SEQUENCER_REQUIRED_ATTESTATIONS_COUNT);
+
+    this.collectedAttestions = this.meter.createGauge(Metrics.SEQUENCER_COLLECTED_ATTESTATIONS_COUNT);
+
+    this.blockProposalFailed = createUpDownCounterWithDefault(
+      this.meter,
+      Metrics.SEQUENCER_BLOCK_PROPOSAL_FAILED_COUNT,
+    );
+
+    this.blockProposalSuccess = createUpDownCounterWithDefault(
+      this.meter,
+      Metrics.SEQUENCER_BLOCK_PROPOSAL_SUCCESS_COUNT,
+    );
+
+    this.checkpointSuccess = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_CHECKPOINT_SUCCESS_COUNT);
+
+    this.blockProposalPrecheckFailed = createUpDownCounterWithDefault(
+      this.meter,
+      Metrics.SEQUENCER_BLOCK_PROPOSAL_PRECHECK_FAILED_COUNT,
       {
-        description: 'Maximum amount of time to collect attestations',
-        unit: 'ms',
-        valueType: ValueType.INT,
+        [Attributes.ERROR_TYPE]: [
+          'slot_already_taken',
+          'rollup_contract_check_failed',
+          'slot_mismatch',
+          'block_number_mismatch',
+        ],
       },
     );
 
-    this.requiredAttestions = this.meter.createGauge(Metrics.SEQUENCER_REQUIRED_ATTESTATIONS_COUNT, {
-      valueType: ValueType.INT,
-      description: 'The minimum number of attestations required to publish a block',
-    });
+    this.slashingAttempts = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_SLASHING_ATTEMPTS_COUNT);
 
-    this.collectedAttestions = this.meter.createGauge(Metrics.SEQUENCER_COLLECTED_ATTESTATIONS_COUNT, {
-      valueType: ValueType.INT,
-      description: 'The minimum number of attestations required to publish a block',
-    });
+    // Fisherman fee analysis metrics
+    this.fishermanWouldBeIncluded = createUpDownCounterWithDefault(
+      this.meter,
+      Metrics.FISHERMAN_FEE_ANALYSIS_WOULD_BE_INCLUDED,
+      {
+        [Attributes.OK]: [true, false],
+        [Attributes.BLOCK_FULL]: ['true', 'false'],
+      },
+    );
+
+    this.fishermanTimeBeforeBlock = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_TIME_BEFORE_BLOCK);
+
+    this.fishermanPendingBlobTxCount = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_PENDING_BLOB_TX_COUNT);
+
+    this.fishermanIncludedBlobTxCount = this.meter.createHistogram(
+      Metrics.FISHERMAN_FEE_ANALYSIS_INCLUDED_BLOB_TX_COUNT,
+    );
+
+    this.fishermanCalculatedPriorityFee = this.meter.createHistogram(
+      Metrics.FISHERMAN_FEE_ANALYSIS_CALCULATED_PRIORITY_FEE,
+    );
+
+    this.fishermanPriorityFeeDelta = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_PRIORITY_FEE_DELTA);
+
+    this.fishermanEstimatedCost = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_ESTIMATED_COST);
+
+    this.fishermanEstimatedOverpayment = this.meter.createHistogram(
+      Metrics.FISHERMAN_FEE_ANALYSIS_ESTIMATED_OVERPAYMENT,
+    );
+
+    this.fishermanMinedBlobTxPriorityFee = this.meter.createHistogram(
+      Metrics.FISHERMAN_FEE_ANALYSIS_MINED_BLOB_TX_PRIORITY_FEE,
+    );
+
+    this.fishermanMinedBlobTxTotalCost = this.meter.createHistogram(
+      Metrics.FISHERMAN_FEE_ANALYSIS_MINED_BLOB_TX_TOTAL_COST,
+    );
+
+    this.fishermanPendingBlobCount = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_PENDING_BLOB_COUNT);
+
+    this.fishermanIncludedBlobCount = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_INCLUDED_BLOB_COUNT);
+
+    this.fishermanBlockBlobsFull = createUpDownCounterWithDefault(
+      this.meter,
+      Metrics.FISHERMAN_FEE_ANALYSIS_BLOCK_BLOBS_FULL,
+      {
+        [Attributes.OK]: [true, false],
+      },
+    );
+
+    this.fishermanMaxBlobCapacity = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_MAX_BLOB_CAPACITY);
   }
 
   public recordRequiredAttestations(requiredAttestationsCount: number, allowanceMs: number) {
@@ -130,6 +189,10 @@ export class SequencerMetrics {
     // reset
     this.collectedAttestions.record(0);
     this.timeToCollectAttestations.record(0);
+  }
+
+  public recordCheckpointAttestationDelay(duration: number) {
+    this.checkpointAttestationDelay.record(duration);
   }
 
   public recordCollectedAttestations(count: number, durationMs: number) {
@@ -157,7 +220,7 @@ export class SequencerMetrics {
     });
   }
 
-  incOpenSlot(slot: bigint, proposer: string) {
+  incOpenSlot(slot: SlotNumber, proposer: string) {
     // sequencer went through the loop a second time. Noop
     if (slot === this.lastSeenSlot) {
       return;
@@ -185,6 +248,152 @@ export class SequencerMetrics {
         });
       } catch {
         // no-op
+      }
+    }
+  }
+
+  recordCheckpointSuccess() {
+    this.checkpointSuccess.add(1);
+  }
+
+  recordBlockProposalFailed(reason?: string) {
+    this.blockProposalFailed.add(1, {
+      ...(reason && { [Attributes.ERROR_TYPE]: reason }),
+    });
+  }
+
+  recordBlockProposalSuccess() {
+    this.blockProposalSuccess.add(1);
+  }
+
+  recordBlockProposalPrecheckFailed(
+    checkType: 'slot_already_taken' | 'rollup_contract_check_failed' | 'slot_mismatch' | 'block_number_mismatch',
+  ) {
+    this.blockProposalPrecheckFailed.add(1, {
+      [Attributes.ERROR_TYPE]: checkType,
+    });
+  }
+
+  recordSlashingAttempt(actionCount: number) {
+    this.slashingAttempts.add(actionCount);
+  }
+
+  /**
+   * Records metrics for a completed fisherman fee analysis
+   * @param analysis - The completed fee analysis result
+   */
+  recordFishermanFeeAnalysis(analysis: L1FeeAnalysisResult) {
+    // In fisherman mode, we should always have strategy results
+    if (!analysis.computedPrices.strategyResults || analysis.computedPrices.strategyResults.length === 0) {
+      // This should never happen in fisherman mode - log an error
+      // We don't record metrics without strategy IDs as that defeats the purpose
+      throw new Error(
+        `No strategy results found in fisherman fee analysis ${analysis.id}. This indicates a bug in the fee analysis.`,
+      );
+    }
+
+    // Record metrics for each strategy separately
+    for (const strategyResult of analysis.computedPrices.strategyResults) {
+      const strategyAttributes = {
+        [Attributes.FISHERMAN_FEE_STRATEGY_ID]: strategyResult.strategyId,
+      };
+
+      // Record pending block snapshot data (once per strategy for comparison)
+      this.fishermanPendingBlobTxCount.record(analysis.pendingSnapshot.pendingBlobTxCount, strategyAttributes);
+      this.fishermanPendingBlobCount.record(analysis.pendingSnapshot.pendingBlobCount, strategyAttributes);
+
+      // Record mined block data if available
+      if (analysis.minedBlock) {
+        this.fishermanIncludedBlobTxCount.record(analysis.minedBlock.includedBlobTxCount, strategyAttributes);
+        this.fishermanIncludedBlobCount.record(analysis.minedBlock.includedBlobCount, strategyAttributes);
+
+        // Record actual fees from blob transactions in the mined block
+        for (const blobTx of analysis.minedBlock.includedBlobTxs) {
+          // Record priority fee per gas in Gwei
+          const priorityFeeGwei = Number(blobTx.maxPriorityFeePerGas) / 1e9;
+          this.fishermanMinedBlobTxPriorityFee.record(priorityFeeGwei, strategyAttributes);
+
+          // Calculate total cost in ETH
+          // Cost = (gas * (baseFee + priorityFee)) + (blobCount * blobGasPerBlob * blobBaseFee)
+          const baseFee = analysis.minedBlock.baseFeePerGas;
+          const effectiveGasPrice = baseFee + blobTx.maxPriorityFeePerGas;
+
+          // Calculate execution cost using actual gas limit from the transaction
+          const executionCost = blobTx.gas * effectiveGasPrice;
+
+          // Calculate blob cost using maxFeePerBlobGas * blobCount * GAS_PER_BLOB
+          const blobCost = blobTx.maxFeePerBlobGas * BigInt(blobTx.blobCount) * 131072n; // 128KB per blob
+
+          const totalCostWei = executionCost + blobCost;
+          const totalCostEth = Number(totalCostWei) / 1e18;
+
+          this.fishermanMinedBlobTxTotalCost.record(totalCostEth, strategyAttributes);
+        }
+      }
+
+      // Record the calculated priority fee for this strategy
+      const calculatedPriorityFeeGwei = Number(strategyResult.calculatedPriorityFee) / 1e9;
+      this.fishermanCalculatedPriorityFee.record(calculatedPriorityFeeGwei, strategyAttributes);
+
+      // Record analysis results if available
+      if (analysis.analysis) {
+        this.fishermanTimeBeforeBlock.record(Math.ceil(analysis.analysis.timeBeforeBlockMs), strategyAttributes);
+
+        // Record whether the block reached 100% blob capacity
+        if (analysis.analysis.blockBlobsFull) {
+          this.fishermanBlockBlobsFull.add(1, { ...strategyAttributes, [Attributes.OK]: true });
+        } else {
+          this.fishermanBlockBlobsFull.add(1, { ...strategyAttributes, [Attributes.OK]: false });
+        }
+
+        // Record the max blob capacity for this block
+        this.fishermanMaxBlobCapacity.record(analysis.analysis.maxBlobCapacity, strategyAttributes);
+
+        // Record strategy-specific inclusion result
+        if (strategyResult.wouldBeIncluded !== undefined) {
+          const inclusionAttributes = {
+            ...strategyAttributes,
+            [Attributes.BLOCK_FULL]: analysis.analysis.blockBlobsFull ? 'true' : 'false',
+          };
+
+          if (strategyResult.wouldBeIncluded) {
+            this.fishermanWouldBeIncluded.add(1, { ...inclusionAttributes, [Attributes.OK]: true });
+          } else {
+            this.fishermanWouldBeIncluded.add(1, {
+              ...inclusionAttributes,
+              [Attributes.OK]: false,
+              ...(strategyResult.exclusionReason && { [Attributes.ERROR_TYPE]: strategyResult.exclusionReason }),
+            });
+          }
+        }
+
+        // Record strategy-specific priority fee delta
+        if (strategyResult.priorityFeeDelta !== undefined) {
+          const priorityFeeDeltaGwei = Number(strategyResult.priorityFeeDelta) / 1e9;
+          const deltaAttributes = {
+            ...strategyAttributes,
+            [Attributes.BLOCK_FULL]: analysis.analysis.blockBlobsFull ? 'true' : 'false',
+          };
+          this.fishermanPriorityFeeDelta.record(priorityFeeDeltaGwei, deltaAttributes);
+        }
+
+        // Record estimated cost if available
+        if (strategyResult.estimatedCostEth !== undefined) {
+          const costAttributes = {
+            ...strategyAttributes,
+            [Attributes.BLOCK_FULL]: analysis.analysis.blockBlobsFull ? 'true' : 'false',
+          };
+          this.fishermanEstimatedCost.record(strategyResult.estimatedCostEth, costAttributes);
+        }
+
+        // Record estimated overpayment if available
+        if (strategyResult.estimatedOverpaymentEth !== undefined) {
+          const overpaymentAttributes = {
+            ...strategyAttributes,
+            [Attributes.BLOCK_FULL]: analysis.analysis.blockBlobsFull ? 'true' : 'false',
+          };
+          this.fishermanEstimatedOverpayment.record(strategyResult.estimatedOverpaymentEth, overpaymentAttributes);
+        }
       }
     }
   }

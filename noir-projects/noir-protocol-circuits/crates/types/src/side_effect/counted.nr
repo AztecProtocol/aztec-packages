@@ -2,9 +2,9 @@ use crate::{
     address::AztecAddress,
     side_effect::{Ordered, scoped::Scoped},
     traits::{Deserialize, Empty, Serialize},
-    utils::reader::Reader,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct Counted<T> {
     pub inner: T,
     pub counter: u32,
@@ -13,6 +13,12 @@ pub struct Counted<T> {
 impl<T> Counted<T> {
     pub fn new(inner: T, counter: u32) -> Self {
         Self { inner, counter }
+    }
+
+    pub fn is_non_revertible(self, is_private_only: bool, claimed_revertible_counter: u32) -> bool {
+        // If a tx is private-only, everything is non-revertible.
+        // Otherwise, it's only non-revertible if the counter is less than the claimed revertible counter.
+        is_private_only | (self.counter < claimed_revertible_counter)
     }
 }
 
@@ -31,32 +37,6 @@ where
 {
     fn empty() -> Self {
         Self { inner: T::empty(), counter: 0 }
-    }
-}
-
-impl<T> Serialize for Counted<T>
-where
-    T: Serialize,
-{
-    let N: u32 = <T as Serialize>::N + 1;
-
-    fn serialize(self) -> [Field; Self::N] {
-        self.inner.serialize().concat([self.counter as Field])
-    }
-}
-
-impl<T> Deserialize for Counted<T>
-where
-    T: Deserialize,
-{
-    let N: u32 = <T as Deserialize>::N + 1;
-
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        let mut reader = Reader::new(fields);
-        let deserialized =
-            Self { inner: reader.read_struct(T::deserialize), counter: reader.read_u32() };
-        reader.finish();
-        deserialized
     }
 }
 

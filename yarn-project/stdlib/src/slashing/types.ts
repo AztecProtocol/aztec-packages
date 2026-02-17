@@ -2,7 +2,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { z } from 'zod';
 
-import { type ZodFor, schemas } from '../schemas/index.js';
+import { schemas, zodFor } from '../schemas/index.js';
 
 export enum OffenseType {
   UNKNOWN = 0,
@@ -20,6 +20,10 @@ export enum OffenseType {
   PROPOSED_INCORRECT_ATTESTATIONS = 6,
   /** A committee member attested to a block that was built as a descendent of an invalid block (as in a block with invalid attestations) */
   ATTESTED_DESCENDANT_OF_INVALID = 7,
+  /** A proposer sent duplicate proposals for the same position (slot, indexWithinCheckpoint for blocks or slot for checkpoints) */
+  DUPLICATE_PROPOSAL = 8,
+  /** A validator signed attestations for different proposals at the same slot (equivocation) */
+  DUPLICATE_ATTESTATION = 9,
 }
 
 export function getOffenseTypeName(offense: OffenseType) {
@@ -40,6 +44,10 @@ export function getOffenseTypeName(offense: OffenseType) {
       return 'proposed_incorrect_attestations';
     case OffenseType.ATTESTED_DESCENDANT_OF_INVALID:
       return 'attested_descendant_of_invalid';
+    case OffenseType.DUPLICATE_PROPOSAL:
+      return 'duplicate_proposal';
+    case OffenseType.DUPLICATE_ATTESTATION:
+      return 'duplicate_attestation';
     default:
       throw new Error(`Unknown offense type: ${offense}`);
   }
@@ -56,6 +64,8 @@ export const OffenseToBigInt: Record<OffenseType, bigint> = {
   [OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS]: 5n,
   [OffenseType.PROPOSED_INCORRECT_ATTESTATIONS]: 6n,
   [OffenseType.ATTESTED_DESCENDANT_OF_INVALID]: 7n,
+  [OffenseType.DUPLICATE_PROPOSAL]: 8n,
+  [OffenseType.DUPLICATE_ATTESTATION]: 9n,
 };
 
 export function bigIntToOffense(offense: bigint): OffenseType {
@@ -76,6 +86,10 @@ export function bigIntToOffense(offense: bigint): OffenseType {
       return OffenseType.PROPOSED_INCORRECT_ATTESTATIONS;
     case 7n:
       return OffenseType.ATTESTED_DESCENDANT_OF_INVALID;
+    case 8n:
+      return OffenseType.DUPLICATE_PROPOSAL;
+    case 9n:
+      return OffenseType.DUPLICATE_ATTESTATION;
     default:
       throw new Error(`Unknown offense: ${offense}`);
   }
@@ -90,12 +104,14 @@ export type Offense = {
 
 export type OffenseIdentifier = Pick<Offense, 'validator' | 'offenseType' | 'epochOrSlot'>;
 
-export const OffenseSchema = z.object({
-  validator: schemas.EthAddress,
-  amount: schemas.BigInt,
-  offenseType: OffenseTypeSchema,
-  epochOrSlot: schemas.BigInt,
-}) satisfies ZodFor<Offense>;
+export const OffenseSchema = zodFor<Offense>()(
+  z.object({
+    validator: schemas.EthAddress,
+    amount: schemas.BigInt,
+    offenseType: OffenseTypeSchema,
+    epochOrSlot: schemas.BigInt,
+  }),
+);
 
 /** Offense by a validator in the context of a slash payload */
 export type ValidatorSlashOffense = {
@@ -120,19 +136,21 @@ export type SlashPayload = {
 /** Slash payload with round information from empire slash proposer */
 export type SlashPayloadRound = SlashPayload & { votes: bigint; round: bigint };
 
-export const SlashPayloadRoundSchema = z.object({
-  address: schemas.EthAddress,
-  timestamp: schemas.BigInt,
-  votes: schemas.BigInt,
-  round: schemas.BigInt,
-  slashes: z.array(
-    z.object({
-      validator: schemas.EthAddress,
-      amount: schemas.BigInt,
-      offenses: z.array(z.object({ offenseType: OffenseTypeSchema, epochOrSlot: schemas.BigInt })),
-    }),
-  ),
-}) satisfies ZodFor<SlashPayloadRound>;
+export const SlashPayloadRoundSchema = zodFor<SlashPayloadRound>()(
+  z.object({
+    address: schemas.EthAddress,
+    timestamp: schemas.BigInt,
+    votes: schemas.BigInt,
+    round: schemas.BigInt,
+    slashes: z.array(
+      z.object({
+        validator: schemas.EthAddress,
+        amount: schemas.BigInt,
+        offenses: z.array(z.object({ offenseType: OffenseTypeSchema, epochOrSlot: schemas.BigInt })),
+      }),
+    ),
+  }),
+);
 
 /** Votes for a validator slash in the consensus slash proposer */
 export type ValidatorSlashVote = number;

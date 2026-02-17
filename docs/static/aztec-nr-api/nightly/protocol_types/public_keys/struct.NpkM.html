@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
+<title>Struct NpkM documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">NpkM</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">protocol_types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct NpkM</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.inner">inner</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-NpkM">Deserialize</a></li>
+<li><a href="#impl-Eq-for-NpkM">Eq</a></li>
+<li><a href="#impl-Hash-for-NpkM">Hash</a></li>
+<li><a href="#impl-Serialize-for-NpkM">Serialize</a></li>
+<li><a href="#impl-ToPoint-for-NpkM">ToPoint</a></li>
+</ul>
+<h2>In module public_keys</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.AddressPoint.html">AddressPoint</a></div></li>
+<li><a href="struct.IvpkM.html">IvpkM</a></div></li>
+<li><a href="struct.NpkM.html">NpkM</a></div></li>
+<li><a href="struct.OvpkM.html">OvpkM</a></div></li>
+<li><a href="struct.PublicKeys.html">PublicKeys</a></div></li>
+<li><a href="struct.TpkM.html">TpkM</a></div></li>
+</ul>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.ToPoint.html">ToPoint</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">protocol_types</a>::<a href="index.html">public_keys</a></div>
+<h1>Struct <span id="struct" class="struct">NpkM</span></h1>
+<pre><code>pub struct NpkM {
+    pub inner: <a href="../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a>,
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="structfield.inner" class="struct-field"><code class="code-header">inner: <a href="../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a></code></div>
+<div class="padded-description"></div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-NpkM"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/public_keys/struct.NpkM.html" class="struct">NpkM</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 3]) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
+
+</div><h3 id="impl-Eq-for-NpkM"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/public_keys/struct.NpkM.html" class="struct">NpkM</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Hash-for-NpkM"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Hash.html" class="trait">Hash</a> for <a href="../../protocol_types/public_keys/struct.NpkM.html" class="struct">NpkM</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">hash</span>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div><h3 id="impl-Serialize-for-NpkM"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/public_keys/struct.NpkM.html" class="struct">NpkM</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 3]</code>
+
+<code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
+
+</div><h3 id="impl-ToPoint-for-NpkM"><code class="code-header">impl <a href="../../protocol_types/public_keys/trait.ToPoint.html" class="trait">ToPoint</a> for <a href="../../protocol_types/public_keys/struct.NpkM.html" class="struct">NpkM</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">to_point</span>(self) -> <a href="../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a></code>
+
+</div></main>
+</span>
+</body>
+</html>

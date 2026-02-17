@@ -2,10 +2,10 @@ use crate::{
     address::AztecAddress,
     side_effect::{counted::Counted, Ordered},
     tests::types::TestValue,
-    traits::{Deserialize, Empty, Serialize, ToField},
-    utils::reader::Reader,
+    traits::{Deserialize, Empty, Serialize},
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct Scoped<T> {
     pub inner: T,
     pub contract_address: AztecAddress,
@@ -35,34 +35,6 @@ where
     }
 }
 
-impl<T> Serialize for Scoped<T>
-where
-    T: Serialize,
-{
-    let N: u32 = <T as Serialize>::N + 1;
-
-    fn serialize(self) -> [Field; Self::N] {
-        self.inner.serialize().concat([self.contract_address.to_field()])
-    }
-}
-
-impl<T> Deserialize for Scoped<T>
-where
-    T: Deserialize,
-{
-    let N: u32 = <T as Deserialize>::N + 1;
-
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        let mut reader = Reader::new(fields);
-        let deserialized = Self {
-            inner: reader.read_struct(T::deserialize),
-            contract_address: reader.read_struct(AztecAddress::deserialize),
-        };
-        reader.finish();
-        deserialized
-    }
-}
-
 impl<T> Ordered for Scoped<Counted<T>> {
     fn counter(self) -> u32 {
         self.inner.counter
@@ -72,6 +44,10 @@ impl<T> Ordered for Scoped<Counted<T>> {
 impl<T> Scoped<Counted<T>> {
     pub fn innermost(self) -> T {
         self.inner.inner
+    }
+
+    pub fn is_non_revertible(self, is_private_only: bool, claimed_revertible_counter: u32) -> bool {
+        self.inner.is_non_revertible(is_private_only, claimed_revertible_counter)
     }
 }
 

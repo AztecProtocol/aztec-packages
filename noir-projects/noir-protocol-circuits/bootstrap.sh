@@ -2,7 +2,6 @@
 # Look at noir-contracts bootstrap.sh for some tips r.e. bash.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cmd=${1:-}
 # entrypoint for mock circuits
 if [ -n "${NOIR_PROTOCOL_CIRCUITS_WORKING_DIR:-}" ]; then
   cd "$NOIR_PROTOCOL_CIRCUITS_WORKING_DIR"
@@ -58,6 +57,12 @@ function compile {
   local program_hash=$(dump_fail "$program_hash_cmd")
   echo_stderr "Hash preimage: $NOIR_HASH-$program_hash"
   local hash=$(hash_str "$NOIR_HASH-$program_hash" $(cache_content_hash "^noir-projects/noir-protocol-circuits/bootstrap.sh"))
+  # Note: an edge case: If you change the name of a circuit public input, but don't change any of the
+  # circuit's bytecode, then this bootstrap script will not re-compile the circuits. You can force a
+  # re-compilation by temporarily replacing $NOIR_HASH on the above two lines with:
+  # `$NOIR_HASH-$program_hash-$circuits_hash"`
+  # We don't want to include `-$circuits_hash"` ordinarily, because it would force unnecessary
+  # rebuilds when tests / comments are changed.
 
   if ! cache_download circuit-$hash.tar.gz 1>&2; then
     SECONDS=0
@@ -91,16 +96,15 @@ function compile {
     trap "rm -rf $outdir" EXIT
     function write_vk {
       if echo "$name" | grep -qE "${hiding_kernel_regex}"; then
-        # We still need the standalone IVC vk. We also create the final IVC vk from the tail (specifically, the number of public inputs is used from it).
-        denoise "$BB write_vk --scheme chonk --verifier_type standalone_hiding -b - -o $outdir"
+        $BB write_vk --scheme chonk -b - -o $outdir
       elif echo "$name" | grep -qE "${ivc_regex}"; then
-        denoise "$BB write_vk --scheme chonk --verifier_type standalone -b - -o $outdir"
+        $BB write_vk --scheme chonk -b - -o $outdir
       elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
-        denoise "$BB write_vk --scheme ultra_honk --ipa_accumulation -b - -o $outdir"
+        $BB write_vk --scheme ultra_honk --ipa_accumulation -b - -o $outdir
       elif echo "$name" | grep -qE "rollup_root"; then
-        denoise "$BB write_vk --scheme ultra_honk --oracle_hash keccak -b - -o $outdir"
+        $BB write_vk --scheme ultra_honk --oracle_hash keccak -b - -o $outdir
       else
-        denoise "$BB write_vk --scheme ultra_honk -b - -o $outdir"
+        $BB write_vk --scheme ultra_honk -b - -o $outdir
       fi
     }
 
@@ -129,15 +133,6 @@ function compile {
       echo_stderr "Root rollup verifier at: $verifier_path (${SECONDS}s)"
       # Include the verifier path if we create it.
       cache_upload vk-$hash.tar.gz $key_path $verifier_path &> /dev/null
-    elif echo "$name" | grep -qE "${hiding_kernel_regex}"; then
-      # If we are a tail kernel circuit, we also need to generate the ivc vk.
-      SECONDS=0
-      local ivc_vk_path="$key_dir/${name}.ivc.vk"
-      echo_stderr "Generating ivc vk for function: $name..."
-      jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB write_vk --scheme chonk --verifier_type ivc -b - -o $outdir
-      mv $outdir/vk $ivc_vk_path
-      echo_stderr "IVC tail key output at: $ivc_vk_path (${SECONDS}s)"
-      cache_upload vk-$hash.tar.gz $key_path $ivc_vk_path &> /dev/null
     else
       cache_upload vk-$hash.tar.gz $key_path &> /dev/null
     fi
@@ -153,13 +148,14 @@ export -f hex_to_fields_json compile
 function build {
   set -eu
 
-  echo_stderr "Checking libraries for warnings..."
-  parallel -v --line-buffer --tag $NARGO --program-dir {} check ::: \
-    ./crates/blob \
-    ./crates/parity-lib \
-    ./crates/private-kernel-lib \
-    ./crates/rollup-lib \
-    ./crates/types \
+  if [[ -z NOIR_PROTOCOL_CIRCUITS_SKIP_CHECK_WARNINGS ]]; then
+    echo_stderr "Checking libraries for warnings..."
+    parallel -v --line-buffer --tag $NARGO --program-dir {} check ::: \
+      ./crates/blob \
+      ./crates/private-kernel-lib \
+      ./crates/rollup-lib \
+      ./crates/types
+  fi
 
   # We allow errors so we can output the joblog.
   set +e
@@ -184,7 +180,11 @@ function build {
 
 function test_cmds {
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
-    echo "$circuits_hash:TIMEOUT=15m noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
+    local prefix="$circuits_hash"
+    if [[ "$test" =~ checkpoint || "$package" =~ "blob" ]]; then
+      prefix+=":TIMEOUT=20m"
+    fi
+    echo "$prefix noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
   done
   # We don't blindly execute all circuits as some will have no `Prover.toml`.
   circuits_to_execute="
@@ -209,7 +209,7 @@ function test_cmds {
   "
   nargo_root_rel=$(realpath --relative-to=$root $NARGO)
   for circuit in $circuits_to_execute; do
-    echo "$circuits_hash $nargo_root_rel execute --program-dir noir-projects/noir-protocol-circuits/crates/$circuit --silence-warnings --pedantic-solving --skip-brillig-constraints-check"
+    echo "$circuits_hash $nargo_root_rel execute --program-dir noir-projects/noir-protocol-circuits/crates/$circuit --silence-warnings  --skip-brillig-constraints-check"
   done
 }
 
@@ -243,30 +243,13 @@ function bench {
 }
 
 case "$cmd" in
-  "bench")
-    bench
-    ;;
-  "clean")
-    git clean -fdx
-    ;;
   "clean-keys")
     rm -rf $key_dir
     ;;
-  "ci")
+  "")
     build
-    test
-    ;;
-  ""|"fast"|"full")
-    build
-    ;;
-  "compile")
-    shift
-    compile $1
-    ;;
-  test|test_cmds|bench_cmds|format)
-    $cmd
     ;;
   *)
-    echo_stderr "Unknown command: $cmd"
-    exit 1
+    default_cmd_handler "$@"
+    ;;
 esac

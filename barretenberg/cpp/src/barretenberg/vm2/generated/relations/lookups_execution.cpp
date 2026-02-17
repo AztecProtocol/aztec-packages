@@ -38,6 +38,5 @@ INSTANTIATE_LOOKUP(lookup_execution_dispatch_to_alu_relation);
 INSTANTIATE_LOOKUP(lookup_execution_dispatch_to_bitwise_relation);
 INSTANTIATE_LOOKUP(lookup_execution_dispatch_to_cast_relation);
 INSTANTIATE_LOOKUP(lookup_execution_dispatch_to_set_relation);
-INSTANTIATE_LOOKUP(lookup_execution_dispatch_to_emit_unencrypted_log_relation);
 
 } // namespace bb::avm2

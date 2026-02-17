@@ -1,6 +1,5 @@
 import {
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
-  AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   RECURSIVE_PROOF_LENGTH,
@@ -51,14 +50,18 @@ import type { WitnessMap } from '@aztec/noir-types';
 import { type CircuitSimulator, WASMSimulatorWithBlobs, emitCircuitSimulationStats } from '@aztec/simulator/server';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import {
-  type ProofAndVerificationKey,
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
-  makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/stdlib/interfaces/server';
 import type { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
-import { type Proof, ProvingRequestType, makeEmptyRecursiveProof, makeRecursiveProof } from '@aztec/stdlib/proofs';
+import {
+  type Proof,
+  ProvingRequestType,
+  RecursiveProof,
+  makeEmptyRecursiveProof,
+  makeRecursiveProof,
+} from '@aztec/stdlib/proofs';
 import {
   type BlockMergeRollupPrivateInputs,
   type BlockRollupPublicInputs,
@@ -81,7 +84,6 @@ import {
   type TxMergeRollupPrivateInputs,
   type TxRollupPublicInputs,
 } from '@aztec/stdlib/rollup';
-import { VerificationKeyData } from '@aztec/stdlib/vks';
 import { type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { ProverInstrumentation } from '../instrumentation.js';
@@ -400,17 +402,12 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
-  public getAvmProof(
-    _inputs: AvmCircuitInputs,
-  ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
+  public getAvmProof(_inputs: AvmCircuitInputs): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
     // We can't simulate the AVM because we don't have enough context to do so (e.g., DBs).
-    // We just return an empty proof and VK data.
+    // We just return an empty proof.
     this.logger.debug('Skipping AVM simulation in TestCircuitProver.');
     return this.applyDelay(ProvingRequestType.PUBLIC_VM, () =>
-      makeProofAndVerificationKey(
-        makeEmptyRecursiveProof(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED),
-        VerificationKeyData.makeFake(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED),
-      ),
+      makeEmptyRecursiveProof(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED),
     );
   }
 

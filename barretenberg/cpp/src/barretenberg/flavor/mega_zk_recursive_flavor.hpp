@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -38,13 +38,35 @@ namespace bb {
 template <typename BuilderType> class MegaZKRecursiveFlavor_ : public MegaRecursiveFlavor_<BuilderType> {
   public:
     using NativeFlavor = MegaZKFlavor;
+    using Commitment = typename MegaRecursiveFlavor_<BuilderType>::Commitment;
+    using VerificationKey = typename MegaRecursiveFlavor_<BuilderType>::VerificationKey;
+    using FF = typename MegaRecursiveFlavor_<BuilderType>::FF;
 
     static constexpr bool HasZK = true;
+
+    // Get constants from NativeFlavor to ensure consistency
+    static constexpr size_t VIRTUAL_LOG_N = NativeFlavor::VIRTUAL_LOG_N;
+    static constexpr size_t NUM_WITNESS_ENTITIES = NativeFlavor::NUM_WITNESS_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = NativeFlavor::NUM_ALL_ENTITIES;
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
+
+    static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
+    {
+        return NativeFlavor::FINAL_PCS_MSM_SIZE(log_n);
+    }
+
+    // Override to include ZK entities
+    class AllValues : public MegaFlavor::AllEntities_<FF, HasZK> {
+      public:
+        using Base = MegaFlavor::AllEntities_<FF, HasZK>;
+        using Base::Base;
+    };
+
+    using VerifierCommitments = MegaFlavor::VerifierCommitments_<Commitment, VerificationKey, HasZK>;
 };
 
 } // namespace bb

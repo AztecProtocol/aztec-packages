@@ -1,3 +1,4 @@
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
@@ -27,10 +28,10 @@ describe('Contract Class', () => {
   let contractInstance: ContractInstanceWithAddress;
 
   const mockTxRequest = { type: 'TxRequest' } as any as TxExecutionRequest;
-  const mockTxHash = { type: 'TxHash' } as any as TxHash;
+  const _mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
   const mockTxSimulationResult = { type: 'TxSimulationResult', result: 1n } as any as TxSimulationResult;
-  const mockUtilityResultValue = { type: 'UtilitySimulationResult' } as any as UtilitySimulationResult;
+  const mockUtilityResultValue = { result: [new Fr(42)] } as any as UtilitySimulationResult;
 
   const defaultArtifact: ContractArtifact = {
     name: 'FooContract',
@@ -39,7 +40,7 @@ describe('Contract Class', () => {
         name: 'bar',
         isInitializer: false,
         functionType: FunctionType.PRIVATE,
-        isInternal: false,
+        isOnlySelf: false,
         isStatic: false,
         debugSymbols: '',
         parameters: [
@@ -61,14 +62,14 @@ describe('Contract Class', () => {
         returnTypes: [],
         errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfa),
-        verificationKey: 'fake-verification-key',
+        verificationKey: Buffer.alloc(4064).toString('base64'),
       },
       {
         name: 'public_dispatch',
         isInitializer: false,
         isStatic: false,
         functionType: FunctionType.PUBLIC,
-        isInternal: false,
+        isOnlySelf: false,
         parameters: [
           {
             name: 'selector',
@@ -88,7 +89,7 @@ describe('Contract Class', () => {
         isInitializer: false,
         isStatic: false,
         functionType: FunctionType.UTILITY,
-        isInternal: false,
+        isOnlySelf: false,
         parameters: [
           {
             name: 'value',
@@ -135,30 +136,28 @@ describe('Contract Class', () => {
     wallet.simulateTx.mockResolvedValue(mockTxSimulationResult);
     account.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
     wallet.registerContract.mockResolvedValue(contractInstance);
-    wallet.sendTx.mockResolvedValue(mockTxHash);
+    wallet.sendTx.mockResolvedValue(mockTxReceipt);
     wallet.simulateUtility.mockResolvedValue(mockUtilityResultValue);
-    wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);
-    wallet.sendTx.mockResolvedValue(mockTxHash);
   });
 
   it('should create and send a contract method tx', async () => {
-    const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
+    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
     const param0 = 12;
     const param1 = 345n;
-    const sentTx = fooContract.methods.bar(param0, param1).send({ from: account.getAddress() });
-    const txHash = await sentTx.getTxHash();
-    const receipt = await sentTx.getReceipt();
+    const receipt = await fooContract.methods.bar(param0, param1).send({ from: account.getAddress() });
 
-    expect(txHash).toBe(mockTxHash);
     expect(receipt).toBe(mockTxReceipt);
     expect(wallet.sendTx).toHaveBeenCalledTimes(1);
   });
 
   it('should call view on a utility function', async () => {
-    const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
+    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
     const result = await fooContract.methods.qux(123n).simulate({ from: account.getAddress() });
     expect(wallet.simulateUtility).toHaveBeenCalledTimes(1);
-    expect(wallet.simulateUtility).toHaveBeenCalledWith('qux', [123n], contractAddress, []);
-    expect(result).toBe(mockUtilityResultValue.result);
+    expect(wallet.simulateUtility).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'qux', to: contractAddress }),
+      expect.objectContaining({ scope: account.getAddress() }),
+    );
+    expect(result).toBe(42n);
   });
 });

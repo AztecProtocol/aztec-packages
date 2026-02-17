@@ -22,7 +22,7 @@ TEST(ContextStackConstrainingTest, Basic)
 {
     // clang-format off
     TestTraceContainer trace({
-         {{ C::context_stack_sel, 1 }, { C::context_stack_context_id, 1 }, {C::context_stack_context_id_inv, 1}},
+         {{ C::context_stack_sel, 1 }, { C::context_stack_context_id, 1 }},
     });
     // clang-format on
 

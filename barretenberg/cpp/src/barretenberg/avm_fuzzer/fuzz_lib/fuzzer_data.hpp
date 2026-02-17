@@ -1,34 +1,30 @@
 #pragma once
 
 #include <cstdint>
+#include <iostream>
 #include <vector>
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/control_flow.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
+#include "barretenberg/avm_fuzzer/mutations/instructions/instruction_block.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 
 /// @brief describes the data which will be used for fuzzing
 /// Should contain instructions, calldata, CFG instructions, options to disable/enable instructions, etc
 struct FuzzerData {
-    std::vector<std::vector<FuzzInstruction>> instruction_blocks;
+    std::vector<InstructionBlock> instruction_blocks;
     std::vector<CFGInstruction> cfg_instructions;
     std::vector<bb::avm2::FF> calldata;
     ReturnOptions return_options;
     MSGPACK_FIELDS(instruction_blocks, cfg_instructions, calldata, return_options);
 };
 
-#include <iostream>
-
 inline std::ostream& operator<<(std::ostream& os, const FuzzerData& data)
 {
     os << "FuzzerData {\n";
     os << "  instructions: [\n";
     for (const auto& block : data.instruction_blocks) {
-        os << "    [\n";
-        for (const auto& instr : block) {
-            os << "      " << instr << ",\n";
-        }
-        os << "    ],\n";
+        os << "    " << block << ",\n";
     }
     os << "  ],\n";
     os << "  cfg_instructions: [\n";

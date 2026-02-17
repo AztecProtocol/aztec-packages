@@ -24,7 +24,17 @@ TEST(stdlib_keccak, keccak_format_input_table)
     for (size_t i = 0; i < 25; ++i) {
         uint64_t limb_native = engine.get_random_uint64();
         field_ct limb(witness_ct(&builder, limb_native));
-        stdlib::plookup_read<Builder>::read_from_1_to_2_table(plookup::KECCAK_FORMAT_INPUT, limb);
+
+        auto accumulators = stdlib::plookup_read<Builder>::get_lookup_accumulators(plookup::KECCAK_FORMAT_INPUT, limb);
+
+        field_ct sparse_limb = accumulators[plookup::ColumnIdx::C2][0];
+        field_ct msb = accumulators[plookup::ColumnIdx::C3][accumulators[plookup::ColumnIdx::C3].size() - 1];
+
+        uint256_t expected_sparse = stdlib::keccak<Builder>::convert_to_sparse(limb_native);
+        uint64_t expected_msb = (limb_native >> 63) & 1ULL;
+
+        EXPECT_EQ(static_cast<uint256_t>(sparse_limb.get_value()), expected_sparse);
+        EXPECT_EQ(static_cast<uint64_t>(msb.get_value()), expected_msb);
     }
 
     bool proof_result = CircuitChecker::check(builder);
@@ -39,7 +49,10 @@ TEST(stdlib_keccak, keccak_format_output_table)
         uint64_t limb_native = engine.get_random_uint64();
         uint256_t extended_native = stdlib::keccak<Builder>::convert_to_sparse(limb_native);
         field_ct limb(witness_ct(&builder, extended_native));
-        stdlib::plookup_read<Builder>::read_from_1_to_2_table(plookup::KECCAK_FORMAT_OUTPUT, limb);
+
+        auto accumulators = stdlib::plookup_read<Builder>::get_lookup_accumulators(plookup::KECCAK_FORMAT_OUTPUT, limb);
+        field_ct normalized_limb = accumulators[plookup::ColumnIdx::C2][0];
+        EXPECT_EQ(static_cast<uint256_t>(normalized_limb.get_value()), limb_native);
     }
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
@@ -51,22 +64,28 @@ TEST(stdlib_keccak, keccak_theta_output_table)
 
     for (size_t i = 0; i < 25; ++i) {
         uint256_t extended_native = 0;
+        uint256_t expected_normalized = 0;
         for (size_t j = 0; j < 8; ++j) {
             extended_native *= 11;
+            expected_normalized *= 11;
             uint64_t base_value = (engine.get_random_uint64() % 11);
+            uint64_t bit = base_value & 1;
             extended_native += base_value;
+            expected_normalized += bit;
         }
+
         field_ct limb(witness_ct(&builder, extended_native));
-        stdlib::plookup_read<Builder>::read_from_1_to_2_table(plookup::KECCAK_THETA_OUTPUT, limb);
+        field_ct normalized = stdlib::plookup_read<Builder>::read_from_1_to_2_table(plookup::KECCAK_THETA_OUTPUT, limb);
+
+        EXPECT_EQ(static_cast<uint256_t>(normalized.get_value()), expected_normalized);
     }
+
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
 TEST(stdlib_keccak, keccak_rho_output_table)
 {
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/662)
-    GTEST_SKIP() << "Bug in constant case?";
     Builder builder = Builder();
 
     constexpr_for<0, 25, 1>([&]<size_t i> {
@@ -86,7 +105,7 @@ TEST(stdlib_keccak, keccak_rho_output_table)
         const uint256_t binary_rotated = left + (right << left_bits);
 
         const uint256_t expected_limb = stdlib::keccak<Builder>::convert_to_sparse(binary_rotated);
-        // msb only is correct iff rotation == 0 (no need to get msb for rotated lookups)
+        // msb is the MSB of the normalized limb without rotation
         const uint256_t expected_msb = (binary_native >> 63);
         field_ct limb(witness_ct(&builder, extended_native));
         field_ct result_msb;
@@ -136,119 +155,39 @@ TEST(stdlib_keccak, keccak_chi_output_table)
     EXPECT_EQ(proof_result, true);
 }
 
-TEST(stdlib_keccak, test_format_input_lanes)
+// Matches the fuzzer logic
+TEST(stdlib_keccak, permutation_opcode)
 {
-    GTEST_SKIP() << "Unneeded?";
-
     Builder builder = Builder();
 
-    for (size_t i = 543; i < 544; ++i) {
-        std::cout << "i = " << i << std::endl;
-        std::string input;
-        for (size_t j = 0; j < i; ++j) {
-            input += "a";
-        }
-
-        // std::string input = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz01";
-        std::vector<uint8_t> input_v(input.begin(), input.end());
-        const size_t excess_zeroes = i % 543;
-        std::vector<uint8_t> input_padded_v(input.begin(), input.end());
-        for (size_t k = 0; k < excess_zeroes; ++k) {
-            input_padded_v.push_back(0);
-        }
-        byte_array input_arr(&builder, input_v);
-        byte_array input_padded_arr(&builder, input_padded_v);
-
-        std::vector<field_ct> result = stdlib::keccak<Builder>::format_input_lanes(input_padded_arr);
-        std::vector<field_ct> expected = stdlib::keccak<Builder>::format_input_lanes(input_arr);
-
-        EXPECT_GT(result.size(), expected.size() - 1);
-
-        for (size_t j = 0; j < expected.size(); ++j) {
-            EXPECT_EQ(result[j].get_value(), expected[j].get_value());
-        }
-        for (size_t j = expected.size(); j < result.size(); ++j) {
-            EXPECT_EQ(result[j].get_value(), 0);
-        }
+    // Create a random state (25 lanes of 64 bits)
+    std::array<uint64_t, 25> native_state;
+    for (size_t i = 0; i < 25; ++i) {
+        native_state[i] = engine.get_random_uint64();
     }
 
-    bool proof_result = CircuitChecker::check(builder);
-    EXPECT_EQ(proof_result, true);
-}
+    // Run native permutation
+    std::array<uint64_t, 25> expected_state = native_state;
+    ethash_keccakf1600(expected_state.data());
 
-TEST(stdlib_keccak, test_single_block)
-{
-    Builder builder = Builder();
-    std::string input = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz01";
-    std::vector<uint8_t> input_v(input.begin(), input.end());
-
-    byte_array input_arr(&builder, input_v);
-    byte_array output = stdlib::keccak<Builder>::hash(input_arr);
-
-    std::vector<uint8_t> expected = stdlib::keccak<Builder>::hash_native(input_v);
-
-    EXPECT_EQ(output.get_value(), expected);
-
-    bool proof_result = CircuitChecker::check(builder);
-    EXPECT_EQ(proof_result, true);
-}
-
-TEST(stdlib_keccak, test_double_block)
-{
-
-    GTEST_SKIP() << "Bug in constant case?";
-
-    Builder builder = Builder();
-    std::string input = "";
-    for (size_t i = 0; i < 200; ++i) {
-        input += "a";
+    // Convert state to circuit field elements
+    std::array<field_ct, 25> circuit_state;
+    for (size_t i = 0; i < 25; i++) {
+        circuit_state[i] = witness_ct(&builder, native_state[i]);
     }
-    std::vector<uint8_t> input_v(input.begin(), input.end());
 
-    byte_array input_arr(&builder, input_v);
-    byte_array output = stdlib::keccak<Builder>::hash(input_arr);
+    // Run circuit permutation
+    auto circuit_output = stdlib::keccak<Builder>::permutation_opcode(circuit_state, &builder);
 
-    std::vector<uint8_t> expected = stdlib::keccak<Builder>::hash_native(input_v);
-
-    EXPECT_EQ(output.get_value(), expected);
-
+    // Verify circuit correctness
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
-}
 
-TEST(stdlib_keccak, test_permutation_opcode_single_block)
-{
-    Builder builder = Builder();
-    std::string input = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz01";
-    std::vector<uint8_t> input_v(input.begin(), input.end());
-
-    byte_array input_arr(&builder, input_v);
-    byte_array output = stdlib::keccak<Builder>::hash_using_permutation_opcode(input_arr);
-
-    std::vector<uint8_t> expected = stdlib::keccak<Builder>::hash_native(input_v);
-
-    EXPECT_EQ(output.get_value(), expected);
-
-    bool proof_result = CircuitChecker::check(builder);
-    EXPECT_EQ(proof_result, true);
-}
-
-TEST(stdlib_keccak, test_permutation_opcode_double_block)
-{
-    Builder builder = Builder();
-    std::string input = "";
-    for (size_t i = 0; i < 200; ++i) {
-        input += "a";
+    // Compare outputs
+    for (size_t i = 0; i < 25; i++) {
+        uint64_t circuit_value = static_cast<uint64_t>(circuit_output[i].get_value());
+        EXPECT_EQ(circuit_value, expected_state[i]);
     }
-    std::vector<uint8_t> input_v(input.begin(), input.end());
 
-    byte_array input_arr(&builder, input_v);
-    byte_array output = stdlib::keccak<Builder>::hash_using_permutation_opcode(input_arr);
-
-    std::vector<uint8_t> expected = stdlib::keccak<Builder>::hash_native(input_v);
-
-    EXPECT_EQ(output.get_value(), expected);
-
-    bool proof_result = CircuitChecker::check(builder);
-    EXPECT_EQ(proof_result, true);
+    info("num gates = ", builder.get_num_finalized_gates_inefficient());
 }

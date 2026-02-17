@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Nishat], commit: 5be53b6f75bac06d6d0132220044b28777021f0f}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -11,9 +11,9 @@
 namespace bb::stdlib {
 
 /**
- * @brief KECCAAAAAAAAAAK
+ * @brief KECCAK
  *
- * Creates constraints that evaluate the Keccak256 hash algorithm.
+ * Creates constraints that evaluate the Keccak-f[1600] permutation.
  *
  * Ultra only due to heavy lookup table use.
  *
@@ -32,23 +32,12 @@ template <typename Builder> class keccak {
     // base of extended representation we use for efficient logic operations
     static constexpr uint256_t BASE = 11;
 
-    // number of bits of hash output
-    static constexpr size_t BITS = 256;
-
-    // word size of hash lane
-    static constexpr size_t WORD_SIZE = 8;
-
-    // block size. We only support keccak256 with a 1088-bit rate! This is what Ethereum uses
-    static constexpr size_t BLOCK_SIZE = (1600 - BITS * 2) / WORD_SIZE;
-
-    // how many limbs fit into a block (17)
-    static constexpr size_t LIMBS_PER_BLOCK = BLOCK_SIZE / 8;
-
     static constexpr size_t NUM_KECCAK_ROUNDS = 24;
 
     // 1 "lane" = 64 bits. Instead of interpreting the keccak sponge as 1,600 bits, it's easier to work over 64-bit
     // "lanes". 1,600 / 64 = 25.
     static constexpr size_t NUM_KECCAK_LANES = 25;
+    static constexpr size_t KECCAK_LANE_SIZE = 64;
 
     // round constants. Used in IOTA round
     static constexpr std::array<uint64_t, NUM_KECCAK_ROUNDS> RC = {
@@ -122,12 +111,12 @@ template <typename Builder> class keccak {
     /**
      * @brief Get the sparse round constants object
      *
-     * @return constexpr std::array<uint256_t, 24>
+     * @return constexpr std::array<uint256_t, NUM_KECCAK_ROUNDS>
      */
     static constexpr std::array<uint256_t, NUM_KECCAK_ROUNDS> get_sparse_round_constants()
     {
-        std::array<uint256_t, 24> output;
-        for (size_t i = 0; i < 24; ++i) {
+        std::array<uint256_t, NUM_KECCAK_ROUNDS> output;
+        for (size_t i = 0; i < NUM_KECCAK_ROUNDS; ++i) {
             output[i] = convert_to_sparse(RC[i]);
         }
         return output;
@@ -169,38 +158,14 @@ template <typename Builder> class keccak {
     static void pi(keccak_state& state);
     static void chi(keccak_state& state);
     static void iota(keccak_state& state, size_t round);
-    static void sponge_absorb(keccak_state& internal,
-                              const std::vector<field_ct>& input_buffer,
-                              const std::vector<field_ct>& msb_buffer);
-    static byte_array_ct sponge_squeeze(keccak_state& internal);
+
     static void keccakf1600(keccak_state& state);
-    static byte_array_ct hash(byte_array_ct& input);
-
-    static std::vector<field_ct> format_input_lanes(byte_array_ct& input);
-
-    static std::vector<uint8_t> hash_native(const std::vector<uint8_t>& data)
-    {
-        auto hash_result = ethash_keccak256(&data[0], data.size());
-
-        std::vector<uint8_t> output;
-        output.resize(32);
-
-        memcpy((void*)&output[0], (void*)&hash_result.word64s[0], 32);
-        return output;
-    }
 
     // exposing keccak f1600 permutation
-    static byte_array_ct hash_using_permutation_opcode(byte_array_ct& input);
+
     static std::array<field_ct, NUM_KECCAK_LANES> permutation_opcode(std::array<field_ct, NUM_KECCAK_LANES> state,
                                                                      Builder* context);
-    static void sponge_absorb_with_permutation_opcode(keccak_state& internal,
-                                                      std::vector<field_ct>& input_buffer,
-                                                      const size_t input_size);
     static std::array<field_ct, NUM_KECCAK_LANES> extended_2_normal(keccak_state& internal);
-    static byte_array_ct sponge_squeeze_for_permutation_opcode(std::array<field_ct, NUM_KECCAK_LANES> lanes,
-                                                               Builder* context);
 };
-
-template <typename Builder> void generate_keccak_test_circuit(Builder& builder, size_t num_iterations);
 
 } // namespace bb::stdlib

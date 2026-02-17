@@ -21,15 +21,6 @@ void context_stackImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
             static_cast<View>(in.get(C::context_stack_sel)) * (FF(1) - static_cast<View>(in.get(C::context_stack_sel)));
         std::get<0>(evals) += (tmp * scaling_factor);
     }
-    {
-        using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::context_stack_context_id)) *
-                        ((FF(1) - static_cast<View>(in.get(C::context_stack_sel))) *
-                             (FF(1) - static_cast<View>(in.get(C::context_stack_context_id_inv))) +
-                         static_cast<View>(in.get(C::context_stack_context_id_inv))) -
-                    static_cast<View>(in.get(C::context_stack_sel)));
-        std::get<1>(evals) += (tmp * scaling_factor);
-    }
 }
 
 } // namespace bb::avm2

@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -48,10 +48,11 @@ class TranslatorProvingKey {
     {
         BB_BENCH_NAME("TranslatorProvingKey(TranslatorCircuit&)");
         // Check that the Translator Circuit does not exceed the fixed upper bound, the current value amounts to
-        // a number of EccOps sufficient for 10 rounds of folding (so 20 circuits)
-        if (circuit.num_gates() > Flavor::MINI_CIRCUIT_SIZE) {
-            throw_or_abort("The Translator circuit size has exceeded the fixed upper bound");
-        }
+        // a number of EccOps sufficient for 28 app circuits
+        vinfo("Translator circuit size: ", circuit.num_gates());
+        BB_ASSERT_LTE(circuit.num_gates(),
+                      Flavor::MINI_CIRCUIT_SIZE,
+                      "The Translator circuit size has exceeded the fixed upper bound");
 
         proving_key = std::make_shared<ProvingKey>(std::move(commitment_key));
         auto wires = proving_key->polynomials.get_wires();
@@ -113,19 +114,8 @@ class TranslatorProvingKey {
             // The value we have to end polynomials with, 2¹⁴ - 1
             const size_t max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
 
-            // min number of iterations for which we'll spin up a unique thread
-            const size_t min_iterations_per_thread = 1 << 6;
-            const size_t num_threads =
-                bb::calculate_num_threads_pow2(Flavor::SORTED_STEPS_COUNT, min_iterations_per_thread);
-            // actual iterations per thread
-            const size_t iterations_per_thread = Flavor::SORTED_STEPS_COUNT / num_threads;
-            const size_t leftovers = Flavor::SORTED_STEPS_COUNT % num_threads;
-
-            parallel_for(num_threads, [&](size_t thread_idx) {
-                const size_t start = thread_idx * iterations_per_thread;
-                const size_t end =
-                    (thread_idx + 1) * iterations_per_thread + (thread_idx == num_threads - 1 ? leftovers : 0);
-                for (size_t idx = start; idx < end; ++idx) {
+            parallel_for([&](const ThreadChunk& chunk) {
+                for (size_t idx : chunk.range(Flavor::SORTED_STEPS_COUNT)) {
                     inner_array[idx] = max_value - Flavor::SORT_STEP * idx;
                 }
             });

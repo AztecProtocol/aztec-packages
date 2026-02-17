@@ -1,5 +1,5 @@
-import { randomInt } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { randomInt } from '@aztec/foundation/crypto/random';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { AztecAddress } from '../aztec-address/index.js';

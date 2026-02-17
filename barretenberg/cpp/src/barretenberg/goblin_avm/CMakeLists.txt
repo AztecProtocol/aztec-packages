@@ -1,0 +1,1 @@
+barretenberg_module(goblin_avm goblin ultra_honk eccvm translator_vm stdlib_honk_verifier stdlib_sha256 )

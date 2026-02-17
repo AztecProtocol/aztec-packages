@@ -12,32 +12,17 @@ struct AppendOnlyTreeSnapshot {
   uint32 nextAvailableLeafIndex;
 }
 
-struct PartialStateReference {
-  AppendOnlyTreeSnapshot noteHashTree;
-  AppendOnlyTreeSnapshot nullifierTree;
-  AppendOnlyTreeSnapshot publicDataTree;
-}
-
-struct StateReference {
-  AppendOnlyTreeSnapshot l1ToL2MessageTree;
-  // Note: Can't use "partial" name here as in protocol specs because it is a reserved solidity keyword
-  PartialStateReference partialStateReference;
-}
-
 struct GasFees {
   uint128 feePerDaGas;
   uint128 feePerL2Gas;
 }
 
-struct ContentCommitment {
+struct ProposedHeader {
+  bytes32 lastArchiveRoot;
+  bytes32 blockHeadersHash;
   bytes32 blobsHash;
   bytes32 inHash;
   bytes32 outHash;
-}
-
-struct ProposedHeader {
-  bytes32 lastArchiveRoot;
-  ContentCommitment contentCommitment;
   Slot slotNumber;
   Timestamp timestamp;
   address coinbase;
@@ -49,7 +34,7 @@ struct ProposedHeader {
 /**
  * @title ProposedHeader Library
  * @author Aztec Labs
- * @notice Decoding and validating a proposed L2 block header
+ * @notice Decoding and validating a proposed checkpoint header
  */
 library ProposedHeaderLib {
   using SafeCast for uint256;
@@ -57,7 +42,7 @@ library ProposedHeaderLib {
   /**
    * @notice  Hash the proposed header
    *
-   * @dev     The hashing here MUST match what is in the proposed_block_header.ts
+   * @dev     The hashing here MUST match what is in the checkpoint_header.nr
    *
    * @param _header The header to hash
    *
@@ -67,9 +52,10 @@ library ProposedHeaderLib {
     return Hash.sha256ToField(
       abi.encodePacked(
         _header.lastArchiveRoot,
-        _header.contentCommitment.blobsHash,
-        _header.contentCommitment.inHash,
-        _header.contentCommitment.outHash,
+        _header.blockHeadersHash,
+        _header.blobsHash,
+        _header.inHash,
+        _header.outHash,
         _header.slotNumber,
         Timestamp.unwrap(_header.timestamp).toUint64(),
         _header.coinbase,

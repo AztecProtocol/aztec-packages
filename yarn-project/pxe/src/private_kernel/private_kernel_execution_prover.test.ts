@@ -1,11 +1,8 @@
-import {
-  MAX_INCLUDE_BY_TIMESTAMP_DURATION,
-  MAX_NOTE_HASHES_PER_CALL,
-  MAX_NOTE_HASHES_PER_TX,
-  VK_TREE_HEIGHT,
-} from '@aztec/constants';
+import { BackendType, BarretenbergSync } from '@aztec/bb.js';
+import { MAX_NOTE_HASHES_PER_CALL, MAX_NOTE_HASHES_PER_TX, MAX_TX_LIFETIME, VK_TREE_HEIGHT } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -29,6 +26,8 @@ import { mock } from 'jest-mock-extended';
 import { PrivateKernelExecutionProver } from './private_kernel_execution_prover.js';
 import type { PrivateKernelOracle } from './private_kernel_oracle.js';
 
+const logger = createLogger('private_kernel_execution_prover');
+
 describe('Private Kernel Sequencer', () => {
   let txRequest: TxRequest;
   let oracle: ReturnType<typeof mock<PrivateKernelOracle>>;
@@ -38,11 +37,22 @@ describe('Private Kernel Sequencer', () => {
 
   const contractAddress = AztecAddress.fromBigInt(987654n);
   const blockTimestamp = 12345n;
-  const includeByTimestamp = blockTimestamp + BigInt(MAX_INCLUDE_BY_TIMESTAMP_DURATION);
+  const expirationTimestamp = blockTimestamp + BigInt(MAX_TX_LIFETIME);
+
+  beforeAll(async () => {
+    await BarretenbergSync.initSingleton({ backend: BackendType.NativeSharedMemory, logger: logger.debug });
+  });
 
   const notesAndSlots: NoteAndSlot[] = Array(10)
     .fill(null)
-    .map(() => new NoteAndSlot(new Note([Fr.random(), Fr.random(), Fr.random()]), Fr.random(), NoteSelector.random()));
+    .map(() =>
+      NoteAndSlot.from({
+        note: new Note([Fr.random(), Fr.random(), Fr.random()]),
+        storageSlot: Fr.random(),
+        randomness: Fr.random(),
+        noteTypeId: NoteSelector.random(),
+      }),
+    );
 
   const createFakeSiloedCommitment = (commitment: Fr) => new Fr(commitment.value + 1n);
   const generateFakeCommitment = (noteAndSlot: NoteAndSlot) => noteAndSlot.note.items[0];
@@ -66,10 +76,9 @@ describe('Private Kernel Sequencer', () => {
     publicInputs.callContext.contractAddress = contractAddress;
     return new PrivateCallExecutionResult(
       Buffer.alloc(0),
-      VerificationKey.makeFake().toBuffer(),
+      VerificationKey.makeFakeMegaHonk(),
       new Map(),
       publicInputs,
-      new Map(),
       newNoteIndices.map(idx => notesAndSlots[idx]),
       new Map(),
       [],
@@ -83,7 +92,7 @@ describe('Private Kernel Sequencer', () => {
   const simulateProofOutput = (newNoteIndices: number[]) => {
     const publicInputs = PrivateKernelCircuitPublicInputs.empty();
     publicInputs.constants.anchorBlockHeader.globalVariables.timestamp = blockTimestamp;
-    publicInputs.includeByTimestamp = includeByTimestamp;
+    publicInputs.expirationTimestamp = expirationTimestamp;
     publicInputs.end.noteHashes = new ClaimedLengthArray(
       padArrayEnd(
         newNoteIndices.map(newNoteIndex =>
@@ -144,9 +153,14 @@ describe('Private Kernel Sequencer', () => {
     oracle.getVkMembershipWitness.mockResolvedValue(MembershipWitness.random(VK_TREE_HEIGHT));
 
     oracle.getContractAddressPreimage.mockResolvedValue({
+      version: 1 as const,
+      salt: Fr.random(),
+      deployer: await AztecAddress.random(),
       currentContractClassId: Fr.random(),
       originalContractClassId: Fr.random(),
+      initializationHash: Fr.random(),
       publicKeys: await PublicKeys.random(),
+      address: await AztecAddress.random(),
       saltedInitializationHash: Fr.random(),
     });
     oracle.getContractClassIdPreimage.mockResolvedValue({

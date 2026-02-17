@@ -1,6 +1,6 @@
 import type { ConfigMappingsType } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { schemas, zodFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
@@ -35,25 +35,27 @@ export type L1ContractAddresses = {
   dateGatedRelayerAddress?: EthAddress | undefined;
 };
 
-export const L1ContractAddressesSchema = z.object({
-  rollupAddress: schemas.EthAddress,
-  registryAddress: schemas.EthAddress,
-  inboxAddress: schemas.EthAddress,
-  outboxAddress: schemas.EthAddress,
-  feeJuiceAddress: schemas.EthAddress,
-  stakingAssetAddress: schemas.EthAddress,
-  feeJuicePortalAddress: schemas.EthAddress,
-  coinIssuerAddress: schemas.EthAddress,
-  rewardDistributorAddress: schemas.EthAddress,
-  governanceProposerAddress: schemas.EthAddress,
-  governanceAddress: schemas.EthAddress,
-  slashFactoryAddress: schemas.EthAddress.optional(),
-  feeAssetHandlerAddress: schemas.EthAddress.optional(),
-  stakingAssetHandlerAddress: schemas.EthAddress.optional(),
-  zkPassportVerifierAddress: schemas.EthAddress.optional(),
-  gseAddress: schemas.EthAddress.optional(),
-  dateGatedRelayerAddress: schemas.EthAddress.optional(),
-}) satisfies ZodFor<L1ContractAddresses>;
+export const L1ContractAddressesSchema = zodFor<L1ContractAddresses>()(
+  z.object({
+    rollupAddress: schemas.EthAddress,
+    registryAddress: schemas.EthAddress,
+    inboxAddress: schemas.EthAddress,
+    outboxAddress: schemas.EthAddress,
+    feeJuiceAddress: schemas.EthAddress,
+    stakingAssetAddress: schemas.EthAddress,
+    feeJuicePortalAddress: schemas.EthAddress,
+    coinIssuerAddress: schemas.EthAddress,
+    rewardDistributorAddress: schemas.EthAddress,
+    governanceProposerAddress: schemas.EthAddress,
+    governanceAddress: schemas.EthAddress,
+    slashFactoryAddress: schemas.EthAddress.optional(),
+    feeAssetHandlerAddress: schemas.EthAddress.optional(),
+    stakingAssetHandlerAddress: schemas.EthAddress.optional(),
+    zkPassportVerifierAddress: schemas.EthAddress.optional(),
+    gseAddress: schemas.EthAddress.optional(),
+    dateGatedRelayerAddress: schemas.EthAddress.optional(),
+  }),
+);
 
 const parseEnv = (val: string) => EthAddress.fromString(val);
 

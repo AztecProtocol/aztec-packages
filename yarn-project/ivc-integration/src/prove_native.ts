@@ -4,8 +4,6 @@ import {
   PUBLIC_INPUTS_FILENAME,
   type UltraHonkFlavor,
   VK_FILENAME,
-  executeBbChonkProof,
-  extractVkData,
   generateAvmProof,
   generateProof,
   readProofsFromOutputDirectory,
@@ -14,70 +12,41 @@ import {
 } from '@aztec/bb-prover';
 import {
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
-  AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
   CHONK_PROOF_LENGTH,
+  HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE,
   NESTED_RECURSIVE_PROOF_LENGTH,
   RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
 } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import type { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
-import { type ProofAndVerificationKey, makeProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
+import { makeProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
-import type { Proof } from '@aztec/stdlib/proofs';
-import { enhanceProofWithPiValidationFlag } from '@aztec/stdlib/rollup';
+import { Proof, RecursiveProof } from '@aztec/stdlib/proofs';
 import { VerificationKeyAsFields, VerificationKeyData } from '@aztec/stdlib/vks';
 
 import * as fs from 'fs/promises';
-import { Encoder } from 'msgpackr';
 import * as path from 'path';
 
-/**
- * Converts verification key bytes from a compiled circuit to VerificationKeyData format
- * @param vkBytes - The verification key bytes from the circuit
- * @returns The verification key data
- */
-async function convertVkBytesToVkData(vkBytes: Buffer): Promise<VerificationKeyData> {
-  // Convert binary to field elements (32 bytes per field)
-  const numFields = vkBytes.length / Fr.SIZE_IN_BYTES;
-  const reader = BufferReader.asReader(vkBytes);
-  const fields = reader.readArray(numFields, Fr);
+export async function proofBytesToRecursiveProof(
+  proofAsFields: Uint8Array[],
+  vkBytes: Uint8Array,
+): Promise<RecursiveProof<typeof CHONK_PROOF_LENGTH>> {
+  const vk = await VerificationKeyAsFields.fromFrBuffer(Buffer.from(vkBytes));
+  const numCustomPublicInputs = vk.numPublicInputs - HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE;
+  // Convert Uint8Array fields to Fr instances
+  const fields = proofAsFields.map(f => Fr.fromBuffer(Buffer.from(f)));
 
-  const vkAsFields = await VerificationKeyAsFields.fromKey(fields);
-  return new VerificationKeyData(vkAsFields, vkBytes);
-}
+  // Slice off custom public inputs from the beginning.
+  const fieldsWithoutPublicInputs = fields.slice(numCustomPublicInputs);
 
-export async function proveChonk(
-  bbBinaryPath: string,
-  bbWorkingDirectory: string,
-  witnessStack: Uint8Array[],
-  bytecodes: string[],
-  vks: string[],
-  logger: Logger,
-): Promise<ProofAndVerificationKey<typeof CHONK_PROOF_LENGTH>> {
-  const stepToStruct = (bytecode: string, index: number) => {
-    return {
-      bytecode: Buffer.from(bytecode, 'base64'),
-      witness: witnessStack[index],
-      vk: Buffer.from(vks[index], 'hex'),
-      functionName: `unknown_${index}`,
-    };
-  };
-  const encoded = new Encoder({ useRecords: false }).pack(bytecodes.map(stepToStruct));
-  const ivcInputsPath = path.join(bbWorkingDirectory, 'ivc-inputs.msgpack');
-  await fs.writeFile(ivcInputsPath, encoded);
+  // Convert fields to binary buffer
+  const proofBuffer = Buffer.concat(proofAsFields.slice(numCustomPublicInputs));
 
-  const provingResult = await executeBbChonkProof(bbBinaryPath, bbWorkingDirectory, ivcInputsPath, logger.info, true);
-
-  if (provingResult.status === BB_RESULT.FAILURE) {
-    throw new Error(provingResult.reason);
-  }
-
-  const vk = await extractVkData(provingResult.vkDirectoryPath!);
-  const proof = await readProofsFromOutputDirectory(provingResult.proofPath!, vk, CHONK_PROOF_LENGTH, logger);
-
-  return makeProofAndVerificationKey(proof, vk);
+  // Create Proof directly (not using fromBuffer which expects different format)
+  const proof = new Proof(proofBuffer, numCustomPublicInputs);
+  return new RecursiveProof(fieldsWithoutPublicInputs, proof, true, CHONK_PROOF_LENGTH);
 }
 
 async function verifyProofWithKey(
@@ -130,7 +99,7 @@ async function proveRollupCircuit<T extends UltraHonkFlavor, ProofLength extends
     throw new Error(`Failed to generate proof for ${name} with flavor ${flavor}`);
   }
 
-  const vk = await convertVkBytesToVkData(vkBuffer);
+  const vk = await VerificationKeyData.fromFrBuffer(vkBuffer);
   const proof = await readProofsFromOutputDirectory(proofResult.proofPath!, vk, proofLength, logger);
 
   await verifyProofWithKey(pathToBB, workingDirectory, vk, proof.binaryProof, flavor, logger);
@@ -182,9 +151,7 @@ export async function proveAvm(
   avmCircuitInputs: AvmCircuitInputs,
   workingDirectory: string,
   logger: Logger,
-  skipPublicInputsValidation: boolean = false,
 ): Promise<{
-  vk: VerificationKeyAsFields;
   proof: Fr[];
   publicInputs: AvmCircuitPublicInputs;
 }> {
@@ -200,11 +167,7 @@ export async function proveAvm(
   }
 
   const avmProofPath = proofRes.proofPath;
-  const avmVkDirectoryPath = proofRes.vkDirectoryPath;
   expect(avmProofPath).toBeDefined();
-  expect(avmVkDirectoryPath).toBeDefined();
-
-  const avmVkPath = path.join(proofRes.vkDirectoryPath as string, VK_FILENAME);
 
   // Read the binary proof
   const avmProofBuffer = await fs.readFile(avmProofPath!);
@@ -222,26 +185,11 @@ export async function proveAvm(
     proof.push(new Fr(0));
   }
 
-  // Read the key
-  const vkBuffer = await fs.readFile(avmVkPath!);
-  const vkReader = BufferReader.asReader(vkBuffer);
-  const vk: Fr[] = [];
-  while (!vkReader.isEmpty()) {
-    vk.push(Fr.fromBuffer(vkReader));
-  }
-  // We extend to a fixed-size padded vk as during development any new AVM circuit precomputed
-  // column changes the vk length and we do not have a mechanism to feedback a cpp constant to noir/TS.
-  // TODO(#13390): Revive a non-padded vk proof
-  while (vk.length < AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED) {
-    vk.push(new Fr(0));
-  }
-
   const verificationResult = await verifyAvmProof(
     bbPath,
     workingDirectory,
     proofRes.proofPath!,
     avmCircuitInputs.publicInputs,
-    path.join(proofRes.vkDirectoryPath!, VK_FILENAME),
     logger,
   );
 
@@ -249,12 +197,8 @@ export async function proveAvm(
     throw new Error(`AVM V2 proof verification failed: ${verificationResult.reason}`);
   }
 
-  // TODO(#14234)[Unconditional PIs validation]: Remove next lines and return proof instead of proofWithPublicInputsValidationFlag
-  const proofWithPublicInputsValidationFlag = enhanceProofWithPiValidationFlag(proof, skipPublicInputsValidation);
-
   return {
-    proof: proofWithPublicInputsValidationFlag,
-    vk: await VerificationKeyAsFields.fromKey(vk),
+    proof,
     publicInputs: avmCircuitInputs.publicInputs,
   };
 }

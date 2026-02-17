@@ -1,9 +1,9 @@
-import { useState } from "react";
-import { deployerEnv } from "../config";
+import { useState } from 'react';
+import { deployerEnv } from '../config';
 
-import { Contract } from "@aztec/aztec.js/contracts";
-import { Fr } from "@aztec/aztec.js/fields";
-import { toast } from "react-toastify";
+import { Contract } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import { toast } from 'react-toastify';
 
 export function useContract() {
   const [wait, setWait] = useState(false);
@@ -17,22 +17,19 @@ export function useContract() {
     const defaultAccountAddress = deployerEnv.getDefaultAccountAddress();
     const salt = Fr.random();
 
-    const { BoxReactContract } = await import("../../artifacts/BoxReact");
+    const { BoxReactContract } = await import('../../artifacts/BoxReact');
 
-    const tx = await BoxReactContract.deploy(
-      wallet,
-      Fr.random(),
-      defaultAccountAddress,
-    ).send({
+    const deploymentPromise = BoxReactContract.deploy(wallet, Fr.random(), defaultAccountAddress).send({
       from: defaultAccountAddress,
       contractAddressSalt: salt,
     });
-    const contract = await toast.promise(tx.deployed(), {
-      pending: "Deploying contract...",
+
+    const contract = await toast.promise(deploymentPromise, {
+      pending: 'Deploying contract...',
       success: {
         render: ({ data }) => `Address: ${data.address}`,
       },
-      error: "Error deploying contract",
+      error: 'Error deploying contract',
     });
 
     setContract(contract);

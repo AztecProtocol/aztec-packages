@@ -7,13 +7,13 @@ namespace bb {
 extern const bool avm_enabled;
 
 /**
- * @brief Writes an avm proof and corresponding (incomplete) verification key to files.
+ * @brief Writes an avm proof to a file.
  *
  * Communication:
- * - Filesystem: The proof and vk are written to the paths output_path/proof and output_path/vk
+ * - Filesystem: The proof is written to the path output_path/proof
  *
  * @param inputs_path Path to the file containing the serialised avm public inputs and hints
- * @param output_path Path (directory) to write the output proof and verification keys
+ * @param output_path Path (directory) to write the output proof
  */
 void avm_prove(const std::filesystem::path& inputs_path, const std::filesystem::path& output_path);
 
@@ -27,14 +27,12 @@ void avm_check_circuit(const std::filesystem::path& inputs_path);
  *   an exit code of 0 will be returned for success and 1 for failure.
  *
  * @param proof_path Path to the file containing the serialized proof
- * @param vk_path Path to the file containing the serialized verification key
+ * @param public_inputs_path Path to the file containing the serialized public inputs
  * @return true If the proof is valid
  * @return false If the proof is invalid
  */
 // NOTE: The proof should NOT include the public inputs.
-bool avm_verify(const std::filesystem::path& proof_path,
-                const std::filesystem::path& public_inputs_path,
-                const std::filesystem::path& vk_path);
+bool avm_verify(const std::filesystem::path& proof_path, const std::filesystem::path& public_inputs_path);
 
 /**
  * @brief Simulates an public transaction
@@ -43,5 +41,15 @@ bool avm_verify(const std::filesystem::path& proof_path,
  */
 // FIXME(fcarreiro): The inputs should not need to be the PROVING inputs.
 void avm_simulate(const std::filesystem::path& inputs_path);
+
+/**
+ * @brief Writes an avm (incomplete) verification key to a file.
+ *
+ * Communication:
+ * - Filesystem: The vk is written to the path output_path/vk
+ *
+ * @param output_path Path (directory) to write the output verification key
+ */
+void avm_write_verification_key(const std::filesystem::path& output_path);
 
 } // namespace bb

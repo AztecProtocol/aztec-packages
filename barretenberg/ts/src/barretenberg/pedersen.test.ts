@@ -1,6 +1,6 @@
 import { BarretenbergSync } from './index.js';
 import { Timer } from '../benchmark/timer.js';
-import { Fr } from '../types/index.js';
+import { Fr } from './testing/fields.js';
 
 describe('pedersen sync', () => {
   let api: BarretenbergSync;

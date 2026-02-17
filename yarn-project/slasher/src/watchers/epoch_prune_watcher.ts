@@ -1,22 +1,26 @@
 import { EpochCache } from '@aztec/epoch-cache';
-import { merge, pick } from '@aztec/foundation/collection';
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { chunkBy, merge, pick } from '@aztec/foundation/collection';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   EthAddress,
   L2Block,
-  type L2BlockPruneEvent,
   type L2BlockSourceEventEmitter,
   L2BlockSourceEvents,
+  type L2PruneUnprovenEvent,
 } from '@aztec/stdlib/block';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
-  IFullNodeBlockBuilder,
+  ICheckpointBlockBuilder,
+  ICheckpointsBuilder,
   ITxProvider,
   MerkleTreeWriteOperations,
   SlasherConfig,
 } from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { type L1ToL2MessageSource, computeCheckpointOutHash } from '@aztec/stdlib/messaging';
 import { OffenseType, getOffenseTypeName } from '@aztec/stdlib/slashing';
+import type { CheckpointGlobalVariables } from '@aztec/stdlib/tx';
 import {
   ReExFailedTxsError,
   ReExStateMismatchError,
@@ -51,7 +55,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private epochCache: EpochCache,
     private txProvider: Pick<ITxProvider, 'getAvailableTxs'>,
-    private blockBuilder: IFullNodeBlockBuilder,
+    private checkpointsBuilder: ICheckpointsBuilder,
     penalties: EpochPruneWatcherPenalties,
   ) {
     super();
@@ -62,12 +66,12 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
   }
 
   public start() {
-    this.l2BlockSource.on(L2BlockSourceEvents.L2PruneDetected, this.boundHandlePruneL2Blocks);
+    this.l2BlockSource.events.on(L2BlockSourceEvents.L2PruneUnproven, this.boundHandlePruneL2Blocks);
     return Promise.resolve();
   }
 
   public stop() {
-    this.l2BlockSource.removeListener(L2BlockSourceEvents.L2PruneDetected, this.boundHandlePruneL2Blocks);
+    this.l2BlockSource.events.removeListener(L2BlockSourceEvents.L2PruneUnproven, this.boundHandlePruneL2Blocks);
     return Promise.resolve();
   }
 
@@ -76,34 +80,34 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     this.log.verbose('EpochPruneWatcher config updated', this.penalties);
   }
 
-  private handlePruneL2Blocks(event: L2BlockPruneEvent): void {
+  private handlePruneL2Blocks(event: L2PruneUnprovenEvent): void {
     const { blocks, epochNumber } = event;
     void this.processPruneL2Blocks(blocks, epochNumber).catch(err =>
       this.log.error('Error processing pruned L2 blocks', err, { epochNumber }),
     );
   }
 
-  private async emitSlashForEpoch(offense: OffenseType, epochNumber: bigint): Promise<void> {
+  private async emitSlashForEpoch(offense: OffenseType, epochNumber: EpochNumber): Promise<void> {
     const validators = await this.getValidatorsForEpoch(epochNumber);
     if (validators.length === 0) {
       this.log.warn(`No validators found for epoch ${epochNumber} (cannot slash for ${getOffenseTypeName(offense)})`);
       return;
     }
-    const args = this.validatorsToSlashingArgs(validators, offense, BigInt(epochNumber));
+    const args = this.validatorsToSlashingArgs(validators, offense, epochNumber);
     this.log.verbose(`Created slash for ${getOffenseTypeName(offense)} at epoch ${epochNumber}`, args);
     this.emit(WANT_TO_SLASH_EVENT, args);
   }
 
-  private async processPruneL2Blocks(blocks: L2Block[], epochNumber: bigint): Promise<void> {
+  private async processPruneL2Blocks(blocks: L2Block[], epochNumber: EpochNumber): Promise<void> {
     try {
       const l1Constants = this.epochCache.getL1Constants();
-      const epochBlocks = blocks.filter(b => getEpochAtSlot(b.slot, l1Constants) === epochNumber);
+      const epochBlocks = blocks.filter(b => getEpochAtSlot(b.header.getSlot(), l1Constants) === epochNumber);
       this.log.info(
         `Detected chain prune. Validating epoch ${epochNumber} with blocks ${epochBlocks[0]?.number} to ${epochBlocks[epochBlocks.length - 1]?.number}.`,
         { blocks: epochBlocks.map(b => b.toBlockInfo()) },
       );
 
-      await this.validateBlocks(epochBlocks);
+      await this.validateBlocks(epochBlocks, epochNumber);
       this.log.info(`Pruned epoch ${epochNumber} was valid. Want to slash committee for not having it proven.`);
       await this.emitSlashForEpoch(OffenseType.VALID_EPOCH_PRUNED, epochNumber);
     } catch (error) {
@@ -118,21 +122,82 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     }
   }
 
-  public async validateBlocks(blocks: L2Block[]): Promise<void> {
+  public async validateBlocks(blocks: L2Block[], epochNumber: EpochNumber): Promise<void> {
     if (blocks.length === 0) {
       return;
     }
-    const fork = await this.blockBuilder.getFork(blocks[0].header.globalVariables.blockNumber - 1);
+
+    // Sort blocks by block number and group by checkpoint
+    const sortedBlocks = [...blocks].sort((a, b) => a.number - b.number);
+    const blocksByCheckpoint = chunkBy(sortedBlocks, b => b.checkpointNumber);
+
+    // Get prior checkpoints in the epoch (in case this was a partial prune) to extract the out hashes
+    const priorCheckpointOutHashes = (await this.l2BlockSource.getCheckpointsForEpoch(epochNumber))
+      .filter(c => c.number < sortedBlocks[0].checkpointNumber)
+      .map(c => c.getCheckpointOutHash());
+    let previousCheckpointOutHashes: Fr[] = [...priorCheckpointOutHashes];
+
+    const fork = await this.checkpointsBuilder.getFork(
+      BlockNumber(sortedBlocks[0].header.globalVariables.blockNumber - 1),
+    );
     try {
-      for (const block of blocks) {
-        await this.validateBlock(block, fork);
+      for (const checkpointBlocks of blocksByCheckpoint) {
+        await this.validateCheckpoint(checkpointBlocks, previousCheckpointOutHashes, fork);
+
+        // Compute checkpoint out hash from all blocks in this checkpoint
+        const checkpointOutHash = computeCheckpointOutHash(
+          checkpointBlocks.map(b => b.body.txEffects.map(tx => tx.l2ToL1Msgs)),
+        );
+        previousCheckpointOutHashes = [...previousCheckpointOutHashes, checkpointOutHash];
       }
     } finally {
       await fork.close();
     }
   }
 
-  public async validateBlock(blockFromL1: L2Block, fork: MerkleTreeWriteOperations): Promise<void> {
+  private async validateCheckpoint(
+    checkpointBlocks: L2Block[],
+    previousCheckpointOutHashes: Fr[],
+    fork: MerkleTreeWriteOperations,
+  ): Promise<void> {
+    const checkpointNumber = checkpointBlocks[0].checkpointNumber;
+    this.log.debug(`Validating pruned checkpoint ${checkpointNumber} with ${checkpointBlocks.length} blocks`);
+
+    // Get L1ToL2Messages once for the entire checkpoint
+    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
+
+    // Build checkpoint constants from first block's global variables
+    const gv = checkpointBlocks[0].header.globalVariables;
+    const constants: CheckpointGlobalVariables = {
+      chainId: gv.chainId,
+      version: gv.version,
+      slotNumber: gv.slotNumber,
+      coinbase: gv.coinbase,
+      feeRecipient: gv.feeRecipient,
+      gasFees: gv.gasFees,
+    };
+
+    // Start checkpoint builder once for all blocks in this checkpoint
+    const checkpointBuilder = await this.checkpointsBuilder.startCheckpoint(
+      checkpointNumber,
+      constants,
+      0n, // feeAssetPriceModifier is not used for validation of the checkpoint content
+      l1ToL2Messages,
+      previousCheckpointOutHashes,
+      fork,
+      this.log.getBindings(),
+    );
+
+    // Validate all blocks in the checkpoint sequentially
+    for (const block of checkpointBlocks) {
+      await this.validateBlockInCheckpoint(block, checkpointBuilder);
+    }
+  }
+
+  private async validateBlockInCheckpoint(
+    blockFromL1: L2Block,
+    checkpointBuilder: ICheckpointBlockBuilder,
+  ): Promise<void> {
     this.log.debug(`Validating pruned block ${blockFromL1.header.globalVariables.blockNumber}`);
     const txHashes = blockFromL1.body.txEffects.map(txEffect => txEffect.txHash);
     // We load txs from the mempool directly, since the TxCollector running in the background has already been
@@ -144,14 +209,9 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
       throw new TransactionsNotAvailableError(missingTxs);
     }
 
-    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockFromL1.number);
-    const { block, failedTxs, numTxs } = await this.blockBuilder.buildBlock(
-      txs,
-      l1ToL2Messages,
-      blockFromL1.header.globalVariables,
-      {},
-      fork,
-    );
+    const gv = blockFromL1.header.globalVariables;
+    const { block, failedTxs, numTxs } = await checkpointBuilder.buildBlock(txs, gv.blockNumber, gv.timestamp, {});
+
     if (numTxs !== txs.length) {
       // This should be detected by state mismatch, but this makes it easier to debug.
       throw new ValidatorError(`Built block with ${numTxs} txs, expected ${txs.length}`);
@@ -164,7 +224,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     }
   }
 
-  private async getValidatorsForEpoch(epochNumber: bigint): Promise<EthAddress[]> {
+  private async getValidatorsForEpoch(epochNumber: EpochNumber): Promise<EthAddress[]> {
     const { committee } = await this.epochCache.getCommitteeForEpoch(epochNumber);
     if (!committee) {
       this.log.trace(`No committee found for epoch ${epochNumber}`);
@@ -176,7 +236,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
   private validatorsToSlashingArgs(
     validators: EthAddress[],
     offenseType: OffenseType,
-    epochOrSlot: bigint,
+    epochOrSlot: EpochNumber,
   ): WantToSlashArgs[] {
     const penalty =
       offenseType === OffenseType.DATA_WITHHOLDING
@@ -186,7 +246,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
       validator: v,
       amount: penalty,
       offenseType,
-      epochOrSlot,
+      epochOrSlot: BigInt(epochOrSlot),
     }));
   }
 }

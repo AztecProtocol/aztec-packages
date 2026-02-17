@@ -1,1 +1,2 @@
 barretenberg_module(lmdblib lmdb numeric)
+set_target_properties(lmdblib_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)

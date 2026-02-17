@@ -1,6 +1,6 @@
 import { default as hash } from 'hash.js';
 
-import { GrumpkinScalar } from '../../fields/fields.js';
+import { GrumpkinScalar } from '../../curves/grumpkin/index.js';
 import { type Bufferable, serializeToBuffer } from '../../serialize/serialize.js';
 
 export const sha512 = (data: Buffer) => Buffer.from(hash.sha512().update(data).digest());

@@ -1,6 +1,6 @@
 [build]
-  # Only build if changes are made in the docs directory
-  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF"
+  # Only build if docs-related files changed (docs/ or #include_code references)
+  ignore = "./scripts/netlify-ignore-build.sh"
 
 # Redirect root to /docs
 [[redirects]]

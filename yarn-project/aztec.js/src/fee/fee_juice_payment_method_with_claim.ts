@@ -1,9 +1,9 @@
-import { ExecutionPayload } from '@aztec/entrypoints/payload';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
+import { ExecutionPayload } from '@aztec/stdlib/tx';
 
 import type { L2AmountClaim } from '../ethereum/portal_manager.js';
 import type { FeePaymentMethod } from './fee_payment_method.js';
@@ -27,10 +27,11 @@ export class FeeJuicePaymentMethodWithClaim implements FeePaymentMethod {
 
     return new ExecutionPayload(
       [
-        {
-          to: ProtocolContractAddress.FeeJuice,
+        FunctionCall.from({
           name: 'claim_and_end_setup',
+          to: ProtocolContractAddress.FeeJuice,
           selector,
+          type: FunctionType.PRIVATE,
           hideMsgSender: false,
           isStatic: false,
           args: [
@@ -40,11 +41,12 @@ export class FeeJuicePaymentMethodWithClaim implements FeePaymentMethod {
             new Fr(this.claim.messageLeafIndex),
           ],
           returnTypes: [],
-          type: FunctionType.PRIVATE,
-        },
+        }),
       ],
       [],
       [],
+      [],
+      this.sender, // feePayer
     );
   }
 

@@ -1,17 +1,18 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
-import { SentTx } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
-import { addL1Validator } from '@aztec/cli/l1';
-import { RollupContract } from '@aztec/ethereum';
+import { waitForTx } from '@aztec/aztec.js/node';
+import { TxHash } from '@aztec/aztec.js/tx';
+import { addL1Validator } from '@aztec/cli/l1/validators';
+import { RollupContract } from '@aztec/ethereum/contracts';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
 import { MockZKPassportVerifierAbi } from '@aztec/l1-artifacts/MockZKPassportVerifierAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
-import { StakingAssetHandlerAbi } from '@aztec/l1-artifacts/StakingAssetHandlerAbi';
 import type { SequencerClient } from '@aztec/sequencer-client';
-import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
+import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 
 import { jest } from '@jest/globals';
@@ -22,7 +23,7 @@ import { getContract } from 'viem';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
-import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
+import { type AlertConfig, GrafanaClient } from '../quality_of_service/grafana_client.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { submitTransactions } from './shared.js';
 
@@ -60,13 +61,13 @@ describe('e2e_p2p_network', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
+        aztecSlotDuration: 24,
         listenAddress: '127.0.0.1',
       },
-      mockZkPassportVerifier: true,
     });
 
-    await t.addBootstrapNode();
     await t.setup();
+    await t.addBootstrapNode();
   });
 
   afterEach(async () => {
@@ -79,7 +80,7 @@ describe('e2e_p2p_network', () => {
 
   afterAll(async () => {
     if (CHECK_ALERTS) {
-      const checker = new AlertChecker(t.logger);
+      const checker = new GrafanaClient(t.logger);
       await checker.runAlertCheck(qosAlerts);
     }
   });
@@ -104,12 +105,6 @@ describe('e2e_p2p_network', () => {
       client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
-    const stakingAssetHandler = getContract({
-      address: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetHandlerAddress!.toString(),
-      abi: StakingAssetHandlerAbi,
-      client: t.ctx.deployL1ContractsValues.l1Client,
-    });
-
     const zkPassportVerifier = getContract({
       address: t.ctx.deployL1ContractsValues.l1ContractAddresses.zkPassportVerifierAddress!.toString(),
       abi: MockZKPassportVerifierAbi,
@@ -117,6 +112,9 @@ describe('e2e_p2p_network', () => {
     });
 
     expect((await rollupWrapper.getAttesters()).length).toBe(0);
+
+    // Use the base account as the withdrawer for all validators in this test
+    const withdrawerAddress = EthAddress.fromString(t.baseAccount.address);
 
     // Add the validators to the rollup using the same function as the CLI
     for (let i = 0; i < validators.length; i++) {
@@ -128,7 +126,7 @@ describe('e2e_p2p_network', () => {
         privateKey: t.baseAccountPrivateKey,
         mnemonic: undefined,
         attesterAddress: EthAddress.fromString(validator.attester.toString()),
-        merkleProof: [], // empty merkle proof - check is disabled in the test
+        withdrawerAddress,
         stakingAssetHandlerAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetHandlerAddress!,
         proofParams: mockPassportProof,
         blsSecretKey: Fr.random().toBigInt(),
@@ -151,14 +149,15 @@ describe('e2e_p2p_network', () => {
     expect(attestersImmedatelyAfterAdding.length).toBe(validators.length);
 
     // Check that the validators are added correctly
-    const withdrawer = await stakingAssetHandler.read.withdrawer();
     for (const validator of validators) {
       const info = await rollupWrapper.getAttesterView(validator.attester.toString());
-      expect(info.config.withdrawer).toBe(withdrawer);
+      expect(info.config.withdrawer.toChecksumString()).toBe(withdrawerAddress.toChecksumString());
     }
 
     // Wait for the validators to be added to the rollup
-    const timestamp = await t.ctx.cheatCodes.rollup.advanceToEpoch(BigInt(t.ctx.aztecNodeConfig.lagInEpochs + 1));
+    const timestamp = await t.ctx.cheatCodes.rollup.advanceToEpoch(
+      EpochNumber(t.ctx.aztecNodeConfig.lagInEpochsForValidatorSet + 1),
+    );
 
     // Changes have now taken effect
     const attesters = await rollupWrapper.getAttesters();
@@ -182,7 +181,7 @@ describe('e2e_p2p_network', () => {
     // the number of txs per node and the number of txs per rollup
     // should be set so that the only way for rollups to be built
     // is if the txs are successfully gossiped around the nodes.
-    const txsSentViaDifferentNodes: SentTx[][] = [];
+    const txsSentViaDifferentNodes: TxHash[][] = [];
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
@@ -214,22 +213,23 @@ describe('e2e_p2p_network', () => {
     // now ensure that all txs were successfully mined
     await Promise.all(
       txsSentViaDifferentNodes.flatMap((txs, i) =>
-        txs.map(async (tx, j) => {
-          t.logger.info(`Waiting for tx ${i}-${j}: ${(await tx.getTxHash()).toString()} to be mined`);
-          return tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT });
+        txs.map((txHash, j) => {
+          t.logger.info(`Waiting for tx ${i}-${j}: ${txHash.toString()} to be mined`);
+          return waitForTx(nodes[0], txHash, { timeout: WAIT_FOR_TX_TIMEOUT });
         }),
       ),
     );
     t.logger.info('All transactions mined');
 
     // Gather signers from attestations downloaded from L1
-    const blockNumber = await txsSentViaDifferentNodes[0][0].getReceipt().then(r => r.blockNumber!);
-    const dataStore = ((nodes[0] as AztecNodeService).getBlockSource() as Archiver).dataStore;
-    const [block] = await dataStore.getPublishedBlocks(blockNumber, blockNumber);
-    const payload = ConsensusPayload.fromBlock(block.block);
-    const attestations = block.attestations
+    const blockNumber = await nodes[0].getTxReceipt(txsSentViaDifferentNodes[0][0]).then(r => r.blockNumber!);
+    const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
+    const checkpointedBlock = await dataStore.getCheckpointedBlock(blockNumber);
+    const [publishedCheckpoint] = await dataStore.getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
+    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
+    const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
-      .map(a => new BlockAttestation(payload, a.signature, Signature.empty()));
+      .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
     const signers = await Promise.all(attestations.map(att => att.getSender()!.toString()));
     t.logger.info(`Attestation signers`, { signers });
 

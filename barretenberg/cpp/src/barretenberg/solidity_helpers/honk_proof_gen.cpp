@@ -20,34 +20,27 @@ using namespace bb;
 using numeric::uint256_t;
 
 // Get rid of the inner typename
-template <typename Circuit, typename Flavor> void generate_proof(uint256_t inputs[])
+template <typename Circuit, typename Flavor, typename IO = DefaultIO> void generate_proof(uint256_t inputs[])
 {
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
+    using VKAndHash = typename Flavor::VKAndHash;
     using Prover = UltraProver_<Flavor>;
-    using Verifier = UltraVerifier_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor, IO>;
     using Proof = typename Flavor::Transcript::Proof;
     using CircuitBuilder = typename Flavor::CircuitBuilder;
-    using IO = std::conditional_t<HasIPAAccumulator<Flavor>, RollupIO, DefaultIO>;
 
     CircuitBuilder builder = Circuit::generate(inputs);
-    // If this is not a recursive circuit, we need to add the default pairing points to the public inputs
-    if constexpr (!std::same_as<Circuit, RecursiveCircuit>) {
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            stdlib::recursion::honk::RollupIO::add_default(builder);
-        } else {
-            stdlib::recursion::honk::DefaultIO<CircuitBuilder>::add_default(builder);
-        }
-    }
 
     auto instance = std::make_shared<ProverInstance>(builder);
     auto verification_key = std::make_shared<VerificationKey>(instance->get_precomputed());
+    auto vk_and_hash = std::make_shared<VKAndHash>(verification_key);
     Prover prover(instance, verification_key);
-    Verifier verifier(verification_key);
+    Verifier verifier(vk_and_hash);
 
     Proof proof = prover.construct_proof();
     {
-        if (!verifier.template verify_proof<IO>(proof)) {
+        if (!verifier.verify_proof(proof).result) {
             throw_or_abort("Verification failed");
         }
 

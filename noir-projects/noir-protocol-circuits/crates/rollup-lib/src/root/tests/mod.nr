@@ -1,19 +1,20 @@
 mod blob_tests;
 mod child_proof_vk_tests;
 mod consecutive_rollups_tests;
+mod out_hash_tests;
 mod rollup_structure_tests;
 
 use crate::{
     abis::{CheckpointRollupPublicInputs, RootRollupPublicInputs},
-    root::root_rollup_private_inputs::RootRollupPrivateInputs,
+    root::root_rollup::{self, RootRollupPrivateInputs},
     tests::RollupFixtureBuilder,
 };
 use types::{
     abis::fee_recipient::FeeRecipient,
     constants::{
-        AZTEC_MAX_EPOCH_DURATION, CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
-        CHECKPOINT_PADDING_ROLLUP_VK_INDEX, CHECKPOINT_ROOT_ROLLUP_VK_INDEX,
-        CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX,
+        CHECKPOINT_MERGE_ROLLUP_VK_INDEX, CHECKPOINT_PADDING_ROLLUP_VK_INDEX,
+        CHECKPOINT_ROOT_ROLLUP_VK_INDEX, CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX,
+        MAX_CHECKPOINTS_PER_EPOCH,
     },
     traits::Empty,
 };
@@ -96,7 +97,7 @@ impl TestBuilder {
             RollupFixtureBuilder::make_proof_data(self.left_rollup, self.left_rollup_vk_index),
             RollupFixtureBuilder::make_proof_data(self.right_rollup, self.right_rollup_vk_index),
         ];
-        RootRollupPrivateInputs { previous_rollups }.execute()
+        root_rollup::execute(RootRollupPrivateInputs { previous_rollups })
     }
 
     pub fn execute_and_fail(self) {
@@ -119,8 +120,10 @@ impl TestBuilder {
         assert_eq(pi.new_archive_root, right.new_archive.root);
         assert(pi.previous_archive_root != pi.new_archive_root);
 
-        let mut expected_header_hashes = [0; AZTEC_MAX_EPOCH_DURATION];
-        let mut expected_fees = [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION];
+        assert_eq(pi.out_hash, right.new_out_hash.root);
+
+        let mut expected_header_hashes = [0; MAX_CHECKPOINTS_PER_EPOCH];
+        let mut expected_fees = [FeeRecipient::empty(); MAX_CHECKPOINTS_PER_EPOCH];
         for i in 0..self.num_left_checkpoints as u32 {
             expected_header_hashes[i] = left.checkpoint_header_hashes[i];
             expected_fees[i] = left.fees[i];
@@ -147,6 +150,8 @@ impl TestBuilder {
         assert_eq(pi.previous_archive_root, left.previous_archive.root);
         assert_eq(pi.new_archive_root, left.new_archive.root);
         assert(pi.previous_archive_root != pi.new_archive_root);
+
+        assert_eq(pi.out_hash, left.new_out_hash.root);
 
         assert_eq(pi.checkpoint_header_hashes, left.checkpoint_header_hashes);
 

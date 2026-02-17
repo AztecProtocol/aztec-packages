@@ -14,7 +14,7 @@ template <typename FF_> class l1_to_l2_message_tree_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS = { 3, 5, 3 };
+    static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 5, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {

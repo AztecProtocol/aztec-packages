@@ -29,6 +29,22 @@ export class LmdbAztecMultiMap<K extends Key, V extends Value>
     }
   }
 
+  getValueCountAsync(key: K): Promise<number> {
+    const transaction = this.db.useReadTransaction();
+    try {
+      const values = this.db.getValues(this.slot(key), {
+        transaction,
+      });
+      let count = 0;
+      for (const _ of values) {
+        count++;
+      }
+      return Promise.resolve(count);
+    } finally {
+      transaction.done();
+    }
+  }
+
   async deleteValue(key: K, val: V): Promise<void> {
     await this.db.remove(this.slot(key), [key, val]);
   }

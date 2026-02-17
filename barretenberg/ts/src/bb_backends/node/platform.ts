@@ -24,7 +24,12 @@ export function findPackageRoot(): string | null {
   while (currentDir !== root) {
     const packageJsonPath = path.join(currentDir, 'package.json');
     if (fs.existsSync(packageJsonPath)) {
-      return currentDir;
+      // Check if this is the actual package root by verifying it has a 'build' directory
+      // This ensures we skip intermediate package.json files (e.g., in dest/node-cjs/)
+      const buildDir = path.join(currentDir, 'build');
+      if (fs.existsSync(buildDir)) {
+        return currentDir;
+      }
     }
     currentDir = path.dirname(currentDir);
   }

@@ -24,3 +24,21 @@ variable "BUCKET_NAME" {
 variable "R2_ZONE_ID" {
   type = string
 }
+
+variable "BLOB_RETENTION_DAYS" {
+  type        = number
+  default     = 7
+  description = "Number of days to retain objects blobs"
+}
+
+variable "SNAPSHOT_RETENTION_DAYS" {
+  type        = number
+  default     = 7
+  description = "Number of days to retain snapshots"
+}
+
+variable "TX_RETENTION_DAYS" {
+  type        = number
+  default     = 1
+  description = "Number of days to retain txs"
+}

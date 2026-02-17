@@ -297,6 +297,21 @@
       }
     },
     {
+      "name": "fuzzing-avm-tooling",
+      "displayName": "Build fuzzer tooling without instrumentation",
+      "description": "Build fuzzer tests and utilities like corpus analyzer without fuzzer instrumentation",
+      "inherits": "clang20",
+      "binaryDir": "build-fuzzing-avm-tooling",
+      "cacheVariables": {
+        "FUZZING": "OFF",
+        "DISABLE_ASM": "OFF",
+        "AVM_TRANSPILER_LIB": "",
+        "FUZZING_AVM": "ON",
+        "CMAKE_BUILD_TYPE": "RelWithAssert",
+        "MULTITHREADING": "ON"
+      }
+    },
+    {
       "name": "smt-verification",
       "displayName": "Build with smt verification",
       "description": "Build default preset but with smt library included",
@@ -412,7 +427,8 @@
       "binaryDir": "build-wasm-threads",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "MULTITHREADING": "ON"
+        "MULTITHREADING": "ON",
+        "ENABLE_WASM_BENCH": "ON"
       }
     },
     {
@@ -514,6 +530,70 @@
         "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/aarch64-apple-darwin/release/libavm_transpiler.a",
         "HAVE_STD_REGEX": "ON"
       }
+    },
+    {
+      "name": "zig-arm64-ios",
+      "displayName": "iOS arm64 static library (Zig)",
+      "description": "Cross-compile static libraries for iOS arm64 devices using Zig. Only supports static library targets (no linking) — Zig lacks iOS TBD/dylib support.",
+      "inherits": "zig-base",
+      "environment": {
+        "CC": "zig cc -target aarch64-ios -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS26.2.sdk/usr/include",
+        "CXX": "zig c++ -target aarch64-ios -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS26.2.sdk/usr/include"
+      },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Generic",
+        "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
+        "HAVE_STD_REGEX": "ON",
+        "MOBILE": "ON"
+      }
+    },
+    {
+      "name": "zig-arm64-ios-sim",
+      "displayName": "iOS Simulator arm64 static library (Zig)",
+      "description": "Cross-compile static libraries for iOS Simulator on ARM64 using Zig. Only supports static library targets (no linking) — Zig lacks iOS TBD/dylib support.",
+      "inherits": "zig-base",
+      "environment": {
+        "CC": "zig cc -target aarch64-ios-simulator -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS26.2.sdk/usr/include",
+        "CXX": "zig c++ -target aarch64-ios-simulator -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS26.2.sdk/usr/include"
+      },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Generic",
+        "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
+        "HAVE_STD_REGEX": "ON",
+        "MOBILE": "ON"
+      }
+    },
+    {
+      "name": "zig-arm64-android",
+      "displayName": "Android arm64 static library (Zig)",
+      "description": "Cross-compile static libraries for Android arm64 devices using Zig. Only supports static library targets (no linking).",
+      "inherits": "zig-base",
+      "environment": {
+        "CC": "zig cc -target aarch64-linux-android -isystem ${sourceDir}/android-sysroot/usr/include -isystem ${sourceDir}/android-sysroot/usr/include/aarch64-linux-android",
+        "CXX": "zig c++ -target aarch64-linux-android -isystem ${sourceDir}/android-sysroot/usr/include -isystem ${sourceDir}/android-sysroot/usr/include/aarch64-linux-android"
+      },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Generic",
+        "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
+        "HAVE_STD_REGEX": "ON",
+        "MOBILE": "ON"
+      }
+    },
+    {
+      "name": "zig-x86_64-android",
+      "displayName": "Android x86_64 static library (Zig)",
+      "description": "Cross-compile static libraries for Android x86_64 emulator using Zig. Only supports static library targets (no linking).",
+      "inherits": "zig-base",
+      "environment": {
+        "CC": "zig cc -target x86_64-linux-android -isystem ${sourceDir}/android-sysroot/usr/include -isystem ${sourceDir}/android-sysroot/usr/include/x86_64-linux-android",
+        "CXX": "zig c++ -target x86_64-linux-android -isystem ${sourceDir}/android-sysroot/usr/include -isystem ${sourceDir}/android-sysroot/usr/include/x86_64-linux-android"
+      },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Generic",
+        "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
+        "HAVE_STD_REGEX": "ON",
+        "MOBILE": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -532,6 +612,11 @@
       "name": "clang20",
       "inherits": "default",
       "configurePreset": "clang20"
+    },
+    {
+      "name": "clang20-assert",
+      "inherits": "default",
+      "configurePreset": "clang20-assert"
     },
     {
       "name": "clang20-no-avm",
@@ -609,6 +694,11 @@
       "configurePreset": "fuzzing-avm"
     },
     {
+      "name": "fuzzing-avm-tooling",
+      "inherits": "clang20",
+      "configurePreset": "fuzzing-avm-tooling"
+    },
+    {
       "name": "gperftools",
       "inherits": "clang20",
       "configurePreset": "gperftools"
@@ -644,11 +734,7 @@
       "inheritConfigureEnvironment": true,
       "jobs": 0,
       "targets": [
-        "barretenberg.wasm",
-        "barretenberg.wasm.gz",
-        "barretenberg",
-        "wasi",
-        "env"
+        "barretenberg.wasm.gz"
       ]
     },
     {
@@ -656,14 +742,20 @@
       "configurePreset": "wasm-threads-dbg",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm", "bb"]
+      "targets": [
+        "barretenberg.wasm",
+        "bb"
+      ]
     },
     {
       "name": "wasm-threads",
       "configurePreset": "wasm-threads",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm", "barretenberg.wasm.gz"]
+      "targets": [
+        "barretenberg.wasm.gz",
+        "ecc_tests"
+      ]
     },
     {
       "name": "xray",
@@ -688,6 +780,26 @@
     {
       "name": "zig-arm64-macos",
       "configurePreset": "zig-arm64-macos",
+      "inheritConfigureEnvironment": true
+    },
+    {
+      "name": "zig-arm64-ios",
+      "configurePreset": "zig-arm64-ios",
+      "inheritConfigureEnvironment": true
+    },
+    {
+      "name": "zig-arm64-ios-sim",
+      "configurePreset": "zig-arm64-ios-sim",
+      "inheritConfigureEnvironment": true
+    },
+    {
+      "name": "zig-arm64-android",
+      "configurePreset": "zig-arm64-android",
+      "inheritConfigureEnvironment": true
+    },
+    {
+      "name": "zig-x86_64-android",
+      "configurePreset": "zig-x86_64-android",
       "inheritConfigureEnvironment": true
     }
   ],

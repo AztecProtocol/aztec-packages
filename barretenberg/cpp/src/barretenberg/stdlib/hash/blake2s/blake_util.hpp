@@ -1,10 +1,11 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Nishat], commit: 66052c96cc754339ac3f2761f341f150130555b3}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
+#include "barretenberg/stdlib/hash/hash_utils.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 
@@ -31,38 +32,6 @@ constexpr uint8_t MSG_SCHEDULE_BLAKE2[10][16] = {
 };
 
 /**
- * Addition with normalisation (to ensure the addition is in the scalar field.)
- * Given two field_t elements a and b, this function computes ((a + b) % 2^{32}).
- * Additionally, it checks if the overflow of the addition is a maximum of 3 bits.
- * This is to ascertain that the additions of two 32-bit scalars in blake2s and blake3s do not exceed 35 bits.
- */
-template <typename Builder> field_t<Builder> add_normalize(const field_t<Builder>& a, const field_t<Builder>& b)
-{
-    typedef field_t<Builder> field_pt;
-    typedef witness_t<Builder> witness_pt;
-
-    Builder* ctx = a.get_context() ? a.get_context() : b.get_context();
-
-    uint256_t sum = a.get_value() + b.get_value();
-
-    uint256_t normalized_sum = static_cast<uint32_t>(sum.data[0]);
-
-    if (a.is_constant() && b.is_constant()) {
-        return field_pt(ctx, normalized_sum);
-    }
-
-    field_pt overflow = witness_pt(ctx, fr((sum - normalized_sum) >> 32));
-
-    // The overflow here could be of 2 bits because we allow that much overflow in the Blake rounds.
-    overflow.create_range_constraint(3);
-
-    // a + b - (overflow * 2^{32})
-    field_pt result = a.add_two(b, overflow * field_pt(ctx, -fr((uint64_t)(1ULL << 32ULL))));
-
-    return result;
-}
-
-/**
  *
  * Function `G' in the Blake2s and Blake3s algorithm which is the core
  * mixing step with additions, xors and right-rotates. This function is
@@ -71,33 +40,31 @@ template <typename Builder> field_t<Builder> add_normalize(const field_t<Builder
  * Inputs: - A pointer to a 16-word `state`,
  *         - indices a, b, c, d,
  *         - addition messages x and y
- *         - boolean `last_update` to make sure addition is normalised only in
- *           last update of the state
  *
  * Gate costs per call to function G in lookup case:
  *
  * Read sequence from table = 6 gates per read => 6 * 4 = 24
- * Addition gates = 4 gates
+ * Addition gates = 2 gates
  * Range gates = 2 gates
  * Addition gate for correct output of XOR rotate 12 = 1 gate
  * Normalizing scaling factors = 2 gates
  *
- * Subtotal = 33 gates
+ * Subtotal = 31 gates
  * Outside rounds, each of Blake2s and Blake3s needs 20 and 24 lookup reads respectively.
  *
  * +-----------+--------------+-----------------------+---------------------------+--------------+
  * |           |  calls to G  | gate count for rounds | gate count outside rounds |    total     |
  * |-----------|--------------|-----------------------|---------------------------|--------------|
- * |  Blake2s  |      80      |        80 * 33        |          20 * 6           |     2760     |
- * |  Blake3s  |      56      |        56 * 33        |          24 * 6           |     1992     |
+ * |  Blake2s  |      80      |        80 * 31        |          20 * 6           |     2600     |
+ * |  Blake3s  |      56      |        56 * 31        |          24 * 6           |     1880     |
  * +-----------+--------------+-----------------------+---------------------------+--------------+
  *
  * P.S. This doesn't include some more addition gates required after the rounds.
  *      This cost would be negligible as compared to the above gate counts.
  *
  *
- * TODO: Idea for getting rid of extra addition and multiplication gates by tweaking gate structure.
- *       To be implemented later.
+ * NOTE: As a future optimization, the following idea can be used for getting rid of extra addition and multiplication
+ * gates by tweaking gate structure. To be implemented later.
  *
  *   q_plookup = 1        | d0 | a0 | d'0 | --  |
  *   q_plookup = 1        | d1 | a1 | d'1 | d2  | <--- set q_arith = 1 and validate d2 - d'5 * scale_factor = 0
@@ -109,6 +76,7 @@ template <typename Builder> field_t<Builder> add_normalize(const field_t<Builder
  *
  *
  **/
+
 template <typename Builder>
 void g(field_t<Builder> state[BLAKE_STATE_SIZE],
        size_t a,
@@ -116,8 +84,7 @@ void g(field_t<Builder> state[BLAKE_STATE_SIZE],
        size_t c,
        size_t d,
        field_t<Builder> x,
-       field_t<Builder> y,
-       const bool last_update = false)
+       field_t<Builder> y)
 {
     typedef field_t<Builder> field_pt;
 
@@ -126,42 +93,62 @@ void g(field_t<Builder> state[BLAKE_STATE_SIZE],
     state[a] = state[a].add_two(state[b], x);
 
     // d = (d ^ a).ror(16)
+    // Get the lookup accumulator where `lookup_1[ColumnIdx::C3][0]` contains the
+    // XORed and rotated (by 16) value scaled by 2^{-16}.
     const auto lookup_1 = plookup_read<Builder>::get_lookup_accumulators(BLAKE_XOR_ROTATE_16, state[d], state[a], true);
+    // Compute the scaling factor 2^{32-16} = 2^{16} to get the correct rotated value.
     field_pt scaling_factor_1 = (1 << (32 - 16));
+    // Multiply by the scaling factor to get the final rotated value.
     state[d] = lookup_1[ColumnIdx::C3][0] * scaling_factor_1;
 
     // c = c + d
     state[c] = state[c] + state[d];
 
     // b = (b ^ c).ror(12)
+    // Does not require a special XOR_ROTATE_12 table since we can get the correct value
+    // by combining values from BLAKE_XOR table itself.
+    // Let u = s_0 + 2^6 * s_1 + 2^{12} * s_2 + 2^{18} * s_3 + 2^{24} * s_4 + 2^{30} * s_5
+    // be a 32-bit output of XOR, split into slices s_0, s_1, s_2, s_3, s_4 (6-bits each) and s_5 (5-bit).
+    // We want to compute ROTATE_12(u) = s_2 + 2^6 * s_3 + 2^{12} * s_4 + 2^{18} * s_5 + 2^{20} * s_0 + 2^{26} * s_1.
+    // The BLAKE_XOR table gives:
+    // lookup_2[ColumnIdx::C3][0] = s_0 + 2^6 * s_1 + 2^{12} * s_2 + 2^{18} * s_3 + 2^{24} * s_4 + 2^{30} * s_5 = u.
+    // lookup_2[ColumnIdx::C3][2] = s_2 + 2^6 * s_3 + 2^{12} * s_4 + 2^{18} * s_5 (i.e., u without s_0 and s_1).
+    // Thus, we can compute ROTATE_12(u) as:
+    // ROTATE_12(u) = lookup_2[ColumnIdx::C3][2] + (lookup_2[ColumnIdx::C3][0] - 2^{12} * lookup_2[ColumnIdx::C3][2]) *
+    // 2^{20}.
+
+    // Get the lookup accumulator for BLAKE_XOR table where lookup_2[ColumnIdx::C3][0] = u.
     const auto lookup_2 = plookup_read<Builder>::get_lookup_accumulators(BLAKE_XOR, state[b], state[c], true);
+    // lookup_2[ColumnIdx::C3][2] = s_2 + 2^6 * s_3 + 2^{12} * s_4 + 2^{18} * s_5 (i.e., u without s_0 and s_1).
     field_pt lookup_output = lookup_2[ColumnIdx::C3][2];
+    // Compute 2^{12} * lookup_2[ColumnIdx::C3][2].
     field_pt t2_term = field_pt(1 << 12) * lookup_2[ColumnIdx::C3][2];
+    // Compute the final rotated value as described for ROTATE_12(u) above.
     lookup_output += (lookup_2[ColumnIdx::C3][0] - t2_term) * field_pt(1 << 20);
     state[b] = lookup_output;
 
     // a = a + b + y
-    if (!last_update) {
-        state[a] = state[a].add_two(state[b], y);
-    } else {
-        state[a] = add_normalize(state[a], state[b] + y);
-    }
+    state[a] = hash_utils::add_normalize_unsafe(state[a], state[b] + y, /*overflow_bits=*/3);
 
     // d = (d ^ a).ror(8)
+    // Get the lookup accumulator where `lookup_3[ColumnIdx::C3][0]` contains the
+    // XORed and rotated (by 8) value scaled by 2^{-24}.
     const auto lookup_3 = plookup_read<Builder>::get_lookup_accumulators(BLAKE_XOR_ROTATE_8, state[d], state[a], true);
+    // Compute the scaling factor 2^{32-8} = 2^{24} to get the correct rotated value.
     field_pt scaling_factor_3 = (1 << (32 - 8));
+    // Multiply by the scaling factor to get the final rotated value.
     state[d] = lookup_3[ColumnIdx::C3][0] * scaling_factor_3;
 
     // c = c + d
-    if (!last_update) {
-        state[c] = state[c] + state[d];
-    } else {
-        state[c] = add_normalize(state[c], state[d]);
-    }
+    state[c] = hash_utils::add_normalize_unsafe(state[c], state[d], /*overflow_bits=*/3);
 
     // b = (b ^ c).ror(7)
+    // Get the lookup accumulator where `lookup_4[ColumnIdx::C3][0]` contains the
+    // XORed and rotated (by 7) value scaled by 2^{-25}.
     const auto lookup_4 = plookup_read<Builder>::get_lookup_accumulators(BLAKE_XOR_ROTATE_7, state[b], state[c], true);
+    // Compute the scaling factor 2^{32-7} = 2^{25} to get the correct rotated value.
     field_pt scaling_factor_4 = (1 << (32 - 7));
+    // Multiply by the scaling factor to get the final rotated value.
     state[b] = lookup_4[ColumnIdx::C3][0] * scaling_factor_4;
 }
 
@@ -169,7 +156,7 @@ void g(field_t<Builder> state[BLAKE_STATE_SIZE],
  * This is the round function used in Blake2s and Blake3s for Ultra.
  * Inputs: - 16-word state
  *         - 16-word msg
- *         - round numbe
+ *         - round number
  *         - which_blake to choose Blake2 or Blake3 (false -> Blake2)
  */
 template <typename Builder>
@@ -188,10 +175,10 @@ void round_fn(field_t<Builder> state[BLAKE_STATE_SIZE],
     g<Builder>(state, 3, 7, 11, 15, msg[schedule[6]], msg[schedule[7]]);
 
     // Mix the rows.
-    g<Builder>(state, 0, 5, 10, 15, msg[schedule[8]], msg[schedule[9]], true);
-    g<Builder>(state, 1, 6, 11, 12, msg[schedule[10]], msg[schedule[11]], true);
-    g<Builder>(state, 2, 7, 8, 13, msg[schedule[12]], msg[schedule[13]], true);
-    g<Builder>(state, 3, 4, 9, 14, msg[schedule[14]], msg[schedule[15]], true);
+    g<Builder>(state, 0, 5, 10, 15, msg[schedule[8]], msg[schedule[9]]);
+    g<Builder>(state, 1, 6, 11, 12, msg[schedule[10]], msg[schedule[11]]);
+    g<Builder>(state, 2, 7, 8, 13, msg[schedule[12]], msg[schedule[13]]);
+    g<Builder>(state, 3, 4, 9, 14, msg[schedule[14]], msg[schedule[15]]);
 }
 
 } // namespace bb::stdlib::blake_util

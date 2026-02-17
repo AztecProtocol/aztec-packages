@@ -3,8 +3,7 @@
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
-    "tsBuildInfoFile": ".tsbuildinfo",
-    "resolveJsonModule": true
+    "tsBuildInfoFile": ".tsbuildinfo"
   },
   "references": [
     {
@@ -44,7 +43,5 @@
       "path": "../noir-test-contracts.js"
     }
   ],
-  "include": ["src"],
-  // Note(ilyas): This exclude kinda redundant now, but a reminder for when we move the fuzzer into /src/avm
-  "exclude": ["scripts/fuzzing/avm_simulator_bin.ts"]
+  "include": ["src"]
 }

@@ -2,22 +2,22 @@ import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { readFieldCompressedString } from '@aztec/aztec.js/utils';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
-import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
-import { TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
-import type { ChildProcess } from 'child_process';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
+import { proveInteraction } from '../test-wallet/utils.js';
 import {
   type TestAccounts,
   createWalletAndAztecNodeClient,
-  deploySponsoredTestAccounts,
+  deploySponsoredTestAccountsWithTokens,
 } from './setup_test_wallets.js';
-import { setupEnvironment, startPortForwardForEthereum, startPortForwardForRPC } from './utils.js';
+import { ChainHealth, type ServiceEndpoint, getEthereumEndpoint, getRPCEndpoint, setupEnvironment } from './utils.js';
 
 const config = { ...setupEnvironment(process.env) };
 
@@ -35,30 +35,32 @@ describe('token transfer test', () => {
 
   let testAccounts: TestAccounts;
   let ETHEREUM_HOSTS: string[];
-  const forwardProcesses: ChildProcess[] = [];
+  const endpoints: ServiceEndpoint[] = [];
   let wallet: TestWallet;
   let aztecNode: AztecNode;
   let cleanup: undefined | (() => Promise<void>);
+  const health = new ChainHealth(config.NAMESPACE, logger);
 
   afterAll(async () => {
+    await health.teardown();
     await cleanup?.();
-    forwardProcesses.forEach(p => p.kill());
+    endpoints.forEach(e => e.process?.kill());
   });
 
   beforeAll(async () => {
-    logger.info('Starting port forward for PXE and Ethereum');
-    const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
-    const { process: ethereumProcess, port: ethereumPort } = await startPortForwardForEthereum(config.NAMESPACE);
-    forwardProcesses.push(aztecRpcProcess);
-    forwardProcesses.push(ethereumProcess);
+    await health.setup();
+    logger.info('Connecting to RPC and Ethereum nodes');
+    const rpcEndpoint = await getRPCEndpoint(config.NAMESPACE);
+    const ethEndpoint = await getEthereumEndpoint(config.NAMESPACE);
+    endpoints.push(rpcEndpoint, ethEndpoint);
 
-    const rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
-    ETHEREUM_HOSTS = [`http://127.0.0.1:${ethereumPort}`];
+    const rpcUrl = rpcEndpoint.url;
+    ETHEREUM_HOSTS = [ethEndpoint.url];
 
     ({ wallet, aztecNode, cleanup } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, logger));
 
     // Setup wallets
-    testAccounts = await deploySponsoredTestAccounts(wallet, aztecNode, MINT_AMOUNT, logger);
+    testAccounts = await deploySponsoredTestAccountsWithTokens(wallet, aztecNode, MINT_AMOUNT, logger);
 
     expect(ROUNDS).toBeLessThanOrEqual(MINT_AMOUNT);
     logger.info(`Tested wallets setup: ${ROUNDS} < ${MINT_AMOUNT}`);
@@ -117,9 +119,9 @@ describe('token transfer test', () => {
 
       logger.info(`Proved ${provenTxs.length} in round ${i} of ${ROUNDS}`);
 
-      await Promise.all(provenTxs.map(t => t.send().wait({ timeout: 600 })));
+      await Promise.all(provenTxs.map(t => t.send({ wait: { timeout: 600 } })));
       const currentSlot = await rollupCheatCodes.getSlot();
-      expect(currentSlot).toBeLessThanOrEqual(startSlot + i + MAX_MISSED_SLOTS);
+      expect(BigInt(currentSlot)).toBeLessThanOrEqual(BigInt(startSlot) + i + MAX_MISSED_SLOTS);
       const startEpoch = await rollupCheatCodes.getEpoch();
       logger.debug(
         `Successfully reached slot ${currentSlot} (iteration ${

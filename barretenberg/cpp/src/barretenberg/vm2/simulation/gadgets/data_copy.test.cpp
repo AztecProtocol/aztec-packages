@@ -27,7 +27,7 @@ class DataCopySimulationTest : public ::testing::Test {
   protected:
     DataCopySimulationTest()
     {
-        ON_CALL(context, get_memory).WillByDefault(ReturnRef(mem));
+        ON_CALL(context, get_memory()).WillByDefault(ReturnRef(mem));
 
         // Standard EventEmitter Expectations
         EXPECT_CALL(context, get_memory());

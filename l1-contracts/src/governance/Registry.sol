@@ -32,8 +32,8 @@ struct RegistryStorage {
  * @author Aztec Labs
  * @notice Keeps track of current and historical canonical rollup instances.
  * @dev The "canonical" rollup currently has additional privileges:
- * - claim block rewards from the RewardDistributor
- * - its block proposers may put forward governance proposals via the GovernanceProposer
+ * - claim checkpoint rewards from the RewardDistributor
+ * - its checkpoint proposers may put forward governance proposals via the GovernanceProposer
  */
 contract Registry is IRegistry, Ownable {
   RegistryStorage internal $;

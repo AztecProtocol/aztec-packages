@@ -10,7 +10,7 @@ global:
   l1ConsensusHostApiKeyHeaders: []
 
 validator:
-  nodeType: "validator"
+  nodeType: "sequencer-node"
   mnemonic: "test test test test test test test test test test test junk"
   mnemonicStartIndex: 2000
   validatorsPerNode: 1
@@ -40,8 +40,6 @@ validator:
       - --node
       - --archiver
       - --sequencer
-
-    hostNetwork: true
 
   web3signerUrl: ""
 

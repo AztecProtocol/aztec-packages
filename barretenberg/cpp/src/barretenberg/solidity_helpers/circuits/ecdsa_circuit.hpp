@@ -2,6 +2,7 @@
 #pragma once
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
 #include "barretenberg/crypto/hashers/hashers.hpp"
+#include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa_impl.hpp"
@@ -11,6 +12,7 @@
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 
 namespace bb {
 class EcdsaCircuit {
@@ -21,6 +23,7 @@ class EcdsaCircuit {
     using public_witness_ct = stdlib::public_witness_t<Builder>;
     using byte_array_ct = stdlib::byte_array<Builder>;
     using curve = stdlib::secp256k1<Builder>;
+    using IO = stdlib::recursion::honk::DefaultIO<Builder>;
 
     static constexpr size_t NUM_PUBLIC_INPUTS = 6;
 
@@ -29,10 +32,13 @@ class EcdsaCircuit {
         Builder builder;
 
         // IN CIRCUIT
-        // Create an input buffer the same size as our inputs
-        typename curve::byte_array_ct input_buffer(&builder, NUM_PUBLIC_INPUTS);
+        // Create an input buffer from public inputs (treating each as a single byte)
+        typename curve::byte_array_ct input_buffer(&builder, std::vector<uint8_t>());
         for (size_t i = 0; i < NUM_PUBLIC_INPUTS; ++i) {
-            input_buffer[i] = public_witness_ct(&builder, public_inputs[i]);
+            field_ct byte_value = public_witness_ct(&builder, public_inputs[i]);
+            // Constrain to be a single byte and create byte_array
+            typename curve::byte_array_ct single_byte(byte_value, 1);
+            input_buffer.write(single_byte);
         }
 
         // This is the message that we would like to confirm
@@ -75,8 +81,9 @@ class EcdsaCircuit {
         stdlib::ecdsa_signature<Builder> sig{ typename curve::byte_array_ct(&builder, rr),
                                               typename curve::byte_array_ct(&builder, ss) };
 
-        stdlib::byte_array<Builder> hashed_message =
-            static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(input_buffer));
+        // Compute H(m) natively and pass as witness (mirrors ACIR which takes pre-hashed message)
+        auto hash_arr = crypto::sha256(std::vector<uint8_t>(message_string.begin(), message_string.end()));
+        stdlib::byte_array<Builder> hashed_message(&builder, std::vector<uint8_t>(hash_arr.begin(), hash_arr.end()));
 
         // IN CIRCUIT: verify the signature
         typename curve::bool_ct signature_result = stdlib::ecdsa_verify_signature<Builder,
@@ -91,6 +98,8 @@ class EcdsaCircuit {
 
         // Assert the signature is true
         signature_result.assert_equal(bool_ct(true));
+
+        IO::add_default(builder);
 
         return builder;
     }

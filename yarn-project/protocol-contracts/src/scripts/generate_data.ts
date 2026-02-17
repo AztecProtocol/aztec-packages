@@ -1,24 +1,20 @@
 import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,
-  CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE,
   CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
-  CONTRACT_CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE,
-  CONTRACT_CLASS_REGISTRY_UTILITY_FUNCTION_BROADCASTED_MAGIC_VALUE,
   CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE,
   CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
-  CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE,
   FEE_JUICE_ADDRESS,
   MAX_PROTOCOL_CONTRACTS,
   MULTI_CALL_ENTRYPOINT_ADDRESS,
-  ROUTER_ADDRESS,
+  PUBLIC_CHECKS_ADDRESS,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { loadContractArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
+import { computeSiloedPrivateLogFirstField } from '@aztec/stdlib/hash';
 import { type NoirCompiledContract } from '@aztec/stdlib/noir';
 import { ProtocolContracts } from '@aztec/stdlib/tx';
 
@@ -40,7 +36,7 @@ const contractAddressMapping: { [name: string]: number } = {
   ContractClassRegistry: CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
   MultiCallEntrypoint: MULTI_CALL_ENTRYPOINT_ADDRESS,
   FeeJuice: FEE_JUICE_ADDRESS,
-  Router: ROUTER_ADDRESS,
+  PublicChecks: PUBLIC_CHECKS_ADDRESS,
 };
 
 async function clearDestDir() {
@@ -66,8 +62,8 @@ async function copyArtifact(srcName: string, destName: string) {
   return artifact;
 }
 
-async function computeAddress(artifact: NoirCompiledContract) {
-  const instance = await getContractInstanceFromInstantiationParams(loadContractArtifact(artifact), { salt });
+async function computeAddress(artifact: NoirCompiledContract, deployer: AztecAddress) {
+  const instance = await getContractInstanceFromInstantiationParams(loadContractArtifact(artifact), { salt, deployer });
   return instance.address;
 }
 
@@ -139,17 +135,17 @@ async function generateProtocolContractsList(names: string[], derivedAddresses: 
 // Generate the siloed log tags for events emitted via private logs.
 async function generateLogTags() {
   return `
-  export const CONTRACT_INSTANCE_PUBLISHED_EVENT_TAG = Fr.fromHexString('${await poseidon2Hash([
-    CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
-    CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE,
-  ])}');
+  export const CONTRACT_INSTANCE_PUBLISHED_EVENT_TAG = Fr.fromHexString('${await computeSiloedPrivateLogFirstField(
+    new AztecAddress(new Fr(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)),
+    new Fr(CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE),
+  )}');
   `;
 }
 
 async function generateOutputFile(names: string[], derivedAddresses: AztecAddress[]) {
   const content = `
     // GENERATED FILE - DO NOT EDIT. RUN \`yarn generate\` or \`yarn generate:data\`
-    import { Fr } from '@aztec/foundation/fields';
+    import { Fr } from '@aztec/foundation/curves/bn254';
     import { AztecAddress } from '@aztec/stdlib/aztec-address';
     import { ProtocolContracts } from '@aztec/stdlib/tx';
 
@@ -182,7 +178,7 @@ async function main() {
     const destName = destNames[i];
     const artifact = await copyArtifact(srcName, destName);
     await generateDeclarationFile(destName);
-    derivedAddresses.push(await computeAddress(artifact));
+    derivedAddresses.push(await computeAddress(artifact, AztecAddress.fromBigInt(contractAddressMapping[destName])));
   }
 
   await generateOutputFile(destNames, derivedAddresses);

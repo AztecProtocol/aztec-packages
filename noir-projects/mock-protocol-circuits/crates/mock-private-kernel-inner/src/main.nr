@@ -1,4 +1,4 @@
-use dep::mock_types::{
+use mock_types::{
     AppPublicInputs, MEGA_VK_LENGTH_IN_FIELDS, PrivateKernelPublicInputs,
     PrivateKernelPublicInputsBuilder, PROOF_TYPE_HN, VerificationKey,
 };

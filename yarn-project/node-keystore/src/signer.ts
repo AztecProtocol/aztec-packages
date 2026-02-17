@@ -3,13 +3,14 @@
  *
  * Common interface for different signing backends (local, remote, encrypted)
  */
-import type { EthSigner } from '@aztec/ethereum';
+import type { EthSigner } from '@aztec/ethereum/eth-signer';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { Secp256k1Signer, randomBytes, toRecoveryBit } from '@aztec/foundation/crypto';
+import { randomBytes } from '@aztec/foundation/crypto/random';
+import { Secp256k1Signer, toRecoveryBit } from '@aztec/foundation/crypto/secp256k1-signer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature, type ViemTransactionSignature } from '@aztec/foundation/eth-signature';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { withHexPrefix } from '@aztec/foundation/string';
+import { bufferToHex, withHexPrefix } from '@aztec/foundation/string';
 
 import {
   type TransactionSerializable,
@@ -243,10 +244,6 @@ export class RemoteSigner implements EthSigner {
    * Make a JSON-RPC eth_signTransaction request.
    */
   private async makeJsonRpcSignTransactionRequest(tx: TransactionSerializable): Promise<Signature> {
-    if (tx.type !== 'eip1559') {
-      throw new Error('This signer does not support tx type: ' + tx.type);
-    }
-
     const txObject: RemoteSignerTxObject = {
       from: this.address.toString(),
       to: tx.to ?? null,
@@ -260,10 +257,10 @@ export class RemoteSigner implements EthSigner {
           ? withHexPrefix(tx.maxPriorityFeePerGas.toString(16))
           : undefined,
 
-      // maxFeePerBlobGas:
-      //   typeof tx.maxFeePerBlobGas !== 'undefined' ? withHexPrefix(tx.maxFeePerBlobGas.toString(16)) : undefined,
-      // blobVersionedHashes: tx.blobVersionedHashes,
-      // blobs: tx.blobs?.map(blob => (typeof blob === 'string' ? blob : bufferToHex(Buffer.from(blob)))),
+      maxFeePerBlobGas:
+        typeof tx.maxFeePerBlobGas !== 'undefined' ? withHexPrefix(tx.maxFeePerBlobGas.toString(16)) : undefined,
+      blobVersionedHashes: tx.blobVersionedHashes,
+      blobs: tx.blobs?.map(blob => (typeof blob === 'string' ? blob : bufferToHex(Buffer.from(blob)))),
     };
 
     let rawTxHex = await this.makeJsonRpcRequest('eth_signTransaction', txObject);

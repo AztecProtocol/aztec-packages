@@ -1,4 +1,3 @@
-#define MSGPACK_NO_BOOST
 #include "msgpack/object_fwd_decl.hpp"
 
 namespace bb {

@@ -19,9 +19,8 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
-import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Rollup, BlockLog} from "@aztec/core/Rollup.sol";
+import {Rollup, CheckpointLog} from "@aztec/core/Rollup.sol";
 import {
   IRollup,
   IRollupCore,
@@ -44,17 +43,17 @@ import {ProposeArgs, ProposePayload, OracleInput, ProposeLib} from "@aztec/core/
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {
   FeeLib,
-  FeeAssetPerEthE9,
+  EthPerFeeAssetE12,
   EthValue,
   FeeHeader,
   L1FeeData,
-  ManaBaseFeeComponents
+  ManaMinFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {
   FeeModelTestPoints,
   TestPoint,
   FeeHeaderModel,
-  ManaBaseFeeComponentsModel
+  ManaMinFeeComponentsModel
 } from "test/fees/FeeModelTestPoints.t.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
@@ -74,7 +73,7 @@ import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.
 uint256 constant MANA_TARGET = 1e8;
 
 contract FakeCanonical is IRewardDistributor {
-  uint256 public constant BLOCK_REWARD = 50e18;
+  uint256 public constant CHECKPOINT_REWARD = 50e18;
   IERC20 public immutable UNDERLYING;
 
   address public canonicalRollup;
@@ -108,11 +107,11 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
   using MessageHashUtils for bytes32;
   using TimeLib for Slot;
   using FeeLib for uint256;
-  using FeeLib for ManaBaseFeeComponents;
-  // We need to build a block that we can submit. We will be using some values from
-  // the empty blocks, but otherwise populate using the fee model test points.
+  using FeeLib for ManaMinFeeComponents;
+  // We need to build a checkpoint that we can submit. We will be using some values from
+  // the empty checkpoints, but otherwise populate using the fee model test points.
 
-  struct Block {
+  struct Checkpoint {
     ProposeArgs proposeArgs;
     bytes blobInputs;
     CommitteeAttestation[] attestations;
@@ -120,7 +119,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     Signature attestationsAndSignersSignature;
   }
 
-  DecoderBase.Full full = load("empty_block_1");
+  DecoderBase.Full full = load("empty_checkpoint_1");
 
   uint256 internal constant SLOT_DURATION = 36;
   uint256 internal constant EPOCH_DURATION = 32;
@@ -135,8 +134,8 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
   CommitteeAttestation internal emptyAttestation;
   mapping(address attester => uint256 privateKey) internal attesterPrivateKeys;
 
-  // Track attestations by block number for proof submission
-  mapping(uint256 => CommitteeAttestations) internal blockAttestations;
+  // Track attestations by checkpoint number for proof submission
+  mapping(uint256 => CommitteeAttestations) internal checkpointAttestations;
 
   EmpireSlashingProposer internal slashingProposer;
   IPayload internal slashPayload;
@@ -190,7 +189,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
   }
 
   constructor() {
-    FeeLib.initialize(MANA_TARGET, EthValue.wrap(100));
+    FeeLib.initialize(MANA_TARGET, EthValue.wrap(100), TestConstants.AZTEC_INITIAL_ETH_PER_FEE_ASSET);
   }
 
   function _loadL1Metadata(uint256 index) internal {
@@ -200,8 +199,8 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
 
   function test_boundaries() public prepare(100, 48) {
     // We are using this test to check that the roundaboutSize is large enough.
-    // We do this by checking that the last proven block has available header hash
-    // We build as many blocks as can fit in the epoch to span most storage, and then
+    // We do this by checking that the last proven checkpoint has available header hash
+    // We build as many checkpoints as can fit in the epoch to span most storage, and then
     // we will first try proving it, and then try making it prune.
     // To see failure, try reducing the `roundaboutSize` by 1, and run with
     // first `proven = false` and then `proven = true`
@@ -210,32 +209,32 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     // Do nothing for the first epoch
     Slot nextSlot = Slot.wrap(EPOCH_DURATION * 3 + 1);
 
-    bytes32 headerHashProven = rollup.getBlock(rollup.getProvenBlockNumber()).headerHash;
+    bytes32 headerHashProven = rollup.getCheckpoint(rollup.getProvenCheckpointNumber()).headerHash;
 
     // Loop through all of the L1 metadata
     uint256 limit = l1Metadata.length * 12 / SLOT_DURATION;
 
     for (uint256 i = 0; i < limit; i++) {
-      if (rollup.getPendingBlockNumber() >= 100) {
+      if (rollup.getPendingCheckpointNumber() >= 100) {
         break;
       }
 
       _loadL1Metadata(i);
 
-      // For every "new" slot we encounter, we construct a block using current L1 Data
-      // and part of the `empty_block_1.json` file. The block cannot be proven, but it
-      // will be accepted as a proposal so very useful for testing a long range of blocks.
+      // For every "new" slot we encounter, we construct a checkpoint using current L1 Data
+      // and part of the `empty_checkpoint_1.json` file. The checkpoint cannot be proven, but it
+      // will be accepted as a proposal so very useful for testing a long range of checkpoints.
       if (rollup.getCurrentSlot() == nextSlot) {
         rollup.setupEpoch();
 
-        Block memory b = getBlock();
+        Checkpoint memory b = getCheckpoint();
         address proposer = rollup.getCurrentProposer();
 
         skipBlobCheck(address(rollup));
 
-        // Store the attestations for the current block number
-        uint256 currentBlockNumber = rollup.getPendingBlockNumber() + 1;
-        blockAttestations[currentBlockNumber] = AttestationLibHelper.packAttestations(b.attestations);
+        // Store the attestations for the current checkpoint number
+        uint256 currentCheckpointNumber = rollup.getPendingCheckpointNumber() + 1;
+        checkpointAttestations[currentCheckpointNumber] = AttestationLibHelper.packAttestations(b.attestations);
 
         vm.prank(proposer);
         rollup.propose(
@@ -252,31 +251,34 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
       // When the next would mean that we have a prune, we post the proof. As late as possible, every time.
       if (!proven && rollup.canPruneAtTime(Timestamp.wrap(block.timestamp + 12))) {
         proven = true;
-        uint256 pendingBlockNumber = rollup.getPendingBlockNumber();
-        uint256 start = rollup.getProvenBlockNumber() + 1;
+        uint256 pendingCheckpointNumber = rollup.getPendingCheckpointNumber();
+        uint256 start = rollup.getProvenCheckpointNumber() + 1;
         uint256 epochSize = 0;
         while (
-          start + epochSize <= pendingBlockNumber
-            && rollup.getEpochForBlock(start) == rollup.getEpochForBlock(start + epochSize)
+          start + epochSize <= pendingCheckpointNumber
+            && rollup.getEpochForCheckpoint(start) == rollup.getEpochForCheckpoint(start + epochSize)
         ) {
           epochSize++;
         }
 
-        bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
+        bytes32[] memory fees = new bytes32[](Constants.MAX_CHECKPOINTS_PER_EPOCH * 2);
 
         for (uint256 feeIndex = 0; feeIndex < epochSize; feeIndex++) {
-          // we need the basefee, and we cannot just take it from the point. Because it is different
+          // we need the minFee, and we cannot just take it from the point. Because it is different
           Timestamp ts = rollup.getTimestampForSlot(Slot.wrap(start + feeIndex));
-          uint256 manaBaseFee = rollup.getManaBaseFeeAt(ts, true);
-          uint256 fee = rollup.getFeeHeader(start + feeIndex).manaUsed * manaBaseFee;
+          uint256 manaMinFee = rollup.getManaMinFeeAt(ts, true);
+          uint256 fee = rollup.getFeeHeader(start + feeIndex).manaUsed * manaMinFee;
 
           fees[feeIndex * 2] = bytes32(uint256(uint160(bytes20(coinbase))));
           fees[feeIndex * 2 + 1] = bytes32(fee);
         }
 
+        CheckpointLog memory endCheckpoint = rollup.getCheckpoint(start + epochSize - 1);
+
         PublicInputArgs memory args = PublicInputArgs({
-          previousArchive: rollup.getBlock(start).archive,
-          endArchive: rollup.getBlock(start + epochSize - 1).archive,
+          previousArchive: rollup.getCheckpoint(start).archive,
+          endArchive: endCheckpoint.archive,
+          outHash: endCheckpoint.outHash,
           proverId: address(0)
         });
 
@@ -287,12 +289,12 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
               end: start + epochSize - 1,
               args: args,
               fees: fees,
-              attestations: blockAttestations[start + epochSize - 1],
-              blobInputs: full.block.batchedBlobInputs,
+              attestations: checkpointAttestations[start + epochSize - 1],
+              blobInputs: full.checkpoint.batchedBlobInputs,
               proof: ""
             })
           );
-          headerHashProven = rollup.getBlock(rollup.getProvenBlockNumber()).headerHash;
+          headerHashProven = rollup.getCheckpoint(rollup.getProvenCheckpointNumber()).headerHash;
         }
       } else {
         // We are checking that we have the last proven since if we just pruned that, we are going
@@ -301,30 +303,30 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
         // You should make the next line a comment and mess with `roundaboutSize`
         assertEq(
           headerHashProven,
-          rollup.getBlock(rollup.getProvenBlockNumber()).headerHash,
-          "we overrode the last proven block"
+          rollup.getCheckpoint(rollup.getProvenCheckpointNumber()).headerHash,
+          "we overrode the last proven checkpoint"
         );
       }
     }
   }
 
   /**
-   * @notice Constructs a fake block that is not possible to prove, but passes the L1 checks.
+   * @notice Constructs a fake checkpoint that is not possible to prove, but passes the L1 checks.
    */
-  function getBlock() internal returns (Block memory) {
+  function getCheckpoint() internal returns (Checkpoint memory) {
     // We will be using the genesis for both before and after. This will be impossible
     // to prove, but we don't need to prove anything here.
     bytes32 archiveRoot = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
 
-    ProposedHeader memory header = full.block.header;
+    ProposedHeader memory header = full.checkpoint.header;
 
     Slot slotNumber = rollup.getCurrentSlot();
     TestPoint memory point = points[Slot.unwrap(slotNumber) - 1];
 
     Timestamp ts = rollup.getTimestampForSlot(slotNumber);
 
-    uint128 manaBaseFee = SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
-    uint256 manaSpent = point.block_header.mana_spent;
+    uint128 manaMinFee = SafeCast.toUint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
+    uint256 manaSpent = point.checkpoint_header.mana_spent;
 
     address proposer = rollup.getCurrentProposer();
     address c = proposer != address(0) ? proposer : coinbase;
@@ -335,13 +337,12 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     header.timestamp = ts;
     header.coinbase = c;
     header.feeRecipient = bytes32(0);
-    header.gasFees.feePerL2Gas = manaBaseFee;
+    header.gasFees.feePerL2Gas = manaMinFee;
     header.totalManaUsed = manaSpent;
 
     ProposeArgs memory proposeArgs = ProposeArgs({
       header: header,
       archive: archiveRoot,
-      stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier})
     });
 
@@ -356,12 +357,8 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
 
       bytes32 headerHash = ProposedHeaderLib.hash(proposeArgs.header);
 
-      ProposePayload memory proposePayload = ProposePayload({
-        archive: proposeArgs.archive,
-        stateReference: proposeArgs.stateReference,
-        oracleInput: proposeArgs.oracleInput,
-        headerHash: headerHash
-      });
+      ProposePayload memory proposePayload =
+        ProposePayload({archive: proposeArgs.archive, oracleInput: proposeArgs.oracleInput, headerHash: headerHash});
 
       bytes32 digest = ProposeLib.digest(proposePayload);
 
@@ -399,9 +396,9 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
       ).signature;
     }
 
-    return Block({
+    return Checkpoint({
       proposeArgs: proposeArgs,
-      blobInputs: full.block.blobCommitments,
+      blobInputs: full.checkpoint.blobCommitments,
       attestations: attestations,
       signers: signers,
       attestationsAndSignersSignature: attestationsAndSignersSignature

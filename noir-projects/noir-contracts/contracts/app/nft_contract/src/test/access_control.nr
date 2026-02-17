@@ -1,6 +1,6 @@
 use crate::NFT;
 use crate::test::utils;
-use aztec::protocol_types::traits::ToField;
+use aztec::protocol::traits::ToField;
 
 #[test]
 unconstrained fn access_control() {

@@ -1,5 +1,5 @@
-import type { Fr } from '@aztec/foundation/fields';
-import { createLogger } from '@aztec/foundation/log';
+import type { Fr } from '@aztec/foundation/curves/bn254';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import {
   type AnyTx,
   TX_ERROR_INCORRECT_L1_CHAIN_ID,
@@ -11,7 +11,7 @@ import {
 } from '@aztec/stdlib/tx';
 
 export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
-  #log = createLogger('p2p:tx_validator:tx_metadata');
+  #log: Logger;
 
   constructor(
     private values: {
@@ -20,7 +20,10 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
       vkTreeRoot: Fr;
       protocolContractsHash: Fr;
     },
-  ) {}
+    bindings?: LoggerBindings,
+  ) {
+    this.#log = createLogger('p2p:tx_validator:tx_metadata', bindings);
+  }
 
   validateTx(tx: T): Promise<TxValidationResult> {
     const errors = [];
@@ -43,7 +46,9 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
     // This gets implicitly tested in the proof validator, but we can get a much cheaper check here by looking early at the vk.
     if (!tx.data.constants.vkTreeRoot.equals(this.values.vkTreeRoot)) {
       this.#log.verbose(
-        `Rejecting tx ${'txHash' in tx ? tx.txHash : tx.hash} because of incorrect vk tree root ${tx.data.constants.vkTreeRoot.toString()} != ${this.values.vkTreeRoot.toString()}`,
+        `Rejecting tx ${
+          'txHash' in tx ? tx.txHash : tx.hash
+        } because of incorrect vk tree root ${tx.data.constants.vkTreeRoot.toString()} != ${this.values.vkTreeRoot.toString()}`,
       );
       return false;
     } else {
@@ -54,7 +59,9 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
   #hasCorrectprotocolContractsHash(tx: T): boolean {
     if (!tx.data.constants.protocolContractsHash.equals(this.values.protocolContractsHash)) {
       this.#log.verbose(
-        `Rejecting tx ${'txHash' in tx ? tx.txHash : tx.hash} because of incorrect protocol contracts hash ${tx.data.constants.protocolContractsHash.toString()} != ${this.values.protocolContractsHash.toString()}`,
+        `Rejecting tx ${
+          'txHash' in tx ? tx.txHash : tx.hash
+        } because of incorrect protocol contracts hash ${tx.data.constants.protocolContractsHash.toString()} != ${this.values.protocolContractsHash.toString()}`,
       );
       return false;
     }
@@ -64,7 +71,9 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
   #hasCorrectL1ChainId(tx: T): boolean {
     if (!tx.data.constants.txContext.chainId.equals(this.values.l1ChainId)) {
       this.#log.verbose(
-        `Rejecting tx ${'txHash' in tx ? tx.txHash : tx.hash} because of incorrect L1 chain ${tx.data.constants.txContext.chainId.toNumber()} != ${this.values.l1ChainId.toNumber()}`,
+        `Rejecting tx ${
+          'txHash' in tx ? tx.txHash : tx.hash
+        } because of incorrect L1 chain ${tx.data.constants.txContext.chainId.toNumber()} != ${this.values.l1ChainId.toNumber()}`,
       );
       return false;
     } else {
@@ -75,7 +84,9 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
   #hasCorrectRollupVersion(tx: T): boolean {
     if (!tx.data.constants.txContext.version.equals(this.values.rollupVersion)) {
       this.#log.verbose(
-        `Rejecting tx ${'txHash' in tx ? tx.txHash : tx.hash} because of incorrect rollup version ${tx.data.constants.txContext.version.toNumber()} != ${this.values.rollupVersion.toNumber()}`,
+        `Rejecting tx ${
+          'txHash' in tx ? tx.txHash : tx.hash
+        } because of incorrect rollup version ${tx.data.constants.txContext.version.toNumber()} != ${this.values.rollupVersion.toNumber()}`,
       );
       return false;
     } else {

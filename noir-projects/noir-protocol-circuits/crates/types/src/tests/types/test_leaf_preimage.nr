@@ -1,5 +1,8 @@
-use crate::{merkle_tree::leaf_preimage::{IndexedTreeLeafPreimage, LeafPreimage}, traits::Empty};
-use std::hash::pedersen_hash;
+use crate::{
+    hash::poseidon2_hash,
+    merkle_tree::leaf_preimage::{IndexedTreeLeafPreimage, LeafPreimage},
+    traits::Empty,
+};
 
 pub struct TestLeafPreimage {
     pub value: Field,
@@ -18,7 +21,7 @@ impl LeafPreimage for TestLeafPreimage {
     }
 
     fn as_leaf(self) -> Field {
-        pedersen_hash([self.value])
+        poseidon2_hash([self.value])
     }
 }
 

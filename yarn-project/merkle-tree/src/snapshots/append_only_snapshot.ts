@@ -1,3 +1,4 @@
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { type Bufferable, type FromBuffer, serializeToBuffer } from '@aztec/foundation/serialize';
 import { SiblingPath } from '@aztec/foundation/trees';
 import type { Hasher } from '@aztec/foundation/trees';
@@ -40,8 +41,8 @@ type SnapshotMetadata = {
  */
 export class AppendOnlySnapshotBuilder<T extends Bufferable> implements TreeSnapshotBuilder<TreeSnapshot<T>> {
   #nodeValue: AztecMap<ReturnType<typeof historicalNodeKey>, Buffer>;
-  #nodeLastModifiedByBlock: AztecMap<ReturnType<typeof nodeModifiedAtBlockKey>, number>;
-  #snapshotMetadata: AztecMap<number, SnapshotMetadata>;
+  #nodeLastModifiedByBlock: AztecMap<ReturnType<typeof nodeModifiedAtBlockKey>, BlockNumber>;
+  #snapshotMetadata: AztecMap<BlockNumber, SnapshotMetadata>;
 
   constructor(
     private db: AztecKVStore,
@@ -55,7 +56,7 @@ export class AppendOnlySnapshotBuilder<T extends Bufferable> implements TreeSnap
     this.#snapshotMetadata = db.openMap(`append_only_snapshot:${treeName}:snapshot_metadata`);
   }
 
-  getSnapshot(block: number): Promise<TreeSnapshot<T>> {
+  getSnapshot(block: BlockNumber): Promise<TreeSnapshot<T>> {
     const meta = this.#getSnapshotMeta(block);
 
     if (typeof meta === 'undefined') {
@@ -76,7 +77,7 @@ export class AppendOnlySnapshotBuilder<T extends Bufferable> implements TreeSnap
     );
   }
 
-  snapshot(block: number): Promise<TreeSnapshot<T>> {
+  snapshot(block: BlockNumber): Promise<TreeSnapshot<T>> {
     return this.db.transaction(() => {
       const meta = this.#getSnapshotMeta(block);
       if (typeof meta !== 'undefined') {
@@ -149,7 +150,7 @@ export class AppendOnlySnapshotBuilder<T extends Bufferable> implements TreeSnap
     });
   }
 
-  #getSnapshotMeta(block: number): SnapshotMetadata | undefined {
+  #getSnapshotMeta(block: BlockNumber): SnapshotMetadata | undefined {
     return this.#snapshotMetadata.get(block);
   }
 }
@@ -160,8 +161,8 @@ export class AppendOnlySnapshotBuilder<T extends Bufferable> implements TreeSnap
 class AppendOnlySnapshot<T extends Bufferable> implements TreeSnapshot<T> {
   constructor(
     private nodes: AztecMap<string, Buffer>,
-    private nodeHistory: AztecMap<string, number>,
-    private block: number,
+    private nodeHistory: AztecMap<string, BlockNumber>,
+    private block: BlockNumber,
     private leafCount: bigint,
     private historicalRoot: Buffer,
     private tree: TreeBase<T> & AppendOnlyTree<T>,
@@ -256,7 +257,7 @@ class AppendOnlySnapshot<T extends Bufferable> implements TreeSnapshot<T> {
     return this.hasher.hash(lhs, rhs);
   }
 
-  #getBlockNumberThatModifiedNode(level: number, index: bigint): number | undefined {
+  #getBlockNumberThatModifiedNode(level: number, index: bigint): BlockNumber | undefined {
     return this.nodeHistory.get(nodeModifiedAtBlockKey(level, index));
   }
 

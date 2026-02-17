@@ -1,6 +1,6 @@
 import type { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-registry';
 import type { Gas } from '@aztec/stdlib/gas';
-import type { TxExecutionPhase } from '@aztec/stdlib/tx';
+import { TxExecutionPhase } from '@aztec/stdlib/tx';
 import {
   Attributes,
   type Gauge,
@@ -9,7 +9,7 @@ import {
   type TelemetryClient,
   type Tracer,
   type UpDownCounter,
-  ValueType,
+  createUpDownCounterWithDefault,
 } from '@aztec/telemetry-client';
 
 export class PublicProcessorMetrics {
@@ -34,60 +34,32 @@ export class PublicProcessorMetrics {
     this.tracer = client.getTracer(name);
     const meter = client.getMeter(name);
 
-    this.txDuration = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_TX_DURATION, {
-      description: 'How long it takes to process a transaction',
-      unit: 'ms',
-      valueType: ValueType.INT,
+    this.txDuration = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_TX_DURATION);
+
+    this.txCount = createUpDownCounterWithDefault(meter, Metrics.PUBLIC_PROCESSOR_TX_COUNT, {
+      [Attributes.OK]: [true, false],
     });
 
-    this.txCount = meter.createUpDownCounter(Metrics.PUBLIC_PROCESSOR_TX_COUNT, {
-      description: 'Number of transactions processed',
+    this.txPhaseCount = createUpDownCounterWithDefault(meter, Metrics.PUBLIC_PROCESSOR_TX_PHASE_COUNT);
+
+    this.phaseDuration = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_PHASE_DURATION);
+
+    this.phaseCount = createUpDownCounterWithDefault(meter, Metrics.PUBLIC_PROCESSOR_PHASE_COUNT, {
+      [Attributes.TX_PHASE_NAME]: [TxExecutionPhase.SETUP, TxExecutionPhase.APP_LOGIC, TxExecutionPhase.TEARDOWN],
+      [Attributes.OK]: [true, false],
     });
 
-    this.txPhaseCount = meter.createUpDownCounter(Metrics.PUBLIC_PROCESSOR_TX_PHASE_COUNT, {
-      description: 'Number of phases processed',
-    });
+    this.bytecodeDeployed = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_DEPLOY_BYTECODE_SIZE);
 
-    this.phaseDuration = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_PHASE_DURATION, {
-      description: 'How long it takes to process a phase',
-      unit: 'ms',
-      valueType: ValueType.INT,
-    });
+    this.totalGas = meter.createGauge(Metrics.PUBLIC_PROCESSOR_TOTAL_GAS);
 
-    this.phaseCount = meter.createUpDownCounter(Metrics.PUBLIC_PROCESSOR_PHASE_COUNT, {
-      description: 'Number of failed phases',
-    });
+    this.totalGasHistogram = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_TOTAL_GAS_HISTOGRAM);
 
-    this.bytecodeDeployed = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_DEPLOY_BYTECODE_SIZE, {
-      description: 'Size of deployed bytecode',
-      unit: 'By',
-    });
+    this.txGas = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_TX_GAS);
 
-    this.totalGas = meter.createGauge(Metrics.PUBLIC_PROCESSOR_TOTAL_GAS, {
-      description: 'Total gas used in block',
-      unit: 'gas',
-    });
+    this.gasRate = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_GAS_RATE);
 
-    this.totalGasHistogram = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_TOTAL_GAS_HISTOGRAM, {
-      description: 'Total gas used in block as histogram',
-      unit: 'gas/block',
-    });
-
-    this.txGas = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_TX_GAS, {
-      description: 'Gas used in transaction',
-      unit: 'gas/tx',
-    });
-
-    this.gasRate = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_GAS_RATE, {
-      description: 'L2 gas per second for complete block',
-      unit: 'gas/s',
-    });
-
-    this.treeInsertionDuration = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_TREE_INSERTION, {
-      description: 'How long it takes for tree insertion',
-      unit: 'us',
-      valueType: ValueType.INT,
-    });
+    this.treeInsertionDuration = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_TREE_INSERTION);
   }
 
   recordPhaseDuration(phaseName: TxExecutionPhase, durationMs: number) {

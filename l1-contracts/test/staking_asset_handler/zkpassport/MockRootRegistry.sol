@@ -9,7 +9,7 @@ contract MockRootRegistry is IRootRegistry {
     return bytes32(0);
   }
 
-  function isRootValid(bytes32, bytes32) external pure returns (bool) {
+  function isRootValid(bytes32, bytes32, uint256) external pure returns (bool) {
     return true;
   }
 

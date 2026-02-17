@@ -43,7 +43,7 @@ describe('Control Flow Opcodes', () => {
         ...Buffer.from('a234', 'hex'), // condOffset
         ...Buffer.from('12340000', 'hex'), // loc
       ]);
-      const inst = new JumpI(/*indirect=*/ 1, /*condOffset=*/ 0xa234, /*loc=*/ 0x12340000);
+      const inst = new JumpI(/*addressing_mode=*/ 1, /*condOffset=*/ 0xa234, /*loc=*/ 0x12340000);
 
       expect(JumpI.fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
@@ -56,7 +56,7 @@ describe('Control Flow Opcodes', () => {
 
       context.machineState.memory.set(0, new Uint1(1n));
 
-      const instruction = new JumpI(/*indirect=*/ 0, /*condOffset=*/ 0, jumpLocation);
+      const instruction = new JumpI(/*addressing_mode=*/ 0, /*condOffset=*/ 0, jumpLocation);
       await instruction.execute(context);
       expect(context.machineState.pc).toBe(jumpLocation);
     });
@@ -69,7 +69,7 @@ describe('Control Flow Opcodes', () => {
 
       context.machineState.memory.set(0, new Uint1(0n));
 
-      const instruction = new JumpI(/*indirect=*/ 0, /*condOffset=*/ 0, jumpLocation);
+      const instruction = new JumpI(/*addressing_mode=*/ 0, /*condOffset=*/ 0, jumpLocation);
       await instruction.execute(context);
       expect(context.machineState.pc).toBe(30);
     });
@@ -88,7 +88,7 @@ describe('Control Flow Opcodes', () => {
       // Set the resolved cond to 1.
       context.machineState.memory.set(resolvedCondOffset, new Uint1(1n));
 
-      const instruction = new JumpI(/*indirect=*/ indirect, /*condOffset=*/ condOffset, jumpLocation);
+      const instruction = new JumpI(/*addressing_mode=*/ indirect, /*condOffset=*/ condOffset, jumpLocation);
       await instruction.execute(context);
       expect(context.machineState.pc).toBe(jumpLocation);
     });
@@ -102,7 +102,7 @@ describe('Control Flow Opcodes', () => {
       { type: Field, name: 'Field' },
     ])('Should error if the condition has tag $name', async ({ type }) => {
       context.machineState.memory.set(0, new type(1n));
-      const instruction = new JumpI(/*indirect=*/ 0, /*condOffset=*/ 0, 1);
+      const instruction = new JumpI(/*addressing_mode=*/ 0, /*condOffset=*/ 0, 1);
       await expect(instruction.execute(context)).rejects.toThrow(TagCheckError);
     });
   });

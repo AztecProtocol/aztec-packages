@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// =====================
-
 #pragma once
 
 #include "barretenberg/chonk/chonk.hpp"
@@ -130,9 +124,12 @@ class PrivateFunctionExecutionMockCircuitProducer {
                              NUM_TRAILING_KERNELS) /*One kernel per app, plus a fixed number of final kernels*/
     {
         // Set flags indicating which circuits are kernels vs apps
-        is_kernel_flags.resize(total_num_circuits, true);
         for (size_t i = 0; i < num_app_circuits; ++i) {
-            is_kernel_flags[2 * i] = false; // every other circuit is an app
+            is_kernel_flags.emplace_back(false); // every other circuit is an app
+            is_kernel_flags.emplace_back(true);  // every other circuit is a kernel
+        }
+        for (size_t i = 0; i < NUM_TRAILING_KERNELS; ++i) {
+            is_kernel_flags.emplace_back(true);
         }
     }
 
@@ -167,6 +164,8 @@ class PrivateFunctionExecutionMockCircuitProducer {
     {
         const bool is_kernel = is_kernel_flags[circuit_counter++];
         const bool use_large_circuit = large_first_app && (circuit_counter == 1); // first circuit is size 2^19
+        // Check if this is one of the trailing kernels (reset, tail, hiding)
+        const bool is_trailing_kernel = (ivc.num_circuits_accumulated >= ivc.get_num_circuits() - NUM_TRAILING_KERNELS);
 
         ClientCircuit circuit{ ivc.goblin.op_queue };
         // if the number of gates is specified we just add a number of arithmetic gates
@@ -179,8 +178,12 @@ class PrivateFunctionExecutionMockCircuitProducer {
         } else {
             // If the number of gates is not specified we create a structured mock circuit
             if (is_kernel) {
-                GoblinMockCircuits::construct_mock_folding_kernel(circuit); // construct mock base logic
-                mock_databus.populate_kernel_databus(circuit);              // populate databus inputs/outputs
+                // For trailing kernels (reset, tail, hiding), skip the expensive mock kernel logic to match real Noir
+                // flows. These kernels are simpler and mainly contain the completion logic added by Chonk.
+                if (!is_trailing_kernel) {
+                    GoblinMockCircuits::construct_mock_folding_kernel(circuit); // construct mock base logic
+                }
+                mock_databus.populate_kernel_databus(circuit); // populate databus inputs/outputs
             } else {
                 GoblinMockCircuits::construct_mock_app_circuit(circuit, use_large_circuit); // construct mock app
                 mock_databus.populate_app_databus(circuit);                                 // populate databus outputs
@@ -214,9 +217,18 @@ class PrivateFunctionExecutionMockCircuitProducer {
                 }
             } else {
                 if (is_kernel) {
-                    BB_ASSERT_EQ(log2_dyadic_size,
-                                 18UL,
-                                 "There has been a change in the number of gates of a mock kernel circuit.");
+                    // Trailing kernels (reset, tail, hiding) are simpler than regular kernels
+                    if (is_trailing_kernel) {
+                        // Trailing kernels should be significantly smaller, with hiding kernel < 2^16
+                        BB_ASSERT_LTE(log2_dyadic_size,
+                                      16UL,
+                                      "Trailing kernel circuit size has exceeded expected bound (should be <= 2^16).");
+                        vinfo("Log number of gates in a trailing kernel circuit is: ", log2_dyadic_size);
+                    } else {
+                        BB_ASSERT_EQ(log2_dyadic_size,
+                                     18UL,
+                                     "There has been a change in the number of gates of a mock kernel circuit.");
+                    }
                 } else {
                     BB_ASSERT_EQ(log2_dyadic_size,
                                  use_large_circuit ? 19UL : 17UL,

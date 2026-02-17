@@ -82,13 +82,13 @@ template <typename Flavor> void create_some_lookup_gates(auto& circuit_builder)
 
 template <typename Flavor> void create_some_delta_range_constraint_gates(auto& circuit_builder)
 {
-    // Add a sort gate (simply checks that consecutive inputs have a difference of < 4)
+    // Add an `enforce_small_deltas` gate (simply checks that consecutive inputs have a difference of < 4)
     using FF = typename Flavor::FF;
     auto a_idx = circuit_builder.add_variable(FF(0));
     auto b_idx = circuit_builder.add_variable(FF(1));
     auto c_idx = circuit_builder.add_variable(FF(2));
     auto d_idx = circuit_builder.add_variable(FF(3));
-    circuit_builder.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
+    circuit_builder.enforce_small_deltas({ a_idx, b_idx, c_idx, d_idx });
 }
 
 template <typename Flavor> void create_some_RAM_gates(auto& circuit_builder)
@@ -155,7 +155,7 @@ template <typename Flavor> void create_some_elliptic_curve_addition_gates(auto& 
     uint32_t x3 = circuit_builder.add_variable(p3.x);
     uint32_t y3 = circuit_builder.add_variable(p3.y);
 
-    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, -1 });
+    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*is_addition=*/false });
 }
 
 template <typename Flavor> void create_some_ecc_op_queue_gates(auto& circuit_builder)
@@ -216,7 +216,8 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     auto& prover_polynomials = prover_inst->polynomials;
     auto params = prover_inst->relation_parameters;
 
-    RelationChecker<Flavor>::check_all(prover_polynomials, params);
+    auto relation_failures = RelationChecker<Flavor>::check_all(prover_polynomials, params);
+    EXPECT_TRUE(relation_failures.empty());
 }
 
 TEST_F(UltraRelationCorrectnessTests, Mega)
@@ -253,5 +254,6 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     auto& prover_polynomials = prover_inst->polynomials;
     auto params = prover_inst->relation_parameters;
 
-    RelationChecker<Flavor>::check_all(prover_polynomials, params);
+    auto relation_failures = RelationChecker<Flavor>::check_all(prover_polynomials, params);
+    EXPECT_TRUE(relation_failures.empty());
 }

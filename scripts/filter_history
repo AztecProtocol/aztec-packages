@@ -1,0 +1,308 @@
+#!/usr/bin/env python3
+import sys
+import os
+import subprocess
+
+# --- Configuration & Helpers ---
+
+class Colors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+
+TARGET_BRANCH = "next-linear-git"
+BOT_AUTHOR = "AztecBot <tech@aztecprotocol.com>"
+
+def run_command(command, decode=True):
+    try:
+        result = subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT)
+        return result.decode('utf-8').strip() if decode else result
+    except subprocess.CalledProcessError:
+        return None
+
+def log_info(msg):
+    print(f"{Colors.OKBLUE}[INFO]{Colors.ENDC} {msg}")
+
+def log_ok(msg):
+    print(f"{Colors.OKGREEN}[OK]{Colors.ENDC} {msg}")
+
+def log_warn(msg):
+    print(f"{Colors.WARNING}[WARN]{Colors.ENDC} {msg}")
+
+def fix_committer(timestamp):
+    """
+    Amend HEAD commit to set committer date to specific timestamp.
+    Preserves the Author Name/Email/Date currently on HEAD.
+    """
+    # Get author info from HEAD (name and email only)
+    # We do not pull date here because we are enforcing a specific timestamp
+    author_info = run_command('git log -1 --format="%an%x00%ae"')
+    if not author_info:
+        return
+    name, email = author_info.split('\x00')
+
+    env = os.environ.copy()
+    env['GIT_COMMITTER_NAME'] = name
+    env['GIT_COMMITTER_EMAIL'] = email
+    # Git accepts @<unix_timestamp> for dates
+    env['GIT_COMMITTER_DATE'] = f"@{timestamp}"
+
+    # We do not set GIT_AUTHOR_DATE here.
+    # It is assumed valid from the commit command (-C or --date).
+
+    subprocess.check_output(
+        ["git", "commit", "--amend", "--no-edit"],
+        stderr=subprocess.STDOUT,
+        env=env
+    )
+
+def get_commit_info(commit_hash):
+    """
+    Fetch details for analysis (Parents, Author, Subject, Tree, Timestamp).
+    Uses null character as delimiter to avoid issues with | in subjects.
+    """
+    fmt = "%P%x00%an%x00%ae%x00%s%x00%T%x00%ct"
+    cmd = f'git show -s --format="{fmt}" {commit_hash}'
+    res = run_command(cmd)
+    if res:
+        parts = res.split('\x00', 5)
+        return {
+            'hash': commit_hash,
+            'parents': parts[0].split(),
+            'author_name': parts[1],
+            'author_email': parts[2],
+            'subject': parts[3],
+            'tree': parts[4],
+            'timestamp': int(parts[5]) # Committer timestamp
+        }
+    return None
+
+def is_pr_commit(subject):
+    """Criteria: Must contain a PR number (#123)."""
+    return '#' in subject
+
+def is_container(info):
+    """
+    A container is a merge commit with PR nuggets inside.
+    Typically merge-train PRs or batch PRs.
+    """
+    if len(info['parents']) <= 1:
+        return False
+    subject = info['subject']
+    container_patterns = ['merge-train/', 'implements pr #', 'spartan merge']
+    return any(p in subject.lower() for p in container_patterns)
+
+# --- Graph Analysis ---
+
+def scan_range_for_nuggets(parent1, parent2):
+    """
+    Scans the merge range (parent1..parent2).
+    Identifies commits that are valid PRs (Nuggets).
+    """
+    cmd = f'git rev-list --reverse {parent1}..{parent2}'
+    output = run_command(cmd)
+    if not output:
+        return []
+
+    nuggets = []
+    for h in output.split('\n'):
+        info = get_commit_info(h)
+        # Nugget Criteria:
+        # 1. Must define a PR (have # in subject)
+        # 2. Must NOT be a "Sync Merge" (Merge 'next' into ...)
+        if is_pr_commit(info['subject']):
+            if "Merge branch" in info['subject'] and "into" in info['subject']:
+                continue
+            nuggets.append(h)
+
+    return nuggets
+
+def build_action_plan(limit):
+    """
+    Analyzes the First-Parent chain, extracts commits in first-parent order.
+    Containers are expanded into their nuggets + a sync commit to match container tree.
+    """
+    fmt = "%H"
+    cmd = f'git log -n {limit} --format="{fmt}" --first-parent --reverse'
+    output = run_command(cmd)
+    if not output:
+        sys.exit("No history found.")
+
+    chain_hashes = output.split('\n')
+    plan = []
+
+    log_info(f"Analyzing {len(chain_hashes)} commits on main line...")
+
+    for i, h in enumerate(chain_hashes):
+        info = get_commit_info(h)
+        is_merge = len(info['parents']) > 1
+
+        # Check for Container (merge-train, batch PRs)
+        if is_merge and is_container(info):
+            p1 = info['parents'][0]
+            p2 = info['parents'][1]
+            nuggets = scan_range_for_nuggets(p1, p2)
+
+            if nuggets:
+                log_warn(f"Found Container {h[:7]} ({info['subject']}). Extracting {len(nuggets)} nuggets.")
+                for n_hash in nuggets:
+                    plan.append({
+                        'type': 'Nugget',
+                        'hash': n_hash
+                    })
+                # After nuggets, sync to container's tree to capture sync merge effects
+                plan.append({
+                    'type': 'ContainerSync',
+                    'hash': h,
+                    'tree': info['tree'],
+                    'subject': info['subject'],
+                    'timestamp': info['timestamp']
+                })
+                continue
+
+        # ANCHOR: Direct commit on main line
+        plan.append({
+            'type': 'Anchor',
+            'hash': h,
+            'subject': info['subject']
+        })
+
+    return plan
+
+# --- Execution ---
+
+def get_author(commit_hash):
+    """
+    For merge commits, get author from parent2 (the PR branch).
+    For non-merge commits, use the commit's own author.
+    """
+    info = get_commit_info(commit_hash)
+    if len(info['parents']) > 1:
+        p2 = info['parents'][1]
+        p2_info = get_commit_info(p2)
+        return f"{p2_info['author_name']} <{p2_info['author_email']}>"
+    return f"{info['author_name']} <{info['author_email']}>"
+
+def run_git_commit(author, source_commit):
+    """
+    Run git commit with author.
+    -C source_commit preserves the message AND the AUTHOR DATE from source.
+    """
+    cmd = ["git", "commit", f"--author={author}", "-C", source_commit]
+    try:
+        subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+def cherry_pick_commit(commit_hash):
+    """
+    Cherry-picks a commit, then fixes committer = author.
+    For merge commits, uses the PR author (from parent2).
+    """
+    info = get_commit_info(commit_hash)
+    is_merge = len(info['parents']) > 1
+    author = get_author(commit_hash)
+    committed = False
+
+    try:
+        opts = "-m 1" if is_merge else ""
+        cmd = f"git cherry-pick -n {opts} {commit_hash}".strip()
+        subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
+        committed = run_git_commit(author, commit_hash)
+    except subprocess.CalledProcessError:
+        unmerged = run_command("git diff --name-only --diff-filter=U")
+        if unmerged:
+            file_list = unmerged.replace('\n', ' ')
+            run_command(f"git checkout {commit_hash} -- {file_list}")
+            run_command(f"git add {file_list}")
+        committed = run_git_commit(author, commit_hash)
+
+    if committed:
+        # Enforce the original committer timestamp
+        fix_committer(info['timestamp'])
+
+def get_changed_files(tree1, tree2):
+    """Get list of changed files between two trees."""
+    cmd = f"git diff-tree --no-commit-id --name-only -r {tree1} {tree2}"
+    result = run_command(cmd)
+    if result:
+        return result.split('\n')[:10]
+    return []
+
+def perform_rewrite(plan, start_commit_parent):
+    original_branch = run_command("git symbolic-ref --short HEAD")
+
+    log_info(f"Detaching HEAD to {start_commit_parent[:7]}...")
+    run_command(f"git checkout --detach {start_commit_parent}")
+
+    sync_count = 0
+    try:
+        for i, step in enumerate(plan):
+            step_type = step['type']
+            step_hash = step['hash']
+
+            sys.stdout.write(f"\rProcessing {i+1}/{len(plan)}: {step_type} {step_hash[:7]}")
+            sys.stdout.flush()
+
+            if step_type == 'ContainerSync':
+                # Sync to container's tree to capture sync merge effects
+                current_tree = run_command("git rev-parse HEAD^{tree}")
+                target_tree = step['tree']
+
+                if current_tree != target_tree:
+                    sync_count += 1
+                    changed_files = get_changed_files(current_tree, target_tree)
+                    if changed_files:
+                        files_summary = ', '.join(changed_files[:3])
+                        if len(changed_files) > 3:
+                            files_summary += f" (+{len(changed_files)-3} more)"
+                        print(f"\n  Merge #{sync_count} after container: {files_summary}")
+
+                        run_command(f"git read-tree -u --reset {target_tree}")
+
+                        # Create commit with explicit AUTHOR DATE using --date
+                        run_command(
+                            f'git commit --allow-empty --author="{BOT_AUTHOR}" '
+                            f'--date="@{step["timestamp"]}" '
+                            f'-m "Flattened merge fixup: {files_summary}"'
+                        )
+
+                        # Fix COMMITTER DATE to match
+                        fix_committer(step['timestamp'])
+            else:
+                # Nugget or Anchor - cherry-pick it
+                cherry_pick_commit(step_hash)
+
+        print()  # Clear line
+
+        final_head = run_command("git rev-parse HEAD")
+        log_ok(f"Writing ref {TARGET_BRANCH} to {final_head[:7]}")
+        if sync_count > 0:
+            log_info(f"Created {sync_count} container sync commits")
+        run_command(f"git update-ref refs/heads/{TARGET_BRANCH} {final_head}")
+
+    finally:
+        log_info(f"Returning to {original_branch}")
+        run_command(f"git checkout {original_branch}")
+
+# --- Main ---
+
+if __name__ == "__main__":
+    try:
+        limit = int(sys.argv[1])
+    except (IndexError, ValueError):
+        print("Usage: filter_history <number_of_commits>")
+        sys.exit(1)
+
+    # Get base parent
+    raw_oldest = run_command(f"git log -n {limit} --format='%P' --first-parent")
+    if not raw_oldest: sys.exit(1)
+    base_parent = raw_oldest.strip().split('\n')[-1].split()[0]
+
+    # Plan and execute
+    plan = build_action_plan(limit)
+    perform_rewrite(plan, base_parent)

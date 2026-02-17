@@ -17,16 +17,17 @@ namespace bb::avm2::tracegen {
 namespace {
 
 using enum ::bb::avm2::WireOpCode;
+using simulation::Operand;
 
-TaggedValue default_output = TaggedValue::from_tag(ValueTag::FF, FF(0));
+MemoryValue default_output = MemoryValue::from_tag(ValueTag::FF, FF(0));
 
 TEST(GetEnvVarTracegenTest, AddressEnvironmentVariable)
 {
     TestTraceContainer trace;
     ExecutionTraceBuilder builder;
 
-    TaggedValue envvar_enum =
-        TaggedValue::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::ADDRESS)); // enum value
+    Operand envvar_enum =
+        Operand::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::ADDRESS)); // enum value
 
     builder.process_get_env_var_opcode(envvar_enum, default_output, trace, 0);
 
@@ -49,8 +50,8 @@ TEST(GetEnvVarTracegenTest, SenderEnvironmentVariable)
     TestTraceContainer trace;
     ExecutionTraceBuilder builder;
 
-    TaggedValue envvar_enum =
-        TaggedValue::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::SENDER)); // enum value
+    Operand envvar_enum =
+        Operand::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::SENDER)); // enum value
 
     builder.process_get_env_var_opcode(envvar_enum, default_output, trace, 0);
 
@@ -73,8 +74,8 @@ TEST(GetEnvVarTracegenTest, TransactionFeeEnvironmentVariable)
     TestTraceContainer trace;
     ExecutionTraceBuilder builder;
 
-    TaggedValue envvar_enum =
-        TaggedValue::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::TRANSACTIONFEE)); // enum value
+    Operand envvar_enum =
+        Operand::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::TRANSACTIONFEE)); // enum value
 
     builder.process_get_env_var_opcode(envvar_enum, default_output, trace, 0);
 
@@ -96,11 +97,11 @@ TEST(GetEnvVarTracegenTest, ChainIdEnvironmentVariable)
     TestTraceContainer trace;
     ExecutionTraceBuilder builder;
 
-    TaggedValue envvar_enum =
-        TaggedValue::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::CHAINID)); // enum value
+    Operand envvar_enum =
+        Operand::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::CHAINID)); // enum value
 
     FF chain_id = FF(42);
-    TaggedValue output = TaggedValue::from_tag(ValueTag::FF, chain_id);
+    MemoryValue output = MemoryValue::from_tag(ValueTag::FF, chain_id);
 
     builder.process_get_env_var_opcode(envvar_enum, output, trace, 0);
 
@@ -124,11 +125,11 @@ TEST(GetEnvVarTracegenTest, VersionEnvironmentVariable)
     TestTraceContainer trace;
     ExecutionTraceBuilder builder;
 
-    TaggedValue envvar_enum =
-        TaggedValue::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::VERSION)); // enum value
+    Operand envvar_enum =
+        Operand::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::VERSION)); // enum value
 
     FF version = FF(42);
-    TaggedValue output = TaggedValue::from_tag(ValueTag::FF, version);
+    MemoryValue output = MemoryValue::from_tag(ValueTag::FF, version);
 
     builder.process_get_env_var_opcode(envvar_enum, output, trace, 0);
 
@@ -152,11 +153,11 @@ TEST(GetEnvVarTracegenTest, BlockNumberEnvironmentVariable)
     TestTraceContainer trace;
     ExecutionTraceBuilder builder;
 
-    TaggedValue envvar_enum =
-        TaggedValue::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::BLOCKNUMBER)); // enum value
+    Operand envvar_enum =
+        Operand::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::BLOCKNUMBER)); // enum value
 
     uint32_t block_number = 42;
-    TaggedValue output = TaggedValue::from_tag(ValueTag::U32, block_number);
+    MemoryValue output = MemoryValue::from_tag(ValueTag::U32, block_number);
     builder.process_get_env_var_opcode(envvar_enum, output, trace, 0);
 
     EXPECT_THAT(trace.as_rows(),
@@ -180,11 +181,11 @@ TEST(GetEnvVarTracegenTest, TimestampEnvironmentVariable)
     TestTraceContainer trace;
     ExecutionTraceBuilder builder;
 
-    TaggedValue envvar_enum =
-        TaggedValue::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::TIMESTAMP)); // enum value
+    Operand envvar_enum =
+        Operand::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::TIMESTAMP)); // enum value
 
     uint64_t timestamp = 42;
-    TaggedValue output = TaggedValue::from_tag(ValueTag::U64, timestamp);
+    MemoryValue output = MemoryValue::from_tag(ValueTag::U64, timestamp);
     builder.process_get_env_var_opcode(envvar_enum, output, trace, 0);
 
     EXPECT_THAT(trace.as_rows(),
@@ -207,11 +208,11 @@ TEST(GetEnvVarTracegenTest, FeePerL2GasEnvironmentVariable)
     TestTraceContainer trace;
     ExecutionTraceBuilder builder;
 
-    TaggedValue envvar_enum =
-        TaggedValue::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::BASEFEEPERL2GAS)); // enum value
+    Operand envvar_enum =
+        Operand::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::MINFEEPERL2GAS)); // enum value
 
     uint128_t fee_per_l2_gas = 42;
-    TaggedValue output = TaggedValue::from_tag(ValueTag::U128, fee_per_l2_gas);
+    MemoryValue output = MemoryValue::from_tag(ValueTag::U128, fee_per_l2_gas);
     builder.process_get_env_var_opcode(envvar_enum, output, trace, 0);
 
     EXPECT_THAT(trace.as_rows(),
@@ -235,11 +236,11 @@ TEST(GetEnvVarTracegenTest, FeePerDaGasEnvironmentVariable)
     TestTraceContainer trace;
     ExecutionTraceBuilder builder;
 
-    TaggedValue envvar_enum =
-        TaggedValue::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::BASEFEEPERDAGAS)); // enum value
+    Operand envvar_enum =
+        Operand::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::MINFEEPERDAGAS)); // enum value
 
     uint128_t fee_per_da_gas = 42;
-    TaggedValue output = TaggedValue::from_tag(ValueTag::U128, fee_per_da_gas);
+    MemoryValue output = MemoryValue::from_tag(ValueTag::U128, fee_per_da_gas);
     builder.process_get_env_var_opcode(envvar_enum, output, trace, 0);
 
     EXPECT_THAT(trace.as_rows(),
@@ -262,8 +263,8 @@ TEST(GetEnvVarTracegenTest, IsStaticCallEnvironmentVariable)
     TestTraceContainer trace;
     ExecutionTraceBuilder builder;
 
-    TaggedValue envvar_enum =
-        TaggedValue::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::ISSTATICCALL)); // enum value
+    Operand envvar_enum =
+        Operand::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::ISSTATICCALL)); // enum value
 
     builder.process_get_env_var_opcode(envvar_enum, default_output, trace, 0);
 
@@ -287,8 +288,8 @@ TEST(GetEnvVarTracegenTest, L2GasLeftEnvironmentVariable)
     TestTraceContainer trace;
     ExecutionTraceBuilder builder;
 
-    TaggedValue envvar_enum =
-        TaggedValue::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::L2GASLEFT)); // enum value
+    Operand envvar_enum =
+        Operand::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::L2GASLEFT)); // enum value
 
     builder.process_get_env_var_opcode(envvar_enum, default_output, trace, 0);
 
@@ -311,8 +312,8 @@ TEST(GetEnvVarTracegenTest, DaGasLeftEnvironmentVariable)
     TestTraceContainer trace;
     ExecutionTraceBuilder builder;
 
-    TaggedValue envvar_enum =
-        TaggedValue::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::DAGASLEFT)); // enum value
+    Operand envvar_enum =
+        Operand::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::DAGASLEFT)); // enum value
 
     builder.process_get_env_var_opcode(envvar_enum, default_output, trace, 0);
 

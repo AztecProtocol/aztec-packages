@@ -10,7 +10,7 @@ use types::{
     constants::BLOB_ACCUMULATOR_LENGTH,
     hash::{poseidon2_hash, sha256_to_field},
     traits::{Deserialize, Empty, Serialize},
-    utils::reader::Reader,
+    utils::{reader::Reader, writer::Writer},
 };
 
 /**
@@ -64,7 +64,7 @@ impl BlobAccumulator {
     * Init the first accumulation state of the epoch.
     *
     * First state of the accumulator:
-    * - v_acc := sha256(C_0)
+    * - blob_commitments_hash_acc := sha256(C_0)
     * - z_acc := z_0
     * - y_acc := gamma^0 * y_0 = y_0
     * - c_acc := gamma^0 * c_0 = c_0
@@ -94,7 +94,7 @@ impl BlobAccumulator {
     * NB: blob_commitments_hash is written as v below
     *
     * Each accumulation:
-    * - v_acc := sha256(v_acc, C_i)
+    * - blob_commitments_hash_acc := sha256(blob_commitments_hash_acc, C_i)
     * - z_acc := poseidon2(z_acc, z_i)
     * - y_acc := y_acc + (gamma^i * y_i)
     * - c_acc := c_acc + (gamma^i * c_i)
@@ -102,7 +102,7 @@ impl BlobAccumulator {
     * - gamma^(i + 1) = gamma^i * gamma // denoted gamma_pow_acc
     *
     * Final accumulated values (from last blob of last checkpoint of epoch):
-    * - v := v_acc (hash of all commitments (C_i s) to be checked on L1)
+    * - blob_commitments_hash := blob_commitments_hash_acc (hash of all commitments (C_i s) to be checked on L1)
     * - z := z_acc (final challenge, at which all blobs are evaluated)
     * - y := y_acc (final opening to be checked on L1)
     * - c := c_acc (final commitment to be checked on L1)
@@ -180,17 +180,22 @@ impl Eq for BlobAccumulator {
 impl Serialize for BlobAccumulator {
     let N: u32 = BLOB_ACCUMULATOR_LENGTH;
 
-    fn serialize(self) -> [Field; BLOB_ACCUMULATOR_LENGTH] {
-        let mut fields: BoundedVec<Field, BLOB_ACCUMULATOR_LENGTH> = BoundedVec::new();
-        fields.push(self.blob_commitments_hash_acc);
-        fields.push(self.z_acc);
-        fields.extend_from_array(self.y_acc.get_limbs().map(|l| l as Field));
-        fields.extend_from_array(self.c_acc.x.get_limbs().map(|l| l as Field));
-        fields.extend_from_array(self.c_acc.y.get_limbs().map(|l| l as Field));
-        fields.push(self.c_acc.is_infinity as Field);
-        fields.push(self.gamma_acc);
-        fields.extend_from_array(self.gamma_pow_acc.get_limbs().map(|l| l as Field));
-        fields.storage()
+    fn serialize(self) -> [Field; Self::N] {
+        let mut writer: Writer<Self::N> = Writer::new();
+        self.stream_serialize(&mut writer);
+        writer.finish()
+    }
+
+    #[inline_always]
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        writer.write(self.blob_commitments_hash_acc);
+        writer.write(self.z_acc);
+        writer.write_array(self.y_acc.get_limbs().map(|l| l as Field));
+        writer.write_array(self.c_acc.x.get_limbs().map(|l| l as Field));
+        writer.write_array(self.c_acc.y.get_limbs().map(|l| l as Field));
+        writer.write(self.c_acc.is_infinity as Field);
+        writer.write(self.gamma_acc);
+        writer.write_array(self.gamma_pow_acc.get_limbs().map(|l| l as Field));
     }
 }
 
@@ -201,7 +206,14 @@ impl Deserialize for BlobAccumulator {
 
     fn deserialize(fields: [Field; Self::N]) -> Self {
         let mut reader = Reader::new(fields);
-        let mut item = Self {
+        let result = Self::stream_deserialize(&mut reader);
+        reader.finish();
+        result
+    }
+
+    #[inline_always]
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
+        Self {
             blob_commitments_hash_acc: reader.read(),
             z_acc: reader.read(),
             y_acc: BLS12_381_Fr::from_limbs(reader.read_array().map(|e| e as u128)),
@@ -212,7 +224,26 @@ impl Deserialize for BlobAccumulator {
             },
             gamma_acc: reader.read(),
             gamma_pow_acc: BLS12_381_Fr::from_limbs(reader.read_array().map(|e| e as u128)),
-        };
-        item
+        }
     }
+}
+
+#[test]
+fn serde_test() {
+    let blob_accumulator = BlobAccumulator {
+        blob_commitments_hash_acc: 1,
+        z_acc: 2,
+        y_acc: BLS12_381_Fr::from_limbs([3, 4, 5]),
+        c_acc: BLSPoint {
+            x: BLS12_381_Fq::from_limbs([6, 7, 8, 0]),
+            y: BLS12_381_Fq::from_limbs([10, 11, 12, 13]),
+            is_infinity: false,
+        },
+        gamma_acc: 42,
+        gamma_pow_acc: BLS12_381_Fr::from_limbs([14, 15, 16]),
+    };
+
+    let serialized = blob_accumulator.serialize();
+    let deserialized = BlobAccumulator::deserialize(serialized);
+    assert_eq(blob_accumulator, deserialized);
 }

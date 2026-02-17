@@ -24,7 +24,7 @@ TEST(RangeCheckTraceGenTest, RangeCheckLte16Bit)
 
     // Choose a value that has num_bits
     uint128_t value = (static_cast<uint128_t>(1) << num_bits) - 3;
-    uint256_t value_u256 = uint256_t::from_uint128(value);
+    uint256_t value_u256 = value;
 
     // <= 16 bits means that the only register used is the dynamic slice
     uint16_t dynamic_slice_register = value & 0xFFFF;
@@ -58,7 +58,7 @@ TEST(RangeCheckTraceGenTest, RangeCheckLte48Bit)
 
     // Choose a value that has num_bits
     uint128_t value = (static_cast<uint128_t>(1) << num_bits) - 3;
-    uint256_t value_u256 = uint256_t::from_uint128(value);
+    uint256_t value_u256 = value;
 
     uint16_t u16_r0 = value & 0xFFFF;
     uint16_t u16_r1 = (value >> 16) & 0xFFFF;
@@ -98,7 +98,7 @@ TEST(RangeCheckTraceGenTest, RangeCheckLte128Bit)
 
     // Choose a value that has num_bits
     uint128_t value = static_cast<uint128_t>((static_cast<uint256_t>(1) << (num_bits)) - 3);
-    uint256_t value_u256 = uint256_t::from_uint128(value);
+    uint256_t value_u256 = value;
 
     uint16_t u16_r0 = value & 0xFFFF;
     uint16_t u16_r1 = (value >> 16) & 0xFFFF;

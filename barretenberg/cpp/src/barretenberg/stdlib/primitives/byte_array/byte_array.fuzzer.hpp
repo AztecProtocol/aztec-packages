@@ -1,12 +1,11 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: not started, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
-#include "barretenberg/stdlib/primitives/safe_uint/safe_uint.hpp"
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wc99-designator"
 
@@ -56,8 +55,6 @@ template <typename Builder> class ByteArrayFuzzBase {
   private:
     typedef bb::stdlib::byte_array<Builder> byte_array_t;
     typedef bb::stdlib::field_t<Builder> field_t;
-    typedef bb::stdlib::safe_uint_t<Builder> suint_t;
-
     template <class From, class To> static To from_to(const From& in, const std::optional<size_t> size = std::nullopt)
     {
         return To(in.data(), in.data() + (size ? *size : in.size()));
@@ -348,18 +345,7 @@ template <typename Builder> class ByteArrayFuzzBase {
 
         byte_array_t byte_array{ nullptr, std::vector<uint8_t>{} };
 
-        static std::vector<uint8_t> get_value(const byte_array_t& byte_array)
-        {
-            /* Based on the PRNG, alternate between retrieving an std::vector
-             * and a string.
-             * These should be functionally equivalent.
-             */
-            if (static_cast<bool>(VarianceRNG.next() % 2)) {
-                return byte_array.get_value();
-            } else {
-                return from_to<std::string, std::vector<uint8_t>>(byte_array.get_string());
-            }
-        }
+        static std::vector<uint8_t> get_value(const byte_array_t& byte_array) { return byte_array.get_value(); }
         static const std::vector<uint8_t>& bool_to_vector(const bool& b)
         {
             static const std::vector<uint8_t> false_{ 0 };
@@ -462,7 +448,7 @@ template <typename Builder> class ByteArrayFuzzBase {
         {
             const auto& ref = this->reference_value;
 
-            switch (VarianceRNG.next() % 8) {
+            switch (VarianceRNG.next() % 4) {
             case 0:
 #ifdef SHOW_INFORMATION
                 std::cout << "byte_array_t(e);" << std::cout;
@@ -471,29 +457,12 @@ template <typename Builder> class ByteArrayFuzzBase {
                 return ExecutionHandler(ref, byte_array_t(this->byte_array));
             case 1:
 #ifdef SHOW_INFORMATION
-                std::cout << "e.get_string();" << std::cout;
-#endif
-                /* Construct via std::string */
-                return ExecutionHandler(ref, byte_array_t(builder, this->byte_array.get_string()));
-            case 2:
-#ifdef SHOW_INFORMATION
                 std::cout << "e.get_value();" << std::cout;
 #endif
                 /* Construct via std::vector<uint8_t> */
                 return ExecutionHandler(ref, byte_array_t(builder, this->byte_array.get_value()));
-            case 3:
-#ifdef SHOW_INFORMATION
-                std::cout << "e.bytes();" << std::cout;
-#endif
-                /* Construct via bytes_t */
-                return ExecutionHandler(ref, byte_array_t(builder, this->byte_array.bytes()));
-            case 4:
-#ifdef SHOW_INFORMATION
-                std::cout << "std::move(e.bytes());" << std::cout;
-#endif
-                /* Construct via bytes_t move constructor */
-                return ExecutionHandler(ref, byte_array_t(builder, std::move(this->byte_array.bytes())));
-            case 5: {
+            // case 2 and 3: Removed - tested private bytes_t constructors (redundant with cases 0-1)
+            case 2: {
                 const auto field = to_field_t();
 
                 if (field == std::nullopt) {
@@ -523,7 +492,7 @@ template <typename Builder> class ByteArrayFuzzBase {
                     return ExecutionHandler(new_ref, byte_array_t(*field, num_bytes));
                 }
             }
-            case 6: {
+            case 3: {
                 /* Create a byte_array with gibberish.
                  *
                  * The purpose of this is to ascertain that no gibberish
@@ -540,22 +509,6 @@ template <typename Builder> class ByteArrayFuzzBase {
                 ba = this->byte_array;
 
                 return ExecutionHandler(ref, ba);
-            } break;
-            case 7: {
-                static_assert(suint_t::MAX_BIT_NUM > 0);
-                const auto field = to_field_t(
-                    /* One bit must be reserved */
-                    suint_t::MAX_BIT_NUM - 1);
-
-                if (field == std::nullopt) {
-                    return ExecutionHandler(ref, byte_array_t(this->byte_array));
-                } else {
-                    /* Test the suint constructor.
-                     *
-                     * byte_array -> field -> suint -> byte_array
-                     */
-                    return ExecutionHandler(ref, byte_array_t(suint_t(*field, suint_t::MAX_BIT_NUM), ref.size()));
-                }
             } break;
             default:
                 abort();

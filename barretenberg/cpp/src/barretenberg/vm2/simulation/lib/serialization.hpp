@@ -8,6 +8,8 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
+#include <string>
 #include <variant>
 #include <vector>
 
@@ -29,7 +31,7 @@ using Operand = TaggedValue;
 
 struct Instruction {
     WireOpCode opcode = WireOpCode::LAST_OPCODE_SENTINEL;
-    uint16_t indirect = 0;
+    uint16_t addressing_mode = 0;
     std::vector<Operand> operands;
 
     std::string to_string() const;
@@ -47,14 +49,30 @@ struct Instruction {
     bool operator==(const Instruction& other) const = default;
 };
 
-enum class InstrDeserializationError : uint8_t {
+enum class InstrDeserializationEventError : uint8_t {
     PC_OUT_OF_RANGE,
     OPCODE_OUT_OF_RANGE,
     INSTRUCTION_OUT_OF_RANGE,
     TAG_OUT_OF_RANGE,
-    // FIXME: remove this once all execution opcodes are supported.
-    // Also uncomment proper constraining of error in instr_fetching.pil.
-    INVALID_EXECUTION_OPCODE,
+};
+
+struct InstrDeserializationError {
+    InstrDeserializationEventError type;
+    std::optional<std::string> message;
+
+    // Constructor from error type only
+    InstrDeserializationError(InstrDeserializationEventError t)
+        : type(t)
+        , message(std::nullopt)
+    {}
+
+    // Constructor with error type and message
+    InstrDeserializationError(InstrDeserializationEventError t, const std::string& msg)
+        : type(t)
+        , message(msg)
+    {}
+
+    bool operator==(const InstrDeserializationError& other) const = default;
 };
 
 /**

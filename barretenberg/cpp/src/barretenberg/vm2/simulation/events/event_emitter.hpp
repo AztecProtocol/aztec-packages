@@ -3,6 +3,7 @@
 #include <cassert>
 #include <vector>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/vm2/common/set.hpp"
 
 namespace bb::avm2::simulation {
@@ -76,7 +77,7 @@ template <typename Event> class OneShotEventEmitter : public EventEmitterInterfa
     virtual ~OneShotEventEmitter() = default;
     void emit(Event&& event) override
     {
-        assert(!has_emitted);
+        BB_ASSERT(!has_emitted, "Event already emitted");
         has_emitted = true;
         this->event = event;
     }

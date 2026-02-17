@@ -16,7 +16,7 @@ export function buildTransientDataHints<NOTE_HASHES_LEN extends number, NULLIFIE
   futureNoteHashReads: ScopedReadRequest[],
   futureNullifierReads: ScopedReadRequest[],
   noteHashNullifierCounterMap: Map<number, number>,
-  validationRequestsSplitCounter: number,
+  splitCounter: number,
 ): { numTransientData: number; hints: Tuple<TransientDataSquashingHint, NULLIFIERS_LEN> } {
   const futureNoteHashReadsMap = new ScopedValueCache(futureNoteHashReads);
   const futureNullifierReadsMap = new ScopedValueCache(futureNullifierReads);
@@ -44,7 +44,7 @@ export function buildTransientDataHints<NOTE_HASHES_LEN extends number, NULLIFIE
 
     const nullifier = nullifiers.array[nullifierIndex];
     // Cannot nullify a non-revertible note hash with a revertible nullifier.
-    if (noteHash.counter < validationRequestsSplitCounter && nullifier.counter >= validationRequestsSplitCounter) {
+    if (noteHash.counter < splitCounter && nullifier.counter >= splitCounter) {
       continue;
     }
 

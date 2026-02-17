@@ -1,5 +1,5 @@
-import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { computeRootFromSiblingPath } from '@aztec/foundation/trees';
 
@@ -99,9 +99,9 @@ export async function createPrivateFunctionMembershipProof(
  * contract_class = db.get_contract_class(contract_class_id)
  *
  * // Compute function leaf and assert it belongs to the private functions tree
- * function_leaf = pedersen([selector as Field, vk_hash], GENERATOR__FUNCTION_LEAF)
+ * function_leaf = pedersen([selector as Field, vk_hash], GENERATOR__PRIVATE_FUNCTION_LEAF)
  * computed_private_function_tree_root = compute_root(function_leaf, private_function_tree_sibling_path)
- * assert computed_private_function_tree_root == contract_class.private_function_root
+ * assert computed_private_function_tree_root == contract_class.private_functions_root
  *
  * // Compute artifact leaf and assert it belongs to the artifact
  * artifact_function_leaf = sha256(selector, metadata_hash, sha256(bytecode))

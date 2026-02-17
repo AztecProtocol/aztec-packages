@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Khashayar], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -267,13 +267,11 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
 
         if constexpr (Curve::is_stdlib_type) {
             if constexpr (std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>) {
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1197)
                 diff.self_reduce();
             }
+            bool out = (diff.get_value() == FF(0).get_value());
             diff.assert_equal(FF(0));
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1186).
-            // Insecure pattern.
-            return (diff.get_value() == FF(0).get_value());
+            return out;
         } else {
             return (diff == FF(0));
         };
@@ -354,7 +352,8 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         }
         // The probability of this event is negligible but it has to be processed correctly
         if (evaluation_challenge_in_small_subgroup) {
-            throw_or_abort("Evaluation challenge is in the SmallSubgroup.");
+            throw_or_abort("SmallSubgroupIPA: Evaluation challenge is in the SmallSubgroup. This would cancel out the "
+                           "hiding property of the commitment.");
         }
     }
     /**

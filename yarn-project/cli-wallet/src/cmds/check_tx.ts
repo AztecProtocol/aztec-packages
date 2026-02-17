@@ -6,7 +6,7 @@ import { ProtocolContractAddress } from '@aztec/aztec.js/protocol';
 import type { TxHash } from '@aztec/aztec.js/tx';
 import type { LogFn } from '@aztec/foundation/log';
 import { siloNullifier } from '@aztec/stdlib/hash';
-import { UniqueNote } from '@aztec/stdlib/note';
+import { NoteDao } from '@aztec/stdlib/note';
 
 import type { CLIWallet } from '../utils/wallet.js';
 
@@ -32,7 +32,10 @@ async function inspectTx(wallet: CLIWallet, aztecNode: AztecNode, txHash: TxHash
   const [receipt, effectsInBlock] = await Promise.all([aztecNode.getTxReceipt(txHash), aztecNode.getTxEffect(txHash)]);
   // Base tx data
   log(`Tx ${txHash.toString()}`);
-  log(` Status: ${receipt.status} ${effectsInBlock ? `(${effectsInBlock.data.revertCode.getDescription()})` : ''}`);
+  log(` Status: ${receipt.status}`);
+  if (receipt.executionResult) {
+    log(` Execution result: ${receipt.executionResult}`);
+  }
   if (receipt.error) {
     log(` Error: ${receipt.error}`);
   }
@@ -85,7 +88,7 @@ async function inspectTx(wallet: CLIWallet, aztecNode: AztecNode, txHash: TxHash
     for (const nullifier of effects.nullifiers) {
       const deployed = deployNullifiers[nullifier.toString()];
       const note = deployed
-        ? (await wallet.getNotes({ siloedNullifier: nullifier, contractAddress: deployed }))[0]
+        ? (await wallet.getNotes({ siloedNullifier: nullifier, contractAddress: deployed, scopes: 'ALL_SCOPES' }))[0]
         : undefined;
       const initialized = initNullifiers[nullifier.toString()];
       const registered = classNullifiers[nullifier.toString()];
@@ -121,11 +124,10 @@ async function inspectTx(wallet: CLIWallet, aztecNode: AztecNode, txHash: TxHash
   }
 }
 
-function inspectNote(note: UniqueNote, artifactMap: ArtifactMap, log: LogFn, text = 'Note') {
+function inspectNote(note: NoteDao, artifactMap: ArtifactMap, log: LogFn, text = 'Note') {
   const artifact = artifactMap[note.contractAddress.toString()];
   const contract = artifact?.name ?? note.contractAddress.toString();
   log(`  ${text} at ${contract}`);
-  log(`    Recipient: ${toFriendlyAddress(note.recipient, artifactMap)}`);
   for (const field of note.note.items) {
     log(`    ${field.toString()}`);
   }
@@ -165,15 +167,11 @@ async function getKnownArtifacts(wallet: CLIWallet): Promise<ArtifactMap> {
   const knownContractAddresses = await wallet.getContracts();
   const knownContracts = (
     await Promise.all(knownContractAddresses.map(contractAddress => wallet.getContractMetadata(contractAddress)))
-  ).map(contractMetadata => contractMetadata.contractInstance);
+  ).map(contractMetadata => contractMetadata.instance);
   const classIds = [...new Set(knownContracts.map(contract => contract?.currentContractClassId))];
   const knownArtifacts = (
-    await Promise.all(classIds.map(classId => (classId ? wallet.getContractClassMetadata(classId) : undefined)))
-  ).map(contractClassMetadata =>
-    contractClassMetadata
-      ? { ...contractClassMetadata.artifact, classId: contractClassMetadata.contractClass?.id }
-      : undefined,
-  );
+    await Promise.all(classIds.map(classId => (classId ? wallet.getContractArtifact(classId) : undefined)))
+  ).map((artifact, index) => (artifact ? { ...artifact, classId: classIds[index] } : undefined));
   const map: Record<string, ContractArtifactWithClassId> = {};
   for (const instance of knownContracts) {
     if (instance) {

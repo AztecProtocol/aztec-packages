@@ -23,7 +23,7 @@ import {Bps, BpsLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
 // solhint-disable comprehensive-interface
 
 /**
- * Blocks are generated using the `integration_l1_publisher.test.ts` tests.
+ * Checkpoints are generated using the `integration_l1_publisher.test.ts` tests.
  * Main use of these test is shorter cycles when updating the decoder contract.
  */
 contract IgnitionTest is RollupBase {
@@ -59,13 +59,13 @@ contract IgnitionTest is RollupBase {
   }
 
   /**
-   * @notice  Set up the contracts needed for the tests with time aligned to the provided block name
+   * @notice  Set up the contracts needed for the tests with time aligned to the provided checkpoint name
    */
   modifier setUpFor(string memory _name) {
     {
       DecoderBase.Full memory full = load(_name);
-      Slot slotNumber = full.block.header.slotNumber;
-      uint256 initialTime = Timestamp.unwrap(full.block.header.timestamp) - Slot.unwrap(slotNumber) * SLOT_DURATION;
+      Slot slotNumber = full.checkpoint.header.slotNumber;
+      uint256 initialTime = Timestamp.unwrap(full.checkpoint.header.timestamp) - Slot.unwrap(slotNumber) * SLOT_DURATION;
       vm.warp(initialTime);
     }
 
@@ -82,30 +82,34 @@ contract IgnitionTest is RollupBase {
     _;
   }
 
-  function test_emptyBlock() public setUpFor("empty_block_1") {
+  function test_emptyCheckpoint() public setUpFor("empty_checkpoint_1") {
     assertEq(rollup.getFeeAsset().balanceOf(address(rollup)), 0);
 
-    _proposeBlock("empty_block_1", 1, 0);
+    _proposeCheckpoint("empty_checkpoint_1", 1, 0);
 
-    _proveBlocks("empty_block_", 1, 1, address(0xbeef));
+    _proveCheckpoints("empty_checkpoint_", 1, 1, address(0xbeef));
 
-    // The block rewards should have accumulated
-    assertEq(rollup.getFeeAsset().balanceOf(address(rollup)), rollup.getBlockReward(), "no block rewards collected");
+    // The checkpoint rewards should have accumulated
+    assertEq(
+      rollup.getFeeAsset().balanceOf(address(rollup)), rollup.getCheckpointReward(), "no checkpoint rewards collected"
+    );
 
-    uint256 blockReward = rollup.getBlockReward();
+    uint256 checkpointReward = rollup.getCheckpointReward();
     Bps bps = rollup.getRewardConfig().sequencerBps;
-    uint256 sequencerReward = BpsLib.mul(blockReward, bps);
+    uint256 sequencerReward = BpsLib.mul(checkpointReward, bps);
 
     address coinbase = address(bytes20("sequencer"));
     assertEq(rollup.getSequencerRewards(coinbase), sequencerReward, "sequencer reward not collected");
     assertEq(
       rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(0)),
-      blockReward - sequencerReward,
+      checkpointReward - sequencerReward,
       "prover reward not collected"
     );
   }
 
-  function test_RevertNonEmptyBlock() public setUpFor("empty_block_1") {
-    _proposeBlockFail("empty_block_1", 1, 1, abi.encodeWithSelector(Errors.Rollup__ManaLimitExceeded.selector));
+  function test_RevertNonEmptyCheckpoint() public setUpFor("empty_checkpoint_1") {
+    _proposeCheckpointFail(
+      "empty_checkpoint_1", 1, 1, abi.encodeWithSelector(Errors.Rollup__ManaLimitExceeded.selector)
+    );
   }
 }

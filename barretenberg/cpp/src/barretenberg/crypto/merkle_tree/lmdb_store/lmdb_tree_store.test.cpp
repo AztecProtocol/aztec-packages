@@ -55,7 +55,7 @@ TEST_F(LMDBTreeStoreTest, can_write_and_read_block_data)
 {
     BlockPayload blockData;
     blockData.blockNumber = 3;
-    blockData.root = VALUES[0];
+    blockData.root = get_value(0);
     blockData.size = 45;
     LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
     {
@@ -81,8 +81,8 @@ TEST_F(LMDBTreeStoreTest, can_write_and_read_meta_data)
     TreeMeta metaData;
     metaData.committedSize = 56;
     metaData.initialSize = 12;
-    metaData.initialRoot = VALUES[1];
-    metaData.root = VALUES[2];
+    metaData.initialRoot = get_value(1);
+    metaData.root = get_value(2);
     metaData.depth = 40;
     metaData.oldestHistoricBlock = 87;
     metaData.unfinalizedBlockHeight = 95;
@@ -109,8 +109,8 @@ TEST_F(LMDBTreeStoreTest, can_read_data_from_multiple_threads)
     TreeMeta metaData;
     metaData.committedSize = 56;
     metaData.initialSize = 12;
-    metaData.initialRoot = VALUES[1];
-    metaData.root = VALUES[2];
+    metaData.initialRoot = get_value(1);
+    metaData.root = get_value(2);
     metaData.depth = 40;
     metaData.oldestHistoricBlock = 87;
     metaData.unfinalizedBlockHeight = 95;
@@ -154,7 +154,7 @@ TEST_F(LMDBTreeStoreTest, can_write_and_read_multiple_blocks_with_meta)
     for (block_number_t i = 0; i < num_blocks; i++) {
         BlockPayload blockData;
         blockData.blockNumber = i + start_block;
-        blockData.root = VALUES[i];
+        blockData.root = get_value(i);
         blockData.size = 45 + (i * 97);
         LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
         store.write_block_data(i + start_block, blockData, *transaction);
@@ -178,7 +178,7 @@ TEST_F(LMDBTreeStoreTest, can_write_and_read_multiple_blocks_with_meta)
         EXPECT_TRUE(success);
 
         blockData.blockNumber = i + start_block;
-        blockData.root = VALUES[i];
+        blockData.root = get_value(i);
         blockData.size = 45 + (i * 97);
         EXPECT_EQ(readBack, blockData);
     }
@@ -229,7 +229,7 @@ TEST_F(LMDBTreeStoreTest, can_serde_64bit_values)
 TEST_F(LMDBTreeStoreTest, can_write_and_read_leaf_indices)
 {
     index_t index = 47;
-    bb::fr key = VALUES[5];
+    bb::fr key = get_value(5);
     LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
     {
         LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
@@ -244,7 +244,7 @@ TEST_F(LMDBTreeStoreTest, can_write_and_read_leaf_indices)
         EXPECT_TRUE(success);
         EXPECT_EQ(readBack, index);
 
-        success = store.read_leaf_index(VALUES[6], readBack, *transaction);
+        success = store.read_leaf_index(get_value(6), readBack, *transaction);
         EXPECT_FALSE(success);
     }
 }
@@ -252,10 +252,10 @@ TEST_F(LMDBTreeStoreTest, can_write_and_read_leaf_indices)
 TEST_F(LMDBTreeStoreTest, can_write_and_read_nodes)
 {
     NodePayload nodePayload;
-    nodePayload.left = VALUES[4];
-    nodePayload.right = VALUES[5];
+    nodePayload.left = get_value(4);
+    nodePayload.right = get_value(5);
     nodePayload.ref = 4;
-    bb::fr key = VALUES[6];
+    bb::fr key = get_value(6);
     LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
     {
         LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
@@ -270,7 +270,7 @@ TEST_F(LMDBTreeStoreTest, can_write_and_read_nodes)
         EXPECT_TRUE(success);
         EXPECT_EQ(readBack, nodePayload);
 
-        success = store.read_node(VALUES[9], readBack, *transaction);
+        success = store.read_node(get_value(9), readBack, *transaction);
         EXPECT_FALSE(success);
     }
 }
@@ -278,9 +278,9 @@ TEST_F(LMDBTreeStoreTest, can_write_and_read_nodes)
 TEST_F(LMDBTreeStoreTest, can_write_and_read_leaves_by_hash)
 {
     PublicDataLeafValue leafData;
-    leafData.slot = VALUES[0];
-    leafData.value = VALUES[1];
-    bb::fr key = VALUES[2];
+    leafData.slot = get_value(0);
+    leafData.value = get_value(1);
+    bb::fr key = get_value(2);
     LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
     {
         LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
@@ -295,7 +295,7 @@ TEST_F(LMDBTreeStoreTest, can_write_and_read_leaves_by_hash)
         EXPECT_TRUE(success);
         EXPECT_EQ(readBack, leafData);
 
-        success = store.read_leaf_by_hash(VALUES[9], readBack, *transaction);
+        success = store.read_leaf_by_hash(get_value(9), readBack, *transaction);
         EXPECT_FALSE(success);
     }
 }
@@ -596,7 +596,7 @@ TEST_F(LMDBTreeStoreTest, reports_physical_file_size)
         {
             BlockPayload blockData;
             blockData.blockNumber = static_cast<block_number_t>(i);
-            blockData.root = VALUES[i];
+            blockData.root = get_value(i);
             blockData.size = 45 + (i * 97);
 
             TreeMeta metaData;

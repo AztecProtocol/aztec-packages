@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
 import { AztecAddress } from '../aztec-address/index.js';
@@ -12,7 +12,7 @@ describe('Map slot', () => {
     const slot = await deriveStorageSlotInMap(mapSlot, key);
 
     expect(slot.toString()).toMatchInlineSnapshot(
-      `"0x15b9fe39449affd8b377461263e9d2b610b9ad40580553500b4e41d9cbd887ac"`,
+      `"0x2d225f361108379adc2da91378b9702675c5546b57e78bafc1e74ec7fec55967"`,
     );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data

@@ -1,10 +1,10 @@
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -13,7 +13,7 @@ class RecursiveCircuit {
   public:
     using InnerFlavor = bb::UltraFlavor;
     using InnerProver = bb::UltraProver_<InnerFlavor>;
-    using InnerVerifier = bb::UltraVerifier_<InnerFlavor>;
+    using InnerVerifier = bb::UltraVerifier_<InnerFlavor, DefaultIO>;
     using InnerBuilder = typename InnerFlavor::CircuitBuilder;
     using InnerProverInstance = bb::ProverInstance_<InnerFlavor>;
     using InnerCommitment = InnerFlavor::Commitment;
@@ -24,7 +24,7 @@ class RecursiveCircuit {
     using RecursiveFlavor = bb::UltraRecursiveFlavor_<bb::UltraCircuitBuilder>;
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
 
-    using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
+    using RecursiveVerifier = bb::UltraVerifier_<RecursiveFlavor, bb::stdlib::recursion::honk::DefaultIO<OuterBuilder>>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
     using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<OuterBuilder>;
     using OuterIO = bb::stdlib::recursion::honk::DefaultIO<OuterBuilder>;
@@ -80,18 +80,21 @@ class RecursiveCircuit {
             std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, inner_verification_key);
 
         // Instantiate the recursive verifier using the native verification key
-        RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
-        verifier.transcript->enable_manifest();
+        auto recursive_transcript = std::make_shared<typename RecursiveFlavor::Transcript>();
+        recursive_transcript->enable_manifest();
+        RecursiveVerifier verifier{ stdlib_vk_and_hash, recursive_transcript };
 
-        InnerVerifier native_verifier(inner_verification_key);
-        native_verifier.transcript->enable_manifest();
-        auto native_result = native_verifier.template verify_proof<NativeIO>(inner_proof);
-        if (!native_result) {
+        auto inner_vk_and_hash = std::make_shared<typename InnerFlavor::VKAndHash>(inner_verification_key);
+        auto native_transcript = std::make_shared<typename InnerFlavor::Transcript>();
+        native_transcript->enable_manifest();
+        InnerVerifier native_verifier(inner_vk_and_hash, native_transcript);
+        auto native_result = native_verifier.verify_proof(inner_proof);
+        if (!native_result.result) {
             throw std::runtime_error("Inner proof verification failed");
         }
 
         StdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
-        VerifierOutput output = verifier.template verify_proof<OuterIO>(stdlib_inner_proof);
+        VerifierOutput output = verifier.verify_proof(stdlib_inner_proof);
 
         stdlib::recursion::honk::DefaultIO<OuterBuilder> public_inputs;
         public_inputs.pairing_inputs = output.points_accumulator;

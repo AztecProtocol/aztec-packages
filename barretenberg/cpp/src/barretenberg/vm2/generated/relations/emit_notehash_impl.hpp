@@ -46,9 +46,9 @@ void emit_notehashImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_emit_notehash)) *
-                   ((FF(1) - static_cast<View>(in.get(C::execution_sel_opcode_error))) -
-                    static_cast<View>(in.get(C::execution_sel_write_note_hash)));
+        auto tmp = (static_cast<View>(in.get(C::execution_sel_write_note_hash)) -
+                    static_cast<View>(in.get(C::execution_sel_execute_emit_notehash)) *
+                        (FF(1) - static_cast<View>(in.get(C::execution_sel_opcode_error))));
         std::get<3>(evals) += (tmp * scaling_factor);
     }
     { // EMIT_NOTEHASH_TREE_ROOT_NOT_CHANGED

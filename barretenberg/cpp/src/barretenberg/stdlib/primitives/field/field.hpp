@@ -1,7 +1,8 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Sergei], commit: 458fb330efa8c470567ab4b84a8a92a58b00586a}
+// external_1:  { status: Complete, auditors: [@ed25519, @JakubHeba (Spearbit)], commit:
+// 4433c06ae693451c6f69a2f63b7da6628078d872}
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -144,7 +145,7 @@ template <typename Builder_> class field_t {
     mutable uint32_t witness_index = IS_CONSTANT;
 
   public:
-    mutable OriginTag tag{};
+    mutable OriginTag tag;
 
     field_t(Builder* parent_context = nullptr);
     field_t(Builder* parent_context, const bb::fr& value);
@@ -154,7 +155,9 @@ template <typename Builder_> class field_t {
         , additive_constant(bb::fr(value))
         , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
-    {}
+    {
+        tag = OriginTag::constant();
+    }
 
     // NOLINTNEXTLINE(google-runtime-int) intended behavior
     field_t(const unsigned long long value)
@@ -162,15 +165,18 @@ template <typename Builder_> class field_t {
         , additive_constant(bb::fr(value))
         , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
-    {}
+    {
+        tag = OriginTag::constant();
+    }
 
     field_t(const unsigned int value)
         : context(nullptr)
         , additive_constant(bb::fr(value))
         , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
-
-    {}
+    {
+        tag = OriginTag::constant();
+    }
 
     // NOLINTNEXTLINE(google-runtime-int) intended behavior
     field_t(const unsigned long value)
@@ -178,7 +184,9 @@ template <typename Builder_> class field_t {
         , additive_constant(bb::fr(value))
         , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
-    {}
+    {
+        tag = OriginTag::constant();
+    }
 
     // Construct a constant circuit element from a native field element
     field_t(const bb::fr& value)
@@ -186,7 +194,9 @@ template <typename Builder_> class field_t {
         , additive_constant(value)
         , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
-    {}
+    {
+        tag = OriginTag::constant();
+    }
 
     // Construct a constant circuit element from a uint256t, that is implicitly converted to a native field element
     field_t(const uint256_t& value)
@@ -194,7 +204,9 @@ template <typename Builder_> class field_t {
         , additive_constant(value)
         , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
-    {}
+    {
+        tag = OriginTag::constant();
+    }
 
     field_t(const witness_t<Builder>& value);
 
@@ -354,6 +366,8 @@ template <typename Builder_> class field_t {
      * @brief Unset the free witness flag for the field element's tag
      */
     void unset_free_witness_tag() const { tag.unset_free_witness(); }
+
+    void clear_round_provenance() const { tag.clear_round_provenance(); }
 
     field_t conditional_negate(const bool_t<Builder>& predicate) const;
 

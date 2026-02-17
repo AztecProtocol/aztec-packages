@@ -1,7 +1,11 @@
 import { css } from '@mui/styled-engine';
 import { useContext, useEffect, useState } from 'react';
-import { type ContractInstanceWithAddress, type DeployOptions, Contract, DeployMethod } from '@aztec/aztec.js/contracts';
-import { TxStatus } from '@aztec/aztec.js/tx';
+import {
+  type ContractInstanceWithAddress,
+  type DeployOptions,
+  Contract,
+  DeployMethod,
+} from '@aztec/aztec.js/contracts';
 import { type FunctionAbi, getAllFunctionAbis, FunctionType } from '@aztec/stdlib/abi';
 import { AztecContext } from '../../aztecContext';
 import Button from '@mui/material/Button';
@@ -21,6 +25,7 @@ import { useTransaction } from '../../hooks/useTransaction';
 import { ContractDescriptions, ContractDocumentationLinks, ContractMethodOrder } from '../../utils/constants';
 import Box from '@mui/material/Box';
 import { trackButtonClick } from '../../utils/matomo';
+import { colors, commonStyles } from '../../global.styles';
 
 const container = css({
   display: 'flex',
@@ -33,6 +38,7 @@ const container = css({
   '@media (max-width: 900px)': {
     maxHeight: 'none',
     height: 'auto',
+    overflow: 'visible',
   },
 });
 
@@ -40,10 +46,11 @@ const contractFnContainer = css({
   display: 'block',
   width: '100%',
   overflowY: 'auto',
-  color: 'black',
+  color: colors.text.primary,
   height: '100%',
   '@media (max-width: 900px)': {
     height: 'auto',
+    overflowY: 'visible',
   },
   border: 'none',
 });
@@ -88,12 +95,13 @@ const contractActions = css({
 });
 
 const deployButton = css({
-  background: '#8C7EFF',
+  background: colors.primary.main,
+  color: colors.primary.contrastText,
   height: '30px',
   fontSize: '14px',
   fontWeight: 600,
   padding: '20px 16px',
-  borderRadius: '6px',
+  borderRadius: commonStyles.borderRadius,
   '@media (max-width: 900px)': {
     padding: '4px',
     height: 'auto',
@@ -120,9 +128,11 @@ const contractName = css({
 const contractClassIdCss = css({
   marginBottom: '1rem',
   marginTop: '0.5rem',
-  backgroundColor: 'rgba(255, 255, 255, 0.22)',
+  backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  border: '1px solid rgba(212, 255, 40, 0.15)',
+  color: '#F2EEE1',
   padding: '0px 5px',
-  borderRadius: '3px',
+  borderRadius: '0',
 });
 
 const deployedContractCss = css({
@@ -130,9 +140,11 @@ const deployedContractCss = css({
   flexDirection: 'row',
   alignItems: 'center',
   justifyContent: 'space-between',
-  backgroundColor: 'var(--mui-palette-grey-200)',
+  backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  border: '1px solid rgba(212, 255, 40, 0.15)',
+  color: '#F2EEE1',
   padding: '0px 12px',
-  borderRadius: '6px',
+  borderRadius: '0',
   '@media (max-width: 900px)': {
     padding: '0px 10px',
     width: '100%',
@@ -147,7 +159,7 @@ const deployedContractCss = css({
   },
 });
 
-const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_private_state', 'public_dispatch'];
+const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_state', 'public_dispatch'];
 
 export function ContractComponent() {
   const [currentContract, setCurrentContract] = useState<Contract | null>(null);
@@ -160,6 +172,7 @@ export function ContractComponent() {
   });
   const [isLoadingArtifact, setIsLoadingArtifact] = useState(false);
   const [openCreateContractDialog, setOpenCreateContractDialog] = useState(false);
+  const [currentContractClassId, setCurrentContractClassId] = useState(null);
 
   const { sendTx } = useTransaction();
 
@@ -183,13 +196,15 @@ export function ContractComponent() {
         public: true,
         utility: true,
       });
+      // Temporarily filter out not-yet-published contracts
       if (currentContractAddress) {
         const { isContractPublished } = await wallet.getContractMetadata(currentContractAddress);
-        // Temporarily filter out not-yet-published contracts
         if (isContractPublished) {
           const contractInstance = await node.getContract(currentContractAddress);
+
           await wallet.registerContract(contractInstance, currentContractArtifact);
-          const contract = await Contract.at(currentContractAddress, currentContractArtifact, wallet);
+          const contract = Contract.at(currentContractAddress, currentContractArtifact, wallet);
+          setCurrentContractClassId(contractInstance.currentContractClassId);
           setCurrentContract(contract);
         }
       }
@@ -217,7 +232,7 @@ export function ContractComponent() {
     if (contract && publiclyDeploy) {
       const txReceipt = await sendTx(`Deploy ${currentContractArtifact.name}`, interaction, contract.address, opts);
       // Temporarily ignore undeployed contracts
-      if (txReceipt?.status === TxStatus.SUCCESS) {
+      if (txReceipt?.hasExecutionSucceeded()) {
         setCurrentContractAddress(contract.address);
       }
     } else if (contract) {
@@ -291,7 +306,7 @@ export function ContractComponent() {
               </Box>
 
               <Typography variant="caption" css={contractClassIdCss}>
-                Contract Class ID: {currentContract?.instance?.currentContractClassId.toString()}
+                Contract Class ID: {currentContractClassId?.toString()}
               </Typography>
 
               {!!ContractDescriptions[currentContractArtifact.name] && (
@@ -318,7 +333,7 @@ export function ContractComponent() {
           {functionAbis
             .filter(
               fn =>
-                !fn.isInternal &&
+                !fn.isOnlySelf &&
                 !FORBIDDEN_FUNCTIONS.includes(fn.name) &&
                 ((filters.private && fn.functionType === FunctionType.PRIVATE) ||
                   (filters.public && fn.functionType === FunctionType.PUBLIC) ||

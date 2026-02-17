@@ -1,6 +1,6 @@
-import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
+import type { ExecutionPayload } from '@aztec/stdlib/tx';
 
 /**
  * Holds information about how the fee for a transaction is to be paid.

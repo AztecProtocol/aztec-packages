@@ -1,4 +1,4 @@
-barretenberg_module(stdlib_solidity_helpers ultra_honk stdlib_sha256 stdlib_blake3s stdlib_blake2s stdlib_pedersen_commitment stdlib_circuit_builders stdlib_honk_verifier)
+barretenberg_module(stdlib_solidity_helpers ultra_honk stdlib_sha256 stdlib_blake3s stdlib_blake2s stdlib_circuit_builders stdlib_honk_verifier)
 
 if (NOT(FUZZING))
   # Honk

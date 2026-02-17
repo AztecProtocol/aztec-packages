@@ -1,4 +1,4 @@
-import { randomBytes } from '../crypto/index.js';
+import { randomBytes } from '../crypto/random/index.js';
 import { from2Fields, to2Fields } from './free_funcs.js';
 
 describe('buffer to fields and back', () => {

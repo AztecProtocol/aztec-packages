@@ -1,14 +1,27 @@
-use crate::{traits::{Deserialize, Empty}, utils::arrays::validate_array};
+use crate::{traits::{Deserialize, Empty}, utils::arrays::ClaimedLengthArray};
 
 pub fn assert_array_eq<T, let N: u32, let M: u32>(array: [T; N], expected: [T; M])
 where
     T: Empty,
 {
     assert(expected.all(|elem: T| !elem.is_empty()), "cannot expect empty element in the result");
-    assert_eq(validate_array(array), M, "mismatch array lengths");
     for i in 0..M {
         assert_eq(array[i], expected[i], "mismatch array elements");
     }
+    for i in M..N {
+        assert(array[i].is_empty(), "unexpected non-empty element in the result");
+    }
+}
+
+pub fn assert_claimed_length_array_eq<T, let N: u32, let M: u32>(
+    array: ClaimedLengthArray<T, N>,
+    expected: [T; M],
+)
+where
+    T: Empty,
+{
+    assert_eq(array.length, M, "incorrect claimed length");
+    assert_array_eq(array.array, expected);
 }
 
 // Swap two items in a BoundedVec.

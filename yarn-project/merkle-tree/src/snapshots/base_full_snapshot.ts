@@ -1,3 +1,4 @@
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { type Bufferable, type FromBuffer, serializeToBuffer } from '@aztec/foundation/serialize';
 import { SiblingPath } from '@aztec/foundation/trees';
 import type { AztecKVStore, AztecMap } from '@aztec/kv-store';
@@ -35,7 +36,7 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase<Bufferable>
   implements TreeSnapshotBuilder<S>
 {
   protected nodes: AztecMap<string, [Buffer, Buffer]>;
-  protected snapshotMetadata: AztecMap<number, SnapshotMetadata>;
+  protected snapshotMetadata: AztecMap<BlockNumber, SnapshotMetadata>;
 
   constructor(
     protected db: AztecKVStore,
@@ -45,7 +46,7 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase<Bufferable>
     this.snapshotMetadata = db.openMap(`full_snapshot:${tree.getName()}:metadata`);
   }
 
-  snapshot(block: number): Promise<S> {
+  snapshot(block: BlockNumber): Promise<S> {
     return this.db.transaction(() => {
       const snapshotMetadata = this.#getSnapshotMeta(block);
 
@@ -103,7 +104,7 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase<Bufferable>
 
   protected handleLeaf(_index: bigint, _node: Buffer): void {}
 
-  getSnapshot(version: number): Promise<S> {
+  getSnapshot(version: BlockNumber): Promise<S> {
     const snapshotMetadata = this.#getSnapshotMeta(version);
 
     if (!snapshotMetadata) {
@@ -115,7 +116,7 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase<Bufferable>
 
   protected abstract openSnapshot(root: Buffer, numLeaves: bigint): S;
 
-  #getSnapshotMeta(block: number): SnapshotMetadata | undefined {
+  #getSnapshotMeta(block: BlockNumber): SnapshotMetadata | undefined {
     return this.snapshotMetadata.get(block);
   }
 }

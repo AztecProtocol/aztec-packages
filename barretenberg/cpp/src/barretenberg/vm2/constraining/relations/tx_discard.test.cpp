@@ -64,13 +64,13 @@ TEST(TxDiscardConstrainingTest, FailureMustDiscard)
     });
 
     // Check FAILURE_MUST_DISCARD subrelation
-    check_relation<tx_discard_relation>(trace, tx_discard_relation::SR_FAILURE_MUST_DISCARD);
+    check_relation<tx_discard_relation>(trace, tx_discard_relation::SR_REVERTED_MUST_DISCARD);
 
     // Negative test: reverted=1 but discard=0
     trace.set(C::tx_reverted, 1, 1);
     trace.set(C::tx_discard, 1, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_discard_relation>(trace, tx_discard_relation::SR_FAILURE_MUST_DISCARD),
-                              "FAILURE_MUST_DISCARD");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_discard_relation>(trace, tx_discard_relation::SR_REVERTED_MUST_DISCARD),
+                              "REVERTED_MUST_DISCARD");
 }
 
 TEST(TxDiscardConstrainingTest, LastRowOfSetupCalculation)

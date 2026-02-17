@@ -5,7 +5,9 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <utility>
 
+#include "barretenberg/common/tuple.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -51,6 +53,22 @@ std::string column_values_to_string(const std::array<FF, N>& arr, const std::arr
             stream << ", ";
         }
     }
+    stream << "}";
+    return stream.str();
+}
+
+template <typename... Ts, size_t N>
+std::string column_values_to_string(const flat_tuple::tuple<Ts...>& tup, const std::array<ColumnAndShifts, N>& columns)
+{
+    static_assert(sizeof...(Ts) == N, "Tuple and columns array must have the same size");
+    std::ostringstream stream;
+    stream << "{";
+    [&]<size_t... Is>(std::index_sequence<Is...>) {
+        size_t i = 0;
+        ((stream << (i++ > 0 ? ", " : "") << COLUMN_NAMES[static_cast<size_t>(columns[Is])] << ": "
+                 << field_to_string(flat_tuple::get<Is>(tup))),
+         ...);
+    }(std::make_index_sequence<N>{});
     stream << "}";
     return stream.str();
 }

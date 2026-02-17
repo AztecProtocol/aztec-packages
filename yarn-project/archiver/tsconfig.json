@@ -7,10 +7,10 @@
   },
   "references": [
     {
-      "path": "../blob-lib"
+      "path": "../blob-client"
     },
     {
-      "path": "../blob-sink"
+      "path": "../blob-lib"
     },
     {
       "path": "../constants"
@@ -43,5 +43,5 @@
       "path": "../telemetry-client"
     }
   ],
-  "include": ["src"]
+  "include": ["src", "src/**/*.json"]
 }

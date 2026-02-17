@@ -3,7 +3,6 @@ import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import { IMsgpackBackendSync, IMsgpackBackendAsync } from './interface.js';
 import { createMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/factory/node/index.js';
 import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js';
-import { createDebugLogger } from '../log/index.js';
 import { proxy } from 'comlink';
 
 /**
@@ -76,7 +75,7 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
       await wasm.init(
         module,
         threads,
-        proxy(options.logger ?? createDebugLogger('bb_wasm_async')),
+        proxy(options.logger ?? (() => {})),
         options.memory?.initial,
         options.memory?.maximum,
       );

@@ -120,7 +120,7 @@ TEST(Polynomial, Share)
 TEST(Polynomial, Indices)
 {
     auto poly = bb::Polynomial<bb::fr>::random(100, /*offset*/ 1);
-    EXPECT_EQ(poly.start_index(), 1);
+    EXPECT_TRUE(poly.is_shiftable());
     EXPECT_EQ((*poly.indices().begin()), poly.start_index());
     EXPECT_EQ(std::get<0>(*poly.indexed_values().begin()), poly.start_index());
     EXPECT_EQ(std::get<1>(*poly.indexed_values().begin()), poly[poly.start_index()]);

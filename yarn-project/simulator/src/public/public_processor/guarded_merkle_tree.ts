@@ -1,3 +1,4 @@
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { SerialQueue } from '@aztec/foundation/queue';
 import type { IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 import type {
@@ -11,7 +12,7 @@ import type {
   TreeInfo,
 } from '@aztec/stdlib/trees';
 import type { BlockHeader, StateReference } from '@aztec/stdlib/tx';
-import type { WorldStateRevision } from '@aztec/stdlib/world-state';
+import type { WorldStateRevision, WorldStateRevisionWithHandle } from '@aztec/stdlib/world-state';
 
 /**
  * Wraps an instance of `MerkleTreeWriteOperations` to allow the sequencer to gate access.
@@ -80,6 +81,10 @@ export class GuardedMerkleTreeOperations implements MerkleTreeWriteOperations {
   close(): Promise<void> {
     return this.guardAndPush(() => this.target.close());
   }
+
+  async [Symbol.dispose](): Promise<void> {
+    await this.close();
+  }
   getTreeInfo(treeId: MerkleTreeId): Promise<TreeInfo> {
     return this.guardAndPush(() => this.target.getTreeInfo(treeId));
   }
@@ -89,7 +94,7 @@ export class GuardedMerkleTreeOperations implements MerkleTreeWriteOperations {
   getInitialHeader(): BlockHeader {
     return this.target.getInitialHeader();
   }
-  public getRevision(): WorldStateRevision {
+  public getRevision(): WorldStateRevision | WorldStateRevisionWithHandle {
     return this.target.getRevision();
   }
   getSiblingPath<ID extends MerkleTreeId>(treeId: ID, index: bigint): Promise<SiblingPath<TreeHeights[ID]>> {
@@ -126,7 +131,7 @@ export class GuardedMerkleTreeOperations implements MerkleTreeWriteOperations {
   getBlockNumbersForLeafIndices<ID extends MerkleTreeId>(
     treeId: ID,
     leafIndices: bigint[],
-  ): Promise<(bigint | undefined)[]> {
+  ): Promise<(BlockNumber | undefined)[]> {
     return this.guardAndPush(() => this.target.getBlockNumbersForLeafIndices(treeId, leafIndices));
   }
   createCheckpoint(): Promise<void> {

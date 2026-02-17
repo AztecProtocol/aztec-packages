@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Atomically appends stdin to a file using flock.
+# Usage: echo "data" | atomic_append /path/to/file
+set -euo pipefail
+
+file="$1"
+
+# Read all of stdin first, then acquire lock and write
+data=$(cat)
+
+(
+  flock -x 200
+  printf '%s\n' "$data" >&200
+) 200>>"$file"

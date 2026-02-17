@@ -1,0 +1,29 @@
+EscapeHatchSelectCandidatesTest
+├── given hatch is already prepared
+│   └── it should return early as no-op
+└── given hatch is not prepared
+    ├── given set is not stable
+    │   └── it should revert {EscapeHatch__SetUnstable}
+    └── given set is stable
+        ├── given candidate set size is zero at snapshot time
+        │   ├── it should set isHatchPrepared for the hatch
+        │   └── it should not set designatedProposer
+        └── given candidate set size is non-zero at snapshot time
+            ├── given current time is at or after next snapshot timestamp
+            │   ├── it should set isHatchPrepared for the hatch
+            │   └── it should not set designatedProposer
+            └── given current time is before next snapshot timestamp
+                ├── given selected candidate status is ACTIVE
+                │   ├── it should set isHatchPrepared for the hatch
+                │   ├── it should compute deterministic index from hatch and seed
+                │   ├── it should set designatedProposer for the hatch
+                │   ├── it should remove proposer from active candidates
+                │   ├── it should set proposer status to PROPOSING
+                │   ├── it should set proposer exitableAt to end of proof window
+                │   └── it should emit CandidateSelected event
+                └── given selected candidate status is EXITING
+                    ├── it should still select the candidate from snapshot
+                    ├── it should NOT remove from active candidates (already removed)
+                    ├── it should set proposer status to PROPOSING (overwriting EXITING)
+                    ├── it should set proposer exitableAt to end of proof window
+                    └── it should emit CandidateSelected event

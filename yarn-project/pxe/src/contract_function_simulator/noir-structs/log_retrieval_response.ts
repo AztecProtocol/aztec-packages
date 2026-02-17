@@ -1,6 +1,6 @@
 import { MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
 import { range } from '@aztec/foundation/array';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { TxHash } from '@aztec/stdlib/tx';
 
 import { MAX_NOTE_PACKED_LEN } from './note_validation_request.js';
@@ -42,7 +42,7 @@ export class LogRetrievalResponse {
     return range(serializationLen).map(_ => Fr.zero());
   }
 
-  static toSerializedOption(response?: LogRetrievalResponse): Fr[] {
+  static toSerializedOption(response: LogRetrievalResponse | null): Fr[] {
     if (response) {
       return [new Fr(1), ...response.toFields()];
     } else {

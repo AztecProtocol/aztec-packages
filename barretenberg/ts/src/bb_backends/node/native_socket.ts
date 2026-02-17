@@ -4,7 +4,10 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { IMsgpackBackendAsync } from '../interface.js';
-import { findPackageRoot } from './platform.js';
+import readline from 'readline';
+import { threadId } from 'worker_threads';
+
+let instanceCounter = 0;
 
 /**
  * Asynchronous native backend that communicates with bb binary via Unix Domain Socket.
@@ -40,9 +43,9 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
   private responseBuffer: Buffer | null = null;
   private responseBytesRead: number = 0;
 
-  constructor(bbBinaryPath: string, threads?: number) {
+  constructor(bbBinaryPath: string, threads?: number, logger?: (msg: string) => void) {
     // Create a unique socket path in temp directory
-    this.socketPath = path.join(os.tmpdir(), `bb-${process.pid}-${Date.now()}.sock`);
+    this.socketPath = path.join(os.tmpdir(), `bb-${process.pid}-${threadId}-${instanceCounter++}.sock`);
 
     // Ensure socket path doesn't already exist (cleanup from previous crashes)
     if (fs.existsSync(this.socketPath)) {
@@ -57,17 +60,27 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
       connectionReject = reject;
     });
 
-    // Set HARDWARE_CONCURRENCY if threads specified
-    const env = threads !== undefined ? { ...process.env, HARDWARE_CONCURRENCY: threads.toString() } : process.env;
+    // If threads not set use num cpu cores, max 16.
+    const hwc = threads ? threads.toString() : Math.min(16, os.cpus().length).toString();
+    const env = { ...process.env, HARDWARE_CONCURRENCY: hwc };
 
     // Spawn bb process - it will create the socket server
-    const args = [bbBinaryPath, 'msgpack', 'run', '--input', this.socketPath];
-    this.process = spawn(findPackageRoot() + '/scripts/kill_wrapper.sh', args, {
-      stdio: ['ignore', 'ignore', 'ignore'],
+    const args = ['msgpack', 'run', '--input', this.socketPath];
+    this.process = spawn(bbBinaryPath, args, {
+      stdio: ['ignore', logger ? 'pipe' : 'ignore', logger ? 'pipe' : 'ignore'],
       env,
     });
-    // Disconnect from event loop so process can exit. The kill wrapper will reap bb once parent (node) dies.
+
+    // Disconnect from event loop so process can exit without waiting for bb
+    // The bb process has parent death monitoring (prctl on Linux, kqueue on macOS)
+    // so it will automatically exit when Node.js exits
     this.process.unref();
+
+    if (logger) {
+      logger("Logger attached to bb process. DON'T FORGET TO DESTROY THE BACKEND to allow Node.js to exit.");
+      readline.createInterface({ input: this.process.stdout! }).on('line', logger);
+      readline.createInterface({ input: this.process.stderr! }).on('line', logger);
+    }
 
     this.process.on('error', err => {
       if (connectionReject) {
@@ -157,7 +170,7 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
 
       // Set up event handlers
       this.socket.once('connect', () => {
-        this.socket!.unref();
+        // Socket starts referenced - will be unreferenced when no callbacks pending
 
         // Clear connection timeout on successful connection
         if (this.connectionTimeout) {
@@ -232,6 +245,11 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
             console.warn('Received response but no pending callback');
           }
 
+          // If no more pending callbacks, unref socket to allow process to exit
+          if (this.pendingCallbacks.length === 0 && this.socket) {
+            this.socket.unref();
+          }
+
           // Reset state for next message
           this.readingLength = true;
           this.lengthBytesRead = 0;
@@ -252,6 +270,11 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
     }
 
     return new Promise((resolve, reject) => {
+      // If this is the first pending callback, ref the socket to keep event loop alive
+      if (this.pendingCallbacks.length === 0) {
+        this.socket!.ref();
+      }
+
       // Enqueue this promise's callbacks (FIFO order)
       this.pendingCallbacks.push({ resolve, reject });
 
@@ -298,15 +321,8 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
   }
 
   async destroy(): Promise<void> {
-    // Cleanup first (closes socket, unrefs everything)
     this.cleanup();
-
-    // Send SIGTERM for graceful shutdown
-    // Process is unref'd so won't block event loop - just kill and return
-    try {
-      this.process.kill('SIGTERM');
-    } catch (e) {
-      // Already dead
-    }
+    this.process.kill('SIGTERM');
+    this.process.removeAllListeners();
   }
 }

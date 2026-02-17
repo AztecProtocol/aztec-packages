@@ -1,0 +1,9 @@
+[package]
+name = "panic_on_incorrectly_performed_public_call"
+authors = [""]
+compiler_version = ">=0.25.0"
+type = "contract"
+
+[dependencies]
+aztec = { path = "../../../aztec-nr/aztec" }
+

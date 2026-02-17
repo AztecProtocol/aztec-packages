@@ -1,5 +1,5 @@
-import type { Fr } from '@aztec/foundation/fields';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { schemas, zodFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
@@ -35,10 +35,12 @@ export interface PrivateFunction {
   vkHash: Fr;
 }
 
-const PrivateFunctionSchema = z.object({
-  selector: FunctionSelector.schema,
-  vkHash: schemas.Fr,
-}) satisfies ZodFor<PrivateFunction>;
+const PrivateFunctionSchema = zodFor<PrivateFunction>()(
+  z.object({
+    selector: FunctionSelector.schema,
+    vkHash: schemas.Fr,
+  }),
+);
 
 /** Private function definition with executable bytecode. */
 export interface ExecutablePrivateFunction extends PrivateFunction {
@@ -46,9 +48,9 @@ export interface ExecutablePrivateFunction extends PrivateFunction {
   bytecode: Buffer;
 }
 
-const ExecutablePrivateFunctionSchema = PrivateFunctionSchema.and(
-  z.object({ bytecode: schemas.Buffer }),
-) satisfies ZodFor<ExecutablePrivateFunction>;
+const ExecutablePrivateFunctionSchema = zodFor<ExecutablePrivateFunction>()(
+  PrivateFunctionSchema.and(z.object({ bytecode: schemas.Buffer })),
+);
 
 /** Utility function definition. */
 export interface UtilityFunction {
@@ -58,11 +60,12 @@ export interface UtilityFunction {
   bytecode: Buffer;
 }
 
-const UtilityFunctionSchema = z.object({
-  /** lala */
-  selector: FunctionSelector.schema,
-  bytecode: schemas.Buffer,
-}) satisfies ZodFor<UtilityFunction>;
+const UtilityFunctionSchema = zodFor<UtilityFunction>()(
+  z.object({
+    selector: FunctionSelector.schema,
+    bytecode: schemas.Buffer,
+  }),
+);
 
 /** Sibling paths and sibling commitments for proving membership of a private function within a contract class. */
 export type PrivateFunctionMembershipProof = {
@@ -75,15 +78,17 @@ export type PrivateFunctionMembershipProof = {
   artifactTreeLeafIndex: number;
 };
 
-const PrivateFunctionMembershipProofSchema = z.object({
-  artifactMetadataHash: schemas.Fr,
-  functionMetadataHash: schemas.Fr,
-  utilityFunctionsTreeRoot: schemas.Fr,
-  privateFunctionTreeSiblingPath: z.array(schemas.Fr),
-  privateFunctionTreeLeafIndex: schemas.Integer,
-  artifactTreeSiblingPath: z.array(schemas.Fr),
-  artifactTreeLeafIndex: schemas.Integer,
-}) satisfies ZodFor<PrivateFunctionMembershipProof>;
+const PrivateFunctionMembershipProofSchema = zodFor<PrivateFunctionMembershipProof>()(
+  z.object({
+    artifactMetadataHash: schemas.Fr,
+    functionMetadataHash: schemas.Fr,
+    utilityFunctionsTreeRoot: schemas.Fr,
+    privateFunctionTreeSiblingPath: z.array(schemas.Fr),
+    privateFunctionTreeLeafIndex: schemas.Integer,
+    artifactTreeSiblingPath: z.array(schemas.Fr),
+    artifactTreeLeafIndex: schemas.Integer,
+  }),
+);
 
 /** A private function with a membership proof. */
 export type ExecutablePrivateFunctionWithMembershipProof = ExecutablePrivateFunction & PrivateFunctionMembershipProof;
@@ -97,23 +102,27 @@ export type UtilityFunctionMembershipProof = {
   artifactTreeLeafIndex: number;
 };
 
-const UtilityFunctionMembershipProofSchema = z.object({
-  artifactMetadataHash: schemas.Fr,
-  functionMetadataHash: schemas.Fr,
-  privateFunctionsArtifactTreeRoot: schemas.Fr,
-  artifactTreeSiblingPath: z.array(schemas.Fr),
-  artifactTreeLeafIndex: schemas.Integer,
-}) satisfies ZodFor<UtilityFunctionMembershipProof>;
+const UtilityFunctionMembershipProofSchema = zodFor<UtilityFunctionMembershipProof>()(
+  z.object({
+    artifactMetadataHash: schemas.Fr,
+    functionMetadataHash: schemas.Fr,
+    privateFunctionsArtifactTreeRoot: schemas.Fr,
+    artifactTreeSiblingPath: z.array(schemas.Fr),
+    artifactTreeLeafIndex: schemas.Integer,
+  }),
+);
 
 /** A utility function with a membership proof. */
 export type UtilityFunctionWithMembershipProof = UtilityFunction & UtilityFunctionMembershipProof;
 
-export const ContractClassSchema = z.object({
-  version: z.literal(VERSION),
-  artifactHash: schemas.Fr,
-  privateFunctions: z.array(PrivateFunctionSchema),
-  packedBytecode: schemas.Buffer,
-}) satisfies ZodFor<ContractClass>;
+export const ContractClassSchema = zodFor<ContractClass>()(
+  z.object({
+    version: z.literal(VERSION),
+    artifactHash: schemas.Fr,
+    privateFunctions: z.array(PrivateFunctionSchema),
+    packedBytecode: schemas.Buffer,
+  }),
+);
 
 /** Commitments to fields of a contract class. */
 interface ContractClassCommitments {
@@ -128,9 +137,11 @@ interface ContractClassCommitments {
 /** A contract class with its precomputed id. */
 export type ContractClassWithId = ContractClass & Pick<ContractClassCommitments, 'id'>;
 
-export const ContractClassWithIdSchema = ContractClassSchema.extend({
-  id: schemas.Fr,
-}) satisfies ZodFor<ContractClassWithId>;
+export const ContractClassWithIdSchema = zodFor<ContractClassWithId>()(
+  ContractClassSchema.extend({
+    id: schemas.Fr,
+  }),
+);
 
 /** A contract class with public bytecode information, and optional private and utility functions. */
 export type ContractClassPublic = {
@@ -142,14 +153,34 @@ export type ContractClassPublic = {
 export type ContractClassPublicWithCommitment = ContractClassPublic &
   Pick<ContractClassCommitments, 'publicBytecodeCommitment'>;
 
-export const ContractClassPublicSchema = z
-  .object({
-    id: schemas.Fr,
-    privateFunctionsRoot: schemas.Fr,
-    privateFunctions: z.array(ExecutablePrivateFunctionSchema.and(PrivateFunctionMembershipProofSchema)),
-    utilityFunctions: z.array(UtilityFunctionSchema.and(UtilityFunctionMembershipProofSchema)),
-  })
-  .and(ContractClassSchema.omit({ privateFunctions: true })) satisfies ZodFor<ContractClassPublic>;
+export const ContractClassPublicSchema = zodFor<ContractClassPublic>()(
+  z
+    .object({
+      id: schemas.Fr,
+      privateFunctionsRoot: schemas.Fr,
+      privateFunctions: z.array(ExecutablePrivateFunctionSchema.and(PrivateFunctionMembershipProofSchema)),
+      utilityFunctions: z.array(UtilityFunctionSchema.and(UtilityFunctionMembershipProofSchema)),
+    })
+    .and(ContractClassSchema.omit({ privateFunctions: true })),
+);
 
 /** The contract class with the block it was initially deployed at */
 export type ContractClassPublicWithBlockNumber = { l2BlockNumber: number } & ContractClassPublic;
+
+/**
+ * Creates a ContractClassPublic from a plain object without Zod validation.
+ * Suitable for deserializing trusted data (e.g., from C++ via MessagePack).
+ * Note: privateFunctions and utilityFunctions are set to empty arrays since
+ * C++ does not provide them.
+ */
+export function contractClassPublicFromPlainObject(obj: any): ContractClassPublic {
+  return {
+    id: Fr.fromPlainObject(obj.id),
+    version: 1,
+    artifactHash: Fr.fromPlainObject(obj.artifactHash),
+    privateFunctionsRoot: Fr.fromPlainObject(obj.privateFunctionsRoot),
+    privateFunctions: [],
+    utilityFunctions: [],
+    packedBytecode: obj.packedBytecode instanceof Buffer ? obj.packedBytecode : Buffer.from(obj.packedBytecode),
+  };
+}

@@ -3,16 +3,15 @@ mod poseidon2_chunks;
 use crate::{
     abis::{
         contract_class_function_leaf_preimage::ContractClassFunctionLeafPreimage,
-        function_selector::FunctionSelector,
-        note_hash::NoteHash,
-        nullifier::Nullifier,
-        private_log::{PrivateLog, PrivateLogData},
+        function_selector::FunctionSelector, nullifier::Nullifier, private_log::PrivateLog,
+        transaction::tx_request::TxRequest,
     },
     address::{AztecAddress, EthAddress},
     constants::{
-        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__NOTE_HASH_NONCE,
-        GENERATOR_INDEX__OUTER_NULLIFIER, GENERATOR_INDEX__SILOED_NOTE_HASH,
-        GENERATOR_INDEX__UNIQUE_NOTE_HASH, TWO_POW_64,
+        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, DOM_SEP__NOTE_HASH_NONCE,
+        DOM_SEP__PRIVATE_LOG_FIRST_FIELD, DOM_SEP__SILOED_NOTE_HASH, DOM_SEP__SILOED_NULLIFIER,
+        DOM_SEP__UNIQUE_NOTE_HASH, FUNCTION_TREE_HEIGHT, NULL_MSG_SENDER_CONTRACT_ADDRESS,
+        TWO_POW_64,
     },
     merkle_tree::root_from_sibling_path,
     messaging::l2_to_l1_message::L2ToL1Message,
@@ -25,6 +24,8 @@ use crate::{
 pub use poseidon2_chunks::poseidon2_absorb_in_chunks_existing_sponge;
 use poseidon2_chunks::poseidon2_absorb_in_chunks;
 use std::embedded_curve_ops::EmbeddedCurveScalar;
+
+// TODO: refactor these into their own files: sha256, poseidon2, some protocol-specific hash computations, some merkle computations.
 
 pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = sha256::digest(bytes_to_hash);
@@ -48,21 +49,67 @@ pub fn private_functions_root_from_siblings(
     )
 }
 
+/// Siloing in the context of Aztec refers to the process of hashing a note hash with a contract address (this way
+/// the note hash is scoped to a specific contract). This is used to prevent intermingling of notes between contracts.
+pub fn compute_siloed_note_hash(contract_address: AztecAddress, note_hash: Field) -> Field {
+    poseidon2_hash_with_separator(
+        [contract_address.to_field(), note_hash],
+        DOM_SEP__SILOED_NOTE_HASH,
+    )
+}
+
+/// Computes unique, siloed note hashes from siloed note hashes.
+///
+/// The protocol injects uniqueness into every note_hash, so that every single note_hash in the
+/// tree is unique. This prevents faerie gold attacks, where a malicious sender could create
+/// two identical note_hashes for a recipient (meaning only one would be nullifiable in future).
+///
+/// Most privacy protocols will inject the note's leaf_index (its position in the Note Hashes Tree)
+/// into the note, but this requires the creator of a note to wait until their tx is included in
+/// a block to know the note's final note hash (the unique, siloed note hash), because inserting
+/// leaves into trees is the job of a block producer.
+///
+/// We took a different approach so that the creator of a note will know each note's unique, siloed
+/// note hash before broadcasting their tx to the network.
+/// (There was also a historical requirement relating to "chained transactions" -- a feature that
+/// Aztec Connect had to enable notes to be spent from distinct txs earlier in the same block,
+/// and hence before an archive block root had been established for that block -- but that feature
+/// was abandoned for the Aztec Network for having too many bad tradeoffs).
+///
+/// (
+///   Edit: it is no longer true that all final note_hashes will be known by the creator of a tx
+///   before they send it to the network. If a tx makes public function calls, then _revertible_
+///   note_hashes that are created in private will not be made unique in private by the Reset circuit,
+///   but will instead be made unique by the AVM, because the `note_index_in_tx` will not be known
+///   until the AVM has executed the public functions of the tx. (See an explanation in
+///   reset_output_composer.nr for why).
+///   For some such txs, the `note_index_in_tx` might still be predictable through simulation, but
+///   for txs whose public functions create a varying number of non-revertible notes (determined at
+///   runtime), the `note_index_in_tx` will not be deterministically derivable before submitting the
+///   tx to the network.
+/// )
+///
+/// We use the `first_nullifier` of a tx as a seed of uniqueness. We have a guarantee that there will
+/// always be at least one nullifier per tx, because the init circuit will create one if one isn't
+/// created naturally by any functions of the tx. (Search "protocol_nullifier").
+/// We combine the `first_nullifier` with the note's index (its position within this tx's new
+/// note_hashes array) (`note_index_in_tx`) to get a truly unique value to inject into a note, which
+/// we call a `note_nonce`.
+pub fn compute_unique_note_hash(note_nonce: Field, siloed_note_hash: Field) -> Field {
+    let inputs = [note_nonce, siloed_note_hash];
+    poseidon2_hash_with_separator(inputs, DOM_SEP__UNIQUE_NOTE_HASH)
+}
+
 pub fn compute_note_hash_nonce(first_nullifier_in_tx: Field, note_index_in_tx: u32) -> Field {
     // Hashing the first nullifier with note index in tx is guaranteed to be unique (because all nullifiers are also
     // unique).
     poseidon2_hash_with_separator(
         [first_nullifier_in_tx, note_index_in_tx as Field],
-        GENERATOR_INDEX__NOTE_HASH_NONCE,
+        DOM_SEP__NOTE_HASH_NONCE,
     )
 }
 
-pub fn compute_unique_note_hash(note_nonce: Field, siloed_note_hash: Field) -> Field {
-    let inputs = [note_nonce, siloed_note_hash];
-    poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__UNIQUE_NOTE_HASH)
-}
-
-pub fn compute_nonce_and_unique_note_hash(
+pub fn compute_note_nonce_and_unique_note_hash(
     siloed_note_hash: Field,
     first_nullifier: Field,
     note_index_in_tx: u32,
@@ -71,99 +118,60 @@ pub fn compute_nonce_and_unique_note_hash(
     compute_unique_note_hash(note_nonce, siloed_note_hash)
 }
 
-pub fn compute_siloed_note_hash(app: AztecAddress, note_hash: Field) -> Field {
+pub fn compute_siloed_nullifier(contract_address: AztecAddress, nullifier: Field) -> Field {
     poseidon2_hash_with_separator(
-        [app.to_field(), note_hash],
-        GENERATOR_INDEX__SILOED_NOTE_HASH,
+        [contract_address.to_field(), nullifier],
+        DOM_SEP__SILOED_NULLIFIER,
     )
 }
 
-/// Computes unique note hashes from siloed note hashes
-pub fn compute_unique_siloed_note_hash(
-    siloed_note_hash: Field,
-    first_nullifier: Field,
-    note_index_in_tx: u32,
+pub fn create_protocol_nullifier(tx_request: TxRequest) -> Scoped<Counted<Nullifier>> {
+    // The protocol nullifier is ascribed a special side-effect counter of 1. No other side-effect
+    // can have counter 1 (see `validate_as_first_call` for that assertion).
+    Nullifier { value: tx_request.hash(), note_hash: 0 }.count(1).scope(
+        NULL_MSG_SENDER_CONTRACT_ADDRESS,
+    )
+}
+
+pub fn compute_siloed_private_log_first_field(
+    contract_address: AztecAddress,
+    field: Field,
 ) -> Field {
-    if siloed_note_hash == 0 {
-        0
-    } else {
-        compute_nonce_and_unique_note_hash(siloed_note_hash, first_nullifier, note_index_in_tx)
-    }
-}
-
-/// Siloing in the context of Aztec refers to the process of hashing a note hash with a contract address (this way
-/// the note hash is scoped to a specific contract). This is used to prevent intermingling of notes between contracts.
-pub fn silo_note_hash(note_hash: Scoped<Counted<NoteHash>>) -> Field {
-    if note_hash.contract_address.is_zero() {
-        0
-    } else {
-        compute_siloed_note_hash(note_hash.contract_address, note_hash.innermost())
-    }
-}
-
-pub fn compute_siloed_nullifier(app: AztecAddress, nullifier: Field) -> Field {
     poseidon2_hash_with_separator(
-        [app.to_field(), nullifier],
-        GENERATOR_INDEX__OUTER_NULLIFIER,
+        [contract_address.to_field(), field],
+        DOM_SEP__PRIVATE_LOG_FIRST_FIELD,
     )
 }
 
-pub fn silo_nullifier(nullifier: Scoped<Counted<Nullifier>>) -> Field {
-    let value = nullifier.innermost().value;
-    // Q: shouldn't we be checking whether the _whole_ nullifier is empty?
-    // A: We don't have to. The init and inner circuits add contract address to non-empty nullifiers.
-    // So we know we should silo it if the contract address is not empty.
-    if nullifier.contract_address.is_zero() {
-        value // Return `value` instead of 0 because an already-siloed nullifier's contract address is zero.
-    } else {
-        compute_siloed_nullifier(nullifier.contract_address, value)
-    }
-}
-
-pub fn compute_siloed_private_log_field(contract_address: AztecAddress, field: Field) -> Field {
-    poseidon2_hash([contract_address.to_field(), field])
-}
-
-pub fn silo_private_log(private_log: Scoped<Counted<PrivateLogData>>) -> PrivateLog {
-    let log = private_log.innermost().log;
-    if private_log.contract_address.is_zero() {
-        log
-    } else {
-        let mut fields = log.fields;
-        fields[0] = compute_siloed_private_log_field(private_log.contract_address, fields[0]);
-        PrivateLog::new(fields, log.length)
-    }
+pub fn compute_siloed_private_log(contract_address: AztecAddress, log: PrivateLog) -> PrivateLog {
+    let mut fields = log.fields;
+    fields[0] = compute_siloed_private_log_first_field(contract_address, fields[0]);
+    PrivateLog::new(fields, log.length)
 }
 
 pub fn compute_contract_class_log_hash(log: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]) -> Field {
     poseidon2_hash(log)
 }
 
-pub fn compute_app_secret_key(
+pub fn compute_app_siloed_secret_key(
     master_secret_key: EmbeddedCurveScalar,
     app_address: AztecAddress,
-    app_secret_generator: Field,
+    key_type_domain_separator: Field,
 ) -> Field {
     poseidon2_hash_with_separator(
         [master_secret_key.hi, master_secret_key.lo, app_address.to_field()],
-        app_secret_generator,
+        key_type_domain_separator,
     )
 }
 
-pub fn merkle_hash(left: Field, right: Field) -> Field {
-    poseidon2_hash([left, right])
-}
-
-pub fn compute_l2_to_l1_hash(
-    contract_address: AztecAddress,
-    recipient: EthAddress,
-    content: Field,
+pub fn compute_l2_to_l1_message_hash(
+    message: Scoped<L2ToL1Message>,
     rollup_version_id: Field,
     chain_id: Field,
 ) -> Field {
-    let contract_address_bytes: [u8; 32] = contract_address.to_field().to_be_bytes();
-    let recipient_bytes: [u8; 20] = recipient.to_be_bytes();
-    let content_bytes: [u8; 32] = content.to_be_bytes();
+    let contract_address_bytes: [u8; 32] = message.contract_address.to_field().to_be_bytes();
+    let recipient_bytes: [u8; 20] = message.inner.recipient.to_be_bytes();
+    let content_bytes: [u8; 32] = message.inner.content.to_be_bytes();
     let rollup_version_id_bytes: [u8; 32] = rollup_version_id.to_be_bytes();
     let chain_id_bytes: [u8; 32] = chain_id.to_be_bytes();
 
@@ -183,24 +191,7 @@ pub fn compute_l2_to_l1_hash(
     sha256_to_field(bytes)
 }
 
-pub fn silo_l2_to_l1_message(
-    msg: Scoped<L2ToL1Message>,
-    rollup_version_id: Field,
-    chain_id: Field,
-) -> Field {
-    if msg.contract_address.is_zero() {
-        0
-    } else {
-        compute_l2_to_l1_hash(
-            msg.contract_address,
-            msg.inner.recipient,
-            msg.inner.content,
-            rollup_version_id,
-            chain_id,
-        )
-    }
-}
-
+// TODO: consider a variant that enables domain separation with a u32 (we seem to have standardised u32s for domain separators)
 /// Computes sha256 hash of 2 input fields.
 ///
 /// @returns A truncated field (i.e., the first byte is always 0).
@@ -211,11 +202,6 @@ pub fn accumulate_sha256(v0: Field, v1: Field) -> Field {
     let hash_input_flattened = v0_as_bytes.concat(v1_as_bytes);
 
     sha256_to_field(hash_input_flattened)
-}
-
-#[inline_always]
-pub fn pedersen_hash<let N: u32>(inputs: [Field; N], hash_index: u32) -> Field {
-    std::hash::pedersen_hash_with_separator(inputs, hash_index)
 }
 
 pub fn poseidon2_hash<let N: u32>(inputs: [Field; N]) -> Field {
@@ -237,36 +223,6 @@ where
 #[no_predicates]
 pub fn poseidon2_hash_subarray<let N: u32>(input: [Field; N], in_len: u32) -> Field {
     let mut sponge = poseidon2_absorb_in_chunks(input, in_len);
-    sponge.squeeze()
-}
-
-// NB the below is the same as poseidon::poseidon2::Poseidon2::hash(), but replacing a range check with a bit check,
-// and absorbing in chunks of 3 below.
-#[no_predicates]
-pub fn poseidon2_cheaper_variable_hash<let N: u32>(input: [Field; N], in_len: u32) -> Field {
-    let mut sponge = poseidon2_absorb_in_chunks(input, in_len);
-    // In the case where the hash preimage is variable-length, we append `1` to the end of the input, to distinguish
-    // from fixed-length hashes. (the combination of this additional field element + the hash IV ensures
-    // fixed-length and variable-length hashes do not collide)
-    if in_len != N {
-        sponge.absorb(1);
-    }
-    sponge.squeeze()
-}
-
-pub fn poseidon2_hash_with_separator_slice<T>(inputs: [Field], separator: T) -> Field
-where
-    T: ToField,
-{
-    let in_len = inputs.len() + 1;
-    let iv: Field = (in_len as Field) * TWO_POW_64;
-    let mut sponge = Poseidon2Sponge::new(iv);
-    sponge.absorb(separator.to_field());
-
-    for i in 0..inputs.len() {
-        sponge.absorb(inputs[i]);
-    }
-
     sponge.squeeze()
 }
 
@@ -312,29 +268,27 @@ pub fn poseidon2_hash_bytes<let N: u32>(inputs: [u8; N]) -> Field {
 }
 
 #[test]
-fn poseidon_chunks_matches_fixed() {
-    let in_len = 501;
-    let mut input: [Field; 4096] = [0; 4096];
-    let mut fixed_input = [3; 501];
-    assert(in_len == fixed_input.len()); // sanity check
-    for i in 0..in_len {
-        input[i] = 3;
-    }
-    let sub_chunk_hash = poseidon2_hash_subarray(input, in_len);
-    let fixed_len_hash = poseidon::poseidon2::Poseidon2::hash(fixed_input, fixed_input.len());
-    assert(sub_chunk_hash == fixed_len_hash);
+fn subarray_hash_matches_fixed() {
+    let mut values_to_hash = [3; 17];
+    let mut padded = values_to_hash.concat([0; 11]);
+    let subarray_hash = poseidon2_hash_subarray(padded, values_to_hash.len());
+
+    // Hash the entire values_to_hash.
+    let fixed_len_hash = poseidon::poseidon2::Poseidon2::hash(values_to_hash, values_to_hash.len());
+
+    assert_eq(subarray_hash, fixed_len_hash);
 }
 
 #[test]
-fn poseidon_chunks_matches_variable() {
-    let in_len = 501;
-    let mut input: [Field; 4096] = [0; 4096];
-    for i in 0..in_len {
-        input[i] = 3;
-    }
-    let variable_chunk_hash = poseidon2_cheaper_variable_hash(input, in_len);
-    let variable_len_hash = poseidon::poseidon2::Poseidon2::hash(input, in_len);
-    assert(variable_chunk_hash == variable_len_hash);
+fn subarray_hash_matches_variable() {
+    let mut values_to_hash = [3; 17];
+    let mut padded = values_to_hash.concat([0; 11]);
+    let subarray_hash = poseidon2_hash_subarray(padded, values_to_hash.len());
+
+    // Hash up to values_to_hash.len() fields of the padded array.
+    let variable_len_hash = poseidon::poseidon2::Poseidon2::hash(padded, values_to_hash.len());
+
+    assert_eq(subarray_hash, variable_len_hash);
 }
 
 #[test]
@@ -362,40 +316,92 @@ fn smoke_sha256_to_field() {
 }
 
 #[test]
-fn compute_l2_l1_hash() {
-    // All zeroes
-    let hash_result =
-        compute_l2_to_l1_hash(AztecAddress::from_field(0), EthAddress::zero(), 0, 0, 0);
-    assert(hash_result == 0x3b18c58c739716e76429634a61375c45b3b5cd470c22ab6d3e14cee23dd992);
+fn unique_siloed_note_hash_matches_typescript() {
+    let inner_note_hash = 1;
+    let contract_address = AztecAddress::from_field(2);
+    let first_nullifier = 3;
+    let note_index_in_tx = 4;
 
-    // Non-zero case
-    let hash_result = compute_l2_to_l1_hash(
-        AztecAddress::from_field(1),
-        EthAddress::from_field(3),
-        5,
-        2,
-        4,
+    let siloed_note_hash = compute_siloed_note_hash(contract_address, inner_note_hash);
+    let siloed_note_hash_from_ts =
+        0x1986a4bea3eddb1fff917d629a13e10f63f514f401bdd61838c6b475db949169;
+    assert_eq(siloed_note_hash, siloed_note_hash_from_ts);
+
+    let nonce: Field = compute_note_hash_nonce(first_nullifier, note_index_in_tx);
+    let note_hash_nonce_from_ts =
+        0x28e7799791bf066a57bb51fdd0fbcaf3f0926414314c7db515ea343f44f5d58b;
+    assert_eq(nonce, note_hash_nonce_from_ts);
+
+    let unique_siloed_note_hash_from_nonce = compute_unique_note_hash(nonce, siloed_note_hash);
+    let unique_siloed_note_hash = compute_note_nonce_and_unique_note_hash(
+        siloed_note_hash,
+        first_nullifier,
+        note_index_in_tx,
     );
-    assert(hash_result == 0xaab2a5828156782b12a1dc6f336e2bc627eb1b9514b02d511f66296990c050);
+    assert_eq(unique_siloed_note_hash_from_nonce, unique_siloed_note_hash);
+
+    let unique_siloed_note_hash_from_ts =
+        0x29949aef207b715303b24639737c17fbfeb375c1d965ecfa85c7e4f0febb7d16;
+    assert_eq(unique_siloed_note_hash, unique_siloed_note_hash_from_ts);
 }
 
 #[test]
-fn silo_l2_to_l1_message_matches_typescript() {
+fn siloed_nullifier_matches_typescript() {
+    let contract_address = AztecAddress::from_field(123);
+    let nullifier = 456;
+
+    let res = compute_siloed_nullifier(contract_address, nullifier);
+
+    let siloed_nullifier_from_ts =
+        0x169b50336c1f29afdb8a03d955a81e485f5ac7d5f0b8065673d1e407e5877813;
+
+    assert_eq(res, siloed_nullifier_from_ts);
+}
+
+#[test]
+fn siloed_private_log_first_field_matches_typescript() {
+    let contract_address = AztecAddress::from_field(123);
+    let field = 456;
+    let res = compute_siloed_private_log_first_field(contract_address, field);
+
+    let siloed_private_log_first_field_from_ts =
+        0x29480984f7b9257fded523d50addbcfc8d1d33adcf2db73ef3390a8fd5cdffaa;
+
+    assert_eq(res, siloed_private_log_first_field_from_ts);
+}
+
+#[test]
+fn empty_l2_to_l1_message_hash_matches_typescript() {
+    // All zeroes
+    let res = compute_l2_to_l1_message_hash(
+        L2ToL1Message { recipient: EthAddress::zero(), content: 0 }.scope(AztecAddress::from_field(
+            0,
+        )),
+        0,
+        0,
+    );
+
+    let empty_l2_to_l1_msg_hash_from_ts =
+        0x003b18c58c739716e76429634a61375c45b3b5cd470c22ab6d3e14cee23dd992;
+
+    assert_eq(res, empty_l2_to_l1_msg_hash_from_ts);
+}
+
+#[test]
+fn l2_to_l1_message_hash_matches_typescript() {
+    let message = L2ToL1Message { recipient: EthAddress::from_field(1), content: 2 }.scope(
+        AztecAddress::from_field(3),
+    );
     let version = 4;
     let chainId = 5;
 
-    let hash = silo_l2_to_l1_message(
-        L2ToL1Message { recipient: EthAddress::from_field(1), content: 2 }.scope(
-            AztecAddress::from_field(3),
-        ),
-        version,
-        chainId,
-    );
+    let hash = compute_l2_to_l1_message_hash(message, version, chainId);
 
     // The following value was generated by `yarn-project/stdlib/src/hash/hash.test.ts`
-    let hash_from_typescript = 0x0081edf209e087ad31b3fd24263698723d57190bd1d6e9fe056fc0c0a68ee661;
+    let l2_to_l1_message_hash_from_ts =
+        0x0081edf209e087ad31b3fd24263698723d57190bd1d6e9fe056fc0c0a68ee661;
 
-    assert_eq(hash, hash_from_typescript);
+    assert_eq(hash, l2_to_l1_message_hash_from_ts);
 }
 
 #[test]

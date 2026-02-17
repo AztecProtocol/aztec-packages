@@ -1,6 +1,7 @@
 export * from './avm_proof_data.js';
 export * from './base_rollup_hints.js';
 export * from './block_constant_data.js';
+export * from './block_headers_hash.js';
 export * from './block_merge_rollup_private_inputs.js';
 export * from './block_rollup_public_inputs.js';
 export * from './block_root_rollup_private_inputs.js';

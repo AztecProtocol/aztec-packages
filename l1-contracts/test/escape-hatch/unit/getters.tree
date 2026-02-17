@@ -1,0 +1,54 @@
+EscapeHatchGettersTest
+├── when calling getCurrentHatch
+│   └── it should return the current hatch based on current epoch
+├── when calling getHatch
+│   └── it should return epoch / FREQUENCY
+├── when calling getFirstEpoch
+│   └── it should return hatch * FREQUENCY
+├── when calling getDesignatedProposer
+│   └── it should return the designated proposer for the hatch
+├── when calling isHatchPrepared
+│   ├── given hatch has been prepared
+│   │   └── it should return true
+│   └── given hatch has not been prepared
+│       └── it should return false
+├── when calling getCandidateInfo
+│   └── it should return correct data through full lifecycle
+├── when calling getCandidateCount
+│   └── it should return the current number of active candidates
+├── when calling getCandidateCountForHatch
+│   └── it should return the number of candidates in the snapshot for the target hatch
+├── when calling getCandidateAtIndex
+│   └── it should return the candidate address at the given index
+├── when calling getCandidateAtIndexForHatch
+│   ├── given freeze timestamp has passed
+│   │   └── it should return the candidate address from the snapshot at the given index
+│   └── given freeze timestamp has not passed
+│       └── it should revert with SetUnstable
+├── when calling isCandidate
+│   ├── given address is in active candidate set
+│   │   └── it should return true
+│   └── given address is not in active candidate set
+│       └── it should return false
+├── when calling getSetTimestamp
+│   └── it should return the timestamp when candidate set freezes for the target hatch
+├── when calling getSeedTimestamp
+│   └── it should return the timestamp when RANDAO seed is sampled for the target hatch
+├── when calling getRollup
+│   └── it should return the ROLLUP address
+├── when calling getBondToken
+│   └── it should return the BOND_TOKEN address
+├── when calling getBondSize
+│   └── it should return the BOND_SIZE value
+├── when calling getWithdrawalTax
+│   └── it should return the WITHDRAWAL_TAX value
+├── when calling getFailedHatchPunishment
+│   └── it should return the FAILED_HATCH_PUNISHMENT value
+├── when calling getFrequency
+│   └── it should return the FREQUENCY value
+├── when calling getActiveDuration
+│   └── it should return the ACTIVE_DURATION value
+├── when calling getLagInHatches
+│   └── it should return the LAG_IN_HATCHES value
+└── when calling getProposingExitDelay
+    └── it should return the PROPOSING_EXIT_DELAY value

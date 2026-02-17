@@ -578,7 +578,7 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 
 #ifndef NDEBUG
             // In debug mode, we should hit an assertion failure
-            EXPECT_THROW_OR_ABORT(a_ct / constant_zero, "bigfield: prime limb diff is zero, but expected non-zero");
+            EXPECT_THROW_WITH_MESSAGE(a_ct / constant_zero, "bigfield: prime limb diff is zero, but expected non-zero");
 #endif
         }
         {
@@ -590,7 +590,7 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 
 #ifndef NDEBUG
             fq_ct constant_zero = fq_ct(&builder, uint256_t(0));
-            EXPECT_THROW_OR_ABORT(a_ct / constant_zero, "bigfield: division by zero in constant division");
+            EXPECT_THROW_WITH_MESSAGE(a_ct / constant_zero, "bigfield: division by zero in constant division");
 #endif
         }
         {
@@ -599,8 +599,8 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
             // numerator is empty, denominator is constant
 #ifndef NDEBUG
             fq_ct constant_zero = fq_ct(&builder, uint256_t(0));
-            EXPECT_THROW_OR_ABORT(fq_ct::div_check_denominator_nonzero({}, constant_zero),
-                                  "bigfield: prime limb diff is zero, but expected non-zero");
+            EXPECT_THROW_WITH_MESSAGE(fq_ct::div_check_denominator_nonzero({}, constant_zero),
+                                      "bigfield: prime limb diff is zero, but expected non-zero");
 #endif
         }
     }

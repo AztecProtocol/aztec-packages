@@ -2,7 +2,7 @@ import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { TestWallet } from '@aztec/test-wallet/server';
+import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 const logger = createLogger('example:token');
 
@@ -19,9 +19,9 @@ const TRANSFER_AMOUNT = 33n;
 async function main() {
   logger.info('Running token contract test on HTTP interface.');
 
-  const wallet = await TestWallet.create(node);
+  const wallet = await EmbeddedWallet.create(node);
 
-  // During sandbox setup we deploy a few accounts. Below we add them to our wallet.
+  // During local network setup we deploy a few accounts. Below we add them to our wallet.
   const [aliceInitialAccountData, bobInitialAccountData] = await getInitialTestAccountsData();
   await wallet.createSchnorrAccount(aliceInitialAccountData.secret, aliceInitialAccountData.salt);
   await wallet.createSchnorrAccount(bobInitialAccountData.secret, bobInitialAccountData.salt);
@@ -32,14 +32,12 @@ async function main() {
   logger.info(`Fetched Alice and Bob accounts: ${alice.toString()}, ${bob.toString()}`);
 
   logger.info('Deploying Token...');
-  const token = await TokenContract.deploy(wallet, alice, 'TokenName', 'TokenSymbol', 18)
-    .send({ from: alice })
-    .deployed();
+  const token = await TokenContract.deploy(wallet, alice, 'TokenName', 'TokenSymbol', 18).send({ from: alice });
   logger.info('Token deployed');
 
   // Mint tokens to Alice
   logger.info(`Minting ${ALICE_MINT_BALANCE} more coins to Alice...`);
-  await token.methods.mint_to_private(alice, ALICE_MINT_BALANCE).send({ from: alice }).wait();
+  await token.methods.mint_to_private(alice, ALICE_MINT_BALANCE).send({ from: alice });
 
   logger.info(`${ALICE_MINT_BALANCE} tokens were successfully minted by Alice and transferred to private`);
 
@@ -48,7 +46,7 @@ async function main() {
 
   // We will now transfer tokens from Alice to Bob
   logger.info(`Transferring ${TRANSFER_AMOUNT} tokens from Alice to Bob...`);
-  await token.methods.transfer(bob, TRANSFER_AMOUNT).send({ from: alice }).wait();
+  await token.methods.transfer(bob, TRANSFER_AMOUNT).send({ from: alice });
 
   // Check the new balances
   const aliceBalance = await token.methods.balance_of_private(alice).simulate({ from: alice });

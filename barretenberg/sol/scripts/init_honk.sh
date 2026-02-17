@@ -9,3 +9,11 @@ mkdir -p './src/honk/keys'
 ../cpp/build/bin/honk_solidity_key_gen blake $OUTPUT_PATH $SRS_PATH
 ../cpp/build/bin/honk_solidity_key_gen ecdsa $OUTPUT_PATH $SRS_PATH
 ../cpp/build/bin/honk_solidity_key_gen recursive $OUTPUT_PATH $SRS_PATH
+
+echo ""
+echo "✓ VK generation complete"
+
+# Sync honk-optimized.sol with generated Blake VK
+echo ""
+echo "Syncing honk-optimized.sol with generated Blake VK..."
+./scripts/sync_blake_opt_vk.sh

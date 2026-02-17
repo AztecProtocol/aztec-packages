@@ -8,18 +8,45 @@ namespace bb::avm2 {
 
 using namespace bb::avm2::simulation;
 
+TxSimulationResult AvmSimAPI::simulate(const FastSimulationInputs& inputs,
+                                       simulation::ContractDBInterface& contract_db,
+                                       world_state::WorldState& ws,
+                                       simulation::CancellationTokenPtr cancellation_token)
+{
+    vinfo("Simulating...");
+    AvmSimulationHelper simulation_helper;
+
+    if (inputs.config.collect_hints) {
+        return AVM_TRACK_TIME_V("simulation/all",
+                                simulation_helper.simulate_for_hint_collection(contract_db,
+                                                                               inputs.ws_revision,
+                                                                               ws,
+                                                                               inputs.config,
+                                                                               inputs.tx,
+                                                                               inputs.global_variables,
+                                                                               inputs.protocol_contracts,
+                                                                               cancellation_token));
+    } else {
+        return AVM_TRACK_TIME_V("simulation/all",
+                                simulation_helper.simulate_fast_with_existing_ws(contract_db,
+                                                                                 inputs.ws_revision,
+                                                                                 ws,
+                                                                                 inputs.config,
+                                                                                 inputs.tx,
+                                                                                 inputs.global_variables,
+                                                                                 inputs.protocol_contracts,
+                                                                                 cancellation_token));
+    }
+}
+
 TxSimulationResult AvmSimAPI::simulate_with_hinted_dbs(const ProvingInputs& inputs)
 {
-    info("Simulating...");
+    vinfo("Simulating...");
     AvmSimulationHelper simulation_helper;
-    auto result = AVM_TRACK_TIME_V("simulation/all", simulation_helper.simulate_fast_with_hinted_dbs(inputs.hints));
 
-    if (debug_logging) {
-        // TODO(fcarreiro): Enable once PI generation is complete.
-        // BB_ASSERT_EQ(inputs.publicInputs, result.public_inputs);
-    }
-
-    return result;
+    // Placeholder for future use of config from inputs.
+    const PublicSimulatorConfig config = {};
+    return AVM_TRACK_TIME_V("simulation/all", simulation_helper.simulate_fast_with_hinted_dbs(inputs.hints, config));
 }
 
 } // namespace bb::avm2

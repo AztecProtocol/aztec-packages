@@ -13,6 +13,7 @@ import { AztecContext } from '../../../aztecContext';
 import { navbarButtonStyle, navbarSelect, navbarSelectLabel } from '../../../styles/common';
 import SwitchAccountIcon from '@mui/icons-material/SwitchAccount';
 import { trackButtonClick } from '../../../utils/matomo';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 
 export function AccountSelector() {
   const { setFrom, wallet, from, currentTx } = useContext(AztecContext);
@@ -34,6 +35,9 @@ export function AccountSelector() {
 
     if (wallet) {
       refreshAccounts();
+    } else {
+      // Clear accounts when wallet is disconnected
+      setAccounts([]);
     }
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [wallet, currentTx]);
@@ -72,6 +76,7 @@ export function AccountSelector() {
           value={from?.toString() ?? ''}
           label="Account"
           open={isOpen}
+          IconComponent={KeyboardArrowDownIcon}
           onOpen={() => setIsOpen(true)}
           onClose={() => setIsOpen(false)}
           onChange={e => {
@@ -81,11 +86,26 @@ export function AccountSelector() {
           }}
           disabled={areAccountsLoading}
           renderValue={selected => {
+            if (!selected) {
+              return 'Select Account';
+            }
             const account = accounts.find(account => account.item.toString() === selected);
             if (account) {
-              return `${account?.alias.split(':')[1]} (${formatFrAsString(account?.item.toString())})`;
+              const alias = account.alias.includes(':') ? account.alias.split(':')[1] : account.alias;
+              return `${alias} (${formatFrAsString(account?.item.toString())})`;
             }
-            return selected ?? 'Select Account';
+            return 'Select Account';
+          }}
+          MenuProps={{
+            disableScrollLock: true,
+            PaperProps: {
+              sx: {
+                width: '300px',
+                '@media (max-width: 900px)': {
+                  width: '100vw',
+                },
+              },
+            },
           }}
         >
           {!wallet && (
@@ -104,12 +124,14 @@ export function AccountSelector() {
             </div>
           )}
 
-          {accounts.map(account => (
-            <MenuItem key={account.alias} value={account.item.toString()}>
-              {account.alias.split(':')[1]}&nbsp;(
-              {formatFrAsString(account.item.toString())})
-            </MenuItem>
-          ))}
+          {accounts.map(account => {
+            const alias = account.alias.includes(':') ? account.alias.split(':')[1] : account.alias;
+            return (
+              <MenuItem key={account.alias} value={account.item.toString()}>
+                {alias}&nbsp;({formatFrAsString(account.item.toString())})
+              </MenuItem>
+            );
+          })}
         </Select>
       </FormControl>
 

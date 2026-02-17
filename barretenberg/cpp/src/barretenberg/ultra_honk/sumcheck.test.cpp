@@ -79,12 +79,12 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     builder.create_gates_from_plookup_accumulators(
         plookup::MultiTableId::FIXED_BASE_LEFT_LO, sequence_data_lo, input_lo_index);
 
-    // Add a sort gate (simply checks that consecutive inputs have a difference of < 4)
+    // Add a `enforce_small_deltas` gate (simply checks that consecutive inputs have a difference of < 4)
     a_idx = builder.add_variable(FF(0));
     b_idx = builder.add_variable(FF(1));
     c_idx = builder.add_variable(FF(2));
     d_idx = builder.add_variable(FF(3));
-    builder.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
+    builder.enforce_small_deltas({ a_idx, b_idx, c_idx, d_idx });
 
     // Add an elliptic curve addition gate
     grumpkin::g1::affine_element p1 = grumpkin::g1::affine_element::random_element();
@@ -99,7 +99,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     uint32_t x3 = builder.add_variable(p3.x);
     uint32_t y3 = builder.add_variable(p3.y);
 
-    builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
+    builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*is_addition=*/true });
 
     // Add some RAM gates
     uint32_t ram_values[8]{
@@ -152,7 +152,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
 
     WitnessComputation<Flavor>::complete_prover_instance_for_test(prover_inst);
 
-    auto prover_transcript = Transcript::prover_init_empty();
+    auto prover_transcript = Transcript::test_prover_init_empty();
     auto circuit_size = prover_inst->dyadic_size();
     auto log_circuit_size = numeric::get_msb(circuit_size);
     const size_t virtual_log_n = log_circuit_size + 2; // arbitrary but larger than genuine log n
@@ -176,7 +176,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
 
     auto prover_output = sumcheck_prover.prove();
 
-    auto verifier_transcript = Transcript::verifier_init_empty(prover_transcript);
+    auto verifier_transcript = Transcript::test_verifier_init_empty(prover_transcript);
 
     FF verifier_alpha = verifier_transcript->template get_challenge<FF>("Sumcheck:alpha");
     SumcheckVerifier<Flavor> sumcheck_verifier(verifier_transcript, verifier_alpha, virtual_log_n);

@@ -31,18 +31,19 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
 
   program.configureHelp({ sortSubcommands: true });
 
-  program.addHelpText(
-    'after',
-    `
+  if (process.env.AZTEC_SHELL_WRAPPER) {
+    program.addHelpText(
+      'after',
+      `
+Additional commands:
 
-  Additional commands:
-
-    test [options]: starts a dockerized TXE node via
-      $ aztec start --txe
-    then runs
-      $ aztec-nargo test --silence-warnings --oracle-resolver=<TXE_ADDRESS> [options]
+  init [folder] [options]  creates a new Aztec Noir project.
+  new <path> [options]     creates a new Aztec Noir project in a new directory.
+  compile [options]        compiles Aztec Noir contracts.
+  test [options]           starts a TXE and runs "nargo test" using it as the oracle resolver.
     `,
-  );
+    );
+  }
 
   program
     .command('preload-crs')

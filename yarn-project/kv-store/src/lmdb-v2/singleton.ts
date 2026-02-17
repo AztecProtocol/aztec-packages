@@ -1,8 +1,8 @@
 import { Encoder } from 'msgpackr';
 
 import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
-// eslint-disable-next-line import/no-cycle
-import { type AztecLMDBStoreV2, execInReadTx, execInWriteTx } from './store.js';
+import type { AztecLMDBStoreV2 } from './store.js';
+import { execInReadTx, execInWriteTx } from './tx-helpers.js';
 import { serializeKey } from './utils.js';
 
 export class LMDBSingleValue<T> implements AztecAsyncSingleton<T> {

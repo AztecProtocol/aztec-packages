@@ -5,13 +5,17 @@
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
+#include <utility>
 
+#include "barretenberg/common/tuple.hpp"
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/map.hpp"
+#include "barretenberg/vm2/common/map_hashes.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
+#include "barretenberg/vm2/tracegen/lib/shared_index_cache.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 namespace bb::avm2::tracegen {
@@ -57,7 +61,8 @@ template <typename LookupSettings_> class IndexedLookupTraceBuilder : public Int
 
   protected:
     using LookupSettings = LookupSettings_;
-    virtual uint32_t find_in_dst(const std::array<FF, LookupSettings::LOOKUP_TUPLE_SIZE>& tup) const = 0;
+    using TupleType = RefTuple<LookupSettings::LOOKUP_TUPLE_SIZE>;
+    virtual uint32_t find_in_dst(const TupleType& tup) const = 0;
     virtual void init(TraceContainer&) {}; // Optional initialization step.
 
     // The outer (bigger) table selector.
@@ -66,37 +71,50 @@ template <typename LookupSettings_> class IndexedLookupTraceBuilder : public Int
 
 // This class is used when the lookup is into a non-precomputed table.
 // It calculates the counts by trying to find the tuple in the destination columns.
-// It creates an index of the destination columns on init, and uses it to find the tuple efficiently.
+// It uses a SharedIndexCache to avoid rebuilding the index when multiple lookups target the same destination.
 // This class should work for any lookup that is not precomputed.
 template <typename LookupSettings_>
 class LookupIntoDynamicTableGeneric : public IndexedLookupTraceBuilder<LookupSettings_> {
   public:
-    LookupIntoDynamicTableGeneric()
+    LookupIntoDynamicTableGeneric(SharedIndexCache& cache)
         : IndexedLookupTraceBuilder<LookupSettings_>()
+        , cache_(cache)
     {}
-    LookupIntoDynamicTableGeneric(Column outer_dst_selector)
+    LookupIntoDynamicTableGeneric(SharedIndexCache& cache, Column outer_dst_selector)
         : IndexedLookupTraceBuilder<LookupSettings_>(outer_dst_selector)
+        , cache_(cache)
     {}
     virtual ~LookupIntoDynamicTableGeneric() = default;
 
+    size_t get_destination_columns_fingerprint() const override
+    {
+        return bb::utils::hash_as_tuple(this->outer_dst_selector, LookupSettings::DST_COLUMNS);
+    }
+
   protected:
     using LookupSettings = LookupSettings_;
-    using ArrayTuple = std::array<FF, LookupSettings::LOOKUP_TUPLE_SIZE>;
+    using TupleType = RefTuple<LookupSettings::LOOKUP_TUPLE_SIZE>;
 
     void init(TraceContainer& trace) override
     {
-        row_idx.reserve(trace.get_column_rows(this->outer_dst_selector));
-        trace.visit_column(this->outer_dst_selector, [&](uint32_t row, const FF&) {
-            auto dst_values = trace.get_multiple(LookupSettings::DST_COLUMNS, row);
-            row_idx.insert({ dst_values, row });
-        });
+        trace_ptr_ = &trace;
+        index_ptr_ = &cache_.get_or_build(this->outer_dst_selector,
+                                          LookupSettings::DST_COLUMNS,
+                                          trace,
+                                          [this](const TraceContainer& t) { return build_index(t); });
     }
 
-    uint32_t find_in_dst(const ArrayTuple& tup) const override
+    uint32_t find_in_dst(const TupleType& tup) const override
     {
-        auto it = row_idx.find(tup);
-        if (it != row_idx.end()) {
-            return it->second;
+        size_t key_hash = std::hash<TupleType>{}(tup);
+        auto it = index_ptr_->find(key_hash);
+        if (it != index_ptr_->end()) {
+            const auto& rows = it->second;
+            for (uint32_t row : rows) {
+                if (trace_ptr_->get_multiple(LookupSettings::DST_COLUMNS, row) == tup) {
+                    return row;
+                }
+            }
         }
         throw std::runtime_error("Failed computing counts for " + std::string(LookupSettings::NAME) +
                                  ". Could not find tuple in destination. " +
@@ -104,8 +122,36 @@ class LookupIntoDynamicTableGeneric : public IndexedLookupTraceBuilder<LookupSet
     }
 
   private:
-    // TODO: Using the whole tuple as the key is not memory efficient.
-    unordered_flat_map<ArrayTuple, uint32_t> row_idx;
+    DstIndex build_index(const TraceContainer& trace)
+    {
+        DstIndex idx;
+        idx.reserve(trace.get_column_rows(this->outer_dst_selector));
+        trace.visit_column(this->outer_dst_selector, [&](uint32_t row, const FF&) {
+            auto dst_values = trace.get_multiple(LookupSettings::DST_COLUMNS, row);
+            size_t key_hash = std::hash<decltype(dst_values)>{}(dst_values);
+
+            auto& rows = idx[key_hash];
+            // We need to handle possible hash collisions.
+            bool found_match = false;
+            for (uint32_t existing_row : rows) {
+                if (trace.get_multiple(LookupSettings::DST_COLUMNS, existing_row) == dst_values) {
+                    found_match = true;
+                    break;
+                }
+            }
+            // If we find a match, we keep that row.
+            // If we don't find a match, we add the new row.
+            if (!found_match) {
+                rows.push_back(row);
+            }
+        });
+
+        return idx;
+    }
+
+    SharedIndexCache& cache_;
+    const DstIndex* index_ptr_ = nullptr;
+    const TraceContainer* trace_ptr_ = nullptr;
 };
 
 // This class is used when the lookup is into a non-precomputed table.

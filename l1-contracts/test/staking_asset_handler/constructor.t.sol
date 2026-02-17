@@ -13,45 +13,35 @@ import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 contract ConstructorTest is StakingAssetHandlerBase {
   Fakerollup public fakeRollup;
 
-  function test_WhenDepositsPerMintIs0() external {
+  function test_WhenFaucetAmountIs0_ItUsesDefault() external {
     StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs =
       StakingAssetHandler.StakingAssetHandlerArgs({
         owner: address(this),
-        stakingAsset: address(0),
+        stakingAsset: address(stakingAsset),
         registry: registry,
-        withdrawer: address(0),
-        mintInterval: 0,
-        depositsPerMint: 0,
-        depositMerkleRoot: 0,
+        faucetAmount: 0, // Should default to 1M STK
         zkPassportVerifier: zkPassportVerifier,
         unhinged: new address[](0),
         domain: CORRECT_DOMAIN,
         scope: CORRECT_SCOPE,
-        skipBindCheck: false,
-        skipMerkleCheck: false,
-        validatorsToFlush: 48
+        skipBindCheck: false
       });
 
-    // it reverts
-    vm.expectRevert(abi.encodeWithSelector(IStakingAssetHandler.CannotMintZeroAmount.selector));
-    new StakingAssetHandler(stakingAssetHandlerArgs);
+    StakingAssetHandler handler = new StakingAssetHandler(stakingAssetHandlerArgs);
+    assertEq(handler.faucetAmount(), handler.DEFAULT_FAUCET_AMOUNT());
   }
 
-  function test_WhenDepositsPerMintIsNot0(
+  function test_WhenConstructorIsCalledWithValidArgs(
     address _owner,
     address _stakingAsset,
-    address _withdrawer,
-    uint256 _mintInterval,
-    uint256 _depositsPerMint,
-    bytes32 _depositMerkleRoot,
+    uint256 _faucetAmount,
     uint256 _unhingedCount,
     string memory _domain,
     string memory _scope,
-    bool _skipBindCheck,
-    bool _skipMerkleCheck,
-    uint256 _validatorsToFlush
+    bool _skipBindCheck
   ) external {
     vm.assume(_owner != address(0));
+    vm.assume(_faucetAmount > 0);
 
     _unhingedCount = bound(_unhingedCount, 1, 100);
 
@@ -63,21 +53,13 @@ contract ConstructorTest is StakingAssetHandlerBase {
     fakeRollup = new Fakerollup();
     registry.addRollup(IRollup(address(fakeRollup)));
 
-    _depositsPerMint = bound(_depositsPerMint, 1, 100);
-    _depositsPerMint = 2;
     // it sets the owner
     // it sets the staking asset
-    // it sets the registry and emits a {RegistryUpdated} event
-    // it sets the withdrawer and emits a {WithdrawerUpdated} event
-    // it sets the mint interval and emits a {MintIntervalUpdated} event
-    // it sets the deposits per mint and emits a {DepositsPerMintUpdated} event
+    // it sets the registry
+    // it sets the faucet amount and emits a {FaucetAmountUpdated} event
     // it adds the array of unhinged address and emits a {UnhingedAdded} event for each address
     vm.expectEmit(true, true, true, true);
-    emit IStakingAssetHandler.WithdrawerUpdated(_withdrawer);
-    vm.expectEmit(true, true, true, true);
-    emit IStakingAssetHandler.IntervalUpdated(_mintInterval);
-    vm.expectEmit(true, true, true, true);
-    emit IStakingAssetHandler.DepositsPerMintUpdated(_depositsPerMint);
+    emit IStakingAssetHandler.FaucetAmountUpdated(_faucetAmount);
     for (uint256 i = 0; i < unhinged.length; i++) {
       vm.expectEmit(true, true, true, true);
       emit IStakingAssetHandler.UnhingedAdded(unhinged[i]);
@@ -85,25 +67,17 @@ contract ConstructorTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true);
     emit IStakingAssetHandler.UnhingedAdded(_owner);
 
-    vm.expectEmit(true, true, true, true);
-    emit IStakingAssetHandler.DepositMerkleRootUpdated(_depositMerkleRoot);
-
     StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs =
       StakingAssetHandler.StakingAssetHandlerArgs({
         owner: _owner,
         stakingAsset: _stakingAsset,
         registry: registry,
-        withdrawer: _withdrawer,
-        mintInterval: _mintInterval,
-        depositsPerMint: _depositsPerMint,
-        depositMerkleRoot: _depositMerkleRoot,
+        faucetAmount: _faucetAmount,
         zkPassportVerifier: zkPassportVerifier,
         unhinged: unhinged,
         domain: _domain,
         scope: _scope,
-        skipBindCheck: _skipBindCheck,
-        skipMerkleCheck: _skipMerkleCheck,
-        validatorsToFlush: _validatorsToFlush
+        skipBindCheck: _skipBindCheck
       });
 
     vm.prank(_owner);
@@ -112,10 +86,7 @@ contract ConstructorTest is StakingAssetHandlerBase {
     assertEq(address(stakingAssetHandler.STAKING_ASSET()), _stakingAsset);
     assertEq(address(stakingAssetHandler.getRollup()), address(registry.getCanonicalRollup()));
     assertEq(address(stakingAssetHandler.getRollup()), address(fakeRollup));
-    assertEq(stakingAssetHandler.withdrawer(), _withdrawer);
-    assertEq(stakingAssetHandler.mintInterval(), _mintInterval);
-    assertEq(stakingAssetHandler.depositsPerMint(), _depositsPerMint);
-    assertEq(stakingAssetHandler.validatorsToFlush(), _validatorsToFlush);
+    assertEq(stakingAssetHandler.faucetAmount(), _faucetAmount);
     for (uint256 i = 0; i < unhinged.length; i++) {
       assertTrue(stakingAssetHandler.isUnhinged(unhinged[i]));
     }

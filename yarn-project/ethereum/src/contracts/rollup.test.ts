@@ -1,17 +1,17 @@
-import { getPublicClient } from '@aztec/ethereum';
+import { getPublicClient } from '@aztec/ethereum/client';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import type { Anvil } from '@viem/anvil';
 import type { Abi } from 'viem';
-import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { DefaultL1ContractsConfig } from '../config.js';
-import { deployL1Contracts } from '../deploy_l1_contracts.js';
+import { deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
 import { EthCheatCodes } from '../test/eth_cheat_codes.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ViemClient } from '../types.js';
@@ -20,8 +20,6 @@ import { RollupContract } from './rollup.js';
 describe('Rollup', () => {
   let anvil: Anvil;
   let rpcUrl: string;
-  let privateKey: PrivateKeyAccount;
-  let logger: Logger;
   let publicClient: ViemClient;
   let cheatCodes: EthCheatCodes;
 
@@ -31,9 +29,8 @@ describe('Rollup', () => {
   let rollup: RollupContract;
 
   beforeAll(async () => {
-    logger = createLogger('ethereum:test:rollup');
     // this is the 6th address that gets funded by the junk mnemonic
-    privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
+    const privateKeyRaw = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba';
     vkTreeRoot = Fr.random();
     protocolContractsHash = Fr.random();
 
@@ -42,9 +39,8 @@ describe('Rollup', () => {
     publicClient = getPublicClient({ l1RpcUrls: [rpcUrl], l1ChainId: 31337 });
     cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
 
-    const deployed = await deployL1Contracts([rpcUrl], privateKey, foundry, logger, {
+    const deployed = await deployAztecL1Contracts(rpcUrl, privateKeyRaw, foundry.id, {
       ...DefaultL1ContractsConfig,
-      salt: undefined,
       vkTreeRoot,
       protocolContractsHash,
       genesisArchiveRoot: Fr.random(),
@@ -60,52 +56,52 @@ describe('Rollup', () => {
     await anvil?.stop().catch(err => createLogger('cleanup').error(err));
   });
 
-  describe('makePendingBlockNumberOverride', () => {
-    it('creates state override that correctly overrides pending block number', async () => {
-      const testProvenBlockNumber = 42n;
-      const testPendingBlockNumber = 100n;
-      const newPendingBlockNumber = 150;
+  describe('makePendingCheckpointNumberOverride', () => {
+    it('creates state override that correctly overrides pending checkpoint number', async () => {
+      const testProvenCheckpointNumber = CheckpointNumber(42);
+      const testPendingCheckpointNumber = CheckpointNumber(100);
+      const newPendingCheckpointNumber = CheckpointNumber(150);
 
       // Set storage directly using cheat codes
       // The storage slot stores both values: pending (high 128 bits) | proven (low 128 bits)
       const storageSlot = RollupContract.stfStorageSlot;
-      const packedValue = (testPendingBlockNumber << 128n) | testProvenBlockNumber;
+      const packedValue = (BigInt(testPendingCheckpointNumber) << 128n) | BigInt(testProvenCheckpointNumber);
       await cheatCodes.store(EthAddress.fromString(rollupAddress), BigInt(storageSlot), packedValue);
 
       // Verify the values were set correctly by calling the getters directly
-      const provenBlockNumber = await rollup.getProvenBlockNumber();
-      const pendingBlockNumber = await rollup.getBlockNumber();
+      const provenCheckpointNumber = await rollup.getProvenCheckpointNumber();
+      const pendingCheckpointNumber = await rollup.getCheckpointNumber();
 
-      expect(provenBlockNumber).toBe(testProvenBlockNumber);
-      expect(pendingBlockNumber).toBe(testPendingBlockNumber);
+      expect(provenCheckpointNumber).toBe(testProvenCheckpointNumber);
+      expect(pendingCheckpointNumber).toBe(testPendingCheckpointNumber);
 
       // Create the override
-      const stateOverride = await rollup.makePendingBlockNumberOverride(newPendingBlockNumber);
+      const stateOverride = await rollup.makePendingCheckpointNumberOverride(newPendingCheckpointNumber);
 
       // Test the override using simulateContract
-      const { result: overriddenPendingBlockNumber } = await publicClient.simulateContract({
+      const { result: overriddenPendingCheckpointNumber } = await publicClient.simulateContract({
         address: rollupAddress,
         abi: RollupAbi as Abi,
-        functionName: 'getPendingBlockNumber',
+        functionName: 'getPendingCheckpointNumber',
         stateOverride,
       });
 
-      // The overridden value should be the new pending block number
-      expect(overriddenPendingBlockNumber).toBe(BigInt(newPendingBlockNumber));
+      // The overridden value should be the new pending checkpoint number
+      expect(overriddenPendingCheckpointNumber).toBe(BigInt(newPendingCheckpointNumber));
 
-      // Verify that the proven block number is preserved in the override
-      const { result: overriddenProvenBlockNumber } = await publicClient.simulateContract({
+      // Verify that the proven checkpoint number is preserved in the override
+      const { result: overriddenProvenCheckpointNumber } = await publicClient.simulateContract({
         address: rollupAddress,
         abi: RollupAbi as Abi,
-        functionName: 'getProvenBlockNumber',
+        functionName: 'getProvenCheckpointNumber',
         stateOverride,
       });
 
-      expect(overriddenProvenBlockNumber).toBe(testProvenBlockNumber);
+      expect(CheckpointNumber.fromBigInt(overriddenProvenCheckpointNumber)).toBe(testProvenCheckpointNumber);
 
       // Verify the actual storage hasn't changed
-      const actualPendingBlockNumber = await rollup.getBlockNumber();
-      expect(actualPendingBlockNumber).toBe(testPendingBlockNumber);
+      const actualPendingCheckpointNumber = await rollup.getCheckpointNumber();
+      expect(actualPendingCheckpointNumber).toBe(testPendingCheckpointNumber);
     });
   });
 

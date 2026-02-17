@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Suyash], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -9,6 +9,7 @@
 #include "../byte_array/byte_array.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
+#include "../field/field_utils.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
@@ -353,35 +354,6 @@ template <typename Builder, typename T> class bigfield {
         bb::fr(negative_prime_modulus_mod_binary_basis.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo),
     };
 
-    /**
-     * @brief Convert the bigfield element to a byte array. Concatenates byte arrays of the high (2L bits) and low (2L
-     * bits) parts of the bigfield element.
-     *
-     * @details Assumes that 2L is divisible by 8, i.e. (NUM_LIMB_BITS * 2) % 8 == 0. Also we check that the bigfield
-     * element is in the target field.
-     *
-     * @return byte_array<Builder>
-     */
-    byte_array<Builder> to_byte_array() const
-    {
-        byte_array<Builder> result(get_context());
-        // Prevents aliases
-        assert_is_in_field();
-        field_t<Builder> lo = binary_basis_limbs[0].element + (binary_basis_limbs[1].element * shift_1);
-        field_t<Builder> hi = binary_basis_limbs[2].element + (binary_basis_limbs[3].element * shift_1);
-        // n.b. this only works if NUM_LIMB_BITS * 2 is divisible by 8
-        //
-        // We are packing two bigfield limbs each into the field elements `lo` and `hi`.
-        // Thus, each of `lo` and `hi` will contain (NUM_LIMB_BITS * 2) bits. We then convert
-        // `lo` and `hi` to `byte_array` each containing ((NUM_LIMB_BITS * 2) / 8) bytes.
-        // Therefore, it is necessary for (NUM_LIMB_BITS * 2) to be divisible by 8 for correctly
-        // converting `lo` and `hi` to `byte_array`s.
-        BB_ASSERT_EQ((NUM_LIMB_BITS * 2 / 8) * 8, NUM_LIMB_BITS * 2);
-        result.write(byte_array<Builder>(hi, 32 - (NUM_LIMB_BITS / 4)));
-        result.write(byte_array<Builder>(lo, (NUM_LIMB_BITS / 4)));
-        return result;
-    }
-
     // Gets the integer (uint512_t) value of the bigfield element by combining the binary basis limbs.
     uint512_t get_value() const;
 
@@ -600,6 +572,8 @@ template <typename Builder, typename T> class bigfield {
 
     bool_t<Builder> operator==(const bigfield& other) const;
 
+    void assert_zero_if(const bool_t<Builder>& predicate,
+                        std::string const& msg = "bigfield::assert_zero_if failed") const;
     void assert_is_in_field(std::string const& msg = "bigfield::assert_is_in_field") const;
     void assert_less_than(const uint256_t& upper_limit, std::string const& msg = "bigfield::assert_less_than") const;
     void reduce_mod_target_modulus() const;
@@ -607,6 +581,15 @@ template <typename Builder, typename T> class bigfield {
     void assert_is_not_equal(const bigfield& other,
                              std::string const& msg = "bigfield: prime limb diff is zero, but expected non-zero") const;
 
+    /**
+     * @brief Reduce the bigfield element modulo the target modulus.
+     * @details This function modifies the bigfield element in place to ensure that it is reduced modulo the target
+     * modulus. It is marked as `const` because it modifies the internal state of the bigfield element without changing
+     * its logical value.
+     *
+     * @warning This function does not enforce that the reduced value is < p (the target modulus), it instead enforces
+     * that the reduced value < 2^s for smallest s with 2^s > p.
+     */
     void self_reduce() const;
 
     /**
@@ -711,6 +694,13 @@ template <typename Builder, typename T> class bigfield {
         }
         prime_basis_limb.set_origin_tag(tag);
     }
+    void clear_round_provenance() const
+    {
+        for (size_t i = 0; i < NUM_LIMBS; i++) {
+            binary_basis_limbs[i].element.clear_round_provenance();
+        }
+        prime_basis_limb.clear_round_provenance();
+    }
 
     bb::OriginTag get_origin_tag() const
     {
@@ -743,26 +733,33 @@ template <typename Builder, typename T> class bigfield {
         prime_basis_limb.unset_free_witness_tag();
     }
     /**
-     * @brief Set the witness indices of the binary basis limbs to public
+     * @brief Set the witness indices for the limbs of the bigfield to public
+     * @details Bigfield is represented in public inputs using 2 limbs (lo, hi), matching the Codec representation.
+     *          lo = limb0 + limb1 * 2^NUM_LIMB_BITS, hi = limb2 + limb3 * 2^NUM_LIMB_BITS
      *
      * @return uint32_t The public input index at which the representation of the bigfield starts
      */
     uint32_t set_public() const
     {
+        // Reduce bigfield to canonical form before combining into 2-limb format.
+        self_reduce();
+
         Builder* ctx = get_context();
         const uint32_t start_index = static_cast<uint32_t>(ctx->num_public_inputs());
-        for (auto& limb : binary_basis_limbs) {
-            ctx->set_public_input(limb.element.get_witness_index());
-        }
-        return start_index;
-    }
 
-    /**
-     * @brief Reconstruct a bigfield from limbs (generally stored in the public inputs)
-     */
-    static bigfield reconstruct_from_public(const std::span<const field_ct, PUBLIC_INPUTS_SIZE>& limbs)
-    {
-        return construct_from_limbs(limbs[0], limbs[1], limbs[2], limbs[3], /*can_overflow=*/false);
+        // Combine limbs into 2-limb Codec format
+        constexpr uint256_t shift = uint256_t(1) << NUM_LIMB_BITS;
+        field_t<Builder> lo = binary_basis_limbs[0].element + binary_basis_limbs[1].element * shift;
+        field_t<Builder> hi = binary_basis_limbs[2].element + binary_basis_limbs[3].element * shift;
+
+        // Mark as used witnesses (these are intentionally in one gate for public input encoding)
+        mark_witness_as_used(lo);
+        mark_witness_as_used(hi);
+
+        ctx->set_public_input(lo.get_witness_index());
+        ctx->set_public_input(hi.get_witness_index());
+
+        return start_index;
     }
 
     static constexpr uint512_t get_maximum_unreduced_value()
@@ -972,6 +969,20 @@ template <typename Builder, typename T> class bigfield {
         }
         return limb_witness_indices;
     }
+
+    /**
+     * @brief Decompose a single witness into two limbs, range constrained to NUM_LIMB_BITS (68) and
+     * num_limb_bits - NUM_LIMB_BITS, respectively.
+     *
+     * @details Doesn't create gates constraining the limbs to each other.
+     *
+     * @param ctx The circuit context
+     * @param limb_idx The index of the limb that will be decomposed
+     * @param num_limb_bits The range we want to constrain the original limb to
+     * @return std::array<uint32_t, 2> The indices of new limbs.
+     */
+    static std::array<uint32_t, 2> decompose_non_native_field_double_width_limb(
+        Builder* ctx, const uint32_t limb_idx, const size_t num_limb_bits = (2 * NUM_LIMB_BITS));
 
     /**
      * @brief Compute the quotient and remainder values for dividing (a * b + (to_add[0] + ... + to_add[-1])) with p

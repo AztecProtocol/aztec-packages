@@ -3,20 +3,94 @@ $\newcommand{\endofield}{\textcolor{orange}{\beta}}$
 $\newcommand{\rom}[1]{\textcolor{purple}{#1}}$
 $\newcommand{\windex}[1]{\textcolor{grey}{#1}}$
 
+# biggroup
+
+### Purpose
+
+`biggroup` represents group elements on non-native elliptic curves (secp256k1, secp256r1, etc.) where the curve's base field is different from BN254's scalar field. Coordinates are represented as `bigfield` elements (non-native field arithmetic), making elliptic curve operations significantly more expensive than native `cycle_group` operations.
+
+### Use Cases in Barretenberg
+
+- **ECDSA Verification:** Signature verification for secp256k1 and secp256r1 curves
+- **Recursive Verification:** Verifying SNARK proofs from within BN254 circuits
+
+### Representation
+
+- `x`, `y` (`bigfield_t`) - Point coordinates as non-native field elements, each represented with four binary-basis limbs and one prime-basis limb
+- `_is_infinity` (`bool_t`) - Flag indicating whether the point is at infinity
+
+### Core Methods
+
+#### Arithmetic Operations
+
+- `operator+` / `operator-` - Point addition/subtraction with infinity handling and non-native field arithmetic
+- `dbl()` - Point doubling
+- `operator*(scalar)` - Scalar multiplication using wNAF (windowed non-adjacent form)
+- `checked_unconditional_add()` - Addition without conditional logic for infinity cases
+- `checked_unconditional_subtract()` - Subtraction without conditional logic for infinity cases
+- `chain_add_start()` - Initializes a chain addition sequence
+- `chain_add()` - Continues a chain addition sequence
+- `chain_add_end()` - Finalizes a chain addition sequence
+- `multiple_montgomery_ladder()` - Repeated iterations of Montgomery ladder while performing batched MSM
+
+#### Multi-Scalar Multiplication
+
+- `batch_mul(points, scalars)` - Optimized MSM using Straus algorithm with wNAF representation
+- `secp256k1_ecdsa_mul(pubkey, u1, u2)` - Specialized function to compute `(u1 * G + u2 * P)` for ECDSA verification
+- `compute_secp256k1_endo_wnaf(scalar)` - Computes wNAF representation of a scalar with endomorphism for secp256k1
+- `compute_naf(scalar)` - Computes standard NAF representation of a scalar (no endomorphism)
+
+#### Miscellaneous
+
+- `validate_on_curve()` - Enforces that a point lies on the curve
+- `conditional_negate()` - Negates a point based on a boolean predicate
+- `conditional_select()` - Selects between two points based on a boolean predicate
+- `incomplete_assert_equal()` - Asserts equality of x, y and infinity flag (incomplete because even if coordinates differ, both points could be at infinity)
+- `assert_coordinates_in_field()` - Checks if coordinates are less than the field modulus
+
+### Optimization Strategies
+
+**wNAF with Endomorphism**: Scalars are decomposed using GLV endomorphism into 128-bit components, then represented in windowed non-adjacent form with odd-only digits to avoid conditional logic.
+
+**ROM Tables**: For variable-base operations, lookup tables are constructed at circuit runtime containing precomputed multiples of base points (window size typically 4 bits).
+
+**Lookup Tables**: Fixed-base points (like generators) use precomputed lookup tables embedded in the circuit for efficient access (window size typically 8 bits).
+
+**Montgomery Ladder**: Multi-scalar multiplication uses batched doubling steps to minimize expensive non-native field reductions.
+
+---
+
 ### Lookup Tables in Biggroup
 
 In the biggroup class, we use lookup tables to store precomputed multiples of a fixed group element $P$. Since we use the wNAF (windowed non-adjacent form) method for scalar multiplication, we need to store odd multiples of $P$ up to a certain window size. Further, to leverage endomorphism while computing scalar multiplication, we also store the endomorphic mapping of the multiples of $P$ in the table. For instance with a wNAF window size of 3, the lookup table for $P$ is represented as follows:
 
-| Index | Element      | Endomorphism            |
-| ----- | ------------ | ----------------------- |
-| 0     | $-7 \cdot P$ | $-7 \endogroup \cdot P$ |
-| 1     | $-5 \cdot P$ | $-5 \endogroup \cdot P$ |
-| 2     | $-3 \cdot P$ | $-3 \endogroup \cdot P$ |
-| 3     | $-1 \cdot P$ | $-1 \endogroup \cdot P$ |
-| 4     | $1 \cdot P$  | $1 \endogroup \cdot P$  |
-| 5     | $3 \cdot P$  | $3 \endogroup \cdot P$  |
-| 6     | $5 \cdot P$  | $5 \endogroup \cdot P$  |
-| 7     | $7 \cdot P$  | $7 \endogroup \cdot P$  |
+$$
+\begin{aligned}
+\def\arraystretch{1.6}
+\def\arraycolsep{40pt}
+\begin{array}{|c|c|c|}
+\hline
+\textsf{Index} & \textsf{Element} & \textsf{Endomorphism} \\
+\hline
+0 & -7 \cdot P & -7 \endogroup \cdot P \\
+\hline
+1 & -5 \cdot P & -5 \endogroup \cdot P \\
+\hline
+2 & -3 \cdot P & -3 \endogroup \cdot P \\
+\hline
+3 & -1 \cdot P & -1 \endogroup \cdot P \\
+\hline
+4 & 1 \cdot P & 1 \endogroup \cdot P \\
+\hline
+5 & 3 \cdot P & 3 \endogroup \cdot P \\
+\hline
+6 & 5 \cdot P & 5 \endogroup \cdot P \\
+\hline
+7 & 7 \cdot P & 7 \endogroup \cdot P \\
+\hline
+\end{array}
+\end{aligned}
+$$
 
 Note that our wNAF form uses only (positive and negative) odd multiples of $P$ so as to avoid handling conditional logic in the circuit for 0 values. Each group element in the above table is represented as a point on the elliptic curve: $Q = (x, y)$ such that $x, y \in \mathbb{F}_q$. In our case, $\mathbb{F}_q$ is either the base field of BN254 or secp256k1 (or secp256r1). Since the native field used in our circuits is the scalar field $\mathbb{F}_r$ of BN254, $x$ and $y$ are non-native field elements and are represented as two `bigfield` elements, i.e., each of $x$ and $y$ consists of four binary-basis limbs and one prime-basis limb:
 
@@ -29,32 +103,47 @@ $$
 
 Thus, when generating lookup tables, each element $Q$ in the table is represented as a tuple of 10 native field elements. Since we only support tables with one key and two values, we need 5 tables to represent the group element $Q$:
 
-| Table 1: xlo |         |     | Table 2: xhi |         |
-| ------------ | ------- | --- | ------------ | ------- |
-| Value 1      | Value 2 |     | Value 1      | Value 2 |
-| $x_0$        | $x_1$   |     | $x_2$        | $x_3$   |
-
-| Table 3: ylo |         |     | Table 4: yhi |         |
-| ------------ | ------- | --- | ------------ | ------- |
-| Value 1      | Value 2 |     | Value 1      | Value 2 |
-| $y_0$        | $y_1$   |     | $y_2$        | $y_3$   |
-
-| Table 5: prime table |         |
-| -------------------- | ------- |
-| Value 1              | Value 2 |
-| $x_p$                | $y_p$   |
+$$
+\begin{aligned}
+\def\arraystretch{1.6}
+\def\arraycolsep{40pt}
+\begin{array}{|c|c|c|}
+\hline
+\textsf{Table} & \textsf{Value 1} & \textsf{Value 2} \\
+\hline
+\textsf{xlo} & x_0 & x_1 \\
+\hline
+\textsf{xhi} & x_2 & x_3 \\
+\hline
+\textsf{ylo} & y_0 & y_1 \\
+\hline
+\textsf{yhi} & y_2 & y_3 \\
+\hline
+\textsf{prime} & x_p & y_p \\
+\hline
+\end{array}
+\end{aligned}
+$$
 
 Additionally, we also need tables for the endomorphism values. Suppose $x' := \endofield \cdot x$ is the x-coordinate of the endomorphism of the group element $Q$, represented as $x' = (x'_0, x'_1, x'_2, x'_3, x'_p) \in \mathbb{F}_r^5$. The endomorphism table is represented as follows:
 
-| endo xlo table |         |     |     | endo xhi table |         |
-| -------------- | ------- | --- | --- | -------------- | ------- |
-| Value 1        | Value 2 |     |     | Value 1        | Value 2 |
-| $x'_0$         | $x'_1$  |     |     | $x'_2$         | $x'_3$  |
-
-| endo prime table |         |
-| ---------------- | ------- |
-| Value 1          | Value 2 |
-| $x'_p$           | $y_p$   |
+$$
+\begin{aligned}
+\def\arraystretch{1.6}
+\def\arraycolsep{40pt}
+\begin{array}{|c|c|c|}
+\hline
+\textsf{Table} & \textsf{Value 1} & \textsf{Value 2} \\
+\hline
+\textsf{endo xlo} & x'_0 & x'_1 \\
+\hline
+\textsf{endo xhi} & x'_2 & x'_3 \\
+\hline
+\textsf{endo prime} & x'_p & y'_p \\
+\hline
+\end{array}
+\end{aligned}
+$$
 
 Note that since the y-coordinate remains unchanged under the endomorphism, we can use the same y-coordinate tables. For the prime-basis limb of the endomorphism, we use the same value $y_p$ (which is redundant but ensures consistency of using two-column tables). Thus, overall we need 8 tables to represent the lookup table for a group element $P$ with each table size being $2^3$ (for a wNAF window size of 3).
 
@@ -62,6 +151,10 @@ Note that since the y-coordinate remains unchanged under the endomorphism, we ca
 > In the context of biggroup, we need variable-base lookup tables and fixed-base lookup tables. The variable-base lookup tables are used when the base point $P$ is not known at circuit synthesis time and is provided as a circuit witness. In this case, we need to generate the lookup tables on-the-fly based on the input base point $P$. On the other hand, fixed-base lookup tables are used when the base point $P$ is known at circuit synthesis time and can be hardcoded into the circuit (for example group generators). Fixed-base lookup tables are more efficient as they can be precomputed and do not require additional gates to enforce the correctness of the table entries. Variable-base lookup tables are realized using ROM tables (described below) while fixed-base lookup tables are realized using standard lookup tables in the circuit.
 
 Refer to the [ROM table documentation](../memory/README.md) for details on how ROM tables are implemented in Barretenberg.
+
+## Optimized Scalar Multiplication for ECDSA
+
+We use an optimized batch multi-scalar multiplication (MSM) algorithm for computing $(a \cdot G + b \cdot P)$ where $G$ is the group generator (fixed) and $P$ is a point on the secp256k1 curve (variable) and $(a, b) \in \mathbb{F}_r$ are scalars. The algorithm uses the Strauss' method along with wNAF representation of scalars and precomputed ROM and lookup tables for efficient computation.
 
 ### wNAF with Stagger
 
@@ -476,6 +569,10 @@ A \leftarrow&\ A + \textcolor{orange}{\mathfrak{s}_{f}} \cdot G +
 $$
 
 Since our scalars are at most 128 bits long after endomorphism, we can represent the fixed-base scalars using at most 16 wNAF slices (as the window size is $w = 8$) and the variable-base scalars using at most 32 wNAF slices (as the window size is $w = 4$). We choose to represent the scalar $v \in \mathbb{F}_r$ using 33 wNAF slices instead of 32 to because we initialise the accumulator with the extra slice $\textcolor{yellow}{v_4}$ at the start of the MSM computation. This allows us to use a uniform pattern of Montgomery ladder steps of size 6 throughout the MSM computation. In total, we perform 16 rounds each consisting of 2 Montgomery ladder steps of size 6, resulting in a total of 32 ladder steps to compute the MSM.
+
+## Generic Batch MSM
+
+For simplicity, we describe the generic batch MSM algorithm (Strauss' algorithm) using the NAF signed digit representation of scalars. This is used for the scalar multiplication of points in circuits for the bn254 and secp256r1 curves (though it can work for other 256-bit curves as well).
 
 ### Signed Digit Representation
 

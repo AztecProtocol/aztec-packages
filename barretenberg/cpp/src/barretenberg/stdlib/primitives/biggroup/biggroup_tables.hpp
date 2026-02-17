@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Suyash], commit: 553c5eb82901955c638b943065acd3e47fc918c0}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -94,7 +94,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::read_group_element_rom_tables(
     y_fq.binary_basis_limbs[2].maximum_value = limb_max[6];
     y_fq.binary_basis_limbs[3].maximum_value = limb_max[7];
 
-    const auto output = element(x_fq, y_fq);
+    // ROM table points are precomputed and known to be valid, skip curve check.
+    // Use 4-arg constructor with is_infinity=false (table lookups return valid, non-infinity points).
+    const auto output = element(x_fq, y_fq, bool_ct(x_fq.get_context(), false), /*assert_on_curve=*/false);
     return output;
 }
 
@@ -134,23 +136,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::eight_bit_fixed_base_table::operato
                 use_endomorphism ? MultiTableId::SECP256K1_XYPRIME_ENDO : MultiTableId::SECP256K1_XYPRIME,
             };
         }
-        case CurveType::BN254: {
-            return std::array<MultiTableId, 5>{
-                use_endomorphism ? MultiTableId::BN254_XLO_ENDO : MultiTableId::BN254_XLO,
-                use_endomorphism ? MultiTableId::BN254_XHI_ENDO : MultiTableId::BN254_XHI,
-                MultiTableId::BN254_YLO,
-                MultiTableId::BN254_YHI,
-                use_endomorphism ? MultiTableId::BN254_XYPRIME_ENDO : MultiTableId::BN254_XYPRIME,
-            };
-        }
         default: {
-            return std::array<MultiTableId, 5>{
-                use_endomorphism ? MultiTableId::BN254_XLO_ENDO : MultiTableId::BN254_XLO,
-                use_endomorphism ? MultiTableId::BN254_XHI_ENDO : MultiTableId::BN254_XHI,
-                MultiTableId::BN254_YLO,
-                MultiTableId::BN254_YHI,
-                use_endomorphism ? MultiTableId::BN254_XYPRIME_ENDO : MultiTableId::BN254_XYPRIME,
-            };
+            throw_or_abort("eight_bit_fixed_base_table only supports SECP256K1 curve type");
         }
         }
     };
@@ -172,7 +159,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::eight_bit_fixed_base_table::operato
         y = -y;
     }
 
-    return element(x, y);
+    // Points from precomputed tables are known to be on the curve.
+    // Use 4-arg constructor with is_infinity=false (table lookups return valid, non-infinity points).
+    return element(x, y, bool_ct(x.get_context(), false), /*assert_on_curve=*/false);
 }
 
 template <typename C, class Fq, class Fr, class G>

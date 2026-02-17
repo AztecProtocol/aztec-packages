@@ -1,6 +1,6 @@
-import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
-import { createLogger } from '@aztec/foundation/log';
+import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto/keys';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { pushTestData } from '@aztec/foundation/testing';
 import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -28,13 +28,12 @@ import {
   type PrivateCallExecutionResult,
   type PrivateExecutionResult,
   TxRequest,
-  collectNoteHashLeafIndexMap,
   collectNoteHashNullifierCounterMap,
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/stdlib/tx';
 import { VerificationKeyAsFields, VerificationKeyData, VkData } from '@aztec/stdlib/vks';
 
-import { PrivateKernelResetPrivateInputsBuilder } from './hints/build_private_kernel_reset_private_inputs.js';
+import { PrivateKernelResetPrivateInputsBuilder } from './hints/private_kernel_reset_private_inputs_builder.js';
 import type { PrivateKernelOracle } from './private_kernel_oracle.js';
 
 const NULL_SIMULATE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs> = {
@@ -57,13 +56,16 @@ export interface PrivateKernelExecutionProverConfig {
  * inform state tree updates.
  */
 export class PrivateKernelExecutionProver {
-  private log = createLogger('pxe:private-kernel-execution-prover');
+  private log: Logger;
 
   constructor(
     private oracle: PrivateKernelOracle,
     private proofCreator: PrivateKernelProver,
     private fakeProofs = false,
-  ) {}
+    bindings?: LoggerBindings,
+  ) {
+    this.log = createLogger('pxe:private-kernel-execution-prover', bindings);
+  }
 
   /**
    * Generate a proof for a given transaction request and execution result.
@@ -101,11 +103,9 @@ export class PrivateKernelExecutionProver {
 
     const executionSteps: PrivateExecutionStep[] = [];
 
-    const noteHashLeafIndexMap = collectNoteHashLeafIndexMap(executionResult);
     const noteHashNullifierCounterMap = collectNoteHashNullifierCounterMap(executionResult);
-    const validationRequestsSplitCounter = isPrivateOnlyTx
-      ? 0
-      : getFinalMinRevertibleSideEffectCounter(executionResult);
+    const minRevertibleSideEffectCounter = getFinalMinRevertibleSideEffectCounter(executionResult);
+    const splitCounter = isPrivateOnlyTx ? 0 : minRevertibleSideEffectCounter;
 
     while (executionStack.length) {
       if (!firstIteration) {
@@ -113,11 +113,11 @@ export class PrivateKernelExecutionProver {
           output,
           executionStack,
           noteHashNullifierCounterMap,
-          validationRequestsSplitCounter,
+          splitCounter,
         );
         while (resetBuilder.needsReset()) {
           const witgenTimer = new Timer();
-          const privateInputs = await resetBuilder.build(this.oracle, noteHashLeafIndexMap);
+          const privateInputs = await resetBuilder.build(this.oracle);
           output = generateWitnesses
             ? await this.proofCreator.generateResetOutput(privateInputs)
             : await this.proofCreator.simulateReset(privateInputs);
@@ -134,7 +134,7 @@ export class PrivateKernelExecutionProver {
             output,
             executionStack,
             noteHashNullifierCounterMap,
-            validationRequestsSplitCounter,
+            splitCounter,
           );
         }
       }
@@ -171,6 +171,7 @@ export class PrivateKernelExecutionProver {
           privateCallData,
           isPrivateOnlyTx,
           executionResult.firstNullifier,
+          minRevertibleSideEffectCounter,
         );
         this.log.debug(
           `Calling private kernel init with isPrivateOnly ${isPrivateOnlyTx} and firstNullifierHint ${proofInput.firstNullifierHint}`,
@@ -220,11 +221,11 @@ export class PrivateKernelExecutionProver {
       output,
       [],
       noteHashNullifierCounterMap,
-      validationRequestsSplitCounter,
+      splitCounter,
     );
     while (resetBuilder.needsReset()) {
       const witgenTimer = new Timer();
-      const privateInputs = await resetBuilder.build(this.oracle, noteHashLeafIndexMap);
+      const privateInputs = await resetBuilder.build(this.oracle);
       output = generateWitnesses
         ? await this.proofCreator.generateResetOutput(privateInputs)
         : await this.proofCreator.simulateReset(privateInputs);
@@ -239,12 +240,7 @@ export class PrivateKernelExecutionProver {
         },
       });
 
-      resetBuilder = new PrivateKernelResetPrivateInputsBuilder(
-        output,
-        [],
-        noteHashNullifierCounterMap,
-        validationRequestsSplitCounter,
-      );
+      resetBuilder = new PrivateKernelResetPrivateInputsBuilder(output, [], noteHashNullifierCounterMap, splitCounter);
     }
 
     if (output.publicInputs.feePayer.isZero() && skipFeeEnforcement) {
@@ -264,20 +260,20 @@ export class PrivateKernelExecutionProver {
     // TODO: Enable padding once we better understand the final amounts to pad to.
     const paddedSideEffectAmounts = PaddedSideEffectAmounts.empty();
 
-    // Use the aggregated includeByTimestamp set throughout the tx execution.
-    // TODO: Call `computeTxIncludeByTimestamp` to round the value down and reduce precision, improving privacy.
-    const includeByTimestampUpperBound = previousKernelData.publicInputs.includeByTimestamp;
+    // Use the aggregated expirationTimestamp set throughout the tx execution.
+    // TODO: Call `computeTxExpirationTimestamp` to round the value down and reduce precision, improving privacy.
+    const expirationTimestampUpperBound = previousKernelData.publicInputs.expirationTimestamp;
     const anchorBlockTimestamp = previousKernelData.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp;
-    if (includeByTimestampUpperBound <= anchorBlockTimestamp) {
+    if (expirationTimestampUpperBound <= anchorBlockTimestamp) {
       throw new Error(
-        `Include-by timestamp must be greater than the anchor block timestamp. Anchor block timestamp: ${anchorBlockTimestamp}. Include-by timestamp: ${includeByTimestampUpperBound}.`,
+        `Include-by timestamp must be greater than the anchor block timestamp. Anchor block timestamp: ${anchorBlockTimestamp}. Include-by timestamp: ${expirationTimestampUpperBound}.`,
       );
     }
 
     const privateInputs = new PrivateKernelTailCircuitPrivateInputs(
       previousKernelData,
       paddedSideEffectAmounts,
-      includeByTimestampUpperBound,
+      expirationTimestampUpperBound,
     );
 
     const witgenTimer = new Timer();
@@ -295,8 +291,8 @@ export class PrivateKernelExecutionProver {
       },
     });
 
-    // Hiding circuit is only executed if we are generating witnesses.
-    // For simulation, we can end with the tail, since the hiding circuit will simply return the same tail output.
+    // Hiding kernel is only executed if we are generating witnesses.
+    // For simulation, we can end with the tail, since the Hiding kernel will simply return the same tail output.
     if (generateWitnesses) {
       const previousKernelVkData = await this.getVkData(tailOutput.verificationKey);
 
@@ -420,6 +416,7 @@ export class PrivateKernelExecutionProver {
       await this.oracle.getContractClassIdPreimage(currentContractClassId);
 
     const updatedClassIdHints = await this.oracle.getUpdatedClassIdHints(contractAddress);
+
     return PrivateCallData.from({
       publicInputs,
       vk,

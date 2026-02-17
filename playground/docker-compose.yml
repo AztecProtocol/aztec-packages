@@ -15,7 +15,7 @@ services:
     volumes:
       - ../:/root/aztec-packages
     working_dir: /root/aztec-packages/yarn-project/aztec
-    command: 'node ./dest/bin start --sandbox'
+    command: 'node ./dest/bin start --local-network'
     environment:
       ETHEREUM_HOSTS: http://ethereum:8545
       HARDWARE_CONCURRENCY: 4
@@ -26,6 +26,7 @@ services:
       SEQ_TX_POLLING_INTERVAL_MS: 50
       WS_BLOCK_CHECK_INTERVAL_MS: 50
       ARCHIVER_VIEM_POLLING_INTERVAL_MS: 500
+      P2P_MIN_TX_POOL_AGE_MS: 0
     healthcheck:
       test: ['CMD', 'curl', '-fSs', 'http://127.0.0.1:8080/status']
       interval: 3s

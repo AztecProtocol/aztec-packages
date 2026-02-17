@@ -28,6 +28,7 @@ import TableBody from '@mui/material/TableBody';
 import TableRow from '@mui/material/TableRow';
 import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
+import { colors, commonStyles } from '../../../global.styles';
 import { Badge, Box, Paper, Tooltip } from '@mui/material';
 import { ContractMethodDescriptions } from '../../../utils/constants';
 import { trackButtonClick } from '../../../utils/matomo';
@@ -55,7 +56,7 @@ const functionName = css({
 
 const actionButton = css({
   marginLeft: '0 !important',
-  borderRadius: '6px',
+  borderRadius: '0',
 });
 
 interface FunctionCardProps {
@@ -147,8 +148,8 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
             return { ...step, subtotal: acc };
           });
 
-          const totalRPCCalls = Object.values(profileResult.stats.nodeRPCCalls ?? {}).reduce(
-            (acc, calls) => acc + calls.times.length,
+          const totalRPCCalls = Object.values(profileResult.stats.nodeRPCCalls?.perMethod ?? {}).reduce(
+            (acc, calls) => acc + (calls?.times.length ?? 0),
             0,
           );
 
@@ -182,10 +183,12 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
         }
       }}
       sx={{
-        backgroundColor: 'white',
-        border: 'none',
+        backgroundColor: commonStyles.glassDark,
+        border: commonStyles.borderMedium,
+        color: colors.text.primary,
         overflow: 'visible',
         marginBottom: '1rem',
+        borderRadius: commonStyles.borderRadius,
         ...(!isExpanded && {
           cursor: 'pointer',
         }),
@@ -201,7 +204,16 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h5" css={functionName}>
             {fn.name}
-            <Badge badgeContent={fn.functionType} color="info" sx={{ marginLeft: '2rem' }}></Badge>
+            <Badge
+              badgeContent={fn.functionType}
+              sx={{
+                marginLeft: '2rem',
+                '& .MuiBadge-badge': {
+                  backgroundColor: colors.secondary.main,
+                  color: colors.text.primary,
+                },
+              }}
+            ></Badge>
           </Typography>
           <IconButton
             onClick={e => {
@@ -251,7 +263,15 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
                 <Typography variant="body1" sx={{ fontWeight: 200, marginRight: '0.5rem' }}>
                   Simulation results:
                 </Typography>
-                <div css={{ backgroundColor: 'var(--mui-palette-grey-A100)', padding: '0.5rem', borderRadius: '6px' }}>
+                <div
+                  css={{
+                    backgroundColor: commonStyles.glassDark,
+                    border: commonStyles.borderNormal,
+                    color: colors.text.primary,
+                    padding: '0.5rem',
+                    borderRadius: commonStyles.borderRadius,
+                  }}
+                >
                   {simulationResults?.success ? (
                     <Typography variant="body1">{simulationResults?.data ?? 'No return value'}</Typography>
                   ) : (
@@ -269,7 +289,11 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
                   <>
                     <TableContainer
                       component={Paper}
-                      sx={{ marginRight: '0.5rem', backgroundColor: 'var(--mui-palette-grey-A100)' }}
+                      sx={{
+                        marginRight: '0.5rem',
+                        backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                        border: '1px solid rgba(212, 255, 40, 0.15)',
+                      }}
                     >
                       <Table size="small">
                         <TableHead>
@@ -328,7 +352,10 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
                         </Typography>
                       </Typography>
                       <Typography variant="caption">
-                        Total RPC calls: {profileResults[fn.name].totalRPCCalls}
+                        Total RPC calls: {profileResults[fn.name].totalRPCCalls} (
+                        {profileResults[fn.name].stats.nodeRPCCalls?.roundTrips?.roundTrips ?? 0} round trips,{' '}
+                        {profileResults[fn.name].stats.nodeRPCCalls?.roundTrips?.totalBlockingTime?.toFixed(2) ?? 0}ms
+                        blocking)
                       </Typography>
                     </Box>
                     <Box sx={{ margin: '0.5rem', fontSize: '0.8rem' }}>

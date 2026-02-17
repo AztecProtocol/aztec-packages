@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -65,7 +65,7 @@ template <typename Transcript> class TranslationData {
     {
         // Reallocate the commitment key if necessary. This is an edge case with SmallSubgroupIPA since it has
         // polynomials that may exceed the circuit size.
-        if (commitment_key.dyadic_size < MASKED_CONCATENATED_WITNESS_LENGTH) {
+        if (commitment_key.srs_size < MASKED_CONCATENATED_WITNESS_LENGTH) {
             commitment_key = typename Flavor::CommitmentKey(MASKED_CONCATENATED_WITNESS_LENGTH);
         }
         // Create interpolation domain required for Lagrange interpolation

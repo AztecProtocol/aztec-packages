@@ -4,12 +4,12 @@ import type { AuthWitnessProvider } from '@aztec/aztec.js/account';
 import type { CompleteAddress } from '@aztec/aztec.js/addresses';
 import { AuthWitness } from '@aztec/aztec.js/authorization';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
-import { Schnorr } from '@aztec/foundation/crypto';
+import { Schnorr } from '@aztec/foundation/crypto/schnorr';
 import { SchnorrHardcodedAccountContractArtifact } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { TestWallet } from '@aztec/test-wallet/server';
 
 import { setup } from '../fixtures/utils.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
 
 const PRIVATE_KEY = GrumpkinScalar.fromHexString('0xd35d743ac0dfe3d6dbe6be8c877cb524a00ab1e3d52d7bada095dfc8894ccfa');
 
@@ -67,19 +67,19 @@ describe('guides/writing_an_account_contract', () => {
     if (await account.hasInitializer()) {
       // The account has no funds. Use a funded wallet to pay for the fee for the deployment.
       const deployMethod = await account.getDeployMethod();
-      await deployMethod.send({ from: fundedAccount }).wait();
+      await deployMethod.send({ from: fundedAccount });
     }
 
     const address = account.address;
     logger.info(`Deployed account contract at ${address}`);
 
-    const token = await TokenContract.deploy(wallet, fundedAccount, 'TokenName', 'TokenSymbol', 18)
-      .send({ from: fundedAccount })
-      .deployed();
+    const token = await TokenContract.deploy(wallet, fundedAccount, 'TokenName', 'TokenSymbol', 18).send({
+      from: fundedAccount,
+    });
     logger.info(`Deployed token contract at ${token.address}`);
 
     const mintAmount = 50n;
-    await token.methods.mint_to_private(address, mintAmount).send({ from: fundedAccount }).wait();
+    await token.methods.mint_to_private(address, mintAmount).send({ from: fundedAccount });
 
     const balance = await token.methods.balance_of_private(address).simulate({ from: address });
     logger.info(`Balance of wallet is now ${balance}`);
@@ -94,7 +94,7 @@ describe('guides/writing_an_account_contract', () => {
     });
 
     try {
-      await token.methods.mint_to_public(address, 200).send({ from: wrongAccount.address }).wait();
+      await token.methods.mint_to_public(address, 200).send({ from: wrongAccount.address });
     } catch (err) {
       logger.info(`Failed to send tx: ${err}`);
     }

@@ -36,7 +36,7 @@ global:
   aztecImage:
     repository: aztecprotocol/aztec
     tag: ""
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
 
   # -- Collector endpoint - e.g. http://localhost:4318
   otelCollectorEndpoint: ""
@@ -68,6 +68,7 @@ statefulSet:
 nodeSelector: null
 affinity: null
 tolerations: []
+topologySpreadConstraints: []
 
 # -- Aztec node configuration
 node:
@@ -79,6 +80,10 @@ node:
   startCmd:
     - --node
     - --archiver
+
+  image:
+    repository: ""
+    tag: ""
 
   env: {}
 
@@ -98,7 +103,8 @@ node:
   coinbase:
 
   # -- Exclude metrics - comma separated list of metrics to exclude
-  otelExcludeMetrics: ""
+  otelExcludeMetrics: null
+  otelIncludeMetrics: null
 
   storage:
     # -- Data directory
@@ -115,9 +121,13 @@ node:
   startupProbe:
     # -- Period seconds
     periodSeconds: 30
+    # -- Timeout seconds for each probe request
+    timeoutSeconds: 1
+    # -- Initial delay before starting probes
+    initialDelaySeconds: 0
     # -- Failure threshold
-    # 10 minutes default but this might not be enough if the node has to download a lot of blocks.
-    failureThreshold: 20 
+    # 20 minutes default but this might not be enough if the node has to download a lot of blocks.
+    failureThreshold: 40
 
   resources: {}
 
@@ -187,6 +197,7 @@ service:
   p2p:
     enabled: true
     nodePortEnabled: false
+    publicIP: true
     port: 40400
     announcePort: 40400
 
@@ -194,7 +205,7 @@ ingress:
   rpc:
     enabled: false
     annotations: {}
-    host:
+    hosts: []
 
 rbac:
   # -- Specifies whether RBAC resources are to be created

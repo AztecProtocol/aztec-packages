@@ -1,4 +1,6 @@
-import { keccakf1600, poseidon2Permutation, sha256Compression } from '@aztec/foundation/crypto';
+import { keccakf1600 } from '@aztec/foundation/crypto/keccak';
+import { poseidon2Permutation } from '@aztec/foundation/crypto/poseidon';
+import { sha256Compression } from '@aztec/foundation/crypto/sha256';
 
 import type { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint32, Uint64 } from '../avm_memory_types.js';
@@ -20,7 +22,7 @@ export class Poseidon2 extends Instruction {
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private inputStateOffset: number,
     private outputStateOffset: number,
   ) {
@@ -29,7 +31,7 @@ export class Poseidon2 extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -63,7 +65,7 @@ export class KeccakF1600 extends Instruction {
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private dstOffset: number,
     private inputOffset: number,
   ) {
@@ -74,7 +76,7 @@ export class KeccakF1600 extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     const inputSize = 25;
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -107,7 +109,7 @@ export class Sha256Compression extends Instruction {
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private outputOffset: number,
     private stateOffset: number,
     private inputsOffset: number,
@@ -120,7 +122,7 @@ export class Sha256Compression extends Instruction {
     const INPUTS_SIZE = 16;
 
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -130,13 +132,17 @@ export class Sha256Compression extends Instruction {
     const [outputOffset, stateOffset, inputsOffset] = addressing.resolve(operands, memory);
 
     // Note: size of output is same as size of state
-    const inputs = Uint32Array.from(memory.getSlice(inputsOffset, INPUTS_SIZE).map(word => word.toNumber()));
-    const state = Uint32Array.from(memory.getSlice(stateOffset, STATE_SIZE).map(word => word.toNumber()));
+    const inputs = memory.getSlice(inputsOffset, INPUTS_SIZE).map(word => word.toBigInt());
+    const state = memory.getSlice(stateOffset, STATE_SIZE).map(word => word.toBigInt());
 
     memory.checkTagsRange(TypeTag.UINT32, inputsOffset, INPUTS_SIZE);
     memory.checkTagsRange(TypeTag.UINT32, stateOffset, STATE_SIZE);
 
-    const output = sha256Compression(state, inputs);
+    // At this point both state and inputs are Uint32Array-compatible
+    const inputsArray = new Uint32Array(inputs.map(i => Number(i)));
+    const stateArray = new Uint32Array(state.map(i => Number(i)));
+
+    const output = sha256Compression(stateArray, inputsArray);
 
     // Conversion required from Uint32Array to Uint32[] (can't map directly, need `...`)
     const res = [...output].map(word => new Uint32(word));

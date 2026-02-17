@@ -1,6 +1,5 @@
-import type { AztecNodeService } from '@aztec/aztec-node';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
-import type { DeployOptions } from '@aztec/aztec.js/contracts';
+import type { DeployTxReceipt } from '@aztec/aztec.js/contracts';
 import { type FeePaymentMethod, PublicFeePaymentMethod } from '@aztec/aztec.js/fee';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
@@ -13,11 +12,40 @@ import {
 import type { Logger } from '@aztec/foundation/log';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
+import { type Sequencer, type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 
 import { inspect } from 'util';
 
 import { FeesTest } from './fees_test.js';
+
+/**
+ * Waits for the sequencer to reach IDLE state.
+ * This ensures any in-progress checkpoint job has completed and the next job will use the current config.
+ */
+function waitForSequencerIdle(sequencer: Sequencer, timeout = 30000): Promise<void> {
+  // If already idle, no need to wait
+  if (sequencer.status().state === SequencerState.IDLE) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      sequencer.off('state-changed', handler);
+      reject(new Error('Timeout waiting for sequencer IDLE state'));
+    }, timeout);
+
+    const handler = (args: Parameters<SequencerEvents['state-changed']>[0]) => {
+      if (args.newState === SequencerState.IDLE) {
+        clearTimeout(timer);
+        sequencer.off('state-changed', handler);
+        resolve();
+      }
+    };
+
+    sequencer.on('state-changed', handler);
+  });
+}
 
 describe('e2e_fees gas_estimation', () => {
   let wallet: Wallet;
@@ -32,15 +60,15 @@ describe('e2e_fees gas_estimation', () => {
   const t = new FeesTest('gas_estimation');
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyFPCSetupSnapshot();
+    await t.setup();
+    await t.applyFPCSetup();
     await t.applyFundAliceWithBananas();
-    ({ wallet, aliceAddress, bobAddress, bananaCoin, bananaFPC, gasSettings, logger, aztecNode } = await t.setup());
+    ({ wallet, aliceAddress, bobAddress, bananaCoin, bananaFPC, gasSettings, logger, aztecNode } = t);
   });
 
   beforeEach(async () => {
     // Load the gas fees at the start of each test, use those exactly as the max fees per gas
-    const gasFees = await aztecNode.getCurrentBaseFees();
+    const gasFees = await aztecNode.getCurrentMinFees();
     gasSettings = GasSettings.from({
       ...gasSettings,
       maxFeesPerGas: gasFees,
@@ -61,7 +89,7 @@ describe('e2e_fees gas_estimation', () => {
   ) =>
     Promise.all(
       [GasSettings.from({ ...gasSettings, ...limits }), gasSettings].map(gasSettings =>
-        makeTransferRequest().send({ from: aliceAddress, fee: { gasSettings, paymentMethod } }).wait(),
+        makeTransferRequest().send({ from: aliceAddress, fee: { gasSettings, paymentMethod } }),
       ),
     );
 
@@ -78,7 +106,13 @@ describe('e2e_fees gas_estimation', () => {
     });
     logGasEstimate(estimatedGas);
 
-    (t.aztecNode as AztecNodeService).getSequencer()!.updateConfig({ minTxsPerBlock: 2, maxTxsPerBlock: 2 });
+    const sequencer = t.context.sequencer!.getSequencer();
+
+    await t.aztecNodeAdmin.setConfig({ minTxsPerBlock: 2, maxTxsPerBlock: 2 });
+
+    // Wait for any in-progress checkpoint job to complete before sending txs.
+    // This ensures the next checkpoint job will use the updated minTxsPerBlock config.
+    await waitForSequencerIdle(sequencer);
 
     const [withEstimate, withoutEstimate] = await sendTransfers(estimatedGas);
 
@@ -141,13 +175,18 @@ describe('e2e_fees gas_estimation', () => {
 
   it('estimates gas for public contract initialization with Fee Juice payment method', async () => {
     const deployMethod = () => BananaCoin.deploy(wallet, aliceAddress, 'TKN', 'TKN', 8);
-    const deployOpts: (limits?: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>) => DeployOptions = limits => ({
-      from: aliceAddress,
-      fee: { gasSettings: { ...gasSettings, ...limits } },
-      skipClassPublication: true,
-    });
+    const deployOpts = (limits?: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>) => {
+      return {
+        from: aliceAddress,
+        fee: { gasSettings: limits ? { ...gasSettings, ...limits } : gasSettings },
+        skipClassPublication: true,
+        wait: { returnReceipt: true },
+      };
+    };
+
     const { estimatedGas } = await deployMethod().simulate({
-      ...deployOpts(),
+      from: aliceAddress,
+      skipClassPublication: true,
       fee: {
         estimateGas: true,
         estimatedGasPadding: 0,
@@ -155,10 +194,10 @@ describe('e2e_fees gas_estimation', () => {
     });
     logGasEstimate(estimatedGas);
 
-    const [withEstimate, withoutEstimate] = await Promise.all([
-      deployMethod().send(deployOpts(estimatedGas)).wait(),
-      deployMethod().send(deployOpts()).wait(),
-    ]);
+    const [withEstimate, withoutEstimate] = (await Promise.all([
+      deployMethod().send(deployOpts(estimatedGas)),
+      deployMethod().send(deployOpts()),
+    ])) as unknown as DeployTxReceipt[];
 
     // Estimation should yield that teardown has no cost, so should send the tx with zero for teardown
     expect(withEstimate.transactionFee!).toEqual(withoutEstimate.transactionFee!);

@@ -1,9 +1,10 @@
-import { GeneratorIndex } from '@aztec/constants';
-import { poseidon2Hash, poseidon2HashWithSeparator, sha256ToField } from '@aztec/foundation/crypto';
+import { DomainSeparator, NULL_MSG_SENDER_CONTRACT_ADDRESS } from '@aztec/constants';
+import { poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
+import { sha256ToField } from '@aztec/foundation/crypto/sha256';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 
-import type { AztecAddress } from '../aztec-address/index.js';
+import { AztecAddress } from '../aztec-address/index.js';
 
 /**
  * Computes a hash of a given verification key.
@@ -22,7 +23,7 @@ export async function hashVK(keyAsFields: Fr[]): Promise<Fr> {
  * @returns A note hash nonce.
  */
 export function computeNoteHashNonce(nullifierZero: Fr, noteHashIndex: number): Promise<Fr> {
-  return poseidon2HashWithSeparator([nullifierZero, noteHashIndex], GeneratorIndex.NOTE_HASH_NONCE);
+  return poseidon2HashWithSeparator([nullifierZero, noteHashIndex], DomainSeparator.NOTE_HASH_NONCE);
 }
 
 /**
@@ -33,7 +34,7 @@ export function computeNoteHashNonce(nullifierZero: Fr, noteHashIndex: number): 
  * @returns A siloed note hash.
  */
 export function siloNoteHash(contract: AztecAddress, noteHash: Fr): Promise<Fr> {
-  return poseidon2HashWithSeparator([contract, noteHash], GeneratorIndex.SILOED_NOTE_HASH);
+  return poseidon2HashWithSeparator([contract, noteHash], DomainSeparator.SILOED_NOTE_HASH);
 }
 
 /**
@@ -43,7 +44,7 @@ export function siloNoteHash(contract: AztecAddress, noteHash: Fr): Promise<Fr> 
  * @returns A unique note hash.
  */
 export function computeUniqueNoteHash(noteNonce: Fr, siloedNoteHash: Fr): Promise<Fr> {
-  return poseidon2HashWithSeparator([noteNonce, siloedNoteHash], GeneratorIndex.UNIQUE_NOTE_HASH);
+  return poseidon2HashWithSeparator([noteNonce, siloedNoteHash], DomainSeparator.UNIQUE_NOTE_HASH);
 }
 
 /**
@@ -54,18 +55,22 @@ export function computeUniqueNoteHash(noteNonce: Fr, siloedNoteHash: Fr): Promis
  * @returns A siloed nullifier.
  */
 export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Promise<Fr> {
-  return poseidon2HashWithSeparator([contract, innerNullifier], GeneratorIndex.OUTER_NULLIFIER);
+  return poseidon2HashWithSeparator([contract, innerNullifier], DomainSeparator.SILOED_NULLIFIER);
 }
 
 /**
- * Computes a siloed private log tag, given the contract address and the unsiloed tag.
- * A siloed private log tag effectively namespaces a log to a specific contract.
- * @param contract - The contract address.
- * @param unsiloedTag - The unsiloed tag.
- * @returns A siloed private log tag.
+ * Computes the protocol nullifier, which is the hash of the initial tx request siloed with the null msg sender address.
+ * @param txRequestHash - The hash of the initial tx request.
+ * @returns The siloed value of the protocol nullifier.
+ *
+ * @dev Must match the implementation in noir-protocol-circuits/crates/types/src/hash.nr > compute_protocol_nullifier
  */
-export function siloPrivateLog(contract: AztecAddress, unsiloedTag: Fr): Promise<Fr> {
-  return poseidon2Hash([contract, unsiloedTag]);
+export function computeProtocolNullifier(txRequestHash: Fr): Promise<Fr> {
+  return siloNullifier(AztecAddress.fromBigInt(NULL_MSG_SENDER_CONTRACT_ADDRESS), txRequestHash);
+}
+
+export function computeSiloedPrivateLogFirstField(contract: AztecAddress, field: Fr): Promise<Fr> {
+  return poseidon2HashWithSeparator([contract, field], DomainSeparator.PRIVATE_LOG_FIRST_FIELD);
 }
 
 /**
@@ -86,7 +91,7 @@ export function computePublicDataTreeValue(value: Fr): Fr {
 
  */
 export function computePublicDataTreeLeafSlot(contractAddress: AztecAddress, storageSlot: Fr): Promise<Fr> {
-  return poseidon2HashWithSeparator([contractAddress, storageSlot], GeneratorIndex.PUBLIC_LEAF_INDEX);
+  return poseidon2HashWithSeparator([contractAddress, storageSlot], DomainSeparator.PUBLIC_LEAF_SLOT);
 }
 
 /**
@@ -100,7 +105,7 @@ export function computeVarArgsHash(args: Fr[]): Promise<Fr> {
     return Promise.resolve(Fr.ZERO);
   }
 
-  return poseidon2HashWithSeparator(args, GeneratorIndex.FUNCTION_ARGS);
+  return poseidon2HashWithSeparator(args, DomainSeparator.FUNCTION_ARGS);
 }
 
 /**
@@ -109,7 +114,7 @@ export function computeVarArgsHash(args: Fr[]): Promise<Fr> {
  * @returns Hash of the calldata.
  */
 export function computeCalldataHash(calldata: Fr[]): Promise<Fr> {
-  return poseidon2HashWithSeparator(calldata, GeneratorIndex.PUBLIC_CALLDATA);
+  return poseidon2HashWithSeparator(calldata, DomainSeparator.PUBLIC_CALLDATA);
 }
 
 /**
@@ -119,13 +124,13 @@ export function computeCalldataHash(calldata: Fr[]): Promise<Fr> {
  * @returns The hash
  */
 export function computeSecretHash(secret: Fr): Promise<Fr> {
-  return poseidon2HashWithSeparator([secret], GeneratorIndex.SECRET_HASH);
+  return poseidon2HashWithSeparator([secret], DomainSeparator.SECRET_HASH);
 }
 
 export async function computeL1ToL2MessageNullifier(contract: AztecAddress, messageHash: Fr, secret: Fr) {
   const innerMessageNullifier = await poseidon2HashWithSeparator(
     [messageHash, secret],
-    GeneratorIndex.MESSAGE_NULLIFIER,
+    DomainSeparator.MESSAGE_NULLIFIER,
   );
   return siloNullifier(contract, innerMessageNullifier);
 }

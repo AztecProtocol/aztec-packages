@@ -1,3 +1,5 @@
+import type { SlotNumber } from '@aztec/foundation/branded-types';
+
 import type { ProposerSlashAction } from './types.js';
 
 export interface ProposerSlashActionProvider {
@@ -7,5 +9,5 @@ export interface ProposerSlashActionProvider {
    * @param slotNumber - The current slot number
    * @returns The actions to take
    */
-  getProposerActions(slotNumber: bigint): Promise<ProposerSlashAction[]>;
+  getProposerActions(slotNumber: SlotNumber): Promise<ProposerSlashAction[]>;
 }

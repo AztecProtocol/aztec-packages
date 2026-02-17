@@ -3,15 +3,21 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "yarn clean && yarn preprocess && docusaurus start --host ${HOST:-localhost}",
-    "dev:netlify": "yarn netlify dev",
-    "build": "yarn clean && yarn preprocess && yarn spellcheck && yarn preprocess:move && docusaurus build",
-    "serve": "docusaurus serve",
+    "build": "yarn clean && yarn preprocess && yarn spellcheck && yarn preprocess:move && yarn validate:redirects && yarn validate:api-ref-links && docusaurus build && node scripts/append_api_docs_to_llms.js",
+    "validate:redirects": "./scripts/validate_redirect_targets.sh",
+    "validate:api-ref-links": "./scripts/validate_api_ref_links.sh",
     "clean": "./scripts/clean.sh",
+    "dev:netlify": "yarn netlify dev",
+    "generate:aztec-nr-api": "./scripts/aztec_nr_docs_generation/generate_aztec_nr_docs.sh",
+    "generate:typescript-api": "./scripts/typescript_api_generation/generate_ts_api_docs.sh",
     "preprocess": "yarn node -r dotenv/config ./src/preprocess/index.js",
     "preprocess:move": "sh scripts/move_processed.sh",
+    "serve": "docusaurus serve",
     "spellcheck": "yarn cspell",
-    "spellcheck:appendwords": "yarn cspell --words-only --unique | sort --ignore-case >> docs-words.txt"
+    "spellcheck:appendwords": "yarn cspell --words-only --unique | sort --ignore-case >> docs-words.txt",
+    "start": "yarn clean && yarn preprocess && yarn generate:aztec-nr-api && docusaurus start --host ${HOST:-localhost}",
+    "test": "node --test src/preprocess/__tests__/*.test.js",
+    "test:preprocess": "node --test src/preprocess/__tests__/*.test.js"
   },
   "dependencies": {
     "@cookbookdev/docsbot": "^4.25.15",
@@ -55,7 +61,11 @@
     ],
     "files": [
       "./docs/**/{*.md,*.md?}",
-      "./versioned_docs/**/{*.md,*.md?}",
+      "./docs-developers/**/{*.md,*.md?}",
+      "./docs-operate/**/{*.md,*.md?}",
+      "./docs-participate/**/{*.md,*.md?}",
+      "./developer_versioned_docs/**/{*.md,*.md?}",
+      "./network_versioned_docs/**/{*.md,*.md?}",
       "./internal_notes/**/{*.md,*.md?}",
       "./src/components/Snippets/*.js",
       "./processed-docs/**/{*.md,*.md?}"

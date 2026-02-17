@@ -1,5 +1,5 @@
 /**
- * The `@aztec/accounts/testing/lazy` export provides utility methods for testing, in particular in a Sandbox environment.
+ * The `@aztec/accounts/testing/lazy` export provides utility methods for testing, in particular in a local network environment.
  *
  * @packageDocumentation
  */

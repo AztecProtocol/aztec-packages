@@ -1,3 +1,5 @@
+import { promisify } from 'node:util';
+import { gunzip as gunzipCb, gzip as gzipCb } from 'node:zlib';
 import { Agent, type Dispatcher } from 'undici';
 
 import { createLogger } from '../../log/pino-logger.js';
@@ -5,7 +7,13 @@ import { NoRetryError } from '../../retry/index.js';
 import { jsonStringify } from '../convert.js';
 import type { JsonRpcFetch } from './fetch.js';
 
+const gzip = promisify(gzipCb);
+const gunzip = promisify(gunzipCb);
+
 const log = createLogger('json-rpc:json_rpc_client:undici');
+
+/** Minimum request size in bytes to trigger compression. */
+const COMPRESSION_THRESHOLD = 1024;
 
 export { Agent };
 
@@ -14,14 +22,18 @@ export function makeUndiciFetch(client = new Agent()): JsonRpcFetch {
     log.trace(`JsonRpcClient.fetch: ${host}`, { host, body });
     let resp: Dispatcher.ResponseData;
     try {
+      const jsonBody = Buffer.from(jsonStringify(body));
+      const shouldCompress = jsonBody.length >= COMPRESSION_THRESHOLD;
       resp = await client.request({
         method: 'POST',
         origin: new URL(host),
         path: '/',
-        body: jsonStringify(body),
+        body: shouldCompress ? await gzip(jsonBody) : jsonBody,
         headers: {
           ...extraHeaders,
           'content-type': 'application/json',
+          ...(shouldCompress && { 'content-encoding': 'gzip' }),
+          'accept-encoding': 'gzip',
         },
       });
     } catch (err) {
@@ -31,13 +43,19 @@ export function makeUndiciFetch(client = new Agent()): JsonRpcFetch {
 
     let responseJson: any;
     const responseOk = resp.statusCode >= 200 && resp.statusCode <= 299;
+    const contentEncoding = resp.headers['content-encoding'];
     try {
-      responseJson = await resp.body.json();
+      if (contentEncoding === 'gzip') {
+        const jsonBuffer = await gunzip(await resp.body.arrayBuffer());
+        responseJson = JSON.parse(jsonBuffer.toString('utf-8'));
+      } else {
+        responseJson = await resp.body.json();
+      }
     } catch {
       if (!responseOk) {
         throw new Error('HTTP ' + resp.statusCode);
       }
-      throw new Error(`Failed to parse body as JSON: ${await resp.body.text()}`);
+      throw new Error(`Failed to parse body as JSON. encoding: ${contentEncoding}, body: ${await resp.body.text()}`);
     }
 
     if (!responseOk) {

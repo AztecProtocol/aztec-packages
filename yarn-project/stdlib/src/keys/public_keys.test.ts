@@ -1,4 +1,5 @@
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
 import { PublicKeys } from './public_keys.js';
@@ -27,7 +28,7 @@ describe('PublicKeys', () => {
 
     const hash = await keys.hash();
     expect(hash.toString()).toMatchInlineSnapshot(
-      `"0x0fecd9a32db731fec1fded1b9ff957a1625c069245a3613a2538bd527068b0ad"`,
+      `"0x056998309f6c119e4d753e404f94fef859dddfa530a9379634ceb0854b29bf7a"`,
     );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
@@ -43,7 +44,7 @@ describe('PublicKeys', () => {
 
     const hash = await keys.hash();
     expect(hash.toString()).toMatchInlineSnapshot(
-      `"0x1d3bf1fb93ae0e9cda83b203dd91c3bfb492a9aecf30ec90e1057eced0f0e62d"`,
+      `"0x023547e676dba19784188825b901a0e70d8ad978300d21d6185a54281b734da0"`,
     );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data

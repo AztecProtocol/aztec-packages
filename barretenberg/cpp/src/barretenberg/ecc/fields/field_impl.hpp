@@ -1,13 +1,12 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [Raju], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
-#include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
@@ -404,10 +403,10 @@ void field<T>::batch_invert(C& coeffs) noexcept
 {
     const size_t n = coeffs.size();
 
-    auto temporaries_ptr = std::static_pointer_cast<field[]>(get_mem_slab(n * sizeof(field)));
-    auto skipped_ptr = std::static_pointer_cast<bool[]>(get_mem_slab(n));
-    auto temporaries = temporaries_ptr.get();
-    auto* skipped = skipped_ptr.get();
+    std::vector<field> temporaries;
+    std::vector<bool> skipped;
+    temporaries.reserve(n);
+    skipped.reserve(n);
 
     field accumulator = one();
     for (size_t i = 0; i < n; ++i) {
@@ -577,7 +576,9 @@ template <class T> constexpr field<T> field<T>::tonelli_shanks_sqrt() const noex
             }
         }
 
-        BB_ASSERT(count != table_size);
+        if (count == table_size) {
+            bb::assert_failure("Tonelli-Shanks: count == table_size");
+        }
         e_slices[table_index] = count;
     }
 

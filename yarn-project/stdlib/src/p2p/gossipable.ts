@@ -1,23 +1,42 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, bigintToUInt64BE, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import type { TopicType } from './topic_type.js';
 
 export class P2PMessage {
-  constructor(public readonly payload: Buffer) {}
+  constructor(
+    public readonly payload: Buffer,
+    public readonly timestamp?: Date,
+    public readonly traceContext?: string,
+  ) {}
 
-  static fromGossipable(message: Gossipable): P2PMessage {
-    return new P2PMessage(message.toBuffer());
+  static fromGossipable(message: Gossipable, instrumentMessages = false, traceContext?: string): P2PMessage {
+    if (!instrumentMessages) {
+      return new P2PMessage(message.toBuffer());
+    }
+    return new P2PMessage(message.toBuffer(), new Date(), traceContext);
   }
 
-  static fromMessageData(messageData: Buffer): P2PMessage {
+  static fromMessageData(messageData: Buffer, instrumentMessages = false): P2PMessage {
     const reader = new BufferReader(messageData);
+    let timestamp: Date | undefined;
+    let traceContext: string | undefined;
+    if (instrumentMessages) {
+      timestamp = new Date(Number(reader.readUInt64()));
+      traceContext = reader.readString();
+    }
     const payload = reader.readBuffer();
-    return new P2PMessage(payload);
+    return new P2PMessage(payload, timestamp, traceContext);
   }
 
   toMessageData(): Buffer {
-    return serializeToBuffer([serializeToBuffer(this.payload.length, this.payload)]);
+    const arr: Buffer[] = [];
+    if (this.timestamp) {
+      arr.push(bigintToUInt64BE(BigInt(this.timestamp.getTime())));
+      arr.push(serializeToBuffer(this.traceContext ?? ''));
+    }
+    arr.push(serializeToBuffer(this.payload.length, this.payload));
+    return serializeToBuffer(arr);
   }
 }
 
@@ -35,7 +54,7 @@ export abstract class Gossipable {
    * A digest of the message information **used for logging only**.
    * The identifier used for deduplication is `getMsgIdFn` as defined in `encoding.ts` which is a hash over topic and data.
    */
-  async p2pMessageIdentifier(): Promise<Buffer32> {
+  async p2pMessageLoggingIdentifier(): Promise<Buffer32> {
     if (this.cachedId) {
       return this.cachedId;
     }

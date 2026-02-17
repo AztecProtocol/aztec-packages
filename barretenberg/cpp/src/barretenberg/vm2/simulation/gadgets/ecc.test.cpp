@@ -240,5 +240,39 @@ TEST(AvmSimulationEccTest, InfinityOnCurve)
     EXPECT_EQ(result, q);
 }
 
+TEST(AvmSimulationEccTest, AddsUpToInfinity)
+{
+    EventEmitter<EccAddEvent> ecc_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
+
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockGreaterThan> gt;
+    StrictMock<MockToRadix> to_radix;
+    MemoryStore memory;
+
+    EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(Return(0));
+    EXPECT_CALL(gt, gt(0x1000 + 2, AVM_HIGHEST_MEM_ADDRESS)).WillOnce(Return(false));
+
+    Ecc ecc(
+        execution_id_manager, gt, to_radix, ecc_event_emitter, scalar_mul_event_emitter, ecc_add_memory_event_emitter);
+
+    // Both points on the curve, q = -p
+    FF p_x("0x04c95d1b26d63d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
+    FF p_y("0x035b6dd9e63c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60");
+    EmbeddedCurvePoint p(p_x, p_y, false);
+
+    EmbeddedCurvePoint q = -p;
+
+    uint32_t dst_address = 0x1000;
+    ecc.add(memory, p, q, dst_address);
+
+    // Zero as coordinates
+    EXPECT_EQ(memory.get(dst_address).as_ff(), FF(0));
+    EXPECT_EQ(memory.get(dst_address + 1).as_ff(), FF(0));
+    // Infinity
+    EXPECT_EQ(memory.get(dst_address + 2).as_ff(), 1);
+}
+
 } // namespace
 } // namespace bb::avm2::simulation

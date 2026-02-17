@@ -1,27 +1,25 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { type AztecNode, type NodeInfo, createAztecNodeClient } from '@aztec/aztec.js/node';
-import {
-  GovernanceProposerContract,
-  RollupContract,
-  createEthereumChain,
-  createExtendedL1Client,
-  createL1TxUtilsFromViemWallet,
-  deployL1Contract,
-} from '@aztec/ethereum';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import { createExtendedL1Client } from '@aztec/ethereum/client';
+import { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
+import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
+import { createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { NewGovernanceProposerPayloadAbi } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadAbi';
 import { NewGovernanceProposerPayloadBytecode } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadBytecode';
 
-import type { ChildProcess } from 'child_process';
 import { privateKeyToAccount } from 'viem/accounts';
 import { parseEther, stringify } from 'viem/utils';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
+  ChainHealth,
+  type ServiceEndpoint,
+  getEthereumEndpoint,
+  getRPCEndpoint,
   setupEnvironment,
-  startPortForwardForEthereum,
-  startPortForwardForRPC,
   updateSequencersConfig,
 } from './utils.js';
 
@@ -36,25 +34,24 @@ describe('spartan_upgrade_governance_proposer', () => {
   let aztecNode: AztecNode;
   let nodeInfo: NodeInfo;
   let ETHEREUM_HOSTS: string[];
-  const forwardProcesses: ChildProcess[] = [];
+  const endpoints: ServiceEndpoint[] = [];
+  const health = new ChainHealth(config.NAMESPACE, debugLogger);
 
-  afterAll(() => {
-    forwardProcesses.forEach(p => p.kill());
+  afterAll(async () => {
+    await health.teardown();
+    endpoints.forEach(e => e.process?.kill());
   });
 
   beforeAll(async () => {
-    const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
-    const { process: ethereumProcess, port: ethereumPort } = await startPortForwardForEthereum(config.NAMESPACE);
-    forwardProcesses.push(aztecRpcProcess);
-    forwardProcesses.push(ethereumProcess);
+    await health.setup();
+    const rpcEndpoint = await getRPCEndpoint(config.NAMESPACE);
+    const ethEndpoint = await getEthereumEndpoint(config.NAMESPACE);
+    endpoints.push(rpcEndpoint, ethEndpoint);
 
-    const nodeUrl = `http://127.0.0.1:${aztecRpcPort}`;
-    const ethereumUrl = `http://127.0.0.1:${ethereumPort}`;
-
-    aztecNode = createAztecNodeClient(nodeUrl);
+    aztecNode = createAztecNodeClient(rpcEndpoint.url);
     nodeInfo = await aztecNode.getNodeInfo();
 
-    ETHEREUM_HOSTS = [ethereumUrl];
+    ETHEREUM_HOSTS = [ethEndpoint.url];
   });
 
   // We need a separate account to deploy the new governance proposer
@@ -170,6 +167,6 @@ describe('spartan_upgrade_governance_proposer', () => {
       expect(receipt.status).toEqual('success');
       debugLogger.info(`Executed proposal ${info.round}`);
     },
-    1000 * 60 * 10,
+    1000 * 60 * 20,
   );
 });

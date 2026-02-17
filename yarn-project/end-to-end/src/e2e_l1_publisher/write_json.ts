@@ -1,8 +1,9 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import type { L2Block } from '@aztec/aztec.js/block';
 import { Fr } from '@aztec/aztec.js/fields';
-import { BatchedBlob, Blob, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
+import { BatchedBlob, Blob, getEthBlobEvaluationInputs, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { L2Block } from '@aztec/stdlib/block';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
 
 import { writeFile } from 'fs/promises';
 
@@ -14,6 +15,7 @@ const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
  */
 export async function writeJson(
   fileName: string,
+  checkpointHeader: CheckpointHeader,
   block: L2Block,
   l1ToL2Content: Fr[],
   blobs: Blob[],
@@ -41,32 +43,31 @@ export async function writeJson(
     messages: {
       l2ToL1Messages: block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs).map(value => asHex(value)),
     },
-    block: {
+    checkpoint: {
       // The json formatting in forge is a bit brittle, so we convert Fr to a number in the few values below.
       // This should not be a problem for testing as long as the values are not larger than u32.
       archive: asHex(block.archive.root),
       blobCommitments: getPrefixedEthBlobCommitments(blobs),
-      batchedBlobInputs: batchedBlob.getEthBlobEvaluationInputs(),
-      blockNumber: block.number,
+      batchedBlobInputs: getEthBlobEvaluationInputs(batchedBlob),
+      checkpointNumber: block.number,
       body: `0x${block.body.toBuffer().toString('hex')}`,
       header: {
-        lastArchiveRoot: asHex(block.header.lastArchive.root),
-        contentCommitment: {
-          blobsHash: asHex(block.header.contentCommitment.blobsHash),
-          inHash: asHex(block.header.contentCommitment.inHash),
-          outHash: asHex(block.header.contentCommitment.outHash),
-        },
-        slotNumber: Number(block.header.globalVariables.slotNumber),
-        timestamp: Number(block.header.globalVariables.timestamp),
-        coinbase: asHex(block.header.globalVariables.coinbase, 40),
-        feeRecipient: asHex(block.header.globalVariables.feeRecipient),
+        lastArchiveRoot: asHex(checkpointHeader.lastArchiveRoot),
+        blockHeadersHash: asHex(checkpointHeader.blockHeadersHash),
+        blobsHash: asHex(checkpointHeader.blobsHash),
+        inHash: asHex(checkpointHeader.inHash),
+        outHash: asHex(checkpointHeader.epochOutHash),
+        slotNumber: Number(checkpointHeader.slotNumber),
+        timestamp: Number(checkpointHeader.timestamp),
+        coinbase: asHex(checkpointHeader.coinbase, 40),
+        feeRecipient: asHex(checkpointHeader.feeRecipient),
         gasFees: {
-          feePerDaGas: Number(block.header.globalVariables.gasFees.feePerDaGas),
-          feePerL2Gas: Number(block.header.globalVariables.gasFees.feePerL2Gas),
+          feePerDaGas: Number(checkpointHeader.gasFees.feePerDaGas),
+          feePerL2Gas: Number(checkpointHeader.gasFees.feePerL2Gas),
         },
-        totalManaUsed: block.header.totalManaUsed.toNumber(),
+        totalManaUsed: checkpointHeader.totalManaUsed.toNumber(),
       },
-      headerHash: asHex(block.getCheckpointHeader().hash()),
+      headerHash: asHex(checkpointHeader.hash()),
       numTxs: block.body.txEffects.length,
     },
   };

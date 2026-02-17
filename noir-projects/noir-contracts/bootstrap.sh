@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# TODO: THIS SCRIPT SHOULD NOW BE ABLE TO REPLACE TRANSPILATION AND VK GENERATION WITH 'bb aztec_process'.
+#
 # Some notes if you have to work on this script.
 # - First of all, I'm sorry (edit: not sorry). It's a beautiful script but it's no fun to debug. I got carried away.
 # - You can enable BUILD_SYSTEM_DEBUG=1 but the output is quite verbose that it's not much use by default.
@@ -17,7 +19,6 @@
 # - We could perhaps make it less tricky to work with by leveraging more tempfiles and less stdin/stdout.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cmd=${1:-}
 # entrypoint for docs
 if [ -n "${DOCS_WORKING_DIR:-}" ]; then
   cd "$DOCS_WORKING_DIR"
@@ -30,6 +31,7 @@ export PLATFORM_TAG=any
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export TRANSPILER=${TRANSPILER:-../../avm-transpiler/target/release/avm-transpiler}
+export STRIP_AZTEC_NR_PREFIX=${STRIP_AZTEC_NR_PREFIX:-./scripts/strip_aztec_nr_prefix.sh}
 export BB_HASH=${BB_HASH:-$(../../barretenberg/cpp/bootstrap.sh hash)}
 export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
 
@@ -82,7 +84,7 @@ function process_function {
       echo_stderr "Generating vk for function: $name..."
 
       local outdir=$(mktemp -d -p $tmp_dir)
-      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme chonk --verifier_type standalone -b - -o $outdir -v
+      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme chonk -b - -o $outdir -v
       mv $outdir/vk $tmp_dir/$contract_hash/$hash
 
       cache_upload vk-$contract_hash-$hash.tar.gz $tmp_dir/$contract_hash/$hash
@@ -110,6 +112,8 @@ function get_contract_hash {
       $NOIR_HASH \
       $(cache_content_hash \
         ../avm-transpiler/.rebuild_patterns \
+        ../barretenberg/cpp/.rebuild_patterns \
+        ../barretenberg/ts/.rebuild_patterns \
         "^docs/examples/$contract_path/" \
         "^noir-projects/aztec-nr/" \
         "^noir-projects/noir-protocol-circuits/crates/types/")
@@ -119,7 +123,10 @@ function get_contract_hash {
       $NOIR_HASH \
       $(cache_content_hash \
         ../../avm-transpiler/.rebuild_patterns \
+        ../../barretenberg/cpp/.rebuild_patterns \
+        ../../barretenberg/ts/.rebuild_patterns \
         "^noir-projects/noir-contracts/contracts/$contract_path/" \
+        "^noir-projects/noir-contracts/contracts/protocol/aztec_sublib/" \
         "^noir-projects/aztec-nr/" \
         "^noir-projects/noir-protocol-circuits/crates/types/")
   fi
@@ -168,8 +175,9 @@ function compile {
   local json_path="./target/$filename"
   contract_hash=$(get_contract_hash $1 $2)
   if ! cache_download contract-$contract_hash.tar.gz; then
-    $NARGO compile --package $contract --inliner-aggressiveness 0 --pedantic-solving --deny-warnings
+    $NARGO compile --package $contract --inliner-aggressiveness 0  --deny-warnings
     $TRANSPILER $json_path $json_path
+    $STRIP_AZTEC_NR_PREFIX $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi
 
@@ -256,9 +264,6 @@ function format {
 }
 
 case "$cmd" in
-  "clean")
-    git clean -fdx
-    ;;
   "clean-keys")
     for artifact in target/*.json; do
       echo_stderr "Scrubbing vk from $artifact..."
@@ -266,21 +271,13 @@ case "$cmd" in
       mv "${artifact}.tmp" "$artifact"
     done
     ;;
-  ""|"fast"|"full")
+  "")
     build
-    ;;
-  "ci")
-    build
-    test
     ;;
   "compile")
-    shift
     VERBOSE=${VERBOSE:-1} build "$@"
     ;;
-  test|test_cmds|format)
-    $cmd
-    ;;
   *)
-    echo_stderr "Unknown command: $cmd"
-    exit 1
+    default_cmd_handler "$@"
+    ;;
 esac

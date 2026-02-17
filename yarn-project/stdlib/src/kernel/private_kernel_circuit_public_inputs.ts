@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, bigintToUInt64BE, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -41,7 +41,7 @@ export class PrivateKernelCircuitPublicInputs {
     /**
      * The timestamp by which the transaction must be included in a block.
      */
-    public includeByTimestamp: UInt64,
+    public expirationTimestamp: UInt64,
     /**
      * Wether this is a private only tx or not
      */
@@ -50,6 +50,10 @@ export class PrivateKernelCircuitPublicInputs {
      * The nullifier that will be used for nonce generation
      */
     public claimedFirstNullifier: Fr,
+    /**
+     * A claim to the final min revertible side effect counter of a tx.
+     */
+    public claimedRevertibleCounter: number,
   ) {}
 
   static get schema() {
@@ -68,9 +72,10 @@ export class PrivateKernelCircuitPublicInputs {
       this.end,
       this.publicTeardownCallRequest,
       this.feePayer,
-      bigintToUInt64BE(this.includeByTimestamp),
+      bigintToUInt64BE(this.expirationTimestamp),
       this.isPrivateOnly,
       this.claimedFirstNullifier,
+      this.claimedRevertibleCounter,
     );
   }
 
@@ -91,6 +96,7 @@ export class PrivateKernelCircuitPublicInputs {
       reader.readUInt64(),
       reader.readBoolean(),
       reader.readObject(Fr),
+      reader.readNumber(),
     );
   }
 
@@ -105,6 +111,7 @@ export class PrivateKernelCircuitPublicInputs {
       0n,
       false,
       Fr.zero(),
+      0,
     );
   }
 }

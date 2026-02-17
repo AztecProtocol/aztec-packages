@@ -28,11 +28,13 @@
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/version.hpp"
-#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/vm2/api_avm.hpp"
+#include <atomic>
 #include <fstream>
 #include <iostream>
+#include <mutex>
 
 namespace bb {
 
@@ -149,10 +151,31 @@ int parse_and_run_cli_command(int argc, char* argv[])
     flags.oracle_hash_type = "poseidon2";
     flags.crs_path = srs::bb_crs_path();
     flags.include_gates_per_opcode = false;
+
+    /***************************************************************************************************************
+     * Flag: --help-extended (detected early to set group visibility)
+     ***************************************************************************************************************/
+    // Check if --help-extended was passed before parsing (since we need to modify group visibility before CLI setup)
+    bool show_extended_help = false;
+    for (int i = 1; i < argc; ++i) {
+        if (std::string(argv[i]) == "--help-extended") {
+            show_extended_help = true;
+            break;
+        }
+    }
+    // Group names - empty string hides the group from help, non-empty shows it
+    const std::string advanced_group = show_extended_help ? "Advanced Options (Aztec/Power Users)" : "";
+    const std::string aztec_internal_group = show_extended_help ? "Aztec Internal Commands" : "";
+
     const auto add_output_path_option = [&](CLI::App* subcommand, auto& _output_path) {
         return subcommand->add_option("--output_path, -o",
                                       _output_path,
                                       "Directory to write files or path of file to write, depending on subcommand.");
+    };
+
+    // Helper to add --help-extended to subcommands (for help consistency)
+    const auto add_help_extended_flag = [&](CLI::App* subcommand) {
+        subcommand->add_flag("--help-extended", "Show all options including advanced ones.");
     };
 
     /***************************************************************************************************************
@@ -160,8 +183,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
      ***************************************************************************************************************/
 
     const auto add_ipa_accumulation_flag = [&](CLI::App* subcommand) {
-        return subcommand->add_flag(
-            "--ipa_accumulation", flags.ipa_accumulation, "Accumulate/Aggregate IPA (Inner Product Argument) claims");
+        return subcommand
+            ->add_flag("--ipa_accumulation",
+                       flags.ipa_accumulation,
+                       "Accumulate/Aggregate IPA (Inner Product Argument) claims")
+            ->group(advanced_group);
     };
 
     const auto add_scheme_option = [&](CLI::App* subcommand) {
@@ -173,7 +199,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 "particular type of circuit to be constructed and proven for some implicit scheme.")
             ->envname("BB_SCHEME")
             ->default_val("ultra_honk")
-            ->check(CLI::IsMember({ "chonk", "avm", "ultra_honk" }).name("is_member"));
+            ->check(CLI::IsMember({ "chonk", "avm", "ultra_honk" }).name("is_member"))
+            ->group(advanced_group);
     };
 
     const auto add_crs_path_option = [&](CLI::App* subcommand) {
@@ -181,7 +208,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
             ->add_option("--crs_path, -c",
                          flags.crs_path,
                          "Path CRS directory. Missing CRS files will be retrieved from the internet.")
-            ->check(CLI::ExistingDirectory);
+            ->check(CLI::ExistingDirectory)
+            ->group(advanced_group);
     };
 
     const auto add_oracle_hash_option = [&](CLI::App* subcommand) {
@@ -193,8 +221,36 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 "generation. Poseidon2 is to be used for proofs that are intended to be verified inside of a "
                 "circuit. Keccak is optimized for verification in an Ethereum smart contract, where Keccak "
                 "has a privileged position due to the existence of an EVM precompile. Starknet is optimized "
-                "for verification in a Starknet smart contract, which can be generated using the Garaga library.")
-            ->check(CLI::IsMember({ "poseidon2", "keccak", "starknet" }).name("is_member"));
+                "for verification in a Starknet smart contract, which can be generated using the Garaga library. "
+                "Prefer using --verifier_target instead.")
+            ->check(CLI::IsMember({ "poseidon2", "keccak", "starknet" }).name("is_member"))
+            ->group(advanced_group);
+    };
+
+    const auto add_verifier_target_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--verifier_target, -t",
+                         flags.verifier_target,
+                         "Target verification environment. Determines hash function and ZK settings.\n"
+                         "\n"
+                         "Options:\n"
+                         "  evm                  Ethereum/Solidity (keccak, ZK)\n"
+                         "  evm-no-zk            Ethereum/Solidity without ZK\n"
+                         "  noir-recursive       Noir circuits (poseidon2, ZK)\n"
+                         "  noir-recursive-no-zk Noir circuits without ZK\n"
+                         "  noir-rollup          Rollup with IPA (poseidon2, ZK)\n"
+                         "  noir-rollup-no-zk    Rollup without ZK\n"
+                         "  starknet             Starknet via Garaga (ZK)\n"
+                         "  starknet-no-zk       Starknet without ZK")
+            ->envname("BB_VERIFIER_TARGET")
+            ->check(CLI::IsMember({ "evm",
+                                    "evm-no-zk",
+                                    "noir-recursive",
+                                    "noir-recursive-no-zk",
+                                    "noir-rollup",
+                                    "noir-rollup-no-zk",
+                                    "starknet",
+                                    "starknet-no-zk" }));
     };
 
     const auto add_write_vk_flag = [&](CLI::App* subcommand) {
@@ -202,9 +258,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
     };
 
     const auto remove_zk_option = [&](CLI::App* subcommand) {
-        return subcommand->add_flag("--disable_zk",
-                                    flags.disable_zk,
-                                    "Use a non-zk version of --scheme. This flag is set to false by default.");
+        return subcommand
+            ->add_flag("--disable_zk",
+                       flags.disable_zk,
+                       "Use a non-zk version of --scheme. Prefer using --verifier_target *-no-zk variants instead.")
+            ->group(advanced_group);
     };
 
     const auto add_bytecode_path_option = [&](CLI::App* subcommand) {
@@ -218,9 +276,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
     };
 
     const auto add_ivc_inputs_path_options = [&](CLI::App* subcommand) {
-        subcommand->add_option(
-            "--ivc_inputs_path", ivc_inputs_path, "For IVC, path to input stack with bytecode and witnesses.")
-            /* ->check(CLI::ExistingFile) OR stdin indicator - */;
+        subcommand
+            ->add_option(
+                "--ivc_inputs_path", ivc_inputs_path, "For IVC, path to input stack with bytecode and witnesses.")
+            ->group(advanced_group);
     };
 
     const auto add_public_inputs_path_option = [&](CLI::App* subcommand) {
@@ -238,27 +297,14 @@ int parse_and_run_cli_command(int argc, char* argv[])
             /* ->check(CLI::ExistingFile) */;
     };
 
-    const auto add_verifier_type_option = [&](CLI::App* subcommand) {
-        return subcommand
-            ->add_option("--verifier_type",
-                         flags.verifier_type,
-                         "Is a verification key for use a standalone single circuit verifier (e.g. a SNARK or folding "
-                         "recursive verifier) or is it for an ivc verifier? `standalone` produces a verification key "
-                         "is sufficient for verifying proofs about a single circuit (including the non-encsapsulated "
-                         "use case where an IVC scheme is manually constructed via recursive UltraHonk proof "
-                         "verification). `standalone_hiding` is similar to `standalone` but is used for the last step "
-                         "where the structured trace is not utilized. `ivc` produces a verification key for verifying "
-                         "the stack of run though a dedicated ivc verifier class (currently the only option is the "
-                         "Chonk class)")
-            ->check(CLI::IsMember({ "standalone", "standalone_hiding", "ivc" }).name("is_member"));
-    };
-
     const auto add_verbose_flag = [&](CLI::App* subcommand) {
-        return subcommand->add_flag("--verbose, --verbose_logging, -v", flags.verbose, "Output all logs to stderr.");
+        return subcommand->add_flag("--verbose, --verbose_logging, -v", flags.verbose, "Output all logs to stderr.")
+            ->group(advanced_group);
     };
 
     const auto add_debug_flag = [&](CLI::App* subcommand) {
-        return subcommand->add_flag("--debug_logging, -d", flags.debug, "Output debug logs to stderr.");
+        return subcommand->add_flag("--debug_logging, -d", flags.debug, "Output debug logs to stderr.")
+            ->group(advanced_group);
     };
 
     const auto add_include_gates_per_opcode_flag = [&](CLI::App* subcommand) {
@@ -268,29 +314,30 @@ int parse_and_run_cli_command(int argc, char* argv[])
     };
 
     const auto add_slow_low_memory_flag = [&](CLI::App* subcommand) {
-        return subcommand->add_flag(
-            "--slow_low_memory", flags.slow_low_memory, "Enable low memory mode (can be 2x slower or more).");
+        return subcommand
+            ->add_flag("--slow_low_memory", flags.slow_low_memory, "Enable low memory mode (can be 2x slower or more).")
+            ->group(advanced_group);
     };
 
     const auto add_storage_budget_option = [&](CLI::App* subcommand) {
-        return subcommand->add_option("--storage_budget",
-                                      flags.storage_budget,
-                                      "Storage budget for FileBackedMemory (e.g. '500m', '2g'). When exceeded, falls "
-                                      "back to RAM (requires --slow_low_memory).");
-    };
-
-    const auto add_update_inputs_flag = [&](CLI::App* subcommand) {
-        return subcommand->add_flag("--update_inputs", flags.update_inputs, "Update inputs if vk check fails.");
+        return subcommand
+            ->add_option("--storage_budget",
+                         flags.storage_budget,
+                         "Storage budget for FileBackedMemory (e.g. '500m', '2g'). When exceeded, falls "
+                         "back to RAM (requires --slow_low_memory).")
+            ->group(advanced_group);
     };
 
     const auto add_vk_policy_option = [&](CLI::App* subcommand) {
         return subcommand
             ->add_option("--vk_policy",
                          flags.vk_policy,
-                         "Policy for handling verification keys during IVC accumulation. 'default' uses the provided "
-                         "VK as-is, 'check' verifies the provided VK matches the computed VK (throws error on "
-                         "mismatch), 'recompute' always ignores the provided VK and treats it as nullptr.")
-            ->check(CLI::IsMember({ "default", "check", "recompute" }).name("is_member"));
+                         "Policy for handling verification keys. 'default' uses the provided VK as-is, 'check' "
+                         "verifies the provided VK matches the computed VK (throws error on mismatch), 'recompute' "
+                         "always ignores the provided VK and treats it as nullptr, 'rewrite' checks the VK and "
+                         "rewrites the input file with the correct VK if there's a mismatch (for check command).")
+            ->check(CLI::IsMember({ "default", "check", "recompute", "rewrite" }).name("is_member"))
+            ->group(advanced_group);
     };
 
     const auto add_optimized_solidity_verifier_flag = [&](CLI::App* subcommand) {
@@ -298,22 +345,36 @@ int parse_and_run_cli_command(int argc, char* argv[])
             "--optimized", flags.optimized_solidity_verifier, "Use the optimized Solidity verifier.");
     };
 
+    const auto add_output_format_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--output_format",
+                         flags.output_format,
+                         "Output format for proofs and verification keys: 'binary' (default) or 'json'.\n"
+                         "JSON format includes metadata like bb_version, scheme, and verifier_target.")
+            ->check(CLI::IsMember({ "binary", "json" }).name("is_member"));
+    };
+
     bool print_bench = false;
     const auto add_print_bench_flag = [&](CLI::App* subcommand) {
-        return subcommand->add_flag(
-            "--print_bench", print_bench, "Pretty print op counts to standard error in a human-readable format.");
+        return subcommand
+            ->add_flag(
+                "--print_bench", print_bench, "Pretty print op counts to standard error in a human-readable format.")
+            ->group(advanced_group);
     };
 
     std::string bench_out;
     const auto add_bench_out_option = [&](CLI::App* subcommand) {
-        return subcommand->add_option("--bench_out", bench_out, "Path to write the op counts in a json.");
+        return subcommand->add_option("--bench_out", bench_out, "Path to write the op counts in a json.")
+            ->group(advanced_group);
     };
     std::string bench_out_hierarchical;
     const auto add_bench_out_hierarchical_option = [&](CLI::App* subcommand) {
-        return subcommand->add_option("--bench_out_hierarchical",
-                                      bench_out_hierarchical,
-                                      "Path to write the hierarchical benchmark data (op counts and timings with "
-                                      "parent-child relationships) as json.");
+        return subcommand
+            ->add_option("--bench_out_hierarchical",
+                         bench_out_hierarchical,
+                         "Path to write the hierarchical benchmark data (op counts and timings with "
+                         "parent-child relationships) as json.")
+            ->group(advanced_group);
     };
 
     /***************************************************************************************************************
@@ -326,7 +387,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
     /***************************************************************************************************************
      * Builtin flag: --version
      ***************************************************************************************************************/
-    app.set_version_flag("--version", BB_VERSION_PLACEHOLDER, "Print the version string.");
+    app.set_version_flag("--version", BB_VERSION, "Print the version string.");
+
+    /***************************************************************************************************************
+     * Flag: --help-extended (register with CLI11)
+     ***************************************************************************************************************/
+    app.add_flag("--help-extended", "Show all options including advanced and Aztec-specific commands.");
 
     /***************************************************************************************************************
      * Subcommand: check
@@ -337,11 +403,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
         "function constructs the execution trace and iterates through it row by row, applying the "
         "polynomial relations defining the gate types. For Chonk, we check the VKs in the folding stack.");
 
+    add_help_extended_flag(check);
     add_scheme_option(check);
     add_bytecode_path_option(check);
     add_witness_path_option(check);
     add_ivc_inputs_path_options(check);
-    add_update_inputs_flag(check);
+    add_vk_policy_option(check);
 
     /***************************************************************************************************************
      * Subcommand: gates
@@ -350,10 +417,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
                                          "Construct a circuit from the given bytecode (in particular, expand black box "
                                          "functions) and return the gate count information.");
 
+    add_help_extended_flag(gates);
     add_scheme_option(gates);
     add_verbose_flag(gates);
     add_bytecode_path_option(gates);
     add_include_gates_per_opcode_flag(gates);
+    add_verifier_target_option(gates);
     add_oracle_hash_option(gates);
     add_ipa_accumulation_flag(gates);
 
@@ -362,6 +431,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
      ***************************************************************************************************************/
     CLI::App* prove = app.add_subcommand("prove", "Generate a proof.");
 
+    add_help_extended_flag(prove);
     add_scheme_option(prove);
     add_bytecode_path_option(prove);
     add_witness_path_option(prove);
@@ -372,6 +442,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(prove);
     add_debug_flag(prove);
     add_crs_path_option(prove);
+    add_verifier_target_option(prove);
     add_oracle_hash_option(prove);
     add_write_vk_flag(prove);
     add_ipa_accumulation_flag(prove);
@@ -381,6 +452,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_bench_out_option(prove);
     add_bench_out_hierarchical_option(prove);
     add_storage_budget_option(prove);
+    add_output_format_option(prove);
 
     prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
 
@@ -393,6 +465,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
                            "quickly generated but invalid witnesses (which must be supplied in Barretenberg in order "
                            "to expand ACIR black box opcodes), and no proof is constructed.");
 
+    add_help_extended_flag(write_vk);
     add_scheme_option(write_vk);
     add_bytecode_path_option(write_vk);
     add_output_path_option(write_vk, output_path);
@@ -401,16 +474,18 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(write_vk);
     add_debug_flag(write_vk);
     add_crs_path_option(write_vk);
+    add_verifier_target_option(write_vk);
     add_oracle_hash_option(write_vk);
     add_ipa_accumulation_flag(write_vk);
-    add_verifier_type_option(write_vk)->default_val("standalone");
     remove_zk_option(write_vk);
+    add_output_format_option(write_vk);
 
     /***************************************************************************************************************
      * Subcommand: verify
      ***************************************************************************************************************/
     CLI::App* verify = app.add_subcommand("verify", "Verify a proof.");
 
+    add_help_extended_flag(verify);
     add_public_inputs_path_option(verify);
     add_proof_path_option(verify);
     add_vk_path_option(verify);
@@ -419,6 +494,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_debug_flag(verify);
     add_scheme_option(verify);
     add_crs_path_option(verify);
+    add_verifier_target_option(verify);
     add_oracle_hash_option(verify);
     remove_zk_option(verify);
     add_ipa_accumulation_flag(verify);
@@ -432,11 +508,13 @@ int parse_and_run_cli_command(int argc, char* argv[])
                            "satisfiability for the circuit with verification key at vk_path. Not all "
                            "hash types are implemented due to efficiency concerns.");
 
+    add_help_extended_flag(write_solidity_verifier);
     add_scheme_option(write_solidity_verifier);
     add_vk_path_option(write_solidity_verifier);
     add_output_path_option(write_solidity_verifier, output_path);
 
     add_verbose_flag(write_solidity_verifier);
+    add_verifier_target_option(write_solidity_verifier);
     remove_zk_option(write_solidity_verifier);
     add_crs_path_option(write_solidity_verifier);
     add_optimized_solidity_verifier_flag(write_solidity_verifier);
@@ -453,8 +531,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: avm_simulate
      ***************************************************************************************************************/
-    CLI::App* avm_simulate_command = app.add_subcommand("avm_simulate", "");
-    avm_simulate_command->group(""); // hide from list of subcommands
+    CLI::App* avm_simulate_command = app.add_subcommand("avm_simulate", "Simulate AVM execution.");
+    avm_simulate_command->group(aztec_internal_group);
     add_verbose_flag(avm_simulate_command);
     add_debug_flag(avm_simulate_command);
     add_avm_inputs_option(avm_simulate_command);
@@ -462,8 +540,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: avm_prove
      ***************************************************************************************************************/
-    CLI::App* avm_prove_command = app.add_subcommand("avm_prove", "");
-    avm_prove_command->group(""); // hide from list of subcommands
+    CLI::App* avm_prove_command = app.add_subcommand("avm_prove", "Generate an AVM proof.");
+    avm_prove_command->group(aztec_internal_group);
     add_verbose_flag(avm_prove_command);
     add_debug_flag(avm_prove_command);
     add_crs_path_option(avm_prove_command);
@@ -472,10 +550,21 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_avm_inputs_option(avm_prove_command);
 
     /***************************************************************************************************************
+     * Subcommand: avm_write_vk
+     ***************************************************************************************************************/
+    CLI::App* avm_write_vk_command = app.add_subcommand("avm_write_vk", "Write AVM verification key.");
+    avm_write_vk_command->group(aztec_internal_group);
+    add_verbose_flag(avm_write_vk_command);
+    add_debug_flag(avm_write_vk_command);
+    add_crs_path_option(avm_write_vk_command);
+    std::filesystem::path avm_write_vk_output_path{ "./keys" };
+    add_output_path_option(avm_write_vk_command, avm_write_vk_output_path);
+
+    /***************************************************************************************************************
      * Subcommand: avm_check_circuit
      ***************************************************************************************************************/
-    CLI::App* avm_check_circuit_command = app.add_subcommand("avm_check_circuit", "");
-    avm_check_circuit_command->group(""); // hide from list of subcommands
+    CLI::App* avm_check_circuit_command = app.add_subcommand("avm_check_circuit", "Check AVM circuit satisfiability.");
+    avm_check_circuit_command->group(aztec_internal_group);
     add_verbose_flag(avm_check_circuit_command);
     add_debug_flag(avm_check_circuit_command);
     add_crs_path_option(avm_check_circuit_command);
@@ -484,14 +573,13 @@ int parse_and_run_cli_command(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: avm_verify
      ***************************************************************************************************************/
-    CLI::App* avm_verify_command = app.add_subcommand("avm_verify", "");
-    avm_verify_command->group(""); // hide from list of subcommands
+    CLI::App* avm_verify_command = app.add_subcommand("avm_verify", "Verify an AVM proof.");
+    avm_verify_command->group(aztec_internal_group);
     add_verbose_flag(avm_verify_command);
     add_debug_flag(avm_verify_command);
     add_crs_path_option(avm_verify_command);
     add_avm_public_inputs_option(avm_verify_command);
     add_proof_path_option(avm_verify_command);
-    add_vk_path_option(avm_verify_command);
 
     /***************************************************************************************************************
      * Subcommand: aztec_process_artifact
@@ -500,21 +588,38 @@ int parse_and_run_cli_command(int argc, char* argv[])
         "aztec_process",
         "Process Aztec contract artifacts: transpile and generate verification keys for all private functions.\n"
         "If input is a directory (and no output specified), recursively processes all artifacts found in the "
-        "directory.");
+        "directory.\n"
+        "Multiple -i flags can be specified when no -o flag is present for parallel processing.");
+    aztec_process->group(aztec_internal_group);
 
-    std::string artifact_input_path;
+    std::vector<std::string> artifact_input_paths;
     std::string artifact_output_path;
     bool force_regenerate = false;
 
+    aztec_process->add_option("-i,--input",
+                              artifact_input_paths,
+                              "Input artifact JSON path or directory to search (optional, defaults to current "
+                              "directory). Can be specified multiple times when no -o flag is present.");
     aztec_process->add_option(
-        "-i,--input",
-        artifact_input_path,
-        "Input artifact JSON path or directory to search (optional, defaults to current directory)");
-    aztec_process->add_option(
-        "-o,--output", artifact_output_path, "Output artifact JSON path (optional, same as input if not specified)");
+        "-o,--output",
+        artifact_output_path,
+        "Output artifact JSON path (optional, same as input if not specified). Cannot be used with multiple -i flags.");
     aztec_process->add_flag("-f,--force", force_regenerate, "Force regeneration of verification keys");
     add_verbose_flag(aztec_process);
     add_debug_flag(aztec_process);
+
+    /***************************************************************************************************************
+     * Subcommand: aztec_process cache_paths
+     ***************************************************************************************************************/
+    CLI::App* cache_paths_command =
+        aztec_process->add_subcommand("cache_paths",
+                                      "Output cache paths for verification keys in an artifact.\n"
+                                      "Format: <hash>:<cache_path>:<function_name> (one per line).");
+
+    std::string cache_paths_input;
+    cache_paths_command->add_option("input", cache_paths_input, "Input artifact JSON path (required).")->required();
+    add_verbose_flag(cache_paths_command);
+    add_debug_flag(cache_paths_command);
 
     /***************************************************************************************************************
      * Subcommand: msgpack
@@ -538,10 +643,22 @@ int parse_and_run_cli_command(int argc, char* argv[])
     std::string msgpack_input_file;
     msgpack_run_command->add_option(
         "-i,--input", msgpack_input_file, "Input file containing msgpack buffers (defaults to stdin)");
-    int max_clients = 1;
+    size_t request_ring_size = 1024 * 1024; // 1MB default
     msgpack_run_command
         ->add_option(
-            "--max-clients", max_clients, "Maximum concurrent clients for shared memory IPC server (default: 1)")
+            "--request-ring-size", request_ring_size, "Request ring buffer size for shared memory IPC (default: 1MB)")
+        ->check(CLI::PositiveNumber);
+    size_t response_ring_size = 1024 * 1024; // 1MB default
+    msgpack_run_command
+        ->add_option("--response-ring-size",
+                     response_ring_size,
+                     "Response ring buffer size for shared memory IPC (default: 1MB)")
+        ->check(CLI::PositiveNumber);
+    int max_clients = 1;
+    msgpack_run_command
+        ->add_option("--max-clients",
+                     max_clients,
+                     "Maximum concurrent clients for socket IPC servers (default: 1, only used for .sock files)")
         ->check(CLI::PositiveNumber);
 
     /***************************************************************************************************************
@@ -549,6 +666,77 @@ int parse_and_run_cli_command(int argc, char* argv[])
      ***************************************************************************************************************/
 
     CLI11_PARSE(app, argc, argv);
+
+    // Handle --help-extended: print help and exit
+    if (show_extended_help) {
+        std::cout << app.help() << '\n';
+        return 0;
+    }
+
+    // Apply verifier_target to derive oracle_hash_type, disable_zk, and ipa_accumulation
+    // This only applies when verifier_target is explicitly set
+    if (!flags.verifier_target.empty()) {
+        // Check for conflicting flags - verifier_target should not be combined with low-level flags
+        // We need to check the active subcommand for these options
+        CLI::App* active_sub = find_deepest_subcommand(&app);
+        if (active_sub != nullptr) {
+            // Helper to safely get option count (returns 0 if option doesn't exist)
+            auto get_option_count = [](CLI::App* sub, const std::string& name) -> size_t {
+                try {
+                    return sub->get_option(name)->count();
+                } catch (const CLI::OptionNotFound&) {
+                    return 0;
+                }
+            };
+
+            if (get_option_count(active_sub, "--oracle_hash") > 0) {
+                throw_or_abort("Cannot use --verifier_target with --oracle_hash. "
+                               "The --verifier_target flag sets oracle_hash automatically.");
+            }
+            if (get_option_count(active_sub, "--disable_zk") > 0) {
+                throw_or_abort("Cannot use --verifier_target with --disable_zk. "
+                               "Use a '-no-zk' variant of --verifier_target instead (e.g., 'evm-no-zk').");
+            }
+            if (get_option_count(active_sub, "--ipa_accumulation") > 0) {
+                throw_or_abort("Cannot use --verifier_target with --ipa_accumulation. "
+                               "Use '--verifier_target noir-rollup' for IPA accumulation.");
+            }
+        }
+
+        // Map verifier_target to underlying flags
+        if (flags.verifier_target == "evm") {
+            flags.oracle_hash_type = "keccak";
+        } else if (flags.verifier_target == "evm-no-zk") {
+            flags.oracle_hash_type = "keccak";
+            flags.disable_zk = true;
+        } else if (flags.verifier_target == "noir-recursive") {
+            flags.oracle_hash_type = "poseidon2";
+        } else if (flags.verifier_target == "noir-recursive-no-zk") {
+            flags.oracle_hash_type = "poseidon2";
+            flags.disable_zk = true;
+        } else if (flags.verifier_target == "noir-rollup") {
+            flags.oracle_hash_type = "poseidon2";
+            flags.ipa_accumulation = true;
+        } else if (flags.verifier_target == "noir-rollup-no-zk") {
+            flags.oracle_hash_type = "poseidon2";
+            flags.ipa_accumulation = true;
+            flags.disable_zk = true;
+        } else if (flags.verifier_target == "starknet") {
+            flags.oracle_hash_type = "starknet";
+        } else if (flags.verifier_target == "starknet-no-zk") {
+            flags.oracle_hash_type = "starknet";
+            flags.disable_zk = true;
+        }
+        vinfo("verifier_target '",
+              flags.verifier_target,
+              "' -> oracle_hash_type='",
+              flags.oracle_hash_type,
+              "', disable_zk=",
+              flags.disable_zk,
+              ", ipa_accumulation=",
+              flags.ipa_accumulation);
+    }
+
     // Immediately after parsing, we can init the global CRS factory. Note this does not yet read or download any
     // points; that is done on-demand.
     srs::init_net_crs_factory(flags.crs_path);
@@ -556,8 +744,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
         // If writing to an output folder, make sure it exists.
         std::filesystem::create_directories(output_path);
     }
-    debug_logging = flags.debug;
-    verbose_logging = debug_logging || flags.verbose;
+    if (flags.debug) {
+        bb_log_level = LogLevel::DEBUG;
+    } else if (flags.verbose) {
+        bb_log_level = LogLevel::VERBOSE;
+    }
     slow_low_memory = flags.slow_low_memory;
 #if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
     if (!flags.storage_budget.empty()) {
@@ -596,6 +787,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
             return verified ? 0 : 1;
         }
         if (write_solidity_verifier->parsed()) {
+            // Validate that verifier_target is compatible with Solidity verifier
+            if (!flags.verifier_target.empty() && flags.verifier_target != "evm" &&
+                flags.verifier_target != "evm-no-zk") {
+                throw_or_abort("write_solidity_verifier requires --verifier_target to be 'evm' or 'evm-no-zk', got '" +
+                               flags.verifier_target + "'");
+            }
             api.write_solidity_verifier(flags, output_path, vk_path);
             return 0;
         }
@@ -616,14 +813,60 @@ int parse_and_run_cli_command(int argc, char* argv[])
             return 0;
         }
         if (msgpack_run_command->parsed()) {
-            return execute_msgpack_run(msgpack_input_file, max_clients);
+            return execute_msgpack_run(msgpack_input_file, max_clients, request_ring_size, response_ring_size);
         }
         if (aztec_process->parsed()) {
 #ifdef __wasm__
             throw_or_abort("Aztec artifact processing is not supported in WASM builds.");
 #else
-            // Default input to current directory if not specified
-            std::string input = artifact_input_path.empty() ? "." : artifact_input_path;
+            // Handle cache_paths subcommand
+            if (cache_paths_command->parsed()) {
+                return get_cache_paths(cache_paths_input) ? 0 : 1;
+            }
+
+            // Check for invalid combination of multiple inputs with output path
+            if (!artifact_output_path.empty() && artifact_input_paths.size() > 1) {
+                throw_or_abort("Cannot specify --output when multiple --input flags are provided.");
+            }
+
+            // Default to current directory if no inputs specified
+            if (artifact_input_paths.empty()) {
+                artifact_input_paths.push_back(".");
+            }
+
+            // Handle multiple inputs (process in parallel)
+            if (artifact_input_paths.size() > 1) {
+                // Validate all inputs are files, not directories
+                for (const auto& input : artifact_input_paths) {
+                    if (std::filesystem::is_directory(input)) {
+                        throw_or_abort("When using multiple --input flags, all inputs must be files, not directories.");
+                    }
+                }
+
+                // Process all artifacts in parallel
+                std::atomic<bool> all_success = true;
+                std::vector<std::string> failures;
+                std::mutex failures_mutex;
+
+                parallel_for(artifact_input_paths.size(), [&](size_t i) {
+                    const auto& input = artifact_input_paths[i];
+                    if (!process_aztec_artifact(input, input, force_regenerate)) {
+                        all_success = false;
+                        std::lock_guard<std::mutex> lock(failures_mutex);
+                        failures.push_back(input);
+                    }
+                });
+
+                if (!all_success) {
+                    info("Failed to process ", failures.size(), " artifact(s)");
+                    return 1;
+                }
+                info("Successfully processed ", artifact_input_paths.size(), " artifact(s)");
+                return 0;
+            }
+
+            // Single input case
+            std::string input = artifact_input_paths[0];
 
             // Check if input is a directory
             if (std::filesystem::is_directory(input)) {
@@ -648,9 +891,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
         } else if (avm_check_circuit_command->parsed()) {
             avm_check_circuit(avm_inputs_path);
         } else if (avm_verify_command->parsed()) {
-            return avm_verify(proof_path, avm_public_inputs_path, vk_path) ? 0 : 1;
+            return avm_verify(proof_path, avm_public_inputs_path) ? 0 : 1;
         } else if (avm_simulate_command->parsed()) {
             avm_simulate(avm_inputs_path);
+        } else if (avm_write_vk_command->parsed()) {
+            avm_write_verification_key(avm_write_vk_output_path);
         } else if (flags.scheme == "chonk") {
             ChonkAPI api;
             if (prove->parsed()) {

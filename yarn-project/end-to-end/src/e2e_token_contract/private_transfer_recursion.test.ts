@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { TokenContract, type Transfer } from '@aztec/noir-contracts.js/Token';
 
 import { mintNotes } from '../fixtures/token_utils.js';
@@ -8,7 +9,7 @@ describe('e2e_token_contract private transfer recursion', () => {
   let { asset, wallet, adminAddress, account1Address, node } = t;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
+    t.applyBaseSnapshots();
     await t.setup();
     ({ asset, wallet, adminAddress, account1Address, node } = t);
   });
@@ -22,26 +23,32 @@ describe('e2e_token_contract private transfer recursion', () => {
     // itself to consume them all (since it retrieves 2 notes on the first pass and 8 in each subsequent pass).
     const totalNotes = 16;
     const totalBalance = await mintNotes(wallet, adminAddress, adminAddress, asset, Array(totalNotes).fill(10n));
-    const tx = await asset.methods.transfer(account1Address, totalBalance).send({ from: adminAddress }).wait();
-    const txEffects = await node.getTxEffect(tx.txHash);
+    const txReceipt = await asset.methods.transfer(account1Address, totalBalance).send({ from: adminAddress });
+    const txEffects = await node.getTxEffect(txReceipt.txHash);
 
     // We should have nullified all notes, plus an extra nullifier for the transaction and one for the event commitment.
     expect(txEffects!.data.nullifiers.length).toBe(totalNotes + 1 + 1);
     // We should have created a single new note, for the recipient
     expect(txEffects!.data.noteHashes.length).toBe(1);
 
-    const events = await wallet.getPrivateEvents<Transfer>(
-      asset.address,
-      TokenContract.events.Transfer,
-      tx.blockNumber!,
-      1,
-      [account1Address],
-    );
+    const events = await wallet.getPrivateEvents<Transfer>(TokenContract.events.Transfer, {
+      contractAddress: asset.address,
+      fromBlock: BlockNumber(txReceipt.blockNumber!),
+      toBlock: BlockNumber(txReceipt.blockNumber! + 1),
+      scopes: [account1Address],
+    });
 
     expect(events[0]).toEqual({
-      from: adminAddress,
-      to: account1Address,
-      amount: totalBalance,
+      event: {
+        from: adminAddress,
+        to: account1Address,
+        amount: totalBalance,
+      },
+      metadata: {
+        l2BlockNumber: BlockNumber(txReceipt.blockNumber!),
+        l2BlockHash: txReceipt.blockHash,
+        txHash: txReceipt.txHash,
+      },
     });
   });
 
@@ -52,8 +59,8 @@ describe('e2e_token_contract private transfer recursion', () => {
     const totalBalance = await mintNotes(wallet, adminAddress, adminAddress, asset, noteAmounts);
     const toSend = totalBalance - expectedChange;
 
-    const tx = await asset.methods.transfer(account1Address, toSend).send({ from: adminAddress }).wait();
-    const txEffects = await node.getTxEffect(tx.txHash);
+    const txReceipt = await asset.methods.transfer(account1Address, toSend).send({ from: adminAddress });
+    const txEffects = await node.getTxEffect(txReceipt.txHash);
 
     // We should have nullified all notes, plus an extra nullifier for the transaction and one for the event commitment.
     expect(txEffects!.data.nullifiers.length).toBe(noteAmounts.length + 1 + 1);
@@ -63,18 +70,24 @@ describe('e2e_token_contract private transfer recursion', () => {
     const senderBalance = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
     expect(senderBalance).toEqual(expectedChange);
 
-    const events = await wallet.getPrivateEvents<Transfer>(
-      asset.address,
-      TokenContract.events.Transfer,
-      tx.blockNumber!,
-      1,
-      [account1Address],
-    );
+    const events = await wallet.getPrivateEvents<Transfer>(TokenContract.events.Transfer, {
+      contractAddress: asset.address,
+      fromBlock: BlockNumber(txReceipt.blockNumber!),
+      toBlock: BlockNumber(txReceipt.blockNumber! + 1),
+      scopes: [account1Address],
+    });
 
     expect(events[0]).toEqual({
-      from: adminAddress,
-      to: account1Address,
-      amount: toSend,
+      event: {
+        from: adminAddress,
+        to: account1Address,
+        amount: toSend,
+      },
+      metadata: {
+        l2BlockNumber: BlockNumber(txReceipt.blockNumber!),
+        l2BlockHash: txReceipt.blockHash,
+        txHash: txReceipt.txHash,
+      },
     });
   });
 

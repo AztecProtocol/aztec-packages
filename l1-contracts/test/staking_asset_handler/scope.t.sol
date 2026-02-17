@@ -3,7 +3,6 @@ pragma solidity >=0.8.27;
 
 import {StakingAssetHandlerBase} from "./base.t.sol";
 import {StakingAssetHandler, IStakingAssetHandler} from "@aztec/mock/StakingAssetHandler.sol";
-import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 // solhint-disable comprehensive-interface
 // solhint-disable func-name-mixedcase
@@ -34,20 +33,20 @@ contract ScopeTest is StakingAssetHandlerBase {
     stakingAssetHandler.setScope(INCORRECT_SCOPE);
   }
 
-  function test_WhenScopeIsValidAndScopeIsValid() external {
-    // it emits {ValidatorAdded} event
+  function test_WhenDomainIsValidAndScopeIsValid() external {
+    // it transfers tokens to the caller
 
     _setCorrectDomain();
     _setCorrectScope();
 
-    address attester = address(1);
+    address caller = address(1);
+    uint256 balanceBefore = stakingAsset.balanceOf(caller);
 
-    vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.ValidatorAdded(address(staking), attester, WITHDRAWER);
-    vm.prank(attester);
-    stakingAssetHandler.addValidator(
-      attester, validMerkleProof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
-    );
+    vm.prank(caller);
+    stakingAssetHandler.claim(realProof);
+
+    uint256 balanceAfter = stakingAsset.balanceOf(caller);
+    assertEq(balanceAfter - balanceBefore, faucetAmount, "caller should receive faucet amount");
   }
 
   function test_WhenDomainIsValidAndScopeIsInvalid() external {
@@ -56,13 +55,11 @@ contract ScopeTest is StakingAssetHandlerBase {
     _setCorrectDomain();
     _setIncorrectScope();
 
-    address attester = address(1);
+    address caller = address(1);
 
     vm.expectRevert(IStakingAssetHandler.InvalidScope.selector);
-    vm.prank(attester);
-    stakingAssetHandler.addValidator(
-      attester, validMerkleProof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
-    );
+    vm.prank(caller);
+    stakingAssetHandler.claim(realProof);
   }
 
   function test_WhenDomainIsInvalidButScopeIsValid() external {
@@ -71,27 +68,23 @@ contract ScopeTest is StakingAssetHandlerBase {
     _setIncorrectDomain();
     _setCorrectScope();
 
-    address attester = address(1);
+    address caller = address(1);
 
     vm.expectRevert(IStakingAssetHandler.InvalidDomain.selector);
-    vm.prank(attester);
-    stakingAssetHandler.addValidator(
-      attester, validMerkleProof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
-    );
+    vm.prank(caller);
+    stakingAssetHandler.claim(realProof);
   }
 
-  function test_WhenDomainIsInvalidAndSScopeIsInvalid() external {
+  function test_WhenDomainIsInvalidAndScopeIsInvalid() external {
     // it reverts
 
     _setIncorrectDomain();
     _setIncorrectScope();
 
-    address attester = address(1);
+    address caller = address(1);
 
     vm.expectRevert(IStakingAssetHandler.InvalidDomain.selector);
-    vm.prank(attester);
-    stakingAssetHandler.addValidator(
-      attester, validMerkleProof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
-    );
+    vm.prank(caller);
+    stakingAssetHandler.claim(realProof);
   }
 }

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: Complete, auditors: [Raju], commit: 05a381f8b31ae4648e480f1369e911b148216e8b}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
 #pragma once
 
 #include "barretenberg/common/assert.hpp"
@@ -26,7 +32,10 @@ struct RomRecord {
     uint32_t index = 0;
     uint32_t record_witness = 0; // Record, a.k.a. "fingerprint" of the row.
     size_t gate_index = 0;       // Index in the memory block where the ROM gate will live.
-    bool operator<(const RomRecord& other) const { return index < other.index; }
+    bool operator<(const RomRecord& other) const
+    {
+        return index < other.index || (index == other.index && gate_index < other.gate_index);
+    }
     bool operator==(const RomRecord& other) const noexcept
     {
         return index_witness == other.index_witness && value_column1_witness == other.value_column1_witness &&

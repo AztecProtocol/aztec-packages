@@ -1,7 +1,8 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Sergei], commit: 72f52e7bad0fc1e36da575fbc2e6bfa1b1104aec}
+// external_1:  { status: Complete, auditors: [@ed25519, @JakubHeba (Spearbit)], commit:
+// b463d7c1c52fec2f4e39acfd21219464b00a39d8}
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -32,39 +33,47 @@ template <typename Builder> class byte_array {
     Builder* context;
     bytes_t values;
 
-  public:
-    byte_array(Builder* parent_context = nullptr);
-    byte_array(Builder* parent_context, size_t const n);
-    byte_array(Builder* parent_context, std::string const& input);
-    byte_array(Builder* parent_context, std::vector<uint8_t> const& input);
+    // Internal constructors - do NOT add constraints
+    // Only for use by member functions (slice, reverse, from_constants)
     byte_array(Builder* parent_context, bytes_t const& input);
     byte_array(Builder* parent_context, bytes_t&& input);
-    byte_array(const field_t<Builder>& input,
-               const size_t num_bytes = 32,
-               std::optional<uint256_t> test_val = std::nullopt);
 
+    // Create byte_array from constant values without adding range constraints
+    // Safe for padding and other constant data - constants can't be manipulated by the prover
+    static byte_array from_constants(Builder* parent_context, std::vector<uint8_t> const& input);
+
+  public:
+    explicit byte_array(Builder* parent_context, std::string const& input);
+    // Explicit to prevent implicit conversion from size_t to std::vector<uint8_t>
+    explicit byte_array(Builder* parent_context, std::vector<uint8_t> const& input);
+    // Explicit to prevent implicit conversions from size_t/int to field_t
+    explicit byte_array(const field_t<Builder>& input,
+                        const size_t num_bytes = 32,
+                        std::optional<uint256_t> test_val = std::nullopt);
+
+    // Convenience method for creating constant padding (common use case)
+    static byte_array constant_padding(Builder* parent_context, size_t num_bytes, uint8_t value = 0)
+    {
+        return from_constants(parent_context, std::vector<uint8_t>(num_bytes, value));
+    }
+
+    // Copy and move operations
     byte_array(const byte_array& other);
-    byte_array(byte_array&& other);
-
+    byte_array(byte_array&& other) noexcept;
     byte_array& operator=(const byte_array& other);
-    byte_array& operator=(byte_array&& other);
-
+    byte_array& operator=(byte_array&& other) noexcept;
     explicit operator field_t<Builder>() const;
 
     field_t<Builder> operator[](const size_t index) const
     {
-        assert(values.size() > 0);
-        return values[index];
-    }
-
-    field_t<Builder>& operator[](const size_t index)
-    {
         BB_ASSERT_LT(index, values.size());
-
         return values[index];
     }
 
+    // Append another byte_array to this one
     byte_array& write(byte_array const& other);
+
+    // Overwrite bytes starting at index with contents of other
     byte_array& write_at(byte_array const& other, size_t index);
 
     byte_array slice(size_t offset) const;
@@ -79,7 +88,6 @@ template <typename Builder> class byte_array {
 
     // Out-of-circuit methods
     std::vector<uint8_t> get_value() const;
-    std::string get_string() const;
 
     // OriginTag-specific methods
     void set_origin_tag(bb::OriginTag tag)
@@ -91,7 +99,8 @@ template <typename Builder> class byte_array {
 
     bb::OriginTag get_origin_tag() const
     {
-        bb::OriginTag tag{};
+        bb::OriginTag tag =
+            bb::OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
         for (auto& value : values) {
             tag = bb::OriginTag(tag, value.tag);
         }

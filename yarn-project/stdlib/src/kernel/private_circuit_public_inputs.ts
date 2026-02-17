@@ -10,7 +10,7 @@ import {
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PRIVATE_LOGS_PER_CALL,
 } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import {
   BufferReader,
@@ -21,7 +21,7 @@ import {
 } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
-import { KeyValidationRequestAndGenerator } from '../kernel/hints/key_validation_request_and_generator.js';
+import { KeyValidationRequestAndSeparator } from '../kernel/hints/key_validation_request_and_separator.js';
 import { CountedLogHash } from '../kernel/log_hash.js';
 import { PrivateCallRequest } from '../kernel/private_call_request.js';
 import { PrivateLogData } from '../kernel/private_log_data.js';
@@ -35,7 +35,7 @@ import {
   ClaimedLengthArrayFromBuffer,
   ClaimedLengthArrayFromFields,
 } from './claimed_length_array.js';
-import { ReadRequest } from './hints/read_request.js';
+import { ScopedReadRequest } from './hints/read_request.js';
 import { NoteHash } from './note_hash.js';
 import { Nullifier } from './nullifier.js';
 import { CountedPublicCallRequest, PublicCallRequest } from './public_call_request.js';
@@ -58,6 +58,18 @@ export class PrivateCircuitPublicInputs {
      */
     public returnsHash: Fr,
     /**
+     * Header of a block whose state is used during private execution (not the block the transaction is included in).
+     */
+    public anchorBlockHeader: BlockHeader,
+    /**
+     * Transaction context.
+     *
+     * Note: The chainId and version in the txContext are not redundant to the values in self.anchor_block_header.global_variables because
+     * they can be different in case of a protocol upgrade. In such a situation we could be using header from a block
+     * before the upgrade took place but be using the updated protocol to execute and prove the transaction.
+     */
+    public txContext: TxContext,
+    /**
      * The side-effect counter under which all side effects are non-revertible.
      */
     public minRevertibleSideEffectCounter: Fr,
@@ -68,30 +80,38 @@ export class PrivateCircuitPublicInputs {
     /**
      * The highest timestamp of a block in which the transaction can still be included.
      */
-    public includeByTimestamp: UInt64,
+    public expirationTimestamp: UInt64,
+    /**
+     * The side effect counter at the start of this call.
+     */
+    public startSideEffectCounter: Fr,
+    /**
+     * The end side effect counter for this call.
+     */
+    public endSideEffectCounter: Fr,
+    /**
+     * The expected non revertible side effect counter for this call.
+     */
+    public expectedNonRevertibleSideEffectCounter: Fr,
+    /**
+     * The expected revertible side effect counter for this call.
+     */
+    public expectedRevertibleSideEffectCounter: Fr,
     /**
      * Read requests created by the corresponding function call.
      */
-    public noteHashReadRequests: ClaimedLengthArray<ReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
+    public noteHashReadRequests: ClaimedLengthArray<ScopedReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     /**
      * Nullifier read requests created by the corresponding function call.
      */
-    public nullifierReadRequests: ClaimedLengthArray<ReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
+    public nullifierReadRequests: ClaimedLengthArray<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     /**
-     * Key validation requests and generators created by the corresponding function call.
+     * Key validation requests and separators created by the corresponding function call.
      */
-    public keyValidationRequestsAndGenerators: ClaimedLengthArray<
-      KeyValidationRequestAndGenerator,
+    public keyValidationRequestsAndSeparators: ClaimedLengthArray<
+      KeyValidationRequestAndSeparator,
       typeof MAX_KEY_VALIDATION_REQUESTS_PER_CALL
     >,
-    /**
-     * New note hashes created by the corresponding function call.
-     */
-    public noteHashes: ClaimedLengthArray<NoteHash, typeof MAX_NOTE_HASHES_PER_CALL>,
-    /**
-     * New nullifiers created by the corresponding function call.
-     */
-    public nullifiers: ClaimedLengthArray<Nullifier, typeof MAX_NULLIFIERS_PER_CALL>,
     /**
      * Private call requests made within the current kernel iteration.
      */
@@ -105,6 +125,14 @@ export class PrivateCircuitPublicInputs {
      */
     public publicTeardownCallRequest: PublicCallRequest,
     /**
+     * New note hashes created by the corresponding function call.
+     */
+    public noteHashes: ClaimedLengthArray<NoteHash, typeof MAX_NOTE_HASHES_PER_CALL>,
+    /**
+     * New nullifiers created by the corresponding function call.
+     */
+    public nullifiers: ClaimedLengthArray<Nullifier, typeof MAX_NULLIFIERS_PER_CALL>,
+    /**
      * New L2 to L1 messages created by the corresponding function call.
      */
     public l2ToL1Msgs: ClaimedLengthArray<CountedL2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_CALL>,
@@ -116,26 +144,6 @@ export class PrivateCircuitPublicInputs {
      * Hash of the contract class logs emitted in this function call.
      */
     public contractClassLogsHashes: ClaimedLengthArray<CountedLogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
-    /**
-     * The side effect counter at the start of this call.
-     */
-    public startSideEffectCounter: Fr,
-    /**
-     * The end side effect counter for this call.
-     */
-    public endSideEffectCounter: Fr,
-    /**
-     * Header of a block whose state is used during private execution (not the block the transaction is included in).
-     */
-    public anchorBlockHeader: BlockHeader,
-    /**
-     * Transaction context.
-     *
-     * Note: The chainId and version in the txContext are not redundant to the values in self.anchor_block_header.global_variables because
-     * they can be different in case of a protocol upgrade. In such a situation we could be using header from a block
-     * before the upgrade took place but be using the updated protocol to execute and prove the transaction.
-     */
-    public txContext: TxContext,
   ) {}
 
   /**
@@ -158,26 +166,28 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(CallContext),
       reader.readObject(Fr),
       reader.readObject(Fr),
+      reader.readObject(BlockHeader),
+      reader.readObject(TxContext),
       reader.readObject(Fr),
       reader.readBoolean(),
       reader.readUInt64(),
-      reader.readObject(ClaimedLengthArrayFromBuffer(ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL)),
-      reader.readObject(ClaimedLengthArrayFromBuffer(ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL)),
+      reader.readObject(Fr),
+      reader.readObject(Fr),
+      reader.readObject(Fr),
+      reader.readObject(Fr),
+      reader.readObject(ClaimedLengthArrayFromBuffer(ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL)),
+      reader.readObject(ClaimedLengthArrayFromBuffer(ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL)),
       reader.readObject(
-        ClaimedLengthArrayFromBuffer(KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
+        ClaimedLengthArrayFromBuffer(KeyValidationRequestAndSeparator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
       ),
-      reader.readObject(ClaimedLengthArrayFromBuffer(NoteHash, MAX_NOTE_HASHES_PER_CALL)),
-      reader.readObject(ClaimedLengthArrayFromBuffer(Nullifier, MAX_NULLIFIERS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromBuffer(PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromBuffer(CountedPublicCallRequest, MAX_ENQUEUED_CALLS_PER_CALL)),
       reader.readObject(PublicCallRequest),
+      reader.readObject(ClaimedLengthArrayFromBuffer(NoteHash, MAX_NOTE_HASHES_PER_CALL)),
+      reader.readObject(ClaimedLengthArrayFromBuffer(Nullifier, MAX_NULLIFIERS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromBuffer(CountedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromBuffer(PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromBuffer(CountedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL)),
-      reader.readObject(Fr),
-      reader.readObject(Fr),
-      reader.readObject(BlockHeader),
-      reader.readObject(TxContext),
     );
   }
 
@@ -187,26 +197,28 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(CallContext),
       reader.readField(),
       reader.readField(),
+      reader.readObject(BlockHeader),
+      reader.readObject(TxContext),
       reader.readField(),
       reader.readBoolean(),
       reader.readU64(),
-      reader.readObject(ClaimedLengthArrayFromFields(ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL)),
-      reader.readObject(ClaimedLengthArrayFromFields(ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL)),
+      reader.readField(),
+      reader.readField(),
+      reader.readField(),
+      reader.readField(),
+      reader.readObject(ClaimedLengthArrayFromFields(ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL)),
+      reader.readObject(ClaimedLengthArrayFromFields(ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL)),
       reader.readObject(
-        ClaimedLengthArrayFromFields(KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
+        ClaimedLengthArrayFromFields(KeyValidationRequestAndSeparator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
       ),
-      reader.readObject(ClaimedLengthArrayFromFields(NoteHash, MAX_NOTE_HASHES_PER_CALL)),
-      reader.readObject(ClaimedLengthArrayFromFields(Nullifier, MAX_NULLIFIERS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromFields(PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromFields(CountedPublicCallRequest, MAX_ENQUEUED_CALLS_PER_CALL)),
       reader.readObject(PublicCallRequest),
+      reader.readObject(ClaimedLengthArrayFromFields(NoteHash, MAX_NOTE_HASHES_PER_CALL)),
+      reader.readObject(ClaimedLengthArrayFromFields(Nullifier, MAX_NULLIFIERS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromFields(CountedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromFields(PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromFields(CountedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL)),
-      reader.readField(),
-      reader.readField(),
-      reader.readObject(BlockHeader),
-      reader.readObject(TxContext),
     );
   }
 
@@ -219,24 +231,26 @@ export class PrivateCircuitPublicInputs {
       CallContext.empty(),
       Fr.ZERO,
       Fr.ZERO,
+      BlockHeader.empty(),
+      TxContext.empty(),
       Fr.ZERO,
       false,
       0n,
-      ClaimedLengthArray.empty(ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL),
-      ClaimedLengthArray.empty(ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL),
-      ClaimedLengthArray.empty(KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
-      ClaimedLengthArray.empty(NoteHash, MAX_NOTE_HASHES_PER_CALL),
-      ClaimedLengthArray.empty(Nullifier, MAX_NULLIFIERS_PER_CALL),
+      Fr.ZERO,
+      Fr.ZERO,
+      Fr.ZERO,
+      Fr.ZERO,
+      ClaimedLengthArray.empty(ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL),
+      ClaimedLengthArray.empty(ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL),
+      ClaimedLengthArray.empty(KeyValidationRequestAndSeparator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
       ClaimedLengthArray.empty(PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL),
       ClaimedLengthArray.empty(CountedPublicCallRequest, MAX_ENQUEUED_CALLS_PER_CALL),
       PublicCallRequest.empty(),
+      ClaimedLengthArray.empty(NoteHash, MAX_NOTE_HASHES_PER_CALL),
+      ClaimedLengthArray.empty(Nullifier, MAX_NULLIFIERS_PER_CALL),
       ClaimedLengthArray.empty(CountedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL),
       ClaimedLengthArray.empty(PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL),
       ClaimedLengthArray.empty(CountedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL),
-      Fr.ZERO,
-      Fr.ZERO,
-      BlockHeader.empty(),
-      TxContext.empty(),
     );
   }
 
@@ -245,24 +259,26 @@ export class PrivateCircuitPublicInputs {
       this.callContext.isEmpty() &&
       this.argsHash.isZero() &&
       this.returnsHash.isZero() &&
+      this.anchorBlockHeader.isEmpty() &&
+      this.txContext.isEmpty() &&
       this.minRevertibleSideEffectCounter.isZero() &&
       !this.isFeePayer &&
-      !this.includeByTimestamp &&
+      !this.expirationTimestamp &&
+      this.startSideEffectCounter.isZero() &&
+      this.endSideEffectCounter.isZero() &&
+      this.expectedNonRevertibleSideEffectCounter.isZero() &&
+      this.expectedRevertibleSideEffectCounter.isZero() &&
       this.noteHashReadRequests.isEmpty() &&
       this.nullifierReadRequests.isEmpty() &&
-      this.keyValidationRequestsAndGenerators.isEmpty() &&
-      this.noteHashes.isEmpty() &&
-      this.nullifiers.isEmpty() &&
+      this.keyValidationRequestsAndSeparators.isEmpty() &&
       this.privateCallRequests.isEmpty() &&
       this.publicCallRequests.isEmpty() &&
       this.publicTeardownCallRequest.isEmpty() &&
+      this.noteHashes.isEmpty() &&
+      this.nullifiers.isEmpty() &&
       this.l2ToL1Msgs.isEmpty() &&
       this.privateLogs.isEmpty() &&
-      this.contractClassLogsHashes.isEmpty() &&
-      this.startSideEffectCounter.isZero() &&
-      this.endSideEffectCounter.isZero() &&
-      this.anchorBlockHeader.isEmpty() &&
-      this.txContext.isEmpty()
+      this.contractClassLogsHashes.isEmpty()
     );
   }
 
@@ -276,24 +292,26 @@ export class PrivateCircuitPublicInputs {
       fields.callContext,
       fields.argsHash,
       fields.returnsHash,
+      fields.anchorBlockHeader,
+      fields.txContext,
       fields.minRevertibleSideEffectCounter,
       fields.isFeePayer,
-      fields.includeByTimestamp,
+      fields.expirationTimestamp,
+      fields.startSideEffectCounter,
+      fields.endSideEffectCounter,
+      fields.expectedNonRevertibleSideEffectCounter,
+      fields.expectedRevertibleSideEffectCounter,
       fields.noteHashReadRequests,
       fields.nullifierReadRequests,
-      fields.keyValidationRequestsAndGenerators,
-      fields.noteHashes,
-      fields.nullifiers,
+      fields.keyValidationRequestsAndSeparators,
       fields.privateCallRequests,
       fields.publicCallRequests,
       fields.publicTeardownCallRequest,
+      fields.noteHashes,
+      fields.nullifiers,
       fields.l2ToL1Msgs,
       fields.privateLogs,
       fields.contractClassLogsHashes,
-      fields.startSideEffectCounter,
-      fields.endSideEffectCounter,
-      fields.anchorBlockHeader,
-      fields.txContext,
     ] as const;
   }
 
@@ -308,24 +326,26 @@ export class PrivateCircuitPublicInputs {
       this.callContext,
       this.argsHash,
       this.returnsHash,
+      this.anchorBlockHeader,
+      this.txContext,
       this.minRevertibleSideEffectCounter,
       this.isFeePayer,
-      bigintToUInt64BE(this.includeByTimestamp),
+      bigintToUInt64BE(this.expirationTimestamp),
+      this.startSideEffectCounter,
+      this.endSideEffectCounter,
+      this.expectedNonRevertibleSideEffectCounter,
+      this.expectedRevertibleSideEffectCounter,
       this.noteHashReadRequests,
       this.nullifierReadRequests,
-      this.keyValidationRequestsAndGenerators,
-      this.noteHashes,
-      this.nullifiers,
+      this.keyValidationRequestsAndSeparators,
       this.privateCallRequests,
       this.publicCallRequests,
       this.publicTeardownCallRequest,
+      this.noteHashes,
+      this.nullifiers,
       this.l2ToL1Msgs,
       this.privateLogs,
       this.contractClassLogsHashes,
-      this.startSideEffectCounter,
-      this.endSideEffectCounter,
-      this.anchorBlockHeader,
-      this.txContext,
     ]);
   }
 

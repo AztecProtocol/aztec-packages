@@ -1,0 +1,60 @@
+# Deploys a new Rollup and creates a RegisterNewRollupVersionPayload for governance.
+# Spins up an EC2 instance to build yarn-project and deploy the upgrade.
+#
+# Contract defaults are loaded from spartan/environments/network-defaults.yml
+# based on the selected network (mainnet/testnet/devnet).
+
+name: Deploy Rollup Upgrade
+
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        description: "Aztec network (determines L1 chain and contract defaults)"
+        required: true
+        type: choice
+        options:
+          - mainnet
+          - testnet
+          - devnet
+      registry_address:
+        description: "Address of the Registry contract"
+        required: true
+        type: string
+      ref:
+        description: "Git ref to checkout (branch, tag, or commit, defaults to current SHA)"
+        required: false
+        type: string
+
+jobs:
+  deploy-rollup:
+    runs-on: ubuntu-latest
+    env:
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+
+      - name: Store GCP key
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          set +x
+          umask 077
+          printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
+          jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
+
+      - name: Deploy rollup upgrade via EC2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          NETWORK: ${{ inputs.network }}
+          NO_SPOT: 1
+        run: |
+          ./.github/ci3.sh deploy-rollup-upgrade "${{ inputs.registry_address }}"

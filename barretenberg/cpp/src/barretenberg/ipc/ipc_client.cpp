@@ -12,9 +12,9 @@ std::unique_ptr<IpcClient> IpcClient::create_socket(const std::string& socket_pa
     return std::make_unique<SocketClient>(socket_path);
 }
 
-std::unique_ptr<IpcClient> IpcClient::create_shm(const std::string& base_name, size_t max_clients)
+std::unique_ptr<IpcClient> IpcClient::create_shm(const std::string& base_name)
 {
-    return std::make_unique<ShmClient>(base_name, max_clients);
+    return std::make_unique<ShmClient>(base_name);
 }
 
 } // namespace bb::ipc

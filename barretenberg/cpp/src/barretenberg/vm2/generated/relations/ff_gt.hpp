@@ -14,8 +14,9 @@ template <typename FF_> class ff_gtImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 29> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 5,
-                                                                            3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 2 };
+    static constexpr std::array<size_t, 30> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 5, 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 2
+    };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -42,17 +43,21 @@ template <typename FF> class ff_gt : public Relation<ff_gtImpl<FF>> {
     static constexpr size_t SR_B_DECOMPOSITION = 9;
     static constexpr size_t SR_P_SUB_B_LO = 11;
     static constexpr size_t SR_P_SUB_B_HI = 12;
-    static constexpr size_t SR_RES_LO = 13;
-    static constexpr size_t SR_RES_HI = 14;
-    static constexpr size_t SR_RNG_CTR_GT_INIT = 15;
-    static constexpr size_t SR_RNG_CTR_DEC_INIT = 16;
-    static constexpr size_t SR_RNG_CTR_DECREMENT = 17;
-    static constexpr size_t SR_RNG_CTR_NON_ZERO = 19;
-    static constexpr size_t SR_SHIFT_0 = 20;
-    static constexpr size_t SR_SHIFT_1 = 22;
-    static constexpr size_t SR_SHIFT_2 = 24;
-    static constexpr size_t SR_SHIFT_3 = 26;
-    static constexpr size_t SR_SEL_CONSISTENCY = 28;
+    static constexpr size_t SR_RES_LO = 14;
+    static constexpr size_t SR_RES_HI = 15;
+    static constexpr size_t SR_RNG_CTR_GT_INIT = 16;
+    static constexpr size_t SR_RNG_CTR_DEC_INIT = 17;
+    static constexpr size_t SR_RNG_CTR_DECREMENT = 18;
+    static constexpr size_t SR_RNG_CTR_NON_ZERO = 20;
+    static constexpr size_t SR_SHIFT_P_SUB_A_TO_A_LO = 21;
+    static constexpr size_t SR_SHIFT_P_SUB_A_TO_A_HI = 22;
+    static constexpr size_t SR_SHIFT_B_TO_P_SUB_A_LO = 23;
+    static constexpr size_t SR_SHIFT_B_TO_P_SUB_A_HI = 24;
+    static constexpr size_t SR_SHIFT_P_SUB_B_TO_B_LO = 25;
+    static constexpr size_t SR_SHIFT_P_SUB_B_TO_B_HI = 26;
+    static constexpr size_t SR_SHIFT_RES_TO_P_SUB_B_LO = 27;
+    static constexpr size_t SR_SHIFT_RES_TO_P_SUB_B_HI = 28;
+    static constexpr size_t SR_SEL_CONSISTENCY = 29;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -81,14 +86,22 @@ template <typename FF> class ff_gt : public Relation<ff_gtImpl<FF>> {
             return "RNG_CTR_DECREMENT";
         case SR_RNG_CTR_NON_ZERO:
             return "RNG_CTR_NON_ZERO";
-        case SR_SHIFT_0:
-            return "SHIFT_0";
-        case SR_SHIFT_1:
-            return "SHIFT_1";
-        case SR_SHIFT_2:
-            return "SHIFT_2";
-        case SR_SHIFT_3:
-            return "SHIFT_3";
+        case SR_SHIFT_P_SUB_A_TO_A_LO:
+            return "SHIFT_P_SUB_A_TO_A_LO";
+        case SR_SHIFT_P_SUB_A_TO_A_HI:
+            return "SHIFT_P_SUB_A_TO_A_HI";
+        case SR_SHIFT_B_TO_P_SUB_A_LO:
+            return "SHIFT_B_TO_P_SUB_A_LO";
+        case SR_SHIFT_B_TO_P_SUB_A_HI:
+            return "SHIFT_B_TO_P_SUB_A_HI";
+        case SR_SHIFT_P_SUB_B_TO_B_LO:
+            return "SHIFT_P_SUB_B_TO_B_LO";
+        case SR_SHIFT_P_SUB_B_TO_B_HI:
+            return "SHIFT_P_SUB_B_TO_B_HI";
+        case SR_SHIFT_RES_TO_P_SUB_B_LO:
+            return "SHIFT_RES_TO_P_SUB_B_LO";
+        case SR_SHIFT_RES_TO_P_SUB_B_HI:
+            return "SHIFT_RES_TO_P_SUB_B_HI";
         case SR_SEL_CONSISTENCY:
             return "SEL_CONSISTENCY";
         }

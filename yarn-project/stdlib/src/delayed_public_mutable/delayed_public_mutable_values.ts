@@ -1,6 +1,6 @@
 import { UPDATES_VALUE_SIZE } from '@aztec/constants';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { ScheduledDelayChange } from './scheduled_delay_change.js';
@@ -68,23 +68,22 @@ export class DelayedPublicMutableValues {
   }
 
   static async readFromTree(delayedPublicMutableSlot: Fr, readStorage: (storageSlot: Fr) => Promise<Fr>) {
-    const fields = [];
-    for (let i = 0; i < DELAYED_PUBLIC_MUTABLE_VALUES_LEN; i++) {
-      fields.push(await readStorage(delayedPublicMutableSlot.add(new Fr(i))));
-    }
-    return DelayedPublicMutableValues.fromFields(fields);
+    const fieldPromises = Array.from({ length: DELAYED_PUBLIC_MUTABLE_VALUES_LEN }).map((_, i) =>
+      readStorage(delayedPublicMutableSlot.add(new Fr(i))),
+    );
+    return DelayedPublicMutableValues.fromFields(await Promise.all(fieldPromises));
   }
 
   isEmpty(): boolean {
     return this.svc.isEmpty() && this.sdc.isEmpty();
   }
 
-  async writeToTree(delayedPublicMutableSlot: Fr, storageWrite: (storageSlot: Fr, value: Fr) => Promise<void>) {
-    const fields = this.toFields();
+  writeToTree(delayedPublicMutableSlot: Fr, storageWrite: (storageSlot: Fr, value: Fr) => Promise<void>) {
+    const fieldPromises = this.toFields().map((field, i) =>
+      storageWrite(delayedPublicMutableSlot.add(new Fr(i)), field),
+    );
 
-    for (let i = 0; i < fields.length; i++) {
-      await storageWrite(delayedPublicMutableSlot.add(new Fr(i)), fields[i]);
-    }
+    return Promise.all(fieldPromises);
   }
 
   async hash(): Promise<Fr> {

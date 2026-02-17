@@ -13,6 +13,29 @@ NARGO_PATH="../noir/noir-repo/target/release/nargo"
 
 # Check if there are staged .nr files
 staged_nr_files=$(git diff --cached --name-only --diff-filter=d | grep '\.nr$' || true)
+# Check for unstaged .nr files too
+unstaged_nr_files=$(git diff --name-only --diff-filter=d | grep '\.nr$' || true)
+
+# Detect partially staged .nr files (staged + unstaged changes).
+# We don't want to auto-format anything if someone has staged a hunk (partial file)
+# as we might corrupt their hunks.
+# We'll identify partially staged files by looking
+# at the intersection of staged and unstaged:
+partially_staged_nr_files=()
+for file in $staged_nr_files; do
+  if echo "$unstaged_nr_files" | grep -Fxq "$file"; then
+    partially_staged_nr_files+=("$file")
+  fi
+done
+
+if (( ${#partially_staged_nr_files[@]} > 0 )); then
+  echo -e "\033[33mWarning:\033[0m The following .nr files are partially staged:"
+  for f in "${partially_staged_nr_files[@]}"; do
+    echo "  - $f"
+  done
+  echo -e "\033[33mSkipping nargo fmt because of the partial staging. Your files have been committed (as you wanted), but you'll have to format them manually with '$NARGO_PATH fmt'.\033[0m"
+  exit 0
+fi
 
 if [[ -n "$staged_nr_files" ]]; then
   echo "Detected staged .nr files. Running nargo fmt..."

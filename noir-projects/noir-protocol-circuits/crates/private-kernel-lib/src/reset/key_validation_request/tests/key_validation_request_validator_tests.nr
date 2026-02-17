@@ -6,7 +6,7 @@ fn clear_all_succeeds() {
     let builder = TestBuilder::new_clear_all();
     builder.validate();
 
-    let propagated = builder.propagated_requests;
+    let propagated = builder.propagated_key_validation_requests;
     assert_eq(propagated.length, 0);
     assert(propagated.array.is_empty());
 }
@@ -65,7 +65,7 @@ fn hints_more_than_requests_succeeds() {
 
     builder.validate();
 
-    let propagated = builder.propagated_requests;
+    let propagated = builder.propagated_key_validation_requests;
     assert_eq(propagated.length, 0);
     assert(propagated.array.is_empty());
 }
@@ -75,7 +75,7 @@ fn clear_partial_succeeds() {
     let builder = TestBuilder::new_clear_partial();
     builder.validate();
 
-    let propagated = builder.propagated_requests;
+    let propagated = builder.propagated_key_validation_requests;
     let requests = builder.key_validation_requests.array;
     assert_eq(propagated.length, 2);
     assert_array_eq(propagated.array, [requests[2], requests[3]]);
@@ -85,7 +85,7 @@ fn clear_partial_succeeds() {
 fn propagate_less_amount_fails() {
     let mut builder = TestBuilder::new_clear_partial();
 
-    builder.propagated_requests.length -= 1;
+    builder.propagated_key_validation_requests.length -= 1;
 
     builder.validate();
 }
@@ -94,8 +94,8 @@ fn propagate_less_amount_fails() {
 fn propagate_fewer_requests_fails() {
     let mut builder = TestBuilder::new_clear_partial();
 
-    let num_propagated = builder.propagated_requests.length;
-    builder.propagated_requests.array[num_propagated - 1] = Scoped::empty();
+    let num_propagated = builder.propagated_key_validation_requests.length;
+    builder.propagated_key_validation_requests.array[num_propagated - 1] = Scoped::empty();
 
     builder.validate();
 }
@@ -104,7 +104,7 @@ fn propagate_fewer_requests_fails() {
 fn propagate_more_amount_fails() {
     let mut builder = TestBuilder::new_clear_partial();
 
-    builder.propagated_requests.length += 1;
+    builder.propagated_key_validation_requests.length += 1;
 
     builder.validate();
 }
@@ -113,9 +113,10 @@ fn propagate_more_amount_fails() {
 fn propagate_more_requests_fails() {
     let mut builder = TestBuilder::new_clear_partial();
 
-    let num_propagated = builder.propagated_requests.length;
+    let num_propagated = builder.propagated_key_validation_requests.length;
     // Add an extra request beyond the claimed length.
-    builder.propagated_requests.array[num_propagated] = builder.propagated_requests.array[0];
+    builder.propagated_key_validation_requests.array[num_propagated] =
+        builder.propagated_key_validation_requests.array[0];
 
     builder.validate();
 }
@@ -127,7 +128,7 @@ fn clear_nothing_succeeds() {
     // Validate 0 items, even though the hints are not empty.
     builder.validate_with_amount::<0>();
 
-    let propagated = builder.propagated_requests;
+    let propagated = builder.propagated_key_validation_requests;
     let requests = builder.key_validation_requests;
     assert_eq(propagated, requests);
     assert_eq(propagated.length, 2);
@@ -137,9 +138,9 @@ fn clear_nothing_succeeds() {
 fn clear_nothing_propagate_fewer_requests_fails() {
     let mut builder = TestBuilder::new_clear_nothing();
 
-    let num_propagated = builder.propagated_requests.length;
+    let num_propagated = builder.propagated_key_validation_requests.length;
     // Remove the last request.
-    builder.propagated_requests.array[num_propagated - 1] = Scoped::empty();
+    builder.propagated_key_validation_requests.array[num_propagated - 1] = Scoped::empty();
 
     builder.validate_with_amount::<0>();
 }
@@ -149,7 +150,7 @@ fn clear_nothing_propagate_less_amount_fails() {
     let mut builder = TestBuilder::new_clear_nothing();
 
     // Make the propagated array a bit smaller.
-    builder.propagated_requests.length -= 1;
+    builder.propagated_key_validation_requests.length -= 1;
 
     builder.validate_with_amount::<0>();
 }
@@ -158,10 +159,10 @@ fn clear_nothing_propagate_less_amount_fails() {
 fn clear_nothing_propagate_more_requests_fails() {
     let mut builder = TestBuilder::new_clear_nothing();
 
-    let num_propagated = builder.propagated_requests.length;
+    let num_propagated = builder.propagated_key_validation_requests.length;
     // Add an extra request beyond the claimed length.
-    builder.propagated_requests.array[num_propagated] =
-        builder.propagated_requests.array[num_propagated - 1];
+    builder.propagated_key_validation_requests.array[num_propagated] =
+        builder.propagated_key_validation_requests.array[num_propagated - 1];
 
     builder.validate_with_amount::<0>();
 }
@@ -171,7 +172,7 @@ fn clear_nothing_propagate_more_amount_fails() {
     let mut builder = TestBuilder::new_clear_nothing();
 
     // Make the propagated array a bit larger.
-    builder.propagated_requests.length += 1;
+    builder.propagated_key_validation_requests.length += 1;
 
     builder.validate_with_amount::<0>();
 }

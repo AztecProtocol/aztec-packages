@@ -1,5 +1,5 @@
 // This circuit aggregates a single ZK-Honk proof from `assert_statement`.
-use bb_proof_verification::{UltraHonkVerificationKey, UltraHonkZKProof, verify_ultrahonkzk_proof};
+use bb_proof_verification::{UltraHonkVerificationKey, UltraHonkZKProof, verify_honk_proof};
 
 fn main(
     verification_key: UltraHonkVerificationKey,
@@ -10,7 +10,7 @@ fn main(
     // This is currently not public. It is fine given that the vk is a part of the circuit definition.
     key_hash: Field,
 ) {
-    verify_ultrahonkzk_proof(
+    verify_honk_proof(
         verification_key,
         proof,
         public_inputs,

@@ -43,22 +43,6 @@ export async function makeTupleAsync<T, N extends number>(length: N, fn: (i: num
 }
 
 /**
- * Create an array over an integer range, filled with a function 'fn'. However, the latter half of the array are set to zeros.
- * see `makeTuple` above.
- * @param n - The number of integers.
- * @param fn - The generator function.
- * @returns The array of numbers.
- */
-export function makeHalfFullTuple<T, N extends number>(
-  length: N,
-  fn: (i: number) => T,
-  offset = 0,
-  makeEmpty: () => T,
-) {
-  return Array.from({ length }, (_: any, i: number) => (i < length / 2 ? fn(i + offset) : makeEmpty())) as Tuple<T, N>;
-}
-
-/**
  * Assert a member of an object is a certain length.
  * @param obj - An object.
  * @param member - A member string.

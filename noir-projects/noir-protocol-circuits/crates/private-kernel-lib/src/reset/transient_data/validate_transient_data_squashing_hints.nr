@@ -17,14 +17,15 @@ use types::{
 /// See `validate_note_hash_nullifier_squashing` for details on how the value `num_active_squashing_hints` is used in
 /// propagation checks.
 ///
-/// The validation against the claimed lengths prevent malicious users from faking a note hash or nullifier beyond the
+/// The validation against the claimed lengths prevents malicious users from faking a note hash or nullifier beyond the
 /// claimed length to justify squashing a nullifier or note hash that should be kept.
 pub fn validate_transient_data_squashing_hints<let NoteHashesLen: u32, let NullifiersLen: u32, let SquashingHintsLen: u32>(
     note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
     nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, NullifiersLen>,
     transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
     num_active_squashing_hints: u32,
-    // Sorted values of nullifier indices (with original indices) used to validate uniqueness.
+    // Sorted values of nullifier indices (with original indices) used to validate uniqueness
+    // of the nullifier_index items of the transient_data_squashing_hints.
     nullifier_index_sorted_tuples: [SortedTuple<u32>; SquashingHintsLen],
 ) {
     let mut is_active_hint = true;
@@ -38,6 +39,7 @@ pub fn validate_transient_data_squashing_hints<let NoteHashesLen: u32, let Nulli
 
         if is_active_hint {
             // === Ensure each `note_hash_index` is unique ===
+            //
             // Ensure the first `num_active_squashing_hints` note hash indices are unique by checking that they are in
             // increasing order.
             if i != 0 {
@@ -52,6 +54,7 @@ pub fn validate_transient_data_squashing_hints<let NoteHashesLen: u32, let Nulli
             // that the first `num_active_squashing_hints` nullifier indices are unique.
 
             // === Nullifier index uniqueness check: Step 1 ===
+            //
             // This check guarantees that the first `num_active_squashing_hints` sorted tuples point back to the actual
             // nullifier indices in `transient_data_squashing_hints`.
             //
@@ -64,6 +67,7 @@ pub fn validate_transient_data_squashing_hints<let NoteHashesLen: u32, let Nulli
             );
 
             // === Nullifier index uniqueness check: Step 2 ===
+            //
             // Ensure all the "active" values in the sorted tuples are unique by checking that they are in increasing
             // order.
             if i != 0 {
@@ -75,8 +79,8 @@ pub fn validate_transient_data_squashing_hints<let NoteHashesLen: u32, let Nulli
         } else {
             // Ensure that all indices in inactive hints (beyond `num_active_squashing_hints`) use the sentinel value.
 
-            // Without this check, a log can be squashed by referring to an inactive squashing hint that points to a
-            // fake note hash beyond the claimed length.
+            // Without this check, a log can be squashed by referring to an inactive squashing hint (that points to a
+            // fake note_hash beyond the claimed length).
             assert_eq(
                 hint.note_hash_index,
                 NoteHashesLen,
@@ -84,6 +88,7 @@ pub fn validate_transient_data_squashing_hints<let NoteHashesLen: u32, let Nulli
             );
 
             // === Nullifier index uniqueness check: Step 3 ===
+            //
             // Without this check, an inactive hint could be referenced by an active sorted tuple.
             // That would allow a duplicate nullifier index in an active hint to slip through undetected.
             assert_eq(
@@ -94,28 +99,31 @@ pub fn validate_transient_data_squashing_hints<let NoteHashesLen: u32, let Nulli
         }
     }
 
-    // === Nullifier index uniqueness check: Step 4 ===
-    // Ensure that the last active value in the sorted array is less than the claimed length of the nullifiers array.
-    //
-    // This implies that all nullifier indices before it (i.e., all active sorted values) are also less than the claimed
-    // length.
-    // Because step 3 guarantees that the nullifier index in all inactive hints is set to the sentinel value, we can be
-    // sure that these earlier sorted values must come from active entries in `transient_data_squashing_hints`.
     if num_active_squashing_hints != 0 {
+        let last_active_squashing_hint_index = num_active_squashing_hints - 1;
+
+        // === Nullifier index uniqueness check: Step 4 ===
+        //
+        // Ensure that the last active value in the sorted array is less than the claimed length of the nullifiers array.
+        //
+        // This implies that all nullifier indices before it (i.e., all active sorted values) are also less than the claimed
+        // length.
+        // Because step 3 guarantees that the nullifier index in all inactive hints is set to the sentinel value
+        // we can be sure that these earlier sorted values must come from active entries in `transient_data_squashing_hints`.
         assert(
-            nullifier_index_sorted_tuples[num_active_squashing_hints - 1].elem < nullifiers.length,
+            nullifier_index_sorted_tuples[last_active_squashing_hint_index].elem
+                < nullifiers.length,
             "Nullifier index hint exceeds claimed length",
         );
-    }
 
-    // === Check note hash index against claimed length ===
-    // Ensure that the last active note hash index hint is less than the claimed length of the note hashes array.
-    //
-    // Since the active note hash indices are in increasing order, this check implies that all active note hash indices
-    // are less than the claimed length.
-    if num_active_squashing_hints != 0 {
+        // === Check note hash index against claimed length ===
+        //
+        // Ensure that the last active note hash index hint is less than the claimed length of the note hashes array.
+        //
+        // Since the active note hash indices are in increasing order, this check implies that all active note hash indices
+        // are less than the claimed length.
         assert(
-            transient_data_squashing_hints[num_active_squashing_hints - 1].note_hash_index
+            transient_data_squashing_hints[last_active_squashing_hint_index].note_hash_index
                 < note_hashes.length,
             "Note hash index hint exceeds claimed length",
         );

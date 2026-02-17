@@ -4,6 +4,7 @@ import {
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   RECURSIVE_PROOF_LENGTH,
 } from '@aztec/constants';
+import { EpochNumber, EpochNumberSchema } from '@aztec/foundation/branded-types';
 import type { ZodFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
@@ -45,15 +46,6 @@ export type ProofAndVerificationKey<N extends number> = {
   proof: RecursiveProof<N>;
   verificationKey: VerificationKeyData;
 };
-
-function schemaForRecursiveProofAndVerificationKey<N extends number>(
-  proofLength: N,
-): ZodFor<ProofAndVerificationKey<N>> {
-  return z.object({
-    proof: RecursiveProof.schemaFor(proofLength),
-    verificationKey: VerificationKeyData.schema,
-  });
-}
 
 export function makeProofAndVerificationKey<N extends number>(
   proof: RecursiveProof<N>,
@@ -212,7 +204,7 @@ export type ProvingJobInputsMap = {
 export const ProvingJobResult = z.discriminatedUnion('type', [
   z.object({
     type: z.literal(ProvingRequestType.PUBLIC_VM),
-    result: schemaForRecursiveProofAndVerificationKey(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED),
+    result: RecursiveProof.schemaFor(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED),
   }),
   z.object({
     type: z.literal(ProvingRequestType.PUBLIC_CHONK_VERIFIER),
@@ -327,7 +319,7 @@ export const ProvingJobResult = z.discriminatedUnion('type', [
 ]);
 export type ProvingJobResult = z.infer<typeof ProvingJobResult>;
 export type ProvingJobResultsMap = {
-  [ProvingRequestType.PUBLIC_VM]: ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>;
+  [ProvingRequestType.PUBLIC_VM]: RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>;
   [ProvingRequestType.PUBLIC_CHONK_VERIFIER]: PublicInputsAndRecursiveProof<
     PublicChonkVerifierPublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
@@ -400,24 +392,32 @@ export const ProofUri = z.string().brand('ProvingJobUri');
 export type ProofUri = z.infer<typeof ProofUri>;
 
 export type ProvingJobId = z.infer<typeof ProvingJobId>;
-export const ProvingJob = z.object({
+
+type ProvingJobShape = {
+  id: ProvingJobId;
+  type: ProvingRequestType;
+  epochNumber: EpochNumber;
+  inputsUri: ProofUri;
+};
+
+export const ProvingJob: z.ZodType<ProvingJobShape, z.ZodTypeDef, any> = z.object({
   id: ProvingJobId,
   type: z.nativeEnum(ProvingRequestType),
-  epochNumber: z.number(),
+  epochNumber: EpochNumberSchema,
   inputsUri: ProofUri,
 });
 
-export const makeProvingJobId = (epochNumber: number, type: ProvingRequestType, inputsHash: string) => {
+export const makeProvingJobId = (epochNumber: EpochNumber, type: ProvingRequestType, inputsHash: string) => {
   return `${epochNumber}:${ProvingRequestType[type]}:${inputsHash}`;
 };
 
-export const getEpochFromProvingJobId = (id: ProvingJobId) => {
+export const getEpochFromProvingJobId = (id: ProvingJobId): EpochNumber => {
   const components = id.split(':');
   const epochNumber = components.length < 1 ? Number.NaN : parseInt(components[0], 10);
   if (!Number.isSafeInteger(epochNumber) || epochNumber < 0) {
     throw new Error(`Proving Job ID ${id} does not contain valid epoch`);
   }
-  return epochNumber;
+  return EpochNumber(epochNumber);
 };
 
 export type ProvingJob = z.infer<typeof ProvingJob>;

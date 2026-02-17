@@ -10,7 +10,7 @@
 #include "barretenberg/vm2/simulation/events/contract_instance_retrieval_event.hpp"
 #include "barretenberg/vm2/simulation/events/data_copy_events.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
-#include "barretenberg/vm2/simulation/events/emit_unencrypted_log_event.hpp"
+#include "barretenberg/vm2/simulation/events/emit_public_log_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
@@ -28,7 +28,6 @@
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/retrieved_bytecodes_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
-#include "barretenberg/vm2/simulation/events/siloing_event.hpp"
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
 #include "barretenberg/vm2/simulation/events/tx_events.hpp"
 #include "barretenberg/vm2/simulation/events/update_check.hpp"
@@ -48,7 +47,6 @@ struct EventsContainer {
     EventEmitterInterface<InstructionFetchingEvent>::Container instruction_fetching;
     EventEmitterInterface<AddressDerivationEvent>::Container address_derivation;
     EventEmitterInterface<ClassIdDerivationEvent>::Container class_id_derivation;
-    EventEmitterInterface<SiloingEvent>::Container siloing;
     EventEmitterInterface<Sha256CompressionEvent>::Container sha256_compression;
     EventEmitterInterface<EccAddEvent>::Container ecc_add;
     EventEmitterInterface<ScalarMulEvent>::Container scalar_mul;
@@ -75,7 +73,7 @@ struct EventsContainer {
     EventEmitterInterface<ContractInstanceRetrievalEvent>::Container contract_instance_retrieval_events;
     EventEmitterInterface<GetContractInstanceEvent>::Container get_contract_instance_events;
     EventEmitterInterface<L1ToL2MessageTreeCheckEvent>::Container l1_to_l2_msg_tree_check_events;
-    EventEmitterInterface<EmitUnencryptedLogEvent>::Container emit_unencrypted_log_events;
+    EventEmitterInterface<EmitPublicLogEvent>::Container emit_public_log_events;
     EventEmitterInterface<RetrievedBytecodesTreeCheckEvent>::Container retrieved_bytecodes_tree_check_events;
 };
 

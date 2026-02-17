@@ -28,6 +28,33 @@ fn validate_propagated_from_previous_kernel_constants_mismatch_protocol_contract
     builder.validate_as_inner_call();
 }
 
+#[test(should_fail_with = "mismatch is_private_only")]
+fn validate_propagated_from_previous_kernel_is_private_only_mismatch_fails() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+
+    builder.output.is_private_only = true;
+
+    builder.validate_as_inner_call();
+}
+
+#[test(should_fail_with = "mismatch claimed_first_nullifier")]
+fn validate_propagated_from_previous_kernel_claimed_first_nullifier_mismatch_fails() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+
+    builder.output.claimed_first_nullifier = 4567;
+
+    builder.validate_as_inner_call();
+}
+
+#[test(should_fail_with = "mismatch claimed_revertible_counter")]
+fn validate_propagated_from_previous_kernel_claimed_revertible_counter_mismatch_fails() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+
+    builder.output.claimed_revertible_counter = 4567;
+
+    builder.validate_as_inner_call();
+}
+
 /**
  * validation_requests
  */
@@ -35,28 +62,18 @@ fn validate_propagated_from_previous_kernel_constants_mismatch_protocol_contract
 fn validate_propagated_from_previous_kernel_validation_requests_split_counter_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.previous_kernel.validation_requests_split_counter = Option::some(123);
-    builder.output.validation_requests_split_counter = Option::some(123);
+    builder.previous_kernel.claimed_revertible_counter = 123;
+    builder.output.claimed_revertible_counter = 123;
 
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with = "mismatch validation requests split counter")]
+#[test(should_fail_with = "mismatch claimed_revertible_counter")]
 fn validate_propagated_from_previous_kernel_validation_requests_split_counter_mismatch_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.previous_kernel.validation_requests_split_counter = Option::some(123);
-    builder.output.validation_requests_split_counter = Option::some(4567);
-
-    builder.validate_as_inner_call();
-}
-
-#[test(should_fail_with = "mismatch validation requests split counter")]
-fn validate_propagated_from_previous_kernel_validation_requests_split_counter_unexpected_fails() {
-    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
-
-    builder.previous_kernel.validation_requests_split_counter = Option::none();
-    builder.output.validation_requests_split_counter = Option::some(123);
+    builder.previous_kernel.claimed_revertible_counter = 123;
+    builder.output.claimed_revertible_counter = 4567;
 
     builder.validate_as_inner_call();
 }

@@ -28,7 +28,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
  *      This enables comprehensive testing of blob functionality without requiring actual blob transactions.
  *
  *      Blob Validation Flow:
- *      1. validateBlobs() processes L2 block blob data, extracting commitments and validating against real blobs
+ *      1. validateBlobs() processes checkpoint blob data, extracting commitments and validating against real blobs
  *      2. calculateBlobCommitmentsHash() accumulates commitments across an epoch for rollup circuit validation
  *      3. validateBatchedBlob() verifies batched blob proofs using the EIP-4844 point evaluation precompile
  *      4. calculateBlobHash() computes versioned hashes from commitments following EIP-4844 specification
@@ -58,24 +58,24 @@ library BlobLib {
   }
 
   /**
-   * @notice  Validate an L2 block's blobs and return the blobHashes, the hashed blobHashes, and blob commitments.
+   * @notice  Validate a checkpoint's blobs and return the blobHashes, the hashed blobHashes, and blob commitments.
    *
    *          We assume that the Aztec related blobs will be first in the propose transaction, additional blobs can be
    *          at the end.
    *
    * Input bytes:
-   * input[0] - num blobs in block
-   * input[1:] - blob commitments (48 bytes * num blobs in block)
+   * input[0] - num blobs in checkpoint
+   * input[1:] - blob commitments (48 bytes * num blobs in checkpoint)
    * @param _blobsInput - The above bytes to verify our input blob commitments match real blobs
    * @param _checkBlob - Whether to skip blob related checks. Hardcoded to true (See RollupCore.sol -> checkBlob),
    * exists only to be overridden in tests.
    *
    * Returns for proposal:
-   * @return blobHashes - All of the blob hashes included in this block, to be emitted in L2BlockProposed event.
-   * @return blobsHashesCommitment - A hash of all blob hashes in this block, to be included in the block header. See
-   * comment at the end of this fn for more info.
-   * @return blobCommitments - All of the blob commitments included in this block, to be stored then validated against
-   * those used in the rollup in epoch proof verification.
+   * @return blobHashes - All of the blob hashes included in this checkpoint, to be emitted in CheckpointProposed event.
+   * @return blobsHashesCommitment - A hash of all blob hashes in this checkpoint, to be included in the checkpoint
+   * header. See comment at the end of this fn for more info.
+   * @return blobCommitments - All of the blob commitments included in this checkpoint, to be stored then validated
+   * against those used in the rollup in epoch proof verification.
    */
   function validateBlobs(bytes calldata _blobsInput, bool _checkBlob)
     internal
@@ -85,7 +85,7 @@ library BlobLib {
     // We cannot input the incorrect number of blobs below, as the blobsHash
     // and epoch proof verification will fail.
     uint8 numBlobs = uint8(_blobsInput[0]);
-    require(numBlobs > 0, Errors.Rollup__NoBlobsInBlock());
+    require(numBlobs > 0, Errors.Rollup__NoBlobsInCheckpoint());
     blobHashes = new bytes32[](numBlobs);
     blobCommitments = new bytes[](numBlobs);
     bytes32 blobHash;
@@ -101,24 +101,24 @@ library BlobLib {
       if (_checkBlob) {
         blobHash = getBlobHash(i);
         // The below check ensures that our injected blobCommitments indeed match the real
-        // blobs submitted with this block. They are then used in the blobCommitmentsHash (see below).
+        // blobs submitted with this checkpoint. They are then used in the blobCommitmentsHash (see below).
         require(blobHash == blobHashCheck, Errors.Rollup__InvalidBlobHash(blobHash, blobHashCheck));
       } else {
         blobHash = blobHashCheck;
       }
       blobHashes[i] = blobHash;
     }
-    // Hash the EVM blob hashes for the block header
+    // Hash the EVM blob hashes for the checkpoint header
     // TODO(#13430): The below blobsHashesCommitment known as blobsHash elsewhere in the code. The name
     // blobsHashesCommitment is confusingly similar to blobCommitmentsHash
     // which are different values:
-    // - blobsHash := sha256([blobhash_0, ..., blobhash_m]) = a hash of all blob hashes in a block with m+1 blobs
+    // - blobsHash := sha256([blobhash_0, ..., blobhash_m]) = a hash of all blob hashes in a checkpoint with m+1 blobs
     // inserted into the header, exists so a user can cross check blobs.
     // - blobCommitmentsHash := sha256( ...sha256(sha256(C_0), C_1) ... C_n) = iteratively calculated hash of all blob
     // commitments in an epoch with n+1 blobs (see calculateBlobCommitmentsHash()),
     //   exists so we can validate injected commitments to the rollup circuits correspond to the correct real blobs.
     // We may be able to combine these values e.g. blobCommitmentsHash := sha256( ...sha256(sha256(blobshash_0),
-    // blobshash_1) ... blobshash_l) for an epoch with l+1 blocks.
+    // blobshash_1) ... blobshash_l) for an epoch with l+1 checkpoints.
     blobsHashesCommitment = Hash.sha256ToField(abi.encodePacked(blobHashes));
   }
 
@@ -151,16 +151,16 @@ library BlobLib {
   }
 
   /**
-   * @notice  Calculate the current state of the blobCommitmentsHash. Called for each new proposed block.
-   * @param _previousBlobCommitmentsHash - The previous block's blobCommitmentsHash.
-   * @param _blobCommitments - The commitments corresponding to this block's blobs.
-   * @param _isFirstBlockOfEpoch - Whether this block is the first of an epoch (see below).
+   * @notice  Calculate the current state of the blobCommitmentsHash. Called for each new proposed checkpoint.
+   * @param _previousBlobCommitmentsHash - The previous checkpoint's blobCommitmentsHash.
+   * @param _blobCommitments - The commitments corresponding to this checkpoint's blobs.
+   * @param _isFirstCheckpointOfEpoch - Whether this checkpoint is the first of an epoch (see below).
    *
    * The blobCommitmentsHash is an accumulated value calculated in the rollup circuits as:
    *    blobCommitmentsHash_i := sha256(blobCommitmentsHash_(i - 1), C_i)
    * for each blob commitment C_i in an epoch. For the first blob in the epoch (i = 0):
    *    blobCommitmentsHash_i := sha256(C_0)
-   * which is why we require _isFirstBlockOfEpoch here.
+   * which is why we require _isFirstCheckpointOfEpoch here.
    *
    * Each blob commitment is injected into the rollup circuits and we rely on the L1 contracts to validate
    * these commitments correspond to real blobs. The input _blobCommitments below come from validateBlobs()
@@ -177,13 +177,13 @@ library BlobLib {
   function calculateBlobCommitmentsHash(
     bytes32 _previousBlobCommitmentsHash,
     bytes[] memory _blobCommitments,
-    bool _isFirstBlockOfEpoch
+    bool _isFirstCheckpointOfEpoch
   ) internal pure returns (bytes32 currentBlobCommitmentsHash) {
     uint256 i = 0;
     currentBlobCommitmentsHash = _previousBlobCommitmentsHash;
-    // If we are at the first block of an epoch, we reinitialize the blobCommitmentsHash.
+    // If we are at the first checkpoint of an epoch, we reinitialize the blobCommitmentsHash.
     // Blob commitments are collected and proven per root rollup proof => per epoch.
-    if (_isFirstBlockOfEpoch) {
+    if (_isFirstCheckpointOfEpoch) {
       // Initialize the blobCommitmentsHash
       currentBlobCommitmentsHash = Hash.sha256ToField(abi.encodePacked(_blobCommitments[i++]));
     }

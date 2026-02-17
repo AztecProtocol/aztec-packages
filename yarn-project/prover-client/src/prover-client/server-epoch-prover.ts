@@ -1,5 +1,6 @@
-import type { BatchedBlob, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
-import type { Fr } from '@aztec/foundation/fields';
+import type { BatchedBlob, FinalBlobBatchingChallenges } from '@aztec/blob-lib/types';
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/stdlib/block';
 import type { EpochProver } from '@aztec/stdlib/interfaces/server';
 import type { Proof } from '@aztec/stdlib/proofs';
@@ -18,7 +19,7 @@ export class ServerEpochProver implements EpochProver {
   ) {}
 
   startNewEpoch(
-    epochNumber: number,
+    epochNumber: EpochNumber,
     totalNumCheckpoints: number,
     finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
   ): void {
@@ -30,7 +31,6 @@ export class ServerEpochProver implements EpochProver {
     constants: CheckpointConstantData,
     l1ToL2Messages: Fr[],
     totalNumBlocks: number,
-    totalNumBlobFields: number,
     headerOfLastBlockInPreviousCheckpoint: BlockHeader,
   ): Promise<void> {
     return this.orchestrator.startNewCheckpoint(
@@ -38,14 +38,13 @@ export class ServerEpochProver implements EpochProver {
       constants,
       l1ToL2Messages,
       totalNumBlocks,
-      totalNumBlobFields,
       headerOfLastBlockInPreviousCheckpoint,
     );
   }
   startChonkVerifierCircuits(txs: Tx[]): Promise<void> {
     return this.orchestrator.startChonkVerifierCircuits(txs);
   }
-  setBlockCompleted(blockNumber: number, expectedBlockHeader?: BlockHeader): Promise<BlockHeader> {
+  setBlockCompleted(blockNumber: BlockNumber, expectedBlockHeader?: BlockHeader): Promise<BlockHeader> {
     return this.orchestrator.setBlockCompleted(blockNumber, expectedBlockHeader);
   }
   finalizeEpoch(): Promise<{ publicInputs: RootRollupPublicInputs; proof: Proof; batchedBlobInputs: BatchedBlob }> {
@@ -61,7 +60,7 @@ export class ServerEpochProver implements EpochProver {
     await this.facade.stop();
     await this.orchestrator.stop();
   }
-  startNewBlock(blockNumber: number, timestamp: UInt64, totalNumTxs: number): Promise<void> {
+  startNewBlock(blockNumber: BlockNumber, timestamp: UInt64, totalNumTxs: number): Promise<void> {
     return this.orchestrator.startNewBlock(blockNumber, timestamp, totalNumTxs);
   }
   addTxs(txs: ProcessedTx[]): Promise<void> {

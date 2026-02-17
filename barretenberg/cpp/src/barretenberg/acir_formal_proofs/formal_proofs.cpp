@@ -1,6 +1,7 @@
 #include "acir_loader.hpp"
 #include "barretenberg/smt_verification/circuit/ultra_circuit.hpp"
 #include "barretenberg/smt_verification/solver/solver.hpp"
+#include "barretenberg/smt_verification/terms/term.hpp"
 #include "barretenberg/smt_verification/util/smt_util.hpp"
 #include "helpers.hpp"
 
@@ -28,6 +29,21 @@ bool verify_add(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit)
     return res;
 }
 
+bool verify_add_signed(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit, uint32_t bit_size)
+{
+    auto a = circuit["a"];
+    auto b = circuit["b"];
+    auto c = circuit["c"];
+    auto cr = add_signed(a, b, bit_size);
+    c != cr;
+    bool res = solver->check();
+    if (res) {
+        std::unordered_map<std::string, cvc5::Term> terms({ { "a", a }, { "b", b }, { "c", c }, { "cr", cr } });
+        debug_solution(solver, terms);
+    }
+    return res;
+}
+
 bool verify_sub(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit)
 {
     auto a = circuit["a"];
@@ -43,12 +59,42 @@ bool verify_sub(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit)
     return res;
 }
 
+bool verify_sub_signed(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit, uint32_t bit_size)
+{
+    auto a = circuit["a"];
+    auto b = circuit["b"];
+    auto c = circuit["c"];
+    auto cr = sub_signed(a, b, bit_size);
+    c != cr;
+    bool res = solver->check();
+    if (res) {
+        std::unordered_map<std::string, cvc5::Term> terms({ { "a", a }, { "b", b }, { "c", c }, { "cr", cr } });
+        debug_solution(solver, terms);
+    }
+    return res;
+}
+
 bool verify_mul(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit)
 {
     auto a = circuit["a"];
     auto b = circuit["b"];
     auto c = circuit["c"];
     auto cr = a * b;
+    c != cr;
+    bool res = solver->check();
+    if (res) {
+        std::unordered_map<std::string, cvc5::Term> terms({ { "a", a }, { "b", b }, { "c", c }, { "cr", cr } });
+        debug_solution(solver, terms);
+    }
+    return res;
+}
+
+bool verify_mul_signed(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit, uint32_t bit_size)
+{
+    auto a = circuit["a"];
+    auto b = circuit["b"];
+    auto c = circuit["c"];
+    auto cr = mul_signed(a, b, bit_size);
     c != cr;
     bool res = solver->check();
     if (res) {
@@ -150,13 +196,29 @@ bool verify_xor(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit)
     return res;
 }
 
-// takes 0.346 seconds on SMTBOX
-bool verify_not_127(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit)
+bool verify_not_64(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit)
 {
     auto a = circuit["a"];
     auto b = circuit["b"];
-    // 2**127 - 1
-    auto mask = smt_terms::BVConst("170141183460469231731687303715884105727", solver, 10);
+    // 2^64 - 1
+    auto mask = smt_terms::BVConst("18446744073709551615", solver, 10);
+    auto br = a ^ mask;
+    b != br;
+    bool res = solver->check();
+    if (res) {
+        std::unordered_map<std::string, cvc5::Term> terms({ { "a", a }, { "b", b }, { "br", br } });
+        debug_solution(solver, terms);
+    }
+    return res;
+}
+
+// takes 0.346 seconds on SMTBOX
+bool verify_not_128(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit)
+{
+    auto a = circuit["a"];
+    auto b = circuit["b"];
+    // 2**128 - 1
+    auto mask = smt_terms::BVConst("340282366920938463463374607431768211455", solver, 10);
     auto br = a ^ mask;
     b != br;
     bool res = solver->check();
@@ -188,6 +250,21 @@ bool verify_shl64(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit)
     auto b = circuit["b"];
     auto c = circuit["c"];
     auto cr = shl64(a, b, solver);
+    c != cr;
+    bool res = solver->check();
+    if (res) {
+        std::unordered_map<std::string, cvc5::Term> terms({ { "a", a }, { "b", b }, { "c", c }, { "cr", cr } });
+        debug_solution(solver, terms);
+    }
+    return res;
+}
+
+bool verify_shl8(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit)
+{
+    auto a = circuit["a"];
+    auto b = circuit["b"];
+    auto c = circuit["c"];
+    auto cr = shl8(a, b, solver);
     c != cr;
     bool res = solver->check();
     if (res) {
@@ -299,6 +376,7 @@ bool verify_non_uniqueness_for_casts(smt_solver::Solver* solver, AcirToSmtLoader
                                                               /*not_equal_at_the_same_time=*/{},
                                                               /*enable_optimizations=*/true);
     bool res = solver->check();
+
     if (res) {
         debug_solution(solver, {});
     }

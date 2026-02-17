@@ -45,6 +45,8 @@ export const BLOCK_NUMBER = 'aztec.block.number';
 export const BLOCK_HASH = 'aztec.block.hash';
 /** The slot number */
 export const SLOT_NUMBER = 'aztec.slot.number';
+/** The checkpoint number */
+export const CHECKPOINT_NUMBER = 'aztec.checkpoint.number';
 /** The parent's block number */
 export const BLOCK_PARENT = 'aztec.block.parent';
 /** How many txs are being processed to build this block */
@@ -93,7 +95,11 @@ export const VALIDATOR_STATUS = 'aztec.validator_status';
 export const P2P_ID = 'aztec.p2p.id';
 export const P2P_REQ_RESP_PROTOCOL = 'aztec.p2p.req_resp.protocol';
 export const P2P_REQ_RESP_BATCH_REQUESTS_COUNT = 'aztec.p2p.req_resp.batch_requests_count';
+/** The state of a peer (Healthy, Disconnect, Banned) */
+export const P2P_PEER_SCORE_STATE = 'aztec.p2p.peer_score_state';
 export const POOL_NAME = 'aztec.pool.name';
+
+export const PEER_ID = 'aztec.p2p.peer_id';
 
 export const SEQUENCER_STATE = 'aztec.sequencer.state';
 
@@ -129,3 +135,15 @@ export const L1_TX_SCOPE = 'aztec.l1_tx.scope';
 
 /** Generic error type attribute */
 export const IS_COMMITTEE_MEMBER = 'aztec.is_committee_member';
+
+/** Fisherman fee analysis strategy identifier */
+export const FISHERMAN_FEE_STRATEGY_ID = 'aztec.fisherman.strategy_id';
+
+/** Whether the analyzed block reached 100% blob capacity */
+export const BLOCK_FULL = 'aztec.block_full';
+
+/** The L1 transaction target for block proposal */
+export const L1_BLOCK_PROPOSAL_TX_TARGET = 'aztec.l1.block_proposal_tx_target';
+
+/** Whether tracing methods were used to extract block proposal data */
+export const L1_BLOCK_PROPOSAL_USED_TRACE = 'aztec.l1.block_proposal_used_trace';

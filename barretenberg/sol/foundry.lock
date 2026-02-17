@@ -11,6 +11,9 @@
   "../../l1-contracts/lib/openzeppelin-contracts": {
     "rev": "448efeea6640bbbc09373f03fbc9c88e280147ba"
   },
+  "../../noir/noir-repo": {
+    "rev": "1fce7cac1b6b116b6af98875580b5122eb9fe051"
+  },
   "lib/forge-std": {
     "rev": "74cfb77e308dd188d2f58864aaf44963ae6b88b1"
   },

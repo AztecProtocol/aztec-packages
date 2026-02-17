@@ -3,26 +3,16 @@ nodeSelector:
   node-type: "network"
   cores: "2"
 
-affinity:
-  podAntiAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-      - labelSelector:
-          matchExpressions:
-            - key: app
-              operator: In
-              values:
-                - node
-        topologyKey: "kubernetes.io/hostname"
-        namespaceSelector: {}
-
 replicaCount: 1
-hostNetwork: true
 
 node:
   resources:
     requests:
+      cpu: "0.5"
+      memory: "2Gi"
+    limits:
       cpu: "1.5"
-      memory: "5Gi"
+      memory: "6Gi"
 
 persistence:
   enabled: true
@@ -38,7 +28,7 @@ statefulSet:
         accessModes: [ReadWriteOnce]
         resources:
           requests:
-            storage: "1Ti"
+            storage: "64Gi"
 
 service:
   headless:

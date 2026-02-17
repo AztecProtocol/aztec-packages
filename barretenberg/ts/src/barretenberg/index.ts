@@ -1,12 +1,19 @@
 import { Crs, GrumpkinCrs } from '../crs/index.js';
-import { createDebugLogger } from '../log/index.js';
 import { AsyncApi } from '../cbind/generated/async.js';
 import { SyncApi } from '../cbind/generated/sync.js';
 import { IMsgpackBackendSync, IMsgpackBackendAsync } from '../bb_backends/interface.js';
 import { BackendOptions, BackendType } from '../bb_backends/index.js';
 import { createAsyncBackend, createSyncBackend } from '../bb_backends/node/index.js';
 
-export { UltraHonkBackend, UltraHonkVerifierBackend, AztecClientBackend } from './backend.js';
+export {
+  UltraHonkBackend,
+  UltraHonkVerifierBackend,
+  AztecClientBackend,
+  fieldToString,
+  fieldsToStrings,
+  type UltraHonkBackendOptions,
+  type VerifierTarget,
+} from './backend.js';
 export * from '../bb_backends/index.js';
 
 export type CircuitOptions = {
@@ -31,41 +38,36 @@ export class Barretenberg extends AsyncApi {
    *
    * If options.backend is set: uses that specific backend (throws if unavailable)
    * If options.backend is unset: tries backends in order with fallback:
-   *   1. NativeSharedMemory (if bb binary available)
+   *   1. NativeUnixSocket (if bb binary available)
    *   2. WasmWorker (in browser) or Wasm (in Node.js)
    */
   static async new(options: BackendOptions = {}) {
-    const logger = options.logger ?? createDebugLogger('bb_async');
+    const logger = options.logger ?? (() => {});
 
     if (options.backend) {
       // Explicit backend required - no fallback
-      return await createAsyncBackend(options.backend, options, logger);
+      const backend = await createAsyncBackend(options.backend, options, logger);
+      if (options.backend === BackendType.Wasm || options.backend === BackendType.WasmWorker) {
+        await backend.initSRSChonk();
+      }
+      return backend;
     }
 
     if (typeof window === 'undefined') {
       try {
-        return await createAsyncBackend(BackendType.NativeSharedMemory, options, logger);
+        return await createAsyncBackend(BackendType.NativeUnixSocket, options, logger);
       } catch (err: any) {
-        logger(`Shared memory unavailable (${err.message}), falling back to other backends`);
-        try {
-          return await createAsyncBackend(BackendType.NativeUnixSocket, options, logger);
-        } catch (err: any) {
-          logger(`Unix socket unavailable (${err.message}), falling back to WASM`);
-          return await createAsyncBackend(BackendType.Wasm, options, logger);
-        }
+        logger(`Unix socket unavailable (${err.message}), falling back to WASM`);
+        const backend = await createAsyncBackend(BackendType.Wasm, options, logger);
+        await backend.initSRSChonk();
+        return backend;
       }
     } else {
       logger(`In browser, using WASM over worker backend.`);
-      return await createAsyncBackend(BackendType.WasmWorker, options, logger);
+      const backend = await createAsyncBackend(BackendType.WasmWorker, options, logger);
+      await backend.initSRSChonk();
+      return backend;
     }
-  }
-
-  async initSRSForCircuitSize(circuitSize: number): Promise<void> {
-    const minSRSSize = 2 ** 9; // 2**9 is the dyadic size for the SmallSubgroupIPA MSM.
-    const crs = await Crs.new(Math.max(circuitSize, minSRSSize) + 1, this.options.crsPath, this.options.logger);
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1129): Do slab allocator initialization?
-    // await this.commonInitSlabAllocator(circuitSize);
-    await this.srsInitSrs({ pointsBuf: crs.getG1Data(), numPoints: crs.numPoints, g2Point: crs.getG2Data() });
   }
 
   async initSRSChonk(srsSize = this.getDefaultSrsSize()): Promise<void> {
@@ -80,9 +82,10 @@ export class Barretenberg extends AsyncApi {
   }
 
   getDefaultSrsSize(): number {
-    // iOS browser is very aggressive with memory. Check if running in browser and on iOS
+    // iOS browser is very aggressive with memory. Check if running in browser and on iOS.
     // We expect the mobile iOS browser to kill us >=1GB, so no real use in using a larger SRS.
-    if (typeof window !== 'undefined' && /iPad|iPhone/.test(navigator.userAgent)) {
+    // Use `self` instead of `window` so this check also works inside Web Workers.
+    if (typeof self !== 'undefined' && typeof self.navigator !== 'undefined' && /iPad|iPhone/.test(self.navigator.userAgent)) {
       return 2 ** 18;
     }
     return 2 ** 20;
@@ -104,11 +107,6 @@ export class Barretenberg extends AsyncApi {
       },
     });
     return [response.numGates, response.numGatesDyadic];
-  }
-
-  async acirInitSRS(bytecode: Uint8Array, recursive: boolean, honkRecursion: boolean): Promise<void> {
-    const [_, subgroupSize] = await this.acirGetCircuitSizes(bytecode, recursive, honkRecursion);
-    return this.initSRSForCircuitSize(subgroupSize);
   }
 
   async destroy() {
@@ -177,7 +175,7 @@ export class BarretenbergSync extends SyncApi {
    * Not supported: WasmWorker (no workers in sync), NativeUnixSocket (async only)
    */
   static async new(options: BackendOptions = {}) {
-    const logger = options.logger ?? createDebugLogger('bb_sync');
+    const logger = options.logger ?? (() => {});
 
     if (options.backend) {
       return await createSyncBackend(options.backend, options, logger);

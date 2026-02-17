@@ -12,7 +12,7 @@ export const TX_ERROR_DUPLICATE_NULLIFIER_IN_TX = 'Duplicate nullifier in tx';
 export const TX_ERROR_EXISTING_NULLIFIER = 'Existing nullifier';
 
 // Metadata
-export const TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP = 'Invalid expiration timestamp';
+export const TX_ERROR_INVALID_EXPIRATION_TIMESTAMP = 'Invalid expiration timestamp';
 export const TX_ERROR_INCORRECT_L1_CHAIN_ID = 'Incorrect L1 chain id';
 export const TX_ERROR_INCORRECT_ROLLUP_VERSION = 'Incorrect rollup version';
 export const TX_ERROR_INCORRECT_VK_TREE_ROOT = 'Incorrect verification keys tree root';
@@ -30,6 +30,9 @@ export const TX_ERROR_CONTRACT_CLASS_LOG_LENGTH = 'Incorrect contract class logs
 export const TX_ERROR_CONTRACT_CLASS_LOGS = 'Mismatched contract class logs';
 export const TX_ERROR_CONTRACT_CLASS_LOG_SORTING = 'Incorrectly sorted contract class logs';
 export const TX_ERROR_INCORRECT_HASH = 'Incorrect tx hash';
+
+// Size
+export const TX_ERROR_SIZE_ABOVE_LIMIT = 'Transaction size above size limit';
 
 // Block header
 export const TX_ERROR_BLOCK_HEADER = 'Block header not found';

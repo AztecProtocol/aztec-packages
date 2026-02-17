@@ -1,15 +1,17 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { computeAuthWitMessageHash, computeInnerAuthWitHash } from '@aztec/aztec.js/authorization';
+import { computeInnerAuthWitHash } from '@aztec/aztec.js/authorization';
 import { Fr } from '@aztec/aztec.js/fields';
 import { AuthRegistryContract } from '@aztec/noir-contracts.js/AuthRegistry';
 import { AuthWitTestContract } from '@aztec/noir-test-contracts.js/AuthWitTest';
+import { GenericProxyContract } from '@aztec/noir-test-contracts.js/GenericProxy';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
+import { sendThroughAuthwitProxy } from './fixtures/authwit_proxy.js';
 import { DUPLICATE_NULLIFIER_ERROR } from './fixtures/fixtures.js';
 import { ensureAccountContractsPublished, setup } from './fixtures/utils.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
 
 const TIMEOUT = 150_000;
 
@@ -17,25 +19,21 @@ describe('e2e_authwit_tests', () => {
   jest.setTimeout(TIMEOUT);
 
   let wallet: TestWallet;
-
   let account1Address: AztecAddress;
   let account2Address: AztecAddress;
 
-  let chainId: Fr;
-  let version: Fr;
   let auth: AuthWitTestContract;
+  let authwitProxy: GenericProxyContract;
 
   beforeAll(async () => {
-    const { wallet: defaultWallet, accounts, aztecNode } = await setup(2);
-    [account1Address, account2Address] = accounts;
-    wallet = defaultWallet as TestWallet;
-    await ensureAccountContractsPublished(wallet, accounts.slice(0, 2));
+    ({
+      wallet,
+      accounts: [account1Address, account2Address],
+    } = await setup(2));
+    await ensureAccountContractsPublished(wallet, [account1Address, account2Address]);
 
-    const nodeInfo = await aztecNode.getNodeInfo();
-    chainId = new Fr(nodeInfo.l1ChainId);
-    version = new Fr(nodeInfo.rollupVersion);
-
-    auth = await AuthWitTestContract.deploy(wallet).send({ from: account1Address }).deployed();
+    auth = await AuthWitTestContract.deploy(wallet).send({ from: account1Address });
+    authwitProxy = await GenericProxyContract.deploy(wallet).send({ from: account1Address });
   });
 
   describe('Private', () => {
@@ -66,10 +64,10 @@ describe('e2e_authwit_tests', () => {
         });
 
         // Consume the inner hash using the account1 as the "on behalf of".
-        await auth.methods
-          .consume(account1Address, innerHash)
-          .send({ from: account2Address, authWitnesses: [witness] })
-          .wait();
+        // We send through the proxy so the proxy becomes msg_sender in consume,
+        // while account1 remains the tx sender (with their keys in scope).
+        const action = auth.methods.consume(account1Address, innerHash);
+        await sendThroughAuthwitProxy(authwitProxy, action, { from: account1Address, authWitnesses: [witness] });
 
         expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
           isValidInPrivate: false,
@@ -78,60 +76,11 @@ describe('e2e_authwit_tests', () => {
 
         // Try to consume the same authwit again, it should fail
         await expect(
-          auth.methods
-            .consume(account1Address, innerHash)
-            .send({ from: account2Address, authWitnesses: [witness] })
-            .wait(),
+          sendThroughAuthwitProxy(authwitProxy, auth.methods.consume(account1Address, innerHash), {
+            from: account1Address,
+            authWitnesses: [witness],
+          }),
         ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
-      });
-      describe('failure case', () => {
-        it('invalid chain id', async () => {
-          const innerHash = await computeInnerAuthWitHash([Fr.fromHexString('0xdead'), Fr.fromHexString('0xbeef')]);
-          const intent = { consumer: auth.address, innerHash };
-
-          const messageHash = await computeAuthWitMessageHash(intent, { chainId: Fr.random(), version });
-          const expectedMessageHash = await computeAuthWitMessageHash(intent, { chainId, version });
-
-          const witness = await wallet.createAuthWit(account1Address, messageHash);
-
-          // We should NOT see it as valid, even though we have the authwit, since the chain id is wrong
-          expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
-            isValidInPrivate: false,
-            isValidInPublic: false,
-          });
-
-          // The transaction should be dropped because of the invalid chain id
-          await expect(
-            auth.methods.consume(account1Address, innerHash).simulate({ from: account2Address }),
-          ).rejects.toThrow(`Unknown auth witness for message hash ${expectedMessageHash.toString()}`);
-        });
-
-        it('invalid version', async () => {
-          const innerHash = await computeInnerAuthWitHash([Fr.fromHexString('0xdead'), Fr.fromHexString('0xbeef')]);
-          const intent = { consumer: auth.address, innerHash };
-
-          const messageHash = await computeAuthWitMessageHash(intent, { chainId, version: Fr.random() });
-
-          const expectedMessageHash = await computeAuthWitMessageHash(intent, { chainId, version });
-
-          const witness = await wallet.createAuthWit(account1Address, messageHash);
-
-          // We should NOT see it as valid, even though we have the authwit, since the version is wrong
-          expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
-            isValidInPrivate: false,
-            isValidInPublic: false,
-          });
-
-          // The transaction should be dropped because of the invalid version
-          await expect(
-            auth.methods.consume(account1Address, innerHash).simulate({ from: account2Address }),
-          ).rejects.toThrow(`Unknown auth witness for message hash ${expectedMessageHash.toString()}`);
-
-          expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
-            isValidInPrivate: false,
-            isValidInPublic: false,
-          });
-        });
       });
     });
   });
@@ -151,14 +100,14 @@ describe('e2e_authwit_tests', () => {
         });
 
         const validateActionInteraction = await wallet.setPublicAuthWit(account1Address, intent, true);
-        await validateActionInteraction.send().wait();
+        await validateActionInteraction.send();
         expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
           isValidInPrivate: true,
           isValidInPublic: true,
         });
 
-        const registry = await AuthRegistryContract.at(ProtocolContractAddress.AuthRegistry, wallet);
-        await registry.methods.consume(account1Address, innerHash).send({ from: account2Address }).wait();
+        const registry = AuthRegistryContract.at(ProtocolContractAddress.AuthRegistry, wallet);
+        await registry.methods.consume(account1Address, innerHash).send({ from: account2Address });
 
         expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
           isValidInPrivate: true,
@@ -179,7 +128,7 @@ describe('e2e_authwit_tests', () => {
           });
 
           const validateActionInteraction = await wallet.setPublicAuthWit(account1Address, intent, true);
-          await validateActionInteraction.send().wait();
+          await validateActionInteraction.send();
 
           expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
             isValidInPrivate: true,
@@ -187,14 +136,14 @@ describe('e2e_authwit_tests', () => {
           });
 
           const cancelActionInteraction = await wallet.setPublicAuthWit(account1Address, intent, false);
-          await cancelActionInteraction.send().wait();
+          await cancelActionInteraction.send();
 
           expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
             isValidInPrivate: true,
             isValidInPublic: false,
           });
 
-          const registry = await AuthRegistryContract.at(ProtocolContractAddress.AuthRegistry, wallet);
+          const registry = AuthRegistryContract.at(ProtocolContractAddress.AuthRegistry, wallet);
           await expect(
             registry.methods.consume(account1Address, innerHash).simulate({ from: account2Address }),
           ).rejects.toThrow(/unauthorized/);

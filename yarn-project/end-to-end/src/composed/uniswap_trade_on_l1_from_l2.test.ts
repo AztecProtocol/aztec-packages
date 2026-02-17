@@ -1,5 +1,5 @@
 import { setup as e2eSetup } from '../fixtures/utils.js';
-import { type UniswapSetupContext, uniswapL1L2TestSuite } from '../shared/uniswap_l1_l2.js';
+import { uniswapL1L2TestSuite } from '../shared/uniswap_l1_l2.js';
 
 // This tests works on forked mainnet. There is a dump of the data in `dumpedState` such that we
 // don't need to burn through RPC requests.
@@ -10,31 +10,12 @@ const EXPECTED_FORKED_BLOCK = 0; //17514288;
 let teardown: () => Promise<void>;
 
 // docs:start:uniswap_setup
-const testSetup = async (): Promise<UniswapSetupContext> => {
-  const {
-    aztecNode,
-    teardown: teardown_,
-    deployL1ContractsValues,
-    wallet,
-    accounts: [ownerAddress, sponsorAddress],
-    logger,
-    cheatCodes,
-  } = await e2eSetup(2, { stateLoad: dumpedState });
+const testSetup = async () => {
+  const context = await e2eSetup(2, { stateLoad: dumpedState, startProverNode: true });
 
-  const l1Client = deployL1ContractsValues.l1Client;
+  teardown = context.teardown;
 
-  teardown = teardown_;
-
-  return {
-    aztecNode,
-    logger,
-    l1Client,
-    wallet,
-    ownerAddress,
-    sponsorAddress,
-    deployL1ContractsValues,
-    cheatCodes,
-  };
+  return context;
 };
 // docs:end:uniswap_setup
 

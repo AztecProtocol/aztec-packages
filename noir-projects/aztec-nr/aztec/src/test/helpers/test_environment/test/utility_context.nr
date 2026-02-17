@@ -1,16 +1,14 @@
 use crate::test::helpers::test_environment::TestEnvironment;
 
-use crate::oracle::notes::check_nullifier_exists;
-use protocol_types::{address::AztecAddress, traits::FromField};
+use crate::oracle::nullifiers::check_nullifier_exists;
+use crate::protocol::{address::AztecAddress, traits::FromField};
 
 #[test]
 unconstrained fn at_sets_contract_address() {
     let env = TestEnvironment::new();
     let contract_address = AztecAddress::from_field(17);
 
-    env.utility_context_at(contract_address, |context| {
-        assert_eq(context.this_address(), contract_address);
-    });
+    env.utility_context_at(contract_address, |context| { assert_eq(context.this_address(), contract_address); });
 }
 
 #[test]

@@ -8,9 +8,9 @@ use note_log_linked_source_indices::build_note_log_linked_source_indices;
 pub(crate) use note_log_linked_source_indices::NoteLogLinkedSourceIndices;
 use nullifier_index_sorted_tuples::build_nullifier_index_sorted_tuples;
 pub(crate) use num_active_squashing_hints::get_num_active_squashing_hints;
-use squash_flags::{build_note_hash_squash_flags, build_nullifier_squash_flags};
+pub(crate) use squash_flags::{build_note_hash_squash_flags, build_nullifier_squash_flags};
 
-use dep::types::{
+use types::{
     abis::{note_hash::NoteHash, nullifier::Nullifier, private_log::PrivateLogData},
     side_effect::{Counted, Scoped},
     utils::arrays::{ClaimedLengthArray, SortedTuple},
@@ -34,7 +34,8 @@ pub struct DerivedHints<let SquashingHintsLen: u32, let NoteHashesLen: u32, let 
 ///
 /// Given the same input parameters, this function will deterministically return the same derived hints.
 /// Any mismatch in derived hints will cause the verification to fail.
-/// An attacker cannot manipulate the hints to bypass the verification process.
+/// An attacker cannot manipulate the hints to bypass the verification process, because the
+/// constrained code will fail.
 pub unconstrained fn build_derived_hints<let NoteHashesLen: u32, let NullifiersLen: u32, let LogsLen: u32, let SquashingHintsLen: u32>(
     note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
     nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, NullifiersLen>,

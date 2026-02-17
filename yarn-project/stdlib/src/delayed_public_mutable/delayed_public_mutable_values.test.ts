@@ -1,4 +1,5 @@
-import { Fr } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
 import { DelayedPublicMutableValues } from './delayed_public_mutable_values.js';
@@ -7,7 +8,7 @@ import { ScheduledValueChange } from './scheduled_value_change.js';
 
 describe('DelayedPublicMutableValues', () => {
   it(`serializes to fields and back`, () => {
-    let values = DelayedPublicMutableValues.empty(1);
+    let values = DelayedPublicMutableValues.empty(BlockNumber(1));
     expect(values).toEqual(DelayedPublicMutableValues.fromFields(values.toFields()));
 
     values = new DelayedPublicMutableValues(

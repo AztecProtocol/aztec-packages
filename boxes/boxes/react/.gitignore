@@ -11,3 +11,4 @@ boxes/src/contracts/log
 /blob-report/
 /playwright/.cache/
 codegenCache.json
+src/contracts/target

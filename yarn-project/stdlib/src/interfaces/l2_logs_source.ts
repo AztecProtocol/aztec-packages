@@ -1,7 +1,9 @@
-import type { Fr } from '@aztec/foundation/fields';
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 
+import type { AztecAddress } from '../aztec-address/index.js';
 import type { LogFilter } from '../logs/log_filter.js';
-import type { PrivateLog } from '../logs/private_log.js';
+import type { SiloedTag } from '../logs/siloed_tag.js';
+import type { Tag } from '../logs/tag.js';
 import type { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
 
@@ -10,21 +12,29 @@ import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_
  */
 export interface L2LogsSource {
   /**
-   * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
-   * @param from - The block number from which to begin retrieving logs.
-   * @param limit - The maximum number of blocks to retrieve logs from.
-   * @returns An array of private logs from the specified range of blocks.
+   * Gets private logs that match any of the `tags`. For each tag, an array of matching logs is returned. An empty
+   * array implies no logs match that tag.
+   * @param tags - The tags to search for.
+   * @param page - The page number (0-indexed) for pagination.
+   * @returns An array of log arrays, one per tag. Returns at most 10 logs per tag per page. If 10 logs are returned
+   * for a tag, the caller should fetch the next page to check for more logs.
    */
-  getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]>;
+  getPrivateLogsByTags(tags: SiloedTag[], page?: number): Promise<TxScopedL2Log[][]>;
 
   /**
-   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
-   * @param tags - The tags to filter the logs by.
-   * @param logsPerTag - The maximum number of logs to return for each tag. Default returns everything
-   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
-   * that tag.
+   * Gets public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
+   * logs is returned. An empty array implies no logs match that tag.
+   * @param contractAddress - The contract address to search logs for.
+   * @param tags - The tags to search for.
+   * @param page - The page number (0-indexed) for pagination.
+   * @returns An array of log arrays, one per tag. Returns at most 10 logs per tag per page. If 10 logs are returned
+   * for a tag, the caller should fetch the next page to check for more logs.
    */
-  getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]>;
+  getPublicLogsByTagsFromContract(
+    contractAddress: AztecAddress,
+    tags: Tag[],
+    page?: number,
+  ): Promise<TxScopedL2Log[][]>;
 
   /**
    * Gets public logs based on the provided filter.
@@ -44,5 +54,5 @@ export interface L2LogsSource {
    * Gets the number of the latest L2 block processed by the implementation.
    * @returns The number of the latest L2 block processed by the implementation.
    */
-  getBlockNumber(): Promise<number>;
+  getBlockNumber(): Promise<BlockNumber>;
 }

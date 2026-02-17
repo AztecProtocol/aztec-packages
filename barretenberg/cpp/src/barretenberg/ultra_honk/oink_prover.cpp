@@ -1,11 +1,12 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
 #include "barretenberg/ultra_honk/witness_computation.hpp"
@@ -25,6 +26,8 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::prove()
     }
     // Add circuit size public input size and public inputs to transcript->
     execute_preamble_round();
+    // For ZK flavors: create and commit to Gemini masking polynomial
+    commit_to_masking_poly();
     // Compute first three wire commitments
     execute_wire_commitments_round();
     // Compute sorted list accumulator and commitment
@@ -41,8 +44,6 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::prove()
     // Free the commitment key
     prover_instance->commitment_key = CommitmentKey();
     // #endif
-
-    prover_instance->is_complete = true;
 }
 
 /**
@@ -61,7 +62,7 @@ template <IsUltraOrMegaHonk Flavor> typename OinkProver<Flavor>::Proof OinkProve
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_round()
 {
     BB_BENCH_NAME("OinkProver::execute_preamble_round");
-    fr vk_hash = honk_vk->hash_through_transcript(domain_separator, *transcript);
+    fr vk_hash = honk_vk->hash_with_origin_tagging(*transcript);
     transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
     vinfo("vk hash in Oink prover: ", vk_hash);
 
@@ -142,19 +143,15 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list_accumulator_round()
 {
     BB_BENCH_NAME("OinkProver::execute_sorted_list_accumulator_round");
-    // Get eta challenges
-    auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(std::array<std::string, 3>{
-        domain_separator + "eta", domain_separator + "eta_two", domain_separator + "eta_three" });
-    prover_instance->relation_parameters.eta = eta;
-    prover_instance->relation_parameters.eta_two = eta_two;
-    prover_instance->relation_parameters.eta_three = eta_three;
+    // Get eta challenge and compute powers (eta, eta², eta³)
+    prover_instance->relation_parameters.compute_eta_powers(transcript->template get_challenge<FF>("eta"));
 
     WitnessComputation<Flavor>::add_ram_rom_memory_records_to_wire_4(prover_instance->polynomials,
                                                                      prover_instance->memory_read_records,
                                                                      prover_instance->memory_write_records,
-                                                                     eta,
-                                                                     eta_two,
-                                                                     eta_three);
+                                                                     prover_instance->relation_parameters.eta,
+                                                                     prover_instance->relation_parameters.eta_two,
+                                                                     prover_instance->relation_parameters.eta_three);
 
     // Commit to lookup argument polynomials and the finalized (i.e. with memory records) fourth wire polynomial
     auto batch = prover_instance->commitment_key.start_batch();
@@ -181,7 +178,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivat
     BB_BENCH_NAME("OinkProver::execute_log_derivative_inverse_round");
     auto [beta, gamma] = transcript->template get_challenges<FF>(
         std::array<std::string, 2>{ domain_separator + "beta", domain_separator + "gamma" });
-    prover_instance->relation_parameters.beta = beta;
+    prover_instance->relation_parameters.compute_beta_powers(beta);
     prover_instance->relation_parameters.gamma = gamma;
 
     // Compute the inverses used in log-derivative lookup relations
@@ -224,7 +221,6 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_grand_produ
     WitnessComputation<Flavor>::compute_grand_product_polynomial(prover_instance->polynomials,
                                                                  prover_instance->public_inputs,
                                                                  prover_instance->pub_inputs_offset(),
-                                                                 prover_instance->active_region_data,
                                                                  prover_instance->relation_parameters,
                                                                  prover_instance->get_final_active_wire_idx() + 1);
 
@@ -270,6 +266,20 @@ Flavor::Commitment OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<F
     return commitment;
 }
 
+template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
+{
+    if constexpr (Flavor::HasZK) {
+        // Create a random masking polynomial for Gemini
+        const size_t polynomial_size = prover_instance->dyadic_size();
+        prover_instance->polynomials.gemini_masking_poly = Polynomial<FF>::random(polynomial_size);
+
+        // Commit to the masking polynomial and send to transcript
+        auto masking_commitment =
+            prover_instance->commitment_key.commit(prover_instance->polynomials.gemini_masking_poly);
+        transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
+    }
+};
+
 template class OinkProver<UltraFlavor>;
 template class OinkProver<UltraZKFlavor>;
 template class OinkProver<UltraKeccakFlavor>;
@@ -278,8 +288,8 @@ template class OinkProver<UltraStarknetFlavor>;
 template class OinkProver<UltraStarknetZKFlavor>;
 #endif
 template class OinkProver<UltraKeccakZKFlavor>;
-template class OinkProver<UltraRollupFlavor>;
 template class OinkProver<MegaFlavor>;
 template class OinkProver<MegaZKFlavor>;
+template class OinkProver<MegaAvmFlavor>;
 
 } // namespace bb

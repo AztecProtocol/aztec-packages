@@ -4,9 +4,9 @@ import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
 import type { LogFn } from '@aztec/foundation/log';
 import { buildServerCircuitProver } from '@aztec/prover-client';
 import {
-  InlineProofStore,
   type ProverAgentConfig,
   ProvingAgent,
+  createProofStore,
   createProvingJobBrokerClient,
   proverAgentConfigMappings,
 } from '@aztec/prover-client/broker';
@@ -53,20 +53,12 @@ export async function startProverAgent(
   );
   const broker = createProvingJobBrokerClient(config.proverBrokerUrl, getVersions(), fetch);
 
-  const telemetry = initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));
+  const telemetry = await initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));
   const prover = await buildServerCircuitProver(config, telemetry);
-  const proofStore = new InlineProofStore();
+  const proofStore = await createProofStore(config.proofStore);
   const agents = times(
     config.proverAgentCount,
-    () =>
-      new ProvingAgent(
-        broker,
-        proofStore,
-        prover,
-        config.proverAgentProofTypes,
-        config.proverAgentPollIntervalMs,
-        telemetry,
-      ),
+    () => new ProvingAgent(broker, proofStore, prover, config.proverAgentProofTypes, config.proverAgentPollIntervalMs),
   );
 
   // expose all agents as individual services

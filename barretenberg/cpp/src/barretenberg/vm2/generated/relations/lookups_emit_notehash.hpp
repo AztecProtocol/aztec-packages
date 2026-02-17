@@ -34,8 +34,8 @@ struct lookup_emit_notehash_notehash_tree_write_settings_ {
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::note_hash_tree_check_note_hash,       ColumnAndShifts::note_hash_tree_check_leaf_index,
-        ColumnAndShifts::note_hash_tree_check_prev_root,       ColumnAndShifts::note_hash_tree_check_should_silo,
-        ColumnAndShifts::note_hash_tree_check_address,         ColumnAndShifts::note_hash_tree_check_should_unique,
+        ColumnAndShifts::note_hash_tree_check_prev_root,       ColumnAndShifts::note_hash_tree_check_sel_silo,
+        ColumnAndShifts::note_hash_tree_check_address,         ColumnAndShifts::note_hash_tree_check_sel_unique,
         ColumnAndShifts::note_hash_tree_check_note_hash_index, ColumnAndShifts::note_hash_tree_check_discard,
         ColumnAndShifts::note_hash_tree_check_next_root
     };

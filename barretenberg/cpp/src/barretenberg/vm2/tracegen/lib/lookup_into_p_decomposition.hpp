@@ -10,7 +10,8 @@ namespace bb::avm2::tracegen {
 
 template <typename LookupSettings> class LookupIntoPDecomposition : public IndexedLookupTraceBuilder<LookupSettings> {
   protected:
-    uint32_t find_in_dst(const std::array<FF, LookupSettings::LOOKUP_TUPLE_SIZE>& tup) const override
+    using TupleType = typename IndexedLookupTraceBuilder<LookupSettings>::TupleType;
+    uint32_t find_in_dst(const TupleType& tup) const override
     {
         const auto& [radix, limb_index, _] = tup;
         size_t radix_index = static_cast<size_t>(uint64_t(radix));

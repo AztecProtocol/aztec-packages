@@ -25,12 +25,12 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     });
 
   program
-    .command('get-current-base-fee')
+    .command('get-current-min-fee')
     .description('Gets the current base fee.')
     .addOption(nodeOption)
     .action(async options => {
-      const { getCurrentBaseFee } = await import('./get_current_base_fee.js');
-      await getCurrentBaseFee(options.rpcUrl, debugLogger, log);
+      const { getCurrentMinFee } = await import('./get_current_min_fee.js');
+      await getCurrentMinFee(options.rpcUrl, debugLogger, log);
     });
 
   program

@@ -7,33 +7,35 @@ export type Network = {
   description: string;
   hasTestAccounts: boolean;
   hasSponsoredFPC: boolean;
-  version?: string;
+  nodeVersion?: string;
   sponsoredFPC?: {
     version?: string;
     address: AztecAddress;
   };
+  chainId: number;
+  version: number;
   transactionCongestionThreshold?: number;
 };
 
 export const NETWORKS: Network[] = [
   {
-    nodeURL: 'https://devnet.aztec-labs.com',
+    nodeURL: 'https://next.devnet.aztec-labs.com',
     name: 'Aztec Devnet',
     description: 'Public development network',
-    hasTestAccounts: true,
+    chainId: 11155111,
+    version: 1647720761,
+    hasTestAccounts: false,
     hasSponsoredFPC: true,
-    version: '3.0.0-devnet.2',
-    sponsoredFPC: {
-      version: '3.0.0-devnet.2',
-      address: AztecAddress.fromString('0x280e5686a148059543f4d0968f9a18cd4992520fcd887444b8689bf2726a1f97'),
-    },
+    nodeVersion: '3.0.0-devnet',
   },
   {
     nodeURL: 'http://localhost:8080',
-    name: 'Local Sandbox',
-    description: `Run your own sandbox (v${VERSION})`,
+    name: 'Local Network',
+    description: `Run your own local network (v${VERSION})`,
+    chainId: 31337,
+    version: 0,
     hasTestAccounts: true,
     hasSponsoredFPC: true,
-    version: VERSION,
+    nodeVersion: VERSION,
   },
 ];

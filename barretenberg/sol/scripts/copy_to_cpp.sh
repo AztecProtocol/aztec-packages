@@ -154,6 +154,7 @@ build_verifier() {
 
     # Process core files
     process_sol_file "$SOL_SRC_DIR/../interfaces/IVerifier.sol" "$output_file"
+    process_sol_file "$SOL_SRC_DIR/Errors.sol" "$output_file"
     process_sol_file "$SOL_SRC_DIR/Fr.sol" "$output_file"
     process_sol_file "$SOL_SRC_DIR/HonkTypes.sol" "$output_file"
 

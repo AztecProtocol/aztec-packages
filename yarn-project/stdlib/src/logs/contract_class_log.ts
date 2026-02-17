@@ -1,6 +1,6 @@
 import { CONTRACT_CLASS_LOG_LENGTH, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
@@ -27,6 +27,20 @@ export class ContractClassLogFields {
         fields: z.array(schemas.Fr).refine(arr => arr.length === CONTRACT_CLASS_LOG_SIZE_IN_FIELDS),
       })
       .transform(({ fields }) => new ContractClassLogFields(fields));
+  }
+
+  /**
+   * Creates a ContractClassLogFields from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing ContractClassLogFields fields
+   * @returns A ContractClassLogFields instance
+   */
+  static fromPlainObject(obj: any): ContractClassLogFields {
+    if (obj instanceof ContractClassLogFields) {
+      return obj;
+    }
+    return new ContractClassLogFields(obj.fields.map((f: any) => Fr.fromPlainObject(f)));
   }
 
   toFields(): Fr[] {
@@ -189,6 +203,24 @@ export class ContractClassLog {
         emittedLength: z.number(),
       })
       .transform(ContractClassLog.from);
+  }
+
+  /**
+   * Creates a ContractClassLog from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing ContractClassLog fields
+   * @returns A ContractClassLog instance
+   */
+  static fromPlainObject(obj: any): ContractClassLog {
+    if (obj instanceof ContractClassLog) {
+      return obj;
+    }
+    return new ContractClassLog(
+      AztecAddress.fromPlainObject(obj.contractAddress),
+      ContractClassLogFields.fromPlainObject(obj.fields),
+      obj.emittedLength,
+    );
   }
 
   [inspect.custom](): string {

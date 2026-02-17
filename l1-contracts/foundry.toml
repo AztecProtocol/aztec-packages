@@ -4,10 +4,11 @@ test = 'test'
 script = 'script'
 out = 'out'
 libs = ['lib']
-solc = "0.8.27"
+# NOTE!: This line defines the solc version used.
+# It is downloaded by bootstrap.sh, but the version string here is parsed.
+solc = "./solc-0.8.30"
 evm_version = 'prague'
 optimizer = true
-
 match_path = "test/**/*.t.sol"
 # Helper to get all the contract names in the src/governance and src/core directories
 # find ./src/governance ./src/core -type f -name "*.sol" -exec grep -h "^contract [A-Za-z]" {} \; | sed -E 's/contract ([A-Za-z0-9_]+).*/"\1"/' | tr "\n" ", "
@@ -46,12 +47,12 @@ remappings = [
 
 fs_permissions = [
   { access = "read", path = "./test/fixtures/bn254_constants.json" },
-  { access = "read", path = "./test/fixtures/mixed_block_1.json" },
-  { access = "read", path = "./test/fixtures/mixed_block_2.json" },
-  { access = "read", path = "./test/fixtures/single_tx_block_1.json" },
-  { access = "read", path = "./test/fixtures/single_tx_block_2.json" },
-  { access = "read", path = "./test/fixtures/empty_block_1.json" },
-  { access = "read", path = "./test/fixtures/empty_block_2.json" },
+  { access = "read", path = "./test/fixtures/mixed_checkpoint_1.json" },
+  { access = "read", path = "./test/fixtures/mixed_checkpoint_2.json" },
+  { access = "read", path = "./test/fixtures/single_tx_checkpoint_1.json" },
+  { access = "read", path = "./test/fixtures/single_tx_checkpoint_2.json" },
+  { access = "read", path = "./test/fixtures/empty_checkpoint_1.json" },
+  { access = "read", path = "./test/fixtures/empty_checkpoint_2.json" },
   { access = "read", path = "./test/fixtures/fee_data_points.json" },
   { access = "read", path = "./test/staking_asset_handler/zkpassport/fixtures/valid_proof.hex" },
   { access = "read", path = "./test/staking_asset_handler/zkpassport/fixtures/valid_committed_inputs.hex" },
@@ -59,8 +60,9 @@ fs_permissions = [
   { access = "read", path = "./test/fixtures/boosted_rewards/shares.json" },
   { access = "read", path = "./test/fixtures/boosted_rewards/activity_scores.json" },
   { access = "read", path = "./script/registration_data.json" },
+  # Network defaults - copied from spartan/environments/default.json by bootstrap.sh
+  { access = "read", path = "./generated/default.json" }
 ]
-
 no_match_contract = "(ScreamAndShoutTest|UniswapPortalTest|MerkleCheck)"
 
 [fmt]
@@ -76,7 +78,6 @@ ignore = ["./lib/**"]
 exclude_lints = [
   "unused-import",   # Mostly in test code
   "incorrect-shift", # Throws warnings on construction of bitmasks
-
   "asm-keccak256", # https://github.com/AztecProtocol/aztec-packages/issues/16808
 
   # Silencing due to just being style changes
@@ -88,7 +89,6 @@ exclude_lints = [
 
 [rpc_endpoints]
 mainnet_fork = "https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c"
-
 
 [profile.production]
 remappings = [

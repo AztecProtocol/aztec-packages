@@ -121,9 +121,9 @@ contract SlashingTest is TestBase {
       TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
     );
 
-    // We jump forward 2 epochs because there is nothing interesting happening in the first epochs
+    // We jump forward because there is nothing interesting happening in the first epochs
     // as our sampling is delayed zzz.
-    timeCheater.cheat__jumpForwardEpochs(2);
+    timeCheater.cheat__jumpForwardEpochs(rollup.getLagInEpochsForValidatorSet());
 
     assertEq(rollup.getActiveAttesterCount(), validatorCount, "Invalid attester count");
   }
@@ -135,7 +135,7 @@ contract SlashingTest is TestBase {
     _lifetimeInRounds = bound(_lifetimeInRounds, _executionDelayInRounds + 1, 1e4);
 
     _setupCommitteeForSlashing(_lifetimeInRounds, _executionDelayInRounds);
-    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(2));
+    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(rollup.getLagInEpochsForValidatorSet()));
     uint96 slashAmount = 10e18;
     (uint256 firstSlashingRound,) = _createPayloadAndSignalForSlashing(attesters, slashAmount, attesters.length);
 
@@ -159,7 +159,7 @@ contract SlashingTest is TestBase {
     _lifetimeInRounds = bound(_lifetimeInRounds, _executionDelayInRounds + 1, 1e4);
 
     _setupCommitteeForSlashing(_lifetimeInRounds, _executionDelayInRounds);
-    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(2));
+    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(rollup.getLagInEpochsForValidatorSet()));
     uint96 slashAmount = 10e18;
     (uint256 firstSlashingRound,) = _createPayloadAndSignalForSlashing(attesters, slashAmount, attesters.length);
 
@@ -191,7 +191,7 @@ contract SlashingTest is TestBase {
     _lifetimeInRounds = bound(_lifetimeInRounds, _executionDelayInRounds + 1, 1e4);
 
     _setupCommitteeForSlashing(_lifetimeInRounds, _executionDelayInRounds);
-    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(2));
+    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(rollup.getLagInEpochsForValidatorSet()));
     uint96 slashAmount = 10e18;
     (uint256 firstSlashingRound, IPayload payload) =
       _createPayloadAndSignalForSlashing(attesters, slashAmount, attesters.length);
@@ -213,7 +213,7 @@ contract SlashingTest is TestBase {
     _setupCommitteeForSlashing();
     uint256 howManyToSlash = 4;
 
-    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(2));
+    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(rollup.getLagInEpochsForValidatorSet()));
     uint256[] memory stakes = new uint256[](attesters.length);
     for (uint256 i = 0; i < attesters.length; i++) {
       AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);

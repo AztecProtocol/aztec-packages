@@ -1,14 +1,17 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { DeployAccountOptions } from '@aztec/aztec.js/wallet';
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { LogFn, Logger } from '@aztec/foundation/log';
+import type { TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
 import { DEFAULT_TX_TIMEOUT_S } from '../utils/cli_wallet_and_node_wrapper.js';
+import type { AccountType } from '../utils/constants.js';
 import { CLIFeeArgs } from '../utils/options/fees.js';
 import { printProfileResult } from '../utils/profiling.js';
-import { type AccountType, CLIWallet } from '../utils/wallet.js';
+import { CLIWallet } from '../utils/wallet.js';
 
 export async function createAccount(
   wallet: CLIWallet,
@@ -63,8 +66,8 @@ export async function createAccount(
     log(`Init hash:       ${account.getInstance().initializationHash.toString()}`);
   }
 
-  let tx;
-  let txReceipt;
+  let txHash: TxHash | undefined;
+  let txReceipt: TxReceipt | undefined;
   if (!registerOnly) {
     const { paymentMethod, gasSettings } = await feeOpts.toUserFeeOptions(aztecNode, wallet, address);
 
@@ -99,7 +102,14 @@ export async function createAccount(
         };
       }
     } else {
-      tx = deployMethod.send({
+      if (verbose) {
+        printProfileResult(stats, log);
+      }
+
+      if (!json) {
+        log(`\nWaiting for account contract deployment...`);
+      }
+      const result = await deployMethod.send({
         ...deployAccountOpts,
         fee: deployAccountOpts.fee
           ? {
@@ -107,32 +117,29 @@ export async function createAccount(
               gasSettings: estimatedGas,
             }
           : undefined,
+        wait: wait ? { timeout: DEFAULT_TX_TIMEOUT_S, returnReceipt: true } : NO_WAIT,
       });
-      if (verbose) {
-        printProfileResult(stats, log);
-      }
-
-      const txHash = await tx.getTxHash();
-      debugLogger.debug(`Account contract tx sent with hash ${txHash.toString()}`);
-      out.txHash = txHash;
-      if (wait) {
-        if (!json) {
-          log(`\nWaiting for account contract deployment...`);
-        }
-        txReceipt = await tx.wait({ timeout: DEFAULT_TX_TIMEOUT_S });
+      const isReceipt = (data: TxReceipt | TxHash): data is TxReceipt => 'txHash' in data;
+      if (isReceipt(result)) {
+        txReceipt = result;
+        txHash = result.txHash;
         out.txReceipt = {
           status: txReceipt.status,
           transactionFee: txReceipt.transactionFee,
         };
+      } else {
+        txHash = result;
       }
+      debugLogger.debug(`Account contract tx sent with hash ${txHash.toString()}`);
+      out.txHash = txHash;
     }
   }
 
   if (json) {
     log(prettyPrintJSON(out));
   } else {
-    if (tx) {
-      log(`Deploy tx hash:  ${(await tx.getTxHash()).toString()}`);
+    if (txHash) {
+      log(`Deploy tx hash:  ${txHash.toString()}`);
     }
     if (txReceipt) {
       log(`Deploy tx fee:   ${txReceipt.transactionFee}`);

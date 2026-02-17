@@ -53,8 +53,8 @@ describe('e2e_p2p_validators_sentinel', () => {
       },
     });
 
-    await t.applyBaseSnapshots();
     await t.setup();
+    await t.applyBaseSetup();
 
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
@@ -85,14 +85,14 @@ describe('e2e_p2p_validators_sentinel', () => {
   describe('with an offline validator', () => {
     let stats: ValidatorsStats;
     beforeAll(async () => {
-      const currentBlock = t.monitor.l2BlockNumber;
+      const currentBlock = t.monitor.checkpointNumber;
       const blockCount = BLOCK_COUNT;
       const timeout = AZTEC_SLOT_DURATION * blockCount * 8;
       offlineValidator = t.validators.at(-1)!.attester;
       t.logger.warn(`Offline validator is ${offlineValidator}`);
 
       t.logger.info(`Waiting until L2 block ${currentBlock + blockCount}`, { currentBlock, blockCount, timeout });
-      await retryUntil(() => t.monitor.l2BlockNumber >= currentBlock + blockCount, 'blocks mined', timeout);
+      await retryUntil(() => t.monitor.checkpointNumber >= currentBlock + blockCount, 'blocks mined', timeout);
 
       t.logger.info(`Waiting until sentinel processed at least ${blockCount - 1} slots and a missed and a mined block`);
       await retryUntil(
@@ -103,7 +103,7 @@ describe('e2e_p2p_validators_sentinel', () => {
             initialSlot &&
             lastProcessedSlot &&
             lastProcessedSlot - initialSlot >= blockCount - 1 &&
-            Object.values(stats).some(stat => stat.history.some(h => h.status === 'block-mined')) &&
+            Object.values(stats).some(stat => stat.history.some(h => h.status === 'checkpoint-mined')) &&
             Object.values(stats).some(stat => stat.history.some(h => h.status === 'attestation-sent')) &&
             stats[offlineValidator.toString().toLowerCase()] &&
             stats[offlineValidator.toString().toLowerCase()].history.length > 0 &&
@@ -116,7 +116,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       );
 
       stats = await nodes[0].getValidatorsStats();
-      t.logger.info(`Collected validator stats at block ${t.monitor.l2BlockNumber}`, { stats });
+      t.logger.info(`Collected validator stats at block ${t.monitor.checkpointNumber}`, { stats });
     });
 
     it('collects stats on offline validator', () => {
@@ -132,7 +132,7 @@ describe('e2e_p2p_validators_sentinel', () => {
 
     it('collects stats on a block builder', () => {
       const [proposerValidator, proposerStats] = Object.entries(stats.stats).find(([_, v]) =>
-        v?.history?.some(h => h.status === 'block-mined'),
+        v?.history?.some(h => h.status === 'checkpoint-mined'),
       )!;
       t.logger.info(`Asserting stats for proposer validator ${proposerValidator}`);
       expect(proposerStats).toBeDefined();
@@ -154,7 +154,7 @@ describe('e2e_p2p_validators_sentinel', () => {
 
     // Regression test for #13142
     it('starts a sentinel on a fresh node', async () => {
-      const l2BlockNumber = t.monitor.l2BlockNumber;
+      const checkpointNumber = t.monitor.checkpointNumber;
       const nodeIndex = NUM_NODES + 1;
       const newNode = await createNode(
         t.ctx.aztecNodeConfig,
@@ -168,7 +168,7 @@ describe('e2e_p2p_validators_sentinel', () => {
 
       t.logger.info(`Waiting for a few more blocks to be mined`);
       const timeout = AZTEC_SLOT_DURATION * 4 * 12;
-      await retryUntil(() => t.monitor.l2BlockNumber > l2BlockNumber + 3, 'more blocks mined', timeout);
+      await retryUntil(() => t.monitor.checkpointNumber > checkpointNumber + 3, 'more blocks mined', timeout);
       await sleep(1000);
 
       t.logger.info(`Waiting for sentinel to collect history`);
@@ -180,7 +180,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       );
 
       const stats = await newNode.getValidatorsStats();
-      t.logger.info(`Collected validator stats from new node at block ${t.monitor.l2BlockNumber}`, { stats });
+      t.logger.info(`Collected validator stats from new node at block ${t.monitor.checkpointNumber}`, { stats });
     });
   });
 });

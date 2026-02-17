@@ -154,6 +154,44 @@ resource "google_container_node_pool" "aztec_nodes-4core" {
   }
 }
 
+# Create 8 core node pool no ssd with hi-mem
+resource "google_container_node_pool" "aztec_nodes-8core-hi-mem" {
+  name     = "${var.cluster_name}-8core-hi-mem"
+  location = var.zone
+  cluster  = var.cluster_name
+  version  = var.node_version
+  # Enable autoscaling
+  autoscaling {
+    min_node_count = 0
+    max_node_count = 16
+  }
+
+  # Node configuration
+  node_config {
+    machine_type = "n2-highmem-8"
+
+    service_account = var.service_account
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
+
+    labels = {
+      env       = "production"
+      local-ssd = "false"
+      node-type = "network"
+      cores     = "8"
+      hi-mem    = "true"
+    }
+    tags = ["aztec-gke-node", "aztec"]
+  }
+
+  # Management configuration
+  management {
+    auto_repair  = true
+    auto_upgrade = false
+  }
+}
+
 # Create spot instance node pool with autoscaling
 resource "google_container_node_pool" "spot_nodes_32core" {
   name     = "${var.cluster_name}-32core-spot"
@@ -247,49 +285,50 @@ resource "google_container_node_pool" "spot_nodes_8core" {
 }
 
 # Create 2 core spot instance node pool with autoscaling
-# resource "google_container_node_pool" "spot_nodes_2core" {
-#   name     = "${var.cluster_name}-2core-spot"
-#   location = var.zone
-#   cluster  = var.cluster_name
-#   version  = var.node_version
-#   # Enable autoscaling
-#   autoscaling {
-#     min_node_count = 0
-#     max_node_count = 1500
-#   }
+resource "google_container_node_pool" "spot_nodes_2core" {
+  name     = "${var.cluster_name}-2core-spot"
+  location = var.zone
+  cluster  = var.cluster_name
+  version  = var.node_version
+  # Enable autoscaling
+  autoscaling {
+    min_node_count = 0
+    max_node_count = 10000
+  }
 
-#   # Node configuration
-#   node_config {
-#     machine_type = "t2d-standard-2"
-#     spot         = true
+  # Node configuration
+  node_config {
+    machine_type = "t2d-standard-2"
+    spot         = true
 
-#     service_account = var.service_account
-#     oauth_scopes = [
-#       "https://www.googleapis.com/auth/cloud-platform"
-#     ]
+    service_account = var.service_account
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
 
-#     labels = {
-#       env       = "production"
-#       pool      = "spot"
-#       local-ssd = "false"
-#       node-type = "network"
-#     }
-#     tags = ["aztec-gke-node", "spot"]
+    labels = {
+      env       = "production"
+      pool      = "spot"
+      local-ssd = "false"
+      node-type = "network"
+      cores     = "2"
+    }
+    tags = ["aztec-gke-node", "spot"]
 
-#     # Spot instance termination handler
-#     taint {
-#       key    = "cloud.google.com/gke-spot"
-#       value  = "true"
-#       effect = "NO_SCHEDULE"
-#     }
-#   }
+    # Spot instance termination handler
+    taint {
+      key    = "cloud.google.com/gke-spot"
+      value  = "true"
+      effect = "NO_SCHEDULE"
+    }
+  }
 
-#   # Management configuration
-#   management {
-#     auto_repair  = true
-#     auto_upgrade = false
-#   }
-# }
+  # Management configuration
+  management {
+    auto_repair  = true
+    auto_upgrade = false
+  }
+}
 
 # Create 8 core high memory (64 GB) node pool with autoscaling, used for metrics
 resource "google_container_node_pool" "infra_nodes_8core_highmem" {

@@ -2,7 +2,7 @@
 ethereum:
   execution:
     service:
-      type: LoadBalancer
+      type: ClusterIP
       annotations: {}
     nodeSelector:
       local-ssd: "false"
@@ -15,7 +15,7 @@ ethereum:
 
   beacon:
     service:
-      type: LoadBalancer
+      type: ClusterIP
       annotations: {}
     nodeSelector:
       local-ssd: "false"

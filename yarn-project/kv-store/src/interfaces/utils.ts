@@ -14,6 +14,7 @@ export const mockLogger = {
   isLevelEnabled: (_level: string) => true,
   module: 'kv-store:mock-logger',
   createChild: () => mockLogger,
+  getBindings: () => ({}),
 };
 /* eslint-enable no-console */
 

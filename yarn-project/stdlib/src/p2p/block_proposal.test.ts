@@ -1,32 +1,9 @@
 // Serde test for the block proposal type
-import { Secp256k1Signer } from '@aztec/foundation/crypto';
-import { Signature } from '@aztec/foundation/eth-signature';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 
 import { makeBlockProposal } from '../tests/mocks.js';
 import { Tx } from '../tx/tx.js';
-import { TxHash } from '../tx/tx_hash.js';
 import { BlockProposal } from './block_proposal.js';
-import { ConsensusPayload } from './consensus_payload.js';
-
-class BackwardsCompatibleBlockProposal extends BlockProposal {
-  constructor(payload: ConsensusPayload, signature: Signature) {
-    super(payload, signature, [], undefined);
-  }
-
-  oldToBuffer(): Buffer {
-    return serializeToBuffer([this.payload, this.signature, 0, []]);
-  }
-
-  static oldFromBuffer(buf: Buffer | BufferReader): BlockProposal {
-    const reader = BufferReader.asReader(buf);
-    return new BlockProposal(
-      reader.readObject(ConsensusPayload),
-      reader.readObject(Signature),
-      reader.readArray(0, TxHash),
-    );
-  }
-}
 
 describe('Block Proposal serialization / deserialization', () => {
   const checkEquivalence = (serialized: BlockProposal, deserialized: BlockProposal) => {
@@ -36,38 +13,43 @@ describe('Block Proposal serialization / deserialization', () => {
 
   it('Should serialize / deserialize', async () => {
     const txs = await Promise.all([Tx.random(), Tx.random()]);
-    const proposal = makeBlockProposal({ txs });
+    const proposal = await makeBlockProposal({ txs });
 
     const serialized = proposal.toBuffer();
     const deserialized = BlockProposal.fromBuffer(serialized);
     checkEquivalence(proposal, deserialized);
   });
 
-  it('Should serialize / deserialize with or without included txs', async () => {
+  it('Should serialize / deserialize without txs', async () => {
+    const proposal = await makeBlockProposal();
+
+    const serialized = proposal.toBuffer();
+    const deserialized = BlockProposal.fromBuffer(serialized);
+
+    expect(deserialized.archive).toEqual(proposal.archive);
+    expect(deserialized.blockHeader.equals(proposal.blockHeader)).toBe(true);
+    expect(deserialized.txHashes).toEqual(proposal.txHashes);
+    expect(deserialized.txs).toBeUndefined();
+  });
+
+  it('Should serialize / deserialize with txs', async () => {
     const txs = await Promise.all([Tx.random(), Tx.random()]);
-    const proposalWithTxs = makeBlockProposal({ txs });
+    const proposal = await makeBlockProposal({ txs });
 
-    const oldProposal = new BackwardsCompatibleBlockProposal(proposalWithTxs.payload, proposalWithTxs.signature);
+    const serialized = proposal.toBuffer();
+    const deserialized = BlockProposal.fromBuffer(serialized);
 
-    const serializedWithTxs = proposalWithTxs.toBuffer();
-    const serializedWithoutTxs = oldProposal.oldToBuffer();
-
-    const deserializedWithTxs = BlockProposal.fromBuffer(serializedWithTxs);
-    const deserializedWithoutTxs = BlockProposal.fromBuffer(serializedWithoutTxs);
-
-    const oldDeserializedWithTxs = BackwardsCompatibleBlockProposal.oldFromBuffer(serializedWithTxs);
-    const oldDeserializedWithoutTxs = BackwardsCompatibleBlockProposal.oldFromBuffer(serializedWithoutTxs);
-
-    expect(deserializedWithTxs.archive).toEqual(deserializedWithoutTxs.archive);
-    expect(deserializedWithoutTxs.archive).toEqual(oldDeserializedWithTxs.archive);
-    expect(oldDeserializedWithTxs.archive).toEqual(oldDeserializedWithoutTxs.archive);
+    expect(deserialized.archive).toEqual(proposal.archive);
+    expect(deserialized.blockHeader.equals(proposal.blockHeader)).toBe(true);
+    expect(deserialized.txHashes).toEqual(proposal.txHashes);
+    expect(deserialized.txs?.length).toEqual(txs.length);
   });
 
   it('Should serialize / deserialize + recover sender', async () => {
     const account = Secp256k1Signer.random();
 
     const txs = await Promise.all([Tx.random(), Tx.random()]);
-    const proposal = makeBlockProposal({ txs, signer: account });
+    const proposal = await makeBlockProposal({ txs, signer: account });
     const serialized = proposal.toBuffer();
     const deserialized = BlockProposal.fromBuffer(serialized);
 
@@ -76,5 +58,12 @@ describe('Block Proposal serialization / deserialization', () => {
     // Recover signature
     const sender = deserialized.getSender();
     expect(sender).toEqual(account.address);
+  });
+
+  it('Should expose block info via accessor methods', async () => {
+    const proposal = await makeBlockProposal();
+
+    expect(proposal.slotNumber).toBe(proposal.blockHeader.getSlot());
+    expect(proposal.blockNumber).toBe(proposal.blockHeader.getBlockNumber());
   });
 });

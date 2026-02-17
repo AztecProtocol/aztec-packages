@@ -4,7 +4,7 @@ use crate::{
         public_call_request::PublicCallRequest, tx_constant_data::TxConstantData,
     },
     address::AztecAddress,
-    constants::GENERATOR_INDEX__PUBLIC_TX_HASH,
+    constants::DOM_SEP__PUBLIC_TX_HASH,
     hash::poseidon2_hash_with_separator,
     traits::{Deserialize, Empty, Hash, Serialize},
 };
@@ -18,7 +18,7 @@ pub struct PrivateToPublicKernelCircuitPublicInputs {
     pub public_teardown_call_request: PublicCallRequest,
     pub gas_used: Gas,
     pub fee_payer: AztecAddress,
-    pub include_by_timestamp: u64,
+    pub expiration_timestamp: u64,
 }
 
 impl Empty for PrivateToPublicKernelCircuitPublicInputs {
@@ -30,14 +30,14 @@ impl Empty for PrivateToPublicKernelCircuitPublicInputs {
             public_teardown_call_request: PublicCallRequest::empty(),
             gas_used: Gas::empty(),
             fee_payer: AztecAddress::empty(),
-            include_by_timestamp: 0,
+            expiration_timestamp: 0,
         }
     }
 }
 
 impl Hash for PrivateToPublicKernelCircuitPublicInputs {
     fn hash(self) -> Field {
-        poseidon2_hash_with_separator(self.serialize(), GENERATOR_INDEX__PUBLIC_TX_HASH)
+        poseidon2_hash_with_separator(self.serialize(), DOM_SEP__PUBLIC_TX_HASH)
     }
 }
 

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: Complete, auditors: [Sergei], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
 #include "private_execution_steps.hpp"
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/common/serialize.hpp"
@@ -6,6 +12,9 @@
 
 namespace bb {
 
+/**
+ * @brief Save modified ivc-inputs.msgpack when VKs are rewritten.
+ */
 std::vector<uint8_t> compress(const std::vector<uint8_t>& input)
 {
     auto compressor =
@@ -27,6 +36,9 @@ std::vector<uint8_t> compress(const std::vector<uint8_t>& input)
     return compressed;
 }
 
+/**
+ * @brief Decompress bytecode and witness fields from ivc-inputs.msgpack.
+ */
 std::vector<uint8_t> decompress(const void* bytes, size_t size)
 {
     std::vector<uint8_t> content;
@@ -53,6 +65,9 @@ std::vector<uint8_t> decompress(const void* bytes, size_t size)
     return content;
 }
 
+/**
+ * @brief Deserialize msgpack data from file.
+ */
 template <typename T> T unpack_from_file(const std::filesystem::path& filename)
 {
     std::ifstream fin;
@@ -126,7 +141,7 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
         // TODO(#7371) there is a lot of copying going on in bincode. We need the generated bincode code to
         // use spans instead of vectors.
         acir_format::AcirFormat constraints = acir_format::circuit_buf_to_acir_format(std::move(step.bytecode));
-        acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_data(std::move(step.witness));
+        acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_vector(std::move(step.witness));
 
         folding_stack[i] = { std::move(constraints), std::move(witness) };
         if (step.vk.empty()) {

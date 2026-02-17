@@ -1,16 +1,10 @@
-import {
-  CANONICAL_AUTH_REGISTRY_ADDRESS,
-  CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
-  CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
-  FEE_JUICE_ADDRESS,
-  MULTI_CALL_ENTRYPOINT_ADDRESS,
-  ROUTER_ADDRESS,
-} from '@aztec/constants';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, MAX_PROTOCOL_CONTRACTS } from '@aztec/constants';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { type LogLevel, createLogger } from '@aztec/foundation/log';
+import { type LogLevel, type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractClassPublicWithCommitment, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { SerializableContractInstance } from '@aztec/stdlib/contract';
@@ -26,7 +20,7 @@ import { strict as assert } from 'assert';
 
 import type { AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import type { PublicContractsDBInterface } from '../db_interfaces.js';
-import { getPublicFunctionDebugName } from '../debug_fn_name.js';
+import { getPublicFunctionDebugName, getPublicFunctionSelectorAndName } from '../debug_fn_name.js';
 import type { PublicTreesDB } from '../public_db_sources.js';
 import {
   L1ToL2MessageIndexOutOfRangeError,
@@ -48,7 +42,7 @@ import { PublicStorage } from './public_storage.js';
  * Manages merging of successful/reverted child state into current state.
  */
 export class PublicPersistableStateManager {
-  private readonly log = createLogger('simulator:state_manager');
+  private readonly log: Logger;
 
   /** Make sure a forked state is never merged twice. */
   private alreadyMergedIntoParent = false;
@@ -59,10 +53,13 @@ export class PublicPersistableStateManager {
     private readonly trace: PublicSideEffectTraceInterface,
     private readonly firstNullifier: Fr, // Needed for note hashes.
     private readonly timestamp: UInt64, // Needed for contract updates.
-    private readonly doMerkleOperations: boolean = false,
+    private readonly doMerkleOperations: boolean = true,
     private readonly publicStorage: PublicStorage = new PublicStorage(treesDB),
     private readonly nullifiers: NullifierManager = new NullifierManager(treesDB),
-  ) {}
+    bindings?: LoggerBindings,
+  ) {
+    this.log = createLogger('simulator:state_manager', bindings);
+  }
 
   /**
    * Create a new state manager
@@ -71,9 +68,9 @@ export class PublicPersistableStateManager {
     treesDB: PublicTreesDB,
     contractsDB: PublicContractsDBInterface,
     trace: PublicSideEffectTraceInterface,
-    doMerkleOperations: boolean = false,
     firstNullifier: Fr,
     timestamp: UInt64,
+    bindings?: LoggerBindings,
   ): PublicPersistableStateManager {
     return new PublicPersistableStateManager(
       treesDB,
@@ -81,7 +78,10 @@ export class PublicPersistableStateManager {
       trace,
       firstNullifier,
       timestamp,
-      doMerkleOperations,
+      undefined,
+      undefined,
+      undefined,
+      bindings,
     );
   }
 
@@ -99,6 +99,7 @@ export class PublicPersistableStateManager {
       this.doMerkleOperations,
       this.publicStorage.fork(),
       this.nullifiers.fork(),
+      this.log.getBindings(),
     );
   }
 
@@ -171,7 +172,6 @@ export class PublicPersistableStateManager {
     if (this.doMerkleOperations) {
       return await this.treesDB.storageRead(contractAddress, slot);
     } else {
-      // TODO(fcarreiro): I don't get this. PublicStorage CAN end up reading the tree. Why is it in the "dont do merkle operations" branch?
       const read = await this.publicStorage.read(contractAddress, slot);
       this.log.trace(
         `Storage read results (address=${contractAddress}, slot=${slot}): value=${read.value}, cached=${read.cached}`,
@@ -248,7 +248,15 @@ export class PublicPersistableStateManager {
   public async checkNullifierExists(contractAddress: AztecAddress, nullifier: Fr): Promise<boolean> {
     this.log.trace(`Checking existence of nullifier (address=${contractAddress}, nullifier=${nullifier})`);
     const siloedNullifier = await siloNullifier(contractAddress, nullifier);
+    return this.checkSiloedNullifierExists(siloedNullifier);
+  }
 
+  /**
+   * Check if a siloed nullifier exists.
+   * @param siloedNullifier - the siloed nullifier to check
+   * @returns exists - whether the nullifier exists in the nullifier set
+   */
+  public async checkSiloedNullifierExists(siloedNullifier: Fr): Promise<boolean> {
     if (this.doMerkleOperations) {
       const exists = await this.treesDB.checkNullifierExists(siloedNullifier);
       this.log.trace(`Checked siloed nullifier ${siloedNullifier} (exists=${exists})`);
@@ -437,6 +445,8 @@ export class PublicPersistableStateManager {
         await this.readStorage(ProtocolContractAddress.ContractInstanceRegistry, storageSlot);
 
       const hash = await readDeployerStorage(delayedPublicMutableHashSlot);
+      // NOTE: The below reads are either not performed (if hash.isZero()) or only performed in unconstrained in c++ simulation.
+      // See UpdateCheck::check_current_class_id documentation - this means if we generate hints from the merkle db, they are unused:
       const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(
         delayedPublicMutableSlot,
         readDeployerStorage,
@@ -539,6 +549,12 @@ export class PublicPersistableStateManager {
     return await getPublicFunctionDebugName(this.contractsDB, avmEnvironment.address, avmEnvironment.calldata);
   }
 
+  public async getPublicFunctionSelectorAndName(
+    avmEnvironment: AvmExecutionEnvironment,
+  ): Promise<{ functionSelector?: FunctionSelector; functionName?: string }> {
+    return await getPublicFunctionSelectorAndName(this.contractsDB, avmEnvironment.address, avmEnvironment.calldata);
+  }
+
   public async padTree(treeId: MerkleTreeId, leavesToInsert: number): Promise<void> {
     await this.treesDB.padTree(treeId, leavesToInsert);
   }
@@ -549,12 +565,5 @@ export class PublicPersistableStateManager {
 }
 
 function contractAddressIsCanonical(contractAddress: AztecAddress): boolean {
-  return (
-    contractAddress.equals(AztecAddress.fromNumber(CANONICAL_AUTH_REGISTRY_ADDRESS)) ||
-    contractAddress.equals(AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)) ||
-    contractAddress.equals(AztecAddress.fromNumber(CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS)) ||
-    contractAddress.equals(AztecAddress.fromNumber(MULTI_CALL_ENTRYPOINT_ADDRESS)) ||
-    contractAddress.equals(AztecAddress.fromNumber(FEE_JUICE_ADDRESS)) ||
-    contractAddress.equals(AztecAddress.fromNumber(ROUTER_ADDRESS))
-  );
+  return contractAddress.toBigInt() >= 1 && contractAddress.toBigInt() <= MAX_PROTOCOL_CONTRACTS;
 }

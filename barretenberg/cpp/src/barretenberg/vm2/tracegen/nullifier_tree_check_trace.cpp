@@ -48,7 +48,7 @@ void NullifierTreeCheckTraceBuilder::process(
         bool append = event.append_data.has_value();
         if (append) {
             updated_low_leaf_next_key = siloed_nullifier;
-            updated_low_leaf_next_index = event.prev_snapshot.nextAvailableLeafIndex;
+            updated_low_leaf_next_index = event.prev_snapshot.next_available_leaf_index;
             updated_low_leaf_hash = event.append_data->updated_low_leaf_hash;
             new_leaf_hash = event.append_data->new_leaf_hash;
             intermediate_root = event.append_data->intermediate_root;
@@ -56,12 +56,13 @@ void NullifierTreeCheckTraceBuilder::process(
 
         trace.set(row,
                   { { { C::nullifier_check_sel, 1 },
+                      { C::nullifier_check_const_three, 3 },
                       { C::nullifier_check_write, event.write },
                       { C::nullifier_check_nullifier, nullifier },
                       { C::nullifier_check_root, event.prev_snapshot.root },
                       { C::nullifier_check_exists, exists },
                       { C::nullifier_check_write_root, event.next_snapshot.root },
-                      { C::nullifier_check_tree_size_before_write, event.prev_snapshot.nextAvailableLeafIndex },
+                      { C::nullifier_check_tree_size_before_write, event.prev_snapshot.next_available_leaf_index },
                       { C::nullifier_check_discard, discard },
                       { C::nullifier_check_nullifier_index, event.nullifier_counter },
                       { C::nullifier_check_should_silo, event.siloing_data.has_value() },
@@ -73,7 +74,7 @@ void NullifierTreeCheckTraceBuilder::process(
                       { C::nullifier_check_updated_low_leaf_next_nullifier, updated_low_leaf_next_key },
                       { C::nullifier_check_low_leaf_index, event.low_leaf_index },
                       { C::nullifier_check_siloed_nullifier, siloed_nullifier },
-                      { C::nullifier_check_siloing_separator, GENERATOR_INDEX__OUTER_NULLIFIER },
+                      { C::nullifier_check_siloing_separator, DOM_SEP__SILOED_NULLIFIER },
                       { C::nullifier_check_should_insert, append },
                       { C::nullifier_check_low_leaf_hash, event.low_leaf_hash },
                       { C::nullifier_check_intermediate_root, intermediate_root },
@@ -102,11 +103,13 @@ const InteractionDefinition NullifierTreeCheckTraceBuilder::interactions =
         .add<lookup_nullifier_check_low_leaf_poseidon2_settings, InteractionType::LookupSequential>()
         .add<lookup_nullifier_check_updated_low_leaf_poseidon2_settings, InteractionType::LookupSequential>()
         .add<lookup_nullifier_check_low_leaf_merkle_check_settings, InteractionType::LookupSequential>()
-        .add<lookup_nullifier_check_low_leaf_nullifier_validation_settings, InteractionType::LookupSequential>()
-        .add<lookup_nullifier_check_low_leaf_next_nullifier_validation_settings, InteractionType::LookupSequential>()
+        .add<lookup_nullifier_check_low_leaf_nullifier_validation_settings,
+             InteractionType::LookupGeneric>() // ff_gt deduplicates
+        .add<lookup_nullifier_check_low_leaf_next_nullifier_validation_settings,
+             InteractionType::LookupGeneric>() // ff_gt deduplicates
         .add<lookup_nullifier_check_new_leaf_poseidon2_settings, InteractionType::LookupSequential>()
         .add<lookup_nullifier_check_new_leaf_merkle_check_settings, InteractionType::LookupSequential>()
         .add<lookup_nullifier_check_write_nullifier_to_public_inputs_settings,
-             InteractionType::LookupIntoIndexedByClk>();
+             InteractionType::LookupIntoIndexedByRow>();
 
 } // namespace bb::avm2::tracegen

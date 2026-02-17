@@ -47,7 +47,10 @@ TEST(Flavor, AllEntitiesSpecialMemberFunctions)
     using PartiallyEvaluatedMultivariates = Flavor::PartiallyEvaluatedMultivariates;
     using Polynomial = bb::Polynomial<FF>;
 
-    PartiallyEvaluatedMultivariates polynomials_A;
+    constexpr size_t circuit_size = 16;
+    Flavor::ProverPolynomials full_polynomials{ circuit_size };
+    PartiallyEvaluatedMultivariates polynomials_A(full_polynomials, circuit_size);
+
     Polynomial random_poly{ 10 };
     for (auto& coeff : random_poly.coeffs()) {
         coeff = FF::random_element();

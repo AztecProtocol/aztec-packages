@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Raju], commit: 2a49eb6 }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -32,7 +32,11 @@ void ECCVMLookupRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumula
                                              const Parameters& params,
                                              const FF& scaling_factor)
 {
-    accumulate_logderivative_lookup_subrelation_contributions<FF, ECCVMLookupRelationImpl<FF>>(
-        accumulator, in, params, scaling_factor);
+    _accumulate_logderivative_subrelation_contributions<FF,
+                                                        ECCVMLookupRelationImpl<FF>,
+                                                        ContainerOverSubrelations,
+                                                        AllEntities,
+                                                        Parameters,
+                                                        false>(accumulator, in, params, scaling_factor);
 }
 } // namespace bb

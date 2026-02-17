@@ -3,6 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {DataStructures} from "../../libraries/DataStructures.sol";
+import {Epoch} from "../../libraries/TimeLib.sol";
 
 /**
  * @title IOutbox
@@ -11,21 +12,18 @@ import {DataStructures} from "../../libraries/DataStructures.sol";
  * and will be consumed by the portal contracts.
  */
 interface IOutbox {
-  event RootAdded(uint256 indexed l2BlockNumber, bytes32 indexed root);
-  event MessageConsumed(
-    uint256 indexed l2BlockNumber, bytes32 indexed root, bytes32 indexed messageHash, uint256 leafId
-  );
+  event RootAdded(Epoch indexed epoch, bytes32 indexed root);
+  event MessageConsumed(Epoch indexed epoch, bytes32 indexed root, bytes32 indexed messageHash, uint256 leafId);
 
   // docs:start:outbox_insert
   /**
-   * @notice Inserts the root of a merkle tree containing all of the L2 to L1 messages in
-   * a block specified by _l2BlockNumber.
+   * @notice Inserts the root of a merkle tree containing all of the L2 to L1 messages in an epoch specified by _epoch.
    * @dev Only callable by the rollup contract
    * @dev Emits `RootAdded` upon inserting the root successfully
-   * @param _l2BlockNumber - The L2 Block Number in which the L2 to L1 messages reside
+   * @param _epoch - The epoch in which the L2 to L1 messages reside
    * @param _root - The merkle root of the tree where all the L2 to L1 messages are leaves
    */
-  function insert(uint256 _l2BlockNumber, bytes32 _root) external;
+  function insert(Epoch _epoch, bytes32 _root) external;
   // docs:end:outbox_insert
 
   // docs:start:outbox_consume
@@ -34,37 +32,36 @@ interface IOutbox {
    * @dev Only useable by portals / recipients of messages
    * @dev Emits `MessageConsumed` when consuming messages
    * @param _message - The L2 to L1 message
-   * @param _l2BlockNumber - The block number specifying the block that contains the message we want to consume
-   * @param _leafIndex - The index inside the merkle tree where the message is located
-   * @param _path - The sibling path used to prove inclusion of the message, the _path length directly depends
-   * on the total amount of L2 to L1 messages in the block. i.e. the length of _path is equal to the depth of the
-   * L1 to L2 message tree.
+   * @param _epoch - The epoch that contains the message we want to consume
+   * @param _leafIndex - The index at the level in the epoch message tree where the message is located
+   * @param _path - The sibling path used to prove inclusion of the message, the _path length depends
+   * on the location of the L2 to L1 message in the epoch message tree.
    */
   function consume(
     DataStructures.L2ToL1Msg calldata _message,
-    uint256 _l2BlockNumber,
+    Epoch _epoch,
     uint256 _leafIndex,
     bytes32[] calldata _path
   ) external;
   // docs:end:outbox_consume
 
-  // docs:start:outbox_has_message_been_consumed_at_block_and_index
+  // docs:start:outbox_has_message_been_consumed_at_epoch_and_index
   /**
-   * @notice Checks to see if an L2 to L1 message in a specific block has been consumed
+   * @notice Checks to see if an L2 to L1 message in a specific epoch has been consumed
    * @dev - This function does not throw. Out-of-bounds access is considered valid, but will always return false
-   * @param _l2BlockNumber - The block number specifying the block that contains the message we want to check
+   * @param _epoch - The epoch that contains the message we want to check
    * @param _leafId - The unique id of the message leaf
    */
-  function hasMessageBeenConsumedAtBlock(uint256 _l2BlockNumber, uint256 _leafId) external view returns (bool);
-  // docs:end:outbox_has_message_been_consumed_at_block_and_index
+  function hasMessageBeenConsumedAtEpoch(Epoch _epoch, uint256 _leafId) external view returns (bool);
+  // docs:end:outbox_has_message_been_consumed_at_epoch_and_index
 
   /**
-   * @notice  Fetch the root data for a given block number
-   *          Returns (0, 0) if the block is not proven
+   * @notice  Fetch the root data for a given epoch
+   *          Returns (0, 0) if the epoch is not proven
    *
-   * @param _l2BlockNumber - The block number to fetch the root data for
+   * @param _epoch - The epoch to fetch the root data for
    *
    * @return bytes32 - The root of the merkle tree containing the L2 to L1 messages
    */
-  function getRootData(uint256 _l2BlockNumber) external view returns (bytes32);
+  function getRootData(Epoch _epoch) external view returns (bytes32);
 }

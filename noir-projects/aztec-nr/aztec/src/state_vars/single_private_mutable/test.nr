@@ -1,0 +1,403 @@
+use crate::{
+    context::{PrivateContext, UtilityContext},
+    state_vars::{single_private_mutable::SinglePrivateMutable, StateVariable},
+    test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote},
+};
+
+global STORAGE_SLOT: Field = 17;
+global VALUE: Field = 23;
+
+unconstrained fn in_private(context: &mut PrivateContext) -> SinglePrivateMutable<MockNote, &mut PrivateContext> {
+    SinglePrivateMutable::new(context, STORAGE_SLOT)
+}
+
+unconstrained fn in_utility(context: UtilityContext) -> SinglePrivateMutable<MockNote, UtilityContext> {
+    SinglePrivateMutable::new(context, STORAGE_SLOT)
+}
+
+#[test(should_fail_with = "Failed to get a note")]
+unconstrained fn get_uninitialized() {
+    let mut env = TestEnvironment::new();
+    // The contract is expected by SinglePrivateMutable to have keys associated with it
+    let contract_address = env.create_light_account();
+
+    env.private_context_at(contract_address, |context| {
+        let state_var = in_private(context);
+        let _ = state_var.get_note();
+    });
+}
+
+#[test(should_fail_with = "Failed to get a note")]
+unconstrained fn view_uninitialized() {
+    let mut env = TestEnvironment::new();
+    // The contract is expected by SinglePrivateMutable to have keys associated with it
+    let contract_address = env.create_light_account();
+
+    env.utility_context_at(contract_address, |context| {
+        let state_var = in_utility(context);
+        let _ = state_var.view_note();
+    });
+}
+
+#[test(should_fail_with = "Failed to get a note")]
+unconstrained fn replace_uninitialized() {
+    let mut env = TestEnvironment::new();
+    // The contract is expected by SinglePrivateMutable to have keys associated with it
+    let contract_address = env.create_light_account();
+    let owner = env.create_light_account();
+
+    env.private_context_at(contract_address, |context| {
+        let state_var = in_private(context);
+
+        let _ = state_var
+            .replace(
+                |_old_note| {
+                    let note = MockNote::new(VALUE).build_note();
+                    note
+                },
+                owner,
+            );
+    });
+}
+
+#[test]
+unconstrained fn initialize() {
+    let mut env = TestEnvironment::new();
+    // The contract is expected by SinglePrivateMutable to have keys associated with it
+    let contract_address = env.create_light_account();
+    let owner = env.create_light_account();
+
+    env.private_context_at(contract_address, |context| {
+        let state_var = in_private(context);
+
+        let note = MockNote::new(VALUE).build_note();
+
+        let note_message = state_var.initialize(note, owner);
+
+        // During initialization we both create the new note and emit the initialization nullifier
+        assert_eq(context.note_hashes.len(), 1);
+        assert_eq(context.nullifiers.len(), 1);
+        assert_eq(context.nullifiers.get(0).inner.value, state_var.get_initialization_nullifier());
+
+        assert_eq(note_message.new_note.note, note);
+        assert_eq(note_message.new_note.storage_slot, STORAGE_SLOT);
+    });
+}
+
+#[test]
+unconstrained fn initialize_and_get_pending() {
+    let mut env = TestEnvironment::new();
+    // The contract is expected by SinglePrivateMutable to have keys associated with it
+    let contract_address = env.create_light_account();
+    let owner = env.create_light_account();
+
+    env.private_context_at(contract_address, |context| {
+        let state_var = in_private(context);
+
+        let note = MockNote::new(VALUE).build_note();
+
+        let _ = state_var.initialize(note, owner);
+
+        let note_hashes_pre_get = context.note_hashes.len();
+        let nullifiers_pre_get = context.nullifiers.len();
+        let note_hash_read_requests_pre_get = context.note_hash_read_requests.len();
+
+        let get_note_message = state_var.get_note();
+
+        assert_eq(get_note_message.new_note.note, note);
+        assert_eq(get_note_message.new_note.storage_slot, STORAGE_SLOT);
+
+        // Reading a SinglePrivateMutable results in:
+        // - a read request for the read value
+        // - a nullifier for the read note
+        // - a new note for the recreation of the read value
+        assert_eq(context.note_hash_read_requests.len(), note_hash_read_requests_pre_get + 1);
+        assert_eq(context.nullifiers.len(), nullifiers_pre_get + 1);
+        assert_eq(context.note_hashes.len(), note_hashes_pre_get + 1);
+    });
+}
+
+#[test]
+unconstrained fn initialize_and_get_settled() {
+    let mut env = TestEnvironment::new();
+    // The contract is expected by SinglePrivateMutable to have keys associated with it
+    let contract_address = env.create_light_account();
+    let owner = env.create_light_account();
+
+    let note = MockNote::new(VALUE).build_note();
+
+    let init_note_message = env.private_context_at(contract_address, |context| {
+        let state_var = in_private(context);
+
+        state_var.initialize(note, owner)
+    });
+
+    env.discover_note_at(contract_address, init_note_message);
+
+    env.private_context_at(contract_address, |context| {
+        let state_var = in_private(context);
+
+        let get_note_message = state_var.get_note();
+
+        assert_eq(get_note_message.new_note.note, note);
+        assert_eq(get_note_message.new_note.storage_slot, STORAGE_SLOT);
+
+        // Reading a SinglePrivateMutable results in:
+        // - a read request for the read value
+        // - a nullifier for the read note
+        // - a new note for the recreation of the read value
+        assert_eq(context.note_hash_read_requests.len(), 1);
+        assert_eq(context.nullifiers.len(), 1);
+        assert_eq(context.note_hashes.len(), 1);
+    });
+}
+
+#[test]
+unconstrained fn initialize_and_view_settled() {
+    let mut env = TestEnvironment::new();
+    // The contract is expected by SinglePrivateMutable to have keys associated with it
+    let contract_address = env.create_light_account();
+    let owner = env.create_light_account();
+
+    let note = MockNote::new(VALUE).build_note();
+
+    let init_note_message = env.private_context_at(contract_address, |context| {
+        let state_var = in_private(context);
+
+        state_var.initialize(note, owner)
+    });
+
+    env.discover_note_at(contract_address, init_note_message);
+
+    env.utility_context_at(contract_address, |context| {
+        let state_var = in_utility(context);
+
+        assert_eq(state_var.view_note(), note);
+    });
+}
+
+#[test]
+unconstrained fn initialize_and_replace_pending() {
+    let mut env = TestEnvironment::new();
+    // The contract is expected by SinglePrivateMutable to have keys associated with it
+    let contract_address = env.create_light_account();
+    let owner = env.create_light_account();
+
+    env.private_context_at(contract_address, |context| {
+        let state_var = in_private(context);
+
+        let note = MockNote::new(VALUE).build_note();
+
+        let _ = state_var.initialize(note, owner);
+
+        let note_hash_read_requests_pre_replace = context.note_hash_read_requests.len();
+        let nullifiers_pre_replace = context.nullifiers.len();
+        let note_hashes_pre_replace = context.note_hashes.len();
+
+        let replacement_value = VALUE + 1;
+        let replacement_note = MockNote::new(replacement_value).build_note();
+        let replace_note_message = state_var.replace(
+            |current_note| {
+                assert_eq(current_note, note);
+
+                replacement_note
+            },
+            owner,
+        );
+
+        assert_eq(replace_note_message.new_note.note, replacement_note);
+        assert_eq(replace_note_message.new_note.storage_slot, STORAGE_SLOT);
+
+        // Replacing a SinglePrivateMutable results in:
+        // - a read request for the read value
+        // - a nullifier for the read note
+        // - a new note for the replacement note
+        assert_eq(context.note_hash_read_requests.len(), note_hash_read_requests_pre_replace + 1);
+        assert_eq(context.nullifiers.len(), nullifiers_pre_replace + 1);
+        assert_eq(context.note_hashes.len(), note_hashes_pre_replace + 1);
+    });
+}
+
+#[test]
+unconstrained fn initialize_and_replace_settled() {
+    let mut env = TestEnvironment::new();
+    // The contract is expected by SinglePrivateMutable to have keys associated with it
+    let contract_address = env.create_light_account();
+    let owner = env.create_light_account();
+
+    let note = MockNote::new(VALUE).build_note();
+
+    let init_note_message = env.private_context_at(contract_address, |context| {
+        let state_var = in_private(context);
+
+        state_var.initialize(note, owner)
+    });
+
+    env.discover_note_at(contract_address, init_note_message);
+
+    env.private_context_at(contract_address, |context| {
+        let state_var = in_private(context);
+
+        let replacement_value = VALUE + 1;
+        let replacement_note = MockNote::new(replacement_value).build_note();
+        let replace_note_message = state_var.replace(
+            |current_note| {
+                assert_eq(current_note, note);
+                replacement_note
+            },
+            owner,
+        );
+
+        assert_eq(replace_note_message.new_note.note, replacement_note);
+        assert_eq(replace_note_message.new_note.storage_slot, STORAGE_SLOT);
+
+        // Replacing a SinglePrivateMutable results in:
+        // - a read request for the read value
+        // - a nullifier for the read note
+        // - a new note for the replacement note
+        assert_eq(context.note_hash_read_requests.len(), 1);
+        assert_eq(context.nullifiers.len(), 1);
+        assert_eq(context.note_hashes.len(), 1);
+    });
+}
+
+#[test]
+unconstrained fn initialize_or_replace_uninitialized() {
+    let mut env = TestEnvironment::new();
+    // The contract is expected by SinglePrivateMutable to have keys associated with it
+    let contract_address = env.create_light_account();
+    let owner = env.create_light_account();
+
+    env.private_context_at(contract_address, |context| {
+        let state_var = in_private(context);
+
+        let init_note = MockNote::new(VALUE).build_note();
+
+        let note_message = state_var.initialize_or_replace(
+            |opt_current_note| {
+                assert(opt_current_note.is_none());
+                init_note
+            },
+            owner,
+        );
+
+        assert_eq(note_message.new_note.note, init_note);
+        assert_eq(note_message.new_note.storage_slot, STORAGE_SLOT);
+
+        // During initialization we both create the new note and emit the initialization nullifier. This will only
+        // succeed if the initialization nullifier had not been already emitted.
+        assert_eq(context.note_hashes.len(), 1);
+        assert_eq(context.nullifiers.len(), 1);
+        assert_eq(context.nullifiers.get(0).inner.value, state_var.get_initialization_nullifier());
+    });
+}
+
+#[test]
+unconstrained fn initialize_or_replace_initialized_pending() {
+    let mut env = TestEnvironment::new();
+    // The contract is expected by SinglePrivateMutable to have keys associated with it
+    let contract_address = env.create_light_account();
+    let owner = env.create_light_account();
+
+    env.private_context_at(contract_address, |context| {
+        let state_var = in_private(context);
+
+        let note = MockNote::new(VALUE).build_note();
+        let _ = state_var.initialize(note, owner);
+
+        let note_hash_read_requests_pre_replace = context.note_hash_read_requests.len();
+        let nullifiers_pre_replace = context.nullifiers.len();
+        let note_hashes_pre_replace = context.note_hashes.len();
+
+        let replacement_note = MockNote::new(note.value + 1).build_note();
+        let note_message = state_var.initialize_or_replace(
+            |opt_current_note| {
+                assert_eq(opt_current_note.unwrap(), note);
+                replacement_note
+            },
+            owner,
+        );
+
+        assert_eq(note_message.new_note.note, replacement_note);
+        assert_eq(note_message.new_note.storage_slot, STORAGE_SLOT);
+
+        // Verify context updates: read request, nullifier, and new note
+        assert_eq(context.note_hash_read_requests.len(), note_hash_read_requests_pre_replace + 1);
+        assert_eq(context.nullifiers.len(), nullifiers_pre_replace + 1);
+        assert_eq(context.note_hashes.len(), note_hashes_pre_replace + 1);
+    });
+}
+
+#[test]
+unconstrained fn initialize_or_replace_initialized_settled() {
+    let mut env = TestEnvironment::new();
+    // The contract is expected by SinglePrivateMutable to have keys associated with it
+    let contract_address = env.create_light_account();
+    let owner = env.create_light_account();
+
+    let note = MockNote::new(VALUE).build_note();
+
+    let init_note_message = env.private_context_at(contract_address, |context| {
+        let state_var = in_private(context);
+
+        state_var.initialize(note, owner)
+    });
+
+    env.discover_note_at(contract_address, init_note_message);
+
+    env.private_context_at(contract_address, |context| {
+        let state_var = in_private(context);
+
+        let note_hash_read_requests_pre_replace = context.note_hash_read_requests.len();
+        let nullifiers_pre_replace = context.nullifiers.len();
+        let note_hashes_pre_replace = context.note_hashes.len();
+
+        let replacement_note = MockNote::new(note.value + 1).build_note();
+        let note_message = state_var.initialize_or_replace(
+            |opt_current_note| {
+                assert_eq(opt_current_note.unwrap(), note);
+                replacement_note
+            },
+            owner,
+        );
+
+        assert_eq(note_message.new_note.note, replacement_note);
+        assert_eq(note_message.new_note.storage_slot, STORAGE_SLOT);
+
+        // Replacing a SinglePrivateMutable results in:
+        // - a read request for the read value
+        // - a nullifier for the read note
+        // - a new note for the replacement note
+        // This would only succeed if the variable had already been initialized, as otherwise the read request would
+        // fail.
+        assert_eq(context.note_hash_read_requests.len(), note_hash_read_requests_pre_replace + 1);
+        assert_eq(context.nullifiers.len(), nullifiers_pre_replace + 1);
+        assert_eq(context.note_hashes.len(), note_hashes_pre_replace + 1);
+    });
+}
+
+#[test]
+unconstrained fn get_replacement_note_has_unique_randomness() {
+    let mut env = TestEnvironment::new();
+    // The contract is expected by SinglePrivateMutable to have keys associated with it
+    let contract_address = env.create_light_account();
+    let owner = env.create_light_account();
+
+    let note = MockNote::new(VALUE).build_note();
+
+    let init_note_message = env.private_context_at(contract_address, |context| {
+        let state_var = in_private(context);
+
+        state_var.initialize(note, owner)
+    });
+
+    env.discover_note_at(contract_address, init_note_message);
+
+    env.private_context_at(contract_address, |context| {
+        let state_var = in_private(context);
+
+        let get_note_message = state_var.get_note();
+
+        assert(get_note_message.new_note.randomness != init_note_message.new_note.randomness);
+    });
+}

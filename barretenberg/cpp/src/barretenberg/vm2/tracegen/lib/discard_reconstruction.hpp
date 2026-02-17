@@ -8,6 +8,7 @@
 #include <variant>
 #include <vector>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/vm2/simulation/events/checkpoint_event_type.hpp"
 
 namespace bb::avm2::tracegen {
@@ -33,11 +34,11 @@ std::unordered_map<size_t, size_t> compute_reverted_in_map(const std::vector<Eve
                 checkpoint_stack.push(i);
                 break;
             case simulation::CheckPointEventType::COMMIT_CHECKPOINT:
-                assert(!checkpoint_stack.empty());
+                BB_ASSERT(!checkpoint_stack.empty());
                 checkpoint_stack.pop();
                 break;
             case simulation::CheckPointEventType::REVERT_CHECKPOINT:
-                assert(!checkpoint_stack.empty());
+                BB_ASSERT(!checkpoint_stack.empty());
                 reverted_in[checkpoint_stack.top()] = i;
                 checkpoint_stack.pop();
                 break;

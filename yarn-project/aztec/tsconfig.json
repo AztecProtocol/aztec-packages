@@ -25,7 +25,7 @@
       "path": "../bb-prover"
     },
     {
-      "path": "../blob-sink"
+      "path": "../blob-client"
     },
     {
       "path": "../bot"
@@ -82,16 +82,22 @@
       "path": "../pxe"
     },
     {
+      "path": "../sequencer-client"
+    },
+    {
       "path": "../stdlib"
     },
     {
       "path": "../telemetry-client"
     },
     {
-      "path": "../test-wallet"
+      "path": "../txe"
     },
     {
-      "path": "../txe"
+      "path": "../validator-ha-signer"
+    },
+    {
+      "path": "../wallets"
     },
     {
       "path": "../world-state"

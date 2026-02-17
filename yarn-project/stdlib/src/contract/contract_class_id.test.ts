@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { FunctionSelector } from '../abi/function_selector.js';
 import { computeContractClassId } from './contract_class_id.js';
@@ -15,7 +15,7 @@ describe('ContractClass', () => {
       };
       const contractClassId = await computeContractClassId(contractClass);
       expect(contractClassId.toString()).toMatchInlineSnapshot(
-        `"0x1f2b3a3c438e4097567cc90ecf43929930b7244f7d2fbcca61ae172d1df3c75c"`,
+        `"0x2926577ccab09f8e4600550792066ed9d6ce530a973ac2b81a36eaebee56ad44"`,
       );
     });
   });

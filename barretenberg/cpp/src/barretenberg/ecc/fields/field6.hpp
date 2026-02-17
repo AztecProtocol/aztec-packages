@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [Raju], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -154,6 +154,15 @@ template <typename base_field, typename Fq6Params> class field6 {
         *this = operator/(other);
         return *this;
     }
+
+    constexpr void self_neg()
+    {
+        c0.self_neg();
+        c1.self_neg();
+        c2.self_neg();
+    }
+
+    constexpr void self_sqr() { *this = sqr(); }
 
     constexpr field6 invert() const
     {

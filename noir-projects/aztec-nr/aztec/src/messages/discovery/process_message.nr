@@ -5,13 +5,11 @@ use crate::messages::{
     },
     encoding::{decode_message, MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN},
     encryption::{aes128::AES128, message_encryption::MessageEncryption},
-    msg_type::{
-        PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_EVENT_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID,
-    },
-    processing::message_context::MessageContext,
+    msg_type::{PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_EVENT_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID},
+    processing::MessageContext,
 };
 
-use protocol_types::{address::AztecAddress, debug_log::{debug_log, debug_log_format}};
+use crate::protocol::{address::AztecAddress, logging::{debug_log, debug_log_format}};
 
 /// Processes a message that can contain notes, partial notes, or events.
 ///
@@ -20,8 +18,8 @@ use protocol_types::{address::AztecAddress, debug_log::{debug_log, debug_log_for
 /// the list of unique note hashes in said transaction and the `compute_note_hash_and_nullifier` function. Once
 /// discovered, the notes are enqueued for validation.
 ///
-/// Partial notes result in a pending partial note entry being stored in a PXE capsule, which will later be retrieved to
-/// search for the note's completion public log.
+/// Partial notes result in a pending partial note entry being stored in a PXE capsule, which will later be retrieved
+/// to search for the note's completion public log.
 ///
 /// Events are processed by computing an event commitment from the serialized event data and its randomness field, then
 /// enqueueing the event data and commitment for validation.
@@ -31,12 +29,21 @@ pub unconstrained fn process_message_ciphertext<Env>(
     message_ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
     message_context: MessageContext,
 ) {
-    process_message_plaintext(
-        contract_address,
-        compute_note_hash_and_nullifier,
-        AES128::decrypt(message_ciphertext, message_context.recipient),
-        message_context,
-    );
+    let message_plaintext_option = AES128::decrypt(message_ciphertext, message_context.recipient);
+
+    if message_plaintext_option.is_some() {
+        process_message_plaintext(
+            contract_address,
+            compute_note_hash_and_nullifier,
+            message_plaintext_option.unwrap(),
+            message_context,
+        );
+    } else {
+        debug_log_format(
+            "Found invalid message from tx {0}, ignoring",
+            [message_context.tx_hash],
+        );
+    }
 }
 
 pub unconstrained fn process_message_plaintext<Env>(

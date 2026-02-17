@@ -89,7 +89,7 @@ template <typename T, std::size_t N> class RefArray {
 
         T& operator*() const
         {
-            BB_ASSERT_LT(pos, N);
+            BB_ASSERT_LT_NO_WASM(pos, N);
             return (*array)[pos];
         }
 

@@ -23,10 +23,12 @@ describe('Bitwise instructions', () => {
         ...Buffer.from('2345', 'hex'), // bOffset
         ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
-      const inst = new And(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*bOffset=*/ 0x2345, /*dstOffset=*/ 0x3456).as(
-        Opcode.AND_16,
-        And.wireFormat16,
-      );
+      const inst = new And(
+        /*addressing_mode=*/ 0x01,
+        /*aOffset=*/ 0x1234,
+        /*bOffset=*/ 0x2345,
+        /*dstOffset=*/ 0x3456,
+      ).as(Opcode.AND_16, And.wireFormat16);
 
       expect(And.as(And.wireFormat16).fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
@@ -36,7 +38,7 @@ describe('Bitwise instructions', () => {
       context.machineState.memory.set(0, new Uint32(0b11111110010011100100n));
       context.machineState.memory.set(1, new Uint32(0b11100100111001001111n));
 
-      await new And(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new And(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
       const actual = context.machineState.memory.get(2);
       expect(actual).toEqual(new Uint32(0b11100100010001000100n));
@@ -47,7 +49,7 @@ describe('Bitwise instructions', () => {
       context.machineState.memory.set(1, new Uint32(0b11100100111001001111n));
 
       const gasBefore = context.machineState.l2GasLeft;
-      await new And(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new And(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
       expect(context.machineState.l2GasLeft).toEqual(
         gasBefore - AVM_AND_BASE_L2_GAS - AVM_BITWISE_DYN_L2_GAS * getBitwiseDynamicGasMultiplier(TypeTag.UINT32),
@@ -64,10 +66,12 @@ describe('Bitwise instructions', () => {
         ...Buffer.from('2345', 'hex'), // bOffset
         ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
-      const inst = new Or(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*bOffset=*/ 0x2345, /*dstOffset=*/ 0x3456).as(
-        Opcode.OR_16,
-        Or.wireFormat16,
-      );
+      const inst = new Or(
+        /*addressing_mode=*/ 0x01,
+        /*aOffset=*/ 0x1234,
+        /*bOffset=*/ 0x2345,
+        /*dstOffset=*/ 0x3456,
+      ).as(Opcode.OR_16, Or.wireFormat16);
 
       expect(Or.as(Or.wireFormat16).fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
@@ -80,7 +84,7 @@ describe('Bitwise instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      await new Or(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Or(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
       const expected = new Uint32(0b11111110111011101111n);
       const actual = context.machineState.memory.get(2);
@@ -95,7 +99,7 @@ describe('Bitwise instructions', () => {
       context.machineState.memory.set(1, b);
 
       const gasBefore = context.machineState.l2GasLeft;
-      await new Or(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Or(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
       expect(context.machineState.l2GasLeft).toEqual(
         gasBefore - AVM_OR_BASE_L2_GAS - AVM_BITWISE_DYN_L2_GAS * getBitwiseDynamicGasMultiplier(TypeTag.UINT32),
@@ -112,10 +116,12 @@ describe('Bitwise instructions', () => {
         ...Buffer.from('2345', 'hex'), // bOffset
         ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
-      const inst = new Xor(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*bOffset=*/ 0x2345, /*dstOffset=*/ 0x3456).as(
-        Opcode.XOR_16,
-        Xor.wireFormat16,
-      );
+      const inst = new Xor(
+        /*addressing_mode=*/ 0x01,
+        /*aOffset=*/ 0x1234,
+        /*bOffset=*/ 0x2345,
+        /*dstOffset=*/ 0x3456,
+      ).as(Opcode.XOR_16, Xor.wireFormat16);
 
       expect(Xor.as(Xor.wireFormat16).fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
@@ -128,7 +134,7 @@ describe('Bitwise instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      await new Xor(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Xor(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
       const expected = new Uint32(0b00011010101010101011n);
       const actual = context.machineState.memory.get(2);
@@ -143,7 +149,7 @@ describe('Bitwise instructions', () => {
       context.machineState.memory.set(1, b);
 
       const gasBefore = context.machineState.l2GasLeft;
-      await new Xor(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Xor(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
 
       expect(context.machineState.l2GasLeft).toEqual(
         gasBefore - AVM_XOR_BASE_L2_GAS - AVM_BITWISE_DYN_L2_GAS * getBitwiseDynamicGasMultiplier(TypeTag.UINT32),
@@ -159,7 +165,7 @@ describe('Bitwise instructions', () => {
         ...Buffer.from('1234', 'hex'), // aOffset
         ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
-      const inst = new Not(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*dstOffset=*/ 0x3456).as(
+      const inst = new Not(/*addressing_mode=*/ 0x01, /*aOffset=*/ 0x1234, /*dstOffset=*/ 0x3456).as(
         Opcode.NOT_16,
         Not.wireFormat16,
       );
@@ -173,7 +179,7 @@ describe('Bitwise instructions', () => {
 
       context.machineState.memory.set(0, a);
 
-      await new Not(/*indirect=*/ 0, /*aOffset=*/ 0, /*dstOffset=*/ 1).execute(context);
+      await new Not(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*dstOffset=*/ 1).execute(context);
 
       const expected = new Uint16(0b1001101100011011n); // high bits!
       const actual = context.machineState.memory.get(1);

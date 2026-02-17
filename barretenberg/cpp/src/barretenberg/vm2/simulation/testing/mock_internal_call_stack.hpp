@@ -16,11 +16,12 @@ class MockInternalCallStackManager : public InternalCallStackManagerInterface {
     MockInternalCallStackManager();
     ~MockInternalCallStackManager() override;
 
-    MOCK_METHOD(void, push, (PC pc), (override));
+    MOCK_METHOD(void, push, (PC caller_pc, PC return_pc), (override));
     MOCK_METHOD(PC, pop, (), (override));
     MOCK_METHOD(InternalCallId, get_next_call_id, (), (const, override));
     MOCK_METHOD(InternalCallId, get_call_id, (), (const, override));
     MOCK_METHOD(InternalCallId, get_return_call_id, (), (const, override));
+    MOCK_METHOD(std::vector<PC>, get_current_call_stack, (), (const, override));
 };
 
 } // namespace bb::avm2::simulation

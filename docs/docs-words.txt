@@ -51,6 +51,7 @@ Chiplets
 ciphertextheader
 ciphertexts
 citizensˮ
+claimability
 clawback
 cmov
 CMOV
@@ -76,6 +77,8 @@ Danksharding
 databus
 defiexit
 defn
+deflatten
+deflattenFields
 delegatecall
 DELEGATECALL
 delegatecalls
@@ -91,6 +94,7 @@ dlazy
 Dlazy
 DLAZY
 donʼt
+downsampling
 dstsize
 ECADD
 ECCVM
@@ -233,6 +237,7 @@ penalised
 permissonless
 pkey
 posesses
+preconfigured
 preconfirmed
 prefered
 procss
@@ -241,6 +246,7 @@ protoocols
 Protostar
 Prviate
 Prysm
+pseudorandomly
 publically
 Quicknode
 ragequit
@@ -264,6 +270,7 @@ Returndata
 revertdata
 rollupʼs
 RSSH
+rustc
 sendl
 SENDL
 serde
@@ -293,6 +300,8 @@ stakeˮ
 Standardisation
 subcomponents
 suboperation
+subpath
+subpaths
 substate
 Substate
 substracted
@@ -314,6 +323,8 @@ timelock
 Timelock
 timelocked
 tonelli
+townhall
+townhalls
 TORADIXLE
 Tpkm
 transactionfee
@@ -362,3 +373,24 @@ nothin
 whoooaa
 flamegraphs
 mycontract
+notegetteroptions
+lookback
+noirfmt
+postprocesses
+blobscan
+fusaka
+healthcheck
+supernode
+supernodes
+Garaga
+satisfiability
+nullptr
+favo
+supermajority
+finalise
+undelegation
+unbonding
+zkpassport
+aztecrc
+Dockerless
+tokenomics

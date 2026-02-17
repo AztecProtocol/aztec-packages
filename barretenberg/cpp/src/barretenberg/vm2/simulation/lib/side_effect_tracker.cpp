@@ -4,7 +4,7 @@
 
 namespace bb::avm2::simulation {
 
-uint32_t TrackedSideEffects::get_num_unencrypted_log_fields() const
+uint32_t TrackedSideEffects::get_num_public_log_fields() const
 {
     return public_logs.length;
 }
@@ -24,13 +24,13 @@ void SideEffectTracker::add_l2_to_l1_message(const AztecAddress& contract_addres
                                              const FF& content)
 {
     tracked_tree_side_effects.top().l2_to_l1_messages.push_back(ScopedL2ToL1Message{
-        .message = { .recipient = recipient, .content = content }, .contractAddress = contract_address });
+        .message = { .recipient = recipient, .content = content }, .contract_address = contract_address });
 }
 
 void SideEffectTracker::add_public_log(const AztecAddress& contract_address, const std::vector<FF>& fields)
 {
     tracked_tree_side_effects.top().public_logs.add_log(
-        PublicLog{ .fields = fields, .contractAddress = contract_address });
+        PublicLog{ .fields = fields, .contract_address = contract_address });
 }
 
 void SideEffectTracker::add_storage_write(const FF& slot, const FF& value)

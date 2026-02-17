@@ -24,6 +24,12 @@ fn assert_rollups_follow_on_from_each_other(
     );
 
     assert_eq(
+        left.new_out_hash,
+        right.previous_out_hash,
+        "Mismatched out hashes: expected right.previous_out_hash to match left.new_out_hash",
+    );
+
+    assert_eq(
         left.end_blob_accumulator,
         right.start_blob_accumulator,
         "Mismatched blob accumulators: expected right.start_blob_accumulator to match left.end_blob_accumulator",

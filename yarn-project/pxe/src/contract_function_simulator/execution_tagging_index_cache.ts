@@ -21,7 +21,7 @@ export class ExecutionTaggingIndexCache {
   }
 
   /**
-   * Returns the pre tags that were used in this execution (and that need to be stored in the db).
+   * Returns the pre-tags that were used in this execution (and that need to be stored in the db).
    */
   public getUsedPreTags(): PreTag[] {
     return Array.from(this.taggingIndexMap.entries()).map(([secret, index]) => ({

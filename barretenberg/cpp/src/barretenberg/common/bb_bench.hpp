@@ -162,12 +162,18 @@ struct TimeStatsEntry {
 template <OperationLabel Op> struct ThreadBenchStats {
   public:
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-    static inline thread_local std::shared_ptr<TimeStatsEntry> stats;
+    static std::shared_ptr<TimeStatsEntry>& get_stats()
+    {
+        // Workaround for GCC 13 bug with thread_local static inline members in templates
+        static thread_local std::shared_ptr<TimeStatsEntry> stats;
+        return stats;
+    }
 
     static void init_entry(TimeStatsEntry& entry);
     // returns null if use_bb_bench not enabled
     static std::shared_ptr<TimeStatsEntry> ensure_stats()
     {
+        auto& stats = get_stats();
         if (bb::detail::use_bb_bench && BB_UNLIKELY(stats == nullptr)) {
             stats = std::make_shared<TimeStatsEntry>();
             GLOBAL_BENCH_STATS.add_entry(Op.value, stats);

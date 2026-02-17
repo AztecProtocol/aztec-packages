@@ -67,15 +67,6 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
         EXPECT_EQ(reversed_arr.bytes()[2].get_origin_tag(), clear_tag);
     }
 
-    void test_from_string_constructor()
-    {
-        Builder builder;
-
-        std::string a = "ascii";
-        byte_array_ct arr(&builder, a);
-        EXPECT_EQ(arr.get_string(), a);
-    }
-
     void test_into_bytes_decomposition_less_than_32_bytes()
     {
         for (size_t num_bytes = 1; num_bytes < 32; num_bytes++) {
@@ -184,16 +175,16 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
             uint256_t overflowing_value(fr::modulus + 100);
 
             test_val = field_ct(&builder, bb::fr(overflowing_value));
-            EXPECT_THROW_OR_ABORT(byte_array<Builder> failure_array(test_val, 32, overflowing_value),
-                                  "byte_array: y_hi doesn't fit in 128 bits");
+            EXPECT_THROW_WITH_MESSAGE(byte_array<Builder> failure_array(test_val, 32, overflowing_value),
+                                      "byte_array: y_hi doesn't fit in 128 bits");
         }
 
         {
             // Test the case when (r-1).lo - x.lo + 2^128 is not a 129 bit integer, i.e. is negative.
             uint256_t random_overflowing_value("0xcf9bb18d1ece5fd647afba497e7ea7a3d3bdb158855487614a97cd3d2a1954b2");
             test_val = field_ct(&builder, bb::fr(random_overflowing_value));
-            EXPECT_THROW_OR_ABORT(byte_array<Builder> failure_array(test_val, 32, random_overflowing_value),
-                                  "byte_array: y_hi doesn't fit in 128 bits");
+            EXPECT_THROW_WITH_MESSAGE(byte_array<Builder> failure_array(test_val, 32, random_overflowing_value),
+                                      "byte_array: y_hi doesn't fit in 128 bits");
         }
         // Make sure no gates are added
         EXPECT_TRUE(gates_start == builder.get_num_finalized_gates_inefficient());
@@ -211,10 +202,14 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
         field_ct b = witness_ct(&builder, slice_to_n_bytes(b_expected, 31));
         b.set_origin_tag(challenge_origin_tag);
 
-        byte_array_ct arr(&builder);
+        // byte_array_ct(field, num_bytes) constructor adds range constraints for each byte
+        byte_array_ct a_bytes(a, 31);
+        byte_array_ct b_bytes(b, 31);
 
-        arr.write(byte_array_ct(a, 31));
-        arr.write(byte_array_ct(b, 31));
+        // Build byte_array by writing constrained byte_arrays
+        byte_array_ct arr(&builder, std::vector<uint8_t>());
+        arr.write(a_bytes);
+        arr.write(b_bytes);
 
         EXPECT_EQ(arr.size(), 62UL);
 
@@ -236,14 +231,15 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
         for (size_t arr_length = 1; arr_length < 32; arr_length++) {
 
             Builder builder;
-            byte_array_ct test_array(&builder, arr_length);
 
+            // Generate random bytes
             std::vector<uint8_t> native_bytes(arr_length);
             for (size_t idx = 0; idx < arr_length; idx++) {
-                uint8_t byte = engine.get_random_uint8();
-                native_bytes[idx] = byte;
-                test_array[idx] = witness_ct(&builder, byte);
+                native_bytes[idx] = engine.get_random_uint8();
             }
+
+            // Create byte_array from vector (this creates witnesses for each byte)
+            byte_array_ct test_array(&builder, native_bytes);
 
             // Convert to field_t using the byte_array conversion
             field_ct represented_field_elt = static_cast<field_ct>(test_array);
@@ -282,11 +278,6 @@ TYPED_TEST_SUITE(ByteArrayTest, CircuitTypes);
 TYPED_TEST(ByteArrayTest, Reverse)
 {
     TestFixture::test_reverse();
-}
-
-TYPED_TEST(ByteArrayTest, ConstructFromString)
-{
-    TestFixture::test_from_string_constructor();
 }
 
 TYPED_TEST(ByteArrayTest, ByteDecompositionUnique)

@@ -22,11 +22,11 @@ void RangeCheckTraceBuilder::process(
     for (const auto& event : events) {
         // store off event entries to be used directly in row
         const uint256_t original_num_bits = event.num_bits;
-        const uint256_t original_value = uint256_t::from_uint128(event.value);
+        const uint256_t original_value = static_cast<uint256_t>(event.value);
 
         // these will be mutated below
         uint8_t num_bits = event.num_bits;
-        uint256_t value = uint256_t::from_uint128(event.value);
+        uint256_t value = static_cast<uint256_t>(event.value);
 
         std::array<uint16_t, 7> fixed_slice_registers; // u16_r0...6
         size_t index_of_most_sig_16b_chunk = 0;
@@ -95,15 +95,15 @@ void RangeCheckTraceBuilder::process(
 
 const InteractionDefinition RangeCheckTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_range_check_dyn_diff_is_u16_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_range_check_dyn_rng_chk_pow_2_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_range_check_r0_is_u16_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_range_check_r1_is_u16_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_range_check_r2_is_u16_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_range_check_r3_is_u16_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_range_check_r4_is_u16_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_range_check_r5_is_u16_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_range_check_r6_is_u16_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_range_check_r7_is_u16_settings, InteractionType::LookupIntoIndexedByClk>();
+        .add<lookup_range_check_dyn_diff_is_u16_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_range_check_dyn_rng_chk_pow_2_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_range_check_r0_is_u16_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_range_check_r1_is_u16_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_range_check_r2_is_u16_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_range_check_r3_is_u16_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_range_check_r4_is_u16_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_range_check_r5_is_u16_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_range_check_r6_is_u16_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_range_check_r7_is_u16_settings, InteractionType::LookupIntoIndexedByRow>();
 
 } // namespace bb::avm2::tracegen

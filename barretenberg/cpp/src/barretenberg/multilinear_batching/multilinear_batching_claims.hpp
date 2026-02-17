@@ -1,53 +1,32 @@
+// === AUDIT STATUS ===
+// internal:    { status: Complete, auditors: [Sergei], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
 #pragma once
 
-#include "barretenberg/flavor/multilinear_batching_flavor.hpp"
+#include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb {
 
-struct MultilinearBatchingProverClaim {
-    using FF = MultilinearBatchingFlavor::FF;
-    using Commitment = MultilinearBatchingFlavor::Commitment;
-    using Polynomial = MultilinearBatchingFlavor::Polynomial;
-    std::vector<FF> challenge;
-    FF shifted_evaluation;
-    FF non_shifted_evaluation;
-    Polynomial non_shifted_polynomial;
-    Polynomial shifted_polynomial;
-    Commitment non_shifted_commitment;
-    Commitment shifted_commitment;
-    size_t dyadic_size;
-};
-
+/**
+ * @brief Verifier's claim for multilinear batching - contains commitments and evaluation claims.
+ * @details Templated on Curve to support both native (BN254) and recursive (stdlib) verification.
+ */
 template <typename Curve> struct MultilinearBatchingVerifierClaim {
-    using FF = Curve::ScalarField;
-    using Commitment = Curve::AffineElement;
-    std::vector<FF> challenge;
-    FF shifted_evaluation;
-    FF non_shifted_evaluation;
-    Commitment non_shifted_commitment;
-    Commitment shifted_commitment;
+    using FF = typename Curve::ScalarField;
+    using Commitment = typename Curve::AffineElement;
 
-    MultilinearBatchingVerifierClaim() = default;
-
-    MultilinearBatchingVerifierClaim(const std::vector<FF>& challenge,
-                                     const FF& shifted_evaluation,
-                                     const FF& non_shifted_evaluation,
-                                     const Commitment& non_shifted_commitment,
-                                     const Commitment& shifted_commitment)
-        : challenge(challenge)
-        , shifted_evaluation(shifted_evaluation)
-        , non_shifted_evaluation(non_shifted_evaluation)
-        , non_shifted_commitment(non_shifted_commitment)
-        , shifted_commitment(shifted_commitment)
-    {}
+    std::vector<FF> challenge;         // Evaluation point r
+    FF non_shifted_evaluation;         // Claimed value P(r)
+    FF shifted_evaluation;             // Claimed value P_shifted(r)
+    Commitment non_shifted_commitment; // Commitment [P]
+    Commitment shifted_commitment;     // Commitment [P_shifted]
 
     /**
-     * @brief Constructor for instantiating a recursive claim from a native one
-     *
-     * @tparam RecursiveCurve
-     * @param builder
-     * @param native_claim
-     * @return MultilinearBatchingVerifierClaim
+     * @brief Construct a recursive claim from a native one.
      */
     template <typename RecursiveCurve>
     static MultilinearBatchingVerifierClaim stdlib_from_native(
@@ -61,8 +40,8 @@ template <typename Curve> struct MultilinearBatchingVerifierClaim {
             result.challenge.emplace_back(FF::from_witness(builder, element));
         }
 
-        result.shifted_evaluation = FF::from_witness(builder, native_claim.shifted_evaluation);
         result.non_shifted_evaluation = FF::from_witness(builder, native_claim.non_shifted_evaluation);
+        result.shifted_evaluation = FF::from_witness(builder, native_claim.shifted_evaluation);
         result.non_shifted_commitment = Commitment::from_witness(builder, native_claim.non_shifted_commitment);
         result.shifted_commitment = Commitment::from_witness(builder, native_claim.shifted_commitment);
 
@@ -70,7 +49,7 @@ template <typename Curve> struct MultilinearBatchingVerifierClaim {
     }
 
     /**
-     * @brief Return the native claim underlying the recursive one
+     * @brief Extract native claim from recursive one.
      */
     template <typename T>
     T get_value()
@@ -91,19 +70,40 @@ template <typename Curve> struct MultilinearBatchingVerifierClaim {
     }
 
     /**
-     * @brief Hash the claim via the transcript mechanism
+     * @brief Tag claim components and hash for origin tagging.
      */
-    template <typename T> FF hash_through_transcript(const std::string& domain_separator, T& transcript) const
+    template <typename Codec, typename HashFn> FF hash_with_origin_tagging(const OriginTag& tag) const
     {
-        for (size_t idx = 0; auto& element : challenge) {
-            transcript.add_to_independent_hash_buffer(domain_separator + "challenge_" + std::to_string(idx), element);
-        }
-        transcript.add_to_independent_hash_buffer(domain_separator + "non_shifted_evaluation", non_shifted_evaluation);
-        transcript.add_to_independent_hash_buffer(domain_separator + "shifted_evaluation", shifted_evaluation);
-        transcript.add_to_independent_hash_buffer(domain_separator + "non_shifted_commitment", non_shifted_commitment);
-        transcript.add_to_independent_hash_buffer(domain_separator + "shifted_commmitment", shifted_commitment);
+        constexpr bool in_circuit = Curve::is_stdlib_type;
+        std::vector<FF> claim_elements;
 
-        return transcript.hash_independent_buffer();
+        auto append_tagged = [&]<typename U>(const U& component) {
+            auto frs = bb::tag_and_serialize<in_circuit, Codec>(component, tag);
+            claim_elements.insert(claim_elements.end(), frs.begin(), frs.end());
+        };
+
+        for (const auto& element : challenge) {
+            append_tagged(element);
+        }
+
+        append_tagged(non_shifted_evaluation);
+        append_tagged(shifted_evaluation);
+        // Note that commitments have been already deserialized and the point at infinity is constrained to (0,0)).
+        append_tagged(non_shifted_commitment);
+        append_tagged(shifted_commitment);
+
+        bb::unset_free_witness_tags<in_circuit, FF>(claim_elements);
+
+        return HashFn::hash(claim_elements);
+    }
+
+    /**
+     * @brief Convenience overload that extracts tag from transcript.
+     */
+    template <typename TranscriptType> FF hash_with_origin_tagging(const TranscriptType& transcript) const
+    {
+        const OriginTag tag = bb::extract_transcript_tag(transcript);
+        return hash_with_origin_tagging<typename TranscriptType::Codec, typename TranscriptType::HashFunction>(tag);
     }
 };
 

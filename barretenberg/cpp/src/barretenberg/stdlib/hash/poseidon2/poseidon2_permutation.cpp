@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Sergei], commit: 777717f6af324188ecd6bb68c3c86ee7befef94d}
+// external_1:  { status: Complete, auditors: [@ed25519 (Spearbit)], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "poseidon2_permutation.hpp"
@@ -113,10 +113,6 @@ void Poseidon2Permutation<Builder>::matrix_multiplication_external(typename Pose
 
     // gate 6: Compute v3 = v4 + tmp2
     state[2] = state[3] + tmp2;
-
-    // This can only happen if the input contained constant `field_t` elements.
-    BB_ASSERT(state[0].is_normalized() && state[1].is_normalized() && state[2].is_normalized() &&
-              state[3].is_normalized());
 }
 
 template class Poseidon2Permutation<MegaCircuitBuilder>;

@@ -2,25 +2,21 @@
 
 set -e
 
-# This script will walk through the process of deploying a set of bootnodes. To do this, it will
-# 1. Create an SSH key and store i a GCP secret
+# This script will walk through the process of setting up bootnode infrastructure. To do this, it will
+# 1. Create an SSH key and store it in a GCP secret
 # 2. Create a service account in GCP and appropriate firewall rules for running bootnodes
 # 3. Create a static IP address for each provided region
 # 4. Create a P2P private key for each region if one doesn't already exist, this is stored as a GCP secret
 # 5. Generate the ENRs for the IP/Private key pairs
-# 6. Writes the ENRs to the provided S3 bucket
-# 7. Creates a VM in each region of the provided machine type
-# 8. Executes a startup script and updates systemd to ensure the bootnode is always running
+# 6. Output the ENRs to be added to the network config in AztecProtocol/networks repo
 
-# Usage: ./scripts/deploy_bootnodes.sh <network-name> "region1,region2" "t2d-standard-2" "s3://static.aztec.network" <L1-chain-id> <gcp-project-id>
+# Usage: ./scripts/deploy_bootnodes.sh <network-name> "region1,region2" <L1-chain-id> <gcp-project-id> [tag]
 
 NETWORK_NAME=${1:-}
 GCP_REGIONS=${2:-}
-GCP_MACHINE_TYPE=${3:-}
-STATIC_S3_BUCKET=${4:-}
-L1_CHAIN_ID=${5:-}
-PROJECT_ID=${6:-}
-TAG=${7:-"latest"}
+L1_CHAIN_ID=${3:-}
+PROJECT_ID=${4:-}
+TAG=${5:-"latest"}
 
 P2P_PORT=40400
 P2P_PORTS="[\"$P2P_PORT\"]"
@@ -33,8 +29,8 @@ if [[ -z "$NETWORK_NAME" ]]; then
     exit 1
 fi
 
-if [[ -z "$STATIC_S3_BUCKET" ]]; then
-    echo "STATIC_S3_BUCKET is required"
+if [[ -z "$L1_CHAIN_ID" ]]; then
+    echo "L1_CHAIN_ID is required"
     exit 1
 fi
 
@@ -99,8 +95,6 @@ cd $ROOT
 
 gcloud config set project $PROJECT_ID
 
-GCP_PRIVATE_KEYS_ARRAY=()
-GCP_REGIONS_ARRAY=()
 ENR_ARRAY=()
 
 
@@ -137,45 +131,23 @@ while read -r REGION IP; do
 
     echo "ENR: $ENR"
 
-    GCP_PRIVATE_KEYS_ARRAY+=("$PRIVATE_KEY")
-    GCP_REGIONS_ARRAY+=("$REGION")
     ENR_ARRAY+=("$ENR");
 
 done < <(echo "$GCP_IP_OUTPUT" | jq -r 'to_entries | .[] | "\(.key) \(.value)"')
 
-BOOTNODE_START_SCRIPT="$PWD/scripts/bootnode_startup.sh"
-
-
-PRIVATE_KEYS_JSON=$(jq --compact-output --null-input '$ARGS.positional' --args -- "${GCP_PRIVATE_KEYS_ARRAY[@]}")
-GCP_REGIONS_JSON=$(jq --compact-output --null-input '$ARGS.positional' --args -- "${GCP_REGIONS_ARRAY[@]}")
 ENR_JSON=$(jq --compact-output --null-input '$ARGS.positional' --args -- "${ENR_ARRAY[@]}")
-
-echo "GCP_REGIONS_JSON: $GCP_REGIONS_JSON"
-echo "ENR_JSON: $ENR_JSON"
-
-cd $ROOT/bootnode/vm/gcp
 
 FULL_ENR_JSON=$(jq -n --argjson enrs "$ENR_JSON" '{"bootnodes": $enrs}')
 
-echo $FULL_ENR_JSON > ./enrs.json
-
-# Write the ENRs to the bucket
-
-aws s3 cp ./enrs.json $STATIC_S3_BUCKET/$NETWORK_NAME/bootnodes.json
-
-rm ./enrs.json
-
-# Create the VMs
-
-terraform init -backend-config="prefix=network/$NETWORK_NAME/bootnode/vm/gcp"
-
-terraform apply \
-  -var="regions=$GCP_REGIONS_JSON" \
-  -var="start_script=$BOOTNODE_START_SCRIPT" \
-  -var="network_name=$NETWORK_NAME" \
-  -var="peer_id_private_keys=$PRIVATE_KEYS_JSON" \
-  -var="machine_type=$GCP_MACHINE_TYPE" \
-  -var="project_id=$PROJECT_ID" \
-  -var="p2p_port=$P2P_PORT" \
-  -var="l1_chain_id=$L1_CHAIN_ID" \
-  -var="image_tag=$TAG"
+echo ""
+echo "=========================================="
+echo "Infrastructure setup complete!"
+echo "=========================================="
+echo ""
+echo "Add the following ENRs to the network config in AztecProtocol/networks repo:"
+echo ""
+echo "$FULL_ENR_JSON" | jq .
+echo ""
+echo "After adding to the network config, deploy the VMs with:"
+echo "./scripts/deploy_bootnode_vms.sh $NETWORK_NAME \"$GCP_REGIONS\" <machine-type> $L1_CHAIN_ID $PROJECT_ID $TAG"
+echo ""

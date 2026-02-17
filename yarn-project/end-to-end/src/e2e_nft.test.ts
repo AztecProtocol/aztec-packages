@@ -33,20 +33,20 @@ describe('NFT', () => {
     ({ teardown, wallet, accounts } = await setup(4));
     [adminAddress, minterAddress, user1Address, user2Address] = accounts;
 
-    nftContract = await NFTContract.deploy(wallet, adminAddress, 'FROG', 'FRG').send({ from: adminAddress }).deployed();
+    nftContract = await NFTContract.deploy(wallet, adminAddress, 'FROG', 'FRG').send({ from: adminAddress });
   });
 
   afterAll(() => teardown());
 
   // NOTE: This test is sequential and each test case depends on the previous one
   it('sets minter', async () => {
-    await nftContract.methods.set_minter(minterAddress, true).send({ from: adminAddress }).wait();
+    await nftContract.methods.set_minter(minterAddress, true).send({ from: adminAddress });
     const isMinterAMinter = await nftContract.methods.is_minter(minterAddress).simulate({ from: minterAddress });
     expect(isMinterAMinter).toBe(true);
   });
 
   it('minter mints to a user', async () => {
-    await nftContract.methods.mint(user1Address, TOKEN_ID).send({ from: minterAddress }).wait();
+    await nftContract.methods.mint(user1Address, TOKEN_ID).send({ from: minterAddress });
     const ownerAfterMint = await nftContract.methods.owner_of(TOKEN_ID).simulate({ from: user1Address });
     expect(ownerAfterMint).toEqual(user1Address);
   });
@@ -56,16 +56,13 @@ describe('NFT', () => {
     // the sender would be the AMM contract.
     const recipient = user2Address;
 
-    await nftContract.methods.transfer_to_private(recipient, TOKEN_ID).send({ from: user1Address }).wait();
+    await nftContract.methods.transfer_to_private(recipient, TOKEN_ID).send({ from: user1Address });
     const publicOwnerAfter = await nftContract.methods.owner_of(TOKEN_ID).simulate({ from: user1Address });
     expect(publicOwnerAfter).toEqual(AztecAddress.ZERO);
   });
 
   it('transfers in private', async () => {
-    await nftContract.methods
-      .transfer_in_private(user2Address, user1Address, TOKEN_ID, 0)
-      .send({ from: user2Address })
-      .wait();
+    await nftContract.methods.transfer_in_private(user2Address, user1Address, TOKEN_ID, 0).send({ from: user2Address });
 
     const user1Nfts = await getPrivateNfts(user1Address);
     expect(user1Nfts).toEqual([TOKEN_ID]);
@@ -75,20 +72,14 @@ describe('NFT', () => {
   });
 
   it('transfers to public', async () => {
-    await nftContract.methods
-      .transfer_to_public(user1Address, user2Address, TOKEN_ID, 0)
-      .send({ from: user1Address })
-      .wait();
+    await nftContract.methods.transfer_to_public(user1Address, user2Address, TOKEN_ID, 0).send({ from: user1Address });
 
     const publicOwnerAfter = await nftContract.methods.owner_of(TOKEN_ID).simulate({ from: user1Address });
     expect(publicOwnerAfter).toEqual(user2Address);
   });
 
   it('transfers in public', async () => {
-    await nftContract.methods
-      .transfer_in_public(user2Address, user1Address, TOKEN_ID, 0)
-      .send({ from: user2Address })
-      .wait();
+    await nftContract.methods.transfer_in_public(user2Address, user1Address, TOKEN_ID, 0).send({ from: user2Address });
 
     const publicOwnerAfter = await nftContract.methods.owner_of(TOKEN_ID).simulate({ from: user2Address });
     expect(publicOwnerAfter).toEqual(user1Address);

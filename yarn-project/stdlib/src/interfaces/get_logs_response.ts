@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { ExtendedContractClassLog } from '../logs/extended_contract_class_log.js';
 import { ExtendedPublicLog } from '../logs/extended_public_log.js';
-import type { ZodFor } from '../schemas/index.js';
+import { zodFor } from '../schemas/index.js';
 
 /** Response for the getContractClassLogs archiver call. */
 export type GetContractClassLogsResponse = {
@@ -12,10 +12,12 @@ export type GetContractClassLogsResponse = {
   maxLogsHit: boolean;
 };
 
-export const GetContractClassLogsResponseSchema: ZodFor<GetContractClassLogsResponse> = z.object({
-  logs: z.array(ExtendedContractClassLog.schema),
-  maxLogsHit: z.boolean(),
-});
+export const GetContractClassLogsResponseSchema = zodFor<GetContractClassLogsResponse>()(
+  z.object({
+    logs: z.array(ExtendedContractClassLog.schema),
+    maxLogsHit: z.boolean(),
+  }),
+);
 
 /** Response for the getPublicLogs archiver call. */
 export type GetPublicLogsResponse = {
@@ -25,7 +27,9 @@ export type GetPublicLogsResponse = {
   maxLogsHit: boolean;
 };
 
-export const GetPublicLogsResponseSchema = z.object({
-  logs: z.array(ExtendedPublicLog.schema),
-  maxLogsHit: z.boolean(),
-}) satisfies ZodFor<GetPublicLogsResponse>;
+export const GetPublicLogsResponseSchema = zodFor<GetPublicLogsResponse>()(
+  z.object({
+    logs: z.array(ExtendedPublicLog.schema),
+    maxLogsHit: z.boolean(),
+  }),
+);

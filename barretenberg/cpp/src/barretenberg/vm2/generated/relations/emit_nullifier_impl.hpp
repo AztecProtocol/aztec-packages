@@ -40,10 +40,10 @@ void emit_nullifierImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // VALIDATION_ERROR_DISABLE_WRITE
         using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_emit_nullifier)) *
-                   ((FF(1) - static_cast<View>(in.get(C::execution_sel_reached_max_nullifiers))) *
-                        (FF(1) - static_cast<View>(in.get(C::execution_is_static))) -
-                    static_cast<View>(in.get(C::execution_sel_write_nullifier)));
+        auto tmp = (static_cast<View>(in.get(C::execution_sel_write_nullifier)) -
+                    static_cast<View>(in.get(C::execution_sel_execute_emit_nullifier)) *
+                        (FF(1) - static_cast<View>(in.get(C::execution_sel_reached_max_nullifiers))) *
+                        (FF(1) - static_cast<View>(in.get(C::execution_is_static))));
         std::get<2>(evals) += (tmp * scaling_factor);
     }
     { // OPCODE_ERROR_IF_VALIDATION_ERROR

@@ -1,13 +1,12 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "polynomial_arithmetic.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/mem.hpp"
-#include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "iterate_over_domain.hpp"
@@ -21,19 +20,13 @@ namespace {
 
 template <typename Fr> std::shared_ptr<Fr[]> get_scratch_space(const size_t num_elements)
 {
-    // WASM needs to release slab so it can be reused elsewhere.
-    // But for native code it's more performant to hold onto it.
-#ifdef __wasm__
-    return std::static_pointer_cast<Fr[]>(get_mem_slab(num_elements * sizeof(Fr)));
-#else
     static std::shared_ptr<Fr[]> working_memory = nullptr;
     static size_t current_size = 0;
     if (num_elements > current_size) {
-        working_memory = std::static_pointer_cast<Fr[]>(get_mem_slab(num_elements * sizeof(Fr)));
+        working_memory = std::make_shared<Fr[]>(num_elements);
         current_size = num_elements;
     }
     return working_memory;
-#endif
 }
 
 } // namespace
@@ -508,27 +501,28 @@ void coset_ifft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain)
 
 template <typename Fr> Fr evaluate(const Fr* coeffs, const Fr& z, const size_t n)
 {
-    size_t num_threads = get_num_cpus_pow2();
-    size_t range_per_thread = n / num_threads;
-    size_t leftovers = n - (range_per_thread * num_threads);
-    Fr* evaluations = new Fr[num_threads];
-    parallel_for(num_threads, [&](size_t j) {
-        Fr z_acc = z.pow(static_cast<uint64_t>(j * range_per_thread));
-        size_t offset = j * range_per_thread;
-        evaluations[j] = Fr::zero();
-        size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
-        for (size_t i = offset; i < end; ++i) {
+    const size_t num_threads = get_num_cpus();
+    std::vector<Fr> evaluations(num_threads, Fr::zero());
+    parallel_for([&](const ThreadChunk& chunk) {
+        // parallel_for with ThreadChunk uses get_num_cpus() threads
+        BB_ASSERT_EQ(chunk.total_threads, evaluations.size());
+        auto range = chunk.range(n);
+        if (range.empty()) {
+            return;
+        }
+        size_t start = *range.begin();
+        Fr z_acc = z.pow(static_cast<uint64_t>(start));
+        for (size_t i : range) {
             Fr work_var = z_acc * coeffs[i];
-            evaluations[j] += work_var;
+            evaluations[chunk.thread_index] += work_var;
             z_acc *= z;
         }
     });
 
     Fr r = Fr::zero();
-    for (size_t j = 0; j < num_threads; ++j) {
-        r += evaluations[j];
+    for (const auto& eval : evaluations) {
+        r += eval;
     }
-    delete[] evaluations;
     return r;
 }
 
@@ -538,27 +532,28 @@ template <typename Fr> Fr evaluate(const std::vector<Fr*> coeffs, const Fr& z, c
     const size_t poly_size = large_n / num_polys;
     BB_ASSERT(is_power_of_two(poly_size));
     const size_t log2_poly_size = (size_t)numeric::get_msb(poly_size);
-    size_t num_threads = get_num_cpus_pow2();
-    size_t range_per_thread = large_n / num_threads;
-    size_t leftovers = large_n - (range_per_thread * num_threads);
-    Fr* evaluations = new Fr[num_threads];
-    parallel_for(num_threads, [&](size_t j) {
-        Fr z_acc = z.pow(static_cast<uint64_t>(j * range_per_thread));
-        size_t offset = j * range_per_thread;
-        evaluations[j] = Fr::zero();
-        size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
-        for (size_t i = offset; i < end; ++i) {
+    const size_t num_threads = get_num_cpus();
+    std::vector<Fr> evaluations(num_threads, Fr::zero());
+    parallel_for([&](const ThreadChunk& chunk) {
+        // parallel_for with ThreadChunk uses get_num_cpus() threads
+        BB_ASSERT_EQ(chunk.total_threads, evaluations.size());
+        auto range = chunk.range(large_n);
+        if (range.empty()) {
+            return;
+        }
+        size_t start = *range.begin();
+        Fr z_acc = z.pow(static_cast<uint64_t>(start));
+        for (size_t i : range) {
             Fr work_var = z_acc * coeffs[i >> log2_poly_size][i & (poly_size - 1)];
-            evaluations[j] += work_var;
+            evaluations[chunk.thread_index] += work_var;
             z_acc *= z;
         }
     });
 
     Fr r = Fr::zero();
-    for (size_t j = 0; j < num_threads; ++j) {
-        r += evaluations[j];
+    for (const auto& eval : evaluations) {
+        r += eval;
     }
-    delete[] evaluations;
     return r;
 }
 
@@ -695,11 +690,11 @@ void compute_efficient_interpolation(const Fr* src, Fr* dest, const Fr* evaluati
         algorithm used in Kate commitment scheme, as the coefficients of N(X)/X are given by numerator_polynomial[j]
         for j=1,...,n.
     */
-    Fr numerator_polynomial[n + 1];
-    polynomial_arithmetic::compute_linear_polynomial_product(evaluation_points, numerator_polynomial, n);
+    std::vector<Fr> numerator_polynomial(n + 1);
+    polynomial_arithmetic::compute_linear_polynomial_product(evaluation_points, numerator_polynomial.data(), n);
     // First half contains roots, second half contains denominators (to be inverted)
-    Fr roots_and_denominators[2 * n];
-    Fr temp_src[n];
+    std::vector<Fr> roots_and_denominators(2 * n);
+    std::vector<Fr> temp_src(n);
     for (size_t i = 0; i < n; ++i) {
         roots_and_denominators[i] = -evaluation_points[i];
         temp_src[i] = src[i];
@@ -715,10 +710,10 @@ void compute_efficient_interpolation(const Fr* src, Fr* dest, const Fr* evaluati
     }
     // at this point roots_and_denominators is populated as follows
     // (x_0,\ldots, x_{n-1}, d_0, \ldots, d_{n-1})
-    Fr::batch_invert(roots_and_denominators, 2 * n);
+    Fr::batch_invert(roots_and_denominators.data(), 2 * n);
 
     Fr z, multiplier;
-    Fr temp_dest[n];
+    std::vector<Fr> temp_dest(n);
     size_t idx_zero = 0;
     bool interpolation_domain_contains_zero = false;
     // if the constant term of the numerator polynomial N(X) is 0, then the interpolation domain contains 0

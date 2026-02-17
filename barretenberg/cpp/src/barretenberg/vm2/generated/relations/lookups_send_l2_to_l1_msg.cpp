@@ -25,6 +25,7 @@
 
 namespace bb::avm2 {
 
+INSTANTIATE_LOOKUP(lookup_send_l2_to_l1_msg_recipient_check_relation);
 INSTANTIATE_LOOKUP(lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_relation);
 
 } // namespace bb::avm2

@@ -1,87 +1,107 @@
 {{- if .Values.networkShaping.enabled }}
-{{- if .Values.networkShaping.conditions.latency.enabled }}
----
+{{- $targetNamespace := .Values.global.targetNamespace | required ".Values.global.targetNamespace is required" }}
 apiVersion: chaos-mesh.org/v1alpha1
-kind: NetworkChaos
+kind: Workflow
 metadata:
-  name: {{ .Release.Name }}-{{ .Values.global.targetNamespace }}-latency
-  namespace: {{ .Values.global.chaosMeshNamespace }}
+  name: {{ include "aztec-chaos-scenarios.fullname" . }}-network-shaping
   labels:
     {{- include "aztec-chaos-scenarios.labels" . | nindent 4 }}
-  annotations:
-    "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-weight": "0"
-    "helm.sh/resource-policy": keep
 spec:
-  action: delay
-  mode: all
-  selector:
-    namespaces:
-      - {{ .Values.global.targetNamespace }}
-    {{- range .Values.networkShaping.appliedTo }}
-    labelSelectors:
-      app: {{ . }}
+  entry: entrypoint
+  templates:
+    - name: entrypoint
+      templateType: Parallel
+      deadline: {{ .Values.networkShaping.duration }}
+      children:
+        {{- if .Values.networkShaping.conditions.bandwidth.enabled }}
+        - workflow-network-bandwidth
+        {{- end }}
+        {{- if .Values.networkShaping.conditions.latency.enabled }}
+        - workflow-network-latency
+        {{- end }}
+        {{- if .Values.networkShaping.conditions.packetLoss.enabled }}
+        - workflow-packet-loss
+        {{- end }}
+        {{- if .Values.networkShaping.conditions.isolatePeers.enabled }}
+        - workflow-isolate-peers
+        {{- end }}
+    {{- if .Values.networkShaping.conditions.bandwidth.enabled }}
+    # https://chaos-mesh.org/docs/simulate-network-chaos-on-kubernetes/#rate
+    - name: workflow-network-bandwidth
+      templateType: NetworkChaos
+      networkChaos:
+        action: netem
+        mode: all
+        rate:
+          rate: {{ .Values.networkShaping.conditions.bandwidth.rate }}
+        selector:
+          namespaces:
+            - {{ $targetNamespace }}
+          expressionSelectors:
+            - { key: "app.kubernetes.io/component", operator: In, values: {{ toJson .Values.networkShaping.conditions.bandwidth.components }} }
+        target:
+          mode: all
+          selector:
+            namespaces:
+              - {{ $targetNamespace }}
+            expressionSelectors:
+              - { key: "app.kubernetes.io/component", operator: In, values: {{ toJson .Values.networkShaping.conditions.bandwidth.components }} }
     {{- end }}
-  delay:
-    {{- toYaml .Values.networkShaping.conditions.latency.delay | nindent 4 }}
-  duration: 8760h  # 1 year
-{{- end }}
-
-{{- if .Values.networkShaping.conditions.bandwidth.enabled }}
----
-apiVersion: chaos-mesh.org/v1alpha1
-kind: NetworkChaos
-metadata:
-  name: {{ .Release.Name }}-{{ .Values.global.targetNamespace }}-bandwidth
-  namespace: {{ .Values.global.chaosMeshNamespace }}
-  labels:
-    {{- include "aztec-chaos-scenarios.labels" . | nindent 4 }}
-  annotations:
-    "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-weight": "0"
-    "helm.sh/resource-policy": keep
-spec:
-  action: bandwidth
-  mode: all
-  selector:
-    namespaces:
-      - {{ .Values.global.targetNamespace }}
-    {{- range .Values.networkShaping.appliedTo }}
-    labelSelectors:
-      app: {{ . }}
+    {{- if .Values.networkShaping.conditions.latency.enabled }}
+    # https://chaos-mesh.org/docs/simulate-network-chaos-on-kubernetes/#delay
+    - name: workflow-network-latency
+      templateType: NetworkChaos
+      networkChaos:
+        action: delay
+        mode: all
+        delay:
+          {{- toYaml .Values.networkShaping.conditions.latency.delay | nindent 10 }}
+        selector:
+          namespaces:
+            - {{ $targetNamespace }}
+          expressionSelectors:
+            - { key: "app.kubernetes.io/component", operator: In, values: {{ toJson .Values.networkShaping.conditions.latency.components }} }
+        target:
+          mode: all
+          selector:
+            namespaces:
+              - {{ $targetNamespace }}
+            expressionSelectors:
+              - { key: "app.kubernetes.io/component", operator: In, values: {{ toJson .Values.networkShaping.conditions.latency.components }} }
     {{- end }}
-  bandwidth:
-    rate: {{ .Values.networkShaping.conditions.bandwidth.rate }}
-    limit: {{ .Values.networkShaping.conditions.bandwidth.limit }}
-    buffer: {{ .Values.networkShaping.conditions.bandwidth.buffer }}
-  duration: 8760h
-{{- end }}
-
-{{- if .Values.networkShaping.conditions.packetLoss.enabled }}
----
-apiVersion: chaos-mesh.org/v1alpha1
-kind: NetworkChaos
-metadata:
-  name: {{ .Release.Name }}-{{ .Values.global.targetNamespace }}-packet-loss
-  namespace: {{ .Values.global.chaosMeshNamespace }}
-  labels:
-    {{- include "aztec-chaos-scenarios.labels" . | nindent 4 }}
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
-  action: loss
-  mode: all
-  selector:
-    namespaces:
-      - {{ .Values.global.targetNamespace }}
-    {{- range .Values.networkShaping.appliedTo }}
-    labelSelectors:
-      app: {{ . }}
+    {{- if .Values.networkShaping.conditions.packetLoss.enabled }}
+    - name: workflow-packet-loss
+      templateType: NetworkChaos
+      networkChaos:
+        action: loss
+        mode: all
+        loss:
+          {{- toYaml .Values.networkShaping.conditions.packetLoss.loss | nindent 10 }}
+        selector:
+          namespaces:
+            - {{ $targetNamespace }}
+          expressionSelectors:
+            - { key: "app.kubernetes.io/component", operator: In, values: {{ toJson .Values.networkShaping.conditions.packetLoss.components }} }
     {{- end }}
-  loss:
-    loss: {{ .Values.networkShaping.conditions.packetLoss.loss | quote }}
-    correlation: {{ .Values.networkShaping.conditions.packetLoss.correlation | quote }}
-  duration: 8760h
-{{- end }}
-
+    {{- if .Values.networkShaping.conditions.isolatePeers.enabled }}
+    # https://chaos-mesh.org/docs/simulate-network-chaos-on-kubernetes/#partition-example
+    - name: workflow-isolate-peers
+      templateType: NetworkChaos
+      networkChaos:
+        action: partition
+        mode: all
+        direction: both
+        selector:
+          namespaces:
+            - {{ $targetNamespace }}
+          expressionSelectors:
+            - { key: "app.kubernetes.io/component", operator: In, values: {{ toJson .Values.networkShaping.conditions.isolatePeers.components }} }
+        target:
+          mode: all
+          selector:
+            namespaces:
+              - {{ $targetNamespace }}
+            expressionSelectors:
+              - { key: "app.kubernetes.io/component", operator: In, values: {{ toJson .Values.networkShaping.conditions.isolatePeers.components }} }
+    {{- end }}
 {{- end }}

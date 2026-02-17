@@ -119,11 +119,13 @@ TEST(boomerang_rom_ram_table, graph_description_ram_table_write)
     const size_t table_size = 10;
 
     std::vector<fr> table_values(table_size);
-    ram_table_ct table(&builder, table_size);
+    std::vector<field_ct> zeros(table_size, field_ct(0));
+    ram_table_ct table(&builder, zeros);
 
     for (size_t i = 0; i < table_size; ++i) {
         table.write(i, 0);
     }
+
     std::unordered_set<uint32_t> safety_variables;
     field_ct result(0);
     safety_variables.insert(result.get_witness_index());

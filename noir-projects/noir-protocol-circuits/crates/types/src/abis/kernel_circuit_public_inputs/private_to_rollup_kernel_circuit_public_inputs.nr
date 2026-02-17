@@ -4,7 +4,7 @@ use crate::{
         tx_constant_data::TxConstantData,
     },
     address::AztecAddress,
-    constants::GENERATOR_INDEX__PRIVATE_TX_HASH,
+    constants::DOM_SEP__PRIVATE_TX_HASH,
     hash::poseidon2_hash_with_separator,
     traits::{Deserialize, Empty, Hash, Serialize},
 };
@@ -16,7 +16,7 @@ pub struct PrivateToRollupKernelCircuitPublicInputs {
     pub end: PrivateToRollupAccumulatedData,
     pub gas_used: Gas,
     pub fee_payer: AztecAddress,
-    pub include_by_timestamp: u64,
+    pub expiration_timestamp: u64,
 }
 
 impl Empty for PrivateToRollupKernelCircuitPublicInputs {
@@ -26,14 +26,14 @@ impl Empty for PrivateToRollupKernelCircuitPublicInputs {
             constants: TxConstantData::empty(),
             gas_used: Gas::empty(),
             fee_payer: AztecAddress::empty(),
-            include_by_timestamp: 0,
+            expiration_timestamp: 0,
         }
     }
 }
 
 impl Hash for PrivateToRollupKernelCircuitPublicInputs {
     fn hash(self) -> Field {
-        poseidon2_hash_with_separator(self.serialize(), GENERATOR_INDEX__PRIVATE_TX_HASH)
+        poseidon2_hash_with_separator(self.serialize(), DOM_SEP__PRIVATE_TX_HASH)
     }
 }
 

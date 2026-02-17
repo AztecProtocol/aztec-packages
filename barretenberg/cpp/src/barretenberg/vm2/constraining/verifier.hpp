@@ -1,3 +1,8 @@
+// === AUDIT STATUS ===
+// internal:    { status: Completed, auditors: [Federico], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
 #pragma once
 
 #include "barretenberg/sumcheck/sumcheck.hpp"
@@ -14,7 +19,7 @@ class AvmVerifier {
     using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
     using Transcript = Flavor::Transcript;
 
-    explicit AvmVerifier(std::shared_ptr<VerificationKey> verifier_key);
+    AvmVerifier() = default;
     AvmVerifier(AvmVerifier&& other) noexcept;
     AvmVerifier(const AvmVerifier& other) = delete;
     virtual ~AvmVerifier() = default;
@@ -22,16 +27,13 @@ class AvmVerifier {
     AvmVerifier& operator=(const AvmVerifier& other) = delete;
     AvmVerifier& operator=(AvmVerifier&& other) noexcept;
 
-    // Note: all the following methods are virtual to allow Avm2 to tweak the behaviour.
-    // We can remove this once the transition is done.
-    virtual bool verify_proof(const HonkProof& proof, const std::vector<std::vector<FF>>& public_inputs);
+    bool verify_proof(const HonkProof& proof, const std::vector<std::vector<FF>>& public_inputs);
 
-    std::shared_ptr<VerificationKey> key;
-    std::map<std::string, Commitment> commitments;
+    std::shared_ptr<VerificationKey> key = std::make_shared<VerificationKey>();
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
   private:
-    FF evaluate_public_input_column(const std::vector<FF>& points, std::vector<FF> challenges);
+    static FF evaluate_public_input_column(const std::vector<FF>& points, const std::vector<FF>& challenges);
 };
 
 } // namespace bb::avm2

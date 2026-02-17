@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { PublicContractsDB, getCallRequestsWithCalldataByPhase } from '@aztec/simulator/server';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { AllowedElement } from '@aztec/stdlib/interfaces/server';
@@ -14,22 +14,26 @@ import {
 import type { UInt64 } from '@aztec/stdlib/types';
 
 export class PhasesTxValidator implements TxValidator<Tx> {
-  #log = createLogger('sequencer:tx_validator:tx_phases');
+  #log: Logger;
   private contractsDB: PublicContractsDB;
 
   constructor(
     contracts: ContractDataSource,
     private setupAllowList: AllowedElement[],
     private timestamp: UInt64,
+    bindings?: LoggerBindings,
   ) {
-    this.contractsDB = new PublicContractsDB(contracts);
+    this.#log = createLogger('sequencer:tx_validator:tx_phases', bindings);
+    this.contractsDB = new PublicContractsDB(contracts, bindings);
   }
 
   async validateTx(tx: Tx): Promise<TxValidationResult> {
+    this.contractsDB.createCheckpoint();
     try {
       // TODO(@spalladino): We add this just to handle public authwit-check calls during setup
       // which are needed for public FPC flows, but fail if the account contract hasnt been deployed yet,
       // which is what we're trying to do as part of the current txs.
+      // We only need to create/revert checkpoint here because of this addNewContracts call.
       await this.contractsDB.addNewContracts(tx);
 
       if (!tx.data.forPublic) {
@@ -58,7 +62,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       this.#log.error(`Error validating phases for tx`, err);
       return { result: 'invalid', reason: [TX_ERROR_DURING_VALIDATION] };
     } finally {
-      this.contractsDB.clearContractsForTx();
+      this.contractsDB.revertCheckpoint();
     }
   }
 

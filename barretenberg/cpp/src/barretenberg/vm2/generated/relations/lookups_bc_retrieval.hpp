@@ -84,13 +84,13 @@ struct lookup_bc_retrieval_class_id_derivation_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::bc_retrieval_current_class_id,
         ColumnAndShifts::bc_retrieval_artifact_hash,
-        ColumnAndShifts::bc_retrieval_private_function_root,
+        ColumnAndShifts::bc_retrieval_private_functions_root,
         ColumnAndShifts::bc_retrieval_bytecode_id
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::class_id_derivation_class_id,
         ColumnAndShifts::class_id_derivation_artifact_hash,
-        ColumnAndShifts::class_id_derivation_private_function_root,
+        ColumnAndShifts::class_id_derivation_private_functions_root,
         ColumnAndShifts::class_id_derivation_public_bytecode_commitment
     };
 };

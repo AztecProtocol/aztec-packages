@@ -22,38 +22,46 @@ const urlSchema = z.string().url('Invalid URL');
 // Remote signer config schema
 const remoteSignerConfigSchema = z.union([
   urlSchema,
-  z.object({
-    remoteSignerUrl: urlSchema,
-    certPath: optional(z.string()),
-    certPass: optional(z.string()),
-  }),
+  z
+    .object({
+      remoteSignerUrl: urlSchema,
+      certPath: optional(z.string()),
+      certPass: optional(z.string()),
+    })
+    .strict(),
 ]);
 
 // Remote signer account schema
 const remoteSignerAccountSchema = z.union([
   schemas.EthAddress,
-  z.object({
-    address: schemas.EthAddress,
-    remoteSignerUrl: urlSchema,
-    certPath: optional(z.string()),
-    certPass: optional(z.string()),
-  }),
+  z
+    .object({
+      address: schemas.EthAddress,
+      remoteSignerUrl: urlSchema,
+      certPath: optional(z.string()),
+      certPass: optional(z.string()),
+    })
+    .strict(),
 ]);
 
 // Encrypted keystore file schema (used for both JSON V3 ETH keys and EIP-2335 BLS keys)
-const encryptedKeyFileSchema = z.object({
-  path: z.string(),
-  password: optional(z.string()),
-});
+const encryptedKeyFileSchema = z
+  .object({
+    path: z.string(),
+    password: optional(z.string()),
+  })
+  .strict();
 
 // Mnemonic config schema
-const mnemonicConfigSchema = z.object({
-  mnemonic: z.string().min(1, 'Mnemonic cannot be empty'),
-  addressIndex: z.number().int().min(0).default(0),
-  accountIndex: z.number().int().min(0).default(0),
-  addressCount: z.number().int().min(1).default(1),
-  accountCount: z.number().int().min(1).default(1),
-});
+const mnemonicConfigSchema = z
+  .object({
+    mnemonic: z.string().min(1, 'Mnemonic cannot be empty'),
+    addressIndex: z.number().int().min(0).default(0),
+    accountIndex: z.number().int().min(0).default(0),
+    addressCount: z.number().int().min(1).default(1),
+    accountCount: z.number().int().min(1).default(1),
+  })
+  .strict();
 
 // EthAccount schema
 const ethAccountSchema = z.union([ethPrivateKeySchema, remoteSignerAccountSchema, encryptedKeyFileSchema]);
@@ -67,10 +75,12 @@ const blsAccountSchema = z.union([blsPrivateKeySchema, encryptedKeyFileSchema]);
 // AttesterAccount schema: either EthAccount or { eth: EthAccount, bls?: BLSAccount }
 const attesterAccountSchema = z.union([
   ethAccountSchema,
-  z.object({
-    eth: ethAccountSchema,
-    bls: optional(blsAccountSchema),
-  }),
+  z
+    .object({
+      eth: ethAccountSchema,
+      bls: optional(blsAccountSchema),
+    })
+    .strict(),
 ]);
 
 // AttesterAccounts schema: AttesterAccount | AttesterAccount[] | MnemonicConfig
@@ -79,33 +89,87 @@ const attesterAccountsSchema = z.union([attesterAccountSchema, z.array(attesterA
 // Prover keystore schema
 const proverKeyStoreSchema = z.union([
   ethAccountSchema,
-  z.object({
-    id: schemas.EthAddress,
-    publisher: ethAccountsSchema,
-  }),
+  z
+    .object({
+      id: schemas.EthAddress,
+      publisher: ethAccountsSchema,
+    })
+    .strict(),
 ]);
 
-// Validator keystore schema
-const validatorKeyStoreSchema = z.object({
-  attester: attesterAccountsSchema,
-  coinbase: optional(schemas.EthAddress),
-  publisher: optional(ethAccountsSchema),
-  feeRecipient: AztecAddress.schema,
-  remoteSigner: optional(remoteSignerConfigSchema),
-  fundingAccount: optional(ethAccountSchema),
-});
+// Validator keystore schema for v1 (feeRecipient required)
+const validatorKeyStoreSchemaV1 = z
+  .object({
+    attester: attesterAccountsSchema,
+    coinbase: optional(schemas.EthAddress),
+    publisher: optional(ethAccountsSchema),
+    feeRecipient: AztecAddress.schema,
+    remoteSigner: optional(remoteSignerConfigSchema),
+    fundingAccount: optional(ethAccountSchema),
+  })
+  .strict();
 
-// Main keystore schema
-export const keystoreSchema = z
+// Validator keystore schema for v2 (feeRecipient optional, can fall back to top-level)
+const validatorKeyStoreSchemaV2 = z
+  .object({
+    attester: attesterAccountsSchema,
+    coinbase: optional(schemas.EthAddress),
+    publisher: optional(ethAccountsSchema),
+    feeRecipient: optional(AztecAddress.schema),
+    remoteSigner: optional(remoteSignerConfigSchema),
+    fundingAccount: optional(ethAccountSchema),
+  })
+  .strict();
+
+// Schema v1 - original format
+const keystoreSchemaV1 = z
   .object({
     schemaVersion: z.literal(1),
-    validators: optional(z.array(validatorKeyStoreSchema)),
+    validators: optional(z.array(validatorKeyStoreSchemaV1)),
     slasher: optional(ethAccountsSchema),
     remoteSigner: optional(remoteSignerConfigSchema),
     prover: optional(proverKeyStoreSchema),
     fundingAccount: optional(ethAccountSchema),
   })
+  .strict()
   .refine(data => data.validators || data.prover, {
     message: 'Keystore must have at least validators or prover configuration',
     path: ['root'],
   });
+
+// Schema v2 - adds top-level publisher, coinbase, feeRecipient
+const keystoreSchemaV2 = z
+  .object({
+    schemaVersion: z.literal(2),
+    validators: optional(z.array(validatorKeyStoreSchemaV2)),
+    slasher: optional(ethAccountsSchema),
+    remoteSigner: optional(remoteSignerConfigSchema),
+    prover: optional(proverKeyStoreSchema),
+    fundingAccount: optional(ethAccountSchema),
+    publisher: optional(ethAccountsSchema),
+    coinbase: optional(schemas.EthAddress),
+    feeRecipient: optional(AztecAddress.schema),
+  })
+  .strict()
+  .refine(data => data.validators || data.prover, {
+    message: 'Keystore must have at least validators or prover configuration',
+    path: ['root'],
+  })
+  .refine(
+    data => {
+      // If validators are present, ensure each validator has a feeRecipient or there's a top-level feeRecipient
+      if (data.validators) {
+        const hasTopLevelFeeRecipient = !!data.feeRecipient;
+        const allValidatorsHaveFeeRecipient = data.validators.every(v => v.feeRecipient);
+        return hasTopLevelFeeRecipient || allValidatorsHaveFeeRecipient;
+      }
+      return true;
+    },
+    {
+      message: 'Each validator must have a feeRecipient, or a top-level feeRecipient must be set for all validators',
+      path: ['feeRecipient'],
+    },
+  );
+
+// Main keystore schema - accepts both v1 and v2
+export const keystoreSchema = z.union([keystoreSchemaV1, keystoreSchemaV2]);

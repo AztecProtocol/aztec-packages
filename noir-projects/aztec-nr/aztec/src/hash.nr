@@ -1,26 +1,19 @@
-use dep::protocol_types::{
+//! Aztec hash functions.
+
+use crate::protocol::{
     address::{AztecAddress, EthAddress},
     constants::{
-        GENERATOR_INDEX__FUNCTION_ARGS, GENERATOR_INDEX__MESSAGE_NULLIFIER,
-        GENERATOR_INDEX__PUBLIC_BYTECODE, GENERATOR_INDEX__PUBLIC_CALLDATA,
-        GENERATOR_INDEX__SECRET_HASH, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
+        DOM_SEP__FUNCTION_ARGS, DOM_SEP__MESSAGE_NULLIFIER, DOM_SEP__PUBLIC_BYTECODE, DOM_SEP__PUBLIC_CALLDATA,
+        DOM_SEP__SECRET_HASH, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
     },
-    hash::{
-        poseidon2_hash_subarray, poseidon2_hash_with_separator, poseidon2_hash_with_separator_slice,
-        sha256_to_field,
-    },
-    point::Point,
+    hash::{poseidon2_hash_subarray, poseidon2_hash_with_separator, sha256_to_field},
     traits::ToField,
 };
 
-pub use dep::protocol_types::hash::{compute_siloed_nullifier, pedersen_hash};
-
-pub fn pedersen_commitment<let N: u32>(inputs: [Field; N], hash_index: u32) -> Point {
-    std::hash::pedersen_commitment_with_separator(inputs, hash_index)
-}
+pub use crate::protocol::hash::compute_siloed_nullifier;
 
 pub fn compute_secret_hash(secret: Field) -> Field {
-    poseidon2_hash_with_separator([secret], GENERATOR_INDEX__SECRET_HASH)
+    poseidon2_hash_with_separator([secret], DOM_SEP__SECRET_HASH)
 }
 
 pub fn compute_l1_to_l2_message_hash(
@@ -56,81 +49,73 @@ pub fn compute_l1_to_l2_message_hash(
 
 // The nullifier of a l1 to l2 message is the hash of the message salted with the secret
 pub fn compute_l1_to_l2_message_nullifier(message_hash: Field, secret: Field) -> Field {
-    poseidon2_hash_with_separator([message_hash, secret], GENERATOR_INDEX__MESSAGE_NULLIFIER)
+    poseidon2_hash_with_separator([message_hash, secret], DOM_SEP__MESSAGE_NULLIFIER)
 }
 
 // Computes the hash of input arguments or return values for private functions, or for authwit creation.
-pub fn hash_args_array<let N: u32>(args: [Field; N]) -> Field {
+pub fn hash_args<let N: u32>(args: [Field; N]) -> Field {
     if args.len() == 0 {
         0
     } else {
-        poseidon2_hash_with_separator(args, GENERATOR_INDEX__FUNCTION_ARGS)
-    }
-}
-
-// Same as `hash_args_array`, but takes a slice instead of an array.
-pub fn hash_args(args: [Field]) -> Field {
-    if args.len() == 0 {
-        0
-    } else {
-        poseidon2_hash_with_separator_slice(args, GENERATOR_INDEX__FUNCTION_ARGS)
+        poseidon2_hash_with_separator(args, DOM_SEP__FUNCTION_ARGS)
     }
 }
 
 // Computes the hash of calldata for public functions.
 pub fn hash_calldata_array<let N: u32>(calldata: [Field; N]) -> Field {
-    poseidon2_hash_with_separator(calldata, GENERATOR_INDEX__PUBLIC_CALLDATA)
+    poseidon2_hash_with_separator(calldata, DOM_SEP__PUBLIC_CALLDATA)
 }
 
-// Same as `hash_calldata_array`, but takes a slice instead of an array.
-pub fn hash_calldata(calldata: [Field]) -> Field {
-    poseidon2_hash_with_separator_slice(calldata, GENERATOR_INDEX__PUBLIC_CALLDATA)
-}
-
-/**
- * Computes the public bytecode commitment for a contract class.
- * The commitment is `hash([separator, ...bytecode])` where bytecode omits the length prefix present
- * in `packed_bytecode`.
- *
- * @param packed_bytecode - The packed bytecode of the contract class. 0th word is the length in bytes.
- *    packed_bytecode is mutable so that we can avoid copying the array to construct one starting with
- *    separator instead of length.
- * @returns The public bytecode commitment.
- */
+/// Computes the public bytecode commitment for a contract class. The commitment is `hash([(length | separator),
+/// ...bytecode])`.
+///
+/// @param packed_bytecode - The packed bytecode of the contract class. 0th word is the length in bytes.
+/// packed_bytecode is mutable so that we can avoid copying the array to construct one starting with first_field
+/// instead of length. @returns The public bytecode commitment.
 pub fn compute_public_bytecode_commitment(
     mut packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS],
 ) -> Field {
     // First field element contains the length of the bytecode
     let bytecode_length_in_bytes: u32 = packed_public_bytecode[0] as u32;
-    let bytecode_length_in_fields: u32 =
-        (bytecode_length_in_bytes / 31) + (bytecode_length_in_bytes % 31 != 0) as u32;
-    // Don't allow empty public bytecode.
-    // AVM doesn't handle execution of contracts that exist with empty bytecode.
+    let bytecode_length_in_fields: u32 = (bytecode_length_in_bytes / 31) + (bytecode_length_in_bytes % 31 != 0) as u32;
+    // Don't allow empty public bytecode. AVM doesn't handle execution of contracts that exist with empty bytecode.
     assert(bytecode_length_in_fields != 0);
     assert(bytecode_length_in_fields < MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
 
-    // Packed_bytecode's 0th entry is the length. Replace it with separator before hashing.
-    let separator = GENERATOR_INDEX__PUBLIC_BYTECODE.to_field();
-    packed_public_bytecode[0] = separator;
+    // Packed_bytecode's 0th entry is the length. Append it to the separator before hashing.
+    let first_field = DOM_SEP__PUBLIC_BYTECODE.to_field() + (packed_public_bytecode[0] as u64 << 32) as Field;
+    packed_public_bytecode[0] = first_field;
 
     // `fields_to_hash` is the number of fields from the start of `packed_public_bytecode` that should be included in
-    // the hash. Fields after this length are ignored.
-    // +1 to account for the separator.
+    // the hash. Fields after this length are ignored. +1 to account for the prepended field.
     let num_fields_to_hash = bytecode_length_in_fields + 1;
 
     poseidon2_hash_subarray(packed_public_bytecode, num_fields_to_hash)
 }
 
 #[test]
-unconstrained fn compute_var_args_hash() {
+unconstrained fn secret_hash_matches_typescript() {
+    let secret = 8;
+    let hash = compute_secret_hash(secret);
+
+    // The following value was generated by `yarn-project/stdlib/src/hash/hash.test.ts`
+    let secret_hash_from_ts = 0x1848b066724ab0ffb50ecb0ee3398eb839f162823d262bad959721a9c13d1e96;
+
+    assert_eq(hash, secret_hash_from_ts);
+}
+
+#[test]
+unconstrained fn var_args_hash_matches_typescript() {
     let mut input = [0; 100];
     for i in 0..100 {
         input[i] = i as Field;
     }
-    let hash = hash_args_array(input);
-    dep::std::println(hash);
-    // Used in yarn-project/stdlib test snapshots:
-    assert(hash == 0x19b0d74feb06ebde19edd85a28986c97063e84b3b351a8b666c7cac963ce655f);
+    let hash = hash_args(input);
+
+    // The following value was generated by `yarn-project/stdlib/src/hash/hash.test.ts`
+    let var_args_hash_from_ts = 0x262e5e121a8efc0382566ab42f0ae2a78bd85db88484f83018fe07fc2552ba0c;
+
+    assert_eq(hash, var_args_hash_from_ts);
 }
 
 #[test]
@@ -140,11 +125,12 @@ unconstrained fn compute_calldata_hash() {
         input[i] = i as Field;
     }
     let hash = hash_calldata_array(input);
-    dep::std::println(hash);
-    let hash_check = hash_calldata(input.as_slice());
-    assert(hash == hash_check);
+
+    // The following value was generated by `yarn-project/stdlib/src/hash/hash.test.ts`
+    let calldata_hash_from_ts = 0x14a1539bdb1d26e03097cf4d40c87e02ca03f0bb50a3e617ace5a7bfd3943944;
+
     // Used in cpp vm2 tests:
-    assert(hash == 0x191383c9f8964afd3ea8879a03b7dda65d6724773966d18dcf80e452736fc1f3);
+    assert_eq(hash, calldata_hash_from_ts);
 }
 
 #[test]
@@ -156,7 +142,6 @@ unconstrained fn public_bytecode_commitment() {
     }
     input[0] = (len as Field) * 31;
     let hash = compute_public_bytecode_commitment(input);
-    dep::std::println(hash);
     // Used in cpp vm2 tests:
-    assert(hash == 0x16d621c3387156ef53754679e7b2c9be8f0bceeb44aa59a74991df3b0b42a0bf);
+    assert_eq(hash, 0x09348974e76c3602893d7a4b4bb52c2ec746f1ade5004ac471d0fbb4587a81a6);
 }

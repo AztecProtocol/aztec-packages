@@ -3,10 +3,11 @@
  *
  * Manages keystore configuration and delegates signing operations to appropriate signers.
  */
-import type { EthSigner } from '@aztec/ethereum';
+import type { EthSigner } from '@aztec/ethereum/eth-signer';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
+import { makeBackoff, retry } from '@aztec/foundation/retry';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { Wallet } from '@ethersproject/wallet';
@@ -61,7 +62,7 @@ export class KeystoreManager {
 
   /**
    * Validates all remote signers in the keystore are accessible and have the required addresses.
-   * Should be called after construction if validation is needed.
+   * Retries each web3signer URL with backoff to tolerate transient unavailability at boot time.
    */
   async validateSigners(): Promise<void> {
     // Collect all remote signers with their addresses grouped by URL
@@ -127,12 +128,18 @@ export class KeystoreManager {
       collectRemoteSigners(this.keystore.prover.publisher, this.keystore.remoteSigner);
     }
 
-    // Validate each remote signer URL with all its addresses
-    for (const [url, addresses] of remoteSignersByUrl.entries()) {
-      if (addresses.size > 0) {
-        await RemoteSigner.validateAccess(url, Array.from(addresses));
-      }
-    }
+    // Validate each remote signer URL with all its addresses, retrying on transient failures
+    await Promise.all(
+      Array.from(remoteSignersByUrl.entries())
+        .filter(([, addresses]) => addresses.size > 0)
+        .map(([url, addresses]) =>
+          retry(
+            () => RemoteSigner.validateAccess(url, Array.from(addresses)),
+            `Validating web3signer at ${url}`,
+            makeBackoff([1, 2, 4, 8, 16]),
+          ),
+        ),
+    );
   }
 
   /**
@@ -228,7 +235,7 @@ export class KeystoreManager {
   }
 
   /**
-   * Create signers for validator publisher accounts (falls back to attester if not specified)
+   * Create signers for validator publisher accounts (falls back to keystore-level publisher, then to attester if not specified)
    */
   createPublisherSigners(validatorIndex: number): EthSigner[] {
     const validator = this.getValidator(validatorIndex);
@@ -236,6 +243,14 @@ export class KeystoreManager {
     if (validator.publisher) {
       return this.createSignersFromEthAccounts(
         validator.publisher,
+        validator.remoteSigner || this.keystore.remoteSigner,
+      );
+    }
+
+    // Fall back to keystore-level publisher
+    if (this.keystore.publisher) {
+      return this.createSignersFromEthAccounts(
+        this.keystore.publisher,
         validator.remoteSigner || this.keystore.remoteSigner,
       );
     }
@@ -320,7 +335,7 @@ export class KeystoreManager {
   }
 
   /**
-   * Get coinbase address for validator (falls back to the specific attester address)
+   * Get coinbase address for validator (falls back to keystore-level coinbase, then to the specific attester address)
    */
   getCoinbaseAddress(validatorIndex: number, attesterAddress: EthAddress): EthAddress {
     const validator = this.getValidator(validatorIndex);
@@ -329,16 +344,33 @@ export class KeystoreManager {
       return validator.coinbase;
     }
 
+    // Fall back to keystore-level coinbase
+    if (this.keystore.coinbase) {
+      return this.keystore.coinbase;
+    }
+
     // Fall back to the specific attester address
     return attesterAddress;
   }
 
   /**
-   * Get fee recipient for validator
+   * Get fee recipient for validator (falls back to keystore-level feeRecipient)
    */
   getFeeRecipient(validatorIndex: number): AztecAddress {
     const validator = this.getValidator(validatorIndex);
-    return validator.feeRecipient;
+
+    if (validator.feeRecipient) {
+      return validator.feeRecipient;
+    }
+
+    // Fall back to keystore-level feeRecipient
+    if (this.keystore.feeRecipient) {
+      return this.keystore.feeRecipient;
+    }
+
+    throw new KeystoreError(
+      `No feeRecipient configured for validator ${validatorIndex}. You can set it at validator or keystore level.`,
+    );
   }
 
   /**

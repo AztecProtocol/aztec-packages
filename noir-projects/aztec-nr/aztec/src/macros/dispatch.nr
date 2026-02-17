@@ -1,18 +1,16 @@
+use crate::macros::internals_functions_generation::external_functions_registry::get_public_functions;
+use crate::protocol::meta::utils::get_params_len_quote;
+use crate::utils::cmap::CHashMap;
 use super::utils::compute_fn_selector;
-use poseidon::poseidon2::Poseidon2Hasher;
-use protocol_types::meta::utils::get_params_len_quote;
-use std::{collections::umap::UHashMap, hash::BuildHasherDefault, panic};
+use std::panic;
 
 /// Returns an `fn public_dispatch(...)` function for the given module that's assumed to be an Aztec contract.
 pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
-    let functions = m.functions();
-    let functions =
-        functions.filter(|function: FunctionDefinition| function.has_named_attribute("public"));
+    let functions = get_public_functions(m);
 
     let unit = get_type::<()>();
 
-    let seen_selectors =
-        &mut UHashMap::<Field, Quoted, BuildHasherDefault<Poseidon2Hasher>>::default();
+    let seen_selectors = &mut CHashMap::<Field, Quoted>::new();
 
     let ifs = functions.map(|function: FunctionDefinition| {
         let parameters = function.parameters();
@@ -21,11 +19,11 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
         let selector: Field = compute_fn_selector(function);
         let fn_name = function.name();
 
-        // Since function selectors are computed as the first 4 bytes of the hash of the function signature,
-        // it's possible to have collisions. With the following check, we ensure it doesn't happen within
-        // the same contract.
-        if seen_selectors.contains_key(selector) {
-            let existing_fn = seen_selectors.get(selector).unwrap();
+        // Since function selectors are computed as the first 4 bytes of the hash of the function signature, it's
+        // possible to have collisions. With the following check, we ensure it doesn't happen within the same contract.
+        let existing_fn = seen_selectors.get(selector);
+        if existing_fn.is_some() {
+            let existing_fn = existing_fn.unwrap();
             panic(
                 f"Public function selector collision detected between functions '{fn_name}' and '{existing_fn}'",
             );
@@ -37,15 +35,14 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
         let initial_read = if parameters.len() == 0 {
             quote {}
         } else {
-            // The initial calldata_copy offset is 1 to skip the Field selector
-            // The expected calldata is the serialization of
+            // The initial calldata_copy offset is 1 to skip the Field selector The expected calldata is the
+            // serialization of
             // - FunctionSelector: the selector of the function intended to dispatch
-            // - Parameters: the parameters of the function intended to dispatch
-            // That is, exactly what is expected for a call to the target function,
-            // but with a selector added at the beginning.
+            // - Parameters: the parameters of the function intended to dispatch That is, exactly what is expected for
+            // a call to the target function, but with a selector added at the beginning.
             quote {
-                let input_calldata: [Field; $params_len_quote] = dep::aztec::context::public_context::calldata_copy(1, $params_len_quote);
-                let mut reader = dep::aztec::protocol_types::utils::reader::Reader::new(input_calldata);
+                let input_calldata: [Field; $params_len_quote] = aztec::oracle::avm::calldata_copy(1, $params_len_quote);
+                let mut reader = aztec::protocol::utils::reader::Reader::new(input_calldata);
             }
         };
 
@@ -55,34 +52,37 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
             let param_name = f"arg{parameter_index_value}".quoted_contents();
             let param_type = param.1;
             let read = quote {
-                let $param_name: $param_type = reader.read_struct(dep::aztec::protocol_types::traits::Deserialize::deserialize);
+                let $param_name: $param_type = aztec::protocol::traits::Deserialize::stream_deserialize(&mut reader);
             };
             *parameter_index += 1;
             quote { $read }
         });
         let read = reads.join(quote { });
 
-        let mut args = &[];
+        let mut args = @[];
         for parameter_index in 0..parameters.len() {
             let param_name = f"arg{parameter_index}".quoted_contents();
             args = args.push_back(quote { $param_name });
         }
 
+        // We call a function whose name is prefixed with `__aztec_nr_internals__`. This is necessary because the
+        // original function is intentionally made uncallable, preventing direct invocation within the contract.
+        // Instead, a new function with the same name, but prefixed by `__aztec_nr_internals__`, has been generated to
+        // be called here. For more details see the `process_functions` function.
+        let name = f"__aztec_nr_internals__{fn_name}".quoted_contents();
         let args = args.join(quote { , });
-        // name of the function is assigned just before the call so debug metadata doesn't span most of this macro when figuring out where the call comes from.
-        let name = function.name();
         let call = quote { $name($args) };
 
         let return_code = if return_type == unit {
             quote {
                 $call;
                 // Force early return.
-                dep::aztec::context::public_context::avm_return([]);
+                aztec::oracle::avm::avm_return([]);
             }
         } else {
             quote {
-                let return_value = dep::aztec::protocol_types::traits::Serialize::serialize($call);
-                dep::aztec::context::public_context::avm_return(return_value.as_slice());
+                let return_value = aztec::protocol::traits::Serialize::serialize($call);
+                aztec::oracle::avm::avm_return(return_value.as_vector());
             }
         };
 
@@ -104,10 +104,8 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
         let dispatch = ifs.join(quote {  });
 
         let body = quote {
-            // We mark this as public because our whole system depends on public
-            // functions having this attribute. However, the public MACRO will
-            // handle the public_dispatch function specially and do nothing.
-            #[external("public")]
+            // We mark this as public because our whole system depends on public functions having this attribute.
+            #[aztec::macros::internals_functions_generation::abi_attributes::abi_public]
             pub unconstrained fn public_dispatch(selector: Field) {
                 $dispatch
             }

@@ -1,11 +1,14 @@
 // This test should only use packages that are published to npm
 // docs:start:imports
 import { EthAddress } from '@aztec/aztec.js/addresses';
+import { waitForProven } from '@aztec/aztec.js/contracts';
 import { L1TokenManager, L1TokenPortalManager } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
 import { createAztecNodeClient, waitForNode } from '@aztec/aztec.js/node';
-import { createExtendedL1Client, deployL1Contract } from '@aztec/ethereum';
+import { createExtendedL1Client } from '@aztec/ethereum/client';
+import { RollupContract } from '@aztec/ethereum/contracts';
+import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import {
   FeeAssetHandlerAbi,
   FeeAssetHandlerBytecode,
@@ -17,9 +20,11 @@ import {
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
-import { TestWallet, registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet/server';
+import { registerInitialLocalNetworkAccountsInWallet } from '@aztec/wallets/testing';
 
 import { getContract } from 'viem';
+
+import { TestWallet } from '../test-wallet/test_wallet.js';
 
 // docs:end:imports
 // docs:start:utils
@@ -31,7 +36,7 @@ const ownerEthAddress = l1Client.account.address;
 
 const MINT_AMOUNT = BigInt(1e15);
 
-const setupSandbox = async () => {
+const setupLocalNetwork = async () => {
   const { AZTEC_NODE_URL = 'http://localhost:8080' } = process.env;
 
   const node = createAztecNodeClient(AZTEC_NODE_URL);
@@ -69,13 +74,13 @@ async function addMinter(l1TokenContract: EthAddress, l1TokenHandler: EthAddress
 }
 // docs:end:utils
 
-// To run these tests against a local sandbox:
+// To run these tests against a local network:
 // 1. Start a local Ethereum node (Anvil):
 //    anvil --host 127.0.0.1 --port 8545
 //
-// 2. Start the Aztec sandbox:
+// 2. Start the Aztec network:
 //    cd yarn-project/aztec
-//    NODE_NO_WARNINGS=1 ETHEREUM_HOSTS=http://127.0.0.1:8545 node ./dest/bin/index.js start --sandbox
+//    NODE_NO_WARNINGS=1 ETHEREUM_HOSTS=http://127.0.0.1:8545 node ./dest/bin/index.js start --local-network
 //
 // 3. Run the tests:
 //    yarn test:e2e e2e_token_bridge_tutorial_test.test.ts
@@ -83,8 +88,8 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
   it('Deploys tokens & bridges to L1 & L2, mints & publicly bridges tokens', async () => {
     // docs:start:setup
     const logger = createLogger('aztec:token-bridge-tutorial');
-    const { wallet, node } = await setupSandbox();
-    const [ownerAztecAddress] = await registerInitialSandboxAccountsInWallet(wallet);
+    const { wallet, node } = await setupLocalNetwork();
+    const [ownerAztecAddress] = await registerInitialLocalNetworkAccountsInWallet(wallet);
     const l1ContractAddresses = (await node.getNodeInfo()).l1ContractAddresses;
     logger.info('L1 Contract Addresses:');
     logger.info(`Registry Address: ${l1ContractAddresses.registryAddress}`);
@@ -95,9 +100,9 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
 
     // Deploy L2 token contract
     // docs:start:deploy-l2-token
-    const l2TokenContract = await TokenContract.deploy(wallet, ownerAztecAddress, 'L2 Token', 'L2', 18)
-      .send({ from: ownerAztecAddress })
-      .deployed();
+    const l2TokenContract = await TokenContract.deploy(wallet, ownerAztecAddress, 'L2 Token', 'L2', 18).send({
+      from: ownerAztecAddress,
+    });
     logger.info(`L2 token contract deployed at ${l2TokenContract.address}`);
     // docs:end:deploy-l2-token
 
@@ -125,15 +130,17 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     // docs:end:deploy-portal
     // Deploy L2 bridge contract
     // docs:start:deploy-l2-bridge
-    const l2BridgeContract = await TokenBridgeContract.deploy(wallet, l2TokenContract.address, l1PortalContractAddress)
-      .send({ from: ownerAztecAddress })
-      .deployed();
+    const l2BridgeContract = await TokenBridgeContract.deploy(
+      wallet,
+      l2TokenContract.address,
+      l1PortalContractAddress,
+    ).send({ from: ownerAztecAddress });
     logger.info(`L2 token bridge contract deployed at ${l2BridgeContract.address}`);
     // docs:end:deploy-l2-bridge
 
     // Set Bridge as a minter
     // docs:start:authorize-l2-bridge
-    await l2TokenContract.methods.set_minter(l2BridgeContract.address, true).send({ from: ownerAztecAddress }).wait();
+    await l2TokenContract.methods.set_minter(l2BridgeContract.address, true).send({ from: ownerAztecAddress });
     // docs:end:authorize-l2-bridge
 
     // Initialize L1 portal contract
@@ -159,16 +166,15 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
 
     // Do 2 unrelated actions because
     // https://github.com/AztecProtocol/aztec-packages/blob/7e9e2681e314145237f95f79ffdc95ad25a0e319/yarn-project/end-to-end/src/shared/cross_chain_test_harness.ts#L354-L355
-    await l2TokenContract.methods.mint_to_public(ownerAztecAddress, 0n).send({ from: ownerAztecAddress }).wait();
-    await l2TokenContract.methods.mint_to_public(ownerAztecAddress, 0n).send({ from: ownerAztecAddress }).wait();
+    await l2TokenContract.methods.mint_to_public(ownerAztecAddress, 0n).send({ from: ownerAztecAddress });
+    await l2TokenContract.methods.mint_to_public(ownerAztecAddress, 0n).send({ from: ownerAztecAddress });
     // docs:end:l1-bridge-public
 
     // Claim tokens publicly on L2
     // docs:start:claim
     await l2BridgeContract.methods
       .claim_public(ownerAztecAddress, MINT_AMOUNT, claim.claimSecret, claim.messageLeafIndex)
-      .send({ from: ownerAztecAddress })
-      .wait();
+      .send({ from: ownerAztecAddress });
     const balance = await l2TokenContract.methods
       .balance_of_public(ownerAztecAddress)
       .simulate({ from: ownerAztecAddress });
@@ -190,7 +196,7 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
       },
       true,
     );
-    await authwit.send().wait();
+    await authwit.send();
     // docs:end:setup-withdrawal
 
     // docs:start:l2-withdraw
@@ -202,8 +208,8 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     );
     const l2TxReceipt = await l2BridgeContract.methods
       .exit_to_l1_public(EthAddress.fromString(ownerEthAddress), withdrawAmount, EthAddress.ZERO, authwitNonce)
-      .send({ from: ownerAztecAddress })
-      .wait();
+      .send({ from: ownerAztecAddress });
+    await waitForProven(node, l2TxReceipt, { provenTimeout: 500 });
 
     const newL2Balance = await l2TokenContract.methods
       .balance_of_public(ownerAztecAddress)
@@ -212,7 +218,11 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     // docs:end:l2-withdraw
 
     // docs:start:l1-withdraw
-    const result = await computeL2ToL1MembershipWitness(node, await node.getBlockNumber(), l2ToL1Message);
+    const rollup = new RollupContract(l1Client, l1ContractAddresses.rollupAddress.toString());
+    const block = await node.getBlock(l2TxReceipt.blockNumber!);
+    const epoch = await rollup.getEpochNumberForCheckpoint(block!.checkpointNumber);
+
+    const result = await computeL2ToL1MembershipWitness(node, epoch, l2ToL1Message);
     if (!result) {
       throw new Error('L2 to L1 message not found');
     }
@@ -220,7 +230,7 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     await l1PortalManager.withdrawFunds(
       withdrawAmount,
       EthAddress.fromString(ownerEthAddress),
-      BigInt(l2TxReceipt.blockNumber!),
+      epoch,
       result.leafIndex,
       result.siblingPath,
     );
@@ -228,5 +238,5 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     logger.info(`New L1 balance of ${ownerEthAddress} is ${newL1Balance}`);
     // docs:end:l1-withdraw
     expect(newL1Balance).toBe(withdrawAmount);
-  }, 90000);
+  }, 300_000);
 });

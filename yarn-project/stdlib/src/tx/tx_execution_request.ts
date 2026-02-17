@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
@@ -20,6 +20,7 @@ import { TxRequest } from './tx_request.js';
 /**
  * Request to execute a transaction. Similar to TxRequest, but has the full args.
  */
+// docs:start:tx_execution_request_class
 export class TxExecutionRequest {
   constructor(
     /**
@@ -60,6 +61,7 @@ export class TxExecutionRequest {
      */
     public salt = Fr.random(),
   ) {}
+  // docs:end:tx_execution_request_class
 
   static get schema(): ZodFor<TxExecutionRequest> {
     return z

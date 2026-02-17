@@ -1,3 +1,8 @@
+// === AUDIT STATUS ===
+// internal:    { status: Completed, auditors: [Federico], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
 #include "flavor.hpp"
 #include "barretenberg/common/assert.hpp"
 
@@ -15,6 +20,7 @@ AvmFlavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key)
     }
 }
 
+// Deserializes the proof from proof_data. Length must match COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS in flavor.hpp.
 void AvmFlavor::Transcript::deserialize_full_transcript()
 {
     size_t num_frs_read = 0;
@@ -44,6 +50,7 @@ void AvmFlavor::Transcript::deserialize_full_transcript()
     kzg_w_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
 }
 
+// Serializes the proof to proof_data. Length must match COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS in flavor.hpp.
 void AvmFlavor::Transcript::serialize_full_transcript()
 {
     size_t old_proof_length = proof_data.size();

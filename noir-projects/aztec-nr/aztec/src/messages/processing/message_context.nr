@@ -1,9 +1,9 @@
-use protocol_types::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::Deserialize};
+use crate::protocol::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::Deserialize};
 
 /// Additional information needed to process a message.
 ///
-/// All messages exist in the context of a transaction, and information about that transaction is typically required
-/// in order to perform validation, store results, etc. For example, messages containing notes require knowledge of note
+/// All messages exist in the context of a transaction, and information about that transaction is typically required in
+/// order to perform validation, store results, etc. For example, messages containing notes require knowledge of note
 /// hashes and the first nullifier in order to find the note's nonce.
 #[derive(Deserialize, Eq)]
 pub struct MessageContext {
@@ -14,8 +14,8 @@ pub struct MessageContext {
 }
 
 mod test {
-    use crate::messages::processing::message_context::MessageContext;
-    use protocol_types::{address::AztecAddress, traits::{Deserialize, FromField}};
+    use crate::messages::processing::MessageContext;
+    use crate::protocol::{address::AztecAddress, traits::{Deserialize, FromField}};
 
     #[test]
     unconstrained fn message_context_serialization_matches_typescript() {

@@ -32,7 +32,7 @@ bool check_hash_path(const fr& root,
     for (size_t i = 0; i < depth_; ++i) {
         fr left = (index & 1) ? path[i].first : current;
         fr right = (index & 1) ? current : path[i].second;
-        current = hash_pair_native(left, right);
+        current = HashPolicy::hash_pair(left, right);
         index >>= 1;
     }
     return current == root;

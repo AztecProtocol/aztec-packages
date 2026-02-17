@@ -90,20 +90,32 @@ struct lookup_execution_instruction_fetching_body_settings_ {
     static constexpr Column COUNTS = Column::lookup_execution_instruction_fetching_body_counts;
     static constexpr Column INVERSES = Column::lookup_execution_instruction_fetching_body_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_pc,        ColumnAndShifts::execution_bytecode_id,
-        ColumnAndShifts::execution_ex_opcode, ColumnAndShifts::execution_instr_length,
-        ColumnAndShifts::execution_indirect,  ColumnAndShifts::execution_op_0_,
-        ColumnAndShifts::execution_op_1_,     ColumnAndShifts::execution_op_2_,
-        ColumnAndShifts::execution_op_3_,     ColumnAndShifts::execution_op_4_,
-        ColumnAndShifts::execution_op_5_,     ColumnAndShifts::execution_op_6_
+        ColumnAndShifts::execution_pc,
+        ColumnAndShifts::execution_bytecode_id,
+        ColumnAndShifts::execution_ex_opcode,
+        ColumnAndShifts::execution_instr_length,
+        ColumnAndShifts::execution_addressing_mode,
+        ColumnAndShifts::execution_op_0_,
+        ColumnAndShifts::execution_op_1_,
+        ColumnAndShifts::execution_op_2_,
+        ColumnAndShifts::execution_op_3_,
+        ColumnAndShifts::execution_op_4_,
+        ColumnAndShifts::execution_op_5_,
+        ColumnAndShifts::execution_op_6_
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::instr_fetching_pc,          ColumnAndShifts::instr_fetching_bytecode_id,
-        ColumnAndShifts::instr_fetching_exec_opcode, ColumnAndShifts::instr_fetching_instr_size,
-        ColumnAndShifts::instr_fetching_indirect,    ColumnAndShifts::instr_fetching_op1,
-        ColumnAndShifts::instr_fetching_op2,         ColumnAndShifts::instr_fetching_op3,
-        ColumnAndShifts::instr_fetching_op4,         ColumnAndShifts::instr_fetching_op5,
-        ColumnAndShifts::instr_fetching_op6,         ColumnAndShifts::instr_fetching_op7
+        ColumnAndShifts::instr_fetching_pc,
+        ColumnAndShifts::instr_fetching_bytecode_id,
+        ColumnAndShifts::instr_fetching_exec_opcode,
+        ColumnAndShifts::instr_fetching_instr_size,
+        ColumnAndShifts::instr_fetching_addressing_mode,
+        ColumnAndShifts::instr_fetching_op1,
+        ColumnAndShifts::instr_fetching_op2,
+        ColumnAndShifts::instr_fetching_op3,
+        ColumnAndShifts::instr_fetching_op4,
+        ColumnAndShifts::instr_fetching_op5,
+        ColumnAndShifts::instr_fetching_op6,
+        ColumnAndShifts::instr_fetching_op7
     };
 };
 
@@ -165,7 +177,7 @@ struct lookup_execution_exec_spec_read_settings_ {
         ColumnAndShifts::execution_expected_tag_reg_5_
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::precomputed_idx,
         ColumnAndShifts::precomputed_exec_opcode_opcode_gas,
         ColumnAndShifts::precomputed_exec_opcode_base_da_gas,
         ColumnAndShifts::precomputed_exec_opcode_dynamic_l2_gas,
@@ -225,7 +237,7 @@ struct lookup_execution_dyn_l2_factor_bitwise_settings_ {
         ColumnAndShifts::execution_mem_tag_reg_0_, ColumnAndShifts::execution_dynamic_l2_gas_factor
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_tag_byte_length
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::precomputed_tag_byte_length
     };
 };
 
@@ -274,7 +286,7 @@ struct lookup_execution_get_p_limbs_settings_ {
         ColumnAndShifts::execution_register_1_, ColumnAndShifts::execution_num_p_limbs
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_to_radix_num_limbs_for_p
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::precomputed_to_radix_num_limbs_for_p
     };
 };
 
@@ -369,7 +381,7 @@ struct lookup_execution_dispatch_to_bitwise_settings_ {
     static constexpr std::string_view RELATION_NAME = "execution";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_exec_dispatch_bitwise;
-    static constexpr Column DST_SELECTOR = Column::bitwise_sel;
+    static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_execution_dispatch_to_bitwise_counts;
     static constexpr Column INVERSES = Column::lookup_execution_dispatch_to_bitwise_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -401,13 +413,16 @@ struct lookup_execution_dispatch_to_cast_settings_ {
     static constexpr Column COUNTS = Column::lookup_execution_dispatch_to_cast_counts;
     static constexpr Column INVERSES = Column::lookup_execution_dispatch_to_cast_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_register_0_,           ColumnAndShifts::execution_rop_2_,
-        ColumnAndShifts::execution_subtrace_operation_id, ColumnAndShifts::execution_register_1_,
-        ColumnAndShifts::execution_mem_tag_reg_1_,        ColumnAndShifts::execution_sel_opcode_error
+        ColumnAndShifts::execution_register_0_,
+        ColumnAndShifts::execution_rop_2_,
+        ColumnAndShifts::execution_register_1_,
+        ColumnAndShifts::execution_mem_tag_reg_1_,
+        ColumnAndShifts::execution_sel_exec_dispatch_cast,
+        ColumnAndShifts::execution_sel_opcode_error
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::alu_ia, ColumnAndShifts::alu_ia_tag, ColumnAndShifts::alu_op_id,
-        ColumnAndShifts::alu_ic, ColumnAndShifts::alu_ia_tag, ColumnAndShifts::precomputed_zero
+        ColumnAndShifts::alu_ia,     ColumnAndShifts::alu_ia_tag, ColumnAndShifts::alu_ic,
+        ColumnAndShifts::alu_ia_tag, ColumnAndShifts::alu_sel,    ColumnAndShifts::precomputed_zero
     };
 };
 
@@ -429,61 +444,19 @@ struct lookup_execution_dispatch_to_set_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::execution_rop_2_,
         ColumnAndShifts::execution_rop_1_,
-        ColumnAndShifts::execution_subtrace_operation_id,
         ColumnAndShifts::execution_register_0_,
         ColumnAndShifts::execution_mem_tag_reg_0_,
+        ColumnAndShifts::execution_sel_exec_dispatch_set,
         ColumnAndShifts::execution_sel_opcode_error
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::alu_ia, ColumnAndShifts::alu_ia_tag, ColumnAndShifts::alu_op_id,
-        ColumnAndShifts::alu_ic, ColumnAndShifts::alu_ia_tag, ColumnAndShifts::precomputed_zero
+        ColumnAndShifts::alu_ia,     ColumnAndShifts::alu_ia_tag, ColumnAndShifts::alu_ic,
+        ColumnAndShifts::alu_ia_tag, ColumnAndShifts::alu_sel,    ColumnAndShifts::precomputed_zero
     };
 };
 
 using lookup_execution_dispatch_to_set_settings = lookup_settings<lookup_execution_dispatch_to_set_settings_>;
 template <typename FF_>
 using lookup_execution_dispatch_to_set_relation = lookup_relation_base<FF_, lookup_execution_dispatch_to_set_settings>;
-
-/////////////////// lookup_execution_dispatch_to_emit_unencrypted_log ///////////////////
-
-struct lookup_execution_dispatch_to_emit_unencrypted_log_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_EXECUTION_DISPATCH_TO_EMIT_UNENCRYPTED_LOG";
-    static constexpr std::string_view RELATION_NAME = "execution";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 10;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_exec_dispatch_emit_unencrypted_log;
-    static constexpr Column DST_SELECTOR = Column::emit_unencrypted_log_start;
-    static constexpr Column COUNTS = Column::lookup_execution_dispatch_to_emit_unencrypted_log_counts;
-    static constexpr Column INVERSES = Column::lookup_execution_dispatch_to_emit_unencrypted_log_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
-        ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_rop_1_,
-        ColumnAndShifts::execution_register_0_,
-        ColumnAndShifts::execution_contract_address,
-        ColumnAndShifts::execution_prev_num_unencrypted_log_fields,
-        ColumnAndShifts::execution_num_unencrypted_log_fields,
-        ColumnAndShifts::execution_is_static,
-        ColumnAndShifts::execution_sel_opcode_error,
-        ColumnAndShifts::execution_discard
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::emit_unencrypted_log_execution_clk,
-        ColumnAndShifts::emit_unencrypted_log_space_id,
-        ColumnAndShifts::emit_unencrypted_log_log_address,
-        ColumnAndShifts::emit_unencrypted_log_log_size,
-        ColumnAndShifts::emit_unencrypted_log_contract_address,
-        ColumnAndShifts::emit_unencrypted_log_prev_num_unencrypted_log_fields,
-        ColumnAndShifts::emit_unencrypted_log_next_num_unencrypted_log_fields,
-        ColumnAndShifts::emit_unencrypted_log_is_static,
-        ColumnAndShifts::emit_unencrypted_log_error,
-        ColumnAndShifts::emit_unencrypted_log_discard
-    };
-};
-
-using lookup_execution_dispatch_to_emit_unencrypted_log_settings =
-    lookup_settings<lookup_execution_dispatch_to_emit_unencrypted_log_settings_>;
-template <typename FF_>
-using lookup_execution_dispatch_to_emit_unencrypted_log_relation =
-    lookup_relation_base<FF_, lookup_execution_dispatch_to_emit_unencrypted_log_settings>;
 
 } // namespace bb::avm2

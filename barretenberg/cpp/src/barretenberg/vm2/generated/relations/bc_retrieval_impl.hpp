@@ -61,8 +61,7 @@ void bc_retrievalImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::bc_retrieval_sel)) *
-                   (FF(1) - static_cast<View>(in.get(C::bc_retrieval_instance_exists))) *
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::bc_retrieval_instance_exists))) *
                    static_cast<View>(in.get(C::bc_retrieval_is_new_class));
         std::get<5>(evals) += (tmp * scaling_factor);
     }
@@ -97,7 +96,7 @@ void bc_retrievalImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // PRIVATE_FUNCTION_ROOT_IS_ZERO_IF_ERROR
         using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::bc_retrieval_error)) *
-                   static_cast<View>(in.get(C::bc_retrieval_private_function_root));
+                   static_cast<View>(in.get(C::bc_retrieval_private_functions_root));
         std::get<10>(evals) += (tmp * scaling_factor);
     }
     { // BYTECODE_ID_IS_ZERO_IF_ERROR

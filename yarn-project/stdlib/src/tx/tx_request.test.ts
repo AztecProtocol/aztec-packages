@@ -1,6 +1,6 @@
 import { TX_REQUEST_LENGTH } from '@aztec/constants';
-import { randomInt } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { randomInt } from '@aztec/foundation/crypto/random';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
@@ -44,7 +44,9 @@ describe('TxRequest', () => {
 
     const hash = await txRequest.hash();
 
-    expect(hash.toString()).toMatchSnapshot();
+    expect(hash.toString()).toMatchInlineSnapshot(
+      `"0x09c2372649f434fc01e3c010792c33b383bfff50f7e6ed7b6ba689d6d7b1f109"`,
+    );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(

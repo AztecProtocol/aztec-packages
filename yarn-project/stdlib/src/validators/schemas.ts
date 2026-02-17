@@ -1,4 +1,4 @@
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { schemas, zodFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
@@ -11,20 +11,25 @@ import type {
   ValidatorsStats,
 } from './types.js';
 
-export const ValidatorStatusInSlotSchema = z.enum([
-  'block-mined',
-  'block-proposed',
-  'block-missed',
-  'attestation-sent',
-  'attestation-missed',
-]) satisfies ZodFor<ValidatorStatusInSlot>;
+export const ValidatorStatusInSlotSchema = zodFor<ValidatorStatusInSlot>()(
+  z.enum([
+    'checkpoint-mined',
+    'checkpoint-proposed',
+    'checkpoint-missed',
+    'blocks-missed',
+    'attestation-sent',
+    'attestation-missed',
+  ]),
+);
 
-export const ValidatorStatusHistorySchema = z.array(
-  z.object({
-    slot: schemas.BigInt,
-    status: ValidatorStatusInSlotSchema,
-  }),
-) satisfies ZodFor<ValidatorStatusHistory>;
+export const ValidatorStatusHistorySchema = zodFor<ValidatorStatusHistory>()(
+  z.array(
+    z.object({
+      slot: schemas.SlotNumber,
+      status: ValidatorStatusInSlotSchema,
+    }),
+  ),
+);
 
 export const ValidatorStatusHistorySchemaArray = z.array(ValidatorStatusHistorySchema);
 
@@ -32,44 +37,52 @@ export const ValidatorStatusHistorySchemaMap = z.record(ValidatorStatusHistorySc
 
 const ValidatorTimeStatSchema = z.object({
   timestamp: schemas.BigInt,
-  slot: schemas.BigInt,
+  slot: schemas.SlotNumber,
   date: z.string(),
 });
 
-const ValidatorMissedStatsSchema = z.object({
-  currentStreak: schemas.Integer,
-  rate: z.number().optional(),
-  count: schemas.Integer,
-  total: schemas.Integer,
-}) satisfies ZodFor<ValidatorMissedStats>;
+const ValidatorMissedStatsSchema = zodFor<ValidatorMissedStats>()(
+  z.object({
+    currentStreak: schemas.Integer,
+    rate: z.number().optional(),
+    count: schemas.Integer,
+    total: schemas.Integer,
+  }),
+);
 
-export const ValidatorStatsSchema = z.object({
-  address: schemas.EthAddress,
-  lastProposal: ValidatorTimeStatSchema.optional(),
-  lastAttestation: ValidatorTimeStatSchema.optional(),
-  totalSlots: schemas.Integer,
-  missedProposals: ValidatorMissedStatsSchema,
-  missedAttestations: ValidatorMissedStatsSchema,
-  history: ValidatorStatusHistorySchema,
-}) satisfies ZodFor<ValidatorStats>;
+export const ValidatorStatsSchema = zodFor<ValidatorStats>()(
+  z.object({
+    address: schemas.EthAddress,
+    lastProposal: ValidatorTimeStatSchema.optional(),
+    lastAttestation: ValidatorTimeStatSchema.optional(),
+    totalSlots: schemas.Integer,
+    missedProposals: ValidatorMissedStatsSchema,
+    missedAttestations: ValidatorMissedStatsSchema,
+    history: ValidatorStatusHistorySchema,
+  }),
+);
 
-export const ValidatorsStatsSchema = z.object({
-  stats: z.record(ValidatorStatsSchema),
-  lastProcessedSlot: schemas.BigInt.optional(),
-  initialSlot: schemas.BigInt.optional(),
-  slotWindow: schemas.Integer,
-}) satisfies ZodFor<ValidatorsStats>;
+export const ValidatorsStatsSchema = zodFor<ValidatorsStats>()(
+  z.object({
+    stats: z.record(ValidatorStatsSchema),
+    lastProcessedSlot: schemas.SlotNumber.optional(),
+    initialSlot: schemas.SlotNumber.optional(),
+    slotWindow: schemas.Integer,
+  }),
+);
 
-export const SingleValidatorStatsSchema = z.object({
-  validator: ValidatorStatsSchema,
-  allTimeProvenPerformance: z.array(
-    z.object({
-      missed: schemas.Integer,
-      total: schemas.Integer,
-      epoch: schemas.BigInt,
-    }),
-  ),
-  lastProcessedSlot: schemas.BigInt.optional(),
-  initialSlot: schemas.BigInt.optional(),
-  slotWindow: schemas.Integer,
-}) satisfies ZodFor<SingleValidatorStats>;
+export const SingleValidatorStatsSchema = zodFor<SingleValidatorStats>()(
+  z.object({
+    validator: ValidatorStatsSchema,
+    allTimeProvenPerformance: z.array(
+      z.object({
+        missed: schemas.Integer,
+        total: schemas.Integer,
+        epoch: schemas.EpochNumber,
+      }),
+    ),
+    lastProcessedSlot: schemas.SlotNumber.optional(),
+    initialSlot: schemas.SlotNumber.optional(),
+    slotWindow: schemas.Integer,
+  }),
+);

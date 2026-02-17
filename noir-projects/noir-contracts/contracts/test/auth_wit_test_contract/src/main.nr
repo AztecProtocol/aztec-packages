@@ -1,11 +1,11 @@
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract AuthWitTest {
-    use dep::aztec::{
+    use aztec::{
         authwit::auth::{assert_inner_hash_valid_authwit, assert_inner_hash_valid_authwit_public},
         macros::functions::external,
-        protocol_types::address::AztecAddress,
+        protocol::address::AztecAddress,
     };
 
     #[external("private")]

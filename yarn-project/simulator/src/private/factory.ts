@@ -1,4 +1,4 @@
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, resolveLogger } from '@aztec/foundation/log';
 
 import { promises as fs } from 'fs';
 
@@ -21,18 +21,21 @@ export function getSimulatorConfigFromEnv() {
 
 export async function createSimulator(
   config: SimulatorConfig,
-  logger: Logger = createLogger('simulator'),
+  loggerOrBindings?: Logger | LoggerBindings,
 ): Promise<CircuitSimulator> {
+  const logger = resolveLogger('simulator', loggerOrBindings);
   if (config.acvmBinaryPath && config.acvmWorkingDirectory) {
     try {
       await fs.access(config.acvmBinaryPath, fs.constants.R_OK);
       await fs.mkdir(config.acvmWorkingDirectory, { recursive: true });
       logger.info(`Using native ACVM at ${config.acvmBinaryPath} and working directory ${config.acvmWorkingDirectory}`);
-      return new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath);
+      const acvmLogger = logger.createChild('acvm-native');
+      return new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath, undefined, acvmLogger);
     } catch {
       logger.warn(`Failed to access ACVM at ${config.acvmBinaryPath}, falling back to WASM`);
     }
   }
   logger.info('Using WASM ACVM simulation');
-  return new WASMSimulator();
+  const wasmLogger = logger.createChild('wasm');
+  return new WASMSimulator(wasmLogger);
 }

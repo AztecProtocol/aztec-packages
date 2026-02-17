@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
@@ -44,6 +44,23 @@ export class PublicCallRequestWithCalldata {
 
   static from(fields: Pick<PublicCallRequestWithCalldata, 'request' | 'calldata'>): PublicCallRequestWithCalldata {
     return new PublicCallRequestWithCalldata(fields.request, fields.calldata);
+  }
+
+  /**
+   * Creates a PublicCallRequestWithCalldata from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing PublicCallRequestWithCalldata fields
+   * @returns A PublicCallRequestWithCalldata instance
+   */
+  static fromPlainObject(obj: any): PublicCallRequestWithCalldata {
+    if (obj instanceof PublicCallRequestWithCalldata) {
+      return obj;
+    }
+    return new PublicCallRequestWithCalldata(
+      PublicCallRequest.fromPlainObject(obj.request),
+      obj.calldata.map((f: any) => Fr.fromPlainObject(f)),
+    );
   }
 
   toBuffer() {

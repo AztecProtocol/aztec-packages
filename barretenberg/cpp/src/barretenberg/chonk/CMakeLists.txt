@@ -1,1 +1,1 @@
-barretenberg_module(chonk dsl libdeflate::libdeflate_static hypernova multilinear_batching)
+barretenberg_module(chonk goblin dsl libdeflate::libdeflate_static hypernova multilinear_batching)

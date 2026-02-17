@@ -290,7 +290,7 @@ unconstrained fn new_nullifier_same_as_existing_use_empty_leaf_as_low_leaf() {
     builder.execute_and_fail();
 }
 
-#[test(should_fail_with = "Key is not less than the next leaf")]
+#[test(should_fail_with = "Invalid low leaf: Value is not less than the next leaf")]
 unconstrained fn new_nullifier_same_as_existing_use_low_leaf_with_smaller_value() {
     let mut builder = TestBuilder::new();
 
@@ -313,7 +313,7 @@ unconstrained fn new_nullifier_same_as_existing_use_low_leaf_with_smaller_value(
     builder.execute_and_fail();
 }
 
-#[test(should_fail_with = "Key is not greater than the low leaf")]
+#[test(should_fail_with = "Invalid low leaf: Value is not greater than the low leaf")]
 unconstrained fn new_nullifier_same_as_existing_use_low_leaf_with_valid_next_leaf() {
     let mut builder = TestBuilder::new();
 

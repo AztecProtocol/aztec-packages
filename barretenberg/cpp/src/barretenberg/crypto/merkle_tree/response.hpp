@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [Raju], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -71,6 +71,7 @@ template <typename LeafType> struct LeafUpdateWitnessData {
     LeafUpdateWitnessData(LeafUpdateWitnessData&& other) noexcept = default;
     LeafUpdateWitnessData& operator=(const LeafUpdateWitnessData& other) = default;
     LeafUpdateWitnessData& operator=(LeafUpdateWitnessData&& other) noexcept = default;
+    bool operator==(const LeafUpdateWitnessData& other) const = default;
 
     MSGPACK_FIELDS(leaf, index, path);
 };

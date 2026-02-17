@@ -3,6 +3,7 @@
 // solhint-disable comprehensive-interface
 pragma solidity >=0.8.27;
 
+import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {ISlasher, SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
@@ -23,21 +24,21 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
  * @notice Tally-based slashing proposer that aggregates validator votes to determine which validators should be
  * slashed
  *
- * @dev This contract implements a voting-based slashing mechanism where block proposers signal their intent to slash
- *      validators from past epochs. The system operates in rounds, with each round corresponding to a time period where
- *      votes are collected from proposers to determine which validators should be slashed.
+ * @dev This contract implements a voting-based slashing mechanism where checkpoint proposers signal their intent to
+ *      slash validators from past epochs. The system operates in rounds, with each round corresponding to a time period
+ *      where votes are collected from proposers to determine which validators should be slashed.
  *
  *      Key concepts:
  *      - Rounds: Time periods during which votes are collected (measured in slots, multiple of epochs)
- *      - Voting: Block proposers submit encoded votes indicating which validators should be slashed and by how much
+ *      - Voting: Checkpoint proposers submit encoded votes indicating which validators to slash and by how much
  *      - Quorum: Minimum number of votes required in a round to trigger slashing of a specific validator
  *      - Execution Delay: Time that must pass after a round ends before its slashing can be executed (allows vetoing)
  *      - Slash Offset: How many rounds in the past to look when determining which validators to slash
  *
  *      How the system works:
  *      1. Time is divided into rounds (ROUND_SIZE slots each).
- *      2. During each round, block proposers can submit votes indicating which validators from the epochs that span
- *         SLASH_OFFSET_IN_ROUNDS rounds ago should be slashed.
+ *      2. During each round, checkpoint proposers can submit votes indicating which validators from the epochs that
+ *         span SLASH_OFFSET_IN_ROUNDS rounds ago should be slashed.
  *      3. Votes are encoded as bytes where each 2-bit pair represents the slash amount (0-3 slash units) for
  *         the corresponding validator slashed in the round.
  *      4. After a round ends, there is an execution delay period for review so the VETOER in the Slasher can veto the
@@ -150,7 +151,7 @@ contract TallySlashingProposer is EIP712 {
 
   /**
    * @notice EIP-712 type hash for the Vote struct used in signature verification
-   * @dev Defines the structure: Vote(uint256 slot,bytes votes) for EIP-712 signing
+   * @dev Defines the structure: Vote(bytes votes,uint256 slot) for EIP-712 signing
    */
   bytes32 public constant VOTE_TYPEHASH = keccak256("Vote(bytes votes,uint256 slot)");
 
@@ -347,7 +348,7 @@ contract TallySlashingProposer is EIP712 {
       ROUND_SIZE_IN_EPOCHS > 0,
       Errors.TallySlashingProposer__RoundSizeInEpochsMustBeGreaterThanZero(ROUND_SIZE_IN_EPOCHS)
     );
-    require(ROUND_SIZE < MAX_ROUND_SIZE, Errors.TallySlashingProposer__RoundSizeTooLarge(ROUND_SIZE, MAX_ROUND_SIZE));
+    require(ROUND_SIZE <= MAX_ROUND_SIZE, Errors.TallySlashingProposer__RoundSizeTooLarge(ROUND_SIZE, MAX_ROUND_SIZE));
     require(COMMITTEE_SIZE > 0, Errors.TallySlashingProposer__CommitteeSizeMustBeGreaterThanZero(COMMITTEE_SIZE));
 
     // Validate that vote size doesn't exceed our fixed 4 bytes32 allocation
@@ -360,11 +361,19 @@ contract TallySlashingProposer is EIP712 {
       COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS % 4 == 0,
       Errors.TallySlashingProposer__VotesMustBeMultipleOf4(COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS)
     );
+
+    // Defense in depth: the ordering constraints (small <= medium <= large) above mean that
+    // if medium or large is zero, small must also be zero, so the small check would fire first.
+    // We keep all three checks explicitly for clarity and to guard against future refactors
+    // that might remove or reorder the sorting constraints.
+    require(SLASH_AMOUNT_SMALL > 0, Errors.TallySlashingProposer__SlashAmountMustBeGtZero("small"));
+    require(SLASH_AMOUNT_MEDIUM > 0, Errors.TallySlashingProposer__SlashAmountMustBeGtZero("medium"));
+    require(SLASH_AMOUNT_LARGE > 0, Errors.TallySlashingProposer__SlashAmountMustBeGtZero("large"));
   }
 
   /**
    * @notice Submit a vote for slashing validators from SLASH_OFFSET_IN_ROUNDS rounds ago
-   * @dev Only the current block proposer can submit votes, enforced via EIP-712 signature verification.
+   * @dev Only the current checkpoint proposer can submit votes, enforced via EIP-712 signature verification.
    *      Each byte in the votes encodes slash amounts for 4 validators using 2 bits each (0-3 units each).
    *      The vote includes the current slot number to prevent replay attacks.
    *
@@ -561,16 +570,8 @@ contract TallySlashingProposer is EIP712 {
    * @return voteCount The total number of votes that have been cast in this round by proposers
    */
   function getRound(SlashRound _round) external view returns (bool isExecuted, uint256 voteCount) {
-    SlashRound currentRound = getCurrentRound();
-
     // Load round data from the circular storage
-    RoundData memory roundData = _getRoundData(_round, currentRound);
-
-    // If we have not written to this round yet, return fresh round data
-    if (roundData.roundNumber != _round) {
-      return (false, 0);
-    }
-
+    RoundData memory roundData = _getRoundData(_round, getCurrentRound());
     return (roundData.executed, roundData.voteCount);
   }
 
@@ -592,6 +593,17 @@ contract TallySlashingProposer is EIP712 {
    */
   function getVotes(SlashRound _round, uint256 _index) external view returns (bytes memory) {
     uint256 expectedLength = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4;
+
+    // _getRoundVotes reverts if _round is out of the roundabout range.
+    // But within-range the storage slot may still hold stale data from a
+    // previous round that mapped to the same circular index. Guard against
+    // that by checking the authoritative round metadata first.
+    SlashRound currentRound = getCurrentRound();
+    RoundData memory roundData = _getRoundData(_round, currentRound);
+    if (roundData.voteCount == 0) {
+      return new bytes(expectedLength);
+    }
+
     bytes32[4] storage voteSlots = _getRoundVotes(_round).votes[_index];
     return _loadVoteDataFromStorage(voteSlots, expectedLength);
   }
@@ -796,8 +808,9 @@ contract TallySlashingProposer is EIP712 {
     // Process all votes cast during this round to populate the tally matrix
     _processVotes(_roundData, tallyMatrix, voteCount);
 
-    // Determine which validators reached quorum and return slash actions
-    return _determineSlashActions(tallyMatrix, _committees, totalValidators);
+    // Determine which validators reached quorum and return slash actions, applying escape hatch at tally time
+    bool[] memory escapeHatchEpochs = _getEscapeHatchEpochFlags(_roundData.roundNumber);
+    return _determineSlashActions(tallyMatrix, _committees, totalValidators, escapeHatchEpochs);
   }
 
   /**
@@ -872,7 +885,8 @@ contract TallySlashingProposer is EIP712 {
   function _determineSlashActions(
     uint256[] memory tallyMatrix,
     address[][] calldata _committees,
-    uint256 totalValidators
+    uint256 totalValidators,
+    bool[] memory escapeHatchEpochs
   ) internal view returns (SlashAction[] memory actions, bool[] memory committeesWithSlashes) {
     actions = new SlashAction[](totalValidators);
     uint256 actionCount;
@@ -880,6 +894,20 @@ contract TallySlashingProposer is EIP712 {
 
     unchecked {
       for (uint256 i; i < totalValidators; ++i) {
+        uint256 epochIndex = i / COMMITTEE_SIZE;
+
+        // Skip validators that belong to escape-hatch epochs
+        if (escapeHatchEpochs[epochIndex]) {
+          continue;
+        }
+
+        // Skip validators for epochs without a valid committee (e.g. early epochs
+        // before the validator set was sampled). Without this check, indexing into
+        // an empty committee array would revert and block execution of the round.
+        if (_committees[epochIndex].length != COMMITTEE_SIZE) {
+          continue;
+        }
+
         uint256 packedVotes = tallyMatrix[i];
 
         // Skip if no votes for this validator
@@ -910,11 +938,11 @@ contract TallySlashingProposer is EIP712 {
 
             // Record the slashing action
             actions[actionCount] =
-              SlashAction({validator: _committees[i / COMMITTEE_SIZE][i % COMMITTEE_SIZE], slashAmount: slashAmount});
+              SlashAction({validator: _committees[epochIndex][i % COMMITTEE_SIZE], slashAmount: slashAmount});
             ++actionCount;
 
             // Mark this committee as having at least one slashed validator
-            committeesWithSlashes[i / COMMITTEE_SIZE] = true;
+            committeesWithSlashes[epochIndex] = true;
 
             // Only slash each validator once at the highest amount that reached quorum
             break;
@@ -993,6 +1021,25 @@ contract TallySlashingProposer is EIP712 {
   function _getCurrentSlot() internal view returns (Slot) {
     IValidatorSelection rollup = IValidatorSelection(INSTANCE);
     return rollup.getCurrentSlot();
+  }
+
+  /**
+   * @notice Determine which epochs targeted by a round are in escape-hatch mode
+   * @param _round The round number to check for
+   * @return escapeHatchEpochs A bool array for escape hatch status of the epochs in the round
+   */
+  function _getEscapeHatchEpochFlags(SlashRound _round) internal view returns (bool[] memory escapeHatchEpochs) {
+    escapeHatchEpochs = new bool[](ROUND_SIZE_IN_EPOCHS);
+
+    for (uint256 epochIndex; epochIndex < ROUND_SIZE_IN_EPOCHS; epochIndex++) {
+      Epoch epoch = getSlashTargetEpoch(_round, epochIndex);
+      IEscapeHatch escapeHatch = IValidatorSelection(INSTANCE).getEscapeHatchForEpoch(epoch);
+      if (address(escapeHatch) == address(0)) {
+        continue;
+      }
+      (bool isOpen,) = escapeHatch.isHatchOpen(epoch);
+      escapeHatchEpochs[epochIndex] = isOpen;
+    }
   }
 
   /**

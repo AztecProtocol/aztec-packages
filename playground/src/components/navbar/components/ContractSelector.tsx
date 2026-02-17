@@ -7,12 +7,9 @@ import ListSubheader from '@mui/material/ListSubheader';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { CopyToClipboardButton } from '../../common/CopyToClipboardButton';
-import {
-  convertFromUTF8BufferAsString,
-  formatFrAsString,
-  parseAliasedBuffersAsString,
-} from '../../../utils/conversion';
+import { formatFrAsString } from '../../../utils/conversion';
 import { PREDEFINED_CONTRACTS } from '../../../utils/types';
 import { AztecContext } from '../../../aztecContext';
 import { loadContractArtifact } from '@aztec/aztec.js/abi';
@@ -35,6 +32,7 @@ export function ContractSelector() {
   const {
     currentContractAddress,
     wallet,
+    node,
     playgroundDB,
     pendingTxUpdateCounter,
     setCurrentContractArtifact,
@@ -46,18 +44,26 @@ export function ContractSelector() {
   useEffect(() => {
     const refreshContracts = async () => {
       setIsContractsLoading(true);
-      const aliasedContracts = await playgroundDB.listAliases('contracts');
-      const contracts = parseAliasedBuffersAsString(aliasedContracts);
-      // Temporarily filter out undeployed contracts
-      const deployedContracts = await filterDeployedAliasedContracts(contracts, wallet);
-      setContracts(deployedContracts);
+      try {
+        const aliasedContracts = await playgroundDB.listAliases('contracts');
+        // Temporarily filter out undeployed contracts
+        const deployedContracts = await filterDeployedAliasedContracts(aliasedContracts, wallet);
+        setContracts(deployedContracts);
+      } catch (error) {
+        // Wallet may have disconnected during the async operation
+        console.warn('Failed to refresh contracts:', error);
+        setContracts([]);
+      }
       setIsContractsLoading(false);
     };
 
     if (playgroundDB && wallet) {
       refreshContracts();
+    } else {
+      // Clear contracts when wallet is disconnected
+      setContracts([]);
     }
-  }, [currentContractAddress, playgroundDB, wallet, pendingTxUpdateCounter]);
+  }, [currentContractAddress, playgroundDB, wallet, pendingTxUpdateCounter, node]);
 
   const handleContractChange = async (event: SelectChangeEvent) => {
     const contractValue = event.target.value;
@@ -101,7 +107,7 @@ export function ContractSelector() {
         setShowContractInterface(true);
       } else {
         const artifactAsString = await playgroundDB.retrieveAlias(`artifacts:${contractValue}`);
-        const contractArtifact = loadContractArtifact(parse(convertFromUTF8BufferAsString(artifactAsString)));
+        const contractArtifact = loadContractArtifact(parse(artifactAsString));
         setCurrentContractAddress(AztecAddress.fromString(contractValue));
         setCurrentContractArtifact(contractArtifact);
         setSelectedPredefinedContract(undefined);
@@ -137,18 +143,41 @@ export function ContractSelector() {
           onOpen={() => setIsOpen(true)}
           onClose={() => setIsOpen(false)}
           onChange={handleContractChange}
+          IconComponent={KeyboardArrowDownIcon}
           fullWidth
           renderValue={selected => {
+            if (!selected) {
+              return 'Select Contract';
+            }
             const contract = contracts.find(contract => contract.item === selected);
             if (contract) {
               return `${contract?.alias.split(':')[1]} (${formatFrAsString(contract?.item)})`;
             }
-            if (selected === PREDEFINED_CONTRACTS.CUSTOM_UPLOAD) {
-              return 'Upload Your Own';
+            switch (selected) {
+              case PREDEFINED_CONTRACTS.CUSTOM_UPLOAD:
+                return 'Upload Your Own';
+              case PREDEFINED_CONTRACTS.SIMPLE_VOTING:
+                return 'Easy Private Voting';
+              case PREDEFINED_CONTRACTS.SIMPLE_TOKEN:
+                return 'Simple Token';
+              default:
+                return 'Select Contract';
             }
-            return selected ?? 'Select Contract';
           }}
           disabled={isContractsLoading}
+          MenuProps={{
+            disableScrollLock: true,
+            PaperProps: {
+              sx: {
+                width: '300px',
+                marginLeft: '-12px',
+                '@media (max-width: 900px)': {
+                  width: '100vw',
+                  marginLeft: 0,
+                },
+              },
+            },
+          }}
         >
           {(!playgroundDB || !wallet) && (
             <div css={navbarSelectLabel}>

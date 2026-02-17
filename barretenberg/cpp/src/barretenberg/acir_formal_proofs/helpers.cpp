@@ -58,6 +58,33 @@ smt_circuit::STerm shl32(smt_circuit::STerm v0, smt_circuit::STerm v1, smt_solve
     return res;
 }
 
+smt_circuit::STerm shl8(smt_circuit::STerm v0, smt_circuit::STerm v1, smt_solver::Solver* solver)
+{
+    auto shifted = shl(v0, v1, solver);
+    auto res = shifted.truncate(7);
+    return res;
+}
+
+smt_circuit::STerm add_signed(smt_circuit::STerm v0, smt_circuit::STerm v1, uint32_t bit_size)
+{
+    auto res = v0 + v1;
+    auto res_truncated = res.truncate(bit_size - 1);
+    return res_truncated;
+}
+smt_circuit::STerm sub_signed(smt_circuit::STerm v0, smt_circuit::STerm v1, uint32_t bit_size)
+{
+    auto res = v0 - v1;
+    auto res_truncated = res.truncate(bit_size - 1);
+    return res_truncated;
+}
+
+smt_circuit::STerm mul_signed(smt_circuit::STerm v0, smt_circuit::STerm v1, uint32_t bit_size)
+{
+    auto res = v0 * v1;
+    auto res_truncated = res.truncate(bit_size - 1);
+    return res_truncated;
+}
+
 smt_circuit::STerm idiv(smt_circuit::STerm v0, smt_circuit::STerm v1, uint32_t bit_size, smt_solver::Solver* solver)
 {
     // highest bit of v0 and v1 is sign bit
@@ -73,9 +100,12 @@ smt_circuit::STerm idiv(smt_circuit::STerm v0, smt_circuit::STerm v1, uint32_t b
     // if abs_value_v0 == 0 then res = 0
     // in our context we use idiv only once, so static name for the division result okay.
     auto res = smt_terms::BVVar("res_signed_division", solver);
-    auto condition = smt_terms::Bool(abs_value_v0, solver) == smt_terms::Bool(smt_terms::BVConst("0", solver, 10));
-    auto eq1 = condition & (smt_terms::Bool(res, solver) == smt_terms::Bool(smt_terms::BVConst("0", solver, 10)));
-    auto eq2 = !condition & (smt_terms::Bool(res, solver) == smt_terms::Bool(res_sign_bit | abs_res, solver));
+    auto condition = smt_terms::Bool(static_cast<cvc5::Term>(abs_value_v0), solver) ==
+                     smt_terms::Bool(static_cast<cvc5::Term>(smt_terms::BVConst("0", solver, 10)), solver);
+    auto eq1 = condition & (smt_terms::Bool(static_cast<cvc5::Term>(res), solver) ==
+                            smt_terms::Bool(static_cast<cvc5::Term>(smt_terms::BVConst("0", solver, 10)), solver));
+    auto eq2 = !condition & (smt_terms::Bool(static_cast<cvc5::Term>(res), solver) ==
+                             smt_terms::Bool(static_cast<cvc5::Term>(res_sign_bit | abs_res), solver));
 
     (eq1 | eq2).assert_term();
 

@@ -1,5 +1,5 @@
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
-#include "../commitment_key.test.hpp"
+#include "../pcs_test_utils.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/utils/test_settings.hpp"
 
@@ -62,7 +62,7 @@ TYPED_TEST(SmallSubgroupIPATest, ProverComputationsCorrectness)
     static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(SUBGROUP_SIZE));
     CK ck = create_commitment_key<CK>(std::max<size_t>(this->circuit_size, 1ULL << (log_subgroup_size + 1)));
 
-    auto prover_transcript = TypeParam::Transcript::prover_init_empty();
+    auto prover_transcript = TypeParam::Transcript::test_prover_init_empty();
 
     ZKData zk_sumcheck_data(this->log_circuit_size, prover_transcript, ck);
     std::vector<FF> multivariate_challenge = this->generate_random_vector(this->log_circuit_size);
@@ -179,7 +179,7 @@ TYPED_TEST(SmallSubgroupIPATest, LibraEvaluationsConsistency)
     using ZKData = ZKSumcheckData<TypeParam>;
     using CK = typename TypeParam::CommitmentKey;
 
-    auto prover_transcript = TypeParam::Transcript::prover_init_empty();
+    auto prover_transcript = TypeParam::Transcript::test_prover_init_empty();
 
     // SmallSubgroupIPAProver requires at least CURVE::SUBGROUP_SIZE + 3 elements in the ck.
     static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
@@ -216,7 +216,7 @@ TYPED_TEST(SmallSubgroupIPATest, LibraEvaluationsConsistencyFailure)
     using ZKData = ZKSumcheckData<TypeParam>;
     using CK = typename TypeParam::CommitmentKey;
 
-    auto prover_transcript = TypeParam::Transcript::prover_init_empty();
+    auto prover_transcript = TypeParam::Transcript::test_prover_init_empty();
 
     // SmallSubgroupIPAProver requires at least CURVE::SUBGROUP_SIZE + 3 elements in the ck.
     static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
@@ -264,7 +264,7 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationMaskingTermConsistency)
         using Prover = SmallSubgroupIPAProver<TypeParam>;
         using CK = typename TypeParam::CommitmentKey;
 
-        auto prover_transcript = TypeParam::Transcript::prover_init_empty();
+        auto prover_transcript = TypeParam::Transcript::test_prover_init_empty();
         // Must satisfy num_wires * NUM_DISABLED_ROWS_IN_SUMCHECK + 1 < SUBGROUP_SIZE
         const size_t num_wires = 5;
 
@@ -316,7 +316,7 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationMaskingTermConsistencyFailure)
         using Prover = SmallSubgroupIPAProver<TypeParam>;
         using CK = typename TypeParam::CommitmentKey;
 
-        auto prover_transcript = TypeParam::Transcript::prover_init_empty();
+        auto prover_transcript = TypeParam::Transcript::test_prover_init_empty();
         // Must satisfy num_wires * NUM_DISABLED_ROWS_IN_SUMCHECK + 1 < SUBGROUP_SIZE
         const size_t num_wires = 5;
 
@@ -353,5 +353,39 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationMaskingTermConsistencyFailure)
 
         EXPECT_TRUE(!consistency_checked);
     }
+}
+
+// Test that verification aborts when the evaluation challenge is in the small subgroup.
+// This is an edge case that should never happen in practice (probability ~1/|H|), but
+// if it does, the protocol must reject to prevent soundness issues.
+TYPED_TEST(SmallSubgroupIPATest, EvaluationChallengeInSubgroupThrows)
+{
+    using FF = typename TypeParam::FF;
+    using Curve = typename TypeParam::Curve;
+    using Verifier = SmallSubgroupIPAVerifier<Curve>;
+
+    static constexpr size_t SUBGROUP_SIZE = TypeParam::SUBGROUP_SIZE;
+
+    // Create an evaluation challenge that is IN the small subgroup
+    // Using g^k for some k gives us an element where Z_H(g^k) = (g^k)^|H| - 1 = g^{k*|H|} - 1 = 1 - 1 = 0
+    // pick a random exponent k in the size of the subgroup
+    const FF subgroup_element = Curve::subgroup_generator.pow(10); // g^10 is in the subgroup
+
+    // Verify that Z_H(subgroup_element) = 0
+    const FF vanishing_poly_eval = subgroup_element.pow(SUBGROUP_SIZE) - FF(1);
+    EXPECT_EQ(vanishing_poly_eval, FF(0));
+
+    // Create dummy evaluations - the actual values don't matter since we expect an abort
+    std::array<FF, NUM_SMALL_IPA_EVALUATIONS> dummy_evaluations = {
+        FF::random_element(), FF::random_element(), FF::random_element(), FF::random_element()
+    };
+
+    std::vector<FF> multivariate_challenge = this->generate_random_vector(CONST_PROOF_SIZE_LOG_N);
+    FF dummy_inner_product = FF::random_element();
+
+    // The check should throw/abort because the evaluation challenge is in the subgroup
+    EXPECT_THROW(Verifier::check_libra_evaluations_consistency(
+                     dummy_evaluations, subgroup_element, multivariate_challenge, dummy_inner_product),
+                 std::runtime_error);
 }
 } // namespace bb

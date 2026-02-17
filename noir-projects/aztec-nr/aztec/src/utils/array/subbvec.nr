@@ -77,7 +77,7 @@ mod test {
     unconstrained fn subbvec_dst_len_causes_enlarge() {
         let bvec = BoundedVec::<_, 10>::from_array([1, 2, 3, 4, 5]);
 
-        // subbvec does not supprt capacity increases
+        // subbvec does not support capacity increases
         let _: BoundedVec<_, 11> = subbvec(bvec, 0);
     }
 

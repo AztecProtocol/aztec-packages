@@ -15,7 +15,7 @@ import { ThreeOperandInstruction } from './instruction_impl.js';
 export abstract class ThreeOperandArithmeticInstruction extends ThreeOperandInstruction {
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -88,7 +88,9 @@ export class FieldDiv extends ThreeOperandArithmeticInstruction {
   static readonly opcode = Opcode.FDIV_8; // FIXME: needed for gas.
 
   protected compute(a: Field, b: Field): Field {
-    // return (a as Field).fdiv(b as Field);
+    if (b.toBigInt() === 0n) {
+      throw new ArithmeticError('Division by zero');
+    }
     return a.fdiv(b);
   }
 
@@ -105,6 +107,11 @@ export class Shl extends ThreeOperandArithmeticInstruction {
   protected override compute(a: IntegralValue, b: IntegralValue): IntegralValue {
     return a.shl(b);
   }
+
+  protected override checkTags(memory: TaggedMemoryInterface, aOffset: number, bOffset: number) {
+    memory.checkTagsAreSame(aOffset, bOffset);
+    TaggedMemory.checkIsIntegralTag(memory.getTag(aOffset)); // Follows that bOffset tag is also of integral type
+  }
 }
 
 export class Shr extends ThreeOperandArithmeticInstruction {
@@ -113,5 +120,10 @@ export class Shr extends ThreeOperandArithmeticInstruction {
 
   protected override compute(a: IntegralValue, b: IntegralValue): IntegralValue {
     return a.shr(b);
+  }
+
+  protected override checkTags(memory: TaggedMemoryInterface, aOffset: number, bOffset: number) {
+    memory.checkTagsAreSame(aOffset, bOffset);
+    TaggedMemory.checkIsIntegralTag(memory.getTag(aOffset)); // Follows that bOffset tag is also of integral type
   }
 }

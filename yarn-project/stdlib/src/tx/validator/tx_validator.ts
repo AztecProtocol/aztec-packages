@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import type { ZodFor } from '../../schemas/schemas.js';
+import { zodFor } from '../../schemas/schemas.js';
 import type { ProcessedTx } from '../processed_tx.js';
 import type { Tx } from '../tx.js';
 import type { TxHash } from '../tx_hash.js';
@@ -20,12 +20,14 @@ export type TxValidationResult =
   | { result: 'invalid'; reason: string[] }
   | { result: 'skipped'; reason: string[] };
 
-export interface TxValidator<T extends AnyTx = AnyTx> {
+export interface TxValidator<T = AnyTx> {
   validateTx(tx: T): Promise<TxValidationResult>;
 }
 
-export const TxValidationResultSchema = z.discriminatedUnion('result', [
-  z.object({ result: z.literal('valid'), reason: z.array(z.string()).optional() }),
-  z.object({ result: z.literal('invalid'), reason: z.array(z.string()) }),
-  z.object({ result: z.literal('skipped'), reason: z.array(z.string()) }),
-]) satisfies ZodFor<TxValidationResult>;
+export const TxValidationResultSchema = zodFor<TxValidationResult>()(
+  z.discriminatedUnion('result', [
+    z.object({ result: z.literal('valid') }),
+    z.object({ result: z.literal('invalid'), reason: z.array(z.string()) }),
+    z.object({ result: z.literal('skipped'), reason: z.array(z.string()) }),
+  ]),
+);

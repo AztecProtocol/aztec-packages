@@ -1,6 +1,5 @@
 use crate::{
-    hash::merkle_hash,
-    merkle_tree::{calculate_empty_tree_root, MerkleTree},
+    merkle_tree::{compute_empty_tree_root, merkle_hash, MerkleTree},
     utils::arrays::subarray,
 };
 
@@ -166,7 +165,7 @@ fn empty_subtree_height_2() {
     assert_eq(path[0], 0);
     assert_eq(path[1], merkle_hash(0, 0));
 
-    assert_eq(tree.get_root(), calculate_empty_tree_root(2));
+    assert_eq(tree.get_root(), compute_empty_tree_root::<2>());
 }
 
 #[test]
@@ -179,7 +178,7 @@ fn empty_subtree_height_3() {
     assert_eq(path[1], zero_hashes[0]);
     assert_eq(path[2], zero_hashes[1]);
 
-    assert_eq(tree.get_root(), calculate_empty_tree_root(3));
+    assert_eq(tree.get_root(), zero_hashes[2]);
 }
 
 #[test]
@@ -242,7 +241,7 @@ fn non_empty_subtree_insert_middle() {
 fn update_leaves_to_empty() {
     let mut tree = SingleSubtreeMerkleTree::<2, 1, 3>::new([11, 22]);
 
-    let empty_tree_root = calculate_empty_tree_root(3);
+    let empty_tree_root = compute_empty_tree_root::<3>();
 
     assert(tree.get_root() != empty_tree_root);
     tree.update_leaf(0, 0);

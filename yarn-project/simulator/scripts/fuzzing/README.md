@@ -16,7 +16,7 @@ How fuzz loop looks like:
 ## Setup
 Compile `avm_simulator_bin`
 ```bash
-tsc scripts/fuzzing/avm_simulator_bin.ts --outDir dest/scripts/fuzzing --module commonjs --target es2022 --esModuleInterop --allowSyntheticDefaultImports --resolveJsonModule --skipLibCheck
+tsgo scripts/fuzzing/avm_simulator_bin.ts --outDir dest/scripts/fuzzing --module commonjs --target es2022 --esModuleInterop --allowSyntheticDefaultImports --resolveJsonModule --skipLibCheck
 mv dest/scripts/fuzzing/avm_simulator_bin.js dest/scripts/fuzzing/avm_simulator_bin.cjs
 ```
 

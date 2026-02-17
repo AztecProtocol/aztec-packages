@@ -23,12 +23,12 @@ interface IInbox {
 
   /**
    * @notice Emitted when a message is sent
-   * @param l2BlockNumber - The L2 block number in which the message is included
+   * @param checkpointNumber - The checkpoint number in which the message is included
    * @param index - The index of the message in the L1 to L2 messages tree
    * @param hash - The hash of the message
    * @param rollingHash - The rolling hash of all messages inserted into the inbox
    */
-  event MessageSent(uint256 indexed l2BlockNumber, uint256 index, bytes32 indexed hash, bytes16 rollingHash);
+  event MessageSent(uint256 indexed checkpointNumber, uint256 index, bytes32 indexed hash, bytes16 rollingHash);
 
   event InboxSynchronized(uint256 indexed inProgress);
 
@@ -51,21 +51,21 @@ interface IInbox {
   /**
    * @notice Consumes the current tree, and starts a new one if needed
    * @dev Only callable by the rollup contract
-   * @dev In the first iteration we return empty tree root because first block's messages tree is always
-   * empty because there has to be a 1 block lag to prevent sequencer DOS attacks
+   * @dev In the first iteration we return empty tree root because first checkpoint's messages tree is always
+   * empty because there has to be a 1 checkpoint lag to prevent sequencer DOS attacks
    *
-   * @param _toConsume - The block number to consume
+   * @param _toConsume - The checkpoint number to consume
    *
    * @return The root of the consumed tree
    */
   function consume(uint256 _toConsume) external returns (bytes32);
   // docs:end:consume
 
-  function catchUp(uint256 _pendingBlockNumber) external;
+  function catchUp(uint256 _pendingCheckpointNumber) external;
 
   function getFeeAssetPortal() external view returns (address);
 
-  function getRoot(uint256 _blockNumber) external view returns (bytes32);
+  function getRoot(uint256 _checkpointNumber) external view returns (bytes32);
 
   function getState() external view returns (InboxState memory);
 

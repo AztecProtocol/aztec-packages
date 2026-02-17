@@ -1,11 +1,12 @@
 #pragma once
-#include "barretenberg/env/logstr.hpp"
-#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
+
 #include <algorithm>
 #include <functional>
 #include <sstream>
 #include <string>
 #include <vector>
+
+#include "barretenberg/env/logstr.hpp"
 
 #define BENCHMARK_INFO_PREFIX "##BENCHMARK_INFO_PREFIX##"
 #define BENCHMARK_INFO_SEPARATOR "#"
@@ -32,7 +33,7 @@ template <typename T> void benchmark_format_chain(std::ostream& os, T const& fir
     std::stringstream current_argument;
     current_argument << first;
     std::string current_argument_string = current_argument.str();
-    std::replace(current_argument_string.begin(), current_argument_string.end(), ',', ';');
+    std::ranges::replace(current_argument_string, ',', ';');
     os << current_argument_string << BENCHMARK_INFO_SUFFIX;
 }
 
@@ -43,7 +44,7 @@ void benchmark_format_chain(std::ostream& os, T const& first, Args const&... arg
     std::stringstream current_argument;
     current_argument << first;
     std::string current_argument_string = current_argument.str();
-    std::replace(current_argument_string.begin(), current_argument_string.end(), ',', ';');
+    std::ranges::replace(current_argument_string, ',', ';');
     os << current_argument_string << BENCHMARK_INFO_SEPARATOR;
     benchmark_format_chain(os, args...);
 }
@@ -56,46 +57,56 @@ template <typename... Args> std::string benchmark_format(Args... args)
     return os.str();
 }
 
-extern bool debug_logging;
-// In release mode (e.g., NDEBUG is defined), we don't compile debug logs.
+// Log levels from TS foundation/src/log/log-levels.ts:
+// ['silent', 'fatal', 'error', 'warn', 'info', 'verbose', 'debug', 'trace']
+// Map: 0=silent, 1=fatal, 2=error, 3=warn, 4=info, 5=verbose, 6=debug, 7=trace
+enum class LogLevel : int {
+    SILENT = 0, // Works ok as 0 assuming nothing logs as SILENT.
+    FATAL = 1,
+    ERROR = 2,
+    WARN = 3,
+    INFO = 4,
+    VERBOSE = 5,
+    DEBUG = 6,
+    TRACE = 7,
+};
+extern LogLevel bb_log_level;
+
+// This allows the logging sink to be customized. Useful for Typescript use-cases.
+using LogFunction = std::function<void(LogLevel level, const std::string& msg)>;
+extern LogFunction log_function;
+void set_log_function(LogFunction new_log_function);
+
+// This logs (using log_function) if the log level is enabled.
+// NOTE: Evaluation of __VA_ARGS__ is lazy since it's inside the if statement.
+#define log_(level, ...)                                                                                               \
+    do {                                                                                                               \
+        if (level <= bb_log_level) {                                                                                   \
+            log_function(level, format(__VA_ARGS__));                                                                  \
+        }                                                                                                              \
+    } while (0)
+
+#define log_fatal(...) log_(LogLevel::FATAL, __VA_ARGS__)
+#define log_error(...) log_(LogLevel::ERROR, __VA_ARGS__)
+#define log_warn(...) log_(LogLevel::WARN, __VA_ARGS__)
+#define important(...) log_(LogLevel::WARN, "important: ", __VA_ARGS__)
+#define info(...) log_(LogLevel::INFO, __VA_ARGS__)
+#define vinfo(...) log_(LogLevel::VERBOSE, __VA_ARGS__)
+#define log_verbose(...) log_(LogLevel::VERBOSE, __VA_ARGS__)
+
+// The following logging levels are only compiled in debug mode (i.e., NDEBUG is not defined).
 #ifndef NDEBUG
-#define debug(...) debug_([&]() { return format(__VA_ARGS__); })
+#define debug(...) log_(LogLevel::DEBUG, __VA_ARGS__)
+#define log_trace(...) log_(LogLevel::TRACE, __VA_ARGS__)
 #else
 #define debug(...) (void)0
+#define log_trace(...) (void)0
 #endif
-
-// We take a function so that evaluation is lazy.
-inline void debug_(std::function<std::string()> func)
-{
-    if (debug_logging) {
-        logstr(func().c_str());
-    }
-}
-
-template <typename... Args> inline void info(Args... args)
-{
-    logstr(format(args...).c_str());
-}
-
-#define vinfo(...) vinfo_([&]() { return format(__VA_ARGS__); })
-
-extern bool verbose_logging;
-inline void vinfo_(std::function<std::string()> func)
-{
-    if (verbose_logging) {
-        info(func());
-    }
-}
-
-template <typename... Args> inline void important(Args... args)
-{
-    logstr(format("important: ", args...).c_str());
-}
 
 /**
  * @brief Info used to store circuit statistics during CI/CD with concrete structure. Writes straight to log
  *
- * @details Automatically appends the necessary prefix and suffix,  as well as separators.
+ * @details Automatically appends the necessary prefix and suffix, as well as separators.
  *
  * @tparam Args
  * @param args
@@ -129,7 +140,7 @@ class BenchmarkInfoCollator {
  * @brief Info used to store circuit statistics during CI/CD with concrete structure. Stores string in vector for now
  * (used to flush all benchmarks at the end of test).
  *
- * @details Automatically appends the necessary prefix and suffix,  as well as separators.
+ * @details Automatically appends the necessary prefix and suffix, as well as separators.
  *
  * @tparam Args
  * @param args

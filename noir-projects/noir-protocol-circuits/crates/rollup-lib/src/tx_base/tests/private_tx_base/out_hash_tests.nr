@@ -1,5 +1,7 @@
 use super::TestBuilder;
-use types::{constants::MAX_L2_TO_L1_MSGS_PER_TX, merkle_tree::MerkleTree, tests::FixtureBuilder};
+use types::{
+    constants::MAX_L2_TO_L1_MSGS_PER_TX, merkle_tree::compute_sha_tree_root, tests::FixtureBuilder,
+};
 
 #[test]
 unconstrained fn empty_l2_to_l1_msgs() {
@@ -23,7 +25,7 @@ unconstrained fn max_l2_to_l1_msgs() {
     builder.assert_expected_public_inputs(pi);
 
     let siloed_l2_to_l1_msgs = builder.get_siloed_l2_to_l1_msgs();
-    let expected_out_hash = MerkleTree::new_sha(siloed_l2_to_l1_msgs).get_root();
+    let expected_out_hash = compute_sha_tree_root(siloed_l2_to_l1_msgs);
     assert_eq(pi.out_hash, expected_out_hash);
 }
 
@@ -41,9 +43,9 @@ unconstrained fn unbalanced_l2_to_l1_msg_tree() {
 
     let siloed_l2_to_l1_msgs = builder.get_siloed_l2_to_l1_msgs();
     let left_subtree_root =
-        MerkleTree::new_sha([siloed_l2_to_l1_msgs[0], siloed_l2_to_l1_msgs[1]]).get_root();
+        compute_sha_tree_root([siloed_l2_to_l1_msgs[0], siloed_l2_to_l1_msgs[1]]);
     let right_subtree_root = siloed_l2_to_l1_msgs[2];
-    let expected_out_hash = MerkleTree::new_sha([left_subtree_root, right_subtree_root]).get_root();
+    let expected_out_hash = compute_sha_tree_root([left_subtree_root, right_subtree_root]);
     assert_eq(pi.out_hash, expected_out_hash);
 
     // This test is added to make sure the `UnbalancedMerkleTree` is used to compute the out hash.

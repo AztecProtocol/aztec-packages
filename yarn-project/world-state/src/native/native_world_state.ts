@@ -1,11 +1,12 @@
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { fromEntries, padArrayEnd } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { tryRmDir } from '@aztec/foundation/fs';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import type { L2Block } from '@aztec/stdlib/block';
-import { DatabaseVersionManager } from '@aztec/stdlib/database-version';
+import { DatabaseVersionManager } from '@aztec/stdlib/database-version/manager';
 import type {
   IndexedTreeId,
   MerkleTreeReadOperations,
@@ -51,7 +52,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   protected constructor(
     protected instance: NativeWorldState,
     protected readonly worldStateInstrumentation: WorldStateInstrumentation,
-    protected readonly log: Logger = createLogger('world-state:database'),
+    protected readonly log: Logger,
     private readonly cleanup = () => Promise.resolve(),
   ) {}
 
@@ -61,9 +62,10 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     wsTreeMapSizes: WorldStateTreeMapSizes,
     prefilledPublicData: PublicDataTreeLeaf[] = [],
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
-    log = createLogger('world-state:database'),
+    bindings?: LoggerBindings,
     cleanup = () => Promise.resolve(),
   ): Promise<NativeWorldStateService> {
+    const log = createLogger('world-state:database', bindings);
     const worldStateDirectory = join(dataDir, WORLD_STATE_DIR);
     // Create a version manager to handle versioning
     const versionManager = new DatabaseVersionManager({
@@ -71,7 +73,9 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       rollupAddress,
       dataDirectory: worldStateDirectory,
       onOpen: (dir: string) => {
-        return Promise.resolve(new NativeWorldState(dir, wsTreeMapSizes, prefilledPublicData, instrumentation));
+        return Promise.resolve(
+          new NativeWorldState(dir, wsTreeMapSizes, prefilledPublicData, instrumentation, bindings),
+        );
       },
     });
 
@@ -92,8 +96,9 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     cleanupTmpDir = true,
     prefilledPublicData: PublicDataTreeLeaf[] = [],
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
+    bindings?: LoggerBindings,
   ): Promise<NativeWorldStateService> {
-    const log = createLogger('world-state:database');
+    const log = createLogger('world-state:database', bindings);
     const dataDir = await mkdtemp(join(tmpdir(), 'aztec-world-state-'));
     const dbMapSizeKb = 10 * 1024 * 1024;
     const worldStateTreeMapSizes: WorldStateTreeMapSizes = {
@@ -115,7 +120,15 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       }
     };
 
-    return this.new(rollupAddress, dataDir, worldStateTreeMapSizes, prefilledPublicData, instrumentation, log, cleanup);
+    return this.new(
+      rollupAddress,
+      dataDir,
+      worldStateTreeMapSizes,
+      prefilledPublicData,
+      instrumentation,
+      bindings,
+      cleanup,
+    );
   }
 
   protected async init() {
@@ -134,7 +147,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
 
     // the initial header _must_ be the first element in the archive tree
     // if this assertion fails, check that the hashing done in Header in yarn-project matches the initial header hash done in world_state.cpp
-    const indices = await committed.findLeafIndices(MerkleTreeId.ARCHIVE, [await this.initialHeader.hash()]);
+    const indices = await committed.findLeafIndices(MerkleTreeId.ARCHIVE, [(await this.initialHeader.hash()).toFr()]);
     const initialHeaderIndex = indices[0];
     assert.strictEqual(initialHeaderIndex, 0n, 'Invalid initial archive state');
   }
@@ -150,7 +163,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return new MerkleTreesFacade(this.instance, this.initialHeader!, WorldStateRevision.empty());
   }
 
-  public getSnapshot(blockNumber: number): MerkleTreeReadOperations {
+  public getSnapshot(blockNumber: BlockNumber): MerkleTreeReadOperations {
     return new MerkleTreesFacade(
       this.instance,
       this.initialHeader!,
@@ -158,16 +171,24 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     );
   }
 
-  public async fork(blockNumber?: number): Promise<MerkleTreeWriteOperations> {
+  public async fork(
+    blockNumber?: BlockNumber,
+    opts: { closeDelayMs?: number } = {},
+  ): Promise<MerkleTreeWriteOperations> {
     const resp = await this.instance.call(WorldStateMessageType.CREATE_FORK, {
       latest: blockNumber === undefined,
-      blockNumber: blockNumber ?? 0,
+      blockNumber: blockNumber ?? BlockNumber.ZERO,
       canonical: true,
     });
     return new MerkleTreesForkFacade(
       this.instance,
       this.initialHeader!,
-      new WorldStateRevision(/*forkId=*/ resp.forkId, /* blockNumber=*/ 0, /* includeUncommitted=*/ true),
+      new WorldStateRevision(
+        /*forkId=*/ resp.forkId,
+        /* blockNumber=*/ BlockNumber.ZERO,
+        /* includeUncommitted=*/ true,
+      ),
+      opts,
     );
   }
 
@@ -175,20 +196,23 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return this.initialHeader!;
   }
 
-  public async handleL2BlockAndMessages(
-    l2Block: L2Block,
-    l1ToL2Messages: Fr[],
-    // TODO(#17027)
-    // Temporary hack to only insert l1 to l2 messages for the first block in a checkpoint.
-    isFirstBlock = true,
-  ): Promise<WorldStateStatusFull> {
-    // We have to pad both the values within tx effects because that's how the trees are built by circuits.
-    const paddedNoteHashes = l2Block.body.txEffects.flatMap(txEffect =>
-      padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
-    );
+  public async handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
+    const isFirstBlock = l2Block.indexWithinCheckpoint === 0;
+    if (!isFirstBlock && l1ToL2Messages.length > 0) {
+      throw new Error(
+        `L1 to L2 messages must be empty for non-first blocks, but got ${l1ToL2Messages.length} messages for block ${l2Block.number}.`,
+      );
+    }
+
+    // We have to pad the given l1 to l2 messages, and the note hashes and nullifiers within tx effects, because that's
+    // how the trees are built by circuits.
     const paddedL1ToL2Messages = isFirstBlock
       ? padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP)
       : [];
+
+    const paddedNoteHashes = l2Block.body.txEffects.flatMap(txEffect =>
+      padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
+    );
 
     const paddedNullifiers = l2Block.body.txEffects
       .flatMap(txEffect => padArrayEnd(txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX))
@@ -208,7 +232,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         WorldStateMessageType.SYNC_BLOCK,
         {
           blockNumber: l2Block.number,
-          blockHeaderHash: await l2Block.getBlockHeader().hash(),
+          blockHeaderHash: await l2Block.hash(),
           paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
           paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
           paddedNullifiers: paddedNullifiers.map(serializeLeaf),
@@ -256,7 +280,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @param toBlockNumber The block number that is now the tip of the finalized chain
    * @returns The new WorldStateStatus
    */
-  public async setFinalized(toBlockNumber: bigint) {
+  public async setFinalized(toBlockNumber: BlockNumber) {
     try {
       await this.instance.call(
         WorldStateMessageType.FINALIZE_BLOCKS,
@@ -279,7 +303,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @param toBlockNumber The block number of the new oldest historical block
    * @returns The new WorldStateStatus
    */
-  public async removeHistoricalBlocks(toBlockNumber: bigint) {
+  public async removeHistoricalBlocks(toBlockNumber: BlockNumber) {
     try {
       return await this.instance.call(
         WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS,
@@ -301,7 +325,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @param toBlockNumber The block number of the new tip of the pending chain,
    * @returns The new WorldStateStatus
    */
-  public async unwindBlocks(toBlockNumber: bigint) {
+  public async unwindBlocks(toBlockNumber: BlockNumber) {
     try {
       return await this.instance.call(
         WorldStateMessageType.UNWIND_BLOCKS,

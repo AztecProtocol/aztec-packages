@@ -15,6 +15,9 @@ export async function startAnvil(
     log?: boolean;
     captureMethodCalls?: boolean;
     accounts?: number;
+    chainId?: number;
+    /** The hardfork to use - note: @viem/anvil types are out of date but 'cancun' and 'latest' work */
+    hardfork?: string;
   } = {},
 ): Promise<{ anvil: Anvil; methodCalls?: string[]; rpcUrl: string; stop: () => Promise<void> }> {
   const anvilBinary = resolve(dirname(fileURLToPath(import.meta.url)), '../../', 'scripts/anvil_kill_wrapper.sh');
@@ -30,11 +33,12 @@ export async function startAnvil(
       const anvil = createAnvil({
         anvilBinary,
         host: '127.0.0.1',
-        port: opts.port ?? 8545,
+        port: opts.port ?? (process.env.ANVIL_PORT ? parseInt(process.env.ANVIL_PORT) : 8545),
         blockTime: opts.l1BlockTime,
         stopTimeout: 1000,
         accounts: opts.accounts ?? 20,
         gasLimit: 45_000_000n,
+        chainId: opts.chainId ?? 31337,
       });
 
       // Listen to the anvil output to get the port.

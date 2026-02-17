@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeArrayOfBufferableToVector } from '@aztec/foundation/serialize';
 
 import { schemas } from '../schemas/index.js';

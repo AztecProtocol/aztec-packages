@@ -1,16 +1,22 @@
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
-import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
+import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { EpochCache } from '@aztec/epoch-cache';
-import { L1TxUtils, PublisherManager, RollupContract, createEthereumChain } from '@aztec/ethereum';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import { RollupContract } from '@aztec/ethereum/contracts';
+import { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
+import { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import { pick } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { type KeyStoreConfig, KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync } from '@aztec/node-lib/actions';
-import { createL1TxUtilsFromEthSignerWithStore } from '@aztec/node-lib/factories';
-import { NodeRpcTxSource, createP2PClient } from '@aztec/p2p';
+import {
+  createForwarderL1TxUtilsFromEthSigner,
+  createL1TxUtilsFromEthSignerWithStore,
+} from '@aztec/node-lib/factories';
+import { NodeRpcTxSource, type P2PClientDeps, createP2PClient } from '@aztec/p2p';
 import { type ProverClientConfig, createProverClient } from '@aztec/prover-client';
 import { createAndStartProvingBroker } from '@aztec/prover-client/broker';
 import type { AztecNode, ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
@@ -33,10 +39,10 @@ export type ProverNodeDeps = {
   aztecNodeTxProvider?: Pick<AztecNode, 'getTxsByHash'>;
   archiver?: Archiver;
   publisherFactory?: ProverPublisherFactory;
-  blobSinkClient?: BlobSinkClientInterface;
   broker?: ProvingJobBroker;
   l1TxUtils?: L1TxUtils;
   dateProvider?: DateProvider;
+  p2pClientDeps?: P2PClientDeps<P2PClientType.Prover>;
 };
 
 /** Creates a new prover node given a config. */
@@ -50,8 +56,7 @@ export async function createProverNode(
   const config = { ...userConfig };
   const telemetry = deps.telemetry ?? getTelemetryClient();
   const dateProvider = deps.dateProvider ?? new DateProvider();
-  const blobSinkClient =
-    deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('prover-node:blob-sink:client') });
+  const blobClient = await createBlobClientWithFileStores(config, createLogger('prover-node:blob-client:client'));
   const log = deps.log ?? createLogger('prover-node');
 
   // Build a key store from file if given or from environment otherwise
@@ -102,12 +107,11 @@ export async function createProverNode(
 
   const archiver =
     deps.archiver ??
-    (await createArchiver(config, { blobSinkClient, epochCache, telemetry, dateProvider }, { blockUntilSync: true }));
+    (await createArchiver(config, { blobClient, epochCache, telemetry, dateProvider }, { blockUntilSync: true }));
   log.verbose(`Created archiver and synced to block ${await archiver.getBlockNumber()}`);
 
-  const worldStateConfig = { ...config, worldStateProvenBlocksOnly: false };
   const worldStateSynchronizer = await createWorldStateSynchronizer(
-    worldStateConfig,
+    config,
     archiver,
     options.prefilledPublicData,
     telemetry,
@@ -123,7 +127,7 @@ export async function createProverNode(
 
   const publicClient = createPublicClient({
     chain: chain.chainInfo,
-    transport: fallback(config.l1RpcUrls.map((url: string) => http(url))),
+    transport: fallback(config.l1RpcUrls.map((url: string) => http(url, { batch: false }))),
     pollingInterval: config.viemPollingIntervalMS,
   });
 
@@ -131,24 +135,34 @@ export async function createProverNode(
 
   const l1TxUtils = deps.l1TxUtils
     ? [deps.l1TxUtils]
-    : await createL1TxUtilsFromEthSignerWithStore(
-        publicClient,
-        proverSigners.signers,
-        { ...config, scope: 'prover' },
-        { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
-      );
+    : config.publisherForwarderAddress
+      ? await createForwarderL1TxUtilsFromEthSigner(
+          publicClient,
+          proverSigners.signers,
+          config.publisherForwarderAddress,
+          { ...config, scope: 'prover' },
+          { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
+        )
+      : await createL1TxUtilsFromEthSignerWithStore(
+          publicClient,
+          proverSigners.signers,
+          { ...config, scope: 'prover' },
+          { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
+        );
 
   const publisherFactory =
     deps.publisherFactory ??
     new ProverPublisherFactory(config, {
       rollupContract,
-      publisherManager: new PublisherManager(l1TxUtils, config),
+      publisherManager: new PublisherManager(l1TxUtils, config, log.getBindings()),
       telemetry,
     });
 
   const proofVerifier = new QueuedIVCVerifier(
     config,
-    config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier(),
+    config.realProofs || config.debugForceTxProofVerification
+      ? await BBCircuitVerifier.new(config)
+      : new TestCircuitVerifier(config.proverTestVerificationDelayMs),
   );
 
   const p2pClient = await createP2PClient(
@@ -162,9 +176,11 @@ export async function createProverNode(
     dateProvider,
     telemetry,
     {
-      txCollectionNodeSources: deps.aztecNodeTxProvider
-        ? [new NodeRpcTxSource(deps.aztecNodeTxProvider, 'TestNode')]
-        : [],
+      ...deps.p2pClientDeps,
+      txCollectionNodeSources: [
+        ...(deps.p2pClientDeps?.txCollectionNodeSources ?? []),
+        ...(deps.aztecNodeTxProvider ? [new NodeRpcTxSource(deps.aztecNodeTxProvider, 'TestNode')] : []),
+      ],
     },
   );
 

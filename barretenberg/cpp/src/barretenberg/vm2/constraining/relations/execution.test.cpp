@@ -46,7 +46,7 @@ TEST(ExecutionConstrainingTest, Continuity)
         {{ C::precomputed_first_row, 1 }},
         {{ C::execution_sel, 1 }},
         {{ C::execution_sel, 1 }},
-        {{ C::execution_sel, 1 }, {C::execution_last, 1}},
+        {{ C::execution_sel, 1 }},
     });
     // clang-format on
 
@@ -60,7 +60,7 @@ TEST(ExecutionConstrainingTest, ContinuityBrokenFirstRow)
         {{ C::execution_sel, 0 }},  // End of trace!
         {{ C::execution_sel, 1 }},
         {{ C::execution_sel, 1 }},
-        {{ C::execution_sel, 1 }, {C::execution_last, 1}},
+        {{ C::execution_sel, 1 }},
     });
     // clang-format on
 
@@ -74,29 +74,11 @@ TEST(ExecutionConstrainingTest, ContinuityBrokenInMiddle)
         {{ C::execution_sel, 1 }},
         {{ C::execution_sel, 0 }},  // End of trace!
         {{ C::execution_sel, 1 }},
-        {{ C::execution_sel, 1 }, {C::execution_last, 1}},
+        {{ C::execution_sel, 1 }},
     });
     // clang-format on
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY), "TRACE_CONTINUITY");
-}
-
-TEST(ExecutionConstrainingTest, ContinuityMultipleLast)
-{
-    // clang-format off
-    TestTraceContainer trace({
-        {{ C::execution_sel, 1 }},
-        {{ C::execution_sel, 1 }},
-        {{ C::execution_sel, 1 }},
-        {{ C::execution_sel, 1 }, {C::execution_last, 1}},
-    });
-    // clang-format on
-
-    // Last is correct.
-    check_relation<execution>(trace, execution::SR_LAST_IS_LAST);
-    // If we add another last, it should fail.
-    trace.set(C::execution_last, /*row=*/1, /*value=*/1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_LAST_IS_LAST), "LAST_IS_LAST.*row 1");
 }
 
 TEST(ExecutionConstrainingTest, TreeStateNotChanged)
@@ -219,20 +201,20 @@ TEST(ExecutionConstrainingTest, SideEffectStateNotChanged)
         },
         {
             { C::execution_sel, 1 },
-            { C::execution_prev_num_unencrypted_log_fields, 10 },
+            { C::execution_prev_num_public_log_fields, 10 },
             { C::execution_prev_num_l2_to_l1_messages, 11 },
-            { C::execution_num_unencrypted_log_fields, 10 },
+            { C::execution_num_public_log_fields, 10 },
             { C::execution_num_l2_to_l1_messages, 11 },
         },
     });
 
     check_relation<execution>(
-        trace, execution::SR_NUM_UNENCRYPTED_LOGS_NOT_CHANGED, execution::SR_NUM_L2_TO_L1_MESSAGES_NOT_CHANGED);
+        trace, execution::SR_NUM_PUBLIC_LOGS_NOT_CHANGED, execution::SR_NUM_L2_TO_L1_MESSAGES_NOT_CHANGED);
 
-    // Negative test: change num unencrypted logs
-    trace.set(C::execution_num_unencrypted_log_fields, 1, 100);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_NUM_UNENCRYPTED_LOGS_NOT_CHANGED),
-                              "NUM_UNENCRYPTED_LOGS_NOT_CHANGED");
+    // Negative test: change num public logs
+    trace.set(C::execution_num_public_log_fields, 1, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_NUM_PUBLIC_LOGS_NOT_CHANGED),
+                              "NUM_PUBLIC_LOGS_NOT_CHANGED");
 
     // Negative test: change num l2 to l1 messages
     trace.set(C::execution_num_l2_to_l1_messages, 1, 100);

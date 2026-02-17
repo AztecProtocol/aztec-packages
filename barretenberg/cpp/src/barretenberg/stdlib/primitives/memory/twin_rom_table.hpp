@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Raju], commit: 05a381f8b31ae4648e480f1369e911b148216e8b}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -23,12 +23,12 @@ template <typename Builder> class twin_rom_table {
     twin_rom_table() {};
     twin_rom_table(const std::vector<field_pair_pt>& table_entries);
     twin_rom_table(const twin_rom_table& other);
-    twin_rom_table(twin_rom_table&& other);
+    twin_rom_table(twin_rom_table&& other) noexcept;
 
     void initialize_table() const;
 
     twin_rom_table& operator=(const twin_rom_table& other);
-    twin_rom_table& operator=(twin_rom_table&& other);
+    twin_rom_table& operator=(twin_rom_table&& other) noexcept;
 
     // read from table with a constant index value. Does not add any gates
     field_pair_pt operator[](const size_t index) const;

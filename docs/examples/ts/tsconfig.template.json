@@ -32,7 +32,7 @@
       "path": "../../../../yarn-project/blob-lib"
     },
     {
-      "path": "../../../../yarn-project/blob-sink"
+      "path": "../../../../yarn-project/blob-client"
     },
     {
       "path": "../../../../yarn-project/bot"
@@ -107,7 +107,7 @@
       "path": "../../../../yarn-project/telemetry-client"
     },
     {
-      "path": "../../../../yarn-project/test-wallet"
+      "path": "../../../../yarn-project/wallets"
     },
     {
       "path": "../../../../yarn-project/validator-client"

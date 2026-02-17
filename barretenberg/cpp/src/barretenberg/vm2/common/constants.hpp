@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "barretenberg/numeric/uint128/uint128.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 
 namespace bb::avm2 {
@@ -16,5 +18,8 @@ enum class BitwiseOperation : uint8_t {
     OR = AVM_BITWISE_OR_OP_ID,
     XOR = AVM_BITWISE_XOR_OP_ID,
 };
+
+constexpr uint256_t MASK_128 = (static_cast<uint256_t>(1) << 128) - 1;
+constexpr uint128_t MASK_64 = (static_cast<uint128_t>(1) << 64) - 1;
 
 } // namespace bb::avm2

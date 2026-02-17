@@ -6,7 +6,7 @@ import { pedersenCommit, pedersenHash, pedersenHashBuffer } from './index.js';
 
 describe('pedersen', () => {
   beforeAll(async () => {
-    await BarretenbergSync.initSingleton({ threads: 1, wasmPath: process.env.BB_WASM_PATH });
+    await BarretenbergSync.initSingleton({ threads: 1 });
     setupCustomSnapshotSerializers(expect);
   });
 

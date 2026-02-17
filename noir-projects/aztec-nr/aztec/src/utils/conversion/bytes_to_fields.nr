@@ -11,9 +11,8 @@ use std::static_assert;
 /// bytes. Use `bytes_from_fields` to obtain the original bytes array.
 ///
 /// The input bytes are chunked into chunks of 31 bytes. Each 31-byte chunk is viewed as big-endian, and is converted
-/// into a Field.
-/// For example, [1, 10, 3, ..., 0] (31 bytes) is encoded as [1 * 256^30 + 10 * 256^29 + 3 * 256^28 + ... + 0]
-/// Note: N must be a multiple of 31 bytes
+/// into a Field. For example, [1, 10, 3, ..., 0] (31 bytes) is encoded as [1 * 256^30 + 10 * 256^29 + 3 * 256^28 + ...
+/// + 0] Note: N must be a multiple of 31 bytes
 pub fn bytes_to_fields<let N: u32>(bytes: [u8; N]) -> [Field; N / 31] {
     // Assert that N is a multiple of 31
     static_assert(N % 31 == 0, "N must be a multiple of 31");
@@ -33,13 +32,13 @@ pub fn bytes_to_fields<let N: u32>(bytes: [u8; N]) -> [Field; N / 31] {
     fields
 }
 
-/// Converts an input BoundedVec of fields into a BoundedVec of bytes in big-endian order. Arbitrary Field arrays
-/// are not allowed: this is assumed to be an array obtained via `bytes_to_fields`, i.e. one that actually represents
+/// Converts an input BoundedVec of fields into a BoundedVec of bytes in big-endian order. Arbitrary Field arrays are
+/// not allowed: this is assumed to be an array obtained via `bytes_to_fields`, i.e. one that actually represents
 /// bytes. To convert a Field array into bytes, use `fields_to_bytes`.
 ///
-/// Each input field must contain at most 31 bytes (this is constrained to be so).
-/// Each field is converted into 31 big-endian bytes, and the resulting 31-byte chunks are concatenated
-/// back together in the order of the original fields.
+/// Each input field must contain at most 31 bytes (this is constrained to be so). Each field is converted into 31
+/// big-endian bytes, and the resulting 31-byte chunks are concatenated back together in the order of the original
+/// fields.
 pub fn bytes_from_fields<let N: u32>(fields: BoundedVec<Field, N>) -> BoundedVec<u8, N * 31> {
     let mut bytes = BoundedVec::new();
 
@@ -68,8 +67,8 @@ mod tests {
     unconstrained fn random_bytes_to_fields_and_back(input: [u8; 93]) {
         let fields = bytes_to_fields(input);
 
-        // At this point in production, the log flies through the system and we get a BoundedVec on the other end.
-        // So we need to convert the field array to a BoundedVec to be able to feed it to the `bytes_from_fields`
+        // At this point in production, the log flies through the system and we get a BoundedVec on the other end. So
+        // we need to convert the field array to a BoundedVec to be able to feed it to the `bytes_from_fields`
         // function.
         let fields_as_bounded_vec = BoundedVec::<_, 6>::from_array(fields);
 

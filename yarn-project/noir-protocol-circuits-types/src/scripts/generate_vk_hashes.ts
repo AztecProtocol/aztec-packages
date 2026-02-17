@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { hashVK } from '@aztec/stdlib/hash';

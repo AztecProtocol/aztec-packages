@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Raju], commit: 05a381f8b31ae4648e480f1369e911b148216e8b}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -13,20 +13,21 @@ namespace bb::stdlib {
 
 // A runtime-defined read-only memory table. Table entries must be initialized in the constructor.
 // Works with UltraBuilder and MegaBuilder.
-template <typename Builder> class rom_table {
+template <IsUltraOrMegaBuilder Builder> class rom_table {
   private:
     using field_pt = field_t<Builder>;
 
   public:
     rom_table() {};
     rom_table(const std::vector<field_pt>& table_entries);
+    rom_table(Builder* builder, const std::vector<field_pt>& table_entries);
     rom_table(const rom_table& other);
-    rom_table(rom_table&& other);
+    rom_table(rom_table&& other) noexcept;
 
     void initialize_table() const;
 
     rom_table& operator=(const rom_table& other);
-    rom_table& operator=(rom_table&& other);
+    rom_table& operator=(rom_table&& other) noexcept;
 
     // read from table with a constant index value. Does not add any gates
     field_pt operator[](const size_t index) const;

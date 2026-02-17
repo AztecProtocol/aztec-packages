@@ -9,7 +9,7 @@ import {
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { CONTRACT_INSTANCE_PUBLISHED_EVENT_TAG } from '@aztec/protocol-contracts';
 import { bufferAsFields } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -132,16 +132,15 @@ export async function createTxForPublicCalls(
     : Gas.empty();
   const gasSettings = new GasSettings(gasLimits, teardownGasLimits, maxFeesPerGas, GasFees.empty());
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
-  const header = BlockHeader.empty();
-  header.globalVariables = globals;
+  const header = BlockHeader.empty({ globalVariables: globals });
   const constantData = new TxConstantData(header, txContext, Fr.zero(), Fr.zero());
-  const includeByTimestamp = 0n; // Not used in the simulator.
+  const expirationTimestamp = 0n; // Not used in the simulator.
 
   const txData = new PrivateKernelTailCircuitPublicInputs(
     constantData,
     /*gasUsed=*/ gasUsedByPrivate,
     feePayer,
-    includeByTimestamp,
+    expirationTimestamp,
     forPublic,
   );
 
@@ -172,13 +171,13 @@ export async function createTxForPrivateOnly(
   const gasSettings = new GasSettings(gasLimits, Gas.empty(), maxFeesPerGas, GasFees.empty());
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
   const constantData = new TxConstantData(BlockHeader.empty(), txContext, Fr.zero(), Fr.zero());
-  const includeByTimestamp = 0n; // Not used in the simulator.
+  const expirationTimestamp = 0n; // Not used in the simulator.
 
   const txData = new PrivateKernelTailCircuitPublicInputs(
     constantData,
     /*gasUsed=*/ gasUsedByPrivate,
     feePayer,
-    includeByTimestamp,
+    expirationTimestamp,
     /*forPublic=*/ undefined,
     forRollup,
   );

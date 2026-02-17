@@ -26,3 +26,4 @@ dist-ssr
 artifacts/*
 codegenCache.json
 test-results/
+src/contracts/target

@@ -1,4 +1,5 @@
-import { Fr } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
 
@@ -16,7 +17,7 @@ describe('Environment getters', () => {
   const transactionFee = Fr.random();
   const chainId = Fr.random();
   const version = Fr.random();
-  const blockNumber = randomInt(20000);
+  const blockNumber = BlockNumber(randomInt(20000));
   const timestamp = BigInt(randomInt(100000)); // timestamp as UInt64
   const isStaticCall = true;
   const gasFees = GasFees.random();
@@ -43,11 +44,11 @@ describe('Environment getters', () => {
   it(`Should (de)serialize correctly`, () => {
     const buf = Buffer.from([
       Opcode.GETENVVAR_16, // opcode
-      0x01, // indirect
+      0x01, // addressing_mode
       ...Buffer.from('1234', 'hex'), // dstOffset
       0x05, // var idx
     ]);
-    const instr = new GetEnvVar(/*indirect=*/ 0x01, /*dstOffset=*/ 0x1234, 5).as(
+    const instr = new GetEnvVar(/*addressing_mode=*/ 0x01, /*dstOffset=*/ 0x1234, 5).as(
       Opcode.GETENVVAR_16,
       GetEnvVar.wireFormat16,
     );
@@ -64,12 +65,12 @@ describe('Environment getters', () => {
     [EnvironmentVariable.VERSION, version.toField()],
     [EnvironmentVariable.BLOCKNUMBER, new Fr(blockNumber), TypeTag.UINT32],
     [EnvironmentVariable.TIMESTAMP, new Fr(timestamp), TypeTag.UINT64],
-    [EnvironmentVariable.BASEFEEPERDAGAS, new Fr(gasFees.feePerDaGas), TypeTag.UINT128],
-    [EnvironmentVariable.BASEFEEPERL2GAS, new Fr(gasFees.feePerL2Gas), TypeTag.UINT128],
+    [EnvironmentVariable.MINFEEPERDAGAS, new Fr(gasFees.feePerDaGas), TypeTag.UINT128],
+    [EnvironmentVariable.MINFEEPERL2GAS, new Fr(gasFees.feePerL2Gas), TypeTag.UINT128],
     [EnvironmentVariable.ISSTATICCALL, new Fr(isStaticCall ? 1 : 0), TypeTag.UINT1],
   ])('Environment getter instructions', (envVar: EnvironmentVariable, value: Fr, tag: TypeTag = TypeTag.FIELD) => {
     it(`Should read '${EnvironmentVariable[envVar]}' correctly`, async () => {
-      const instruction = new GetEnvVar(/*indirect=*/ 0, /*dstOffset=*/ 0, envVar);
+      const instruction = new GetEnvVar(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, envVar);
 
       await instruction.execute(context);
 
@@ -81,13 +82,13 @@ describe('Environment getters', () => {
 
   it(`GETENVVAR reverts for bad enum operand`, async () => {
     const invalidEnum = 255;
-    const instruction = new GetEnvVar(/*indirect=*/ 0, /*dstOffset=*/ 0, invalidEnum);
+    const instruction = new GetEnvVar(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, invalidEnum);
     await expect(instruction.execute(context)).rejects.toThrow(`Invalid GETENVVAR var enum ${invalidEnum}`);
   });
 
   describe('Gas left environment variables', () => {
     it('Should read L2GASLEFT correctly', async () => {
-      const instruction = new GetEnvVar(/*indirect=*/ 0, /*dstOffset=*/ 0, EnvironmentVariable.L2GASLEFT);
+      const instruction = new GetEnvVar(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, EnvironmentVariable.L2GASLEFT);
 
       await instruction.execute(context);
 
@@ -97,7 +98,7 @@ describe('Environment getters', () => {
     });
 
     it('Should read DAGASLEFT correctly', async () => {
-      const instruction = new GetEnvVar(/*indirect=*/ 0, /*dstOffset=*/ 0, EnvironmentVariable.DAGASLEFT);
+      const instruction = new GetEnvVar(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, EnvironmentVariable.DAGASLEFT);
 
       await instruction.execute(context);
 

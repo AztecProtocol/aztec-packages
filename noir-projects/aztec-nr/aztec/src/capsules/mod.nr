@@ -1,5 +1,5 @@
 use crate::oracle::capsules;
-use protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}};
+use crate::protocol::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
 /// A dynamically sized array backed by PXE's non-volatile database (called capsules). Values are persisted until
 /// deleted, so they can be e.g. stored during simulation of a transaction and later retrieved during witness
@@ -245,8 +245,8 @@ mod test {
             array.push(5);
             array.push(6);
 
-            // We store all values that we were called with and check that all (value, index) tuples are present. Note that
-            // we do not care about the order in which each tuple was passed to the closure.
+            // We store all values that we were called with and check that all (value, index) tuples are present. Note
+            // that we do not care about the order in which each tuple was passed to the closure.
             let called_with = &mut BoundedVec::<(u32, Field), 3>::new();
             array.for_each(|index, value| { called_with.push((index, value)); });
 

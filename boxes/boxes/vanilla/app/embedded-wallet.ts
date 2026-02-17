@@ -1,13 +1,22 @@
 import { Account, SignerlessAccount } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
+import {
+  getContractInstanceFromInstantiationParams,
+  InteractionWaitOptions,
+} from '@aztec/aztec.js/contracts';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
-import { type UserFeeOptions, type FeeOptions, BaseWallet, AccountManager, DeployAccountOptions, SimulateOptions } from '@aztec/aztec.js/wallet';
+import {
+  AccountManager,
+  DeployAccountOptions,
+  SimulateOptions,
+} from '@aztec/aztec.js/wallet';
+import { type FeeOptions, BaseWallet } from '@aztec/wallet-sdk/base-wallet';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
-import { randomBytes } from '@aztec/foundation/crypto';
+import type { FieldsOf } from '@aztec/foundation/types';
+import { randomBytes } from '@aztec/foundation/crypto/random';
 import { EcdsaRAccountContract } from '@aztec/accounts/ecdsa/lazy';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr/lazy';
 
@@ -18,10 +27,7 @@ import {
   getStubAccountContractArtifact,
   createStubAccount,
 } from '@aztec/accounts/stub/lazy';
-import {
-  ExecutionPayload,
-  mergeExecutionPayloads,
-} from '@aztec/entrypoints/payload';
+import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 import { TxSimulationResult } from '@aztec/stdlib/tx';
 import { GasSettings } from '@aztec/stdlib/gas';
 import {
@@ -45,8 +51,7 @@ export class EmbeddedWallet extends BaseWallet {
   ): Promise<Account> {
     let account: Account | undefined;
     if (address.equals(AztecAddress.ZERO)) {
-      const chainInfo = await this.getChainInfo();
-      account = new SignerlessAccount(chainInfo);
+      account = new SignerlessAccount();
     } else {
       account = this.accounts.get(address?.toString() ?? '');
     }
@@ -59,25 +64,25 @@ export class EmbeddedWallet extends BaseWallet {
   }
 
   /**
-   * Returns default values for the transaction fee options
-   * if they were omitted by the user.
-   * This wallet will use the sponsoredFPC payment method
-   * unless otherwise stated
+   * Completes partial user-provided fee options with wallet defaults.
+   * This wallet will use the sponsoredFPC payment method unless otherwise stated.
    * @param from - The address where the transaction is being sent from
-   * @param userFeeOptions - User-provided fee options, which might be incomplete
-   * @returns - Populated fee options that can be used to create a transaction execution request
+   * @param feePayer - The address paying for fees (if any fee payment method is embedded in the execution payload)
+   * @param gasSettings - User-provided partial gas settings
+   * @returns - Complete fee options that can be used to create a transaction execution request
    */
-  override async getDefaultFeeOptions(
+  override async completeFeeOptions(
     from: AztecAddress,
-    userFeeOptions: UserFeeOptions | undefined
+    feePayer?: AztecAddress,
+    gasSettings?: Partial<FieldsOf<GasSettings>>
   ): Promise<FeeOptions> {
     const maxFeesPerGas =
-      userFeeOptions?.gasSettings?.maxFeesPerGas ??
-      (await this.aztecNode.getCurrentBaseFees()).mul(1 + this.baseFeePadding);
+      gasSettings?.maxFeesPerGas ??
+      (await this.aztecNode.getCurrentMinFees()).mul(1 + this.minFeePadding);
     let walletFeePaymentMethod;
     let accountFeePaymentMethodOptions;
     // The transaction does not include a fee payment method, so we set a default
-    if (!userFeeOptions?.embeddedPaymentMethodFeePayer) {
+    if (!feePayer) {
       const sponsoredFPCContract =
         await EmbeddedWallet.#getSponsoredPFCContract();
       walletFeePaymentMethod = new SponsoredFeePaymentMethod(
@@ -87,19 +92,17 @@ export class EmbeddedWallet extends BaseWallet {
     } else {
       // The transaction includes fee payment method, so we check if we are the fee payer for it
       // (this can only happen if the embedded payment method is FeeJuiceWithClaim)
-      accountFeePaymentMethodOptions = from.equals(
-        userFeeOptions.embeddedPaymentMethodFeePayer
-      )
+      accountFeePaymentMethodOptions = from.equals(feePayer)
         ? AccountFeePaymentMethodOptions.FEE_JUICE_WITH_CLAIM
         : AccountFeePaymentMethodOptions.EXTERNAL;
     }
-    const gasSettings: GasSettings = GasSettings.default({
-      ...userFeeOptions?.gasSettings,
+    const fullGasSettings: GasSettings = GasSettings.default({
+      ...gasSettings,
       maxFeesPerGas,
     });
-    this.log.debug(`Using L2 gas settings`, gasSettings);
+    this.log.debug(`Using L2 gas settings`, fullGasSettings);
     return {
-      gasSettings,
+      gasSettings: fullGasSettings,
       walletFeePaymentMethod,
       accountFeePaymentMethodOptions,
     };
@@ -122,9 +125,7 @@ export class EmbeddedWallet extends BaseWallet {
     const config = getPXEConfig();
     config.l1Contracts = await aztecNode.getL1ContractAddresses();
     config.proverEnabled = PROVER_ENABLED;
-    const pxe = await createPXE(aztecNode, config, {
-      useLogSuffix: true,
-    });
+    const pxe = await createPXE(aztecNode, config, {});
 
     // Register Sponsored FPC Contract with PXE
     await pxe.registerContract(await EmbeddedWallet.#getSponsoredPFCContract());
@@ -218,7 +219,7 @@ export class EmbeddedWallet extends BaseWallet {
     const deployMethod = await accountManager.getDeployMethod();
     const sponsoredPFCContract =
       await EmbeddedWallet.#getSponsoredPFCContract();
-    const deployOpts: DeployAccountOptions = {
+    const deployOpts: DeployAccountOptions<InteractionWaitOptions> = {
       from: AztecAddress.ZERO,
       fee: {
         paymentMethod: new SponsoredFeePaymentMethod(
@@ -227,9 +228,10 @@ export class EmbeddedWallet extends BaseWallet {
       },
       skipClassPublication: true,
       skipInstancePublication: true,
+      wait: { timeout: 120 },
     };
 
-    const receipt = await deployMethod.send(deployOpts).wait({ timeout: 120 });
+    const receipt = await deployMethod.send(deployOpts);
 
     logger.info('Account deployed', receipt);
 
@@ -281,11 +283,24 @@ export class EmbeddedWallet extends BaseWallet {
     return this.connectedAccount;
   }
 
+  /**
+   * Creates a stub account that impersonates the given address, allowing kernelless simulations
+   * to bypass the account's authorization mechanisms via contract overrides.
+   * @param address - The address of the account to impersonate
+   * @returns The stub account, contract instance, and artifact for simulation
+   */
   private async getFakeAccountDataFor(address: AztecAddress) {
-    const chainInfo = await this.getChainInfo();
     const originalAccount = await this.getAccountFromAddress(address);
-    const originalAddress = await originalAccount.getCompleteAddress();
-    const { contractInstance } = await this.pxe.getContractMetadata(
+    // Account contracts can only be overridden if they have an associated address
+    // Overwriting SignerlessAccount is not supported, and does not really make sense
+    // since it has no authorization mechanism.
+    if (originalAccount instanceof SignerlessAccount) {
+      throw new Error(
+        `Cannot create fake account data for SignerlessAccount at address: ${address}`
+      );
+    }
+    const originalAddress = (originalAccount as Account).getCompleteAddress();
+    const contractInstance = await this.pxe.getContractInstance(
       originalAddress.address
     );
     if (!contractInstance) {
@@ -293,7 +308,7 @@ export class EmbeddedWallet extends BaseWallet {
         `No contract instance found for address: ${originalAddress.address}`
       );
     }
-    const stubAccount = createStubAccount(originalAddress, chainInfo);
+    const stubAccount = createStubAccount(originalAddress);
     const StubAccountContractArtifact = await getStubAccountContractArtifact();
     const instance = await getContractInstanceFromInstantiationParams(
       StubAccountContractArtifact,
@@ -311,8 +326,16 @@ export class EmbeddedWallet extends BaseWallet {
     opts: SimulateOptions
   ): Promise<TxSimulationResult> {
     const feeOptions = opts.fee?.estimateGas
-      ? await this.getFeeOptionsForGasEstimation(opts.from, opts.fee)
-      : await this.getDefaultFeeOptions(opts.from, opts.fee);
+      ? await this.completeFeeOptionsForEstimation(
+          opts.from,
+          executionPayload.feePayer,
+          opts.fee?.gasSettings
+        )
+      : await this.completeFeeOptions(
+          opts.from,
+          executionPayload.feePayer,
+          opts.fee?.gasSettings
+        );
     const feeExecutionPayload =
       await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
     const executionOptions: DefaultAccountEntrypointOptions = {
@@ -328,22 +351,22 @@ export class EmbeddedWallet extends BaseWallet {
       instance,
       artifact,
     } = await this.getFakeAccountDataFor(opts.from);
+    const chainInfo = await this.getChainInfo();
     const txRequest = await fromAccount.createTxExecutionRequest(
       finalExecutionPayload,
       feeOptions.gasSettings,
+      chainInfo,
       executionOptions
     );
     const contractOverrides = {
       [opts.from.toString()]: { instance, artifact },
     };
-    return this.pxe.simulateTx(
-      txRequest,
-      true /* simulatePublic */,
-      true,
-      true,
-      {
-        contracts: contractOverrides,
-      }
-    );
+    return this.pxe.simulateTx(txRequest, {
+      simulatePublic: true,
+      skipTxValidation: true,
+      skipFeeEnforcement: true,
+      overrides: { contracts: contractOverrides },
+      scopes: this.scopesFor(opts.from)
+    });
   }
 }

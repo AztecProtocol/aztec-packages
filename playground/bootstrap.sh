@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cmd=${1:-}
-
 hash=$(hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootstrap.sh hash))
 
 function build {
@@ -21,7 +19,7 @@ function test {
 }
 
 function test_cmds {
-  for browser in chromium webkit firefox; do
+  for browser in chromium firefox; do
     echo "$hash playground/scripts/run_test.sh $browser"
   done
 }
@@ -40,28 +38,20 @@ function release {
 }
 
 function invalidate_cloudfront {
-  local id=$(cd terraform && terraform init &>/dev/null && terraform output -raw cloudfront_distribution_id)
+  local id=$(aws cloudfront list-distributions \
+    --query "DistributionList.Items[?Aliases.Items && contains(Aliases.Items, 'play.aztec-labs.com')].Id | [0]" \
+    --output text)
   do_or_dryrun aws cloudfront create-invalidation --distribution-id $id --paths "/*"
 }
 
 case "$cmd" in
-  "clean")
-    git clean -fdx
-    ;;
-  "ci")
+  "")
     build
-    test
-    ;;
-  ""|"fast"|"full")
-    build
-    ;;
-  test|test_cmds|release|invalidate_cloudfront)
-    $cmd
     ;;
   "hash")
     echo $hash
     ;;
   *)
-    echo "Unknown command: $cmd"
-    exit 1
+    default_cmd_handler "$@"
+    ;;
 esac

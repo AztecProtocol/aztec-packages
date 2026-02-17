@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { encodeSlashConsensusVotes, getSlashConsensusVotesFromOffenses } from './tally.js';
@@ -13,6 +14,7 @@ describe('TallySlashingHelpers', () => {
     const settings = {
       slashingAmounts: [10n, 20n, 30n] as [bigint, bigint, bigint],
       epochDuration: 32,
+      targetCommitteeSize: 4,
     };
 
     it('creates votes based on offenses and committees', () => {
@@ -41,10 +43,11 @@ describe('TallySlashingHelpers', () => {
       const epochsForCommittees = [5n]; // Committee for epoch 5
       const votes = getSlashConsensusVotesFromOffenses(offenses, committees, epochsForCommittees, settings);
 
-      expect(votes).toHaveLength(3);
+      expect(votes).toHaveLength(4); // Padded to targetCommitteeSize
       expect(votes[0]).toEqual(2); // Only 25n from epoch 5 offense for validator1
       expect(votes[1]).toEqual(0); // Offense is in slot 10, which is epoch 0, not 5
       expect(votes[2]).toEqual(0); // No offenses for validator3
+      expect(votes[3]).toEqual(0); // Padded position
     });
 
     it('caps slash units at maximum per validator', () => {
@@ -61,8 +64,9 @@ describe('TallySlashingHelpers', () => {
       const epochsForCommittees = [5n];
       const votes = getSlashConsensusVotesFromOffenses(offenses, committees, epochsForCommittees, settings);
 
-      expect(votes).toHaveLength(1);
+      expect(votes).toHaveLength(4); // Padded to targetCommitteeSize
       expect(votes[0]).toEqual(3); // Capped at MAX_SLASH_UNITS_PER_VALIDATOR
+      expect(votes.slice(1)).toEqual([0, 0, 0]); // Padded positions
     });
 
     it('handles multiple committees', () => {
@@ -89,11 +93,15 @@ describe('TallySlashingHelpers', () => {
       const epochsForCommittees = [5n, 6n]; // Committees for epochs 5 and 6
       const votes = getSlashConsensusVotesFromOffenses(offenses, committees, epochsForCommittees, settings);
 
-      expect(votes).toHaveLength(4);
+      expect(votes).toHaveLength(8); // 2 committees × 4 targetCommitteeSize
       expect(votes[0]).toEqual(2); // validator1 in committee1
       expect(votes[1]).toEqual(0); // validator2 in committee1
-      expect(votes[2]).toEqual(0); // validator3 in committee2
-      expect(votes[3]).toEqual(3); // validator4 in committee2
+      expect(votes[2]).toEqual(0); // padded position in committee1
+      expect(votes[3]).toEqual(0); // padded position in committee1
+      expect(votes[4]).toEqual(0); // validator3 in committee2
+      expect(votes[5]).toEqual(3); // validator4 in committee2
+      expect(votes[6]).toEqual(0); // padded position in committee2
+      expect(votes[7]).toEqual(0); // padded position in committee2
     });
 
     it('correctly handles validators appearing in multiple committees with different epochs', () => {
@@ -119,11 +127,15 @@ describe('TallySlashingHelpers', () => {
       const epochsForCommittees = [5n, 6n];
       const votes = getSlashConsensusVotesFromOffenses(offenses, committees, epochsForCommittees, settings);
 
-      expect(votes).toHaveLength(4);
+      expect(votes).toHaveLength(8); // 2 committees × 4 targetCommitteeSize
       expect(votes[0]).toEqual(2); // validator1 in committee1, epoch 5 offense (20n)
       expect(votes[1]).toEqual(0); // validator2 in committee1, no offenses
-      expect(votes[2]).toEqual(1); // validator1 in committee2, epoch 6 offense (10n)
-      expect(votes[3]).toEqual(0); // validator3 in committee2, no offenses
+      expect(votes[2]).toEqual(0); // padded position in committee1
+      expect(votes[3]).toEqual(0); // padded position in committee1
+      expect(votes[4]).toEqual(BlockNumber(1)); // validator1 in committee2, epoch 6 offense (10n)
+      expect(votes[5]).toEqual(0); // validator3 in committee2, no offenses
+      expect(votes[6]).toEqual(0); // padded position in committee2
+      expect(votes[7]).toEqual(0); // padded position in committee2
     });
 
     it('returns empty votes for empty committees', () => {
@@ -157,9 +169,11 @@ describe('TallySlashingHelpers', () => {
       const epochsForCommittees = [5n];
       const votes = getSlashConsensusVotesFromOffenses(offenses, committees, epochsForCommittees, settings);
 
-      expect(votes).toHaveLength(2);
+      expect(votes).toHaveLength(4); // Padded to targetCommitteeSize
       expect(votes[0]).toEqual(0); // validator2 has no offenses
       expect(votes[1]).toEqual(0); // validator3 has no offenses
+      expect(votes[2]).toEqual(0); // padded position
+      expect(votes[3]).toEqual(0); // padded position
     });
 
     it('handles offenses without epochOrSlot (slashValidatorsAlways)', () => {
@@ -185,11 +199,15 @@ describe('TallySlashingHelpers', () => {
       const epochsForCommittees = [5n, 6n];
       const votes = getSlashConsensusVotesFromOffenses(offenses, committees, epochsForCommittees, settings);
 
-      expect(votes).toHaveLength(4);
+      expect(votes).toHaveLength(8); // 2 committees × 4 targetCommitteeSize
       expect(votes[0]).toEqual(3); // validator1 in committee1, always-slash (30n)
-      expect(votes[1]).toEqual(1); // validator2 in committee1, epoch 5 offense (10n)
-      expect(votes[2]).toEqual(3); // validator1 in committee2, always-slash (30n)
-      expect(votes[3]).toEqual(0); // validator3 in committee2, no offenses
+      expect(votes[1]).toEqual(BlockNumber(1)); // validator2 in committee1, epoch 5 offense (10n)
+      expect(votes[2]).toEqual(0); // padded position in committee1
+      expect(votes[3]).toEqual(0); // padded position in committee1
+      expect(votes[4]).toEqual(3); // validator1 in committee2, always-slash (30n)
+      expect(votes[5]).toEqual(0); // validator3 in committee2, no offenses
+      expect(votes[6]).toEqual(0); // padded position in committee2
+      expect(votes[7]).toEqual(0); // padded position in committee2
     });
 
     it('correctly converts slot-based offenses to epochs', () => {
@@ -212,10 +230,11 @@ describe('TallySlashingHelpers', () => {
       const epochsForCommittees = [2n]; // Committee for epoch 2
       const votes = getSlashConsensusVotesFromOffenses(offenses, committees, epochsForCommittees, settings);
 
-      expect(votes).toHaveLength(3);
-      expect(votes[0]).toEqual(1); // validator1: 15n offense maps to epoch 2
+      expect(votes).toHaveLength(4); // Padded to targetCommitteeSize
+      expect(votes[0]).toEqual(BlockNumber(1)); // validator1: 15n offense maps to epoch 2
       expect(votes[1]).toEqual(2); // validator2: 20n offense maps to epoch 2
       expect(votes[2]).toEqual(0); // validator3: no offenses
+      expect(votes[3]).toEqual(0); // padded position
     });
 
     it('handles mixed epoch and slot-based offenses resolving to same epoch', () => {
@@ -238,9 +257,11 @@ describe('TallySlashingHelpers', () => {
       const epochsForCommittees = [2n];
       const votes = getSlashConsensusVotesFromOffenses(offenses, committees, epochsForCommittees, settings);
 
-      expect(votes).toHaveLength(2);
+      expect(votes).toHaveLength(4); // Padded to targetCommitteeSize
       expect(votes[0]).toEqual(2); // validator1: 10n + 15n = 25n total for epoch 2
       expect(votes[1]).toEqual(0); // validator2: no offenses
+      expect(votes[2]).toEqual(0); // padded position
+      expect(votes[3]).toEqual(0); // padded position
     });
 
     it('sums multiple offenses for same validator in same epoch', () => {
@@ -269,9 +290,11 @@ describe('TallySlashingHelpers', () => {
       const epochsForCommittees = [3n];
       const votes = getSlashConsensusVotesFromOffenses(offenses, committees, epochsForCommittees, settings);
 
-      expect(votes).toHaveLength(2);
+      expect(votes).toHaveLength(4); // Padded to targetCommitteeSize
       expect(votes[0]).toEqual(2); // validator1: 8n + 7n + 5n = 20n total
       expect(votes[1]).toEqual(0); // validator2: no offenses
+      expect(votes[2]).toEqual(0); // padded position
+      expect(votes[3]).toEqual(0); // padded position
     });
 
     it('handles always-slash validator with additional epoch-specific offenses', () => {
@@ -297,11 +320,15 @@ describe('TallySlashingHelpers', () => {
       const epochsForCommittees = [5n, 6n];
       const votes = getSlashConsensusVotesFromOffenses(offenses, committees, epochsForCommittees, settings);
 
-      expect(votes).toHaveLength(4);
+      expect(votes).toHaveLength(8); // 2 committees × 4 targetCommitteeSize
       expect(votes[0]).toEqual(3); // validator1 committee1: 20n(always) + 15n(epoch5) = 35n
       expect(votes[1]).toEqual(0); // validator2: no offenses
-      expect(votes[2]).toEqual(2); // validator1 committee2: 20n(always) only
-      expect(votes[3]).toEqual(0); // validator3: no offenses
+      expect(votes[2]).toEqual(0); // padded position in committee1
+      expect(votes[3]).toEqual(0); // padded position in committee1
+      expect(votes[4]).toEqual(2); // validator1 committee2: 20n(always) only
+      expect(votes[5]).toEqual(0); // validator3: no offenses
+      expect(votes[6]).toEqual(0); // padded position in committee2
+      expect(votes[7]).toEqual(0); // padded position in committee2
     });
 
     it('handles epoch boundary conditions', () => {
@@ -327,11 +354,15 @@ describe('TallySlashingHelpers', () => {
       const epochsForCommittees = [0n, 1n];
       const votes = getSlashConsensusVotesFromOffenses(offenses, committees, epochsForCommittees, settings);
 
-      expect(votes).toHaveLength(4);
-      expect(votes[0]).toEqual(1); // validator1 epoch0: 15n offense
+      expect(votes).toHaveLength(8); // 2 committees × 4 targetCommitteeSize
+      expect(votes[0]).toEqual(BlockNumber(1)); // validator1 epoch0: 15n offense
       expect(votes[1]).toEqual(0); // validator2 epoch0: no matching offenses
-      expect(votes[2]).toEqual(0); // validator1 epoch1: no matching offenses
-      expect(votes[3]).toEqual(2); // validator2 epoch1: 20n offense
+      expect(votes[2]).toEqual(0); // padded position in committee0
+      expect(votes[3]).toEqual(0); // padded position in committee0
+      expect(votes[4]).toEqual(0); // validator1 epoch1: no matching offenses
+      expect(votes[5]).toEqual(2); // validator2 epoch1: 20n offense
+      expect(votes[6]).toEqual(0); // padded position in committee1
+      expect(votes[7]).toEqual(0); // padded position in committee1
     });
 
     it('handles zero amount offenses', () => {
@@ -354,10 +385,113 @@ describe('TallySlashingHelpers', () => {
       const epochsForCommittees = [5n];
       const votes = getSlashConsensusVotesFromOffenses(offenses, committees, epochsForCommittees, settings);
 
-      expect(votes).toHaveLength(3);
+      expect(votes).toHaveLength(4); // Padded to targetCommitteeSize
       expect(votes[0]).toEqual(0); // validator1: 0n amount = 0 slash units
-      expect(votes[1]).toEqual(1); // validator2: 15n amount = 1 slash unit
+      expect(votes[1]).toEqual(BlockNumber(1)); // validator2: 15n amount = 1 slash unit
       expect(votes[2]).toEqual(0); // validator3: no offenses
+      expect(votes[3]).toEqual(0); // padded position
+    });
+
+    it('pads empty committees to maintain index alignment', () => {
+      const offenses: Offense[] = [
+        {
+          validator: mockValidator4,
+          amount: 25n,
+          offenseType: OffenseType.INACTIVITY,
+          epochOrSlot: 7n,
+        },
+      ];
+
+      const committees = [
+        [mockValidator1, mockValidator2, mockValidator3, mockValidator4], // Full committee
+        [], // EMPTY (not enough validators)
+        [mockValidator1, mockValidator2, mockValidator3, mockValidator4], // Full committee
+      ];
+
+      const epochsForCommittees = [5n, 6n, 7n];
+      const votes = getSlashConsensusVotesFromOffenses(offenses, committees, epochsForCommittees, settings);
+
+      // Should be 12 elements (4 per committee), not 8
+      expect(votes).toHaveLength(12);
+      // Committee 0: all zeros
+      expect(votes.slice(0, 4)).toEqual([0, 0, 0, 0]);
+      // Committee 1: padded zeros for empty committee
+      expect(votes.slice(4, 8)).toEqual([0, 0, 0, 0]);
+      // Committee 2: validator4 has offense (25n = 2 units)
+      expect(votes.slice(8, 12)).toEqual([0, 0, 0, 2]);
+    });
+
+    it('handles first committee being empty', () => {
+      const offenses: Offense[] = [
+        {
+          validator: mockValidator1,
+          amount: 15n,
+          offenseType: OffenseType.INACTIVITY,
+          epochOrSlot: 6n,
+        },
+      ];
+
+      const committees = [
+        [], // EMPTY first committee (not enough validators)
+        [mockValidator1, mockValidator2, mockValidator3, mockValidator4], // Full committee
+      ];
+
+      const epochsForCommittees = [5n, 6n];
+      const votes = getSlashConsensusVotesFromOffenses(offenses, committees, epochsForCommittees, settings);
+
+      expect(votes).toHaveLength(8);
+      expect(votes.slice(0, 4)).toEqual([0, 0, 0, 0]); // Padded empty committee
+      expect(votes.slice(4, 8)).toEqual([1, 0, 0, 0]); // validator1 in second committee (15n = 1 unit)
+    });
+
+    it('handles last committee being empty', () => {
+      const offenses: Offense[] = [
+        {
+          validator: mockValidator2,
+          amount: 20n,
+          offenseType: OffenseType.INACTIVITY,
+          epochOrSlot: 5n,
+        },
+      ];
+
+      const committees = [
+        [mockValidator1, mockValidator2, mockValidator3, mockValidator4], // Full committee
+        [], // EMPTY last committee (not enough validators)
+      ];
+
+      const epochsForCommittees = [5n, 6n];
+      const votes = getSlashConsensusVotesFromOffenses(offenses, committees, epochsForCommittees, settings);
+
+      expect(votes).toHaveLength(8);
+      expect(votes.slice(0, 4)).toEqual([0, 2, 0, 0]); // validator2 in first committee (20n = 2 units)
+      expect(votes.slice(4, 8)).toEqual([0, 0, 0, 0]); // Padded empty committee
+    });
+
+    it('handles multiple consecutive empty committees', () => {
+      const offenses: Offense[] = [
+        {
+          validator: mockValidator1,
+          amount: 30n,
+          offenseType: OffenseType.INACTIVITY,
+          epochOrSlot: 8n,
+        },
+      ];
+
+      const committees = [
+        [mockValidator1, mockValidator2, mockValidator3, mockValidator4], // Full committee
+        [], // EMPTY (not enough validators)
+        [], // EMPTY (not enough validators)
+        [mockValidator1, mockValidator2, mockValidator3, mockValidator4], // Full committee
+      ];
+
+      const epochsForCommittees = [5n, 6n, 7n, 8n];
+      const votes = getSlashConsensusVotesFromOffenses(offenses, committees, epochsForCommittees, settings);
+
+      expect(votes).toHaveLength(16); // 4 committees × 4 targetCommitteeSize
+      expect(votes.slice(0, 4)).toEqual([0, 0, 0, 0]); // Committee 0: no matching offenses
+      expect(votes.slice(4, 8)).toEqual([0, 0, 0, 0]); // Committee 1: empty, padded
+      expect(votes.slice(8, 12)).toEqual([0, 0, 0, 0]); // Committee 2: empty, padded
+      expect(votes.slice(12, 16)).toEqual([3, 0, 0, 0]); // Committee 3: validator1 (30n = 3 units)
     });
   });
 
@@ -366,7 +500,7 @@ describe('TallySlashingHelpers', () => {
       const votes = [1, 2, 0, 3];
       const buffer = encodeSlashConsensusVotes(votes);
 
-      expect(buffer.length).toEqual(1);
+      expect(buffer.length).toEqual(BlockNumber(1));
       expect(buffer[0]).toEqual(1 | (2 << 2) | (0 << 4) | (3 << 6)); // 0xC9
     });
 
@@ -385,7 +519,7 @@ describe('TallySlashingHelpers', () => {
       const votes = [3, 3, 3, 3];
       const buffer = encodeSlashConsensusVotes(votes);
 
-      expect(buffer.length).toEqual(1);
+      expect(buffer.length).toEqual(BlockNumber(1));
       // Corrected encoding: all validators get 3 units
       expect(buffer[0]).toEqual(3 | (3 << 2) | (3 << 4) | (3 << 6)); // 0xFF
     });
@@ -394,7 +528,7 @@ describe('TallySlashingHelpers', () => {
       const votes = [0, 0, 1, 2];
       const buffer = encodeSlashConsensusVotes(votes);
 
-      expect(buffer.length).toEqual(1);
+      expect(buffer.length).toEqual(BlockNumber(1));
       // Corrected encoding: validator[0]=0, validator[1]=0, validator[2]=1, validator[3]=2
       expect(buffer[0]).toEqual(0 | (0 << 2) | (1 << 4) | (2 << 6)); // 0x90
     });

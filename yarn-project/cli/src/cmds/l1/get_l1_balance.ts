@@ -1,4 +1,4 @@
-import { createEthereumChain } from '@aztec/ethereum';
+import { createEthereumChain } from '@aztec/ethereum/chain';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
@@ -18,7 +18,7 @@ export async function getL1Balance(
   const chain = createEthereumChain(l1RpcUrls, chainId);
   const publicClient = createPublicClient({
     chain: chain.chainInfo,
-    transport: fallback(l1RpcUrls.map(url => http(url))),
+    transport: fallback(l1RpcUrls.map(url => http(url, { batch: false }))),
   });
 
   let balance = 0n;

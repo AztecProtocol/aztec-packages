@@ -1,21 +1,24 @@
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+
 import { type L1RollupConstants, getEpochAtSlot, getSlotRangeForEpoch } from '../epoch-helpers/index.js';
 import type { SlasherConfig } from '../interfaces/slasher.js';
 import { type Offense, OffenseType } from './types.js';
 
 /** Returns the voting round number and voting slot within the round for a given L2 slot. */
 export function getRoundForSlot(
-  slot: bigint,
+  slot: SlotNumber,
   constants: { slashingRoundSize: number },
-): { round: bigint; votingSlot: bigint } {
+): { round: bigint; votingSlot: SlotNumber } {
   const roundSize = BigInt(constants.slashingRoundSize);
-  const round = slot / roundSize;
-  const votingSlot = slot % roundSize;
+  const slotBigInt = BigInt(slot);
+  const round = slotBigInt / roundSize;
+  const votingSlot = SlotNumber.fromBigInt(slotBigInt % roundSize);
   return { round, votingSlot };
 }
 
 /** Returns the voting round(s) lower and upper bounds (inclusive) covered by the given epoch */
 export function getRoundsForEpoch(
-  epoch: bigint,
+  epoch: EpochNumber,
   constants: { slashingRoundSize: number; epochDuration: number },
 ): [bigint, bigint] {
   const [start, end] = getSlotRangeForEpoch(epoch, constants);
@@ -28,13 +31,13 @@ export function getRoundsForEpoch(
 export function getEpochsForRound(
   round: bigint,
   constants: { slashingRoundSize: number; epochDuration: number },
-): bigint[] {
-  const epochs: bigint[] = [];
-  const firstSlot = round * BigInt(constants.slashingRoundSize);
-  const lastSlot = firstSlot + BigInt(constants.slashingRoundSize) - 1n;
+): EpochNumber[] {
+  const epochs: EpochNumber[] = [];
+  const firstSlot = SlotNumber.fromBigInt(round * BigInt(constants.slashingRoundSize));
+  const lastSlot = SlotNumber(firstSlot + constants.slashingRoundSize - 1);
   const startEpoch = getEpochAtSlot(firstSlot, constants);
   const endEpoch = getEpochAtSlot(lastSlot, constants);
-  for (let epoch = startEpoch; epoch <= endEpoch; epoch++) {
+  for (let epoch = startEpoch; epoch <= endEpoch; epoch = EpochNumber(epoch + 1)) {
     epochs.push(epoch);
   }
   return epochs;
@@ -47,6 +50,8 @@ export function getPenaltyForOffense(
     SlasherConfig,
     | 'slashAttestDescendantOfInvalidPenalty'
     | 'slashBroadcastedInvalidBlockPenalty'
+    | 'slashDuplicateProposalPenalty'
+    | 'slashDuplicateAttestationPenalty'
     | 'slashPrunePenalty'
     | 'slashDataWithholdingPenalty'
     | 'slashUnknownPenalty'
@@ -68,6 +73,10 @@ export function getPenaltyForOffense(
       return config.slashAttestDescendantOfInvalidPenalty;
     case OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL:
       return config.slashBroadcastedInvalidBlockPenalty;
+    case OffenseType.DUPLICATE_PROPOSAL:
+      return config.slashDuplicateProposalPenalty;
+    case OffenseType.DUPLICATE_ATTESTATION:
+      return config.slashDuplicateAttestationPenalty;
     case OffenseType.UNKNOWN:
       return config.slashUnknownPenalty;
     default: {
@@ -82,6 +91,8 @@ export function getTimeUnitForOffense(offense: OffenseType): 'epoch' | 'slot' {
   switch (offense) {
     case OffenseType.ATTESTED_DESCENDANT_OF_INVALID:
     case OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL:
+    case OffenseType.DUPLICATE_PROPOSAL:
+    case OffenseType.DUPLICATE_ATTESTATION:
     case OffenseType.PROPOSED_INCORRECT_ATTESTATIONS:
     case OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS:
       return 'slot';
@@ -101,9 +112,11 @@ export function getTimeUnitForOffense(offense: OffenseType): 'epoch' | 'slot' {
 export function getSlotForOffense(
   offense: Pick<Offense, 'epochOrSlot' | 'offenseType'>,
   constants: Pick<L1RollupConstants, 'epochDuration'>,
-): bigint {
+): SlotNumber {
   const { epochOrSlot, offenseType } = offense;
-  return getTimeUnitForOffense(offenseType) === 'epoch' ? epochOrSlot * BigInt(constants.epochDuration) : epochOrSlot;
+  return getTimeUnitForOffense(offenseType) === 'epoch'
+    ? SlotNumber.fromBigInt(epochOrSlot * BigInt(constants.epochDuration))
+    : SlotNumber.fromBigInt(epochOrSlot);
 }
 
 /** Returns the epoch for a given offense. If the offense type or epoch is not defined, returns undefined. */

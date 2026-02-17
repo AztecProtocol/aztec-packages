@@ -16,23 +16,24 @@ class ContextProviderInterface {
   public:
     virtual ~ContextProviderInterface() = default;
 
-    virtual std::unique_ptr<ContextInterface> make_nested_context(AztecAddress address,
-                                                                  AztecAddress msg_sender,
-                                                                  FF transaction_fee,
+    virtual std::unique_ptr<ContextInterface> make_nested_context(const AztecAddress& address,
+                                                                  const AztecAddress& msg_sender,
+                                                                  const FF& transaction_fee,
                                                                   ContextInterface& parent_context,
                                                                   MemoryAddress cd_offset_address,
                                                                   uint32_t cd_size,
                                                                   bool is_static,
-                                                                  Gas gas_limit,
+                                                                  const Gas& gas_limit,
                                                                   TransactionPhase phase) = 0;
 
-    virtual std::unique_ptr<ContextInterface> make_enqueued_context(AztecAddress address,
-                                                                    AztecAddress msg_sender,
-                                                                    FF transaction_fee,
+    virtual std::unique_ptr<ContextInterface> make_enqueued_context(const AztecAddress& address,
+                                                                    const AztecAddress& msg_sender,
+                                                                    const FF& transaction_fee,
                                                                     std::span<const FF> calldata,
+                                                                    const FF& calldata_hash,
                                                                     bool is_static,
-                                                                    Gas gas_limit,
-                                                                    Gas gas_used,
+                                                                    const Gas& gas_limit,
+                                                                    const Gas& gas_used,
                                                                     TransactionPhase phase) = 0;
 
     // This can be removed if we use clk for the context id

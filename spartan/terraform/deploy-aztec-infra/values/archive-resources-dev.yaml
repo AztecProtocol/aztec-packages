@@ -1,12 +1,13 @@
 replicaCount: 1
 
-hostNetwork: true
-
 node:
   resources:
     requests:
-      cpu: "3"
-      memory: "12Gi"
+      cpu: "0.25"
+      memory: "1Gi"
+    limits:
+      cpu: "0.5"
+      memory: "2Gi"
 
 persistence:
   enabled: true

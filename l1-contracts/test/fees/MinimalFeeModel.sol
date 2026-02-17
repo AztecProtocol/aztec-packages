@@ -6,15 +6,15 @@ import {
   FeeLib,
   FeeHeaderLib,
   OracleInput,
-  L1_GAS_PER_BLOCK_PROPOSED,
+  L1_GAS_PER_CHECKPOINT_PROPOSED,
   L1_GAS_PER_EPOCH_VERIFIED,
   EthValue,
   FeeAssetValue,
-  FeeAssetPerEthE9,
+  EthPerFeeAssetE12,
   PriceLib,
   FeeHeader,
   L1FeeData,
-  ManaBaseFeeComponents,
+  ManaMinFeeComponents,
   L1GasOracleValues,
   CompressedFeeHeader,
   CompressedL1FeeData,
@@ -22,7 +22,7 @@ import {
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {
-  ManaBaseFeeComponentsModel,
+  ManaMinFeeComponentsModel,
   L1FeesModel,
   L1GasOracleValuesModel,
   FeeHeaderModel
@@ -30,7 +30,7 @@ import {
 import {Math} from "@oz/utils/math/Math.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {Timestamp, TimeLib, Slot} from "@aztec/core/libraries/TimeLib.sol";
-import {STFLib, TempBlockLog} from "@aztec/core/libraries/rollup/STFLib.sol";
+import {STFLib, TempCheckpointLog} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {GenesisState, RollupStore} from "@aztec/core/interfaces/IRollup.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 // The data types are slightly messed up here, the reason is that
@@ -62,9 +62,14 @@ contract MinimalFeeModel {
 
   uint256 public populatedThrough = 0;
 
-  constructor(uint256 _slotDuration, uint256 _epochDuration, uint256 _proofSubmissionEpochs) {
+  constructor(
+    uint256 _slotDuration,
+    uint256 _epochDuration,
+    uint256 _proofSubmissionEpochs,
+    EthPerFeeAssetE12 _initialEthPerFeeAsset
+  ) {
     TimeLib.initialize(block.timestamp, _slotDuration, _epochDuration, _proofSubmissionEpochs);
-    FeeLib.initialize(MANA_TARGET, EthValue.wrap(100));
+    FeeLib.initialize(MANA_TARGET, EthValue.wrap(100), _initialEthPerFeeAsset);
     STFLib.initialize(
       GenesisState({vkTreeRoot: bytes32(0), protocolContractsHash: bytes32(0), genesisArchiveRoot: bytes32(0)})
     );
@@ -80,11 +85,11 @@ contract MinimalFeeModel {
   }
 
   // For all of the estimations we have been using `3` blobs.
-  function manaBaseFeeComponents(bool _inFeeAsset) public view returns (ManaBaseFeeComponentsModel memory) {
-    ManaBaseFeeComponents memory components =
-      FeeLib.getManaBaseFeeComponentsAt(populatedThrough, Timestamp.wrap(block.timestamp), _inFeeAsset);
+  function manaMinFeeComponents(bool _inFeeAsset) public view returns (ManaMinFeeComponentsModel memory) {
+    ManaMinFeeComponents memory components =
+      FeeLib.getManaMinFeeComponentsAt(populatedThrough, Timestamp.wrap(block.timestamp), _inFeeAsset);
 
-    return ManaBaseFeeComponentsModel({
+    return ManaMinFeeComponentsModel({
       congestion_cost: components.congestionCost,
       congestion_multiplier: components.congestionMultiplier,
       prover_cost: components.proverCost,
@@ -92,12 +97,10 @@ contract MinimalFeeModel {
     });
   }
 
-  function getFeeHeader(uint256 block_number) public view returns (FeeHeaderModel memory) {
-    FeeHeader memory feeHeader = STFLib.getFeeHeader(block_number).decompress();
+  function getFeeHeader(uint256 checkpoint_number) public view returns (FeeHeaderModel memory) {
+    FeeHeader memory feeHeader = STFLib.getFeeHeader(checkpoint_number).decompress();
     return FeeHeaderModel({
-      fee_asset_price_numerator: feeHeader.feeAssetPriceNumerator,
-      excess_mana: feeHeader.excessMana,
-      mana_used: feeHeader.manaUsed
+      eth_per_fee_asset: feeHeader.ethPerFeeAsset, excess_mana: feeHeader.excessMana, mana_used: feeHeader.manaUsed
     });
   }
 
@@ -107,20 +110,21 @@ contract MinimalFeeModel {
 
   // The `_manaUsed` is all the data we needed to know to calculate the excess mana.
   function addSlot(OracleInput memory _oracleInput, uint256 _manaUsed) public {
-    uint256 blockNumber = ++populatedThrough;
+    uint256 checkpointNumber = ++populatedThrough;
 
     RollupStore storage rollupStore = STFLib.getStorage();
     CompressedChainTips tips = rollupStore.tips;
-    rollupStore.tips = tips.updatePendingBlockNumber(blockNumber);
+    rollupStore.tips = tips.updatePending(checkpointNumber);
 
-    STFLib.addTempBlockLog(
-      TempBlockLog({
+    STFLib.addTempCheckpointLog(
+      TempCheckpointLog({
         headerHash: bytes32(0),
         blobCommitmentsHash: bytes32(0),
+        outHash: bytes32(0),
         attestationsHash: bytes32(0),
         payloadDigest: bytes32(0),
         slotNumber: Slot.wrap(0),
-        feeHeader: FeeLib.computeFeeHeader(blockNumber, _oracleInput.feeAssetPriceModifier, _manaUsed, 0, 0)
+        feeHeader: FeeLib.computeFeeHeader(checkpointNumber, _oracleInput.feeAssetPriceModifier, _manaUsed, 0, 0)
       })
     );
     //    FeeLib.writeFeeHeader(++populatedThrough, _oracleInput.feeAssetPriceModifier, _manaUsed, 0, 0);
@@ -133,15 +137,15 @@ contract MinimalFeeModel {
   /**
    * @notice  Take a snapshot of the l1 fees
    * @dev     Can only be called AFTER the scheduled change has passed.
-   *          This is to ensure that the block proposers have time to react and it will not change
+   *          This is to ensure that the checkpoint proposers have time to react and it will not change
    *          under their feet, while also ensuring that the "queued" will not be waiting indefinitely.
    */
   function photograph() public {
     FeeLib.updateL1GasFeeOracle();
   }
 
-  function getFeeAssetPerEth() public view returns (FeeAssetPerEthE9) {
-    return FeeLib.getFeeAssetPerEthAtBlock(populatedThrough);
+  function getEthPerFeeAsset() public view returns (EthPerFeeAssetE12) {
+    return FeeLib.getEthPerFeeAssetAtCheckpoint(populatedThrough);
   }
 
   function getCurrentL1Fees() public view returns (L1FeesModel memory) {

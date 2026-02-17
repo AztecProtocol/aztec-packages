@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SerializableContractInstance } from '@aztec/stdlib/contract';
 
@@ -40,7 +40,7 @@ describe('Contract opcodes', () => {
         0x02, // memberEnum (immediate)
       ]);
       const inst = new GetContractInstance(
-        /*indirect=*/ 0x01,
+        /*addressing_mode=*/ 0x01,
         /*addressOffset=*/ 0x1234,
         /*dstOffset=*/ 0xa234,
         /*memberEnum=*/ 0x02,
@@ -64,7 +64,9 @@ describe('Contract opcodes', () => {
         const memberValueOffset = dstOffset + 1;
 
         context.machineState.memory.set(0, new Field(address.toField()));
-        await new GetContractInstance(/*indirect=*/ 0, /*addressOffset=*/ 0, dstOffset, memberEnum).execute(context);
+        await new GetContractInstance(/*addressing_mode=*/ 0, /*addressOffset=*/ 0, dstOffset, memberEnum).execute(
+          context,
+        );
 
         expect(persistableState.getContractInstance).toHaveBeenCalledTimes(1);
         expect(persistableState.getContractInstance).toHaveBeenCalledWith(address);
@@ -96,7 +98,9 @@ describe('Contract opcodes', () => {
           const memberValueOffset = dstOffset + 1;
 
           context.machineState.memory.set(0, new Field(address.toField()));
-          await new GetContractInstance(/*indirect=*/ 0, /*addressOffset=*/ 0, dstOffset, memberEnum).execute(context);
+          await new GetContractInstance(/*addressing_mode=*/ 0, /*addressOffset=*/ 0, dstOffset, memberEnum).execute(
+            context,
+          );
 
           // exists should be false
           expect(context.machineState.memory.getTag(existsOffset)).toBe(TypeTag.UINT1);
@@ -114,7 +118,7 @@ describe('Contract opcodes', () => {
     it(`GETCONTRACTINSTANCE reverts for bad enum operand`, async () => {
       const invalidEnum = 255;
       const instruction = new GetContractInstance(
-        /*indirect=*/ 0,
+        /*addressing_mode=*/ 0,
         /*addressOffset=*/ 0,
         /*dstOffset=*/ 1,
         /*memberEnum=*/ invalidEnum,

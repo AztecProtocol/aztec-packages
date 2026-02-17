@@ -12,7 +12,8 @@ import type { Logger } from '@aztec/foundation/log';
 import { type ProtocolContract, protocolContractNames } from '@aztec/protocol-contracts';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { computeArtifactHash } from '@aztec/stdlib/contract';
-import type { ApiSchemaFor, ZodFor } from '@aztec/stdlib/schemas';
+import type { ApiSchemaFor } from '@aztec/stdlib/schemas';
+import { zodFor } from '@aztec/stdlib/schemas';
 
 import { createHash } from 'crypto';
 import { createReadStream } from 'fs';
@@ -32,7 +33,7 @@ import {
   fromSingle,
   toSingle,
 } from './util/encoding.js';
-import type { ContractArtifactWithHash } from './util/txe_contract_data_provider.js';
+import type { ContractArtifactWithHash } from './util/txe_contract_store.js';
 
 const sessions = new Map<number, TXESession>();
 
@@ -53,16 +54,18 @@ type TXEForeignCallInput = {
   inputs: ForeignCallArgs;
 };
 
-const TXEForeignCallInputSchema = z.object({
-  // eslint-disable-next-line camelcase
-  session_id: z.number().int().nonnegative(),
-  function: z.string() as ZodFor<TXEOracleFunctionName>,
-  // eslint-disable-next-line camelcase
-  root_path: z.string(),
-  // eslint-disable-next-line camelcase
-  package_name: z.string(),
-  inputs: ForeignCallArgsSchema,
-}) satisfies ZodFor<TXEForeignCallInput>;
+const TXEForeignCallInputSchema = zodFor<TXEForeignCallInput>()(
+  z.object({
+    // eslint-disable-next-line camelcase
+    session_id: z.number().int().nonnegative(),
+    function: z.string() as z.ZodType<TXEOracleFunctionName>,
+    // eslint-disable-next-line camelcase
+    root_path: z.string(),
+    // eslint-disable-next-line camelcase
+    package_name: z.string(),
+    inputs: ForeignCallArgsSchema,
+  }),
+);
 
 class TXEDispatcher {
   private protocolContracts!: ProtocolContract[];

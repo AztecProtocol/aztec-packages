@@ -1,6 +1,7 @@
 import type { AvmContext } from '../avm_context.js';
 import type { AvmContractCallResult } from '../avm_contract_call_result.js';
 import { type Field, TypeTag, Uint1 } from '../avm_memory_types.js';
+import { CallDataMemory, ReturnDataMemory } from '../calldata.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
@@ -9,7 +10,7 @@ abstract class ExternalCall extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
-    OperandType.UINT16, // Indirect
+    OperandType.UINT16, // addressing_mode
     OperandType.UINT16, // L2 gas offset
     OperandType.UINT16, // DA gas offset
     OperandType.UINT16, // Address offset
@@ -18,7 +19,7 @@ abstract class ExternalCall extends Instruction {
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private l2GasOffset: number,
     private daGasOffset: number,
     private addrOffset: number,
@@ -30,7 +31,7 @@ abstract class ExternalCall extends Instruction {
 
   public async execute(context: AvmContext) {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -45,7 +46,8 @@ abstract class ExternalCall extends Instruction {
     memory.checkTag(TypeTag.UINT32, argsSizeOffset);
 
     const calldataSize = memory.get(argsSizeOffset).toNumber();
-    const calldata = memory.getSlice(argsOffset, calldataSize).map(f => f.toFr());
+
+    const calldata = new CallDataMemory(memory, argsOffset, calldataSize);
 
     const callAddress = memory.getAs<Field>(addrOffset);
     // If we are already in a static call, we propagate the environment.
@@ -72,8 +74,8 @@ abstract class ExternalCall extends Instruction {
     const success = !nestedCallResults.reverted;
 
     // Save return/revert data for later.
-    const fullReturnData = nestedCallResults.output;
-    context.machineState.nestedReturndata = fullReturnData;
+    const returnData = nestedCallResults.output;
+    context.machineState.nestedReturndata = returnData;
 
     // Track the success status directly
     context.machineState.nestedCallSuccess = success;
@@ -88,7 +90,7 @@ abstract class ExternalCall extends Instruction {
     // (in Noir code).
     if (!success) {
       context.machineState.collectedRevertInfo = {
-        revertDataRepresentative: fullReturnData,
+        revertDataRepresentative: returnData.bestEffortReadAll(),
         recursiveRevertReason: nestedCallResults.revertReason!,
       };
     }
@@ -136,7 +138,7 @@ export class SuccessCopy extends Instruction {
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private dstOffset: number,
   ) {
     super();
@@ -144,7 +146,7 @@ export class SuccessCopy extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -173,7 +175,7 @@ export class Return extends Instruction {
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private returnSizeOffset: number,
     private returnOffset: number,
   ) {
@@ -182,7 +184,7 @@ export class Return extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -194,7 +196,7 @@ export class Return extends Instruction {
     memory.checkTag(TypeTag.UINT32, returnSizeOffset);
     const returnSize = memory.get(returnSizeOffset).toNumber();
 
-    const output = memory.getSlice(returnOffset, returnSize).map(word => word.toFr());
+    const output = new ReturnDataMemory(memory, returnOffset, returnSize);
 
     context.machineState.return(output);
   }
@@ -222,7 +224,7 @@ export class Revert extends Instruction {
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private retSizeOffset: number,
     private returnOffset: number,
   ) {
@@ -231,7 +233,7 @@ export class Revert extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -242,7 +244,7 @@ export class Revert extends Instruction {
 
     memory.checkTag(TypeTag.UINT32, retSizeOffset);
     const retSize = memory.get(retSizeOffset).toNumber();
-    const output = memory.getSlice(returnOffset, retSize).map(word => word.toFr());
+    const output = new ReturnDataMemory(memory, returnOffset, retSize);
 
     context.machineState.revert(output);
   }

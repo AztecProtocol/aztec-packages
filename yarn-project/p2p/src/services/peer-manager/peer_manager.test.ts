@@ -1,11 +1,13 @@
 import type { EpochCache } from '@aztec/epoch-cache';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
-import { Secp256k1Signer, randomBytes } from '@aztec/foundation/crypto';
+import { randomBytes } from '@aztec/foundation/crypto/random';
+import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { sleep } from '@aztec/foundation/sleep';
+import { retryFastUntil } from '@aztec/foundation/retry';
 import type {
   WorldStateSyncStatus,
   WorldStateSynchronizer,
@@ -166,7 +168,7 @@ describe('PeerManager', () => {
 
       await (peerManager as any).discover();
 
-      await sleep(100);
+      await retryFastUntil(() => recordPeerCountSpy.mock.calls.length > 0, 'peer count metric to be recorded');
 
       expect(recordPeerCountSpy).toHaveBeenCalledWith(1);
     });
@@ -180,21 +182,17 @@ describe('PeerManager', () => {
       expect(mockLibP2PNode.dial).toHaveBeenCalledTimes(1);
 
       // dial peer happens asynchronously, so we need to wait
-      await sleep(100);
+      await retryFastUntil(() => mockLibP2PNode.dial.mock.calls.length >= 1, 'first dial to complete');
 
       // Second attempt
       await (peerManager as any).discover();
+      await retryFastUntil(() => mockLibP2PNode.dial.mock.calls.length >= 2, 'second dial to complete');
       expect(mockLibP2PNode.dial).toHaveBeenCalledTimes(2);
-
-      // dial peer happens asynchronously, so we need to wait
-      await sleep(100);
 
       // Third attempt
       await (peerManager as any).discover();
+      await retryFastUntil(() => mockLibP2PNode.dial.mock.calls.length >= 3, 'third dial to complete');
       expect(mockLibP2PNode.dial).toHaveBeenCalledTimes(3);
-
-      // dial peer happens asynchronously, so we need to wait
-      await sleep(100);
 
       // After the third attempt, the peer should be removed from
       // the cache, and placed in timeout
@@ -205,10 +203,10 @@ describe('PeerManager', () => {
     const triggerTimeout = async (enr: ENR) => {
       // First attempt - adds it to the cache
       await discoveredPeerCallback(enr);
-      await sleep(100);
+      await retryFastUntil(() => mockLibP2PNode.dial.mock.calls.length >= 1, 'first dial to complete');
       // Second attempt - on heartbeat
       await (peerManager as any).discover();
-      await sleep(100);
+      await retryFastUntil(() => mockLibP2PNode.dial.mock.calls.length >= 2, 'second dial to complete');
       // Third attempt - on heartbeat
       await (peerManager as any).discover();
     };
@@ -293,7 +291,8 @@ describe('PeerManager', () => {
 
       // Try peer2 once
       await discoveredPeerCallback(enr2);
-      await sleep(100);
+      // Wait for async dial operations to settle - dial happens asynchronously after callback
+      await retryFastUntil(() => peerManager.getPeers(true).length === 2, 'peers to be added to cache');
 
       const peers = peerManager.getPeers(true);
       expect(peers).toHaveLength(2);
@@ -331,7 +330,7 @@ describe('PeerManager', () => {
       // We need second heartbeat to actually disconnect  - the first one just marks peers to disconnect
       await peerManager.heartbeat();
 
-      await sleep(100);
+      await retryFastUntil(() => mockLibP2PNode.hangUp.mock.calls.length === 2, 'unhealthy peers to be disconnected');
 
       // Verify that hangUp and a goodbye was sent for both unhealthy peers
       expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(peerIdFromString(bannedPeerId.toString()));
@@ -387,7 +386,7 @@ describe('PeerManager', () => {
       // We need second heartbeat to actually disconnect  - the first one just marks peers to disconnect
       await peerManager.heartbeat();
 
-      await sleep(100);
+      await retryFastUntil(() => mockLibP2PNode.hangUp.mock.calls.length === 2, 'low scoring peers to be disconnected');
 
       // Verify that hangUp and a goodbye was sent for low scoring peers to satisfy max peer limit
       expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(peerIdFromString(lowScoringPeerId1.toString()));
@@ -444,7 +443,11 @@ describe('PeerManager', () => {
       // Trigger heartbeat which should call pruneUnhealthyPeers
       await peerManager.heartbeat();
 
-      await sleep(100);
+      // Give time for async operations to complete
+      await retryFastUntil(
+        () => mockPeerDiscoveryService.runRandomNodesQuery.mock.calls.length > 0,
+        'heartbeat to complete',
+      );
 
       // Verify that hangUp was not called for the trusted peer
       expect(mockLibP2PNode.hangUp).not.toHaveBeenCalled();
@@ -470,7 +473,10 @@ describe('PeerManager', () => {
       // Trigger heartbeat which should call pruneUnhealthyPeers
       await peerManager.heartbeat();
 
-      await sleep(100);
+      await retryFastUntil(
+        () => mockPeerDiscoveryService.runRandomNodesQuery.mock.calls.length > 0,
+        'first heartbeat to complete',
+      );
       // We need second heartbeat to actually disconnect  - the first one just marks peers to disconnect
       await peerManager.heartbeat();
 
@@ -500,7 +506,10 @@ describe('PeerManager', () => {
       // Trigger heartbeat which should call pruneUnhealthyPeers
       await peerManager.heartbeat();
 
-      await sleep(100);
+      await retryFastUntil(
+        () => mockPeerDiscoveryService.runRandomNodesQuery.mock.calls.length > 0,
+        'first heartbeat to complete',
+      );
       // We need second heartbeat to actually disconnect  - the first one just marks peers to disconnect
       await peerManager.heartbeat();
 
@@ -616,6 +625,9 @@ describe('PeerManager', () => {
       // Set the maxPeerCount to 3 in the mock peer manager
       peerManager = createMockPeerManager('test', mockLibP2PNode, 3);
 
+      // Mock sendRequestToPeer to return success for goodbye messages
+      mockReqResp.sendRequestToPeer.mockResolvedValue({ status: ReqRespStatus.SUCCESS, data: Buffer.alloc(0) });
+
       // Create 2 trusted peers and 3 regular peers (total 5 peers, exceeding maxPeerCount of 3)
       const trustedPeerId1 = await createSecp256k1PeerId();
       const trustedPeerId2 = await createSecp256k1PeerId();
@@ -658,13 +670,14 @@ describe('PeerManager', () => {
       // This ensures prioritizePeers gets the correct connections
       jest.spyOn(peerManager as any, 'pruneUnhealthyPeers').mockImplementation(connections => connections);
 
-      // Trigger heartbeat which should call prioritizePeers
+      // First heartbeat: prioritizePeers marks peers for disconnect (sends goodbye and schedules)
       await peerManager.heartbeat();
+      // Wait for the async goodbye messages to complete and peers to be marked for disconnect
+      await retryFastUntil(() => mockReqResp.sendRequestToPeer.mock.calls.length === 2, 'goodbye messages to be sent');
 
-      // Wait for async operations to complete
-      await sleep(100);
-      // We need second heartbeat to actually disconnect  - the first one just marks peers to disconnect
+      // Second heartbeat: processScheduledDisconnects actually disconnects the marked peers
       await peerManager.heartbeat();
+      await retryFastUntil(() => mockLibP2PNode.hangUp.mock.calls.length === 2, 'peers to be disconnected');
 
       // Verify that hangUp was called for the lowest scoring regular peers
       // Since we have 2 trusted peers and maxPeerCount is 3, we can only keep 1 regular peer
@@ -709,7 +722,10 @@ describe('PeerManager', () => {
 
       await peerManager.heartbeat();
 
-      await sleep(100);
+      await retryFastUntil(
+        () => mockPeerDiscoveryService.runRandomNodesQuery.mock.calls.length > 0,
+        'first heartbeat to complete',
+      );
       // We need second heartbeat to actually disconnect  - the first one just marks peers to disconnect
       await peerManager.heartbeat();
 
@@ -792,7 +808,10 @@ describe('PeerManager', () => {
       peerManager.penalizePeer(trustedAndPrivatePeerId, PeerErrorSeverity.LowToleranceError);
       await peerManager.heartbeat();
 
-      await sleep(100);
+      await retryFastUntil(
+        () => mockPeerDiscoveryService.runRandomNodesQuery.mock.calls.length > 0,
+        'heartbeat to complete',
+      );
 
       expect(mockLibP2PNode.hangUp).not.toHaveBeenCalled();
 
@@ -819,7 +838,10 @@ describe('PeerManager', () => {
 
       await peerManager.heartbeat();
 
-      await sleep(100);
+      await retryFastUntil(
+        () => mockPeerDiscoveryService.runRandomNodesQuery.mock.calls.length > 0,
+        'first heartbeat to complete',
+      );
       // We need second heartbeat to actually disconnect  - the first one just marks peers to disconnect
       await peerManager.heartbeat();
 
@@ -893,7 +915,8 @@ describe('PeerManager', () => {
   });
 
   describe('authentication', () => {
-    const mockStatusMessage = () => new StatusMessage('Test Version', 4, randomBytes(32).toString('hex'), 2);
+    const mockStatusMessage = () =>
+      new StatusMessage('Test Version', BlockNumber(4), randomBytes(32).toString('hex'), BlockNumber(2));
 
     it('should fail to construct with disabled status handshake and validators only', () => {
       expect(() =>
@@ -1006,7 +1029,7 @@ describe('PeerManager', () => {
       };
       (newPeerManager as any).handleConnectedPeerEvent(ev);
 
-      await sleep(100);
+      await retryFastUntil(() => mockReqResp.sendRequestToPeer.mock.calls.length >= 1, 'status request to be sent');
 
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledTimes(1);
       expect(mockReqResp.sendRequestToPeer).toHaveBeenLastCalledWith(
@@ -1062,7 +1085,7 @@ describe('PeerManager', () => {
       };
       (newPeerManager as any).handleConnectedPeerEvent(ev);
 
-      await sleep(100);
+      await retryFastUntil(() => mockReqResp.sendRequestToPeer.mock.calls.length >= 1, 'status request to be sent');
 
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledTimes(1);
       expect(mockReqResp.sendRequestToPeer).toHaveBeenLastCalledWith(
@@ -1122,7 +1145,7 @@ describe('PeerManager', () => {
       };
       (newPeerManager as any).handleConnectedPeerEvent(ev);
 
-      await sleep(100);
+      await retryFastUntil(() => mockReqResp.sendRequestToPeer.mock.calls.length >= 1, 'status request to be sent');
 
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledTimes(1);
       expect(mockReqResp.sendRequestToPeer).toHaveBeenLastCalledWith(
@@ -1181,7 +1204,7 @@ describe('PeerManager', () => {
       };
       (newPeerManager as any).handleConnectedPeerEvent(ev);
 
-      await sleep(100);
+      await retryFastUntil(() => mockReqResp.sendRequestToPeer.mock.calls.length >= 1, 'auth request to be sent');
 
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledTimes(1);
       expect(mockReqResp.sendRequestToPeer).toHaveBeenLastCalledWith(
@@ -1231,7 +1254,7 @@ describe('PeerManager', () => {
       };
       (newPeerManager as any).handleConnectedPeerEvent(ev);
 
-      await sleep(100);
+      await retryFastUntil(() => mockReqResp.sendRequestToPeer.mock.calls.length >= 1, 'auth request to be sent');
 
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledTimes(1);
       expect(mockReqResp.sendRequestToPeer).toHaveBeenLastCalledWith(
@@ -1295,7 +1318,7 @@ describe('PeerManager', () => {
       };
       (newPeerManager as any).handleConnectedPeerEvent(ev);
 
-      await sleep(100);
+      await retryFastUntil(() => mockReqResp.sendRequestToPeer.mock.calls.length >= 1, 'auth request to be sent');
 
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledTimes(1);
       expect(mockReqResp.sendRequestToPeer).toHaveBeenLastCalledWith(
@@ -1369,7 +1392,7 @@ describe('PeerManager', () => {
       };
       (newPeerManager as any).handleConnectedPeerEvent(ev);
 
-      await sleep(100);
+      await retryFastUntil(() => mockReqResp.sendRequestToPeer.mock.calls.length >= 1, 'auth request to be sent');
 
       // Peer should not be authenticated as it is not registered as a validator
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledTimes(1);
@@ -1436,7 +1459,7 @@ describe('PeerManager', () => {
       };
       (newPeerManager as any).handleConnectedPeerEvent(ev);
 
-      await sleep(100);
+      await retryFastUntil(() => mockReqResp.sendRequestToPeer.mock.calls.length >= 1, 'auth request to be sent');
 
       // Should be authenticated
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledTimes(1);
@@ -1515,7 +1538,7 @@ describe('PeerManager', () => {
       };
       (newPeerManager as any).handleConnectedPeerEvent(ev);
 
-      await sleep(100);
+      await retryFastUntil(() => mockReqResp.sendRequestToPeer.mock.calls.length >= 1, 'auth request to be sent');
 
       // Should be authenticated
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledTimes(1);
@@ -1543,7 +1566,10 @@ describe('PeerManager', () => {
       // Reconnecting should trigger a new auth process
       (newPeerManager as any).handleConnectedPeerEvent(ev);
 
-      await sleep(100);
+      await retryFastUntil(
+        () => mockReqResp.sendRequestToPeer.mock.calls.length >= 2,
+        'second auth request to be sent',
+      );
 
       // Should be authenticated
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledTimes(2);
@@ -1612,7 +1638,7 @@ describe('PeerManager', () => {
       };
       (newPeerManager as any).handleConnectedPeerEvent(ev);
 
-      await sleep(100);
+      await retryFastUntil(() => mockReqResp.sendRequestToPeer.mock.calls.length >= 1, 'first auth request to be sent');
 
       // Should be authenticated
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledTimes(1);
@@ -1631,7 +1657,10 @@ describe('PeerManager', () => {
       };
       (newPeerManager as any).handleConnectedPeerEvent(ev2);
 
-      await sleep(100);
+      await retryFastUntil(
+        () => mockReqResp.sendRequestToPeer.mock.calls.length >= 2,
+        'second auth request to be sent',
+      );
 
       // Should not be authenticated as the validator key is already in use
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledTimes(2);
@@ -1651,7 +1680,7 @@ describe('PeerManager', () => {
       // Now the second peer should be able to connect and auth
       (newPeerManager as any).handleConnectedPeerEvent(ev2);
 
-      await sleep(100);
+      await retryFastUntil(() => mockReqResp.sendRequestToPeer.mock.calls.length >= 3, 'third auth request to be sent');
 
       // Should not be authenticated as the validator key is already in use
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledTimes(3);
@@ -1896,8 +1925,11 @@ describe('PeerManager', () => {
       for (let i = 0; i < 3; i++) {
         const ev = { detail: peerId };
         (peerManager as any).handleConnectedPeerEvent(ev);
-        // Sleep a bit to allow processing of auth handshake
-        await sleep(1000);
+        // Wait for auth handshake to complete
+        await retryFastUntil(
+          () => mockReqResp.sendRequestToPeer.mock.calls.length >= i + 1,
+          'auth handshake to complete',
+        );
       }
 
       // Should now be blocked

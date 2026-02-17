@@ -1,13 +1,9 @@
 #include "barretenberg/boomerang_value_detection/graph.hpp"
-#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
-#include "barretenberg/ecc/fields/field_conversion.hpp"
+#include "barretenberg/goblin/merge_prover.hpp"
+#include "barretenberg/goblin/merge_verifier.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/ultra_honk/merge_prover.hpp"
-#include "barretenberg/ultra_honk/merge_verifier.hpp"
-#include "barretenberg/ultra_honk/ultra_prover.hpp"
-#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 using namespace cdg;
 
@@ -45,18 +41,10 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
 
     static void analyze_circuit(RecursiveBuilder& outer_circuit)
     {
-        if constexpr (IsMegaBuilder<RecursiveBuilder>) {
-            MegaStaticAnalyzer tool = MegaStaticAnalyzer(outer_circuit);
-            auto result = tool.analyze_circuit();
-            EXPECT_EQ(result.first.size(), 1);
-            EXPECT_EQ(result.second.size(), 0);
-        }
-        if constexpr (IsUltraBuilder<RecursiveBuilder>) {
-            StaticAnalyzer tool = StaticAnalyzer(outer_circuit);
-            auto result = tool.analyze_circuit();
-            EXPECT_EQ(result.first.size(), 1);
-            EXPECT_EQ(result.second.size(), 0);
-        }
+        auto tool = StaticAnalyzer_<bb::fr, RecursiveBuilder>(outer_circuit);
+        auto result = tool.analyze_circuit();
+        EXPECT_EQ(result.first.size(), 1);
+        EXPECT_EQ(result.second.size(), 0);
     }
 
     static void prove_and_verify_merge(const std::shared_ptr<ECCOpQueue>& op_queue,
@@ -66,7 +54,8 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
     {
         RecursiveBuilder outer_circuit;
 
-        MergeProver merge_prover{ op_queue, settings };
+        auto prover_transcript = std::make_shared<NativeTranscript>();
+        MergeProver merge_prover{ op_queue, prover_transcript, settings };
         auto merge_proof = merge_prover.construct_proof();
 
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
@@ -91,8 +80,14 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
         auto merge_transcript = std::make_shared<StdlibTranscript<RecursiveBuilder>>();
         RecursiveMergeVerifier verifier{ settings, merge_transcript };
         const stdlib::Proof<RecursiveBuilder> stdlib_merge_proof(outer_circuit, merge_proof);
-        [[maybe_unused]] auto [pairing_points, recursive_merged_table_commitments, degree_check_verified] =
-            verifier.verify_proof(stdlib_merge_proof, recursive_merge_commitments);
+        auto [pairing_points, merged_commitments, reduction_succeeded] =
+            verifier.reduce_to_pairing_check(stdlib_merge_proof, recursive_merge_commitments);
+
+        // The pairing points are public outputs from the recursive verifier that will be verified externally via a
+        // pairing check. Their output coordinate limbs (from goblin batch_mul's queue_ecc_eq) may only appear in a
+        // single ECC op gate. Calling fix_witness() adds explicit constraints on these values so the StaticAnalyzer
+        // does not flag them as under-constrained.
+        pairing_points.fix_witness();
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_FALSE(outer_circuit.failed());

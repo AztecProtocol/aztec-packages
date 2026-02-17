@@ -1,16 +1,15 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import type { SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
-import { Fr } from '@aztec/aztec.js/fields';
+import type { ContractInstanceWithAddress, SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
-import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
+import { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
 import { mintNotes } from '../../fixtures/token_utils.js';
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { captureProfile } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
@@ -29,35 +28,37 @@ describe('Transfer benchmark', () => {
   // The admin that aids in the setup of the test
   let adminAddress: AztecAddress;
   // FPC that accepts bananas
-  let bananaFPC: FPCContract;
+  let bananaFPCInstance: ContractInstanceWithAddress;
   // BananaCoin Token contract, just used to pay fees in this scenario
-  let bananaCoin: TokenContract;
+  let bananaCoinInstance: ContractInstanceWithAddress;
   // CandyBarCoin Token contract, which we want to transfer
   let candyBarCoin: TokenContract;
+  let candyBarCoinInstance: ContractInstanceWithAddress;
   // Sponsored FPC contract
-  let sponsoredFPC: SponsoredFPCContract;
+  let sponsoredFPCInstance: ContractInstanceWithAddress;
   // Aztec node
   let node: AztecNode;
   // Benchmarking configuration
   const config = t.config.transfers;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyDeployBananaTokenSnapshot();
-    await t.applyFPCSetupSnapshot();
-    await t.applyDeployCandyBarTokenSnapshot();
-    await t.applyDeploySponsoredFPCSnapshot();
+    await t.setup();
+    await t.applyDeployBananaToken();
+    await t.applyFPCSetup();
+    await t.applyDeployCandyBarToken();
+    await t.applyDeploySponsoredFPC();
 
     ({
       adminWallet,
       userWallet,
       adminAddress,
-      bananaFPC,
-      bananaCoin,
-      candyBarCoin,
-      sponsoredFPC,
       aztecNode: node,
-    } = await t.setup());
+      bananaFPCInstance,
+      bananaCoinInstance,
+      candyBarCoin,
+      candyBarCoinInstance,
+      sponsoredFPCInstance,
+    } = t);
   });
 
   afterAll(async () => {
@@ -80,12 +81,12 @@ describe('Transfer benchmark', () => {
         // Register admin as sender in benchy's wallet, since we need it to discover the minted bananas
         await userWallet.registerSender(adminAddress);
         // Register both FPC and BananCoin on the user's Wallet so we can simulate and prove
-        await userWallet.registerContract(bananaFPC);
-        await userWallet.registerContract(bananaCoin);
+        await userWallet.registerContract(bananaFPCInstance, FPCContract.artifact);
+        await userWallet.registerContract(bananaCoinInstance, TokenContract.artifact);
         // Register the CandyBarCoin on the user's Wallet so we can simulate and prove
-        await userWallet.registerContract(candyBarCoin);
+        await userWallet.registerContract(candyBarCoinInstance);
         // Register the sponsored FPC on the user's PXE so we can simulate and prove
-        await userWallet.registerContract(sponsoredFPC);
+        await userWallet.registerContract(sponsoredFPCInstance, SponsoredFPCContract.artifact);
       });
 
       function recursionTest(
@@ -112,19 +113,10 @@ describe('Transfer benchmark', () => {
 
           afterEach(async () => {
             // Send back the change to restart the test without redeploying the accounts
-            // We can do this because adminPXE has the private key for the user
-            // Since the admin's PXE never generates proofs, this upkeep is better done by them
-            const interaction = candyBarCoin.methods.transfer_in_private(
-              benchysAddress,
-              adminAddress,
-              expectedChange,
-              Fr.random(),
-            );
-            const witness = await userWallet.createAuthWit(benchysAddress, {
-              caller: adminAddress,
-              action: interaction,
-            });
-            await interaction.send({ from: adminAddress, authWitnesses: [witness] }).wait({ timeout: 120 });
+            const asset = TokenContract.at(candyBarCoin.address, userWallet);
+            await asset.methods
+              .transfer(adminAddress, expectedChange)
+              .send({ from: benchysAddress, wait: { timeout: 120 } });
           });
 
           // Ensure we create a change note, by sending an amount that is not a multiple of the note amount
@@ -137,9 +129,11 @@ describe('Transfer benchmark', () => {
               fee: { paymentMethod: await paymentMethod.forWallet(userWallet, benchysAddress) },
             };
 
-            const asset = await TokenContract.at(candyBarCoin.address, userWallet);
+            const asset = TokenContract.at(t.candyBarCoin.address, userWallet);
 
             const transferInteraction = asset.methods.transfer(adminAddress, amountToSend);
+
+            expectedChange = totalAmount - BigInt(amountToSend);
 
             await captureProfile(
               `${accountType}+transfer_${recursions}_recursions+${benchmarkingPaymentMethod}`,
@@ -155,11 +149,9 @@ describe('Transfer benchmark', () => {
                 1, // Kernel hiding
             );
 
-            expectedChange = totalAmount - BigInt(amountToSend);
-
             if (process.env.SANITY_CHECKS) {
               // Ensure we paid a fee
-              const tx = await transferInteraction.send(options).wait();
+              const tx = await transferInteraction.send(options);
               expect(tx.transactionFee!).toBeGreaterThan(0n);
 
               // Sanity checks

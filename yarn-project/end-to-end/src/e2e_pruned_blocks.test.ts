@@ -53,7 +53,7 @@ describe('e2e_pruned_blocks', () => {
       aztecProofSubmissionEpochs: 1024, // effectively do not reorg
     }));
 
-    token = await TokenContract.deploy(wallet, admin, 'TEST', '$TST', 18).send({ from: admin }).deployed();
+    token = await TokenContract.deploy(wallet, admin, 'TEST', '$TST', 18).send({ from: admin });
     logger.info(`L2 token contract deployed at ${token.address}`);
   });
 
@@ -62,7 +62,7 @@ describe('e2e_pruned_blocks', () => {
   async function waitBlocks(blocks: number): Promise<void> {
     logger.warn(`Awaiting ${blocks} blocks to be mined`);
     for (let i = 0; i < blocks; i++) {
-      await token.methods.private_get_name().send({ from: admin }).wait();
+      await token.methods.private_get_name().send({ from: admin });
       logger.warn(`Mined ${i + 1}/${blocks} blocks`);
     }
   }
@@ -76,10 +76,7 @@ describe('e2e_pruned_blocks', () => {
     // mint transaction that the node will drop the block corresponding to the first mint, resulting in errors if PXE
     // tried to access any historical information related to it (which it shouldn't).
 
-    const firstMintReceipt = await token.methods
-      .mint_to_private(sender, MINT_AMOUNT / 2n)
-      .send({ from: admin })
-      .wait();
+    const firstMintReceipt = await token.methods.mint_to_private(sender, MINT_AMOUNT / 2n).send({ from: admin });
     const firstMintTxEffect = await aztecNode.getTxEffect(firstMintReceipt.txHash);
 
     // mint_to_private should create just one new note with the minted amount
@@ -120,12 +117,9 @@ describe('e2e_pruned_blocks', () => {
     // We've completed the setup we were interested in, and can now simply mint the second half of the amount, transfer
     // the full amount to the recipient (which will require the sender to discover and prove both the old and new notes)
     // and check that everything worked as expected.
-    await token.methods
-      .mint_to_private(sender, MINT_AMOUNT / 2n)
-      .send({ from: admin })
-      .wait();
+    await token.methods.mint_to_private(sender, MINT_AMOUNT / 2n).send({ from: admin });
 
-    await token.methods.transfer(recipient, MINT_AMOUNT).send({ from: sender }).wait();
+    await token.methods.transfer(recipient, MINT_AMOUNT).send({ from: sender });
 
     expect(await token.methods.balance_of_private(recipient).simulate({ from: recipient })).toEqual(MINT_AMOUNT);
     expect(await token.methods.balance_of_private(sender).simulate({ from: sender })).toEqual(0n);

@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Nishat], commit: 5be53b6f75bac06d6d0132220044b28777021f0f }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "keccak.hpp"
@@ -18,8 +18,8 @@ using namespace bb::plookup;
 
 /**
  * @brief Normalize a base-11 limb and left-rotate by keccak::ROTATIONS[lane_index] bits.
- *        This method also extracts the most significant bit of the normalised rotated limb.
- *        Used in the RHO and IOTA rounds and in `sponge_absorb`.
+ *        This method also extracts the most significant bit of the normalised limb.
+ *        Used in the RHO and IOTA rounds.
  *
  * Normalize process:
  *  Input v = \sum_{i=0}^63 b_i * 11^i , where b is in range [0, 1, 2]
@@ -29,20 +29,20 @@ using namespace bb::plookup;
  *
  * @tparam lane_index What keccak lane are we working on?
  * @param limb Input limb we want to normalize and rotate
- * @param msb (return parameter) The most significant bit of the normalized and rotated limb
+ * @param msb (return parameter) The most significant bit of the normalized and unrotated limb
  * @return field_t<Builder> The normalized and rotated output
  */
 template <typename Builder>
 template <size_t lane_index>
 field_t<Builder> keccak<Builder>::normalize_and_rotate(const field_ct& limb, field_ct& msb)
 {
-    // left_bits = the number of bits that wrap around 11^64 (left_bits)
+    // left_bits = the number of bits that wrap around 11^{KECCAK_LANE_SIZE} (left_bits)
     constexpr size_t left_bits = ROTATIONS[lane_index];
 
     // right_bits = the number of bits that don't wrap
-    constexpr size_t right_bits = 64 - ROTATIONS[lane_index];
+    constexpr size_t right_bits = KECCAK_LANE_SIZE - ROTATIONS[lane_index];
 
-    // TODO read from same source as plookup table code
+    // Matches the maximum bits per slice (Rho<>::MAXIMUM_MULTITABLE_BITS) used by KECCAK_RHO multitables
     constexpr size_t max_bits_per_table = plookup::keccak_tables::Rho<>::MAXIMUM_MULTITABLE_BITS;
 
     // compute the number of lookups required for our left and right bit slices
@@ -189,7 +189,7 @@ field_t<Builder> keccak<Builder>::normalize_and_rotate(const field_ct& limb, fie
  * the twisted representation is a 65-bit variable [b63, ..., b0, b63]
  *
  * The equivalent of XOR(A, ROTL(B, 1)) is A.twist + 2B.twist (in base-11 form)
- * The output is present in bit slices 1-64
+ * The output is present in bit slices 1 to KECCAK_LANE_SIZE.
  *
  * @tparam Builder
  * @param internal
@@ -208,7 +208,7 @@ template <typename Builder> void keccak<Builder>::compute_twisted_state(keccak_s
  *
  * THETA consists of XOR operations as well as left rotations by 1 bit.
  *
- * We represent 64-bit integers in a base-11 representation where
+ * We represent 64-bit (KECCAK_LANE_SIZE-bit) integers in a base-11 representation where
  *  limb = \sum_{i=0}^63 b_i * 11^i
  *
  * At the start of THETA, all b_i values are either 0 or 1
@@ -283,23 +283,23 @@ template <typename Builder> void keccak<Builder>::theta(keccak_state& internal)
     }
 
     /**
-     * D contains 66 base-11 slices.
+     * D contains 66 (KECCAK_LANE_SIZE+2) base-11 slices.
      *
-     * We need to remove the 2 most significant slices as they
+     * We need to remove the most significant and least significant slices as they
      * are artifacts of our twist operation.
      *
      * We also need to 'normalize' D (i.e. convert each base value to be 0 or 1),
      * to prevent our base from overflowing when we XOR D into internal.state
      *
      * 1. create sliced_D witness, plus lo and hi slices
-     * 2. validate D == lo + (sliced_D * 11) + (hi * 11^65)
+     * 2. validate D == lo + (sliced_D * 11) + (hi * 11^{KECCAK_LANE_SIZE+1})
      * 3. feed sliced_D into KECCAK_THETA_OUTPUT lookup table
      *
      * KECCAK_THETA_OUTPUT currently splices its input into 16 4-bit slices (in base 11 i.e. from 0 to 11^4 - 1)
-     * This ensures that sliced_D is correctly range constrained to be < 11^64
+     * This ensures that sliced_D is correctly range constrained to be < 11^64 = 11^{KECCAK_LANE_SIZE}
      */
-    static constexpr uint256_t divisor = BASE.pow(64);
-    static constexpr uint256_t multiplicand = BASE.pow(65);
+    static constexpr uint256_t divisor = BASE.pow(KECCAK_LANE_SIZE);
+    static constexpr uint256_t multiplicand = BASE.pow(KECCAK_LANE_SIZE + 1);
     for (size_t i = 0; i < 5; ++i) {
         uint256_t D_native = D[i].get_value();
         const auto [D_quotient, lo_native] = D_native.divmod(BASE);
@@ -312,40 +312,14 @@ template <typename Builder> void keccak<Builder>::theta(keccak_state& internal)
 
         // assert equal should cost 1 gate (multipliers are all constants)
         D[i].assert_equal((hi * multiplicand).add_two(mid * 11, lo));
-        internal.context->create_new_range_constraint(hi.get_witness_index(), static_cast<uint64_t>(BASE));
-        internal.context->create_new_range_constraint(lo.get_witness_index(), static_cast<uint64_t>(BASE));
+        internal.context->create_small_range_constraint(hi.get_witness_index(), static_cast<uint64_t>(BASE));
+        internal.context->create_small_range_constraint(lo.get_witness_index(), static_cast<uint64_t>(BASE));
 
-        // If number of bits in KECCAK_THETA_OUTPUT table does NOT cleanly divide 64,
+        // If number of bits in KECCAK_THETA_OUTPUT table does NOT cleanly divide KECCAK_LANE_SIZE=64,
         // we need an additional range constraint to ensure that mid < 11^64
-        if constexpr (64 % plookup::keccak_tables::Theta::TABLE_BITS == 0) {
-            // N.B. we could optimize out 5 gates per round here but it's very fiddly...
-            // In previous section, D[i] = X + Y (non shifted equiv and shifted equiv)
-            // We also want to validate D[i] == hi' + mid' + lo (where hi', mid' are hi, mid scaled by constants)
-            // We *could* create a big addition gate to validate the previous logic w. following structure:
-            // | w1 | w2  | w3 | w4 |
-            // | -- | --- | -- | -- |
-            // | hi | mid | lo | X  |
-            // | P0 | P1  | P2 | Y  |
-            // To save a gate, we would need to place the wires for the first KECCAK_THETA_OUTPUT plookup gate
-            // at P0, P1, P2. This is fiddly builder logic that is circuit-width-dependent
-            // (this would save 120 gates per hash block... not worth making the code less readable for that)
-            D[i] = plookup_read<Builder>::read_from_1_to_2_table(KECCAK_THETA_OUTPUT, mid);
-        } else {
-            const auto accumulators = plookup_read<Builder>::get_lookup_accumulators(KECCAK_THETA_OUTPUT, D[i]);
-            D[i] = accumulators[ColumnIdx::C2][0];
-
-            // Ensure input to lookup is < 11^64,
-            // by validating most significant input slice is < 11^{64 mod slice_bits}
-            const field_ct most_significant_slice = accumulators[ColumnIdx::C1][accumulators[ColumnIdx::C1].size() - 1];
-
-            // N.B. cheaper to validate (11^{64 mod slice_bits} - slice < 2^14) as this
-            // prevents an extra range table from being created
-            constexpr uint256_t maximum = BASE.pow(64 % plookup::keccak_tables::Theta::TABLE_BITS);
-            const field_ct target = -most_significant_slice + maximum;
-            BB_ASSERT_GT((uint256_t(1) << Builder::DEFAULT_PLOOKUP_RANGE_BITNUM) - 1, maximum);
-            target.create_range_constraint(Builder::DEFAULT_PLOOKUP_RANGE_BITNUM,
-                                           "input to KECCAK_THETA_OUTPUT too large!");
-        }
+        static_assert(KECCAK_LANE_SIZE % plookup::keccak_tables::Theta::TABLE_BITS == 0,
+                      "KECCAK_THETA_OUTPUT TABLE_BITS must divide KECCAK_LANE_SIZE.");
+        D[i] = plookup_read<Builder>::read_from_1_to_2_table(KECCAK_THETA_OUTPUT, mid);
     }
 
     // compute state[j * 5 + i] XOR D[i] in base-11 representation
@@ -373,14 +347,14 @@ template <typename Builder> void keccak<Builder>::theta(keccak_state& internal)
  * The KECCAK_RHO_OUTPUT lookup table is used for both. See `normalize_and_rotate` for more details
  *
  * COST PER LIMB...
- *     8 gates for first lane (no rotation. Lookup table is 8-bits per slice = 8 lookups for 64 bits)
+ *     8 gates for first lane (no rotation. Lookup table is 8-bits per slice = 8 lookups for KECCAK_LANE_SIZE bits)
  *     10 gates for other 24 lanes (lookup sequence is split into 6 8-bit slices and 2 slices that sum to 8 bits,
  *     an addition gate is required to complete the rotation)
  *
  * Total costs is 248 gates.
  *
  * N.B. Can reduce lookup costs by using larger lookup tables.
- * Current algo is optimized for lookup tables where sum of all table sizes is < 2^64
+ * Current algo is optimized for lookup tables where sum of all table sizes is < 2^{KECCAK_LANE_SIZE}
  */
 template <typename Builder> void keccak<Builder>::rho(keccak_state& internal)
 {
@@ -490,133 +464,6 @@ template <typename Builder> void keccak<Builder>::keccakf1600(keccak_state& inte
     }
 }
 
-template <typename Builder>
-void keccak<Builder>::sponge_absorb(keccak_state& internal,
-                                    const std::vector<field_ct>& input_buffer,
-                                    const std::vector<field_ct>& msb_buffer)
-{
-    const size_t l = input_buffer.size();
-
-    const size_t num_blocks = l / (BLOCK_SIZE / 8);
-
-    for (size_t i = 0; i < num_blocks; ++i) {
-        if (i == 0) {
-            for (size_t j = 0; j < LIMBS_PER_BLOCK; ++j) {
-                internal.state[j] = input_buffer[j];
-                internal.state_msb[j] = msb_buffer[j];
-            }
-            for (size_t j = LIMBS_PER_BLOCK; j < NUM_KECCAK_LANES; ++j) {
-                internal.state[j] = witness_ct::create_constant_witness(internal.context, 0);
-                internal.state_msb[j] = witness_ct::create_constant_witness(internal.context, 0);
-            }
-        } else {
-            for (size_t j = 0; j < LIMBS_PER_BLOCK; ++j) {
-                internal.state[j] += input_buffer[i * LIMBS_PER_BLOCK + j];
-                internal.state[j] = normalize_and_rotate<0>(internal.state[j], internal.state_msb[j]);
-            }
-        }
-
-        compute_twisted_state(internal);
-        keccakf1600(internal);
-    }
-}
-
-template <typename Builder> byte_array<Builder> keccak<Builder>::sponge_squeeze(keccak_state& internal)
-{
-    byte_array_ct result(internal.context);
-
-    // Each hash limb represents a little-endian integer. Need to reverse bytes before we write into the output array
-    for (size_t i = 0; i < 4; ++i) {
-        field_ct output_limb = plookup_read<Builder>::read_from_1_to_2_table(KECCAK_FORMAT_OUTPUT, internal.state[i]);
-        byte_array_ct limb_bytes(output_limb, 8);
-        byte_array_ct little_endian_limb_bytes(internal.context, 8);
-        little_endian_limb_bytes[0] = limb_bytes[7];
-        little_endian_limb_bytes[1] = limb_bytes[6];
-        little_endian_limb_bytes[2] = limb_bytes[5];
-        little_endian_limb_bytes[3] = limb_bytes[4];
-        little_endian_limb_bytes[4] = limb_bytes[3];
-        little_endian_limb_bytes[5] = limb_bytes[2];
-        little_endian_limb_bytes[6] = limb_bytes[1];
-        little_endian_limb_bytes[7] = limb_bytes[0];
-        result.write(little_endian_limb_bytes);
-    }
-    return result;
-}
-
-/**
- * @brief Convert the input buffer into 8-bit keccak lanes in little-endian form.
- *        Additionally, insert padding bytes if required,
- *        and add the keccak terminating bytes 0x1/0x80
- *        (0x1 inserted after the final byte of input data)
- *        (0x80 inserted at the end of the final block)
- *
- * @tparam Builder
- * @param input
- * @return std::vector<field_t<Builder>>
- */
-template <typename Builder> std::vector<field_t<Builder>> keccak<Builder>::format_input_lanes(byte_array_ct& input)
-{
-    auto* ctx = input.get_context();
-
-    const size_t input_size = input.size();
-    // max_blocks_length = maximum number of bytes to hash
-    const size_t max_blocks = (input_size + BLOCK_SIZE) / BLOCK_SIZE;
-    const size_t max_blocks_length = (BLOCK_SIZE * (max_blocks));
-
-    byte_array_ct block_bytes(input);
-
-    const size_t byte_difference = max_blocks_length - input_size;
-    byte_array_ct padding_bytes(ctx, byte_difference);
-    for (size_t i = 0; i < byte_difference; ++i) {
-        padding_bytes[i] = witness_ct::create_constant_witness(ctx, 0);
-    }
-    block_bytes.write(padding_bytes);
-
-    // Keccak requires that 0x1 is appended after the final byte of input data.
-    // Similarly, the final byte of the final padded block must be 0x80.
-    const auto terminating_byte = input_size;
-    const auto terminating_block_byte = block_bytes.size() - 1;
-    block_bytes[terminating_byte] = witness_ct::create_constant_witness(ctx, 0x1);
-    block_bytes[terminating_block_byte] = witness_ct::create_constant_witness(ctx, 0x80);
-
-    // keccak lanes interpret memory as little-endian integers,
-    // means we need to swap our byte ordering...
-    for (size_t i = 0; i < block_bytes.size(); i += 8) {
-        std::array<field_ct, 8> temp;
-        for (size_t j = 0; j < 8; ++j) {
-            temp[j] = block_bytes[i + j];
-        }
-        block_bytes[i] = temp[7];
-        block_bytes[i + 1] = temp[6];
-        block_bytes[i + 2] = temp[5];
-        block_bytes[i + 3] = temp[4];
-        block_bytes[i + 4] = temp[3];
-        block_bytes[i + 5] = temp[2];
-        block_bytes[i + 6] = temp[1];
-        block_bytes[i + 7] = temp[0];
-    }
-    const size_t byte_size = block_bytes.size();
-
-    const size_t num_limbs = byte_size / WORD_SIZE;
-    std::vector<field_ct> sliced_buffer;
-
-    // populate a vector of 64-bit limbs from our byte array
-    for (size_t i = 0; i < num_limbs; ++i) {
-        field_ct sliced;
-        if (i * WORD_SIZE + WORD_SIZE > byte_size) {
-            const size_t slice_size = byte_size - (i * WORD_SIZE);
-            const size_t byte_shift = (WORD_SIZE - slice_size) * 8;
-            sliced = field_ct(block_bytes.slice(i * WORD_SIZE, slice_size));
-            sliced = (sliced * (uint256_t(1) << byte_shift)).normalize();
-        } else {
-            sliced = field_ct(block_bytes.slice(i * WORD_SIZE, WORD_SIZE));
-        }
-        sliced_buffer.emplace_back(sliced);
-    }
-
-    return sliced_buffer;
-}
-
 // Returns the keccak f1600 permutation of the input state
 // We first convert the state into 'extended' representation, along with the 'twisted' state
 // and then we call keccakf1600() with this keccak 'internal state'
@@ -625,9 +472,7 @@ template <typename Builder>
 std::array<field_t<Builder>, keccak<Builder>::NUM_KECCAK_LANES> keccak<Builder>::permutation_opcode(
     std::array<field_t<Builder>, NUM_KECCAK_LANES> state, Builder* ctx)
 {
-    std::vector<field_t<Builder>> converted_buffer(NUM_KECCAK_LANES);
-    std::vector<field_t<Builder>> msb_buffer(NUM_KECCAK_LANES);
-    // populate keccak_state, convert our 64-bit lanes into an extended base-11 representation
+    // populate keccak_state, convert our KECCAK_LANE_SIZE-bit lanes into an extended base-11 representation
     keccak_state internal;
     internal.context = ctx;
     for (size_t i = 0; i < state.size(); ++i) {
@@ -641,114 +486,14 @@ std::array<field_t<Builder>, keccak<Builder>::NUM_KECCAK_LANES> keccak<Builder>:
     return extended_2_normal(internal);
 }
 
-// This function is similar to sponge_absorb()
-// but it uses permutation_opcode() instead of calling directly keccakf1600().
-// As a result, this function is less efficient and should only be used to test permutation_opcode()
-template <typename Builder>
-void keccak<Builder>::sponge_absorb_with_permutation_opcode(keccak_state& internal,
-                                                            std::vector<field_t<Builder>>& input_buffer,
-                                                            const size_t input_size)
-{
-    // populate keccak_state
-    const size_t num_blocks = input_size / (BLOCK_SIZE / 8);
-    for (size_t i = 0; i < num_blocks; ++i) {
-        if (i == 0) {
-            for (size_t j = 0; j < LIMBS_PER_BLOCK; ++j) {
-                internal.state[j] = input_buffer[j];
-            }
-            for (size_t j = LIMBS_PER_BLOCK; j < NUM_KECCAK_LANES; ++j) {
-                internal.state[j] = witness_ct::create_constant_witness(internal.context, 0);
-            }
-        } else {
-            for (size_t j = 0; j < LIMBS_PER_BLOCK; ++j) {
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1494): potential issue with usage of
-                // `create_logic_constraint`?
-                internal.state[j] = stdlib::logic<Builder>::create_logic_constraint(
-                    internal.state[j], input_buffer[i * LIMBS_PER_BLOCK + j], 64, true);
-            }
-        }
-        internal.state = permutation_opcode(internal.state, internal.context);
-    }
-}
-
-// This function computes the keccak hash, like the hash() function
-// but it uses permutation_opcode() instead of calling directly keccakf1600().
-// As a result, this function is less efficient and should only be used to test permutation_opcode()
-template <typename Builder>
-stdlib::byte_array<Builder> keccak<Builder>::hash_using_permutation_opcode(byte_array_ct& input)
-{
-    auto ctx = input.get_context();
-
-    if (ctx == nullptr) {
-        // if buffer is constant compute hash and return w/o creating constraints
-        byte_array_ct output(nullptr, 32);
-        const std::vector<uint8_t> result = hash_native(input.get_value());
-        for (size_t i = 0; i < 32; ++i) {
-            output[i] = result[i];
-        }
-        return output;
-    }
-
-    // convert the input byte array into 64-bit keccak lanes (+ apply padding)
-    auto formatted_slices = format_input_lanes(input);
-
-    keccak_state internal;
-    internal.context = ctx;
-    sponge_absorb_with_permutation_opcode(internal, formatted_slices, formatted_slices.size());
-
-    auto result = sponge_squeeze_for_permutation_opcode(internal.state, ctx);
-
-    return result;
-}
-
-template <typename Builder> stdlib::byte_array<Builder> keccak<Builder>::hash(byte_array_ct& input)
-{
-    auto ctx = input.get_context();
-
-    const auto constant_case = [&] { // if buffer is constant, compute hash and return w/o creating constraints
-        byte_array_ct output(nullptr, 32);
-        const std::vector<uint8_t> result = hash_native(input.get_value());
-        for (size_t i = 0; i < 32; ++i) {
-            output[i] = result[i];
-        }
-        return output;
-    };
-
-    if (ctx == nullptr) {
-        return constant_case();
-    }
-
-    // convert the input byte array into 64-bit keccak lanes (+ apply padding)
-    auto formatted_slices = format_input_lanes(input);
-
-    std::vector<field_ct> converted_buffer(formatted_slices.size());
-    std::vector<field_ct> msb_buffer(formatted_slices.size());
-
-    // populate keccak_state, convert our 64-bit lanes into an extended base-11 representation
-    keccak_state internal;
-    internal.context = ctx;
-    for (size_t i = 0; i < formatted_slices.size(); ++i) {
-        const auto accumulators =
-            plookup_read<Builder>::get_lookup_accumulators(KECCAK_FORMAT_INPUT, formatted_slices[i]);
-        converted_buffer[i] = accumulators[ColumnIdx::C2][0];
-        msb_buffer[i] = accumulators[ColumnIdx::C3][accumulators[ColumnIdx::C3].size() - 1];
-    }
-
-    sponge_absorb(internal, converted_buffer, msb_buffer);
-
-    auto result = sponge_squeeze(internal);
-
-    return result;
-}
-
-// Convert the 'extended' representation of the internal Keccak state into the usual array of 64 bits lanes
+// Convert the 'extended' representation of the internal Keccak state into the usual array of KECCAK_LANE_SIZE bit lanes
 template <typename Builder>
 std::array<field_t<Builder>, keccak<Builder>::NUM_KECCAK_LANES> keccak<Builder>::extended_2_normal(
     keccak_state& internal)
 {
     std::array<field_t<Builder>, NUM_KECCAK_LANES> conversion;
 
-    // Each hash limb represents a little-endian integer. Need to reverse bytes before we write into the output array
+    // Each hash limb represents a little-endian integer.
     for (size_t i = 0; i < internal.state.size(); ++i) {
         field_ct output_limb = plookup_read<Builder>::read_from_1_to_2_table(KECCAK_FORMAT_OUTPUT, internal.state[i]);
         conversion[i] = output_limb;
@@ -757,51 +502,7 @@ std::array<field_t<Builder>, keccak<Builder>::NUM_KECCAK_LANES> keccak<Builder>:
     return conversion;
 }
 
-// This function is the same as sponge_squeeze, except that it does not convert
-// from extended representation and assumes the input has already being converted
-template <typename Builder>
-stdlib::byte_array<Builder> keccak<Builder>::sponge_squeeze_for_permutation_opcode(
-    std::array<field_t<Builder>, NUM_KECCAK_LANES> lanes, Builder* context)
-{
-    byte_array_ct result(context);
-
-    // Each hash limb represents a little-endian integer. Need to reverse bytes before we write into the output array
-    for (size_t i = 0; i < 4; ++i) {
-        byte_array_ct limb_bytes(lanes[i], 8);
-        byte_array_ct little_endian_limb_bytes(context, 8);
-        little_endian_limb_bytes[0] = limb_bytes[7];
-        little_endian_limb_bytes[1] = limb_bytes[6];
-        little_endian_limb_bytes[2] = limb_bytes[5];
-        little_endian_limb_bytes[3] = limb_bytes[4];
-        little_endian_limb_bytes[4] = limb_bytes[3];
-        little_endian_limb_bytes[5] = limb_bytes[2];
-        little_endian_limb_bytes[6] = limb_bytes[1];
-        little_endian_limb_bytes[7] = limb_bytes[0];
-        result.write(little_endian_limb_bytes);
-    }
-    return result;
-}
-
-/**
- * @brief Generate a simple keccak circuit for testing purposes
- *
- * @tparam Builder
- * @param builder
- * @param num_iterations number of hashes to perform
- */
-template <typename Builder> void generate_keccak_test_circuit(Builder& builder, size_t num_iterations)
-{
-    std::string in = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz01";
-
-    stdlib::byte_array<Builder> input(&builder, in);
-    for (size_t i = 0; i < num_iterations; i++) {
-        input = stdlib::keccak<Builder>::hash(input);
-    }
-}
-
 template class keccak<bb::UltraCircuitBuilder>;
 template class keccak<bb::MegaCircuitBuilder>;
-template void generate_keccak_test_circuit(bb::UltraCircuitBuilder&, size_t);
-template void generate_keccak_test_circuit(bb::MegaCircuitBuilder&, size_t);
 
 } // namespace bb::stdlib

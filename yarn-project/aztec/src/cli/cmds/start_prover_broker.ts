@@ -1,10 +1,11 @@
 import { getL1Config } from '@aztec/cli/config';
-import { getPublicClient } from '@aztec/ethereum';
+import { getPublicClient } from '@aztec/ethereum/client';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
 import {
   type ProverBrokerConfig,
   ProvingJobBrokerSchema,
+  ProvingJobBrokerSchemaWithDebug,
   createAndStartProvingBroker,
   proverBrokerConfigMappings,
 } from '@aztec/prover-client/broker';
@@ -45,7 +46,7 @@ export async function startProverBroker(
   config.l1Contracts = addresses;
   config.rollupVersion = rollupConfig.rollupVersion;
 
-  const client = initTelemetryClient(getTelemetryClientConfig());
+  const client = await initTelemetryClient(getTelemetryClientConfig());
   const broker = await createAndStartProvingBroker(config, client);
 
   if (options.autoUpdate !== 'disabled' && options.autoUpdateUrl) {
@@ -59,7 +60,10 @@ export async function startProverBroker(
     );
   }
 
-  services.proverBroker = [broker, ProvingJobBrokerSchema];
+  services.proverBroker = [
+    broker,
+    config.proverBrokerDebugReplayEnabled ? ProvingJobBrokerSchemaWithDebug : ProvingJobBrokerSchema,
+  ];
   signalHandlers.push(() => broker.stop());
 
   return { broker, config };

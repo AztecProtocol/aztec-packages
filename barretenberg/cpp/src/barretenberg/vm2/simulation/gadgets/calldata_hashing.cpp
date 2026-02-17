@@ -6,22 +6,21 @@
 
 namespace bb::avm2::simulation {
 
-FF CalldataHasher::compute_calldata_hash(std::span<const FF> calldata)
+void CalldataHasher::assert_calldata_hash(const FF& cd_hash, std::span<const FF> calldata)
 {
     // todo(ilyas): this probably simulates faster at the cost of re-work in tracegen
-    std::vector<FF> calldata_with_sep = { GENERATOR_INDEX__PUBLIC_CALLDATA };
+    std::vector<FF> calldata_with_sep = { DOM_SEP__PUBLIC_CALLDATA };
     for (const auto& value : calldata) {
         // Note: Using `insert` breaks GCC.
         calldata_with_sep.push_back(value);
     }
-    FF output_hash = hasher.hash(calldata_with_sep);
+    FF computed_hash = hasher.hash(calldata_with_sep);
+    BB_ASSERT_EQ(computed_hash, cd_hash);
 
     events.emit({
         .context_id = context_id,
-        .calldata_size = static_cast<uint32_t>(calldata.size()),
         .calldata = { calldata.begin(), calldata.end() },
     });
-    return output_hash;
 }
 
 } // namespace bb::avm2::simulation

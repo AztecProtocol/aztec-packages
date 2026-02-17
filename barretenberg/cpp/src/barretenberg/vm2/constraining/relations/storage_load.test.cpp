@@ -52,15 +52,18 @@ using testing::Return;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using sload = bb::avm2::sload<FF>;
+using execution = bb::avm2::execution<FF>;
 
 TEST(SLoadConstrainingTest, PositiveTest)
 {
     TestTraceContainer trace({
         { { C::execution_sel_execute_sload, 1 },
           { C::execution_register_0_, /*slot=*/42 },
-          { C::execution_register_1_, /*dst=*/27 },
+          { C::execution_register_1_, /*contract_address=*/1 },
+          { C::execution_register_2_, /*value=*/27 },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
           { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::FF) },
+          { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::FF) },
           { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_SLOAD } },
     });
     check_relation<sload>(trace);
@@ -71,9 +74,11 @@ TEST(SLoadConstrainingTest, NegativeInvalidOutputTag)
     TestTraceContainer trace({
         { { C::execution_sel_execute_sload, 1 },
           { C::execution_register_0_, /*slot=*/42 },
-          { C::execution_register_1_, /*dst=*/27 },
+          { C::execution_register_1_, /*contract_address=*/1 },
+          { C::execution_register_2_, /*value=*/27 },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
-          { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U32) },
+          { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::FF) },
+          { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U32) },
           { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_SLOAD } },
     });
     EXPECT_THROW_WITH_MESSAGE(check_relation<sload>(trace), "SLOAD_FF_OUTPUT_TAG");
@@ -84,13 +89,18 @@ TEST(SLoadConstrainingTest, NegativeSloadSuccess)
     TestTraceContainer trace({
         { { C::execution_sel_execute_sload, 1 },
           { C::execution_register_0_, /*slot=*/42 },
-          { C::execution_register_1_, /*dst=*/27 },
+          { C::execution_register_1_, /*contract_address=*/1 },
+          { C::execution_register_2_, /*value=*/27 },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
           { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::FF) },
+          { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::FF) },
           { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_SLOAD },
           { C::execution_sel_opcode_error, 1 } },
     });
-    EXPECT_THROW_WITH_MESSAGE(check_relation<sload>(trace), "SLOAD_SUCCESS");
+
+    check_relation<sload>(trace);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_INFALLIBLE_OPCODES_SUCCESS),
+                              "INFALLIBLE_OPCODES_SUCCESS");
 }
 
 TEST(SLoadConstrainingTest, Interactions)
@@ -120,7 +130,7 @@ TEST(SLoadConstrainingTest, Interactions)
                        l1_to_l2_message_tree_check);
 
     TreeSnapshots trees;
-    trees.publicDataTree.root = 42;
+    trees.public_data_tree.root = 42;
     EXPECT_CALL(low_level_merkle_db, get_tree_roots()).WillRepeatedly(Return(trees));
 
     FF value = merkle_db.storage_read(contract_address, slot);
@@ -128,12 +138,13 @@ TEST(SLoadConstrainingTest, Interactions)
     TestTraceContainer trace({
         { { C::execution_sel_execute_sload, 1 },
           { C::execution_register_0_, slot },
-          { C::execution_register_1_, value },
+          { C::execution_register_1_, FF(contract_address) },
+          { C::execution_register_2_, value },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
           { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::FF) },
+          { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::FF) },
           { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_SLOAD },
-          { C::execution_contract_address, contract_address },
-          { C::execution_prev_public_data_tree_root, trees.publicDataTree.root } },
+          { C::execution_prev_public_data_tree_root, trees.public_data_tree.root } },
     });
 
     PublicDataTreeTraceBuilder public_data_tree_trace_builder;

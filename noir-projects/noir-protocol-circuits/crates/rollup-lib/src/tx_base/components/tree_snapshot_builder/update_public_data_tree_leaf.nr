@@ -1,4 +1,4 @@
-use dep::types::{
+use types::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     constants::PUBLIC_DATA_TREE_HEIGHT,
     data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
@@ -19,8 +19,7 @@ pub fn update_public_data_tree_leaf(
     assert(
         check_membership(
             existing_leaf_preimage.as_leaf(),
-            existing_leaf_membership_witness.leaf_index,
-            existing_leaf_membership_witness.sibling_path,
+            existing_leaf_membership_witness,
             snapshot.root,
         ),
         "Membership check failed: public data leaf preimage does not exist in tree",

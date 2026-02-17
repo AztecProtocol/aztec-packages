@@ -1,4 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -12,7 +13,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { P2PClient } from '../../client/p2p_client.js';
 import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
 import type { AttestationPool } from '../../mem_pools/attestation_pool/attestation_pool.js';
-import type { TxPool } from '../../mem_pools/tx_pool/index.js';
+import type { TxPoolV2 } from '../../mem_pools/tx_pool_v2/interfaces.js';
 import { ReqRespSubProtocol } from '../../services/reqresp/interface.js';
 import { ReqRespStatus } from '../../services/reqresp/status.js';
 import { makeTestP2PClients, startTestP2PClients } from '../../test-helpers/make-test-p2p-clients.js';
@@ -23,7 +24,7 @@ jest.setTimeout(TEST_TIMEOUT);
 const NUMBER_OF_PEERS = 2;
 
 describe('p2p client integration status handshake', () => {
-  let txPool: MockProxy<TxPool>;
+  let txPool: MockProxy<TxPoolV2>;
   let attestationPool: MockProxy<AttestationPool>;
   let epochCache: MockProxy<EpochCache>;
   let worldState: MockProxy<WorldStateSynchronizer>;
@@ -35,7 +36,7 @@ describe('p2p client integration status handshake', () => {
 
   beforeEach(() => {
     clients = [];
-    txPool = mock<TxPool>();
+    txPool = mock<TxPoolV2>();
     attestationPool = mock<AttestationPool>();
     epochCache = mock<EpochCache>();
     worldState = mock<WorldStateSynchronizer>();
@@ -46,15 +47,27 @@ describe('p2p client integration status handshake', () => {
     //@ts-expect-error - we want to mock the getEpochAndSlotInNextL1Slot method, mocking ts is enough
     epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) });
     epochCache.getRegisteredValidators.mockResolvedValue([]);
+    epochCache.getL1Constants.mockReturnValue({
+      l1StartBlock: 0n,
+      l1GenesisTime: 0n,
+      slotDuration: 24,
+      epochDuration: 16,
+      ethereumSlotDuration: 12,
+      proofSubmissionEpochs: 2,
+      targetCommitteeSize: 48,
+    });
+
+    txPool.isEmpty.mockResolvedValue(true);
+    attestationPool.isEmpty.mockResolvedValue(true);
 
     worldState.status.mockResolvedValue({
       state: mock(),
       syncSummary: {
-        latestBlockNumber: 0,
+        latestBlockNumber: BlockNumber.ZERO,
         latestBlockHash: '',
-        finalizedBlockNumber: 0,
+        finalizedBlockNumber: BlockNumber.ZERO,
         treesAreSynched: false,
-        oldestHistoricBlockNumber: 0,
+        oldestHistoricBlockNumber: BlockNumber.ZERO,
       },
     });
     logger.info(`Starting test ${expect.getState().currentTestName}`);
@@ -160,12 +173,8 @@ describe('p2p client integration status handshake', () => {
     const c1PeerManager = (c1 as any).p2pService.peerManager;
     const realSend = c1PeerManager.reqresp.sendRequestToPeer;
 
-    // @ts-expect-error arguments not expected
-    jest.spyOn(c1PeerManager.reqresp, 'sendRequestToPeer').mockImplementation(async function (
-      peerId: PeerId,
-      protocol: ReqRespSubProtocol,
-      ...rest
-    ) {
+    jest.spyOn(c1PeerManager.reqresp, 'sendRequestToPeer').mockImplementation(async function (...args: unknown[]) {
+      const [peerId, protocol, ...rest] = args as [PeerId, ReqRespSubProtocol, ...unknown[]];
       if (peerId.toString() === badPeerId.toString() && protocol === ReqRespSubProtocol.STATUS) {
         return Promise.resolve({ status: ReqRespStatus.SUCCESS, data: Buffer.from('invalid status') });
       }

@@ -23,8 +23,16 @@ BBApiRequest global_request;
  */
 CommandResponse bbapi(Command&& command)
 {
-    // Execute the command using the global request and return the response
-    return execute(global_request, std::move(command));
+#ifndef BB_NO_EXCEPTIONS
+    try {
+#endif
+        // Execute the command using the global request and return the response
+        return execute(global_request, std::move(command));
+#ifndef BB_NO_EXCEPTIONS
+    } catch (const std::exception& e) {
+        return ErrorResponse{ .message = e.what() };
+    }
+#endif
 }
 
 } // namespace bb::bbapi

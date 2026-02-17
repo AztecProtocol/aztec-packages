@@ -28,7 +28,7 @@ void tx_discardImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         auto tmp = static_cast<View>(in.get(C::tx_discard)) * (FF(1) - static_cast<View>(in.get(C::tx_is_revertible)));
         std::get<1>(evals) += (tmp * scaling_factor);
     }
-    { // FAILURE_MUST_DISCARD
+    { // REVERTED_MUST_DISCARD
         using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::tx_reverted)) * (FF(1) - static_cast<View>(in.get(C::tx_discard)));
         std::get<2>(evals) += (tmp * scaling_factor);

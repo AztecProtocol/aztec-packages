@@ -112,7 +112,7 @@ describe('RemoteSigner integration: Web3Signer (compose)', () => {
     expect([0, 1, 27, 28]).toContain(remoteSig.v);
   });
 
-  it.skip('signs an EIP-4844 blob transaction and matches r/s with local', async () => {
+  it('signs an EIP-4844 blob transaction and matches r/s with local', async () => {
     // Dummy blob versioned hash (32 bytes). In practice these are computed from the blob data.
     const blobHash = ('0x01' + 'ab'.repeat(31)) as `0x${string}`;
 

@@ -1,15 +1,14 @@
-import { getPublicClient } from '@aztec/ethereum';
-import { Fr } from '@aztec/foundation/fields';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { getPublicClient } from '@aztec/ethereum/client';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { InboxAbi } from '@aztec/l1-artifacts/InboxAbi';
 
 import type { Anvil } from '@viem/anvil';
-import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { DefaultL1ContractsConfig } from '../config.js';
-import { deployL1Contracts } from '../deploy_l1_contracts.js';
+import { deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
 import type { ViemClient } from '../types.js';
 import { EthCheatCodes } from './eth_cheat_codes.js';
 import { RollupCheatCodes } from './rollup_cheat_codes.js';
@@ -18,20 +17,18 @@ import { startAnvil } from './start_anvil.js';
 describe('RollupCheatCodes', () => {
   let anvil: Anvil;
   let rpcUrl: string;
-  let privateKey: PrivateKeyAccount;
-  let logger: Logger;
+  let privateKey: `0x${string}`;
   let publicClient: ViemClient;
   let cheatCodes: EthCheatCodes;
   let rollupCheatCodes: RollupCheatCodes;
 
   let vkTreeRoot: Fr;
   let protocolContractsHash: Fr;
-  let deployedL1Contracts: Awaited<ReturnType<typeof deployL1Contracts>>;
+  let deployedL1Contracts: Awaited<ReturnType<typeof deployAztecL1Contracts>>;
 
   beforeAll(async () => {
-    logger = createLogger('ethereum:test:rollup_cheat_codes');
     // this is the 6th address that gets funded by the junk mnemonic
-    privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
+    privateKey = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba';
     vkTreeRoot = Fr.random();
     protocolContractsHash = Fr.random();
 
@@ -40,9 +37,8 @@ describe('RollupCheatCodes', () => {
     publicClient = getPublicClient({ l1RpcUrls: [rpcUrl], l1ChainId: 31337 });
     cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
 
-    deployedL1Contracts = await deployL1Contracts([rpcUrl], privateKey, foundry, logger, {
+    deployedL1Contracts = await deployAztecL1Contracts(rpcUrl, privateKey, foundry.id, {
       ...DefaultL1ContractsConfig,
-      salt: undefined,
       vkTreeRoot,
       protocolContractsHash,
       genesisArchiveRoot: Fr.random(),

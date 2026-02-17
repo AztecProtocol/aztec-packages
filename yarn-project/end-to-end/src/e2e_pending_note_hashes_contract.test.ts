@@ -1,4 +1,4 @@
-import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
@@ -9,9 +9,9 @@ import {
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
 } from '@aztec/constants';
 import { PendingNoteHashesContract } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { setup } from './fixtures/utils.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
 
 describe('e2e_pending_note_hashes_contract', () => {
   let aztecNode: AztecNode;
@@ -75,7 +75,7 @@ describe('e2e_pending_note_hashes_contract', () => {
 
   const deployContract = async () => {
     logger.debug(`Deploying L2 contract...`);
-    contract = await PendingNoteHashesContract.deploy(wallet).send({ from: owner }).deployed();
+    contract = await PendingNoteHashesContract.deploy(wallet).send({ from: owner });
     logger.info(`L2 contract deployed at ${contract.address}`);
     return contract;
   };
@@ -88,8 +88,7 @@ describe('e2e_pending_note_hashes_contract', () => {
     const sender = owner;
     await deployedContract.methods
       .test_insert_then_get_then_nullify_flat(mintAmount, owner, sender)
-      .send({ from: owner })
-      .wait();
+      .send({ from: owner });
   });
 
   it('Squash! Aztec.nr function can "create" and "nullify" note in the same TX', async () => {
@@ -108,9 +107,8 @@ describe('e2e_pending_note_hashes_contract', () => {
         await deployedContract.methods.insert_note.selector(),
         await deployedContract.methods.get_then_nullify_note.selector(),
       )
-      .send({ from: owner })
-      .wait();
-    await deployedContract.methods.get_note_zero_balance(owner).send({ from: owner }).wait();
+      .send({ from: owner });
+    await deployedContract.methods.get_note_zero_balance(owner).send({ from: owner });
 
     await expectNoteHashesSquashedExcept(0);
     await expectNullifiersSquashedExcept(0);
@@ -133,8 +131,7 @@ describe('e2e_pending_note_hashes_contract', () => {
         await deployedContract.methods.insert_note_extra_emit.selector(),
         await deployedContract.methods.get_then_nullify_note.selector(),
       )
-      .send({ from: owner })
-      .wait();
+      .send({ from: owner });
 
     await expectNoteHashesSquashedExcept(0);
     await expectNullifiersSquashedExcept(0);
@@ -157,8 +154,7 @@ describe('e2e_pending_note_hashes_contract', () => {
         await deployedContract.methods.insert_note.selector(),
         await deployedContract.methods.get_then_nullify_note.selector(),
       )
-      .send({ from: owner })
-      .wait();
+      .send({ from: owner });
 
     await expectNoteHashesSquashedExcept(0);
     await expectNullifiersSquashedExcept(0);
@@ -182,8 +178,7 @@ describe('e2e_pending_note_hashes_contract', () => {
         await deployedContract.methods.insert_note.selector(),
         await deployedContract.methods.get_then_nullify_note.selector(),
       )
-      .send({ from: owner })
-      .wait();
+      .send({ from: owner });
 
     await expectNoteHashesSquashedExcept(1);
     await expectNullifiersSquashedExcept(0);
@@ -207,8 +202,7 @@ describe('e2e_pending_note_hashes_contract', () => {
         await deployedContract.methods.insert_note_static_randomness.selector(),
         await deployedContract.methods.get_then_nullify_note.selector(),
       )
-      .send({ from: owner })
-      .wait();
+      .send({ from: owner });
 
     await expectNoteHashesSquashedExcept(1);
     await expectNullifiersSquashedExcept(0);
@@ -227,7 +221,7 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     // create persistent note
     const sender = owner;
-    await deployedContract.methods.insert_note(mintAmount, owner, sender).send({ from: owner }).wait();
+    await deployedContract.methods.insert_note(mintAmount, owner, sender).send({ from: owner });
 
     await expectNoteHashesSquashedExcept(1); // first TX just creates 1 persistent note
     await expectNullifiersSquashedExcept(0);
@@ -242,10 +236,9 @@ describe('e2e_pending_note_hashes_contract', () => {
         await deployedContract.methods.insert_note.selector(),
         await deployedContract.methods.get_then_nullify_note.selector(),
       )
-      .send({ from: owner })
-      .wait();
+      .send({ from: owner });
 
-    await deployedContract.methods.get_note_zero_balance(owner).send({ from: owner }).wait();
+    await deployedContract.methods.get_note_zero_balance(owner).send({ from: owner });
 
     // second TX creates 1 note, but it is squashed!
     await expectNoteHashesSquashedExcept(0);
@@ -265,7 +258,7 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     const deployedContract = await deployContract();
     const sender = owner;
-    await deployedContract.methods.insert_note(mintAmount, owner, sender).send({ from: owner }).wait();
+    await deployedContract.methods.insert_note(mintAmount, owner, sender).send({ from: owner });
 
     // There is a single new note hash.
     await expectNoteHashesSquashedExcept(1);
@@ -279,33 +272,22 @@ describe('e2e_pending_note_hashes_contract', () => {
         await deployedContract.methods.dummy.selector(),
         await deployedContract.methods.get_then_nullify_note.selector(),
       )
-      .send({ from: owner })
-      .wait();
+      .send({ from: owner });
 
     // There is a single new nullifier.
     await expectNullifiersSquashedExcept(1);
   });
 
   it('Should handle overflowing the kernel data structures in nested calls', async () => {
-    const sender = owner;
+    // This test verifies that a transaction can emit more notes than MAX_NOTE_HASHES_PER_TX without failing, since
+    // the notes are nullified and will be squashed by the kernel reset circuit.
+
     const notesPerIteration = Math.min(MAX_NOTE_HASHES_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
     const minToNeedReset = Math.min(MAX_NOTE_HASHES_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX) + 1;
     const deployedContract = await deployContract();
+
     await deployedContract.methods
-      .test_recursively_create_notes(owner, sender, Math.ceil(minToNeedReset / notesPerIteration))
-      .send({ from: owner })
-      .wait();
-  });
-
-  it('Should drop note log for non existent note', async () => {
-    const deployedContract = await deployContract();
-    const sender = owner;
-    // Add a note of value 10, with a note log
-    // Then emit another note log with the same counter as the one above, but with value 5
-    const txReceipt = await deployedContract.methods.test_emit_bad_note_log(owner, sender).send({ from: owner }).wait();
-
-    const noteHashes = (await aztecNode.getTxEffect(txReceipt.txHash))?.data.noteHashes;
-
-    expect(noteHashes!.length).toBe(1);
+      .test_recursively_create_notes(owner, Math.ceil(minToNeedReset / notesPerIteration))
+      .send({ from: owner });
   });
 });

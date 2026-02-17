@@ -1,4 +1,5 @@
-import { randomBigInt } from '@aztec/foundation/crypto';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { randomBigInt } from '@aztec/foundation/crypto/random';
 import type { Bufferable } from '@aztec/foundation/serialize';
 
 import { jest } from '@jest/globals';
@@ -29,14 +30,14 @@ export function describeSnapshotBuilderTestSuite<
       it('takes snapshots', async () => {
         await modifyTree(tree);
         await tree.commit();
-        await expect(snapshotBuilder.snapshot(1)).resolves.toBeDefined();
+        await expect(snapshotBuilder.snapshot(BlockNumber(1))).resolves.toBeDefined();
       });
 
       it('is idempotent', async () => {
         await modifyTree(tree);
         await tree.commit();
 
-        const block = 1;
+        const block = BlockNumber(1);
         const snapshot = await snapshotBuilder.snapshot(block);
         const newSnapshot = await snapshotBuilder.snapshot(block);
 
@@ -46,7 +47,7 @@ export function describeSnapshotBuilderTestSuite<
       it('returns the same path if tree has not diverged', async () => {
         await modifyTree(tree);
         await tree.commit();
-        const snapshot = await snapshotBuilder.snapshot(1);
+        const snapshot = await snapshotBuilder.snapshot(BlockNumber(1));
 
         const historicPaths = await Promise.all(leaves.map(leaf => snapshot.getSiblingPath(leaf)));
         const expectedPaths = await Promise.all(leaves.map(leaf => tree.getSiblingPath(leaf, false)));
@@ -59,7 +60,7 @@ export function describeSnapshotBuilderTestSuite<
       it('returns historic paths if tree has diverged and no new snapshots have been taken', async () => {
         await modifyTree(tree);
         await tree.commit();
-        const snapshot = await snapshotBuilder.snapshot(1);
+        const snapshot = await snapshotBuilder.snapshot(BlockNumber(1));
 
         const expectedPaths = await Promise.all(leaves.map(leaf => tree.getSiblingPath(leaf, false)));
 
@@ -79,12 +80,12 @@ export function describeSnapshotBuilderTestSuite<
 
         const expectedPaths = await Promise.all(leaves.map(leaf => tree.getSiblingPath(leaf, false)));
 
-        const snapshot = await snapshotBuilder.snapshot(1);
+        const snapshot = await snapshotBuilder.snapshot(BlockNumber(1));
 
         await modifyTree(tree);
         await tree.commit();
 
-        await snapshotBuilder.snapshot(2);
+        await snapshotBuilder.snapshot(BlockNumber(2));
 
         // check that snapshot 2 has not influenced snapshot(1) at all
         const historicPaths = await Promise.all(leaves.map(leaf => snapshot.getSiblingPath(leaf)));
@@ -100,12 +101,12 @@ export function describeSnapshotBuilderTestSuite<
 
         const expectedPaths = await Promise.all(leaves.map(leaf => tree.getSiblingPath(leaf, false)));
 
-        const snapshot = await snapshotBuilder.snapshot(1);
+        const snapshot = await snapshotBuilder.snapshot(BlockNumber(1));
 
         await modifyTree(tree);
         await tree.commit();
 
-        await snapshotBuilder.snapshot(2);
+        await snapshotBuilder.snapshot(BlockNumber(2));
 
         await modifyTree(tree);
         await tree.commit();
@@ -125,15 +126,15 @@ export function describeSnapshotBuilderTestSuite<
         await modifyTree(tree);
         await tree.commit();
         const expectedPaths = await Promise.all(leaves.map(leaf => tree.getSiblingPath(leaf, false)));
-        await snapshotBuilder.snapshot(1);
+        await snapshotBuilder.snapshot(BlockNumber(1));
 
         for (let i = 2; i < 5; i++) {
           await modifyTree(tree);
           await tree.commit();
-          await snapshotBuilder.snapshot(i);
+          await snapshotBuilder.snapshot(BlockNumber(i));
         }
 
-        const firstSnapshot = await snapshotBuilder.getSnapshot(1);
+        const firstSnapshot = await snapshotBuilder.getSnapshot(BlockNumber(1));
         const historicPaths = await Promise.all(leaves.map(leaf => firstSnapshot.getSiblingPath(leaf)));
 
         for (const [index, path] of historicPaths.entries()) {
@@ -144,9 +145,9 @@ export function describeSnapshotBuilderTestSuite<
       it('throws if an unknown snapshot is requested', async () => {
         await modifyTree(tree);
         await tree.commit();
-        await snapshotBuilder.snapshot(1);
+        await snapshotBuilder.snapshot(BlockNumber(1));
 
-        await expect(snapshotBuilder.getSnapshot(2)).rejects.toThrow();
+        await expect(snapshotBuilder.getSnapshot(BlockNumber(2))).rejects.toThrow();
       });
     });
 
@@ -154,7 +155,7 @@ export function describeSnapshotBuilderTestSuite<
       it('returns the historical root of the tree when the snapshot was taken', async () => {
         await modifyTree(tree);
         await tree.commit();
-        const snapshot = await snapshotBuilder.snapshot(1);
+        const snapshot = await snapshotBuilder.snapshot(BlockNumber(1));
         const historicalRoot = tree.getRoot(false);
 
         await modifyTree(tree);
@@ -169,7 +170,7 @@ export function describeSnapshotBuilderTestSuite<
       it('returns the same depth as the tree', async () => {
         await modifyTree(tree);
         await tree.commit();
-        const snapshot = await snapshotBuilder.snapshot(1);
+        const snapshot = await snapshotBuilder.snapshot(BlockNumber(1));
         expect(snapshot.getDepth()).toEqual(tree.getDepth());
       });
     });
@@ -178,7 +179,7 @@ export function describeSnapshotBuilderTestSuite<
       it('returns the historical leaves count when the snapshot was taken', async () => {
         await modifyTree(tree);
         await tree.commit();
-        const snapshot = await snapshotBuilder.snapshot(1);
+        const snapshot = await snapshotBuilder.snapshot(BlockNumber(1));
         const historicalNumLeaves = tree.getNumLeaves(false);
 
         await modifyTree(tree);
@@ -192,7 +193,7 @@ export function describeSnapshotBuilderTestSuite<
       it('returns the historical leaf value when the snapshot was taken', async () => {
         await modifyTree(tree);
         await tree.commit();
-        const snapshot = await snapshotBuilder.snapshot(1);
+        const snapshot = await snapshotBuilder.snapshot(BlockNumber(1));
         const historicalLeafValue = tree.getLeafValue(0n, false);
         expect(snapshot.getLeafValue(0n)).toEqual(historicalLeafValue);
 
@@ -207,7 +208,7 @@ export function describeSnapshotBuilderTestSuite<
       it('returns the historical leaf index when the snapshot was taken', async () => {
         await modifyTree(tree);
         await tree.commit();
-        const snapshot = await snapshotBuilder.snapshot(1);
+        const snapshot = await snapshotBuilder.snapshot(BlockNumber(1));
 
         const initialLastLeafIndex = tree.getNumLeaves(false) - 1n;
         let lastLeaf = tree.getLeafValue(initialLastLeafIndex, false);

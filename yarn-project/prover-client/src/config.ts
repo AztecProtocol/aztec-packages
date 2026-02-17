@@ -5,7 +5,7 @@ import {
   getConfigFromMappings,
   numberConfigHelper,
 } from '@aztec/foundation/config';
-import { type ProverConfig, proverConfigMappings } from '@aztec/stdlib/interfaces/server';
+import { type ProverConfig, proverConfigMappings } from '@aztec/stdlib/interfaces/prover-config';
 
 import {
   type ProverAgentConfig,

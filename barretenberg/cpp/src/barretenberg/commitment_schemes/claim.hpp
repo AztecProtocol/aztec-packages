@@ -1,14 +1,16 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Khashayar], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
+#include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 
 namespace bb {
 /**
@@ -92,15 +94,16 @@ template <typename Curve> class OpeningClaim {
         const std::span<const stdlib::field_t<Builder>, PUBLIC_INPUTS_SIZE>& limbs)
         requires(std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>)
     {
+        using field_ct = stdlib::field_t<Builder>;
+        using Codec = stdlib::StdlibCodec<field_ct>;
         const size_t FIELD_SIZE = Fr::PUBLIC_INPUTS_SIZE;
         const size_t COMMITMENT_SIZE = Commitment::PUBLIC_INPUTS_SIZE;
-        std::span<const stdlib::field_t<Builder>, FIELD_SIZE> challenge_limbs{ limbs.data(), FIELD_SIZE };
-        std::span<const stdlib::field_t<Builder>, FIELD_SIZE> evaluation_limbs{ limbs.data() + FIELD_SIZE, FIELD_SIZE };
-        std::span<const stdlib::field_t<Builder>, COMMITMENT_SIZE> commitment_limbs{ limbs.data() + 2 * FIELD_SIZE,
-                                                                                     COMMITMENT_SIZE };
-        auto challenge = Fr::reconstruct_from_public(challenge_limbs);
-        auto evaluation = Fr::reconstruct_from_public(evaluation_limbs);
-        auto commitment = Commitment::reconstruct_from_public(commitment_limbs);
+        std::span<const field_ct, FIELD_SIZE> challenge_limbs{ limbs.data(), FIELD_SIZE };
+        std::span<const field_ct, FIELD_SIZE> evaluation_limbs{ limbs.data() + FIELD_SIZE, FIELD_SIZE };
+        std::span<const field_ct, COMMITMENT_SIZE> commitment_limbs{ limbs.data() + 2 * FIELD_SIZE, COMMITMENT_SIZE };
+        auto challenge = Codec::template deserialize_from_fields<Fr>(challenge_limbs);
+        auto evaluation = Codec::template deserialize_from_fields<Fr>(evaluation_limbs);
+        auto commitment = Codec::template deserialize_from_fields<Commitment>(commitment_limbs);
 
         return OpeningClaim<Curve>{ { challenge, evaluation }, commitment };
     }
@@ -113,15 +116,16 @@ template <typename Curve> class OpeningClaim {
     static OpeningClaim<Curve> reconstruct_from_public(const std::span<const bb::fr, PUBLIC_INPUTS_SIZE>& limbs)
         requires(std::is_same_v<Curve, curve::Grumpkin>)
     {
+        using Codec = FrCodec;
         const size_t FIELD_SIZE = Fr::PUBLIC_INPUTS_SIZE;
         const size_t COMMITMENT_SIZE = Commitment::PUBLIC_INPUTS_SIZE;
         std::span<const bb::fr, FIELD_SIZE> challenge_limbs{ limbs.data(), FIELD_SIZE };
         std::span<const bb::fr, FIELD_SIZE> evaluation_limbs{ limbs.data() + FIELD_SIZE, FIELD_SIZE };
         std::span<const bb::fr, COMMITMENT_SIZE> commitment_limbs{ limbs.data() + 2 * FIELD_SIZE, COMMITMENT_SIZE };
 
-        Fr challenge = Fr::reconstruct_from_public(challenge_limbs);
-        Fr evaluation = Fr::reconstruct_from_public(evaluation_limbs);
-        Commitment commitment = Commitment::reconstruct_from_public(commitment_limbs);
+        Fr challenge = Codec::deserialize_from_fields<Fr>(challenge_limbs);
+        Fr evaluation = Codec::deserialize_from_fields<Fr>(evaluation_limbs);
+        Commitment commitment = Codec::deserialize_from_fields<Commitment>(commitment_limbs);
 
         return OpeningClaim<Curve>{ { challenge, evaluation }, commitment };
     }
@@ -135,24 +139,6 @@ template <typename Curve> class OpeningClaim {
             commitment.get_value()
         };
     }
-    /**
-     * @brief inefficiently check that the claim is correct by recomputing the commitment
-     * and evaluating the polynomial in r.
-     *
-     * @param ck CommitmentKey used
-     * @param polynomial the claimed witness polynomial p(X)
-     * @return C = Commit(p(X)) && p(r) = v
-     */
-    bool verify(std::shared_ptr<CK> ck, const bb::Polynomial<Fr>& polynomial) const
-    {
-        Fr real_eval = polynomial.evaluate(opening_pair.challenge);
-        if (real_eval != opening_pair.evaluation) {
-            return false;
-        }
-        // Note: real_commitment is a raw type, while commitment may be a linear combination.
-        auto real_commitment = ck->commit(polynomial);
-        return (real_commitment == commitment);
-    };
 
     bool operator==(const OpeningClaim& other) const = default;
 };
@@ -167,8 +153,12 @@ template <typename Curve> class OpeningClaim {
  * @tparam Curve: BN254 or Grumpkin.
  */
 template <typename Curve> struct BatchOpeningClaim {
-    std::vector<typename Curve::AffineElement> commitments;
-    std::vector<typename Curve::ScalarField> scalars;
-    typename Curve::ScalarField evaluation_point;
+
+    using Commitment = typename Curve::AffineElement;
+    using Scalar = typename Curve::ScalarField;
+
+    std::vector<Commitment> commitments;
+    std::vector<Scalar> scalars;
+    Scalar evaluation_point;
 };
 } // namespace bb

@@ -1,5 +1,8 @@
 #include "barretenberg/vm2/tracegen/public_inputs_trace.hpp"
 
+#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
+
 namespace bb::avm2::tracegen {
 
 void PublicInputsTraceBuilder::process_public_inputs(TraceContainer& trace, const PublicInputs& public_inputs)
@@ -20,6 +23,10 @@ void PublicInputsTraceBuilder::process_public_inputs(TraceContainer& trace, cons
         trace.set(C::public_inputs_cols_3_, row, cols[3][row]);
     }
 }
+
+// precomputed trace size must be greater than the public inputs trace size
+// because we use precomputed_idx to lookup into the public inputs trace.
+static_assert(PRECOMPUTED_TRACE_SIZE >= AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
 
 void PublicInputsTraceBuilder::process_public_inputs_aux_precomputed(TraceContainer& trace)
 {

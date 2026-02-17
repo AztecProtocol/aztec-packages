@@ -1,4 +1,5 @@
-import { Fr } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 
 import type { PeerId } from '@libp2p/interface';
@@ -27,7 +28,7 @@ export function reqRespBlockHandler(l2BlockSource: L2BlockSource): ReqRespSubPro
     }
 
     try {
-      const foundBlock = await l2BlockSource.getBlock(Number(blockNumber));
+      const foundBlock = await l2BlockSource.getBlock(BlockNumber(Number(blockNumber)));
       return foundBlock ? foundBlock.toBuffer() : Buffer.alloc(0);
     } catch (err: any) {
       throw new ReqRespStatusError(ReqRespStatus.INTERNAL_ERROR, { cause: err });

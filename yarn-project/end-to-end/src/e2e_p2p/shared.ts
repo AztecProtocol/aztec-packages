@@ -1,13 +1,19 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { type SentTx, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
+import { NO_WAIT, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import { Tx, TxStatus } from '@aztec/aztec.js/tx';
+import { TxHash } from '@aztec/aztec.js/tx';
 import type { RollupCheatCodes } from '@aztec/aztec/testing';
-import type { EmpireSlashingProposerContract, RollupContract, TallySlashingProposerContract } from '@aztec/ethereum';
+import type {
+  EmpireSlashingProposerContract,
+  RollupContract,
+  TallySlashingProposerContract,
+} from '@aztec/ethereum/contracts';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { timesAsync, unique } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { retryUntil } from '@aztec/foundation/retry';
 import { pluralize } from '@aztec/foundation/string';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
@@ -16,9 +22,10 @@ import { getPXEConfig, getPXEConfig as getRpcConfig } from '@aztec/pxe/server';
 import { getRoundForOffense } from '@aztec/slasher';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
-import { TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { submitTxsTo } from '../shared/submit-transactions.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
+import { type ProvenTx, proveInteraction } from '../test-wallet/utils.js';
 
 // submits a set of transactions to the provided Private eXecution Environment (PXE)
 export const submitComplexTxsTo = async (
@@ -28,24 +35,15 @@ export const submitComplexTxsTo = async (
   numTxs: number,
   opts: { callPublic?: boolean } = {},
 ) => {
-  const txs: SentTx[] = [];
+  const txs: TxHash[] = [];
 
   const seed = 1234n;
   const spamCount = 15;
   for (let i = 0; i < numTxs; i++) {
-    const tx = spamContract.methods.spam(seed + BigInt(i * spamCount), spamCount, !!opts.callPublic).send({ from });
-    const txHash = await tx.getTxHash();
-
+    const method = spamContract.methods.spam(seed + BigInt(i * spamCount), spamCount, !!opts.callPublic);
+    const txHash = await method.send({ from, wait: NO_WAIT });
     logger.info(`Tx sent with hash ${txHash.toString()}`);
-    const receipt = await tx.getReceipt();
-    expect(receipt).toEqual(
-      expect.objectContaining({
-        status: TxStatus.PENDING,
-        error: '',
-      }),
-    );
-    logger.info(`Receipt received for ${txHash.toString()}`);
-    txs.push(tx);
+    txs.push(txHash);
   }
   return txs;
 };
@@ -56,10 +54,14 @@ export const submitTransactions = async (
   node: AztecNodeService,
   numTxs: number,
   fundedAccount: InitialAccountData,
-): Promise<SentTx[]> => {
+): Promise<TxHash[]> => {
   const rpcConfig = getRpcConfig();
   rpcConfig.proverEnabled = false;
-  const wallet = await TestWallet.create(node, { ...getPXEConfig(), proverEnabled: false }, { useLogSuffix: true });
+  const wallet = await TestWallet.create(
+    node,
+    { ...getPXEConfig(), proverEnabled: false },
+    { loggerActorLabel: 'pxe-tx' },
+  );
   const fundedAccountManager = await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
   return submitTxsTo(wallet, fundedAccountManager.address, numTxs, logger);
 };
@@ -69,25 +71,28 @@ export async function prepareTransactions(
   node: AztecNodeService,
   numTxs: number,
   fundedAccount: InitialAccountData,
-): Promise<Tx[]> {
+): Promise<ProvenTx[]> {
   const rpcConfig = getRpcConfig();
   rpcConfig.proverEnabled = false;
 
-  const wallet = await TestWallet.create(node, { ...getPXEConfig(), proverEnabled: false }, { useLogSuffix: true });
+  const wallet = await TestWallet.create(
+    node,
+    { ...getPXEConfig(), proverEnabled: false },
+    { loggerActorLabel: 'pxe-tx' },
+  );
   const fundedAccountManager = await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
 
   const testContractInstance = await getContractInstanceFromInstantiationParams(TestContractArtifact, {
     salt: Fr.random(),
   });
   await wallet.registerContract(testContractInstance, TestContractArtifact);
-  const contract = await TestContract.at(testContractInstance.address, wallet);
+  const contract = TestContract.at(testContractInstance.address, wallet);
 
   return timesAsync(numTxs, async () => {
     const tx = await proveInteraction(wallet, contract.methods.emit_nullifier(Fr.random()), {
       from: fundedAccountManager.address,
     });
-    const txHash = tx.getTxHash();
-    logger.info(`Tx prepared with hash ${txHash}`);
+    logger.info(`Tx prepared with hash ${tx.getTxHash()}`);
     return tx;
   });
 }
@@ -132,7 +137,7 @@ export async function awaitCommitteeExists({
   logger: Logger;
 }): Promise<readonly `0x${string}`[]> {
   logger.info(`Waiting for committee to be set`);
-  let committee: readonly `0x${string}`[] | undefined;
+  let committee: EthAddress[] | undefined;
   await retryUntil(
     async () => {
       committee = await rollup.getCurrentEpochCommittee();
@@ -141,7 +146,8 @@ export async function awaitCommitteeExists({
     'non-empty committee',
     60,
   );
-  return committee!;
+  logger.warn(`Committee has been formed`, { committee: committee!.map(c => c.toString()) });
+  return committee!.map(c => c.toString() as `0x${string}`);
 }
 
 export async function awaitOffenseDetected({
@@ -213,7 +219,7 @@ export async function awaitCommitteeKicked({
 
   if (slashingProposer.type === 'empire') {
     // Await for the slash payload to be created if empire (no payload is created on tally until execution time)
-    const targetEpoch = (await cheatCodes.getEpoch()) + (await rollup.getLagInEpochs()) + 1n;
+    const targetEpoch = EpochNumber((await cheatCodes.getEpoch()) + (await rollup.getLagInEpochsForValidatorSet()) + 1);
     logger.info(`Advancing to epoch ${targetEpoch} so we start slashing`);
     await cheatCodes.advanceToEpoch(targetEpoch);
 
@@ -239,7 +245,7 @@ export async function awaitCommitteeKicked({
     const firstEpochInOffenseRound = offenseEpoch - (offenseEpoch % slashingRoundSizeInEpochs);
     const targetEpoch = firstEpochInOffenseRound + slashingOffsetInEpochs;
     logger.info(`Advancing to epoch ${targetEpoch} so we start slashing`);
-    await cheatCodes.advanceToEpoch(targetEpoch, { offset: -aztecSlotDuration / 2 });
+    await cheatCodes.advanceToEpoch(EpochNumber(targetEpoch), { offset: -aztecSlotDuration / 2 });
   }
 
   const attestersPre = await rollup.getAttesters();
@@ -269,7 +275,9 @@ export async function awaitCommitteeKicked({
 
   logger.info(`Advancing to check current committee`);
   await cheatCodes.debugRollup();
-  await cheatCodes.advanceToEpoch((await cheatCodes.getEpoch()) + (await rollup.getLagInEpochs()) + 1n);
+  await cheatCodes.advanceToEpoch(
+    EpochNumber((await cheatCodes.getEpoch()) + (await rollup.getLagInEpochsForValidatorSet()) + 1),
+  );
   await cheatCodes.debugRollup();
 
   const committeeNextEpoch = await rollup.getCurrentEpochCommittee();

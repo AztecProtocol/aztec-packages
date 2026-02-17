@@ -1,10 +1,10 @@
 import { EpochCache } from '@aztec/epoch-cache';
-import type { ViemClient } from '@aztec/ethereum';
 import {
   EmpireSlashingProposerContract,
   RollupContract,
   TallySlashingProposerContract,
 } from '@aztec/ethereum/contracts';
+import type { ViemClient } from '@aztec/ethereum/types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';

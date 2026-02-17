@@ -1,0 +1,10 @@
+ConstructorTest
+├── when budget EQ 0
+│   └── it reverts
+└── when budget NEQ 0
+    ├── it stores the ASSET
+    ├── it stores the NOMINAL_ANNUAL_PERCENTAGE_CAP
+    ├── it stores the DEPLOYMENT_TIME
+    ├── it stores cachedBudgetYear
+    ├── it stores cachedBudget
+    └── it emits {BudgetReset}

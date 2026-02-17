@@ -1,12 +1,13 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Suyash], commit: 553c5eb82901955c638b943065acd3e47fc918c0}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
+#include "barretenberg/ecc/groups/precomputed_generators_secp256k1_impl.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_secp256r1_impl.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 
@@ -47,13 +48,19 @@ std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr
     std::vector<Fr> scalars;
     BB_ASSERT_EQ(_points.size(), _scalars.size());
 
+    BB_ASSERT_LTE(uint256_t(masking_scalar.get_value()).get_msb() + 1ULL,
+                  128ULL,
+                  "biggroup mask_points: masking_scalar must ≤ 128 bits");
+
     // Get the offset generator G_offset in native and in-circuit form
     const typename G::affine_element native_offset_generator = element::compute_table_offset_generator();
     C* builder = validate_context<C>(validate_context<C>(_points), validate_context<C>(_scalars));
     const element offset_generator_element = element::from_witness(builder, native_offset_generator);
-    offset_generator_element.set_origin_tag(OriginTag());
+    auto empty_tag = OriginTag::constant(); // Disable origin checking during intermediate operations
+    offset_generator_element.set_origin_tag(empty_tag);
 
     // Compute initial point to be added: (δ)⋅G_offset
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1585): do we really need to multiply by δ here?
     element running_point = offset_generator_element.scalar_mul(masking_scalar, 128);
 
     // Start the running scalar at 1
@@ -65,14 +72,14 @@ std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr
         scalars.push_back(_scalars[i]);
 
         // Convert point into point + (2ⁱ)⋅(δG_offset)
-        points.push_back(_points[i] + running_point);
+        points.push_back(_points[i].add_internal(running_point));
 
         // Add 2ⁱ⋅scalar_i to the last scalar
         last_scalar += _scalars[i] * running_scalar;
 
         // Double the running scalar and point for next iteration
         running_scalar += running_scalar;
-        running_point = running_point.dbl();
+        running_point = running_point.dbl_internal();
     }
 
     // Add a scalar -(<δ(1, 2, 2²,...,2ⁿ⁻¹),(scalar₀,...,scalarₙ₋₁)> / 2ⁿ)
@@ -113,20 +120,22 @@ std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr
             // if scalar multiplier is 0 and also a constant, we can skip
             continue;
         }
+
+        // Select either the point at infinity or the fixed generator
         element point = _point.conditional_select(one, is_point_at_infinity);
-        // For field_t (non-composite), use internal version to avoid premature normalization
-        // For bigfield (composite), conditional_assign doesn't normalize anyway
+
         Fr scalar;
         if constexpr (!Fr::is_composite) {
+            // For field_t (non-composite), use internal version to avoid premature normalization
             scalar = Fr::conditional_assign_internal(is_point_at_infinity, 0, _scalar);
         } else {
+            // For bigfield (composite), conditional_assign doesn't normalize anyway
             scalar = Fr::conditional_assign(is_point_at_infinity, 0, _scalar);
         }
 
+        // Push the selected point and scalar to their respective vectors
         points.push_back(point);
         scalars.push_back(scalar);
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1002): if both point and scalar are constant,
-        // don't bother adding constraints
     }
 
     return { points, scalars };

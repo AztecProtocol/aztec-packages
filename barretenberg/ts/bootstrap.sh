@@ -2,13 +2,15 @@
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cmd=${1:-}
-
 # We mix if we're a release into the hash, as releases have all architectures built.
+# Include AVM_TRANSPILER setting to prevent cache poisoning: ci-barretenberg-full builds
+# with AVM_TRANSPILER=0, producing a bb binary without AVM transpiler support. Without this,
+# that build can populate the bb.js cache with a non-AVM bb, which ci-fast then downloads.
 hash=$(hash_str \
   $(../cpp/bootstrap.sh hash) \
   $(cache_content_hash .rebuild_patterns) \
-  $(semver check $REF_NAME && echo 1 || echo 0))
+  $(semver check $REF_NAME && echo 1 || echo 0) \
+  ${AVM_TRANSPILER:-1})
 
 function build {
   echo_header "bb.js build"
@@ -19,9 +21,9 @@ function build {
     yarn clean
     yarn generate
     yarn build:wasm
-    # yarn build:native
+    yarn build:native
     parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:esm build:cjs build:browser
-    cache_upload bb.js-$hash.tar.gz dest
+    cache_upload bb.js-$hash.tar.gz dest build
   fi
 
   # We copy snapshot dirs to dest so we can run tests from dest.
@@ -39,6 +41,9 @@ function build {
 function test_cmds {
   cd dest/node
   for test in **/*.test.js; do
+    # Skip benchmarks here.
+    [[ "$test" =~ \.bench\.test\.js$ ]] && continue
+
     local prefix=$hash
     # Extra resource.
     if [[ "$test" =~ ^examples/ ]]; then
@@ -48,36 +53,32 @@ function test_cmds {
   done
 }
 
+function bench_cmds {
+  echo "$hash:CPUS=4 barretenberg/ts/scripts/run_test.sh poseidon.bench.test.js"
+}
+
 function test {
   echo_header "bb.js test"
   test_cmds | filter_test_cmds | parallelize
 }
 
 function release {
+  cross_copy
   retry "deploy_npm $(dist_tag) ${REF_NAME#v}"
 }
 
+function cross_copy {
+  ./scripts/copy_cross.sh
+}
+
 case "$cmd" in
-  "clean")
-    git clean -fdx
-    ;;
-  "ci")
-    build
-    test
-    ;;
-  ""|"fast"|"full")
+  "")
     build
     ;;
   "hash")
     echo "$hash"
     ;;
-  bench|bench_cmds)
-    # Empty handling just to make this command valid.
-    ;;
-  test|test_cmds|release)
-    $cmd
-    ;;
   *)
-    echo "Unknown command: $cmd"
-    exit 1
+    default_cmd_handler "$@"
+    ;;
 esac

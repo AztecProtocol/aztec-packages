@@ -1,10 +1,11 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { LogFn } from '@aztec/foundation/log';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { TxHash } from '@aztec/stdlib/tx';
 
 export async function inspectBlock(
   aztecNode: AztecNode,
-  blockNumber: number,
+  blockNumber: BlockNumber,
   log: LogFn,
   opts: { showTxs?: boolean } = {},
 ) {
@@ -43,7 +44,10 @@ export async function inspectTx(
   const [receipt, effectsInBlock] = await Promise.all([aztecNode.getTxReceipt(txHash), aztecNode.getTxEffect(txHash)]);
   // Base tx data
   log(`Tx ${txHash.toString()}`);
-  log(` Status: ${receipt.status} ${effectsInBlock ? `(${effectsInBlock.data.revertCode.getDescription()})` : ''}`);
+  log(` Status: ${receipt.status}`);
+  if (receipt.executionResult) {
+    log(` Execution result: ${receipt.executionResult}`);
+  }
   if (receipt.error) {
     log(` Error: ${receipt.error}`);
   }

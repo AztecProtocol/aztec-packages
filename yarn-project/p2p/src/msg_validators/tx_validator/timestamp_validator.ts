@@ -1,15 +1,25 @@
-import { createLogger } from '@aztec/foundation/log';
-import {
-  type AnyTx,
-  TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP,
-  type TxValidationResult,
-  type TxValidator,
-  getTxHash,
-} from '@aztec/stdlib/tx';
+import type { BlockNumber } from '@aztec/foundation/branded-types';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import { TX_ERROR_INVALID_EXPIRATION_TIMESTAMP, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
-export class TimestampTxValidator<T extends AnyTx> implements TxValidator<T> {
-  #log = createLogger('p2p:tx_validator:timestamp');
+/** Structural interface for timestamp validation. */
+export interface HasTimestampData {
+  txHash: { toString(): string };
+  data: {
+    expirationTimestamp: bigint;
+    constants: {
+      anchorBlockHeader: {
+        globalVariables: {
+          blockNumber: BlockNumber;
+        };
+      };
+    };
+  };
+}
+
+export class TimestampTxValidator<T extends HasTimestampData> implements TxValidator<T> {
+  #log: Logger;
 
   constructor(
     private values: {
@@ -17,28 +27,29 @@ export class TimestampTxValidator<T extends AnyTx> implements TxValidator<T> {
       // being built.
       timestamp: UInt64;
       // Block number in which the tx is considered to be included.
-      blockNumber: number;
+      blockNumber: BlockNumber;
     },
-  ) {}
+    bindings?: LoggerBindings,
+  ) {
+    this.#log = createLogger('p2p:tx_validator:timestamp', bindings);
+  }
 
   validateTx(tx: T): Promise<TxValidationResult> {
-    const includeByTimestamp = tx.data.includeByTimestamp;
-    // If building block 1, we skip the expiration check. For details on why see the `validate_include_by_timestamp`
+    const expirationTimestamp = tx.data.expirationTimestamp;
+    // If building block 1, we skip the expiration check. For details on why see the `validate_expiration_timestamp`
     // function in `noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/validation_requests.nr`.
     const buildingBlock1 = this.values.blockNumber === 1;
 
-    if (!buildingBlock1 && includeByTimestamp < this.values.timestamp) {
+    if (!buildingBlock1 && expirationTimestamp < this.values.timestamp) {
       if (tx.data.constants.anchorBlockHeader.globalVariables.blockNumber === 0) {
         this.#log.warn(
           `A tx built against a genesis block failed to be included in block 1 which is the only block in which txs built against a genesis block are allowed to be included.`,
         );
       }
       this.#log.verbose(
-        `Rejecting tx ${getTxHash(tx)} for low expiration timestamp. Tx expiration timestamp: ${includeByTimestamp}, timestamp: ${
-          this.values.timestamp
-        }.`,
+        `Rejecting tx ${tx.txHash} for low expiration timestamp. Tx expiration timestamp: ${expirationTimestamp}, timestamp: ${this.values.timestamp}.`,
       );
-      return Promise.resolve({ result: 'invalid', reason: [TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP] });
+      return Promise.resolve({ result: 'invalid', reason: [TX_ERROR_INVALID_EXPIRATION_TIMESTAMP] });
     } else {
       return Promise.resolve({ result: 'valid' });
     }

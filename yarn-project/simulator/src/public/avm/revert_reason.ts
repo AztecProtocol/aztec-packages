@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { AvmContext } from './avm_context.js';
 import { type AvmExecutionError, AvmRevertReason } from './errors.js';
@@ -18,13 +18,16 @@ async function createRevertReason(message: string, revertData: Fr[], context: Av
     message = context.machineState.collectedRevertInfo.recursiveRevertReason.message;
   }
 
-  const fnName = await context.persistableState.getPublicFunctionDebugName(context.environment);
+  const { functionSelector, functionName } = await context.persistableState.getPublicFunctionSelectorAndName(
+    context.environment,
+  );
 
   return new AvmRevertReason(
     message,
     /*failingFunction=*/ {
       contractAddress: context.environment.address,
-      functionName: fnName,
+      functionSelector,
+      functionName,
     },
     /*noirCallStack=*/ [...internalCallStack, context.machineState.pc].map(pc => `0.${pc}`),
     /*options=*/ { cause: nestedError },

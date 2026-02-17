@@ -1,23 +1,15 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
-#include "barretenberg/stdlib/chonk_verifier/chonk_recursive_verifier.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
-#include "proof_surgeon.hpp"
 
 namespace acir_format {
-
-using namespace bb;
-
-using Builder = bb::UltraCircuitBuilder; // Builder is always Ultra
-using field_ct = stdlib::field_t<Builder>;
-
-template <typename Builder>
-using HonkRecursionConstraintOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<Builder>;
 
 using namespace bb;
 
@@ -33,43 +25,33 @@ using namespace bb;
  * @param key_fields
  * @param proof_fields
  */
-static void create_dummy_vkey_and_proof(Builder& builder,
-                                        size_t proof_size,
-                                        size_t public_inputs_size,
-                                        const std::vector<field_ct>& key_fields,
-                                        const std::vector<field_ct>& proof_fields)
+void create_dummy_vkey_and_proof(UltraCircuitBuilder& builder,
+                                 size_t proof_size,
+                                 size_t public_inputs_size,
+                                 const std::vector<stdlib::field_t<UltraCircuitBuilder>>& key_fields,
+                                 const std::vector<stdlib::field_t<UltraCircuitBuilder>>& proof_fields)
 {
-    using ChonkRecursiveVerifier = stdlib::recursion::honk::ChonkRecursiveVerifier;
+    using Builder = UltraCircuitBuilder;
     using IO = stdlib::recursion::honk::HidingKernelIO<Builder>;
 
-    BB_ASSERT_EQ(proof_size, ChonkRecursiveVerifier::StdlibProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS());
+    BB_ASSERT_EQ(proof_size, ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
 
     size_t num_inner_public_inputs = public_inputs_size - IO::PUBLIC_INPUTS_SIZE;
-    uint32_t pub_inputs_offset = MegaZKFlavor::has_zero_row ? 1 : 0;
 
     // Generate mock honk vk
     // Note: log_circuit_size = VIRTUAL_LOG_N
-    auto honk_vk = create_mock_honk_vk<MegaZKFlavor, IO>(
-        1 << MegaZKFlavor::VIRTUAL_LOG_N, pub_inputs_offset, num_inner_public_inputs);
+    auto honk_vk = create_mock_honk_vk<MegaZKFlavor, IO>(1 << MegaZKFlavor::VIRTUAL_LOG_N, num_inner_public_inputs);
 
     // Set honk vk in builder
-    size_t offset = 0;
-    for (auto& vk_element : honk_vk->to_field_elements()) {
-        builder.set_variable(key_fields[offset].get_witness_index(), vk_element);
-        offset++;
-    }
+    populate_fields(builder, key_fields, honk_vk->to_field_elements());
 
     // Generate dummy Chonk proof
     bb::HonkProof chonk_proof = create_mock_chonk_proof<Builder>(num_inner_public_inputs);
 
     // Set Chonk proof in builder
-    offset = 0;
-    for (auto& proof_element : chonk_proof) {
-        builder.set_variable(proof_fields[offset].get_witness_index(), proof_element);
-        offset++;
-    }
+    populate_fields(builder, proof_fields, chonk_proof);
 
-    BB_ASSERT_EQ(offset, proof_size + public_inputs_size);
+    BB_ASSERT_EQ(chonk_proof.size(), proof_size + public_inputs_size);
 }
 
 /**
@@ -81,28 +63,33 @@ static void create_dummy_vkey_and_proof(Builder& builder,
  * @param has_valid_witness_assignments
  * @return HonkRecursionConstraintOutput {pairing agg object, ipa claim, ipa proof}
  */
-[[nodiscard("IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintOutput<Builder>
-create_chonk_recursion_constraints(Builder& builder,
-                                   const RecursionConstraint& input,
-                                   bool has_valid_witness_assignments)
+[[nodiscard(
+    "IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintOutput<bb::UltraCircuitBuilder>
+create_chonk_recursion_constraints(bb::UltraCircuitBuilder& builder, const RecursionConstraint& input)
 {
-    using ChonkRecursiveVerifier = stdlib::recursion::honk::ChonkRecursiveVerifier;
-    using RecursiveVKAndHash = ChonkRecursiveVerifier::RecursiveVKAndHash;
-    using VerificationKey = ChonkRecursiveVerifier::RecursiveVK;
+    using Builder = bb::UltraCircuitBuilder;
+    using field_ct = stdlib::field_t<Builder>;
+    using RecursiveVKAndHash = ChonkRecursiveVerifier::VKAndHash;
+    using VerificationKey = ChonkRecursiveVerifier::VK;
     using IO = stdlib::recursion::honk::HidingKernelIO<Builder>;
 
     BB_ASSERT_EQ(input.proof_type, PROOF_TYPE::CHONK);
 
     // Reconstruct proof indices from proof and public inputs
-    std::vector<uint32_t> proof_indices =
-        ProofSurgeon<uint32_t>::create_indices_for_reconstructed_proof(input.proof, input.public_inputs);
+    std::vector<uint32_t> proof_indices = add_public_inputs_to_proof(input.proof, input.public_inputs);
 
     // Construct field elements from witness indices
-    std::vector<field_ct> key_fields = RecursionConstraint::fields_from_witnesses(builder, input.key);
-    std::vector<field_ct> proof_fields = RecursionConstraint::fields_from_witnesses(builder, proof_indices);
+    std::vector<field_ct> key_fields = fields_from_witnesses(builder, input.key);
+    std::vector<field_ct> proof_fields = fields_from_witnesses(builder, proof_indices);
     field_ct vk_hash = field_ct::from_witness_index(&builder, input.key_hash);
 
-    if (!has_valid_witness_assignments) {
+    if (builder.is_write_vk_mode()) {
+        BB_ASSERT_GTE(input.proof.size(),
+                      IO::PUBLIC_INPUTS_SIZE,
+                      "create_chonk_recursion_constraints: fewer proof elements than public inputs.");
+        BB_ASSERT_LTE(input.public_inputs.size(),
+                      SIZE_MAX - IO::PUBLIC_INPUTS_SIZE,
+                      "create_chonk_recursion_constraints: too many public inputs.");
         size_t total_pub_inputs_size = input.public_inputs.size() + IO::PUBLIC_INPUTS_SIZE;
         size_t proof_size_without_pub_inputs = input.proof.size() - IO::PUBLIC_INPUTS_SIZE;
 
@@ -113,15 +100,16 @@ create_chonk_recursion_constraints(Builder& builder,
     // Recursively verify Chonk proof
     auto mega_vk = std::make_shared<VerificationKey>(key_fields);
     auto mega_vk_and_hash = std::make_shared<RecursiveVKAndHash>(mega_vk, vk_hash);
-    ChonkRecursiveVerifier::StdlibProof stdlib_proof(proof_fields, input.public_inputs.size());
+    ChonkStdlibProof stdlib_proof = ChonkStdlibProof::from_field_elements(proof_fields);
 
-    ChonkRecursiveVerifier verifier(&builder, mega_vk_and_hash);
+    ChonkRecursiveVerifier verifier(mega_vk_and_hash);
     ChonkRecursiveVerifier::Output verification_output = verifier.verify(stdlib_proof);
 
     // Construct output
+    // Note: ChonkVerifier aggregates all pairing points (PI + PCS + Merge + Translator)
     HonkRecursionConstraintOutput<Builder> output;
-    output.points_accumulator = verification_output.points_accumulator;
-    output.ipa_claim = verification_output.opening_claim;
+    output.points_accumulator = verification_output.pairing_points;
+    output.ipa_claim = verification_output.ipa_claim;
     output.ipa_proof = verification_output.ipa_proof;
 
     return output;

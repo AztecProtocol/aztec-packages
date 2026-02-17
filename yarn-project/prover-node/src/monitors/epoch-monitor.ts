@@ -1,18 +1,13 @@
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
-import {
-  type TelemetryClient,
-  type Traceable,
-  type Tracer,
-  getTelemetryClient,
-  trackSpan,
-} from '@aztec/telemetry-client';
+import { type TelemetryClient, type Traceable, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 export interface EpochMonitorHandler {
-  handleEpochReadyToProve(epochNumber: bigint): Promise<boolean>;
+  handleEpochReadyToProve(epochNumber: EpochNumber): Promise<boolean>;
 }
 
 /**
@@ -32,7 +27,7 @@ export class EpochMonitor implements Traceable {
   public readonly tracer: Tracer;
 
   private handler: EpochMonitorHandler | undefined;
-  private latestEpochNumber: bigint | undefined;
+  private latestEpochNumber: EpochNumber | undefined;
 
   constructor(
     private readonly l2BlockSource: L2BlockSource,
@@ -72,7 +67,6 @@ export class EpochMonitor implements Traceable {
     this.log.info('Stopped EpochMonitor');
   }
 
-  @trackSpan('EpochMonitor.work')
   public async work() {
     const { epochToProve, blockNumber, slotNumber } = await this.getEpochNumberToProve();
     this.log.debug(`Epoch to prove: ${epochToProve}`, { blockNumber, slotNumber });
@@ -104,7 +98,7 @@ export class EpochMonitor implements Traceable {
 
   private async getEpochNumberToProve() {
     const lastBlockProven = await this.l2BlockSource.getProvenBlockNumber();
-    const firstBlockToProve = lastBlockProven + 1;
+    const firstBlockToProve = BlockNumber(lastBlockProven + 1);
     const firstBlockHeaderToProve = await this.l2BlockSource.getBlockHeader(firstBlockToProve);
     if (!firstBlockHeaderToProve) {
       return { epochToProve: undefined, blockNumber: firstBlockToProve };

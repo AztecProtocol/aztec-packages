@@ -1,14 +1,16 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { Secp256k1Signer } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
-import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
-import { type MakeConsensusPayloadOptions, makeBlockProposal, makeL2BlockHeader } from '@aztec/stdlib/testing';
+import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import { BlockProposal, CheckpointAttestation } from '@aztec/stdlib/p2p';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { type MakeConsensusPayloadOptions, makeBlockProposal } from '@aztec/stdlib/testing';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
@@ -18,8 +20,8 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { P2PClient } from '../../client/p2p_client.js';
 import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
 import type { AttestationPool } from '../../mem_pools/attestation_pool/attestation_pool.js';
-import { mockAttestation } from '../../mem_pools/attestation_pool/mocks.js';
-import type { TxPool } from '../../mem_pools/tx_pool/index.js';
+import { mockCheckpointAttestation } from '../../mem_pools/attestation_pool/mocks.js';
+import type { TxPoolV2 } from '../../mem_pools/tx_pool_v2/interfaces.js';
 import type { LibP2PService } from '../../services/libp2p/libp2p_service.js';
 import {
   type MakeTestP2PClientOptions,
@@ -34,7 +36,7 @@ const TEST_TIMEOUT = 120_000;
 jest.setTimeout(TEST_TIMEOUT);
 
 describe('p2p client integration message propagation', () => {
-  let txPool: MockProxy<TxPool>;
+  let txPool: MockProxy<TxPoolV2>;
   let attestationPool: MockProxy<AttestationPool>;
   let epochCache: MockProxy<EpochCache>;
   let worldState: MockProxy<WorldStateSynchronizer>;
@@ -44,9 +46,11 @@ describe('p2p client integration message propagation', () => {
 
   let clients: P2PClient[] = [];
 
+  const currentSlot = SlotNumber(1);
+
   beforeEach(() => {
     clients = [];
-    txPool = mock<TxPool>();
+    txPool = mock<TxPoolV2>();
     attestationPool = mock<AttestationPool>();
     epochCache = mock<EpochCache>();
     worldState = mock<WorldStateSynchronizer>();
@@ -56,25 +60,47 @@ describe('p2p client integration message propagation', () => {
 
     //@ts-expect-error - we want to mock the getEpochAndSlotInNextL1Slot method, mocking ts is enough
     epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) });
+    epochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot, nextSlot: SlotNumber(currentSlot + 1) });
     epochCache.getRegisteredValidators.mockResolvedValue([]);
-
-    txPool.hasTxs.mockResolvedValue([]);
-    txPool.getAllTxs.mockImplementation(() => {
-      return Promise.resolve([] as Tx[]);
+    epochCache.getL1Constants.mockReturnValue({
+      l1StartBlock: 0n,
+      l1GenesisTime: 0n,
+      slotDuration: 24,
+      epochDuration: 16,
+      ethereumSlotDuration: 12,
+      proofSubmissionEpochs: 2,
+      targetCommitteeSize: 48,
     });
-    txPool.addTxs.mockResolvedValue(1);
+
+    const mockMerkleTreeOps = mock<MerkleTreeReadOperations>();
+    mockMerkleTreeOps.findLeafIndices.mockResolvedValue([]);
+    worldState.getCommitted.mockReturnValue(mockMerkleTreeOps);
+    worldState.getSnapshot.mockReturnValue(mockMerkleTreeOps);
+
+    txPool.isEmpty.mockResolvedValue(true);
+    txPool.hasTxs.mockResolvedValue([]);
+    txPool.addPendingTxs.mockImplementation((txs: Tx[]) =>
+      Promise.resolve({
+        accepted: txs.map(tx => tx.getTxHash()),
+        ignored: [],
+        rejected: [],
+      }),
+    );
     txPool.getTxsByHash.mockImplementation(() => {
       return Promise.resolve([] as Tx[]);
     });
 
+    attestationPool.isEmpty.mockResolvedValue(true);
+    attestationPool.tryAddBlockProposal.mockResolvedValue({ added: true, alreadyExists: false, count: 1 });
+
     worldState.status.mockResolvedValue({
       state: mock(),
       syncSummary: {
-        latestBlockNumber: 0,
+        latestBlockNumber: BlockNumber.ZERO,
         latestBlockHash: '',
-        finalizedBlockNumber: 0,
+        finalizedBlockNumber: BlockNumber.ZERO,
         treesAreSynched: false,
-        oldestHistoricBlockNumber: 0,
+        oldestHistoricBlockNumber: BlockNumber.ZERO,
       },
     });
     logger.info(`Starting test ${expect.getState().currentTestName}`);
@@ -132,19 +158,22 @@ describe('p2p client integration message propagation', () => {
     return handleGossipedProposalSpy;
   };
 
-  // Replace the block attestation handler on a client
-  const replaceBlockAttestationHandler = (client: P2PClient, promise: PromiseWithResolvers<BlockAttestation>) => {
+  // Replace the checkpoint attestation handler on a client
+  const replaceCheckpointAttestationHandler = (
+    client: P2PClient,
+    promise: PromiseWithResolvers<CheckpointAttestation>,
+  ) => {
     const p2pService = (client as any).p2pService as LibP2PService;
     // @ts-expect-error - we want to spy on received attestation handler
-    const oldAttestationHandler = p2pService.processAttestationFromPeer.bind(p2pService);
+    const oldAttestationHandler = p2pService.processCheckpointAttestationFromPeer.bind(p2pService);
 
     // Mock the function to just call the old one
     const handleGossipedAttestationSpy = jest.fn(async (payload: Buffer, msgId: string, source: PeerId) => {
-      promise.resolve(BlockAttestation.fromBuffer(payload));
+      promise.resolve(CheckpointAttestation.fromBuffer(payload));
       await oldAttestationHandler(payload, msgId, source);
     });
     // @ts-expect-error - replace with our own handler
-    p2pService.processAttestationFromPeer = handleGossipedAttestationSpy;
+    p2pService.processCheckpointAttestationFromPeer = handleGossipedAttestationSpy;
 
     return handleGossipedAttestationSpy;
   };
@@ -154,20 +183,20 @@ describe('p2p client integration message propagation', () => {
     // Client 1 sends a tx a block proposal and an attestation and both clients 2 and 3 should receive them
     const client2TxPromise = promiseWithResolvers<Tx>();
     const client2ProposalPromise = promiseWithResolvers<BlockProposal>();
-    const client2AttestationPromise = promiseWithResolvers<BlockAttestation>();
+    const client2AttestationPromise = promiseWithResolvers<CheckpointAttestation>();
 
     const client3TxPromise = promiseWithResolvers<Tx>();
     const client3ProposalPromise = promiseWithResolvers<BlockProposal>();
-    const client3AttestationPromise = promiseWithResolvers<BlockAttestation>();
+    const client3AttestationPromise = promiseWithResolvers<CheckpointAttestation>();
 
     // Replace the handlers on clients 2 and 3 so we can detect when they receive messages
     const client2HandleGossipedTxSpy = replaceTxHandler(client2, client2TxPromise);
     const client2HandleGossipedProposalSpy = replaceBlockProposalHandler(client2, client2ProposalPromise);
-    const client2HandleGossipedAttestationSpy = replaceBlockAttestationHandler(client2, client2AttestationPromise);
+    const client2HandleGossipedAttestationSpy = replaceCheckpointAttestationHandler(client2, client2AttestationPromise);
 
     const client3HandleGossipedTxSpy = replaceTxHandler(client3, client3TxPromise);
     const client3HandleGossipedProposalSpy = replaceBlockProposalHandler(client3, client3ProposalPromise);
-    const client3HandleGossipedAttestationSpy = replaceBlockAttestationHandler(client3, client3AttestationPromise);
+    const client3HandleGossipedAttestationSpy = replaceCheckpointAttestationHandler(client3, client3AttestationPromise);
 
     // Client 1 sends a transaction, it should propagate to clients 2 and 3
     const tx = await createMockTxWithMetadata(config);
@@ -176,20 +205,20 @@ describe('p2p client integration message propagation', () => {
     // Client 1 sends a block proposal
     const dummyPayload: MakeConsensusPayloadOptions = {
       signer: Secp256k1Signer.random(),
-      header: makeL2BlockHeader(),
+      header: CheckpointHeader.random({ slotNumber: currentSlot }),
       archive: Fr.random(),
       txHashes: [TxHash.random()],
     };
-    const blockProposal = makeBlockProposal(dummyPayload);
+    const blockProposal = await makeBlockProposal(dummyPayload);
     await client1.broadcastProposal(blockProposal);
 
-    // client 1 sends an attestation
-    const attestation = mockAttestation(
+    // client 1 sends a checkpoint attestation
+    const attestation = mockCheckpointAttestation(
       Secp256k1Signer.random(),
-      Number(dummyPayload.header!.getSlot()),
+      Number(dummyPayload.header!.slotNumber),
       dummyPayload.archive,
     );
-    await (client1 as any).p2pService.broadcastAttestation(attestation);
+    await client1.broadcastCheckpointAttestations([attestation]);
 
     // Clients 2 and 3 should receive all messages
     const messagesPromise = [
@@ -216,8 +245,8 @@ describe('p2p client integration message propagation', () => {
       expect(hashes[0].toString()).toEqual(hashes[1].toString());
       expect(hashes[0].toString()).toEqual(hashes[2].toString());
 
-      expect(messages[2].payload.toString()).toEqual(blockProposal.payload.toString());
-      expect(messages[3].payload.toString()).toEqual(blockProposal.payload.toString());
+      expect(messages[2].archive.toString()).toEqual(blockProposal.archive.toString());
+      expect(messages[3].archive.toString()).toEqual(blockProposal.archive.toString());
       expect(messages[4].payload.toString()).toEqual(attestation.payload.toString());
       expect(messages[5].payload.toString()).toEqual(attestation.payload.toString());
     }
@@ -300,23 +329,23 @@ describe('p2p client integration message propagation', () => {
       {
         const client2TxPromise = promiseWithResolvers<Tx>();
         const client2ProposalPromise = promiseWithResolvers<BlockProposal>();
-        const client2AttestationPromise = promiseWithResolvers<BlockAttestation>();
+        const client2AttestationPromise = promiseWithResolvers<CheckpointAttestation>();
 
         const client3TxPromise = promiseWithResolvers<Tx>();
         const client3ProposalPromise = promiseWithResolvers<BlockProposal>();
-        const client3AttestationPromise = promiseWithResolvers<BlockAttestation>();
+        const client3AttestationPromise = promiseWithResolvers<CheckpointAttestation>();
 
         // Replace the handlers on clients 2 and 3 so we can detect when they receive messages
         const client2HandleGossipedTxSpy = replaceTxHandler(newClient2, client2TxPromise);
         const client2HandleGossipedProposalSpy = replaceBlockProposalHandler(newClient2, client2ProposalPromise);
-        const client2HandleGossipedAttestationSpy = replaceBlockAttestationHandler(
+        const client2HandleGossipedAttestationSpy = replaceCheckpointAttestationHandler(
           newClient2,
           client2AttestationPromise,
         );
 
         const client3HandleGossipedTxSpy = replaceTxHandler(newClient3, client3TxPromise);
         const client3HandleGossipedProposalSpy = replaceBlockProposalHandler(newClient3, client3ProposalPromise);
-        const client3HandleGossipedAttestationSpy = replaceBlockAttestationHandler(
+        const client3HandleGossipedAttestationSpy = replaceCheckpointAttestationHandler(
           newClient3,
           client3AttestationPromise,
         );
@@ -328,20 +357,20 @@ describe('p2p client integration message propagation', () => {
         // Client 1 sends a block proposal
         const dummyPayload: MakeConsensusPayloadOptions = {
           signer: Secp256k1Signer.random(),
-          header: makeL2BlockHeader(),
+          header: CheckpointHeader.random({ slotNumber: currentSlot }),
           archive: Fr.random(),
           txHashes: [TxHash.random()],
         };
-        const blockProposal = makeBlockProposal(dummyPayload);
+        const blockProposal = await makeBlockProposal(dummyPayload);
         await client1.client.broadcastProposal(blockProposal);
 
-        // client 1 sends an attestation
-        const attestation = mockAttestation(
+        // client 1 sends a checkpoint attestation
+        const attestation = mockCheckpointAttestation(
           Secp256k1Signer.random(),
-          Number(dummyPayload.header!.getSlot()),
+          Number(dummyPayload.header!.slotNumber),
           dummyPayload.archive,
         );
-        await (client1.client as any).p2pService.broadcastAttestation(attestation);
+        await client1.client.broadcastCheckpointAttestations([attestation]);
 
         // Only client 2 should receive the messages
         const client2Messages = await retryUntil(
@@ -370,7 +399,7 @@ describe('p2p client integration message propagation', () => {
 
         const hashes = await Promise.all([tx, client2Messages![0]].map(tx => tx!.getTxHash()));
         expect(hashes[0].toString()).toEqual(hashes[1].toString());
-        expect(client2Messages![1].payload.toString()).toEqual(blockProposal.payload.toString());
+        expect(client2Messages![1].archive.toString()).toEqual(blockProposal.archive.toString());
         expect(client2Messages![2].payload.toString()).toEqual(attestation.payload.toString());
 
         // We expect that no messages were received by client 3

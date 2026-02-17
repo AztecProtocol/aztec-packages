@@ -1,6 +1,8 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
-import { RollupContract, type ViemPublicClient } from '@aztec/ethereum';
+import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor } from '@aztec/ethereum/test';
+import type { ViemPublicClient } from '@aztec/ethereum/types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -10,9 +12,10 @@ import { type L1RollupConstants, getSlotRangeForEpoch, getStartTimestampForEpoch
 
 import { jest } from '@jest/globals';
 import assert from 'assert';
-import type { ChildProcess } from 'child_process';
 
 import {
+  ChainHealth,
+  type ServiceEndpoint,
   getL1DeploymentAddresses,
   getPublicViemClient,
   getSequencersConfig,
@@ -31,7 +34,7 @@ describe('slash inactivity test', () => {
 
   const logger = createLogger(`e2e:slash-inactivity`);
 
-  const forwardProcesses: ChildProcess[] = [];
+  const endpoints: ServiceEndpoint[] = [];
 
   let client: ViemPublicClient;
   let rollup: RollupContract;
@@ -39,10 +42,14 @@ describe('slash inactivity test', () => {
   let constants: Omit<L1RollupConstants, 'ethereumSlotDuration'>;
   let monitor: ChainMonitor;
   let offlineValidator: EthAddress;
+  const health = new ChainHealth(config.NAMESPACE, logger);
 
   beforeAll(async () => {
+    await health.setup();
     const deployAddresses = await getL1DeploymentAddresses(config);
-    ({ client } = await getPublicViemClient(config, forwardProcesses));
+    const viemResult = await getPublicViemClient(config);
+    client = viemResult.client;
+    endpoints.push({ url: viemResult.url, process: viemResult.process });
     rollup = new RollupContract(client, deployAddresses.rollupAddress);
     monitor = new ChainMonitor(rollup, undefined, logger.createChild('chain-monitor'), 500).start();
     constants = await rollup.getRollupConstants();
@@ -50,11 +57,12 @@ describe('slash inactivity test', () => {
   });
 
   afterAll(async () => {
+    await health.teardown();
     // Clear out the disabled validators so we don't affect other tests
     await updateSequencersConfig(config, { disabledValidators: [] });
     monitor.removeAllListeners();
     await monitor.stop();
-    forwardProcesses.forEach(p => p.kill());
+    endpoints.forEach(e => e.process?.kill());
   });
 
   /** Returns the committee for the next epoch. If not defined yet, waits until it is. */
@@ -63,7 +71,7 @@ describe('slash inactivity test', () => {
     logger.warn(`Retrieving committee for next epoch (current epoch is ${startEpoch})`);
     return await retryUntil(
       async () => {
-        const nextEpoch = (await rollup.getCurrentEpoch()) + 1n;
+        const nextEpoch = EpochNumber.fromBigInt(BigInt(await rollup.getCurrentEpoch()) + 1n);
         const nextEpochStartTimestamp = getStartTimestampForEpoch(nextEpoch, constants);
         const committee = await rollup.getCommitteeAt(nextEpochStartTimestamp);
 
@@ -128,10 +136,10 @@ describe('slash inactivity test', () => {
 
     // Choose the first committee member for the next epoch as the validator to disable
     const { committee, epoch } = await getNextEpochCommittee();
-    offlineValidator = EthAddress.fromString(committee[0]);
+    offlineValidator = committee[0];
 
     // Wait until we're near the end of the previous epoch
-    const lastSlotBeforeEpoch = getSlotRangeForEpoch(epoch, constants)[0] - 1n;
+    const lastSlotBeforeEpoch = SlotNumber(getSlotRangeForEpoch(epoch, constants)[0] - 1);
     logger.warn(`Waiting until slot ${lastSlotBeforeEpoch} (current is ${monitor.l2SlotNumber})`);
     await monitor.waitUntilL2Slot(lastSlotBeforeEpoch);
 
@@ -156,8 +164,10 @@ describe('slash inactivity test', () => {
 
     // Wait for an epoch, then reenable the validator, otherwise it will get slashed for every epoch
     // for the slashed round, plus the slash offset, plus the execution delay, which would kick them out.
-    const lastSlotBeforeNextEpoch = getSlotRangeForEpoch(epoch + 1n, constants)[0] - 1n;
-    logger.warn(`Waiting until end of epoch ${epoch + 1n} at slot ${lastSlotBeforeNextEpoch}`);
+    const lastSlotBeforeNextEpoch = SlotNumber.fromBigInt(
+      BigInt(getSlotRangeForEpoch(EpochNumber.fromBigInt(BigInt(epoch) + 1n), constants)[0]) - 1n,
+    );
+    logger.warn(`Waiting until end of epoch ${BigInt(epoch) + 1n} at slot ${lastSlotBeforeNextEpoch}`);
     await monitor.waitUntilL2Slot(lastSlotBeforeNextEpoch);
     await updateSequencersConfig(config, { disabledValidators: [] });
     logger.warn(`Updated sequencer configs to reenable ${offlineValidator}`);

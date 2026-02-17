@@ -2,7 +2,7 @@ import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { Fr } from '@aztec/aztec.js/fields';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { getL1Config } from '@aztec/cli/config';
-import { getPublicClient } from '@aztec/ethereum';
+import { getPublicClient } from '@aztec/ethereum/client';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
 import type { LogFn } from '@aztec/foundation/log';
@@ -67,7 +67,7 @@ export async function startProverNode(
     );
   }
 
-  const telemetry = initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));
+  const telemetry = await initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));
 
   let broker: ProvingJobBroker;
   if (proverConfig.proverBrokerUrl) {

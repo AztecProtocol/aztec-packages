@@ -1,10 +1,11 @@
 import {
-  AVM_EMITUNENCRYPTEDLOG_BASE_DA_GAS,
-  AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS,
-  AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS,
-  AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS,
+  AVM_EMITPUBLICLOG_BASE_DA_GAS,
+  AVM_EMITPUBLICLOG_BASE_L2_GAS,
+  AVM_EMITPUBLICLOG_DYN_DA_GAS,
+  AVM_EMITPUBLICLOG_DYN_L2_GAS,
+  MAX_ETH_ADDRESS_VALUE,
 } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 
@@ -21,7 +22,7 @@ import { mockCheckNullifierExists, mockGetL1ToL2LeafValue, mockGetNoteHash, mock
 import {
   EmitNoteHash,
   EmitNullifier,
-  EmitUnencryptedLog,
+  EmitPublicLog,
   L1ToL2MessageExists,
   NoteHashExists,
   NullifierExists,
@@ -67,7 +68,7 @@ describe('Accrued Substate', () => {
         ...Buffer.from('4567', 'hex'), // existsOffset
       ]);
       const inst = new NoteHashExists(
-        /*indirect=*/ 0x01,
+        /*addressing_mode=*/ 0x01,
         /*noteHashOffset=*/ 0x1234,
         /*leafIndexOffset=*/ 0x2345,
         /*existsOffset=*/ 0x4567,
@@ -98,7 +99,7 @@ describe('Accrued Substate', () => {
         context.machineState.memory.set(value0Offset, new Field(value0)); // noteHash
         context.machineState.memory.set(leafIndexOffset, new Uint64(leafIndex));
         await new NoteHashExists(
-          /*indirect=*/ 0,
+          /*addressing_mode=*/ 0,
           /*noteHashOffset=*/ value0Offset,
           leafIndexOffset,
           existsOffset,
@@ -117,7 +118,7 @@ describe('Accrued Substate', () => {
         0x01, // indirect
         ...Buffer.from('1234', 'hex'), // offset
       ]);
-      const inst = new EmitNoteHash(/*indirect=*/ 0x01, /*offset=*/ 0x1234);
+      const inst = new EmitNoteHash(/*addressing_mode=*/ 0x01, /*offset=*/ 0x1234);
 
       expect(EmitNoteHash.fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
@@ -126,7 +127,7 @@ describe('Accrued Substate', () => {
     it('Should append a new note hash correctly', async () => {
       mockNoteHashCount(trace, 0);
       context.machineState.memory.set(value0Offset, new Field(value0));
-      await new EmitNoteHash(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context);
+      await new EmitNoteHash(/*addressing_mode=*/ 0, /*offset=*/ value0Offset).execute(context);
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
       const siloedNotehash = await siloNoteHash(address, value0);
       const noteNonce = await computeNoteHashNonce(firstNullifier, 0);
@@ -141,13 +142,11 @@ describe('Accrued Substate', () => {
         NullifierExists.opcode, // opcode
         0x01, // indirect
         ...Buffer.from('1234', 'hex'), // nullifierOffset
-        ...Buffer.from('0234', 'hex'), // addressOffset
         ...Buffer.from('4567', 'hex'), // existsOffset
       ]);
       const inst = new NullifierExists(
-        /*indirect=*/ 0x01,
+        /*addressing_mode=*/ 0x01,
         /*nullifierOffset=*/ 0x1234,
-        /*addressOffset=*/ 0x0234,
         /*existsOffset=*/ 0x4567,
       );
 
@@ -157,21 +156,17 @@ describe('Accrued Substate', () => {
 
     describe.each([[/*exists=*/ false], [/*exists=*/ true]])('Nullifier checks', (exists: boolean) => {
       const existsStr = exists ? 'DOES exist' : 'does NOT exist';
-      it(`Should return ${exists} (and be traced) when noteHash ${existsStr}`, async () => {
-        const addressOffset = 1;
-
+      it(`Should return ${exists} (and be traced) when nullifier ${existsStr}`, async () => {
         if (exists) {
-          mockCheckNullifierExists(treesDB, true, value0);
+          // The opcode expects a siloed nullifier, so we need to use the pre-siloed one
+          mockCheckNullifierExists(treesDB, true, siloedNullifier0);
         }
 
-        context.machineState.memory.set(value0Offset, new Field(value0)); // nullifier
-        context.machineState.memory.set(addressOffset, new Field(address.toField()));
-        await new NullifierExists(
-          /*indirect=*/ 0,
-          /*nullifierOffset=*/ value0Offset,
-          addressOffset,
-          existsOffset,
-        ).execute(context);
+        // Set pre-computed siloed nullifier in memory (siloing now happens at caller level)
+        context.machineState.memory.set(value0Offset, new Field(siloedNullifier0));
+        await new NullifierExists(/*addressing_mode=*/ 0, /*nullifierOffset=*/ value0Offset, existsOffset).execute(
+          context,
+        );
 
         const gotExists = context.machineState.memory.getAs<Uint8>(existsOffset);
         expect(gotExists).toEqual(new Uint8(exists ? 1 : 0));
@@ -186,7 +181,7 @@ describe('Accrued Substate', () => {
         0x01, // indirect
         ...Buffer.from('1234', 'hex'), // offset
       ]);
-      const inst = new EmitNullifier(/*indirect=*/ 0x01, /*offset=*/ 0x1234);
+      const inst = new EmitNullifier(/*addressing_mode=*/ 0x01, /*offset=*/ 0x1234);
 
       expect(EmitNullifier.fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
@@ -194,15 +189,17 @@ describe('Accrued Substate', () => {
 
     it('Should append a new nullifier correctly', async () => {
       context.machineState.memory.set(value0Offset, new Field(value0));
-      await new EmitNullifier(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context);
+      await new EmitNullifier(/*addressing_mode=*/ 0, /*offset=*/ value0Offset).execute(context);
       expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
       expect(trace.traceNewNullifier).toHaveBeenCalledWith(siloedNullifier0);
     });
 
     it('Nullifier collision reverts (same nullifier emitted twice)', async () => {
       context.machineState.memory.set(value0Offset, new Field(value0));
-      await new EmitNullifier(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context);
-      await expect(new EmitNullifier(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context)).rejects.toThrow(
+      await new EmitNullifier(/*addressing_mode=*/ 0, /*offset=*/ value0Offset).execute(context);
+      await expect(
+        new EmitNullifier(/*addressing_mode=*/ 0, /*offset=*/ value0Offset).execute(context),
+      ).rejects.toThrow(
         new InstructionExecutionError(
           `Attempted to emit duplicate nullifier ${value0} (contract address: ${address}).`,
         ),
@@ -215,7 +212,9 @@ describe('Accrued Substate', () => {
     it('Nullifier collision reverts (nullifier exists in host state)', async () => {
       mockCheckNullifierExists(treesDB, true, new Fr(leafIndex));
       context.machineState.memory.set(value0Offset, new Field(value0));
-      await expect(new EmitNullifier(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context)).rejects.toThrow(
+      await expect(
+        new EmitNullifier(/*addressing_mode=*/ 0, /*offset=*/ value0Offset).execute(context),
+      ).rejects.toThrow(
         new InstructionExecutionError(
           `Attempted to emit duplicate nullifier ${value0} (contract address: ${address}).`,
         ),
@@ -235,7 +234,7 @@ describe('Accrued Substate', () => {
         ...Buffer.from('CDEF', 'hex'), // existsOffset
       ]);
       const inst = new L1ToL2MessageExists(
-        /*indirect=*/ 0x01,
+        /*addressing_mode=*/ 0x01,
         /*msgHashOffset=*/ 0x1234,
         /*msgLeafIndexOffset=*/ 0x4567,
         /*existsOffset=*/ 0xcdef,
@@ -267,7 +266,7 @@ describe('Accrued Substate', () => {
         context.machineState.memory.set(value0Offset, new Field(value0)); // msg hash
         context.machineState.memory.set(leafIndexOffset, new Uint64(leafIndex));
         await new L1ToL2MessageExists(
-          /*indirect=*/ 0,
+          /*addressing_mode=*/ 0,
           /*msgHashOffset=*/ value0Offset,
           leafIndexOffset,
           existsOffset,
@@ -279,17 +278,17 @@ describe('Accrued Substate', () => {
     });
   });
 
-  describe('EmitUnencryptedLog', () => {
+  describe('EmitPublicLog', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
-        EmitUnencryptedLog.opcode, // opcode
+        EmitPublicLog.opcode, // opcode
         0x01, // indirect
         ...Buffer.from('a234', 'hex'), // length offset
         ...Buffer.from('1234', 'hex'), // log offset
       ]);
-      const inst = new EmitUnencryptedLog(/*indirect=*/ 0x01, /*lengthOffset=*/ 0xa234, /*offset=*/ 0x1234);
+      const inst = new EmitPublicLog(/*addressing_mode=*/ 0x01, /*lengthOffset=*/ 0xa234, /*offset=*/ 0x1234);
 
-      expect(EmitUnencryptedLog.fromBuffer(buf)).toEqual(inst);
+      expect(EmitPublicLog.fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
     });
 
@@ -304,7 +303,7 @@ describe('Accrued Substate', () => {
       );
       context.machineState.memory.set(logSizeOffset, new Uint32(values.length));
 
-      await new EmitUnencryptedLog(/*indirect=*/ 0, logSizeOffset, /*offset=*/ startOffset).execute(context);
+      await new EmitPublicLog(/*addressing_mode=*/ 0, logSizeOffset, /*offset=*/ startOffset).execute(context);
 
       expect(trace.tracePublicLog).toHaveBeenCalledTimes(1);
       expect(trace.tracePublicLog).toHaveBeenCalledWith(address, values);
@@ -323,13 +322,13 @@ describe('Accrued Substate', () => {
 
       const l2GasBefore = context.machineState.l2GasLeft;
       const daGasBefore = context.machineState.daGasLeft;
-      await new EmitUnencryptedLog(/*indirect=*/ 0, logSizeOffset, /*offset=*/ startOffset).execute(context);
+      await new EmitPublicLog(/*addressing_mode=*/ 0, logSizeOffset, /*offset=*/ startOffset).execute(context);
 
       expect(context.machineState.l2GasLeft).toEqual(
-        l2GasBefore - AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS - AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS * values.length,
+        l2GasBefore - AVM_EMITPUBLICLOG_BASE_L2_GAS - AVM_EMITPUBLICLOG_DYN_L2_GAS * values.length,
       );
       expect(context.machineState.daGasLeft).toEqual(
-        daGasBefore - AVM_EMITUNENCRYPTEDLOG_BASE_DA_GAS - AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS * values.length,
+        daGasBefore - AVM_EMITPUBLICLOG_BASE_DA_GAS - AVM_EMITPUBLICLOG_DYN_DA_GAS * values.length,
       );
     });
   });
@@ -342,7 +341,11 @@ describe('Accrued Substate', () => {
         ...Buffer.from('1234', 'hex'), // recipientOffset
         ...Buffer.from('a234', 'hex'), // contentOffset
       ]);
-      const inst = new SendL2ToL1Message(/*indirect=*/ 0x01, /*recipientOffset=*/ 0x1234, /*contentOffset=*/ 0xa234);
+      const inst = new SendL2ToL1Message(
+        /*addressing_mode=*/ 0x01,
+        /*recipientOffset=*/ 0x1234,
+        /*contentOffset=*/ 0xa234,
+      );
 
       expect(SendL2ToL1Message.fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
@@ -354,12 +357,23 @@ describe('Accrued Substate', () => {
       context.machineState.memory.set(value0Offset, new Field(value0));
       context.machineState.memory.set(value1Offset, new Field(value1));
       await new SendL2ToL1Message(
-        /*indirect=*/ 0,
+        /*addressing_mode=*/ 0,
         /*recipientOffset=*/ value0Offset,
         /*contentOffset=*/ value1Offset,
       ).execute(context);
       expect(trace.traceNewL2ToL1Message).toHaveBeenCalledTimes(1);
       expect(trace.traceNewL2ToL1Message).toHaveBeenCalledWith(address, /*recipient=*/ value0, /*content=*/ value1);
+    });
+
+    it('Should revert if recipient is too large', async () => {
+      context.machineState.memory.set(value0Offset, new Field(new Fr(MAX_ETH_ADDRESS_VALUE + 1n)));
+      await expect(
+        new SendL2ToL1Message(
+          /*addressing_mode=*/ 0,
+          /*recipientOffset=*/ value0Offset,
+          /*contentOffset=*/ value1Offset,
+        ).execute(context),
+      ).rejects.toThrow(new InstructionExecutionError(`SENDL2TOL1MSG: Recipient address is too large`));
     });
   });
 
@@ -368,10 +382,10 @@ describe('Accrued Substate', () => {
     context.machineState.memory.set(0, new Field(2020n));
 
     const instructions = [
-      new EmitNoteHash(/*indirect=*/ 0, /*offset=*/ 0),
-      new EmitNullifier(/*indirect=*/ 0, /*offset=*/ 0),
-      new EmitUnencryptedLog(/*indirect=*/ 0, /*logSizeOffset=*/ 0, /*offset=*/ 0),
-      new SendL2ToL1Message(/*indirect=*/ 0, /*recipientOffset=*/ 0, /*contentOffset=*/ 1),
+      new EmitNoteHash(/*addressing_mode=*/ 0, /*offset=*/ 0),
+      new EmitNullifier(/*addressing_mode=*/ 0, /*offset=*/ 0),
+      new EmitPublicLog(/*addressing_mode=*/ 0, /*logSizeOffset=*/ 0, /*offset=*/ 0),
+      new SendL2ToL1Message(/*addressing_mode=*/ 0, /*recipientOffset=*/ 0, /*contentOffset=*/ 1),
     ];
 
     for (const instruction of instructions) {

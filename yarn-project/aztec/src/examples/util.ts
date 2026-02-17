@@ -1,5 +1,5 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
-import type { ExtendedViemWalletClient } from '@aztec/ethereum';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import type { Abi, Narrow } from 'abitype';

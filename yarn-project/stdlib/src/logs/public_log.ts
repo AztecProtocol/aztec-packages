@@ -1,6 +1,6 @@
 import { FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH, PUBLIC_LOG_HEADER_LENGTH } from '@aztec/constants';
 import type { FieldsOf } from '@aztec/foundation/array';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -99,6 +99,20 @@ export class FlatPublicLogs {
     return new FlatPublicLogs(0, Array(FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH).fill(Fr.ZERO));
   }
 
+  /**
+   * Creates a FlatPublicLogs instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing FlatPublicLogs fields
+   * @returns A FlatPublicLogs instance
+   */
+  static fromPlainObject(obj: any): FlatPublicLogs {
+    return new FlatPublicLogs(
+      obj.length,
+      obj.payload.map((p: any) => Fr.fromPlainObject(p)),
+    );
+  }
+
   isEmpty() {
     return this.length === 0;
   }
@@ -156,6 +170,13 @@ export class PublicLog {
     const reader = BufferReader.asReader(buffer);
     const fieldsLength = reader.readNumber();
     return new PublicLog(reader.readObject(AztecAddress), reader.readArray(fieldsLength, Fr));
+  }
+
+  static fromPlainObject(obj: any): PublicLog {
+    return new PublicLog(
+      AztecAddress.fromPlainObject(obj.contractAddress),
+      obj.fields.map((f: any) => Fr.fromPlainObject(f)),
+    );
   }
 
   static async random() {

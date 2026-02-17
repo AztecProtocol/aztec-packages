@@ -151,10 +151,10 @@ class UltraCircuitChecker {
      * @brief Struct for managing memory record data for ensuring RAM/ROM correctness
      */
     struct MemoryCheckData {
-        // randomness for constructing wire 4 mem records
+        // randomness for constructing wire 4 mem records (eta powers)
         FF eta = FF::random_element();
-        FF eta_two = FF::random_element();
-        FF eta_three = FF::random_element();
+        FF eta_two = eta * eta;       // eta²
+        FF eta_three = eta_two * eta; // eta³
 
         std::unordered_set<size_t> read_record_gates;  // row indices for gates containing RAM/ROM read mem record
         std::unordered_set<size_t> write_record_gates; // row indices for gates containing RAM/ROM write mem record

@@ -1,9 +1,11 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { jest } from '@jest/globals';
 import { join } from 'path';
 
-import { DatabaseVersion, DatabaseVersionManager, type DatabaseVersionManagerFs } from './version_manager.js';
+import { DatabaseVersion } from './database_version.js';
+import { DatabaseVersionManager, type DatabaseVersionManagerFs } from './version_manager.js';
 
 describe('VersionManager', () => {
   let tempDir: string;
@@ -146,13 +148,13 @@ describe('Version', () => {
     expect(DatabaseVersion.fromBuffer(ver.toBuffer())).toEqual(ver);
   });
 
-  it('establishes a partial odering', () => {
+  it('establishes a partial ordering', () => {
     const verA = new DatabaseVersion(42, EthAddress.random());
     const verB = new DatabaseVersion(43, verA.rollupAddress);
     const verC = new DatabaseVersion(42, EthAddress.random());
 
     expect(verA.cmp(verB)).toEqual(-1);
-    expect(verB.cmp(verA)).toEqual(1);
+    expect(verB.cmp(verA)).toEqual(BlockNumber(1));
     expect(verA.cmp(new DatabaseVersion(verA.schemaVersion, verA.rollupAddress))).toEqual(0);
     expect(verA.cmp(verC)).toEqual(undefined);
   });

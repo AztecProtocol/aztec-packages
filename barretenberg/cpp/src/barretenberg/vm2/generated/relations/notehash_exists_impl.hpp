@@ -38,12 +38,6 @@ void notehash_existsImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                    (CView(constants_MEM_TAG_U1) - static_cast<View>(in.get(C::execution_mem_tag_reg_2_)));
         std::get<2>(evals) += (tmp * scaling_factor);
     }
-    { // NOTE_HASH_EXISTS_SUCCESS
-        using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_notehash_exists)) *
-                   static_cast<View>(in.get(C::execution_sel_opcode_error));
-        std::get<3>(evals) += (tmp * scaling_factor);
-    }
 }
 
 } // namespace bb::avm2

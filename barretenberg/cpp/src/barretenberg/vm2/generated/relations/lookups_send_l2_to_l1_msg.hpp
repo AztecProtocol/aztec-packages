@@ -11,6 +11,32 @@
 
 namespace bb::avm2 {
 
+/////////////////// lookup_send_l2_to_l1_msg_recipient_check ///////////////////
+
+struct lookup_send_l2_to_l1_msg_recipient_check_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_SEND_L2_TO_L1_MSG_RECIPIENT_CHECK";
+    static constexpr std::string_view RELATION_NAME = "send_l2_to_l1_msg";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_send_l2_to_l1_msg;
+    static constexpr Column DST_SELECTOR = Column::ff_gt_sel_gt;
+    static constexpr Column COUNTS = Column::lookup_send_l2_to_l1_msg_recipient_check_counts;
+    static constexpr Column INVERSES = Column::lookup_send_l2_to_l1_msg_recipient_check_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::execution_register_0_,
+        ColumnAndShifts::execution_max_eth_address_value,
+        ColumnAndShifts::execution_sel_too_large_recipient_error
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::ff_gt_a,
+                                                                                    ColumnAndShifts::ff_gt_b,
+                                                                                    ColumnAndShifts::ff_gt_result };
+};
+
+using lookup_send_l2_to_l1_msg_recipient_check_settings =
+    lookup_settings<lookup_send_l2_to_l1_msg_recipient_check_settings_>;
+template <typename FF_>
+using lookup_send_l2_to_l1_msg_recipient_check_relation =
+    lookup_relation_base<FF_, lookup_send_l2_to_l1_msg_recipient_check_settings>;
+
 /////////////////// lookup_send_l2_to_l1_msg_write_l2_to_l1_msg ///////////////////
 
 struct lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_settings_ {
@@ -28,7 +54,7 @@ struct lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_settings_ {
         ColumnAndShifts::execution_contract_address
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::precomputed_idx,
         ColumnAndShifts::public_inputs_cols_0_,
         ColumnAndShifts::public_inputs_cols_1_,
         ColumnAndShifts::public_inputs_cols_2_

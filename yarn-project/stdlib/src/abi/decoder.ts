@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import type { ABIParameter, ABIVariable, AbiType } from './abi.js';

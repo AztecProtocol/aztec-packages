@@ -33,7 +33,6 @@ class MsgpackClientWrapper : public Napi::ObjectWrap<MsgpackClientWrapper> {
 
   private:
     std::unique_ptr<bb::ipc::IpcClient> client_;
-    std::vector<uint8_t> response_buffer_;
     bool connected_ = false;
 };
 

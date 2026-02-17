@@ -1,5 +1,5 @@
 import { AVM_SSTORE_DYN_DA_GAS } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -33,7 +33,7 @@ describe('Storage Instructions', () => {
         ...Buffer.from('1234', 'hex'), // srcOffset
         ...Buffer.from('3456', 'hex'), // slotOffset
       ]);
-      const inst = new SStore(/*indirect=*/ 0x01, /*srcOffset=*/ 0x1234, /*slotOffset=*/ 0x3456);
+      const inst = new SStore(/*addressing_mode=*/ 0x01, /*srcOffset=*/ 0x1234, /*slotOffset=*/ 0x3456);
 
       expect(SStore.fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
@@ -46,7 +46,7 @@ describe('Storage Instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      await new SStore(/*indirect=*/ 0, /*srcOffset=*/ 1, /*slotOffset=*/ 0).execute(context);
+      await new SStore(/*addressing_mode=*/ 0, /*srcOffset=*/ 1, /*slotOffset=*/ 0).execute(context);
 
       expect(persistableState.writeStorage).toHaveBeenCalledWith(address, new Fr(a.toBigInt()), new Fr(b.toBigInt()));
     });
@@ -63,7 +63,8 @@ describe('Storage Instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      const instruction = () => new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 1).execute(context);
+      const instruction = () =>
+        new SStore(/*addressing_mode=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 1).execute(context);
       await expect(instruction()).rejects.toThrow(StaticCallAlterationError);
     });
 
@@ -77,7 +78,7 @@ describe('Storage Instructions', () => {
       persistableState.isStorageCold.mockReturnValue(true);
 
       const daGasBefore = context.machineState.daGasLeft;
-      await new SStore(/*indirect=*/ 0, /*srcOffset=*/ 1, /*slotOffset=*/ 0).execute(context);
+      await new SStore(/*addressing_mode=*/ 0, /*srcOffset=*/ 1, /*slotOffset=*/ 0).execute(context);
 
       expect(context.machineState.daGasLeft).toBe(daGasBefore - AVM_SSTORE_DYN_DA_GAS);
     });
@@ -92,7 +93,7 @@ describe('Storage Instructions', () => {
       persistableState.isStorageCold.mockReturnValue(false);
 
       const daGasBefore = context.machineState.daGasLeft;
-      await new SStore(/*indirect=*/ 0, /*srcOffset=*/ 1, /*slotOffset=*/ 0).execute(context);
+      await new SStore(/*addressing_mode=*/ 0, /*srcOffset=*/ 1, /*slotOffset=*/ 0).execute(context);
 
       expect(context.machineState.daGasLeft).toBe(daGasBefore);
     });
@@ -104,9 +105,15 @@ describe('Storage Instructions', () => {
         SLoad.opcode, // opcode
         0x01, // indirect
         ...Buffer.from('1234', 'hex'), // slotOffset
+        ...Buffer.from('5678', 'hex'), // contractAddressOffset
         ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
-      const inst = new SLoad(/*indirect=*/ 0x01, /*slotOffset=*/ 0x1234, /*dstOffset=*/ 0x3456);
+      const inst = new SLoad(
+        /*addressing_mode=*/ 0x01,
+        /*slotOffset=*/ 0x1234,
+        /*contractAddressOffset=*/ 0x5678,
+        /*dstOffset=*/ 0x3456,
+      );
 
       expect(SLoad.fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
@@ -117,17 +124,22 @@ describe('Storage Instructions', () => {
       const expectedResult = new Fr(1n);
       persistableState.readStorage.mockResolvedValueOnce(expectedResult);
 
-      const a = new Field(1n);
-      const b = new Field(2n);
+      const slot = new Field(1n);
+      const contractAddressField = new Field(address.toBigInt());
 
-      context.machineState.memory.set(0, a);
-      context.machineState.memory.set(1, b);
+      context.machineState.memory.set(0, slot);
+      context.machineState.memory.set(1, contractAddressField);
 
-      await new SLoad(/*indirect=*/ 0, /*slotOffset=*/ 0, /*dstOffset=*/ 1).execute(context);
+      await new SLoad(
+        /*addressing_mode=*/ 0,
+        /*slotOffset=*/ 0,
+        /*contractAddressOffset=*/ 1,
+        /*dstOffset=*/ 2,
+      ).execute(context);
 
-      expect(persistableState.readStorage).toHaveBeenCalledWith(address, new Fr(a.toBigInt()));
+      expect(persistableState.readStorage).toHaveBeenCalledWith(address, new Fr(slot.toBigInt()));
 
-      const actual = context.machineState.memory.get(1);
+      const actual = context.machineState.memory.get(2);
       expect(actual).toEqual(new Field(expectedResult));
     });
   });

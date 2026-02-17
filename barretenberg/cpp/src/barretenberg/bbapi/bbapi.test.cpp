@@ -21,8 +21,7 @@ using Commands = ::testing::Types<bbapi::CircuitProve,
                                   bbapi::ChonkLoad,
                                   bbapi::ChonkAccumulate,
                                   bbapi::ChonkProve,
-                                  bbapi::ChonkComputeStandaloneVk,
-                                  bbapi::ChonkComputeIvcVk,
+                                  bbapi::ChonkComputeVk,
                                   bbapi::ChonkCheckPrecomputedVk>;
 
 // Typed test suites

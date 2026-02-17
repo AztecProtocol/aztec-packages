@@ -1,5 +1,5 @@
 use crate::{NFT, test::utils, types::nft_note::PartialNFTNote};
-use aztec::{oracle::random::random, protocol_types::{address::AztecAddress, traits::Deserialize}};
+use aztec::{oracle::random::random, protocol::{address::AztecAddress, traits::Deserialize}};
 
 /// Internal orchestration means that the calls to `prepare_private_balance_increase`
 /// and `finalize_transfer_to_private` are done by the NFT contract itself.

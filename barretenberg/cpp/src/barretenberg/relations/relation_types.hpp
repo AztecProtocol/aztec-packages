@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -13,19 +13,6 @@ template <typename T>
 concept IsField = std::same_as<T, bb::fr> /* || std::same_as<T, grumpkin::fr> */;
 
 namespace bb {
-
-/**
- * @brief A type to optionally extract a view of a relation parameter in a relation.
- *
- * @details In sumcheck, challenges in relations are always field elements, but in folding we need univariate
- * challenges. This template inspecting the underlying type of a RelationParameters instance. When this type is a field
- * type, do nothing, otherwise apply the provided view type.
- * @tparam Params
- * @tparam View
- * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/759): Optimize
- */
-template <typename Params, typename View>
-using GetParameterView = std::conditional_t<IsField<typename Params::DataType>, typename Params::DataType, View>;
 
 template <typename T>
 concept HasSubrelationLinearlyIndependentMember = requires(T) {

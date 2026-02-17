@@ -1,13 +1,12 @@
 // === AUDIT STATUS ===
-// internal:    { status: completed, auditors: [Federico], date: 2025-10-24 }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Federico], commit: 05a381f8b31ae4648e480f1369e911b148216e8b}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include <vector>
 
@@ -34,15 +33,8 @@ using namespace bb;
  *     predicate is witness false, then the constraint is disabled, i.e it must not fail and can return whatever. When
  *     `predicate` is set to witness false, we override some values to ensure that all the circuit constraints are
  *     satisfied:
- *      - We set the first byte of each component of the signature to 1 (NOTE: This only works when the order of the
- *        curve divided by two is bigger than \f$2^{241}\f$).
+ *      - We set - r = s = H(m) = 1 (the hash is set to 1 to avoid failures in the byte_array constructor)
  *      - We set the public key to be 2 times the generator of the curve.
- *
- * @note There is a small chance that when the predicate is witness false, the circuit still fails. This is due to ECDSA
- * verification checking that \f$u_1 * G + u_2 * P\f$ is not the point at infinity. When the predicate is witness false,
- * we set \f$P = 2G\f$, so the result of the scalar multiplication is the point at infinity when \f$u_1 + 2 u_2 = H(m)
- * * s^{-1} + 2 * r * s^{-1} = 0 \mod n\f$, which means \f$H(m) + 2 * r = 0 \mod n\f$. Given that \f$r\f$ and \f$H(m)\f$
- * are both random 256-bit numbers, the probability of this happening is negligible.
  */
 struct EcdsaConstraint {
     bb::CurveType type;
@@ -67,15 +59,11 @@ struct EcdsaConstraint {
     // Expected result of signature verification
     uint32_t result;
 
-    // For serialization, update with any new fields
-    MSGPACK_FIELDS(hashed_message, signature, pub_x_indices, pub_y_indices, predicate, result);
     friend bool operator==(EcdsaConstraint const& lhs, EcdsaConstraint const& rhs) = default;
 };
 
 template <typename Curve>
-void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
-                                     const EcdsaConstraint& input,
-                                     bool has_valid_witness_assignments = true);
+void create_ecdsa_verify_constraints(typename Curve::Builder& builder, const EcdsaConstraint& input);
 
 template <typename Curve>
 void create_dummy_ecdsa_constraint(typename Curve::Builder& builder,

@@ -21,7 +21,7 @@ export class CliWalletAndNodeWrapper {
     return this._wallet;
   }
 
-  get node() {
+  get node(): AztecNode {
     if (!this._node) {
       throw new Error('Node not initialized while it should have been initialized in preSubcommand');
     }

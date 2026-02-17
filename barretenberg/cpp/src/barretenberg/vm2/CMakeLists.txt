@@ -21,6 +21,9 @@ barretenberg_module_with_sources(
   DEPENDENCIES world_state
 )
 
+# vm2_sim needs -fPIC because it's linked into the nodejs_module shared library
+set_target_properties(vm2_sim_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 # Build vm2 module with sources mutually exclusive from vm2_sim
 if(AVM)
   # Collect all source files
@@ -44,7 +47,7 @@ if(AVM)
     TEST_SOURCE_FILES ${TEST_SOURCE_FILES}
     BENCH_SOURCE_FILES ${BENCH_SOURCE_FILES}
     FUZZERS_SOURCE_FILES ${FUZZERS_SOURCE_FILES}
-    DEPENDENCIES sumcheck stdlib_honk_verifier stdlib_goblin_verifier world_state vm2_sim
+    DEPENDENCIES sumcheck stdlib_honk_verifier goblin_avm world_state vm2_sim boomerang_value_detection
   )
 
   # vm2_tests needs dsl for integration testing, but this creates circular dependency:

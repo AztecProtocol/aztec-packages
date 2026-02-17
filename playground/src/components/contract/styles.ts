@@ -1,4 +1,5 @@
 import { css } from '@mui/styled-engine';
+import { colors, commonStyles } from '../../global.styles';
 
 // Base styles
 const baseButton = css({
@@ -9,22 +10,23 @@ const baseButton = css({
   padding: '16px 20px',
   gap: '9px',
   height: '38px',
-  background: '#9894FF',
-  borderRadius: '8px',
-  fontFamily: 'Inter, sans-serif',
+  background: colors.primary.main,
+  borderRadius: commonStyles.borderRadius,
+  fontFamily: 'Geist, sans-serif',
   fontStyle: 'normal',
-  fontWeight: 400,
+  fontWeight: 600,
   fontSize: '16px',
   lineHeight: '19px',
-  color: '#000000',
+  color: colors.primary.contrastText,
   border: 'none',
   cursor: 'pointer',
+  transition: 'box-shadow 0.2s ease',
   '&:hover': {
-    backgroundColor: '#8C7EFF',
+    boxShadow: `0px 4px 12px ${commonStyles.borderVeryStrong.replace('1px solid ', '')}`,
   },
   '&:disabled': {
-    backgroundColor: '#CDD1D5',
-    color: '#808080',
+    backgroundColor: `${colors.primary.main}4D`, // 30% opacity
+    color: `${colors.primary.contrastText}80`, // 50% opacity
     cursor: 'not-allowed',
   },
 });
@@ -36,16 +38,16 @@ const baseLabel = css({
   alignItems: 'center',
   padding: '6px 16px',
   gap: '10px',
-  background: '#9894FF',
-  borderRadius: '30px',
-  fontFamily: 'Inter, sans-serif',
+  background: colors.secondary.main,
+  borderRadius: commonStyles.borderRadius,
+  fontFamily: 'Geist, sans-serif',
   fontStyle: 'normal',
-  fontWeight: 500,
+  fontWeight: 600,
   fontSize: '12px',
   lineHeight: '120%',
   letterSpacing: '0.1em',
   textTransform: 'uppercase',
-  color: '#FFFFFF',
+  color: colors.text.primary,
   marginBottom: '10px',
 });
 
@@ -55,8 +57,10 @@ export const container = css({
   flexDirection: 'column',
   width: '100%',
   height: '100%',
-  background: '#E9E9E9',
-  borderRadius: '10px',
+  background: colors.background.paper,
+  backdropFilter: commonStyles.backdropBlur,
+  border: commonStyles.borderLight,
+  borderRadius: commonStyles.borderRadius,
   padding: '45px',
   overflow: 'hidden',
   '@media (max-width: 1100px)': {
@@ -71,7 +75,7 @@ export const headerSection = css({
 });
 
 export const descriptionText = css({
-  fontFamily: '"Space Grotesk", sans-serif',
+  fontFamily: 'Geist, sans-serif',
   fontStyle: 'normal',
   fontWeight: 400,
   fontSize: '18px',
@@ -79,7 +83,7 @@ export const descriptionText = css({
   display: 'flex',
   alignItems: 'center',
   textAlign: 'center',
-  color: '#000000',
+  color: colors.text.primary,
   marginBottom: '25px',
   width: '100%',
 });
@@ -101,16 +105,17 @@ export const actionButton = css({
   gap: '8px',
   width: '230px',
   height: '56px',
-  background: '#CDD1D5',
-  borderRadius: '12px',
-  fontFamily: 'Inter, sans-serif',
+  background: colors.secondary.main,
+  borderRadius: commonStyles.borderRadius,
+  fontFamily: 'Geist, sans-serif',
   fontStyle: 'normal',
   fontWeight: 600,
   fontSize: '17px',
   lineHeight: '16px',
-  color: '#000000',
+  color: colors.text.primary,
+  transition: 'background-color 0.2s ease',
   '&:hover': {
-    backgroundColor: '#BCC0C4',
+    backgroundColor: colors.secondary.light,
   },
 });
 
@@ -119,17 +124,17 @@ export const dropZoneContainer = css({
   flexDirection: 'column',
   width: '100%',
   height: '80%',
-  border: '3px dashed #9894FF',
-  borderRadius: '15px',
+  border: commonStyles.borderDashed,
+  borderRadius: commonStyles.borderRadius,
   margin: '2rem 0',
-  backgroundColor: 'rgba(152, 148, 255, 0.04)',
+  backgroundColor: `${colors.primary.main}0A`, // ~4% opacity
   alignItems: 'center',
   justifyContent: 'center',
 });
 
 export const uploadIcon = css({
   fontSize: '64px',
-  color: '#9894FF',
+  color: colors.primary.main,
   marginBottom: '1rem',
 });
 
@@ -149,7 +154,7 @@ export const tokenSection = css({
 });
 
 export const tokenHeader = css({
-  fontFamily: '"Space Grotesk", sans-serif',
+  fontFamily: 'Geist, sans-serif',
   fontStyle: 'normal',
   fontWeight: 700,
   fontSize: '48px',
@@ -157,15 +162,16 @@ export const tokenHeader = css({
   display: 'flex',
   alignItems: 'center',
   letterSpacing: '0.02em',
-  color: '#2D2D2D',
+  color: colors.text.primary,
   marginBottom: '25px',
 });
 
 export const searchContainer = css({
   width: '361px',
   height: '36px',
-  background: 'rgba(250, 250, 250, 0.93)',
-  borderRadius: '6px',
+  background: commonStyles.glassDark,
+  border: commonStyles.borderMedium,
+  borderRadius: commonStyles.borderRadius,
   display: 'flex',
   alignItems: 'center',
   padding: '8px',
@@ -187,29 +193,34 @@ export const filterButton = css({
   padding: '6px 5px',
   gap: '11px',
   height: '36px',
-  background: '#CDD1D5',
-  borderRadius: '6px',
+  background: `${colors.secondary.main}80`, // 50% opacity
+  border: commonStyles.borderMedium,
+  borderRadius: commonStyles.borderRadius,
   cursor: 'pointer',
   position: 'relative',
+  transition: 'background-color 0.2s ease',
+  '&:hover': {
+    backgroundColor: `${colors.secondary.main}B3`, // 70% opacity
+  },
 });
 
 export const filterCheckbox = css({
   width: '24px',
   height: '24px',
-  background: '#CDD1D5',
-  border: '2px solid rgba(255, 255, 255, 0.2)',
-  borderRadius: '6px',
+  background: commonStyles.glassDark,
+  border: commonStyles.borderStrong,
+  borderRadius: commonStyles.borderRadius,
   marginLeft: '5px',
 });
 
 export const filterLabel = css({
-  fontFamily: 'Inter, sans-serif',
+  fontFamily: 'Geist, sans-serif',
   fontStyle: 'normal',
   fontWeight: 500,
   fontSize: '16px',
   lineHeight: '19px',
   textAlign: 'center',
-  color: '#000000',
+  color: colors.text.primary,
 });
 
 export const filterHelpIcon = css({
@@ -222,9 +233,9 @@ export const filterHelpIcon = css({
 export const functionCard = css({
   boxSizing: 'border-box',
   width: '100%',
-  background: '#CDD1D5',
-  border: '2px solid #DEE2E6',
-  borderRadius: '20px',
+  background: commonStyles.glassDark,
+  border: commonStyles.borderMedium,
+  borderRadius: commonStyles.borderRadius,
   marginBottom: '20px',
   overflow: 'hidden',
 });
@@ -235,7 +246,7 @@ export const functionTypeLabel = css(baseLabel, {
 });
 
 export const functionName = css({
-  fontFamily: 'Inter, sans-serif',
+  fontFamily: 'Geist, sans-serif',
   fontStyle: 'normal',
   fontWeight: 600,
   fontSize: '22px',
@@ -243,17 +254,18 @@ export const functionName = css({
   display: 'flex',
   alignItems: 'center',
   letterSpacing: '0.02em',
-  color: '#2D2D2D',
+  color: colors.primary.main,
   marginBottom: '10px',
 });
 
 export const functionDescription = css({
-  fontFamily: 'Inter, sans-serif',
+  fontFamily: 'Geist, sans-serif',
   fontStyle: 'normal',
   fontWeight: 400,
   fontSize: '14px',
   lineHeight: '120%',
-  color: '#4A4A4A',
+  color: colors.text.primary,
+  opacity: 0.8,
   marginBottom: '20px',
 });
 
@@ -263,28 +275,32 @@ export const parametersLabel = css(baseLabel, {
 });
 
 export const parameterInput = css({
-  background: '#FFFFFF',
-  border: '2px solid #DEE2E6',
-  borderRadius: '8px',
+  background: commonStyles.glassDark,
+  border: commonStyles.borderMedium,
+  borderRadius: commonStyles.borderRadius,
   height: '48px',
   padding: '0 24px',
   display: 'flex',
   alignItems: 'center',
   marginRight: '16px',
   marginBottom: '16px',
-  fontFamily: 'Inter, sans-serif',
+  fontFamily: 'Geist, sans-serif',
   fontStyle: 'normal',
   fontWeight: 600,
   fontSize: '16px',
   lineHeight: '19px',
-  color: '#3F444A',
+  color: colors.text.primary,
   '& .MuiOutlinedInput-notchedOutline': {
     border: 'none',
   },
   '& .MuiInputBase-root': {
+    color: colors.text.primary,
     '&.Mui-focused fieldset': {
       border: 'none',
     },
+  },
+  '& .MuiInputBase-input': {
+    color: colors.text.primary,
   },
 });
 

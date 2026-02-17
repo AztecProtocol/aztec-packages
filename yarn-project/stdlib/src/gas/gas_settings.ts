@@ -5,7 +5,7 @@ import {
   DEFAULT_TEARDOWN_L2_GAS_LIMIT,
   GAS_SETTINGS_LENGTH,
 } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
@@ -51,6 +51,25 @@ export class GasSettings {
       Gas.from(args.teardownGasLimits),
       GasFees.from(args.maxFeesPerGas),
       GasFees.from(args.maxPriorityFeesPerGas),
+    );
+  }
+
+  /**
+   * Creates a GasSettings instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing GasSettings fields
+   * @returns A GasSettings instance
+   */
+  static fromPlainObject(obj: any): GasSettings {
+    if (obj instanceof GasSettings) {
+      return obj;
+    }
+    return new GasSettings(
+      Gas.fromPlainObject(obj.gasLimits),
+      Gas.fromPlainObject(obj.teardownGasLimits),
+      GasFees.fromPlainObject(obj.maxFeesPerGas),
+      GasFees.fromPlainObject(obj.maxPriorityFeesPerGas),
     );
   }
 

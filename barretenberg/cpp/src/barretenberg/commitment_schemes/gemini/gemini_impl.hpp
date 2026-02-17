@@ -1,10 +1,11 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [Khashayar], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "gemini.hpp"
 
@@ -48,7 +49,7 @@ namespace bb {
 template <typename Curve>
 template <typename Transcript>
 std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
-    Fr circuit_size,
+    size_t circuit_size,
     PolynomialBatcher& polynomial_batcher,
     std::span<Fr> multilinear_challenge,
     const CommitmentKey<Curve>& commitment_key,
@@ -57,27 +58,12 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
 {
     // To achieve fixed proof size in Ultra and Mega, the multilinear opening challenge is be padded to a fixed size.
     const size_t virtual_log_n = multilinear_challenge.size();
-    const size_t log_n = numeric::get_msb(static_cast<uint32_t>(circuit_size));
-    const size_t n = 1 << log_n;
-
-    // To achieve ZK, we mask the batched polynomial by a random polynomial of the same size
-    if (has_zk) {
-        Polynomial random_polynomial = Polynomial::random(n);
-        transcript->send_to_verifier("Gemini:masking_poly_comm", commitment_key.commit(random_polynomial));
-        // In the provers, the size of multilinear_challenge is `virtual_log_n`, but we need to evaluate the
-        // hiding polynomial as multilinear in log_n variables
-        transcript->send_to_verifier("Gemini:masking_poly_eval",
-                                     random_polynomial.evaluate_mle(multilinear_challenge.subspan(0, log_n)));
-        // Initialize batched unshifted poly with the random masking poly so that the full batched poly is masked
-        polynomial_batcher.set_random_polynomial(std::move(random_polynomial));
-    }
+    const size_t log_n = numeric::get_msb(circuit_size);
 
     // Get the batching challenge
     const Fr rho = transcript->template get_challenge<Fr>("rho");
 
-    Fr running_scalar = has_zk ? rho : 1; // ρ⁰ is used to batch the hiding polynomial
-
-    Polynomial A_0 = polynomial_batcher.compute_batched(rho, running_scalar);
+    Polynomial A_0 = polynomial_batcher.compute_batched(rho);
 
     // Construct the d-1 Gemini foldings of A₀(X)
     std::vector<Polynomial> fold_polynomials = compute_fold_polynomials(log_n, multilinear_challenge, A_0, has_zk);
@@ -139,12 +125,12 @@ template <typename Curve>
 std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::compute_fold_polynomials(
     const size_t log_n, std::span<const Fr> multilinear_challenge, const Polynomial& A_0, const bool& has_zk)
 {
-    const size_t num_threads = get_num_cpus_pow2();
-
+    BB_BENCH_NAME("Gemini::compute_fold_polynomials");
     const size_t virtual_log_n = multilinear_challenge.size();
 
-    constexpr size_t efficient_operations_per_thread = 64; // A guess of the number of operation for which there
-                                                           // would be a point in sending them to a separate thread
+    // Cost per iteration: 1 subtraction + 1 multiplication + 1 addition
+    constexpr size_t fold_iteration_cost =
+        (2 * thread_heuristics::FF_ADDITION_COST) + thread_heuristics::FF_MULTIPLICATION_COST;
 
     // Reserve and allocate space for m-1 Fold polynomials, the foldings of the full batched polynomial A₀
     std::vector<Polynomial> fold_polynomials;
@@ -165,30 +151,21 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
         // size of the previous polynomial/2
         const size_t n_l = 1 << (log_n - l - 1);
 
-        // Use as many threads as it is useful so that 1 thread doesn't process 1 element, but make sure that there is
-        // at least 1
-        size_t num_used_threads = std::min(n_l / efficient_operations_per_thread, num_threads);
-        num_used_threads = num_used_threads ? num_used_threads : 1;
-        size_t chunk_size = n_l / num_used_threads;
-        size_t last_chunk_size = (n_l % chunk_size) ? (n_l % num_used_threads) : chunk_size;
-
         // Opening point is the same for all
         const Fr u_l = multilinear_challenge[l];
 
         // A_l_fold = Aₗ₊₁(X) = (1-uₗ)⋅even(Aₗ)(X) + uₗ⋅odd(Aₗ)(X)
         auto A_l_fold = fold_polynomials[l].data();
 
-        parallel_for(num_used_threads, [&](size_t i) {
-            size_t current_chunk_size = (i == (num_used_threads - 1)) ? last_chunk_size : chunk_size;
-            for (std::ptrdiff_t j = (std::ptrdiff_t)(i * chunk_size);
-                 j < (std::ptrdiff_t)((i * chunk_size) + current_chunk_size);
-                 j++) {
+        parallel_for_heuristic(
+            n_l,
+            [&](size_t j) {
                 // fold(Aₗ)[j] = (1-uₗ)⋅even(Aₗ)[j] + uₗ⋅odd(Aₗ)[j]
                 //            = (1-uₗ)⋅Aₗ[2j]      + uₗ⋅Aₗ[2j+1]
                 //            = Aₗ₊₁[j]
                 A_l_fold[j] = A_l[j << 1] + u_l * (A_l[(j << 1) + 1] - A_l[j << 1]);
-            }
-        });
+            },
+            fold_iteration_cost);
         // set Aₗ₊₁ = Aₗ for the next iteration
         A_l = A_l_fold;
     }

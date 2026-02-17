@@ -1,7 +1,7 @@
 import { PRIVATE_LOG_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
 import {
   BufferReader,
@@ -49,18 +49,18 @@ export class PrivateLog {
   }
 
   toBlobFields(): Fr[] {
-    return [new Fr(this.emittedLength)].concat(this.getEmittedFields());
+    return this.getEmittedFields();
   }
 
-  static fromBlobFields(fields: Fr[] | FieldReader) {
+  static fromBlobFields(emittedLength: number, fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
-    const emittedLength = reader.readU32();
     const emittedFields = reader.readFieldArray(emittedLength);
     return new PrivateLog(padArrayEnd(emittedFields, Fr.ZERO, PRIVATE_LOG_SIZE_IN_FIELDS), emittedLength);
   }
 
   isEmpty() {
-    return this.fields.every(f => f.isZero());
+    // Faster to check emittedLength than compare all fields against zero
+    return this.emittedLength === 0;
   }
 
   static empty() {
@@ -90,6 +90,23 @@ export class PrivateLog {
       })
       .strict()
       .transform(({ fields, emittedLength }) => PrivateLog.fromFields(fields.concat(new Fr(emittedLength))));
+  }
+
+  /**
+   * Creates a PrivateLog from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing PrivateLog fields
+   * @returns A PrivateLog instance
+   */
+  static fromPlainObject(obj: any): PrivateLog {
+    if (obj instanceof PrivateLog) {
+      return obj;
+    }
+    return new PrivateLog(
+      obj.fields.map((f: any) => Fr.fromPlainObject(f)),
+      obj.emittedLength,
+    );
   }
 
   equals(other: PrivateLog) {

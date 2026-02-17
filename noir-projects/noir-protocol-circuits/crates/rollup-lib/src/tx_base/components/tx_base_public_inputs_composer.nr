@@ -1,19 +1,19 @@
 use crate::{
-    abis::{PublicChonkVerifierPublicInputs, TxEffect, TxRollupPublicInputs},
+    abis::{PublicChonkVerifierPublicInputs, TxRollupPublicInputs},
     tx_base::components::{
         private_tx_effect_builder,
         public_tx_effect_builder,
         tree_snapshot_builder::{build_tree_snapshots, TreeSnapshotDiffHints},
-        tx_blob_data::{append_tx_effect_to_sponge_blob, TxEffectArrayLengths},
     },
 };
-use dep::types::{
+use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         avm_circuit_public_inputs::AvmCircuitPublicInputs, block_constant_data::BlockConstantData,
         gas::Gas, kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
-        partial_state_reference::PartialStateReference, sponge_blob::SpongeBlob,
+        partial_state_reference::PartialStateReference,
     },
+    blob_data::{SpongeBlob, TxEffect, TxEffectArrayLengths},
     constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX,
         MAX_L2_TO_L1_MSG_SUBTREES_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
@@ -79,15 +79,20 @@ impl TxBasePublicInputsComposer {
     ) -> Self {
         let private_to_public = public_chonk_verifier.private_tail;
 
-        // Note: Some values below are copied from `avm` rather than `private_to_public` and this must remain unchanged.
-        // The constants are checked in `private_tail_validator` to ensure they match the values in `private_to_public`.
+        // Note: Some values below are copied from the avm's public inputs rather than the private tail's public inputs,
+        // and this MUST remain unchanged.
+        // Then in `private_tail_validator.nr`, these avm constants are checked to ensure they match those of the private tail's
+        // public inputs (`private_to_public`). This ensures that the values match between the avm and the private tail.
+        // If the values in constants were instead copied over from private tail's public inputs, then the validations in
+        // `private_tail_validator.nr` become pointless.
         let constants = BlockConstantData {
             last_archive,
             l1_to_l2_tree_snapshot: avm.start_tree_snapshots.l1_to_l2_message_tree,
             global_variables: avm.global_variables,
             vk_tree_root: private_to_public.constants.vk_tree_root,
             protocol_contracts_hash: private_to_public.constants.protocol_contracts_hash,
-            // We take the prover id of the public chonk verifier, but we validate that it matches the prover id of the avm in validate_public_chonk_verifier_against_avm
+            // We take the prover id of the public chonk verifier, but we validate that it matches the prover id of the avm in validate_public_chonk_verifier_against_avm. That seems inconsistent and confusing.
+            // TODO: change it to be copied-over from the AVM instead, then delete this comment.
             prover_id: public_chonk_verifier.prover_id,
         };
 
@@ -112,11 +117,8 @@ impl TxBasePublicInputsComposer {
     }
 
     pub fn finish(self) -> TxRollupPublicInputs {
-        let end_sponge_blob = append_tx_effect_to_sponge_blob(
-            self.tx_effect,
-            self.tx_effect_array_lengths,
-            self.start_sponge_blob,
-        );
+        let mut end_sponge_blob = self.start_sponge_blob;
+        end_sponge_blob.absorb_tx_blob_data(self.tx_effect, self.tx_effect_array_lengths);
 
         let out_hash = self.compute_kernel_out_hash();
 

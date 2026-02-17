@@ -27,7 +27,7 @@ import { jsonRpc } from 'viem/nonce';
 import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './config.js';
-import { LARGE_GAS_LIMIT } from './constants.js';
+import { MAX_L1_TX_LIMIT } from './constants.js';
 import type { IL1TxMetrics, IL1TxStore } from './interfaces.js';
 import { ReadOnlyL1TxUtils } from './readonly_l1_tx_utils.js';
 import {
@@ -130,12 +130,32 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       return;
     }
 
-    // Convert loaded states (which have id) to the txs format
-    this.txs = loadedStates;
-    this.logger.info(`Rehydrated ${loadedStates.length} tx states for account ${account}`);
+    // Clean up excess states if we have more than MAX_L1_TX_STATES
+    if (loadedStates.length > MAX_L1_TX_STATES) {
+      this.logger.warn(
+        `Found ${loadedStates.length} tx states for account ${account}, pruning to most recent ${MAX_L1_TX_STATES}`,
+      );
+
+      // Keep only the most recent MAX_L1_TX_STATES
+      const statesToKeep = loadedStates.slice(-MAX_L1_TX_STATES);
+      const statesToDelete = loadedStates.slice(0, -MAX_L1_TX_STATES);
+
+      // Batch delete old states in a transaction for efficiency
+      const idsToDelete = statesToDelete.map(s => s.id);
+      await this.store.deleteState(account, ...idsToDelete);
+
+      this.txs = statesToKeep;
+      this.logger.info(
+        `Cleaned up ${statesToDelete.length} old tx states, kept ${statesToKeep.length} for account ${account}`,
+      );
+    } else {
+      // Convert loaded states (which have id) to the txs format
+      this.txs = loadedStates;
+      this.logger.info(`Rehydrated ${loadedStates.length} tx states for account ${account}`);
+    }
 
     // Find all pending states and resume monitoring
-    const pendingStates = loadedStates.filter(state => !TerminalTxUtilsState.includes(state.status));
+    const pendingStates = this.txs.filter(state => !TerminalTxUtilsState.includes(state.status));
     if (pendingStates.length === 0) {
       return;
     }
@@ -187,7 +207,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
       let gasLimit: bigint;
       if (this.debugMaxGasLimit) {
-        gasLimit = LARGE_GAS_LIMIT;
+        gasLimit = MAX_L1_TX_LIMIT;
       } else if (gasConfig.gasLimit) {
         gasLimit = gasConfig.gasLimit;
       } else {
@@ -263,7 +283,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       return { txHash, state: l1TxState };
     } catch (err: any) {
       const viemError = formatViemError(err, request.abi);
-      this.logger.error(`Failed to send L1 transaction`, viemError, {
+      this.logger.error(`Failed to send L1 transaction: ${viemError.message}`, viemError, {
         request: pick(request, 'to', 'value'),
       });
       throw viemError;
@@ -611,12 +631,12 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       from: request.from ?? this.getSenderAddress().toString(),
       maxFeePerGas: gasPrice.maxFeePerGas,
       maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
-      gas: request.gas ?? LARGE_GAS_LIMIT,
+      gas: request.gas ?? MAX_L1_TX_LIMIT,
     };
 
     if (!request.gas && !gasConfig.ignoreBlockGasLimit) {
-      // LARGE_GAS_LIMIT is set as call.gas, increase block gasLimit
-      blockOverrides.gasLimit = LARGE_GAS_LIMIT * 2n;
+      // MAX_L1_TX_LIMIT is set as call.gas, ensure block gasLimit is sufficient
+      blockOverrides.gasLimit = MAX_L1_TX_LIMIT;
     }
 
     return this._simulate(call, blockOverrides, stateOverrides, gasConfig, abi);

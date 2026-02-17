@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
@@ -60,5 +60,11 @@ export class ContractInstancePublishedEvent {
       salt: this.salt,
       deployer: this.deployer,
     };
+  }
+
+  public static extractContractInstanceEvents(logs: PrivateLog[]): ContractInstancePublishedEvent[] {
+    return logs
+      .filter(log => ContractInstancePublishedEvent.isContractInstancePublishedEvent(log))
+      .map(log => ContractInstancePublishedEvent.fromLog(log));
   }
 }

@@ -20,8 +20,8 @@ class InstructionInfoDB : public InstructionInfoDBInterface {
   public:
     const ExecInstructionSpec& get(ExecutionOpCode opcode) const override
     {
-        auto it = EXEC_INSTRUCTION_SPEC.find(opcode);
-        if (it == EXEC_INSTRUCTION_SPEC.end()) {
+        auto it = get_exec_instruction_spec().find(opcode);
+        if (it == get_exec_instruction_spec().end()) {
             throw std::runtime_error("Cannot find instruction spec for opcode: " +
                                      std::to_string(static_cast<int>(opcode)));
         }
@@ -29,8 +29,8 @@ class InstructionInfoDB : public InstructionInfoDBInterface {
     }
     const WireInstructionSpec& get(WireOpCode opcode) const override
     {
-        auto it = WIRE_INSTRUCTION_SPEC.find(opcode);
-        if (it == WIRE_INSTRUCTION_SPEC.end()) {
+        auto it = get_wire_instruction_spec().find(opcode);
+        if (it == get_wire_instruction_spec().end()) {
             throw std::runtime_error("Cannot find wire instruction spec for opcode: " +
                                      std::to_string(static_cast<int>(opcode)));
         }

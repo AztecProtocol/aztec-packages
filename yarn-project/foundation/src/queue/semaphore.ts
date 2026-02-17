@@ -1,5 +1,10 @@
 import { FifoMemoryQueue } from './fifo_memory_queue.js';
 
+export interface ISemaphore {
+  acquire(): Promise<void>;
+  release(): void;
+}
+
 /**
  * Allows the acquiring of up to `size` tokens before calls to acquire block, waiting for a call to release().
  */

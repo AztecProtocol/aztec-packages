@@ -1,29 +1,28 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "trace_to_polynomials.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
 
+#include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
 namespace bb {
 
 template <class Flavor>
-void TraceToPolynomials<Flavor>::populate(Builder& builder,
-                                          typename Flavor::ProverPolynomials& polynomials,
-                                          ActiveRegionData& active_region_data)
+void TraceToPolynomials<Flavor>::populate(Builder& builder, typename Flavor::ProverPolynomials& polynomials)
 {
 
     BB_BENCH_NAME("trace populate");
 
-    auto copy_cycles = populate_wires_and_selectors_and_compute_copy_cycles(builder, polynomials, active_region_data);
+    auto copy_cycles = populate_wires_and_selectors_and_compute_copy_cycles(builder, polynomials);
 
     if constexpr (IsMegaFlavor<Flavor>) {
         BB_BENCH_NAME("add_ecc_op_wires_to_prover_instance");
@@ -35,13 +34,13 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder,
     {
         BB_BENCH_NAME("compute_permutation_argument_polynomials");
 
-        compute_permutation_argument_polynomials<Flavor>(builder, polynomials, copy_cycles, active_region_data);
+        compute_permutation_argument_polynomials<Flavor>(builder, polynomials, copy_cycles);
     }
 }
 
 template <class Flavor>
 std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_selectors_and_compute_copy_cycles(
-    Builder& builder, ProverPolynomials& polynomials, ActiveRegionData& active_region_data)
+    Builder& builder, ProverPolynomials& polynomials)
 {
 
     BB_BENCH_NAME("construct_trace_data");
@@ -57,11 +56,6 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
         const uint32_t offset = block.trace_offset();
         const uint32_t block_size = static_cast<uint32_t>(block.size());
 
-        // Save ranges over which the blocks are "active" for use in structured commitments
-        if (block.size() > 0) {
-            active_region_data.add_range(offset, offset + block.size());
-        }
-
         // Update wire polynomials and copy cycles
         // NB: The order of row/column loops is arbitrary but needs to be row/column to match old copy_cycle code
         {
@@ -70,11 +64,13 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
             for (uint32_t block_row_idx = 0; block_row_idx < block_size; ++block_row_idx) {
                 for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
                     uint32_t var_idx = block.wires[wire_idx][block_row_idx]; // an index into the variables array
-                    uint32_t real_var_idx = builder.real_variable_index[var_idx];
+                    // Use .at() for bounds checking - fuzzer found OOB with malformed ACIR
+                    uint32_t real_var_idx = builder.real_variable_index.at(var_idx);
                     uint32_t trace_row_idx = block_row_idx + offset;
                     // Insert the real witness values from this block into the wire polys at the correct offset
                     wires[wire_idx].at(trace_row_idx) = builder.get_variable(var_idx);
                     // Add the address of the witness value to its corresponding copy cycle
+                    // Note that the copy_cycles are indexed by real_variable_indices.
                     copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, trace_row_idx });
                 }
             }
@@ -100,14 +96,13 @@ void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_prover_instance(Builder& bu
     requires IsMegaFlavor<Flavor>
 {
     auto& ecc_op_selector = polynomials.lagrange_ecc_op;
-    const size_t wire_idx_offset = Flavor::has_zero_row ? 1 : 0;
 
     // Copy the ecc op data from the conventional wires into the op wires over the range of ecc op gates. The data is
-    // stored in the ecc op wires starting from index 0, whereas the wires contain the data offset by a zero row.
+    // stored in the ecc op wires starting from index 0, whereas the wires contain the data offset by zero rows.
     const size_t num_ecc_ops = builder.blocks.ecc_op.size();
     for (auto [ecc_op_wire, wire] : zip_view(polynomials.get_ecc_op_wires(), polynomials.get_wires())) {
         for (size_t i = 0; i < num_ecc_ops; ++i) {
-            ecc_op_wire.at(i) = wire[i + wire_idx_offset];
+            ecc_op_wire.at(i) = wire[i + NUM_ZERO_ROWS];
             ecc_op_selector.at(i) = 1; // construct selector as the indicator on the ecc op block
         }
     }
@@ -121,8 +116,8 @@ template class TraceToPolynomials<UltraStarknetFlavor>;
 template class TraceToPolynomials<UltraStarknetZKFlavor>;
 #endif
 template class TraceToPolynomials<UltraKeccakZKFlavor>;
-template class TraceToPolynomials<UltraRollupFlavor>;
 template class TraceToPolynomials<MegaFlavor>;
 template class TraceToPolynomials<MegaZKFlavor>;
+template class TraceToPolynomials<MegaAvmFlavor>;
 
 } // namespace bb

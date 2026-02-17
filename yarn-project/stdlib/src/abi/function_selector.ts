@@ -1,6 +1,7 @@
 import { fromHex, toBigIntBE } from '@aztec/foundation/bigint-buffer';
-import { poseidon2HashBytes, randomBytes } from '@aztec/foundation/crypto';
-import type { Fr } from '@aztec/foundation/fields';
+import { poseidon2HashBytes } from '@aztec/foundation/crypto/poseidon';
+import { randomBytes } from '@aztec/foundation/crypto/random';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type ZodFor, hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, TypeRegistry } from '@aztec/foundation/serialize';
 
@@ -36,6 +37,14 @@ export class FunctionSelector extends Selector {
    */
   static fromField(fr: Fr) {
     return new FunctionSelector(Number(fr.toBigInt()));
+  }
+
+  static fromFieldOrUndefined(fr: Fr) {
+    try {
+      return FunctionSelector.fromField(fr);
+    } catch {
+      return undefined;
+    }
   }
 
   static fromFields(fields: Fr[] | FieldReader) {

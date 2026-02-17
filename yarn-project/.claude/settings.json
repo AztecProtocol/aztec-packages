@@ -1,9 +1,23 @@
 {
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'FILE=$(jq -r \".tool_input.file_path\"); if [[ \"$FILE\" =~ \\.(ts|js|mjs|cjs|json)$ ]]; then \"$CLAUDE_PROJECT_DIR/node_modules/.bin/prettier\" --write \"$FILE\" 2>/dev/null; fi'"
+          }
+        ]
+      }
+    ]
+  },
   "permissions": {
+    "additionalDirectories": ["../", "/tmp"],
     "allow": [
       "Bash(yarn:*)",
       "Bash(forge:*)",
-      "Bash(env LOG_LEVEL:* yarn:*)",
+      "Bash(env LOG_LEVEL=* yarn *)",
       "Bash(./bootstrap.sh:*)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
@@ -20,21 +34,19 @@
       "Bash(git checkout:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
+      "Bash(gh:*)",
       "Bash(cd:*)",
       "Bash(grep:*)",
       "Bash(curl -XGET:*)",
-      "WebFetch(domain:ci.aztec-labs.com)"
+      "Bash(.claude/scripts/extract-test-logs.sh:*)",
+      "Bash(./ci.sh dlog:*)",
+      "WebFetch(domain:ci.aztec-labs.com)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)"
     ],
-    "deny": [
-      "Bash(git push:*-f*)",
-      "Bash(git push:*--force*)",
-      "Bash(git push:*--force-with-lease*)",
-      "Bash(git reset:*--hard*)",
-      "Bash(git clean:*-f*)",
-      "Bash(git clean:*-fd*)",
-      "Bash(git clean:*-fx*)",
-      "Bash(git branch:*-D*)"
-    ],
+    "deny": [],
     "ask": []
   }
 }

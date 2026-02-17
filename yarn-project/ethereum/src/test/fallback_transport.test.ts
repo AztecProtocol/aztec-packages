@@ -61,12 +61,12 @@ describe('fallback_transport', () => {
 
     // Create public clients to directly check each node
     publicClient1 = createPublicClient({
-      transport: http(rpcUrl1),
+      transport: http(rpcUrl1, { batch: false }),
       chain: foundry,
     });
 
     publicClient2 = createPublicClient({
-      transport: http(rpcUrl2),
+      transport: http(rpcUrl2, { batch: false }),
       chain: foundry,
     });
 
@@ -76,7 +76,7 @@ describe('fallback_transport', () => {
   it('sends a transaction using the first node', async () => {
     // Create a client with the first node
     const client = createWalletClient({
-      transport: http(rpcUrl1),
+      transport: http(rpcUrl1, { batch: false }),
       chain: foundry,
       account,
     }).extend(publicActions);
@@ -124,7 +124,7 @@ describe('fallback_transport', () => {
         // Log the call
         node2Mock(method, params);
         // Forward to the real node
-        const transport = http(rpcUrl2)({});
+        const transport = http(rpcUrl2, { batch: false })({});
         return await transport.request({ method, params });
       }) as EIP1193RequestFn,
     });
@@ -179,7 +179,7 @@ describe('fallback_transport', () => {
         // Log the call
         node1Mock(method, params);
         // Forward to the real node
-        const transport = http(rpcUrl1)({});
+        const transport = http(rpcUrl1, { batch: false })({});
         return await transport.request({ method, params });
       }) as EIP1193RequestFn,
     });
@@ -189,7 +189,7 @@ describe('fallback_transport', () => {
         // Log the call
         node2Mock(method, params);
         // Forward to the real node
-        const transport = http(rpcUrl2)({});
+        const transport = http(rpcUrl2, { batch: false })({});
         return await transport.request({ method, params });
       }) as EIP1193RequestFn,
     });

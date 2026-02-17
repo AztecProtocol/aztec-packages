@@ -8,7 +8,7 @@ import {
   MEM_TAG_U128,
 } from '@aztec/constants';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { FunctionsOf } from '@aztec/foundation/types';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -369,6 +369,10 @@ export class TaggedMemory implements TaggedMemoryInterface {
    * Check tags for all memory in the specified range.
    */
   public checkTagsRange(tag: TypeTag, startOffset: number, size: number) {
+    if (startOffset + size > TaggedMemory.MAX_MEMORY_SIZE) {
+      throw new MemorySliceOutOfRangeError(startOffset, size);
+    }
+
     for (let offset = startOffset; offset < startOffset + size; offset++) {
       this.checkTag(tag, offset);
     }

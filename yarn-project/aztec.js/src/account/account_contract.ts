@@ -1,11 +1,11 @@
-import type { AuthWitnessProvider, ChainInfo } from '@aztec/entrypoints/interfaces';
-import { Fr } from '@aztec/foundation/fields';
+import type { AuthWitnessProvider } from '@aztec/entrypoints/interfaces';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { deriveKeys } from '@aztec/stdlib/keys';
 
-import type { AccountInterface } from './interface.js';
+import type { Account } from './account.js';
 
 /**
  * An account contract instance. Knows its artifact, deployment arguments, how to create
@@ -31,14 +31,13 @@ export interface AccountContract {
   >;
 
   /**
-   * Returns the account interface for this account contract given an instance at the provided address.
-   * The account interface is responsible for assembling tx requests given requested function calls, and
+   * Returns the account implementation for this account contract given an instance at the provided address.
+   * The account is responsible for assembling tx requests given requested function calls, and
    * for creating signed auth witnesses given action identifiers (message hashes).
    * @param address - Address of this account contract.
-   * @param chainInfo - Chain id and version of the rollup where the account contract is initialized / published.
-   * @returns An account interface instance for creating tx requests and authorizing actions.
+   * @returns An account instance for creating tx requests and authorizing actions.
    */
-  getInterface(address: CompleteAddress, chainInfo: ChainInfo): AccountInterface;
+  getAccount(address: CompleteAddress): Account;
 
   /**
    * Returns the auth witness provider for the given address.

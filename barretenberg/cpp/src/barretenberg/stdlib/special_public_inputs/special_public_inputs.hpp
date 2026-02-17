@@ -1,9 +1,17 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Sergei], commit: d1307bdee7f2ee0e737c19b77a26204a8dbafafc }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
-
+//
+// Special public inputs designed propagate data between Chonk and Rollup circuits.
+//
+// These structures are binding several Chonk components:
+//   - KernelIO:        Standard kernel outputs (pairing points, databus, ecc_op_tables, accum hash)
+//   - HidingKernelIO:  Final kernel outputs (no accum hash since folding terminates)
+//   - AppIO/DefaultIO: App circuit outputs (just pairing points)
+//   - RollupIO:        Rollup circuit outputs (pairing points + IPA claim)
+//
 #pragma once
 
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
@@ -37,7 +45,10 @@ std::array<typename bn254<Builder>::Group, Builder::NUM_WIRES> empty_ecc_op_tabl
 {
     std::array<typename bn254<Builder>::Group, Builder::NUM_WIRES> empty_tables;
     for (auto& table_commitment : empty_tables) {
-        table_commitment = bn254<Builder>::Group::point_at_infinity(&builder);
+        table_commitment = bn254<Builder>::Group::constant_infinity(&builder);
+        // Sanity check: Verify the native value is actually at infinity
+        BB_ASSERT(table_commitment.get_value().is_point_at_infinity(),
+                  "empty_ecc_op_tables: T_prev must be initialized to point at infinity");
     }
 
     return empty_tables;
@@ -54,7 +65,6 @@ class KernelIO {
     using G1 = Curve::Group;
     using FF = Curve::ScalarField;
     using PairingInputs = stdlib::recursion::PairingPoints<Curve>;
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1490): Make PublicInputComponent work with arrays
     using TableCommitments = std::array<G1, Builder::NUM_WIRES>;
 
     using PublicPoint = stdlib::PublicInputComponent<G1>;
@@ -69,6 +79,7 @@ class KernelIO {
 
     // Total size of the kernel IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = KERNEL_PUBLIC_INPUTS_SIZE;
+    static constexpr bool HasIPA = false;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -78,7 +89,7 @@ class KernelIO {
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
         // Assumes that the kernel-io public inputs are at the end of the public_inputs vector
-        uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
+        size_t index = public_inputs.size() - PUBLIC_INPUTS_SIZE;
 
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
         index += PairingInputs::PUBLIC_INPUTS_SIZE;
@@ -102,12 +113,7 @@ class KernelIO {
     {
         Builder* builder = output_hn_accum_hash.get_context();
 
-        if (pairing_inputs.P0.get_context() == nullptr) {
-            // Add the default pairing points to the public inputs
-            PairingInputs::set_default_to_public(builder);
-        } else {
-            pairing_inputs.set_public();
-        }
+        pairing_inputs.set_public(builder);
         kernel_return_data.set_public();
         app_return_data.set_public();
         for (auto& table_commitment : ecc_op_tables) {
@@ -115,8 +121,6 @@ class KernelIO {
         }
         output_hn_accum_hash.set_public();
 
-        // Record that pairing points have been set to public
-        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }
@@ -133,7 +137,9 @@ class KernelIO {
         inputs.kernel_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
         inputs.app_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
         for (auto& table_commitment : inputs.ecc_op_tables) {
-            table_commitment = G1(DEFAULT_ECC_COMMITMENT);
+            table_commitment = G1(typename G1::BaseField(nullptr, uint256_t(DEFAULT_ECC_COMMITMENT.x)),
+                                  typename G1::BaseField(nullptr, uint256_t(DEFAULT_ECC_COMMITMENT.y)),
+                                  /*assert_on_curve=*/false);
             table_commitment.convert_constant_to_fixed_witness(&builder);
         }
         inputs.output_hn_accum_hash = FF::from_witness(&builder, typename FF::native(0));
@@ -158,6 +164,7 @@ template <typename Builder_> class DefaultIO {
 
     // Total size of the IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = DEFAULT_PUBLIC_INPUTS_SIZE;
+    static constexpr bool HasIPA = false;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -167,7 +174,7 @@ template <typename Builder_> class DefaultIO {
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
         // Assumes that the app-io public inputs are at the end of the public_inputs vector
-        uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
+        size_t index = public_inputs.size() - PUBLIC_INPUTS_SIZE;
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
     }
 
@@ -177,13 +184,11 @@ template <typename Builder_> class DefaultIO {
      */
     void set_public()
     {
-        Builder* builder = pairing_inputs.P0.get_context();
+        Builder* builder = validate_context<Builder>(pairing_inputs);
         BB_ASSERT_NEQ(builder, nullptr, "Trying to set constant PairingPoints to public.");
 
         pairing_inputs.set_public();
 
-        // Record that pairing points have been set to public
-        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }
@@ -217,11 +222,12 @@ template <typename Builder_> class GoblinAvmIO {
     using PublicFF = stdlib::PublicInputComponent<FF>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
 
-    FF mega_hash;
+    FF transcript_hash; // The final state of the transcript of the AVM recursive verifier
     PairingInputs pairing_inputs;
 
     // Total size of the IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = GOBLIN_AVM_PUBLIC_INPUTS_SIZE;
+    static constexpr bool HasIPA = false;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -231,8 +237,8 @@ template <typename Builder_> class GoblinAvmIO {
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
         // Assumes that the GoblinAvm-io public inputs are at the end of the public_inputs vector
-        uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
-        mega_hash = PublicFF::reconstruct(public_inputs, PublicComponentKey{ index });
+        size_t index = public_inputs.size() - PUBLIC_INPUTS_SIZE;
+        transcript_hash = PublicFF::reconstruct(public_inputs, PublicComponentKey{ index });
         index += FF::PUBLIC_INPUTS_SIZE;
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
     }
@@ -243,13 +249,11 @@ template <typename Builder_> class GoblinAvmIO {
      */
     void set_public()
     {
-        Builder* builder = pairing_inputs.P0.get_context();
+        Builder* builder = validate_context<Builder>(pairing_inputs);
 
-        mega_hash.set_public();
+        transcript_hash.set_public();
         pairing_inputs.set_public();
 
-        // Record that pairing points have been set to public
-        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }
@@ -276,6 +280,7 @@ template <class Builder_> class HidingKernelIO {
 
     // Total size of the IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = HIDING_KERNEL_PUBLIC_INPUTS_SIZE;
+    static constexpr bool HasIPA = false;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -284,8 +289,8 @@ template <class Builder_> class HidingKernelIO {
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
-        // Assumes that the app-io public inputs are at the end of the public_inputs vector
-        uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
+        // Assumes that the hiding-kernel-io public inputs are at the end of the public_inputs vector
+        size_t index = public_inputs.size() - PUBLIC_INPUTS_SIZE;
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
         index += PairingInputs::PUBLIC_INPUTS_SIZE;
         kernel_return_data = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
@@ -304,19 +309,12 @@ template <class Builder_> class HidingKernelIO {
     {
         Builder* builder = ecc_op_tables[0].get_context();
 
-        if (pairing_inputs.P0.get_context() == nullptr) {
-            // Add the default pairing points to the public inputs
-            PairingInputs::set_default_to_public(builder);
-        } else {
-            pairing_inputs.set_public();
-        }
+        pairing_inputs.set_public(builder);
         kernel_return_data.set_public();
         for (auto& commitment : ecc_op_tables) {
             commitment.set_public();
         }
 
-        // Record that pairing points have been set to public
-        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }
@@ -329,10 +327,14 @@ template <class Builder_> class HidingKernelIO {
     {
         HidingKernelIO inputs;
         inputs.pairing_inputs = PairingInputs::construct_default();
-        inputs.kernel_return_data = G1(DEFAULT_ECC_COMMITMENT);
+        inputs.kernel_return_data = G1(typename G1::BaseField(nullptr, uint256_t(DEFAULT_ECC_COMMITMENT.x)),
+                                       typename G1::BaseField(nullptr, uint256_t(DEFAULT_ECC_COMMITMENT.y)),
+                                       /*assert_on_curve=*/false);
         inputs.kernel_return_data.convert_constant_to_fixed_witness(&builder);
         for (auto& table_commitment : inputs.ecc_op_tables) {
-            table_commitment = G1(DEFAULT_ECC_COMMITMENT);
+            table_commitment = G1(typename G1::BaseField(nullptr, uint256_t(DEFAULT_ECC_COMMITMENT.x)),
+                                  typename G1::BaseField(nullptr, uint256_t(DEFAULT_ECC_COMMITMENT.y)),
+                                  /*assert_on_curve=*/false);
             table_commitment.convert_constant_to_fixed_witness(&builder);
         }
         inputs.set_public();
@@ -358,6 +360,7 @@ class RollupIO {
 
     // Total size of the IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = ROLLUP_PUBLIC_INPUTS_SIZE;
+    static constexpr bool HasIPA = true;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -366,7 +369,7 @@ class RollupIO {
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
-        uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
+        size_t index = public_inputs.size() - PUBLIC_INPUTS_SIZE;
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
         index += PairingInputs::PUBLIC_INPUTS_SIZE;
         ipa_claim = PublicIpaClaim::reconstruct(public_inputs, PublicComponentKey{ index });
@@ -380,17 +383,9 @@ class RollupIO {
     {
         Builder* builder = ipa_claim.commitment.get_context();
 
-        if (pairing_inputs.P0.get_context() == nullptr) {
-            // Add the default pairing points to the public inputs
-            PairingInputs::set_default_to_public(builder);
-        } else {
-            BB_ASSERT_EQ(builder, pairing_inputs.P0.get_context());
-            pairing_inputs.set_public();
-        }
+        pairing_inputs.set_public(builder);
         ipa_claim.set_public();
 
-        // Record that pairing points have been set to public
-        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }
@@ -411,5 +406,4 @@ class RollupIO {
         builder.ipa_proof = ipa_proof;
     };
 };
-
 } // namespace bb::stdlib::recursion::honk

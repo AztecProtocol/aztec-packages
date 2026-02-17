@@ -1,5 +1,8 @@
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
+#include "barretenberg/eccvm/eccvm_test_utils.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
@@ -9,6 +12,7 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
+using eccvm_test_utils::add_hiding_op_for_test;
 
 class ECCVMTranscriptTests : public ::testing::Test {
   public:
@@ -16,7 +20,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
     using FF = grumpkin::fr;
     using Flavor = ECCVMFlavor;
     using Transcript = Flavor::Transcript;
-
+    using PCS = IPA<Flavor::Curve, CONST_ECCVM_LOG_N>;
     /**
      * @brief Construct a manifest for a ECCVM Honk proof
      *
@@ -39,6 +43,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
 
         size_t round = 0;
         manifest_expected.add_entry(round, "vk_hash", frs_per_Fr);
+        manifest_expected.add_entry(round, "Gemini:masking_poly_comm", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_ADD", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_EQ", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_TRANSITION", frs_per_G);
@@ -132,7 +137,6 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "Sumcheck:alpha");
 
         for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
-            round++;
             std::string label = "Sumcheck:gate_challenge_" + std::to_string(i);
             manifest_expected.add_challenge(round, label);
         }
@@ -159,8 +163,6 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "Libra:claimed_evaluation", frs_per_Fq);
         manifest_expected.add_entry(round, "Libra:grand_sum_commitment", frs_per_G);
         manifest_expected.add_entry(round, "Libra:quotient_commitment", frs_per_G);
-        manifest_expected.add_entry(round, "Gemini:masking_poly_comm", frs_per_G);
-        manifest_expected.add_entry(round, "Gemini:masking_poly_eval", frs_per_Fq);
 
         manifest_expected.add_challenge(round, "rho");
 
@@ -273,6 +275,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         op_queue->mul_accumulate(b, x);
         op_queue->mul_accumulate(c, x);
         op_queue->merge();
+        add_hiding_op_for_test(op_queue);
 
         ECCVMCircuitBuilder builder{ op_queue };
         return builder;
@@ -294,8 +297,12 @@ TEST_F(ECCVMTranscriptTests, ProverManifestConsistency)
     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
     ECCVMProver prover(builder, prover_transcript);
     prover.transcript->enable_manifest();
-    prover.ipa_transcript->enable_manifest();
-    ECCVMProof proof = prover.construct_proof();
+    auto [proof, opening_claim] = prover.construct_proof();
+
+    // Compute IPA proof with manifest enabled
+    auto ipa_transcript = std::make_shared<Transcript>();
+    ipa_transcript->enable_manifest();
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
     auto manifest_expected = this->construct_eccvm_honk_manifest();
@@ -308,7 +315,7 @@ TEST_F(ECCVMTranscriptTests, ProverManifestConsistency)
     }
 
     auto ipa_manifest_expected = this->construct_eccvm_ipa_manifest();
-    auto prover_ipa_manifest = prover.ipa_transcript->get_manifest();
+    auto prover_ipa_manifest = ipa_transcript->get_manifest();
 
     // Note: a manifest can be printed using manifest.print()
     ASSERT_GT(ipa_manifest_expected.size(), 0);
@@ -332,19 +339,28 @@ TEST_F(ECCVMTranscriptTests, VerifierManifestConsistency)
     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
     ECCVMProver prover(builder, prover_transcript);
     prover_transcript->enable_manifest();
-    prover.ipa_transcript->enable_manifest();
-    ECCVMProof proof = prover.construct_proof();
+    auto [proof, opening_claim] = prover.construct_proof();
+
+    // Compute IPA proof with manifest enabled
+    auto prover_ipa_transcript = std::make_shared<Transcript>();
+    prover_ipa_transcript->enable_manifest();
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, prover_ipa_transcript);
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
-    ECCVMVerifier verifier(verifier_transcript);
-    verifier.transcript->enable_manifest();
-    verifier.ipa_transcript->enable_manifest();
-    verifier.verify_proof(proof);
+    verifier_transcript->enable_manifest();
+    ECCVMVerifier verifier(verifier_transcript, proof);
+    auto verification_result = verifier.reduce_to_ipa_opening();
+
+    // Verify IPA with manifest enabled
+    auto verifier_ipa_transcript = std::make_shared<Transcript>(prover_ipa_transcript->export_proof());
+    verifier_ipa_transcript->enable_manifest();
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    IPA<curve::Grumpkin>::reduce_verify(ipa_vk, verification_result.ipa_claim, verifier_ipa_transcript);
 
     // Check consistency between the manifests generated by the prover and verifier
     auto prover_manifest = prover.transcript->get_manifest();
-    auto verifier_manifest = verifier.transcript->get_manifest();
+    auto verifier_manifest = verifier.get_transcript()->get_manifest();
 
     // Note: a manifest can be printed using manifest.print()
     // The last challenge generated by the ECCVM Prover is the translation univariate batching challenge and, on the
@@ -357,8 +373,8 @@ TEST_F(ECCVMTranscriptTests, VerifierManifestConsistency)
     }
 
     // Check consistency of IPA transcripts
-    auto prover_ipa_manifest = prover.ipa_transcript->get_manifest();
-    auto verifier_ipa_manifest = verifier.ipa_transcript->get_manifest();
+    auto prover_ipa_manifest = prover_ipa_transcript->get_manifest();
+    auto verifier_ipa_manifest = verifier_ipa_transcript->get_manifest();
     ASSERT_GT(prover_ipa_manifest.size(), 0);
     for (size_t round = 0; round < prover_ipa_manifest.size(); ++round) {
         ASSERT_EQ(prover_ipa_manifest[round], verifier_ipa_manifest[round])
@@ -374,7 +390,7 @@ TEST_F(ECCVMTranscriptTests, VerifierManifestConsistency)
 TEST_F(ECCVMTranscriptTests, ChallengeGenerationTest)
 {
     // initialized with random value sent to verifier
-    auto transcript = Flavor::Transcript::prover_init_empty();
+    auto transcript = Flavor::Transcript::test_prover_init_empty();
     // test a bunch of challenges
     std::vector<std::string> challenge_labels{ "a", "b", "c", "d", "e", "f" };
     auto challenges = transcript->template get_challenges<FF>(challenge_labels);

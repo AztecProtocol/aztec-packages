@@ -1,21 +1,13 @@
-import { createBlockEndMarker, getNumTxsFromBlockEndMarker, isBlockEndMarker } from '@aztec/blob-lib/encoding';
+import type { TxBlobData } from '@aztec/blob-lib/encoding';
 import { timesParallel } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 import { z } from 'zod';
 
+import { MAX_TX_EFFECTS_PER_BODY } from '../deserialization/index.js';
 import type { ZodFor } from '../schemas/index.js';
 import { TxEffect } from '../tx/tx_effect.js';
-
-export { createBlockEndMarker };
-
-export function getBlockBlobFields(txEffects: TxEffect[]) {
-  const blobFields = txEffects.flatMap(txEffect => txEffect.toBlobFields());
-  blobFields.push(createBlockEndMarker(txEffects.length));
-  return blobFields;
-}
 
 export class Body {
   constructor(public txEffects: TxEffect[]) {}
@@ -49,38 +41,22 @@ export class Body {
   static fromBuffer(buf: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buf);
 
-    return new this(reader.readVector(TxEffect));
+    return new this(reader.readVector(TxEffect, MAX_TX_EFFECTS_PER_BODY));
   }
 
   /**
    * Returns a flat packed array of fields of all tx effects - used for blobs.
    */
-  toBlobFields() {
-    return getBlockBlobFields(this.txEffects);
+  toTxBlobData(): TxBlobData[] {
+    return this.txEffects.map(txEffect => txEffect.toTxBlobData());
   }
 
   /**
    * Decodes a block from blob fields.
    */
-  static fromBlobFields(fields: Fr[]) {
-    const txEffects: TxEffect[] = [];
-    const reader = new FieldReader(fields.slice(0, -1));
-    while (!reader.isFinished()) {
-      txEffects.push(TxEffect.fromBlobFields(reader));
-    }
-
-    // If the fields are from a proven block, or are constructed by calling `toBlobFields`, the following errors should never throw.
-
-    if (!isBlockEndMarker(fields[fields.length - 1])) {
-      throw new Error('Block end marker not found');
-    }
-
-    const numTxs = getNumTxsFromBlockEndMarker(fields[fields.length - 1]);
-    if (numTxs !== txEffects.length) {
-      throw new Error(`Expected ${numTxs} txs, but got ${txEffects.length}`);
-    }
-
-    return new this(txEffects);
+  static fromTxBlobData(txBlobData: TxBlobData[]): Body {
+    const txEffects = txBlobData.map(data => TxEffect.fromTxBlobData(data));
+    return new Body(txEffects);
   }
 
   [inspect.custom]() {
@@ -89,14 +65,16 @@ export class Body {
 }`;
   }
 
-  static async random(
+  static async random({
     txsPerBlock = 4,
-    numPublicCallsPerTx = 3,
-    numPublicLogsPerCall = 1,
-    maxEffects: number | undefined = undefined,
-  ) {
-    const txEffects = await timesParallel(txsPerBlock, () =>
-      TxEffect.random(numPublicCallsPerTx, numPublicLogsPerCall, maxEffects),
+    makeTxOptions = () => ({}),
+    ...txEffectOptions
+  }: {
+    txsPerBlock?: number;
+    makeTxOptions?: (txIndex: number) => Partial<Parameters<typeof TxEffect.random>[0]>;
+  } & Partial<Parameters<typeof TxEffect.random>[0]> = {}) {
+    const txEffects = await timesParallel(txsPerBlock, txIndex =>
+      TxEffect.random({ ...makeTxOptions(txIndex), ...txEffectOptions }),
     );
 
     return new Body(txEffects);

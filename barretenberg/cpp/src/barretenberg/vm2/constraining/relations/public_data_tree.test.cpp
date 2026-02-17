@@ -5,7 +5,7 @@
 #include <cstdint>
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
-#include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_public_data_check.hpp"
@@ -165,7 +165,7 @@ TEST_P(PublicDataReadPositiveTests, Positive)
                                                  sibling_path,
                                                  AppendOnlyTreeSnapshot{
                                                      .root = root,
-                                                     .nextAvailableLeafIndex = 128,
+                                                     .next_available_leaf_index = 128,
                                                  });
 
     precomputed_builder.process_misc(trace, 1 << 16);
@@ -316,14 +316,14 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
     TestMemoryTree<Poseidon2HashPolicy> public_data_tree(8, PUBLIC_DATA_TREE_HEIGHT);
 
     AvmAccumulatedData accumulated_data = {};
-    accumulated_data.publicDataWrites[0] = PublicDataWrite{
-        .leafSlot = leaf_slot,
+    accumulated_data.public_data_writes[0] = PublicDataWrite{
+        .leaf_slot = leaf_slot,
         .value = new_value,
     };
 
     auto test_public_inputs = testing::PublicInputsBuilder()
                                   .set_accumulated_data(accumulated_data)
-                                  .set_accumulated_data_array_lengths({ .publicDataWrites = 1 })
+                                  .set_accumulated_data_array_lengths({ .public_data_writes = 1 })
                                   .build();
 
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
@@ -354,7 +354,7 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
     public_data_tree.update_element(low_leaf_index, low_leaf_hash);
 
     AppendOnlyTreeSnapshot prev_snapshot =
-        AppendOnlyTreeSnapshot{ .root = public_data_tree.root(), .nextAvailableLeafIndex = 128 };
+        AppendOnlyTreeSnapshot{ .root = public_data_tree.root(), .next_available_leaf_index = 128 };
     std::vector<FF> low_leaf_sibling_path = public_data_tree.get_sibling_path(low_leaf_index);
 
     PublicDataTreeLeafPreimage updated_low_leaf = low_leaf;
@@ -363,12 +363,12 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
     public_data_tree.update_element(low_leaf_index, updated_low_leaf_hash);
 
     FF intermediate_root = public_data_tree.root();
-    std::vector<FF> insertion_sibling_path = public_data_tree.get_sibling_path(prev_snapshot.nextAvailableLeafIndex);
+    std::vector<FF> insertion_sibling_path = public_data_tree.get_sibling_path(prev_snapshot.next_available_leaf_index);
 
     // No insertion happens
     AppendOnlyTreeSnapshot next_snapshot =
         AppendOnlyTreeSnapshot{ .root = intermediate_root,
-                                .nextAvailableLeafIndex = prev_snapshot.nextAvailableLeafIndex };
+                                .next_available_leaf_index = prev_snapshot.next_available_leaf_index };
 
     AppendOnlyTreeSnapshot result_snapshot = public_data_tree_check_simulator.write(slot,
                                                                                     contract_address,
@@ -400,20 +400,40 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
 TEST_F(PublicDataTreeCheckConstrainingTest, PositiveSquashing)
 {
     // This test will write
-    // 1. slot 42 with value 27
-    // 2. (dummy write to check ordering) slot 50 with value 0
-    // 3. slot 42 with value 28
-    // If squashing is correct, we should get (42, 28), (50, 0)
-    FF slot = 42;
-    FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
+    // 1. slot with value 27
+    // 2. (dummy write to check ordering) dummy_slot with value 0
+    // 3. slot with value 28
+    // If squashing is correct, we should get (slot, 28), (dummy_slot, 0)
+
+    // Compute hashes for two candidate slot values
+    FF slot_a = 42;
+    FF slot_b = 51;
+    FF leaf_slot_a = unconstrained_compute_leaf_slot(contract_address, slot_a);
+    FF leaf_slot_b = unconstrained_compute_leaf_slot(contract_address, slot_b);
+
+    // We need leaf_slot < dummy_leaf_slot for the tree ordering.
+    // Since hash outputs are pseudo-random, we pick the smaller hash as leaf_slot.
+    FF slot;
+    FF dummy_slot;
+    FF leaf_slot;
+    FF dummy_leaf_slot;
+    if (static_cast<uint256_t>(leaf_slot_a) < static_cast<uint256_t>(leaf_slot_b)) {
+        slot = slot_a;
+        dummy_slot = slot_b;
+        leaf_slot = leaf_slot_a;
+        dummy_leaf_slot = leaf_slot_b;
+    } else {
+        slot = slot_b;
+        dummy_slot = slot_a;
+        leaf_slot = leaf_slot_b;
+        dummy_leaf_slot = leaf_slot_a;
+    }
+
     FF new_value = 27; // Will get squashed
     FF updated_value = 28;
-
-    FF dummy_slot = 50;
-    FF dummy_leaf_slot = unconstrained_compute_leaf_slot(contract_address, dummy_slot);
     FF dummy_leaf_value = 0;
 
-    // The expected tree order is low_leaf_slot := 40 < leaf_slot < second_low_leaf_slot < dummy_leaf_slot
+    // The expected tree order is low_leaf_slot := (leaf_slot - 2) < leaf_slot < second_low_leaf_slot < dummy_leaf_slot
     // We set second_low_leaf_slot == leaf_slot + 1. (We do not need to know the preimage for second_low_leaf_slot)
     ASSERT_GT(dummy_leaf_slot, leaf_slot + 1);
 
@@ -421,19 +441,19 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveSquashing)
     TestMemoryTree<Poseidon2HashPolicy> public_data_tree(8, PUBLIC_DATA_TREE_HEIGHT);
 
     AvmAccumulatedData accumulated_data = {};
-    accumulated_data.publicDataWrites[0] = PublicDataWrite{
-        .leafSlot = leaf_slot,
+    accumulated_data.public_data_writes[0] = PublicDataWrite{
+        .leaf_slot = leaf_slot,
         .value = updated_value,
     };
 
-    accumulated_data.publicDataWrites[1] = PublicDataWrite{
-        .leafSlot = dummy_leaf_slot,
+    accumulated_data.public_data_writes[1] = PublicDataWrite{
+        .leaf_slot = dummy_leaf_slot,
         .value = dummy_leaf_value,
     };
 
     auto test_public_inputs = testing::PublicInputsBuilder()
                                   .set_accumulated_data(accumulated_data)
-                                  .set_accumulated_data_array_lengths({ .publicDataWrites = 2 })
+                                  .set_accumulated_data_array_lengths({ .public_data_writes = 2 })
                                   .build();
 
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
@@ -473,28 +493,28 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveSquashing)
     public_data_tree.update_element(second_low_leaf_index, second_low_leaf_hash);
 
     AppendOnlyTreeSnapshot prev_snapshot =
-        AppendOnlyTreeSnapshot{ .root = public_data_tree.root(), .nextAvailableLeafIndex = 128 };
+        AppendOnlyTreeSnapshot{ .root = public_data_tree.root(), .next_available_leaf_index = 128 };
     std::vector<FF> low_leaf_sibling_path = public_data_tree.get_sibling_path(low_leaf_index);
 
     // Insertion section
     PublicDataTreeLeafPreimage updated_low_leaf = low_leaf;
-    updated_low_leaf.nextIndex = prev_snapshot.nextAvailableLeafIndex;
+    updated_low_leaf.nextIndex = prev_snapshot.next_available_leaf_index;
     updated_low_leaf.nextKey = leaf_slot;
     FF updated_low_leaf_hash = UnconstrainedPoseidon2::hash(updated_low_leaf.get_hash_inputs());
     public_data_tree.update_element(low_leaf_index, updated_low_leaf_hash);
 
-    std::vector<FF> insertion_sibling_path = public_data_tree.get_sibling_path(prev_snapshot.nextAvailableLeafIndex);
+    std::vector<FF> insertion_sibling_path = public_data_tree.get_sibling_path(prev_snapshot.next_available_leaf_index);
 
     PublicDataTreeLeafPreimage new_leaf =
         PublicDataTreeLeafPreimage(PublicDataLeafValue(leaf_slot, new_value), low_leaf.nextIndex, low_leaf.nextKey);
     FF new_leaf_hash = UnconstrainedPoseidon2::hash(new_leaf.get_hash_inputs());
 
-    uint64_t value_to_be_updated_leaf_index = prev_snapshot.nextAvailableLeafIndex;
+    uint64_t value_to_be_updated_leaf_index = prev_snapshot.next_available_leaf_index;
     public_data_tree.update_element(value_to_be_updated_leaf_index, new_leaf_hash);
 
     AppendOnlyTreeSnapshot next_snapshot =
         AppendOnlyTreeSnapshot{ .root = public_data_tree.root(),
-                                .nextAvailableLeafIndex = prev_snapshot.nextAvailableLeafIndex + 1 };
+                                .next_available_leaf_index = prev_snapshot.next_available_leaf_index + 1 };
 
     AppendOnlyTreeSnapshot snapshot_after_insertion = public_data_tree_check_simulator.write(slot,
                                                                                              contract_address,
@@ -517,21 +537,21 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveSquashing)
     low_leaf_sibling_path = public_data_tree.get_sibling_path(low_leaf_index);
 
     updated_low_leaf = low_leaf;
-    updated_low_leaf.nextIndex = prev_snapshot.nextAvailableLeafIndex;
+    updated_low_leaf.nextIndex = prev_snapshot.next_available_leaf_index;
     updated_low_leaf.nextKey = dummy_leaf_slot;
     updated_low_leaf_hash = UnconstrainedPoseidon2::hash(updated_low_leaf.get_hash_inputs());
     public_data_tree.update_element(low_leaf_index, updated_low_leaf_hash);
-    insertion_sibling_path = public_data_tree.get_sibling_path(prev_snapshot.nextAvailableLeafIndex);
+    insertion_sibling_path = public_data_tree.get_sibling_path(prev_snapshot.next_available_leaf_index);
 
     new_leaf = PublicDataTreeLeafPreimage(
         PublicDataLeafValue(dummy_leaf_slot, dummy_leaf_value), low_leaf.nextIndex, low_leaf.nextKey);
     new_leaf_hash = UnconstrainedPoseidon2::hash(new_leaf.get_hash_inputs());
 
-    uint64_t dummy_leaf_index = prev_snapshot.nextAvailableLeafIndex;
+    uint64_t dummy_leaf_index = prev_snapshot.next_available_leaf_index;
     public_data_tree.update_element(dummy_leaf_index, new_leaf_hash);
 
     next_snapshot = AppendOnlyTreeSnapshot{ .root = public_data_tree.root(),
-                                            .nextAvailableLeafIndex = prev_snapshot.nextAvailableLeafIndex + 1 };
+                                            .next_available_leaf_index = prev_snapshot.next_available_leaf_index + 1 };
 
     AppendOnlyTreeSnapshot snapshot_after_dummy_insertion =
         public_data_tree_check_simulator.write(dummy_slot,
@@ -557,11 +577,11 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveSquashing)
     updated_low_leaf.leaf.value = updated_value;
     updated_low_leaf_hash = UnconstrainedPoseidon2::hash(updated_low_leaf.get_hash_inputs());
     public_data_tree.update_element(low_leaf_index, updated_low_leaf_hash);
-    insertion_sibling_path = public_data_tree.get_sibling_path(prev_snapshot.nextAvailableLeafIndex);
+    insertion_sibling_path = public_data_tree.get_sibling_path(prev_snapshot.next_available_leaf_index);
 
     // No insertion happens
     next_snapshot = AppendOnlyTreeSnapshot{ .root = public_data_tree.root(),
-                                            .nextAvailableLeafIndex = prev_snapshot.nextAvailableLeafIndex };
+                                            .next_available_leaf_index = prev_snapshot.next_available_leaf_index };
     AppendOnlyTreeSnapshot snapshot_after_update = public_data_tree_check_simulator.write(slot,
                                                                                           contract_address,
                                                                                           updated_value,
@@ -573,13 +593,13 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveSquashing)
                                                                                           true);
     EXPECT_EQ(next_snapshot, snapshot_after_update);
 
-    ASSERT_LE(test_public_inputs.accumulatedDataArrayLengths.publicDataWrites,
-              test_public_inputs.accumulatedData.publicDataWrites.size());
+    ASSERT_LE(test_public_inputs.accumulated_data_array_lengths.public_data_writes,
+              test_public_inputs.accumulated_data.public_data_writes.size());
 
     std::vector<FF> written_slots;
-    std::ranges::transform(test_public_inputs.accumulatedData.publicDataWrites,
+    std::ranges::transform(test_public_inputs.accumulated_data.public_data_writes,
                            std::back_inserter(written_slots),
-                           [](const PublicDataWrite& write) { return write.leafSlot; });
+                           [](const PublicDataWrite& write) { return write.leaf_slot; });
 
     public_data_tree_check_simulator.generate_ff_gt_events_for_squashing(written_slots);
 

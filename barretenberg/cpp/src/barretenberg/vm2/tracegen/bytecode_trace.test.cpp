@@ -11,6 +11,7 @@
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/full_row.hpp"
+#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_memory.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
@@ -58,10 +59,11 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
                       ROW_FIELD_EQ(bc_decomposition_bytes_remaining, 4),
                       ROW_FIELD_EQ(bc_decomposition_sel_windows_gt_remaining, 1),
                       ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, FF(DECOMPOSE_WINDOW_SIZE - 4).invert()),
-                      ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, 0),
+                      ROW_FIELD_EQ(bc_decomposition_sel_windows_eq_remaining, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, 4),
                       ROW_FIELD_EQ(bc_decomposition_last_of_contract, 0),
                       ROW_FIELD_EQ(bc_decomposition_sel_packed, 1),
+                      ROW_FIELD_EQ(bc_decomposition_start, 1),
                       ROW_FIELD_EQ(bc_decomposition_next_packed_pc, 0),
                       ROW_FIELD_EQ(bc_decomposition_next_packed_pc_min_pc_inv, 0)));
 
@@ -76,7 +78,7 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
                       ROW_FIELD_EQ(bc_decomposition_bytes_remaining, 3),
                       ROW_FIELD_EQ(bc_decomposition_sel_windows_gt_remaining, 1),
                       ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, FF(DECOMPOSE_WINDOW_SIZE - 3).invert()),
-                      ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, 0),
+                      ROW_FIELD_EQ(bc_decomposition_sel_windows_eq_remaining, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, 3),
                       ROW_FIELD_EQ(bc_decomposition_sel_packed, 0),
                       ROW_FIELD_EQ(bc_decomposition_next_packed_pc, 31),
@@ -93,7 +95,7 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
                       ROW_FIELD_EQ(bc_decomposition_bytes_remaining, 2),
                       ROW_FIELD_EQ(bc_decomposition_sel_windows_gt_remaining, 1),
                       ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, FF(DECOMPOSE_WINDOW_SIZE - 2).invert()),
-                      ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, 0),
+                      ROW_FIELD_EQ(bc_decomposition_sel_windows_eq_remaining, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, 2),
                       ROW_FIELD_EQ(bc_decomposition_sel_packed, 0),
                       ROW_FIELD_EQ(bc_decomposition_next_packed_pc, 31),
@@ -109,12 +111,53 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
                       ROW_FIELD_EQ(bc_decomposition_bytes_remaining, 1),
                       ROW_FIELD_EQ(bc_decomposition_sel_windows_gt_remaining, 1),
                       ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, FF(DECOMPOSE_WINDOW_SIZE - 1).invert()),
-                      ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, 0),
+                      ROW_FIELD_EQ(bc_decomposition_sel_windows_eq_remaining, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, 1),
                       ROW_FIELD_EQ(bc_decomposition_sel_packed, 0),
                       ROW_FIELD_EQ(bc_decomposition_next_packed_pc, 31),
                       ROW_FIELD_EQ(bc_decomposition_next_packed_pc_min_pc_inv, FF(31 - 3).invert()),
                       ROW_FIELD_EQ(bc_decomposition_last_of_contract, 1)));
+}
+
+TEST(BytecodeTraceGenTest, BasicSingleByte)
+{
+    TestTraceContainer trace;
+    BytecodeTraceBuilder builder;
+
+    builder.process_decomposition(
+        {
+            simulation::BytecodeDecompositionEvent{
+                .bytecode_id = 43,
+                .bytecode = std::make_shared<std::vector<uint8_t>>(std::vector<uint8_t>{ 24 }),
+            },
+        },
+        trace);
+    auto rows = trace.as_rows();
+
+    // One extra empty row is prepended. Note that precomputed_first_row is not set through process_decomposition()
+    // because it pertains to another subtrace.
+    ASSERT_EQ(rows.size(), 1 + 1);
+
+    // We do not inspect row at index 0 as it is completely empty.
+    EXPECT_THAT(rows.at(1),
+                AllOf(ROW_FIELD_EQ(bc_decomposition_sel, 1),
+                      ROW_FIELD_EQ(bc_decomposition_id, 43),
+                      ROW_FIELD_EQ(bc_decomposition_bytes, 24),
+                      ROW_FIELD_EQ(bc_decomposition_bytes_pc_plus_1, 0),
+                      ROW_FIELD_EQ(bc_decomposition_bytes_pc_plus_2, 0),
+                      ROW_FIELD_EQ(bc_decomposition_bytes_pc_plus_3, 0),
+                      ROW_FIELD_EQ(bc_decomposition_bytes_pc_plus_4, 0),
+                      ROW_FIELD_EQ(bc_decomposition_pc, 0),
+                      ROW_FIELD_EQ(bc_decomposition_bytes_remaining, 1),
+                      ROW_FIELD_EQ(bc_decomposition_sel_windows_gt_remaining, 1),
+                      ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, FF(DECOMPOSE_WINDOW_SIZE - 1).invert()),
+                      ROW_FIELD_EQ(bc_decomposition_sel_windows_eq_remaining, 0),
+                      ROW_FIELD_EQ(bc_decomposition_bytes_to_read, 1),
+                      ROW_FIELD_EQ(bc_decomposition_last_of_contract, 1),
+                      ROW_FIELD_EQ(bc_decomposition_sel_packed, 1),
+                      ROW_FIELD_EQ(bc_decomposition_start, 1),
+                      ROW_FIELD_EQ(bc_decomposition_next_packed_pc, 0),
+                      ROW_FIELD_EQ(bc_decomposition_next_packed_pc_min_pc_inv, 0)));
 }
 
 TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
@@ -154,9 +197,10 @@ TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
                       ROW_FIELD_EQ(bc_decomposition_bytes_remaining, bytecode_size),
                       ROW_FIELD_EQ(bc_decomposition_sel_windows_gt_remaining, 0),
                       ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, FF(-8).invert()),
-                      ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, 0),
+                      ROW_FIELD_EQ(bc_decomposition_sel_windows_eq_remaining, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, DECOMPOSE_WINDOW_SIZE),
                       ROW_FIELD_EQ(bc_decomposition_sel_packed, 1),
+                      ROW_FIELD_EQ(bc_decomposition_start, 1),
                       ROW_FIELD_EQ(bc_decomposition_next_packed_pc, 0),
                       ROW_FIELD_EQ(bc_decomposition_next_packed_pc_min_pc_inv, 0),
                       ROW_FIELD_EQ(bc_decomposition_last_of_contract, 0)));
@@ -171,7 +215,7 @@ TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
                       ROW_FIELD_EQ(bc_decomposition_bytes_remaining, DECOMPOSE_WINDOW_SIZE),
                       ROW_FIELD_EQ(bc_decomposition_sel_windows_gt_remaining, 0),
                       ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, 0),
-                      ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, 1),
+                      ROW_FIELD_EQ(bc_decomposition_sel_windows_eq_remaining, 1),
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, DECOMPOSE_WINDOW_SIZE),
                       ROW_FIELD_EQ(bc_decomposition_last_of_contract, 0)));
 
@@ -183,7 +227,7 @@ TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
                       ROW_FIELD_EQ(bc_decomposition_bytes_remaining, DECOMPOSE_WINDOW_SIZE - 1),
                       ROW_FIELD_EQ(bc_decomposition_sel_windows_gt_remaining, 1),
                       ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, 1),
-                      ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, 0),
+                      ROW_FIELD_EQ(bc_decomposition_sel_windows_eq_remaining, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, DECOMPOSE_WINDOW_SIZE - 1),
                       ROW_FIELD_EQ(bc_decomposition_sel_packed, 0),
                       ROW_FIELD_EQ(bc_decomposition_next_packed_pc, 31),
@@ -199,7 +243,7 @@ TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
                       ROW_FIELD_EQ(bc_decomposition_bytes_remaining, 1),
                       ROW_FIELD_EQ(bc_decomposition_sel_windows_gt_remaining, 1),
                       ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, FF(DECOMPOSE_WINDOW_SIZE - 1).invert()),
-                      ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, 0),
+                      ROW_FIELD_EQ(bc_decomposition_sel_windows_eq_remaining, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, 1),
                       ROW_FIELD_EQ(bc_decomposition_sel_packed, 0),
                       ROW_FIELD_EQ(bc_decomposition_next_packed_pc, 62),
@@ -265,12 +309,13 @@ TEST(BytecodeTraceGenTest, MultipleEvents)
                     ROW_FIELD_EQ(
                         bc_decomposition_windows_min_remaining_inv,
                         bytes_rem == DECOMPOSE_WINDOW_SIZE ? 0 : (FF(DECOMPOSE_WINDOW_SIZE) - FF(bytes_rem)).invert()),
-                    ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, bytes_rem == DECOMPOSE_WINDOW_SIZE ? 1 : 0),
+                    ROW_FIELD_EQ(bc_decomposition_sel_windows_eq_remaining, bytes_rem == DECOMPOSE_WINDOW_SIZE ? 1 : 0),
                     ROW_FIELD_EQ(bc_decomposition_bytes_to_read, std::min(DECOMPOSE_WINDOW_SIZE, bytes_rem)),
                     ROW_FIELD_EQ(bc_decomposition_sel_packed, j == next_packed_pc ? 1 : 0),
                     ROW_FIELD_EQ(bc_decomposition_next_packed_pc, next_packed_pc),
                     ROW_FIELD_EQ(bc_decomposition_next_packed_pc_min_pc_inv,
                                  j == next_packed_pc ? 0 : FF(next_packed_pc - j).invert()),
+                    ROW_FIELD_EQ(bc_decomposition_start, j == 0 ? 1 : 0),
                     ROW_FIELD_EQ(bc_decomposition_last_of_contract, j == bc_sizes[i] - 1 ? 1 : 0)));
             row_pos++;
             next_packed_pc += j % 31 == 0 ? 31 : 0;
@@ -287,7 +332,7 @@ TEST(BytecodeTraceGenTest, BasicHashing)
         {
             simulation::BytecodeHashingEvent{
                 .bytecode_id = 1,
-                .bytecode_length = 9,
+                .bytecode_length = 93,
                 .bytecode_fields = { 10, 20, 30 },
             },
         },
@@ -295,47 +340,50 @@ TEST(BytecodeTraceGenTest, BasicHashing)
     const auto rows = trace.as_rows();
 
     // One extra empty row is prepended.
-    EXPECT_THAT(rows.at(1),
-                AllOf(ROW_FIELD_EQ(bc_hashing_sel, 1),
-                      ROW_FIELD_EQ(bc_hashing_start, 1),
-                      ROW_FIELD_EQ(bc_hashing_sel_not_start, 0),
-                      ROW_FIELD_EQ(bc_hashing_sel_not_padding_1, 1),
-                      ROW_FIELD_EQ(bc_hashing_sel_not_padding_2, 1),
-                      ROW_FIELD_EQ(bc_hashing_latch, 0),
-                      ROW_FIELD_EQ(bc_hashing_bytecode_id, 1),
-                      ROW_FIELD_EQ(bc_hashing_pc_index, 0),
-                      // We don't increment at start to account for the prepended separator:
-                      ROW_FIELD_EQ(bc_hashing_pc_index_1, 0),
-                      ROW_FIELD_EQ(bc_hashing_pc_index_2, 31),
-                      ROW_FIELD_EQ(bc_hashing_packed_fields_0, GENERATOR_INDEX__PUBLIC_BYTECODE),
-                      ROW_FIELD_EQ(bc_hashing_packed_fields_1, 10),
-                      ROW_FIELD_EQ(bc_hashing_packed_fields_2, 20),
-                      ROW_FIELD_EQ(bc_hashing_input_len, 4),
-                      ROW_FIELD_EQ(bc_hashing_rounds_rem, 2),
-                      ROW_FIELD_EQ(bc_hashing_output_hash,
-                                   RawPoseidon2::hash({ GENERATOR_INDEX__PUBLIC_BYTECODE, 10, 20, 30 })),
-                      ROW_FIELD_EQ(bc_hashing_pc_at_final_field, 0)));
+    EXPECT_THAT(
+        rows.at(1),
+        AllOf(ROW_FIELD_EQ(bc_hashing_sel, 1),
+              ROW_FIELD_EQ(bc_hashing_start, 1),
+              ROW_FIELD_EQ(bc_hashing_sel_not_start, 0),
+              ROW_FIELD_EQ(bc_hashing_sel_not_padding_1, 1),
+              ROW_FIELD_EQ(bc_hashing_sel_not_padding_2, 1),
+              ROW_FIELD_EQ(bc_hashing_latch, 0),
+              ROW_FIELD_EQ(bc_hashing_bytecode_id, 1),
+              ROW_FIELD_EQ(bc_hashing_pc_index, 0),
+              // We don't increment at start to account for the prepended first field length | separator:
+              ROW_FIELD_EQ(bc_hashing_pc_index_1, 0),
+              ROW_FIELD_EQ(bc_hashing_pc_index_2, 31),
+              ROW_FIELD_EQ(bc_hashing_packed_fields_0, simulation::compute_public_bytecode_first_field(93)),
+              ROW_FIELD_EQ(bc_hashing_packed_fields_1, 10),
+              ROW_FIELD_EQ(bc_hashing_packed_fields_2, 20),
+              ROW_FIELD_EQ(bc_hashing_size_in_bytes, 93),
+              ROW_FIELD_EQ(bc_hashing_input_len, 4),
+              ROW_FIELD_EQ(bc_hashing_rounds_rem, 2),
+              ROW_FIELD_EQ(bc_hashing_output_hash,
+                           RawPoseidon2::hash({ simulation::compute_public_bytecode_first_field(93), 10, 20, 30 })),
+              ROW_FIELD_EQ(bc_hashing_pc_at_final_field, 0)));
 
     // Latched row
-    EXPECT_THAT(rows.at(2),
-                AllOf(ROW_FIELD_EQ(bc_hashing_sel, 1),
-                      ROW_FIELD_EQ(bc_hashing_start, 0),
-                      ROW_FIELD_EQ(bc_hashing_sel_not_start, 1),
-                      ROW_FIELD_EQ(bc_hashing_sel_not_padding_1, 0),
-                      ROW_FIELD_EQ(bc_hashing_sel_not_padding_2, 0),
-                      ROW_FIELD_EQ(bc_hashing_latch, 1),
-                      ROW_FIELD_EQ(bc_hashing_bytecode_id, 1),
-                      ROW_FIELD_EQ(bc_hashing_pc_index, 62),
-                      ROW_FIELD_EQ(bc_hashing_pc_index_1, 93),
-                      ROW_FIELD_EQ(bc_hashing_pc_index_2, 124),
-                      ROW_FIELD_EQ(bc_hashing_packed_fields_0, 30),
-                      ROW_FIELD_EQ(bc_hashing_packed_fields_1, 0),
-                      ROW_FIELD_EQ(bc_hashing_packed_fields_2, 0),
-                      ROW_FIELD_EQ(bc_hashing_input_len, 4),
-                      ROW_FIELD_EQ(bc_hashing_rounds_rem, 1),
-                      ROW_FIELD_EQ(bc_hashing_output_hash,
-                                   RawPoseidon2::hash({ GENERATOR_INDEX__PUBLIC_BYTECODE, 10, 20, 30 })),
-                      ROW_FIELD_EQ(bc_hashing_pc_at_final_field, 62)));
+    EXPECT_THAT(
+        rows.at(2),
+        AllOf(ROW_FIELD_EQ(bc_hashing_sel, 1),
+              ROW_FIELD_EQ(bc_hashing_start, 0),
+              ROW_FIELD_EQ(bc_hashing_sel_not_start, 1),
+              ROW_FIELD_EQ(bc_hashing_sel_not_padding_1, 0),
+              ROW_FIELD_EQ(bc_hashing_sel_not_padding_2, 0),
+              ROW_FIELD_EQ(bc_hashing_latch, 1),
+              ROW_FIELD_EQ(bc_hashing_bytecode_id, 1),
+              ROW_FIELD_EQ(bc_hashing_pc_index, 62),
+              ROW_FIELD_EQ(bc_hashing_pc_index_1, 93),
+              ROW_FIELD_EQ(bc_hashing_pc_index_2, 124),
+              ROW_FIELD_EQ(bc_hashing_packed_fields_0, 30),
+              ROW_FIELD_EQ(bc_hashing_packed_fields_1, 0),
+              ROW_FIELD_EQ(bc_hashing_packed_fields_2, 0),
+              ROW_FIELD_EQ(bc_hashing_input_len, 4),
+              ROW_FIELD_EQ(bc_hashing_rounds_rem, 1),
+              ROW_FIELD_EQ(bc_hashing_output_hash,
+                           RawPoseidon2::hash({ simulation::compute_public_bytecode_first_field(93), 10, 20, 30 })),
+              ROW_FIELD_EQ(bc_hashing_pc_at_final_field, 62)));
 }
 
 std::vector<Instruction> gen_random_instructions(std::span<const WireOpCode> opcodes)
@@ -367,7 +415,7 @@ std::vector<size_t> gen_pcs(std::span<const WireOpCode> opcodes)
     size_t pc = 0;
     for (const auto& opcode : opcodes) {
         pcs.emplace_back(pc);
-        pc += WIRE_INSTRUCTION_SPEC.at(opcode).size_in_bytes;
+        pc += get_wire_instruction_spec().at(opcode).size_in_bytes;
     }
     return pcs;
 }
@@ -442,7 +490,7 @@ TEST(BytecodeTraceGenTest, InstrDecompositionInBytesEachOpcode)
         const auto w_opcode = static_cast<WireOpCode>(i);
 
         // Check size_in_bytes column
-        const auto expected_size_in_bytes = WIRE_INSTRUCTION_SPEC.at(w_opcode).size_in_bytes;
+        const auto expected_size_in_bytes = get_wire_instruction_spec().at(w_opcode).size_in_bytes;
         ASSERT_EQ(instr_encoded.size(), expected_size_in_bytes);
         EXPECT_EQ(FF(expected_size_in_bytes), trace.get(C::instr_fetching_instr_size, i + 1));
 
@@ -452,11 +500,11 @@ TEST(BytecodeTraceGenTest, InstrDecompositionInBytesEachOpcode)
         }
 
         // Check exection opcode
-        EXPECT_EQ(FF(static_cast<uint8_t>(WIRE_INSTRUCTION_SPEC.at(w_opcode).exec_opcode)),
+        EXPECT_EQ(FF(static_cast<uint8_t>(get_wire_instruction_spec().at(w_opcode).exec_opcode)),
                   trace.get(C::instr_fetching_exec_opcode, i + 1));
 
         // Check indirect
-        EXPECT_EQ(FF(instr.indirect), trace.get(C::instr_fetching_indirect, i + 1));
+        EXPECT_EQ(FF(instr.addressing_mode), trace.get(C::instr_fetching_addressing_mode, i + 1));
 
         // Check PCs
         EXPECT_EQ(FF(pcs.at(i)), trace.get(C::instr_fetching_pc, i + 1));
@@ -477,15 +525,9 @@ TEST(BytecodeTraceGenTest, InstrFetchingSingleBytecode)
     constexpr BytecodeId bytecode_id = 1;
     constexpr size_t num_of_opcodes = 10;
     constexpr std::array<WireOpCode, num_of_opcodes> opcodes = {
-        WireOpCode::DIV_16,
-        WireOpCode::RETURNDATASIZE,
-        WireOpCode::AND_8,
-        WireOpCode::EMITUNENCRYPTEDLOG,
-        WireOpCode::CAST_16,
-        WireOpCode::CALL,
-        WireOpCode::SUCCESSCOPY,
-        WireOpCode::MOV_8,
-        WireOpCode::SHA256COMPRESSION,
+        WireOpCode::DIV_16,        WireOpCode::RETURNDATASIZE, WireOpCode::AND_8,
+        WireOpCode::EMITPUBLICLOG, WireOpCode::CAST_16,        WireOpCode::CALL,
+        WireOpCode::SUCCESSCOPY,   WireOpCode::MOV_8,          WireOpCode::SHA256COMPRESSION,
         WireOpCode::INTERNALCALL,
     };
 
@@ -505,9 +547,10 @@ TEST(BytecodeTraceGenTest, InstrFetchingSingleBytecode)
 
     for (size_t i = 0; i < num_of_opcodes; i++) {
         const auto pc = pcs.at(i);
-        const auto instr_size = WIRE_INSTRUCTION_SPEC.at(opcodes.at(i)).size_in_bytes;
-        const auto has_tag = WIRE_INSTRUCTION_SPEC.at(opcodes.at(i)).tag_operand_idx.has_value();
-        const auto tag_is_op2 = has_tag ? WIRE_INSTRUCTION_SPEC.at(opcodes.at(i)).tag_operand_idx.value() == 2 : 0;
+        const auto instr_size = get_wire_instruction_spec().at(opcodes.at(i)).size_in_bytes;
+        const auto has_tag = get_wire_instruction_spec().at(opcodes.at(i)).tag_operand_idx.has_value();
+        const auto tag_is_op2 =
+            has_tag ? get_wire_instruction_spec().at(opcodes.at(i)).tag_operand_idx.value() == 2 : 0;
         const auto bytes_remaining = bytecode_size - pc;
         const auto bytes_to_read = std::min<size_t>(DECOMPOSE_WINDOW_SIZE, bytes_remaining);
 
@@ -605,19 +648,19 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
         .bytecode_id = bytecode_id,
         .pc = 0,
         .bytecode = bytecode_ptr,
-        .error = simulation::InstrDeserializationError::OPCODE_OUT_OF_RANGE,
+        .error = simulation::InstrDeserializationEventError::OPCODE_OUT_OF_RANGE,
     });
     events.emplace_back(InstructionFetchingEvent{
         .bytecode_id = bytecode_id,
         .pc = 19,
         .bytecode = bytecode_ptr,
-        .error = simulation::InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE,
+        .error = simulation::InstrDeserializationEventError::INSTRUCTION_OUT_OF_RANGE,
     });
     events.emplace_back(InstructionFetchingEvent{
         .bytecode_id = bytecode_id,
         .pc = 38,
         .bytecode = bytecode_ptr,
-        .error = simulation::InstrDeserializationError::PC_OUT_OF_RANGE,
+        .error = simulation::InstrDeserializationEventError::PC_OUT_OF_RANGE,
     });
 
     builder.process_instruction_fetching(events, trace);
@@ -696,7 +739,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingErrorTagOutOfRange)
         .pc = 0,
         .instruction = deserialize_instruction(bytecode, 0), // Reflect more the real code path than passing instr_cast.
         .bytecode = bytecode_ptr,
-        .error = simulation::InstrDeserializationError::TAG_OUT_OF_RANGE,
+        .error = simulation::InstrDeserializationEventError::TAG_OUT_OF_RANGE,
     });
 
     events.emplace_back(InstructionFetchingEvent{
@@ -705,7 +748,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingErrorTagOutOfRange)
         .instruction =
             deserialize_instruction(bytecode, cast_size), // Reflect more the real code path than passing instr_set.
         .bytecode = bytecode_ptr,
-        .error = simulation::InstrDeserializationError::TAG_OUT_OF_RANGE,
+        .error = simulation::InstrDeserializationEventError::TAG_OUT_OF_RANGE,
     });
 
     builder.process_instruction_fetching(events, trace);

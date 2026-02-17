@@ -48,10 +48,11 @@ void ContractInstanceRetrievalTraceBuilder::process(
 
                 // Contract instance members
                 { C::contract_instance_retrieval_salt, event.contract_instance.salt },
-                { C::contract_instance_retrieval_deployer_addr, event.contract_instance.deployer_addr },
-                { C::contract_instance_retrieval_current_class_id, event.contract_instance.current_class_id },
-                { C::contract_instance_retrieval_original_class_id, event.contract_instance.original_class_id },
-                { C::contract_instance_retrieval_init_hash, event.contract_instance.initialisation_hash },
+                { C::contract_instance_retrieval_deployer_addr, event.contract_instance.deployer },
+                { C::contract_instance_retrieval_current_class_id, event.contract_instance.current_contract_class_id },
+                { C::contract_instance_retrieval_original_class_id,
+                  event.contract_instance.original_contract_class_id },
+                { C::contract_instance_retrieval_init_hash, event.contract_instance.initialization_hash },
 
                 // Public keys (hinted)
                 { C::contract_instance_retrieval_nullifier_key_x, event.contract_instance.public_keys.nullifier_key.x },
@@ -100,6 +101,6 @@ const InteractionDefinition ContractInstanceRetrievalTraceBuilder::interactions 
         .add<lookup_contract_instance_retrieval_update_check_settings, InteractionType::LookupSequential>()
         .add<lookup_contract_instance_retrieval_check_protocol_address_range_settings, InteractionType::LookupGeneric>()
         .add<lookup_contract_instance_retrieval_read_derived_address_from_public_inputs_settings,
-             InteractionType::LookupIntoIndexedByClk>();
+             InteractionType::LookupIntoIndexedByRow>();
 
 } // namespace bb::avm2::tracegen

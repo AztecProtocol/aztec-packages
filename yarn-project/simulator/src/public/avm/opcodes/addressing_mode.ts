@@ -83,7 +83,7 @@ export class Addressing {
           baseAddr = mem.get(0);
           const baseAddrTag = baseAddr.getTag();
           if (!TaggedMemory.isValidMemoryAddressTag(baseAddrTag!)) {
-            throw TagCheckError.forOffset(0, TypeTag[baseAddrTag!], TypeTag[TypeTag.UINT32]);
+            throw TagCheckError.forBaseAddress(TypeTag[baseAddrTag!]);
           }
         }
         // Here we know that resolved[i] is at most 32 bits and baseAddr is at most 32 bits.
@@ -100,7 +100,7 @@ export class Addressing {
 
         // Final check.
         if (!TaggedMemory.isValidMemoryAddressTag(resolvedTag)) {
-          throw TagCheckError.forOffset(resolved[i], TypeTag[resolvedTag], TypeTag[TypeTag.UINT32]);
+          throw TagCheckError.forIndirectAddress(resolved[i], TypeTag[resolvedTag]);
         }
 
         resolved[i] = Number(resolvedValue.toBigInt());

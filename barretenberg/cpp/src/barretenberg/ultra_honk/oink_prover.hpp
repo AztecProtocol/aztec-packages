@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -70,6 +70,7 @@ template <IsUltraOrMegaHonk Flavor> class OinkProver {
     void execute_sorted_list_accumulator_round();
     void execute_log_derivative_inverse_round();
     void execute_grand_product_computation_round();
+    void commit_to_masking_poly();
     SubrelationSeparator generate_alpha_round();
     Flavor::Commitment commit_to_witness_polynomial(Polynomial<FF>& polynomial, const std::string& label);
 };

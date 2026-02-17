@@ -3,9 +3,12 @@
 // solhint-disable imports-order
 pragma solidity >=0.8.27;
 
+import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {Epoch, Slot, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
-import {StakingLib} from "./StakingLib.sol";
+import {StakingLib, Exit, Status, AttesterView} from "./StakingLib.sol";
+import {AttesterConfig} from "@aztec/governance/GSE.sol";
+import {DepositArgs} from "@aztec/core/libraries/StakingQueue.sol";
 import {InvalidateLib} from "./InvalidateLib.sol";
 import {ValidatorSelectionLib} from "./ValidatorSelectionLib.sol";
 import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
@@ -22,7 +25,7 @@ import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
  *      external functions primarily focused on:
  *      - Validator staking operations (deposit, withdraw, queue management)
  *      - Validator selection and committee setup
- *      - Block attestation invalidation
+ *      - Checkpoint attestation invalidation
  *      - Slashing mechanism integration
  *      - Epoch and proposer management
  */
@@ -66,8 +69,12 @@ library ValidatorOperationsExtLib {
     StakingLib.finalizeWithdraw(_attester);
   }
 
-  function initializeValidatorSelection(uint256 _targetCommitteeSize, uint256 _lagInEpochs) external {
-    ValidatorSelectionLib.initialize(_targetCommitteeSize, _lagInEpochs);
+  function initializeValidatorSelection(
+    uint256 _targetCommitteeSize,
+    uint256 _lagInEpochsForValidatorSet,
+    uint256 _lagInEpochsForRandao
+  ) external {
+    ValidatorSelectionLib.initialize(_targetCommitteeSize, _lagInEpochsForValidatorSet, _lagInEpochsForRandao);
   }
 
   function setupEpoch() external {
@@ -84,21 +91,25 @@ library ValidatorOperationsExtLib {
     StakingLib.updateStakingQueueConfig(_config);
   }
 
+  function updateEscapeHatch(address _escapeHatch) external {
+    ValidatorSelectionLib.updateEscapeHatch(_escapeHatch);
+  }
+
   function invalidateBadAttestation(
-    uint256 _blockNumber,
+    uint256 _checkpointNumber,
     CommitteeAttestations memory _attestations,
     address[] memory _committee,
     uint256 _invalidIndex
   ) external {
-    InvalidateLib.invalidateBadAttestation(_blockNumber, _attestations, _committee, _invalidIndex);
+    InvalidateLib.invalidateBadAttestation(_checkpointNumber, _attestations, _committee, _invalidIndex);
   }
 
   function invalidateInsufficientAttestations(
-    uint256 _blockNumber,
+    uint256 _checkpointNumber,
     CommitteeAttestations memory _attestations,
     address[] memory _committee
   ) external {
-    InvalidateLib.invalidateInsufficientAttestations(_blockNumber, _attestations, _committee);
+    InvalidateLib.invalidateInsufficientAttestations(_checkpointNumber, _attestations, _committee);
   }
 
   function slash(address _attester, uint256 _amount) external returns (bool) {
@@ -129,8 +140,20 @@ library ValidatorOperationsExtLib {
     return ValidatorSelectionLib.getSamplingSize(_epoch);
   }
 
-  function getLagInEpochs() external view returns (uint256) {
-    return ValidatorSelectionLib.getLagInEpochs();
+  function getLagInEpochsForValidatorSet() external view returns (uint256) {
+    return ValidatorSelectionLib.getLagInEpochsForValidatorSet();
+  }
+
+  function getLagInEpochsForRandao() external view returns (uint256) {
+    return ValidatorSelectionLib.getLagInEpochsForRandao();
+  }
+
+  function getEscapeHatch() external view returns (IEscapeHatch) {
+    return ValidatorSelectionLib.getEscapeHatch();
+  }
+
+  function getEscapeHatchForEpoch(Epoch _epoch) external view returns (IEscapeHatch) {
+    return ValidatorSelectionLib.getEscapeHatchForEpoch(_epoch);
   }
 
   function getTargetCommitteeSize() external view returns (uint256) {
@@ -144,5 +167,39 @@ library ValidatorOperationsExtLib {
 
   function getAvailableValidatorFlushes() external view returns (uint256) {
     return StakingLib.getAvailableValidatorFlushes();
+  }
+
+  // View wrappers - delegated from Rollup.sol to avoid inlining StakingLib into Rollup bytecode
+
+  function getAttesterView(address _attester) external view returns (AttesterView memory) {
+    return StakingLib.getAttesterView(_attester);
+  }
+
+  function getStatus(address _attester) external view returns (Status) {
+    return StakingLib.getStatus(_attester);
+  }
+
+  function getConfig(address _attester) external view returns (AttesterConfig memory) {
+    return StakingLib.getConfig(_attester);
+  }
+
+  function getExit(address _attester) external view returns (Exit memory) {
+    return StakingLib.getExit(_attester);
+  }
+
+  function getAttesterAtIndex(uint256 _index) external view returns (address) {
+    return StakingLib.getAttesterAtIndex(_index);
+  }
+
+  function getEntryQueueAt(uint256 _index) external view returns (DepositArgs memory) {
+    return StakingLib.getEntryQueueAt(_index);
+  }
+
+  function getNextFlushableEpoch() external view returns (Epoch) {
+    return StakingLib.getNextFlushableEpoch();
+  }
+
+  function getEntryQueueLength() external view returns (uint256) {
+    return StakingLib.getEntryQueueLength();
   }
 }

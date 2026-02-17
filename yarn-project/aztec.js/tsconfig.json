@@ -26,6 +26,9 @@
     },
     {
       "path": "../stdlib"
+    },
+    {
+      "path": "../builder"
     }
   ],
   "include": ["src", "src/**/*.json"]

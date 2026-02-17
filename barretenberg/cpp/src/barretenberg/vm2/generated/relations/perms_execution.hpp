@@ -21,7 +21,7 @@ struct perm_execution_dispatch_to_cd_copy_settings_ {
     static constexpr Column DST_SELECTOR = Column::data_copy_sel_cd_copy_start;
     static constexpr Column INVERSES = Column::perm_execution_dispatch_to_cd_copy_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::execution_clk,
         ColumnAndShifts::execution_parent_id,
         ColumnAndShifts::execution_context_id,
         ColumnAndShifts::execution_register_0_,
@@ -59,7 +59,7 @@ struct perm_execution_dispatch_to_rd_copy_settings_ {
     static constexpr Column DST_SELECTOR = Column::data_copy_sel_rd_copy_start;
     static constexpr Column INVERSES = Column::perm_execution_dispatch_to_rd_copy_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::execution_clk,
         ColumnAndShifts::execution_last_child_id,
         ColumnAndShifts::execution_context_id,
         ColumnAndShifts::execution_register_0_,
@@ -97,7 +97,7 @@ struct perm_execution_dispatch_to_get_contract_instance_settings_ {
     static constexpr Column DST_SELECTOR = Column::get_contract_instance_sel;
     static constexpr Column INVERSES = Column::perm_execution_dispatch_to_get_contract_instance_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::execution_clk,
         ColumnAndShifts::execution_register_0_,
         ColumnAndShifts::execution_rop_1_,
         ColumnAndShifts::execution_rop_2_,
@@ -124,6 +124,47 @@ template <typename FF_>
 using perm_execution_dispatch_to_get_contract_instance_relation =
     permutation_relation_base<FF_, perm_execution_dispatch_to_get_contract_instance_settings>;
 
+/////////////////// perm_execution_dispatch_to_emit_public_log ///////////////////
+
+struct perm_execution_dispatch_to_emit_public_log_settings_ {
+    static constexpr std::string_view NAME = "PERM_EXECUTION_DISPATCH_TO_EMIT_PUBLIC_LOG";
+    static constexpr std::string_view RELATION_NAME = "execution";
+    static constexpr size_t COLUMNS_PER_SET = 10;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_exec_dispatch_emit_public_log;
+    static constexpr Column DST_SELECTOR = Column::emit_public_log_start;
+    static constexpr Column INVERSES = Column::perm_execution_dispatch_to_emit_public_log_inv;
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
+        ColumnAndShifts::execution_clk,
+        ColumnAndShifts::execution_context_id,
+        ColumnAndShifts::execution_rop_1_,
+        ColumnAndShifts::execution_register_0_,
+        ColumnAndShifts::execution_contract_address,
+        ColumnAndShifts::execution_prev_num_public_log_fields,
+        ColumnAndShifts::execution_num_public_log_fields,
+        ColumnAndShifts::execution_is_static,
+        ColumnAndShifts::execution_sel_opcode_error,
+        ColumnAndShifts::execution_discard
+    };
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
+        ColumnAndShifts::emit_public_log_execution_clk,
+        ColumnAndShifts::emit_public_log_space_id,
+        ColumnAndShifts::emit_public_log_log_address,
+        ColumnAndShifts::emit_public_log_log_size,
+        ColumnAndShifts::emit_public_log_contract_address,
+        ColumnAndShifts::emit_public_log_prev_num_public_log_fields,
+        ColumnAndShifts::emit_public_log_next_num_public_log_fields,
+        ColumnAndShifts::emit_public_log_is_static,
+        ColumnAndShifts::emit_public_log_error,
+        ColumnAndShifts::emit_public_log_discard
+    };
+};
+
+using perm_execution_dispatch_to_emit_public_log_settings =
+    permutation_settings<perm_execution_dispatch_to_emit_public_log_settings_>;
+template <typename FF_>
+using perm_execution_dispatch_to_emit_public_log_relation =
+    permutation_relation_base<FF_, perm_execution_dispatch_to_emit_public_log_settings>;
+
 /////////////////// perm_execution_dispatch_to_poseidon2_perm ///////////////////
 
 struct perm_execution_dispatch_to_poseidon2_perm_settings_ {
@@ -134,7 +175,7 @@ struct perm_execution_dispatch_to_poseidon2_perm_settings_ {
     static constexpr Column DST_SELECTOR = Column::poseidon2_perm_mem_sel;
     static constexpr Column INVERSES = Column::perm_execution_dispatch_to_poseidon2_perm_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::execution_clk,
         ColumnAndShifts::execution_context_id,
         ColumnAndShifts::execution_rop_0_,
         ColumnAndShifts::execution_rop_1_,
@@ -165,7 +206,7 @@ struct perm_execution_dispatch_to_sha256_compression_settings_ {
     static constexpr Column DST_SELECTOR = Column::sha256_start;
     static constexpr Column INVERSES = Column::perm_execution_dispatch_to_sha256_compression_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,  ColumnAndShifts::execution_context_id,
+        ColumnAndShifts::execution_clk,    ColumnAndShifts::execution_context_id,
         ColumnAndShifts::execution_rop_0_, ColumnAndShifts::execution_rop_1_,
         ColumnAndShifts::execution_rop_2_, ColumnAndShifts::execution_sel_opcode_error
     };
@@ -191,7 +232,7 @@ struct perm_execution_dispatch_to_keccakf1600_settings_ {
     static constexpr Column DST_SELECTOR = Column::keccakf1600_start;
     static constexpr Column INVERSES = Column::perm_execution_dispatch_to_keccakf1600_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::execution_clk,
         ColumnAndShifts::execution_rop_0_,
         ColumnAndShifts::execution_rop_1_,
         ColumnAndShifts::execution_context_id,
@@ -220,7 +261,7 @@ struct perm_execution_dispatch_to_ecc_add_settings_ {
     static constexpr Column DST_SELECTOR = Column::ecc_add_mem_sel;
     static constexpr Column INVERSES = Column::perm_execution_dispatch_to_ecc_add_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,       ColumnAndShifts::execution_context_id,
+        ColumnAndShifts::execution_clk,         ColumnAndShifts::execution_context_id,
         ColumnAndShifts::execution_register_0_, ColumnAndShifts::execution_register_1_,
         ColumnAndShifts::execution_register_2_, ColumnAndShifts::execution_register_3_,
         ColumnAndShifts::execution_register_4_, ColumnAndShifts::execution_register_5_,
@@ -250,7 +291,7 @@ struct perm_execution_dispatch_to_to_radix_settings_ {
     static constexpr Column DST_SELECTOR = Column::to_radix_mem_start;
     static constexpr Column INVERSES = Column::perm_execution_dispatch_to_to_radix_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,       ColumnAndShifts::execution_context_id,
+        ColumnAndShifts::execution_clk,         ColumnAndShifts::execution_context_id,
         ColumnAndShifts::execution_register_0_, ColumnAndShifts::execution_register_1_,
         ColumnAndShifts::execution_register_2_, ColumnAndShifts::execution_register_3_,
         ColumnAndShifts::execution_rop_4_,      ColumnAndShifts::execution_sel_opcode_error

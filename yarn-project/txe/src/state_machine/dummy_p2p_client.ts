@@ -1,9 +1,13 @@
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type {
   AuthRequest,
   ENR,
   P2P,
   P2PBlockReceivedCallback,
+  P2PCheckpointReceivedCallback,
   P2PConfig,
+  P2PDuplicateAttestationCallback,
+  P2PDuplicateProposalCallback,
   P2PSyncState,
   PeerId,
   ReqRespSubProtocol,
@@ -13,8 +17,8 @@ import type {
 } from '@aztec/p2p';
 import type { EthAddress, L2BlockStreamEvent, L2Tips } from '@aztec/stdlib/block';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
-import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
-import type { Tx, TxHash } from '@aztec/stdlib/tx';
+import type { BlockProposal, CheckpointAttestation, CheckpointProposal } from '@aztec/stdlib/p2p';
+import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 export class DummyP2P implements P2P {
   public validate(_txs: Tx[]): Promise<void> {
@@ -41,8 +45,20 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "broadcastProposal"');
   }
 
+  public broadcastCheckpointProposal(_proposal: CheckpointProposal): Promise<void> {
+    throw new Error('DummyP2P does not implement "broadcastCheckpointProposal"');
+  }
+
+  public broadcastCheckpointAttestations(_attestations: CheckpointAttestation[]): Promise<void> {
+    throw new Error('DummyP2P does not implement "broadcastCheckpointAttestations"');
+  }
+
   public registerBlockProposalHandler(_handler: P2PBlockReceivedCallback): void {
     throw new Error('DummyP2P does not implement "registerBlockProposalHandler"');
+  }
+
+  public registerCheckpointProposalHandler(_handler: P2PCheckpointReceivedCallback): void {
+    throw new Error('DummyP2P does not implement "registerCheckpointProposalHandler"');
   }
 
   public requestTxs(_txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
@@ -57,8 +73,8 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "sendTx"');
   }
 
-  public deleteTxs(_txHashes: TxHash[]): Promise<void> {
-    throw new Error('DummyP2P does not implement "deleteTxs"');
+  public handleFailedExecution(_txHashes: TxHash[]): Promise<void> {
+    throw new Error('DummyP2P does not implement "handleFailedExecution"');
   }
 
   public getTxByHashFromPool(_txHash: TxHash): Promise<Tx | undefined> {
@@ -74,11 +90,17 @@ export class DummyP2P implements P2P {
   }
 
   public getTxStatus(_txHash: TxHash): Promise<'pending' | 'mined' | undefined> {
-    throw new Error('DummyP2P does not implement "getTxStatus"');
+    // In TXE there is no concept of transactions but we need to implement this because of tagging. We return 'mined'
+    // tx status for any tx hash.
+    return Promise.resolve('mined');
   }
 
   public iteratePendingTxs(): AsyncIterableIterator<Tx> {
     throw new Error('DummyP2P does not implement "iteratePendingTxs"');
+  }
+
+  public iterateEligiblePendingTxs(): AsyncIterableIterator<Tx> {
+    throw new Error('DummyP2P does not implement "iterateEligiblePendingTxs"');
   }
 
   public getPendingTxCount(): Promise<number> {
@@ -113,16 +135,12 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "getTxsByHash"');
   }
 
-  public getAttestationsForSlot(_slot: bigint, _proposalId?: string): Promise<BlockAttestation[]> {
-    throw new Error('DummyP2P does not implement "getAttestationForSlot"');
+  public getCheckpointAttestationsForSlot(_slot: SlotNumber, _proposalId?: string): Promise<CheckpointAttestation[]> {
+    throw new Error('DummyP2P does not implement "getCheckpointAttestationsForSlot"');
   }
 
-  public deleteAttestation(_attestation: BlockAttestation): Promise<void> {
-    return Promise.resolve();
-  }
-
-  public addAttestations(_attestations: BlockAttestation[]): Promise<void> {
-    throw new Error('DummyP2P does not implement "addAttestations"');
+  public addOwnCheckpointAttestations(_attestations: CheckpointAttestation[]): Promise<void> {
+    throw new Error('DummyP2P does not implement "addOwnCheckpointAttestations"');
   }
 
   public getL2BlockHash(_number: number): Promise<string | undefined> {
@@ -143,14 +161,6 @@ export class DummyP2P implements P2P {
 
   public sync() {
     throw new Error('DummyP2P does not implement "sync"');
-  }
-
-  public requestTxsByHash(_txHashes: TxHash[]): Promise<Tx[]> {
-    throw new Error('DummyP2P does not implement "requestTxsByHash"');
-  }
-
-  public getTxs(_filter: 'all' | 'pending' | 'mined'): Promise<Tx[]> {
-    throw new Error('DummyP2P does not implement "getTxs"');
   }
 
   public getTxsByHashFromPool(_txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
@@ -177,8 +187,12 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "getSyncedLatestSlot"');
   }
 
-  markTxsAsNonEvictable(_: TxHash[]): Promise<void> {
-    throw new Error('DummyP2P does not implement "markTxsAsNonEvictable".');
+  protectTxs(_txHashes: TxHash[], _blockHeader: BlockHeader): Promise<TxHash[]> {
+    throw new Error('DummyP2P does not implement "protectTxs".');
+  }
+
+  prepareForSlot(_slotNumber: SlotNumber): Promise<void> {
+    return Promise.resolve();
   }
 
   addReqRespSubProtocol(
@@ -194,4 +208,16 @@ export class DummyP2P implements P2P {
 
   //This is no-op
   public registerThisValidatorAddresses(_address: EthAddress[]): void {}
+
+  public registerDuplicateProposalCallback(_callback: P2PDuplicateProposalCallback): void {
+    throw new Error('DummyP2P does not implement "registerDuplicateProposalCallback"');
+  }
+
+  public registerDuplicateAttestationCallback(_callback: P2PDuplicateAttestationCallback): void {
+    throw new Error('DummyP2P does not implement "registerDuplicateAttestationCallback"');
+  }
+
+  public hasBlockProposalsForSlot(_slot: SlotNumber): Promise<boolean> {
+    throw new Error('DummyP2P does not implement "hasBlockProposalsForSlot"');
+  }
 }

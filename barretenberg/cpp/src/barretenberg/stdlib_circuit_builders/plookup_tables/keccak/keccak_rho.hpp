@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Nishat], commit: 5be53b6f75bac06d6d0132220044b28777021f0f }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -34,8 +34,8 @@ namespace bb::plookup::keccak_tables {
  * 3. Extract the most significant bit of the non-rotated normalized output
  *
  * The most significant bit component is required because we use this table to
- * normalize XOR operations in the IOTA round and the `sponge_absorb` phase of the algorighm.
- * (Both IOTA and `sponge_absorb` are followed by the THETA round which requires the msb of each hash lane)
+ * normalize XOR operations in the IOTA round of the algorighm. (IOTA is followed by the THETA round which requires the
+ * msb of each hash lane)
  *
  * Rotations are performed by splitting the input into 'left' and 'right' bit slices
  * (left slice = bits that wrap around the 11^64 modulus of our base-11 integers)

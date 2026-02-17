@@ -1,7 +1,8 @@
 import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import { TxStatus } from '@aztec/aztec.js/tx';
+import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
+import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -15,7 +16,11 @@ import { EpochsTestContext } from './epochs_test.js';
 jest.setTimeout(1000 * 60 * 10);
 
 // Proves an epoch that contains txs with public function calls that consume L1 to L2 messages
-// Regression for this issue https://aztecprotocol.slack.com/archives/C085C1942HG/p1754400213976059
+// Regression for an issue in which the sequencer correctly adds L1-to-L2 messages to its world-state fork
+// before processing txs, but the prover node's proving job creates a separate fork without inserting the
+// messages first. This causes a block header mismatch (different state roots, fees, mana) when a tx consumes
+// a message that was added to the L1-to-L2 message tree in the same block — the prover reverts the tx while
+// the sequencer processes it successfully.
 describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
   let context: EndToEndContext;
   let logger: Logger;
@@ -39,9 +44,9 @@ describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
 
   it('submits proof with a tx with public l1-to-l2 message claim', async () => {
     // Deploy a contract that consumes L1 to L2 messages
-    await context.aztecNodeAdmin!.setConfig({ minTxsPerBlock: 0 });
+    await context.aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 });
     logger.warn(`Deploying test contract`);
-    const testContract = await TestContract.deploy(context.wallet).send({ from: context.accounts[0] }).deployed();
+    const testContract = await TestContract.deploy(context.wallet).send({ from: context.accounts[0] });
     logger.warn(`Test contract deployed at ${testContract.address}`);
 
     // Send an l1 to l2 message to be consumed from the contract
@@ -51,11 +56,10 @@ describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
     const { msgHash, globalLeafIndex } = await sendL1ToL2Message(message, context.deployL1ContractsValues);
 
     logger.warn(`Waiting for message ${msgHash} with index ${globalLeafIndex} to be synced`);
-    await retryUntil(
-      () => context.aztecNode.isL1ToL2MessageSynced(msgHash),
-      'message sync',
-      test.L2_SLOT_DURATION_IN_S * 4,
-    );
+    await waitForL1ToL2MessageReady(context.aztecNode, msgHash, {
+      forPublicConsumption: true,
+      timeoutSeconds: test.L2_SLOT_DURATION_IN_S * 6,
+    });
 
     // And we consume the message using the test contract. It's important that we don't wait for the membership witness
     // to be available, since we want to test the scenario where the message becomes available on the same block the tx lands.
@@ -67,8 +71,7 @@ describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
         EthAddress.fromString(context.deployL1ContractsValues.l1Client.account.address),
         globalLeafIndex.toBigInt(),
       )
-      .send({ from: context.accounts[0] })
-      .wait();
+      .send({ from: context.accounts[0] });
     expect(txReceipt.blockNumber).toBeGreaterThan(0);
 
     // Wait until a proof lands for the transaction
@@ -94,9 +97,8 @@ describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
         EthAddress.fromString(context.deployL1ContractsValues.l1Client.account.address),
         globalLeafIndex.toBigInt(),
       )
-      .send({ from: context.accounts[0] })
-      .wait({ dontThrowOnRevert: true });
-    expect(failedReceipt.status).toBe(TxStatus.APP_LOGIC_REVERTED);
+      .send({ from: context.accounts[0], wait: { dontThrowOnRevert: true } });
+    expect(failedReceipt.executionResult).toBe(TxExecutionResult.APP_LOGIC_REVERTED);
 
     logger.info(`Test succeeded`);
   });

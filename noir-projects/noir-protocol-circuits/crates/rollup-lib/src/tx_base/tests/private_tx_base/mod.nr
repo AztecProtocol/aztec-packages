@@ -13,18 +13,19 @@ use crate::{
             fees::{compute_fee_payer_fee_juice_balance_leaf_slot, compute_transaction_fee},
             TreeSnapshotDiffHints,
         },
-        private_tx_base_rollup_private_inputs::PrivateTxBaseRollupPrivateInputs,
+        private_tx_base_rollup::{self, PrivateTxBaseRollupPrivateInputs},
     },
 };
-use dep::types::{
+use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_constant_data::BlockConstantData,
         gas::Gas, gas_fees::GasFees,
         kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
         nullifier_leaf_preimage::NullifierLeafPreimage,
-        partial_state_reference::PartialStateReference, sponge_blob::SpongeBlob,
+        partial_state_reference::PartialStateReference,
     },
     address::AztecAddress,
+    blob_data::SpongeBlob,
     constants::{
         ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, HIDING_KERNEL_TO_ROLLUP_VK_INDEX,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
@@ -33,13 +34,13 @@ use dep::types::{
         PUBLIC_DATA_TREE_HEIGHT,
     },
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
-    hash::silo_l2_to_l1_message,
+    hash::compute_l2_to_l1_message_hash,
     merkle_tree::{LeafPreimage, MembershipWitness},
     tests::{
         fixture_builder::FixtureBuilder, merkle_tree_utils::SingleSubtreeMerkleTree, utils::pad_end,
     },
     traits::FromField,
-    utils::arrays::{find_first_index, get_sorted_tuple, subarray},
+    utils::arrays::{find_first_index, get_sorted_tuples, subarray},
 };
 
 // The circuit updates an existing leaf in the public data tree, so we only need to build the tree with a subtree big
@@ -175,7 +176,7 @@ impl TestBuilder {
     }
 
     pub fn get_siloed_l2_to_l1_msgs(self) -> [Field; MAX_L2_TO_L1_MSGS_PER_TX] {
-        self.private_tail.end.l2_to_l1_msgs.map(|msg| silo_l2_to_l1_message(
+        self.private_tail.end.l2_to_l1_msgs.map(|msg| compute_l2_to_l1_message_hash(
             msg,
             self.constants.global_variables.version,
             self.constants.global_variables.chain_id,
@@ -223,7 +224,7 @@ impl TestBuilder {
         let new_nullifiers = self.private_tail.end.nullifiers;
 
         // Safety: This is for testing only.
-        let sorted_tuples = unsafe { get_sorted_tuple(new_nullifiers, |a, b| b.lt(a)) };
+        let sorted_tuples = unsafe { get_sorted_tuples(new_nullifiers, |a, b| b.lt(a)) };
         let sorted_nullifiers = sorted_tuples.map(|tuple| tuple.elem);
         let sorted_nullifier_indexes = sorted_tuples.map(|tuple| tuple.original_index);
         self.tree_snapshot_diff_hints.sorted_nullifiers = sorted_nullifiers;
@@ -304,7 +305,7 @@ impl TestBuilder {
         let fee_payer_balance_leaf_preimage =
             self.pre_existing_public_data_preimages[self.fee_payer_preimage_index];
 
-        PrivateTxBaseRollupPrivateInputs {
+        let inputs = PrivateTxBaseRollupPrivateInputs {
             hiding_kernel_proof_data,
             constants: self.constants,
             contract_class_log_fields: self.contract_class_log_fields,
@@ -313,8 +314,9 @@ impl TestBuilder {
             fee_payer_balance_leaf_preimage,
             anchor_block_archive_sibling_path: self.anchor_block_archive_sibling_path,
             tree_snapshot_diff_hints: self.tree_snapshot_diff_hints,
-        }
-            .execute()
+        };
+
+        private_tx_base_rollup::execute(inputs)
     }
 
     pub fn execute_and_fail(self) {

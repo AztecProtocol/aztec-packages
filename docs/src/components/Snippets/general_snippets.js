@@ -2,7 +2,7 @@ import React from "react";
 
 export const General = {
   VersionLatestTestnet: () => <code>testnet</code>,
-  VersionLatestSandbox: () => <code>0.87.2</code>,
+  VersionLatestLocalNetwork: () => <code>0.87.2</code>,
   ViewTransactions: () => (
     <p>
       Transactions and balances can be viewed in block explorers like{" "}
@@ -12,22 +12,14 @@ export const General = {
   ),
   InstallationInstructions: () => (
     <p>
-      To use Aztec's suite of tools you'll need to:
-      <ul>
-        <li>
-          <a href="https://docs.docker.com/engine/install/">Get docker</a>{" "}
-          (engine or desktop)
-        </li>
-        <li>
-          Run <code>bash -i &lt;(curl -s https://install.aztec.network)</code>
-        </li>
-      </ul>
+      To use Aztec's suite of tools, run:{" "}
+      <code>VERSION=&lt;version&gt; bash -i &lt;(curl -sL https://install.aztec.network/&lt;version&gt;)</code>
     </p>
   ),
 
   node_ver: () => (
     <p>
-      Aztec libraries use Node.js version v22.15.x (lts/jod), and backwards
+      Aztec libraries use Node.js version v24.12.x (lts/krypton), and backwards
       compatible from version 20. You can use{" "}
       <a href="https://github.com/nvm-sh/nvm">nvm</a> to help manage node
       versions.
@@ -38,8 +30,7 @@ export const General = {
     <p>
       <b>PXE</b> - a client-side key manager, private contract storage, and
       Private eXecution Environment for private transactions. A PXE is a core
-      part of an Aztec wallet and Sandbox, but can be decoupled and run
-      independently.
+      part of an Aztec wallet .
     </p>
   ),
 
@@ -50,9 +41,9 @@ export const General = {
     </p>
   ),
 
-  AztecSandbox: () => (
+  AztecLocalNetwork: () => (
     <p>
-      <b>Aztec Sandbox</b> - runs a set of Aztec tools for convenient local
+      <b>Aztec's Local network</b> - runs a set of Aztec tools for convenient local
       development, it includes: an Ethereum node, an Aztec node, and PXE.
     </p>
   ),
@@ -107,7 +98,7 @@ export const Tx_Teardown_Phase = () => (
 
 export const CLI_Add_Test_Accounts = () => (
   <p>
-    For convenience, the sandbox comes with 3 initial accounts that are
+    For convenience, the local network comes with 3 initial accounts that are
     prefunded, helping bootstrap payment of any transaction. To use them, you
     will need to add them to your pxe/wallet.
   </p>

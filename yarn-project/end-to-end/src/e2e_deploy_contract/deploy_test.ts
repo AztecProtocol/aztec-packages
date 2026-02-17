@@ -8,14 +8,12 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
-import { type ISnapshotManager, createSnapshotManager, deployAccounts } from '../fixtures/snapshot_manager.js';
-
-const { E2E_DATA_PATH: dataPath } = process.env;
+import { type EndToEndContext, deployAccounts, setup, teardown } from '../fixtures/setup.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 
 export class DeployTest {
-  private snapshotManager: ISnapshotManager;
+  public context!: EndToEndContext;
   public logger: Logger;
   public wallet!: TestWallet;
   public defaultAccountAddress!: AztecAddress;
@@ -24,26 +22,35 @@ export class DeployTest {
 
   constructor(testName: string) {
     this.logger = createLogger(`e2e:e2e_deploy_contract:${testName}`);
-    this.snapshotManager = createSnapshotManager(`e2e_deploy_contract/${testName}`, dataPath);
   }
 
   async setup() {
-    await this.applyInitialAccountSnapshot();
-    const context = await this.snapshotManager.setup();
-    ({ aztecNode: this.aztecNode, wallet: this.wallet } = context);
-    this.aztecNodeAdmin = context.aztecNode;
+    this.logger.info('Setting up test environment');
+    this.context = await setup(0, {
+      fundSponsoredFPC: true,
+      skipAccountDeployment: true,
+    });
+    this.aztecNode = this.context.aztecNodeService;
+    this.wallet = this.context.wallet;
+    this.aztecNodeAdmin = this.context.aztecNodeService;
+    await this.applyInitialAccount();
     return this;
   }
 
   async teardown() {
-    await this.snapshotManager.teardown();
+    await teardown(this.context);
   }
 
-  private async applyInitialAccountSnapshot() {
-    await this.snapshotManager.snapshot('initial_account', deployAccounts(1, this.logger), ({ deployedAccounts }) => {
-      this.defaultAccountAddress = deployedAccounts[0].address;
-      return Promise.resolve();
+  private async applyInitialAccount() {
+    this.logger.info('Applying initial account setup');
+    const { deployedAccounts } = await deployAccounts(
+      1,
+      this.logger,
+    )({
+      wallet: this.context.wallet,
+      initialFundedAccounts: this.context.initialFundedAccounts,
     });
+    this.defaultAccountAddress = deployedAccounts[0].address;
   }
 
   async registerContract<T extends ContractBase>(
@@ -73,6 +80,6 @@ export class DeployTest {
 export type StatefulContractCtorArgs = Parameters<StatefulTestContract['methods']['constructor']>;
 
 export type ContractArtifactClass<T extends ContractBase> = {
-  at(address: AztecAddress, wallet: Wallet): Promise<T>;
+  at(address: AztecAddress, wallet: Wallet): T;
   artifact: ContractArtifact;
 };
