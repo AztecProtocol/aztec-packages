@@ -293,11 +293,6 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
             for (auto& eval : const_cast<std::vector<Fr>&>(gemini_fold_neg_evaluations)) {
                 eval.set_origin_tag(challenge_tag);
             }
-            // Tag the interleaved evaluations if present
-            if (claim_batcher.interleaved) {
-                const_cast<Fr&>(p_pos).set_origin_tag(challenge_tag);
-                const_cast<Fr&>(p_neg).set_origin_tag(challenge_tag);
-            }
         }
 
         // Start computing the scalar to be multiplied by [1]₁

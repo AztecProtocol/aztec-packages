@@ -78,6 +78,7 @@ TEST_F(TranslatorRelationConsistency, PermutationRelation)
         const auto& lagrange_first = input_elements.lagrange_first;
         const auto& lagrange_last = input_elements.lagrange_last;
         const auto& lagrange_masking = input_elements.lagrange_masking;
+        const auto& lagrange_ordered_masking = input_elements.lagrange_ordered_masking;
 
         RelationValues expected_values;
 
@@ -86,17 +87,19 @@ TEST_F(TranslatorRelationConsistency, PermutationRelation)
         const auto& beta = parameters.beta;
 
         // (Contribution 1)
+        // First 4 numerator factors use scattered masking (lagrange_masking),
+        // 5th numerator factor and all denominator factors use contiguous masking (lagrange_ordered_masking)
         auto contribution_1 =
             (z_perm + lagrange_first) * (concatenated_range_constraints_0 + lagrange_masking * beta + gamma) *
                 (concatenated_range_constraints_1 + lagrange_masking * beta + gamma) *
                 (concatenated_range_constraints_2 + lagrange_masking * beta + gamma) *
                 (concatenated_range_constraints_3 + lagrange_masking * beta + gamma) *
-                (ordered_extra_range_constraints_numerator + lagrange_masking * beta + gamma) -
-            (z_perm_shift + lagrange_last) * (ordered_range_constraints_0 + lagrange_masking * beta + gamma) *
-                (ordered_range_constraints_1 + lagrange_masking * beta + gamma) *
-                (ordered_range_constraints_2 + lagrange_masking * beta + gamma) *
-                (ordered_range_constraints_3 + lagrange_masking * beta + gamma) *
-                (ordered_range_constraints_4 + lagrange_masking * beta + gamma);
+                (ordered_extra_range_constraints_numerator + lagrange_ordered_masking * beta + gamma) -
+            (z_perm_shift + lagrange_last) * (ordered_range_constraints_0 + lagrange_ordered_masking * beta + gamma) *
+                (ordered_range_constraints_1 + lagrange_ordered_masking * beta + gamma) *
+                (ordered_range_constraints_2 + lagrange_ordered_masking * beta + gamma) *
+                (ordered_range_constraints_3 + lagrange_ordered_masking * beta + gamma) *
+                (ordered_range_constraints_4 + lagrange_ordered_masking * beta + gamma);
         expected_values[0] = contribution_1;
 
         // (Contribution 2)

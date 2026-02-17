@@ -162,8 +162,7 @@ class ShpleminiConcatenatedTest : public CommitmentTest<curve::BN254> {
         auto pairing_points = KZG<Curve>::reduce_verify_batch_opening_claim(
             std::move(shplemini_output.batch_opening_claim), verifier_transcript);
 
-        VK vk;
-        return vk.pairing_check(pairing_points[0], pairing_points[1]);
+        return pairing_points.check();
     }
 };
 
