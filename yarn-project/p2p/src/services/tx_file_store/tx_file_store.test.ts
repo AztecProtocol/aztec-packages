@@ -392,9 +392,9 @@ describe('TxFileStore', () => {
       expect(txSource).toBeDefined();
 
       const results = await txSource!.getTxsByHash([tx.getTxHash()]);
-      expect(results).toHaveLength(1);
-      expect(results[0]).toBeDefined();
-      expect(results[0]!.toBuffer()).toEqual(tx.toBuffer());
+      expect(results.validTxs).toHaveLength(1);
+      expect(results.validTxs[0]).toBeDefined();
+      expect(results.validTxs[0]!.toBuffer()).toEqual(tx.toBuffer());
     });
   });
 });

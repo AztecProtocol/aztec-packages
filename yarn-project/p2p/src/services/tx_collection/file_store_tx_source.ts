@@ -71,6 +71,7 @@ export class FileStoreTxSource implements TxSource {
         await Promise.all(
           txHashes.map(async txHash => {
             const path = `${this.basePath}/txs/${txHash.toString()}.bin`;
+            const timer = new Timer();
             try {
               const buffer = await this.fileStore.read(path);
               const tx = Tx.fromBuffer(buffer);
