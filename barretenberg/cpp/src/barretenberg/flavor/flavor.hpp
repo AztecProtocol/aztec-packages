@@ -17,7 +17,6 @@
  *  - FixedVKAndHash_ / FixedStdlibVKAndHash_: Lightweight VK wrappers for fixed-size circuits (ECCVM, Translator)
  *    whose VKs are hardcoded constants.
  *  - VKAndHash_: Pairs a VK with its hash; used to bind VK identity into a proof.
- *  - Sumcheck helpers: compile-time utilities that derive univariate container types from a flavor's relation tuple.
  */
 
 #pragma once
@@ -28,23 +27,52 @@
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/public_input_component/public_component_key.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 #include <array>
-#include <concepts>
 #include <cstddef>
-#include <utility>
 #include <vector>
 
+// ===== Flavor forward declarations =====
 namespace bb {
+class UltraFlavor;
+class UltraZKFlavor;
+class ECCVMFlavor;
+class UltraKeccakFlavor;
+#ifdef STARKNET_GARAGA_FLAVORS
+class UltraStarknetFlavor;
+class UltraStarknetZKFlavor;
+#endif
+class UltraKeccakZKFlavor;
+class MegaFlavor;
+class MegaZKFlavor;
+class MegaAvmFlavor;
+class TranslatorFlavor;
+class ECCVMRecursiveFlavor;
+class TranslatorRecursiveFlavor;
+class MultilinearBatchingRecursiveFlavor;
+
+template <typename BuilderType> class UltraRecursiveFlavor_;
+template <typename BuilderType> class UltraZKRecursiveFlavor_;
+template <typename BuilderType> class MegaRecursiveFlavor_;
+template <typename BuilderType> class MegaZKRecursiveFlavor_;
+template <typename BuilderType> class MegaAvmRecursiveFlavor_;
+namespace avm2 {
+class AvmRecursiveFlavor;
+}
+} // namespace bb
+
+namespace bb {
+
+// ===== Trace metadata & precomputed data =====
 
 /**
  * @brief Dyadic trace size and public inputs metadata; Common between prover and verifier keys
  */
 struct MetaData {
+    static constexpr size_t NUM_FIELDS = 3;
     size_t dyadic_size = 0; // power-of-2 size of the execution trace
     size_t num_public_inputs = 0;
     size_t pub_inputs_offset = 0;
@@ -58,8 +86,10 @@ template <typename Polynomial, size_t NUM_PRECOMPUTED_ENTITIES> struct Precomput
     MetaData metadata;                                          // execution trace metadata
 };
 
+// ===== Fixed verification keys (ECCVM, Translator, AVM) =====
+
 /**
- * @brief Simple verification key class for fixed-size circuits (ECCVM, Translator).
+ * @brief Simple verification key class for fixed-size circuits (ECCVM, Translator, AVM).
  * @details Stores only the commitments and a precomputed hash. Circuit size and public inputs
  * count are known constants for these fixed circuits and don't need to be stored.
  *
@@ -88,6 +118,8 @@ class FixedVKAndHash_ : public PrecomputedCommitments {
   private:
     HashType hash{};
 };
+
+// ===== Native verification key =====
 
 /**
  * @brief Base Native verification key class.
@@ -167,9 +199,8 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      */
     static size_t calc_num_data_types()
     {
-        // Create a temporary instance to get the number of precomputed entities
         size_t commitments_size = PrecomputedCommitments::size() * Codec::template calc_num_fields<Commitment>();
-        size_t metadata_size = 3 * Codec::template calc_num_fields<uint64_t>();
+        size_t metadata_size = MetaData::NUM_FIELDS * Codec::template calc_num_fields<uint64_t>();
         return metadata_size + commitments_size;
     }
 
@@ -284,8 +315,10 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     }
 };
 
+// ===== Fixed stdlib verification key (ECCVM, Translator, AVM) =====
+
 /**
- * @brief Simple stdlib verification key class for fixed-size circuits (ECCVM, Translator).
+ * @brief Simple stdlib verification key class for fixed-size circuits (ECCVM, Translator, AVM).
  * @details Stores only the commitments and precomputed VK hash as witnesses. Circuit size and public inputs
  * are known constants for these fixed circuits and don't need to be stored.
  *
@@ -324,6 +357,8 @@ class FixedStdlibVKAndHash_ : public PrecomputedCommitments {
   private:
     FF hash;
 };
+
+// ===== Stdlib verification key =====
 
 /**
  * @brief Base Stdlib verification key class.
@@ -482,6 +517,8 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     }
 };
 
+// ===== VK + hash wrapper =====
+
 /**
  * @brief Wrapper holding a verification key and its precomputed hash.
  * @details The hash is used to bind the verification key to the proof during verification, ensuring that the
@@ -542,34 +579,8 @@ template <typename FF, typename VerificationKey> class VKAndHash_ {
     FF hash;
 };
 
-} // namespace bb
+// ===== NativeVerificationKey_ Serde =====
 
-// Forward declare honk flavors
-namespace bb {
-class UltraFlavor;
-class UltraZKFlavor;
-class ECCVMFlavor;
-class UltraKeccakFlavor;
-#ifdef STARKNET_GARAGA_FLAVORS
-class UltraStarknetFlavor;
-class UltraStarknetZKFlavor;
-#endif
-class UltraKeccakZKFlavor;
-class MegaFlavor;
-class MegaZKFlavor;
-class MegaAvmFlavor;
-class TranslatorFlavor;
-class ECCVMRecursiveFlavor;
-class TranslatorRecursiveFlavor;
-class MultilinearBatchingRecursiveFlavor;
-
-template <typename BuilderType> class UltraRecursiveFlavor_;
-template <typename BuilderType> class UltraZKRecursiveFlavor_;
-template <typename BuilderType> class MegaRecursiveFlavor_;
-template <typename BuilderType> class MegaZKRecursiveFlavor_;
-template <typename BuilderType> class MegaAvmRecursiveFlavor_;
-
-// Serialization methods for NativeVerificationKey_.
 template <typename PrecomputedCommitments, typename Codec, typename HashFunction, typename CommitmentKey>
 inline void read(uint8_t const*& it,
                  NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey>& vk)
@@ -605,10 +616,6 @@ inline void write(std::vector<uint8_t>& buf,
     size_t after = buf.size();
     size_t num_frs = VK::calc_num_data_types();
     BB_ASSERT_EQ(after - before, num_frs * sizeof(bb::fr), "VK serialization mismatch");
-}
-
-namespace avm2 {
-class AvmRecursiveFlavor;
 }
 
 } // namespace bb
