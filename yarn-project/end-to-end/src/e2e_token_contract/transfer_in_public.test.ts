@@ -147,10 +147,12 @@ describe('e2e_token_contract transfer public', () => {
         U128_UNDERFLOW_ERROR,
       );
 
-      expect(await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress })).toEqual(balance0);
-      expect(await asset.methods.balance_of_public(account1Address).simulate({ from: account1Address })).toEqual(
-        balance1,
+      expect((await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress })).result).toEqual(
+        balance0,
       );
+      expect(
+        (await asset.methods.balance_of_public(account1Address).simulate({ from: account1Address })).result,
+      ).toEqual(balance1);
     });
 
     it('transfer on behalf of other, wrong designated caller', async () => {
@@ -175,10 +177,12 @@ describe('e2e_token_contract transfer public', () => {
       // Perform the transfer
       await expect(action.simulate({ from: account1Address })).rejects.toThrow(/unauthorized/);
 
-      expect(await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress })).toEqual(balance0);
-      expect(await asset.methods.balance_of_public(account1Address).simulate({ from: account1Address })).toEqual(
-        balance1,
+      expect((await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress })).result).toEqual(
+        balance0,
       );
+      expect(
+        (await asset.methods.balance_of_public(account1Address).simulate({ from: account1Address })).result,
+      ).toEqual(balance1);
     });
 
     it('transfer on behalf of other, wrong designated caller', async () => {
@@ -202,10 +206,12 @@ describe('e2e_token_contract transfer public', () => {
       // Perform the transfer
       await expect(action.simulate({ from: account1Address })).rejects.toThrow(/unauthorized/);
 
-      expect(await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress })).toEqual(balance0);
-      expect(await asset.methods.balance_of_public(account1Address).simulate({ from: account1Address })).toEqual(
-        balance1,
+      expect((await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress })).result).toEqual(
+        balance0,
       );
+      expect(
+        (await asset.methods.balance_of_public(account1Address).simulate({ from: account1Address })).result,
+      ).toEqual(balance1);
     });
 
     it('transfer on behalf of other, cancelled authwit', async () => {

@@ -124,7 +124,9 @@ describe('e2e_pruned_blocks', () => {
 
     await token.methods.transfer(recipient, MINT_AMOUNT).send({ from: sender });
 
-    expect(await token.methods.balance_of_private(recipient).simulate({ from: recipient })).toEqual(MINT_AMOUNT);
-    expect(await token.methods.balance_of_private(sender).simulate({ from: sender })).toEqual(0n);
+    expect((await token.methods.balance_of_private(recipient).simulate({ from: recipient })).result).toEqual(
+      MINT_AMOUNT,
+    );
+    expect((await token.methods.balance_of_private(sender).simulate({ from: sender })).result).toEqual(0n);
   });
 });
