@@ -81,7 +81,7 @@ template <class Fq, class Fr, class T> constexpr element<Fq, Fr, T>::operator af
 
 template <class Fq, class Fr, class T> constexpr void element<Fq, Fr, T>::self_dbl() noexcept
 {
-    if constexpr (Fq::modulus.data[3] >= 0x4000000000000000ULL) {
+    if constexpr (Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
         if (is_point_at_infinity()) {
             return;
         }
@@ -159,7 +159,7 @@ template <class Fq, class Fr, class T>
 constexpr void element<Fq, Fr, T>::self_mixed_add_or_sub(const affine_element<Fq, Fr, T>& other,
                                                          const uint64_t predicate) noexcept
 {
-    if constexpr (Fq::modulus.data[3] >= 0x4000000000000000ULL) {
+    if constexpr (Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
         if (is_point_at_infinity()) {
             conditional_negate_affine(other, *(affine_element<Fq, Fr, T>*)this, predicate); // NOLINT
             z = Fq::one();
@@ -251,7 +251,7 @@ constexpr void element<Fq, Fr, T>::self_mixed_add_or_sub(const affine_element<Fq
 template <class Fq, class Fr, class T>
 constexpr element<Fq, Fr, T> element<Fq, Fr, T>::operator+=(const affine_element<Fq, Fr, T>& other) noexcept
 {
-    if constexpr (Fq::modulus.data[3] >= 0x4000000000000000ULL) {
+    if constexpr (Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
         if (is_point_at_infinity()) {
             *this = { other.x, other.y, Fq::one() };
             return *this;
@@ -361,7 +361,7 @@ constexpr element<Fq, Fr, T> element<Fq, Fr, T>::operator-(const affine_element<
 template <class Fq, class Fr, class T>
 constexpr element<Fq, Fr, T> element<Fq, Fr, T>::operator+=(const element& other) noexcept
 {
-    if constexpr (Fq::modulus.data[3] >= 0x4000000000000000ULL) {
+    if constexpr (Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
         bool p1_zero = is_point_at_infinity();
         bool p2_zero = other.is_point_at_infinity();
         if (__builtin_expect((p1_zero || p2_zero), 0)) {
@@ -510,7 +510,7 @@ template <class Fq, class Fr, class T> constexpr element<Fq, Fr, T> element<Fq, 
 
 template <class Fq, class Fr, class T> constexpr void element<Fq, Fr, T>::self_set_infinity() noexcept
 {
-    if constexpr (Fq::modulus.data[3] >= 0x4000000000000000ULL) {
+    if constexpr (Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
         // We set the value of x equal to modulus to represent inifinty
         x.data[0] = Fq::modulus.data[0];
         x.data[1] = Fq::modulus.data[1];
@@ -526,7 +526,7 @@ template <class Fq, class Fr, class T> constexpr void element<Fq, Fr, T>::self_s
 
 template <class Fq, class Fr, class T> constexpr bool element<Fq, Fr, T>::is_point_at_infinity() const noexcept
 {
-    if constexpr (Fq::modulus.data[3] >= 0x4000000000000000ULL) {
+    if constexpr (Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
         // We check if the value of x is equal to modulus to represent inifinty
         return ((x.data[0] ^ Fq::modulus.data[0]) | (x.data[1] ^ Fq::modulus.data[1]) |
                 (x.data[2] ^ Fq::modulus.data[2]) | (x.data[3] ^ Fq::modulus.data[3])) == 0;
