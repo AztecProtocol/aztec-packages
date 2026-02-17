@@ -194,7 +194,10 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
   }
 
   if (initialAccounts.length) {
-    const wallet = await EmbeddedWallet.create(node, { pxeConfig: { proverEnabled: aztecNodeConfig.realProofs } });
+    const wallet = await EmbeddedWallet.create(node, {
+      pxeConfig: { proverEnabled: aztecNodeConfig.realProofs },
+      ephemeral: true,
+    });
 
     userLog('Setting up funded test accounts...');
     const accountManagers = await deployFundedSchnorrAccounts(wallet, initialAccounts);
