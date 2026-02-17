@@ -57,6 +57,8 @@ export {
   type GasSettingsOption,
   type SendReturn,
   type SimulationReturn,
+  type TxSendResultImmediate,
+  type TxSendResultMined,
   toProfileOptions,
   toSendOptions,
   toSimulateOptions,
@@ -67,6 +69,7 @@ export { ContractBase, type ContractMethod, type ContractStorageLayout } from '.
 export { BatchCall } from '../contract/batch_call.js';
 export {
   type DeployOptions,
+  type DeployResultMined,
   type DeployReturn,
   type DeployTxReceipt,
   type DeployWaitOptions,
