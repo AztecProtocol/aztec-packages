@@ -166,6 +166,57 @@ std::optional<Bool<CircuitBuilder>> get_and_result(StaticAnalyzer_<FF, CircuitBu
 }
 
 /**
+ * @brief Find the unknown rhs operand and result of an AND gate, given only the lhs operand
+ * @details When one operand of an AND gate is known but the other is not (e.g. in ECDSA where
+ *          !predicate && signature_result and signature_result is unknown), this helper discovers
+ *          the unknown rhs from the gate wires. Assumes the unknown rhs is non-inverted (i_b=0).
+ * @param analyzer The analyzer
+ * @param builder The builder
+ * @param a_bool The known lhs boolean_t (may have witness_inverted set)
+ * @return Pair of (rhs_bool, and_result_bool), or nullopt if no matching gate found
+ */
+template <typename FF, typename CircuitBuilder>
+std::optional<std::pair<Bool<CircuitBuilder>, Bool<CircuitBuilder>>> find_and_unknown_rhs(
+    StaticAnalyzer_<FF, CircuitBuilder>& analyzer, CircuitBuilder& builder, const Bool<CircuitBuilder>& a_bool)
+{
+    auto a_idx = a_bool.witness_index;
+    auto a = a_bool.witness;
+    if (a.is_constant()) {
+        return std::nullopt;
+    }
+
+    // Assume unknown rhs is non-inverted (i_b = 0)
+    int i_a = static_cast<int>(a.is_inverted());
+    int i_b = 0;
+    FF q_m{ 1 - (2 * i_b) - (2 * i_a) + (4 * i_a * i_b) };
+    FF q_l{ i_b * (1 - (2 * i_a)) };
+    FF q_r{ i_a * (1 - (2 * i_b)) };
+    FF q_o{ FF::neg_one() };
+    FF q_c{ i_a * i_b };
+
+    auto filter_helper = FilterFunctionBuilder<CircuitBuilder, FF>(builder)
+                             .set_w_l(a_idx)
+                             .set_w_4(builder.zero_idx())
+                             .set_q_m(q_m)
+                             .set_q_1(q_l)
+                             .set_q_2(q_r)
+                             .set_q_3(q_o)
+                             .set_q_4(FF::zero())
+                             .set_q_c(q_c)
+                             .set_q_arith(FF::one());
+
+    auto gates = analyzer.get_variable_gates(a_idx);
+    auto filtered_gates = filter_helper.filter_gates(gates);
+    if (filtered_gates.empty()) {
+        return std::nullopt;
+    }
+
+    auto rhs = get_bool_from_w_r<FF>(builder, filtered_gates[0]);
+    auto result = get_bool_from_w_o<FF>(builder, filtered_gates[0]);
+    return std::make_pair(rhs, result);
+}
+
+/**
  * @brief Get the result of the or gate from the circuit
  * @details mirrors bool_t::operator|
  * @param analyzer The analyzer

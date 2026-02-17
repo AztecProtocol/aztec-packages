@@ -35,7 +35,10 @@ bool is_boolean_gate_exists(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
                              .set_q_c(FF::zero())
                              .set_q_arith(FF::one());
 
-    auto gates = analyzer.get_variable_gates(witness_idx);
+    // variable_gates is keyed by to_real(wire_idx) (see extract_gate_variables in graph.cpp:154).
+    // When assert_equal merges witness_idx into another equivalence class, to_real(witness_idx) changes,
+    // so we must look up by the real index. The filter still checks the raw wire value in the block.
+    auto gates = analyzer.get_variable_gates(analyzer.to_real(witness_idx));
     auto filtered_gates = filter_helper.filter_gates(gates);
     return !filtered_gates.empty();
 }
@@ -55,6 +58,52 @@ bool is_in_range_list(CircuitBuilder& builder, uint32_t witness, uint64_t target
     const auto& range_list = it->second;
     return std::find(range_list.variable_indices.begin(), range_list.variable_indices.end(), witness) !=
            range_list.variable_indices.end();
+}
+
+/**
+ * @brief Check if a witness has a range constraint via a limb linked by an arithmetic gate
+ * @details When `create_limbed_range_constraint(W, num_bits, 14)` is called for small num_bits (≤14):
+ *   1. Creates `limb_idx = add_variable(val)` — a NEW variable
+ *   2. `create_small_range_constraint(limb_idx, target_range)` — adds limb_idx to range_lists[target_range]
+ *   3. `create_big_add_gate({limb_idx, 0, 0, W, 1, 2^14, 2^28, -1, 0})` — links limb to W via arithmetic
+ *
+ *   After byte_array's `input.assert_equal(byte)`, the original witness and W may share the
+ *   same real_variable_index via a copy constraint. This function searches range_lists[target_range]
+ *   entries to find a limb whose big_add_gate has w_4 in the same copy-constraint equivalence class
+ *   as `witness`.
+ */
+template <typename FF, typename CircuitBuilder>
+bool is_range_constrained_via_limb_lookup(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                          CircuitBuilder& builder,
+                                          uint32_t witness,
+                                          uint64_t target_range)
+{
+    auto it = builder.range_lists.find(target_range);
+    if (it == builder.range_lists.end()) {
+        return false;
+    }
+
+    uint32_t real_witness = builder.real_variable_index[witness];
+    auto& arith_block = builder.blocks.arithmetic;
+
+    for (auto limb_idx : it->second.variable_indices) {
+        auto gates = analyzer.get_variable_gates(limb_idx);
+        for (auto [blk_idx, gate_idx] : gates) {
+            if (&builder.blocks.get()[blk_idx] != &arith_block) {
+                continue;
+            }
+            // Check if w_4 of this gate is in the same copy-constraint equivalence class
+            uint32_t w4 = arith_block.w_4()[gate_idx];
+            if (builder.real_variable_index[w4] == real_witness) {
+                // Verify it's a big_add_gate (q_4 = -1 links the limb to the original witness)
+                auto q_4 = arith_block.q_4()[gate_idx];
+                if (q_4 == FF(-1)) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
 }
 
 /**
