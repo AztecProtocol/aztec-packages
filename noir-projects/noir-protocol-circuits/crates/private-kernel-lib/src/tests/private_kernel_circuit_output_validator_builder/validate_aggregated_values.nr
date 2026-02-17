@@ -132,8 +132,13 @@ fn validate_aggregated_values_expiration_timestamp_from_both_pick_larger_private
 fn validate_aggregated_values_expiration_timestamp_pick_for_contract_updates_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    let expiration_timestamp_for_contract_updates =
-        builder.private_call.anchor_block_header.global_variables.timestamp + DEFAULT_UPDATE_DELAY;
+    let expiration_timestamp_for_contract_updates = builder
+        .private_call
+        .anchor_block_header
+        .global_variables
+        .timestamp
+        + DEFAULT_UPDATE_DELAY
+        - 1;
 
     builder.previous_kernel.expiration_timestamp = expiration_timestamp_for_contract_updates + 1;
     builder.private_call.expiration_timestamp = expiration_timestamp_for_contract_updates + 1;
