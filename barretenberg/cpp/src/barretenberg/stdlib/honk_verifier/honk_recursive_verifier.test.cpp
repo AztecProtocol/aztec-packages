@@ -74,7 +74,6 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
 
     using PairingObject = PairingPoints<OuterBuilder>;
     using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<OuterBuilder>;
-    using NativeVerifierCommitmentKey = typename InnerFlavor::VerifierCommitmentKey;
     /**
      * @brief Create a non-trivial arbitrary inner circuit, the proof of which will be recursively verified
      *
@@ -314,10 +313,9 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
         static constexpr size_t FIRST_WITNESS_INDEX = InnerFlavor::NUM_PRECOMPUTED_ENTITIES;
 
         StructuredProof<InnerFlavor> structured_proof;
-        const auto num_public_inputs = inner_prover.prover_instance->num_public_inputs();
-        const size_t log_n =
-            InnerFlavor::USE_PADDING ? InnerFlavor::VIRTUAL_LOG_N : inner_prover.prover_instance->log_dyadic_size();
-        structured_proof.deserialize(inner_prover.transcript->test_get_proof_data(), num_public_inputs, log_n);
+        const auto num_public_inputs = inner_prover.num_public_inputs();
+        const size_t log_n = InnerFlavor::USE_PADDING ? InnerFlavor::VIRTUAL_LOG_N : inner_prover.log_dyadic_size();
+        structured_proof.deserialize(inner_prover.get_transcript()->test_get_proof_data(), num_public_inputs, log_n);
 
         switch (type) {
         case TamperType::MODIFY_SUMCHECK_UNIVARIATE: {
@@ -341,8 +339,8 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
             break;
         }
 
-        structured_proof.serialize(inner_prover.transcript->test_get_proof_data(), log_n);
-        inner_prover.transcript->test_set_proof_parsing_state(
+        structured_proof.serialize(inner_prover.get_transcript()->test_get_proof_data(), log_n);
+        inner_prover.get_transcript()->test_set_proof_parsing_state(
             0, ProofLength::Honk<InnerFlavor>::LENGTH_WITHOUT_PUB_INPUTS(log_n) + num_public_inputs);
         inner_proof = inner_prover.export_proof();
     }

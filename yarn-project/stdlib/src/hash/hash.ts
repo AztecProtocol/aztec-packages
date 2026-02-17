@@ -1,4 +1,4 @@
-import { GeneratorIndex, NULL_MSG_SENDER_CONTRACT_ADDRESS } from '@aztec/constants';
+import { DomainSeparator, NULL_MSG_SENDER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -23,7 +23,7 @@ export async function hashVK(keyAsFields: Fr[]): Promise<Fr> {
  * @returns A note hash nonce.
  */
 export function computeNoteHashNonce(nullifierZero: Fr, noteHashIndex: number): Promise<Fr> {
-  return poseidon2HashWithSeparator([nullifierZero, noteHashIndex], GeneratorIndex.NOTE_HASH_NONCE);
+  return poseidon2HashWithSeparator([nullifierZero, noteHashIndex], DomainSeparator.NOTE_HASH_NONCE);
 }
 
 /**
@@ -34,7 +34,7 @@ export function computeNoteHashNonce(nullifierZero: Fr, noteHashIndex: number): 
  * @returns A siloed note hash.
  */
 export function siloNoteHash(contract: AztecAddress, noteHash: Fr): Promise<Fr> {
-  return poseidon2HashWithSeparator([contract, noteHash], GeneratorIndex.SILOED_NOTE_HASH);
+  return poseidon2HashWithSeparator([contract, noteHash], DomainSeparator.SILOED_NOTE_HASH);
 }
 
 /**
@@ -44,7 +44,7 @@ export function siloNoteHash(contract: AztecAddress, noteHash: Fr): Promise<Fr> 
  * @returns A unique note hash.
  */
 export function computeUniqueNoteHash(noteNonce: Fr, siloedNoteHash: Fr): Promise<Fr> {
-  return poseidon2HashWithSeparator([noteNonce, siloedNoteHash], GeneratorIndex.UNIQUE_NOTE_HASH);
+  return poseidon2HashWithSeparator([noteNonce, siloedNoteHash], DomainSeparator.UNIQUE_NOTE_HASH);
 }
 
 /**
@@ -55,7 +55,7 @@ export function computeUniqueNoteHash(noteNonce: Fr, siloedNoteHash: Fr): Promis
  * @returns A siloed nullifier.
  */
 export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Promise<Fr> {
-  return poseidon2HashWithSeparator([contract, innerNullifier], GeneratorIndex.SILOED_NULLIFIER);
+  return poseidon2HashWithSeparator([contract, innerNullifier], DomainSeparator.SILOED_NULLIFIER);
 }
 
 /**
@@ -70,7 +70,7 @@ export function computeProtocolNullifier(txRequestHash: Fr): Promise<Fr> {
 }
 
 export function computeSiloedPrivateLogFirstField(contract: AztecAddress, field: Fr): Promise<Fr> {
-  return poseidon2HashWithSeparator([contract, field], GeneratorIndex.PRIVATE_LOG_FIRST_FIELD);
+  return poseidon2HashWithSeparator([contract, field], DomainSeparator.PRIVATE_LOG_FIRST_FIELD);
 }
 
 /**
@@ -91,7 +91,7 @@ export function computePublicDataTreeValue(value: Fr): Fr {
 
  */
 export function computePublicDataTreeLeafSlot(contractAddress: AztecAddress, storageSlot: Fr): Promise<Fr> {
-  return poseidon2HashWithSeparator([contractAddress, storageSlot], GeneratorIndex.PUBLIC_LEAF_SLOT);
+  return poseidon2HashWithSeparator([contractAddress, storageSlot], DomainSeparator.PUBLIC_LEAF_SLOT);
 }
 
 /**
@@ -105,7 +105,7 @@ export function computeVarArgsHash(args: Fr[]): Promise<Fr> {
     return Promise.resolve(Fr.ZERO);
   }
 
-  return poseidon2HashWithSeparator(args, GeneratorIndex.FUNCTION_ARGS);
+  return poseidon2HashWithSeparator(args, DomainSeparator.FUNCTION_ARGS);
 }
 
 /**
@@ -114,7 +114,7 @@ export function computeVarArgsHash(args: Fr[]): Promise<Fr> {
  * @returns Hash of the calldata.
  */
 export function computeCalldataHash(calldata: Fr[]): Promise<Fr> {
-  return poseidon2HashWithSeparator(calldata, GeneratorIndex.PUBLIC_CALLDATA);
+  return poseidon2HashWithSeparator(calldata, DomainSeparator.PUBLIC_CALLDATA);
 }
 
 /**
@@ -124,13 +124,13 @@ export function computeCalldataHash(calldata: Fr[]): Promise<Fr> {
  * @returns The hash
  */
 export function computeSecretHash(secret: Fr): Promise<Fr> {
-  return poseidon2HashWithSeparator([secret], GeneratorIndex.SECRET_HASH);
+  return poseidon2HashWithSeparator([secret], DomainSeparator.SECRET_HASH);
 }
 
 export async function computeL1ToL2MessageNullifier(contract: AztecAddress, messageHash: Fr, secret: Fr) {
   const innerMessageNullifier = await poseidon2HashWithSeparator(
     [messageHash, secret],
-    GeneratorIndex.MESSAGE_NULLIFIER,
+    DomainSeparator.MESSAGE_NULLIFIER,
   );
   return siloNullifier(contract, innerMessageNullifier);
 }

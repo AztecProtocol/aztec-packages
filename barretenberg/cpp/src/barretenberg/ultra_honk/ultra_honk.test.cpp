@@ -328,3 +328,155 @@ TYPED_TEST(UltraHonkTests, NativeVKHashMismatchDetected)
     Verifier verifier(vk_and_hash);
     EXPECT_THROW_WITH_MESSAGE(verifier.verify_proof(proof), "VK Hash Mismatch");
 }
+
+/**
+ * @brief Test that a truncated proof is rejected with a clear error message
+ * @details When a proof is too short, the verifier should detect this before
+ *          unsigned integer underflow occurs in derive_num_public_inputs.
+ */
+TYPED_TEST(UltraHonkTests, TooShortProofRejected)
+{
+    using Flavor = TypeParam;
+    using IO = typename TestFixture::IO;
+    using Builder = typename Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
+    using VerificationKey = typename Flavor::VerificationKey;
+    using VKAndHash = typename Flavor::VKAndHash;
+    using Verifier = UltraVerifier_<Flavor, IO>;
+    using Proof = typename Flavor::Transcript::Proof;
+
+    // Create a simple circuit and produce a valid proof
+    Builder builder;
+    MockCircuits::add_arithmetic_gates(builder);
+    this->set_default_pairing_points_and_ipa_claim_and_proof(builder);
+
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto vk = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+
+    Prover prover(prover_instance, vk);
+    auto proof = prover.construct_proof();
+
+    // Truncate the proof by removing the last 10 elements
+    Proof truncated_proof(proof.begin(), proof.end() - 10);
+
+    auto vk_and_hash = std::make_shared<VKAndHash>(vk);
+    Verifier verifier(vk_and_hash);
+    EXPECT_THROW_WITH_MESSAGE(verifier.verify_proof(truncated_proof), "Proof size too small");
+}
+
+/**
+ * @brief Test that a proof with extra elements appended is rejected
+ * @details When a proof is too long, the derived num_public_inputs will be wrong,
+ *          causing a mismatch with the VK's expected value.
+ */
+TYPED_TEST(UltraHonkTests, TooLongProofRejected)
+{
+    using Flavor = TypeParam;
+    using IO = typename TestFixture::IO;
+    using Builder = typename Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
+    using VerificationKey = typename Flavor::VerificationKey;
+    using VKAndHash = typename Flavor::VKAndHash;
+    using Verifier = UltraVerifier_<Flavor, IO>;
+    using Proof = typename Flavor::Transcript::Proof;
+    using FF = typename Flavor::FF;
+
+    // Create a simple circuit and produce a valid proof
+    Builder builder;
+    MockCircuits::add_arithmetic_gates(builder);
+    this->set_default_pairing_points_and_ipa_claim_and_proof(builder);
+
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto vk = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+
+    Prover prover(prover_instance, vk);
+    auto proof = prover.construct_proof();
+
+    // Append extra elements to the proof
+    Proof extended_proof(proof);
+    for (size_t i = 0; i < 10; i++) {
+        extended_proof.push_back(FF::random_element());
+    }
+
+    auto vk_and_hash = std::make_shared<VKAndHash>(vk);
+    Verifier verifier(vk_and_hash);
+    EXPECT_THROW_WITH_MESSAGE(verifier.verify_proof(extended_proof), "num_public_inputs mismatch");
+}
+
+/**
+ * @brief Test that the dyadic size correctly jumps to the next power of 2 when the trace would otherwise
+ * place lagrange_last in the ZK masking region.
+ * @details For ZK flavors, the last NUM_MASKED_ROWS rows are overwritten with random values for zero-knowledge.
+ * We incrementally add gates until the dyadic size doubles, verifying at each step that:
+ *   (1) lagrange_last (at final_active_wire_idx) does not overlap the masking area
+ *   (2) sufficient headroom exists for disabled rows
+ *   (3) at the boundary, the dyadic size doubles because the previous power of 2 was too small
+ * At the tightest packing (right before the jump), we also prove-and-verify.
+ */
+TYPED_TEST(UltraHonkTests, DyadicSizeJumpsToProtectMaskingArea)
+{
+    using Flavor = TypeParam;
+    if constexpr (!Flavor::HasZK) {
+        GTEST_SKIP() << "Masking area only exists for ZK flavors";
+    } else {
+        using Builder = typename Flavor::CircuitBuilder;
+        using ProverInstance = ProverInstance_<Flavor>;
+
+        // Determine the baseline dyadic size (pairing points + finalization overhead, no user gates)
+        Builder baseline_builder;
+        this->set_default_pairing_points_and_ipa_claim_and_proof(baseline_builder);
+        auto baseline_instance = std::make_shared<ProverInstance>(baseline_builder);
+        const size_t baseline_dyadic = baseline_instance->dyadic_size();
+
+        // Add gates one at a time until the dyadic size doubles
+        size_t prev_dyadic = 0;
+        size_t prev_final_active_idx = 0;
+        bool found_jump = false;
+        for (size_t num_extra_gates = 0; num_extra_gates <= baseline_dyadic; num_extra_gates++) {
+            Builder builder;
+            if (num_extra_gates > 0) {
+                MockCircuits::add_arithmetic_gates(builder, num_extra_gates);
+            }
+            this->set_default_pairing_points_and_ipa_claim_and_proof(builder);
+
+            auto prover_instance = std::make_shared<ProverInstance>(builder);
+
+            const size_t dyadic_size = prover_instance->dyadic_size();
+            const size_t final_active_idx = prover_instance->get_final_active_wire_idx();
+            const size_t first_masked_row = dyadic_size - NUM_MASKED_ROWS;
+
+            // Invariant (1): lagrange_last must be strictly before the masking area
+            ASSERT_LT(final_active_idx, first_masked_row)
+                << "lagrange_last (at " << final_active_idx << ") overlaps masking area (starting at "
+                << first_masked_row << ") with num_extra_gates=" << num_extra_gates;
+
+            // Invariant (2): sufficient headroom for disabled rows
+            ASSERT_GE(dyadic_size - final_active_idx - 1, static_cast<size_t>(NUM_DISABLED_ROWS_IN_SUMCHECK));
+
+            if (prev_dyadic != 0 && dyadic_size > prev_dyadic) {
+                // Invariant (3): dyadic size should exactly double
+                EXPECT_EQ(dyadic_size, 2 * prev_dyadic);
+                // The previous circuit was tightly packed
+                EXPECT_LE(prev_dyadic - prev_final_active_idx - 1,
+                          2 * static_cast<size_t>(NUM_DISABLED_ROWS_IN_SUMCHECK));
+
+                // Prove and verify at the tightest packing (right before the jump)
+                Builder tight_builder;
+                MockCircuits::add_arithmetic_gates(tight_builder, num_extra_gates - 1);
+                this->set_default_pairing_points_and_ipa_claim_and_proof(tight_builder);
+                auto tight_instance = std::make_shared<ProverInstance>(tight_builder);
+                this->prove_and_verify(tight_instance, /*expected_result=*/true);
+
+                found_jump = true;
+                break;
+            }
+
+            prev_dyadic = dyadic_size;
+            prev_final_active_idx = final_active_idx;
+        }
+
+        EXPECT_TRUE(found_jump) << "should have found a dyadic size jump within " << baseline_dyadic << " extra gates";
+    }
+}

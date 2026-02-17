@@ -533,64 +533,44 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
      * corresponding entries in both vectors.
      *
      */
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1151) Avoid erasing vector elements.
     static void remove_repeated_commitments(std::vector<Commitment>& commitments,
                                             std::vector<Fr>& scalars,
                                             const RepeatedCommitmentsData& repeated_commitments,
                                             bool has_zk)
     {
-        // We started populating commitments and scalars by adding Shplonk:Q commitmment and the corresponding scalar
-        // factor 1. In the case of ZK, we also added Gemini:masking_poly_comm before populating the vector with
-        // commitments to prover polynomials
+        // The commitments/scalars vectors start with Shplonk:Q (and Gemini:masking_poly_comm if ZK)
+        // before the prover polynomial commitments, so offset the AllEntities indices accordingly.
         const size_t offset = has_zk ? 2 : 1;
 
-        // Extract the indices from the container, which is normally created in a given Flavor
-        const size_t& first_range_to_be_shifted_start = repeated_commitments.first_range_to_be_shifted_start + offset;
-        const size_t& first_range_shifted_start = repeated_commitments.first_range_shifted_start + offset;
-        const size_t& first_range_size = repeated_commitments.first_range_size;
+        const auto& r1 = repeated_commitments.first;
+        const auto& r2 = repeated_commitments.second;
+        const size_t first_original_start = r1.original_start + offset;
+        const size_t first_duplicate_start = r1.duplicate_start + offset;
+        const size_t second_original_start = r2.original_start + offset;
+        const size_t second_duplicate_start = r2.duplicate_start + offset;
 
-        const size_t& second_range_to_be_shifted_start = repeated_commitments.second_range_to_be_shifted_start + offset;
-        const size_t& second_range_shifted_start = repeated_commitments.second_range_shifted_start + offset;
-        const size_t& second_range_size = repeated_commitments.second_range_size;
-
-        // Iterate over the first range of to-be-shifted scalars and their shifted counterparts
-        for (size_t i = 0; i < first_range_size; i++) {
-            size_t idx_to_be_shifted = i + first_range_to_be_shifted_start;
-            size_t idx_shifted = i + first_range_shifted_start;
-            scalars[idx_to_be_shifted] = scalars[idx_to_be_shifted] + scalars[idx_shifted];
+        // Fold duplicate scalars into their originals
+        for (size_t i = 0; i < r1.count; i++) {
+            scalars[i + first_original_start] = scalars[i + first_original_start] + scalars[i + first_duplicate_start];
+        }
+        for (size_t i = 0; i < r2.count; i++) {
+            scalars[i + second_original_start] =
+                scalars[i + second_original_start] + scalars[i + second_duplicate_start];
         }
 
-        // Iterate over the second range of to-be-shifted precomputed scalars and their shifted counterparts (if
-        // provided)
-        for (size_t i = 0; i < second_range_size; i++) {
-            size_t idx_to_be_shifted = i + second_range_to_be_shifted_start;
-            size_t idx_shifted = i + second_range_shifted_start;
-            scalars[idx_to_be_shifted] = scalars[idx_to_be_shifted] + scalars[idx_shifted];
-        }
-
-        if (second_range_shifted_start > first_range_shifted_start) {
-            // Erase the shifted scalars and commitments from the second range (if provided)
-            for (size_t i = 0; i < second_range_size; ++i) {
-                scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(second_range_shifted_start));
-                commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(second_range_shifted_start));
+        // Erase the duplicate entries (higher-index range first to preserve lower indices)
+        auto erase_range = [&](size_t start, size_t count) {
+            for (size_t i = 0; i < count; ++i) {
+                scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(start));
+                commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(start));
             }
-
-            // Erase the shifted scalars and commitments from the first range
-            for (size_t i = 0; i < first_range_size; ++i) {
-                scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(first_range_shifted_start));
-                commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(first_range_shifted_start));
-            }
+        };
+        if (second_duplicate_start > first_duplicate_start) {
+            erase_range(second_duplicate_start, r2.count);
+            erase_range(first_duplicate_start, r1.count);
         } else {
-            // Erase the shifted scalars and commitments from the first range
-            for (size_t i = 0; i < first_range_size; ++i) {
-                scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(first_range_shifted_start));
-                commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(first_range_shifted_start));
-            }
-            // Erase the shifted scalars and commitments from the second range (if provided)
-            for (size_t i = 0; i < second_range_size; ++i) {
-                scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(second_range_shifted_start));
-                commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(second_range_shifted_start));
-            }
+            erase_range(first_duplicate_start, r1.count);
+            erase_range(second_duplicate_start, r2.count);
         }
     }
 

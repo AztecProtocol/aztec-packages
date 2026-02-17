@@ -21,15 +21,14 @@
 
 namespace bb {
 
-Goblin::Goblin(CommitmentKey<curve::BN254> bn254_commitment_key, const std::shared_ptr<Transcript>& transcript)
-    : commitment_key(std::move(bn254_commitment_key))
-    , transcript(transcript)
+Goblin::Goblin(const std::shared_ptr<Transcript>& transcript)
+    : transcript(transcript)
 {}
 
 void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript, const MergeSettings merge_settings)
 {
     BB_BENCH_NAME("Goblin::prove_merge");
-    MergeProver merge_prover{ op_queue, transcript, merge_settings, commitment_key };
+    MergeProver merge_prover{ op_queue, transcript, merge_settings };
     merge_verification_queue.push_back(merge_prover.construct_proof());
 }
 
@@ -54,7 +53,7 @@ void Goblin::prove_translator()
 {
     BB_BENCH_NAME("Goblin::prove_translator");
     TranslatorBuilder translator_builder(translation_batching_challenge_v, evaluation_challenge_x, op_queue, avm_mode);
-    auto translator_key = std::make_shared<TranslatorProvingKey>(translator_builder, commitment_key);
+    auto translator_key = std::make_shared<TranslatorProvingKey>(translator_builder);
     TranslatorProver translator_prover(translator_key, transcript);
     goblin_proof.translator_proof = translator_prover.construct_proof();
 }

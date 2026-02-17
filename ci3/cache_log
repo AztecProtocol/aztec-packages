@@ -52,6 +52,11 @@ function live_publish_log {
 if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   log_str="$name log id: ${yellow}http://ci.aztec-labs.com/$key${reset}"
   echo_stderr -e "$log_str"
+  # Close stderr to prevent holding inherited pipeline FDs open.
+  # When cache_log runs inside a process substitution within a pipeline (e.g. in bootstrap_ec2),
+  # FD 2 points to the pipeline pipe. If we (or live_publish_log) hold it open, the pipeline
+  # hangs waiting for EOF even after the main command has finished.
+  exec 2>/dev/null
   live_publish_log &
   if [ "$dup" -eq 1 ]; then
     redact | tee -a $outfile

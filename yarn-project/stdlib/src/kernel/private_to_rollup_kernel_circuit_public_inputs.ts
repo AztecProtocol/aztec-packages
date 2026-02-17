@@ -1,4 +1,4 @@
-import { GeneratorIndex, PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH } from '@aztec/constants';
+import { DomainSeparator, PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
@@ -113,6 +113,6 @@ export class PrivateToRollupKernelCircuitPublicInputs {
   }
 
   hash() {
-    return poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.PRIVATE_TX_HASH);
+    return poseidon2HashWithSeparator(this.toFields(), DomainSeparator.PRIVATE_TX_HASH);
   }
 }

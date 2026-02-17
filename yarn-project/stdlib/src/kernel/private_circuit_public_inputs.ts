@@ -21,7 +21,7 @@ import {
 } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
-import { KeyValidationRequestAndGenerator } from '../kernel/hints/key_validation_request_and_generator.js';
+import { KeyValidationRequestAndSeparator } from '../kernel/hints/key_validation_request_and_separator.js';
 import { CountedLogHash } from '../kernel/log_hash.js';
 import { PrivateCallRequest } from '../kernel/private_call_request.js';
 import { PrivateLogData } from '../kernel/private_log_data.js';
@@ -106,10 +106,10 @@ export class PrivateCircuitPublicInputs {
      */
     public nullifierReadRequests: ClaimedLengthArray<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     /**
-     * Key validation requests and generators created by the corresponding function call.
+     * Key validation requests and separators created by the corresponding function call.
      */
-    public keyValidationRequestsAndGenerators: ClaimedLengthArray<
-      KeyValidationRequestAndGenerator,
+    public keyValidationRequestsAndSeparators: ClaimedLengthArray<
+      KeyValidationRequestAndSeparator,
       typeof MAX_KEY_VALIDATION_REQUESTS_PER_CALL
     >,
     /**
@@ -178,7 +178,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(ClaimedLengthArrayFromBuffer(ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromBuffer(ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL)),
       reader.readObject(
-        ClaimedLengthArrayFromBuffer(KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
+        ClaimedLengthArrayFromBuffer(KeyValidationRequestAndSeparator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
       ),
       reader.readObject(ClaimedLengthArrayFromBuffer(PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromBuffer(CountedPublicCallRequest, MAX_ENQUEUED_CALLS_PER_CALL)),
@@ -209,7 +209,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(ClaimedLengthArrayFromFields(ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromFields(ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL)),
       reader.readObject(
-        ClaimedLengthArrayFromFields(KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
+        ClaimedLengthArrayFromFields(KeyValidationRequestAndSeparator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
       ),
       reader.readObject(ClaimedLengthArrayFromFields(PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromFields(CountedPublicCallRequest, MAX_ENQUEUED_CALLS_PER_CALL)),
@@ -242,7 +242,7 @@ export class PrivateCircuitPublicInputs {
       Fr.ZERO,
       ClaimedLengthArray.empty(ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL),
       ClaimedLengthArray.empty(ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL),
-      ClaimedLengthArray.empty(KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
+      ClaimedLengthArray.empty(KeyValidationRequestAndSeparator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
       ClaimedLengthArray.empty(PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL),
       ClaimedLengthArray.empty(CountedPublicCallRequest, MAX_ENQUEUED_CALLS_PER_CALL),
       PublicCallRequest.empty(),
@@ -270,7 +270,7 @@ export class PrivateCircuitPublicInputs {
       this.expectedRevertibleSideEffectCounter.isZero() &&
       this.noteHashReadRequests.isEmpty() &&
       this.nullifierReadRequests.isEmpty() &&
-      this.keyValidationRequestsAndGenerators.isEmpty() &&
+      this.keyValidationRequestsAndSeparators.isEmpty() &&
       this.privateCallRequests.isEmpty() &&
       this.publicCallRequests.isEmpty() &&
       this.publicTeardownCallRequest.isEmpty() &&
@@ -303,7 +303,7 @@ export class PrivateCircuitPublicInputs {
       fields.expectedRevertibleSideEffectCounter,
       fields.noteHashReadRequests,
       fields.nullifierReadRequests,
-      fields.keyValidationRequestsAndGenerators,
+      fields.keyValidationRequestsAndSeparators,
       fields.privateCallRequests,
       fields.publicCallRequests,
       fields.publicTeardownCallRequest,
@@ -337,7 +337,7 @@ export class PrivateCircuitPublicInputs {
       this.expectedRevertibleSideEffectCounter,
       this.noteHashReadRequests,
       this.nullifierReadRequests,
-      this.keyValidationRequestsAndGenerators,
+      this.keyValidationRequestsAndSeparators,
       this.privateCallRequests,
       this.publicCallRequests,
       this.publicTeardownCallRequest,

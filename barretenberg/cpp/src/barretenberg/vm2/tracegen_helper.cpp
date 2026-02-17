@@ -8,6 +8,7 @@
 
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/common/std_array.hpp"
+#include "barretenberg/common/std_vector.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/vm2/common/map.hpp"
