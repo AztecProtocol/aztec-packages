@@ -89,9 +89,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   /** Tracks the last slot for which we called prepareForSlot */
   private lastSlotProcessed: SlotNumber = SlotNumber.ZERO;
 
-  /** Tracks the checkpoint number of the latest mined block, used for epoch prune detection */
-  private latestMinedCheckpointNumber: CheckpointNumber = CheckpointNumber.ZERO;
-
   /** Polls for slot changes and calls prepareForSlot on the tx pool */
   private slotMonitor: RunningPromise | undefined;
 
@@ -704,7 +701,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     await this.maybeCallPrepareForSlot();
     await this.startCollectingMissingTxs(blocks);
     const lastBlock = blocks.at(-1)!;
-    this.latestMinedCheckpointNumber = lastBlock.checkpointNumber;
     await this.synchedLatestSlot.set(BigInt(lastBlock.header.getSlot()));
   }
 
@@ -760,16 +756,26 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param newCheckpoint - The checkpoint ID after the prune.
    */
   private async handlePruneL2Blocks(latestBlock: L2BlockId, newCheckpoint: CheckpointId): Promise<void> {
-    const deleteAllTxs = this.isEpochPrune(newCheckpoint);
+    const deleteAllTxs = await this.isEpochPrune(newCheckpoint);
     await this.txPool.handlePrunedBlocks(latestBlock, { deleteAllTxs });
   }
 
-  /** Returns true if the prune spans an epoch boundary (checkpoint number changed). */
-  private isEpochPrune(newCheckpoint: CheckpointId): boolean {
-    if (this.latestMinedCheckpointNumber <= 0) {
+  /**
+   * Returns true if the prune spans multiple checkpoints (epoch prune).
+   * Compares the checkpointed tip from our local L2TipsStore (pre-prune) with the new checkpoint.
+   * Not entirely accurate: this could return false for the prune of an epoch with only one checkpoint.
+   */
+  private async isEpochPrune(newCheckpoint: CheckpointId): Promise<boolean> {
+    const tips = await this.l2Tips.getL2Tips();
+    const oldCheckpointNumber = tips.checkpointed.checkpoint.number;
+    if (oldCheckpointNumber <= CheckpointNumber.ZERO) {
       return false;
     }
-    return this.latestMinedCheckpointNumber !== newCheckpoint.number;
+    const isEpochPrune = oldCheckpointNumber - newCheckpoint.number > 1;
+    this.log.info(
+      `Detected epoch prune: ${isEpochPrune}. Old checkpoint: ${oldCheckpointNumber}, new checkpoint: ${newCheckpoint.number}`,
+    );
+    return isEpochPrune;
   }
 
   /** Checks if the slot has changed and calls prepareForSlot if so. */

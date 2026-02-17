@@ -275,18 +275,34 @@ describe('P2P Client', () => {
   });
 
   describe('Chain prunes', () => {
-    it('calls handlePrunedBlocks when chain is pruned', async () => {
+    it('passes deleteAllTxs: false for a single-checkpoint prune', async () => {
       blockSource.setProvenBlockNumber(0);
+      blockSource.setCheckpointedBlockNumber(100);
       await client.start();
 
-      // Prune the chain back to block 90
+      // Prune 1 block: checkpoint goes from 100 to 99 (difference of 1)
+      blockSource.removeBlocks(1);
+      await client.sync();
+
+      expect(txPool.handlePrunedBlocks).toHaveBeenCalledWith(
+        { number: BlockNumber(99), hash: expect.any(String) },
+        { deleteAllTxs: false },
+      );
+      await client.stop();
+    });
+
+    it('passes deleteAllTxs: true for an epoch prune spanning multiple checkpoints', async () => {
+      blockSource.setProvenBlockNumber(0);
+      blockSource.setCheckpointedBlockNumber(100);
+      await client.start();
+
+      // Prune 10 blocks: checkpoint goes from 100 to 90 (difference of 10)
       blockSource.removeBlocks(10);
       await client.sync();
 
-      // Verify handlePrunedBlocks is called with the correct block ID and options
       expect(txPool.handlePrunedBlocks).toHaveBeenCalledWith(
         { number: BlockNumber(90), hash: expect.any(String) },
-        expect.objectContaining({ deleteAllTxs: expect.any(Boolean) }),
+        { deleteAllTxs: true },
       );
       await client.stop();
     });
