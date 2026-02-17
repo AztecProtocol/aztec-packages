@@ -82,10 +82,11 @@ bool is_range_constrained_via_limb_lookup(StaticAnalyzer_<FF, CircuitBuilder>& a
                                           uint32_t witness,
                                           uint64_t target_range)
 {
-    uint32_t real_witness = builder.real_variable_index[witness];
-
     constexpr uint64_t shift_1 = 1ULL << CircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM;       // 2^14
     constexpr uint64_t shift_2 = 1ULL << (2 * CircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM); // 2^28
+
+    BB_ASSERT(target_range < shift_1, "target_range too large");
+    uint32_t real_witness = builder.real_variable_index[witness];
 
     // Exact gate pattern from create_limbed_range_constraint (single limb, num_bits ≤ 14):
     //   w_l = limb, w_r = zero, w_o = zero, w_4 = W

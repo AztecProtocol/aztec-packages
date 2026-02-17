@@ -166,23 +166,25 @@ std::optional<Bool<CircuitBuilder>> get_and_result(StaticAnalyzer_<FF, CircuitBu
 }
 
 /**
- * @brief Find the unknown rhs operand and result of an AND gate, given only the lhs operand
+ * @brief Find all AND gates with the given lhs operand and an unknown rhs
  * @details When one operand of an AND gate is known but the other is not (e.g. in ECDSA where
  *          !predicate && signature_result and signature_result is unknown), this helper discovers
- *          the unknown rhs from the gate wires. Assumes the unknown rhs is non-inverted (i_b=0).
+ *          all matching gates. Assumes the unknown rhs is non-inverted (i_b=0).
+ *          Returns all candidates because the predicate may participate in multiple AND gates
+ *          (e.g. when two ECDSA constraints share the same predicate witness).
  * @param analyzer The analyzer
  * @param builder The builder
  * @param a_bool The known lhs boolean_t (may have witness_inverted set)
- * @return Pair of (rhs_bool, and_result_bool), or nullopt if no matching gate found
+ * @return Vector of (rhs_bool, and_result_bool) pairs, empty if no matching gates found
  */
 template <typename FF, typename CircuitBuilder>
-std::optional<std::pair<Bool<CircuitBuilder>, Bool<CircuitBuilder>>> find_and_unknown_rhs(
+std::vector<std::pair<Bool<CircuitBuilder>, Bool<CircuitBuilder>>> find_and_unknown_rhs(
     StaticAnalyzer_<FF, CircuitBuilder>& analyzer, CircuitBuilder& builder, const Bool<CircuitBuilder>& a_bool)
 {
     auto a_idx = a_bool.witness_index;
     auto a = a_bool.witness;
     if (a.is_constant()) {
-        return std::nullopt;
+        return {};
     }
 
     // Assume unknown rhs is non-inverted (i_b = 0)
@@ -207,13 +209,15 @@ std::optional<std::pair<Bool<CircuitBuilder>, Bool<CircuitBuilder>>> find_and_un
 
     auto gates = analyzer.get_variable_gates(a_idx);
     auto filtered_gates = filter_helper.filter_gates(gates);
-    if (filtered_gates.empty()) {
-        return std::nullopt;
-    }
 
-    auto rhs = get_bool_from_w_r<FF>(builder, filtered_gates[0]);
-    auto result = get_bool_from_w_o<FF>(builder, filtered_gates[0]);
-    return std::make_pair(rhs, result);
+    std::vector<std::pair<Bool<CircuitBuilder>, Bool<CircuitBuilder>>> results;
+    results.reserve(filtered_gates.size());
+    for (const auto& gate : filtered_gates) {
+        auto rhs = get_bool_from_w_r<FF>(builder, gate);
+        auto result = get_bool_from_w_o<FF>(builder, gate);
+        results.emplace_back(rhs, result);
+    }
+    return results;
 }
 
 /**

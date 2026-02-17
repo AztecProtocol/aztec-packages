@@ -178,30 +178,33 @@ bool is_ecdsa_result_constrained(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
     }
 
     // Step 3: Find AND gate 2: !predicate && signature_result
-    // signature_result is unknown — use find_and_unknown_rhs to discover it
+    // signature_result is unknown — use find_and_unknown_rhs to discover all candidates.
+    // Multiple candidates may exist when the predicate is shared across ECDSA constraints.
     auto inverted_predicate = Bool<CircuitBuilder>{ predicate_bool.witness_index, !predicate_bool.witness };
-    auto and2_pair = find_and_unknown_rhs<FF>(analyzer, builder, inverted_predicate);
-    if (!and2_pair.has_value()) {
+    auto and2_candidates = find_and_unknown_rhs<FF>(analyzer, builder, inverted_predicate);
+    if (and2_candidates.empty()) {
         log_error("is_ecdsa_result_constrained: AND gate (!predicate && signature_result) not found");
         return false;
     }
-    auto [signature_result_bool, and2] = *and2_pair;
 
-    // Step 4: Find OR gate: and1 || and2 (using get_or_result from bool_t_helpers.hpp)
-    auto or_result = get_or_result<FF>(analyzer, builder, *and1, and2);
-    if (!or_result.has_value()) {
-        log_error("is_ecdsa_result_constrained: OR gate (and1 || and2) not found");
-        return false;
+    // Try each candidate — only the correct one will have a matching OR gate and assert_equal
+    for (const auto& [signature_result_bool, and2] : and2_candidates) {
+        // Step 4: Find OR gate: and1 || and2
+        auto or_result = get_or_result<FF>(analyzer, builder, *and1, and2);
+        if (!or_result.has_value()) {
+            continue;
+        }
+
+        // Step 5: Verify assert_equal (copy constraint) on the OR result
+        if (analyzer.to_real(or_result->witness_index) == or_result->witness_index) {
+            continue;
+        }
+
+        return true;
     }
 
-    // Step 5: Verify assert_equal (copy constraint) on the OR result
-    // signature_result.assert_equal(ca_output) creates a copy constraint
-    if (analyzer.to_real(or_result->witness_index) == or_result->witness_index) {
-        log_error("is_ecdsa_result_constrained: assert_equal not found for OR result=", or_result->witness_index);
-        return false;
-    }
-
-    return true;
+    log_error("is_ecdsa_result_constrained: no AND candidate produced a valid OR + assert_equal chain");
+    return false;
 }
 
 } // namespace cdg

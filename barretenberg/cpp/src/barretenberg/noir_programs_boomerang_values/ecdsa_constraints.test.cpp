@@ -106,6 +106,80 @@ template <typename Curve> struct EcdsaTestData {
 
         return { ecdsa_constraint, witness_values };
     }
+
+    /**
+     * @brief Generate two valid ECDSA constraints that share the same predicate witness
+     * @details Both constraints use the same key but sign different messages. The shared predicate
+     *          means !predicate participates in AND gates from both constraints' conditional_assign
+     *          chains, testing whether find_and_unknown_rhs can disambiguate.
+     */
+    static std::tuple<EcdsaConstraint, EcdsaConstraint, WitnessVector> generate_two_constraints_shared_predicate()
+    {
+        ecdsa_key_pair<FrNative, G1Native> account;
+        account.private_key = private_key;
+        account.public_key = G1Native::one * account.private_key;
+
+        std::array<uint8_t, 32> buffer_x;
+        std::array<uint8_t, 32> buffer_y;
+        FqNative::serialize_to_buffer(account.public_key.x, &buffer_x[0]);
+        FqNative::serialize_to_buffer(account.public_key.y, &buffer_y[0]);
+
+        WitnessVector witness_values;
+
+        // Shared predicate witness (added first so both constraints reference it)
+        uint32_t predicate_index = add_to_witness_and_track_indices(witness_values, bb::fr(1));
+        auto predicate = WitnessOrConstant<bb::fr>::from_index(predicate_index);
+
+        // --- Constraint 1 ---
+        std::string msg1 = "Instructions unclear, ask again later.";
+        std::array<uint8_t, 32> hash1 = Sha256Hasher::hash(std::vector<uint8_t>(msg1.begin(), msg1.end()));
+        ecdsa_signature sig1 = ecdsa_construct_signature<Sha256Hasher, FqNative, FrNative, G1Native>(msg1, account);
+
+        auto hash1_indices = add_to_witness_and_track_indices<std::span<uint8_t>, 32>(witness_values, std::span(hash1));
+        auto pub_x1 = add_to_witness_and_track_indices<std::span<uint8_t>, 32>(witness_values, std::span(buffer_x));
+        auto pub_y1 = add_to_witness_and_track_indices<std::span<uint8_t>, 32>(witness_values, std::span(buffer_y));
+        auto r1 = add_to_witness_and_track_indices<std::span<uint8_t>, 32>(witness_values, std::span(sig1.r));
+        auto s1 = add_to_witness_and_track_indices<std::span<uint8_t>, 32>(witness_values, std::span(sig1.s));
+        uint32_t result1 = add_to_witness_and_track_indices(witness_values, bb::fr(1));
+
+        std::array<uint32_t, 64> sig1_indices;
+        std::ranges::copy(r1, sig1_indices.begin());
+        std::ranges::copy(s1, sig1_indices.begin() + 32);
+
+        EcdsaConstraint ecdsa1 = { .type = Curve::type,
+                                   .hashed_message = hash1_indices,
+                                   .signature = sig1_indices,
+                                   .pub_x_indices = pub_x1,
+                                   .pub_y_indices = pub_y1,
+                                   .predicate = predicate,
+                                   .result = result1 };
+
+        // --- Constraint 2 (different message, same key, same predicate) ---
+        std::string msg2 = "A completely different message for the second ECDSA constraint.";
+        std::array<uint8_t, 32> hash2 = Sha256Hasher::hash(std::vector<uint8_t>(msg2.begin(), msg2.end()));
+        ecdsa_signature sig2 = ecdsa_construct_signature<Sha256Hasher, FqNative, FrNative, G1Native>(msg2, account);
+
+        auto hash2_indices = add_to_witness_and_track_indices<std::span<uint8_t>, 32>(witness_values, std::span(hash2));
+        auto pub_x2 = add_to_witness_and_track_indices<std::span<uint8_t>, 32>(witness_values, std::span(buffer_x));
+        auto pub_y2 = add_to_witness_and_track_indices<std::span<uint8_t>, 32>(witness_values, std::span(buffer_y));
+        auto r2 = add_to_witness_and_track_indices<std::span<uint8_t>, 32>(witness_values, std::span(sig2.r));
+        auto s2 = add_to_witness_and_track_indices<std::span<uint8_t>, 32>(witness_values, std::span(sig2.s));
+        uint32_t result2 = add_to_witness_and_track_indices(witness_values, bb::fr(1));
+
+        std::array<uint32_t, 64> sig2_indices;
+        std::ranges::copy(r2, sig2_indices.begin());
+        std::ranges::copy(s2, sig2_indices.begin() + 32);
+
+        EcdsaConstraint ecdsa2 = { .type = Curve::type,
+                                   .hashed_message = hash2_indices,
+                                   .signature = sig2_indices,
+                                   .pub_x_indices = pub_x2,
+                                   .pub_y_indices = pub_y2,
+                                   .predicate = predicate,
+                                   .result = result2 };
+
+        return { ecdsa1, ecdsa2, witness_values };
+    }
 };
 
 using K1Curve = bb::stdlib::secp256k1<UltraCircuitBuilder>;
@@ -225,4 +299,22 @@ TEST_F(EcdsaConstraintsTests, DetectCorruptedConditionalAssign)
     StaticAnalyzerAcir analyzer(std::move(constraint_system_copy), std::move(builder));
     analyzer.process_constraint_system();
     EXPECT_FALSE(analyzer.get_incorrect_opcodes().empty());
+}
+
+// Regression test: two ECDSA constraints sharing the same predicate witness create multiple
+// AND gates on !predicate (one per constraint's bool_t::conditional_assign chain).
+// find_and_unknown_rhs must not match the wrong constraint's gate when tracing
+// the !predicate && signature_result pattern.
+TEST_F(EcdsaConstraintsTests, TwoConstraintsSharedPredicateDoNotInterfere)
+{
+    auto [ecdsa1, ecdsa2, witness] = EcdsaTestData<K1Curve>::generate_two_constraints_shared_predicate();
+    AcirFormat constraint_system = build_acir_format(static_cast<uint32_t>(witness.size() - 1), ecdsa1, ecdsa2);
+
+    auto program = AcirProgram{ constraint_system, witness };
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
+
+    StaticAnalyzerAcir analyzer(std::move(constraint_system), std::move(builder));
+    analyzer.process_constraint_system();
+    EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty())
+        << "Analyzer should validate both ECDSA constraints when they share a predicate witness";
 }
