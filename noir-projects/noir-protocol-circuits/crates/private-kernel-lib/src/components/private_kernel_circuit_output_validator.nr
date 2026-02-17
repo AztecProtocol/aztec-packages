@@ -149,8 +149,8 @@ impl PrivateKernelCircuitOutputValidator {
             previous_kernel.validation_requests.nullifier_read_requests,
         );
         assert_array_prepended(
-            self.output.validation_requests.scoped_key_validation_requests_and_generators,
-            previous_kernel.validation_requests.scoped_key_validation_requests_and_generators,
+            self.output.validation_requests.scoped_key_validation_requests_and_separators,
+            previous_kernel.validation_requests.scoped_key_validation_requests_and_separators,
         );
         assert_array_prepended(self.output.end.note_hashes, previous_kernel.end.note_hashes);
         assert_array_prepended(self.output.end.nullifiers, previous_kernel.end.nullifiers);
@@ -196,11 +196,11 @@ impl PrivateKernelCircuitOutputValidator {
             previous_kernel_public_inputs.validation_requests.nullifier_read_requests.length,
         );
         assert_array_appended_and_scoped(
-            self.output.validation_requests.scoped_key_validation_requests_and_generators,
-            private_call.public_inputs.key_validation_requests_and_generators,
+            self.output.validation_requests.scoped_key_validation_requests_and_separators,
+            private_call.public_inputs.key_validation_requests_and_separators,
             previous_kernel_public_inputs
                 .validation_requests
-                .scoped_key_validation_requests_and_generators
+                .scoped_key_validation_requests_and_separators
                 .length,
             contract_address,
         );

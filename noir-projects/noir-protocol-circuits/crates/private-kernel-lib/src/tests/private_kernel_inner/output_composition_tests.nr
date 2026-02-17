@@ -48,7 +48,7 @@ fn with_everything_empty() {
     assert_claimed_length_array_eq(pi.validation_requests.note_hash_read_requests, []);
     assert_claimed_length_array_eq(pi.validation_requests.nullifier_read_requests, []);
     assert_claimed_length_array_eq(
-        pi.validation_requests.scoped_key_validation_requests_and_generators,
+        pi.validation_requests.scoped_key_validation_requests_and_separators,
         [],
     );
 }
@@ -97,7 +97,7 @@ fn with_previous_kernel_non_empty_and_private_call_empty() {
 
     builder.previous_kernel.append_key_validation_requests(1);
     let previous_key_validation_requests_and_generators =
-        builder.previous_kernel.scoped_key_validation_requests_and_generators.storage();
+        builder.previous_kernel.scoped_key_validation_requests_and_separators.storage();
 
     let pi = builder.execute();
 
@@ -139,7 +139,7 @@ fn with_previous_kernel_non_empty_and_private_call_empty() {
         [previous_nullifier_read_requests[0], previous_nullifier_read_requests[1]],
     );
     assert_claimed_length_array_eq(
-        pi.validation_requests.scoped_key_validation_requests_and_generators,
+        pi.validation_requests.scoped_key_validation_requests_and_separators,
         [previous_key_validation_requests_and_generators[0]],
     );
 }
@@ -185,7 +185,7 @@ fn with_previous_kernel_empty_and_private_call_non_empty() {
 
     builder.private_call.append_key_validation_requests(2);
     let new_key_validation_requests_and_generators =
-        builder.private_call.scoped_key_validation_requests_and_generators.storage();
+        builder.private_call.scoped_key_validation_requests_and_separators.storage();
 
     let pi = builder.execute();
 
@@ -221,7 +221,7 @@ fn with_previous_kernel_empty_and_private_call_non_empty() {
         [new_nullifier_read_requests[0]],
     );
     assert_claimed_length_array_eq(
-        pi.validation_requests.scoped_key_validation_requests_and_generators,
+        pi.validation_requests.scoped_key_validation_requests_and_separators,
         [
             new_key_validation_requests_and_generators[0],
             new_key_validation_requests_and_generators[1],
@@ -342,13 +342,13 @@ fn with_everything_non_empty() {
     builder.private_call.append_nullifier_read_requests(1);
     let new_nullifier_read_requests = builder.private_call.nullifier_read_requests.storage();
 
-    // key_validation_requests_and_generators
+    // key_validation_requests_and_separators
     builder.previous_kernel.append_key_validation_requests(1);
     let previous_key_validation_requests_and_generators =
-        builder.previous_kernel.scoped_key_validation_requests_and_generators.storage();
+        builder.previous_kernel.scoped_key_validation_requests_and_separators.storage();
     builder.private_call.append_key_validation_requests(2);
     let new_key_validation_requests_and_generators =
-        builder.private_call.scoped_key_validation_requests_and_generators.storage();
+        builder.private_call.scoped_key_validation_requests_and_separators.storage();
 
     let pi = builder.execute();
 
@@ -419,7 +419,7 @@ fn with_everything_non_empty() {
         ],
     );
     assert_claimed_length_array_eq(
-        pi.validation_requests.scoped_key_validation_requests_and_generators,
+        pi.validation_requests.scoped_key_validation_requests_and_separators,
         [
             previous_key_validation_requests_and_generators[0],
             new_key_validation_requests_and_generators[0],
@@ -540,17 +540,17 @@ fn with_full_arrays_from_private_call() {
         0,
     );
 
-    // key_validation_requests_and_generators
+    // key_validation_requests_and_separators
     builder.previous_kernel.append_key_validation_requests(
         MAX_KEY_VALIDATION_REQUESTS_PER_TX - MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
     );
     let previous_key_validation_requests_and_generators = subarray::<_, _, MAX_KEY_VALIDATION_REQUESTS_PER_TX - MAX_KEY_VALIDATION_REQUESTS_PER_CALL>(
-        builder.previous_kernel.scoped_key_validation_requests_and_generators.storage(),
+        builder.previous_kernel.scoped_key_validation_requests_and_separators.storage(),
         0,
     );
     builder.private_call.append_key_validation_requests(MAX_KEY_VALIDATION_REQUESTS_PER_CALL);
     let new_key_validation_requests_and_generators = subarray::<_, _, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>(
-        builder.private_call.scoped_key_validation_requests_and_generators.storage(),
+        builder.private_call.scoped_key_validation_requests_and_separators.storage(),
         0,
     );
 
@@ -594,7 +594,7 @@ fn with_full_arrays_from_private_call() {
         previous_nullifier_read_requests.concat(new_nullifier_read_requests),
     );
     assert_claimed_length_array_eq(
-        pi.validation_requests.scoped_key_validation_requests_and_generators,
+        pi.validation_requests.scoped_key_validation_requests_and_separators,
         previous_key_validation_requests_and_generators.concat(
             new_key_validation_requests_and_generators,
         ),
@@ -651,10 +651,10 @@ fn with_full_arrays_from_previous_kernel() {
     let previous_nullifier_read_requests =
         builder.previous_kernel.nullifier_read_requests.storage();
 
-    // key_validation_requests_and_generators
+    // key_validation_requests_and_separators
     builder.previous_kernel.append_key_validation_requests(MAX_KEY_VALIDATION_REQUESTS_PER_TX);
     let previous_key_validation_requests_and_generators =
-        builder.previous_kernel.scoped_key_validation_requests_and_generators.storage();
+        builder.previous_kernel.scoped_key_validation_requests_and_separators.storage();
 
     let pi = builder.execute();
 
@@ -678,7 +678,7 @@ fn with_full_arrays_from_previous_kernel() {
         previous_nullifier_read_requests,
     );
     assert_claimed_length_array_eq(
-        pi.validation_requests.scoped_key_validation_requests_and_generators,
+        pi.validation_requests.scoped_key_validation_requests_and_separators,
         previous_key_validation_requests_and_generators,
     );
 }
@@ -714,7 +714,7 @@ fn with_allowed_empty_values_from_private_call() {
 
     builder.private_call.add_request_for_key_validation(Point::empty(), 0, 0);
     let empty_key_validation_request =
-        builder.private_call.scoped_key_validation_requests_and_generators.storage()[0];
+        builder.private_call.scoped_key_validation_requests_and_separators.storage()[0];
 
     // Note: this test only checks that the empty values are propagated. Whether the values are valid is checked
     // by the Reset or the Tail(-to-Public) circuits.
@@ -738,7 +738,7 @@ fn with_allowed_empty_values_from_private_call() {
         [empty_nullifier_read_request],
     );
     assert_claimed_length_array_eq(
-        pi.validation_requests.scoped_key_validation_requests_and_generators,
+        pi.validation_requests.scoped_key_validation_requests_and_separators,
         [empty_key_validation_request],
     );
 }

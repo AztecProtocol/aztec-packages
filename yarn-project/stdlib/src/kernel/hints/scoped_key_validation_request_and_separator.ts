@@ -3,14 +3,14 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { AztecAddress } from '../../aztec-address/index.js';
-import { KeyValidationRequestAndGenerator } from './key_validation_request_and_generator.js';
+import { KeyValidationRequestAndSeparator } from './key_validation_request_and_separator.js';
 
 /**
  * Request for validating keys used in the app.
  */
-export class ScopedKeyValidationRequestAndGenerator {
+export class ScopedKeyValidationRequestAndSeparator {
   constructor(
-    public readonly request: KeyValidationRequestAndGenerator,
+    public readonly request: KeyValidationRequestAndSeparator,
     public readonly contractAddress: AztecAddress,
   ) {}
 
@@ -20,8 +20,8 @@ export class ScopedKeyValidationRequestAndGenerator {
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new ScopedKeyValidationRequestAndGenerator(
-      KeyValidationRequestAndGenerator.fromBuffer(reader),
+    return new ScopedKeyValidationRequestAndSeparator(
+      KeyValidationRequestAndSeparator.fromBuffer(reader),
       AztecAddress.fromBuffer(reader),
     );
   }
@@ -30,16 +30,16 @@ export class ScopedKeyValidationRequestAndGenerator {
     const fields = [...this.request.toFields(), this.contractAddress.toField()];
     if (fields.length !== SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH) {
       throw new Error(
-        `Invalid number of fields for ScopedKeyValidationRequestAndGenerator. Expected ${SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH}, got ${fields.length}`,
+        `Invalid number of fields for ScopedKeyValidationRequestAndSeparator. Expected ${SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH}, got ${fields.length}`,
       );
     }
     return fields;
   }
 
-  static fromFields(fields: Fr[] | FieldReader): ScopedKeyValidationRequestAndGenerator {
+  static fromFields(fields: Fr[] | FieldReader): ScopedKeyValidationRequestAndSeparator {
     const reader = FieldReader.asReader(fields);
-    return new ScopedKeyValidationRequestAndGenerator(
-      KeyValidationRequestAndGenerator.fromFields(reader),
+    return new ScopedKeyValidationRequestAndSeparator(
+      KeyValidationRequestAndSeparator.fromFields(reader),
       AztecAddress.fromFields(reader),
     );
   }
@@ -49,6 +49,6 @@ export class ScopedKeyValidationRequestAndGenerator {
   }
 
   static empty() {
-    return new ScopedKeyValidationRequestAndGenerator(KeyValidationRequestAndGenerator.empty(), AztecAddress.ZERO);
+    return new ScopedKeyValidationRequestAndSeparator(KeyValidationRequestAndSeparator.empty(), AztecAddress.ZERO);
   }
 }
