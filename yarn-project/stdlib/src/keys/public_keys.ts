@@ -7,7 +7,7 @@ import {
   DEFAULT_OVPK_M_Y,
   DEFAULT_TPK_M_X,
   DEFAULT_TPK_M_Y,
-  GeneratorIndex,
+  DomainSeparator,
 } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -82,7 +82,7 @@ export class PublicKeys {
             this.masterOutgoingViewingPublicKey,
             this.masterTaggingPublicKey,
           ],
-          GeneratorIndex.PUBLIC_KEYS_HASH,
+          DomainSeparator.PUBLIC_KEYS_HASH,
         );
   }
 

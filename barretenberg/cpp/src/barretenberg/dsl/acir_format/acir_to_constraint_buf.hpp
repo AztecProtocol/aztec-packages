@@ -98,7 +98,7 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit);
 /**
  * @brief Convert from the ACIR-native `WitnessMap` format to Barretenberg's internal `WitnessVector` format.
  *
- * @note This transformation results in all unassigned witnesses within the `WitnessMap` being assigned the value 0.
+ * @note This transformation results in all unassigned witnesses within the `WitnessMap` being assigned a random value.
  * Converting the `WitnessVector` back to a `WitnessMap` is unlikely to return the exact same `WitnessMap`.
  */
 WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness_map);
@@ -156,9 +156,9 @@ bool is_single_arithmetic_gate(Acir::Expression const& arg, const std::map<uint3
  * The process of turning an Acir::Expression into a series of gates is split into the following steps:
  * 1. Add as many gates as there are multiplication terms. While adding these gates, attempt to add linear terms if they have the same
  *    witnesses indices of witnesses involved in the multiplication. For example, for w1 * w2 + w1, the first (and only) gate will be:
- *    | a_idx | b_idx | c_idx       | d_idx       | mul_scaling | a_scaling | b_scaling | c_scaling | d_scaling | const_idx   |
+ *    | a_idx | b_idx | c_idx       | d_idx       | mul_scaling | a_scaling | b_scaling | c_scaling | d_scaling | const       |
  *    |-------|-------|-------------|-------------|-------------|-----------|-----------|-----------|-----------|-------------|
- *    | w1    | w2    | IS_CONSTANT | IS_CONSTANT | 1           | 1         | 0         | 0         | 0         | IS_CONSTANT |
+ *    | w1    | w2    | IS_CONSTANT | IS_CONSTANT | 1           | 1         | 0         | 0         | 0         | 0           |
  * 2. Run through the the gates that have been added and add as many linear terms as possible (for the first gate, we can use two witnesses,
  *    while for all the other gates we have only one as the fourth witness is reserved for w4_shift)
  * 3. Run through the remaining linear terms and add as many gates as needed to handle them.
@@ -171,9 +171,9 @@ bool is_single_arithmetic_gate(Acir::Expression const& arg, const std::map<uint3
  * contains only one multiplication term, and there are only 4 distinct witnesses. We turn this expression into the following gate
  * (where w4_shift is toggled off):
  *
- * | a_idx | b_idx | c_idx | d_idx | mul_scaling | a_scaling | b_scaling | c_scaling | d_scaling | const_idx |
+ * | a_idx | b_idx | c_idx | d_idx | mul_scaling | a_scaling | b_scaling | c_scaling | d_scaling | const     |
  * |-------|-------|-------|-------|-------------|-----------|-----------|-----------|-----------|-----------|
- * | w1    | w2    | w5    | w6    | 1           | 1         | 1         | 1         | 1         | const     |
+ * | w1    | w2    | w5    | w6    | 1           | 0         | 0         | 1         | 1         | const     |
  *
  */
 // clang-format on

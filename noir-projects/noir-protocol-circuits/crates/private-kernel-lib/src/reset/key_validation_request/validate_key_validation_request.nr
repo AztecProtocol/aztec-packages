@@ -1,6 +1,6 @@
 use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 use types::{
-    abis::validation_requests::KeyValidationRequestAndGenerator,
+    abis::validation_requests::KeyValidationRequestAndSeparator,
     hash::compute_app_siloed_secret_key, scalar::Scalar, side_effect::Scoped,
 };
 
@@ -46,13 +46,13 @@ use types::{
 /// counter that claim).
 ///
 pub fn validate_key_validation_request(
-    scoped_request: Scoped<KeyValidationRequestAndGenerator>,
+    scoped_request: Scoped<KeyValidationRequestAndSeparator>,
     sk_m: Scalar,
 ) {
     let contract_address = scoped_request.contract_address;
-    let request_and_generator = scoped_request.inner;
-    let request = request_and_generator.request;
-    let sk_app_generator = request_and_generator.sk_app_generator;
+    let request_and_separator = scoped_request.inner;
+    let request = request_and_separator.request;
+    let key_type_domain_separator = request_and_separator.key_type_domain_separator;
 
     // First we check that the derived public key matches the master public key from the request.
     let pk_m = derive_public_key(sk_m);
@@ -63,7 +63,7 @@ pub fn validate_key_validation_request(
     );
 
     // Then we check that siloing the master secret key with the contract address gives the app-siloed secret key.
-    let sk_app = compute_app_siloed_secret_key(sk_m, contract_address, sk_app_generator);
+    let sk_app = compute_app_siloed_secret_key(sk_m, contract_address, key_type_domain_separator);
     assert_eq(
         sk_app,
         request.sk_app,

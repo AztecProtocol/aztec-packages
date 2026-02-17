@@ -276,8 +276,8 @@ impl PrivateCallDataValidator {
         self.data.public_inputs.nullifier_read_requests.assert_length_within_bounds(
             "nullifier_read_requests length out of bounds",
         );
-        self.data.public_inputs.key_validation_requests_and_generators.assert_length_within_bounds(
-            "key_validation_requests_and_generators length out of bounds",
+        self.data.public_inputs.key_validation_requests_and_separators.assert_length_within_bounds(
+            "key_validation_requests_and_separators length out of bounds",
         );
         self.data.public_inputs.private_call_requests.assert_length_within_bounds(
             "private_call_requests length out of bounds",

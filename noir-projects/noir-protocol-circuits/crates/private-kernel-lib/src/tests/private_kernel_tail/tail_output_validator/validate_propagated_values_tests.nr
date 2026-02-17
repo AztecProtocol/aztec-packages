@@ -127,7 +127,7 @@ fn expiration_timestamp_custom_equals_max_duration() {
     builder.validate();
 }
 
-#[test(should_fail_with = "expiration_timestamp exceeds max tx lifetime")]
+#[test]
 fn expiration_timestamp_custom_exceeds_max_tx_lifetime() {
     let mut builder = TestBuilder::new();
 
@@ -138,8 +138,8 @@ fn expiration_timestamp_custom_exceeds_max_tx_lifetime() {
     let max_timestamp = block_timestamp + MAX_TX_LIFETIME;
     builder.expiration_timestamp_upper_bound = max_timestamp + 1;
     builder.previous_kernel.expiration_timestamp = max_timestamp + 1;
-    // Output should be the max timestamp.
-    builder.output.expiration_timestamp = max_timestamp + 1;
+    // Output should be clamped to the max timestamp.
+    builder.output.expiration_timestamp = max_timestamp;
 
     builder.validate();
 }

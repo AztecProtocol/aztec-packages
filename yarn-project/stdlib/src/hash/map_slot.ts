@@ -1,4 +1,4 @@
-import { GeneratorIndex } from '@aztec/constants';
+import { DomainSeparator } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 
@@ -15,5 +15,5 @@ export function deriveStorageSlotInMap(
     toField: () => Fr;
   },
 ): Promise<Fr> {
-  return poseidon2HashWithSeparator([mapSlot, key.toField()], GeneratorIndex.PUBLIC_STORAGE_MAP_SLOT);
+  return poseidon2HashWithSeparator([mapSlot, key.toField()], DomainSeparator.PUBLIC_STORAGE_MAP_SLOT);
 }

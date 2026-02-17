@@ -189,6 +189,7 @@ set -euo pipefail
 ./noir/precommit.sh
 ./noir-projects/precommit.sh
 ./yarn-project/constants/precommit.sh
+./docs/examples/ts/precommit.sh
 EOF
   chmod +x $hooks_dir/pre-commit
 

@@ -4,10 +4,13 @@ use crate::{
         assert_split_sorted_transformed_arrays,
         assert_split_transformed_arrays_from_sorted_padded_array,
     },
-    components::{gas_meter::meter_gas_used, tail_output_validator::validate_expiration_timestamp},
+    components::gas_meter::meter_gas_used,
 };
-use types::abis::kernel_circuit_public_inputs::{
-    PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
+use types::{
+    abis::kernel_circuit_public_inputs::{
+        PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
+    },
+    constants::MAX_TX_LIFETIME,
 };
 
 pub struct TailToPublicOutputValidator {
@@ -52,14 +55,21 @@ impl TailToPublicOutputValidator {
         // This value can only decrease with each iteration. Here we take the minimum of:
         // - The value from the previous kernel iteration
         // - An upper bound value set by the user
+        let max_timestamp = self
+            .previous_kernel
+            .constants
+            .anchor_block_header
+            .global_variables
+            .timestamp
+            + MAX_TX_LIFETIME;
         let expiration_timestamp = std::cmp::min(
-            self.previous_kernel.expiration_timestamp,
-            self.expiration_timestamp_upper_bound,
+            std::cmp::min(
+                self.previous_kernel.expiration_timestamp,
+                self.expiration_timestamp_upper_bound,
+            ),
+            max_timestamp,
         );
-        validate_expiration_timestamp(
-            expiration_timestamp,
-            self.previous_kernel.constants.anchor_block_header.global_variables,
-        );
+
         assert_eq(
             self.output.expiration_timestamp,
             expiration_timestamp,

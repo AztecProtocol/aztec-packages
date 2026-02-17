@@ -36,7 +36,7 @@ fn with_everything_empty_except_for_first_nullifier_hint() {
     assert_claimed_length_array_eq(pi.validation_requests.note_hash_read_requests, []);
     assert_claimed_length_array_eq(pi.validation_requests.nullifier_read_requests, []);
     assert_claimed_length_array_eq(
-        pi.validation_requests.scoped_key_validation_requests_and_generators,
+        pi.validation_requests.scoped_key_validation_requests_and_separators,
         [],
     );
 }
@@ -191,9 +191,9 @@ fn with_everything_non_empty() {
     );
 
     let key_validation_requests =
-        builder.private_call.scoped_key_validation_requests_and_generators.storage();
+        builder.private_call.scoped_key_validation_requests_and_separators.storage();
     assert_claimed_length_array_eq(
-        pi.validation_requests.scoped_key_validation_requests_and_generators,
+        pi.validation_requests.scoped_key_validation_requests_and_separators,
         [key_validation_requests[0], key_validation_requests[1]],
     );
 }
