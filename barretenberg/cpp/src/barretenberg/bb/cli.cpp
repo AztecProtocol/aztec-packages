@@ -26,8 +26,10 @@
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/bbapi/c_bind.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/version.hpp"
+#include "barretenberg/dsl/acir_format/serde/index.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/vm2/api_avm.hpp"
@@ -393,6 +395,17 @@ int parse_and_run_cli_command(int argc, char* argv[])
      * Flag: --help-extended (register with CLI11)
      ***************************************************************************************************************/
     app.add_flag("--help-extended", "Show all options including advanced and Aztec-specific commands.");
+
+    /***************************************************************************************************************
+     * Subcommand: acir_roundtrip
+     ***************************************************************************************************************/
+    CLI::App* acir_roundtrip_cmd =
+        app.add_subcommand("acir_roundtrip",
+                           "[Internal testing] Deserialize an ACIR program from bytecode (msgpack), "
+                           "re-serialize it to msgpack, re-deserialize, and verify structural equality. "
+                           "Returns 0 on success.");
+
+    add_bytecode_path_option(acir_roundtrip_cmd);
 
     /***************************************************************************************************************
      * Subcommand: check
@@ -803,6 +816,57 @@ int parse_and_run_cli_command(int argc, char* argv[])
     };
 
     try {
+        // ACIR roundtrip (internal testing)
+        if (acir_roundtrip_cmd->parsed()) {
+            auto buf = get_bytecode(bytecode_path);
+
+            BB_ASSERT(!buf.empty(), "acir_roundtrip: bytecode buffer is empty");
+            const uint8_t fmt = buf[0];
+            BB_ASSERT(fmt == 2 || fmt == 3,
+                      "acir_roundtrip: expected msgpack format marker (2 or 3), got " + std::to_string(fmt));
+
+            // Deserialize from msgpack to Acir::Program (including Brillig/unconstrained_functions)
+            const char* data = reinterpret_cast<const char*>(buf.data() + 1);
+            size_t data_size = buf.size() - 1;
+            auto oh1 = msgpack::unpack(data, data_size);
+            auto o1 = oh1.get();
+            BB_ASSERT(o1.type == msgpack::type::ARRAY,
+                      "acir_roundtrip: expected ARRAY, got " + std::to_string(o1.type));
+
+            Acir::Program program1;
+            try {
+                o1.convert(program1);
+            } catch (const msgpack::type_error& e) {
+                std::cerr << "acir_roundtrip: failed to deserialize Program: " << e.what() << std::endl;
+                return 1;
+            }
+
+            // Re-serialize to msgpack bytes using msgpack_pack
+            msgpack::sbuffer sbuf;
+            msgpack::packer<msgpack::sbuffer> packer(sbuf);
+            packer.pack(program1);
+
+            // Deserialize again from the re-serialized bytes
+            auto oh2 = msgpack::unpack(sbuf.data(), sbuf.size());
+            auto o2 = oh2.get();
+
+            Acir::Program program2;
+            try {
+                o2.convert(program2);
+            } catch (const msgpack::type_error& e) {
+                std::cerr << "acir_roundtrip: failed to re-deserialize Program: " << e.what() << std::endl;
+                return 1;
+            }
+
+            // Verify structural equality (operator== checks functions AND unconstrained_functions)
+            if (program1 != program2) {
+                std::cerr << "ACIR roundtrip FAILED: programs differ after msgpack roundtrip" << std::endl;
+                return 1;
+            }
+            vinfo("ACIR roundtrip: OK");
+            return 0;
+        }
+
         // MSGPACK
         if (msgpack_schema_command->parsed()) {
             std::cout << bbapi::get_msgpack_schema_as_json() << std::endl;

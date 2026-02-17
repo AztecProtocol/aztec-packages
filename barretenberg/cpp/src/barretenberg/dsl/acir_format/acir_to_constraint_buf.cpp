@@ -286,9 +286,7 @@ void update_max_witness_index_from_opcode(Acir::Opcode const& opcode, AcirFormat
                                },
                                output.value);
                 }
-                if (arg.predicate.has_value()) {
-                    update_max_witness_index_from_expression(arg.predicate.value(), af);
-                }
+                update_max_witness_index_from_expression(arg.predicate, af);
             },
             [&](const Acir::Opcode::Call&) {
                 bb::assert_failure("acir_format::update_max_witness_index_from_opcode: Call opcode is not supported.");

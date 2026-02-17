@@ -178,6 +178,11 @@ function test_cmds {
   for t in $non_recursive_tests; do
     echo "$tests_hash $scripts/bb_prove.sh $(basename $t)"
   done
+
+  # ACIR serialization roundtrip tests: deserialize, re-serialize, re-deserialize, check equality.
+  for t in $non_recursive_tests; do
+    echo "$tests_hash $scripts/acir_roundtrip.sh $(basename $t)"
+  done
   echo "$tests_hash $scripts/bb_prove.sh assert_statement"
   # Run the UH recursive verifier tests with ZK.
   echo "$tests_hash $scripts/bb_prove.sh verify_honk_proof"
