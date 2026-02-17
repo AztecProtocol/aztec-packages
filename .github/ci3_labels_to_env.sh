@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Determines CI mode from labels and environment variables.
-# Called by ci3.yml to set CI_MODE and related environment variables.
+# Called by ci3.yml and ci3-external.yml to set CI_MODE and related environment variables.
 # Outputs environment variables to GITHUB_ENV for use in subsequent steps.
 set -euo pipefail
 
@@ -23,7 +23,7 @@ function main {
   local target_branch
   if [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ]; then
     target_branch="${MERGE_GROUP_BASE_REF:-}"
-  elif [ "${GITHUB_EVENT_NAME:-}" == "pull_request" ]; then
+  elif [ "${GITHUB_EVENT_NAME:-}" == "pull_request" ] || [ "${GITHUB_EVENT_NAME:-}" == "pull_request_target" ]; then
     target_branch="${PR_BASE_REF:-}"
   else
     target_branch="${GITHUB_REF_NAME:-}"
