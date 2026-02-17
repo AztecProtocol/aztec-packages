@@ -60,10 +60,6 @@ class TranslatorFlavor {
     // The number of entities added for ZK (gemini_masking_poly)
     static constexpr size_t NUM_MASKING_POLYNOMIALS = 1;
 
-    // 10 of 11 precomputed selectors are structured multilinear polynomials whose evaluations at the
-    // sumcheck challenge can be computed in O(d) field ops (all except ordered_extra_range_constraints_numerator).
-    static constexpr size_t NUM_COMPUTABLE_PRECOMPUTED = 10;
-
     // None of this parameters can be changed
     // Number of wires representing the op queue whose commitments are going to be checked against those from the
     // final round of merge
@@ -127,66 +123,6 @@ class TranslatorFlavor {
     static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
     static_assert(MINI_CIRCUIT_SIZE > MINIMUM_MINI_CIRCUIT_SIZE);
 
-    // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We
-    // often need containers of this size to hold related data, so we choose a name more agnostic than
-    // `NUM_POLYNOMIALS`. Note: this number does not include the individual sorted list polynomials.
-    // = MaskingEntities(1) + Precomputed(11) + Witness(92) + Shifted(86) = 190
-    static constexpr size_t NUM_ALL_ENTITIES = 190;
-
-    // Number of evaluations sent in proof (all minus computable precomputed minus reconstructed concat evals)
-    static constexpr size_t NUM_SENT_EVALUATIONS =
-        NUM_ALL_ENTITIES - NUM_COMPUTABLE_PRECOMPUTED - NUM_CONCATENATED_POLYS;
-
-    // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
-    // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 11;
-
-    // The total number of witness entities not including shifts.
-    // = WireNonshifted(1) + WireToBeShifted(80) + OrderedRange(5) + Derived(1) + Concatenated(5) = 92
-    static constexpr size_t NUM_WITNESS_ENTITIES = 92;
-    static constexpr size_t NUM_WIRES_NON_SHIFTED = 1; // only the opcode wire
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 86;
-
-    // 77 unshifted + 77 shifted minicircuit wire evaluations are sent mid-sumcheck (after round
-    // LOG_MINI_CIRCUIT_SIZE-1)
-    static constexpr size_t NUM_MINICIRCUIT_WIRES = 77; // NonRangeMain(13) + RangeConstraint(64)
-    static constexpr size_t NUM_MINICIRCUIT_EVALUATIONS = 2 * NUM_MINICIRCUIT_WIRES;                           // 154
-    static constexpr size_t NUM_FULL_CIRCUIT_EVALUATIONS = NUM_SENT_EVALUATIONS - NUM_MINICIRCUIT_EVALUATIONS; // 21
-
-    // Total number of minicircuit wires across all concatenation groups (5 groups × 16 wires each)
-    static constexpr size_t NUM_CONCATENATED_WIRES = NUM_CONCATENATED_POLYS * CONCATENATION_GROUP_SIZE;
-
-    // Number of non-concatenated witness polynomials in PCS unshifted batch
-    // = WireNonshifted/op(1) + OrderedRange(5) + Derived/z_perm(1) = 7
-    static constexpr size_t NUM_UNSHIFTED_WITNESSES_WITHOUT_CONCATENATED = 7;
-
-    // Number of to-be-shifted polynomials for PCS
-    // = OpQueueWiresToBeShifted(3) + OrderedRange(5) + Derived(1) = 9
-    static constexpr size_t NUM_TO_BE_SHIFTED = 9;
-
-    // Number of unshifted polynomials in PCS: masking + non-computable precomputed + witness base + concatenated
-    static constexpr size_t NUM_PCS_UNSHIFTED = NUM_MASKING_POLYNOMIALS +
-                                                (NUM_PRECOMPUTED_ENTITIES - NUM_COMPUTABLE_PRECOMPUTED) +
-                                                NUM_UNSHIFTED_WITNESSES_WITHOUT_CONCATENATED + NUM_CONCATENATED_POLYS;
-
-    // Number of to-be-shifted polynomials in PCS: base to-be-shifted + concatenated
-    static constexpr size_t NUM_PCS_TO_BE_SHIFTED = NUM_TO_BE_SHIFTED + NUM_CONCATENATED_POLYS;
-
-    // The index of the first unshifted witness that is going to be shifted when AllEntities are partitioned
-    static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED;
-
-    // The index of the shift of the first to be shifted witness
-    static constexpr size_t SHIFTED_WITNESSES_START = NUM_SHIFTED_ENTITIES + TO_BE_SHIFTED_WITNESSES_START;
-
-    // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls.
-    // Identifies commitments that appear in both the unshifted and shifted batches:
-    //   Unshifted batch (14): masking(1) + ordered_extra(1) + op(1) + ordered(5) + z_perm(1) + concat(5)
-    //   Shifted batch (14):   op_queue(3) + ordered(5) + z_perm(1) + concat(5)
-    // Range 1: ordered(5) + z_perm(1) — stored indices 2..7 (unshifted) ↔ 16..21 (shifted)
-    // Range 2: concatenated(5)        — stored indices 8..12 (unshifted) ↔ 22..26 (shifted)
-    // (Stored indices are 0-based after ZK offset; offset=2 accounts for Q_commitment + gemini_masking_poly)
-    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(2, 16, 6, 8, 22, 5);
-
     using GrandProductRelations = std::tuple<TranslatorPermutationRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
     template <typename FF>
@@ -217,33 +153,6 @@ class TranslatorFlavor {
     static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
     static constexpr size_t num_frs_fr = FrCodec::calc_num_fields<FF>();
     static constexpr size_t num_frs_fq = FrCodec::calc_num_fields<BF>();
-
-    // Number of ordered range constraint polynomials: 4 (one per range constraint group) + 1 (overflow)
-    static constexpr size_t NUM_ORDERED_RANGE = 5;
-
-    // Commitments sent in wire round: concatenated + ordered range constraints
-    // (not counting gemini masking, z_perm, op queue which are sent separately)
-    static constexpr size_t NUM_COMMITMENTS_IN_PROOF = NUM_CONCATENATED_POLYS + NUM_ORDERED_RANGE;
-    static constexpr size_t PROOF_LENGTH =
-        /* 1. Gemini masking poly commitment */ (num_frs_comm) +
-        /* 2. Wire commitments: concatenated(5) + ordered(5) = 10 */
-        (NUM_COMMITMENTS_IN_PROOF * num_frs_comm) +
-        /* 3. Z_PERM commitment */ (num_frs_comm) +
-        /* 4. Libra concatenation commitment*/ (num_frs_comm) +
-        /* 5. Libra sum */ (num_frs_fr) +
-        /* 4. CONST_TRANSLATOR_LOG_N sumcheck univariates */
-        (CONST_TRANSLATOR_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
-        /* 5. sumcheck evaluations (computable precomputed excluded) */ (NUM_SENT_EVALUATIONS * num_frs_fr) +
-        /* 6. Libra claimed evaluation */ (num_frs_fr) +
-        /* 7. Libra grand sum commitment */ (num_frs_comm) +
-        /* 8. Libra quotient commitment */ (num_frs_comm) +
-        /* 9. CONST_TRANSLATOR_LOG_N - 1 Gemini Fold commitments */
-        ((CONST_TRANSLATOR_LOG_N - 1) * num_frs_comm) +
-        /* 10. CONST_TRANSLATOR_LOG_N Gemini a evaluations */
-        (CONST_TRANSLATOR_LOG_N * num_frs_fr) +
-        /* 11. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fr) +
-        /* 12. Shplonk Q commitment */ (num_frs_comm) +
-        /* 13. KZG W commitment */ (num_frs_comm);
 
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
@@ -490,105 +399,13 @@ class TranslatorFlavor {
         /**
          * @brief Get all minicircuit wire polynomials that are concatenated into the 5 concatenated polys.
          * @details Returns 5 groups of 16 wires each. Groups 0-3 are range constraint wires; group 4 is
-         * 13 non-range main wires + 3 null padding slots (nullptr).
+         * 13 non-range main wires + 3 null padding slots.
          */
         std::vector<RefVector<DataType>> get_groups_to_be_concatenated()
         {
-            // Static zero value for null padding slots (evaluations use 0, polynomials use zero poly)
             static DataType zero_value = DataType(0);
-
-            return {
-                {
-                    this->p_x_low_limbs_range_constraint_0,
-                    this->p_x_low_limbs_range_constraint_1,
-                    this->p_x_low_limbs_range_constraint_2,
-                    this->p_x_low_limbs_range_constraint_3,
-                    this->p_x_low_limbs_range_constraint_4,
-                    this->p_x_low_limbs_range_constraint_tail,
-                    this->p_x_high_limbs_range_constraint_0,
-                    this->p_x_high_limbs_range_constraint_1,
-                    this->p_x_high_limbs_range_constraint_2,
-                    this->p_x_high_limbs_range_constraint_3,
-                    this->p_x_high_limbs_range_constraint_4,
-                    this->p_x_high_limbs_range_constraint_tail,
-                    this->p_y_low_limbs_range_constraint_0,
-                    this->p_y_low_limbs_range_constraint_1,
-                    this->p_y_low_limbs_range_constraint_2,
-                    this->p_y_low_limbs_range_constraint_3,
-                },
-                {
-                    this->p_y_low_limbs_range_constraint_4,
-                    this->p_y_low_limbs_range_constraint_tail,
-                    this->p_y_high_limbs_range_constraint_0,
-                    this->p_y_high_limbs_range_constraint_1,
-                    this->p_y_high_limbs_range_constraint_2,
-                    this->p_y_high_limbs_range_constraint_3,
-                    this->p_y_high_limbs_range_constraint_4,
-                    this->p_y_high_limbs_range_constraint_tail,
-                    this->z_low_limbs_range_constraint_0,
-                    this->z_low_limbs_range_constraint_1,
-                    this->z_low_limbs_range_constraint_2,
-                    this->z_low_limbs_range_constraint_3,
-                    this->z_low_limbs_range_constraint_4,
-                    this->z_low_limbs_range_constraint_tail,
-                    this->z_high_limbs_range_constraint_0,
-                    this->z_high_limbs_range_constraint_1,
-                },
-                {
-                    this->z_high_limbs_range_constraint_2,
-                    this->z_high_limbs_range_constraint_3,
-                    this->z_high_limbs_range_constraint_4,
-                    this->z_high_limbs_range_constraint_tail,
-                    this->accumulator_low_limbs_range_constraint_0,
-                    this->accumulator_low_limbs_range_constraint_1,
-                    this->accumulator_low_limbs_range_constraint_2,
-                    this->accumulator_low_limbs_range_constraint_3,
-                    this->accumulator_low_limbs_range_constraint_4,
-                    this->accumulator_low_limbs_range_constraint_tail,
-                    this->accumulator_high_limbs_range_constraint_0,
-                    this->accumulator_high_limbs_range_constraint_1,
-                    this->accumulator_high_limbs_range_constraint_2,
-                    this->accumulator_high_limbs_range_constraint_3,
-                    this->accumulator_high_limbs_range_constraint_4,
-                    this->accumulator_high_limbs_range_constraint_tail,
-                },
-                {
-                    this->quotient_low_limbs_range_constraint_0,
-                    this->quotient_low_limbs_range_constraint_1,
-                    this->quotient_low_limbs_range_constraint_2,
-                    this->quotient_low_limbs_range_constraint_3,
-                    this->quotient_low_limbs_range_constraint_4,
-                    this->quotient_low_limbs_range_constraint_tail,
-                    this->quotient_high_limbs_range_constraint_0,
-                    this->quotient_high_limbs_range_constraint_1,
-                    this->quotient_high_limbs_range_constraint_2,
-                    this->quotient_high_limbs_range_constraint_3,
-                    this->quotient_high_limbs_range_constraint_4,
-                    this->quotient_high_limbs_range_constraint_tail,
-                    this->relation_wide_limbs_range_constraint_0,
-                    this->relation_wide_limbs_range_constraint_1,
-                    this->relation_wide_limbs_range_constraint_2,
-                    this->relation_wide_limbs_range_constraint_3,
-                },
-                {
-                    this->p_x_low_limbs,
-                    this->p_x_high_limbs,
-                    this->p_y_low_limbs,
-                    this->p_y_high_limbs,
-                    this->z_low_limbs,
-                    this->z_high_limbs,
-                    this->accumulators_binary_limbs_0,
-                    this->accumulators_binary_limbs_1,
-                    this->accumulators_binary_limbs_2,
-                    this->accumulators_binary_limbs_3,
-                    this->quotient_low_binary_limbs,
-                    this->quotient_high_binary_limbs,
-                    this->relation_wide_limbs,
-                    zero_value, // null padding slot 0
-                    zero_value, // null padding slot 1
-                    zero_value, // null padding slot 2
-                },
-            };
+            return partition_minicircuit_wires_into_groups<DataType>(
+                NonOpQueueWiresToBeShiftedEntities<DataType>::get_all(), zero_value);
         };
     };
 
@@ -726,108 +543,13 @@ class TranslatorFlavor {
 
         /**
          * @brief Get the shifted versions of minicircuit wires organized into 5 concatenation groups.
-         * @details Returns 5 groups of 16 shifted wires each, mirroring the structure of
-         * get_groups_to_be_concatenated(). Groups 0-3 are range constraint wires; group 4 is
-         * 13 non-range main wires (zero values used for null padding).
+         * @details Mirrors get_groups_to_be_concatenated() but with shifted wire entities.
          */
         std::vector<RefVector<DataType>> get_groups_to_be_concatenated_shifted()
         {
-            // For null padding slots, we use DataType(0) which works for FF evaluations.
-            // The verifier only operates on evaluations, not polynomials.
             static DataType zero_value = DataType(0);
-
-            return {
-                {
-                    this->p_x_low_limbs_range_constraint_0_shift,
-                    this->p_x_low_limbs_range_constraint_1_shift,
-                    this->p_x_low_limbs_range_constraint_2_shift,
-                    this->p_x_low_limbs_range_constraint_3_shift,
-                    this->p_x_low_limbs_range_constraint_4_shift,
-                    this->p_x_low_limbs_range_constraint_tail_shift,
-                    this->p_x_high_limbs_range_constraint_0_shift,
-                    this->p_x_high_limbs_range_constraint_1_shift,
-                    this->p_x_high_limbs_range_constraint_2_shift,
-                    this->p_x_high_limbs_range_constraint_3_shift,
-                    this->p_x_high_limbs_range_constraint_4_shift,
-                    this->p_x_high_limbs_range_constraint_tail_shift,
-                    this->p_y_low_limbs_range_constraint_0_shift,
-                    this->p_y_low_limbs_range_constraint_1_shift,
-                    this->p_y_low_limbs_range_constraint_2_shift,
-                    this->p_y_low_limbs_range_constraint_3_shift,
-                },
-                {
-                    this->p_y_low_limbs_range_constraint_4_shift,
-                    this->p_y_low_limbs_range_constraint_tail_shift,
-                    this->p_y_high_limbs_range_constraint_0_shift,
-                    this->p_y_high_limbs_range_constraint_1_shift,
-                    this->p_y_high_limbs_range_constraint_2_shift,
-                    this->p_y_high_limbs_range_constraint_3_shift,
-                    this->p_y_high_limbs_range_constraint_4_shift,
-                    this->p_y_high_limbs_range_constraint_tail_shift,
-                    this->z_low_limbs_range_constraint_0_shift,
-                    this->z_low_limbs_range_constraint_1_shift,
-                    this->z_low_limbs_range_constraint_2_shift,
-                    this->z_low_limbs_range_constraint_3_shift,
-                    this->z_low_limbs_range_constraint_4_shift,
-                    this->z_low_limbs_range_constraint_tail_shift,
-                    this->z_high_limbs_range_constraint_0_shift,
-                    this->z_high_limbs_range_constraint_1_shift,
-                },
-                {
-                    this->z_high_limbs_range_constraint_2_shift,
-                    this->z_high_limbs_range_constraint_3_shift,
-                    this->z_high_limbs_range_constraint_4_shift,
-                    this->z_high_limbs_range_constraint_tail_shift,
-                    this->accumulator_low_limbs_range_constraint_0_shift,
-                    this->accumulator_low_limbs_range_constraint_1_shift,
-                    this->accumulator_low_limbs_range_constraint_2_shift,
-                    this->accumulator_low_limbs_range_constraint_3_shift,
-                    this->accumulator_low_limbs_range_constraint_4_shift,
-                    this->accumulator_low_limbs_range_constraint_tail_shift,
-                    this->accumulator_high_limbs_range_constraint_0_shift,
-                    this->accumulator_high_limbs_range_constraint_1_shift,
-                    this->accumulator_high_limbs_range_constraint_2_shift,
-                    this->accumulator_high_limbs_range_constraint_3_shift,
-                    this->accumulator_high_limbs_range_constraint_4_shift,
-                    this->accumulator_high_limbs_range_constraint_tail_shift,
-                },
-                {
-                    this->quotient_low_limbs_range_constraint_0_shift,
-                    this->quotient_low_limbs_range_constraint_1_shift,
-                    this->quotient_low_limbs_range_constraint_2_shift,
-                    this->quotient_low_limbs_range_constraint_3_shift,
-                    this->quotient_low_limbs_range_constraint_4_shift,
-                    this->quotient_low_limbs_range_constraint_tail_shift,
-                    this->quotient_high_limbs_range_constraint_0_shift,
-                    this->quotient_high_limbs_range_constraint_1_shift,
-                    this->quotient_high_limbs_range_constraint_2_shift,
-                    this->quotient_high_limbs_range_constraint_3_shift,
-                    this->quotient_high_limbs_range_constraint_4_shift,
-                    this->quotient_high_limbs_range_constraint_tail_shift,
-                    this->relation_wide_limbs_range_constraint_0_shift,
-                    this->relation_wide_limbs_range_constraint_1_shift,
-                    this->relation_wide_limbs_range_constraint_2_shift,
-                    this->relation_wide_limbs_range_constraint_3_shift,
-                },
-                {
-                    this->p_x_low_limbs_shift,
-                    this->p_x_high_limbs_shift,
-                    this->p_y_low_limbs_shift,
-                    this->p_y_high_limbs_shift,
-                    this->z_low_limbs_shift,
-                    this->z_high_limbs_shift,
-                    this->accumulators_binary_limbs_0_shift,
-                    this->accumulators_binary_limbs_1_shift,
-                    this->accumulators_binary_limbs_2_shift,
-                    this->accumulators_binary_limbs_3_shift,
-                    this->quotient_low_binary_limbs_shift,
-                    this->quotient_high_binary_limbs_shift,
-                    this->relation_wide_limbs_shift,
-                    zero_value, // null padding slot 0
-                    zero_value, // null padding slot 1
-                    zero_value, // null padding slot 2
-                },
-            };
+            return partition_minicircuit_wires_into_groups<DataType>(NonOpQueueShiftedEntities<DataType>::get_all(),
+                                                                     zero_value);
         };
     };
 
@@ -954,12 +676,142 @@ class TranslatorFlavor {
         using Base::Base;
     };
 
-    // Static consistency checks for entity counts
-    static_assert(PrecomputedEntities<FF>::_members_size == NUM_PRECOMPUTED_ENTITIES);
-    static_assert(NUM_ALL_ENTITIES ==
-                  NUM_MASKING_POLYNOMIALS + NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES + NUM_SHIFTED_ENTITIES);
-    static_assert(NUM_COMPUTABLE_PRECOMPUTED == NUM_PRECOMPUTED_ENTITIES - 1,
-                  "All precomputed selectors except ordered_extra_range_constraints_numerator are computable");
+    // ========================================
+    // Derived entity counts (from entity class sizes)
+    // ========================================
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = PrecomputedEntities<FF>::_members_size;
+    static constexpr size_t NUM_WIRES_NON_SHIFTED = WireNonshiftedEntities<FF>::_members_size;
+    static constexpr size_t NUM_ORDERED_RANGE = OrderedRangeConstraints<FF>::_members_size;
+
+    // Witness = WireNonshifted + WireToBeShifted + OrderedRange + Derived + Concatenated
+    static constexpr size_t NUM_WITNESS_ENTITIES =
+        WireNonshiftedEntities<FF>::_members_size + OpQueueWiresToBeShiftedEntities<FF>::_members_size +
+        NonRangeMainWires<FF>::_members_size + RangeConstraintWires<FF>::_members_size +
+        OrderedRangeConstraints<FF>::_members_size + DerivedWitnessEntities<FF>::_members_size +
+        ConcatenatedPolynomials<FF>::_members_size;
+
+    // Shifted = OpQueueShifted + NonOpQueueShifted + DerivedShifted
+    static constexpr size_t NUM_SHIFTED_ENTITIES = OpQueueShiftedEntities<FF>::_members_size +
+                                                   NonOpQueueShiftedEntities<FF>::_members_size +
+                                                   DerivedShiftedEntities<FF>::_members_size;
+
+    static constexpr size_t NUM_ALL_ENTITIES =
+        NUM_MASKING_POLYNOMIALS + NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES + NUM_SHIFTED_ENTITIES;
+
+    // All precomputed selectors except ordered_extra_range_constraints_numerator are computable
+    static constexpr size_t NUM_COMPUTABLE_PRECOMPUTED = NUM_PRECOMPUTED_ENTITIES - 1;
+
+    // Minicircuit wires: NonRangeMain + RangeConstraint (the non-op-queue wires that get shifted)
+    static constexpr size_t NUM_MINICIRCUIT_WIRES =
+        NonRangeMainWires<FF>::_members_size + RangeConstraintWires<FF>::_members_size;
+    static_assert(NUM_MINICIRCUIT_WIRES == NonOpQueueShiftedEntities<FF>::_members_size,
+                  "Shifted minicircuit wires must match unshifted");
+    // 77 unshifted + 77 shifted minicircuit wire evaluations are sent mid-sumcheck
+    static constexpr size_t NUM_MINICIRCUIT_EVALUATIONS = 2 * NUM_MINICIRCUIT_WIRES;
+
+    // Number of evaluations sent in proof (all minus computable precomputed minus reconstructed concat evals)
+    static constexpr size_t NUM_SENT_EVALUATIONS =
+        NUM_ALL_ENTITIES - NUM_COMPUTABLE_PRECOMPUTED - NUM_CONCATENATED_POLYS;
+    static constexpr size_t NUM_FULL_CIRCUIT_EVALUATIONS = NUM_SENT_EVALUATIONS - NUM_MINICIRCUIT_EVALUATIONS;
+
+    // Total number of minicircuit wires across all concatenation groups
+    static constexpr size_t NUM_CONCATENATED_WIRES = NUM_CONCATENATED_POLYS * CONCATENATION_GROUP_SIZE;
+    static_assert(ConcatenatedPolynomials<FF>::_members_size == NUM_CONCATENATED_POLYS);
+    static_assert(RangeConstraintWires<FF>::_members_size == (NUM_CONCATENATED_POLYS - 1) * CONCATENATION_GROUP_SIZE,
+                  "Range constraint wires must fill exactly 4 concatenation groups");
+
+    // PCS batch sizes
+    static constexpr size_t NUM_UNSHIFTED_WITNESSES_WITHOUT_CONCATENATED = WireNonshiftedEntities<FF>::_members_size +
+                                                                           OrderedRangeConstraints<FF>::_members_size +
+                                                                           DerivedWitnessEntities<FF>::_members_size;
+    static constexpr size_t NUM_TO_BE_SHIFTED = OpQueueWiresToBeShiftedEntities<FF>::_members_size +
+                                                OrderedRangeConstraints<FF>::_members_size +
+                                                DerivedWitnessEntities<FF>::_members_size;
+    static constexpr size_t NUM_PCS_UNSHIFTED = NUM_MASKING_POLYNOMIALS +
+                                                (NUM_PRECOMPUTED_ENTITIES - NUM_COMPUTABLE_PRECOMPUTED) +
+                                                NUM_UNSHIFTED_WITNESSES_WITHOUT_CONCATENATED + NUM_CONCATENATED_POLYS;
+    static constexpr size_t NUM_PCS_TO_BE_SHIFTED = NUM_TO_BE_SHIFTED + NUM_CONCATENATED_POLYS;
+
+    // Indices for partitioning AllEntities
+    static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED;
+    static constexpr size_t SHIFTED_WITNESSES_START = NUM_SHIFTED_ENTITIES + TO_BE_SHIFTED_WITNESSES_START;
+
+    // Commitments sent in wire round: concatenated + ordered range constraints
+    static constexpr size_t NUM_COMMITMENTS_IN_PROOF = NUM_CONCATENATED_POLYS + NUM_ORDERED_RANGE;
+
+    // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls.
+    // Identifies commitments that appear in both the unshifted and shifted batches:
+    //   Unshifted batch: masking(1) + ordered_extra(1) + op(1) + ordered(5) + z_perm(1) + concat(5) = 14
+    //   Shifted batch:   op_queue(3) + ordered(5) + z_perm(1) + concat(5) = 14
+    // Range 1: ordered(5) + z_perm(1) — stored indices 2..7 (unshifted) ↔ 16..21 (shifted)
+    // Range 2: concatenated(5)        — stored indices 8..12 (unshifted) ↔ 22..26 (shifted)
+    // (Stored indices are 0-based after ZK offset; offset=2 accounts for Q_commitment + gemini_masking_poly)
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
+        RepeatedCommitmentsData(2,
+                                2 + NUM_PCS_TO_BE_SHIFTED,
+                                NUM_ORDERED_RANGE + 1,
+                                2 + NUM_ORDERED_RANGE + 1,
+                                2 + NUM_PCS_TO_BE_SHIFTED + NUM_ORDERED_RANGE + 1,
+                                NUM_CONCATENATED_POLYS);
+
+    static constexpr size_t PROOF_LENGTH =
+        /* 1. Gemini masking poly commitment */ (num_frs_comm) +
+        /* 2. Wire commitments: concatenated + ordered */
+        (NUM_COMMITMENTS_IN_PROOF * num_frs_comm) +
+        /* 3. Z_PERM commitment */ (num_frs_comm) +
+        /* 4. Libra concatenation commitment */ (num_frs_comm) +
+        /* 5. Libra sum */ (num_frs_fr) +
+        /* 6. CONST_TRANSLATOR_LOG_N sumcheck univariates */
+        (CONST_TRANSLATOR_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
+        /* 7. sumcheck evaluations (computable precomputed and concat evals excluded) */
+        (NUM_SENT_EVALUATIONS * num_frs_fr) +
+        /* 8. Libra claimed evaluation */ (num_frs_fr) +
+        /* 9. Libra grand sum commitment */ (num_frs_comm) +
+        /* 10. Libra quotient commitment */ (num_frs_comm) +
+        /* 11. CONST_TRANSLATOR_LOG_N - 1 Gemini Fold commitments */
+        ((CONST_TRANSLATOR_LOG_N - 1) * num_frs_comm) +
+        /* 12. CONST_TRANSLATOR_LOG_N Gemini a evaluations */
+        (CONST_TRANSLATOR_LOG_N * num_frs_fr) +
+        /* 13. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fr) +
+        /* 14. Shplonk Q commitment */ (num_frs_comm) +
+        /* 15. KZG W commitment */ (num_frs_comm);
+
+    /**
+     * @brief Partition minicircuit wire references into concatenation groups.
+     * @details Takes a flat list of minicircuit wire refs (NonRangeMain followed by RangeConstraint)
+     * and partitions them: groups 0..3 are sequential chunks of CONCATENATION_GROUP_SIZE range constraint wires,
+     * group 4 is the non-range main wires with zero-padding.
+     * Used by both get_groups_to_be_concatenated() and get_groups_to_be_concatenated_shifted().
+     */
+    template <typename DataType, typename WireRefs>
+    static std::vector<RefVector<DataType>> partition_minicircuit_wires_into_groups(WireRefs wire_refs,
+                                                                                    DataType& zero_value)
+    {
+        constexpr size_t num_non_range = NonRangeMainWires<DataType>::_members_size;
+        constexpr size_t num_range = RangeConstraintWires<DataType>::_members_size;
+        static_assert(num_range % CONCATENATION_GROUP_SIZE == 0);
+        constexpr size_t num_range_groups = num_range / CONCATENATION_GROUP_SIZE;
+
+        std::vector<RefVector<DataType>> groups;
+        // Groups 0..num_range_groups-1: sequential chunks of range constraint wires
+        for (size_t g = 0; g < num_range_groups; g++) {
+            RefVector<DataType> group;
+            for (size_t j = 0; j < CONCATENATION_GROUP_SIZE; j++) {
+                group.push_back(wire_refs[num_non_range + g * CONCATENATION_GROUP_SIZE + j]);
+            }
+            groups.push_back(std::move(group));
+        }
+        // Last group: non-range main wires + zero padding
+        RefVector<DataType> group;
+        for (size_t j = 0; j < num_non_range; j++) {
+            group.push_back(wire_refs[j]);
+        }
+        for (size_t j = num_non_range; j < CONCATENATION_GROUP_SIZE; j++) {
+            group.push_back(zero_value);
+        }
+        groups.push_back(std::move(group));
+        return groups;
+    }
 
     /**
      * @brief Compute the computable precomputed selector evaluations and write them into AllEntities.
