@@ -250,8 +250,7 @@ void MSM<Curve>::add_affine_points(typename Curve::AffineElement* points,
     // Pippenger-specific interleaved batch add with direct prefetch and no aliasing overhead.
     // The generic batch_affine_add_impl suffers from aliasing (lhs_base == rhs_base) causing
     // the compiler to reload lhs coordinates after writing output. This version avoids that.
-    bb::group_elements::batch_affine_add_interleaved_old_style<AffineElement, BaseField>(
-        points, num_points, scratch_space);
+    bb::group_elements::batch_affine_add_interleaved<AffineElement, BaseField>(points, num_points, scratch_space);
 }
 
 template <typename Curve>
