@@ -12,6 +12,7 @@ import {
   createAllTopicScoreParams,
   createTopicScoreParamsForTopic,
   getDecayWindowSlots,
+  getEffectiveBlockProposalsPerSlot,
   getExpectedMessagesPerSlot,
 } from './topic_score_params.js';
 
@@ -148,18 +149,47 @@ describe('Topic Score Params', () => {
     });
   });
 
+  describe('getEffectiveBlockProposalsPerSlot', () => {
+    it('returns undefined when override is 0 (disabled)', () => {
+      expect(getEffectiveBlockProposalsPerSlot(5, 0)).toBeUndefined();
+    });
+
+    it('returns override value when positive', () => {
+      expect(getEffectiveBlockProposalsPerSlot(5, 3)).toBe(3);
+      expect(getEffectiveBlockProposalsPerSlot(1, 7)).toBe(7);
+    });
+
+    it('falls back to blocksPerSlot - 1 when override is undefined', () => {
+      expect(getEffectiveBlockProposalsPerSlot(5, undefined)).toBe(4);
+      expect(getEffectiveBlockProposalsPerSlot(3, undefined)).toBe(2);
+    });
+
+    it('returns undefined when override is undefined and single block mode', () => {
+      expect(getEffectiveBlockProposalsPerSlot(1, undefined)).toBeUndefined();
+    });
+  });
+
   describe('getExpectedMessagesPerSlot', () => {
     it('returns undefined for tx topic (unpredictable)', () => {
       expect(getExpectedMessagesPerSlot(TopicType.tx, 48, 5)).toBeUndefined();
     });
 
-    it('returns N-1 for block_proposal in MBPS mode', () => {
+    it('returns N-1 for block_proposal when override is undefined (fallback)', () => {
       expect(getExpectedMessagesPerSlot(TopicType.block_proposal, 48, 5)).toBe(4);
       expect(getExpectedMessagesPerSlot(TopicType.block_proposal, 48, 3)).toBe(2);
     });
 
-    it('returns 0 for block_proposal in single block mode', () => {
-      expect(getExpectedMessagesPerSlot(TopicType.block_proposal, 48, 1)).toBe(0);
+    it('returns undefined for block_proposal in single block mode without override', () => {
+      expect(getExpectedMessagesPerSlot(TopicType.block_proposal, 48, 1)).toBeUndefined();
+    });
+
+    it('returns undefined for block_proposal when override is 0 (disabled)', () => {
+      expect(getExpectedMessagesPerSlot(TopicType.block_proposal, 48, 5, 0)).toBeUndefined();
+    });
+
+    it('returns override value for block_proposal when positive', () => {
+      expect(getExpectedMessagesPerSlot(TopicType.block_proposal, 48, 1, 3)).toBe(3);
+      expect(getExpectedMessagesPerSlot(TopicType.block_proposal, 48, 5, 7)).toBe(7);
     });
 
     it('returns 1 for checkpoint_proposal', () => {
@@ -207,10 +237,35 @@ describe('Topic Score Params', () => {
         expect(params.meshFailurePenaltyWeight).toBe(0);
       });
 
-      it('enables P3/P3b for block_proposal in MBPS mode', () => {
+      it('disables P3/P3b for block_proposal in MBPS mode when expectedBlockProposalsPerSlot is 0', () => {
+        const factory = new TopicScoreParamsFactory({
+          ...standardParams,
+          blockDurationMs: 10000,
+          expectedBlockProposalsPerSlot: 0,
+        });
+        const params = factory.createForTopic(TopicType.block_proposal);
+
+        expect(params.meshMessageDeliveriesWeight).toBe(0);
+        expect(params.meshFailurePenaltyWeight).toBe(0);
+      });
+
+      it('enables P3/P3b for block_proposal when expectedBlockProposalsPerSlot is positive', () => {
+        const factory = new TopicScoreParamsFactory({
+          ...standardParams,
+          blockDurationMs: 10000,
+          expectedBlockProposalsPerSlot: 3,
+        });
+        const params = factory.createForTopic(TopicType.block_proposal);
+
+        expect(params.meshMessageDeliveriesWeight).toBeLessThan(0);
+        expect(params.meshFailurePenaltyWeight).toBeLessThan(0);
+      });
+
+      it('falls back to blocksPerSlot - 1 for block_proposal when expectedBlockProposalsPerSlot is undefined', () => {
         const factory = new TopicScoreParamsFactory({ ...standardParams, blockDurationMs: 10000 });
         const params = factory.createForTopic(TopicType.block_proposal);
 
+        // MBPS mode with no override: falls back to blocksPerSlot - 1 > 0, so P3 is enabled
         expect(params.meshMessageDeliveriesWeight).toBeLessThan(0);
         expect(params.meshFailurePenaltyWeight).toBeLessThan(0);
       });
@@ -447,31 +502,40 @@ describe('Topic Score Params', () => {
       expect(Math.abs(maxP3)).toBeGreaterThan(maxP1 + maxP2);
     });
 
-    it('total P3b across all topics is approximately -102', () => {
-      const factory = new TopicScoreParamsFactory(standardParams);
+    it('total P3b is -102 when block proposal scoring is enabled (3 topics)', () => {
+      const factory = new TopicScoreParamsFactory({
+        ...standardParams,
+        blockDurationMs: 4000,
+        expectedBlockProposalsPerSlot: 3,
+      });
 
-      // Topics with P3 enabled: checkpoint_proposal, checkpoint_attestation, block_proposal (in MBPS)
-      const mbpsParams = { ...standardParams, blockDurationMs: 4000 };
-      const mbpsFactory = new TopicScoreParamsFactory(mbpsParams);
+      expect(factory.numP3EnabledTopics).toBe(3);
+      expect(factory.totalMaxP3bPenalty).toBeCloseTo(-102, 0);
 
       const checkpointParams = factory.createForTopic(TopicType.checkpoint_proposal);
       const attestationParams = factory.createForTopic(TopicType.checkpoint_attestation);
-      const blockParams = mbpsFactory.createForTopic(TopicType.block_proposal);
+      const blockParams = factory.createForTopic(TopicType.block_proposal);
 
-      // Calculate max P3 for each topic
       const p3Checkpoint =
         checkpointParams.meshMessageDeliveriesThreshold ** 2 * checkpointParams.meshMessageDeliveriesWeight;
       const p3Attestation =
         attestationParams.meshMessageDeliveriesThreshold ** 2 * attestationParams.meshMessageDeliveriesWeight;
       const p3Block = blockParams.meshMessageDeliveriesThreshold ** 2 * blockParams.meshMessageDeliveriesWeight;
 
-      // Each should be approximately -34
       expect(p3Checkpoint).toBeCloseTo(-34, 0);
       expect(p3Attestation).toBeCloseTo(-34, 0);
       expect(p3Block).toBeCloseTo(-34, 0);
-
-      // Total should be approximately -102
       expect(p3Checkpoint + p3Attestation + p3Block).toBeCloseTo(-102, 0);
+    });
+
+    it('total P3b is -68 when block proposal scoring is disabled (2 topics)', () => {
+      const factory = new TopicScoreParamsFactory({
+        ...standardParams,
+        expectedBlockProposalsPerSlot: 0,
+      });
+
+      expect(factory.numP3EnabledTopics).toBe(2);
+      expect(factory.totalMaxP3bPenalty).toBeCloseTo(-68, 0);
     });
 
     it('non-contributing peer has negative topic score and gets pruned', () => {
