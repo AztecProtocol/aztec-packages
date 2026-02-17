@@ -146,7 +146,7 @@ export class TxFileStore {
       }
 
       await retry(
-        () => this.fileStore.save(path, tx.toBuffer(), { compress: false }),
+        () => this.fileStore.save(path, tx.toBuffer(), { compress: true }),
         `Uploading tx ${txHash}`,
         makeBackoff([0.1, 0.5, 2]),
         this.log,

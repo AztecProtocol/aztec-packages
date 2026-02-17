@@ -1,3 +1,4 @@
+export * from './block_data.js';
 export * from './l2_block.js';
 export * from './l2_block_stream/index.js';
 export * from './in_block.js';

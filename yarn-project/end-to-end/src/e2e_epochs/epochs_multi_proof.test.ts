@@ -44,8 +44,8 @@ describe('e2e_epochs/epochs_multi_proof', () => {
     // Add a delay to prover nodes so not all txs land on the same place
     // We apply patches BEFORE starting the prover nodes to ensure all provers get the delay
     // This prevents the race condition where multiple provers submit to L1 at the same time
-    test.proverNodes.forEach((prover, index) => {
-      const proverManager = prover.getProver();
+    test.proverNodes.forEach((proverAztecNode, index) => {
+      const proverManager = proverAztecNode.getProverNode()!.getProver();
       const origCreateEpochProver = proverManager.createEpochProver.bind(proverManager);
       proverManager.createEpochProver = () => {
         const epochProver = origCreateEpochProver();
@@ -62,9 +62,9 @@ describe('e2e_epochs/epochs_multi_proof', () => {
     });
 
     // Now start all prover nodes after patches have been applied
-    await Promise.all(test.proverNodes.map(prover => prover.start()));
+    await Promise.all(test.proverNodes.map(node => node.getProverNode()!.start()));
 
-    const proverIds = test.proverNodes.map(prover => prover.getProverId());
+    const proverIds = test.proverNodes.map(node => node.getProverNode()!.getProverId());
     logger.info(`Prover nodes running with ids ${proverIds.map(id => id.toString()).join(', ')}`);
 
     // Wait until the start of epoch one and collect info on epoch zero

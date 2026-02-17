@@ -1158,6 +1158,144 @@ describe('TxPoolV2', () => {
         });
       });
     });
+
+    describe('soft-deleted tx resurrection', () => {
+      let mockValidator: MockProxy<TxValidator<TxMetaData>>;
+      let poolWithValidator: AztecKVTxPoolV2;
+      let validatorStore: Awaited<ReturnType<typeof openTmpStore>>;
+      let validatorArchiveStore: Awaited<ReturnType<typeof openTmpStore>>;
+
+      beforeEach(async () => {
+        mockValidator = mock<TxValidator<TxMetaData>>();
+        mockValidator.validateTx.mockResolvedValue({ result: 'valid' });
+
+        validatorStore = await openTmpStore('p2p-protect-soft-delete');
+        validatorArchiveStore = await openTmpStore('archive-protect-soft-delete');
+        poolWithValidator = new AztecKVTxPoolV2(validatorStore, validatorArchiveStore, {
+          l2BlockSource: mockL2BlockSource,
+          worldStateSynchronizer: mockWorldState,
+          createTxValidator: () => Promise.resolve(mockValidator),
+        });
+        await poolWithValidator.start();
+      });
+
+      afterEach(async () => {
+        await poolWithValidator.stop();
+        await validatorStore.delete();
+        await validatorArchiveStore.delete();
+      });
+
+      /** Helper: add tx, mine it, prune it, fail validation -> soft-deleted */
+      const softDeleteTx = async (tx: Tx) => {
+        await poolWithValidator.addPendingTxs([tx]);
+        await poolWithValidator.handleMinedBlock(makeBlock([tx], slot1Header));
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('mined');
+
+        // Make validator reject so tx is soft-deleted on prune
+        mockValidator.validateTx.mockResolvedValue({
+          result: 'invalid',
+          reason: ['timestamp expired'],
+        });
+        await poolWithValidator.handlePrunedBlocks(block0Id);
+
+        // Verify soft-deleted
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('deleted');
+        expect(await poolWithValidator.getTxByHash(tx.getTxHash())).toBeDefined();
+
+        // Restore validator for subsequent operations
+        mockValidator.validateTx.mockResolvedValue({ result: 'valid' });
+      };
+
+      it('resurrects a soft-deleted tx as protected instead of reporting it missing', async () => {
+        const tx = await mockTx(1);
+        await softDeleteTx(tx);
+
+        // protectTxs should find the soft-deleted tx and resurrect it
+        const missing = await poolWithValidator.protectTxs([tx.getTxHash()], slot2Header);
+
+        expect(missing).toHaveLength(0);
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('protected');
+      });
+
+      it('resurrected soft-deleted tx is retrievable and in indices', async () => {
+        const tx = await mockTx(1);
+        await softDeleteTx(tx);
+
+        await poolWithValidator.protectTxs([tx.getTxHash()], slot2Header);
+
+        // Should be retrievable
+        const retrieved = await poolWithValidator.getTxByHash(tx.getTxHash());
+        expect(retrieved).toBeDefined();
+        expect(retrieved!.getTxHash().toString()).toEqual(tx.getTxHash().toString());
+
+        // hasTxs should return true (in indices, not just soft-deleted)
+        const [hasTx] = await poolWithValidator.hasTxs([tx.getTxHash()]);
+        expect(hasTx).toBe(true);
+      });
+
+      it('resurrected tx is unprotected on the next slot', async () => {
+        const tx = await mockTx(1);
+        await softDeleteTx(tx);
+
+        await poolWithValidator.protectTxs([tx.getTxHash()], slot1Header);
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('protected');
+
+        // Advance to slot 2 — protection from slot 1 expires
+        await poolWithValidator.prepareForSlot(SlotNumber(2));
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('pending');
+      });
+
+      it('mix of existing, soft-deleted, and truly missing txs', async () => {
+        const txExisting = await mockTx(1);
+        const txSoftDeleted = await mockTx(2);
+        const txMissing = await mockTx(3);
+
+        // Add txExisting as a regular pending tx
+        await poolWithValidator.addPendingTxs([txExisting]);
+        expect(await poolWithValidator.getTxStatus(txExisting.getTxHash())).toBe('pending');
+
+        // Soft-delete txSoftDeleted
+        await softDeleteTx(txSoftDeleted);
+
+        // Protect all three
+        const missing = await poolWithValidator.protectTxs(
+          [txExisting.getTxHash(), txSoftDeleted.getTxHash(), txMissing.getTxHash()],
+          slot2Header,
+        );
+
+        // Only txMissing should be reported as missing
+        expect(toStrings(missing)).toEqual([hashOf(txMissing)]);
+
+        // txExisting: protected (was pending, now protected)
+        expect(await poolWithValidator.getTxStatus(txExisting.getTxHash())).toBe('protected');
+        // txSoftDeleted: protected (resurrected from soft-deleted)
+        expect(await poolWithValidator.getTxStatus(txSoftDeleted.getTxHash())).toBe('protected');
+        // txMissing: pre-recorded protection, not in pool yet
+        expect(await poolWithValidator.getTxStatus(txMissing.getTxHash())).toBeUndefined();
+      });
+
+      it('resurrected tx survives a second protectTxs call', async () => {
+        const tx = await mockTx(1);
+        await softDeleteTx(tx);
+
+        // Resurrect via protectTxs at slot 1
+        await poolWithValidator.protectTxs([tx.getTxHash()], slot1Header);
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('protected');
+
+        // Re-protect at slot 2 — should update slot, not report missing
+        const missing = await poolWithValidator.protectTxs([tx.getTxHash()], slot2Header);
+        expect(missing).toHaveLength(0);
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('protected');
+
+        // Should survive prepareForSlot(2)
+        await poolWithValidator.prepareForSlot(SlotNumber(2));
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('protected');
+
+        // Should unprotect at slot 3
+        await poolWithValidator.prepareForSlot(SlotNumber(3));
+        expect(await poolWithValidator.getTxStatus(tx.getTxHash())).toBe('pending');
+      });
+    });
   });
 
   describe('handleMinedBlock', () => {
@@ -3322,6 +3460,111 @@ describe('TxPoolV2', () => {
       await pool.prepareForSlot(SlotNumber(2));
 
       // Pool should maintain limit
+      expect(await pool.getPendingTxCount()).toBe(2);
+    });
+  });
+
+  describe('feeOnly priority comparison', () => {
+    it('default (gossip): same-fee tx can evict via hash tiebreaker at capacity', async () => {
+      await pool.updateConfig({ maxPendingTxCount: 2 });
+
+      const tx1 = await mockTxWithFee(1, 10);
+      const tx2 = await mockTxWithFee(2, 20);
+      await pool.addPendingTxs([tx1, tx2]);
+      expect(await pool.getPendingTxCount()).toBe(2);
+      clearCallbackTracking();
+
+      // Create a tx with the same fee as the lowest (tx1, fee=10).
+      // Without feeOnly, comparePriority uses hash tiebreaker and may evict.
+      const tx3 = await mockTxWithFee(3, 10);
+
+      // Determine tiebreaker direction
+      const tx3HashFr = Fr.fromHexString(tx3.getTxHash().toString());
+      const tx1HashFr = Fr.fromHexString(tx1.getTxHash().toString());
+      const tx3WinsTiebreaker = tx3HashFr.cmp(tx1HashFr) > 0;
+
+      // Default: no feeOnly flag (gossip path)
+      const result = await pool.addPendingTxs([tx3]);
+
+      if (tx3WinsTiebreaker) {
+        expect(toStrings(result.accepted)).toContain(hashOf(tx3));
+        expect(await pool.getPendingTxCount()).toBe(2);
+        expect(await pool.getTxStatus(tx1.getTxHash())).toBe('deleted');
+        expect(await pool.getTxStatus(tx3.getTxHash())).toBe('pending');
+      } else {
+        expect(toStrings(result.ignored)).toContain(hashOf(tx3));
+        expect(await pool.getPendingTxCount()).toBe(2);
+        expect(await pool.getTxStatus(tx1.getTxHash())).toBe('pending');
+      }
+    });
+
+    it('feeOnly (RPC): same-fee tx is ignored at capacity regardless of hash', async () => {
+      await pool.updateConfig({ maxPendingTxCount: 2 });
+
+      const tx1 = await mockTxWithFee(1, 10);
+      const tx2 = await mockTxWithFee(2, 20);
+      await pool.addPendingTxs([tx1, tx2]);
+      expect(await pool.getPendingTxCount()).toBe(2);
+      clearCallbackTracking();
+
+      // Same fee as the lowest — with feeOnly, no hash tiebreaker, always ignored
+      const tx3 = await mockTxWithFee(3, 10);
+      const result = await pool.addPendingTxs([tx3], { feeComparisonOnly: true });
+
+      expect(toStrings(result.ignored)).toContain(hashOf(tx3));
+      expect(result.accepted).toHaveLength(0);
+      expect(await pool.getPendingTxCount()).toBe(2);
+      expectNoCallbacks();
+    });
+
+    it('feeOnly (RPC): higher-fee tx still evicts at capacity', async () => {
+      await pool.updateConfig({ maxPendingTxCount: 2 });
+
+      const tx1 = await mockTxWithFee(1, 10);
+      const tx2 = await mockTxWithFee(2, 20);
+      await pool.addPendingTxs([tx1, tx2]);
+      expect(await pool.getPendingTxCount()).toBe(2);
+      clearCallbackTracking();
+
+      const tx3 = await mockTxWithFee(3, 15);
+      const result = await pool.addPendingTxs([tx3], { feeComparisonOnly: true });
+
+      expect(toStrings(result.accepted)).toContain(hashOf(tx3));
+      expect(await pool.getPendingTxCount()).toBe(2);
+      expect(await pool.getTxStatus(tx1.getTxHash())).toBe('deleted'); // fee=10 evicted
+      expect(await pool.getTxStatus(tx3.getTxHash())).toBe('pending');
+    });
+
+    it('feeOnly (RPC): lower-fee tx is ignored at capacity', async () => {
+      await pool.updateConfig({ maxPendingTxCount: 2 });
+
+      const tx1 = await mockTxWithFee(1, 10);
+      const tx2 = await mockTxWithFee(2, 20);
+      await pool.addPendingTxs([tx1, tx2]);
+      expect(await pool.getPendingTxCount()).toBe(2);
+      clearCallbackTracking();
+
+      const tx3 = await mockTxWithFee(3, 5);
+      const result = await pool.addPendingTxs([tx3], { feeComparisonOnly: true });
+
+      expect(toStrings(result.ignored)).toContain(hashOf(tx3));
+      expect(await pool.getPendingTxCount()).toBe(2);
+      expectNoCallbacks();
+    });
+
+    it('feeOnly has no effect when pool is not at capacity', async () => {
+      await pool.updateConfig({ maxPendingTxCount: 10 });
+
+      const tx1 = await mockTxWithFee(1, 10);
+
+      // Both modes accept when below capacity
+      const result1 = await pool.addPendingTxs([tx1], { feeComparisonOnly: true });
+      expect(result1.accepted).toHaveLength(1);
+
+      const tx2 = await mockTxWithFee(2, 10);
+      const result2 = await pool.addPendingTxs([tx2]);
+      expect(result2.accepted).toHaveLength(1);
+
       expect(await pool.getPendingTxCount()).toBe(2);
     });
   });

@@ -8,6 +8,7 @@ import { createBlobClient } from '@aztec/blob-client/client';
 import {
   BatchedBlob,
   BatchedBlobAccumulator,
+  Blob,
   getBlobsPerL1Block,
   getPrefixedEthBlobCommitments,
 } from '@aztec/blob-lib';
@@ -24,8 +25,7 @@ import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
 import { type DeployAztecL1ContractsArgs, deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { TxUtilsState } from '@aztec/ethereum/l1-tx-utils';
-import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { TxUtilsState, createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { EthCheatCodesWithState, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { range } from '@aztec/foundation/array';
@@ -249,13 +249,17 @@ describe('L1Publisher integration', () => {
     const worldStateConfig: WorldStateConfig = {
       worldStateBlockCheckIntervalMS: 10000,
       worldStateDbMapSizeKb: 10 * 1024 * 1024,
-      worldStateBlockHistory: 0,
+      worldStateCheckpointHistory: 0,
     };
     worldStateSynchronizer = new ServerWorldStateSynchronizer(builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
 
     const sequencerL1Client = createExtendedL1Client(config.l1RpcUrls, sequencerPK, foundry);
-    const l1TxUtils = createL1TxUtilsWithBlobsFromViemWallet(sequencerL1Client, { logger, dateProvider }, config);
+    const l1TxUtils = createL1TxUtils(
+      sequencerL1Client,
+      { logger, dateProvider, kzg: Blob.getViemKzgInstance() },
+      config,
+    );
     const rollupContract = new RollupContract(sequencerL1Client, l1ContractAddresses.rollupAddress.toString());
     const slashingProposerContract = await rollupContract.getSlashingProposer();
     governanceProposerContract = new GovernanceProposerContract(
@@ -268,12 +272,7 @@ describe('L1Publisher integration', () => {
 
     publisher = new SequencerPublisher(
       {
-        l1RpcUrls: config.l1RpcUrls,
-        l1DebugRpcUrls: [],
-        l1Contracts: l1ContractAddresses,
-        publisherPrivateKeys: [new SecretValue(sequencerPK)],
         l1ChainId: chainId,
-        viemPollingIntervalMS: 100,
         ethereumSlotDuration: config.ethereumSlotDuration,
       },
       {
@@ -350,6 +349,7 @@ describe('L1Publisher integration', () => {
       chainId: globalVariables.chainId,
       version: globalVariables.version,
       slotNumber: globalVariables.slotNumber,
+      timestamp: globalVariables.timestamp,
       coinbase: globalVariables.coinbase,
       feeRecipient: globalVariables.feeRecipient,
       gasFees: globalVariables.gasFees,
@@ -457,7 +457,7 @@ describe('L1Publisher integration', () => {
         blockSource.getL1ToL2Messages.mockResolvedValueOnce(currentL1ToL2Messages);
 
         const checkpointBlobFields = checkpoint.toBlobFields();
-        const blockBlobs = getBlobsPerL1Block(checkpointBlobFields);
+        const blockBlobs = await getBlobsPerL1Block(checkpointBlobFields);
 
         let prevBlobAccumulatorHash = (await rollup.getCurrentBlobCommitmentsHash()).toBuffer();
 

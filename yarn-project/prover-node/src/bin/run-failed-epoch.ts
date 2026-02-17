@@ -1,4 +1,5 @@
 /* eslint-disable no-console */
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
@@ -22,8 +23,10 @@ async function rerunFailedEpoch(provingJobUrl: string, baseLocalDir: string) {
   const dataDir = join(localDir, 'state');
 
   const env = getProverNodeConfigFromEnv();
+  const l1Config = getL1ContractsConfigEnvVars();
   const config = {
-    ...getProverNodeConfigFromEnv(),
+    ...env,
+    ...l1Config,
     dataDirectory: dataDir,
     dataStoreMapSizeKb: env.dataStoreMapSizeKb ?? 1024 * 1024,
     proverId: env.proverId ?? EthAddress.random(),
