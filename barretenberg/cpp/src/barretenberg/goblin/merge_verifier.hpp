@@ -97,20 +97,27 @@ template <size_t BatchSize, typename Curve> class MergeVerifier_ {
         const Proof& proof, const InputCommitments& input_commitments);
 
   private:
-    std::vector<std::string> labels_degree_check = { "LEFT_TABLE_DEGREE_CHECK_0",
-                                                     "LEFT_TABLE_DEGREE_CHECK_1",
-                                                     "LEFT_TABLE_DEGREE_CHECK_2",
-                                                     "LEFT_TABLE_DEGREE_CHECK_3" };
+    std::vector<std::string> labels_degree_check()
+    {
+        std::vector<std::string> labels;
+        labels.reserve(NUM_COLUMNS);
 
-    std::vector<std::string> labels_shplonk_batching_challenges = {
-        "SHPLONK_MERGE_BATCHING_CHALLENGE_0",  "SHPLONK_MERGE_BATCHING_CHALLENGE_1",
-        "SHPLONK_MERGE_BATCHING_CHALLENGE_2",  "SHPLONK_MERGE_BATCHING_CHALLENGE_3",
-        "SHPLONK_MERGE_BATCHING_CHALLENGE_4",  "SHPLONK_MERGE_BATCHING_CHALLENGE_5",
-        "SHPLONK_MERGE_BATCHING_CHALLENGE_6",  "SHPLONK_MERGE_BATCHING_CHALLENGE_7",
-        "SHPLONK_MERGE_BATCHING_CHALLENGE_8",  "SHPLONK_MERGE_BATCHING_CHALLENGE_9",
-        "SHPLONK_MERGE_BATCHING_CHALLENGE_10", "SHPLONK_MERGE_BATCHING_CHALLENGE_11",
-        "SHPLONK_MERGE_BATCHING_CHALLENGE_12"
-    };
+        for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
+            labels.emplace_back("LEFT_TABLE_DEGREE_CHECK_" + std::to_string(idx));
+        }
+        return labels;
+    }
+
+    std::vector<std::string> labels_shplonk_batching_challenges()
+    {
+        std::vector<std::string> labels;
+        labels.reserve(3 * NUM_COLUMNS + 1);
+
+        for (size_t idx = 0; idx < 3 * NUM_COLUMNS + 1; ++idx) {
+            labels.emplace_back("SHPLONK_MERGE_BATCHING_CHALLENGE_" + std::to_string(idx));
+        }
+        return labels;
+    }
 
     bool check_concatenation_identities(std::vector<FF>& evals, const FF& pow_kappa) const;
 
@@ -128,11 +135,10 @@ template <size_t BatchSize, typename Curve> class MergeVerifier_ {
 };
 
 // Type aliases for convenience
-template <size_t BatchSize = 1> using MergeVerifier = MergeVerifier_<BatchSize, curve::BN254>;
+template <size_t BatchSize> using MergeVerifier = MergeVerifier_<BatchSize, curve::BN254>;
 
 namespace stdlib::recursion::goblin {
-template <typename Builder, size_t BatchSize = 1>
-using MergeRecursiveVerifier = MergeVerifier_<BatchSize, bn254<Builder>>;
+template <size_t BatchSize, typename Builder> using MergeRecursiveVerifier = MergeVerifier_<BatchSize, bn254<Builder>>;
 } // namespace stdlib::recursion::goblin
 
 } // namespace bb

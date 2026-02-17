@@ -27,14 +27,14 @@ template <typename Curve> struct BuilderTypeHelper<Curve, std::enable_if_t<Curve
  * @details Templates on Curve type to handle both native (curve::BN254) and recursive (bn254<Builder>) contexts
  * @tparam Curve The curve type (native or stdlib)
  */
-template <typename Curve> class MergeTests : public testing::Test {
+template <typename Curve, size_t BATCH_SIZE = 1> class MergeTests : public testing::Test {
   public:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
-    using MergeVerifierType = MergeVerifier_<Curve>;
+    using MergeVerifierType = MergeVerifier_<BATCH_SIZE, Curve>;
     using Transcript = typename MergeVerifierType::Transcript;
     using PairingPoints = typename MergeVerifierType::PairingPoints;
     using TableCommitments = typename MergeVerifierType::TableCommitments;
@@ -43,6 +43,7 @@ template <typename Curve> class MergeTests : public testing::Test {
 
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
+    static constexpr size_t NUM_COLUMNS = MergeVerifierType::NUM_COLUMNS;
 
     // Builder type is only available in recursive context
     using BuilderType = typename BuilderTypeHelper<Curve>::type;
@@ -165,9 +166,9 @@ template <typename Curve> class MergeTests : public testing::Test {
         auto T_prev = op_queue->construct_previous_ultra_ops_table_columns();
 
         // Native commitments
-        std::array<curve::BN254::AffineElement, NUM_WIRES> native_t_commitments;
-        std::array<curve::BN254::AffineElement, NUM_WIRES> native_T_prev_commitments;
-        for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+        std::array<curve::BN254::AffineElement, NUM_COLUMNS> native_t_commitments;
+        std::array<curve::BN254::AffineElement, NUM_COLUMNS> native_T_prev_commitments;
+        for (size_t idx = 0; idx < NUM_COLUMNS; idx++) {
             native_t_commitments[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
             native_T_prev_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_prev[idx]);
         }
@@ -175,8 +176,8 @@ template <typename Curve> class MergeTests : public testing::Test {
         // Compute expected merged table commitments independently
         // After merge, the full table is T_merged = T_prev || t_current (PREPEND) or t_current || T_prev (APPEND)
         auto T_merged = op_queue->construct_ultra_ops_table_columns();
-        std::array<curve::BN254::AffineElement, NUM_WIRES> expected_merged_commitments;
-        for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+        std::array<curve::BN254::AffineElement, NUM_COLUMNS> expected_merged_commitments;
+        for (size_t idx = 0; idx < NUM_COLUMNS; idx++) {
             expected_merged_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_merged[idx]);
         }
 
@@ -185,7 +186,7 @@ template <typename Curve> class MergeTests : public testing::Test {
 
         // Create commitments and proof in the appropriate context
         InputCommitments input_commitments;
-        for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+        for (size_t idx = 0; idx < NUM_COLUMNS; idx++) {
             input_commitments.t_commitments[idx] = create_commitment(builder, native_t_commitments[idx]);
             input_commitments.T_prev_commitments[idx] = create_commitment(builder, native_T_prev_commitments[idx]);
         }
@@ -203,7 +204,7 @@ template <typename Curve> class MergeTests : public testing::Test {
 
         // If verification is expected to succeed, also check that the merged table commitments match
         if (expected) {
-            for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+            for (size_t idx = 0; idx < NUM_COLUMNS; idx++) {
                 EXPECT_EQ(to_native(result.merged_commitments[idx]), expected_merged_commitments[idx])
                     << "Merged table commitment mismatch at index " << idx;
             }
@@ -430,7 +431,7 @@ TYPED_TEST(MergeTests, DifferentTranscriptOriginTagFailure)
     using Transcript = typename TestFixture::Transcript;
     using InnerFlavor = MegaFlavor;
     using InnerBuilder = typename InnerFlavor::CircuitBuilder;
-    constexpr size_t NUM_WIRES = TestFixture::NUM_WIRES;
+    constexpr size_t NUM_COLUMNS = TestFixture::NUM_COLUMNS;
 
     // Create single builder for both verifiers (realistic - both in same circuit)
     BuilderType builder;
@@ -453,9 +454,9 @@ TYPED_TEST(MergeTests, DifferentTranscriptOriginTagFailure)
     // Get native commitments for proof 1 (will be used with verifier 1's transcript)
     auto t_1 = op_queue_1->construct_current_ultra_ops_subtable_columns();
     auto T_prev_1 = op_queue_1->construct_previous_ultra_ops_table_columns();
-    std::array<curve::BN254::AffineElement, NUM_WIRES> native_t_commitments_1;
-    std::array<curve::BN254::AffineElement, NUM_WIRES> native_T_prev_commitments_1;
-    for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+    std::array<curve::BN254::AffineElement, NUM_COLUMNS> native_t_commitments_1;
+    std::array<curve::BN254::AffineElement, NUM_COLUMNS> native_T_prev_commitments_1;
+    for (size_t idx = 0; idx < NUM_COLUMNS; idx++) {
         native_t_commitments_1[idx] = prover_1.pcs_commitment_key.commit(t_1[idx]);
         native_T_prev_commitments_1[idx] = prover_1.pcs_commitment_key.commit(T_prev_1[idx]);
     }
@@ -469,7 +470,7 @@ TYPED_TEST(MergeTests, DifferentTranscriptOriginTagFailure)
     // Create commitments for verifier 1 - these will be "owned" by transcript_1
     // When we read from the proof using transcript_1, those values get tagged with transcript_1's parent_tag
     typename MergeVerifierType::InputCommitments input_commitments_1;
-    for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+    for (size_t idx = 0; idx < NUM_COLUMNS; idx++) {
         input_commitments_1.t_commitments[idx] = TestFixture::create_commitment(builder, native_t_commitments_1[idx]);
         input_commitments_1.T_prev_commitments[idx] =
             TestFixture::create_commitment(builder, native_T_prev_commitments_1[idx]);
@@ -496,7 +497,7 @@ TYPED_TEST(MergeTests, DifferentTranscriptOriginTagFailure)
     // In a real scenario, the verifier would receive_from_prover which tags values with the transcript's parent_tag
     // For this test, we'll manually tag the commitments as if they came from transcript_1
     OriginTag transcript_1_tag(tag_1.transcript_index, 0, /*is_submitted=*/true);
-    for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+    for (size_t idx = 0; idx < NUM_COLUMNS; idx++) {
         // Tag these commitments as if they were read from transcript_1
         if constexpr (TestFixture::IsRecursive) {
             input_commitments_1.t_commitments[idx].set_origin_tag(transcript_1_tag);
@@ -521,9 +522,13 @@ TYPED_TEST(MergeTests, DifferentTranscriptOriginTagFailure)
  * @brief Test class for merge protocol transcript pinning tests
  * @details Tests only native merge protocol (not recursive) to ensure transcript stability
  */
-class MergeTranscriptTests : public ::testing::Test {
+template <typename BatchSizeTag> class MergeTranscriptTests : public ::testing::Test {
   public:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+
+    static constexpr size_t BATCH_SIZE = BatchSizeTag::value;
+    static constexpr size_t NUM_WIRES = 4;
+    static constexpr size_t NUM_COLUMNS = NUM_WIRES / BATCH_SIZE;
 
     /**
      * @brief Construct the expected manifest for a Merge protocol proof
@@ -534,7 +539,6 @@ class MergeTranscriptTests : public ::testing::Test {
     static TranscriptManifest construct_merge_manifest()
     {
         TranscriptManifest manifest_expected;
-        constexpr size_t NUM_WIRES = 4;
 
         // Size calculations
         size_t frs_per_Fr = 1;                                                      // Native field element
@@ -545,7 +549,7 @@ class MergeTranscriptTests : public ::testing::Test {
 
         // Round 0: Prover sends shift_size and merged table commitments, gets degree check challenges
         manifest_expected.add_entry(round, "shift_size", frs_per_uint32);
-        for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
             manifest_expected.add_entry(round, "MERGED_TABLE_" + std::to_string(idx), frs_per_G);
         }
         manifest_expected.add_challenge(round, "LEFT_TABLE_DEGREE_CHECK_0");
@@ -564,13 +568,13 @@ class MergeTranscriptTests : public ::testing::Test {
         // Round 2: Shplonk opening challenge, then send all evaluations and quotient
         round++;
         manifest_expected.add_challenge(round, "shplonk_opening_challenge");
-        for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
             manifest_expected.add_entry(round, "LEFT_TABLE_EVAL_" + std::to_string(idx), frs_per_Fr);
         }
-        for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
             manifest_expected.add_entry(round, "RIGHT_TABLE_EVAL_" + std::to_string(idx), frs_per_Fr);
         }
-        for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
             manifest_expected.add_entry(round, "MERGED_TABLE_EVAL_" + std::to_string(idx), frs_per_Fr);
         }
         manifest_expected.add_entry(round, "REVERSED_BATCHED_LEFT_TABLES_EVAL", frs_per_Fr);
@@ -585,10 +589,13 @@ class MergeTranscriptTests : public ::testing::Test {
     }
 };
 
+using BatchSizes = ::testing::Types<std::integral_constant<size_t, 1>>;
+TYPED_TEST_SUITE(MergeTranscriptTests, BatchSizes);
+
 /**
  * @brief Ensure consistency between the hardcoded manifest and the one generated by the merge prover
  */
-TEST_F(MergeTranscriptTests, ProverManifestConsistency)
+TYPED_TEST(MergeTranscriptTests, ProverManifestConsistency)
 {
     using InnerFlavor = MegaFlavor;
     using InnerBuilder = typename InnerFlavor::CircuitBuilder;
@@ -605,7 +612,7 @@ TEST_F(MergeTranscriptTests, ProverManifestConsistency)
     auto merge_proof = merge_prover.construct_proof();
 
     // Check prover manifest matches expected manifest
-    auto manifest_expected = construct_merge_manifest();
+    auto manifest_expected = TestFixture::construct_merge_manifest();
     auto prover_manifest = transcript->get_manifest();
 
     ASSERT_GT(manifest_expected.size(), 0);
@@ -620,7 +627,7 @@ TEST_F(MergeTranscriptTests, ProverManifestConsistency)
 /**
  * @brief Ensure consistency between prover and verifier manifests
  */
-TEST_F(MergeTranscriptTests, VerifierManifestConsistency)
+TYPED_TEST(MergeTranscriptTests, VerifierManifestConsistency)
 {
     using InnerFlavor = MegaFlavor;
     using InnerBuilder = typename InnerFlavor::CircuitBuilder;
@@ -637,10 +644,10 @@ TEST_F(MergeTranscriptTests, VerifierManifestConsistency)
     auto merge_proof = merge_prover.construct_proof();
 
     // Construct commitments for verifier
-    MergeVerifier::InputCommitments merge_commitments;
+    MergeVerifier<1>::InputCommitments merge_commitments;
     auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
     auto T_prev = op_queue->construct_previous_ultra_ops_table_columns();
-    for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
+    for (size_t idx = 0; idx < TestFixture::NUM_COLUMNS; idx++) {
         merge_commitments.t_commitments[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
         merge_commitments.T_prev_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_prev[idx]);
     }
@@ -648,7 +655,7 @@ TEST_F(MergeTranscriptTests, VerifierManifestConsistency)
     // Verify proof with verifier manifest enabled
     auto verifier_transcript = std::make_shared<NativeTranscript>();
     verifier_transcript->enable_manifest();
-    MergeVerifier merge_verifier{ MergeSettings::PREPEND, verifier_transcript };
+    MergeVerifier<TestFixture::BATCH_SIZE> merge_verifier{ MergeSettings::PREPEND, verifier_transcript };
     auto result = merge_verifier.reduce_to_pairing_check(merge_proof, merge_commitments);
 
     // Verification should succeed

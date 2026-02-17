@@ -20,9 +20,9 @@ class GoblinRecursiveVerifierTests : public testing::Test {
     using OuterVerifier = UltraRollupVerifier;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
-    using Commitment = MergeVerifier::Commitment;
+    using Commitment = MergeVerifier<1>::Commitment;
     using RecursiveCommitment = bb::GoblinRecursiveVerifier::MergeVerifier::Commitment;
-    using MergeCommitments = MergeVerifier::InputCommitments;
+    using MergeCommitments = MergeVerifier<1>::InputCommitments;
     using RecursiveMergeCommitments = bb::GoblinRecursiveVerifier::MergeVerifier::InputCommitments;
     using Transcript = UltraStdlibTranscript;
     using FF = TranslatorFlavor::FF;

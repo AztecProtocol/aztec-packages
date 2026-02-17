@@ -40,11 +40,11 @@ class Goblin {
     using MergeProof = MergeProver::MergeProof;
     using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = TranslatorFlavor::VerificationKey;
-    using MergeRecursiveVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier<MegaBuilder>;
+    using MergeRecursiveVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier<1, MegaBuilder>;
     using PairingPoints = MergeRecursiveVerifier::PairingPoints;
-    using TableCommitments = MergeVerifier::TableCommitments;
+    using TableCommitments = MergeVerifier<1>::TableCommitments;
     using RecursiveTableCommitments = MergeRecursiveVerifier::TableCommitments;
-    using MergeCommitments = MergeVerifier::InputCommitments;
+    using MergeCommitments = MergeVerifier<1>::InputCommitments;
     using RecursiveMergeCommitments = MergeRecursiveVerifier::InputCommitments;
     using RecursiveCommitment = MergeRecursiveVerifier::Commitment;
     using RecursiveTranscript = MegaStdlibTranscript;

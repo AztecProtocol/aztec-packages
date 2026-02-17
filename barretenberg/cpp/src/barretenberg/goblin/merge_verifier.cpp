@@ -150,7 +150,7 @@ typename MergeVerifier_<BatchSize, Curve>::ReductionResult MergeVerifier_<BatchS
     }
 
     // Generate degree check batching challenges
-    std::vector<FF> degree_check_challenges = transcript->template get_challenges<FF>(labels_degree_check);
+    std::vector<FF> degree_check_challenges = transcript->template get_challenges<FF>(labels_degree_check());
 
     // Receive commitment to reversed batched left table
     table_commitments.emplace_back(
@@ -158,7 +158,7 @@ typename MergeVerifier_<BatchSize, Curve>::ReductionResult MergeVerifier_<BatchS
 
     // Compute batching challenges
     std::vector<FF> shplonk_batching_challenges =
-        transcript->template get_challenges<FF>(labels_shplonk_batching_challenges);
+        transcript->template get_challenges<FF>(labels_shplonk_batching_challenges());
 
     // Evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
