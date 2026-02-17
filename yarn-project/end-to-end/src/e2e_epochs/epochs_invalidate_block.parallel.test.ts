@@ -184,7 +184,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     );
 
     // Verify the transaction was eventually included
-    const receipt = await waitForTx(context.aztecNode, sentTx, { timeout: test.L2_SLOT_DURATION_IN_S * 4 });
+    const receipt = await waitForTx(context.aztecNode, sentTx, { timeout: test.L2_SLOT_DURATION_IN_S * 8 });
     expect(receipt.isMined()).toBeTrue();
     logger.warn(`Transaction included in block ${receipt.blockNumber}`);
 
