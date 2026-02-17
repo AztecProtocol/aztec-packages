@@ -1065,44 +1065,53 @@ pub global AVM_ADDRESSING_RELATIVE_L2_GAS: u32 = 3; // One range check
 // -----------
 // The following values were calculated by running tests to benchmark AVM simulation and proving time
 // (avm_opcode_spam.test.ts) and determining the average gas per second. Then, we ran the tx validation benchmark
-// (tx_validation.test.ts) and multiplied the validation time by the average gas per second to estimate gas costs.
+// (tx_validator_bench.test.ts) and multiplied the validation time by the average gas per second to estimate gas costs.
 pub global MANA_PER_MS: u32 = 9083;
-// The conversion rate from L1 gas to L2 gas is set to 1000.
-pub global L1_TO_L2_GAS_CONVERSION_RATE: u32 = 1000;
+// The conversion rate from L1 gas to L2 gas is set to 0: The L1-to-L2 gas conversion rate is deterministic and entirely
+// oracle-derived. The minimum fee per unit of L2 gas ("mana") is enforced on L1 as an exact equality with the value
+// computed from current (but slightly lagged) L1 gas prices and the ETH/FeeJuice exchange rate. The rollup contract
+// does not allow any arbitrary conversion or markup here - no sequencer discretion is permitted, and the user only pays
+// as per the deterministic formula. Therefore, this conversion rate is a placeholder here and set to 0, factoring out
+// of internal protocol logic.
+pub global L1_TO_L2_GAS_CONVERSION_RATE: u32 = 0;
 // Some values are measured per checkpoint or per epoch and are distributed across all txs, assuming 1 TPS, which
 // results in 72 txs per checkpoint and 72 * 32 txs per epoch.
 // TODO: We need a test suite to formalize and validate these measurements.
 //
 // The fixed L2 gas consists of:
 // - Tx validation (common checks for both private-only and public txs): 9.86ms
-// - Updating world state (note hash, nullifier, archive trees): 308ms
+// - Updating world state (note hash, nullifier, archive trees): 13ms
 // - Simulating and proving the tx-base-private rollup: 29752ms
 // - Simulating and proving the other rollup circuits (assuming 1tps):
-//   - parity-base: 22084ms * 4
+//   - parity-base: 22084ms * 4 (*4 for NUM_BASE_PARITY_PER_ROOT_PARITY)
 //   - parity-root: 22825ms
-//   - tx-merge: 11892ms * 70
+//   - tx-merge: 11892ms * 70 (*70 because 72 txs will form an unbalanced tree of 64 + 8 subtrees, with 63 and 7 tx-merges. The 2 top tx-merges become the children of the block root.)
 //   - first-block-root: 17914ms
 //   - checkpoint-root-single-block: 54345ms
-//   - checkpoint-merge: 11884ms * 30
+//   - checkpoint-merge: 11884ms * 30 (*30 because there are 32 checkpoints per epoch. The 2 top checkpoint merges become the children of the rollup root.)
 //   - rollup-root: 94814ms
 // - Cost on L1 (assuming 1tps):
 //   - Propose a checkpoint: 325171 L1 gas -> 4517 per tx
 //   - Prove an epoch: 885319 L1 gas -> 384 per tx
-pub global FIXED_L2_GAS: u32 = 44374 * MANA_PER_MS + (4517 + 384) * L1_TO_L2_GAS_CONVERSION_RATE;
+// Total time 44080ms = 9.86 + 13 + 29752 + (22084 * 4 + 22825 + 11892 * 70 + 17914 + 54345) / 72 + (11884 * 30 + 94814) / (32 * 72)
+pub global FIXED_L2_GAS: u32 = 44080 * MANA_PER_MS + (4517 + 384) * L1_TO_L2_GAS_CONVERSION_RATE;
 // The extra cost for a tx with public calls, including:
 // - Tx validation (specific checks for public tx): 10.26ms
-// - Updating world state (public data tree): 419ms
+// - Updating world state (public data tree): 3ms
 // - Simulating and proving of the public chonk verifier and public tx base (minus the time for private tx base):
 //   - chonk-verifier-public: 19486ms
 //   - tx-base-public: 59939ms
-pub global FIXED_L2_GAS_FOR_TX_WITH_PUBLIC_CALLS: u32 = 79854 * MANA_PER_MS;
+// Total time 79438ms = 10.26 + 3 + 19486 + 59939
+pub global FIXED_L2_GAS_FOR_TX_WITH_PUBLIC_CALLS: u32 = 79438 * MANA_PER_MS;
 //
 // === L2 gas for side effects from private-only txs ===
-// The Gas for batch insert note hashes is included in the fixed L2 gas.
+// The Gas for batch insert note hashes is included in the fixed L2 gas. The rollup always inserts a fixed-size subtree
+// of note hashes for each tx, even if there are no note hashes emitted from the tx.
 pub global L2_GAS_PER_NOTE_HASH: u32 = 0;
-// The Gas for batch insert nullifiers is included in the fixed L2 gas.
-// The time for validating duplicate nullifiers is negligible.
-pub global L2_GAS_PER_NULLIFIER: u32 = 0;
+// The Gas for batch insert nullifiers is included in the fixed L2 gas. The rollup always inserts a fixed-size subtree
+// of nullifiers for each tx, even if there are no nullifiers emitted from the tx.
+// The time to validate that there are no duplicate nullifiers is 0.25 ms.
+pub global L2_GAS_PER_NULLIFIER: u32 = 2270; // 0.25 * MANA_PER_MS
 // Gas for writing message on L1: 24011 L1 gas for inserting epoch out hash root to the outbox.
 // Assuming 1 l2-to-l1 message per checkpoint.
 pub global L2_GAS_PER_L2_TO_L1_MSG: u32 = 750 * L1_TO_L2_GAS_CONVERSION_RATE;
