@@ -222,8 +222,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             }
         }
 
-        (void)instant_death_tag; // Used only in debug builds below
-
 #ifndef NDEBUG
         // Instant death tag causes exception on use
         affine_element input_death(element::random_element());

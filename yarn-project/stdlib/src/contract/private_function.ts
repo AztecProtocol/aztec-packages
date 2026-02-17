@@ -1,4 +1,4 @@
-import { FUNCTION_TREE_HEIGHT, GeneratorIndex } from '@aztec/constants';
+import { DomainSeparator, FUNCTION_TREE_HEIGHT } from '@aztec/constants';
 import { poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type MerkleTree, MerkleTreeCalculator } from '@aztec/foundation/trees';
@@ -31,7 +31,7 @@ function computePrivateFunctionLeaves(fns: PrivateFunction[]): Promise<Buffer[]>
 
 /** Returns the leaf for a given private function. */
 export async function computePrivateFunctionLeaf(fn: PrivateFunction): Promise<Buffer> {
-  return (await poseidon2HashWithSeparator([fn.selector, fn.vkHash], GeneratorIndex.PRIVATE_FUNCTION_LEAF)).toBuffer();
+  return (await poseidon2HashWithSeparator([fn.selector, fn.vkHash], DomainSeparator.PRIVATE_FUNCTION_LEAF)).toBuffer();
 }
 
 async function getPrivateFunctionTreeCalculator(): Promise<MerkleTreeCalculator> {

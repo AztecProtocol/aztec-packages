@@ -49,13 +49,6 @@ fn assert_correctly_siloed_note_hash(
         (siloed, unique)
     };
 
-    // We've already spent constraints checking `prev.counter() < min_revertible_side_effect_counter` in
-    // transient_data.nr (there, it was: `note_hash.counter() >= split_counter`).
-    // I wonder how many extra constraints this is costing?
-    // If it's significant, we could pass a hint for each note hash, to say whether it's revertible or non-revertible,
-    // and just check that hint once, somewhere. In fact, that hint could be checked in the inner kernel
-    // circuit, and propagated as a public input (via the data bus). That would save 3 inequality checks in this
-    // reset circuit. Hmm.. but it would cost inequalities for every note & nullifier in a private call in the inner circuit... I wonder which is best...
     let computed_note_hash = if prev.is_non_revertible(is_private_only, claimed_revertible_counter) {
         unique_siloed_note_hash
     } else {
@@ -266,9 +259,9 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         // key_validation_requests
         KeyValidationRequestsValidator {
             key_validation_requests: validation_requests
-                .scoped_key_validation_requests_and_generators,
+                .scoped_key_validation_requests_and_separators,
             propagated_key_validation_requests: output
-                .scoped_key_validation_requests_and_generators,
+                .scoped_key_validation_requests_and_separators,
             hints: self.reset_hints.key_validation_hints,
         }
             .validate::<KeyValidationAmount>();

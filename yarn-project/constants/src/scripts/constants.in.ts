@@ -343,9 +343,9 @@ interface ParsedContent {
    */
   constants: { [key: string]: string };
   /**
-   * GeneratorIndexEnum.
+   * DomainSeparatorEnum.
    */
-  generatorIndexEnum: { [key: string]: number };
+  domainSeparatorEnum: { [key: string]: number };
 }
 
 /**
@@ -459,11 +459,11 @@ function processConstantsSolidity(constants: { [key: string]: string }, prefix =
 /**
  * Generate the constants file in Typescript.
  */
-function generateTypescriptConstants({ constants, generatorIndexEnum }: ParsedContent, targetPath: string) {
+function generateTypescriptConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
   const result = [
     '// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants',
     processConstantsTS(constants),
-    processEnumTS('GeneratorIndex', generatorIndexEnum),
+    processEnumTS('DomainSeparator', domainSeparatorEnum),
   ].join('\n');
 
   fs.writeFileSync(targetPath, result);
@@ -472,11 +472,11 @@ function generateTypescriptConstants({ constants, generatorIndexEnum }: ParsedCo
 /**
  * Generate the constants file in C++.
  */
-function generateCppConstants({ constants, generatorIndexEnum }: ParsedContent, targetPath: string) {
+function generateCppConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
   const resultCpp: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 #pragma once
 
-${processConstantsCpp(constants, generatorIndexEnum)}
+${processConstantsCpp(constants, domainSeparatorEnum)}
 `;
 
   fs.writeFileSync(targetPath, resultCpp);
@@ -485,10 +485,10 @@ ${processConstantsCpp(constants, generatorIndexEnum)}
 /**
  * Generate the constants file in PIL.
  */
-function generatePilConstants({ constants, generatorIndexEnum }: ParsedContent, targetPath: string) {
+function generatePilConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
   const resultPil: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 namespace constants;
-${processConstantsPil(constants, generatorIndexEnum)}
+${processConstantsPil(constants, domainSeparatorEnum)}
 \n`;
 
   fs.writeFileSync(targetPath, resultPil);
@@ -524,7 +524,7 @@ ${processConstantsSolidity(constants)}
  */
 function parseNoirFile(fileContent: string): ParsedContent {
   const constantsExpressions: [string, string][] = [];
-  const generatorIndexEnum: { [key: string]: number } = {};
+  const domainSeparatorEnum: { [key: string]: number } = {};
 
   const emptyExpression = (): { name: string; content: string[] } => ({ name: '', content: [] });
   let expression = emptyExpression();
@@ -547,7 +547,7 @@ function parseNoirFile(fileContent: string): ParsedContent {
         const [, indexName] = name.match(/DOM_SEP__(\w+)/) || [];
         if (indexName) {
           // Generator index.
-          generatorIndexEnum[indexName] = +value;
+          domainSeparatorEnum[indexName] = +value;
         } else if (end) {
           // A single line of expression.
           constantsExpressions.push([name, value]);
@@ -583,7 +583,7 @@ function parseNoirFile(fileContent: string): ParsedContent {
 
   const constants = evaluateExpressions(constantsExpressions);
 
-  return { constants, generatorIndexEnum };
+  return { constants, domainSeparatorEnum };
 }
 
 /**
