@@ -1,33 +1,35 @@
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
-import { createLogger } from '@aztec/foundation/log';
-import { createStore as createWalletStore, openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import type { PXEConfig } from '@aztec/pxe/config';
-import { getPXEConfig } from '@aztec/pxe/config';
-import { type PXECreationOptions, createPXE } from '@aztec/pxe/server';
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createStore, openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
+import { type PXE, type PXECreationOptions, createPXE } from '@aztec/pxe/server';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import { BundleAccountContractsProvider } from '../account-contract-providers/bundle.js';
+import type { AccountContractsProvider } from '../account-contract-providers/types.js';
 import { EmbeddedWallet, type EmbeddedWalletOptions } from '../embedded_wallet.js';
 import { WalletDB } from '../wallet_db.js';
 
-export type NodeEmbeddedWalletOptions = EmbeddedWalletOptions & {
-  /** Override PXE configuration. */
-  pxeConfig?: Partial<PXEConfig>;
-  /** Advanced PXE creation options (custom store, prover, simulator). */
-  pxeOptions?: PXECreationOptions;
-};
-
 export class NodeEmbeddedWallet extends EmbeddedWallet {
-  static async create(
+  static async create<T extends NodeEmbeddedWallet = NodeEmbeddedWallet>(
+    this: new (
+      pxe: PXE,
+      aztecNode: AztecNode,
+      walletDB: WalletDB,
+      accountContracts: AccountContractsProvider,
+      log?: Logger,
+    ) => T,
     nodeOrUrl: string | AztecNode,
-    options: NodeEmbeddedWalletOptions = {},
-  ): Promise<NodeEmbeddedWallet> {
+    options: EmbeddedWalletOptions = {},
+  ): Promise<T> {
     const rootLogger = options.logger ?? createLogger('embedded-wallet');
 
     const aztecNode = typeof nodeOrUrl === 'string' ? createAztecNodeClient(nodeOrUrl) : nodeOrUrl;
+    const l1Contracts = await aztecNode.getL1ContractAddresses();
 
-    const pxeConfig = Object.assign(getPXEConfig(), {
+    const pxeConfig: PXEConfig = Object.assign(getPXEConfig(), {
       proverEnabled: options.pxeConfig?.proverEnabled ?? false,
+      dataDirectory: `pxe_data_${l1Contracts.rollupAddress}`,
       ...options.pxeConfig,
     });
 
@@ -47,30 +49,27 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
 
     const pxe = await createPXE(aztecNode, pxeConfig, pxeOptions);
 
-    const l1Contracts = await aztecNode.getL1ContractAddresses();
-    const rollupAddress = l1Contracts.rollupAddress;
-
     const walletDBStore = options.ephemeral
       ? await openTmpStore(
-          'wallet_data',
+          `wallet_data_${l1Contracts.rollupAddress}`,
           true,
           undefined,
           undefined,
           rootLogger.createChild('wallet:data').getBindings(),
         )
-      : await createWalletStore(
+      : await createStore(
           'wallet_data',
           1,
           {
-            dataDirectory: pxeConfig.dataDirectory,
+            dataDirectory: `wallet_data_${l1Contracts.rollupAddress}`,
             dataStoreMapSizeKb: pxeConfig.dataStoreMapSizeKb,
-            l1Contracts: { rollupAddress },
+            l1Contracts,
           },
           rootLogger.createChild('wallet:data').getBindings(),
         );
     const walletDB = WalletDB.init(walletDBStore, rootLogger.createChild('wallet:db').info);
 
-    return new NodeEmbeddedWallet(pxe, aztecNode, walletDB, new BundleAccountContractsProvider(), rootLogger);
+    return new this(pxe, aztecNode, walletDB, new BundleAccountContractsProvider(), rootLogger) as T;
   }
 }
 
