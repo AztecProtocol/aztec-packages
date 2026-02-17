@@ -1870,8 +1870,6 @@ bool_t<Builder> bigfield<Builder, T>::is_less_than(const uint256_t& upper_limit,
 
     Builder* ctx = get_context();
 
-    uint256_t strict_upper_limit = upper_limit - uint256_t(1);
-
     // Range constraint the limbs, this is required by the ranged_less_than function
     ctx->range_constrain_two_limbs(binary_basis_limbs[0].element.get_witness_index(),
                                    binary_basis_limbs[1].element.get_witness_index(),
@@ -1885,10 +1883,10 @@ bool_t<Builder> bigfield<Builder, T>::is_less_than(const uint256_t& upper_limit,
                                    static_cast<size_t>(NUM_LIMB_BITS),
                                    is_default_msg ? "bigfield::is_less_than: limb 2 or 3 too large" : msg);
 
-    const uint256_t upper_limit_value_0 = strict_upper_limit.slice(0, NUM_LIMB_BITS);
-    const uint256_t upper_limit_value_1 = strict_upper_limit.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2);
-    const uint256_t upper_limit_value_2 = strict_upper_limit.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3);
-    const uint256_t upper_limit_value_3 = strict_upper_limit.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4);
+    const uint256_t upper_limit_value_0 = upper_limit.slice(0, NUM_LIMB_BITS);
+    const uint256_t upper_limit_value_1 = upper_limit.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2);
+    const uint256_t upper_limit_value_2 = upper_limit.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3);
+    const uint256_t upper_limit_value_3 = upper_limit.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4);
 
     bool_t<Builder> third_limb_is_smaller =
         binary_basis_limbs[3].element.template ranged_less_than<NUM_LIMB_BITS>(field_t<Builder>(upper_limit_value_3));
