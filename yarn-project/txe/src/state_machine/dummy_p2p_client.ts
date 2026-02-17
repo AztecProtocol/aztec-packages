@@ -99,6 +99,10 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "iteratePendingTxs"');
   }
 
+  public iterateEligiblePendingTxs(): AsyncIterableIterator<Tx> {
+    throw new Error('DummyP2P does not implement "iterateEligiblePendingTxs"');
+  }
+
   public getPendingTxCount(): Promise<number> {
     throw new Error('DummyP2P does not implement "getPendingTxCount"');
   }
@@ -211,5 +215,9 @@ export class DummyP2P implements P2P {
 
   public registerDuplicateAttestationCallback(_callback: P2PDuplicateAttestationCallback): void {
     throw new Error('DummyP2P does not implement "registerDuplicateAttestationCallback"');
+  }
+
+  public hasBlockProposalsForSlot(_slot: SlotNumber): Promise<boolean> {
+    throw new Error('DummyP2P does not implement "hasBlockProposalsForSlot"');
   }
 }

@@ -26,7 +26,7 @@ import {
   type PrivateKernelSimulateOutput,
   ReadRequestActionEnum,
   ReadRequestResetActions,
-  type ScopedKeyValidationRequestAndGenerator,
+  type ScopedKeyValidationRequestAndSeparator,
   ScopedNoteHash,
   ScopedNullifier,
   ScopedReadRequest,
@@ -68,9 +68,9 @@ function getNullifierMembershipWitnessResolver(oracle: PrivateKernelOracle) {
   };
 }
 
-async function getMasterSecretKeysAndAppKeyGenerators(
+async function getMasterSecretKeysAndKeyTypeDomainSeparators(
   keyValidationRequests: ClaimedLengthArray<
-    ScopedKeyValidationRequestAndGenerator,
+    ScopedKeyValidationRequestAndSeparator,
     typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX
   >,
   numRequestsToVerify: number,
@@ -189,8 +189,8 @@ export class PrivateKernelResetPrivateInputsBuilder {
           this.previousKernel.validationRequests.nullifierReadRequests,
           this.nullifierResetActions,
         ),
-        getMasterSecretKeysAndAppKeyGenerators(
-          this.previousKernel.validationRequests.scopedKeyValidationRequestsAndGenerators,
+        getMasterSecretKeysAndKeyTypeDomainSeparators(
+          this.previousKernel.validationRequests.scopedKeyValidationRequestsAndSeparators,
           dimensions.KEY_VALIDATION,
           oracle,
         ),
@@ -357,8 +357,8 @@ export class PrivateKernelResetPrivateInputsBuilder {
   }
 
   private needsResetNullifierKeys() {
-    const numCurr = this.previousKernel.validationRequests.scopedKeyValidationRequestsAndGenerators.claimedLength;
-    const numNext = this.nextIteration ? this.nextIteration.keyValidationRequestsAndGenerators.claimedLength : 0;
+    const numCurr = this.previousKernel.validationRequests.scopedKeyValidationRequestsAndSeparators.claimedLength;
+    const numNext = this.nextIteration ? this.nextIteration.keyValidationRequestsAndSeparators.claimedLength : 0;
     const maxAmountToKeep = !this.nextIteration ? 0 : MAX_KEY_VALIDATION_REQUESTS_PER_TX;
     if (numCurr + numNext <= maxAmountToKeep) {
       return false;

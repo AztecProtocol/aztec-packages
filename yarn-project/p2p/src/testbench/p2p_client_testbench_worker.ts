@@ -166,7 +166,7 @@ async function generateDeterministicTxs(txCount: number, seed: number, config: P
     return cached.slice(0, txCount);
   }
 
-  const includeByTimestampBase = BigInt(seed);
+  const expirationTimestampBase = BigInt(seed);
   for (let i = cached.length; i < txCount; i++) {
     const txSeed = seed * 10000 + i;
     const tx = await mockTx(txSeed, {
@@ -182,7 +182,7 @@ async function generateDeterministicTxs(txCount: number, seed: number, config: P
       hasPublicTeardownCallRequest: false,
       publicCalldataSize: 0,
     });
-    tx.data.includeByTimestamp = includeByTimestampBase + BigInt(i);
+    tx.data.expirationTimestamp = expirationTimestampBase + BigInt(i);
     await tx.recomputeHash();
     cached.push(tx);
   }

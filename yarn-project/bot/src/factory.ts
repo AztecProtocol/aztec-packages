@@ -8,8 +8,8 @@ import {
   type DeployOptions,
   NO_WAIT,
 } from '@aztec/aztec.js/contracts';
-import { L1FeeJuicePortalManager } from '@aztec/aztec.js/ethereum';
 import type { L2AmountClaim } from '@aztec/aztec.js/ethereum';
+import { L1FeeJuicePortalManager } from '@aztec/aztec.js/ethereum';
 import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
 import { deriveKeys } from '@aztec/aztec.js/keys';
 import { createLogger } from '@aztec/aztec.js/log';
@@ -17,11 +17,15 @@ import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
+import { RollupContract } from '@aztec/ethereum/contracts';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Timer } from '@aztec/foundation/timer';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
@@ -29,6 +33,7 @@ import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { type BotConfig, SupportedTokenContracts } from './config.js';
+import { seedL1ToL2Message } from './l1_to_l2_seeding.js';
 import type { BotStore } from './store/index.js';
 import { getBalances, getPrivateBalance, isStandardTokenContract } from './utils.js';
 
@@ -93,6 +98,94 @@ export class BotFactory {
     this.log.info(`AMM initialized and funded`);
 
     return { wallet: this.wallet, defaultAccountAddress, amm, token0, token1, node: this.aztecNode };
+  }
+
+  /**
+   * Initializes the cross-chain bot by deploying TestContract, creating an L1 client,
+   * seeding initial L1→L2 messages, and waiting for the first to be ready.
+   */
+  public async setupCrossChain(): Promise<{
+    wallet: EmbeddedWallet;
+    defaultAccountAddress: AztecAddress;
+    contract: TestContract;
+    node: AztecNode;
+    l1Client: ExtendedViemWalletClient;
+    rollupVersion: bigint;
+  }> {
+    const defaultAccountAddress = await this.setupAccount();
+
+    // Create L1 client (same pattern as bridgeL1FeeJuice)
+    const l1RpcUrls = this.config.l1RpcUrls;
+    if (!l1RpcUrls?.length) {
+      throw new Error('L1 RPC URLs required for cross-chain bot');
+    }
+    const mnemonicOrPrivateKey = this.config.l1PrivateKey?.getValue() ?? this.config.l1Mnemonic?.getValue();
+    if (!mnemonicOrPrivateKey) {
+      throw new Error('L1 mnemonic or private key required for cross-chain bot');
+    }
+    const { l1ChainId, l1ContractAddresses } = await this.aztecNode.getNodeInfo();
+    const chain = createEthereumChain(l1RpcUrls, l1ChainId);
+    const l1Client = createExtendedL1Client(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
+
+    // Fetch Rollup version (needed for Inbox L2Actor struct)
+    const rollupContract = new RollupContract(l1Client, l1ContractAddresses.rollupAddress.toString());
+    const rollupVersion = await rollupContract.getVersion();
+
+    // Deploy TestContract
+    const contract = await this.setupTestContract(defaultAccountAddress);
+
+    // Recover any pending messages from store (clean up stale ones first)
+    await this.store.cleanupOldPendingMessages();
+    const pendingMessages = await this.store.getUnconsumedL1ToL2Messages();
+
+    // Seed initial L1→L2 messages if pipeline is empty
+    const seedCount = Math.max(0, this.config.l1ToL2SeedCount - pendingMessages.length);
+    for (let i = 0; i < seedCount; i++) {
+      await seedL1ToL2Message(
+        l1Client,
+        EthAddress.fromString(l1ContractAddresses.inboxAddress.toString()),
+        contract.address,
+        rollupVersion,
+        this.store,
+        this.log,
+      );
+    }
+
+    // Block until at least one message is ready
+    const allMessages = await this.store.getUnconsumedL1ToL2Messages();
+    if (allMessages.length > 0) {
+      this.log.info(`Waiting for first L1→L2 message to be ready...`);
+      const firstMsg = allMessages[0];
+      await waitForL1ToL2MessageReady(this.aztecNode, Fr.fromHexString(firstMsg.msgHash), {
+        timeoutSeconds: this.config.l1ToL2MessageTimeoutSeconds,
+        // Use forPublicConsumption: false so we wait until the message is in the current world
+        // state. With true, it returns one block early which causes gas estimation simulation to
+        // fail since it runs against the current state.
+        // See https://linear.app/aztec-labs/issue/A-548 for details.
+        forPublicConsumption: false,
+      });
+      this.log.info(`First L1→L2 message is ready`);
+    }
+
+    return {
+      wallet: this.wallet,
+      defaultAccountAddress,
+      contract,
+      node: this.aztecNode,
+      l1Client,
+      rollupVersion,
+    };
+  }
+
+  private async setupTestContract(deployer: AztecAddress): Promise<TestContract> {
+    const deployOpts: DeployOptions = {
+      from: deployer,
+      contractAddressSalt: this.config.tokenSalt,
+      universalDeploy: true,
+    };
+    const deploy = TestContract.deploy(this.wallet);
+    const instance = await this.registerOrDeployContract('TestContract', deploy, deployOpts);
+    return TestContract.at(instance.address, this.wallet);
   }
 
   /**

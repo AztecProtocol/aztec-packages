@@ -143,7 +143,7 @@
  * - `EMITNOTEHASH`: max 64 per TX
  * - `EMITNULLIFIER`: max 63 per TX (one reserved for TX nullifier)
  * - `SENDL2TOL1MSG`: max 8 per TX
- * - `EMITUNENCRYPTEDLOG`: limited by total log payload size
+ * - `EMITPUBLICLOG`: limited by total log payload size
  *
  * By having the inner contract REVERT after emitting side effects, those effects are discarded, allowing the outer contract to call it again. This enables thousands of opcode executions per TX instead of just the limit.
  *
@@ -182,7 +182,7 @@ import {
   EcAdd,
   EmitNoteHash,
   EmitNullifier,
-  EmitUnencryptedLog,
+  EmitPublicLog,
   Eq,
   FieldDiv,
   GetContractInstance,
@@ -1242,17 +1242,15 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
     },
   ],
 
-  // EMITUNENCRYPTEDLOG - two configs: minimal (many small logs) and max-size (one large log)
-  [Opcode.EMITUNENCRYPTEDLOG]: [
+  // EMITPUBLICLOG - two configs: minimal (many small logs) and max-size (one large log)
+  [Opcode.EMITPUBLICLOG]: [
     {
       label: 'Many empty logs, revert, repeat',
       setup: [
         { offset: 0, value: new Uint32(0n) }, // logSize = 0 fields (minimal)
         { offset: 1, value: new Uint32(0n) }, // revertSize
       ],
-      targetInstructions: () => [
-        new EmitUnencryptedLog(/*addressing_mode=*/ 0, /*logSizeOffset=*/ 0, /*logOffset=*/ 1),
-      ], // logOffset doesn't matter when size is 0
+      targetInstructions: () => [new EmitPublicLog(/*addressing_mode=*/ 0, /*logSizeOffset=*/ 0, /*logOffset=*/ 1)], // logOffset doesn't matter when size is 0
       cleanupInstructions: () => [
         new Revert(/*addressing_mode=*/ 0, /*retSizeOffset=*/ 1, /*returnOffset=*/ 0).as(
           Opcode.REVERT_8,
@@ -1276,9 +1274,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         //  value: new Field(0n),
         //})),
       ],
-      targetInstructions: () => [
-        new EmitUnencryptedLog(/*addressing_mode=*/ 0, /*logSizeOffset=*/ 0, /*logOffset=*/ 2),
-      ], // uses logOffset 2 (uninitialized Field(0))
+      targetInstructions: () => [new EmitPublicLog(/*addressing_mode=*/ 0, /*logSizeOffset=*/ 0, /*logOffset=*/ 2)], // uses logOffset 2 (uninitialized Field(0))
       cleanupInstructions: () => [
         new Revert(/*addressing_mode=*/ 0, /*retSizeOffset=*/ 1, /*returnOffset=*/ 0).as(
           Opcode.REVERT_8,

@@ -44,9 +44,8 @@ template <typename FF_> class ECCVMWnafRelationImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 21> SUBRELATION_PARTIAL_LENGTHS{
-        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-    };
+    static constexpr std::array<size_t, 23> SUBRELATION_PARTIAL_LENGTHS{ 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+                                                                         5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5 };
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     static void accumulate(ContainerOverSubrelations& accumulator,

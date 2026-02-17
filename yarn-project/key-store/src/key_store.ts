@@ -1,4 +1,4 @@
-import { GeneratorIndex } from '@aztec/constants';
+import { DomainSeparator } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
@@ -254,7 +254,7 @@ export class KeyStore {
 
     return poseidon2HashWithSeparator(
       [masterOutgoingViewingSecretKey.hi, masterOutgoingViewingSecretKey.lo, app],
-      GeneratorIndex.OVSK_M,
+      DomainSeparator.OVSK_M,
     );
   }
 

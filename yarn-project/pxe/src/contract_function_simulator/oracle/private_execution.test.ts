@@ -1,5 +1,5 @@
 import {
-  GeneratorIndex,
+  DomainSeparator,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULL_MSG_SENDER_CONTRACT_ADDRESS,
@@ -222,6 +222,7 @@ describe('Private Execution test suite', () => {
       anchorBlockHeader,
       senderForTags,
       jobId: TEST_JOB_ID,
+      scopes: 'ALL_SCOPES',
     });
   };
 
@@ -275,7 +276,7 @@ describe('Private Execution test suite', () => {
     // We're assuming here that the note hash function is the default one injected by the #[note] macro.
     return poseidon2HashWithSeparator(
       [...note.items, owner.toField(), storageSlot, randomness],
-      GeneratorIndex.NOTE_HASH,
+      DomainSeparator.NOTE_HASH,
     );
   };
 
@@ -330,11 +331,12 @@ describe('Private Execution test suite', () => {
           contractAddress,
           contractStore,
           functionToInvokeAfterSync,
-          call => utilityExecutor(call, undefined),
+          utilityExecutor,
           noteStore,
           aztecNode,
           anchorBlockHeader,
           jobId,
+          'ALL_SCOPES',
         );
       },
     );
@@ -1160,7 +1162,7 @@ describe('Private Execution test suite', () => {
       const nullifier = result.publicInputs.nullifiers.array[0];
       const expectedNullifier = await poseidon2HashWithSeparator(
         [derivedNoteHash, await computeAppNullifierHidingKey(ownerNhkM, contractAddress)],
-        GeneratorIndex.NOTE_NULLIFIER,
+        DomainSeparator.NOTE_NULLIFIER,
       );
       expect(nullifier.value).toEqual(expectedNullifier);
     });
@@ -1227,7 +1229,7 @@ describe('Private Execution test suite', () => {
       const nullifier = execGetThenNullify.publicInputs.nullifiers.array[0];
       const expectedNullifier = await poseidon2HashWithSeparator(
         [derivedNoteHash, await computeAppNullifierHidingKey(ownerNhkM, contractAddress)],
-        GeneratorIndex.NOTE_NULLIFIER,
+        DomainSeparator.NOTE_NULLIFIER,
       );
       expect(nullifier.value).toEqual(expectedNullifier);
     });

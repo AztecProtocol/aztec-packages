@@ -24,6 +24,7 @@ case "$type" in
     TEST=$test exec run_compose_test $test end-to-end $PWD/web3signer
   ;;
   "ha")
-    TEST=$test exec run_compose_test $test end-to-end $PWD/ha
+    # Remove volumes on cleanup for HA tests to ensure clean database state on retries
+    TEST=$test REMOVE_COMPOSE_VOLUMES=1 exec run_compose_test $test end-to-end $PWD/ha
   ;;
 esac

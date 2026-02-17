@@ -64,7 +64,7 @@ TEST(ContextStackTraceGenTest, TraceGenerationSnapshot)
                         .is_static = false,
                         .tree_states = tree_states,
                         .written_public_data_slots_tree_snapshot = written_public_data_slots_tree_snapshot,
-                        .numUnencryptedLogFields = 1,
+                        .numPublicLogFields = 1,
                         .numL2ToL1Messages = 2,
                     } },
                     trace);
@@ -93,7 +93,7 @@ TEST(ContextStackTraceGenTest, TraceGenerationSnapshot)
                                        written_public_data_slots_tree_snapshot.root),
                           ROW_FIELD_EQ(context_stack_written_public_data_slots_tree_size,
                                        written_public_data_slots_tree_snapshot.next_available_leaf_index),
-                          ROW_FIELD_EQ(context_stack_num_unencrypted_log_fields, 1),
+                          ROW_FIELD_EQ(context_stack_num_public_log_fields, 1),
                           ROW_FIELD_EQ(context_stack_num_l2_to_l1_messages, 2))));
 }
 

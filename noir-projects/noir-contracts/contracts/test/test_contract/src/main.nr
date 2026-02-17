@@ -121,8 +121,8 @@ pub contract Test {
     }
 
     #[external("private")]
-    fn set_include_by_timestamp(include_by_timestamp: u64, make_tx_hybrid: bool) {
-        self.context.set_include_by_timestamp(include_by_timestamp);
+    fn set_expiration_timestamp(expiration_timestamp: u64, make_tx_hybrid: bool) {
+        self.context.set_expiration_timestamp(expiration_timestamp);
 
         if make_tx_hybrid {
             self.enqueue_self.dummy_public_call()
