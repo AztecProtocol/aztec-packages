@@ -2,7 +2,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type ReadOnlyFileStore, createReadOnlyFileStore } from '@aztec/stdlib/file-store';
 import { Tx, type TxHash } from '@aztec/stdlib/tx';
 
-import type { TxSource } from './tx_source.js';
+import type { TxSource, TxSourceCollectionResult } from './tx_source.js';
 
 /** TxSource implementation that downloads txs from a file store. */
 export class FileStoreTxSource implements TxSource {
@@ -41,7 +41,7 @@ export class FileStoreTxSource implements TxSource {
     return `file-store:${this.baseUrl}`;
   }
 
-  public async getTxsByHash(txHashes: TxHash[]): Promise<{ validTxs: Tx[]; invalidTxHashes: string[] }> {
+  public async getTxsByHash(txHashes: TxHash[]): Promise<TxSourceCollectionResult> {
     const invalidTxHashes: string[] = [];
     return {
       validTxs: (

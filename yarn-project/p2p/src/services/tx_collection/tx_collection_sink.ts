@@ -10,6 +10,7 @@ import EventEmitter from 'node:events';
 import type { TxPoolV2, TxPoolV2Events } from '../../mem_pools/index.js';
 import { TxCollectionInstrumentation } from './instrumentation.js';
 import type { CollectionMethod } from './tx_collection.js';
+import type { TxSourceCollectionResult } from './tx_source.js';
 
 /** Context determining how collected txs should be added to the pool. */
 export type TxAddContext = { type: 'proposal'; blockHeader: BlockHeader } | { type: 'mined'; block: L2Block };
@@ -31,7 +32,7 @@ export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitt
   }
 
   public async collect(
-    collectValidTxsFn: () => Promise<{ validTxs: Tx[]; invalidTxHashes: string[] }>,
+    collectValidTxsFn: () => Promise<TxSourceCollectionResult>,
     requested: string[],
     info: Record<string, any> & { description: string; method: CollectionMethod },
     context: TxAddContext,

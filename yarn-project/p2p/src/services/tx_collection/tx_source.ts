@@ -6,9 +6,11 @@ import type { Tx, TxHash } from '@aztec/stdlib/tx';
 import { type ComponentsVersions, getComponentsVersionsFromConfig } from '@aztec/stdlib/versioning';
 import { makeTracedFetch } from '@aztec/telemetry-client';
 
+export type TxSourceCollectionResult = { validTxs: Tx[]; invalidTxHashes: string[] };
+
 export interface TxSource {
   getInfo(): string;
-  getTxsByHash(txHashes: TxHash[]): Promise<{ validTxs: Tx[]; invalidTxHashes: string[] }>;
+  getTxsByHash(txHashes: TxHash[]): Promise<TxSourceCollectionResult>;
 }
 
 export class NodeRpcTxSource implements TxSource {
@@ -26,11 +28,11 @@ export class NodeRpcTxSource implements TxSource {
     return this.info;
   }
 
-  public async getTxsByHash(txHashes: TxHash[]): Promise<{ validTxs: Tx[]; invalidTxHashes: string[] }> {
+  public async getTxsByHash(txHashes: TxHash[]): Promise<TxSourceCollectionResult> {
     return this.verifyTxs(await this.client.getTxsByHash(txHashes));
   }
 
-  private async verifyTxs(txs: Tx[]): Promise<{ validTxs: Tx[]; invalidTxHashes: string[] }> {
+  private async verifyTxs(txs: Tx[]): Promise<TxSourceCollectionResult> {
     // Validate tx hashes for all collected txs from external sources
     const validTxs: Tx[] = [];
     const invalidTxHashes: string[] = [];
