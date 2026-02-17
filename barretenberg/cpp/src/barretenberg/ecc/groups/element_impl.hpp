@@ -780,6 +780,53 @@ __attribute__((always_inline)) inline void batch_affine_add_impl(const AffineEle
 }
 
 /**
+ * @brief Old-style batch affine addition for interleaved arrays (pre-refactor version)
+ * @details Mirrors the original pippenger add_affine_points: lhs = points[2i], rhs = points[2i+1],
+ *          output = points[num_pairs + i]. Writes through lhs.x as scratch (avoids local temp).
+ *          Direct prefetch addresses hardcoded for the interleaved layout.
+ */
+template <typename AffineElement, typename Fq>
+__attribute__((always_inline)) inline void batch_affine_add_interleaved_old_style(AffineElement* points,
+                                                                                  const size_t num_points,
+                                                                                  Fq* scratch_space) noexcept
+{
+    Fq batch_inversion_accumulator = Fq::one();
+
+    // Forward pass: prepare batch inversion
+    for (size_t i = 0; i < num_points; i += 2) {
+        scratch_space[i >> 1] = points[i].x + points[i + 1].x; // x2 + x1
+        points[i + 1].x -= points[i].x;                        // x2 - x1
+        points[i + 1].y -= points[i].y;                        // y2 - y1
+        points[i + 1].y *= batch_inversion_accumulator;        // (y2 - y1)*accumulator_old
+        batch_inversion_accumulator *= (points[i + 1].x);
+    }
+
+    if (batch_inversion_accumulator == Fq::zero()) {
+        throw_or_abort("attempted to invert zero in batch_affine_add_interleaved_old_style");
+    }
+    batch_inversion_accumulator = batch_inversion_accumulator.invert();
+
+    // Backward pass: compute additions, output stored in top half of array
+    for (size_t i = (num_points)-2; i < num_points; i -= 2) {
+        points[i + 1].y *= batch_inversion_accumulator;
+        batch_inversion_accumulator *= points[i + 1].x;
+        points[i + 1].x = points[i + 1].y.sqr();
+        points[(i + num_points) >> 1].x = points[i + 1].x - (scratch_space[i >> 1]);
+
+        if (i >= 2) {
+            __builtin_prefetch(points + i - 2);
+            __builtin_prefetch(points + i - 1);
+            __builtin_prefetch(points + ((i + num_points - 2) >> 1));
+            __builtin_prefetch(scratch_space + ((i - 2) >> 1));
+        }
+
+        points[i].x -= points[(i + num_points) >> 1].x;
+        points[i].x *= points[i + 1].y;
+        points[(i + num_points) >> 1].y = points[i].x - points[i].y;
+    }
+}
+
+/**
  * @brief Batch affine point doubling using Montgomery's trick
  * @tparam AffineElement Affine point type
  * @tparam Fq Base field type

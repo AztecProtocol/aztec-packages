@@ -16,6 +16,7 @@
 #include "barretenberg/numeric/general/general.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 
@@ -41,6 +42,7 @@ template <typename Curve>
 void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typename Curve::ScalarField> scalars,
                                                                  std::vector<uint32_t>& nonzero_scalar_indices) noexcept
 {
+    BB_BENCH_NAME("cur::transform_scalars");
     std::vector<std::vector<uint32_t>> thread_indices(get_num_cpus());
 
     // Pass 1: Each thread converts from Montgomery and collects nonzero indices into its own vector
@@ -86,6 +88,7 @@ template <typename Curve>
 std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
     std::span<std::span<ScalarField>> scalars, std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept
 {
+    BB_BENCH_NAME("cur::get_work_units");
 
     const size_t num_msms = scalars.size();
     msm_scalar_indices.resize(num_msms);
@@ -240,19 +243,21 @@ void MSM<Curve>::add_affine_points(typename Curve::AffineElement* points,
                                    const size_t num_points,
                                    typename Curve::BaseField* scratch_space) noexcept
 {
+    BB_BENCH_NAME("cur::add_affine_points");
     using AffineElement = typename Curve::AffineElement;
     using BaseField = typename Curve::BaseField;
 
-    // Use interleaved array policy: pairs are (points[2i], points[2i+1]), output in points[num_pairs + 1]
-    // This includes prefetching for non-sequential output access
-    const size_t num_pairs = num_points / 2;
-    bb::group_elements::batch_affine_add_impl<bb::group_elements::InterleavedArrayPolicy, AffineElement, BaseField>(
-        points, points, num_pairs, scratch_space);
+    // Pippenger-specific interleaved batch add with direct prefetch and no aliasing overhead.
+    // The generic batch_affine_add_impl suffers from aliasing (lhs_base == rhs_base) causing
+    // the compiler to reload lhs coordinates after writing output. This version avoids that.
+    bb::group_elements::batch_affine_add_interleaved_old_style<AffineElement, BaseField>(
+        points, num_points, scratch_space);
 }
 
 template <typename Curve>
 typename Curve::Element MSM<Curve>::jacobian_pippenger_with_transformed_scalars(MSMData& msm_data) noexcept
 {
+    BB_BENCH_NAME("cur::jacobian_pippenger");
     const size_t size = msm_data.scalar_indices.size();
     const uint32_t bits_per_slice = get_optimal_log_num_buckets(size);
     const size_t num_buckets = size_t{ 1 } << bits_per_slice;
@@ -293,6 +298,7 @@ typename Curve::Element MSM<Curve>::jacobian_pippenger_with_transformed_scalars(
 template <typename Curve>
 typename Curve::Element MSM<Curve>::affine_pippenger_with_transformed_scalars(MSMData& msm_data) noexcept
 {
+    BB_BENCH_NAME("cur::affine_pippenger");
     const size_t num_points = msm_data.scalar_indices.size();
     const uint32_t bits_per_slice = get_optimal_log_num_buckets(num_points);
     const size_t num_buckets = size_t{ 1 } << bits_per_slice;
@@ -441,6 +447,7 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     std::span<std::span<ScalarField>> scalars,
     bool handle_edge_cases) noexcept
 {
+    BB_BENCH_NAME("cur::batch_multi_scalar_mul");
     BB_ASSERT_EQ(points.size(), scalars.size());
     const size_t num_msms = points.size();
 
