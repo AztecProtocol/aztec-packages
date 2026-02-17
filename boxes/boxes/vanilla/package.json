@@ -28,7 +28,7 @@
     "@aztec/wallet-sdk": "latest"
   },
   "devDependencies": {
-    "@aztec/test-wallet": "latest",
+    "@aztec/wallets": "latest",
     "@playwright/test": "1.49.0",
     "@types/node": "^22.15.17",
     "buffer": "^6.0.3",

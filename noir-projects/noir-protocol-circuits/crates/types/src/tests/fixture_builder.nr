@@ -39,7 +39,7 @@ use crate::{
         tree_snapshots::TreeSnapshots,
         tx_constant_data::TxConstantData,
         validation_requests::{
-            KeyValidationRequest, KeyValidationRequestAndGenerator, PrivateValidationRequests,
+            KeyValidationRequest, KeyValidationRequestAndSeparator, PrivateValidationRequests,
         },
     },
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
@@ -47,14 +47,14 @@ use crate::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
         DEFAULT_UPDATE_DELAY, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH, FUNCTION_TREE_HEIGHT,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE,
-        MAX_INCLUDE_BY_TIMESTAMP_DURATION, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-        MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
-        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_U32_VALUE, MEGA_VK_LENGTH_IN_FIELDS,
-        PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS, PUBLIC_CALL_REQUEST_LENGTH,
-        PUBLIC_DATA_TREE_HEIGHT, SIDE_EFFECT_MASKING_ADDRESS, UPDATED_CLASS_IDS_SLOT,
-        VK_TREE_HEIGHT,
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_TX_LIFETIME, MAX_U32_VALUE,
+        MEGA_VK_LENGTH_IN_FIELDS, PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS,
+        PUBLIC_CALL_REQUEST_LENGTH, PUBLIC_DATA_TREE_HEIGHT, SIDE_EFFECT_MASKING_ADDRESS,
+        UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
     },
     contract_class_id::ContractClassId,
     data::{
@@ -67,8 +67,8 @@ use crate::{
         with_hash::derive_storage_slot_of_packed_values_hash,
     },
     hash::{
-        compute_contract_class_log_hash, compute_siloed_note_hash, compute_siloed_nullifier,
-        compute_siloed_private_log_first_field, compute_unique_siloed_note_hash,
+        compute_contract_class_log_hash, compute_note_nonce_and_unique_note_hash,
+        compute_siloed_note_hash, compute_siloed_nullifier, compute_siloed_private_log_first_field,
         create_protocol_nullifier,
     },
     merkle_tree::membership::MembershipWitness,
@@ -106,7 +106,7 @@ pub struct FixtureBuilder {
     pub is_private_only: bool,
     pub claimed_first_nullifier: Field,
     pub claimed_revertible_counter: u32,
-    pub include_by_timestamp: u64,
+    pub expiration_timestamp: u64,
 
     // Fees.
     pub is_fee_payer: bool,
@@ -140,7 +140,7 @@ pub struct FixtureBuilder {
     // Validation requests.
     pub note_hash_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     pub nullifier_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-    pub scoped_key_validation_requests_and_generators: BoundedVec<Scoped<KeyValidationRequestAndGenerator>, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
+    pub scoped_key_validation_requests_and_separators: BoundedVec<Scoped<KeyValidationRequestAndSeparator>, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
 
     // Function.
     pub function_data: FunctionData,
@@ -207,12 +207,8 @@ impl FixtureBuilder {
         builder.global_variables.version = fixtures::VERSION;
         builder.global_variables.timestamp = fixtures::GENESIS_TIMESTAMP + 135;
 
-        let max_allowed_include_by_timestamp = builder
-            .anchor_block_header
-            .global_variables
-            .timestamp
-            + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
-        builder.include_by_timestamp = max_allowed_include_by_timestamp;
+        builder.expiration_timestamp =
+            builder.anchor_block_header.global_variables.timestamp + MAX_TX_LIFETIME;
 
         builder.vk_tree_root = vk_tree_root;
 
@@ -374,7 +370,7 @@ impl FixtureBuilder {
             returns_hash: self.returns_hash,
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             is_fee_payer: self.is_fee_payer,
-            include_by_timestamp: self.include_by_timestamp,
+            expiration_timestamp: self.expiration_timestamp,
             note_hash_read_requests: ClaimedLengthArray {
                 array: subarray(self.note_hash_read_requests.storage(), 0),
                 length: self.note_hash_read_requests.len(),
@@ -383,12 +379,12 @@ impl FixtureBuilder {
                 array: subarray(self.nullifier_read_requests.storage(), 0),
                 length: self.nullifier_read_requests.len(),
             },
-            key_validation_requests_and_generators: ClaimedLengthArray {
+            key_validation_requests_and_separators: ClaimedLengthArray {
                 array: subarray(
-                    self.scoped_key_validation_requests_and_generators.storage().map(|r| r.inner),
+                    self.scoped_key_validation_requests_and_separators.storage().map(|r| r.inner),
                     0,
                 ),
-                length: self.scoped_key_validation_requests_and_generators.len(),
+                length: self.scoped_key_validation_requests_and_separators.len(),
             },
             note_hashes: ClaimedLengthArray {
                 array: subarray(self.note_hashes.storage().map(|n| n.inner), 0),
@@ -600,8 +596,8 @@ impl FixtureBuilder {
             nullifier_read_requests: claimed_length_array_from_bounded_vec(
                 self.nullifier_read_requests,
             ),
-            scoped_key_validation_requests_and_generators: claimed_length_array_from_bounded_vec(
-                self.scoped_key_validation_requests_and_generators,
+            scoped_key_validation_requests_and_separators: claimed_length_array_from_bounded_vec(
+                self.scoped_key_validation_requests_and_separators,
             ),
         }
     }
@@ -619,7 +615,7 @@ impl FixtureBuilder {
             validation_requests,
             public_teardown_call_request,
             fee_payer: self.fee_payer,
-            include_by_timestamp: self.include_by_timestamp,
+            expiration_timestamp: self.expiration_timestamp,
             is_private_only: self.is_private_only,
             claimed_first_nullifier: self.claimed_first_nullifier,
             claimed_revertible_counter: self.claimed_revertible_counter,
@@ -648,7 +644,7 @@ impl FixtureBuilder {
             public_teardown_call_request: self.public_teardown_call_request,
             gas_used: self.gas_used,
             fee_payer: self.fee_payer,
-            include_by_timestamp: self.include_by_timestamp,
+            expiration_timestamp: self.expiration_timestamp,
         }
     }
 
@@ -663,7 +659,7 @@ impl FixtureBuilder {
             constants,
             gas_used: self.gas_used,
             fee_payer: self.fee_payer,
-            include_by_timestamp: self.include_by_timestamp,
+            expiration_timestamp: self.expiration_timestamp,
         }
     }
 
@@ -761,7 +757,7 @@ impl FixtureBuilder {
     pub fn add_siloed_unique_note_hash(&mut self, value: Field) {
         let siloed_value = compute_siloed_note_hash(self.contract_address, value);
         let current_index = self.note_hashes.len();
-        let unique_siloed_value = compute_unique_siloed_note_hash(
+        let unique_siloed_value = compute_note_nonce_and_unique_note_hash(
             siloed_value,
             self.claimed_first_nullifier,
             current_index,
@@ -910,18 +906,21 @@ impl FixtureBuilder {
         }
     }
 
+    pub fn add_note_hash_read_request(&mut self, value: Field, contract_address: AztecAddress) {
+        let read_request = Counted::new(value, self.next_counter()).scope(contract_address);
+        self.note_hash_read_requests.push(read_request);
+    }
+
     pub fn add_settled_note_hash_read_request(&mut self, value: Field) -> u32 {
         let read_request_index = self.note_hash_read_requests.len();
-        let read_request = Counted::new(value, self.next_counter()).scope(AztecAddress::zero());
-        self.note_hash_read_requests.push(read_request);
+        self.add_note_hash_read_request(value, AztecAddress::zero());
         read_request_index
     }
 
     pub fn add_read_request_for_pending_note_hash(&mut self, note_hash_index: u32) -> u32 {
         let value = self.mock_note_hash_value(note_hash_index);
         let read_request_index = self.note_hash_read_requests.len();
-        let read_request = Counted::new(value, self.next_counter()).scope(self.contract_address);
-        self.note_hash_read_requests.push(read_request);
+        self.add_note_hash_read_request(value, self.contract_address);
         read_request_index
     }
 
@@ -968,23 +967,24 @@ impl FixtureBuilder {
         &mut self,
         pk_m: Point,
         sk_app: Field,
-        sk_app_generator: Field,
+        key_type_domain_separator: Field,
     ) {
         let request = KeyValidationRequest { pk_m, sk_app };
-        let request_and_generator = KeyValidationRequestAndGenerator { request, sk_app_generator };
+        let request_and_separator =
+            KeyValidationRequestAndSeparator { request, key_type_domain_separator };
         let scoped_key_validation_request_and_generator =
-            request_and_generator.scope(self.contract_address);
-        self.scoped_key_validation_requests_and_generators.push(
+            request_and_separator.scope(self.contract_address);
+        self.scoped_key_validation_requests_and_separators.push(
             scoped_key_validation_request_and_generator,
         );
     }
 
     pub fn append_key_validation_requests(&mut self, num_requests: u32) {
-        let index_offset = self.scoped_key_validation_requests_and_generators.len();
-        for i in 0..self.scoped_key_validation_requests_and_generators.max_len() {
+        let index_offset = self.scoped_key_validation_requests_and_separators.len();
+        for i in 0..self.scoped_key_validation_requests_and_separators.max_len() {
             if i < num_requests {
                 let request = self.mock_key_validation_request(index_offset + i);
-                self.scoped_key_validation_requests_and_generators.push(request.scope(
+                self.scoped_key_validation_requests_and_separators.push(request.scope(
                     self.contract_address,
                 ));
             }
@@ -1087,7 +1087,7 @@ impl FixtureBuilder {
                 // Silo and clear the contract address here because the padded private logs are siloed when added in the
                 // reset circuit. We can only see the siloed version of it in the public inputs.
                 fields[0] =
-                    compute_siloed_private_log_first_field(self.contract_address, fields[0]);
+                    compute_siloed_private_log_first_field(SIDE_EFFECT_MASKING_ADDRESS, fields[0]);
                 self.private_logs.push(PrivateLogData {
                     log: PrivateLog { fields, length: fields.len() },
                     note_hash_counter: 0,
@@ -1256,13 +1256,13 @@ impl FixtureBuilder {
         22334 + self.value_offset + index as Field
     }
 
-    fn mock_key_validation_request(self, index: u32) -> KeyValidationRequestAndGenerator {
+    fn mock_key_validation_request(self, index: u32) -> KeyValidationRequestAndSeparator {
         let value_offset = 3030 + self.value_offset + index as Field;
         let request = KeyValidationRequest {
             pk_m: Point { x: value_offset, y: 1 + value_offset, is_infinite: false },
             sk_app: 2 + value_offset,
         };
-        KeyValidationRequestAndGenerator { request, sk_app_generator: 3 + value_offset }
+        KeyValidationRequestAndSeparator { request, key_type_domain_separator: 3 + value_offset }
     }
 
     fn mock_public_data_write(self, index: u32) -> (Field, Field) {

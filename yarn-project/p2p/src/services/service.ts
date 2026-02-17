@@ -57,6 +57,19 @@ export type DuplicateProposalInfo = {
  */
 export type P2PDuplicateProposalCallback = (info: DuplicateProposalInfo) => void;
 
+/** Minimal info passed to the duplicate attestation callback. */
+export type DuplicateAttestationInfo = {
+  slot: SlotNumber;
+  attester: EthAddress;
+};
+
+/**
+ * Callback for when a duplicate attestation is detected (equivocation).
+ * A validator signing attestations for different proposals at the same slot.
+ * Invoked on the first duplicate (when count goes from 1 to 2).
+ */
+export type P2PDuplicateAttestationCallback = (info: DuplicateAttestationInfo) => void;
+
 /**
  * The interface for a P2P service implementation.
  */
@@ -105,6 +118,13 @@ export interface P2PService {
    * The callback is triggered on the first duplicate (when count goes from 1 to 2).
    */
   registerDuplicateProposalCallback(callback: P2PDuplicateProposalCallback): void;
+
+  /**
+   * Registers a callback invoked when a duplicate attestation is detected (equivocation).
+   * A validator signing attestations for different proposals at the same slot.
+   * The callback is triggered on the first duplicate (when count goes from 1 to 2).
+   */
+  registerDuplicateAttestationCallback(callback: P2PDuplicateAttestationCallback): void;
 
   getEnr(): ENR | undefined;
 

@@ -9,8 +9,8 @@ import { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
 import { NoConstructorContract } from '@aztec/noir-test-contracts.js/NoConstructor';
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { GasFees } from '@aztec/stdlib/gas';
-import { TestWallet } from '@aztec/test-wallet/server';
 
+import { TestWallet } from '../test-wallet/test_wallet.js';
 import { DeployTest } from './deploy_test.js';
 
 describe('e2e_deploy_contract deploy method', () => {

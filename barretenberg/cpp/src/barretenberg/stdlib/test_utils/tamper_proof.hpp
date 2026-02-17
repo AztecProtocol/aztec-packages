@@ -40,10 +40,9 @@ void tamper_with_proof(InnerProver& inner_prover, ProofType& inner_proof, Tamper
 
     // Deserialize proof into structured form
     StructuredProof<InnerFlavor> structured_proof;
-    const auto num_public_inputs = inner_prover.prover_instance->num_public_inputs();
-    const size_t log_n =
-        InnerFlavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : inner_prover.prover_instance->log_dyadic_size();
-    structured_proof.deserialize(inner_prover.transcript->test_get_proof_data(), num_public_inputs, log_n);
+    const auto num_public_inputs = inner_prover.num_public_inputs();
+    const size_t log_n = InnerFlavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : inner_prover.log_dyadic_size();
+    structured_proof.deserialize(inner_prover.get_transcript()->test_get_proof_data(), num_public_inputs, log_n);
 
     // Apply tampering based on type
     switch (type) {
@@ -69,8 +68,8 @@ void tamper_with_proof(InnerProver& inner_prover, ProofType& inner_proof, Tamper
     }
 
     // Serialize back and re-export the tampered proof
-    structured_proof.serialize(inner_prover.transcript->test_get_proof_data(), log_n);
-    inner_prover.transcript->test_set_proof_parsing_state(
+    structured_proof.serialize(inner_prover.get_transcript()->test_get_proof_data(), log_n);
+    inner_prover.get_transcript()->test_set_proof_parsing_state(
         0, compute_proof_length_for_export<InnerFlavor>(num_public_inputs, log_n));
     inner_proof = inner_prover.export_proof();
 }

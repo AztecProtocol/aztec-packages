@@ -30,7 +30,6 @@ import { getPXEConfig } from '@aztec/pxe/server';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { computeL2ToL1MembershipWitness, getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
-import { TestWallet } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { jest } from '@jest/globals';
@@ -44,6 +43,7 @@ import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import { ATTESTER_PRIVATE_KEYS_START_INDEX, createNodes, createProverNode } from '../fixtures/setup_p2p_test.js';
 import { setupSharedBlobStorage } from '../fixtures/utils.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from './p2p_network.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
@@ -90,7 +90,7 @@ describe('e2e_p2p_add_rollup', () => {
 
     l1TxUtils = createL1TxUtilsFromViemWallet(t.ctx.deployL1ContractsValues.l1Client);
 
-    t.ctx.watcher!.setIsMarkingAsProven(false);
+    t.ctx.watcher.setIsMarkingAsProven(false);
   });
 
   afterAll(async () => {
@@ -235,7 +235,7 @@ describe('e2e_p2p_add_rollup', () => {
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       { ...t.ctx.aztecNodeConfig, governanceProposerPayload: newPayloadAddress },
-      t.ctx.dateProvider!,
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
@@ -251,7 +251,7 @@ describe('e2e_p2p_add_rollup', () => {
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
       t.bootstrapNodeEnr,
       ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
-      { dateProvider: t.ctx.dateProvider! },
+      { dateProvider: t.ctx.dateProvider },
       t.prefilledPublicData,
       `${DATA_DIR}-prover`,
       shouldCollectMetrics(),
@@ -357,7 +357,7 @@ describe('e2e_p2p_add_rollup', () => {
         const leafId = getL2ToL1MessageLeafId(l2ToL1MessageResult);
 
         // We need to advance to the next epoch so that the out hash will be set to outbox when the epoch is proven.
-        const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses, t.ctx.dateProvider!);
+        const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses, t.ctx.dateProvider);
         await cheatcodes.advanceToEpoch(EpochNumber(epoch + 1));
         await waitForProven(node, l2OutgoingReceipt, { provenTimeout: 300 });
 
@@ -551,7 +551,7 @@ describe('e2e_p2p_add_rollup', () => {
 
     nodes = await createNodes(
       newConfig,
-      t.ctx.dateProvider!,
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
@@ -566,7 +566,7 @@ describe('e2e_p2p_add_rollup', () => {
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
       t.bootstrapNodeEnr,
       ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
-      { dateProvider: t.ctx.dateProvider! },
+      { dateProvider: t.ctx.dateProvider },
       prefilledPublicData,
       `${DATA_DIR_NEW}-prover`,
       shouldCollectMetrics(),

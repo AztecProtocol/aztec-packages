@@ -1,4 +1,4 @@
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 /**
  * WARNING: this is no-longer considered a good example of an Aztec contract,
@@ -10,13 +10,13 @@ use dep::aztec::macros::aztec;
  
 #[aztec]
 pub contract PrivateVoting {
-    use dep::aztec::keys::getters::get_public_keys;
-    use dep::aztec::macros::{
+    use aztec::keys::getters::get_public_keys;
+    use aztec::macros::{
         functions::{external, initializer, only_self},
         storage::storage,
     };
-    use dep::aztec::state_vars::{Map, PublicImmutable, PublicMutable};
-    use dep::aztec::protocol::{address::AztecAddress, hash::poseidon2_hash, traits::{Hash, ToField}};
+    use aztec::state_vars::{Map, PublicImmutable, PublicMutable};
+    use aztec::protocol::{address::AztecAddress, hash::poseidon2_hash, traits::{Hash, ToField}};
 
     #[storage]
     struct Storage<Context> {

@@ -2,7 +2,7 @@ mod private_call_data;
 mod output_composition_tests;
 
 use crate::{
-    components::private_kernel_circuit_output_composer::get_include_by_timestamp_for_contract_updates,
+    components::private_kernel_circuit_output_composer::get_expiration_timestamp_for_contract_updates,
     private_kernel_init::{self, PrivateKernelInitCircuitPrivateInputs},
 };
 use types::{
@@ -11,7 +11,7 @@ use types::{
         transaction::tx_request::TxRequest,
     },
     address::AztecAddress,
-    hash::{create_protocol_nullifier, silo_nullifier},
+    hash::{compute_siloed_nullifier, create_protocol_nullifier},
     tests::fixture_builder::FixtureBuilder,
 };
 
@@ -87,7 +87,10 @@ impl TestBuilder {
         let mut accumulated_data = private_call.to_private_accumulated_data();
 
         let scoped_protocol_nullifier = create_protocol_nullifier(self.tx_request);
-        let protocol_nullifier = silo_nullifier(scoped_protocol_nullifier);
+        let protocol_nullifier = compute_siloed_nullifier(
+            scoped_protocol_nullifier.contract_address,
+            scoped_protocol_nullifier.innermost().value,
+        );
         if self.first_nullifier_hint == protocol_nullifier {
             accumulated_data.nullifiers.length = 1;
             accumulated_data.nullifiers.array[0] = scoped_protocol_nullifier;
@@ -103,11 +106,11 @@ impl TestBuilder {
         };
         assert_eq(pi.fee_payer, expected_fee_payer);
 
-        let expected_include_by_timestamp = std::cmp::min(
-            self.private_call.include_by_timestamp,
-            get_include_by_timestamp_for_contract_updates(self.private_call.to_private_call_data()),
+        let expected_expiration_timestamp = std::cmp::min(
+            self.private_call.expiration_timestamp,
+            get_expiration_timestamp_for_contract_updates(self.private_call.to_private_call_data()),
         );
-        assert_eq(pi.include_by_timestamp, expected_include_by_timestamp);
+        assert_eq(pi.expiration_timestamp, expected_expiration_timestamp);
 
         assert_eq(pi.is_private_only, self.is_private_only);
 

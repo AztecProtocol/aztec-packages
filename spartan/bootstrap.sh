@@ -153,6 +153,7 @@ function network_bench {
 
   echo_header "spartan bench"
   gcp_auth
+  export K8S_ENRICHER=${K8S_ENRICHER:-1}
   network_bench_cmds | parallelize 1
 }
 
@@ -165,6 +166,7 @@ function proving_bench {
 
   echo_header "spartan proving bench"
   gcp_auth
+  export K8S_ENRICHER=${K8S_ENRICHER:-1}
   proving_bench_cmds | parallelize 1
 }
 
@@ -219,6 +221,7 @@ case "$cmd" in
     # Run the network deploy script
     DENOISE=1 denoise "./scripts/network_deploy.sh $env_file"
 
+    export K8S_ENRICHER=${K8S_ENRICHER:-1}
     if [[ "${RUN_TESTS:-}" == "true" ]]; then
       if [[ -n "$test_set" ]]; then
         network_tests_$test_set "$env_file"
@@ -281,8 +284,8 @@ case "$cmd" in
     source scripts/source_network_env.sh
     source_network_env ${KIND_ENV:-kind-provers}
     namespace="upgrade-rollup-version${NAME_POSTFIX:-}"
-    INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/upgrade_rollup_version.test.ts "$namespace"
+    export K8S_ENRICHER=${K8S_ENRICHER:-1}
+    ./scripts/test_kind.sh src/spartan/upgrade_rollup_version.test.ts "$namespace"
     ;;
   "network_teardown")
     env_file="$1"

@@ -57,7 +57,7 @@ export class IndexedDBAztecMultiMap<K extends Key, V extends Value>
       false,
     );
     for await (const cursor of index.iterate(rangeQuery)) {
-      yield cursor.value.value as V;
+      yield this.restoreBuffers(cursor.value.value as V);
     }
   }
 

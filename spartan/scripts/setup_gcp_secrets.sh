@@ -157,4 +157,12 @@ if [[ -n "${BLOB_BUCKET_DIRECTORY:-}" ]]; then
     export BLOB_FILE_STORE_UPLOAD_URL="s3://testnet-bucket/${BLOB_BUCKET_DIRECTORY}/?endpoint=https://${r2_account_id}.r2.cloudflarestorage.com"
 fi
 
+# Construct TX_FILE_STORE_URL from the r2-account-id secret and TX_FILE_STORE_BUCKET_DIRECTORY
+if [[ -n "${TX_FILE_STORE_BUCKET_DIRECTORY:-}" ]]; then
+    secret_file=$(get_secret "r2-account-id")
+    mask_secret_value "TX_FILE_STORE_URL" "$secret_file"
+    r2_account_id=$(cat "$secret_file")
+    export TX_FILE_STORE_URL="s3://testnet-bucket/${TX_FILE_STORE_BUCKET_DIRECTORY}/?endpoint=https://${r2_account_id}.r2.cloudflarestorage.com"
+fi
+
 echo "Successfully set up GCP secrets for $NETWORK"

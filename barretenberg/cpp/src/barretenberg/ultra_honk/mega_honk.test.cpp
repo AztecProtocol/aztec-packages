@@ -219,3 +219,74 @@ TYPED_TEST(MegaHonkTests, PolySwap)
         EXPECT_FALSE(result);
     }
 }
+
+/**
+ * @brief Test that the dyadic size correctly jumps to the next power of 2 when the trace would otherwise
+ * place lagrange_last in the ZK masking region.
+ * @details For MegaZK, the last NUM_MASKED_ROWS rows are overwritten with random values for zero-knowledge.
+ * We incrementally add gates until the dyadic size doubles, verifying at each step that lagrange_last does not
+ * overlap the masking area. At the tightest packing (right before the jump), we prove-and-verify.
+ */
+TYPED_TEST(MegaHonkTests, DyadicSizeJumpsToProtectMaskingArea)
+{
+    using Flavor = TypeParam;
+    if constexpr (!Flavor::HasZK) {
+        GTEST_SKIP() << "Masking area only exists for ZK flavors";
+    } else {
+        using Builder = typename Flavor::CircuitBuilder;
+        using ProverInstance = ProverInstance_<Flavor>;
+
+        // Determine the baseline dyadic size (with ECC ops + finalization overhead, no extra user gates)
+        Builder baseline_builder;
+        GoblinMockCircuits::construct_simple_circuit(baseline_builder);
+        auto baseline_instance = std::make_shared<ProverInstance>(baseline_builder);
+        const size_t baseline_dyadic = baseline_instance->dyadic_size();
+
+        // Add gates one at a time until the dyadic size doubles
+        size_t prev_dyadic = 0;
+        size_t prev_final_active_idx = 0;
+        bool found_jump = false;
+        for (size_t num_extra_gates = 0; num_extra_gates <= baseline_dyadic; num_extra_gates++) {
+            Builder builder;
+            GoblinMockCircuits::construct_simple_circuit(builder);
+            if (num_extra_gates > 0) {
+                MockCircuits::add_arithmetic_gates(builder, num_extra_gates);
+            }
+            auto prover_instance = std::make_shared<ProverInstance>(builder);
+
+            const size_t dyadic_size = prover_instance->dyadic_size();
+            const size_t final_active_idx = prover_instance->get_final_active_wire_idx();
+            const size_t first_masked_row = dyadic_size - NUM_MASKED_ROWS;
+
+            // Invariant: lagrange_last must be strictly before the masking area
+            ASSERT_LT(final_active_idx, first_masked_row)
+                << "lagrange_last (at " << final_active_idx << ") overlaps masking area (starting at "
+                << first_masked_row << ") with num_extra_gates=" << num_extra_gates;
+
+            // Sufficient headroom for disabled rows
+            ASSERT_GE(dyadic_size - final_active_idx - 1, static_cast<size_t>(NUM_DISABLED_ROWS_IN_SUMCHECK));
+
+            if (prev_dyadic != 0 && dyadic_size > prev_dyadic) {
+                EXPECT_EQ(dyadic_size, 2 * prev_dyadic);
+                EXPECT_LE(prev_dyadic - prev_final_active_idx - 1,
+                          2 * static_cast<size_t>(NUM_DISABLED_ROWS_IN_SUMCHECK));
+
+                // Prove and verify at the tightest packing (right before the jump)
+                Builder tight_builder;
+                GoblinMockCircuits::construct_simple_circuit(tight_builder);
+                MockCircuits::add_arithmetic_gates(tight_builder, num_extra_gates - 1);
+                auto tight_instance = std::make_shared<ProverInstance>(tight_builder);
+                bool verified = this->construct_and_verify_honk_proof(tight_builder);
+                EXPECT_TRUE(verified);
+
+                found_jump = true;
+                break;
+            }
+
+            prev_dyadic = dyadic_size;
+            prev_final_active_idx = final_active_idx;
+        }
+
+        EXPECT_TRUE(found_jump) << "should have found a dyadic size jump within " << baseline_dyadic << " extra gates";
+    }
+}

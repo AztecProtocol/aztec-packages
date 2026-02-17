@@ -215,6 +215,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
   async startCheckpoint(
     checkpointNumber: CheckpointNumber,
     constants: CheckpointGlobalVariables,
+    feeAssetPriceModifier: bigint,
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
     fork: MerkleTreeWriteOperations,
@@ -229,6 +230,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       initialStateReference: stateReference.toInspect(),
       initialArchiveRoot: bufferToHex(archiveTree.root),
       constants,
+      feeAssetPriceModifier,
     });
 
     const lightweightBuilder = await LightweightCheckpointBuilder.startNewCheckpoint(
@@ -238,6 +240,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       previousCheckpointOutHashes,
       fork,
       bindings,
+      feeAssetPriceModifier,
     );
 
     return new CheckpointBuilder(
@@ -257,6 +260,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
   async openCheckpoint(
     checkpointNumber: CheckpointNumber,
     constants: CheckpointGlobalVariables,
+    feeAssetPriceModifier: bigint,
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
     fork: MerkleTreeWriteOperations,
@@ -270,6 +274,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       return this.startCheckpoint(
         checkpointNumber,
         constants,
+        feeAssetPriceModifier,
         l1ToL2Messages,
         previousCheckpointOutHashes,
         fork,
@@ -284,11 +289,13 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       initialStateReference: stateReference.toInspect(),
       initialArchiveRoot: bufferToHex(archiveTree.root),
       constants,
+      feeAssetPriceModifier,
     });
 
     const lightweightBuilder = await LightweightCheckpointBuilder.resumeCheckpoint(
       checkpointNumber,
       constants,
+      feeAssetPriceModifier,
       l1ToL2Messages,
       previousCheckpointOutHashes,
       fork,

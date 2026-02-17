@@ -1,18 +1,105 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "prover_instance.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
+#include "barretenberg/honk/composer/composer_lib.hpp"
 #include "barretenberg/honk/composer/permutation_lib.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+#include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 
 namespace bb {
+
+template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& circuit)
+{
+    BB_BENCH_NAME("ProverInstance(Circuit&)");
+    vinfo("Constructing ProverInstance");
+
+    // Check pairing point tagging: either no pairing points were created,
+    // or all pairing points have been aggregated into a single equivalence class
+    BB_ASSERT(circuit.pairing_points_tagging.has_single_pairing_point_tag(),
+              "Pairing points must all be aggregated together. Either no pairing points should be created, or "
+              "all created pairing points must be aggregated into a single pairing point. Found "
+                  << circuit.pairing_points_tagging.num_unique_pairing_points() << " different pairing points.");
+    // Check pairing point tagging: check that the pairing points have been set to public
+    BB_ASSERT(circuit.pairing_points_tagging.has_public_pairing_points() ||
+                  !circuit.pairing_points_tagging.has_pairing_points(),
+              "Pairing points must be set to public in the circuit before constructing the ProverInstance.");
+
+    // ProverInstances can be constructed multiple times, hence, we check whether the circuit has been finalized
+    if (!circuit.circuit_finalized) {
+        circuit.finalize_circuit(/* ensure_nonzero = */ true);
+    }
+    metadata.dyadic_size = compute_dyadic_size(circuit);
+
+    // Find index of last non-trivial wire value in the trace
+    circuit.blocks.compute_offsets(); // compute offset of each block within the trace
+    for (auto& block : circuit.blocks.get()) {
+        if (block.size() > 0) {
+            final_active_wire_idx = block.trace_offset() + block.size() - 1;
+        }
+    }
+
+    {
+        BB_BENCH_NAME("allocating polynomials");
+        vinfo("allocating polynomials object in prover instance...");
+
+        populate_memory_records(circuit);
+        allocate_wires();
+        allocate_permutation_argument_polynomials();
+        allocate_selectors(circuit);
+        allocate_table_lookup_polynomials(circuit);
+        allocate_lagrange_polynomials();
+
+        if constexpr (IsMegaFlavor<Flavor>) {
+            allocate_ecc_op_polynomials(circuit);
+        }
+        if constexpr (HasDataBus<Flavor>) {
+            allocate_databus_polynomials(circuit);
+        }
+
+        // Set the shifted polynomials now that all of the to_be_shifted polynomials are defined.
+        polynomials.set_shifted();
+    }
+
+    // Construct and add to proving key the wire, selector and copy constraint polynomials
+    vinfo("populating trace...");
+    TraceToPolynomials<Flavor>::populate(circuit, polynomials);
+
+    if constexpr (IsMegaFlavor<Flavor>) {
+        BB_BENCH_NAME("constructing databus polynomials");
+        construct_databus_polynomials(circuit);
+    }
+
+    // Set the lagrange polynomials
+    polynomials.lagrange_first.at(0) = 1;
+    polynomials.lagrange_last.at(final_active_wire_idx) = 1;
+
+    construct_lookup_polynomials(circuit);
+
+    // Public inputs
+    metadata.num_public_inputs = circuit.blocks.pub_inputs.size();
+    metadata.pub_inputs_offset = circuit.blocks.pub_inputs.trace_offset();
+    for (size_t i = 0; i < metadata.num_public_inputs; ++i) {
+        size_t idx = i + metadata.pub_inputs_offset;
+        public_inputs.emplace_back(polynomials.w_r[idx]);
+    }
+
+    // Copy IPA proof if present
+    ipa_proof = circuit.ipa_proof;
+
+    if (std::getenv("BB_POLY_STATS")) {
+        analyze_prover_polynomials(polynomials);
+    }
+}
 
 /**
  * @brief Compute the minimum dyadic (power-of-2) circuit size
@@ -23,7 +110,7 @@ namespace bb {
  * @tparam Flavor
  * @param circuit
  */
-template <IsUltraOrMegaHonk Flavor> size_t ProverInstance_<Flavor>::compute_dyadic_size(Circuit& circuit)
+template <typename Flavor> size_t ProverInstance_<Flavor>::compute_dyadic_size(Circuit& circuit)
 {
     // For the lookup argument the circuit size must be at least as large as the sum of all tables used
     const size_t tables_size = circuit.get_tables_size();
@@ -40,7 +127,7 @@ template <IsUltraOrMegaHonk Flavor> size_t ProverInstance_<Flavor>::compute_dyad
     return circuit.get_circuit_subgroup_size(total_num_gates);
 }
 
-template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_wires()
+template <typename Flavor> void ProverInstance_<Flavor>::allocate_wires()
 {
     BB_BENCH_NAME("allocate_wires");
 
@@ -52,7 +139,7 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_wires
     }
 }
 
-template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_permutation_argument_polynomials()
+template <typename Flavor> void ProverInstance_<Flavor>::allocate_permutation_argument_polynomials()
 {
     BB_BENCH_NAME("allocate_permutation_argument_polynomials");
 
@@ -69,7 +156,7 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_permu
     polynomials.z_perm = Polynomial::shiftable(z_perm_size, dyadic_size());
 }
 
-template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_lagrange_polynomials()
+template <typename Flavor> void ProverInstance_<Flavor>::allocate_lagrange_polynomials()
 {
     BB_BENCH_NAME("allocate_lagrange_polynomials");
 
@@ -80,7 +167,7 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_lagra
         /* size=*/1, /*virtual size=*/dyadic_size(), /*start_index=*/final_active_wire_idx);
 }
 
-template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_selectors(const Circuit& circuit)
+template <typename Flavor> void ProverInstance_<Flavor>::allocate_selectors(const Circuit& circuit)
 {
     BB_BENCH_NAME("allocate_selectors");
 
@@ -95,8 +182,7 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_selec
     }
 }
 
-template <IsUltraOrMegaHonk Flavor>
-void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& circuit)
+template <typename Flavor> void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& circuit)
 {
     BB_BENCH_NAME("allocate_table_lookup_and_lookup_read_polynomials");
 
@@ -109,7 +195,7 @@ void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& c
     }
 
     // Read counts and tags: track which table entries have been read
-    // For non-ZK, allocate just the table size; for ZK: allocate fulll dyadic_size
+    // For non-ZK, allocate just the table size; for ZK: allocate full dyadic_size
     const size_t counts_and_tags_size = Flavor::HasZK ? dyadic_size() : tables_size;
     polynomials.lookup_read_counts = Polynomial(counts_and_tags_size, dyadic_size());
     polynomials.lookup_read_tags = Polynomial(counts_and_tags_size, dyadic_size());
@@ -123,7 +209,7 @@ void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& c
     polynomials.lookup_inverses = Polynomial(lookup_inverses_size, dyadic_size());
 }
 
-template <IsUltraOrMegaHonk Flavor>
+template <typename Flavor>
 void ProverInstance_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circuit)
     requires IsMegaFlavor<Flavor>
 {
@@ -138,7 +224,7 @@ void ProverInstance_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circuit
     polynomials.lagrange_ecc_op = Polynomial(ecc_op_block_size, dyadic_size());
 }
 
-template <IsUltraOrMegaHonk Flavor>
+template <typename Flavor>
 void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circuit)
     requires HasDataBus<Flavor>
 {
@@ -182,14 +268,22 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     polynomials.databus_id = Polynomial(max_databus_column_size, dyadic_size());
 }
 
+template <typename Flavor> void ProverInstance_<Flavor>::construct_lookup_polynomials(Circuit& circuit)
+{
+    {
+        BB_BENCH_NAME("constructing lookup table polynomials");
+        construct_lookup_table_polynomials<Flavor>(polynomials.get_tables(), circuit);
+    }
+    {
+        BB_BENCH_NAME("constructing lookup read counts");
+        construct_lookup_read_counts<Flavor>(polynomials.lookup_read_counts, polynomials.lookup_read_tags, circuit);
+    }
+}
+
 /**
- * @brief
- * @details
- *
- * @tparam Flavor
- * @param circuit
+ * @brief Populate the databus polynomials (calldata, secondary_calldata, return_data) and their read counts/tags.
  */
-template <IsUltraOrMegaHonk Flavor>
+template <typename Flavor>
 void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     requires HasDataBus<Flavor>
 {
@@ -236,9 +330,10 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
 /**
  * @brief Copy RAM/ROM record of reads and writes from the circuit to the instance.
  * @details The memory records in the circuit store indices within the memory block where a read/write is performed.
- * They are stored in the DPK as indices into the full trace by accounting for the offset of the memory block.
+ * They are stored in the ProverInstance as indices into the full trace by accounting for the offset of the memory
+ * block.
  */
-template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::populate_memory_records(const Circuit& circuit)
+template <typename Flavor> void ProverInstance_<Flavor>::populate_memory_records(const Circuit& circuit)
 {
     // Store the read/write records as indices into the full trace by accounting for the offset of the memory block.
     uint32_t ram_rom_offset = circuit.blocks.memory.trace_offset();

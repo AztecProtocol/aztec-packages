@@ -1,11 +1,26 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import type { L2BlockId } from '@aztec/stdlib/block';
+import { BlockHash, type L2BlockId } from '@aztec/stdlib/block';
 import type { Tx } from '@aztec/stdlib/tx';
 
 import { getFeePayerBalanceDelta } from '../../msg_validators/tx_validator/fee_payer_balance.js';
 import { getTxPriorityFee } from '../tx_pool/priority.js';
 import type { PreAddResult } from './eviction/interfaces.js';
+
+/** Validator-compatible data interface, mirroring the subset of PrivateKernelTailCircuitPublicInputs used by validators. */
+export type TxMetaValidationData = {
+  getNonEmptyNullifiers(): Fr[];
+  expirationTimestamp: bigint;
+  constants: {
+    anchorBlockHeader: {
+      hash(): Promise<BlockHash>;
+      globalVariables: {
+        blockNumber: BlockNumber;
+      };
+    };
+  };
+};
 
 /**
  * Lightweight in-memory representation of a transaction.
@@ -41,23 +56,33 @@ export type TxMetaData = {
   readonly nullifiers: readonly string[];
 
   /** Timestamp by which the transaction must be included (for expiration checks) */
-  readonly includeByTimestamp: bigint;
+  readonly expirationTimestamp: bigint;
+
+  /** Validator-compatible data, providing the same access patterns as Tx.data */
+  readonly data: TxMetaValidationData;
+
+  /** Timestamp (ms) when the tx was received into the pool. 0 for hydrated txs (always eligible). */
+  receivedAt: number;
 };
 
 /** Transaction state derived from TxMetaData fields and pool protection status */
-export type TxState = 'pending' | 'protected' | 'mined';
+export type TxState = 'pending' | 'protected' | 'mined' | 'deleted';
 
 /**
  * Builds TxMetaData from a full Tx object.
  * Extracts all relevant fields for efficient in-memory storage and querying.
+ * Fr values are captured in closures for zero-cost re-validation.
  */
 export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
   const txHash = tx.getTxHash().toString();
-  const anchorBlockHeaderHash = (await tx.data.constants.anchorBlockHeader.hash()).toString();
+  const nullifierFrs = tx.data.getNonEmptyNullifiers();
+  const nullifiers = nullifierFrs.map(n => n.toString());
+  const anchorBlockHeaderHashFr = await tx.data.constants.anchorBlockHeader.hash();
+  const anchorBlockHeaderHash = anchorBlockHeaderHashFr.toString();
+  const expirationTimestamp = tx.data.expirationTimestamp;
+  const anchorBlockNumber = tx.data.constants.anchorBlockHeader.globalVariables.blockNumber;
   const priorityFee = getTxPriorityFee(tx);
   const feePayer = tx.data.feePayer.toString();
-  const nullifiers = tx.data.getNonEmptyNullifiers().map(n => n.toString());
-  const includeByTimestamp = tx.data.includeByTimestamp;
 
   const { feeLimit, claimAmount } = await getFeePayerBalanceDelta(tx, ProtocolContractAddress.FeeJuice);
 
@@ -69,7 +94,18 @@ export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
     claimAmount,
     feeLimit,
     nullifiers,
-    includeByTimestamp,
+    expirationTimestamp,
+    receivedAt: 0,
+    data: {
+      getNonEmptyNullifiers: () => nullifierFrs,
+      expirationTimestamp,
+      constants: {
+        anchorBlockHeader: {
+          hash: () => Promise.resolve(anchorBlockHeaderHashFr),
+          globalVariables: { blockNumber: anchorBlockNumber },
+        },
+      },
+    },
   };
 }
 
@@ -158,4 +194,18 @@ export function checkNullifierConflict(
   }
 
   return { shouldIgnore: false, txHashesToEvict };
+}
+
+/** Creates a stub TxMetaValidationData for tests that don't exercise validators. */
+export function stubTxMetaValidationData(overrides: { expirationTimestamp?: bigint } = {}): TxMetaValidationData {
+  return {
+    getNonEmptyNullifiers: () => [],
+    expirationTimestamp: overrides.expirationTimestamp ?? 0n,
+    constants: {
+      anchorBlockHeader: {
+        hash: () => Promise.resolve(new BlockHash(Fr.ZERO)),
+        globalVariables: { blockNumber: BlockNumber(0) },
+      },
+    },
+  };
 }

@@ -1,7 +1,7 @@
 use crate::NFT;
 use crate::test::utils;
 use aztec::{oracle::random::random, test::helpers::authwit::add_private_authwit_from_call};
-use generic_proxy::GenericProxy;
+use generic_proxy_contract::GenericProxy;
 
 #[test]
 unconstrained fn transfer_in_private() {

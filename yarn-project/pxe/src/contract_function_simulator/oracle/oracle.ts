@@ -417,7 +417,7 @@ export class Oracle {
     return Promise.resolve([]);
   }
 
-  async utilityDebugLog(
+  async utilityLog(
     level: ACVMField[],
     message: ACVMField[],
     _ignoredFieldsSize: ACVMField[],
@@ -426,7 +426,7 @@ export class Oracle {
     const levelFr = Fr.fromString(level[0]);
     const messageStr = message.map(acvmField => String.fromCharCode(Fr.fromString(acvmField).toNumber())).join('');
     const fieldsFr = fields.map(Fr.fromString);
-    await this.handlerAsMisc().utilityDebugLog(levelFr.toNumber(), messageStr, fieldsFr);
+    await this.handlerAsMisc().utilityLog(levelFr.toNumber(), messageStr, fieldsFr);
     return [];
   }
 

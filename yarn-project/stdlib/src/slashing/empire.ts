@@ -84,7 +84,8 @@ export function getFirstEligibleRoundForOffense(
     case OffenseType.PROPOSED_INCORRECT_ATTESTATIONS:
     case OffenseType.ATTESTED_DESCENDANT_OF_INVALID:
     case OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL:
-    case OffenseType.DUPLICATE_PROPOSAL: {
+    case OffenseType.DUPLICATE_PROPOSAL:
+    case OffenseType.DUPLICATE_ATTESTATION: {
       const slot = offense.epochOrSlot;
       const detectedSlot = SlotNumber.fromBigInt(slot + 1n);
       return getRoundForSlot(detectedSlot, constants).round + 1n;

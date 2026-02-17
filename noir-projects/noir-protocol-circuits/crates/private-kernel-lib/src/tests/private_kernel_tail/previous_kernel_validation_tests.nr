@@ -1,13 +1,13 @@
 use super::TestBuilder;
 use types::{
-    address::AztecAddress,
+    address::{AztecAddress, EthAddress},
     constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, DOM_SEP__IVSK_M, PRIVATE_KERNEL_TAIL_VK_INDEX,
         PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     point::Point,
     side_effect::Scoped,
-    traits::Empty,
+    traits::{Empty, FromField},
 };
 
 // --- validation_requests ---
@@ -113,6 +113,19 @@ fn empty_nullifier_as_valid_item() {
     let _ = builder.execute();
 }
 
+#[test(should_fail_with = "array is not dense trimmed")]
+fn non_empty_nullifier_beyond_claimed_length() {
+    let mut builder = TestBuilder::new();
+
+    builder.previous_kernel.append_nullifiers(3);
+    let mut array = builder.previous_kernel.nullifiers.storage();
+    // Add a non-empty nullifier beyond the claimed length.
+    array[5] = array[1];
+    builder.previous_kernel.nullifiers = BoundedVec::from_parts_unchecked(array, 4);
+
+    let _ = builder.execute();
+}
+
 #[test(should_fail_with = "Cannot link a note hash emitted after a nullifier")]
 fn nullifier_emitted_after_its_note_hash() {
     let mut builder = TestBuilder::new();
@@ -137,6 +150,56 @@ fn nullifiers_for_note_hashes_not_found() {
     let _ = builder.execute();
 }
 
+#[test(should_fail_with = "call to assert_max_bit_size")]
+fn invalid_l2_to_l1_msg_recipient() {
+    let mut builder = TestBuilder::new();
+    builder.previous_kernel.append_l2_to_l1_msgs(1);
+    let mut l2_to_l1_msg = builder.previous_kernel.l2_to_l1_msgs.pop();
+    // More than 160 bits.
+    l2_to_l1_msg.inner.inner.recipient = EthAddress::from_field(-1);
+    builder.previous_kernel.l2_to_l1_msgs.push(l2_to_l1_msg);
+    let _ = builder.execute();
+}
+
+#[test(should_fail_with = "array is not trimmed")]
+fn non_empty_l2_to_l1_msg_recipient_beyond_claimed_length() {
+    let mut builder = TestBuilder::new();
+
+    builder.previous_kernel.append_l2_to_l1_msgs(2);
+    let mut array = builder.previous_kernel.l2_to_l1_msgs.storage();
+    // Add a non-empty recipient to an L2 to L1 message beyond the claimed length.
+    array[5].inner.inner.recipient = array[0].innermost().recipient;
+    builder.previous_kernel.l2_to_l1_msgs = BoundedVec::from_parts_unchecked(array, 2);
+
+    let _ = builder.execute();
+}
+
+#[test(should_fail_with = "array is not trimmed")]
+fn non_empty_l2_to_l1_msg_content_beyond_claimed_length() {
+    let mut builder = TestBuilder::new();
+
+    builder.previous_kernel.append_l2_to_l1_msgs(2);
+    let mut array = builder.previous_kernel.l2_to_l1_msgs.storage();
+    // Add a non-empty content to an L2 to L1 message beyond the claimed length.
+    array[5].inner.inner.content = array[0].innermost().content;
+    builder.previous_kernel.l2_to_l1_msgs = BoundedVec::from_parts_unchecked(array, 2);
+
+    let _ = builder.execute();
+}
+
+#[test(should_fail_with = "array is not trimmed")]
+fn non_empty_l2_to_l1_msg_contract_address_beyond_claimed_length() {
+    let mut builder = TestBuilder::new();
+
+    builder.previous_kernel.append_l2_to_l1_msgs(2);
+    let mut array = builder.previous_kernel.l2_to_l1_msgs.storage();
+    // Add a non-empty contract address to an L2 to L1 message beyond the claimed length.
+    array[5].contract_address = array[0].contract_address;
+    builder.previous_kernel.l2_to_l1_msgs = BoundedVec::from_parts_unchecked(array, 2);
+
+    let _ = builder.execute();
+}
+
 #[test(should_fail_with = "Private log length exceeds max")]
 fn private_log_length_exceeds_max() {
     let mut builder = TestBuilder::new();
@@ -151,11 +214,94 @@ fn private_log_length_exceeds_max() {
     let _ = builder.execute();
 }
 
+#[test(should_fail_with = "array is not dense")]
+fn empty_private_log_as_valid_item() {
+    let mut builder = TestBuilder::new();
+
+    builder.previous_kernel.append_private_logs(2);
+    // Add an empty private log.
+    builder.previous_kernel.private_logs.push(Scoped::empty());
+
+    let _ = builder.execute();
+}
+
+#[test(should_fail_with = "array is not trimmed")]
+fn non_empty_private_log_length_beyond_claimed_length() {
+    let mut builder = TestBuilder::new();
+
+    builder.previous_kernel.append_private_logs(2);
+    let mut array = builder.previous_kernel.private_logs.storage();
+    // Add a private log with non-zero length beyond the claimed length.
+    array[5].inner.inner.log.length = 1;
+    builder.previous_kernel.private_logs = BoundedVec::from_parts_unchecked(array, 2);
+
+    let _ = builder.execute();
+}
+
+#[test(should_fail_with = "array is not trimmed")]
+fn non_empty_private_log_fields_beyond_claimed_length() {
+    let mut builder = TestBuilder::new();
+
+    builder.previous_kernel.append_private_logs(2);
+    let mut array = builder.previous_kernel.private_logs.storage();
+    // Add a private log with non-empty fields beyond the claimed length.
+    array[5].inner.inner.log.fields[2] = 1;
+    builder.previous_kernel.private_logs = BoundedVec::from_parts_unchecked(array, 2);
+
+    let _ = builder.execute();
+}
+
 #[test(should_fail_with = "Contract class log length exceeds max")]
 fn contract_class_log_length_exceeds_max() {
     let mut builder = TestBuilder::new();
 
     builder.previous_kernel.add_contract_class_log_hash(123, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS + 1);
+
+    let _ = builder.execute();
+}
+
+#[test(should_fail_with = "array is not dense")]
+fn empty_contract_class_log_as_valid_item() {
+    let mut builder = TestBuilder::new();
+
+    // Add an empty contract class log hash as a valid item.
+    builder.previous_kernel.contract_class_logs_hashes.push(Scoped::empty());
+
+    let _ = builder.execute();
+}
+
+#[test(should_fail_with = "array is not trimmed")]
+fn non_empty_contract_class_log_length_beyond_claimed_length() {
+    let mut builder = TestBuilder::new();
+
+    let mut array = builder.previous_kernel.contract_class_logs_hashes.storage();
+    // Add a contract class log with non-zero length beyond the claimed length.
+    array[0].inner.inner.length = 1;
+    builder.previous_kernel.contract_class_logs_hashes = BoundedVec::from_parts_unchecked(array, 0);
+
+    let _ = builder.execute();
+}
+
+#[test(should_fail_with = "array is not trimmed")]
+fn non_empty_contract_class_log_hash_beyond_claimed_length() {
+    let mut builder = TestBuilder::new();
+
+    let mut array = builder.previous_kernel.contract_class_logs_hashes.storage();
+    // Add a contract class log with non-empty log hash value beyond the claimed length.
+    array[0].inner.inner.value = 1;
+    builder.previous_kernel.contract_class_logs_hashes = BoundedVec::from_parts_unchecked(array, 0);
+
+    let _ = builder.execute();
+}
+
+#[test(should_fail_with = "array is not trimmed")]
+fn non_empty_contract_class_log_contract_address_beyond_claimed_length() {
+    let mut builder = TestBuilder::new();
+
+    let mut array = builder.previous_kernel.contract_class_logs_hashes.storage();
+    // Add a contract class log with non-empty contract address beyond the claimed length.
+    array[0].contract_address = AztecAddress::from_field(1);
+    builder.previous_kernel.contract_class_logs_hashes = BoundedVec::from_parts_unchecked(array, 0);
 
     let _ = builder.execute();
 }

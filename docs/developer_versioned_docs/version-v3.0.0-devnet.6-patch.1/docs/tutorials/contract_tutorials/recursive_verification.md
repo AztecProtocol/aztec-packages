@@ -522,7 +522,7 @@ Now compile the Aztec contract and generate TypeScript bindings:
 yarn ccc
 ```
 
-**What this command does** (see [How to Compile a Contract](../../aztec-nr/how_to_compile_contract.md) for details):
+**What this command does** (see [How to Compile a Contract](../../aztec-nr/compiling_contracts.md) for details):
 
 1. `aztec compile`: Compiles the Noir contract and post-processes it for Aztec (different from `nargo compile`)
 2. `aztec codegen`: Generates TypeScript bindings from the contract artifact, enabling type-safe contract interaction

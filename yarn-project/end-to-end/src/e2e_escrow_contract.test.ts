@@ -6,10 +6,10 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { EscrowContract } from '@aztec/noir-contracts.js/Escrow';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { PublicKeys } from '@aztec/stdlib/keys';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { expectTokenBalance, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
 
 describe('e2e_escrow_contract', () => {
   let wallet: TestWallet;

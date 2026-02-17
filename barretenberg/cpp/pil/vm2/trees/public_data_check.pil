@@ -216,7 +216,7 @@ namespace public_data_check;
 
     #[LOW_LEAF_POSEIDON2_0]
     sel {
-         low_leaf_slot, low_leaf_value, low_leaf_next_index,
+         low_leaf_slot, low_leaf_value, low_leaf_next_slot,
          low_leaf_hash, const_four
     } in poseidon2_hash.start {
          poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
@@ -224,14 +224,14 @@ namespace public_data_check;
     };
 
     #[LOW_LEAF_POSEIDON2_1]
-    sel { low_leaf_next_slot, precomputed.zero, precomputed.zero, low_leaf_hash }
+    sel { low_leaf_next_index, precomputed.zero, precomputed.zero, low_leaf_hash }
     in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     pol commit updated_low_leaf_hash;
 
     #[UPDATED_LOW_LEAF_POSEIDON2_0]
     write {
-         low_leaf_slot, updated_low_leaf_value, updated_low_leaf_next_index,
+         low_leaf_slot, updated_low_leaf_value, updated_low_leaf_next_slot,
          updated_low_leaf_hash, const_four
     } in poseidon2_hash.start {
          poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
@@ -239,7 +239,7 @@ namespace public_data_check;
     };
 
     #[UPDATED_LOW_LEAF_POSEIDON2_1]
-    write { updated_low_leaf_next_slot, precomputed.zero, precomputed.zero, updated_low_leaf_hash }
+    write { updated_low_leaf_next_index, precomputed.zero, precomputed.zero, updated_low_leaf_hash }
     in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     #[LOW_LEAF_MERKLE_CHECK]
@@ -262,14 +262,14 @@ namespace public_data_check;
 
     #[NEW_LEAF_POSEIDON2_0]
     should_insert {
-         leaf_slot, value, low_leaf_next_index,
+         leaf_slot, value, low_leaf_next_slot,
          new_leaf_hash, const_four
     } in poseidon2_hash.start {
          poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
          poseidon2_hash.output, poseidon2_hash.input_len
     };
     #[NEW_LEAF_POSEIDON2_1]
-    should_insert { low_leaf_next_slot, precomputed.zero, precomputed.zero, new_leaf_hash }
+    should_insert { low_leaf_next_index, precomputed.zero, precomputed.zero, new_leaf_hash }
     in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     #[NEW_LEAF_MERKLE_CHECK]

@@ -19,15 +19,18 @@ use types::traits::Empty;
 ///
 /// Note: Technically, values outside this range could be non-empty, since they are ignored. However, enforcing emptiness
 /// helps prevent unexpected output if the array is misconfigured.
+///
+/// Returns the number of padded items.
 pub unconstrained fn check_padded_items<T, let N: u32>(
     padded_items: [T; N],
     num_original_items: u32,
     capped_size: u32,
-)
+) -> u32
 where
     T: Empty,
 {
     let mut seen_empty = false;
+    let mut num_padded_items = 0;
     for i in 0..N {
         let item_is_empty = padded_items[i].is_empty();
         if i < num_original_items | i >= capped_size {
@@ -41,8 +44,11 @@ where
                 "non-empty padded items should be consecutive within the range [num_original_items, capped_size)",
             );
             seen_empty |= item_is_empty;
+            num_padded_items += 1 * !item_is_empty as u32;
         }
     }
+
+    num_padded_items
 }
 
 mod tests {
@@ -63,10 +69,10 @@ mod tests {
             }
         }
 
-        pub fn execute(self) {
+        pub fn execute(self) -> u32 {
             // Safety: `check_padded_items` is supposed to be called only in unconstrained functions.
             unsafe {
-                check_padded_items(self.padded_items, self.num_original_items, self.capped_size);
+                check_padded_items(self.padded_items, self.num_original_items, self.capped_size)
             }
         }
     }
@@ -74,24 +80,25 @@ mod tests {
     #[test]
     fn full_padded_items() {
         let builder = TestBuilder::new();
-        builder.execute();
+        assert_eq(builder.execute(), 3);
     }
 
     #[test]
     fn partially_full_padded_items() {
         let mut builder = TestBuilder::new();
+        let expected_num_padded_items = 3;
 
         // One empty padded item.
         builder.capped_size = 6;
-        builder.execute();
+        assert_eq(builder.execute(), expected_num_padded_items);
 
         // Two empty padded items.
         builder.capped_size = 7;
-        builder.execute();
+        assert_eq(builder.execute(), expected_num_padded_items);
 
         // Three empty padded items.
         builder.capped_size = 8;
-        builder.execute();
+        assert_eq(builder.execute(), expected_num_padded_items);
     }
 
     #[test]
@@ -100,7 +107,7 @@ mod tests {
 
         builder.padded_items = [0, 0, 0, 0, 0, 0, 0, 0];
 
-        builder.execute();
+        assert_eq(builder.execute(), 0);
     }
 
     #[test(should_fail_with = "padded items should be empty outside of the range [num_original_items, capped_size)")]
@@ -109,7 +116,7 @@ mod tests {
 
         builder.padded_items[0] = 99;
 
-        builder.execute();
+        let _ = builder.execute();
     }
 
     #[test(should_fail_with = "padded items should be empty outside of the range [num_original_items, capped_size)")]
@@ -118,7 +125,7 @@ mod tests {
 
         builder.capped_size = 4;
 
-        builder.execute();
+        let _ = builder.execute();
     }
 
     #[test(should_fail_with = "padded items should be empty outside of the range [num_original_items, capped_size)")]
@@ -127,7 +134,7 @@ mod tests {
 
         builder.padded_items[6] = 99;
 
-        builder.execute();
+        let _ = builder.execute();
     }
 
     #[test(should_fail_with = "non-empty padded items should be consecutive within the range [num_original_items, capped_size)")]
@@ -136,7 +143,7 @@ mod tests {
 
         builder.padded_items[2] = 0;
 
-        builder.execute();
+        let _ = builder.execute();
     }
 
     #[test(should_fail_with = "non-empty padded items should be consecutive within the range [num_original_items, capped_size)")]
@@ -145,6 +152,6 @@ mod tests {
 
         builder.padded_items[3] = 0;
 
-        builder.execute();
+        let _ = builder.execute();
     }
 }

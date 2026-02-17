@@ -96,7 +96,7 @@ Validator:
     - Asserts equality (between the tx and current chain) of the chain_id, version, vk_tree_root, protocol_contracts_hash.
     - Asserts that the tx's chosen gas prices are sufficiently high, relative to the block's minimum requirements.
     - Asserts that the tx doesn't exceed the L2 gas limit.
-    - Asserts that the tx's `include_by_timestamp` hasn't already passed, relative to the block's timestamp.
+    - Asserts that the tx's `expiration_timestamp` hasn't already passed, relative to the block's timestamp.
 - Hashes the `contract_class_log_fields` and compares them against the tx's claimed contract class log hash.
 
 Composer:
@@ -177,7 +177,7 @@ Validator:
     - Asserts equality (between the tx and current chain) of the chain_id, version, vk_tree_root, protocol_contracts_hash.
     - Asserts that the tx's chosen gas prices are sufficiently high, relative to the block's minimum requirements.
     - Asserts that the tx doesn't exceed the L2 gas limit.
-    - Asserts that the tx's `include_by_timestamp` hasn't already passed, relative to the block's timestamp.
+    - Asserts that the tx's `expiration_timestamp` hasn't already passed, relative to the block's timestamp.
 
 Composer `.finish()`:
 - **Appends the tx effects to the next available position of a blob.**

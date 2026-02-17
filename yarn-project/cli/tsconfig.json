@@ -52,7 +52,7 @@
       "path": "../stdlib"
     },
     {
-      "path": "../test-wallet"
+      "path": "../wallets"
     },
     {
       "path": "../world-state"

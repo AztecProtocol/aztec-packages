@@ -5,3 +5,4 @@ export {
   BatchTxRequesterCollector,
   SendBatchRequestCollector,
 } from './proposal_tx_collector.js';
+export { FileStoreTxSource, createFileStoreTxSources } from './file_store_tx_source.js';

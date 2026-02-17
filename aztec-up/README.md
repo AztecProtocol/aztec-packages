@@ -10,19 +10,19 @@ This will install into `~/.aztec/bin` a collection of scripts to help with runni
 the user's `PATH` variable in their shell startup script so they can be found.
 
 - `aztec` - a collection of tools to compile and test contracts, to launch subsystems and interact with the aztec network."
-- `aztec-up` - a tool to upgrade the aztec toolchain to the latest, or specific versions."
+- `aztec-up` - a tool to install and manage aztec toolchain versions."
 - `aztec-wallet` - our minimalistic CLI wallet"
 
-After installed, you can use `aztec-up` to upgrade or install specific versions.
+After installed, you can use `aztec-up` to install specific versions.
 
 ```
-VERSION=nightly aztec-up
+aztec-up install nightly
 ```
 
 This will install the nightly build.
 
 ```
-VERSION=1.2.3 aztec-up
+aztec-up install 1.2.3
 ```
 
 This will install the tagged release version 1.2.3.

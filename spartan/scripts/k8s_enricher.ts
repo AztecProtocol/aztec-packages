@@ -35,6 +35,12 @@ if (cacheLogMode) {
 
 const namespace = args[0];
 
+// Previously this also ran, then Alex got bombarded running hundreds of prover agents.
+// This is now set on the relevant tests.
+if (process.env.K8S_ENRICHER !== '1') {
+  process.exit(0);
+}
+
 if (!namespace) {
   console.error('Usage: k8s_enricher.ts <namespace> [--cache-log]');
   process.exit(1);

@@ -13,9 +13,9 @@ Transactions on Aztec execute contract functions that modify state. Unlike simpl
 
 ## Prerequisites
 
-- [Connected to a network](./how_to_connect_to_local_network.md) with a `TestWallet` instance and funded accounts
+- [Connected to a network](./how_to_connect_to_local_network.md) with a `EmbeddedWallet` instance and funded accounts
 - Deployed contract with its address and ABI (see [How to Deploy](./how_to_deploy_contract.md))
-- Understanding of [contract interactions](../aztec-nr/framework-description/how_to_call_contracts.md)
+- Understanding of [contract interactions](../aztec-nr/framework-description/calling_contracts.md)
 
 ## Send a transaction
 

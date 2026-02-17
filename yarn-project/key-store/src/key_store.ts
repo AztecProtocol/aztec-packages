@@ -1,4 +1,4 @@
-import { GeneratorIndex } from '@aztec/constants';
+import { DomainSeparator } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
@@ -102,6 +102,11 @@ export class KeyStore {
     // We return account addresses based on the map keys that end with '-ivsk_m'
     const accounts = allMapKeys.filter(key => key.endsWith('-ivsk_m')).map(key => key.split('-')[0]);
     return accounts.map(account => AztecAddress.fromString(account));
+  }
+
+  /** Checks whether an account is registered in the key store. */
+  public async hasAccount(account: AztecAddress): Promise<boolean> {
+    return !!(await this.#keys.getAsync(`${account.toString()}-ivsk_m`));
   }
 
   /**
@@ -249,7 +254,7 @@ export class KeyStore {
 
     return poseidon2HashWithSeparator(
       [masterOutgoingViewingSecretKey.hi, masterOutgoingViewingSecretKey.lo, app],
-      GeneratorIndex.OVSK_M,
+      DomainSeparator.OVSK_M,
     );
   }
 
@@ -278,6 +283,23 @@ export class KeyStore {
     }
 
     return Promise.resolve(skM);
+  }
+
+  /**
+   * Checks whether a given account has a key matching the provided master public key hash.
+   * @param account - The account address to check.
+   * @param pkMHash - The master public key hash to look for.
+   * @returns True if the account has a key with the given hash.
+   */
+  public async accountHasKey(account: AztecAddress, pkMHash: Fr): Promise<boolean> {
+    const pkMHashBuffer = serializeToBuffer(pkMHash);
+    for (const prefix of KEY_PREFIXES) {
+      const stored = await this.#keys.getAsync(`${account.toString()}-${prefix}pk_m_hash`);
+      if (stored && Buffer.from(stored).equals(pkMHashBuffer)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

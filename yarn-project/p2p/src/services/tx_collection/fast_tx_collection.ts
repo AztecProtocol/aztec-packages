@@ -20,7 +20,7 @@ import {
   SendBatchRequestCollector,
 } from './proposal_tx_collector.js';
 import type { FastCollectionRequest, FastCollectionRequestInput } from './tx_collection.js';
-import type { TxCollectionSink } from './tx_collection_sink.js';
+import type { TxAddContext, TxCollectionSink } from './tx_collection_sink.js';
 import type { TxSource } from './tx_source.js';
 
 export class FastTxCollection {
@@ -77,7 +77,7 @@ export class FastTxCollection {
     // This promise is used to await for the collection to finish during the main collectFast method.
     // It gets resolved in `foundTxs` when all txs have been collected, or rejected if the request is aborted or hits the deadline.
     const promise = promiseWithResolvers<void>();
-    setTimeout(() => promise.reject(new TimeoutError(`Timed out while collecting txs`)), timeout);
+    const timeoutTimer = setTimeout(() => promise.reject(new TimeoutError(`Timed out while collecting txs`)), timeout);
 
     const request: FastCollectionRequest = {
       ...input,
@@ -89,6 +89,7 @@ export class FastTxCollection {
     };
 
     const [duration] = await elapsed(() => this.collectFast(request, { ...opts }));
+    clearTimeout(timeoutTimer);
 
     this.log.verbose(
       `Collected ${request.foundTxs.size} txs out of ${txHashes.length} for ${input.type} at slot ${blockInfo.slotNumber}`,
@@ -234,6 +235,7 @@ export class FastTxCollection {
             method: 'fast-node-rpc',
             ...request.blockInfo,
           },
+          this.getAddContext(request),
         );
 
         // Clear from the active requests the txs we just requested
@@ -287,12 +289,22 @@ export class FastTxCollection {
         },
         Array.from(request.missingTxHashes).map(txHash => TxHash.fromString(txHash)),
         { description: `reqresp for slot ${slotNumber}`, method: 'fast-req-resp', ...opts, ...request.blockInfo },
+        this.getAddContext(request),
       );
     } catch (err) {
       this.log.error(`Error sending fast reqresp request for txs`, err, {
         txs: [...request.missingTxHashes],
         ...blockInfo,
       });
+    }
+  }
+
+  /** Returns the TxAddContext for the given request, used by the sink to add txs to the pool correctly. */
+  private getAddContext(request: FastCollectionRequest): TxAddContext {
+    if (request.type === 'proposal') {
+      return { type: 'proposal', blockHeader: request.blockProposal.blockHeader };
+    } else {
+      return { type: 'mined', block: request.block };
     }
   }
 

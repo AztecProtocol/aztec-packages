@@ -122,7 +122,7 @@ unconstrained fn test_get_time_horizon_n0_delay() {
 
     let time_horizon = value_change.get_time_horizon(historical_timestamp, 0);
     // Since the time horizon equals the historical timestamp, it is not possible to read the current value in
-    // private since the transaction `include_by_timestamp` property would equal an already mined timestamp.
+    // private since the transaction `expiration_timestamp` property would equal an already mined timestamp.
     assert_eq(time_horizon, historical_timestamp);
 }
 

@@ -196,7 +196,7 @@ void FuzzerWorldStateManager::initialize_world_state()
         { simulation::MerkleTreeId::NULLIFIER_TREE, 128 },
         { simulation::MerkleTreeId::PUBLIC_DATA_TREE, 128 },
     };
-    uint32_t initial_header_generator_point = 2064783670; // GeneratorIndex.BLOCK_HEADER_HASH
+    uint32_t initial_header_generator_point = 2064783670; // DomainSeparator.BLOCK_HEADER_HASH
     ws = std::make_unique<world_state::WorldState>(
         /*thread_pool_size=*/4, DATA_DIR, MAP_SIZE_KB, tree_heights, tree_prefill, initial_header_generator_point);
 

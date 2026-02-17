@@ -237,12 +237,12 @@ describe('CheckpointProposalJob', () => {
       },
     );
     validatorClient.createCheckpointProposal.mockImplementation(
-      async (checkpointHeader, archiveRoot, lastBlockInfo) => {
+      async (checkpointHeader, archiveRoot, feeAssetPriceModifier, lastBlockInfo) => {
         if (!lastBlockInfo) {
-          return new CheckpointProposal(checkpointHeader, archiveRoot, mockedSig);
+          return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, mockedSig);
         }
         const txHashes = await Promise.all((lastBlockInfo.txs ?? []).map((tx: Tx) => tx.getTxHash()));
-        return new CheckpointProposal(checkpointHeader, archiveRoot, mockedSig, {
+        return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, mockedSig, {
           blockHeader: lastBlockInfo.blockHeader,
           indexWithinCheckpoint: lastBlockInfo.indexWithinCheckpoint,
           txHashes,
@@ -462,7 +462,7 @@ describe('CheckpointProposalJob', () => {
 
     // Set up p2p mocks
     p2p.getPendingTxCount.mockResolvedValue(txs.length);
-    p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
+    p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 
     // Create blocks with incrementing block numbers
     const blocks: Awaited<ReturnType<typeof makeBlock>>[] = [];
@@ -685,7 +685,7 @@ describe('CheckpointProposalJob', () => {
       const block = await makeBlock(txs, globalVariables);
 
       p2p.getPendingTxCount.mockResolvedValue(10);
-      p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
+      p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 
       checkpointBuilder.seedBlocks([block], [txs]);
 
@@ -744,7 +744,7 @@ describe('CheckpointProposalJob', () => {
       const block = await makeBlock(txs, globalVariables);
 
       p2p.getPendingTxCount.mockResolvedValue(10);
-      p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
+      p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 
       checkpointBuilder.seedBlocks([block], [txs]);
 
@@ -771,7 +771,7 @@ describe('CheckpointProposalJob', () => {
       const txs = await Promise.all([makeTx(1, chainId), makeTx(2, chainId), makeTx(3, chainId)]);
 
       p2p.getPendingTxCount.mockResolvedValue(10);
-      p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
+      p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 
       // Create 2 blocks - block 1 has 2 txs, block 2 has 1 tx
       const block1 = await makeBlock(txs.slice(0, 2), globalVariables);
@@ -830,7 +830,7 @@ describe('CheckpointProposalJob', () => {
       });
 
       expect(checkpoint).toBeUndefined();
-      expect(p2p.deleteTxs).toHaveBeenCalledWith(failedTxs.map(ftx => ftx.tx.txHash));
+      expect(p2p.handleFailedExecution).toHaveBeenCalledWith(failedTxs.map(ftx => ftx.tx.txHash));
     });
 
     it('does not build a block if checkpoint builder fails with invalid txs', async () => {
@@ -852,7 +852,7 @@ describe('CheckpointProposalJob', () => {
       });
 
       expect(checkpoint).toBeUndefined();
-      expect(p2p.deleteTxs).toHaveBeenCalledWith(failedTxs.map(ftx => ftx.tx.txHash));
+      expect(p2p.handleFailedExecution).toHaveBeenCalledWith(failedTxs.map(ftx => ftx.tx.txHash));
     });
   });
 
@@ -867,7 +867,7 @@ describe('CheckpointProposalJob', () => {
 
       const txs = await Promise.all([makeTx(1, chainId)]);
       p2p.getPendingTxCount.mockResolvedValue(txs.length);
-      p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
+      p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 
       const checkpoint = await job.execute();
 
@@ -880,7 +880,7 @@ describe('CheckpointProposalJob', () => {
       // Mock minimal txs (less than minTxsPerBlock)
       p2p.getPendingTxCount.mockResolvedValue(1);
       const txs = await Promise.all([makeTx(1, chainId)]);
-      p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
+      p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 
       const block = await makeBlock(txs, globalVariables);
       checkpointBuilder.seedBlocks([block], [txs]);
@@ -904,7 +904,7 @@ describe('CheckpointProposalJob', () => {
       const block = await makeBlock(txs, globalVariables);
 
       p2p.getPendingTxCount.mockResolvedValue(txs.length);
-      p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
+      p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 
       checkpointBuilder.seedBlocks([block], [txs]);
 
@@ -922,7 +922,7 @@ describe('CheckpointProposalJob', () => {
     it('handles block build failure gracefully', async () => {
       const txs = await Promise.all([makeTx(1, chainId)]);
       p2p.getPendingTxCount.mockResolvedValue(txs.length);
-      p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
+      p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 
       // Set up MockCheckpointBuilder to throw on build
       checkpointBuilder.errorOnBuild = new Error('Block build failed');

@@ -260,20 +260,20 @@ export class PrivateKernelExecutionProver {
     // TODO: Enable padding once we better understand the final amounts to pad to.
     const paddedSideEffectAmounts = PaddedSideEffectAmounts.empty();
 
-    // Use the aggregated includeByTimestamp set throughout the tx execution.
-    // TODO: Call `computeTxIncludeByTimestamp` to round the value down and reduce precision, improving privacy.
-    const includeByTimestampUpperBound = previousKernelData.publicInputs.includeByTimestamp;
+    // Use the aggregated expirationTimestamp set throughout the tx execution.
+    // TODO: Call `computeTxExpirationTimestamp` to round the value down and reduce precision, improving privacy.
+    const expirationTimestampUpperBound = previousKernelData.publicInputs.expirationTimestamp;
     const anchorBlockTimestamp = previousKernelData.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp;
-    if (includeByTimestampUpperBound <= anchorBlockTimestamp) {
+    if (expirationTimestampUpperBound <= anchorBlockTimestamp) {
       throw new Error(
-        `Include-by timestamp must be greater than the anchor block timestamp. Anchor block timestamp: ${anchorBlockTimestamp}. Include-by timestamp: ${includeByTimestampUpperBound}.`,
+        `Include-by timestamp must be greater than the anchor block timestamp. Anchor block timestamp: ${anchorBlockTimestamp}. Include-by timestamp: ${expirationTimestampUpperBound}.`,
       );
     }
 
     const privateInputs = new PrivateKernelTailCircuitPrivateInputs(
       previousKernelData,
       paddedSideEffectAmounts,
-      includeByTimestampUpperBound,
+      expirationTimestampUpperBound,
     );
 
     const witgenTimer = new Timer();
