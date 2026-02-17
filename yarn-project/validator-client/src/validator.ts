@@ -47,6 +47,7 @@ import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 import { createHASigner } from '@aztec/validator-ha-signer/factory';
 import { DutyType, type SigningContext } from '@aztec/validator-ha-signer/types';
+import type { ValidatorHASigner } from '@aztec/validator-ha-signer/validator-ha-signer';
 
 import { EventEmitter } from 'events';
 import type { TypedDataDefinition } from 'viem';
@@ -77,7 +78,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   private validationService: ValidationService;
   private metrics: ValidatorMetrics;
   private log: Logger;
-
   // Whether it has already registered handlers on the p2p client
   private hasRegisteredHandlers = false;
 
@@ -106,6 +106,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private config: ValidatorClientFullConfig,
     private blobClient: BlobClientInterface,
+    private haSigner: ValidatorHASigner | undefined,
     private dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
     log = createLogger('validator'),
@@ -211,7 +212,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       telemetry,
     );
 
-    let validatorKeyStore: ExtendedValidatorKeyStore = NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager);
+    const nodeKeystoreAdapter = NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager);
+    let validatorKeyStore: ExtendedValidatorKeyStore = nodeKeystoreAdapter;
+    let haSigner: ValidatorHASigner | undefined;
     if (config.haSigningEnabled) {
       // If maxStuckDutiesAgeMs is not explicitly set, compute it from Aztec slot duration
       const haConfig = {
@@ -219,7 +222,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         maxStuckDutiesAgeMs: config.maxStuckDutiesAgeMs ?? epochCache.getL1Constants().slotDuration * 2 * 1000,
       };
       const { signer } = await createHASigner(haConfig);
-      validatorKeyStore = new HAKeyStore(validatorKeyStore, signer);
+      haSigner = signer;
+      validatorKeyStore = new HAKeyStore(nodeKeystoreAdapter, signer);
     }
 
     const validator = new ValidatorClient(
@@ -233,6 +237,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       l1ToL2MessageSource,
       config,
       blobClient,
+      haSigner,
       dateProvider,
       telemetry,
     );
@@ -268,6 +273,28 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   public updateConfig(config: Partial<ValidatorClientFullConfig>) {
     this.config = { ...this.config, ...config };
+  }
+
+  public reloadKeystore(newManager: KeystoreManager): void {
+    if (this.config.haSigningEnabled && !this.haSigner) {
+      this.log.warn(
+        'HA signing is enabled in config but was not initialized at startup. ' +
+          'Restart the node to enable HA signing.',
+      );
+    } else if (!this.config.haSigningEnabled && this.haSigner) {
+      this.log.warn(
+        'HA signing was disabled via config update but the HA signer is still active. ' +
+          'Restart the node to fully disable HA signing.',
+      );
+    }
+
+    const newAdapter = NodeKeystoreAdapter.fromKeyStoreManager(newManager);
+    if (this.haSigner) {
+      this.keyStore = new HAKeyStore(newAdapter, this.haSigner);
+    } else {
+      this.keyStore = newAdapter;
+    }
+    this.validationService = new ValidationService(this.keyStore, this.log.createChild('validation-service'));
   }
 
   public async start() {

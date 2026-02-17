@@ -25,7 +25,7 @@ import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
-import { FullNodeCheckpointsBuilder, type ValidatorClient } from '@aztec/validator-client';
+import { FullNodeCheckpointsBuilder, NodeKeystoreAdapter, type ValidatorClient } from '@aztec/validator-client';
 
 import EventEmitter from 'node:events';
 
@@ -854,6 +854,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
   public getValidatorAddresses() {
     return this.validatorClient?.getValidatorAddresses();
+  }
+
+  /** Updates the publisher factory's node keystore adapter after a keystore reload. */
+  public updatePublisherNodeKeyStore(adapter: NodeKeystoreAdapter): void {
+    this.publisherFactory.updateNodeKeyStore(adapter);
   }
 
   public getConfig() {
