@@ -2340,6 +2340,7 @@ __metadata:
     "@aztec/entrypoints": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
+    "@aztec/protocol-contracts": "workspace:^"
     "@aztec/pxe": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/wallet-sdk": "workspace:^"
