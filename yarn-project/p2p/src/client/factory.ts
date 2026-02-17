@@ -161,6 +161,7 @@ export async function createP2PClient<T extends P2PClientType>(
     config.txCollectionFileStoreUrls,
     txFileStoreBasePath,
     logger.createChild('file-store-tx-source'),
+    telemetry,
   );
   if (fileStoreSources.length > 0) {
     logger.info(`Using ${fileStoreSources.length} file store sources for tx collection.`, {
