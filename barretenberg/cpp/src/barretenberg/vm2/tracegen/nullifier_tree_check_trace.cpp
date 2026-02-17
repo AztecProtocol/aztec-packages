@@ -17,8 +17,7 @@ using simulation::NullifierTreeLeafPreimage;
  * still produce trace rows but are excluded from public input writes.
  *
  * Each non-checkpoint event produces one trace row covering: siloing, low leaf validation, indexed tree
- * membership checks, low leaf updates, new leaf insertion, and Merkle proofs. The diff inverse and next
- * nullifier inverse columns are batch-inverted at the end for non-membership checks.
+ * membership checks, low leaf updates, new leaf insertion, and Merkle proofs.
  *
  * @param events The container of nullifier tree check events to process.
  * @param trace The trace container to populate with nullifier tree check rows.

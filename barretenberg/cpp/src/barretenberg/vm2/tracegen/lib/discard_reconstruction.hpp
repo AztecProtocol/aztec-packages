@@ -73,8 +73,7 @@ std::unordered_map<size_t, size_t> compute_reverted_in_map(const std::vector<Eve
  * event and a boolean discard flag indicating whether the event belongs to a reverted checkpoint.
  *
  * Events between a CREATE_CHECKPOINT (that will later be reverted) and its corresponding REVERT_CHECKPOINT
- * are marked with discard=true. All other payload events are marked with discard=false. Nested checkpoints
- * are handled correctly: only events in the outermost reverted checkpoint are marked as discarded.
+ * are marked with discard=true. All other payload events are marked with discard=false.
  *
  * Checkpoint events themselves are consumed by this function and not passed to the callback.
  *
