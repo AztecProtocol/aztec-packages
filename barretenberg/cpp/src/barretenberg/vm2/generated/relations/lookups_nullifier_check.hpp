@@ -17,7 +17,7 @@ struct lookup_nullifier_check_silo_poseidon2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_NULLIFIER_CHECK_SILO_POSEIDON2";
     static constexpr std::string_view RELATION_NAME = "nullifier_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
-    static constexpr Column SRC_SELECTOR = Column::nullifier_check_should_silo;
+    static constexpr Column SRC_SELECTOR = Column::nullifier_check_sel_silo;
     static constexpr Column DST_SELECTOR = Column::poseidon2_hash_start;
     static constexpr Column COUNTS = Column::lookup_nullifier_check_silo_poseidon2_counts;
     static constexpr Column INVERSES = Column::lookup_nullifier_check_silo_poseidon2_inv;

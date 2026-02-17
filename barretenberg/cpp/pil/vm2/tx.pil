@@ -553,7 +553,7 @@ namespace tx;
         nullifier_check.tree_size_before_write,
         nullifier_check.discard,
         nullifier_check.nullifier_index,
-        nullifier_check.should_silo
+        nullifier_check.sel_silo
     };
 
     // If reverted, the next state is unconstrained. This is okay since we are going to restore the state at the end of setup.

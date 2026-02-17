@@ -34,14 +34,14 @@ include "../precomputed.pil";
  * sel { exists,
  *       nullifier,
  *       nullifier_tree_root,
- *       should_silo,
- *       address // Can be omitted if should_silo is precomputed.zero
+ *       sel_silo,
+ *       address // Can be omitted if sel_silo is precomputed.zero
  * } in nullifier_check.sel {
- *       nullifier_check.exists,         // Output
- *       nullifier_check.nullifier,      // Input
- *       nullifier_check.root,           // Input
- *       nullifier_check.should_silo,    // Input
- *       nullifier_check.address         // Input (omit if should_silo == 0)
+ *       nullifier_check.exists,      // Output
+ *       nullifier_check.nullifier,   // Input
+ *       nullifier_check.root,        // Input
+ *       nullifier_check.sel_silo,    // Input
+ *       nullifier_check.address      // Input (omit if sel_silo == 0)
  * };
  *
  * Write usage:
@@ -55,8 +55,8 @@ include "../precomputed.pil";
  *       prev_nullifier_tree_size,
  *       discard,
  *       nullifier_index,
- *       should_silo,
- *       address // Can be omitted if should_silo is precomputed.zero
+ *       sel_silo,
+ *       address // Can be omitted if sel_silo is precomputed.zero
  * } in nullifier_check.write {
  *     nullifier_check.nullifier,             // Input
  *     nullifier_check.root,                  // Input
@@ -65,12 +65,12 @@ include "../precomputed.pil";
  *     nullifier_check.tree_size_before_write,// Input
  *     nullifier_check.discard,               // Input
  *     nullifier_check.nullifier_index,       // Input
- *     nullifier_check.should_silo,           // Input
- *     nullifier_check.address                // Input (omit if should_silo should_silo == 0)
+ *     nullifier_check.sel_silo,              // Input
+ *     nullifier_check.address                // Input (omit if sel_silo == 0)
  * };
  *
  * Note: On a failing write (when exists == true), the write_root equals the input root and no tree update occurs.
- * The address column should be omitted (or set to zero) when should_silo == 0.
+ * The address column should be omitted (or set to zero) when sel_silo == 0.
  * The nullifier_index must always be provided on write as it's used for public input indexing.
  *
  * Preconditions:
@@ -80,7 +80,7 @@ include "../precomputed.pil";
  * - The nullifier tree genesis state must have an irreproducible hash for uninitialized leaves (0).
  *
  * Interactions:
- * - poseidon2_hash: Conditional siloing (should_silo), low leaf hash, updated low leaf hash (sel_insert), new leaf hash (sel_insert)
+ * - poseidon2_hash: Conditional siloing (sel_silo), low leaf hash, updated low leaf hash (sel_insert), new leaf hash (sel_insert)
  * - merkle_check: Low leaf membership/update (sel_insert), new leaf insertion (sel_insert)
  * - ff_gt: Low leaf nullifier validation (leaf_not_exists), next nullifier validation (next_nullifier_is_nonzero)
  * - public_inputs: Write siloed nullifier to public inputs (sel_write_to_public_inputs)
@@ -103,8 +103,8 @@ namespace nullifier_check;
     pol commit root;
     pol commit exists; // @boolean
     exists * (1 - exists) = 0;
-    pol commit should_silo; // @boolean
-    should_silo * (1 - should_silo) = 0;
+    pol commit sel_silo; // @boolean
+    sel_silo * (1 - sel_silo) = 0;
     pol commit address;
 
     // Write specific inputs
@@ -117,7 +117,7 @@ namespace nullifier_check;
     // ========= SILOING =========
     pol commit siloed_nullifier;
     #[PASSTHROUGH_SILOING]
-    (1 - should_silo) * (nullifier - siloed_nullifier) = 0;
+    (1 - sel_silo) * (nullifier - siloed_nullifier) = 0;
 
     // Lookup constant support: Can be removed when we support constants in lookups.
     pol commit siloing_separator;
@@ -126,7 +126,7 @@ namespace nullifier_check;
     sel * (const_three - 3) = 0;
 
     #[SILO_POSEIDON2]
-    should_silo {
+    sel_silo {
         siloing_separator, address, nullifier,
         siloed_nullifier, const_three
     } in poseidon2_hash.start {

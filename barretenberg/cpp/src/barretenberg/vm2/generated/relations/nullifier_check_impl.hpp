@@ -48,8 +48,8 @@ void nullifier_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::nullifier_check_should_silo)) *
-                   (FF(1) - static_cast<View>(in.get(C::nullifier_check_should_silo)));
+        auto tmp = static_cast<View>(in.get(C::nullifier_check_sel_silo)) *
+                   (FF(1) - static_cast<View>(in.get(C::nullifier_check_sel_silo)));
         std::get<4>(evals) += (tmp * scaling_factor);
     }
     {
@@ -60,7 +60,7 @@ void nullifier_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // PASSTHROUGH_SILOING
         using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
-        auto tmp = (FF(1) - static_cast<View>(in.get(C::nullifier_check_should_silo))) *
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::nullifier_check_sel_silo))) *
                    (static_cast<View>(in.get(C::nullifier_check_nullifier)) -
                     static_cast<View>(in.get(C::nullifier_check_siloed_nullifier)));
         std::get<6>(evals) += (tmp * scaling_factor);

@@ -87,7 +87,7 @@ struct lookup_contract_instance_retrieval_deployment_nullifier_read_settings_ {
         ColumnAndShifts::nullifier_check_nullifier,
         ColumnAndShifts::nullifier_check_root,
         ColumnAndShifts::nullifier_check_address,
-        ColumnAndShifts::nullifier_check_should_silo
+        ColumnAndShifts::nullifier_check_sel_silo
     };
 };
 

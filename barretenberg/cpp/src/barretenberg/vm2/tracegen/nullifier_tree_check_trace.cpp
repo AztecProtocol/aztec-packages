@@ -76,7 +76,7 @@ void NullifierTreeCheckTraceBuilder::process(
                       { C::nullifier_check_tree_size_before_write, event.prev_snapshot.next_available_leaf_index },
                       { C::nullifier_check_discard, discard },
                       { C::nullifier_check_nullifier_index, event.nullifier_counter },
-                      { C::nullifier_check_should_silo, event.siloing_data.has_value() },
+                      { C::nullifier_check_sel_silo, event.siloing_data.has_value() },
                       { C::nullifier_check_address, address },
                       { C::nullifier_check_low_leaf_nullifier, event.low_leaf_preimage.leaf.nullifier },
                       { C::nullifier_check_low_leaf_next_index, event.low_leaf_preimage.nextIndex },
