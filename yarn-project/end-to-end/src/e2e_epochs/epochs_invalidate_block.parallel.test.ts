@@ -58,7 +58,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // Uses multiple-blocks-per-slot timing configuration.
     test = await EpochsTestContext.setup({
       ethereumSlotDuration: 8,
-      aztecSlotDuration: 36,
+      aztecSlotDuration: 32,
       blockDurationMs: 6000,
       l1PublishingTime: 8,
       enforceTimeTable: true,
