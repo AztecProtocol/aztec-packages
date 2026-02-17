@@ -26,7 +26,7 @@ import { type L1RollupConstants, getTimestampForSlot } from '@aztec/stdlib/epoch
 import { GasFees } from '@aztec/stdlib/gas';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
-import type { BlockProposal } from '@aztec/stdlib/p2p';
+import { type BlockProposal, CheckpointProposal } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { BlockHeader, type CheckpointGlobalVariables, Tx } from '@aztec/stdlib/tx';
@@ -52,6 +52,7 @@ describe('ValidatorClient Integration', () => {
     ethereumSlotDuration: 12,
     proofSubmissionEpochs: 2,
     l1StartBlock: 0n,
+    targetCommitteeSize: 48,
   };
 
   const emptyL1ToL2Messages: Fr[] = [];
@@ -169,6 +170,7 @@ describe('ValidatorClient Integration', () => {
         validatorReexecute: true,
         slashBroadcastedInvalidBlockPenalty: 10n,
         slashDuplicateProposalPenalty: 10n,
+        slashDuplicateAttestationPenalty: 10n,
         haSigningEnabled: false,
         skipCheckpointProposalValidation: false,
         skipPushProposedBlocksToArchiver: false,
@@ -283,6 +285,7 @@ describe('ValidatorClient Integration', () => {
     const builder = await proposer.checkpointsBuilder.startCheckpoint(
       checkpointNumber,
       globalVariables,
+      0n,
       l1ToL2Messages,
       previousCheckpointOutHashes,
       fork,
@@ -301,6 +304,7 @@ describe('ValidatorClient Integration', () => {
     const proposal = await proposer.validator.createCheckpointProposal(
       checkpoint.header,
       checkpoint.archive.root,
+      0n,
       undefined,
       proposerSigner.address,
     );
@@ -521,12 +525,14 @@ describe('ValidatorClient Integration', () => {
         () => buildTxs(2),
       );
 
-      // Create a checkpoint proposal with wrong archive root
-      const badProposal = await proposer.validator.createCheckpointProposal(
+      // Create a checkpoint proposal with wrong archive root directly, bypassing the
+      // validator's anti-equivocation guard (which prevents two proposals for the same slot)
+      const badProposal = await CheckpointProposal.createProposalFromSigner(
         checkpoint.header,
         Fr.random(), // Wrong archive root
+        0n,
         undefined,
-        proposerSigner.address,
+        payload => Promise.resolve(proposerSigner.sign(payload)),
       );
 
       await attestorValidateBlocks(blocks);

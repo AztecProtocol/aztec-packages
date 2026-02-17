@@ -7,11 +7,11 @@ import {
 import {
   ARCHIVE_HEIGHT,
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
-  AZTEC_MAX_EPOCH_DURATION,
   CHONK_PROOF_LENGTH,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-  GeneratorIndex,
+  DomainSeparator,
   L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
+  MAX_CHECKPOINTS_PER_EPOCH,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_CALL,
   MAX_ENQUEUED_CALLS_PER_TX,
@@ -102,7 +102,7 @@ import {
 import { Gas, GasFees, GasSettings } from '../gas/index.js';
 import { computeCalldataHash } from '../hash/hash.js';
 import { KeyValidationRequest } from '../kernel/hints/key_validation_request.js';
-import { KeyValidationRequestAndGenerator } from '../kernel/hints/key_validation_request_and_generator.js';
+import { KeyValidationRequestAndSeparator } from '../kernel/hints/key_validation_request_and_separator.js';
 import { ReadRequest, ScopedReadRequest } from '../kernel/hints/read_request.js';
 import {
   ClaimedLengthArray,
@@ -259,12 +259,12 @@ function makeKeyValidationRequests(seed: number): KeyValidationRequest {
 }
 
 /**
- * Creates arbitrary KeyValidationRequestAndGenerator from the given seed.
- * @param seed - The seed to use for generating the KeyValidationRequestAndGenerator.
- * @returns A KeyValidationRequestAndGenerator.
+ * Creates arbitrary KeyValidationRequestAndSeparator from the given seed.
+ * @param seed - The seed to use for generating the KeyValidationRequestAndSeparator.
+ * @returns A KeyValidationRequestAndSeparator.
  */
-function makeKeyValidationRequestAndGenerators(seed: number): KeyValidationRequestAndGenerator {
-  return new KeyValidationRequestAndGenerator(makeKeyValidationRequests(seed), fr(seed + 4));
+function makeKeyValidationRequestAndSeparators(seed: number): KeyValidationRequestAndSeparator {
+  return new KeyValidationRequestAndSeparator(makeKeyValidationRequests(seed), fr(seed + 4));
 }
 
 export function makePublicDataWrite(seed = 1) {
@@ -656,7 +656,7 @@ function makeClaimedLengthArray<T extends Serializable, N extends number>(
  */
 export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicInputs {
   return PrivateCircuitPublicInputs.from({
-    includeByTimestamp: BigInt(seed + 0x31415),
+    expirationTimestamp: BigInt(seed + 0x31415),
     callContext: makeCallContext(seed, { isStaticCall: true }),
     argsHash: fr(seed + 0x100),
     returnsHash: fr(seed + 0x200),
@@ -671,9 +671,9 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
       makeScopedReadRequest,
       seed + 0x310,
     ),
-    keyValidationRequestsAndGenerators: makeClaimedLengthArray(
+    keyValidationRequestsAndSeparators: makeClaimedLengthArray(
       MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
-      makeKeyValidationRequestAndGenerators,
+      makeKeyValidationRequestAndSeparators,
       seed + 0x320,
     ),
     noteHashes: makeClaimedLengthArray(MAX_NOTE_HASHES_PER_CALL, makeNoteHash, seed + 0x400),
@@ -851,8 +851,8 @@ export function makeCheckpointRollupPublicInputs(seed = 0) {
     makeAppendOnlyTreeSnapshot(seed + 0x200),
     makeAppendOnlyTreeSnapshot(seed + 0x300),
     makeAppendOnlyTreeSnapshot(seed + 0x350),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x400),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x500),
+    makeTuple(MAX_CHECKPOINTS_PER_EPOCH, () => fr(seed), 0x400),
+    makeTuple(MAX_CHECKPOINTS_PER_EPOCH, () => makeFeeRecipient(seed), 0x500),
     makeBlobAccumulator(seed + 0x600),
     makeBlobAccumulator(seed + 0x700),
     makeFinalBlobBatchingChallenges(seed + 0x800),
@@ -888,8 +888,8 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
     fr(seed + 0x100),
     fr(seed + 0x200),
     fr(seed + 0x300),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x400),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x500),
+    makeTuple(MAX_CHECKPOINTS_PER_EPOCH, () => fr(seed), 0x400),
+    makeTuple(MAX_CHECKPOINTS_PER_EPOCH, () => makeFeeRecipient(seed), 0x500),
     makeEpochConstantData(seed + 0x600),
     makeFinalBlobAccumulator(seed + 0x700),
   );
@@ -1287,11 +1287,11 @@ export async function makeContractInstanceFromClassId(
 
   const saltedInitializationHash = await poseidon2HashWithSeparator(
     [salt, initializationHash, deployer],
-    GeneratorIndex.PARTIAL_ADDRESS,
+    DomainSeparator.PARTIAL_ADDRESS,
   );
   const partialAddress = await poseidon2HashWithSeparator(
     [classId, saltedInitializationHash],
-    GeneratorIndex.PARTIAL_ADDRESS,
+    DomainSeparator.PARTIAL_ADDRESS,
   );
   const address = await computeAddress(publicKeys, partialAddress);
   return new SerializableContractInstance({

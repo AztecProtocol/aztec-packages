@@ -2,7 +2,7 @@ mod config;
 mod subscription_note;
 mod dapp_payload;
 
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 /// # AppSubscription Contract
 ///

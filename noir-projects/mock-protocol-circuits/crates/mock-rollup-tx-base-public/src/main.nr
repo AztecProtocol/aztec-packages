@@ -1,4 +1,4 @@
-use dep::mock_types::{
+use mock_types::{
     AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, AvmCircuitPublicInputs, ChonkProofData, PROOF_TYPE_AVM,
     RollupPublicInputs, SerializeToColumns,
 };

@@ -7,7 +7,7 @@ use crate::{
     abis::PaddedSideEffectAmounts,
     private_kernel_tail_to_public::{self, PrivateKernelTailToPublicCircuitPrivateInputs},
 };
-use dep::types::{
+use types::{
     abis::{gas::Gas, kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs},
     address::AztecAddress,
     constants::PRIVATE_KERNEL_INNER_VK_INDEX,
@@ -18,7 +18,7 @@ use dep::types::{
 struct TestBuilder {
     pub previous_kernel: FixtureBuilder,
     pub padded_side_effect_amounts: PaddedSideEffectAmounts,
-    pub include_by_timestamp_upper_bound: u64,
+    pub expiration_timestamp_upper_bound: u64,
     // `output` is used in tests for TailToPublicOutputValidator.
     pub output: FixtureBuilder,
 }
@@ -41,7 +41,7 @@ impl TestBuilder {
         TestBuilder {
             previous_kernel,
             padded_side_effect_amounts,
-            include_by_timestamp_upper_bound: previous_kernel.include_by_timestamp,
+            expiration_timestamp_upper_bound: previous_kernel.expiration_timestamp,
             output,
         }
     }
@@ -52,7 +52,7 @@ impl TestBuilder {
         let inputs = PrivateKernelTailToPublicCircuitPrivateInputs {
             previous_kernel,
             padded_side_effect_amounts: self.padded_side_effect_amounts,
-            include_by_timestamp_upper_bound: self.include_by_timestamp_upper_bound,
+            expiration_timestamp_upper_bound: self.expiration_timestamp_upper_bound,
         };
 
         private_kernel_tail_to_public::execute(inputs)

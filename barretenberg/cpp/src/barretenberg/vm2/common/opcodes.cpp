@@ -173,8 +173,8 @@ std::ostream& operator<<(std::ostream& os, const WireOpCode& op)
     case WireOpCode::GETCONTRACTINSTANCE:
         os << "GETCONTRACTINSTANCE";
         break;
-    case WireOpCode::EMITUNENCRYPTEDLOG:
-        os << "EMITUNENCRYPTEDLOG";
+    case WireOpCode::EMITPUBLICLOG:
+        os << "EMITPUBLICLOG";
         break;
     case WireOpCode::SENDL2TOL1MSG:
         os << "SENDL2TOL1MSG";
@@ -324,8 +324,8 @@ std::ostream& operator<<(std::ostream& os, const ExecutionOpCode& op)
     case ExecutionOpCode::GETCONTRACTINSTANCE:
         os << "GETCONTRACTINSTANCE";
         break;
-    case ExecutionOpCode::EMITUNENCRYPTEDLOG:
-        os << "EMITUNENCRYPTEDLOG";
+    case ExecutionOpCode::EMITPUBLICLOG:
+        os << "EMITPUBLICLOG";
         break;
     case ExecutionOpCode::SENDL2TOL1MSG:
         os << "SENDL2TOL1MSG";

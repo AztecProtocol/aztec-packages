@@ -3,10 +3,10 @@ mod validate_propagated_from_previous_kernel;
 mod validate_propagated_from_private_call;
 
 use crate::components::private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator;
-use dep::types::{
+use types::{
     abis::{private_call_request::PrivateCallRequest, transaction::tx_request::TxRequest},
     constants::PRIVATE_KERNEL_INIT_VK_INDEX,
-    hash::{create_protocol_nullifier, silo_nullifier},
+    hash::{compute_siloed_nullifier, create_protocol_nullifier},
     tests::fixture_builder::FixtureBuilder,
     traits::Empty,
 };
@@ -52,7 +52,10 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         self.output.nullifiers.push(protocol_nullifier);
         self.previous_kernel.nullifiers.push(protocol_nullifier);
 
-        self.first_nullifier_hint = silo_nullifier(protocol_nullifier);
+        self.first_nullifier_hint = compute_siloed_nullifier(
+            protocol_nullifier.contract_address,
+            protocol_nullifier.innermost().value,
+        );
         self.previous_kernel.claimed_first_nullifier = self.first_nullifier_hint;
         self.output.claimed_first_nullifier = self.first_nullifier_hint;
     }

@@ -1,4 +1,11 @@
-import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi, encodeArguments } from '@aztec/stdlib/abi';
+import {
+  type FunctionAbi,
+  FunctionCall,
+  FunctionSelector,
+  FunctionType,
+  decodeFromAbi,
+  encodeArguments,
+} from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type Capsule, type HashedValues, type TxProfileResult, collectOffchainEffects } from '@aztec/stdlib/tx';
@@ -43,16 +50,16 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    */
   public async getFunctionCall() {
     const args = encodeArguments(this.functionDao, this.args);
-    return {
+    return FunctionCall.from({
       name: this.functionDao.name,
-      args,
+      to: this.contractAddress,
       selector: await FunctionSelector.fromNameAndParameters(this.functionDao.name, this.functionDao.parameters),
       type: this.functionDao.functionType,
-      to: this.contractAddress,
-      isStatic: this.functionDao.isStatic,
       hideMsgSender: false /** Only set to `true` for enqueued public function calls */,
+      isStatic: this.functionDao.isStatic,
+      args,
       returnTypes: this.functionDao.returnTypes,
-    };
+    });
   }
 
   /**
@@ -104,7 +111,10 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     // docs:end:simulate
     if (this.functionDao.functionType == FunctionType.UTILITY) {
       const call = await this.getFunctionCall();
-      const utilityResult = await this.wallet.simulateUtility(call, options.authWitnesses ?? []);
+      const utilityResult = await this.wallet.simulateUtility(call, {
+        scope: options.from,
+        authWitnesses: options.authWitnesses,
+      });
 
       // Decode the raw field elements to the actual return type
       const returnValue = utilityResult.result ? decodeFromAbi(this.functionDao.returnTypes, utilityResult.result) : [];

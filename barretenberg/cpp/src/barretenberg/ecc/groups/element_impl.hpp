@@ -712,23 +712,22 @@ element<Fq, Fr, T> element<Fq, Fr, T>::mul_with_endomorphism(const Fr& scalar) c
 }
 
 /**
- * @brief Core batch affine addition using Montgomery's batch inversion trick
- * @tparam Policy Memory layout policy (ParallelArrayPolicy or InterleavedArrayPolicy)
- * @tparam AffineElement Affine point type
- * @tparam Fq Base field type
+ * @brief Batch affine addition for parallel arrays: (lhs[i], rhs[i]) → rhs[i]
+ * @details Uses Montgomery's batch inversion trick. lhs and rhs are separate arrays so no aliasing issues.
+ *
+ * @param lhs        Input array of first summands (read-only)
+ * @param rhs        Input array of second summands; results are written here (rhs[i] = lhs[i] + rhs[i])
+ * @param num_pairs  Number of point pairs to add
+ * @param scratch_space Temporary storage for batch inversion, size >= num_pairs
  *
  * @warning ASSUMES NO EDGE CASES:
  *   - All points must be valid (not point at infinity)
  *   - lhs[i] != rhs[i] for all i (no point doubling cases)
  *   - lhs[i] != -rhs[i] for all i (no point at infinity results)
- *   - Points are linearly independent (generic position)
- *
- * @note This is the "unsafe" fast path. For general point addition with edge case handling,
- *       use Jacobian arithmetic or handle edge cases separately before calling this function.
  */
-template <typename Policy, typename AffineElement, typename Fq>
-__attribute__((always_inline)) inline void batch_affine_add_impl(const AffineElement* lhs_base,
-                                                                 AffineElement* rhs_base,
+template <typename AffineElement, typename Fq>
+__attribute__((always_inline)) inline void batch_affine_add_impl(const AffineElement* lhs,
+                                                                 AffineElement* rhs,
                                                                  const size_t num_pairs,
                                                                  Fq* scratch_space) noexcept
 {
@@ -736,15 +735,11 @@ __attribute__((always_inline)) inline void batch_affine_add_impl(const AffineEle
 
     // Forward pass: prepare batch inversion
     for (size_t i = 0; i < num_pairs; ++i) {
-        const AffineElement& lhs = lhs_base[Policy::template lhs_index<AffineElement>(i)];
-        AffineElement& rhs = rhs_base[Policy::template rhs_index<AffineElement>(i)];
-        Fq& scratch = scratch_space[i];
-
-        scratch = lhs.x + rhs.x;
-        rhs.x -= lhs.x;
-        rhs.y -= lhs.y;
-        rhs.y *= batch_inversion_accumulator;
-        batch_inversion_accumulator *= (rhs.x);
+        scratch_space[i] = lhs[i].x + rhs[i].x;
+        rhs[i].x -= lhs[i].x;
+        rhs[i].y -= lhs[i].y;
+        rhs[i].y *= batch_inversion_accumulator;
+        batch_inversion_accumulator *= rhs[i].x;
     }
 
     if (batch_inversion_accumulator == Fq::zero()) {
@@ -753,25 +748,72 @@ __attribute__((always_inline)) inline void batch_affine_add_impl(const AffineEle
     batch_inversion_accumulator = batch_inversion_accumulator.invert();
 
     // Backward pass: compute additions
-    for (size_t i_plus_1 = num_pairs; i_plus_1 > 0; --i_plus_1) {
-        size_t i = i_plus_1 - 1;
+    for (size_t i = num_pairs - 1; i < num_pairs; --i) {
+        // lambda = (y2 - y1) / (x2 - x1)
+        rhs[i].y *= batch_inversion_accumulator;
+        batch_inversion_accumulator *= rhs[i].x;
+        rhs[i].x = rhs[i].y.sqr();
+        rhs[i].x -= scratch_space[i]; // x3 = lambda^2 - (x1 + x2)
 
-        const AffineElement& lhs = lhs_base[Policy::template lhs_index<AffineElement>(i)];
-        AffineElement& rhs = rhs_base[Policy::template rhs_index<AffineElement>(i)];
-        AffineElement& output = rhs_base[Policy::template output_index<AffineElement>(i, num_pairs)];
-        Fq& scratch = scratch_space[i];
+        // y3 = lambda * (x1 - x3) - y1
+        Fq temp = lhs[i].x - rhs[i].x;
+        temp *= rhs[i].y;
+        rhs[i].y = temp - lhs[i].y;
+    }
+}
 
-        if constexpr (Policy::ENABLE_PREFETCH) {
-            Policy::prefetch_iteration(rhs_base, scratch_space, i, num_pairs);
+/**
+ * @brief Batch affine addition for interleaved arrays: pairs (points[2i], points[2i+1]) → points[num_points/2 + i]
+ * @details Optimized for the pippenger interleaved memory layout where lhs and rhs live in the same contiguous array.
+ *          Uses direct address arithmetic and hardcoded prefetch to avoid aliasing penalties that arise when the
+ *          generic batch_affine_add_impl is called with lhs_base == rhs_base (the compiler cannot prove that writes
+ *          to `output` don't alias reads from `lhs`, forcing unnecessary reloads).
+ *
+ * @param points     Interleaved array: [lhs0, rhs0, lhs1, rhs1, ...]. Results written to top half.
+ * @param num_points Total number of points (must be even). Number of pairs = num_points / 2.
+ * @param scratch_space Temporary storage for batch inversion, size >= num_points / 2.
+ */
+template <typename AffineElement, typename Fq>
+__attribute__((always_inline)) inline void batch_affine_add_interleaved(AffineElement* points,
+                                                                        const size_t num_points,
+                                                                        Fq* scratch_space) noexcept
+{
+    Fq batch_inversion_accumulator = Fq::one();
+
+    // Forward pass: accumulate (x2 - x1) products for batch inversion
+    for (size_t i = 0; i < num_points; i += 2) {
+        scratch_space[i >> 1] = points[i].x + points[i + 1].x; // x1 + x2 (saved for later)
+        points[i + 1].x -= points[i].x;                        // x2 - x1
+        points[i + 1].y -= points[i].y;                        // y2 - y1
+        points[i + 1].y *= batch_inversion_accumulator;
+        batch_inversion_accumulator *= points[i + 1].x;
+    }
+
+    if (batch_inversion_accumulator == Fq::zero()) {
+        throw_or_abort("attempted to invert zero in batch_affine_add_interleaved");
+    }
+    batch_inversion_accumulator = batch_inversion_accumulator.invert();
+
+    // Backward pass: complete inversions and compute additions
+    for (size_t i = num_points - 2; i < num_points; i -= 2) {
+        // lambda = (y2 - y1) / (x2 - x1)
+        points[i + 1].y *= batch_inversion_accumulator;
+        batch_inversion_accumulator *= points[i + 1].x;
+        points[i + 1].x = points[i + 1].y.sqr();
+        // x3 = lambda^2 - (x1 + x2)
+        points[(i + num_points) >> 1].x = points[i + 1].x - scratch_space[i >> 1];
+
+        if (i >= 2) {
+            __builtin_prefetch(points + i - 2);
+            __builtin_prefetch(points + i - 1);
+            __builtin_prefetch(points + ((i + num_points - 2) >> 1));
+            __builtin_prefetch(scratch_space + ((i - 2) >> 1));
         }
 
-        rhs.y *= batch_inversion_accumulator;
-        batch_inversion_accumulator *= rhs.x;
-        rhs.x = rhs.y.sqr();
-        output.x = rhs.x - scratch;
-        scratch = lhs.x - output.x;
-        scratch *= rhs.y;
-        output.y = scratch - lhs.y;
+        // y3 = lambda * (x1 - x3) - y1
+        points[i].x -= points[(i + num_points) >> 1].x;
+        points[i].x *= points[i + 1].y;
+        points[(i + num_points) >> 1].y = points[i].x - points[i].y;
     }
 }
 
@@ -848,12 +890,11 @@ void element<Fq, Fr, T>::batch_affine_add(const std::span<affine_element<Fq, Fr,
     parallel_for_heuristic(
         num_points, [&](size_t i) { results[i] = first_group[i]; }, thread_heuristics::FF_COPY_COST * 2);
 
-    // Perform batch affine addition. Uses ParallelArrayPolicy: (lhs[i], rhs[i]) -> rhs[i] with sequential output (no
-    // prefetch)
+    // Perform batch affine addition: (lhs[i], rhs[i]) -> rhs[i]
     parallel_for_heuristic(
         num_points,
         [&](size_t start, size_t end, BB_UNUSED size_t chunk_index) {
-            batch_affine_add_impl<ParallelArrayPolicy, affine_element, Fq>(
+            batch_affine_add_impl<affine_element, Fq>(
                 &second_group[start], &results[start], end - start, &scratch_space[start]);
         },
         thread_heuristics::FF_ADDITION_COST * 6 + thread_heuristics::FF_MULTIPLICATION_COST * 6);
@@ -919,8 +960,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     auto execute_range = [&](size_t start, size_t end) {
         // Perform batch affine addition in parallel
         const auto add_chunked = [&](const affine_element* lhs, affine_element* rhs) {
-            batch_affine_add_impl<ParallelArrayPolicy, affine_element, Fq>(
-                &lhs[start], &rhs[start], end - start, &scratch_space[start]);
+            batch_affine_add_impl<affine_element, Fq>(&lhs[start], &rhs[start], end - start, &scratch_space[start]);
         };
 
         // Perform point doubling in parallel

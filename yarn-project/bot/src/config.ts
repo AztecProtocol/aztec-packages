@@ -19,8 +19,11 @@ import type { ComponentsVersions } from '@aztec/stdlib/versioning';
 
 import { z } from 'zod';
 
-const BotFollowChain = ['NONE', 'PENDING', 'PROVEN'] as const;
+const BotFollowChain = ['NONE', 'PROPOSED', 'CHECKPOINTED', 'PROVEN'] as const;
 type BotFollowChain = (typeof BotFollowChain)[number];
+
+const BotMode = ['transfer', 'amm', 'crosschain'] as const;
+type BotMode = (typeof BotMode)[number];
 
 export enum SupportedTokenContracts {
   TokenContract = 'TokenContract',
@@ -76,8 +79,12 @@ export type BotConfig = {
   maxConsecutiveErrors: number;
   /** Stops the bot if service becomes unhealthy */
   stopWhenUnhealthy: boolean;
-  /** Deploy an AMM contract and do swaps instead of transfers */
-  ammTxs: boolean;
+  /** Bot mode: transfer, amm, or crosschain. */
+  botMode: BotMode;
+  /** Number of L2→L1 messages per tx (crosschain mode). */
+  l2ToL1MessagesPerTx: number;
+  /** Max L1→L2 messages to keep in-flight (crosschain mode). */
+  l1ToL2SeedCount: number;
 } & Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKb'>;
 
 export const BotConfigSchema = zodFor<BotConfig>()(
@@ -107,7 +114,9 @@ export const BotConfigSchema = zodFor<BotConfig>()(
       contract: z.nativeEnum(SupportedTokenContracts),
       maxConsecutiveErrors: z.number().int().nonnegative(),
       stopWhenUnhealthy: z.boolean(),
-      ammTxs: z.boolean().default(false),
+      botMode: z.enum(BotMode).default('transfer'),
+      l2ToL1MessagesPerTx: z.number().int().nonnegative().default(1),
+      l1ToL2SeedCount: z.number().int().nonnegative().default(1),
       dataDirectory: z.string().optional(),
       dataStoreMapSizeKb: z.number().optional(),
     })
@@ -213,10 +222,14 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     description: 'Which chain the bot follows',
     defaultValue: 'NONE',
     parseEnv(val) {
-      if (!(BotFollowChain as readonly string[]).includes(val.toUpperCase())) {
+      const upper = val.toUpperCase();
+      if (upper === 'PENDING') {
+        return 'CHECKPOINTED';
+      }
+      if (!(BotFollowChain as readonly string[]).includes(upper)) {
         throw new Error(`Invalid value for BOT_FOLLOW_CHAIN: ${val}`);
       }
-      return val as BotFollowChain;
+      return upper as BotFollowChain;
     },
   },
   maxPendingTxs: {
@@ -264,10 +277,26 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     description: 'Stops the bot if service becomes unhealthy',
     ...booleanConfigHelper(false),
   },
-  ammTxs: {
-    env: 'BOT_AMM_TXS',
-    description: 'Deploy an AMM and send swaps to it',
-    ...booleanConfigHelper(false),
+  botMode: {
+    env: 'BOT_MODE',
+    description: 'Bot mode: transfer, amm, or crosschain',
+    defaultValue: 'transfer' as BotMode,
+    parseEnv(val: string) {
+      if (!(BotMode as readonly string[]).includes(val)) {
+        throw new Error(`Invalid value for BOT_MODE: ${val}`);
+      }
+      return val as BotMode;
+    },
+  },
+  l2ToL1MessagesPerTx: {
+    env: 'BOT_L2_TO_L1_MESSAGES_PER_TX',
+    description: 'Number of L2→L1 messages per tx (crosschain mode)',
+    ...numberConfigHelper(1),
+  },
+  l1ToL2SeedCount: {
+    env: 'BOT_L1_TO_L2_SEED_COUNT',
+    description: 'Max L1→L2 messages to keep in-flight (crosschain mode)',
+    ...numberConfigHelper(1),
   },
   ...pickConfigMappings(dataConfigMappings, ['dataStoreMapSizeKb', 'dataDirectory']),
 };

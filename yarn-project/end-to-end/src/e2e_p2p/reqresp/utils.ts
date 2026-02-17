@@ -81,7 +81,7 @@ export async function runReqrespTxTest(params: {
 
   const nodes = await createNodes(
     aztecNodeConfig,
-    t.ctx.dateProvider!,
+    t.ctx.dateProvider,
     t.bootstrapNodeEnr,
     NUM_VALIDATORS,
     BOOT_NODE_UDP_PORT,
@@ -95,7 +95,7 @@ export async function runReqrespTxTest(params: {
 
   await t.setupAccount();
 
-  const targetBlockNumber = await t.ctx.aztecNodeService!.getBlockNumber();
+  const targetBlockNumber = await t.ctx.aztecNodeService.getBlockNumber();
   await retryUntil(
     async () => {
       const blockNumbers = await Promise.all(nodes.map(node => node.getBlockNumber()));
@@ -108,7 +108,7 @@ export async function runReqrespTxTest(params: {
 
   t.logger.info('Preparing transactions to send');
   const txBatches = await timesAsync(2, () =>
-    prepareTransactions(t.logger, t.ctx.aztecNodeService!, NUM_TXS_PER_NODE, t.fundedAccount),
+    prepareTransactions(t.logger, t.ctx.aztecNodeService, NUM_TXS_PER_NODE, t.fundedAccount),
   );
 
   t.logger.info('Removing initial node');
@@ -116,7 +116,7 @@ export async function runReqrespTxTest(params: {
 
   t.logger.info('Starting fresh slot');
   const [timestamp] = await t.ctx.cheatCodes.rollup.advanceToNextSlot();
-  t.ctx.dateProvider!.setTime(Number(timestamp) * 1000);
+  t.ctx.dateProvider.setTime(Number(timestamp) * 1000);
   const startSlotTimestamp = BigInt(timestamp);
 
   const { proposerIndexes, nodesToTurnOffTxGossip } = await getProposerIndexes(t, startSlotTimestamp);

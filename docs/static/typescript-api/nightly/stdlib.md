@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: v4.0.0-nightly.20260208
+Version: v4.0.0-nightly.20260217
 
 ## Quick Import Reference
 
@@ -718,14 +718,16 @@ new FunctionCall(name: string, to: AztecAddress, selector: FunctionSelector, typ
 - `isStatic: boolean` - Whether this call can make modifications to state or not
 - `name: string` - The name of the function to call
 - `returnTypes: AbiType[]` - The return type for decoding
+- `static schema: unknown`
 - `selector: FunctionSelector` - The function being called
 - `to: AztecAddress` - The recipient contract
 - `type: FunctionType` - Type of the function
 
 **Methods**
-- `static empty() => { args: never[]; hideMsgSender: boolean; ... }` - Creates an empty function call.
+- `static empty() => FunctionCall` - Creates an empty function call.
 - `static from(fields: FieldsOf<FunctionCall>) => FunctionCall`
 - `static getFields(fields: FieldsOf<FunctionCall>) => readonly []`
+- `isPublicStatic() => boolean`
 
 ### FunctionData
 
@@ -2551,6 +2553,7 @@ Provides basic information about the running node.
 - `l1ContractAddresses: L1ContractAddresses` - The deployed l1 contract addresses
 - `nodeVersion: string` - Version as tracked in the aztec-packages repository.
 - `protocolContractAddresses: ProtocolContractAddresses` - Protocol contract addresses
+- `realProofs: boolean` - Whether the node requires real proofs for transaction submission.
 - `rollupVersion: number` - Rollup version.
 
 ### PrivateFunction
@@ -2871,6 +2874,11 @@ Computes the salted initialization hash for an address, defined as the hash of t
 function computeSecretHash(secret: Fr) => Promise<Fr>
 ```
 Computes a hash of a secret.
+
+### computeSiloedPrivateLogFirstField
+```typescript
+function computeSiloedPrivateLogFirstField(contract: AztecAddress, field: Fr) => Promise<Fr>
+```
 
 ### computeUniqueNoteHash
 ```typescript
@@ -3664,12 +3672,6 @@ Log filter used to fetch L2 logs.
 type NodeStats = unknown
 ```
 
-### NotesFilter
-```typescript
-type NotesFilter = unknown
-```
-A filter used to fetch notes.
-
 ### OFFCHAIN_MESSAGE_IDENTIFIER
 ```typescript
 type OFFCHAIN_MESSAGE_IDENTIFIER = Fr
@@ -3859,9 +3861,9 @@ type TX_ERROR_INSUFFICIENT_FEE_PER_GAS = "Insufficient fee per gas"
 type TX_ERROR_INSUFFICIENT_GAS_LIMIT = "Gas limit is below the minimum fixed cost"
 ```
 
-### TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP
+### TX_ERROR_INVALID_EXPIRATION_TIMESTAMP
 ```typescript
-type TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP = "Invalid expiration timestamp"
+type TX_ERROR_INVALID_EXPIRATION_TIMESTAMP = "Invalid expiration timestamp"
 ```
 
 ### TX_ERROR_INVALID_PROOF

@@ -21,15 +21,12 @@
 
 namespace bb {
 
-GoblinAvm::GoblinAvm(MegaBuilder& builder,
-                     CommitmentKey<curve::BN254> bn254_commitment_key,
-                     const std::shared_ptr<Transcript>& avm_transcript)
+GoblinAvm::GoblinAvm(MegaBuilder& builder, const std::shared_ptr<Transcript>& avm_transcript)
 {
     // Set members of base Goblin class
     avm_mode = true;
     op_queue = builder.op_queue;
     transcript = avm_transcript;
-    commitment_key = std::move(bn254_commitment_key);
 
     /**
      * Add required initial ops to the op queue:

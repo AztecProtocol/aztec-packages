@@ -1,4 +1,4 @@
-import { MAX_INCLUDE_BY_TIMESTAMP_DURATION } from '@aztec/constants';
+import { MAX_TX_LIFETIME } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -113,7 +113,7 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
   it('loads log and updates both highest aged and highest finalized indexes', async () => {
     const finalizedBlockNumber = 10;
 
-    const logBlockTimestamp = currentTimestamp - BigInt(MAX_INCLUDE_BY_TIMESTAMP_DURATION) - 1000n; // aged
+    const logBlockTimestamp = currentTimestamp - BigInt(MAX_TX_LIFETIME) - 1000n; // aged
     const logIndex = 7;
     const logTag = await computeSiloedTagForIndex(logIndex);
 
@@ -148,7 +148,7 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
   it('logs at boundaries are properly loaded, window and highest indexes advance as expected', async () => {
     const finalizedBlockNumber = 10;
 
-    const log1BlockTimestamp = currentTimestamp - BigInt(MAX_INCLUDE_BY_TIMESTAMP_DURATION) - 1000n; // Aged
+    const log1BlockTimestamp = currentTimestamp - BigInt(MAX_TX_LIFETIME) - 1000n; // Aged
     const log2BlockTimestamp = currentTimestamp - 5000n; // Not aged
     const highestAgedIndex = 3;
     const highestFinalizedIndex = 5;

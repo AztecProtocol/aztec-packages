@@ -6,7 +6,7 @@ export type ClientFlowConfig = {
   recursions?: number[];
 };
 
-type ClientFlows = 'accountDeployments' | 'deployments' | 'transfers' | 'bridging' | 'amm';
+type ClientFlows = 'accountDeployments' | 'deployments' | 'transfers' | 'bridging' | 'amm' | 'storageProof';
 
 export type ClientFlowsConfig = {
   [key in ClientFlows]: ClientFlowConfig;
@@ -34,6 +34,10 @@ export const KEY_FLOWS_CONFIG: ClientFlowsConfig = {
     feePaymentMethods: ['sponsored_fpc', 'private_fpc'],
     recursions: [0, 1],
   },
+  storageProof: {
+    accounts: ['ecdsar1'],
+    feePaymentMethods: ['sponsored_fpc'],
+  },
 };
 
 export const FULL_FLOWS_CONFIG: ClientFlowsConfig = {
@@ -57,5 +61,9 @@ export const FULL_FLOWS_CONFIG: ClientFlowsConfig = {
     accounts: ['ecdsar1', 'schnorr'],
     feePaymentMethods: ['sponsored_fpc', 'private_fpc'],
     recursions: [0, 1, 2],
+  },
+  storageProof: {
+    accounts: ['ecdsar1', 'schnorr'],
+    feePaymentMethods: ['sponsored_fpc', 'private_fpc'],
   },
 };

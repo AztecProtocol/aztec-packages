@@ -8,7 +8,7 @@ import {
 } from '@aztec/foundation/branded-types';
 import { sum } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, serializeSignedBigInt, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
@@ -17,6 +17,7 @@ import { L2Block } from '../block/l2_block.js';
 import { MAX_BLOCKS_PER_CHECKPOINT } from '../deserialization/index.js';
 import { computeCheckpointOutHash } from '../messaging/out_hash.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
+import { schemas } from '../schemas/schemas.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import type { CheckpointInfo } from './checkpoint_info.js';
 
@@ -32,6 +33,8 @@ export class Checkpoint {
     public blocks: L2Block[],
     /** Number of the checkpoint. */
     public number: CheckpointNumber,
+    /** Fee asset price modifier in basis points (from oracle). Defaults to 0 (no change). */
+    public feeAssetPriceModifier: bigint = 0n,
   ) {}
 
   get slot(): SlotNumber {
@@ -45,8 +48,12 @@ export class Checkpoint {
         header: CheckpointHeader.schema,
         blocks: z.array(L2Block.schema),
         number: CheckpointNumberSchema,
+        feeAssetPriceModifier: schemas.BigInt,
       })
-      .transform(({ archive, header, blocks, number }) => new Checkpoint(archive, header, blocks, number));
+      .transform(
+        ({ archive, header, blocks, number, feeAssetPriceModifier }) =>
+          new Checkpoint(archive, header, blocks, number, feeAssetPriceModifier),
+      );
   }
 
   static from(fields: FieldsOfCheckpoint) {
@@ -54,21 +61,28 @@ export class Checkpoint {
   }
 
   static getFields(fields: FieldsOfCheckpoint) {
-    return [fields.archive, fields.header, fields.blocks, fields.number] as const;
+    return [fields.archive, fields.header, fields.blocks, fields.number, fields.feeAssetPriceModifier] as const;
   }
 
   static fromBuffer(buf: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buf);
-    return new Checkpoint(
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(CheckpointHeader),
-      reader.readVector(L2Block, MAX_BLOCKS_PER_CHECKPOINT),
-      CheckpointNumber(reader.readNumber()),
-    );
+    const archive = reader.readObject(AppendOnlyTreeSnapshot);
+    const header = reader.readObject(CheckpointHeader);
+    const blocks = reader.readVector(L2Block, MAX_BLOCKS_PER_CHECKPOINT);
+    const number = CheckpointNumber(reader.readNumber());
+    const feeAssetPriceModifier = reader.readInt256();
+    return new Checkpoint(archive, header, blocks, number, feeAssetPriceModifier);
   }
 
   public toBuffer() {
-    return serializeToBuffer(this.archive, this.header, this.blocks.length, this.blocks, this.number);
+    return serializeToBuffer(
+      this.archive,
+      this.header,
+      this.blocks.length,
+      this.blocks,
+      this.number,
+      serializeSignedBigInt(this.feeAssetPriceModifier),
+    );
   }
 
   public toBlobFields(): Fr[] {
@@ -129,11 +143,13 @@ export class Checkpoint {
       numBlocks = 1,
       startBlockNumber = 1,
       previousArchive,
+      feeAssetPriceModifier = 0n,
       ...options
     }: {
       numBlocks?: number;
       startBlockNumber?: number;
       previousArchive?: AppendOnlyTreeSnapshot;
+      feeAssetPriceModifier?: bigint;
     } & Partial<Parameters<typeof CheckpointHeader.random>[0]> &
       Partial<Parameters<typeof L2Block.random>[1]> = {},
   ) {
@@ -153,6 +169,6 @@ export class Checkpoint {
       blocks.push(block);
     }
 
-    return new Checkpoint(AppendOnlyTreeSnapshot.random(), header, blocks, checkpointNumber);
+    return new Checkpoint(AppendOnlyTreeSnapshot.random(), header, blocks, checkpointNumber, feeAssetPriceModifier);
   }
 }

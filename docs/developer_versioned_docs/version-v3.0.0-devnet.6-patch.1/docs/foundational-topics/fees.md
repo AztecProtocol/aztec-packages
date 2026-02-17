@@ -65,7 +65,7 @@ export class GasSettings {
 
 A fee payer will have bridged the Aztec token from L1. On Aztec this fee asset is non-transferable, and only deducted by the protocol to pay for fees. A user can claim bridged Aztec token and use it to pay for transaction fees in the same transaction.
 
-The mechanism for bridging is the same as any other token. For more on this concept see the [Token Bridge Tutorial](../tutorials/js_tutorials/token_bridge.md) which describes portal contracts and [cross-chain messaging](../aztec-nr/framework-description/how_to_communicate_cross_chain.md).
+The mechanism for bridging is the same as any other token. For more on this concept see the [Token Bridge Tutorial](../tutorials/js_tutorials/token_bridge.md) which describes portal contracts and [cross-chain messaging](../aztec-nr/framework-description/ethereum_aztec_messaging.md).
 
 ### Payment methods
 

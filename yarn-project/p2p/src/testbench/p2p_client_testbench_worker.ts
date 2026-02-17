@@ -144,7 +144,7 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
       const txHash = tx.getTxHash();
       const txHashString = txHash.toString();
       this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()}.`);
-      await this.mempools.txPool.addTxs([tx]);
+      await this.mempools.txPool.addPendingTxs([tx]);
     } else {
       await super.handleGossipedTx(payload, msgId, source);
     }
@@ -166,7 +166,7 @@ async function generateDeterministicTxs(txCount: number, seed: number, config: P
     return cached.slice(0, txCount);
   }
 
-  const includeByTimestampBase = BigInt(seed);
+  const expirationTimestampBase = BigInt(seed);
   for (let i = cached.length; i < txCount; i++) {
     const txSeed = seed * 10000 + i;
     const tx = await mockTx(txSeed, {
@@ -182,7 +182,7 @@ async function generateDeterministicTxs(txCount: number, seed: number, config: P
       hasPublicTeardownCallRequest: false,
       publicCalldataSize: 0,
     });
-    tx.data.includeByTimestamp = includeByTimestampBase + BigInt(i);
+    tx.data.expirationTimestamp = expirationTimestampBase + BigInt(i);
     await tx.recomputeHash();
     cached.push(tx);
   }

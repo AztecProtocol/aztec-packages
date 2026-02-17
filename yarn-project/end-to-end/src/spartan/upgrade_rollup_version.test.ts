@@ -10,7 +10,6 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { GSEAbi, GovernanceAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import { jest } from '@jest/globals';
-import type { ChildProcess } from 'child_process';
 import fs from 'fs';
 import omit from 'lodash.omit';
 import path from 'path';
@@ -19,12 +18,13 @@ import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
+  type ServiceEndpoint,
+  getEthereumEndpoint,
   getGitProjectRoot,
+  getRPCEndpoint,
   rollAztecPods,
   runProjectScript,
   setupEnvironment,
-  startPortForwardForEthereum,
-  startPortForwardForRPC,
   updateSequencersConfig,
   waitForResourceByLabel,
 } from './utils.js';
@@ -109,25 +109,21 @@ describe('spartan_upgrade_rollup_version', () => {
   let nodeInfo: NodeInfo;
   let ETHEREUM_HOSTS: string[];
   let originalL1ContractAddresses: L1ContractAddresses;
-  const forwardProcesses: ChildProcess[] = [];
+  const endpoints: ServiceEndpoint[] = [];
   jest.setTimeout(3 * 60 * 60 * 1000); // Governance flow can take a while
 
   afterAll(() => {
-    forwardProcesses.forEach(p => p.kill());
+    endpoints.forEach(e => e.process?.kill());
   });
 
   beforeAll(async () => {
-    const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
-    const { process: ethereumProcess, port: ethereumPort } = await startPortForwardForEthereum(config.NAMESPACE);
-    forwardProcesses.push(aztecRpcProcess);
-    forwardProcesses.push(ethereumProcess);
+    const rpcEndpoint = await getRPCEndpoint(config.NAMESPACE);
+    const ethEndpoint = await getEthereumEndpoint(config.NAMESPACE);
+    endpoints.push(rpcEndpoint, ethEndpoint);
 
-    const nodeUrl = `http://127.0.0.1:${aztecRpcPort}`;
-    const ethereumUrl = `http://127.0.0.1:${ethereumPort}`;
-
-    aztecNode = createAztecNodeClient(nodeUrl);
+    aztecNode = createAztecNodeClient(rpcEndpoint.url);
     nodeInfo = await aztecNode.getNodeInfo();
-    ETHEREUM_HOSTS = [ethereumUrl];
+    ETHEREUM_HOSTS = [ethEndpoint.url];
 
     originalL1ContractAddresses = omit(nodeInfo.l1ContractAddresses, [
       'slashFactoryAddress',
@@ -601,10 +597,9 @@ describe('spartan_upgrade_rollup_version', () => {
     }
 
     // Reconnect to the node via RPC after pods restart
-    const { process: aztecRpcProcess2, port: aztecRpcPort2 } = await startPortForwardForRPC(config.NAMESPACE);
-    forwardProcesses.push(aztecRpcProcess2);
-    const nodeUrl2 = `http://127.0.0.1:${aztecRpcPort2}`;
-    aztecNode = createAztecNodeClient(nodeUrl2);
+    const rpcEndpoint2 = await getRPCEndpoint(config.NAMESPACE);
+    endpoints.push(rpcEndpoint2);
+    aztecNode = createAztecNodeClient(rpcEndpoint2.url);
 
     const newNodeInfo = await aztecNode.getNodeInfo();
 

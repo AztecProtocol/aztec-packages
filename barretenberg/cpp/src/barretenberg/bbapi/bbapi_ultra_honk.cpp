@@ -80,7 +80,7 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
     Proof full_proof = prover.construct_proof();
 
     // Compute where to split (inner public inputs vs everything else)
-    size_t num_public_inputs = prover.prover_instance->num_public_inputs();
+    size_t num_public_inputs = prover.num_public_inputs();
     BB_ASSERT_GTE(num_public_inputs, IO::PUBLIC_INPUTS_SIZE, "Public inputs should contain the expected IO structure.");
     size_t num_inner_public_inputs = num_public_inputs - IO::PUBLIC_INPUTS_SIZE;
 

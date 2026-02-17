@@ -33,13 +33,10 @@ If you're new to Aztec and want to understand local development first, check out
 
 ## Prerequisites
 
-Before working with devnet, ensure you have:
-
-1. [Docker](https://docs.docker.com/get-started/get-docker/) installed
-2. Aztec CLI with Devnet version installed:
+Before working with devnet, ensure you have the Aztec CLI with the Devnet version installed:
 
 ```sh
-bash -i <(curl -sL https://install.aztec.network/#include_devnet_version/)
+VERSION=#include_devnet_version bash -i <(curl -sL https://install.aztec.network/#include_devnet_version)
 ```
 
 :::warning
@@ -128,31 +125,17 @@ When running `aztec-wallet` commands, include the node URL:
 aztec-wallet create-account -a main --node-url $NODE_URL
 ```
 
-### 2. Initialize a TestWallet for Devnet
+### 2. Initialize a EmbeddedWallet for Devnet
 
 You can connect to devnet directly from your app using AztecJS:
 
-In the browser:
-
-```javascript
-import { TestWallet } from "@aztec/test-wallet/client/lazy";
-```
-
-In Node.js:
-
-```javascript
-import { TestWallet } from "@aztec/test-wallet/server";
-```
-
-Then initialize with devnet configuration:
-
 ```javascript
 import { createAztecNodeClient } from "@aztec/aztec.js/node";
-import { TestWallet } from "@aztec/test-wallet/server";
+import { EmbeddedWallet } from "@aztec/wallets/embedded";
 
 const NODE_URL = "https://devnet.aztec-labs.com";
 const node = createAztecNodeClient(NODE_URL);
-const wallet = await TestWallet.create(node);
+const wallet = await EmbeddedWallet.create(node);
 ```
 
 ### 3. Handle Fees on Devnet

@@ -23,29 +23,58 @@ element<C, Fq, Fr, G>::element()
     , _is_infinity()
 {}
 
-template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G>::element(const typename G::affine_element& input)
-    : _x(nullptr, input.x)
-    , _y(nullptr, input.y)
-    , _is_infinity(nullptr, input.is_point_at_infinity())
-{}
-
+/**
+ * @brief Construct a biggroup element from its coordinates
+ * @details The infinity flag is automatically determined: if both x and y are zero, the point is
+ * considered the point at infinity. This ensures a single canonical representation and prevents
+ * inconsistent states where coordinates and infinity flag disagree.
+ *
+ * @warning The input coordinates must have range-constrained binary basis limbs (e.g., freshly
+ * constructed from witnesses or after self_reduce()). If limbs are not range-constrained, the
+ * infinity detection may produce incorrect results.
+ *
+ * @param x_in The x coordinate
+ * @param y_in The y coordinate
+ * @param assert_on_curve If true, validate that (x, y) satisfies the curve equation (unless point is at infinity)
+ */
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G>::element(const Fq& x_in, const Fq& y_in, const bool assert_on_curve)
     : _x(x_in)
     , _y(y_in)
-    , _is_infinity(_x.get_context() ? _x.get_context() : _y.get_context(), false)
 {
+    // Detect infinity: point is at infinity iff both coordinates are zero.
+    // We sum all 8 binary basis limbs (4 from x, 4 from y) and check if the sum is zero.
+    // This works because: (1) after reduction, each limb is non-negative and range-constrained,
+    // so sum=0 iff all limbs=0; (2) max sum is 8 * 2^68 ≈ 2^71 << n ≈ 2^254, so no native wraparound.
+    field_ct limb_sum = 0;
+    for (const auto& limb : _x.binary_basis_limbs) {
+        limb_sum += limb.element;
+    }
+    for (const auto& limb : _y.binary_basis_limbs) {
+        limb_sum += limb.element;
+    }
+    _is_infinity = limb_sum.is_zero();
+
+    // Validate on-curve if requested
     if (assert_on_curve) {
         validate_on_curve();
     }
 }
 
+/**
+ * @brief Private constructor with explicit infinity flag control.
+ * @details This constructor is private because it gives too much control - external users should use
+ * the public constructors which auto-detect infinity from (x == 0 && y == 0).
+ * Internal operations use this for efficiency when the infinity flag is computed separately.
+ */
 template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G>::element(const Fq& x_in, const Fq& y_in, const bool_ct& is_infinity, const bool assert_on_curve)
+element<C, Fq, Fr, G>::element(const Fq& x_in,
+                               const Fq& y_in,
+                               const stdlib::bool_t<C>& is_infinity,
+                               const bool assert_on_curve)
     : _x(x_in)
     , _y(y_in)
-    , _is_infinity(is_infinity)
+    , _is_infinity(is_infinity.normalize())
 {
     if (assert_on_curve) {
         validate_on_curve();
@@ -90,8 +119,15 @@ element<C, Fq, Fr, G>& element<C, Fq, Fr, G>::operator=(element&& other) noexcep
     return *this;
 }
 
+/**
+ * @brief Internal implementation of ECC point addition.
+ * @details This method uses complete addition i.e. is compatible with all edge cases.
+ *
+ * @note This internal method may produce a non-canonical infinity representation (infinity=true but coords≠(0,0)).
+ * Use operator+ for the public API which guarantees canonical output.
+ */
 template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) const
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::add_internal(const element& other) const
 {
     // Adding in `x_coordinates_match` ensures that lambda will always be well-formed
     // Our curve has the form y² = x³ + ax + b (or y² = x³ + b when a = 0).
@@ -111,8 +147,15 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     // We could enforce in circuit that y = 0 results in point at infinity, or that y != 0 always.
     // However, this would be an unnecessary constraint for valid points on the curve.
     // So we perform a native check here to catch any accidental misuse of this function.
-    const typename G::Fq y_value = uint256_t(_y.get_value());
-    BB_ASSERT_EQ((y_value == 0), false, "Attempting to add a point with y = 0, not allowed.");
+    // Exception: Points at infinity use the canonical (0, 0) representation, so skip the check for them.
+    if (!lhs_infinity.get_value()) {
+        const typename G::Fq y_value = uint256_t(_y.get_value());
+        BB_ASSERT_EQ((y_value == 0), false, "Attempting to add a point with y = 0, not allowed.");
+    }
+    if (!rhs_infinity.get_value()) {
+        const typename G::Fq other_y_value = uint256_t(other._y.get_value());
+        BB_ASSERT_EQ((other_y_value == 0), false, "Attempting to add a point with y = 0, not allowed.");
+    }
 
     // Compute the gradient λ. If we add, λ = (y₂ - y₁)/(x₂ - x₁)
     // For doubling: λ = (3x₁² + a)/(2y₁) if curve has 'a', else λ = 3x₁²/(2y₁)
@@ -135,28 +178,44 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     // to prevent division by zero. Cases where result is infinity: x₁ == x₂ but y₁ != y₂ (points are inverses)
     const bool_ct safe_denominator_needed = has_infinity_input || infinity_predicate;
     lambda_denominator = Fq::conditional_assign(safe_denominator_needed, Fq(1), lambda_denominator);
-    const Fq lambda = Fq::div_without_denominator_check({ lambda_numerator }, lambda_denominator);
+
+    // Compute λ = numerator / denominator
+    // We enforce that denominator is not zero to protect against soundness issues.
+    const Fq lambda = lambda_numerator / lambda_denominator;
 
     // Compute resulting point coordinates: x₃ = λ² - x₁ - x₂, y₃ = λ(x₁ - x₃) - y₁
-    const Fq x3 = lambda.sqradd({ -other._x, -_x });
-    const Fq y3 = lambda.madd(_x - x3, { -_y });
-    element result(x3, y3, /*assert_on_curve=*/false);
+    Fq x3 = lambda.sqradd({ -other._x, -_x });
+    Fq y3 = lambda.madd(_x - x3, { -_y });
 
     // if lhs infinity, return rhs
-    result._x = Fq::conditional_assign(lhs_infinity, other._x, result._x);
-    result._y = Fq::conditional_assign(lhs_infinity, other._y, result._y);
+    x3 = Fq::conditional_assign(lhs_infinity, other._x, x3);
+    y3 = Fq::conditional_assign(lhs_infinity, other._y, y3);
     // if rhs infinity, return lhs
-    result._x = Fq::conditional_assign(rhs_infinity, _x, result._x);
-    result._y = Fq::conditional_assign(rhs_infinity, _y, result._y);
+    x3 = Fq::conditional_assign(rhs_infinity, _x, x3);
+    y3 = Fq::conditional_assign(rhs_infinity, _y, y3);
 
     // Determine if result is point at infinity:
     // - If x₁ == x₂ and y₁ == -y₂ (i.e., points are inverses), result is ∞
     // - If both inputs are ∞, result is ∞
     bool_ct result_is_infinity = (infinity_predicate && !has_infinity_input) || (lhs_infinity && rhs_infinity);
-    result.set_point_at_infinity(result_is_infinity, /* add_to_used_witnesses */ true);
+    mark_witness_as_used(field_t<C>(result_is_infinity));
 
+    element result(x3, y3, /*is_infinity=*/result_is_infinity, /*assert_on_curve=*/false);
     result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return result;
+}
+
+/**
+ * @brief Evaluate ECC point addition over `*this` and `other`.
+ * @details This method uses complete addition i.e. is compatible with all edge cases.
+ *
+ * @note The result is always in canonical form (infinity points have coords (0,0)).
+ */
+template <typename C, class Fq, class Fr, class G>
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) const
+{
+    element result = add_internal(other);
+    return result.get_standard_form();
 }
 
 /**
@@ -171,15 +230,23 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::get_standard_form() const
 {
 
     const bool_ct is_infinity = is_point_at_infinity();
+
     element result(*this);
-    const Fq zero = Fq::zero();
+    const Fq zero = Fq(get_context(), 0);
     result._x = Fq::conditional_assign(is_infinity, zero, this->_x);
     result._y = Fq::conditional_assign(is_infinity, zero, this->_y);
     return result;
 }
 
+/**
+ * @brief Internal implementation of ECC point subtraction.
+ * @details This method uses complete subtraction i.e. is compatible with all edge cases.
+ *
+ * @note This internal method may produce a non-canonical infinity representation (infinity=true but coords≠(0,0)).
+ * Use operator- for the public API which guarantees canonical output.
+ */
 template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) const
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::subtract_internal(const element& other) const
 {
     // Adding in `x_coordinates_match` ensures that lambda will always be well-formed
     // Our curve has the form y² = x³ + ax + b (or y² = x³ + b when a = 0).
@@ -215,31 +282,48 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
 
     // If either input is a point at infinity, or if the result would be infinity (x₁ == x₂ and y₁ == y₂),
     // set lambda_denominator to 1 to prevent division by zero. The lambda value won't be used in these cases.
-    lambda_denominator = Fq::conditional_assign(has_infinity_input || infinity_predicate, Fq(1), lambda_denominator);
-    const Fq lambda = Fq::div_without_denominator_check({ lambda_numerator }, lambda_denominator);
+    // Defense in depth: also guard when doubling with y = 0 (denominator 2y would be zero).
+    const bool_ct safe_denominator_needed = has_infinity_input || infinity_predicate;
+    lambda_denominator = Fq::conditional_assign(safe_denominator_needed, Fq(1), lambda_denominator);
+
+    // Now compute lambda = numerator / denominator
+    // We enforce that the denominator is not zero (in division operator), so this division is safe.
+    const Fq lambda = lambda_numerator / lambda_denominator;
 
     // Compute resulting point coordinates: x₃ = λ² - x₁ - x₂, y₃ = λ(x₁ - x₃) - y₁
-    const Fq x3 = lambda.sqradd({ -other._x, -_x });
-    const Fq y3 = lambda.madd(_x - x3, { -_y });
-    element result(x3, y3, /*assert_on_curve=*/false);
+    Fq x3 = lambda.sqradd({ -other._x, -_x });
+    Fq y3 = lambda.madd(_x - x3, { -_y });
 
     // if lhs infinity, return -rhs (negated rhs point)
-    result._x = Fq::conditional_assign(lhs_infinity, other._x, result._x);
-    result._y = Fq::conditional_assign(lhs_infinity, -other._y, result._y);
+    x3 = Fq::conditional_assign(lhs_infinity, other._x, x3);
+    y3 = Fq::conditional_assign(lhs_infinity, -other._y, y3);
     // if rhs infinity, return lhs
-    result._x = Fq::conditional_assign(rhs_infinity, _x, result._x);
-    result._y = Fq::conditional_assign(rhs_infinity, _y, result._y);
+    x3 = Fq::conditional_assign(rhs_infinity, _x, x3);
+    y3 = Fq::conditional_assign(rhs_infinity, _y, y3);
 
     // Determine if result is point at infinity:
     // - If x₁ == x₂ and y₁ == y₂ (i.e., P₁ - P₁), result is ∞
     // - If both inputs are ∞, result is ∞
     bool_ct result_is_infinity = (infinity_predicate && !has_infinity_input) || (lhs_infinity && rhs_infinity);
+    mark_witness_as_used(field_t<C>(result_is_infinity));
 
-    result.set_point_at_infinity(result_is_infinity, /* add_to_used_witnesses */ true);
+    element result(x3, y3, /*is_infinity=*/result_is_infinity, /*assert_on_curve=*/false);
     result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return result;
 }
 
+/**
+ * @brief Evaluate ECC point subtraction over `*this` and `other`.
+ * @details This method uses complete subtraction i.e. is compatible with all edge cases.
+ *
+ * @note The result is always in canonical form (infinity points have coords (0,0)).
+ */
+template <typename C, class Fq, class Fr, class G>
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) const
+{
+    element result = subtract_internal(other);
+    return result.get_standard_form();
+}
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::checked_unconditional_add(const element& other) const
 {
@@ -247,7 +331,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::checked_unconditional_add(const ele
     const Fq lambda = Fq::div_without_denominator_check({ other._y, -_y }, (other._x - _x));
     const Fq x3 = lambda.sqradd({ -other._x, -_x });
     const Fq y3 = lambda.madd(_x - x3, { -_y });
-    return element(x3, y3, /*assert_on_curve=*/false);
+    // Use 4-arg constructor with is_infinity=false (checked operations assume valid, non-infinity points).
+    // This avoids the expensive bigfield equality checks in the 2-arg constructor's infinity auto-detection.
+    return element(x3, y3, bool_ct(x3.get_context(), false), /*assert_on_curve=*/false);
 }
 
 template <typename C, class Fq, class Fr, class G>
@@ -259,7 +345,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::checked_unconditional_subtract(cons
     const Fq x_3 = lambda.sqradd({ -other._x, -_x });
     const Fq y_3 = lambda.madd(x_3 - _x, { -_y });
 
-    return element(x_3, y_3, /*assert_on_curve=*/false);
+    // Use 4-arg constructor with is_infinity=false (checked operations assume valid, non-infinity points).
+    return element(x_3, y_3, bool_ct(x_3.get_context(), false), /*assert_on_curve=*/false);
 }
 
 /**
@@ -292,18 +379,37 @@ std::array<element<C, Fq, Fr, G>, 2> element<C, Fq, Fr, G>::checked_unconditiona
     const Fq x_4 = lambda2.sqradd({ x2x1 });
     const Fq y_4 = lambda2.madd(_x - x_4, { -_y });
 
-    return { element(x_3, y_3, /*assert_on_curve=*/false), element(x_4, y_4, /*assert_on_curve=*/false) };
+    // Use 4-arg constructor with is_infinity=false (checked operations assume valid, non-infinity points).
+    bool_ct not_infinity(x_3.get_context(), false);
+    return { element(x_3, y_3, not_infinity, /*assert_on_curve=*/false),
+             element(x_4, y_4, not_infinity, /*assert_on_curve=*/false) };
 }
 
-template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element<C, Fq, Fr, G>::dbl() const
+/**
+ * @brief Internal implementation of point doubling.
+ *
+ * @note This internal method may produce a non-canonical infinity representation (infinity=true but coords≠(0,0)).
+ * Use dbl() for the public API which guarantees canonical output.
+ */
+template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element<C, Fq, Fr, G>::dbl_internal() const
 {
+    const bool_ct is_infinity = is_point_at_infinity();
+
     // NOTE: For valid points on the curve, specifically for bn254 or secp256k1 or secp256r1, y = 0 cannot occur.
     // For points not on the curve, having y = 0 will lead to a failure while performing the division below.
     // We could enforce in circuit that y = 0 results in point at infinity, or that y != 0 always.
     // However, this would be an unnecessary constraint for valid points on the curve.
     // So we perform a native check here to catch any accidental misuse of this function.
-    const typename G::Fq y_value = uint256_t(_y.get_value());
-    BB_ASSERT_EQ((y_value == 0), false, "Attempting to dbl a point with y = 0, not allowed.");
+    // Exception: Points at infinity use the canonical (0, 0) representation, so skip the check for them.
+    if (!is_infinity.get_value()) {
+        const typename G::Fq y_value = uint256_t(_y.get_value());
+        BB_ASSERT_EQ((y_value == 0), false, "Attempting to dbl a point with y = 0, not allowed.");
+    }
+
+    // If the input is a point at infinity, use a safe denominator (1) to prevent division by zero.
+    // The result will be infinity anyway, so the computed coordinates don't matter.
+    const Fq two_y = _y + _y;
+    Fq denominator = Fq::conditional_assign(is_infinity, Fq(get_context(), 1), two_y);
 
     Fq two_x = _x + _x;
     if constexpr (G::has_a) {
@@ -312,7 +418,8 @@ template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element
 
         // Compute neg_lambda = -λ = -(3x² + a) / (2y)
         // msub_div computes: -(Σᵢ aᵢ·bᵢ + Σⱼ cⱼ) / d = -(x·(3x) + a) / (2y) = -(3x² + a) / (2y)
-        Fq neg_lambda = Fq::msub_div({ _x }, { (two_x + _x) }, (_y + _y), { a }, /*enable_divisor_nz_check*/ false);
+        // We enforce the denominator is not zero to protect against soundness issues.
+        Fq neg_lambda = Fq::msub_div({ _x }, { (two_x + _x) }, denominator, { a }, /*enable_divisor_nz_check*/ true);
 
         // Compute x₃ = λ² - 2x
         // Since neg_lambda = -λ, we have: (-λ)² - 2x = λ² - 2x
@@ -322,15 +429,15 @@ template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element
         // Using neg_lambda = -λ: (-λ)(x₃ - x) + (-y) = -λ(x₃ - x) - y = λ(x - x₃) - y
         Fq y_3 = neg_lambda.madd(x_3 - _x, { -_y });
 
-        element result(x_3, y_3, /*assert_on_curve=*/false);
-        result.set_point_at_infinity(is_point_at_infinity(), /* add_to_used_witnesses */ true);
-        return result;
+        mark_witness_as_used(field_t<C>(is_infinity));
+        return element(x_3, y_3, /*is_infinity=*/is_infinity, /*assert_on_curve=*/false);
     }
 
     // Curve equation when a = 0: y² = x³ + b
     // Compute neg_lambda = -λ = -3x² / (2y)
     // msub_div computes: -(Σᵢ aᵢ·bᵢ) / d = -(x·(3x)) / (2y) = -3x² / (2y)
-    Fq neg_lambda = Fq::msub_div({ _x }, { (two_x + _x) }, (_y + _y), {}, /*enable_divisor_nz_check*/ false);
+    // We enforce the denominator is not zero to protect against soundness issues.
+    Fq neg_lambda = Fq::msub_div({ _x }, { (two_x + _x) }, denominator, {}, /*enable_divisor_nz_check*/ true);
 
     // Compute x₃ = λ² - 2x
     // Since neg_lambda = -λ, we have: (-λ)² - 2x = λ² - 2x
@@ -340,9 +447,19 @@ template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element
     // Using neg_lambda = -λ: (-λ)(x₃ - x) + (-y) = -λ(x₃ - x) - y = λ(x - x₃) - y
     Fq y_3 = neg_lambda.madd(x_3 - _x, { -_y });
 
-    element result = element(x_3, y_3, /*assert_on_curve=*/false);
-    result.set_point_at_infinity(is_point_at_infinity(), /* add_to_used_witnesses */ true);
-    return result;
+    mark_witness_as_used(field_t<C>(is_infinity));
+    return element(x_3, y_3, /*is_infinity=*/is_infinity, /*assert_on_curve=*/false);
+}
+
+/**
+ * @brief Evaluates a point doubling.
+ *
+ * @note The result is always in canonical form (infinity points have coords (0,0)).
+ */
+template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element<C, Fq, Fr, G>::dbl() const
+{
+    element result = dbl_internal();
+    return result.get_standard_form();
 }
 
 /**
@@ -395,7 +512,10 @@ typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::cha
 {
     // If accumulator has a full y-coordinate, use chain_add_start instead
     if (acc.is_full_element) {
-        return chain_add_start(p1, element(acc.x3_prev, acc.y3_prev, /*assert_on_curve=*/false));
+        // Use 4-arg constructor with is_infinity=false (chain operations assume valid, non-infinity points).
+        return chain_add_start(
+            p1,
+            element(acc.x3_prev, acc.y3_prev, bool_ct(acc.x3_prev.get_context(), false), /*assert_on_curve=*/false));
     }
 
     // Require x₁ ≠ x₂ for incomplete addition formula
@@ -440,7 +560,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::chain_add_end(const chain_add_accum
 {
     // If accumulator already has a full y-coordinate, return it directly
     if (acc.is_full_element) {
-        return element(acc.x3_prev, acc.y3_prev, /*assert_on_curve=*/false);
+        // Use 4-arg constructor with is_infinity=false (chain operations assume valid, non-infinity points).
+        return element(acc.x3_prev, acc.y3_prev, bool_ct(acc.x3_prev.get_context(), false), /*assert_on_curve=*/false);
     }
 
     // Compute y₃ = λ(x₁ - x₃) - y₁
@@ -449,7 +570,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::chain_add_end(const chain_add_accum
     auto& lambda = acc.lambda_prev;
 
     Fq y3 = lambda.madd((acc.x1_prev - x3), { -acc.y1_prev });
-    return element(x3, y3, /*assert_on_curve=*/false);
+    // Use 4-arg constructor with is_infinity=false (chain operations assume valid, non-infinity points).
+    return element(x3, y3, bool_ct(x3.get_context(), false), /*assert_on_curve=*/false);
 }
 
 /**
@@ -646,7 +768,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
     BB_ASSERT(!previous_y.is_negative);
 
     Fq y_out = Fq::mult_madd(previous_y.mul_left, previous_y.mul_right, previous_y.add);
-    return element(x_out, y_out, /*assert_on_curve=*/false);
+    // Use 4-arg constructor with is_infinity=false (montgomery ladder assumes valid, non-infinity points).
+    return element(x_out, y_out, bool_ct(x_out.get_context(), false), /*assert_on_curve=*/false);
 }
 
 /**
@@ -696,7 +819,9 @@ std::pair<element<C, Fq, Fr, G>, element<C, Fq, Fr, G>> element<C, Fq, Fr, G>::c
     const uint256_t offset_multiplier = uint256_t(1) << uint256_t(num_rounds - 1);
 
     const typename G::affine_element offset_generator_end = typename G::element(offset_generator) * offset_multiplier;
-    return std::make_pair<element, element>(offset_generator, offset_generator_end);
+
+    return std::make_pair<element, element>(element(offset_generator.x, offset_generator.y),
+                                            element(offset_generator_end.x, offset_generator_end.y));
 }
 
 template <typename C, class Fq, class Fr, class G>
@@ -773,18 +898,21 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::process_strauss_msm_rounds(const st
 
     // Subtract the skew factors (if any)
     for (size_t i = 0; i < msm_size; ++i) {
-        element skew = accumulator - points[i];
+        element skew = accumulator.subtract_internal(points[i]);
         accumulator = accumulator.conditional_select(skew, naf_entries[i][num_rounds]);
     }
 
     // Subtract the scaled offset generator
-    accumulator = accumulator - offset_generator_end;
+    accumulator = accumulator.subtract_internal(offset_generator_end);
 
     return accumulator;
 }
 
 /**
- * @brief Generic batch multiplication that works for all elliptic curve types.
+ * @brief Internal implementation of generic batch multiplication that works for all elliptic curve types.
+ *
+ * @note This internal method may produce a non-canonical infinity representation (infinity=true but coords≠(0,0)).
+ * Use batch_mul() for the public API which guarantees canonical output.
  *
  * @tparam C The circuit builder type.
  * @tparam Fq The field of definition of the points in `_points`.
@@ -794,7 +922,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::process_strauss_msm_rounds(const st
  * @param _scalars
  * @param max_num_bits The max of the bit lengths of the scalars.
  * @param with_edgecases Use when points are linearly dependent. Randomises them.
- * @return element<C, Fq, Fr, G>
+ * @return element<C, Fq, Fr, G> (may be non-canonical)
  *
  * @details This is an implementation of the Strauss algorithm for multi-scalar-multiplication (MSM).
  *          It uses the Non-Adjacent Form (NAF) representation of scalars and ROM lookups to
@@ -817,15 +945,18 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::process_strauss_msm_rounds(const st
  *          This lookup output is accumulated with the lookup outputs from the other 3 NAF entries.
  */
 template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element>& _points,
-                                                       const std::vector<Fr>& _scalars,
-                                                       const size_t max_num_bits,
-                                                       const bool with_edgecases,
-                                                       const Fr& masking_scalar)
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul_internal(const std::vector<element>& _points,
+                                                                const std::vector<Fr>& _scalars,
+                                                                const size_t max_num_bits,
+                                                                const bool with_edgecases,
+                                                                const Fr& masking_scalar)
 {
     // Sanity check input sizes
     BB_ASSERT_GT(_points.size(), 0ULL, "biggroup batch_mul: no points provided for batch multiplication");
     BB_ASSERT_EQ(_points.size(), _scalars.size(), "biggroup batch_mul: points and scalars size mismatch");
+
+    // Get builder context from input points (needed for creating infinity results)
+    C* builder = _points[0].get_context();
 
     // Replace (∞, scalar) pairs by the pair (G, 0).
     auto [points, scalars] = handle_points_at_infinity(_points, _scalars);
@@ -878,7 +1009,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
             "biggroup batch_mul: masking_scalar must be constant (and equal to 1) when with_edgecases is false");
     }
 
-    if (with_edgecases) {
+    if (with_edgecases && !points.empty()) {
         // If points are linearly dependent, we randomise them using a masking scalar.
         // We do this to ensure that the x-coordinates of the points are all distinct. This is required
         // while creating the ROM lookup table with the points.
@@ -933,14 +1064,23 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
     // (to handle the case where all points were filtered out by handle_points_at_infinity)
     const bool has_no_points = big_points.empty() && small_points.empty();
     if (has_constant_terms || has_no_points) {
-        accumulator = element(constant_accumulator);
+        // Convert from projective to affine to get correct (x, y) coordinates
+        typename G::affine_element constant_accumulator_affine(constant_accumulator);
+        if (constant_accumulator_affine.is_point_at_infinity()) {
+            // For infinity, create element with canonical (0, 0) coordinates
+            // Using constant zero Fq to create a constant infinity element
+            Fq zero_fq = Fq(builder, 0);
+            accumulator = element(zero_fq, zero_fq);
+        } else {
+            accumulator = element(constant_accumulator_affine.x, constant_accumulator_affine.y);
+        }
         accumulator_initialized = true;
     }
 
     if (!big_points.empty()) {
         // Process big scalars separately
         element big_result = element::process_strauss_msm_rounds(big_points, big_scalars, max_num_bits_in_field);
-        accumulator = accumulator_initialized ? accumulator + big_result : big_result;
+        accumulator = accumulator_initialized ? accumulator.add_internal(big_result) : big_result;
         accumulator_initialized = true;
     }
 
@@ -948,15 +1088,44 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
         // Process small scalars
         const size_t effective_max_num_bits = (max_num_bits == 0) ? max_num_bits_in_field : max_num_bits;
         element small_result = element::process_strauss_msm_rounds(small_points, small_scalars, effective_max_num_bits);
-        accumulator = accumulator_initialized ? accumulator + small_result : small_result;
+        accumulator = accumulator_initialized ? accumulator.add_internal(small_result) : small_result;
         accumulator_initialized = true;
     }
 
     accumulator.set_origin_tag(tag);
     return accumulator;
 }
+
+/**
+ * @brief Generic batch multiplication that works for all elliptic curve types.
+ *
+ * @note The result is always in canonical form (infinity points have coords (0,0)).
+ *
+ * @tparam C The circuit builder type.
+ * @tparam Fq The field of definition of the points in `_points`.
+ * @tparam Fr The field of scalars acting on `_points`.
+ * @tparam G The group whose arithmetic is emulated by `element`.
+ * @param _points
+ * @param _scalars
+ * @param max_num_bits The max of the bit lengths of the scalars.
+ * @param with_edgecases Use when points are linearly dependent. Randomises them.
+ * @return element<C, Fq, Fr, G> (canonical form)
+ */
+template <typename C, class Fq, class Fr, class G>
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element>& points,
+                                                       const std::vector<Fr>& scalars,
+                                                       const size_t max_num_bits,
+                                                       const bool with_edgecases,
+                                                       const Fr& masking_scalar)
+{
+    element result = batch_mul_internal(points, scalars, max_num_bits, with_edgecases, masking_scalar);
+    return result.get_standard_form();
+}
+
 /**
  * Implements scalar multiplication operator.
+ *
+ * @note The result is always in canonical form (infinity points have coords (0,0)).
  */
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator*(const Fr& scalar) const
@@ -969,10 +1138,13 @@ template <typename C, class Fq, class Fr, class G>
 /**
  * @brief Implements scalar multiplication that supports short scalars.
  * For multiple scalar multiplication use one of the `batch_mul` methods to save gates.
+ *
+ * @note The result is always in canonical form (infinity points have coords (0,0)).
+ *
  * @param scalar A field element. If `max_num_bits`>0, the length of the scalar must not exceed `max_num_bits`.
  * @param max_num_bits Positive integer < 254. Default value 0 corresponds to scalar multiplication by scalars of
  * unspecified length.
- * @return element<C, Fq, Fr, G>
+ * @return element<C, Fq, Fr, G> (canonical form)
  */
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::scalar_mul(const Fr& scalar, const size_t max_num_bits) const
 {

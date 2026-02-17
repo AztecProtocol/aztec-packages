@@ -19,6 +19,7 @@ describe('TxFileStore', () => {
   let config: TxFileStoreConfig;
   let txFileStore: TxFileStore | undefined;
   const log = createLogger('test:tx_file_store');
+  const basePath = 'aztec-1-1-0x1234';
 
   const makeTx = async () => {
     const tx = Tx.random();
@@ -29,7 +30,7 @@ describe('TxFileStore', () => {
   /** Counts files in the txs subdirectory of the temp directory. */
   async function countUploadedFiles(): Promise<number> {
     try {
-      const files = await readdir(join(tmpDir, 'txs'));
+      const files = await readdir(join(tmpDir, basePath, 'txs'));
       return files.length;
     } catch {
       return 0;
@@ -43,7 +44,7 @@ describe('TxFileStore', () => {
   beforeEach(async () => {
     // Clean up any files from previous test
     try {
-      await rm(join(tmpDir, 'txs'), { recursive: true, force: true });
+      await rm(join(tmpDir, basePath), { recursive: true, force: true });
     } catch {
       // Directory might not exist
     }
@@ -54,7 +55,6 @@ describe('TxFileStore', () => {
     config = {
       txFileStoreEnabled: true,
       txFileStoreUrl: `file://${tmpDir}`,
-      txFileStoreDownloadUrl: `file://${tmpDir}`,
       txFileStoreUploadConcurrency: 2,
       txFileStoreMaxQueueSize: 10,
     };
@@ -74,47 +74,49 @@ describe('TxFileStore', () => {
   describe('create', () => {
     it('returns undefined when disabled', async () => {
       config.txFileStoreEnabled = false;
-      const result = await TxFileStore.create(txPool, config, log, undefined, fileStore);
+      const result = await TxFileStore.create(txPool, config, basePath, log, undefined, fileStore);
       expect(result).toBeUndefined();
     });
 
     it('returns undefined when upload URL is not configured', async () => {
       config.txFileStoreUrl = undefined;
-      const result = await TxFileStore.create(txPool, config, log, undefined, fileStore);
+      const result = await TxFileStore.create(txPool, config, basePath, log, undefined, fileStore);
       expect(result).toBeUndefined();
     });
 
     it('creates file store when enabled and configured', async () => {
-      txFileStore = await TxFileStore.create(txPool, config, log, undefined, fileStore);
+      txFileStore = await TxFileStore.create(txPool, config, basePath, log, undefined, fileStore);
       expect(txFileStore).toBeDefined();
     });
   });
 
   describe('start/stop', () => {
     it('subscribes to txs-added event on start', async () => {
-      txFileStore = await TxFileStore.create(txPool, config, log, undefined, fileStore);
+      txFileStore = await TxFileStore.create(txPool, config, basePath, log, undefined, fileStore);
       txFileStore!.start();
 
       const spy = jest.spyOn(fileStore, 'save');
 
       const tx = await makeTx();
-      await txPool.addTxs([tx]);
+      await txPool.addPendingTxs([tx]);
 
       await txFileStore!.flush();
 
-      expect(spy).toHaveBeenCalledWith(`txs/${tx.getTxHash().toString()}.bin`, tx.toBuffer(), { compress: false });
+      expect(spy).toHaveBeenCalledWith(`${basePath}/txs/${tx.getTxHash().toString()}.bin`, tx.toBuffer(), {
+        compress: false,
+      });
 
       spy.mockRestore();
     });
 
     it('unsubscribes from txs-added event on stop', async () => {
-      txFileStore = await TxFileStore.create(txPool, config, log, undefined, fileStore);
+      txFileStore = await TxFileStore.create(txPool, config, basePath, log, undefined, fileStore);
       txFileStore!.start();
 
       const spy = jest.spyOn(fileStore, 'save');
 
       const tx1 = await makeTx();
-      await txPool.addTxs([tx1]);
+      await txPool.addPendingTxs([tx1]);
       await txFileStore!.flush();
 
       const countBefore = await countUploadedFiles();
@@ -125,7 +127,7 @@ describe('TxFileStore', () => {
       // Add another tx after stopping - should not be uploaded
       // stop() synchronously removes the event listener, so no race condition
       const tx2 = await makeTx();
-      await txPool.addTxs([tx2]);
+      await txPool.addPendingTxs([tx2]);
 
       expect(spy).toHaveBeenCalledTimes(1);
 
@@ -135,30 +137,32 @@ describe('TxFileStore', () => {
 
   describe('tx upload', () => {
     it('uploads tx when txs-added event fires', async () => {
-      txFileStore = await TxFileStore.create(txPool, config, log, undefined, fileStore);
+      txFileStore = await TxFileStore.create(txPool, config, basePath, log, undefined, fileStore);
       txFileStore!.start();
 
       const spy = jest.spyOn(fileStore, 'save');
 
       const tx = await makeTx();
-      await txPool.addTxs([tx]);
+      await txPool.addPendingTxs([tx]);
 
       await txFileStore!.flush();
 
-      expect(spy).toHaveBeenCalledWith(`txs/${tx.getTxHash().toString()}.bin`, tx.toBuffer(), { compress: false });
+      expect(spy).toHaveBeenCalledWith(`${basePath}/txs/${tx.getTxHash().toString()}.bin`, tx.toBuffer(), {
+        compress: false,
+      });
 
       spy.mockRestore();
     });
 
     it('uploads multiple txs', async () => {
-      txFileStore = await TxFileStore.create(txPool, config, log, undefined, fileStore);
+      txFileStore = await TxFileStore.create(txPool, config, basePath, log, undefined, fileStore);
       txFileStore!.start();
 
       const spy = jest.spyOn(fileStore, 'save');
 
       const tx1 = await makeTx();
       const tx2 = await makeTx();
-      await txPool.addTxs([tx1, tx2]);
+      await txPool.addPendingTxs([tx1, tx2]);
 
       await txFileStore!.flush();
 
@@ -170,7 +174,7 @@ describe('TxFileStore', () => {
     it('respects concurrency limit', async () => {
       config.txFileStoreUploadConcurrency = 10;
       config.txFileStoreMaxQueueSize = 100; // Increase to accommodate 20 txs
-      txFileStore = await TxFileStore.create(txPool, config, log, undefined, fileStore);
+      txFileStore = await TxFileStore.create(txPool, config, basePath, log, undefined, fileStore);
       txFileStore!.start();
 
       let activeCalls = 0;
@@ -193,7 +197,7 @@ describe('TxFileStore', () => {
           .fill(0)
           .map(() => makeTx()),
       );
-      await txPool.addTxs(txs);
+      await txPool.addPendingTxs(txs);
 
       await txFileStore!.flush();
 
@@ -205,7 +209,7 @@ describe('TxFileStore', () => {
     });
 
     it('skips duplicate tx uploads', async () => {
-      txFileStore = await TxFileStore.create(txPool, config, log, undefined, fileStore);
+      txFileStore = await TxFileStore.create(txPool, config, basePath, log, undefined, fileStore);
       txFileStore!.start();
 
       const spy = jest.spyOn(fileStore, 'save');
@@ -213,10 +217,10 @@ describe('TxFileStore', () => {
       const tx = await makeTx();
 
       // Upload same tx twice
-      await txPool.addTxs([tx]);
+      await txPool.addPendingTxs([tx]);
       await txFileStore!.flush();
 
-      await txPool.addTxs([tx]);
+      await txPool.addPendingTxs([tx]);
       await txFileStore!.flush(); // Dedup happens synchronously before upload starts
 
       // Should only upload once (second is deduplicated)
@@ -228,14 +232,14 @@ describe('TxFileStore', () => {
     it('drops oldest txs when queue exceeds max size', async () => {
       config.txFileStoreUploadConcurrency = 1;
       config.txFileStoreMaxQueueSize = 2;
-      txFileStore = await TxFileStore.create(txPool, config, log, undefined, fileStore);
+      txFileStore = await TxFileStore.create(txPool, config, basePath, log, undefined, fileStore);
       txFileStore!.start();
 
       const spy = jest.spyOn(fileStore, 'save');
 
       // Queue 4 txs - with maxQueueSize=2, overflow logic drops 2 oldest
       const txs = await Promise.all([makeTx(), makeTx(), makeTx(), makeTx()]);
-      await txPool.addTxs(txs);
+      await txPool.addPendingTxs(txs);
 
       // Check pending count immediately after enqueue (before processing)
       // 4 added - 2 dropped = 2 remaining in queue (+ 0 active at this point)
@@ -252,7 +256,7 @@ describe('TxFileStore', () => {
 
   describe('error handling', () => {
     it('retries on transient failures', async () => {
-      txFileStore = await TxFileStore.create(txPool, config, log, undefined, fileStore);
+      txFileStore = await TxFileStore.create(txPool, config, basePath, log, undefined, fileStore);
       txFileStore!.start();
 
       const originalSave = fileStore.save.bind(fileStore);
@@ -263,7 +267,7 @@ describe('TxFileStore', () => {
         .mockImplementation(originalSave);
 
       const tx = await makeTx();
-      await txPool.addTxs([tx]);
+      await txPool.addPendingTxs([tx]);
 
       // flush() waits for all uploads including retries
       await txFileStore!.flush();
@@ -277,7 +281,7 @@ describe('TxFileStore', () => {
     it('continues processing after exhausting retries', async () => {
       // Use concurrency=1 to ensure sequential processing for predictable retry behavior
       config.txFileStoreUploadConcurrency = 1;
-      txFileStore = await TxFileStore.create(txPool, config, log, undefined, fileStore);
+      txFileStore = await TxFileStore.create(txPool, config, basePath, log, undefined, fileStore);
       txFileStore!.start();
 
       const originalSave = fileStore.save.bind(fileStore);
@@ -291,7 +295,7 @@ describe('TxFileStore', () => {
 
       const tx1 = await makeTx();
       const tx2 = await makeTx();
-      await txPool.addTxs([tx1, tx2]);
+      await txPool.addPendingTxs([tx1, tx2]);
 
       // flush() waits for all uploads including retries
       await txFileStore!.flush();
@@ -306,14 +310,14 @@ describe('TxFileStore', () => {
 
   describe('getPendingUploadCount', () => {
     it('returns correct count of pending uploads', async () => {
-      txFileStore = await TxFileStore.create(txPool, config, log, undefined, fileStore);
+      txFileStore = await TxFileStore.create(txPool, config, basePath, log, undefined, fileStore);
       txFileStore!.start();
 
       expect(txFileStore!.getPendingUploadCount()).toBe(0);
 
       const tx1 = await makeTx();
       const tx2 = await makeTx();
-      await txPool.addTxs([tx1, tx2]);
+      await txPool.addPendingTxs([tx1, tx2]);
 
       // Check immediately after enqueue (before processing starts)
       expect(txFileStore!.getPendingUploadCount()).toBe(2);

@@ -10,7 +10,11 @@ import {
   makeCheckpointProposal,
 } from '@aztec/stdlib/testing';
 
-import { type AttestationPool, MAX_PROPOSALS_PER_POSITION, MAX_PROPOSALS_PER_SLOT } from './attestation_pool.js';
+import {
+  type AttestationPool,
+  MAX_BLOCK_PROPOSALS_PER_POSITION,
+  MAX_CHECKPOINT_PROPOSALS_PER_SLOT,
+} from './attestation_pool.js';
 import { mockCheckpointAttestation } from './mocks.js';
 
 const NUMBER_OF_SIGNERS_PER_TEST = 4;
@@ -191,7 +195,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
       expect(result.added).toBe(true);
       expect(result.alreadyExists).toBe(false);
-      expect(result.totalForPosition).toBe(1);
+      expect(result.count).toBe(1);
 
       const retrievedProposal = await ap.getBlockProposal(proposalId);
 
@@ -258,7 +262,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
       expect(result.added).toBe(true);
       expect(result.alreadyExists).toBe(false);
-      expect(result.totalForPosition).toBe(1);
+      expect(result.count).toBe(1);
 
       const retrievedProposal = await ap.getCheckpointProposal(proposalId);
 
@@ -324,12 +328,12 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     it('should return added=false when exceeding capacity', async () => {
       const slotNumber = 420;
 
-      // Add MAX_PROPOSALS_PER_SLOT proposals
-      for (let i = 0; i < MAX_PROPOSALS_PER_SLOT; i++) {
+      // Add MAX_CHECKPOINT_PROPOSALS_PER_SLOT proposals
+      for (let i = 0; i < MAX_CHECKPOINT_PROPOSALS_PER_SLOT; i++) {
         const proposal = await mockCheckpointProposalForPool(signers[i % NUMBER_OF_SIGNERS_PER_TEST], slotNumber);
         const result = await ap.tryAddCheckpointProposal(proposal);
         expect(result.added).toBe(true);
-        expect(result.totalForPosition).toBe(i + 1);
+        expect(result.count).toBe(i + 1);
       }
 
       // The next proposal should not be added
@@ -337,7 +341,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
       const result = await ap.tryAddCheckpointProposal(extraProposal);
       expect(result.added).toBe(false);
       expect(result.alreadyExists).toBe(false);
-      expect(result.totalForPosition).toBe(MAX_PROPOSALS_PER_SLOT);
+      expect(result.count).toBe(MAX_CHECKPOINT_PROPOSALS_PER_SLOT);
     });
   });
 
@@ -358,13 +362,13 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     };
 
     describe('tryAddBlockProposal duplicate detection', () => {
-      it('should return totalForPosition=1 when pool is empty', async () => {
+      it('should return count=1 when pool is empty', async () => {
         const proposal = await mockBlockProposalWithIndex(signers[0], 100, 0);
         const result = await ap.tryAddBlockProposal(proposal);
 
         expect(result.added).toBe(true);
         expect(result.alreadyExists).toBe(false);
-        expect(result.totalForPosition).toBe(1);
+        expect(result.count).toBe(1);
       });
 
       it('should return alreadyExists when same proposal exists', async () => {
@@ -375,17 +379,17 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
         expect(result.added).toBe(false);
         expect(result.alreadyExists).toBe(true);
-        expect(result.totalForPosition).toBe(1);
+        expect(result.count).toBe(1);
       });
 
-      it('should detect duplicate via totalForPosition when different proposal exists at same position', async () => {
+      it('should detect duplicate via count when different proposal exists at same position', async () => {
         const slotNumber = 100;
         const indexWithinCheckpoint = 2;
 
         // Add first proposal
         const proposal1 = await mockBlockProposalWithIndex(signers[0], slotNumber, indexWithinCheckpoint);
         const result1 = await ap.tryAddBlockProposal(proposal1);
-        expect(result1.totalForPosition).toBe(1);
+        expect(result1.count).toBe(1);
 
         // Add a different proposal at same position - this is a duplicate (equivocation)
         const proposal2 = await mockBlockProposalWithIndex(signers[1], slotNumber, indexWithinCheckpoint);
@@ -393,8 +397,8 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
         expect(result2.added).toBe(true);
         expect(result2.alreadyExists).toBe(false);
-        // totalForPosition >= 2 indicates duplicate detection
-        expect(result2.totalForPosition).toBe(2);
+        // count >= 2 indicates duplicate detection
+        expect(result2.count).toBe(2);
       });
 
       it('should not detect duplicate for different positions in same slot', async () => {
@@ -409,8 +413,8 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
         const result = await ap.tryAddBlockProposal(proposal2);
 
         expect(result.added).toBe(true);
-        // totalForPosition = 1 means no duplicate for this position
-        expect(result.totalForPosition).toBe(1);
+        // count = 1 means no duplicate for this position
+        expect(result.count).toBe(1);
       });
 
       it('should not detect duplicate for same position in different slots', async () => {
@@ -425,37 +429,37 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
         const result = await ap.tryAddBlockProposal(proposal2);
 
         expect(result.added).toBe(true);
-        // totalForPosition = 1 means no duplicate for this position
-        expect(result.totalForPosition).toBe(1);
+        // count = 1 means no duplicate for this position
+        expect(result.count).toBe(1);
       });
 
-      it('should track multiple duplicates correctly via totalForPosition', async () => {
+      it('should track multiple duplicates correctly via count', async () => {
         const slotNumber = 100;
         const indexWithinCheckpoint = 0;
 
         // Add multiple proposals for same position
         const proposal1 = await mockBlockProposalWithIndex(signers[0], slotNumber, indexWithinCheckpoint);
         const result1 = await ap.tryAddBlockProposal(proposal1);
-        expect(result1.totalForPosition).toBe(1);
+        expect(result1.count).toBe(1);
 
         const proposal2 = await mockBlockProposalWithIndex(signers[1], slotNumber, indexWithinCheckpoint);
         const result2 = await ap.tryAddBlockProposal(proposal2);
-        expect(result2.totalForPosition).toBe(2);
+        expect(result2.count).toBe(2);
 
         // Add a third proposal for same position
         const proposal3 = await mockBlockProposalWithIndex(signers[2], slotNumber, indexWithinCheckpoint);
         const result3 = await ap.tryAddBlockProposal(proposal3);
 
         expect(result3.added).toBe(true);
-        expect(result3.totalForPosition).toBe(3);
+        expect(result3.count).toBe(3);
       });
 
       it('should return added=false when exceeding capacity', async () => {
         const slotNumber = 100;
         const indexWithinCheckpoint = 0;
 
-        // Add MAX_PROPOSALS_PER_POSITION proposals
-        for (let i = 0; i < MAX_PROPOSALS_PER_POSITION; i++) {
+        // Add MAX_BLOCK_PROPOSALS_PER_POSITION proposals
+        for (let i = 0; i < MAX_BLOCK_PROPOSALS_PER_POSITION; i++) {
           const proposal = await mockBlockProposalWithIndex(
             signers[i % NUMBER_OF_SIGNERS_PER_TEST],
             slotNumber,
@@ -463,7 +467,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
           );
           const result = await ap.tryAddBlockProposal(proposal);
           expect(result.added).toBe(true);
-          expect(result.totalForPosition).toBe(i + 1);
+          expect(result.count).toBe(i + 1);
         }
 
         // The next proposal should not be added
@@ -471,7 +475,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
         const result = await ap.tryAddBlockProposal(extraProposal);
         expect(result.added).toBe(false);
         expect(result.alreadyExists).toBe(false);
-        expect(result.totalForPosition).toBe(MAX_PROPOSALS_PER_POSITION);
+        expect(result.count).toBe(MAX_BLOCK_PROPOSALS_PER_POSITION);
       });
 
       it('should clean up block position index when deleting old data', async () => {
@@ -482,18 +486,18 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
         const proposal1 = await mockBlockProposalWithIndex(signers[0], slotNumber, indexWithinCheckpoint);
         await ap.tryAddBlockProposal(proposal1);
 
-        // Verify it's tracked (adding another should show totalForPosition = 2)
+        // Verify it's tracked (adding another should show count = 2)
         const proposal2 = await mockBlockProposalWithIndex(signers[1], slotNumber, indexWithinCheckpoint);
         let result = await ap.tryAddBlockProposal(proposal2);
-        expect(result.totalForPosition).toBe(2);
+        expect(result.count).toBe(2);
 
         // Delete old data
         await ap.deleteOlderThan(SlotNumber(slotNumber + 1));
 
-        // Verify position index is cleaned up (totalForPosition should be 1 now)
+        // Verify position index is cleaned up (count should be 1 now)
         const proposal3 = await mockBlockProposalWithIndex(signers[2], slotNumber, indexWithinCheckpoint);
         result = await ap.tryAddBlockProposal(proposal3);
-        expect(result.totalForPosition).toBe(1);
+        expect(result.count).toBe(1);
       });
 
       it('should correctly delete block proposals at slot boundary', async () => {
@@ -514,16 +518,16 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
         // Slot 99 proposals should have their index cleaned up
         const newProposal99 = await mockBlockProposalWithIndex(signers[0], 99, 0);
         const result99 = await ap.tryAddBlockProposal(newProposal99);
-        expect(result99.totalForPosition).toBe(1); // Index was cleaned up
+        expect(result99.count).toBe(1); // Index was cleaned up
 
         // Slot 100 and 101 should still be tracked
         const newProposal100 = await mockBlockProposalWithIndex(signers[1], 100, 0);
         const result100 = await ap.tryAddBlockProposal(newProposal100);
-        expect(result100.totalForPosition).toBe(2); // Still has the original
+        expect(result100.count).toBe(2); // Still has the original
 
         const newProposal101 = await mockBlockProposalWithIndex(signers[2], 101, 0);
         const result101 = await ap.tryAddBlockProposal(newProposal101);
-        expect(result101.totalForPosition).toBe(2); // Still has the original
+        expect(result101.count).toBe(2); // Still has the original
       });
 
       it('should delete all indices for a given slot', async () => {
@@ -544,15 +548,15 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
         // All indices should be cleaned up
         const newProposal0 = await mockBlockProposalWithIndex(signers[0], slotNumber, 0);
         const result0 = await ap.tryAddBlockProposal(newProposal0);
-        expect(result0.totalForPosition).toBe(1);
+        expect(result0.count).toBe(1);
 
         const newProposal1 = await mockBlockProposalWithIndex(signers[1], slotNumber, 1);
         const result1 = await ap.tryAddBlockProposal(newProposal1);
-        expect(result1.totalForPosition).toBe(1);
+        expect(result1.count).toBe(1);
 
         const newProposal2 = await mockBlockProposalWithIndex(signers[2], slotNumber, 2);
         const result2 = await ap.tryAddBlockProposal(newProposal2);
-        expect(result2.totalForPosition).toBe(1);
+        expect(result2.count).toBe(1);
       });
 
       it('should delete block proposals from storage when deleting old data', async () => {
@@ -598,13 +602,13 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
         return proposal.toCore();
       };
 
-      it('should return totalForPosition=1 when pool is empty', async () => {
+      it('should return count=1 when pool is empty', async () => {
         const proposal = await mockCheckpointProposalCoreForPool(signers[0], 100);
         const result = await ap.tryAddCheckpointProposal(proposal);
 
         expect(result.added).toBe(true);
         expect(result.alreadyExists).toBe(false);
-        expect(result.totalForPosition).toBe(1);
+        expect(result.count).toBe(1);
       });
 
       it('should return alreadyExists when same proposal exists', async () => {
@@ -615,16 +619,16 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
         expect(result.added).toBe(false);
         expect(result.alreadyExists).toBe(true);
-        expect(result.totalForPosition).toBe(1);
+        expect(result.count).toBe(1);
       });
 
-      it('should detect duplicate via totalForPosition when different proposal exists for same slot', async () => {
+      it('should detect duplicate via count when different proposal exists for same slot', async () => {
         const slotNumber = 100;
 
         // Add first proposal
         const proposal1 = await mockCheckpointProposalCoreForPool(signers[0], slotNumber);
         const result1 = await ap.tryAddCheckpointProposal(proposal1);
-        expect(result1.totalForPosition).toBe(1);
+        expect(result1.count).toBe(1);
 
         // Add a different proposal for same slot - this is a duplicate (equivocation)
         const proposal2 = await mockCheckpointProposalCoreForPool(signers[1], slotNumber);
@@ -632,8 +636,8 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
         expect(result2.added).toBe(true);
         expect(result2.alreadyExists).toBe(false);
-        // totalForPosition >= 2 indicates duplicate detection
-        expect(result2.totalForPosition).toBe(2);
+        // count >= 2 indicates duplicate detection
+        expect(result2.count).toBe(2);
       });
 
       it('should not detect duplicate for different slots', async () => {
@@ -646,28 +650,28 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
         const result = await ap.tryAddCheckpointProposal(proposal2);
 
         expect(result.added).toBe(true);
-        // totalForPosition = 1 means no duplicate for this slot
-        expect(result.totalForPosition).toBe(1);
+        // count = 1 means no duplicate for this slot
+        expect(result.count).toBe(1);
       });
 
-      it('should track multiple duplicates correctly via totalForPosition', async () => {
+      it('should track multiple duplicates correctly via count', async () => {
         const slotNumber = 100;
 
         // Add multiple proposals for same slot
         const proposal1 = await mockCheckpointProposalCoreForPool(signers[0], slotNumber);
         const result1 = await ap.tryAddCheckpointProposal(proposal1);
-        expect(result1.totalForPosition).toBe(1);
+        expect(result1.count).toBe(1);
 
         const proposal2 = await mockCheckpointProposalCoreForPool(signers[1], slotNumber);
         const result2 = await ap.tryAddCheckpointProposal(proposal2);
-        expect(result2.totalForPosition).toBe(2);
+        expect(result2.count).toBe(2);
 
         // Add a third proposal for same slot
         const proposal3 = await mockCheckpointProposalCoreForPool(signers[2], slotNumber);
         const result3 = await ap.tryAddCheckpointProposal(proposal3);
 
         expect(result3.added).toBe(true);
-        expect(result3.totalForPosition).toBe(3);
+        expect(result3.count).toBe(3);
       });
 
       it('should not count attestations as proposals for duplicate detection', async () => {
@@ -684,8 +688,8 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
         expect(result.added).toBe(true);
         expect(result.alreadyExists).toBe(false);
-        // totalForPosition should be 1, NOT 2 - attestations should not count as proposals
-        expect(result.totalForPosition).toBe(1);
+        // count should be 1, NOT 2 - attestations should not count as proposals
+        expect(result.count).toBe(1);
       });
 
       it('should not count attestations for different proposals as duplicates', async () => {
@@ -703,14 +707,14 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
         const result1 = await ap.tryAddCheckpointProposal(proposal1);
 
         expect(result1.added).toBe(true);
-        expect(result1.totalForPosition).toBe(1);
+        expect(result1.count).toBe(1);
 
         // Add the second checkpoint proposal - this IS a duplicate (different archive, same slot)
         const proposal2 = await mockCheckpointProposalCoreForPool(signers[3], slotNumber, archive2);
         const result2 = await ap.tryAddCheckpointProposal(proposal2);
 
         expect(result2.added).toBe(true);
-        expect(result2.totalForPosition).toBe(2);
+        expect(result2.count).toBe(2);
       });
     });
   });

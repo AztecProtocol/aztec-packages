@@ -413,8 +413,8 @@ void ExecutionTraceBuilder::process(
                 { C::execution_retrieved_bytecodes_tree_size,
                   ex_event.after_context_event.retrieved_bytecodes_tree_snapshot.next_available_leaf_index },
                 // Context - side effects
-                { C::execution_prev_num_unencrypted_log_fields, ex_event.before_context_event.numUnencryptedLogFields },
-                { C::execution_num_unencrypted_log_fields, ex_event.after_context_event.numUnencryptedLogFields },
+                { C::execution_prev_num_public_log_fields, ex_event.before_context_event.numPublicLogFields },
+                { C::execution_num_public_log_fields, ex_event.after_context_event.numPublicLogFields },
                 { C::execution_prev_num_l2_to_l1_messages, ex_event.before_context_event.numL2ToL1Messages },
                 { C::execution_num_l2_to_l1_messages, ex_event.after_context_event.numL2ToL1Messages },
                 // Helpers for identifying parent context
@@ -1198,7 +1198,7 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_execution_dispatch_to_cast_settings, InteractionType::LookupGeneric>()
         .add<lookup_execution_dispatch_to_set_settings, InteractionType::LookupGeneric>()
         .add<perm_execution_dispatch_to_get_contract_instance_settings, InteractionType::Permutation>()
-        .add<perm_execution_dispatch_to_emit_unencrypted_log_settings, InteractionType::Permutation>()
+        .add<perm_execution_dispatch_to_emit_public_log_settings, InteractionType::Permutation>()
         .add<perm_execution_dispatch_to_poseidon2_perm_settings, InteractionType::Permutation>()
         .add<perm_execution_dispatch_to_sha256_compression_settings, InteractionType::Permutation>()
         .add<perm_execution_dispatch_to_keccakf1600_settings, InteractionType::Permutation>()

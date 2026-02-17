@@ -129,4 +129,4 @@ These functions prove inclusion or non-inclusion of the corresponding nullifiers
 - [Contract Deployment Quick Reference](../aztec-nr/contract_readiness_states.md) - Practical guide for which deployment steps your contract needs
 - [Deploying Contracts](../aztec-js/how_to_deploy_contract.md) - Deploy contracts using TypeScript
 - [DApp Development Tutorial](../tutorials/js_tutorials/aztecjs-getting-started.md) - Build a complete application
-- [Communicating Cross-Chain](../aztec-nr/framework-description/how_to_communicate_cross_chain.md) - Portal contracts and L1/L2 messaging
+- [Communicating Cross-Chain](../aztec-nr/framework-description/ethereum_aztec_messaging.md) - Portal contracts and L1/L2 messaging

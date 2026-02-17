@@ -356,6 +356,33 @@ describe('SnappyTransform', () => {
           'exceeds maximum allowed size of 200kb',
         );
       });
+
+      it('should use maxSizeKbOverride when provided, ignoring topic and default limits', () => {
+        const transform = new SnappyTransform();
+
+        // Data at 50kb should pass with 100kb override
+        const data = Buffer.alloc(50 * 1024, 'a');
+        const compressed = compressSync(data);
+        expect(() => transform.inboundTransformData(compressed, undefined, 100)).not.toThrow();
+
+        // Data at 150kb should fail with 100kb override
+        const dataLarge = Buffer.alloc(150 * 1024, 'a');
+        const compressedLarge = compressSync(dataLarge);
+        expect(() => transform.inboundTransformData(compressedLarge, undefined, 100)).toThrow(
+          'exceeds maximum allowed size of 100kb',
+        );
+      });
+
+      it('should prefer maxSizeKbOverride over topic-specific limit', () => {
+        const transform = new SnappyTransform();
+
+        // TX topic has a 512kb limit, but override is 10kb
+        const data = Buffer.alloc(50 * 1024, 'a'); // 50kb - within tx limit but over override
+        const compressed = compressSync(data);
+        expect(() => transform.inboundTransformData(compressed, TopicType.tx, 10)).toThrow(
+          'exceeds maximum allowed size of 10kb',
+        );
+      });
     });
 
     describe('exact boundary conditions', () => {

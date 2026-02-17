@@ -273,7 +273,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
   /** Set up p2p mock to return the given transactions */
   function mockP2pWithTxs(txs: Tx[]): void {
     p2p.getPendingTxCount.mockResolvedValue(txs.length);
-    p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
+    p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
   }
 
   /** Create attestations for the given block */
@@ -329,6 +329,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       l1StartBlock: 0n,
       epochDuration: 16,
       proofSubmissionEpochs: 4,
+      targetCommitteeSize: 48,
     };
 
     // Initialize test state

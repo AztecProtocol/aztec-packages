@@ -1,4 +1,4 @@
-use crate::protocol::{address::AztecAddress, debug_log::{debug_log, debug_log_format}};
+use crate::protocol::{address::AztecAddress, logging::{debug_log, debug_log_format}};
 
 pub mod nonce_discovery;
 pub mod partial_notes;

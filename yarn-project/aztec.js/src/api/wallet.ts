@@ -1,6 +1,7 @@
 export {
   type Aliased,
   type SimulateOptions,
+  type SimulateUtilityOptions,
   type ProfileOptions,
   type SendOptions,
   type BatchableMethods,
@@ -17,7 +18,6 @@ export {
   type ContractClassMetadata,
   AppCapabilitiesSchema,
   WalletCapabilitiesSchema,
-  FunctionCallSchema,
   ExecutionPayloadSchema,
   GasSettingsOptionSchema,
   WalletSimulationFeeOptionSchema,

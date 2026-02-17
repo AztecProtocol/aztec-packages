@@ -1,6 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, type SlotNumber } from '@aztec/foundation/branded-types';
-import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -45,7 +44,7 @@ import {
   type GossipsubMessage,
   gossipsub,
 } from '@chainsafe/libp2p-gossipsub';
-import { createPeerScoreParams, createTopicScoreParams } from '@chainsafe/libp2p-gossipsub/score';
+import { createPeerScoreParams } from '@chainsafe/libp2p-gossipsub/score';
 import { SignaturePolicy } from '@chainsafe/libp2p-gossipsub/types';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
@@ -80,7 +79,8 @@ import { getVersions } from '../../versioning.js';
 import { AztecDatastore } from '../data_store.js';
 import { DiscV5Service } from '../discv5/discV5_service.js';
 import { SnappyTransform, fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from '../encoding.js';
-import { gossipScoreThresholds } from '../gossipsub/scoring.js';
+import { APP_SPECIFIC_WEIGHT, gossipScoreThresholds } from '../gossipsub/scoring.js';
+import { createAllTopicScoreParams } from '../gossipsub/topic_score_params.js';
 import type { PeerManagerInterface } from '../peer-manager/interface.js';
 import { PeerManager } from '../peer-manager/peer_manager.js';
 import { PeerScoring } from '../peer-manager/peer_scoring.js';
@@ -113,6 +113,7 @@ import { ReqResp } from '../reqresp/reqresp.js';
 import type {
   P2PBlockReceivedCallback,
   P2PCheckpointReceivedCallback,
+  P2PDuplicateAttestationCallback,
   P2PService,
   PeerDiscoveryService,
 } from '../service.js';
@@ -154,6 +155,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     proposer: EthAddress;
     type: 'checkpoint' | 'block';
   }) => void;
+
+  /** Callback invoked when a duplicate attestation is detected (triggers slashing). */
+  private duplicateAttestationCallback?: P2PDuplicateAttestationCallback;
 
   /**
    * Callback for when a block is received from a peer.
@@ -311,11 +315,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const versions = getVersions(config);
     const protocolVersion = compressComponentVersions(versions);
 
-    const txTopic = createTopicString(TopicType.tx, protocolVersion);
-    const blockProposalTopic = createTopicString(TopicType.block_proposal, protocolVersion);
-    const checkpointProposalTopic = createTopicString(TopicType.checkpoint_proposal, protocolVersion);
-    const checkpointAttestationTopic = createTopicString(TopicType.checkpoint_attestation, protocolVersion);
-
     const preferredPeersEnrs: ENR[] = config.preferredPeers.map(enr => ENR.decodeTxt(enr));
     const directPeers = (
       await Promise.all(
@@ -334,6 +333,15 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     ).filter(peer => peer !== undefined);
 
     const announceTcpMultiaddr = config.p2pIp ? [convertToMultiaddr(config.p2pIp, p2pPort, 'tcp')] : [];
+
+    // Create dynamic topic score params based on network configuration
+    const l1Constants = epochCache.getL1Constants();
+    const topicScoreParams = createAllTopicScoreParams(protocolVersion, {
+      slotDurationMs: l1Constants.slotDuration * 1000,
+      heartbeatIntervalMs: config.gossipsubInterval,
+      targetCommitteeSize: l1Constants.targetCommitteeSize,
+      blockDurationMs: config.blockDurationMs,
+    });
 
     const node = await createLibp2p({
       start: false,
@@ -430,28 +438,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
           scoreParams: createPeerScoreParams({
             // IPColocation factor can be disabled for local testing - default to -5
             IPColocationFactorWeight: config.debugDisableColocationPenalty ? 0 : -5.0,
-            topics: {
-              [txTopic]: createTopicScoreParams({
-                topicWeight: 1,
-                invalidMessageDeliveriesWeight: -20,
-                invalidMessageDeliveriesDecay: 0.5,
-              }),
-              [blockProposalTopic]: createTopicScoreParams({
-                topicWeight: 1,
-                invalidMessageDeliveriesWeight: -20,
-                invalidMessageDeliveriesDecay: 0.5,
-              }),
-              [checkpointProposalTopic]: createTopicScoreParams({
-                topicWeight: 1,
-                invalidMessageDeliveriesWeight: -20,
-                invalidMessageDeliveriesDecay: 0.5,
-              }),
-              [checkpointAttestationTopic]: createTopicScoreParams({
-                topicWeight: 1,
-                invalidMessageDeliveriesWeight: -20,
-                invalidMessageDeliveriesDecay: 0.5,
-              }),
-            },
+            topics: topicScoreParams,
           }),
         }) as (components: GossipSubComponents) => GossipSub,
         components: (components: { connectionManager: ConnectionManager }) => ({
@@ -477,8 +464,12 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       epochCache,
     );
 
-    // Update gossipsub score params
-    node.services.pubsub.score.params.appSpecificWeight = 10;
+    // Configure application-specific scoring for gossipsub.
+    // The weight scales app score to align with gossipsub thresholds:
+    // - Disconnect (-50) × 10 = -500 = gossipThreshold (stops receiving gossip)
+    // - Ban (-100) × 10 = -1000 = publishThreshold (cannot publish)
+    // Note: positive topic scores can offset penalties, so alignment is best-effort.
+    node.services.pubsub.score.params.appSpecificWeight = APP_SPECIFIC_WEIGHT;
     node.services.pubsub.score.params.appSpecificScore = (peerId: string) =>
       peerManager.shouldDisableP2PGossip(peerId) ? -Infinity : peerManager.getPeerScore(peerId);
 
@@ -683,6 +674,15 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     callback: (info: { slot: SlotNumber; proposer: EthAddress; type: 'checkpoint' | 'block' }) => void,
   ): void {
     this.duplicateProposalCallback = callback;
+  }
+
+  /**
+   * Registers a callback to be invoked when a duplicate attestation is detected.
+   * A validator signing attestations for different proposals at the same slot.
+   * This callback is triggered on the first duplicate (when count goes from 1 to 2).
+   */
+  public registerDuplicateAttestationCallback(callback: P2PDuplicateAttestationCallback): void {
+    this.duplicateAttestationCallback = callback;
   }
 
   /**
@@ -902,20 +902,33 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const validationFunc: () => Promise<ReceivedMessageValidationResult<Tx>> = async () => {
       const tx = Tx.fromBuffer(payloadData);
       const isValid = await this.validatePropagatedTx(tx, source);
-      const exists = isValid && (await this.mempools.txPool.hasTx(tx.getTxHash()));
+      if (!isValid) {
+        this.logger.trace(`Rejecting invalid propagated tx`, {
+          [Attributes.P2P_ID]: source.toString(),
+        });
+        return { result: TopicValidatorResult.Reject };
+      }
+
+      // Propagate only on pool acceptance
+      const txHash = tx.getTxHash();
+      const addResult = await this.mempools.txPool.addPendingTxs([tx], { source: 'gossip' });
+
+      const wasAccepted = addResult.accepted.some(h => h.equals(txHash));
+      const wasIgnored = addResult.ignored.some(h => h.equals(txHash));
 
       this.logger.trace(`Validate propagated tx`, {
         isValid,
-        exists,
+        wasAccepted,
+        wasIgnored,
         [Attributes.P2P_ID]: source.toString(),
       });
 
-      if (!isValid) {
-        return { result: TopicValidatorResult.Reject };
-      } else if (exists) {
+      if (wasAccepted) {
+        return { result: TopicValidatorResult.Accept, obj: tx };
+      } else if (wasIgnored) {
         return { result: TopicValidatorResult.Ignore, obj: tx };
       } else {
-        return { result: TopicValidatorResult.Accept, obj: tx };
+        return { result: TopicValidatorResult.Reject };
       }
     };
 
@@ -924,6 +937,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       return;
     }
 
+    // Tx was accepted into pool and will be propagated - just log and record metrics
     const txHash = tx.getTxHash();
     const txHashString = txHash.toString();
     this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()} via gossip`, {
@@ -931,13 +945,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       txHash: txHashString,
     });
 
-    if (this.config.dropTransactions && randomInt(1000) < this.config.dropTransactionsProbability * 1000) {
-      this.logger.warn(`Intentionally dropping tx ${txHashString} (probability rule)`);
-      return;
-    }
-
     this.instrumentation.incrementTxReceived(1);
-    await this.mempools.txPool.addTxs([tx]);
   }
 
   /**
@@ -991,40 +999,53 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       return { result: TopicValidatorResult.Ignore, obj: attestation };
     }
 
-    // Get committee size for the attestation's slot
-    const slot = attestation.payload.header.slotNumber;
-    const { committee } = await this.epochCache.getCommittee(slot);
-    const committeeSize = committee?.length ?? 0;
-
     // Try to add the attestation: this handles existence check, cap check, and adding in one call
-    const { added, alreadyExists } = await this.mempools.attestationPool.tryAddCheckpointAttestation(
-      attestation,
-      committeeSize,
-    );
+    // count is the number of attestations by this signer for this slot (for duplicate detection)
+    const slot = attestation.payload.header.slotNumber;
+    const { added, alreadyExists, count } =
+      await this.mempools.attestationPool.tryAddCheckpointAttestation(attestation);
 
     this.logger.trace(`Validate propagated checkpoint attestation`, {
       added,
       alreadyExists,
+      count,
       [Attributes.SLOT_NUMBER]: slot.toString(),
       [Attributes.P2P_ID]: peerId.toString(),
     });
 
-    // Duplicate attestation received, no need to re-broadcast
+    // Exact same attestation received, no need to re-broadcast
     if (alreadyExists) {
       return { result: TopicValidatorResult.Ignore, obj: attestation };
     }
 
-    // Could not add (cap reached), no need to re-broadcast
+    // Could not add (cap reached for signer), no need to re-broadcast
     if (!added) {
-      this.logger.warn(`Dropping checkpoint attestation due to per-(slot, proposalId) attestation cap`, {
+      this.logger.warn(`Dropping checkpoint attestation due to cap`, {
         slot: slot.toString(),
         archive: attestation.archive.toString(),
         source: peerId.toString(),
+        attester: attestation.getSender()?.toString(),
+        count,
       });
       return { result: TopicValidatorResult.Ignore, obj: attestation };
     }
 
-    // Attestation was added successfully
+    // Check if this is a duplicate attestation (signer attested to a different proposal at the same slot)
+    // count is the number of attestations by this signer for this slot
+    if (count === 2) {
+      const attester = attestation.getSender();
+      if (attester) {
+        this.logger.warn(`Detected duplicate attestation (equivocation) at slot ${slot}`, {
+          slot: slot.toString(),
+          archive: attestation.archive.toString(),
+          source: peerId.toString(),
+          attester: attester.toString(),
+        });
+        this.duplicateAttestationCallback?.({ slot, attester });
+      }
+    }
+
+    // Attestation was added successfully - accept it so other nodes can also detect the equivocation
     return { result: TopicValidatorResult.Accept, obj: attestation };
   }
 
@@ -1070,8 +1091,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     }
 
     // Try to add the proposal: this handles existence check, cap check, and adding in one call
-    const { added, alreadyExists, totalForPosition } = await this.mempools.attestationPool.tryAddBlockProposal(block);
-    const isEquivocated = totalForPosition !== undefined && totalForPosition > 1;
+    const { added, alreadyExists, count } = await this.mempools.attestationPool.tryAddBlockProposal(block);
+    const isEquivocated = count !== undefined && count > 1;
 
     // Duplicate proposal received, no need to re-broadcast
     if (alreadyExists) {
@@ -1090,7 +1111,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       this.logger.warn(`Penalizing peer for block proposal exceeding per-position cap`, {
         ...block.toBlockInfo(),
         indexWithinCheckpoint: block.indexWithinCheckpoint,
-        totalForPosition,
+        count,
         proposer: block.getSender()?.toString(),
         source: peerId.toString(),
       });
@@ -1107,7 +1128,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         proposer: proposer?.toString(),
       });
       // Invoke the duplicate callback on the first duplicate spotted only
-      if (proposer && totalForPosition === 2) {
+      if (proposer && count === 2) {
         this.duplicateProposalCallback?.({ slot: block.slotNumber, proposer, type: 'block' });
       }
       return { result: TopicValidatorResult.Accept, obj: block, metadata: { isEquivocated } };
@@ -1132,8 +1153,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       ...block.toBlockInfo(),
     });
 
-    // Mark the txs in this proposal as non-evictable
-    await this.mempools.txPool.markTxsAsNonEvictable(block.txHashes);
+    // Mark the txs in this proposal as protected
+    await this.mempools.txPool.protectTxs(block.txHashes, block.blockHeader);
 
     // Call the block received callback to validate the proposal.
     // Note: Validators do NOT attest to individual blocks, only to checkpoint proposals.
@@ -1224,8 +1245,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     // Try to add the checkpoint proposal core: this handles existence check, cap check, and adding in one call
     const checkpointCore = checkpoint.toCore();
     const tryAddResult = await this.mempools.attestationPool.tryAddCheckpointProposal(checkpointCore);
-    const { added, alreadyExists, totalForPosition } = tryAddResult;
-    const isEquivocated = totalForPosition !== undefined && totalForPosition > 1;
+    const { added, alreadyExists, count } = tryAddResult;
+    const isEquivocated = count !== undefined && count > 1;
 
     // Duplicate proposal received, do not re-broadcast
     if (alreadyExists) {
@@ -1246,7 +1267,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
       this.logger.warn(`Penalizing peer for checkpoint proposal exceeding per-slot cap`, {
         ...checkpoint.toCheckpointInfo(),
-        totalForPosition,
+        count,
         source: peerId.toString(),
       });
       return { result: TopicValidatorResult.Reject, obj: checkpoint, metadata: { isEquivocated, processBlock } };
@@ -1262,7 +1283,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         proposer: proposer?.toString(),
       });
       // Invoke the duplicate callback on the first duplicate spotted only
-      if (proposer && totalForPosition === 2) {
+      if (proposer && count === 2) {
         this.duplicateProposalCallback?.({ slot: checkpoint.slotNumber, proposer, type: 'checkpoint' });
       }
       return {
@@ -1520,10 +1541,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   @trackSpan('Libp2pService.validatePropagatedTx', tx => ({
     [Attributes.TX_HASH]: tx.getTxHash().toString(),
   }))
-  private async validatePropagatedTx(tx: Tx, peerId: PeerId): Promise<boolean> {
+  protected async validatePropagatedTx(tx: Tx, peerId: PeerId): Promise<boolean> {
     const currentBlockNumber = await this.archiver.getBlockNumber();
 
-    // We accept transactions if they are not expired by the next slot (checked based on the IncludeByTimestamp field)
+    // We accept transactions if they are not expired by the next slot (checked based on the ExpirationTimestamp field)
     const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
     const messageValidators = await this.createMessageValidators(currentBlockNumber, nextSlotTimestamp);
 
@@ -1578,7 +1599,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   public async validate(txs: Tx[]): Promise<void> {
     const currentBlockNumber = await this.archiver.getBlockNumber();
 
-    // We accept transactions if they are not expired by the next slot (checked based on the IncludeByTimestamp field)
+    // We accept transactions if they are not expired by the next slot (checked based on the ExpirationTimestamp field)
     const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
     const messageValidators = await this.createMessageValidators(currentBlockNumber, nextSlotTimestamp);
 

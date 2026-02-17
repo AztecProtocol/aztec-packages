@@ -8,7 +8,6 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/honk/execution_trace/ultra_execution_trace.hpp"
-#include "barretenberg/honk/types/circuit_type.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 
@@ -302,7 +301,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     void create_bool_gate(const uint32_t a);
     void create_arithmetic_gate(const arithmetic_triple_<FF>& in);
-    void create_ecc_add_gate(const ecc_add_gate_<FF>& in);
+    void create_ecc_add_gate(const ecc_add_gate_& in);
     void create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in);
 
     void fix_witness(const uint32_t witness_index, const FF& witness_value);

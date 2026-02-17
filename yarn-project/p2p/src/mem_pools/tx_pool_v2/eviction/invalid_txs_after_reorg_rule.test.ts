@@ -7,7 +7,7 @@ import { BlockHeader } from '@aztec/stdlib/tx';
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import type { TxMetaData } from '../tx_metadata.js';
+import { type TxMetaData, stubTxMetaValidationData } from '../tx_metadata.js';
 import type { EvictionContext, PoolOperations } from './interfaces.js';
 import { EvictionEvent } from './interfaces.js';
 import { InvalidTxsAfterReorgRule } from './invalid_txs_after_reorg_rule.js';
@@ -29,7 +29,9 @@ describe('InvalidTxsAfterReorgRule', () => {
     claimAmount: 0n,
     feeLimit: 100n,
     nullifiers: [`0x${txHash.slice(2)}null1`],
-    includeByTimestamp: 0n,
+    expirationTimestamp: 0n,
+    receivedAt: 0,
+    data: stubTxMetaValidationData(),
   });
 
   // Create mock pool operations
