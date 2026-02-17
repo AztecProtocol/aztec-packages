@@ -260,9 +260,10 @@ def print_challenges(pointer: int):
 BARYCENTRIC_DOMAIN_SIZE = 8
 def print_barycentric_domain(pointer: int):
     # use scratch space
+    bary_domain_pointer = 0x100;
     for i in range(0, BARYCENTRIC_DOMAIN_SIZE):
-        print_fr(pointer, "BARYCENTRIC_LAGRANGE_DENOMINATOR_" + str(i) + "_LOC")
-        pointer += 32
+        print_fr(bary_domain_pointer , "BARYCENTRIC_LAGRANGE_DENOMINATOR_" + str(i) + "_LOC")
+        bary_domain_pointer += 32
 
     for i in range(0, PROOF_SIZE_LOG_N):
         for j in range(0, BARYCENTRIC_DOMAIN_SIZE):
@@ -408,6 +409,20 @@ def print_fold_pos_evaluations(pointer: int):
         pointer += 32
     return pointer
 
+def print_barycentric_temp_mem(pointer: int):
+    for i in range(0, PROOF_SIZE_LOG_N * 8):
+        print_fr(pointer, "BARYCENTRIC_TEMP_" + str(i) + "_LOC")
+        pointer += 32
+
+    print_fr(pointer, "PUBLIC_INPUTS_DENOM_TEMP_LOC")
+    pointer += 32
+    print_fr(pointer, "GEMINI_R_INV_TEMP_LOC")
+    pointer += 32
+    print_fr(pointer, "BATCH_PRODUCT_TEMP_LOC")
+    pointer += 32
+
+    return pointer
+
 def print_later_scratch_space(pointer: int):
     print_fr(pointer, "LATER_SCRATCH_SPACE")
     pointer += 32
@@ -477,7 +492,7 @@ def main():
     print_header_centered("SUMCHECK - RUNTIME MEMORY")
 
     print_header_centered("SUMCHECK - RUNTIME MEMORY - BARYCENTRIC")
-    print_barycentric_domain()
+    pointer = print_barycentric_domain(pointer)
     print_header_centered("SUMCHECK - RUNTIME MEMORY - BARYCENTRIC COMPLETE")
 
     print_header_centered("SUMCHECK - RUNTIME MEMORY - SUBRELATION EVALUATIONS")
@@ -506,11 +521,13 @@ def main():
     print_header_centered("SHPLEMINI RUNTIME MEMORY - INVERSIONS - COMPLETE")
     print_header_centered("SHPLEMINI RUNTIME MEMORY - COMPLETE")
 
-    print("")
-    pointer = print_later_scratch_space(pointer)
+    print_header_centered("Temporary space - for batch inversions")
 
-    print_header_centered("Temporary space")
+    pointer = print_barycentric_temp_mem(pointer)
     pointer = print_temp_space(pointer)
+    print("")
+
+    pointer = print_later_scratch_space(pointer)
     print_header_centered("Temporary space - COMPLETE")
 
     print_scratch_space_aliases()
