@@ -1,6 +1,9 @@
-import { NO_WAIT } from '@aztec/aztec.js/contracts';
+import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { toSendOptions } from '@aztec/aztec.js/contracts';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
+import { AccountManager } from '@aztec/aztec.js/wallet';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
@@ -13,6 +16,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
 import { GasFees } from '@aztec/stdlib/gas';
+import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -20,18 +24,14 @@ import type { ChildProcess } from 'child_process';
 import { mkdir, writeFile } from 'fs/promises';
 import { dirname } from 'path';
 
-import { getSponsoredFPCAddress } from '../fixtures/utils.js';
+import { getSponsoredFPCAddress, registerSponsoredFPC } from '../fixtures/utils.js';
 import { PrometheusClient } from '../quality_of_service/prometheus_client.js';
-import type { TestWallet } from '../test-wallet/test_wallet.js';
-import { ProvenTx, proveInteraction } from '../test-wallet/utils.js';
-import {
-  type WalletWrapper,
-  createWalletAndAztecNodeClient,
-  deploySponsoredTestAccounts,
-} from './setup_test_wallets.js';
+import type { WorkerWallet } from '../test-wallet/worker_wallet.js';
+import { type WorkerWalletWrapper, createWorkerWalletClient } from './setup_test_wallets.js';
 import { ProvingMetrics } from './tx_metrics.js';
 import {
   getExternalIP,
+  scaleProverAgents,
   setupEnvironment,
   startPortForwardForEthereum,
   startPortForwardForPrometeheus,
@@ -44,6 +44,8 @@ const TARGET_TPS = parseFloat(process.env.TPS ?? '1');
 if (!Number.isFinite(TARGET_TPS)) {
   throw new Error('Invalid TPS: ' + process.env.TPS);
 }
+
+const TARGET_PROVER_AGENTS = parseInt(process.env.TARGET_PROVER_AGENTS ?? '200');
 
 const epochDurationSlots = config.AZTEC_EPOCH_DURATION;
 const slotDurationSeconds = config.AZTEC_SLOT_DURATION;
@@ -99,9 +101,10 @@ type MetricsSnapshot = {
 
 /** A wallet that produces transactions in the background. */
 type WalletTxProducer = {
-  wallet: TestWallet;
-  prototypeTx: ProvenTx | undefined; // Each wallet's own prototype (for fake proving)
-  readyTx: ProvenTx | null;
+  wallet: WorkerWallet;
+  accountAddress: AztecAddress;
+  prototypeTx: Tx | undefined; // Each wallet's own prototype (for fake proving)
+  readyTx: Tx | null;
 };
 
 describe(`prove ${TARGET_TPS}TPS test`, () => {
@@ -110,8 +113,9 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
 
   const logger = createLogger(`e2e:spartan-test:prove-${TARGET_TPS}tps`);
 
-  let testWallets: WalletWrapper[];
-  let wallets: TestWallet[];
+  let testWallets: WorkerWalletWrapper[];
+  let wallets: WorkerWallet[];
+  let accountAddresses: AztecAddress[];
   let producers: WalletTxProducer[];
 
   let producerAbortController: AbortController;
@@ -267,18 +271,41 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
     logger.info(`Creating ${NUM_WALLETS} wallet(s)...`);
     testWallets = await timesAsync(NUM_WALLETS, i => {
       logger.info(`Creating wallet ${i + 1}/${NUM_WALLETS}`);
-      return createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, logger);
+      return createWorkerWalletClient(rpcUrl, config.REAL_VERIFIER, logger);
     });
+    wallets = testWallets.map(tw => tw.wallet);
 
-    const localTestAccounts = await Promise.all(
-      testWallets.map(tw => deploySponsoredTestAccounts(tw.wallet, aztecNode, logger, 0)),
-    );
-    wallets = localTestAccounts.map(acc => acc.wallet);
+    // Register FPC and create/deploy accounts
+    const fpcAddress = await getSponsoredFPCAddress();
+    const sponsor = new SponsoredFeePaymentMethod(fpcAddress);
+    accountAddresses = [];
+    for (const wallet of wallets) {
+      const secret = Fr.random();
+      const salt = Fr.random();
+      // Register account inside worker (populates TestWallet.accounts map)
+      const address = await wallet.registerAccount(secret, salt);
+      // Register FPC in worker's PXE
+      await registerSponsoredFPC(wallet);
+      // Deploy via standard AccountManager flow (from: ZERO -> SignerlessAccount, no account lookup)
+      const manager = await AccountManager.create(
+        wallet,
+        secret,
+        new SchnorrAccountContract(deriveSigningKey(secret)),
+        salt,
+      );
+      const deployMethod = await manager.getDeployMethod();
+      await deployMethod.send({
+        from: AztecAddress.ZERO,
+        fee: { paymentMethod: sponsor },
+        wait: { timeout: 2400 },
+      });
+      logger.info(`Account deployed at ${address}`);
+      accountAddresses.push(address);
+    }
 
     logger.info('Deploying benchmark contract...');
-    const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
-    benchmarkContract = await BenchmarkingContract.deploy(localTestAccounts[0].wallet).send({
-      from: localTestAccounts[0].recipientAddress,
+    benchmarkContract = await BenchmarkingContract.deploy(wallets[0]).send({
+      from: accountAddresses[0],
       fee: { paymentMethod: sponsor },
     });
 
@@ -288,9 +315,12 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
   beforeEach(async () => {
     logger.info(`Creating ${wallets.length} tx producers`);
     producers = await Promise.all(
-      wallets.map(async wallet => {
-        const proto = config.REAL_VERIFIER ? undefined : await createTx(wallet, benchmarkContract, logger);
-        return { wallet, prototypeTx: proto, readyTx: null };
+      wallets.map(async (wallet, i) => {
+        const accountAddress = accountAddresses[i];
+        const proto = config.REAL_VERIFIER
+          ? undefined
+          : await createTx(wallet, accountAddress, benchmarkContract, logger);
+        return { wallet, accountAddress, prototypeTx: proto, readyTx: null };
       }),
     );
 
@@ -330,6 +360,9 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
       );
       await sleep(secondsToWait * 1000);
     }
+
+    // scale to 10 agents in order to be able to prove the current epoch which contains up to 10 account contracts and the benchmark contract
+    await scaleProverAgents(config.NAMESPACE, 10, logger);
   });
 
   it(`sends ${TARGET_TPS} TPS for a full epoch and waits for proof`, async () => {
@@ -344,10 +377,18 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
     const msPerTx = 1000 / TARGET_TPS;
     logger.info(`Will send ${txsToSend} transactions at ${TARGET_TPS} TPS over ${epochDurationSeconds} seconds`);
 
+    const scaleUpAtTx = Math.max(0, txsToSend - Math.ceil(TARGET_TPS * 8 * slotDurationSeconds));
     const sentTxs: TxHash[] = [];
     const sendStartTime = performance.now();
 
     for (let i = 0; i < txsToSend; i++) {
+      if (i === scaleUpAtTx) {
+        logger.info(`Scaling prover agents to ${TARGET_PROVER_AGENTS} (8 slots before end of tx sending)`);
+        void scaleProverAgents(config.NAMESPACE, TARGET_PROVER_AGENTS, logger).catch(err =>
+          logger.error(`Failed to scale prover agents: ${err}`),
+        );
+      }
+
       const loopStart = performance.now();
 
       // look for a wallet with an available tx
@@ -362,7 +403,8 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
       // consume tx
       const tx = producer.readyTx;
       producer.readyTx = null;
-      sentTxs.push(await tx.send({ wait: NO_WAIT }));
+      await aztecNode.sendTx(tx);
+      sentTxs.push(tx.getTxHash());
 
       logger.info(`Sent tx ${i + 1}/${txsToSend}`);
 
@@ -486,48 +528,51 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
 });
 
 async function createTx(
-  wallet: TestWallet,
+  wallet: WorkerWallet,
+  accountAddress: AztecAddress,
   benchmarkContract: BenchmarkingContract,
   logger: Logger,
-): Promise<ProvenTx> {
+): Promise<Tx> {
   logger.info('Creating prototype transaction...');
   const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
-  const tx = await proveInteraction(wallet, benchmarkContract.methods.sha256_hash_1024(Array(1024).fill(42)), {
-    from: (await wallet.getAccounts())[0].item,
+  const options = {
+    from: accountAddress,
     fee: { paymentMethod: sponsor, gasSettings: { maxPriorityFeesPerGas: GasFees.empty() } },
-  });
+  };
+  const interaction = benchmarkContract.methods.sha256_hash_1024(Array(1024).fill(42));
+  const execPayload = await interaction.request(options);
+  const tx = await wallet.proveTx(execPayload, toSendOptions(options));
   logger.info('Prototype transaction created');
   return tx;
 }
 
-async function cloneTx(tx: ProvenTx, aztecNode: AztecNode): Promise<ProvenTx> {
-  const clonedTxData = Tx.clone(tx, false);
+async function cloneTx(tx: Tx, aztecNode: AztecNode): Promise<Tx> {
+  const clonedTx = Tx.clone(tx, false);
 
   // Fetch current minimum fees and apply 50% buffer for safety
   const currentFees = await aztecNode.getCurrentMinFees();
   const paddedFees = currentFees.mul(1.5);
 
   // Update gas settings with current fees
-  (clonedTxData.data.constants.txContext.gasSettings as any).maxFeesPerGas = paddedFees;
+  (clonedTx.data.constants.txContext.gasSettings as any).maxFeesPerGas = paddedFees;
 
   // Randomize nullifiers to avoid conflicts
-  if (clonedTxData.data.forRollup) {
-    for (let i = 0; i < clonedTxData.data.forRollup.end.nullifiers.length; i++) {
-      if (clonedTxData.data.forRollup.end.nullifiers[i].isZero()) {
+  if (clonedTx.data.forRollup) {
+    for (let i = 0; i < clonedTx.data.forRollup.end.nullifiers.length; i++) {
+      if (clonedTx.data.forRollup.end.nullifiers[i].isZero()) {
         continue;
       }
-      clonedTxData.data.forRollup.end.nullifiers[i] = Fr.random();
+      clonedTx.data.forRollup.end.nullifiers[i] = Fr.random();
     }
-  } else if (clonedTxData.data.forPublic) {
-    for (let i = 0; i < clonedTxData.data.forPublic.nonRevertibleAccumulatedData.nullifiers.length; i++) {
-      if (clonedTxData.data.forPublic.nonRevertibleAccumulatedData.nullifiers[i].isZero()) {
+  } else if (clonedTx.data.forPublic) {
+    for (let i = 0; i < clonedTx.data.forPublic.nonRevertibleAccumulatedData.nullifiers.length; i++) {
+      if (clonedTx.data.forPublic.nonRevertibleAccumulatedData.nullifiers[i].isZero()) {
         continue;
       }
-      clonedTxData.data.forPublic.nonRevertibleAccumulatedData.nullifiers[i] = Fr.random();
+      clonedTx.data.forPublic.nonRevertibleAccumulatedData.nullifiers[i] = Fr.random();
     }
   }
 
-  const clonedTx = new ProvenTx((tx as any).node, clonedTxData, tx.offchainEffects, tx.stats);
   await clonedTx.recomputeHash();
   return clonedTx;
 }
@@ -548,7 +593,7 @@ async function startProducing(
 
     try {
       const tx = config.REAL_VERIFIER
-        ? await createTx(producer.wallet, benchmarkContract, logger)
+        ? await createTx(producer.wallet, producer.accountAddress, benchmarkContract, logger)
         : await cloneTx(producer.prototypeTx!, aztecNode);
 
       producer.readyTx = tx;

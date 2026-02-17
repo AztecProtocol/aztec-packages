@@ -85,7 +85,7 @@ export class CheckpointProvingState {
       typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH
     >,
     public parentEpoch: EpochProvingState,
-    private onBlobAccumulatorSet: (checkpoint: CheckpointProvingState) => void,
+    private onBlobAccumulatorSet: (checkpoint: CheckpointProvingState) => Promise<void>,
   ) {
     this.blockProofs = new UnbalancedTreeStore(totalNumBlocks);
     this.firstBlockNumber = BlockNumber(headerOfLastBlockInPreviousCheckpoint.globalVariables.blockNumber + 1);
@@ -245,7 +245,7 @@ export class CheckpointProvingState {
     this.endBlobAccumulator = await accumulateBlobs(this.blobFields!, startBlobAccumulator);
     this.startBlobAccumulator = startBlobAccumulator;
 
-    this.onBlobAccumulatorSet(this);
+    await this.onBlobAccumulatorSet(this);
 
     return this.endBlobAccumulator;
   }
@@ -271,7 +271,7 @@ export class CheckpointProvingState {
     return this.totalNumBlocks === 1 ? 'rollup-checkpoint-root-single-block' : 'rollup-checkpoint-root';
   }
 
-  public getCheckpointRootRollupInputs() {
+  public async getCheckpointRootRollupInputs() {
     const proofs = this.#getChildProofsForRoot();
     const nonEmptyProofs = proofs.filter(p => !!p);
     if (proofs.length !== nonEmptyProofs.length) {
@@ -287,7 +287,7 @@ export class CheckpointProvingState {
     // `blobFields` must've been set if `startBlobAccumulator` is set (in `accumulateBlobs`).
     const blobFields = this.blobFields!;
 
-    const { blobCommitments, blobsHash } = buildBlobHints(blobFields);
+    const { blobCommitments, blobsHash } = await buildBlobHints(blobFields);
 
     const hints = CheckpointRootRollupHints.from({
       previousBlockHeader: this.headerOfLastBlockInPreviousCheckpoint,

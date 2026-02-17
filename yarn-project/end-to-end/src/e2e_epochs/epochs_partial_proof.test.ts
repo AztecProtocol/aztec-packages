@@ -29,7 +29,7 @@ describe('e2e_epochs/epochs_partial_proof', () => {
     await test.waitUntilCheckpointNumber(CheckpointNumber(4), test.L2_SLOT_DURATION_IN_S * 6);
     logger.info(`Kicking off partial proof`);
 
-    await test.context.proverNode!.startProof(EpochNumber(0));
+    await test.context.proverNode!.getProverNode()!.startProof(EpochNumber(0));
     await retryUntil(() => monitor.provenCheckpointNumber > CheckpointNumber(0), 'proof', 120, 1);
 
     logger.info(`Test succeeded with proven checkpoint number ${monitor.provenCheckpointNumber}`);
