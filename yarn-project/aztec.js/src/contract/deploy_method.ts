@@ -324,7 +324,9 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    * @returns TxHash (if wait is NO_WAIT), TContract (if wait is undefined or doesn't have returnReceipt), or DeployTxReceipt (if wait.returnReceipt is true)
    */
   // Overload for when wait is not specified at all - returns the contract
-  public override send(options: DeployOptionsWithoutWait): Promise<DeployReturn<TContract, undefined>>;
+  public override send(
+    options: DeployOptionsWithoutWait,
+  ): Promise<{ contract: TContract; receipt: DeployTxReceipt<TContract>; offchainEffects: OffchainEffect[] }>;
   // eslint-disable-next-line jsdoc/require-jsdoc
   public override send<W extends DeployInteractionWaitOptions>(
     options: DeployOptions<W>,

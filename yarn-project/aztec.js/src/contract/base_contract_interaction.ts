@@ -1,6 +1,6 @@
 import { createLogger } from '@aztec/foundation/log';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
-import type { Capsule, ExecutionPayload, TxReceipt } from '@aztec/stdlib/tx';
+import type { Capsule, ExecutionPayload, OffchainEffect, TxReceipt } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 import {
@@ -42,7 +42,9 @@ export abstract class BaseContractInteraction {
    * @returns TReturn (if wait is undefined/WaitOpts) or TxHash (if wait is NO_WAIT)
    */
   // Overload for when wait is not specified at all - returns { receipt: TReturn, offchainEffects }
-  public send<TReturn = TxReceipt>(options: SendInteractionOptionsWithoutWait): Promise<SendReturn<undefined, TReturn>>;
+  public send<TReturn = TxReceipt>(
+    options: SendInteractionOptionsWithoutWait,
+  ): Promise<{ receipt: TReturn; offchainEffects: OffchainEffect[] }>;
   // Generic overload for explicit wait values
   // eslint-disable-next-line jsdoc/require-jsdoc
   public send<TReturn = TxReceipt, W extends InteractionWaitOptions = undefined>(
