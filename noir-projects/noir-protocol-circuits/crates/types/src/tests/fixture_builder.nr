@@ -39,7 +39,7 @@ use crate::{
         tree_snapshots::TreeSnapshots,
         tx_constant_data::TxConstantData,
         validation_requests::{
-            KeyValidationRequest, KeyValidationRequestAndGenerator, PrivateValidationRequests,
+            KeyValidationRequest, KeyValidationRequestAndSeparator, PrivateValidationRequests,
         },
     },
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
@@ -140,7 +140,7 @@ pub struct FixtureBuilder {
     // Validation requests.
     pub note_hash_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     pub nullifier_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-    pub scoped_key_validation_requests_and_generators: BoundedVec<Scoped<KeyValidationRequestAndGenerator>, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
+    pub scoped_key_validation_requests_and_separators: BoundedVec<Scoped<KeyValidationRequestAndSeparator>, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
 
     // Function.
     pub function_data: FunctionData,
@@ -379,12 +379,12 @@ impl FixtureBuilder {
                 array: subarray(self.nullifier_read_requests.storage(), 0),
                 length: self.nullifier_read_requests.len(),
             },
-            key_validation_requests_and_generators: ClaimedLengthArray {
+            key_validation_requests_and_separators: ClaimedLengthArray {
                 array: subarray(
-                    self.scoped_key_validation_requests_and_generators.storage().map(|r| r.inner),
+                    self.scoped_key_validation_requests_and_separators.storage().map(|r| r.inner),
                     0,
                 ),
-                length: self.scoped_key_validation_requests_and_generators.len(),
+                length: self.scoped_key_validation_requests_and_separators.len(),
             },
             note_hashes: ClaimedLengthArray {
                 array: subarray(self.note_hashes.storage().map(|n| n.inner), 0),
@@ -596,8 +596,8 @@ impl FixtureBuilder {
             nullifier_read_requests: claimed_length_array_from_bounded_vec(
                 self.nullifier_read_requests,
             ),
-            scoped_key_validation_requests_and_generators: claimed_length_array_from_bounded_vec(
-                self.scoped_key_validation_requests_and_generators,
+            scoped_key_validation_requests_and_separators: claimed_length_array_from_bounded_vec(
+                self.scoped_key_validation_requests_and_separators,
             ),
         }
     }
@@ -967,23 +967,24 @@ impl FixtureBuilder {
         &mut self,
         pk_m: Point,
         sk_app: Field,
-        sk_app_generator: Field,
+        key_type_domain_separator: Field,
     ) {
         let request = KeyValidationRequest { pk_m, sk_app };
-        let request_and_generator = KeyValidationRequestAndGenerator { request, sk_app_generator };
+        let request_and_separator =
+            KeyValidationRequestAndSeparator { request, key_type_domain_separator };
         let scoped_key_validation_request_and_generator =
-            request_and_generator.scope(self.contract_address);
-        self.scoped_key_validation_requests_and_generators.push(
+            request_and_separator.scope(self.contract_address);
+        self.scoped_key_validation_requests_and_separators.push(
             scoped_key_validation_request_and_generator,
         );
     }
 
     pub fn append_key_validation_requests(&mut self, num_requests: u32) {
-        let index_offset = self.scoped_key_validation_requests_and_generators.len();
-        for i in 0..self.scoped_key_validation_requests_and_generators.max_len() {
+        let index_offset = self.scoped_key_validation_requests_and_separators.len();
+        for i in 0..self.scoped_key_validation_requests_and_separators.max_len() {
             if i < num_requests {
                 let request = self.mock_key_validation_request(index_offset + i);
-                self.scoped_key_validation_requests_and_generators.push(request.scope(
+                self.scoped_key_validation_requests_and_separators.push(request.scope(
                     self.contract_address,
                 ));
             }
@@ -1255,13 +1256,13 @@ impl FixtureBuilder {
         22334 + self.value_offset + index as Field
     }
 
-    fn mock_key_validation_request(self, index: u32) -> KeyValidationRequestAndGenerator {
+    fn mock_key_validation_request(self, index: u32) -> KeyValidationRequestAndSeparator {
         let value_offset = 3030 + self.value_offset + index as Field;
         let request = KeyValidationRequest {
             pk_m: Point { x: value_offset, y: 1 + value_offset, is_infinite: false },
             sk_app: 2 + value_offset,
         };
-        KeyValidationRequestAndGenerator { request, sk_app_generator: 3 + value_offset }
+        KeyValidationRequestAndSeparator { request, key_type_domain_separator: 3 + value_offset }
     }
 
     fn mock_public_data_write(self, index: u32) -> (Field, Field) {

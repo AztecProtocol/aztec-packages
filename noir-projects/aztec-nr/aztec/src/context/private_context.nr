@@ -1,7 +1,7 @@
 use crate::{
     context::{inputs::PrivateContextInputs, NoteExistenceRequest, NullifierExistenceRequest, ReturnsHash},
     hash::{hash_args, hash_calldata_array},
-    keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, sk_generators},
+    keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, public_key_domain_separators},
     messaging::process_l1_to_l2_message,
     oracle::{
         block_header::get_block_header_at,
@@ -30,7 +30,7 @@ use crate::protocol::{
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_log::{PrivateLog, PrivateLogData},
         public_call_request::PublicCallRequest,
-        validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},
+        validation_requests::{KeyValidationRequest, KeyValidationRequestAndSeparator},
     },
     address::{AztecAddress, EthAddress},
     constants::{
@@ -152,7 +152,7 @@ pub struct PrivateContext {
 
     pub(crate) note_hash_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     pub(crate) nullifier_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
-    key_validation_requests_and_generators: BoundedVec<KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
+    key_validation_requests_and_separators: BoundedVec<KeyValidationRequestAndSeparator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
     pub note_hashes: BoundedVec<Counted<NoteHash>, MAX_NOTE_HASHES_PER_CALL>,
     pub nullifiers: BoundedVec<Counted<Nullifier>, MAX_NULLIFIERS_PER_CALL>,
@@ -190,7 +190,7 @@ impl PrivateContext {
             expiration_timestamp: inputs.anchor_block_header.global_variables.timestamp + MAX_TX_LIFETIME,
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
-            key_validation_requests_and_generators: BoundedVec::new(),
+            key_validation_requests_and_separators: BoundedVec::new(),
             note_hashes: BoundedVec::new(),
             nullifiers: BoundedVec::new(),
             anchor_block_header: inputs.anchor_block_header,
@@ -497,8 +497,8 @@ impl PrivateContext {
             expiration_timestamp: self.expiration_timestamp,
             note_hash_read_requests: ClaimedLengthArray::from_bounded_vec(self.note_hash_read_requests),
             nullifier_read_requests: ClaimedLengthArray::from_bounded_vec(self.nullifier_read_requests),
-            key_validation_requests_and_generators: ClaimedLengthArray::from_bounded_vec(
-                self.key_validation_requests_and_generators,
+            key_validation_requests_and_separators: ClaimedLengthArray::from_bounded_vec(
+                self.key_validation_requests_and_separators,
             ),
             note_hashes: ClaimedLengthArray::from_bounded_vec(self.note_hashes),
             nullifiers: ClaimedLengthArray::from_bounded_vec(self.nullifiers),
@@ -796,8 +796,11 @@ impl PrivateContext {
             let request = unsafe { get_key_validation_request(pk_m_hash, key_index) };
             assert_eq(request.pk_m.hash(), pk_m_hash, "Obtained invalid key validation request");
 
-            self.key_validation_requests_and_generators.push(
-                KeyValidationRequestAndGenerator { request, sk_app_generator: sk_generators[key_index as u32] },
+            self.key_validation_requests_and_separators.push(
+                KeyValidationRequestAndSeparator {
+                    request,
+                    key_type_domain_separator: public_key_domain_separators[key_index as u32],
+                },
             );
             self.last_key_validation_requests[key_index as u32] = Option::some(request);
             request.sk_app
@@ -1461,7 +1464,7 @@ impl Empty for PrivateContext {
             expiration_timestamp: 0,
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
-            key_validation_requests_and_generators: BoundedVec::new(),
+            key_validation_requests_and_separators: BoundedVec::new(),
             note_hashes: BoundedVec::new(),
             nullifiers: BoundedVec::new(),
             private_call_requests: BoundedVec::new(),

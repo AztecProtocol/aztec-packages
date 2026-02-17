@@ -7,22 +7,22 @@ use crate::{
 use std::meta::derive;
 
 #[derive(Deserialize, Eq, Serialize)]
-pub struct KeyValidationRequestAndGenerator {
+pub struct KeyValidationRequestAndSeparator {
     pub request: KeyValidationRequest,
-    pub sk_app_generator: Field,
+    pub key_type_domain_separator: Field,
 }
 
-impl Empty for KeyValidationRequestAndGenerator {
+impl Empty for KeyValidationRequestAndSeparator {
     fn empty() -> Self {
-        KeyValidationRequestAndGenerator {
+        KeyValidationRequestAndSeparator {
             request: KeyValidationRequest::empty(),
-            sk_app_generator: 0,
+            key_type_domain_separator: 0,
         }
     }
 }
 
-impl KeyValidationRequestAndGenerator {
-    pub fn scope(self, contract_address: AztecAddress) -> Scoped<KeyValidationRequestAndGenerator> {
+impl KeyValidationRequestAndSeparator {
+    pub fn scope(self, contract_address: AztecAddress) -> Scoped<KeyValidationRequestAndSeparator> {
         Scoped::new(self, contract_address)
     }
 }
@@ -31,7 +31,7 @@ mod test {
     use crate::{
         abis::validation_requests::{
             key_validation_request::KeyValidationRequest,
-            key_validation_request_and_generator::KeyValidationRequestAndGenerator,
+            key_validation_request_and_separator::KeyValidationRequestAndSeparator,
         },
         constants::KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH,
         point::Point,
@@ -39,14 +39,14 @@ mod test {
     };
 
     #[test]
-    fn serialization_of_key_validation_request_and_generator() {
-        let non_empty_item = KeyValidationRequestAndGenerator {
+    fn serialization_of_key_validation_request_and_separator() {
+        let non_empty_item = KeyValidationRequestAndSeparator {
             request: KeyValidationRequest { pk_m: Point::deserialize([123, 456, 0]), sk_app: 789 },
-            sk_app_generator: 789,
+            key_type_domain_separator: 789,
         };
         let serialized: [Field; KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH] =
             non_empty_item.serialize();
-        let deserialized = KeyValidationRequestAndGenerator::deserialize(serialized);
+        let deserialized = KeyValidationRequestAndSeparator::deserialize(serialized);
         assert_eq(non_empty_item, deserialized);
     }
 }
