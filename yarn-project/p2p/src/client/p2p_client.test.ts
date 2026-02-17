@@ -275,52 +275,56 @@ describe('P2P Client', () => {
   });
 
   describe('Chain prunes', () => {
-    it('passes deleteAllTxs: false for a single-checkpoint prune', async () => {
+    it('passes deleteAllTxs: false when prune does not cross a checkpoint boundary', async () => {
       client = createClient({ txPoolDeleteTxsAfterReorg: true });
       blockSource.setProvenBlockNumber(0);
-      blockSource.setCheckpointedBlockNumber(100);
+      // Only checkpoint up to block 90 — blocks 91-100 are proposed but not checkpointed
+      blockSource.setCheckpointedBlockNumber(90);
       await client.start();
 
-      // Prune 1 block: checkpoint goes from 100 to 99 (difference of 1)
-      blockSource.removeBlocks(1);
+      // Prune 5 blocks (91-100): checkpointed tip stays at checkpoint 90
+      blockSource.removeBlocks(10);
       await client.sync();
 
       expect(txPool.handlePrunedBlocks).toHaveBeenCalledWith(
-        { number: BlockNumber(99), hash: expect.any(String) },
+        { number: BlockNumber(90), hash: expect.any(String) },
         { deleteAllTxs: false },
       );
       await client.stop();
     });
 
-    it('passes deleteAllTxs: true for an epoch prune spanning multiple checkpoints', async () => {
+    it('passes deleteAllTxs: true when prune crosses a checkpoint boundary', async () => {
       client = createClient({ txPoolDeleteTxsAfterReorg: true });
       blockSource.setProvenBlockNumber(0);
+      // Checkpoint all 100 blocks
       blockSource.setCheckpointedBlockNumber(100);
       await client.start();
 
-      // Prune 10 blocks: checkpoint goes from 100 to 90 (difference of 10)
-      blockSource.removeBlocks(10);
+      // Prune 5 blocks (96-100): checkpointed tip moves from checkpoint 100 to 95
+      blockSource.removeBlocks(5);
       await client.sync();
 
       expect(txPool.handlePrunedBlocks).toHaveBeenCalledWith(
-        { number: BlockNumber(90), hash: expect.any(String) },
+        { number: BlockNumber(95), hash: expect.any(String) },
         { deleteAllTxs: true },
       );
       await client.stop();
     });
 
-    it('passes deleteAllTxs: false for epoch prune when txPoolDeleteTxsAfterReorg is disabled', async () => {
+    it('passes deleteAllTxs: false for cross-checkpoint prune when txPoolDeleteTxsAfterReorg is disabled', async () => {
       // Default config has txPoolDeleteTxsAfterReorg: false
       blockSource.setProvenBlockNumber(0);
+      // Checkpoint all 100 blocks
       blockSource.setCheckpointedBlockNumber(100);
       await client.start();
 
-      // Prune 10 blocks: would be epoch prune, but config flag is off
-      blockSource.removeBlocks(10);
+      // Prune 5 blocks (96-100): checkpointed tip moves from checkpoint 100 to 95
+      blockSource.removeBlocks(5);
       await client.sync();
 
+      // Should delete all txs but flag is off
       expect(txPool.handlePrunedBlocks).toHaveBeenCalledWith(
-        { number: BlockNumber(90), hash: expect.any(String) },
+        { number: BlockNumber(95), hash: expect.any(String) },
         { deleteAllTxs: false },
       );
       await client.stop();

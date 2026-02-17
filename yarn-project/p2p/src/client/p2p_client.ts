@@ -761,9 +761,9 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   /**
-   * Returns true if the prune spans multiple checkpoints (epoch prune).
-   * Compares the checkpointed tip from our local L2TipsStore (pre-prune) with the new checkpoint.
-   * Not entirely accurate: this could return false for the prune of an epoch with only one checkpoint.
+   * Returns true if the prune crossed a checkpoint boundary.
+   * If the old and new checkpoint numbers are the same, the prune is within a single checkpoint.
+   * If they differ, the prune spans across checkpoints (epoch prune).
    */
   private async isEpochPrune(newCheckpoint: CheckpointId): Promise<boolean> {
     const tips = await this.l2Tips.getL2Tips();
@@ -771,7 +771,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     if (oldCheckpointNumber <= CheckpointNumber.ZERO) {
       return false;
     }
-    const isEpochPrune = oldCheckpointNumber - newCheckpoint.number > 1;
+    const isEpochPrune = oldCheckpointNumber !== newCheckpoint.number;
     this.log.info(
       `Detected epoch prune: ${isEpochPrune}. Old checkpoint: ${oldCheckpointNumber}, new checkpoint: ${newCheckpoint.number}`,
     );
