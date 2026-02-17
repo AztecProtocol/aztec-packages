@@ -80,15 +80,11 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         case TamperingMode::XCoordinateOverflow: {
             // Invalidate the circuit by passing a public key with x >= q
             // Do nothing here, tampering happens in circuit
-            failure_msg = "ECDSA input validation: coordinate(s) of the public key bigger than the base field modulus. "
-                          "(x coordinate): hi limb.";
             break;
         }
         case TamperingMode::YCoordinateOverflow: {
             // Invalidate the circuit by passing a public key with y >= q
             // Do nothing here, tampering happens in circuit
-            failure_msg = "ECDSA input validation: coordinate(s) of the public key bigger than the base field modulus. "
-                          "(y coordinate): hi limb.";
             break;
         }
         case TamperingMode::InvalidR: {
@@ -113,23 +109,16 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
             s = -s;
 
             FrNative::serialize_to_buffer(s, &signature.s[0]);
-            failure_msg =
-                "ECDSA input validation: the s component of the signature is bigger than (Fr::modulus + 1)/2.: "
-                "hi limb."; // The second part of the message is added by the range constraint
             break;
         }
         case TamperingMode::ZeroR: {
             // Invalidate signature by setting r to 0
             signature.r = std::array<uint8_t, 32>{};
-
-            failure_msg = "ECDSA input validation: the r component of the signature is zero.";
             break;
         }
         case TamperingMode::ZeroS: {
             // Invalidate signature by setting s to 0
             signature.s = std::array<uint8_t, 32>{};
-
-            failure_msg = "ECDSA input validation: the s component of the signature is zero.";
             break;
         }
         case TamperingMode::InfinityScalarMul: {
@@ -150,24 +139,18 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
             // Verify that the result is the point at infinity
             auto P = G1Native::one * fr_hash + account.public_key * r;
             BB_ASSERT_EQ(P.is_point_at_infinity(), true);
-
-            failure_msg = "ECDSA validation: the result of the batch multiplication is the point at infinity.";
             break;
         }
         case TamperingMode::InvalidPubKey: {
             // Invalidate the circuit by passing a public key which is not on the curve
             account.public_key.x = account.public_key.y;
             BB_ASSERT_EQ(account.public_key.on_curve(), false);
-
-            failure_msg = "ECDSA input validation: the public key is not a point on the elliptic curve.";
             break;
         }
         case TamperingMode::InfinityPubKey: {
             // Invalidate the circuit by passing a public key which is not on the curve
             account.public_key.self_set_infinity();
             BB_ASSERT_EQ(account.public_key.is_point_at_infinity(), true);
-
-            failure_msg = "ECDSA input validation: the public key is the point at infinity.";
             break;
         }
         case TamperingMode::None:
@@ -256,7 +239,7 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
                                     const ecdsa_key_pair<FrNative, G1Native>& account,
                                     const ecdsa_signature& signature,
                                     const bool signature_verification_result,
-                                    [[maybe_unused]] const std::string failure_msg,
+                                    const bool expected_circuit_result,
                                     const TamperingMode mode)
 
     {
@@ -274,10 +257,7 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
 
         // Circuit checker
         bool is_circuit_satisfied = CircuitChecker::check(builder);
-        EXPECT_EQ(is_circuit_satisfied, true);
-
-        // Check the error
-        // EXPECT_EQ(builder.err(), failure_msg);
+        EXPECT_EQ(is_circuit_satisfied, expected_circuit_result);
     }
 
     void test_verify_signature(bool random_signature, TamperingMode mode)
@@ -305,7 +285,7 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
 
         // ECDSA verification
         ecdsa_verification_circuit(
-            builder, hashed_message, account, signature, signature_verification_result, failure_msg, mode);
+            builder, hashed_message, account, signature, signature_verification_result, true, mode);
     }
 
     /**
@@ -346,7 +326,7 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
                                        account,
                                        { r, s, v },
                                        test.is_valid_signature,
-                                       test.failure_msg,
+                                       test.is_circuit_satisfied,
                                        TamperingMode::None);
         }
     }
@@ -510,9 +490,8 @@ TEST(EcdsaTests, Secp256k1PointAtInfinityRegression)
 
         const bool circuit_valid = CircuitChecker::check(builder);
 
-        // Circuit should fail because the result of the scalar multiplication is the point at infinity
-        ASSERT_FALSE(circuit_valid);
-        EXPECT_EQ(builder.err(), "ECDSA validation: the result of the batch multiplication is the point at infinity.");
+        // Circuit should be satisfied but signature should be rejected
+        ASSERT_TRUE(circuit_valid);
     }
 
     // Both native and stdlib should reject this invalid signature
