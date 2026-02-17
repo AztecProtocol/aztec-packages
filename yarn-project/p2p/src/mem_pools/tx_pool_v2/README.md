@@ -79,7 +79,7 @@ Lightweight metadata stored alongside each transaction:
 - `claimAmount`: Fee payer's claim from bridging
 - `feeLimit`: Maximum fee the tx can pay
 - `nullifiers`: For conflict detection
-- `includeByTimestamp`: Expiration timestamp
+- `expirationTimestamp`: Expiration timestamp
 - `minedL2BlockId`: Set when mined (undefined otherwise)
 
 State is derived by TxPoolIndices:

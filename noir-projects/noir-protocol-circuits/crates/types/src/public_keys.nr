@@ -5,6 +5,7 @@ use crate::{
         DEFAULT_OVPK_M_Y, DEFAULT_TPK_M_X, DEFAULT_TPK_M_Y, DOM_SEP__PUBLIC_KEYS_HASH,
     },
     hash::poseidon2_hash_with_separator,
+    point::validate_on_curve,
     traits::{Deserialize, Hash, Serialize},
 };
 
@@ -105,6 +106,13 @@ impl PublicKeys {
             self.serialize(),
             DOM_SEP__PUBLIC_KEYS_HASH as Field,
         ))
+    }
+
+    pub fn validate_on_curve(self) {
+        validate_on_curve(self.npk_m.inner);
+        validate_on_curve(self.ivpk_m.inner);
+        validate_on_curve(self.ovpk_m.inner);
+        validate_on_curve(self.tpk_m.inner);
     }
 }
 

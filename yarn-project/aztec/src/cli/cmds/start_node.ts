@@ -6,13 +6,16 @@ import { getL1Config } from '@aztec/cli/config';
 import { getPublicClient } from '@aztec/ethereum/client';
 import { SecretValue } from '@aztec/foundation/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
 import type { LogFn } from '@aztec/foundation/log';
+import { ProvingJobConsumerSchema, createProvingJobBrokerClient } from '@aztec/prover-client/broker';
 import { type CliPXEOptions, type PXEConfig, allPxeConfigMappings } from '@aztec/pxe/config';
 import { AztecNodeAdminApiSchema, AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
-import { P2PApiSchema } from '@aztec/stdlib/interfaces/server';
+import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import {
   type TelemetryClientConfig,
   initTelemetryClient,
+  makeTracedFetch,
   telemetryClientConfigMappings,
 } from '@aztec/telemetry-client';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
@@ -25,6 +28,8 @@ import {
   preloadCrsDataForVerifying,
   setupUpdateMonitor,
 } from '../util.js';
+import { getVersions } from '../versioning.js';
+import { startProverBroker } from './start_prover_broker.js';
 
 export async function startNode(
   options: any,
@@ -45,9 +50,32 @@ export async function startNode(
     ...relevantOptions,
   };
 
+  // Prover node configuration and broker setup
+  // REFACTOR: Move the broker setup out of here and into the prover-node factory
+  let broker: ProvingJobBroker | undefined = undefined;
   if (options.proverNode) {
-    userLog(`Running a Prover Node within a Node is not yet supported`);
-    process.exit(1);
+    nodeConfig.enableProverNode = true;
+    if (nodeConfig.proverAgentCount === 0) {
+      userLog(
+        `Running prover node without local prover agent. Connect prover agents or pass --proverAgent.proverAgentCount`,
+      );
+    }
+    if (nodeConfig.proverBrokerUrl) {
+      // at 1TPS we'd enqueue ~1k chonk verifier proofs and ~1k AVM proofs immediately
+      // set a lower connection limit such that we don't overload the server
+      // Keep retrying up to 30s
+      const fetch = makeTracedFetch(
+        [1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+        false,
+        makeUndiciFetch(new Agent({ connections: 100 })),
+      );
+      broker = createProvingJobBrokerClient(nodeConfig.proverBrokerUrl, getVersions(nodeConfig), fetch);
+    } else if (options.proverBroker) {
+      ({ broker } = await startProverBroker(options, signalHandlers, services, userLog));
+    } else {
+      userLog(`--prover-broker-url or --prover-broker is required to start a Prover Node`);
+      process.exit(1);
+    }
   }
 
   await preloadCrsDataForVerifying(nodeConfig, userLog);
@@ -101,12 +129,17 @@ export async function startNode(
       ...extractNamespacedOptions(options, 'sequencer'),
     };
     // If no publisher private keys have been given, use the first validator key
-    if (sequencerConfig.publisherPrivateKeys === undefined || !sequencerConfig.publisherPrivateKeys.length) {
+    if (
+      sequencerConfig.sequencerPublisherPrivateKeys === undefined ||
+      !sequencerConfig.sequencerPublisherPrivateKeys.length
+    ) {
       if (sequencerConfig.validatorPrivateKeys?.getValue().length) {
-        sequencerConfig.publisherPrivateKeys = [new SecretValue(sequencerConfig.validatorPrivateKeys.getValue()[0])];
+        sequencerConfig.sequencerPublisherPrivateKeys = [
+          new SecretValue(sequencerConfig.validatorPrivateKeys.getValue()[0]),
+        ];
       }
     }
-    nodeConfig.publisherPrivateKeys = sequencerConfig.publisherPrivateKeys;
+    nodeConfig.sequencerPublisherPrivateKeys = sequencerConfig.sequencerPublisherPrivateKeys;
   }
 
   if (nodeConfig.p2pEnabled) {
@@ -120,12 +153,21 @@ export async function startNode(
   const telemetry = await initTelemetryClient(telemetryConfig);
 
   // Create and start Aztec Node
-  const node = await createAztecNode(nodeConfig, { telemetry }, { prefilledPublicData });
+  const node = await createAztecNode(nodeConfig, { telemetry, proverBroker: broker }, { prefilledPublicData });
 
   // Add node and p2p to services list
   services.node = [node, AztecNodeApiSchema];
   services.p2p = [node.getP2P(), P2PApiSchema];
   adminServices.nodeAdmin = [node, AztecNodeAdminApiSchema];
+
+  // Register prover-node services if the prover node subsystem is running
+  const proverNode = node.getProverNode();
+  if (proverNode) {
+    services.prover = [proverNode, ProverNodeApiSchema];
+    if (!nodeConfig.proverBrokerUrl) {
+      services.provingJobSource = [proverNode.getProver().getProvingJobSource(), ProvingJobConsumerSchema];
+    }
+  }
 
   // Add node stop function to signal handlers
   signalHandlers.push(node.stop.bind(node));

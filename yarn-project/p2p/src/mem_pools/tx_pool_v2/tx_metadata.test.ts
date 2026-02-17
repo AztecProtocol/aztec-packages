@@ -1,5 +1,6 @@
 import { mockTx } from '@aztec/stdlib/testing';
 
+import { TxPoolRejectionCode } from './eviction/interfaces.js';
 import {
   type TxMetaData,
   buildTxMetaData,
@@ -17,7 +18,7 @@ describe('TxMetaData', () => {
       expect(meta.txHash).toBe(tx.getTxHash().toString());
       expect(meta.anchorBlockHeaderHash).toBe((await tx.data.constants.anchorBlockHeader.hash()).toString());
       expect(meta.feePayer).toBe(tx.data.feePayer.toString());
-      expect(meta.includeByTimestamp).toBe(tx.data.includeByTimestamp);
+      expect(meta.expirationTimestamp).toBe(tx.data.expirationTimestamp);
       expect(meta.minedL2BlockId).toBeUndefined();
 
       // Nullifiers should match the non-empty nullifiers from the tx
@@ -46,7 +47,7 @@ describe('TxMetaData', () => {
       claimAmount: 0n,
       feeLimit: 1000n,
       nullifiers: [],
-      includeByTimestamp: 0n,
+      expirationTimestamp: 0n,
       receivedAt: 0,
       estimatedSizeBytes: 0,
       data: stubTxMetaValidationData(),
@@ -80,7 +81,7 @@ describe('TxMetaData', () => {
       claimAmount: 0n,
       feeLimit: 1000n,
       nullifiers,
-      includeByTimestamp: 0n,
+      expirationTimestamp: 0n,
       receivedAt: 0,
       estimatedSizeBytes: 0,
       data: stubTxMetaValidationData(),
@@ -131,7 +132,11 @@ describe('TxMetaData', () => {
 
       expect(result.shouldIgnore).toBe(true);
       expect(result.txHashesToEvict).toEqual([]);
-      expect(result.reason).toContain(existing.txHash);
+      expect(result.reason).toBeDefined();
+      expect(result.reason!.code).toBe(TxPoolRejectionCode.NULLIFIER_CONFLICT);
+      if (result.reason!.code === TxPoolRejectionCode.NULLIFIER_CONFLICT) {
+        expect(result.reason!.conflictingTxHash).toBe(existing.txHash);
+      }
     });
 
     it('ignores incoming tx when existing has equal priority (tie goes to existing)', () => {

@@ -58,10 +58,10 @@ describe('blob', () => {
     // This test ensures that the noir blob lib correctly matches the kzg lib
     const blobFields = Array(400).fill(new Fr(3));
     const blobFieldsHash = await poseidon2Hash(blobFields);
-    const blob = Blob.fromFields(blobFields);
+    const blob = await Blob.fromFields(blobFields);
     const challengeZ = await blob.computeChallengeZ(blobFieldsHash);
 
-    const { y } = blob.evaluate(challengeZ, true /* verifyProof */);
+    const { y } = await blob.evaluate(challengeZ, true /* verifyProof */);
 
     expect(blob.commitment.toString('hex')).toMatchInlineSnapshot(
       `"b2803d5fe972914ba3616033e2748bbaa6dbcddefc3721a54895a7a45e77504dd1a971c7e8d8292be943d05bccebcfea"`,
@@ -88,10 +88,10 @@ describe('blob', () => {
     // This test ensures that the noir blob lib correctly matches the kzg lib
     const blobFields = Array.from({ length: FIELDS_PER_BLOB }).map((_, i) => new Fr(i + 2));
     const blobFieldsHash = await poseidon2Hash(blobFields);
-    const blob = Blob.fromFields(blobFields);
+    const blob = await Blob.fromFields(blobFields);
     const challengeZ = await blob.computeChallengeZ(blobFieldsHash);
 
-    const { y } = blob.evaluate(challengeZ, true /* verifyProof */);
+    const { y } = await blob.evaluate(challengeZ, true /* verifyProof */);
 
     expect(blob.commitment.toString('hex')).toMatchInlineSnapshot(
       `"ac771dea41e29fc2b7016c32731602c0812548ba0f491864a4e03fdb94b8d3d195faad1967cdf005acf73088b0e8474a"`,
@@ -114,15 +114,15 @@ describe('blob', () => {
     );
   });
 
-  it('should serialize and deserialize a blob', () => {
-    const blob = makeRandomBlob(5);
+  it('should serialize and deserialize a blob', async () => {
+    const blob = await makeRandomBlob(5);
     const blobBuffer = blob.toBuffer();
     expect(Blob.fromBuffer(blobBuffer)).toEqual(blob);
   });
 
-  it('should create a blob from a JSON object', () => {
-    const blob = makeRandomBlob(7);
+  it('should create a blob from a JSON object', async () => {
+    const blob = await makeRandomBlob(7);
     const blobJson = blob.toJSON();
-    expect(Blob.fromJson(blobJson)).toEqual(blob);
+    expect(await Blob.fromJson(blobJson)).toEqual(blob);
   });
 });

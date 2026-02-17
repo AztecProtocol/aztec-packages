@@ -207,7 +207,7 @@ describe('SequencerPublisher', () => {
 
   it('bundles propose and vote tx to l1', async () => {
     const checkpoint = new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber);
-    const expectedBlobs = getBlobsPerL1Block(checkpoint.toBlobFields());
+    const expectedBlobs = await getBlobsPerL1Block(checkpoint.toBlobFields());
     await publisher.enqueueProposeCheckpoint(checkpoint, CommitteeAttestationsAndSigners.empty(), Signature.empty());
 
     const { govPayload, voteSig } = mockGovernancePayload();

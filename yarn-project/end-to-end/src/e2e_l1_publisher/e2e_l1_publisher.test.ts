@@ -249,7 +249,7 @@ describe('L1Publisher integration', () => {
     const worldStateConfig: WorldStateConfig = {
       worldStateBlockCheckIntervalMS: 10000,
       worldStateDbMapSizeKb: 10 * 1024 * 1024,
-      worldStateBlockHistory: 0,
+      worldStateCheckpointHistory: 0,
     };
     worldStateSynchronizer = new ServerWorldStateSynchronizer(builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
@@ -272,12 +272,7 @@ describe('L1Publisher integration', () => {
 
     publisher = new SequencerPublisher(
       {
-        l1RpcUrls: config.l1RpcUrls,
-        l1DebugRpcUrls: [],
-        l1Contracts: l1ContractAddresses,
-        publisherPrivateKeys: [new SecretValue(sequencerPK)],
         l1ChainId: chainId,
-        viemPollingIntervalMS: 100,
         ethereumSlotDuration: config.ethereumSlotDuration,
       },
       {
@@ -462,7 +457,7 @@ describe('L1Publisher integration', () => {
         blockSource.getL1ToL2Messages.mockResolvedValueOnce(currentL1ToL2Messages);
 
         const checkpointBlobFields = checkpoint.toBlobFields();
-        const blockBlobs = getBlobsPerL1Block(checkpointBlobFields);
+        const blockBlobs = await getBlobsPerL1Block(checkpointBlobFields);
 
         let prevBlobAccumulatorHash = (await rollup.getCurrentBlobCommitmentsHash()).toBuffer();
 

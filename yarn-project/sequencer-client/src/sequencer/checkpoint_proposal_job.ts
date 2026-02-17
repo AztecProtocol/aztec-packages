@@ -186,10 +186,9 @@ export class CheckpointProposalJob implements Traceable {
       const inHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
 
       // Collect the out hashes of all the checkpoints before this one in the same epoch
-      const previousCheckpoints = (await this.l2BlockSource.getCheckpointsForEpoch(this.epoch)).filter(
-        c => c.number < this.checkpointNumber,
-      );
-      const previousCheckpointOutHashes = previousCheckpoints.map(c => c.getCheckpointOutHash());
+      const previousCheckpointOutHashes = (await this.l2BlockSource.getCheckpointsDataForEpoch(this.epoch))
+        .filter(c => c.checkpointNumber < this.checkpointNumber)
+        .map(c => c.checkpointOutHash);
 
       // Get the fee asset price modifier from the oracle
       const feeAssetPriceModifier = await this.publisher.getFeeAssetPriceModifier();

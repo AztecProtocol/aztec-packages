@@ -1,11 +1,19 @@
 #include "barretenberg/vm2/simulation/gadgets/emit_public_log.hpp"
 
-#include <cassert>
 #include <cstdint>
 #include <stdexcept>
 
 namespace bb::avm2::simulation {
 
+/**
+ * @brief Emit a public log from the current execution context.
+ *
+ * @param memory The memory interface to read log field values from.
+ * @param context The execution context providing side-effect tracking and static-call status.
+ * @param contract_address The address of the contract emitting the log.
+ * @param log_address The starting memory address of the log payload.
+ * @param log_size The number of fields in the log payload.
+ */
 void EmitPublicLog::emit_public_log(MemoryInterface& memory,
                                     ContextInterface& context,
                                     const AztecAddress& contract_address,
@@ -29,8 +37,8 @@ void EmitPublicLog::emit_public_log(MemoryInterface& memory,
     bool error_tag_mismatch = false;
 
     std::vector<MemoryValue> values;
-    values.reserve(log_size);
     if (!error_memory_out_of_bounds) {
+        values.reserve(log_size);
         for (uint32_t i = 0; i < log_size; ++i) {
             MemoryValue value = memory.get(log_address + i);
             if (value.get_tag() != ValueTag::FF) {

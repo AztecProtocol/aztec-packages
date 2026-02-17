@@ -1,9 +1,20 @@
-/**
- * @title AuthRegistry Contract
- * @notice Manages authorization of public actions through authentication witnesses (authwits)
- * @dev This contract allows users to approve/reject public actions that can be performed on their behalf by other
- * addresses
- */
+/// A contract that manages public authentication witnesses (authwits) on the Aztec network.
+///
+/// In Aztec, private authwits are verified by account contracts directly (via oracles on the user's device). Public
+/// authwits, however, require this onchain registry because local oracles cannot be used for global execution. Users pre-approve
+/// actions by storing `message_hash -> true` mappings via `set_authorized`, and consumer contracts verify and
+/// atomically revoke these approvals via `consume`.
+///
+/// The `message_hash` includes the consumer address, chain ID, and protocol version, preventing cross-chain and
+/// cross-contract replay. Each approval can only be consumed once. Users can also enable `reject_all` as an emergency
+/// kill switch to invalidate all outstanding approvals at once.
+///
+/// A private-to-public bridge is provided via `set_authorized_private`: a user signs a private authwit, and any party
+/// holding it can call this function to insert the corresponding public approval.
+///
+/// Note that there is no expiration time enforced on the approved actions in this contract as this can be achieved by
+/// including an expiration timestamp in the `message` (`message_hash` preimage) and having the consumer contract
+/// constrain that value.
 pub contract AuthRegistry {
     use aztec::{
         authwit::auth::{
@@ -22,19 +33,16 @@ pub contract AuthRegistry {
     };
 
     struct Storage<Context> {
-        /// Map of addresses that have rejected all actions
+        /// Per-address flag that, when true, causes all `consume` calls for that address to revert. Provides an
+        /// emergency "mass revocation" mechanism. Does not delete existing approvals - if later set back to false,
+        /// unconsumed approvals become consumable again.
         reject_all: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
-        /// Nested map of approvers to their authorized message hashes
-        /// First key is the approver address, second key is the message hash, value is authorization status
+        /// Per-user, per-message authorization status. `approved_actions[user][message_hash]` is set to true by
+        /// `set_authorized` and atomically revoked by `consume` to prevent replay.
         approved_actions: Map<AztecAddress, Map<Field, PublicMutable<bool, Context>, Context>, Context>,
     }
 
-    /**
-     * Updates the `authorized` value for `msg_sender` for `message_hash`.
-     *
-     * @param message_hash The message hash being authorized
-     * @param authorize True if the caller is authorized to perform the message hash, false otherwise
-     */
+    /// Approves or revokes a `message_hash` for the caller.
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_public]
     unconstrained fn set_authorized(message_hash: Field, authorize: bool) {
         // MACRO CODE START
@@ -51,13 +59,8 @@ pub contract AuthRegistry {
         storage.approved_actions.at(avm::sender()).at(message_hash).write(authorize);
     }
 
-    /**
-     * Updates the `reject_all` value for `msg_sender`.
-     *
-     * When `reject_all` is `true` any `consume` on `msg_sender` will revert.
-     *
-     * @param reject True if all actions should be rejected, false otherwise
-     */
+    /// Enables or disables mass rejection of all authwits for the caller. When enabled, all `consume` calls for the
+    /// caller's address will revert regardless of individual approvals.
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_public]
     unconstrained fn set_reject_all(reject: bool) {
         // MACRO CODE START
@@ -73,16 +76,19 @@ pub contract AuthRegistry {
         storage.reject_all.at(avm::sender()).write(reject);
     }
 
-    /**
-     * Consumes an `inner_hash` on behalf of `on_behalf_of` if the caller is authorized to do so.
-     *
-     * Will revert even if the caller is authorized if `reject_all` is set to true for `on_behalf_of`.
-     * This is to support "mass-revoke".
-     *
-     * @param on_behalf_of The address on whose behalf the action is being consumed
-     * @param inner_hash The inner_hash of the authwit
-     * @return `IS_VALID_SELECTOR` if the action was consumed, revert otherwise
-     */
+    /// Consumes (verifies and atomically revokes) an authorization on behalf of `on_behalf_of`.
+    ///
+    /// Called by consumer contracts (e.g. Token) to verify a user has authorized an action. This function:
+    /// 1. Checks that `on_behalf_of` has not enabled `reject_all`.
+    /// 2. Recomputes the `message_hash` from the caller (consumer), chain ID, version, and `inner_hash`, binding the
+    ///    approval to this specific consumer contract.
+    /// 3. Verifies the message was approved and atomically revokes it to prevent replay.
+    ///
+    /// Returns `IS_VALID_SELECTOR` (0x47dacd73) on success instead of a boolean. This follows the EIP-1271 pattern:
+    /// a failed or malformed call would return the default zero value, which is indistinguishable from `false`. By
+    /// requiring a specific magic value, the caller can reliably distinguish a successful validation from a failed
+    /// call. The function also reverts on failure as a first line of defense, making the magic return value a
+    /// defense-in-depth measure against subtle integration bugs on the caller side.
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_public]
     unconstrained fn consume(on_behalf_of: AztecAddress, inner_hash: Field) -> pub Field {
         // MACRO CODE START
@@ -96,8 +102,11 @@ pub contract AuthRegistry {
         let storage: Storage<PublicContext> = Storage::init(context);
         // MACRO CODE END
 
+        // reject_all is checked first so it takes precedence over individual approvals.
         assert_eq(false, storage.reject_all.at(on_behalf_of).read(), "rejecting all");
 
+        // The msg_sender here is the consumer contract, not the original user. This binds
+        // the approval to a specific consumer, preventing cross-contract replay.
         let message_hash = compute_authwit_message_hash(
             context.maybe_msg_sender().unwrap(),
             context.chain_id(),
@@ -106,24 +115,23 @@ pub contract AuthRegistry {
         );
 
         let authorized = storage.approved_actions.at(on_behalf_of).at(message_hash).read();
-
         assert_eq(true, authorized, "unauthorized");
+        // Revoke the approval to prevent replay.
         storage.approved_actions.at(on_behalf_of).at(message_hash).write(false);
 
         IS_VALID_SELECTOR
     }
 
-    /**
-     * Updates a public authwit using a private authwit
-     *
-     * Useful for the case where you want someone else to insert a public authwit for you.
-     * For example, if Alice wants Bob to insert an authwit in public, such that they can execute
-     * a trade, Alice can create a private authwit, and Bob can call this function with it.
-     *
-     * @param approver The address of the approver (Alice in the example)
-     * @param message_hash The message hash to authorize
-     * @param authorize True if the message hash should be authorized, false otherwise
-     */
+    /// Bridges a private authwit into a public authorization entry.
+    ///
+    /// Allows any party to insert a public approval on behalf of `approver`, provided they present a valid private
+    /// authwit from that approver. Useful when e.g. Alice wants Bob to insert a public authwit for her so they can
+    /// execute a trade - Alice signs a private authwit and Bob calls this function.
+    ///
+    /// This function:
+    /// 1. Verifies the approver's private authwit via `assert_current_call_valid_authwit` (static call + nullifier
+    ///    emission to prevent replay).
+    /// 2. Enqueues a public call to `_set_authorized` to write the approval during the public phase.
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_private]
     fn set_authorized_private(
         inputs: aztec::context::inputs::PrivateContextInputs,
@@ -143,12 +151,10 @@ pub contract AuthRegistry {
 
         // MACRO CODE END
 
-        // 3 corresponds to the number of arguments of the function
+        // The generic parameter `3` is the number of function arguments (approver, message_hash, authorize).
         assert_current_call_valid_authwit::<3>(&mut context, approver);
 
-        // Enqueue call to _set_authorized
-        // Note: This was originally just `self.enqueue_self._set_authorized(approver, message_hash, authorize);`
-        // before de-macroification.
+        // Enqueue a public call to _set_authorized to write the approval into public storage.
         {
             let enqueue_params: [Field; 3] =
                 [approver.to_field(), message_hash, authorize.to_field()];
@@ -169,14 +175,8 @@ pub contract AuthRegistry {
         // MACRO CODE END
     }
 
-    /**
-     * Internal function to update the `authorized` value for `approver` for `messageHash`.
-     * Used along with `set_authorized_private` to update the public authwit.
-     *
-     * @param approver The address of the approver
-     * @param message_hash The message hash being authorized
-     * @param authorize True if the caller is authorized to perform the message hash, false otherwise
-     */
+    /// A function that writes an authorization entry for an arbitrary `approver`. Only callable by this contract
+    /// itself (`#[only_self]`), ensuring it is only reachable through the validated `set_authorized_private` flow.
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_public]
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_only_self]
     unconstrained fn _set_authorized(approver: AztecAddress, message_hash: Field, authorize: bool) {
@@ -193,7 +193,6 @@ pub contract AuthRegistry {
         );
         let storage: Storage<PublicContext> = Storage::init(context);
 
-        // Originally injected by the #[only_self] macro
         assert(
             avm::sender() == context.this_address(),
             "Function _set_authorized can only be called by the same contract",
@@ -203,12 +202,7 @@ pub contract AuthRegistry {
         storage.approved_actions.at(approver).at(message_hash).write(authorize);
     }
 
-    /**
-     * Fetches the `reject_all` value for `on_behalf_of`.
-     *
-     * @param on_behalf_of The address to check
-     * @return True if all actions are rejected, false otherwise
-     */
+    /// Returns whether `on_behalf_of` has enabled the `reject_all` flag.
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_public]
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_view]
     unconstrained fn is_reject_all(on_behalf_of: AztecAddress) -> pub bool {
@@ -222,20 +216,14 @@ pub contract AuthRegistry {
         );
         let storage: Storage<PublicContext> = Storage::init(context);
 
-        // Originally injected by the #[view] macro
         assert(context.is_static_call(), "Function is_reject_all can only be called statically");
         // MACRO CODE END
 
         storage.reject_all.at(on_behalf_of).read()
     }
 
-    /**
-     * Fetches the `authorized` value for `on_behalf_of` for `message_hash`.
-     *
-     * @param on_behalf_of The address on whose behalf the action is being consumed
-     * @param message_hash The message hash to check
-     * @return True if the caller is authorized to perform the action, false otherwise
-     */
+    /// Returns whether a specific `message_hash` is currently approved for `on_behalf_of`.
+    /// Does NOT check the `reject_all` flag - also check `is_reject_all` for a complete picture.
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_public]
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_view]
     unconstrained fn is_consumable(on_behalf_of: AztecAddress, message_hash: Field) -> pub bool {
@@ -249,16 +237,13 @@ pub contract AuthRegistry {
         );
         let storage: Storage<PublicContext> = Storage::init(context);
 
-        // Originally injected by the #[view] macro
         assert(context.is_static_call(), "Function is_consumable can only be called statically");
         // MACRO CODE END
 
         storage.approved_actions.at(on_behalf_of).at(message_hash).read()
     }
 
-    /**
-     * Just like `is_consumable`, but a utility function and not public.
-     */
+    /// Utility version of `is_consumable`
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_utility]
     unconstrained fn utility_is_consumable(
         on_behalf_of: AztecAddress,
@@ -274,20 +259,24 @@ pub contract AuthRegistry {
         storage.approved_actions.at(on_behalf_of).at(message_hash).read()
     }
 
-    // // THE REST OF THE CODE IN THIS CONTRACT WAS ORIGINALLY INJECTED BY THE #[aztec] MACRO.
+    // THE REST OF THE CODE IN THIS CONTRACT WAS ORIGINALLY INJECTED BY THE #[aztec] MACRO.
 
-    // Function selectors computed at comptime from function signatures
     global SET_AUTHORIZED_SELECTOR: Field =
         comptime { FunctionSelector::from_signature("set_authorized(Field,bool)").to_field() };
+
     global SET_REJECT_ALL_SELECTOR: Field =
         comptime { FunctionSelector::from_signature("set_reject_all(bool)").to_field() };
+
     global CONSUME_SELECTOR: Field =
         comptime { FunctionSelector::from_signature("consume((Field),Field)").to_field() };
+
     global _SET_AUTHORIZED_SELECTOR: Field = comptime {
         FunctionSelector::from_signature("_set_authorized((Field),Field,bool)").to_field()
     };
+
     global IS_REJECT_ALL_SELECTOR: Field =
         comptime { FunctionSelector::from_signature("is_reject_all((Field))").to_field() };
+
     global IS_CONSUMABLE_SELECTOR: Field =
         comptime { FunctionSelector::from_signature("is_consumable((Field),Field)").to_field() };
 
@@ -365,7 +354,6 @@ pub contract AuthRegistry {
         }
     }
 
-    // Parameter structs for ABI
     pub struct _set_authorized_parameters {
         pub _approver: AztecAddress,
         pub _message_hash: Field,
@@ -406,7 +394,6 @@ pub contract AuthRegistry {
         pub _message_hash: Field,
     }
 
-    // ABI structs
     #[abi(functions)]
     pub struct _set_authorized_abi {
         parameters: _set_authorized_parameters,

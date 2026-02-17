@@ -184,7 +184,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     );
 
     // Verify the transaction was eventually included
-    const receipt = await waitForTx(context.aztecNode, sentTx, { timeout: test.L2_SLOT_DURATION_IN_S * 4 });
+    const receipt = await waitForTx(context.aztecNode, sentTx, { timeout: test.L2_SLOT_DURATION_IN_S * 8 });
     expect(receipt.isMined()).toBeTrue();
     logger.warn(`Transaction included in block ${receipt.blockNumber}`);
 
@@ -195,6 +195,12 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     expect(invalidBlockOffense).toBeDefined();
 
     const currentCheckpoint = await test.rollup.getCheckpointNumber();
+
+    logger.warn('Sending further transactions to trigger more block building');
+    await timesAsync(8, i =>
+      testContract.methods.emit_nullifier(BigInt(i + 100)).send({ from: context.accounts[0], wait: NO_WAIT }),
+    );
+
     logger.warn(`Waiting for checkpoint ${currentCheckpoint + 2} to be mined to ensure chain can progress`);
     await test.waitUntilCheckpointNumber(CheckpointNumber(currentCheckpoint + 2), test.L2_SLOT_DURATION_IN_S * 8);
 

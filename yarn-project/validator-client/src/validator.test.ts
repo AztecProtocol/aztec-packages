@@ -51,8 +51,31 @@ import type {
   FullNodeCheckpointsBuilder,
 } from './checkpoint_builder.js';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from './config.js';
-import type { HAKeyStore } from './key_store/ha_key_store.js';
+import { HAKeyStore } from './key_store/ha_key_store.js';
 import { ValidatorClient } from './validator.js';
+
+function makeKeyStore(validator: {
+  attester: Hex<32>[] | Hex<32>;
+  coinbase?: EthAddress;
+  feeRecipient?: AztecAddress;
+  publisher?: Hex<32>[];
+}): KeyStore {
+  return {
+    schemaVersion: 1,
+    slasher: undefined,
+    prover: undefined,
+    remoteSigner: undefined,
+    validators: [
+      {
+        attester: Array.isArray(validator.attester) ? validator.attester : [validator.attester],
+        feeRecipient: validator.feeRecipient ?? AztecAddress.ZERO,
+        coinbase: validator.coinbase,
+        remoteSigner: undefined,
+        publisher: validator.publisher ?? [],
+      },
+    ],
+  };
+}
 
 describe('ValidatorClient', () => {
   let config: ValidatorClientConfig &
@@ -96,6 +119,7 @@ describe('ValidatorClient', () => {
     >[1] as any);
     blockSource = mock<L2BlockSource & L2BlockSink>();
     blockSource.getCheckpointedBlocksForEpoch.mockResolvedValue([]);
+    blockSource.getCheckpointsDataForEpoch.mockResolvedValue([]);
     blockSource.getBlocksForSlot.mockResolvedValue([]);
     epochCache.isEscapeHatchOpenAtSlot.mockResolvedValue(false);
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
@@ -132,22 +156,7 @@ describe('ValidatorClient', () => {
       maxStuckDutiesAgeMs: 72000,
     };
 
-    const keyStore: KeyStore = {
-      schemaVersion: 1,
-      slasher: undefined,
-      prover: undefined,
-      remoteSigner: undefined,
-      validators: [
-        {
-          attester: validatorPrivateKeys.map(key => key as Hex<32>),
-          feeRecipient: AztecAddress.ZERO,
-          coinbase: undefined,
-          remoteSigner: undefined,
-          publisher: [],
-        },
-      ],
-    };
-    keyStoreManager = new KeystoreManager(keyStore);
+    keyStoreManager = new KeystoreManager(makeKeyStore({ attester: validatorPrivateKeys.map(key => key as Hex<32>) }));
 
     validatorClient = (await ValidatorClient.new(
       config,
@@ -931,6 +940,126 @@ describe('ValidatorClient', () => {
       expect(haKeyStore.start).toHaveBeenCalledTimes(1);
       await validatorClient.stop();
       expect(haKeyStore.stop).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('reloadKeystore', () => {
+    // build a KeystoreManager from a single-validator KeyStore and reload.
+    const reloadWith = (overrides: Parameters<typeof makeKeyStore>[0]) => {
+      const manager = new KeystoreManager(makeKeyStore(overrides));
+      validatorClient.reloadKeystore(manager);
+      return manager;
+    };
+
+    const allKeys = () => config.validatorPrivateKeys!.getValue().map(k => k as Hex<32>);
+
+    it('should update coinbase after reload', () => {
+      const newCoinbase = EthAddress.random();
+      reloadWith({ attester: allKeys(), coinbase: newCoinbase });
+
+      const attestorAddress = EthAddress.fromString(validatorAccounts[0].address);
+      expect(validatorClient.getCoinbaseForAttestor(attestorAddress)).toEqual(newCoinbase);
+    });
+
+    it('should update fee recipient after reload', async () => {
+      const newFeeRecipient = await AztecAddress.random();
+      reloadWith({ attester: allKeys(), feeRecipient: newFeeRecipient });
+
+      const attestorAddress = EthAddress.fromString(validatorAccounts[0].address);
+      expect(validatorClient.getFeeRecipientForAttestor(attestorAddress)).toEqual(newFeeRecipient);
+    });
+
+    it('should add new validator after reload', () => {
+      const newPrivateKey = generatePrivateKey();
+      const newAccount = privateKeyToAccount(newPrivateKey);
+      reloadWith({ attester: [...allKeys(), newPrivateKey as Hex<32>] });
+
+      const addresses = validatorClient.getValidatorAddresses();
+      expect(addresses).toHaveLength(3);
+      expect(addresses.some(a => a.equals(EthAddress.fromString(newAccount.address)))).toBe(true);
+    });
+
+    it('should update attester key after reload', () => {
+      const newPrivateKey = generatePrivateKey();
+      const newAccount = privateKeyToAccount(newPrivateKey);
+      reloadWith({ attester: newPrivateKey as Hex<32> });
+
+      const addresses = validatorClient.getValidatorAddresses();
+      expect(addresses).toHaveLength(1);
+      expect(addresses[0]).toEqual(EthAddress.fromString(newAccount.address));
+    });
+
+    it('should remove a validator after reload', () => {
+      const remainingKey = config.validatorPrivateKeys!.getValue()[0] as Hex<32>;
+      const removedAccount = validatorAccounts[1];
+      reloadWith({ attester: remainingKey });
+
+      const addresses = validatorClient.getValidatorAddresses();
+      expect(addresses).toHaveLength(1);
+      expect(addresses.some(a => a.equals(EthAddress.fromString(removedAccount.address)))).toBe(false);
+
+      // Accessing the removed validator's coinbase should throw
+      expect(() => validatorClient.getCoinbaseForAttestor(EthAddress.fromString(removedAccount.address))).toThrow(
+        /not found in any validator configuration/,
+      );
+    });
+
+    it('should change coinbase and no longer return the old one', () => {
+      const attestorAddress = EthAddress.fromString(validatorAccounts[0].address);
+
+      const oldCoinbase = EthAddress.random();
+      reloadWith({ attester: allKeys(), coinbase: oldCoinbase });
+      expect(validatorClient.getCoinbaseForAttestor(attestorAddress)).toEqual(oldCoinbase);
+
+      const newCoinbase = EthAddress.random();
+      reloadWith({ attester: allKeys(), coinbase: newCoinbase });
+      expect(validatorClient.getCoinbaseForAttestor(attestorAddress)).toEqual(newCoinbase);
+      expect(validatorClient.getCoinbaseForAttestor(attestorAddress)).not.toEqual(oldCoinbase);
+    });
+
+    it('should reset coinbase to attester fallback when removed', () => {
+      const attestorAddress = EthAddress.fromString(validatorAccounts[0].address);
+
+      const explicitCoinbase = EthAddress.random();
+      reloadWith({ attester: allKeys(), coinbase: explicitCoinbase });
+      expect(validatorClient.getCoinbaseForAttestor(attestorAddress)).toEqual(explicitCoinbase);
+
+      // Reload without coinbase — falls back to the attester address itself
+      reloadWith({ attester: allKeys() });
+      expect(validatorClient.getCoinbaseForAttestor(attestorAddress)).toEqual(attestorAddress);
+      expect(validatorClient.getCoinbaseForAttestor(attestorAddress)).not.toEqual(explicitCoinbase);
+    });
+
+    it('should change fee recipient and no longer return the old one', async () => {
+      const attestorAddress = EthAddress.fromString(validatorAccounts[0].address);
+
+      const oldFeeRecipient = await AztecAddress.random();
+      reloadWith({ attester: allKeys(), feeRecipient: oldFeeRecipient });
+      expect(validatorClient.getFeeRecipientForAttestor(attestorAddress)).toEqual(oldFeeRecipient);
+
+      const newFeeRecipient = await AztecAddress.random();
+      reloadWith({ attester: allKeys(), feeRecipient: newFeeRecipient });
+      expect(validatorClient.getFeeRecipientForAttestor(attestorAddress)).toEqual(newFeeRecipient);
+      expect(validatorClient.getFeeRecipientForAttestor(attestorAddress)).not.toEqual(oldFeeRecipient);
+    });
+
+    it('should preserve HA signer and wrap new adapter in HAKeyStore after reload', () => {
+      // Simulate HA mode by setting the haSigner and wrapping in HAKeyStore
+      const mockHASigner = { nodeId: 'test-ha-node' };
+      (validatorClient as any).haSigner = mockHASigner;
+      (validatorClient as any).keyStore = haKeyStore;
+
+      const newCoinbase = EthAddress.random();
+      reloadWith({ attester: allKeys(), coinbase: newCoinbase });
+
+      // Verify the keyStore is an HAKeyStore wrapping the same haSigner
+      const keyStoreAfterReload = (validatorClient as any).keyStore;
+      expect(keyStoreAfterReload).toBeInstanceOf(HAKeyStore);
+      expect((keyStoreAfterReload as any).haSigner).toBe(mockHASigner);
+
+      // Verify the new coinbase is accessible through the HAKeyStore
+      const attestorAddress = EthAddress.fromString(validatorAccounts[0].address);
+      expect(validatorClient.getCoinbaseForAttestor(attestorAddress)).toEqual(newCoinbase);
     });
   });
 });

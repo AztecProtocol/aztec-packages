@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Khashayar], commit: }
+// internal:    { status: Complete, auditors: [Luke], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -11,18 +11,12 @@
  *
  */
 
-#include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
-#include "barretenberg/numeric/bitop/pow.hpp"
-#include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 
-#include <cstddef>
 #include <memory>
-#include <string_view>
 
 namespace bb {
 
@@ -47,7 +41,6 @@ template <> class VerifierCommitmentKey<curve::BN254> {
             srs = srs::get_crs_factory<Curve>()->get_verifier_crs();
         }
     };
-    bool operator==(const VerifierCommitmentKey&) const = default;
 
     bool initialized() const { return srs != nullptr; }
 
@@ -58,19 +51,14 @@ template <> class VerifierCommitmentKey<curve::BN254> {
     }
 
     /**
-     * @brief verifies a pairing equation over 2 points using the verifier SRS
-     *
-     * @param p0 = P₀
-     * @param p1 = P₁
-     * @return e(P₀,[1]₁)e(P₁,[x]₂) ≡ [1]ₜ
+     * @brief Verify the pairing equation e(P₀,[1]₂) · e(P₁,[x]₂) = [1]ₜ
      */
     bool pairing_check(const GroupElement& p0, const GroupElement& p1)
     {
         initialize();
-        Commitment pairing_points[2]{ p0, p1 };
-        // The final pairing check of step 12.
-        Curve::TargetField result =
-            bb::pairing::reduced_ate_pairing_batch_precomputed(pairing_points, srs->get_precomputed_g2_lines(), 2);
+        std::array<Commitment, 2> pairing_points{ p0, p1 };
+        Curve::TargetField result = bb::pairing::reduced_ate_pairing_batch_precomputed(
+            pairing_points.data(), srs->get_precomputed_g2_lines(), 2);
 
         return (result == Curve::TargetField::one());
     }
@@ -93,9 +81,8 @@ template <> class VerifierCommitmentKey<curve::Grumpkin> {
     /**
      * @brief Construct a new IPA Verification Key object from existing SRS
      *
-     *
      * @param num_points specifies the length of the SRS
-     * @param path is the location to the SRS file
+     * @param crs_factory the CRS factory to use
      */
     VerifierCommitmentKey(size_t num_points, const std::shared_ptr<bb::srs::factories::CrsFactory<Curve>>& crs_factory)
         : srs(crs_factory->get_crs(num_points))
@@ -104,8 +91,6 @@ template <> class VerifierCommitmentKey<curve::Grumpkin> {
     VerifierCommitmentKey(size_t num_points) { srs = srs::get_crs_factory<Curve>()->get_crs(num_points); }
 
     VerifierCommitmentKey() = default;
-
-    bool operator==(const VerifierCommitmentKey&) const = default;
 
     bool initialized() const { return srs != nullptr; }
 

@@ -47,7 +47,7 @@ import { type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from
 
 import { type StateOverride, type TransactionReceipt, type TypedDataDefinition, encodeFunctionData, toHex } from 'viem';
 
-import type { PublisherConfig, TxSenderConfig } from './config.js';
+import type { SequencerPublisherConfig } from './config.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 
 /** Arguments to the process method of the rollup contract */
@@ -149,7 +149,8 @@ export class SequencerPublisher {
   protected requests: RequestWithExpiry[] = [];
 
   constructor(
-    private config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>,
+    private config: Pick<SequencerPublisherConfig, 'fishermanMode'> &
+      Pick<L1ContractsConfig, 'ethereumSlotDuration'> & { l1ChainId: number },
     deps: {
       telemetry?: TelemetryClient;
       blobClient: BlobClientInterface;
@@ -642,7 +643,7 @@ export class SequencerPublisher {
   ): Promise<bigint> {
     const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
     const blobFields = checkpoint.toBlobFields();
-    const blobs = getBlobsPerL1Block(blobFields);
+    const blobs = await getBlobsPerL1Block(blobFields);
     const blobInput = getPrefixedEthBlobCommitments(blobs);
 
     const args = [
@@ -952,7 +953,7 @@ export class SequencerPublisher {
     const checkpointHeader = checkpoint.header;
 
     const blobFields = checkpoint.toBlobFields();
-    const blobs = getBlobsPerL1Block(blobFields);
+    const blobs = await getBlobsPerL1Block(blobFields);
 
     const proposeTxArgs: L1ProcessArgs = {
       header: checkpointHeader,

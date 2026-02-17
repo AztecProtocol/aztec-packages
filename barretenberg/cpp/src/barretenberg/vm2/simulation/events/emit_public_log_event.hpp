@@ -19,7 +19,7 @@ struct EmitPublicLogException : public std::runtime_error {
 
 struct EmitPublicLogWriteEvent {
     uint32_t execution_clk;
-    AztecAddress contract_address;
+    AztecAddress contract_address{};
     uint16_t space_id;
     MemoryAddress log_address;
     uint32_t log_size;

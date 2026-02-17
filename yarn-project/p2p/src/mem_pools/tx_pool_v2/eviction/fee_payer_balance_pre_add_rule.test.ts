@@ -1,6 +1,6 @@
 import { type TxMetaData, stubTxMetaValidationData } from '../tx_metadata.js';
 import { FeePayerBalancePreAddRule } from './fee_payer_balance_pre_add_rule.js';
-import type { PreAddPoolAccess } from './interfaces.js';
+import { type PreAddPoolAccess, TxPoolRejectionCode } from './interfaces.js';
 
 describe('FeePayerBalancePreAddRule', () => {
   let rule: FeePayerBalancePreAddRule;
@@ -22,7 +22,7 @@ describe('FeePayerBalancePreAddRule', () => {
     claimAmount: opts.claimAmount ?? 0n,
     feeLimit: opts.feeLimit ?? 100n,
     nullifiers: [`0x${txHash.slice(2)}null1`],
-    includeByTimestamp: 0n,
+    expirationTimestamp: 0n,
     receivedAt: 0,
     estimatedSizeBytes: 0,
     data: stubTxMetaValidationData(),
@@ -63,7 +63,12 @@ describe('FeePayerBalancePreAddRule', () => {
 
         expect(result.shouldIgnore).toBe(true);
         expect(result.txHashesToEvict).toHaveLength(0);
-        expect(result.reason).toContain('insufficient balance');
+        expect(result.reason).toBeDefined();
+        expect(result.reason!.code).toBe(TxPoolRejectionCode.INSUFFICIENT_FEE_PAYER_BALANCE);
+        if (result.reason!.code === TxPoolRejectionCode.INSUFFICIENT_FEE_PAYER_BALANCE) {
+          expect(result.reason!.currentBalance).toBe(50n);
+          expect(result.reason!.feeLimit).toBe(100n);
+        }
       });
 
       it('accepts tx when balance exactly equals fee limit', async () => {
@@ -108,7 +113,8 @@ describe('FeePayerBalancePreAddRule', () => {
         const result = await rule.check(incomingMeta, poolAccess);
 
         expect(result.shouldIgnore).toBe(true);
-        expect(result.reason).toContain('insufficient balance');
+        expect(result.reason).toBeDefined();
+        expect(result.reason!.code).toBe(TxPoolRejectionCode.INSUFFICIENT_FEE_PAYER_BALANCE);
       });
 
       it('evicts lower-priority existing tx when high-priority tx is added', async () => {
@@ -263,7 +269,8 @@ describe('FeePayerBalancePreAddRule', () => {
 
         expect(result.shouldIgnore).toBe(true);
         expect(result.reason).toBeDefined();
-        expect(result.reason).toContain('insufficient balance');
+        expect(result.reason!.code).toBe(TxPoolRejectionCode.INSUFFICIENT_FEE_PAYER_BALANCE);
+        expect(result.reason!.message).toContain('insufficient balance');
       });
     });
   });

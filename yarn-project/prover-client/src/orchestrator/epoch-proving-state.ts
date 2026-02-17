@@ -76,7 +76,7 @@ export class EpochProvingState {
     public readonly epochNumber: EpochNumber,
     public readonly totalNumCheckpoints: number,
     private readonly finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
-    private onCheckpointBlobAccumulatorSet: (checkpoint: CheckpointProvingState) => void,
+    private onCheckpointBlobAccumulatorSet: (checkpoint: CheckpointProvingState) => Promise<void>,
     private completionCallback: (result: ProvingResult) => void,
     private rejectionCallback: (reason: string) => void,
   ) {

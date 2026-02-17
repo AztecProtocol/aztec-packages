@@ -1,7 +1,13 @@
 import { createLogger } from '@aztec/foundation/log';
 
 import { type TxMetaData, comparePriority } from '../tx_metadata.js';
-import type { PreAddContext, PreAddPoolAccess, PreAddResult, PreAddRule } from './interfaces.js';
+import {
+  type PreAddContext,
+  type PreAddPoolAccess,
+  type PreAddResult,
+  type PreAddRule,
+  TxPoolRejectionCode,
+} from './interfaces.js';
 
 /**
  * Pre-add rule that checks if a fee payer has sufficient balance to cover the incoming transaction.
@@ -78,7 +84,13 @@ export class FeePayerBalancePreAddRule implements PreAddRule {
           return {
             shouldIgnore: true,
             txHashesToEvict: [],
-            reason: `fee payer ${incomingMeta.feePayer} has insufficient balance`,
+            reason: {
+              code: TxPoolRejectionCode.INSUFFICIENT_FEE_PAYER_BALANCE,
+              message: `Fee payer ${incomingMeta.feePayer} has insufficient balance. Balance at transaction: ${available}, required: ${incomingMeta.feeLimit}`,
+              currentBalance: initialBalance,
+              availableBalance: available,
+              feeLimit: incomingMeta.feeLimit,
+            },
           };
         } else {
           // Existing tx cannot be covered after adding incoming - mark for eviction
@@ -93,7 +105,6 @@ export class FeePayerBalancePreAddRule implements PreAddRule {
       return {
         shouldIgnore: true,
         txHashesToEvict: [],
-        reason: 'internal error: tx coverage not determined',
       };
     }
 

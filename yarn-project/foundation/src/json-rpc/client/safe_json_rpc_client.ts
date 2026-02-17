@@ -24,6 +24,7 @@ export type SafeJsonRpcClientOptions = {
   batchWindowMS?: number;
   maxBatchSize?: number;
   maxRequestBodySize?: number;
+  extraHeaders?: Record<string, string>;
   onResponse?: (res: {
     response: any;
     headers: { get: (header: string) => string | null | undefined };
@@ -129,6 +130,7 @@ export function createSafeJsonRpcClient<T extends object>(
       const { response, headers } = await fetch(
         host,
         rpcCalls.map(({ request }) => request),
+        config.extraHeaders,
       );
 
       if (config.onResponse) {

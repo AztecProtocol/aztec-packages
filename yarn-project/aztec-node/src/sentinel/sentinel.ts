@@ -158,7 +158,11 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
 
   protected async computeProvenPerformance(epoch: EpochNumber): Promise<ValidatorsEpochPerformance> {
     const [fromSlot, toSlot] = getSlotRangeForEpoch(epoch, this.epochCache.getL1Constants());
-    const { committee } = await this.epochCache.getCommittee(fromSlot);
+    const { committee, isEscapeHatchOpen } = await this.epochCache.getCommittee(fromSlot);
+    if (isEscapeHatchOpen) {
+      this.logger.info(`Skipping proven performance for epoch ${epoch} - escape hatch is open`);
+      return {};
+    }
     if (!committee) {
       this.logger.trace(`No committee found for slot ${fromSlot}`);
       return {};
@@ -327,7 +331,12 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
    * and updates overall stats.
    */
   protected async processSlot(slot: SlotNumber) {
-    const { epoch, seed, committee } = await this.epochCache.getCommittee(slot);
+    const { epoch, seed, committee, isEscapeHatchOpen } = await this.epochCache.getCommittee(slot);
+    if (isEscapeHatchOpen) {
+      this.logger.info(`Skipping slot ${slot} at epoch ${epoch} - escape hatch is open`);
+      this.lastProcessedSlot = slot;
+      return;
+    }
     if (!committee || committee.length === 0) {
       this.logger.trace(`No committee found for slot ${slot} at epoch ${epoch}`);
       this.lastProcessedSlot = slot;

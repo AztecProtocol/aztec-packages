@@ -151,7 +151,7 @@ contract TallySlashingProposer is EIP712 {
 
   /**
    * @notice EIP-712 type hash for the Vote struct used in signature verification
-   * @dev Defines the structure: Vote(uint256 slot,bytes votes) for EIP-712 signing
+   * @dev Defines the structure: Vote(bytes votes,uint256 slot) for EIP-712 signing
    */
   bytes32 public constant VOTE_TYPEHASH = keccak256("Vote(bytes votes,uint256 slot)");
 
@@ -361,6 +361,14 @@ contract TallySlashingProposer is EIP712 {
       COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS % 4 == 0,
       Errors.TallySlashingProposer__VotesMustBeMultipleOf4(COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS)
     );
+
+    // Defense in depth: the ordering constraints (small <= medium <= large) above mean that
+    // if medium or large is zero, small must also be zero, so the small check would fire first.
+    // We keep all three checks explicitly for clarity and to guard against future refactors
+    // that might remove or reorder the sorting constraints.
+    require(SLASH_AMOUNT_SMALL > 0, Errors.TallySlashingProposer__SlashAmountMustBeGtZero("small"));
+    require(SLASH_AMOUNT_MEDIUM > 0, Errors.TallySlashingProposer__SlashAmountMustBeGtZero("medium"));
+    require(SLASH_AMOUNT_LARGE > 0, Errors.TallySlashingProposer__SlashAmountMustBeGtZero("large"));
   }
 
   /**
@@ -562,16 +570,8 @@ contract TallySlashingProposer is EIP712 {
    * @return voteCount The total number of votes that have been cast in this round by proposers
    */
   function getRound(SlashRound _round) external view returns (bool isExecuted, uint256 voteCount) {
-    SlashRound currentRound = getCurrentRound();
-
     // Load round data from the circular storage
-    RoundData memory roundData = _getRoundData(_round, currentRound);
-
-    // If we have not written to this round yet, return fresh round data
-    if (roundData.roundNumber != _round) {
-      return (false, 0);
-    }
-
+    RoundData memory roundData = _getRoundData(_round, getCurrentRound());
     return (roundData.executed, roundData.voteCount);
   }
 
@@ -593,6 +593,17 @@ contract TallySlashingProposer is EIP712 {
    */
   function getVotes(SlashRound _round, uint256 _index) external view returns (bytes memory) {
     uint256 expectedLength = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4;
+
+    // _getRoundVotes reverts if _round is out of the roundabout range.
+    // But within-range the storage slot may still hold stale data from a
+    // previous round that mapped to the same circular index. Guard against
+    // that by checking the authoritative round metadata first.
+    SlashRound currentRound = getCurrentRound();
+    RoundData memory roundData = _getRoundData(_round, currentRound);
+    if (roundData.voteCount == 0) {
+      return new bytes(expectedLength);
+    }
+
     bytes32[4] storage voteSlots = _getRoundVotes(_round).votes[_index];
     return _loadVoteDataFromStorage(voteSlots, expectedLength);
   }
@@ -1020,15 +1031,13 @@ contract TallySlashingProposer is EIP712 {
   function _getEscapeHatchEpochFlags(SlashRound _round) internal view returns (bool[] memory escapeHatchEpochs) {
     escapeHatchEpochs = new bool[](ROUND_SIZE_IN_EPOCHS);
 
-    IEscapeHatch escapeHatch = IValidatorSelection(INSTANCE).getEscapeHatch();
-
-    // If no escape hatch is configured, return all-false quickly
-    if (address(escapeHatch) == address(0)) {
-      return escapeHatchEpochs;
-    }
-
     for (uint256 epochIndex; epochIndex < ROUND_SIZE_IN_EPOCHS; epochIndex++) {
-      (bool isOpen,) = escapeHatch.isHatchOpen(getSlashTargetEpoch(_round, epochIndex));
+      Epoch epoch = getSlashTargetEpoch(_round, epochIndex);
+      IEscapeHatch escapeHatch = IValidatorSelection(INSTANCE).getEscapeHatchForEpoch(epoch);
+      if (address(escapeHatch) == address(0)) {
+        continue;
+      }
+      (bool isOpen,) = escapeHatch.isHatchOpen(epoch);
       escapeHatchEpochs[epochIndex] = isOpen;
     }
   }
