@@ -1,6 +1,13 @@
+/**
+ * @file ecdsa_constraints.test.cpp
+ * @brief Tests for ECDSA constraint validation in the static analyzer
+ *
+ * @note CircuitChecker::check is intentionally omitted from these tests.
+ *       ECDSA circuits are large (~10K+ gates) and CircuitChecker accounts for ~70% of test runtime.
+ *       Circuit correctness is already validated by the DSL ECDSA tests (dsl/acir_format/ecdsa_constraints.test.cpp).
+ */
 #include "barretenberg/dsl/acir_format/ecdsa_constraints.hpp"
 #include "barretenberg/boomerang_value_detection/graph_description_acir.hpp"
-#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/test_class.hpp"
@@ -113,7 +120,6 @@ TEST_F(EcdsaConstraintsTests, ValidateEcdsaK1Constraint)
 
     auto program = AcirProgram{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
-    EXPECT_TRUE(CircuitChecker::check(builder));
 
     StaticAnalyzerAcir analyzer(std::move(constraint_system), std::move(builder));
     analyzer.process_constraint_system();
@@ -127,7 +133,6 @@ TEST_F(EcdsaConstraintsTests, ValidateEcdsaR1Constraint)
 
     auto program = AcirProgram{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
-    EXPECT_TRUE(CircuitChecker::check(builder));
 
     StaticAnalyzerAcir analyzer(std::move(constraint_system), std::move(builder));
     analyzer.process_constraint_system();
@@ -142,7 +147,6 @@ TEST_F(EcdsaConstraintsTests, ValidateEcdsaK1ConstantPredicate)
 
     auto program = AcirProgram{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
-    EXPECT_TRUE(CircuitChecker::check(builder));
 
     StaticAnalyzerAcir analyzer(std::move(constraint_system), std::move(builder));
     analyzer.process_constraint_system();
@@ -156,7 +160,6 @@ TEST_F(EcdsaConstraintsTests, DetectCorruptedBooleanConstraint)
 
     auto program = AcirProgram{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
-    EXPECT_TRUE(CircuitChecker::check(builder));
 
     // Corrupt: disable all boolean gates by zeroing q_arith in arithmetic block
     // This removes the boolean constraint on result
@@ -178,8 +181,7 @@ TEST_F(EcdsaConstraintsTests, DetectCorruptedBooleanConstraint)
     }
     ASSERT_TRUE(corrupted) << "Could not find boolean gate for result witness";
 
-    // CircuitChecker should also detect this
-    // (q_arith=0 disables the gate, so CircuitChecker may not catch it — the gate becomes a no-op)
+    // q_arith=0 disables the gate (becomes a no-op), so CircuitChecker may not catch it
 
     AcirFormat constraint_system_copy = constraint_system;
     StaticAnalyzerAcir analyzer(std::move(constraint_system_copy), std::move(builder));
@@ -194,7 +196,6 @@ TEST_F(EcdsaConstraintsTests, DetectCorruptedRangeConstraint)
 
     auto program = AcirProgram{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
-    EXPECT_TRUE(CircuitChecker::check(builder));
 
     // Corrupt: clear the 8-bit range list (range_lists[255])
     // This removes all byte range constraints
@@ -217,7 +218,6 @@ TEST_F(EcdsaConstraintsTests, DetectCorruptedConditionalAssign)
 
     auto program = AcirProgram{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
-    EXPECT_TRUE(CircuitChecker::check(builder));
 
     // Corrupt: disable all arithmetic gates to break conditional_assign patterns
     auto& q_arith = builder.blocks.arithmetic.q_arith();
