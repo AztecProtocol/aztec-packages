@@ -69,13 +69,11 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         return { account, signature };
     }
 
-    std::string tampering(std::string message_string,
-                          ecdsa_key_pair<FrNative, G1Native>& account,
-                          ecdsa_signature& signature,
-                          TamperingMode mode)
+    void tampering(std::string message_string,
+                   ecdsa_key_pair<FrNative, G1Native>& account,
+                   ecdsa_signature& signature,
+                   TamperingMode mode)
     {
-        std::string failure_msg;
-
         switch (mode) {
         case TamperingMode::XCoordinateOverflow: {
             // Invalidate the circuit by passing a public key with x >= q
@@ -176,8 +174,6 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
                      expected,
                      "Signature verification returned a different result from the expected one. If the signature was "
                      "randomly generated, there is a (very) small chance this is not a bug.");
-
-        return failure_msg;
     }
 
     std::pair<G1, stdlib::ecdsa_signature<Builder>> create_stdlib_ecdsa_data(
@@ -277,7 +273,7 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         auto [account, signature] = generate_dummy_ecdsa_data(message_string, /*random_signature=*/random_signature);
 
         // Tamper with the signature
-        std::string failure_msg = tampering(message_string, account, signature, mode);
+        tampering(message_string, account, signature, mode);
 
         // Create ECDSA verification circuit
         Builder builder;
@@ -286,6 +282,44 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         // ECDSA verification
         ecdsa_verification_circuit(
             builder, hashed_message, account, signature, signature_verification_result, true, mode);
+    }
+
+    // This test covers a specific behaviour of the implementation. If either the x or y coordinate of the public key
+    // are bigger than the base field modulus, the ECDSA verification algorithm substitutes the public key with 2G to
+    // avoid circuit failures. This means that an attacker could craft a valid signature for 2G and submit such
+    // signature together with a public key with x coordinate overflowing. The ECDSA equation would then be satisfied
+    // because of the internal substitution. The attack should not be succesful because the result of the ECDSA
+    // verification algorithm takes into account whether either the x or y coordinate overflowed.
+    void test_signature_double_generator()
+    {
+        std::string message_string = "Goblin";
+        std::vector<uint8_t> message_bytes(message_string.begin(), message_string.end());
+        std::array<uint8_t, 32> hashed_message_bytes_ = Sha256Hasher::hash(message_bytes);
+        std::vector<uint8_t> hashed_message_bytes;
+        hashed_message_bytes.reserve(32);
+        for (auto byte : hashed_message_bytes_) {
+            hashed_message_bytes.emplace_back(byte);
+        }
+
+        // Generate a signature with P = 2G
+        ecdsa_key_pair<FrNative, G1Native> account;
+
+        account.private_key = FrNative(2);
+        account.public_key = G1Native::one * account.private_key;
+
+        ecdsa_signature signature =
+            ecdsa_construct_signature<Sha256Hasher, FqNative, FrNative, G1Native>(message_string, account);
+
+        // Tamper with the signature by making the x coordinate overflow
+        tampering(message_string, account, signature, TamperingMode::XCoordinateOverflow);
+
+        // Create ECDSA verification circuit
+        Builder builder;
+        stdlib::byte_array<Builder> hashed_message(&builder, hashed_message_bytes);
+
+        // ECDSA verification
+        ecdsa_verification_circuit(
+            builder, hashed_message, account, signature, false, true, TamperingMode::XCoordinateOverflow);
     }
 
     /**
@@ -418,6 +452,11 @@ TYPED_TEST(EcdsaTests, Wycherproof)
     } else {
         TestFixture::test_wycherproof(stdlib::secp256r1_tests);
     }
+}
+
+TYPED_TEST(EcdsaTests, SignatureDoubleGenerator)
+{
+    TestFixture::test_signature_double_generator();
 }
 
 TEST(EcdsaTests, Secp256k1PointAtInfinityRegression)
