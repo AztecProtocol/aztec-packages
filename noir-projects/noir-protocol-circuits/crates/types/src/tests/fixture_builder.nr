@@ -208,7 +208,7 @@ impl FixtureBuilder {
         builder.global_variables.timestamp = fixtures::GENESIS_TIMESTAMP + 135;
 
         builder.expiration_timestamp =
-            builder.anchor_block_header.global_variables.timestamp + MAX_TX_LIFETIME;
+            builder.anchor_block_header.global_variables.timestamp + MAX_TX_LIFETIME - 1;
 
         builder.vk_tree_root = vk_tree_root;
 
