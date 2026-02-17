@@ -407,6 +407,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
                            "in nargo-compatible format. Functional equivalence should then be verified "
                            "externally (e.g. by proving with the roundtripped bytecode).");
 
+    acir_roundtrip_cmd->group(aztec_internal_group);
     add_bytecode_path_option(acir_roundtrip_cmd);
     acir_roundtrip_cmd
         ->add_option("--output_path,-o", acir_roundtrip_output_path, "Output path for the roundtripped bytecode JSON.")
@@ -830,7 +831,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
             BB_ASSERT(fmt == 2 || fmt == 3,
                       "acir_roundtrip: expected msgpack format marker (2 or 3), got " + std::to_string(fmt));
 
-            // Deserialize from msgpack to Acir::ProgramWithoutBrillig (including Brillig/unconstrained_functions)
+            // Deserialize from msgpack to Acir::Program (including Brillig/unconstrained_functions)
             const char* data = reinterpret_cast<const char*>(buf.data() + 1);
             size_t data_size = buf.size() - 1;
             auto oh = msgpack::unpack(data, data_size);
