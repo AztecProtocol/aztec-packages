@@ -12,8 +12,7 @@
 namespace bb::stdlib {
 
 // A runtime-defined read-write memory table. Table entries must be initialized in the constructor.
-// Works with UltraBuilder and MegaBuilder.
-template <IsUltraOrMegaBuilder Builder> class ram_table {
+template <typename Builder> class ram_table {
   private:
     typedef field_t<Builder> field_pt;
 

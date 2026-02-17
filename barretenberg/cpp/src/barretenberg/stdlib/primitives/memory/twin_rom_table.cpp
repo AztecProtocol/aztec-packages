@@ -18,7 +18,6 @@ twin_rom_table<Builder>::twin_rom_table(const std::vector<std::array<field_pt, 2
     : raw_entries(table_entries)
     , length(raw_entries.size())
 {
-    static_assert(IsUltraOrMegaBuilder<Builder>);
     // get the builder context
     for (const auto& entry : table_entries) {
         if (entry[0].get_context() != nullptr) {

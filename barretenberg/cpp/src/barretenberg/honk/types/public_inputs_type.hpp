@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -62,9 +62,6 @@ static constexpr std::size_t KERNEL_PUBLIC_INPUTS_SIZE =
 
 // Number of bb::fr elements used to represent the default public inputs, i.e., the pairing points
 static constexpr std::size_t DEFAULT_PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
-
-// Number of bb::fr elements used to represent the public inputs of an App circuit
-static constexpr std::size_t APP_PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
 
 // Number of bb::fr elements used to represent the public inputs of the HIDING kernel
 static constexpr std::size_t HIDING_KERNEL_PUBLIC_INPUTS_SIZE =

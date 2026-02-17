@@ -73,7 +73,6 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
 
     using PairingObject = PairingPoints<OuterBuilder>;
     using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<OuterBuilder>;
-    using NativeVerifierCommitmentKey = typename InnerFlavor::VerifierCommitmentKey;
     /**
      * @brief Create a non-trivial arbitrary inner circuit, the proof of which will be recursively verified
      *
