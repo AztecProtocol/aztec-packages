@@ -399,13 +399,18 @@ int parse_and_run_cli_command(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: acir_roundtrip
      ***************************************************************************************************************/
+    std::filesystem::path acir_roundtrip_output_path;
     CLI::App* acir_roundtrip_cmd =
         app.add_subcommand("acir_roundtrip",
                            "[Internal testing] Deserialize an ACIR program from bytecode (msgpack), "
-                           "re-serialize it to msgpack, re-deserialize, and verify structural equality. "
-                           "Returns 0 on success.");
+                           "re-serialize it back to msgpack, and write it to an output JSON file "
+                           "in nargo-compatible format. Functional equivalence should then be verified "
+                           "externally (e.g. by proving with the roundtripped bytecode).");
 
     add_bytecode_path_option(acir_roundtrip_cmd);
+    acir_roundtrip_cmd
+        ->add_option("--output_path,-o", acir_roundtrip_output_path, "Output path for the roundtripped bytecode JSON.")
+        ->required();
 
     /***************************************************************************************************************
      * Subcommand: check
@@ -825,45 +830,34 @@ int parse_and_run_cli_command(int argc, char* argv[])
             BB_ASSERT(fmt == 2 || fmt == 3,
                       "acir_roundtrip: expected msgpack format marker (2 or 3), got " + std::to_string(fmt));
 
-            // Deserialize from msgpack to Acir::Program (including Brillig/unconstrained_functions)
+            // Deserialize from msgpack to Acir::ProgramWithoutBrillig (including Brillig/unconstrained_functions)
             const char* data = reinterpret_cast<const char*>(buf.data() + 1);
             size_t data_size = buf.size() - 1;
-            auto oh1 = msgpack::unpack(data, data_size);
-            auto o1 = oh1.get();
-            BB_ASSERT(o1.type == msgpack::type::ARRAY,
-                      "acir_roundtrip: expected ARRAY, got " + std::to_string(o1.type));
+            auto oh = msgpack::unpack(data, data_size);
+            auto o = oh.get();
+            BB_ASSERT(o.type == msgpack::type::ARRAY, "acir_roundtrip: expected ARRAY, got " + std::to_string(o.type));
 
-            Acir::Program program1;
+            Acir::Program program;
             try {
-                o1.convert(program1);
+                o.convert(program);
             } catch (const msgpack::type_error& e) {
-                std::cerr << "acir_roundtrip: failed to deserialize Program: " << e.what() << std::endl;
+                std::cerr << "acir_roundtrip: failed to deserialize ProgramWithoutBrillig: " << e.what() << std::endl;
                 return 1;
             }
 
-            // Re-serialize to msgpack bytes using msgpack_pack
+            // Re-serialize to msgpack bytes
             msgpack::sbuffer sbuf;
             msgpack::packer<msgpack::sbuffer> packer(sbuf);
-            packer.pack(program1);
+            packer.pack(program);
 
-            // Deserialize again from the re-serialized bytes
-            auto oh2 = msgpack::unpack(sbuf.data(), sbuf.size());
-            auto o2 = oh2.get();
+            // Build output: format marker byte followed by the msgpack payload
+            std::vector<uint8_t> raw_bytes;
+            raw_bytes.push_back(fmt);
+            raw_bytes.insert(raw_bytes.end(), sbuf.data(), sbuf.data() + sbuf.size());
 
-            Acir::Program program2;
-            try {
-                o2.convert(program2);
-            } catch (const msgpack::type_error& e) {
-                std::cerr << "acir_roundtrip: failed to re-deserialize Program: " << e.what() << std::endl;
-                return 1;
-            }
-
-            // Verify structural equality (operator== checks functions AND unconstrained_functions)
-            if (program1 != program2) {
-                std::cerr << "ACIR roundtrip FAILED: programs differ after msgpack roundtrip" << std::endl;
-                return 1;
-            }
-            vinfo("ACIR roundtrip: OK");
+            // Write raw bytes to output file
+            write_file(acir_roundtrip_output_path.string(), raw_bytes);
+            vinfo("acir_roundtrip: wrote roundtripped bytecode to ", acir_roundtrip_output_path);
             return 0;
         }
 
