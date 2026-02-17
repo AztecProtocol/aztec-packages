@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <filesystem>
 #include <memory>
+#include <unordered_map>
 #ifndef __wasm__
 #include <sys/mman.h>
 #endif
@@ -88,7 +89,9 @@ template <typename Fr> struct BackingMemory {
         return *this;
     }
 
-    // Allocate memory, preferring file-backed if in low memory mode
+    // Allocate memory, preferring file-backed if in low memory mode.
+    // Uses a thread-local pool to reuse buffers and avoid malloc contention.
+    // Memory is NOT zeroed — callers that need zeroed memory must do so themselves.
     static BackingMemory allocate(size_t size)
     {
         BackingMemory memory;
@@ -99,18 +102,86 @@ template <typename Fr> struct BackingMemory {
             }
         }
 #endif
-        allocate_aligned(memory, size);
+        allocate_pooled(memory, size);
+        return memory;
+    }
+
+    // Allocate raw memory without pooling (for one-off large allocations like arenas).
+    // Memory is NOT zeroed.
+    static BackingMemory allocate_raw(size_t size)
+    {
+        BackingMemory memory;
+        if (size == 0) {
+            return memory;
+        }
+        Fr* ptr = new Fr[size];
+        memory.aligned_memory = std::shared_ptr<Fr[]>(ptr, [](Fr* p) { delete[] p; });
+        memory.raw_data = ptr;
+        return memory;
+    }
+
+    // Create a BackingMemory that aliases into a parent shared_ptr at a given offset.
+    // Used for arena-style allocation where multiple polynomials share one contiguous buffer.
+    static BackingMemory from_aliased(std::shared_ptr<Fr[]> parent_memory, Fr* raw_ptr)
+    {
+        BackingMemory memory;
+        memory.aligned_memory = std::shared_ptr<Fr[]>(parent_memory, raw_ptr);
+        memory.raw_data = raw_ptr;
         return memory;
     }
 
     ~BackingMemory() = default;
 
   private:
-    static void allocate_aligned(BackingMemory& memory, size_t size)
+    // Thread-local pool that caches one buffer per size class to eliminate
+    // malloc/free overhead for the common alloc-use-free-realloc pattern.
+    struct Pool {
+        std::unordered_map<size_t, Fr*> cache;
+
+        ~Pool()
+        {
+            for (auto& [sz, ptr] : cache) {
+                delete[] ptr;
+            }
+        }
+
+        Fr* acquire(size_t size)
+        {
+            auto it = cache.find(size);
+            if (it != cache.end()) {
+                Fr* ptr = it->second;
+                cache.erase(it);
+                return ptr;
+            }
+            return new Fr[size];
+        }
+
+        void release(size_t size, Fr* ptr)
+        {
+            auto [it, inserted] = cache.try_emplace(size, ptr);
+            if (!inserted) {
+                delete[] it->second;
+                it->second = ptr;
+            }
+        }
+    };
+
+    static Pool& get_pool()
     {
-        // Fr has alignas on it so this is fine post c++20.
-        memory.aligned_memory = std::make_shared<Fr[]>(size);
-        memory.raw_data = memory.aligned_memory.get();
+        thread_local Pool pool;
+        return pool;
+    }
+
+    static void allocate_pooled(BackingMemory& memory, size_t size)
+    {
+        if (size == 0) {
+            memory.aligned_memory = nullptr;
+            memory.raw_data = nullptr;
+            return;
+        }
+        Fr* ptr = get_pool().acquire(size);
+        memory.aligned_memory = std::shared_ptr<Fr[]>(ptr, [size](Fr* p) { get_pool().release(size, p); });
+        memory.raw_data = ptr;
     }
 
 #ifndef __wasm__

@@ -116,6 +116,19 @@ template <typename Fr> class Polynomial {
     {
         return Polynomial(/*actual size*/ size - NUM_ZERO_ROWS, virtual_size, /*shiftable offset*/ NUM_ZERO_ROWS);
     }
+    // Construct a polynomial from pre-allocated backing memory (e.g. from an arena).
+    // Memory is NOT zeroed by this factory.
+    static Polynomial from_backing_memory(BackingMemory<Fr> backing,
+                                          size_t size,
+                                          size_t virtual_size,
+                                          size_t start_index = 0)
+    {
+        Polynomial p;
+        p.coefficients_ =
+            SharedShiftedVirtualZeroesArray<Fr>{ start_index, size + start_index, virtual_size, std::move(backing) };
+        return p;
+    }
+
     // Allow polynomials to be entirely reset/dormant
     Polynomial() = default;
 
