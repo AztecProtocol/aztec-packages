@@ -6,7 +6,7 @@ import type { Tx } from '@aztec/stdlib/tx';
 
 import { getFeePayerBalanceDelta } from '../../msg_validators/tx_validator/fee_payer_balance.js';
 import { getTxPriorityFee } from '../tx_pool/priority.js';
-import type { PreAddResult } from './eviction/interfaces.js';
+import { type PreAddResult, TxPoolRejectionCode } from './eviction/interfaces.js';
 
 /** Validator-compatible data interface, mirroring the subset of PrivateKernelTailCircuitPublicInputs used by validators. */
 export type TxMetaValidationData = {
@@ -215,7 +215,11 @@ export function checkNullifierConflict(
       return {
         shouldIgnore: true,
         txHashesToEvict: [],
-        reason: `nullifier conflict with ${conflictingHashStr}`,
+        reason: {
+          code: TxPoolRejectionCode.NULLIFIER_CONFLICT,
+          message: `Nullifier conflict with existing tx ${conflictingHashStr}`,
+          conflictingTxHash: conflictingHashStr,
+        },
       };
     }
   }

@@ -133,6 +133,29 @@ describe('P2P Client', () => {
     await client.stop();
   });
 
+  it('throws TxPoolError with structured reason when pool rejects tx', async () => {
+    await client.start();
+    const tx1 = await mockTx();
+    const txHashStr = tx1.getTxHash().toString();
+    const errors = new Map();
+    errors.set(txHashStr, {
+      code: 'LOW_PRIORITY_FEE',
+      message: 'Tx does not meet minimum priority fee',
+      minimumPriorityFee: 101n,
+      txPriorityFee: 50n,
+    });
+    txPool.addPendingTxs.mockResolvedValueOnce({
+      accepted: [],
+      ignored: [tx1.getTxHash()],
+      rejected: [],
+      errors,
+    });
+
+    await expect(client.sendTx(tx1)).rejects.toThrow('Tx does not meet minimum priority fee');
+    expect(p2pService.propagate).not.toHaveBeenCalled();
+    await client.stop();
+  });
+
   it('rejects txs after being stopped', async () => {
     await client.start();
     const tx1 = await mockTx();

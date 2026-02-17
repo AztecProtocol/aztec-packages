@@ -32,6 +32,7 @@ import type { PeerId } from '@libp2p/interface';
 import type { ENR } from '@nethermindeth/enr';
 
 import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
+import { TxPoolError } from '../errors/tx-pool.error.js';
 import type { AttestationPoolApi } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
@@ -585,11 +586,19 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     const result = await this.txPool.addPendingTxs([tx], { feeComparisonOnly: true });
     if (result.accepted.length === 1) {
       await this.p2pService.propagate(tx);
-    } else {
-      this.log.warn(
-        `Tx ${tx.getTxHash()} not propagated: accepted=${result.accepted.length} ignored=${result.ignored.length} rejected=${result.rejected.length}`,
-      );
+      return;
     }
+
+    const txHashStr = tx.getTxHash().toString();
+    const reason = result.errors?.get(txHashStr);
+    if (reason) {
+      this.log.warn(`Tx ${txHashStr} not added to pool: ${reason.message}`);
+      throw new TxPoolError(reason);
+    }
+
+    this.log.warn(
+      `Tx ${txHashStr} not propagated: accepted=${result.accepted.length} ignored=${result.ignored.length} rejected=${result.rejected.length}`,
+    );
   }
 
   /**

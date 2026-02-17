@@ -1,5 +1,6 @@
 import { mockTx } from '@aztec/stdlib/testing';
 
+import { TxPoolRejectionCode } from './eviction/interfaces.js';
 import {
   type TxMetaData,
   buildTxMetaData,
@@ -131,7 +132,11 @@ describe('TxMetaData', () => {
 
       expect(result.shouldIgnore).toBe(true);
       expect(result.txHashesToEvict).toEqual([]);
-      expect(result.reason).toContain(existing.txHash);
+      expect(result.reason).toBeDefined();
+      expect(result.reason!.code).toBe(TxPoolRejectionCode.NULLIFIER_CONFLICT);
+      if (result.reason!.code === TxPoolRejectionCode.NULLIFIER_CONFLICT) {
+        expect(result.reason!.conflictingTxHash).toBe(existing.txHash);
+      }
     });
 
     it('ignores incoming tx when existing has equal priority (tie goes to existing)', () => {

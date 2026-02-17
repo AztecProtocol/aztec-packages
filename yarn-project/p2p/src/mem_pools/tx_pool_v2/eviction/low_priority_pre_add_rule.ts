@@ -1,7 +1,14 @@
 import { createLogger } from '@aztec/foundation/log';
 
 import { type TxMetaData, comparePriority } from '../tx_metadata.js';
-import type { EvictionConfig, PreAddContext, PreAddPoolAccess, PreAddResult, PreAddRule } from './interfaces.js';
+import {
+  type EvictionConfig,
+  type PreAddContext,
+  type PreAddPoolAccess,
+  type PreAddResult,
+  type PreAddRule,
+  TxPoolRejectionCode,
+} from './interfaces.js';
 
 /**
  * Pre-add rule that checks if the pool is at capacity and handles low-priority eviction.
@@ -66,7 +73,12 @@ export class LowPriorityPreAddRule implements PreAddRule {
     return Promise.resolve({
       shouldIgnore: true,
       txHashesToEvict: [],
-      reason: `pool at capacity and tx has lower priority than existing transactions`,
+      reason: {
+        code: TxPoolRejectionCode.LOW_PRIORITY_FEE,
+        message: `Tx does not meet minimum priority fee. Required: ${lowestPriorityMeta.priorityFee + 1n}, got: ${incomingMeta.priorityFee}`,
+        minimumPriorityFee: lowestPriorityMeta.priorityFee + 1n,
+        txPriorityFee: incomingMeta.priorityFee,
+      },
     });
   }
 
