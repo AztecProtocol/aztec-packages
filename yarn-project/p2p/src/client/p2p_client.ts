@@ -1,12 +1,13 @@
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
 import {
+  type CheckpointId,
   type EthAddress,
   type L2Block,
   type L2BlockId,
@@ -87,6 +88,9 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   /** Tracks the last slot for which we called prepareForSlot */
   private lastSlotProcessed: SlotNumber = SlotNumber.ZERO;
+
+  /** Tracks the checkpoint number of the latest mined block, used for epoch prune detection */
+  private latestMinedCheckpointNumber: CheckpointNumber = CheckpointNumber.ZERO;
 
   /** Polls for slot changes and calls prepareForSlot on the tx pool */
   private slotMonitor: RunningPromise | undefined;
@@ -200,7 +204,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
         break;
       case 'chain-pruned':
         this.txCollection.stopCollectingForBlocksAfter(event.block.number);
-        await this.handlePruneL2Blocks(event.block);
+        await this.handlePruneL2Blocks(event.block, event.checkpoint);
         break;
       case 'chain-checkpointed':
         break;
@@ -700,6 +704,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     await this.maybeCallPrepareForSlot();
     await this.startCollectingMissingTxs(blocks);
     const lastBlock = blocks.at(-1)!;
+    this.latestMinedCheckpointNumber = lastBlock.checkpointNumber;
     await this.synchedLatestSlot.set(BigInt(lastBlock.header.getSlot()));
   }
 
@@ -750,10 +755,21 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   /**
    * Updates the tx pool after a chain prune.
+   * Detects epoch prunes (checkpoint number changed) and deletes all txs in that case.
    * @param latestBlock - The block ID the chain was pruned to.
+   * @param newCheckpoint - The checkpoint ID after the prune.
    */
-  private async handlePruneL2Blocks(latestBlock: L2BlockId): Promise<void> {
-    await this.txPool.handlePrunedBlocks(latestBlock);
+  private async handlePruneL2Blocks(latestBlock: L2BlockId, newCheckpoint: CheckpointId): Promise<void> {
+    const deleteAllTxs = this.isEpochPrune(newCheckpoint);
+    await this.txPool.handlePrunedBlocks(latestBlock, { deleteAllTxs });
+  }
+
+  /** Returns true if the prune spans an epoch boundary (checkpoint number changed). */
+  private isEpochPrune(newCheckpoint: CheckpointId): boolean {
+    if (this.latestMinedCheckpointNumber <= 0) {
+      return false;
+    }
+    return this.latestMinedCheckpointNumber !== newCheckpoint.number;
   }
 
   /** Checks if the slot has changed and calls prepareForSlot if so. */

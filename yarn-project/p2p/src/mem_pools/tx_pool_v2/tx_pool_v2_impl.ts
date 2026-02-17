@@ -510,7 +510,7 @@ export class TxPoolV2Impl {
     }
   }
 
-  async handlePrunedBlocks(latestBlock: L2BlockId): Promise<void> {
+  async handlePrunedBlocks(latestBlock: L2BlockId, options?: { deleteAllTxs?: boolean }): Promise<void> {
     // Step 1: Find transactions mined after the prune point
     const txsToUnmine = this.#indices.findTxsMinedAfter(latestBlock.number);
     if (txsToUnmine.length === 0) {
@@ -535,10 +535,20 @@ export class TxPoolV2Impl {
       this.#indices.markAsUnmined(meta);
     }
 
+    // If deleteAllTxs is set (epoch prune), delete all un-mined txs and return early
+    if (options?.deleteAllTxs) {
+      const allTxHashes = txsToUnmine.map(m => m.txHash);
+      await this.#deleteTxsBatch(allTxHashes);
+      this.#log.info(
+        `Handled prune to block ${latestBlock.number} with deleteAllTxs: deleted ${allTxHashes.length} txs`,
+      );
+      return;
+    }
+
     // Step 4: Filter out protected txs (they'll be handled by prepareForSlot)
     const unprotectedTxs = this.#indices.filterUnprotected(txsToUnmine);
 
-    // Step 4: Validate for pending pool
+    // Step 5: Validate for pending pool
     const { valid, invalid } = await this.#revalidateMetadata(unprotectedTxs, 'during handlePrunedBlocks');
 
     // Step 6: Resolve nullifier conflicts and add winners to pending indices

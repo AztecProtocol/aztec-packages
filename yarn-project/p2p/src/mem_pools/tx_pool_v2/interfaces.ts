@@ -162,7 +162,7 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
    * and validates them before returning to pending.
    * @param latestBlock - The latest valid block ID after the prune
    */
-  handlePrunedBlocks(latestBlock: L2BlockId): Promise<void>;
+  handlePrunedBlocks(latestBlock: L2BlockId, options?: { deleteAllTxs?: boolean }): Promise<void>;
 
   /**
    * Handles failed transaction execution.

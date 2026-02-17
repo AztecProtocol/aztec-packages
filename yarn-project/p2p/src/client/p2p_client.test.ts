@@ -283,11 +283,11 @@ describe('P2P Client', () => {
       blockSource.removeBlocks(10);
       await client.sync();
 
-      // Verify handlePrunedBlocks is called with the correct block ID
-      expect(txPool.handlePrunedBlocks).toHaveBeenCalledWith({
-        number: BlockNumber(90),
-        hash: expect.any(String),
-      });
+      // Verify handlePrunedBlocks is called with the correct block ID and options
+      expect(txPool.handlePrunedBlocks).toHaveBeenCalledWith(
+        { number: BlockNumber(90), hash: expect.any(String) },
+        expect.objectContaining({ deleteAllTxs: expect.any(Boolean) }),
+      );
       await client.stop();
     });
 
