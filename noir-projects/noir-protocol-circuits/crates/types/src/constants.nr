@@ -1066,7 +1066,11 @@ pub global AVM_ADDRESSING_RELATIVE_L2_GAS: u32 = 3; // One range check
 // The following values were calculated by running tests to benchmark AVM simulation and proving time
 // (avm_opcode_spam.test.ts) and determining the average gas per second. Then, we ran the tx validation benchmark
 // (tx_validator_bench.test.ts) and multiplied the validation time by the average gas per second to estimate gas costs.
-pub global MANA_PER_MS: u32 = 9083;
+//
+// Should be 9083, but this will make the fixed gas 1.1b and exceed the L1 limit. Lower it to 90 so that with 72 txs per
+// checkpoint it will be less than the L1 limit.
+pub global MANA_PER_MS: u32 = 90;
+//
 // The conversion rate from L1 gas to L2 gas is set to 0: The L1-to-L2 gas conversion rate is deterministic and entirely
 // oracle-derived. The minimum fee per unit of L2 gas ("mana") is enforced on L1 as an exact equality with the value
 // computed from current (but slightly lagged) L1 gas prices and the ETH/FeeJuice exchange rate. The rollup contract
