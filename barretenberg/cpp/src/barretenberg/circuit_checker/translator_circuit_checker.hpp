@@ -1,16 +1,16 @@
 #pragma once
-#include "barretenberg/translator_vm/translator_circuit_builder.hpp"
+#include "barretenberg/translator_vm/translator_proving_key.hpp"
 namespace bb {
 class TranslatorCircuitChecker {
     using Fr = bb::fr;
     using Fq = bb::fq;
-    using Builder = TranslatorCircuitBuilder;
-    using WireIds = Builder::WireIds;
+    using Flavor = TranslatorFlavor;
+    using ProvingKey = TranslatorProvingKey;
 
     // Number of limbs used to decompose a 254-bit value for modular arithmetic
-    static constexpr size_t NUM_BINARY_LIMBS = Builder::NUM_BINARY_LIMBS;
+    static constexpr size_t NUM_BINARY_LIMBS = ProvingKey::NUM_BINARY_LIMBS;
 
-    static constexpr size_t RESULT_ROW = Builder::RESULT_ROW;
+    static constexpr size_t RESULT_ROW = Flavor::RESULT_ROW;
 
   public:
     struct RelationInputs {
@@ -23,17 +23,16 @@ class TranslatorCircuitChecker {
     TranslatorCircuitChecker() = default;
 
     /**
-     * @brief Get the result of accumulation, stored as 4 binary limbs in the first row of the circuit.
+     * @brief Get the result of accumulation, stored as 4 binary limbs in the first row of the proving key.
      *
      */
-    static Fq get_computation_result(const Builder& circuit)
+    static Fq get_computation_result(const ProvingKey& proving_key)
     {
-        BB_ASSERT_GT(circuit.num_gates(), RESULT_ROW);
-        return Fq(
-            circuit.get_variable(circuit.wires[WireIds::ACCUMULATORS_BINARY_LIMBS_0][RESULT_ROW]) +
-            circuit.get_variable(circuit.wires[WireIds::ACCUMULATORS_BINARY_LIMBS_1][RESULT_ROW]) * Builder::SHIFT_1 +
-            circuit.get_variable(circuit.wires[WireIds::ACCUMULATORS_BINARY_LIMBS_2][RESULT_ROW]) * Builder::SHIFT_2 +
-            circuit.get_variable(circuit.wires[WireIds::ACCUMULATORS_BINARY_LIMBS_3][RESULT_ROW]) * Builder::SHIFT_3);
+        const auto& polys = proving_key.proving_key->polynomials;
+        return Fq(polys.accumulators_binary_limbs_0[RESULT_ROW] +
+                  polys.accumulators_binary_limbs_1[RESULT_ROW] * ProvingKey::SHIFT_1 +
+                  polys.accumulators_binary_limbs_2[RESULT_ROW] * ProvingKey::SHIFT_2 +
+                  polys.accumulators_binary_limbs_3[RESULT_ROW] * ProvingKey::SHIFT_3);
     }
 
     /**
@@ -55,6 +54,6 @@ class TranslatorCircuitChecker {
      * @return false
      */
 
-    static bool check(const Builder& circuit);
+    static bool check(const ProvingKey& proving_key);
 };
 } // namespace bb

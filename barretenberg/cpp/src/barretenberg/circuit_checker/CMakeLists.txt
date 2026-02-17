@@ -1,1 +1,1 @@
-barretenberg_module(circuit_checker stdlib_circuit_builders)
+barretenberg_module(circuit_checker stdlib_circuit_builders translator_vm)

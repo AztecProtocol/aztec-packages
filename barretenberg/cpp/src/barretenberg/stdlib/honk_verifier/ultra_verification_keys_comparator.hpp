@@ -1,5 +1,6 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/zip_view.hpp"
 #include <array>
 #include <memory>
 namespace bb {

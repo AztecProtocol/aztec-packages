@@ -6,23 +6,23 @@
 
 #include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
 #include "barretenberg/translator_vm/translator.fuzzer.hpp"
+#include "barretenberg/translator_vm/translator_proving_key.hpp"
 
 /**
- * @brief A very primitive fuzzing harness, no interesting mutations, just parse and throw at the circuit builder
+ * @brief A very primitive fuzzing harness, no interesting mutations, just parse and throw at the proving key
  *
  */
 extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
 {
     // Parse the queue and challenges
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/869): composer generates the initial challenge through
-    // FS, so we have to do that, too
     auto parsing_result = parse_and_construct_opqueue(data, size);
     if (!parsing_result.has_value()) {
         return 0;
     }
     auto [batching_challenge, x, op_queue] = parsing_result.value();
-    // Construct the circuit
-    auto circuit_builder = TranslatorCircuitBuilder(batching_challenge, x, op_queue);
+
+    // Construct the proving key (which computes witness internally)
+    TranslatorProvingKey proving_key(batching_challenge, x, op_queue);
 
     Fq x_inv = x.invert();
     auto op_accumulator = Fq(0);
@@ -50,8 +50,8 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
          op_accumulator) *
         x_pow;
 
-    // The data is malformed, so just call check_circuit, but ignore the output
-    if (!TranslatorCircuitChecker::check(circuit_builder)) {
+    // The data is malformed, so just call check, but ignore the output
+    if (!TranslatorCircuitChecker::check(proving_key)) {
         return 1;
     }
     return 0;

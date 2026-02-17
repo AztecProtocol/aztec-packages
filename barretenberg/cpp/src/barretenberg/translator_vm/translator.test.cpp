@@ -4,14 +4,13 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
 #include "barretenberg/transcript/transcript_manifest.hpp"
-#include "barretenberg/translator_vm/translator_circuit_builder.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
+#include "barretenberg/translator_vm/translator_proving_key.hpp"
 #include "barretenberg/translator_vm/translator_verifier.hpp"
 
 #include <gtest/gtest.h>
 using namespace bb;
 
-using CircuitBuilder = TranslatorFlavor::CircuitBuilder;
 using Transcript = TranslatorFlavor::Transcript;
 using OpQueue = ECCOpQueue;
 static auto& engine = numeric::get_debug_randomness();
@@ -204,29 +203,25 @@ class TranslatorTests : public ::testing::Test {
         op_queue->eq_and_reset();
     }
 
-    // Construct a test circuit based on some random operations
-    static CircuitBuilder generate_test_circuit(const Fq& batching_challenge_v,
-                                                const Fq& evaluation_challenge_x,
-                                                const size_t circuit_size_parameter = 500)
+    // Generate a test op queue based on some random operations
+    static std::shared_ptr<bb::ECCOpQueue> generate_test_op_queue(const size_t circuit_size_parameter = 500)
     {
-
-        // Add the same operations to the ECC op queue; the native computation is performed under the hood.
         auto op_queue = std::make_shared<bb::ECCOpQueue>();
         op_queue->no_op_ultra_only();
-        add_random_ops(op_queue, CircuitBuilder::NUM_RANDOM_OPS_START);
+        add_random_ops(op_queue, TranslatorProvingKey::NUM_RANDOM_OPS_START);
         add_mixed_ops(op_queue, circuit_size_parameter / 2);
         op_queue->merge();
         add_mixed_ops(op_queue, circuit_size_parameter / 2);
-        add_random_ops(op_queue, CircuitBuilder::NUM_RANDOM_OPS_END);
+        add_random_ops(op_queue, TranslatorProvingKey::NUM_RANDOM_OPS_END);
         op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
-
-        return CircuitBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue };
+        return op_queue;
     }
 
-    static bool prove_and_verify(const CircuitBuilder& circuit_builder,
-                                 const Fq& evaluation_challenge_x,
-                                 const Fq& batching_challenge_v)
+    static bool prove_and_verify(const std::shared_ptr<TranslatorProvingKey>& proving_key)
     {
+        const Fq& evaluation_challenge_x = proving_key->evaluation_input_x;
+        const Fq& batching_challenge_v = proving_key->batching_challenge_v;
+
         // Setup prover transcript
         auto prover_transcript = std::make_shared<Transcript>();
         prover_transcript->send_to_verifier("init", Fq::random_element());
@@ -236,8 +231,6 @@ class TranslatorTests : public ::testing::Test {
         auto verifier_transcript = std::make_shared<Transcript>(initial_transcript);
         verifier_transcript->template receive_from_prover<Fq>("init");
 
-        // Create proving key and prover
-        auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
         TranslatorProver prover{ proving_key, prover_transcript };
 
         // Generate proof
@@ -285,14 +278,14 @@ TEST_F(TranslatorTests, ProofLengthCheck)
     Fq batching_challenge_v = Fq::random_element();
     Fq evaluation_challenge_x = Fq::random_element();
 
-    // Generate a circuit and its verification key (computed at runtime from the proving key)
-    CircuitBuilder circuit_builder = generate_test_circuit(batching_challenge_v, evaluation_challenge_x);
+    // Generate op queue and proving key directly
+    auto op_queue = generate_test_op_queue();
+    auto proving_key = std::make_shared<TranslatorProvingKey>(batching_challenge_v, evaluation_challenge_x, op_queue);
 
     // Setup prover transcript
     auto prover_transcript = std::make_shared<Transcript>();
     prover_transcript->send_to_verifier("init", Fq::random_element());
     prover_transcript->export_proof();
-    auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
     TranslatorProver prover{ proving_key, prover_transcript };
 
     // Generate proof
@@ -312,11 +305,11 @@ TEST_F(TranslatorTests, Basic)
     Fq batching_challenge_v = Fq::random_element();
     Fq evaluation_challenge_x = Fq::random_element();
 
-    // Generate a circuit without no-ops
-    CircuitBuilder circuit_builder = generate_test_circuit(batching_challenge_v, evaluation_challenge_x);
+    // Generate op queue and proving key directly
+    auto op_queue = generate_test_op_queue();
+    auto proving_key = std::make_shared<TranslatorProvingKey>(batching_challenge_v, evaluation_challenge_x, op_queue);
 
-    EXPECT_TRUE(TranslatorCircuitChecker::check(circuit_builder));
-    bool verified = prove_and_verify(circuit_builder, evaluation_challenge_x, batching_challenge_v);
+    bool verified = prove_and_verify(proving_key);
     EXPECT_TRUE(verified);
 }
 
@@ -335,13 +328,15 @@ TEST_F(TranslatorTests, BasicAvmMode)
     // Add the same operations to the ECC op queue; the native computation is performed under the hood.
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
     op_queue->no_op_ultra_only();
-    add_random_ops(op_queue, CircuitBuilder::NUM_RANDOM_OPS_START);
+    add_random_ops(op_queue, TranslatorProvingKey::NUM_RANDOM_OPS_START);
     add_mixed_ops(op_queue, 100);
     op_queue->merge();
-    auto circuit_builder = CircuitBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue, /*avm_mode=*/true };
 
-    EXPECT_TRUE(TranslatorCircuitChecker::check(circuit_builder));
-    bool verified = prove_and_verify(circuit_builder, evaluation_challenge_x, batching_challenge_v);
+    // Create proving key directly with AVM mode
+    auto proving_key = std::make_shared<TranslatorProvingKey>(
+        batching_challenge_v, evaluation_challenge_x, op_queue, TranslatorFlavor::CommitmentKey(), /*avm_mode=*/true);
+
+    bool verified = prove_and_verify(proving_key);
     EXPECT_TRUE(verified);
 }
 
@@ -368,9 +363,9 @@ TEST_F(TranslatorTests, FixedVK)
 
     // Lambda for manually computing a verification key for a given circuit and comparing it to the fixed VK
     auto compare_computed_vk_against_fixed = [&](size_t circuit_size_parameter) {
-        CircuitBuilder circuit_builder =
-            generate_test_circuit(batching_challenge_v, evaluation_challenge_x, circuit_size_parameter);
-        auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
+        auto op_queue = generate_test_op_queue(circuit_size_parameter);
+        auto proving_key =
+            std::make_shared<TranslatorProvingKey>(batching_challenge_v, evaluation_challenge_x, op_queue);
         TranslatorProver prover{ proving_key, prover_transcript };
         TranslatorFlavor::VerificationKey computed_vk = create_vk_from_proving_key(proving_key->proving_key);
         auto labels = TranslatorFlavor::VerificationKey::get_labels();
@@ -413,11 +408,12 @@ TEST_F(TranslatorTests, TranscriptPinned)
     Fq batching_challenge_v = Fq::random_element();
     Fq evaluation_challenge_x = Fq::random_element();
 
-    CircuitBuilder circuit_builder = generate_test_circuit(batching_challenge_v, evaluation_challenge_x);
+    // Generate op queue and proving key directly
+    auto op_queue = generate_test_op_queue();
+    auto proving_key = std::make_shared<TranslatorProvingKey>(batching_challenge_v, evaluation_challenge_x, op_queue);
 
     // Create proving key and prover
     auto prover_transcript = std::make_shared<Transcript>();
-    auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
     TranslatorProver prover{ proving_key, prover_transcript };
 
     // Generate proof
@@ -456,4 +452,23 @@ TEST_F(TranslatorTests, TranscriptPinned)
     auto verifier_manifest = verifier_transcript->get_manifest();
 
     EXPECT_EQ(verifier_manifest, expected_manifest);
+}
+
+/**
+ * @brief Test that TranslatorCircuitChecker validates a well-formed proving key
+ */
+TEST_F(TranslatorTests, CircuitChecker)
+{
+    using Fq = fq;
+
+    Fq batching_challenge_v = Fq::random_element();
+    Fq evaluation_challenge_x = Fq::random_element();
+
+    // Generate op queue and proving key directly
+    auto op_queue = generate_test_op_queue();
+    auto proving_key = std::make_shared<TranslatorProvingKey>(batching_challenge_v, evaluation_challenge_x, op_queue);
+
+    // Verify the circuit checker passes on a valid proving key
+    bool circuit_valid = TranslatorCircuitChecker::check(*proving_key);
+    EXPECT_TRUE(circuit_valid);
 }

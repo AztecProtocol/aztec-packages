@@ -13,7 +13,6 @@
 #include "barretenberg/goblin/merge_verifier.hpp"
 #include "barretenberg/goblin/types.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
-#include "barretenberg/translator_vm/translator_circuit_builder.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 
@@ -36,7 +35,6 @@ class Goblin {
     using OpQueue = ECCOpQueue;
     using ECCVMBuilder = ECCVMFlavor::CircuitBuilder;
     using ECCVMProvingKey = ECCVMFlavor::ProvingKey;
-    using TranslatorBuilder = TranslatorCircuitBuilder;
     using MergeProof = MergeProver::MergeProof;
     using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = TranslatorFlavor::VerificationKey;

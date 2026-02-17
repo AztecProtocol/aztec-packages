@@ -1,4 +1,4 @@
-#include "translator_circuit_builder.hpp"
+#include "translator_proving_key.hpp"
 #include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
@@ -55,8 +55,8 @@ fq compute_expected_result(const std::shared_ptr<ECCOpQueue>& op_queue, const fq
 } // namespace
 using CircuitChecker = TranslatorCircuitChecker;
 
-// Test that the circuit can handle several accumulations correctly
-TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
+// Test that the proving key can handle several accumulations correctly
+TEST(TranslatorProvingKey, SeveralOperationCorrectness)
 {
     using point = g1::affine_element;
     using scalar = fr;
@@ -91,17 +91,17 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
 
-    // Create circuit builder and feed the queue inside
-    auto circuit_builder = TranslatorCircuitBuilder(batching_challenge, x, op_queue);
-    EXPECT_TRUE(CircuitChecker::check(circuit_builder));
+    // Create proving key and feed the queue inside
+    auto proving_key = TranslatorProvingKey(batching_challenge, x, op_queue);
+    EXPECT_TRUE(CircuitChecker::check(proving_key));
 
     // Verify the accumulator result is correct
     Fq expected_result = compute_expected_result(op_queue, batching_challenge, x);
-    EXPECT_EQ(expected_result, CircuitChecker::get_computation_result(circuit_builder));
+    EXPECT_EQ(expected_result, CircuitChecker::get_computation_result(proving_key));
 }
 
 // Test with minimal operations (only required no-ops and random ops)
-TEST(TranslatorCircuitBuilder, MinimalOperations)
+TEST(TranslatorProvingKey, MinimalOperations)
 {
     using Fq = fq;
 
@@ -119,12 +119,12 @@ TEST(TranslatorCircuitBuilder, MinimalOperations)
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
 
-    auto circuit_builder = TranslatorCircuitBuilder(batching_challenge, x, op_queue);
-    EXPECT_TRUE(CircuitChecker::check(circuit_builder));
+    auto proving_key = TranslatorProvingKey(batching_challenge, x, op_queue);
+    EXPECT_TRUE(CircuitChecker::check(proving_key));
 }
 
 // Test with only add operations
-TEST(TranslatorCircuitBuilder, OnlyAddOperations)
+TEST(TranslatorProvingKey, OnlyAddOperations)
 {
     using point = g1::affine_element;
     using Fq = fq;
@@ -149,16 +149,16 @@ TEST(TranslatorCircuitBuilder, OnlyAddOperations)
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
 
-    auto circuit_builder = TranslatorCircuitBuilder(batching_challenge, x, op_queue);
-    EXPECT_TRUE(CircuitChecker::check(circuit_builder));
+    auto proving_key = TranslatorProvingKey(batching_challenge, x, op_queue);
+    EXPECT_TRUE(CircuitChecker::check(proving_key));
 
     // Verify the accumulator result is correct
     Fq expected_result = compute_expected_result(op_queue, batching_challenge, x);
-    EXPECT_EQ(expected_result, CircuitChecker::get_computation_result(circuit_builder));
+    EXPECT_EQ(expected_result, CircuitChecker::get_computation_result(proving_key));
 }
 
 // Test with only multiplication operations
-TEST(TranslatorCircuitBuilder, OnlyMulOperations)
+TEST(TranslatorProvingKey, OnlyMulOperations)
 {
     using point = g1::affine_element;
     using scalar = fr;
@@ -184,16 +184,16 @@ TEST(TranslatorCircuitBuilder, OnlyMulOperations)
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
 
-    auto circuit_builder = TranslatorCircuitBuilder(batching_challenge, x, op_queue);
-    EXPECT_TRUE(CircuitChecker::check(circuit_builder));
+    auto proving_key = TranslatorProvingKey(batching_challenge, x, op_queue);
+    EXPECT_TRUE(CircuitChecker::check(proving_key));
 
     // Verify the accumulator result is correct
     Fq expected_result = compute_expected_result(op_queue, batching_challenge, x);
-    EXPECT_EQ(expected_result, CircuitChecker::get_computation_result(circuit_builder));
+    EXPECT_EQ(expected_result, CircuitChecker::get_computation_result(proving_key));
 }
 
 // Test with multiple no-ops interspersed with real operations
-TEST(TranslatorCircuitBuilder, InterspersedNoOps)
+TEST(TranslatorProvingKey, InterspersedNoOps)
 {
     using point = g1::affine_element;
     using Fq = fq;
@@ -219,16 +219,16 @@ TEST(TranslatorCircuitBuilder, InterspersedNoOps)
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
 
-    auto circuit_builder = TranslatorCircuitBuilder(batching_challenge, x, op_queue);
-    EXPECT_TRUE(CircuitChecker::check(circuit_builder));
+    auto proving_key = TranslatorProvingKey(batching_challenge, x, op_queue);
+    EXPECT_TRUE(CircuitChecker::check(proving_key));
 
     // Verify the accumulator result is correct
     Fq expected_result = compute_expected_result(op_queue, batching_challenge, x);
-    EXPECT_EQ(expected_result, CircuitChecker::get_computation_result(circuit_builder));
+    EXPECT_EQ(expected_result, CircuitChecker::get_computation_result(proving_key));
 }
 
 // Test with point at infinity
-TEST(TranslatorCircuitBuilder, PointAtInfinity)
+TEST(TranslatorProvingKey, PointAtInfinity)
 {
     using point = g1::affine_element;
     using Fq = fq;
@@ -250,16 +250,16 @@ TEST(TranslatorCircuitBuilder, PointAtInfinity)
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
 
-    auto circuit_builder = TranslatorCircuitBuilder(batching_challenge, x, op_queue);
-    EXPECT_TRUE(CircuitChecker::check(circuit_builder));
+    auto proving_key = TranslatorProvingKey(batching_challenge, x, op_queue);
+    EXPECT_TRUE(CircuitChecker::check(proving_key));
 
     // Verify the accumulator result is correct (point at infinity should contribute P.x=0, P.y=0)
     Fq expected_result = compute_expected_result(op_queue, batching_challenge, x);
-    EXPECT_EQ(expected_result, CircuitChecker::get_computation_result(circuit_builder));
+    EXPECT_EQ(expected_result, CircuitChecker::get_computation_result(proving_key));
 }
 
 // Test with scalar = 0
-TEST(TranslatorCircuitBuilder, ZeroScalar)
+TEST(TranslatorProvingKey, ZeroScalar)
 {
     using point = g1::affine_element;
     using scalar = fr;
@@ -283,16 +283,16 @@ TEST(TranslatorCircuitBuilder, ZeroScalar)
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
 
-    auto circuit_builder = TranslatorCircuitBuilder(batching_challenge, x, op_queue);
-    EXPECT_TRUE(CircuitChecker::check(circuit_builder));
+    auto proving_key = TranslatorProvingKey(batching_challenge, x, op_queue);
+    EXPECT_TRUE(CircuitChecker::check(proving_key));
 
     // Verify the accumulator result is correct (z=0 should result in P.x*0, P.y*0)
     Fq expected_result = compute_expected_result(op_queue, batching_challenge, x);
-    EXPECT_EQ(expected_result, CircuitChecker::get_computation_result(circuit_builder));
+    EXPECT_EQ(expected_result, CircuitChecker::get_computation_result(proving_key));
 }
 
-// Test with many operations to stress test the circuit
-TEST(TranslatorCircuitBuilder, ManyOperations)
+// Test with many operations to stress test
+TEST(TranslatorProvingKey, ManyOperations)
 {
     using point = g1::affine_element;
     using scalar = fr;
@@ -321,16 +321,16 @@ TEST(TranslatorCircuitBuilder, ManyOperations)
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
 
-    auto circuit_builder = TranslatorCircuitBuilder(batching_challenge, x, op_queue);
-    EXPECT_TRUE(CircuitChecker::check(circuit_builder));
+    auto proving_key = TranslatorProvingKey(batching_challenge, x, op_queue);
+    EXPECT_TRUE(CircuitChecker::check(proving_key));
 
     // Verify the accumulator result is correct (stress test with many operations)
     Fq expected_result = compute_expected_result(op_queue, batching_challenge, x);
-    EXPECT_EQ(expected_result, CircuitChecker::get_computation_result(circuit_builder));
+    EXPECT_EQ(expected_result, CircuitChecker::get_computation_result(proving_key));
 }
 
-// Test determinism - same inputs should produce same circuit and same result
-TEST(TranslatorCircuitBuilder, Determinism)
+// Test determinism - same inputs should produce same result
+TEST(TranslatorProvingKey, Determinism)
 {
     using point = g1::affine_element;
     using scalar = fr;
@@ -341,7 +341,7 @@ TEST(TranslatorCircuitBuilder, Determinism)
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
 
-    // Build first circuit
+    // Build first proving key
     auto op_queue1 = std::make_shared<ECCOpQueue>();
     op_queue1->no_op_ultra_only();
     op_queue1->random_op_ultra_only();
@@ -355,10 +355,10 @@ TEST(TranslatorCircuitBuilder, Determinism)
     op_queue1->random_op_ultra_only();
     op_queue1->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue1->get_current_subtable_size());
 
-    auto circuit_builder1 = TranslatorCircuitBuilder(batching_challenge, x, op_queue1);
-    auto result1 = CircuitChecker::get_computation_result(circuit_builder1);
+    auto proving_key1 = TranslatorProvingKey(batching_challenge, x, op_queue1);
+    auto result1 = CircuitChecker::get_computation_result(proving_key1);
 
-    // Build second circuit with same operations
+    // Build second proving key with same operations
     auto op_queue2 = std::make_shared<ECCOpQueue>();
     op_queue2->no_op_ultra_only();
     op_queue2->random_op_ultra_only();
@@ -372,8 +372,8 @@ TEST(TranslatorCircuitBuilder, Determinism)
     op_queue2->random_op_ultra_only();
     op_queue2->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue2->get_current_subtable_size());
 
-    auto circuit_builder2 = TranslatorCircuitBuilder(batching_challenge, x, op_queue2);
-    auto result2 = CircuitChecker::get_computation_result(circuit_builder2);
+    auto proving_key2 = TranslatorProvingKey(batching_challenge, x, op_queue2);
+    auto result2 = CircuitChecker::get_computation_result(proving_key2);
 
     EXPECT_EQ(result1, result2);
 }
