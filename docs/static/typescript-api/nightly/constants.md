@@ -1,6 +1,6 @@
 # @aztec/constants
 
-Version: v4.0.0-nightly.20260216
+Version: v4.0.0-nightly.20260217
 
 ## Quick Import Reference
 
@@ -1772,11 +1772,6 @@ type MAX_FIELD_VALUE = [object Object]
 type MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS = 16000
 ```
 
-### MAX_INCLUDE_BY_TIMESTAMP_DURATION
-```typescript
-type MAX_INCLUDE_BY_TIMESTAMP_DURATION = 86400
-```
-
 ### MAX_KEY_VALIDATION_REQUESTS_PER_CALL
 ```typescript
 type MAX_KEY_VALIDATION_REQUESTS_PER_CALL = 16
@@ -1915,6 +1910,11 @@ type MAX_PUBLIC_LOG_SIZE_IN_FIELDS = 4094
 ### MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
 ```typescript
 type MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 64
+```
+
+### MAX_TX_LIFETIME
+```typescript
+type MAX_TX_LIFETIME = 86400
 ```
 
 ### MAX_U32_VALUE

@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: v4.0.0-nightly.20260216
+Version: v4.0.0-nightly.20260217
 
 ## Quick Import Reference
 
@@ -3861,9 +3861,9 @@ type TX_ERROR_INSUFFICIENT_FEE_PER_GAS = "Insufficient fee per gas"
 type TX_ERROR_INSUFFICIENT_GAS_LIMIT = "Gas limit is below the minimum fixed cost"
 ```
 
-### TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP
+### TX_ERROR_INVALID_EXPIRATION_TIMESTAMP
 ```typescript
-type TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP = "Invalid expiration timestamp"
+type TX_ERROR_INVALID_EXPIRATION_TIMESTAMP = "Invalid expiration timestamp"
 ```
 
 ### TX_ERROR_INVALID_PROOF
