@@ -34,9 +34,10 @@ export const mockCheckpointAttestation = (
   slot: number = 0,
   archive: Fr = Fr.random(),
   header?: CheckpointHeader,
+  feeAssetPriceModifier: bigint = 0n,
 ): CheckpointAttestation => {
   header = header ?? CheckpointHeader.random({ slotNumber: SlotNumber(slot) });
-  const payload = new ConsensusPayload(header, archive);
+  const payload = new ConsensusPayload(header, archive, feeAssetPriceModifier);
 
   const attestationHash = getHashedSignaturePayloadEthSignedMessage(
     payload,

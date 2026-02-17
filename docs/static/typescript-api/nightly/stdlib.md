@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: v4.0.0-nightly.20260212
+Version: v4.0.0-nightly.20260216
 
 ## Quick Import Reference
 
@@ -2875,6 +2875,11 @@ function computeSecretHash(secret: Fr) => Promise<Fr>
 ```
 Computes a hash of a secret.
 
+### computeSiloedPrivateLogFirstField
+```typescript
+function computeSiloedPrivateLogFirstField(contract: AztecAddress, field: Fr) => Promise<Fr>
+```
+
 ### computeUniqueNoteHash
 ```typescript
 function computeUniqueNoteHash(noteNonce: Fr, siloedNoteHash: Fr) => Promise<Fr>
@@ -3666,12 +3671,6 @@ Log filter used to fetch L2 logs.
 ```typescript
 type NodeStats = unknown
 ```
-
-### NotesFilter
-```typescript
-type NotesFilter = unknown
-```
-A filter used to fetch notes.
 
 ### OFFCHAIN_MESSAGE_IDENTIFIER
 ```typescript

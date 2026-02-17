@@ -17,7 +17,7 @@
 #include "barretenberg/vm2/generated/relations/perms_addressing.hpp"
 #include "barretenberg/vm2/generated/relations/perms_data_copy.hpp"
 #include "barretenberg/vm2/generated/relations/perms_ecc_mem.hpp"
-#include "barretenberg/vm2/generated/relations/perms_emit_unencrypted_log.hpp"
+#include "barretenberg/vm2/generated/relations/perms_emit_public_log.hpp"
 #include "barretenberg/vm2/generated/relations/perms_get_contract_instance.hpp"
 #include "barretenberg/vm2/generated/relations/perms_keccak_memory.hpp"
 #include "barretenberg/vm2/generated/relations/perms_poseidon2_mem.hpp"
@@ -142,8 +142,8 @@ const InteractionDefinition MemoryTraceBuilder::interactions =
              // Get Contract Instance.
              perm_get_contract_instance_mem_write_contract_instance_exists_settings,
              perm_get_contract_instance_mem_write_contract_instance_member_settings,
-             // Unencrypted Log.
-             perm_emit_unencrypted_log_read_mem_settings,
+             // Public Log.
+             perm_emit_public_log_read_mem_settings,
              // Poseidon2.
              perm_poseidon2_mem_pos_read_mem_0_settings,
              perm_poseidon2_mem_pos_read_mem_1_settings,

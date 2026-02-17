@@ -473,7 +473,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     tx_context: mapTxContextToNoir(privateCircuitPublicInputs.txContext),
     min_revertible_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.minRevertibleSideEffectCounter),
     is_fee_payer: privateCircuitPublicInputs.isFeePayer,
-    include_by_timestamp: mapU64ToNoir(privateCircuitPublicInputs.includeByTimestamp),
+    expiration_timestamp: mapU64ToNoir(privateCircuitPublicInputs.expirationTimestamp),
   };
 }
 
@@ -556,7 +556,7 @@ export function mapPrivateKernelCircuitPublicInputsFromNoir(
     mapPrivateAccumulatedDataFromNoir(inputs.end),
     mapPublicCallRequestFromNoir(inputs.public_teardown_call_request),
     mapAztecAddressFromNoir(inputs.fee_payer),
-    mapU64FromNoir(inputs.include_by_timestamp),
+    mapU64FromNoir(inputs.expiration_timestamp),
     inputs.is_private_only,
     mapFieldFromNoir(inputs.claimed_first_nullifier),
     mapNumberFromNoir(inputs.claimed_revertible_counter),
@@ -573,7 +573,7 @@ export function mapPrivateKernelCircuitPublicInputsToNoir(
     min_revertible_side_effect_counter: mapFieldToNoir(inputs.minRevertibleSideEffectCounter),
     public_teardown_call_request: mapPublicCallRequestToNoir(inputs.publicTeardownCallRequest),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
-    include_by_timestamp: mapU64ToNoir(inputs.includeByTimestamp),
+    expiration_timestamp: mapU64ToNoir(inputs.expirationTimestamp),
     is_private_only: inputs.isPrivateOnly,
     claimed_first_nullifier: mapFieldToNoir(inputs.claimedFirstNullifier),
     claimed_revertible_counter: mapNumberToNoir(inputs.claimedRevertibleCounter),
@@ -601,7 +601,7 @@ export function mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir(
     mapTxConstantDataFromNoir(inputs.constants),
     mapGasFromNoir(inputs.gas_used),
     mapAztecAddressFromNoir(inputs.fee_payer),
-    mapBigIntFromNoir(inputs.include_by_timestamp),
+    mapBigIntFromNoir(inputs.expiration_timestamp),
     undefined,
     forRollup,
   );
@@ -619,7 +619,7 @@ export function mapPrivateKernelTailCircuitPublicInputsForPublicFromNoir(
     mapTxConstantDataFromNoir(inputs.constants),
     mapGasFromNoir(inputs.gas_used),
     mapAztecAddressFromNoir(inputs.fee_payer),
-    mapBigIntFromNoir(inputs.include_by_timestamp),
+    mapBigIntFromNoir(inputs.expiration_timestamp),
     forPublic,
   );
 }

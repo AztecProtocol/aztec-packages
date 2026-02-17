@@ -164,7 +164,7 @@ where
         let time_horizon = value_change.get_time_horizon(anchor_timestamp, effective_minimum_delay);
 
         // We prevent this transaction from being included in any timestamp after the time horizon.
-        self.context.set_include_by_timestamp(time_horizon);
+        self.context.set_expiration_timestamp(time_horizon);
 
         value_change.get_current_at(anchor_timestamp)
     }

@@ -251,8 +251,8 @@ std::vector<FuzzInstruction> InstructionMutator::generate_instruction(std::mt199
         return generate_calldatacopy_instruction(rng);
     case InstructionGenerationOptions::SENDL2TOL1MSG:
         return generate_sendl2tol1msg_instruction(rng);
-    case InstructionGenerationOptions::EMITUNENCRYPTEDLOG:
-        return generate_emitunencryptedlog_instruction(rng);
+    case InstructionGenerationOptions::EMITPUBLICLOG:
+        return generate_emitpubliclog_instruction(rng);
     case InstructionGenerationOptions::CALL:
         return generate_call_instruction(rng);
     case InstructionGenerationOptions::RETURNDATASIZE:
@@ -335,7 +335,7 @@ void InstructionMutator::mutate_instruction(FuzzInstruction& instruction, std::m
             [&rng, this](NOTEHASHEXISTS_Instruction& instr) { mutate_note_hash_exists_instruction(instr, rng); },
             [&rng, this](CALLDATACOPY_Instruction& instr) { mutate_calldatacopy_instruction(instr, rng); },
             [&rng, this](SENDL2TOL1MSG_Instruction& instr) { mutate_sendl2tol1msg_instruction(instr, rng); },
-            [&rng, this](EMITUNENCRYPTEDLOG_Instruction& instr) { mutate_emitunencryptedlog_instruction(instr, rng); },
+            [&rng, this](EMITPUBLICLOG_Instruction& instr) { mutate_emitpubliclog_instruction(instr, rng); },
             [&rng, this](CALL_Instruction& instr) { mutate_call_instruction(instr, rng); },
             [&rng, this](RETURNDATASIZE_Instruction& instr) { mutate_returndatasize_instruction(instr, rng); },
             [&rng, this](RETURNDATACOPY_Instruction& instr) { mutate_returndatacopy_instruction(instr, rng); },
@@ -773,14 +773,14 @@ std::vector<FuzzInstruction> InstructionMutator::generate_sload_instruction(std:
     return instructions;
 }
 
-std::vector<FuzzInstruction> InstructionMutator::generate_emitunencryptedlog_instruction(std::mt19937_64& rng)
+std::vector<FuzzInstruction> InstructionMutator::generate_emitpubliclog_instruction(std::mt19937_64& rng)
 {
     // 80% chance to use backfill (4 out of 5) to increase success rate
     bool use_backfill = std::uniform_int_distribution<int>(0, 4)(rng) != 0;
 
     if (!use_backfill) {
-        return { EMITUNENCRYPTEDLOG_Instruction{ .log_size_address = generate_variable_ref(rng),
-                                                 .log_values_address = generate_variable_ref(rng) } };
+        return { EMITPUBLICLOG_Instruction{ .log_size_address = generate_variable_ref(rng),
+                                            .log_values_address = generate_variable_ref(rng) } };
     }
 
     uint32_t log_size = std::uniform_int_distribution<uint32_t>(0, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH)(rng);
@@ -798,8 +798,8 @@ std::vector<FuzzInstruction> InstructionMutator::generate_emitunencryptedlog_ins
                                                .result_address = log_values_address,
                                                .value = generate_random_field(rng) });
 
-    instructions.push_back(EMITUNENCRYPTEDLOG_Instruction{ .log_size_address = log_size_address,
-                                                           .log_values_address = log_values_address });
+    instructions.push_back(
+        EMITPUBLICLOG_Instruction{ .log_size_address = log_size_address, .log_values_address = log_values_address });
 
     return instructions;
 }
@@ -1383,15 +1383,14 @@ void InstructionMutator::mutate_sendl2tol1msg_instruction(SENDL2TOL1MSG_Instruct
     }
 }
 
-void InstructionMutator::mutate_emitunencryptedlog_instruction(EMITUNENCRYPTEDLOG_Instruction& instruction,
-                                                               std::mt19937_64& rng)
+void InstructionMutator::mutate_emitpubliclog_instruction(EMITPUBLICLOG_Instruction& instruction, std::mt19937_64& rng)
 {
-    EmitUnencryptedLogMutationOptions option = BASIC_EMITUNENCRYPTEDLOG_MUTATION_CONFIGURATION.select(rng);
+    EmitPublicLogMutationOptions option = BASIC_EMITPUBLICLOG_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
-    case EmitUnencryptedLogMutationOptions::log_size_address:
+    case EmitPublicLogMutationOptions::log_size_address:
         mutate_param_ref(instruction.log_size_address, rng, MemoryTag::U32, MAX_16BIT_OPERAND);
         break;
-    case EmitUnencryptedLogMutationOptions::log_values_address:
+    case EmitPublicLogMutationOptions::log_values_address:
         mutate_param_ref(instruction.log_values_address, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
         break;
     }

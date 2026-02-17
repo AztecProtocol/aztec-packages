@@ -166,8 +166,7 @@ unconstrained fn nullifier_exists_opcode(siloed_nullifier: Field) -> u1 {}
 #[oracle(avmOpcodeEmitNullifier)]
 unconstrained fn emit_nullifier_opcode(nullifier: Field) {}
 
-// TODO(#11124): rename unencrypted to public in avm
-#[oracle(avmOpcodeEmitUnencryptedLog)]
+#[oracle(avmOpcodeEmitPublicLog)]
 unconstrained fn emit_public_log_opcode(message: [Field]) {}
 
 #[oracle(avmOpcodeL1ToL2MsgExists)]

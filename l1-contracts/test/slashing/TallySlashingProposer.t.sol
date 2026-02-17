@@ -870,6 +870,51 @@ contract TallySlashingProposerTest is TestBase {
     }
   }
 
+  function test_executeRoundWithEmptyCommittee() public {
+    // Round FIRST_SLASH_ROUND targets epochs 0 and 1, which have no committees
+    // because they precede the validator set sampling lag.
+    //
+    // Before the fix, casting votes that reach quorum for validator slots in these
+    // committee-less epochs would cause executeRound (and getTally) to revert with
+    // an array out-of-bounds access when indexing _committees[epochIndex][validatorIndex].
+    _jumpToSlashRound(FIRST_SLASH_ROUND);
+    SlashRound targetRound = slashingProposer.getCurrentRound();
+
+    // Cast QUORUM votes with max slash for ALL validator slots, including those
+    // corresponding to epochs without valid committees.
+    uint8[] memory slashAmounts = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
+    for (uint256 i = 0; i < slashAmounts.length; i++) {
+      slashAmounts[i] = 3;
+    }
+
+    for (uint256 i = 0; i < QUORUM; i++) {
+      _castVote(slashAmounts);
+      if (i < QUORUM - 1) {
+        timeCheater.cheat__progressSlot();
+      }
+    }
+
+    // Jump past execution delay
+    uint256 targetSlot = (SlashRound.unwrap(targetRound) + EXECUTION_DELAY_IN_ROUNDS + 1) * ROUND_SIZE;
+    timeCheater.cheat__jumpToSlot(targetSlot);
+
+    // Verify that both targeted epochs have empty committees
+    address[][] memory committees = slashingProposer.getSlashTargetCommittees(targetRound);
+    assertEq(committees[0].length, 0, "Epoch 0 should have empty committee");
+    assertEq(committees[1].length, 0, "Epoch 1 should have empty committee");
+
+    // getTally should not revert and should return 0 actions
+    TallySlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(targetRound, committees);
+    assertEq(actions.length, 0, "Should have no slash actions for empty committees");
+
+    // executeRound should also succeed
+    slashingProposer.executeRound(targetRound, committees);
+
+    // Verify round is marked as executed
+    (bool isExecuted,) = slashingProposer.getRound(targetRound);
+    assertTrue(isExecuted, "Round should be marked as executed");
+  }
+
   function test_getSlashTargetCommitteesEarlyEpochs() public {
     // Test that getSlashTargetCommittees handles epochs 0 and 1 without throwing
     // when ValidatorSelection__InsufficientValidatorSetSize is thrown

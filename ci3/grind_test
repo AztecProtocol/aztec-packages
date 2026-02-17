@@ -41,7 +41,8 @@ function build {
 
 function grind {
     echo_header "grinding for $timeout"
-    local par_cmd="CI=0 TRACK_TEST_FAIL=1 run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"
+    # NAME_POSTFIX allows for grinding compose tests in parallel.
+    local par_cmd="NAME_POSTFIX={} CI=0 TRACK_TEST_FAIL=1 run_test_cmd '${hash_prefix}:NAME=test-{} ${test_cmd}'"
     local joblog=$(mktemp)
 
     # Run for full timeout, logging all results (no --halt, collect all failure data)

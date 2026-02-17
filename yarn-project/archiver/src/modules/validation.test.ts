@@ -22,8 +22,16 @@ describe('validateCheckpointAttestations', () => {
 
   const constants = { epochDuration: 10 };
 
-  const makeCheckpoint = async (signers: Secp256k1Signer[], committee: EthAddress[], slot?: number) => {
-    const checkpoint = await Checkpoint.random(CheckpointNumber(1), { slotNumber: SlotNumber(slot ?? 1) });
+  const makeCheckpoint = async (
+    signers: Secp256k1Signer[],
+    committee: EthAddress[],
+    slot?: number,
+    feeAssetPriceModifier?: bigint,
+  ) => {
+    const checkpoint = await Checkpoint.random(CheckpointNumber(1), {
+      slotNumber: SlotNumber(slot ?? 1),
+      feeAssetPriceModifier,
+    });
     return makeSignedPublishedCheckpoint(checkpoint, signers, committee);
   };
 
@@ -77,6 +85,16 @@ describe('validateCheckpointAttestations', () => {
   describe('with committee', () => {
     beforeEach(() => {
       setCommittee(committee);
+    });
+
+    it('uses feeAssetPriceModifier when recovering attestors', async () => {
+      const checkpoint = await makeCheckpoint(signers.slice(0, 4), committee, 1, 1n);
+
+      const attestationInfos = getAttestationInfoFromPublishedCheckpoint(checkpoint);
+      expect(attestationInfos.filter(a => a.status === 'recovered-from-signature').length).toBe(4);
+
+      const result = await validateCheckpointAttestations(checkpoint, epochCache, constants, logger);
+      expect(result.valid).toBe(true);
     });
 
     it('requests committee for the correct epoch', async () => {

@@ -1,10 +1,5 @@
 import { BackendType, BarretenbergSync } from '@aztec/bb.js';
-import {
-  MAX_INCLUDE_BY_TIMESTAMP_DURATION,
-  MAX_NOTE_HASHES_PER_CALL,
-  MAX_NOTE_HASHES_PER_TX,
-  VK_TREE_HEIGHT,
-} from '@aztec/constants';
+import { MAX_NOTE_HASHES_PER_CALL, MAX_NOTE_HASHES_PER_TX, MAX_TX_LIFETIME, VK_TREE_HEIGHT } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
@@ -42,7 +37,7 @@ describe('Private Kernel Sequencer', () => {
 
   const contractAddress = AztecAddress.fromBigInt(987654n);
   const blockTimestamp = 12345n;
-  const includeByTimestamp = blockTimestamp + BigInt(MAX_INCLUDE_BY_TIMESTAMP_DURATION);
+  const expirationTimestamp = blockTimestamp + BigInt(MAX_TX_LIFETIME);
 
   beforeAll(async () => {
     await BarretenbergSync.initSingleton({ backend: BackendType.NativeSharedMemory, logger: logger.debug });
@@ -97,7 +92,7 @@ describe('Private Kernel Sequencer', () => {
   const simulateProofOutput = (newNoteIndices: number[]) => {
     const publicInputs = PrivateKernelCircuitPublicInputs.empty();
     publicInputs.constants.anchorBlockHeader.globalVariables.timestamp = blockTimestamp;
-    publicInputs.includeByTimestamp = includeByTimestamp;
+    publicInputs.expirationTimestamp = expirationTimestamp;
     publicInputs.end.noteHashes = new ClaimedLengthArray(
       padArrayEnd(
         newNoteIndices.map(newNoteIndex =>

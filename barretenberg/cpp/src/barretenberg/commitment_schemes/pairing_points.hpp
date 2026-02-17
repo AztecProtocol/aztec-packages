@@ -1,12 +1,11 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Khashayar], commit: }
+// internal:    { status: complete, auditors: [Luke], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
 
-#include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/assert.hpp"
 
@@ -22,7 +21,6 @@ namespace bb {
 template <typename Curve_> class PairingPoints {
   public:
     using Curve = Curve_;
-    using CK = CommitmentKey<Curve>;
     using Point = typename Curve::AffineElement;
     using Fr = typename Curve::ScalarField;
     using Fq = typename Curve::BaseField;
@@ -33,8 +31,6 @@ template <typename Curve_> class PairingPoints {
     // Array-like interface for Codec compatibility
     using value_type = Point;
     static constexpr size_t SIZE = 2;
-
-    std::array<Point, 2> _points = { Point::infinity(), Point::infinity() };
 
     // Named accessors
     Point& P0() { return _points[0]; }
@@ -47,9 +43,6 @@ template <typename Curve_> class PairingPoints {
         : _points{ p0, p1 }
     {}
 
-    auto& operator[](size_t idx) { return _points[idx]; }
-    const auto& operator[](size_t idx) const { return _points[idx]; }
-
     // Iterator support for range-based for (required by Codec)
     auto begin() { return _points.begin(); }
     auto end() { return _points.end(); }
@@ -58,14 +51,19 @@ template <typename Curve_> class PairingPoints {
     static constexpr size_t size() { return SIZE; }
 
     /**
-     * @brief Aggregate the current pairing points with another set of pairing points using a random scalar
+     * @brief Aggregate the current pairing points with another set of pairing points using a random scalar.
+     * @details If this is at infinity (default-constructed), simply copies other. The incoming points must not be at
+     * infinity since they should always represent the output of actual PCS verification.
      */
     void aggregate(const PairingPoints<Curve>& other)
     {
-        if (P0() == Point::infinity() || P1() == Point::infinity() || other.P0() == Point::infinity() ||
-            other.P1() == Point::infinity()) {
-            throw_or_abort("WARNING: Shouldn't be aggregating with Point at infinity! The pairing points are probably "
-                           "uninitialized.");
+        if (other.P0() == Point::infinity() || other.P1() == Point::infinity()) {
+            throw_or_abort("Cannot aggregate: incoming pairing points are at infinity (probably uninitialized).");
+        }
+        // If this is at infinity (default/uninitialized), just adopt the incoming points
+        if (P0() == Point::infinity() || P1() == Point::infinity()) {
+            *this = other;
+            return;
         }
         Fr aggregation_separator = Fr::random_element();
         P0() = P0() + other.P0() * aggregation_separator;
@@ -73,17 +71,18 @@ template <typename Curve_> class PairingPoints {
     }
 
     /**
-     * @brief Perform the pairing check
+     * @brief Verify the pairing equation e(P0, [1]₂) · e(P1, [x]₂) = 1.
      */
     bool check() const
     {
-        VerifierCK pcs_vkey{};
+        VerifierCK vck{};
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1423): Rename to verifier_pcs_key or vckey or
         // something. Issue exists in many places besides just here.
-        return pcs_vkey.pairing_check(P0(), P1());
+        return vck.pairing_check(P0(), P1());
     }
 
-    bool operator==(const PairingPoints<Curve>& other) const = default;
+  private:
+    std::array<Point, 2> _points = { Point::infinity(), Point::infinity() };
 };
 
 } // namespace bb

@@ -14,7 +14,7 @@ use types::{
 
 struct TestBuilder {
     pub previous_kernel: FixtureBuilder,
-    pub include_by_timestamp_upper_bound: u64,
+    pub expiration_timestamp_upper_bound: u64,
     pub output: FixtureBuilder,
 }
 
@@ -32,7 +32,7 @@ impl TestBuilder {
 
         TestBuilder {
             previous_kernel,
-            include_by_timestamp_upper_bound: previous_kernel.include_by_timestamp,
+            expiration_timestamp_upper_bound: previous_kernel.expiration_timestamp,
             output,
         }
     }
@@ -42,7 +42,7 @@ impl TestBuilder {
 
         let inputs = PrivateKernelTailCircuitPrivateInputs {
             previous_kernel,
-            include_by_timestamp_upper_bound: self.include_by_timestamp_upper_bound,
+            expiration_timestamp_upper_bound: self.expiration_timestamp_upper_bound,
         };
 
         private_kernel_tail::execute(inputs)

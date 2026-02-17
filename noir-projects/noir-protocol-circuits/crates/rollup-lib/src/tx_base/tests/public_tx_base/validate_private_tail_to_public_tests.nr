@@ -123,30 +123,30 @@ unconstrained fn non_empty_contract_class_log_fields_for_reverted_log() {
     builder.execute_and_fail();
 }
 
-#[test(should_fail_with = "tx include_by_timestamp is smaller than block timestamp")]
-unconstrained fn include_by_timestamp_lower_than_block_timestamp() {
+#[test(should_fail_with = "tx expiration_timestamp is smaller than block timestamp")]
+unconstrained fn expiration_timestamp_lower_than_block_timestamp() {
     let mut builder = TestBuilder::new();
 
-    builder.private_tail.include_by_timestamp = builder.avm.global_variables.timestamp - 1;
+    builder.private_tail.expiration_timestamp = builder.avm.global_variables.timestamp - 1;
 
     builder.execute_and_fail();
 }
 
 #[test]
-unconstrained fn include_by_timestamp_equal_to_block_timestamp() {
+unconstrained fn expiration_timestamp_equal_to_block_timestamp() {
     let mut builder = TestBuilder::new();
 
-    builder.private_tail.include_by_timestamp = builder.avm.global_variables.timestamp;
+    builder.private_tail.expiration_timestamp = builder.avm.global_variables.timestamp;
 
     let pi = builder.execute();
     builder.assert_expected_public_inputs(pi);
 }
 
 #[test]
-unconstrained fn include_by_timestamp_higher_than_block_timestamp() {
+unconstrained fn expiration_timestamp_higher_than_block_timestamp() {
     let mut builder = TestBuilder::new();
 
-    builder.private_tail.include_by_timestamp = builder.avm.global_variables.timestamp + 1;
+    builder.private_tail.expiration_timestamp = builder.avm.global_variables.timestamp + 1;
 
     let pi = builder.execute();
     builder.assert_expected_public_inputs(pi);
