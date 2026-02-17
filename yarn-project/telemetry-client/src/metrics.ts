@@ -1402,6 +1402,28 @@ export const TX_FILE_STORE_QUEUE_SIZE: MetricDefinition = {
   description: 'Number of txs pending upload',
   valueType: ValueType.INT,
 };
+export const TX_FILE_STORE_DOWNLOADS_SUCCESS: MetricDefinition = {
+  name: 'aztec.p2p.tx_file_store.downloads_success',
+  description: 'Number of successful tx downloads from file storage',
+  valueType: ValueType.INT,
+};
+export const TX_FILE_STORE_DOWNLOADS_FAILED: MetricDefinition = {
+  name: 'aztec.p2p.tx_file_store.downloads_failed',
+  description: 'Number of failed tx downloads from file storage',
+  valueType: ValueType.INT,
+};
+export const TX_FILE_STORE_DOWNLOAD_DURATION: MetricDefinition = {
+  name: 'aztec.p2p.tx_file_store.download_duration',
+  description: 'Duration to download a tx from file storage',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const TX_FILE_STORE_DOWNLOAD_SIZE: MetricDefinition = {
+  name: 'aztec.p2p.tx_file_store.download_size',
+  description: 'Size of a downloaded tx from file storage',
+  unit: 'By',
+  valueType: ValueType.INT,
+};
 
 export const IVC_VERIFIER_TIME: MetricDefinition = {
   name: 'aztec.ivc_verifier.time',
