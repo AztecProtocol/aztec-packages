@@ -102,7 +102,8 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     // We conditionally select a public key whose x and y coordinates are smaller than the base field modulus. We need
     // to do this to avoid circuit failures in the function validate_on_curve. Note that this doesn't allow any attack
     // as the result of the verification takes into account whether the original point coordinates were valid or not.
-    G1 double_generator(Curve::g1::one + Curve::g1::one);
+    typename Curve::AffineElementNative native_double_generator(Curve::g1::one + Curve::g1::one);
+    G1 double_generator(Fq(native_double_generator.x), Fq(native_double_generator.y), /*assert_on_curve=*/false);
     G1 corrected_public_key = G1::conditional_assign(
         is_point_at_infinity || !is_x_less_than_modulus || !is_y_less_than_modulus, double_generator, public_key);
     bool_t<Builder> is_point_on_curve =

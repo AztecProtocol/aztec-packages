@@ -226,8 +226,15 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
             create_element_with_explicit_infinity<Builder, Fq, Fr, G1Native>(
                 x, y, is_infinity, /*assert_on_curve=*/false);
         pub_key.set_free_witness_tag();
+        BB_ASSERT_EQ(pub_key.is_point_at_infinity().get_value(), account.public_key.is_point_at_infinity());
 
-        return { pub_key, signature };
+        std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
+        std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
+
+        stdlib::ecdsa_signature<Builder> sig{ stdlib::byte_array<Builder>(&builder, rr),
+                                              stdlib::byte_array<Builder>(&builder, ss) };
+
+        return { pub_key, sig };
     }
 
     void ecdsa_verification_circuit(Builder& builder,

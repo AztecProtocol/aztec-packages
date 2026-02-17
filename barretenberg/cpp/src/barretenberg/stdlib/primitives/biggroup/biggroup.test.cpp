@@ -228,11 +228,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         affine_element input_death(element::random_element());
         auto x_death = element_ct::BaseField::from_witness(&builder, input_death.x);
         auto y_normal = element_ct::BaseField::from_witness(&builder, input_death.y);
-        auto pif_normal = bool_ct(witness_ct(&builder, false));
         x_death.set_origin_tag(instant_death_tag);
         y_normal.set_origin_tag(constant_tag);
-        pif_normal.set_origin_tag(constant_tag);
-        element_ct death_point(x_death, y_normal, pif_normal, /*assert_on_curve=*/false);
+        element_ct death_point(x_death, y_normal, /*assert_on_curve=*/false);
         EXPECT_THROW(death_point + death_point, std::runtime_error);
 
         // AUDITTODO: incomplete_assert_equal has inconsistent instant_death behavior between builders. (this was simply

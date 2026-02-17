@@ -57,7 +57,7 @@ element<C, Fq, Fr, G>::element(const Fq& x_in, const Fq& y_in, const bool assert
 
     // Validate on-curve if requested
     if (assert_on_curve) {
-        validate_on_curve();
+        [[maybe_unused]] Fq _ = validate_on_curve();
     }
 }
 

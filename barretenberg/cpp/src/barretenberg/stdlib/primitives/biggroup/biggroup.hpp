@@ -104,7 +104,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         // Return early for constant inputs
         if (this->is_constant()) {
             BB_ASSERT(this->get_value().on_curve(), "biggroup::validate_on_curve: constant point not on curve");
-            return;
+            return typename Fq::native(this->get_value().on_curve() ? 0 : 1);
         }
 
         // If this is a point at infinity, it must have (x, y) = (0, 0)
