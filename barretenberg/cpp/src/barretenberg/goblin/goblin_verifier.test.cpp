@@ -216,9 +216,8 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
 
 /**
  * @brief Tampered merge commitments cause the Translator pairing check to fail
- * @details Tests the Merge → Translator cross-component binding: merge_commitments flow into the Translator verifier
- * as op queue wire commitments. A mismatch causes the KZG pairing check to fail (not a circuit failure, since the
- * commitments are external inputs, not constrained in-circuit).
+ * @details Tests the Merge-Translator cross-component connection: merge_commitments flow into the Translator verifier
+ * as op queue wire commitments. A mismatch causes the KZG pairing check to fail (not a circuit failure).
  */
 TEST_F(GoblinRecursiveVerifierTests, MergeToTranslatorBindingFailure)
 {
@@ -262,7 +261,7 @@ TEST_F(GoblinRecursiveVerifierTests, MergeToTranslatorBindingFailure)
 
 /**
  * @brief Tampered ECCVM translation evaluations cause the Translator circuit to fail
- * @details Tests the ECCVM → Translator cross-component binding: translation evaluations (op, Px, Py, z1, z2) from
+ * @details Tests the ECCVM-Translator cross-component connection: translation evaluations (op, Px, Py, z1, z2) from
  * the ECCVM proof become `accumulated_result` in the Translator verifier. Tampering with these causes the Translator's
  * relation constraints to fail in-circuit.
  */
