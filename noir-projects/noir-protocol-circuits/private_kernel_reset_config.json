@@ -6,7 +6,7 @@
       "cost": 85
     },
     "NOTE_HASH_SETTLED_READ": {
-      "variants": [4, 8, 16, 32],
+      "variants": [4, 16],
       "standalone": [64],
       "cost": 3600
     },
@@ -16,7 +16,7 @@
       "cost": 90
     },
     "NULLIFIER_SETTLED_READ": {
-      "variants": [4, 8, 16, 32],
+      "variants": [4, 16],
       "standalone": [64],
       "cost": 3760
     },
