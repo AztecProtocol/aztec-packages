@@ -1,6 +1,6 @@
 # @aztec/wallet-sdk
 
-Version: v4.0.0-nightly.20260216
+Version: v4.0.0-nightly.20260217
 
 ## Quick Import Reference
 
@@ -117,7 +117,8 @@ new ExtensionProvider()
 A wallet implementation that communicates with browser extension wallets using an encrypted MessageChannel. This class uses a secure channel established after discovery: 1. **MessageChannel**: Created during discovery and transferred via window.postMessage. Note: The port transfer is visible to page scripts, but security comes from encryption. 2. **ECDH Key Exchange**: The shared secret was derived after discovery using Elliptic Curve Diffie-Hellman key exchange over the MessagePort. 3. **AES-GCM Encryption**: All messages are encrypted using AES-256-GCM, providing both confidentiality and authenticity. This is what secures the channel.
 
 **Methods**
-- `static create(extensionId: string, port: MessagePort, sharedKey: CryptoKey, chainInfo: ChainInfo, appId: string) => Wallet` - Creates a Wallet that communicates with a browser extension over a secure encrypted MessageChannel.
+- `asWallet() => Wallet`
+- `static create(extensionId: string, port: MessagePort, sharedKey: CryptoKey, chainInfo: ChainInfo, appId: string) => ExtensionWallet` - Creates a Wallet that communicates with a browser extension over a secure encrypted MessageChannel.
 - `disconnect() => Promise<void>` - Disconnects from the wallet and cleans up resources. This method notifies the wallet extension that the session is ending, allowing it to clean up its state. After calling this method, the wallet instance can no longer be used and any pending requests will be rejected.
 - `isDisconnected() => boolean` - Returns whether the wallet has been disconnected.
 - `onDisconnect(callback: DisconnectCallback) => () => void` - Registers a callback to be invoked when the wallet disconnects.
