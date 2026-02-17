@@ -174,15 +174,15 @@ impl ResetOutputComposer {
             self.nullifier_read_request_actions_hints,
         );
 
-        let scoped_key_validation_requests_and_generators = get_propagated_key_validation_requests(
-            validation_requests.scoped_key_validation_requests_and_generators,
+        let scoped_key_validation_requests_and_separators = get_propagated_key_validation_requests(
+            validation_requests.scoped_key_validation_requests_and_separators,
             KeyValidationAmount,
         );
 
         PrivateValidationRequests {
             note_hash_read_requests: kept_note_hash_read_requests,
             nullifier_read_requests: kept_nullifier_read_requests,
-            scoped_key_validation_requests_and_generators,
+            scoped_key_validation_requests_and_separators,
         }
     }
 

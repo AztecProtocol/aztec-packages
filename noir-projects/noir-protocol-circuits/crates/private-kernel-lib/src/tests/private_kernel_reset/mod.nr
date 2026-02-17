@@ -199,11 +199,12 @@ impl TestBuilder {
         let sk_m = EmbeddedCurveScalar::from_field(sk);
         let pk_m = derive_public_key(sk_m);
 
-        let sk_app_generator = 123321;
+        let key_type_domain_separator = 123321;
         let contract_address = self.previous_kernel.contract_address;
-        let sk_app = compute_app_siloed_secret_key(sk_m, contract_address, sk_app_generator);
+        let sk_app =
+            compute_app_siloed_secret_key(sk_m, contract_address, key_type_domain_separator);
 
-        self.previous_kernel.add_request_for_key_validation(pk_m, sk_app, sk_app_generator);
+        self.previous_kernel.add_request_for_key_validation(pk_m, sk_app, key_type_domain_separator);
     }
 
     pub fn add_key_validation_request_and_hint(&mut self, sk: Field) {

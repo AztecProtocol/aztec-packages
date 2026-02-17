@@ -165,7 +165,7 @@ impl PrivateContext {
             nullifier_read_requests: ClaimedLengthArray::from_bounded_vec(
                 self.nullifier_read_requests,
             ),
-            key_validation_requests_and_generators: ClaimedLengthArray::empty(), // Not used by protocol contracts
+            key_validation_requests_and_separators: ClaimedLengthArray::empty(), // Not used by protocol contracts
             note_hashes: ClaimedLengthArray::empty(), // Not used by protocol contracts
             nullifiers: ClaimedLengthArray::from_bounded_vec(self.nullifiers),
             private_call_requests: ClaimedLengthArray::from_bounded_vec(self.private_call_requests),
