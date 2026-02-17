@@ -128,7 +128,7 @@ export class MissingTxMetadataCollection implements ITxMetadataCollection {
   }
 
   public alreadyFetched(txHash: TxHash): boolean {
-    return this.missingTxsTracker.isMissing(txHash.toString());
+    return !this.missingTxsTracker.isMissing(txHash.toString());
   }
 
   public markFetched(peerId: PeerId, tx: Tx): boolean {
