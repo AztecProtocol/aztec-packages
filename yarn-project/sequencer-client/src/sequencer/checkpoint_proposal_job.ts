@@ -194,7 +194,7 @@ export class CheckpointProposalJob implements Traceable {
       const feeAssetPriceModifier = await this.publisher.getFeeAssetPriceModifier();
 
       // Create a long-lived forked world state for the checkpoint builder
-      using fork = await this.worldState.fork(this.syncedToBlockNumber, { closeDelayMs: 12_000 });
+      await using fork = await this.worldState.fork(this.syncedToBlockNumber, { closeDelayMs: 12_000 });
 
       // Create checkpoint builder for the entire slot
       const checkpointBuilder = await this.checkpointsBuilder.startCheckpoint(

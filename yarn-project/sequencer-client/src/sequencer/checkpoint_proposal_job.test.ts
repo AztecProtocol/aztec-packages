@@ -196,7 +196,9 @@ describe('CheckpointProposalJob', () => {
     p2p.broadcastProposal.mockResolvedValue(undefined);
 
     worldState = mockDeep<WorldStateSynchronizer>();
-    const mockFork = mock<MerkleTreeWriteOperations>({ [Symbol.dispose]: jest.fn() });
+    const mockFork = mock<MerkleTreeWriteOperations>({
+      [Symbol.asyncDispose]: jest.fn().mockReturnValue(Promise.resolve()) as () => Promise<void>,
+    });
     worldState.fork.mockResolvedValue(mockFork);
 
     // Create fake CheckpointsBuilder and CheckpointBuilder

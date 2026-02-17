@@ -282,7 +282,7 @@ describe('ValidatorClient Integration', () => {
       timestamp: BigInt(Date.now()),
     };
 
-    using fork = await proposer.worldStateDb.fork();
+    await using fork = await proposer.worldStateDb.fork();
     const builder = await proposer.checkpointsBuilder.startCheckpoint(
       checkpointNumber,
       globalVariables,
