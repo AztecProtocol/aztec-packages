@@ -237,10 +237,12 @@ describe('Kernelless simulation', () => {
       );
 
       wallet.enableSimulatedSimulations();
-      const { estimatedGas: swapKernellessGas } = await swapExactTokensInteraction.simulate({
-        from: swapperAddress,
-        includeMetadata: true,
-      });
+      const swapKernellessGas = (
+        await swapExactTokensInteraction.simulate({
+          from: swapperAddress,
+          includeMetadata: true,
+        })
+      ).estimatedGas!;
 
       const swapAuthwit = await wallet.createAuthWit(swapperAddress, {
         caller: amm.address,
@@ -248,11 +250,13 @@ describe('Kernelless simulation', () => {
       });
 
       wallet.disableSimulatedSimulations();
-      const { estimatedGas: swapWithKernelsGas } = await swapExactTokensInteraction.simulate({
-        from: swapperAddress,
-        includeMetadata: true,
-        authWitnesses: [swapAuthwit],
-      });
+      const swapWithKernelsGas = (
+        await swapExactTokensInteraction.simulate({
+          from: swapperAddress,
+          includeMetadata: true,
+          authWitnesses: [swapAuthwit],
+        })
+      ).estimatedGas!;
 
       logger.info(`Kernelless gas: L2=${swapKernellessGas.gasLimits.l2Gas} DA=${swapKernellessGas.gasLimits.daGas}`);
       logger.info(
@@ -285,16 +289,20 @@ describe('Kernelless simulation', () => {
       );
 
       wallet.enableSimulatedSimulations();
-      const { estimatedGas: kernellessGas } = await interaction.simulate({
-        from: adminAddress,
-        includeMetadata: true,
-      });
+      const kernellessGas = (
+        await interaction.simulate({
+          from: adminAddress,
+          includeMetadata: true,
+        })
+      ).estimatedGas!;
 
       wallet.disableSimulatedSimulations();
-      const { estimatedGas: withKernelsGas } = await interaction.simulate({
-        from: adminAddress,
-        includeMetadata: true,
-      });
+      const withKernelsGas = (
+        await interaction.simulate({
+          from: adminAddress,
+          includeMetadata: true,
+        })
+      ).estimatedGas!;
 
       logger.info(`Kernelless gas: L2=${kernellessGas.gasLimits.l2Gas} DA=${kernellessGas.gasLimits.daGas}`);
       logger.info(`With kernels gas: L2=${withKernelsGas.gasLimits.l2Gas} DA=${withKernelsGas.gasLimits.daGas}`);

@@ -37,10 +37,13 @@ export async function send(
     authWitnesses,
   };
 
-  const { estimatedGas, stats } = await call.simulate({
+  const sim = await call.simulate({
     ...sendOptions,
     fee: { ...sendOptions.fee, estimateGas: true },
   });
+  // estimateGas: true guarantees these fields are present
+  const estimatedGas = sim.estimatedGas!;
+  const stats = sim.stats!;
 
   if (feeOpts.estimateOnly) {
     return;

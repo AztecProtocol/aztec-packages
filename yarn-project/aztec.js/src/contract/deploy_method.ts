@@ -386,7 +386,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    * @returns A simulation result object containing metadata of the execution, including gas
    * estimations (if requested via options), execution statistics and emitted offchain effects
    */
-  public async simulate(options: SimulateDeployOptions): Promise<SimulationReturn<true>> {
+  public async simulate(options: SimulateDeployOptions): Promise<SimulationReturn> {
     const executionPayload = await this.request(this.convertDeployOptionsToRequestOptions(options));
     const simulatedTx = await this.wallet.simulateTx(executionPayload, toSimulateOptions(options));
 

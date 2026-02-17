@@ -63,10 +63,13 @@ export async function deployAccount(
   };
 
   const deployMethod = await account.getDeployMethod();
-  const { estimatedGas, stats } = await deployMethod.simulate({
+  const sim = await deployMethod.simulate({
     ...deployAccountOpts,
     fee: { ...deployAccountOpts.fee, estimateGas: true },
   });
+  // estimateGas: true guarantees these fields are present
+  const estimatedGas = sim.estimatedGas!;
+  const stats = sim.stats!;
 
   if (feeOpts.estimateOnly) {
     if (json) {
