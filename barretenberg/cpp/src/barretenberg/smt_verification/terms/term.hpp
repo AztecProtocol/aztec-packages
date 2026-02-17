@@ -117,7 +117,7 @@ class STerm {
     STerm normalize() const;
 
   public:
-    Solver* solver;
+    std::shared_ptr<Solver> solver;
     cvc5::Term term;
 
     TermType type;
@@ -128,8 +128,16 @@ class STerm {
         , term(cvc5::Term())
         , type(TermType::FFTerm) {};
 
+    // Backward compatibility: raw pointer creates non-owning shared_ptr
     STerm(const cvc5::Term& term, Solver* s, TermType type)
-        : solver(s)
+        : solver(s, [](Solver*) {}) // Non-owning shared_ptr (custom deleter does nothing)
+        , term(term)
+        , type(type)
+        , operations(typed_operations.at(type)) {};
+
+    // Preferred constructor: shared_ptr for proper lifetime management
+    STerm(const cvc5::Term& term, std::shared_ptr<Solver> s, TermType type)
+        : solver(std::move(s))
         , term(term)
         , type(type)
         , operations(typed_operations.at(type)) {};
@@ -204,7 +212,7 @@ class STerm {
         if (children.size() == 0) {
             throw std::invalid_argument("Can't use batch_add on empty vector");
         }
-        Solver* slv = children[0].solver;
+        auto slv = children[0].solver;
         std::vector<cvc5::Term> terms(children.begin(), children.end());
         cvc5::Term res = slv->term_manager.mkTerm(children[0].operations.at(OpType::ADD), terms);
         return { res, slv, children[0].type };
@@ -215,7 +223,7 @@ class STerm {
         if (children.size() == 0) {
             throw std::invalid_argument("Can't use batch_mul on empty vector");
         }
-        Solver* slv = children[0].solver;
+        auto slv = children[0].solver;
         std::vector<cvc5::Term> terms(children.begin(), children.end());
         cvc5::Term res = slv->term_manager.mkTerm(children[0].operations.at(OpType::MUL), terms);
         return { res, slv, children[0].type };
@@ -223,32 +231,32 @@ class STerm {
 
     // arithmetic compatibility with Fr
 
-    STerm operator+(const bb::fr& other) const { return *this + STerm(other, this->solver, this->type); }
-    void operator+=(const bb::fr& other) { *this += STerm(other, this->solver, this->type); }
-    STerm operator-(const bb::fr& other) const { return *this - STerm(other, this->solver, this->type); }
-    void operator-=(const bb::fr& other) { *this -= STerm(other, this->solver, this->type); }
+    STerm operator+(const bb::fr& other) const { return *this + STerm(other, this->solver.get(), this->type); }
+    void operator+=(const bb::fr& other) { *this += STerm(other, this->solver.get(), this->type); }
+    STerm operator-(const bb::fr& other) const { return *this - STerm(other, this->solver.get(), this->type); }
+    void operator-=(const bb::fr& other) { *this -= STerm(other, this->solver.get(), this->type); }
 
-    STerm operator*(const bb::fr& other) const { return *this * STerm(other, this->solver, this->type); }
-    void operator*=(const bb::fr& other) { *this *= STerm(other, this->solver, this->type); }
-    STerm operator/(const bb::fr& other) const { return *this * STerm(other.invert(), this->solver, this->type); }
-    void operator/=(const bb::fr& other) { *this *= STerm(other.invert(), this->solver, this->type); }
+    STerm operator*(const bb::fr& other) const { return *this * STerm(other, this->solver.get(), this->type); }
+    void operator*=(const bb::fr& other) { *this *= STerm(other, this->solver.get(), this->type); }
+    STerm operator/(const bb::fr& other) const { return *this * STerm(other.invert(), this->solver.get(), this->type); }
+    void operator/=(const bb::fr& other) { *this *= STerm(other.invert(), this->solver.get(), this->type); }
     // NOTE: this is not the same as .mod(). The modulus here can be arbitrary
-    STerm operator%(const bb::fr& other) const { return *this % STerm(other, this->solver, this->type); }
+    STerm operator%(const bb::fr& other) const { return *this % STerm(other, this->solver.get(), this->type); }
 
-    void operator<(const bb::fr& other) const { *this < STerm(other, this->solver, this->type); };
-    void operator<=(const bb::fr& other) const { *this <= STerm(other, this->solver, this->type); };
-    void operator>(const bb::fr& other) const { *this > STerm(other, this->solver, this->type); };
-    void operator>=(const bb::fr& other) const { *this >= STerm(other, this->solver, this->type); };
+    void operator<(const bb::fr& other) const { *this < STerm(other, this->solver.get(), this->type); };
+    void operator<=(const bb::fr& other) const { *this <= STerm(other, this->solver.get(), this->type); };
+    void operator>(const bb::fr& other) const { *this > STerm(other, this->solver.get(), this->type); };
+    void operator>=(const bb::fr& other) const { *this >= STerm(other, this->solver.get(), this->type); };
 
-    void operator==(const bb::fr& other) const { *this == STerm(other, this->solver, this->type); };
-    void operator!=(const bb::fr& other) const { *this != STerm(other, this->solver, this->type); };
+    void operator==(const bb::fr& other) const { *this == STerm(other, this->solver.get(), this->type); };
+    void operator!=(const bb::fr& other) const { *this != STerm(other, this->solver.get(), this->type); };
 
-    STerm operator^(const bb::fr& other) const { return *this ^ STerm(other, this->solver, this->type); };
-    void operator^=(const bb::fr& other) { *this ^= STerm(other, this->solver, this->type); };
-    STerm operator&(const bb::fr& other) const { return *this & STerm(other, this->solver, this->type); };
-    void operator&=(const bb::fr& other) { *this &= STerm(other, this->solver, this->type); };
-    STerm operator|(const bb::fr& other) const { return *this | STerm(other, this->solver, this->type); };
-    void operator|=(const bb::fr& other) { *this |= STerm(other, this->solver, this->type); };
+    STerm operator^(const bb::fr& other) const { return *this ^ STerm(other, this->solver.get(), this->type); };
+    void operator^=(const bb::fr& other) { *this ^= STerm(other, this->solver.get(), this->type); };
+    STerm operator&(const bb::fr& other) const { return *this & STerm(other, this->solver.get(), this->type); };
+    void operator&=(const bb::fr& other) { *this &= STerm(other, this->solver.get(), this->type); };
+    STerm operator|(const bb::fr& other) const { return *this | STerm(other, this->solver.get(), this->type); };
+    void operator|=(const bb::fr& other) { *this |= STerm(other, this->solver.get(), this->type); };
 
     STerm operator<<(const uint32_t& n) const;
     void operator<<=(const uint32_t& n);
