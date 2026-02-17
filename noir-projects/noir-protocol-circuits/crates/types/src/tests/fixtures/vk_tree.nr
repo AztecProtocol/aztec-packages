@@ -9,7 +9,7 @@ use crate::{
     tests::utils::pad_end,
 };
 
-pub global VK_TREE_WIDTH: u32 = (1 as u8 << VK_TREE_HEIGHT as u8) as u32;
+pub global VK_TREE_WIDTH: u32 = (1 as u32 << VK_TREE_HEIGHT as u32) as u32;
 
 pub fn generate_fake_vk_for_index<let N: u32>(vk_index: u32) -> VerificationKey<N> {
     let v = vk_index as Field;

@@ -33,7 +33,7 @@ pub global MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS: u32 = 16_000;
 // docs:start:constants
 // TREES RELATED CONSTANTS
 pub global ARCHIVE_HEIGHT: u32 = 30; // 4-second blocks for 100 years.
-pub global VK_TREE_HEIGHT: u32 = 7;
+pub global VK_TREE_HEIGHT: u32 = 8;
 pub global FUNCTION_TREE_HEIGHT: u32 = 7; // The number of private functions in a contract is therefore 128.
 pub global NOTE_HASH_TREE_HEIGHT: u32 = 42; // 64 notes/tx (static because of base rollup insertion), 15tps, for 100 years.
 pub global PUBLIC_DATA_TREE_HEIGHT: u32 = 40; // Average of 16 updates/tx (guess), 15tps, 100 years.
