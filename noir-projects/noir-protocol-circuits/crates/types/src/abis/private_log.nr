@@ -12,6 +12,10 @@ pub type PrivateLog = Log<PRIVATE_LOG_SIZE_IN_FIELDS>;
 pub struct PrivateLogData {
     pub log: Log<PRIVATE_LOG_SIZE_IN_FIELDS>,
     // The counter of the note hash this log is for. 0 if it does not link to a note hash.
+    // Q: a concern: could contract B emit a log which points to the note_hash_counter of contract A?
+    // It could then brick the tx from being provable. I guess this is fine, because technically
+    // a user should only execute contracts that have been vetted/audited. But it's a subtle bug
+    // that smart contract auditors should be aware of. 
     pub note_hash_counter: u32,
 }
 

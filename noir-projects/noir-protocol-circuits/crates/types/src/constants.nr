@@ -1036,13 +1036,13 @@ pub global AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED: u32 = 1000;
 pub global AVM_MAX_PROCESSABLE_L2_GAS: u32 = 6_000_000; // Arbitrary.
 
 pub global DA_BYTES_PER_FIELD: u32 = 32;
-pub global DA_GAS_PER_BYTE: u32 = 16; // TODO: Explain this, might be arbitrary? maybe make it one? and sync it wit the tx overhead constants?
+pub global DA_GAS_PER_BYTE: u32 = 16; // TODO: Explain this, might be arbitrary? maybe make it one? and sync it wit the tx overhead constants? Worrying todo
 // pays for preamble information in TX Effects
-pub global FIXED_DA_GAS: u32 = 512;
+pub global FIXED_DA_GAS: u32 = 512; // Q: should this be bigger? Q: where does 512 come from?
 // TODO: take into account the cost of executing and proving the rollup circuits (if they can be attributed to this tx... eg the tx base rollup, half a tx merge).
 // We need a test suite to demonstrate these measurements
 // pays for fixed tx costs like validation, and updating state roots
-pub global FIXED_L2_GAS: u32 = 512;
+pub global FIXED_L2_GAS: u32 = 512; // Q: where does 512 come from?
 // base cost for a single public call
 pub global FIXED_AVM_STARTUP_L2_GAS: u32 = 20_000;
 

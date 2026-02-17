@@ -25,12 +25,33 @@ pub fn validate_accumulated_items(
     // For `note_hashes` and `nullifiers`, we only need to check their innermost values to determine whether they are
     // empty or not, since these are the final siloed values that are exposed to the AVM and rollup circuits
     assert_dense_trimmed_array(note_hashes, |note_hash| note_hash.innermost().is_empty());
+
+    // Q: trimmed check only verifies .value, not .note_hash -- is that ok?
     assert_dense_trimmed_array(
         nullifiers,
         |nullifier| nullifier.innermost().value.is_empty(),
     );
 
     // L2 to L1 messages within the claimed length are guaranteed to have non empty contract address, which will be exposed to public.
+
+    // Bug 1: l2_to_l1_msgs - missing dense check                                                             
+                                                                                   
+    //   Line 34 has assert_trimmed_array but no assert_dense_array. The comment on line 33 claims density is
+    //   "guaranteed to have non empty contract address." But:
+
+    //   - EthAddress.validate() (eth_address.nr:34-36) only checks bit size, NOT that the address is non-zero.
+    //   So the recipient validation on line 127 of the parent file doesn't serve as a density check.
+    //   - Without a dense check, a slot within .length could contain an empty L2ToL1Message (zero recipient,
+    //   zero content).
+    //   - assert_sorted_transformed_array prevents multiple empty items within .length (because empty items
+    //   have counter=0, violating strictly-increasing counters), but a single empty item at position 0 (when
+    //   length == 1) would pass all checks.
+    //   - An empty L2-to-L1 message would propagate to the output via expose_to_public() and reach the
+    //   rollup/L1.
+
+    //   Severity: Low-to-medium. The practical impact depends on whether an empty L2-to-L1 message causes
+    //   issues on L1, and whether the init/inner circuits actually prevent this. But the tail should not rely
+    //   on upstream guarantees when it's the last line of defense.
     assert_trimmed_array(l2_to_l1_msgs, |msg| msg.expose_to_public().is_empty());
 
     // The check for "denseness" (non-emptiness) of both private and contract class logs is different from the check for
@@ -49,6 +70,22 @@ pub fn validate_accumulated_items(
     // exposed to the public.
     assert_trimmed_array(private_logs, |log| log.innermost().log.is_empty());
 
+    //   Bug 3: contract_class_logs_hashes - trimmed check misses contract_address
+
+    //   Line 46: |log_hash| log_hash.innermost().is_empty() checks LogHash { value: 0, length: 0 } but does NOT
+    //    check contract_address.
+
+    //   This matters because expose_to_public() for Scoped<Counted<LogHash>> returns Scoped<LogHash> -
+    //   preserving contract_address (log_hash.nr:31-33). A trimmed slot with LogHash::empty() but
+    //   contract_address != 0 produces a non-empty Scoped<LogHash> in the output.
+
+    //   The tail output validator's assert_sorted_transformed_array (line 110-116) forces the output at that
+    //   position to match expose_to_public() of the input. So the non-empty Scoped<LogHash> propagates to the
+    //   final PrivateToRollupAccumulatedData.
+
+    //   Severity: Medium. Non-empty items beyond the valid length in the rollup output. Could confuse
+    //   downstream consumers or hash computations. Compare with l2_to_l1_msgs whose trimmed check uses
+    //   msg.expose_to_public().is_empty(), which correctly covers contract_address.
     assert_dense_array(
         contract_class_logs_hashes,
         |log_hash| log_hash.innermost().length != 0,

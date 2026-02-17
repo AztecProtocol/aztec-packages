@@ -11,6 +11,10 @@ pub fn assert_dense_trimmed_array<T, let N: u32>(
     for i in 0..N {
         should_be_nullish |= i == array.length;
         let item = array.array[i];
+        // Q: wouldn't it be cheaper pass an `assert_nullish` fn instead of 
+        // `is_item_nullish`? My (possibly outdated) understanding was that
+        // asserting is cheaper than checking and returning a bool.
+        // Then we'd have: if should_be_nullish { assert_nullish(item); }
         let is_nullish = is_item_nullish(item);
         assert_eq(is_nullish, should_be_nullish, "array is not dense trimmed");
     }
@@ -26,6 +30,9 @@ pub fn assert_dense_array<T, let N: u32>(
     for i in 0..N {
         should_be_populated &= i != array.length;
         let item = array.array[i];
+        // Q: wouldn't it be cheaper pass an `assert_empty` or `assert_not_empty` fn instead of 
+        // `is_item_populated`? My (possibly outdated) understanding was that
+        // asserting is cheaper than checking and returning a bool.
         let is_populated = is_item_populated(item);
         if should_be_populated {
             assert(is_populated, "array is not dense");
@@ -43,6 +50,9 @@ pub fn assert_trimmed_array<T, let N: u32>(
     for i in 0..N {
         should_be_nullish |= i == array.length;
         let item = array.array[i];
+        // Q: wouldn't it be cheaper pass an `assert_empty` fn instead of 
+        // `is_item_nullish`? My (possibly outdated) understanding was that
+        // asserting is cheaper than checking and returning a bool.
         let is_nullish = is_item_nullish(item);
         if should_be_nullish {
             assert(is_nullish, "array is not trimmed");
