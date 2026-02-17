@@ -3,8 +3,9 @@ import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import { StubAccountContractArtifact, createStubAccount } from '@aztec/accounts/stub';
 import type { Account, AccountContract } from '@aztec/aztec.js/account';
 import type { Fq } from '@aztec/foundation/curves/bn254';
+import { getCanonicalMultiCallEntrypoint } from '@aztec/protocol-contracts/multi-call-entrypoint';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
-import type { CompleteAddress } from '@aztec/stdlib/contract';
+import type { CompleteAddress, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import type { AccountContractsProvider } from './types.js';
 
@@ -31,5 +32,9 @@ export class BundleAccountContractsProvider implements AccountContractsProvider 
 
   createStubAccount(address: CompleteAddress): Promise<Account> {
     return Promise.resolve(createStubAccount(address));
+  }
+
+  getMulticallContract(): Promise<{ instance: ContractInstanceWithAddress; artifact: ContractArtifact }> {
+    return getCanonicalMultiCallEntrypoint();
   }
 }
