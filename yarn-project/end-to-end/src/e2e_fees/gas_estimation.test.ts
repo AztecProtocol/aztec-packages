@@ -104,10 +104,11 @@ describe('e2e_fees gas_estimation', () => {
     });
 
   it('estimates gas with Fee Juice payment method', async () => {
-    const { estimatedGas } = await makeTransferRequest().simulate({
+    const sim = await makeTransferRequest().simulate({
       from: aliceAddress,
       fee: { gasSettings, estimateGas: true, estimatedGasPadding: 0 },
     });
+    const estimatedGas = sim.estimatedGas!;
     logGasEstimate(estimatedGas);
 
     const sequencer = t.context.sequencer!.getSequencer();
@@ -147,10 +148,11 @@ describe('e2e_fees gas_estimation', () => {
     );
     const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettingsForEstimation);
 
-    const { estimatedGas } = await makeTransferRequest().simulate({
+    const sim2 = await makeTransferRequest().simulate({
       from: aliceAddress,
       fee: { paymentMethod, estimatedGasPadding: 0, estimateGas: true },
     });
+    const estimatedGas = sim2.estimatedGas!;
     logGasEstimate(estimatedGas);
 
     const [withEstimate, withoutEstimate] = await sendTransfers(estimatedGas, paymentMethod);
@@ -188,7 +190,7 @@ describe('e2e_fees gas_estimation', () => {
       };
     };
 
-    const { estimatedGas } = await deployMethod().simulate({
+    const sim3 = await deployMethod().simulate({
       from: aliceAddress,
       skipClassPublication: true,
       fee: {
@@ -196,6 +198,7 @@ describe('e2e_fees gas_estimation', () => {
         estimatedGasPadding: 0,
       },
     });
+    const estimatedGas = sim3.estimatedGas!;
     logGasEstimate(estimatedGas);
 
     const [{ receipt: withEstimate }, { receipt: withoutEstimate }] = (await Promise.all([

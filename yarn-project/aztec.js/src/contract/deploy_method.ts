@@ -148,6 +148,8 @@ export type DeployReturn<TContract extends ContractBase, W extends DeployInterac
     : {
         /** The deployed contract instance. */
         contract: TContract;
+        /** The deploy transaction receipt. */
+        receipt: DeployTxReceipt<TContract>;
         /** Offchain effects generated during proving. */
         offchainEffects: OffchainEffect[];
       };
@@ -322,15 +324,11 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    * @returns TxHash (if wait is NO_WAIT), TContract (if wait is undefined or doesn't have returnReceipt), or DeployTxReceipt (if wait.returnReceipt is true)
    */
   // Overload for when wait is not specified at all - returns the contract
-  // @ts-expect-error DeployMethod intentionally narrows the return type from the base class
   public override send(options: DeployOptionsWithoutWait): Promise<DeployReturn<TContract, undefined>>;
-
-  // @ts-expect-error DeployMethod intentionally narrows the return type from the base class
   // eslint-disable-next-line jsdoc/require-jsdoc
   public override send<W extends DeployInteractionWaitOptions>(
     options: DeployOptions<W>,
   ): Promise<DeployReturn<TContract, W>>;
-  // @ts-expect-error DeployMethod intentionally narrows the return type from the base class
   // eslint-disable-next-line jsdoc/require-jsdoc
   public override async send(options: DeployOptions<DeployInteractionWaitOptions>): Promise<any> {
     const executionPayload = await this.request(this.convertDeployOptionsToRequestOptions(options));
@@ -357,7 +355,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
       return { receipt: { ...receipt, contract, instance }, offchainEffects };
     }
 
-    return { contract, offchainEffects };
+    return { contract, receipt, offchainEffects };
   }
 
   /**
