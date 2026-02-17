@@ -5,7 +5,9 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/dsl/acir_format/serde/index.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#ifndef __wasm__
 #include <iostream>
+#endif
 
 namespace bb {
 
@@ -26,12 +28,16 @@ void acir_roundtrip(const std::filesystem::path& bytecode_path, const std::files
     BB_ASSERT(o.type == msgpack::type::ARRAY, "acir_roundtrip: expected ARRAY, got " + std::to_string(o.type));
 
     Acir::Program program;
+#ifndef __wasm__
     try {
         o.convert(program);
     } catch (const msgpack::type_error& e) {
         std::cerr << "acir_roundtrip: failed to deserialize Program: " << e.what() << '\n';
         throw;
     }
+#else
+    o.convert(program);
+#endif
 
     // Re-serialize to msgpack bytes
     msgpack::sbuffer sbuf;
