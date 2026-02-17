@@ -24,7 +24,7 @@ pub struct PrivateKernelCircuitPublicInputs {
     // The timestamp at which the transaction expires. This value can only decrease with each iteration.
     // It's output from the Tail(-to-Public) circuit and checked in the TxBaseRollup circuit against the timestamp of
     // the block the transaction is included in.
-    pub include_by_timestamp: u64,
+    pub expiration_timestamp: u64,
     // Whether this tx only makes private calls. `false` if at least one public call will be made by any private call.
     // It remains constant throughout the private execution and is checked in the Tail(-to-Public) circuit.
     pub is_private_only: bool,

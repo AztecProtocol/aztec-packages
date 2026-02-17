@@ -1544,7 +1544,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   protected async validatePropagatedTx(tx: Tx, peerId: PeerId): Promise<boolean> {
     const currentBlockNumber = await this.archiver.getBlockNumber();
 
-    // We accept transactions if they are not expired by the next slot (checked based on the IncludeByTimestamp field)
+    // We accept transactions if they are not expired by the next slot (checked based on the ExpirationTimestamp field)
     const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
     const messageValidators = await this.createMessageValidators(currentBlockNumber, nextSlotTimestamp);
 
@@ -1599,7 +1599,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   public async validate(txs: Tx[]): Promise<void> {
     const currentBlockNumber = await this.archiver.getBlockNumber();
 
-    // We accept transactions if they are not expired by the next slot (checked based on the IncludeByTimestamp field)
+    // We accept transactions if they are not expired by the next slot (checked based on the ExpirationTimestamp field)
     const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
     const messageValidators = await this.createMessageValidators(currentBlockNumber, nextSlotTimestamp);
 

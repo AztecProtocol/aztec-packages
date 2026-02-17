@@ -16,7 +16,7 @@ import type {
   StatusMessage,
 } from '@aztec/p2p';
 import type { EthAddress, L2BlockStreamEvent, L2Tips } from '@aztec/stdlib/block';
-import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
+import type { ITxProvider, PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal, CheckpointAttestation, CheckpointProposal } from '@aztec/stdlib/p2p';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
@@ -129,6 +129,10 @@ export class DummyP2P implements P2P {
 
   public isP2PClient(): true {
     throw new Error('DummyP2P does not implement "isP2PClient"');
+  }
+
+  public getTxProvider(): ITxProvider {
+    throw new Error('DummyP2P does not implement "getTxProvider"');
   }
 
   public getTxsByHash(_txHashes: TxHash[]): Promise<Tx[]> {

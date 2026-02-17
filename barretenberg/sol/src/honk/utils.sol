@@ -236,6 +236,18 @@ function rejectPointAtInfinity(Honk.G1Point memory point) pure {
     require((point.x | point.y) != 0, Errors.PointAtInfinity());
 }
 
+/**
+ * Check if pairing point limbs are all zero (default/infinity).
+ * Default pairing points indicate no recursive verification occurred.
+ */
+function arePairingPointsDefault(Fr[PAIRING_POINTS_SIZE] memory pairingPoints) pure returns (bool) {
+    uint256 acc = 0;
+    for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
+        acc |= Fr.unwrap(pairingPoints[i]);
+    }
+    return acc == 0;
+}
+
 function pairing(Honk.G1Point memory rhs, Honk.G1Point memory lhs) view returns (bool decodedResult) {
     bytes memory input = abi.encodePacked(
         rhs.x,

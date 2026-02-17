@@ -2,9 +2,9 @@ import {
   FIXED_DA_GAS,
   FIXED_L2_GAS,
   MAX_ENQUEUED_CALLS_PER_TX,
-  MAX_INCLUDE_BY_TIMESTAMP_DURATION,
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_TX_LIFETIME,
 } from '@aztec/constants';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
@@ -139,8 +139,8 @@ export const mockTx = async (
   data.constants.vkTreeRoot = vkTreeRoot;
   data.constants.protocolContractsHash = protocolContractsHash;
 
-  // Set includeByTimestamp to the maximum allowed duration from the current time.
-  data.includeByTimestamp = BigInt(Math.floor(Date.now() / 1000) + MAX_INCLUDE_BY_TIMESTAMP_DURATION);
+  // Set expirationTimestamp to the maximum allowed duration from the current time.
+  data.expirationTimestamp = BigInt(Math.floor(Date.now() / 1000) + MAX_TX_LIFETIME);
 
   const publicFunctionCalldata: HashedValues[] = [];
   if (!isForPublic) {

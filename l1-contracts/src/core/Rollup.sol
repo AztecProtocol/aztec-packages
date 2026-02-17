@@ -21,7 +21,6 @@ import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {TempCheckpointLog, CheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
 import {FeeAssetValue, PriceLib} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
 import {FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
-import {FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
@@ -29,8 +28,8 @@ import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributo
 import {CompressedSlot, CompressedTimestamp, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {ChainTipsLib, CompressedChainTips} from "./libraries/compressed-data/Tips.sol";
-import {ProposeLib, ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
-import {RewardLib, RewardConfig} from "./libraries/rollup/RewardLib.sol";
+import {ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
+import {RewardExtLib, RewardConfig} from "./libraries/rollup/RewardExtLib.sol";
 import {DepositArgs} from "./libraries/StakingQueue.sol";
 import {
   RollupCore,
@@ -236,11 +235,11 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getManaTarget() external view override(IRollup) returns (uint256) {
-    return FeeLib.getManaTarget();
+    return RewardExtLib.getManaTarget();
   }
 
   function getManaLimit() external view override(IRollup) returns (uint256) {
-    return FeeLib.getManaLimit();
+    return RewardExtLib.getManaLimit();
   }
 
   function getTips() external view override(IRollup) returns (ChainTips memory) {
@@ -353,23 +352,23 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getConfig(address _attester) external view override(IStaking) returns (AttesterConfig memory) {
-    return StakingLib.getConfig(_attester);
+    return ValidatorOperationsExtLib.getConfig(_attester);
   }
 
   function getExit(address _attester) external view override(IStaking) returns (Exit memory) {
-    return StakingLib.getExit(_attester);
+    return ValidatorOperationsExtLib.getExit(_attester);
   }
 
   function getStatus(address _attester) external view override(IStaking) returns (Status) {
-    return StakingLib.getStatus(_attester);
+    return ValidatorOperationsExtLib.getStatus(_attester);
   }
 
   function getAttesterView(address _attester) external view override(IStaking) returns (AttesterView memory) {
-    return StakingLib.getAttesterView(_attester);
+    return ValidatorOperationsExtLib.getAttesterView(_attester);
   }
 
   function getSharesFor(address _prover) external view override(IRollup) returns (uint256) {
-    return RewardLib.getSharesFor(_prover);
+    return RewardExtLib.getSharesFor(_prover);
   }
 
   /**
@@ -410,6 +409,15 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    */
   function getEscapeHatch() external view override(IValidatorSelection) returns (IEscapeHatch) {
     return ValidatorOperationsExtLib.getEscapeHatch();
+  }
+
+  /**
+   * @notice  Get the escape hatch contract that was active at the start of a given epoch
+   * @param _epoch The epoch to look up the escape hatch for
+   * @return The escape hatch contract interface that was active at the epoch start
+   */
+  function getEscapeHatchForEpoch(Epoch _epoch) external view override(IValidatorSelection) returns (IEscapeHatch) {
+    return ValidatorOperationsExtLib.getEscapeHatchForEpoch(_epoch);
   }
 
   /**
@@ -475,11 +483,11 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getSequencerRewards(address _sequencer) external view override(IRollup) returns (uint256) {
-    return RewardLib.getSequencerRewards(_sequencer);
+    return RewardExtLib.getSequencerRewards(_sequencer);
   }
 
   function getCollectiveProverRewardsForEpoch(Epoch _epoch) external view override(IRollup) returns (uint256) {
-    return RewardLib.getCollectiveProverRewardsForEpoch(_epoch);
+    return RewardExtLib.getCollectiveProverRewardsForEpoch(_epoch);
   }
 
   /**
@@ -498,7 +506,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (uint256)
   {
-    return RewardLib.getSpecificProverRewardsForEpoch(_epoch, _prover);
+    return RewardExtLib.getSpecificProverRewardsForEpoch(_epoch, _prover);
   }
 
   function getHasSubmitted(Epoch _epoch, uint256 _length, address _prover)
@@ -507,19 +515,19 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (bool)
   {
-    return RewardLib.getHasSubmitted(_epoch, _length, _prover);
+    return RewardExtLib.getHasSubmitted(_epoch, _length, _prover);
   }
 
   function getHasClaimed(address _prover, Epoch _epoch) external view override(IRollup) returns (bool) {
-    return RewardLib.getHasClaimed(_prover, _epoch);
+    return RewardExtLib.getHasClaimed(_prover, _epoch);
   }
 
   function getProvingCostPerManaInEth() external view override(IRollup) returns (EthValue) {
-    return FeeLib.getProvingCostPerMana();
+    return RewardExtLib.getProvingCostPerMana();
   }
 
   function getProvingCostPerManaInFeeAsset() external view override(IRollup) returns (FeeAssetValue) {
-    return FeeLib.getProvingCostPerMana().toFeeAsset(getEthPerFeeAsset());
+    return RewardExtLib.getProvingCostPerMana().toFeeAsset(getEthPerFeeAsset());
   }
 
   function getVersion() external view override(IHaveVersion) returns (uint256) {
@@ -543,31 +551,31 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getRewardDistributor() external view override(IRollup) returns (IRewardDistributor) {
-    return RewardLib.getStorage().config.rewardDistributor;
+    return RewardExtLib.getRewardDistributor();
   }
 
   function getL1FeesAt(Timestamp _timestamp) external view override(IRollup) returns (L1FeeData memory) {
-    return FeeLib.getL1FeesAt(_timestamp);
+    return RewardExtLib.getL1FeesAt(_timestamp);
   }
 
   function canPruneAtTime(Timestamp _ts) external view override(IRollup) returns (bool) {
-    return STFLib.canPruneAtTime(_ts);
+    return RewardExtLib.canPruneAtTime(_ts);
   }
 
   function getRewardConfig() external view override(IRollup) returns (RewardConfig memory) {
-    return RewardLib.getStorage().config;
+    return RewardExtLib.getRewardConfig();
   }
 
   function getCheckpointReward() external view override(IRollup) returns (uint256) {
-    return RewardLib.getCheckpointReward();
+    return RewardExtLib.getCheckpointReward();
   }
 
   function isRewardsClaimable() external view override(IRollup) returns (bool) {
-    return RewardLib.isRewardsClaimable();
+    return RewardExtLib.isRewardsClaimable();
   }
 
   function getEarliestRewardsClaimableTimestamp() external view override(IRollup) returns (Timestamp) {
-    return RewardLib.getEarliestRewardsClaimableTimestamp();
+    return RewardExtLib.getEarliestRewardsClaimableTimestamp();
   }
 
   function getAvailableValidatorFlushes() external view override(IStaking) returns (uint256) {
@@ -579,11 +587,11 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getEntryQueueAt(uint256 _index) external view override(IStaking) returns (DepositArgs memory) {
-    return StakingLib.getEntryQueueAt(_index);
+    return ValidatorOperationsExtLib.getEntryQueueAt(_index);
   }
 
   function getBurnAddress() external pure override(IRollup) returns (address) {
-    return RewardLib.BURN_ADDRESS;
+    return address(bytes20("CUAUHXICALLI"));
   }
 
   /**
@@ -632,7 +640,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @return The attester at the index
    */
   function getAttesterAtIndex(uint256 _index) public view override(IStaking) returns (address) {
-    return StakingLib.getAttesterAtIndex(_index);
+    return ValidatorOperationsExtLib.getAttesterAtIndex(_index);
   }
 
   /**
@@ -643,7 +651,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @return The mana min fee
    */
   function getManaMinFeeAt(Timestamp _timestamp, bool _inFeeAsset) public view override(IRollup) returns (uint256) {
-    return FeeLib.summedMinFee(getManaMinFeeComponentsAt(_timestamp, _inFeeAsset));
+    return RewardExtLib.summedMinFee(getManaMinFeeComponentsAt(_timestamp, _inFeeAsset));
   }
 
   function getManaMinFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
@@ -652,7 +660,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (ManaMinFeeComponents memory)
   {
-    return ProposeLib.getManaMinFeeComponentsAt(_timestamp, _inFeeAsset);
+    return RewardExtLib.getManaMinFeeComponentsAt(_timestamp, _inFeeAsset);
   }
 
   /**
@@ -662,11 +670,11 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @return The fee asset price
    */
   function getEthPerFeeAsset() public view override(IRollup) returns (EthPerFeeAssetE12) {
-    return FeeLib.getEthPerFeeAssetAtCheckpoint(STFLib.getStorage().tips.getPending());
+    return RewardExtLib.getEthPerFeeAssetAtCheckpoint(STFLib.getStorage().tips.getPending());
   }
 
   function getEpochForCheckpoint(uint256 _checkpointNumber) public view override(IRollup) returns (Epoch) {
-    return STFLib.getEpochForCheckpoint(_checkpointNumber);
+    return RewardExtLib.getEpochForCheckpoint(_checkpointNumber);
   }
 
   /**
@@ -702,10 +710,10 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getNextFlushableEpoch() public view override(IStaking) returns (Epoch) {
-    return StakingLib.getNextFlushableEpoch();
+    return ValidatorOperationsExtLib.getNextFlushableEpoch();
   }
 
   function getEntryQueueLength() public view override(IStaking) returns (uint256) {
-    return StakingLib.getEntryQueueLength();
+    return ValidatorOperationsExtLib.getEntryQueueLength();
   }
 }

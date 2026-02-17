@@ -11,6 +11,7 @@ import { L2Block } from '../block/l2_block.js';
 import { type L2BlockSource, L2TipsSchema } from '../block/l2_block_source.js';
 import { ValidateCheckpointResultSchema } from '../block/validate_block_result.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
+import { CheckpointDataSchema } from '../checkpoint/checkpoint_data.js';
 import { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import {
   ContractClassPublicSchema,
@@ -115,6 +116,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getL2SlotNumber: z.function().args().returns(schemas.SlotNumber.optional()),
   getL2EpochNumber: z.function().args().returns(EpochNumberSchema.optional()),
   getCheckpointsForEpoch: z.function().args(EpochNumberSchema).returns(z.array(Checkpoint.schema)),
+  getCheckpointsDataForEpoch: z.function().args(EpochNumberSchema).returns(z.array(CheckpointDataSchema)),
   getCheckpointedBlocksForEpoch: z.function().args(EpochNumberSchema).returns(z.array(CheckpointedL2Block.schema)),
   getBlocksForSlot: z.function().args(schemas.SlotNumber).returns(z.array(L2Block.schema)),
   getCheckpointedBlockHeadersForEpoch: z.function().args(EpochNumberSchema).returns(z.array(BlockHeader.schema)),

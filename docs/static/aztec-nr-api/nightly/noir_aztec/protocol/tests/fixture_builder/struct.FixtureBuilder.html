@@ -38,12 +38,12 @@
 <li><a href="#structfield.end_tree_snapshots">end_tree_snapshots</a></li>
 <li><a href="#structfield.expected_non_revertible_side_effect_counter">expected_non_revertible_side_effect_counter</a></li>
 <li><a href="#structfield.expected_revertible_side_effect_counter">expected_revertible_side_effect_counter</a></li>
+<li><a href="#structfield.expiration_timestamp">expiration_timestamp</a></li>
 <li><a href="#structfield.fee_payer">fee_payer</a></li>
 <li><a href="#structfield.function_data">function_data</a></li>
 <li><a href="#structfield.function_leaf_membership_witness">function_leaf_membership_witness</a></li>
 <li><a href="#structfield.gas_used">gas_used</a></li>
 <li><a href="#structfield.global_variables">global_variables</a></li>
-<li><a href="#structfield.include_by_timestamp">include_by_timestamp</a></li>
 <li><a href="#structfield.is_fee_payer">is_fee_payer</a></li>
 <li><a href="#structfield.is_private_only">is_private_only</a></li>
 <li><a href="#structfield.is_static_call">is_static_call</a></li>
@@ -193,7 +193,7 @@
     pub is_private_only: <a href="../../../../std/primitive.bool.html" class="primitive">bool</a>,
     pub claimed_first_nullifier: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
     pub claimed_revertible_counter: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>,
-    pub include_by_timestamp: <a href="../../../../std/primitive.u64.html" class="primitive">u64</a>,
+    pub expiration_timestamp: <a href="../../../../std/primitive.u64.html" class="primitive">u64</a>,
     pub is_fee_payer: <a href="../../../../std/primitive.bool.html" class="primitive">bool</a>,
     pub fee_payer: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     pub public_teardown_call_request: <a href="../../../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a>,
@@ -259,7 +259,7 @@
 <div class="padded-description"></div><div id="structfield.is_private_only" class="struct-field"><code class="code-header">is_private_only: <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code></div>
 <div class="padded-description"></div><div id="structfield.claimed_first_nullifier" class="struct-field"><code class="code-header">claimed_first_nullifier: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.claimed_revertible_counter" class="struct-field"><code class="code-header">claimed_revertible_counter: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
-<div class="padded-description"></div><div id="structfield.include_by_timestamp" class="struct-field"><code class="code-header">include_by_timestamp: <a href="../../../../std/primitive.u64.html" class="primitive">u64</a></code></div>
+<div class="padded-description"></div><div id="structfield.expiration_timestamp" class="struct-field"><code class="code-header">expiration_timestamp: <a href="../../../../std/primitive.u64.html" class="primitive">u64</a></code></div>
 <div class="padded-description"></div><div id="structfield.is_fee_payer" class="struct-field"><code class="code-header">is_fee_payer: <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code></div>
 <div class="padded-description"></div><div id="structfield.fee_payer" class="struct-field"><code class="code-header">fee_payer: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
 <div class="padded-description"></div><div id="structfield.public_teardown_call_request" class="struct-field"><code class="code-header">public_teardown_call_request: <a href="../../../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a></code></div>
@@ -449,7 +449,7 @@
 
 <code id="add_request_for_key_validation" class="code-header">pub fn <a href="#add_request_for_key_validation"><span class="fn">add_request_for_key_validation</span></a>(
     &mut self,
-    pk_m: <a href="../../../../protocol_types/point/struct.Point.html" class="struct">EmbeddedCurvePoint</a>,
+    pk_m: <a href="../../../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a>,
     sk_app: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
     sk_app_generator: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
 )</code>

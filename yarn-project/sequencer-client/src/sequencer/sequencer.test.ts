@@ -271,6 +271,7 @@ describe('sequencer', () => {
       getPendingChainValidationStatus: mockFn().mockResolvedValue({ valid: true }),
       getCheckpointedBlocksForEpoch: mockFn().mockResolvedValue([]),
       getCheckpointsForEpoch: mockFn().mockResolvedValue([]),
+      getCheckpointsDataForEpoch: mockFn().mockResolvedValue([]),
     });
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({

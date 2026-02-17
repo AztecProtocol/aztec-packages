@@ -209,9 +209,9 @@ export class FakeL1State {
     this.addMessages(checkpointNumber, messagesL1BlockNumber, messages);
 
     // Create the transaction, blobs, and event hashes
-    const { tx, attestationsHash, payloadDigest } = this.makeRollupTx(checkpoint, signers);
-    const blobHashes = this.makeVersionedBlobHashes(checkpoint);
-    const blobs = this.makeBlobsFromCheckpoint(checkpoint);
+    const { tx, attestationsHash, payloadDigest } = await this.makeRollupTx(checkpoint, signers);
+    const blobHashes = await this.makeVersionedBlobHashes(checkpoint);
+    const blobs = await this.makeBlobsFromCheckpoint(checkpoint);
 
     // Store the checkpoint data
     this.checkpoints.push({
@@ -553,17 +553,17 @@ export class FakeL1State {
       }));
   }
 
-  private makeRollupTx(
+  private async makeRollupTx(
     checkpoint: Checkpoint,
     signers: Secp256k1Signer[],
-  ): { tx: Transaction; attestationsHash: Buffer32; payloadDigest: Buffer32 } {
+  ): Promise<{ tx: Transaction; attestationsHash: Buffer32; payloadDigest: Buffer32 }> {
     const attestations = signers
       .map(signer => makeCheckpointAttestationFromCheckpoint(checkpoint, signer))
       .map(attestation => CommitteeAttestation.fromSignature(attestation.signature))
       .map(committeeAttestation => committeeAttestation.toViem());
 
     const header = checkpoint.header.toViem();
-    const blobInput = getPrefixedEthBlobCommitments(getBlobsPerL1Block(checkpoint.toBlobFields()));
+    const blobInput = getPrefixedEthBlobCommitments(await getBlobsPerL1Block(checkpoint.toBlobFields()));
     const archive = toHex(checkpoint.archive.root.toBuffer());
     const attestationsAndSigners = new CommitteeAttestationsAndSigners(
       attestations.map(attestation => CommitteeAttestation.fromViem(attestation)),
@@ -645,13 +645,13 @@ export class FakeL1State {
     return { type: 'tuple', components: tupleParam.components || [] } as AbiParameter;
   }
 
-  private makeVersionedBlobHashes(checkpoint: Checkpoint): `0x${string}`[] {
-    return getBlobsPerL1Block(checkpoint.toBlobFields()).map(
+  private async makeVersionedBlobHashes(checkpoint: Checkpoint): Promise<`0x${string}`[]> {
+    return (await getBlobsPerL1Block(checkpoint.toBlobFields())).map(
       b => `0x${b.getEthVersionedBlobHash().toString('hex')}` as `0x${string}`,
     );
   }
 
-  private makeBlobsFromCheckpoint(checkpoint: Checkpoint): Blob[] {
-    return getBlobsPerL1Block(checkpoint.toBlobFields());
+  private async makeBlobsFromCheckpoint(checkpoint: Checkpoint): Promise<Blob[]> {
+    return await getBlobsPerL1Block(checkpoint.toBlobFields());
   }
 }

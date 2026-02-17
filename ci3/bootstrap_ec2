@@ -117,7 +117,7 @@ if [ -t 1 ]; then
     run_cmd="run; exec zsh"
   fi
 else
-  # We're probably running in CI. Handle aws evictions and add timestamps to the logs.
+  # We're probably running in CI. Add timestamps and log.
   run_cmd="PARENT_LOG_ID=\$ci_log_id run 2>&1 | ci3/add_timestamps | DUP=1 ci3/cache_log 'CI run' \$ci_log_id"
 fi
 
@@ -159,22 +159,21 @@ container_script=$(
     fi
 
     # Capture cpu load.
-    mpstat 2 > >(cache_log cpufile) &
+    mpstat 2 > >(cache_log cpufile) 2>&1 &
     cpu_pid=\$!
 
     # Capture mem load.
-    vmstat -w -S M 2 > >(add_timestamps | cache_log memfile) &
+    vmstat -w -S M 2 > >(add_timestamps | cache_log memfile) 2>&1 &
     mem_pid=\$!
 
     # Dump process tree every 10s.
-    bash -c "while true; do pstree -agl; echo; echo; sleep 10; done" 2>&1 > >(add_timestamps | cache_log processes) &
+    bash -c "while true; do pstree -agl; echo; echo; sleep 10; done" > >(add_timestamps | cache_log processes) 2>&1 &
     pstree_pid=\$!
 
     set +e
     set -x
     $cmd
     local code=\${PIPESTATUS[0]}
-    set +x
 
     sudo dmesg 2>&1 | cache_log 'dmesg'
     kill \$cpu_pid \$mem_pid \$pstree_pid &>/dev/null

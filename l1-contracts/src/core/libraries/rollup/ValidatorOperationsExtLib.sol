@@ -6,7 +6,9 @@ pragma solidity >=0.8.27;
 import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {Epoch, Slot, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
-import {StakingLib} from "./StakingLib.sol";
+import {StakingLib, Exit, Status, AttesterView} from "./StakingLib.sol";
+import {AttesterConfig} from "@aztec/governance/GSE.sol";
+import {DepositArgs} from "@aztec/core/libraries/StakingQueue.sol";
 import {InvalidateLib} from "./InvalidateLib.sol";
 import {ValidatorSelectionLib} from "./ValidatorSelectionLib.sol";
 import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
@@ -150,6 +152,10 @@ library ValidatorOperationsExtLib {
     return ValidatorSelectionLib.getEscapeHatch();
   }
 
+  function getEscapeHatchForEpoch(Epoch _epoch) external view returns (IEscapeHatch) {
+    return ValidatorSelectionLib.getEscapeHatchForEpoch(_epoch);
+  }
+
   function getTargetCommitteeSize() external view returns (uint256) {
     return ValidatorSelectionLib.getStorage().targetCommitteeSize;
   }
@@ -161,5 +167,39 @@ library ValidatorOperationsExtLib {
 
   function getAvailableValidatorFlushes() external view returns (uint256) {
     return StakingLib.getAvailableValidatorFlushes();
+  }
+
+  // View wrappers - delegated from Rollup.sol to avoid inlining StakingLib into Rollup bytecode
+
+  function getAttesterView(address _attester) external view returns (AttesterView memory) {
+    return StakingLib.getAttesterView(_attester);
+  }
+
+  function getStatus(address _attester) external view returns (Status) {
+    return StakingLib.getStatus(_attester);
+  }
+
+  function getConfig(address _attester) external view returns (AttesterConfig memory) {
+    return StakingLib.getConfig(_attester);
+  }
+
+  function getExit(address _attester) external view returns (Exit memory) {
+    return StakingLib.getExit(_attester);
+  }
+
+  function getAttesterAtIndex(uint256 _index) external view returns (address) {
+    return StakingLib.getAttesterAtIndex(_index);
+  }
+
+  function getEntryQueueAt(uint256 _index) external view returns (DepositArgs memory) {
+    return StakingLib.getEntryQueueAt(_index);
+  }
+
+  function getNextFlushableEpoch() external view returns (Epoch) {
+    return StakingLib.getNextFlushableEpoch();
+  }
+
+  function getEntryQueueLength() external view returns (uint256) {
+    return StakingLib.getEntryQueueLength();
   }
 }

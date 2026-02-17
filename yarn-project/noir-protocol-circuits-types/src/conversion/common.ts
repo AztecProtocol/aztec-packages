@@ -893,7 +893,7 @@ export function mapPrivateToRollupKernelCircuitPublicInputsToNoir(
     end: mapPrivateToRollupAccumulatedDataToNoir(inputs.end),
     gas_used: mapGasToNoir(inputs.gasUsed),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
-    include_by_timestamp: mapU64ToNoir(inputs.includeByTimestamp),
+    expiration_timestamp: mapU64ToNoir(inputs.expirationTimestamp),
   };
 }
 
@@ -907,6 +907,6 @@ export function mapPrivateToPublicKernelCircuitPublicInputsToNoir(
     public_teardown_call_request: mapPublicCallRequestToNoir(inputs.publicTeardownCallRequest),
     gas_used: mapGasToNoir(inputs.gasUsed),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
-    include_by_timestamp: mapU64ToNoir(inputs.includeByTimestamp),
+    expiration_timestamp: mapU64ToNoir(inputs.expirationTimestamp),
   };
 }

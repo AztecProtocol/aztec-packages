@@ -22,10 +22,10 @@ import { DEFAULT_P2P_PROPAGATION_TIME } from '@aztec/stdlib/timetable';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client/config';
 
 import {
-  type PublisherConfig,
-  type TxSenderConfig,
-  getPublisherConfigMappings,
-  getTxSenderConfigMappings,
+  type SequencerPublisherConfig,
+  type SequencerTxSenderConfig,
+  sequencerPublisherConfigMappings,
+  sequencerTxSenderConfigMappings,
 } from './publisher/config.js';
 
 export * from './publisher/config.js';
@@ -61,10 +61,10 @@ export const DefaultSequencerConfig: ResolvedSequencerConfig = {
 /**
  * Configuration settings for the SequencerClient.
  */
-export type SequencerClientConfig = PublisherConfig &
+export type SequencerClientConfig = SequencerPublisherConfig &
   KeyStoreConfig &
   ValidatorClientConfig &
-  TxSenderConfig &
+  SequencerTxSenderConfig &
   SequencerConfig &
   L1ReaderConfig &
   ChainConfig &
@@ -222,8 +222,8 @@ export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientCo
   ...sequencerConfigMappings,
   ...keyStoreConfigMappings,
   ...l1ReaderConfigMappings,
-  ...getTxSenderConfigMappings('SEQ'),
-  ...getPublisherConfigMappings('SEQ'),
+  ...sequencerTxSenderConfigMappings,
+  ...sequencerPublisherConfigMappings,
   ...chainConfigMappings,
   ...pickConfigMappings(l1ContractsConfigMappings, ['ethereumSlotDuration', 'aztecSlotDuration', 'aztecEpochDuration']),
 };

@@ -94,9 +94,11 @@ export class Checkpoint {
     return this.header.hash();
   }
 
-  // Returns the out hash computed from all l2-to-l1 messages in this checkpoint.
-  // Note: This value is different from the out hash in the header, which is the **accumulated** out hash over all
-  // checkpoints up to and including this one in the epoch.
+  /**
+   * Returns the out hash computed from all l2-to-l1 messages in this checkpoint.
+   * Note: This value is different from the out hash in the header, which is the **accumulated** out hash over all
+   * checkpoints up to and including this one in the epoch.
+   */
   public getCheckpointOutHash(): Fr {
     const msgs = this.blocks.map(block => block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs));
     return computeCheckpointOutHash(msgs);

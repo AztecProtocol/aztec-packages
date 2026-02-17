@@ -1,7 +1,6 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { chunkBy } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
@@ -12,11 +11,7 @@ import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import {
-  type L1ToL2MessageSource,
-  computeCheckpointOutHash,
-  computeInHashFromL1ToL2Messages,
-} from '@aztec/stdlib/messaging';
+import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import type { CheckpointGlobalVariables, FailedTx, Tx } from '@aztec/stdlib/tx';
 import {
@@ -218,17 +213,11 @@ export class BlockProposalHandler {
     // Try re-executing the transactions in the proposal if needed
     let reexecutionResult;
     if (shouldReexecute) {
-      // Compute the previous checkpoint out hashes for the epoch.
-      // TODO(leila/mbps): There can be a more efficient way to get the previous checkpoint out
-      // hashes without having to fetch all the blocks.
+      // Collect the out hashes of all the checkpoints before this one in the same epoch
       const epoch = getEpochAtSlot(slotNumber, this.epochCache.getL1Constants());
-      const checkpointedBlocks = (await this.blockSource.getCheckpointedBlocksForEpoch(epoch))
-        .filter(b => b.block.number < blockNumber)
-        .sort((a, b) => a.block.number - b.block.number);
-      const blocksByCheckpoint = chunkBy(checkpointedBlocks, b => b.checkpointNumber);
-      const previousCheckpointOutHashes = blocksByCheckpoint.map(checkpointBlocks =>
-        computeCheckpointOutHash(checkpointBlocks.map(b => b.block.body.txEffects.map(tx => tx.l2ToL1Msgs))),
-      );
+      const previousCheckpointOutHashes = (await this.blockSource.getCheckpointsDataForEpoch(epoch))
+        .filter(c => c.checkpointNumber < checkpointNumber)
+        .map(c => c.checkpointOutHash);
 
       try {
         this.log.verbose(`Re-executing transactions in the proposal`, proposalInfo);

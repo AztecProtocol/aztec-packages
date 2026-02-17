@@ -48,15 +48,17 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     signalHandlers.push(stop);
     services.node = [node, AztecNodeApiSchema];
   } else {
+    // Route --prover-node through startNode
+    if (options.proverNode && !options.node) {
+      options.node = true;
+    }
+
     if (options.node) {
       const { startNode } = await import('./cmds/start_node.js');
       ({ config } = await startNode(options, signalHandlers, services, adminServices, userLog));
     } else if (options.bot) {
       const { startBot } = await import('./cmds/start_bot.js');
       await startBot(options, signalHandlers, services, userLog);
-    } else if (options.proverNode) {
-      const { startProverNode } = await import('./cmds/start_prover_node.js');
-      ({ config } = await startProverNode(options, signalHandlers, services, userLog));
     } else if (options.archiver) {
       const { startArchiver } = await import('./cmds/start_archiver.js');
       ({ config } = await startArchiver(options, signalHandlers, services));

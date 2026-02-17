@@ -146,10 +146,6 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
     //     }
     //     return { x, y, Fq::one() };
     // }
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/908) point at inifinty isn't handled
-    // To reenable this do NOT do use MSGPACK_FIELDS macro below, instead follow the logic in affine_element
-    // MSGPACK_FIELDS(x, y, z);
-
     static void conditional_negate_affine(const affine_element<Fq, Fr, Params>& in,
                                           affine_element<Fq, Fr, Params>& out,
                                           uint64_t predicate) noexcept;

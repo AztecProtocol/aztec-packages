@@ -584,7 +584,7 @@ export class ArchiverL1Synchronizer implements Traceable {
           const provenEpochNumber: EpochNumber = getEpochAtSlot(provenSlotNumber, this.l1Constants);
           const lastBlockNumberInCheckpoint =
             localCheckpointForDestinationProvenCheckpointNumber.startBlock +
-            localCheckpointForDestinationProvenCheckpointNumber.numBlocks -
+            localCheckpointForDestinationProvenCheckpointNumber.blockCount -
             1;
 
           this.events.emit(L2BlockSourceEvents.L2BlockProven, {

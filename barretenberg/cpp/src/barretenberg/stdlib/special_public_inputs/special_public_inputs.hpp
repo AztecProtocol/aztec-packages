@@ -113,13 +113,7 @@ class KernelIO {
     {
         Builder* builder = output_hn_accum_hash.get_context();
 
-        Builder* pairing_ctx = validate_context<Builder>(pairing_inputs);
-        if (pairing_ctx == nullptr) {
-            // Both points are constant - add the default pairing points to public inputs
-            PairingInputs::set_default_to_public(builder);
-        } else {
-            pairing_inputs.set_public();
-        }
+        pairing_inputs.set_public(builder);
         kernel_return_data.set_public();
         app_return_data.set_public();
         for (auto& table_commitment : ecc_op_tables) {
@@ -127,8 +121,6 @@ class KernelIO {
         }
         output_hn_accum_hash.set_public();
 
-        // Record that pairing points have been set to public
-        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }
@@ -197,8 +189,6 @@ template <typename Builder_> class DefaultIO {
 
         pairing_inputs.set_public();
 
-        // Record that pairing points have been set to public
-        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }
@@ -264,8 +254,6 @@ template <typename Builder_> class GoblinAvmIO {
         transcript_hash.set_public();
         pairing_inputs.set_public();
 
-        // Record that pairing points have been set to public
-        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }
@@ -321,19 +309,12 @@ template <class Builder_> class HidingKernelIO {
     {
         Builder* builder = ecc_op_tables[0].get_context();
 
-        if (validate_context<Builder>(pairing_inputs) == nullptr) {
-            // Both points are constant - add the default pairing points to public inputs
-            PairingInputs::set_default_to_public(builder);
-        } else {
-            pairing_inputs.set_public();
-        }
+        pairing_inputs.set_public(builder);
         kernel_return_data.set_public();
         for (auto& commitment : ecc_op_tables) {
             commitment.set_public();
         }
 
-        // Record that pairing points have been set to public
-        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }
@@ -402,16 +383,9 @@ class RollupIO {
     {
         Builder* builder = ipa_claim.commitment.get_context();
 
-        if (validate_context<Builder>(pairing_inputs) == nullptr) {
-            // Both points are constant - add the default pairing points to public inputs
-            PairingInputs::set_default_to_public(builder);
-        } else {
-            pairing_inputs.set_public();
-        }
+        pairing_inputs.set_public(builder);
         ipa_claim.set_public();
 
-        // Record that pairing points have been set to public
-        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }

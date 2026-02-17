@@ -32,7 +32,10 @@ struct RomRecord {
     uint32_t index = 0;
     uint32_t record_witness = 0; // Record, a.k.a. "fingerprint" of the row.
     size_t gate_index = 0;       // Index in the memory block where the ROM gate will live.
-    bool operator<(const RomRecord& other) const { return index < other.index; }
+    bool operator<(const RomRecord& other) const
+    {
+        return index < other.index || (index == other.index && gate_index < other.gate_index);
+    }
     bool operator==(const RomRecord& other) const noexcept
     {
         return index_witness == other.index_witness && value_column1_witness == other.value_column1_witness &&

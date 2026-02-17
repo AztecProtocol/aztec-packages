@@ -1,4 +1,4 @@
-import { MAX_INCLUDE_BY_TIMESTAMP_DURATION } from '@aztec/constants';
+import { MAX_TX_LIFETIME } from '@aztec/constants';
 import type { TxScopedL2Log } from '@aztec/stdlib/logs';
 
 /**
@@ -16,7 +16,7 @@ export function findHighestIndexes(
     const ageInSeconds = currentTimestamp - log.blockTimestamp;
 
     if (
-      ageInSeconds >= BigInt(MAX_INCLUDE_BY_TIMESTAMP_DURATION) &&
+      ageInSeconds >= BigInt(MAX_TX_LIFETIME) &&
       (highestAgedIndex === undefined || taggingIndex > highestAgedIndex)
     ) {
       highestAgedIndex = taggingIndex;

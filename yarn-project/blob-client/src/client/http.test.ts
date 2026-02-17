@@ -15,7 +15,7 @@ import { HttpBlobClient } from './http.js';
 describe('HttpBlobClient', () => {
   it('should handle no sources configured', async () => {
     const client = new HttpBlobClient({});
-    const blob = Blob.fromFields([Fr.random()]);
+    const blob = await Blob.fromFields([Fr.random()]);
     const blobHash = blob.getEthVersionedBlobHash();
 
     const success = await client.sendBlobsToFilestore([blob]);
@@ -40,11 +40,11 @@ describe('HttpBlobClient', () => {
     let latestSlotNumber: number;
     let missedSlots: number[];
 
-    beforeEach(() => {
+    beforeEach(async () => {
       latestSlotNumber = 1;
       missedSlots = [];
 
-      testBlobs = Array.from({ length: 2 }, () => makeRandomBlob(3));
+      testBlobs = await Promise.all(Array.from({ length: 2 }, () => makeRandomBlob(3)));
       testBlobsHashes = testBlobs.map(b => b.getEthVersionedBlobHash());
 
       blobData = testBlobs.map(b => b.toJSON());
@@ -292,7 +292,7 @@ describe('HttpBlobClient', () => {
       });
 
       // Create a blob that has mismatch data and commitment.
-      const randomBlobs = Array.from({ length: 2 }, () => makeRandomBlob(3));
+      const randomBlobs = await Promise.all(Array.from({ length: 2 }, () => makeRandomBlob(3)));
       const incorrectBlob = new Blob(randomBlobs[0].data, randomBlobs[1].commitment);
       const incorrectBlobHash = incorrectBlob.getEthVersionedBlobHash();
       // Update blobData to include the incorrect blob
@@ -312,7 +312,7 @@ describe('HttpBlobClient', () => {
 
     it('should accumulate blobs across all three sources (filestore, consensus, archive)', async () => {
       // Create three blobs for testing
-      const blobs = Array.from({ length: 3 }, () => makeRandomBlob(3));
+      const blobs = await Promise.all(Array.from({ length: 3 }, () => makeRandomBlob(3)));
       const blobHashes = blobs.map(b => b.getEthVersionedBlobHash());
 
       // Blob 0 only in filestore
@@ -368,7 +368,7 @@ describe('HttpBlobClient', () => {
 
     it('should preserve blob order when requesting multiple blobs', async () => {
       // Create three distinct blobs
-      const blobs = Array.from({ length: 3 }, () => makeRandomBlob(3));
+      const blobs = await Promise.all(Array.from({ length: 3 }, () => makeRandomBlob(3)));
       const blobHashes = blobs.map(b => b.getEthVersionedBlobHash());
 
       // Add all blobs to filestore
@@ -477,7 +477,7 @@ describe('HttpBlobClient', () => {
 
     it('should return only one blob when multiple blobs with the same blobHash exist on a block', async () => {
       // Create a blob data array with two blobs that have the same commitment (thus same blobHash)
-      const blob = makeRandomBlob(3);
+      const blob = await makeRandomBlob(3);
       const blobHash = blob.getEthVersionedBlobHash();
       const duplicateBlobData = [blob.toJSON(), blob.toJSON()];
 
@@ -503,7 +503,7 @@ describe('HttpBlobClient', () => {
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
       });
 
-      const blob = makeRandomBlob(3);
+      const blob = await makeRandomBlob(3);
       const blobHash = blob.getEthVersionedBlobHash();
       const blobJson = blob.toJSON();
 
@@ -616,8 +616,8 @@ describe('HttpBlobClient FileStore Integration', () => {
   let testBlobs: Blob[];
   let testBlobsHashes: Buffer[];
 
-  beforeEach(() => {
-    testBlobs = Array.from({ length: 2 }, () => makeRandomBlob(3));
+  beforeEach(async () => {
+    testBlobs = await Promise.all(Array.from({ length: 2 }, () => makeRandomBlob(3)));
     testBlobsHashes = testBlobs.map(b => b.getEthVersionedBlobHash());
   });
 
