@@ -39,7 +39,7 @@ In `PrivateKernelCircuitOutputValidator.validate_propagated_from_initial_private
 - **`assert_array_appended_to_empty_dest_and_scoped`**: Validates that the following arrays from the private call are correctly appended to empty destination arrays and scoped with the contract address:
   - `note_hash_read_requests`
   - `nullifier_read_requests`
-  - `scoped_key_validation_requests_and_generators`
+  - `scoped_key_validation_requests_and_separators`
   - `note_hashes`
   - `l2_to_l1_msgs`
   - `private_logs`
@@ -63,7 +63,7 @@ In `PrivateKernelCircuitOutputValidator.validate_propagated_from_previous_kernel
 - **`assert_array_prepended`**: Validates that the following arrays from the previous kernel are prepended to the output:
   - `note_hash_read_requests`
   - `nullifier_read_requests`
-  - `scoped_key_validation_requests_and_generators`
+  - `scoped_key_validation_requests_and_separators`
   - `note_hashes`
   - `nullifiers`
   - `l2_to_l1_msgs`
@@ -77,7 +77,7 @@ In `PrivateKernelCircuitOutputValidator.validate_propagated_from_private_call`:
 - **`assert_array_appended_and_scoped`**: Validates that the following arrays from the current private call are appended and scoped with the contract address:
   - `note_hash_read_requests`
   - `nullifier_read_requests`
-  - `scoped_key_validation_requests_and_generators`
+  - `scoped_key_validation_requests_and_separators`
   - `note_hashes`
   - `nullifiers`
   - `l2_to_l1_msgs`

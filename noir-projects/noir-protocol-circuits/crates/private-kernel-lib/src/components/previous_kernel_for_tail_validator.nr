@@ -60,7 +60,7 @@ pub fn validate_previous_kernel_for_tail(
         "Non empty nullifier read requests",
     );
     assert_eq(
-        validation_requests.scoped_key_validation_requests_and_generators.length,
+        validation_requests.scoped_key_validation_requests_and_separators.length,
         0,
         "Non empty key validation requests",
     );

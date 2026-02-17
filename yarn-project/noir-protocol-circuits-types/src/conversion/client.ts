@@ -5,7 +5,7 @@ import {
   CountedPublicCallRequest,
   KeyValidationHint,
   KeyValidationRequest,
-  KeyValidationRequestAndGenerator,
+  KeyValidationRequestAndSeparator,
   NoteHash,
   Nullifier,
   PaddedSideEffectAmounts,
@@ -27,7 +27,7 @@ import {
   ReadRequest,
   ReadRequestAction,
   ReadRequestResetHints,
-  ScopedKeyValidationRequestAndGenerator,
+  ScopedKeyValidationRequestAndSeparator,
   ScopedNoteHash,
   ScopedNullifier,
   ScopedPrivateLogData,
@@ -44,7 +44,7 @@ import type {
   FixedLengthArray,
   FunctionData as FunctionDataNoir,
   KeyValidationHint as KeyValidationHintNoir,
-  KeyValidationRequestAndGenerator as KeyValidationRequestAndGeneratorNoir,
+  KeyValidationRequestAndSeparator as KeyValidationRequestAndSeparatorNoir,
   KeyValidationRequest as KeyValidationRequestsNoir,
   Field as NoirField,
   NoteHashLeafPreimage as NoteHashLeafPreimageNoir,
@@ -265,12 +265,12 @@ export function mapKeyValidationRequestToNoir(request: KeyValidationRequest): Ke
   };
 }
 
-export function mapKeyValidationRequestAndGeneratorToNoir(
-  request: KeyValidationRequestAndGenerator,
-): KeyValidationRequestAndGeneratorNoir {
+export function mapKeyValidationRequestAndSeparatorToNoir(
+  request: KeyValidationRequestAndSeparator,
+): KeyValidationRequestAndSeparatorNoir {
   return {
     request: mapKeyValidationRequestToNoir(request.request),
-    sk_app_generator: mapFieldToNoir(request.skAppGenerator),
+    key_type_domain_separator: mapFieldToNoir(request.keyTypeDomainSeparator),
   };
 }
 
@@ -283,29 +283,29 @@ function mapKeyValidationRequestFromNoir(request: KeyValidationRequestsNoir): Ke
   return new KeyValidationRequest(mapPointFromNoir(request.pk_m), mapFieldFromNoir(request.sk_app));
 }
 
-function mapKeyValidationRequestAndGeneratorFromNoir(
-  request: KeyValidationRequestAndGeneratorNoir,
-): KeyValidationRequestAndGenerator {
-  return new KeyValidationRequestAndGenerator(
+function mapKeyValidationRequestAndSeparatorFromNoir(
+  request: KeyValidationRequestAndSeparatorNoir,
+): KeyValidationRequestAndSeparator {
+  return new KeyValidationRequestAndSeparator(
     mapKeyValidationRequestFromNoir(request.request),
-    mapFieldFromNoir(request.sk_app_generator),
+    mapFieldFromNoir(request.key_type_domain_separator),
   );
 }
 
-function mapScopedKeyValidationRequestAndGeneratorToNoir(
-  request: ScopedKeyValidationRequestAndGenerator,
-): Scoped<KeyValidationRequestAndGeneratorNoir> {
+function mapScopedKeyValidationRequestAndSeparatorToNoir(
+  request: ScopedKeyValidationRequestAndSeparator,
+): Scoped<KeyValidationRequestAndSeparatorNoir> {
   return {
-    inner: mapKeyValidationRequestAndGeneratorToNoir(request.request),
+    inner: mapKeyValidationRequestAndSeparatorToNoir(request.request),
     contract_address: mapAztecAddressToNoir(request.contractAddress),
   };
 }
 
-function mapScopedKeyValidationRequestAndGeneratorFromNoir(
-  request: Scoped<KeyValidationRequestAndGeneratorNoir>,
-): ScopedKeyValidationRequestAndGenerator {
-  return new ScopedKeyValidationRequestAndGenerator(
-    mapKeyValidationRequestAndGeneratorFromNoir(request.inner),
+function mapScopedKeyValidationRequestAndSeparatorFromNoir(
+  request: Scoped<KeyValidationRequestAndSeparatorNoir>,
+): ScopedKeyValidationRequestAndSeparator {
+  return new ScopedKeyValidationRequestAndSeparator(
+    mapKeyValidationRequestAndSeparatorFromNoir(request.inner),
     mapAztecAddressFromNoir(request.contract_address),
   );
 }
@@ -373,9 +373,9 @@ function mapPrivateValidationRequestsToNoir(requests: PrivateValidationRequests)
   return {
     note_hash_read_requests: mapClaimedLengthArrayToNoir(requests.noteHashReadRequests, mapScopedReadRequestToNoir),
     nullifier_read_requests: mapClaimedLengthArrayToNoir(requests.nullifierReadRequests, mapScopedReadRequestToNoir),
-    scoped_key_validation_requests_and_generators: mapClaimedLengthArrayToNoir(
-      requests.scopedKeyValidationRequestsAndGenerators,
-      mapScopedKeyValidationRequestAndGeneratorToNoir,
+    scoped_key_validation_requests_and_separators: mapClaimedLengthArrayToNoir(
+      requests.scopedKeyValidationRequestsAndSeparators,
+      mapScopedKeyValidationRequestAndSeparatorToNoir,
     ),
   };
 }
@@ -385,8 +385,8 @@ function mapPrivateValidationRequestsFromNoir(requests: PrivateValidationRequest
     mapClaimedLengthArrayFromNoir(requests.note_hash_read_requests, mapScopedReadRequestFromNoir),
     mapClaimedLengthArrayFromNoir(requests.nullifier_read_requests, mapScopedReadRequestFromNoir),
     mapClaimedLengthArrayFromNoir(
-      requests.scoped_key_validation_requests_and_generators,
-      mapScopedKeyValidationRequestAndGeneratorFromNoir,
+      requests.scoped_key_validation_requests_and_separators,
+      mapScopedKeyValidationRequestAndSeparatorFromNoir,
     ),
   );
 }
@@ -440,9 +440,9 @@ export function mapPrivateCircuitPublicInputsToNoir(
       privateCircuitPublicInputs.nullifierReadRequests,
       mapScopedReadRequestToNoir,
     ),
-    key_validation_requests_and_generators: mapClaimedLengthArrayToNoir(
-      privateCircuitPublicInputs.keyValidationRequestsAndGenerators,
-      mapKeyValidationRequestAndGeneratorToNoir,
+    key_validation_requests_and_separators: mapClaimedLengthArrayToNoir(
+      privateCircuitPublicInputs.keyValidationRequestsAndSeparators,
+      mapKeyValidationRequestAndSeparatorToNoir,
     ),
     note_hashes: mapClaimedLengthArrayToNoir(privateCircuitPublicInputs.noteHashes, mapNoteHashToNoir),
     nullifiers: mapClaimedLengthArrayToNoir(privateCircuitPublicInputs.nullifiers, mapNullifierToNoir),
