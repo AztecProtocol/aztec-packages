@@ -9,6 +9,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { InMemoryTxPool } from '../../test-helpers/testbench-utils.js';
+import { FileStoreTxSource } from '../tx_collection/file_store_tx_source.js';
 import type { TxFileStoreConfig } from './config.js';
 import { TxFileStore } from './tx_file_store.js';
 
@@ -103,7 +104,7 @@ describe('TxFileStore', () => {
       await txFileStore!.flush();
 
       expect(spy).toHaveBeenCalledWith(`${basePath}/txs/${tx.getTxHash().toString()}.bin`, tx.toBuffer(), {
-        compress: false,
+        compress: true,
       });
 
       spy.mockRestore();
@@ -148,7 +149,7 @@ describe('TxFileStore', () => {
       await txFileStore!.flush();
 
       expect(spy).toHaveBeenCalledWith(`${basePath}/txs/${tx.getTxHash().toString()}.bin`, tx.toBuffer(), {
-        compress: false,
+        compress: true,
       });
 
       spy.mockRestore();
@@ -326,6 +327,26 @@ describe('TxFileStore', () => {
       await txFileStore!.flush();
 
       expect(txFileStore!.getPendingUploadCount()).toBe(0);
+    });
+  });
+
+  describe('compression round-trip', () => {
+    it('uploads compressed tx and reads it back via FileStoreTxSource', async () => {
+      txFileStore = await TxFileStore.create(txPool, config, basePath, log, undefined, fileStore);
+      txFileStore!.start();
+
+      const tx = await makeTx();
+      await txPool.addPendingTxs([tx]);
+      await txFileStore!.flush();
+
+      // Read back via FileStoreTxSource using the same local file store
+      const txSource = await FileStoreTxSource.create(`file://${tmpDir}`, basePath, log);
+      expect(txSource).toBeDefined();
+
+      const results = await txSource!.getTxsByHash([tx.getTxHash()]);
+      expect(results).toHaveLength(1);
+      expect(results[0]).toBeDefined();
+      expect(results[0]!.toBuffer()).toEqual(tx.toBuffer());
     });
   });
 });
