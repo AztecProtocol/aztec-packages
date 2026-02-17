@@ -3,6 +3,7 @@ import { BatchCall, type ContractInstanceWithAddress } from '@aztec/aztec.js/con
 import { Fr } from '@aztec/aztec.js/fields';
 import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
+import { FIXED_L2_GAS, FIXED_L2_GAS_FOR_TX_WITH_PUBLIC_CALLS } from '@aztec/constants';
 import { AvmInitializerTestContract } from '@aztec/noir-test-contracts.js/AvmInitializerTest';
 import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
 
@@ -105,7 +106,10 @@ describe('e2e_avm_simulator', () => {
         const simulation = await wallet.simulateTx(request, { from: defaultAccountAddress });
         // Subtract the teardown gas from the total gas to figure out the gas used by the contract logic.
         const l2TeardownGas = simulation.publicOutput!.gasUsed.teardownGas.l2Gas;
-        const l2GasUsed = simulation.publicOutput!.gasUsed.totalGas.l2Gas - l2TeardownGas;
+        const totalL2Gas = simulation.publicOutput!.gasUsed.totalGas.l2Gas;
+        const baseL2Gas = FIXED_L2_GAS + FIXED_L2_GAS_FOR_TX_WITH_PUBLIC_CALLS + l2TeardownGas;
+        expect(totalL2Gas).toBeGreaterThan(baseL2Gas);
+        const l2GasUsed = totalL2Gas - baseL2Gas;
         // L2 gas used will vary a lot depending on codegen and other factors,
         // so we just set a wide range for it, and check it's not a suspiciously round number.
         expect(l2GasUsed).toBeGreaterThan(150);
