@@ -5,11 +5,9 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import { TxStatus } from '@aztec/aztec.js/tx';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
-import { GeneratorIndex } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { times, unique } from '@aztec/foundation/collection';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -18,15 +16,17 @@ import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import { getProofSubmissionDeadlineEpoch } from '@aztec/stdlib/epoch-helpers';
+import { computeSiloedPrivateLogFirstField } from '@aztec/stdlib/hash';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
-import { TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
 
 import { DUPLICATE_NULLIFIER_ERROR } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
+import { TestWallet } from './test-wallet/test_wallet.js';
+import { proveInteraction } from './test-wallet/utils.js';
 
 describe('e2e_block_building', () => {
   jest.setTimeout(20 * 60 * 1000); // 20 minutes
@@ -38,9 +38,9 @@ describe('e2e_block_building', () => {
   let minterAddress: AztecAddress;
 
   let aztecNode: AztecNode;
-  let aztecNodeAdmin: AztecNodeAdmin | undefined;
+  let aztecNodeAdmin: AztecNodeAdmin;
   let sequencer: TestSequencerClient;
-  let watcher: AnvilTestWatcher | undefined;
+  let watcher: AnvilTestWatcher;
   let teardown: () => Promise<void>;
 
   afterEach(() => {
@@ -68,11 +68,11 @@ describe('e2e_block_building', () => {
     });
 
     beforeEach(async () => {
-      await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 1 });
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
     });
 
     afterEach(async () => {
-      await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 1 });
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
       // Clean up any mocks
       jest.restoreAllMocks();
     });
@@ -90,7 +90,7 @@ describe('e2e_block_building', () => {
 
       // We add a delay to every public tx processing
       logger.info(`Updating aztec node config`);
-      await aztecNodeAdmin!.setConfig({
+      await aztecNodeAdmin.setConfig({
         fakeProcessingDelayPerTxMs: 300,
         minTxsPerBlock: 1,
         maxTxsPerBlock: TX_COUNT,
@@ -126,7 +126,7 @@ describe('e2e_block_building', () => {
       // Assemble N contract deployment txs
       // We need to create them sequentially since we cannot have parallel calls to a circuit
       const TX_COUNT = 8;
-      await aztecNodeAdmin!.setConfig({ minTxsPerBlock: TX_COUNT });
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: TX_COUNT });
 
       // Need to have value > 0, so adding + 1
       // We need to do so, because noir currently will fail if the multiscalarmul is in an `if`
@@ -171,7 +171,7 @@ describe('e2e_block_building', () => {
       // Assemble N contract deployment txs
       // We need to create them sequentially since we cannot have parallel calls to a circuit
       const TX_COUNT = 4;
-      await aztecNodeAdmin!.setConfig({ minTxsPerBlock: TX_COUNT });
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: TX_COUNT });
 
       const methods = times(TX_COUNT, i => contract.methods.increment_public_value(ownerAddress, i));
       const provenTxs = [];
@@ -198,7 +198,7 @@ describe('e2e_block_building', () => {
       const contract = await StatefulTestContract.deploy(wallet, ownerAddress, 1).send({ from: ownerAddress });
       const another = await TestContract.deploy(wallet).send({ from: ownerAddress });
 
-      await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 16, maxTxsPerBlock: 16 });
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 16, maxTxsPerBlock: 16 });
 
       // Flood nullifiers to grow the size of the nullifier tree.
       // Can probably do this more efficiently by batching multiple emit_nullifier calls
@@ -211,7 +211,7 @@ describe('e2e_block_building', () => {
       await Promise.all(sentNullifierTxs);
       logger.info(`Nullifier txs sent`);
 
-      await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 4, maxTxsPerBlock: 4 });
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 4, maxTxsPerBlock: 4 });
 
       // Now send public functions
       const TX_COUNT = 128;
@@ -228,7 +228,7 @@ describe('e2e_block_building', () => {
 
     it.skip('can call public function from different tx in same block as deployed', async () => {
       // Ensure both txs will land on the same block
-      await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 2 });
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 2 });
 
       // Deploy a contract in the first transaction
       // In the same block, call a public method on the contract
@@ -438,9 +438,9 @@ describe('e2e_block_building', () => {
 
       // The last log is not encrypted.
       // The first field is the first value and is siloed with contract address by the kernel circuit.
-      const expectedFirstField = await poseidon2HashWithSeparator(
-        [testContract.address, valuesAsArray[0]],
-        GeneratorIndex.PRIVATE_LOG_FIRST_FIELD,
+      const expectedFirstField = await computeSiloedPrivateLogFirstField(
+        testContract.address,
+        new Fr(valuesAsArray[0]),
       );
       expect(privateLogs[2].fields.slice(0, 5).map((f: Fr) => f.toBigInt())).toEqual([
         expectedFirstField.toBigInt(),
@@ -501,7 +501,7 @@ describe('e2e_block_building', () => {
       });
 
       logger.info('Updating txs per block to 4');
-      await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 4, maxTxsPerBlock: 4 });
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 4, maxTxsPerBlock: 4 });
 
       logger.info('Spamming the network with public txs');
       const txs = [];
@@ -593,7 +593,7 @@ describe('e2e_block_building', () => {
         await sleep(1000);
       }
 
-      watcher!.setIsMarkingAsProven(false);
+      watcher.setIsMarkingAsProven(false);
     });
 
     afterEach(() => teardown());

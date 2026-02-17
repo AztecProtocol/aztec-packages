@@ -9,7 +9,7 @@ This guide shows you how to read data from Aztec contracts in TypeScript, includ
 
 ## Prerequisites
 
-- [Connected to a network](./how_to_connect_to_local_network.md) with a `TestWallet` instance and funded accounts
+- [Connected to a network](./how_to_connect_to_local_network.md) with a `EmbeddedWallet` instance and funded accounts
 - A deployed contract instance (see [How to Deploy a Contract](./how_to_deploy_contract.md))
 
 ## Simulating functions
@@ -80,12 +80,12 @@ Simulation runs locally without generating proofs. No correctness guarantees are
 
 Contracts emit data in two forms you can read:
 
-| Aspect             | Logs                        | Events                                                    |
-| ------------------ | --------------------------- | --------------------------------------------------------- |
-| **What**           | Raw field arrays (untyped)  | Decoded domain objects with type info                     |
-| **Storage**        | Archiver (node-level)       | PXE (client-level) for private events                     |
+| Aspect             | Logs                        | Events                                             |
+| ------------------ | --------------------------- | -------------------------------------------------- |
+| **What**           | Raw field arrays (untyped)  | Decoded domain objects with type info              |
+| **Storage**        | Archiver (node-level)       | PXE (client-level) for private events              |
 | **API**            | `aztecNode.getPublicLogs()` | `wallet.getPrivateEvents()` or `getPublicEvents()` |
-| **Type awareness** | None - raw `Fr[]` data      | Requires ABI metadata to decode                           |
+| **Type awareness** | None - raw `Fr[]` data      | Requires ABI metadata to decode                    |
 
 **Logs** are the low-level transport layer, while **events** are the semantic application layer decoded using ABI metadata from your contract.
 

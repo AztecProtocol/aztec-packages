@@ -191,6 +191,9 @@ export class CheckpointProposalJob implements Traceable {
       );
       const previousCheckpointOutHashes = previousCheckpoints.map(c => c.getCheckpointOutHash());
 
+      // Get the fee asset price modifier from the oracle
+      const feeAssetPriceModifier = await this.publisher.getFeeAssetPriceModifier();
+
       // Create a long-lived forked world state for the checkpoint builder
       using fork = await this.worldState.fork(this.syncedToBlockNumber, { closeDelayMs: 12_000 });
 
@@ -198,6 +201,7 @@ export class CheckpointProposalJob implements Traceable {
       const checkpointBuilder = await this.checkpointsBuilder.startCheckpoint(
         this.checkpointNumber,
         checkpointGlobalVariables,
+        feeAssetPriceModifier,
         l1ToL2Messages,
         previousCheckpointOutHashes,
         fork,
@@ -275,6 +279,7 @@ export class CheckpointProposalJob implements Traceable {
       const proposal = await this.validatorClient.createCheckpointProposal(
         checkpoint.header,
         checkpoint.archive.root,
+        feeAssetPriceModifier,
         lastBlock,
         this.proposer,
         checkpointProposalOptions,
@@ -516,7 +521,7 @@ export class CheckpointProposalJob implements Traceable {
       // Create iterator to pending txs. We filter out txs already included in previous blocks in the checkpoint
       // just in case p2p failed to sync the provisional block and didn't get to remove those txs from the mempool yet.
       const pendingTxs = filter(
-        this.p2pClient.iteratePendingTxs(),
+        this.p2pClient.iterateEligiblePendingTxs(),
         tx => !txHashesAlreadyIncluded.has(tx.txHash.toString()),
       );
 
@@ -779,7 +784,7 @@ export class CheckpointProposalJob implements Traceable {
     const failedTxData = failedTxs.map(fail => fail.tx);
     const failedTxHashes = failedTxData.map(tx => tx.getTxHash());
     this.log.verbose(`Dropping failed txs ${failedTxHashes.join(', ')}`);
-    await this.p2pClient.deleteTxs(failedTxHashes);
+    await this.p2pClient.handleFailedExecution(failedTxHashes);
   }
 
   /**

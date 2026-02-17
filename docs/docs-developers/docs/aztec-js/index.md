@@ -22,7 +22,7 @@ Most applications will need additional packages alongside `@aztec/aztec.js`, e.g
 ```bash
 npm install @aztec/aztec.js@#include_version_without_prefix \
   @aztec/accounts@#include_version_without_prefix \
-  @aztec/test-wallet@#include_version_without_prefix \
+  @aztec/wallets@#include_version_without_prefix \
   @aztec/noir-contracts.js@#include_version_without_prefix
 ```
 
@@ -30,7 +30,7 @@ npm install @aztec/aztec.js@#include_version_without_prefix \
 | -------------------------- | ------------------------------------------------------------- |
 | `@aztec/aztec.js`          | Core SDK for contracts, transactions, and network interaction |
 | `@aztec/accounts`          | Account contract implementations (Schnorr, ECDSA)             |
-| `@aztec/test-wallet`       | Simplified wallet for local development and testing           |
+| `@aztec/wallets`           | Simplified wallets for local development and scripting        |
 | `@aztec/noir-contracts.js` | Pre-compiled contract interfaces (Token, NFT, etc.)           |
 
 ## Package Structure

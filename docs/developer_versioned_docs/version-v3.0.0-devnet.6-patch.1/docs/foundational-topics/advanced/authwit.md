@@ -15,7 +15,7 @@ Authentication Witness is a scheme for authenticating actions on Aztec, allowing
 - **Private authwits** are verified via static calls to the account contract, with witnesses provided through oracles
 - **Public authwits** use a shared registry where authorizations are stored and consumed
 - **Single-use enforcement** through nullifiers prevents replay attacks
-- **Implementation**: Use the `#[authorize_once]` macro in your contracts (see [implementation guide](../../aztec-nr/framework-description/how_to_use_authwit.md))
+- **Implementation**: Use the `#[authorize_once]` macro in your contracts (see [implementation guide](../../aztec-nr/framework-description/authentication_witnesses.md))
 
 ## Background
 
@@ -186,4 +186,4 @@ fn transfer_in_private(
 
 The macro handles authwit verification and nullifier emission automatically.
 
-For complete implementation details, see the [developer documentation](../../aztec-nr/framework-description/how_to_use_authwit.md).
+For complete implementation details, see the [developer documentation](../../aztec-nr/framework-description/authentication_witnesses.md).

@@ -1,4 +1,4 @@
-import type { TxMetaData } from '../tx_metadata.js';
+import { type TxMetaData, stubTxMetaValidationData } from '../tx_metadata.js';
 import type { PreAddPoolAccess } from './interfaces.js';
 import { NullifierConflictRule } from './nullifier_conflict_rule.js';
 
@@ -19,7 +19,9 @@ describe('NullifierConflictRule', () => {
     claimAmount: 0n,
     feeLimit: 1000n,
     nullifiers,
-    includeByTimestamp: 0n,
+    expirationTimestamp: 0n,
+    receivedAt: 0,
+    data: stubTxMetaValidationData(),
   });
 
   // Mock pool access with configurable behavior

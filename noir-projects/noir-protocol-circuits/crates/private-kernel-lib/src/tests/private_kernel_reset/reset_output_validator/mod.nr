@@ -1,5 +1,6 @@
 mod propagated_note_hashes_tests;
 mod propagated_nullifiers_tests;
+mod propagated_private_logs_tests;
 
 use crate::{
     abis::PrivateKernelResetHints,
@@ -60,7 +61,7 @@ impl TestBuilder {
             );
     }
 
-    pub fn validate_with_amounts<let NoteHashPendingReadAmount: u32, let NoteHashSettledReadAmount: u32, let NullifierPendingReadAmount: u32, let NullifierSettledReadAmount: u32, let KeyValidationAmount: u32, let TransientDataSquashingAmount: u32, let NoteHashSiloingAmount: u32, let NullifierSiloingAmount: u32, let PrivateLogSiloingAmount: u32>(
+    fn validate_with_amounts<let NoteHashPendingReadAmount: u32, let NoteHashSettledReadAmount: u32, let NullifierPendingReadAmount: u32, let NullifierSettledReadAmount: u32, let KeyValidationAmount: u32, let TransientDataSquashingAmount: u32, let NoteHashSiloingAmount: u32, let NullifierSiloingAmount: u32, let PrivateLogSiloingAmount: u32>(
         self,
         output_hints: SquashedOutputArrayHints,
     ) {

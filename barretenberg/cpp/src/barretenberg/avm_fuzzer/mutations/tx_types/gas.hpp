@@ -20,7 +20,7 @@ constexpr uint32_t AVM_MAX_PROCESSABLE_DA_GAS = (MAX_NOTE_HASHES_PER_TX * AVM_EM
                                                 (MAX_NULLIFIERS_PER_TX * AVM_EMITNULLIFIER_BASE_DA_GAS) +
                                                 (MAX_L2_TO_L1_MSGS_PER_TX * AVM_SENDL2TOL1MSG_BASE_DA_GAS) +
                                                 (MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * AVM_SSTORE_DYN_DA_GAS) +
-                                                (PUBLIC_LOGS_LENGTH * AVM_EMITUNENCRYPTEDLOG_BASE_DA_GAS);
+                                                (PUBLIC_LOGS_LENGTH * AVM_EMITPUBLICLOG_BASE_DA_GAS);
 
 enum class GasSettingsMutationOptions : uint8_t {
     GasLimits,

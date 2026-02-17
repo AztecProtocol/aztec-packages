@@ -43,7 +43,7 @@ describe('e2e_epochs/manual_rollback', () => {
       await retryUntil(async () => await node.getBlockNumber().then(b => b >= 4), 'sync to 4', 10, 0.1);
 
       logger.info(`Synced to checkpoint 4. Pausing syncing and rolling back the chain.`);
-      await context.aztecNodeAdmin!.pauseSync();
+      await context.aztecNodeAdmin.pauseSync();
       context.sequencer?.updateConfig({ minTxsPerBlock: 100 }); // Ensure no new blocks are produced
       await context.cheatCodes.eth.reorg(2);
       const checkpointAfterReorg = await rollup.getCheckpointNumber();
@@ -52,7 +52,7 @@ describe('e2e_epochs/manual_rollback', () => {
 
       logger.info(`Manually rolling back node to ${checkpointAfterReorg - 1}.`);
       const blockAfterReorg = Number(checkpointAfterReorg - 1);
-      await context.aztecNodeAdmin!.rollbackTo(blockAfterReorg);
+      await context.aztecNodeAdmin.rollbackTo(blockAfterReorg);
       expect(await node.getBlockNumber()).toEqual(blockAfterReorg);
 
       logger.info(`Waiting for node to re-sync to ${blockAfterReorg}.`);

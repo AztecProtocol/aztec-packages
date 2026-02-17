@@ -21,7 +21,6 @@ import { retryUntil } from '@aztec/foundation/retry';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { type AttestationInfo, getAttestationInfoFromPublishedCheckpoint } from '@aztec/stdlib/block';
-import type { TestWallet } from '@aztec/test-wallet/server';
 import { type DutyRow, DutyStatus } from '@aztec/validator-ha-signer/types';
 
 import { jest } from '@jest/globals';
@@ -44,6 +43,7 @@ import {
   getWeb3SignerUrl,
   refreshWeb3Signer,
 } from '../../fixtures/web3signer.js';
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
 
 const NODE_COUNT = 5;
 const VALIDATOR_COUNT = 4;
@@ -262,7 +262,12 @@ describe('HA Full Setup', () => {
 
   afterEach(async () => {
     // Clean up database state between tests
-    await mainPool.query('DELETE FROM validator_duties');
+    try {
+      await mainPool.query('DELETE FROM validator_duties');
+    } catch (error) {
+      // Ignore cleanup errors (table might not exist on first run failure)
+      logger?.warn(`Failed to clean up validator_duties: ${error}`);
+    }
   });
 
   it('should produce blocks with HA coordination and attestations', async () => {
@@ -373,109 +378,6 @@ describe('HA Full Setup', () => {
     }
   });
 
-  it('should distribute work across multiple HA nodes', async () => {
-    logger.info('Testing that multiple HA nodes are participating and work is distributed');
-
-    // Deploy multiple contracts to generate several blocks
-    // We send transactions sequentially and wait for each to be mined to ensure we get distinct blocks
-    const blockCount = 5;
-    const receipts = [];
-
-    for (let i = 0; i < blockCount; i++) {
-      const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-      const receipt = await deployer.deploy(ownerAddress, ownerAddress, i + 100).send({
-        from: ownerAddress,
-        contractAddressSalt: new Fr(BigInt(i + 100)),
-        skipClassPublication: true,
-        skipInstancePublication: true,
-        wait: { returnReceipt: true },
-      });
-
-      expect(receipt.blockNumber).toBeDefined();
-
-      receipts.push(receipt);
-      logger.info(`Block ${i + 1}/${blockCount} created: ${receipt.blockNumber}`);
-    }
-
-    // Verify we actually got 5 distinct blocks
-    const blockNumbers = receipts.map(r => r.blockNumber!).sort((a, b) => a - b);
-    const uniqueBlockNumbers = new Set(blockNumbers);
-    expect(uniqueBlockNumbers.size).toBe(blockCount);
-    logger.info(`Created ${uniqueBlockNumbers.size} distinct blocks: ${Array.from(uniqueBlockNumbers).join(', ')}`);
-
-    const quorum = Math.floor((COMMITTEE_SIZE * 2) / 3) + 1;
-    // Verify no double-signing occurred across all blocks
-    for (const receipt of receipts) {
-      const [block] = await aztecNode.getCheckpointedBlocks(receipt.blockNumber!, 1);
-      if (!block) {
-        throw new Error(`Block ${receipt.blockNumber} not found`);
-      }
-      const slotNumber = BigInt(block.block.header.globalVariables.slotNumber);
-
-      // PRIMARY CHECK: Database records show all attestation duties attempted/completed
-      const duties = await getValidatorDuties(mainPool, slotNumber);
-      const attestationDuties = duties.filter(d => d.dutyType === 'ATTESTATION');
-
-      // Verify no duplicate attestation duties per validator (HA protection ensures 1 per validator)
-      const dutiesByValidator = verifyNoDuplicateAttestations(attestationDuties, logger);
-      expect(dutiesByValidator.size).toBeGreaterThanOrEqual(quorum);
-      logger.info(
-        `Block ${receipt.blockNumber}: Database shows ${dutiesByValidator.size} unique validators attested (quorum: ${quorum}), no double-signing detected in DB`,
-      );
-
-      // P2P LAYER CHECK: Verify only one attestation per validator was sent over P2P
-      const p2pNode = haNodeServices[0];
-      const p2p = p2pNode.getP2P();
-      const slot = SlotNumber(Number(slotNumber));
-
-      // Get all attestations from P2P pool for this slot (before deduplication)
-      const p2pAttestations = await p2p.getCheckpointAttestationsForSlot(slot);
-      const p2pAttestationsWithSignatures = p2pAttestations.filter(a => !a.signature.isEmpty());
-      expect(p2pAttestationsWithSignatures.length).toBeGreaterThan(0);
-
-      // Extract validator addresses from P2P attestations using getSender()
-      const p2pValidatorAddresses = new Map<string, number>();
-      for (const attestation of p2pAttestationsWithSignatures) {
-        const sender = attestation.getSender();
-        if (sender) {
-          const addr = sender.toString();
-          p2pValidatorAddresses.set(addr, (p2pValidatorAddresses.get(addr) || 0) + 1);
-        }
-      }
-
-      // Verify no validator sent multiple attestations over P2P
-      // Each validator should have sent exactly one attestation
-      for (const [_, count] of p2pValidatorAddresses.entries()) {
-        expect(count).toBe(1);
-      }
-
-      logger.info(
-        `Block ${receipt.blockNumber}: P2P layer shows ${p2pValidatorAddresses.size} unique validators sent attestations, no duplicates detected`,
-      );
-
-      // SECONDARY CHECK: Verify checkpoint attestations match database records
-      const [publishedCheckpoint] = await aztecNode.getCheckpoints(block.checkpointNumber, 1);
-      const attestationInfos = getAttestationInfoFromPublishedCheckpoint({
-        attestations: publishedCheckpoint.attestations,
-        checkpoint: publishedCheckpoint.checkpoint,
-      });
-
-      // Filter to only valid attestations with recovered addresses
-      const validAttestations = attestationInfos.filter(
-        (info: AttestationInfo) => info.status === 'recovered-from-signature' && info.address !== undefined,
-      );
-
-      // Verify checkpoint has at least quorum attestations
-      const checkpointValidatorAddresses = new Set<string>(validAttestations.map(info => info.address!.toString()));
-      expect(checkpointValidatorAddresses.size).toBeGreaterThanOrEqual(quorum);
-
-      // Verify checkpoint attestations match database records (each validator in DB should appear in checkpoint)
-      for (const validatorAddress of dutiesByValidator.keys()) {
-        expect(checkpointValidatorAddresses.has(validatorAddress)).toBe(true);
-      }
-    }
-  });
-
   it('should coordinate governance voting across HA nodes', async () => {
     logger.info('Testing real governance voting with HA coordination');
 
@@ -536,33 +438,237 @@ describe('HA Full Setup', () => {
     expect(l1VoteCount).toBeGreaterThan(0);
     logger.info(`Verified ${l1VoteCount} governance vote(s) successfully sent to L1`);
 
-    // Also verify HA database coordination
+    // Get L1 round info to determine which slots have actually landed on L1.
+    // We anchor the comparison on L1's lastSignalSlot since:
+    // - The DB may have duties for future slots that haven't been published to L1 yet
+    // - L1 may have signals from earlier slots in the round before the governance payload was set in the DB
+    const roundInfo = await governanceProposer.getRoundInfo(
+      deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+      round,
+    );
+    const lastSignalSlot = Number(roundInfo.lastSignalSlot);
+    logger.info(
+      `L1 round ${round} info: lastSignalSlot=${lastSignalSlot}, l1VoteCount=${l1VoteCount}, payloadWithMostSignals=${roundInfo.payloadWithMostSignals}`,
+    );
+
+    // Query governance vote duties only for slots that have actually landed on L1 (up to lastSignalSlot)
     const dbResult = await mainPool.query<DutyRow>(
-      `SELECT * FROM validator_duties WHERE slot = $1 AND duty_type = 'GOVERNANCE_VOTE' ORDER BY started_at`,
-      [blockSlot.toString()],
+      `SELECT * FROM validator_duties WHERE slot::numeric <= $1 AND duty_type = 'GOVERNANCE_VOTE' ORDER BY slot, started_at`,
+      [lastSignalSlot.toString()],
     );
     const governanceVoteDuties = dbResult.rows;
-    logger.info(`HA database shows ${governanceVoteDuties.length} governance vote duty(ies)`);
+    logger.info(
+      `HA database shows ${governanceVoteDuties.length} governance vote duty(ies) up to slot ${lastSignalSlot}`,
+    );
 
     if (governanceVoteDuties.length > 0) {
-      // Verify HA coordination: Only one duty per validator address should exist
-      const uniqueValidators = new Set(governanceVoteDuties.map(row => row.validator_address));
-      expect(uniqueValidators.size).toBe(governanceVoteDuties.length); // No duplicate validators
+      // Verify HA coordination: Only one duty per (slot, validator) should exist
+      const dutyKeys = governanceVoteDuties.map(row => `${row.slot}-${row.validator_address}`);
+      const uniqueDutyKeys = new Set(dutyKeys);
+      expect(uniqueDutyKeys.size).toBe(governanceVoteDuties.length); // No duplicate (slot, validator) pairs
 
       // All duties should be completed
       for (const duty of governanceVoteDuties) {
         logger.info(
-          `  Governance vote duty: validator ${duty.validator_address}, node ${duty.node_id}, status ${duty.status}`,
+          `  Governance vote duty: slot ${duty.slot}, validator ${duty.validator_address}, node ${duty.node_id}, status ${duty.status}`,
         );
         expect(duty.status).toBe(DutyStatus.SIGNED);
         expect(duty.completed_at).toBeDefined();
       }
 
-      // L1 votes should match exactly one vote per unique validator (no double-voting)
-      expect(l1VoteCount).toBe(uniqueValidators.size);
-      logger.info(`Verified L1 votes (${l1VoteCount}) === unique validators (${uniqueValidators.size})`);
+      // L1 votes should match the number of unique slots in the DB that have landed on L1
+      const uniqueSlots = new Set(governanceVoteDuties.map(row => row.slot));
+      logger.info(
+        `L1 vote count: ${l1VoteCount}, unique slots in DB with governance votes up to L1 lastSignalSlot: ${uniqueSlots.size} (slots: ${[...uniqueSlots].join(', ')})`,
+      );
+      expect(l1VoteCount).toBe(uniqueSlots.size);
+      logger.info(`Verified L1 votes (${l1VoteCount}) === unique slots with votes (${uniqueSlots.size})`);
     }
 
     logger.info('Governance voting with HA coordination and L1 verification complete');
+  });
+
+  // NOTE: this test needs to run last
+  it('should distribute work across multiple HA nodes', async () => {
+    logger.info('Testing HA resilience by killing nodes after they produce blocks');
+
+    // We'll produce NODE_COUNT blocks (5 total with NODE_COUNT=5)
+    // Each node produces exactly 1 block, and we kill it after it produces
+    // The last remaining node will produce the final block
+    const blockCount = NODE_COUNT;
+    const receipts = [];
+    const killedNodes: number[] = []; // Track indices of killed nodes
+    const blockProducers = new Map<number, string>(); // Map block index to node ID
+    let previousBlockNumber: number | undefined;
+
+    const nodeIds: string[] = [];
+    for (const service of haNodeServices) {
+      nodeIds.push((await service.getConfig()).nodeId);
+    }
+
+    for (let i = 0; i < blockCount; i++) {
+      logger.info(`\n=== Producing block ${i + 1}/${blockCount} ===`);
+      logger.info(`Active nodes: ${haNodeServices.length - killedNodes.length}/${NODE_COUNT}`);
+
+      const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
+      const receipt = await deployer.deploy(ownerAddress, ownerAddress, i + 100).send({
+        from: ownerAddress,
+        contractAddressSalt: new Fr(BigInt(i + 100)),
+        skipClassPublication: true,
+        skipInstancePublication: true,
+        wait: { returnReceipt: true },
+      });
+
+      expect(receipt.blockNumber).toBeDefined();
+
+      // Verify this transaction is in a different block than the previous one
+      if (previousBlockNumber !== undefined) {
+        expect(receipt.blockNumber).toBeGreaterThan(previousBlockNumber);
+      }
+
+      previousBlockNumber = receipt.blockNumber;
+      receipts.push(receipt);
+
+      // Find which node produced this block
+      const [block] = await aztecNode.getCheckpointedBlocks(receipt.blockNumber!, 1);
+      if (!block) {
+        throw new Error(`Block ${receipt.blockNumber} not found`);
+      }
+      const slotNumber = BigInt(block.block.header.globalVariables.slotNumber);
+      const duties = await getValidatorDuties(mainPool, slotNumber);
+      const blockProposalDuty = duties.find(d => d.dutyType === 'BLOCK_PROPOSAL');
+
+      if (!blockProposalDuty) {
+        throw new Error(`No block proposal duty found for slot ${slotNumber}`);
+      }
+
+      blockProducers.set(i, blockProposalDuty.nodeId);
+      logger.info(`Block ${receipt.blockNumber} produced by node ${blockProposalDuty.nodeId}`);
+
+      // Kill the node that produced this block, unless it's the last block
+      if (i < blockCount - 1) {
+        const producerNodeId = blockProposalDuty.nodeId;
+        const nodeIndexToKill = nodeIds.findIndex(nodeId => nodeId === producerNodeId);
+
+        if (nodeIndexToKill === -1) {
+          throw new Error(`Could not find active node with ID ${producerNodeId}`);
+        }
+
+        logger.info(`Killing node ${producerNodeId} that produced this block`);
+        await haNodeServices[nodeIndexToKill].stop();
+        killedNodes.push(nodeIndexToKill);
+      } else {
+        logger.info(`Last block produced.`);
+      }
+
+      logger.info(`Block ${i + 1}/${blockCount} completed. Killed nodes: ${killedNodes.length}/${NODE_COUNT}`);
+    }
+
+    // Verify we got the expected number of distinct blocks
+    const blockNumbers = receipts.map(r => r.blockNumber!).sort((a, b) => a - b);
+    const uniqueBlockNumbers = new Set(blockNumbers);
+    expect(uniqueBlockNumbers.size).toBe(blockCount);
+    logger.info(`Created ${uniqueBlockNumbers.size} distinct blocks: ${Array.from(uniqueBlockNumbers).join(', ')}`);
+
+    // Verify each node produced at least 1 block
+    const nodeBlockCounts = new Map<string, number>();
+    for (const nodeId of blockProducers.values()) {
+      const count = nodeBlockCounts.get(nodeId) || 0;
+      nodeBlockCounts.set(nodeId, count + 1);
+    }
+
+    logger.info(`Block production by node: ${JSON.stringify(Array.from(nodeBlockCounts.entries()))}`);
+
+    // Verify: each node should have produced at least 1 block
+    // (there may be empty blocks produced during node transitions)
+    for (const [nodeId, count] of nodeBlockCounts.entries()) {
+      expect(count).toBeGreaterThanOrEqual(1);
+      logger.info(`Node ${nodeId} produced ${count} block(s) as expected`);
+    }
+
+    // Verify all nodes participated (NODE_COUNT nodes total)
+    expect(nodeBlockCounts.size).toBe(NODE_COUNT);
+    logger.info(`All ${NODE_COUNT} nodes participated in block production`);
+
+    // Verify no double-signing occurred across all blocks
+    const quorum = Math.floor((COMMITTEE_SIZE * 2) / 3) + 1;
+    for (const receipt of receipts) {
+      const [block] = await aztecNode.getCheckpointedBlocks(receipt.blockNumber!, 1);
+      if (!block) {
+        throw new Error(`Block ${receipt.blockNumber} not found`);
+      }
+      const slotNumber = BigInt(block.block.header.globalVariables.slotNumber);
+
+      // PRIMARY CHECK: Database records show all attestation duties attempted/completed
+      const duties = await getValidatorDuties(mainPool, slotNumber);
+      const attestationDuties = duties.filter(d => d.dutyType === 'ATTESTATION');
+
+      // Verify no duplicate attestation duties per validator (HA protection ensures 1 per validator)
+      const dutiesByValidator = verifyNoDuplicateAttestations(attestationDuties, logger);
+      expect(dutiesByValidator.size).toBeGreaterThanOrEqual(quorum);
+      logger.info(
+        `Block ${receipt.blockNumber}: Database shows ${dutiesByValidator.size} unique validators attested (quorum: ${quorum}), no double-signing detected in DB`,
+      );
+
+      // P2P LAYER CHECK: Verify only one attestation per validator was sent over P2P
+      // Find first active node for P2P check
+      let p2pNodeIndex = 0;
+      for (let idx = 0; idx < haNodeServices.length; idx++) {
+        if (!killedNodes.includes(idx)) {
+          p2pNodeIndex = idx;
+          break;
+        }
+      }
+
+      const p2pNode = haNodeServices[p2pNodeIndex];
+      const p2p = p2pNode.getP2P();
+      const slot = SlotNumber(Number(slotNumber));
+
+      // Get all attestations from P2P pool for this slot (before deduplication)
+      const p2pAttestations = await p2p.getCheckpointAttestationsForSlot(slot);
+      const p2pAttestationsWithSignatures = p2pAttestations.filter(a => !a.signature.isEmpty());
+      expect(p2pAttestationsWithSignatures.length).toBeGreaterThan(0);
+
+      // Extract validator addresses from P2P attestations using getSender()
+      const p2pValidatorAddresses = new Map<string, number>();
+      for (const attestation of p2pAttestationsWithSignatures) {
+        const sender = attestation.getSender();
+        if (sender) {
+          const addr = sender.toString();
+          p2pValidatorAddresses.set(addr, (p2pValidatorAddresses.get(addr) || 0) + 1);
+        }
+      }
+
+      // Verify no validator sent multiple attestations over P2P
+      // Each validator should have sent exactly one attestation
+      for (const [_, count] of p2pValidatorAddresses.entries()) {
+        expect(count).toBe(1);
+      }
+
+      logger.info(
+        `Block ${receipt.blockNumber}: P2P layer shows ${p2pValidatorAddresses.size} unique validators sent attestations, no duplicates detected`,
+      );
+
+      // SECONDARY CHECK: Verify checkpoint attestations match database records
+      const [publishedCheckpoint] = await aztecNode.getCheckpoints(block.checkpointNumber, 1);
+      const attestationInfos = getAttestationInfoFromPublishedCheckpoint({
+        attestations: publishedCheckpoint.attestations,
+        checkpoint: publishedCheckpoint.checkpoint,
+      });
+
+      // Filter to only valid attestations with recovered addresses
+      const validAttestations = attestationInfos.filter(
+        (info: AttestationInfo) => info.status === 'recovered-from-signature' && info.address !== undefined,
+      );
+
+      // Verify checkpoint has at least quorum attestations
+      const checkpointValidatorAddresses = new Set<string>(validAttestations.map(info => info.address!.toString()));
+      expect(checkpointValidatorAddresses.size).toBeGreaterThanOrEqual(quorum);
+
+      // Verify checkpoint attestations match database records (each validator in DB should appear in checkpoint)
+      for (const validatorAddress of dutiesByValidator.keys()) {
+        expect(checkpointValidatorAddresses.has(validatorAddress)).toBe(true);
+      }
+    }
   });
 });

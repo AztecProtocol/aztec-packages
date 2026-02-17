@@ -46,21 +46,21 @@ template <typename Builder> void create_ec_add_constraint(Builder& builder, cons
 
     field_ct input_result_x = field_ct::from_witness_index(&builder, input.result_x);
     field_ct input_result_y = field_ct::from_witness_index(&builder, input.result_y);
-    bool_ct input_result_infinite = bool_ct(field_ct::from_witness_index(&builder, input.result_infinite));
 
     if (builder.is_write_vk_mode()) {
         builder.set_variable(input_result_x.get_witness_index(), bb::grumpkin::g1::affine_one.x);
         builder.set_variable(input_result_y.get_witness_index(), bb::grumpkin::g1::affine_one.y);
-        builder.set_variable(input_result_infinite.get_witness_index(), bb::fr(0));
     }
 
     cycle_group_ct input1_point =
         to_grumpkin_point(input.input1_x, input.input1_y, input.input1_infinite, predicate, builder);
     cycle_group_ct input2_point =
         to_grumpkin_point(input.input2_x, input.input2_y, input.input2_infinite, predicate, builder);
+
+    // Use public constructor which auto-detects infinity from (0,0) coordinates.
     // Note that input_result is computed by Noir and passed to bb via ACIR. Hence, it is always a valid point on
-    // Grumpkin.
-    cycle_group_ct input_result(input_result_x, input_result_y, input_result_infinite, /*assert_on_curve=*/false);
+    // Grumpkin, so we don't need to assert on curve.
+    cycle_group_ct input_result(input_result_x, input_result_y, /*assert_on_curve=*/false);
 
     // Step 2.
     cycle_group_ct result = input1_point + input2_point;
