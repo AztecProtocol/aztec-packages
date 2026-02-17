@@ -180,11 +180,11 @@ export interface ContractClassesCapability {
 export interface GrantedContractClassesCapability extends ContractClassesCapability {}
 
 /**
- * Transaction simulation capability - for simulating transactions and utilities.
+ * Transaction simulation capability - for simulating transactions and executing utilities.
  *
  * Maps to wallet methods:
  * - simulateTx (when transactions scope specified)
- * - simulateUtility (when utilities scope specified)
+ * - executeUtility (when utilities scope specified)
  * - profileTx (when transactions scope specified)
  *
  * @example
@@ -200,7 +200,7 @@ export interface GrantedContractClassesCapability extends ContractClassesCapabil
  * \}
  *
  * @example
- * // Simulate any transaction and utility call
+ * // Simulate any transaction and execute any utility call
  * \{
  *   type: 'simulation',
  *   transactions: \{ scope: '*' \},
@@ -221,7 +221,7 @@ export interface SimulationCapability {
     scope: '*' | ContractFunctionPattern[];
   };
 
-  /** Utility simulation scope (unconstrained calls). Maps to: simulateUtility */
+  /** Utility execution scope (unconstrained calls). Maps to: executeUtility */
   utilities?: {
     /**
      * Which contracts/functions to allow:
