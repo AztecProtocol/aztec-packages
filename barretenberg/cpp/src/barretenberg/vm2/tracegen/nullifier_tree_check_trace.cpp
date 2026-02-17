@@ -1,17 +1,28 @@
 #include "barretenberg/vm2/tracegen/nullifier_tree_check_trace.hpp"
 
-#include <memory>
-
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_nullifier_check.hpp"
-#include "barretenberg/vm2/generated/relations/lookups_update_check.hpp"
 #include "barretenberg/vm2/tracegen/lib/discard_reconstruction.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
 using simulation::NullifierTreeLeafPreimage;
 
+/**
+ * @brief Process the nullifier tree check events and populate the relevant columns in the trace.
+ *
+ * The event stream contains both read/write events and checkpoint events (create, commit, revert).
+ * We use process_with_discard to consume the checkpoint events and reconstruct a discard flag for
+ * each read/write event, indicating whether it belongs to a reverted checkpoint. Discarded events
+ * still produce trace rows but are excluded from public input writes.
+ *
+ * Each non-checkpoint event produces one trace row covering: siloing, low leaf validation, indexed tree
+ * membership checks, low leaf updates, new leaf insertion, and Merkle proofs. The diff inverse and next
+ * nullifier inverse columns are batch-inverted at the end for non-membership checks.
+ *
+ * @param events The container of nullifier tree check events to process.
+ * @param trace The trace container to populate with nullifier tree check rows.
+ */
 void NullifierTreeCheckTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::NullifierTreeCheckEvent>::Container& events,
     TraceContainer& trace)
@@ -75,7 +86,7 @@ void NullifierTreeCheckTraceBuilder::process(
                       { C::nullifier_check_low_leaf_index, event.low_leaf_index },
                       { C::nullifier_check_siloed_nullifier, siloed_nullifier },
                       { C::nullifier_check_siloing_separator, DOM_SEP__SILOED_NULLIFIER },
-                      { C::nullifier_check_should_insert, append },
+                      { C::nullifier_check_sel_insert, append },
                       { C::nullifier_check_low_leaf_hash, event.low_leaf_hash },
                       { C::nullifier_check_intermediate_root, intermediate_root },
                       { C::nullifier_check_updated_low_leaf_hash, updated_low_leaf_hash },
@@ -86,7 +97,7 @@ void NullifierTreeCheckTraceBuilder::process(
                       { C::nullifier_check_next_nullifier_is_nonzero, next_nullifier_is_nonzero },
                       { C::nullifier_check_next_nullifier_inv, next_nullifier }, // Will be inverted in batch later
                       { C::nullifier_check_new_leaf_hash, new_leaf_hash },
-                      { C::nullifier_check_should_write_to_public_inputs, event.append_data.has_value() && !discard },
+                      { C::nullifier_check_sel_write_to_public_inputs, event.append_data.has_value() && !discard },
                       { C::nullifier_check_public_inputs_index,
                         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX + event.nullifier_counter } } });
         row++;
