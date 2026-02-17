@@ -50,12 +50,12 @@ describe('e2e_token_contract reading constants', () => {
   });
 
   it('check decimals private', async () => {
-    const dec = await t.asset.methods.private_get_decimals().simulate({ from: t.adminAddress });
+    const { result: dec } = await t.asset.methods.private_get_decimals().simulate({ from: t.adminAddress });
     expect(dec).toBe(TOKEN_DECIMALS);
   });
 
   it('check decimals public', async () => {
-    const dec = await t.asset.methods.public_get_decimals().simulate({ from: t.adminAddress });
+    const { result: dec } = await t.asset.methods.public_get_decimals().simulate({ from: t.adminAddress });
     expect(dec).toBe(TOKEN_DECIMALS);
   });
 });
