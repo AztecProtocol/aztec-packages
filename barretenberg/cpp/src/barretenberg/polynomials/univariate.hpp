@@ -38,7 +38,6 @@ template <class Fr, size_t domain_end> class Univariate {
 
     using value_type = Fr; // used to get the type of the elements consistently with std::array
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/714) Try out std::valarray?
     std::array<Fr, LENGTH> evaluations;
 
     Univariate() = default;
