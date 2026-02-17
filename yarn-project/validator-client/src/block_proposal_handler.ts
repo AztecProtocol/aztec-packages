@@ -453,7 +453,7 @@ export class BlockProposalHandler {
     // Fork before the block to be built
     const parentBlockNumber = BlockNumber(blockNumber - 1);
     await this.worldState.syncImmediate(parentBlockNumber);
-    using fork = await this.worldState.fork(parentBlockNumber);
+    await using fork = await this.worldState.fork(parentBlockNumber);
 
     // Build checkpoint constants from proposal (excludes blockNumber which is per-block)
     const constants: CheckpointGlobalVariables = {

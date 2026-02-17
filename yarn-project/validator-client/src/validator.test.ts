@@ -310,7 +310,7 @@ describe('ValidatorClient', () => {
       checkpointsBuilder.openCheckpoint.mockResolvedValue(mockCheckpointBuilder);
       worldState.fork.mockResolvedValue({
         close: () => Promise.resolve(),
-        [Symbol.dispose]: () => {},
+        [Symbol.asyncDispose]: () => Promise.resolve(),
       } as never);
     };
 
