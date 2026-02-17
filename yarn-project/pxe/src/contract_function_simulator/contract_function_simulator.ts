@@ -6,6 +6,7 @@ import {
   FIXED_AVM_STARTUP_L2_GAS,
   FIXED_DA_GAS,
   FIXED_L2_GAS,
+  FIXED_L2_GAS_FOR_TX_WITH_PUBLIC_CALLS,
   L2_GAS_PER_CONTRACT_CLASS_LOG_FIELD,
   L2_GAS_PER_L2_TO_L1_MSG,
   L2_GAS_PER_NOTE_HASH,
@@ -643,6 +644,7 @@ export async function generateSimulatedProvingResult(
     if (publicTeardownCallRequest) {
       gasUsed = gasUsed.add(privateExecutionResult.entrypoint.publicInputs.txContext.gasSettings.teardownGasLimits);
     }
+    gasUsed = gasUsed.add(Gas.from({ l2Gas: FIXED_L2_GAS_FOR_TX_WITH_PUBLIC_CALLS, daGas: 0 }));
 
     inputsForPublic = new PartialPrivateTailPublicInputsForPublic(
       nonRevertibleData,
@@ -811,7 +813,7 @@ function meterGasUsed(data: PrivateToRollupAccumulatedData | PrivateToPublicAccu
 
   const numContractClassLogs = arrayNonEmptyLength(data.contractClassLogsHashes, log => log.isEmpty());
   const numContractClassLogFields = data.contractClassLogsHashes.reduce(
-    (acc, log) => (!log.isEmpty() ? acc + log.logHash.length + 2 : acc),
+    (acc, log) => (!log.isEmpty() ? acc + log.logHash.length : acc),
     0,
   );
   // Every contract class log emits its contract address as an additional field
@@ -822,7 +824,6 @@ function meterGasUsed(data: PrivateToRollupAccumulatedData | PrivateToPublicAccu
 
   if ((data as PrivateToPublicAccumulatedData).publicCallRequests) {
     const dataForPublic = data as PrivateToPublicAccumulatedData;
-
     const numPublicCallRequests = arrayNonEmptyLength(dataForPublic.publicCallRequests, req => req.isEmpty());
     meteredL2Gas += numPublicCallRequests * FIXED_AVM_STARTUP_L2_GAS;
   }
