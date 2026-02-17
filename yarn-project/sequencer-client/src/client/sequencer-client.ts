@@ -216,6 +216,11 @@ export class SequencerClient {
     return this.sequencer;
   }
 
+  /** Updates the publisher factory's node keystore adapter after a keystore reload. */
+  public updatePublisherNodeKeyStore(adapter: NodeKeystoreAdapter): void {
+    this.sequencer.updatePublisherNodeKeyStore(adapter);
+  }
+
   /** Returns the shared tx delayer for sequencer L1 txs, if enabled. Test-only. */
   getDelayer(): Delayer | undefined {
     return this.delayer_;

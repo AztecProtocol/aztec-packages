@@ -9,7 +9,7 @@ import { getPublicClient } from '@aztec/ethereum/client';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { compactArray, pick } from '@aztec/foundation/collection';
+import { compactArray, pick, unique } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
@@ -149,6 +149,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     private telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('node'),
     private blobClient?: BlobClientInterface,
+    private validatorClient?: ValidatorClient,
+    private keyStoreManager?: KeystoreManager,
   ) {
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
     this.tracer = telemetry.getTracer('AztecNodeService');
@@ -534,6 +536,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       telemetry,
       log,
       blobClient,
+      validatorClient,
+      keyStoreManager,
     );
 
     return node;
@@ -1439,6 +1443,94 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     } else {
       return this.slasherClient.gatherOffensesForRound(round === 'current' ? undefined : BigInt(round));
     }
+  }
+
+  public async reloadKeystore(): Promise<void> {
+    if (!this.config.keyStoreDirectory?.length) {
+      throw new BadRequestError(
+        'Cannot reload keystore: node is not using a file-based keystore. ' +
+          'Set KEY_STORE_DIRECTORY to use file-based keystores.',
+      );
+    }
+    if (!this.validatorClient) {
+      throw new BadRequestError('Cannot reload keystore: validator is not enabled.');
+    }
+
+    this.log.info('Reloading keystore from disk');
+
+    // Re-read and validate keystore files
+    const keyStores = loadKeystores(this.config.keyStoreDirectory);
+    const newManager = new KeystoreManager(mergeKeystores(keyStores));
+    await newManager.validateSigners();
+    ValidatorClient.validateKeyStoreConfiguration(newManager, this.log);
+
+    // Validate that every validator's publisher keys overlap with the L1 signers
+    // that were initialized at startup. Publishers cannot be hot-reloaded, so a
+    // validator with a publisher key that doesn't match any existing L1 signer
+    // would silently fail on every proposer slot.
+    if (this.keyStoreManager && this.sequencer) {
+      const oldAdapter = NodeKeystoreAdapter.fromKeyStoreManager(this.keyStoreManager);
+      const availablePublishers = new Set(
+        oldAdapter
+          .getAttesterAddresses()
+          .flatMap(a => oldAdapter.getPublisherAddresses(a).map(p => p.toString().toLowerCase())),
+      );
+
+      const newAdapter = NodeKeystoreAdapter.fromKeyStoreManager(newManager);
+      for (const attester of newAdapter.getAttesterAddresses()) {
+        const pubs = newAdapter.getPublisherAddresses(attester);
+        if (pubs.length > 0 && !pubs.some(p => availablePublishers.has(p.toString().toLowerCase()))) {
+          throw new BadRequestError(
+            `Cannot reload keystore: validator ${attester} has publisher keys ` +
+              `[${pubs.map(p => p.toString()).join(', ')}] but none match the L1 signers initialized at startup ` +
+              `[${[...availablePublishers].join(', ')}]. Publishers cannot be hot-reloaded — ` +
+              `use an existing publisher key or restart the node.`,
+          );
+        }
+      }
+    }
+
+    // Build adapters for old and new keystores to compute diff
+    const newAdapter = NodeKeystoreAdapter.fromKeyStoreManager(newManager);
+    const newAddresses = newAdapter.getAttesterAddresses();
+    const oldAddresses = this.keyStoreManager
+      ? NodeKeystoreAdapter.fromKeyStoreManager(this.keyStoreManager).getAttesterAddresses()
+      : [];
+
+    const oldSet = new Set(oldAddresses.map(a => a.toString()));
+    const newSet = new Set(newAddresses.map(a => a.toString()));
+    const added = newAddresses.filter(a => !oldSet.has(a.toString()));
+    const removed = oldAddresses.filter(a => !newSet.has(a.toString()));
+
+    if (added.length > 0) {
+      this.log.info(`Keystore reload: adding attester keys: ${added.map(a => a.toString()).join(', ')}`);
+    }
+    if (removed.length > 0) {
+      this.log.info(`Keystore reload: removing attester keys: ${removed.map(a => a.toString()).join(', ')}`);
+    }
+    if (added.length === 0 && removed.length === 0) {
+      this.log.info('Keystore reload: attester keys unchanged');
+    }
+
+    // Update the validator client (coinbase, feeRecipient, attester keys)
+    this.validatorClient.reloadKeystore(newManager);
+
+    // Update the publisher factory's keystore so newly-added validators
+    // can be matched to existing publisher keys when proposing blocks.
+    if (this.sequencer) {
+      this.sequencer.updatePublisherNodeKeyStore(newAdapter);
+    }
+
+    // Update slasher's "don't-slash-self" list with new validator addresses
+    if (this.slasherClient && !this.config.slashSelfAllowed) {
+      const slashValidatorsNever = unique(
+        [...(this.config.slashValidatorsNever ?? []), ...newAddresses].map(a => a.toString()),
+      ).map(EthAddress.fromString);
+      this.slasherClient.updateConfig({ slashValidatorsNever });
+    }
+
+    this.keyStoreManager = newManager;
+    this.log.info('Keystore reloaded: coinbase, feeRecipient, and attester keys updated');
   }
 
   #getInitialHeaderHash(): Promise<BlockHash> {

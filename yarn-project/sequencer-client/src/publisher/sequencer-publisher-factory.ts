@@ -26,6 +26,8 @@ export class SequencerPublisherFactory {
   /** Stores the last slot in which every action was carried out by a publisher */
   private lastActions: Partial<Record<Action, SlotNumber>> = {};
 
+  private nodeKeyStore: NodeKeystoreAdapter;
+
   private logger: Logger;
 
   constructor(
@@ -45,7 +47,17 @@ export class SequencerPublisherFactory {
   ) {
     this.publisherMetrics = new SequencerPublisherMetrics(deps.telemetry, 'SequencerPublisher');
     this.logger = deps.logger ?? createLogger('sequencer');
+    this.nodeKeyStore = this.deps.nodeKeyStore;
   }
+
+  /**
+   * Updates the node keystore adapter used for publisher lookups.
+   * Called when the keystore is reloaded at runtime to reflect new validator-publisher mappings.
+   */
+  public updateNodeKeyStore(adapter: NodeKeystoreAdapter): void {
+    this.nodeKeyStore = adapter;
+  }
+
   /**
    * Creates a new SequencerPublisher instance.
    * @param _validatorAddress - The address of the validator that will be using the publisher.
@@ -54,7 +66,7 @@ export class SequencerPublisherFactory {
   public async create(validatorAddress?: EthAddress): Promise<AttestorPublisherPair> {
     // If we have been given an attestor address we must only allow publishers permitted for that attestor
 
-    const allowedPublishers = !validatorAddress ? [] : this.deps.nodeKeyStore.getPublisherAddresses(validatorAddress);
+    const allowedPublishers = !validatorAddress ? [] : this.nodeKeyStore.getPublisherAddresses(validatorAddress);
     const filter: PublisherFilter<L1TxUtils> = !validatorAddress
       ? () => true
       : (utils: L1TxUtils) => {
@@ -64,7 +76,7 @@ export class SequencerPublisherFactory {
 
     const l1Publisher = await this.deps.publisherManager.getAvailablePublisher(filter);
     const attestorAddress =
-      validatorAddress ?? this.deps.nodeKeyStore.getAttestorForPublisher(l1Publisher.getSenderAddress());
+      validatorAddress ?? this.nodeKeyStore.getAttestorForPublisher(l1Publisher.getSenderAddress());
 
     const rollup = this.deps.rollupContract;
     const slashingProposerContract = await rollup.getSlashingProposer();

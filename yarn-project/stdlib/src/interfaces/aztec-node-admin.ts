@@ -50,6 +50,26 @@ export interface AztecNodeAdmin {
 
   /** Returns all offenses applicable for the given round. */
   getSlashOffenses(round: bigint | 'all' | 'current'): Promise<Offense[]>;
+
+  /**
+   * Reloads keystore configuration from disk.
+   *
+   * What is updated:
+   * - Validator attester keys
+   * - Coinbase address per validator
+   * - Fee recipient address per validator
+   *
+   * What is NOT updated (requires node restart):
+   * - L1 publisher signers (the funded accounts that send L1 transactions)
+   * - Prover keys
+   * - HA signer PostgreSQL connections
+   *
+   * Notes:
+   * - New validators must use a publisher key that was already configured at node
+   *   startup (or omit the publisher field to fall back to the attester key).
+   *   A validator with an unknown publisher key will cause the reload to be rejected.
+   */
+  reloadKeystore(): Promise<void>;
 }
 
 // L1 contracts are not mutable via admin updates.
@@ -88,6 +108,7 @@ export const AztecNodeAdminApiSchema: ApiSchemaFor<AztecNodeAdmin> = {
     .function()
     .args(z.union([z.bigint(), z.literal('all'), z.literal('current')]))
     .returns(z.array(OffenseSchema)),
+  reloadKeystore: z.function().returns(z.void()),
 };
 
 export function createAztecNodeAdminClient(
