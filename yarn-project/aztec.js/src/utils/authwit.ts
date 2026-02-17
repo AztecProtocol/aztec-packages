@@ -16,6 +16,7 @@ import type {
   SendReturn,
   SimulateInteractionOptions,
   SimulationReturn,
+  TxSendResultMined,
 } from '../contract/interaction_options.js';
 import type { Wallet } from '../wallet/index.js';
 
@@ -288,8 +289,7 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
    * @param options - An optional object containing 'fee' options information
    * @returns A TxReceipt (if wait is true/undefined) or TxHash (if wait is false)
    */
-  // Overload for when wait is not specified at all
-  public override send(options?: Omit<SendInteractionOptionsWithoutWait, 'from'>): Promise<SendReturn<undefined>>;
+  public override send(options?: Omit<SendInteractionOptionsWithoutWait, 'from'>): Promise<TxSendResultMined>;
   // Generic overload for explicit wait values
   // eslint-disable-next-line jsdoc/require-jsdoc
   public override send<W extends InteractionWaitOptions>(
