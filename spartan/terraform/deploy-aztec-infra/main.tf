@@ -306,7 +306,7 @@ locals {
             p2p = { publicIP = var.P2P_PUBLIC_IP }
           }
         }
-      })], local.is_kind ? [yamlencode({
+        })], local.is_kind ? [yamlencode({
         agent = {
           nodeSelector = null
           affinity     = null
@@ -335,9 +335,9 @@ locals {
           "broker.node.logLevel"                                = var.LOG_LEVEL
           "broker.node.env.BOOTSTRAP_NODES"                     = "asdf"
           "broker.node.env.PROVER_BROKER_DEBUG_REPLAY_ENABLED"  = var.PROVER_BROKER_DEBUG_REPLAY_ENABLED
-          "agent.node.image.repository"                          = local.prover_agent_image.repository
-          "agent.node.image.tag"                                 = local.prover_agent_image.tag
-          "agent.node.env.CRS_PATH"                              = "/usr/src/crs"
+          "agent.node.image.repository"                         = local.prover_agent_image.repository
+          "agent.node.image.tag"                                = local.prover_agent_image.tag
+          "agent.node.env.CRS_PATH"                             = "/usr/src/crs"
           "agent.node.proverRealProofs"                         = var.PROVER_REAL_PROOFS
           "agent.node.env.PROVER_AGENT_POLL_INTERVAL_MS"        = var.PROVER_AGENT_POLL_INTERVAL_MS
           "agent.replicaCount"                                  = var.PROVER_REPLICAS
@@ -416,7 +416,6 @@ locals {
       })]
 
       custom_settings = merge({
-        "nodeType"                    = "rpc"
         "replicaCount"                = var.RPC_REPLICAS
         "service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
         "service.p2p.announcePort"    = local.p2p_port_rpc
