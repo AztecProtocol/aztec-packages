@@ -80,10 +80,12 @@ describe('e2e_token_contract transfer private', () => {
       await expect(
         simulateThroughAuthwitProxy(t.authwitProxy, action, { from: adminAddress, authWitnesses: [witness] }),
       ).rejects.toThrow('Assertion failed: Balance too low');
-      expect(await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress })).toEqual(balance0);
-      expect(await asset.methods.balance_of_private(account1Address).simulate({ from: account1Address })).toEqual(
-        balance1,
+      expect((await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress })).result).toEqual(
+        balance0,
       );
+      expect(
+        (await asset.methods.balance_of_private(account1Address).simulate({ from: account1Address })).result,
+      ).toEqual(balance1);
     });
 
     it.skip('transfer into account to overflow', () => {
@@ -135,7 +137,9 @@ describe('e2e_token_contract transfer private', () => {
       await expect(
         simulateThroughAuthwitProxy(t.authwitProxy, action, { from: adminAddress, authWitnesses: [witness] }),
       ).rejects.toThrow(`Unknown auth witness for message hash ${expectedMessageHash.toString()}`);
-      expect(await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress })).toEqual(balance0);
+      expect((await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress })).result).toEqual(
+        balance0,
+      );
     });
 
     it('transfer on behalf of other, cancelled authwit', async () => {

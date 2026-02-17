@@ -119,16 +119,18 @@ describe('e2e_avm_simulator', () => {
     describe('Storage', () => {
       it('Modifies storage (Field)', async () => {
         await avmContract.methods.set_storage_single(20n).send({ from: defaultAccountAddress });
-        expect(await avmContract.methods.read_storage_single().simulate({ from: defaultAccountAddress })).toEqual(20n);
+        expect(
+          (await avmContract.methods.read_storage_single().simulate({ from: defaultAccountAddress })).result,
+        ).toEqual(20n);
       });
 
       it('Modifies storage (Map)', async () => {
         const address = AztecAddress.fromBigInt(9090n);
         await avmContract.methods.set_storage_map(address, 100).send({ from: defaultAccountAddress });
         await avmContract.methods.add_storage_map(address, 100).send({ from: defaultAccountAddress });
-        expect(await avmContract.methods.read_storage_map(address).simulate({ from: defaultAccountAddress })).toEqual(
-          200n,
-        );
+        expect(
+          (await avmContract.methods.read_storage_map(address).simulate({ from: defaultAccountAddress })).result,
+        ).toEqual(200n);
       });
 
       it('Preserves storage across enqueued public calls', async () => {
@@ -139,9 +141,9 @@ describe('e2e_avm_simulator', () => {
           avmContract.methods.add_storage_map(address, 100),
         ]).send({ from: defaultAccountAddress });
         // On a separate tx, we check the result.
-        expect(await avmContract.methods.read_storage_map(address).simulate({ from: defaultAccountAddress })).toEqual(
-          200n,
-        );
+        expect(
+          (await avmContract.methods.read_storage_map(address).simulate({ from: defaultAccountAddress })).result,
+        ).toEqual(200n);
       });
     });
 
@@ -261,9 +263,9 @@ describe('e2e_avm_simulator', () => {
 
     describe('Storage', () => {
       it('Read immutable (initialized) storage (Field)', async () => {
-        expect(await avmContract.methods.read_storage_immutable().simulate({ from: defaultAccountAddress })).toEqual(
-          42n,
-        );
+        expect(
+          (await avmContract.methods.read_storage_immutable().simulate({ from: defaultAccountAddress })).result,
+        ).toEqual(42n);
       });
     });
   });

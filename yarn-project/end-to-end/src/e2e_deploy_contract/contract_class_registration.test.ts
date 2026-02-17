@@ -149,7 +149,9 @@ describe('e2e_deploy_contract contract class registration', () => {
         it('calls a public function with no init check on the deployed instance', async () => {
           const whom = await AztecAddress.random();
           await contract.methods.increment_public_value_no_init_check(whom, 10).send({ from: defaultAccountAddress });
-          const stored = await contract.methods.get_public_value(whom).simulate({ from: defaultAccountAddress });
+          const { result: stored } = await contract.methods
+            .get_public_value(whom)
+            .simulate({ from: defaultAccountAddress });
           expect(stored).toEqual(10n);
         });
 
@@ -161,7 +163,9 @@ describe('e2e_deploy_contract contract class registration', () => {
           expect(receipt.executionResult).toEqual(TxExecutionResult.APP_LOGIC_REVERTED);
 
           // Meanwhile we check we didn't increment the value
-          expect(await contract.methods.get_public_value(whom).simulate({ from: defaultAccountAddress })).toEqual(0n);
+          expect(
+            (await contract.methods.get_public_value(whom).simulate({ from: defaultAccountAddress })).result,
+          ).toEqual(0n);
         });
 
         it('refuses to initialize the instance with wrong args via a private function', async () => {
@@ -174,7 +178,9 @@ describe('e2e_deploy_contract contract class registration', () => {
           await contract.methods.constructor(...initArgs).send({ from: defaultAccountAddress });
           const whom = await AztecAddress.random();
           await contract.methods.increment_public_value(whom, 10).send({ from: defaultAccountAddress });
-          const stored = await contract.methods.get_public_value(whom).simulate({ from: defaultAccountAddress });
+          const { result: stored } = await contract.methods
+            .get_public_value(whom)
+            .simulate({ from: defaultAccountAddress });
           expect(stored).toEqual(10n);
         });
 
@@ -199,14 +205,18 @@ describe('e2e_deploy_contract contract class registration', () => {
             .public_constructor(whom, 43)
             .send({ from: defaultAccountAddress, wait: { dontThrowOnRevert: true } });
           expect(receipt.executionResult).toEqual(TxExecutionResult.APP_LOGIC_REVERTED);
-          expect(await contract.methods.get_public_value(whom).simulate({ from: defaultAccountAddress })).toEqual(0n);
+          expect(
+            (await contract.methods.get_public_value(whom).simulate({ from: defaultAccountAddress })).result,
+          ).toEqual(0n);
         });
 
         it('initializes the contract and calls a public function', async () => {
           await contract.methods.public_constructor(...initArgs).send({ from: defaultAccountAddress });
           const whom = await AztecAddress.random();
           await contract.methods.increment_public_value(whom, 10).send({ from: defaultAccountAddress });
-          const stored = await contract.methods.get_public_value(whom).simulate({ from: defaultAccountAddress });
+          const { result: stored } = await contract.methods
+            .get_public_value(whom)
+            .simulate({ from: defaultAccountAddress });
           expect(stored).toEqual(10n);
         });
 

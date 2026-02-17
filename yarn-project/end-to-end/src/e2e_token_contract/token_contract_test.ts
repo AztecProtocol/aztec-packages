@@ -110,7 +110,7 @@ export class TokenContractTest {
       this.account1Address,
     ]);
 
-    expect(await this.asset.methods.get_admin().simulate({ from: this.adminAddress })).toBe(
+    expect((await this.asset.methods.get_admin().simulate({ from: this.adminAddress })).result).toBe(
       this.adminAddress.toBigInt(),
     );
   }
