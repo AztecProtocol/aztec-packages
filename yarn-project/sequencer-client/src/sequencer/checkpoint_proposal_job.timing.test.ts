@@ -415,7 +415,9 @@ describe('CheckpointProposalJob Timing Tests', () => {
     p2p.getPendingTxCount.mockResolvedValue(100); // Always have enough txs
 
     worldState = mockDeep<WorldStateSynchronizer>();
-    const mockFork = mock<MerkleTreeWriteOperations>({ [Symbol.dispose]: jest.fn() });
+    const mockFork = mock<MerkleTreeWriteOperations>({
+      [Symbol.asyncDispose]: jest.fn().mockReturnValue(Promise.resolve()) as () => Promise<void>,
+    });
     worldState.fork.mockResolvedValue(mockFork);
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();

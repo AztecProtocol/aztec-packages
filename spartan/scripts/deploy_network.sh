@@ -467,7 +467,7 @@ if [[ "${CLUSTER}" == "kind" ]]; then
   P2P_PUBLIC_IP=false
 else
   P2P_NODEPORT_ENABLED=false
-  P2P_PUBLIC_IP=true
+  P2P_PUBLIC_IP=${P2P_PUBLIC_IP:-true}
 fi
 
 cat > "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" << EOF
