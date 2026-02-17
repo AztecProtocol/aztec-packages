@@ -130,7 +130,7 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_elliptic_add_gate)
     uint32_t x3 = circuit_constructor.add_variable(p3.x);
     uint32_t y3 = circuit_constructor.add_variable(p3.y);
 
-    circuit_constructor.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
+    circuit_constructor.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*is_addition=*/true });
 
     StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     auto connected_components = graph.find_connected_components();
@@ -197,7 +197,7 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_elliptic_together)
     uint32_t x3 = circuit_constructor.add_variable(p3.x);
     uint32_t y3 = circuit_constructor.add_variable(p3.y);
 
-    circuit_constructor.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
+    circuit_constructor.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*is_addition=*/true });
     affine_element p4(element(p3).dbl());
     uint32_t x4 = circuit_constructor.add_variable(p4.x);
     uint32_t y4 = circuit_constructor.add_variable(p4.y);
@@ -214,7 +214,7 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_elliptic_together)
     uint32_t x7 = circuit_constructor.add_variable(p7.x);
     uint32_t y7 = circuit_constructor.add_variable(p7.y);
 
-    circuit_constructor.create_ecc_add_gate({ x5, y5, x6, y6, x7, y7, 1 });
+    circuit_constructor.create_ecc_add_gate({ x5, y5, x6, y6, x7, y7, /*is_addition=*/true });
     affine_element p8(element(p7).dbl());
     uint32_t x8 = circuit_constructor.add_variable(p8.x);
     uint32_t y8 = circuit_constructor.add_variable(p8.y);
@@ -572,7 +572,7 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_ecc_ad
     uint32_t x3 = circuit_constructor.add_variable(p3.x);
     uint32_t y3 = circuit_constructor.add_variable(p3.y);
 
-    circuit_constructor.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
+    circuit_constructor.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*is_addition=*/true });
 
     StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     auto variables_gate_counts = graph.get_variables_gate_counts();

@@ -165,13 +165,10 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:common_objects>
     $<TARGET_OBJECTS:crypto_aes128_objects>
     $<TARGET_OBJECTS:crypto_blake2s_objects>
-    $<TARGET_OBJECTS:crypto_blake3s_objects>
-    $<TARGET_OBJECTS:crypto_ecdsa_objects>
     $<TARGET_OBJECTS:crypto_keccak_objects>
     $<TARGET_OBJECTS:crypto_pedersen_commitment_objects>
     $<TARGET_OBJECTS:crypto_pedersen_hash_objects>
     $<TARGET_OBJECTS:crypto_poseidon2_objects>
-    $<TARGET_OBJECTS:crypto_schnorr_objects>
     $<TARGET_OBJECTS:crypto_sha256_objects>
     $<TARGET_OBJECTS:dsl_objects>
     $<TARGET_OBJECTS:ecc_objects>

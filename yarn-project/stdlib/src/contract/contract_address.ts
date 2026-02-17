@@ -1,4 +1,4 @@
-import { GeneratorIndex } from '@aztec/constants';
+import { DomainSeparator } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
@@ -44,7 +44,7 @@ export async function computePartialAddress(
 
   return poseidon2HashWithSeparator(
     [instance.originalContractClassId, saltedInitializationHash],
-    GeneratorIndex.PARTIAL_ADDRESS,
+    DomainSeparator.PARTIAL_ADDRESS,
   );
 }
 
@@ -57,7 +57,7 @@ export function computeSaltedInitializationHash(
 ): Promise<Fr> {
   return poseidon2HashWithSeparator(
     [instance.salt, instance.initializationHash, instance.deployer],
-    GeneratorIndex.PARTIAL_ADDRESS,
+    DomainSeparator.PARTIAL_ADDRESS,
   );
 }
 
@@ -87,5 +87,5 @@ export async function computeInitializationHashFromEncodedArgs(
   encodedArgs: Fr[],
 ): Promise<Fr> {
   const argsHash = await computeVarArgsHash(encodedArgs);
-  return poseidon2HashWithSeparator([initFn, argsHash], GeneratorIndex.INITIALIZER);
+  return poseidon2HashWithSeparator([initFn, argsHash], DomainSeparator.INITIALIZER);
 }

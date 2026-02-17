@@ -1,24 +1,55 @@
 include "precomputed.pil";
 
-// Decomposes a field in radixes
-// Roughly, what we do is keep track of an accumulator where we reconstruct value using the limbs. We can end when the accumulator is equal to the value (found).
-// For overflow protection, we compare the limbs against the p limbs for the given radix. If we reach the last limb (is_unsafe) we assert that we are under p.
-// Overflow in the accumulator can only happen in the unsafe limb. After the unsafe limb we have padding limbs, that we assert to be zero. This is used
-// because users might want to decompose in more limbs that strictly needed for the radix.
-// The following table is non-exhaustive, we do have some extra columns to compute these values.
-// +-------+-------+------+--------+------------+------+-------------+----------+------------------+-------+------------+-----------+-------+-----+-----+---------+
-// | value | radix | limb | p_limb | limb_index | acc  | acc_under_p | exponent | not_padding_limb | found | safe_limbs | is_unsafe | start | end | sel | not_end |
-// +-------+-------+------+--------+------------+------+-------------+----------+------------------+-------+------------+-----------+-------+-----+-----+---------+
-// |     0 |     0 |    0 |      0 |          0 |    0 |           0 | 0        |                0 |     0 |          0 |         0 |     0 |   0 |   0 |       0 |
-// |  1337 |    10 |    7 |      7 |          0 |    7 |           0 | 1        |                1 |     0 |         76 |         0 |     1 |   0 |   1 |       1 |
-// |  1337 |    10 |    3 |      1 |          1 |   37 |           0 | 10       |                1 |     0 |         76 |         0 |     0 |   0 |   1 |       1 |
-// |  1337 |    10 |    3 |      6 |          2 |  337 |           1 | 100      |                1 |     0 |         76 |         0 |     0 |   0 |   1 |       1 |
-// |  1337 |    10 |    1 |      5 |          3 | 1337 |           1 | 1000     |                1 |     1 |         76 |         0 |     0 |   0 |   1 |       1 |
-// |  1337 |    10 |    0 |      9 |          4 | 1337 |           1 | 10000    |                1 |     1 |         76 |         0 |     0 |   0 |   1 |       1 |
-// |  1337 |    10 |    0 |      2 |         76 | 1337 |           1 | 10**76   |                1 |     1 |         76 |         1 |     0 |   0 |   1 |       1 |
-// |  1337 |    10 |    0 |      0 |         77 | 1337 |           0 | 0        |                0 |     1 |         76 |         0 |     0 |   1 |   1 |       0 |
-// |     0 |     0 |    0 |      0 |          0 |    0 |           0 | 0        |                0 |     0 |          0 |         0 |     0 |   0 |   0 |       0 |
-// +-------+-------+------+--------+------------+------+-------------+----------+------------------+-------+------------+-----------+-------+-----+-----+---------+
+/*
+ * Decomposes a field in radixes
+ * Roughly, what we do is keep track of an accumulator where we reconstruct value using the limbs. We can end when the accumulator is equal to the value (found).
+ * For overflow protection, we compare the limbs against the p limbs for the given radix. If we reach the last limb (is_unsafe) we assert that we are under p.
+ * Overflow in the accumulator can only happen in the unsafe limb. After the unsafe limb we have padding limbs, that we assert to be zero. This is used
+ * because users might want to decompose in more limbs that strictly needed for the radix. We also assert that the decomposition is complete, i.e., that the value
+ * has been found. In other words, truncation error is not supported in this trace.
+ *
+ *
+ * Usage:
+ * sel_XX { value, limb_index, radix, limb, value_found
+ * } in to_radix.sel {
+ *         to_radix.value, to_radix.limb_index, to_radix.radix, to_radix.limb, to_radix.found
+ * };
+ *
+ * Optionally, column `value_found` can be omitted provided that the caller ensures that the decomposition is complete or
+ * does not care about truncation error.
+ *
+ * Preconditions: 'radix' is in range [2, 256]. This trace cannot guarantee correctness if 'radix' is not in this range.
+ *
+ * Inputs:
+ * - value: The value to decompose in little endian.
+ * - limb_index: The index of the limb to lookup in little endian.
+ * - radix: The radix to decompose the value in. Must be in range [2, 256].
+ * Outputs:
+ * - limb: The limb to lookup in little endian.
+ * - value_found: Whether the value has been found, i.e., the decomposition is complete with the limbs from index 0 to index `limb_index`.
+ *
+ * The following table is non-exhaustive, we do have some extra columns to compute these values.
+ * +-------+-------+------+--------+------------+------+-------------+----------+------------------+-------+------------+-----------+-------+-----+-----+---------+
+ * | value | radix | limb | p_limb | limb_index | acc  | acc_under_p | power    | not_padding_limb | found | safe_limbs | is_unsafe | start | end | sel | NOT_END |
+ * +-------+-------+------+--------+------------+------+-------------+----------+------------------+-------+------------+-----------+-------+-----+-----+---------+
+ * |     0 |     0 |    0 |      0 |          0 |    0 |           0 | 0        |                0 |     0 |          0 |         0 |     0 |   0 |   0 |       0 |
+ * |  1337 |    10 |    7 |      7 |          0 |    7 |           0 | 1        |                1 |     0 |         76 |         0 |     1 |   0 |   1 |       1 |
+ * |  1337 |    10 |    3 |      1 |          1 |   37 |           0 | 10       |                1 |     0 |         76 |         0 |     0 |   0 |   1 |       1 |
+ * |  1337 |    10 |    3 |      6 |          2 |  337 |           1 | 100      |                1 |     0 |         76 |         0 |     0 |   0 |   1 |       1 |
+ * |  1337 |    10 |    1 |      5 |          3 | 1337 |           1 | 1000     |                1 |     1 |         76 |         0 |     0 |   0 |   1 |       1 |
+ * |  1337 |    10 |    0 |      9 |          4 | 1337 |           1 | 10000    |                1 |     1 |         76 |         0 |     0 |   0 |   1 |       1 |
+ * .........................................
+ * |  1337 |    10 |    0 |      2 |         76 | 1337 |           1 | 10**76   |                1 |     1 |         76 |         1 |     0 |   0 |   1 |       1 |
+ * |  1337 |    10 |    0 |      0 |         77 | 1337 |           1 | 0        |                0 |     1 |         76 |         0 |     0 |   1 |   1 |       0 |
+ * |     0 |     0 |    0 |      0 |          0 |    0 |           0 | 0        |                0 |     0 |          0 |         0 |     0 |   0 |   0 |       0 |
+ * +-------+-------+------+--------+------------+------+-------------+----------+------------------+-------+------------+-----------+-------+-----+-----+---------+
+ *
+ * Each computation is performed over a contiguous block of rows. The block is determined by the `start` and `end` selectors.
+ * The number of rows in a computation block is at least the number of limbs for a complete decomposition. Tracegen determines
+ * the number of "padding" rows for the extra high limbs depending on the need of the subtraces invoking this gadget. Note that
+ * it does not pose a soundness isssue because this trace ensures that a present row is correct. If a row is not present, then
+ * we have a completeness issue because the lookup will fail.
+ */
 namespace to_radix;
 
     #[skippable_if]
@@ -29,73 +60,66 @@ namespace to_radix;
 
     // Inputs to to_radix
     pol commit value;
-    pol commit radix; // Must be 256 >= radix >= 2
+    pol commit radix; // Must be in range [2, 256] as a precondition.
     pol commit limb_index;
 
     // Outputs of to_radix
     pol commit limb;
+    pol commit found;
+    found * (1 - found) = 0;
 
-
-    // LIFECYCLE
-
+    // ==== Multi-row Computation Selectors ====
+    // See recipe in https://hackmd.io/moq6viBpRJeLpWrHAogCZw?view#Contiguous-Multi-Rows-Computation-Trace
     pol commit start;
     start * (1 - start) = 0;
-
     pol commit end;
     end * (1 - end) = 0;
 
-    // end and first_row are NAND
-    end * precomputed.first_row = 0;
     pol LATCH_CONDITION = end + precomputed.first_row;
+
+    #[SEL_ON_START_OR_END]
+    (start + end) * (1 - sel) = 0;
+
+    #[TRACE_CONTINUITY]
+    (1 - LATCH_CONDITION) * (sel - sel') = 0;
 
     #[START_AFTER_LATCH]
     sel' * (start' - LATCH_CONDITION) = 0;
 
-    // Selector must be 1 in a start row
-    #[SELECTOR_ON_START]
-    start * (1 - sel) = 0;
-    // Next selector must be current selector unless LATCH_CONDITION
-    #[SELECTOR_CONSISTENCY]
-    (sel' - sel) * (1 - LATCH_CONDITION) = 0;
-    // Selector must be 1 in an end row
-    end * (1 - sel) = 0;
+    // `sel * (1 - end) = sel - end * sel` and since `end == 1 ==> sel == 1` we have `end * sel = end`.
+    pol NOT_END = sel - end;
 
-    // Commited to reduce the degree of expressions
-    pol commit not_end;
-    sel * (1 - end) - not_end = 0;
+    // ===== RADIX POWERS COMPUTATION =====
 
-
-    // EXPONENTIATION
-
-    pol commit exponent;
-    // We commit not_padding_limb instead of the more natural padding_limb because it's going to be used in a lookup
+    pol commit power;
+    // We commit not_padding_limb instead of the more natural padding_limb because it's going to be used as a lookup selector.
     pol commit not_padding_limb;
     not_padding_limb * (1 - not_padding_limb) = 0;
 
-    // exponent starts at 1
-    start * (exponent - 1) = 0;
-    // next exponent is current exponent * radix unless it's a padding limb
-    not_end * not_padding_limb' * (exponent * radix - exponent') = 0;
     // not_padding_limb starts at 1
     start * (1 - not_padding_limb) = 0;
-    // next not not_padding_limb is current not_padding_limb unless current limb is unsafe, where it changes to 0
-    not_end * ((0 - not_padding_limb) * is_unsafe_limb + not_padding_limb - not_padding_limb') = 0;
+    // next `not_padding_limb` is current `not_padding_limb` unless current limb is unsafe, where it changes to 0
+    // Note that unsafe_limbs is defined and constrained below.
+    NOT_END * ((0 - not_padding_limb) * is_unsafe_limb + not_padding_limb - not_padding_limb') = 0;
 
-    // Padding limbs have zero exponent
-    (1 - not_padding_limb) * exponent = 0;
+    // power starts at 1
+    start * (power - 1) = 0;
+    // next power is current power * radix unless it's a padding limb
+    NOT_END * not_padding_limb' * (power * radix - power') = 0;
+
+    // Padding limbs have zero power
+    (1 - not_padding_limb) * power = 0;
 
 
-    // ACCUMULATION
+    // ===== ACCUMULATION =====
 
     pol commit acc;
-    pol commit found;
-    found * (1 - found) = 0;
 
     // Limb index starts at zero
     start * (limb_index - 0) = 0;
 
     // Limb index must increase
-    not_end * (limb_index + 1 - limb_index') = 0;
+    NOT_END * (limb_index + 1 - limb_index') = 0;
 
     // Range check limb so we can safely assert that it's less than radix.
     #[LIMB_RANGE]
@@ -106,7 +130,7 @@ namespace to_radix;
 
     // Limb should be less than radix
     pol commit limb_radix_diff;
-    sel * (radix - 1 - limb - limb_radix_diff) = 0;
+    sel * (radix - limb - 1 - limb_radix_diff) = 0;
 
     #[LIMB_LESS_THAN_RADIX_RANGE]
     sel { limb_radix_diff }
@@ -117,22 +141,26 @@ namespace to_radix;
 
     // On start, current acc must be equal to limb
     start * (acc - limb) = 0;
-    // Next acc must be current acc + next_exponent*next_limb
-    not_end * (acc + exponent' * limb' - acc') = 0;
+    // Next acc must be current acc + next_power*next_limb
+    NOT_END * (acc + power' * limb' - acc') = 0;
 
     // found is 1 when value - acc = 0
     pol REM = value - acc;
     pol commit rem_inverse;
-    sel * (REM * (found * (1 - rem_inverse) + rem_inverse) - 1 + found) = 0;
+    sel * (REM * (found * (1 - rem_inverse) + rem_inverse) - 1 + found) = 0; // @zero-check
 
     // when found is 1, next limb is 0
-    not_end * found * limb' = 0;
+    NOT_END * found * limb' = 0;
+
+    // As a consequence, when found is 1, the next acc value must be the same and
+    // the next found value must be 1 as well. In this way, `found == 1` is propagated
+    // until the end of the trace.
 
     // We can only enable end when found is one
     (1 - found) * end = 0;
 
 
-    // OVERFLOW PROTECTION
+    // ===== UNSAFE LIMBS COMPUTATION =====
 
     pol commit safe_limbs;
 
@@ -145,15 +173,13 @@ namespace to_radix;
     pol commit is_unsafe_limb;
     is_unsafe_limb * (1 - is_unsafe_limb) = 0;
 
-    // If is_padding_limb, limb is zero
-    (1 - not_padding_limb) * limb = 0;
-    // If is_padding_limb, p_limb is zero
-    (1 - not_padding_limb) * p_limb = 0;
-
-    // is_unsafe_limb is on when and only when limb_index == safe_limbs
-    pol safety_diff = limb_index - safe_limbs;
+    // `is_unsafe_limb == 1` iff `limb_index == safe_limbs`
+    pol SAFETY_DIFF = limb_index - safe_limbs;
     pol commit safety_diff_inverse;
-    sel * (safety_diff * (is_unsafe_limb * (1 - safety_diff_inverse) + safety_diff_inverse) - 1 + is_unsafe_limb) = 0;
+    // @zero-check
+    sel * (SAFETY_DIFF * (is_unsafe_limb * (1 - safety_diff_inverse) + safety_diff_inverse) - 1 + is_unsafe_limb) = 0;
+
+    // ===== FIELD OVERFLOW PROTECTION =====
 
     // The limb of the modulus p decomposed by radix at this limb_index
     pol commit p_limb;
@@ -164,11 +190,16 @@ namespace to_radix;
     precomputed.sel_p_decomposition
         { precomputed.p_decomposition_radix, precomputed.p_decomposition_limb_index, precomputed.p_decomposition_limb };
 
+    // If is_padding_limb, limb is zero
+    (1 - not_padding_limb) * limb = 0;
+    // If is_padding_limb, p_limb is zero
+    (1 - not_padding_limb) * p_limb = 0;
+
     // We carry wether the accumulator is under p. If we reach the unsafe limb, we need to ensure that this is true.
     pol commit acc_under_p;
     acc_under_p * (1 - acc_under_p) = 0;
 
-    // 1 when lt, 0 when gt or equal
+    // 1 iff `limb < p_limb`
     pol commit limb_lt_p;
     limb_lt_p * (1 - limb_lt_p) = 0;
 
@@ -206,20 +237,20 @@ namespace to_radix;
     // acc_under_p is on start is equal to limb_lt_p
     start * (acc_under_p - limb_lt_p) = 0;
     // acc_under_p' = limb_eq_p' ? acc_under_p : limb_lt_p'
-    not_end * ((acc_under_p - limb_lt_p') * limb_eq_p' + limb_lt_p' - acc_under_p') = 0;
+    NOT_END * ((acc_under_p - limb_lt_p') * limb_eq_p' + limb_lt_p' - acc_under_p') = 0;
 
     // On the the unsafe limb, we must be under p
     #[OVERFLOW_CHECK]
     is_unsafe_limb * (1 - acc_under_p) = 0;
 
 
-    // CONSTANT CONSISTENCY
+    // ===== CONSTANT CONTINUITY =====
 
-    #[CONSTANT_CONSISTENCY_RADIX]
-    not_end * (radix - radix') = 0;
+    #[RADIX_CONTINUITY]
+    NOT_END * (radix - radix') = 0;
 
-    #[CONSTANT_CONSISTENCY_VALUE]
-    not_end * (value - value') = 0;
+    #[VALUE_CONTINUITY]
+    NOT_END * (value - value') = 0;
 
-    #[CONSTANT_CONSISTENCY_SAFE_LIMBS]
-    not_end * (safe_limbs - safe_limbs') = 0;
+    #[SAFE_LIMBS_CONTINUITY]
+    NOT_END * (safe_limbs - safe_limbs') = 0;

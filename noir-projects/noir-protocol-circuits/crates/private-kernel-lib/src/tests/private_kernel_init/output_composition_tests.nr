@@ -11,7 +11,7 @@ use types::{
 fn with_everything_empty_except_for_first_nullifier_hint() {
     let mut builder = TestBuilder::new();
 
-    builder.private_call.include_by_timestamp = 0;
+    builder.private_call.expiration_timestamp = 0;
     builder.first_nullifier_hint = 1234;
 
     let pi = builder.execute();
@@ -19,7 +19,7 @@ fn with_everything_empty_except_for_first_nullifier_hint() {
 
     assert_eq(pi.min_revertible_side_effect_counter, 0);
     assert_eq(pi.fee_payer, AztecAddress::empty());
-    assert_eq(pi.include_by_timestamp, 0);
+    assert_eq(pi.expiration_timestamp, 0);
     assert_eq(pi.is_private_only, false);
     assert_eq(pi.claimed_first_nullifier, 1234);
     assert_eq(pi.claimed_revertible_counter, 0);
@@ -36,7 +36,7 @@ fn with_everything_empty_except_for_first_nullifier_hint() {
     assert_claimed_length_array_eq(pi.validation_requests.note_hash_read_requests, []);
     assert_claimed_length_array_eq(pi.validation_requests.nullifier_read_requests, []);
     assert_claimed_length_array_eq(
-        pi.validation_requests.scoped_key_validation_requests_and_generators,
+        pi.validation_requests.scoped_key_validation_requests_and_separators,
         [],
     );
 }
@@ -89,21 +89,21 @@ fn with_nullifiers_emitted_and_protocol_nullifier_injected() {
 }
 
 #[test]
-fn include_by_timestamp_constrained_by_contract_updates() {
+fn expiration_timestamp_constrained_by_contract_updates() {
     let mut builder = TestBuilder::new();
 
-    // Set the private call's include_by_timestamp to a large value
+    // Set the private call's expiration_timestamp to a large value
     // that exceeds the contract update time horizon
     let anchor_timestamp = builder.private_call.anchor_block_header.global_variables.timestamp;
     let contract_update_horizon = anchor_timestamp + DEFAULT_UPDATE_DELAY;
 
-    // Set include_by_timestamp larger than the contract update horizon
-    builder.private_call.include_by_timestamp = contract_update_horizon + 1000;
+    // Set expiration_timestamp larger than the contract update horizon
+    builder.private_call.expiration_timestamp = contract_update_horizon + 1000;
 
     let pi = builder.execute();
 
     // Verify the output uses the smaller contract update timestamp, not the private call's value
-    assert_eq(pi.include_by_timestamp, contract_update_horizon);
+    assert_eq(pi.expiration_timestamp, contract_update_horizon);
 }
 
 #[test]
@@ -113,7 +113,7 @@ fn with_everything_non_empty() {
     builder.is_private_only = true;
     builder.first_nullifier_hint = 1234;
     builder.revertible_counter_hint = 567;
-    builder.private_call.include_by_timestamp = 7890;
+    builder.private_call.expiration_timestamp = 7890;
     builder.private_call.is_fee_payer = true;
 
     builder.private_call.append_note_hashes(2);
@@ -137,7 +137,7 @@ fn with_everything_non_empty() {
 
     assert_eq(pi.min_revertible_side_effect_counter, 98765);
     assert_eq(pi.fee_payer, builder.private_call.contract_address);
-    assert_eq(pi.include_by_timestamp, 7890);
+    assert_eq(pi.expiration_timestamp, 7890);
     assert_eq(pi.is_private_only, true);
     assert_eq(pi.claimed_first_nullifier, 1234);
     assert_eq(pi.claimed_revertible_counter, 567);
@@ -191,9 +191,9 @@ fn with_everything_non_empty() {
     );
 
     let key_validation_requests =
-        builder.private_call.scoped_key_validation_requests_and_generators.storage();
+        builder.private_call.scoped_key_validation_requests_and_separators.storage();
     assert_claimed_length_array_eq(
-        pi.validation_requests.scoped_key_validation_requests_and_generators,
+        pi.validation_requests.scoped_key_validation_requests_and_separators,
         [key_validation_requests[0], key_validation_requests[1]],
     );
 }

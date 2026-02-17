@@ -80,7 +80,7 @@ days.</li>
 <p>Returns the minimum delay before a value might mutate due to a scheduled change, from the perspective of some
 historical timestamp. It only returns a meaningful value when called in private with historical timestamps.
 The output of this function can be passed into <code>ScheduledValueChange.get_time_horizon</code> to properly
-constrain the <code>include_by_timestamp</code> when reading delayed mutable state.
+constrain the <code>expiration_timestamp</code> when reading delayed mutable state.
 This value typically equals the current delay at the timestamp following the historical one (the earliest one in
 which a value change could be scheduled), but it also considers scenarios in which a delay reduction is
 scheduled to happen in the near future, resulting in a way to schedule a change with an overall delay lower than

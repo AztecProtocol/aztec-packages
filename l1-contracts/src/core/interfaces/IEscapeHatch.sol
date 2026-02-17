@@ -36,7 +36,7 @@ struct CandidateInfo {
 }
 
 interface IEscapeHatchCore {
-  event CandidateJoined(address indexed candidate, uint256 amount);
+  event CandidateJoined(address indexed candidate);
   event CandidateExitInitiated(address indexed candidate, uint256 exitableAt);
   event CandidateExited(address indexed candidate, uint256 amountReturned);
   event CandidateSelected(Hatch indexed hatch, address indexed candidate);
