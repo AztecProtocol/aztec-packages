@@ -65,12 +65,16 @@ bool is_in_range_list(CircuitBuilder& builder, uint32_t witness, uint64_t target
  * @details When `create_limbed_range_constraint(W, num_bits, 14)` is called for small num_bits (≤14):
  *   1. Creates `limb_idx = add_variable(val)` — a NEW variable
  *   2. `create_small_range_constraint(limb_idx, target_range)` — adds limb_idx to range_lists[target_range]
- *   3. `create_big_add_gate({limb_idx, 0, 0, W, 1, 2^14, 2^28, -1, 0})` — links limb to W via arithmetic
+ *   3. `create_big_add_gate({limb_idx, zero, zero, W, 1, 2^14, 2^28, -1, 0})` — links limb to W
  *
- *   After byte_array's `input.assert_equal(byte)`, the original witness and W may share the
- *   same real_variable_index via a copy constraint. This function searches range_lists[target_range]
- *   entries to find a limb whose big_add_gate has w_4 in the same copy-constraint equivalence class
- *   as `witness`.
+ *   The gate has a known pattern:
+ *     w_l = limb_idx, w_r = zero_idx, w_o = zero_idx, w_4 = W
+ *     q_1 = 1, q_2 = 2^14, q_3 = 2^28, q_4 = -1, q_c = 0, q_m = 0, q_arith = 1
+ *
+ *   After byte_array's `input.assert_equal(byte)`, the original witness and W share the same
+ *   real_variable_index. This function finds the big_add_gate via FilterFunctionBuilder with
+ *   the known selector/wire pattern, extracts w_l (limb_idx), and checks range_lists membership.
+ *   Complexity: O(G) per call (G = gates per variable, typically small).
  */
 template <typename FF, typename CircuitBuilder>
 bool is_range_constrained_via_limb_lookup(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
@@ -78,29 +82,41 @@ bool is_range_constrained_via_limb_lookup(StaticAnalyzer_<FF, CircuitBuilder>& a
                                           uint32_t witness,
                                           uint64_t target_range)
 {
-    auto it = builder.range_lists.find(target_range);
-    if (it == builder.range_lists.end()) {
-        return false;
-    }
-
     uint32_t real_witness = builder.real_variable_index[witness];
-    auto& arith_block = builder.blocks.arithmetic;
 
-    for (auto limb_idx : it->second.variable_indices) {
-        auto gates = analyzer.get_variable_gates(limb_idx);
-        for (auto [blk_idx, gate_idx] : gates) {
-            if (&builder.blocks.get()[blk_idx] != &arith_block) {
-                continue;
-            }
-            // Check if w_4 of this gate is in the same copy-constraint equivalence class
-            uint32_t w4 = arith_block.w_4()[gate_idx];
-            if (builder.real_variable_index[w4] == real_witness) {
-                // Verify it's a big_add_gate (q_4 = -1 links the limb to the original witness)
-                auto q_4 = arith_block.q_4()[gate_idx];
-                if (q_4 == FF(-1)) {
-                    return true;
-                }
-            }
+    constexpr uint64_t shift_1 = 1ULL << CircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM;       // 2^14
+    constexpr uint64_t shift_2 = 1ULL << (2 * CircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM); // 2^28
+
+    // Exact gate pattern from create_limbed_range_constraint (single limb, num_bits ≤ 14):
+    //   w_l = limb, w_r = zero, w_o = zero, w_4 = W
+    //   q_1=1, q_2=2^14, q_3=2^28, q_4=-1, q_c=0, q_m=0, q_arith=1
+    // Note: w_4 is checked manually via real_variable_index below because the raw wire value
+    // in the block (byte_idx) differs from our witness (byte_source_idx) — they're only linked
+    // by assert_equal, so set_w_4 (exact match) would fail.
+    auto filter_helper = FilterFunctionBuilder<CircuitBuilder, FF>(builder)
+                             .set_w_r(builder.zero_idx())
+                             .set_w_o(builder.zero_idx())
+                             .set_q_1(FF::one())
+                             .set_q_2(FF(shift_1))
+                             .set_q_3(FF(shift_2))
+                             .set_q_4(FF(-1))
+                             .set_q_c(FF::zero())
+                             .set_q_m(FF::zero())
+                             .set_q_arith(FF::one());
+
+    auto gates = analyzer.get_variable_gates(real_witness);
+    auto filtered_gates = filter_helper.filter_gates(gates);
+
+    for (auto [blk_idx, gate_idx] : filtered_gates) {
+        auto& block = builder.blocks.get()[blk_idx];
+        // We cannot use set_w_4 because we compare variable's equivalence class
+        if (builder.real_variable_index[block.w_4()[gate_idx]] != real_witness) {
+            continue;
+        }
+        // Extract limb_idx from w_l and verify it's in the range list
+        uint32_t limb = block.w_l()[gate_idx];
+        if (is_in_range_list<FF>(builder, limb, target_range)) {
+            return true;
         }
     }
     return false;

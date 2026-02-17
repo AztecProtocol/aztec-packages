@@ -220,7 +220,6 @@ TEST_F(EcdsaConstraintsTests, DetectCorruptedConditionalAssign)
     for (size_t i = 0; i < q_arith.size(); ++i) {
         q_arith.set(i, fr::zero());
     }
-    // q_arith=0 disables gates; CircuitChecker may not detect this as the gates become no-ops
 
     AcirFormat constraint_system_copy = constraint_system;
     StaticAnalyzerAcir analyzer(std::move(constraint_system_copy), std::move(builder));

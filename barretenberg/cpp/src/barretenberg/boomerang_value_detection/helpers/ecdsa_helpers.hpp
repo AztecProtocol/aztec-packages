@@ -110,8 +110,7 @@ bool is_ecdsa_input_bytes_constrained(StaticAnalyzer_<FF, CircuitBuilder>& analy
         // The chain is: byte_source_idx --[copy]--> W_byte --[big_add_gate]--> limb_idx --[range_lists[255]]
         // is_in_range_list checks direct membership; is_range_constrained_via_limb_lookup traces
         // the arithmetic link from range list limbs back to our witness via real_variable_index.
-        if (!is_in_range_list<FF>(builder, byte_source_idx, 255) &&
-            !is_range_constrained_via_limb_lookup<FF>(analyzer, builder, byte_source_idx, 255)) {
+        if (!is_range_constrained_via_limb_lookup<FF>(analyzer, builder, byte_source_idx, 255)) {
             log_error("is_ecdsa_input_bytes_constrained: 8-bit range constraint not found for byte ",
                       i,
                       " witness=",
