@@ -3,8 +3,9 @@ import { MAX_ENQUEUED_CALLS_PER_CALL } from '@aztec/constants';
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import type { Tuple } from '@aztec/foundation/serialize';
+import type { ContractNameResolver } from '@aztec/pxe/client/lazy';
+import { displayDebugLogs } from '@aztec/pxe/client/lazy';
 import { generateSimulatedProvingResult } from '@aztec/pxe/simulator';
 import { type FunctionCall, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -73,6 +74,7 @@ async function simulateBatchViaNode(
   gasSettings: GasSettings,
   blockHeader: BlockHeader,
   skipFeeEnforcement: boolean,
+  getContractName: ContractNameResolver,
 ): Promise<TxSimulationResult> {
   const txContext = new TxContext(chainInfo.chainId, chainInfo.version, gasSettings);
 
@@ -147,11 +149,7 @@ async function simulateBatchViaNode(
   }
 
   // Display debug logs from the public simulation.
-  for (const log of publicOutput.debugLogs) {
-    const addrAbbrev = log.contractAddress.toString().slice(0, 10);
-    const logger = createLogger(`contract_log::${addrAbbrev}`);
-    logger[log.level](applyStringFormatting(log.message, log.fields));
-  }
+  await displayDebugLogs(publicOutput.debugLogs, getContractName);
 
   return new TxSimulationResult(privateResult, provingResult.publicInputs, publicOutput, undefined);
 }
@@ -177,6 +175,7 @@ export async function simulateViaNode(
   gasSettings: GasSettings,
   blockHeader: BlockHeader,
   skipFeeEnforcement: boolean = true,
+  getContractName: ContractNameResolver,
 ): Promise<TxSimulationResult[]> {
   const batches: FunctionCall[][] = [];
 
@@ -195,6 +194,7 @@ export async function simulateViaNode(
       gasSettings,
       blockHeader,
       skipFeeEnforcement,
+      getContractName,
     );
     results.push(result);
   }

@@ -1,7 +1,7 @@
 import type { PrivateEventFilter } from '@aztec/aztec.js/wallet';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type Logger, type LoggerBindings, applyStringFormatting, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 import { KeyStore } from '@aztec/key-store';
@@ -32,7 +32,6 @@ import type {
   PrivateKernelExecutionProofOutput,
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
-import type { DebugLog } from '@aztec/stdlib/logs';
 import {
   BlockHeader,
   type ContractOverrides,
@@ -62,6 +61,7 @@ import {
   generateSimulatedProvingResult,
 } from './contract_function_simulator/contract_function_simulator.js';
 import { ProxiedContractStoreFactory } from './contract_function_simulator/proxied_contract_data_source.js';
+import { displayDebugLogs } from './contract_logging.js';
 import { ContractSyncService } from './contract_sync/contract_sync_service.js';
 import { readCurrentClassId } from './contract_sync/helpers.js';
 import { PXEDebugUtils } from './debug/pxe_debug_utils.js';
@@ -446,21 +446,6 @@ export class PXE {
         }
       }
       throw err;
-    }
-  }
-
-  /**
-   * Displays debug logs collected during public function simulation,
-   * using the same contract_log:: format as private function debug logs.
-   */
-  async #displayPublicDebugLogs(debugLogs: DebugLog[]) {
-    for (const log of debugLogs) {
-      const addrAbbrev = log.contractAddress.toString().slice(0, 10);
-      const name = await this.contractStore.getDebugContractName(log.contractAddress);
-      const module = name ? `contract_log::${name}(${addrAbbrev})` : `contract_log::${addrAbbrev}`;
-      const logger = createLogger(module);
-      const formattedMessage = applyStringFormatting(log.message, log.fields);
-      logger[log.level](formattedMessage);
     }
   }
 
@@ -964,7 +949,7 @@ export class PXE {
           publicOutput = await this.#simulatePublicCalls(simulatedTx, skipFeeEnforcement);
           publicSimulationTime = publicSimulationTimer.ms();
           if (publicOutput?.debugLogs?.length) {
-            await this.#displayPublicDebugLogs(publicOutput.debugLogs);
+            await displayDebugLogs(publicOutput.debugLogs, addr => this.contractStore.getDebugContractName(addr));
           }
         }
 
