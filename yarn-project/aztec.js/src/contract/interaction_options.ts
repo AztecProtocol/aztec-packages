@@ -121,21 +121,6 @@ export type SimulateInteractionOptions = Omit<SendInteractionOptions, 'fee'> & {
   includeMetadata?: boolean;
 };
 
-/** Simulation options that request full metadata (stats, gas estimation) in the result. */
-export type SimulateWithMetadataOptions = SimulateInteractionOptions & {
-  /** Request metadata in the simulation result. */
-  includeMetadata: true;
-};
-
-/** Simulation options that request gas estimation in the result. */
-export type SimulateWithGasEstimationOptions = SimulateInteractionOptions & {
-  /** Fee options with gas estimation enabled. */
-  fee: {
-    /** Request gas estimation in the simulation result. */
-    estimateGas: true;
-  };
-};
-
 /**
  * Represents the options for profiling an interaction.
  */
@@ -147,27 +132,20 @@ export type ProfileInteractionOptions = SimulateInteractionOptions & {
 };
 
 /**
- * Represents the result type of a simulation.
+ * Represents the result of a simulation.
  * Always includes the return value and offchain effects.
- * When `includeMetadata` is set to true, also includes stats and gas estimation.
+ * When `includeMetadata` or `fee.estimateGas` is set, also includes stats and gas estimation.
  */
-export type SimulationReturn<T extends boolean | undefined> = T extends true
-  ? {
-      /** Additional stats about the simulation */
-      stats: SimulationStats;
-      /** Offchain effects generated during the simulation */
-      offchainEffects: OffchainEffect[];
-      /** Return value of the function */
-      result: any;
-      /** Gas estimation results */
-      estimatedGas: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>;
-    }
-  : {
-      /** Return value of the function */
-      result: any;
-      /** Offchain effects generated during the simulation */
-      offchainEffects: OffchainEffect[];
-    };
+export type SimulationReturn = {
+  /** Return value of the function */
+  result: any;
+  /** Offchain effects generated during the simulation */
+  offchainEffects: OffchainEffect[];
+  /** Additional stats about the simulation. Present when `includeMetadata` is set. */
+  stats?: SimulationStats;
+  /** Gas estimation results. Present when `includeMetadata` or `fee.estimateGas` is set. */
+  estimatedGas?: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>;
+};
 
 /** Result of sendTx when not waiting for mining. */
 export type TxSendResultImmediate = {

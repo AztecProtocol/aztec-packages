@@ -18,8 +18,6 @@ import {
   type ProfileInteractionOptions,
   type RequestInteractionOptions,
   type SimulateInteractionOptions,
-  type SimulateWithGasEstimationOptions,
-  type SimulateWithMetadataOptions,
   type SimulationReturn,
   toProfileOptions,
   toSimulateOptions,
@@ -99,15 +97,9 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * function or a rich object containing extra metadata, such as estimated gas costs (if requested via options),
    * execution statistics and emitted offchain effects
    */
-  public async simulate(options: SimulateWithMetadataOptions): Promise<SimulationReturn<true>>;
-  // eslint-disable-next-line jsdoc/require-jsdoc
-  public async simulate(options: SimulateWithGasEstimationOptions): Promise<SimulationReturn<true>>;
-  // eslint-disable-next-line jsdoc/require-jsdoc
-  public async simulate(options?: SimulateInteractionOptions): Promise<SimulationReturn<undefined>>;
-  // eslint-disable-next-line jsdoc/require-jsdoc
   public async simulate(
     options: SimulateInteractionOptions = {} as SimulateInteractionOptions,
-  ): Promise<SimulationReturn<boolean | undefined>> {
+  ): Promise<SimulationReturn> {
     // docs:end:simulate
     if (this.functionDao.functionType == FunctionType.UTILITY) {
       const call = await this.getFunctionCall();

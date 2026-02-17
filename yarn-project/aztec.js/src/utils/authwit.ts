@@ -15,7 +15,6 @@ import type {
   SendInteractionOptionsWithoutWait,
   SendReturn,
   SimulateInteractionOptions,
-  SimulateWithMetadataOptions,
   SimulationReturn,
 } from '../contract/interaction_options.js';
 import type { Wallet } from '../wallet/index.js';
@@ -265,16 +264,9 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns The result of the transaction as returned by the contract function.
    */
-  // @ts-expect-error Override narrows parameter type by omitting 'from' (auto-injected)
-  public override simulate(options: Omit<SimulateWithMetadataOptions, 'from'>): Promise<SimulationReturn<true>>;
-  // @ts-expect-error Override narrows parameter type by omitting 'from' (auto-injected)
-  // eslint-disable-next-line jsdoc/require-jsdoc
-  public override simulate(options?: Omit<SimulateInteractionOptions, 'from'>): Promise<SimulationReturn<undefined>>;
-  // @ts-expect-error Override narrows parameter type by omitting 'from' (auto-injected)
-  // eslint-disable-next-line jsdoc/require-jsdoc
   public override simulate(
     options: Omit<SimulateInteractionOptions, 'from'> = {} as Omit<SimulateInteractionOptions, 'from'>,
-  ): Promise<SimulationReturn<boolean | undefined>> {
+  ): Promise<SimulationReturn> {
     return super.simulate({ ...options, from: this.from } as SimulateInteractionOptions);
   }
 

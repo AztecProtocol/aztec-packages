@@ -71,10 +71,13 @@ export async function deploy(
     skipInstancePublication,
   };
 
-  const { estimatedGas, stats } = await deploy.simulate({
+  const sim = await deploy.simulate({
     ...deployOpts,
     fee: { ...deployOpts.fee, estimateGas: true },
   });
+  // estimateGas: true guarantees these fields are present
+  const estimatedGas = sim.estimatedGas!;
+  const stats = sim.stats!;
 
   if (feeOpts.estimateOnly) {
     if (json) {
