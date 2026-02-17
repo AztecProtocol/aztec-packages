@@ -47,7 +47,7 @@ case $cmd in
       export ETHEREUM_HOSTS=${ETHEREUM_HOSTS:-"http://127.0.0.1:${ANVIL_PORT}"}
 
       anvil --version
-      anvil --silent &
+      anvil --silent --port "$ANVIL_PORT" &
       anvil_pid=$!
       trap 'kill $anvil_pid &>/dev/null' EXIT
     fi
