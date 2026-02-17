@@ -230,7 +230,7 @@ unconstrained fn get_current_value_in_private_initial() {
         assert_eq(state_var.get_current_value(), zeroed());
         assert_eq(
             context.expiration_timestamp,
-            context.get_anchor_block_header().global_variables.timestamp + TEST_INITIAL_DELAY,
+            context.get_anchor_block_header().global_variables.timestamp + TEST_INITIAL_DELAY - 1,
         );
     });
 }
@@ -305,7 +305,7 @@ unconstrained fn get_current_value_in_private_at_change() {
         assert_eq(state_var.get_current_value(), new_value);
         assert_eq(
             context.expiration_timestamp,
-            context.get_anchor_block_header().global_variables.timestamp + TEST_INITIAL_DELAY,
+            context.get_anchor_block_header().global_variables.timestamp + TEST_INITIAL_DELAY - 1,
         );
     });
 }
@@ -333,7 +333,7 @@ unconstrained fn get_current_value_in_private_after_change() {
         assert_eq(state_var.get_current_value(), new_value);
         assert_eq(
             context.expiration_timestamp,
-            context.get_anchor_block_header().global_variables.timestamp + TEST_INITIAL_DELAY,
+            context.get_anchor_block_header().global_variables.timestamp + TEST_INITIAL_DELAY - 1,
         );
     });
 }
@@ -351,17 +351,17 @@ unconstrained fn get_current_value_in_private_with_non_initial_delay() {
         (state_var.get_scheduled_value(), state_var.get_scheduled_delay())
     });
 
-    let historical_timestamp = std::cmp::max(value_timestamp_of_change, delay_timestamp_of_change);
-    env.mine_block_at(historical_timestamp);
+    let anchor_block_timestamp = std::cmp::max(value_timestamp_of_change, delay_timestamp_of_change);
+    env.mine_block_at(anchor_block_timestamp);
 
     env.private_context(|context| {
         // Make sure we're at a block with the expected timestamp
-        assert_eq(context.get_anchor_block_header().global_variables.timestamp, historical_timestamp);
+        assert_eq(context.get_anchor_block_header().global_variables.timestamp, anchor_block_timestamp);
 
         let state_var = in_private(context);
 
         assert_eq(state_var.get_current_value(), new_value);
-        assert_eq(context.expiration_timestamp, historical_timestamp + new_delay);
+        assert_eq(context.expiration_timestamp, anchor_block_timestamp + new_delay - 1);
     });
 }
 

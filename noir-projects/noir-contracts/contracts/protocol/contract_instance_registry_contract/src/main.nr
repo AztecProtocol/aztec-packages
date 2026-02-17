@@ -155,7 +155,9 @@ pub contract ContractInstanceRegistry {
         };
         let payload = event.serialize_non_standard();
         debug_log_format("ContractInstancePublished: {}", payload);
-        let padded_log = payload.concat([0; 3]);
+        // We pad the payload with [0] to match the length required by emit_private_log. Since the log is not
+        // encrypted, padding with zero rather than a random value is acceptable (we don't care about privacy here).
+        let padded_log = payload.concat([0]);
         let length = payload.len();
         context.emit_private_log(padded_log, length);
 

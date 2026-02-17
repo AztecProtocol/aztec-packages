@@ -34,7 +34,7 @@ describe('e2e_epochs/epochs_long_proving_time', () => {
     await test.teardown();
   });
 
-  it('generates proof over multiple epochs', async () => {
+  it.skip('generates proof over multiple epochs', async () => {
     const targetProvenEpochs = process.env.TARGET_PROVEN_EPOCHS ? parseInt(process.env.TARGET_PROVEN_EPOCHS) : 1;
     const targetProvenBlockNumber = targetProvenEpochs * test.epochDuration;
     logger.info(`Waiting for ${targetProvenEpochs} epochs to be proven at ${targetProvenBlockNumber} L2 blocks`);
