@@ -86,6 +86,8 @@ if [ -z "${iid:-}" -o "${iid:-}" == "None" ]; then
   echo $iid > $iid_path
 fi
 
+echo "Instance id: $iid"
+
 while [ -z "${ip:-}" ]; do
   sleep 1
   ip=$(aws ec2 describe-instances \
