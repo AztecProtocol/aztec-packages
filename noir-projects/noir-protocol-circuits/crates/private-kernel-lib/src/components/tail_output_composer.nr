@@ -12,6 +12,7 @@ use types::{
             PrivateKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,
         },
     },
+    constants::MAX_TX_LIFETIME,
     traits::Empty,
 };
 
@@ -38,9 +39,14 @@ impl TailOutputComposer {
 
         let gas_used = meter_gas_used(self.previous_kernel, false /* is_for_public */);
 
+        let max_timestamp =
+            source.constants.anchor_block_header.global_variables.timestamp + MAX_TX_LIFETIME;
         let expiration_timestamp = std::cmp::min(
-            source.expiration_timestamp,
-            self.expiration_timestamp_upper_bound,
+            std::cmp::min(
+                source.expiration_timestamp,
+                self.expiration_timestamp_upper_bound,
+            ),
+            max_timestamp,
         );
 
         PrivateToRollupKernelCircuitPublicInputs {

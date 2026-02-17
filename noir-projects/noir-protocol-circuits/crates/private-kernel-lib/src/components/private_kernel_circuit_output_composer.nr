@@ -101,8 +101,8 @@ impl PrivateKernelCircuitOutputComposer {
             inputs.private_call.public_inputs.nullifier_read_requests,
         );
         append_and_scope_to_empty_dest(
-            &mut validation_requests.scoped_key_validation_requests_and_generators,
-            inputs.private_call.public_inputs.key_validation_requests_and_generators,
+            &mut validation_requests.scoped_key_validation_requests_and_separators,
+            inputs.private_call.public_inputs.key_validation_requests_and_separators,
             contract_address,
         );
 
@@ -350,16 +350,16 @@ impl PrivateKernelCircuitOutputComposer {
         &mut self,
         private_call_public_inputs: PrivateCircuitPublicInputs,
     ) {
-        let key_validation_requests_and_generators =
-            private_call_public_inputs.key_validation_requests_and_generators;
-        for i in 0..key_validation_requests_and_generators.length {
-            let scoped_request = key_validation_requests_and_generators.array[i].scope(
+        let key_validation_requests_and_separators =
+            private_call_public_inputs.key_validation_requests_and_separators;
+        for i in 0..key_validation_requests_and_separators.length {
+            let scoped_request = key_validation_requests_and_separators.array[i].scope(
                 private_call_public_inputs.call_context.contract_address,
             );
             self
                 .public_inputs
                 .validation_requests
-                .scoped_key_validation_requests_and_generators
+                .scoped_key_validation_requests_and_separators
                 .push(scoped_request);
         }
     }

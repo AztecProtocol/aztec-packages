@@ -36,7 +36,7 @@ fn with_everything_empty_except_for_first_nullifier_hint() {
     assert_claimed_length_array_eq(pi.validation_requests.note_hash_read_requests, []);
     assert_claimed_length_array_eq(pi.validation_requests.nullifier_read_requests, []);
     assert_claimed_length_array_eq(
-        pi.validation_requests.scoped_key_validation_requests_and_generators,
+        pi.validation_requests.scoped_key_validation_requests_and_separators,
         [],
     );
 }
@@ -94,8 +94,9 @@ fn expiration_timestamp_constrained_by_contract_updates() {
 
     // Set the private call's expiration_timestamp to a large value
     // that exceeds the contract update time horizon
-    let anchor_timestamp = builder.private_call.anchor_block_header.global_variables.timestamp;
-    let contract_update_horizon = anchor_timestamp + DEFAULT_UPDATE_DELAY;
+    let anchor_block_timestamp =
+        builder.private_call.anchor_block_header.global_variables.timestamp;
+    let contract_update_horizon = anchor_block_timestamp + DEFAULT_UPDATE_DELAY - 1;
 
     // Set expiration_timestamp larger than the contract update horizon
     builder.private_call.expiration_timestamp = contract_update_horizon + 1000;
@@ -191,9 +192,9 @@ fn with_everything_non_empty() {
     );
 
     let key_validation_requests =
-        builder.private_call.scoped_key_validation_requests_and_generators.storage();
+        builder.private_call.scoped_key_validation_requests_and_separators.storage();
     assert_claimed_length_array_eq(
-        pi.validation_requests.scoped_key_validation_requests_and_generators,
+        pi.validation_requests.scoped_key_validation_requests_and_separators,
         [key_validation_requests[0], key_validation_requests[1]],
     );
 }

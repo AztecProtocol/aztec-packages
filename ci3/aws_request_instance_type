@@ -86,6 +86,8 @@ if [ -z "${iid:-}" -o "${iid:-}" == "None" ]; then
   echo $iid > $iid_path
 fi
 
+echo "Instance id: $iid"
+
 tags="Key=Name,Value=$name Key=Group,Value=build-instance"
 [ -n "${GITHUB_ACTOR:-}" ] && tags+=" Key=GithubActor,Value=$GITHUB_ACTOR"
 [ -n "${CI_MODE:-}" ] && tags+=" Key=CICommand,Value=$CI_MODE"

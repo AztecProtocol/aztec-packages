@@ -41,7 +41,7 @@ import {
   setup,
 } from '../fixtures/utils.js';
 
-export const WORLD_STATE_BLOCK_HISTORY = 2;
+export const WORLD_STATE_CHECKPOINT_HISTORY = 2;
 export const WORLD_STATE_BLOCK_CHECK_INTERVAL = 50;
 export const ARCHIVER_POLL_INTERVAL = 50;
 export const DEFAULT_L1_BLOCK_TIME = process.env.CI ? 12 : 8;
@@ -142,7 +142,7 @@ export class EpochsTestContext {
         // using the prover's eth address if the proverId is used for something in the rollup contract
         // Use numeric EthAddress for deterministic prover id
         proverId: EthAddress.fromNumber(1),
-        worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
+        worldStateCheckpointHistory: WORLD_STATE_CHECKPOINT_HISTORY,
         exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
         slasherFlavor: 'none',
         l1PublishingTime,
