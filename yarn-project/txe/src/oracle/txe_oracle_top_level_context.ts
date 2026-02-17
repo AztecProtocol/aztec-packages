@@ -659,11 +659,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     return returnValues ?? [];
   }
 
-  async txeSimulateUtilityFunction(
-    targetContractAddress: AztecAddress,
-    functionSelector: FunctionSelector,
-    args: Fr[],
-  ) {
+  async txeExecuteUtilityFunction(targetContractAddress: AztecAddress, functionSelector: FunctionSelector, args: Fr[]) {
     const artifact = await this.contractStore.getFunctionArtifact(targetContractAddress, functionSelector);
     if (!artifact) {
       throw new Error(`Cannot call ${functionSelector} as there is no artifact found at ${targetContractAddress}.`);
@@ -741,10 +737,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
           );
         });
 
-      this.logger.verbose(`Utility simulation for ${call.to}.${call.selector} completed`);
+      this.logger.verbose(`Utility execution for ${call.to}.${call.selector} completed`);
       return witnessMapToFields(acirExecutionResult.returnWitness);
     } catch (err) {
-      throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during utility simulation'));
+      throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during utility execution'));
     }
   }
 

@@ -63,7 +63,7 @@ unconstrained fn test_cast_vote() {
         PrivateVoting::at(voting_contract_address).cast_vote(election_id, candidate),
     );
 
-    let tally = env.simulate_utility(PrivateVoting::at(voting_contract_address).get_tally(
+    let tally = env.execute_utility(PrivateVoting::at(voting_contract_address).get_tally(
         election_id,
         candidate,
     ));
@@ -90,7 +90,7 @@ unconstrained fn test_cast_vote_with_separate_accounts() {
         PrivateVoting::at(voting_contract_address).cast_vote(election_id, candidate),
     );
 
-    let tally = env.simulate_utility(PrivateVoting::at(voting_contract_address).get_tally(
+    let tally = env.execute_utility(PrivateVoting::at(voting_contract_address).get_tally(
         election_id,
         candidate,
     ));
@@ -139,11 +139,11 @@ unconstrained fn test_vote_in_two_different_elections() {
         PrivateVoting::at(voting_contract_address).cast_vote(election_id_54, candidate),
     );
 
-    let vote_count_42 = env.simulate_utility(PrivateVoting::at(voting_contract_address).get_tally(
+    let vote_count_42 = env.execute_utility(PrivateVoting::at(voting_contract_address).get_tally(
         election_id_42,
         candidate,
     ));
-    let vote_count_54 = env.simulate_utility(PrivateVoting::at(voting_contract_address).get_tally(
+    let vote_count_54 = env.execute_utility(PrivateVoting::at(voting_contract_address).get_tally(
         election_id_54,
         candidate,
     ));

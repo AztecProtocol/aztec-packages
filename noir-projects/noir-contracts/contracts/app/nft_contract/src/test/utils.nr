@@ -72,7 +72,7 @@ pub unconstrained fn assert_owns_private_nft(
     token_id: Field,
 ) {
     let (private_nfts, _) =
-        env.simulate_utility(NFT::at(nft_contract_address).get_private_nfts(owner, 0));
+        env.execute_utility(NFT::at(nft_contract_address).get_private_nfts(owner, 0));
 
     let mut nft_found = false;
     for obtained_token_id in private_nfts {
