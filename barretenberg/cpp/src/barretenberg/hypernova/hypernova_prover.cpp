@@ -81,6 +81,24 @@ Polynomial<HypernovaFoldingProver::FF> HypernovaFoldingProver::batch_polynomials
     BB_ASSERT_EQ(
         challenges.size(), N, "The number of challenges provided does not match the number of polynomials to batch.");
 
+    // Ensure the first polynomial has enough backing to accumulate all others (they may have different backing sizes
+    // and/or start indices). add_scaled requires destination start_index <= source start_index.
+    size_t min_start = polynomials_to_batch[0].start_index();
+    size_t max_end = polynomials_to_batch[0].end_index();
+    for (size_t idx = 1; idx < N; idx++) {
+        min_start = std::min(min_start, polynomials_to_batch[idx].start_index());
+        max_end = std::max(max_end, polynomials_to_batch[idx].end_index());
+    }
+
+    if (min_start < polynomials_to_batch[0].start_index() || max_end > polynomials_to_batch[0].end_index()) {
+        Polynomial<FF> result(max_end - min_start, full_batched_size, min_start);
+        result += polynomials_to_batch[0];
+        for (size_t idx = 1; idx < N; idx++) {
+            result.add_scaled(polynomials_to_batch[idx], challenges[idx]);
+        }
+        return result;
+    }
+
     for (size_t idx = 1; idx < N; idx++) {
         polynomials_to_batch[0].add_scaled(polynomials_to_batch[idx], challenges[idx]);
     }
