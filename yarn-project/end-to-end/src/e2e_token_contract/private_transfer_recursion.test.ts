@@ -69,7 +69,9 @@ describe('e2e_token_contract private transfer recursion', () => {
     // We should have created two new notes, one for the recipient and one for the sender (with the change)
     expect(txEffects!.data.noteHashes.length).toBe(2);
 
-    const senderBalance = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+    const { result: senderBalance } = await asset.methods
+      .balance_of_private(adminAddress)
+      .simulate({ from: adminAddress });
     expect(senderBalance).toEqual(expectedChange);
 
     const events = await wallet.getPrivateEvents<Transfer>(TokenContract.events.Transfer, {

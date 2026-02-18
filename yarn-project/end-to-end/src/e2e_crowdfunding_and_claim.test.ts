@@ -146,10 +146,12 @@ describe('e2e_crowdfunding_and_claim', () => {
     }
 
     // Since the RWT is minted 1:1 with the DNT, the balance of the reward token should be equal to the donation amount
-    const balanceRWT = await rewardToken.methods.balance_of_public(donor1Address).simulate({ from: operatorAddress });
+    const { result: balanceRWT } = await rewardToken.methods
+      .balance_of_public(donor1Address)
+      .simulate({ from: operatorAddress });
     expect(balanceRWT).toEqual(donationAmount);
 
-    const balanceDNTBeforeWithdrawal = await donationToken.methods
+    const { result: balanceDNTBeforeWithdrawal } = await donationToken.methods
       .balance_of_private(operatorAddress)
       .simulate({ from: operatorAddress });
     expect(balanceDNTBeforeWithdrawal).toEqual(0n);
@@ -157,7 +159,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     // 3) At last, we withdraw the raised funds from the crowdfunding contract to the operator's address
     await crowdfundingContract.methods.withdraw(donationAmount).send({ from: operatorAddress });
 
-    const balanceDNTAfterWithdrawal = await donationToken.methods
+    const { result: balanceDNTAfterWithdrawal } = await donationToken.methods
       .balance_of_private(operatorAddress)
       .simulate({ from: operatorAddress });
 
