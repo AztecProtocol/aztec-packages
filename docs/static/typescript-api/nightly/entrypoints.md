@@ -1,6 +1,6 @@
 # @aztec/entrypoints
 
-Version: v4.0.0-nightly.20260217
+Version: v4.0.0-nightly.20260218
 
 ## Quick Import Reference
 
@@ -66,12 +66,12 @@ Implements: `EncodedCalls`
 
 **Constructor**
 ```typescript
-new EncodedAppEntrypointCalls(encodedFunctionCalls: EncodedFunctionCall[], hashedArguments: HashedValues[], generatorIndex: number, tx_nonce: Fr)
+new EncodedAppEntrypointCalls(encodedFunctionCalls: EncodedFunctionCall[], hashedArguments: HashedValues[], domainSeparator: number, tx_nonce: Fr)
 ```
 
 **Properties**
+- `domainSeparator: number` - The index of the generator to use for hashing
 - `encodedFunctionCalls: EncodedFunctionCall[]` - Function calls in the expected format (Noir's convention)
-- `generatorIndex: number` - The index of the generator to use for hashing
 - `hashedArguments: HashedValues[]` - The hashed args for the call, ready to be injected in the execution cache
 - `tx_nonce: Fr` - A nonce to inject into the payload of the transaction. When used with cancellable=true, this nonce will be used to compute a nullifier that allows cancelling this transaction by submitting a new one with the same nonce but higher fee. The nullifier ensures only one transaction can succeed.
 
