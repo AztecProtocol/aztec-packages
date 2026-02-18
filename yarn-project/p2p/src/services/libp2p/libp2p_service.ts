@@ -70,8 +70,8 @@ import {
 import { MessageSeenValidator } from '../../msg_validators/msg_seen_validator/msg_seen_validator.js';
 import {
   type TransactionValidator,
-  createFirstStageTxValidationsForGossippedTransactions,
-  createSecondStageTxValidationsForGossippedTransactions,
+  createFirstStageTxValidationsForGossipedTransactions,
+  createSecondStageTxValidationsForGossipedTransactions,
   createTxValidatorForBlockProposalReceivedTxs,
   createTxValidatorForReqResponseReceivedTxs,
 } from '../../msg_validators/tx_validator/factory.js';
@@ -1624,7 +1624,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const allowedInSetup = this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
     const blockNumber = BlockNumber(currentBlockNumber + 1);
 
-    return createFirstStageTxValidationsForGossippedTransactions(
+    return createFirstStageTxValidationsForGossipedTransactions(
       nextSlotTimestamp,
       blockNumber,
       this.worldStateSynchronizer,
@@ -1641,7 +1641,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
   /** Creates the second stage (expensive proof verification) validators for gossiped transactions. */
   protected createSecondStageMessageValidators(): Record<string, TransactionValidator> {
-    return createSecondStageTxValidationsForGossippedTransactions(this.proofVerifier, this.logger.getBindings());
+    return createSecondStageTxValidationsForGossipedTransactions(this.proofVerifier, this.logger.getBindings());
   }
 
   /**

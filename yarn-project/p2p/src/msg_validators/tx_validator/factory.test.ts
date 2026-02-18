@@ -13,8 +13,8 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import {
   createCompleteGossipedTransactionValidators,
-  createFirstStageTxValidationsForGossippedTransactions,
-  createSecondStageTxValidationsForGossippedTransactions,
+  createFirstStageTxValidationsForGossipedTransactions,
+  createSecondStageTxValidationsForGossipedTransactions,
   createTxValidatorForAcceptingTxsOverRPC,
   createTxValidatorForBlockProposalReceivedTxs,
   createTxValidatorForReqResponseReceivedTxs,
@@ -31,9 +31,9 @@ describe('Validator factory functions', () => {
     proofVerifier = mock<ClientProtocolCircuitVerifier>();
   });
 
-  describe('createFirstStageTxValidationsForGossippedTransactions', () => {
+  describe('createFirstStageTxValidationsForGossipedTransactions', () => {
     it('returns the expected set of first-stage validator keys', () => {
-      const validators = createFirstStageTxValidationsForGossippedTransactions(
+      const validators = createFirstStageTxValidationsForGossipedTransactions(
         0n,
         BlockNumber(2),
         synchronizer,
@@ -58,7 +58,7 @@ describe('Validator factory functions', () => {
     });
 
     it('does not include a proof validator', () => {
-      const validators = createFirstStageTxValidationsForGossippedTransactions(
+      const validators = createFirstStageTxValidationsForGossipedTransactions(
         0n,
         BlockNumber(2),
         synchronizer,
@@ -74,7 +74,7 @@ describe('Validator factory functions', () => {
     });
 
     it('assigns expected severities to each validator', () => {
-      const validators = createFirstStageTxValidationsForGossippedTransactions(
+      const validators = createFirstStageTxValidationsForGossipedTransactions(
         0n,
         BlockNumber(2),
         synchronizer,
@@ -100,7 +100,7 @@ describe('Validator factory functions', () => {
     });
 
     it('each entry has a validator with a validateTx method', () => {
-      const validators = createFirstStageTxValidationsForGossippedTransactions(
+      const validators = createFirstStageTxValidationsForGossipedTransactions(
         0n,
         BlockNumber(2),
         synchronizer,
@@ -119,21 +119,21 @@ describe('Validator factory functions', () => {
     });
   });
 
-  describe('createSecondStageTxValidationsForGossippedTransactions', () => {
+  describe('createSecondStageTxValidationsForGossipedTransactions', () => {
     it('returns only the proof validator', () => {
-      const validators = createSecondStageTxValidationsForGossippedTransactions(proofVerifier);
+      const validators = createSecondStageTxValidationsForGossipedTransactions(proofVerifier);
 
       expect(Object.keys(validators)).toEqual(['proofValidator']);
     });
 
     it('assigns low tolerance severity to proof validator', () => {
-      const validators = createSecondStageTxValidationsForGossippedTransactions(proofVerifier);
+      const validators = createSecondStageTxValidationsForGossipedTransactions(proofVerifier);
 
       expect(validators.proofValidator.severity).toBe(PeerErrorSeverity.LowToleranceError);
     });
 
     it('proof validator has a validateTx method', () => {
-      const validators = createSecondStageTxValidationsForGossippedTransactions(proofVerifier);
+      const validators = createSecondStageTxValidationsForGossipedTransactions(proofVerifier);
 
       expect(typeof validators.proofValidator.validator.validateTx).toBe('function');
     });

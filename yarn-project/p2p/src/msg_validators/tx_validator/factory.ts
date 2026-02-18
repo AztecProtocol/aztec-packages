@@ -61,7 +61,7 @@ export function createCompleteGossipedTransactionValidators(
   bindings?: LoggerBindings,
 ): Record<string, TransactionValidator>[] {
   return [
-    createFirstStageTxValidationsForGossippedTransactions(
+    createFirstStageTxValidationsForGossipedTransactions(
       timestamp,
       blockNumber,
       worldStateSynchronizer,
@@ -74,16 +74,16 @@ export function createCompleteGossipedTransactionValidators(
       allowedInSetup,
       bindings,
     ),
-    createSecondStageTxValidationsForGossippedTransactions(proofVerifier),
+    createSecondStageTxValidationsForGossipedTransactions(proofVerifier),
   ];
 }
 
 /**
- * Builds the set of validators used in the first stage of validating gossipped transactions.
+ * Builds the set of validators used in the first stage of validating gossiped transactions.
  * This performs all the reasonably fast verifications.
  * Slow/expensive verifications are deferred to the second stage.
  */
-export function createFirstStageTxValidationsForGossippedTransactions(
+export function createFirstStageTxValidationsForGossipedTransactions(
   timestamp: UInt64,
   blockNumber: BlockNumber,
   worldStateSynchronizer: WorldStateSynchronizer,
@@ -163,10 +163,10 @@ export function createFirstStageTxValidationsForGossippedTransactions(
 }
 
 /**
- * Builds the set of validators used in the second stage of validating gossipped transactions.
+ * Builds the set of validators used in the second stage of validating gossiped transactions.
  * This performs the slow/expensive verifications.
  */
-export function createSecondStageTxValidationsForGossippedTransactions(
+export function createSecondStageTxValidationsForGossipedTransactions(
   proofVerifier: ClientProtocolCircuitVerifier,
   bindings?: LoggerBindings,
 ): Record<string, TransactionValidator> {
