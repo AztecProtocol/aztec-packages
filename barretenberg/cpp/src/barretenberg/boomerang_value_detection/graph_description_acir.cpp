@@ -1030,7 +1030,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_multi_scalar_mul_constrain
 // 1. All input byte fields (hashed_message, r, s, pub_x, pub_y) have conditional_assign + 8-bit range constraints
 // 2. The result is constrained to be boolean (from bool_ct result(result_field))
 // 3. The result participates in bool_t conditional_assign + assert_equal chain
-//
+// TODO(defkit): implement proper stdlib::ecdsa_verify_signature tracing
 // We intentionally skip tracing ECDSA verification internals (biggroup/bigcurve).
 // Instead, we verify that:
 //   - All inputs are properly constrained (conditional_assign + 8-bit range)
