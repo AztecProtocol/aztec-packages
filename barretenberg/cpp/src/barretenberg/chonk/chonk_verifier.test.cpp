@@ -13,7 +13,7 @@ class ChonkRecursionTests : public testing::Test {
     using Proof = ChonkProof;
     using StdlibProof = ChonkStdlibProof;
     using MockCircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
-    using VKAndHash = MegaZKFlavor::VKAndHash;
+    using VKAndHash = MultiMegaZKFlavor::VKAndHash;
     using PairingAccumulator = PairingPoints<Builder>;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }

@@ -23,8 +23,8 @@ namespace bb {
  *   W₁ (shiftable):   [w_l, w_r, w_o, ZERO]
  *   W₂ (unshiftable): [ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4]
  *   W₃ (unshiftable): [calldata, calldata_read_counts, calldata_read_tags, secondary_calldata]
- *   W₄ (unshiftable): [secondary_calldata_read_counts, secondary_calldata_read_tags, return_data,
- * return_data_read_counts] W₅ (unshiftable): [return_data_read_tags, ZERO, ZERO, ZERO]
+ *   W₄ (unshiftable): [secondary_calldata_read_counts, secondary_calldata_read_tags, return_data_read_tags,
+ * return_data_read_counts] W₅ (unshiftable): [return_data, ZERO, ZERO, ZERO]
  *
  * ROUND 2 (after eta) - 2 commits:
  *   W₆ (shiftable):   [w_4, ZERO, ZERO, ZERO]
@@ -188,12 +188,12 @@ class MultiMegaFlavor : public MegaFlavor {
     template <typename Commitment_, typename VerificationKey_, bool HasZK_ = HasZK>
     class VerifierCommitments_ : public AllEntities_<Commitment_, HasZK_> {
       public:
-        VerifierCommitments_(const std::shared_ptr<VerificationKey_>& verification_key)
+        // Default constructor: all commitments zero (for benchmarking with interleaved VK)
+        VerifierCommitments_() = default;
+        // Single-arg constructor from interleaved VK (benchmarking only - not sound)
+        explicit VerifierCommitments_(const std::shared_ptr<VerificationKey_>& verification_key)
         {
-            for (auto [comm, precomputed_comm] :
-                 zip_view(PrecomputedEntities<Commitment_>::get_all(), verification_key->get_all())) {
-                comm = precomputed_comm;
-            }
+            (void)verification_key; // Interleaved VK can't be directly mapped to individual slots
         }
     };
 
@@ -220,7 +220,7 @@ class MultiMegaFlavor : public MegaFlavor {
                               interleaved_ecc_op_wires, // W₂: ecc_op_wires - unshiftable
                               interleaved_databus_1,    // W₃: first batch of databus - unshiftable
                               interleaved_databus_2,    // W₄: second batch of databus - unshiftable
-                              interleaved_databus_3,    // W₅: [return_data_read_tags, ZERO, ZERO, ZERO] - unshiftable
+                              interleaved_databus_3,    // W₅: [return_data, ZERO, ZERO, ZERO] - unshiftable
                               interleaved_lookup,       // W₇: [lookup_read_counts, lookup_read_tags, ZERO, ZERO]
                               interleaved_inverses,     // W₈: all inverses - unshiftable
                               interleaved_wires,        // W₁: [w_l, w_r, w_o, ZERO] - shiftable
@@ -228,6 +228,7 @@ class MultiMegaFlavor : public MegaFlavor {
                               interleaved_z_perm)       // W₉: [z_perm, ZERO, ZERO, ZERO] - shiftable
 
         auto get_shiftable() { return RefArray{ interleaved_wires, interleaved_w_4, interleaved_z_perm }; }
+        auto get_shiftable() const { return RefArray{ interleaved_wires, interleaved_w_4, interleaved_z_perm }; }
     };
 
     // ZK: 10 interleaved witness commitments (9 base + masking)
@@ -312,6 +313,7 @@ class MultiMegaFlavor : public MegaFlavor {
             interleaved_precomputed_5, // P₆: [id_2, id_3, id_4, table_1]
             interleaved_precomputed_6, // P₇: [table_2, table_3, table_4, lagrange_first]
             interleaved_precomputed_7) // P₈: [lagrange_last, lagrange_ecc_op, databus_id] (3 polys)
+        bool operator==(const InterleavedPrecomputedCommitments&) const = default;
     };
 
     // Number of interleaved precomputed commitments
@@ -408,9 +410,9 @@ class MultiMegaFlavor : public MegaFlavor {
             { &e.calldata, &e.calldata_read_counts, &e.calldata_read_tags, &e.secondary_calldata },
             { &e.secondary_calldata_read_counts,
               &e.secondary_calldata_read_tags,
-              &e.return_data,
+              &e.return_data_read_tags,
               &e.return_data_read_counts },
-            { &e.return_data_read_tags, nullptr, nullptr, nullptr },
+            { &e.return_data, nullptr, nullptr, nullptr },
             { &e.lookup_read_counts, &e.lookup_read_tags, nullptr, nullptr },
             { &e.lookup_inverses, &e.calldata_inverses, &e.secondary_calldata_inverses, &e.return_data_inverses },
             // W₁, W₆, W₉: shiftable witness groups at end (contiguous for REPEATED_COMMITMENTS)

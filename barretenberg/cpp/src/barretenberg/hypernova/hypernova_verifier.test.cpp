@@ -1,5 +1,8 @@
 #include "barretenberg/hypernova/hypernova_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/flavor/multi_mega_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_recursive_flavor.hpp"
+#include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/hypernova/hypernova_prover.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
@@ -14,7 +17,7 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
 
   public:
     // Recursive verifier
-    using RecursiveHypernovaVerifier = HypernovaFoldingVerifier<bb::MegaRecursiveFlavor_<bb::MegaCircuitBuilder>>;
+    using RecursiveHypernovaVerifier = HypernovaFoldingVerifier<bb::MultiMegaRecursiveFlavor_<bb::MegaCircuitBuilder>>;
     using RecursiveFlavor = RecursiveHypernovaVerifier::Flavor;
     using RecursiveVerifierInstance = RecursiveHypernovaVerifier::VerifierInstance;
     using Builder = RecursiveFlavor::CircuitBuilder;
@@ -22,7 +25,7 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
     using RecursiveProof = RecursiveHypernovaVerifier::Proof;
 
     // Native verifier
-    using NativeHypernovaVerifier = HypernovaFoldingVerifier<bb::MegaFlavor>;
+    using NativeHypernovaVerifier = HypernovaFoldingVerifier<bb::MultiMegaFlavor>;
     using NativeFlavor = NativeHypernovaVerifier::Flavor;
     using NativeFF = NativeFlavor::FF;
     using NativeVerifierAccumulator = NativeHypernovaVerifier::Accumulator;
@@ -155,70 +158,69 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
 
     /**
      * @brief Build the expected transcript manifest for HyperNova folding
-     * @details The manifest has 48 rounds total:
+     * @details The manifest has 50 rounds total:
      * - Oink (rounds 0-2): vk_hash, public inputs, wires, ECC ops, databus, lookup, inverses
      * - Main sumcheck (rounds 3-23): gate_challenge, univariates
-     * - Main sumcheck batching (round 24): unshifted/shifted batching challenges + evaluations
+     * - Interleaving + batching challenges (round 24): interleaving, unshifted/shifted batching + evaluations
      * - MLB data (round 25): accumulator commitments/challenges/evaluations
-     * - MLB sumcheck (rounds 26-46): univariates
-     * - MLB final (round 47): final evaluations + claim_batching_challenge
+     * - MLB sumcheck (rounds 26-48): univariates (23 rounds for VIRTUAL_LOG_N=23)
+     * - MLB final (round 49): final evaluations + claim_batching_challenge
      */
     static TranscriptManifest build_expected_folding_manifest()
     {
         TranscriptManifest manifest;
         constexpr size_t frs_per_G = FrCodec::calc_num_fields<curve::BN254::AffineElement>();
-        constexpr size_t NUM_SUMCHECK_UNIVARIATES = NativeFlavor::VIRTUAL_LOG_N; // 21
+        constexpr size_t NUM_MAIN_SUMCHECK_ROUNDS = NativeFlavor::VIRTUAL_LOG_N;                        // 21
+        constexpr size_t NUM_MLB_SUMCHECK_ROUNDS = MultilinearBatchingFlavor::VIRTUAL_LOG_N;            // 23
+        constexpr size_t NUM_INTERLEAVED_UNSHIFTED = NativeFlavor::NUM_ALL_INTERLEAVED_COMMITMENTS;     // 17
+        constexpr size_t NUM_INTERLEAVED_SHIFTED = NativeFlavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS; // 3
 
         size_t round = 0;
 
-        // Round 0: Oink preamble + wires + ECC ops + databus -> eta challenge
+        // Round 0: Oink preamble + interleaved wires + individual ecc ops/calldata + databus -> eta
         manifest.add_challenge(round, "eta");
         manifest.add_entry(round, "vk_hash", 1);
         for (size_t i = 0; i < 4; ++i) {
             manifest.add_entry(round, "public_input_" + std::to_string(i), 1);
         }
-        for (const auto& wire : { "W_L", "W_R", "W_O" }) {
-            manifest.add_entry(round, wire, frs_per_G);
-        }
+        manifest.add_entry(round, "INTERLEAVED_WIRES", frs_per_G);
+        manifest.add_entry(round, "INTERLEAVED_ECC_OP_WIRES", frs_per_G);
         for (const auto& wire : { "ECC_OP_WIRE_1", "ECC_OP_WIRE_2", "ECC_OP_WIRE_3", "ECC_OP_WIRE_4" }) {
             manifest.add_entry(round, wire, frs_per_G);
         }
-        for (const auto& bus : { "CALLDATA", "SECONDARY_CALLDATA", "RETURN_DATA" }) {
-            manifest.add_entry(round, bus, frs_per_G);
-            manifest.add_entry(round, std::string(bus) + "_READ_COUNTS", frs_per_G);
-            manifest.add_entry(round, std::string(bus) + "_READ_TAGS", frs_per_G);
-        }
+        manifest.add_entry(round, "INTERLEAVED_DATABUS_1", frs_per_G);
+        manifest.add_entry(round, "CALLDATA", frs_per_G);
+        manifest.add_entry(round, "INTERLEAVED_DATABUS_2", frs_per_G);
+        manifest.add_entry(round, "INTERLEAVED_DATABUS_3", frs_per_G);
         round++;
 
-        // Round 1: lookup + w_4 -> beta, gamma challenges
+        // Round 1: interleaved w_4 + lookup -> beta, gamma challenges
         manifest.add_challenge(round, std::array{ "beta", "gamma" });
-        manifest.add_entry(round, "LOOKUP_READ_COUNTS", frs_per_G);
-        manifest.add_entry(round, "LOOKUP_READ_TAGS", frs_per_G);
-        manifest.add_entry(round, "W_4", frs_per_G);
+        manifest.add_entry(round, "INTERLEAVED_W_4", frs_per_G);
+        manifest.add_entry(round, "INTERLEAVED_LOOKUP", frs_per_G);
         round++;
 
-        // Round 2: inverses + z_perm -> alpha + gate_challenge (consecutive challenges in same round)
+        // Round 2: interleaved inverses + z_perm -> alpha + gate_challenge
         manifest.add_challenge(round, "alpha");
         manifest.add_challenge(round, "HypernovaFoldingProver:gate_challenge");
-        manifest.add_entry(round, "LOOKUP_INVERSES", frs_per_G);
-        manifest.add_entry(round, "CALLDATA_INVERSES", frs_per_G);
-        manifest.add_entry(round, "SECONDARY_CALLDATA_INVERSES", frs_per_G);
-        manifest.add_entry(round, "RETURN_DATA_INVERSES", frs_per_G);
-        manifest.add_entry(round, "Z_PERM", frs_per_G);
+        manifest.add_entry(round, "INTERLEAVED_INVERSES", frs_per_G);
+        manifest.add_entry(round, "INTERLEAVED_Z_PERM", frs_per_G);
         round++;
 
         // Rounds 3-23: main sumcheck univariates (21 rounds)
-        for (size_t i = 0; i < NUM_SUMCHECK_UNIVARIATES; ++i) {
+        for (size_t i = 0; i < NUM_MAIN_SUMCHECK_ROUNDS; ++i) {
             manifest.add_challenge(round, "Sumcheck:u_" + std::to_string(i));
             manifest.add_entry(round, "Sumcheck:univariate_" + std::to_string(i), 8);
             round++;
         }
 
-        // Round 24: unshifted batching challenges + shifted batching challenges + evaluations
-        for (size_t i = 0; i < MegaFlavor::NUM_UNSHIFTED_ENTITIES - 1; ++i) {
+        // Round 24: interleaving challenges + batching challenges + evaluations
+        manifest.add_challenge(round, "Shplemini:interleaving_challenge_0");
+        manifest.add_challenge(round, "Shplemini:interleaving_challenge_1");
+        for (size_t i = 0; i < NUM_INTERLEAVED_UNSHIFTED - 1; ++i) {
             manifest.add_challenge(round, "unshifted_challenge_" + std::to_string(i));
         }
-        for (size_t i = 0; i < MegaFlavor::NUM_SHIFTED_ENTITIES - 1; ++i) {
+        for (size_t i = 0; i < NUM_INTERLEAVED_SHIFTED - 1; ++i) {
             manifest.add_challenge(round, "shifted_challenge_" + std::to_string(i));
         }
         manifest.add_entry(round, "Sumcheck:evaluations", 60);
@@ -228,21 +230,21 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         manifest.add_challenge(round, "Sumcheck:alpha");
         manifest.add_entry(round, "non_shifted_accumulator_commitment", frs_per_G);
         manifest.add_entry(round, "shifted_accumulator_commitment", frs_per_G);
-        for (size_t i = 0; i < NUM_SUMCHECK_UNIVARIATES; ++i) {
+        for (size_t i = 0; i < NUM_MLB_SUMCHECK_ROUNDS; ++i) {
             manifest.add_entry(round, "accumulator_challenge_" + std::to_string(i), 1);
         }
         manifest.add_entry(round, "accumulator_evaluation_0", 1);
         manifest.add_entry(round, "accumulator_evaluation_1", 1);
         round++;
 
-        // Rounds 26-46: MLB sumcheck univariates (21 rounds)
-        for (size_t i = 0; i < NUM_SUMCHECK_UNIVARIATES; ++i) {
+        // Rounds 26-48: MLB sumcheck univariates (23 rounds)
+        for (size_t i = 0; i < NUM_MLB_SUMCHECK_ROUNDS; ++i) {
             manifest.add_challenge(round, "Sumcheck:u_" + std::to_string(i));
             manifest.add_entry(round, "Sumcheck:univariate_" + std::to_string(i), 4);
             round++;
         }
 
-        // Round 47: final evaluations + claim_batching_challenge
+        // Round 49: final evaluations + claim_batching_challenge
         manifest.add_challenge(round, "claim_batching_challenge");
         manifest.add_entry(round, "Sumcheck:evaluations", 6);
 

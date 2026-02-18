@@ -5,6 +5,8 @@
 // =====================
 #pragma once
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_recursive_flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
@@ -21,6 +23,9 @@ namespace bb {
 /**
  * @brief Multilinear batching verifier. Verifies claim reduction via sumcheck.
  * @details See: chonk/README.md#batching-claims-into-accumulator
+ *
+ * Accepts pre-batched instance evaluations and commitments from the HypernovaFoldingVerifier,
+ * which handles the interleaved batching externally.
  */
 template <typename Flavor_> class MultilinearBatchingVerifier {
   public:
@@ -34,52 +39,37 @@ template <typename Flavor_> class MultilinearBatchingVerifier {
     using VerifierClaim = MultilinearBatchingVerifierClaim<Curve>;
     using Proof = std::vector<FF>;
 
-    using InstanceFlavor = std::conditional_t<std::is_same_v<Flavor, MultilinearBatchingFlavor>,
-                                              MegaFlavor,
-                                              MegaRecursiveFlavor_<MegaCircuitBuilder>>;
-    using InstanceCommitments = InstanceFlavor::VerifierCommitments;
-    using InstanceFF = InstanceFlavor::FF;
-    static constexpr size_t NUM_UNSHIFTED_ENTITIES = MegaFlavor::NUM_UNSHIFTED_ENTITIES;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = MegaFlavor::NUM_SHIFTED_ENTITIES;
-
     explicit MultilinearBatchingVerifier(const std::shared_ptr<Transcript>& transcript);
 
-    std::pair<bool, VerifierClaim> verify_proof(SumcheckOutput<InstanceFlavor>& instance_sumcheck,
-                                                InstanceCommitments& verifier_commitments,
-                                                const std::vector<InstanceFF>& unshifted_challenges,
-                                                const std::vector<InstanceFF>& shifted_challenges);
+    /**
+     * @brief Verify proof with pre-batched instance evaluations and commitments.
+     * @details The HypernovaFoldingVerifier computes the batched instance values (via interleaved
+     * batching) before calling this method.
+     */
+    std::pair<bool, VerifierClaim> verify_proof(const FF& batched_unshifted_instance_eval,
+                                                const FF& batched_shifted_instance_eval,
+                                                const Commitment& batched_unshifted_instance_commitment,
+                                                const Commitment& batched_shifted_instance_commitment,
+                                                const std::vector<FF>& instance_challenge);
 
   private:
     std::shared_ptr<Transcript> transcript;
-    std::shared_ptr<VerifierClaim> accumulator_claim;
-    std::shared_ptr<VerifierClaim> instance_claim;
 
     /**
-     * @brief Utility to compute the new target sum for the batching sumcheck.
+     * @brief Compute the target sum for the batching sumcheck from pre-batched evaluations.
      */
     FF compute_new_target_sum(const FF& alpha,
-                              SumcheckOutput<InstanceFlavor>& instance_sumcheck,
-                              const std::vector<InstanceFF>& unshifted_challenges,
-                              const std::vector<InstanceFF>& shifted_challenges,
+                              const FF& batched_unshifted_instance_eval,
+                              const FF& batched_shifted_instance_eval,
                               const FF& accumulator_non_shifted_evaluation,
                               const FF& accumulator_shifted_evaluation) const;
 
     /**
-     * @brief Compute: Σ(commitments[i] * scalars[i]) + accumulator_commitment * batching_challenge
-     */
-    template <size_t N>
-    Commitment batch_instance_commitments_with_accumulator(RefArray<Commitment, N> instance_commitments,
-                                                           const std::vector<FF>& instance_batching_scalars,
-                                                           const Commitment& accumulator_commitment,
-                                                           const FF& batching_challenge);
-
-    /**
-     * @brief Utility to compute the new claim after the batching sumcheck.
+     * @brief Compute the new claim after the batching sumcheck from pre-batched commitments.
      */
     VerifierClaim compute_new_claim(const SumcheckOutput<Flavor>& sumcheck_result,
-                                    InstanceCommitments& verifier_commitments,
-                                    const std::vector<InstanceFF>& unshifted_challenges,
-                                    const std::vector<InstanceFF>& shifted_challenges,
+                                    const Commitment& batched_unshifted_instance_commitment,
+                                    const Commitment& batched_shifted_instance_commitment,
                                     const Commitment& non_shifted_accumulator_commitment,
                                     const Commitment& shifted_accumulator_commitment,
                                     const FF& batching_challenge);
@@ -92,7 +82,7 @@ template <typename Flavor_> class MultilinearBatchingVerifier {
      */
     bool check_eq_consistency(const SumcheckOutput<Flavor>& sumcheck_result,
                               const std::vector<FF>& accumulator_challenges,
-                              const std::vector<InstanceFF>& instance_challenges);
+                              const std::vector<FF>& instance_challenges);
 };
 
 } // namespace bb

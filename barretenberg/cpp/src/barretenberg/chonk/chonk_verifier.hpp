@@ -11,13 +11,15 @@
 #include "barretenberg/chonk/chonk_proof.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
-#include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_zk_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_zk_recursive_flavor.hpp"
 #include "barretenberg/goblin/goblin_verifier.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
-#include "barretenberg/ultra_honk/ultra_verifier.hpp"
+#include "barretenberg/ultra_honk/multi_mega_verifier.hpp"
 
 namespace bb {
 
@@ -43,7 +45,11 @@ namespace bb {
 template <bool IsRecursive> class ChonkVerifier {
     // Conditional types based on recursion
     using Builder = std::conditional_t<IsRecursive, UltraCircuitBuilder, void>;
-    using HidingKernelVerifier = std::conditional_t<IsRecursive, bb::MegaZKRecursiveVerifier, bb::MegaZKVerifier>;
+    using HidingKernelVerifier =
+        std::conditional_t<IsRecursive,
+                           MultiMegaVerifier_<MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                              stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>,
+                           MultiMegaVerifier_<MultiMegaZKFlavor, HidingKernelIO>>;
     using GoblinVerifier = std::conditional_t<IsRecursive, bb::GoblinRecursiveVerifier, bb::GoblinVerifier>;
     using Transcript = typename GoblinVerifier::Transcript;
     using GoblinReductionResult = typename GoblinVerifier::ReductionResult;

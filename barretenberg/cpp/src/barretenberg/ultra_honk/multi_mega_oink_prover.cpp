@@ -107,8 +107,8 @@ typename MultiMegaOinkProver_<Flavor>::Commitment MultiMegaOinkProver_<Flavor>::
  *   W₁ (shiftable):   [w_l, w_r, w_o, ZERO]
  *   W₂ (unshiftable): [ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4]
  *   W₃ (unshiftable): [calldata, calldata_read_counts, calldata_read_tags, secondary_calldata]
- *   W₄ (unshiftable): [secondary_calldata_read_counts, secondary_calldata_read_tags, return_data,
- * return_data_read_counts] W₅ (unshiftable): [return_data_read_tags, ZERO, ZERO, ZERO]
+ *   W₄ (unshiftable): [secondary_calldata_read_counts, secondary_calldata_read_tags, return_data_read_tags,
+ * return_data_read_counts] W₅ (unshiftable): [return_data, ZERO, ZERO, ZERO]
  */
 template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::execute_wire_commitments_round()
 {
@@ -135,6 +135,20 @@ template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::execute_w
             commit_interleaved_and_send<4>(ecc_op_batch, interleaved_labels.interleaved_ecc_op_wires);
     }
 
+    // Individual ecc_op_wire commits for merge protocol compatibility.
+    // Not sound (not bound to W₂), but sufficient for benchmarking.
+    {
+        auto& comms = prover_instance->commitments;
+        comms.ecc_op_wire_1 = commitment_key.commit(polys.ecc_op_wire_1);
+        comms.ecc_op_wire_2 = commitment_key.commit(polys.ecc_op_wire_2);
+        comms.ecc_op_wire_3 = commitment_key.commit(polys.ecc_op_wire_3);
+        comms.ecc_op_wire_4 = commitment_key.commit(polys.ecc_op_wire_4);
+        transcript->send_to_verifier(domain_separator + commitment_labels.ecc_op_wire_1, comms.ecc_op_wire_1);
+        transcript->send_to_verifier(domain_separator + commitment_labels.ecc_op_wire_2, comms.ecc_op_wire_2);
+        transcript->send_to_verifier(domain_separator + commitment_labels.ecc_op_wire_3, comms.ecc_op_wire_3);
+        transcript->send_to_verifier(domain_separator + commitment_labels.ecc_op_wire_4, comms.ecc_op_wire_4);
+    }
+
     // W₃: [calldata, calldata_read_counts, calldata_read_tags, secondary_calldata] - unshiftable
     {
         std::array<PolynomialSpan<const FF>, 4> databus_1_batch = {
@@ -147,22 +161,30 @@ template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::execute_w
             commit_interleaved_and_send<4>(databus_1_batch, interleaved_labels.interleaved_databus_1);
     }
 
-    // W₄: [secondary_calldata_read_counts, secondary_calldata_read_tags, return_data, return_data_read_counts]
+    // Individual calldata commit for databus consistency check compatibility.
+    // Not sound (not bound to W₃), but sufficient for benchmarking.
+    {
+        auto& comms = prover_instance->commitments;
+        comms.calldata = commitment_key.commit(polys.calldata);
+        transcript->send_to_verifier(domain_separator + commitment_labels.calldata, comms.calldata);
+    }
+
+    // W₄: [secondary_calldata_read_counts, secondary_calldata_read_tags, return_data_read_tags,
+    // return_data_read_counts]
     {
         std::array<PolynomialSpan<const FF>, 4> databus_2_batch = {
             PolynomialSpan<const FF>(polys.secondary_calldata_read_counts),
             PolynomialSpan<const FF>(polys.secondary_calldata_read_tags),
-            PolynomialSpan<const FF>(polys.return_data),
+            PolynomialSpan<const FF>(polys.return_data_read_tags),
             PolynomialSpan<const FF>(polys.return_data_read_counts)
         };
         interleaved_commitments.interleaved_databus_2 =
             commit_interleaved_and_send<4>(databus_2_batch, interleaved_labels.interleaved_databus_2);
     }
 
-    // W₅: [return_data_read_tags, ZERO, ZERO, ZERO] - unshiftable
+    // W₅: [return_data, ZERO, ZERO, ZERO] - unshiftable
     {
-        std::array<PolynomialSpan<const FF>, 1> databus_3_batch = { PolynomialSpan<const FF>(
-            polys.return_data_read_tags) };
+        std::array<PolynomialSpan<const FF>, 1> databus_3_batch = { PolynomialSpan<const FF>(polys.return_data) };
         interleaved_commitments.interleaved_databus_3 =
             commit_interleaved_and_send<1>(databus_3_batch, interleaved_labels.interleaved_databus_3);
     }

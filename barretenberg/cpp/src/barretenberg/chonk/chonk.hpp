@@ -9,6 +9,8 @@
 #include "barretenberg/chonk/chonk_base.hpp"
 #include "barretenberg/chonk/chonk_proof.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_recursive_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_zk_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/hypernova/hypernova_decider_prover.hpp"
 #include "barretenberg/hypernova/hypernova_decider_verifier.hpp"
@@ -17,6 +19,7 @@
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/ultra_honk/multi_mega_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #ifndef NDEBUG
@@ -39,23 +42,23 @@ class Chonk : public IVCBase {
     // CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
 
   public:
-    using Flavor = MegaFlavor;
+    using Flavor = MultiMegaFlavor;
     using MegaVerificationKey = Flavor::VerificationKey;
-    using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
+    using MegaZKVerificationKey = MultiMegaZKFlavor::VerificationKey;
     using FF = Flavor::FF;
     using Commitment = Flavor::Commitment;
     using ProverPolynomials = Flavor::ProverPolynomials;
     using Point = Flavor::Curve::AffineElement;
     using ProverInstance = ProverInstance_<Flavor>;
-    using DeciderZKProvingKey = ProverInstance_<MegaZKFlavor>;
+    using DeciderZKProvingKey = ProverInstance_<MultiMegaZKFlavor>;
     using VerifierInstance = VerifierInstance_<Flavor>;
     using ClientCircuit = MegaCircuitBuilder; // can only be Mega
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
-    using MegaProver = UltraProver_<Flavor>;
+    using MegaProver = MultiMegaProver_<Flavor>;
     using Transcript = NativeTranscript;
     // Recursive types
-    using RecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
+    using RecursiveFlavor = MultiMegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
     using StdlibFF = RecursiveFlavor::FF;
     using RecursiveCommitment = RecursiveFlavor::Commitment;
     using RecursiveVerifierInstance = VerifierInstance_<RecursiveFlavor>;
@@ -211,7 +214,7 @@ class Chonk : public IVCBase {
      * @brief Get the hiding kernel verification key and hash for Chonk verification
      * @return VKAndHash containing the MegaZK verification key and its hash
      */
-    std::shared_ptr<MegaZKFlavor::VKAndHash> get_hiding_kernel_vk_and_hash() const;
+    std::shared_ptr<MultiMegaZKFlavor::VKAndHash> get_hiding_kernel_vk_and_hash() const;
 
   private:
 #ifndef NDEBUG

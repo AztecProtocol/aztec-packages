@@ -601,12 +601,18 @@ template <typename FF, typename VerificationKey> class VKAndHash_ {
 
 // ===== NativeVerificationKey_ Serde =====
 
-template <typename PrecomputedCommitments, typename Codec, typename HashFunction, typename CommitmentKey>
-inline void read(uint8_t const*& it,
-                 NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey>& vk)
+template <typename PrecomputedCommitments,
+          typename Codec,
+          typename HashFunction,
+          typename CommitmentKey,
+          size_t InterleavingBatchSize>
+inline void read(
+    uint8_t const*& it,
+    NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey, InterleavingBatchSize>& vk)
 {
     using serialize::read;
-    using VK = NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey>;
+    using VK =
+        NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey, InterleavingBatchSize>;
 
     // Get the size directly from the static method
     size_t num_frs = VK::calc_num_data_types();
@@ -620,12 +626,18 @@ inline void read(uint8_t const*& it,
     vk.from_field_elements(field_elements);
 }
 
-template <typename PrecomputedCommitments, typename Codec, typename HashFunction, typename CommitmentKey>
-inline void write(std::vector<uint8_t>& buf,
-                  NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey> const& vk)
+template <typename PrecomputedCommitments,
+          typename Codec,
+          typename HashFunction,
+          typename CommitmentKey,
+          size_t InterleavingBatchSize>
+inline void write(
+    std::vector<uint8_t>& buf,
+    NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey, InterleavingBatchSize> const& vk)
 {
     using serialize::write;
-    using VK = NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey>;
+    using VK =
+        NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey, InterleavingBatchSize>;
 
     size_t before = buf.size();
     // Convert to field elements and write them directly without length prefix

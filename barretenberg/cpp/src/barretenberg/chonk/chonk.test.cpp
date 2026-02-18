@@ -54,7 +54,7 @@ class ChonkTests : public ::testing::Test {
         }
     }
 
-    static std::pair<ChonkProof, std::shared_ptr<MegaZKFlavor::VKAndHash>> accumulate_and_prove_ivc(
+    static std::pair<ChonkProof, std::shared_ptr<MultiMegaZKFlavor::VKAndHash>> accumulate_and_prove_ivc(
         size_t num_app_circuits, TestSettings settings = {}, bool check_circuit_sizes = false)
     {
         CircuitProducer circuit_producer(num_app_circuits);
@@ -67,7 +67,7 @@ class ChonkTests : public ::testing::Test {
         return { ivc.prove(), ivc.get_hiding_kernel_vk_and_hash() };
     };
 
-    static bool verify_chonk(const ChonkProof& proof, const std::shared_ptr<MegaZKFlavor::VKAndHash>& vk_and_hash)
+    static bool verify_chonk(const ChonkProof& proof, const std::shared_ptr<MultiMegaZKFlavor::VKAndHash>& vk_and_hash)
     {
         ChonkVerifier verifier(vk_and_hash);
         return verifier.verify(proof);

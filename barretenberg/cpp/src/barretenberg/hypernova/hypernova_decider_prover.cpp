@@ -5,6 +5,7 @@
 // =====================
 
 #include "barretenberg/hypernova/hypernova_decider_prover.hpp"
+#include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 
 namespace bb {
 HonkProof HypernovaDeciderProver::construct_proof(Accumulator& accumulator)
@@ -14,8 +15,9 @@ HonkProof HypernovaDeciderProver::construct_proof(Accumulator& accumulator)
     size_t actual_size = accumulator.non_shifted_polynomial.virtual_size();
     CommitmentKey ck(actual_size);
 
-    // Open the commitments with Shplemini
-    PolynomialBatcher polynomial_batcher(actual_size);
+    // Open the commitments with Shplemini. Use BATCH_SIZE shift exponent for interleaved polynomials.
+    constexpr size_t BATCH_SIZE = MultilinearBatchingFlavor::INTERLEAVING_BATCH_SIZE;
+    PolynomialBatcher polynomial_batcher(actual_size, BATCH_SIZE);
     polynomial_batcher.set_unshifted(RefVector(accumulator.non_shifted_polynomial));
     polynomial_batcher.set_to_be_shifted(RefVector(accumulator.shifted_polynomial));
 

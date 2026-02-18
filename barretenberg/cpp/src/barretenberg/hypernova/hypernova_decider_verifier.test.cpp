@@ -1,5 +1,8 @@
 #include "barretenberg/hypernova/hypernova_decider_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/flavor/multi_mega_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_recursive_flavor.hpp"
+#include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/hypernova/hypernova_decider_prover.hpp"
 #include "barretenberg/hypernova/hypernova_prover.hpp"
 #include "barretenberg/hypernova/hypernova_verifier.hpp"
@@ -17,14 +20,14 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
   public:
     // Recursive decider verifier
     using RecursiveHypernovaDeciderVerifier =
-        HypernovaDeciderVerifier<bb::MegaRecursiveFlavor_<bb::MegaCircuitBuilder>>;
+        HypernovaDeciderVerifier<bb::MultiMegaRecursiveFlavor_<bb::MegaCircuitBuilder>>;
     using RecursiveFlavor = RecursiveHypernovaDeciderVerifier::Flavor;
     using Builder = RecursiveFlavor::CircuitBuilder;
     using RecursiveTranscript = RecursiveHypernovaDeciderVerifier::Transcript;
     using RecursiveProof = RecursiveHypernovaDeciderVerifier::Proof;
 
     // Native decider verifier
-    using NativeHypernovaDeciderVerifier = HypernovaDeciderVerifier<bb::MegaFlavor>;
+    using NativeHypernovaDeciderVerifier = HypernovaDeciderVerifier<bb::MultiMegaFlavor>;
     using NativeFlavor = NativeHypernovaDeciderVerifier::Flavor;
     using CommitmentKey = NativeFlavor::CommitmentKey;
     using NativeFF = NativeFlavor::FF;
@@ -50,45 +53,49 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
 
     /**
      * @brief Build the expected transcript manifest for HyperNova decider
-     * @details Manifest tracking is enabled after folding (which uses 48 rounds, 0-47), so only
+     * @details Manifest tracking is enabled after folding (which uses 50 rounds, 0-49), so only
      * decider rounds are tracked. Since folding ends with a challenge (claim_batching_challenge)
-     * at round 47, and the decider starts with a challenge (rho), they are in the same round:
-     * - Round 47: rho challenge (same round as folding's claim_batching_challenge)
-     * - Round 48: Gemini FOLD commitments -> Gemini:r challenge
-     * - Round 49: Gemini evaluations -> Shplonk:nu challenge
-     * - Round 50: Shplonk:Q commitment -> Shplonk:z challenge
-     * - Round 51: KZG:W commitment -> KZG:masking_challenge
+     * at round 49, and the decider starts with a challenge (rho), they are in the same round:
+     * - Round 49: rho challenge (same round as folding's claim_batching_challenge)
+     * - Round 50: Gemini FOLD commitments -> Gemini:r challenge
+     * - Round 51: Gemini evaluations -> Shplonk:nu challenge
+     * - Round 52: Shplonk:Q commitment -> Shplonk:z challenge
+     * - Round 53: KZG:W commitment -> KZG:masking_challenge
+     *
+     * Note: The decider uses MultilinearBatchingFlavor::VIRTUAL_LOG_N (23) for Gemini since the
+     * accumulator polynomials are interleaved (4x bigger than the original circuit size).
      */
     static TranscriptManifest build_expected_decider_manifest()
     {
         TranscriptManifest manifest;
         constexpr size_t frs_per_G = FrCodec::calc_num_fields<curve::BN254::AffineElement>();
-        constexpr size_t NUM_GEMINI_FOLDS = NativeFlavor::VIRTUAL_LOG_N - 1; // 20
-        constexpr size_t NUM_GEMINI_EVALS = NativeFlavor::VIRTUAL_LOG_N;     // 21
-        // Folding uses 48 rounds (0-47). The last round (47) ends with claim_batching_challenge.
-        // Since rho is also a challenge with no data between, it stays in round 47.
-        constexpr size_t LAST_FOLDING_ROUND = 47;
+        constexpr size_t MLB_LOG_N = MultilinearBatchingFlavor::VIRTUAL_LOG_N; // 23
+        constexpr size_t NUM_GEMINI_FOLDS = MLB_LOG_N - 1;                     // 22
+        constexpr size_t NUM_GEMINI_EVALS = MLB_LOG_N;                         // 23
+        // Folding uses 50 rounds (0-49). The last round (49) ends with claim_batching_challenge.
+        // Since rho is also a challenge with no data between, it stays in round 49.
+        constexpr size_t LAST_FOLDING_ROUND = 49;
 
-        // Round 47: rho challenge (same round as folding's claim_batching_challenge)
+        // Round 49: rho challenge (same round as folding's claim_batching_challenge)
         manifest.add_challenge(LAST_FOLDING_ROUND, "rho");
 
-        // Round 48: Gemini FOLD commitments -> Gemini:r
+        // Round 50: Gemini FOLD commitments -> Gemini:r
         for (size_t i = 1; i <= NUM_GEMINI_FOLDS; ++i) {
             manifest.add_entry(LAST_FOLDING_ROUND + 1, "Gemini:FOLD_" + std::to_string(i), frs_per_G);
         }
         manifest.add_challenge(LAST_FOLDING_ROUND + 1, "Gemini:r");
 
-        // Round 49: Gemini evaluations -> Shplonk:nu
+        // Round 51: Gemini evaluations -> Shplonk:nu
         for (size_t i = 1; i <= NUM_GEMINI_EVALS; ++i) {
             manifest.add_entry(LAST_FOLDING_ROUND + 2, "Gemini:a_" + std::to_string(i), 1);
         }
         manifest.add_challenge(LAST_FOLDING_ROUND + 2, "Shplonk:nu");
 
-        // Round 50: Shplonk:Q -> Shplonk:z
+        // Round 52: Shplonk:Q -> Shplonk:z
         manifest.add_entry(LAST_FOLDING_ROUND + 3, "Shplonk:Q", frs_per_G);
         manifest.add_challenge(LAST_FOLDING_ROUND + 3, "Shplonk:z");
 
-        // Round 51: KZG:W -> KZG:masking_challenge
+        // Round 53: KZG:W -> KZG:masking_challenge
         manifest.add_entry(LAST_FOLDING_ROUND + 4, "KZG:W", frs_per_G);
         manifest.add_challenge(LAST_FOLDING_ROUND + 4, "KZG:masking_challenge");
 

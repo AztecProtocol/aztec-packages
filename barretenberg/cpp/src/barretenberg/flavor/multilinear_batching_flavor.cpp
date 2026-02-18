@@ -27,8 +27,10 @@ MultilinearBatchingFlavor::ProvingKey::ProvingKey(ProverClaim&& accumulator_clai
     preshifted_instance = std::move(instance_claim.shifted_polynomial);
 
     // Create shifted views for sumcheck. These share the underlying memory buffer with preshifted_*
-    polynomials.batched_shifted_accumulator = preshifted_accumulator.shifted();
-    polynomials.batched_shifted_instance = preshifted_instance.shifted();
+    // For interleaved polynomials, shift by BATCH_SIZE (4) instead of 1, since each "row" in the
+    // interleaved domain corresponds to BATCH_SIZE coefficient positions.
+    polynomials.batched_shifted_accumulator = preshifted_accumulator.shifted(INTERLEAVING_BATCH_SIZE);
+    polynomials.batched_shifted_instance = preshifted_instance.shifted(INTERLEAVING_BATCH_SIZE);
 
     // Construct `eq` polynomials from challenges
     polynomials.eq_accumulator =
@@ -84,7 +86,8 @@ bool MultilinearBatchingFlavor::ProverClaim::compare_with_verifier_claim(
         is_a_match = false;
     }
 
-    if (verifier_claim.shifted_evaluation != shifted_polynomial.evaluate_mle(verifier_claim.challenge, true)) {
+    if (verifier_claim.shifted_evaluation !=
+        shifted_polynomial.shifted(INTERLEAVING_BATCH_SIZE).evaluate_mle(verifier_claim.challenge)) {
         info("Shifted evaluation mismatch");
         is_a_match = false;
     }

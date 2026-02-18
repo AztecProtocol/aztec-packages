@@ -7,6 +7,9 @@
 #include "barretenberg/hypernova/hypernova_decider_verifier.hpp"
 #include "barretenberg/commitment_schemes/claim_batcher.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/flavor/multi_mega_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_recursive_flavor.hpp"
+#include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 
 namespace bb {
 
@@ -29,12 +32,14 @@ HypernovaDeciderVerifier<Flavor>::PairingPoints HypernovaDeciderVerifier<Flavor>
         generator = Commitment::one();
     }
 
-    // Execute Shplemini verifier
+    // Execute Shplemini verifier. Use BATCH_SIZE shift exponent for interleaved polynomials.
+    constexpr size_t BATCH_SIZE = MultilinearBatchingFlavor::INTERLEAVING_BATCH_SIZE;
     ClaimBatcher claim_batcher{ .unshifted = ClaimBatch{ RefVector(accumulator.non_shifted_commitment),
                                                          RefVector(accumulator.non_shifted_evaluation) },
                                 .shifted = ClaimBatch{ RefVector(accumulator.shifted_commitment),
-                                                       RefVector(accumulator.shifted_evaluation) } };
-    std::vector<FF> padding_indicator_array(Flavor::VIRTUAL_LOG_N, 1);
+                                                       RefVector(accumulator.shifted_evaluation) },
+                                .shift_exponent = BATCH_SIZE };
+    std::vector<FF> padding_indicator_array(accumulator.challenge.size(), 1);
     auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
                              padding_indicator_array, claim_batcher, accumulator.challenge, generator, transcript)
                              .batch_opening_claim;
@@ -49,6 +54,6 @@ HypernovaDeciderVerifier<Flavor>::PairingPoints HypernovaDeciderVerifier<Flavor>
     }
 };
 
-template class HypernovaDeciderVerifier<MegaFlavor>;
-template class HypernovaDeciderVerifier<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
+template class HypernovaDeciderVerifier<MultiMegaFlavor>;
+template class HypernovaDeciderVerifier<MultiMegaRecursiveFlavor_<MegaCircuitBuilder>>;
 }; // namespace bb

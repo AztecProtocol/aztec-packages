@@ -137,8 +137,8 @@ ROUND 1 (5 commits):
   W₁ (shiftable):   [w_l, w_r, w_o, ZERO]
   W₂ (unshiftable): [ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4]
   W₃ (unshiftable): [calldata, calldata_read_counts, calldata_read_tags, secondary_calldata]
-  W₄ (unshiftable): [secondary_calldata_read_counts, secondary_calldata_read_tags, return_data, return_data_read_counts]
-  W₅ (unshiftable): [return_data_read_tags, ZERO, ZERO, ZERO]
+  W₄ (unshiftable): [secondary_calldata_read_counts, secondary_calldata_read_tags, return_data_read_tags, return_data_read_counts]
+  W₅ (unshiftable): [return_data, ZERO, ZERO, ZERO]
 
 ROUND 2 (2 commits):
   W₆ (shiftable):   [w_4, ZERO, ZERO, ZERO]

@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "barretenberg/flavor/mega_zk_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
@@ -22,7 +22,7 @@ class IVCBase {
     // CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
   public:
     using ClientCircuit = MegaCircuitBuilder;
-    using MegaVerificationKey = MegaZKFlavor::VerificationKey;
+    using MegaVerificationKey = MultiMegaFlavor::VerificationKey;
 
     virtual ~IVCBase() = default;
 

@@ -4,9 +4,10 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 #pragma once
+#include "barretenberg/flavor/multi_mega_flavor.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_claims.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
-#include "barretenberg/ultra_honk/oink_prover.hpp"
+#include "barretenberg/ultra_honk/multi_mega_oink_prover.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 
 namespace bb {
@@ -37,20 +38,21 @@ namespace bb {
  */
 class HypernovaFoldingProver {
   public:
-    using Flavor = MegaFlavor;
+    using Flavor = MultiMegaFlavor;
     using FF = Flavor::FF;
     using Commitment = Flavor::Commitment;
     using ProverInstance = ProverInstance_<Flavor>;
     using Accumulator = MultilinearBatchingProverClaim;
     using VerificationKey = Flavor::VerificationKey;
-    using VerifierCommitments = Flavor::VerifierCommitments;
-    using MegaOinkProver = OinkProver<Flavor>;
+    using MegaOinkProver = MultiMegaOinkProver_<Flavor>;
     using MegaSumcheckProver = SumcheckProver<Flavor>;
     using MegaSumcheckOutput = SumcheckOutput<Flavor>;
     using Transcript = Flavor::Transcript;
 
-    static constexpr size_t NUM_UNSHIFTED_ENTITIES = MegaFlavor::NUM_UNSHIFTED_ENTITIES;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = MegaFlavor::NUM_SHIFTED_ENTITIES;
+    // Batching uses interleaved polynomial groups (17 unshifted, 3 shifted) instead of individual polynomials.
+    static constexpr size_t NUM_UNSHIFTED_ENTITIES = Flavor::NUM_ALL_INTERLEAVED_COMMITMENTS;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = Flavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
+    static constexpr size_t BATCH_SIZE = Flavor::INTERLEAVING_BATCH_SIZE;
 
     HypernovaFoldingProver(std::shared_ptr<Transcript> transcript)
         : transcript(std::move(transcript)) {};
@@ -89,26 +91,21 @@ class HypernovaFoldingProver {
 
     /**
      * @brief Convert the output of the sumcheck run on the incoming instance into an accumulator.
+     * @details Constructs interleaved polynomials from groups, batches them and the interleaved
+     *          commitments, computes evaluations via Lagrange basis, and prepends interleaving
+     *          challenges to the sumcheck challenge vector.
      */
     Accumulator sumcheck_output_to_accumulator(MegaSumcheckOutput& sumcheck_output,
                                                const std::shared_ptr<ProverInstance>& instance,
-                                               const std::shared_ptr<VerificationKey>& honk_vk);
+                                               const MegaOinkProver& oink_prover);
 
     /**
-     * @brief Batch prover polynomials. Batching happens in place into the first polynomial in the RefArray supplied.
-     *
-     * @tparam N
-     * @param shiftable If it is set to true, then the polynomials are aggregated as shiftable polynomials
+     * @brief Construct an interleaved polynomial from a group of up to BATCH_SIZE individual polynomials.
+     * @details For group (p0, p1, ..., p_{k-1}), constructs F where F[BATCH_SIZE*i + j] = p_j[i].
      */
-    template <size_t N>
-    static Polynomial<FF> batch_polynomials(RefArray<Polynomial<FF>, N> polynomials_to_batch,
-                                            const size_t& full_batched_size,
-                                            const std::vector<FF>& challenges);
-
-    /**
-     * @brief Generate the challenges required to batch the incoming instance with the accumulator
-     */
-    std::pair<std::vector<FF>, std::vector<FF>> get_batching_challenges();
+    static Polynomial<FF> construct_interleaved_polynomial(const std::vector<Polynomial<FF> const*>& group,
+                                                           size_t individual_poly_size,
+                                                           bool shiftable = false);
 
     /**
      * @brief Utility to perform batch mul of commitments.

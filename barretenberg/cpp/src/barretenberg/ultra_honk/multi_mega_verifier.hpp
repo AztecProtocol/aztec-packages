@@ -141,6 +141,16 @@ template <IsMultiMegaFlavor Flavor_, class IO = DefaultIO> class MultiMegaVerifi
         return verifier_instance->interleaved_commitments;
     }
 
+    /**
+     * @brief Get calldata commitment (for databus consistency check in Chonk).
+     */
+    const Commitment& get_calldata_commitment() const { return verifier_instance->witness_commitments.calldata; }
+
+    /**
+     * @brief Get ECC op wire commitments as an array (for merge protocol in Chonk).
+     */
+    auto get_ecc_op_wires() const { return verifier_instance->witness_commitments.get_ecc_op_wires().get_copy(); }
+
   private:
     std::shared_ptr<VKAndHash> vk_and_hash;
     std::shared_ptr<Instance> verifier_instance;

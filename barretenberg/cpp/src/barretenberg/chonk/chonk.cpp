@@ -523,8 +523,8 @@ HonkProof Chonk::construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
 {
     auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit);
 
-    // Hiding kernel is proven by a MegaZKProver
-    MegaZKProver prover(hiding_prover_inst, verification_key, transcript);
+    // Hiding kernel is proven by a MultiMegaProver with ZK flavor
+    MultiMegaProver_<MultiMegaZKFlavor> prover(hiding_prover_inst, verification_key, transcript);
     HonkProof proof = prover.construct_proof();
 
     return proof;
@@ -552,11 +552,11 @@ ChonkProof Chonk::prove()
     return ChonkProof{ mega_proof, goblin.prove() };
 };
 
-std::shared_ptr<MegaZKFlavor::VKAndHash> Chonk::get_hiding_kernel_vk_and_hash() const
+std::shared_ptr<MultiMegaZKFlavor::VKAndHash> Chonk::get_hiding_kernel_vk_and_hash() const
 {
     BB_ASSERT_EQ(verification_queue.size(), 1UL, "Expected single hiding kernel VK in queue");
     BB_ASSERT(verification_queue.front().type == QUEUE_TYPE::MEGA, "Expected MEGA proof type");
-    return std::make_shared<MegaZKFlavor::VKAndHash>(verification_queue.front().honk_vk);
+    return std::make_shared<MultiMegaZKFlavor::VKAndHash>(verification_queue.front().honk_vk);
 }
 
 #ifndef NDEBUG
@@ -566,7 +566,7 @@ void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry
     info("======= DEBUGGING INFO FOR NATIVE FOLDING STEP =======");
 
     auto verifier_inst =
-        std::make_shared<VerifierInstance>(std::make_shared<MegaFlavor::VKAndHash>(queue_entry.honk_vk));
+        std::make_shared<VerifierInstance>(std::make_shared<MultiMegaFlavor::VKAndHash>(queue_entry.honk_vk));
 
     FoldingVerifier native_verifier(verifier_transcript);
     if (queue_entry.type == QUEUE_TYPE::OINK) {
@@ -584,7 +584,7 @@ void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry
         info("Sumcheck: batch two accumulators verified: ", _second_verified ? "true" : "false");
 
         if (queue_entry.type == QUEUE_TYPE::HN_FINAL) {
-            HypernovaDeciderVerifier<MegaFlavor> decider_verifier(verifier_transcript);
+            HypernovaDeciderVerifier<MultiMegaFlavor> decider_verifier(verifier_transcript);
             bb::PairingPoints<curve::BN254> pairing_points =
                 decider_verifier.verify_proof(native_verifier_accum, decider_proof);
 
@@ -625,7 +625,7 @@ void Chonk::debug_incoming_circuit(ClientCircuit& circuit,
     // Compare precomputed VK with the one generated during accumulation
     auto vk = std::make_shared<MegaVerificationKey>(prover_instance->get_precomputed());
     info("Does the precomputed vk match with the one generated during accumulation? ",
-         vk->compare(*precomputed_vk, MegaFlavor::CommitmentLabels().get_precomputed()) ? "true" : "false");
+         vk->compare(*precomputed_vk, MultiMegaFlavor::InterleavedPrecomputedLabels().get_all()) ? "true" : "false");
 
     info("======= END OF DEBUGGING INFO FOR INCOMING CIRCUIT =======");
 }

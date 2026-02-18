@@ -34,9 +34,12 @@ class MultilinearBatchingFlavor {
     using Transcript = NativeTranscript;
     using Codec = FrCodec;
 
-    // An upper bound on the size of the MultilinearBatching-circuits. `CONST_FOLDING_LOG_N` bounds the log circuit
-    // sizes in the Chonk context.
-    static constexpr size_t VIRTUAL_LOG_N = CONST_FOLDING_LOG_N;
+    // An upper bound on the size of the MultilinearBatching-circuits.
+    // With interleaved commitments (batch_size=4, INTERLEAVING_LOG_K=2), accumulator polynomials are 4x bigger
+    // than the original circuit size, so we need CONST_FOLDING_LOG_N + INTERLEAVING_LOG_K.
+    static constexpr size_t INTERLEAVING_LOG_K = 2;
+    static constexpr size_t INTERLEAVING_BATCH_SIZE = 1 << INTERLEAVING_LOG_K; // = 4
+    static constexpr size_t VIRTUAL_LOG_N = CONST_FOLDING_LOG_N + INTERLEAVING_LOG_K;
     static constexpr bool USE_SHORT_MONOMIALS = false;
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = false;

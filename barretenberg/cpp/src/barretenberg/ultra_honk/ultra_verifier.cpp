@@ -160,8 +160,8 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
 
     // Get the witness commitments that the verifier needs to verify
     VerifierCommitments commitments{ verifier_instance->get_vk(), verifier_instance->witness_commitments };
-    // For ZK flavors: set gemini_masking_poly commitment from accumulator
-    if constexpr (Flavor::HasZK) {
+    // For ZK flavors that use Gemini masking: set gemini_masking_poly commitment
+    if constexpr (requires { commitments.gemini_masking_poly; }) {
         commitments.gemini_masking_poly = verifier_instance->gemini_masking_commitment;
     }
 

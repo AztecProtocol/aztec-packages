@@ -13,7 +13,9 @@
 #include "barretenberg/flavor/multi_mega_zk_flavor.hpp"
 #include "barretenberg/flavor/multi_mega_zk_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_length.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ultra_honk/multi_mega_oink_verifier.hpp"
 
@@ -278,6 +280,7 @@ typename MultiMegaVerifier_<Flavor, IO>::Output MultiMegaVerifier_<Flavor, IO>::
 // Native flavor instantiations
 template class MultiMegaVerifier_<MultiMegaFlavor, DefaultIO>;
 template class MultiMegaVerifier_<MultiMegaZKFlavor, DefaultIO>;
+template class MultiMegaVerifier_<MultiMegaZKFlavor, HidingKernelIO>;
 
 // Recursive flavor instantiations
 template class MultiMegaVerifier_<MultiMegaRecursiveFlavor_<UltraCircuitBuilder>,
@@ -286,6 +289,8 @@ template class MultiMegaVerifier_<MultiMegaRecursiveFlavor_<MegaCircuitBuilder>,
                                   stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>;
 template class MultiMegaVerifier_<MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
                                   stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>;
+template class MultiMegaVerifier_<MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                  stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>;
 template class MultiMegaVerifier_<MultiMegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                   stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>;
 

@@ -105,7 +105,7 @@ struct TestSettings {
  */
 class PrivateFunctionExecutionMockCircuitProducer {
     using ClientCircuit = Chonk::ClientCircuit;
-    using Flavor = MegaFlavor;
+    using Flavor = Chonk::Flavor;
     using VerificationKey = Flavor::VerificationKey;
 
     size_t circuit_counter = 0;

@@ -42,7 +42,9 @@ class HypernovaFoldingProverTests : public ::testing::Test {
             info("Mismatch between batched unshifted evaluation and evaluation of the batched unshifted polynomial.");
             return false;
         }
-        if (shifted_polynomial.evaluate_mle(accumulator.challenge, true) != accumulator.shifted_evaluation) {
+        constexpr size_t BATCH_SIZE = HypernovaFoldingProver::BATCH_SIZE;
+        if (shifted_polynomial.shifted(BATCH_SIZE).evaluate_mle(accumulator.challenge) !=
+            accumulator.shifted_evaluation) {
             info("Mismatch between batched shifted evaluation and evaluation of the batched shifted polynomial.");
             return false;
         }
