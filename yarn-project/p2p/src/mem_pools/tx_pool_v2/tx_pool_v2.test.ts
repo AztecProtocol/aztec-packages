@@ -1628,6 +1628,27 @@ describe('TxPoolV2', () => {
       expectNoCallbacks(); // handlePrunedBlocks restores to pending, no removal
     });
 
+    it('deleteAllTxs option deletes all un-mined txs instead of restoring to pending', async () => {
+      const tx1 = await mockTx(1);
+      const tx2 = await mockTx(2);
+      await pool.addPendingTxs([tx1, tx2]);
+      expectAddedTxs(tx1, tx2);
+
+      // Mine both txs
+      await pool.handleMinedBlock(makeBlock([tx1, tx2], slot1Header));
+      expectNoCallbacks();
+      expect(await pool.getTxStatus(tx1.getTxHash())).toBe('mined');
+      expect(await pool.getTxStatus(tx2.getTxHash())).toBe('mined');
+
+      // Prune with deleteAllTxs - should delete all instead of restoring to pending
+      await pool.handlePrunedBlocks(block0Id, { deleteAllTxs: true });
+
+      expect(await pool.getTxStatus(tx1.getTxHash())).toBe('deleted');
+      expect(await pool.getTxStatus(tx2.getTxHash())).toBe('deleted');
+      expect(await pool.getPendingTxCount()).toBe(0);
+      expectRemovedTxs(tx1, tx2);
+    });
+
     it('un-mined tx with higher priority evicts conflicting pending tx', async () => {
       // Ensure anchor block is valid
       db.findLeafIndices.mockResolvedValue([1n]);

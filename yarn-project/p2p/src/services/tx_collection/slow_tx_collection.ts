@@ -8,8 +8,7 @@ import type { L2Block } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getEpochAtSlot, getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
-import { type ReqRespInterface, ReqRespSubProtocol } from '../reqresp/interface.js';
-import { chunkTxHashesRequest } from '../reqresp/protocols/tx.js';
+import { type ReqRespInterface, ReqRespSubProtocol, chunkTxHashesRequest } from '../reqresp/index.js';
 import type { TxCollectionConfig } from './config.js';
 import type { FastTxCollection } from './fast_tx_collection.js';
 import type { MissingTxInfo } from './tx_collection.js';
@@ -120,8 +119,8 @@ export class SlowTxCollection {
       const txHashes = entries.map(([txHash]) => TxHash.fromString(txHash));
       for (const batch of chunk(txHashes, this.config.txCollectionNodeRpcMaxBatchSize)) {
         await this.txCollectionSink.collect(
-          hashes => node.getTxsByHash(hashes),
-          batch,
+          () => node.getTxsByHash(batch),
+          batch.map(h => h.toString()),
           {
             description: `node ${node.getInfo()}`,
             node: node.getInfo(),
@@ -166,18 +165,18 @@ export class SlowTxCollection {
       const txHashes = entries.map(([txHash]) => TxHash.fromString(txHash));
       const maxPeers = boundInclusive(Math.ceil(txHashes.length / 3), 4, 16);
       await this.txCollectionSink.collect(
-        async hashes => {
+        async () => {
           const txs = await this.reqResp.sendBatchRequest<ReqRespSubProtocol.TX>(
             ReqRespSubProtocol.TX,
-            chunkTxHashesRequest(hashes),
+            chunkTxHashesRequest(txHashes),
             pinnedPeer,
             timeoutMs,
             maxPeers,
             maxRetryAttempts,
           );
-          return txs.flat();
+          return { validTxs: txs.flat(), invalidTxHashes: [] };
         },
-        txHashes,
+        txHashes.map(h => h.toString()),
         { description: 'slow reqresp', timeoutMs, method: 'slow-req-resp' },
         { type: 'mined', block },
       );
@@ -197,7 +196,7 @@ export class SlowTxCollection {
     // from mined unproven blocks it has seen in the past.
     const fastRequests = this.fastCollection.getFastCollectionRequests();
     const fastCollectionTxs: Set<string> = new Set(
-      ...Array.from(fastRequests.values()).flatMap(r => r.missingTxHashes),
+      fastRequests.values().flatMap(r => Array.from(r.missingTxTracker.missingTxHashes)),
     );
 
     // Return all missing txs that are not in fastCollectionTxs and are ready for reqresp if requested
