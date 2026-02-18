@@ -1151,16 +1151,16 @@ class TestLibP2PService extends LibP2PService {
   }
 
   /** Override to use test flag for first-stage validators. Returns a failing validator when firstStageValidationPasses is false. */
-  protected override async createFirstStageMessageValidators(): Promise<Record<string, TransactionValidator>> {
+  protected override createFirstStageMessageValidators(): Promise<Record<string, TransactionValidator>> {
     if (this.firstStageValidationPasses) {
-      return {};
+      return Promise.resolve({});
     }
-    return {
+    return Promise.resolve({
       [this.firstStageFailingValidatorName]: {
         validator: { validateTx: () => Promise.resolve({ result: 'invalid' as const, reason: ['Test failure'] }) },
         severity: this.firstStageSeverity,
       },
-    };
+    });
   }
 
   /** Override to use test flag for second-stage validators. Returns a failing validator when secondStageValidationPasses is false. */
