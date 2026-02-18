@@ -28,7 +28,7 @@ import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
-import type { AccessScopes } from '@aztec/pxe/client/lazy';
+import type { AccessScopes, ContractNameResolver } from '@aztec/pxe/client/lazy';
 import type { PXE, PackedPrivateEvent } from '@aztec/pxe/server';
 import {
   type ContractArtifact,
@@ -37,7 +37,7 @@ import {
   decodeFromAbi,
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ContractInstanceWithAddress,
   computePartialAddress,
@@ -89,10 +89,10 @@ export abstract class BaseWallet implements Wallet {
     protected log = createLogger('wallet-sdk:base_wallet'),
   ) {}
 
-  // When `from` is the zero address (e.g. when deploying a new account contract), we return an
-  // empty scope list which acts as deny-all: no notes are visible and no keys are accessible.
-  protected scopesFor(from: AztecAddress): AztecAddress[] {
-    return from.isZero() ? [] : [from];
+  protected scopesFrom(from: AztecAddress, additionalScopes: AztecAddress[] = []): AztecAddress[] {
+    const allScopes = from.isZero() ? additionalScopes : [from, ...additionalScopes];
+    const scopeSet = new Set(allScopes.map(address => address.toString()));
+    return [...scopeSet].map(AztecAddress.fromString);
   }
 
   protected abstract getAccountFromAddress(address: AztecAddress): Promise<Account>;
@@ -338,6 +338,15 @@ export abstract class BaseWallet implements Wallet {
       blockHeader = (await this.aztecNode.getBlockHeader())!;
     }
 
+    const getContractName: ContractNameResolver = async address => {
+      const instance = await this.pxe.getContractInstance(address);
+      if (!instance) {
+        return undefined;
+      }
+      const artifact = await this.pxe.getContractArtifact(instance.currentContractClassId);
+      return artifact?.name;
+    };
+
     const [optimizedResults, normalResult] = await Promise.all([
       optimizableCalls.length > 0
         ? simulateViaNode(
@@ -348,6 +357,7 @@ export abstract class BaseWallet implements Wallet {
             feeOptions.gasSettings,
             blockHeader,
             opts.skipFeeEnforcement ?? true,
+            getContractName,
           )
         : Promise.resolve([]),
       remainingCalls.length > 0
@@ -355,7 +365,7 @@ export abstract class BaseWallet implements Wallet {
             remainingPayload,
             opts.from,
             feeOptions,
-            this.scopesFor(opts.from),
+            this.scopesFrom(opts.from, opts.additionalScopes),
             opts.skipTxValidation,
             opts.skipFeeEnforcement ?? true,
           )
@@ -371,7 +381,7 @@ export abstract class BaseWallet implements Wallet {
     return this.pxe.profileTx(txRequest, {
       profileMode: opts.profileMode,
       skipProofGeneration: opts.skipProofGeneration ?? true,
-      scopes: this.scopesFor(opts.from),
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
     });
   }
 
@@ -381,7 +391,7 @@ export abstract class BaseWallet implements Wallet {
   ): Promise<SendReturn<W>> {
     const feeOptions = await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
-    const provenTx = await this.pxe.proveTx(txRequest, this.scopesFor(opts.from));
+    const provenTx = await this.pxe.proveTx(txRequest, this.scopesFrom(opts.from, opts.additionalScopes));
     const tx = await provenTx.toTx();
     const txHash = tx.getTxHash();
     if (await this.aztecNode.getTxEffect(txHash)) {
