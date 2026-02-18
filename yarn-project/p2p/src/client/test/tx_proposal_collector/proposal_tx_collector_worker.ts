@@ -20,8 +20,8 @@ import { BatchTxRequesterCollector, SendBatchRequestCollector } from '../../../s
 import type { IBatchRequestTxValidator } from '../../../services/reqresp/batch-tx-requester/tx_validator.js';
 import { RateLimitStatus } from '../../../services/reqresp/rate-limiter/rate_limiter.js';
 import { MissingTxsTracker } from '../../../services/tx_collection/missing_txs_tracker.js';
-import { AlwaysTrueCircuitVerifier } from '../../../test-helpers/index.js';
 import {
+  AlwaysTrueCircuitVerifier,
   BENCHMARK_CONSTANTS,
   InMemoryAttestationPool,
   InMemoryTxPool,
