@@ -37,7 +37,7 @@ import {
   decodeFromAbi,
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ContractInstanceWithAddress,
   computePartialAddress,
@@ -89,10 +89,10 @@ export abstract class BaseWallet implements Wallet {
     protected log = createLogger('wallet-sdk:base_wallet'),
   ) {}
 
-  // When `from` is the zero address (e.g. when deploying a new account contract), we return an
-  // empty scope list which acts as deny-all: no notes are visible and no keys are accessible.
-  protected scopesFor(from: AztecAddress): AztecAddress[] {
-    return from.isZero() ? [] : [from];
+  protected scopesFrom(from: AztecAddress, additionalScopes: AztecAddress[] = []): AztecAddress[] {
+    const allScopes = from.isZero() ? additionalScopes : [from, ...additionalScopes];
+    const scopeSet = new Set(allScopes.map(address => address.toString()));
+    return [...scopeSet].map(AztecAddress.fromString);
   }
 
   protected abstract getAccountFromAddress(address: AztecAddress): Promise<Account>;
@@ -365,7 +365,7 @@ export abstract class BaseWallet implements Wallet {
             remainingPayload,
             opts.from,
             feeOptions,
-            this.scopesFor(opts.from),
+            this.scopesFrom(opts.from, opts.additionalScopes),
             opts.skipTxValidation,
             opts.skipFeeEnforcement ?? true,
           )
@@ -381,7 +381,7 @@ export abstract class BaseWallet implements Wallet {
     return this.pxe.profileTx(txRequest, {
       profileMode: opts.profileMode,
       skipProofGeneration: opts.skipProofGeneration ?? true,
-      scopes: this.scopesFor(opts.from),
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
     });
   }
 
@@ -391,7 +391,7 @@ export abstract class BaseWallet implements Wallet {
   ): Promise<SendReturn<W>> {
     const feeOptions = await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
-    const provenTx = await this.pxe.proveTx(txRequest, this.scopesFor(opts.from));
+    const provenTx = await this.pxe.proveTx(txRequest, this.scopesFrom(opts.from, opts.additionalScopes));
     const tx = await provenTx.toTx();
     const txHash = tx.getTxHash();
     if (await this.aztecNode.getTxEffect(txHash)) {
