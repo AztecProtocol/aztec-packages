@@ -18,7 +18,7 @@ import type { NoteStore } from '../storage/note_store/note_store.js';
 export class PXEDebugUtils {
   #putJobInQueue!: <T>(job: (jobId: string) => Promise<T>) => Promise<T>;
   #getSimulatorForTx!: (overrides?: { contracts?: ContractOverrides }) => ContractFunctionSimulator;
-  #simulateUtility!: (
+  #executeUtility!: (
     contractFunctionSimulator: ContractFunctionSimulator,
     call: FunctionCall,
     authWitnesses: AuthWitness[] | undefined,
@@ -37,7 +37,7 @@ export class PXEDebugUtils {
   public setPXEHelpers(
     putJobInQueue: <T>(job: (jobId: string) => Promise<T>) => Promise<T>,
     getSimulatorForTx: (overrides?: { contracts?: ContractOverrides }) => ContractFunctionSimulator,
-    simulateUtility: (
+    executeUtility: (
       contractFunctionSimulator: ContractFunctionSimulator,
       call: FunctionCall,
       authWitnesses: AuthWitness[] | undefined,
@@ -47,7 +47,7 @@ export class PXEDebugUtils {
   ) {
     this.#putJobInQueue = putJobInQueue;
     this.#getSimulatorForTx = getSimulatorForTx;
-    this.#simulateUtility = simulateUtility;
+    this.#executeUtility = executeUtility;
   }
 
   /**
@@ -73,7 +73,7 @@ export class PXEDebugUtils {
         filter.contractAddress,
         null,
         async (privateSyncCall, execScopes) =>
-          await this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
+          await this.#executeUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
         anchorBlockHeader,
         jobId,
         filter.scopes,

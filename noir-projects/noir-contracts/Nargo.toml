@@ -32,7 +32,6 @@ members = [
     "contracts/protocol/fee_juice_contract",
     "contracts/protocol/multi_call_entrypoint_contract",
     "contracts/protocol/public_checks_contract",
-    "contracts/protocol_interface/auth_registry_interface",
     "contracts/protocol_interface/contract_instance_registry_interface",
     "contracts/protocol_interface/fee_juice_interface",
     "contracts/test/generic_proxy_contract",

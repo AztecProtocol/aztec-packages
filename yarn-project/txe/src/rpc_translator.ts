@@ -1043,7 +1043,7 @@ export class RPCTranslator {
     return toForeignCallResult([toArray(returnValues)]);
   }
 
-  async txeSimulateUtilityFunction(
+  async txeExecuteUtilityFunction(
     foreignTargetContractAddress: ForeignCallSingle,
     foreignFunctionSelector: ForeignCallSingle,
     foreignArgs: ForeignCallArray,
@@ -1052,7 +1052,7 @@ export class RPCTranslator {
     const functionSelector = FunctionSelector.fromField(fromSingle(foreignFunctionSelector));
     const args = fromArray(foreignArgs);
 
-    const returnValues = await this.handlerAsTxe().txeSimulateUtilityFunction(
+    const returnValues = await this.handlerAsTxe().txeExecuteUtilityFunction(
       targetContractAddress,
       functionSelector,
       args,
