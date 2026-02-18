@@ -45,7 +45,7 @@ unconstrained fn full_flow() {
     );
 
     // Get order and verify it's active
-    let (order, is_fulfilled) = env.simulate_utility(orderbook.get_order(order_id));
+    let (order, is_fulfilled) = env.execute_utility(orderbook.get_order(order_id));
 
     assert_eq(order.bid_amount, BID_AMOUNT);
     assert_eq(order.ask_amount, ASK_AMOUNT);
@@ -54,7 +54,7 @@ unconstrained fn full_flow() {
 
     // Verify that all maker's tokens were transferred to orderbook's public balance
     assert_eq(env.view_public(token0.balance_of_public(orderbook_address)), BID_AMOUNT);
-    assert_eq(env.simulate_utility(token0.balance_of_private(maker)), 0);
+    assert_eq(env.execute_utility(token0.balance_of_private(maker)), 0);
 
     // ORDER FULFILLMENT
 
@@ -72,13 +72,13 @@ unconstrained fn full_flow() {
     env.call_private(taker, orderbook.fulfill_order(order_id, FULFILL_ORDER_AUTHWIT_NONCE));
 
     // Verify final balances
-    assert_eq(env.simulate_utility(token0.balance_of_private(maker)), 0);
-    assert_eq(env.simulate_utility(token1.balance_of_private(maker)), ASK_AMOUNT);
-    assert_eq(env.simulate_utility(token0.balance_of_private(taker)), BID_AMOUNT);
-    assert_eq(env.simulate_utility(token1.balance_of_private(taker)), 0);
+    assert_eq(env.execute_utility(token0.balance_of_private(maker)), 0);
+    assert_eq(env.execute_utility(token1.balance_of_private(maker)), ASK_AMOUNT);
+    assert_eq(env.execute_utility(token0.balance_of_private(taker)), BID_AMOUNT);
+    assert_eq(env.execute_utility(token1.balance_of_private(taker)), 0);
 
     // Get order and verify it's fulfilled
-    let (order, is_fulfilled) = env.simulate_utility(orderbook.get_order(order_id));
+    let (order, is_fulfilled) = env.execute_utility(orderbook.get_order(order_id));
 
     assert_eq(order.bid_amount, BID_AMOUNT);
     assert_eq(order.ask_amount, ASK_AMOUNT);

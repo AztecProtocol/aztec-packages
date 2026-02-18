@@ -360,7 +360,7 @@ export class ContractFunctionSimulator {
           );
         });
 
-      this.log.verbose(`Utility simulation for ${call.to}.${call.selector} completed`);
+      this.log.verbose(`Utility execution for ${call.to}.${call.selector} completed`);
       return witnessMapToFields(acirExecutionResult.returnWitness);
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));

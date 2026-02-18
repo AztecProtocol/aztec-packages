@@ -15,8 +15,7 @@ export default {
       recommended: true,
     },
     messages: {
-      asyncDispose:
-        '[Symbol.dispose]() should not be async. Use [Symbol.asyncDispose]() with AsyncDisposable instead.',
+      asyncDispose: '[Symbol.dispose]() should not be async. Use [Symbol.asyncDispose]() with AsyncDisposable instead.',
     },
     schema: [],
   },

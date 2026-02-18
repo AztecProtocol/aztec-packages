@@ -9,6 +9,27 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### `simulateUtility` renamed to `executeUtility`
+
+The `simulateUtility` method and related types have been renamed to `executeUtility` across the entire stack to better reflect that utility functions are executed, not simulated.
+
+**TypeScript:**
+
+```diff
+- import { SimulateUtilityOptions, UtilitySimulationResult } from '@aztec/aztec.js';
++ import { ExecuteUtilityOptions, UtilityExecutionResult } from '@aztec/aztec.js';
+
+- const result: UtilitySimulationResult = await wallet.simulateUtility(functionCall, opts);
++ const result: UtilityExecutionResult = await wallet.executeUtility(functionCall, opts);
+```
+
+**Noir (test environment):**
+
+```diff
+- let result = env.simulate_utility(my_contract_address, selector);
++ let result = env.execute_utility(my_contract_address, selector);
+```
+
 ### [Protocol] `include_by_timestamp` renamed to `expiration_timestamp`
 
 The `include_by_timestamp` field has been renamed to `expiration_timestamp` across the protocol to better convey its meaning.
@@ -266,8 +287,6 @@ For this reason we've created place holder protocol contracts in `noir-projects/
 On your side all you need to do is update the dependency in `Nargo.toml`:
 
 ```diff
--auth_contract = { path = "../../protocol/auth_registry_contract" }
-+auth_contract = { path = "../../protocol_interface/auth_registry_interface" }
 -instance_contract = { path = "../../protocol/contract_instance_registry" }
 +instance_contract = { path = "../../protocol_interface/contract_instance_registry_interface" }
 ```
