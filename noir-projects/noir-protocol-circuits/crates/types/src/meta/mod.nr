@@ -97,7 +97,7 @@ comptime fn get_where_trait_clause(s: TypeDefinition, trait_name: Quoted) -> Quo
     }
 }
 
-/// Generates a `Packable` trait implementation for a given struct `s`.
+/// Generates a [`Packable`](crate::traits::Packable) trait implementation for a given struct `s`.
 ///
 /// # Arguments
 /// * `s` - The struct type definition to generate the implementation for

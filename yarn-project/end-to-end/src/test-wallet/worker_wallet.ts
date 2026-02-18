@@ -7,12 +7,12 @@ import type {
   BatchedMethod,
   ContractClassMetadata,
   ContractMetadata,
+  ExecuteUtilityOptions,
   PrivateEvent,
   PrivateEventFilter,
   ProfileOptions,
   SendOptions,
   SimulateOptions,
-  SimulateUtilityOptions,
   Wallet,
   WalletCapabilities,
 } from '@aztec/aztec.js/wallet';
@@ -26,7 +26,7 @@ import type { ContractArtifact, EventMetadataDefinition, FunctionCall } from '@a
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import type { ExecutionPayload, TxProfileResult, TxSimulationResult, UtilitySimulationResult } from '@aztec/stdlib/tx';
+import type { ExecutionPayload, TxProfileResult, TxSimulationResult, UtilityExecutionResult } from '@aztec/stdlib/tx';
 import { Tx } from '@aztec/stdlib/tx';
 
 import { Worker } from 'worker_threads';
@@ -121,8 +121,8 @@ export class WorkerWallet implements Wallet {
     return this.call('simulateTx', exec, opts);
   }
 
-  simulateUtility(call: FunctionCall, opts: SimulateUtilityOptions): Promise<UtilitySimulationResult> {
-    return this.call('simulateUtility', call, opts);
+  executeUtility(call: FunctionCall, opts: ExecuteUtilityOptions): Promise<UtilityExecutionResult> {
+    return this.call('executeUtility', call, opts);
   }
 
   profileTx(exec: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult> {
