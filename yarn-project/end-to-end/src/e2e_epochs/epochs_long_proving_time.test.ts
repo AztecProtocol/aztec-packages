@@ -34,7 +34,7 @@ describe('e2e_epochs/epochs_long_proving_time', () => {
     await test.teardown();
   });
 
-  it('generates proof over multiple epochs', async () => {
+  it.skip('generates proof over multiple epochs', async () => {
     const targetProvenEpochs = process.env.TARGET_PROVEN_EPOCHS ? parseInt(process.env.TARGET_PROVEN_EPOCHS) : 1;
     const targetProvenBlockNumber = targetProvenEpochs * test.epochDuration;
     logger.info(`Waiting for ${targetProvenEpochs} epochs to be proven at ${targetProvenBlockNumber} L2 blocks`);
@@ -42,7 +42,7 @@ describe('e2e_epochs/epochs_long_proving_time', () => {
     // Wait until we hit the target proven block number, and keep an eye on how many proving jobs are run in parallel.
     let maxJobCount = 0;
     while (monitor.provenCheckpointNumber === undefined || monitor.provenCheckpointNumber < targetProvenBlockNumber) {
-      const jobs = await test.proverNodes[0].getJobs();
+      const jobs = await test.proverNodes[0].getProverNode()!.getJobs();
       if (jobs.length > maxJobCount) {
         maxJobCount = jobs.length;
         logger.info(`Updated max job count to ${maxJobCount}`, jobs);

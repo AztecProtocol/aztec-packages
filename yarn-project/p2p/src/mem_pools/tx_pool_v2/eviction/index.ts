@@ -6,9 +6,13 @@ export {
   type EvictionResult,
   type EvictionRule,
   type PoolOperations,
+  type PreAddContext,
   type PreAddPoolAccess,
   type PreAddResult,
   type PreAddRule,
+  type TaggedEviction,
+  TxPoolRejectionCode,
+  type TxPoolRejectionError,
 } from './interfaces.js';
 
 // Pre-add rules

@@ -6,6 +6,7 @@ import {
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
+  omitConfigMappings,
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -238,7 +239,7 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The delay before a validator can exit the set',
     ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_EXIT_DELAY_SECONDS),
   },
-  ...l1TxUtilsConfigMappings,
+  ...omitConfigMappings(l1TxUtilsConfigMappings, ['ethereumSlotDuration']),
 };
 
 /**

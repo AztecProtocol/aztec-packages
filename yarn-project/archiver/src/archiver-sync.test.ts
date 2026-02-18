@@ -30,6 +30,7 @@ import { Archiver, type ArchiverEmitter } from './archiver.js';
 import type { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
 import { KVArchiverDataStore } from './store/kv_archiver_store.js';
+import { L2TipsCache } from './store/l2_tips_cache.js';
 import { FakeL1State } from './test/fake_l1_state.js';
 
 describe('Archiver Sync', () => {
@@ -116,6 +117,9 @@ describe('Archiver Sync', () => {
     // Create event emitter shared by archiver and synchronizer
     const events = new EventEmitter() as ArchiverEmitter;
 
+    // Create L2 tips cache shared by archiver and synchronizer
+    const l2TipsCache = new L2TipsCache(archiverStore.blockStore);
+
     // Create the L1 synchronizer
     synchronizer = new ArchiverL1Synchronizer(
       publicClient,
@@ -132,6 +136,7 @@ describe('Archiver Sync', () => {
       l1Constants,
       events,
       instrumentation.tracer,
+      l2TipsCache,
       syncLogger,
     );
 
@@ -147,6 +152,7 @@ describe('Archiver Sync', () => {
       l1Constants,
       synchronizer,
       events,
+      l2TipsCache,
     );
   });
 
@@ -374,7 +380,7 @@ describe('Archiver Sync', () => {
       });
 
       // Create a random blob that doesn't match the checkpoint
-      const randomBlob = makeRandomBlob(3);
+      const randomBlob = await makeRandomBlob(3);
 
       // Override blob client to return the random blob instead of the correct one
       blobClient.getBlobSidecar.mockResolvedValue([randomBlob]);
@@ -970,9 +976,253 @@ describe('Archiver Sync', () => {
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(3));
     });
 
-    xit('handles an upcoming L2 prune', () => {});
+    it('handles an upcoming L2 prune', async () => {
+      const pruneSpy = jest.fn();
+      archiver.events.on(L2BlockSourceEvents.L2PruneUnproven, pruneSpy);
 
-    xit('does not attempt to download data for a checkpoint that has been pruned', () => {});
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
+
+      // Add and sync checkpoints 1, 2, 3
+      const { checkpoint: cp1 } = await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 70n,
+        messagesL1BlockNumber: 50n,
+        numL1ToL2Messages: 3,
+      });
+
+      await fake.addCheckpoint(CheckpointNumber(2), {
+        l1BlockNumber: 80n,
+        messagesL1BlockNumber: 60n,
+        numL1ToL2Messages: 3,
+      });
+
+      await fake.addCheckpoint(CheckpointNumber(3), {
+        l1BlockNumber: 90n,
+        messagesL1BlockNumber: 66n,
+        numL1ToL2Messages: 3,
+      });
+
+      fake.setL1BlockNumber(100n);
+      await archiver.syncImmediate();
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(3));
+
+      // Mark checkpoint 1 as proven
+      fake.markCheckpointAsProven(CheckpointNumber(1));
+      expect(await archiver.getProvenCheckpointNumber()).toEqual(CheckpointNumber(0));
+
+      // Enable pruning (simulate proof window about to expire)
+      fake.setCanPrune(true);
+
+      // Sync again — handleEpochPrune should remove checkpoints 2 and 3
+      fake.setL1BlockNumber(101n);
+      await archiver.syncImmediate();
+
+      // Proven checkpoint should advance to 1 since we synced it
+      expect(await archiver.getProvenCheckpointNumber()).toEqual(CheckpointNumber(1));
+
+      // Checkpoints 2 and 3 should be removed, archiver at checkpoint 1
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+
+      // L2PruneUnproven event should have been emitted with the correct epoch
+      // CP2 is at L1 block 80 → slot = (80 * 12) / 24 = 40 → epoch = 40 / 4 = 10
+      expect(pruneSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: L2BlockSourceEvents.L2PruneUnproven,
+          epochNumber: EpochNumber(10),
+        }),
+      );
+
+      // L2Tips should reflect rollback to checkpoint 1
+      const lastBlockInCheckpoint1 = cp1.blocks[cp1.blocks.length - 1].number;
+      const tips = await archiver.getL2Tips();
+      expect(tips.checkpointed.block.number).toEqual(lastBlockInCheckpoint1);
+      expect(tips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
+
+      // Data from checkpoints 2 and 3 should be removed
+      expect(await archiver.getCheckpoints(CheckpointNumber(2), 1)).toEqual([]);
+      expect(await archiver.getCheckpoints(CheckpointNumber(3), 1)).toEqual([]);
+
+      archiver.events.off(L2BlockSourceEvents.L2PruneUnproven, pruneSpy);
+    }, 15_000);
+
+    it('lost a proof (proven checkpoint rolls back to zero)', async () => {
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
+
+      // Add and sync checkpoints 1 and 2
+      await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 70n,
+        messagesL1BlockNumber: 50n,
+        numL1ToL2Messages: 3,
+      });
+
+      await fake.addCheckpoint(CheckpointNumber(2), {
+        l1BlockNumber: 80n,
+        messagesL1BlockNumber: 60n,
+        numL1ToL2Messages: 3,
+      });
+
+      fake.setL1BlockNumber(90n);
+      await archiver.syncImmediate();
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(2));
+
+      // Mark checkpoint 1 as proven, sync
+      fake.markCheckpointAsProven(CheckpointNumber(1));
+      fake.setL1BlockNumber(91n);
+      await archiver.syncImmediate();
+      expect(await archiver.getProvenCheckpointNumber()).toEqual(CheckpointNumber(1));
+
+      // Reset proven to 0 (simulate lost proof due to L1 reorg)
+      fake.markCheckpointAsProven(CheckpointNumber(0));
+      fake.setL1BlockNumber(92n);
+      await archiver.syncImmediate();
+
+      // Proven checkpoint should be back at 0
+      expect(await archiver.getProvenCheckpointNumber()).toEqual(CheckpointNumber(0));
+
+      // Pending/checkpointed chain should still be at checkpoint 2
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(2));
+
+      // L2Tips proven tip should reflect rollback
+      const tips = await archiver.getL2Tips();
+      expect(tips.proven.block.number).toEqual(0);
+    }, 10_000);
+
+    it('new proof appeared for previously pruned blocks', async () => {
+      const provenSpy = jest.fn();
+      archiver.events.on(L2BlockSourceEvents.L2BlockProven, provenSpy);
+
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
+
+      // Add and sync checkpoints 1, 2, 3
+      const cp1NumMessages = 3;
+      const { checkpoint: cp1 } = await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 70n,
+        messagesL1BlockNumber: 50n,
+        numL1ToL2Messages: cp1NumMessages,
+      });
+      const cp1Archive = cp1.blocks[cp1.blocks.length - 1].archive;
+
+      await fake.addCheckpoint(CheckpointNumber(2), {
+        l1BlockNumber: 80n,
+        messagesL1BlockNumber: 60n,
+        numL1ToL2Messages: 3,
+      });
+
+      await fake.addCheckpoint(CheckpointNumber(3), {
+        l1BlockNumber: 90n,
+        messagesL1BlockNumber: 66n,
+        numL1ToL2Messages: 3,
+      });
+
+      fake.setL1BlockNumber(100n);
+      await archiver.syncImmediate();
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(3));
+
+      // Mark checkpoint 1 as proven so epoch prune only removes 2 and 3
+      fake.markCheckpointAsProven(CheckpointNumber(1));
+
+      // Enable pruning to trigger epoch prune (unwind checkpoints 2 and 3)
+      fake.setCanPrune(true);
+      fake.setL1BlockNumber(101n);
+      await archiver.syncImmediate();
+
+      // Verify checkpoints 2 and 3 are pruned (only proven checkpoint 1 remains)
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getProvenCheckpointNumber()).toEqual(CheckpointNumber(1));
+
+      // Disable pruning
+      fake.setCanPrune(false);
+
+      // Re-add checkpoints 2 and 3 on L1 (new epoch proposal).
+      // Remove old checkpoint events and their messages from the fake.
+      // The message removal triggers rolling hash recalculation, and on next sync
+      // handleL1ToL2Messages detects the mismatch and clears the archiver's message store.
+      fake.removeCheckpoint(CheckpointNumber(2));
+      fake.removeCheckpoint(CheckpointNumber(3));
+      fake.removeMessagesAfter(cp1NumMessages);
+
+      await fake.addCheckpoint(CheckpointNumber(2), {
+        l1BlockNumber: 110n,
+        numL1ToL2Messages: 0,
+        previousArchive: cp1Archive,
+      });
+
+      await fake.addCheckpoint(CheckpointNumber(3), {
+        l1BlockNumber: 120n,
+        numL1ToL2Messages: 0,
+      });
+
+      // Mark checkpoint 2 as proven
+      fake.markCheckpointAsProven(CheckpointNumber(2));
+
+      // Sync
+      fake.setL1BlockNumber(130n);
+      await archiver.syncImmediate();
+
+      // Archiver should re-sync checkpoints 2 and 3
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(3));
+
+      // Proven checkpoint should advance to 2
+      expect(await archiver.getProvenCheckpointNumber()).toEqual(CheckpointNumber(2));
+
+      // L2BlockProven event should have been emitted
+      expect(provenSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: L2BlockSourceEvents.L2BlockProven,
+        }),
+      );
+
+      archiver.events.off(L2BlockSourceEvents.L2BlockProven, provenSpy);
+    }, 15_000);
+
+    it('detects new checkpoint behind L1 syncpoint due to L1 reorg', async () => {
+      const loggerSpy = jest.spyOn(syncLogger, 'warn');
+
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
+
+      // Sync checkpoint 1 from L1 to establish baseline (sync point = 70)
+      await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 70n,
+        messagesL1BlockNumber: 50n,
+        numL1ToL2Messages: 3,
+      });
+
+      fake.setL1BlockNumber(100n);
+      await archiver.syncImmediate();
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+
+      // Manually advance the sync point past where the new checkpoint will appear.
+      // This simulates a scenario where the sync point was advanced (e.g., via invalid
+      // attestation handling at line 204), placing it ahead of a new checkpoint.
+      await archiverStore.setCheckpointSynchedL1BlockNumber(200n);
+      // checkForNewCheckpointsBeforeL1SyncPoint requires validationResult?.valid to be true
+      await archiverStore.setPendingChainValidationStatus({ valid: true });
+
+      // Add checkpoint 2 at L1 block 150 (behind the manual sync point of 200).
+      // This simulates an L1 reorg that added a new checkpoint in a range already scanned.
+      await fake.addCheckpoint(CheckpointNumber(2), {
+        l1BlockNumber: 150n,
+        messagesL1BlockNumber: 130n,
+        numL1ToL2Messages: 3,
+      });
+
+      // Sync: searches from 201 onward, doesn't find CP2 at 150.
+      // checkForNewCheckpointsBeforeL1SyncPoint detects latestLocal(1) < pending(2)
+      // and rolls back the sync point to CP1's L1 block (70).
+      // The rollback does NOT re-fetch in the same iteration.
+      fake.setL1BlockNumber(201n);
+      await archiver.syncImmediate();
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/Failed to reach checkpoint 2.*Rolling back/),
+        expect.anything(),
+      );
+
+      // Second sync: fetches from the rolled-back sync point (70) and finds CP2 at L1 block 150
+      fake.setL1BlockNumber(202n);
+      await archiver.syncImmediate();
+
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(2));
+    }, 15_000);
   });
 
   describe('checkpointing local proposed blocks', () => {

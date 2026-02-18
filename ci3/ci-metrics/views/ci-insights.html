@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>ACI - CI Insights</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { background:#000; color:#ccc; font-family:monospace; padding:10px; font-size:14px; margin:0; }
+    a { color:#58a6ff; text-decoration:none; }
+    a:hover { text-decoration:underline; }
+    .nav { margin:8px 0; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .nav a { color:#58a6ff; font-size:13px; }
+    .nav a.active { color:#fff; border-bottom:1px solid #58a6ff; }
+    .sep { color:#333; }
+    .controls { margin:10px 0; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .controls label { color:#888; }
+    input, select { background:#111; border:1px solid #333; color:#ccc; font-family:monospace; font-size:13px; padding:4px 8px; }
+    input:focus, select:focus { outline:none; border-color:#58a6ff; }
+    button { background:#222; border:1px solid #444; color:#ccc; font-family:monospace; font-size:13px; padding:4px 12px; cursor:pointer; }
+    button:hover { background:#333; }
+    button.active { background:#238636; border-color:#238636; color:#fff; }
+    .msg { color:#888; padding:8px 0; }
+    .msg.err { color:#f85149; }
+
+    /* KPI strip */
+    .kpi-strip { display:flex; gap:12px; margin:16px 0; flex-wrap:wrap; }
+    .kpi { background:#0a0a0a; border:1px solid #222; padding:12px 16px; flex:1; min-width:180px; max-height:120px; overflow:hidden; }
+    .kpi .label { color:#666; font-size:11px; text-transform:uppercase; margin-bottom:4px; }
+    .kpi .value { color:#fff; font-size:22px; font-weight:bold; }
+    .kpi .delta { font-size:11px; margin-left:6px; }
+    .kpi .delta.up { color:#f85149; }
+    .kpi .delta.down { color:#3fb950; }
+    .kpi .delta.neutral { color:#888; }
+    .kpi .spark { height:30px; max-height:30px; margin-top:6px; }
+
+    /* Charts */
+    .charts { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:16px 0; }
+    .charts .full { grid-column:1 / -1; }
+    @media (max-width:1000px) { .charts { grid-template-columns:1fr; } }
+    .chart-box { background:#0a0a0a; border:1px solid #222; padding:12px; }
+    .chart-box h3 { color:#888; font-size:12px; font-weight:normal; text-transform:uppercase; margin:0 0 8px 0; }
+    .chart-wrap { position:relative; height:250px; }
+    .chart-wrap.tall { height:300px; }
+    .chart-wrap.med { height:250px; }
+
+    /* Tables */
+    .section-title { color:#888; font-size:12px; text-transform:uppercase; margin:24px 0 8px 0; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th { text-align:left; padding:6px 8px; border-bottom:1px solid #333; color:#888; cursor:pointer; white-space:nowrap; }
+    th:hover { color:#ccc; }
+    td { padding:6px 8px; border-bottom:1px solid #111; }
+    tr:hover td { background:#111; }
+    .amt { font-variant-numeric:tabular-nums; text-align:right; }
+    th.amt { text-align:right; }
+    .detail-scroll { max-height:500px; overflow:auto; }
+
+  </style>
+</head>
+<body>
+  <div class="nav" id="nav">
+    <a href="/">&lt; CI</a> <span class="sep">|</span>
+    <a href="/cost-overview">cost overview</a>
+    <a href="/namespace-billing">namespace billing</a>
+    <a href="/ci-insights" class="active">ci insights</a>
+  </div>
+
+  <h2 style="margin:8px 0;color:#ccc;">ci insights</h2>
+
+  <div class="controls">
+    <button data-range="14">2w</button>
+    <button data-range="30">1m</button>
+    <button data-range="90">3m</button>
+    <span style="color:#333">|</span>
+    <label>from</label> <input type="date" id="dateFrom" />
+    <label>to</label> <input type="date" id="dateTo" />
+    <span style="color:#333">|</span>
+    <button data-g="daily" class="active">daily</button>
+    <button data-g="weekly">weekly</button>
+    <button data-g="monthly">monthly</button>
+    <span style="color:#333">|</span>
+    <button id="refreshBtn">refresh</button>
+  </div>
+
+  <div id="msg" class="msg"></div>
+  <div id="pipeline-filter" style="display:none; margin:8px 0; padding:6px 12px; background:#1a1a2e; border:1px solid #58a6ff; align-items:center; gap:8px; font-size:13px;">
+    filtered to pipeline: <span id="pf-name" style="color:#fff;font-weight:bold"></span>
+    <span id="pf-clear" style="cursor:pointer;color:#888;margin-left:8px">[clear]</span>
+  </div>
+
+  <!-- KPI strip -->
+  <div class="kpi-strip" id="kpis">
+    <div class="kpi"><div class="label">daily ci spend</div><div class="value" id="kv-spend">--</div><canvas class="spark" id="ks-spend"></canvas></div>
+    <div class="kpi"><div class="label">cost / merge</div><div class="value" id="kv-cpm">--</div><canvas class="spark" id="ks-cpm"></canvas></div>
+    <div class="kpi"><div class="label">mq success rate</div><div class="value" id="kv-mq">--</div><canvas class="spark" id="ks-mq"></canvas></div>
+    <div class="kpi"><div class="label">flakes / day</div><div class="value" id="kv-flakes">--</div><canvas class="spark" id="ks-flakes"></canvas></div>
+    <div class="kpi"><div class="label">prs merged / day</div><div class="value" id="kv-prs">--</div><canvas class="spark" id="ks-prs"></canvas></div>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts">
+    <div class="chart-box full">
+      <h3>daily ci cost + 7-day rolling cost per merge</h3>
+      <div class="chart-wrap tall"><canvas id="costChart"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>merge queue: daily outcomes + success rate</h3>
+      <div class="chart-wrap med"><canvas id="mqChart"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>flakes + test failures per day</h3>
+      <div class="chart-wrap med"><canvas id="flakeChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Flake cost ranking table -->
+  <div class="section-title">flakes by pipeline</div>
+  <div class="detail-scroll">
+    <table>
+      <thead id="flake-thead"><tr></tr></thead>
+      <tbody id="flake-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- Author CI profile table -->
+  <div class="section-title">author ci profile</div>
+  <div class="detail-scroll">
+    <table>
+      <thead id="author-thead"><tr></tr></thead>
+      <tbody id="author-tbody"></tbody>
+    </table>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <script>
+    Chart.defaults.color = '#888';
+    Chart.defaults.font.family = 'monospace';
+
+    // State
+    let costData = null, mqData = null, perfData = null, flakeData = null, prData = null;
+    let charts = {};
+    let sparkCharts = {};
+    let flakeSort = { col: 'count', dir: 'desc' };
+    let authorSort = { col: 'total_cost', dir: 'desc' };
+    let pipelineFilter = '';
+
+    function granularity() { return document.querySelector('[data-g].active').dataset.g; }
+
+    const fmt = v => v == null ? '--' : v >= 1000 ? '$' + v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : v >= 1 ? '$' + v.toFixed(2) : '$' + v.toFixed(4);
+    const fmtDate = s => { const d = new Date(s + 'T00:00:00'); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
+    const escapeHtml = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+
+    function delta(values) {
+      if (!values || values.length < 3) return { pct: 0, cls: 'neutral' };
+      const third = Math.max(1, Math.floor(values.length / 3));
+      const first = values.slice(0, third).reduce((s, v) => s + v, 0) / third;
+      const last = values.slice(-third).reduce((s, v) => s + v, 0) / third;
+      if (first === 0) return { pct: 0, cls: 'neutral' };
+      const pct = ((last - first) / first) * 100;
+      return { pct, cls: pct > 5 ? 'up' : pct < -5 ? 'down' : 'neutral' };
+    }
+
+    function deltaHtml(values, invertColor) {
+      const d = delta(values);
+      let cls = d.cls;
+      if (invertColor) cls = cls === 'up' ? 'down' : cls === 'down' ? 'up' : cls;
+      const sign = d.pct >= 0 ? '+' : '';
+      return `<span class="delta ${cls}">${sign}${d.pct.toFixed(0)}%</span>`;
+    }
+
+    // Sparkline: tiny Chart.js line, no axes, no labels
+    function spark(canvasId, values, color) {
+      if (sparkCharts[canvasId]) sparkCharts[canvasId].destroy();
+      const ctx = document.getElementById(canvasId);
+      if (!ctx) return;
+      sparkCharts[canvasId] = new Chart(ctx.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: values.map((_, i) => i),
+          datasets: [{ data: values, borderColor: color || '#58a6ff', borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0.3 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          scales: { x: { display: false }, y: { display: false } },
+          plugins: { legend: { display: false }, tooltip: { enabled: false } },
+          animation: false
+        }
+      });
+    }
+
+    // ---- Data loading ----
+    async function load() {
+      const el = document.getElementById('msg');
+      el.className = 'msg'; el.textContent = 'loading...';
+      const f = document.getElementById('dateFrom').value;
+      const t = document.getElementById('dateTo').value;
+      const g = granularity();
+      const pf = pipelineFilter ? `&dashboard=${encodeURIComponent(pipelineFilter)}` : '';
+
+      // Show/hide pipeline filter indicator
+      const pfEl = document.getElementById('pipeline-filter');
+      if (pipelineFilter) {
+        pfEl.style.display = 'inline-flex';
+        document.getElementById('pf-name').textContent = pipelineFilter;
+      } else {
+        pfEl.style.display = 'none';
+      }
+
+      try {
+        const [costResp, mqResp, perfResp, flakeResp, prResp] = await Promise.all([
+          fetch(`/api/costs/runners?from=${f}&to=${t}&granularity=${g}${pf}`),
+          fetch(`/api/merge-queue/stats?from=${f}&to=${t}`),
+          fetch(`/api/ci/performance?from=${f}&to=${t}&granularity=${g}${pf}`),
+          fetch(`/api/ci/flakes-by-command?from=${f}&to=${t}${pf}`),
+          fetch(`/api/prs/metrics?from=${f}&to=${t}`),
+        ]);
+
+        [costData, mqData, perfData, flakeData, prData] = await Promise.all([
+          costResp.json(), mqResp.json(), perfResp.json(), flakeResp.json(), prResp.json()
+        ]);
+
+        el.textContent = '';
+        render();
+      } catch (e) {
+        el.className = 'msg err';
+        el.textContent = 'error: ' + e.message;
+      }
+    }
+
+    // ---- Render everything ----
+    function render() {
+      Object.values(charts).forEach(c => c.destroy());
+      charts = {};
+
+      renderKPIs();
+      renderCostChart();
+      renderMQChart();
+      renderFlakeChart();
+      renderFlakeTable();
+      renderAuthorTable();
+      saveUrl();
+    }
+
+    // ---- KPI strip ----
+    function renderKPIs() {
+      const costByDate = costData?.by_date || [];
+      const mqByDate = mqData?.by_date || [];
+      const perfByDate = perfData?.by_date || [];
+      const prByDate = prData?.by_date || [];
+      const days = costByDate.length || 1;
+
+      // Daily CI spend
+      const dailyCosts = costByDate.map(d => d.total || 0);
+      const totalCost = dailyCosts.reduce((s, v) => s + v, 0);
+      const avgDailySpend = totalCost / days;
+      document.getElementById('kv-spend').innerHTML = fmt(avgDailySpend) + deltaHtml(dailyCosts);
+      spark('ks-spend', dailyCosts, '#58a6ff');
+
+      // Cost per merge (rolling)
+      const prMergedByDate = {};
+      prByDate.forEach(d => { prMergedByDate[d.date] = d.pr_count || 0; });
+      const costByDateMap = {};
+      costByDate.forEach(d => { costByDateMap[d.date] = d.total || 0; });
+      const allDates = [...new Set([...Object.keys(prMergedByDate), ...Object.keys(costByDateMap)])].sort();
+      let totalMerged = 0;
+      allDates.forEach(date => { totalMerged += prMergedByDate[date] || 0; });
+      const avgCPM = totalMerged > 0 ? totalCost / totalMerged : null;
+      // Per-day cost-per-merge for sparkline (7d rolling)
+      const cpmSpark = [];
+      for (let i = 0; i < allDates.length; i++) {
+        let windowCost = 0, windowMerged = 0;
+        for (let j = Math.max(0, i - 6); j <= i; j++) {
+          windowCost += costByDateMap[allDates[j]] || 0;
+          windowMerged += prMergedByDate[allDates[j]] || 0;
+        }
+        cpmSpark.push(windowMerged > 0 ? windowCost / windowMerged : null);
+      }
+      const cpmFiltered = cpmSpark.filter(v => v !== null);
+      document.getElementById('kv-cpm').innerHTML = (avgCPM != null ? fmt(avgCPM) : '--') + (cpmFiltered.length > 2 ? deltaHtml(cpmFiltered) : '');
+      spark('ks-cpm', cpmFiltered, '#d2a8ff');
+
+      // MQ success rate
+      const mqRates = mqByDate.map(d => d.total > 0 ? 100 * d.success / d.total : null).filter(v => v !== null);
+      const mqTotal = mqByDate.reduce((s, d) => s + (d.total || 0), 0);
+      const mqSuccess = mqByDate.reduce((s, d) => s + (d.success || 0), 0);
+      const mqRate = mqTotal > 0 ? (100 * mqSuccess / mqTotal).toFixed(1) : '--';
+      document.getElementById('kv-mq').innerHTML = mqRate + '%' + (mqRates.length > 2 ? deltaHtml(mqRates, true) : '');
+      spark('ks-mq', mqRates, '#3fb950');
+
+      // Flakes per day
+      const flakeCounts = perfByDate.map(d => d.flake_count || 0);
+      const totalFlakes = flakeCounts.reduce((s, v) => s + v, 0);
+      const avgFlakes = (totalFlakes / days).toFixed(1);
+      document.getElementById('kv-flakes').innerHTML = avgFlakes + deltaHtml(flakeCounts);
+      spark('ks-flakes', flakeCounts, '#f0883e');
+
+      // PRs merged per day
+      const prCounts = prByDate.map(d => d.pr_count || 0);
+      const totalPRs = prCounts.reduce((s, v) => s + v, 0);
+      const avgPRs = (totalPRs / days).toFixed(1);
+      document.getElementById('kv-prs').innerHTML = avgPRs + (prCounts.length > 2 ? deltaHtml(prCounts, true) : '');
+      spark('ks-prs', prCounts, '#56d364');
+    }
+
+    // ---- Cost chart with rolling CPM overlay ----
+    function renderCostChart() {
+      const costByDate = costData?.by_date || [];
+      const prByDate = prData?.by_date || [];
+      const prMergedByDate = {};
+      prByDate.forEach(d => { prMergedByDate[d.date] = d.pr_count || 0; });
+
+      const dates = costByDate.map(d => d.date);
+      const spotCosts = costByDate.map(d => d.spot_cost || 0);
+      const odCosts = costByDate.map(d => d.ondemand_cost || 0);
+
+      // 7-day rolling cost per merge
+      const cpmLine = [];
+      for (let i = 0; i < dates.length; i++) {
+        let wCost = 0, wMerged = 0;
+        for (let j = Math.max(0, i - 6); j <= i; j++) {
+          wCost += (costByDate[j]?.total || 0);
+          wMerged += (prMergedByDate[dates[j]] || 0);
+        }
+        cpmLine.push(wMerged > 0 ? wCost / wMerged : null);
+      }
+
+      charts.cost = new Chart(document.getElementById('costChart').getContext('2d'), {
+        data: {
+          labels: dates.map(fmtDate),
+          datasets: [
+            { type: 'bar', label: 'Spot', data: spotCosts, backgroundColor: '#3fb950', stack: 'cost', borderWidth: 0, order: 2 },
+            { type: 'bar', label: 'On-Demand', data: odCosts, backgroundColor: '#58a6ff', stack: 'cost', borderWidth: 0, order: 2 },
+            { type: 'line', label: 'Cost/Merge (7d)', data: cpmLine, borderColor: '#d2a8ff', borderWidth: 2, pointRadius: 0, tension: 0.3, yAxisID: 'y1', order: 1, spanGaps: true },
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: { stacked: true, ticks: { color: '#555', maxRotation: 45 }, grid: { color: '#181818' } },
+            y: { stacked: true, position: 'left', beginAtZero: true, ticks: { color: '#555', callback: v => '$' + v }, grid: { color: '#181818' } },
+            y1: { position: 'right', beginAtZero: true, suggestedMax: Math.max(...cpmLine.filter(v => v != null), 0) * 1.15 || 100, ticks: { color: '#d2a8ff', callback: v => '$' + Math.round(v) }, grid: { display: false } }
+          },
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },
+            tooltip: {
+              callbacks: {
+                label: c => {
+                  if (c.dataset.type === 'line') return `${c.dataset.label}: ${c.raw != null ? fmt(c.raw) : '--'}`;
+                  return `${c.dataset.label}: ${fmt(c.raw)}`;
+                },
+                footer: items => {
+                  const bars = items.filter(i => i.dataset.type === 'bar');
+                  return bars.length ? `total: ${fmt(bars.reduce((s, i) => s + i.raw, 0))}` : '';
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // ---- Merge queue chart ----
+    function renderMQChart() {
+      const byDate = mqData?.by_date || [];
+      const dates = byDate.map(d => d.date);
+      const successRate = byDate.map(d => d.total > 0 ? 100 * d.success / d.total : null);
+
+      charts.mq = new Chart(document.getElementById('mqChart').getContext('2d'), {
+        data: {
+          labels: dates.map(fmtDate),
+          datasets: [
+            { type: 'bar', label: 'Success', data: byDate.map(d => d.success || 0), backgroundColor: '#3fb950', stack: 'mq', borderWidth: 0, order: 3 },
+            { type: 'bar', label: 'Failure', data: byDate.map(d => d.failure || 0), backgroundColor: '#f85149', stack: 'mq', borderWidth: 0, order: 3 },
+            { type: 'bar', label: 'Cancelled', data: byDate.map(d => d.cancelled || 0), backgroundColor: '#888', stack: 'mq', borderWidth: 0, order: 3 },
+            { type: 'line', label: 'Success %', data: successRate, borderColor: '#56d364', borderWidth: 2, pointRadius: 0, tension: 0.3, yAxisID: 'y1', order: 1, spanGaps: true },
+            { type: 'line', label: 'Queue Depth', data: byDate.map(d => d.in_progress || 0), borderColor: '#d2a8ff', borderWidth: 1.5, borderDash: [4, 3], pointRadius: 0, tension: 0.3, yAxisID: 'y', order: 2 },
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: { stacked: true, ticks: { color: '#555', maxRotation: 45 }, grid: { color: '#181818' } },
+            y: { stacked: true, position: 'left', ticks: { color: '#555' }, grid: { color: '#181818' } },
+            y1: { position: 'right', min: 0, max: 100, ticks: { color: '#56d364', callback: v => v + '%' }, grid: { display: false } }
+          },
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },
+            tooltip: {
+              callbacks: {
+                label: c => {
+                  if (c.dataset.label === 'Success %') return `${c.dataset.label}: ${c.raw != null ? c.raw.toFixed(1) + '%' : '--'}`;
+                  return `${c.dataset.label}: ${c.raw}`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // ---- Flake / test failure chart ----
+    function renderFlakeChart() {
+      const byDate = perfData?.by_date || [];
+      const dates = byDate.map(d => d.date);
+
+      charts.flake = new Chart(document.getElementById('flakeChart').getContext('2d'), {
+        data: {
+          labels: dates.map(fmtDate),
+          datasets: [
+            { type: 'bar', label: 'Flakes', data: byDate.map(d => d.flake_count || 0), backgroundColor: '#f0883e', borderWidth: 0, order: 2 },
+            { type: 'bar', label: 'Test Failures', data: byDate.map(d => d.test_failure_count || 0), backgroundColor: '#f85149', borderWidth: 0, order: 2 },
+            { type: 'line', label: 'CI Failure Rate %', data: byDate.map(d => d.failure_rate || 0), borderColor: '#ff7b72', borderWidth: 2, pointRadius: 0, tension: 0.3, yAxisID: 'y1', order: 1 },
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: { ticks: { color: '#555', maxRotation: 45 }, grid: { color: '#181818' } },
+            y: { position: 'left', ticks: { color: '#555' }, grid: { color: '#181818' } },
+            y1: { position: 'right', min: 0, ticks: { color: '#ff7b72', callback: v => v + '%' }, grid: { display: false } }
+          },
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },
+            tooltip: {
+              callbacks: {
+                label: c => {
+                  if (c.dataset.type === 'line') return `${c.dataset.label}: ${c.raw != null ? c.raw.toFixed(1) + '%' : '--'}`;
+                  return `${c.dataset.label}: ${c.raw}`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // ---- Flakes table ----
+    function renderFlakeTable() {
+      const cmds = flakeData?.by_command || [];
+      if (!cmds.length) {
+        document.getElementById('flake-tbody').innerHTML = '<tr><td colspan="3" style="color:#888">no flake data</td></tr>';
+        document.querySelector('#flake-thead tr').innerHTML = '';
+        return;
+      }
+
+      if (pipelineFilter) {
+        // Filtered: show individual test commands within this pipeline
+        const allTests = cmds.flatMap(c => (c.top_tests || []).map(t => ({
+          test_cmd: t.test_cmd || '',
+          count: t.count || 0,
+        })));
+        const hdrs = [
+          { k: 'test_cmd', l: 'Test Command' },
+          { k: 'count', l: 'Flakes', cls: 'amt' },
+        ];
+        const tr = document.querySelector('#flake-thead tr');
+        tr.innerHTML = '';
+        hdrs.forEach(h => {
+          const th = document.createElement('th');
+          th.textContent = h.l;
+          if (h.cls) th.className = h.cls;
+          th.onclick = () => {
+            flakeSort = flakeSort.col === h.k ? { col: h.k, dir: flakeSort.dir === 'asc' ? 'desc' : 'asc' } : { col: h.k, dir: 'desc' };
+            renderTestRows(allTests);
+          };
+          tr.appendChild(th);
+        });
+        renderTestRows(allTests);
+      } else {
+        // Unfiltered: show pipelines, clickable to filter
+        const rows = cmds.map(c => ({
+          pipeline: c.command || '',
+          count: c.total_flakes || 0,
+          failures: c.total_failures || 0,
+        }));
+        const hdrs = [
+          { k: 'pipeline', l: 'Pipeline' },
+          { k: 'count', l: 'Flakes', cls: 'amt' },
+          { k: 'failures', l: 'Failures', cls: 'amt' },
+        ];
+        const tr = document.querySelector('#flake-thead tr');
+        tr.innerHTML = '';
+        hdrs.forEach(h => {
+          const th = document.createElement('th');
+          th.textContent = h.l;
+          if (h.cls) th.className = h.cls;
+          th.onclick = () => {
+            flakeSort = flakeSort.col === h.k ? { col: h.k, dir: flakeSort.dir === 'asc' ? 'desc' : 'asc' } : { col: h.k, dir: 'desc' };
+            renderPipelineRows(rows);
+          };
+          tr.appendChild(th);
+        });
+        renderPipelineRows(rows);
+      }
+    }
+
+    function renderPipelineRows(rows) {
+      rows.sort((a, b) => {
+        const col = flakeSort.col;
+        let av = a[col], bv = b[col];
+        if (typeof av === 'string') return flakeSort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+        return flakeSort.dir === 'asc' ? (av || 0) - (bv || 0) : (bv || 0) - (av || 0);
+      });
+
+      document.getElementById('flake-tbody').innerHTML = rows.map((r, i) =>
+        `<tr style="cursor:pointer" data-idx="${i}">` +
+        `<td>${escapeHtml(r.pipeline)}</td>` +
+        `<td class="amt" style="color:#f0883e">${r.count}</td>` +
+        `<td class="amt" style="color:#f85149">${r.failures}</td>` +
+        `</tr>`
+      ).join('');
+
+      document.querySelectorAll('#flake-tbody tr').forEach(tr => {
+        tr.onclick = () => {
+          const row = rows[parseInt(tr.dataset.idx)];
+          if (row.pipeline) {
+            pipelineFilter = row.pipeline;
+            load();
+          }
+        };
+      });
+    }
+
+    function renderTestRows(rows) {
+      rows.sort((a, b) => {
+        const col = flakeSort.col;
+        let av = a[col], bv = b[col];
+        if (typeof av === 'string') return flakeSort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+        return flakeSort.dir === 'asc' ? (av || 0) - (bv || 0) : (bv || 0) - (av || 0);
+      });
+
+      document.getElementById('flake-tbody').innerHTML = rows.map(r =>
+        `<tr>` +
+        `<td>${escapeHtml(r.test_cmd)}</td>` +
+        `<td class="amt" style="color:#f0883e">${r.count}</td>` +
+        `</tr>`
+      ).join('');
+    }
+
+    // ---- Author CI profile table ----
+    function renderAuthorTable() {
+      const authors = prData?.by_author || [];
+      if (!authors.length) {
+        document.getElementById('author-tbody').innerHTML = '<tr><td colspan="6" style="color:#888">no PR data</td></tr>';
+        return;
+      }
+
+      const hdrs = [
+        { k: 'author', l: 'Author' },
+        { k: 'pr_count', l: 'PRs', cls: 'amt' },
+        { k: 'total_cost', l: 'CI Cost', cls: 'amt' },
+        { k: 'avg_runs', l: 'Runs/PR', cls: 'amt' },
+        { k: 'avg_ci_time', l: 'CI Time/PR', cls: 'amt' },
+        { k: 'avg_merge_time', l: 'Merge Time', cls: 'amt' },
+      ];
+      const tr = document.querySelector('#author-thead tr');
+      tr.innerHTML = '';
+      hdrs.forEach(h => {
+        const th = document.createElement('th');
+        th.textContent = h.l;
+        if (h.cls) th.className = h.cls;
+        th.onclick = () => {
+          authorSort = authorSort.col === h.k ? { col: h.k, dir: authorSort.dir === 'asc' ? 'desc' : 'asc' } : { col: h.k, dir: 'desc' };
+          renderAuthorRows(authors);
+        };
+        tr.appendChild(th);
+      });
+
+      renderAuthorRows(authors);
+    }
+
+    function renderAuthorRows(authors) {
+      const rows = authors.slice();
+      rows.sort((a, b) => {
+        const col = authorSort.col;
+        let av = a[col], bv = b[col];
+        if (col === 'avg_runs') { av = a.avg_runs_per_pr || 0; bv = b.avg_runs_per_pr || 0; }
+        if (col === 'avg_ci_time') { av = a.avg_ci_time_hrs || 0; bv = b.avg_ci_time_hrs || 0; }
+        if (col === 'avg_merge_time') { av = a.avg_merge_time_hrs || 0; bv = b.avg_merge_time_hrs || 0; }
+        if (typeof av === 'string') return authorSort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+        return authorSort.dir === 'asc' ? (av || 0) - (bv || 0) : (bv || 0) - (av || 0);
+      });
+
+      document.getElementById('author-tbody').innerHTML = rows.map(a => {
+        const runs = a.avg_runs_per_pr != null ? a.avg_runs_per_pr.toFixed(1) : '--';
+        const ciTime = a.avg_ci_time_hrs != null ? a.avg_ci_time_hrs.toFixed(1) + 'h' : '--';
+        const mergeTime = a.avg_merge_time_hrs != null ? a.avg_merge_time_hrs.toFixed(1) + 'h' : '--';
+        return `<tr>` +
+          `<td>${escapeHtml(a.author)}</td>` +
+          `<td class="amt">${a.pr_count}</td>` +
+          `<td class="amt" style="color:#fff">${fmt(a.total_cost)}</td>` +
+          `<td class="amt">${runs}</td>` +
+          `<td class="amt">${ciTime}</td>` +
+          `<td class="amt">${mergeTime}</td>` +
+          `</tr>`;
+      }).join('');
+    }
+
+    // ---- URL state ----
+    function saveUrl() {
+      const p = new URLSearchParams();
+      p.set('from', document.getElementById('dateFrom').value);
+      p.set('to', document.getElementById('dateTo').value);
+      p.set('g', granularity());
+      if (pipelineFilter) p.set('pipeline', pipelineFilter);
+      history.replaceState({}, '', '?' + p);
+      const shared = new URLSearchParams();
+      shared.set('from', p.get('from')); shared.set('to', p.get('to')); shared.set('g', p.get('g'));
+      document.querySelectorAll('#nav a[href]').forEach(a => {
+        const base = a.getAttribute('href').split('?')[0];
+        if (base !== '/') a.href = base + '?' + shared;
+      });
+    }
+
+    function loadUrl() {
+      const p = new URLSearchParams(location.search);
+      if (p.get('from')) document.getElementById('dateFrom').value = p.get('from');
+      if (p.get('to')) document.getElementById('dateTo').value = p.get('to');
+      if (p.get('g')) document.querySelectorAll('[data-g]').forEach(b => b.classList.toggle('active', b.dataset.g === p.get('g')));
+      if (p.get('pipeline')) pipelineFilter = p.get('pipeline');
+    }
+
+    // ---- Init ----
+    window.addEventListener('DOMContentLoaded', () => {
+      const now = new Date(), from = new Date();
+      from.setDate(from.getDate() - 30);
+      document.getElementById('dateFrom').value = from.toISOString().split('T')[0];
+      document.getElementById('dateTo').value = now.toISOString().split('T')[0];
+
+      loadUrl();
+
+      document.getElementById('pf-clear').onclick = () => { pipelineFilter = ''; load(); };
+      document.getElementById('refreshBtn').onclick = load;
+      document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
+        document.querySelectorAll('[data-g]').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        load();
+      });
+      document.querySelectorAll('[data-range]').forEach(b => b.onclick = () => {
+        document.querySelectorAll('[data-range]').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        const days = parseInt(b.dataset.range);
+        const to = new Date(), fr = new Date();
+        fr.setDate(fr.getDate() - days);
+        document.getElementById('dateFrom').value = fr.toISOString().split('T')[0];
+        document.getElementById('dateTo').value = to.toISOString().split('T')[0];
+        load();
+      });
+      document.getElementById('dateFrom').onchange = () => { document.querySelectorAll('[data-range]').forEach(x => x.classList.remove('active')); load(); };
+      document.getElementById('dateTo').onchange = () => { document.querySelectorAll('[data-range]').forEach(x => x.classList.remove('active')); load(); };
+
+      load();
+    });
+  </script>
+</body>
+</html>

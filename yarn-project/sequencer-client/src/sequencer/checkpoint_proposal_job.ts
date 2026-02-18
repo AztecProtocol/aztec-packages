@@ -129,7 +129,7 @@ export class CheckpointProposalJob implements Traceable {
     await Promise.all(votesPromises);
 
     if (checkpoint) {
-      this.metrics.recordBlockProposalSuccess();
+      this.metrics.recordCheckpointProposalSuccess();
     }
 
     // Do not post anything to L1 if we are fishermen, but do perform L1 fee analysis
@@ -186,16 +186,15 @@ export class CheckpointProposalJob implements Traceable {
       const inHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
 
       // Collect the out hashes of all the checkpoints before this one in the same epoch
-      const previousCheckpoints = (await this.l2BlockSource.getCheckpointsForEpoch(this.epoch)).filter(
-        c => c.number < this.checkpointNumber,
-      );
-      const previousCheckpointOutHashes = previousCheckpoints.map(c => c.getCheckpointOutHash());
+      const previousCheckpointOutHashes = (await this.l2BlockSource.getCheckpointsDataForEpoch(this.epoch))
+        .filter(c => c.checkpointNumber < this.checkpointNumber)
+        .map(c => c.checkpointOutHash);
 
       // Get the fee asset price modifier from the oracle
       const feeAssetPriceModifier = await this.publisher.getFeeAssetPriceModifier();
 
       // Create a long-lived forked world state for the checkpoint builder
-      using fork = await this.worldState.fork(this.syncedToBlockNumber, { closeDelayMs: 12_000 });
+      await using fork = await this.worldState.fork(this.syncedToBlockNumber, { closeDelayMs: 12_000 });
 
       // Create checkpoint builder for the entire slot
       const checkpointBuilder = await this.checkpointsBuilder.startCheckpoint(
@@ -221,6 +220,7 @@ export class CheckpointProposalJob implements Traceable {
 
       let blocksInCheckpoint: L2Block[] = [];
       let blockPendingBroadcast: { block: L2Block; txs: Tx[] } | undefined = undefined;
+      const checkpointBuildTimer = new Timer();
 
       try {
         // Main loop: build blocks for the checkpoint
@@ -248,10 +248,27 @@ export class CheckpointProposalJob implements Traceable {
         return undefined;
       }
 
+      const minBlocksForCheckpoint = this.config.minBlocksForCheckpoint;
+      if (minBlocksForCheckpoint !== undefined && blocksInCheckpoint.length < minBlocksForCheckpoint) {
+        this.log.warn(
+          `Checkpoint has fewer blocks than minimum (${blocksInCheckpoint.length} < ${minBlocksForCheckpoint}), skipping proposal`,
+          { slot: this.slot, blocksBuilt: blocksInCheckpoint.length, minBlocksForCheckpoint },
+        );
+        return undefined;
+      }
+
       // Assemble and broadcast the checkpoint proposal, including the last block that was not
       // broadcasted yet, and wait to collect the committee attestations.
       this.setStateFn(SequencerState.ASSEMBLING_CHECKPOINT, this.slot);
       const checkpoint = await checkpointBuilder.completeCheckpoint();
+
+      // Record checkpoint-level build metrics
+      this.metrics.recordCheckpointBuild(
+        checkpointBuildTimer.ms(),
+        blocksInCheckpoint.length,
+        checkpoint.getStats().txCount,
+        Number(checkpoint.header.totalManaUsed.toBigInt()),
+      );
 
       // Do not collect attestations nor publish to L1 in fisherman mode
       if (this.config.fishermanMode) {
@@ -318,6 +335,21 @@ export class CheckpointProposalJob implements Traceable {
       const aztecSlotDuration = this.l1Constants.slotDuration;
       const slotStartBuildTimestamp = this.getSlotStartBuildTimestamp();
       const txTimeoutAt = new Date((slotStartBuildTimestamp + aztecSlotDuration) * 1000);
+
+      // If we have been configured to potentially skip publishing checkpoint then roll the dice here
+      if (
+        this.config.skipPublishingCheckpointsPercent !== undefined &&
+        this.config.skipPublishingCheckpointsPercent > 0
+      ) {
+        const result = Math.max(0, randomInt(100));
+        if (result < this.config.skipPublishingCheckpointsPercent) {
+          this.log.warn(
+            `Skipping publishing proposal for checkpoint ${checkpoint.number}. Configured percentage: ${this.config.skipPublishingCheckpointsPercent}, generated value: ${result}`,
+          );
+          return checkpoint;
+        }
+      }
+
       await this.publisher.enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, {
         txTimeoutAt,
         forcePendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
@@ -826,7 +858,7 @@ export class CheckpointProposalJob implements Traceable {
         slot: this.slot,
         feeAnalysisId: feeAnalysis?.id,
       });
-      this.metrics.recordBlockProposalFailed('block_build_failed');
+      this.metrics.recordCheckpointProposalFailed('block_build_failed');
     }
 
     this.publisher.clearPendingRequests();

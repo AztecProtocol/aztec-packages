@@ -22,6 +22,7 @@ import { BatchTxRequester } from '../../services/reqresp/batch-tx-requester/batc
 import type { BatchTxRequesterLibP2PService } from '../../services/reqresp/batch-tx-requester/interface.js';
 import type { IBatchRequestTxValidator } from '../../services/reqresp/batch-tx-requester/tx_validator.js';
 import type { ConnectionSampler } from '../../services/reqresp/connection-sampler/connection_sampler.js';
+import { MissingTxsTracker } from '../../services/tx_collection/missing_txs_tracker.js';
 import { generatePeerIdPrivateKeys } from '../../test-helpers/generate-peer-id-private-keys.js';
 import { getPorts } from '../../test-helpers/get-ports.js';
 import { makeEnrs } from '../../test-helpers/make-enrs.js';
@@ -229,7 +230,7 @@ describe('p2p client integration batch txs', () => {
     mockP2PService.reqResp = (client0 as any).p2pService.reqresp;
 
     const requester = new BatchTxRequester(
-      missingTxHashes,
+      MissingTxsTracker.fromArray(missingTxHashes),
       blockProposal,
       undefined, // no pinned peer
       5_000,

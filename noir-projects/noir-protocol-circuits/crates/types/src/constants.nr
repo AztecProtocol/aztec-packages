@@ -1036,9 +1036,10 @@ pub global AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED: u32 = 1000;
 pub global AVM_MAX_PROCESSABLE_L2_GAS: u32 = 6_000_000; // Arbitrary.
 
 pub global DA_BYTES_PER_FIELD: u32 = 32;
-pub global DA_GAS_PER_BYTE: u32 = 16; // TODO: Explain this, might be arbitrary? maybe make it one? and sync it wit the tx overhead constants?
-// pays for preamble information in TX Effects
-pub global FIXED_DA_GAS: u32 = 512;
+pub global DA_GAS_PER_BYTE: u32 = 1; // Arbitrary.
+pub global DA_GAS_PER_FIELD: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+// A tx always emits 3 fields: tx_start_marker, tx_hash, and tx_fee.
+pub global FIXED_DA_GAS: u32 = 3 * DA_GAS_PER_FIELD;
 // TODO: take into account the cost of executing and proving the rollup circuits (if they can be attributed to this tx... eg the tx base rollup, half a tx merge).
 // We need a test suite to demonstrate these measurements
 // pays for fixed tx costs like validation, and updating state roots
@@ -1047,7 +1048,7 @@ pub global FIXED_L2_GAS: u32 = 512;
 pub global FIXED_AVM_STARTUP_L2_GAS: u32 = 20_000;
 
 pub global MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT: u32 =
-    BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+    BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB * DA_GAS_PER_FIELD;
 
 // For gas estimation, we use the theoretical maximum amounts.
 // Since we split in teardown and total, teardown has the theoretical maximum and total is that times 2.
@@ -1065,7 +1066,7 @@ pub global GAS_ESTIMATION_DA_GAS_LIMIT: u32 =
 // TODO: consider moving to typescript
 pub global DEFAULT_TEARDOWN_L2_GAS_LIMIT: u32 = 1_000_000; // Arbitrary default number.
 pub global DEFAULT_L2_GAS_LIMIT: u32 = AVM_MAX_PROCESSABLE_L2_GAS; // Arbitrary default number.
-pub global DEFAULT_TEARDOWN_DA_GAS_LIMIT: u32 = 1_000_000; // Arbitrary default number.
+pub global DEFAULT_TEARDOWN_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT / 2; // Arbitrary default number.
 pub global DEFAULT_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT; // Arbitrary default number.
 
 // Some tree insertions incur an additional cost associated with
@@ -1156,16 +1157,16 @@ pub global AVM_BITWISE_DYN_L2_GAS: u32 = 3; // One row per byte
 pub global AVM_EMITPUBLICLOG_DYN_L2_GAS: u32 = 3;
 
 // Base DA Gas
-pub global AVM_EMITNOTEHASH_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
-pub global AVM_EMITNULLIFIER_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
-pub global AVM_SENDL2TOL1MSG_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
-pub global AVM_EMITPUBLICLOG_BASE_DA_GAS: u32 = 2 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE; // length and address
+pub global AVM_EMITNOTEHASH_BASE_DA_GAS: u32 = DA_GAS_PER_FIELD;
+pub global AVM_EMITNULLIFIER_BASE_DA_GAS: u32 = DA_GAS_PER_FIELD;
+pub global AVM_SENDL2TOL1MSG_BASE_DA_GAS: u32 = DA_GAS_PER_FIELD;
+pub global AVM_EMITPUBLICLOG_BASE_DA_GAS: u32 = 2 * DA_GAS_PER_FIELD; // length and address
 
 // Dynamic DA Gas
 // a single increment here corresponds to an entire additional field (hence x32 bytes per field)
-pub global AVM_EMITPUBLICLOG_DYN_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+pub global AVM_EMITPUBLICLOG_DYN_DA_GAS: u32 = DA_GAS_PER_FIELD;
 // Gets multiplied by 1 if actually publishing, 0 if not. 2 because of it being (slot, value) pair
-pub global AVM_SSTORE_DYN_DA_GAS: u32 = 2 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+pub global AVM_SSTORE_DYN_DA_GAS: u32 = 2 * DA_GAS_PER_FIELD;
 
 // BLOB PREFIXES
 // Used when decoding blobs of tightly packed effects

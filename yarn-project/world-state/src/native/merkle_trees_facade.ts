@@ -304,7 +304,7 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
     }
   }
 
-  async [Symbol.dispose](): Promise<void> {
+  async [Symbol.asyncDispose](): Promise<void> {
     if (this.opts.closeDelayMs) {
       void sleep(this.opts.closeDelayMs)
         .then(() => this.close())
