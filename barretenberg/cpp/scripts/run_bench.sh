@@ -16,7 +16,7 @@ export HARDWARE_CONCURRENCY=${CPUS:-8}
 
 # Use tcmalloc by default for benchmarks. Set ALLOCATOR=default to use the system allocator.
 libarch=$(uname -m)
-BENCH_PRELOAD="/usr/lib/${libarch}-linux-gnu/libtcmalloc.so"
+BENCH_PRELOAD="/usr/lib/${libarch}-linux-gnu/libtcmalloc_minimal.so.4"
 if [ "${ALLOCATOR:-}" = "default" ]; then
   BENCH_PRELOAD=""
 fi
