@@ -234,6 +234,8 @@ describe('WalletSchema', () => {
   });
 
   it('requestCapabilities', async () => {
+    const someAddress = await AztecAddress.random();
+    const anotherAddress = await AztecAddress.random();
     const manifest: AppCapabilities = {
       version: '1.0',
       metadata: {
@@ -246,6 +248,14 @@ describe('WalletSchema', () => {
           type: 'accounts',
           canGet: true,
           canCreateAuthWit: true,
+        },
+        {
+          type: 'transaction',
+          scope: [
+            { contract: someAddress, function: 'withdraw', additionalScopes: [anotherAddress] },
+            { contract: someAddress, function: 'transfer' },
+            { contract: someAddress, function: 'deposit', additionalScopes: '*' },
+          ],
         },
       ],
     };
