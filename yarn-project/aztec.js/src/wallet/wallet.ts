@@ -381,6 +381,7 @@ export const ContractClassMetadataSchema = z.object({
 export const ContractFunctionPatternSchema = z.object({
   contract: z.union([schemas.AztecAddress, z.literal('*')]),
   function: z.union([z.string(), z.literal('*')]),
+  additionalScopes: optional(z.union([z.array(schemas.AztecAddress), z.literal('*')])),
 });
 
 export const AccountsCapabilitySchema = z.object({
