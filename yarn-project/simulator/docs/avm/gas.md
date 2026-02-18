@@ -1,10 +1,10 @@
 # Gas Metering
 
-The AVM tracks gas consumption across two dimensions: **L2 gas** (execution costs, also called **mana**) and **DA gas** (data availability costs).
+The AVM tracks gas consumption across two dimensions: **L2 gas** (execution costs) and **DA gas** (data availability costs). Note that L2 gas is _not_ the same as mana: mana is the higher-level unit of account that incorporates L2 gas, DA gas, and L1 gas costs together.
 
 ## Gas Dimensions
 
-* **L2 Gas** (mana): roughly represents the computational cost of executing (and especially proving) operations.
+* **L2 Gas**: roughly represents the computational cost of executing (and especially proving) operations.
 * **DA Gas**: represents the cost of publishing data to Layer 1 for data availability. This includes:
   - State updates that must be published to L1
   - Emitting logs

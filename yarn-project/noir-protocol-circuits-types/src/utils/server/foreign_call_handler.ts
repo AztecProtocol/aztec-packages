@@ -94,7 +94,7 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
       );
     }
 
-    const blobs = getBlobsPerL1Block(blobFields);
+    const blobs = await getBlobsPerL1Block(blobFields);
     blobs.forEach((blob, i) => {
       const injected = kzgCommitments[i];
       const calculated = BLS12Point.decompress(blob.commitment);

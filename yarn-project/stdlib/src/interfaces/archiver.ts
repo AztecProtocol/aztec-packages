@@ -4,12 +4,14 @@ import type { ApiSchemaFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
+import { BlockDataSchema } from '../block/block_data.js';
 import { BlockHash } from '../block/block_hash.js';
 import { CheckpointedL2Block } from '../block/checkpointed_l2_block.js';
 import { L2Block } from '../block/l2_block.js';
 import { type L2BlockSource, L2TipsSchema } from '../block/l2_block_source.js';
 import { ValidateCheckpointResultSchema } from '../block/validate_block_result.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
+import { CheckpointDataSchema } from '../checkpoint/checkpoint_data.js';
 import { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import {
   ContractClassPublicSchema,
@@ -104,6 +106,8 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getCheckpointedBlockByArchive: z.function().args(schemas.Fr).returns(CheckpointedL2Block.schema.optional()),
   getBlockHeaderByHash: z.function().args(BlockHash.schema).returns(BlockHeader.schema.optional()),
   getBlockHeaderByArchive: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),
+  getBlockData: z.function().args(BlockNumberSchema).returns(BlockDataSchema.optional()),
+  getBlockDataByArchive: z.function().args(schemas.Fr).returns(BlockDataSchema.optional()),
   getL2Block: z.function().args(BlockNumberSchema).returns(L2Block.schema.optional()),
   getL2BlockByHash: z.function().args(BlockHash.schema).returns(L2Block.schema.optional()),
   getL2BlockByArchive: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
@@ -112,6 +116,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getL2SlotNumber: z.function().args().returns(schemas.SlotNumber.optional()),
   getL2EpochNumber: z.function().args().returns(EpochNumberSchema.optional()),
   getCheckpointsForEpoch: z.function().args(EpochNumberSchema).returns(z.array(Checkpoint.schema)),
+  getCheckpointsDataForEpoch: z.function().args(EpochNumberSchema).returns(z.array(CheckpointDataSchema)),
   getCheckpointedBlocksForEpoch: z.function().args(EpochNumberSchema).returns(z.array(CheckpointedL2Block.schema)),
   getBlocksForSlot: z.function().args(schemas.SlotNumber).returns(z.array(L2Block.schema)),
   getCheckpointedBlockHeadersForEpoch: z.function().args(EpochNumberSchema).returns(z.array(BlockHeader.schema)),

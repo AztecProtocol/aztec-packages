@@ -68,7 +68,7 @@
 <li><a href="#structfield.revert_code">revert_code</a></li>
 <li><a href="#structfield.reverted">reverted</a></li>
 <li><a href="#structfield.salted_initialization_hash">salted_initialization_hash</a></li>
-<li><a href="#structfield.scoped_key_validation_requests_and_generators">scoped_key_validation_requests_and_generators</a></li>
+<li><a href="#structfield.scoped_key_validation_requests_and_separators">scoped_key_validation_requests_and_separators</a></li>
 <li><a href="#structfield.start_gas_used">start_gas_used</a></li>
 <li><a href="#structfield.start_state">start_state</a></li>
 <li><a href="#structfield.start_tree_snapshots">start_tree_snapshots</a></li>
@@ -219,7 +219,7 @@
     pub reverted: <a href="../../../../std/primitive.bool.html" class="primitive">bool</a>,
     pub note_hash_read_requests: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>&gt;&gt;, 64&gt;,
     pub nullifier_read_requests: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>&gt;&gt;, 64&gt;,
-    pub scoped_key_validation_requests_and_generators: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../../protocol_types/abis/validation_requests/key_validation_request_and_generator/struct.KeyValidationRequestAndGenerator.html" class="struct">KeyValidationRequestAndGenerator</a>&gt;, 64&gt;,
+    pub scoped_key_validation_requests_and_separators: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../../protocol_types/abis/validation_requests/key_validation_request_and_separator/struct.KeyValidationRequestAndSeparator.html" class="struct">KeyValidationRequestAndSeparator</a>&gt;, 64&gt;,
     pub function_data: <a href="../../../../protocol_types/abis/function_data/struct.FunctionData.html" class="struct">FunctionData</a>,
     pub args_hash: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
     pub calldata_hash: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
@@ -285,7 +285,7 @@
 <div class="padded-description"></div><div id="structfield.reverted" class="struct-field"><code class="code-header">reverted: <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code></div>
 <div class="padded-description"></div><div id="structfield.note_hash_read_requests" class="struct-field"><code class="code-header">note_hash_read_requests: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>&gt;&gt;, 64&gt;</code></div>
 <div class="padded-description"></div><div id="structfield.nullifier_read_requests" class="struct-field"><code class="code-header">nullifier_read_requests: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>&gt;&gt;, 64&gt;</code></div>
-<div class="padded-description"></div><div id="structfield.scoped_key_validation_requests_and_generators" class="struct-field"><code class="code-header">scoped_key_validation_requests_and_generators: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../../protocol_types/abis/validation_requests/key_validation_request_and_generator/struct.KeyValidationRequestAndGenerator.html" class="struct">KeyValidationRequestAndGenerator</a>&gt;, 64&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.scoped_key_validation_requests_and_separators" class="struct-field"><code class="code-header">scoped_key_validation_requests_and_separators: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../../protocol_types/abis/validation_requests/key_validation_request_and_separator/struct.KeyValidationRequestAndSeparator.html" class="struct">KeyValidationRequestAndSeparator</a>&gt;, 64&gt;</code></div>
 <div class="padded-description"></div><div id="structfield.function_data" class="struct-field"><code class="code-header">function_data: <a href="../../../../protocol_types/abis/function_data/struct.FunctionData.html" class="struct">FunctionData</a></code></div>
 <div class="padded-description"></div><div id="structfield.args_hash" class="struct-field"><code class="code-header">args_hash: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.calldata_hash" class="struct-field"><code class="code-header">calldata_hash: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
@@ -449,16 +449,16 @@
 
 <code id="add_request_for_key_validation" class="code-header">pub fn <a href="#add_request_for_key_validation"><span class="fn">add_request_for_key_validation</span></a>(
     &mut self,
-    pk_m: <a href="../../../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a>,
+    pk_m: <a href="../../../../protocol_types/point/struct.Point.html" class="struct">EmbeddedCurvePoint</a>,
     sk_app: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
-    sk_app_generator: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
+    key_type_domain_separator: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
 )</code>
 
 <code id="append_key_validation_requests" class="code-header">pub fn <a href="#append_key_validation_requests"><span class="fn">append_key_validation_requests</span></a>(&mut self, num_requests: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
 
 <code id="add_private_log" class="code-header">pub fn <a href="#add_private_log"><span class="fn">add_private_log</span></a>(
     &mut self,
-    fields: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 18],
+    fields: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 16],
     length: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>,
     note_hash_counter: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>,
 )</code>
@@ -476,7 +476,7 @@
 
 <code id="add_siloed_private_log" class="code-header">pub fn <a href="#add_siloed_private_log"><span class="fn">add_siloed_private_log</span></a>(
     &mut self,
-    fields: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 18],
+    fields: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 16],
     length: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>,
     note_hash_counter: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>,
 )</code>

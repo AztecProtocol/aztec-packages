@@ -128,27 +128,58 @@ echo "  - Already funded: $ACCOUNTS_ALREADY_FUNDED accounts"
 if [ -z "$ACCOUNTS_TO_FUND" ]; then
     echo "  - Need funding: 0 accounts"
     echo ""
-    echo "✅ All publisher and bot accounts are sufficiently funded!"
+    echo "All publisher and bot accounts are sufficiently funded."
     echo "==================================================="
-    exit 0
+else
+    # Count accounts to fund
+    IFS=',' read -r -a accounts_to_fund_array <<< "$ACCOUNTS_TO_FUND"
+    ACCOUNTS_TO_FUND_COUNT=${#accounts_to_fund_array[@]}
+
+    echo "  - Need funding: $ACCOUNTS_TO_FUND_COUNT accounts"
+    echo "==================================================="
+    echo ""
+
+    # Use the existing ensure_eth_balances.sh script to fund the accounts
+    echo "Funding accounts to $HIGH_WATERMARK ETH..."
+    "${spartan}/scripts/ensure_eth_balances.sh" \
+        "$ETHEREUM_HOST" \
+        "$FUNDING_PRIVATE_KEY" \
+        "$LABS_INFRA_MNEMONIC" \
+        "$ACCOUNTS_TO_FUND" \
+        "$HIGH_WATERMARK"
 fi
 
-# Count accounts to fund
-IFS=',' read -r -a accounts_to_fund_array <<< "$ACCOUNTS_TO_FUND"
-ACCOUNTS_TO_FUND_COUNT=${#accounts_to_fund_array[@]}
-
-echo "  - Need funding: $ACCOUNTS_TO_FUND_COUNT accounts"
+# --- Fund L1 Contract Deployer ---
+echo ""
+echo "==================================================="
+echo "Checking L1 Contract Deployer"
 echo "==================================================="
 echo ""
 
-# Use the existing ensure_eth_balances.sh script to fund the accounts
-echo "Funding accounts to $HIGH_WATERMARK ETH..."
-"${spartan}/scripts/ensure_eth_balances.sh" \
-    "$ETHEREUM_HOST" \
-    "$FUNDING_PRIVATE_KEY" \
-    "$LABS_INFRA_MNEMONIC" \
-    "$ACCOUNTS_TO_FUND" \
-    "$HIGH_WATERMARK"
+if [ -z "${ROLLUP_DEPLOYMENT_PRIVATE_KEY:-}" ] || [ "${ROLLUP_DEPLOYMENT_PRIVATE_KEY}" == "REPLACE_WITH_GCP_SECRET" ]; then
+    echo "ROLLUP_DEPLOYMENT_PRIVATE_KEY not set — skipping deployer funding."
+else
+    deployer_address=$(cast wallet address --private-key "$ROLLUP_DEPLOYMENT_PRIVATE_KEY")
+    deployer_balance_wei=$(cast balance --rpc-url "$ETHEREUM_HOST" "$deployer_address")
+    deployer_balance_eth=$(cast from-wei "$deployer_balance_wei" ether)
+    low_watermark_wei=$(cast to-wei "$LOW_WATERMARK" ether)
+    high_watermark_wei=$(cast to-wei "$HIGH_WATERMARK" ether)
+
+    if (($(echo "$deployer_balance_wei < $low_watermark_wei" | bc -l))); then
+        topup_wei=$(echo "$high_watermark_wei - $deployer_balance_wei" | bc)
+        topup_eth=$(cast from-wei "$topup_wei" ether)
+        echo "  Deployer ($deployer_address): $deployer_balance_eth ETH - NEEDS FUNDING"
+        echo "  Sending $topup_eth ETH to deployer..."
+        cast send \
+            --rpc-url "$ETHEREUM_HOST" \
+            --private-key "$FUNDING_PRIVATE_KEY" \
+            --value "$topup_wei" \
+            "$deployer_address"
+        echo "  Deployer funded."
+    else
+        echo "  Deployer ($deployer_address): $deployer_balance_eth ETH - OK"
+    fi
+fi
 
 echo ""
 echo "✅ Environment funding complete!"

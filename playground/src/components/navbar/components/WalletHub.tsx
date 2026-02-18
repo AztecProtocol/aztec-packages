@@ -160,6 +160,7 @@ export function WalletHub() {
       directConnect: async () => {
         const w = await EmbeddedWallet.create(network.nodeURL, {
           logger: WebLogger.getInstance().createLogger('embedded-wallet'),
+          pxeConfig: { proverEnabled: true },
         });
         await discoverTestAccounts(w);
         return w;

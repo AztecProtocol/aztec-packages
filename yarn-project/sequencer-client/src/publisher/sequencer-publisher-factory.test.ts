@@ -1,7 +1,7 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import type { EpochCache } from '@aztec/epoch-cache';
 import type { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
-import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { DateProvider } from '@aztec/foundation/timer';
@@ -17,7 +17,7 @@ import { SequencerPublisherFactory } from './sequencer-publisher-factory.js';
 describe('SequencerPublisherFactory', () => {
   let factory: SequencerPublisherFactory;
   let mockConfig: SequencerClientConfig;
-  let mockPublisherManager: MockProxy<PublisherManager<L1TxUtilsWithBlobs>>;
+  let mockPublisherManager: MockProxy<PublisherManager<L1TxUtils>>;
   let mockBlobClient: MockProxy<BlobClientInterface>;
   let mockDateProvider: MockProxy<DateProvider>;
   let mockEpochCache: MockProxy<EpochCache>;
@@ -25,7 +25,7 @@ describe('SequencerPublisherFactory', () => {
   let mockGovernanceProposerContract: MockProxy<GovernanceProposerContract>;
   let mockSlashFactoryContract: MockProxy<SlashFactoryContract>;
   let mockNodeKeyStore: MockProxy<NodeKeystoreAdapter>;
-  let mockL1TxUtils: MockProxy<L1TxUtilsWithBlobs>;
+  let mockL1TxUtils: MockProxy<L1TxUtils>;
 
   const validatorAddress = EthAddress.random();
   const publisherAddress = EthAddress.random();
@@ -35,12 +35,12 @@ describe('SequencerPublisherFactory', () => {
     mockConfig = {
       ethereumSlotDuration: 12,
     } as SequencerClientConfig;
-    mockPublisherManager = mock<PublisherManager<L1TxUtilsWithBlobs>>();
+    mockPublisherManager = mock<PublisherManager<L1TxUtils>>();
     mockBlobClient = mock<BlobClientInterface>();
     mockDateProvider = mock<DateProvider>();
     mockEpochCache = mock<EpochCache>();
     mockNodeKeyStore = mock<NodeKeystoreAdapter>();
-    mockL1TxUtils = mock<L1TxUtilsWithBlobs>();
+    mockL1TxUtils = mock<L1TxUtils>();
     mockRollupContract = mock<RollupContract>();
     mockGovernanceProposerContract = mock<GovernanceProposerContract>();
     mockSlashFactoryContract = mock<SlashFactoryContract>();
@@ -138,6 +138,61 @@ describe('SequencerPublisherFactory', () => {
       expect(filterFn(mockL1TxUtils)).toBe(false);
 
       expect(result.attestorAddress).toBe(validatorAddress);
+    });
+
+    it('should reject validator added via updateNodeKeyStore with a different publisher key', async () => {
+      // Initial keystore knows validator → publisherAddress
+      mockNodeKeyStore.getPublisherAddresses.mockReturnValue([publisherAddress]);
+
+      // After updateNodeKeyStore, a new validator maps to a DIFFERENT publisher key
+      const newValidatorAddress = EthAddress.random();
+      const differentPublisherAddress = EthAddress.random();
+      const updatedKeyStore = mock<NodeKeystoreAdapter>();
+      updatedKeyStore.getPublisherAddresses.mockImplementation((addr: EthAddress) => {
+        if (addr.equals(newValidatorAddress)) {
+          return [differentPublisherAddress]; // not in L1TxUtils pool
+        }
+        return [publisherAddress];
+      });
+
+      factory.updateNodeKeyStore(updatedKeyStore);
+
+      // The L1TxUtils pool only has publisherAddress, not differentPublisherAddress
+      mockL1TxUtils.getSenderAddress.mockReturnValue(publisherAddress);
+      mockPublisherManager.getAvailablePublisher.mockRejectedValueOnce(
+        new Error('Failed to find an available publisher.'),
+      );
+
+      await expect(factory.create(newValidatorAddress)).rejects.toThrow('Failed to find an available publisher.');
+
+      // Verify the filter rejects the available publisher (wrong key)
+      const filterFn = mockPublisherManager.getAvailablePublisher.mock.calls[0][0]!;
+      expect(filterFn(mockL1TxUtils)).toBe(false);
+    });
+
+    it('should allow validator added via updateNodeKeyStore with an existing publisher key', async () => {
+      // A new validator maps to the SAME publisher key that's already in the L1TxUtils pool
+      const newValidatorAddress = EthAddress.random();
+      const updatedKeyStore = mock<NodeKeystoreAdapter>();
+      updatedKeyStore.getPublisherAddresses.mockImplementation((addr: EthAddress) => {
+        if (addr.equals(newValidatorAddress)) {
+          return [publisherAddress]; // same key as L1TxUtils
+        }
+        return [];
+      });
+
+      factory.updateNodeKeyStore(updatedKeyStore);
+
+      mockL1TxUtils.getSenderAddress.mockReturnValue(publisherAddress);
+
+      const result = await factory.create(newValidatorAddress);
+
+      // Verify the filter accepts the publisher (same key)
+      const filterFn = mockPublisherManager.getAvailablePublisher.mock.calls[0][0]!;
+      expect(filterFn(mockL1TxUtils)).toBe(true);
+
+      expect(result.attestorAddress).toBe(newValidatorAddress);
+      expect(result.publisher).toBeDefined();
     });
 
     it('should create SequencerPublisher with correct configuration', async () => {

@@ -250,7 +250,7 @@ export class TestContext {
     const previousCheckpointOutHashes = this.checkpointOutHashes;
     const builder = await LightweightCheckpointBuilder.startNewCheckpoint(
       checkpointNumber,
-      constants,
+      { ...constants, timestamp },
       l1ToL2Messages,
       previousCheckpointOutHashes,
       cleanFork,
