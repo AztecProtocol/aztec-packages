@@ -119,6 +119,7 @@ pub contract AuthRegistry {
         on_behalf_of: AztecAddress,
         message_hash: Field,
     ) -> bool {
-        self.storage.approved_actions.at(on_behalf_of).at(message_hash).read()
+        !self.storage.reject_all.at(on_behalf_of).read()
+            & self.storage.approved_actions.at(on_behalf_of).at(message_hash).read()
     }
 }
