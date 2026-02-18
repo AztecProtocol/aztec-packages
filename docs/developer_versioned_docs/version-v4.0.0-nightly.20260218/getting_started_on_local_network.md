@@ -34,7 +34,7 @@ import { General, Fees } from '@site/src/components/Snippets/general_snippets';
 Run:
 
 ```bash
-VERSION=4.0.0-nightly.20260218 bash -i <(curl -sL https://install.aztec.network/4.0.0-nightly.20260218)
+VERSION=latest bash -i <(curl -sL https://install.aztec.network/latest)
 ```
 
 This will install the following tools:

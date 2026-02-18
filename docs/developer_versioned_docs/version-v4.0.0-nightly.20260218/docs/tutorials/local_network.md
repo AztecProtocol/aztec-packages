@@ -7,8 +7,8 @@ description: Information about running the Aztec local network development envir
 
 <!-- NOTE: How is this different from getting started with local network - need to merge then delete this one!!! -->
 
-- Current version: `v4.0.0-nightly.20260218`
-- Update with `aztec-up 4.0.0-nightly.20260218`
+- Current version: `4.0.0-devnet.2-patch.0`
+- Update with `aztec-up latest`
 
 On this page you will find
 
@@ -43,7 +43,7 @@ Check the `git=` github url, tag, and directory.
 
 Example contracts serve as a helpful reference between versions of the Aztec.nr framework since they are strictly maintained with each release.
 
-Code referenced in the documentation is sourced from contracts within [this directory (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v4.0.0-nightly.20260218/noir-projects/noir-contracts/contracts).
+Code referenced in the documentation is sourced from contracts within [this directory (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/4.0.0-devnet.2-patch.0/noir-projects/noir-contracts/contracts).
 
 As in the previous section, the location of the noir contracts moved at version `0.24.0`, from `yarn-project/noir-contracts` before, to `noir-projects/noir-contracts`.
 
@@ -136,9 +136,9 @@ To update the aztec.nr packages manually, update the tags of the `aztec.nr` depe
 ```diff
 [dependencies]
 -aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="v0.7.5", directory="noir-projects/aztec-nr/aztec" }
-+aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="v4.0.0-nightly.20260218", directory="noir-projects/aztec-nr/aztec" }
++aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="4.0.0-devnet.2-patch.0", directory="noir-projects/aztec-nr/aztec" }
 -value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="v0.7.5", directory="noir-projects/aztec-nr/value-note" }
-+value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="v4.0.0-nightly.20260218", directory="noir-projects/aztec-nr/value-note" }
++value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="4.0.0-devnet.2-patch.0", directory="noir-projects/aztec-nr/value-note" }
 ```
 
 Go to the contract directory and try compiling it to verify that the update was successful:
@@ -157,9 +157,9 @@ To update Aztec.js packages, go to your `package.json` and replace the versions 
 ```diff
 [dependencies]
 -"@aztec/accounts": "0.7.5",
-+"@aztec/accounts": "v4.0.0-nightly.20260218",
++"@aztec/accounts": "4.0.0-devnet.2-patch.0",
 -"@aztec/noir-contracts.js": "0.35.1",
-+"@aztec/accounts": "v4.0.0-nightly.20260218",
++"@aztec/accounts": "4.0.0-devnet.2-patch.0",
 ```
 
 ## Local Network PXE Proving

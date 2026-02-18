@@ -16,7 +16,7 @@ This guide shows you how to connect your application to the Aztec local network 
 ## Install dependencies
 
 ```bash
-yarn add @aztec/aztec.js@4.0.0-nightly.20260218 @aztec/wallets@4.0.0-nightly.20260218
+yarn add @aztec/aztec.js@latest @aztec/wallets@latest
 ```
 
 ## Connect to the network
@@ -37,7 +37,7 @@ await waitForNode(node);
 // Create an EmbeddedWallet connected to the node
 const wallet = await EmbeddedWallet.create(node);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-nightly.20260218/docs/examples/ts/aztecjs_connection/index.ts#L1-L14" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L1-L14</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/4.0.0-devnet.2-patch.0/docs/examples/ts/aztecjs_connection/index.ts#L1-L14" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L1-L14</a></sub></sup>
 
 
 :::note About EmbeddedWallet
@@ -57,7 +57,7 @@ const nodeInfo = await node.getNodeInfo();
 console.log("Connected to local network version:", nodeInfo.nodeVersion);
 console.log("Chain ID:", nodeInfo.l1ChainId);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-nightly.20260218/docs/examples/ts/aztecjs_connection/index.ts#L16-L20" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L16-L20</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/4.0.0-devnet.2-patch.0/docs/examples/ts/aztecjs_connection/index.ts#L16-L20" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L16-L20</a></sub></sup>
 
 
 ### Load pre-funded accounts
@@ -75,7 +75,7 @@ const [aliceAddress, bobAddress] = await Promise.all(
 console.log(`Alice's address: ${aliceAddress.toString()}`);
 console.log(`Bob's address: ${bobAddress.toString()}`);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-nightly.20260218/docs/examples/ts/aztecjs_connection/index.ts#L22-L32" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L22-L32</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/4.0.0-devnet.2-patch.0/docs/examples/ts/aztecjs_connection/index.ts#L22-L32" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L22-L32</a></sub></sup>
 
 
 These accounts are pre-funded with fee juice (the native gas token) at genesis, so you can immediately send transactions without needing to bridge funds from L1.
@@ -90,7 +90,7 @@ import { getFeeJuiceBalance } from "@aztec/aztec.js/utils";
 const aliceBalance = await getFeeJuiceBalance(aliceAddress, node);
 console.log(`Alice's fee juice balance: ${aliceBalance}`);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-nightly.20260218/docs/examples/ts/aztecjs_connection/index.ts#L34-L39" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L34-L39</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/4.0.0-devnet.2-patch.0/docs/examples/ts/aztecjs_connection/index.ts#L34-L39" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L34-L39</a></sub></sup>
 
 
 ## Next steps

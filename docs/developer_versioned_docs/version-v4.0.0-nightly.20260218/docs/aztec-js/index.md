@@ -12,7 +12,7 @@ Aztec.js is a library that provides APIs for managing accounts and interacting w
 ## Installing
 
 ```bash
-npm install @aztec/aztec.js@4.0.0-nightly.20260218
+npm install @aztec/aztec.js@latest
 ```
 
 ## Common Dependencies
@@ -20,10 +20,10 @@ npm install @aztec/aztec.js@4.0.0-nightly.20260218
 Most applications will need additional packages alongside `@aztec/aztec.js`, e.g.:
 
 ```bash
-npm install @aztec/aztec.js@4.0.0-nightly.20260218 \
-  @aztec/accounts@4.0.0-nightly.20260218 \
-  @aztec/wallets@4.0.0-nightly.20260218 \
-  @aztec/noir-contracts.js@4.0.0-nightly.20260218
+npm install @aztec/aztec.js@latest \
+  @aztec/accounts@latest \
+  @aztec/wallets@latest \
+  @aztec/noir-contracts.js@latest
 ```
 
 | Package                    | Description                                                   |

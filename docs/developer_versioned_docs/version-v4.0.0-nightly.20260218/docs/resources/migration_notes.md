@@ -34,9 +34,9 @@ aztec-up <version>
 VERSION=<version> bash -i <(curl -sL https://install.aztec.network/<version>)
 ```
 
-For example, to install version `4.0.0-nightly.20260218`:
+For example, to install version `latest`:
 ```bash
-VERSION=4.0.0-nightly.20260218 bash -i <(curl -sL https://install.aztec.network/4.0.0-nightly.20260218)
+VERSION=latest bash -i <(curl -sL https://install.aztec.network/latest)
 ```
 
 **Key changes:**
@@ -5436,7 +5436,7 @@ impl Storage {
 The `protocol` package is now being reexported from `aztec`. It can be accessed through `dep::aztec::protocol`.
 
 ```toml
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v4.0.0-nightly.20260218", directory="yarn-project/aztec-nr/aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="4.0.0-devnet.2-patch.0", directory="yarn-project/aztec-nr/aztec" }
 ```
 
 ### [Aztec.nr] key type definition in Map
@@ -5526,8 +5526,8 @@ const tokenBigInt = (await bridge.methods.token().simulate()).inner;
 ### [Aztec.nr] Add `protocol` to Nargo.toml
 
 ```toml
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v4.0.0-nightly.20260218", directory="yarn-project/aztec-nr/aztec" }
-protocol = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v4.0.0-nightly.20260218", directory="yarn-project/noir-protocol-circuits/crates/types"}
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="4.0.0-devnet.2-patch.0", directory="yarn-project/aztec-nr/aztec" }
+protocol = { git="https://github.com/AztecProtocol/aztec-packages/", tag="4.0.0-devnet.2-patch.0", directory="yarn-project/noir-protocol-circuits/crates/types"}
 ```
 
 ### [Aztec.nr] moving compute_address func to AztecAddress

@@ -15,7 +15,7 @@ This guide shows you how to create and deploy a new account on Aztec.
 ## Install dependencies
 
 ```bash
-yarn add @aztec/aztec.js@4.0.0-nightly.20260218 @aztec/wallets@4.0.0-nightly.20260218
+yarn add @aztec/aztec.js@latest @aztec/wallets@latest
 ```
 
 ## Create a new account
@@ -30,7 +30,7 @@ const salt = Fr.random();
 const newAccount = await wallet.createSchnorrAccount(secret, salt);
 console.log("New account address:", newAccount.address.toString());
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-nightly.20260218/docs/examples/ts/aztecjs_connection/index.ts#L41-L48" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L41-L48</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/4.0.0-devnet.2-patch.0/docs/examples/ts/aztecjs_connection/index.ts#L41-L48" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L41-L48</a></sub></sup>
 
 
 The secret is used to derive the account's encryption keys, and the salt ensures address uniqueness. The signing key is automatically derived from the secret.
@@ -74,7 +74,7 @@ await deployMethod.send({
   fee: { paymentMethod: sponsoredPaymentMethod },
 });
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-nightly.20260218/docs/examples/ts/aztecjs_connection/index.ts#L50-L76" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L50-L76</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/4.0.0-devnet.2-patch.0/docs/examples/ts/aztecjs_connection/index.ts#L50-L76" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L50-L76</a></sub></sup>
 
 
 :::info
@@ -92,7 +92,7 @@ await deployMethodFeeJuice.send({
   from: AztecAddress.ZERO,
 });
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-nightly.20260218/docs/examples/ts/aztecjs_connection/index.ts#L78-L84" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L78-L84</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/4.0.0-devnet.2-patch.0/docs/examples/ts/aztecjs_connection/index.ts#L78-L84" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L78-L84</a></sub></sup>
 
 
 The `from: AztecAddress.ZERO` is required because there's no existing account to send from—the transaction itself creates the account.
@@ -105,7 +105,7 @@ Confirm the account was deployed successfully:
 const metadata = await wallet.getContractMetadata(newAccount.address);
 console.log("Account deployed:", metadata.isContractInitialized);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-nightly.20260218/docs/examples/ts/aztecjs_connection/index.ts#L86-L89" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L86-L89</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/4.0.0-devnet.2-patch.0/docs/examples/ts/aztecjs_connection/index.ts#L86-L89" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L86-L89</a></sub></sup>
 
 
 ## Next steps

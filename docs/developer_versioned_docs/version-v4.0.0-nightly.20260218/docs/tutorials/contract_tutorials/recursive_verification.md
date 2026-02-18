@@ -12,7 +12,7 @@ This is called "recursive" verification because the proof is verified inside an 
 :::
 
 :::tip Full Working Example
-The complete code for this tutorial is available in the [docs/examples](https://github.com/AztecProtocol/aztec-packages/tree/v4.0.0-nightly.20260218/docs/examples) directory. Clone it to follow along or use it as a reference.
+The complete code for this tutorial is available in the [docs/examples](https://github.com/AztecProtocol/aztec-packages/tree/4.0.0-devnet.2-patch.0/docs/examples) directory. Clone it to follow along or use it as a reference.
 :::
 
 ## Prerequisites
@@ -21,7 +21,7 @@ Before starting, ensure you have the following installed and configured:
 
 - Node.js (v22 or later)
 - yarn package manager
-- Aztec CLI (version v4.0.0-nightly.20260218)
+- Aztec CLI (version 4.0.0-devnet.2-patch.0)
 - Nargo (version 1.0.0-beta.15)
 - Familiarity with [Noir syntax](https://noir-lang.org/docs) and [Aztec contract basics](../../aztec-nr/index.md)
 
@@ -29,7 +29,7 @@ Install the required tools:
 
 ```bash
 # Install Aztec CLI
-VERSION=4.0.0-nightly.20260218 bash -i <(curl -sL https://install.aztec.network/4.0.0-nightly.20260218)
+VERSION=latest bash -i <(curl -sL https://install.aztec.network/latest)
 
 # Install Nargo via noirup
 curl -L https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
@@ -139,7 +139,7 @@ fn test_main() {
     main(1, 2);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-nightly.20260218/docs/examples/circuits/hello_circuit/src/main.nr#L1-L10" target="_blank" rel="noopener noreferrer">Source code: docs/examples/circuits/hello_circuit/src/main.nr#L1-L10</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/4.0.0-devnet.2-patch.0/docs/examples/circuits/hello_circuit/src/main.nr#L1-L10" target="_blank" rel="noopener noreferrer">Source code: docs/examples/circuits/hello_circuit/src/main.nr#L1-L10</a></sub></sup>
 
 
 This is intentionally minimal to focus on the verification pattern. In production, you would replace `assert(x != y)` with meaningful computations like:
@@ -178,7 +178,7 @@ authors = [""]
 
 [dependencies]
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-nightly.20260218/docs/examples/circuits/hello_circuit/Nargo.toml#L1-L8" target="_blank" rel="noopener noreferrer">Source code: docs/examples/circuits/hello_circuit/Nargo.toml#L1-L8</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/4.0.0-devnet.2-patch.0/docs/examples/circuits/hello_circuit/Nargo.toml#L1-L8" target="_blank" rel="noopener noreferrer">Source code: docs/examples/circuits/hello_circuit/Nargo.toml#L1-L8</a></sub></sup>
 
 
 **Note**: This is a vanilla Noir circuit, not an Aztec contract. It has `type = "bin"` (binary) and no Aztec dependencies. The circuit is compiled with `nargo`, not `aztec compile`. This distinction is important—you can verify proofs from _any_ Noir circuit inside Aztec contracts.
@@ -255,8 +255,8 @@ type = "contract"
 authors = ["[YOUR_NAME]"]
 
 [dependencies]
-aztec = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "v4.0.0-nightly.20260218", directory = "aztec" }
-bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v4.0.0-nightly.20260218", directory = "barretenberg/noir/bb_proof_verification" }
+aztec = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "4.0.0-devnet.2-patch.0", directory = "aztec" }
+bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "4.0.0-devnet.2-patch.0", directory = "barretenberg/noir/bb_proof_verification" }
 ```
 
 **Key differences from the circuit's Nargo.toml**:
@@ -333,7 +333,7 @@ pub contract ValueNotEqual {
     }
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-nightly.20260218/docs/examples/contracts/recursive_verification_contract/src/main.nr#L1-L78" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/recursive_verification_contract/src/main.nr#L1-L78</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/4.0.0-devnet.2-patch.0/docs/examples/contracts/recursive_verification_contract/src/main.nr#L1-L78" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/recursive_verification_contract/src/main.nr#L1-L78</a></sub></sup>
 
 
 ### Storage Variables Explained
@@ -469,14 +469,14 @@ Create the following files in your project root directory.
     "recursion": "tsx scripts/run_recursion.ts"
   },
   "dependencies": {
-    "@aztec/accounts": "4.0.0-nightly.20260218",
-    "@aztec/aztec.js": "4.0.0-nightly.20260218",
-    "@aztec/bb.js": "4.0.0-nightly.20260218",
-    "@aztec/kv-store": "4.0.0-nightly.20260218",
-    "@aztec/noir-contracts.js": "4.0.0-nightly.20260218",
-    "@aztec/noir-noir_js": "4.0.0-nightly.20260218",
-    "@aztec/pxe": "4.0.0-nightly.20260218",
-    "@aztec/test-wallet": "4.0.0-nightly.20260218",
+    "@aztec/accounts": "latest",
+    "@aztec/aztec.js": "latest",
+    "@aztec/bb.js": "latest",
+    "@aztec/kv-store": "latest",
+    "@aztec/noir-contracts.js": "latest",
+    "@aztec/noir-noir_js": "latest",
+    "@aztec/pxe": "latest",
+    "@aztec/test-wallet": "latest",
     "tsx": "^4.20.6"
   },
   "devDependencies": {
@@ -617,7 +617,7 @@ await barretenbergAPI.destroy();
 console.log("Done");
 exit();
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-nightly.20260218/docs/examples/ts/recursive_verification/scripts/generate_data.ts#L1-L74" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/recursive_verification/scripts/generate_data.ts#L1-L74</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/4.0.0-devnet.2-patch.0/docs/examples/ts/recursive_verification/scripts/generate_data.ts#L1-L74" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/recursive_verification/scripts/generate_data.ts#L1-L74</a></sub></sup>
 
 
 ### Understanding the Proof Generation Pipeline
@@ -921,7 +921,7 @@ export async function getSponsoredFPCInstance() {
   );
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-nightly.20260218/docs/examples/ts/recursive_verification/scripts/sponsored_fpc.ts#L1-L16" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/recursive_verification/scripts/sponsored_fpc.ts#L1-L16</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/4.0.0-devnet.2-patch.0/docs/examples/ts/recursive_verification/scripts/sponsored_fpc.ts#L1-L16" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/recursive_verification/scripts/sponsored_fpc.ts#L1-L16</a></sub></sup>
 
 
 This utility computes the address of the pre-deployed sponsored FPC contract. The salt ensures we get the same address every time. For more information about fee payment options, see [Paying Fees](../../aztec-js/how_to_pay_fees.md).
@@ -962,7 +962,7 @@ The counter starts at 10 (set during deployment), and after successful proof ver
 
 ## Quick Reference
 
-If you want to run all commands at once, or if you're starting fresh, here's the complete workflow. You can also reference the [full working example](https://github.com/AztecProtocol/aztec-packages/tree/v4.0.0-nightly.20260218/docs/examples) in the main repository.
+If you want to run all commands at once, or if you're starting fresh, here's the complete workflow. You can also reference the [full working example](https://github.com/AztecProtocol/aztec-packages/tree/4.0.0-devnet.2-patch.0/docs/examples) in the main repository.
 
 ```bash
 # Install dependencies (after creating package.json and tsconfig.json)
