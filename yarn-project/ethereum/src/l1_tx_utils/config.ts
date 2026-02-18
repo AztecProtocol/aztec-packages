@@ -5,6 +5,7 @@ import {
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
+  optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
 
 export interface L1TxUtilsConfig {
@@ -60,6 +61,12 @@ export interface L1TxUtilsConfig {
    * How long a tx nonce can be unseen in the mempool before considering it dropped
    */
   txUnseenConsideredDroppedMs?: number;
+  /** Enable tx delayer. When true, wraps the viem client to intercept and delay txs. Test-only. */
+  enableDelayer?: boolean;
+  /** Max seconds into an L1 slot for tx inclusion. Txs sent later are deferred to next slot. Only used when enableDelayer is true. */
+  txDelayerMaxInclusionTimeIntoSlot?: number;
+  /** How many seconds an L1 slot lasts. */
+  ethereumSlotDuration?: number;
 }
 
 export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
@@ -141,6 +148,19 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
     description: 'How long a tx nonce can be unseen in the mempool before considering it dropped',
     env: 'L1_TX_MONITOR_TX_UNSEEN_CONSIDERED_DROPPED_MS',
     ...numberConfigHelper(6 * 12 * 1000), // 6 L1 blocks
+  },
+  enableDelayer: {
+    description: 'Enable tx delayer for testing.',
+    ...booleanConfigHelper(false),
+  },
+  txDelayerMaxInclusionTimeIntoSlot: {
+    description: 'Max seconds into L1 slot for tx inclusion when delayer is enabled.',
+    ...optionalNumberConfigHelper(),
+  },
+  ethereumSlotDuration: {
+    env: 'ETHEREUM_SLOT_DURATION',
+    description: 'How many seconds an L1 slot lasts.',
+    ...numberConfigHelper(12),
   },
 };
 

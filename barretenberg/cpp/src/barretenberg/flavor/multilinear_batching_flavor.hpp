@@ -13,6 +13,7 @@
 #include "barretenberg/flavor/partially_evaluated_multivariates.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/relations/multilinear_batching/multilinear_batching_relation.hpp"
+#include "barretenberg/relations/relation_tuple_helpers.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {

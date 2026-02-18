@@ -3,7 +3,7 @@ import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { Aes128 } from '@aztec/foundation/crypto/aes128';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
-import { LogLevels, type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
+import { LogLevels, type Logger, createLogger } from '@aztec/foundation/log';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
@@ -21,6 +21,7 @@ import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from
 import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
 
 import type { AccessScopes } from '../../access_scopes.js';
+import { createContractLogger, logContractMessage } from '../../contract_logging.js';
 import { EventService } from '../../events/event_service.js';
 import { LogService } from '../../logs/log_service.js';
 import { NoteService } from '../../notes/note_service.js';
@@ -402,12 +403,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    */
   async #getContractLogger(): Promise<Logger> {
     if (!this.contractLogger) {
-      const addrAbbrev = this.contractAddress.toString().slice(0, 10);
-      const name = await this.contractStore.getDebugContractName(this.contractAddress);
-      const module = name ? `contract_log::${name}(${addrAbbrev})` : `contract_log::${addrAbbrev}`;
       // Purpose of instanceId is to distinguish logs from different instances of the same component. It makes sense
       // to re-use jobId as instanceId here as executions of different PXE jobs are isolated.
-      this.contractLogger = createLogger(module, { instanceId: this.jobId });
+      this.contractLogger = await createContractLogger(
+        this.contractAddress,
+        addr => this.contractStore.getDebugContractName(addr),
+        { instanceId: this.jobId },
+      );
     }
     return this.contractLogger;
   }
@@ -416,9 +418,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     if (!LogLevels[level]) {
       throw new Error(`Invalid log level: ${level}`);
     }
-    const levelName = LogLevels[level];
     const logger = await this.#getContractLogger();
-    logger[levelName](`${applyStringFormatting(message, fields)}`);
+    logContractMessage(logger, LogLevels[level], message, fields);
   }
 
   public async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {

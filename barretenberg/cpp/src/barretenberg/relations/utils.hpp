@@ -12,9 +12,9 @@
 
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/common/tuple.hpp"
-#include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/gate_separator.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/relations/relation_tuple_helpers.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
 namespace bb {

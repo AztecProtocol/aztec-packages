@@ -4,7 +4,7 @@
 
 namespace bb::avm2::simulation {
 
-uint32_t TrackedSideEffects::get_num_unencrypted_log_fields() const
+uint32_t TrackedSideEffects::get_num_public_log_fields() const
 {
     return public_logs.length;
 }

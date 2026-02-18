@@ -18,7 +18,6 @@ import { type Hex, formatUnits } from 'viem';
 
 import type { SequencerState } from './utils.js';
 
-// TODO(palla/mbps): Review all metrics and add any missing ones per checkpoint
 export class SequencerMetrics {
   public readonly tracer: Tracer;
   private meter: Meter;
@@ -40,11 +39,16 @@ export class SequencerMetrics {
   private filledSlots: UpDownCounter;
 
   private blockProposalFailed: UpDownCounter;
-  private blockProposalSuccess: UpDownCounter;
-  private blockProposalPrecheckFailed: UpDownCounter;
+  private checkpointProposalSuccess: UpDownCounter;
+  private checkpointPrecheckFailed: UpDownCounter;
+  private checkpointProposalFailed: UpDownCounter;
   private checkpointSuccess: UpDownCounter;
   private slashingAttempts: UpDownCounter;
   private checkpointAttestationDelay: Histogram;
+  private checkpointBuildDuration: Histogram;
+  private checkpointBlockCount: Gauge;
+  private checkpointTxCount: Gauge;
+  private checkpointTotalMana: Gauge;
 
   // Fisherman fee analysis metrics
   private fishermanWouldBeIncluded: UpDownCounter;
@@ -54,6 +58,7 @@ export class SequencerMetrics {
   private fishermanPendingBlobCount: Histogram;
   private fishermanIncludedBlobCount: Histogram;
   private fishermanBlockBlobsFull: UpDownCounter;
+  private fishermanMaxBlobCapacity: Histogram;
   private fishermanCalculatedPriorityFee: Histogram;
   private fishermanPriorityFeeDelta: Histogram;
   private fishermanEstimatedCost: Histogram;
@@ -83,7 +88,7 @@ export class SequencerMetrics {
 
     this.checkpointAttestationDelay = this.meter.createHistogram(Metrics.SEQUENCER_CHECKPOINT_ATTESTATION_DELAY);
 
-    this.rewards = this.meter.createGauge(Metrics.SEQUENCER_CURRENT_BLOCK_REWARDS);
+    this.rewards = this.meter.createGauge(Metrics.SEQUENCER_CURRENT_SLOT_REWARDS);
 
     this.slots = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_SLOT_COUNT);
 
@@ -106,16 +111,16 @@ export class SequencerMetrics {
       Metrics.SEQUENCER_BLOCK_PROPOSAL_FAILED_COUNT,
     );
 
-    this.blockProposalSuccess = createUpDownCounterWithDefault(
+    this.checkpointProposalSuccess = createUpDownCounterWithDefault(
       this.meter,
-      Metrics.SEQUENCER_BLOCK_PROPOSAL_SUCCESS_COUNT,
+      Metrics.SEQUENCER_CHECKPOINT_PROPOSAL_SUCCESS_COUNT,
     );
 
     this.checkpointSuccess = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_CHECKPOINT_SUCCESS_COUNT);
 
-    this.blockProposalPrecheckFailed = createUpDownCounterWithDefault(
+    this.checkpointPrecheckFailed = createUpDownCounterWithDefault(
       this.meter,
-      Metrics.SEQUENCER_BLOCK_PROPOSAL_PRECHECK_FAILED_COUNT,
+      Metrics.SEQUENCER_CHECKPOINT_PRECHECK_FAILED_COUNT,
       {
         [Attributes.ERROR_TYPE]: [
           'slot_already_taken',
@@ -126,6 +131,16 @@ export class SequencerMetrics {
       },
     );
 
+    this.checkpointProposalFailed = createUpDownCounterWithDefault(
+      this.meter,
+      Metrics.SEQUENCER_CHECKPOINT_PROPOSAL_FAILED_COUNT,
+    );
+
+    this.checkpointBuildDuration = this.meter.createHistogram(Metrics.SEQUENCER_CHECKPOINT_BUILD_DURATION);
+    this.checkpointBlockCount = this.meter.createGauge(Metrics.SEQUENCER_CHECKPOINT_BLOCK_COUNT);
+    this.checkpointTxCount = this.meter.createGauge(Metrics.SEQUENCER_CHECKPOINT_TX_COUNT);
+    this.checkpointTotalMana = this.meter.createGauge(Metrics.SEQUENCER_CHECKPOINT_TOTAL_MANA);
+
     this.slashingAttempts = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_SLASHING_ATTEMPTS_COUNT);
 
     // Fisherman fee analysis metrics
@@ -134,6 +149,7 @@ export class SequencerMetrics {
       Metrics.FISHERMAN_FEE_ANALYSIS_WOULD_BE_INCLUDED,
       {
         [Attributes.OK]: [true, false],
+        [Attributes.BLOCK_FULL]: ['true', 'false'],
       },
     );
 
@@ -176,6 +192,8 @@ export class SequencerMetrics {
         [Attributes.OK]: [true, false],
       },
     );
+
+    this.fishermanMaxBlobCapacity = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_MAX_BLOB_CAPACITY);
   }
 
   public recordRequiredAttestations(requiredAttestationsCount: number, allowanceMs: number) {
@@ -258,16 +276,28 @@ export class SequencerMetrics {
     });
   }
 
-  recordBlockProposalSuccess() {
-    this.blockProposalSuccess.add(1);
+  recordCheckpointProposalSuccess() {
+    this.checkpointProposalSuccess.add(1);
   }
 
-  recordBlockProposalPrecheckFailed(
+  recordCheckpointPrecheckFailed(
     checkType: 'slot_already_taken' | 'rollup_contract_check_failed' | 'slot_mismatch' | 'block_number_mismatch',
   ) {
-    this.blockProposalPrecheckFailed.add(1, {
-      [Attributes.ERROR_TYPE]: checkType,
+    this.checkpointPrecheckFailed.add(1, { [Attributes.ERROR_TYPE]: checkType });
+  }
+
+  recordCheckpointProposalFailed(reason?: string) {
+    this.checkpointProposalFailed.add(1, {
+      ...(reason && { [Attributes.ERROR_TYPE]: reason }),
     });
+  }
+
+  /** Records aggregate metrics for a completed checkpoint build. */
+  recordCheckpointBuild(durationMs: number, blockCount: number, txCount: number, totalMana: number) {
+    this.checkpointBuildDuration.record(Math.ceil(durationMs));
+    this.checkpointBlockCount.record(blockCount);
+    this.checkpointTxCount.record(txCount);
+    this.checkpointTotalMana.record(totalMana);
   }
 
   recordSlashingAttempt(actionCount: number) {
@@ -342,13 +372,21 @@ export class SequencerMetrics {
           this.fishermanBlockBlobsFull.add(1, { ...strategyAttributes, [Attributes.OK]: false });
         }
 
+        // Record the max blob capacity for this block
+        this.fishermanMaxBlobCapacity.record(analysis.analysis.maxBlobCapacity, strategyAttributes);
+
         // Record strategy-specific inclusion result
         if (strategyResult.wouldBeIncluded !== undefined) {
+          const inclusionAttributes = {
+            ...strategyAttributes,
+            [Attributes.BLOCK_FULL]: analysis.analysis.blockBlobsFull ? 'true' : 'false',
+          };
+
           if (strategyResult.wouldBeIncluded) {
-            this.fishermanWouldBeIncluded.add(1, { ...strategyAttributes, [Attributes.OK]: true });
+            this.fishermanWouldBeIncluded.add(1, { ...inclusionAttributes, [Attributes.OK]: true });
           } else {
             this.fishermanWouldBeIncluded.add(1, {
-              ...strategyAttributes,
+              ...inclusionAttributes,
               [Attributes.OK]: false,
               ...(strategyResult.exclusionReason && { [Attributes.ERROR_TYPE]: strategyResult.exclusionReason }),
             });
@@ -358,17 +396,29 @@ export class SequencerMetrics {
         // Record strategy-specific priority fee delta
         if (strategyResult.priorityFeeDelta !== undefined) {
           const priorityFeeDeltaGwei = Number(strategyResult.priorityFeeDelta) / 1e9;
-          this.fishermanPriorityFeeDelta.record(priorityFeeDeltaGwei, strategyAttributes);
+          const deltaAttributes = {
+            ...strategyAttributes,
+            [Attributes.BLOCK_FULL]: analysis.analysis.blockBlobsFull ? 'true' : 'false',
+          };
+          this.fishermanPriorityFeeDelta.record(priorityFeeDeltaGwei, deltaAttributes);
         }
 
         // Record estimated cost if available
         if (strategyResult.estimatedCostEth !== undefined) {
-          this.fishermanEstimatedCost.record(strategyResult.estimatedCostEth, strategyAttributes);
+          const costAttributes = {
+            ...strategyAttributes,
+            [Attributes.BLOCK_FULL]: analysis.analysis.blockBlobsFull ? 'true' : 'false',
+          };
+          this.fishermanEstimatedCost.record(strategyResult.estimatedCostEth, costAttributes);
         }
 
         // Record estimated overpayment if available
         if (strategyResult.estimatedOverpaymentEth !== undefined) {
-          this.fishermanEstimatedOverpayment.record(strategyResult.estimatedOverpaymentEth, strategyAttributes);
+          const overpaymentAttributes = {
+            ...strategyAttributes,
+            [Attributes.BLOCK_FULL]: analysis.analysis.blockBlobsFull ? 'true' : 'false',
+          };
+          this.fishermanEstimatedOverpayment.record(strategyResult.estimatedOverpaymentEth, overpaymentAttributes);
         }
       }
     }

@@ -21,9 +21,9 @@
 <h3>Fields</h3>
 <ul class="sidebar-list">
 <li><a href="#structfield.constants">constants</a></li>
+<li><a href="#structfield.expiration_timestamp">expiration_timestamp</a></li>
 <li><a href="#structfield.fee_payer">fee_payer</a></li>
 <li><a href="#structfield.gas_used">gas_used</a></li>
-<li><a href="#structfield.include_by_timestamp">include_by_timestamp</a></li>
 <li><a href="#structfield.non_revertible_accumulated_data">non_revertible_accumulated_data</a></li>
 <li><a href="#structfield.public_teardown_call_request">public_teardown_call_request</a></li>
 <li><a href="#structfield.revertible_accumulated_data">revertible_accumulated_data</a></li>
@@ -51,7 +51,7 @@
     pub public_teardown_call_request: <a href="../../../../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a>,
     pub gas_used: <a href="../../../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a>,
     pub fee_payer: <a href="../../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
-    pub include_by_timestamp: <a href="../../../../../std/primitive.u64.html" class="primitive">u64</a>,
+    pub expiration_timestamp: <a href="../../../../../std/primitive.u64.html" class="primitive">u64</a>,
 }
 </code></pre>
 <h2>Fields</h2>
@@ -61,11 +61,11 @@
 <div class="padded-description"></div><div id="structfield.public_teardown_call_request" class="struct-field"><code class="code-header">public_teardown_call_request: <a href="../../../../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a></code></div>
 <div class="padded-description"></div><div id="structfield.gas_used" class="struct-field"><code class="code-header">gas_used: <a href="../../../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a></code></div>
 <div class="padded-description"></div><div id="structfield.fee_payer" class="struct-field"><code class="code-header">fee_payer: <a href="../../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
-<div class="padded-description"></div><div id="structfield.include_by_timestamp" class="struct-field"><code class="code-header">include_by_timestamp: <a href="../../../../../std/primitive.u64.html" class="primitive">u64</a></code></div>
+<div class="padded-description"></div><div id="structfield.expiration_timestamp" class="struct-field"><code class="code-header">expiration_timestamp: <a href="../../../../../std/primitive.u64.html" class="primitive">u64</a></code></div>
 <div class="padded-description"></div><h2>Trait implementations</h2>
 <h3 id="impl-Deserialize-for-PrivateToPublicKernelCircuitPublicInputs"><code class="code-header">impl <a href="../../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../../../protocol_types/abis/kernel_circuit_public_inputs/private_to_public_kernel_circuit_public_inputs/struct.PrivateToPublicKernelCircuitPublicInputs.html" class="struct">PrivateToPublicKernelCircuitPublicInputs</a></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../../../../std/primitive.Field.html" class="primitive">Field</a>; 3040]) -> Self</code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../../../../std/primitive.Field.html" class="primitive">Field</a>; 2784]) -> Self</code>
 
 <code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../../../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
 
@@ -87,7 +87,7 @@
 
 </div><h3 id="impl-Serialize-for-PrivateToPublicKernelCircuitPublicInputs"><code class="code-header">impl <a href="../../../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../../../protocol_types/abis/kernel_circuit_public_inputs/private_to_public_kernel_circuit_public_inputs/struct.PrivateToPublicKernelCircuitPublicInputs.html" class="struct">PrivateToPublicKernelCircuitPublicInputs</a></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../../../std/primitive.Field.html" class="primitive">Field</a>; 3040]</code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../../../std/primitive.Field.html" class="primitive">Field</a>; 2784]</code>
 
 <code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../../../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
 

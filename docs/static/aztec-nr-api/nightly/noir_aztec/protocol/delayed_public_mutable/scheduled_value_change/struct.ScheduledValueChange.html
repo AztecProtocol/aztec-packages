@@ -54,7 +54,7 @@
 <p>Returns the value stored in the data structure at a given timestamp. This function can be called both in public
 (where <code>timestamp</code> is simply the current timestamp, i.e. the timestamp at which the current transaction will be
 included) and in private (where <code>timestamp</code> is the anchor block's timestamp). Reading in private is only safe
-if the transaction's <code>include_by_timestamp</code> property is set to a value lower or equal to the time horizon (see
+if the transaction's <code>expiration_timestamp</code> property is set to a value lower or equal to the time horizon (see
 <code>get_time_horizon()</code>).</p>
 </div>
 </div><code id="get_scheduled" class="code-header">pub fn <a href="#get_scheduled"><span class="fn">get_scheduled</span></a>(self) -> (T, <a href="../../../../std/primitive.u64.html" class="primitive">u64</a>)</code>
@@ -66,7 +66,7 @@ Additionally, further changes might be later scheduled, potentially canceling th
 </div>
 </div><code id="get_previous" class="code-header">pub fn <a href="#get_previous"><span class="fn">get_previous</span></a>(self) -> (T, <a href="../../../../std/primitive.u64.html" class="primitive">u64</a>)</code>
 
-<code id="get_time_horizon" class="code-header">pub fn <a href="#get_time_horizon"><span class="fn">get_time_horizon</span></a>(self, anchor_timestamp: <a href="../../../../std/primitive.u64.html" class="primitive">u64</a>, minimum_delay: <a href="../../../../std/primitive.u64.html" class="primitive">u64</a>) -> <a href="../../../../std/primitive.u64.html" class="primitive">u64</a></code>
+<code id="get_time_horizon" class="code-header">pub fn <a href="#get_time_horizon"><span class="fn">get_time_horizon</span></a>(self, anchor_block_timestamp: <a href="../../../../std/primitive.u64.html" class="primitive">u64</a>, minimum_delay: <a href="../../../../std/primitive.u64.html" class="primitive">u64</a>) -> <a href="../../../../std/primitive.u64.html" class="primitive">u64</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the largest timestamp at which the value returned by <code>get_current_at</code> is known to remain the current
@@ -78,7 +78,7 @@ however, then this value is the 'effective minimum delay' (obtained by calling
 <code>ScheduledDelayChange.get_effective_minimum_delay_at</code>), which equals the minimum time in seconds that needs to
 elapse from the next block's timestamp until the value changes, regardless of further delay changes.
 The value returned by <code>get_current_at</code> in private when called with a anchor block's timestamp is only safe to use
-if the transaction's <code>include_by_timestamp</code> property is set to a value lower or equal to the time horizon
+if the transaction's <code>expiration_timestamp</code> property is set to a value lower or equal to the time horizon
 computed using the same anchor timestamp.</p>
 </div>
 </div><code id="schedule_change" class="code-header">pub fn <a href="#schedule_change"><span class="fn">schedule_change</span></a>(

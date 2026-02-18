@@ -183,8 +183,8 @@ describe('prover/orchestrator', () => {
 
         const result = await orchestrator.finalizeEpoch();
         expect(result.proof).toBeDefined();
-        const numForks = orchestrator.getNumActiveForks();
-        expect(numForks).toEqual(0);
+        // Forks are closed deterministically in setBlockCompleted, so no cancel() needed.
+        expect(orchestrator.getNumActiveForks()).toEqual(0);
       });
 
       it('can start chonk verifier proofs before adding processed txs', async () => {

@@ -160,6 +160,7 @@ export function WalletHub() {
       directConnect: async () => {
         const w = await EmbeddedWallet.create(network.nodeURL, {
           logger: WebLogger.getInstance().createLogger('embedded-wallet'),
+          pxeConfig: { proverEnabled: true },
         });
         await discoverTestAccounts(w);
         return w;
@@ -167,6 +168,9 @@ export function WalletHub() {
       establishSecureChannel: async () => {
         throw new Error('Embedded wallet should use directConnect');
       },
+      disconnect: async () => {},
+      onDisconnect: () => () => {},
+      isDisconnected: () => false,
       callback: () => {
         setOpenWalletModal(true);
       },
@@ -200,7 +204,7 @@ export function WalletHub() {
       setLoading(true);
       setOpen(false);
 
-      if (selectedProvider && selectedProvider.disconnect) {
+      if (selectedProvider) {
         if (disconnectUnsubscribeRef.current) {
           disconnectUnsubscribeRef.current();
           disconnectUnsubscribeRef.current = null;
@@ -255,15 +259,13 @@ export function WalletHub() {
       setSelectedProvider(pendingProvider);
       setIsEmbeddedWalletSelected(false);
 
-      if (pendingProvider.onDisconnect) {
-        disconnectUnsubscribeRef.current = pendingProvider.onDisconnect(() => {
-          setWallet(null);
-          setSelectedProvider(null);
-          setFrom(null);
-          disconnectUnsubscribeRef.current = null;
-          discoverWallets();
-        });
-      }
+      disconnectUnsubscribeRef.current = pendingProvider.onDisconnect(() => {
+        setWallet(null);
+        setSelectedProvider(null);
+        setFrom(null);
+        disconnectUnsubscribeRef.current = null;
+        discoverWallets();
+      });
 
       setWallet(connectedWallet);
       setConnectionPhase('idle');

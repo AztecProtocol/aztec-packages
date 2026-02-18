@@ -6,9 +6,11 @@ import type { Tx, TxHash } from '@aztec/stdlib/tx';
 import { type ComponentsVersions, getComponentsVersionsFromConfig } from '@aztec/stdlib/versioning';
 import { makeTracedFetch } from '@aztec/telemetry-client';
 
+export type TxSourceCollectionResult = { validTxs: Tx[]; invalidTxHashes: string[] };
+
 export interface TxSource {
   getInfo(): string;
-  getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
+  getTxsByHash(txHashes: TxHash[]): Promise<TxSourceCollectionResult>;
 }
 
 export class NodeRpcTxSource implements TxSource {
@@ -26,8 +28,25 @@ export class NodeRpcTxSource implements TxSource {
     return this.info;
   }
 
-  public getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
-    return this.client.getTxsByHash(txHashes);
+  public async getTxsByHash(txHashes: TxHash[]): Promise<TxSourceCollectionResult> {
+    return this.verifyTxs(await this.client.getTxsByHash(txHashes));
+  }
+
+  private async verifyTxs(txs: Tx[]): Promise<TxSourceCollectionResult> {
+    // Validate tx hashes for all collected txs from external sources
+    const validTxs: Tx[] = [];
+    const invalidTxHashes: string[] = [];
+    await Promise.all(
+      txs.map(async tx => {
+        const isValid = await tx.validateTxHash();
+        if (isValid) {
+          validTxs.push(tx);
+        } else {
+          invalidTxHashes.push(tx.getTxHash().toString());
+        }
+      }),
+    );
+    return { validTxs: validTxs, invalidTxHashes: invalidTxHashes };
   }
 }
 

@@ -14,6 +14,7 @@ import { GasFees } from '@aztec/stdlib/gas';
 import { ConsensusPayload, SignatureDomainSeparator } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 
+import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import {
   type Hex,
@@ -332,7 +333,7 @@ describe('CalldataRetriever', () => {
       const attestations = makeViemCommitteeAttestations();
       const archiveRoot = Fr.random();
       const archive = archiveRoot.toString() as Hex;
-      const feeAssetPriceModifier = BigInt(0);
+      const feeAssetPriceModifier = BigInt(-1);
 
       // Create propose calldata with known values
       const proposeCalldata = encodeFunctionData({
@@ -355,8 +356,9 @@ describe('CalldataRetriever', () => {
       publicClient.getTransaction.mockResolvedValue(tx);
 
       // Compute the expected payloadDigest using ConsensusPayload (same logic as the validator)
+      // Note: feeAssetPriceModifier is 0n in makeProposeCalldata
       const checkpointHeader = CheckpointHeader.fromViem(header);
-      const consensusPayload = new ConsensusPayload(checkpointHeader, archiveRoot);
+      const consensusPayload = new ConsensusPayload(checkpointHeader, archiveRoot, feeAssetPriceModifier);
       const payloadToSign = consensusPayload.getPayloadToSign(SignatureDomainSeparator.checkpointAttestation);
       const expectedPayloadDigest = keccak256(payloadToSign);
 
@@ -1015,6 +1017,32 @@ describe('CalldataRetriever', () => {
       );
 
       expect(debugClient.request).toHaveBeenCalledTimes(2);
+    });
+
+    it('should log trace+debug failure warn only once per tx hash', async () => {
+      CalldataRetriever.resetTraceFailureWarnedForTesting();
+      const warnSpy = jest.spyOn(logger, 'warn');
+
+      // First attempt: both trace and debug fail
+      debugClient.request.mockRejectedValueOnce(new Error('trace_transaction not supported'));
+      debugClient.request.mockRejectedValueOnce(new Error('debug_traceTransaction not supported'));
+
+      await expect(retriever.extractCalldataViaTrace(txHash)).rejects.toThrow(
+        'Failed to trace transaction ' + txHash + ' to extract propose calldata',
+      );
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Cannot decode L1 tx'));
+
+      // Second attempt: same tx, both fail again - should not log warn again
+      debugClient.request.mockRejectedValueOnce(new Error('trace_transaction not supported'));
+      debugClient.request.mockRejectedValueOnce(new Error('debug_traceTransaction not supported'));
+
+      await expect(retriever.extractCalldataViaTrace(txHash)).rejects.toThrow(
+        'Failed to trace transaction ' + txHash + ' to extract propose calldata',
+      );
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+
+      warnSpy.mockRestore();
     });
 
     it('should throw when no propose calls found', async () => {

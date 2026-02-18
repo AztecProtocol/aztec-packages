@@ -254,7 +254,7 @@ export interface MerkleTreeCheckpointOperations {
 export interface MerkleTreeWriteOperations
   extends MerkleTreeReadOperations,
     MerkleTreeCheckpointOperations,
-    Disposable {
+    AsyncDisposable {
   /**
    * Appends leaves to a given tree.
    * @param treeId - The tree to be updated.

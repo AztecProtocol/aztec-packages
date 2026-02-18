@@ -53,7 +53,7 @@ fn nullifier_read_requests_out_of_bounds() {
     builder.execute_and_fail();
 }
 
-#[test(should_fail_with = "key_validation_requests_and_generators length out of bounds")]
+#[test(should_fail_with = "key_validation_requests_and_separators length out of bounds")]
 fn key_validation_requests_and_generators_out_of_bounds() {
     let mut builder = TestBuilder::new();
 

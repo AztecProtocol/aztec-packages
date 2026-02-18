@@ -40,7 +40,7 @@ struct NoteHashTreeReadWriteEvent {
     uint64_t leaf_index;
     AppendOnlyTreeSnapshot prev_snapshot;
 
-    std::optional<NoteHashAppendData> append_data;
+    std::optional<NoteHashAppendData> append_data = std::nullopt;
 
     bool operator==(const NoteHashTreeReadWriteEvent& other) const = default;
 };

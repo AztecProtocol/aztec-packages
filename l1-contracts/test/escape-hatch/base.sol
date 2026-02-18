@@ -11,6 +11,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {FakeRollup} from "./mocks/FakeRollup.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
 
 /// @notice Configuration struct for EscapeHatch deployment
 /// @dev Foundry can fuzz this struct directly when passed as a test parameter
@@ -98,6 +99,10 @@ contract EscapeHatchBase is TestBase {
       DEFAULT_PROPOSING_EXIT_DELAY
     );
 
+    // Register escape hatch with the rollup so selectCandidates deactivation guard passes
+    vm.prank(Ownable(address(rollup)).owner());
+    rollup.updateEscapeHatch(address(escapeHatch));
+
     vm.label(address(rollup), "Rollup");
     vm.label(address(bondToken), "BondToken");
     vm.label(address(escapeHatch), "EscapeHatch");
@@ -132,6 +137,9 @@ contract EscapeHatchBase is TestBase {
       config.proposingExitDelay
     );
     vm.label(address(escapeHatch), "EscapeHatchWithFakeRollup");
+
+    // Register escape hatch with the fake rollup so selectCandidates deactivation guard passes
+    fakeRollup.setEscapeHatch(address(escapeHatch));
   }
 
   function _mintAndApprove(address _candidate, uint256 _amount) internal {
@@ -247,6 +255,14 @@ contract EscapeHatchBase is TestBase {
     );
 
     vm.label(address(escapeHatch), "FuzzedEscapeHatch");
+
+    // Register the new escape hatch so selectCandidates deactivation guard passes
+    if (useFakeRollup) {
+      fakeRollup.setEscapeHatch(address(escapeHatch));
+    } else {
+      vm.prank(Ownable(address(rollup)).owner());
+      rollup.updateEscapeHatch(address(escapeHatch));
+    }
 
     // Warp to safe epoch to avoid HatchTooEarly errors
     _warpToSafeEpoch();

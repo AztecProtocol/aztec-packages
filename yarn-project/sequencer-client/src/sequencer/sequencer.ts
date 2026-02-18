@@ -12,7 +12,7 @@ import type { DateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
-import type { L2Block, L2BlockSink, L2BlockSource, ValidateCheckpointResult } from '@aztec/stdlib/block';
+import type { BlockData, L2BlockSink, L2BlockSource, ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { getSlotAtTimestamp, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import {
@@ -25,7 +25,7 @@ import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
-import { FullNodeCheckpointsBuilder, type ValidatorClient } from '@aztec/validator-client';
+import { FullNodeCheckpointsBuilder, NodeKeystoreAdapter, type ValidatorClient } from '@aztec/validator-client';
 
 import EventEmitter from 'node:events';
 
@@ -74,14 +74,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
   /** The maximum number of seconds that the sequencer can be into a slot to transition to a particular state. */
   protected timetable!: SequencerTimetable;
-
-  // This shouldn't be here as this gets re-created each time we build/propose a block.
-  // But we have a number of tests that abuse/rely on this class having a permanent publisher.
-  // As long as those tests only configure a single publisher they will continue to work.
-  // This will get re-assigned every time the sequencer goes to build a new block to a publisher that is valid
-  // for the block proposer.
-  // TODO(palla/mbps): Remove this field and fix tests
-  protected publisher: SequencerPublisher | undefined;
 
   /** Config for the sequencer */
   protected config: ResolvedSequencerConfig = DefaultSequencerConfig;
@@ -134,10 +126,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     );
   }
 
-  /** Initializes the sequencer (precomputes tables and creates a publisher). Takes about 3s. */
-  public async init() {
+  /** Initializes the sequencer (precomputes tables). Takes about 3s. */
+  public init() {
     getKzg();
-    this.publisher = (await this.publisherFactory.create(undefined)).publisher;
   }
 
   /** Starts the sequencer and moves to IDLE state. */
@@ -156,7 +147,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   public async stop(): Promise<void> {
     this.log.info(`Stopping sequencer`);
     this.setState(SequencerState.STOPPING, undefined, { force: true });
-    this.publisher?.interrupt();
+    this.publisherFactory.interruptAll();
     await this.runningPromise?.stop();
     this.setState(SequencerState.STOPPED, undefined, { force: true });
     this.log.info('Stopped sequencer');
@@ -169,7 +160,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     } catch (err) {
       this.emit('checkpoint-error', { error: err as Error });
       if (err instanceof SequencerTooSlowError) {
-        // TODO(palla/mbps): Add missing states
         // Log as warn only if we had to abort halfway through the block proposal
         const logLvl = [SequencerState.INITIALIZING_CHECKPOINT, SequencerState.PROPOSER_CHECK].includes(
           err.proposedState,
@@ -310,12 +300,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     // Check that the slot is not taken by a block already (should never happen, since only us can propose for this slot)
-    if (syncedTo.block && syncedTo.block.header.getSlot() >= slot) {
+    if (syncedTo.blockData && syncedTo.blockData.header.getSlot() >= slot) {
       this.log.warn(
         `Cannot propose block at next L2 slot ${slot} since that slot was taken by block ${syncedTo.blockNumber}`,
-        { ...logCtx, block: syncedTo.block.header.toInspect() },
+        { ...logCtx, block: syncedTo.blockData.header.toInspect() },
       );
-      this.metrics.recordBlockProposalPrecheckFailed('slot_already_taken');
+      this.metrics.recordCheckpointPrecheckFailed('slot_already_taken');
       return undefined;
     }
 
@@ -326,7 +316,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const proposerForPublisher = this.config.fishermanMode ? undefined : proposer;
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposerForPublisher);
     this.log.verbose(`Created publisher at address ${publisher.getSenderAddress()} for attestor ${attestorAddress}`);
-    this.publisher = publisher;
 
     // In fisherman mode, set the actual proposer's address for simulations
     if (this.config.fishermanMode && proposer) {
@@ -351,7 +340,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         logCtx,
       );
       this.emit('proposer-rollup-check-failed', { reason: 'Rollup contract check failed', slot });
-      this.metrics.recordBlockProposalPrecheckFailed('rollup_contract_check_failed');
+      this.metrics.recordCheckpointPrecheckFailed('rollup_contract_check_failed');
       return undefined;
     }
 
@@ -361,7 +350,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         { ...logCtx, rollup: canProposeCheck, expectedSlot: slot },
       );
       this.emit('proposer-rollup-check-failed', { reason: 'Slot mismatch', slot });
-      this.metrics.recordBlockProposalPrecheckFailed('slot_mismatch');
+      this.metrics.recordCheckpointPrecheckFailed('slot_mismatch');
       return undefined;
     }
 
@@ -371,7 +360,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         { ...logCtx, rollup: canProposeCheck, expectedSlot: slot },
       );
       this.emit('proposer-rollup-check-failed', { reason: 'Block mismatch', slot });
-      this.metrics.recordBlockProposalPrecheckFailed('block_number_mismatch');
+      this.metrics.recordCheckpointPrecheckFailed('block_number_mismatch');
       return undefined;
     }
 
@@ -533,18 +522,18 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       };
     }
 
-    const block = await this.l2BlockSource.getL2Block(blockNumber);
-    if (!block) {
+    const blockData = await this.l2BlockSource.getBlockData(blockNumber);
+    if (!blockData) {
       // this shouldn't really happen because a moment ago we checked that all components were in sync
-      this.log.error(`Failed to get L2 block ${blockNumber} from the archiver with all components in sync`);
+      this.log.error(`Failed to get L2 block data ${blockNumber} from the archiver with all components in sync`);
       return undefined;
     }
 
     return {
-      block,
-      blockNumber: block.number,
-      checkpointNumber: block.checkpointNumber,
-      archive: block.archive.root,
+      blockData,
+      blockNumber: blockData.header.getBlockNumber(),
+      checkpointNumber: blockData.checkpointNumber,
+      archive: blockData.archive.root,
       l1Timestamp,
       pendingChainValidationStatus,
     };
@@ -867,6 +856,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     return this.validatorClient?.getValidatorAddresses();
   }
 
+  /** Updates the publisher factory's node keystore adapter after a keystore reload. */
+  public updatePublisherNodeKeyStore(adapter: NodeKeystoreAdapter): void {
+    this.publisherFactory.updateNodeKeyStore(adapter);
+  }
+
   public getConfig() {
     return this.config;
   }
@@ -877,7 +871,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 }
 
 type SequencerSyncCheckResult = {
-  block?: L2Block;
+  blockData?: BlockData;
   checkpointNumber: CheckpointNumber;
   blockNumber: BlockNumber;
   archive: Fr;

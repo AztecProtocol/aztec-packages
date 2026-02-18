@@ -68,10 +68,10 @@ export class InvalidTxsAfterMiningRule implements EvictionRule {
         }
 
         // Evict pending txs with an expiration timestamp less than or equal to the mined block timestamp
-        const includeByTimestamp = tx.data.includeByTimestamp;
-        if (includeByTimestamp <= timestamp) {
+        const expirationTimestamp = tx.data.expirationTimestamp;
+        if (expirationTimestamp <= timestamp) {
           this.log.verbose(
-            `Evicting tx ${txHash} from pool due to the tx being expired (includeByTimestamp: ${includeByTimestamp}, mined block timestamp: ${timestamp})`,
+            `Evicting tx ${txHash} from pool due to the tx being expired (expirationTimestamp: ${expirationTimestamp}, mined block timestamp: ${timestamp})`,
           );
           txsToEvict.push(txHash);
           continue;

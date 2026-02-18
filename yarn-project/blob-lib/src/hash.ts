@@ -44,12 +44,12 @@ export async function computeBlobFieldsHash(fields: Fr[]): Promise<Fr> {
   return sponge.squeeze();
 }
 
-export function computeBlobCommitment(data: Uint8Array): Buffer {
+export async function computeBlobCommitment(data: Uint8Array): Promise<Buffer> {
   if (data.length !== BYTES_PER_BLOB) {
     throw new Error(`Expected ${BYTES_PER_BLOB} bytes per blob. Got ${data.length}.`);
   }
 
-  return Buffer.from(getKzg().blobToKzgCommitment(data));
+  return Buffer.from(await getKzg().asyncBlobToKzgCommitment(data));
 }
 
 /**

@@ -10,17 +10,18 @@ import 'jest-extended';
 import os from 'os';
 import path from 'path';
 
+import { getBootNodeUdpPort } from '../fixtures/fixtures.js';
 import { createNodes, createNonValidatorNode } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
 
 const NUM_NODES = 2;
 const VALIDATORS_PER_NODE = 3;
 const NUM_VALIDATORS = NUM_NODES * VALIDATORS_PER_NODE;
-const BOOT_NODE_UDP_PORT = 4500;
+const BOOT_NODE_UDP_PORT = getBootNodeUdpPort();
 const SLOT_COUNT = 3;
 const EPOCH_DURATION = 2;
-const ETHEREUM_SLOT_DURATION = 4;
-const AZTEC_SLOT_DURATION = 8;
+const ETHEREUM_SLOT_DURATION = 8;
+const AZTEC_SLOT_DURATION = 36;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'validators-sentinel-'));
 
@@ -46,6 +47,9 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
         aztecTargetCommitteeSize: NUM_VALIDATORS,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        blockDurationMs: 6000,
+        l1PublishingTime: 8,
+        enforceTimeTable: true,
         aztecProofSubmissionEpochs: 1024, // effectively do not reorg
         listenAddress: '127.0.0.1',
         minTxsPerBlock: 0,

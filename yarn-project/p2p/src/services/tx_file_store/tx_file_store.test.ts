@@ -9,6 +9,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { InMemoryTxPool } from '../../test-helpers/testbench-utils.js';
+import { FileStoreTxSource } from '../tx_collection/file_store_tx_source.js';
 import type { TxFileStoreConfig } from './config.js';
 import { TxFileStore } from './tx_file_store.js';
 
@@ -103,7 +104,7 @@ describe('TxFileStore', () => {
       await txFileStore!.flush();
 
       expect(spy).toHaveBeenCalledWith(`${basePath}/txs/${tx.getTxHash().toString()}.bin`, tx.toBuffer(), {
-        compress: false,
+        compress: true,
       });
 
       spy.mockRestore();
@@ -148,7 +149,7 @@ describe('TxFileStore', () => {
       await txFileStore!.flush();
 
       expect(spy).toHaveBeenCalledWith(`${basePath}/txs/${tx.getTxHash().toString()}.bin`, tx.toBuffer(), {
-        compress: false,
+        compress: true,
       });
 
       spy.mockRestore();
@@ -308,6 +309,54 @@ describe('TxFileStore', () => {
     }, 10000);
   });
 
+  describe('tx download validation', () => {
+    it('rejects tx with invalid hash when reading from file store', async () => {
+      // Write a tx with a mismatched hash directly to the file store
+      const invalidTx = Tx.random(); // random hash does not match computed hash
+      await fileStore.save(`${basePath}/txs/${invalidTx.txHash.toString()}.bin`, invalidTx.toBuffer(), {
+        compress: false,
+      });
+
+      // Read it back via FileStoreTxSource
+      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, basePath, log))!;
+      const result = await source.getTxsByHash([invalidTx.txHash]);
+
+      expect(result.validTxs).toHaveLength(0);
+      expect(result.invalidTxHashes).toEqual([invalidTx.txHash.toString()]);
+    });
+
+    it('rejects tx when tx with wrong hash is returned', async () => {
+      // Write a tx with a mismatched hash directly to the file store
+      const invalidTx = Tx.random(); // random hash does not match computed hash
+      const validTx = await makeTx();
+      await fileStore.save(`${basePath}/txs/${invalidTx.txHash.toString()}.bin`, validTx.toBuffer(), {
+        compress: false,
+      });
+
+      // Read it back via FileStoreTxSource
+      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, basePath, log))!;
+      const result = await source.getTxsByHash([invalidTx.txHash]);
+
+      expect(result.validTxs).toHaveLength(0);
+      expect(result.invalidTxHashes).toEqual([validTx.txHash.toString()]);
+    });
+
+    it('accepts correct tx', async () => {
+      // Write a tx with a correct hash directly to the file store
+      const validTx = await makeTx();
+      await fileStore.save(`${basePath}/txs/${validTx.txHash.toString()}.bin`, validTx.toBuffer(), {
+        compress: false,
+      });
+
+      // Read it back via FileStoreTxSource
+      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, basePath, log))!;
+      const result = await source.getTxsByHash([validTx.txHash]);
+
+      expect(result.validTxs).toHaveLength(1);
+      expect(result.invalidTxHashes).toHaveLength(0);
+    });
+  });
+
   describe('getPendingUploadCount', () => {
     it('returns correct count of pending uploads', async () => {
       txFileStore = await TxFileStore.create(txPool, config, basePath, log, undefined, fileStore);
@@ -326,6 +375,26 @@ describe('TxFileStore', () => {
       await txFileStore!.flush();
 
       expect(txFileStore!.getPendingUploadCount()).toBe(0);
+    });
+  });
+
+  describe('compression round-trip', () => {
+    it('uploads compressed tx and reads it back via FileStoreTxSource', async () => {
+      txFileStore = await TxFileStore.create(txPool, config, basePath, log, undefined, fileStore);
+      txFileStore!.start();
+
+      const tx = await makeTx();
+      await txPool.addPendingTxs([tx]);
+      await txFileStore!.flush();
+
+      // Read back via FileStoreTxSource using the same local file store
+      const txSource = await FileStoreTxSource.create(`file://${tmpDir}`, basePath, log);
+      expect(txSource).toBeDefined();
+
+      const results = await txSource!.getTxsByHash([tx.getTxHash()]);
+      expect(results.validTxs).toHaveLength(1);
+      expect(results.validTxs[0]).toBeDefined();
+      expect(results.validTxs[0]!.toBuffer()).toEqual(tx.toBuffer());
     });
   });
 });

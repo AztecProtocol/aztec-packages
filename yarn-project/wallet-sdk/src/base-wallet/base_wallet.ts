@@ -8,12 +8,12 @@ import type {
   AppCapabilities,
   BatchResults,
   BatchedMethod,
+  ExecuteUtilityOptions,
   PrivateEvent,
   PrivateEventFilter,
   ProfileOptions,
   SendOptions,
   SimulateOptions,
-  SimulateUtilityOptions,
   Wallet,
   WalletCapabilities,
 } from '@aztec/aztec.js/wallet';
@@ -28,7 +28,7 @@ import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
-import type { AccessScopes } from '@aztec/pxe/client/lazy';
+import type { AccessScopes, ContractNameResolver } from '@aztec/pxe/client/lazy';
 import type { PXE, PackedPrivateEvent } from '@aztec/pxe/server';
 import {
   type ContractArtifact,
@@ -52,7 +52,7 @@ import {
   type TxExecutionRequest,
   type TxProfileResult,
   TxSimulationResult,
-  type UtilitySimulationResult,
+  type UtilityExecutionResult,
 } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
@@ -338,6 +338,15 @@ export abstract class BaseWallet implements Wallet {
       blockHeader = (await this.aztecNode.getBlockHeader())!;
     }
 
+    const getContractName: ContractNameResolver = async address => {
+      const instance = await this.pxe.getContractInstance(address);
+      if (!instance) {
+        return undefined;
+      }
+      const artifact = await this.pxe.getContractArtifact(instance.currentContractClassId);
+      return artifact?.name;
+    };
+
     const [optimizedResults, normalResult] = await Promise.all([
       optimizableCalls.length > 0
         ? simulateViaNode(
@@ -348,6 +357,7 @@ export abstract class BaseWallet implements Wallet {
             feeOptions.gasSettings,
             blockHeader,
             opts.skipFeeEnforcement ?? true,
+            getContractName,
           )
         : Promise.resolve([]),
       remainingCalls.length > 0
@@ -417,8 +427,8 @@ export abstract class BaseWallet implements Wallet {
     return err;
   }
 
-  simulateUtility(call: FunctionCall, opts: SimulateUtilityOptions): Promise<UtilitySimulationResult> {
-    return this.pxe.simulateUtility(call, { authwits: opts.authWitnesses, scopes: [opts.scope] });
+  executeUtility(call: FunctionCall, opts: ExecuteUtilityOptions): Promise<UtilityExecutionResult> {
+    return this.pxe.executeUtility(call, { authwits: opts.authWitnesses, scopes: [opts.scope] });
   }
 
   async getPrivateEvents<T>(

@@ -21,13 +21,37 @@ If your TXE tests fail with key or note access errors, ensure the test is callin
 
 #### Aztec.js developers (PXE/Wallet)
 
-The wallet now passes scopes to PXE, and only the `from` address is in scope by default. A new `additionalScopes` option is available on `send()`, `simulate()`, and `deploy()` for cases where private execution needs access to another address's keys or notes.
+The wallet now passes scopes to PXE, and only the `from` address is in scope by default. Auto-expansion of scopes for nested calls to registered accounts has been removed. A new `additionalScopes` option is available on `send()`, `simulate()`, and `deploy()` for cases where private execution needs access to another address's keys or notes.
 
 **When do you need `additionalScopes`?**
 
 1. **Deploying contracts whose constructor initializes private storage** (e.g., account contracts, or any contract using `SinglePrivateImmutable`/`SinglePrivateMutable` in the constructor). The contract's own address must be in scope so its nullifier key is accessible during initialization.
 
 2. **Operations that access another contract's private state** (e.g., withdrawing from an escrow contract that nullifies the contract's own token notes).
+
+**Example: deploying an account contract**
+
+```diff
+  const deployMethod = await accountManager.getDeployMethod();
+  await deployMethod.send({
+    from: AztecAddress.ZERO,
++   additionalScopes: [accountManager.address],
+  });
+```
+
+**Example: deploying a contract with private storage (e.g., `PrivateToken`)**
+
+```diff
+  const tokenDeployment = PrivateTokenContract.deployWithPublicKeys(
+    tokenPublicKeys, wallet, initialBalance, sender,
+  );
+  const tokenInstance = await tokenDeployment.getInstance();
+  await wallet.registerContract(tokenInstance, PrivateTokenContract.artifact, tokenSecretKey);
+  const token = await tokenDeployment.send({
+    from: sender,
++   additionalScopes: [tokenInstance.address],
+  });
+```
 
 **Example: withdrawing from an escrow contract**
 
@@ -36,6 +60,37 @@ The wallet now passes scopes to PXE, and only the `from` address is in scope by 
     .withdraw(token.address, amount, recipient)
 -   .send({ from: owner });
 +   .send({ from: owner, additionalScopes: [escrowContract.address] });
+```
+
+### `simulateUtility` renamed to `executeUtility`
+
+The `simulateUtility` method and related types have been renamed to `executeUtility` across the entire stack to better reflect that utility functions are executed, not simulated.
+
+**TypeScript:**
+
+```diff
+- import { SimulateUtilityOptions, UtilitySimulationResult } from '@aztec/aztec.js';
++ import { ExecuteUtilityOptions, UtilityExecutionResult } from '@aztec/aztec.js';
+
+- const result: UtilitySimulationResult = await wallet.simulateUtility(functionCall, opts);
++ const result: UtilityExecutionResult = await wallet.executeUtility(functionCall, opts);
+```
+
+**Noir (test environment):**
+
+```diff
+- let result = env.simulate_utility(my_contract_address, selector);
++ let result = env.execute_utility(my_contract_address, selector);
+```
+
+### [Protocol] `include_by_timestamp` renamed to `expiration_timestamp`
+
+The `include_by_timestamp` field has been renamed to `expiration_timestamp` across the protocol to better convey its meaning.
+**Noir:**
+
+```diff
+- context.set_tx_include_by_timestamp(123456789);
++ context.set_expiration_timestamp(123456789);
 ```
 
 ### [CLI] Dockerless CLI Installation
@@ -285,8 +340,6 @@ For this reason we've created place holder protocol contracts in `noir-projects/
 On your side all you need to do is update the dependency in `Nargo.toml`:
 
 ```diff
--auth_contract = { path = "../../protocol/auth_registry_contract" }
-+auth_contract = { path = "../../protocol_interface/auth_registry_interface" }
 -instance_contract = { path = "../../protocol/contract_instance_registry" }
 +instance_contract = { path = "../../protocol_interface/contract_instance_registry_interface" }
 ```

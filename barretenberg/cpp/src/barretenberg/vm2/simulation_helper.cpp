@@ -56,7 +56,7 @@
 #include "barretenberg/vm2/simulation/gadgets/contract_instance_manager.hpp"
 #include "barretenberg/vm2/simulation/gadgets/data_copy.hpp"
 #include "barretenberg/vm2/simulation/gadgets/ecc.hpp"
-#include "barretenberg/vm2/simulation/gadgets/emit_unencrypted_log.hpp"
+#include "barretenberg/vm2/simulation/gadgets/emit_public_log.hpp"
 #include "barretenberg/vm2/simulation/gadgets/execution.hpp"
 #include "barretenberg/vm2/simulation/gadgets/execution_components.hpp"
 #include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
@@ -173,7 +173,7 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
     DefaultEventEmitter<ContractInstanceRetrievalEvent> contract_instance_retrieval_emitter;
     DefaultEventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
     DefaultEventEmitter<L1ToL2MessageTreeCheckEvent> l1_to_l2_msg_tree_check_emitter;
-    DefaultEventEmitter<EmitUnencryptedLogEvent> emit_unencrypted_log_emitter;
+    DefaultEventEmitter<EmitPublicLogEvent> emit_public_log_emitter;
     DefaultEventEmitter<RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_check_emitter;
 
     ExecutionIdManager execution_id_manager(1);
@@ -204,7 +204,7 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
     NoteHashTreeCheck note_hash_tree_check(
         tx.non_revertible_accumulated_data.nullifiers[0], poseidon2, merkle_check, note_hash_tree_check_emitter);
     L1ToL2MessageTreeCheck l1_to_l2_msg_tree_check(merkle_check, l1_to_l2_msg_tree_check_emitter);
-    EmitUnencryptedLog emit_unencrypted_log_component(execution_id_manager, greater_than, emit_unencrypted_log_emitter);
+    EmitPublicLog emit_public_log_component(execution_id_manager, greater_than, emit_public_log_emitter);
     Alu alu(greater_than, field_gt, range_check, alu_emitter);
     Bitwise bitwise(bitwise_emitter);
     Sha256 sha256(execution_id_manager, bitwise, greater_than, sha256_compression_emitter);
@@ -226,7 +226,7 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
     base_merkle_db.add_checkpoint_listener(nullifier_tree_check);
     base_merkle_db.add_checkpoint_listener(public_data_tree_check);
     // This one is only needed for events.
-    base_merkle_db.add_checkpoint_listener(emit_unencrypted_log_component);
+    base_merkle_db.add_checkpoint_listener(emit_public_log_component);
 
     // Side effect tracking is only strictly needed for logs and L2-to-L1 messages.
     SideEffectTracker side_effect_tracker;
@@ -294,7 +294,7 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
                         keccakf1600,
                         greater_than,
                         get_contract_instance,
-                        emit_unencrypted_log_component,
+                        emit_public_log_component,
                         debug_log_component,
                         merkle_db,
                         *call_stack_metadata_collector);
@@ -365,7 +365,7 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
         contract_instance_retrieval_emitter.dump_events(),
         get_contract_instance_emitter.dump_events(),
         l1_to_l2_msg_tree_check_emitter.dump_events(),
-        emit_unencrypted_log_emitter.dump_events(),
+        emit_public_log_emitter.dump_events(),
         retrieved_bytecodes_tree_check_emitter.dump_events(),
     };
 
@@ -406,7 +406,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
     NoopEventEmitter<InternalCallStackEvent> internal_call_stack_emitter;
     NoopEventEmitter<ContractInstanceRetrievalEvent> contract_instance_retrieval_emitter;
     NoopEventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
-    NoopEventEmitter<EmitUnencryptedLogEvent> emit_unencrypted_log_emitter;
+    NoopEventEmitter<EmitPublicLogEvent> emit_public_log_emitter;
     NoopEventEmitter<RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_check_emitter;
     NoopEventEmitter<UpdateCheckEvent> update_check_emitter;
 
@@ -420,7 +420,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
     PureWrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(poseidon2);
     RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check(
         poseidon2, merkle_check, field_gt, build_retrieved_bytecodes_tree(), retrieved_bytecodes_tree_check_emitter);
-    EmitUnencryptedLog emit_unencrypted_log_component(execution_id_manager, greater_than, emit_unencrypted_log_emitter);
+    EmitPublicLog emit_public_log_component(execution_id_manager, greater_than, emit_public_log_emitter);
     PureAlu alu;
     PureBitwise bitwise;
     PureSha256 sha256;
@@ -503,7 +503,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
                               keccakf1600,
                               greater_than,
                               get_contract_instance,
-                              emit_unencrypted_log_component,
+                              emit_public_log_component,
                               *debug_log_component,
                               merkle_db,
                               *call_stack_metadata_collector,

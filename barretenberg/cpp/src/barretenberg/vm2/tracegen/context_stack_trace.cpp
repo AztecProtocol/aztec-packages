@@ -55,7 +55,7 @@ void ContextStackTraceBuilder::process(
                         event.written_public_data_slots_tree_snapshot.root },
                       { C::context_stack_written_public_data_slots_tree_size,
                         event.written_public_data_slots_tree_snapshot.next_available_leaf_index },
-                      { C::context_stack_num_unencrypted_log_fields, event.numUnencryptedLogFields },
+                      { C::context_stack_num_public_log_fields, event.numPublicLogFields },
                       { C::context_stack_num_l2_to_l1_messages, event.numL2ToL1Messages },
                   } });
         row++;

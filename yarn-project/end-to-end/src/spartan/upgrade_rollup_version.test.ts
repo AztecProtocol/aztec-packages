@@ -3,7 +3,7 @@ import { createEthereumChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { GovernanceProposerContract, RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
+import { createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -264,7 +264,7 @@ describe('spartan_upgrade_rollup_version', () => {
       ({ round } = await govInfo());
     }
 
-    const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, { logger: debugLogger });
+    const l1TxUtils = createL1TxUtils(l1Client, { logger: debugLogger });
     const { receipt: proposerReceipt, proposalId } = await governanceProposer.submitRoundWinner(
       executableRound,
       l1TxUtils,
