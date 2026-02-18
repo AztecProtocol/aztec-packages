@@ -62,11 +62,13 @@ describe('e2e_state_vars', () => {
       // 2. A constrained private function that calls another private function that reads.
       //    The indirect, adds 1 to the point to ensure that we are returning the correct value.
 
-      const [a, b, c] = await new BatchCall(wallet, [
-        contract.methods.get_public_immutable_constrained_private(),
-        contract.methods.get_public_immutable_constrained_private_indirect(),
-        contract.methods.get_public_immutable(),
-      ]).simulate({ from: defaultAccountAddress });
+      const [a, b, c] = (
+        await new BatchCall(wallet, [
+          contract.methods.get_public_immutable_constrained_private(),
+          contract.methods.get_public_immutable_constrained_private_indirect(),
+          contract.methods.get_public_immutable(),
+        ]).simulate({ from: defaultAccountAddress })
+      ).map((r: any) => r.result);
 
       expect(a).toEqual(c);
       expect(b).toEqual({ account: c.account, value: c.value + 1n });
@@ -79,11 +81,13 @@ describe('e2e_state_vars', () => {
       // 2. A constrained public function that calls another public function that reads.
       //    The indirect, adds 1 to the point to ensure that we are returning the correct value.
 
-      const [a, b, c] = await new BatchCall(wallet, [
-        contract.methods.get_public_immutable_constrained_public(),
-        contract.methods.get_public_immutable_constrained_public_indirect(),
-        contract.methods.get_public_immutable(),
-      ]).simulate({ from: defaultAccountAddress });
+      const [a, b, c] = (
+        await new BatchCall(wallet, [
+          contract.methods.get_public_immutable_constrained_public(),
+          contract.methods.get_public_immutable_constrained_public_indirect(),
+          contract.methods.get_public_immutable(),
+        ]).simulate({ from: defaultAccountAddress })
+      ).map((r: any) => r.result);
 
       expect(a).toEqual(c);
       expect(b).toEqual({ account: c.account, value: c.value + 1n });
@@ -95,10 +99,10 @@ describe('e2e_state_vars', () => {
       // Reads the value using a utility function checking the return values with:
       // 1. A constrained public function that reads 5 times directly (going beyond the previous 4 Field return value)
 
-      const a = await contract.methods
+      const { result: a } = await contract.methods
         .get_public_immutable_constrained_public_multiple()
         .simulate({ from: defaultAccountAddress });
-      const c = await contract.methods.get_public_immutable().simulate({ from: defaultAccountAddress });
+      const { result: c } = await contract.methods.get_public_immutable().simulate({ from: defaultAccountAddress });
 
       expect(a).toEqual([c, c, c, c, c]);
     });
@@ -115,9 +119,11 @@ describe('e2e_state_vars', () => {
   describe('PrivateMutable', () => {
     it('fail to read uninitialized PrivateMutable', async () => {
       expect(
-        await contract.methods
-          .is_private_mutable_initialized(defaultAccountAddress)
-          .simulate({ from: defaultAccountAddress }),
+        (
+          await contract.methods
+            .is_private_mutable_initialized(defaultAccountAddress)
+            .simulate({ from: defaultAccountAddress })
+        ).result,
       ).toEqual(false);
       await expect(
         contract.methods.get_private_mutable(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
@@ -126,9 +132,11 @@ describe('e2e_state_vars', () => {
 
     it('initialize PrivateMutable', async () => {
       expect(
-        await contract.methods
-          .is_private_mutable_initialized(defaultAccountAddress)
-          .simulate({ from: defaultAccountAddress }),
+        (
+          await contract.methods
+            .is_private_mutable_initialized(defaultAccountAddress)
+            .simulate({ from: defaultAccountAddress })
+        ).result,
       ).toEqual(false);
       // Send the transaction and wait for it to be mined (wait function throws if the tx is not mined)
       const { receipt: txReceipt } = await contract.methods
@@ -140,33 +148,41 @@ describe('e2e_state_vars', () => {
       // 1 for the tx, another for the initializer
       expect(txEffects?.data.nullifiers.length).toEqual(2);
       expect(
-        await contract.methods
-          .is_private_mutable_initialized(defaultAccountAddress)
-          .simulate({ from: defaultAccountAddress }),
+        (
+          await contract.methods
+            .is_private_mutable_initialized(defaultAccountAddress)
+            .simulate({ from: defaultAccountAddress })
+        ).result,
       ).toEqual(true);
     });
 
     it('fail to reinitialize', async () => {
       expect(
-        await contract.methods
-          .is_private_mutable_initialized(defaultAccountAddress)
-          .simulate({ from: defaultAccountAddress }),
+        (
+          await contract.methods
+            .is_private_mutable_initialized(defaultAccountAddress)
+            .simulate({ from: defaultAccountAddress })
+        ).result,
       ).toEqual(true);
       await expect(
         contract.methods.initialize_private(RANDOMNESS, VALUE).send({ from: defaultAccountAddress }),
       ).rejects.toThrow();
       expect(
-        await contract.methods
-          .is_private_mutable_initialized(defaultAccountAddress)
-          .simulate({ from: defaultAccountAddress }),
+        (
+          await contract.methods
+            .is_private_mutable_initialized(defaultAccountAddress)
+            .simulate({ from: defaultAccountAddress })
+        ).result,
       ).toEqual(true);
     });
 
     it('read initialized PrivateMutable', async () => {
       expect(
-        await contract.methods
-          .is_private_mutable_initialized(defaultAccountAddress)
-          .simulate({ from: defaultAccountAddress }),
+        (
+          await contract.methods
+            .is_private_mutable_initialized(defaultAccountAddress)
+            .simulate({ from: defaultAccountAddress })
+        ).result,
       ).toEqual(true);
       const {
         result: { value },
@@ -176,9 +192,11 @@ describe('e2e_state_vars', () => {
 
     it('replace with same value', async () => {
       expect(
-        await contract.methods
-          .is_private_mutable_initialized(defaultAccountAddress)
-          .simulate({ from: defaultAccountAddress }),
+        (
+          await contract.methods
+            .is_private_mutable_initialized(defaultAccountAddress)
+            .simulate({ from: defaultAccountAddress })
+        ).result,
       ).toEqual(true);
       const { result: noteBefore } = await contract.methods
         .get_private_mutable(defaultAccountAddress)
@@ -202,9 +220,11 @@ describe('e2e_state_vars', () => {
 
     it('replace PrivateMutable with other values', async () => {
       expect(
-        await contract.methods
-          .is_private_mutable_initialized(defaultAccountAddress)
-          .simulate({ from: defaultAccountAddress }),
+        (
+          await contract.methods
+            .is_private_mutable_initialized(defaultAccountAddress)
+            .simulate({ from: defaultAccountAddress })
+        ).result,
       ).toEqual(true);
       const { receipt: txReceipt } = await contract.methods
         .update_private_mutable(RANDOMNESS + 2n, VALUE + 1n)
@@ -224,9 +244,11 @@ describe('e2e_state_vars', () => {
 
     it('replace PrivateMutable dependent on prior value', async () => {
       expect(
-        await contract.methods
-          .is_private_mutable_initialized(defaultAccountAddress)
-          .simulate({ from: defaultAccountAddress }),
+        (
+          await contract.methods
+            .is_private_mutable_initialized(defaultAccountAddress)
+            .simulate({ from: defaultAccountAddress })
+        ).result,
       ).toEqual(true);
       const { result: noteBefore } = await contract.methods
         .get_private_mutable(defaultAccountAddress)
@@ -251,7 +273,11 @@ describe('e2e_state_vars', () => {
   describe('PrivateImmutable', () => {
     it('fail to read uninitialized PrivateImmutable', async () => {
       expect(
-        await contract.methods.is_priv_imm_initialized(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
+        (
+          await contract.methods
+            .is_priv_imm_initialized(defaultAccountAddress)
+            .simulate({ from: defaultAccountAddress })
+        ).result,
       ).toEqual(false);
       await expect(
         contract.methods.view_private_immutable(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
@@ -260,7 +286,11 @@ describe('e2e_state_vars', () => {
 
     it('initialize PrivateImmutable', async () => {
       expect(
-        await contract.methods.is_priv_imm_initialized(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
+        (
+          await contract.methods
+            .is_priv_imm_initialized(defaultAccountAddress)
+            .simulate({ from: defaultAccountAddress })
+        ).result,
       ).toEqual(false);
       const { receipt: txReceipt } = await contract.methods
         .initialize_private_immutable(RANDOMNESS, VALUE)
@@ -272,25 +302,41 @@ describe('e2e_state_vars', () => {
       // 1 for the tx, another for the initializer
       expect(txEffects?.data.nullifiers.length).toEqual(2);
       expect(
-        await contract.methods.is_priv_imm_initialized(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
+        (
+          await contract.methods
+            .is_priv_imm_initialized(defaultAccountAddress)
+            .simulate({ from: defaultAccountAddress })
+        ).result,
       ).toEqual(true);
     });
 
     it('fail to reinitialize', async () => {
       expect(
-        await contract.methods.is_priv_imm_initialized(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
+        (
+          await contract.methods
+            .is_priv_imm_initialized(defaultAccountAddress)
+            .simulate({ from: defaultAccountAddress })
+        ).result,
       ).toEqual(true);
       await expect(
         contract.methods.initialize_private_immutable(RANDOMNESS, VALUE).send({ from: defaultAccountAddress }),
       ).rejects.toThrow();
       expect(
-        await contract.methods.is_priv_imm_initialized(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
+        (
+          await contract.methods
+            .is_priv_imm_initialized(defaultAccountAddress)
+            .simulate({ from: defaultAccountAddress })
+        ).result,
       ).toEqual(true);
     });
 
     it('read initialized PrivateImmutable', async () => {
       expect(
-        await contract.methods.is_priv_imm_initialized(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
+        (
+          await contract.methods
+            .is_priv_imm_initialized(defaultAccountAddress)
+            .simulate({ from: defaultAccountAddress })
+        ).result,
       ).toEqual(true);
       const {
         result: { value },
