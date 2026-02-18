@@ -758,6 +758,7 @@ case "$cmd" in
     pull_submodules
     noir/bootstrap.sh build_native  # Build nargo for acir_tests
     barretenberg/bootstrap.sh ci
+    barretenberg/cpp/bootstrap.sh build_bench
     ;;
 
   #######################
