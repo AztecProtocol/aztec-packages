@@ -17,7 +17,7 @@ import type {
 } from '@aztec/p2p';
 import type { EthAddress, L2BlockStreamEvent, L2Tips } from '@aztec/stdlib/block';
 import type { ITxProvider, PeerInfo } from '@aztec/stdlib/interfaces/server';
-import type { BlockProposal, CheckpointAttestation, CheckpointProposal } from '@aztec/stdlib/p2p';
+import type { BlockProposal, CheckpointAttestation, CheckpointProposal, TopicType } from '@aztec/stdlib/p2p';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 export class DummyP2P implements P2P {
@@ -39,6 +39,10 @@ export class DummyP2P implements P2P {
 
   public getPeers(_includePending?: boolean): Promise<PeerInfo[]> {
     throw new Error('DummyP2P does not implement "getPeers"');
+  }
+
+  public getGossipMeshPeerCount(_topicType: TopicType): Promise<number> {
+    return Promise.resolve(0);
   }
 
   public broadcastProposal(_proposal: BlockProposal): Promise<void> {
