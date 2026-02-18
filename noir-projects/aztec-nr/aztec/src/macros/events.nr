@@ -1,5 +1,8 @@
 use crate::{
-    macros::utils::{compute_struct_selector, derive_serialize_if_not_implemented, get_trait_impl_method},
+    macros::utils::{
+        compute_struct_selector, derive_deserialize_if_not_implemented, derive_serialize_if_not_implemented,
+        get_trait_impl_method,
+    },
     utils::cmap::CHashMap,
 };
 use std::panic;
@@ -47,11 +50,13 @@ pub comptime fn event(s: TypeDefinition) -> Quoted {
     register_event_selector(event_selector, s.name());
 
     let serialize_impl = derive_serialize_if_not_implemented(s);
+    let deserialize_impl = derive_deserialize_if_not_implemented(s);
 
     s.add_attribute("abi(events)");
 
     quote {
         $event_interface_impl
         $serialize_impl
+        $deserialize_impl
     }
 }

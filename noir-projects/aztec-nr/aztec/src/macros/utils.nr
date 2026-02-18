@@ -1,4 +1,4 @@
-use crate::protocol::meta::derive_serialize;
+use crate::protocol::meta::{derive_deserialize, derive_serialize};
 use std::meta::{ctstring::AsCtString, unquote};
 
 pub(crate) comptime fn is_fn_external(f: FunctionDefinition) -> bool {
@@ -162,5 +162,15 @@ pub comptime fn derive_serialize_if_not_implemented(s: TypeDefinition) -> Quoted
         // We didn't manage to get the serialized length which means the struct doesn't implement `Serialize` so we
         // derive it.
         derive_serialize(s)
+    }
+}
+
+/// Generates a quote that implements `Deserialize` for a given struct `s`. If the struct already implements
+/// `Deserialize`, we return an empty quote.
+pub comptime fn derive_deserialize_if_not_implemented(s: TypeDefinition) -> Quoted {
+    if s.as_type().implements(quote { crate::protocol::traits::Deserialize }.as_trait_constraint()) {
+        quote {}
+    } else {
+        derive_deserialize(s)
     }
 }

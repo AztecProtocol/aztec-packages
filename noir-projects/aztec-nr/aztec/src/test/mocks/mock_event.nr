@@ -2,9 +2,9 @@
 
 use crate::{event::{event_emission::NewEvent, event_interface::EventInterface, EventSelector}, oracle::random::random};
 
-use crate::protocol::traits::{FromField, Serialize};
+use crate::protocol::traits::{Deserialize, FromField, Serialize};
 
-#[derive(Eq, Serialize)]
+#[derive(Eq, Serialize, Deserialize)]
 pub(crate) struct MockEvent {
     pub(crate) value: Field,
 }

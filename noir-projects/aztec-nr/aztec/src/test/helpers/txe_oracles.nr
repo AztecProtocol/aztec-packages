@@ -1,4 +1,8 @@
-use crate::{context::inputs::PrivateContextInputs, event::EventSelector, test::helpers::utils::TestAccount};
+use crate::{
+    context::inputs::PrivateContextInputs,
+    event::{event_interface::EventInterface, EventSelector},
+    test::helpers::utils::TestAccount,
+};
 
 use crate::protocol::{
     abis::function_selector::FunctionSelector,
@@ -8,6 +12,7 @@ use crate::protocol::{
     },
     contract_instance::ContractInstance,
     traits::{Deserialize, ToField},
+    utils::reader::Reader,
 };
 
 global MAX_PRIVATE_EVENTS_PER_TXE_QUERY: u32 = 5;
@@ -79,19 +84,21 @@ pub unconstrained fn get_last_tx_effects() -> (Field, BoundedVec<Field, MAX_NOTE
 pub unconstrained fn get_default_address() -> AztecAddress {}
 
 // experimental
-pub(crate) unconstrained fn get_private_events(
-    selector: EventSelector,
+pub unconstrained fn get_private_events<Event>(
     contract_address: AztecAddress,
     scope: AztecAddress,
-) -> BoundedVec<BoundedVec<Field, MAX_EVENT_SERIALIZATION_LENGTH>, MAX_PRIVATE_EVENTS_PER_TXE_QUERY> {
-    // This is a workaround as Noir does not currently let us return nested structs with arrays. We instead return a
-    // raw multidimensional array in get_private_events_oracle and create the BoundedVecs here.
-
-    let (raw_array_storage, event_lengths, query_length) = get_private_events_oracle(selector, contract_address, scope);
+) -> BoundedVec<Event, MAX_PRIVATE_EVENTS_PER_TXE_QUERY>
+where
+    Event: EventInterface + Deserialize,
+{
+    let selector = Event::get_event_type_id();
+    let (raw_array_storage, _event_lengths, query_length) =
+        get_private_events_oracle(selector, contract_address, scope);
 
     let mut events = BoundedVec::new();
     for i in 0..query_length {
-        events.push(BoundedVec::from_parts(raw_array_storage[i], event_lengths[i]));
+        let mut reader = Reader::new(raw_array_storage[i]);
+        events.push(Deserialize::stream_deserialize(&mut reader));
     }
 
     events

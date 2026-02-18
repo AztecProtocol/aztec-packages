@@ -243,7 +243,7 @@ pub contract Token {
         self.storage.balances.at(from).add(change).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
         self.storage.balances.at(to).add(amount).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
 
-        // We don't constrain encryption of the note log in `transfer` (unlike in `transfer_in_private`) because the transfer
+        // We don't constrain encryption of the event log here (unlike in `transfer_in_private`) because the transfer
         // function is only designed to be used in situations where the event is not strictly necessary (e.g. payment to
         // another person where the payment is considered to be successful when the other party successfully decrypts a
         // note).

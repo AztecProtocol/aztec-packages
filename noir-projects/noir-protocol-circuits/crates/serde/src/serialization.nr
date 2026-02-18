@@ -240,7 +240,7 @@ pub comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
         let deserialization_of_struct_members = params
             .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
                 quote {
-                    let $param_name = <$param_type as Deserialize>::stream_deserialize(reader);
+                    let $param_name = <$param_type as $crate::serialization::Deserialize>::stream_deserialize(reader);
                 }
             })
             .join(quote {});
@@ -275,7 +275,7 @@ pub comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
 
             fn deserialize(fields: [Field; Self::N]) -> Self {
                 let mut reader = $crate::reader::Reader::new(fields);
-                let result = Self::stream_deserialize(&mut reader);
+                let result = <Self as $crate::serialization::Deserialize>::stream_deserialize(&mut reader);
                 reader.finish();
                 result
             }

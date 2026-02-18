@@ -6,7 +6,7 @@ pub contract TestLog {
         macros::{events::event, functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
         oracle::random::random,
-        protocol::{address::AztecAddress, traits::{FromField, Serialize}},
+        protocol::{address::AztecAddress, traits::{Deserialize, FromField, Serialize}},
         state_vars::{Owned, PrivateSet},
     };
     use field_note::FieldNote;
@@ -23,7 +23,7 @@ pub contract TestLog {
         value3: u8,
     }
 
-    #[derive(Serialize)]
+    #[derive(Deserialize, Serialize)]
     struct NestedStruct {
         a: Field,
         b: Field,
