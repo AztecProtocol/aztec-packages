@@ -95,17 +95,15 @@ bool is_validate_split_in_field_unsafe_constrained(StaticAnalyzer_<FF, CircuitBu
                               .set_q_arith(FF::one());
 
     auto hi_gates = analyzer.get_variable_gates(hi_n.witness_index);
-    auto hi_diff_gates = hi_diff_filter.filter_gates(hi_gates);
-    if (hi_diff_gates.empty()) {
+    auto hi_diff_gate = hi_diff_filter.filter_gates(hi_gates, analyzer);
+    if (!hi_diff_gate.has_value()) {
         log_error("is_validate_split_in_field_unsafe_constrained: no hi_diff add_gate found for hi=",
                   hi_n.witness_index);
         return false;
     }
 
-    auto [hi_blk, hi_gate] = hi_diff_gates[0];
-    auto& hi_block = builder.blocks.get()[hi_blk];
-    auto borrow_idx = hi_block.w_r()[hi_gate];
-    auto hi_diff_idx = hi_block.w_o()[hi_gate];
+    auto borrow_idx = get_w_r_at(builder, *hi_diff_gate);
+    auto hi_diff_idx = get_w_o_at(builder, *hi_diff_gate);
 
     // --- Step 2: Validate borrow is range-constrained to 1 bit ---
     if (!validate_range_constraint<FF>(analyzer, builder, borrow_idx, 1)) {
@@ -139,15 +137,14 @@ bool is_validate_split_in_field_unsafe_constrained(StaticAnalyzer_<FF, CircuitBu
                               .set_q_arith(FF::one());
 
     auto lo_gates = analyzer.get_variable_gates(lo_n.witness_index);
-    auto lo_diff_gates = lo_diff_filter.filter_gates(lo_gates);
-    if (lo_diff_gates.empty()) {
+    auto lo_diff_gate = lo_diff_filter.filter_gates(lo_gates, analyzer);
+    if (!lo_diff_gate.has_value()) {
         log_error("is_validate_split_in_field_unsafe_constrained: no lo_diff add_gate found for lo=",
                   lo_n.witness_index);
         return false;
     }
 
-    auto [lo_blk, lo_gate] = lo_diff_gates[0];
-    auto lo_diff_idx = builder.blocks.get()[lo_blk].w_o()[lo_gate];
+    auto lo_diff_idx = get_w_o_at(builder, *lo_diff_gate);
 
     // --- Step 5: Validate lo_diff is range-constrained to LO_BITS ---
     if (!validate_range_constraint<FF>(analyzer, builder, lo_diff_idx, LO_BITS)) {

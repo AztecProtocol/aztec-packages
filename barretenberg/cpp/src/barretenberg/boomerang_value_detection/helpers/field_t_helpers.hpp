@@ -60,9 +60,7 @@ Bool<CircuitBuilder> witness_or_constant_to_bool(const acir_format::WitnessOrCon
 template <typename FF, typename CircuitBuilder>
 Field<CircuitBuilder> get_field_from_w_r(CircuitBuilder& builder, std::pair<size_t, size_t> gate_location)
 {
-    auto block_idx = gate_location.first;
-    auto gate_idx = gate_location.second;
-    auto result_idx = builder.blocks.get()[block_idx].w_r()[gate_idx];
+    auto result_idx = get_w_r_at(builder, gate_location);
     return Field<CircuitBuilder>{ result_idx,
                                   bb::stdlib::field_t<CircuitBuilder>::from_witness_index(&builder, result_idx) };
 }
@@ -71,9 +69,7 @@ Field<CircuitBuilder> get_field_from_w_r(CircuitBuilder& builder, std::pair<size
 template <typename FF, typename CircuitBuilder>
 Field<CircuitBuilder> get_field_from_w_o(CircuitBuilder& builder, std::pair<size_t, size_t> gate_location)
 {
-    auto block_idx = gate_location.first;
-    auto gate_idx = gate_location.second;
-    auto result_idx = builder.blocks.get()[block_idx].w_o()[gate_idx];
+    auto result_idx = get_w_o_at(builder, gate_location);
     return Field<CircuitBuilder>{ result_idx,
                                   bb::stdlib::field_t<CircuitBuilder>::from_witness_index(&builder, result_idx) };
 }
@@ -82,9 +78,7 @@ Field<CircuitBuilder> get_field_from_w_o(CircuitBuilder& builder, std::pair<size
 template <typename FF, typename CircuitBuilder>
 Field<CircuitBuilder> get_field_from_w_4(CircuitBuilder& builder, std::pair<size_t, size_t> gate_location)
 {
-    auto block_idx = gate_location.first;
-    auto gate_idx = gate_location.second;
-    auto result_idx = builder.blocks.get()[block_idx].w_4()[gate_idx];
+    auto result_idx = get_w_4_at(builder, gate_location);
     return Field<CircuitBuilder>{ result_idx,
                                   bb::stdlib::field_t<CircuitBuilder>::from_witness_index(&builder, result_idx) };
 }
@@ -127,13 +121,13 @@ std::optional<Field<CircuitBuilder>> get_field_normalization_result(StaticAnalyz
                       .set_q_arith(FF::one());
 
     auto gates = analyzer.get_variable_gates(idx);
-    auto filtered = filter.filter_gates(gates);
-    if (filtered.empty()) {
+    auto gate = filter.filter_gates(gates, analyzer);
+    if (!gate.has_value()) {
         log_error("get_field_normalization_result: no normalization gate found for ", idx);
         return std::nullopt;
     }
 
-    return get_field_from_w_o<FF>(builder, filtered[0]);
+    return get_field_from_w_o<FF>(builder, *gate);
 }
 
 /**
@@ -206,13 +200,13 @@ std::optional<Field<CircuitBuilder>> get_mul_gate_output(StaticAnalyzer_<FF, Cir
                              .set_q_arith(FF::one());
 
     auto gates = analyzer.get_variable_gates(a_idx);
-    auto filtered_gates = filter_helper.filter_gates(gates);
-    if (filtered_gates.empty()) {
+    auto gate = filter_helper.filter_gates(gates, analyzer);
+    if (!gate.has_value()) {
         log_error("No multiplication gate found between ", a_idx, " and ", b_idx);
         return std::nullopt;
     }
 
-    return get_field_from_w_o<FF>(builder, filtered_gates[0]);
+    return get_field_from_w_o<FF>(builder, *gate);
 }
 
 /**
@@ -257,13 +251,13 @@ std::optional<Field<CircuitBuilder>> get_add_gate_output(StaticAnalyzer_<FF, Cir
                              .set_q_arith(FF::one());
 
     auto gates = analyzer.get_variable_gates(a_idx);
-    auto filtered_gates = filter_helper.filter_gates(gates);
-    if (filtered_gates.empty()) {
+    auto gate = filter_helper.filter_gates(gates, analyzer);
+    if (!gate.has_value()) {
         log_error("No addition gate found between ", a_idx, " and ", b_idx);
         return std::nullopt;
     }
 
-    return get_field_from_w_o<FF>(builder, filtered_gates[0]);
+    return get_field_from_w_o<FF>(builder, *gate);
 }
 
 /**
@@ -320,13 +314,13 @@ std::optional<Field<CircuitBuilder>> get_madd_gate_output(StaticAnalyzer_<FF, Ci
                              .set_q_arith(FF::one());
 
     auto gates = analyzer.get_variable_gates(a_idx);
-    auto filtered_gates = filter_helper.filter_gates(gates);
-    if (filtered_gates.empty()) {
+    auto gate = filter_helper.filter_gates(gates, analyzer);
+    if (!gate.has_value()) {
         log_error("No madd gate found between ", a_idx, " and ", b_idx, " and ", c_idx);
         return std::nullopt;
     }
 
-    return get_field_from_w_4<FF>(builder, filtered_gates[0]);
+    return get_field_from_w_4<FF>(builder, *gate);
 }
 
 /**
@@ -389,13 +383,13 @@ std::optional<Field<CircuitBuilder>> get_add_two_gate_output(StaticAnalyzer_<FF,
                              .set_q_arith(FF::one());
 
     auto gates = analyzer.get_variable_gates(a_idx);
-    auto filtered_gates = filter_helper.filter_gates(gates);
-    if (filtered_gates.empty()) {
+    auto gate = filter_helper.filter_gates(gates, analyzer);
+    if (!gate.has_value()) {
         log_error("No add two gate found between ", a_idx, " and ", b_idx, " and ", c_idx);
         return std::nullopt;
     }
 
-    return get_field_from_w_4<FF>(builder, filtered_gates[0]);
+    return get_field_from_w_4<FF>(builder, *gate);
 }
 
 /**
@@ -430,8 +424,8 @@ bool is_assert_zero_gate_exists(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
                              .set_q_arith(FF::one());
 
     auto gates = analyzer.get_variable_gates(witness_idx);
-    auto filtered_gates = filter_helper.filter_gates(gates);
-    if (filtered_gates.empty()) {
+    auto gate = filter_helper.filter_gates(gates, analyzer);
+    if (!gate.has_value()) {
         log_error("No assert zero gate found for ", witness_idx);
         return false;
     }
@@ -537,14 +531,14 @@ std::optional<std::pair<Field<CircuitBuilder>, Field<CircuitBuilder>>> find_cond
                           .set_q_arith(FF::one());
 
     auto lhs_gates = analyzer.get_variable_gates(lhs_idx);
-    auto sub_gates = sub_filter.filter_gates(lhs_gates);
-    if (sub_gates.empty()) {
+    auto sub_gate = sub_filter.filter_gates(lhs_gates, analyzer);
+    if (!sub_gate.has_value()) {
         log_error("find_conditional_assign_rhs_and_result: no subtract gate found for lhs=", lhs_idx);
         return std::nullopt;
     }
 
-    auto rhs_field = get_field_from_w_r<FF>(builder, sub_gates[0]);
-    auto diff_field = get_field_from_w_o<FF>(builder, sub_gates[0]);
+    auto rhs_field = get_field_from_w_r<FF>(builder, *sub_gate);
+    auto diff_field = get_field_from_w_o<FF>(builder, *sub_gate);
 
     // Find the madd gate: result = diff.madd(predicate, rhs)
     auto result = get_madd_gate_output<FF>(analyzer, builder, diff_field, predicate_field, rhs_field);
@@ -596,15 +590,13 @@ std::optional<Bool<CircuitBuilder>> get_is_zero_result(StaticAnalyzer_<FF, Circu
                              .set_q_arith(FF::one());
 
     auto gates = analyzer.get_variable_gates(diff_idx);
-    auto filtered_gates = filter_helper.filter_gates(gates);
-    if (filtered_gates.empty()) {
+    auto gate = filter_helper.filter_gates(gates, analyzer);
+    if (!gate.has_value()) {
         log_error("No is_zero gate found for ", diff_idx);
         return std::nullopt;
     }
 
-    auto block_idx = filtered_gates[0].first;
-    auto gate_idx = filtered_gates[0].second;
-    auto is_zero_idx = builder.blocks.get()[block_idx].w_o()[gate_idx];
+    auto is_zero_idx = get_w_o_at(builder, *gate);
     return Bool<CircuitBuilder>{ is_zero_idx,
                                  bb::stdlib::bool_t<CircuitBuilder>::from_witness_index_unsafe(&builder, is_zero_idx) };
 }
@@ -711,15 +703,13 @@ std::optional<Field<CircuitBuilder>> get_evaluate_polynomial_identity_b(StaticAn
                              .set_q_arith(FF::one());
 
     auto gates = analyzer.get_variable_gates(a_idx);
-    auto filtered_gates = filter_helper.filter_gates(gates);
-    if (filtered_gates.empty()) {
+    auto gate = filter_helper.filter_gates(gates, analyzer);
+    if (!gate.has_value()) {
         log_error("No evaluate_polynomial_identity gate found for a=", a_idx);
         return std::nullopt;
     }
 
-    auto block_idx = filtered_gates[0].first;
-    auto gate_idx = filtered_gates[0].second;
-    auto b_idx = builder.blocks.get()[block_idx].w_r()[gate_idx];
+    auto b_idx = get_w_r_at(builder, *gate);
     return Field<CircuitBuilder>{ b_idx, bb::stdlib::field_t<CircuitBuilder>::from_witness_index(&builder, b_idx) };
 }
 
@@ -774,7 +764,6 @@ bool is_assert_equal_exists(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
                              .set_q_arith(FF::one());
 
     auto gates = analyzer.get_variable_gates(a_field.witness_index);
-    auto filtered_gates = filter_helper.filter_gates(gates);
-    return !filtered_gates.empty();
+    return filter_helper.filter_gates(gates, analyzer).has_value();
 }
 } // namespace cdg

@@ -362,6 +362,7 @@ void StaticAnalyzerAcir_<FF, CircuitBuilder>::process_constraint_system()
         opcode_constraint_map = cdg::build_opcode_type_map(constraint_system);
         opcode_constraint_map_built = true;
     }
+    analyzer.clear_consumed_gates();
     for (auto it = opcode_constraint_map.begin(); it != opcode_constraint_map.end(); ++it) {
         auto& [opcode_idx, constraint_info] = *it;
         std::unordered_set<uint32_t> next_constraint_witnesses;
@@ -927,19 +928,42 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_ec_add_constraint(const Co
     Point<FF> input2_point = { constraint->input2_x, constraint->input2_y, constraint->input2_infinite };
 
     bool condition = true;
-    condition &= is_on_curve_check_exists<FF>(analyzer, builder, input1_point, constraint->predicate);
-    condition &= is_on_curve_check_exists<FF>(analyzer, builder, input2_point, constraint->predicate);
 
-    // Check that result point is constrained to be input1 + input2
+    // Both constant: addition computed natively, no gates to check
     if (is_point_constant(input1_point) && is_point_constant(input2_point)) {
-        // Both constant: addition computed natively, no gates to check
+        return true;
+    }
+
+    // Compute real points once (via get_real_point / to_grumpkin_point), then reuse for both
+    // the on-curve check and the EC add result validation.
+    std::optional<RealPoint<CircuitBuilder>> real_input1, real_input2;
+    if (!is_point_constant(input1_point)) {
+        real_input1 = get_real_point<FF>(analyzer, builder, input1_point, constraint->predicate);
+        if (!real_input1.has_value()) {
+            log_error("Real point 1 is not valid");
+            condition = false;
+        } else {
+            condition &= is_on_curve_check_with_real_point<FF>(analyzer, builder, *real_input1);
+        }
+    }
+    if (!is_point_constant(input2_point)) {
+        real_input2 = get_real_point<FF>(analyzer, builder, input2_point, constraint->predicate);
+        if (!real_input2.has_value()) {
+            log_error("Real point 2 is not valid");
+            condition = false;
+        } else {
+            condition &= is_on_curve_check_with_real_point<FF>(analyzer, builder, *real_input2);
+        }
+    }
+
+    if (!real_input1.has_value() || !real_input2.has_value()) {
         return condition;
     }
 
     condition &= is_ec_add_result_constrained<FF>(analyzer,
                                                   builder,
-                                                  input1_point,
-                                                  input2_point,
+                                                  *real_input1,
+                                                  *real_input2,
                                                   constraint->result_x,
                                                   constraint->result_y,
                                                   constraint->result_infinite,
@@ -966,10 +990,19 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_multi_scalar_mul_constrain
 
     bool condition = true;
 
-    // 1. Verify on-curve check for all input points
+    // 1. Compute real points once and verify on-curve check for all input points
     for (size_t i = 0; i < constraint->points.size(); i += 3) {
         Point<FF> point = { constraint->points[i], constraint->points[i + 1], constraint->points[i + 2] };
-        condition &= is_on_curve_check_exists<FF>(analyzer, builder, point, constraint->predicate);
+        if (is_point_constant(point)) {
+            continue;
+        }
+        auto real_point = get_real_point<FF>(analyzer, builder, point, constraint->predicate);
+        if (!real_point.has_value()) {
+            log_error("Real point is not valid");
+            condition = false;
+            continue;
+        }
+        condition &= is_on_curve_check_with_real_point<FF>(analyzer, builder, *real_point);
     }
 
     // 2. Verify cycle_scalar field validation for all scalars
