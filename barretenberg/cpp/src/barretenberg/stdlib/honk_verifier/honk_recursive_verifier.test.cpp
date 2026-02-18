@@ -3,8 +3,9 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/test_utils/proof_structures.hpp"
+#include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/stdlib/test_utils/tamper_proof.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "ultra_verification_keys_comparator.hpp"
@@ -296,75 +297,77 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
         }
     }
 
-    /**
-     * @brief Construct verifier circuits for proofs whose data have been tampered with. Expect failure
-     *
-     */
+    enum class TamperType {
+        MODIFY_SUMCHECK_UNIVARIATE, // Tests sumcheck round consistency constraint (circuit FAIL)
+        MODIFY_SUMCHECK_EVAL,       // Tests final relation check constraint (circuit FAIL)
+        MODIFY_KZG_WITNESS,         // Tests pairing check (circuit PASS, pairing FAIL)
+        MODIFY_LIBRA_EVAL,          // Tests Libra consistency constraint (circuit FAIL, ZK only)
+        END
+    };
+
+    static void tamper_honk_proof(InnerProver& inner_prover,
+                                  typename InnerFlavor::Transcript::Proof& inner_proof,
+                                  TamperType type)
+    {
+        using FF = InnerFF;
+        static constexpr size_t FIRST_WITNESS_INDEX = InnerFlavor::NUM_PRECOMPUTED_ENTITIES;
+
+        StructuredProof<InnerFlavor> structured_proof;
+        const auto num_public_inputs = inner_prover.num_public_inputs();
+        const size_t log_n = InnerFlavor::USE_PADDING ? InnerFlavor::VIRTUAL_LOG_N : inner_prover.log_dyadic_size();
+        structured_proof.deserialize(inner_prover.get_transcript()->test_get_proof_data(), num_public_inputs, log_n);
+
+        switch (type) {
+        case TamperType::MODIFY_SUMCHECK_UNIVARIATE: {
+            FF delta = FF::random_element();
+            structured_proof.sumcheck_univariates[0].value_at(0) += delta;
+            structured_proof.sumcheck_univariates[0].value_at(1) -= delta;
+            break;
+        }
+        case TamperType::MODIFY_SUMCHECK_EVAL:
+            structured_proof.sumcheck_evaluations[FIRST_WITNESS_INDEX] = FF::random_element();
+            break;
+        case TamperType::MODIFY_KZG_WITNESS:
+            structured_proof.kzg_w_comm = structured_proof.kzg_w_comm * FF::random_element();
+            break;
+        case TamperType::MODIFY_LIBRA_EVAL:
+            if constexpr (InnerFlavor::HasZK) {
+                structured_proof.libra_quotient_eval = FF::random_element();
+            }
+            break;
+        case TamperType::END:
+            break;
+        }
+
+        structured_proof.serialize(inner_prover.get_transcript()->test_get_proof_data(), log_n);
+        inner_prover.get_transcript()->test_set_proof_parsing_state(
+            0, ProofLength::Honk<InnerFlavor>::LENGTH_WITHOUT_PUB_INPUTS(log_n) + num_public_inputs);
+        inner_proof = inner_prover.export_proof();
+    }
+
     static void test_recursive_verification_fails()
-        requires(!IsAnyOf<InnerFlavor, MegaZKFlavor, MegaFlavor>)
     {
         for (size_t idx = 0; idx < static_cast<size_t>(TamperType::END); idx++) {
-            // Create an arbitrary inner circuit
-            auto inner_circuit = create_inner_circuit();
-
-            // Generate a proof over the inner circuit
-            auto prover_instance = std::make_shared<InnerProverInstance>(inner_circuit);
-            // Generate the corresponding inner verification key
-            auto inner_verification_key =
-                std::make_shared<typename InnerFlavor::VerificationKey>(prover_instance->get_precomputed());
-            InnerProver inner_prover(prover_instance, inner_verification_key);
-            auto inner_proof = inner_prover.construct_proof();
-
-            // Tamper with the proof to be verified
             TamperType tamper_type = static_cast<TamperType>(idx);
-            tamper_with_proof<InnerProver, InnerFlavor>(inner_prover, inner_proof, tamper_type);
 
-            // Create a recursive verification circuit for the proof of the inner circuit
-            OuterBuilder outer_circuit;
-            auto stdlib_vk_and_hash =
-                std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, inner_verification_key);
-            RecursiveVerifier verifier{ stdlib_vk_and_hash };
-            OuterStdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
-            VerifierOutput output = verifier.verify_proof(stdlib_inner_proof);
-
-            // Wrong Gemini witnesses lead to the pairing check failure in non-ZK case but don't break any
-            // constraints. In ZK-cases, tampering with Gemini witnesses leads to SmallSubgroupIPA consistency check
-            // failure.
-            if ((tamper_type != TamperType::MODIFY_GEMINI_WITNESS) || (InnerFlavor::HasZK)) {
-                // We expect the circuit check to fail due to the bad proof.
-                EXPECT_FALSE(CircuitChecker::check(outer_circuit));
-            } else {
-                EXPECT_TRUE(CircuitChecker::check(outer_circuit));
-                EXPECT_FALSE(output.points_accumulator.check());
+            if (tamper_type == TamperType::MODIFY_LIBRA_EVAL && !InnerFlavor::HasZK) {
+                continue;
             }
-        }
-    }
-    /**
-     * @brief Tamper with a MegaZK proof in two ways. First, we modify the first non-zero value in the proof, which has
-     * to lead to a CircuitChecker failure. Then we also modify the last commitment ("KZG:W") in the proof, in this
-     * case, CircuitChecker succeeds, but the pairing check must fail.
-     *
-     */
-    static void test_recursive_verification_fails()
-        requires(IsAnyOf<InnerFlavor, MegaZKFlavor, MegaFlavor>)
 
-    {
-        for (size_t idx = 0; idx < 2; idx++) {
             // Create an arbitrary inner circuit
             auto inner_circuit = create_inner_circuit();
 
             // Generate a proof over the inner circuit
             auto prover_instance = std::make_shared<InnerProverInstance>(inner_circuit);
-            // Generate the corresponding inner verification key
             auto inner_verification_key =
                 std::make_shared<typename InnerFlavor::VerificationKey>(prover_instance->get_precomputed());
             InnerProver inner_prover(prover_instance, inner_verification_key);
             auto inner_proof = inner_prover.construct_proof();
 
             // Tamper with the proof to be verified
-            tamper_with_proof<InnerFlavor>(inner_proof, /*end_of_proof*/ static_cast<bool>(idx));
+            tamper_honk_proof(inner_prover, inner_proof, tamper_type);
 
-            // Create a recursive verification circuit for the proof of the inner circuit
+            // Create a recursive verification circuit for the tampered proof
             OuterBuilder outer_circuit;
             auto stdlib_vk_and_hash =
                 std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, inner_verification_key);
@@ -372,15 +375,13 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
             OuterStdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
             VerifierOutput output = verifier.verify_proof(stdlib_inner_proof);
 
-            if (idx == 0) {
-                // We expect the circuit check to fail due to the bad proof.
-                EXPECT_FALSE(CircuitChecker::check(outer_circuit));
-            } else {
-                // Wrong  witnesses lead to the pairing check failure in non-ZK case but don't break any
-                // constraints. In ZK-cases, tampering with Gemini witnesses leads to SmallSubgroupIPA consistency check
-                // failure.
+            if (tamper_type == TamperType::MODIFY_KZG_WITNESS) {
+                // Expected to result in pairing failure but no circuit constraint violations
                 EXPECT_TRUE(CircuitChecker::check(outer_circuit));
                 EXPECT_FALSE(output.points_accumulator.check());
+            } else {
+                // All other tamper types should cause a circuit constraint violation
+                EXPECT_FALSE(CircuitChecker::check(outer_circuit));
             }
         }
     }
