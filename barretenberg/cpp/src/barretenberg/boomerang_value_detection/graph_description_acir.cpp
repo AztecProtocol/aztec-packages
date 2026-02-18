@@ -972,6 +972,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_ec_add_constraint(const Co
 // 2. All scalars are field-validated (via cycle_scalar + validate_split_in_field_unsafe)
 // 3. The result is connected to batch_mul output via conditional_assign + assert_equal
 //
+// TODO(defkit): implement proper batch_mul tracing
 // We intentionally skip tracing batch_mul internals. batch_mul is a complex multi-point
 // multiplication algorithm (Straus/Pippenger) whose internal gate structure is too complex
 // to trace statically. Instead, we verify that:

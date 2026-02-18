@@ -18,15 +18,15 @@ namespace cdg {
  *          Selectors: q_arith=1, q_m=1, q_1=-1, q_2=0, q_3=0, q_4=0, q_c=0
  *          The w_l wire is the witness being constrained, and the gate has w_l in both w_l and w_r positions
  *          (since q_m multiplies w_l * w_r).
- * @details mirrors bool_t::assert_bool
  */
 template <typename FF, typename CircuitBuilder>
-bool is_boolean_gate_exists(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
-                            CircuitBuilder& builder,
-                            uint32_t witness_idx)
+bool does_boolean_gate_exist(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                             CircuitBuilder& builder,
+                             uint32_t witness_idx)
 {
     auto filter_helper = FilterFunctionBuilder<CircuitBuilder, FF>(builder)
                              .set_w_l(witness_idx)
+                             .set_w_r(witness_idx)
                              .set_q_m(FF::one())
                              .set_q_1(FF(-1))
                              .set_q_2(FF::zero())
@@ -79,7 +79,7 @@ bool validate_range_constraint(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
 {
     if (num_bits == 1) {
         // Check boolean gate first (bool_t::assert_bool creates this pattern)
-        if (is_boolean_gate_exists<FF>(analyzer, builder, witness)) {
+        if (does_boolean_gate_exist<FF>(analyzer, builder, witness)) {
             return true;
         }
         // Also check range_lists[1] (create_small_range_constraint(idx, 1) adds to this list)
