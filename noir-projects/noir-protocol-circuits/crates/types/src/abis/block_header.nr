@@ -62,14 +62,14 @@ fn hash_of_genesis_block_header() {
     let mut header = BlockHeader::empty();
     // The following values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees.
     header.state.l1_to_l2_message_tree.root =
-        0x0d582c10ff8115413aa5b70564fdd2f3cefe1f33a1e43a47bc495081e91e73e5;
+        0x0fef6d80d31109ddb56d6b3f607cbc9c0af0bff3ea0d43e8f278983c64c11f7a;
     header.state.partial.note_hash_tree.root =
-        0x2ac5dda169f6bb3b9ca09bbac34e14c94d1654597db740153a1288d859a8a30a;
+        0x2590f2aab19dd791700b4a43d3f52bb88ef2409a3731da8e848663559202e4c6;
     header.state.partial.nullifier_tree.root =
-        0x1ec3788cd1c32e54d889d67fe29e481114f9d4afe9b44b229aa29d8ad528dd31;
+        0x0ad385c733f09879d005b1c483468232813916924a93cb305f26f9772908efa5;
     header.state.partial.nullifier_tree.next_available_leaf_index = 128;
     header.state.partial.public_data_tree.root =
-        0x23c08a6b1297210c5e24c76b9a936250a1ce2721576c26ea797c7ec35f9e46a9;
+        0x0c38b50018e675c7b3d40d20f250c710d9c565a28ed5cd1fbe057ac9b5902192;
     header.state.partial.public_data_tree.next_available_leaf_index = 128;
 
     let hash = header.hash();

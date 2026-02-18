@@ -1,3 +1,4 @@
+import { DomainSeparator } from '@aztec/constants';
 import { randomBigInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
@@ -49,7 +50,7 @@ describe('SparseTreeSpecific', () => {
   let poseidon: Poseidon;
 
   beforeEach(() => {
-    poseidon = new Poseidon();
+    poseidon = new Poseidon(DomainSeparator.MERKLE_HASH);
   });
 
   it('throws when index is bigger than (2^DEPTH - 1) ', async () => {

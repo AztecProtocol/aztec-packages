@@ -25,7 +25,10 @@ impl Hash for NullifierLeafPreimage {
             // tree root does not change when a batch contains no transaction nullifiers.
             0
         } else {
-            crate::hash::poseidon2_hash(self.serialize())
+            crate::hash::poseidon2_hash_with_separator(
+                self.serialize(),
+                crate::constants::DOM_SEP__NULLIFIER_LEAF,
+            )
         }
     }
 }

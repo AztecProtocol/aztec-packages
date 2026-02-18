@@ -145,10 +145,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 123;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3088;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 3098;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 359;
-    static constexpr size_t NUM_WIRES = 2620;
-    static constexpr size_t NUM_ALL_ENTITIES = 3570;
+    static constexpr size_t NUM_WIRES = 2627;
+    static constexpr size_t NUM_ALL_ENTITIES = 3580;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -468,11 +468,14 @@ struct AvmFlavorVariables {
         lookup_nullifier_check_low_leaf_merkle_check_relation<FF_>,
         lookup_nullifier_check_low_leaf_next_nullifier_validation_relation<FF_>,
         lookup_nullifier_check_low_leaf_nullifier_validation_relation<FF_>,
-        lookup_nullifier_check_low_leaf_poseidon2_relation<FF_>,
+        lookup_nullifier_check_low_leaf_poseidon2_0_relation<FF_>,
+        lookup_nullifier_check_low_leaf_poseidon2_1_relation<FF_>,
         lookup_nullifier_check_new_leaf_merkle_check_relation<FF_>,
-        lookup_nullifier_check_new_leaf_poseidon2_relation<FF_>,
+        lookup_nullifier_check_new_leaf_poseidon2_0_relation<FF_>,
+        lookup_nullifier_check_new_leaf_poseidon2_1_relation<FF_>,
         lookup_nullifier_check_silo_poseidon2_relation<FF_>,
-        lookup_nullifier_check_updated_low_leaf_poseidon2_relation<FF_>,
+        lookup_nullifier_check_updated_low_leaf_poseidon2_0_relation<FF_>,
+        lookup_nullifier_check_updated_low_leaf_poseidon2_1_relation<FF_>,
         lookup_nullifier_check_write_nullifier_to_public_inputs_relation<FF_>,
         lookup_nullifier_exists_nullifier_exists_check_relation<FF_>,
         lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,

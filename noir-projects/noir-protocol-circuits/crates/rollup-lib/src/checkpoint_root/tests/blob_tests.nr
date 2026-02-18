@@ -3,8 +3,8 @@ use bignum::{BigNum, BLS12_381_Fr};
 use blob::abis::{BatchingBlobCommitment, BlobAccumulator, FinalBlobBatchingChallenges};
 use types::{
     blob_data::create_checkpoint_end_marker,
-    constants::{BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB},
-    hash::poseidon2_hash,
+    constants::{BLOBS_PER_CHECKPOINT, DOM_SEP__BLOB_HASHED_Y_LIMBS, FIELDS_PER_BLOB},
+    hash::poseidon2_hash_with_separator,
     traits::Empty,
 };
 
@@ -36,7 +36,7 @@ impl TestBuilder {
             blob_commitment_limbs_y_from_ts,
         );
         let challenge_z_from_ts =
-            0x11d6daed56531bd5c5acf341663d21089bb96913f4e716dca3cdb01b8d5735a3;
+            0x0a3c46459eb1496fb668371f5a418f65a40c0d35b0aac56585b37d80024c124a;
 
         let mut builder = Self::default_with_blob_fields(blob_fields_from_ts);
         builder.hints.blob_commitments[0] = blob_commitment.point;
@@ -105,8 +105,10 @@ fn correct_end_blob_accumulator_with_one_blob() {
     // We have a single blob, so the accumulated outputs are just those after a single evaluation:
     assert_eq(end_blob_accumulator.c_acc, builder.hints.blob_commitments[0]);
 
-    let expected_gamma_acc =
-        poseidon2_hash(end_blob_accumulator.y_acc.get_limbs().map(|l| l as Field));
+    let expected_gamma_acc = poseidon2_hash_with_separator(
+        end_blob_accumulator.y_acc.get_limbs().map(|l| l as Field),
+        DOM_SEP__BLOB_HASHED_Y_LIMBS,
+    );
     assert_eq(end_blob_accumulator.gamma_acc, expected_gamma_acc);
 }
 
@@ -196,22 +198,22 @@ fn correct_end_blob_accumulator_with_max_blobs() {
         0xa4269746c44c705269f7ff3338e98a,
         0x18883f,
     ];
-    let z_6_blobs_from_ts = 0x088572ee43f73053a094ddc7c2bafe69921f05c35ebd6a5df3dd5a9a82406431;
+    let z_6_blobs_from_ts = 0x2fb9c6809d9b09d4726eca4c5dd25b155a0fc73c69a416e8403774e63a1b39dd;
     let gamma_limbs_6_blobs_from_ts =
-        [0x7403be1c3b1bbf9cbdd6c269ec7f35, 0x669161f12455557b0dd6f300cfb800, 0x1f85];
+        [0xdd7dd6b3aa1162e54426bb54746f2e, 0x2aa78e62535afe9d77697b5ea6c308, 0x2f5f];
     let y_limbs_6_blobs_from_ts =
-        [0x415b276db449810d95e318d78ac950, 0xd1654b68e5ab9c592df2e6fbe6b619, 0x344c];
+        [0x345fda79213b9c7b7919c3035cf82c, 0xc161c9db997aeceaeb8eb4c54b2872, 0x58c0];
     let batched_c_x_limbs_6_blobs_from_ts = [
-        0x8dd7407a1b2e00c9e5fe43f00ba6ca,
-        0x089d7bd6785f37437a41ac05aa8d4b,
-        0x4d4c325a47e5f3d195c67e28b7f429,
-        0x00e361,
+        0x0516186db862333586f4fa3037204f,
+        0xe7ba5c92a0653cff740fb0ffe7c320,
+        0x45017813d380bed6cc46b30af5068f,
+        0x12b1b7,
     ];
     let batched_c_y_limbs_6_blobs_from_ts = [
-        0x8cb0a368ecb9d0166b448100611923,
-        0x9c5f58cfc6d38c661804a46965dce6,
-        0xf62b52995cf4469df10a8be3910c86,
-        0x11bcc8,
+        0x123c6c95f09ef6c77e4cbc5fab99eb,
+        0xe47528ef0561c34a6d658a72842b1b,
+        0xf3cafdbdd26681a212ba30659977f2,
+        0x10f1d0,
     ];
     let blob_commitments_hash_6_blobs_from_ts =
         0x003aa7b42572dcb47fa231c81efe81564edeb146b9e13f38d84288fdbac693e7;

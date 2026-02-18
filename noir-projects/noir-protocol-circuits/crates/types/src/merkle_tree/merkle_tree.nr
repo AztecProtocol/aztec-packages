@@ -1,11 +1,12 @@
 use crate::{
-    hash::{accumulate_sha256, poseidon2_hash},
+    constants::DOM_SEP__MERKLE_HASH,
+    hash::{accumulate_sha256, poseidon2_hash_with_separator},
     traits::Empty,
     utils::math::is_power_of_2_u32,
 };
 
 pub fn merkle_hash(left: Field, right: Field) -> Field {
-    poseidon2_hash([left, right])
+    poseidon2_hash_with_separator([left, right], DOM_SEP__MERKLE_HASH)
 }
 
 pub fn sha_merkle_hash(left: Field, right: Field) -> Field {

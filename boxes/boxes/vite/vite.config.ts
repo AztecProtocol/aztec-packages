@@ -51,6 +51,9 @@ export default defineConfig(({ mode }) => {
         include: ["buffer", "path", "process", "net", "tty"],
       }),
     ],
+    build: {
+      target: "es2022",
+    },
     define: {
       "process.env": JSON.stringify({
         AZTEC_NODE_URL: env.AZTEC_NODE_URL,

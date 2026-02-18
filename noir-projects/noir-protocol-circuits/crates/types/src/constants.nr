@@ -166,9 +166,9 @@ pub global MAX_CHECKPOINTS_PER_EPOCH: u32 = 32;
 pub global MAX_TX_LIFETIME: u64 = 86400; // 1 day. Arbitrarily chosen.
 // The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
 pub global GENESIS_BLOCK_HEADER_HASH: Field =
-    0x2ff681dd7730c7b9e5650c70afa57ee81377792dfc95d98c11817b8c761ff965;
+    0x0fe3a2caad008be6e89f37e00504d0f408162af518fe0830844055956a8d8746;
 pub global GENESIS_ARCHIVE_ROOT: Field =
-    0x15684c8c3d2106918d3860f777e50555b7166adff47df13cc652e2e5a50bf5c7;
+    0x2c9b2810c5e5d5f093a97ed0b206d250de85d856528a6c5abd5ddb4b940c1d7f;
 pub global EMPTY_EPOCH_OUT_HASH: Field =
     0xc95e0ceb41951039e1592745ec2faea9866f6eaf01bf189a4463b4143af093;
 
@@ -649,6 +649,10 @@ pub global DOM_SEP__PRIVATE_LOG_FIRST_FIELD: u32 = 2769976252;
 pub global DOM_SEP__PUBLIC_LEAF_SLOT: u32 = 1247650290;
 pub global DOM_SEP__PUBLIC_STORAGE_MAP_SLOT: u32 = 4015149901;
 
+pub global DOM_SEP__PUBLIC_DATA_LEAF: u32 = 1961613833;
+pub global DOM_SEP__NULLIFIER_LEAF: u32 = 2344184091;
+pub global DOM_SEP__MERKLE_HASH: u32 = 2982624097;
+
 // ---------------------------------------------------------------
 // Contract Address
 
@@ -715,6 +719,17 @@ pub global DOM_SEP__INITIALIZATION_NULLIFIER: u32 = 1653084894;
 pub global DOM_SEP__SECRET_HASH: u32 = 4199652938;
 pub global DOM_SEP__TX_NULLIFIER: u32 = 1025801951;
 pub global DOM_SEP__SIGNATURE_PAYLOAD: u32 = 463525807;
+
+// ---------------------------------------------------------------
+
+pub global DOM_SEP__BLOCK_HEADERS_HASH: u32 = 515582467;
+
+// Blob-related domain separators:
+pub global DOM_SEP__BLOB_HASHED_Y_LIMBS: u32 = 2949331415;
+pub global DOM_SEP__BLOB_CHALLENGE_Z: u32 = 60345710;
+pub global DOM_SEP__BLOB_Z_ACC: u32 = 1003392952;
+pub global DOM_SEP__BLOB_GAMMA_ACC: u32 = 855632775;
+pub global DOM_SEP__BLOB_GAMMA_FINAL: u32 = 1755883835;
 
 // ---------------------------------------------------------------
 
@@ -1196,13 +1211,13 @@ pub global TWO_POW_64: Field = 18446744073709551616;
 // TODO: Move inside BB noir constants lib
 pub global AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT: u32 = 6;
 pub global AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT: Field =
-    0x2870b93163d4fd6ada360fe48ee1e8e8e69308af34cdfaeffacbbe5929e2466d;
+    0x24063877bf89946cddacd31e055e70bb41375efc668a23b2f17416d6964ef4bb;
 pub global AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE: u32 = 1;
 // AVM_RETRIEVED_BYTECODES_TREE_HEIGHT = CEIL(LOG2(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1))
 // +1 due to the tree prefill
 pub global AVM_RETRIEVED_BYTECODES_TREE_HEIGHT: u32 = 5;
 pub global AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT: Field =
-    0x100ba46aea628d39c08788f05fcad4ab19adf5b8bba866a1f5c5baa6e297891d;
+    0x27faf5f3897487762ac2db3c71de0845936e2e91cb7824eae33be08898b56de7;
 pub global AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE: u32 = 1;
 
 // Note that by casting timestamp to u32 we make this explode in year 2106. We do not care.

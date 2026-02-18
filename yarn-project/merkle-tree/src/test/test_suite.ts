@@ -1,3 +1,4 @@
+import { DomainSeparator } from '@aztec/constants';
 import { SiblingPath } from '@aztec/foundation/trees';
 import type { Hasher } from '@aztec/foundation/trees';
 import type { AztecKVStore } from '@aztec/kv-store';
@@ -47,7 +48,7 @@ export const treeTestSuite = (
     });
 
     beforeEach(() => {
-      poseidon = new Poseidon();
+      poseidon = new Poseidon(DomainSeparator.MERKLE_HASH);
     });
 
     it('should revert changes on rollback', async () => {

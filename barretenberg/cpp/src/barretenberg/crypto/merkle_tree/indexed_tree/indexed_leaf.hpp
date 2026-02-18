@@ -15,6 +15,10 @@
 namespace bb::crypto::merkle_tree {
 
 struct NullifierLeafValue {
+    // Aztec domain separator for hashing nullifier leaf preimages.
+    // Verified against the generated constant via static_assert in aztec_hash_policy.hpp.
+    static constexpr uint64_t HASH_DOMAIN_SEPARATOR = 2344184091;
+
     fr nullifier;
 
     MSGPACK_FIELDS(nullifier)
@@ -58,7 +62,7 @@ struct NullifierLeafValue {
 
     std::vector<fr> get_hash_inputs(fr nextKey, fr nextIndex) const
     {
-        return std::vector<fr>({ nullifier, nextKey, nextIndex });
+        return std::vector<fr>({ fr(HASH_DOMAIN_SEPARATOR), nullifier, nextKey, nextIndex });
     }
 
     operator uint256_t() const { return get_key(); }
@@ -73,6 +77,10 @@ struct NullifierLeafValue {
 };
 
 struct PublicDataLeafValue {
+    // Aztec domain separator for hashing public data leaf preimages.
+    // Verified against the generated constant via static_assert in aztec_hash_policy.hpp.
+    static constexpr uint64_t HASH_DOMAIN_SEPARATOR = 1961613833;
+
     fr slot;
     fr value;
 
@@ -120,7 +128,7 @@ struct PublicDataLeafValue {
 
     std::vector<fr> get_hash_inputs(fr nextSlot, fr nextIndex) const
     {
-        return std::vector<fr>({ slot, value, nextSlot, nextIndex });
+        return std::vector<fr>({ fr(HASH_DOMAIN_SEPARATOR), slot, value, nextSlot, nextIndex });
     }
 
     operator uint256_t() const { return get_key(); }

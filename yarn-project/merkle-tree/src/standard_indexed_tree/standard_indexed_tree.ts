@@ -634,7 +634,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
     if (!hash0Leaf && leaf.getKey() == 0n) {
       encodedLeaf = toBufferBE(0n, 32);
     } else {
-      encodedLeaf = this.hasher.hashInputs(leaf.toHashInputs());
+      encodedLeaf = leaf.hash().toBuffer();
     }
     return encodedLeaf;
   }

@@ -1,5 +1,6 @@
 import { toBigIntBE } from '../bigint-buffer/index.js';
-import { poseidon2Hash } from '../crypto/poseidon/index.js';
+import { poseidon2Hash as poseidon2HashAsync } from '../crypto/poseidon/index.js';
+import { poseidon2Hash } from '../crypto/sync/index.js';
 import { Fr } from '../curves/bn254/field.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
 import type { AsyncHasher, IndexedTreeLeaf, IndexedTreeLeafPreimage } from './index.js';
@@ -9,11 +10,11 @@ import type { MembershipWitness } from './membership_witness.js';
 
 class TestHasher implements AsyncHasher {
   public async hash(lhs: Buffer, rhs: Buffer) {
-    return (await poseidon2Hash([lhs, rhs])).toBuffer() as Buffer<ArrayBuffer>;
+    return (await poseidon2HashAsync([lhs, rhs])).toBuffer() as Buffer<ArrayBuffer>;
   }
   public async hashInputs(inputs: Buffer[]) {
     const inputFields = inputs.map(i => Fr.fromBuffer(i));
-    return (await poseidon2Hash(inputFields)).toBuffer() as Buffer<ArrayBuffer>;
+    return (await poseidon2HashAsync(inputFields)).toBuffer() as Buffer<ArrayBuffer>;
   }
 }
 
@@ -96,6 +97,10 @@ class TestLeafPreimage implements IndexedTreeLeafPreimage {
 
   toHashInputs(): Buffer[] {
     return [Buffer.from(this.address.toBuffer()), Buffer.from(this.nextAddress.toBuffer())];
+  }
+
+  hash(): Fr {
+    return poseidon2Hash(this.toHashInputs().map(i => Fr.fromBuffer(i)));
   }
 }
 

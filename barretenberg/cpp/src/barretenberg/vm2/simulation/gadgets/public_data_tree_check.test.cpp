@@ -3,6 +3,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "barretenberg/crypto/merkle_tree/aztec_hash_policy.hpp"
 #include "barretenberg/crypto/merkle_tree/memory_tree.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
@@ -210,7 +211,7 @@ TEST(AvmSimulationPublicDataTree, WriteExists)
     FF leaf_slot = RawPoseidon2::hash(leaf_slot_inputs);
     FF new_value = 27;
 
-    MemoryTree<Poseidon2HashPolicy> public_data_tree(8);
+    MemoryTree<crypto::merkle_tree::AztecMerkleHashPolicy> public_data_tree(8);
 
     PublicDataTreeLeafPreimage low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(leaf_slot, 1), 0, 0);
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
@@ -289,7 +290,7 @@ TEST(AvmSimulationPublicDataTree, WriteAndUpdate)
     FF new_value = 27;
     FF low_leaf_slot = 40;
 
-    MemoryTree<Poseidon2HashPolicy> public_data_tree(8);
+    MemoryTree<crypto::merkle_tree::AztecMerkleHashPolicy> public_data_tree(8);
 
     PublicDataTreeLeafPreimage low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(low_leaf_slot, 1), 0, 0);
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());

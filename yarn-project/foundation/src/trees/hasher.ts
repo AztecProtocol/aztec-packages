@@ -1,4 +1,4 @@
-import { poseidon2Hash } from '../crypto/poseidon/index.js';
+import { poseidon2HashWithSeparator } from '../crypto/poseidon/index.js';
 import { sha256Trunc } from '../crypto/sha256/index.js';
 
 /**
@@ -44,5 +44,8 @@ export interface AsyncHasher {
 export const shaMerkleHash: Hasher['hash'] = (left: Buffer, right: Buffer) =>
   sha256Trunc(Buffer.concat([left, right])) as Buffer<ArrayBuffer>;
 
-export const poseidonMerkleHash: AsyncHasher['hash'] = async (left: Buffer, right: Buffer) =>
-  (await poseidon2Hash([left, right])).toBuffer() as Buffer<ArrayBuffer>;
+/** Creates a poseidon2 merkle hasher with the given domain separator. */
+export const makePoseidonMerkleHash =
+  (separator: number): AsyncHasher['hash'] =>
+  async (left: Buffer, right: Buffer) =>
+    (await poseidon2HashWithSeparator([left, right], separator)).toBuffer() as Buffer<ArrayBuffer>;

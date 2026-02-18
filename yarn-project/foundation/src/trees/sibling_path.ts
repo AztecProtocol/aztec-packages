@@ -1,5 +1,4 @@
 import { makeTuple } from '../array/array.js';
-import { poseidon2Hash } from '../crypto/poseidon/index.js';
 import { Fr } from '../curves/bn254/index.js';
 import { schemas } from '../schemas/index.js';
 import {
@@ -172,7 +171,7 @@ export async function computeRootFromSiblingPath(
   leaf: Buffer,
   siblingPath: Buffer[],
   index: number,
-  hasher = async (left: Buffer, right: Buffer) => (await poseidon2Hash([left, right])).toBuffer(),
+  hasher: (left: Buffer, right: Buffer) => Promise<Buffer>,
 ) {
   let result = leaf;
   for (const sibling of siblingPath) {

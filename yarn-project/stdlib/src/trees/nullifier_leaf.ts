@@ -1,4 +1,6 @@
+import { DomainSeparator } from '@aztec/constants';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/sync';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader } from '@aztec/foundation/serialize';
@@ -84,6 +86,17 @@ export class NullifierLeafPreimage implements IndexedTreeLeafPreimage {
       Buffer.from(this.nextKey.toBuffer()),
       Buffer.from(toBufferBE(this.nextIndex, 32)),
     ];
+  }
+
+  isEmpty(): boolean {
+    return this.leaf.isEmpty() && this.nextKey.isZero() && this.nextIndex === 0n;
+  }
+
+  hash(): Fr {
+    if (this.isEmpty()) {
+      return Fr.zero();
+    }
+    return poseidon2HashWithSeparator(this.toHashInputs(), DomainSeparator.NULLIFIER_LEAF);
   }
 
   toFields(): Fr[] {

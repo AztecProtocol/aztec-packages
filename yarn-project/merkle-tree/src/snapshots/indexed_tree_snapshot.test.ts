@@ -1,3 +1,4 @@
+import { DomainSeparator } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Hasher } from '@aztec/foundation/trees';
@@ -31,7 +32,14 @@ describe('IndexedTreeSnapshotBuilder', () => {
 
   beforeEach(async () => {
     db = openTmpStore();
-    tree = await newTree(NullifierTree, db, new Poseidon(), 'test', { fromBuffer: (b: Buffer) => b }, 4);
+    tree = await newTree(
+      NullifierTree,
+      db,
+      new Poseidon(DomainSeparator.MERKLE_HASH),
+      'test',
+      { fromBuffer: (b: Buffer) => b },
+      4,
+    );
     snapshotBuilder = new IndexedTreeSnapshotBuilder(db, tree, NullifierLeafPreimage);
   });
 

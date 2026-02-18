@@ -1,3 +1,4 @@
+import { DomainSeparator } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { SiblingPath } from '@aztec/foundation/trees';
 import type { Hasher } from '@aztec/foundation/trees';
@@ -25,7 +26,7 @@ export const standardBasedTreeTestSuite = (
     const values: Buffer[] = [];
 
     beforeAll(() => {
-      poseidon = new Poseidon();
+      poseidon = new Poseidon(DomainSeparator.MERKLE_HASH);
 
       for (let i = 0; i < 4; ++i) {
         const v = Buffer.alloc(32, i + 1);
@@ -38,7 +39,7 @@ export const standardBasedTreeTestSuite = (
       const db = openTmpStore();
       const tree = await createDb(db, poseidon, 'test', 32);
       const root = tree.getRoot(false);
-      expect(root.toString('hex')).toEqual('0b59baa35b9dc267744f0ccb4e3b0255c1fc512460d91130c6bc19fb2668568d');
+      expect(root.toString('hex')).toEqual('006a1008132293c19aafbe7130eda035bd1b90065032894071b1f390f4946844');
     });
 
     it('should throw when appending beyond max index', async () => {

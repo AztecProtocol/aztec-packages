@@ -7,13 +7,16 @@ use crate::{
         CONTRACT_CLASS_REGISTRY_UTILITY_FUNCTION_BROADCASTED_MAGIC_VALUE,
         CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE, CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE,
         DOM_SEP__AUTHWIT_INNER, DOM_SEP__AUTHWIT_NULLIFIER, DOM_SEP__AUTHWIT_OUTER,
-        DOM_SEP__BLOCK_HEADER_HASH, DOM_SEP__CONTRACT_ADDRESS_V1, DOM_SEP__CONTRACT_CLASS_ID,
+        DOM_SEP__BLOB_CHALLENGE_Z, DOM_SEP__BLOB_GAMMA_ACC, DOM_SEP__BLOB_GAMMA_FINAL,
+        DOM_SEP__BLOB_HASHED_Y_LIMBS, DOM_SEP__BLOB_Z_ACC, DOM_SEP__BLOCK_HEADER_HASH,
+        DOM_SEP__BLOCK_HEADERS_HASH, DOM_SEP__CONTRACT_ADDRESS_V1, DOM_SEP__CONTRACT_CLASS_ID,
         DOM_SEP__EVENT_COMMITMENT, DOM_SEP__FUNCTION_ARGS, DOM_SEP__INITIALIZATION_NULLIFIER,
-        DOM_SEP__INITIALIZER, DOM_SEP__IVSK_M, DOM_SEP__MESSAGE_NULLIFIER, DOM_SEP__NHK_M,
-        DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_HASH_NONCE, DOM_SEP__NOTE_NULLIFIER, DOM_SEP__OVSK_M,
-        DOM_SEP__PARTIAL_ADDRESS, DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT,
-        DOM_SEP__PRIVATE_FUNCTION_LEAF, DOM_SEP__PRIVATE_LOG_FIRST_FIELD, DOM_SEP__PRIVATE_TX_HASH,
-        DOM_SEP__PROTOCOL_CONTRACTS, DOM_SEP__PUBLIC_BYTECODE, DOM_SEP__PUBLIC_CALLDATA,
+        DOM_SEP__INITIALIZER, DOM_SEP__IVSK_M, DOM_SEP__MERKLE_HASH, DOM_SEP__MESSAGE_NULLIFIER,
+        DOM_SEP__NHK_M, DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_HASH_NONCE, DOM_SEP__NOTE_NULLIFIER,
+        DOM_SEP__NULLIFIER_LEAF, DOM_SEP__OVSK_M, DOM_SEP__PARTIAL_ADDRESS,
+        DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT, DOM_SEP__PRIVATE_FUNCTION_LEAF,
+        DOM_SEP__PRIVATE_LOG_FIRST_FIELD, DOM_SEP__PRIVATE_TX_HASH, DOM_SEP__PROTOCOL_CONTRACTS,
+        DOM_SEP__PUBLIC_BYTECODE, DOM_SEP__PUBLIC_CALLDATA, DOM_SEP__PUBLIC_DATA_LEAF,
         DOM_SEP__PUBLIC_KEYS_HASH, DOM_SEP__PUBLIC_LEAF_SLOT, DOM_SEP__PUBLIC_STORAGE_MAP_SLOT,
         DOM_SEP__PUBLIC_TX_HASH, DOM_SEP__SECRET_HASH, DOM_SEP__SIGNATURE_PAYLOAD,
         DOM_SEP__SILOED_NOTE_HASH, DOM_SEP__SILOED_NULLIFIER, DOM_SEP__SYMMETRIC_KEY,
@@ -129,7 +132,7 @@ impl<let NUM_VALUES: u32, let NUM_U32_VALUES: u32> HashedValueTester<NUM_VALUES,
 
 #[test]
 fn hashed_values_match_derived() {
-    let mut tester = HashedValueTester::<49, 42>::new();
+    let mut tester = HashedValueTester::<58, 51>::new();
 
     // -----------------
     // Domain separators
@@ -185,6 +188,15 @@ fn hashed_values_match_derived() {
     tester.assert_dom_sep_matches_derived(DOM_SEP__SECRET_HASH, "secret_hash");
     tester.assert_dom_sep_matches_derived(DOM_SEP__TX_NULLIFIER, "tx_nullifier");
     tester.assert_dom_sep_matches_derived(DOM_SEP__SIGNATURE_PAYLOAD, "signature_payload");
+    tester.assert_dom_sep_matches_derived(DOM_SEP__BLOCK_HEADERS_HASH, "block_headers_hash");
+    tester.assert_dom_sep_matches_derived(DOM_SEP__BLOB_HASHED_Y_LIMBS, "blob_hashed_y_limbs");
+    tester.assert_dom_sep_matches_derived(DOM_SEP__BLOB_CHALLENGE_Z, "blob_challenge_z");
+    tester.assert_dom_sep_matches_derived(DOM_SEP__BLOB_Z_ACC, "blob_z_acc");
+    tester.assert_dom_sep_matches_derived(DOM_SEP__BLOB_GAMMA_ACC, "blob_gamma_acc");
+    tester.assert_dom_sep_matches_derived(DOM_SEP__BLOB_GAMMA_FINAL, "blob_gamma_final");
+    tester.assert_dom_sep_matches_derived(DOM_SEP__PUBLIC_DATA_LEAF, "public_data_leaf");
+    tester.assert_dom_sep_matches_derived(DOM_SEP__NULLIFIER_LEAF, "nullifier_leaf");
+    tester.assert_dom_sep_matches_derived(DOM_SEP__MERKLE_HASH, "merkle_hash");
 
     // --------------------------
     // Protocol circuit constants

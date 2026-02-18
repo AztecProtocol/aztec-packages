@@ -6,6 +6,9 @@ import { Poseidon } from '../../index.js';
  * purposes.
  */
 export class PoseidonWithCounter extends Poseidon {
+  constructor(merkleSeparator: number) {
+    super(merkleSeparator);
+  }
   /**
    * The number of times the hash function has been called.
    */

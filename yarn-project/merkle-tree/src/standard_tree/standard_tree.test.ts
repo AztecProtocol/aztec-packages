@@ -1,3 +1,4 @@
+import { DomainSeparator } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { FromBuffer } from '@aztec/foundation/serialize';
 import type { Hasher } from '@aztec/foundation/trees';
@@ -31,7 +32,7 @@ describe('StandardTree_batchAppend', () => {
   let poseidon: PoseidonWithCounter;
 
   beforeAll(() => {
-    poseidon = new PoseidonWithCounter();
+    poseidon = new PoseidonWithCounter(DomainSeparator.MERKLE_HASH);
   });
 
   afterEach(() => {

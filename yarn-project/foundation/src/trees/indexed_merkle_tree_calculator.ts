@@ -53,7 +53,7 @@ export class IndexedMerkleTreeCalculator<T extends IndexedTreeLeafPreimage, N ex
       index: item.index,
     }));
     const resortedIndexedLeaves = indexedLeaves.sort((a, b) => a.index - b.index).map(item => item.leaf);
-    let leaves = await Promise.all(resortedIndexedLeaves.map(l => this.hasher.hashInputs(l.toHashInputs())));
+    let leaves = resortedIndexedLeaves.map(l => l.hash().toBuffer() as Buffer<ArrayBuffer>);
 
     let result = leaves.slice();
 

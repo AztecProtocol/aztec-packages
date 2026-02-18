@@ -27,7 +27,13 @@ struct indexed_nullifier_leaf {
         return os;
     }
 
-    std::vector<fr> get_hash_inputs() const { return std::vector<fr>{ value, nextValue, nextIndex }; }
+    // Must match NullifierLeafValue::HASH_DOMAIN_SEPARATOR in indexed_leaf.hpp
+    static constexpr uint64_t HASH_DOMAIN_SEPARATOR = 2344184091;
+
+    std::vector<fr> get_hash_inputs() const
+    {
+        return std::vector<fr>{ fr(HASH_DOMAIN_SEPARATOR), value, nextValue, nextIndex };
+    }
 
     static indexed_nullifier_leaf zero()
     {

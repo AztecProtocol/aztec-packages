@@ -1,4 +1,5 @@
-import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { DomainSeparator } from '@aztec/constants';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { sha256, sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { BLS12Fr } from '@aztec/foundation/curves/bls12';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -76,7 +77,10 @@ export function commitmentToFields(commitment: Buffer): [Fr, Fr] {
 
 export async function computeChallengeZ(blobFieldsHash: Fr, commitment: Buffer): Promise<Fr> {
   const commitmentFields = commitmentToFields(commitment);
-  return await poseidon2Hash([blobFieldsHash, commitmentFields[0], commitmentFields[1]]);
+  return await poseidon2HashWithSeparator(
+    [blobFieldsHash, commitmentFields[0], commitmentFields[1]],
+    DomainSeparator.BLOB_CHALLENGE_Z,
+  );
 }
 
 /**
@@ -85,5 +89,5 @@ export async function computeChallengeZ(blobFieldsHash: Fr, commitment: Buffer):
  */
 export async function hashNoirBigNumLimbs(field: BLS12Fr): Promise<Fr> {
   const num = field.toNoirBigNum();
-  return await poseidon2Hash(num.limbs.map(Fr.fromHexString));
+  return await poseidon2HashWithSeparator(num.limbs.map(Fr.fromHexString), DomainSeparator.BLOB_HASHED_Y_LIMBS);
 }

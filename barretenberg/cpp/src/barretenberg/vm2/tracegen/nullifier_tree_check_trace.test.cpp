@@ -5,6 +5,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "barretenberg/crypto/merkle_tree/aztec_hash_policy.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
@@ -144,12 +145,15 @@ TEST_P(NullifierReadInteractionsTests, PositiveWithInteractions)
 
     check_interaction<NullifierTreeCheckTraceBuilder,
                       lookup_nullifier_check_silo_poseidon2_settings,
-                      lookup_nullifier_check_low_leaf_poseidon2_settings,
-                      lookup_nullifier_check_updated_low_leaf_poseidon2_settings,
+                      lookup_nullifier_check_low_leaf_poseidon2_0_settings,
+                      lookup_nullifier_check_low_leaf_poseidon2_1_settings,
+                      lookup_nullifier_check_updated_low_leaf_poseidon2_0_settings,
+                      lookup_nullifier_check_updated_low_leaf_poseidon2_1_settings,
                       lookup_nullifier_check_low_leaf_merkle_check_settings,
                       lookup_nullifier_check_low_leaf_nullifier_validation_settings,
                       lookup_nullifier_check_low_leaf_next_nullifier_validation_settings,
-                      lookup_nullifier_check_new_leaf_poseidon2_settings,
+                      lookup_nullifier_check_new_leaf_poseidon2_0_settings,
+                      lookup_nullifier_check_new_leaf_poseidon2_1_settings,
                       lookup_nullifier_check_new_leaf_merkle_check_settings>(trace);
 }
 
@@ -181,7 +185,7 @@ TEST_F(NullifierTreeCheckTracegenTest, WriteWithInteractions)
     FF nullifier = 100;
     FF siloed_nullifier = simulation::unconstrained_silo_nullifier(contract_address, nullifier);
     FF low_nullifier = 40;
-    TestMemoryTree<Poseidon2HashPolicy> nullifier_tree(8, NULLIFIER_TREE_HEIGHT);
+    TestMemoryTree<crypto::merkle_tree::AztecMerkleHashPolicy> nullifier_tree(8, NULLIFIER_TREE_HEIGHT);
 
     NullifierTreeLeafPreimage low_leaf =
         NullifierTreeLeafPreimage(NullifierLeafValue(low_nullifier), 10, siloed_nullifier + 1);
@@ -223,12 +227,15 @@ TEST_F(NullifierTreeCheckTracegenTest, WriteWithInteractions)
     // Not checking all interactions due to the public inputs interaction, which needs to be checked in an e2e test
     check_interaction<NullifierTreeCheckTraceBuilder,
                       lookup_nullifier_check_silo_poseidon2_settings,
-                      lookup_nullifier_check_low_leaf_poseidon2_settings,
-                      lookup_nullifier_check_updated_low_leaf_poseidon2_settings,
+                      lookup_nullifier_check_low_leaf_poseidon2_0_settings,
+                      lookup_nullifier_check_low_leaf_poseidon2_1_settings,
+                      lookup_nullifier_check_updated_low_leaf_poseidon2_0_settings,
+                      lookup_nullifier_check_updated_low_leaf_poseidon2_1_settings,
                       lookup_nullifier_check_low_leaf_merkle_check_settings,
                       lookup_nullifier_check_low_leaf_nullifier_validation_settings,
                       lookup_nullifier_check_low_leaf_next_nullifier_validation_settings,
-                      lookup_nullifier_check_new_leaf_poseidon2_settings,
+                      lookup_nullifier_check_new_leaf_poseidon2_0_settings,
+                      lookup_nullifier_check_new_leaf_poseidon2_1_settings,
                       lookup_nullifier_check_new_leaf_merkle_check_settings>(trace);
 }
 

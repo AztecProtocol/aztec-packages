@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 
+#include "barretenberg/crypto/merkle_tree/aztec_hash_policy.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
@@ -169,7 +170,7 @@ TEST(NullifierTreeCheckConstrainingTest, PositiveWriteAppend)
 
     FF nullifier = 100;
     FF low_nullifier = 40;
-    TestMemoryTree<Poseidon2HashPolicy> nullifier_tree(8, NULLIFIER_TREE_HEIGHT);
+    TestMemoryTree<crypto::merkle_tree::AztecMerkleHashPolicy> nullifier_tree(8, NULLIFIER_TREE_HEIGHT);
 
     NullifierTreeLeafPreimage low_leaf =
         NullifierTreeLeafPreimage(NullifierLeafValue(low_nullifier), 10, nullifier + 1);

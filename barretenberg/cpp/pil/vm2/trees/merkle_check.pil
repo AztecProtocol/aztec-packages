@@ -1,3 +1,4 @@
+include "../constants_gen.pil";
 include "../poseidon2_hash.pil";
 include "../precomputed.pil";
 
@@ -199,14 +200,17 @@ namespace merkle_check;
     pol commit write_output_hash;
 
     // Lookup constant support: Can be removed when we support constants in lookups.
-    pol commit const_two;
-    sel * (const_two - 2) = 0;
+    pol commit const_three;
+    sel * (const_three - 3) = 0;
+    pol commit merkle_hash_separator;
+    sel * (merkle_hash_separator - constants.DOM_SEP__MERKLE_HASH) = 0;
 
     // Lookup to the full poseidon2 gadget
+    // Hash is: poseidon2(DOM_SEP__MERKLE_HASH, left_node, right_node) with input_len=3
     #[MERKLE_POSEIDON2_READ]
     sel {
-        read_left_node, read_right_node, /*input_2=*/ precomputed.zero,
-        read_output_hash, const_two
+        merkle_hash_separator, read_left_node, read_right_node,
+        read_output_hash, const_three
     } in poseidon2_hash.start {
         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
         poseidon2_hash.output, poseidon2_hash.input_len
@@ -214,8 +218,8 @@ namespace merkle_check;
 
     #[MERKLE_POSEIDON2_WRITE]
     write {
-        write_left_node, write_right_node, /*input_2=*/ precomputed.zero,
-        write_output_hash, const_two
+        merkle_hash_separator, write_left_node, write_right_node,
+        write_output_hash, const_three
     } in poseidon2_hash.start {
         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
         poseidon2_hash.output, poseidon2_hash.input_len

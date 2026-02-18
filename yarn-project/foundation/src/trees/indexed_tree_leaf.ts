@@ -1,3 +1,5 @@
+import type { Fr } from '../curves/bn254/index.js';
+
 /**
  * A leaf of an indexed merkle tree.
  */
@@ -42,6 +44,11 @@ export interface TreeLeafPreimage {
    * Serializes the preimage to an array of buffers for hashing.
    */
   toHashInputs(): Buffer[];
+  /**
+   * Computes the hash of this preimage (the leaf value stored in the tree).
+   * Each leaf type uses its own domain separator.
+   */
+  hash(): Fr;
 }
 
 /**

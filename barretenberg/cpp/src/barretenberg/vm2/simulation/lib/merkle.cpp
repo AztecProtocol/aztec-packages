@@ -16,7 +16,8 @@ FF unconstrained_root_from_path(const FF& leaf_value, const uint64_t leaf_index,
     for (const auto& i : path) {
         bool index_is_even = (curr_index % 2 == 0);
 
-        curr_value = index_is_even ? Poseidon2::hash({ curr_value, i }) : Poseidon2::hash({ i, curr_value });
+        curr_value = index_is_even ? Poseidon2::hash({ FF(DOM_SEP__MERKLE_HASH), curr_value, i })
+                                   : Poseidon2::hash({ FF(DOM_SEP__MERKLE_HASH), i, curr_value });
         // Halve the index (to get the parent index) as we move up the tree
         curr_index >>= 1;
     }

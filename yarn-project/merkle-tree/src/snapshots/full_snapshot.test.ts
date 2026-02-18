@@ -1,3 +1,4 @@
+import { DomainSeparator } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { FromBuffer } from '@aztec/foundation/serialize';
 import type { AztecKVStore } from '@aztec/kv-store';
@@ -15,7 +16,7 @@ describe('FullSnapshotBuilder', () => {
   beforeEach(async () => {
     db = openTmpStore();
     const deserializer: FromBuffer<Buffer> = { fromBuffer: b => b };
-    tree = await newTree(StandardTree, db, new Poseidon(), 'test', deserializer, 4);
+    tree = await newTree(StandardTree, db, new Poseidon(DomainSeparator.MERKLE_HASH), 'test', deserializer, 4);
     snapshotBuilder = new FullTreeSnapshotBuilder(db, tree, deserializer);
   });
 

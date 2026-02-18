@@ -6,6 +6,11 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 
 import { AztecAddress } from '../aztec-address/index.js';
 
+/** Computes a Poseidon2 merkle tree internal node hash with domain separator. */
+export function computeMerkleHash(left: Fr, right: Fr): Promise<Fr> {
+  return poseidon2HashWithSeparator([left, right], DomainSeparator.MERKLE_HASH);
+}
+
 /**
  * Computes a hash of a given verification key.
  * @param keyAsFields - The verification key as fields.

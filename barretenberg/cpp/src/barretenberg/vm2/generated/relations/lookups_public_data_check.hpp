@@ -150,11 +150,11 @@ struct lookup_public_data_check_low_leaf_poseidon2_0_settings_ {
     static constexpr Column COUNTS = Column::lookup_public_data_check_low_leaf_poseidon2_0_counts;
     static constexpr Column INVERSES = Column::lookup_public_data_check_low_leaf_poseidon2_0_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::public_data_check_public_data_leaf_separator,
         ColumnAndShifts::public_data_check_low_leaf_slot,
         ColumnAndShifts::public_data_check_low_leaf_value,
-        ColumnAndShifts::public_data_check_low_leaf_next_slot,
         ColumnAndShifts::public_data_check_low_leaf_hash,
-        ColumnAndShifts::public_data_check_const_four
+        ColumnAndShifts::public_data_check_const_five
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::poseidon2_hash_input_0,
@@ -182,8 +182,8 @@ struct lookup_public_data_check_low_leaf_poseidon2_1_settings_ {
     static constexpr Column COUNTS = Column::lookup_public_data_check_low_leaf_poseidon2_1_counts;
     static constexpr Column INVERSES = Column::lookup_public_data_check_low_leaf_poseidon2_1_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::public_data_check_low_leaf_next_slot,
         ColumnAndShifts::public_data_check_low_leaf_next_index,
-        ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::public_data_check_low_leaf_hash
     };
@@ -212,11 +212,11 @@ struct lookup_public_data_check_updated_low_leaf_poseidon2_0_settings_ {
     static constexpr Column COUNTS = Column::lookup_public_data_check_updated_low_leaf_poseidon2_0_counts;
     static constexpr Column INVERSES = Column::lookup_public_data_check_updated_low_leaf_poseidon2_0_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::public_data_check_public_data_leaf_separator,
         ColumnAndShifts::public_data_check_low_leaf_slot,
         ColumnAndShifts::public_data_check_updated_low_leaf_value,
-        ColumnAndShifts::public_data_check_updated_low_leaf_next_slot,
         ColumnAndShifts::public_data_check_updated_low_leaf_hash,
-        ColumnAndShifts::public_data_check_const_four
+        ColumnAndShifts::public_data_check_const_five
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::poseidon2_hash_input_0,
@@ -244,8 +244,8 @@ struct lookup_public_data_check_updated_low_leaf_poseidon2_1_settings_ {
     static constexpr Column COUNTS = Column::lookup_public_data_check_updated_low_leaf_poseidon2_1_counts;
     static constexpr Column INVERSES = Column::lookup_public_data_check_updated_low_leaf_poseidon2_1_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::public_data_check_updated_low_leaf_next_slot,
         ColumnAndShifts::public_data_check_updated_low_leaf_next_index,
-        ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::public_data_check_updated_low_leaf_hash
     };
@@ -307,11 +307,11 @@ struct lookup_public_data_check_new_leaf_poseidon2_0_settings_ {
     static constexpr Column COUNTS = Column::lookup_public_data_check_new_leaf_poseidon2_0_counts;
     static constexpr Column INVERSES = Column::lookup_public_data_check_new_leaf_poseidon2_0_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::public_data_check_public_data_leaf_separator,
         ColumnAndShifts::public_data_check_leaf_slot,
         ColumnAndShifts::public_data_check_value,
-        ColumnAndShifts::public_data_check_low_leaf_next_slot,
         ColumnAndShifts::public_data_check_new_leaf_hash,
-        ColumnAndShifts::public_data_check_const_four
+        ColumnAndShifts::public_data_check_const_five
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::poseidon2_hash_input_0,
@@ -339,8 +339,8 @@ struct lookup_public_data_check_new_leaf_poseidon2_1_settings_ {
     static constexpr Column COUNTS = Column::lookup_public_data_check_new_leaf_poseidon2_1_counts;
     static constexpr Column INVERSES = Column::lookup_public_data_check_new_leaf_poseidon2_1_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::public_data_check_low_leaf_next_slot,
         ColumnAndShifts::public_data_check_low_leaf_next_index,
-        ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::public_data_check_new_leaf_hash
     };

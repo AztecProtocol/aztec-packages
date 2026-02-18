@@ -1,5 +1,6 @@
+import { DomainSeparator } from '@aztec/constants';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/sync';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -87,8 +88,8 @@ export class PublicDataTreeLeafPreimage implements IndexedTreeLeafPreimage {
     ];
   }
 
-  hash(): Promise<Fr> {
-    return poseidon2Hash(this.toHashInputs());
+  hash(): Fr {
+    return poseidon2HashWithSeparator(this.toHashInputs(), DomainSeparator.PUBLIC_DATA_LEAF);
   }
 
   clone(): PublicDataTreeLeafPreimage {

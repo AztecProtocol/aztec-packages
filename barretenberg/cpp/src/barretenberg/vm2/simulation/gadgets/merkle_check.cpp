@@ -4,6 +4,8 @@
 #include <stdexcept>
 #include <vector>
 
+#include "barretenberg/vm2/common/aztec_constants.hpp"
+
 namespace bb::avm2::simulation {
 
 /**
@@ -32,7 +34,8 @@ void MerkleCheck::assert_membership(const FF& leaf_value,
     for (const auto& sibling : sibling_path) {
         bool index_is_even = (curr_index % 2 == 0);
 
-        curr_value = index_is_even ? poseidon2.hash({ curr_value, sibling }) : poseidon2.hash({ sibling, curr_value });
+        curr_value = index_is_even ? poseidon2.hash({ FF(DOM_SEP__MERKLE_HASH), curr_value, sibling })
+                                   : poseidon2.hash({ FF(DOM_SEP__MERKLE_HASH), sibling, curr_value });
 
         // Halve the index (to get the parent index) as we move up the tree.
         curr_index >>= 1;
@@ -86,9 +89,10 @@ FF MerkleCheck::write(const FF& current_value,
     for (const auto& sibling : sibling_path) {
         bool index_is_even = (curr_index % 2 == 0);
 
-        read_value = index_is_even ? poseidon2.hash({ read_value, sibling }) : poseidon2.hash({ sibling, read_value });
-        write_value =
-            index_is_even ? poseidon2.hash({ write_value, sibling }) : poseidon2.hash({ sibling, write_value });
+        read_value = index_is_even ? poseidon2.hash({ FF(DOM_SEP__MERKLE_HASH), read_value, sibling })
+                                   : poseidon2.hash({ FF(DOM_SEP__MERKLE_HASH), sibling, read_value });
+        write_value = index_is_even ? poseidon2.hash({ FF(DOM_SEP__MERKLE_HASH), write_value, sibling })
+                                    : poseidon2.hash({ FF(DOM_SEP__MERKLE_HASH), sibling, write_value });
 
         // Halve the index (to get the parent index) as we move up the tree.
         curr_index >>= 1;

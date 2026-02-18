@@ -3,6 +3,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "barretenberg/crypto/merkle_tree/aztec_hash_policy.hpp"
 #include "barretenberg/crypto/merkle_tree/memory_tree.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
@@ -275,7 +276,7 @@ TEST(AvmSimulationNullifierTree, WriteAppend)
     FF nullifier = 100;
     FF low_nullifier = 40;
 
-    MemoryTree<Poseidon2HashPolicy> nullifier_tree(8);
+    MemoryTree<crypto::merkle_tree::AztecMerkleHashPolicy> nullifier_tree(8);
 
     NullifierTreeLeafPreimage low_leaf =
         NullifierTreeLeafPreimage(NullifierLeafValue(low_nullifier), 10, nullifier + 1);

@@ -232,7 +232,7 @@ describe('Private Execution test suite', () => {
     }
     if (!trees[name]) {
       const db = openTmpStore();
-      const poseidon = new Poseidon();
+      const poseidon = new Poseidon(2982624097); // DOM_SEP__MERKLE_HASH
       trees[name] = await newTree(StandardTree, db, poseidon, name, Fr, treeHeights[name]);
     }
     const tree = trees[name];

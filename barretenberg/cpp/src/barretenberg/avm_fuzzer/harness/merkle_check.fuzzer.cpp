@@ -8,6 +8,7 @@
 #include "barretenberg/avm_fuzzer/harness/mutation_helper.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"

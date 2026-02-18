@@ -1,4 +1,4 @@
-import { poseidon2Hash } from '@aztec/foundation/crypto/sync';
+import { poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto/sync';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Hasher } from '@aztec/foundation/trees';
 
@@ -8,15 +8,17 @@ import type { Hasher } from '@aztec/foundation/trees';
  * purposes.
  */
 export class Poseidon implements Hasher {
+  constructor(private merkleSeparator: number) {}
+
   /*
    * @deprecated Don't call poseidon2 directly in production code. Instead, create suitably-named functions for specific
    * purposes.
    */
   public hash(lhs: Uint8Array, rhs: Uint8Array) {
-    return poseidon2Hash([
-      Fr.fromBuffer(Buffer.from(lhs)),
-      Fr.fromBuffer(Buffer.from(rhs)),
-    ]).toBuffer() as Buffer<ArrayBuffer>;
+    return poseidon2HashWithSeparator(
+      [Fr.fromBuffer(Buffer.from(lhs)), Fr.fromBuffer(Buffer.from(rhs))],
+      this.merkleSeparator,
+    ).toBuffer() as Buffer<ArrayBuffer>;
   }
 
   /*

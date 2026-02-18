@@ -1,3 +1,4 @@
+import { DomainSeparator } from '@aztec/constants';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { FromBuffer } from '@aztec/foundation/serialize';
@@ -56,24 +57,24 @@ const createFromName = async (store: AztecKVStore, hasher: Hasher, name: string)
   return await loadTree(NullifierTree, store, hasher, name, noopDeserializer);
 };
 
-const createNullifierTreeLeafHashInputs = (value: number, nextIndex: number, nextValue: number) => {
-  return new NullifierLeafPreimage(
-    new NullifierLeaf(new Fr(value)),
-    new Fr(nextValue),
-    BigInt(nextIndex),
-  ).toHashInputs();
+const hashNullifierLeaf = (value: number, nextIndex: number, nextValue: number) => {
+  return new NullifierLeafPreimage(new NullifierLeaf(new Fr(value)), new Fr(nextValue), BigInt(nextIndex))
+    .hash()
+    .toBuffer() as Buffer<ArrayBuffer>;
 };
 
 const createPublicDataTreeLeaf = (slot: number, value: number) => {
   return new PublicDataTreeLeaf(new Fr(slot), new Fr(value));
 };
 
-const createPublicDataTreeLeafHashInputs = (slot: number, value: number, nextIndex: number, nextSlot: number) => {
+const hashPublicDataLeaf = (slot: number, value: number, nextIndex: number, nextSlot: number) => {
   return new PublicDataTreeLeafPreimage(
     new PublicDataTreeLeaf(new Fr(slot), new Fr(value)),
     new Fr(nextSlot),
     BigInt(nextIndex),
-  ).toHashInputs();
+  )
+    .hash()
+    .toBuffer() as Buffer<ArrayBuffer>;
 };
 
 const verifyCommittedState = async <N extends number>(
@@ -95,7 +96,7 @@ describe('StandardIndexedTreeSpecific', () => {
   let poseidon: Poseidon;
 
   beforeEach(() => {
-    poseidon = new Poseidon();
+    poseidon = new Poseidon(DomainSeparator.MERKLE_HASH);
   });
 
   it('produces the correct roots and sibling paths', async () => {
@@ -113,7 +114,7 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextVal   0       0       0       0        0       0       0       0.
      */
 
-    const initialLeafHash = poseidon.hashInputs(createNullifierTreeLeafHashInputs(0, 0, 0));
+    const initialLeafHash = hashNullifierLeaf(0, 0, 0);
     const level1ZeroHash = poseidon.hash(INITIAL_LEAF, INITIAL_LEAF);
     const level2ZeroHash = poseidon.hash(level1ZeroHash, level1ZeroHash);
 
@@ -147,8 +148,8 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextIdx   1       0       0       0        0       0       0       0
      *  nextVal   30      0       0       0        0       0       0       0.
      */
-    index0Hash = poseidon.hashInputs(createNullifierTreeLeafHashInputs(0, 1, 30));
-    let index1Hash = poseidon.hashInputs(createNullifierTreeLeafHashInputs(30, 0, 0));
+    index0Hash = hashNullifierLeaf(0, 1, 30);
+    let index1Hash = hashNullifierLeaf(30, 0, 0);
     e10 = poseidon.hash(index0Hash, index1Hash);
     e20 = poseidon.hash(e10, level1ZeroHash);
     root = poseidon.hash(e20, level2ZeroHash);
@@ -174,8 +175,8 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextIdx   2       0       1       0        0       0       0       0
      *  nextVal   10      0       30      0        0       0       0       0.
      */
-    index0Hash = poseidon.hashInputs(createNullifierTreeLeafHashInputs(0, 2, 10));
-    let index2Hash = poseidon.hashInputs(createNullifierTreeLeafHashInputs(10, 1, 30));
+    index0Hash = hashNullifierLeaf(0, 2, 10);
+    let index2Hash = hashNullifierLeaf(10, 1, 30);
     e10 = poseidon.hash(index0Hash, index1Hash);
     let e11 = poseidon.hash(index2Hash, INITIAL_LEAF);
     e20 = poseidon.hash(e10, e11);
@@ -207,8 +208,8 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextVal   10      0       20      30       0       0       0       0.
      */
     e10 = poseidon.hash(index0Hash, index1Hash);
-    index2Hash = poseidon.hashInputs(createNullifierTreeLeafHashInputs(10, 3, 20));
-    const index3Hash = poseidon.hashInputs(createNullifierTreeLeafHashInputs(20, 1, 30));
+    index2Hash = hashNullifierLeaf(10, 3, 20);
+    const index3Hash = hashNullifierLeaf(20, 1, 30);
     e11 = poseidon.hash(index2Hash, index3Hash);
     e20 = poseidon.hash(e10, e11);
     root = poseidon.hash(e20, level2ZeroHash);
@@ -238,8 +239,8 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextIdx   2       4       3       1        0       0       0       0
      *  nextVal   10      50      20      30       0       0       0       0.
      */
-    index1Hash = poseidon.hashInputs(createNullifierTreeLeafHashInputs(30, 4, 50));
-    const index4Hash = poseidon.hashInputs(createNullifierTreeLeafHashInputs(50, 0, 0));
+    index1Hash = hashNullifierLeaf(30, 4, 50);
+    const index4Hash = hashNullifierLeaf(50, 0, 0);
     e10 = poseidon.hash(index0Hash, index1Hash);
     e20 = poseidon.hash(e10, e11);
     const e12 = poseidon.hash(index4Hash, INITIAL_LEAF);
@@ -310,7 +311,7 @@ describe('StandardIndexedTreeSpecific', () => {
      */
 
     const INITIAL_LEAF = toBufferBE(0n, 32);
-    const initialLeafHash = poseidon.hashInputs(createNullifierTreeLeafHashInputs(0, 0, 0));
+    const initialLeafHash = hashNullifierLeaf(0, 0, 0);
     const level1ZeroHash = poseidon.hash(INITIAL_LEAF, INITIAL_LEAF);
     const level2ZeroHash = poseidon.hash(level1ZeroHash, level1ZeroHash);
     let index0Hash = initialLeafHash;
@@ -344,8 +345,8 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextIdx   1       0       0       0        0       0       0       0
      *  nextVal   30      0       0       0        0       0       0       0.
      */
-    index0Hash = poseidon.hashInputs(createNullifierTreeLeafHashInputs(0, 1, 30));
-    let index1Hash = poseidon.hashInputs(createNullifierTreeLeafHashInputs(30, 0, 0));
+    index0Hash = hashNullifierLeaf(0, 1, 30);
+    let index1Hash = hashNullifierLeaf(30, 0, 0);
     e10 = poseidon.hash(index0Hash, index1Hash);
     e20 = poseidon.hash(e10, level1ZeroHash);
     root = poseidon.hash(e20, level2ZeroHash);
@@ -370,8 +371,8 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextIdx   2       0       1       0        0       0       0       0
      *  nextVal   10      0       30      0        0       0       0       0.
      */
-    index0Hash = poseidon.hashInputs(createNullifierTreeLeafHashInputs(0, 2, 10));
-    let index2Hash = poseidon.hashInputs(createNullifierTreeLeafHashInputs(10, 1, 30));
+    index0Hash = hashNullifierLeaf(0, 2, 10);
+    let index2Hash = hashNullifierLeaf(10, 1, 30);
     e10 = poseidon.hash(index0Hash, index1Hash);
     let e11 = poseidon.hash(index2Hash, INITIAL_LEAF);
     e20 = poseidon.hash(e10, e11);
@@ -403,8 +404,8 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextVal   10      0       20      30       0       0       0       0.
      */
     e10 = poseidon.hash(index0Hash, index1Hash);
-    index2Hash = poseidon.hashInputs(createNullifierTreeLeafHashInputs(10, 3, 20));
-    const index3Hash = poseidon.hashInputs(createNullifierTreeLeafHashInputs(20, 1, 30));
+    index2Hash = hashNullifierLeaf(10, 3, 20);
+    const index3Hash = hashNullifierLeaf(20, 1, 30);
     e11 = poseidon.hash(index2Hash, index3Hash);
     e20 = poseidon.hash(e10, e11);
     root = poseidon.hash(e20, level2ZeroHash);
@@ -442,8 +443,8 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextIdx   2       6       3       1        0       0       0       0
      *  nextVal   10      50      20      30       0       0       0       0.
      */
-    index1Hash = poseidon.hashInputs(createNullifierTreeLeafHashInputs(30, 6, 50));
-    const index6Hash = poseidon.hashInputs(createNullifierTreeLeafHashInputs(50, 0, 0));
+    index1Hash = hashNullifierLeaf(30, 6, 50);
+    const index6Hash = hashNullifierLeaf(50, 0, 0);
     e10 = poseidon.hash(index0Hash, index1Hash);
     e20 = poseidon.hash(e10, e11);
     const e13 = poseidon.hash(index6Hash, INITIAL_LEAF);
@@ -559,7 +560,7 @@ describe('StandardIndexedTreeSpecific', () => {
        */
 
       const EMPTY_LEAF = toBufferBE(0n, 32);
-      const initialLeafHash = poseidon.hashInputs(createPublicDataTreeLeafHashInputs(0, 0, 0, 0));
+      const initialLeafHash = hashPublicDataLeaf(0, 0, 0, 0);
       const level1ZeroHash = poseidon.hash(EMPTY_LEAF, EMPTY_LEAF);
       const level2ZeroHash = poseidon.hash(level1ZeroHash, level1ZeroHash);
       let index0Hash = initialLeafHash;
@@ -593,8 +594,8 @@ describe('StandardIndexedTreeSpecific', () => {
        *  nextIdx   1       0       0       0        0       0       0       0
        *  nextSlot  30      0       0       0        0       0       0       0.
        */
-      index0Hash = poseidon.hashInputs(createPublicDataTreeLeafHashInputs(0, 0, 1, 30));
-      let index1Hash = poseidon.hashInputs(createPublicDataTreeLeafHashInputs(30, 5, 0, 0));
+      index0Hash = hashPublicDataLeaf(0, 0, 1, 30);
+      let index1Hash = hashPublicDataLeaf(30, 5, 0, 0);
       e10 = poseidon.hash(index0Hash, index1Hash);
       e20 = poseidon.hash(e10, level1ZeroHash);
       root = poseidon.hash(e20, level2ZeroHash);
@@ -620,7 +621,7 @@ describe('StandardIndexedTreeSpecific', () => {
        *  nextIdx   1       0       0       0        0       0       0       0
        *  nextSlot  30      0       0       0        0       0       0       0.
        */
-      index1Hash = poseidon.hashInputs(createPublicDataTreeLeafHashInputs(30, 10, 0, 0));
+      index1Hash = hashPublicDataLeaf(30, 10, 0, 0);
       e10 = poseidon.hash(index0Hash, index1Hash);
       e20 = poseidon.hash(e10, level1ZeroHash);
       root = poseidon.hash(e20, level2ZeroHash);

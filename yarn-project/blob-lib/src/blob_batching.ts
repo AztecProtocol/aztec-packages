@@ -1,5 +1,5 @@
-import { BLOBS_PER_CHECKPOINT, MAX_CHECKPOINTS_PER_EPOCH } from '@aztec/constants';
-import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { BLOBS_PER_CHECKPOINT, DomainSeparator, MAX_CHECKPOINTS_PER_EPOCH } from '@aztec/constants';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { BLS12Fr, BLS12Point } from '@aztec/foundation/curves/bls12';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -116,7 +116,7 @@ export class BatchedBlobAccumulator {
         if (!z) {
           z = challengeZ;
         } else {
-          z = await poseidon2Hash([z, challengeZ]);
+          z = await poseidon2HashWithSeparator([z, challengeZ], DomainSeparator.BLOB_Z_ACC);
         }
       }
       allBlobs.push(...blobs);
@@ -132,9 +132,9 @@ export class BatchedBlobAccumulator {
     let gamma = evaluations[0];
     // We start at i = 1, because gamma is initialized as the first blob's evaluation.
     for (let i = 1; i < allBlobs.length; i++) {
-      gamma = await poseidon2Hash([gamma, evaluations[i]]);
+      gamma = await poseidon2HashWithSeparator([gamma, evaluations[i]], DomainSeparator.BLOB_GAMMA_ACC);
     }
-    gamma = await poseidon2Hash([gamma, z]);
+    gamma = await poseidon2HashWithSeparator([gamma, z], DomainSeparator.BLOB_GAMMA_FINAL);
 
     return new FinalBlobBatchingChallenges(z, BLS12Fr.fromBN254Fr(gamma));
   }
@@ -174,11 +174,14 @@ export class BatchedBlobAccumulator {
       // Moving from i - 1 to i, so:
       return new BatchedBlobAccumulator(
         sha256ToField([this.blobCommitmentsHashAcc, blob.commitment]), // blobCommitmentsHashAcc := sha256(blobCommitmentsHashAcc, C_i)
-        await poseidon2Hash([this.zAcc, blobChallengeZ]), // zAcc := poseidon2(zAcc, z_i)
+        await poseidon2HashWithSeparator([this.zAcc, blobChallengeZ], DomainSeparator.BLOB_Z_ACC), // zAcc := poseidon2(zAcc, z_i)
         this.yAcc.add(thisY.mul(this.gammaPow)), // yAcc := yAcc + (gamma^i * y_i)
         this.cAcc.add(thisC.mul(this.gammaPow)), // cAcc := cAcc + (gamma^i * C_i)
         this.qAcc.add(thisQ.mul(this.gammaPow)), // qAcc := qAcc + (gamma^i * C_i)
-        await poseidon2Hash([this.gammaAcc, await hashNoirBigNumLimbs(thisY)]), // gammaAcc := poseidon2(gammaAcc, poseidon2(y_i.limbs))
+        await poseidon2HashWithSeparator(
+          [this.gammaAcc, await hashNoirBigNumLimbs(thisY)],
+          DomainSeparator.BLOB_GAMMA_ACC,
+        ), // gammaAcc := poseidon2(gammaAcc, poseidon2(y_i.limbs))
         this.gammaPow.mul(this.finalBlobChallenges.gamma), // gammaPow = gamma^(i + 1) = gamma^i * final_gamma
         this.finalBlobChallenges,
       );
@@ -227,7 +230,10 @@ export class BatchedBlobAccumulator {
    */
   async finalize(verifyProof = false): Promise<BatchedBlob> {
     // All values in acc are final, apart from gamma := poseidon2(gammaAcc, z):
-    const calculatedGamma = await poseidon2Hash([this.gammaAcc, this.zAcc]);
+    const calculatedGamma = await poseidon2HashWithSeparator(
+      [this.gammaAcc, this.zAcc],
+      DomainSeparator.BLOB_GAMMA_FINAL,
+    );
     // Check final values:
     if (!this.zAcc.equals(this.finalBlobChallenges.z)) {
       throw new Error(

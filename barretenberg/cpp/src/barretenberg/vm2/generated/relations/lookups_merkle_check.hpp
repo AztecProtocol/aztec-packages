@@ -22,11 +22,11 @@ struct lookup_merkle_check_merkle_poseidon2_read_settings_ {
     static constexpr Column COUNTS = Column::lookup_merkle_check_merkle_poseidon2_read_counts;
     static constexpr Column INVERSES = Column::lookup_merkle_check_merkle_poseidon2_read_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::merkle_check_merkle_hash_separator,
         ColumnAndShifts::merkle_check_read_left_node,
         ColumnAndShifts::merkle_check_read_right_node,
-        ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::merkle_check_read_output_hash,
-        ColumnAndShifts::merkle_check_const_two
+        ColumnAndShifts::merkle_check_const_three
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::poseidon2_hash_input_0,
@@ -54,11 +54,11 @@ struct lookup_merkle_check_merkle_poseidon2_write_settings_ {
     static constexpr Column COUNTS = Column::lookup_merkle_check_merkle_poseidon2_write_counts;
     static constexpr Column INVERSES = Column::lookup_merkle_check_merkle_poseidon2_write_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::merkle_check_merkle_hash_separator,
         ColumnAndShifts::merkle_check_write_left_node,
         ColumnAndShifts::merkle_check_write_right_node,
-        ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::merkle_check_write_output_hash,
-        ColumnAndShifts::merkle_check_const_two
+        ColumnAndShifts::merkle_check_const_three
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::poseidon2_hash_input_0,

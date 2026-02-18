@@ -1,9 +1,9 @@
-import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { computeRootFromSiblingPath } from '@aztec/foundation/trees';
 
 import { type ContractArtifact, FunctionSelector, FunctionType } from '../abi/index.js';
+import { computeMerkleHash } from '../hash/hash.js';
 import {
   computeArtifactFunctionTree,
   computeArtifactHash,
@@ -124,7 +124,7 @@ export async function isValidPrivateFunctionMembershipProof(
     functionLeaf,
     fn.privateFunctionTreeSiblingPath.map(fr => fr.toBuffer()),
     fn.privateFunctionTreeLeafIndex,
-    async (left, right) => (await poseidon2Hash([left, right])).toBuffer(),
+    async (left, right) => (await computeMerkleHash(Fr.fromBuffer(left), Fr.fromBuffer(right))).toBuffer(),
   );
   const computedPrivateFunctionTreeRoot = Fr.fromBuffer(rootBuffer);
   if (!contractClass.privateFunctionsRoot.equals(computedPrivateFunctionTreeRoot)) {

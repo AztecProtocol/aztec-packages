@@ -1,11 +1,8 @@
 import { computeBalancedMerkleTreeRoot, computeBalancedMerkleTreeRootAsync } from './balanced_merkle_tree_root.js';
-import { poseidonMerkleHash, shaMerkleHash } from './hasher.js';
+import { shaMerkleHash } from './hasher.js';
 import { UnbalancedMerkleTreeCalculator } from './unbalanced_merkle_tree_calculator.js';
 
 export const computeUnbalancedShaRoot = (leaves: Buffer[]) => computeUnbalancedMerkleTreeRoot(leaves, shaMerkleHash);
-
-export const computeUnbalancedPoseidonRoot = async (leaves: Buffer[]) =>
-  await computeUnbalancedMerkleTreeRootAsync(leaves, poseidonMerkleHash);
 
 export const computeWonkyShaRoot = (leaves: Buffer[]) => computeWonkyMerkleTreeRoot(leaves);
 
@@ -67,7 +64,7 @@ export function computeUnbalancedMerkleTreeRoot(
 
 export async function computeUnbalancedMerkleTreeRootAsync(
   leaves: Buffer[],
-  hasher = poseidonMerkleHash,
+  hasher: (left: Uint8Array, right: Uint8Array) => Promise<Buffer<ArrayBuffer>>,
   emptyRoot = Buffer.alloc(32),
 ): Promise<Buffer> {
   if (!leaves.length) {
