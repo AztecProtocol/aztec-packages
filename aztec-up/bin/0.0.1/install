@@ -8,12 +8,20 @@
 set -euo pipefail
 
 # Colors
+<<<<<<< HEAD
 reset="\033[0m"
 g="\033[38;5;114m"              # green
 y="\033[38;5;222m"              # yellow
 b="\033[38;5;111m"              # blue
 p="\033[38;5;176m"              # purple
 r="\033[38;5;203m"            # red
+=======
+r="\033[31m" # Red
+g="\033[32m" # Green
+y="\033[33m" # Yellow
+b="\033[34m" # Blue
+reset="\033[0m"
+>>>>>>> 44e1ce22abb (fix: some mac install fixes)
 
 # Helper function to safely read version from versions file
 function get_version {
@@ -140,8 +148,13 @@ function install_node {
   fi
 
   . "$HOME/.nvm/nvm.sh"
+<<<<<<< HEAD
   nvm install "$node_min_version"
   nvm alias default "$node_min_version"
+=======
+  nvm install --lts
+  nvm alias default lts/*
+>>>>>>> 44e1ce22abb (fix: some mac install fixes)
 }
 
 function install_versions_file {
@@ -319,8 +332,13 @@ function main {
   dump_fail install_node
   echo_green "done."
 
+<<<<<<< HEAD
   # Source nvm to ensure node is in PATH (if using nvm).
   [ -f "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
+=======
+  # Source nvm to ensure node is in PATH.
+  . "$HOME/.nvm/nvm.sh"
+>>>>>>> 44e1ce22abb (fix: some mac install fixes)
 
   # Install noir
   echo -n "Installing nargo... "
