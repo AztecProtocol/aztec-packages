@@ -71,10 +71,12 @@ jobs:
         run: |
           TARGET_BRANCH="${{ steps.extract-branch.outputs.target_branch }}"
           STAGING_BRANCH="backport-to-${TARGET_BRANCH}-staging"
-          COMMIT_COUNT=$(gh pr view "${{ github.event.pull_request.number }}" --json commits --jq '.commits | length')
+          STAGING_PR=$(gh pr list --base "$TARGET_BRANCH" --head "$STAGING_BRANCH" --json number,url --jq '.[0]')
+          STAGING_PR_NUMBER=$(echo "$STAGING_PR" | jq -r '.number')
+          STAGING_PR_URL=$(echo "$STAGING_PR" | jq -r '.url')
 
           gh pr comment "${{ github.event.pull_request.number }}" --body \
-            "✅ Successfully cherry-picked $COMMIT_COUNT commit(s) to backport staging branch \`$STAGING_BRANCH\`."
+            "✅ Successfully backported to [$STAGING_BRANCH #$STAGING_PR_NUMBER]($STAGING_PR_URL)."
 
       - name: Comment on original PR (failure)
         if: steps.backport.outcome == 'failure'
