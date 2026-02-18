@@ -182,9 +182,11 @@ function main {
   mkdir -p "$shared_bin_path"
 
   # Install jq
-  echo -n "Installing jq... "
-  install_jq
-  echo_green "done."
+  if ! command -v jq >/dev/null 2>&1; then
+    echo -n "Installing jq... "
+    install_jq
+    echo_green "done."
+  fi
 
   # Install aztec-up (version manager)
   echo -n "Installing aztec-up... "

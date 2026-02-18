@@ -68,7 +68,7 @@ function release {
 }
 
 function cross_copy {
-  ./scripts/copy_cross.sh
+  ./scripts/copy_cross.sh "$@"
 }
 
 case "$cmd" in
