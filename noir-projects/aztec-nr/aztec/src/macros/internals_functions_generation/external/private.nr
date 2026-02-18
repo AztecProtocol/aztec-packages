@@ -35,9 +35,8 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
         }
     } else {
         // Contract does not have Storage defined, so we set storage to the unit type `()`. ContractSelfPrivate
-        // requires a
-        // storage struct in its constructor. Using an Option type would lead to worse developer experience and higher
-        // constraint counts so we use the unit type `()` instead.
+        // requires a storage struct in its constructor. Using an Option type would lead to worse developer experience
+        // and higher constraint counts so we use the unit type `()` instead.
         quote {
             let storage = ();
         }
