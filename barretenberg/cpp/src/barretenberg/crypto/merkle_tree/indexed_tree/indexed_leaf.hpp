@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/common/utils.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
@@ -66,6 +67,8 @@ struct NullifierLeafValue {
 
     static NullifierLeafValue padding(index_t i) { return { i }; }
 
+    size_t hash() const noexcept { return std::hash<fr>{}(nullifier); }
+
     static std::string name() { return "NullifierLeafValue"; };
 };
 
@@ -125,6 +128,8 @@ struct PublicDataLeafValue {
     static PublicDataLeafValue empty() { return { fr::zero(), fr::zero() }; }
 
     static PublicDataLeafValue padding(index_t i) { return { i, fr::zero() }; }
+
+    size_t hash() const noexcept { return utils::hash_as_tuple(value, slot); }
 
     static std::string name() { return "PublicDataLeafValue"; };
 };
