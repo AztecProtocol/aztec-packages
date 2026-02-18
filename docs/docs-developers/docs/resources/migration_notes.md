@@ -29,14 +29,6 @@ The wallet now passes scopes to PXE, and only the `from` address is in scope by 
 
 2. **Operations that access another contract's private state** (e.g., withdrawing from an escrow contract that nullifies the contract's own token notes).
 
-**Example: deploying an account contract**
-
-```diff
-  const deployMethod = await accountManager.getDeployMethod();
-  await deployMethod.send({
-    from: AztecAddress.ZERO,
-+   additionalScopes: [accountManager.address],
-  });
 ```
 
 **Example: deploying a contract with private storage (e.g., `PrivateToken`)**

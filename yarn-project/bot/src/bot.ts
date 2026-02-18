@@ -71,6 +71,7 @@ export class Bot extends BaseBot {
 
     const batch = new BatchCall(wallet, calls);
     const opts = await this.getSendMethodOpts(batch);
+
     this.log.verbose(`Simulating transaction with ${calls.length}`, logCtx);
     await batch.simulate({ from: this.defaultAccountAddress });
 
