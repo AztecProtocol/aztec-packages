@@ -2,6 +2,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { BlockHash, type L2BlockId } from '@aztec/stdlib/block';
+import { Gas } from '@aztec/stdlib/gas';
 import type { Tx } from '@aztec/stdlib/tx';
 
 import { getFeePayerBalanceDelta } from '../../msg_validators/tx_validator/fee_payer_balance.js';
@@ -18,6 +19,9 @@ export type TxMetaValidationData = {
       globalVariables: {
         blockNumber: BlockNumber;
       };
+    };
+    txContext: {
+      gasSettings: { gasLimits: Gas };
     };
   };
 };
@@ -109,6 +113,9 @@ export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
         anchorBlockHeader: {
           hash: () => Promise.resolve(anchorBlockHeaderHashFr),
           globalVariables: { blockNumber: anchorBlockNumber },
+        },
+        txContext: {
+          gasSettings: { gasLimits: tx.data.constants.txContext.gasSettings.gasLimits },
         },
       },
     },
@@ -236,6 +243,9 @@ export function stubTxMetaValidationData(overrides: { expirationTimestamp?: bigi
       anchorBlockHeader: {
         hash: () => Promise.resolve(new BlockHash(Fr.ZERO)),
         globalVariables: { blockNumber: BlockNumber(0) },
+      },
+      txContext: {
+        gasSettings: { gasLimits: Gas.empty() },
       },
     },
   };

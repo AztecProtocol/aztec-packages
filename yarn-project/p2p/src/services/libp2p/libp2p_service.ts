@@ -71,7 +71,8 @@ import { MessageSeenValidator } from '../../msg_validators/msg_seen_validator/ms
 import {
   type TransactionValidator,
   createCompleteGossipedTransactionValidators,
-  createTxReqRespValidator,
+  createTxValidatorForBlockProposalReceivedTxs,
+  createTxValidatorForReqResponseReceivedTxs,
 } from '../../msg_validators/tx_validator/factory.js';
 import { GossipSubEvent } from '../../types/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
@@ -1535,7 +1536,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }
 
   protected createRequestedTxValidator(): TxValidator {
-    return createTxReqRespValidator(this.proofVerifier, {
+    return createTxValidatorForReqResponseReceivedTxs(this.proofVerifier, {
       l1ChainId: this.config.l1ChainId,
       rollupVersion: this.config.rollupVersion,
     });
@@ -1599,23 +1600,22 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     };
   }
 
-  public async validate(txs: Tx[]): Promise<void> {
-    const currentBlockNumber = await this.archiver.getBlockNumber();
+  public async validateTxsReceivedInBlockProposal(txs: Tx[]): Promise<void> {
+    const validator = createTxValidatorForBlockProposalReceivedTxs(
+      this.proofVerifier,
+      { l1ChainId: this.config.l1ChainId, rollupVersion: this.config.rollupVersion },
+      this.logger.getBindings(),
+    );
 
-    // We accept transactions if they are not expired by the next slot (checked based on the ExpirationTimestamp field)
-    const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
-    const messageValidators = await this.createMessageValidators(currentBlockNumber, nextSlotTimestamp);
-
-    await Promise.all(
+    const results = await Promise.all(
       txs.map(async tx => {
-        for (const validator of messageValidators) {
-          const outcome = await this.runValidations(tx, validator);
-          if (!outcome.allPassed) {
-            throw new Error('Invalid tx detected', { cause: { outcome } });
-          }
-        }
+        const result = await validator.validateTx(tx);
+        return result.result !== 'invalid';
       }),
     );
+    if (results.some(value => value === false)) {
+      throw new Error('Invalid tx detected');
+    }
   }
 
   /**

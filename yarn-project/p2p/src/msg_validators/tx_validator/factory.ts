@@ -60,80 +60,127 @@ export function createCompleteGossipedTransactionValidators(
   allowedInSetup: AllowedElement[] = [],
   bindings?: LoggerBindings,
 ): Record<string, TransactionValidator>[] {
-  const merkleTree = worldStateSynchronizer.getCommitted();
-
   return [
-    {
-      txsPermittedValidator: {
-        validator: new TxPermittedValidator(txsPermitted, bindings),
-        severity: PeerErrorSeverity.MidToleranceError,
-      },
-      dataValidator: {
-        validator: new DataTxValidator(bindings),
-        severity: PeerErrorSeverity.HighToleranceError,
-      },
-      metadataValidator: {
-        validator: new MetadataTxValidator(
-          {
-            l1ChainId: new Fr(l1ChainId),
-            rollupVersion: new Fr(rollupVersion),
-            protocolContractsHash,
-            vkTreeRoot: getVKTreeRoot(),
-          },
-          bindings,
-        ),
-        severity: PeerErrorSeverity.HighToleranceError,
-      },
-      timestampValidator: {
-        validator: new TimestampTxValidator<Tx>(
-          {
-            timestamp,
-            blockNumber,
-          },
-          bindings,
-        ),
-        severity: PeerErrorSeverity.MidToleranceError,
-      },
-      doubleSpendValidator: {
-        validator: new DoubleSpendTxValidator(
-          {
-            nullifiersExist: async (nullifiers: Buffer[]) => {
-              const merkleTree = worldStateSynchronizer.getCommitted();
-              const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
-              return indices.map(index => index !== undefined);
-            },
-          },
-          bindings,
-        ),
-        severity: PeerErrorSeverity.HighToleranceError,
-      },
-      gasValidator: {
-        validator: new GasTxValidator(
-          new DatabasePublicStateSource(merkleTree),
-          ProtocolContractAddress.FeeJuice,
-          gasFees,
-          bindings,
-        ),
-        severity: PeerErrorSeverity.HighToleranceError,
-      },
-      phasesValidator: {
-        validator: new PhasesTxValidator(contractDataSource, allowedInSetup, timestamp, bindings),
-        severity: PeerErrorSeverity.MidToleranceError,
-      },
-      blockHeaderValidator: {
-        validator: new BlockHeaderTxValidator(new ArchiveCache(merkleTree), bindings),
-        severity: PeerErrorSeverity.HighToleranceError,
-      },
-    },
-    {
-      proofValidator: {
-        validator: new TxProofValidator(proofVerifier, bindings),
-        severity: PeerErrorSeverity.MidToleranceError,
-      },
-    },
+    createFirstStageTxValidationsForGossippedTransactions(
+      timestamp,
+      blockNumber,
+      worldStateSynchronizer,
+      gasFees,
+      l1ChainId,
+      rollupVersion,
+      protocolContractsHash,
+      contractDataSource,
+      txsPermitted,
+      allowedInSetup,
+      bindings,
+    ),
+    createSecondStageTxValidationsForGossippedTransactions(proofVerifier),
   ];
 }
 
+/**
+ * Builds the set of validators used in the first stage of validating gossipped transactions.
+ * This performs all the reasonably fast verifications.
+ * Slow/expensive verifications are deferred to the second stage.
+ */
+export function createFirstStageTxValidationsForGossippedTransactions(
+  timestamp: UInt64,
+  blockNumber: BlockNumber,
+  worldStateSynchronizer: WorldStateSynchronizer,
+  gasFees: GasFees,
+  l1ChainId: number,
+  rollupVersion: number,
+  protocolContractsHash: Fr,
+  contractDataSource: ContractDataSource,
+  txsPermitted: boolean,
+  allowedInSetup: AllowedElement[] = [],
+  bindings?: LoggerBindings,
+): Record<string, TransactionValidator> {
+  const merkleTree = worldStateSynchronizer.getCommitted();
+
+  return {
+    txsPermittedValidator: {
+      validator: new TxPermittedValidator(txsPermitted, bindings),
+      severity: PeerErrorSeverity.MidToleranceError,
+    },
+    dataValidator: {
+      validator: new DataTxValidator(bindings),
+      severity: PeerErrorSeverity.HighToleranceError,
+    },
+    metadataValidator: {
+      validator: new MetadataTxValidator(
+        {
+          l1ChainId: new Fr(l1ChainId),
+          rollupVersion: new Fr(rollupVersion),
+          protocolContractsHash,
+          vkTreeRoot: getVKTreeRoot(),
+        },
+        bindings,
+      ),
+      severity: PeerErrorSeverity.HighToleranceError,
+    },
+    timestampValidator: {
+      validator: new TimestampTxValidator<Tx>(
+        {
+          timestamp,
+          blockNumber,
+        },
+        bindings,
+      ),
+      severity: PeerErrorSeverity.MidToleranceError,
+    },
+    doubleSpendValidator: {
+      validator: new DoubleSpendTxValidator(
+        {
+          nullifiersExist: async (nullifiers: Buffer[]) => {
+            const merkleTree = worldStateSynchronizer.getCommitted();
+            const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
+            return indices.map(index => index !== undefined);
+          },
+        },
+        bindings,
+      ),
+      severity: PeerErrorSeverity.HighToleranceError,
+    },
+    gasValidator: {
+      validator: new GasTxValidator(
+        new DatabasePublicStateSource(merkleTree),
+        ProtocolContractAddress.FeeJuice,
+        gasFees,
+        bindings,
+      ),
+      severity: PeerErrorSeverity.HighToleranceError,
+    },
+    phasesValidator: {
+      validator: new PhasesTxValidator(contractDataSource, allowedInSetup, timestamp, bindings),
+      severity: PeerErrorSeverity.MidToleranceError,
+    },
+    blockHeaderValidator: {
+      validator: new BlockHeaderTxValidator(new ArchiveCache(merkleTree), bindings),
+      severity: PeerErrorSeverity.HighToleranceError,
+    },
+  };
+}
+
+/**
+ * Builds the set of validators used in the second stage of validating gossipped transactions.
+ * This performs the slow/expensive verifications.
+ */
+export function createSecondStageTxValidationsForGossippedTransactions(
+  proofVerifier: ClientProtocolCircuitVerifier,
+  bindings?: LoggerBindings,
+): Record<string, TransactionValidator> {
+  return {
+    proofValidator: {
+      validator: new TxProofValidator(proofVerifier, bindings),
+      severity: PeerErrorSeverity.MidToleranceError,
+    },
+  };
+}
+
+/**
+ * Builds an aggregate tx validator that performs only the most basic of transaction integrity checks
+ */
 function createTxValidatorForMinimumTxIntegrityChecks(
   verifier: ClientProtocolCircuitVerifier,
   {
@@ -268,7 +315,7 @@ export function createTxValidatorForAcceptingTxsOverRPC(
 
 /**
  * Validators used for transactions immediately prior to being included in a block.
- * Performs a last minute sanity check to ensure we don't build and invalid block.
+ * Performs a last minute sanity check to ensure we don't build an invalid block.
  */
 export function createTxValidatorForBlockBuilding(
   db: MerkleTreeReadOperations,
@@ -326,12 +373,10 @@ function createTxValidatorForValidatingAgainstCurrentState(
  */
 export async function createTxValidatorForTransactionsEnteringPendingTxPool(
   worldStateSynchronizer: WorldStateSynchronizer,
-  contractDataSource: ContractDataSource,
   timestamp: bigint,
   blockNumber: BlockNumber,
-  setupAllowList: AllowedElement[],
   bindings?: LoggerBindings,
-) {
+): Promise<TxValidator<TxMetaData>> {
   await worldStateSynchronizer.syncImmediate();
   const merkleTree = worldStateSynchronizer.getCommitted();
   const nullifierSource: NullifierSource = {
@@ -348,14 +393,7 @@ export async function createTxValidatorForTransactionsEnteringPendingTxPool(
   return new AggregateTxValidator<TxMetaData>(
     new DoubleSpendTxValidator<TxMetaData>(nullifierSource, bindings),
     new BlockHeaderTxValidator<TxMetaData>(archiveSource, bindings),
-    new PhasesTxValidator(contractDataSource, setupAllowList, timestamp, bindings),
     new GasLimitsValidator<TxMetaData>(bindings),
-    new TimestampTxValidator(
-      {
-        timestamp: timestamp,
-        blockNumber: blockNumber,
-      },
-      bindings,
-    ),
+    new TimestampTxValidator<TxMetaData>({ timestamp, blockNumber }, bindings),
   );
 }

@@ -24,7 +24,7 @@ import {
   type P2P,
   type P2PClientDeps,
   createP2PClient,
-  createValidatorForAcceptingTxsOverRPC,
+  createTxValidatorForAcceptingTxsOverRPC,
   getDefaultAllowedSetupFunctions,
 } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -1272,7 +1272,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // We accept transactions if they are not expired by the next slot (checked based on the ExpirationTimestamp field)
     const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
     const blockNumber = BlockNumber((await this.blockSource.getBlockNumber()) + 1);
-    const validator = createValidatorForAcceptingTxsOverRPC(
+    const validator = createTxValidatorForAcceptingTxsOverRPC(
       db,
       this.contractDataSource,
       verifier,

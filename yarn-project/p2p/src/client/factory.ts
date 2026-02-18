@@ -1,4 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
@@ -17,7 +18,7 @@ import { AttestationPool, type AttestationPoolApi } from '../mem_pools/attestati
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
 import { AztecKVTxPoolV2 } from '../mem_pools/tx_pool_v2/tx_pool_v2.js';
-import { createTxPoolPendingValidator } from '../msg_validators/index.js';
+import { createTxValidatorForTransactionsEnteringPendingTxPool } from '../msg_validators/index.js';
 import { DummyP2PService } from '../services/dummy_service.js';
 import { LibP2PService } from '../services/index.js';
 import { createFileStoreTxSources } from '../services/tx_collection/file_store_tx_source.js';
@@ -84,7 +85,16 @@ export async function createP2PClient<T extends P2PClientType>(
       {
         l2BlockSource: archiver,
         worldStateSynchronizer,
-        createTxValidator: () => createTxPoolPendingValidator(worldStateSynchronizer),
+        createTxValidator: async () => {
+          // We accept transactions if they are not expired by the next slot and block number (checked based on the ExpirationTimestamp field)
+          const currentBlockNumber = await archiver.getBlockNumber();
+          const { ts: nextSlotTimestamp } = epochCache.getEpochAndSlotInNextL1Slot();
+          return createTxValidatorForTransactionsEnteringPendingTxPool(
+            worldStateSynchronizer,
+            nextSlotTimestamp,
+            BlockNumber(currentBlockNumber + 1),
+          );
+        },
       },
       telemetry,
       {

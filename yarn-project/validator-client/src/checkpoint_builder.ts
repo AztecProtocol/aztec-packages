@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider, elapsed } from '@aztec/foundation/timer';
-import { createValidatorForBlockBuilding, getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
+import { createTxValidatorForBlockBuilding, getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
 import { LightweightCheckpointBuilder } from '@aztec/prover-client/light';
 import {
   GuardedMerkleTreeOperations,
@@ -170,7 +170,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       this.config,
     );
 
-    const validator = createValidatorForBlockBuilding(
+    const validator = createTxValidatorForBlockBuilding(
       fork,
       this.contractDataSource,
       globalVariables,

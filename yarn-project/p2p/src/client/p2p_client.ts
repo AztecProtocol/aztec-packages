@@ -765,8 +765,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.log.debug(`Moved from state ${P2PClientState[oldState]} to ${P2PClientState[this.currentState]}`);
   }
 
-  public validate(txs: Tx[]): Promise<void> {
-    return this.p2pService.validate(txs);
+  public validateTxsReceivedInBlockProposal(txs: Tx[]): Promise<void> {
+    return this.p2pService.validateTxsReceivedInBlockProposal(txs);
   }
 
   /**
