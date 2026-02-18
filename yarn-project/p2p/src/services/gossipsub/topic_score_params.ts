@@ -15,6 +15,8 @@ export type TopicScoringNetworkParams = {
   targetCommitteeSize: number;
   /** Duration per block in milliseconds when building multiple blocks per slot. If undefined, single block mode. */
   blockDurationMs?: number;
+  /** Expected number of block proposals per slot for scoring override. 0 disables scoring, undefined falls back to blocksPerSlot - 1. */
+  expectedBlockProposalsPerSlot?: number;
 };
 
 /**
@@ -90,17 +92,40 @@ export function computeThreshold(convergence: number, conservativeFactor: number
 }
 
 /**
+ * Determines the effective expected block proposals per slot for scoring.
+ * Returns undefined if scoring should be disabled, or a positive number if enabled.
+ *
+ * @param blocksPerSlot - Number of blocks per slot from timetable
+ * @param expectedBlockProposalsPerSlot - Config override. 0 disables scoring, undefined falls back to blocksPerSlot - 1.
+ * @returns Positive number of expected block proposals, or undefined if scoring is disabled
+ */
+export function getEffectiveBlockProposalsPerSlot(
+  blocksPerSlot: number,
+  expectedBlockProposalsPerSlot?: number,
+): number | undefined {
+  if (expectedBlockProposalsPerSlot !== undefined) {
+    return expectedBlockProposalsPerSlot > 0 ? expectedBlockProposalsPerSlot : undefined;
+  }
+  // Fallback: In MBPS mode, N-1 block proposals per slot (last one bundled with checkpoint)
+  // In single block mode (blocksPerSlot=1), this is 0 → disabled
+  const fallback = Math.max(0, blocksPerSlot - 1);
+  return fallback > 0 ? fallback : undefined;
+}
+
+/**
  * Gets the expected messages per slot for a given topic type.
  *
  * @param topicType - The topic type
  * @param targetCommitteeSize - Target committee size
  * @param blocksPerSlot - Number of blocks per slot
+ * @param expectedBlockProposalsPerSlot - Override for block proposals. 0 disables scoring, undefined falls back to blocksPerSlot - 1.
  * @returns Expected messages per slot, or undefined if unpredictable
  */
 export function getExpectedMessagesPerSlot(
   topicType: TopicType,
   targetCommitteeSize: number,
   blocksPerSlot: number,
+  expectedBlockProposalsPerSlot?: number,
 ): number | undefined {
   switch (topicType) {
     case TopicType.tx:
@@ -108,9 +133,7 @@ export function getExpectedMessagesPerSlot(
       return undefined;
 
     case TopicType.block_proposal:
-      // In MBPS mode, N-1 block proposals per slot (last one bundled with checkpoint)
-      // In single block mode (blocksPerSlot=1), this is 0
-      return Math.max(0, blocksPerSlot - 1);
+      return getEffectiveBlockProposalsPerSlot(blocksPerSlot, expectedBlockProposalsPerSlot);
 
     case TopicType.checkpoint_proposal:
       // Exactly 1 checkpoint proposal per slot
@@ -190,10 +213,12 @@ const P2_DECAY_WINDOW_SLOTS = 2;
 //   |P3| > 8 + 25 = 33
 //
 // We set P3 max = -34 per topic (slightly more than P1+P2) to ensure pruning.
-// With 3 topics having P3 enabled, total P3b after pruning = -102.
+// The number of P3-enabled topics depends on config: by default 2 (checkpoint_proposal +
+// checkpoint_attestation), or 3 if block proposal scoring is enabled via
+// expectedBlockProposalsPerSlot. Total P3b after pruning = -68 (2 topics) or -102 (3 topics).
 //
-// With appSpecificWeight=10, ~20 HighTolerance errors (-40 app score) plus max P3b (-102)
-// would cross gossipThreshold (-500). This keeps non-contributors from being disconnected
+// With appSpecificWeight=10, ~20 HighTolerance errors (-40 app score) plus max P3b (-68 or -102)
+// would not cross gossipThreshold (-500). This keeps non-contributors from being disconnected
 // unless they also accrue app-level penalties.
 //
 // The weight formula ensures max penalty equals MAX_P3_PENALTY_PER_TOPIC:
@@ -202,12 +227,6 @@ const P2_DECAY_WINDOW_SLOTS = 2;
 
 /** Maximum P3 penalty per topic (must exceed P1 + P2 to cause pruning) */
 export const MAX_P3_PENALTY_PER_TOPIC = -(MAX_P1_SCORE + MAX_P2_SCORE + 1); // -34
-
-/** Number of topics with P3 enabled in MBPS mode (block_proposal + checkpoint_proposal + checkpoint_attestation) */
-export const NUM_P3_ENABLED_TOPICS = 3;
-
-/** Total maximum P3b penalty across all topics after pruning in MBPS mode */
-export const TOTAL_MAX_P3B_PENALTY = MAX_P3_PENALTY_PER_TOPIC * NUM_P3_ENABLED_TOPICS; // -102
 
 /**
  * Factory class for creating gossipsub topic scoring parameters.
@@ -384,6 +403,18 @@ export class TopicScoreParamsFactory {
     });
   }
 
+  /** Number of topics with P3 enabled, computed from config. Always 2 (checkpoint_proposal + checkpoint_attestation) plus optionally block_proposal. */
+  get numP3EnabledTopics(): number {
+    const blockProposalP3Enabled =
+      getEffectiveBlockProposalsPerSlot(this.blocksPerSlot, this.params.expectedBlockProposalsPerSlot) !== undefined;
+    return blockProposalP3Enabled ? 3 : 2;
+  }
+
+  /** Total maximum P3b penalty across all topics after pruning, computed from config */
+  get totalMaxP3bPenalty(): number {
+    return MAX_P3_PENALTY_PER_TOPIC * this.numP3EnabledTopics;
+  }
+
   /**
    * Creates topic score parameters for a specific topic type.
    *
@@ -391,7 +422,12 @@ export class TopicScoreParamsFactory {
    * @returns TopicScoreParams for the topic
    */
   createForTopic(topicType: TopicType): ReturnType<typeof createTopicScoreParams> {
-    const expectedPerSlot = getExpectedMessagesPerSlot(topicType, this.params.targetCommitteeSize, this.blocksPerSlot);
+    const expectedPerSlot = getExpectedMessagesPerSlot(
+      topicType,
+      this.params.targetCommitteeSize,
+      this.blocksPerSlot,
+      this.params.expectedBlockProposalsPerSlot,
+    );
 
     // For unpredictable topics (tx) or topics with 0 expected messages, disable P3/P3b
     if (expectedPerSlot === undefined || expectedPerSlot === 0) {

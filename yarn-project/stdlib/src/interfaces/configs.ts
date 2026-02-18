@@ -65,6 +65,8 @@ export interface SequencerConfig {
   shuffleAttestationOrdering?: boolean;
   /** Duration per block in milliseconds when building multiple blocks per slot (default: undefined = single block per slot) */
   blockDurationMs?: number;
+  /** Expected number of block proposals per slot for P2P peer scoring. 0 disables scoring, undefined falls back to blocksPerSlot - 1. */
+  expectedBlockProposalsPerSlot?: number;
   /** Have sequencer build and publish an empty checkpoint if there are no txs */
   buildCheckpointIfEmpty?: boolean;
   /** Skip pushing proposed blocks to archiver (default: false) */
@@ -105,6 +107,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     fishermanMode: z.boolean().optional(),
     shuffleAttestationOrdering: z.boolean().optional(),
     blockDurationMs: z.number().positive().optional(),
+    expectedBlockProposalsPerSlot: z.number().nonnegative().optional(),
     buildCheckpointIfEmpty: z.boolean().optional(),
     skipPushProposedBlocksToArchiver: z.boolean().optional(),
     minBlocksForCheckpoint: z.number().positive().optional(),
@@ -115,6 +118,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
 type SequencerConfigOptionalKeys =
   | 'governanceProposerPayload'
   | 'blockDurationMs'
+  | 'expectedBlockProposalsPerSlot'
   | 'coinbase'
   | 'feeRecipient'
   | 'acvmWorkingDirectory'
