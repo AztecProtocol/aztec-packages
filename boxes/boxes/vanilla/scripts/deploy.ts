@@ -71,7 +71,7 @@ async function deployContract(wallet: Wallet, deployer: AztecAddress) {
 
   const sponsoredPFCContract = await getSponsoredPFCContract();
 
-  const contract = await PrivateVotingContract.deploy(wallet, deployer).send({
+  const { contract } = await PrivateVotingContract.deploy(wallet, deployer).send({
     from: deployer,
     contractAddressSalt: salt,
     fee: {
