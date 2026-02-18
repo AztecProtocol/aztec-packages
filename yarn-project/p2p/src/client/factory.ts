@@ -4,12 +4,11 @@ import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { AztecLMDBStoreV2, createStore } from '@aztec/kv-store/lmdb-v2';
-import type { BlockHash, L2BlockSource } from '@aztec/stdlib/block';
+import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { AztecNode, ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { P2PClientType } from '@aztec/stdlib/p2p';
-import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { P2PClient } from '../client/p2p_client.js';
@@ -17,12 +16,8 @@ import type { P2PConfig } from '../config.js';
 import { AttestationPool, type AttestationPoolApi } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
-import type { TxMetaData } from '../mem_pools/tx_pool_v2/tx_metadata.js';
 import { AztecKVTxPoolV2 } from '../mem_pools/tx_pool_v2/tx_pool_v2.js';
 import { createTxPoolPendingValidator } from '../msg_validators/index.js';
-import { AggregateTxValidator } from '../msg_validators/tx_validator/aggregate_tx_validator.js';
-import { BlockHeaderTxValidator } from '../msg_validators/tx_validator/block_header_validator.js';
-import { DoubleSpendTxValidator } from '../msg_validators/tx_validator/double_spend_validator.js';
 import { DummyP2PService } from '../services/dummy_service.js';
 import { LibP2PService } from '../services/index.js';
 import { createFileStoreTxSources } from '../services/tx_collection/file_store_tx_source.js';
@@ -77,6 +72,9 @@ export async function createP2PClient<T extends P2PClientType>(
   const peerStore = await createStore(P2P_PEER_STORE_NAME, 1, config, bindings);
   const attestationStore = await createStore(P2P_ATTESTATION_STORE_NAME, 1, config, bindings);
   const l1Constants = await archiver.getL1Constants();
+
+  const rollupAddress = inputConfig.l1Contracts.rollupAddress.toString().toLowerCase().replace(/^0x/, '');
+  const txFileStoreBasePath = `aztec-${inputConfig.l1ChainId}-${inputConfig.rollupVersion}-0x${rollupAddress}`;
 
   const txPool =
     deps.txPool ??
