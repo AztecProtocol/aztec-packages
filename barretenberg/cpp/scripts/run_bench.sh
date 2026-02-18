@@ -14,9 +14,10 @@ filter=$4
 export GTEST_COLOR=1
 export HARDWARE_CONCURRENCY=${CPUS:-8}
 
-# Set ALLOCATOR=tcmalloc to use tcmalloc via LD_PRELOAD (installed in build image).
+# Set ALLOCATOR=tcmalloc to use tcmalloc via LD_PRELOAD.
 BENCH_PRELOAD=""
 if [ "${ALLOCATOR:-}" = "tcmalloc" ]; then
+  sudo apt-get update -qq && sudo apt-get install -y -qq libtcmalloc-minimal4t64
   BENCH_PRELOAD="/usr/lib/$(uname -m)-linux-gnu/libtcmalloc_minimal.so.4"
 fi
 

@@ -107,8 +107,6 @@ RUN apt update && \
         # Python (clang bindings for wasm bindgen.)
         python3 \
         python3-clang \
-        # Alternative memory allocator (use via LD_PRELOAD for benchmarking)
-        libtcmalloc-minimal4t64 \
         # Unminimize ubuntu installation.
         unminimize \
     && apt-get -y autoremove \
