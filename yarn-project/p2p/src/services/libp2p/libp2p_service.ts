@@ -341,6 +341,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       heartbeatIntervalMs: config.gossipsubInterval,
       targetCommitteeSize: l1Constants.targetCommitteeSize,
       blockDurationMs: config.blockDurationMs,
+      expectedBlockProposalsPerSlot: config.expectedBlockProposalsPerSlot,
     });
 
     const node = await createLibp2p({
