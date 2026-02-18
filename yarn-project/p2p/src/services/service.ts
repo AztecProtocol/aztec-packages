@@ -1,7 +1,13 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
-import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore, Gossipable } from '@aztec/stdlib/p2p';
+import type {
+  BlockProposal,
+  CheckpointAttestation,
+  CheckpointProposalCore,
+  Gossipable,
+  TopicType,
+} from '@aztec/stdlib/p2p';
 import type { Tx } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
@@ -129,6 +135,9 @@ export interface P2PService {
   getEnr(): ENR | undefined;
 
   getPeers(includePending?: boolean): PeerInfo[];
+
+  /** Returns the number of peers in the GossipSub mesh for a given topic type. */
+  getGossipMeshPeerCount(topicType: TopicType): number;
 
   validate(txs: Tx[]): Promise<void>;
 
