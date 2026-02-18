@@ -25,6 +25,7 @@ import {
   CheckpointAttestation,
   type CheckpointProposal,
   type P2PClientType,
+  type TopicType,
 } from '@aztec/stdlib/p2p';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 import { Attributes, type TelemetryClient, WithTracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -165,6 +166,10 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   public getPeers(includePending?: boolean): Promise<PeerInfo[]> {
     return Promise.resolve(this.p2pService.getPeers(includePending));
+  }
+
+  public getGossipMeshPeerCount(topicType: TopicType): Promise<number> {
+    return Promise.resolve(this.p2pService.getGossipMeshPeerCount(topicType));
   }
 
   public getL2BlockHash(number: BlockNumber): Promise<string | undefined> {
