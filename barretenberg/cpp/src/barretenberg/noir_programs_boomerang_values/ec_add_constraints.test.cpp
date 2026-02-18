@@ -81,7 +81,7 @@ TEST_F(EcAddConstraintsTests, ValidateEcAddConstraint)
 {
     auto input1 = std::vector<WitnessOrConstant<bb::fr>>{ WitnessOrConstant<bb::fr>::from_index(0),
                                                           WitnessOrConstant<bb::fr>::from_index(1),
-                                                          WitnessOrConstant<bb::fr>::from_constant(1) };
+                                                          WitnessOrConstant<bb::fr>::from_index(5) };
     auto input2 = std::vector<WitnessOrConstant<bb::fr>>{ WitnessOrConstant<bb::fr>::from_index(3),
                                                           WitnessOrConstant<bb::fr>::from_index(4),
                                                           WitnessOrConstant<bb::fr>::from_index(5) };

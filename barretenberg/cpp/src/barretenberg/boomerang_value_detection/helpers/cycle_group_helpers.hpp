@@ -127,33 +127,19 @@ std::optional<RealPoint<CircuitBuilder>> get_real_point(StaticAnalyzer_<FF, Circ
 }
 
 /**
- * @brief Check that all gates needed for the on-curve check exist.
+ * @brief Check that all gates needed for the on-curve check exist, given a pre-computed real point.
  * @details mirrors cycle_group::validate_on_curve
  * @param analyzer The analyzer
  * @param builder The builder
- * @param point The point
- * @param predicate_idx The predicate index
+ * @param real_point The real point (after to_grumpkin_point processing)
  * @return True if the all gates needed for the on-curve check exist, false otherwise
  */
 template <typename FF, typename CircuitBuilder>
-bool is_on_curve_check_exists(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
-                              CircuitBuilder& builder,
-                              const Point<FF>& point,
-                              const acir_format::WitnessOrConstant<FF> predicate)
+bool is_on_curve_check_with_real_point(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                       CircuitBuilder& builder,
+                                       const RealPoint<CircuitBuilder>& real_point)
 {
     using field_ct = bb::stdlib::field_t<CircuitBuilder>;
-
-    if (is_point_constant(point)) {
-        // Constant points are always on curve
-        return true;
-    }
-    auto real_point_optional = get_real_point<FF>(analyzer, builder, point, predicate);
-
-    if (!real_point_optional.has_value()) {
-        log_error("Real point is not valid");
-        return false;
-    }
-    auto real_point = real_point_optional.value();
 
     auto x_field = real_point.x;
     auto xx_field = get_mul_gate_output<FF>(analyzer, builder, x_field, x_field);
@@ -196,6 +182,32 @@ bool is_on_curve_check_exists(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
 }
 
 /**
+ * @brief Check that all gates needed for the on-curve check exist.
+ * @details Computes the real point via get_real_point, then delegates to is_on_curve_check_with_real_point.
+ * @param analyzer The analyzer
+ * @param builder The builder
+ * @param point The point
+ * @param predicate The predicate
+ * @return True if the all gates needed for the on-curve check exist, false otherwise
+ */
+template <typename FF, typename CircuitBuilder>
+bool is_on_curve_check_exists(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                              CircuitBuilder& builder,
+                              const Point<FF>& point,
+                              const acir_format::WitnessOrConstant<FF> predicate)
+{
+    if (is_point_constant(point)) {
+        return true;
+    }
+    auto real_point_optional = get_real_point<FF>(analyzer, builder, point, predicate);
+    if (!real_point_optional.has_value()) {
+        log_error("Real point is not valid");
+        return false;
+    }
+    return is_on_curve_check_with_real_point<FF>(analyzer, builder, *real_point_optional);
+}
+
+/**
  * @brief Find the result of an ECC doubling gate from the elliptic block
  * @details Searches the elliptic block for a gate where w_r=x1_idx, w_o=modified_y_idx, q_m=1 (is_double).
  *          Returns x3, y3 from the next gate's w_r and w_o.
@@ -229,13 +241,13 @@ std::optional<std::pair<Field<CircuitBuilder>, Field<CircuitBuilder>>> get_dbl_g
                              .set_q_elliptic(FF::one());
 
     auto gates = analyzer.get_variable_gates(x1_idx);
-    auto filtered_gates = filter_helper.filter_gates(gates);
-    if (filtered_gates.empty()) {
+    auto gate = filter_helper.filter_gates(gates, analyzer);
+    if (!gate.has_value()) {
         log_error("No ECC dbl gate found for x1=", x1_idx, " y1=", y1_idx);
         return std::nullopt;
     }
 
-    auto gate_idx = filtered_gates[0].second;
+    auto gate_idx = gate->second;
     auto x3_idx = builder.blocks.elliptic.w_r()[gate_idx + 1];
     auto y3_idx = builder.blocks.elliptic.w_o()[gate_idx + 1];
     auto x3 = Field<CircuitBuilder>{ x3_idx, field_ct::from_witness_index(&builder, x3_idx) };
@@ -251,8 +263,8 @@ std::optional<std::pair<Field<CircuitBuilder>, Field<CircuitBuilder>>> get_dbl_g
  * @details mirrors cycle_group::operator+
  * @param analyzer The analyzer
  * @param builder The builder
- * @param input1 Point for input1 (after to_grumpkin_point processing)
- * @param input2 Point for input2 (after to_grumpkin_point processing)
+ * @param real_input1_ref Pre-computed real point for input1 (from get_real_point)
+ * @param real_input2_ref Pre-computed real point for input2 (from get_real_point)
  * @param result_x_idx ACIR output witness index for result x
  * @param result_y_idx ACIR output witness index for result y
  * @param result_inf_idx ACIR output witness index for result is_infinite
@@ -262,8 +274,8 @@ std::optional<std::pair<Field<CircuitBuilder>, Field<CircuitBuilder>>> get_dbl_g
 template <typename FF, typename CircuitBuilder>
 bool is_ec_add_result_constrained(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
                                   CircuitBuilder& builder,
-                                  const Point<FF>& input1,
-                                  const Point<FF>& input2,
+                                  const RealPoint<CircuitBuilder>& real_input1_ref,
+                                  const RealPoint<CircuitBuilder>& real_input2_ref,
                                   uint32_t result_x_idx,
                                   uint32_t result_y_idx,
                                   uint32_t result_inf_idx,
@@ -272,26 +284,15 @@ bool is_ec_add_result_constrained(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
     using field_ct = bb::stdlib::field_t<CircuitBuilder>;
     using bool_ct = bb::stdlib::bool_t<CircuitBuilder>;
 
-    // If both points are constant, operator+ is computed natively without gates
-    if (is_point_constant(input1) && is_point_constant(input2)) {
-        return true;
-    }
-
     auto predicate_field = witness_or_constant_to_field<FF>(predicate, builder);
     auto predicate_bool = witness_or_constant_to_bool<FF>(predicate, builder);
 
-    auto real_input1 = get_real_point<FF>(analyzer, builder, input1, predicate);
-    auto real_input2 = get_real_point<FF>(analyzer, builder, input2, predicate);
-    if (!real_input1.has_value() || !real_input2.has_value()) {
-        return false;
-    }
-
-    auto x1 = (*real_input1).x;
-    auto y1 = (*real_input1).y;
-    auto inf1 = (*real_input1).is_infinite;
-    auto x2 = (*real_input2).x;
-    auto y2 = (*real_input2).y;
-    auto inf2 = (*real_input2).is_infinite;
+    auto x1 = real_input1_ref.x;
+    auto y1 = real_input1_ref.y;
+    auto inf1 = real_input1_ref.is_infinite;
+    auto x2 = real_input2_ref.x;
+    auto y2 = real_input2_ref.y;
+    auto inf2 = real_input2_ref.is_infinite;
 
     // Step 1: x_coordinates_match = (x1 == x2)
     auto x_coord_match = get_equality_result<FF>(analyzer, builder, x1, x2);
@@ -685,26 +686,26 @@ std::optional<std::pair<Bool<CircuitBuilder>, Field<CircuitBuilder>>> find_stand
                       .set_q_arith(FF::one());
 
     auto gates = analyzer.get_variable_gates(coord_idx);
-    auto filtered_gates = filter.filter_gates(gates);
-    if (filtered_gates.empty()) {
+    auto found_gate = filter.filter_gates(gates, analyzer);
+    if (!found_gate.has_value()) {
         log_error("find_standardize_result: no standardize gate found for coord=", coord_idx);
         return std::nullopt;
     }
 
-    auto [blk, gate] = filtered_gates[0];
+    auto [blk, gate_idx] = *found_gate;
     auto& block = builder.blocks.get()[blk];
 
     // Determine is_infinity inversion from q_m: q_m=-1 → non-inverted, q_m=1 → inverted
-    bool inverted = (block.q_m()[gate] == FF::one());
+    bool inverted = (block.q_m()[gate_idx] == FF::one());
 
-    auto is_inf_idx = block.w_r()[gate];
+    auto is_inf_idx = get_w_r_at(builder, *found_gate);
     auto is_inf_bool = bb::stdlib::bool_t<CircuitBuilder>::from_witness_index_unsafe(&builder, is_inf_idx);
     if (inverted) {
         is_inf_bool = !is_inf_bool;
     }
     auto is_infinity = Bool<CircuitBuilder>{ is_inf_idx, is_inf_bool };
 
-    auto std_coord = get_field_from_w_4<FF>(builder, filtered_gates[0]);
+    auto std_coord = get_field_from_w_4<FF>(builder, *found_gate);
 
     return std::make_pair(is_infinity, std_coord);
 }

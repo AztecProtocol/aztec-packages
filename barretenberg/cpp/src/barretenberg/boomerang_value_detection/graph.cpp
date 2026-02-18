@@ -77,6 +77,15 @@ std::vector<std::pair<size_t, size_t>> StaticAnalyzer_<FF, CircuitBuilder>::get_
 }
 
 template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzer_<FF, CircuitBuilder>::consume_gate(std::pair<size_t, size_t> gate_location)
+{
+    const auto block_data = circuit_builder.blocks.get();
+    KeyPair key = std::make_pair(static_cast<uint32_t>(gate_location.second),
+                                 static_cast<const void*>(&block_data[gate_location.first]));
+    return consumed_gates.insert(key).second;
+}
+
+template <typename FF, typename CircuitBuilder>
 std::optional<std::uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_fixed_witness_index(FF value)
 {
     if (!constants_initialized) {

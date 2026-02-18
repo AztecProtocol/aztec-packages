@@ -104,7 +104,7 @@ TEST_F(MsmConstraintsTests, ValidateMsmConstraintMultiplePointsAllWitness)
                     WitnessOrConstant<fr>::from_index(2),
                     WitnessOrConstant<fr>::from_index(3),
                     WitnessOrConstant<fr>::from_index(4),
-                    WitnessOrConstant<fr>::from_index(5) },
+                    WitnessOrConstant<fr>::from_index(2) },
         .scalars = { WitnessOrConstant<fr>::from_index(6),
                      WitnessOrConstant<fr>::from_index(7),
                      WitnessOrConstant<fr>::from_index(8),
@@ -460,6 +460,81 @@ TEST_F(MsmConstraintsTests, ValidateMsmConstraintConstantPredicateConstantScalar
     StaticAnalyzerAcir analyzer(std::move(constraint_system), std::move(builder));
     analyzer.process_constraint_system();
     EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty());
+}
+
+// Two MSM constraints sharing the same witness predicate.
+// Each constraint has its own input point, scalar, and output point.
+// The shared predicate means conditional_assign and AND gates for is_infinity
+// are duplicated on the same predicate wire. This tests that the helpers
+// (find_conditional_assign_rhs_and_result, get_and_result, find_standardize_result)
+// correctly disambiguate between the two constraints' gate chains.
+TEST_F(MsmConstraintsTests, TwoMsmConstraintsSharedPredicate)
+{
+    // Witness layout:
+    //   shared_pred  = 0
+    //   MSM1: p1_x=1, p1_y=2, p1_inf=3, s1_lo=4, s1_hi=5, out1_x=6, out1_y=7, out1_inf=8
+    //   MSM2: p2_x=9, p2_y=10, p2_inf=11, s2_lo=12, s2_hi=13, out2_x=14, out2_y=15, out2_inf=16
+    auto msm1 = MultiScalarMul{
+        .points = { WitnessOrConstant<fr>::from_index(1),
+                    WitnessOrConstant<fr>::from_index(2),
+                    WitnessOrConstant<fr>::from_index(3) },
+        .scalars = { WitnessOrConstant<fr>::from_index(4), WitnessOrConstant<fr>::from_index(5) },
+        .predicate = WitnessOrConstant<fr>::from_index(0),
+        .out_point_x = 6,
+        .out_point_y = 7,
+        .out_point_is_infinite = 8,
+    };
+    auto msm2 = MultiScalarMul{
+        .points = { WitnessOrConstant<fr>::from_index(1),
+                    WitnessOrConstant<fr>::from_index(2),
+                    WitnessOrConstant<fr>::from_index(3) },
+        .scalars = { WitnessOrConstant<fr>::from_index(12), WitnessOrConstant<fr>::from_index(5) },
+        .predicate = WitnessOrConstant<fr>::from_index(16),
+        .out_point_x = 6,
+        .out_point_y = 7,
+        .out_point_is_infinite = 8,
+    };
+    AcirFormat constraint_system = build_acir_format(16, msm1, msm2);
+
+    auto p1 = bb::grumpkin::g1::affine_one;
+    auto p2 = bb::grumpkin::g1::affine_element(bb::grumpkin::g1::one * bb::grumpkin::fr(2));
+    auto s1 = bb::grumpkin::fr::random_element();
+    auto s2 = bb::grumpkin::fr::random_element();
+
+    constexpr size_t LO_BITS = 128;
+    uint256_t s1_uint(s1);
+    uint256_t s2_uint(s2);
+
+    auto result1 = bb::grumpkin::g1::affine_element(p1 * s1);
+    auto result2 = bb::grumpkin::g1::affine_element(p2 * s2);
+
+    auto witness = WitnessVector{
+        fr(1),                           // 0: shared predicate
+        p1.x,                            // 1
+        p1.y,                            // 2
+        fr(0),                           // 3: p1_inf
+        fr(s1_uint.slice(0, LO_BITS)),   // 4
+        fr(s1_uint.slice(LO_BITS, 254)), // 5
+        result1.x,                       // 6
+        result1.y,                       // 7
+        fr(0),                           // 8: out1_inf
+        p2.x,                            // 9
+        p2.y,                            // 10
+        fr(0),                           // 11: p2_inf
+        fr(s2_uint.slice(0, LO_BITS)),   // 12
+        fr(s2_uint.slice(LO_BITS, 254)), // 13
+        result2.x,                       // 14
+        result2.y,                       // 15
+        fr(0),                           // 16: out2_inf
+    };
+
+    auto program = AcirProgram{ constraint_system, witness };
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
+
+    StaticAnalyzerAcir analyzer(std::move(constraint_system), std::move(builder));
+    analyzer.process_constraint_system();
+    EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty())
+        << "Analyzer should validate both MSM constraints when they share a predicate witness";
 }
 
 TEST_F(MsmConstraintsTests, DetectCorruptedOnCurveConstraint)

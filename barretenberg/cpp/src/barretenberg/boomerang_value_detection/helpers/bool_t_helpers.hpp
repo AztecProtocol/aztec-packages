@@ -31,9 +31,7 @@ template <typename CircuitBuilder> struct Bool {
 template <typename FF, typename CircuitBuilder>
 Bool<CircuitBuilder> get_bool_from_w_o(CircuitBuilder& builder, std::pair<size_t, size_t> gate_location)
 {
-    auto block_idx = gate_location.first;
-    auto gate_idx = gate_location.second;
-    auto result_idx = builder.blocks.get()[block_idx].w_o()[gate_idx];
+    auto result_idx = get_w_o_at(builder, gate_location);
     return Bool<CircuitBuilder>{ result_idx,
                                  bb::stdlib::bool_t<CircuitBuilder>::from_witness_index_unsafe(&builder, result_idx) };
 }
@@ -42,9 +40,7 @@ Bool<CircuitBuilder> get_bool_from_w_o(CircuitBuilder& builder, std::pair<size_t
 template <typename FF, typename CircuitBuilder>
 Bool<CircuitBuilder> get_bool_from_w_r(CircuitBuilder& builder, std::pair<size_t, size_t> gate_location)
 {
-    auto block_idx = gate_location.first;
-    auto gate_idx = gate_location.second;
-    auto result_idx = builder.blocks.get()[block_idx].w_r()[gate_idx];
+    auto result_idx = get_w_r_at(builder, gate_location);
     return Bool<CircuitBuilder>{ result_idx,
                                  bb::stdlib::bool_t<CircuitBuilder>::from_witness_index_unsafe(&builder, result_idx) };
 }
@@ -53,9 +49,7 @@ Bool<CircuitBuilder> get_bool_from_w_r(CircuitBuilder& builder, std::pair<size_t
 template <typename FF, typename CircuitBuilder>
 Bool<CircuitBuilder> get_bool_from_w_4(CircuitBuilder& builder, std::pair<size_t, size_t> gate_location)
 {
-    auto block_idx = gate_location.first;
-    auto gate_idx = gate_location.second;
-    auto result_idx = builder.blocks.get()[block_idx].w_4()[gate_idx];
+    auto result_idx = get_w_4_at(builder, gate_location);
     return Bool<CircuitBuilder>{ result_idx,
                                  bb::stdlib::bool_t<CircuitBuilder>::from_witness_index_unsafe(&builder, result_idx) };
 }
@@ -98,13 +92,13 @@ std::optional<Bool<CircuitBuilder>> get_normalization_result(StaticAnalyzer_<FF,
                              .set_q_arith(FF::one());
 
     auto gates = analyzer.get_variable_gates(a_idx);
-    auto filtered_gates = filter_helper.filter_gates(gates);
-    if (filtered_gates.empty()) {
+    auto gate = filter_helper.filter_gates(gates, analyzer);
+    if (!gate.has_value()) {
         log_error("No normalization gate found for bool ", a_idx);
         return std::nullopt;
     }
 
-    return get_bool_from_w_o<FF>(builder, filtered_gates[0]);
+    return get_bool_from_w_o<FF>(builder, *gate);
 }
 
 /**
@@ -157,12 +151,12 @@ std::optional<Bool<CircuitBuilder>> get_and_result(StaticAnalyzer_<FF, CircuitBu
                              .set_q_arith(FF::one());
 
     auto gates = analyzer.get_variable_gates(a_idx);
-    auto filtered_gates = filter_helper.filter_gates(gates);
-    if (filtered_gates.empty()) {
+    auto gate = filter_helper.filter_gates(gates, analyzer);
+    if (!gate.has_value()) {
         return std::nullopt;
     }
 
-    return get_bool_from_w_o<FF>(builder, filtered_gates[0]);
+    return get_bool_from_w_o<FF>(builder, *gate);
 }
 
 /**
@@ -214,13 +208,13 @@ std::optional<Bool<CircuitBuilder>> get_or_result(StaticAnalyzer_<FF, CircuitBui
                              .set_q_arith(FF::one());
 
     auto gates = analyzer.get_variable_gates(a_idx);
-    auto filtered_gates = filter_helper.filter_gates(gates);
-    if (filtered_gates.empty()) {
+    auto gate = filter_helper.filter_gates(gates, analyzer);
+    if (!gate.has_value()) {
         log_error("No or gate found for bools ", a_idx, " and ", b_idx);
         return std::nullopt;
     }
 
-    return get_bool_from_w_o<FF>(builder, filtered_gates[0]);
+    return get_bool_from_w_o<FF>(builder, *gate);
 }
 
 /**
