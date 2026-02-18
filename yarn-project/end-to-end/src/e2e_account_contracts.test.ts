@@ -65,7 +65,7 @@ const itShouldBehaveLikeAnAccountContract = (
         await deployMethod.send({ from: AztecAddress.ZERO });
       }
 
-      child = await ChildContract.deploy(wallet).send({ from: address });
+      ({ contract: child } = await ChildContract.deploy(wallet).send({ from: address }));
     });
 
     afterAll(() => teardown());

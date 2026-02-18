@@ -25,7 +25,7 @@ export async function benchmarkSetup(
 ) {
   const context = await setup(1, { ...opts, telemetryConfig: { benchmark: true } });
   const defaultAccountAddress = context.accounts[0];
-  const contract = await BenchmarkingContract.deploy(context.wallet).send({ from: defaultAccountAddress });
+  const { contract } = await BenchmarkingContract.deploy(context.wallet).send({ from: defaultAccountAddress });
   context.logger.info(`Deployed benchmarking contract at ${contract.address}`);
   const sequencer = (context.aztecNode as AztecNodeService).getSequencer()!;
   const telemetry = context.telemetryClient as BenchmarkTelemetryClient;
@@ -149,7 +149,12 @@ export async function sendTxs(
   context.logger.info(`Creating ${txCount} txs`);
   const [from] = context.accounts;
   context.logger.info(`Sending ${txCount} txs`);
-  return Promise.all(calls.map(call => call.send({ from, wait: NO_WAIT })));
+  return Promise.all(
+    calls.map(async call => {
+      const { txHash } = await call.send({ from, wait: NO_WAIT });
+      return txHash;
+    }),
+  );
 }
 
 export async function waitTxs(txs: TxHash[], context: EndToEndContext, txWaitOpts?: WaitOpts) {

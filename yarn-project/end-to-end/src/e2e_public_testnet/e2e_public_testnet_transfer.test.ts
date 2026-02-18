@@ -60,7 +60,7 @@ describe(`deploys and transfers a private only token`, () => {
     );
     const tokenInstance = await tokenDeployment.getInstance();
     await wallet.registerContract(tokenInstance, PrivateTokenContract.artifact, tokenSecretKey);
-    const token = await tokenDeployment.send({
+    const { contract: token } = await tokenDeployment.send({
       from: deployerAddress,
       universalDeploy: true,
       skipInstancePublication: true,
@@ -76,8 +76,12 @@ describe(`deploys and transfers a private only token`, () => {
 
     logger.info(`Transfer completed`);
 
-    const balanceDeployer = await token.methods.get_balance(deployerAddress).simulate({ from: deployerAddress });
-    const balanceRecipient = await token.methods.get_balance(recipientAddress).simulate({ from: recipientAddress });
+    const { result: balanceDeployer } = await token.methods
+      .get_balance(deployerAddress)
+      .simulate({ from: deployerAddress });
+    const { result: balanceRecipient } = await token.methods
+      .get_balance(recipientAddress)
+      .simulate({ from: recipientAddress });
 
     logger.info(`Deployer balance: ${balanceDeployer}, Recipient balance: ${balanceRecipient}`);
 

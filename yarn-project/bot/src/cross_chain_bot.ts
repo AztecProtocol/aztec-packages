@@ -140,7 +140,8 @@ export class CrossChainBot extends BaseBot {
     const opts = await this.getSendMethodOpts(batch);
 
     this.log.verbose(`Sending cross-chain batch with ${calls.length} calls`, logCtx);
-    return batch.send({ ...opts, wait: NO_WAIT });
+    const { txHash } = await batch.send({ ...opts, wait: NO_WAIT });
+    return txHash;
   }
 
   protected override async onTxMined(receipt: TxReceipt, logCtx: object): Promise<void> {

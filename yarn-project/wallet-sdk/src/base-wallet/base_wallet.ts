@@ -382,6 +382,7 @@ export abstract class BaseWallet implements Wallet {
     const feeOptions = await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
     const provenTx = await this.pxe.proveTx(txRequest, this.scopesFor(opts.from));
+    const offchainEffects = provenTx.getOffchainEffects();
     const tx = await provenTx.toTx();
     const txHash = tx.getTxHash();
     if (await this.aztecNode.getTxEffect(txHash)) {
@@ -395,12 +396,13 @@ export abstract class BaseWallet implements Wallet {
 
     // If wait is NO_WAIT, return txHash immediately
     if (opts.wait === NO_WAIT) {
-      return txHash as SendReturn<W>;
+      return { txHash, offchainEffects } as SendReturn<W>;
     }
 
     // Otherwise, wait for the full receipt (default behavior on wait: undefined)
     const waitOpts = typeof opts.wait === 'object' ? opts.wait : undefined;
-    return (await waitForTx(this.aztecNode, txHash, waitOpts)) as SendReturn<W>;
+    const receipt = await waitForTx(this.aztecNode, txHash, waitOpts);
+    return { receipt, offchainEffects } as SendReturn<W>;
   }
 
   protected contextualizeError(err: Error, ...context: string[]): Error {

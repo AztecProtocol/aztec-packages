@@ -52,7 +52,7 @@ export async function send(
 
   if (wait) {
     try {
-      const receipt = await call.send({
+      const { receipt } = await call.send({
         ...sendOptions,
         fee: { ...sendOptions.fee, gasSettings: estimatedGas },
         wait: { timeout: DEFAULT_TX_TIMEOUT_S },
@@ -74,7 +74,7 @@ export async function send(
       throw err;
     }
   } else {
-    const txHash = await call.send({
+    const { txHash } = await call.send({
       ...sendOptions,
       fee: { ...sendOptions.fee, gasSettings: estimatedGas },
       wait: NO_WAIT,

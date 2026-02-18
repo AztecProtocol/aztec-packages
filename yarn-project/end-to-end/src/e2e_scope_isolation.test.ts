@@ -21,7 +21,7 @@ describe('e2e scope isolation', () => {
     ({ teardown, wallet, accounts } = await setup(3));
     [alice, bob, charlie] = accounts;
 
-    contract = await ScopeTestContract.deploy(wallet).send({ from: alice });
+    ({ contract } = await ScopeTestContract.deploy(wallet).send({ from: alice }));
 
     // Alice and bob create a note for themselves (used by multiple tests below)
     await contract.methods.create_note(alice, Number(ALICE_NOTE_VALUE)).send({ from: alice });

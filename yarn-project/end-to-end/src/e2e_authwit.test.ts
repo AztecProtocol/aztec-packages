@@ -32,8 +32,8 @@ describe('e2e_authwit_tests', () => {
     } = await setup(2));
     await ensureAccountContractsPublished(wallet, [account1Address, account2Address]);
 
-    auth = await AuthWitTestContract.deploy(wallet).send({ from: account1Address });
-    authwitProxy = await GenericProxyContract.deploy(wallet).send({ from: account1Address });
+    ({ contract: auth } = await AuthWitTestContract.deploy(wallet).send({ from: account1Address }));
+    ({ contract: authwitProxy } = await GenericProxyContract.deploy(wallet).send({ from: account1Address }));
   });
 
   describe('Private', () => {

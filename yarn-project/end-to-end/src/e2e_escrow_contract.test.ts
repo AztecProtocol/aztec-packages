@@ -41,11 +41,13 @@ describe('e2e_escrow_contract', () => {
     const escrowDeployment = EscrowContract.deployWithPublicKeys(escrowPublicKeys, wallet, owner);
     const escrowInstance = await escrowDeployment.getInstance();
     await wallet.registerContract(escrowInstance, EscrowContract.artifact, escrowSecretKey);
-    escrowContract = await escrowDeployment.send({ from: owner });
+    ({ contract: escrowContract } = await escrowDeployment.send({ from: owner }));
     logger.info(`Escrow contract deployed at ${escrowContract.address}`);
 
     // Deploy Token contract and mint funds for the escrow contract
-    token = await TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send({ from: owner });
+    ({ contract: token } = await TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send({
+      from: owner,
+    }));
 
     await mintTokensToPrivate(token, owner, escrowContract.address, 100n);
 

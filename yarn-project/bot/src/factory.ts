@@ -227,7 +227,7 @@ export class BotFactory {
       const gasSettings = GasSettings.default({ maxFeesPerGas });
 
       await this.withNoMinTxsPerBlock(async () => {
-        const txHash = await deployMethod.send({
+        const { txHash } = await deployMethod.send({
           from: AztecAddress.ZERO,
           fee: { gasSettings, paymentMethod },
           wait: NO_WAIT,
@@ -296,7 +296,7 @@ export class BotFactory {
       await deploy.register();
     } else {
       this.log.info(`Deploying token contract at ${address.toString()}`);
-      const txHash = await deploy.send({ ...deployOpts, wait: NO_WAIT });
+      const { txHash } = await deploy.send({ ...deployOpts, wait: NO_WAIT });
       this.log.info(`Sent tx for token setup with hash ${txHash.toString()}`);
       await this.withNoMinTxsPerBlock(async () => {
         await waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
@@ -337,7 +337,7 @@ export class BotFactory {
     const amm = AMMContract.at(instance.address, this.wallet);
 
     this.log.info(`AMM deployed at ${amm.address}`);
-    const minterReceipt = await lpToken.methods
+    const { receipt: minterReceipt } = await lpToken.methods
       .set_minter(amm.address, true)
       .send({ from: deployer, wait: { timeout: this.config.txMinedWaitSeconds } });
     this.log.info(`Set LP token minter to AMM txHash=${minterReceipt.txHash.toString()}`);
@@ -356,9 +356,18 @@ export class BotFactory {
   ): Promise<void> {
     const getPrivateBalances = () =>
       Promise.all([
-        token0.methods.balance_of_private(liquidityProvider).simulate({ from: liquidityProvider }),
-        token1.methods.balance_of_private(liquidityProvider).simulate({ from: liquidityProvider }),
-        lpToken.methods.balance_of_private(liquidityProvider).simulate({ from: liquidityProvider }),
+        token0.methods
+          .balance_of_private(liquidityProvider)
+          .simulate({ from: liquidityProvider })
+          .then(r => r.result),
+        token1.methods
+          .balance_of_private(liquidityProvider)
+          .simulate({ from: liquidityProvider })
+          .then(r => r.result),
+        lpToken.methods
+          .balance_of_private(liquidityProvider)
+          .simulate({ from: liquidityProvider })
+          .then(r => r.result),
       ]);
 
     const authwitNonce = Fr.random();
@@ -399,14 +408,14 @@ export class BotFactory {
         .getFunctionCall(),
     });
 
-    const mintReceipt = await new BatchCall(this.wallet, [
+    const { receipt: mintReceipt } = await new BatchCall(this.wallet, [
       token0.methods.mint_to_private(liquidityProvider, MINT_BALANCE),
       token1.methods.mint_to_private(liquidityProvider, MINT_BALANCE),
     ]).send({ from: liquidityProvider, wait: { timeout: this.config.txMinedWaitSeconds } });
 
     this.log.info(`Sent mint tx: ${mintReceipt.txHash.toString()}`);
 
-    const addLiquidityReceipt = await amm.methods
+    const { receipt: addLiquidityReceipt } = await amm.methods
       .add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, authwitNonce)
       .send({
         from: liquidityProvider,
@@ -437,7 +446,7 @@ export class BotFactory {
     } else {
       this.log.info(`Deploying contract ${name} at ${address.toString()}`);
       await this.withNoMinTxsPerBlock(async () => {
-        const txHash = await deploy.send({ ...deployOpts, wait: NO_WAIT });
+        const { txHash } = await deploy.send({ ...deployOpts, wait: NO_WAIT });
         this.log.info(`Sent contract ${name} setup tx with hash ${txHash.toString()}`);
         return waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
       });
@@ -480,7 +489,7 @@ export class BotFactory {
     }
 
     await this.withNoMinTxsPerBlock(async () => {
-      const txHash = await new BatchCall(token.wallet, calls).send({ from: minter, wait: NO_WAIT });
+      const { txHash } = await new BatchCall(token.wallet, calls).send({ from: minter, wait: NO_WAIT });
       this.log.info(`Sent token mint tx with hash ${txHash.toString()}`);
       return waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
     });

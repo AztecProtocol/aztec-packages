@@ -11,6 +11,7 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
 import {
   ExecutionPayload,
+  type OffchainEffect,
   TxHash,
   TxProfileResult,
   TxReceipt,
@@ -209,12 +210,14 @@ describe('WalletSchema', () => {
     const resultWithWait = await context.client.sendTx(exec, {
       from: await AztecAddress.random(),
     });
-    expect(resultWithWait).toBeInstanceOf(TxReceipt);
+    expect(resultWithWait.receipt).toBeInstanceOf(TxReceipt);
+    expect(resultWithWait.offchainEffects).toEqual([]);
     const resultWithoutWait = await context.client.sendTx(exec, {
       from: await AztecAddress.random(),
       wait: NO_WAIT,
     });
-    expect(resultWithoutWait).toBeInstanceOf(TxHash);
+    expect(resultWithoutWait.txHash).toBeInstanceOf(TxHash);
+    expect(resultWithoutWait.offchainEffects).toEqual([]);
   });
 
   it('createAuthWit', async () => {
@@ -353,7 +356,7 @@ describe('WalletSchema', () => {
     expect(results[8]).toEqual({ name: 'simulateTx', result: expect.any(TxSimulationResult) });
     expect(results[9]).toEqual({ name: 'executeUtility', result: expect.any(UtilityExecutionResult) });
     expect(results[10]).toEqual({ name: 'profileTx', result: expect.any(TxProfileResult) });
-    expect(results[11]).toEqual({ name: 'sendTx', result: expect.any(TxReceipt) });
+    expect(results[11]).toEqual({ name: 'sendTx', result: { receipt: expect.any(TxReceipt), offchainEffects: [] } });
     expect(results[12]).toEqual({ name: 'createAuthWit', result: expect.any(AuthWitness) });
   });
 });
@@ -446,9 +449,13 @@ class MockWallet implements Wallet {
     opts: SendOptions<W>,
   ): Promise<SendReturn<W>> {
     if (opts.wait === NO_WAIT) {
-      return Promise.resolve(TxHash.random()) as Promise<SendReturn<W>>;
+      return Promise.resolve({ txHash: TxHash.random(), offchainEffects: [] as OffchainEffect[] }) as Promise<
+        SendReturn<W>
+      >;
     }
-    return Promise.resolve(TxReceipt.empty()) as Promise<SendReturn<W>>;
+    return Promise.resolve({ receipt: TxReceipt.empty(), offchainEffects: [] as OffchainEffect[] }) as Promise<
+      SendReturn<W>
+    >;
   }
 
   createAuthWit(_from: AztecAddress, _messageHashOrIntent: any): Promise<AuthWitness> {

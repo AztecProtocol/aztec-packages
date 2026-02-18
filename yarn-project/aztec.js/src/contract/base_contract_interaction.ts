@@ -41,8 +41,8 @@ export abstract class BaseContractInteraction {
    * the AztecAddress of the sender, optional fee configuration, and optional wait settings
    * @returns TReturn (if wait is undefined/WaitOpts) or TxHash (if wait is NO_WAIT)
    */
-  // Overload for when wait is not specified at all - returns TReturn
-  public send<TReturn = TxReceipt>(options: SendInteractionOptionsWithoutWait): Promise<TReturn>;
+  // Overload for when wait is not specified at all - returns { receipt: TReturn, offchainEffects }
+  public send<TReturn = TxReceipt>(options: SendInteractionOptionsWithoutWait): Promise<SendReturn<undefined, TReturn>>;
   // Generic overload for explicit wait values
   // eslint-disable-next-line jsdoc/require-jsdoc
   public send<TReturn = TxReceipt, W extends InteractionWaitOptions = undefined>(

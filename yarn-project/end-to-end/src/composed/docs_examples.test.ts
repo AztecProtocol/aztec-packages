@@ -34,7 +34,7 @@ describe('docs_examples', () => {
     const newAccountAddress = newAccountManager.address;
     const defaultAccountAddress = prefundedAccount.address;
 
-    const deployedContract = await TokenContract.deploy(
+    const { contract: deployedContract } = await TokenContract.deploy(
       wallet, // wallet instance
       defaultAccountAddress, // account
       'TokenName', // constructor arg1
@@ -47,7 +47,9 @@ describe('docs_examples', () => {
     await contract.methods.mint_to_public(newAccountAddress, 1).send({ from: defaultAccountAddress });
 
     // docs:start:simulate_function
-    const balance = await contract.methods.balance_of_public(newAccountAddress).simulate({ from: newAccountAddress });
+    const { result: balance } = await contract.methods
+      .balance_of_public(newAccountAddress)
+      .simulate({ from: newAccountAddress });
     expect(balance).toEqual(1n);
     // docs:end:simulate_function
   });

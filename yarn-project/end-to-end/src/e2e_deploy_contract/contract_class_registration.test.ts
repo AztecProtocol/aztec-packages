@@ -37,7 +37,7 @@ describe('e2e_deploy_contract contract class registration', () => {
     ({ logger, wallet, aztecNode, defaultAccountAddress } = await t.setup());
     artifact = StatefulTestContract.artifact;
     publicationTxReceipt = await publishContractClass(wallet, artifact).then(c =>
-      c.send({ from: defaultAccountAddress }),
+      c.send({ from: defaultAccountAddress }).then(({ receipt }) => receipt),
     );
     contractClass = await getContractClassFromArtifact(artifact);
     expect(await aztecNode.getContractClass(contractClass.id)).toBeDefined();
@@ -47,7 +47,7 @@ describe('e2e_deploy_contract contract class registration', () => {
 
   describe('publishing a contract class', () => {
     it('emits public bytecode', async () => {
-      const publicationTxReceipt = await publishContractClass(wallet, TestContract.artifact).then(c =>
+      const { receipt: publicationTxReceipt } = await publishContractClass(wallet, TestContract.artifact).then(c =>
         c.send({ from: defaultAccountAddress }),
       );
       const logs = await aztecNode.getContractClassLogs({ txHash: publicationTxReceipt.txHash });
@@ -155,7 +155,7 @@ describe('e2e_deploy_contract contract class registration', () => {
 
         it('refuses to call a public function with init check if the instance is not initialized', async () => {
           const whom = await AztecAddress.random();
-          const receipt = await contract.methods
+          const { receipt } = await contract.methods
             .increment_public_value(whom, 10)
             .send({ from: defaultAccountAddress, wait: { dontThrowOnRevert: true } });
           expect(receipt.executionResult).toEqual(TxExecutionResult.APP_LOGIC_REVERTED);
@@ -195,7 +195,7 @@ describe('e2e_deploy_contract contract class registration', () => {
 
         it('refuses to initialize the instance with wrong args via a public function', async () => {
           const whom = await AztecAddress.random();
-          const receipt = await contract.methods
+          const { receipt } = await contract.methods
             .public_constructor(whom, 43)
             .send({ from: defaultAccountAddress, wait: { dontThrowOnRevert: true } });
           expect(receipt.executionResult).toEqual(TxExecutionResult.APP_LOGIC_REVERTED);
@@ -228,7 +228,7 @@ describe('e2e_deploy_contract contract class registration', () => {
     // Register the instance to be deployed in the pxe
     await wallet.registerContract(instance, artifact);
     // Set up the contract that calls the deployer (which happens to be the TestContract) and call it
-    const deployer = await TestContract.deploy(wallet).send({ from: defaultAccountAddress });
+    const { contract: deployer } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress });
     await deployer.methods.publish_contract_instance(instance.address).send({ from: defaultAccountAddress });
   });
 
@@ -243,7 +243,7 @@ describe('e2e_deploy_contract contract class registration', () => {
       ).rejects.toThrow(/not deployed/);
       // This time, don't throw on revert and confirm that the tx is included
       // despite reverting in app logic because of the call to a non-existent contract
-      const tx = await instance.methods
+      const { receipt: tx } = await instance.methods
         .increment_public_value_no_init_check(whom, 10)
         .send({ from: defaultAccountAddress, wait: { dontThrowOnRevert: true } });
       expect(tx.executionResult).toEqual(TxExecutionResult.APP_LOGIC_REVERTED);

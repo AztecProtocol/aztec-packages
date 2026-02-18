@@ -117,8 +117,8 @@ describe('e2e_epochs/epochs_mbps', () => {
     // Unlike emit_nullifier (which has #[noinitcheck]), cross-chain methods require a deployed contract.
     if (deployCrossChainContract) {
       logger.warn(`Deploying cross-chain test contract before stopping initial sequencer`);
-      crossChainContract = await TestContract.deploy(wallet).send({ from });
-      logger.warn(`Cross-chain test contract deployed at ${crossChainContract.address}`);
+      ({ contract: crossChainContract } = await TestContract.deploy(wallet).send({ from }));
+      logger.warn(`Cross-chain test contract deployed at ${crossChainContract!.address}`);
     }
 
     // Halt block building in initial aztec node, which was not set up as a validator.

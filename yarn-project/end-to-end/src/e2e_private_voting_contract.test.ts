@@ -25,7 +25,7 @@ describe('e2e_voting_contract', () => {
       accounts: [owner],
     } = await setup(1));
 
-    votingContract = await PrivateVotingContract.deploy(wallet, owner).send({ from: owner });
+    ({ contract: votingContract } = await PrivateVotingContract.deploy(wallet, owner).send({ from: owner }));
 
     logger.info(`Counter contract deployed at ${votingContract.address}`);
   });

@@ -108,7 +108,10 @@ export class BatchCall extends BaseContractInteraction {
       const wrappedResult = batchResults[i];
       if (wrappedResult.name === 'executeUtility') {
         const rawReturnValues = (wrappedResult.result as UtilityExecutionResult).result;
-        results[resultIndex] = rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [];
+        results[resultIndex] = {
+          result: rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [],
+          offchainEffects: [],
+        };
       }
     }
 
@@ -127,7 +130,10 @@ export class BatchCall extends BaseContractInteraction {
               ? simulatedTx.getPrivateReturnValues()?.nested?.[resultIndex].values
               : simulatedTx.getPublicReturnValues()?.[resultIndex].values;
 
-          results[callIndex] = rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [];
+          results[callIndex] = {
+            result: rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [],
+            offchainEffects: simulatedTx.offchainEffects,
+          };
         });
       }
     }
