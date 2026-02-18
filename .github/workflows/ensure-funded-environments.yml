@@ -40,6 +40,8 @@ jobs:
         include:
           - environment: devnet
             namespace: v4-devnet-1
+          - environment: devnet
+            namespace: v4-devnet-2
     uses: ./.github/workflows/ensure-funded-environment.yml
     with:
       environment: ${{ matrix.environment }}
