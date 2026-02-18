@@ -150,7 +150,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       env: 'AZTEC_ADMIN_API_KEY_HASH',
     },
     {
-      flag: '--no-admin-api-key',
+      flag: '--disable-admin-api-key',
       description:
         'Disable API key authentication on the admin RPC endpoint. By default, a key is auto-generated, displayed once, and its hash is persisted.',
       defaultValue: false,
