@@ -19,6 +19,7 @@ import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
 import type { TxMetaData } from '../mem_pools/tx_pool_v2/tx_metadata.js';
 import { AztecKVTxPoolV2 } from '../mem_pools/tx_pool_v2/tx_pool_v2.js';
+import { createTxPoolPendingValidator } from '../msg_validators/index.js';
 import { AggregateTxValidator } from '../msg_validators/tx_validator/aggregate_tx_validator.js';
 import { BlockHeaderTxValidator } from '../msg_validators/tx_validator/block_header_validator.js';
 import { DoubleSpendTxValidator } from '../msg_validators/tx_validator/double_spend_validator.js';
@@ -77,35 +78,6 @@ export async function createP2PClient<T extends P2PClientType>(
   const attestationStore = await createStore(P2P_ATTESTATION_STORE_NAME, 1, config, bindings);
   const l1Constants = await archiver.getL1Constants();
 
-  const rollupAddress = inputConfig.l1Contracts.rollupAddress.toString().toLowerCase().replace(/^0x/, '');
-  const txFileStoreBasePath = `aztec-${inputConfig.l1ChainId}-${inputConfig.rollupVersion}-0x${rollupAddress}`;
-
-  /** Validator factory for pool re-validation (double-spend + block header only). */
-  const createPoolTxValidator = async () => {
-    await worldStateSynchronizer.syncImmediate();
-    return new AggregateTxValidator<TxMetaData>(
-      new DoubleSpendTxValidator<TxMetaData>(
-        {
-          nullifiersExist: async (nullifiers: Buffer[]) => {
-            const merkleTree = worldStateSynchronizer.getCommitted();
-            const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
-            return indices.map(index => index !== undefined);
-          },
-        },
-        bindings,
-      ),
-      new BlockHeaderTxValidator<TxMetaData>(
-        {
-          getArchiveIndices: (archives: BlockHash[]) => {
-            const merkleTree = worldStateSynchronizer.getCommitted();
-            return merkleTree.findLeafIndices(MerkleTreeId.ARCHIVE, archives);
-          },
-        },
-        bindings,
-      ),
-    );
-  };
-
   const txPool =
     deps.txPool ??
     new AztecKVTxPoolV2(
@@ -114,7 +86,7 @@ export async function createP2PClient<T extends P2PClientType>(
       {
         l2BlockSource: archiver,
         worldStateSynchronizer,
-        createTxValidator: createPoolTxValidator,
+        createTxValidator: () => createTxPoolPendingValidator(worldStateSynchronizer),
       },
       telemetry,
       {
