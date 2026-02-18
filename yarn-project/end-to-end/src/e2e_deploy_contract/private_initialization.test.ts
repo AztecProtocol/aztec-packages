@@ -31,7 +31,7 @@ describe('e2e_deploy_contract private initialization', () => {
   // The function has a noinitcheck flag so it can be called without initialization.
   it('executes a noinitcheck function in an uninitialized contract', async () => {
     const contract = await t.registerContract(wallet, TestContract);
-    const receipt = await contract.methods.emit_nullifier(10).send({ from: defaultAccountAddress });
+    const { receipt } = await contract.methods.emit_nullifier(10).send({ from: defaultAccountAddress });
     const txEffects = await aztecNode.getTxEffect(receipt.txHash);
 
     const expected = await siloNullifier(contract.address, new Fr(10));

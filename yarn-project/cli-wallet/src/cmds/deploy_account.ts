@@ -89,7 +89,7 @@ export async function deployAccount(
     if (!json) {
       log(`\nWaiting for account contract deployment...`);
     }
-    const result = await deployMethod.send({
+    const sendOpts = {
       ...deployAccountOpts,
       fee: deployAccountOpts.fee
         ? {
@@ -97,18 +97,20 @@ export async function deployAccount(
             gasSettings: estimatedGas,
           }
         : undefined,
-      wait: wait ? { timeout: DEFAULT_TX_TIMEOUT_S, returnReceipt: true } : NO_WAIT,
-    });
-    const isReceipt = (data: TxReceipt | TxHash): data is TxReceipt => 'txHash' in data;
-    if (isReceipt(result)) {
-      txReceipt = result;
-      txHash = result.txHash;
+    };
+    if (wait) {
+      const { receipt } = await deployMethod.send({
+        ...sendOpts,
+        wait: { timeout: DEFAULT_TX_TIMEOUT_S, returnReceipt: true },
+      });
+      txReceipt = receipt;
+      txHash = receipt.txHash;
       out.txReceipt = {
         status: txReceipt.status,
         transactionFee: txReceipt.transactionFee,
       };
     } else {
-      txHash = result;
+      ({ txHash } = await deployMethod.send({ ...sendOpts, wait: NO_WAIT }));
     }
     debugLogger.debug(`Account contract tx sent with hash ${txHash.toString()}`);
     out.txHash = txHash;

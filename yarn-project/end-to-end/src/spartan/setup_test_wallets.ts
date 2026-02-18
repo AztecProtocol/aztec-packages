@@ -310,13 +310,9 @@ async function deployTokenAndMint(
   logger: Logger,
 ) {
   logger.verbose(`Deploying TokenContract...`);
-  const { contract: tokenContract } = await TokenContract.deploy(
-    wallet,
-    admin,
-    TOKEN_NAME,
-    TOKEN_SYMBOL,
-    TOKEN_DECIMALS,
-  ).send({
+  const {
+    receipt: { contract: tokenContract },
+  } = await TokenContract.deploy(wallet, admin, TOKEN_NAME, TOKEN_SYMBOL, TOKEN_DECIMALS).send({
     from: admin,
     fee: {
       paymentMethod,

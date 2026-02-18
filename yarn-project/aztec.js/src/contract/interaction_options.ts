@@ -116,9 +116,24 @@ export type SimulateInteractionOptions = Omit<SendInteractionOptions, 'fee'> & {
   skipTxValidation?: boolean;
   /** Whether to ensure the fee payer is not empty and has enough balance to pay for the fee. */
   skipFeeEnforcement?: boolean;
-  /** Whether to include metadata such as offchain effects and performance statistics (e.g. timing information of the different circuits and oracles) in
-   * the simulation result, instead of just the return value of the function */
+  /** Whether to include metadata such as performance statistics (e.g. timing information of the different circuits and oracles) and gas estimation
+   * in the simulation result, in addition to the return value and offchain effects */
   includeMetadata?: boolean;
+};
+
+/** Simulation options that request full metadata (stats, gas estimation) in the result. */
+export type SimulateWithMetadataOptions = SimulateInteractionOptions & {
+  /** Request metadata in the simulation result. */
+  includeMetadata: true;
+};
+
+/** Simulation options that request gas estimation in the result. */
+export type SimulateWithGasEstimationOptions = SimulateInteractionOptions & {
+  /** Fee options with gas estimation enabled. */
+  fee: {
+    /** Request gas estimation in the simulation result. */
+    estimateGas: true;
+  };
 };
 
 /**
@@ -133,9 +148,8 @@ export type ProfileInteractionOptions = SimulateInteractionOptions & {
 
 /**
  * Represents the result type of a simulation.
- * By default, it will just be the return value of the simulated function
- * If `includeMetadata` is set to true in `SimulateInteractionOptions` on the input of `simulate(...)`,
- * it will provide extra information.
+ * Always includes the return value and offchain effects.
+ * When `includeMetadata` is set to true, also includes stats and gas estimation.
  */
 export type SimulationReturn<T extends boolean | undefined> = T extends true
   ? {
@@ -143,19 +157,47 @@ export type SimulationReturn<T extends boolean | undefined> = T extends true
       stats: SimulationStats;
       /** Offchain effects generated during the simulation */
       offchainEffects: OffchainEffect[];
-      /**  Return value of the function */
+      /** Return value of the function */
       result: any;
       /** Gas estimation results */
       estimatedGas: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>;
     }
-  : any;
+  : {
+      /** Return value of the function */
+      result: any;
+      /** Offchain effects generated during the simulation */
+      offchainEffects: OffchainEffect[];
+    };
+
+/** Result of sendTx when not waiting for mining. */
+export type TxSendResultImmediate = {
+  /** The hash of the sent transaction. */
+  txHash: TxHash;
+  /** Offchain effects generated during proving. */
+  offchainEffects: OffchainEffect[];
+};
+
+/** Result of sendTx when waiting for mining. */
+export type TxSendResultMined = {
+  /** The transaction receipt. */
+  receipt: TxReceipt;
+  /** Offchain effects generated during proving. */
+  offchainEffects: OffchainEffect[];
+};
 
 /**
  * Represents the result type of sending a transaction.
- * If `wait` is NO_WAIT, returns TxHash immediately without waiting.
- * If `wait` is undefined or WaitOpts, returns TReturn (defaults to TxReceipt) after waiting.
+ * If `wait` is NO_WAIT, returns TxSendResultImmediate.
+ * Otherwise returns TxSendResultMined.
  */
-export type SendReturn<T extends InteractionWaitOptions, TReturn = TxReceipt> = T extends NoWait ? TxHash : TReturn;
+export type SendReturn<T extends InteractionWaitOptions, TReturn = TxReceipt> = T extends NoWait
+  ? TxSendResultImmediate
+  : {
+      /** The transaction receipt. */
+      receipt: TReturn;
+      /** Offchain effects generated during proving. */
+      offchainEffects: OffchainEffect[];
+    };
 
 /**
  * Transforms and cleans up the higher level SendInteractionOptions defined by the interaction into

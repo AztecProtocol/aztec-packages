@@ -33,7 +33,7 @@ describe('e2e_state_vars', () => {
       wallet,
       accounts: [defaultAccountAddress],
     } = await setup(1));
-    contract = await StateVarsContract.deploy(wallet).send({ from: defaultAccountAddress });
+    ({ contract } = await StateVarsContract.deploy(wallet).send({ from: defaultAccountAddress }));
   });
 
   afterAll(() => teardown());
@@ -51,7 +51,7 @@ describe('e2e_state_vars', () => {
 
       await contract.methods.initialize_public_immutable(1).send({ from: defaultAccountAddress });
 
-      const read = await contract.methods.get_public_immutable().simulate({ from: defaultAccountAddress });
+      const { result: read } = await contract.methods.get_public_immutable().simulate({ from: defaultAccountAddress });
 
       expect(read).toEqual({ account: defaultAccountAddress, value: read.value });
     });
@@ -131,7 +131,7 @@ describe('e2e_state_vars', () => {
           .simulate({ from: defaultAccountAddress }),
       ).toEqual(false);
       // Send the transaction and wait for it to be mined (wait function throws if the tx is not mined)
-      const txReceipt = await contract.methods
+      const { receipt: txReceipt } = await contract.methods
         .initialize_private(RANDOMNESS, VALUE)
         .send({ from: defaultAccountAddress });
 
@@ -168,9 +168,9 @@ describe('e2e_state_vars', () => {
           .is_private_mutable_initialized(defaultAccountAddress)
           .simulate({ from: defaultAccountAddress }),
       ).toEqual(true);
-      const { value } = await contract.methods
-        .get_private_mutable(defaultAccountAddress)
-        .simulate({ from: defaultAccountAddress });
+      const {
+        result: { value },
+      } = await contract.methods.get_private_mutable(defaultAccountAddress).simulate({ from: defaultAccountAddress });
       expect(value).toEqual(VALUE);
     });
 
@@ -180,10 +180,10 @@ describe('e2e_state_vars', () => {
           .is_private_mutable_initialized(defaultAccountAddress)
           .simulate({ from: defaultAccountAddress }),
       ).toEqual(true);
-      const noteBefore = await contract.methods
+      const { result: noteBefore } = await contract.methods
         .get_private_mutable(defaultAccountAddress)
         .simulate({ from: defaultAccountAddress });
-      const txReceipt = await contract.methods
+      const { receipt: txReceipt } = await contract.methods
         .update_private_mutable(RANDOMNESS, VALUE)
         .send({ from: defaultAccountAddress });
 
@@ -193,7 +193,7 @@ describe('e2e_state_vars', () => {
       // 1 for the tx, another for the nullifier of the previous note
       expect(txEffects?.data.nullifiers.length).toEqual(2);
 
-      const noteAfter = await contract.methods
+      const { result: noteAfter } = await contract.methods
         .get_private_mutable(defaultAccountAddress)
         .simulate({ from: defaultAccountAddress });
 
@@ -206,7 +206,7 @@ describe('e2e_state_vars', () => {
           .is_private_mutable_initialized(defaultAccountAddress)
           .simulate({ from: defaultAccountAddress }),
       ).toEqual(true);
-      const txReceipt = await contract.methods
+      const { receipt: txReceipt } = await contract.methods
         .update_private_mutable(RANDOMNESS + 2n, VALUE + 1n)
         .send({ from: defaultAccountAddress });
 
@@ -216,9 +216,9 @@ describe('e2e_state_vars', () => {
       // 1 for the tx, another for the nullifier of the previous note
       expect(txEffects?.data.nullifiers.length).toEqual(2);
 
-      const { value } = await contract.methods
-        .get_private_mutable(defaultAccountAddress)
-        .simulate({ from: defaultAccountAddress });
+      const {
+        result: { value },
+      } = await contract.methods.get_private_mutable(defaultAccountAddress).simulate({ from: defaultAccountAddress });
       expect(value).toEqual(VALUE + 1n);
     });
 
@@ -228,10 +228,12 @@ describe('e2e_state_vars', () => {
           .is_private_mutable_initialized(defaultAccountAddress)
           .simulate({ from: defaultAccountAddress }),
       ).toEqual(true);
-      const noteBefore = await contract.methods
+      const { result: noteBefore } = await contract.methods
         .get_private_mutable(defaultAccountAddress)
         .simulate({ from: defaultAccountAddress });
-      const txReceipt = await contract.methods.increase_private_value().send({ from: defaultAccountAddress });
+      const { receipt: txReceipt } = await contract.methods
+        .increase_private_value()
+        .send({ from: defaultAccountAddress });
 
       const txEffects = await aztecNode.getTxEffect(txReceipt.txHash);
 
@@ -239,9 +241,9 @@ describe('e2e_state_vars', () => {
       // 1 for the tx, another for the nullifier of the previous note
       expect(txEffects?.data.nullifiers.length).toEqual(2);
 
-      const { value } = await contract.methods
-        .get_private_mutable(defaultAccountAddress)
-        .simulate({ from: defaultAccountAddress });
+      const {
+        result: { value },
+      } = await contract.methods.get_private_mutable(defaultAccountAddress).simulate({ from: defaultAccountAddress });
       expect(value).toEqual(noteBefore.value + 1n);
     });
   });
@@ -260,7 +262,7 @@ describe('e2e_state_vars', () => {
       expect(
         await contract.methods.is_priv_imm_initialized(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
       ).toEqual(false);
-      const txReceipt = await contract.methods
+      const { receipt: txReceipt } = await contract.methods
         .initialize_private_immutable(RANDOMNESS, VALUE)
         .send({ from: defaultAccountAddress });
 
@@ -290,7 +292,9 @@ describe('e2e_state_vars', () => {
       expect(
         await contract.methods.is_priv_imm_initialized(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
       ).toEqual(true);
-      const { value } = await contract.methods
+      const {
+        result: { value },
+      } = await contract.methods
         .view_private_immutable(defaultAccountAddress)
         .simulate({ from: defaultAccountAddress });
       expect(value).toEqual(VALUE);
@@ -310,9 +314,9 @@ describe('e2e_state_vars', () => {
 
     beforeAll(async () => {
       // We use the auth contract here because has a nice, clear, simple implementation of Delayed Public Mutable
-      authContract = await AuthContract.deploy(wallet, defaultAccountAddress).send({
+      ({ contract: authContract } = await AuthContract.deploy(wallet, defaultAccountAddress).send({
         from: defaultAccountAddress,
-      });
+      }));
 
       if (aztecSlotDuration !== 72) {
         throw new Error(

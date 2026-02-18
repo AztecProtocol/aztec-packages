@@ -71,12 +71,14 @@ describe('client_prover', () => {
       );
 
       // Create the two transactions
-      const privateBalance = await provenAsset.methods.balance_of_private(sender).simulate({ from: sender });
+      const { result: privateBalance } = await provenAsset.methods
+        .balance_of_private(sender)
+        .simulate({ from: sender });
       const privateSendAmount = privateBalance / 10n;
       expect(privateSendAmount).toBeGreaterThan(0n);
       const privateInteraction = provenAsset.methods.transfer(recipient, privateSendAmount);
 
-      const publicBalance = await provenAsset.methods.balance_of_public(sender).simulate({ from: sender });
+      const { result: publicBalance } = await provenAsset.methods.balance_of_public(sender).simulate({ from: sender });
       const publicSendAmount = publicBalance / 10n;
       expect(publicSendAmount).toBeGreaterThan(0n);
       const publicInteraction = provenAsset.methods.transfer_in_public(sender, recipient, publicSendAmount, 0);

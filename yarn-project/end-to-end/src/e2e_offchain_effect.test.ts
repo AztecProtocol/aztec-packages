@@ -33,8 +33,8 @@ describe('e2e_offchain_effect', () => {
       accounts: [defaultAccountAddress],
       aztecNode,
     } = await setup(1));
-    contract1 = await OffchainEffectContract.deploy(wallet).send({ from: defaultAccountAddress });
-    contract2 = await OffchainEffectContract.deploy(wallet).send({ from: defaultAccountAddress });
+    ({ contract: contract1 } = await OffchainEffectContract.deploy(wallet).send({ from: defaultAccountAddress }));
+    ({ contract: contract2 } = await OffchainEffectContract.deploy(wallet).send({ from: defaultAccountAddress }));
   });
 
   afterAll(() => teardown());
@@ -164,7 +164,9 @@ describe('e2e_offchain_effect', () => {
       .simulate({ from: defaultAccountAddress });
 
     // Get the note value
-    const noteValue = await contract1.methods.get_note_value(owner).simulate({ from: defaultAccountAddress });
+    const { result: noteValue } = await contract1.methods
+      .get_note_value(owner)
+      .simulate({ from: defaultAccountAddress });
     expect(noteValue).toBe(value);
   });
 });

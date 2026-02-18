@@ -53,7 +53,7 @@ describe('e2e_pruned_blocks', () => {
       aztecProofSubmissionEpochs: 1024, // effectively do not reorg
     }));
 
-    token = await TokenContract.deploy(wallet, admin, 'TEST', '$TST', 18).send({ from: admin });
+    ({ contract: token } = await TokenContract.deploy(wallet, admin, 'TEST', '$TST', 18).send({ from: admin }));
     logger.info(`L2 token contract deployed at ${token.address}`);
   });
 
@@ -76,7 +76,9 @@ describe('e2e_pruned_blocks', () => {
     // mint transaction that the node will drop the block corresponding to the first mint, resulting in errors if PXE
     // tried to access any historical information related to it (which it shouldn't).
 
-    const firstMintReceipt = await token.methods.mint_to_private(sender, MINT_AMOUNT / 2n).send({ from: admin });
+    const { receipt: firstMintReceipt } = await token.methods
+      .mint_to_private(sender, MINT_AMOUNT / 2n)
+      .send({ from: admin });
     const firstMintTxEffect = await aztecNode.getTxEffect(firstMintReceipt.txHash);
 
     // mint_to_private should create just one new note with the minted amount

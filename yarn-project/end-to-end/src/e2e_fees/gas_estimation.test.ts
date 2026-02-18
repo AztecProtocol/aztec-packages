@@ -88,9 +88,13 @@ describe('e2e_fees gas_estimation', () => {
     paymentMethod?: FeePaymentMethod,
   ) =>
     Promise.all(
-      [GasSettings.from({ ...gasSettings, ...limits }), gasSettings].map(gasSettings =>
-        makeTransferRequest().send({ from: aliceAddress, fee: { gasSettings, paymentMethod } }),
-      ),
+      [GasSettings.from({ ...gasSettings, ...limits }), gasSettings].map(async gasSettings => {
+        const { receipt } = await makeTransferRequest().send({
+          from: aliceAddress,
+          fee: { gasSettings, paymentMethod },
+        });
+        return receipt;
+      }),
     );
 
   const logGasEstimate = (estimatedGas: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>) =>
@@ -194,10 +198,10 @@ describe('e2e_fees gas_estimation', () => {
     });
     logGasEstimate(estimatedGas);
 
-    const [withEstimate, withoutEstimate] = (await Promise.all([
+    const [{ receipt: withEstimate }, { receipt: withoutEstimate }] = (await Promise.all([
       deployMethod().send(deployOpts(estimatedGas)),
       deployMethod().send(deployOpts()),
-    ])) as unknown as DeployTxReceipt[];
+    ])) as unknown as { receipt: DeployTxReceipt }[];
 
     // Estimation should yield that teardown has no cost, so should send the tx with zero for teardown
     expect(withEstimate.transactionFee!).toEqual(withoutEstimate.transactionFee!);
