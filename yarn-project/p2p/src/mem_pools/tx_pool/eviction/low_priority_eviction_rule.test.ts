@@ -38,7 +38,7 @@ describe('LowPriorityEvictionRule', () => {
   });
 
   describe('evict method', () => {
-    describe('non-TXS_ADDED events', () => {
+    describe('BLOCK_MINED events', () => {
       it('returns empty result for BLOCK_MINED event', async () => {
         const context: EvictionContext = {
           event: EvictionEvent.BLOCK_MINED,
@@ -55,8 +55,33 @@ describe('LowPriorityEvictionRule', () => {
           txsEvicted: [],
         });
       });
+    });
 
-      it('returns empty result for CHAIN_PRUNED event', async () => {
+    describe('CHAIN_PRUNED events', () => {
+      it('evicts transactions when pool is over limit', async () => {
+        rule.updateConfig({ maxPendingTxCount: 1 });
+
+        const tx1 = TxHash.random();
+        const tx2 = TxHash.random();
+
+        txPool.getPendingTxCount.mockResolvedValue(3);
+        txPool.getLowestPriorityEvictable.mockResolvedValue([tx1, tx2]);
+
+        const context: EvictionContext = {
+          event: EvictionEvent.CHAIN_PRUNED,
+          blockNumber: BlockNumber(1),
+        };
+
+        const result = await rule.evict(context, txPool);
+
+        expect(result.success).toBe(true);
+        expect(result.txsEvicted).toEqual([tx1, tx2]);
+        expect(txPool.deleteTxs).toHaveBeenCalledWith([tx1, tx2]);
+      });
+
+      it('returns empty result when pool is under limit', async () => {
+        txPool.getPendingTxCount.mockResolvedValue(Math.floor(config.maxPoolSize / 2));
+
         const context: EvictionContext = {
           event: EvictionEvent.CHAIN_PRUNED,
           blockNumber: BlockNumber(1),
@@ -69,6 +94,43 @@ describe('LowPriorityEvictionRule', () => {
           success: true,
           txsEvicted: [],
         });
+        expect(txPool.deleteTxs).not.toHaveBeenCalled();
+      });
+
+      it('returns empty result when maxPoolSize is 0', async () => {
+        rule.updateConfig({ maxPendingTxCount: 0 });
+
+        const context: EvictionContext = {
+          event: EvictionEvent.CHAIN_PRUNED,
+          blockNumber: BlockNumber(1),
+        };
+
+        const result = await rule.evict(context, txPool);
+
+        expect(result).toEqual({
+          reason: 'low_priority',
+          success: true,
+          txsEvicted: [],
+        });
+        expect(txPool.getPendingTxCount).not.toHaveBeenCalled();
+      });
+
+      it('handles error from txPool operations', async () => {
+        const error = new Error('Test error');
+        txPool.getPendingTxCount.mockRejectedValue(error);
+
+        const context: EvictionContext = {
+          event: EvictionEvent.CHAIN_PRUNED,
+          blockNumber: BlockNumber(1),
+        };
+
+        const result = await rule.evict(context, txPool);
+
+        expect(result.success).toBe(false);
+        expect(result.txsEvicted).toEqual([]);
+        expect(result.error).toBeInstanceOf(Error);
+        expect(result.error?.message).toContain('Failed to evict low priority txs');
+        expect(result.error?.cause).toBe(error);
       });
     });
 

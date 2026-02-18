@@ -17,7 +17,7 @@ export interface LowPriorityEvictionConfig {
 
 /**
  * Eviction rule that removes low-priority transactions when the number of pending transactions exceeds configured limits.
- * Only triggers on TXS_ADDED events and respects non-evictable transactions.
+ * Triggers on TXS_ADDED and CHAIN_PRUNED events, and respects non-evictable transactions.
  */
 export class LowPriorityEvictionRule implements EvictionRule {
   public readonly name = 'LowPriorityEviction';
@@ -27,7 +27,7 @@ export class LowPriorityEvictionRule implements EvictionRule {
   constructor(private config: LowPriorityEvictionConfig) {}
 
   public async evict(context: EvictionContext, txPool: TxPoolOperations): Promise<EvictionResult> {
-    if (context.event !== EvictionEvent.TXS_ADDED) {
+    if (context.event !== EvictionEvent.TXS_ADDED && context.event !== EvictionEvent.CHAIN_PRUNED) {
       return {
         reason: 'low_priority',
         success: true,
@@ -64,13 +64,19 @@ export class LowPriorityEvictionRule implements EvictionRule {
         await txPool.deleteTxs(txsToEvict);
       }
 
-      const numNewTxsEvicted = context.newTxs.filter(newTxHash =>
-        txsToEvict.some(evictedTx => evictedTx.equals(newTxHash)),
-      ).length;
-
-      this.log.verbose(`Evicted ${txsToEvict.length} low priority txs, including ${numNewTxsEvicted} newly added txs`, {
-        txsEvicted: txsToEvict,
-      });
+      if (context.event === EvictionEvent.TXS_ADDED) {
+        const numNewTxsEvicted = context.newTxs.filter(newTxHash =>
+          txsToEvict.some(evictedTx => evictedTx.equals(newTxHash)),
+        ).length;
+        this.log.verbose(
+          `Evicted ${txsToEvict.length} low priority txs, including ${numNewTxsEvicted} newly added txs`,
+          { txsEvicted: txsToEvict },
+        );
+      } else {
+        this.log.verbose(`Evicted ${txsToEvict.length} low priority txs after chain prune`, {
+          txsEvicted: txsToEvict,
+        });
+      }
 
       return {
         reason: 'low_priority',

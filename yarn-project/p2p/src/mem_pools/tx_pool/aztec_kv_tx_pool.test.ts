@@ -370,6 +370,53 @@ describe('KV TX pool', () => {
     expect(pendingTxHashes).toHaveLength(2);
   });
 
+  it('Evicts low priority txs after a chain prune when pool exceeds the limit', async () => {
+    txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
+      maxPendingTxCount: 2,
+    });
+
+    const tx1 = await mockTx(1, { maxPriorityFeesPerGas: new GasFees(1, 1) }); // lowest priority
+    const tx2 = await mockTx(2, { maxPriorityFeesPerGas: new GasFees(2, 2) });
+    const tx3 = await mockTx(3, { maxPriorityFeesPerGas: new GasFees(3, 3) }); // highest priority
+
+    await txPool.addTxs([tx1, tx2, tx3]);
+    // Mine all three so pending pool is empty
+    await txPool.markAsMined([tx1.getTxHash(), tx2.getTxHash(), tx3.getTxHash()], block1Header);
+    expect(await txPool.getPendingTxCount()).toBe(0);
+
+    // Reorg: move all three back to pending, temporarily exceeding the limit of 2
+    await txPool.markMinedAsPending([tx1.getTxHash(), tx2.getTxHash(), tx3.getTxHash()], BlockNumber(0));
+
+    // Low priority eviction should have trimmed the pool back to the limit, evicting tx1 (lowest priority)
+    await checkPendingTxConsistency();
+    const pending = await txPool.getPendingTxHashes();
+    expect(pending).toHaveLength(2);
+    expect(pending).toContainEqual(tx2.getTxHash());
+    expect(pending).toContainEqual(tx3.getTxHash());
+    expect(pending).not.toContainEqual(tx1.getTxHash());
+  });
+
+  it('Does not evict txs after a chain prune when pool is within the limit', async () => {
+    txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
+      maxPendingTxCount: 3,
+    });
+
+    const tx1 = await mockTx(1, { maxPriorityFeesPerGas: new GasFees(1, 1) });
+    const tx2 = await mockTx(2, { maxPriorityFeesPerGas: new GasFees(2, 2) });
+
+    await txPool.addTxs([tx1, tx2]);
+    await txPool.markAsMined([tx1.getTxHash(), tx2.getTxHash()], block1Header);
+
+    // 2 txs back to pending, limit is 3 — no eviction should occur
+    await txPool.markMinedAsPending([tx1.getTxHash(), tx2.getTxHash()], BlockNumber(0));
+
+    await checkPendingTxConsistency();
+    const pending = await txPool.getPendingTxHashes();
+    expect(pending).toHaveLength(2);
+    expect(pending).toContainEqual(tx1.getTxHash());
+    expect(pending).toContainEqual(tx2.getTxHash());
+  });
+
   it('Does not evict low priority txs marked as non-evictable', async () => {
     txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
       maxPendingTxCount: 3,
