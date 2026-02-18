@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -42,7 +42,7 @@ template <class Flavor> class TraceToPolynomials {
     /**
      * @brief Construct and add the goblin ecc op wires to the proving key
      * @details The ecc op wires vanish everywhere except on the ecc op block, where they contain a copy of the ecc op
-     * data assumed already to be present in the corrresponding block of the conventional wires in the proving key.
+     * data assumed already to be present in the corresponding block of the conventional wires in the proving key.
      */
     static void add_ecc_op_wires_to_prover_instance(Builder& builder, ProverPolynomials&)
         requires IsMegaFlavor<Flavor>;

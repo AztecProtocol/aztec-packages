@@ -64,23 +64,9 @@ TEST(FqConstants, RInv)
     EXPECT_EQ(result, expected);
 }
 
-// multiplication generator for Fq
-// AUDITTODO: delete (misnamed, no longer used -- finds smallest quadratic non-residue.)
-TEST(FqConstants, MultiplicativeGenerator)
-{
-    EXPECT_EQ(fq::multiplicative_generator(), fq(3));
-}
-
 TEST(FqConstants, CubeRootOfUnity)
 {
-    // beta is be g^(2(q-1)/3) where g is the multiplicative generator
-    // AUDITTODO: if I kill multiplicative_generator, this part of test should be killed.
-    fq g = fq::multiplicative_generator();
-    uint256_t exponent = uint256_t(2) * (native_q - 1) / 3;
-    fq expected_beta = g.pow(exponent);
-
     fq beta = fq::cube_root_of_unity();
-    EXPECT_EQ(beta, expected_beta);
 
     // Verify beta^3 = 1 and beta != 1
     EXPECT_EQ(beta * beta * beta, fq::one());
@@ -153,6 +139,27 @@ TEST(FqConstants, WasmCubeRootConsistency)
 
     EXPECT_EQ(expected_cube_root_wasm.lo, cube_root_wasm);
 }
+// r_inv_wasm represents 2^(-29) mod q in 9 x 29-bit limbs
+// this tests checks that that r_inv_wasm < q/2 (and in particular less than q).
+TEST(FqConstants, WasmRInvLessThanModulus)
+{
+    // Verify that when reconstructed as a uint512_t, it is less than the modulus q
+    constexpr std::array<uint64_t, 9> r_inv_wasm_limbs = { Bn254FqParams::r_inv_wasm_0, Bn254FqParams::r_inv_wasm_1,
+                                                           Bn254FqParams::r_inv_wasm_2, Bn254FqParams::r_inv_wasm_3,
+                                                           Bn254FqParams::r_inv_wasm_4, Bn254FqParams::r_inv_wasm_5,
+                                                           Bn254FqParams::r_inv_wasm_6, Bn254FqParams::r_inv_wasm_7,
+                                                           Bn254FqParams::r_inv_wasm_8 };
+
+    uint512_t r_inv_wasm = 0;
+    for (size_t i = 0; i < 9; i++) {
+        r_inv_wasm += uint512_t(r_inv_wasm_limbs[i]) << (29UL * i);
+        // Verify each limb fits in 29 bits
+        EXPECT_LT(r_inv_wasm_limbs[i], uint64_t(1) << 29);
+    }
+
+    // Verify r_inv_wasm < q/2
+    EXPECT_LT(r_inv_wasm, uint512_t(native_q) / 2);
+}
 
 // ================================
 // Fr Constants Tests
@@ -193,20 +200,9 @@ TEST(FrConstants, RInv)
     EXPECT_EQ(result, expected);
 }
 
-TEST(FrConstants, MultiplicativeGenerator)
-{
-    EXPECT_EQ(fr::multiplicative_generator(), fr(5));
-}
-
 TEST(FrConstants, CubeRootOfUnity)
 {
-    // beta is be g^((r-1)/3) where g is the multiplicative generator
-    fr g = fr::multiplicative_generator();
-    uint256_t exponent = (native_r - 1) / 3;
-    fr expected_beta = g.pow(exponent);
-
     fr beta = fr::cube_root_of_unity();
-    EXPECT_EQ(beta, expected_beta);
 
     // Verify beta^3 = 1 and beta != 1
     EXPECT_EQ(beta * beta * beta, fr::one());
@@ -268,4 +264,26 @@ TEST(FrConstants, WasmCubeRootConsistency)
     uint512_t expected_cube_root_wasm = (uint512_t(cube_root_native) * 32) % native_r;
 
     EXPECT_EQ(expected_cube_root_wasm.lo, cube_root_wasm);
+}
+
+// r_inv_wasm represents 2^(-29) mod r in 9 x 29-bit limbs
+// this tests verifies that r_inv_wasm < r/2.
+TEST(FrConstants, WasmRInvLessThanModulus)
+{
+    // Verify that when reconstructed as a uint512_t, it is less than the modulus r
+    constexpr std::array<uint64_t, 9> r_inv_wasm_limbs = { Bn254FrParams::r_inv_wasm_0, Bn254FrParams::r_inv_wasm_1,
+                                                           Bn254FrParams::r_inv_wasm_2, Bn254FrParams::r_inv_wasm_3,
+                                                           Bn254FrParams::r_inv_wasm_4, Bn254FrParams::r_inv_wasm_5,
+                                                           Bn254FrParams::r_inv_wasm_6, Bn254FrParams::r_inv_wasm_7,
+                                                           Bn254FrParams::r_inv_wasm_8 };
+
+    uint512_t r_inv_wasm = 0;
+    for (size_t i = 0; i < 9; i++) {
+        r_inv_wasm += uint512_t(r_inv_wasm_limbs[i]) << (29UL * i);
+        // Verify each limb fits in 29 bits
+        EXPECT_LT(r_inv_wasm_limbs[i], uint64_t(1) << 29);
+    }
+
+    // Verify r_inv_wasm < r/2
+    EXPECT_LT(r_inv_wasm, uint512_t(native_r) / 2);
 }

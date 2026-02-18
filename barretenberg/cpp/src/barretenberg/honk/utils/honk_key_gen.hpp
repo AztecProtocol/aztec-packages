@@ -1,10 +1,13 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
+
+#include <ostream>
+#include <string>
 
 /**
  * Write a solidity file containing the vk params to the given stream.
@@ -57,8 +60,7 @@ inline void output_vk_sol_ultra_honk(std::ostream& os,
 
     // clang-format off
     os <<
-    //   "// Verification Key Hash: " << key->sha256_hash() << "\n"
-      "// SPDX-License-Identifier: Apache-2.0\n"
+"// SPDX-License-Identifier: Apache-2.0\n"
       "// Copyright 2022 Aztec\n"
       "pragma solidity >=0.8.21;\n"
       "\n"
