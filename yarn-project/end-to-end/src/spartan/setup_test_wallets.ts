@@ -130,7 +130,7 @@ async function deployAccountWithDiagnostics(
   const deployMethod = await account.getDeployMethod();
   let txHash;
   try {
-    txHash = await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod }, wait: NO_WAIT });
+    ({ txHash } = await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod }, wait: NO_WAIT }));
     await waitForTx(aztecNode, txHash, { timeout: 2400 });
     logger.info(`${accountLabel} deployed at ${account.address}`);
   } catch (error) {
