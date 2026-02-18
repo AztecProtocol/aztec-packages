@@ -23,7 +23,7 @@ import {
 } from '@aztec/p2p';
 import { OffenseType, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import type { SlasherConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -51,8 +51,31 @@ import type {
   FullNodeCheckpointsBuilder,
 } from './checkpoint_builder.js';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from './config.js';
-import type { HAKeyStore } from './key_store/ha_key_store.js';
+import { HAKeyStore } from './key_store/ha_key_store.js';
 import { ValidatorClient } from './validator.js';
+
+function makeKeyStore(validator: {
+  attester: Hex<32>[] | Hex<32>;
+  coinbase?: EthAddress;
+  feeRecipient?: AztecAddress;
+  publisher?: Hex<32>[];
+}): KeyStore {
+  return {
+    schemaVersion: 1,
+    slasher: undefined,
+    prover: undefined,
+    remoteSigner: undefined,
+    validators: [
+      {
+        attester: Array.isArray(validator.attester) ? validator.attester : [validator.attester],
+        feeRecipient: validator.feeRecipient ?? AztecAddress.ZERO,
+        coinbase: validator.coinbase,
+        remoteSigner: undefined,
+        publisher: validator.publisher ?? [],
+      },
+    ],
+  };
+}
 
 describe('ValidatorClient', () => {
   let config: ValidatorClientConfig &
@@ -62,7 +85,7 @@ describe('ValidatorClient', () => {
     > & {
       disableTransactions: boolean;
     };
-  let validatorClient: ValidatorClient;
+  let validatorClient: TestValidatorClient;
   let p2pClient: MockProxy<P2P>;
   let blockSource: MockProxy<L2BlockSource & L2BlockSink>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
@@ -96,6 +119,7 @@ describe('ValidatorClient', () => {
     >[1] as any);
     blockSource = mock<L2BlockSource & L2BlockSink>();
     blockSource.getCheckpointedBlocksForEpoch.mockResolvedValue([]);
+    blockSource.getCheckpointsDataForEpoch.mockResolvedValue([]);
     blockSource.getBlocksForSlot.mockResolvedValue([]);
     epochCache.isEscapeHatchOpenAtSlot.mockResolvedValue(false);
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
@@ -132,24 +156,9 @@ describe('ValidatorClient', () => {
       maxStuckDutiesAgeMs: 72000,
     };
 
-    const keyStore: KeyStore = {
-      schemaVersion: 1,
-      slasher: undefined,
-      prover: undefined,
-      remoteSigner: undefined,
-      validators: [
-        {
-          attester: validatorPrivateKeys.map(key => key as Hex<32>),
-          feeRecipient: AztecAddress.ZERO,
-          coinbase: undefined,
-          remoteSigner: undefined,
-          publisher: [],
-        },
-      ],
-    };
-    keyStoreManager = new KeystoreManager(keyStore);
+    keyStoreManager = new KeystoreManager(makeKeyStore({ attester: validatorPrivateKeys.map(key => key as Hex<32>) }));
 
-    validatorClient = await ValidatorClient.new(
+    validatorClient = (await ValidatorClient.new(
       config,
       checkpointsBuilder,
       worldState,
@@ -161,7 +170,7 @@ describe('ValidatorClient', () => {
       keyStoreManager,
       blobClient,
       dateProvider,
-    );
+    )) as TestValidatorClient;
   });
 
   describe('createBlockProposal', () => {
@@ -301,7 +310,7 @@ describe('ValidatorClient', () => {
       checkpointsBuilder.openCheckpoint.mockResolvedValue(mockCheckpointBuilder);
       worldState.fork.mockResolvedValue({
         close: () => Promise.resolve(),
-        [Symbol.dispose]: () => {},
+        [Symbol.asyncDispose]: () => Promise.resolve(),
       } as never);
     };
 
@@ -336,23 +345,19 @@ describe('ValidatorClient', () => {
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
       epochCache.isEscapeHatchOpenAtSlot.mockResolvedValue(false);
 
-      // Return parent block header when requested
-      blockSource.getBlockHeaderByArchive.mockResolvedValue({
-        getBlockNumber: () => blockNumber - 1,
-        getSlot: () => SlotNumber(Number(blockHeader.globalVariables.slotNumber) - 1),
-      } as BlockHeader);
-
-      // Return parent block when requested (needed for checkpoint number computation)
-      // The parent block has slot - 1, which is different from the proposal's slot
+      // Return parent block data when requested (includes checkpoint info, avoids loading full L2Block)
       const parentSlot = SlotNumber(Number(blockHeader.globalVariables.slotNumber) - 1);
-      blockSource.getL2Block.mockResolvedValue({
+      blockSource.getBlockDataByArchive.mockResolvedValue({
+        header: {
+          getBlockNumber: () => blockNumber - 1,
+          getSlot: () => parentSlot,
+          globalVariables: blockHeader.globalVariables,
+        },
+        archive: new AppendOnlyTreeSnapshot(Fr.random(), blockNumber - 1),
+        blockHash: Fr.random(),
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
-        header: {
-          globalVariables: blockHeader.globalVariables,
-          getSlot: () => parentSlot,
-        },
-      } as unknown as L2Block);
+      } as unknown as BlockData);
 
       blockSource.getGenesisValues.mockResolvedValue({ genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT) });
       blockSource.syncImmediate.mockImplementation(() => Promise.resolve());
@@ -453,6 +458,7 @@ describe('ValidatorClient', () => {
 
     it('should attest to a checkpoint proposal after validating a block for that slot', async () => {
       const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addOwnCheckpointAttestations');
+      const uploadBlobsSpy = jest.spyOn(validatorClient, 'uploadBlobsForCheckpoint');
 
       const didValidate = await validatorClient.validateBlockProposal(proposal, sender);
       expect(didValidate).toBe(true);
@@ -467,21 +473,65 @@ describe('ValidatorClient', () => {
         },
       });
 
+      // Enable blob upload for this attestation
+      blobClient.canUpload.mockReturnValue(true);
+
       validatorClient.updateConfig({ skipCheckpointProposalValidation: true });
       const attestations = await validatorClient.attestToCheckpointProposal(checkpointProposal, sender);
 
       expect(attestations).toBeDefined();
       expect(attestations).toHaveLength(1);
       expect(addCheckpointAttestationsSpy).toHaveBeenCalledTimes(1);
+      expect(uploadBlobsSpy).toHaveBeenCalled();
+
+      uploadBlobsSpy.mockRestore();
+    });
+
+    it('should not attest to a checkpoint proposal that references a middle block instead of the last', async () => {
+      const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addOwnCheckpointAttestations');
+
+      // First validate a block proposal so the validator has seen a block for this slot
+      const didValidate = await validatorClient.validateBlockProposal(proposal, sender);
+      expect(didValidate).toBe(true);
+
+      // Create 3 blocks for the slot, each with a distinct archive root
+      const block1Archive = new AppendOnlyTreeSnapshot(Fr.random(), 1);
+      const block2Archive = new AppendOnlyTreeSnapshot(Fr.random(), 2);
+      const block3Archive = new AppendOnlyTreeSnapshot(Fr.random(), 3);
+      const blocks = [
+        { archive: block1Archive, number: 1 },
+        { archive: block2Archive, number: 2 },
+        { archive: block3Archive, number: 3 },
+      ] as unknown as L2Block[];
+
+      // Proposal references the middle block's archive (block 2), not the last (block 3)
+      const checkpointProposal = await makeCheckpointProposal({
+        archiveRoot: block2Archive.root,
+        checkpointHeader: makeCheckpointHeader(0, { slotNumber: proposal.slotNumber }),
+        lastBlock: {
+          blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(2), slotNumber: proposal.slotNumber }),
+          indexWithinCheckpoint: IndexWithinCheckpoint(1),
+          txHashes: proposal.txHashes,
+        },
+      });
+
+      // Mock getBlockHeaderByArchive to return a header so retryUntil succeeds
+      blockSource.getBlockHeaderByArchive.mockResolvedValue(makeBlockHeader());
+      blockSource.getBlocksForSlot.mockResolvedValue(blocks);
+
+      // Checkpoint validation should fail: proposal points to block 2 but last block in slot is block 3
+      const attestations = await validatorClient.attestToCheckpointProposal(checkpointProposal, sender);
+      expect(attestations).toBeUndefined();
+      expect(addCheckpointAttestationsSpy).not.toHaveBeenCalled();
     });
 
     it('should wait for previous block to sync', async () => {
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
-      blockSource.getBlockHeaderByArchive.mockResolvedValueOnce(undefined);
-      blockSource.getBlockHeaderByArchive.mockResolvedValueOnce(undefined);
-      blockSource.getBlockHeaderByArchive.mockResolvedValueOnce(undefined);
+      blockSource.getBlockDataByArchive.mockResolvedValueOnce(undefined);
+      blockSource.getBlockDataByArchive.mockResolvedValueOnce(undefined);
+      blockSource.getBlockDataByArchive.mockResolvedValueOnce(undefined);
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
-      expect(blockSource.getBlockHeaderByArchive).toHaveBeenCalledTimes(4);
+      expect(blockSource.getBlockDataByArchive).toHaveBeenCalledTimes(4);
       expect(isValid).toBe(true);
     });
 
@@ -686,23 +736,18 @@ describe('ValidatorClient', () => {
           nextSlot: SlotNumber(nonFirstBlockProposal.slotNumber + 1),
         });
 
-        // Mock parent block header returned by getBlockHeaderByArchive
-        const parentBlockHeader = {
-          getBlockNumber: () => BlockNumber(parentBlockNumber),
-          getSlot: () => SlotNumber(parentSlotNumber),
-          globalVariables: parentGlobalVariables,
-        } as BlockHeader;
-        blockSource.getBlockHeaderByArchive.mockResolvedValue(parentBlockHeader);
-
-        // Mock parent block returned by getL2Block
-        const parentBlock = {
-          checkpointNumber: parentCheckpointNumber,
-          indexWithinCheckpoint: IndexWithinCheckpoint(0), // Parent is first block in checkpoint
+        // Mock parent block data returned by getBlockDataByArchive
+        blockSource.getBlockDataByArchive.mockResolvedValue({
           header: {
+            getBlockNumber: () => BlockNumber(parentBlockNumber),
+            getSlot: () => SlotNumber(parentSlotNumber),
             globalVariables: parentGlobalVariables,
           },
-        } as unknown as L2Block;
-        blockSource.getL2Block.mockResolvedValue(parentBlock);
+          archive: new AppendOnlyTreeSnapshot(Fr.random(), parentBlockNumber),
+          blockHash: Fr.random(),
+          checkpointNumber: parentCheckpointNumber,
+          indexWithinCheckpoint: IndexWithinCheckpoint(0), // Parent is first block in checkpoint
+        } as unknown as BlockData);
 
         // Set time for the slot
         const genesisTime = 1n;
@@ -729,16 +774,6 @@ describe('ValidatorClient', () => {
       // compute the same inHash from the same L1 messages. If a malicious proposal has a
       // different inHash, it will fail the existing validation at lines 192-200 in
       // block_proposal_handler.ts.
-    });
-
-    // TODO(palla/mbps): Blob upload functionality has been moved to checkpoint proposal handling (Phase 6)
-    // These tests are skipped until the blob upload is implemented in the new location.
-    describe.skip('filestore blob upload', () => {
-      it.todo('should upload blobs to filestore after successful checkpoint proposal');
-      it.todo('should not attempt upload when fileStoreBlobUploadClient is undefined');
-      it.todo('should not fail when blob upload fails');
-      it.todo('should trigger re-execution when filestore is configured even if validatorReexecute is false');
-      it.todo('should not upload blobs when validation fails');
     });
 
     it('should validate proposals in fisherman mode but not create or broadcast attestations', async () => {
@@ -833,6 +868,42 @@ describe('ValidatorClient', () => {
     });
   });
 
+  describe('uploadBlobsForCheckpoint', () => {
+    const proposalInfo = { slotNumber: 1, archive: '0x00', proposer: '0x00', txCount: 0 };
+
+    it('should send blobs from blocks in the slot to filestore', async () => {
+      const blobFields = [Fr.random(), Fr.random()];
+      const mockBlock = { toBlobFields: () => blobFields } as unknown as L2Block;
+      blockSource.getBlockHeaderByArchive.mockResolvedValue(makeBlockHeader());
+      blockSource.getBlocksForSlot.mockResolvedValue([mockBlock]);
+
+      const proposal = await makeCheckpointProposal({ lastBlock: {} });
+      await validatorClient.uploadBlobsForCheckpoint(proposal, proposalInfo);
+
+      expect(blockSource.getBlocksForSlot).toHaveBeenCalledWith(proposal.slotNumber);
+      expect(blobClient.sendBlobsToFilestore).toHaveBeenCalled();
+    });
+
+    it('should not upload if last block header is not found', async () => {
+      blockSource.getBlockHeaderByArchive.mockResolvedValue(undefined);
+
+      const proposal = await makeCheckpointProposal({ lastBlock: {} });
+      await validatorClient.uploadBlobsForCheckpoint(proposal, proposalInfo);
+
+      expect(blobClient.sendBlobsToFilestore).not.toHaveBeenCalled();
+    });
+
+    it('should not throw when blob upload fails', async () => {
+      const mockBlock = { toBlobFields: () => [Fr.random()] } as unknown as L2Block;
+      blockSource.getBlockHeaderByArchive.mockResolvedValue(makeBlockHeader());
+      blockSource.getBlocksForSlot.mockResolvedValue([mockBlock]);
+      blobClient.sendBlobsToFilestore.mockRejectedValue(new Error('upload failed'));
+
+      const proposal = await makeCheckpointProposal({ lastBlock: {} });
+      await expect(validatorClient.uploadBlobsForCheckpoint(proposal, proposalInfo)).resolves.toBeUndefined();
+    });
+  });
+
   describe('configuration', () => {
     it('should use VALIDATOR_PRIVATE_KEY for validatorPrivateKeys when VALIDATOR_PRIVATE_KEYS is not set', () => {
       const originalEnv = process.env;
@@ -871,4 +942,131 @@ describe('ValidatorClient', () => {
       expect(haKeyStore.stop).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('reloadKeystore', () => {
+    // build a KeystoreManager from a single-validator KeyStore and reload.
+    const reloadWith = (overrides: Parameters<typeof makeKeyStore>[0]) => {
+      const manager = new KeystoreManager(makeKeyStore(overrides));
+      validatorClient.reloadKeystore(manager);
+      return manager;
+    };
+
+    const allKeys = () => config.validatorPrivateKeys!.getValue().map(k => k as Hex<32>);
+
+    it('should update coinbase after reload', () => {
+      const newCoinbase = EthAddress.random();
+      reloadWith({ attester: allKeys(), coinbase: newCoinbase });
+
+      const attestorAddress = EthAddress.fromString(validatorAccounts[0].address);
+      expect(validatorClient.getCoinbaseForAttestor(attestorAddress)).toEqual(newCoinbase);
+    });
+
+    it('should update fee recipient after reload', async () => {
+      const newFeeRecipient = await AztecAddress.random();
+      reloadWith({ attester: allKeys(), feeRecipient: newFeeRecipient });
+
+      const attestorAddress = EthAddress.fromString(validatorAccounts[0].address);
+      expect(validatorClient.getFeeRecipientForAttestor(attestorAddress)).toEqual(newFeeRecipient);
+    });
+
+    it('should add new validator after reload', () => {
+      const newPrivateKey = generatePrivateKey();
+      const newAccount = privateKeyToAccount(newPrivateKey);
+      reloadWith({ attester: [...allKeys(), newPrivateKey as Hex<32>] });
+
+      const addresses = validatorClient.getValidatorAddresses();
+      expect(addresses).toHaveLength(3);
+      expect(addresses.some(a => a.equals(EthAddress.fromString(newAccount.address)))).toBe(true);
+    });
+
+    it('should update attester key after reload', () => {
+      const newPrivateKey = generatePrivateKey();
+      const newAccount = privateKeyToAccount(newPrivateKey);
+      reloadWith({ attester: newPrivateKey as Hex<32> });
+
+      const addresses = validatorClient.getValidatorAddresses();
+      expect(addresses).toHaveLength(1);
+      expect(addresses[0]).toEqual(EthAddress.fromString(newAccount.address));
+    });
+
+    it('should remove a validator after reload', () => {
+      const remainingKey = config.validatorPrivateKeys!.getValue()[0] as Hex<32>;
+      const removedAccount = validatorAccounts[1];
+      reloadWith({ attester: remainingKey });
+
+      const addresses = validatorClient.getValidatorAddresses();
+      expect(addresses).toHaveLength(1);
+      expect(addresses.some(a => a.equals(EthAddress.fromString(removedAccount.address)))).toBe(false);
+
+      // Accessing the removed validator's coinbase should throw
+      expect(() => validatorClient.getCoinbaseForAttestor(EthAddress.fromString(removedAccount.address))).toThrow(
+        /not found in any validator configuration/,
+      );
+    });
+
+    it('should change coinbase and no longer return the old one', () => {
+      const attestorAddress = EthAddress.fromString(validatorAccounts[0].address);
+
+      const oldCoinbase = EthAddress.random();
+      reloadWith({ attester: allKeys(), coinbase: oldCoinbase });
+      expect(validatorClient.getCoinbaseForAttestor(attestorAddress)).toEqual(oldCoinbase);
+
+      const newCoinbase = EthAddress.random();
+      reloadWith({ attester: allKeys(), coinbase: newCoinbase });
+      expect(validatorClient.getCoinbaseForAttestor(attestorAddress)).toEqual(newCoinbase);
+      expect(validatorClient.getCoinbaseForAttestor(attestorAddress)).not.toEqual(oldCoinbase);
+    });
+
+    it('should reset coinbase to attester fallback when removed', () => {
+      const attestorAddress = EthAddress.fromString(validatorAccounts[0].address);
+
+      const explicitCoinbase = EthAddress.random();
+      reloadWith({ attester: allKeys(), coinbase: explicitCoinbase });
+      expect(validatorClient.getCoinbaseForAttestor(attestorAddress)).toEqual(explicitCoinbase);
+
+      // Reload without coinbase — falls back to the attester address itself
+      reloadWith({ attester: allKeys() });
+      expect(validatorClient.getCoinbaseForAttestor(attestorAddress)).toEqual(attestorAddress);
+      expect(validatorClient.getCoinbaseForAttestor(attestorAddress)).not.toEqual(explicitCoinbase);
+    });
+
+    it('should change fee recipient and no longer return the old one', async () => {
+      const attestorAddress = EthAddress.fromString(validatorAccounts[0].address);
+
+      const oldFeeRecipient = await AztecAddress.random();
+      reloadWith({ attester: allKeys(), feeRecipient: oldFeeRecipient });
+      expect(validatorClient.getFeeRecipientForAttestor(attestorAddress)).toEqual(oldFeeRecipient);
+
+      const newFeeRecipient = await AztecAddress.random();
+      reloadWith({ attester: allKeys(), feeRecipient: newFeeRecipient });
+      expect(validatorClient.getFeeRecipientForAttestor(attestorAddress)).toEqual(newFeeRecipient);
+      expect(validatorClient.getFeeRecipientForAttestor(attestorAddress)).not.toEqual(oldFeeRecipient);
+    });
+
+    it('should preserve HA signer and wrap new adapter in HAKeyStore after reload', () => {
+      // Simulate HA mode by setting the haSigner and wrapping in HAKeyStore
+      const mockHASigner = { nodeId: 'test-ha-node' };
+      (validatorClient as any).haSigner = mockHASigner;
+      (validatorClient as any).keyStore = haKeyStore;
+
+      const newCoinbase = EthAddress.random();
+      reloadWith({ attester: allKeys(), coinbase: newCoinbase });
+
+      // Verify the keyStore is an HAKeyStore wrapping the same haSigner
+      const keyStoreAfterReload = (validatorClient as any).keyStore;
+      expect(keyStoreAfterReload).toBeInstanceOf(HAKeyStore);
+      expect((keyStoreAfterReload as any).haSigner).toBe(mockHASigner);
+
+      // Verify the new coinbase is accessible through the HAKeyStore
+      const attestorAddress = EthAddress.fromString(validatorAccounts[0].address);
+      expect(validatorClient.getCoinbaseForAttestor(attestorAddress)).toEqual(newCoinbase);
+    });
+  });
 });
+
+/** Exposes protected methods for direct testing */
+class TestValidatorClient extends ValidatorClient {
+  declare public uploadBlobsForCheckpoint: (
+    ...args: Parameters<ValidatorClient['uploadBlobsForCheckpoint']>
+  ) => Promise<void>;
+}

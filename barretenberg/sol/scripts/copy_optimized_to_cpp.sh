@@ -97,22 +97,17 @@ awk '
 awk '
     BEGIN {
         in_unroll = 0
-        unroll_label = ""
     }
     # Detect UNROLL_SECTION_START
     /\{\{[[:space:]]*UNROLL_SECTION_START[[:space:]]+[^}]+\}\}/ {
         print  # Print the start marker
         in_unroll = 1
-        # Extract the label for matching with END
-        match($0, /UNROLL_SECTION_START[[:space:]]+([^[:space:]}\]]+)/, arr)
-        unroll_label = arr[1]
         next
     }
     # Detect UNROLL_SECTION_END
     /\{\{[[:space:]]*UNROLL_SECTION_END[[:space:]]+[^}]+\}\}/ {
         print  # Print the end marker
         in_unroll = 0
-        unroll_label = ""
         next
     }
     # Skip lines inside unroll sections

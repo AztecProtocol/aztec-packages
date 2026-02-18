@@ -43,6 +43,7 @@ describe('FeePayerBalanceEvictionRule', () => {
     nullifiers: [`0x${txHash.slice(2)}null1`],
     expirationTimestamp: 0n,
     receivedAt: 0,
+    estimatedSizeBytes: 0,
     data: stubTxMetaValidationData(),
   });
 
@@ -144,7 +145,7 @@ describe('FeePayerBalanceEvictionRule', () => {
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted).toEqual(['0x1111']); // Low priority evicted
-        expect(deleteTxsMock).toHaveBeenCalledWith(['0x1111']);
+        expect(deleteTxsMock).toHaveBeenCalledWith(['0x1111'], 'FeePayerBalanceEviction');
       });
 
       it('evicts multiple low-priority txs when balance is insufficient', async () => {
@@ -193,7 +194,7 @@ describe('FeePayerBalanceEvictionRule', () => {
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted).toEqual(['0xaaaa']); // Only lowest priority evicted
-        expect(deleteTxsMock).toHaveBeenCalledWith(['0xaaaa']);
+        expect(deleteTxsMock).toHaveBeenCalledWith(['0xaaaa'], 'FeePayerBalanceEviction');
       });
 
       it('considers claim amount when calculating available balance', async () => {

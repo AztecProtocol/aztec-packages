@@ -128,6 +128,9 @@ export const NODEJS_EVENT_LOOP_STATE = 'nodejs.eventloop.state';
 
 export const TOPIC_NAME = 'aztec.gossip.topic_name';
 
+/** The reason a transaction was evicted from the tx pool */
+export const TX_POOL_EVICTION_REASON = 'aztec.mempool.eviction_reason';
+
 export const TX_COLLECTION_METHOD = 'aztec.tx_collection.method';
 
 /** Scope of L1 transaction (sequencer, prover, or other) */

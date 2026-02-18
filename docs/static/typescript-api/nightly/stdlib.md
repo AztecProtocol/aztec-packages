@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: v4.0.0-nightly.20260217
+Version: v4.0.0-nightly.20260218
 
 ## Quick Import Reference
 
@@ -2447,6 +2447,8 @@ Interface of classes allowing for the retrieval of L2 blocks.
 
 **Methods**
 - `getBlock(number: BlockNumber) => Promise<L2Block | undefined>` - Gets an l2 block. If a negative number is passed, the block returned is the most recent.
+- `getBlockData(number: BlockNumber) => Promise<BlockData | undefined>` - Gets block metadata (without tx data) by block number.
+- `getBlockDataByArchive(archive: Fr) => Promise<BlockData | undefined>` - Gets block metadata (without tx data) by archive root.
 - `getBlockHeader(number: BlockNumber | "latest") => Promise<BlockHeader | undefined>` - Gets an l2 block header.
 - `getBlockHeaderByArchive(archive: Fr) => Promise<BlockHeader | undefined>` - Gets a block header by its archive root.
 - `getBlockHeaderByHash(blockHash: BlockHash) => Promise<BlockHeader | undefined>` - Gets a block header by its hash.
@@ -2461,6 +2463,7 @@ Interface of classes allowing for the retrieval of L2 blocks.
 - `getCheckpointedBlocksForEpoch(epochNumber: EpochNumber) => Promise<CheckpointedL2Block[]>` - Returns all checkpointed blocks for a given epoch.
 - `getCheckpointedL2BlockNumber() => Promise<BlockNumber>` - Gets the number of the latest L2 block checkpointed seen by the block source implementation.
 - `getCheckpoints(checkpointNumber: CheckpointNumber, limit: number) => Promise<PublishedCheckpoint[]>` - Retrieves a collection of checkpoints.
+- `getCheckpointsDataForEpoch(epochNumber: EpochNumber) => Promise<CheckpointData[]>` - Gets lightweight checkpoint metadata for a given epoch, without fetching full block data.
 - `getCheckpointsForEpoch(epochNumber: EpochNumber) => Promise<Checkpoint[]>` - Gets the checkpoints for a given epoch
 - `getFinalizedL2BlockNumber() => Promise<BlockNumber>` - Computes the finalized block number based on the proven block number. A block is considered finalized when it's 2 epochs behind the proven block. Compute proper finalized block number based on L1 finalized block.
 - `getGenesisValues() => Promise<{ genesisArchiveRoot: Fr }>` - Returns values for the genesis block
@@ -2493,6 +2496,8 @@ Extends: `L2BlockSource`
 
 **Methods**
 - `getBlock(number: BlockNumber) => Promise<L2Block | undefined>` - Gets an l2 block. If a negative number is passed, the block returned is the most recent.
+- `getBlockData(number: BlockNumber) => Promise<BlockData | undefined>` - Gets block metadata (without tx data) by block number.
+- `getBlockDataByArchive(archive: Fr) => Promise<BlockData | undefined>` - Gets block metadata (without tx data) by archive root.
 - `getBlockHeader(number: BlockNumber | "latest") => Promise<BlockHeader | undefined>` - Gets an l2 block header.
 - `getBlockHeaderByArchive(archive: Fr) => Promise<BlockHeader | undefined>` - Gets a block header by its archive root.
 - `getBlockHeaderByHash(blockHash: BlockHash) => Promise<BlockHeader | undefined>` - Gets a block header by its hash.
@@ -2507,6 +2512,7 @@ Extends: `L2BlockSource`
 - `getCheckpointedBlocksForEpoch(epochNumber: EpochNumber) => Promise<CheckpointedL2Block[]>` - Returns all checkpointed blocks for a given epoch.
 - `getCheckpointedL2BlockNumber() => Promise<BlockNumber>` - Gets the number of the latest L2 block checkpointed seen by the block source implementation.
 - `getCheckpoints(checkpointNumber: CheckpointNumber, limit: number) => Promise<PublishedCheckpoint[]>` - Retrieves a collection of checkpoints.
+- `getCheckpointsDataForEpoch(epochNumber: EpochNumber) => Promise<CheckpointData[]>` - Gets lightweight checkpoint metadata for a given epoch, without fetching full block data.
 - `getCheckpointsForEpoch(epochNumber: EpochNumber) => Promise<Checkpoint[]>` - Gets the checkpoints for a given epoch
 - `getFinalizedL2BlockNumber() => Promise<BlockNumber>` - Computes the finalized block number based on the proven block number. A block is considered finalized when it's 2 epochs behind the proven block. Compute proper finalized block number based on L1 finalized block.
 - `getGenesisValues() => Promise<{ genesisArchiveRoot: Fr }>` - Returns values for the genesis block
@@ -3421,6 +3427,12 @@ type AttestationStatus = "recovered-from-signature" | "provided-as-address" | "i
 ```
 Status indicating how the attestation address was determined
 
+### BlockData
+```typescript
+type BlockData = unknown
+```
+L2Block metadata. Equivalent to L2Block but without block body containing tx data.
+
 ### BlockParameter
 ```typescript
 type BlockParameter = z.infer<typeof BlockParameterSchema>
@@ -3440,9 +3452,9 @@ Maximum number of checkpoints to prefetch at once during sync. Matches MAX_RPC_C
 
 ### CheckpointGlobalVariables
 ```typescript
-type CheckpointGlobalVariables = Omit<FieldsOf<GlobalVariables>, "blockNumber" | "timestamp">
+type CheckpointGlobalVariables = Omit<FieldsOf<GlobalVariables>, "blockNumber">
 ```
-Global variables that are constant across the entire slot. Should timestamp be included here as well?
+Global variables that are constant across the entire checkpoint (slot). Excludes blockNumber since that varies per block within a checkpoint.
 
 ### CheckpointId
 ```typescript
@@ -3585,7 +3597,7 @@ type KEY_PREFIXES = KeyPrefix[]
 
 ### KeyGenerator
 ```typescript
-type KeyGenerator = GeneratorIndex.NHK_M | GeneratorIndex.IVSK_M | GeneratorIndex.OVSK_M | GeneratorIndex.TSK_M
+type KeyGenerator = DomainSeparator.NHK_M | DomainSeparator.IVSK_M | DomainSeparator.OVSK_M | DomainSeparator.TSK_M
 ```
 
 ### KeyPrefix
@@ -3967,7 +3979,7 @@ This package references types from other Aztec packages:
 - `BlockBlobData`, `TxBlobData`, `TxStartMarker`
 
 **@aztec/constants**
-- `CHONK_PROOF_LENGTH`, `GeneratorIndex.IVSK_M`, `GeneratorIndex.NHK_M`, `GeneratorIndex.OVSK_M`, `GeneratorIndex.TSK_M`, `RECURSIVE_PROOF_LENGTH`, `RECURSIVE_ROLLUP_HONK_PROOF_LENGTH`
+- `CHONK_PROOF_LENGTH`, `DomainSeparator.IVSK_M`, `DomainSeparator.NHK_M`, `DomainSeparator.OVSK_M`, `DomainSeparator.TSK_M`, `RECURSIVE_PROOF_LENGTH`, `RECURSIVE_ROLLUP_HONK_PROOF_LENGTH`
 
 **@aztec/ethereum**
 - `L1ContractAddresses`, `ViemCommitteeAttestation`, `ViemCommitteeAttestations`

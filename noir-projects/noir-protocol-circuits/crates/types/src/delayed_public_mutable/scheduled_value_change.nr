@@ -61,17 +61,17 @@ impl<T> ScheduledValueChange<T> {
     /// The value returned by `get_current_at` in private when called with a anchor block's timestamp is only safe to use
     /// if the transaction's `expiration_timestamp` property is set to a value lower or equal to the time horizon
     /// computed using the same anchor timestamp.
-    pub fn get_time_horizon(self, anchor_timestamp: u64, minimum_delay: u64) -> u64 {
+    pub fn get_time_horizon(self, anchor_block_timestamp: u64, minimum_delay: u64) -> u64 {
         // The time horizon is the very last timestamp in which the current value is known. Any timestamp past the
         // horizon (i.e. with a timestamp larger than the time horizon) may have a different current value.
         // Reading the current value in private typically requires constraining the maximum valid timestamp to be equal
         // to the time horizon.
-        if anchor_timestamp >= self.timestamp_of_change {
+        if anchor_block_timestamp >= self.timestamp_of_change {
             // Once the timestamp of change has passed (block with timestamp >= timestamp_of_change was mined),
             // the current value (post) will not change unless a new value change is scheduled. This did not happen at
             // the anchor timestamp (or else it would not be greater or equal to the timestamp of change), and
             // therefore could only happen after the anchor timestamp. The earliest would be the immediate next
-            // timestamp, and so the smallest possible next timestamp of change equals `anchor_timestamp + 1 +
+            // timestamp, and so the smallest possible next timestamp of change equals `anchor_block_timestamp + 1 +
             // minimum_delay`. Our time horizon is simply the previous timestamp to that one.
             //
             //   timestamp of    anchor
@@ -80,7 +80,7 @@ impl<T> ScheduledValueChange<T> {
             //                         ^                   ^
             //                         ---------------------
             //                             minimum delay
-            anchor_timestamp + minimum_delay
+            anchor_block_timestamp + minimum_delay
         } else {
             // If the timestamp of change has not yet been reached however, then there are two possible scenarios.
             //   a) It could be so far into the future that the time horizon is actually determined by the minimum
@@ -112,11 +112,11 @@ impl<T> ScheduledValueChange<T> {
             // Note that the current implementation does not allow the caller to set the timestamp of change to an
             // arbitrary value, and therefore scenario a) is not currently possible. However implementing #5501 would
             // allow for this to happen.
-            // Because anchor_timestamp < self.timestamp_of_change, then timestamp_of_change > 0 and we can safely
+            // Because anchor_block_timestamp < self.timestamp_of_change, then timestamp_of_change > 0 and we can safely
             // subtract 1.
             min(
+                anchor_block_timestamp + minimum_delay,
                 self.timestamp_of_change - 1,
-                anchor_timestamp + minimum_delay,
             )
         }
     }

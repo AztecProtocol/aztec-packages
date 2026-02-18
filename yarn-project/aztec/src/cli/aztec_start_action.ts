@@ -1,6 +1,7 @@
 import {
   type NamespacedApiHandlers,
   createNamespacedSafeJsonRpcServer,
+  getApiKeyAuthMiddleware,
   startHttpRpcServer,
 } from '@aztec/foundation/json-rpc/server';
 import type { LogFn, Logger } from '@aztec/foundation/log';
@@ -11,6 +12,7 @@ import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
 
 import { createLocalNetwork } from '../local-network/index.js';
 import { github, splash } from '../splash.js';
+import { resolveAdminApiKey } from './admin_api_key_store.js';
 import { getCliVersion } from './release_version.js';
 import { extractNamespacedOptions, installSignalHandlers } from './util.js';
 import { getVersions } from './versioning.js';
@@ -48,15 +50,17 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     signalHandlers.push(stop);
     services.node = [node, AztecNodeApiSchema];
   } else {
+    // Route --prover-node through startNode
+    if (options.proverNode && !options.node) {
+      options.node = true;
+    }
+
     if (options.node) {
       const { startNode } = await import('./cmds/start_node.js');
       ({ config } = await startNode(options, signalHandlers, services, adminServices, userLog));
     } else if (options.bot) {
       const { startBot } = await import('./cmds/start_bot.js');
       await startBot(options, signalHandlers, services, userLog);
-    } else if (options.proverNode) {
-      const { startProverNode } = await import('./cmds/start_prover_node.js');
-      ({ config } = await startProverNode(options, signalHandlers, services, userLog));
     } else if (options.archiver) {
       const { startArchiver } = await import('./cmds/start_archiver.js');
       ({ config } = await startArchiver(options, signalHandlers, services));
@@ -99,14 +103,54 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
 
   // If there are any admin services, start a separate JSON-RPC server for them
   if (Object.entries(adminServices).length > 0) {
+    const adminMiddlewares = [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions)];
+
+    // Resolve the admin API key (auto-generated and persisted, or opt-out)
+    const apiKeyResolution = await resolveAdminApiKey(
+      {
+        adminApiKeyHash: options.adminApiKeyHash,
+        noAdminApiKey: options.noAdminApiKey,
+        resetAdminApiKey: options.resetAdminApiKey,
+        dataDirectory: options.dataDirectory,
+      },
+      debugLogger,
+    );
+    if (apiKeyResolution) {
+      adminMiddlewares.unshift(getApiKeyAuthMiddleware(apiKeyResolution.apiKeyHash));
+    } else {
+      debugLogger.warn('No admin API key set — admin endpoint is unauthenticated');
+    }
+
     const rpcServer = createNamespacedSafeJsonRpcServer(adminServices, {
       http200OnError: false,
       log: debugLogger,
-      middlewares: [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions)],
+      middlewares: adminMiddlewares,
       maxBatchSize: options.rpcMaxBatchSize,
       maxBodySizeBytes: options.rpcMaxBodySize,
     });
     const { port } = await startHttpRpcServer(rpcServer, { port: options.adminPort });
     debugLogger.info(`Aztec Server admin API listening on port ${port}`, versions);
+
+    // Display the API key after the server has started
+    // Uses userLog which is never filtered by LOG_LEVEL.
+    if (apiKeyResolution?.rawKey) {
+      const separator = '='.repeat(70);
+      userLog('');
+      userLog(separator);
+      userLog('  ADMIN API KEY (save this — it will NOT be shown again)');
+      userLog('');
+      userLog(`  ${apiKeyResolution.rawKey}`);
+      userLog('');
+      userLog(`  Use via header:  x-api-key: <key>`);
+      userLog(`  Or via header:   Authorization: Bearer <key>`);
+      if (options.dataDirectory) {
+        userLog('');
+        userLog('  The key hash has been persisted — on next restart, the same key will be used.');
+      }
+      userLog('');
+      userLog('  To disable admin auth: --no-admin-api-key or AZTEC_NO_ADMIN_API_KEY=true');
+      userLog(separator);
+      userLog('');
+    }
   }
 }

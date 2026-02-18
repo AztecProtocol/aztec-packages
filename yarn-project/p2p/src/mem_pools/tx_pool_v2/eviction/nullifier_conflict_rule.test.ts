@@ -21,6 +21,7 @@ describe('NullifierConflictRule', () => {
     nullifiers,
     expirationTimestamp: 0n,
     receivedAt: 0,
+    estimatedSizeBytes: 0,
     data: stubTxMetaValidationData(),
   });
 
