@@ -5,6 +5,23 @@
 
 using namespace bb;
 
+namespace {
+// Allocate all polynomials in a ProverPolynomials to a uniform size (test-only helper).
+template <typename ProverPolynomials> void allocate_all(ProverPolynomials& polynomials, size_t circuit_size)
+{
+    using Polynomial = typename std::remove_reference_t<decltype(*polynomials.get_to_be_shifted().begin())>;
+    for (auto& poly : polynomials.get_to_be_shifted()) {
+        poly = Polynomial{ circuit_size - 1, circuit_size, /*offset=*/1 };
+    }
+    for (auto& poly : polynomials.get_unshifted()) {
+        if (poly.is_empty()) {
+            poly = Polynomial{ circuit_size, circuit_size };
+        }
+    }
+    polynomials.set_shifted();
+}
+} // namespace
+
 TEST(Flavor, Getters)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
@@ -13,7 +30,7 @@ TEST(Flavor, Getters)
     using ProverPolynomials = Flavor::ProverPolynomials;
 
     const size_t circuit_size = 4;
-    ProverPolynomials polynomials{ circuit_size };
+    ProverPolynomials polynomials;
 
     // set
     size_t coset_idx = 0;
@@ -48,7 +65,8 @@ TEST(Flavor, AllEntitiesSpecialMemberFunctions)
     using Polynomial = bb::Polynomial<FF>;
 
     constexpr size_t circuit_size = 16;
-    Flavor::ProverPolynomials full_polynomials{ circuit_size };
+    Flavor::ProverPolynomials full_polynomials;
+    allocate_all(full_polynomials, circuit_size);
     PartiallyEvaluatedMultivariates polynomials_A(full_polynomials, circuit_size);
 
     Polynomial random_poly{ 10 };

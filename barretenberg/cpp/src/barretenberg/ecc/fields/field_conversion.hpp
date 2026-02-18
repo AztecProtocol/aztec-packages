@@ -7,10 +7,10 @@
 #pragma once
 
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/type_traits.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/honk/types/circuit_type.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp" // NUM_LIMB_BITS_IN_FIELD_SIMULATION
 

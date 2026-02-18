@@ -17,6 +17,7 @@
 
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
+#include "barretenberg/relations/relation_tuple_helpers.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
