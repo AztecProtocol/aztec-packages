@@ -1,18 +1,19 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/test_utils/proof_structures.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/stdlib/test_utils/tamper_proof.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 using namespace bb;
 
@@ -22,11 +23,15 @@ using FlavorTypes = ::testing::Types<UltraFlavor,
                                      UltraStarknetFlavor,
                                      UltraStarknetZKFlavor,
                                      UltraZKFlavor,
-                                     UltraKeccakZKFlavor>;
+                                     UltraKeccakZKFlavor,
+                                     MegaFlavor,
+                                     MegaZKFlavor>;
 #else
-using FlavorTypes = ::testing::Types<UltraFlavor, UltraKeccakFlavor, UltraZKFlavor, UltraKeccakZKFlavor>;
+using FlavorTypes =
+    ::testing::Types<UltraFlavor, UltraKeccakFlavor, UltraZKFlavor, UltraKeccakZKFlavor, MegaFlavor, MegaZKFlavor>;
 #endif
-template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
+
+template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
   public:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
@@ -36,26 +41,26 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
     using ProverInstance = ProverInstance_<Flavor>;
     using Builder = Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
-    using IO = DefaultIO; // Native IO for native flavors
+    using IO = DefaultIO;
     using Verifier = UltraVerifier_<Flavor, IO>;
     using Proof = typename Flavor::Transcript::Proof;
 
     /**
-     * @brief Construct a manifest for a Ultra Honk proof
+     * @brief Construct a manifest for a Honk proof (Ultra or Mega)
      *
-     * @details This is where we define the "Manifest" for a Ultra Honk proof. The tests in this suite are
-     * intented to warn the developer if the Prover/Verifier has deviated from this manifest, however, the
-     * Transcript class is not otherwise contrained to follow the manifest.
+     * @details This is where we define the "Manifest" for a Honk proof. The tests in this suite are
+     * intended to warn the developer if the Prover/Verifier has deviated from this manifest, however, the
+     * Transcript class is not otherwise constrained to follow the manifest.
      *
      * @note Entries in the manifest consist of a name string and a size (bytes), NOT actual data.
      *
      * @return TranscriptManifest
      */
-    TranscriptManifest construct_ultra_honk_manifest(const size_t& log_n)
+    TranscriptManifest construct_honk_manifest(const size_t& log_n)
     {
         TranscriptManifest manifest_expected;
 
-        const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : log_n;
+        const size_t virtual_log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : log_n;
 
         size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
         // Size of types is number of bb::frs needed to represent the types
@@ -93,6 +98,24 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "W_L", data_types_per_G);
         manifest_expected.add_entry(round, "W_R", data_types_per_G);
         manifest_expected.add_entry(round, "W_O", data_types_per_G);
+
+        // Mega-specific witness commitments: ECC op wires and databus polynomials
+        if constexpr (IsMegaFlavor<Flavor>) {
+            manifest_expected.add_entry(round, "ECC_OP_WIRE_1", data_types_per_G);
+            manifest_expected.add_entry(round, "ECC_OP_WIRE_2", data_types_per_G);
+            manifest_expected.add_entry(round, "ECC_OP_WIRE_3", data_types_per_G);
+            manifest_expected.add_entry(round, "ECC_OP_WIRE_4", data_types_per_G);
+            manifest_expected.add_entry(round, "CALLDATA", data_types_per_G);
+            manifest_expected.add_entry(round, "CALLDATA_READ_COUNTS", data_types_per_G);
+            manifest_expected.add_entry(round, "CALLDATA_READ_TAGS", data_types_per_G);
+            manifest_expected.add_entry(round, "SECONDARY_CALLDATA", data_types_per_G);
+            manifest_expected.add_entry(round, "SECONDARY_CALLDATA_READ_COUNTS", data_types_per_G);
+            manifest_expected.add_entry(round, "SECONDARY_CALLDATA_READ_TAGS", data_types_per_G);
+            manifest_expected.add_entry(round, "RETURN_DATA", data_types_per_G);
+            manifest_expected.add_entry(round, "RETURN_DATA_READ_COUNTS", data_types_per_G);
+            manifest_expected.add_entry(round, "RETURN_DATA_READ_TAGS", data_types_per_G);
+        }
+
         manifest_expected.add_challenge(round, "eta");
 
         round++;
@@ -103,6 +126,12 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
 
         round++;
         manifest_expected.add_entry(round, "LOOKUP_INVERSES", data_types_per_G);
+        // Mega-specific databus inverse commitments
+        if constexpr (IsMegaFlavor<Flavor>) {
+            manifest_expected.add_entry(round, "CALLDATA_INVERSES", data_types_per_G);
+            manifest_expected.add_entry(round, "SECONDARY_CALLDATA_INVERSES", data_types_per_G);
+            manifest_expected.add_entry(round, "RETURN_DATA_INVERSES", data_types_per_G);
+        }
         manifest_expected.add_entry(round, "Z_PERM", data_types_per_G);
 
         manifest_expected.add_challenge(round, "alpha");
@@ -173,39 +202,23 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         IO::add_default(builder);
     }
 
-    void generate_random_test_circuit(Builder& builder)
-    {
-        auto a = FF::random_element();
-        auto b = FF::random_element();
-        builder.add_variable(a);
-        builder.add_public_variable(a);
-        builder.add_public_variable(b);
-
-        if constexpr (IO::HasIPA) {
-            auto [stdlib_opening_claim, ipa_proof] =
-                IPA<stdlib::grumpkin<Builder>>::create_random_valid_ipa_claim_and_proof(builder);
-            stdlib_opening_claim.set_public();
-            builder.ipa_proof = ipa_proof;
-        }
-    }
-
     Proof export_serialized_proof(Prover& prover, const size_t num_public_inputs, const size_t log_n)
     {
         // reset internal variables needed for exporting the proof
-        // Note: compute_proof_length_for_export excludes IPA proof length since export_proof appends it separately
-        size_t proof_length = compute_proof_length_for_export<Flavor>(num_public_inputs, log_n);
+        // Note: this excludes IPA proof length since export_proof appends it separately
+        size_t proof_length = ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(log_n) + num_public_inputs;
         prover.get_transcript()->test_set_proof_parsing_state(0, proof_length);
         return prover.export_proof();
     }
 };
 
-TYPED_TEST_SUITE(UltraTranscriptTests, FlavorTypes);
+TYPED_TEST_SUITE(HonkTranscriptTests, FlavorTypes);
 
 /**
  * @brief Ensure consistency between the manifest hard coded in this testing suite and the one generated by the
  * standard honk prover over the course of proof construction.
  */
-TYPED_TEST(UltraTranscriptTests, ProverManifestConsistency)
+TYPED_TEST(HonkTranscriptTests, ProverManifestConsistency)
 {
     // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
     auto builder = typename TestFixture::Builder();
@@ -219,7 +232,7 @@ TYPED_TEST(UltraTranscriptTests, ProverManifestConsistency)
     auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
-    auto manifest_expected = TestFixture::construct_ultra_honk_manifest(prover.log_dyadic_size());
+    auto manifest_expected = TestFixture::construct_honk_manifest(prover.log_dyadic_size());
     auto prover_manifest = prover.get_transcript()->get_manifest();
     // Note: a manifest can be printed using manifest.print()
     manifest_expected.print();
@@ -238,11 +251,10 @@ TYPED_TEST(UltraTranscriptTests, ProverManifestConsistency)
 }
 
 /**
- * @brief Ensure consistency between the manifest generated by the ultra honk prover over the course of proof
+ * @brief Ensure consistency between the manifest generated by the honk prover over the course of proof
  * construction and the one generated by the verifier over the course of proof verification.
- *
  */
-TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
+TYPED_TEST(HonkTranscriptTests, VerifierManifestConsistency)
 {
     // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
     auto builder = typename TestFixture::Builder();
@@ -277,9 +289,8 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
 /**
  * @brief Check that multiple challenges can be generated and sanity check
  * @details We generate 6 challenges that are each 128 bits, and check that they are not 0.
- *
  */
-TYPED_TEST(UltraTranscriptTests, ChallengeGenerationTest)
+TYPED_TEST(HonkTranscriptTests, ChallengeGenerationTest)
 {
     using Flavor = TypeParam;
     using FF = Flavor::FF;
@@ -302,7 +313,7 @@ TYPED_TEST(UltraTranscriptTests, ChallengeGenerationTest)
     ASSERT_NE(challenges[2], 0) << "Challenge c is 0";
 }
 
-TYPED_TEST(UltraTranscriptTests, StructureTest)
+TYPED_TEST(HonkTranscriptTests, StructureTest)
 {
     using Flavor = TypeParam;
     using FF = Flavor::FF;
@@ -320,7 +331,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     typename TestFixture::Verifier verifier(vk_and_hash);
     EXPECT_TRUE(verifier.verify_proof(proof).result);
 
-    const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : prover_instance->log_dyadic_size();
+    const size_t virtual_log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : prover_instance->log_dyadic_size();
 
     // Use StructuredProof test utility to deserialize/serialize proof data
     StructuredProof<Flavor> proof_structure;
