@@ -8,7 +8,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VK_FILE="$SCRIPT_DIR/../src/honk/keys/BlakeHonkVerificationKey.sol"
-OPT_FILE="$SCRIPT_DIR/../src/honk/optimised/honk-optimized.sol"
+OPT_FILE="$SCRIPT_DIR/../src/honk/instance/BlakeHonkOpt.sol"
 TEMPLATE_FILE="$SCRIPT_DIR/../src/honk/optimised/honk-optimized.sol.template"
 
 if [ ! -f "$VK_FILE" ]; then

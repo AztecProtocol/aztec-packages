@@ -795,7 +795,7 @@ const InteractionDefinition KeccakF1600TraceBuilder::interactions =
         // iota_00
         .add<lookup_keccakf1600_state_iota_00_settings, InteractionType::LookupGeneric>(Column::bitwise_start)
         // round constants lookup
-        .add<lookup_keccakf1600_round_cst_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_keccakf1600_round_cst_settings, InteractionType::LookupIntoIndexedByRow>()
         // Memory slices permutations
         .add<perm_keccakf1600_read_to_slice_settings, InteractionType::Permutation>()
         .add<perm_keccakf1600_write_to_slice_settings, InteractionType::Permutation>()

@@ -164,12 +164,25 @@ where
     let filtered_notes = filter_fn(maybe_hinted_notes, filter_args);
 
     let hinted_notes = array::collapse(filtered_notes);
-    let mut confirmed_notes = BoundedVec::new();
 
     // We have now collapsed the sparse array of Options into a BoundedVec. This is a more ergonomic type and also
     // results in reduced gate counts when setting a limit value, since we guarantee that the limit is an upper bound
     // for the runtime length, and can therefore have fewer loop iterations.
     assert(hinted_notes.len() <= options.limit, "Got more notes than limit.");
+
+    // What remains is to iterate over the hinted notes, assert their existence, and convert them into confirmed notes.
+    // Naively, we would construct a `BoundedVec<ConfirmedNote, _>` and simply `push` into it as we process each hinted
+    // note. We cannot use `BoundedVec::map` as the user specified the maximum number of notes in `options.limit`
+    // instead of a numeric type parameter (which is more ergonomic), and `map` requires the latter.
+    // Unfortunately, this results in terrible proving time performance. This is because the compiler is not smart
+    // enough to understand the structure of looping over the `BoundedVec<HintedNote, _>`: it treats every `push` as a
+    // conditional write to the confirmed array, resulting in runtime write indices (e.g. iteration 1 could write to
+    // indices either 0 or 1, beucase iteration 0 might not push).
+    // The loop does however have an interesting structure that we can reason about to achieve better performance:
+    // because we're just going over a `BoundedVec`, the first `vec.len()` iterations will result in writes, and the
+    // rest will not. Hence, we can just _unconditionally_ write to a raw storage array at the iteration index: we know
+    // the resulting array will have no gaps. Because of this, we can then manually create a correct `BoundedVec`.
+    let mut confirmed_notes_bvec_storage: [ConfirmedNote<_>; _] = std::mem::zeroed();
 
     let mut prev_packed_note = [0; M];
     for i in 0..options.limit {
@@ -204,11 +217,14 @@ where
 
             let note_existence_request = compute_note_existence_request(hinted_note);
             context.assert_note_exists(note_existence_request);
-            confirmed_notes.push(ConfirmedNote::new(hinted_note, note_existence_request.note_hash()));
+
+            confirmed_notes_bvec_storage[i] = ConfirmedNote::new(hinted_note, note_existence_request.note_hash());
         };
     }
 
-    confirmed_notes
+    // We can use `from_parts_unchecked` instead of `from_parts` because we know that `confirmed_notes_bvec_storage`
+    // contains all zeroes past `hinted_notes.len()` due to how it was initialized.
+    BoundedVec::from_parts_unchecked(confirmed_notes_bvec_storage, hinted_notes.len())
 }
 
 pub unconstrained fn view_note<Note>(owner: Option<AztecAddress>, storage_slot: Field) -> HintedNote<Note>

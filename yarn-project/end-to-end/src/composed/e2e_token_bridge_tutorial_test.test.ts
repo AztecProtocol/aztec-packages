@@ -9,7 +9,6 @@ import { createAztecNodeClient, waitForNode } from '@aztec/aztec.js/node';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import {
   FeeAssetHandlerAbi,
   FeeAssetHandlerBytecode,
@@ -21,9 +20,11 @@ import {
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
-import { TestWallet, registerInitialLocalNetworkAccountsInWallet } from '@aztec/test-wallet/server';
+import { registerInitialLocalNetworkAccountsInWallet } from '@aztec/wallets/testing';
 
 import { getContract } from 'viem';
+
+import { TestWallet } from '../test-wallet/test_wallet.js';
 
 // docs:end:imports
 // docs:start:utils
@@ -218,7 +219,8 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
 
     // docs:start:l1-withdraw
     const rollup = new RollupContract(l1Client, l1ContractAddresses.rollupAddress.toString());
-    const epoch = await rollup.getEpochNumberForCheckpoint(CheckpointNumber.fromBlockNumber(l2TxReceipt.blockNumber!));
+    const block = await node.getBlock(l2TxReceipt.blockNumber!);
+    const epoch = await rollup.getEpochNumberForCheckpoint(block!.checkpointNumber);
 
     const result = await computeL2ToL1MembershipWitness(node, epoch, l2ToL1Message);
     if (!result) {

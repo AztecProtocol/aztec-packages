@@ -58,7 +58,8 @@ const DefaultMaxSizesKb: Record<TopicType, number> = {
   // Proposals may carry some tx objects, so we allow a larger size capped at 10mb
   // Note this may not be enough for carrying all tx objects in a block
   [TopicType.block_proposal]: 1024 * 10,
-  // TODO(palla/mbps): Check size for checkpoint proposal
+  // Checkpoint proposals carry almost the same data as a block proposal (see the lastBlockProposal)
+  // Only diff is an additional header, which is pretty small compared to the 10mb limit
   [TopicType.checkpoint_proposal]: 1024 * 10,
 };
 
@@ -78,11 +79,11 @@ export class SnappyTransform implements DataTransform {
     return this.inboundTransformData(Buffer.from(data), topic);
   }
 
-  public inboundTransformData(data: Buffer, topic?: TopicType): Buffer {
+  public inboundTransformData(data: Buffer, topic?: TopicType, maxSizeKbOverride?: number): Buffer {
     if (data.length === 0) {
       return data;
     }
-    const maxSizeKb = this.maxSizesKb[topic!] ?? this.defaultMaxSizeKb;
+    const maxSizeKb = maxSizeKbOverride ?? this.maxSizesKb[topic!] ?? this.defaultMaxSizeKb;
     const { decompressedSize } = readSnappyPreamble(data);
     if (decompressedSize > maxSizeKb * 1024) {
       this.logger.warn(`Decompressed size ${decompressedSize} exceeds maximum allowed size of ${maxSizeKb}kb`);

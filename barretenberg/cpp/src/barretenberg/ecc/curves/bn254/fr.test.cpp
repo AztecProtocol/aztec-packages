@@ -76,11 +76,6 @@ TEST(BN254Fr, CompileTimeInversion)
 // ================================
 // BN254 Scalar Field Specific
 // ================================
-// AUDITTODO: delete this (`multiplicative_generator` is misnamed and is no longer used.)
-TEST(BN254Fr, MultiplicativeGenerator)
-{
-    EXPECT_EQ(fr::multiplicative_generator(), fr(5));
-}
 
 TEST(BN254Fr, SplitIntoEndomorphismScalars)
 {
@@ -112,16 +107,16 @@ TEST(BN254Fr, SplitIntoEndomorphismScalarsSimple)
     fr::__copy(input, k);
 
     fr::split_into_endomorphism_scalars(k, k1, k2);
-
+    // AUDITTODO: double check this test.
     fr result{ 0, 0, 0, 0 };
-    k1.self_to_montgomery_form();
-    k2.self_to_montgomery_form();
+    k1.self_to_montgomery_form_reduced();
+    k2.self_to_montgomery_form_reduced();
 
     fr lambda = fr::cube_root_of_unity();
     result = k2 * lambda;
     result = k1 - result;
 
-    result.self_from_montgomery_form();
+    result.self_from_montgomery_form_reduced();
     for (size_t i = 0; i < 4; ++i) {
         EXPECT_EQ(result.data[i], k.data[i]);
     }

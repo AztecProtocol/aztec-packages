@@ -13,11 +13,14 @@ import type { Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import { TestWallet, proveInteraction, registerInitialLocalNetworkAccountsInWallet } from '@aztec/test-wallet/server';
+import { registerInitialLocalNetworkAccountsInWallet } from '@aztec/wallets/testing';
 
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
 import { getSponsoredFPCAddress, registerSponsoredFPC } from '../fixtures/utils.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
+import { proveInteraction } from '../test-wallet/utils.js';
+import { WorkerWallet } from '../test-wallet/worker_wallet.js';
 
 export interface TestAccounts {
   aztecNode: AztecNode;
@@ -392,6 +395,45 @@ export async function createWalletAndAztecNodeClient(
       await wallet.stop();
       await bbConfig?.cleanup();
       await acvmConfig?.cleanup();
+    },
+  };
+}
+
+export type WorkerWalletWrapper = {
+  wallet: WorkerWallet;
+  aztecNode: AztecNode;
+  cleanup: () => Promise<void>;
+};
+
+export async function createWorkerWalletClient(
+  nodeUrl: string,
+  proverEnabled: boolean,
+  logger: Logger,
+): Promise<WorkerWalletWrapper> {
+  const aztecNode = createAztecNodeClient(nodeUrl);
+  const [bbConfig, acvmConfig] = await Promise.all([getBBConfig(logger), getACVMConfig(logger)]);
+
+  // Strip cleanup functions — they can't be structured-cloned for worker transfer
+  const { cleanup: bbCleanup, ...bbPaths } = bbConfig ?? {};
+  const { cleanup: acvmCleanup, ...acvmPaths } = acvmConfig ?? {};
+
+  const pxeConfig = {
+    dataDirectory: undefined,
+    dataStoreMapSizeKb: 1024 * 1024,
+    ...bbPaths,
+    ...acvmPaths,
+    proverEnabled,
+  };
+
+  const wallet = await WorkerWallet.create(nodeUrl, pxeConfig);
+
+  return {
+    wallet,
+    aztecNode,
+    async cleanup() {
+      await wallet.stop();
+      await bbCleanup?.();
+      await acvmCleanup?.();
     },
   };
 }

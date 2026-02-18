@@ -18,7 +18,7 @@ struct TrackedSideEffects {
     std::vector<FF> storage_writes_slots_by_insertion;
     std::unordered_map<FF, FF> storage_writes_slot_to_value;
 
-    uint32_t get_num_unencrypted_log_fields() const;
+    uint32_t get_num_public_log_fields() const;
 };
 
 /**

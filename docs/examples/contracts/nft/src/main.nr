@@ -5,12 +5,12 @@ pub mod nft;
 #[aztec]
 pub contract NFTPunk {
     use crate::nft::NFTNote;
-    use dep::aztec::{
+    use aztec::{
         macros::{functions::{external, initializer, only_self}, storage::storage},
         protocol::address::AztecAddress,
         state_vars::{DelayedPublicMutable, Map, Owned, PrivateSet, PublicImmutable},
     };
-    use dep::aztec::messages::message_delivery::MessageDelivery;
+    use aztec::messages::message_delivery::MessageDelivery;
     use aztec::note::{
         note_getter_options::NoteGetterOptions, note_interface::NoteProperties,
         note_viewer_options::NoteViewerOptions,

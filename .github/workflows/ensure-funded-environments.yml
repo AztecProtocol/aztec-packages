@@ -30,17 +30,20 @@ jobs:
       max-parallel: 1
       fail-fast: false
       matrix:
-        environment: 
+        environment:
           - staging-public
           - staging-ignition
           - next-net
           - tps-scenario
           - testnet
           - devnet
-          - devnet-next
+        include:
+          - environment: devnet
+            namespace: v4-devnet-1
     uses: ./.github/workflows/ensure-funded-environment.yml
     with:
       environment: ${{ matrix.environment }}
+      namespace: ${{ matrix.namespace }}
       low_watermark: ${{ inputs.low_watermark || '5.0' }}
       high_watermark: ${{ inputs.high_watermark || '10.0' }}
     secrets: inherit

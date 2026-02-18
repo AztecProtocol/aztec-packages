@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Raju], commit: 21a7e3670e6 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -13,20 +13,13 @@
  */
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/ref_span.hpp"
-#include "barretenberg/common/ref_vector.hpp"
-#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 
-#include "barretenberg/polynomials/iterate_over_domain.hpp"
-
-#include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <initializer_list>
-#include <string>
-#include <utility>
 #include <vector>
 
 namespace bb {
@@ -189,9 +182,7 @@ PermutationMapping<Flavor::NUM_WIRES> compute_permutation_mapping(
         mapping.sigmas[0].row_idx[static_cast<ptrdiff_t>(idx)] = idx;
         mapping.sigmas[0].col_idx[static_cast<ptrdiff_t>(idx)] = 0;
         mapping.sigmas[0].is_public_input[static_cast<ptrdiff_t>(idx)] = true;
-        if (mapping.sigmas[0].is_tag[static_cast<ptrdiff_t>(idx)]) {
-            std::cerr << "MAPPING IS BOTH A TAG AND A PUBLIC INPUT\n";
-        }
+        BB_ASSERT(!mapping.sigmas[0].is_tag[static_cast<ptrdiff_t>(idx)], "MAPPING IS BOTH A TAG AND A PUBLIC INPUT");
     }
     return mapping;
 }

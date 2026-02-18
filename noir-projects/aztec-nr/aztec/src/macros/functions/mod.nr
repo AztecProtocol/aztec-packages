@@ -7,7 +7,7 @@ use crate::macros::{
     internals_functions_generation::{external_functions_registry, internal_functions_registry},
     utils::{is_fn_external, module_has_initializer},
 };
-use super::utils::{fn_has_noinitcheck, fn_has_nophasecheck, is_fn_initializer, is_fn_only_self, is_fn_view};
+use super::utils::{fn_has_allow_phase_change, fn_has_noinitcheck, is_fn_initializer, is_fn_only_self, is_fn_view};
 use auth_registry::AUTHORIZE_ONCE_REGISTRY;
 
 // Functions can have multiple attributes applied to them, e.g. a single function can have #[external("public")],
@@ -122,12 +122,12 @@ pub comptime fn noinitcheck(f: FunctionDefinition) {
     }
 }
 
-/// A no-phase-check function will allow transitioning from the non-revertible to the revertible phase during its
+/// An allow_phase_change function will allow transitioning from the non-revertible to the revertible phase during its
 /// execution.
 ///
 /// This is an advanced feature that is typically only required for account contract entrypoints that handle
 /// transaction fee payment.
-pub comptime fn nophasecheck(f: FunctionDefinition) {
+pub comptime fn allow_phase_change(f: FunctionDefinition) {
     // Marker attribute - see the comment at the top of this file
     if !is_fn_external(f) {
         // Unfortunately we cannot check if we are dealing with a utility or public function here as Noir does not
@@ -135,7 +135,7 @@ pub comptime fn nophasecheck(f: FunctionDefinition) {
         // public macro functions are run.
         let name = f.name();
         panic(
-            f"The #[nophasecheck] attribute can only be applied to #[external(\"private\")] functions - {name} is not",
+            f"The #[allow_phase_change] attribute can only be applied to #[external(\"private\")] functions - {name} is not",
         );
     }
 }
@@ -373,10 +373,10 @@ comptime fn assert_valid_public(f: FunctionDefinition) {
         );
     }
 
-    if fn_has_nophasecheck(f) {
+    if fn_has_allow_phase_change(f) {
         let name = f.name();
         panic(
-            f"The #[nophasecheck] attribute cannot be applied to #[external(\"public\")] functions - {name}",
+            f"The #[allow_phase_change] attribute cannot be applied to #[external(\"public\")] functions - {name}",
         );
     }
 }
@@ -398,9 +398,9 @@ comptime fn assert_valid_utility(f: FunctionDefinition) {
     }
 
     // Utility functions cannot be used with the following modifiers: #[authorize_once], #[only_self], #[view],
-    // #[initializer], #[nophasecheck], and #[noinitcheck]. Since we cannot enforce a specific ordering between these
-    // modifiers and #[external(...)], and we cannot access the #[external(...)] argument from within these modifiers'
-    // implementations (as accessing EXTERNAL_REGISTRY would require enforcing ordering), we perform these
+    // #[initializer], #[allow_phase_change], and #[noinitcheck]. Since we cannot enforce a specific ordering between
+    // these modifiers and #[external(...)], and we cannot access the #[external(...)] argument from within these
+    // modifiers' implementations (as accessing EXTERNAL_REGISTRY would require enforcing ordering), we perform these
     // compatibility checks here in the utility macro.
     if AUTHORIZE_ONCE_REGISTRY.get(f).is_some() {
         let name = f.name();
@@ -437,10 +437,10 @@ comptime fn assert_valid_utility(f: FunctionDefinition) {
         );
     }
 
-    if fn_has_nophasecheck(f) {
+    if fn_has_allow_phase_change(f) {
         let name = f.name();
         panic(
-            f"The #[nophasecheck] attribute cannot be applied to #[external(\"utility\")] functions - {name}",
+            f"The #[allow_phase_change] attribute cannot be applied to #[external(\"utility\")] functions - {name}",
         );
     }
 }

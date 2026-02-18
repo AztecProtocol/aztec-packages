@@ -43,7 +43,7 @@ pub contract Test {
         // Macros
         macros::{
             events::event,
-            functions::{initializer, only_self, noinitcheck, external, nophasecheck},
+            functions::{initializer, only_self, noinitcheck, external, allow_phase_change},
             storage::storage,
         },
         // Contract instance management
@@ -82,7 +82,9 @@ pub contract Test {
     // test function must also be updated accordingly.
     #[storage]
     struct Storage<Context> {
+        // docs:start:private_immutable
         note_in_private_immutable: Owned<PrivateImmutable<TestNote, Context>, Context>,
+        // docs:end:private_immutable
         struct_in_private_immutable: Owned<PrivateImmutable<ExampleStruct, Context>, Context>,
         note_in_private_mutable: Owned<PrivateMutable<TestNote, Context>, Context>,
         struct_in_private_mutable: Owned<PrivateMutable<ExampleStruct, Context>, Context>,
@@ -119,8 +121,8 @@ pub contract Test {
     }
 
     #[external("private")]
-    fn set_include_by_timestamp(include_by_timestamp: u64, make_tx_hybrid: bool) {
-        self.context.set_include_by_timestamp(include_by_timestamp);
+    fn set_expiration_timestamp(expiration_timestamp: u64, make_tx_hybrid: bool) {
+        self.context.set_expiration_timestamp(expiration_timestamp);
 
         if make_tx_hybrid {
             self.enqueue_self.dummy_public_call()
@@ -280,7 +282,7 @@ pub contract Test {
     }
 
     #[external("private")]
-    #[nophasecheck]
+    #[allow_phase_change]
     fn end_setup_checking_phases() {
         assert(!self.context.in_revertible_phase());
         self.context.end_setup();
@@ -294,7 +296,7 @@ pub contract Test {
     }
 
     #[external("private")]
-    #[nophasecheck]
+    #[allow_phase_change]
     fn call_function_that_ends_setup_without_phase_check() {
         self.call_self.end_setup_checking_phases();
     }

@@ -1,6 +1,5 @@
 // Browser stub for @aztec/foundation/log
-// Provides a logger implementation that outputs to console
-
+// Only used during vitest browser tests to avoid loading Barretenberg WASM.
 // Create a logger that returns itself for chaining
 function createLogger(name, bindings) {
   const prefix = name ? `[${name}]` : '';

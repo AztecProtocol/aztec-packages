@@ -15,7 +15,7 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract FeeJuice {
     use aztec::{
-        macros::functions::{external, nophasecheck, only_self, view},
+        macros::functions::{allow_phase_change, external, only_self, view},
         protocol::address::AztecAddress,
     };
 
@@ -23,7 +23,7 @@ pub contract FeeJuice {
     fn claim(to: AztecAddress, amount: u128, secret: Field, message_leaf_index: Field) {}
 
     #[external("private")]
-    #[nophasecheck]
+    #[allow_phase_change]
     fn claim_and_end_setup(
         to: AztecAddress,
         amount: u128,

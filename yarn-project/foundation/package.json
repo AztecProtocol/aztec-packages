@@ -4,6 +4,26 @@
   "type": "module",
   "main": "./dest/index.js",
   "types": "./dest/index.d.ts",
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/buffer/index.ts",
+      "./src/collection/index.ts",
+      "./src/config/index.ts",
+      "./src/crypto/random/index.ts",
+      "./src/error/index.ts",
+      "./src/eth-address/index.ts",
+      "./src/json-rpc/index.ts",
+      "./src/log/index.ts",
+      "./src/retry/index.ts",
+      "./src/schemas/index.ts",
+      "./src/serialize/index.ts",
+      "./src/sleep/index.ts",
+      "./src/timer/index.ts",
+      "./src/types/index.ts"
+    ],
+    "name": "Foundation",
+    "tsconfig": "./tsconfig.json"
+  },
   "exports": {
     "./eslint": "./eslint.config.js",
     "./eslint.docs": "./eslint.config.docs.js",

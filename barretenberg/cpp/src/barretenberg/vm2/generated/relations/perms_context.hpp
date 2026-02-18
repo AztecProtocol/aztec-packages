@@ -48,7 +48,7 @@ struct perm_context_ctx_stack_call_settings_ {
         ColumnAndShifts::execution_public_data_tree_size,
         ColumnAndShifts::execution_written_public_data_slots_tree_root,
         ColumnAndShifts::execution_written_public_data_slots_tree_size,
-        ColumnAndShifts::execution_num_unencrypted_log_fields,
+        ColumnAndShifts::execution_num_public_log_fields,
         ColumnAndShifts::execution_num_l2_to_l1_messages
     };
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
@@ -79,7 +79,7 @@ struct perm_context_ctx_stack_call_settings_ {
         ColumnAndShifts::context_stack_public_data_tree_size,
         ColumnAndShifts::context_stack_written_public_data_slots_tree_root,
         ColumnAndShifts::context_stack_written_public_data_slots_tree_size,
-        ColumnAndShifts::context_stack_num_unencrypted_log_fields,
+        ColumnAndShifts::context_stack_num_public_log_fields,
         ColumnAndShifts::context_stack_num_l2_to_l1_messages
     };
 };

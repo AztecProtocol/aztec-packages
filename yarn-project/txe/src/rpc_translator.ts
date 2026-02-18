@@ -328,7 +328,7 @@ export class RPCTranslator {
 
   // When the argument is a slice, noir automatically adds a length field to oracle call.
   // When the argument is an array, we add the field length manually to the signature.
-  utilityDebugLog(
+  async utilityLog(
     foreignLevel: ForeignCallSingle,
     foreignMessage: ForeignCallArray,
     _foreignLength: ForeignCallSingle,
@@ -340,7 +340,7 @@ export class RPCTranslator {
       .join('');
     const fields = fromArray(foreignFields);
 
-    this.handlerAsMisc().utilityDebugLog(level, message, fields);
+    await this.handlerAsMisc().utilityLog(level, message, fields);
 
     return toForeignCallResult([]);
   }
@@ -849,7 +849,7 @@ export class RPCTranslator {
 
   // AVM opcodes
 
-  avmOpcodeEmitUnencryptedLog(_foreignMessage: ForeignCallArray) {
+  avmOpcodeEmitPublicLog(_foreignMessage: ForeignCallArray) {
     // TODO(#8811): Implement
     return toForeignCallResult([]);
   }
@@ -1043,7 +1043,7 @@ export class RPCTranslator {
     return toForeignCallResult([toArray(returnValues)]);
   }
 
-  async txeSimulateUtilityFunction(
+  async txeExecuteUtilityFunction(
     foreignTargetContractAddress: ForeignCallSingle,
     foreignFunctionSelector: ForeignCallSingle,
     foreignArgs: ForeignCallArray,
@@ -1052,7 +1052,7 @@ export class RPCTranslator {
     const functionSelector = FunctionSelector.fromField(fromSingle(foreignFunctionSelector));
     const args = fromArray(foreignArgs);
 
-    const returnValues = await this.handlerAsTxe().txeSimulateUtilityFunction(
+    const returnValues = await this.handlerAsTxe().txeExecuteUtilityFunction(
       targetContractAddress,
       functionSelector,
       args,

@@ -1,14 +1,14 @@
 # BatchTxRequester
 
-The `BatchTxRequester` is a specialized P2P service that aggressively fetches missing transactions from peers when a node receives a block proposal but lacks some of the referenced transactions. This is critical for validators who need all transactions to attest to a proposal.
+The `BatchTxRequester` is a specialized P2P service that aggressively fetches missing transactions from peers when a node lacks some of the referenced transactions. It serves two pathways: (1) block proposals, where validators need all transactions to attest, and (2) block proving, where provers need all transactions to generate proofs.
 
 ## Overview
 
-When a validator receives a block proposal, they must verify all transactions in the block. If some transactions are missing from the local mempool (e.g., due to gossip delays), the `BatchTxRequester` kicks in to fetch them via direct peer-to-peer requests before the attestation deadline.
+When a validator receives a block proposal or a prover needs to prove a block, they must have all transactions. If some transactions are missing from the local mempool (e.g., due to gossip delays), the `BatchTxRequester` kicks in to fetch them via direct peer-to-peer requests before the deadline.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           Block Proposal Received                           │
+│                      Block Proposal or Block Received                       │
 │                     (contains hashes of N transactions)                     │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
@@ -230,8 +230,8 @@ Request to peer fails
 ```typescript
 const requester = new BatchTxRequester(
   missingTxHashes,      // TxHash[] - what we need
-  blockProposal,        // BlockProposal - the proposal we're attesting to
-  pinnedPeer,           // PeerId | undefined - who sent us the proposal
+  blockTxsSource,       // BlockTxsSource - the proposal or block we need txs for
+  pinnedPeer,           // PeerId | undefined - peer expected to have the txs
   timeoutMs,            // number - how long to try
   p2pService,           // BatchTxRequesterLibP2PService
 );
@@ -268,14 +268,14 @@ const txs = await BatchTxRequester.collectAllTxs(requester.run());
 ┌───────────────────────────────────┐   ┌─────────────────────────────────────┐
 │        FastTxCollection           │   │         SlowTxCollection            │
 │                                   │   │                                     │
-│  Time-critical: attestations      │   │  Background: unproven blocks        │
+│  Time-critical: proposals/proving │   │  Background: unproven blocks        │
 │                                   │   │                                     │
 │  1. Try RPC nodes first (fast)    │   │  Periodic polling of RPC nodes      │
 │  2. Fall back to BatchTxRequester │   │  and peers for missing txs          │
 │                                   │   │                                     │
 └───────────────────┬───────────────┘   └─────────────────────────────────────┘
                     │
-                    │ For 'proposal' requests
+                    │ For 'proposal' and 'block' requests
                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                           BatchTxRequester                                  │

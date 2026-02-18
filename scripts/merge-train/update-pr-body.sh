@@ -2,13 +2,13 @@
 
 set -euo pipefail
 
-# Function to get meaningful commits (non-merge, non-empty)
+# Function to get meaningful commits (ones with PR numbers like (#1234))
 function get_meaningful_commits {
   local base="$1"
   local head="$2"
 
-  git log --oneline --no-merges --reverse "${base}..${head}" \
-    --pretty=format:"%s" | grep -v "^\[empty\]" || true
+  git log --oneline --reverse "${base}..${head}" \
+    --pretty=format:"%s" | grep -E '\(#[0-9]+\)' || true
 }
 
 # Usage: update-pr-body.sh <branch-name>

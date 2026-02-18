@@ -9,7 +9,7 @@ import { FeeAssetHandlerContract, RegistryContract, RollupContract } from '@azte
 import { deployRollupForUpgrade } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { L1TxUtils, createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
+import { L1TxUtils, createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -25,12 +25,10 @@ import {
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
-import type { ProverNode } from '@aztec/prover-node';
 import { getPXEConfig } from '@aztec/pxe/server';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { computeL2ToL1MembershipWitness, getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
-import { TestWallet } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { jest } from '@jest/globals';
@@ -44,6 +42,7 @@ import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import { ATTESTER_PRIVATE_KEYS_START_INDEX, createNodes, createProverNode } from '../fixtures/setup_p2p_test.js';
 import { setupSharedBlobStorage } from '../fixtures/utils.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from './p2p_network.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
@@ -65,7 +64,7 @@ jest.setTimeout(1000 * 60 * 10);
 describe('e2e_p2p_add_rollup', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
-  let proverNode: ProverNode;
+  let proverAztecNode: AztecNodeService;
   let l1TxUtils: L1TxUtils;
 
   beforeAll(async () => {
@@ -88,13 +87,13 @@ describe('e2e_p2p_add_rollup', () => {
     await t.applyBaseSetup();
     await t.removeInitialNode();
 
-    l1TxUtils = createL1TxUtilsFromViemWallet(t.ctx.deployL1ContractsValues.l1Client);
+    l1TxUtils = createL1TxUtils(t.ctx.deployL1ContractsValues.l1Client);
 
-    t.ctx.watcher!.setIsMarkingAsProven(false);
+    t.ctx.watcher.setIsMarkingAsProven(false);
   });
 
   afterAll(async () => {
-    await tryStop(proverNode);
+    await tryStop(proverAztecNode);
     await t.stopNodes(nodes);
     await t.teardown();
     for (let i = 0; i < NUM_VALIDATORS; i++) {
@@ -235,7 +234,7 @@ describe('e2e_p2p_add_rollup', () => {
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       { ...t.ctx.aztecNodeConfig, governanceProposerPayload: newPayloadAddress },
-      t.ctx.dateProvider!,
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
@@ -246,17 +245,16 @@ describe('e2e_p2p_add_rollup', () => {
 
     // create a prover node that uses p2p only (not rpc) to gather txs to test prover tx collection
     t.logger.warn(`Creating prover node`);
-    proverNode = await createProverNode(
+    ({ proverNode: proverAztecNode } = await createProverNode(
       t.ctx.aztecNodeConfig,
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
       t.bootstrapNodeEnr,
       ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
-      { dateProvider: t.ctx.dateProvider! },
+      { dateProvider: t.ctx.dateProvider },
       t.prefilledPublicData,
       `${DATA_DIR}-prover`,
       shouldCollectMetrics(),
-    );
-    await proverNode.start();
+    ));
 
     await sleep(4000);
 
@@ -350,15 +348,14 @@ describe('e2e_p2p_add_rollup', () => {
         });
 
         const rollup = new RollupContract(l1Client, l1ContractAddresses.rollupAddress);
-        const epoch = await rollup.getEpochNumberForCheckpoint(
-          CheckpointNumber.fromBlockNumber(l2OutgoingReceipt.blockNumber!),
-        );
+        const block = await node.getBlock(l2OutgoingReceipt.blockNumber!);
+        const epoch = await rollup.getEpochNumberForCheckpoint(block!.checkpointNumber);
 
         const l2ToL1MessageResult = (await computeL2ToL1MembershipWitness(node, epoch, leaf))!;
         const leafId = getL2ToL1MessageLeafId(l2ToL1MessageResult);
 
         // We need to advance to the next epoch so that the out hash will be set to outbox when the epoch is proven.
-        const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses, t.ctx.dateProvider!);
+        const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses, t.ctx.dateProvider);
         await cheatcodes.advanceToEpoch(EpochNumber(epoch + 1));
         await waitForProven(node, l2OutgoingReceipt, { provenTimeout: 300 });
 
@@ -502,8 +499,8 @@ describe('e2e_p2p_add_rollup', () => {
       `Attesters new before: ${attestersBeforeNew.length}. Attesters new after: ${attestersAfterNew.length}`,
     );
 
-    // Stop the prover node.
-    await proverNode.stop();
+    // Stop the prover aztec node (which stops the prover subsystem).
+    await proverAztecNode.stop();
 
     // stop all nodes
     for (let i = 0; i < NUM_VALIDATORS; i++) {
@@ -552,7 +549,7 @@ describe('e2e_p2p_add_rollup', () => {
 
     nodes = await createNodes(
       newConfig,
-      t.ctx.dateProvider!,
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
@@ -562,17 +559,16 @@ describe('e2e_p2p_add_rollup', () => {
     );
 
     t.logger.warn(`Creating new prover node`);
-    proverNode = await createProverNode(
+    ({ proverNode: proverAztecNode } = await createProverNode(
       newConfig,
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
       t.bootstrapNodeEnr,
       ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
-      { dateProvider: t.ctx.dateProvider! },
+      { dateProvider: t.ctx.dateProvider },
       prefilledPublicData,
       `${DATA_DIR_NEW}-prover`,
       shouldCollectMetrics(),
-    );
-    await proverNode.start();
+    ));
 
     // wait a bit for peers to discover each other
     await sleep(4000);

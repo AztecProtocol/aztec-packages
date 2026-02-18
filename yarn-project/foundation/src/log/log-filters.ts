@@ -19,22 +19,40 @@ export function getLogLevelFromFilters(filters: LogFilters, module: string): Log
   return undefined;
 }
 
-export function assertLogLevel(level: string): asserts level is LogLevel {
+/**
+ * Parses the LOG_LEVEL env string into a default level and per-module filter overrides.
+ *
+ * Format: `<default_level>;<level>:<module1>,<module2>;<level>:<module3>;...`
+ * - First segment (before the first `;`) is the default log level for all modules.
+ * - Remaining segments are `level:module` pairs: apply the given level to the listed modules (comma-separated).
+ * - Later filters override earlier ones for overlapping module matches.
+ * - The `aztec:` prefix is stripped from module names; spaces are trimmed.
+ *
+ * @example
+ * ```ts
+ * parseLogLevel('debug;warn:module1,module2;error:module3', 'info')
+ * // => ['debug', [['module3', 'error'], ['module2', 'warn'], ['module1', 'warn']]]
+ * ```
+ */
+export function parseLogLevelEnvVar(
+  logLevelEnvVar: string | undefined,
+  defaultLevel: LogLevel,
+): [LogLevel, LogFilters] {
+  if (!logLevelEnvVar) {
+    return [defaultLevel, []];
+  }
+  const [level] = logLevelEnvVar.split(';', 1);
+  assertValidLogLevel(level);
+  return [level, parseFilters(logLevelEnvVar.slice(level.length + 1))];
+}
+
+function assertValidLogLevel(level: string): asserts level is LogLevel {
   if (!LogLevels.includes(level as LogLevel)) {
     throw new Error(`Invalid log level: ${level}`);
   }
 }
 
-export function parseEnv(env: string | undefined, defaultLevel: LogLevel): [LogLevel, LogFilters] {
-  if (!env) {
-    return [defaultLevel, []];
-  }
-  const [level] = env.split(';', 1);
-  assertLogLevel(level);
-  return [level, parseFilters(env.slice(level.length + 1))];
-}
-
-export function parseFilters(definition: string | undefined): LogFilters {
+function parseFilters(definition: string | undefined): LogFilters {
   if (!definition) {
     return [];
   }
@@ -48,7 +66,7 @@ export function parseFilters(definition: string | undefined): LogFilters {
       throw new Error(`Invalid log filter statement: ${statement}`);
     }
     const sanitizedLevel = level.trim().toLowerCase();
-    assertLogLevel(sanitizedLevel);
+    assertValidLogLevel(sanitizedLevel);
     for (const module of modules.split(',')) {
       filters.push([
         module

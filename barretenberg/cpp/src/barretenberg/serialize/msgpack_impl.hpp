@@ -8,6 +8,8 @@
 #include <cstring>
 #include <type_traits>
 
+#include "barretenberg/common/mem.hpp"
+
 #include "barretenberg/common/try_catch_shim.hpp"
 #include "msgpack_impl/check_memory_span.hpp"
 #include "msgpack_impl/concepts.hpp"

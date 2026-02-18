@@ -14,6 +14,21 @@ import type { PeerId } from '@libp2p/interface';
 
 import type { P2PConfig } from '../../config.js';
 
+/**
+ * Application-level peer penalties.
+ *
+ * These scores are multiplied by appSpecificWeight (10) when contributing to gossipsub score.
+ * The values are designed to align with gossipsub thresholds:
+ *
+ * - LowToleranceError (50): 1 error → app score -50 → gossipsub -500 → gossipThreshold
+ * - MidToleranceError (10): 5 errors → app score -50 → gossipsub -500 → gossipThreshold
+ * - HighToleranceError (2): 25 errors → app score -50 → gossipsub -500 → gossipThreshold
+ *
+ * Examples of each severity:
+ * - LowToleranceError: Invalid messages, deserialization errors, manipulation attempts
+ * - MidToleranceError: Hash mismatches, protocol violations
+ * - HighToleranceError: Rate limit exceeded, failed responses, transient errors
+ */
 const DefaultPeerPenalties = {
   [PeerErrorSeverity.LowToleranceError]: 50,
   [PeerErrorSeverity.MidToleranceError]: 10,
@@ -26,6 +41,16 @@ export enum PeerScoreState {
   Healthy,
 }
 
+/**
+ * Score thresholds for peer states.
+ *
+ * These values align with gossipsub thresholds when multiplied by appSpecificWeight (10):
+ * - MIN_SCORE_BEFORE_DISCONNECT (-50) × 10 = -500 = gossipThreshold
+ * - MIN_SCORE_BEFORE_BAN (-100) × 10 = -1000 = publishThreshold
+ *
+ * This ensures that when a peer is disconnected at the application level,
+ * they also stop receiving gossip, and when banned, they cannot publish.
+ */
 // TODO: move into config / constants
 const MIN_SCORE_BEFORE_BAN = -100;
 const MIN_SCORE_BEFORE_DISCONNECT = -50;

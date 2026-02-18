@@ -32,6 +32,11 @@ class DefaultIO {
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
+        BB_ASSERT_GTE(public_inputs.size(),
+                      PUBLIC_INPUTS_SIZE,
+                      "Public inputs too small for DefaultIO reconstruction. Got " +
+                          std::to_string(public_inputs.size()) + " but need at least " +
+                          std::to_string(PUBLIC_INPUTS_SIZE));
         // Assumes that the app-io public inputs are at the end of the public_inputs vector
         uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
@@ -71,6 +76,11 @@ class HidingKernelIO {
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
+        BB_ASSERT_GTE(public_inputs.size(),
+                      PUBLIC_INPUTS_SIZE,
+                      "Public inputs too small for HidingKernelIO reconstruction. Got " +
+                          std::to_string(public_inputs.size()) + " but need at least " +
+                          std::to_string(PUBLIC_INPUTS_SIZE));
         // Assumes that the hiding-kernel-io public inputs are at the end of the public_inputs vector
         uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
 
@@ -115,6 +125,11 @@ class RollupIO {
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
+        BB_ASSERT_GTE(public_inputs.size(),
+                      PUBLIC_INPUTS_SIZE,
+                      "Public inputs too small for RollupIO reconstruction. Got " +
+                          std::to_string(public_inputs.size()) + " but need at least " +
+                          std::to_string(PUBLIC_INPUTS_SIZE));
         // Assumes that the rollup-io public inputs are at the end of the public_inputs vector
         uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
 

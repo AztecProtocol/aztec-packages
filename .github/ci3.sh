@@ -56,7 +56,7 @@ function check_cache {
     "ci-release-pr"
   )
   # Check if CI_MODE is in cached_ci_modes
-  if [[ " ${cached_ci_modes[@]} " =~ " ${CI_MODE} " ]]; then
+  if [[ " ${cached_ci_modes[@]} " =~ " ${CI_MODE} " && "$GITHUB_RUN_ATTEMPT" -eq 1 ]]; then
     if cache_download "$cache_name" . 2>/dev/null && [ -f ".ci-success.txt" ]; then
       echo "Cache hit in .github/ci3.sh! Previous run: $(cat ".ci-success.txt")"
       exit 0

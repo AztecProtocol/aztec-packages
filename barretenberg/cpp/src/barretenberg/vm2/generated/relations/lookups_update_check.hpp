@@ -25,7 +25,7 @@ struct lookup_update_check_timestamp_from_public_inputs_settings_ {
         ColumnAndShifts::update_check_timestamp_pi_offset, ColumnAndShifts::update_check_timestamp
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::public_inputs_cols_0_
     };
 };
 

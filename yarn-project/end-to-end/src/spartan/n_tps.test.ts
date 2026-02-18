@@ -13,7 +13,6 @@ import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking
 import { GasFees } from '@aztec/stdlib/gas';
 import { TopicType } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
-import { ProvenTx, TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import { mkdir, writeFile } from 'fs/promises';
@@ -21,6 +20,8 @@ import { dirname } from 'path';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
 import { PrometheusClient } from '../quality_of_service/prometheus_client.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
+import { ProvenTx, proveInteraction } from '../test-wallet/utils.js';
 import {
   type WalletWrapper,
   createWalletAndAztecNodeClient,
@@ -344,7 +345,9 @@ describe('sustained N TPS test', () => {
     let lowValueTxs = 0;
     const lowValueSendTx = async (wallet: TestWallet) => {
       lowValueTxs++;
-      const feeAmount = Number(randomBigInt(10n)) + 1;
+      //const feeAmount = Number(randomBigInt(100n)) + 1;
+      //const feeAmount = 1;
+      const feeAmount = Math.floor(lowValueTxs / 1000) + 1;
       const fee = new GasFees(0, feeAmount);
       logger.info('Sending low value tx ' + lowValueTxs + ' with fee ' + feeAmount);
 
@@ -357,7 +360,7 @@ describe('sustained N TPS test', () => {
     let highValueTxs = 0;
     const highValueSendTx = async (wallet: TestWallet) => {
       highValueTxs++;
-      const feeAmount = Number(randomBigInt(10n)) + 11;
+      const feeAmount = Number(randomBigInt(10n)) + 1000;
       const fee = new GasFees(0, feeAmount);
       logger.info('Sending high value tx ' + highValueTxs + ' with fee ' + feeAmount);
 

@@ -30,7 +30,16 @@
   },
   "typedocOptions": {
     "entryPoints": [
-      "./src/index.ts"
+      "./src/api/abi.ts",
+      "./src/api/account.ts",
+      "./src/api/contract.ts",
+      "./src/api/deployment.ts",
+      "./src/api/ethereum.ts",
+      "./src/api/fee.ts",
+      "./src/api/fields.ts",
+      "./src/api/keys.ts",
+      "./src/api/tx.ts",
+      "./src/api/wallet.ts"
     ],
     "name": "Aztec.js",
     "tsconfig": "./tsconfig.json"

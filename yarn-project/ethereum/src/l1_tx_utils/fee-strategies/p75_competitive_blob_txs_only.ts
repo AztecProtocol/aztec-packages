@@ -207,7 +207,7 @@ export const P75BlobTxsOnlyPriorityFeeStrategy: PriorityFeeStrategy = {
 
         // Debug: Log suspicious fees from history
         if (medianHistoricalFee > 100n * WEI_CONST) {
-          logger?.warn('Suspicious high fee in history', {
+          logger?.debug('Suspicious high fee in history', {
             historicalMedian: formatGwei(medianHistoricalFee),
             allP75Fees: percentile75Fees.map(f => formatGwei(f)),
           });

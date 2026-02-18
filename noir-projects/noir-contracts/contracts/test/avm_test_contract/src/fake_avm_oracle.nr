@@ -1,4 +1,4 @@
-use dep::aztec::protocol::address::AztecAddress;
+use aztec::protocol::address::AztecAddress;
 
 pub unconstrained fn call<let N: u32>(
     l2_gas_allocation: u32,

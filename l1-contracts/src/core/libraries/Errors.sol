@@ -227,6 +227,7 @@ library Errors {
   error TallySlashingProposer__InvalidEpochIndex(uint256 epochIndex, uint256 roundSizeInEpochs);
   error TallySlashingProposer__VoteSizeTooBig(uint256 voteSize, uint256 maxSize);
   error TallySlashingProposer__VotesMustBeMultipleOf4(uint256 votes);
+  error TallySlashingProposer__SlashAmountMustBeGtZero(string info);
 
   // SlashPayloadLib
   error SlashPayload_ArraySizeMismatch(uint256 expected, uint256 actual);

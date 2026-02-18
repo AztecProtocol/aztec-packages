@@ -97,5 +97,5 @@ namespace calldata;
     diff_context_id = latch * sel' * (context_id' - context_id - 1);
 
     #[RANGE_CHECK_CONTEXT_ID_DIFF]
-    latch { diff_context_id } in precomputed.sel_range_16 { precomputed.clk };
+    latch { diff_context_id } in precomputed.sel_range_16 { precomputed.idx };
 

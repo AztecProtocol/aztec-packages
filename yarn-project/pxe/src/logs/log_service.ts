@@ -2,11 +2,11 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { CompleteAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { DirectionalAppTaggingSecret, PendingTaggedLog, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
+import type { AccessScopes } from '../access_scopes.js';
 import type { LogRetrievalRequest } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
@@ -108,11 +108,7 @@ export class LogService {
     );
   }
 
-  public async fetchTaggedLogs(
-    contractAddress: AztecAddress,
-    pendingTaggedLogArrayBaseSlot: Fr,
-    scopes?: AztecAddress[],
-  ) {
+  public async fetchTaggedLogs(contractAddress: AztecAddress, pendingTaggedLogArrayBaseSlot: Fr, scopes: AccessScopes) {
     this.log.verbose(`Fetching tagged logs for ${contractAddress.toString()}`);
 
     // We only load logs from block up to and including the anchor block number
@@ -120,7 +116,7 @@ export class LogService {
     const anchorBlockHash = await this.anchorBlockHeader.hash();
 
     // Determine recipients: use scopes if provided, otherwise get all accounts
-    const recipients = scopes && scopes.length > 0 ? scopes : await this.keyStore.getAccounts();
+    const recipients = scopes !== 'ALL_SCOPES' && scopes.length > 0 ? scopes : await this.keyStore.getAccounts();
 
     // For each recipient, fetch secrets, load logs, and store them.
     // We run these per-recipient tasks in parallel so that logs are loaded for all recipients concurrently.
@@ -159,7 +155,10 @@ export class LogService {
     contractAddress: AztecAddress,
     recipient: AztecAddress,
   ): Promise<DirectionalAppTaggingSecret[]> {
-    const recipientCompleteAddress = await this.#getCompleteAddress(recipient);
+    const recipientCompleteAddress = await this.addressStore.getCompleteAddress(recipient);
+    if (!recipientCompleteAddress) {
+      return [];
+    }
     const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
 
     // We implicitly add all PXE accounts as senders, this helps us decrypt tags on notes that we send to ourselves
@@ -205,16 +204,5 @@ export class LogService {
 
     // TODO: This looks like it could belong more at the oracle interface level
     return this.capsuleStore.appendToCapsuleArray(contractAddress, capsuleArrayBaseSlot, pendingTaggedLogs, this.jobId);
-  }
-
-  async #getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
-    const completeAddress = await this.addressStore.getCompleteAddress(account);
-    if (!completeAddress) {
-      throw new Error(
-        `No public key registered for address ${account}.
-				Register it by calling pxe.addAccount(...).\nSee docs for context: https://docs.aztec.network/developers/resources/debugging/aztecnr-errors#simulation-error-no-public-key-registered-for-address-0x0-register-it-by-calling-pxeregisterrecipient-or-pxeregisteraccount`,
-      );
-    }
-    return completeAddress;
   }
 }

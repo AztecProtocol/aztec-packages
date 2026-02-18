@@ -205,7 +205,7 @@ namespace tx;
     }
     in
     precomputed.sel_phase {
-        precomputed.clk,
+        precomputed.idx,
         precomputed.is_public_call_request,
         precomputed.is_teardown,
         precomputed.is_collect_fee,
@@ -238,7 +238,7 @@ namespace tx;
     sel_read_phase_length = start_phase * (1 - IS_ONE_SHOT_PHASE);
     #[READ_PHASE_LENGTH]
     sel_read_phase_length { read_pi_length_offset, remaining_phase_counter } in
-    public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
+    public_inputs.sel { precomputed.idx, public_inputs.cols[0] };
 
     // In one-shot phases, the remaining phase counter has to be 1
     #[ONE_SHOT_REMAINING_PHASE_COUNTER_ONE]
@@ -278,7 +278,7 @@ namespace tx;
         calldata_hash
     } in
     public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0],
         public_inputs.cols[1],
         public_inputs.cols[2],
@@ -340,7 +340,7 @@ namespace tx;
         prev_retrieved_bytecodes_tree_root,
         prev_retrieved_bytecodes_tree_size,
         // Side Effect States
-        prev_num_unencrypted_log_fields,
+        prev_num_public_log_fields,
         prev_num_l2_to_l1_messages,
         // Gas Info
         prev_l2_gas_used_sent_to_enqueued_call,
@@ -371,7 +371,7 @@ namespace tx;
         execution.prev_retrieved_bytecodes_tree_root,
         execution.prev_retrieved_bytecodes_tree_size,
         // Side Effect States
-        execution.prev_num_unencrypted_log_fields,
+        execution.prev_num_public_log_fields,
         execution.prev_num_l2_to_l1_messages,
         // Gas Info
         execution.prev_l2_gas_used,
@@ -414,7 +414,7 @@ namespace tx;
        next_retrieved_bytecodes_tree_root,
        next_retrieved_bytecodes_tree_size,
        // Side Effect States
-       next_num_unencrypted_log_fields,
+       next_num_public_log_fields,
        next_num_l2_to_l1_messages,
        // Gas Info
        next_l2_gas_used_sent_to_enqueued_call,
@@ -439,7 +439,7 @@ namespace tx;
        execution.retrieved_bytecodes_tree_root,
        execution.retrieved_bytecodes_tree_size,
        // Side Effect States
-       execution.num_unencrypted_log_fields,
+       execution.num_public_log_fields,
        execution.num_l2_to_l1_messages,
        // Gas Info
        execution.l2_gas_used,
@@ -471,7 +471,7 @@ namespace tx;
     //       not create any side effects.
     #[READ_TREE_INSERT_VALUE]
     is_tree_insert_phase { read_pi_offset, leaf_value } in
-    public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
+    public_inputs.sel { precomputed.idx, public_inputs.cols[0] };
 
     // ===== NOTE HASHES =====
     pol commit should_try_note_hash_append; // @boolean (follows from definition)
@@ -502,8 +502,8 @@ namespace tx;
         note_hash_tree_check.note_hash,
         note_hash_tree_check.leaf_index,
         note_hash_tree_check.prev_root,
-        note_hash_tree_check.should_silo,
-        note_hash_tree_check.should_unique,
+        note_hash_tree_check.sel_silo,
+        note_hash_tree_check.sel_unique,
         note_hash_tree_check.note_hash_index,
         note_hash_tree_check.discard,
         note_hash_tree_check.next_root
@@ -571,7 +571,7 @@ namespace tx;
 
     #[READ_L2_L1_MSG]
     should_try_l2_l1_msg_append { read_pi_offset, l2_l1_msg_recipient, l2_l1_msg_content, l2_l1_msg_contract_address } in
-    public_inputs.sel { precomputed.clk, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2] };
+    public_inputs.sel { precomputed.idx, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2] };
 
     // If we are at the maximum emitted messages, we must revert
     pol REMAINING_L2_TO_L1_MSG_WRITES = constants.MAX_L2_TO_L1_MSGS_PER_TX - prev_num_l2_to_l1_messages;
@@ -588,7 +588,7 @@ namespace tx;
 
     #[WRITE_L2_L1_MSG]
     should_l2_l1_msg_append { write_pi_offset, l2_l1_msg_recipient, l2_l1_msg_content, l2_l1_msg_contract_address } in
-    public_inputs.sel { precomputed.clk, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2] };
+    public_inputs.sel { precomputed.idx, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2] };
 
     // If reverted, the next count is unconstrained. This is okay since we are going to restore the state to the end of setup or fail proving.
     // Namely, #[RESTORE_STATE_ON_REVERT] restores the number of L2 to L1 messages to its value at the end of setup.
@@ -613,7 +613,7 @@ namespace tx;
         effective_fee_per_l2_gas
     } in
     public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0],
         public_inputs.cols[1]
     };
@@ -628,7 +628,7 @@ namespace tx;
         fee_payer
     } in
     public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0]
     };
 
@@ -723,7 +723,7 @@ namespace tx;
 
     #[WRITE_FEE_PUBLIC_INPUTS]
     is_collect_fee { write_pi_offset, fee }
-    in public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
+    in public_inputs.sel { precomputed.idx, public_inputs.cols[0] };
 
    /***************************************************************************
     * Tree Padding Phase

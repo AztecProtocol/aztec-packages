@@ -6,6 +6,7 @@ import {
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
+  omitConfigMappings,
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -99,7 +100,7 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
   },
   aztecEpochDuration: {
     env: 'AZTEC_EPOCH_DURATION',
-    description: `How many L2 slots an epoch lasts (maximum AZTEC_MAX_EPOCH_DURATION).`,
+    description: `How many L2 slots an epoch lasts (maximum MAX_CHECKPOINTS_PER_EPOCH).`,
     ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_EPOCH_DURATION),
   },
   aztecTargetCommitteeSize: {
@@ -238,7 +239,7 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The delay before a validator can exit the set',
     ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_EXIT_DELAY_SECONDS),
   },
-  ...l1TxUtilsConfigMappings,
+  ...omitConfigMappings(l1TxUtilsConfigMappings, ['ethereumSlotDuration']),
 };
 
 /**

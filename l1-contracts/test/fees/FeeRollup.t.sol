@@ -335,7 +335,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         uint256 proverFees = 0;
         uint256 sequencerFees = 0;
         uint256 burnSum = 0;
-        bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
+        bytes32[] memory fees = new bytes32[](Constants.MAX_CHECKPOINTS_PER_EPOCH * 2);
 
         for (uint256 feeIndex = 0; feeIndex < epochSize; feeIndex++) {
           TestPoint memory point = points[start + feeIndex - 1];

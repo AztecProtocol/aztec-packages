@@ -8,7 +8,7 @@ import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
-import { FunctionType } from '@aztec/stdlib/abi';
+import { FunctionCall, FunctionType } from '@aztec/stdlib/abi';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import { ExecutionPayload } from '@aztec/stdlib/tx';
 
@@ -34,7 +34,7 @@ describe('e2e_fees failures', () => {
 
     // Prove up until the current state by just marking it as proven.
     // Then turn off the watcher to prevent it from keep proving
-    await t.context.watcher!.trigger();
+    await t.context.watcher.trigger();
     await t.cheatCodes.rollup.advanceToNextEpoch();
     await t.catchUpProvenChain();
     t.setIsMarkingAsProven(false);
@@ -78,7 +78,7 @@ describe('e2e_fees failures', () => {
     await expectMapping(t.getGasBalanceFn, [aliceAddress, bananaFPC.address], [initialAliceGas, initialFPCGas]);
 
     // We wait until the proven chain is caught up so all previous fees are paid out.
-    await t.context.watcher!.trigger();
+    await t.context.watcher.trigger();
     await t.cheatCodes.rollup.advanceToNextEpoch();
     await t.catchUpProvenChain();
 
@@ -100,7 +100,7 @@ describe('e2e_fees failures', () => {
 
     // @note There is a potential race condition here if other tests send transactions that get into the same
     // epoch and thereby pays out fees at the same time (when proven).
-    await t.context.watcher!.trigger();
+    await t.context.watcher.trigger();
     await t.cheatCodes.rollup.advanceToNextEpoch();
     await t.catchUpProvenChain();
 
@@ -334,16 +334,16 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
       this.sender,
       {
         caller: this.paymentContract,
-        call: {
+        call: FunctionCall.from({
           name: 'transfer_in_public',
-          args: [this.sender.toField(), this.paymentContract.toField(), maxFee, authwitNonce],
+          to: asset,
           selector: await FunctionSelector.fromSignature('transfer_in_public((Field),(Field),u128,Field)'),
           type: FunctionType.PUBLIC,
           hideMsgSender: false /** the target function performs an authwit, so msg_sender is needed */,
           isStatic: false,
-          to: asset,
+          args: [this.sender.toField(), this.paymentContract.toField(), maxFee, authwitNonce],
           returnTypes: [],
-        },
+        }),
       },
       true,
     );
@@ -351,7 +351,7 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
     return new ExecutionPayload(
       [
         ...(await setPublicAuthWitInteraction.request()).calls,
-        {
+        FunctionCall.from({
           name: 'fee_entrypoint_public',
           to: this.paymentContract,
           selector: await FunctionSelector.fromSignature('fee_entrypoint_public(u128,Field)'),
@@ -360,7 +360,7 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
           isStatic: false,
           args: [tooMuchFee, authwitNonce],
           returnTypes: [],
-        },
+        }),
       ],
       [],
       [],

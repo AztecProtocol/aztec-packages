@@ -24,7 +24,7 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
   // ForeignCallInput is actually a string[], so the args are string[][].
   const log = createLogger('noir-protocol-circuits:oracle');
 
-  if (name === 'utilityDebugLog') {
+  if (name === 'utilityLog') {
     assert(args.length === 4, 'expected 4 arguments for debugLog: level, msg, fields_length, fields');
     const [levelInput, msgRaw, _ignoredFieldsSize, fields] = args;
     const levelNumber = Fr.fromString(levelInput[0]).toNumber();
@@ -94,7 +94,7 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
       );
     }
 
-    const blobs = getBlobsPerL1Block(blobFields);
+    const blobs = await getBlobsPerL1Block(blobFields);
     blobs.forEach((blob, i) => {
       const injected = kzgCommitments[i];
       const calculated = BLS12Point.decompress(blob.commitment);

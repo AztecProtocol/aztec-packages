@@ -2,7 +2,6 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { AbortError, TimeoutError } from '@aztec/foundation/error';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { boundInclusive } from '@aztec/foundation/number';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, elapsed } from '@aztec/foundation/timer';
@@ -14,37 +13,36 @@ import type { PeerId } from '@libp2p/interface';
 
 import type { BatchTxRequesterConfig } from '../reqresp/batch-tx-requester/config.js';
 import type { BatchTxRequesterLibP2PService } from '../reqresp/batch-tx-requester/interface.js';
-import { ReqRespSubProtocol } from '../reqresp/interface.js';
-import { chunkTxHashesRequest } from '../reqresp/protocols/tx.js';
 import type { TxCollectionConfig } from './config.js';
+import { MissingTxsTracker } from './missing_txs_tracker.js';
 import {
   BatchTxRequesterCollector,
-  type ProposalTxCollector,
+  type MissingTxsCollector,
   SendBatchRequestCollector,
 } from './proposal_tx_collector.js';
 import type { FastCollectionRequest, FastCollectionRequestInput } from './tx_collection.js';
-import type { TxCollectionSink } from './tx_collection_sink.js';
+import type { TxAddContext, TxCollectionSink } from './tx_collection_sink.js';
 import type { TxSource } from './tx_source.js';
 
 export class FastTxCollection {
   // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
   protected requests: Set<FastCollectionRequest> = new Set();
-  private proposalTxCollector: ProposalTxCollector;
+  private missingTxsCollector: MissingTxsCollector;
 
   constructor(
-    private p2pService: BatchTxRequesterLibP2PService,
+    p2pService: BatchTxRequesterLibP2PService,
     private nodes: TxSource[],
     private txCollectionSink: TxCollectionSink,
     private config: TxCollectionConfig,
     private dateProvider: DateProvider = new DateProvider(),
     private log: Logger = createLogger('p2p:tx_collection_service'),
-    proposalTxCollector?: ProposalTxCollector,
+    missingTxsCollector?: MissingTxsCollector,
   ) {
     const batchTxRequesterConfig = this.config as Partial<BatchTxRequesterConfig>;
-    const proposalCollectorType = this.config.txCollectionProposalTxCollectorType;
-    this.proposalTxCollector =
-      proposalTxCollector ??
-      (proposalCollectorType === 'old'
+    const missingTxsCollectorType = this.config.txCollectionMissingTxsCollectorType;
+    this.missingTxsCollector =
+      missingTxsCollector ??
+      (missingTxsCollectorType === 'old'
         ? new SendBatchRequestCollector(p2pService)
         : new BatchTxRequesterCollector(p2pService, log, dateProvider, undefined, batchTxRequesterConfig));
   }
@@ -80,29 +78,29 @@ export class FastTxCollection {
     // This promise is used to await for the collection to finish during the main collectFast method.
     // It gets resolved in `foundTxs` when all txs have been collected, or rejected if the request is aborted or hits the deadline.
     const promise = promiseWithResolvers<void>();
-    setTimeout(() => promise.reject(new TimeoutError(`Timed out while collecting txs`)), timeout);
+    const timeoutTimer = setTimeout(() => promise.reject(new TimeoutError(`Timed out while collecting txs`)), timeout);
 
     const request: FastCollectionRequest = {
       ...input,
       blockInfo,
       promise,
-      foundTxs: new Map<string, Tx>(),
-      missingTxHashes: new Set(txHashes.map(t => t.toString())),
+      missingTxTracker: MissingTxsTracker.fromArray(txHashes),
       deadline: opts.deadline,
     };
 
     const [duration] = await elapsed(() => this.collectFast(request, { ...opts }));
+    clearTimeout(timeoutTimer);
 
     this.log.verbose(
-      `Collected ${request.foundTxs.size} txs out of ${txHashes.length} for ${input.type} at slot ${blockInfo.slotNumber}`,
+      `Collected ${request.missingTxTracker.collectedTxs.length} txs out of ${txHashes.length} for ${input.type} at slot ${blockInfo.slotNumber}`,
       {
         ...blockInfo,
         duration,
         requestType: input.type,
-        missingTxs: [...request.missingTxHashes],
+        missingTxs: [...request.missingTxTracker.missingTxHashes],
       },
     );
-    return [...request.foundTxs.values()];
+    return request.missingTxTracker.collectedTxs;
   }
 
   protected async collectFast(
@@ -113,7 +111,7 @@ export class FastTxCollection {
     const { blockInfo } = request;
 
     this.log.debug(
-      `Starting fast collection of ${request.missingTxHashes.size} txs for ${request.type} at slot ${blockInfo.slotNumber}`,
+      `Starting fast collection of ${request.missingTxTracker.numberOfMissingTxs} txs for ${request.type} at slot ${blockInfo.slotNumber}`,
       { ...blockInfo, requestType: request.type, deadline: opts.deadline },
     );
 
@@ -126,7 +124,7 @@ export class FastTxCollection {
       await Promise.race([request.promise.promise, waitBeforeReqResp]);
 
       // If we have collected all txs, we can stop here
-      if (request.missingTxHashes.size === 0) {
+      if (request.missingTxTracker.allFetched()) {
         this.log.debug(`All txs collected for slot ${blockInfo.slotNumber} without reqresp`, blockInfo);
         return;
       }
@@ -140,7 +138,7 @@ export class FastTxCollection {
       const logCtx = {
         ...blockInfo,
         errorMessage: err instanceof Error ? err.message : undefined,
-        missingTxs: [...request.missingTxHashes].map(txHash => txHash.toString()),
+        missingTxs: request.missingTxTracker.missingTxHashes.values().map(txHash => txHash.toString()),
       };
       if (err instanceof Error && err.name === 'TimeoutError') {
         this.log.warn(`Timed out collecting txs for ${request.type} at slot ${blockInfo.slotNumber}`, logCtx);
@@ -168,7 +166,11 @@ export class FastTxCollection {
     }
 
     // Keep a shared priority queue of all txs pending to be requested, sorted by the number of attempts made to collect them.
-    const attemptsPerTx = [...request.missingTxHashes].map(txHash => ({ txHash, attempts: 0, found: false }));
+    const attemptsPerTx = [...request.missingTxTracker.missingTxHashes].map(txHash => ({
+      txHash,
+      attempts: 0,
+      found: false,
+    }));
 
     // Returns once we have finished all node loops. Each loop finishes when the deadline is hit, or all txs have been collected.
     await Promise.allSettled(this.nodes.map(node => this.collectFastFromNode(request, node, attemptsPerTx, opts)));
@@ -181,7 +183,7 @@ export class FastTxCollection {
     opts: { deadline: Date },
   ) {
     const notFinished = () =>
-      this.dateProvider.now() <= +opts.deadline && request.missingTxHashes.size > 0 && this.requests.has(request);
+      this.dateProvider.now() <= +opts.deadline && !request.missingTxTracker.allFetched() && this.requests.has(request);
 
     const maxParallelRequests = this.config.txCollectionFastMaxParallelRequestsPerNode;
     const maxBatchSize = this.config.txCollectionNodeRpcMaxBatchSize;
@@ -198,7 +200,7 @@ export class FastTxCollection {
           if (!txToRequest) {
             // No more txs to process
             break;
-          } else if (!request.missingTxHashes.has(txToRequest.txHash)) {
+          } else if (!request.missingTxTracker.isMissing(txToRequest.txHash)) {
             // Mark as found if it was found somewhere else, we'll then remove it from the array.
             // We don't delete it now since 'array.splice' is pretty expensive, so we do it after sorting.
             txToRequest.found = true;
@@ -227,16 +229,24 @@ export class FastTxCollection {
           return;
         }
 
+        const txHashes = batch.map(({ txHash }) => txHash);
         // Collect this batch from the node
         await this.txCollectionSink.collect(
-          txHashes => node.getTxsByHash(txHashes),
-          batch.map(({ txHash }) => TxHash.fromString(txHash)),
+          async () => {
+            const result = await node.getTxsByHash(txHashes.map(TxHash.fromString));
+            for (const tx of result.validTxs) {
+              request.missingTxTracker.markFetched(tx);
+            }
+            return result;
+          },
+          txHashes,
           {
             description: `fast ${node.getInfo()}`,
             node: node.getInfo(),
             method: 'fast-node-rpc',
             ...request.blockInfo,
           },
+          this.getAddContext(request),
         );
 
         // Clear from the active requests the txs we just requested
@@ -258,8 +268,6 @@ export class FastTxCollection {
   private async collectFastViaReqResp(request: FastCollectionRequest, opts: { pinnedPeer?: PeerId }) {
     const timeoutMs = +request.deadline - this.dateProvider.now();
     const pinnedPeer = opts.pinnedPeer;
-    const maxPeers = boundInclusive(Math.ceil(request.missingTxHashes.size / 2), 8, 32);
-    const maxRetryAttempts = 5;
     const blockInfo = request.blockInfo;
     const slotNumber = blockInfo.slotNumber;
     if (timeoutMs < 100) {
@@ -271,38 +279,55 @@ export class FastTxCollection {
     }
 
     this.log.debug(
-      `Starting fast reqresp for ${request.missingTxHashes.size} txs for ${request.type} at slot ${blockInfo.slotNumber}`,
+      `Starting fast reqresp for ${request.missingTxTracker.numberOfMissingTxs} txs for ${request.type} at slot ${blockInfo.slotNumber}`,
       { ...blockInfo, timeoutMs, pinnedPeer },
     );
 
     try {
       await this.txCollectionSink.collect(
-        async txHashes => {
+        async () => {
+          let result: Tx[];
           if (request.type === 'proposal') {
-            return await this.proposalTxCollector.collectTxs(txHashes, request.blockProposal, pinnedPeer, timeoutMs);
-          } else if (request.type === 'block') {
-            const txs = await this.p2pService.reqResp.sendBatchRequest<ReqRespSubProtocol.TX>(
-              ReqRespSubProtocol.TX,
-              chunkTxHashesRequest(txHashes),
+            result = await this.missingTxsCollector.collectTxs(
+              request.missingTxTracker,
+              request.blockProposal,
               pinnedPeer,
               timeoutMs,
-              maxPeers,
-              maxRetryAttempts,
             );
-
-            return txs.flat();
+          } else if (request.type === 'block') {
+            const blockTxsSource = {
+              txHashes: request.block.body.txEffects.map(e => e.txHash),
+              archive: request.block.archive.root,
+            };
+            result = await this.missingTxsCollector.collectTxs(
+              request.missingTxTracker,
+              blockTxsSource,
+              pinnedPeer,
+              timeoutMs,
+            );
           } else {
             throw new Error(`Unknown request type: ${(request as any).type}`);
           }
+          return { validTxs: result, invalidTxHashes: [] };
         },
-        Array.from(request.missingTxHashes).map(txHash => TxHash.fromString(txHash)),
+        Array.from(request.missingTxTracker.missingTxHashes),
         { description: `reqresp for slot ${slotNumber}`, method: 'fast-req-resp', ...opts, ...request.blockInfo },
+        this.getAddContext(request),
       );
     } catch (err) {
       this.log.error(`Error sending fast reqresp request for txs`, err, {
-        txs: [...request.missingTxHashes],
+        txs: [...request.missingTxTracker.missingTxHashes],
         ...blockInfo,
       });
+    }
+  }
+
+  /** Returns the TxAddContext for the given request, used by the sink to add txs to the pool correctly. */
+  private getAddContext(request: FastCollectionRequest): TxAddContext {
+    if (request.type === 'proposal') {
+      return { type: 'proposal', blockHeader: request.blockProposal.blockHeader };
+    } else {
+      return { type: 'mined', block: request.block };
     }
   }
 
@@ -315,22 +340,20 @@ export class FastTxCollection {
       for (const tx of txs) {
         const txHash = tx.txHash.toString();
         // Remove the tx hash from the missing set, and add it to the found set.
-        if (request.missingTxHashes.has(txHash)) {
-          request.missingTxHashes.delete(txHash);
-          request.foundTxs.set(txHash, tx);
+        if (request.missingTxTracker.markFetched(tx)) {
           this.log.trace(`Found tx ${txHash} for fast collection request`, {
             ...request.blockInfo,
             txHash: tx.txHash.toString(),
             type: request.type,
           });
-          // If we found all txs for this request, we resolve the promise
-          if (request.missingTxHashes.size === 0) {
-            this.log.trace(`All txs found for fast collection request`, {
-              ...request.blockInfo,
-              type: request.type,
-            });
-            request.promise.resolve();
-          }
+        }
+        // If we found all txs for this request, we resolve the promise
+        if (request.missingTxTracker.allFetched()) {
+          this.log.trace(`All txs found for fast collection request`, {
+            ...request.blockInfo,
+            type: request.type,
+          });
+          request.promise.resolve();
         }
       }
     }

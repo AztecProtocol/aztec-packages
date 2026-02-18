@@ -215,9 +215,11 @@ library InvalidateLib {
     Epoch epoch = checkpointLog.slotNumber.decompress().epochFromSlot();
 
     // Check if this is an escape hatch epoch - escape hatch checkpoints cannot be invalidated
-    // since they have no committee attestations by design
+    // since they have no committee attestations by design.
+    // Uses epoch-stable lookup so invalidation rules use the escape hatch that was
+    // active when the epoch started, not whatever is currently configured.
     {
-      IEscapeHatch escapeHatch = ValidatorSelectionLib.getEscapeHatch();
+      IEscapeHatch escapeHatch = ValidatorSelectionLib.getEscapeHatchForEpoch(epoch);
       if (address(escapeHatch) != address(0)) {
         (bool isOpen,) = escapeHatch.isHatchOpen(epoch);
         require(!isOpen, Errors.Rollup__CannotInvalidateEscapeHatch());

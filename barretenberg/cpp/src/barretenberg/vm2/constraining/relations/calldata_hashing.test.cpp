@@ -255,7 +255,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, EmptyCalldataHash)
 TEST_F(CalldataHashingConstrainingTestTraceHelper, SingleCalldataHash100Fields)
 {
     // The hardcoded value is taken from noir-projects/aztec-nr/aztec/src/hash.nr:
-    FF hash = FF("0x0a11986d25a1f1639715047e125db86b0c684b44d736c0aa64c236d3e05c30b0");
+    FF hash = FF("0x14a1539bdb1d26e03097cf4d40c87e02ca03f0bb50a3e617ace5a7bfd3943944");
 
     std::vector<FF> calldata_fields = {};
     calldata_fields.reserve(100);

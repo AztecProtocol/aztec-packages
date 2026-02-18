@@ -25,6 +25,7 @@ import { type ArchiverConfig, mapArchiverConfig } from './config.js';
 import { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
 import { ARCHIVER_DB_VERSION, KVArchiverDataStore } from './store/kv_archiver_store.js';
+import { L2TipsCache } from './store/l2_tips_cache.js';
 
 export const ARCHIVER_STORE_NAME = 'archiver';
 
@@ -77,14 +78,21 @@ export async function createArchiver(
   const inbox = new InboxContract(publicClient, config.l1Contracts.inboxAddress);
 
   // Fetch L1 constants from rollup contract
-  const [l1StartBlock, l1GenesisTime, proofSubmissionEpochs, genesisArchiveRoot, slashingProposerAddress] =
-    await Promise.all([
-      rollup.getL1StartBlock(),
-      rollup.getL1GenesisTime(),
-      rollup.getProofSubmissionEpochs(),
-      rollup.getGenesisArchiveTreeRoot(),
-      rollup.getSlashingProposerAddress(),
-    ] as const);
+  const [
+    l1StartBlock,
+    l1GenesisTime,
+    proofSubmissionEpochs,
+    genesisArchiveRoot,
+    slashingProposerAddress,
+    targetCommitteeSize,
+  ] = await Promise.all([
+    rollup.getL1StartBlock(),
+    rollup.getL1GenesisTime(),
+    rollup.getProofSubmissionEpochs(),
+    rollup.getGenesisArchiveTreeRoot(),
+    rollup.getSlashingProposerAddress(),
+    rollup.getTargetCommitteeSize(),
+  ] as const);
 
   const l1StartBlockHash = await publicClient
     .getBlock({ blockNumber: l1StartBlock, includeTransactions: false })
@@ -100,6 +108,7 @@ export async function createArchiver(
     slotDuration,
     ethereumSlotDuration,
     proofSubmissionEpochs: Number(proofSubmissionEpochs),
+    targetCommitteeSize,
     genesisArchiveRoot: Fr.fromString(genesisArchiveRoot.toString()),
   };
 
@@ -120,6 +129,9 @@ export async function createArchiver(
   // Create the event emitter that will be shared by archiver and synchronizer
   const events = new EventEmitter() as ArchiverEmitter;
 
+  // Create L2 tips cache shared by archiver and synchronizer
+  const l2TipsCache = new L2TipsCache(archiverStore.blockStore);
+
   // Create the L1 synchronizer
   const synchronizer = new ArchiverL1Synchronizer(
     publicClient,
@@ -136,6 +148,8 @@ export async function createArchiver(
     l1Constants,
     events,
     instrumentation.tracer,
+    l2TipsCache,
+    undefined, // log (use default)
   );
 
   const archiver = new Archiver(
@@ -150,6 +164,7 @@ export async function createArchiver(
     l1Constants,
     synchronizer,
     events,
+    l2TipsCache,
   );
 
   await archiver.start(opts.blockUntilSync);

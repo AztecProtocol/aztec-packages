@@ -174,7 +174,7 @@ TEST_F(MockVerifierInputsTest, DISABLED_MockAVMProofSize)
 TEST_F(MockVerifierInputsTest, MockAVMProofSizePadded)
 {
     const HonkProof padded_avm_proof = create_mock_avm_proof_without_pub_inputs(/*add_padding=*/true);
-    EXPECT_EQ(padded_avm_proof.size(), 16200);
+    EXPECT_EQ(padded_avm_proof.size(), 16400);
 }
 
 /**

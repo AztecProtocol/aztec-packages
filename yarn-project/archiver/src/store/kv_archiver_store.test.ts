@@ -1474,7 +1474,7 @@ describe('KVArchiverDataStore', () => {
       expect(checkpoints.length).toBe(1);
       expect(checkpoints[0].checkpointNumber).toBe(1);
       expect(checkpoints[0].startBlock).toBe(1);
-      expect(checkpoints[0].numBlocks).toBe(2);
+      expect(checkpoints[0].blockCount).toBe(2);
     });
 
     it('returns multiple checkpoints in order', async () => {
@@ -1504,7 +1504,7 @@ describe('KVArchiverDataStore', () => {
       expect(checkpoints.length).toBe(3);
       expect(checkpoints.map(c => c.checkpointNumber)).toEqual([1, 2, 3]);
       expect(checkpoints.map(c => c.startBlock)).toEqual([1, 3, 6]);
-      expect(checkpoints.map(c => c.numBlocks)).toEqual([2, 3, 1]);
+      expect(checkpoints.map(c => c.blockCount)).toEqual([2, 3, 1]);
     });
 
     it('respects the from parameter', async () => {
@@ -1586,7 +1586,7 @@ describe('KVArchiverDataStore', () => {
       const data = checkpoints[0];
       expect(data.checkpointNumber).toBe(1);
       expect(data.startBlock).toBe(1);
-      expect(data.numBlocks).toBe(3);
+      expect(data.blockCount).toBe(3);
       expect(data.l1.blockNumber).toBe(42n);
       expect(data.header.equals(checkpoint.checkpoint.header)).toBe(true);
       expect(data.archive.equals(checkpoint.checkpoint.archive)).toBe(true);
@@ -2740,6 +2740,19 @@ describe('KVArchiverDataStore', () => {
       expect(logs.every(log => log.id.blockHash.equals(expectedBlockHash))).toBe(true);
     });
 
+    it('returns tx hash on public log ids', async () => {
+      const targetBlock = publishedCheckpoints[0].checkpoint.blocks[0];
+
+      const logs = (await store.getPublicLogs({ fromBlock: targetBlock.number, toBlock: targetBlock.number + 1 })).logs;
+
+      expect(logs.length).toBeGreaterThan(0);
+      const expectedTxHashes = targetBlock.body.txEffects.map(txEffect => txEffect.txHash);
+      for (const log of logs) {
+        const expectedTxHash = expectedTxHashes[log.id.txIndex];
+        expect(log.id.txHash.equals(expectedTxHash)).toBe(true);
+      }
+    });
+
     it('"fromBlock" and "toBlock" filter params are respected', async () => {
       // Set "fromBlock" and "toBlock"
       const fromBlock = 3;
@@ -2792,9 +2805,11 @@ describe('KVArchiverDataStore', () => {
       const targetLogIndex = numLogsInTx > 0 ? randomInt(numLogsInTx) : 0;
       const targetBlockHash = await targetBlock.header.hash();
 
+      const targetTxHash = targetBlock.body.txEffects[targetTxIndex].txHash;
       const afterLog = new LogId(
         BlockNumber(targetBlockIndex + INITIAL_L2_BLOCK_NUM),
         targetBlockHash,
+        targetTxHash,
         targetTxIndex,
         targetLogIndex,
       );
@@ -2819,7 +2834,7 @@ describe('KVArchiverDataStore', () => {
     it('"txHash" filter param is ignored when "afterLog" is set', async () => {
       // Get random txHash
       const txHash = TxHash.random();
-      const afterLog = new LogId(BlockNumber(1), BlockHash.random(), 0, 0);
+      const afterLog = new LogId(BlockNumber(1), BlockHash.random(), TxHash.random(), 0, 0);
 
       const response = await store.getPublicLogs({ txHash, afterLog });
       expect(response.logs.length).toBeGreaterThan(1);
@@ -2851,7 +2866,7 @@ describe('KVArchiverDataStore', () => {
         await store.getPublicLogs({
           fromBlock: BlockNumber(2),
           toBlock: BlockNumber(5),
-          afterLog: new LogId(BlockNumber(4), BlockHash.random(), 0, 0),
+          afterLog: new LogId(BlockNumber(4), BlockHash.random(), TxHash.random(), 0, 0),
         })
       ).logs;
       blockNumbers = new Set(logs.map(log => log.id.blockNumber));
@@ -2860,7 +2875,7 @@ describe('KVArchiverDataStore', () => {
       logs = (
         await store.getPublicLogs({
           toBlock: BlockNumber(5),
-          afterLog: new LogId(BlockNumber(5), BlockHash.random(), 1, 0),
+          afterLog: new LogId(BlockNumber(5), BlockHash.random(), TxHash.random(), 1, 0),
         })
       ).logs;
       expect(logs.length).toBe(0);
@@ -2869,7 +2884,7 @@ describe('KVArchiverDataStore', () => {
         await store.getPublicLogs({
           fromBlock: BlockNumber(2),
           toBlock: BlockNumber(5),
-          afterLog: new LogId(BlockNumber(100), BlockHash.random(), 0, 0),
+          afterLog: new LogId(BlockNumber(100), BlockHash.random(), TxHash.random(), 0, 0),
         })
       ).logs;
       expect(logs.length).toBe(0);
@@ -2883,10 +2898,12 @@ describe('KVArchiverDataStore', () => {
       const numLogsInTx = targetBlock.body.txEffects[targetTxIndex].publicLogs.length;
       const targetLogIndex = numLogsInTx > 0 ? randomInt(numLogsInTx) : 0;
       const targetBlockHash = await targetBlock.header.hash();
+      const targetTxHash = targetBlock.body.txEffects[targetTxIndex].txHash;
 
       const afterLog = new LogId(
         BlockNumber(targetBlockIndex + INITIAL_L2_BLOCK_NUM),
         targetBlockHash,
+        targetTxHash,
         targetTxIndex,
         targetLogIndex,
       );

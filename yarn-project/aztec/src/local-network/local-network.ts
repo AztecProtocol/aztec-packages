@@ -18,13 +18,15 @@ import type { LogFn } from '@aztec/foundation/log';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
+import type { ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   type TelemetryClient,
   getConfigEnvVars as getTelemetryClientConfig,
   initTelemetryClient,
 } from '@aztec/telemetry-client';
-import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet/server';
+import { EmbeddedWallet } from '@aztec/wallets/embedded';
+import { deployFundedSchnorrAccounts } from '@aztec/wallets/testing';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { type Hex, createPublicClient, fallback, http as httpViemTransport } from 'viem';
@@ -104,12 +106,14 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
   };
   const hdAccount = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic);
   if (
-    aztecNodeConfig.publisherPrivateKeys == undefined ||
-    !aztecNodeConfig.publisherPrivateKeys.length ||
-    aztecNodeConfig.publisherPrivateKeys[0].getValue() === NULL_KEY
+    aztecNodeConfig.sequencerPublisherPrivateKeys == undefined ||
+    !aztecNodeConfig.sequencerPublisherPrivateKeys.length ||
+    aztecNodeConfig.sequencerPublisherPrivateKeys[0].getValue() === NULL_KEY
   ) {
     const privKey = hdAccount.getHdKey().privateKey;
-    aztecNodeConfig.publisherPrivateKeys = [new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const)];
+    aztecNodeConfig.sequencerPublisherPrivateKeys = [
+      new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const),
+    ];
   }
   if (!aztecNodeConfig.validatorPrivateKeys?.getValue().length) {
     const privKey = hdAccount.getHdKey().privateKey;
@@ -190,16 +194,14 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
   }
 
   if (initialAccounts.length) {
-    const PXEConfig = { proverEnabled: aztecNodeConfig.realProofs };
-    const wallet = await TestWallet.create(node, PXEConfig);
+    const wallet = await EmbeddedWallet.create(node, {
+      pxeConfig: { proverEnabled: aztecNodeConfig.realProofs },
+      ephemeral: true,
+    });
 
     userLog('Setting up funded test accounts...');
     const accountManagers = await deployFundedSchnorrAccounts(wallet, initialAccounts);
-    const accountsWithSecrets = accountManagers.map((manager, i) => ({
-      account: manager,
-      secretKey: initialAccounts[i].secret,
-    }));
-    const accLogs = await createAccountLogs(accountsWithSecrets, wallet);
+    const accLogs = await createAccountLogs(accountManagers, wallet);
     userLog(accLogs.join(''));
 
     await setupBananaFPC(initialAccounts, wallet, userLog);
@@ -225,7 +227,12 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
  */
 export async function createAztecNode(
   config: Partial<AztecNodeConfig> = {},
-  deps: { telemetry?: TelemetryClient; blobClient?: BlobClientInterface; dateProvider?: DateProvider } = {},
+  deps: {
+    telemetry?: TelemetryClient;
+    blobClient?: BlobClientInterface;
+    dateProvider?: DateProvider;
+    proverBroker?: ProvingJobBroker;
+  } = {},
   options: { prefilledPublicData?: PublicDataTreeLeaf[] } = {},
 ) {
   // TODO(#12272): will clean this up. This is criminal.
@@ -235,6 +242,10 @@ export async function createAztecNode(
     ...config,
     l1Contracts: { ...l1Contracts, ...config.l1Contracts },
   };
-  const node = await AztecNodeService.createAndSync(aztecNodeConfig, deps, options);
+  const node = await AztecNodeService.createAndSync(
+    aztecNodeConfig,
+    { ...deps, proverNodeDeps: { broker: deps.proverBroker } },
+    options,
+  );
   return node;
 }

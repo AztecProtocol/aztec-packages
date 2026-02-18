@@ -6,8 +6,8 @@ use types::{
 };
 
 /**
-* Final values z and gamma are injected into each block root circuit. We ensure they are correct by:
-* - Checking equality in each block merge circuit and propagating up
+* Final values z and gamma are injected into each checkpoint root circuit. We ensure they are correct by:
+* - Checking equality in each checkpoint merge circuit and propagating up
 * - Checking final z_acc == z in root circuit
 * - Checking final h(gamma_acc, z) == gamma in root circuit
 *

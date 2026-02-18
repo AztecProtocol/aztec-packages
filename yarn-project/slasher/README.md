@@ -137,9 +137,15 @@ List of all slashable offenses in the system:
 **Time Unit**: Slot-based offense.
 
 ### ATTESTED_DESCENDANT_OF_INVALID
-**Description**: A committee member attested to a block built on top of an invalid ancestor.  
-**Detection**: AttestationsBlockWatcher tracks invalid blocks and their descendants.  
-**Target**: Committee members who attested to the descendant block.  
+**Description**: A committee member attested to a block built on top of an invalid ancestor.
+**Detection**: AttestationsBlockWatcher tracks invalid blocks and their descendants.
+**Target**: Committee members who attested to the descendant block.
+**Time Unit**: Slot-based offense.
+
+### DUPLICATE_PROPOSAL
+**Description**: A proposer sent multiple block or checkpoint proposals for the same position (slot and indexWithinCheckpoint for blocks, or slot for checkpoints) with different content. Since each slot has exactly one designated proposer, sending conflicting proposals is equivocation.
+**Detection**: Detected in the P2P layer when proposals are received. The AttestationPool tracks proposals by position; when a second proposal arrives for the same position with a different archive, it flags the duplicate. The first duplicate is propagated (Accept) so other validators can witness the offense.
+**Target**: Proposer who broadcast the duplicate proposal.
 **Time Unit**: Slot-based offense.
 
 ## Configuration
@@ -175,6 +181,7 @@ These settings are configured locally on each validator node:
 - `slashDataWithholdingPenalty`: Penalty for DATA_WITHHOLDING
 - `slashInactivityPenalty`: Penalty for INACTIVITY
 - `slashBroadcastedInvalidBlockPenalty`: Penalty for BROADCASTED_INVALID_BLOCK_PROPOSAL
+- `slashDuplicateProposalPenalty`: Penalty for DUPLICATE_PROPOSAL
 - `slashProposeInvalidAttestationsPenalty`: Penalty for PROPOSED_INSUFFICIENT_ATTESTATIONS and PROPOSED_INCORRECT_ATTESTATIONS
 - `slashAttestDescendantOfInvalidPenalty`: Penalty for ATTESTED_DESCENDANT_OF_INVALID
 - `slashUnknownPenalty`: Default penalty for unknown offense types
@@ -195,21 +202,24 @@ Details about specific offenses in the system:
 
 Inactivity slashing is one of the most critical, since it allows purging validators that are not fulfilling their duties, which could potentially bring the chain to a halt. This slashing must be aggressive enough to balance out the rate of the entry queue, in case the queue is filled with inactive validators. Furthermore, if enough inactive validators join the system, it may become impossible to gather enough quorum to pass any governance proposal.
 
-Inactivity slashing is handled by the `Sentinel` which monitors performance of all validators slot-by-slot. After each slot, the sentinel assigns one of the following to the block proposer for the slot:
-- `block-mined` if the block was added to L1
-- `block-proposed` if the block received at least one attestation, but didn't make it to L1
-- `block-missed` if the block received no attestations (note that we cannot rely on the P2P proposal alone since it may be invalid, unless we reexecute it)
+Inactivity slashing is handled by the `Sentinel` which monitors performance of all validators slot-by-slot. With the multiple-blocks-per-slot model, block proposals and checkpoints are distinct concepts: proposers build multiple blocks per slot, but attestations are only for checkpoints. After each slot, the sentinel assigns one of the following to the proposer for the slot:
+- `checkpoint-mined` if the checkpoint was added to L1
+- `checkpoint-proposed` if the checkpoint received at least one attestation, but didn't make it to L1
+- `checkpoint-missed` if blocks were proposed but the checkpoint received no attestations
+- `blocks-missed` if no block proposals were sent for this slot at all
 
-And assigns one of the following to each validator:
-- `attestation-sent` if there was a `block-proposed` or `block-mined` and an attestation from this validator was seen on either on L1 or on the P2P network
-- `attestation-missed` if there was a `block-proposed` or `block-mined` but no attestation was seen
-- none if the slot was a `block-missed`
+And assigns one of the following to each validator (these refer to checkpoint attestations):
+- `attestation-sent` if there was a `checkpoint-proposed` or `checkpoint-mined` and a checkpoint attestation from this validator was seen on either on L1 or on the P2P network
+- `attestation-missed` if there was a `checkpoint-proposed` or `checkpoint-mined` but no checkpoint attestation was seen
+- none if the slot was a `blocks-missed`
+
+Both `blocks-missed` and `checkpoint-missed` count as proposer inactivity.
 
 Once an epoch is proven, the sentinel computes the _proven performance_ for the epoch for each validator. Note that we wait until the epoch is proven so we know that the data for all blocks in the epoch was available, and validators who did not attest were effectively inactive. Then, for each validator such that:
 
 ```
-total_failures = count(block-missed) + count(attestation-missed)
-total = count(block-*) + count(attestation-*)
+total_failures = count(blocks-missed) + count(checkpoint-missed) + count(attestation-missed)
+total = count(checkpoint-*) + count(blocks-*) + count(attestation-*)
 total_failures / total >= slash_inactivity_target_percentage
 ```
 

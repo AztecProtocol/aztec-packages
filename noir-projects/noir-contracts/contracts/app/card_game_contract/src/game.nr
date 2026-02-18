@@ -1,5 +1,5 @@
 use crate::cards::Card;
-use dep::aztec::protocol::{address::AztecAddress, traits::{Deserialize, Packable}};
+use aztec::protocol::{address::AztecAddress, traits::{Deserialize, Packable}};
 use std::meta::derive;
 
 global NUMBER_OF_PLAYERS: u32 = 2;

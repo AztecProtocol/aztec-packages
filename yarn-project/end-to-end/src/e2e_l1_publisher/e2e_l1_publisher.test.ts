@@ -8,6 +8,7 @@ import { createBlobClient } from '@aztec/blob-client/client';
 import {
   BatchedBlob,
   BatchedBlobAccumulator,
+  Blob,
   getBlobsPerL1Block,
   getPrefixedEthBlobCommitments,
 } from '@aztec/blob-lib';
@@ -24,8 +25,7 @@ import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
 import { type DeployAztecL1ContractsArgs, deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { TxUtilsState } from '@aztec/ethereum/l1-tx-utils';
-import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { TxUtilsState, createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { EthCheatCodesWithState, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { range } from '@aztec/foundation/array';
@@ -196,6 +196,7 @@ describe('L1Publisher integration', () => {
           slicedBlocks.map(
             async block =>
               new CheckpointedL2Block(
+                // Test uses 1-block-per-checkpoint, so checkpoint number equals block number
                 CheckpointNumber.fromBlockNumber(block.number),
                 block,
                 new L1PublishedData(BigInt(block.number), BigInt(block.number), (await block.hash()).toString()),
@@ -205,6 +206,7 @@ describe('L1Publisher integration', () => {
         );
       },
       async getCheckpoints(checkpointNumber, _limit) {
+        // Test uses 1-block-per-checkpoint, so we find block by checkpoint number
         const block = blocks.find(b => Number(b.number) === Number(checkpointNumber));
         if (!block) {
           return Promise.resolve([]);
@@ -213,7 +215,7 @@ describe('L1Publisher integration', () => {
           block.archive,
           CheckpointHeader.random({ lastArchiveRoot: block.header.lastArchive.root }),
           [block],
-          CheckpointNumber.fromBlockNumber(block.number),
+          checkpointNumber,
         );
         return [
           new PublishedCheckpoint(
@@ -228,6 +230,7 @@ describe('L1Publisher integration', () => {
         const blockId = latestBlock
           ? { number: latestBlock.number, hash: (await latestBlock.hash()).toString() }
           : { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
+        // Test uses 1-block-per-checkpoint, so checkpoint number equals block number
         const tipId = {
           block: blockId,
           checkpoint: { number: CheckpointNumber.fromBlockNumber(blockId.number), hash: blockId.hash },
@@ -246,13 +249,17 @@ describe('L1Publisher integration', () => {
     const worldStateConfig: WorldStateConfig = {
       worldStateBlockCheckIntervalMS: 10000,
       worldStateDbMapSizeKb: 10 * 1024 * 1024,
-      worldStateBlockHistory: 0,
+      worldStateCheckpointHistory: 0,
     };
     worldStateSynchronizer = new ServerWorldStateSynchronizer(builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
 
     const sequencerL1Client = createExtendedL1Client(config.l1RpcUrls, sequencerPK, foundry);
-    const l1TxUtils = createL1TxUtilsWithBlobsFromViemWallet(sequencerL1Client, { logger, dateProvider }, config);
+    const l1TxUtils = createL1TxUtils(
+      sequencerL1Client,
+      { logger, dateProvider, kzg: Blob.getViemKzgInstance() },
+      config,
+    );
     const rollupContract = new RollupContract(sequencerL1Client, l1ContractAddresses.rollupAddress.toString());
     const slashingProposerContract = await rollupContract.getSlashingProposer();
     governanceProposerContract = new GovernanceProposerContract(
@@ -265,12 +272,7 @@ describe('L1Publisher integration', () => {
 
     publisher = new SequencerPublisher(
       {
-        l1RpcUrls: config.l1RpcUrls,
-        l1DebugRpcUrls: [],
-        l1Contracts: l1ContractAddresses,
-        publisherPrivateKeys: [new SecretValue(sequencerPK)],
         l1ChainId: chainId,
-        viemPollingIntervalMS: 100,
         ethereumSlotDuration: config.ethereumSlotDuration,
       },
       {
@@ -347,11 +349,13 @@ describe('L1Publisher integration', () => {
       chainId: globalVariables.chainId,
       version: globalVariables.version,
       slotNumber: globalVariables.slotNumber,
+      timestamp: globalVariables.timestamp,
       coinbase: globalVariables.coinbase,
       feeRecipient: globalVariables.feeRecipient,
       gasFees: globalVariables.gasFees,
     };
 
+    // Test uses 1-block-per-checkpoint
     const checkpointNumber = CheckpointNumber.fromBlockNumber(globalVariables.blockNumber);
     const builder = await LightweightCheckpointBuilder.startNewCheckpoint(
       checkpointNumber,
@@ -453,7 +457,7 @@ describe('L1Publisher integration', () => {
         blockSource.getL1ToL2Messages.mockResolvedValueOnce(currentL1ToL2Messages);
 
         const checkpointBlobFields = checkpoint.toBlobFields();
-        const blockBlobs = getBlobsPerL1Block(checkpointBlobFields);
+        const blockBlobs = await getBlobsPerL1Block(checkpointBlobFields);
 
         let prevBlobAccumulatorHash = (await rollup.getCurrentBlobCommitmentsHash()).toBuffer();
 
@@ -491,7 +495,7 @@ describe('L1Publisher integration', () => {
         });
         expect(logs).toHaveLength(i + 1);
         expect(logs[i].args.checkpointNumber).toEqual(BigInt(i + 1));
-        const thisCheckpointNumber = CheckpointNumber.fromBlockNumber(block.header.globalVariables.blockNumber);
+        const thisCheckpointNumber = checkpoint.number;
         const prevCheckpointNumber = CheckpointNumber(thisCheckpointNumber - 1);
         const isFirstCheckpointOfEpoch =
           thisCheckpointNumber == CheckpointNumber(1) ||
@@ -895,7 +899,6 @@ describe('L1Publisher integration', () => {
 
     it(`speeds up block proposal if not mined`, async () => {
       const { checkpoint } = await buildSingleCheckpoint();
-      const block = checkpoint.blocks[0];
       await enqueueProposeL2Checkpoint(checkpoint);
       await sendRequests();
 
@@ -925,7 +928,7 @@ describe('L1Publisher integration', () => {
       expect(minedTx).toBeDefined();
       const minedTxReceipt = await l1Client.getTransactionReceipt({ hash: minedTx!.hash });
       expect(minedTxReceipt.status).toEqual('success');
-      expect(await rollup.getCheckpointNumber()).toEqual(CheckpointNumber.fromBlockNumber(block.number));
+      expect(await rollup.getCheckpointNumber()).toEqual(checkpoint.number);
     });
 
     it(`can send two consecutive proposals if the first one times out`, async () => {
@@ -978,8 +981,8 @@ describe('L1Publisher integration', () => {
       expect(sendRequestsResult).not.toBeNull();
       expect(sendRequestsResult!.successfulActions).toEqual(['propose']);
       expect(sendRequestsResult!.failedActions).toEqual([]);
-      expect(await rollup.getCheckpointNumber()).toEqual(CheckpointNumber.fromBlockNumber(block2.number));
-      const rollupBlock = await rollup.getCheckpoint(CheckpointNumber.fromBlockNumber(block2.number));
+      expect(await rollup.getCheckpointNumber()).toEqual(checkpoint2.number);
+      const rollupBlock = await rollup.getCheckpoint(checkpoint2.number);
       expect(rollupBlock.slotNumber).toEqual(block2.slot);
     });
   });

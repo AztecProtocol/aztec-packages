@@ -12,7 +12,7 @@ export BB_HASH=${BB_HASH:-$($repo_root/barretenberg/cpp/bootstrap.sh hash)}
 hash=$(
   cache_content_hash \
     .rebuild_patterns \
-    $(find docs docs-developers docs-network developer_versioned_docs network_versioned_docs -type f -name "*.md*" -exec grep '^#include_code' {} \; | \
+    $(find docs docs-developers docs-operate docs-participate developer_versioned_docs network_versioned_docs -type f -name "*.md*" -exec grep '^#include_code' {} \; | \
       awk '{ gsub("^/", "", $3); print "^" $3 }' | sort -u)
 )
 

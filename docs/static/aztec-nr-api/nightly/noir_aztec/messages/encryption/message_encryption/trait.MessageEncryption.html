@@ -40,11 +40,11 @@
     pub fn <a href="#encrypt"><span class="fn">encrypt</span></a>&lt;let PlaintextLen: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
         plaintext: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; PlaintextLen],
         recipient: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
-    ) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 17];
+    ) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 15];
     pub unconstrained fn <a href="#decrypt"><span class="fn">decrypt</span></a>(
-        ciphertext: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 17&gt;,
+        ciphertext: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 15&gt;,
         recipient: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
-    ) -> <a href="../../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 14&gt;&gt;;
+    ) -> <a href="../../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 13&gt;&gt;;
 }</code></pre>
 
 <div class="comments">
@@ -65,7 +65,7 @@ standardized length.</p></div>
 <div class="padded-methods"><code id="encrypt" class="code-header">pub fn <a href="#encrypt"><span class="fn">encrypt</span></a>&lt;let PlaintextLen: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     plaintext: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; PlaintextLen],
     recipient: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
-) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 17]</code>
+) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 15]</code>
 
 <div class="padded-description"><div class="comments">
 <p>Encrypts a plaintext message to <code>recipient</code>.</p>
@@ -79,9 +79,9 @@ length.</p>
 <p>These properties make it secure to distribute the ciphertext publicly, e.g. on blockchain logs (assuming the
 encryption function is itself secure).</p></div>
 </div><code id="decrypt" class="code-header">pub unconstrained fn <a href="#decrypt"><span class="fn">decrypt</span></a>(
-    ciphertext: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 17&gt;,
+    ciphertext: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 15&gt;,
     recipient: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
-) -> <a href="../../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 14&gt;&gt;</code>
+) -> <a href="../../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 13&gt;&gt;</code>
 
 <div class="padded-description"><div class="comments">
 <p>Decrypts a message ciphertext into its original plaintext.</p>

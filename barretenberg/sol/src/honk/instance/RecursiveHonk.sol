@@ -1,18 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2024 Aztec Labs
-pragma solidity >=0.8.21;
+// Copyright 2024 Aztec Labs.
+pragma solidity >=0.8.27;
 
-import {IVerifier} from "../../interfaces/IVerifier.sol";
+import {BaseHonkVerifier as BASE} from "./../BaseHonkVerifier.sol";
+import {Honk} from "./../HonkTypes.sol";
 import {
     RecursiveHonkVerificationKey as VK,
     N,
     LOG_N,
     NUMBER_OF_PUBLIC_INPUTS,
     VK_HASH
-} from "../keys/RecursiveHonkVerificationKey.sol";
-
-import {Honk} from "../HonkTypes.sol";
-import {BaseHonkVerifier as BASE} from "../BaseHonkVerifier.sol";
+} from "./../keys/RecursiveHonkVerificationKey.sol";
 
 /// Smart contract verifier of honk proofs
 contract RecursiveHonkVerifier is BASE(N, LOG_N, VK_HASH, NUMBER_OF_PUBLIC_INPUTS) {

@@ -25,7 +25,7 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 
 # Define paths relative to the barretenberg directory
 BARRETENBERG_DIR="$REPO_ROOT/barretenberg"
-SOL_SRC_FILE="$BARRETENBERG_DIR/sol/src/honk/optimised/honk-optimized.sol"
+SOL_SRC_FILE="$BARRETENBERG_DIR/sol/src/honk/instance/BlakeHonkOpt.sol"
 CPP_FILE="$BARRETENBERG_DIR/cpp/src/barretenberg/dsl/acir_proofs/honk_optimized_contract.hpp"
 
 # Check if source file exists
@@ -97,22 +97,17 @@ awk '
 awk '
     BEGIN {
         in_unroll = 0
-        unroll_label = ""
     }
     # Detect UNROLL_SECTION_START
     /\{\{[[:space:]]*UNROLL_SECTION_START[[:space:]]+[^}]+\}\}/ {
         print  # Print the start marker
         in_unroll = 1
-        # Extract the label for matching with END
-        match($0, /UNROLL_SECTION_START[[:space:]]+([^[:space:]}\]]+)/, arr)
-        unroll_label = arr[1]
         next
     }
     # Detect UNROLL_SECTION_END
     /\{\{[[:space:]]*UNROLL_SECTION_END[[:space:]]+[^}]+\}\}/ {
         print  # Print the end marker
         in_unroll = 0
-        unroll_label = ""
         next
     }
     # Skip lines inside unroll sections

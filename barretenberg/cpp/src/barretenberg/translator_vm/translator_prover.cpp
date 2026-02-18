@@ -20,9 +20,7 @@ TranslatorProver::TranslatorProver(const std::shared_ptr<TranslatorProvingKey>& 
     , key(key)
 {
     BB_BENCH();
-    if (!key->proving_key->commitment_key.initialized()) {
-        key->proving_key->commitment_key = CommitmentKey(key->proving_key->circuit_size);
-    }
+    key->proving_key->commitment_key = CommitmentKey(key->proving_key->circuit_size);
 }
 
 /**
@@ -180,11 +178,7 @@ void TranslatorProver::execute_pcs_rounds()
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
-    // Check whether the commitment key has been deallocated and reinitialize it if necessary
     auto& ck = key->proving_key->commitment_key;
-    if (!ck.initialized()) {
-        ck = CommitmentKey(key->proving_key->circuit_size);
-    }
 
     SmallSubgroupIPA small_subgroup_ipa_prover(
         zk_sumcheck_data, sumcheck_output.challenge, sumcheck_output.claimed_libra_evaluation, transcript, ck);
@@ -225,11 +219,6 @@ HonkProof TranslatorProver::construct_proof()
     // Fiat-Shamir: gamma
     // Compute grand product(s) and commitments.
     execute_grand_product_computation_round();
-
-    // #ifndef __wasm__
-    // Free the commitment key
-    key->proving_key->commitment_key = CommitmentKey();
-    // #endif
 
     // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.

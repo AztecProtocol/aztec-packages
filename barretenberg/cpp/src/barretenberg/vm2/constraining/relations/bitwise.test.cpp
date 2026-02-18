@@ -440,7 +440,8 @@ TEST(BitwiseConstrainingTest, MixedOperationsInteractions)
 
     builder.process(events, trace);
 
-    precomputed_builder.process_misc(trace, 256 * 256 * 3);
+    precomputed_builder.process_sel_range_16(trace);
+    precomputed_builder.process_misc(trace);
     precomputed_builder.process_bitwise(trace);
     precomputed_builder.process_tag_parameters(trace);
 
