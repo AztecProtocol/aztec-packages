@@ -55,7 +55,7 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
         for (size_t i : range) {
             BB_ASSERT_DEBUG(i < scalars.size());
             auto& scalar = scalars[i];
-            scalar.self_from_montgomery_form();
+            scalar.self_from_montgomery_form_reduced();
 
             if (!scalar.is_zero()) {
                 thread_scalar_indices.push_back(static_cast<uint32_t>(i));

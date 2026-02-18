@@ -41,6 +41,7 @@ describe('CheckpointBuilder', () => {
     chainId: new Fr(1),
     version: new Fr(1),
     slotNumber,
+    timestamp: BigInt(Date.now()),
     coinbase: EthAddress.random(),
     feeRecipient: AztecAddress.fromField(Fr.random()),
     gasFees: GasFees.empty(),

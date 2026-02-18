@@ -151,9 +151,7 @@ describe('prover/orchestrator/errors', () => {
       await orchestrator.startNewBlock(blockNumber, timestamp, 1);
       orchestrator.cancel();
 
-      await expect(async () => await orchestrator.addTxs(block.txs)).rejects.toThrow(
-        'Invalid proving state when adding a tx',
-      );
+      await expect(async () => await orchestrator.addTxs(block.txs)).rejects.toThrow('World state fork for block');
     });
 
     it('rejects if too many l1 to l2 messages are provided', async () => {

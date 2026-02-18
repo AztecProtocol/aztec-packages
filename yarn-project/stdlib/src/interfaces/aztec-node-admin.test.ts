@@ -85,6 +85,10 @@ describe('AztecNodeAdminApiSchema', () => {
       epochOrSlot: expect.any(BigInt),
     });
   });
+
+  it('reloadKeystore', async () => {
+    await context.client.reloadKeystore();
+  });
 });
 
 class MockAztecNodeAdmin implements AztecNodeAdmin {
@@ -187,6 +191,9 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
     return Promise.resolve();
   }
   resumeSync(): Promise<void> {
+    return Promise.resolve();
+  }
+  reloadKeystore(): Promise<void> {
     return Promise.resolve();
   }
 }

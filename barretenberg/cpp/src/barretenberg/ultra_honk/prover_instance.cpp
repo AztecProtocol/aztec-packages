@@ -176,9 +176,9 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_selectors(cons
         selector = Polynomial(block.size(), dyadic_size(), block.trace_offset());
     }
 
-    // Set the other non-gate selector polynomials (e.g. q_l, q_r, q_m etc.) to full size
+    // Set the other non-gate selector polynomials (e.g. q_l, q_r, q_m etc.) to active trace size
     for (auto& selector : polynomials.get_non_gate_selectors()) {
-        selector = Polynomial(dyadic_size());
+        selector = Polynomial(trace_active_range_size(), dyadic_size());
     }
 }
 

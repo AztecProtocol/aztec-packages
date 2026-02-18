@@ -74,19 +74,19 @@ new delay. For example, if reducing from 3 days to 1 day, the reduction will be 
 days.</li>
 </ul>
 </div>
-</div><code id="get_effective_minimum_delay_at" class="code-header">pub fn <a href="#get_effective_minimum_delay_at"><span class="fn">get_effective_minimum_delay_at</span></a>(self, historical_timestamp: <a href="../../../../std/primitive.u64.html" class="primitive">u64</a>) -> <a href="../../../../std/primitive.u64.html" class="primitive">u64</a></code>
+</div><code id="get_effective_minimum_delay_at" class="code-header">pub fn <a href="#get_effective_minimum_delay_at"><span class="fn">get_effective_minimum_delay_at</span></a>(self, anchor_block_timestamp: <a href="../../../../std/primitive.u64.html" class="primitive">u64</a>) -> <a href="../../../../std/primitive.u64.html" class="primitive">u64</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the minimum delay before a value might mutate due to a scheduled change, from the perspective of some
-historical timestamp. It only returns a meaningful value when called in private with historical timestamps.
+anchor block timestamp. It only returns a meaningful value when called in private with anchor block timestamps.
 The output of this function can be passed into <code>ScheduledValueChange.get_time_horizon</code> to properly
 constrain the <code>expiration_timestamp</code> when reading delayed mutable state.
-This value typically equals the current delay at the timestamp following the historical one (the earliest one in
-which a value change could be scheduled), but it also considers scenarios in which a delay reduction is
+This value typically equals the current delay at the timestamp following the anchor block one (the earliest one
+in which a value change could be scheduled), but it also considers scenarios in which a delay reduction is
 scheduled to happen in the near future, resulting in a way to schedule a change with an overall delay lower than
 the current one.</p>
-<p>Alternative explanation: returns the maximum amount of time (from the historical timestamp) that a state read
-(as at the historical timestamp) will remain valid.
+<p>Alternative explanation: returns the maximum amount of time (from the anchor block timestamp) that a state read
+(as at the anchor block timestamp) will remain valid.
 A read might end up being valid for less time in the case where a <code>svc.timestamp_of_change</code> has already been
 set and if it's sooner than the output of this function. In that case, the <code>scheduled_value_change.nr</code>'s
 <code>get_time_horizon</code> function will realize this.</p>

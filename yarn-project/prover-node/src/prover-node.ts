@@ -1,5 +1,6 @@
 import type { Archiver } from '@aztec/archiver';
 import type { RollupContract } from '@aztec/ethereum/contracts';
+import type { Delayer } from '@aztec/ethereum/l1-tx-utils';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { assertRequired, compact, pick, sum } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/curves/bn254';
@@ -7,7 +8,6 @@ import { memoize } from '@aztec/foundation/decorators';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
-import type { P2PClient } from '@aztec/p2p';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
@@ -17,6 +17,7 @@ import { getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers
 import {
   type EpochProverManager,
   EpochProvingJobTerminalState,
+  type ITxProvider,
   type ProverNodeApi,
   type Service,
   type WorldStateSyncStatus,
@@ -24,7 +25,6 @@ import {
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import type { P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx } from '@aztec/stdlib/tx';
 import {
   Attributes,
@@ -55,7 +55,6 @@ type DataStoreOptions = Pick<DataStoreConfig, 'dataDirectory'> & Pick<ChainConfi
  */
 export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable {
   private log = createLogger('prover-node');
-  private dateProvider = new DateProvider();
 
   private jobs: Map<string, EpochProvingJob> = new Map();
   private config: ProverNodeOptions;
@@ -73,12 +72,14 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
     protected readonly contractDataSource: ContractDataSource,
     protected readonly worldState: WorldStateSynchronizer,
-    protected readonly p2pClient: Pick<P2PClient<P2PClientType.Prover>, 'getTxProvider'> & Partial<Service>,
+    protected readonly p2pClient: { getTxProvider(): ITxProvider } & Partial<Service>,
     protected readonly epochsMonitor: EpochMonitor,
     protected readonly rollupContract: RollupContract,
     protected readonly l1Metrics: L1Metrics,
     config: Partial<ProverNodeOptions> = {},
     protected readonly telemetryClient: TelemetryClient = getTelemetryClient(),
+    private delayer?: Delayer,
+    private readonly dateProvider: DateProvider = new DateProvider(),
   ) {
     this.config = {
       proverNodePollingIntervalMs: 1_000,
@@ -109,6 +110,11 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
 
   public getP2P() {
     return this.p2pClient;
+  }
+
+  /** Returns the shared tx delayer for prover L1 txs, if enabled. Test-only. */
+  public getDelayer(): Delayer | undefined {
+    return this.delayer;
   }
 
   /**
@@ -155,17 +161,15 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
 
   /**
    * Stops the prover node and all its dependencies.
+   * Resources not owned by this node (shared with the parent aztec-node) are skipped.
    */
   async stop() {
     this.log.info('Stopping ProverNode');
     await this.epochsMonitor.stop();
     await this.prover.stop();
-    await tryStop(this.p2pClient);
-    await tryStop(this.l2BlockSource);
     await tryStop(this.publisherFactory);
     this.publisher?.interrupt();
     await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
-    await this.worldState.stop();
     this.rewardsMetrics.stop();
     this.l1Metrics.stop();
     await this.telemetryClient.stop();

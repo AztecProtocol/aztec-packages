@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { ExecutionPayload, TxSimulationResult, UtilitySimulationResult } from '@aztec/stdlib/tx';
+import { ExecutionPayload, TxSimulationResult, UtilityExecutionResult } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -107,8 +107,8 @@ describe('BatchCall', () => {
       batchCall = new BatchCall(wallet, [utilityPayload1, privatePayload, utilityPayload2, publicPayload]);
 
       // Mock utility simulation results
-      const utilityResult1 = UtilitySimulationResult.random();
-      const utilityResult2 = UtilitySimulationResult.random();
+      const utilityResult1 = UtilityExecutionResult.random();
+      const utilityResult2 = UtilityExecutionResult.random();
 
       // Mock tx simulation result
       const privateReturnValues = [Fr.random(), Fr.random()];
@@ -122,8 +122,8 @@ describe('BatchCall', () => {
 
       // Mock wallet.batch to return both utility results and simulateTx result
       wallet.batch.mockResolvedValue([
-        { name: 'simulateUtility', result: utilityResult1 },
-        { name: 'simulateUtility', result: utilityResult2 },
+        { name: 'executeUtility', result: utilityResult1 },
+        { name: 'executeUtility', result: utilityResult2 },
         { name: 'simulateTx', result: txSimResult },
       ] as any);
 
@@ -133,14 +133,14 @@ describe('BatchCall', () => {
       expect(wallet.batch).toHaveBeenCalledTimes(1);
       expect(wallet.batch).toHaveBeenCalledWith([
         {
-          name: 'simulateUtility',
+          name: 'executeUtility',
           args: [
             expect.objectContaining({ name: 'getBalance', to: contractAddress1 }),
             expect.objectContaining({ scope: expect.any(AztecAddress) }),
           ],
         },
         {
-          name: 'simulateUtility',
+          name: 'executeUtility',
           args: [
             expect.objectContaining({ name: 'checkPermission', to: contractAddress3 }),
             expect.objectContaining({ scope: expect.any(AztecAddress) }),
@@ -160,9 +160,9 @@ describe('BatchCall', () => {
         },
       ]);
 
-      // Verify wallet.simulateTx/simulateUtility were NOT called directly
+      // Verify wallet.simulateTx/executeUtility were NOT called directly
       expect(wallet.simulateTx).not.toHaveBeenCalled();
-      expect(wallet.simulateUtility).not.toHaveBeenCalled();
+      expect(wallet.executeUtility).not.toHaveBeenCalled();
 
       expect(results).toHaveLength(4);
       // First utility - decoded from Fr[] to bigint (single field returns the value directly, not as array)
@@ -184,13 +184,13 @@ describe('BatchCall', () => {
 
       batchCall = new BatchCall(wallet, [utilityPayload1, utilityPayload2]);
 
-      // Mock utility simulation results
-      const utilityResult1 = UtilitySimulationResult.random();
-      const utilityResult2 = UtilitySimulationResult.random();
+      // Mock utility execution results
+      const utilityResult1 = UtilityExecutionResult.random();
+      const utilityResult2 = UtilityExecutionResult.random();
 
       wallet.batch.mockResolvedValue([
-        { name: 'simulateUtility', result: utilityResult1 },
-        { name: 'simulateUtility', result: utilityResult2 },
+        { name: 'executeUtility', result: utilityResult1 },
+        { name: 'executeUtility', result: utilityResult2 },
       ] as any);
 
       const results = await batchCall.simulate({ from: await AztecAddress.random() });
@@ -198,14 +198,14 @@ describe('BatchCall', () => {
       expect(wallet.batch).toHaveBeenCalledTimes(1);
       expect(wallet.batch).toHaveBeenCalledWith([
         {
-          name: 'simulateUtility',
+          name: 'executeUtility',
           args: [
             expect.objectContaining({ name: 'view1', to: contractAddress1 }),
             expect.objectContaining({ scope: expect.any(AztecAddress) }),
           ],
         },
         {
-          name: 'simulateUtility',
+          name: 'executeUtility',
           args: [
             expect.objectContaining({ name: 'view2', to: contractAddress2 }),
             expect.objectContaining({ scope: expect.any(AztecAddress) }),

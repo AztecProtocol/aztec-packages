@@ -1,5 +1,7 @@
 import type { pino } from 'pino';
 
+import { convertBigintsToStrings } from './bigint-utils.js';
+
 /* eslint-disable camelcase */
 
 const GOOGLE_CLOUD_TRACE_ID = 'logging.googleapis.com/trace';
@@ -15,6 +17,9 @@ export const GoogleCloudLoggerConfig = {
   messageKey: 'message',
   formatters: {
     log(object: Record<string, unknown>): Record<string, unknown> {
+      // Convert bigints to strings recursively to avoid serialization issues
+      object = convertBigintsToStrings(object) as Record<string, unknown>;
+
       // Add trace context attributes following Cloud Logging structured log format described
       // in https://cloud.google.com/logging/docs/structured-logging#special-payload-fields
       const { trace_id, span_id, trace_flags, ...rest } = object;
