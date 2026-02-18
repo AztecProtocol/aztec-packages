@@ -92,8 +92,8 @@ const mempoolAttestationMinedDelayQuery = (perc: string) =>
 
 const peerCountQuery = () => `avg(aztec_peer_manager_peer_count{k8s_namespace_name="${config.NAMESPACE}"})`;
 
-const peerConnectionDurationQuery = (perc: string) =>
-  `histogram_quantile(${perc}, sum(rate(aztec_peer_manager_peer_connection_duration_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}"}[1m])) by (le))`;
+const peerConnectionDurationQuery = (perc: string, windowSeconds: number) =>
+  `histogram_quantile(${perc}, sum(rate(aztec_peer_manager_peer_connection_duration_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}"}[${windowSeconds}s])) by (le))`;
 
 describe('sustained N TPS test', () => {
   jest.setTimeout(60 * 60 * 1000 * 10); // 10 hours
@@ -168,8 +168,8 @@ describe('sustained N TPS test', () => {
       try {
         const [avgCount, durationP50, durationP95] = await Promise.all([
           prometheusClient.querySingleValue(peerCountQuery()),
-          prometheusClient.querySingleValue(peerConnectionDurationQuery('0.50')),
-          prometheusClient.querySingleValue(peerConnectionDurationQuery('0.95')),
+          prometheusClient.querySingleValue(peerConnectionDurationQuery('0.50', TEST_DURATION_SECONDS + 60)),
+          prometheusClient.querySingleValue(peerConnectionDurationQuery('0.95', TEST_DURATION_SECONDS + 60)),
         ]);
         metrics.recordPeerStats(avgCount, durationP50, durationP95);
         logger.debug('Scraped peer stats', { avgCount, durationP50, durationP95 });
