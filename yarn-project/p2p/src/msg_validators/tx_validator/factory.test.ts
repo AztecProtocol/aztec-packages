@@ -12,7 +12,6 @@ import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import {
-  createCompleteGossipedTransactionValidators,
   createFirstStageTxValidationsForGossipedTransactions,
   createSecondStageTxValidationsForGossipedTransactions,
   createTxValidatorForAcceptingTxsOverRPC,
@@ -136,54 +135,6 @@ describe('Validator factory functions', () => {
       const validators = createSecondStageTxValidationsForGossipedTransactions(proofVerifier);
 
       expect(typeof validators.proofValidator.validator.validateTx).toBe('function');
-    });
-  });
-
-  describe('createCompleteGossipedTransactionValidators', () => {
-    it('returns two stages: first-stage validators then proof validator', () => {
-      const stages = createCompleteGossipedTransactionValidators(
-        0n,
-        BlockNumber(2),
-        synchronizer,
-        new GasFees(1, 1),
-        1,
-        2,
-        Fr.ZERO,
-        contractSource,
-        proofVerifier,
-        true,
-      );
-
-      expect(stages).toHaveLength(2);
-      expect(Object.keys(stages[0])).toEqual([
-        'txsPermittedValidator',
-        'dataValidator',
-        'metadataValidator',
-        'timestampValidator',
-        'doubleSpendValidator',
-        'gasValidator',
-        'phasesValidator',
-        'blockHeaderValidator',
-      ]);
-      expect(Object.keys(stages[1])).toEqual(['proofValidator']);
-    });
-
-    it('proof validator is always in the second stage, never the first', () => {
-      const stages = createCompleteGossipedTransactionValidators(
-        0n,
-        BlockNumber(2),
-        synchronizer,
-        new GasFees(1, 1),
-        1,
-        2,
-        Fr.ZERO,
-        contractSource,
-        proofVerifier,
-        true,
-      );
-
-      expect(Object.keys(stages[0])).not.toContain('proofValidator');
-      expect(Object.keys(stages[1])).toContain('proofValidator');
     });
   });
 
