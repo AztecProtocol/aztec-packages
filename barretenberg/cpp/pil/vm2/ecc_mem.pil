@@ -62,9 +62,9 @@ include "precomputed.pil";
  *     - guaranteed by this gadget to be FF.
  * - M[rop[6]+2]: M[dst_offset+2] aka res_is_inf (boolean flag if RES is the point at infinity - written by this gadget)
  *     - guaranteed by this gadget to be U1.
-*
+ *
  * ERROR HANDLING:
- * Two errors needs to be handled as part of this trace,
+ * Two errors need to be handled as part of this trace,
  * (1) DST_OUT_OF_BOUNDS_ACCESS: If the writes would access a memory address outside
  *     of the max AVM memory address (AVM_HIGHEST_MEM_ADDRESS).
  * (2) POINT_NOT_ON_CURVE: If either of the inputs (embedded curve points) do not
