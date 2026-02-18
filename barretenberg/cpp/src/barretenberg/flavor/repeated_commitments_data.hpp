@@ -28,11 +28,16 @@ struct DuplicateRange {
 struct RepeatedCommitmentsData {
     DuplicateRange first;
     DuplicateRange second;
+    size_t shplemini_offset = 1; // number of entries before prover polys in shplemini vectors (Shplonk:Q, masking poly)
 
     RepeatedCommitmentsData() = default;
 
-    constexpr RepeatedCommitmentsData(size_t first_original_start, size_t first_duplicate_start, size_t first_count)
+    constexpr RepeatedCommitmentsData(size_t first_original_start,
+                                      size_t first_duplicate_start,
+                                      size_t first_count,
+                                      size_t shplemini_offset = 1)
         : first{ first_original_start, first_duplicate_start, first_count }
+        , shplemini_offset(shplemini_offset)
     {}
 
     constexpr RepeatedCommitmentsData(size_t first_original_start,
@@ -40,9 +45,11 @@ struct RepeatedCommitmentsData {
                                       size_t first_count,
                                       size_t second_original_start,
                                       size_t second_duplicate_start,
-                                      size_t second_count)
+                                      size_t second_count,
+                                      size_t shplemini_offset = 1)
         : first{ first_original_start, first_duplicate_start, first_count }
         , second{ second_original_start, second_duplicate_start, second_count }
+        , shplemini_offset(shplemini_offset)
     {}
 };
 } // namespace bb

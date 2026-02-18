@@ -89,10 +89,11 @@ class ECCVMFlavor {
     // first witness to be shifted.
     static constexpr size_t SHPLEMINI_OFFSET = 2; // Shplonk:Q + Gemini:masking_poly_comm (ECCVM is always ZK)
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
-        RepeatedCommitmentsData(SHPLEMINI_OFFSET + NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES -
+        RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES -
                                     NUM_DERIVED_WITNESS_ENTITIES_NON_SHIFTED - NUM_SHIFTED_ENTITIES,
-                                SHPLEMINI_OFFSET + NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES,
-                                NUM_SHIFTED_ENTITIES);
+                                NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES,
+                                NUM_SHIFTED_ENTITIES,
+                                SHPLEMINI_OFFSET);
 
     using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation

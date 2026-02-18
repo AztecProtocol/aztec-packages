@@ -57,6 +57,7 @@ template <IsMultiMegaFlavor Flavor_> class MultiMegaOinkProver_ {
     std::shared_ptr<HonkVK> honk_vk;
     std::shared_ptr<Transcript> transcript;
     std::string domain_separator;
+    CommitmentKey commitment_key;
 
     typename Flavor::CommitmentLabels commitment_labels;
     typename Flavor::InterleavedCommitmentLabels interleaved_labels;

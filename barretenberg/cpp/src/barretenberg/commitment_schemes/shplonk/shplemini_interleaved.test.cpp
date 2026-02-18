@@ -203,8 +203,7 @@ TEST_F(ShpleminiInterleavedTest, UnshiftedOnly)
     auto pairing_points = KZG<Curve>::reduce_verify_batch_opening_claim(std::move(shplemini_output.batch_opening_claim),
                                                                         verifier_transcript);
 
-    VK vk;
-    bool verified = vk.pairing_check(pairing_points[0], pairing_points[1]);
+    bool verified = pairing_points.check();
     EXPECT_TRUE(verified) << "Unshifted interleaved opening should verify";
 }
 
@@ -352,8 +351,7 @@ TEST_F(ShpleminiInterleavedTest, InterleavedShiftablePolynomials)
                                                                         verifier_transcript);
 
     // Verify the pairing
-    VK vk;
-    bool verified = vk.pairing_check(pairing_points[0], pairing_points[1]);
+    bool verified = pairing_points.check();
 
     EXPECT_TRUE(verified) << "Shplemini interleaved opening should verify";
 }
@@ -476,8 +474,7 @@ TEST_F(ShpleminiInterleavedTest, MixedUnshiftedAndShifted)
     auto pairing_points = KZG<Curve>::reduce_verify_batch_opening_claim(std::move(shplemini_output.batch_opening_claim),
                                                                         verifier_transcript);
 
-    VK vk;
-    bool verified = vk.pairing_check(pairing_points[0], pairing_points[1]);
+    bool verified = pairing_points.check();
     EXPECT_TRUE(verified) << "Mixed unshifted + shifted interleaved opening should verify";
 }
 

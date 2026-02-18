@@ -30,7 +30,6 @@ MultiMegaProver_<Flavor>::MultiMegaProver_(const std::shared_ptr<ProverInstance>
     : prover_instance(std::move(prover_instance))
     , honk_vk(honk_vk)
     , transcript(transcript)
-    , commitment_key(prover_instance->commitment_key)
 {}
 
 template <IsMultiMegaFlavor Flavor>
@@ -40,7 +39,6 @@ MultiMegaProver_<Flavor>::MultiMegaProver_(Builder& circuit,
     : prover_instance(std::make_shared<ProverInstance>(circuit))
     , honk_vk(honk_vk)
     , transcript(transcript)
-    , commitment_key(prover_instance->commitment_key)
 {}
 
 template <IsMultiMegaFlavor Flavor>
@@ -48,7 +46,6 @@ MultiMegaProver_<Flavor>::MultiMegaProver_(Builder&& circuit, const std::shared_
     : prover_instance(std::make_shared<ProverInstance>(circuit))
     , honk_vk(honk_vk)
     , transcript(std::make_shared<Transcript>())
-    , commitment_key(prover_instance->commitment_key)
 {}
 
 template <IsMultiMegaFlavor Flavor> typename MultiMegaProver_<Flavor>::Proof MultiMegaProver_<Flavor>::export_proof()
@@ -132,7 +129,7 @@ template <IsMultiMegaFlavor Flavor> void MultiMegaProver_<Flavor>::execute_pcs()
     const size_t n = prover_instance->dyadic_size();
     const size_t interleaved_size = n * BATCH_SIZE;
 
-    auto& ck = prover_instance->commitment_key;
+    auto& ck = commitment_key;
     if (!ck.initialized()) {
         // For interleaved commitments, we need 4x the polynomial size for the SRS.
         // For ZK, SmallSubgroupIPA also needs 2 * SUBGROUP_SIZE for its polynomial commitments.

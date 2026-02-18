@@ -388,7 +388,7 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         constant_term_accumulator +=
             gemini_fold_neg_evaluations[0] * shplonk_batching_challenge * inverse_vanishing_evals[1];
 
-        remove_repeated_commitments(commitments, scalars, repeated_commitments, HasZK);
+        remove_repeated_commitments(commitments, scalars, repeated_commitments);
         // An optional boolean flag for SmallSubgroupIPAVerifier to check the consistency of the Libra evaluations
         bool consistency_checked = true;
         // For ZK flavors, the sumcheck output contains the evaluations of Libra univariates that submitted to the
@@ -408,8 +408,11 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
             // prepended (e.g., [u0, u1, sumcheck_challenges...]). The Libra consistency check only uses
             // sumcheck challenges, so strip the first log2(shift_exponent) entries.
             const size_t interleaving_log_k = numeric::get_msb(claim_batcher.shift_exponent);
-            std::vector<Fr> libra_challenge(multivariate_challenge.begin() + static_cast<ptrdiff_t>(interleaving_log_k),
-                                            multivariate_challenge.end());
+            const auto& libra_challenge =
+                interleaving_log_k > 0
+                    ? std::vector<Fr>(multivariate_challenge.begin() + static_cast<ptrdiff_t>(interleaving_log_k),
+                                      multivariate_challenge.end())
+                    : multivariate_challenge;
             consistency_checked = SmallSubgroupIPAVerifier<Curve>::check_libra_evaluations_consistency(
                 libra_evaluations, gemini_evaluation_challenge, libra_challenge, libra_univariate_evaluation);
         }
@@ -541,12 +544,11 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
      */
     static void remove_repeated_commitments(std::vector<Commitment>& commitments,
                                             std::vector<Fr>& scalars,
-                                            const RepeatedCommitmentsData& repeated_commitments,
-                                            bool has_zk)
+                                            const RepeatedCommitmentsData& repeated_commitments)
     {
-        // The commitments/scalars vectors start with Shplonk:Q (and Gemini:masking_poly_comm if ZK)
+        // The commitments/scalars vectors start with Shplonk:Q (and optionally Gemini:masking_poly_comm)
         // before the prover polynomial commitments, so offset the AllEntities indices accordingly.
-        const size_t offset = has_zk ? 2 : 1;
+        const size_t offset = repeated_commitments.shplemini_offset;
 
         const auto& r1 = repeated_commitments.first;
         const auto& r2 = repeated_commitments.second;

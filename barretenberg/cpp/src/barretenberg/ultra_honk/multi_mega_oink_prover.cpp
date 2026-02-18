@@ -7,15 +7,19 @@
 #include "barretenberg/ultra_honk/multi_mega_oink_prover.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/flavor/multi_mega_zk_flavor.hpp"
-#include "barretenberg/ultra_honk/witness_computation.hpp"
+#include "barretenberg/honk/library/grand_product_delta.hpp"
+#include "barretenberg/honk/library/grand_product_library.hpp"
+#include "barretenberg/relations/databus_lookup_relation.hpp"
+#include "barretenberg/relations/logderiv_lookup_relation.hpp"
+#include "barretenberg/relations/permutation_relation.hpp"
 
 namespace bb {
 
 template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::prove()
 {
     BB_BENCH_NAME("MultiMegaOinkProver::prove");
-    if (!prover_instance->commitment_key.initialized()) {
-        prover_instance->commitment_key = CommitmentKey(prover_instance->dyadic_size() * BATCH_SIZE);
+    if (!commitment_key.initialized()) {
+        commitment_key = CommitmentKey(prover_instance->dyadic_size() * BATCH_SIZE);
     }
     // Add circuit size public input size and public inputs to transcript
     execute_preamble_round();
@@ -35,7 +39,7 @@ template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::prove()
     prover_instance->alpha = generate_alpha_round();
 
     // Free the commitment key
-    prover_instance->commitment_key = CommitmentKey();
+    commitment_key = CommitmentKey();
 }
 
 template <IsMultiMegaFlavor Flavor>
@@ -88,7 +92,7 @@ typename MultiMegaOinkProver_<Flavor>::Commitment MultiMegaOinkProver_<Flavor>::
 
     // Commit using interleaved MSM (pippenger_interleaved handles zero padding for missing slots)
     std::span<const PolynomialSpan<const FF>> span_view(polynomials.data(), NUM_POLYS);
-    Commitment commitment = prover_instance->commitment_key.template commit_interleaved<BATCH_SIZE>(span_view);
+    Commitment commitment = commitment_key.template commit_interleaved<BATCH_SIZE>(span_view);
 
     // Send to verifier
     transcript->send_to_verifier(domain_separator + label, commitment);
@@ -178,12 +182,18 @@ template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::execute_s
     // Get eta challenge and compute powers (eta, eta², eta³)
     prover_instance->relation_parameters.compute_eta_powers(transcript->template get_challenge<FF>("eta"));
 
-    WitnessComputation<Flavor>::add_ram_rom_memory_records_to_wire_4(prover_instance->polynomials,
-                                                                     prover_instance->memory_read_records,
-                                                                     prover_instance->memory_write_records,
-                                                                     prover_instance->relation_parameters.eta,
-                                                                     prover_instance->relation_parameters.eta_two,
-                                                                     prover_instance->relation_parameters.eta_three);
+    auto wires = prover_instance->polynomials.get_wires();
+    const auto& eta = prover_instance->relation_parameters.eta;
+    const auto& eta_two = prover_instance->relation_parameters.eta_two;
+    const auto& eta_three = prover_instance->relation_parameters.eta_three;
+    for (const auto& gate_idx : prover_instance->memory_read_records) {
+        wires[3].at(gate_idx) =
+            wires[2][gate_idx] * eta_three + wires[1][gate_idx] * eta_two + wires[0][gate_idx] * eta;
+    }
+    for (const auto& gate_idx : prover_instance->memory_write_records) {
+        wires[3].at(gate_idx) =
+            wires[2][gate_idx] * eta_three + wires[1][gate_idx] * eta_two + wires[0][gate_idx] * eta + 1;
+    }
 
     auto& polys = prover_instance->polynomials;
 
@@ -219,8 +229,16 @@ template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::execute_l
     prover_instance->relation_parameters.gamma = gamma;
 
     // Compute the inverses used in log-derivative lookup relations
-    WitnessComputation<Flavor>::compute_logderivative_inverses(
-        prover_instance->polynomials, prover_instance->dyadic_size(), prover_instance->relation_parameters);
+    auto& polynomials = prover_instance->polynomials;
+    auto& relation_parameters = prover_instance->relation_parameters;
+    const size_t circuit_size = prover_instance->dyadic_size();
+    LogDerivLookupRelation<FF>::compute_logderivative_inverse(polynomials, relation_parameters, circuit_size);
+    DatabusLookupRelation<FF>::template compute_logderivative_inverse<0>(
+        polynomials, relation_parameters, circuit_size);
+    DatabusLookupRelation<FF>::template compute_logderivative_inverse<1>(
+        polynomials, relation_parameters, circuit_size);
+    DatabusLookupRelation<FF>::template compute_logderivative_inverse<2>(
+        polynomials, relation_parameters, circuit_size);
 
     auto& polys = prover_instance->polynomials;
 
@@ -248,11 +266,11 @@ template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::execute_g
     BB_BENCH_NAME("MultiMegaOinkProver::execute_grand_product_computation_round");
 
     // Compute the permutation grand product polynomial
-    WitnessComputation<Flavor>::compute_grand_product_polynomial(prover_instance->polynomials,
-                                                                 prover_instance->public_inputs,
-                                                                 prover_instance->pub_inputs_offset(),
-                                                                 prover_instance->relation_parameters,
-                                                                 prover_instance->get_final_active_wire_idx() + 1);
+    auto& rel_params = prover_instance->relation_parameters;
+    rel_params.public_input_delta = compute_public_input_delta<Flavor>(
+        prover_instance->public_inputs, rel_params.beta, rel_params.gamma, prover_instance->pub_inputs_offset());
+    compute_grand_product<Flavor, UltraPermutationRelation<FF>>(
+        prover_instance->polynomials, rel_params, prover_instance->get_final_active_wire_idx() + 1);
 
     auto& polys = prover_instance->polynomials;
 

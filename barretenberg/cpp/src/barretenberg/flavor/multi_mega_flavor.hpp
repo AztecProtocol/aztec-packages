@@ -367,7 +367,6 @@ class MultiMegaFlavor : public MegaFlavor {
                                                    Codec,
                                                    HashFunction,
                                                    CommitmentKey,
-                                                   VKSerializationMode::FULL,
                                                    INTERLEAVING_BATCH_SIZE>;
 
     using VKAndHash = VKAndHash_<FF, VerificationKey>;
@@ -377,9 +376,9 @@ class MultiMegaFlavor : public MegaFlavor {
     // This saves NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS (3) points from the final PCS MSM.
     static constexpr size_t SHPLEMINI_OFFSET = 1; // Shplonk:Q
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
-        RepeatedCommitmentsData(SHPLEMINI_OFFSET + NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS +
+        RepeatedCommitmentsData(NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS +
                                     (NUM_INTERLEAVED_WITNESS_COMMITMENTS - NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS),
-                                SHPLEMINI_OFFSET + NUM_ALL_INTERLEAVED_COMMITMENTS,
+                                NUM_ALL_INTERLEAVED_COMMITMENTS,
                                 NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS);
 
     /**

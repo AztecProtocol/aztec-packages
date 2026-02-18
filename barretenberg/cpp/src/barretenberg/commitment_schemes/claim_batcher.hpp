@@ -99,21 +99,21 @@ template <typename Curve> struct ClaimBatcher_ {
             // This comes from A₀₋(X) = F(X) + (-1)^k · G(X)/r^k, needed because (-r)^k = (-1)^k · r^k
             // For standard shifts k=1 (odd): r⁻¹ ⋅ (1/(z−r) − ν/(z+r))
             // For interleaved shifts k=4 (even): r⁻⁴ ⋅ (1/(z−r) + ν/(z+r))
-            Fr r_inv_shift;
             if (shift_exponent == 1) {
-                r_inv_shift = r_challenge.invert();
+                // Fast path: avoid extra multiplication by neg_sign (important for recursive verifiers)
+                shifted->scalar =
+                    r_challenge.invert() * (inverse_vanishing_eval_pos - nu_challenge * inverse_vanishing_eval_neg);
             } else {
-                // Compute r^(-k) = (r^k)^(-1)
                 Fr r_power = r_challenge;
                 for (size_t i = 1; i < shift_exponent; ++i) {
                     r_power *= r_challenge;
                 }
-                r_inv_shift = r_power.invert();
+                const Fr r_inv_shift = r_power.invert();
+                // (-1)^k: even k gives +1, odd k gives -1 (but k=1 handled above)
+                const Fr neg_sign = (shift_exponent % 2 == 0) ? Fr(1) : Fr(-1);
+                shifted->scalar =
+                    r_inv_shift * (inverse_vanishing_eval_pos + neg_sign * nu_challenge * inverse_vanishing_eval_neg);
             }
-            // (-1)^k determines the sign of the ν/(z+r) term
-            Fr neg_sign = (shift_exponent % 2 == 0) ? Fr(1) : Fr(-1);
-            shifted->scalar =
-                r_inv_shift * (inverse_vanishing_eval_pos + neg_sign * nu_challenge * inverse_vanishing_eval_neg);
         }
 
         if (interleaved) {

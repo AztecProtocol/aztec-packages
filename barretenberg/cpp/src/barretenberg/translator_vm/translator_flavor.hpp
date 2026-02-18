@@ -163,13 +163,14 @@ class TranslatorFlavor {
 
     // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls
     static constexpr size_t SHPLEMINI_OFFSET = 2; // Shplonk:Q + Gemini:masking_poly_comm (Translator is always ZK)
-    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
-        SHPLEMINI_OFFSET + NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED,
-        SHPLEMINI_OFFSET + NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED + NUM_SHIFTED_ENTITIES,
-        NUM_SHIFTED_ENTITIES,
-        SHPLEMINI_OFFSET + TO_BE_INTERLEAVED_START,
-        SHPLEMINI_OFFSET + INTERLEAVED_START,
-        NUM_INTERLEAVED);
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
+        RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED,
+                                NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED + NUM_SHIFTED_ENTITIES,
+                                NUM_SHIFTED_ENTITIES,
+                                TO_BE_INTERLEAVED_START,
+                                INTERLEAVED_START,
+                                NUM_INTERLEAVED,
+                                SHPLEMINI_OFFSET);
 
     using GrandProductRelations = std::tuple<TranslatorPermutationRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation

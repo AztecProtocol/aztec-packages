@@ -82,10 +82,11 @@ class MultiMegaZKFlavor : public MultiMegaFlavor {
     // so indices differ from the non-ZK base.
     static constexpr size_t SHPLEMINI_OFFSET = 1; // Only Shplonk:Q (no Gemini masking poly in MultiMega)
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
-        RepeatedCommitmentsData(SHPLEMINI_OFFSET + NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS +
+        RepeatedCommitmentsData(NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS +
                                     (NUM_INTERLEAVED_WITNESS_COMMITMENTS - NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS),
-                                SHPLEMINI_OFFSET + NUM_ALL_INTERLEAVED_COMMITMENTS,
-                                NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS);
+                                NUM_ALL_INTERLEAVED_COMMITMENTS,
+                                NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS,
+                                SHPLEMINI_OFFSET);
 
     // FINAL_PCS_MSM_SIZE: with REPEATED_COMMITMENTS optimization, shifted commitments are merged
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
