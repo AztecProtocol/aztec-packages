@@ -34,7 +34,8 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
             let storage = Storage::init(&mut context);
         }
     } else {
-        // Contract does not have Storage defined, so we set storage to the unit type `()`. ContractSelf requires a
+        // Contract does not have Storage defined, so we set storage to the unit type `()`. ContractSelfPrivate
+        // requires a
         // storage struct in its constructor. Using an Option type would lead to worse developer experience and higher
         // constraint counts so we use the unit type `()` instead.
         quote {
@@ -55,7 +56,7 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
             let call_self_static: CallSelfStatic<&mut aztec::context::PrivateContext> = CallSelfStatic { address: self_address, context: &mut context };
             let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::PrivateContext> = EnqueueSelfStatic { address: self_address, context: &mut context };
             let internal: CallInternal<&mut aztec::context::PrivateContext> = CallInternal { context: &mut context };
-            aztec::ContractSelf::new_private(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal)
+            aztec::contract_self::contract_self_private::ContractSelfPrivate::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal)
         };
     };
 
