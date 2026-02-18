@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Federico], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -16,14 +16,14 @@
 
 namespace bb::crypto {
 /**
- * @brief Compute an HMAC given a secret key and a message
+ * @brief Compute an HMAC given a secret key and a message, see https://datatracker.ietf.org/doc/html/rfc2104
  *
  * @tparam Hash hasher being used
  * @tparam MessageContainer a byte container (std::vector<uint8_t>, std::array<uint8_t, ...>, std::string)
  * @tparam KeyContainer a byte container
- * @param message the message!
- * @param key the key!
- * @return std::array<uint8_t, Hash::OUTPUT_SIZE> the HMAC output!
+ * @param message the message
+ * @param key the key
+ * @return std::array<uint8_t, Hash::OUTPUT_SIZE> the HMAC output
  */
 template <typename Hash, typename MessageContainer, typename KeyContainer>
 std::array<uint8_t, Hash::OUTPUT_SIZE> hmac(const MessageContainer& message, const KeyContainer& key)
@@ -79,57 +79,6 @@ std::array<uint8_t, Hash::OUTPUT_SIZE> hmac(const MessageContainer& message, con
 
     std::array<uint8_t, Hash::OUTPUT_SIZE> result;
     std::copy(hmac_key.begin(), hmac_key.end(), result.begin());
-    return result;
-}
-
-/**
- * @brief Takes a size-HASH_OUTPUT buffer from HMAC and converts into a field element
- *
- * @details We assume HASH_OUTPUT = 32. Reducing HMAC(key, message) modulo r would result in an unacceptable bias.
- * We hash input with `0` and `1` to produce 64 bytes of input data. This is then converted into a uin512_t,
- * which is taken modulo Fr::modulus to produce our field element, where the statistical bias is negligble in
- * the security parameter.
- *
- * @tparam Hash the hash function we're using
- * @tparam Fr field type
- * @tparam MessageContainer a byte container (std::vector<uint8_t>, std::array<uint8_t, ...>, std::string)
- * @tparam KeyContainer a byte container
- * @param message the input buffer
- * @param key key used to derive
- * @return Fr output field element as uint512_t( H(10...0 || HMAC(k,m)) || H(00...0 || HMAC(k,m)) ) % r
- */
-template <typename Hash, typename Fr, typename MessageContainer, typename KeyContainer>
-Fr get_unbiased_field_from_hmac(const MessageContainer& message, const KeyContainer& key)
-    requires(Hash::OUTPUT_SIZE == 32)
-{
-    // Strong assumption that works for now with our suite of Hashers
-    static_assert(Hash::BLOCK_SIZE > Hash::OUTPUT_SIZE);
-    constexpr size_t DOMAIN_SEPARATOR_SIZE = Hash::BLOCK_SIZE - Hash::OUTPUT_SIZE;
-
-    // Domain separators whose size ensures we hash a block of the exact size expected by
-    // the Hasher.
-    constexpr std::array<uint8_t, DOMAIN_SEPARATOR_SIZE> KLO_DOMAIN_SEPARATOR{ 0x0 };
-    constexpr std::array<uint8_t, DOMAIN_SEPARATOR_SIZE> KHI_DOMAIN_SEPARATOR{ 0x1 };
-
-    auto input = hmac<Hash, MessageContainer, KeyContainer>(message, key);
-
-    // klo = H(00...0 || input)
-    std::vector<uint8_t> lo_buffer(KLO_DOMAIN_SEPARATOR.begin(), KLO_DOMAIN_SEPARATOR.end());
-    std::copy(input.begin(), input.end(), std::back_inserter(lo_buffer));
-    auto klo = Hash::hash(lo_buffer);
-
-    // khi = H(10...0 || input)
-    std::vector<uint8_t> hi_buffer(KHI_DOMAIN_SEPARATOR.begin(), KHI_DOMAIN_SEPARATOR.end());
-    std::copy(input.begin(), input.end(), std::back_inserter(hi_buffer));
-    auto khi = Hash::hash(hi_buffer);
-
-    // full_buffer = khi || klo
-    std::vector<uint8_t> full_buffer(khi.begin(), khi.end());
-    std::copy(klo.begin(), klo.end(), std::back_inserter(full_buffer));
-
-    auto field_as_u512 = from_buffer<numeric::uint512_t>(full_buffer);
-
-    Fr result((field_as_u512 % Fr::modulus).lo);
     return result;
 }
 
