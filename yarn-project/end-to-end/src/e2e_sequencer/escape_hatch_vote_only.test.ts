@@ -20,13 +20,14 @@ import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
+import { CI_SYSTEM_TIMING } from '../fixtures/fixtures.js';
 import { getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
 
 const OPEN_THE_HATCH = true;
 
-const ETHEREUM_SLOT_DURATION = 12;
-const AZTEC_SLOT_DURATION = 36;
-const AZTEC_EPOCH_DURATION = 4;
+const ETHEREUM_SLOT_DURATION = process.env.CI ? CI_SYSTEM_TIMING.ethereumSlotDuration : 12;
+const AZTEC_SLOT_DURATION = process.env.CI ? CI_SYSTEM_TIMING.aztecSlotDuration : 36;
+const AZTEC_EPOCH_DURATION = process.env.CI ? CI_SYSTEM_TIMING.aztecEpochDuration : 4;
 const ROUND_SIZE = AZTEC_EPOCH_DURATION * 64;
 const QUORUM_SIZE = ROUND_SIZE - 1; // Don't matter if almost impossible, not what we test
 const COMMITTEE_SIZE = 4;

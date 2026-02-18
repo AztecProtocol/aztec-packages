@@ -75,7 +75,12 @@ import {
 import { type Chain, foundry } from 'viem/chains';
 
 import { TestWallet } from '../test-wallet/test_wallet.js';
-import { MNEMONIC, TEST_MAX_PENDING_TX_POOL_COUNT, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
+import {
+  MNEMONIC,
+  TEST_MAX_PENDING_TX_POOL_COUNT,
+  TEST_PEER_CHECK_INTERVAL_MS,
+  getCITimingOverride,
+} from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
@@ -272,7 +277,8 @@ export async function setup(
     opts.aztecTargetCommitteeSize ??= 0;
     opts.slasherFlavor ??= 'none';
 
-    const config: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
+    const ciOverride = getCITimingOverride();
+    const config: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts, ...ciOverride };
     // use initialValidators for the node config
     config.validatorPrivateKeys = new SecretValue(opts.initialValidators?.map(v => v.privateKey) ?? []);
 
@@ -302,7 +308,7 @@ export async function setup(
         throw new Error(`No ETHEREUM_HOSTS set but non anvil chain requested`);
       }
       const res = await startAnvil({
-        l1BlockTime: opts.ethereumSlotDuration,
+        l1BlockTime: config.ethereumSlotDuration,
         accounts: opts.anvilAccounts,
         port: opts.anvilPort ?? (process.env.ANVIL_PORT ? parseInt(process.env.ANVIL_PORT) : undefined),
       });
@@ -396,6 +402,7 @@ export async function setup(
         ...getL1ContractsConfigEnvVars(),
         ...opts,
         ...opts.l1ContractsArgs,
+        ...ciOverride,
         vkTreeRoot: getVKTreeRoot(),
         protocolContractsHash,
         genesisArchiveRoot,

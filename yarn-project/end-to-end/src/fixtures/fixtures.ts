@@ -34,3 +34,15 @@ export const NO_L1_TO_L2_MSG_ERROR =
   /No non-nullified L1 to L2 message found for message hash|Tried to consume nonexistent L1-to-L2 message/;
 export const STATIC_CALL_STATE_MODIFICATION_ERROR = /Static call cannot update the state.*/;
 export const STATIC_CONTEXT_ASSERTION_ERROR = /Assertion failed: Function .* can only be called statically.*/;
+
+/** Real system timing parameters used in CI to match production. */
+export const CI_SYSTEM_TIMING = {
+  ethereumSlotDuration: 12,
+  aztecSlotDuration: 72,
+  aztecEpochDuration: 32,
+} as const;
+
+/** Returns CI system timing override if in CI, empty object otherwise. */
+export function getCITimingOverride(): Partial<typeof CI_SYSTEM_TIMING> {
+  return process.env.CI ? { ...CI_SYSTEM_TIMING } : {};
+}

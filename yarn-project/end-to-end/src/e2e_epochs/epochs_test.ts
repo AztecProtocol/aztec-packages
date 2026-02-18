@@ -33,6 +33,7 @@ import { join } from 'path';
 import type { Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
+import { getCITimingOverride } from '../fixtures/fixtures.js';
 import {
   type EndToEndContext,
   type SetupOptions,
@@ -91,12 +92,17 @@ export class EpochsTestContext {
   }
 
   public static getSlotDurations(opts: EpochsTestOpts = {}) {
+    const ciOverride = getCITimingOverride();
     const envEthereumSlotDuration = process.env.L1_BLOCK_TIME
       ? parseInt(process.env.L1_BLOCK_TIME)
       : DEFAULT_L1_BLOCK_TIME;
-    const ethereumSlotDuration = opts.ethereumSlotDuration ?? envEthereumSlotDuration;
-    const aztecSlotDuration = opts.aztecSlotDuration ?? (opts.aztecSlotDurationInL1Slots ?? 2) * ethereumSlotDuration;
-    const aztecEpochDuration = opts.aztecEpochDuration ?? 6;
+    const ethereumSlotDuration =
+      ciOverride.ethereumSlotDuration ?? opts.ethereumSlotDuration ?? envEthereumSlotDuration;
+    const aztecSlotDuration =
+      ciOverride.aztecSlotDuration ??
+      opts.aztecSlotDuration ??
+      (opts.aztecSlotDurationInL1Slots ?? 2) * ethereumSlotDuration;
+    const aztecEpochDuration = ciOverride.aztecEpochDuration ?? opts.aztecEpochDuration ?? 6;
     const aztecProofSubmissionEpochs = opts.aztecProofSubmissionEpochs ?? 1;
     const l1PublishingTime = opts.l1PublishingTime ?? 1;
     return {
