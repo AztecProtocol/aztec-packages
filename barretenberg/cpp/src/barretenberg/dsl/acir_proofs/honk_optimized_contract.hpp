@@ -1208,7 +1208,7 @@ contract HonkVerifier is IVerifier {
                     // This requires the barycentric inverses to be computed for each round
                     // Write all of the non inverted barycentric denominators into memory
                     let accumulator := 1
-                    let temp := BARYCENTRIC_TEMP_0_LOC
+                    let temp := FOLD_POS_EVALUATIONS_{{ LOG_N_MINUS_ONE }}_LOC // we use fold pos evaluations as we add 0x20 immediately to get to `BARYCENTRIC_TEMP_0_LOC`
                     let bary_centric_inverses_off := BARYCENTRIC_DENOMINATOR_INVERSES_0_0_LOC
                     {
                         let round_challenge_off := SUM_U_CHALLENGE_0
@@ -1325,8 +1325,7 @@ contract HonkVerifier is IVerifier {
                     // Append PI delta denominator to the batch inversion
                     {
                         let pi_denom := mload(PUBLIC_INPUTS_DELTA_DENOMINATOR_CHALLENGE)
-                        temp := add(temp, 0x20)
-                        mstore(temp, accumulator)
+                        mstore(PUBLIC_INPUTS_DENOM_TEMP_LOC, accumulator)
                         accumulator := mulmod(accumulator, pi_denom, p)
                     }
 
@@ -1344,9 +1343,7 @@ contract HonkVerifier is IVerifier {
                         // Element 0: gemini_r (seed)
                         {
                             let val := mload(GEMINI_R_CHALLENGE)
-                            mstore(GEMINI_R_INV_LOC, val)
-                            temp := add(temp, 0x20)
-                            mstore(temp, accumulator)
+                            mstore(GEMINI_R_INV_TEMP_LOC, accumulator)
                             accumulator := mulmod(accumulator, val, p)
                         }
 
@@ -1379,18 +1376,16 @@ contract HonkVerifier is IVerifier {
 
                             // gemini_r inverse (staging[0])
                             {
-                                let tmp := mulmod(accumulator, mload(temp), p)
-                                accumulator := mulmod(accumulator, mload(GEMINI_R_INV_LOC), p)
+                                let tmp := mulmod(accumulator, mload(GEMINI_R_INV_TEMP_LOC), p)
+                                accumulator := mulmod(accumulator, mload(GEMINI_R_CHALLENGE), p)
                                 mstore(GEMINI_R_INV_LOC, tmp) // 1/gemini_r at staging[0]
-                                temp := sub(temp, 0x20)
                             }
                         }
 
                         // Extract PI delta denominator inverse from the batch
                         {
-                            let pi_delta_inv := mulmod(accumulator, mload(temp), p)
+                            let pi_delta_inv := mulmod(accumulator, mload(PUBLIC_INPUTS_DENOM_TEMP_LOC), p)
                             accumulator := mulmod(accumulator, mload(PUBLIC_INPUTS_DELTA_DENOMINATOR_CHALLENGE), p)
-                            temp := sub(temp, 0x20)
 
                             // Finalize: public_inputs_delta = numerator * (1/denominator)
                             mstore(
