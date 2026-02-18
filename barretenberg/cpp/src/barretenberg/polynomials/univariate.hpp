@@ -358,7 +358,6 @@ template <class Fr, size_t domain_end> class Univariate {
 
         std::copy(evaluations.begin(), evaluations.end(), result.evaluations.begin());
 
-        static constexpr Fr inverse_two = Fr(2).invert();
         if constexpr (LENGTH == 2) {
             // f = b x + c
             // f(0) = c
@@ -371,6 +370,7 @@ template <class Fr, size_t domain_end> class Univariate {
                 result.value_at(idx + 1) = result.value_at(idx) + delta;
             }
         } else if constexpr (LENGTH == 3) {
+            static constexpr Fr inverse_two = Fr(2).invert();
             // Based off https://hackmd.io/@aztec-network/SyR45cmOq?type=view
             // The technique used here is the same as the length == 3 case below.
             // f = a x^2 + b x + c

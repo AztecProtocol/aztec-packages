@@ -9,26 +9,23 @@
 #include <array>
 
 // TODO(#674): We need the functionality of BarycentricData for both field (native) and field_t (stdlib). The former
-// is compatible with constexpr operations, and the former is not. The functions for computing the
+// is compatible with constexpr operations, and the latter is not. The functions for computing the
 // pre-computable arrays in BarycentricData need to be constexpr and it takes some trickery to share these functions
 // with the non-constexpr setting. Right now everything is more or less duplicated across BarycentricDataCompileTime and
 // BarycentricDataRunTime. There should be a way to share more of the logic.
 
-/* TODO(https://github.com/AztecProtocol/barretenberg/issues/10): This could or should be improved in various ways. In
-   no particular order:
-   1) Edge cases are not considered. One non-use case situation (I forget which) leads to a segfault.
-
-   2) Precomputing for all possible size pairs is probably feasible and might be a better solution than instantiating
-   many instances separately. Then perhaps we could infer input type to `extend`.
-
-   3) There should be more thorough testing of this class in isolation.
+/* Future improvements (see https://github.com/AztecProtocol/barretenberg/issues/10): The code works for its intended
+ * use but could be improved in various ways. In no particular order: (1) Guard edge cases more exhaustively (e.g.,
+ * domain_size/num_evals = 0, evaluating at a domain point, etc.). (2) Precomputing for all possible size pairs is
+ * probably feasible and might be a better solution than instantiating many instances separately. Then perhaps we could
+ * infer input type to `extend`. (3) Further improve testing of this class in isolation.
  */
 namespace bb {
 
 /**
- * @todo: TODO(https://github.com/AztecProtocol/barretenberg/issues/713) Optimize with lookup tables?
  * @tparam domain_end specifies the given evaluation domain {0,..., domain_end - 1}
  * @tparam num_evals the number of evaluations that are computable with specific barycentric extension formula
+ * IMPROVEMENT : Can use lookup tables to optimize the computations.
  */
 
 template <class Fr, size_t domain_end, size_t num_evals> class BarycentricDataCompileTime {
@@ -198,6 +195,7 @@ template <class Fr, size_t domain_end, size_t num_evals> class BarycentricDataRu
     // for each x_k in the big domain, build set of domain size-many denominator inverses
     // 1/(d_i*(x_k - x_j)). will multiply against each of these (rather than to divide by something)
     // for each barycentric evaluation
+    // special case in the run-time variant: if num_evals == 1, we output the barycentric weights result[j] = 1 / d_j
     static std::array<Fr, domain_size * num_evals> construct_denominator_inverses(const auto& big_domain,
                                                                                   const auto& lagrange_denominators)
     {
