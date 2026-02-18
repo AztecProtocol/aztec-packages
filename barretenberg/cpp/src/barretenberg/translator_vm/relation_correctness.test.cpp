@@ -35,14 +35,6 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     // Create storage for polynomials
     ProverPolynomials prover_polynomials;
     constexpr size_t mini_circuit_size_without_masking = TranslatorProvingKey::dyadic_mini_circuit_size_without_masking;
-    constexpr size_t full_circuit_size = Flavor::MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_GROUP_SIZE;
-
-    // Reallocate lagrange polynomials to full circuit size for manual testing
-    prover_polynomials.lagrange_even_in_minicircuit = typename Flavor::Polynomial(full_circuit_size);
-    prover_polynomials.lagrange_odd_in_minicircuit = typename Flavor::Polynomial(full_circuit_size);
-    prover_polynomials.lagrange_result_row = typename Flavor::Polynomial(full_circuit_size);
-    prover_polynomials.lagrange_last_in_minicircuit = typename Flavor::Polynomial(full_circuit_size);
-
     // Fill in lagrange even and odd polynomials (only in first minicircuit, not the full concatenated circuit)
     for (size_t i = Flavor::RESULT_ROW; i < mini_circuit_size_without_masking; i += 2) {
         prover_polynomials.lagrange_even_in_minicircuit.at(i) = 1;
@@ -114,14 +106,12 @@ TEST_F(TranslatorRelationCorrectnessTests, Decomposition)
     ProverPolynomials prover_polynomials;
     constexpr size_t full_circuit_size = Flavor::MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_GROUP_SIZE;
 
-    // Reallocate lagrange polynomials to full circuit size for manual testing
+    // Reallocate to start at index 0: the constructor allocates lagrange_odd starting at RESULT_ROW+1,
+    // but this test needs it filled from index 0 to cover the full decomposition check range.
     prover_polynomials.lagrange_odd_in_minicircuit = typename Flavor::Polynomial(full_circuit_size);
 
-    auto lagrange_odd_in_minicircuit = prover_polynomials.lagrange_odd_in_minicircuit;
     // Fill in lagrange odd polynomial (the only non-witness one we are using)
-    for (size_t i = prover_polynomials.lagrange_odd_in_minicircuit.start_index();
-         i < lagrange_odd_in_minicircuit.end_index();
-         i += 2) {
+    for (size_t i = 0; i < full_circuit_size; i += 2) {
         prover_polynomials.lagrange_odd_in_minicircuit.at(i) = 1;
     }
 
@@ -535,12 +525,6 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
 
     // Create storage for polynomials
     ProverPolynomials prover_polynomials = TranslatorFlavor::ProverPolynomials();
-    constexpr size_t full_circuit_size = Flavor::MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_GROUP_SIZE;
-
-    // Reallocate lagrange polynomials to full circuit size for manual testing
-    prover_polynomials.lagrange_even_in_minicircuit = typename Flavor::Polynomial(full_circuit_size);
-    prover_polynomials.lagrange_odd_in_minicircuit = typename Flavor::Polynomial(full_circuit_size);
-
     // Copy values of wires used in the non-native field relation from the circuit builder
     for (size_t i = Builder::NUM_NO_OPS_START + Builder::NUM_RANDOM_OPS_START;
          i < circuit_builder.num_gates() - Builder::NUM_RANDOM_OPS_END;

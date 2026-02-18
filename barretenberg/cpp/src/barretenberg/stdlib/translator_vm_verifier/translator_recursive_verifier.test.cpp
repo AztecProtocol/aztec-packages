@@ -295,17 +295,6 @@ class TranslatorRecursiveTests : public ::testing::Test {
         auto graph = cdg::UltraStaticAnalyzer(outer_circuit);
         auto [cc, variables_in_one_gate] = graph.analyze_circuit(/*filter_cc=*/true);
 
-        for (auto var_idx : variables_in_one_gate) {
-            auto real_idx = outer_circuit.real_variable_index[var_idx];
-            info("Variable in one gate: var_idx=",
-                 var_idx,
-                 " real_idx=",
-                 real_idx,
-                 " value=",
-                 outer_circuit.get_variable(var_idx));
-            graph.print_variable_info(real_idx);
-        }
-
         EXPECT_EQ(variables_in_one_gate.size(), 0);
     }
 };

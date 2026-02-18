@@ -117,7 +117,6 @@ void put_translation_data_in_relation_parameters_impl(RelationParameters<typenam
         limb.clear_round_provenance();
     }
 }
-
 } // namespace
 
 template <typename Flavor> void TranslatorVerifier_<Flavor>::put_translation_data_in_relation_parameters()
@@ -155,12 +154,13 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
         mark_witness_as_used(accumulated_result.prime_basis_limb);
     }
 
+    // Use accumulated_result from ECCVM verifier
     put_translation_data_in_relation_parameters();
 
     // Receive Gemini masking polynomial commitment (for ZK-PCS)
     commitments.gemini_masking_poly = transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
 
-    // Op queue wire commitments are provided by merge protocol, not from the translator proof
+    // Set op queue wire commitments (provided by merge protocol, not from translator proof)
     commitments.op = op_queue_wire_commitments[0];
     commitments.x_lo_y_hi = op_queue_wire_commitments[1];
     commitments.x_hi_z_1 = op_queue_wire_commitments[2];
@@ -172,16 +172,21 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
 
-    // Permutation challenges
+    // Get permutation challenges
     FF beta = transcript->template get_challenge<FF>("beta");
     FF gamma = transcript->template get_challenge<FF>("gamma");
+
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
 
+    // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
-    // --- Sumcheck ---
+    // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
+    //  i = 0, ..., NUM_SUBRELATIONS- 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+
+    // Execute Sumcheck Verifier
     Sumcheck sumcheck(transcript, alpha, TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
 
     std::vector<FF> gate_challenges(TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
@@ -189,14 +194,15 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    // Receive first Libra commitment before sumcheck
+    // Receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
+    // Create padding indicator array
     std::vector<FF> padding_indicator_array(TranslatorFlavor::CONST_TRANSLATOR_LOG_N, FF(1));
+
     auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
 
-    // Receive remaining Libra commitments after sumcheck
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
@@ -244,6 +250,9 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
                                                sumcheck_output.claimed_libra_evaluation);
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
+
+    vinfo("Translator Verifier: sumcheck verified: ", sumcheck_output.verified);
+    vinfo("Translator Verifier: consistency checked: ", consistency_checked);
 
     return { pairing_points, sumcheck_output.verified && consistency_checked };
 }

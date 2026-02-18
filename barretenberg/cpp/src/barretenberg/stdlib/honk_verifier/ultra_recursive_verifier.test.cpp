@@ -456,7 +456,6 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
         EXPECT_EQ(cc.size(), 1);
 
         // Expected variables in one gate:
-        // - +1 for unused Shplonk power (non-ZK flavors only)
         size_t expected_unconstrained = 0;
         EXPECT_EQ(variables_in_one_gate.size(), expected_unconstrained);
     }

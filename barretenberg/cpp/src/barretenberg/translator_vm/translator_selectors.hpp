@@ -219,7 +219,7 @@ template <typename FF, size_t LOG_MINI_CIRCUIT_SIZE> struct TranslatorSelectorEv
     }
 
     /**
-     * @brief Write all 11 computed evaluations into any entity struct with matching named fields.
+     * @brief Write all 10 computed evaluations into any entity struct with matching named fields.
      * @details Works for AllValues, AllEntities<FF>, PrecomputedEntities<FF>, native or stdlib.
      */
     template <typename Entities> void populate(Entities& target) const
