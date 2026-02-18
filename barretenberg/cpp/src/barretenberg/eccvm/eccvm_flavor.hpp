@@ -503,8 +503,8 @@ class ECCVMFlavor {
          *          transcript_add/mul/eq/reset_accumulator: boolean selectors that toggle add/mul/eq/reset opcodes
          trigger
          * incomplete addition rules
-         *          transcript_msm_transition: is current transcript row the final `mul` opcode of a multiscalar
-         multiplication?
+         *          transcript_msm_transition: is current transcript row the final `mul` opcode of a non-trivial
+         multiscalar multiplication?
          *          transcript_pc: point counter for transcript columns
          *          transcript_msm_count: counts number of muls processed in an ongoing multiscalar multiplication
          *          transcript_Px: input transcript point, x-coordinate
@@ -549,7 +549,8 @@ class ECCVMFlavor {
          *          precompute_dx: x-coordinate of D = 2 * input point we are evaluating Straus over
          *          precompute_dy: y-coordinate of D
          *          msm_pc: point counter for Straus MSM columns
-         *          msm_transition: 1 if current row evaluates different MSM to previous row
+         *          msm_transition: 1 if the current row starts the processing of a different MSM, else 0. EDGE CASE:
+         this is also 1 after the final active row in the MSM table.
          *          msm_add: 1 if we are adding points in Straus MSM algorithm at current row
          *          msm_double: 1 if we are doubling accumulator in Straus MSM algorithm at current row
          *          msm_skew: 1 if we are adding skew points in Straus MSM algorithm at current row

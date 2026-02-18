@@ -2,8 +2,7 @@ import {
   AVM_EMITNOTEHASH_BASE_L2_GAS,
   AVM_EMITNULLIFIER_BASE_L2_GAS,
   AVM_SENDL2TOL1MSG_BASE_L2_GAS,
-  DA_BYTES_PER_FIELD,
-  DA_GAS_PER_BYTE,
+  DA_GAS_PER_FIELD,
   FIXED_AVM_STARTUP_L2_GAS,
   FIXED_DA_GAS,
   FIXED_L2_GAS,
@@ -656,7 +655,7 @@ export async function generateSimulatedProvingResult(
     constantData,
     /*gasUsed=*/ gasUsed.add(Gas.from({ l2Gas: FIXED_L2_GAS, daGas: FIXED_DA_GAS })),
     /*feePayer=*/ AztecAddress.zero(),
-    /*includeByTimestamp=*/ 0n,
+    /*expirationTimestamp=*/ 0n,
     hasPublicCalls ? inputsForPublic : undefined,
     !hasPublicCalls ? inputsForRollup : undefined,
   );
@@ -818,7 +817,7 @@ function meterGasUsed(data: PrivateToRollupAccumulatedData | PrivateToPublicAccu
   );
   meteredL2Gas += numContractClassLogs * L2_GAS_PER_CONTRACT_CLASS_LOG;
 
-  const meteredDAGas = meteredDAFields * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+  const meteredDAGas = meteredDAFields * DA_GAS_PER_FIELD;
 
   if ((data as PrivateToPublicAccumulatedData).publicCallRequests) {
     const dataForPublic = data as PrivateToPublicAccumulatedData;

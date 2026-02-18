@@ -14,7 +14,7 @@ Read `.release-please-manifest.json` to get the version (e.g., `{"." : "4.0.0"}`
 **Target files:**
 
 - Aztec contract developers: `docs/docs-developers/docs/resources/migration_notes.md`
-- Node operators and Ethereum contract developers: `docs/docs-network/reference/changelog/v{major}.md`
+- Node operators and Ethereum contract developers: `docs/docs-operate/operators/reference/changelog/v{major}.md`
 
 ### 2. Analyze Branch Changes
 
@@ -60,7 +60,7 @@ Explanation of what changed.
 
 ## Node Operator Changelog Format
 
-**File:** `docs/docs-network/reference/changelog/v{major}.md`
+**File:** `docs/docs-operate/operators/reference/changelog/v{major}.md`
 
 **Breaking changes:**
 ````markdown

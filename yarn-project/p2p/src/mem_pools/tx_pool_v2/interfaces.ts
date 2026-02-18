@@ -4,6 +4,7 @@ import type { L2Block, L2BlockId, L2BlockSource } from '@aztec/stdlib/block';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { BlockHeader, Tx, TxHash, TxValidator } from '@aztec/stdlib/tx';
 
+import type { TxPoolRejectionError } from './eviction/interfaces.js';
 import type { TxMetaData, TxState } from './tx_metadata.js';
 
 /**
@@ -17,6 +18,8 @@ export type AddTxsResult = {
   ignored: TxHash[];
   /** Transactions rejected because they failed validation (e.g., invalid proof, expired timestamp) */
   rejected: TxHash[];
+  /** Optional rejection errors, only present when there are rejections with structured errors. */
+  errors?: Map<string, TxPoolRejectionError>;
 };
 
 /**
@@ -162,7 +165,7 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
    * and validates them before returning to pending.
    * @param latestBlock - The latest valid block ID after the prune
    */
-  handlePrunedBlocks(latestBlock: L2BlockId): Promise<void>;
+  handlePrunedBlocks(latestBlock: L2BlockId, options?: { deleteAllTxs?: boolean }): Promise<void>;
 
   /**
    * Handles failed transaction execution.

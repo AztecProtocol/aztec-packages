@@ -54,7 +54,7 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
       initialConfig: {
         enforceTimeTable: true,
         cancelTxOnTimeout: false,
-        publisherAllowInvalidStates: true,
+        sequencerPublisherAllowInvalidStates: true,
         listenAddress: '127.0.0.1',
         aztecEpochDuration,
         ethereumSlotDuration,

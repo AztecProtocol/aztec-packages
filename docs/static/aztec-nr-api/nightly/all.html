@@ -133,7 +133,7 @@
 <li><a href="noir_aztec/protocol/abis/tree_snapshots/struct.TreeSnapshots.html">noir_aztec::protocol::abis::tree_snapshots::TreeSnapshots</a></li>
 <li><a href="noir_aztec/protocol/abis/tx_constant_data/struct.TxConstantData.html">noir_aztec::protocol::abis::tx_constant_data::TxConstantData</a></li>
 <li><a href="noir_aztec/protocol/abis/validation_requests/key_validation_request/struct.KeyValidationRequest.html">noir_aztec::protocol::abis::validation_requests::key_validation_request::KeyValidationRequest</a></li>
-<li><a href="noir_aztec/protocol/abis/validation_requests/key_validation_request_and_generator/struct.KeyValidationRequestAndGenerator.html">noir_aztec::protocol::abis::validation_requests::key_validation_request_and_generator::KeyValidationRequestAndGenerator</a></li>
+<li><a href="noir_aztec/protocol/abis/validation_requests/key_validation_request_and_separator/struct.KeyValidationRequestAndSeparator.html">noir_aztec::protocol::abis::validation_requests::key_validation_request_and_separator::KeyValidationRequestAndSeparator</a></li>
 <li><a href="noir_aztec/protocol/abis/validation_requests/private_validation_requests/struct.PrivateValidationRequests.html">noir_aztec::protocol::abis::validation_requests::private_validation_requests::PrivateValidationRequests</a></li>
 <li><a href="noir_aztec/protocol/address/aztec_address/struct.AztecAddress.html">noir_aztec::protocol::address::aztec_address::AztecAddress</a></li>
 <li><a href="noir_aztec/protocol/address/eth_address/struct.EthAddress.html">noir_aztec::protocol::address::eth_address::EthAddress</a></li>
@@ -237,7 +237,7 @@
 <li><a href="noir_aztec/keys/constants/global.NUM_KEY_TYPES.html">noir_aztec::keys::constants::NUM_KEY_TYPES</a></li>
 <li><a href="noir_aztec/keys/constants/global.OUTGOING_INDEX.html">noir_aztec::keys::constants::OUTGOING_INDEX</a></li>
 <li><a href="noir_aztec/keys/constants/global.TAGGING_INDEX.html">noir_aztec::keys::constants::TAGGING_INDEX</a></li>
-<li><a href="noir_aztec/keys/constants/global.sk_generators.html">noir_aztec::keys::constants::sk_generators</a></li>
+<li><a href="noir_aztec/keys/constants/global.public_key_domain_separators.html">noir_aztec::keys::constants::public_key_domain_separators</a></li>
 <li><a href="noir_aztec/macros/events/global.EVENT_SELECTORS.html">noir_aztec::macros::events::EVENT_SELECTORS</a></li>
 <li><a href="noir_aztec/macros/notes/global.NOTES.html">noir_aztec::macros::notes::NOTES</a></li>
 <li><a href="noir_aztec/macros/storage/global.STORAGE_LAYOUT_NAME.html">noir_aztec::macros::storage::STORAGE_LAYOUT_NAME</a></li>
@@ -284,7 +284,7 @@
 <li><a href="noir_aztec/protocol/constants/global.AVM_DIV_BASE_L2_GAS.html">noir_aztec::protocol::constants::AVM_DIV_BASE_L2_GAS</a></li>
 <li><a href="noir_aztec/protocol/constants/global.AVM_DYN_GAS_ID_BITWISE.html">noir_aztec::protocol::constants::AVM_DYN_GAS_ID_BITWISE</a></li>
 <li><a href="noir_aztec/protocol/constants/global.AVM_DYN_GAS_ID_CALLDATACOPY.html">noir_aztec::protocol::constants::AVM_DYN_GAS_ID_CALLDATACOPY</a></li>
-<li><a href="noir_aztec/protocol/constants/global.AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG.html">noir_aztec::protocol::constants::AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG</a></li>
+<li><a href="noir_aztec/protocol/constants/global.AVM_DYN_GAS_ID_EMITPUBLICLOG.html">noir_aztec::protocol::constants::AVM_DYN_GAS_ID_EMITPUBLICLOG</a></li>
 <li><a href="noir_aztec/protocol/constants/global.AVM_DYN_GAS_ID_RETURNDATACOPY.html">noir_aztec::protocol::constants::AVM_DYN_GAS_ID_RETURNDATACOPY</a></li>
 <li><a href="noir_aztec/protocol/constants/global.AVM_DYN_GAS_ID_SSTORE.html">noir_aztec::protocol::constants::AVM_DYN_GAS_ID_SSTORE</a></li>
 <li><a href="noir_aztec/protocol/constants/global.AVM_DYN_GAS_ID_TORADIX.html">noir_aztec::protocol::constants::AVM_DYN_GAS_ID_TORADIX</a></li>
@@ -293,10 +293,10 @@
 <li><a href="noir_aztec/protocol/constants/global.AVM_EMITNOTEHASH_BASE_L2_GAS.html">noir_aztec::protocol::constants::AVM_EMITNOTEHASH_BASE_L2_GAS</a></li>
 <li><a href="noir_aztec/protocol/constants/global.AVM_EMITNULLIFIER_BASE_DA_GAS.html">noir_aztec::protocol::constants::AVM_EMITNULLIFIER_BASE_DA_GAS</a></li>
 <li><a href="noir_aztec/protocol/constants/global.AVM_EMITNULLIFIER_BASE_L2_GAS.html">noir_aztec::protocol::constants::AVM_EMITNULLIFIER_BASE_L2_GAS</a></li>
-<li><a href="noir_aztec/protocol/constants/global.AVM_EMITUNENCRYPTEDLOG_BASE_DA_GAS.html">noir_aztec::protocol::constants::AVM_EMITUNENCRYPTEDLOG_BASE_DA_GAS</a></li>
-<li><a href="noir_aztec/protocol/constants/global.AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS.html">noir_aztec::protocol::constants::AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS</a></li>
-<li><a href="noir_aztec/protocol/constants/global.AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS.html">noir_aztec::protocol::constants::AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS</a></li>
-<li><a href="noir_aztec/protocol/constants/global.AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS.html">noir_aztec::protocol::constants::AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS</a></li>
+<li><a href="noir_aztec/protocol/constants/global.AVM_EMITPUBLICLOG_BASE_DA_GAS.html">noir_aztec::protocol::constants::AVM_EMITPUBLICLOG_BASE_DA_GAS</a></li>
+<li><a href="noir_aztec/protocol/constants/global.AVM_EMITPUBLICLOG_BASE_L2_GAS.html">noir_aztec::protocol::constants::AVM_EMITPUBLICLOG_BASE_L2_GAS</a></li>
+<li><a href="noir_aztec/protocol/constants/global.AVM_EMITPUBLICLOG_DYN_DA_GAS.html">noir_aztec::protocol::constants::AVM_EMITPUBLICLOG_DYN_DA_GAS</a></li>
+<li><a href="noir_aztec/protocol/constants/global.AVM_EMITPUBLICLOG_DYN_L2_GAS.html">noir_aztec::protocol::constants::AVM_EMITPUBLICLOG_DYN_L2_GAS</a></li>
 <li><a href="noir_aztec/protocol/constants/global.AVM_EQ_BASE_L2_GAS.html">noir_aztec::protocol::constants::AVM_EQ_BASE_L2_GAS</a></li>
 <li><a href="noir_aztec/protocol/constants/global.AVM_EXEC_OP_ID_ALU_ADD.html">noir_aztec::protocol::constants::AVM_EXEC_OP_ID_ALU_ADD</a></li>
 <li><a href="noir_aztec/protocol/constants/global.AVM_EXEC_OP_ID_ALU_DIV.html">noir_aztec::protocol::constants::AVM_EXEC_OP_ID_ALU_DIV</a></li>
@@ -450,7 +450,7 @@
 <li><a href="noir_aztec/protocol/constants/global.AVM_SUBTRACE_ID_CALLDATA_COPY.html">noir_aztec::protocol::constants::AVM_SUBTRACE_ID_CALLDATA_COPY</a></li>
 <li><a href="noir_aztec/protocol/constants/global.AVM_SUBTRACE_ID_CAST.html">noir_aztec::protocol::constants::AVM_SUBTRACE_ID_CAST</a></li>
 <li><a href="noir_aztec/protocol/constants/global.AVM_SUBTRACE_ID_ECC.html">noir_aztec::protocol::constants::AVM_SUBTRACE_ID_ECC</a></li>
-<li><a href="noir_aztec/protocol/constants/global.AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG.html">noir_aztec::protocol::constants::AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG</a></li>
+<li><a href="noir_aztec/protocol/constants/global.AVM_SUBTRACE_ID_EMITPUBLICLOG.html">noir_aztec::protocol::constants::AVM_SUBTRACE_ID_EMITPUBLICLOG</a></li>
 <li><a href="noir_aztec/protocol/constants/global.AVM_SUBTRACE_ID_EXECUTION.html">noir_aztec::protocol::constants::AVM_SUBTRACE_ID_EXECUTION</a></li>
 <li><a href="noir_aztec/protocol/constants/global.AVM_SUBTRACE_ID_GETCONTRACTINSTANCE.html">noir_aztec::protocol::constants::AVM_SUBTRACE_ID_GETCONTRACTINSTANCE</a></li>
 <li><a href="noir_aztec/protocol/constants/global.AVM_SUBTRACE_ID_KECCAKF1600.html">noir_aztec::protocol::constants::AVM_SUBTRACE_ID_KECCAKF1600</a></li>
@@ -524,6 +524,7 @@
 <li><a href="noir_aztec/protocol/constants/global.COUNTED_PUBLIC_CALL_REQUEST_LENGTH.html">noir_aztec::protocol::constants::COUNTED_PUBLIC_CALL_REQUEST_LENGTH</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DA_BYTES_PER_FIELD.html">noir_aztec::protocol::constants::DA_BYTES_PER_FIELD</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DA_GAS_PER_BYTE.html">noir_aztec::protocol::constants::DA_GAS_PER_BYTE</a></li>
+<li><a href="noir_aztec/protocol/constants/global.DA_GAS_PER_FIELD.html">noir_aztec::protocol::constants::DA_GAS_PER_FIELD</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DEFAULT_DA_GAS_LIMIT.html">noir_aztec::protocol::constants::DEFAULT_DA_GAS_LIMIT</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DEFAULT_IVPK_M_X.html">noir_aztec::protocol::constants::DEFAULT_IVPK_M_X</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DEFAULT_IVPK_M_Y.html">noir_aztec::protocol::constants::DEFAULT_IVPK_M_Y</a></li>
@@ -650,7 +651,6 @@
 <li><a href="noir_aztec/protocol/constants/global.MAX_ETH_ADDRESS_VALUE.html">noir_aztec::protocol::constants::MAX_ETH_ADDRESS_VALUE</a></li>
 <li><a href="noir_aztec/protocol/constants/global.MAX_FIELD_VALUE.html">noir_aztec::protocol::constants::MAX_FIELD_VALUE</a></li>
 <li><a href="noir_aztec/protocol/constants/global.MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS.html">noir_aztec::protocol::constants::MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS</a></li>
-<li><a href="noir_aztec/protocol/constants/global.MAX_INCLUDE_BY_TIMESTAMP_DURATION.html">noir_aztec::protocol::constants::MAX_INCLUDE_BY_TIMESTAMP_DURATION</a></li>
 <li><a href="noir_aztec/protocol/constants/global.MAX_KEY_VALIDATION_REQUESTS_PER_CALL.html">noir_aztec::protocol::constants::MAX_KEY_VALIDATION_REQUESTS_PER_CALL</a></li>
 <li><a href="noir_aztec/protocol/constants/global.MAX_KEY_VALIDATION_REQUESTS_PER_TX.html">noir_aztec::protocol::constants::MAX_KEY_VALIDATION_REQUESTS_PER_TX</a></li>
 <li><a href="noir_aztec/protocol/constants/global.MAX_L2_TO_L1_MSGS_PER_CALL.html">noir_aztec::protocol::constants::MAX_L2_TO_L1_MSGS_PER_CALL</a></li>
@@ -679,6 +679,7 @@
 <li><a href="noir_aztec/protocol/constants/global.MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX.html">noir_aztec::protocol::constants::MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX</a></li>
 <li><a href="noir_aztec/protocol/constants/global.MAX_PUBLIC_LOG_SIZE_IN_FIELDS.html">noir_aztec::protocol::constants::MAX_PUBLIC_LOG_SIZE_IN_FIELDS</a></li>
 <li><a href="noir_aztec/protocol/constants/global.MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX.html">noir_aztec::protocol::constants::MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX</a></li>
+<li><a href="noir_aztec/protocol/constants/global.MAX_TX_LIFETIME.html">noir_aztec::protocol::constants::MAX_TX_LIFETIME</a></li>
 <li><a href="noir_aztec/protocol/constants/global.MAX_U32_VALUE.html">noir_aztec::protocol::constants::MAX_U32_VALUE</a></li>
 <li><a href="noir_aztec/protocol/constants/global.MAX_U64_VALUE.html">noir_aztec::protocol::constants::MAX_U64_VALUE</a></li>
 <li><a href="noir_aztec/protocol/constants/global.MEGA_VK_LENGTH_IN_FIELDS.html">noir_aztec::protocol::constants::MEGA_VK_LENGTH_IN_FIELDS</a></li>

@@ -12,6 +12,7 @@ import {
   type PoolOperations,
   type PreAddPoolAccess,
   type PreAddRule,
+  TxPoolRejectionCode,
 } from './interfaces.js';
 
 describe('EvictionManager', () => {
@@ -181,7 +182,7 @@ describe('EvictionManager', () => {
       claimAmount: 0n,
       feeLimit: 100n,
       nullifiers: [`0x${txHash.slice(2)}null1`],
-      includeByTimestamp: 0n,
+      expirationTimestamp: 0n,
       receivedAt: 0,
       estimatedSizeBytes: 0,
       data: stubTxMetaValidationData(),
@@ -226,10 +227,15 @@ describe('EvictionManager', () => {
     it('returns ignore result immediately when a rule says to ignore', async () => {
       const preAddRule2 = mock<PreAddRule>({ name: 'preAddRule2' });
 
+      const testReason = {
+        code: 'NULLIFIER_CONFLICT' as const,
+        message: 'test reason',
+        conflictingTxHash: '0x9999',
+      };
       preAddRule.check.mockResolvedValue({
         shouldIgnore: true,
         txHashesToEvict: [],
-        reason: 'test reason',
+        reason: testReason,
       });
       preAddRule2.check.mockResolvedValue({
         shouldIgnore: false,
@@ -243,7 +249,7 @@ describe('EvictionManager', () => {
       const result = await evictionManager.runPreAddRules(incomingMeta, poolAccess);
 
       expect(result.shouldIgnore).toBe(true);
-      expect(result.reason).toBe('test reason');
+      expect(result.reason).toEqual(testReason);
       expect(preAddRule.check).toHaveBeenCalledTimes(1);
       // Second rule should not be called since first rule ignored
       expect(preAddRule2.check).not.toHaveBeenCalled();
@@ -332,7 +338,7 @@ describe('EvictionManager', () => {
         claimAmount: 0n,
         feeLimit: 100n,
         nullifiers: [`0x${txHash.slice(2)}null1`],
-        includeByTimestamp: 0n,
+        expirationTimestamp: 0n,
         receivedAt: 0,
         estimatedSizeBytes: 0,
         data: stubTxMetaValidationData(),
@@ -351,7 +357,9 @@ describe('EvictionManager', () => {
       const result = await evictionManager.runPreAddRules(incomingMeta, poolAccess);
 
       expect(result.shouldIgnore).toBe(true);
-      expect(result.reason).toContain('failingRule');
+      expect(result.reason).toBeDefined();
+      expect(result.reason!.code).toBe(TxPoolRejectionCode.INTERNAL_ERROR);
+      expect(result.reason!.message).toContain('failingRule');
       expect(result.txHashesToEvict).toHaveLength(0);
       // Second rule should not be called since first rule threw
       expect(preAddRule2.check).not.toHaveBeenCalled();

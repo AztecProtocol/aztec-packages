@@ -573,6 +573,12 @@ export const FISHERMAN_FEE_ANALYSIS_BLOCK_BLOBS_FULL: MetricDefinition = {
   description: 'Whether the mined block reached 100% blob capacity',
   valueType: ValueType.INT,
 };
+export const FISHERMAN_FEE_ANALYSIS_MAX_BLOB_CAPACITY: MetricDefinition = {
+  name: 'aztec.fisherman.fee_analysis.max_blob_capacity',
+  description: 'Maximum blob capacity for the analyzed block based on L1 upgrade schedule',
+  unit: 'blobs',
+  valueType: ValueType.INT,
+};
 
 export const VALIDATOR_INVALID_ATTESTATION_RECEIVED_COUNT: MetricDefinition = {
   name: 'aztec.validator.invalid_attestation_received_count',
@@ -1394,6 +1400,28 @@ export const TX_FILE_STORE_UPLOAD_DURATION: MetricDefinition = {
 export const TX_FILE_STORE_QUEUE_SIZE: MetricDefinition = {
   name: 'aztec.p2p.tx_file_store.queue_size',
   description: 'Number of txs pending upload',
+  valueType: ValueType.INT,
+};
+export const TX_FILE_STORE_DOWNLOADS_SUCCESS: MetricDefinition = {
+  name: 'aztec.p2p.tx_file_store.downloads_success',
+  description: 'Number of successful tx downloads from file storage',
+  valueType: ValueType.INT,
+};
+export const TX_FILE_STORE_DOWNLOADS_FAILED: MetricDefinition = {
+  name: 'aztec.p2p.tx_file_store.downloads_failed',
+  description: 'Number of failed tx downloads from file storage',
+  valueType: ValueType.INT,
+};
+export const TX_FILE_STORE_DOWNLOAD_DURATION: MetricDefinition = {
+  name: 'aztec.p2p.tx_file_store.download_duration',
+  description: 'Duration to download a tx from file storage',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const TX_FILE_STORE_DOWNLOAD_SIZE: MetricDefinition = {
+  name: 'aztec.p2p.tx_file_store.download_size',
+  description: 'Size of a downloaded tx from file storage',
+  unit: 'By',
   valueType: ValueType.INT,
 };
 

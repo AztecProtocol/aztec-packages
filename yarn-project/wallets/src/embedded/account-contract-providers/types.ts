@@ -1,7 +1,7 @@
 import type { Account, AccountContract } from '@aztec/aztec.js/account';
 import type { Fq } from '@aztec/foundation/curves/bn254';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
-import type { CompleteAddress } from '@aztec/stdlib/contract';
+import type { CompleteAddress, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 /**
  * Provides account contract implementations and stub accounts for the EmbeddedWallet.
@@ -14,5 +14,6 @@ export interface AccountContractsProvider {
   getEcdsaRAccountContract(signingKey: Buffer): Promise<AccountContract>;
   getEcdsaKAccountContract(signingKey: Buffer): Promise<AccountContract>;
   getStubAccountContractArtifact(): Promise<ContractArtifact>;
+  getMulticallContract(): Promise<{ instance: ContractInstanceWithAddress; artifact: ContractArtifact }>;
   createStubAccount(address: CompleteAddress): Promise<Account>;
 }

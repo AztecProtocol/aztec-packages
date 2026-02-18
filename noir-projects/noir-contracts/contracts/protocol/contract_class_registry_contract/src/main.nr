@@ -1,6 +1,24 @@
 mod events;
 mod validate_bytecode;
 
+/// Protocol contract that tracks which contract classes have been published to the network.
+///
+/// In Aztec, contracts are split into *classes* and *instances* (deployments of a class at a unique address). This
+/// contract handles publishing of contract classes.
+///
+/// Every contract class must be registered here before any instance of that class can be deployed via the
+/// ContractInstanceRegistry - this applies even to contracts with no public functions. Registration is also
+/// a prerequisite for contract upgrades: the *new* class must be published before an existing deployed contract
+/// instance can update its class id (a contract instance that is not registered in ContractInstanceRegistry cannot
+/// be upgraded).
+///
+/// Registration works by emitting a nullifier keyed to the contract class id. Other protocol contracts
+/// (e.g. ContractInstanceRegistry) verify registration by asserting this nullifier exists.
+///
+/// Contracts with public functions need to have their bytecode published in order for for the sequencer to be
+/// guaranteed to be able to execute a public function (this is achieved by checking contract instance address
+/// nullifier exists by the AVM - see ContractInstanceRegistry for more details). ACIR of private functions does not
+/// need to be published here as private functions are executed on user devices.
 pub contract ContractClassRegistry {
     use crate::events::class_published::ContractClassPublished;
     use crate::validate_bytecode::validate_packed_public_bytecode;
@@ -16,6 +34,23 @@ pub contract ContractClassRegistry {
         },
     };
 
+    /// Publishes a contract class to the network.
+    ///
+    /// The caller provides the three components of the contract class id (artifact_hash, private_functions_root,
+    /// public_bytecode_commitment) together with the packed public bytecode loaded via a capsule. For contracts with
+    /// no public functions the bytecode is empty, but registration is still possible so that the instance can later be
+    /// deployed or upgraded.
+    ///
+    /// Note that there is only one public bytecode commitment per contract instead of per contract-function as
+    /// bytecode of public functions is merged into one `public_dispatch` function and the relevant code branch is then
+    /// executed based on the function selector.
+    ///
+    /// This function:
+    /// 1. Validates the packed bytecode against the provided commitment.
+    /// 2. Recomputes and emits the contract class id as a nullifier (preventing duplicate registration and serving as
+    /// a proof of publication).
+    /// 3. Broadcasts a `ContractClassPublished` event containing the full class metadata and bytecode so that nodes
+    /// can reconstruct the class.
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_private]
     fn publish(
         inputs: aztec::context::inputs::PrivateContextInputs,

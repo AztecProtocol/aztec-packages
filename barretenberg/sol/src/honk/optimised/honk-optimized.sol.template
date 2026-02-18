@@ -4573,55 +4573,68 @@ contract BlakeOptHonkVerifier is IVerifier {
                     let p1_other_y := mload(PAIRING_POINT_1_Y_0_LOC)
                     p1_other_y := or(shl(136, mload(PAIRING_POINT_1_Y_1_LOC)), p1_other_y)
 
-                    // Reconstructed coordinates must be < Q to prevent malleability
-                    if iszero(and(
-                        and(lt(p0_other_x, q), lt(p0_other_y, q)),
-                        and(lt(p1_other_x, q), lt(p1_other_y, q))
-                    )) {
-                        mstore(0x00, VALUE_GE_GROUP_ORDER_SELECTOR)
-                        revert(0x00, 0x04)
+                    // Check if pairing points are default (all zero = infinity = no recursive verification)
+                    let pairing_points_are_default := iszero(or(or(p0_other_x, p0_other_y), or(p1_other_x, p1_other_y)))
+
+                    let success := 1
+                    // Only aggregate if pairing points are non-default
+                    if iszero(pairing_points_are_default) {
+                        // Reconstructed coordinates must be < Q to prevent malleability
+                        if iszero(and(
+                            and(lt(p0_other_x, q), lt(p0_other_y, q)),
+                            and(lt(p1_other_x, q), lt(p1_other_y, q))
+                        )) {
+                            mstore(0x00, VALUE_GE_GROUP_ORDER_SELECTOR)
+                            revert(0x00, 0x04)
+                        }
+
+                        // Validate p_0_other not point of infinity
+                        success := iszero(iszero(or(p0_other_x, p0_other_y)))
+                        // Validate p_1_other not point of infinity
+                        success := and(success, iszero(iszero(or(p1_other_x, p1_other_y))))
+
+                        // p_0
+                        mstore(0x00, p0_other_x)
+                        mstore(0x20, p0_other_y)
+
+                        // p_1
+                        mstore(0x40, p1_other_x)
+                        mstore(0x60, p1_other_y)
+
+                        // p_1_agg is already in the correct location
+
+                        let recursion_separator := keccak256(0x00, 0x100)
+
+                        // Write separator back to scratch space
+                        mstore(0x00, p0_other_x)
+
+                        mstore(0x40, recursion_separator)
+                        // recursion_separator * p_0_other
+                        success := and(success, staticcall(gas(), 0x07, 0x00, 0x60, 0x00, 0x40))
+
+                        // (recursion_separator * p_0_other) + p_0_agg
+                        mcopy(0x40, 0x80, 0x40)
+                        // p_0 = (recursion_separator * p_0_other) + p_0_agg
+                        success := and(success, staticcall(gas(), 6, 0x00, 0x80, 0x00, 0x40))
+
+                        mstore(0x40, p1_other_x)
+                        mstore(0x60, p1_other_y)
+                        mstore(0x80, recursion_separator)
+
+                        success := and(success, staticcall(gas(), 7, 0x40, 0x60, 0x40, 0x40))
+
+                        // Write p_1_agg back to scratch space
+                        mcopy(0x80, 0xc0, 0x40)
+
+                        // 0xc0 - (recursion_separator * p_1_other) + p_1_agg
+                        success := and(success, staticcall(gas(), 6, 0x40, 0x80, 0xc0, 0x40))
                     }
-
-                    // Validate p_0_other not point of infinity
-                    let success := iszero(iszero(or(p0_other_x, p0_other_y)))
-                    // Validate p_1_other not point of infinity
-                    success := and(success, iszero(iszero(or(p1_other_x, p1_other_y))))
-
-                    // p_0
-                    mstore(0x00, p0_other_x)
-                    mstore(0x20, p0_other_y)
-
-                    // p_1
-                    mstore(0x40, p1_other_x)
-                    mstore(0x60, p1_other_y)
-
-                    // p_1_agg is already in the correct location
-
-                    let recursion_separator := keccak256(0x00, 0x100)
-
-                    // Write separator back to scratch space
-                    mstore(0x00, p0_other_x)
-
-                    mstore(0x40, recursion_separator)
-                    // recursion_separator * p_0_other
-                    success := and(success, staticcall(gas(), 0x07, 0x00, 0x60, 0x00, 0x40))
-
-                    // (recursion_separator * p_0_other) + p_0_agg
-                    mcopy(0x40, 0x80, 0x40)
-                    // p_0 = (recursion_separator * p_0_other) + p_0_agg
-                    success := and(success, staticcall(gas(), 6, 0x00, 0x80, 0x00, 0x40))
-
-                    mstore(0x40, p1_other_x)
-                    mstore(0x60, p1_other_y)
-                    mstore(0x80, recursion_separator)
-
-                    success := and(success, staticcall(gas(), 7, 0x40, 0x60, 0x40, 0x40))
-
-                    // Write p_1_agg back to scratch space
-                    mcopy(0x80, 0xc0, 0x40)
-
-                    // 0xc0 - (recursion_separator * p_1_other) + p_1_agg
-                    success := and(success, staticcall(gas(), 6, 0x40, 0x80, 0xc0, 0x40))
+                    // If default pairing points, use p_0_agg and p_1_agg directly (already at 0x80, 0xc0)
+                    if pairing_points_are_default {
+                        // Copy p_0_agg to 0x00 for pairing input
+                        mcopy(0x00, 0x80, 0x40)
+                        // p_1_agg stays at 0xc0
+                    }
 
                     // G2 [1]
                     mstore(0x40, 0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2)

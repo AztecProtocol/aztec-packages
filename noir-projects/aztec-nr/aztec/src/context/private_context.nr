@@ -1,7 +1,7 @@
 use crate::{
     context::{inputs::PrivateContextInputs, NoteExistenceRequest, NullifierExistenceRequest, ReturnsHash},
     hash::{hash_args, hash_calldata_array},
-    keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, sk_generators},
+    keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, public_key_domain_separators},
     messaging::process_l1_to_l2_message,
     oracle::{
         block_header::get_block_header_at,
@@ -30,14 +30,14 @@ use crate::protocol::{
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_log::{PrivateLog, PrivateLogData},
         public_call_request::PublicCallRequest,
-        validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},
+        validation_requests::{KeyValidationRequest, KeyValidationRequestAndSeparator},
     },
     address::{AztecAddress, EthAddress},
     constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
-        MAX_INCLUDE_BY_TIMESTAMP_DURATION, MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
-        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
-        MAX_NULLIFIERS_PER_CALL, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
+        MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+        MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL, MAX_TX_LIFETIME,
         NULL_MSG_SENDER_CONTRACT_ADDRESS, PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     hash::poseidon2_hash,
@@ -148,11 +148,11 @@ pub struct PrivateContext {
     pub args_hash: Field,
     pub return_hash: Field,
 
-    pub include_by_timestamp: u64,
+    pub expiration_timestamp: u64,
 
     pub(crate) note_hash_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     pub(crate) nullifier_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
-    key_validation_requests_and_generators: BoundedVec<KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
+    key_validation_requests_and_separators: BoundedVec<KeyValidationRequestAndSeparator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
     pub note_hashes: BoundedVec<Counted<NoteHash>, MAX_NOTE_HASHES_PER_CALL>,
     pub nullifiers: BoundedVec<Counted<Nullifier>, MAX_NULLIFIERS_PER_CALL>,
@@ -180,8 +180,6 @@ pub struct PrivateContext {
 
 impl PrivateContext {
     pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {
-        let max_allowed_include_by_timestamp =
-            inputs.anchor_block_header.global_variables.timestamp + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
         PrivateContext {
             inputs,
             side_effect_counter: inputs.start_side_effect_counter + 1,
@@ -189,10 +187,10 @@ impl PrivateContext {
             is_fee_payer: false,
             args_hash,
             return_hash: 0,
-            include_by_timestamp: max_allowed_include_by_timestamp,
+            expiration_timestamp: inputs.anchor_block_header.global_variables.timestamp + MAX_TX_LIFETIME,
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
-            key_validation_requests_and_generators: BoundedVec::new(),
+            key_validation_requests_and_separators: BoundedVec::new(),
             note_hashes: BoundedVec::new(),
             nullifiers: BoundedVec::new(),
             anchor_block_header: inputs.anchor_block_header,
@@ -430,7 +428,7 @@ impl PrivateContext {
     ///
     /// # Advanced
     /// * All private functions of a tx read from the same anchor block header.
-    /// * The protocol asserts that the `include_by_timestamp` of every tx is at most 24 hours beyond the timestamp of
+    /// * The protocol asserts that the `expiration_timestamp` of every tx is at most 24 hours beyond the timestamp of
     /// the tx's chosen anchor block header. This enables the network's nodes to safely prune old txs from the mempool.
     /// Therefore, the chosen block header _must_ be one from within the last 24 hours.
     ///
@@ -496,11 +494,11 @@ impl PrivateContext {
             returns_hash: self.return_hash,
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             is_fee_payer: self.is_fee_payer,
-            include_by_timestamp: self.include_by_timestamp,
+            expiration_timestamp: self.expiration_timestamp,
             note_hash_read_requests: ClaimedLengthArray::from_bounded_vec(self.note_hash_read_requests),
             nullifier_read_requests: ClaimedLengthArray::from_bounded_vec(self.nullifier_read_requests),
-            key_validation_requests_and_generators: ClaimedLengthArray::from_bounded_vec(
-                self.key_validation_requests_and_generators,
+            key_validation_requests_and_separators: ClaimedLengthArray::from_bounded_vec(
+                self.key_validation_requests_and_separators,
             ),
             note_hashes: ClaimedLengthArray::from_bounded_vec(self.note_hashes),
             nullifiers: ClaimedLengthArray::from_bounded_vec(self.nullifiers),
@@ -598,11 +596,11 @@ impl PrivateContext {
     /// This expiry timestamp is publicly visible. See the "Advanced" section for privacy concerns.
     ///
     /// # Arguments
-    /// * `include_by_timestamp` - Unix timestamp (seconds) deadline for inclusion. The include-by timestamp of this tx
+    /// * `expiration_timestamp` - Unix timestamp (seconds) deadline for inclusion. The include-by timestamp of this tx
     /// will be _at most_ the timestamp specified.
     ///
     /// # Advanced
-    /// * If multiple functions set differing `include_by_timestamp`s, the kernel circuits will set it to be the
+    /// * If multiple functions set differing `expiration_timestamp`s, the kernel circuits will set it to be the
     /// _minimum_ of the two. This ensures the tx expiry requirements of all functions in the tx are met.
     /// * Rollup circuits will reject expired txs.
     /// * The protocol enforces that all transactions must be included within 24 hours of their chosen anchor block's
@@ -617,10 +615,10 @@ impl PrivateContext {
     /// will need to be discussed. Wallets that deviate from a standard might accidentally reveal which wallet each
     /// transaction originates from.
     ///
-    // docs:start:include-by-timestamp
-    pub fn set_include_by_timestamp(&mut self, include_by_timestamp: u64) {
-        // docs:end:include-by-timestamp
-        self.include_by_timestamp = std::cmp::min(self.include_by_timestamp, include_by_timestamp);
+    // docs:start:expiration-timestamp
+    pub fn set_expiration_timestamp(&mut self, expiration_timestamp: u64) {
+        // docs:end:expiration-timestamp
+        self.expiration_timestamp = std::cmp::min(self.expiration_timestamp, expiration_timestamp);
     }
 
     /// Asserts that a note has been created.
@@ -798,8 +796,11 @@ impl PrivateContext {
             let request = unsafe { get_key_validation_request(pk_m_hash, key_index) };
             assert_eq(request.pk_m.hash(), pk_m_hash, "Obtained invalid key validation request");
 
-            self.key_validation_requests_and_generators.push(
-                KeyValidationRequestAndGenerator { request, sk_app_generator: sk_generators[key_index as u32] },
+            self.key_validation_requests_and_separators.push(
+                KeyValidationRequestAndSeparator {
+                    request,
+                    key_type_domain_separator: public_key_domain_separators[key_index as u32],
+                },
             );
             self.last_key_validation_requests[key_index as u32] = Option::some(request);
             request.sk_app
@@ -1460,10 +1461,10 @@ impl Empty for PrivateContext {
             is_fee_payer: false,
             args_hash: 0,
             return_hash: 0,
-            include_by_timestamp: 0,
+            expiration_timestamp: 0,
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
-            key_validation_requests_and_generators: BoundedVec::new(),
+            key_validation_requests_and_separators: BoundedVec::new(),
             note_hashes: BoundedVec::new(),
             nullifiers: BoundedVec::new(),
             private_call_requests: BoundedVec::new(),

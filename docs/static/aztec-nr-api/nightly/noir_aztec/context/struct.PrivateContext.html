@@ -25,7 +25,7 @@
 <li><a href="#structfield.contract_class_logs_hashes">contract_class_logs_hashes</a></li>
 <li><a href="#structfield.expected_non_revertible_side_effect_counter">expected_non_revertible_side_effect_counter</a></li>
 <li><a href="#structfield.expected_revertible_side_effect_counter">expected_revertible_side_effect_counter</a></li>
-<li><a href="#structfield.include_by_timestamp">include_by_timestamp</a></li>
+<li><a href="#structfield.expiration_timestamp">expiration_timestamp</a></li>
 <li><a href="#structfield.inputs">inputs</a></li>
 <li><a href="#structfield.is_fee_payer">is_fee_payer</a></li>
 <li><a href="#structfield.l2_to_l1_msgs">l2_to_l1_msgs</a></li>
@@ -72,7 +72,7 @@
 <li><a href="#request_ovsk_app">request_ovsk_app</a></li>
 <li><a href="#selector">selector</a></li>
 <li><a href="#set_as_fee_payer">set_as_fee_payer</a></li>
-<li><a href="#set_include_by_timestamp">set_include_by_timestamp</a></li>
+<li><a href="#set_expiration_timestamp">set_expiration_timestamp</a></li>
 <li><a href="#set_public_teardown_function">set_public_teardown_function</a></li>
 <li><a href="#set_public_teardown_function_with_calldata_hash">set_public_teardown_function_with_calldata_hash</a></li>
 <li><a href="#set_return_hash">set_return_hash</a></li>
@@ -113,7 +113,7 @@
     pub is_fee_payer: <a href="../../std/primitive.bool.html" class="primitive">bool</a>,
     pub args_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
     pub return_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
-    pub include_by_timestamp: <a href="../../std/primitive.u64.html" class="primitive">u64</a>,
+    pub expiration_timestamp: <a href="../../std/primitive.u64.html" class="primitive">u64</a>,
     pub note_hashes: <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../protocol_types/abis/note_hash/type.NoteHash.html" class="type">NoteHash</a>&gt;, 16&gt;,
     pub nullifiers: <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../protocol_types/abis/nullifier/struct.Nullifier.html" class="struct">Nullifier</a>&gt;, 16&gt;,
     pub private_call_requests: <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../protocol_types/abis/private_call_request/struct.PrivateCallRequest.html" class="struct">PrivateCallRequest</a>, 8&gt;,
@@ -231,7 +231,7 @@ they're making a mistake, as an error will be thrown by the LSP or when they com
 <div class="padded-description"></div><div id="structfield.is_fee_payer" class="struct-field"><code class="code-header">is_fee_payer: <a href="../../std/primitive.bool.html" class="primitive">bool</a></code></div>
 <div class="padded-description"></div><div id="structfield.args_hash" class="struct-field"><code class="code-header">args_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.return_hash" class="struct-field"><code class="code-header">return_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
-<div class="padded-description"></div><div id="structfield.include_by_timestamp" class="struct-field"><code class="code-header">include_by_timestamp: <a href="../../std/primitive.u64.html" class="primitive">u64</a></code></div>
+<div class="padded-description"></div><div id="structfield.expiration_timestamp" class="struct-field"><code class="code-header">expiration_timestamp: <a href="../../std/primitive.u64.html" class="primitive">u64</a></code></div>
 <div class="padded-description"></div><div id="structfield.note_hashes" class="struct-field"><code class="code-header">note_hashes: <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../protocol_types/abis/note_hash/type.NoteHash.html" class="type">NoteHash</a>&gt;, 16&gt;</code></div>
 <div class="padded-description"></div><div id="structfield.nullifiers" class="struct-field"><code class="code-header">nullifiers: <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../protocol_types/abis/nullifier/struct.Nullifier.html" class="struct">Nullifier</a>&gt;, 16&gt;</code></div>
 <div class="padded-description"></div><div id="structfield.private_call_requests" class="struct-field"><code class="code-header">private_call_requests: <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../protocol_types/abis/private_call_request/struct.PrivateCallRequest.html" class="struct">PrivateCallRequest</a>, 8&gt;</code></div>
@@ -447,7 +447,7 @@ the chain (the &quot;current state&quot;) will have progressed forward.</p>
 <h4>Advanced</h4>
 <ul>
 <li>All private functions of a tx read from the same anchor block header.</li>
-<li>The protocol asserts that the <code>include_by_timestamp</code> of every tx is at most 24 hours beyond the timestamp of
+<li>The protocol asserts that the <code>expiration_timestamp</code> of every tx is at most 24 hours beyond the timestamp of
 the tx's chosen anchor block header. This enables the network's nodes to safely prune old txs from the mempool.
 Therefore, the chosen block header <em>must</em> be one from within the last 24 hours.</li>
 </ul>
@@ -533,7 +533,7 @@ were enqueued <em>within the setup phase</em> by a private function are consider
 counter.</li>
 </ul>
 </div>
-</div><code id="set_include_by_timestamp" class="code-header">pub fn <a href="#set_include_by_timestamp"><span class="fn">set_include_by_timestamp</span></a>(&mut self, include_by_timestamp: <a href="../../std/primitive.u64.html" class="primitive">u64</a>)</code>
+</div><code id="set_expiration_timestamp" class="code-header">pub fn <a href="#set_expiration_timestamp"><span class="fn">set_expiration_timestamp</span></a>(&mut self, expiration_timestamp: <a href="../../std/primitive.u64.html" class="primitive">u64</a>)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Sets a deadline (an &quot;include-by timestamp&quot;) for when this transaction must be included in a block.</p>
@@ -545,12 +545,12 @@ be included.</p>
 <p>This expiry timestamp is publicly visible. See the &quot;Advanced&quot; section for privacy concerns.</p>
 <h4>Arguments</h4>
 <ul>
-<li><code>include_by_timestamp</code> - Unix timestamp (seconds) deadline for inclusion. The include-by timestamp of this tx
+<li><code>expiration_timestamp</code> - Unix timestamp (seconds) deadline for inclusion. The include-by timestamp of this tx
 will be <em>at most</em> the timestamp specified.</li>
 </ul>
 <h4>Advanced</h4>
 <ul>
-<li>If multiple functions set differing <code>include_by_timestamp</code>s, the kernel circuits will set it to be the
+<li>If multiple functions set differing <code>expiration_timestamp</code>s, the kernel circuits will set it to be the
 <em>minimum</em> of the two. This ensures the tx expiry requirements of all functions in the tx are met.</li>
 <li>Rollup circuits will reject expired txs.</li>
 <li>The protocol enforces that all transactions must be included within 24 hours of their chosen anchor block's
@@ -714,7 +714,7 @@ to wait until the messages are copied before you can consume them.</p>
 <p>Validates message existence in the L1-to-L2 message tree and nullifies the message to prevent
 double-consumption.</p>
 </div>
-</div><code id="emit_private_log" class="code-header">pub fn <a href="#emit_private_log"><span class="fn">emit_private_log</span></a>(&mut self, log: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 18], length: <a href="../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+</div><code id="emit_private_log" class="code-header">pub fn <a href="#emit_private_log"><span class="fn">emit_private_log</span></a>(&mut self, log: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 16], length: <a href="../../std/primitive.u32.html" class="primitive">u32</a>)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Emits a private log (an array of Fields) that will be published to an Ethereum blob.</p>
@@ -757,7 +757,7 @@ ideally all wallets should agree on standards for this.</li>
 </div>
 </div><code id="emit_raw_note_log" class="code-header">pub fn <a href="#emit_raw_note_log"><span class="fn">emit_raw_note_log</span></a>(
     &mut self,
-    log: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 18],
+    log: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 16],
     length: <a href="../../std/primitive.u32.html" class="primitive">u32</a>,
     note_hash_counter: <a href="../../std/primitive.u32.html" class="primitive">u32</a>,
 )</code>

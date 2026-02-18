@@ -1,6 +1,5 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
-import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import {
@@ -16,7 +15,6 @@ import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
-import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { isAnvilTestChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
@@ -39,14 +37,13 @@ import { tryRmDir } from '@aztec/foundation/fs';
 import { withLoggerBindings } from '@aztec/foundation/log/server';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import { TestDateProvider } from '@aztec/foundation/timer';
-import type { DataStoreConfig } from '@aztec/kv-store/config';
+import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { P2PClientDeps } from '@aztec/p2p';
 import { MockGossipSubNetwork, getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
-import { type ProverNode, type ProverNodeConfig, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
+import type { ProverNodeConfig } from '@aztec/prover-node';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
@@ -213,8 +210,8 @@ export type EndToEndContext = {
   aztecNodeService: AztecNodeService;
   /** Client to the Aztec Node admin interface. */
   aztecNodeAdmin: AztecNodeAdmin;
-  /** The prover node service (only set if startProverNode is true) */
-  proverNode: ProverNode | undefined;
+  /** The aztec node running the prover node subsystem (only set if startProverNode is true). */
+  proverNode: AztecNodeService | undefined;
   /** A client to the sequencer service. */
   sequencer: SequencerClient | undefined;
   /** Return values from deployAztecL1Contracts function. */
@@ -339,11 +336,11 @@ export async function setup(
       publisherPrivKeyHex = opts.l1PublisherKey.getValue();
       publisherHdAccount = privateKeyToAccount(publisherPrivKeyHex);
     } else if (
-      config.publisherPrivateKeys &&
-      config.publisherPrivateKeys.length > 0 &&
-      config.publisherPrivateKeys[0].getValue() != NULL_KEY
+      config.sequencerPublisherPrivateKeys &&
+      config.sequencerPublisherPrivateKeys.length > 0 &&
+      config.sequencerPublisherPrivateKeys[0].getValue() != NULL_KEY
     ) {
-      publisherPrivKeyHex = config.publisherPrivateKeys[0].getValue();
+      publisherPrivKeyHex = config.sequencerPublisherPrivateKeys[0].getValue();
       publisherHdAccount = privateKeyToAccount(publisherPrivKeyHex);
     } else if (!MNEMONIC) {
       throw new Error(`Mnemonic not provided and no publisher private key`);
@@ -352,7 +349,7 @@ export async function setup(
       const publisherPrivKeyRaw = publisherHdAccount.getHdKey().privateKey;
       const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
       publisherPrivKeyHex = `0x${publisherPrivKey!.toString('hex')}` as const;
-      config.publisherPrivateKeys = [new SecretValue(publisherPrivKeyHex)];
+      config.sequencerPublisherPrivateKeys = [new SecretValue(publisherPrivKeyHex)];
     }
 
     if (config.coinbase === undefined) {
@@ -499,33 +496,32 @@ export async function setup(
     );
     const sequencerClient = aztecNodeService.getSequencer();
 
-    let proverNode: ProverNode | undefined = undefined;
+    let proverNode: AztecNodeService | undefined = undefined;
     if (opts.startProverNode) {
       logger.verbose('Creating and syncing a simulated prover node...');
       const proverNodePrivateKey = getPrivateKeyFromIndex(2);
       const proverNodePrivateKeyHex: Hex = `0x${proverNodePrivateKey!.toString('hex')}`;
       const proverNodeDataDirectory = path.join(directoryToCleanup, randomBytes(8).toString('hex'));
-      const proverNodeConfig = {
-        ...config.proverNodeConfig,
-        dataDirectory: proverNodeDataDirectory,
-        p2pEnabled: !!mockGossipSubNetwork,
+
+      const p2pClientDeps: Partial<P2PClientDeps<P2PClientType.Full>> = {
+        p2pServiceFactory: mockGossipSubNetwork && getMockPubSubP2PServiceFactory(mockGossipSubNetwork!),
+        rpcTxProviders: [aztecNodeService],
       };
-      proverNode = await createAndSyncProverNode(
+
+      ({ proverNode } = await createAndSyncProverNode(
         proverNodePrivateKeyHex,
         config,
-        proverNodeConfig,
-        aztecNodeService,
-        prefilledPublicData,
         {
-          p2pClientDeps: mockGossipSubNetwork
-            ? { p2pServiceFactory: getMockPubSubP2PServiceFactory(mockGossipSubNetwork) }
-            : undefined,
+          ...config.proverNodeConfig,
+          dataDirectory: proverNodeDataDirectory,
         },
-      );
+        { dateProvider, p2pClientDeps, telemetry: telemetryClient },
+        { prefilledPublicData },
+      ));
     }
 
     const sequencerDelayer = sequencerClient?.getDelayer();
-    const proverDelayer = proverNode?.getDelayer();
+    const proverDelayer = proverNode?.getProverNode()?.getDelayer();
 
     logger.verbose('Creating a pxe...');
     const pxeConfig = { ...getPXEConfig(), ...pxeOpts };
@@ -712,59 +708,41 @@ export async function waitForProvenChain(node: AztecNode, targetBlock?: BlockNum
   );
 }
 
+/**
+ * Creates an AztecNodeService with the prover node enabled as a subsystem.
+ * Returns both the aztec node service (for lifecycle management) and the prover node (for test internals access).
+ */
 export function createAndSyncProverNode(
   proverNodePrivateKey: `0x${string}`,
-  aztecNodeConfig: AztecNodeConfig,
-  proverNodeConfig: Partial<ProverNodeConfig> & Pick<DataStoreConfig, 'dataDirectory'> & { dontStart?: boolean },
-  aztecNode: AztecNode | undefined,
-  prefilledPublicData: PublicDataTreeLeaf[] = [],
-  proverNodeDeps: ProverNodeDeps = {},
-) {
+  baseConfig: AztecNodeConfig,
+  configOverrides: Pick<AztecNodeConfig, 'dataDirectory'>,
+  deps: {
+    telemetry?: TelemetryClient;
+    dateProvider: DateProvider;
+    p2pClientDeps?: P2PClientDeps<P2PClientType.Full>;
+  },
+  options: { prefilledPublicData: PublicDataTreeLeaf[]; dontStart?: boolean },
+): Promise<{ proverNode: AztecNodeService }> {
   return withLoggerBindings({ actor: 'prover-0' }, async () => {
-    const aztecNodeTxProvider = aztecNode && {
-      getTxByHash: aztecNode.getTxByHash.bind(aztecNode),
-      getTxsByHash: aztecNode.getTxsByHash.bind(aztecNode),
-      stop: () => Promise.resolve(),
-    };
-
-    const blobClient = await createBlobClientWithFileStores(aztecNodeConfig, createLogger('blob-client:prover-node'));
-
-    const archiverConfig = { ...aztecNodeConfig, dataDirectory: proverNodeConfig.dataDirectory };
-    const archiver = await createArchiver(
-      archiverConfig,
-      { blobClient, dateProvider: proverNodeDeps.dateProvider },
-      { blockUntilSync: true },
+    const proverNode = await AztecNodeService.createAndSync(
+      {
+        ...baseConfig,
+        ...configOverrides,
+        p2pPort: 0,
+        enableProverNode: true,
+        disableValidator: true,
+        proverPublisherPrivateKeys: [new SecretValue(proverNodePrivateKey)],
+      },
+      deps,
+      { ...options, dontStartProverNode: options.dontStart },
     );
 
-    const proverConfig: ProverNodeConfig = {
-      ...aztecNodeConfig,
-      txCollectionNodeRpcUrls: [],
-      realProofs: false,
-      proverAgentCount: 2,
-      publisherPrivateKeys: [new SecretValue(proverNodePrivateKey)],
-      proverNodeMaxPendingJobs: 10,
-      proverNodeMaxParallelBlocksPerEpoch: 32,
-      proverNodePollingIntervalMs: 200,
-      txGatheringIntervalMs: 1000,
-      txGatheringBatchSize: 10,
-      txGatheringMaxParallelRequestsPerNode: 10,
-      txGatheringTimeoutMs: 24_000,
-      proverNodeFailedEpochStore: undefined,
-      proverId: EthAddress.fromNumber(1),
-      proverNodeEpochProvingDelayMs: undefined,
-      ...proverNodeConfig,
-    };
-
-    const proverNode = await createProverNode(
-      proverConfig,
-      { ...proverNodeDeps, aztecNodeTxProvider, archiver: archiver as Archiver },
-      { prefilledPublicData },
-    );
-    getLogger().info(`Created and synced prover node`);
-    if (!proverNodeConfig.dontStart) {
-      await proverNode.start();
+    if (!proverNode.getProverNode()) {
+      throw new Error('Prover node subsystem was not created despite enableProverNode being set');
     }
-    return proverNode;
+
+    getLogger().info(`Created and synced prover node`);
+    return { proverNode };
   });
 }
 

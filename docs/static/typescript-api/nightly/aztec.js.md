@@ -1,6 +1,6 @@
 # @aztec/aztec.js
 
-Version: v4.0.0-nightly.20260213
+Version: v4.0.0-nightly.20260218
 
 ## Quick Import Reference
 

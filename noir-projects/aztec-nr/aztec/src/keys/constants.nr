@@ -7,5 +7,5 @@ pub global TAGGING_INDEX: Field = 3;
 
 pub global NUM_KEY_TYPES: u32 = 4;
 
-pub global sk_generators: [Field; 4] =
+pub global public_key_domain_separators: [Field; 4] =
     [DOM_SEP__NHK_M as Field, DOM_SEP__IVSK_M as Field, DOM_SEP__OVSK_M as Field, DOM_SEP__TSK_M as Field];

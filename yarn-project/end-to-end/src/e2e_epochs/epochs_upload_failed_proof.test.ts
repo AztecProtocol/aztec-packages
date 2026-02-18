@@ -52,7 +52,7 @@ describe('e2e_epochs/epochs_upload_failed_proof', () => {
 
   it('uploads failed proving job state and re-runs it on a fresh instance', async () => {
     // Make initial prover node fail to prove
-    const proverNode = test.proverNodes[0] as TestProverNode;
+    const proverNode = test.proverNodes[0].getProverNode() as TestProverNode;
     const proverManager = proverNode.getProver();
     const origCreateEpochProver = proverManager.createEpochProver.bind(proverManager);
     proverManager.createEpochProver = () => {

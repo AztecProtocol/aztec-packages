@@ -1,12 +1,13 @@
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
 import {
+  type CheckpointId,
   type EthAddress,
   type L2Block,
   type L2BlockId,
@@ -32,6 +33,7 @@ import type { PeerId } from '@libp2p/interface';
 import type { ENR } from '@nethermindeth/enr';
 
 import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
+import { TxPoolError } from '../errors/tx-pool.error.js';
 import type { AttestationPoolApi } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
@@ -200,7 +202,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
         break;
       case 'chain-pruned':
         this.txCollection.stopCollectingForBlocksAfter(event.block.number);
-        await this.handlePruneL2Blocks(event.block);
+        await this.handlePruneL2Blocks(event.block, event.checkpoint);
         break;
       case 'chain-checkpointed':
         break;
@@ -585,11 +587,19 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     const result = await this.txPool.addPendingTxs([tx], { feeComparisonOnly: true });
     if (result.accepted.length === 1) {
       await this.p2pService.propagate(tx);
-    } else {
-      this.log.warn(
-        `Tx ${tx.getTxHash()} not propagated: accepted=${result.accepted.length} ignored=${result.ignored.length} rejected=${result.rejected.length}`,
-      );
+      return;
     }
+
+    const txHashStr = tx.getTxHash().toString();
+    const reason = result.errors?.get(txHashStr);
+    if (reason) {
+      this.log.warn(`Tx ${txHashStr} not added to pool: ${reason.message}`);
+      throw new TxPoolError(reason);
+    }
+
+    this.log.warn(
+      `Tx ${txHashStr} not propagated: accepted=${result.accepted.length} ignored=${result.ignored.length} rejected=${result.rejected.length}`,
+    );
   }
 
   /**
@@ -750,10 +760,31 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   /**
    * Updates the tx pool after a chain prune.
+   * Detects epoch prunes (checkpoint number changed) and deletes all txs in that case.
    * @param latestBlock - The block ID the chain was pruned to.
+   * @param newCheckpoint - The checkpoint ID after the prune.
    */
-  private async handlePruneL2Blocks(latestBlock: L2BlockId): Promise<void> {
-    await this.txPool.handlePrunedBlocks(latestBlock);
+  private async handlePruneL2Blocks(latestBlock: L2BlockId, newCheckpoint: CheckpointId): Promise<void> {
+    const deleteAllTxs = this.config.txPoolDeleteTxsAfterReorg && (await this.isEpochPrune(newCheckpoint));
+    await this.txPool.handlePrunedBlocks(latestBlock, { deleteAllTxs });
+  }
+
+  /**
+   * Returns true if the prune crossed a checkpoint boundary.
+   * If the old and new checkpoint numbers are the same, the prune is within a single checkpoint.
+   * If they differ, the prune spans across checkpoints (epoch prune).
+   */
+  private async isEpochPrune(newCheckpoint: CheckpointId): Promise<boolean> {
+    const tips = await this.l2Tips.getL2Tips();
+    const oldCheckpointNumber = tips.checkpointed.checkpoint.number;
+    if (oldCheckpointNumber <= CheckpointNumber.ZERO) {
+      return false;
+    }
+    const isEpochPrune = oldCheckpointNumber !== newCheckpoint.number;
+    this.log.info(
+      `Detected epoch prune: ${isEpochPrune}. Old checkpoint: ${oldCheckpointNumber}, new checkpoint: ${newCheckpoint.number}`,
+    );
+    return isEpochPrune;
   }
 
   /** Checks if the slot has changed and calls prepareForSlot if so. */

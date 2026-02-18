@@ -156,11 +156,11 @@ pub fn compute_contract_class_log_hash(log: [Field; CONTRACT_CLASS_LOG_SIZE_IN_F
 pub fn compute_app_siloed_secret_key(
     master_secret_key: EmbeddedCurveScalar,
     app_address: AztecAddress,
-    app_secret_key_domain_separator: Field,
+    key_type_domain_separator: Field,
 ) -> Field {
     poseidon2_hash_with_separator(
         [master_secret_key.hi, master_secret_key.lo, app_address.to_field()],
-        app_secret_key_domain_separator,
+        key_type_domain_separator,
     )
 }
 

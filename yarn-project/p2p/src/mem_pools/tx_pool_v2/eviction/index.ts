@@ -11,6 +11,8 @@ export {
   type PreAddResult,
   type PreAddRule,
   type TaggedEviction,
+  TxPoolRejectionCode,
+  type TxPoolRejectionError,
 } from './interfaces.js';
 
 // Pre-add rules

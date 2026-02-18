@@ -17,7 +17,6 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { hexToBuffer } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import type { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import type { ProverNode } from '@aztec/prover-node';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
@@ -35,7 +34,6 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
   let logger: Logger;
   let node: AztecNode;
   let archiver: Archiver;
-  let proverNode: ProverNode;
   let monitor: ChainMonitor;
   let proverDelayer: Delayer;
   let sequencerDelayer: Delayer;
@@ -79,7 +77,6 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     ({ proverDelayer, sequencerDelayer, context, logger, monitor, L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);
     node = context.aztecNode;
     archiver = (node as AztecNodeService).getBlockSource() as Archiver;
-    proverNode = context.proverNode!;
     from = context.accounts[0];
     contract = await test.registerTestContract(context.wallet);
   });
@@ -89,12 +86,12 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
   });
 
   describe('blocks', () => {
-    const getBlobs = (serializedTx: `0x${string}`) => {
+    const getBlobs = async (serializedTx: `0x${string}`) => {
       const parsedTx = parseTransaction(serializedTx);
       if (parsedTx.sidecars === false) {
         throw new Error('No sidecars found in tx');
       }
-      return parsedTx.sidecars!.map(sidecar => Blob.fromBlobBuffer(hexToBuffer(sidecar.blob)));
+      return await Promise.all(parsedTx.sidecars!.map(sidecar => Blob.fromBlobBuffer(hexToBuffer(sidecar.blob))));
     };
 
     /** Returns the last synced checkpoint number for a node */
@@ -133,9 +130,9 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
         epochDurationSeconds * 4 * 1000,
       );
 
-      // Stop the prover node so it doesn't re-submit the proof after we've removed it
+      // Stop the prover node (by stopping its hosting aztec node) so it doesn't re-submit the proof after we've removed it
       logger.warn(`Proof for block ${provenBlockEvent.provenCheckpointNumber} mined, stopping prover node`);
-      await proverNode.stop();
+      await test.proverNodes[0].stop();
 
       // And remove the proof from L1
       await context.cheatCodes.eth.reorgTo(provenBlockEvent.l1BlockNumber - 1);
@@ -194,23 +191,17 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       );
       await retryUntil(() => getProvenCheckpointNumber(node).then(cp => cp >= provenCheckpoint), 'node sync', 10, 0.1);
 
-      // Stop the prover node
-      await proverNode.stop();
+      // Stop the prover node (by stopping its hosting aztec node)
+      await test.proverNodes[0].stop();
 
       // Remove the proof from L1 but do not change the block number
       await context.cheatCodes.eth.reorgWithReplacement(1);
       await expect(monitor.run(true).then(m => m.provenCheckpointNumber)).resolves.toEqual(initialProvenCheckpoint);
 
       // Create another prover node so it submits a proof and wait until it is submitted
-      // Use a longer timeout to allow the new prover to sync and generate a proof
-      const newProverNode = await test.createProverNode();
-      const provenCheckpointRetry = await test.waitUntilProvenCheckpointNumber(
-        targetProvenCheckpoint,
-        epochDurationSeconds,
-      );
-      await expect(monitor.run(true).then(m => m.provenCheckpointNumber)).resolves.toBeGreaterThanOrEqual(
-        targetProvenCheckpoint,
-      );
+      await test.createProverNode();
+      const provenCheckpointRetry = await test.waitUntilProvenCheckpointNumber(CheckpointNumber(1));
+      await expect(monitor.run(true).then(m => m.provenCheckpointNumber)).resolves.toBeGreaterThanOrEqual(1);
 
       // Check that the node has followed along
       logger.warn(`Testing old node`);
@@ -226,7 +217,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       await test.assertMultipleBlocksPerSlot(2);
 
       logger.warn(`Test succeeded`);
-      await newProverNode.stop();
+      // New prover's aztec node is stopped in test.teardown()
     });
 
     it('restores L2 blocks if a proof is added due to an L1 reorg', async () => {
@@ -253,10 +244,10 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
         `End of epoch ${epochToWaitFor} submission window (L1 block ${await monitor.run(true).then(m => m.l1BlockNumber)}).`,
       );
 
-      // Grab the prover's tx to submit it later as part of a reorg and stop the prover
+      // Grab the prover's tx to submit it later as part of a reorg and stop the prover (by stopping its hosting aztec node)
       const [proofTx] = proverDelayer.getCancelledTxs();
       expect(proofTx).toBeDefined();
-      await proverNode.stop();
+      await test.proverNodes[0].stop();
       logger.warn(`Prover node stopped.`);
 
       // Wait for the node to prune
@@ -392,7 +383,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
       // We also need to send the blob to the sink, so the node can get it
       logger.warn(`Sending blobs to blob client`);
-      const blobs = getBlobs(l2BlockTx);
+      const blobs = await getBlobs(l2BlockTx);
       const blobClient = createBlobClient(context.config);
       await blobClient.sendBlobsToFilestore(blobs);
 

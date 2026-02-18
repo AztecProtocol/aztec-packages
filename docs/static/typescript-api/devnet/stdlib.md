@@ -2635,13 +2635,13 @@ new KeyValidationRequest(pkM: Point, skApp: Fr | Fq)
 - `toBuffer() => any`
 - `toFields() => Fr[]`
 
-### KeyValidationRequestAndGenerator
+### KeyValidationRequestAndSeparator
 
 Request for validating keys used in the app and a generator.
 
 **Constructor**
 ```typescript
-new KeyValidationRequestAndGenerator(request: KeyValidationRequest, skAppGenerator: Fr)
+new KeyValidationRequestAndSeparator(request: KeyValidationRequest, skAppGenerator: Fr)
 ```
 
 **Properties**
@@ -2649,9 +2649,9 @@ new KeyValidationRequestAndGenerator(request: KeyValidationRequest, skAppGenerat
 - `readonly skAppGenerator: Fr`
 
 **Methods**
-- `static empty() => KeyValidationRequestAndGenerator`
-- `static fromBuffer(buffer: Buffer | BufferReader) => KeyValidationRequestAndGenerator`
-- `static fromFields(fields: Fr[] | FieldReader) => KeyValidationRequestAndGenerator`
+- `static empty() => KeyValidationRequestAndSeparator`
+- `static fromBuffer(buffer: Buffer | BufferReader) => KeyValidationRequestAndSeparator`
+- `static fromFields(fields: Fr[] | FieldReader) => KeyValidationRequestAndSeparator`
 - `isEmpty() => boolean`
 - `toBuffer() => any`
 - `toFields() => Fr[]`
@@ -3698,7 +3698,7 @@ Public inputs to a private circuit.
 
 **Constructor**
 ```typescript
-new PrivateCircuitPublicInputs(callContext: CallContext, argsHash: Fr, returnsHash: Fr, minRevertibleSideEffectCounter: Fr, isFeePayer: boolean, includeByTimestamp: bigint, noteHashReadRequests: ClaimedLengthArray<ScopedReadRequest, 16>, nullifierReadRequests: ClaimedLengthArray<ScopedReadRequest, 16>, keyValidationRequestsAndGenerators: ClaimedLengthArray<KeyValidationRequestAndGenerator, 16>, noteHashes: ClaimedLengthArray<NoteHash, 16>, nullifiers: ClaimedLengthArray<Nullifier, 16>, privateCallRequests: ClaimedLengthArray<PrivateCallRequest, 8>, publicCallRequests: ClaimedLengthArray<CountedPublicCallRequest, 32>, publicTeardownCallRequest: PublicCallRequest, l2ToL1Msgs: ClaimedLengthArray<CountedL2ToL1Message, 8>, privateLogs: ClaimedLengthArray<PrivateLogData, 16>, contractClassLogsHashes: ClaimedLengthArray<CountedLogHash, 1>, startSideEffectCounter: Fr, endSideEffectCounter: Fr, expectedNonRevertibleSideEffectCounter: Fr, expectedRevertibleSideEffectCounter: Fr, anchorBlockHeader: BlockHeader, txContext: TxContext)
+new PrivateCircuitPublicInputs(callContext: CallContext, argsHash: Fr, returnsHash: Fr, minRevertibleSideEffectCounter: Fr, isFeePayer: boolean, includeByTimestamp: bigint, noteHashReadRequests: ClaimedLengthArray<ScopedReadRequest, 16>, nullifierReadRequests: ClaimedLengthArray<ScopedReadRequest, 16>, keyValidationRequestsAndGenerators: ClaimedLengthArray<KeyValidationRequestAndSeparator, 16>, noteHashes: ClaimedLengthArray<NoteHash, 16>, nullifiers: ClaimedLengthArray<Nullifier, 16>, privateCallRequests: ClaimedLengthArray<PrivateCallRequest, 8>, publicCallRequests: ClaimedLengthArray<CountedPublicCallRequest, 32>, publicTeardownCallRequest: PublicCallRequest, l2ToL1Msgs: ClaimedLengthArray<CountedL2ToL1Message, 8>, privateLogs: ClaimedLengthArray<PrivateLogData, 16>, contractClassLogsHashes: ClaimedLengthArray<CountedLogHash, 1>, startSideEffectCounter: Fr, endSideEffectCounter: Fr, expectedNonRevertibleSideEffectCounter: Fr, expectedRevertibleSideEffectCounter: Fr, anchorBlockHeader: BlockHeader, txContext: TxContext)
 ```
 
 **Properties**
@@ -3711,7 +3711,7 @@ new PrivateCircuitPublicInputs(callContext: CallContext, argsHash: Fr, returnsHa
 - `expectedRevertibleSideEffectCounter: Fr`
 - `includeByTimestamp: bigint`
 - `isFeePayer: boolean`
-- `keyValidationRequestsAndGenerators: ClaimedLengthArray<KeyValidationRequestAndGenerator, 16>`
+- `keyValidationRequestsAndGenerators: ClaimedLengthArray<KeyValidationRequestAndSeparator, 16>`
 - `l2ToL1Msgs: ClaimedLengthArray<CountedL2ToL1Message, 8>`
 - `minRevertibleSideEffectCounter: Fr`
 - `noteHashes: ClaimedLengthArray<NoteHash, 16>`
@@ -5374,12 +5374,12 @@ Request for validating keys used in the app.
 
 **Constructor**
 ```typescript
-new ScopedKeyValidationRequestAndGenerator(request: KeyValidationRequestAndGenerator, contractAddress: AztecAddress)
+new ScopedKeyValidationRequestAndGenerator(request: KeyValidationRequestAndSeparator, contractAddress: AztecAddress)
 ```
 
 **Properties**
 - `readonly contractAddress: AztecAddress`
-- `readonly request: KeyValidationRequestAndGenerator`
+- `readonly request: KeyValidationRequestAndSeparator`
 
 **Methods**
 - `static empty() => ScopedKeyValidationRequestAndGenerator`

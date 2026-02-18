@@ -14,6 +14,7 @@ import {
   type PreAddResult,
   type PreAddRule,
   type TaggedEviction,
+  TxPoolRejectionCode,
 } from './interfaces.js';
 
 /**
@@ -78,7 +79,10 @@ export class EvictionManager {
         return {
           shouldIgnore: true,
           txHashesToEvict: [],
-          reason: `pre-add rule ${rule.name} error: ${err}`,
+          reason: {
+            code: TxPoolRejectionCode.INTERNAL_ERROR,
+            message: `Pre-add rule ${rule.name} error: ${err}`,
+          },
         };
       }
     }

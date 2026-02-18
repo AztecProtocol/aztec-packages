@@ -30,14 +30,16 @@ export function getPrefixedEthBlobCommitments(blobs: Blob[]): `0x${string}` {
  *
  * @throws If the number of fields does not match what's indicated by the checkpoint prefix.
  */
-export function getBlobsPerL1Block(fields: Fr[]): Blob[] {
+export async function getBlobsPerL1Block(fields: Fr[]): Promise<Blob[]> {
   if (!fields.length) {
     throw new Error('Cannot create blobs from empty fields.');
   }
 
   const numBlobs = Math.ceil(fields.length / FIELDS_PER_BLOB);
-  return Array.from({ length: numBlobs }, (_, i) =>
-    Blob.fromFields(fields.slice(i * FIELDS_PER_BLOB, (i + 1) * FIELDS_PER_BLOB)),
+  return await Promise.all(
+    Array.from({ length: numBlobs }, (_, i) =>
+      Blob.fromFields(fields.slice(i * FIELDS_PER_BLOB, (i + 1) * FIELDS_PER_BLOB)),
+    ),
   );
 }
 

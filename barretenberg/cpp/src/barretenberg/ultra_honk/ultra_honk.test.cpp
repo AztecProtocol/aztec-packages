@@ -144,17 +144,17 @@ TYPED_TEST(UltraHonkTests, TestEllipticGate)
     uint32_t x3 = circuit_builder.add_variable(p3.x);
     uint32_t y3 = circuit_builder.add_variable(p3.y);
 
-    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
+    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*is_addition=*/true });
 
     p3 = affine_element(element(p1) + element(p2));
     x3 = circuit_builder.add_variable(p3.x);
     y3 = circuit_builder.add_variable(p3.y);
-    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
+    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*is_addition=*/true });
 
     p3 = affine_element(element(p1) - element(p2));
     x3 = circuit_builder.add_variable(p3.x);
     y3 = circuit_builder.add_variable(p3.y);
-    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, -1 });
+    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*is_addition=*/false });
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 

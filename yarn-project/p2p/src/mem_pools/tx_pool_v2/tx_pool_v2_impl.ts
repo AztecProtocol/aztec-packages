@@ -25,6 +25,8 @@ import {
   type PoolOperations,
   type PreAddContext,
   type PreAddPoolAccess,
+  TxPoolRejectionCode,
+  type TxPoolRejectionError,
 } from './eviction/index.js';
 import { TxPoolV2Instrumentation } from './instrumentation.js';
 import {
@@ -182,6 +184,7 @@ export class TxPoolV2Impl {
     const accepted: TxHash[] = [];
     const ignored: TxHash[] = [];
     const rejected: TxHash[] = [];
+    const errors = new Map<string, TxPoolRejectionError>();
     const acceptedPending = new Set<string>();
 
     const poolAccess = this.#createPreAddPoolAccess();
@@ -219,6 +222,7 @@ export class TxPoolV2Impl {
             poolAccess,
             acceptedPending,
             ignored,
+            errors,
             preAddContext,
           );
           if (result.status === 'accepted') {
@@ -252,7 +256,7 @@ export class TxPoolV2Impl {
       await this.#evictionManager.evictAfterNewTxs(Array.from(acceptedPending), [...uniqueFeePayers]);
     }
 
-    return { accepted, ignored, rejected };
+    return { accepted, ignored, rejected, ...(errors.size > 0 ? { errors } : {}) };
   }
 
   /** Validates and adds a regular pending tx. Returns status. */
@@ -262,6 +266,7 @@ export class TxPoolV2Impl {
     poolAccess: PreAddPoolAccess,
     acceptedPending: Set<string>,
     ignored: TxHash[],
+    errors: Map<string, TxPoolRejectionError>,
     preAddContext?: PreAddContext,
   ): Promise<{ status: 'accepted' | 'ignored' | 'rejected' }> {
     const txHash = tx.getTxHash();
@@ -277,7 +282,10 @@ export class TxPoolV2Impl {
     const preAddResult = await this.#evictionManager.runPreAddRules(meta, poolAccess, preAddContext);
 
     if (preAddResult.shouldIgnore) {
-      this.#log.debug(`Ignoring tx ${txHashStr}: ${preAddResult.reason}`);
+      this.#log.debug(`Ignoring tx ${txHashStr}: ${preAddResult.reason?.message ?? 'unknown reason'}`);
+      if (preAddResult.reason && preAddResult.reason.code !== TxPoolRejectionCode.INTERNAL_ERROR) {
+        errors.set(txHashStr, preAddResult.reason);
+      }
       return { status: 'ignored' };
     }
 
@@ -510,7 +518,7 @@ export class TxPoolV2Impl {
     }
   }
 
-  async handlePrunedBlocks(latestBlock: L2BlockId): Promise<void> {
+  async handlePrunedBlocks(latestBlock: L2BlockId, options?: { deleteAllTxs?: boolean }): Promise<void> {
     // Step 1: Find transactions mined after the prune point
     const txsToUnmine = this.#indices.findTxsMinedAfter(latestBlock.number);
     if (txsToUnmine.length === 0) {
@@ -535,10 +543,20 @@ export class TxPoolV2Impl {
       this.#indices.markAsUnmined(meta);
     }
 
+    // If deleteAllTxs is set (epoch prune), delete all un-mined txs and return early
+    if (options?.deleteAllTxs) {
+      const allTxHashes = txsToUnmine.map(m => m.txHash);
+      await this.#deleteTxsBatch(allTxHashes);
+      this.#log.info(
+        `Handled prune to block ${latestBlock.number} with deleteAllTxs: deleted ${allTxHashes.length} txs`,
+      );
+      return;
+    }
+
     // Step 4: Filter out protected txs (they'll be handled by prepareForSlot)
     const unprotectedTxs = this.#indices.filterUnprotected(txsToUnmine);
 
-    // Step 4: Validate for pending pool
+    // Step 5: Validate for pending pool
     const { valid, invalid } = await this.#revalidateMetadata(unprotectedTxs, 'during handlePrunedBlocks');
 
     // Step 6: Resolve nullifier conflicts and add winners to pending indices
@@ -965,7 +983,9 @@ export class TxPoolV2Impl {
       if (preAddResult.shouldIgnore) {
         // Transaction rejected - mark for deletion from DB
         rejected.push(meta.txHash);
-        this.#log.debug(`Rejected tx ${meta.txHash} during rebuild: ${preAddResult.reason}`);
+        this.#log.debug(
+          `Rejected tx ${meta.txHash} during rebuild: ${preAddResult.reason?.message ?? 'unknown reason'}`,
+        );
         continue;
       }
 

@@ -74,6 +74,36 @@ export interface TaggedEviction {
 }
 
 /**
+ * Machine-readable rejection codes for pre-add rule rejections.
+ */
+export const TxPoolRejectionCode = {
+  LOW_PRIORITY_FEE: 'LOW_PRIORITY_FEE',
+  INSUFFICIENT_FEE_PAYER_BALANCE: 'INSUFFICIENT_FEE_PAYER_BALANCE',
+  NULLIFIER_CONFLICT: 'NULLIFIER_CONFLICT',
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+} as const;
+
+export type TxPoolRejectionCode = (typeof TxPoolRejectionCode)[keyof typeof TxPoolRejectionCode];
+
+/** Structured rejection reason returned by pre-add rules. */
+export type TxPoolRejectionError =
+  | {
+      code: typeof TxPoolRejectionCode.LOW_PRIORITY_FEE;
+      message: string;
+      minimumPriorityFee: bigint;
+      txPriorityFee: bigint;
+    }
+  | {
+      code: typeof TxPoolRejectionCode.INSUFFICIENT_FEE_PAYER_BALANCE;
+      message: string;
+      currentBalance: bigint;
+      availableBalance: bigint;
+      feeLimit: bigint;
+    }
+  | { code: typeof TxPoolRejectionCode.NULLIFIER_CONFLICT; message: string; conflictingTxHash: string }
+  | { code: typeof TxPoolRejectionCode.INTERNAL_ERROR; message: string };
+
+/**
  * Result of a pre-add check for a single transaction.
  */
 export interface PreAddResult {
@@ -84,7 +114,7 @@ export interface PreAddResult {
   /** Evictions tagged with the rule name that produced them. Populated by EvictionManager. */
   readonly evictions?: TaggedEviction[];
   /** Optional reason for ignoring */
-  readonly reason?: string;
+  readonly reason?: TxPoolRejectionError;
 }
 
 /** Context passed to pre-add rules from addPendingTxs. */

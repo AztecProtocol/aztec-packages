@@ -7,7 +7,8 @@ import { DateProvider } from '@aztec/foundation/timer';
 import type { L2Block, L2BlockInfo } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
-import { Tx, TxHash } from '@aztec/stdlib/tx';
+import type { Tx } from '@aztec/stdlib/tx';
+import { TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { PeerId } from '@libp2p/interface';
@@ -18,6 +19,7 @@ import type { TxCollectionConfig } from './config.js';
 import { FastTxCollection } from './fast_tx_collection.js';
 import { FileStoreTxCollection } from './file_store_tx_collection.js';
 import type { FileStoreTxSource } from './file_store_tx_source.js';
+import type { IMissingTxsTracker } from './missing_txs_tracker.js';
 import { SlowTxCollection, getProofDeadlineForSlot } from './slow_tx_collection.js';
 import { type TxAddContext, TxCollectionSink } from './tx_collection_sink.js';
 import type { TxSource } from './tx_source.js';
@@ -31,11 +33,10 @@ export type FastCollectionRequestInput =
   | { type: 'proposal'; blockProposal: BlockProposal; blockNumber: BlockNumber };
 
 export type FastCollectionRequest = FastCollectionRequestInput & {
-  missingTxHashes: Set<string>;
+  missingTxTracker: IMissingTxsTracker;
   deadline: Date;
   blockInfo: L2BlockInfo;
   promise: PromiseWithResolvers<void>;
-  foundTxs: Map<string, Tx>;
 };
 
 /**

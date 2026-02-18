@@ -146,7 +146,7 @@ async function createTxFromHint(cppTx: AvmTxHint): Promise<Tx> {
     constants,
     cppTx.gasUsedByPrivate,
     cppTx.feePayer,
-    0n, // includeByTimestamp
+    0n, // expirationTimestamp
     forPublic,
     undefined, // forRollup - not needed for public simulation
   );
