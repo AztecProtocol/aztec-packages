@@ -132,4 +132,94 @@ Fr get_unbiased_field_from_hmac(const MessageContainer& message, const KeyContai
     Fr result((field_as_u512 % Fr::modulus).lo);
     return result;
 }
+
+/**
+ * @brief Deterministic nonce derivation according to RFC6979 specification
+ * (https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-5.pdf, A.3.3)
+ *
+ * @tparam Hash the hash function we're using
+ * @tparam Fr field type
+ * @tparam MessageContainer a byte container (std::vector<uint8_t>, std::array<uint8_t, ...>, std::string)
+ * @tparam KeyContainer a byte container
+ * @param message the input buffer used to derive the nonce
+ * @param key key used to derive the nonce
+ */
+template <typename Hash, typename Fr, typename MessageContainer, typename KeyContainer>
+Fr deterministic_nonce_rfc6979(const MessageContainer& message, const KeyContainer& key)
+    requires(Hash::OUTPUT_SIZE == 32)
+{
+    using serialize::read;
+
+    static constexpr size_t INITIAL_BUFFER_SIZE = 32; // Equal to 8 * (Hash::OUTPUT_SIZE + 7/ 8)
+    static constexpr size_t MODULUS_BIT_LENGTH = Fr::modulus.get_msb() + 1;
+
+    // Hash the mesage, reduce it modulo Fr::modulus, and serialize it to a buffer
+    auto hashed_message = Hash::hash(message);
+    Fr hashed_message_fr = Fr::serialize_from_buffer(hashed_message.data());
+    hashed_message = {};
+    Fr::serialize_to_buffer(hashed_message_fr, &hashed_message[0]);
+
+    // Concatenate the private key and the hashed message
+    std::vector<uint8_t> seed_material;
+    std::ranges::copy(key, std::back_inserter(seed_material));
+    std::ranges::copy(hashed_message, std::back_inserter(seed_material));
+
+    // Initialize the buffers V and K
+    std::array<uint8_t, INITIAL_BUFFER_SIZE> v_buffer;
+    v_buffer.fill(0x01);
+    std::array<uint8_t, INITIAL_BUFFER_SIZE> key_buffer;
+    key_buffer.fill(0x00);
+
+    // Temporary buffer for first HMAC round
+    std::vector<uint8_t> tmp_buffer(INITIAL_BUFFER_SIZE, 0x01);
+    tmp_buffer.emplace_back(0x00);
+    std::ranges::copy(seed_material, std::back_inserter(tmp_buffer));
+
+    // First HMAC round: K = HMAC(K, V || 0x00 || seed_material), V = HMAC(K, V)
+    key_buffer = hmac<Hash, std::vector<uint8_t>, std::array<uint8_t, INITIAL_BUFFER_SIZE>>(tmp_buffer, key_buffer);
+    v_buffer = hmac<Hash, std::array<uint8_t, INITIAL_BUFFER_SIZE>, std::array<uint8_t, INITIAL_BUFFER_SIZE>>(
+        v_buffer, key_buffer);
+
+    // Temporary buffer for second HMAC round
+    tmp_buffer.clear();
+    std::ranges::copy(v_buffer, std::back_inserter(tmp_buffer));
+    tmp_buffer.emplace_back(0x01);
+    std::ranges::copy(seed_material, std::back_inserter(tmp_buffer));
+
+    // Second HMAC round: K = HMAC(K, V || 0x01 || seed_material), V = HMAC(K, V)
+    key_buffer = hmac<Hash, std::vector<uint8_t>, std::array<uint8_t, INITIAL_BUFFER_SIZE>>(tmp_buffer, key_buffer);
+    v_buffer = hmac<Hash, std::array<uint8_t, INITIAL_BUFFER_SIZE>, std::array<uint8_t, INITIAL_BUFFER_SIZE>>(
+        v_buffer, key_buffer);
+
+    // Loop until we get a valid k: 0 < k < Fr::modulus
+    uint256_t k = 0;
+    while (k == 0 || k >= static_cast<uint256_t>(Fr::modulus)) {
+        v_buffer = hmac<Hash, std::array<uint8_t, INITIAL_BUFFER_SIZE>, std::array<uint8_t, INITIAL_BUFFER_SIZE>>(
+            v_buffer, key_buffer);
+
+        // Trim the output if required
+        std::vector<uint8_t> trimmed_v_buffer(v_buffer.begin(), v_buffer.end());
+        if (Hash::OUTPUT_SIZE * 8 > MODULUS_BIT_LENGTH) {
+            // Trim the hash output
+            size_t remainder = MODULUS_BIT_LENGTH % 8;
+            trimmed_v_buffer.resize((MODULUS_BIT_LENGTH + 7) / 8);
+            trimmed_v_buffer.back() &= (1 << remainder) - 1;
+        }
+        const uint8_t* ptr = trimmed_v_buffer.data();
+        read(ptr, k);
+
+        if ((k > 0) && (k < static_cast<uint256_t>(Fr::modulus))) {
+            break;
+        }
+
+        std::vector<uint8_t> tmp_buffer;
+        std::ranges::copy(v_buffer, std::back_inserter(tmp_buffer));
+        tmp_buffer.emplace_back(0x00);
+        key_buffer = hmac<Hash, std::vector<uint8_t>, std::array<uint8_t, INITIAL_BUFFER_SIZE>>(tmp_buffer, key_buffer);
+        v_buffer = hmac<Hash, std::array<uint8_t, INITIAL_BUFFER_SIZE>, std::array<uint8_t, INITIAL_BUFFER_SIZE>>(
+            v_buffer, key_buffer);
+    }
+
+    return Fr(k);
+}
 } // namespace bb::crypto
