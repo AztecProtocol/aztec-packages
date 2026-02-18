@@ -50,10 +50,10 @@ class MultiMegaZKFlavor : public MultiMegaFlavor {
     static constexpr size_t NUM_ALL_ENTITIES = MultiMegaFlavor::NUM_ALL_ENTITIES + NUM_MASKING_ENTITIES;
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = MultiMegaFlavor::NUM_UNSHIFTED_ENTITIES + NUM_MASKING_ENTITIES;
 
-    // 10 interleaved witness commitments (9 base + 1 masking group)
-    static constexpr size_t NUM_INTERLEAVED_WITNESS_COMMITMENTS = 10;
+    // 12 interleaved witness commitments (11 base + 1 masking group)
+    static constexpr size_t NUM_INTERLEAVED_WITNESS_COMMITMENTS = 12;
 
-    // Total interleaved commitments: 8 precomputed + 10 witness = 18
+    // Total interleaved commitments: 8 precomputed + 12 witness = 20
     static constexpr size_t NUM_ALL_INTERLEAVED_COMMITMENTS =
         NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS + NUM_INTERLEAVED_WITNESS_COMMITMENTS;
 
@@ -92,7 +92,7 @@ class MultiMegaZKFlavor : public MultiMegaFlavor {
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
     {
         const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
-        // 18 unshifted (shifted merged) + 3 Libra + (pcs_log_n - 1) Gemini folds + 1 Shplonk Q + 1 G1 identity +
+        // 20 unshifted (shifted merged) + 3 Libra + (pcs_log_n - 1) Gemini folds + 1 Shplonk Q + 1 G1 identity +
         // 1 KZG W
         return NUM_ALL_INTERLEAVED_COMMITMENTS + NUM_LIBRA_COMMITMENTS + (pcs_log_n - 1) + 3;
     }

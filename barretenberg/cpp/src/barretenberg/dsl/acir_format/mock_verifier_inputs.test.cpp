@@ -32,7 +32,7 @@ static_assert(
         UltraFlavor::VIRTUAL_LOG_N) == 449,
     "RECURSIVE_PROOF_LENGTH changed - update constants.nr");
 static_assert(ChonkProof::PROOF_LENGTH == 1935, "CHONK_PROOF_LENGTH changed - update constants.nr");
-static_assert(ProofLength::MultilinearBatching<MultilinearBatchingFlavor>::LENGTH == 121,
+static_assert(ProofLength::MultilinearBatching<MultilinearBatchingFlavor>::LENGTH == 131,
               "MultilinearBatching proof size changed - update constants.nr");
 
 /**

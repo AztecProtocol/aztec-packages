@@ -69,17 +69,18 @@ class MultiMegaHonkTests : public ::testing::Test {
         for (size_t i = 0; i < NUM_PUBLIC_INPUTS; i++) {
             manifest_expected.add_entry(round, "public_input_" + std::to_string(1 + i), frs_per_Fr);
         }
-        // Round 1: 5 interleaved witness commitments + individual ecc_op/calldata for compatibility
+        // Round 1: 7 interleaved witness commitments + 4 individual ecc_op_wires for merge protocol
         manifest_expected.add_entry(round, "INTERLEAVED_WIRES", frs_per_G);
         manifest_expected.add_entry(round, "INTERLEAVED_ECC_OP_WIRES", frs_per_G);
         manifest_expected.add_entry(round, "ECC_OP_WIRE_1", frs_per_G);
         manifest_expected.add_entry(round, "ECC_OP_WIRE_2", frs_per_G);
         manifest_expected.add_entry(round, "ECC_OP_WIRE_3", frs_per_G);
         manifest_expected.add_entry(round, "ECC_OP_WIRE_4", frs_per_G);
-        manifest_expected.add_entry(round, "INTERLEAVED_DATABUS_1", frs_per_G);
-        manifest_expected.add_entry(round, "CALLDATA", frs_per_G);
-        manifest_expected.add_entry(round, "INTERLEAVED_DATABUS_2", frs_per_G);
-        manifest_expected.add_entry(round, "INTERLEAVED_DATABUS_3", frs_per_G);
+        manifest_expected.add_entry(round, "INTERLEAVED_CALLDATA", frs_per_G);
+        manifest_expected.add_entry(round, "INTERLEAVED_SECONDARY_CALLDATA", frs_per_G);
+        manifest_expected.add_entry(round, "INTERLEAVED_DATABUS_TAGS", frs_per_G);
+        manifest_expected.add_entry(round, "INTERLEAVED_RETURN_DATA_TAGS", frs_per_G);
+        manifest_expected.add_entry(round, "INTERLEAVED_RETURN_DATA", frs_per_G);
         manifest_expected.add_challenge(round, "eta");
 
         // Round 2: 2 interleaved witness commitments (after eta)

@@ -172,12 +172,12 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         constexpr size_t frs_per_G = FrCodec::calc_num_fields<curve::BN254::AffineElement>();
         constexpr size_t NUM_MAIN_SUMCHECK_ROUNDS = NativeFlavor::VIRTUAL_LOG_N;                        // 21
         constexpr size_t NUM_MLB_SUMCHECK_ROUNDS = MultilinearBatchingFlavor::VIRTUAL_LOG_N;            // 23
-        constexpr size_t NUM_INTERLEAVED_UNSHIFTED = NativeFlavor::NUM_ALL_INTERLEAVED_COMMITMENTS;     // 17
+        constexpr size_t NUM_INTERLEAVED_UNSHIFTED = NativeFlavor::NUM_ALL_INTERLEAVED_COMMITMENTS;     // 19
         constexpr size_t NUM_INTERLEAVED_SHIFTED = NativeFlavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS; // 3
 
         size_t round = 0;
 
-        // Round 0: Oink preamble + interleaved wires + individual ecc ops/calldata + databus -> eta
+        // Round 0: Oink preamble + interleaved wires + individual ecc ops + databus -> eta
         manifest.add_challenge(round, "eta");
         manifest.add_entry(round, "vk_hash", 1);
         for (size_t i = 0; i < 4; ++i) {
@@ -188,10 +188,11 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         for (const auto& wire : { "ECC_OP_WIRE_1", "ECC_OP_WIRE_2", "ECC_OP_WIRE_3", "ECC_OP_WIRE_4" }) {
             manifest.add_entry(round, wire, frs_per_G);
         }
-        manifest.add_entry(round, "INTERLEAVED_DATABUS_1", frs_per_G);
-        manifest.add_entry(round, "CALLDATA", frs_per_G);
-        manifest.add_entry(round, "INTERLEAVED_DATABUS_2", frs_per_G);
-        manifest.add_entry(round, "INTERLEAVED_DATABUS_3", frs_per_G);
+        manifest.add_entry(round, "INTERLEAVED_CALLDATA", frs_per_G);
+        manifest.add_entry(round, "INTERLEAVED_SECONDARY_CALLDATA", frs_per_G);
+        manifest.add_entry(round, "INTERLEAVED_DATABUS_TAGS", frs_per_G);
+        manifest.add_entry(round, "INTERLEAVED_RETURN_DATA_TAGS", frs_per_G);
+        manifest.add_entry(round, "INTERLEAVED_RETURN_DATA", frs_per_G);
         round++;
 
         // Round 1: interleaved w_4 + lookup -> beta, gamma challenges

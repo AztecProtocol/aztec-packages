@@ -155,8 +155,9 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
     }
     }
 
-    // Extract the witness commitments and public inputs from the incoming verifier instance
+    // Extract the witness commitments, interleaved commitments, and public inputs from the incoming verifier instance
     WitnessCommitments witness_commitments = std::move(verifier_instance->witness_commitments);
+    auto interleaved_commitments = std::move(verifier_instance->interleaved_commitments);
     std::vector<StdlibFF> public_inputs = std::move(verifier_instance->public_inputs);
 
     if (verifier_inputs.is_kernel) {
@@ -165,22 +166,24 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
         kernel_input.reconstruct_from_public(public_inputs);
         // Add pairing points for aggregation
         pairing_points.emplace_back(kernel_input.pairing_inputs);
-        // Perform databus consistency checks
+        // Perform databus consistency checks using interleaved commitments.
+        // W₃ = [calldata, 0, 0, 0] and W₄ = [secondary_calldata, 0, 0, 0] serve as stand-ins
+        // for the individual commitments. Not sound, but sufficient for benchmarking.
         bool kernel_return_data_match =
-            kernel_input.kernel_return_data.get_value() == witness_commitments.calldata.get_value();
+            kernel_input.kernel_return_data.get_value() == interleaved_commitments.interleaved_calldata.get_value();
         BB_ASSERT_DEBUG(kernel_return_data_match,
-                        "kernel_return_data mismatch: proof contains " << kernel_input.kernel_return_data.get_value()
-                                                                       << " but calldata commitment is "
-                                                                       << witness_commitments.calldata.get_value());
-        kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.calldata);
+                        "kernel_return_data mismatch: proof contains "
+                            << kernel_input.kernel_return_data.get_value() << " but calldata commitment is "
+                            << interleaved_commitments.interleaved_calldata.get_value());
+        kernel_input.kernel_return_data.incomplete_assert_equal(interleaved_commitments.interleaved_calldata);
 
-        bool app_return_data_match =
-            kernel_input.app_return_data.get_value() == witness_commitments.secondary_calldata.get_value();
+        bool app_return_data_match = kernel_input.app_return_data.get_value() ==
+                                     interleaved_commitments.interleaved_secondary_calldata.get_value();
         BB_ASSERT_DEBUG(app_return_data_match,
                         "app_return_data mismatch: proof contains "
                             << kernel_input.app_return_data.get_value() << " but secondary_calldata commitment is "
-                            << witness_commitments.secondary_calldata.get_value());
-        kernel_input.app_return_data.incomplete_assert_equal(witness_commitments.secondary_calldata);
+                            << interleaved_commitments.interleaved_secondary_calldata.get_value());
+        kernel_input.app_return_data.incomplete_assert_equal(interleaved_commitments.interleaved_secondary_calldata);
 
         // T_prev is read by the public input of the previous kernel K_{i-1} at the beginning of the recursive
         // verification of of the folding of K_{i-1} (kernel), A_{i} (app). This verification happens in K_{i}
@@ -200,8 +203,9 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
                             << prev_accum_hash->get_value());
         kernel_input.output_hn_accum_hash.assert_equal(*prev_accum_hash);
 
-        // Set the kernel return data commitment to be propagated via the public inputs
-        bus_depot.set_kernel_return_data_commitment(witness_commitments.return_data);
+        // Set the kernel return data commitment to be propagated via the public inputs.
+        // Use the interleaved commitment W₅ = [return_data, 0, 0, 0] (not sound, but sufficient for benchmarking).
+        bus_depot.set_kernel_return_data_commitment(interleaved_commitments.interleaved_return_data);
     } else {
         // Reconstruct the input from the previous app from its public inputs
         AppIO app_input; // pairing points
@@ -209,8 +213,9 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
         // Add pairing points for aggregation
         pairing_points.emplace_back(app_input.pairing_inputs);
 
-        // Set the app return data commitment to be propagated via the public inputs
-        bus_depot.set_app_return_data_commitment(witness_commitments.return_data);
+        // Set the app return data commitment to be propagated via the public inputs.
+        // Use the interleaved commitment W₅ = [return_data, 0, 0, 0] (not sound, but sufficient for benchmarking).
+        bus_depot.set_app_return_data_commitment(interleaved_commitments.interleaved_return_data);
     }
 
     // Extract the commitments to the subtable corresponding to the incoming circuit

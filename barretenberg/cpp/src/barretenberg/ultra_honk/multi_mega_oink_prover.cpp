@@ -103,12 +103,15 @@ typename MultiMegaOinkProver_<Flavor>::Commitment MultiMegaOinkProver_<Flavor>::
 /**
  * @brief Commit to Round 1 polynomials using interleaved commitments.
  *
- * Round 1 (before eta) - 5 interleaved commits:
- *   W₁ (shiftable):   [w_l, w_r, w_o, ZERO]
- *   W₂ (unshiftable): [ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4]
- *   W₃ (unshiftable): [calldata, calldata_read_counts, calldata_read_tags, secondary_calldata]
- *   W₄ (unshiftable): [secondary_calldata_read_counts, secondary_calldata_read_tags, return_data_read_tags,
- * return_data_read_counts] W₅ (unshiftable): [return_data, ZERO, ZERO, ZERO]
+ * Round 1 (before eta) - 7 interleaved commits:
+ *   W₁  (shiftable):   [w_l, w_r, w_o, ZERO]
+ *   W₂  (unshiftable): [ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4]
+ *   W₃  (unshiftable): [calldata, ZERO, ZERO, ZERO]
+ *   W₄  (unshiftable): [secondary_calldata, ZERO, ZERO, ZERO]
+ *   W₅  (unshiftable): [calldata_read_counts, calldata_read_tags, secondary_calldata_read_counts,
+ *                        secondary_calldata_read_tags]
+ *   W₆  (unshiftable): [return_data_read_tags, return_data_read_counts, ZERO, ZERO]
+ *   W₇  (unshiftable): [return_data, ZERO, ZERO, ZERO]
  */
 template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::execute_wire_commitments_round()
 {
@@ -149,44 +152,45 @@ template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::execute_w
         transcript->send_to_verifier(domain_separator + commitment_labels.ecc_op_wire_4, comms.ecc_op_wire_4);
     }
 
-    // W₃: [calldata, calldata_read_counts, calldata_read_tags, secondary_calldata] - unshiftable
+    // W₃: [calldata, ZERO, ZERO, ZERO] - unshiftable
     {
-        std::array<PolynomialSpan<const FF>, 4> databus_1_batch = {
-            PolynomialSpan<const FF>(polys.calldata),
+        std::array<PolynomialSpan<const FF>, 1> batch = { PolynomialSpan<const FF>(polys.calldata) };
+        interleaved_commitments.interleaved_calldata =
+            commit_interleaved_and_send<1>(batch, interleaved_labels.interleaved_calldata);
+    }
+
+    // W₄: [secondary_calldata, ZERO, ZERO, ZERO] - unshiftable
+    {
+        std::array<PolynomialSpan<const FF>, 1> batch = { PolynomialSpan<const FF>(polys.secondary_calldata) };
+        interleaved_commitments.interleaved_secondary_calldata =
+            commit_interleaved_and_send<1>(batch, interleaved_labels.interleaved_secondary_calldata);
+    }
+
+    // W₅: [calldata_read_counts, calldata_read_tags, secondary_calldata_read_counts, secondary_calldata_read_tags]
+    {
+        std::array<PolynomialSpan<const FF>, 4> batch = {
             PolynomialSpan<const FF>(polys.calldata_read_counts),
             PolynomialSpan<const FF>(polys.calldata_read_tags),
-            PolynomialSpan<const FF>(polys.secondary_calldata)
-        };
-        interleaved_commitments.interleaved_databus_1 =
-            commit_interleaved_and_send<4>(databus_1_batch, interleaved_labels.interleaved_databus_1);
-    }
-
-    // Individual calldata commit for databus consistency check compatibility.
-    // Not sound (not bound to W₃), but sufficient for benchmarking.
-    {
-        auto& comms = prover_instance->commitments;
-        comms.calldata = commitment_key.commit(polys.calldata);
-        transcript->send_to_verifier(domain_separator + commitment_labels.calldata, comms.calldata);
-    }
-
-    // W₄: [secondary_calldata_read_counts, secondary_calldata_read_tags, return_data_read_tags,
-    // return_data_read_counts]
-    {
-        std::array<PolynomialSpan<const FF>, 4> databus_2_batch = {
             PolynomialSpan<const FF>(polys.secondary_calldata_read_counts),
-            PolynomialSpan<const FF>(polys.secondary_calldata_read_tags),
-            PolynomialSpan<const FF>(polys.return_data_read_tags),
-            PolynomialSpan<const FF>(polys.return_data_read_counts)
+            PolynomialSpan<const FF>(polys.secondary_calldata_read_tags)
         };
-        interleaved_commitments.interleaved_databus_2 =
-            commit_interleaved_and_send<4>(databus_2_batch, interleaved_labels.interleaved_databus_2);
+        interleaved_commitments.interleaved_databus_tags =
+            commit_interleaved_and_send<4>(batch, interleaved_labels.interleaved_databus_tags);
     }
 
-    // W₅: [return_data, ZERO, ZERO, ZERO] - unshiftable
+    // W₆: [return_data_read_tags, return_data_read_counts, ZERO, ZERO] - unshiftable
     {
-        std::array<PolynomialSpan<const FF>, 1> databus_3_batch = { PolynomialSpan<const FF>(polys.return_data) };
-        interleaved_commitments.interleaved_databus_3 =
-            commit_interleaved_and_send<1>(databus_3_batch, interleaved_labels.interleaved_databus_3);
+        std::array<PolynomialSpan<const FF>, 2> batch = { PolynomialSpan<const FF>(polys.return_data_read_tags),
+                                                          PolynomialSpan<const FF>(polys.return_data_read_counts) };
+        interleaved_commitments.interleaved_return_data_tags =
+            commit_interleaved_and_send<2>(batch, interleaved_labels.interleaved_return_data_tags);
+    }
+
+    // W₇: [return_data, ZERO, ZERO, ZERO] - unshiftable
+    {
+        std::array<PolynomialSpan<const FF>, 1> batch = { PolynomialSpan<const FF>(polys.return_data) };
+        interleaved_commitments.interleaved_return_data =
+            commit_interleaved_and_send<1>(batch, interleaved_labels.interleaved_return_data);
     }
 }
 

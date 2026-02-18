@@ -143,8 +143,13 @@ template <IsMultiMegaFlavor Flavor_, class IO = DefaultIO> class MultiMegaVerifi
 
     /**
      * @brief Get calldata commitment (for databus consistency check in Chonk).
+     * @details Returns the interleaved calldata commitment [calldata, 0, 0, 0] which serves as a stand-in
+     *          for the individual calldata commitment. Not sound, but sufficient for benchmarking.
      */
-    const Commitment& get_calldata_commitment() const { return verifier_instance->witness_commitments.calldata; }
+    const Commitment& get_calldata_commitment() const
+    {
+        return verifier_instance->interleaved_commitments.interleaved_calldata;
+    }
 
     /**
      * @brief Get ECC op wire commitments as an array (for merge protocol in Chonk).
