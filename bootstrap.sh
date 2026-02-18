@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Test ci-release-pr flow for barretenberg-rs crate publishing
 # Usage: ./bootstrap.sh <full|fast|check|clean>"
 #   full: Bootstrap the repo from scratch.
 #   fast: Bootstrap the repo using CI cache where possible to save time building.
