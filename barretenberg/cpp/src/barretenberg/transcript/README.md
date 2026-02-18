@@ -169,7 +169,7 @@ Add element to the Fiat-Shamir transcript (affects challenge generation).
 
 ```cpp
 // Add VK hash to the Fiat-Shamir transcript
-FF vk_hash = vk->hash_with_origin_tagging(domain_separator, *transcript);
+FF vk_hash = vk->hash_with_origin_tagging(*transcript);
 transcript->add_to_hash_buffer("vk_hash", vk_hash);
 
 // Now challenges will depend on the VK hash

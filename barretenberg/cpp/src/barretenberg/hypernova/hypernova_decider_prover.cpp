@@ -7,11 +7,12 @@
 #include "barretenberg/hypernova/hypernova_decider_prover.hpp"
 
 namespace bb {
-HonkProof HypernovaDeciderProver::construct_proof(const CommitmentKey& ck, Accumulator& accumulator)
+HonkProof HypernovaDeciderProver::construct_proof(Accumulator& accumulator)
 {
     vinfo("HypernovaFoldingDecider: prove PCS...");
 
     size_t actual_size = accumulator.non_shifted_polynomial.virtual_size();
+    CommitmentKey ck(actual_size);
 
     // Open the commitments with Shplemini
     PolynomialBatcher polynomial_batcher(actual_size);
