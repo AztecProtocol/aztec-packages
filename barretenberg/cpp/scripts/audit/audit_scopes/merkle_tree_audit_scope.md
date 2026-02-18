@@ -35,19 +35,6 @@ The `merkle_tree` module implements the persistent Merkle tree infrastructure fo
 
 The storage architecture is two-layered: `ContentAddressedCachedTreeStore` wraps an in-memory cache (`ContentAddressedCache`) over a persistent LMDB backend (`LMDBTreeStore`). All tree operations are asynchronous, using thread pools and callback-based completion. The system supports block-level history, forking, checkpointing, and rollback for the world state managed by `world_state/`.
 
-### Production usage chain
-
-```
-yarn-project (TypeScript)
-  → nodejs_module/world_state (NAPI bindings)
-    → WorldState (world_state/)
-      → Fork { FrTree, NullifierTree, PublicDataTree }
-        → ContentAddressedAppendOnlyTree / ContentAddressedIndexedTree
-          → ContentAddressedCachedTreeStore
-            → ContentAddressedCache (in-memory)
-            → LMDBTreeStore (persistent LMDB)
-```
-
 ## Test Files
 1. `crypto/merkle_tree/memory_tree.test.cpp`
 2. `crypto/merkle_tree/fixtures.test.cpp`
