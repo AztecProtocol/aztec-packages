@@ -14,9 +14,9 @@ filter=$4
 export GTEST_COLOR=1
 export HARDWARE_CONCURRENCY=${CPUS:-8}
 
-# Use tcmalloc by default for native benchmarks. Set ALLOCATOR=default to disable.
+# Set ALLOCATOR=tcmalloc to use tcmalloc via LD_PRELOAD (installed in build image).
 BENCH_PRELOAD=""
-if [ "${ALLOCATOR:-tcmalloc}" = "tcmalloc" ]; then
+if [ "${ALLOCATOR:-}" = "tcmalloc" ]; then
   BENCH_PRELOAD="/usr/lib/$(uname -m)-linux-gnu/libtcmalloc_minimal.so.4"
 fi
 
