@@ -2,7 +2,7 @@ use crate::tests::private_kernel_tail::TestBuilder;
 use types::{
     abis::protocol_contracts::ProtocolContracts,
     address::AztecAddress,
-    constants::{MAX_INCLUDE_BY_TIMESTAMP_DURATION, MAX_PROTOCOL_CONTRACTS},
+    constants::{MAX_PROTOCOL_CONTRACTS, MAX_TX_LIFETIME},
     traits::FromField,
 };
 
@@ -63,115 +63,115 @@ fn fee_payer_mismatch() {
     builder.validate();
 }
 
-// --- include_by_timestamp ---
+// --- expiration_timestamp ---
 
 #[test]
-fn include_by_timestamp_use_previous() {
+fn expiration_timestamp_use_previous() {
     let mut builder = TestBuilder::new();
 
-    builder.include_by_timestamp_upper_bound = 9999;
-    builder.previous_kernel.include_by_timestamp = 123;
-    builder.output.include_by_timestamp = 123;
+    builder.expiration_timestamp_upper_bound = 9999;
+    builder.previous_kernel.expiration_timestamp = 123;
+    builder.output.expiration_timestamp = 123;
 
     builder.validate();
 }
 
 #[test]
-fn include_by_timestamp_use_custom() {
+fn expiration_timestamp_use_custom() {
     let mut builder = TestBuilder::new();
 
-    builder.include_by_timestamp_upper_bound = 99;
-    builder.previous_kernel.include_by_timestamp = 123;
-    builder.output.include_by_timestamp = 99;
+    builder.expiration_timestamp_upper_bound = 99;
+    builder.previous_kernel.expiration_timestamp = 123;
+    builder.output.expiration_timestamp = 99;
 
     builder.validate();
 }
 
-#[test(should_fail_with = "incorrect include_by_timestamp")]
-fn include_by_timestamp_use_larger_custom() {
+#[test(should_fail_with = "incorrect expiration_timestamp")]
+fn expiration_timestamp_use_larger_custom() {
     let mut builder = TestBuilder::new();
 
-    builder.include_by_timestamp_upper_bound = 9999;
-    builder.previous_kernel.include_by_timestamp = 123;
+    builder.expiration_timestamp_upper_bound = 9999;
+    builder.previous_kernel.expiration_timestamp = 123;
     // Output should be the previous kernel value.
-    builder.output.include_by_timestamp = 9999;
+    builder.output.expiration_timestamp = 9999;
 
     builder.validate();
 }
 
-#[test(should_fail_with = "incorrect include_by_timestamp")]
-fn include_by_timestamp_use_larger_previous() {
+#[test(should_fail_with = "incorrect expiration_timestamp")]
+fn expiration_timestamp_use_larger_previous() {
     let mut builder = TestBuilder::new();
 
-    builder.include_by_timestamp_upper_bound = 99;
-    builder.previous_kernel.include_by_timestamp = 123;
+    builder.expiration_timestamp_upper_bound = 99;
+    builder.previous_kernel.expiration_timestamp = 123;
     // Output should be the upper bound value.
-    builder.output.include_by_timestamp = 123;
+    builder.output.expiration_timestamp = 123;
 
     builder.validate();
 }
 
 #[test]
-fn include_by_timestamp_custom_equals_max_duration() {
+fn expiration_timestamp_custom_equals_max_duration() {
     let mut builder = TestBuilder::new();
 
     let block_timestamp = 99;
     builder.previous_kernel.anchor_block_header.global_variables.timestamp = block_timestamp;
     builder.output.anchor_block_header.global_variables.timestamp = block_timestamp;
 
-    let max_timestamp = block_timestamp + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
-    builder.include_by_timestamp_upper_bound = max_timestamp;
-    builder.previous_kernel.include_by_timestamp = max_timestamp;
-    builder.output.include_by_timestamp = max_timestamp;
-
-    builder.validate();
-}
-
-#[test(should_fail_with = "include_by_timestamp exceeds the maximum duration")]
-fn include_by_timestamp_custom_exceeds_max_duration() {
-    let mut builder = TestBuilder::new();
-
-    let block_timestamp = 99;
-    builder.previous_kernel.anchor_block_header.global_variables.timestamp = block_timestamp;
-    builder.output.anchor_block_header.global_variables.timestamp = block_timestamp;
-
-    let max_timestamp = block_timestamp + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
-    builder.include_by_timestamp_upper_bound = max_timestamp + 1;
-    builder.previous_kernel.include_by_timestamp = max_timestamp + 1;
-    // Output should be the max timestamp.
-    builder.output.include_by_timestamp = max_timestamp + 1;
+    let max_timestamp = block_timestamp + MAX_TX_LIFETIME;
+    builder.expiration_timestamp_upper_bound = max_timestamp;
+    builder.previous_kernel.expiration_timestamp = max_timestamp;
+    builder.output.expiration_timestamp = max_timestamp;
 
     builder.validate();
 }
 
 #[test]
-fn include_by_timestamp_custom_exceeds_max_pick_previous() {
+fn expiration_timestamp_custom_exceeds_max_tx_lifetime() {
     let mut builder = TestBuilder::new();
 
     let block_timestamp = 99;
     builder.previous_kernel.anchor_block_header.global_variables.timestamp = block_timestamp;
     builder.output.anchor_block_header.global_variables.timestamp = block_timestamp;
 
-    let max_timestamp = block_timestamp + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
-    builder.include_by_timestamp_upper_bound = max_timestamp + 1;
-    builder.previous_kernel.include_by_timestamp = max_timestamp;
-    builder.output.include_by_timestamp = max_timestamp;
+    let max_timestamp = block_timestamp + MAX_TX_LIFETIME;
+    builder.expiration_timestamp_upper_bound = max_timestamp + 1;
+    builder.previous_kernel.expiration_timestamp = max_timestamp + 1;
+    // Output should be clamped to the max timestamp.
+    builder.output.expiration_timestamp = max_timestamp;
 
     builder.validate();
 }
 
 #[test]
-fn include_by_timestamp_previous_exceeds_max_pick_custom() {
+fn expiration_timestamp_custom_exceeds_max_pick_previous() {
     let mut builder = TestBuilder::new();
 
     let block_timestamp = 99;
     builder.previous_kernel.anchor_block_header.global_variables.timestamp = block_timestamp;
     builder.output.anchor_block_header.global_variables.timestamp = block_timestamp;
 
-    let max_timestamp = block_timestamp + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
-    builder.include_by_timestamp_upper_bound = max_timestamp;
-    builder.previous_kernel.include_by_timestamp = max_timestamp + 1;
-    builder.output.include_by_timestamp = max_timestamp;
+    let max_timestamp = block_timestamp + MAX_TX_LIFETIME;
+    builder.expiration_timestamp_upper_bound = max_timestamp + 1;
+    builder.previous_kernel.expiration_timestamp = max_timestamp;
+    builder.output.expiration_timestamp = max_timestamp;
+
+    builder.validate();
+}
+
+#[test]
+fn expiration_timestamp_previous_exceeds_max_pick_custom() {
+    let mut builder = TestBuilder::new();
+
+    let block_timestamp = 99;
+    builder.previous_kernel.anchor_block_header.global_variables.timestamp = block_timestamp;
+    builder.output.anchor_block_header.global_variables.timestamp = block_timestamp;
+
+    let max_timestamp = block_timestamp + MAX_TX_LIFETIME;
+    builder.expiration_timestamp_upper_bound = max_timestamp;
+    builder.previous_kernel.expiration_timestamp = max_timestamp + 1;
+    builder.output.expiration_timestamp = max_timestamp;
 
     builder.validate();
 }

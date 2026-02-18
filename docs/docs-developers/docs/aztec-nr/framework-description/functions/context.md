@@ -95,11 +95,11 @@ The return values are a set of values that are returned from an applications exe
 ```rust
 return_values : BoundedVec\<Field, RETURN_VALUES_LENGTH\>,
 ```
-## Include By Timestamp
+## Expiration Timestamp
 
-Some data structures impose time constraints, e.g. they may make it so that a value can only be changed after a certain delay. Interacting with these in private involves creating proofs that are only valid as long as they are included before a certain future point in time. To achieve this, the `set_include_by_timestamp` function can be used to set this property:
+Some data structures impose time constraints, e.g. they may make it so that a value can only be changed after a certain delay. Interacting with these in private involves creating proofs that are only valid as long as they are included before a certain future point in time. To achieve this, the `set_expiration_timestamp` function can be used to set this property:
 
-#include_code include-by-timestamp /noir-projects/aztec-nr/aztec/src/context/private_context.nr rust
+#include_code expiration-timestamp /noir-projects/aztec-nr/aztec/src/context/private_context.nr rust
 
 A transaction that sets this value will never be included in a block with a timestamp larger than the requested value, since it would be considered invalid. This can also be used to make transactions automatically expire after some time if not included.
 

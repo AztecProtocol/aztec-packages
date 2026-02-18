@@ -30,7 +30,7 @@ export async function loadPrivateLogsForSenderRecipientPair(
   // (highestAgedIndex, highestFinalizedIndex + WINDOW_LEN]
   //
   // highestAgedIndex is the highest index that was used in a tx that is included in a block at least
-  //                  `MAX_INCLUDE_BY_TIMESTAMP_DURATION` seconds ago.
+  //                  `MAX_TX_LIFETIME` seconds ago.
   // highestFinalizedIndex is the highest index that was used in a tx that is included in a finalized block.
   //
   // "(" denotes an open end of the range - the index is not included in the range.
@@ -42,19 +42,19 @@ export async function loadPrivateLogsForSenderRecipientPair(
   // ever appear.
   //
   // This relies on the "maximum inclusion timestamp" rule enforced by the kernel and rollup circuits:
-  // - a transaction's maximum inclusion timestamp is at most `MAX_INCLUDE_BY_TIMESTAMP_DURATION` seconds after
+  // - a transaction's maximum inclusion timestamp is at most `MAX_TX_LIFETIME` seconds after
   //   the timestamp of its anchor block; and
   // - a rollup only includes transactions whose inclusion timestamp is >= the L2 block's timestamp.
   //
   // Suppose some device used index `I` in a transaction anchored to block `B_N` at time `N`, and that block is now at
-  // least `MAX_INCLUDE_BY_TIMESTAMP_DURATION` seconds in the past. Then there is no possibility of any *other* device
+  // least `MAX_TX_LIFETIME` seconds in the past. Then there is no possibility of any *other* device
   // trying to use an index <= `I` while anchoring to a *newer* block than `B_N` because if we were anchoring to
   // a newer block than `B_N` then we would already have seen the log with index `I` and hence the device would have
   // chosen a larger index.
   //    If that *other* device would anchor to a block older than `B_N` then that tx could never be included in a block
   // because it would already have been expired.
   //
-  // Therefore, once we see that index `I` has been used in a block that is at least `MAX_INCLUDE_BY_TIMESTAMP_DURATION`
+  // Therefore, once we see that index `I` has been used in a block that is at least `MAX_TX_LIFETIME`
   // seconds old, we can safely stop syncing logs for all indexes <= `I` and set highestAgedIndex = `I`.
   //
   // ## Explanation of the upper bound `highestFinalizedIndex + WINDOW_LEN`

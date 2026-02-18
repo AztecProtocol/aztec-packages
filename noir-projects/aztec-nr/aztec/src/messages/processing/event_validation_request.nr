@@ -42,7 +42,7 @@ mod test {
             3, // randomness
             4, // serialized_event[0]
             5, // serialized_event[1]
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // serialized_event padding
+            0, 0, 0, 0, 0, 0, 0, 0, 0, // serialized_event padding
             2, // bounded_vec_len
             6, // event_commitment
             7, // tx_hash

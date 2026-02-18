@@ -16,7 +16,7 @@ describe('buildBlobHints', () => {
       encodeCheckpointEndMarker({ numBlobFields: blobFieldsWithoutEndMarker.length + 1 }),
     ]);
 
-    const { blobCommitments, blobsHash, blobs } = buildBlobHints(blobFields);
+    const { blobCommitments, blobsHash, blobs } = await buildBlobHints(blobFields);
 
     expect(blobs.length).toBe(1);
     const onlyBlob = blobs[0];
@@ -37,7 +37,7 @@ describe('buildBlobHints', () => {
     const zStr = challengeZ.toString();
     expect(zStr).toMatchInlineSnapshot(`"0x11d6daed56531bd5c5acf341663d21089bb96913f4e716dca3cdb01b8d5735a3"`);
 
-    const proof = onlyBlob.evaluate(challengeZ, true /* verifyProof */);
+    const proof = await onlyBlob.evaluate(challengeZ, true /* verifyProof */);
     const yStr = proof.y.toString();
     expect(yStr).toMatchInlineSnapshot(`"0x6033e46c697b3de1a5ddedb940ae6ccdb6efc0adeb255336b0220d3fd4b76720"`);
 

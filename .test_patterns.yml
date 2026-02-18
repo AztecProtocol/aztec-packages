@@ -309,6 +309,11 @@ tests:
     owners:
       - *palla
 
+  - regex: "src/e2e_block_building.test.ts"
+    error_regex: "✕ processes txs until hitting timetable"
+    owners:
+      - *palla
+
   # http://ci.aztec-labs.com/e8228a36afda93b8
   # Test passed but there was an error on stopping
   - regex: "playground/scripts/run_test.sh"

@@ -29,8 +29,8 @@ export interface WorldStateConfig {
   /** Optional directory for the world state DB, if unspecified will default to the general data directory */
   worldStateDataDirectory?: string;
 
-  /** The number of historic blocks to maintain */
-  worldStateBlockHistory: number;
+  /** The number of historic checkpoints worth of blocks to maintain */
+  worldStateCheckpointHistory: number;
 }
 
 export const worldStateConfigMappings: ConfigMappingsType<WorldStateConfig> = {
@@ -84,9 +84,11 @@ export const worldStateConfigMappings: ConfigMappingsType<WorldStateConfig> = {
     env: 'WS_DATA_DIRECTORY',
     description: 'Optional directory for the world state database',
   },
-  worldStateBlockHistory: {
-    env: 'WS_NUM_HISTORIC_BLOCKS',
-    description: 'The number of historic blocks to maintain. Values less than 1 mean all history is maintained',
+  worldStateCheckpointHistory: {
+    env: 'WS_NUM_HISTORIC_CHECKPOINTS',
+    description:
+      'The number of historic checkpoints worth of blocks to maintain. Values less than 1 mean all history is maintained',
+    fallback: ['WS_NUM_HISTORIC_BLOCKS'],
     ...numberConfigHelper(64),
   },
 };

@@ -7,6 +7,7 @@ import { inspect } from 'util';
 import { compactArray } from '../collection/array.js';
 import type { EnvVar } from '../config/index.js';
 import { parseBooleanEnv } from '../config/parse-env.js';
+import { convertBigintsToStrings } from './bigint-utils.js';
 import { GoogleCloudLoggerConfig } from './gcloud-logger-config.js';
 import { getLogLevelFromFilters, parseLogLevelEnvVar } from './log-filters.js';
 import type { LogLevel } from './log-levels.js';
@@ -164,6 +165,9 @@ const pinoOpts: pino.LoggerOptions<keyof typeof customLevels> = {
       ...redactedPaths.map(p => `options.${p}`),
       ...redactedPaths.map(p => `opts.${p}`),
     ],
+  },
+  formatters: {
+    log: obj => convertBigintsToStrings(obj) as Record<string, unknown>,
   },
   ...(useGcloudLogging ? GoogleCloudLoggerConfig : {}),
 };

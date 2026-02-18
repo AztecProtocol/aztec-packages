@@ -22,6 +22,8 @@ export interface IEmpireBase {
     signerAddress: Hex,
     signer: (msg: TypedDataDefinition) => Promise<Hex>,
   ): Promise<L1TxRequest>;
+  /** Checks if a payload was ever submitted to governance via submitRoundWinner. */
+  hasPayloadBeenProposed(payload: Hex, fromBlock: bigint): Promise<boolean>;
 }
 
 export function encodeSignal(payload: Hex): Hex {

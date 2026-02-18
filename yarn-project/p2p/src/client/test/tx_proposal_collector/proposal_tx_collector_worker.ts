@@ -16,14 +16,12 @@ import type { PeerId } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
 
 import type { P2PConfig } from '../../../config.js';
+import { BatchTxRequesterCollector, SendBatchRequestCollector } from '../../../services/index.js';
 import type { IBatchRequestTxValidator } from '../../../services/reqresp/batch-tx-requester/tx_validator.js';
 import { RateLimitStatus } from '../../../services/reqresp/rate-limiter/rate_limiter.js';
+import { MissingTxsTracker } from '../../../services/tx_collection/missing_txs_tracker.js';
 import {
-  BatchTxRequesterCollector,
-  SendBatchRequestCollector,
-} from '../../../services/tx_collection/proposal_tx_collector.js';
-import { AlwaysTrueCircuitVerifier } from '../../../test-helpers/reqresp-nodes.js';
-import {
+  AlwaysTrueCircuitVerifier,
   BENCHMARK_CONSTANTS,
   InMemoryAttestationPool,
   InMemoryTxPool,
@@ -31,7 +29,7 @@ import {
   calculateInternalTimeout,
   createMockEpochCache,
   createMockWorldStateSynchronizer,
-} from '../../../test-helpers/testbench-utils.js';
+} from '../../../test-helpers/index.js';
 import { createP2PClient } from '../../index.js';
 import type { P2PClient } from '../../p2p_client.js';
 import {
@@ -214,7 +212,13 @@ async function runCollector(cmd: Extract<WorkerCommand, { type: 'RUN_COLLECTOR' 
     if (collectorType === 'batch-requester') {
       const collector = new BatchTxRequesterCollector(p2pService, logger, new DateProvider(), noopTxValidator);
       const fetched = await executeTimeout(
-        (_signal: AbortSignal) => collector.collectTxs(parsedTxHashes, parsedProposal, pinnedPeer, internalTimeoutMs),
+        (_signal: AbortSignal) =>
+          collector.collectTxs(
+            MissingTxsTracker.fromArray(parsedTxHashes),
+            parsedProposal,
+            pinnedPeer,
+            internalTimeoutMs,
+          ),
         timeoutMs,
         () => new Error(`Collector timed out after ${timeoutMs}ms`),
       );
@@ -226,7 +230,13 @@ async function runCollector(cmd: Extract<WorkerCommand, { type: 'RUN_COLLECTOR' 
         BENCHMARK_CONSTANTS.FIXED_MAX_RETRY_ATTEMPTS,
       );
       const fetched = await executeTimeout(
-        (_signal: AbortSignal) => collector.collectTxs(parsedTxHashes, parsedProposal, pinnedPeer, internalTimeoutMs),
+        (_signal: AbortSignal) =>
+          collector.collectTxs(
+            MissingTxsTracker.fromArray(parsedTxHashes),
+            parsedProposal,
+            pinnedPeer,
+            internalTimeoutMs,
+          ),
         timeoutMs,
         () => new Error(`Collector timed out after ${timeoutMs}ms`),
       );

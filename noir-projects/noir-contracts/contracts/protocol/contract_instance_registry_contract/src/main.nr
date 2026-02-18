@@ -155,7 +155,9 @@ pub contract ContractInstanceRegistry {
         };
         let payload = event.serialize_non_standard();
         debug_log_format("ContractInstancePublished: {}", payload);
-        let padded_log = payload.concat([0; 3]);
+        // We pad the payload with [0] to match the length required by emit_private_log. Since the log is not
+        // encrypted, padding with zero rather than a random value is acceptable (we don't care about privacy here).
+        let padded_log = payload.concat([0]);
         let length = payload.len();
         context.emit_private_log(padded_log, length);
 
@@ -208,7 +210,7 @@ pub contract ContractInstanceRegistry {
         let scheduled_value_update = storage
             .updated_class_ids
             .at(address)
-            .schedule_and_return_value_change(new_contract_class_id);
+            .schedule_and_get_value_change(new_contract_class_id);
         let (prev_contract_class_id, timestamp_of_change) = scheduled_value_update.get_previous();
 
         let event = ContractInstanceUpdated {

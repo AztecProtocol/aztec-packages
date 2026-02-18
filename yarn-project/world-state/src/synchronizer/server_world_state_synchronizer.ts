@@ -1,5 +1,5 @@
 import { GENESIS_BLOCK_HEADER_HASH, INITIAL_L2_BLOCK_NUM, INITIAL_L2_CHECKPOINT_NUM } from '@aztec/constants';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -64,7 +64,7 @@ export class ServerWorldStateSynchronizer
     private readonly log: Logger = createLogger('world_state'),
   ) {
     this.merkleTreeCommitted = this.merkleTreeDb.getCommitted();
-    this.historyToKeep = config.worldStateBlockHistory < 1 ? undefined : config.worldStateBlockHistory;
+    this.historyToKeep = config.worldStateCheckpointHistory < 1 ? undefined : config.worldStateCheckpointHistory;
     this.log.info(
       `Created world state synchroniser with block history of ${
         this.historyToKeep === undefined ? 'infinity' : this.historyToKeep
@@ -364,12 +364,37 @@ export class ServerWorldStateSynchronizer
     if (this.historyToKeep === undefined) {
       return;
     }
-    const newHistoricBlock = summary.finalizedBlockNumber - this.historyToKeep + 1;
-    if (newHistoricBlock <= 1) {
+    // Get the checkpointed block for the finalized block number
+    const finalisedCheckpoint = await this.l2BlockSource.getCheckpointedBlock(summary.finalizedBlockNumber);
+    if (finalisedCheckpoint === undefined) {
+      this.log.warn(
+        `Failed to retrieve checkpointed block for finalized block number: ${summary.finalizedBlockNumber}`,
+      );
       return;
     }
-    this.log.verbose(`Pruning historic blocks to ${newHistoricBlock}`);
-    const status = await this.merkleTreeDb.removeHistoricalBlocks(BlockNumber(newHistoricBlock));
+    // Compute the required historic checkpoint number
+    const newHistoricCheckpointNumber = finalisedCheckpoint.checkpointNumber - this.historyToKeep + 1;
+    if (newHistoricCheckpointNumber <= 1) {
+      return;
+    }
+    // Retrieve the historic checkpoint
+    const historicCheckpoints = await this.l2BlockSource.getCheckpoints(
+      CheckpointNumber(newHistoricCheckpointNumber),
+      1,
+    );
+    if (historicCheckpoints.length === 0 || historicCheckpoints[0] === undefined) {
+      this.log.warn(`Failed to retrieve checkpoint number ${newHistoricCheckpointNumber} from Archiver`);
+      return;
+    }
+    const historicCheckpoint = historicCheckpoints[0];
+    if (historicCheckpoint.checkpoint.blocks.length === 0 || historicCheckpoint.checkpoint.blocks[0] === undefined) {
+      this.log.warn(`Retrieved checkpoint number ${newHistoricCheckpointNumber} has no blocks!`);
+      return;
+    }
+    // Find the block at the start of the checkpoint and remove blocks up to this one
+    const newHistoricBlock = historicCheckpoint.checkpoint.blocks[0];
+    this.log.verbose(`Pruning historic blocks to ${newHistoricBlock.number}`);
+    const status = await this.merkleTreeDb.removeHistoricalBlocks(BlockNumber(newHistoricBlock.number));
     this.log.debug(`World state summary `, status.summary);
   }
 

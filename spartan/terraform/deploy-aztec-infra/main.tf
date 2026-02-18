@@ -218,8 +218,9 @@ locals {
     "validator.node.env.P2P_GOSSIPSUB_DHI"                     = var.P2P_GOSSIPSUB_DHI
     "validator.node.env.P2P_DROP_TX"                           = var.P2P_DROP_TX
     "validator.node.env.P2P_DROP_TX_CHANCE"                    = var.P2P_DROP_TX_CHANCE
-    "validator.node.env.WS_NUM_HISTORIC_BLOCKS"                = var.WS_NUM_HISTORIC_BLOCKS
+    "validator.node.env.WS_NUM_HISTORIC_CHECKPOINTS"           = var.WS_NUM_HISTORIC_CHECKPOINTS
     "validator.node.env.TX_COLLECTION_FILE_STORE_URLS"         = var.TX_COLLECTION_FILE_STORE_URLS
+    "validator.node.env.SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT"   = var.SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT
   }
 
   # Note: nonsensitive() is required here because helm_releases is used in for_each,
@@ -305,7 +306,7 @@ locals {
             p2p = { publicIP = var.P2P_PUBLIC_IP }
           }
         }
-      })], local.is_kind ? [yamlencode({
+        })], local.is_kind ? [yamlencode({
         agent = {
           nodeSelector = null
           affinity     = null
@@ -334,9 +335,9 @@ locals {
           "broker.node.logLevel"                                = var.LOG_LEVEL
           "broker.node.env.BOOTSTRAP_NODES"                     = "asdf"
           "broker.node.env.PROVER_BROKER_DEBUG_REPLAY_ENABLED"  = var.PROVER_BROKER_DEBUG_REPLAY_ENABLED
-          "agent.node.image.repository"                          = local.prover_agent_image.repository
-          "agent.node.image.tag"                                 = local.prover_agent_image.tag
-          "agent.node.env.CRS_PATH"                              = "/usr/src/crs"
+          "agent.node.image.repository"                         = local.prover_agent_image.repository
+          "agent.node.image.tag"                                = local.prover_agent_image.tag
+          "agent.node.env.CRS_PATH"                             = "/usr/src/crs"
           "agent.node.proverRealProofs"                         = var.PROVER_REAL_PROOFS
           "agent.node.env.PROVER_AGENT_POLL_INTERVAL_MS"        = var.PROVER_AGENT_POLL_INTERVAL_MS
           "agent.replicaCount"                                  = var.PROVER_REPLICAS
@@ -357,7 +358,7 @@ locals {
           "node.node.env.P2P_GOSSIPSUB_DHI"                     = var.P2P_GOSSIPSUB_DHI
           "node.node.env.P2P_DROP_TX"                           = var.P2P_DROP_TX
           "node.node.env.P2P_DROP_TX_CHANCE"                    = var.P2P_DROP_TX_CHANCE
-          "node.node.env.WS_NUM_HISTORIC_BLOCKS"                = var.WS_NUM_HISTORIC_BLOCKS
+          "node.node.env.WS_NUM_HISTORIC_CHECKPOINTS"           = var.WS_NUM_HISTORIC_CHECKPOINTS
           "node.node.env.TX_COLLECTION_FILE_STORE_URLS"         = var.TX_COLLECTION_FILE_STORE_URLS
           "node.service.p2p.nodePortEnabled"                    = var.P2P_NODEPORT_ENABLED
           "node.service.p2p.announcePort"                       = local.p2p_port_prover
@@ -415,7 +416,6 @@ locals {
       })]
 
       custom_settings = merge({
-        "nodeType"                    = "rpc"
         "replicaCount"                = var.RPC_REPLICAS
         "service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
         "service.p2p.announcePort"    = local.p2p_port_rpc
@@ -437,7 +437,7 @@ locals {
         "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
         "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
         "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
-        "node.env.WS_NUM_HISTORIC_BLOCKS"             = var.WS_NUM_HISTORIC_BLOCKS
+        "node.env.WS_NUM_HISTORIC_CHECKPOINTS"        = var.WS_NUM_HISTORIC_CHECKPOINTS
         "node.env.TX_FILE_STORE_ENABLED"              = var.TX_FILE_STORE_ENABLED
         "node.env.TX_FILE_STORE_URL"                  = var.TX_FILE_STORE_URL
         "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
@@ -494,7 +494,7 @@ locals {
         "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
         "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
         "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
-        "node.env.WS_NUM_HISTORIC_BLOCKS"             = var.WS_NUM_HISTORIC_BLOCKS
+        "node.env.WS_NUM_HISTORIC_CHECKPOINTS"        = var.WS_NUM_HISTORIC_CHECKPOINTS
         "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
@@ -534,7 +534,7 @@ locals {
         "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
         "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
         "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
-        "node.env.WS_NUM_HISTORIC_BLOCKS"             = var.WS_NUM_HISTORIC_BLOCKS
+        "node.env.WS_NUM_HISTORIC_CHECKPOINTS"        = var.WS_NUM_HISTORIC_CHECKPOINTS
         "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
@@ -571,7 +571,7 @@ locals {
         "node.env.P2P_GOSSIPSUB_DHI"                 = var.P2P_GOSSIPSUB_DHI
         "node.env.P2P_DROP_TX"                       = var.P2P_DROP_TX
         "node.env.P2P_DROP_TX_CHANCE"                = var.P2P_DROP_TX_CHANCE
-        "node.env.WS_NUM_HISTORIC_BLOCKS"            = var.WS_NUM_HISTORIC_BLOCKS
+        "node.env.WS_NUM_HISTORIC_CHECKPOINTS"       = var.WS_NUM_HISTORIC_CHECKPOINTS
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"

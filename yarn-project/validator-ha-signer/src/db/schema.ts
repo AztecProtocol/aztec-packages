@@ -203,23 +203,24 @@ WHERE status = 'signed'
 
 /**
  * Query to clean up old duties (for maintenance)
- * Removes SIGNED duties older than a specified timestamp
+ * Removes SIGNED duties older than a specified age (in milliseconds)
  */
 export const CLEANUP_OLD_DUTIES = `
 DELETE FROM validator_duties
 WHERE status = 'signed'
-  AND started_at < $1;
+  AND started_at < CURRENT_TIMESTAMP - ($1 || ' milliseconds')::INTERVAL;
 `;
 
 /**
  * Query to cleanup own stuck duties
  * Removes duties in 'signing' status for a specific node that are older than maxAgeMs
+ * Uses DB's CURRENT_TIMESTAMP to avoid clock skew issues between nodes
  */
 export const CLEANUP_OWN_STUCK_DUTIES = `
 DELETE FROM validator_duties
 WHERE node_id = $1
   AND status = 'signing'
-  AND started_at < $2;
+  AND started_at < CURRENT_TIMESTAMP - ($2 || ' milliseconds')::INTERVAL;
 `;
 
 /**

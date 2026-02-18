@@ -46,14 +46,14 @@ describe('TxCollection', () => {
   const makeNode = (name: string) => {
     const node = mock<TxSource>();
     node.getInfo.mockReturnValue(name);
-    node.getTxsByHash.mockResolvedValue([]);
+    node.getTxsByHash.mockResolvedValue({ validTxs: [], invalidTxHashes: [] });
     return node;
   };
 
   const makeFileStoreSource = (name: string) => {
     const source = mock<FileStoreTxSource>();
     source.getInfo.mockReturnValue(name);
-    source.getTxsByHash.mockResolvedValue([]);
+    source.getTxsByHash.mockResolvedValue({ validTxs: [], invalidTxHashes: [] });
     return source;
   };
 
@@ -76,7 +76,10 @@ describe('TxCollection', () => {
   const setNodeTxs = (node: MockProxy<TxSource>, txs: Tx[]) => {
     node.getTxsByHash.mockImplementation(async hashes => {
       await sleep(1);
-      return hashes.map(h => txs.find(tx => tx.txHash.equals(h)));
+      return {
+        validTxs: hashes.map(h => txs.find(tx => tx.txHash.equals(h))).filter(tx => tx !== undefined),
+        invalidTxHashes: [],
+      };
     });
   };
 
@@ -513,7 +516,10 @@ describe('TxCollection', () => {
 
     const setFileStoreTxs = (source: MockProxy<FileStoreTxSource>, txsToReturn: Tx[]) => {
       source.getTxsByHash.mockImplementation(hashes => {
-        return Promise.resolve(hashes.map(h => txsToReturn.find(tx => tx.txHash.equals(h))));
+        return Promise.resolve({
+          validTxs: hashes.map(h => txsToReturn.find(tx => tx.txHash.equals(h))).filter(tx => tx !== undefined),
+          invalidTxHashes: [],
+        });
       });
     };
 

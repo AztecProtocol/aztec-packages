@@ -6,8 +6,14 @@ import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, CustomRange, StoreSize } from '@aztec/kv-store';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash, CheckpointedL2Block, L2Block, type ValidateCheckpointResult } from '@aztec/stdlib/block';
-import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import {
+  type BlockData,
+  BlockHash,
+  CheckpointedL2Block,
+  L2Block,
+  type ValidateCheckpointResult,
+} from '@aztec/stdlib/block';
+import type { CheckpointData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
   ContractDataSource,
@@ -25,7 +31,7 @@ import type { UInt64 } from '@aztec/stdlib/types';
 import { join } from 'path';
 
 import type { InboxMessage } from '../structs/inbox_message.js';
-import { BlockStore, type CheckpointData, type RemoveCheckpointsResult } from './block_store.js';
+import { BlockStore, type RemoveCheckpointsResult } from './block_store.js';
 import { ContractClassStore } from './contract_class_store.js';
 import { ContractInstanceStore } from './contract_instance_store.js';
 import { LogStore } from './log_store.js';
@@ -72,6 +78,11 @@ export class KVArchiverDataStore implements ContractDataSource {
     this.#messageStore = new MessageStore(db);
     this.#contractClassStore = new ContractClassStore(db);
     this.#contractInstanceStore = new ContractInstanceStore(db);
+  }
+
+  /** Returns the underlying block store. Used by L2TipsCache. */
+  get blockStore(): BlockStore {
+    return this.#blockStore;
   }
 
   /** Opens a new transaction to the underlying store and runs all operations within it. */
@@ -370,6 +381,22 @@ export class KVArchiverDataStore implements ContractDataSource {
   }
 
   /**
+   * Gets block metadata (without tx data) by block number.
+   * @param blockNumber - The block number to return.
+   */
+  getBlockData(blockNumber: BlockNumber): Promise<BlockData | undefined> {
+    return this.#blockStore.getBlockData(blockNumber);
+  }
+
+  /**
+   * Gets block metadata (without tx data) by archive root.
+   * @param archive - The archive root to return.
+   */
+  getBlockDataByArchive(archive: Fr): Promise<BlockData | undefined> {
+    return this.#blockStore.getBlockDataByArchive(archive);
+  }
+
+  /**
    * Gets a tx effect.
    * @param txHash - The hash of the tx corresponding to the tx effect.
    * @returns The requested tx effect with block info (or undefined if not found).
@@ -616,6 +643,11 @@ export class KVArchiverDataStore implements ContractDataSource {
    */
   getCheckpointData(checkpointNumber: CheckpointNumber): Promise<CheckpointData | undefined> {
     return this.#blockStore.getCheckpointData(checkpointNumber);
+  }
+
+  /** Returns checkpoint data for all checkpoints whose slot falls within the given range (inclusive). */
+  getCheckpointDataForSlotRange(startSlot: SlotNumber, endSlot: SlotNumber): Promise<CheckpointData[]> {
+    return this.#blockStore.getCheckpointDataForSlotRange(startSlot, endSlot);
   }
 
   /**

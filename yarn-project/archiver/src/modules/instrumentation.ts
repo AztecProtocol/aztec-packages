@@ -1,5 +1,6 @@
 import { createLogger } from '@aztec/foundation/log';
 import type { L2Block } from '@aztec/stdlib/block';
+import type { CheckpointData } from '@aztec/stdlib/checkpoint';
 import {
   Attributes,
   type Gauge,
@@ -17,6 +18,7 @@ export class ArchiverInstrumentation {
   public readonly tracer: Tracer;
 
   private blockHeight: Gauge;
+  private checkpointHeight: Gauge;
   private txCount: UpDownCounter;
   private l1BlockHeight: Gauge;
   private proofsSubmittedDelay: Histogram;
@@ -46,6 +48,8 @@ export class ArchiverInstrumentation {
     const meter = telemetry.getMeter('Archiver');
 
     this.blockHeight = meter.createGauge(Metrics.ARCHIVER_BLOCK_HEIGHT);
+
+    this.checkpointHeight = meter.createGauge(Metrics.ARCHIVER_CHECKPOINT_HEIGHT);
 
     this.l1BlockHeight = meter.createGauge(Metrics.ARCHIVER_L1_BLOCK_HEIGHT);
 
@@ -105,6 +109,7 @@ export class ArchiverInstrumentation {
   public processNewBlocks(syncTimePerBlock: number, blocks: L2Block[]) {
     this.syncDurationPerBlock.record(Math.ceil(syncTimePerBlock));
     this.blockHeight.record(Math.max(...blocks.map(b => b.number)));
+    this.checkpointHeight.record(Math.max(...blocks.map(b => b.checkpointNumber)));
     this.syncBlockCount.add(blocks.length);
 
     for (const block of blocks) {
@@ -127,8 +132,10 @@ export class ArchiverInstrumentation {
     this.pruneDuration.record(Math.ceil(duration));
   }
 
-  public updateLastProvenBlock(blockNumber: number) {
-    this.blockHeight.record(blockNumber, { [Attributes.STATUS]: 'proven' });
+  public updateLastProvenCheckpoint(checkpoint: CheckpointData) {
+    const lastBlockNumberInCheckpoint = checkpoint.startBlock + checkpoint.blockCount - 1;
+    this.blockHeight.record(lastBlockNumberInCheckpoint, { [Attributes.STATUS]: 'proven' });
+    this.checkpointHeight.record(checkpoint.checkpointNumber, { [Attributes.STATUS]: 'proven' });
   }
 
   public processProofsVerified(logs: { proverId: string; l2BlockNumber: bigint; delay: bigint }[]) {
