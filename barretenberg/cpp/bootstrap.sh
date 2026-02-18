@@ -412,7 +412,6 @@ function test {
 
 function build_bench {
   set -eu
-  sudo apt-get update && sudo apt-get install -y libtcmalloc-minimal4t64
   if ! cache_download barretenberg-benchmarks-$hash.zst; then
     # Run builds in parallel with different targets per preset
     parallel --line-buffered denoise ::: \
