@@ -21,10 +21,10 @@ import type { UInt64 } from '@aztec/stdlib/types';
 import type { TxMetaData } from '../../mem_pools/tx_pool_v2/tx_metadata.js';
 import { AggregateTxValidator } from './aggregate_tx_validator.js';
 import { ArchiveCache } from './archive_cache.js';
-import { BlockHeaderTxValidator } from './block_header_validator.js';
+import { type ArchiveSource, BlockHeaderTxValidator } from './block_header_validator.js';
 import { DataTxValidator } from './data_validator.js';
-import { DoubleSpendTxValidator } from './double_spend_validator.js';
-import { GasTxValidator } from './gas_validator.js';
+import { DoubleSpendTxValidator, type NullifierSource } from './double_spend_validator.js';
+import { GasLimitsValidator, GasTxValidator } from './gas_validator.js';
 import { MetadataTxValidator } from './metadata_validator.js';
 import { NullifierCache } from './nullifier_cache.js';
 import { PhasesTxValidator } from './phases_validator.js';
@@ -42,7 +42,9 @@ export interface TransactionValidator {
 
 /**
  * Builds a set of transaction validators used for gossiped transactions.
- * This contains the complete set of validations applied to transactions
+ * This contains the complete set of validations applied to transactions.
+ * As a result, we verify that not only is the transaction itself valid,
+ * but it is valid against the current state.
  */
 export function createCompleteGossipedTransactionValidators(
   timestamp: UInt64,
@@ -132,12 +134,7 @@ export function createCompleteGossipedTransactionValidators(
   ];
 }
 
-/**
- * Validators used for transactions received via req/resp or filestores.
- * Performs a subset of validations, namely those required to determine if the transaction
- * itself is valid, not necessarily valid within the context of the current state.
- */
-export function createTxReqRespValidator(
+function createTxValidatorForMinimumTxIntegrityChecks(
   verifier: ClientProtocolCircuitVerifier,
   {
     l1ChainId,
@@ -165,10 +162,48 @@ export function createTxReqRespValidator(
 }
 
 /**
+ * Validators used for transactions received via req/resp or filestores.
+ * Performs a subset of validations, namely those required to determine if the transaction
+ * itself is valid, not necessarily valid within the context of the current state.
+ */
+export function createTxValidatorForReqResponseReceivedTxs(
+  verifier: ClientProtocolCircuitVerifier,
+  {
+    l1ChainId,
+    rollupVersion,
+  }: {
+    l1ChainId: number;
+    rollupVersion: number;
+  },
+  bindings?: LoggerBindings,
+): TxValidator {
+  return createTxValidatorForMinimumTxIntegrityChecks(verifier, { l1ChainId, rollupVersion }, bindings);
+}
+
+/**
+ * Validators used for transactions received via block proposals themselves.
+ * Performs the sdame validations as those on request/response received transactions.
+ * That measn, we validate the transaction itself is valid. But not necessarily valid against current state.
+ */
+export function createTxValidatorForBlockProposalReceivedTxs(
+  verifier: ClientProtocolCircuitVerifier,
+  {
+    l1ChainId,
+    rollupVersion,
+  }: {
+    l1ChainId: number;
+    rollupVersion: number;
+  },
+  bindings?: LoggerBindings,
+): TxValidator {
+  return createTxValidatorForMinimumTxIntegrityChecks(verifier, { l1ChainId, rollupVersion }, bindings);
+}
+
+/**
  * Validators used for transactions received over JSON RPC.
  * Performs a configurable set of validations to allow for usage in various scenarios
  */
-export function createValidatorForAcceptingTxsOverRPC(
+export function createTxValidatorForAcceptingTxsOverRPC(
   db: MerkleTreeReadOperations,
   contractDataSource: ContractDataSource,
   verifier: ClientProtocolCircuitVerifier | undefined,
@@ -235,7 +270,7 @@ export function createValidatorForAcceptingTxsOverRPC(
  * Validators used for transactions immediately prior to being included in a block.
  * Performs a last minute sanity check to ensure we don't build and invalid block.
  */
-export function createValidatorForBlockBuilding(
+export function createTxValidatorForBlockBuilding(
   db: MerkleTreeReadOperations,
   contractDataSource: ContractDataSource,
   globalVariables: GlobalVariables,
@@ -247,7 +282,7 @@ export function createValidatorForBlockBuilding(
   const publicStateSource = new DatabasePublicStateSource(db);
 
   return {
-    preprocessValidator: preprocessValidator(
+    preprocessValidator: createTxValidatorForValidatingAgainstCurrentState(
       nullifierCache,
       archiveCache,
       publicStateSource,
@@ -260,9 +295,9 @@ export function createValidatorForBlockBuilding(
   };
 }
 
-function preprocessValidator(
-  nullifierCache: NullifierCache,
-  archiveCache: ArchiveCache,
+function createTxValidatorForValidatingAgainstCurrentState(
+  nullifierSource: NullifierSource,
+  archiveSource: ArchiveSource,
   publicStateSource: PublicStateSource,
   contractDataSource: ContractDataSource,
   globalVariables: GlobalVariables,
@@ -271,15 +306,6 @@ function preprocessValidator(
 ): TxValidator<Tx> {
   // We don't include the TxProofValidator nor the DataTxValidator here because they are already checked by the time we get to block building.
   return new AggregateTxValidator(
-    new MetadataTxValidator(
-      {
-        l1ChainId: globalVariables.chainId,
-        rollupVersion: globalVariables.version,
-        protocolContractsHash,
-        vkTreeRoot: getVKTreeRoot(),
-      },
-      bindings,
-    ),
     new TimestampTxValidator(
       {
         timestamp: globalVariables.timestamp,
@@ -287,39 +313,47 @@ function preprocessValidator(
       },
       bindings,
     ),
-    new DoubleSpendTxValidator(nullifierCache, bindings),
+    new DoubleSpendTxValidator(nullifierSource, bindings),
     new PhasesTxValidator(contractDataSource, setupAllowList, globalVariables.timestamp, bindings),
     new GasTxValidator(publicStateSource, ProtocolContractAddress.FeeJuice, globalVariables.gasFees, bindings),
-    new BlockHeaderTxValidator(archiveCache, bindings),
+    new BlockHeaderTxValidator(archiveSource, bindings),
   );
 }
 
 /**
  * Validator for transactions entering the pending transaction pool. Performs validations that were potentially missed
- * because transactions are not fully validated when received via rea/resp.
+ * because transactions are not fully validated when received via req/resp.
  */
-export async function createTxPoolPendingValidator(
+export async function createTxValidatorForTransactionsEnteringPendingTxPool(
   worldStateSynchronizer: WorldStateSynchronizer,
+  contractDataSource: ContractDataSource,
+  timestamp: bigint,
+  blockNumber: BlockNumber,
+  setupAllowList: AllowedElement[],
   bindings?: LoggerBindings,
 ) {
   await worldStateSynchronizer.syncImmediate();
+  const merkleTree = worldStateSynchronizer.getCommitted();
+  const nullifierSource: NullifierSource = {
+    nullifiersExist: async (nullifiers: Buffer[]) => {
+      const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
+      return indices.map(index => index !== undefined);
+    },
+  };
+  const archiveSource: ArchiveSource = {
+    getArchiveIndices: (archives: BlockHash[]) => {
+      return merkleTree.findLeafIndices(MerkleTreeId.ARCHIVE, archives);
+    },
+  };
   return new AggregateTxValidator<TxMetaData>(
-    new DoubleSpendTxValidator<TxMetaData>(
+    new DoubleSpendTxValidator<TxMetaData>(nullifierSource, bindings),
+    new BlockHeaderTxValidator<TxMetaData>(archiveSource, bindings),
+    new PhasesTxValidator(contractDataSource, setupAllowList, timestamp, bindings),
+    new GasLimitsValidator<TxMetaData>(bindings),
+    new TimestampTxValidator(
       {
-        nullifiersExist: async (nullifiers: Buffer[]) => {
-          const merkleTree = worldStateSynchronizer.getCommitted();
-          const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
-          return indices.map(index => index !== undefined);
-        },
-      },
-      bindings,
-    ),
-    new BlockHeaderTxValidator<TxMetaData>(
-      {
-        getArchiveIndices: (archives: BlockHash[]) => {
-          const merkleTree = worldStateSynchronizer.getCommitted();
-          return merkleTree.findLeafIndices(MerkleTreeId.ARCHIVE, archives);
-        },
+        timestamp: timestamp,
+        blockNumber: blockNumber,
       },
       bindings,
     ),
