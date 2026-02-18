@@ -81,29 +81,11 @@ Polynomial<HypernovaFoldingProver::FF> HypernovaFoldingProver::batch_polynomials
     BB_ASSERT_EQ(
         challenges.size(), N, "The number of challenges provided does not match the number of polynomials to batch.");
 
-    // Find the minimum start_index across all polynomials to ensure the accumulator can hold all of them.
-    // add_scaled requires the destination start_index <= source start_index.
-    size_t min_start = polynomials_to_batch[0].start_index();
-    size_t max_end = polynomials_to_batch[0].end_index();
     for (size_t idx = 1; idx < N; idx++) {
-        min_start = std::min(min_start, polynomials_to_batch[idx].start_index());
-        max_end = std::max(max_end, polynomials_to_batch[idx].end_index());
+        polynomials_to_batch[0].add_scaled(polynomials_to_batch[idx], challenges[idx]);
     }
 
-    if (min_start == polynomials_to_batch[0].start_index() && max_end == polynomials_to_batch[0].end_index()) {
-        // Fast path: the 0th polynomial already covers the full range, accumulate in-place
-        for (size_t idx = 1; idx < N; idx++) {
-            polynomials_to_batch[0].add_scaled(polynomials_to_batch[idx], challenges[idx]);
-        }
-        return polynomials_to_batch[0];
-    }
-
-    // Slow path: create a new polynomial that covers the full range
-    Polynomial<FF> result(max_end - min_start, full_batched_size, min_start);
-    for (size_t idx = 0; idx < N; idx++) {
-        result.add_scaled(polynomials_to_batch[idx], challenges[idx]);
-    }
-    return result;
+    return polynomials_to_batch[0];
 };
 
 HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumulator(
