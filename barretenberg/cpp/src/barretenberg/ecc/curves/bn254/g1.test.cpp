@@ -5,6 +5,24 @@
 
 using namespace bb;
 
+namespace {
+// Double-and-add scalar mul without endomorphism, used as reference for differential testing.
+template <typename Group, typename Fr>
+typename Group::affine_element naive_scalar_mul(const typename Group::element& base, const Fr& scalar)
+{
+    typename Group::element acc = Group::point_at_infinity;
+    typename Group::element runner = base;
+    uint256_t bits(scalar.from_montgomery_form());
+    for (size_t i = 0; i < 256; ++i) {
+        if (bits.get_bit(i)) {
+            acc = acc + runner;
+        }
+        runner = runner.dbl();
+    }
+    return typename Group::affine_element(acc);
+}
+} // namespace
+
 TEST(g1, RandomElement)
 {
     g1::element result = g1::element::random_element();
@@ -427,4 +445,42 @@ TEST(g1, CheckPrecomputedGenerators)
     ASSERT_TRUE((bb::check_precomputed_generators<g1, "biggroup offset generator", 1UL>()));
     ASSERT_TRUE((bb::check_precomputed_generators<g1, "ECCVM_OFFSET_GENERATOR", 1UL>()));
     ASSERT_TRUE((bb::check_precomputed_generators<g1, "test generators", 2UL>()));
+}
+
+// Negative-k2 bug: boundary scalars k = ceil(m * 2^256 / endo_g2) (from endomorphism_scalars.py)
+// each start a band ~2^123-2^126 wide where operator* gives wrong results vs naive double-and-add.
+TEST(g1, ScalarMulNegativeK2EdgeCases)
+{
+    // clang-format off
+    struct test_case { std::array<uint64_t, 4> limbs; const char* tag; };
+    const std::array<test_case, 3> boundary_cases = {{
+        {{ 0x01624731e1195570, 0x3ba491482db4da14, 0x59e26bcea0d48bac, 0x0 }, "m=1"},
+        {{ 0x02c48e63c232aadf, 0x774922905b69b428, 0xb3c4d79d41a91758, 0x0 }, "m=2"},
+        {{ 0x0426d595a34c004e, 0xb2edb3d8891e8e3c, 0x0da7436be27da304, 0x1 }, "m=3"},
+    }};
+    // clang-format on
+
+    for (const auto& tc : boundary_cases) {
+        fr base_scalar{ tc.limbs[0], tc.limbs[1], tc.limbs[2], tc.limbs[3] };
+        base_scalar.self_to_montgomery_form();
+
+        g1::affine_element endo_result(g1::one * base_scalar);
+        g1::affine_element naive_result = naive_scalar_mul<g1, fr>(g1::one, base_scalar);
+        EXPECT_EQ(naive_result.on_curve(), true) << tc.tag;
+        EXPECT_EQ(endo_result.on_curve(), true) << tc.tag;
+        EXPECT_NE(endo_result, naive_result) << "Bug may be fixed! " << tc.tag;
+
+        // Random samples within the band (narrowest is ~2^123; we use 122-bit offsets).
+        for (size_t i = 0; i < 100; ++i) {
+            uint256_t rand_bits(fr::random_element().from_montgomery_form());
+            uint256_t offset_int = (rand_bits & ((uint256_t(1) << 122) - 1)) + 1;
+            fr scalar = base_scalar + fr(offset_int);
+
+            g1::affine_element endo_res(g1::one * scalar);
+            g1::affine_element naive_res = naive_scalar_mul<g1, fr>(g1::one, scalar);
+            EXPECT_EQ(naive_res.on_curve(), true) << tc.tag << " offset " << i;
+            EXPECT_EQ(endo_res.on_curve(), true) << tc.tag << " offset " << i;
+            EXPECT_NE(endo_res, naive_res) << tc.tag << " offset " << i;
+        }
+    }
 }
