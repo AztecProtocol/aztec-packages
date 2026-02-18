@@ -615,6 +615,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     return this.peerManager.getPeers(includePending);
   }
 
+  public getGossipMeshPeerCount(topicType: TopicType): number {
+    return this.node.services.pubsub.getMeshPeers(this.topicStrings[topicType]).length;
+  }
+
   private handleGossipSubEvent(e: CustomEvent<GossipsubMessage>) {
     this.logger.trace(`Received PUBSUB message.`);
 
