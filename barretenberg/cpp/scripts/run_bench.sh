@@ -14,13 +14,19 @@ filter=$4
 export GTEST_COLOR=1
 export HARDWARE_CONCURRENCY=${CPUS:-8}
 
+# Use tcmalloc by default for native benchmarks. Set ALLOCATOR=default to disable.
+BENCH_PRELOAD=""
+if [ "${ALLOCATOR:-tcmalloc}" = "tcmalloc" ]; then
+  BENCH_PRELOAD="/usr/lib/$(uname -m)-linux-gnu/libtcmalloc_minimal.so.4"
+fi
+
 mkdir -p bench-out/$(dirname $name)
 
 export MEMUSAGE_OUT="bench-out/$name-peak-memory-mb.txt"
 
 case $arch in
   native)
-    memusage $bin --benchmark_out=./bench-out/$name.json --benchmark_filter=$filter
+    LD_PRELOAD="${BENCH_PRELOAD}" memusage $bin --benchmark_out=./bench-out/$name.json --benchmark_filter=$filter
     ;;
   wasm)
     memusage ./scripts/wasmtime.sh $bin --benchmark_out=./bench-out/$name.json --benchmark_filter=$filter
