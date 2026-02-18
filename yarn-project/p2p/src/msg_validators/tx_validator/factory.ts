@@ -105,7 +105,7 @@ export function createFirstStageTxValidationsForGossippedTransactions(
     },
     dataValidator: {
       validator: new DataTxValidator(bindings),
-      severity: PeerErrorSeverity.HighToleranceError,
+      severity: PeerErrorSeverity.MidToleranceError,
     },
     metadataValidator: {
       validator: new MetadataTxValidator(
@@ -117,7 +117,7 @@ export function createFirstStageTxValidationsForGossippedTransactions(
         },
         bindings,
       ),
-      severity: PeerErrorSeverity.HighToleranceError,
+      severity: PeerErrorSeverity.MidToleranceError,
     },
     timestampValidator: {
       validator: new TimestampTxValidator<Tx>(
@@ -127,7 +127,7 @@ export function createFirstStageTxValidationsForGossippedTransactions(
         },
         bindings,
       ),
-      severity: PeerErrorSeverity.MidToleranceError,
+      severity: PeerErrorSeverity.HighToleranceError,
     },
     doubleSpendValidator: {
       validator: new DoubleSpendTxValidator(
@@ -140,7 +140,7 @@ export function createFirstStageTxValidationsForGossippedTransactions(
         },
         bindings,
       ),
-      severity: PeerErrorSeverity.HighToleranceError,
+      severity: PeerErrorSeverity.MidToleranceError, // This is handled specifically at the point of rejection by considering a recent window where it may have been valid
     },
     gasValidator: {
       validator: new GasTxValidator(
@@ -149,7 +149,7 @@ export function createFirstStageTxValidationsForGossippedTransactions(
         gasFees,
         bindings,
       ),
-      severity: PeerErrorSeverity.HighToleranceError,
+      severity: PeerErrorSeverity.MidToleranceError,
     },
     phasesValidator: {
       validator: new PhasesTxValidator(contractDataSource, allowedInSetup, timestamp, bindings),
@@ -173,7 +173,7 @@ export function createSecondStageTxValidationsForGossippedTransactions(
   return {
     proofValidator: {
       validator: new TxProofValidator(proofVerifier, bindings),
-      severity: PeerErrorSeverity.MidToleranceError,
+      severity: PeerErrorSeverity.LowToleranceError,
     },
   };
 }

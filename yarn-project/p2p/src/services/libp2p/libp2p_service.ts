@@ -70,7 +70,8 @@ import {
 import { MessageSeenValidator } from '../../msg_validators/msg_seen_validator/msg_seen_validator.js';
 import {
   type TransactionValidator,
-  createCompleteGossipedTransactionValidators,
+  createFirstStageTxValidationsForGossippedTransactions,
+  createSecondStageTxValidationsForGossippedTransactions,
   createTxValidatorForBlockProposalReceivedTxs,
   createTxValidatorForReqResponseReceivedTxs,
 } from '../../msg_validators/tx_validator/factory.js';
@@ -905,15 +906,43 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   protected async handleGossipedTx(payloadData: Buffer, msgId: string, source: PeerId) {
     const validationFunc: () => Promise<ReceivedMessageValidationResult<Tx>> = async () => {
       const tx = Tx.fromBuffer(payloadData);
-      const isValid = await this.validatePropagatedTx(tx, source);
-      if (!isValid) {
-        this.logger.trace(`Rejecting invalid propagated tx`, {
-          [Attributes.P2P_ID]: source.toString(),
-        });
+
+      const currentBlockNumber = await this.archiver.getBlockNumber();
+      const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
+
+      // Stage 1: fast validators (metadata, data, timestamps, double-spend, gas, phases, block header)
+      const firstStageValidators = await this.createFirstStageMessageValidators(currentBlockNumber, nextSlotTimestamp);
+      const firstStageOutcome = await this.runValidations(tx, firstStageValidators);
+      if (!firstStageOutcome.allPassed) {
+        const { name } = firstStageOutcome.failure;
+        let { severity } = firstStageOutcome.failure;
+
+        // Double spend validator has a special case handler
+        if (name === 'doubleSpendValidator') {
+          const txBlockNumber = BlockNumber(currentBlockNumber + 1);
+          severity = await this.handleDoubleSpendFailure(tx, txBlockNumber);
+        }
+
+        this.peerManager.penalizePeer(source, severity);
         return { result: TopicValidatorResult.Reject };
       }
 
-      // Propagate only on pool acceptance
+      // Pool pre-check: see if the pool would accept this tx before doing expensive proof verification
+      const canAdd = await this.mempools.txPool.canAddPendingTx(tx);
+      if (canAdd === 'ignored') {
+        return { result: TopicValidatorResult.Ignore, obj: tx };
+      }
+
+      // Stage 2: expensive proof verification
+      const secondStageValidators = this.createSecondStageMessageValidators();
+      const secondStageOutcome = await this.runValidations(tx, secondStageValidators);
+      if (!secondStageOutcome.allPassed) {
+        const { severity } = secondStageOutcome.failure;
+        this.peerManager.penalizePeer(source, severity);
+        return { result: TopicValidatorResult.Reject };
+      }
+
+      // Pool add: persist the tx
       const txHash = tx.getTxHash();
       const addResult = await this.mempools.txPool.addPendingTxs([tx], { source: 'gossip' });
 
@@ -921,7 +950,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       const wasIgnored = addResult.ignored.some(h => h.equals(txHash));
 
       this.logger.trace(`Validate propagated tx`, {
-        isValid,
         wasAccepted,
         wasIgnored,
         [Attributes.P2P_ID]: source.toString(),
@@ -1542,37 +1570,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     });
   }
 
-  @trackSpan('Libp2pService.validatePropagatedTx', tx => ({
-    [Attributes.TX_HASH]: tx.getTxHash().toString(),
-  }))
-  protected async validatePropagatedTx(tx: Tx, peerId: PeerId): Promise<boolean> {
-    const currentBlockNumber = await this.archiver.getBlockNumber();
-
-    // We accept transactions if they are not expired by the next slot (checked based on the ExpirationTimestamp field)
-    const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
-    const messageValidators = await this.createMessageValidators(currentBlockNumber, nextSlotTimestamp);
-
-    for (const validator of messageValidators) {
-      const outcome = await this.runValidations(tx, validator);
-
-      if (outcome.allPassed) {
-        continue;
-      }
-      const { name } = outcome.failure;
-      let { severity } = outcome.failure;
-
-      // Double spend validator has a special case handler
-      if (name === 'doubleSpendValidator') {
-        const txBlockNumber = BlockNumber(currentBlockNumber + 1); // tx is expected to be in the next block
-        severity = await this.handleDoubleSpendFailure(tx, txBlockNumber);
-      }
-
-      this.peerManager.penalizePeer(peerId, severity);
-      return false;
-    }
-    return true;
-  }
-
   private async getGasFees(blockNumber: BlockNumber): Promise<GasFees> {
     if (blockNumber === this.feesCache?.blockNumber) {
       return this.feesCache.gasFees;
@@ -1618,39 +1615,33 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     }
   }
 
-  /**
-   * Create message validators for the given block number and timestamp.
-   *
-   * Each validator is a pair of a validator and a severity.
-   * If a validator fails, the peer is penalized with the severity of the validator.
-   *
-   * @param currentBlockNumber - The current synced block number.
-   * @param nextSlotTimestamp - The timestamp of the next slot (used to validate txs are not expired).
-   * @returns The message validators.
-   */
-  private async createMessageValidators(
+  /** Creates the first stage (fast) validators for gossiped transactions. */
+  protected async createFirstStageMessageValidators(
     currentBlockNumber: BlockNumber,
     nextSlotTimestamp: UInt64,
-  ): Promise<Record<string, TransactionValidator>[]> {
+  ): Promise<Record<string, TransactionValidator>> {
     const gasFees = await this.getGasFees(currentBlockNumber);
     const allowedInSetup = this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
+    const blockNumber = BlockNumber(currentBlockNumber + 1);
 
-    const blockNumberInWhichTheTxIsConsideredToBeIncluded = BlockNumber(currentBlockNumber + 1);
-
-    return createCompleteGossipedTransactionValidators(
+    return createFirstStageTxValidationsForGossippedTransactions(
       nextSlotTimestamp,
-      blockNumberInWhichTheTxIsConsideredToBeIncluded,
+      blockNumber,
       this.worldStateSynchronizer,
       gasFees,
       this.config.l1ChainId,
       this.config.rollupVersion,
       protocolContractsHash,
       this.archiver,
-      this.proofVerifier,
       !this.config.disableTransactions,
       allowedInSetup,
       this.logger.getBindings(),
     );
+  }
+
+  /** Creates the second stage (expensive proof verification) validators for gossiped transactions. */
+  protected createSecondStageMessageValidators(): Record<string, TransactionValidator> {
+    return createSecondStageTxValidationsForGossippedTransactions(this.proofVerifier, this.logger.getBindings());
   }
 
   /**

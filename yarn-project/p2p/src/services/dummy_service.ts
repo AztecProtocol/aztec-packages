@@ -145,10 +145,6 @@ export class DummyP2PService implements P2PService {
     return Promise.resolve();
   }
 
-  validatePropagatedTx(_tx: Tx, _peerId: PeerId): Promise<boolean> {
-    return Promise.resolve(true);
-  }
-
   addReqRespSubProtocol(
     _subProtocol: ReqRespSubProtocol,
     _handler: ReqRespSubProtocolHandler,

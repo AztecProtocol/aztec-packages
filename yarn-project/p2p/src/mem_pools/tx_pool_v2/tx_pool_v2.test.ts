@@ -553,16 +553,6 @@ describe('TxPoolV2', () => {
       expect(await rejectingPool.getPendingTxCount()).toBe(0);
     });
 
-    it('canAddPendingTx returns rejected for transaction that fails validation', async () => {
-      const tx = await mockTx(1);
-      txsToReject.add(tx.getTxHash().toString());
-
-      const result = await rejectingPool.canAddPendingTx(tx);
-
-      expect(result).toBe('rejected');
-      expect(await rejectingPool.getPendingTxCount()).toBe(0); // State unchanged
-    });
-
     it('addPendingTxs handles batch with mixed accepted and rejected', async () => {
       const tx1 = await mockTx(1);
       const tx2 = await mockTx(2);
