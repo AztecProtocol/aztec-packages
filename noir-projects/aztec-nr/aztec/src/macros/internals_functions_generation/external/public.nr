@@ -55,7 +55,7 @@ pub(crate) comptime fn generate_public_external(f: FunctionDefinition) -> Quoted
             let call_self: CallSelf<aztec::context::PublicContext> = CallSelf { address: self_address, context };
             let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic { address: self_address, context };
             let internal: CallInternal<aztec::context::PublicContext> = CallInternal { context };
-            aztec::contract_self::contract_self_public::ContractSelfPublic::new(context, storage, call_self, call_self_static, internal)
+            aztec::contract_self::ContractSelfPublic::new(context, storage, call_self, call_self_static, internal)
         };
     };
 

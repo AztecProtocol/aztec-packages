@@ -22,7 +22,7 @@ pub(crate) comptime fn generate_utility_external(f: FunctionDefinition) -> Quote
         let mut self = {
             let context = aztec::context::UtilityContext::new();
             $storage_init
-            aztec::contract_self::contract_self_utility::ContractSelfUtility::new(context, storage)
+            aztec::contract_self::ContractSelfUtility::new(context, storage)
         };
     };
 

@@ -87,6 +87,7 @@ impl<Storage, CallSelf, CallSelfStatic, CallInternal> ContractSelfPublic<Storage
     /// ## Incognito Calls
     ///
     /// Contracts can call public functions from private ones hiding their identity (see
+    ///
     /// [`ContractSelfPrivate::enqueue_incognito`](crate::contract_self::ContractSelfPrivate::enqueue_incognito)).
     /// This function reverts when executed in such a context.
     ///

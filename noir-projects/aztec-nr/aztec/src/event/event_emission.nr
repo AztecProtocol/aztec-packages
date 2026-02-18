@@ -11,7 +11,7 @@ pub struct NewEvent<Event> {
     pub(crate) randomness: Field,
 }
 
-/// Equivalent to `self.emit(event)`: see [`crate::contract_self::ContractSelf::emit`].
+/// Equivalent to `self.emit(event)`: see [`crate::contract_self::ContractSelfPrivate::emit`].
 pub fn emit_event_in_private<Event>(context: &mut PrivateContext, event: Event) -> EventMessage<Event>
 where
     Event: EventInterface + Serialize,
@@ -34,7 +34,7 @@ where
     EventMessage::new(NewEvent { event, randomness }, context)
 }
 
-/// Equivalent to `self.emit(event)`: see [`crate::contract_self::ContractSelf::emit`].
+/// Equivalent to `self.emit(event)`: see [`crate::contract_self::ContractSelfPublic::emit`].
 pub fn emit_event_in_public<Event>(context: PublicContext, event: Event)
 where
     Event: EventInterface + Serialize,
