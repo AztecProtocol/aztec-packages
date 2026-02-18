@@ -583,9 +583,10 @@ template <typename Flavor> class SumcheckProver {
             // Prepare sumcheck book-keeping table for the next round.
             partially_evaluate_in_place(partially_evaluated_polynomials, round_challenge);
 
-            // For Translator: send 154 minicircuit wire evaluations mid-sumcheck (after the last mini-circuit round)
             if constexpr (IsTranslatorFlavor<Flavor>) {
                 if (round_idx == Flavor::LOG_MINI_CIRCUIT_SIZE - 1) {
+                    // Send mini-circuit evaluations mid-sumcheck so that they get hashed into the transcript,
+                    // ensuring the remaining LOG_N - LOG_MINI_CIRCUIT_SIZE round challenges depend on them.
                     transcript->send_to_verifier("Sumcheck:minicircuit_evaluations",
                                                  Flavor::get_minicircuit_evaluations(partially_evaluated_polynomials));
                 }
@@ -825,10 +826,10 @@ template <typename Flavor> class SumcheckVerifier {
                 transcript, multivariate_challenge, gate_separators, padding_indicator_array[round_idx], round_idx);
             verified = verified && !round.round_failed;
 
-            // For Translator: receive minicircuit wire evaluations after the last mini-circuit round
-            // and place them directly into purported_evaluations
             if constexpr (IsTranslatorFlavor<Flavor>) {
                 if (round_idx == Flavor::LOG_MINI_CIRCUIT_SIZE - 1) {
+                    // Receive mini-circuit evaluations mid-sumcheck so that they get hashed into the transcript,
+                    // ensuring the remaining LOG_N - LOG_MINI_CIRCUIT_SIZE round challenges depend on them.
                     Flavor::set_minicircuit_evaluations(
                         purported_evaluations,
                         transcript->template receive_from_prover<std::array<FF, Flavor::NUM_MINICIRCUIT_EVALUATIONS>>(
