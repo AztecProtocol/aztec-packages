@@ -34,8 +34,7 @@ describe('e2e_fees Fee Juice payments', () => {
     // Alice pays for Bob's account contract deployment.
     const bobsDeployMethod = await bobsAccountManager.getDeployMethod();
     bobAddress = bobsAccountManager.address;
-    // The account constructor initializes storage vars that need the contract's own nullifier key, so we need to add it to scopes.
-    await bobsDeployMethod.send({ from: aliceAddress, additionalScopes: [bobAddress] });
+    await bobsDeployMethod.send({ from: aliceAddress });
   });
 
   afterAll(async () => {
