@@ -10,7 +10,7 @@ import {
   getTelemetryClient,
 } from '@aztec/telemetry-client';
 
-import type { TxSource } from './tx_source.js';
+import type { TxSource, TxSourceCollectionResult } from './tx_source.js';
 
 /** TxSource implementation that downloads txs from a file store. */
 export class FileStoreTxSource implements TxSource {
@@ -64,24 +64,37 @@ export class FileStoreTxSource implements TxSource {
     return `file-store:${this.baseUrl}`;
   }
 
-  public getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
-    return Promise.all(
-      txHashes.map(async txHash => {
-        const path = `${this.basePath}/txs/${txHash.toString()}.bin`;
-        const timer = new Timer();
-        try {
-          const buffer = await this.fileStore.read(path);
-          this.downloadsSuccess.add(1);
-          this.downloadDuration.record(Math.ceil(timer.ms()));
-          this.downloadSize.record(buffer.length);
-          return Tx.fromBuffer(buffer);
-        } catch {
-          this.downloadsFailed.add(1);
-          // Tx not found or error reading - return undefined
-          return undefined;
-        }
-      }),
-    );
+  public async getTxsByHash(txHashes: TxHash[]): Promise<TxSourceCollectionResult> {
+    const invalidTxHashes: string[] = [];
+    return {
+      validTxs: (
+        await Promise.all(
+          txHashes.map(async txHash => {
+            const path = `${this.basePath}/txs/${txHash.toString()}.bin`;
+            const timer = new Timer();
+            try {
+              const buffer = await this.fileStore.read(path);
+              const tx = Tx.fromBuffer(buffer);
+              if ((await tx.validateTxHash()) && txHash.equals(tx.txHash)) {
+                this.downloadsSuccess.add(1);
+                this.downloadDuration.record(Math.ceil(timer.ms()));
+                this.downloadSize.record(buffer.length);
+                return tx;
+              } else {
+                invalidTxHashes.push(tx.txHash.toString());
+                this.downloadsFailed.add(1);
+                return undefined;
+              }
+            } catch {
+              // Tx not found or error reading - return undefined
+              this.downloadsFailed.add(1);
+              return undefined;
+            }
+          }),
+        )
+      ).filter(tx => tx !== undefined),
+      invalidTxHashes: invalidTxHashes,
+    };
   }
 }
 
