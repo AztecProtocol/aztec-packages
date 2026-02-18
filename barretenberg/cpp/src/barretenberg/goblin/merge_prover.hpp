@@ -19,7 +19,7 @@ namespace bb {
  * @brief Prover class for the Goblin ECC op queue transcript merge protocol
  *
  */
-class MergeProver {
+template <size_t BATCH_SIZE> class MergeProver {
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
     using Commitment = Curve::AffineElement;
@@ -48,20 +48,58 @@ class MergeProver {
     MergeSettings settings;
 
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
-    std::vector<std::string> labels_degree_check = { "LEFT_TABLE_DEGREE_CHECK_0",
-                                                     "LEFT_TABLE_DEGREE_CHECK_1",
-                                                     "LEFT_TABLE_DEGREE_CHECK_2",
-                                                     "LEFT_TABLE_DEGREE_CHECK_3" };
+    static_assert(NUM_WIRES % BATCH_SIZE == 0, "Batch size must divide number of wires");
+    static constexpr size_t NUM_COLUMNS = NUM_WIRES / BATCH_SIZE;
 
-    std::vector<std::string> labels_shplonk_batching_challenges = {
-        "SHPLONK_MERGE_BATCHING_CHALLENGE_0",  "SHPLONK_MERGE_BATCHING_CHALLENGE_1",
-        "SHPLONK_MERGE_BATCHING_CHALLENGE_2",  "SHPLONK_MERGE_BATCHING_CHALLENGE_3",
-        "SHPLONK_MERGE_BATCHING_CHALLENGE_4",  "SHPLONK_MERGE_BATCHING_CHALLENGE_5",
-        "SHPLONK_MERGE_BATCHING_CHALLENGE_6",  "SHPLONK_MERGE_BATCHING_CHALLENGE_7",
-        "SHPLONK_MERGE_BATCHING_CHALLENGE_8",  "SHPLONK_MERGE_BATCHING_CHALLENGE_9",
-        "SHPLONK_MERGE_BATCHING_CHALLENGE_10", "SHPLONK_MERGE_BATCHING_CHALLENGE_11",
-        "SHPLONK_MERGE_BATCHING_CHALLENGE_12"
+    struct PolynomialBatch {
+        std::array<std::array<Polynomial, BATCH_SIZE>, NUM_COLUMNS> batches;
+
+        PolynomialBatch(const std::array<Polynomial, NUM_WIRES>& polynomials)
+        {
+            for (size_t col = 0; col < NUM_COLUMNS; ++col) {
+                for (size_t batch_idx = 0; batch_idx < BATCH_SIZE; ++batch_idx) {
+                    batches[col][batch_idx] = polynomials[col * BATCH_SIZE + batch_idx];
+                }
+            }
+        }
+
+        std::array<Polynomial, BATCH_SIZE>& operator[](size_t idx) { return batches[idx]; }
+
+        const std::array<Polynomial, BATCH_SIZE>& operator[](size_t idx) const { return batches[idx]; }
+
+        // Return the size of the individual polys (they are all of the same size - this is enforced by the relations)
+        // The verifier computes the size of the interleaved poly by itself. This might not be strictly needed as the
+        // verifier always knows, if the degree check passes, that each of the polys that have been interleaved has deg
+        // < shift_size / 4, but better to play it safe.
+        size_t size() const { return batches[0][0].size(); }
+
+        auto begin() { return batches.begin(); }
+        auto end() { return batches.end(); }
+        auto begin() const { return batches.begin(); }
+        auto end() const { return batches.end(); }
     };
+
+    std::vector<std::string> labels_degree_check()
+    {
+        std::vector<std::string> labels;
+        labels.reserve(NUM_COLUMNS);
+
+        for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
+            labels.emplace_back("LEFT_TABLE_DEGREE_CHECK_" + std::to_string(idx));
+        }
+        return labels;
+    }
+
+    std::vector<std::string> labels_shplonk_batching_challenges()
+    {
+        std::vector<std::string> labels;
+        labels.reserve(3 * NUM_COLUMNS + 1);
+
+        for (size_t idx = 0; idx < 3 * NUM_COLUMNS + 1; ++idx) {
+            labels.emplace_back("SHPLONK_MERGE_BATCHING_CHALLENGE_" + std::to_string(idx));
+        }
+        return labels;
+    }
 
     /**
      * @brief Compute the batched polynomial for the degree check.
@@ -75,8 +113,8 @@ class MergeProver {
      * @param degree_check_challenges
      * @return Polynomial
      */
-    static Polynomial compute_degree_check_polynomial(const std::array<Polynomial, NUM_WIRES>& left_table,
-                                                      const std::vector<FF>& degree_check_challenges);
+    static std::array<Polynomial, BATCH_SIZE> compute_degree_check_polynomial(
+        const PolynomialBatch& left_columns, const std::vector<FF>& degree_check_challenges);
 
     /**
      * @brief Compute the batched Shplonk quotient polynomial.

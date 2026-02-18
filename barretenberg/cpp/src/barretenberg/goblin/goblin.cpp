@@ -28,7 +28,7 @@ Goblin::Goblin(const std::shared_ptr<Transcript>& transcript)
 void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript, const MergeSettings merge_settings)
 {
     BB_BENCH_NAME("Goblin::prove_merge");
-    MergeProver merge_prover{ op_queue, transcript, merge_settings };
+    MergeProver<BATCH_SIZE> merge_prover{ op_queue, transcript, merge_settings };
     merge_verification_queue.push_back(merge_prover.construct_proof());
 }
 

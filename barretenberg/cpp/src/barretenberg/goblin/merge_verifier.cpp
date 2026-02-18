@@ -163,7 +163,7 @@ typename MergeVerifier_<BatchSize, Curve>::ReductionResult MergeVerifier_<BatchS
     // Evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
     const FF kappa_inv = kappa.invert();
-    const FF pow_kappa = kappa.pow(shift_size);
+    const FF pow_kappa = kappa.pow(FF(BATCH_SIZE) * shift_size);
     const FF pow_kappa_minus_one = pow_kappa * kappa_inv;
 
     // Receive evaluations of [Lᵢ], [Rᵢ], [Mᵢ] at κ

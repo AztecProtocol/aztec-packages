@@ -157,7 +157,7 @@ template <typename Curve, size_t BATCH_SIZE = 1> class MergeTests : public testi
     {
         // Create native merge proof
         auto prover_transcript = std::make_shared<NativeTranscript>();
-        MergeProver merge_prover{ op_queue, prover_transcript, settings };
+        MergeProver<BATCH_SIZE> merge_prover{ op_queue, prover_transcript, settings };
         auto native_proof = merge_prover.construct_proof();
         tamper_with_proof(native_proof, tampering_mode);
 
@@ -231,7 +231,7 @@ template <typename Curve, size_t BATCH_SIZE = 1> class MergeTests : public testi
 
         // Construct a merge proof and ensure its size matches expectation
         auto transcript = std::make_shared<NativeTranscript>();
-        MergeProver merge_prover{ builder.op_queue, transcript };
+        MergeProver<BATCH_SIZE> merge_prover{ builder.op_queue, transcript };
         auto merge_proof = merge_prover.construct_proof();
 
         EXPECT_EQ(merge_proof.size(), MERGE_PROOF_SIZE);
@@ -432,6 +432,7 @@ TYPED_TEST(MergeTests, DifferentTranscriptOriginTagFailure)
     using InnerFlavor = MegaFlavor;
     using InnerBuilder = typename InnerFlavor::CircuitBuilder;
     constexpr size_t NUM_COLUMNS = TestFixture::NUM_COLUMNS;
+    constexpr size_t BATCH_SIZE = TestFixture::NUM_WIRES / NUM_COLUMNS;
 
     // Create single builder for both verifiers (realistic - both in same circuit)
     BuilderType builder;
@@ -441,14 +442,14 @@ TYPED_TEST(MergeTests, DifferentTranscriptOriginTagFailure)
     InnerBuilder circuit_1{ op_queue_1 };
     GoblinMockCircuits::construct_simple_circuit(circuit_1);
     auto prover_transcript_1 = std::make_shared<NativeTranscript>();
-    MergeProver prover_1{ op_queue_1, prover_transcript_1 };
+    MergeProver<BATCH_SIZE> prover_1{ op_queue_1, prover_transcript_1 };
     auto proof_1 = prover_1.construct_proof();
 
     auto op_queue_2 = std::make_shared<ECCOpQueue>();
     InnerBuilder circuit_2{ op_queue_2 };
     GoblinMockCircuits::construct_simple_circuit(circuit_2);
     auto prover_transcript_2 = std::make_shared<NativeTranscript>();
-    MergeProver prover_2{ op_queue_2, prover_transcript_2 };
+    MergeProver<BATCH_SIZE> prover_2{ op_queue_2, prover_transcript_2 };
     auto proof_2 = prover_2.construct_proof();
 
     // Get native commitments for proof 1 (will be used with verifier 1's transcript)
@@ -608,7 +609,7 @@ TYPED_TEST(MergeTranscriptTests, ProverManifestConsistency)
     // Construct merge proof with manifest enabled
     auto transcript = std::make_shared<NativeTranscript>();
     transcript->enable_manifest();
-    MergeProver merge_prover{ op_queue, transcript };
+    MergeProver<TestFixture::BATCH_SIZE> merge_prover{ op_queue, transcript };
     auto merge_proof = merge_prover.construct_proof();
 
     // Check prover manifest matches expected manifest
@@ -640,11 +641,11 @@ TYPED_TEST(MergeTranscriptTests, VerifierManifestConsistency)
     // Generate merge proof with prover manifest enabled
     auto prover_transcript = std::make_shared<NativeTranscript>();
     prover_transcript->enable_manifest();
-    MergeProver merge_prover{ op_queue, prover_transcript };
+    MergeProver<TestFixture::BATCH_SIZE> merge_prover{ op_queue, prover_transcript };
     auto merge_proof = merge_prover.construct_proof();
 
     // Construct commitments for verifier
-    MergeVerifier<1>::InputCommitments merge_commitments;
+    typename MergeVerifier<TestFixture::BATCH_SIZE>::InputCommitments merge_commitments;
     auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
     auto T_prev = op_queue->construct_previous_ultra_ops_table_columns();
     for (size_t idx = 0; idx < TestFixture::NUM_COLUMNS; idx++) {

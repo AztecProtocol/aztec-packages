@@ -198,6 +198,17 @@ template <class Curve> class CommitmentKey {
         return scalar_multiplication::pippenger_interleaved<Curve>(
             chunks, std::span<const Commitment>{ point_table.data(), total_size }, BATCH_SIZE);
     }
+
+    template <size_t BATCH_SIZE> Commitment commit_interleaved(const std::array<Polynomial<Fr>, BATCH_SIZE>& batch)
+    {
+        std::vector<PolynomialSpan<const Fr>> span_batch;
+        span_batch.reserve(BATCH_SIZE);
+        for (const Polynomial<Fr>& poly : batch) {
+            span_batch.emplace_back(PolynomialSpan<const Fr>(poly));
+        }
+
+        return commit_interleaved<BATCH_SIZE>(span_batch);
+    }
 };
 
 } // namespace bb

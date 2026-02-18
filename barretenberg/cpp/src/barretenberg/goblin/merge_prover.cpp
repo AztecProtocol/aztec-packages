@@ -15,9 +15,10 @@ namespace bb {
  * @details We require an SRS at least as large as the current ultra ecc ops table
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): consider possible efficiency improvements
  */
-MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
-                         std::shared_ptr<Transcript> transcript,
-                         MergeSettings settings)
+template <size_t BATCH_SIZE>
+MergeProver<BATCH_SIZE>::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
+                                     std::shared_ptr<Transcript> transcript,
+                                     MergeSettings settings)
     : transcript(std::move(transcript))
     , op_queue(op_queue)
     , settings(settings)
@@ -32,20 +33,37 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
         op_queue->merge(settings);
     }
 
-    pcs_commitment_key = CommitmentKey(op_queue->get_ultra_ops_table_num_rows());
+    pcs_commitment_key = CommitmentKey(BATCH_SIZE * op_queue->get_ultra_ops_table_num_rows());
 };
 
-MergeProver::Polynomial MergeProver::compute_degree_check_polynomial(
-    const std::array<Polynomial, NUM_WIRES>& left_table, const std::vector<FF>& degree_check_challenges)
+template <size_t BATCH_SIZE>
+typename std::array<typename MergeProver<BATCH_SIZE>::Polynomial, BATCH_SIZE> MergeProver<
+    BATCH_SIZE>::compute_degree_check_polynomial(const PolynomialBatch& left_columns,
+                                                 const std::vector<FF>& degree_check_challenges)
 {
-    Polynomial reversed_batched_left_tables(left_table[0].size());
-    for (size_t idx = 0; idx < NUM_WIRES; idx++) {
-        reversed_batched_left_tables.add_scaled(left_table[idx], degree_check_challenges[idx]);
+    // Zero initialization
+    std::array<Polynomial, BATCH_SIZE> reversed_batched_left_columns;
+    for (auto& poly : reversed_batched_left_columns) {
+        poly = Polynomial(left_columns[0][0].size());
     }
-    return reversed_batched_left_tables.reverse();
+
+    // Add scaled columns in reverse order
+    for (const auto& [batch, challenge] : zip_view(left_columns, degree_check_challenges)) {
+        for (size_t idx = 0; idx < BATCH_SIZE; idx++) {
+            reversed_batched_left_columns[BATCH_SIZE - idx - 1].add_scaled(batch[idx], challenge);
+        }
+    }
+
+    // Reverse the single polys
+    for (auto& poly : reversed_batched_left_columns) {
+        poly.reverse();
+    }
+
+    return reversed_batched_left_columns;
 }
 
-MergeProver::Polynomial MergeProver::compute_shplonk_batched_quotient(
+template <size_t BATCH_SIZE>
+typename MergeProver<BATCH_SIZE>::Polynomial MergeProver<BATCH_SIZE>::compute_shplonk_batched_quotient(
     const std::array<Polynomial, NUM_WIRES>& left_table,
     const std::array<Polynomial, NUM_WIRES>& right_table,
     const std::array<Polynomial, NUM_WIRES>& merged_table,
@@ -90,7 +108,8 @@ MergeProver::Polynomial MergeProver::compute_shplonk_batched_quotient(
     return shplonk_batched_quotient;
 }
 
-MergeProver::OpeningClaim MergeProver::compute_shplonk_opening_claim(
+template <size_t BATCH_SIZE>
+typename MergeProver<BATCH_SIZE>::OpeningClaim MergeProver<BATCH_SIZE>::compute_shplonk_opening_claim(
     Polynomial& shplonk_batched_quotient,
     const FF& shplonk_opening_challenge,
     const std::array<Polynomial, NUM_WIRES>& left_table,
@@ -151,9 +170,8 @@ MergeProver::OpeningClaim MergeProver::compute_shplonk_opening_claim(
  * @see MERGE_PROTOCOL.md for complete protocol specification.
  * @return MergeProver::MergeProof
  */
-MergeProver::MergeProof MergeProver::construct_proof()
+template <size_t BATCH_SIZE> typename MergeProver<BATCH_SIZE>::MergeProof MergeProver<BATCH_SIZE>::construct_proof()
 {
-
     std::array<Polynomial, NUM_WIRES> left_table;
     std::array<Polynomial, NUM_WIRES> right_table;
     std::array<Polynomial, NUM_WIRES> merged_table = op_queue->construct_ultra_ops_table_columns(); // T
@@ -167,81 +185,88 @@ MergeProver::MergeProof MergeProver::construct_proof()
         right_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t
     }
 
+    PolynomialBatch left_columns(left_table);
+    PolynomialBatch right_columns(right_table);
+    PolynomialBatch merged_columns(merged_table);
+
     // Send shift_size to the verifier
-    const size_t shift_size = left_table[0].size();
+    const size_t shift_size = left_columns.size();
     transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));
 
     // Compute commitments [M_j] and send to the verifier
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+    for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
         transcript->send_to_verifier("MERGED_TABLE_" + std::to_string(idx),
-                                     pcs_commitment_key.commit(merged_table[idx]));
+                                     pcs_commitment_key.commit_interleaved<BATCH_SIZE>(merged_columns[idx]));
     }
 
     // Generate degree check batching challenges, batch polynomials, compute reversed polynomial, send commitment to the
     // verifier
-    std::vector<FF> degree_check_challenges = transcript->template get_challenges<FF>(labels_degree_check);
-    Polynomial reversed_batched_left_tables = compute_degree_check_polynomial(left_table, degree_check_challenges);
+    std::vector<FF> degree_check_challenges = transcript->template get_challenges<FF>(labels_degree_check());
+    std::array<Polynomial, BATCH_SIZE> reversed_batched_left_columns =
+        compute_degree_check_polynomial(left_columns, degree_check_challenges);
     transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES",
-                                 pcs_commitment_key.commit(reversed_batched_left_tables));
+                                 pcs_commitment_key.commit_interleaved<BATCH_SIZE>(reversed_batched_left_columns));
 
     // Compute batching challenges
     std::vector<FF> shplonk_batching_challenges =
-        transcript->template get_challenges<FF>(labels_shplonk_batching_challenges);
+        transcript->template get_challenges<FF>(labels_shplonk_batching_challenges());
 
-    // Compute evaluation challenge
-    const FF kappa = transcript->template get_challenge<FF>("kappa");
-    const FF kappa_inv = kappa.invert();
+    // // Compute evaluation challenge
+    // const FF kappa = transcript->template get_challenge<FF>("kappa");
+    // const FF kappa_inv = kappa.invert();
 
-    // Send evaluations of [Lᵢ], [Rᵢ], [Mᵢ] at κ
-    std::vector<FF> evals;
-    evals.reserve((3 * NUM_WIRES) + 1);
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        evals.emplace_back(left_table[idx].evaluate(kappa));
-        transcript->send_to_verifier("LEFT_TABLE_EVAL_" + std::to_string(idx), evals.back());
-    }
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        evals.emplace_back(right_table[idx].evaluate(kappa));
-        transcript->send_to_verifier("RIGHT_TABLE_EVAL_" + std::to_string(idx), evals.back());
-    }
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        evals.emplace_back(merged_table[idx].evaluate(kappa));
-        transcript->send_to_verifier("MERGED_TABLE_EVAL_" + std::to_string(idx), evals.back());
-    }
+    // // Send evaluations of [Lᵢ], [Rᵢ], [Mᵢ] at κ
+    // std::vector<FF> evals;
+    // evals.reserve((3 * NUM_COLUMNS) + 1);
+    // for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
+    //     evals.emplace_back(left_table[idx].evaluate(kappa));
+    //     transcript->send_to_verifier("LEFT_TABLE_EVAL_" + std::to_string(idx), evals.back());
+    // }
+    // for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
+    //     evals.emplace_back(right_table[idx].evaluate(kappa));
+    //     transcript->send_to_verifier("RIGHT_TABLE_EVAL_" + std::to_string(idx), evals.back());
+    // }
+    // for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
+    //     evals.emplace_back(merged_table[idx].evaluate(kappa));
+    //     transcript->send_to_verifier("MERGED_TABLE_EVAL_" + std::to_string(idx), evals.back());
+    // }
 
-    // Send evaluation of G at 1/κ
-    evals.emplace_back(reversed_batched_left_tables.evaluate(kappa_inv));
-    transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES_EVAL", evals.back());
+    // // Send evaluation of G at 1/κ
+    // evals.emplace_back(reversed_batched_left_tables.evaluate(kappa_inv));
+    // transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES_EVAL", evals.back());
 
-    // Compute Shplonk batched quotient
-    Polynomial shplonk_batched_quotient = compute_shplonk_batched_quotient(left_table,
-                                                                           right_table,
-                                                                           merged_table,
-                                                                           shplonk_batching_challenges,
-                                                                           kappa,
-                                                                           kappa_inv,
-                                                                           reversed_batched_left_tables,
-                                                                           evals);
+    // // Compute Shplonk batched quotient
+    // Polynomial shplonk_batched_quotient = compute_shplonk_batched_quotient(left_table,
+    //                                                                        right_table,
+    //                                                                        merged_table,
+    //                                                                        shplonk_batching_challenges,
+    //                                                                        kappa,
+    //                                                                        kappa_inv,
+    //                                                                        reversed_batched_left_tables,
+    //                                                                        evals);
 
-    transcript->send_to_verifier("SHPLONK_BATCHED_QUOTIENT", pcs_commitment_key.commit(shplonk_batched_quotient));
+    // transcript->send_to_verifier("SHPLONK_BATCHED_QUOTIENT", pcs_commitment_key.commit(shplonk_batched_quotient));
 
-    // Generate Shplonk opening challenge
-    FF shplonk_opening_challenge = transcript->template get_challenge<FF>("shplonk_opening_challenge");
+    // // Generate Shplonk opening challenge
+    // FF shplonk_opening_challenge = transcript->template get_challenge<FF>("shplonk_opening_challenge");
 
-    // Compute Shplonk opening claim
-    OpeningClaim shplonk_opening_claim = compute_shplonk_opening_claim(shplonk_batched_quotient,
-                                                                       shplonk_opening_challenge,
-                                                                       left_table,
-                                                                       right_table,
-                                                                       merged_table,
-                                                                       shplonk_batching_challenges,
-                                                                       kappa,
-                                                                       kappa_inv,
-                                                                       reversed_batched_left_tables,
-                                                                       evals);
+    // // Compute Shplonk opening claim
+    // OpeningClaim shplonk_opening_claim = compute_shplonk_opening_claim(shplonk_batched_quotient,
+    //                                                                    shplonk_opening_challenge,
+    //                                                                    left_table,
+    //                                                                    right_table,
+    //                                                                    merged_table,
+    //                                                                    shplonk_batching_challenges,
+    //                                                                    kappa,
+    //                                                                    kappa_inv,
+    //                                                                    reversed_batched_left_tables,
+    //                                                                    evals);
 
-    // KZG prover
-    PCS::compute_opening_proof(pcs_commitment_key, shplonk_opening_claim, transcript);
+    // // KZG prover
+    // PCS::compute_opening_proof(pcs_commitment_key, shplonk_opening_claim, transcript);
 
     return transcript->export_proof();
 }
+
+template class MergeProver<1>;
 } // namespace bb

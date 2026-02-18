@@ -23,6 +23,8 @@ class Goblin {
     using Commitment = MegaFlavor::Commitment;
     using FF = MegaFlavor::FF;
 
+    static constexpr size_t BATCH_SIZE = 1;
+
   protected:
     // In AVM we only use Goblin for a single circuit whose proof is not required to be zero-knowledge. While Translator
     // will still expect to find random ops at the beginning to ensure the accumulation result remains at a fixed row we
@@ -37,14 +39,14 @@ class Goblin {
     using ECCVMBuilder = ECCVMFlavor::CircuitBuilder;
     using ECCVMProvingKey = ECCVMFlavor::ProvingKey;
     using TranslatorBuilder = TranslatorCircuitBuilder;
-    using MergeProof = MergeProver::MergeProof;
+    using MergeProof = MergeProver<BATCH_SIZE>::MergeProof;
     using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = TranslatorFlavor::VerificationKey;
-    using MergeRecursiveVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier<1, MegaBuilder>;
+    using MergeRecursiveVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier<BATCH_SIZE, MegaBuilder>;
     using PairingPoints = MergeRecursiveVerifier::PairingPoints;
-    using TableCommitments = MergeVerifier<1>::TableCommitments;
+    using TableCommitments = MergeVerifier<BATCH_SIZE>::TableCommitments;
     using RecursiveTableCommitments = MergeRecursiveVerifier::TableCommitments;
-    using MergeCommitments = MergeVerifier<1>::InputCommitments;
+    using MergeCommitments = MergeVerifier<BATCH_SIZE>::InputCommitments;
     using RecursiveMergeCommitments = MergeRecursiveVerifier::InputCommitments;
     using RecursiveCommitment = MergeRecursiveVerifier::Commitment;
     using RecursiveTranscript = MegaStdlibTranscript;
