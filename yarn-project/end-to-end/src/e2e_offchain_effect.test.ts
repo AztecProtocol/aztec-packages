@@ -251,4 +251,178 @@ describe('e2e_offchain_effect', () => {
       .simulate({ from: defaultAccountAddress });
     expect(noteValue).toBe(value);
   });
+
+  it('should process multiple offchain messages from one transaction', async () => {
+    const [a1, b1, c1] = [10n, 20n, 30n];
+    const [a2, b2, c2] = [40n, 50n, 60n];
+    const provenTx = await proveInteraction(
+      wallet,
+      contract1.methods.emit_two_events_as_offchain_messages(a1, b1, c1, a2, b2, c2),
+      { from: defaultAccountAddress },
+    );
+    const { txHash, blockNumber } = await provenTx.send();
+    const offchainEffects = provenTx.offchainEffects;
+    expect(offchainEffects).toHaveLength(2);
+
+    await wallet.ingestOffchainMessages(
+      offchainEffects.map((offchainEffect, index) => ({
+        offchainEffect,
+        txHash,
+        appMessageId: `${txHash}:${index}`,
+      })),
+    );
+
+    const events = await wallet.getPrivateEvents<TestEvent>(OffchainEffectContract.events.TestEvent, {
+      contractAddress: contract1.address,
+      fromBlock: BlockNumber(blockNumber!),
+      toBlock: BlockNumber(blockNumber! + 1),
+      scopes: [defaultAccountAddress],
+    });
+
+    expect(events.length).toBe(2);
+    const eventValues = events.map(e => e.event);
+    expect(eventValues).toContainEqual({ a: a1, b: b1, c: c1 });
+    expect(eventValues).toContainEqual({ a: a2, b: b2, c: c2 });
+  });
+
+  it('should process mixed event and note from one transaction', async () => {
+    const [a, b, c] = [111n, 222n, 333n];
+    const noteValue = 999n;
+    // Use contract1.address as the note owner to avoid collision with existing notes at defaultAccountAddress
+    const noteOwner = contract1.address;
+    const provenTx = await proveInteraction(
+      wallet,
+      contract1.methods.emit_event_and_note_as_offchain_messages(a, b, c, noteValue, noteOwner),
+      { from: defaultAccountAddress },
+    );
+    const { txHash, blockNumber, blockHash } = await provenTx.send();
+    const offchainEffects = provenTx.offchainEffects;
+    expect(offchainEffects).toHaveLength(2);
+
+    await wallet.ingestOffchainMessages(
+      offchainEffects.map((offchainEffect, index) => ({
+        offchainEffect,
+        txHash,
+        appMessageId: `${txHash}:${index}`,
+      })),
+    );
+
+    // Verify the event is discoverable
+    const events = await wallet.getPrivateEvents<TestEvent>(OffchainEffectContract.events.TestEvent, {
+      contractAddress: contract1.address,
+      fromBlock: BlockNumber(blockNumber!),
+      toBlock: BlockNumber(blockNumber! + 1),
+      scopes: [defaultAccountAddress],
+    });
+    expect(events.length).toBe(1);
+    expect(events[0]).toEqual({
+      event: { a, b, c },
+      metadata: {
+        l2BlockNumber: blockNumber,
+        l2BlockHash: blockHash,
+        txHash,
+      },
+    });
+
+    // Verify the note is discoverable
+    const { result: retrievedNoteValue } = await contract1.methods
+      .get_note_value(noteOwner)
+      .simulate({ from: defaultAccountAddress });
+    expect(retrievedNoteValue).toBe(noteValue);
+  });
+
+  it('should process batch ingestion from twenty transactions', async () => {
+    const TX_COUNT = 20;
+
+    // Emit one event per transaction, collecting results
+    const sent: { a: bigint; b: bigint; c: bigint; txHash: any; blockNumber: any; offchainEffects: any[] }[] = [];
+    for (let i = 0; i < TX_COUNT; i++) {
+      const a = BigInt(i * 100 + 1);
+      const b = BigInt(i * 100 + 2);
+      const c = BigInt(i * 100 + 3);
+      const provenTx = await proveInteraction(
+        wallet,
+        contract1.methods.emit_event_as_offchain_message_for_msg_sender(a, b, c),
+        { from: defaultAccountAddress },
+      );
+      const { txHash, blockNumber } = await provenTx.send();
+      sent.push({ a, b, c, txHash, blockNumber, offchainEffects: provenTx.offchainEffects });
+    }
+
+    // Ingest all messages in a single batch
+    const allMessages = sent.flatMap(({ txHash, offchainEffects }) =>
+      offchainEffects.map((offchainEffect, index) => ({
+        offchainEffect,
+        txHash,
+        appMessageId: `${txHash}:${index}`,
+      })),
+    );
+    await wallet.ingestOffchainMessages(allMessages);
+
+    // Each transaction's event should be independently discoverable
+    for (const { a, b, c, blockNumber } of sent) {
+      const events = await wallet.getPrivateEvents<TestEvent>(OffchainEffectContract.events.TestEvent, {
+        contractAddress: contract1.address,
+        fromBlock: BlockNumber(blockNumber!),
+        toBlock: BlockNumber(blockNumber! + 1),
+        scopes: [defaultAccountAddress],
+      });
+      const match = events.find(e => e.event.a === a && e.event.b === b && e.event.c === c);
+      expect(match).toBeDefined();
+    }
+  });
+
+  it('should scope offchain messages to the emitting contract', async () => {
+    const [a1, b1, c1] = [1000n, 2000n, 3000n];
+    const [a2, b2, c2] = [4000n, 5000n, 6000n];
+
+    const provenTx1 = await proveInteraction(
+      wallet,
+      contract1.methods.emit_event_as_offchain_message_for_msg_sender(a1, b1, c1),
+      { from: defaultAccountAddress },
+    );
+    const { txHash: txHash1, blockNumber: blockNumber1 } = await provenTx1.send();
+
+    const provenTx2 = await proveInteraction(
+      wallet,
+      contract2.methods.emit_event_as_offchain_message_for_msg_sender(a2, b2, c2),
+      { from: defaultAccountAddress },
+    );
+    const { txHash: txHash2, blockNumber: blockNumber2 } = await provenTx2.send();
+
+    // Ingest both messages
+    await wallet.ingestOffchainMessages(
+      provenTx1.offchainEffects.map((offchainEffect, index) => ({
+        offchainEffect,
+        txHash: txHash1,
+        appMessageId: `${txHash1}:${index}`,
+      })),
+    );
+    await wallet.ingestOffchainMessages(
+      provenTx2.offchainEffects.map((offchainEffect, index) => ({
+        offchainEffect,
+        txHash: txHash2,
+        appMessageId: `${txHash2}:${index}`,
+      })),
+    );
+
+    // Each contract should only see its own event
+    const events1 = await wallet.getPrivateEvents<TestEvent>(OffchainEffectContract.events.TestEvent, {
+      contractAddress: contract1.address,
+      fromBlock: BlockNumber(blockNumber1!),
+      toBlock: BlockNumber(blockNumber1! + 1),
+      scopes: [defaultAccountAddress],
+    });
+    expect(events1.length).toBe(1);
+    expect(events1[0].event).toEqual({ a: a1, b: b1, c: c1 });
+
+    const events2 = await wallet.getPrivateEvents<TestEvent>(OffchainEffectContract.events.TestEvent, {
+      contractAddress: contract2.address,
+      fromBlock: BlockNumber(blockNumber2!),
+      toBlock: BlockNumber(blockNumber2! + 1),
+      scopes: [defaultAccountAddress],
+    });
+    expect(events2.length).toBe(1);
+    expect(events2[0].event).toEqual({ a: a2, b: b2, c: c2 });
+  });
 });

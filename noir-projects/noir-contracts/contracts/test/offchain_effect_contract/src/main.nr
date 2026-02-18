@@ -63,6 +63,35 @@ contract OffchainEffect {
         );
     }
 
+    #[external("private")]
+    fn emit_two_events_as_offchain_messages(a1: u64, b1: u64, c1: u64, a2: u64, b2: u64, c2: u64) {
+        self.emit(TestEvent { a: a1, b: b1, c: c1 }).deliver_to(
+            self.msg_sender(),
+            MessageDelivery.OFFCHAIN,
+        );
+        self.emit(TestEvent { a: a2, b: b2, c: c2 }).deliver_to(
+            self.msg_sender(),
+            MessageDelivery.OFFCHAIN,
+        );
+    }
+
+    #[external("private")]
+    fn emit_event_and_note_as_offchain_messages(
+        a: u64,
+        b: u64,
+        c: u64,
+        value: u128,
+        owner: AztecAddress,
+    ) {
+        self.emit(TestEvent { a, b, c }).deliver_to(self.msg_sender(), MessageDelivery.OFFCHAIN);
+
+        let note = UintNote { value };
+        self.storage.balances.at(owner).insert(note).deliver_to(
+            self.msg_sender(),
+            MessageDelivery.OFFCHAIN,
+        );
+    }
+
     #[external("utility")]
     unconstrained fn emitting_offchain_effect_from_utility_reverts() {
         emit_offchain_effect([0; 5]);
