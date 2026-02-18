@@ -3,6 +3,7 @@
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
+#include "barretenberg/chonk/proof_compression.hpp"
 #include "barretenberg/chonk/test_bench_shared.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
@@ -15,7 +16,6 @@
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs_test_serde.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-#include "barretenberg/ultra_honk/proof_compression.hpp"
 #include "gtest/gtest.h"
 
 using namespace bb;

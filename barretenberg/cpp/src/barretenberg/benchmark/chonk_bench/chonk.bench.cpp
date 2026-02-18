@@ -7,9 +7,9 @@
 #include <chrono>
 
 #include "barretenberg/chonk/chonk_verifier.hpp"
+#include "barretenberg/chonk/proof_compression.hpp"
 #include "barretenberg/chonk/test_bench_shared.hpp"
 #include "barretenberg/common/google_bb_bench.hpp"
-#include "barretenberg/ultra_honk/proof_compression.hpp"
 
 using namespace benchmark;
 using namespace bb;

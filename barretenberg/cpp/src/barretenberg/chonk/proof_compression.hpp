@@ -35,6 +35,16 @@ class ProofCompressor {
 
     static constexpr uint256_t SIGN_BIT_MASK = uint256_t(1) << 255;
 
+    // Fq values are stored as (lo, hi) Fr pairs split at 2*NUM_LIMB_BITS = 136 bits.
+    static constexpr uint64_t NUM_LIMB_BITS = 68;
+    static constexpr uint64_t FQ_SPLIT_BITS = NUM_LIMB_BITS * 2; // 136
+
+    /** @brief True if y is in the "upper half" of its field, used for point compression sign bit. */
+    template <typename Field> static bool y_is_negative(const Field& y)
+    {
+        return uint256_t(y) > (uint256_t(Field::modulus) - 1) / 2;
+    }
+
     // =========================================================================
     // Serialization helpers
     // =========================================================================
@@ -57,16 +67,14 @@ class ProofCompressor {
 
     static Fq reconstruct_fq(const Fr& lo, const Fr& hi)
     {
-        constexpr uint64_t NUM_LIMB_BITS = 68;
-        return Fq(uint256_t(lo) + (uint256_t(hi) << (NUM_LIMB_BITS * 2)));
+        return Fq(uint256_t(lo) + (uint256_t(hi) << FQ_SPLIT_BITS));
     }
 
     static std::pair<Fr, Fr> split_fq(const Fq& val)
     {
-        constexpr uint64_t LOWER_BITS = 136;
-        constexpr uint256_t LOWER_MASK = (uint256_t(1) << LOWER_BITS) - 1;
+        constexpr uint256_t LOWER_MASK = (uint256_t(1) << FQ_SPLIT_BITS) - 1;
         const uint256_t v = uint256_t(val);
-        return { Fr(v & LOWER_MASK), Fr(v >> LOWER_BITS) };
+        return { Fr(v & LOWER_MASK), Fr(v >> FQ_SPLIT_BITS) };
     }
 
     // =========================================================================
@@ -336,7 +344,7 @@ class ProofCompressor {
             offset += 4;
 
             uint256_t x_val = uint256_t(x);
-            if (uint256_t(y) > (uint256_t(Fq::modulus) - 1) / 2) {
+            if (y_is_negative(y)) {
                 x_val |= SIGN_BIT_MASK;
             }
             write_u256(out, x_val);
@@ -355,8 +363,7 @@ class ProofCompressor {
             }
 
             uint256_t x_val = uint256_t(x);
-            // Fr modulus < 2^254, so bit 255 is always free for the sign bit
-            if (uint256_t(y) > (uint256_t(Fr::modulus) - 1) / 2) {
+            if (y_is_negative(y)) {
                 x_val |= SIGN_BIT_MASK;
             }
             write_u256(out, x_val);
@@ -401,7 +408,7 @@ class ProofCompressor {
             auto [is_square, y] = y_squared.sqrt();
             BB_ASSERT(is_square);
 
-            if ((uint256_t(y) > (uint256_t(Fq::modulus) - 1) / 2) != sign) {
+            if (y_is_negative(y) != sign) {
                 y = -y;
             }
 
@@ -431,7 +438,7 @@ class ProofCompressor {
             auto [is_square, y] = y_squared.sqrt();
             BB_ASSERT(is_square);
 
-            if ((uint256_t(y) > (uint256_t(Fr::modulus) - 1) / 2) != sign) {
+            if (y_is_negative(y) != sign) {
                 y = -y;
             }
 
