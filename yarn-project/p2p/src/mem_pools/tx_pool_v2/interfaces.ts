@@ -44,6 +44,8 @@ export type TxPoolV2Config = {
   minTxPoolAgeMs: number;
   /** Maximum number of evicted tx hashes to remember for metrics tracking */
   evictedTxCacheSize: number;
+  /** The probability (0-1) that a transaction is discarded. 0 disables dropping. For testing purposes only. */
+  dropTransactionsProbability: number;
 };
 
 /**
@@ -54,6 +56,7 @@ export const DEFAULT_TX_POOL_V2_CONFIG: TxPoolV2Config = {
   archivedTxLimit: 0, // 0 = disabled
   minTxPoolAgeMs: 2_000,
   evictedTxCacheSize: 10_000,
+  dropTransactionsProbability: 0,
 };
 
 /**
