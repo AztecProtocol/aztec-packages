@@ -71,6 +71,7 @@ import type { AddressStore } from '../../storage/address_store/address_store.js'
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
+import type { OffchainMessageStore } from '../../storage/offchain_message_store/offchain_message_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
@@ -123,6 +124,7 @@ describe('Private Execution test suite', () => {
   let aztecNode: MockProxy<AztecNode>;
   let capsuleStore: MockProxy<CapsuleStore>;
   let privateEventStore: MockProxy<PrivateEventStore>;
+  let offchainMessageStore: MockProxy<OffchainMessageStore>;
   let contractSyncService: MockProxy<ContractSyncService>;
   let acirSimulator: ContractFunctionSimulator;
   let anchorBlockHeader = BlockHeader.empty();
@@ -322,6 +324,7 @@ describe('Private Execution test suite', () => {
     keyStore = mock<KeyStore>();
     capsuleStore = mock<CapsuleStore>();
     privateEventStore = mock<PrivateEventStore>();
+    offchainMessageStore = mock<OffchainMessageStore>();
     senderAddressBookStore = mock<SenderAddressBookStore>();
     contractSyncService = mock<ContractSyncService>();
     // Configure mock to actually perform sync_state calls (needed for nested call tests)
@@ -489,6 +492,7 @@ describe('Private Execution test suite', () => {
       senderAddressBookStore,
       capsuleStore,
       privateEventStore,
+      offchainMessageStore,
       simulator,
       contractSyncService,
     });

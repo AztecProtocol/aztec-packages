@@ -11,7 +11,8 @@ use crate::{
         discovery::process_message::process_message_ciphertext,
         logs::note::MAX_NOTE_PACKED_LEN,
         processing::{
-            get_private_logs, pending_tagged_log::PendingTaggedLog, validate_and_store_enqueued_notes_and_events,
+            get_offchain_messages, get_private_logs, pending_offchain_message::PendingOffchainMessage,
+            pending_tagged_log::PendingTaggedLog, validate_and_store_enqueued_notes_and_events,
         },
     },
     utils::array,
@@ -99,6 +100,18 @@ pub unconstrained fn do_sync_state<Env>(
             pending_tagged_log.context,
         );
         logs.remove(i);
+    });
+
+    // Process offchain messages that have been delivered to PXE via the app layer.
+    let offchain_messages = get_offchain_messages(contract_address);
+    offchain_messages.for_each(|i, msg: PendingOffchainMessage| {
+        process_message_ciphertext(
+            contract_address,
+            compute_note_hash_and_nullifier,
+            msg.ciphertext,
+            msg.context,
+        );
+        offchain_messages.remove(i);
     });
 
     // Then we process all pending partial notes, regardless of whether they were found in the current or previous

@@ -92,6 +92,7 @@ import type { AddressStore } from '../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
+import type { OffchainMessageStore } from '../storage/offchain_message_store/offchain_message_store.js';
 import type { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
 import type { SenderAddressBookStore } from '../storage/tagging_store/sender_address_book_store.js';
@@ -135,6 +136,7 @@ export type ContractFunctionSimulatorArgs = {
   senderAddressBookStore: SenderAddressBookStore;
   capsuleStore: CapsuleStore;
   privateEventStore: PrivateEventStore;
+  offchainMessageStore: OffchainMessageStore;
   simulator: CircuitSimulator;
   contractSyncService: ContractSyncService;
 };
@@ -154,6 +156,7 @@ export class ContractFunctionSimulator {
   private readonly senderAddressBookStore: SenderAddressBookStore;
   private readonly capsuleStore: CapsuleStore;
   private readonly privateEventStore: PrivateEventStore;
+  private readonly offchainMessageStore: OffchainMessageStore;
   private readonly simulator: CircuitSimulator;
   private readonly contractSyncService: ContractSyncService;
 
@@ -168,6 +171,7 @@ export class ContractFunctionSimulator {
     this.senderAddressBookStore = args.senderAddressBookStore;
     this.capsuleStore = args.capsuleStore;
     this.privateEventStore = args.privateEventStore;
+    this.offchainMessageStore = args.offchainMessageStore;
     this.simulator = args.simulator;
     this.contractSyncService = args.contractSyncService;
     this.log = createLogger('simulator');
@@ -240,6 +244,7 @@ export class ContractFunctionSimulator {
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleStore: this.capsuleStore,
       privateEventStore: this.privateEventStore,
+      offchainMessageStore: this.offchainMessageStore,
       contractSyncService: this.contractSyncService,
       jobId,
       totalPublicCalldataCount: 0,
@@ -334,6 +339,7 @@ export class ContractFunctionSimulator {
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleStore: this.capsuleStore,
       privateEventStore: this.privateEventStore,
+      offchainMessageStore: this.offchainMessageStore,
       jobId,
       scopes,
     });

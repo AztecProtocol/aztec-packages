@@ -1,4 +1,4 @@
-import type { PrivateEventFilter } from '@aztec/aztec.js/wallet';
+import type { IncomingOffchainMessage, PrivateEventFilter } from '@aztec/aztec.js/wallet';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
@@ -77,6 +77,7 @@ import { AnchorBlockStore } from './storage/anchor_block_store/anchor_block_stor
 import { CapsuleStore } from './storage/capsule_store/capsule_store.js';
 import { ContractStore } from './storage/contract_store/contract_store.js';
 import { NoteStore } from './storage/note_store/note_store.js';
+import { OffchainMessageStore } from './storage/offchain_message_store/offchain_message_store.js';
 import { PrivateEventStore } from './storage/private_event_store/private_event_store.js';
 import { RecipientTaggingStore } from './storage/tagging_store/recipient_tagging_store.js';
 import { SenderAddressBookStore } from './storage/tagging_store/sender_address_book_store.js';
@@ -155,6 +156,7 @@ export class PXE {
     private recipientTaggingStore: RecipientTaggingStore,
     private addressStore: AddressStore,
     private privateEventStore: PrivateEventStore,
+    private offchainMessageStore: OffchainMessageStore,
     private contractSyncService: ContractSyncService,
     private simulator: CircuitSimulator,
     private proverEnabled: boolean,
@@ -203,6 +205,7 @@ export class PXE {
     const senderAddressBookStore = new SenderAddressBookStore(store);
     const recipientTaggingStore = new RecipientTaggingStore(store);
     const capsuleStore = new CapsuleStore(store);
+    const offchainMessageStore = new OffchainMessageStore(store);
     const keyStore = new KeyStore(store);
     const tipsStore = new L2TipsKVStore(store, 'pxe');
     const contractSyncService = new ContractSyncService(
@@ -231,6 +234,7 @@ export class PXE {
       privateEventStore,
       noteStore,
       contractSyncService,
+      offchainMessageStore,
     ]);
 
     const debugUtils = new PXEDebugUtils(contractSyncService, noteStore, synchronizer, anchorBlockStore);
@@ -250,6 +254,7 @@ export class PXE {
       recipientTaggingStore,
       addressStore,
       privateEventStore,
+      offchainMessageStore,
       contractSyncService,
       simulator,
       proverEnabled,
@@ -290,6 +295,7 @@ export class PXE {
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleStore: this.capsuleStore,
       privateEventStore: this.privateEventStore,
+      offchainMessageStore: this.offchainMessageStore,
       simulator: this.simulator,
       contractSyncService: this.contractSyncService,
     });
@@ -1123,6 +1129,14 @@ export class PXE {
     );
 
     return this.privateEventStore.getPrivateEvents(eventSelector, sanitizedFilter);
+  }
+
+  /** Stores offchain messages for later processing during sync_state. */
+  ingestOffchainMessages(messages: IncomingOffchainMessage[]): Promise<void> {
+    return this.#putInJobQueue(async () => {
+      await this.offchainMessageStore.addIncomingMessages(messages);
+      this.log.info(`Ingested ${messages.length} offchain messages`);
+    });
   }
 
   /**

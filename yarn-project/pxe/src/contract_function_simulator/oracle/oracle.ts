@@ -508,6 +508,17 @@ export class Oracle {
     return [];
   }
 
+  async utilityFetchOffchainMessages(
+    [contractAddress]: ACVMField[],
+    [pendingOffchainMessageArrayBaseSlot]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    await this.handlerAsUtility().utilityFetchOffchainMessages(
+      AztecAddress.fromString(contractAddress),
+      Fr.fromString(pendingOffchainMessageArrayBaseSlot),
+    );
+    return [];
+  }
+
   async utilityValidateAndStoreEnqueuedNotesAndEvents(
     [contractAddress]: ACVMField[],
     [noteValidationRequestsArrayBaseSlot]: ACVMField[],

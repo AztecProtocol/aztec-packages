@@ -12,6 +12,7 @@ import {
   JobCoordinator,
   NoteService,
   NoteStore,
+  OffchainMessageStore,
   PrivateEventStore,
   RecipientTaggingStore,
   SenderAddressBookStore,
@@ -142,6 +143,7 @@ export class TXESession implements TXESessionStateHandler {
     private senderAddressBookStore: SenderAddressBookStore,
     private capsuleStore: CapsuleStore,
     private privateEventStore: PrivateEventStore,
+    private offchainMessageStore: OffchainMessageStore,
     private jobCoordinator: JobCoordinator,
     private currentJobId: string,
     private chainId: Fr,
@@ -160,6 +162,7 @@ export class TXESession implements TXESessionStateHandler {
     const recipientTaggingStore = new RecipientTaggingStore(store);
     const senderAddressBookStore = new SenderAddressBookStore(store);
     const capsuleStore = new CapsuleStore(store);
+    const offchainMessageStore = new OffchainMessageStore(store);
     const keyStore = new KeyStore(store);
     const accountStore = new TXEAccountStore(store);
 
@@ -201,6 +204,7 @@ export class TXESession implements TXESessionStateHandler {
       senderAddressBookStore,
       capsuleStore,
       privateEventStore,
+      offchainMessageStore,
       initialJobId,
       nextBlockTimestamp,
       version,
@@ -223,6 +227,7 @@ export class TXESession implements TXESessionStateHandler {
       senderAddressBookStore,
       capsuleStore,
       privateEventStore,
+      offchainMessageStore,
       jobCoordinator,
       initialJobId,
       version,
@@ -300,6 +305,7 @@ export class TXESession implements TXESessionStateHandler {
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
+      this.offchainMessageStore,
       this.currentJobId,
       this.nextBlockTimestamp,
       this.version,
@@ -362,6 +368,7 @@ export class TXESession implements TXESessionStateHandler {
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleStore: this.capsuleStore,
       privateEventStore: this.privateEventStore,
+      offchainMessageStore: this.offchainMessageStore,
       contractSyncService: this.stateMachine.contractSyncService,
       jobId: this.currentJobId,
       scopes: 'ALL_SCOPES',
@@ -433,6 +440,7 @@ export class TXESession implements TXESessionStateHandler {
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleStore: this.capsuleStore,
       privateEventStore: this.privateEventStore,
+      offchainMessageStore: this.offchainMessageStore,
       jobId: this.currentJobId,
       scopes: 'ALL_SCOPES',
     });
@@ -524,6 +532,7 @@ export class TXESession implements TXESessionStateHandler {
           senderAddressBookStore: this.senderAddressBookStore,
           capsuleStore: this.capsuleStore,
           privateEventStore: this.privateEventStore,
+          offchainMessageStore: this.offchainMessageStore,
           jobId: this.currentJobId,
           scopes,
         });

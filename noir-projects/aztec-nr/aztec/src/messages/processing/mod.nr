@@ -6,6 +6,7 @@ pub use message_context::MessageContext;
 pub(crate) mod note_validation_request;
 pub(crate) mod log_retrieval_request;
 pub(crate) mod log_retrieval_response;
+pub(crate) mod pending_offchain_message;
 pub(crate) mod pending_tagged_log;
 
 use crate::{
@@ -16,7 +17,8 @@ use crate::{
         logs::{event::MAX_EVENT_SERIALIZED_LEN, note::MAX_NOTE_PACKED_LEN},
         processing::{
             log_retrieval_request::LogRetrievalRequest, log_retrieval_response::LogRetrievalResponse,
-            note_validation_request::NoteValidationRequest, pending_tagged_log::PendingTaggedLog,
+            note_validation_request::NoteValidationRequest, pending_offchain_message::PendingOffchainMessage,
+            pending_tagged_log::PendingTaggedLog,
         },
     },
     oracle,
@@ -44,6 +46,11 @@ global LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT: Field = sha256_to_field(
     "AZTEC_NR::LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT".as_bytes(),
 );
 
+// Base slot for the pending offchain message array to which the fetch_offchain_messages oracle inserts found messages.
+global PENDING_OFFCHAIN_MESSAGE_ARRAY_BASE_SLOT: Field = sha256_to_field(
+    "AZTEC_NR::PENDING_OFFCHAIN_MESSAGE_ARRAY_BASE_SLOT".as_bytes(),
+);
+
 /// Searches for private logs emitted by `contract_address` that might contain messages for one of the local accounts,
 /// and stores them in a `CapsuleArray` which is then returned.
 pub(crate) unconstrained fn get_private_logs(contract_address: AztecAddress) -> CapsuleArray<PendingTaggedLog> {
@@ -52,6 +59,15 @@ pub(crate) unconstrained fn get_private_logs(contract_address: AztecAddress) -> 
     oracle::message_processing::fetch_tagged_logs(PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
 
     CapsuleArray::at(contract_address, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT)
+}
+
+/// Fetches offchain messages that have been delivered to this PXE for `contract_address`, and stores them in a
+/// `CapsuleArray` which is then returned.
+pub(crate) unconstrained fn get_offchain_messages(
+    contract_address: AztecAddress,
+) -> CapsuleArray<PendingOffchainMessage> {
+    oracle::message_processing::fetch_offchain_messages(contract_address, PENDING_OFFCHAIN_MESSAGE_ARRAY_BASE_SLOT);
+    CapsuleArray::at(contract_address, PENDING_OFFCHAIN_MESSAGE_ARRAY_BASE_SLOT)
 }
 
 /// Enqueues a note for validation by PXE, so that it becomes aware of a note's existence allowing for later retrieval

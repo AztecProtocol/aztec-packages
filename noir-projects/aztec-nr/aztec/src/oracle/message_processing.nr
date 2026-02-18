@@ -48,3 +48,18 @@ unconstrained fn bulk_retrieve_logs_oracle(
     log_retrieval_requests_array_base_slot: Field,
     log_retrieval_responses_array_base_slot: Field,
 ) {}
+
+/// Fetches offchain messages that have been delivered to this PXE for the given contract, and stores them in a
+/// capsule array for later processing in Noir.
+pub unconstrained fn fetch_offchain_messages(
+    contract_address: AztecAddress,
+    pending_offchain_message_array_base_slot: Field,
+) {
+    fetch_offchain_messages_oracle(contract_address, pending_offchain_message_array_base_slot);
+}
+
+#[oracle(utilityFetchOffchainMessages)]
+unconstrained fn fetch_offchain_messages_oracle(
+    contract_address: AztecAddress,
+    pending_offchain_message_array_base_slot: Field,
+) {}

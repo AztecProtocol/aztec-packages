@@ -707,6 +707,18 @@ export class RPCTranslator {
     return toForeignCallResult([]);
   }
 
+  async utilityFetchOffchainMessages(
+    foreignContractAddress: ForeignCallSingle,
+    foreignPendingOffchainMessageArrayBaseSlot: ForeignCallSingle,
+  ) {
+    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
+    const pendingOffchainMessageArrayBaseSlot = fromSingle(foreignPendingOffchainMessageArrayBaseSlot);
+
+    await this.handlerAsUtility().utilityFetchOffchainMessages(contractAddress, pendingOffchainMessageArrayBaseSlot);
+
+    return toForeignCallResult([]);
+  }
+
   public async utilityValidateAndStoreEnqueuedNotesAndEvents(
     foreignContractAddress: ForeignCallSingle,
     foreignNoteValidationRequestsArrayBaseSlot: ForeignCallSingle,

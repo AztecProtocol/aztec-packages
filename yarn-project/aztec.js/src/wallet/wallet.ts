@@ -14,7 +14,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstanceWithAddress, ContractInstanceWithAddressSchema } from '@aztec/stdlib/contract';
 import { Gas } from '@aztec/stdlib/gas';
 import { AbiDecodedSchema, type ApiSchemaFor, optional, schemas, zodFor } from '@aztec/stdlib/schemas';
-import type { ExecutionPayload, InTx } from '@aztec/stdlib/tx';
+import type { ExecutionPayload, InTx, OffchainMessage } from '@aztec/stdlib/tx';
 import {
   Capsule,
   HashedValues,
@@ -235,6 +235,12 @@ export type ExecuteUtilityOptions = {
   authWitnesses?: AuthWitness[];
 };
 
+/** An offchain message with an app-provided identifier for deduplication and storage keying. */
+export type IncomingOffchainMessage = OffchainMessage & {
+  /** App-provided message identifier, used together with contractAddress for deduplication. */
+  appMessageId: string;
+};
+
 /**
  * The wallet interface.
  */
@@ -264,6 +270,7 @@ export type Wallet = {
   createAuthWit(from: AztecAddress, messageHashOrIntent: IntentInnerHash | CallIntent): Promise<AuthWitness>;
   requestCapabilities(manifest: AppCapabilities): Promise<WalletCapabilities>;
   batch<const T extends readonly BatchedMethod[]>(methods: T): Promise<BatchResults<T>>;
+  ingestOffchainMessages(messages: IncomingOffchainMessage[]): Promise<void>;
 };
 
 export const ExecutionPayloadSchema = z.object({
@@ -545,6 +552,10 @@ const WalletMethodSchemas = {
     ),
   createAuthWit: z.function().args(schemas.AztecAddress, MessageHashOrIntentSchema).returns(AuthWitness.schema),
   requestCapabilities: z.function().args(AppCapabilitiesSchema).returns(WalletCapabilitiesSchema),
+  ingestOffchainMessages: z
+    .function()
+    .args(z.array(z.object({ offchainEffect: OffchainEffectSchema, txHash: TxHash.schema, appMessageId: z.string() })))
+    .returns(z.void()),
 };
 
 /**

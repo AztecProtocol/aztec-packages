@@ -27,6 +27,7 @@ import type {
   BatchedMethod,
   ContractClassMetadata,
   ContractMetadata,
+  IncomingOffchainMessage,
   PrivateEvent,
   PrivateEventFilter,
   ProfileOptions,
@@ -472,6 +473,10 @@ class MockWallet implements Wallet {
       },
       expiresAt: undefined,
     });
+  }
+
+  ingestOffchainMessages(_messages: IncomingOffchainMessage[]): Promise<void> {
+    return Promise.resolve();
   }
 
   async batch<const T extends readonly BatchedMethod[]>(methods: T): Promise<BatchResults<T>> {

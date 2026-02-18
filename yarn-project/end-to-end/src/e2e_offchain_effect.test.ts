@@ -3,9 +3,9 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { poseidon2HashBytes } from '@aztec/foundation/crypto/poseidon';
 import { OffchainEffectContract, type TestEvent } from '@aztec/noir-test-contracts.js/OffchainEffect';
 import { MessageContext } from '@aztec/stdlib/logs';
-import { OFFCHAIN_MESSAGE_IDENTIFIER } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
@@ -110,7 +110,7 @@ describe('e2e_offchain_effect', () => {
     expect(offchainEffect.data.length).toEqual(PRIVATE_LOG_CIPHERTEXT_LEN + 2);
 
     const identifier = offchainEffect.data[0];
-    expect(identifier).toEqual(OFFCHAIN_MESSAGE_IDENTIFIER);
+    expect(identifier).toEqual(await poseidon2HashBytes(Buffer.from('aztecnr_offchain_message')));
 
     const recipientAddressFr = offchainEffect.data[1];
     // Recipient was set to message sender inside the emit_event_as_offchain_message_for_msg_sender function
@@ -167,7 +167,7 @@ describe('e2e_offchain_effect', () => {
     expect(offchainEffect.data.length).toEqual(PRIVATE_LOG_CIPHERTEXT_LEN + 2);
 
     const identifier = offchainEffect.data[0];
-    expect(identifier).toEqual(OFFCHAIN_MESSAGE_IDENTIFIER);
+    expect(identifier).toEqual(await poseidon2HashBytes(Buffer.from('aztecnr_offchain_message')));
 
     const recipientAddressFr = offchainEffect.data[1];
     // Recipient was set to message sender inside the emit_note_as_offchain_message function
@@ -187,6 +187,66 @@ describe('e2e_offchain_effect', () => {
 
     // Get the note value
     const { result: noteValue } = await contract1.methods
+      .get_note_value(owner)
+      .simulate({ from: defaultAccountAddress });
+    expect(noteValue).toBe(value);
+  });
+
+  it('should process event via ingestOffchainMessages and sync_state', async () => {
+    const [a, b, c] = [10n, 20n, 30n];
+    const provenTx = await proveInteraction(
+      wallet,
+      contract1.methods.emit_event_as_offchain_message_for_msg_sender(a, b, c),
+      { from: defaultAccountAddress },
+    );
+    const { txHash, blockNumber, blockHash } = await provenTx.send();
+
+    const offchainEffects = provenTx.offchainEffects;
+    expect(offchainEffects).toHaveLength(1);
+
+    // Ingest offchain messages into the wallet (simulating offchain delivery)
+    await wallet.ingestOffchainMessages(
+      offchainEffects.map((offchainEffect, index) => ({ offchainEffect, txHash, appMessageId: `${txHash}:${index}` })),
+    );
+
+    // getPrivateEvents triggers sync_state, which processes the ingested messages automatically
+    const events = await wallet.getPrivateEvents<TestEvent>(OffchainEffectContract.events.TestEvent, {
+      contractAddress: contract1.address,
+      fromBlock: BlockNumber(blockNumber!),
+      toBlock: BlockNumber(blockNumber! + 1),
+      scopes: [defaultAccountAddress],
+    });
+
+    expect(events.length).toBe(1);
+    expect(events[0]).toEqual({
+      event: { a, b, c },
+      metadata: {
+        l2BlockNumber: blockNumber,
+        l2BlockHash: blockHash,
+        txHash,
+      },
+    });
+  });
+
+  it('should process note via ingestOffchainMessages and sync_state', async () => {
+    const value = 456n;
+    const owner = defaultAccountAddress;
+    const provenTx = await proveInteraction(wallet, contract2.methods.emit_note_as_offchain_message(value, owner), {
+      from: defaultAccountAddress,
+    });
+    const { txHash } = await provenTx.send();
+
+    const offchainEffects = provenTx.offchainEffects;
+    expect(offchainEffects).toHaveLength(1);
+
+    // Ingest offchain messages into the wallet (simulating app-layer delivery)
+    await wallet.ingestOffchainMessages(
+      offchainEffects.map((offchainEffect, index) => ({ offchainEffect, txHash, appMessageId: `${txHash}:${index}` })),
+    );
+
+    // get_note_value triggers sync_state, which processes the ingested messages automatically.
+    // It also verifies the note was correctly discovered and stored.
+    const { result: noteValue } = await contract2.methods
       .get_note_value(owner)
       .simulate({ from: defaultAccountAddress });
     expect(noteValue).toBe(value);

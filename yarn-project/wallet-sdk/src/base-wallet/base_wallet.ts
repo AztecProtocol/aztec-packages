@@ -9,6 +9,7 @@ import type {
   BatchResults,
   BatchedMethod,
   ExecuteUtilityOptions,
+  IncomingOffchainMessage,
   PrivateEvent,
   PrivateEventFilter,
   ProfileOptions,
@@ -252,6 +253,10 @@ export abstract class BaseWallet implements Wallet {
 
   registerSender(address: AztecAddress, _alias: string = ''): Promise<AztecAddress> {
     return this.pxe.registerSender(address);
+  }
+
+  ingestOffchainMessages(messages: IncomingOffchainMessage[]): Promise<void> {
+    return this.pxe.ingestOffchainMessages(messages);
   }
 
   async registerContract(

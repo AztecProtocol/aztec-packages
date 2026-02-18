@@ -1,6 +1,12 @@
-import type { ARCHIVE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
+import {
+  type ARCHIVE_HEIGHT,
+  MAX_TX_LIFETIME,
+  type NOTE_HASH_TREE_HEIGHT,
+  PRIVATE_LOG_CIPHERTEXT_LEN,
+} from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { Aes128 } from '@aztec/foundation/crypto/aes128';
+import { poseidon2HashBytes } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { LogLevels, type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
@@ -14,7 +20,7 @@ import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret } from '@aztec/stdlib/keys';
-import { deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
+import { MessageContext, deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -29,6 +35,7 @@ import type { AddressStore } from '../../storage/address_store/address_store.js'
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
+import type { OffchainMessageStore } from '../../storage/offchain_message_store/offchain_message_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
@@ -57,6 +64,7 @@ export type UtilityExecutionOracleArgs = {
   senderAddressBookStore: SenderAddressBookStore;
   capsuleStore: CapsuleStore;
   privateEventStore: PrivateEventStore;
+  offchainMessageStore: OffchainMessageStore;
   jobId: string;
   log?: ReturnType<typeof createLogger>;
   scopes: AccessScopes;
@@ -84,6 +92,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly senderAddressBookStore: SenderAddressBookStore;
   protected readonly capsuleStore: CapsuleStore;
   protected readonly privateEventStore: PrivateEventStore;
+  protected readonly offchainMessageStore: OffchainMessageStore;
   protected readonly jobId: string;
   protected log: ReturnType<typeof createLogger>;
   protected readonly scopes: AccessScopes;
@@ -102,6 +111,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.senderAddressBookStore = args.senderAddressBookStore;
     this.capsuleStore = args.capsuleStore;
     this.privateEventStore = args.privateEventStore;
+    this.offchainMessageStore = args.offchainMessageStore;
     this.jobId = args.jobId;
     this.log = args.log ?? createLogger('simulator:client_view_context');
     this.scopes = args.scopes;
@@ -438,6 +448,88 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /**
+   * Fetches pending offchain messages for a contract, validates them against their on-chain transaction effects, and
+   * stores the validated messages in a CapsuleArray for processing by the Noir side.
+   *
+   * For each pending message, the oracle:
+   * - Checks if the originating tx has been mined (fetches TxEffect)
+   * - Expires messages whose tx was not mined within MAX_TX_LIFETIME
+   * - Validates the offchain message identifier prefix
+   * - Builds a MessageContext from the TxEffect for note hash / nullifier context
+   * - Serializes as PendingOffchainMessage fields into a CapsuleArray
+   *
+   * @param contractAddress - The address of the contract to fetch off-chain messages for.
+   * @param pendingOffchainMessageArrayBaseSlot - The base slot for the CapsuleArray to store results.
+   */
+  public async utilityFetchOffchainMessages(
+    contractAddress: AztecAddress,
+    pendingOffchainMessageArrayBaseSlot: Fr,
+  ): Promise<void> {
+    const pendingMessages = await this.offchainMessageStore.getPendingByContract(contractAddress, this.jobId);
+
+    if (pendingMessages.length === 0) {
+      await this.capsuleStore.setCapsuleArray(contractAddress, pendingOffchainMessageArrayBaseSlot, [], this.jobId);
+      return;
+    }
+
+    const validatedEntries: Fr[][] = [];
+    const processedKeys: string[] = [];
+    const invalidKeys: string[] = [];
+
+    for (const msg of pendingMessages) {
+      const { offchainEffect, txHash, appMessageId } = msg;
+      const storeKey = `${contractAddress}|${appMessageId}`;
+
+      // Try to get the TxEffect for the originating transaction
+      const txEffect = await this.aztecNode.getTxEffect(txHash);
+
+      if (!txEffect) {
+        // Tx not mined yet — expire if ingested too long ago, otherwise skip (stays pending)
+        await this.offchainMessageStore.markExpiredIfStale(storeKey, MAX_TX_LIFETIME * 1000, this.jobId);
+        continue;
+      }
+
+      // Validate: first element of data must be the offchain message identifier, matching the Noir-side constant
+      // `poseidon2_hash_bytes("aztecnr_offchain_message".as_bytes())` in offchain_messages.nr.
+      const offchainMessageIdentifier = await poseidon2HashBytes(Buffer.from('aztecnr_offchain_message'));
+      if (!offchainEffect.data[0].equals(offchainMessageIdentifier)) {
+        this.log.warn(`Off-chain message for contract ${contractAddress} has invalid identifier, marking as invalid`);
+        invalidKeys.push(storeKey);
+        continue;
+      }
+
+      // Build MessageContext from the TxEffect
+      const recipient = AztecAddress.fromField(offchainEffect.data[1]);
+      const messageContext = MessageContext.fromTxEffectAndRecipient(txEffect.data, recipient);
+
+      // Extract ciphertext (everything after identifier and recipient)
+      const ciphertext = offchainEffect.data.slice(2);
+
+      // Serialize as PendingOffchainMessage fields
+      const serialized = [...serializeBoundedVec(ciphertext, PRIVATE_LOG_CIPHERTEXT_LEN), ...messageContext.toFields()];
+
+      validatedEntries.push(serialized);
+      processedKeys.push(storeKey);
+    }
+
+    // Store validated messages in CapsuleArray
+    await this.capsuleStore.setCapsuleArray(
+      contractAddress,
+      pendingOffchainMessageArrayBaseSlot,
+      validatedEntries,
+      this.jobId,
+    );
+
+    // Stage status changes (committed only when the job succeeds)
+    if (processedKeys.length > 0) {
+      this.offchainMessageStore.markProcessed(processedKeys, this.jobId);
+    }
+    if (invalidKeys.length > 0) {
+      this.offchainMessageStore.markInvalid(invalidKeys, this.jobId);
+    }
+  }
+
+  /**
    * Validates all note and event validation requests enqueued via `enqueue_note_for_validation` and
    * `enqueue_event_for_validation`, inserting them into the note database and event store respectively, making them
    * queryable via `get_notes` and `getPrivateEvents`.
@@ -613,4 +705,10 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
     return deriveEcdhSharedSecret(addressSecret, ephPk);
   }
+}
+
+/** Serializes values as a Noir BoundedVec: [items..., zero padding to maxLength, length]. */
+function serializeBoundedVec(values: Fr[], maxLength: number): Fr[] {
+  const padding = Array(maxLength - values.length).fill(Fr.ZERO);
+  return [...values, ...padding, new Fr(values.length)];
 }

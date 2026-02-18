@@ -5,4 +5,5 @@ export * from './note_store/index.js';
 export * from './anchor_block_store/index.js';
 export * from './tagging_store/index.js';
 export * from './metadata.js';
+export * from './offchain_message_store/index.js';
 export * from './private_event_store/private_event_store.js';

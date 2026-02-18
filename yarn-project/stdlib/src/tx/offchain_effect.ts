@@ -1,12 +1,9 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 
-import type { AztecAddress } from '../aztec-address/index.js';
+import { z } from 'zod';
 
-// The following identifier was copied over from `noir-projects/aztec-nr/aztec/src/messages/offchain_messages.nr`.
-// poseidon2hash("aztecnr_offchain_message")
-export const OFFCHAIN_MESSAGE_IDENTIFIER: Fr = new Fr(
-  6023466688192654631553769360478808766602235351827869819420284624004071427516n,
-);
+import { AztecAddress } from '../aztec-address/index.js';
+import { TxHash } from './tx_hash.js';
 
 /**
  * Represents an offchain effect emitted via the `emit_offchain_effect` oracle (see the oracle documentation for
@@ -18,3 +15,20 @@ export type OffchainEffect = {
   /** The contract that emitted the data */
   contractAddress: AztecAddress;
 };
+
+/** An offchain message bundle, containing an offchain effect and the hash of the tx that produced it. */
+export type OffchainMessage = {
+  /** The offchain effect emitted during private execution. */
+  offchainEffect: OffchainEffect;
+  /** The hash of the transaction that emitted this effect. */
+  txHash: TxHash;
+};
+
+/** Zod schema for {@link OffchainMessage} serialization. */
+export const OffchainMessageSchema = z.object({
+  offchainEffect: z.object({
+    data: z.array(Fr.schema),
+    contractAddress: AztecAddress.schema,
+  }),
+  txHash: TxHash.schema,
+});

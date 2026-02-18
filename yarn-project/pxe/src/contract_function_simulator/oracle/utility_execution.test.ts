@@ -22,6 +22,7 @@ import type { AddressStore } from '../../storage/address_store/address_store.js'
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
+import type { OffchainMessageStore } from '../../storage/offchain_message_store/offchain_message_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
@@ -42,6 +43,7 @@ describe('Utility Execution test suite', () => {
   let senderAddressBookStore: ReturnType<typeof mock<SenderAddressBookStore>>;
   let capsuleStore: ReturnType<typeof mock<CapsuleStore>>;
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
+  let offchainMessageStore: ReturnType<typeof mock<OffchainMessageStore>>;
   let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
   let acirSimulator: ContractFunctionSimulator;
   let owner: AztecAddress;
@@ -64,6 +66,7 @@ describe('Utility Execution test suite', () => {
     senderAddressBookStore = mock<SenderAddressBookStore>();
     capsuleStore = mock<CapsuleStore>();
     privateEventStore = mock<PrivateEventStore>();
+    offchainMessageStore = mock<OffchainMessageStore>();
     contractSyncService = mock<ContractSyncService>();
     const capsuleArrays = new Map<string, Fr[][]>();
     anchorBlockHeader = BlockHeader.random();
@@ -101,6 +104,7 @@ describe('Utility Execution test suite', () => {
       senderAddressBookStore,
       capsuleStore,
       privateEventStore,
+      offchainMessageStore,
       simulator,
       contractSyncService,
     });
@@ -219,6 +223,7 @@ describe('Utility Execution test suite', () => {
         senderAddressBookStore,
         capsuleStore,
         privateEventStore,
+        offchainMessageStore,
         jobId: 'test-job-id',
         scopes: 'ALL_SCOPES',
       });

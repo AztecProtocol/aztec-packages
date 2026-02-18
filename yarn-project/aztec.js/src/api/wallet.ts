@@ -9,6 +9,7 @@ export {
   type BatchedMethodResult,
   type BatchedMethodResultWrapper,
   type BatchResults,
+  type IncomingOffchainMessage,
   type Wallet,
   type PrivateEvent,
   type PrivateEventFilter,

@@ -117,6 +117,7 @@ export interface IUtilityExecutionOracle {
     numberOfElements: number,
   ): Promise<Fr[]>;
   utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr): Promise<void>;
+  utilityFetchOffchainMessages(contractAddress: AztecAddress, pendingOffchainMessageArrayBaseSlot: Fr): Promise<void>;
   utilityValidateAndStoreEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
