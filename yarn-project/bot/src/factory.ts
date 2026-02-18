@@ -285,6 +285,7 @@ export class BotFactory {
       tokenInstance = await deploy.getInstance(deployOpts);
       token = PrivateTokenContract.at(tokenInstance.address, this.wallet);
       await this.wallet.registerContract(tokenInstance, PrivateTokenContract.artifact, tokenSecretKey);
+      // The contract constructor initializes private storage vars that need the contract's own nullifier key.
       deployOpts.additionalScopes = [tokenInstance.address];
     } else {
       throw new Error(`Unsupported token contract type: ${this.config.contract}`);
@@ -480,6 +481,7 @@ export class BotFactory {
       return;
     }
 
+    // PrivateToken's mint accesses contract-level private storage vars (admin, total_supply).
     const additionalScopes = isStandardToken ? undefined : [token.address];
     await this.withNoMinTxsPerBlock(async () => {
       const txHash = await new BatchCall(token.wallet, calls).send({ from: minter, additionalScopes, wait: NO_WAIT });

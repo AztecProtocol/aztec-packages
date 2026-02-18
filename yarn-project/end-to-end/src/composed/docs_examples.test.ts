@@ -32,6 +32,7 @@ describe('docs_examples', () => {
     const newAccountDeployMethod = await newAccountManager.getDeployMethod();
     await newAccountDeployMethod.send({
       from: prefundedAccount.address,
+      // The account constructor initializes storage vars that need the contract's own nullifier key, so we need to add it to scopes.
       additionalScopes: [newAccountManager.address],
     });
     const newAccountAddress = newAccountManager.address;

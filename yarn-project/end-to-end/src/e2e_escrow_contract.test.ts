@@ -41,6 +41,7 @@ describe('e2e_escrow_contract', () => {
     const escrowDeployment = EscrowContract.deployWithPublicKeys(escrowPublicKeys, wallet, owner);
     const escrowInstance = await escrowDeployment.getInstance();
     await wallet.registerContract(escrowInstance, EscrowContract.artifact, escrowSecretKey);
+    // The contract constructor initializes private storage vars that need the contract's own nullifier key.
     escrowContract = await escrowDeployment.send({ from: owner, additionalScopes: [escrowInstance.address] });
     logger.info(`Escrow contract deployed at ${escrowContract.address}`);
 
@@ -62,6 +63,7 @@ describe('e2e_escrow_contract', () => {
     logger.info(`Withdrawing funds from token contract to ${recipient}`);
     await escrowContract.methods
       .withdraw(token.address, 30, recipient)
+      // Withdraw nullifies the contract's own token notes, which requires its nullifier key.
       .send({ from: owner, additionalScopes: [escrowContract.address] });
 
     await expectTokenBalance(wallet, token, owner, 0n, logger);
@@ -73,6 +75,7 @@ describe('e2e_escrow_contract', () => {
     await expect(
       escrowContract.methods
         .withdraw(token.address, 30, recipient)
+        // Withdraw nullifies the contract's own token notes, which requires its nullifier key.
         .simulate({ from: recipient, additionalScopes: [escrowContract.address] }),
     ).rejects.toThrow();
   });
@@ -88,6 +91,7 @@ describe('e2e_escrow_contract', () => {
     await new BatchCall(wallet, [
       token.methods.transfer(recipient, 10),
       escrowContract.methods.withdraw(token.address, 20, recipient),
+      // Withdraw nullifies the contract's own token notes, which requires its nullifier key.
     ]).send({ from: owner, additionalScopes: [escrowContract.address] });
     await expectTokenBalance(wallet, token, recipient, 30n, logger);
   });

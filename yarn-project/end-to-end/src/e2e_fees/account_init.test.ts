@@ -91,6 +91,7 @@ describe('e2e_fees account_init', () => {
 
       const tx = await bobsDeployMethod.send({
         from: AztecAddress.ZERO,
+        // The account constructor initializes storage vars that need the contract's own nullifier key, so we need to add it to scopes.
         additionalScopes: [bobsAddress],
         wait: { returnReceipt: true },
       });
@@ -104,6 +105,7 @@ describe('e2e_fees account_init', () => {
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(bobsAddress, claim);
       const tx = await bobsDeployMethod.send({
         from: AztecAddress.ZERO,
+        // The account constructor initializes storage vars that need the contract's own nullifier key, so we need to add it to scopes.
         additionalScopes: [bobsAddress],
         fee: { paymentMethod },
         wait: { returnReceipt: true },
@@ -125,6 +127,7 @@ describe('e2e_fees account_init', () => {
       const paymentMethod = new PrivateFeePaymentMethod(bananaFPC.address, bobsAddress, wallet, gasSettings);
       const tx = await bobsDeployMethod.send({
         from: AztecAddress.ZERO,
+        // The account constructor initializes storage vars that need the contract's own nullifier key, so we need to add it to scopes.
         additionalScopes: [bobsAddress],
         fee: { paymentMethod },
         wait: { returnReceipt: true },
@@ -155,6 +158,7 @@ describe('e2e_fees account_init', () => {
       const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, bobsAddress, wallet, gasSettings);
       const tx = await bobsDeployMethod.send({
         from: AztecAddress.ZERO,
+        // The account constructor initializes storage vars that need the contract's own nullifier key, so we need to add it to scopes.
         additionalScopes: [bobsAddress],
         skipInstancePublication: false,
         fee: { paymentMethod },
@@ -194,6 +198,7 @@ describe('e2e_fees account_init', () => {
         bobsSigningPubKey.y,
       ).send({
         from: aliceAddress,
+        // The account constructor initializes storage vars that need the contract's own nullifier key, so we need to add it to scopes.
         additionalScopes: [bobsAddress],
         contractAddressSalt: bobsInstance.salt,
         skipClassPublication: true,

@@ -298,6 +298,7 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     await deployedContract.methods
       .test_recursively_create_notes(recipients, Math.ceil(minToNeedReset / notesPerIteration))
+      // Recipients need to be in scope so their keys are accessible for note creation.
       .send({ from: owner, additionalScopes: recipients });
   });
 });

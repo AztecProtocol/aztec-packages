@@ -96,6 +96,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     await wallet.registerContract(crowdfundingInstance, CrowdfundingContract.artifact, crowdfundingSecretKey);
     crowdfundingContract = await crowdfundingDeployment.send({
       from: operatorAddress,
+      // The contract constructor initializes private storage vars that need the contract's own nullifier key.
       additionalScopes: [crowdfundingInstance.address],
     });
     logger.info(`Crowdfunding contract deployed at ${crowdfundingContract.address}`);
@@ -156,6 +157,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     // 3) At last, we withdraw the raised funds from the crowdfunding contract to the operator's address
     await crowdfundingContract.methods
       .withdraw(donationAmount)
+      // Withdraw nullifies the contract's own token notes, which requires its nullifier key.
       .send({ from: operatorAddress, additionalScopes: [crowdfundingContract.address] });
 
     const balanceDNTAfterWithdrawal = await donationToken.methods
@@ -230,6 +232,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       await wallet.registerContract(otherCrowdfundingInstance, CrowdfundingContract.artifact, crowdfundingSecretKey);
       otherCrowdfundingContract = await otherCrowdfundingDeployment.send({
         from: operatorAddress,
+        // The contract constructor initializes private storage vars that need the contract's own nullifier key.
         additionalScopes: [otherCrowdfundingInstance.address],
       });
       logger.info(`Crowdfunding contract deployed at ${otherCrowdfundingContract.address}`);
@@ -282,6 +285,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     await expect(
       crowdfundingContract.methods
         .withdraw(donationAmount)
+        // Withdraw nullifies the contract's own token notes, which requires its nullifier key.
         .send({ from: donor2Address, additionalScopes: [crowdfundingContract.address] }),
     ).rejects.toThrow('Assertion failed: Not an operator');
   });

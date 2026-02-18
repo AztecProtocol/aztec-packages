@@ -366,7 +366,7 @@ export class EmbeddedWallet extends BaseWallet {
       skipTxValidation: true,
       skipFeeEnforcement: true,
       overrides: { contracts: contractOverrides },
-      scopes: this.scopesFor(opts.from)
+      scopes: this.scopesFrom(opts.from)
     });
   }
 }

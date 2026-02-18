@@ -25,9 +25,7 @@ export async function getPrivateBalance(
   who: AztecAddress,
   from?: AztecAddress,
 ): Promise<bigint> {
-  const privateBalance = await token.methods
-    .get_balance(who)
-    .simulate({ from: from ?? who, additionalScopes: [token.address] });
+  const privateBalance = await token.methods.get_balance(who).simulate({ from: from ?? who });
   return privateBalance;
 }
 

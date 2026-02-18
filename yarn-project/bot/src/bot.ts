@@ -71,13 +71,11 @@ export class Bot extends BaseBot {
 
     const batch = new BatchCall(wallet, calls);
     const opts = await this.getSendMethodOpts(batch);
-    const additionalScopes = isStandardTokenContract(token) ? undefined : [token.address];
-
     this.log.verbose(`Simulating transaction with ${calls.length}`, logCtx);
-    await batch.simulate({ from: this.defaultAccountAddress, additionalScopes });
+    await batch.simulate({ from: this.defaultAccountAddress });
 
     this.log.verbose(`Sending transaction`, logCtx);
-    return batch.send({ ...opts, additionalScopes, wait: NO_WAIT });
+    return batch.send({ ...opts, wait: NO_WAIT });
   }
 
   public async getBalances() {
