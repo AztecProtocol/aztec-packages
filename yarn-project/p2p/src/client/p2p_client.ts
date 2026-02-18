@@ -1,12 +1,13 @@
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
 import {
+  type CheckpointId,
   type EthAddress,
   type L2Block,
   type L2BlockId,
@@ -201,7 +202,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
         break;
       case 'chain-pruned':
         this.txCollection.stopCollectingForBlocksAfter(event.block.number);
-        await this.handlePruneL2Blocks(event.block);
+        await this.handlePruneL2Blocks(event.block, event.checkpoint);
         break;
       case 'chain-checkpointed':
         break;
@@ -759,10 +760,31 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   /**
    * Updates the tx pool after a chain prune.
+   * Detects epoch prunes (checkpoint number changed) and deletes all txs in that case.
    * @param latestBlock - The block ID the chain was pruned to.
+   * @param newCheckpoint - The checkpoint ID after the prune.
    */
-  private async handlePruneL2Blocks(latestBlock: L2BlockId): Promise<void> {
-    await this.txPool.handlePrunedBlocks(latestBlock);
+  private async handlePruneL2Blocks(latestBlock: L2BlockId, newCheckpoint: CheckpointId): Promise<void> {
+    const deleteAllTxs = this.config.txPoolDeleteTxsAfterReorg && (await this.isEpochPrune(newCheckpoint));
+    await this.txPool.handlePrunedBlocks(latestBlock, { deleteAllTxs });
+  }
+
+  /**
+   * Returns true if the prune crossed a checkpoint boundary.
+   * If the old and new checkpoint numbers are the same, the prune is within a single checkpoint.
+   * If they differ, the prune spans across checkpoints (epoch prune).
+   */
+  private async isEpochPrune(newCheckpoint: CheckpointId): Promise<boolean> {
+    const tips = await this.l2Tips.getL2Tips();
+    const oldCheckpointNumber = tips.checkpointed.checkpoint.number;
+    if (oldCheckpointNumber <= CheckpointNumber.ZERO) {
+      return false;
+    }
+    const isEpochPrune = oldCheckpointNumber !== newCheckpoint.number;
+    this.log.info(
+      `Detected epoch prune: ${isEpochPrune}. Old checkpoint: ${oldCheckpointNumber}, new checkpoint: ${newCheckpoint.number}`,
+    );
+    return isEpochPrune;
   }
 
   /** Checks if the slot has changed and calls prepareForSlot if so. */

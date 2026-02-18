@@ -123,7 +123,7 @@ export class InMemoryTxPool extends EventEmitter implements TxPoolV2 {
     return Promise.resolve();
   }
 
-  handlePrunedBlocks(_latestBlock: L2BlockId): Promise<void> {
+  handlePrunedBlocks(_latestBlock: L2BlockId, _options?: { deleteAllTxs?: boolean }): Promise<void> {
     return Promise.resolve();
   }
 
