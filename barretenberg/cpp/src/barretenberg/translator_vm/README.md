@@ -430,7 +430,7 @@ The circuit uses Lagrange polynomials to control which constraints are active: (
 | `lagrange_first`               | First row                                 | $i = 0$                                                                                         |
 | `lagrange_real_last`           | Last row in full circuit (before masking) | $i = N - \text{MAX\_RANDOM\_VALUES\_PER\_ORDERED} - 1 = 2^{17} - 64 - 1 = 131007$               |
 | `lagrange_last`                | Last row in full circuit                  | $i = 2^{17} - 1$                                                                                |
-| `lagrange_masking`             | Scattered masking rows in full circuit    | $i \in \{j \cdot 2^{13} + k : j \in [0,16), k \in [2^{13} - m, 2^{13})\}$                      |
+| `lagrange_masking`             | Scattered masking rows in full circuit    | $i \in \{j \cdot 2^{13} + k : j \in [0,16), k \in [2^{13} - m, 2^{13})\}$                       |
 | `lagrange_mini_masking`        | Masking rows in mini circuit              | $i \in [z_1, \ z_1 + r_{\textsf{start}}) \cup [n - r_{\textsf{end}}, \ n)$                      |
 | `lagrange_even_in_minicircuit` | Even indices in real mini-circuit         | $i \in \{u \ \| \ u \ \% \ 2 = 0, \ (z_1 + r_{\textsf{start}}) \leq u < n - r_{\textsf{end}}\}$ |
 | `lagrange_odd_in_minicircuit`  | Odd indices in real mini-circuit          | $i \in \{u \ \| \ u \ \% \ 2 = 1, \ (z_1 + r_{\textsf{start}}) \leq u < n - r_{\textsf{end}}\}$ |
@@ -804,30 +804,30 @@ I_1 \quad I_2 \quad I_3 \quad I_4 \\
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 & n - m
-\\[-10pt]
+\\
 \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 & m
-\\[-10pt]
+\\[5pt]
 \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
-\\[-10pt]
+\\
 \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
-\\
+\\[10pt]
 \quad\vdots & \scriptstyle{\times\,16\text{ lanes}}
-\\
+\\[10pt]
 \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
-\\[-10pt]
+\\
 \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
@@ -949,31 +949,29 @@ I_1 \quad I_2 \quad I_3 \quad I_4 \\
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
-& n - m
-\\[-10pt]
+\\
 \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
-& m
-\\[-10pt]
+\\[5pt]
 \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
-\\[-10pt]
+\\
 \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
-\\
-\quad\vdots & \scriptstyle{\times\,16\text{ lanes}}
-\\
+\\[10pt]
+\quad\vdots
+\\[10pt]
 \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
-\\[-10pt]
+\\
 \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
@@ -988,31 +986,29 @@ I_1 \quad I_2 \quad I_3 \quad I_4 \\
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
-& n - m
-\\[-10pt]
+\\
 \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
-& m
-\\[-10pt]
+\\[5pt]
 \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
-\\[-10pt]
+\\
 \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
-\\
-\quad\vdots & \scriptstyle{\times\,16\text{ lanes}}
-\\
+\\[10pt]
+\quad\vdots
+\\[10pt]
 \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
-\\[-10pt]
+\\
 \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
@@ -1064,7 +1060,7 @@ I_1 \quad I_2 \quad I_3 \quad I_4 \\
    \textcolor{violet}{
    \boxed{
    \begin{array}{c}
-   \\ \\ z \\ \\[2pt]
+   \\ \\ z \\ \\[10pt]
    \end{array}
    }}
 \end{array}

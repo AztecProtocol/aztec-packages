@@ -928,6 +928,12 @@ class TranslatorFlavor {
         static constexpr size_t NUM_TOP_BITS = numeric::get_msb(CONCATENATION_GROUP_SIZE);
 
         // Compute CONCATENATION_GROUP_SIZE-point Lagrange basis over the top challenges
+        // a = u[N - 4], b = u[N - 3], c = u[N - 2], d = u[N - 1]
+        // L(0) = (1 - d) * (1 - c) * (1 - b) * (1 - a)
+        // L(1) = (1 - d) * (1 - c) * (1 - b) * (    a)
+        // L(2) = (1 - d) * (1 - c) * (    b) * (1 - a)
+        // L(3) = (1 - d) * (1 - c) * (    b) * (    a)
+        // ...
         std::array<FFType, CONCATENATION_GROUP_SIZE> lagrange_basis;
         for (size_t j = 0; j < CONCATENATION_GROUP_SIZE; j++) {
             lagrange_basis[j] = FFType(1);
@@ -936,7 +942,10 @@ class TranslatorFlavor {
                 lagrange_basis[j] *= ((j >> bit) & 1) ? u : (FFType(1) - u);
             }
         }
+
         // L_0 is the "padding" factor from wires having support in [1, MINI)
+        // The reason we need to divide by L_0 is because L_j(u) already accounts for the challenges a, b, c, d:
+        // L_j(u) = (1 - d) * (1 - c) * (1 - b) * (1 - a) * L_j(0, u_bottom)
         FFType padding_inv = lagrange_basis[0].invert();
 
         auto reconstruct = [&](const auto& group) -> FFType {
