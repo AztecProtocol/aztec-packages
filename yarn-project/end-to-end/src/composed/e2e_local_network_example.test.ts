@@ -145,7 +145,8 @@ describe('e2e_local_network_example', () => {
       return await Promise.all(
         accountManagers.map(async x => {
           const deployMethod = await x.getDeployMethod();
-          await deployMethod.send({ from: fundedAccount });
+          // The account constructor initializes storage vars that need the contract's own nullifier key, so we need to add it to scopes.
+          await deployMethod.send({ from: fundedAccount, additionalScopes: [x.address] });
           return x;
         }),
       );

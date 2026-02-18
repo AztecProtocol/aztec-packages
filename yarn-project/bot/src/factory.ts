@@ -488,11 +488,15 @@ export class BotFactory {
     // PrivateToken's mint accesses contract-level private storage vars (admin, total_supply).
     const additionalScopes = isStandardToken ? undefined : [token.address];
     await this.withNoMinTxsPerBlock(async () => {
+<<<<<<< HEAD
       const { txHash } = await new BatchCall(token.wallet, calls).send({
         from: minter,
         additionalScopes,
         wait: NO_WAIT,
       });
+=======
+      const txHash = await new BatchCall(token.wallet, calls).send({ from: minter, additionalScopes, wait: NO_WAIT });
+>>>>>>> bb33335bb0 (feat: add optional additional scopes to wallet transaction API (#20487))
       this.log.info(`Sent token mint tx with hash ${txHash.toString()}`);
       return waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
     });

@@ -94,10 +94,10 @@ export abstract class BaseWallet implements Wallet {
     protected log = createLogger('wallet-sdk:base_wallet'),
   ) {}
 
-  // When `from` is the zero address (e.g. when deploying a new account contract), we return an
-  // empty scope list which acts as deny-all: no notes are visible and no keys are accessible.
-  protected scopesFor(from: AztecAddress): AztecAddress[] {
-    return from.isZero() ? [] : [from];
+  protected scopesFrom(from: AztecAddress, additionalScopes: AztecAddress[] = []): AztecAddress[] {
+    const allScopes = from.isZero() ? additionalScopes : [from, ...additionalScopes];
+    const scopeSet = new Set(allScopes.map(address => address.toString()));
+    return [...scopeSet].map(AztecAddress.fromString);
   }
 
   protected scopesFrom(from: AztecAddress, additionalScopes: AztecAddress[] = []): AztecAddress[] {
@@ -394,7 +394,10 @@ export abstract class BaseWallet implements Wallet {
     const feeOptions = await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
     const provenTx = await this.pxe.proveTx(txRequest, this.scopesFrom(opts.from, opts.additionalScopes));
+<<<<<<< HEAD
     const offchainOutput = extractOffchainOutput(provenTx.getOffchainEffects());
+=======
+>>>>>>> bb33335bb0 (feat: add optional additional scopes to wallet transaction API (#20487))
     const tx = await provenTx.toTx();
     const txHash = tx.getTxHash();
     if (await this.aztecNode.getTxEffect(txHash)) {

@@ -91,9 +91,15 @@ export type SendInteractionOptionsWithoutWait = RequestInteractionOptions & {
   /** The fee options for the transaction. */
   fee?: InteractionFeeOptions;
   /**
+<<<<<<< HEAD
    * Extra addresses whose private state (keys, notes) should be accessible during execution.
    * Use when a transaction reads or nullifies private state that is owned by a different address,
    * e.g. deploying contracts with private storage or withdrawing from an escrow that holds
+=======
+   * Additional addresses whose private state and keys should be accessible during execution,
+   * beyond the sender's. Required when the transaction needs to access private state or keys
+   * belonging to an address other than `from`, e.g. withdrawing from an escrow that holds
+>>>>>>> bb33335bb0 (feat: add optional additional scopes to wallet transaction API (#20487))
    * its own private notes.
    */
   additionalScopes?: AztecAddress[];

@@ -9,6 +9,7 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+<<<<<<< HEAD
 ### [Aztec.js] `getPublicEvents` now returns an object instead of an array
 
 `getPublicEvents` now returns a `GetPublicEventsResult<T>` object with `events` and `maxLogsHit` fields instead of a plain array. This enables pagination through large result sets using the new `afterLog` filter option.
@@ -197,6 +198,8 @@ my_project/
 - The `Nargo.toml` in the project root is now a workspace file. Contract dependencies go in `contract/Nargo.toml`.
 - Tests should be written in the separate `test` crate (`test/src/lib.nr`) and import the contract by package name (e.g., `use my_contract::MyContract;`) instead of using `crate::`.
 
+=======
+>>>>>>> bb33335bb0 (feat: add optional additional scopes to wallet transaction API (#20487))
 ### Scope enforcement for private state access (TXE and PXE)
 
 Scope enforcement is now active across both TXE (test environment) and PXE (client). Previously, private execution could implicitly access any account's keys and notes. Now, only the caller (`from`) address is in scope by default, and accessing another address's private state requires explicitly granting scope.
