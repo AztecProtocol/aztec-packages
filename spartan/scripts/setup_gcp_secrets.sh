@@ -62,9 +62,11 @@ mask_secret_value() {
 
     if [[ "$is_json_secret" == "true" ]]; then
         jq -r '.[]' "$secret_file" | while IFS= read -r element; do
-            echo "::add-mask::$element"
+            if [[ -n "$element" ]]; then
+                echo "::add-mask::$element"
+            fi
         done
-    else 
+    elif [[ -n "$secret_value" ]]; then
         echo "::add-mask::$secret_value"
     fi
 }

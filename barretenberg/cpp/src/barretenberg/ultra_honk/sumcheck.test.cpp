@@ -10,7 +10,7 @@
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/ultra_honk/witness_computation.hpp"
+#include "barretenberg/ultra_honk/witness_computation_test_utils.hpp"
 
 #include <gtest/gtest.h>
 
@@ -150,7 +150,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     // Create a prover (it will compute proving key and witness)
     auto prover_inst = std::make_shared<ProverInstance_<Flavor>>(builder);
 
-    WitnessComputation<Flavor>::complete_prover_instance_for_test(prover_inst);
+    complete_prover_instance_for_test<Flavor>(prover_inst);
 
     auto prover_transcript = Transcript::test_prover_init_empty();
     auto circuit_size = prover_inst->dyadic_size();

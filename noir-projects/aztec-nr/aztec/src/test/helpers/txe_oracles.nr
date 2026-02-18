@@ -55,12 +55,12 @@ pub unconstrained fn public_call_new_flow<let M: u32, let N: u32>(
     public_call_new_flow_oracle(from, contract_address, calldata, is_static_call)
 }
 
-pub unconstrained fn simulate_utility_function<let M: u32, let N: u32>(
+pub unconstrained fn execute_utility_function<let M: u32, let N: u32>(
     contract_address: AztecAddress,
     function_selector: FunctionSelector,
     args: [Field; M],
 ) -> [Field; N] {
-    simulate_utility_function_oracle(contract_address, function_selector, args)
+    execute_utility_function_oracle(contract_address, function_selector, args)
 }
 
 #[oracle(txeGetNextBlockNumber)]
@@ -145,8 +145,8 @@ unconstrained fn public_call_new_flow_oracle<let M: u32, let N: u32>(
     is_static_call: bool,
 ) -> [Field; N] {}
 
-#[oracle(txeSimulateUtilityFunction)]
-unconstrained fn simulate_utility_function_oracle<let M: u32, let N: u32>(
+#[oracle(txeExecuteUtilityFunction)]
+unconstrained fn execute_utility_function_oracle<let M: u32, let N: u32>(
     contract_address: AztecAddress,
     function_selector: FunctionSelector,
     args: [Field; M],

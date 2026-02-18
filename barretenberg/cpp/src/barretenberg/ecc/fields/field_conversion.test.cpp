@@ -192,6 +192,65 @@ TEST_F(FieldConversionTest, AcceptCanonicalPointAtInfinity)
 }
 
 /**
+ * @brief Test that non-canonical field elements are rejected at deserialization boundaries.
+ * @details Security-critical: prevents attackers from using aliased encodings (e.g., modulus instead of 0).
+ * @note Skipped in WASM builds because death tests aren't supported.
+ */
+#ifndef __wasm__
+TEST_F(FieldConversionTest, RejectNonCanonicalFieldElements)
+{
+    using BN254Point = curve::BN254::AffineElement;
+    using GrumpkinPoint = curve::Grumpkin::AffineElement;
+    using fq = curve::BN254::BaseField;
+    using gq = curve::Grumpkin::BaseField;
+
+    // BN254: Reject x-coordinate >= modulus
+    {
+        std::vector<bb::fr> vec = { bb::fr(fq::modulus.data[0]), bb::fr(fq::modulus.data[1]), bb::fr(0), bb::fr(0) };
+        EXPECT_THROW_OR_ABORT(FrCodec::deserialize_from_fields<BN254Point>(vec), "canonical");
+    }
+
+    // BN254: Reject y-coordinate >= modulus
+    {
+        std::vector<bb::fr> vec = { bb::fr(0), bb::fr(0), bb::fr(fq::modulus.data[0]), bb::fr(fq::modulus.data[1]) };
+        EXPECT_THROW_OR_ABORT(FrCodec::deserialize_from_fields<BN254Point>(vec), "canonical");
+    }
+
+    // BN254: Reject both coordinates >= modulus
+    {
+        std::vector<bb::fr> vec = { bb::fr(fq::modulus.data[0]),
+                                    bb::fr(fq::modulus.data[1]),
+                                    bb::fr(fq::modulus.data[0]),
+                                    bb::fr(fq::modulus.data[1]) };
+        EXPECT_THROW_OR_ABORT(FrCodec::deserialize_from_fields<BN254Point>(vec), "canonical");
+    }
+
+    // Grumpkin: Reject coordinate >= modulus (uses 2-limb encoding: 136-bit + 118-bit)
+    {
+        constexpr uint64_t LIMB_BITS = 68;
+        uint256_t gq_lo = gq::modulus & ((uint256_t(1) << (LIMB_BITS * 2)) - 1);
+        uint256_t gq_hi = gq::modulus >> (LIMB_BITS * 2);
+        std::vector<bb::fr> vec = { bb::fr(gq_lo), bb::fr(gq_hi) };
+        EXPECT_THROW_OR_ABORT(FrCodec::deserialize_from_fields<GrumpkinPoint>(vec), "canonical");
+    }
+
+    // Grumpkin: Reject limb overflow (lower limb must be < 2^136)
+    {
+        constexpr uint64_t LIMB_BITS = 68;
+        std::vector<bb::fr> vec = { bb::fr(uint256_t(1) << (LIMB_BITS * 2)), bb::fr(0) };
+        EXPECT_THROW_OR_ABORT(FrCodec::deserialize_from_fields<GrumpkinPoint>(vec), "Conversion error");
+    }
+
+    // Grumpkin: Reject limb overflow (upper limb must be < 2^118)
+    {
+        constexpr uint64_t LIMB_BITS = 68;
+        std::vector<bb::fr> vec = { bb::fr(0), bb::fr(uint256_t(1) << (254 - LIMB_BITS * 2)) };
+        EXPECT_THROW_OR_ABORT(FrCodec::deserialize_from_fields<GrumpkinPoint>(vec), "Conversion error");
+    }
+}
+#endif
+
+/**
  * @brief Test that points not on the curve are rejected.
  * @note Skipped in WASM builds because death tests (EXPECT_DEATH) aren't supported.
  */

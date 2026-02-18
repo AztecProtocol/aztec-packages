@@ -13,7 +13,7 @@ The merge-train system is fully automated via GitHub Actions in `.github/workflo
 
 1. **PR Creation** (`merge-train-create-pr.yml`): Triggered on push to `merge-train/*` branches. Creates a PR targeting `next` with the `ci-no-squash` label (and `ci-full-no-test-cache` for spartan). Skips merge commits and commits already in `next`.
 
-2. **Body Updates** (`merge-train-update-pr-body.yml`): Triggered on push to `merge-train/**`. Updates the PR body with meaningful commits (those containing PR references like `(#1234)`). The body uses `BEGIN_COMMIT_OVERRIDE` / `END_COMMIT_OVERRIDE` markers for release-please.
+2. **Body Updates** (`merge-train-update-pr-body.yml`): Triggered on push to `merge-train/**` and `backport-to-*-staging` branches. Updates the PR body with meaningful commits (those containing PR references like `(#1234)`). The body uses `BEGIN_COMMIT_OVERRIDE` / `END_COMMIT_OVERRIDE` markers for release-please. Backport staging PRs also call `update-pr-body.sh` inline from `scripts/backport_to_staging.sh` to handle the first-push case (where the PR doesn't exist yet when the workflow fires).
 
 3. **Next Integration** (`merge-train-next-to-branches.yml`): Triggered on push to `next`. Merges `next` into each active merge-train branch via `scripts/merge-train/merge-next.sh`. Uses `continue-on-error: true` so a conflict in one branch does not block others. Skips branches whose PR already has auto-merge enabled.
 
@@ -90,7 +90,7 @@ When a CI run fails on an EC2 instance, it calls `merge_train_failure_slack_noti
 | `.github/workflows/merge-train-auto-merge.yml` | Hourly cron to auto-merge inactive trains |
 | `.github/workflows/merge-train-next-to-branches.yml` | Syncs `next` into all train branches; defines active branches |
 | `.github/workflows/merge-train-recreate.yml` | Recreates branch after merge |
-| `.github/workflows/merge-train-update-pr-body.yml` | Updates PR body with commit list |
+| `.github/workflows/merge-train-update-pr-body.yml` | Updates PR body with commit list (merge-train and backport branches) |
 | `.github/workflows/merge-queue-dequeue-notify.yml` | Slack notification on merge-queue dequeue |
 | `.github/workflows/squashed-pr-check.yml` | Squash enforcement (skipped for `ci-no-squash`) |
 
@@ -103,6 +103,7 @@ When a CI run fails on an EC2 instance, it calls `merge_train_failure_slack_noti
 | `scripts/merge-train/update-pr-body.sh` | Updates PR body with meaningful commits |
 | `scripts/merge-train/squash-pr.sh` | Squashes PR commits (used by `ci-squash-and-merge` label) |
 | `scripts/merge-train/wakeup-prs.sh` | Adds `ci-wakeup-pr-after-merge` label to qualifying PRs after branch recreation |
+| `scripts/backport_to_staging.sh` | Cherry-picks a merged PR to a backport staging branch; creates/updates the backport PR |
 
 ### CI Configuration
 

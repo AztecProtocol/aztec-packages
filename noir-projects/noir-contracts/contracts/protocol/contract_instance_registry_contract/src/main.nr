@@ -210,7 +210,7 @@ pub contract ContractInstanceRegistry {
         let scheduled_value_update = storage
             .updated_class_ids
             .at(address)
-            .schedule_and_return_value_change(new_contract_class_id);
+            .schedule_and_get_value_change(new_contract_class_id);
         let (prev_contract_class_id, timestamp_of_change) = scheduled_value_update.get_previous();
 
         let event = ContractInstanceUpdated {

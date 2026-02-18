@@ -77,6 +77,12 @@ case "$cmd" in
     export JOB_ID="x-$cmd"
     bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
+  barretenberg-debug)
+    export CI_DASHBOARD="nightly"
+    export JOB_ID="x-$cmd"
+    export CPUS=16
+    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
+    ;;
   avm-inputs-collection|avm-check-circuit)
     export CI_DASHBOARD="nightly"
     export JOB_ID="x-$cmd"
@@ -129,7 +135,7 @@ case "$cmd" in
     }
     export -f run
 
-    parallel --jobs 10 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+    parallel --jobs 11 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
       'run x1-full amd64 ci-full-no-test-cache' \
       'run x2-full amd64 ci-full-no-test-cache' \
       'run x3-full amd64 ci-full-no-test-cache' \

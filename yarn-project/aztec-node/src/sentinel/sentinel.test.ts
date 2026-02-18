@@ -589,7 +589,7 @@ describe('sentinel', () => {
         ts,
         nowMs: ts * 1000n,
       });
-      archiver.getL2Block.calledWith(blockNumber).mockResolvedValue(mockBlock);
+      archiver.getBlockHeader.calledWith(blockNumber).mockResolvedValue(mockBlock.header);
       archiver.getL1Constants.mockResolvedValue(l1Constants);
       epochCache.getL1Constants.mockReturnValue(l1Constants);
 
@@ -654,6 +654,81 @@ describe('sentinel', () => {
         makeInactivitySlash(validator2),
         makeInactivitySlash(validator3),
       ]);
+    });
+  });
+
+  describe('escape hatch', () => {
+    it('processSlot skips tracking when escape hatch is open', async () => {
+      const validator1 = EthAddress.random();
+      const validator2 = EthAddress.random();
+      const committee = [validator1, validator2];
+
+      epochCache.getCommittee.mockResolvedValue({
+        committee,
+        seed: 0n,
+        epoch,
+        isEscapeHatchOpen: true,
+      });
+
+      const updateSpy = jest.spyOn(store, 'updateValidators');
+
+      await sentinel.doProcessSlot(slot);
+
+      // Should NOT have called updateValidators since escape hatch is open
+      expect(updateSpy).not.toHaveBeenCalled();
+      // But lastProcessedSlot should still advance
+      expect(sentinel.getLastProcessedSlot()).toEqual(slot);
+    });
+
+    it('processSlot tracks normally when escape hatch is closed', async () => {
+      const signers = times(4, Secp256k1Signer.random);
+      const validators = signers.map(s => s.address);
+      const committee = [...validators];
+
+      epochCache.getCommittee.mockResolvedValue({
+        committee,
+        seed: 0n,
+        epoch,
+        isEscapeHatchOpen: false,
+      });
+      epochCache.computeProposerIndex.mockReturnValue(0n);
+      p2p.getCheckpointAttestationsForSlot.mockResolvedValue([]);
+
+      const updateSpy = jest.spyOn(store, 'updateValidators');
+
+      await sentinel.doProcessSlot(slot);
+
+      // Should have called updateValidators since escape hatch is closed
+      expect(updateSpy).toHaveBeenCalled();
+      expect(sentinel.getLastProcessedSlot()).toEqual(slot);
+    });
+
+    it('handleChainProven skips proven performance when escape hatch is open', async () => {
+      const blockNumber = BlockNumber(15);
+      const blockHash = '0xblockhash';
+      const mockBlock = await L2Block.random(blockNumber);
+      const blockSlot = mockBlock.header.getSlot();
+      const epochNumber = getEpochAtSlot(blockSlot, l1Constants);
+      const validator1 = EthAddress.random();
+
+      archiver.getBlockHeader.calledWith(blockNumber).mockResolvedValue(mockBlock.header);
+
+      epochCache.getCommittee.mockResolvedValue({
+        committee: [validator1],
+        seed: 0n,
+        epoch: epochNumber,
+        isEscapeHatchOpen: true,
+      });
+
+      const emitSpy = jest.spyOn(sentinel, 'emit');
+      const updateProvenSpy = jest.spyOn(store, 'updateProvenPerformance');
+
+      await sentinel.handleChainProven({ type: 'chain-proven', block: { number: blockNumber, hash: blockHash } });
+
+      // Should have stored empty performance (no offenses during escape hatch)
+      expect(updateProvenSpy).toHaveBeenCalledWith(epochNumber, {});
+      // Should NOT have emitted any slash events
+      expect(emitSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -904,5 +979,9 @@ class TestSentinel extends Sentinel {
     requiredConsecutiveEpochs: number,
   ) {
     return super.checkPastInactivity(validator, currentEpoch, requiredConsecutiveEpochs);
+  }
+
+  public doProcessSlot(slot: SlotNumber) {
+    return super.processSlot(slot);
   }
 }

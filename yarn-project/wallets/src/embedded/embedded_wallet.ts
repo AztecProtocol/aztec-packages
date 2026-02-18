@@ -4,7 +4,7 @@ import { AccountManager } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
-import type { AccessScopes } from '@aztec/pxe/client/lazy';
+import type { AccessScopes, PXEConfig, PXECreationOptions } from '@aztec/pxe/client/lazy';
 import type { PXE } from '@aztec/pxe/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
@@ -21,6 +21,10 @@ export type EmbeddedWalletOptions = {
   logger?: Logger;
   /** Use ephemeral (in-memory) stores. Data will not persist across sessions. */
   ephemeral?: boolean;
+  /** Override PXE configuration. */
+  pxeConfig?: Partial<PXEConfig>;
+  /** Advanced PXE creation options (custom store, prover, simulator). */
+  pxeOptions?: PXECreationOptions;
 };
 
 export class EmbeddedWallet extends BaseWallet {
@@ -113,25 +117,39 @@ export class EmbeddedWallet extends BaseWallet {
   }
 
   private async getFakeAccountDataFor(address: AztecAddress) {
-    const originalAccount = await this.getAccountFromAddress(address);
-    if (originalAccount instanceof SignerlessAccount) {
-      throw new Error(`Cannot create fake account data for SignerlessAccount at address: ${address}`);
+    // While we have the convention of "Zero address means no auth", and also
+    // we don't have a way to trigger kernelless simulations without overrides,
+    // we need to explicitly handle the zero address case here by
+    // returning the actual multicall contract instead of trying to create a stub account for it.
+    if (!address.equals(AztecAddress.ZERO)) {
+      const originalAccount = await this.getAccountFromAddress(address);
+      if (originalAccount instanceof SignerlessAccount) {
+        throw new Error(`Cannot create fake account data for SignerlessAccount at address: ${address}`);
+      }
+      const originalAddress = (originalAccount as Account).getCompleteAddress();
+      const contractInstance = await this.pxe.getContractInstance(originalAddress.address);
+      if (!contractInstance) {
+        throw new Error(`No contract instance found for address: ${originalAddress.address}`);
+      }
+      const stubAccount = await this.accountContracts.createStubAccount(originalAddress);
+      const stubArtifact = await this.accountContracts.getStubAccountContractArtifact();
+      const instance = await getContractInstanceFromInstantiationParams(stubArtifact, {
+        salt: Fr.random(),
+      });
+      return {
+        account: stubAccount,
+        instance,
+        artifact: stubArtifact,
+      };
+    } else {
+      const { instance, artifact } = await this.accountContracts.getMulticallContract();
+      const account = new SignerlessAccount();
+      return {
+        instance,
+        account,
+        artifact,
+      };
     }
-    const originalAddress = (originalAccount as Account).getCompleteAddress();
-    const contractInstance = await this.pxe.getContractInstance(originalAddress.address);
-    if (!contractInstance) {
-      throw new Error(`No contract instance found for address: ${originalAddress.address}`);
-    }
-    const stubAccount = await this.accountContracts.createStubAccount(originalAddress);
-    const stubArtifact = await this.accountContracts.getStubAccountContractArtifact();
-    const instance = await getContractInstanceFromInstantiationParams(stubArtifact, {
-      salt: Fr.random(),
-    });
-    return {
-      account: stubAccount,
-      instance,
-      artifact: stubArtifact,
-    };
   }
 
   protected async createAccountInternal(

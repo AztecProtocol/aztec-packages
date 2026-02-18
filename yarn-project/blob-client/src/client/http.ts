@@ -215,8 +215,8 @@ export class HttpBlobClient implements BlobClientInterface {
     const getFilledBlobs = (): Blob[] => resultBlobs.filter((b): b is Blob => b !== undefined);
 
     // Helper to fill in results from fetched blobs
-    const fillResults = (fetchedBlobs: BlobJson[]): Blob[] => {
-      const blobs = processFetchedBlobs(fetchedBlobs, blobHashes, this.log);
+    const fillResults = async (fetchedBlobs: BlobJson[]): Promise<Blob[]> => {
+      const blobs = await processFetchedBlobs(fetchedBlobs, blobHashes, this.log);
       // Fill in any missing positions with matching blobs
       for (let i = 0; i < blobHashes.length; i++) {
         if (resultBlobs[i] === undefined) {
@@ -269,7 +269,7 @@ export class HttpBlobClient implements BlobClientInterface {
             ...ctx,
           });
           const blobs = await this.getBlobsFromHost(l1ConsensusHostUrl, slotNumber, l1ConsensusHostIndex);
-          const result = fillResults(blobs);
+          const result = await fillResults(blobs);
           this.log.debug(
             `Got ${blobs.length} blobs from consensus host (total: ${result.length}/${blobHashes.length})`,
             { slotNumber, l1ConsensusHostUrl, ...ctx },
@@ -312,7 +312,7 @@ export class HttpBlobClient implements BlobClientInterface {
         this.log.debug('No blobs found from archive client', archiveCtx);
       } else {
         this.log.trace(`Got ${allBlobs.length} blobs from archive client before filtering`, archiveCtx);
-        const result = fillResults(allBlobs);
+        const result = await fillResults(allBlobs);
         this.log.debug(
           `Got ${allBlobs.length} blobs from archive client (total: ${result.length}/${blobHashes.length})`,
           archiveCtx,
@@ -345,7 +345,7 @@ export class HttpBlobClient implements BlobClientInterface {
    */
   private async tryFileStores(
     getMissingBlobHashes: () => Buffer[],
-    fillResults: (blobs: BlobJson[]) => Blob[],
+    fillResults: (blobs: BlobJson[]) => Promise<Blob[]>,
     ctx: { blockHash: string; blobHashes: string[] },
   ): Promise<void> {
     // Shuffle clients for load distribution
@@ -366,7 +366,7 @@ export class HttpBlobClient implements BlobClientInterface {
         });
         const blobs = await client.getBlobsByHashes(blobHashStrings);
         if (blobs.length > 0) {
-          const result = fillResults(blobs);
+          const result = await fillResults(blobs);
           this.log.debug(
             `Got ${blobs.length} blobs from filestore (total: ${result.length}/${ctx.blobHashes.length})`,
             {
@@ -388,7 +388,7 @@ export class HttpBlobClient implements BlobClientInterface {
     l1ConsensusHostIndex?: number,
   ): Promise<Blob[]> {
     const blobs = await this.getBlobsFromHost(hostUrl, blockHashOrSlot, l1ConsensusHostIndex);
-    return processFetchedBlobs(blobs, blobHashes, this.log).filter((b): b is Blob => b !== undefined);
+    return (await processFetchedBlobs(blobs, blobHashes, this.log)).filter((b): b is Blob => b !== undefined);
   }
 
   public async getBlobsFromHost(
@@ -616,7 +616,11 @@ function parseBlobJson(data: any): BlobJson {
 
 // Returns an array that maps each blob hash to the corresponding blob, or undefined if the blob is not found
 // or the data does not match the commitment.
-function processFetchedBlobs(blobs: BlobJson[], blobHashes: Buffer[], logger: Logger): (Blob | undefined)[] {
+async function processFetchedBlobs(
+  blobs: BlobJson[],
+  blobHashes: Buffer[],
+  logger: Logger,
+): Promise<(Blob | undefined)[]> {
   const requestedBlobHashes = new Set<string>(blobHashes.map(bufferToHex));
   const hashToBlob = new Map<string, Blob>();
   for (const blobJson of blobs) {
@@ -626,7 +630,7 @@ function processFetchedBlobs(blobs: BlobJson[], blobHashes: Buffer[], logger: Lo
     }
 
     try {
-      const blob = Blob.fromJson(blobJson);
+      const blob = await Blob.fromJson(blobJson);
       hashToBlob.set(hashHex, blob);
     } catch (err) {
       // If the above throws, it's likely that the blob commitment does not match the hash of the blob data.

@@ -296,7 +296,7 @@ impl FromField for u128 {
     }
 }
 
-/// Trait for efficiently packing and unpacking Noir types into and from arrays of Fields.
+/// Space-efficient packing and unpacking in `Field` arrays.
 ///
 /// The `Packable` trait allows types to be serialized and deserialized with a focus on minimizing the size of
 /// the resulting Field array. This trait is used when storage efficiency is critical (e.g. when storing data

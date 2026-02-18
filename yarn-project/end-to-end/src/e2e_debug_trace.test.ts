@@ -1,7 +1,7 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { FORWARDER_ABI, deployForwarderProxy } from '@aztec/ethereum/forwarder-proxy';
-import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -79,7 +79,7 @@ describe('e2e_debug_trace_transaction', () => {
   // In this test we deploy a simple forwarder contract to L1, this serves as an additional proxy
   it('can process blocks using debug trace', async () => {
     // We intercept calls to sendAndMonitorTransaction to forward inner calls via the forwarder
-    const l1Utils: L1TxUtilsWithBlobs[] = (publisherManager as any).publishers;
+    const l1Utils: L1TxUtils[] = (publisherManager as any).publishers;
 
     // Intercept sendAndMonitorTransaction to access blobInputs directly
     const originalSendAndMonitor = l1Utils[0].sendAndMonitorTransaction.bind(l1Utils[0]);
@@ -146,7 +146,7 @@ describe('e2e_debug_trace_transaction', () => {
     // 2. Duplicate the inner call to the rollup
     // 3. Corrupt the first call so it reverts (with allowFailure: true)
     // 4. Keep the second call intact so it succeeds
-    const l1Utils: L1TxUtilsWithBlobs[] = (publisherManager as any).publishers;
+    const l1Utils: L1TxUtils[] = (publisherManager as any).publishers;
 
     const originalSendAndMonitor = l1Utils[0].sendAndMonitorTransaction.bind(l1Utils[0]);
 
