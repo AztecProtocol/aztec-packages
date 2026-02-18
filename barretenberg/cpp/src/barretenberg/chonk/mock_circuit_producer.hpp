@@ -198,7 +198,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
 
         if (check_circuit_sizes) {
             auto prover_instance = std::make_shared<Chonk::ProverInstance>(circuit);
-            size_t log2_dyadic_size = numeric::get_msb(prover_instance->get_metadata().dyadic_size);
+            size_t log2_dyadic_size = prover_instance->log_dyadic_size();
             if (log2_num_gates != 0) {
                 if (is_kernel) {
                     // There are various possibilities here, so we provide a bound

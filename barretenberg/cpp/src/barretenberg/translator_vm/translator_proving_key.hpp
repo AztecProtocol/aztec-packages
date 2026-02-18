@@ -20,8 +20,6 @@ class TranslatorProvingKey {
     using ProvingKey = typename Flavor::ProvingKey;
     using Polynomial = typename Flavor::Polynomial;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
-    using CommitmentKey = typename Flavor::CommitmentKey;
-
     static constexpr size_t mini_circuit_dyadic_size = Flavor::MINI_CIRCUIT_SIZE;
     // The actual circuit size is several times bigger than the trace in the circuit, because we use interleaving
     // to bring the degree of relations down, while extending the length.
@@ -42,7 +40,7 @@ class TranslatorProvingKey {
 
     TranslatorProvingKey() = default;
 
-    TranslatorProvingKey(const Circuit& circuit, const CommitmentKey& commitment_key = CommitmentKey())
+    TranslatorProvingKey(const Circuit& circuit)
         : batching_challenge_v(circuit.batching_challenge_v)
         , evaluation_input_x(circuit.evaluation_input_x)
     {
@@ -54,7 +52,7 @@ class TranslatorProvingKey {
                       Flavor::MINI_CIRCUIT_SIZE,
                       "The Translator circuit size has exceeded the fixed upper bound");
 
-        proving_key = std::make_shared<ProvingKey>(std::move(commitment_key));
+        proving_key = std::make_shared<ProvingKey>();
         auto wires = proving_key->polynomials.get_wires();
         for (auto [wire_poly_, wire_] : zip_view(wires, circuit.wires)) {
             auto& wire_poly = wire_poly_;

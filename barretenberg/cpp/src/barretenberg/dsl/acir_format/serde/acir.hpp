@@ -71,54 +71,116 @@ struct BinaryFieldOp {
     struct Add {
         friend bool operator==(const Add&, const Add&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     struct Sub {
         friend bool operator==(const Sub&, const Sub&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     struct Mul {
         friend bool operator==(const Mul&, const Mul&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     struct Div {
         friend bool operator==(const Div&, const Div&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     struct IntegerDiv {
         friend bool operator==(const IntegerDiv&, const IntegerDiv&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     struct Equals {
         friend bool operator==(const Equals&, const Equals&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     struct LessThan {
         friend bool operator==(const LessThan&, const LessThan&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     struct LessThanEquals {
         friend bool operator==(const LessThanEquals&, const LessThanEquals&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     std::variant<Add, Sub, Mul, Div, IntegerDiv, Equals, LessThan, LessThanEquals> value;
 
     friend bool operator==(const BinaryFieldOp&, const BinaryFieldOp&);
+
+    void msgpack_pack(auto& packer) const
+    {
+        std::string tag;
+        bool is_unit;
+        switch (value.index()) {
+
+        case 0:
+            tag = "Add";
+            is_unit = true;
+            break;
+        case 1:
+            tag = "Sub";
+            is_unit = true;
+            break;
+        case 2:
+            tag = "Mul";
+            is_unit = true;
+            break;
+        case 3:
+            tag = "Div";
+            is_unit = true;
+            break;
+        case 4:
+            tag = "IntegerDiv";
+            is_unit = true;
+            break;
+        case 5:
+            tag = "Equals";
+            is_unit = true;
+            break;
+        case 6:
+            tag = "LessThan";
+            is_unit = true;
+            break;
+        case 7:
+            tag = "LessThanEquals";
+            is_unit = true;
+            break;
+        default:
+            throw_or_abort("unknown enum 'BinaryFieldOp' variant index: " + std::to_string(value.index()));
+        }
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
+                    packer.pack_map(1);
+                    packer.pack(tag);
+                    packer.pack(arg);
+                },
+                value);
+        }
+    }
 
     void msgpack_unpack(msgpack::object const& o)
     {
@@ -177,78 +239,160 @@ struct BinaryIntOp {
     struct Add {
         friend bool operator==(const Add&, const Add&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     struct Sub {
         friend bool operator==(const Sub&, const Sub&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     struct Mul {
         friend bool operator==(const Mul&, const Mul&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     struct Div {
         friend bool operator==(const Div&, const Div&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     struct Equals {
         friend bool operator==(const Equals&, const Equals&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     struct LessThan {
         friend bool operator==(const LessThan&, const LessThan&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     struct LessThanEquals {
         friend bool operator==(const LessThanEquals&, const LessThanEquals&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     struct And {
         friend bool operator==(const And&, const And&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     struct Or {
         friend bool operator==(const Or&, const Or&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     struct Xor {
         friend bool operator==(const Xor&, const Xor&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     struct Shl {
         friend bool operator==(const Shl&, const Shl&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     struct Shr {
         friend bool operator==(const Shr&, const Shr&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     std::variant<Add, Sub, Mul, Div, Equals, LessThan, LessThanEquals, And, Or, Xor, Shl, Shr> value;
 
     friend bool operator==(const BinaryIntOp&, const BinaryIntOp&);
+
+    void msgpack_pack(auto& packer) const
+    {
+        std::string tag;
+        bool is_unit;
+        switch (value.index()) {
+
+        case 0:
+            tag = "Add";
+            is_unit = true;
+            break;
+        case 1:
+            tag = "Sub";
+            is_unit = true;
+            break;
+        case 2:
+            tag = "Mul";
+            is_unit = true;
+            break;
+        case 3:
+            tag = "Div";
+            is_unit = true;
+            break;
+        case 4:
+            tag = "Equals";
+            is_unit = true;
+            break;
+        case 5:
+            tag = "LessThan";
+            is_unit = true;
+            break;
+        case 6:
+            tag = "LessThanEquals";
+            is_unit = true;
+            break;
+        case 7:
+            tag = "And";
+            is_unit = true;
+            break;
+        case 8:
+            tag = "Or";
+            is_unit = true;
+            break;
+        case 9:
+            tag = "Xor";
+            is_unit = true;
+            break;
+        case 10:
+            tag = "Shl";
+            is_unit = true;
+            break;
+        case 11:
+            tag = "Shr";
+            is_unit = true;
+            break;
+        default:
+            throw_or_abort("unknown enum 'BinaryIntOp' variant index: " + std::to_string(value.index()));
+        }
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
+                    packer.pack_map(1);
+                    packer.pack(tag);
+                    packer.pack(arg);
+                },
+                value);
+        }
+    }
 
     void msgpack_unpack(msgpack::object const& o)
     {
@@ -319,42 +463,94 @@ struct IntegerBitSize {
     struct U1 {
         friend bool operator==(const U1&, const U1&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     struct U8 {
         friend bool operator==(const U8&, const U8&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     struct U16 {
         friend bool operator==(const U16&, const U16&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     struct U32 {
         friend bool operator==(const U32&, const U32&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     struct U64 {
         friend bool operator==(const U64&, const U64&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     struct U128 {
         friend bool operator==(const U128&, const U128&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     std::variant<U1, U8, U16, U32, U64, U128> value;
 
     friend bool operator==(const IntegerBitSize&, const IntegerBitSize&);
+
+    void msgpack_pack(auto& packer) const
+    {
+        std::string tag;
+        bool is_unit;
+        switch (value.index()) {
+
+        case 0:
+            tag = "U1";
+            is_unit = true;
+            break;
+        case 1:
+            tag = "U8";
+            is_unit = true;
+            break;
+        case 2:
+            tag = "U16";
+            is_unit = true;
+            break;
+        case 3:
+            tag = "U32";
+            is_unit = true;
+            break;
+        case 4:
+            tag = "U64";
+            is_unit = true;
+            break;
+        case 5:
+            tag = "U128";
+            is_unit = true;
+            break;
+        default:
+            throw_or_abort("unknown enum 'IntegerBitSize' variant index: " + std::to_string(value.index()));
+        }
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
+                    packer.pack_map(1);
+                    packer.pack(tag);
+                    packer.pack(arg);
+                },
+                value);
+        }
+    }
 
     void msgpack_unpack(msgpack::object const& o)
     {
@@ -407,6 +603,7 @@ struct BitSize {
     struct Field {
         friend bool operator==(const Field&, const Field&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
@@ -414,6 +611,8 @@ struct BitSize {
         Acir::IntegerBitSize value;
 
         friend bool operator==(const Integer&, const Integer&);
+
+        void msgpack_pack(auto& packer) const { packer.pack(value); }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -429,6 +628,36 @@ struct BitSize {
     std::variant<Field, Integer> value;
 
     friend bool operator==(const BitSize&, const BitSize&);
+
+    void msgpack_pack(auto& packer) const
+    {
+        std::string tag;
+        bool is_unit;
+        switch (value.index()) {
+
+        case 0:
+            tag = "Field";
+            is_unit = true;
+            break;
+        case 1:
+            tag = "Integer";
+            is_unit = false;
+            break;
+        default:
+            throw_or_abort("unknown enum 'BitSize' variant index: " + std::to_string(value.index()));
+        }
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
+                    packer.pack_map(1);
+                    packer.pack(tag);
+                    packer.pack(arg);
+                },
+                value);
+        }
+    }
 
     void msgpack_unpack(msgpack::object const& o)
     {
@@ -456,9 +685,6 @@ struct BitSize {
             value = v;
         } else if (tag == "Integer") {
             Integer v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -481,6 +707,8 @@ struct MemoryAddress {
 
         friend bool operator==(const Direct&, const Direct&);
 
+        void msgpack_pack(auto& packer) const { packer.pack(value); }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             try {
@@ -497,6 +725,8 @@ struct MemoryAddress {
 
         friend bool operator==(const Relative&, const Relative&);
 
+        void msgpack_pack(auto& packer) const { packer.pack(value); }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             try {
@@ -511,6 +741,36 @@ struct MemoryAddress {
     std::variant<Direct, Relative> value;
 
     friend bool operator==(const MemoryAddress&, const MemoryAddress&);
+
+    void msgpack_pack(auto& packer) const
+    {
+        std::string tag;
+        bool is_unit;
+        switch (value.index()) {
+
+        case 0:
+            tag = "Direct";
+            is_unit = false;
+            break;
+        case 1:
+            tag = "Relative";
+            is_unit = false;
+            break;
+        default:
+            throw_or_abort("unknown enum 'MemoryAddress' variant index: " + std::to_string(value.index()));
+        }
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
+                    packer.pack_map(1);
+                    packer.pack(tag);
+                    packer.pack(arg);
+                },
+                value);
+        }
+    }
 
     void msgpack_unpack(msgpack::object const& o)
     {
@@ -535,9 +795,6 @@ struct MemoryAddress {
         }
         if (tag == "Direct") {
             Direct v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -548,9 +805,6 @@ struct MemoryAddress {
             value = v;
         } else if (tag == "Relative") {
             Relative v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -571,6 +825,8 @@ struct SemiFlattenedLength {
 
     friend bool operator==(const SemiFlattenedLength&, const SemiFlattenedLength&);
 
+    void msgpack_pack(auto& packer) const { packer.pack(value); }
+
     void msgpack_unpack(msgpack::object const& o)
     {
         try {
@@ -587,6 +843,13 @@ struct HeapArray {
     Acir::SemiFlattenedLength size;
 
     friend bool operator==(const HeapArray&, const HeapArray&);
+
+    void msgpack_pack(auto& packer) const
+    {
+        packer.pack_array(2);
+        packer.pack(pointer);
+        packer.pack(size);
+    }
 
     void msgpack_unpack(msgpack::object const& o)
     {
@@ -615,6 +878,15 @@ struct BlackBoxOp {
 
         friend bool operator==(const AES128Encrypt&, const AES128Encrypt&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(4);
+            packer.pack(inputs);
+            packer.pack(iv);
+            packer.pack(key);
+            packer.pack(outputs);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "AES128Encrypt";
@@ -642,6 +914,13 @@ struct BlackBoxOp {
 
         friend bool operator==(const Blake2s&, const Blake2s&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(2);
+            packer.pack(message);
+            packer.pack(output);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "Blake2s";
@@ -665,6 +944,13 @@ struct BlackBoxOp {
 
         friend bool operator==(const Blake3&, const Blake3&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(2);
+            packer.pack(message);
+            packer.pack(output);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "Blake3";
@@ -687,6 +973,13 @@ struct BlackBoxOp {
         Acir::HeapArray output;
 
         friend bool operator==(const Keccakf1600&, const Keccakf1600&);
+
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(2);
+            packer.pack(input);
+            packer.pack(output);
+        }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -713,6 +1006,16 @@ struct BlackBoxOp {
         Acir::MemoryAddress result;
 
         friend bool operator==(const EcdsaSecp256k1&, const EcdsaSecp256k1&);
+
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(5);
+            packer.pack(hashed_msg);
+            packer.pack(public_key_x);
+            packer.pack(public_key_y);
+            packer.pack(signature);
+            packer.pack(result);
+        }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -746,6 +1049,16 @@ struct BlackBoxOp {
 
         friend bool operator==(const EcdsaSecp256r1&, const EcdsaSecp256r1&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(5);
+            packer.pack(hashed_msg);
+            packer.pack(public_key_x);
+            packer.pack(public_key_y);
+            packer.pack(signature);
+            packer.pack(result);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "EcdsaSecp256r1";
@@ -776,6 +1089,14 @@ struct BlackBoxOp {
 
         friend bool operator==(const MultiScalarMul&, const MultiScalarMul&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(3);
+            packer.pack(points);
+            packer.pack(scalars);
+            packer.pack(outputs);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "MultiScalarMul";
@@ -805,6 +1126,18 @@ struct BlackBoxOp {
         Acir::HeapArray result;
 
         friend bool operator==(const EmbeddedCurveAdd&, const EmbeddedCurveAdd&);
+
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(7);
+            packer.pack(input1_x);
+            packer.pack(input1_y);
+            packer.pack(input1_infinite);
+            packer.pack(input2_x);
+            packer.pack(input2_y);
+            packer.pack(input2_infinite);
+            packer.pack(result);
+        }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -839,6 +1172,13 @@ struct BlackBoxOp {
 
         friend bool operator==(const Poseidon2Permutation&, const Poseidon2Permutation&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(2);
+            packer.pack(message);
+            packer.pack(output);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "Poseidon2Permutation";
@@ -862,6 +1202,14 @@ struct BlackBoxOp {
         Acir::HeapArray output;
 
         friend bool operator==(const Sha256Compression&, const Sha256Compression&);
+
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(3);
+            packer.pack(input);
+            packer.pack(hash_values);
+            packer.pack(output);
+        }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -890,6 +1238,16 @@ struct BlackBoxOp {
         Acir::MemoryAddress output_bits;
 
         friend bool operator==(const ToRadix&, const ToRadix&);
+
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(5);
+            packer.pack(input);
+            packer.pack(radix);
+            packer.pack(output_pointer);
+            packer.pack(num_limbs);
+            packer.pack(output_bits);
+        }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -929,6 +1287,72 @@ struct BlackBoxOp {
 
     friend bool operator==(const BlackBoxOp&, const BlackBoxOp&);
 
+    void msgpack_pack(auto& packer) const
+    {
+        std::string tag;
+        bool is_unit;
+        switch (value.index()) {
+
+        case 0:
+            tag = "AES128Encrypt";
+            is_unit = false;
+            break;
+        case 1:
+            tag = "Blake2s";
+            is_unit = false;
+            break;
+        case 2:
+            tag = "Blake3";
+            is_unit = false;
+            break;
+        case 3:
+            tag = "Keccakf1600";
+            is_unit = false;
+            break;
+        case 4:
+            tag = "EcdsaSecp256k1";
+            is_unit = false;
+            break;
+        case 5:
+            tag = "EcdsaSecp256r1";
+            is_unit = false;
+            break;
+        case 6:
+            tag = "MultiScalarMul";
+            is_unit = false;
+            break;
+        case 7:
+            tag = "EmbeddedCurveAdd";
+            is_unit = false;
+            break;
+        case 8:
+            tag = "Poseidon2Permutation";
+            is_unit = false;
+            break;
+        case 9:
+            tag = "Sha256Compression";
+            is_unit = false;
+            break;
+        case 10:
+            tag = "ToRadix";
+            is_unit = false;
+            break;
+        default:
+            throw_or_abort("unknown enum 'BlackBoxOp' variant index: " + std::to_string(value.index()));
+        }
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
+                    packer.pack_map(1);
+                    packer.pack(tag);
+                    packer.pack(arg);
+                },
+                value);
+        }
+    }
+
     void msgpack_unpack(msgpack::object const& o)
     {
 
@@ -952,9 +1376,6 @@ struct BlackBoxOp {
         }
         if (tag == "AES128Encrypt") {
             AES128Encrypt v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -965,9 +1386,6 @@ struct BlackBoxOp {
             value = v;
         } else if (tag == "Blake2s") {
             Blake2s v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -978,9 +1396,6 @@ struct BlackBoxOp {
             value = v;
         } else if (tag == "Blake3") {
             Blake3 v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -991,9 +1406,6 @@ struct BlackBoxOp {
             value = v;
         } else if (tag == "Keccakf1600") {
             Keccakf1600 v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1004,9 +1416,6 @@ struct BlackBoxOp {
             value = v;
         } else if (tag == "EcdsaSecp256k1") {
             EcdsaSecp256k1 v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1017,9 +1426,6 @@ struct BlackBoxOp {
             value = v;
         } else if (tag == "EcdsaSecp256r1") {
             EcdsaSecp256r1 v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1030,9 +1436,6 @@ struct BlackBoxOp {
             value = v;
         } else if (tag == "MultiScalarMul") {
             MultiScalarMul v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1043,9 +1446,6 @@ struct BlackBoxOp {
             value = v;
         } else if (tag == "EmbeddedCurveAdd") {
             EmbeddedCurveAdd v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1056,9 +1456,6 @@ struct BlackBoxOp {
             value = v;
         } else if (tag == "Poseidon2Permutation") {
             Poseidon2Permutation v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1069,9 +1466,6 @@ struct BlackBoxOp {
             value = v;
         } else if (tag == "Sha256Compression") {
             Sha256Compression v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1082,9 +1476,6 @@ struct BlackBoxOp {
             value = v;
         } else if (tag == "ToRadix") {
             ToRadix v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1104,6 +1495,8 @@ struct SemanticLength {
     uint32_t value;
 
     friend bool operator==(const SemanticLength&, const SemanticLength&);
+
+    void msgpack_pack(auto& packer) const { packer.pack(value); }
 
     void msgpack_unpack(msgpack::object const& o)
     {
@@ -1125,6 +1518,8 @@ struct HeapValueType {
 
         friend bool operator==(const Simple&, const Simple&);
 
+        void msgpack_pack(auto& packer) const { packer.pack(value); }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             try {
@@ -1141,6 +1536,13 @@ struct HeapValueType {
         Acir::SemanticLength size;
 
         friend bool operator==(const Array&, const Array&);
+
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(2);
+            packer.pack(value_types);
+            packer.pack(size);
+        }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -1164,6 +1566,12 @@ struct HeapValueType {
 
         friend bool operator==(const Vector&, const Vector&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(1);
+            packer.pack(value_types);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "Vector";
@@ -1182,6 +1590,40 @@ struct HeapValueType {
     std::variant<Simple, Array, Vector> value;
 
     friend bool operator==(const HeapValueType&, const HeapValueType&);
+
+    void msgpack_pack(auto& packer) const
+    {
+        std::string tag;
+        bool is_unit;
+        switch (value.index()) {
+
+        case 0:
+            tag = "Simple";
+            is_unit = false;
+            break;
+        case 1:
+            tag = "Array";
+            is_unit = false;
+            break;
+        case 2:
+            tag = "Vector";
+            is_unit = false;
+            break;
+        default:
+            throw_or_abort("unknown enum 'HeapValueType' variant index: " + std::to_string(value.index()));
+        }
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
+                    packer.pack_map(1);
+                    packer.pack(tag);
+                    packer.pack(arg);
+                },
+                value);
+        }
+    }
 
     void msgpack_unpack(msgpack::object const& o)
     {
@@ -1206,9 +1648,6 @@ struct HeapValueType {
         }
         if (tag == "Simple") {
             Simple v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1219,9 +1658,6 @@ struct HeapValueType {
             value = v;
         } else if (tag == "Array") {
             Array v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1232,9 +1668,6 @@ struct HeapValueType {
             value = v;
         } else if (tag == "Vector") {
             Vector v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1255,6 +1688,13 @@ struct HeapVector {
     Acir::MemoryAddress size;
 
     friend bool operator==(const HeapVector&, const HeapVector&);
+
+    void msgpack_pack(auto& packer) const
+    {
+        packer.pack_array(2);
+        packer.pack(pointer);
+        packer.pack(size);
+    }
 
     void msgpack_unpack(msgpack::object const& o)
     {
@@ -1280,6 +1720,8 @@ struct ValueOrArray {
 
         friend bool operator==(const MemoryAddress&, const MemoryAddress&);
 
+        void msgpack_pack(auto& packer) const { packer.pack(value); }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             try {
@@ -1295,6 +1737,8 @@ struct ValueOrArray {
         Acir::HeapArray value;
 
         friend bool operator==(const HeapArray&, const HeapArray&);
+
+        void msgpack_pack(auto& packer) const { packer.pack(value); }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -1312,6 +1756,8 @@ struct ValueOrArray {
 
         friend bool operator==(const HeapVector&, const HeapVector&);
 
+        void msgpack_pack(auto& packer) const { packer.pack(value); }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             try {
@@ -1326,6 +1772,40 @@ struct ValueOrArray {
     std::variant<MemoryAddress, HeapArray, HeapVector> value;
 
     friend bool operator==(const ValueOrArray&, const ValueOrArray&);
+
+    void msgpack_pack(auto& packer) const
+    {
+        std::string tag;
+        bool is_unit;
+        switch (value.index()) {
+
+        case 0:
+            tag = "MemoryAddress";
+            is_unit = false;
+            break;
+        case 1:
+            tag = "HeapArray";
+            is_unit = false;
+            break;
+        case 2:
+            tag = "HeapVector";
+            is_unit = false;
+            break;
+        default:
+            throw_or_abort("unknown enum 'ValueOrArray' variant index: " + std::to_string(value.index()));
+        }
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
+                    packer.pack_map(1);
+                    packer.pack(tag);
+                    packer.pack(arg);
+                },
+                value);
+        }
+    }
 
     void msgpack_unpack(msgpack::object const& o)
     {
@@ -1350,9 +1830,6 @@ struct ValueOrArray {
         }
         if (tag == "MemoryAddress") {
             MemoryAddress v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1363,9 +1840,6 @@ struct ValueOrArray {
             value = v;
         } else if (tag == "HeapArray") {
             HeapArray v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1376,9 +1850,6 @@ struct ValueOrArray {
             value = v;
         } else if (tag == "HeapVector") {
             HeapVector v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1403,6 +1874,15 @@ struct BrilligOpcode {
         Acir::MemoryAddress rhs;
 
         friend bool operator==(const BinaryFieldOp&, const BinaryFieldOp&);
+
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(4);
+            packer.pack(destination);
+            packer.pack(op);
+            packer.pack(lhs);
+            packer.pack(rhs);
+        }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -1434,6 +1914,16 @@ struct BrilligOpcode {
 
         friend bool operator==(const BinaryIntOp&, const BinaryIntOp&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(5);
+            packer.pack(destination);
+            packer.pack(op);
+            packer.pack(bit_size);
+            packer.pack(lhs);
+            packer.pack(rhs);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "BinaryIntOp";
@@ -1464,6 +1954,14 @@ struct BrilligOpcode {
 
         friend bool operator==(const Not&, const Not&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(3);
+            packer.pack(destination);
+            packer.pack(source);
+            packer.pack(bit_size);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "Not";
@@ -1490,6 +1988,14 @@ struct BrilligOpcode {
 
         friend bool operator==(const Cast&, const Cast&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(3);
+            packer.pack(destination);
+            packer.pack(source);
+            packer.pack(bit_size);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "Cast";
@@ -1515,6 +2021,13 @@ struct BrilligOpcode {
 
         friend bool operator==(const JumpIf&, const JumpIf&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(2);
+            packer.pack(condition);
+            packer.pack(location);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "JumpIf";
@@ -1537,6 +2050,12 @@ struct BrilligOpcode {
 
         friend bool operator==(const Jump&, const Jump&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(1);
+            packer.pack(location);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "Jump";
@@ -1558,6 +2077,14 @@ struct BrilligOpcode {
         Acir::MemoryAddress offset_address;
 
         friend bool operator==(const CalldataCopy&, const CalldataCopy&);
+
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(3);
+            packer.pack(destination_address);
+            packer.pack(size_address);
+            packer.pack(offset_address);
+        }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -1583,6 +2110,12 @@ struct BrilligOpcode {
 
         friend bool operator==(const Call&, const Call&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(1);
+            packer.pack(location);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "Call";
@@ -1604,6 +2137,14 @@ struct BrilligOpcode {
         std::vector<uint8_t> value;
 
         friend bool operator==(const Const&, const Const&);
+
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(3);
+            packer.pack(destination);
+            packer.pack(bit_size);
+            packer.pack(value);
+        }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -1631,6 +2172,14 @@ struct BrilligOpcode {
 
         friend bool operator==(const IndirectConst&, const IndirectConst&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(3);
+            packer.pack(destination_pointer);
+            packer.pack(bit_size);
+            packer.pack(value);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "IndirectConst";
@@ -1653,6 +2202,7 @@ struct BrilligOpcode {
     struct Return {
         friend bool operator==(const Return&, const Return&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
@@ -1664,6 +2214,16 @@ struct BrilligOpcode {
         std::vector<Acir::HeapValueType> input_value_types;
 
         friend bool operator==(const ForeignCall&, const ForeignCall&);
+
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(5);
+            packer.pack(function);
+            packer.pack(destinations);
+            packer.pack(destination_value_types);
+            packer.pack(inputs);
+            packer.pack(input_value_types);
+        }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -1694,6 +2254,13 @@ struct BrilligOpcode {
 
         friend bool operator==(const Mov&, const Mov&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(2);
+            packer.pack(destination);
+            packer.pack(source);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "Mov";
@@ -1718,6 +2285,15 @@ struct BrilligOpcode {
         Acir::MemoryAddress condition;
 
         friend bool operator==(const ConditionalMov&, const ConditionalMov&);
+
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(4);
+            packer.pack(destination);
+            packer.pack(source_a);
+            packer.pack(source_b);
+            packer.pack(condition);
+        }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -1746,6 +2322,13 @@ struct BrilligOpcode {
 
         friend bool operator==(const Load&, const Load&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(2);
+            packer.pack(destination);
+            packer.pack(source_pointer);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "Load";
@@ -1769,6 +2352,13 @@ struct BrilligOpcode {
 
         friend bool operator==(const Store&, const Store&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(2);
+            packer.pack(destination_pointer);
+            packer.pack(source);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "Store";
@@ -1791,6 +2381,8 @@ struct BrilligOpcode {
 
         friend bool operator==(const BlackBox&, const BlackBox&);
 
+        void msgpack_pack(auto& packer) const { packer.pack(value); }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             try {
@@ -1806,6 +2398,12 @@ struct BrilligOpcode {
         Acir::HeapVector revert_data;
 
         friend bool operator==(const Trap&, const Trap&);
+
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(1);
+            packer.pack(revert_data);
+        }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -1826,6 +2424,12 @@ struct BrilligOpcode {
         Acir::HeapVector return_data;
 
         friend bool operator==(const Stop&, const Stop&);
+
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(1);
+            packer.pack(return_data);
+        }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -1865,6 +2469,104 @@ struct BrilligOpcode {
 
     friend bool operator==(const BrilligOpcode&, const BrilligOpcode&);
 
+    void msgpack_pack(auto& packer) const
+    {
+        std::string tag;
+        bool is_unit;
+        switch (value.index()) {
+
+        case 0:
+            tag = "BinaryFieldOp";
+            is_unit = false;
+            break;
+        case 1:
+            tag = "BinaryIntOp";
+            is_unit = false;
+            break;
+        case 2:
+            tag = "Not";
+            is_unit = false;
+            break;
+        case 3:
+            tag = "Cast";
+            is_unit = false;
+            break;
+        case 4:
+            tag = "JumpIf";
+            is_unit = false;
+            break;
+        case 5:
+            tag = "Jump";
+            is_unit = false;
+            break;
+        case 6:
+            tag = "CalldataCopy";
+            is_unit = false;
+            break;
+        case 7:
+            tag = "Call";
+            is_unit = false;
+            break;
+        case 8:
+            tag = "Const";
+            is_unit = false;
+            break;
+        case 9:
+            tag = "IndirectConst";
+            is_unit = false;
+            break;
+        case 10:
+            tag = "Return";
+            is_unit = true;
+            break;
+        case 11:
+            tag = "ForeignCall";
+            is_unit = false;
+            break;
+        case 12:
+            tag = "Mov";
+            is_unit = false;
+            break;
+        case 13:
+            tag = "ConditionalMov";
+            is_unit = false;
+            break;
+        case 14:
+            tag = "Load";
+            is_unit = false;
+            break;
+        case 15:
+            tag = "Store";
+            is_unit = false;
+            break;
+        case 16:
+            tag = "BlackBox";
+            is_unit = false;
+            break;
+        case 17:
+            tag = "Trap";
+            is_unit = false;
+            break;
+        case 18:
+            tag = "Stop";
+            is_unit = false;
+            break;
+        default:
+            throw_or_abort("unknown enum 'BrilligOpcode' variant index: " + std::to_string(value.index()));
+        }
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
+                    packer.pack_map(1);
+                    packer.pack(tag);
+                    packer.pack(arg);
+                },
+                value);
+        }
+    }
+
     void msgpack_unpack(msgpack::object const& o)
     {
 
@@ -1888,9 +2590,6 @@ struct BrilligOpcode {
         }
         if (tag == "BinaryFieldOp") {
             BinaryFieldOp v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1901,9 +2600,6 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "BinaryIntOp") {
             BinaryIntOp v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1914,9 +2610,6 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "Not") {
             Not v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1927,9 +2620,6 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "Cast") {
             Cast v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1940,9 +2630,6 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "JumpIf") {
             JumpIf v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1953,9 +2640,6 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "Jump") {
             Jump v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1966,9 +2650,6 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "CalldataCopy") {
             CalldataCopy v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1979,9 +2660,6 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "Call") {
             Call v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1992,9 +2670,6 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "Const") {
             Const v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2005,9 +2680,6 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "IndirectConst") {
             IndirectConst v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2021,9 +2693,6 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "ForeignCall") {
             ForeignCall v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2034,9 +2703,6 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "Mov") {
             Mov v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2047,9 +2713,6 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "ConditionalMov") {
             ConditionalMov v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2060,9 +2723,6 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "Load") {
             Load v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2073,9 +2733,6 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "Store") {
             Store v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2086,9 +2743,6 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "BlackBox") {
             BlackBox v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2099,9 +2753,6 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "Trap") {
             Trap v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2112,9 +2763,6 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "Stop") {
             Stop v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2135,6 +2783,8 @@ struct Witness {
 
     friend bool operator==(const Witness&, const Witness&);
 
+    void msgpack_pack(auto& packer) const { packer.pack(value); }
+
     void msgpack_unpack(msgpack::object const& o)
     {
         try {
@@ -2153,6 +2803,8 @@ struct FunctionInput {
 
         friend bool operator==(const Constant&, const Constant&);
 
+        void msgpack_pack(auto& packer) const { packer.pack(value); }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             try {
@@ -2169,6 +2821,8 @@ struct FunctionInput {
 
         friend bool operator==(const Witness&, const Witness&);
 
+        void msgpack_pack(auto& packer) const { packer.pack(value); }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             try {
@@ -2183,6 +2837,36 @@ struct FunctionInput {
     std::variant<Constant, Witness> value;
 
     friend bool operator==(const FunctionInput&, const FunctionInput&);
+
+    void msgpack_pack(auto& packer) const
+    {
+        std::string tag;
+        bool is_unit;
+        switch (value.index()) {
+
+        case 0:
+            tag = "Constant";
+            is_unit = false;
+            break;
+        case 1:
+            tag = "Witness";
+            is_unit = false;
+            break;
+        default:
+            throw_or_abort("unknown enum 'FunctionInput' variant index: " + std::to_string(value.index()));
+        }
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
+                    packer.pack_map(1);
+                    packer.pack(tag);
+                    packer.pack(arg);
+                },
+                value);
+        }
+    }
 
     void msgpack_unpack(msgpack::object const& o)
     {
@@ -2207,9 +2891,6 @@ struct FunctionInput {
         }
         if (tag == "Constant") {
             Constant v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2220,9 +2901,6 @@ struct FunctionInput {
             value = v;
         } else if (tag == "Witness") {
             Witness v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2247,6 +2925,15 @@ struct BlackBoxFuncCall {
         std::vector<Acir::Witness> outputs;
 
         friend bool operator==(const AES128Encrypt&, const AES128Encrypt&);
+
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(4);
+            packer.pack(inputs);
+            packer.pack(iv);
+            packer.pack(key);
+            packer.pack(outputs);
+        }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -2277,6 +2964,15 @@ struct BlackBoxFuncCall {
 
         friend bool operator==(const AND&, const AND&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(4);
+            packer.pack(lhs);
+            packer.pack(rhs);
+            packer.pack(num_bits);
+            packer.pack(output);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "AND";
@@ -2306,6 +3002,15 @@ struct BlackBoxFuncCall {
 
         friend bool operator==(const XOR&, const XOR&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(4);
+            packer.pack(lhs);
+            packer.pack(rhs);
+            packer.pack(num_bits);
+            packer.pack(output);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "XOR";
@@ -2333,6 +3038,13 @@ struct BlackBoxFuncCall {
 
         friend bool operator==(const RANGE&, const RANGE&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(2);
+            packer.pack(input);
+            packer.pack(num_bits);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "RANGE";
@@ -2356,6 +3068,13 @@ struct BlackBoxFuncCall {
 
         friend bool operator==(const Blake2s&, const Blake2s&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(2);
+            packer.pack(inputs);
+            packer.pack(outputs);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "Blake2s";
@@ -2378,6 +3097,13 @@ struct BlackBoxFuncCall {
         std::shared_ptr<std::array<Acir::Witness, 32>> outputs;
 
         friend bool operator==(const Blake3&, const Blake3&);
+
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(2);
+            packer.pack(inputs);
+            packer.pack(outputs);
+        }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -2405,6 +3131,17 @@ struct BlackBoxFuncCall {
         Acir::Witness output;
 
         friend bool operator==(const EcdsaSecp256k1&, const EcdsaSecp256k1&);
+
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(6);
+            packer.pack(public_key_x);
+            packer.pack(public_key_y);
+            packer.pack(signature);
+            packer.pack(hashed_message);
+            packer.pack(predicate);
+            packer.pack(output);
+        }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -2441,6 +3178,17 @@ struct BlackBoxFuncCall {
 
         friend bool operator==(const EcdsaSecp256r1&, const EcdsaSecp256r1&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(6);
+            packer.pack(public_key_x);
+            packer.pack(public_key_y);
+            packer.pack(signature);
+            packer.pack(hashed_message);
+            packer.pack(predicate);
+            packer.pack(output);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "EcdsaSecp256r1";
@@ -2474,6 +3222,15 @@ struct BlackBoxFuncCall {
 
         friend bool operator==(const MultiScalarMul&, const MultiScalarMul&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(4);
+            packer.pack(points);
+            packer.pack(scalars);
+            packer.pack(predicate);
+            packer.pack(outputs);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "MultiScalarMul";
@@ -2503,6 +3260,15 @@ struct BlackBoxFuncCall {
 
         friend bool operator==(const EmbeddedCurveAdd&, const EmbeddedCurveAdd&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(4);
+            packer.pack(input1);
+            packer.pack(input2);
+            packer.pack(predicate);
+            packer.pack(outputs);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "EmbeddedCurveAdd";
@@ -2530,6 +3296,13 @@ struct BlackBoxFuncCall {
 
         friend bool operator==(const Keccakf1600&, const Keccakf1600&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(2);
+            packer.pack(inputs);
+            packer.pack(outputs);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "Keccakf1600";
@@ -2556,6 +3329,17 @@ struct BlackBoxFuncCall {
         Acir::FunctionInput predicate;
 
         friend bool operator==(const RecursiveAggregation&, const RecursiveAggregation&);
+
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(6);
+            packer.pack(verification_key);
+            packer.pack(proof);
+            packer.pack(public_inputs);
+            packer.pack(key_hash);
+            packer.pack(proof_type);
+            packer.pack(predicate);
+        }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -2588,6 +3372,13 @@ struct BlackBoxFuncCall {
 
         friend bool operator==(const Poseidon2Permutation&, const Poseidon2Permutation&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(2);
+            packer.pack(inputs);
+            packer.pack(outputs);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "Poseidon2Permutation";
@@ -2611,6 +3402,14 @@ struct BlackBoxFuncCall {
         std::shared_ptr<std::array<Acir::Witness, 8>> outputs;
 
         friend bool operator==(const Sha256Compression&, const Sha256Compression&);
+
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(3);
+            packer.pack(inputs);
+            packer.pack(hash_values);
+            packer.pack(outputs);
+        }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -2649,6 +3448,84 @@ struct BlackBoxFuncCall {
 
     friend bool operator==(const BlackBoxFuncCall&, const BlackBoxFuncCall&);
 
+    void msgpack_pack(auto& packer) const
+    {
+        std::string tag;
+        bool is_unit;
+        switch (value.index()) {
+
+        case 0:
+            tag = "AES128Encrypt";
+            is_unit = false;
+            break;
+        case 1:
+            tag = "AND";
+            is_unit = false;
+            break;
+        case 2:
+            tag = "XOR";
+            is_unit = false;
+            break;
+        case 3:
+            tag = "RANGE";
+            is_unit = false;
+            break;
+        case 4:
+            tag = "Blake2s";
+            is_unit = false;
+            break;
+        case 5:
+            tag = "Blake3";
+            is_unit = false;
+            break;
+        case 6:
+            tag = "EcdsaSecp256k1";
+            is_unit = false;
+            break;
+        case 7:
+            tag = "EcdsaSecp256r1";
+            is_unit = false;
+            break;
+        case 8:
+            tag = "MultiScalarMul";
+            is_unit = false;
+            break;
+        case 9:
+            tag = "EmbeddedCurveAdd";
+            is_unit = false;
+            break;
+        case 10:
+            tag = "Keccakf1600";
+            is_unit = false;
+            break;
+        case 11:
+            tag = "RecursiveAggregation";
+            is_unit = false;
+            break;
+        case 12:
+            tag = "Poseidon2Permutation";
+            is_unit = false;
+            break;
+        case 13:
+            tag = "Sha256Compression";
+            is_unit = false;
+            break;
+        default:
+            throw_or_abort("unknown enum 'BlackBoxFuncCall' variant index: " + std::to_string(value.index()));
+        }
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
+                    packer.pack_map(1);
+                    packer.pack(tag);
+                    packer.pack(arg);
+                },
+                value);
+        }
+    }
+
     void msgpack_unpack(msgpack::object const& o)
     {
 
@@ -2672,9 +3549,6 @@ struct BlackBoxFuncCall {
         }
         if (tag == "AES128Encrypt") {
             AES128Encrypt v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2685,9 +3559,6 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "AND") {
             AND v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2698,9 +3569,6 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "XOR") {
             XOR v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2711,9 +3579,6 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "RANGE") {
             RANGE v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2724,9 +3589,6 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "Blake2s") {
             Blake2s v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2737,9 +3599,6 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "Blake3") {
             Blake3 v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2750,9 +3609,6 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "EcdsaSecp256k1") {
             EcdsaSecp256k1 v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2763,9 +3619,6 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "EcdsaSecp256r1") {
             EcdsaSecp256r1 v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2776,9 +3629,6 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "MultiScalarMul") {
             MultiScalarMul v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2789,9 +3639,6 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "EmbeddedCurveAdd") {
             EmbeddedCurveAdd v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2802,9 +3649,6 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "Keccakf1600") {
             Keccakf1600 v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2815,9 +3659,6 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "RecursiveAggregation") {
             RecursiveAggregation v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2828,9 +3669,6 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "Poseidon2Permutation") {
             Poseidon2Permutation v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2841,9 +3679,6 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "Sha256Compression") {
             Sha256Compression v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2864,6 +3699,8 @@ struct BlockId {
 
     friend bool operator==(const BlockId&, const BlockId&);
 
+    void msgpack_pack(auto& packer) const { packer.pack(value); }
+
     void msgpack_unpack(msgpack::object const& o)
     {
         try {
@@ -2880,6 +3717,7 @@ struct BlockType {
     struct Memory {
         friend bool operator==(const Memory&, const Memory&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
@@ -2887,6 +3725,8 @@ struct BlockType {
         uint32_t value;
 
         friend bool operator==(const CallData&, const CallData&);
+
+        void msgpack_pack(auto& packer) const { packer.pack(value); }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -2902,12 +3742,47 @@ struct BlockType {
     struct ReturnData {
         friend bool operator==(const ReturnData&, const ReturnData&);
 
+        void msgpack_pack(auto& packer) const {}
         void msgpack_unpack(msgpack::object const& o) {}
     };
 
     std::variant<Memory, CallData, ReturnData> value;
 
     friend bool operator==(const BlockType&, const BlockType&);
+
+    void msgpack_pack(auto& packer) const
+    {
+        std::string tag;
+        bool is_unit;
+        switch (value.index()) {
+
+        case 0:
+            tag = "Memory";
+            is_unit = true;
+            break;
+        case 1:
+            tag = "CallData";
+            is_unit = false;
+            break;
+        case 2:
+            tag = "ReturnData";
+            is_unit = true;
+            break;
+        default:
+            throw_or_abort("unknown enum 'BlockType' variant index: " + std::to_string(value.index()));
+        }
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
+                    packer.pack_map(1);
+                    packer.pack(tag);
+                    packer.pack(arg);
+                },
+                value);
+        }
+    }
 
     void msgpack_unpack(msgpack::object const& o)
     {
@@ -2935,9 +3810,6 @@ struct BlockType {
             value = v;
         } else if (tag == "CallData") {
             CallData v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2962,6 +3834,14 @@ struct Expression {
     std::vector<uint8_t> q_c;
 
     friend bool operator==(const Expression&, const Expression&);
+
+    void msgpack_pack(auto& packer) const
+    {
+        packer.pack_array(3);
+        packer.pack(mul_terms);
+        packer.pack(linear_combinations);
+        packer.pack(q_c);
+    }
 
     void msgpack_unpack(msgpack::object const& o)
     {
@@ -2989,6 +3869,8 @@ struct BrilligInputs {
 
         friend bool operator==(const Single&, const Single&);
 
+        void msgpack_pack(auto& packer) const { packer.pack(value); }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             try {
@@ -3004,6 +3886,8 @@ struct BrilligInputs {
         std::vector<Acir::Expression> value;
 
         friend bool operator==(const Array&, const Array&);
+
+        void msgpack_pack(auto& packer) const { packer.pack(value); }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -3021,6 +3905,8 @@ struct BrilligInputs {
 
         friend bool operator==(const MemoryArray&, const MemoryArray&);
 
+        void msgpack_pack(auto& packer) const { packer.pack(value); }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             try {
@@ -3035,6 +3921,40 @@ struct BrilligInputs {
     std::variant<Single, Array, MemoryArray> value;
 
     friend bool operator==(const BrilligInputs&, const BrilligInputs&);
+
+    void msgpack_pack(auto& packer) const
+    {
+        std::string tag;
+        bool is_unit;
+        switch (value.index()) {
+
+        case 0:
+            tag = "Single";
+            is_unit = false;
+            break;
+        case 1:
+            tag = "Array";
+            is_unit = false;
+            break;
+        case 2:
+            tag = "MemoryArray";
+            is_unit = false;
+            break;
+        default:
+            throw_or_abort("unknown enum 'BrilligInputs' variant index: " + std::to_string(value.index()));
+        }
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
+                    packer.pack_map(1);
+                    packer.pack(tag);
+                    packer.pack(arg);
+                },
+                value);
+        }
+    }
 
     void msgpack_unpack(msgpack::object const& o)
     {
@@ -3059,9 +3979,6 @@ struct BrilligInputs {
         }
         if (tag == "Single") {
             Single v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3072,9 +3989,6 @@ struct BrilligInputs {
             value = v;
         } else if (tag == "Array") {
             Array v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3085,9 +3999,6 @@ struct BrilligInputs {
             value = v;
         } else if (tag == "MemoryArray") {
             MemoryArray v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3110,6 +4021,8 @@ struct BrilligOutputs {
 
         friend bool operator==(const Simple&, const Simple&);
 
+        void msgpack_pack(auto& packer) const { packer.pack(value); }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             try {
@@ -3126,6 +4039,8 @@ struct BrilligOutputs {
 
         friend bool operator==(const Array&, const Array&);
 
+        void msgpack_pack(auto& packer) const { packer.pack(value); }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             try {
@@ -3140,6 +4055,36 @@ struct BrilligOutputs {
     std::variant<Simple, Array> value;
 
     friend bool operator==(const BrilligOutputs&, const BrilligOutputs&);
+
+    void msgpack_pack(auto& packer) const
+    {
+        std::string tag;
+        bool is_unit;
+        switch (value.index()) {
+
+        case 0:
+            tag = "Simple";
+            is_unit = false;
+            break;
+        case 1:
+            tag = "Array";
+            is_unit = false;
+            break;
+        default:
+            throw_or_abort("unknown enum 'BrilligOutputs' variant index: " + std::to_string(value.index()));
+        }
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
+                    packer.pack_map(1);
+                    packer.pack(tag);
+                    packer.pack(arg);
+                },
+                value);
+        }
+    }
 
     void msgpack_unpack(msgpack::object const& o)
     {
@@ -3164,9 +4109,6 @@ struct BrilligOutputs {
         }
         if (tag == "Simple") {
             Simple v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3177,9 +4119,6 @@ struct BrilligOutputs {
             value = v;
         } else if (tag == "Array") {
             Array v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3201,6 +4140,14 @@ struct MemOp {
     Acir::Expression value;
 
     friend bool operator==(const MemOp&, const MemOp&);
+
+    void msgpack_pack(auto& packer) const
+    {
+        packer.pack_array(3);
+        packer.pack(operation);
+        packer.pack(index);
+        packer.pack(value);
+    }
 
     void msgpack_unpack(msgpack::object const& o)
     {
@@ -3228,6 +4175,8 @@ struct Opcode {
 
         friend bool operator==(const AssertZero&, const AssertZero&);
 
+        void msgpack_pack(auto& packer) const { packer.pack(value); }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             try {
@@ -3243,6 +4192,8 @@ struct Opcode {
         Acir::BlackBoxFuncCall value;
 
         friend bool operator==(const BlackBoxFuncCall&, const BlackBoxFuncCall&);
+
+        void msgpack_pack(auto& packer) const { packer.pack(value); }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -3260,6 +4211,13 @@ struct Opcode {
         Acir::MemOp op;
 
         friend bool operator==(const MemoryOp&, const MemoryOp&);
+
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(2);
+            packer.pack(block_id);
+            packer.pack(op);
+        }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -3285,6 +4243,14 @@ struct Opcode {
 
         friend bool operator==(const MemoryInit&, const MemoryInit&);
 
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(3);
+            packer.pack(block_id);
+            packer.pack(init);
+            packer.pack(block_type);
+        }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             std::string name = "MemoryInit";
@@ -3308,9 +4274,18 @@ struct Opcode {
         uint32_t id;
         std::vector<Acir::BrilligInputs> inputs;
         std::vector<Acir::BrilligOutputs> outputs;
-        std::optional<Acir::Expression> predicate;
+        Acir::Expression predicate;
 
         friend bool operator==(const BrilligCall&, const BrilligCall&);
+
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(4);
+            packer.pack(id);
+            packer.pack(inputs);
+            packer.pack(outputs);
+            packer.pack(predicate);
+        }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -3320,7 +4295,7 @@ struct Opcode {
                 Helpers::conv_fld_from_kvmap(kvmap, name, "id", id, false);
                 Helpers::conv_fld_from_kvmap(kvmap, name, "inputs", inputs, false);
                 Helpers::conv_fld_from_kvmap(kvmap, name, "outputs", outputs, false);
-                Helpers::conv_fld_from_kvmap(kvmap, name, "predicate", predicate, true);
+                Helpers::conv_fld_from_kvmap(kvmap, name, "predicate", predicate, false);
             } else if (o.type == msgpack::type::ARRAY) {
                 auto array = o.via.array;
                 Helpers::conv_fld_from_array(array, name, "id", id, 0);
@@ -3337,9 +4312,18 @@ struct Opcode {
         uint32_t id;
         std::vector<Acir::Witness> inputs;
         std::vector<Acir::Witness> outputs;
-        std::optional<Acir::Expression> predicate;
+        Acir::Expression predicate;
 
         friend bool operator==(const Call&, const Call&);
+
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(4);
+            packer.pack(id);
+            packer.pack(inputs);
+            packer.pack(outputs);
+            packer.pack(predicate);
+        }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -3349,7 +4333,7 @@ struct Opcode {
                 Helpers::conv_fld_from_kvmap(kvmap, name, "id", id, false);
                 Helpers::conv_fld_from_kvmap(kvmap, name, "inputs", inputs, false);
                 Helpers::conv_fld_from_kvmap(kvmap, name, "outputs", outputs, false);
-                Helpers::conv_fld_from_kvmap(kvmap, name, "predicate", predicate, true);
+                Helpers::conv_fld_from_kvmap(kvmap, name, "predicate", predicate, false);
             } else if (o.type == msgpack::type::ARRAY) {
                 auto array = o.via.array;
                 Helpers::conv_fld_from_array(array, name, "id", id, 0);
@@ -3365,6 +4349,52 @@ struct Opcode {
     std::variant<AssertZero, BlackBoxFuncCall, MemoryOp, MemoryInit, BrilligCall, Call> value;
 
     friend bool operator==(const Opcode&, const Opcode&);
+
+    void msgpack_pack(auto& packer) const
+    {
+        std::string tag;
+        bool is_unit;
+        switch (value.index()) {
+
+        case 0:
+            tag = "AssertZero";
+            is_unit = false;
+            break;
+        case 1:
+            tag = "BlackBoxFuncCall";
+            is_unit = false;
+            break;
+        case 2:
+            tag = "MemoryOp";
+            is_unit = false;
+            break;
+        case 3:
+            tag = "MemoryInit";
+            is_unit = false;
+            break;
+        case 4:
+            tag = "BrilligCall";
+            is_unit = false;
+            break;
+        case 5:
+            tag = "Call";
+            is_unit = false;
+            break;
+        default:
+            throw_or_abort("unknown enum 'Opcode' variant index: " + std::to_string(value.index()));
+        }
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
+                    packer.pack_map(1);
+                    packer.pack(tag);
+                    packer.pack(arg);
+                },
+                value);
+        }
+    }
 
     void msgpack_unpack(msgpack::object const& o)
     {
@@ -3389,9 +4419,6 @@ struct Opcode {
         }
         if (tag == "AssertZero") {
             AssertZero v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3402,9 +4429,6 @@ struct Opcode {
             value = v;
         } else if (tag == "BlackBoxFuncCall") {
             BlackBoxFuncCall v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3415,9 +4439,6 @@ struct Opcode {
             value = v;
         } else if (tag == "MemoryOp") {
             MemoryOp v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3428,9 +4449,6 @@ struct Opcode {
             value = v;
         } else if (tag == "MemoryInit") {
             MemoryInit v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3441,9 +4459,6 @@ struct Opcode {
             value = v;
         } else if (tag == "BrilligCall") {
             BrilligCall v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3454,9 +4469,6 @@ struct Opcode {
             value = v;
         } else if (tag == "Call") {
             Call v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3479,6 +4491,8 @@ struct ExpressionOrMemory {
 
         friend bool operator==(const Expression&, const Expression&);
 
+        void msgpack_pack(auto& packer) const { packer.pack(value); }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             try {
@@ -3495,6 +4509,8 @@ struct ExpressionOrMemory {
 
         friend bool operator==(const Memory&, const Memory&);
 
+        void msgpack_pack(auto& packer) const { packer.pack(value); }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             try {
@@ -3509,6 +4525,36 @@ struct ExpressionOrMemory {
     std::variant<Expression, Memory> value;
 
     friend bool operator==(const ExpressionOrMemory&, const ExpressionOrMemory&);
+
+    void msgpack_pack(auto& packer) const
+    {
+        std::string tag;
+        bool is_unit;
+        switch (value.index()) {
+
+        case 0:
+            tag = "Expression";
+            is_unit = false;
+            break;
+        case 1:
+            tag = "Memory";
+            is_unit = false;
+            break;
+        default:
+            throw_or_abort("unknown enum 'ExpressionOrMemory' variant index: " + std::to_string(value.index()));
+        }
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
+                    packer.pack_map(1);
+                    packer.pack(tag);
+                    packer.pack(arg);
+                },
+                value);
+        }
+    }
 
     void msgpack_unpack(msgpack::object const& o)
     {
@@ -3533,9 +4579,6 @@ struct ExpressionOrMemory {
         }
         if (tag == "Expression") {
             Expression v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3546,9 +4589,6 @@ struct ExpressionOrMemory {
             value = v;
         } else if (tag == "Memory") {
             Memory v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3569,6 +4609,13 @@ struct AssertionPayload {
     std::vector<Acir::ExpressionOrMemory> payload;
 
     friend bool operator==(const AssertionPayload&, const AssertionPayload&);
+
+    void msgpack_pack(auto& packer) const
+    {
+        packer.pack_array(2);
+        packer.pack(error_selector);
+        packer.pack(payload);
+    }
 
     void msgpack_unpack(msgpack::object const& o)
     {
@@ -3594,6 +4641,8 @@ struct OpcodeLocation {
 
         friend bool operator==(const Acir&, const Acir&);
 
+        void msgpack_pack(auto& packer) const { packer.pack(value); }
+
         void msgpack_unpack(msgpack::object const& o)
         {
             try {
@@ -3610,6 +4659,13 @@ struct OpcodeLocation {
         uint64_t brillig_index;
 
         friend bool operator==(const Brillig&, const Brillig&);
+
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_array(2);
+            packer.pack(acir_index);
+            packer.pack(brillig_index);
+        }
 
         void msgpack_unpack(msgpack::object const& o)
         {
@@ -3631,6 +4687,36 @@ struct OpcodeLocation {
     std::variant<Acir, Brillig> value;
 
     friend bool operator==(const OpcodeLocation&, const OpcodeLocation&);
+
+    void msgpack_pack(auto& packer) const
+    {
+        std::string tag;
+        bool is_unit;
+        switch (value.index()) {
+
+        case 0:
+            tag = "Acir";
+            is_unit = false;
+            break;
+        case 1:
+            tag = "Brillig";
+            is_unit = false;
+            break;
+        default:
+            throw_or_abort("unknown enum 'OpcodeLocation' variant index: " + std::to_string(value.index()));
+        }
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
+                    packer.pack_map(1);
+                    packer.pack(tag);
+                    packer.pack(arg);
+                },
+                value);
+        }
+    }
 
     void msgpack_unpack(msgpack::object const& o)
     {
@@ -3655,9 +4741,6 @@ struct OpcodeLocation {
         }
         if (tag == "Acir") {
             Acir v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3668,9 +4751,6 @@ struct OpcodeLocation {
             value = v;
         } else if (tag == "Brillig") {
             Brillig v;
-            if (o.type != msgpack::type::MAP) {
-                throw_or_abort("expected MAP for enum variant, got STR (unit variant syntax for non-unit variant)");
-            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3691,6 +4771,8 @@ struct PublicInputs {
 
     friend bool operator==(const PublicInputs&, const PublicInputs&);
 
+    void msgpack_pack(auto& packer) const { packer.pack(value); }
+
     void msgpack_unpack(msgpack::object const& o)
     {
         try {
@@ -3704,7 +4786,7 @@ struct PublicInputs {
 
 struct Circuit {
     std::string function_name;
-    std::optional<uint32_t> current_witness_index;
+    uint32_t current_witness_index;
     std::vector<Acir::Opcode> opcodes;
     std::vector<Acir::Witness> private_parameters;
     Acir::PublicInputs public_parameters;
@@ -3713,13 +4795,25 @@ struct Circuit {
 
     friend bool operator==(const Circuit&, const Circuit&);
 
+    void msgpack_pack(auto& packer) const
+    {
+        packer.pack_array(7);
+        packer.pack(function_name);
+        packer.pack(current_witness_index);
+        packer.pack(opcodes);
+        packer.pack(private_parameters);
+        packer.pack(public_parameters);
+        packer.pack(return_values);
+        packer.pack(assert_messages);
+    }
+
     void msgpack_unpack(msgpack::object const& o)
     {
         std::string name = "Circuit";
         if (o.type == msgpack::type::MAP) {
             auto kvmap = Helpers::make_kvmap(o, name);
             Helpers::conv_fld_from_kvmap(kvmap, name, "function_name", function_name, false);
-            Helpers::conv_fld_from_kvmap(kvmap, name, "current_witness_index", current_witness_index, true);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "current_witness_index", current_witness_index, false);
             Helpers::conv_fld_from_kvmap(kvmap, name, "opcodes", opcodes, false);
             Helpers::conv_fld_from_kvmap(kvmap, name, "private_parameters", private_parameters, false);
             Helpers::conv_fld_from_kvmap(kvmap, name, "public_parameters", public_parameters, false);
@@ -3746,6 +4840,13 @@ struct BrilligBytecode {
 
     friend bool operator==(const BrilligBytecode&, const BrilligBytecode&);
 
+    void msgpack_pack(auto& packer) const
+    {
+        packer.pack_array(2);
+        packer.pack(function_name);
+        packer.pack(bytecode);
+    }
+
     void msgpack_unpack(msgpack::object const& o)
     {
         std::string name = "BrilligBytecode";
@@ -3769,6 +4870,13 @@ struct Program {
 
     friend bool operator==(const Program&, const Program&);
 
+    void msgpack_pack(auto& packer) const
+    {
+        packer.pack_array(2);
+        packer.pack(functions);
+        packer.pack(unconstrained_functions);
+    }
+
     void msgpack_unpack(msgpack::object const& o)
     {
         std::string name = "Program";
@@ -3791,6 +4899,13 @@ struct ProgramWithoutBrillig {
     std::monostate unconstrained_functions;
 
     friend bool operator==(const ProgramWithoutBrillig&, const ProgramWithoutBrillig&);
+
+    void msgpack_pack(auto& packer) const
+    {
+        packer.pack_array(2);
+        packer.pack(functions);
+        packer.pack(unconstrained_functions);
+    }
 
     void msgpack_unpack(msgpack::object const& o)
     {
