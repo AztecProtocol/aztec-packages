@@ -194,9 +194,11 @@ typename MergeVerifier_<BatchSize, Curve>::ReductionResult MergeVerifier_<BatchS
 
     // Check concatenation identities
     bool concatenation_verified = check_concatenation_identities(evals, pow_kappa);
+    info("Concatenation check verified: ", concatenation_verified ? "true" : "false");
 
     // Check degree identity
     bool degree_check_verified = check_degree_identity(evals, pow_kappa_minus_one, degree_check_challenges);
+    info("Degree check verified: ", degree_check_verified ? "true" : "false");
 
     // Receive Shplonk batched quotient
     Commitment shplonk_batched_quotient =
@@ -230,5 +232,11 @@ typename MergeVerifier_<BatchSize, Curve>::ReductionResult MergeVerifier_<BatchS
 template class MergeVerifier_<1, curve::BN254>;
 template class MergeVerifier_<1, stdlib::bn254<MegaCircuitBuilder>>;
 template class MergeVerifier_<1, stdlib::bn254<UltraCircuitBuilder>>;
+template class MergeVerifier_<2, curve::BN254>;
+template class MergeVerifier_<2, stdlib::bn254<MegaCircuitBuilder>>;
+template class MergeVerifier_<2, stdlib::bn254<UltraCircuitBuilder>>;
+template class MergeVerifier_<4, curve::BN254>;
+template class MergeVerifier_<4, stdlib::bn254<MegaCircuitBuilder>>;
+template class MergeVerifier_<4, stdlib::bn254<UltraCircuitBuilder>>;
 
 } // namespace bb

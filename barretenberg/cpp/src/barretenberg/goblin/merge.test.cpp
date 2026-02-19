@@ -27,22 +27,25 @@ template <typename Curve> struct BuilderTypeHelper<Curve, std::enable_if_t<Curve
  * @details Templates on Curve type to handle both native (curve::BN254) and recursive (bn254<Builder>) contexts
  * @tparam Curve The curve type (native or stdlib)
  */
-template <typename Curve, size_t BATCH_SIZE = 1> class MergeTests : public testing::Test {
+template <typename MergeTestParams> class MergeTests : public testing::Test {
   public:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
+    using Curve = MergeTestParams::CurveType;
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
-    using MergeVerifierType = MergeVerifier_<BATCH_SIZE, Curve>;
+    using MergeVerifierType = MergeVerifier_<MergeTestParams::BATCH_SIZE, Curve>;
     using Transcript = typename MergeVerifierType::Transcript;
     using PairingPoints = typename MergeVerifierType::PairingPoints;
     using TableCommitments = typename MergeVerifierType::TableCommitments;
     using InputCommitments = typename MergeVerifierType::InputCommitments;
     using Proof = typename MergeVerifierType::Proof;
+    using PolynomialBatch = typename MergeProver<MergeTestParams::BATCH_SIZE>::PolynomialBatch;
 
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
+    static constexpr size_t BATCH_SIZE = MergeTestParams::BATCH_SIZE;
     static constexpr size_t NUM_COLUMNS = MergeVerifierType::NUM_COLUMNS;
 
     // Builder type is only available in recursive context
@@ -115,9 +118,11 @@ template <typename Curve, size_t BATCH_SIZE = 1> class MergeTests : public testi
      */
     static void tamper_with_proof(std::vector<bb::fr>& merge_proof, const TamperProofMode tampering_mode)
     {
+        constexpr size_t NUM_FRS_COMM = Transcript::Codec::template calc_num_fields<Commitment>();
         const size_t shift_idx = 0;        // Index of shift_size in the merge proof
         const size_t m_commitment_idx = 1; // Index of first commitment to merged table in merge proof
-        const size_t l_eval_idx = 22;      // Index of first evaluation of l(1/kappa) in merge proof
+        const size_t l_eval_idx =
+            1 + NUM_FRS_COMM * (NUM_COLUMNS + 1); // Index of first evaluation of l(kappa) in merge proof
 
         switch (tampering_mode) {
         case TamperProofMode::Shift:
@@ -126,12 +131,11 @@ template <typename Curve, size_t BATCH_SIZE = 1> class MergeTests : public testi
             break;
         case TamperProofMode::MCommitment: {
             // Tamper with the commitment in the proof
-            auto m_commitment =
-                FrCodec::deserialize_from_fields<curve::BN254::AffineElement>(std::span{ merge_proof }.subspan(
-                    m_commitment_idx, FrCodec::calc_num_fields<curve::BN254::AffineElement>()));
+            auto m_commitment = FrCodec::deserialize_from_fields<curve::BN254::AffineElement>(
+                std::span{ merge_proof }.subspan(m_commitment_idx, NUM_FRS_COMM));
             m_commitment = m_commitment + curve::BN254::AffineElement::one();
             auto m_commitment_frs = FrCodec::serialize_to_fields<curve::BN254::AffineElement>(m_commitment);
-            for (size_t idx = 0; idx < 4; ++idx) {
+            for (size_t idx = 0; idx < NUM_FRS_COMM; ++idx) {
                 merge_proof[m_commitment_idx + idx] = m_commitment_frs[idx];
             }
             break;
@@ -165,20 +169,27 @@ template <typename Curve, size_t BATCH_SIZE = 1> class MergeTests : public testi
         auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
         auto T_prev = op_queue->construct_previous_ultra_ops_table_columns();
 
+        PolynomialBatch t_current_batch(t_current);
+        PolynomialBatch T_prev_batch(T_prev);
+
         // Native commitments
         std::array<curve::BN254::AffineElement, NUM_COLUMNS> native_t_commitments;
         std::array<curve::BN254::AffineElement, NUM_COLUMNS> native_T_prev_commitments;
         for (size_t idx = 0; idx < NUM_COLUMNS; idx++) {
-            native_t_commitments[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
-            native_T_prev_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_prev[idx]);
+            native_t_commitments[idx] =
+                merge_prover.pcs_commitment_key.template commit_interleaved<BATCH_SIZE>(t_current_batch[idx]);
+            native_T_prev_commitments[idx] =
+                merge_prover.pcs_commitment_key.template commit_interleaved<BATCH_SIZE>(T_prev_batch[idx]);
         }
 
         // Compute expected merged table commitments independently
         // After merge, the full table is T_merged = T_prev || t_current (PREPEND) or t_current || T_prev (APPEND)
         auto T_merged = op_queue->construct_ultra_ops_table_columns();
+        PolynomialBatch T_merged_batch(T_merged);
         std::array<curve::BN254::AffineElement, NUM_COLUMNS> expected_merged_commitments;
         for (size_t idx = 0; idx < NUM_COLUMNS; idx++) {
-            expected_merged_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_merged[idx]);
+            expected_merged_commitments[idx] =
+                merge_prover.pcs_commitment_key.template commit_interleaved<BATCH_SIZE>(T_merged_batch[idx]);
         }
 
         // Create builder (only used in recursive context)
@@ -234,7 +245,8 @@ template <typename Curve, size_t BATCH_SIZE = 1> class MergeTests : public testi
         MergeProver<BATCH_SIZE> merge_prover{ builder.op_queue, transcript };
         auto merge_proof = merge_prover.construct_proof();
 
-        EXPECT_EQ(merge_proof.size(), MERGE_PROOF_SIZE);
+        EXPECT_EQ(merge_proof.size(), MergeProver<BATCH_SIZE>::MERGE_PROOF_SIZE())
+            << "Merge proof size does not match expected constant";
     }
 
     /**
@@ -350,12 +362,24 @@ template <typename Curve, size_t BATCH_SIZE = 1> class MergeTests : public testi
     }
 };
 
-// Define test types: native and recursive contexts
-using CurveTypes = ::testing::Types<curve::BN254,                        // Native
-                                    stdlib::bn254<MegaCircuitBuilder>,   // Recursive (Mega)
-                                    stdlib::bn254<UltraCircuitBuilder>>; // Recursive (Ultra)
+template <typename Curve, size_t BATCH_SIZE_> class MergeTestParams {
+  public:
+    using CurveType = Curve;
+    static constexpr size_t BATCH_SIZE = BATCH_SIZE_;
+};
 
-TYPED_TEST_SUITE(MergeTests, CurveTypes);
+// Define test types: native and recursive contexts
+using Parameters = ::testing::Types<MergeTestParams<curve::BN254, 1>,
+                                    MergeTestParams<stdlib::bn254<MegaCircuitBuilder>, 1>,
+                                    MergeTestParams<stdlib::bn254<UltraCircuitBuilder>, 1>,
+                                    MergeTestParams<curve::BN254, 2>,
+                                    MergeTestParams<stdlib::bn254<MegaCircuitBuilder>, 2>,
+                                    MergeTestParams<stdlib::bn254<UltraCircuitBuilder>, 2>,
+                                    MergeTestParams<curve::BN254, 4>,                        // Native
+                                    MergeTestParams<stdlib::bn254<MegaCircuitBuilder>, 4>,   // Recursive (Mega)
+                                    MergeTestParams<stdlib::bn254<UltraCircuitBuilder>, 4>>; // Recursive (Ultra)
+
+TYPED_TEST_SUITE(MergeTests, Parameters);
 
 TYPED_TEST(MergeTests, MergeProofSizeCheck)
 {

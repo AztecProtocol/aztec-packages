@@ -33,6 +33,10 @@ template <size_t BATCH_SIZE> class MergeProver {
   public:
     using MergeProof = std::vector<FF>;
 
+    static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
+    static_assert(NUM_WIRES % BATCH_SIZE == 0, "Batch size must divide number of wires");
+    static constexpr size_t NUM_COLUMNS = NUM_WIRES / BATCH_SIZE;
+
     explicit MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
                          std::shared_ptr<Transcript> transcript,
                          MergeSettings settings = MergeSettings::PREPEND);
@@ -41,15 +45,6 @@ template <size_t BATCH_SIZE> class MergeProver {
 
     // Public for test access (computing commitments)
     CommitmentKey pcs_commitment_key;
-
-  private:
-    std::shared_ptr<Transcript> transcript;
-    std::shared_ptr<ECCOpQueue> op_queue;
-    MergeSettings settings;
-
-    static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
-    static_assert(NUM_WIRES % BATCH_SIZE == 0, "Batch size must divide number of wires");
-    static constexpr size_t NUM_COLUMNS = NUM_WIRES / BATCH_SIZE;
 
     struct PolynomialBatch {
         std::array<std::array<Polynomial, BATCH_SIZE>, NUM_COLUMNS> batches;
@@ -74,6 +69,16 @@ template <size_t BATCH_SIZE> class MergeProver {
         auto end() const { return batches.end(); }
     };
 
+    static constexpr size_t MERGE_PROOF_SIZE()
+    {
+        constexpr size_t NUM_COMM = NUM_COLUMNS + 1; // Merged + inverse
+        constexpr size_t NUM_EVALS = 3 * NUM_COLUMNS + 1;
+        constexpr size_t SHPLONK_COMM = 2; // Q and KZG opening
+        size_t num_frs_comm = Transcript::Codec::calc_num_fields<Commitment>();
+
+        return num_frs_comm * (NUM_COMM + SHPLONK_COMM) + NUM_EVALS + 1; // +1 for shift_size
+    }
+
     std::vector<std::string> labels_degree_check()
     {
         std::vector<std::string> labels;
@@ -95,6 +100,13 @@ template <size_t BATCH_SIZE> class MergeProver {
         }
         return labels;
     }
+
+  private:
+    std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<ECCOpQueue> op_queue;
+    MergeSettings settings;
+
+    static Polynomial interleave_polynomials(const std::array<Polynomial, BATCH_SIZE>& polys);
 
     /**
      * @brief Compute the batched polynomial for the degree check.
@@ -122,7 +134,7 @@ template <size_t BATCH_SIZE> class MergeProver {
      * \f]
      *
      */
-    static std::array<Polynomial, BATCH_SIZE> compute_shplonk_batched_quotient(
+    static Polynomial compute_shplonk_batched_quotient(
         const PolynomialBatch& left_columns,
         const PolynomialBatch& right_columns,
         const PolynomialBatch& merged_columns,
@@ -144,7 +156,7 @@ template <size_t BATCH_SIZE> class MergeProver {
      * and return the opening claim \f$\{ Q', (z, 0) \}\f$.
      *
      */
-    static OpeningClaim compute_shplonk_opening_claim(std::array<Polynomial, BATCH_SIZE>& shplonk_batched_quotient,
+    static OpeningClaim compute_shplonk_opening_claim(Polynomial& shplonk_batched_quotient,
                                                       const FF& shplonk_opening_challenge,
                                                       const PolynomialBatch& left_columns,
                                                       const PolynomialBatch& right_columns,
