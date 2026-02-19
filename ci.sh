@@ -251,6 +251,27 @@ case "$cmd" in
     export INSTANCE_POSTFIX="n-kind"
     bootstrap_ec2 "./bootstrap.sh ci-network-kind-tests"
     ;;
+  network-kind-teardown)
+    # Terminates the EC2 instance used for KIND tests by name.
+    # Instance name is derived from REF_NAME + arch + n-kind postfix, matching bootstrap_ec2 naming.
+    arch=${ARCH:-amd64}
+    if [[ "$REF_NAME" =~ ^gh-readonly-queue/.*(pr-[0-9]+) ]]; then
+      kind_instance="${BASH_REMATCH[1]}_${arch}_n-kind"
+    else
+      kind_instance=$(echo -n "$REF_NAME" | head -c 50 | tr -c 'a-zA-Z0-9-' '_')_${arch}_n-kind
+    fi
+    existing=$(aws ec2 describe-instances \
+      --region us-east-2 \
+      --filters "Name=tag:Name,Values=$kind_instance" "Name=instance-state-name,Values=running" \
+      --query "Reservations[].Instances[?State.Name!='terminated'].InstanceId[]" \
+      --output text)
+    if [ -n "$existing" ]; then
+      echo "Terminating KIND instance: $kind_instance ($existing)"
+      aws ec2 terminate-instances --region us-east-2 --instance-ids $existing > /dev/null
+    else
+      echo "No running KIND instance found: $kind_instance"
+    fi
+    ;;
   deploy-rollup-upgrade)
     # Env vars: NETWORK, GCP_PROJECT_ID (for GCP secrets)
     # Args: <registry_address>
