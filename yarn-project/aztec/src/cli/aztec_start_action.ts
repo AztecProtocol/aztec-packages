@@ -109,7 +109,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     const apiKeyResolution = await resolveAdminApiKey(
       {
         adminApiKeyHash: options.adminApiKeyHash,
-        noAdminApiKey: options.noAdminApiKey,
+        disableAdminApiKey: options.disableAdminApiKey,
         resetAdminApiKey: options.resetAdminApiKey,
         dataDirectory: options.dataDirectory,
       },
@@ -148,7 +148,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
         userLog('  The key hash has been persisted — on next restart, the same key will be used.');
       }
       userLog('');
-      userLog('  To disable admin auth: --no-admin-api-key or AZTEC_NO_ADMIN_API_KEY=true');
+      userLog('  To disable admin auth: --disable-admin-api-key or AZTEC_DISABLE_ADMIN_API_KEY=true');
       userLog(separator);
       userLog('');
     }
