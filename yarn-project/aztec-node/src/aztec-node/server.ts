@@ -1236,7 +1236,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       const processor = publicProcessorFactory.create(merkleTreeFork, newGlobalVariables, config);
 
       // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
-      const [processedTxs, failedTxs, _usedTxs, returns] = await processor.process([tx]);
+      const [processedTxs, failedTxs, _usedTxs, returns, _blobFields, debugLogs] = await processor.process([tx]);
       // REFACTOR: Consider returning the error rather than throwing
       if (failedTxs.length) {
         this.log.warn(`Simulated tx ${txHash} fails: ${failedTxs[0].error}`, { txHash });
@@ -1250,6 +1250,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         processedTx.txEffect,
         returns,
         processedTx.gasUsed,
+        debugLogs,
       );
     } finally {
       await merkleTreeFork.close();

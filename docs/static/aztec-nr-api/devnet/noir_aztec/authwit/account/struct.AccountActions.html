@@ -44,10 +44,10 @@
 
 <div class="padded-methods"><code id="init" class="code-header">pub fn <a href="#init"><span class="fn">init</span></a>(
     context: Context,
-    is_valid_impl: fn(&mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a>,
+    is_valid_impl: fn(&mut <a href="../../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a>,
 ) -> Self</code>
 
-</div><h3><code class="code-header">impl <a href="../../../noir_aztec/authwit/account/struct.AccountActions.html" class="struct">AccountActions</a>&lt;&mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
+</div><h3><code class="code-header">impl <a href="../../../noir_aztec/authwit/account/struct.AccountActions.html" class="struct">AccountActions</a>&lt;&mut <a href="../../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
 
 <div class="padded-methods"><code id="entrypoint" class="code-header">pub fn <a href="#entrypoint"><span class="fn">entrypoint</span></a>(
     self,
@@ -63,13 +63,12 @@
 <ul>
 <li>EXTERNAL (0): Signals that some other contract is in charge of paying the fee, nothing needs to be done.</li>
 <li>PREEXISTING_FEE_JUICE (1): Makes the account contract publicly pay for the transaction with its own FeeJuice
-balance, which it must already have prior to this transaction. The contract will
-set itself as the fee payer and end the setup phase.</li>
+balance, which it must already have prior to this transaction. The contract will set itself as the fee payer
+and end the setup phase.</li>
 <li>FEE_JUICE_WITH_CLAIM (2): Makes the account contract publicly pay for the transaction with its own FeeJuice
-balance which is being claimed in the same transaction. The contract will set
-itself as the fee payer but not end setup phase - this is done by the FeeJuice
-contract after enqueuing a public call, which unlike most public calls is
-whitelisted to be executable during setup.</li>
+balance which is being claimed in the same transaction. The contract will set itself as the fee payer but not
+end setup phase - this is done by the FeeJuice contract after enqueuing a public call, which unlike most public
+calls is whitelisted to be executable during setup.</li>
 </ul>
 <p>@param cancellable Controls whether to emit app_payload.tx_nonce as a nullifier, allowing a subsequent
 transaction to be sent with a higher priority fee. This can be used to cancel the first transaction sent,
@@ -79,8 +78,8 @@ assuming it hasn't been mined yet.</p>
 
 <div class="padded-description"><div class="comments">
 <p>Verifies that the <code>msg_sender</code> is authorized to consume <code>inner_hash</code> by the account.</p>
-<p>Computes the <code>message_hash</code> using the <code>msg_sender</code>, <code>chain_id</code>, <code>version</code> and <code>inner_hash</code>.
-Then executes the <code>is_valid_impl</code> function to verify that the message is authorized.</p>
+<p>Computes the <code>message_hash</code> using the <code>msg_sender</code>, <code>chain_id</code>, <code>version</code> and <code>inner_hash</code>. Then executes the
+<code>is_valid_impl</code> function to verify that the message is authorized.</p>
 <p>Will revert if the message is not authorized.</p>
 <p>@param inner_hash The hash of the message that the <code>msg_sender</code> is trying to consume.</p>
 </div>

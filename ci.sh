@@ -77,6 +77,12 @@ case "$cmd" in
     export JOB_ID="x-$cmd"
     bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
+  barretenberg-debug)
+    export CI_DASHBOARD="nightly"
+    export JOB_ID="x-$cmd"
+    export CPUS=16
+    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
+    ;;
   avm-inputs-collection|avm-check-circuit)
     export CI_DASHBOARD="nightly"
     export JOB_ID="x-$cmd"

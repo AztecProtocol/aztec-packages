@@ -1,6 +1,6 @@
 # Aztec TypeScript API Summary
-Version: v4.0.0-nightly.20260218
-Generated: 2026-02-18T04:46:30.146Z
+Version: v5.0.0-nightly.20260219
+Generated: 2026-02-19T04:45:21.459Z
 
 This file provides an index of the Aztec TypeScript API packages.
 For detailed API documentation, see the individual package .md files.

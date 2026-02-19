@@ -221,6 +221,9 @@ function test_cmds {
   # Uses mocha for browser tests, so we have to treat it differently.
   echo "$hash:ISOLATE=1 cd yarn-project/kv-store && yarn test"
 
+  # Aztec CLI tests
+  aztec/bootstrap.sh test_cmds
+
   if [[ "${TARGET_BRANCH:-}" =~ ^v[0-9]+$ ]]; then
     echo "$hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"
     echo "$hash yarn-project/scripts/run_test.sh aztec/src/mainnet_compatibility.test.ts"

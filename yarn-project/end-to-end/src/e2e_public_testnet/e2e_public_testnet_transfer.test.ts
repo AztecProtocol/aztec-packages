@@ -62,6 +62,8 @@ describe(`deploys and transfers a private only token`, () => {
     await wallet.registerContract(tokenInstance, PrivateTokenContract.artifact, tokenSecretKey);
     const token = await tokenDeployment.send({
       from: deployerAddress,
+      // The contract constructor initializes private storage vars that need the contract's own nullifier key.
+      additionalScopes: [tokenInstance.address],
       universalDeploy: true,
       skipInstancePublication: true,
       skipClassPublication: true,

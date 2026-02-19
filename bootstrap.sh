@@ -504,6 +504,7 @@ function release {
   projects=(
     barretenberg/cpp
     barretenberg/ts
+    barretenberg/rust
     noir
     l1-contracts
     noir-projects/aztec-nr
@@ -736,6 +737,13 @@ case "$cmd" in
     ./bootstrap.sh
     docs/bootstrap.sh ci
     ;;
+  "ci-barretenberg-debug")
+    export CI=1
+    export NATIVE_PRESET=debug
+    export AVM=0
+    export AVM_TRANSPILER=0
+    barretenberg/cpp/bootstrap.sh build
+    ;;
   "ci-barretenberg")
     export CI=1
     export USE_TEST_CACHE=1
@@ -751,6 +759,7 @@ case "$cmd" in
     pull_submodules
     noir/bootstrap.sh build_native  # Build nargo for acir_tests
     barretenberg/bootstrap.sh ci
+    barretenberg/cpp/bootstrap.sh build_bench
     ;;
 
   #######################

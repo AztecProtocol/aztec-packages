@@ -25,6 +25,7 @@ import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
+import { TopicType } from '@aztec/stdlib/p2p';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -431,6 +432,27 @@ export class P2PNetworkTest {
     );
 
     this.logger.warn('All nodes connected to P2P mesh');
+
+    // Wait for GossipSub mesh to form for the tx topic.
+    // We only require at least 1 mesh peer per node because GossipSub
+    // stops grafting once it reaches Dlo peers and won't fill the mesh to all available peers.
+    this.logger.warn('Waiting for GossipSub mesh to form for tx topic...');
+    await Promise.all(
+      nodes.map(async (node, index) => {
+        const p2p = node.getP2P();
+        await retryUntil(
+          async () => {
+            const meshPeers = await p2p.getGossipMeshPeerCount(TopicType.tx);
+            this.logger.debug(`Node ${index} has ${meshPeers} gossip mesh peers for tx topic`);
+            return meshPeers >= 1 ? true : undefined;
+          },
+          `Node ${index} to have gossip mesh peers for tx topic`,
+          timeoutSeconds,
+          checkIntervalSeconds,
+        );
+      }),
+    );
+    this.logger.warn('All nodes have gossip mesh peers for tx topic');
   }
 
   async teardown() {

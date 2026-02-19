@@ -39,7 +39,6 @@ Additional commands:
 
   init [folder] [options]  creates a new Aztec Noir project.
   new <path> [options]     creates a new Aztec Noir project in a new directory.
-  compile [options]        compiles Aztec Noir contracts.
   test [options]           starts a TXE and runs "nargo test" using it as the oracle resolver.
     `,
     );

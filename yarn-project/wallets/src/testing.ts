@@ -22,6 +22,8 @@ export async function deployFundedSchnorrAccounts(
     const deployMethod = await accountManager.getDeployMethod();
     await deployMethod.send({
       from: AztecAddress.ZERO,
+      // The account constructor initializes storage vars that need the contract's own nullifier key, so we need to add it to scopes.
+      additionalScopes: [accountManager.address],
       skipClassPublication: i !== 0,
       wait: waitOptions,
     });
