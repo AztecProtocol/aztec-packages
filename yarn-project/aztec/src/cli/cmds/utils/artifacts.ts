@@ -1,7 +1,7 @@
 import { readFile, readdir } from 'fs/promises';
 import { join } from 'path';
 
-export interface ContractArtifact {
+export interface CompiledArtifact {
   noir_version: string;
   file_map: unknown;
   functions: ContractFunction[];
@@ -19,7 +19,7 @@ export interface ContractFunction {
 export interface ArtifactFile {
   name: string;
   filePath: string;
-  content: ContractArtifact;
+  content: CompiledArtifact;
 }
 
 /** Reads all JSON artifact files from a target directory and returns their parsed contents. */
@@ -37,7 +37,7 @@ export async function readArtifactFiles(targetDir: string): Promise<ArtifactFile
   const artifacts: ArtifactFile[] = [];
   for (const file of entries) {
     const filePath = join(targetDir, file);
-    const content = JSON.parse(await readFile(filePath, 'utf-8')) as ContractArtifact;
+    const content = JSON.parse(await readFile(filePath, 'utf-8')) as CompiledArtifact;
     artifacts.push({ name: file.replace('.json', ''), filePath, content });
   }
   return artifacts;

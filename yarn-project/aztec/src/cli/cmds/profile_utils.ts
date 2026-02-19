@@ -2,10 +2,8 @@ import { mkdtemp, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import type { ContractArtifact, ContractFunction } from './utils/artifacts.js';
+import type { CompiledArtifact, ContractFunction } from './utils/artifacts.js';
 import { readArtifactFiles } from './utils/artifacts.js';
-
-export type { ContractArtifact, ContractFunction };
 
 export const MAX_CONCURRENT = 4;
 
@@ -46,16 +44,15 @@ export async function discoverArtifacts(
 }
 
 /** Extracts a contract function as a standalone program artifact JSON string. */
-function makeFunctionArtifact(contractArtifact: ContractArtifact, func: ContractFunction) {
+function makeFunctionArtifact(artifact: CompiledArtifact, func: ContractFunction) {
   /* eslint-disable camelcase */
   return JSON.stringify({
-    noir_version: contractArtifact.noir_version,
+    noir_version: artifact.noir_version,
     hash: 0,
     abi: func.abi,
     bytecode: func.bytecode,
     debug_symbols: func.debug_symbols,
-    file_map: contractArtifact.file_map,
-    expression_width: { Bounded: { width: 4 } },
+    file_map: artifact.file_map,
   });
   /* eslint-enable camelcase */
 }
