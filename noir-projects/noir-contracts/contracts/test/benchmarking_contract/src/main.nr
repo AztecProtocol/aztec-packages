@@ -11,7 +11,14 @@ pub contract Benchmarking {
         macros::{functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
         note::note_getter_options::NoteGetterOptions,
-        protocol::address::AztecAddress,
+        oracle::random::random,
+        protocol::{
+            address::{AztecAddress, EthAddress},
+            constants::{
+                MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIERS_PER_CALL,
+                MAX_PRIVATE_LOGS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS,
+            },
+        },
         state_vars::{Map, Owned, PrivateSet, PublicMutable},
     };
     use field_note::FieldNote;
@@ -65,6 +72,40 @@ pub contract Benchmarking {
     // Lightest possible private transaction: empty app circuit, no state changes, no public calls.
     #[external("private")]
     fn noop() {}
+
+    #[external("private")]
+    fn emit_nullifiers() {
+        // Safety: Benchmarking code
+        let random_seed = unsafe { random() };
+        for i in 0..MAX_NULLIFIERS_PER_CALL {
+            self.context.push_nullifier(random_seed + (i as Field));
+        }
+    }
+
+    #[external("private")]
+    fn emit_note_hashes() {
+        for i in 0..MAX_NOTE_HASHES_PER_CALL {
+            self.context.push_note_hash(0xdeadbeef + (i as Field));
+        }
+    }
+
+    #[external("private")]
+    fn emit_l2_to_l1_msgs() {
+        for i in 0..MAX_L2_TO_L1_MSGS_PER_CALL {
+            self.context.message_portal(EthAddress::from_field(i as Field), (i + 1) as Field);
+        }
+    }
+
+    #[external("private")]
+    fn emit_private_logs() {
+        for i in 0..MAX_PRIVATE_LOGS_PER_CALL {
+            let mut log = [0; PRIVATE_LOG_SIZE_IN_FIELDS];
+            for j in 0..PRIVATE_LOG_SIZE_IN_FIELDS {
+                log[i] = 0xdeadbeef + (i * MAX_PRIVATE_LOGS_PER_CALL + j) as Field;
+            }
+            self.context.emit_private_log(log, PRIVATE_LOG_SIZE_IN_FIELDS);
+        }
+    }
 
     // Lightest possible private transaction: empty app circuit, no state changes, no public calls.
     #[external("public")]
