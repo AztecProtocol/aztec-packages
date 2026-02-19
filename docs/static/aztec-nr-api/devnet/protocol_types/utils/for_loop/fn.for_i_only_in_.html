@@ -41,6 +41,24 @@
     assert_max_lte_MAX: <a href="../../../std/primitive.bool.html" class="primitive">bool</a>,
 )</code></pre>
 
+<div class="comments">
+<p>Iterates between loop bounds and conditionally executes a function for min &lt;= i &lt; max,
+where:</p>
+<ul>
+<li><code>min</code> and <code>max</code> are dynamic loop bounds (known only at runtime).</li>
+<li><code>MIN</code> and <code>MAX</code> are static loop bounds (known at compile time).</li>
+</ul>
+<p>MIN ------
+&lt;=<br />
+min ------</p>
+<pre><code>       f_within is executed for min &lt;= i &lt; max    
+</code></pre>
+<p>&lt;=
+max ------
+&lt;=
+MAX ------</p>
+<p>@param f_within: Lambda functions of the form <code>|i| { my_array[i].assert_empty() }</code> (for example) can be specified.</p>
+</div>
 </main>
 </span>
 </body>

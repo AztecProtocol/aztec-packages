@@ -32,9 +32,10 @@
 <p>Converts the input bytes into an array of fields. A Field is ~254 bits meaning that each field can store 31 whole
 bytes. Use <code>bytes_from_fields</code> to obtain the original bytes array.</p>
 <p>The input bytes are chunked into chunks of 31 bytes. Each 31-byte chunk is viewed as big-endian, and is converted
-into a Field.
-For example, [1, 10, 3, ..., 0] (31 bytes) is encoded as [1 * 256^30 + 10 * 256^29 + 3 * 256^28 + ... + 0]
-Note: N must be a multiple of 31 bytes</p>
+into a Field. For example, [1, 10, 3, ..., 0] (31 bytes) is encoded as [1 * 256^30 + 10 * 256^29 + 3 * 256^28 + ...</p>
+<ul>
+<li>0] Note: N must be a multiple of 31 bytes</li>
+</ul>
 </div>
 </main>
 </span>
