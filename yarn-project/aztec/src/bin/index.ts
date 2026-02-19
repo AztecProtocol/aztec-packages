@@ -14,6 +14,7 @@ import { createConsoleLogger, createLogger } from '@aztec/foundation/log';
 
 import { Command } from 'commander';
 
+import { injectCompileCommand } from '../cli/cmds/compile.js';
 import { injectMigrateCommand } from '../cli/cmds/migrate_ha_db.js';
 import { injectAztecCommands } from '../cli/index.js';
 import { getCliVersion } from '../cli/release_version.js';
@@ -47,7 +48,7 @@ async function main() {
 
   const cliVersion = getCliVersion();
   let program = new Command('aztec');
-  program.description('Aztec command line interface').version(cliVersion);
+  program.description('Aztec command line interface').version(cliVersion).enablePositionalOptions();
   program = injectAztecCommands(program, userLog, debugLogger);
   program = injectBuilderCommands(program);
   program = injectContractCommands(program, userLog, debugLogger);
@@ -56,6 +57,7 @@ async function main() {
   program = injectAztecNodeCommands(program, userLog, debugLogger);
   program = injectMiscCommands(program, userLog);
   program = injectValidatorKeysCommands(program, userLog);
+  program = injectCompileCommand(program, userLog);
   program = injectMigrateCommand(program, userLog);
 
   await program.parseAsync(process.argv);

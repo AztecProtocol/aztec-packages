@@ -19,15 +19,17 @@ namespace bb {
  *  C(in(X)...) =
  *      ( z_perm(X) + lagrange_first(X) )*P(X)
  *         - ( z_perm_shift(X) + lagrange_last(X))*Q(X),
- * where P(X) = Prod_{i=0:4} (numerator_polynomial_i(X) + lagrange_masking * β + γ)
- *       Q(X) = Prod_{i=0:4} (ordered_range_constraint_i(X) + lagrange_masking * β + γ)
- * the first 4 numerator polynomials are interleaved range constraint polynomials and the last one is the constant
+ * where P(X) = Prod_{i=0:3} (concatenated_range_constraint_i(X) + lagrange_masking * β + γ)
+ *            * (extra_numerator(X) + lagrange_ordered_masking * β + γ)
+ *       Q(X) = Prod_{i=0:4} (ordered_range_constraint_i(X) + lagrange_ordered_masking * β + γ)
+ * the first 4 numerator polynomials are concatenated range constraint polynomials and the last one is the
  * extra numerator
  *
- * If operating in zero-knowledge, we mark the positions (via the lagrange_masking polynomial) that
- * contain random values. Since the masking values in four interleaved polynomials are distributed across five
- * ordered polynomials, we need to ensure that the values are consistent between the interleaved and ordered sets (even
- * if they are at different indices).
+ * If operating in zero-knowledge, we use two different masking selectors:
+ * - lagrange_masking marks scattered masking positions (last NUM_MASKED_ROWS_END rows of each of 16 blocks)
+ *   in concatenated polynomials
+ * - lagrange_ordered_masking marks contiguous masking positions (last NUM_MASKED_ROWS_END positions at circuit end)
+ *   in ordered polynomials
  *
  * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
  * @param in an std::array containing the fully extended Univariate edges.

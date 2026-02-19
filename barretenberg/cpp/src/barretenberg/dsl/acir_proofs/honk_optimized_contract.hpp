@@ -248,9 +248,9 @@ inline std::string generate_memory_offsets(int log_n)
     }
     for (int i = 0; i < log_n; ++i) {
         for (int j = 0; j < BARYCENTRIC_DOMAIN_SIZE; ++j) {
-            print_fr(bary_pointer,
+            print_fr(pointer,
                      "BARYCENTRIC_DENOMINATOR_INVERSES_" + std::to_string(i) + "_" + std::to_string(j) + "_LOC");
-            bary_pointer += 32;
+            pointer += 32;
         }
     }
     print_header_centered("SUMCHECK - RUNTIME MEMORY - BARYCENTRIC COMPLETE");
@@ -299,55 +299,54 @@ inline std::string generate_memory_offsets(int log_n)
     print_header_centered("SHPLEMINI - RUNTIME MEMORY - INVERSIONS");
 
     // Inverted gemini denominators
-    int inv_pointer = SCRATCH_SPACE_POINTER;
     for (int i = 0; i < log_n + 1; ++i) {
-        print_fr(inv_pointer, "INVERTED_GEMINI_DENOMINATOR_" + std::to_string(i) + "_LOC");
-        inv_pointer += 32;
+        print_fr(pointer, "INVERTED_GEMINI_DENOMINATOR_" + std::to_string(i) + "_LOC");
+        pointer += 32;
     }
 
     // Batched evaluation accumulator inversions
     for (int i = 0; i < log_n; ++i) {
-        print_fr(inv_pointer, "BATCH_EVALUATION_ACCUMULATOR_INVERSION_" + std::to_string(i) + "_LOC");
-        inv_pointer += 32;
+        print_fr(pointer, "BATCH_EVALUATION_ACCUMULATOR_INVERSION_" + std::to_string(i) + "_LOC");
+        pointer += 32;
     }
 
     out << "\n";
-    print_fr(inv_pointer, "BATCHED_EVALUATION_LOC");
-    inv_pointer += 32;
-    print_fr(inv_pointer, "CONSTANT_TERM_ACCUMULATOR_LOC");
-    inv_pointer += 32;
+    print_fr(pointer, "BATCHED_EVALUATION_LOC");
+    pointer += 32;
+    print_fr(pointer, "CONSTANT_TERM_ACCUMULATOR_LOC");
+    pointer += 32;
 
     out << "\n";
-    print_fr(inv_pointer, "POS_INVERTED_DENOMINATOR");
-    inv_pointer += 32;
-    print_fr(inv_pointer, "NEG_INVERTED_DENOMINATOR");
-    inv_pointer += 32;
+    print_fr(pointer, "POS_INVERTED_DENOMINATOR");
+    pointer += 32;
+    print_fr(pointer, "NEG_INVERTED_DENOMINATOR");
+    pointer += 32;
 
     out << "\n";
     out << "// LOG_N challenge pow minus u\n";
     for (int i = 0; i < log_n; ++i) {
-        print_fr(inv_pointer, "INVERTED_CHALLENEGE_POW_MINUS_U_" + std::to_string(i) + "_LOC");
-        inv_pointer += 32;
+        print_fr(pointer, "INVERTED_CHALLENEGE_POW_MINUS_U_" + std::to_string(i) + "_LOC");
+        pointer += 32;
     }
 
     out << "\n";
     out << "// LOG_N pos_inverted_off\n";
     for (int i = 0; i < log_n; ++i) {
-        print_fr(inv_pointer, "POS_INVERTED_DENOM_" + std::to_string(i) + "_LOC");
-        inv_pointer += 32;
+        print_fr(pointer, "POS_INVERTED_DENOM_" + std::to_string(i) + "_LOC");
+        pointer += 32;
     }
 
     out << "\n";
     out << "// LOG_N neg_inverted_off\n";
     for (int i = 0; i < log_n; ++i) {
-        print_fr(inv_pointer, "NEG_INVERTED_DENOM_" + std::to_string(i) + "_LOC");
-        inv_pointer += 32;
+        print_fr(pointer, "NEG_INVERTED_DENOM_" + std::to_string(i) + "_LOC");
+        pointer += 32;
     }
 
     out << "\n";
     for (int i = 0; i < log_n; ++i) {
-        print_fr(inv_pointer, "FOLD_POS_EVALUATIONS_" + std::to_string(i) + "_LOC");
-        inv_pointer += 32;
+        print_fr(pointer, "FOLD_POS_EVALUATIONS_" + std::to_string(i) + "_LOC");
+        pointer += 32;
     }
 
     print_header_centered("SHPLEMINI RUNTIME MEMORY - INVERSIONS - COMPLETE");
@@ -368,7 +367,6 @@ inline std::string generate_memory_offsets(int log_n)
     // Scratch space aliases
     out << "\n";
     out << "// Aliases for scratch space\n";
-    out << "// TODO: work out the stack scheduling for these\n";
     print_fr(0x00, "CHALL_POW_LOC");
     print_fr(0x20, "SUMCHECK_U_LOC");
     print_fr(0x40, "GEMINI_A_LOC");
@@ -840,7 +838,6 @@ contract HonkVerifier is IVerifier {
 
                 mcopy(0x20, LOOKUP_INVERSES_X_LOC, 0x80)
 
-                // Generate single alpha challenge and compute its powers
                 prev_challenge := mod(keccak256(0x00, 0xa0), p)
                 mstore(0x00, prev_challenge)
                 let alpha := and(prev_challenge, LOWER_127_MASK)
@@ -1315,7 +1312,7 @@ contract HonkVerifier is IVerifier {
 
                         // Normalise as last loop will have incremented the offset
                         bary_centric_inverses_off := sub(bary_centric_inverses_off, 0x20)
-                        for {} gt(bary_centric_inverses_off, BARYCENTRIC_LAGRANGE_DENOMINATOR_7_LOC) {
+                        for {} gt(bary_centric_inverses_off, SUM_U_CHALLENGE_{{ LOG_N_MINUS_ONE }}) {
                             bary_centric_inverses_off := sub(bary_centric_inverses_off, 0x20)
                         } {
                             let tmp := mulmod(accumulator, mload(temp), p)

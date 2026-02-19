@@ -9,7 +9,6 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/claim_batcher.hpp"
 #include "barretenberg/common/bb_bench.hpp"
-#include "barretenberg/common/thread.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -114,11 +113,11 @@ template <typename Curve> class GeminiProver_ {
      * protocol
      * @details Opening multivariate polynomials using Gemini requires the computation of batched polynomials.
      * The first, here denoted A₀, is a linear combination of all polynomials to be opened. If we denote the linear
-     * combinations (based on challenge rho) of the unshifted and to-be-shifted-by-1 polynomials by F and G
-     * respectively, then A₀ = F + G/X. This polynomial is "folded" in Gemini to produce d-1 univariate polynomials
+     * combinations (based on challenge rho) of the unshifted and to-be-shifted polynomials by F and G
+     * respectively, then A₀ = F + G/X^k. This polynomial is "folded" in Gemini to produce d-1 univariate polynomials
      * Fold_i, i = 1, ..., d-1. The second and third are the partially evaluated batched polynomials
-     * A₀₊ = F + G/r, and A₀₋ = F - G/r. These are required in order to prove the opening of shifted polynomials
-     * G_i/X from the commitments to their unshifted counterparts G_i.
+     * A₀₊ = F + G/r^k, and A₀₋ = F + (-1)^k · G/r^k. These are required in order to prove the opening of shifted
+     * polynomials G_i/X^k from the commitments to their unshifted counterparts G_i.
      * @note TODO(https://github.com/AztecProtocol/barretenberg/issues/1223): There are certain operations herein
      * that could be made more efficient by e.g. reusing already initialized polynomials, possibly at the expense of
      * clarity.
@@ -130,10 +129,6 @@ template <typename Curve> class GeminiProver_ {
 
         Polynomial batched_unshifted;     // linear combination of unshifted polynomials
         Polynomial batched_to_be_shifted; // linear combination of to-be-shifted polynomials
-        Polynomial batched_interleaved;   // linear combination of interleaved polynomials
-        // linear combination of the groups to be interleaved where polynomial i in the batched group is obtained by
-        // linearly combining the i-th polynomial in each group
-        std::vector<Polynomial> batched_group;
 
         // Groups of component polynomials to be interleaved before batching.
         // Each group has shift_exponent component polynomials (some may be nullptr).
@@ -144,10 +139,8 @@ template <typename Curve> class GeminiProver_ {
         std::vector<PolyGroup> shifted_interleaved_groups;
 
       public:
-        RefVector<Polynomial> unshifted;                             // set of unshifted polynomials
-        RefVector<Polynomial> to_be_shifted;                         // set of polynomials to be left shifted by 1
-        RefVector<Polynomial> interleaved;                           // the interleaved polynomials used in Translator
-        std::vector<RefVector<Polynomial>> groups_to_be_interleaved; // groups of polynomials to be interleaved
+        RefVector<Polynomial> unshifted;     // set of unshifted polynomials
+        RefVector<Polynomial> to_be_shifted; // set of polynomials to be left shifted by shift_exponent
 
         PolynomialBatcher(const size_t full_batched_size, size_t shift_exponent = 1)
             : full_batched_size(full_batched_size)
@@ -158,7 +151,6 @@ template <typename Curve> class GeminiProver_ {
 
         bool has_unshifted() const { return unshifted.size() > 0; }
         bool has_to_be_shifted() const { return to_be_shifted.size() > 0; }
-        bool has_interleaved() const { return interleaved.size() > 0; }
         bool has_unshifted_interleaved_groups() const { return !unshifted_interleaved_groups.empty(); }
         bool has_shifted_interleaved_groups() const { return !shifted_interleaved_groups.empty(); }
 
@@ -178,16 +170,6 @@ template <typename Curve> class GeminiProver_ {
         void set_shifted_interleaved_groups(std::vector<PolyGroup> groups)
         {
             shifted_interleaved_groups = std::move(groups);
-        }
-
-        void set_interleaved(RefVector<Polynomial> results, std::vector<RefVector<Polynomial>> groups)
-        {
-            // Ensure the Gemini subprotocol for interleaved polynomials operates correctly
-            if (groups[0].size() % 2 != 0) {
-                throw_or_abort("Group size must be even ");
-            }
-            interleaved = results;
-            groups_to_be_interleaved = groups;
         }
 
         /**
@@ -278,27 +260,6 @@ template <typename Curve> class GeminiProver_ {
                 full_batched += batched_to_be_shifted.shifted(shift_exponent);
             }
 
-            // compute the linear combination of the interleaved polynomials and groups
-            if (has_interleaved()) {
-                batched_interleaved = Polynomial(full_batched_size);
-                for (size_t i = 0; i < groups_to_be_interleaved[0].size(); ++i) {
-                    batched_group.push_back(Polynomial(full_batched_size));
-                }
-
-                for (size_t i = 0; i < groups_to_be_interleaved.size(); ++i) {
-                    batched_interleaved.add_scaled(interleaved[i], running_scalar);
-                    // Use parallel chunking for the batching operations
-                    parallel_for([this, running_scalar, i](const ThreadChunk& chunk) {
-                        for (size_t j = 0; j < groups_to_be_interleaved[0].size(); ++j) {
-                            batched_group[j].add_scaled_chunk(chunk, groups_to_be_interleaved[i][j], running_scalar);
-                        }
-                    });
-                    running_scalar *= challenge;
-                }
-
-                full_batched += batched_interleaved;
-            }
-
             return full_batched;
         }
 
@@ -342,50 +303,12 @@ template <typename Curve> class GeminiProver_ {
 
             return { A_0_pos, A_0_neg };
         };
-        /**
-         * @brief Compute the partially evaluated polynomials P₊(X, r) and P₋(X, -r)
-         *
-         * @details If the interleaved polynomials are set, the full partially evaluated identites A₀(r) and  A₀(-r)
-         * contain the contributions of P₊(r^s) and  P₋(r^s) respectively where s is the size of the interleaved
-         * group assumed even. This function computes P₊(X) = ∑ r^i Pᵢ(X) and P₋(X) = ∑ (-r)^i Pᵢ(X) where Pᵢ(X) is
-         * the i-th polynomial in the batched group.
-         * @param r_challenge partial evaluation challenge
-         * @return std::pair<Polynomial, Polynomial> {P₊, P₋}
-         */
-
-        std::pair<Polynomial, Polynomial> compute_partially_evaluated_interleaved_polynomial(const Fr& r_challenge)
-        {
-            Polynomial P_pos(batched_group[0]);
-            Polynomial P_neg(batched_group[0]);
-
-            Fr current_r_shift_pos = r_challenge;
-            Fr current_r_shift_neg = -r_challenge;
-            for (size_t i = 1; i < batched_group.size(); i++) {
-                // Add r^i * Pᵢ(X) to P₊(X)
-                P_pos.add_scaled(batched_group[i], current_r_shift_pos);
-                // Add (-r)^i * Pᵢ(X) to P₋(X)
-                P_neg.add_scaled(batched_group[i], current_r_shift_neg);
-                // Update the current power of r
-                current_r_shift_pos *= r_challenge;
-                current_r_shift_neg *= -r_challenge;
-            }
-
-            return { P_pos, P_neg };
-        }
-
-        size_t get_group_size() { return batched_group.size(); }
     };
 
     static std::vector<Polynomial> compute_fold_polynomials(const size_t log_n,
                                                             std::span<const Fr> multilinear_challenge,
                                                             const Polynomial& A_0,
                                                             const bool& has_zk = false);
-
-    static std::pair<Polynomial, Polynomial> compute_partially_evaluated_batch_polynomials(
-        const size_t log_n,
-        PolynomialBatcher& polynomial_batcher,
-        const Fr& r_challenge,
-        const std::vector<Polynomial>& batched_groups_to_be_concatenated = {});
 
     static std::vector<Claim> construct_univariate_opening_claims(const size_t log_n,
                                                                   Polynomial&& A_0_pos,
@@ -468,9 +391,6 @@ template <typename Curve> class GeminiVerifier_ {
      * \frac{2 \cdot r^{2^{l-1}} \cdot A_{l}\left(r^{2^l}\right) - A_{l-1}\left( -r^{2^{l-1}} \right)\cdot
      * \left(r^{2^{l-1}} (1-u_{l-1}) - u_{l-1}\right)} {r^{2^{l-1}} (1- u_{l-1}) + u_{l-1}}. \f}
      *
-     * In the case of interleaving, the first "negative" evaluation has to be corrected by the contribution from \f$
-     * P_{-}(-r^s)\f$, where \f$ s \f$ is the size of the group to be interleaved.
-     *
      * This method uses `padding_indicator_array`, whose i-th entry is FF{1} if i < log_n and 0 otherwise.
      * We use these entries to either assign `eval_pos_prev` the value `eval_pos` computed in the current iteration
      * of the loop, or to propagate the batched evaluation of the multilinear polynomials to the next iteration.
@@ -491,8 +411,7 @@ template <typename Curve> class GeminiVerifier_ {
                                                         const Fr& batched_evaluation,
                                                         std::span<const Fr> evaluation_point, // size = virtual_log_n
                                                         std::span<const Fr> challenge_powers, // size = virtual_log_n
-                                                        std::span<const Fr> fold_neg_evals,   // size = virtual_log_n
-                                                        Fr p_neg = Fr(0))
+                                                        std::span<const Fr> fold_neg_evals)   // size = virtual_log_n
     {
         const size_t virtual_log_n = evaluation_point.size();
 
@@ -503,8 +422,6 @@ template <typename Curve> class GeminiVerifier_ {
         std::vector<Fr> fold_pos_evaluations;
         fold_pos_evaluations.reserve(virtual_log_n);
 
-        // Add the contribution of P-((-r)ˢ) to get A_0(-r), which is 0 if there are no interleaved polynomials
-        evals[0] += p_neg;
         // Solve the sequence of linear equations
         for (size_t l = virtual_log_n; l != 0; --l) {
             // Get r²⁽ˡ⁻¹⁾

@@ -1,0 +1,107 @@
+import type { LogFn } from '@aztec/foundation/log';
+
+import { execFileSync, spawn } from 'child_process';
+import type { Command } from 'commander';
+import { readFile, readdir, writeFile } from 'fs/promises';
+import { join } from 'path';
+
+/** Spawns a command with inherited stdio and rejects on non-zero exit. */
+function run(cmd: string, args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, { stdio: 'inherit' });
+    child.on('error', reject);
+    child.on('close', code => {
+      if (code !== 0) {
+        reject(new Error(`${cmd} exited with code ${code}`));
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
+/** Returns paths to contract artifacts in the target directory.
+ *  Contract artifacts are identified by having a `functions` array in the JSON.
+ */
+async function collectContractArtifacts(): Promise<string[]> {
+  let files: string[];
+  try {
+    files = await readdir('target');
+  } catch (err: any) {
+    if (err?.code === 'ENOENT') {
+      return [];
+    }
+    throw new Error(`Failed to read target directory: ${err.message}`);
+  }
+
+  const artifacts: string[] = [];
+  for (const file of files) {
+    if (!file.endsWith('.json')) {
+      continue;
+    }
+    const filePath = join('target', file);
+    const content = JSON.parse(await readFile(filePath, 'utf-8'));
+    if (Array.isArray(content.functions)) {
+      artifacts.push(filePath);
+    }
+  }
+  return artifacts;
+}
+
+/** Strips the `__aztec_nr_internals__` prefix from function names in contract artifacts. */
+async function stripInternalPrefixes(artifactPaths: string[]): Promise<void> {
+  for (const path of artifactPaths) {
+    const artifact = JSON.parse(await readFile(path, 'utf-8'));
+    for (const fn of artifact.functions) {
+      if (typeof fn.name === 'string') {
+        fn.name = fn.name.replace(/^__aztec_nr_internals__/, '');
+      }
+    }
+    await writeFile(path, JSON.stringify(artifact, null, 2) + '\n');
+  }
+}
+
+/** Compiles Aztec Noir contracts and postprocesses artifacts. */
+async function compileAztecContract(nargoArgs: string[], log: LogFn): Promise<void> {
+  const nargo = process.env.NARGO ?? 'nargo';
+  const bb = process.env.BB ?? 'bb';
+
+  await run(nargo, ['compile', ...nargoArgs]);
+
+  const artifacts = await collectContractArtifacts();
+
+  if (artifacts.length > 0) {
+    log('Postprocessing contracts...');
+    const bbArgs = artifacts.flatMap(a => ['-i', a]);
+    await run(bb, ['aztec_process', ...bbArgs]);
+
+    // TODO: This should be part of bb aztec_process!
+    await stripInternalPrefixes(artifacts);
+  }
+
+  log('Compilation complete!');
+}
+
+export function injectCompileCommand(program: Command, log: LogFn): Command {
+  program
+    .command('compile')
+    .argument('[nargo-args...]')
+    .passThroughOptions()
+    .allowUnknownOption()
+    .description(
+      'Compile Aztec Noir contracts using nargo and postprocess them to generate transpiled artifacts and verification keys. All options are forwarded to nargo compile.',
+    )
+    .addHelpText('after', () => {
+      // Show nargo's own compile options so users see all available flags in one place.
+      const nargo = process.env.NARGO ?? 'nargo';
+      try {
+        const output = execFileSync(nargo, ['compile', '--help'], { encoding: 'utf-8' });
+        return `\nUnderlying nargo compile options:\n\n${output}`;
+      } catch {
+        return '\n(Run "nargo compile --help" to see available nargo options)';
+      }
+    })
+    .action((nargoArgs: string[]) => compileAztecContract(nargoArgs, log));
+
+  return program;
+}

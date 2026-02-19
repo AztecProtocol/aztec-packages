@@ -25,8 +25,9 @@ export async function mintTokensToPrivate(
   minter: AztecAddress,
   recipient: AztecAddress,
   amount: bigint,
+  additionalScopes?: AztecAddress[],
 ) {
-  await token.methods.mint_to_private(recipient, amount).send({ from: minter });
+  await token.methods.mint_to_private(recipient, amount).send({ from: minter, additionalScopes });
 }
 
 export async function expectTokenBalance(
