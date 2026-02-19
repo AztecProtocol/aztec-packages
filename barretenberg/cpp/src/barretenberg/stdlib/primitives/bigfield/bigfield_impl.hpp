@@ -1862,6 +1862,56 @@ void bigfield<Builder, T>::assert_less_than(const uint256_t& upper_limit, std::s
     unsafe_assert_less_than(upper_limit, is_default_msg ? "bigfield::unsafe_assert_less_than" : msg);
 }
 
+// Return (a < b) as bool circuit type.
+template <typename Builder, typename T>
+bool_t<Builder> bigfield<Builder, T>::is_less_than(const uint256_t& upper_limit, std::string const& msg) const
+{
+    bool is_default_msg = msg == "bigfield::is_less_than";
+
+    Builder* ctx = get_context();
+
+    // Range constraint the limbs, this is required by the ranged_less_than function
+    ctx->range_constrain_two_limbs(binary_basis_limbs[0].element.get_witness_index(),
+                                   binary_basis_limbs[1].element.get_witness_index(),
+                                   static_cast<size_t>(NUM_LIMB_BITS),
+                                   static_cast<size_t>(NUM_LIMB_BITS),
+                                   is_default_msg ? "bigfield::is_less_than: limb 0 or 1 too large" : msg);
+
+    ctx->range_constrain_two_limbs(binary_basis_limbs[2].element.get_witness_index(),
+                                   binary_basis_limbs[3].element.get_witness_index(),
+                                   static_cast<size_t>(NUM_LIMB_BITS),
+                                   static_cast<size_t>(NUM_LIMB_BITS),
+                                   is_default_msg ? "bigfield::is_less_than: limb 2 or 3 too large" : msg);
+
+    const uint256_t upper_limit_value_0 = upper_limit.slice(0, NUM_LIMB_BITS);
+    const uint256_t upper_limit_value_1 = upper_limit.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2);
+    const uint256_t upper_limit_value_2 = upper_limit.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3);
+    const uint256_t upper_limit_value_3 = upper_limit.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4);
+
+    bool_t<Builder> third_limb_is_smaller =
+        binary_basis_limbs[3].element.template ranged_less_than<NUM_LIMB_BITS>(field_t<Builder>(upper_limit_value_3));
+    bool_t<Builder> third_limb_is_equal = binary_basis_limbs[3].element == field_t<Builder>(upper_limit_value_3);
+
+    bool_t<Builder> second_limb_is_smaller =
+        binary_basis_limbs[2].element.template ranged_less_than<NUM_LIMB_BITS>(field_t<Builder>(upper_limit_value_2));
+    bool_t<Builder> second_limb_is_equal = binary_basis_limbs[2].element == field_t<Builder>(upper_limit_value_2);
+
+    bool_t<Builder> first_limb_is_smaller =
+        binary_basis_limbs[1].element.template ranged_less_than<NUM_LIMB_BITS>(field_t<Builder>(upper_limit_value_1));
+    bool_t<Builder> first_limb_is_equal = binary_basis_limbs[1].element == field_t<Builder>(upper_limit_value_1);
+
+    bool_t<Builder> zeroth_limb_is_smaller =
+        binary_basis_limbs[0].element.template ranged_less_than<NUM_LIMB_BITS>(field_t<Builder>(upper_limit_value_0));
+
+    // Limb comparison: we start from the most-significant limb and proceed to the least-significant limb
+    bool_t<Builder> result =
+        third_limb_is_smaller || (third_limb_is_equal && second_limb_is_smaller) ||
+        (third_limb_is_equal && second_limb_is_equal && first_limb_is_smaller) ||
+        (third_limb_is_equal && second_limb_is_equal && first_limb_is_equal && zeroth_limb_is_smaller);
+
+    return result;
+}
+
 // Reduces the element mod p. This is a strict reduction mod p, so the output is guaranteed to be < p.
 template <typename Builder, typename T> void bigfield<Builder, T>::reduce_mod_target_modulus() const
 {
