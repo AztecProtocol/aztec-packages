@@ -49,7 +49,7 @@ template <bool IsRecursive> class ChonkVerifier {
         std::conditional_t<IsRecursive,
                            MultiMegaVerifier_<MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
                                               stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>,
-                           MultiMegaVerifier_<MultiMegaZKFlavor, HidingKernelIO>>;
+                           MultiMegaVerifier_<MultiMegaZKFlavor, bb::HidingKernelIO>>;
     using GoblinVerifier = std::conditional_t<IsRecursive, bb::GoblinRecursiveVerifier, bb::GoblinVerifier>;
     using Transcript = typename GoblinVerifier::Transcript;
     using GoblinReductionResult = typename GoblinVerifier::ReductionResult;
