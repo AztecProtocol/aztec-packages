@@ -31,7 +31,7 @@ pub contract Test {
         protocol::{
             abis::function_selector::FunctionSelector,
             address::{AztecAddress, EthAddress},
-            constants::PRIVATE_LOG_SIZE_IN_FIELDS,
+            constants::{PRIVATE_LOG_SIZE_IN_FIELDS, MAX_PUBLIC_LOG_SIZE_IN_FIELDS},
             traits::{Hash, Packable, Serialize},
         },
         // Event related
@@ -353,6 +353,12 @@ pub contract Test {
         self.context.emit_public_log(/*message=*/ value);
         self.context.emit_public_log(/*message=*/ [10, 20, 30]);
         self.context.emit_public_log(/*message=*/ "Hello, world!");
+    }
+
+    #[external("public")]
+    fn emit_full_size_public_log(value_offset: Field) {
+        let log_fields = [0; MAX_PUBLIC_LOG_SIZE_IN_FIELDS].mapi(|i, _| value_offset + i as Field);
+        self.context.emit_public_log(log_fields);
     }
 
     #[external("private")]
