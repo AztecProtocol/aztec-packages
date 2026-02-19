@@ -28,7 +28,7 @@ export interface ResolveAdminApiKeyOptions {
   /** SHA-256 hex hash of a pre-generated API key. When set, the node uses this hash directly. */
   adminApiKeyHash?: string;
   /** If true, disable admin API key auth entirely. */
-  noAdminApiKey?: boolean;
+  disableAdminApiKey?: boolean;
   /** If true, force-generate a new key even if one is already persisted. */
   resetAdminApiKey?: boolean;
   /** Root data directory for persistent storage. */
@@ -39,7 +39,7 @@ export interface ResolveAdminApiKeyOptions {
  * Resolves the admin API key for the admin RPC endpoint.
  *
  * Strategy:
- * 1. If opt-out flag is set (`noAdminApiKey`), return undefined (no auth).
+ * 1. If opt-out flag is set (`disableAdminApiKey`), return undefined (no auth).
  * 2. If a pre-generated hash is provided (`adminApiKeyHash`), use it directly.
  * 3. If a data directory exists, look for a persisted hash file
  *    at `<dataDirectory>/admin/api_key_hash`:
@@ -58,8 +58,8 @@ export async function resolveAdminApiKey(
   log: Logger,
 ): Promise<AdminApiKeyResolution | undefined> {
   // Operator explicitly opted out of admin auth
-  if (options.noAdminApiKey) {
-    log.warn('Admin API key authentication is DISABLED (--no-admin-api-key / AZTEC_NO_ADMIN_API_KEY)');
+  if (options.disableAdminApiKey) {
+    log.warn('Admin API key authentication is DISABLED (--disable-admin-api-key / AZTEC_DISABLE_ADMIN_API_KEY)');
     return undefined;
   }
 
