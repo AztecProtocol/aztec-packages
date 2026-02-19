@@ -60,10 +60,6 @@ template <IsMultiMegaFlavor Flavor_> class MultiMegaProver_ {
 
     ZKData zk_sumcheck_data;
 
-    // Pre-batched polynomials (ψ batching): kept alive for PolynomialBatcher reference
-    Polynomial batched_unshifted;
-    Polynomial batched_to_be_shifted;
-
     MultiMegaProver_(const std::shared_ptr<ProverInstance>&, const std::shared_ptr<HonkVK>&, const CommitmentKey&);
 
     explicit MultiMegaProver_(const std::shared_ptr<ProverInstance>&,
@@ -77,9 +73,6 @@ template <IsMultiMegaFlavor Flavor_> class MultiMegaProver_ {
     explicit MultiMegaProver_(Builder&&, const std::shared_ptr<HonkVK>&);
 
     void generate_gate_challenges();
-
-    void execute_sumcheck_iop();
-    void execute_pcs();
 
     Proof export_proof();
     Proof construct_proof();
