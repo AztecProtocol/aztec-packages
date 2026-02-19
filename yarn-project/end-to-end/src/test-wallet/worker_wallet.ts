@@ -8,6 +8,7 @@ import type {
   ContractClassMetadata,
   ContractMetadata,
   ExecuteUtilityOptions,
+  IncomingOffchainMessage,
   PrivateEvent,
   PrivateEventFilter,
   ProfileOptions,
@@ -155,6 +156,10 @@ export class WorkerWallet implements Wallet {
 
   batch<const T extends readonly BatchedMethod[]>(methods: T): Promise<BatchResults<T>> {
     return this.call('batch', methods);
+  }
+
+  ingestOffchainMessages(messages: IncomingOffchainMessage[]): Promise<void> {
+    return this.call('ingestOffchainMessages', messages);
   }
 
   /** Shuts down the worker thread and closes the transport. */
