@@ -520,8 +520,17 @@ function release {
     )
   fi
 
+  # Non-fatal projects: failure logs a warning but doesn't block the release.
+  local non_fatal_projects=(barretenberg/rust)
+
   for project in "${projects[@]}"; do
-    $project/bootstrap.sh release
+    if [[ " ${non_fatal_projects[*]} " == *" $project "* ]]; then
+      if ! $project/bootstrap.sh release; then
+        echo "WARNING: $project release failed (non-fatal, continuing)"
+      fi
+    else
+      $project/bootstrap.sh release
+    fi
   done
 }
 
