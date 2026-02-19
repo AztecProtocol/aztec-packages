@@ -1817,6 +1817,58 @@ describe('TxPoolV2', () => {
       expect(await pool.getTxStatus(txMined.getTxHash())).toBe('deleted');
       expectRemovedTxs(txMined); // txMined deleted
     });
+
+    it('evicts low priority txs after chain prune when pool exceeds limit', async () => {
+      const txLow = await mockTxWithFee(1, 1);
+      const txMed = await mockTxWithFee(2, 5);
+      const txHigh = await mockTxWithFee(3, 10);
+
+      // Add all 3 txs (no pool limit by default)
+      await pool.addPendingTxs([txLow, txMed, txHigh]);
+      expectAddedTxs(txLow, txMed, txHigh);
+      expect(await pool.getPendingTxCount()).toBe(3);
+
+      // Mine all three
+      await pool.handleMinedBlock(makeBlock([txLow, txMed, txHigh], slot1Header));
+      expectNoCallbacks();
+      expect(await pool.getPendingTxCount()).toBe(0);
+
+      // Now set pool limit to 2
+      await pool.updateConfig({ maxPendingTxCount: 2 });
+
+      // Prune - all 3 txs return to pending, but pool limit is 2
+      await pool.handlePrunedBlocks(block0Id);
+
+      // Lowest priority tx should be evicted
+      const pending = toStrings(await pool.getPendingTxHashes());
+      expect(pending).toHaveLength(2);
+      expect(pending).toContain(hashOf(txMed));
+      expect(pending).toContain(hashOf(txHigh));
+      expect(await pool.getTxStatus(txLow.getTxHash())).toBe('deleted');
+    });
+
+    it('does not evict txs after chain prune when pool is within limit', async () => {
+      const tx1 = await mockTxWithFee(1, 1);
+      const tx2 = await mockTxWithFee(2, 2);
+
+      await pool.addPendingTxs([tx1, tx2]);
+      expectAddedTxs(tx1, tx2);
+      expect(await pool.getPendingTxCount()).toBe(2);
+
+      // Mine both
+      await pool.handleMinedBlock(makeBlock([tx1, tx2], slot1Header));
+      expectNoCallbacks();
+
+      // Set limit to 3 (above what will be restored)
+      await pool.updateConfig({ maxPendingTxCount: 3 });
+
+      // Prune - both txs return to pending, under the limit
+      await pool.handlePrunedBlocks(block0Id);
+
+      expect(await pool.getPendingTxCount()).toBe(2);
+      expect(await pool.getTxStatus(tx1.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx2.getTxHash())).toBe('pending');
+    });
   });
 
   describe('validation during restore', () => {
