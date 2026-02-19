@@ -42,6 +42,7 @@ def _init():
     try:
         db.get_db()
         metrics.start_test_listener(r)
+        metrics.start_phase_listener(r)
         metrics.start_ci_run_sync(r)
         github_data.start_merge_queue_poller()
         print("[ci-metrics] Background threads started")
@@ -809,6 +810,19 @@ def api_flakes_by_command():
     dashboard = request.args.get('dashboard', '')
     metrics.sync_failed_tests_to_sqlite(r)
     return _json(metrics.get_flakes_by_command(date_from, date_to, dashboard))
+
+
+# ---- CI Phase timing ----
+
+@app.route('/api/ci/phases')
+@auth.login_required
+def api_ci_phases():
+    """CI phase timing breakdown: avg time per phase, by date, and per run."""
+    date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
+    date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
+    dashboard = request.args.get('dashboard', '')
+    run_id = request.args.get('run_id', '')
+    return _json(metrics.get_phases(date_from, date_to, dashboard, run_id))
 
 
 # ---- Test timings ----

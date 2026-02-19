@@ -234,6 +234,129 @@ def start_test_listener(redis_conn):
     return t
 
 
+# ---- CI Phase timing listener ----
+
+def _handle_phase_event(data: dict):
+    """Insert a CI phase timing event into SQLite."""
+    db.execute('''
+        INSERT INTO ci_phases
+        (phase, duration_secs, exit_code, run_id, job_id, dashboard,
+         ref_name, commit_hash, timestamp)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (
+        data.get('phase', ''),
+        data.get('duration_secs', 0),
+        data.get('exit_code'),
+        data.get('run_id', ''),
+        data.get('job_id', ''),
+        data.get('dashboard', ''),
+        data.get('ref_name', ''),
+        data.get('commit_hash', ''),
+        datetime.now(timezone.utc).isoformat(),
+    ))
+
+
+def start_phase_listener(redis_conn):
+    """Subscribe to ci:phase:complete and store in ci_phases table."""
+    def listener():
+        backoff = 1
+        while True:
+            try:
+                pubsub = redis_conn.pubsub()
+                pubsub.subscribe(b'ci:phase:complete')
+                backoff = 1
+                for message in pubsub.listen():
+                    if message['type'] != 'message':
+                        continue
+                    try:
+                        payload = message['data']
+                        if isinstance(payload, bytes):
+                            payload = payload.decode()
+                        _handle_phase_event(json.loads(payload))
+                    except Exception as e:
+                        print(f"[rk_metrics] Error parsing phase event: {e}")
+            except Exception as e:
+                print(f"[rk_metrics] Phase listener error (reconnecting in {backoff}s): {e}")
+                time.sleep(backoff)
+                backoff = min(backoff * 2, 60)
+
+    t = threading.Thread(target=listener, daemon=True, name='phase-listener')
+    t.start()
+    return t
+
+
+def get_phases(date_from: str, date_to: str, dashboard: str = '',
+               run_id: str = '') -> dict:
+    """Query CI phase timing data for the API."""
+    conditions = ['timestamp >= ?', 'timestamp < ?']
+    params: list = [date_from, date_to + 'T23:59:59']
+    if dashboard:
+        conditions.append('dashboard = ?')
+        params.append(dashboard)
+    if run_id:
+        conditions.append('run_id = ?')
+        params.append(run_id)
+    where = 'WHERE ' + ' AND '.join(conditions)
+
+    # Aggregate by phase name
+    by_phase = db.query(f'''
+        SELECT phase,
+               COUNT(*) as count,
+               ROUND(AVG(duration_secs), 1) as avg_secs,
+               ROUND(MIN(duration_secs), 1) as min_secs,
+               ROUND(MAX(duration_secs), 1) as max_secs,
+               ROUND(SUM(duration_secs), 0) as total_secs
+        FROM ci_phases {where}
+        GROUP BY phase
+        ORDER BY total_secs DESC
+    ''', params)
+
+    # Aggregate by date: avg duration per phase per day
+    date_rows = db.query(f'''
+        SELECT substr(timestamp, 1, 10) as date, phase,
+               ROUND(AVG(duration_secs), 1) as avg_secs,
+               COUNT(*) as count
+        FROM ci_phases {where}
+        GROUP BY date, phase
+        ORDER BY date
+    ''', params)
+    by_date: dict[str, dict] = {}
+    for row in date_rows:
+        d = row['date']
+        if d not in by_date:
+            by_date[d] = {'date': d, 'phases': {}}
+        by_date[d]['phases'][row['phase']] = row['avg_secs']
+
+    # Recent individual runs with their phases
+    recent_runs = db.query(f'''
+        SELECT run_id, job_id, dashboard, ref_name, commit_hash,
+               phase, duration_secs, exit_code, timestamp
+        FROM ci_phases {where}
+        ORDER BY timestamp DESC
+        LIMIT 500
+    ''', params)
+    runs_map: dict[str, dict] = {}
+    for row in recent_runs:
+        rid = row['run_id'] or row['timestamp']
+        if rid not in runs_map:
+            runs_map[rid] = {
+                'run_id': row['run_id'], 'job_id': row['job_id'],
+                'dashboard': row['dashboard'], 'ref_name': row['ref_name'],
+                'commit_hash': row['commit_hash'], 'phases': [],
+            }
+        runs_map[rid]['phases'].append({
+            'phase': row['phase'],
+            'duration_secs': row['duration_secs'],
+            'exit_code': row['exit_code'],
+        })
+
+    return {
+        'by_phase': by_phase,
+        'by_date': list(by_date.values()),
+        'recent_runs': list(runs_map.values())[:50],
+    }
+
+
 # ---- Sync failed_tests_{section} lists from Redis into SQLite ----
 
 _ANSI_STRIP = re.compile(r'\x1b\[[^m]*m|\x1b\]8;;[^\x07]*\x07')
