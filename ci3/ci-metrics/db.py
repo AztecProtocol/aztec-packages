@@ -35,6 +35,7 @@ CREATE INDEX IF NOT EXISTS idx_test_events_status ON test_events(status);
 CREATE INDEX IF NOT EXISTS idx_test_events_ts ON test_events(timestamp);
 CREATE INDEX IF NOT EXISTS idx_test_events_cmd ON test_events(test_cmd);
 CREATE INDEX IF NOT EXISTS idx_test_events_dashboard ON test_events(dashboard);
+CREATE INDEX IF NOT EXISTS idx_test_events_status_ts ON test_events(status, timestamp);
 
 CREATE TABLE IF NOT EXISTS merge_queue_daily (
     date           TEXT PRIMARY KEY,
@@ -77,6 +78,39 @@ CREATE TABLE IF NOT EXISTS test_daily_stats (
 );
 CREATE INDEX IF NOT EXISTS idx_tds_date ON test_daily_stats(date);
 CREATE INDEX IF NOT EXISTS idx_tds_dashboard ON test_daily_stats(dashboard);
+
+CREATE TABLE IF NOT EXISTS merge_queue_snapshots (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp      TEXT NOT NULL,
+    depth          INTEGER NOT NULL,
+    entries_json   TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_mqs_ts ON merge_queue_snapshots(timestamp);
+
+CREATE TABLE IF NOT EXISTS ci_run_daily_stats (
+    date          TEXT NOT NULL,
+    dashboard     TEXT NOT NULL,
+    run_count     INTEGER NOT NULL DEFAULT 0,
+    passed        INTEGER NOT NULL DEFAULT 0,
+    failed        INTEGER NOT NULL DEFAULT 0,
+    sum_duration  REAL NOT NULL DEFAULT 0,
+    min_duration  REAL,
+    max_duration  REAL,
+    p50_duration  REAL,
+    p95_duration  REAL,
+    PRIMARY KEY (date, dashboard)
+);
+CREATE INDEX IF NOT EXISTS idx_crds_date ON ci_run_daily_stats(date);
+
+CREATE TABLE IF NOT EXISTS pr_authors (
+    pr_number     INTEGER PRIMARY KEY,
+    author        TEXT NOT NULL,
+    title         TEXT NOT NULL DEFAULT '',
+    branch        TEXT NOT NULL DEFAULT '',
+    additions     INTEGER DEFAULT 0,
+    deletions     INTEGER DEFAULT 0,
+    fetched_at    TEXT NOT NULL
+);
 """
 
 
@@ -86,6 +120,11 @@ _MIGRATIONS = [
     "ALTER TABLE ci_runs ADD COLUMN job_id TEXT DEFAULT ''",
     "ALTER TABLE ci_runs ADD COLUMN arch TEXT DEFAULT ''",
     "CREATE INDEX IF NOT EXISTS idx_ci_runs_dashboard ON ci_runs(dashboard)",
+    "ALTER TABLE test_events ADD COLUMN test_hash TEXT",
+    "CREATE INDEX IF NOT EXISTS idx_test_events_hash ON test_events(test_hash)",
+    "ALTER TABLE merge_queue_daily ADD COLUMN avg_depth REAL",
+    "ALTER TABLE merge_queue_daily ADD COLUMN peak_depth INTEGER",
+    "CREATE INDEX IF NOT EXISTS idx_test_events_duration_ts ON test_events(timestamp) WHERE duration_secs IS NOT NULL AND duration_secs > 0",
 ]
 
 

@@ -54,6 +54,8 @@ SERVICE_CATEGORY_MAP = {
     # Messaging
     'Amazon Simple Notification Service': 'sns',
     'Amazon Simple Queue Service': 'sqs',
+    # Savings Plans / Reserved Instances
+    'Savings Plans for AWS Compute usage': 'savings_plans',
     # Other
     'Tax': 'tax',
     'AWS Support (Business)': 'support',
@@ -152,7 +154,10 @@ def _fetch_aws_costs(date_from: str, date_to: str) -> list[dict]:
                 TimePeriod={'Start': date_from, 'End': date_to},
                 Granularity='DAILY',
                 Metrics=['UnblendedCost'],
-                GroupBy=[{'Type': 'DIMENSION', 'Key': 'SERVICE'}],
+                GroupBy=[
+                    {'Type': 'DIMENSION', 'Key': 'SERVICE'},
+                    {'Type': 'DIMENSION', 'Key': 'USAGE_TYPE'},
+                ],
             )
             if next_token:
                 kwargs['NextPageToken'] = next_token
@@ -163,12 +168,26 @@ def _fetch_aws_costs(date_from: str, date_to: str) -> list[dict]:
                 date = result['TimePeriod']['Start']
                 for group in result['Groups']:
                     service = group['Keys'][0]
+                    usage_type = group['Keys'][1] if len(group['Keys']) > 1 else ''
                     amount = float(group['Metrics']['UnblendedCost']['Amount'])
                     if amount == 0:
                         continue
                     category = SERVICE_CATEGORY_MAP.get(service, 'other')
+                    # Savings plans: ComputeSP:1yrAllUpfront, ComputeSP:3yrNoUpfront, etc.
+                    if category == 'savings_plans':
+                        m = re.match(r'ComputeSP:(\d+yr)(\w+)', usage_type)
+                        if m:
+                            term = m.group(1)
+                            payment = m.group(2)
+                            if payment == 'NoUpfront':
+                                category = f'savings_plan_{term}_monthly'
+                            elif 'Upfront' in payment:
+                                category = f'savings_plan_{term}_annual'
+                    # EC2 reserved instances: HeavyUsage:<type> billed monthly on 1st
+                    elif category == 'ec2' and 'HeavyUsage:' in usage_type:
+                        category = 'reserved_instance_monthly'
                     if category == 'other':
-                        print(f"[rk_aws_costs] unmapped service: {service!r} (${amount:.2f})")
+                        print(f"[rk_aws_costs] unmapped service: {service!r} / {usage_type!r} (${amount:.2f})")
                     rows.append({
                         'date': date,
                         'service': service,
