@@ -38,7 +38,7 @@
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">authwit</a>::<a href="index.html">auth</a></div>
 <h1>Function <span class="fn">assert_inner_hash_valid_authwit</span></h1>
 <pre><code>pub fn assert_inner_hash_valid_authwit(
-    context: &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>,
+    context: &mut <a href="../../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>,
     on_behalf_of: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     inner_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
 )</code></pre>
@@ -47,8 +47,8 @@
 <p>Assert that a specific <code>inner_hash</code> is valid for the <code>on_behalf_of</code> address</p>
 <p>Used as an internal function for <code>assert_current_call_valid_authwit</code> and can be used as a standalone function when
 the <code>inner_hash</code> is from a different source, e.g., say a block of text etc.</p>
-<p>@param on_behalf_of The address that has allegedly authorized the current call
-@param inner_hash The hash of the message to authorize</p>
+<p>@param on_behalf_of The address that has allegedly authorized the current call @param inner_hash The hash of the
+message to authorize</p>
 </div>
 </main>
 </span>

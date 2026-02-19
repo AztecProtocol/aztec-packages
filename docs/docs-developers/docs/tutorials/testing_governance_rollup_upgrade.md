@@ -32,7 +32,7 @@ The default governance configuration for local networks:
 Ensure you are on the correct Aztec version:
 
 ```bash
-aztec-up #release_version
+aztec-up install #release_version
 ```
 
 ```bash
