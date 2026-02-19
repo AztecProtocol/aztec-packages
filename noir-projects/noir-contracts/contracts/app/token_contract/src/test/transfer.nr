@@ -1,22 +1,5 @@
 use crate::test::utils;
 use crate::Token;
-use aztec::event::event_interface::EventInterface;
-use aztec::event::EventSelector;
-use aztec::protocol::address::AztecAddress;
-use aztec::protocol::traits::Deserialize;
-
-#[derive(Deserialize)]
-pub struct Transfer {
-    from: AztecAddress,
-    to: AztecAddress,
-    amount: u128,
-}
-
-impl EventInterface for Transfer {
-    fn get_event_type_id() -> EventSelector {
-        EventSelector::from_signature("Transfer((Field),(Field),u128)")
-    }
-}
 
 #[test]
 unconstrained fn transfer_private_q() {
@@ -36,7 +19,7 @@ unconstrained fn transfer_private_q() {
     );
     utils::check_private_balance(env, token_contract_address, recipient, transfer_amount);
 
-    let events = aztec::test::helpers::txe_oracles::get_private_events::<Transfer>(
+    let events = aztec::test::helpers::txe_oracles::get_private_events::<Token::Transfer>(
         token_contract_address,
         recipient,
     );
