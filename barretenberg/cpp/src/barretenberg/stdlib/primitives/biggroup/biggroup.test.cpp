@@ -2397,6 +2397,7 @@ TYPED_TEST_SUITE(stdlib_biggroup, TestTypes);
 
 TYPED_TEST(stdlib_biggroup, validate_on_curve)
 {
+    BB_DISABLE_ASSERTS();
     // Goblin points do not implement validate on curve
     if constexpr (!HasGoblinBuilder<TypeParam>) {
         using Builder = TestFixture::Builder;
@@ -2430,6 +2431,10 @@ TYPED_TEST(stdlib_biggroup, validate_on_curve)
         EXPECT_EQ(expected_non_zero.get_value(), expected_value.get_value());
 
         TestFixture::EXPECT_CIRCUIT_CORRECTNESS(builder);
+
+        // Check that the circuit fails if validate_on_curve is called with default parameters
+        [[maybe_unused]] Fq _ = invalid_point.validate_on_curve();
+        TestFixture::EXPECT_CIRCUIT_CORRECTNESS(builder, false);
     }
 }
 

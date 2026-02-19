@@ -50,16 +50,8 @@ auto& engine = numeric::get_debug_randomness();
  * an in-circuit boolean value which bears witness to whether the signature verification was successfull or not. The
  * boolean is NOT constrained to be equal to bool_t(true).
  *
- * @note The circuit introduces constraints for the following assertions:
- *          1. \f$P = (x,y)\f$, then x < q, y < q
- *          2. \f$P\f$ is not the point at infinity
- *          3. \f$P\f$ is on the curve
- *          4. \f$0 < r < n\f$
- *          5. \f$0 < s < (n+1)/2\f$
- *          6. \f$Q := H(m) s^{-1} G + r s^{-1} P\f$ is not the point at infinity
- * Therefore, if the witnesses passed to this function do not satisfy these constraints, the resulting circuit
- * will be unsatisfied. If a user wants to use the verification inside a in-circuit branch, then they need to supply
- * valid data for \f$P, r, s\f$, even though \f$(r,s)\f$ doesn't need to be a valid signature.
+ * @note There is one case in which the circuit will be unsatisfiable even if the witness values are correct: for the
+ * curve Secp256R1 when the public key is plus or minus the generator point. This is due to our usage of lookup tables.
  *
  * @tparam Builder
  * @tparam Curve
@@ -76,6 +68,8 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
                                        const G1& public_key,
                                        const ecdsa_signature<Builder>& sig)
 {
+    using bool_ct = stdlib::bool_t<Builder>;
+
     BB_ASSERT_EQ(Fr::modulus.get_msb() + 1, 256UL, "The implementation assumes that the bit-length of Fr is 256 bits.");
 
     // Fetch the context
@@ -90,13 +84,13 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     Fr z(hashed_message);
 
     // Step 1.
-    auto is_x_less_than_modulus = public_key.x().is_less_than(
+    bool_ct is_x_less_than_modulus = public_key.x().is_less_than(
         Fq::modulus, "ECDSA input validation: x coordinate of the public key bigger than the base field modulus.");
-    auto is_y_less_than_modulus = public_key.y().is_less_than(
+    bool_ct is_y_less_than_modulus = public_key.y().is_less_than(
         Fq::modulus, "ECDSA input validation: y coordinate of the public key bigger than the base field modulus.");
 
     // Step 2.
-    bool_t<Builder> is_point_at_infinity = public_key.is_point_at_infinity();
+    bool_ct is_point_at_infinity = public_key.is_point_at_infinity();
 
     // Step 3.
     // We conditionally select a public key whose x and y coordinates are smaller than the base field modulus. We need
@@ -112,16 +106,16 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
 
     // Step 4.
     Fr r(sig.r);
-    bool_t<Builder> is_r_in_range = r.is_less_than(
+    bool_ct is_r_in_range = r.is_less_than(
         Fr::modulus, "ECDSA input validation: the r component of the signature is bigger than Fr::modulus.");
-    bool_t<Builder> is_r_zero = r == Fr::zero();
+    bool_ct is_r_zero = r == Fr::zero();
 
     // Step 5.
     Fr s(sig.s);
-    bool_t<Builder> is_s_in_range =
+    bool_ct is_s_in_range =
         s.is_less_than((Fr::modulus + 1) / 2,
                        "ECDSA input validation: the s component of the signature is bigger than (Fr::modulus + 1)/2.");
-    bool_t<Builder> is_s_zero = s == Fr::zero();
+    bool_ct is_s_zero = s == Fr::zero();
 
     // Step 6.
     // We conditionally select a non-zero scalar to perform the verification to avoid circuit failures when s = 0.
@@ -144,7 +138,7 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     }
 
     // Step 7.
-    bool_t<Builder> result_is_infinity = result.is_point_at_infinity();
+    bool_ct result_is_infinity = result.is_point_at_infinity();
 
     // Step 8.
     result.x().reduce_mod_target_modulus();
@@ -160,10 +154,10 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     }
 
     // Check result.x() = r mod n AND that no other check failed
-    bool_t<Builder> x_matches = result_x_mod_r == r;
-    bool_t<Builder> is_signature_valid = x_matches && !is_point_at_infinity && !result_is_infinity && is_r_in_range &&
-                                         !is_r_zero && is_s_in_range && !is_s_zero && is_point_on_curve &&
-                                         is_x_less_than_modulus && is_y_less_than_modulus;
+    bool_ct x_matches = result_x_mod_r == r;
+    bool_ct is_signature_valid = x_matches && !is_point_at_infinity && !result_is_infinity && is_r_in_range &&
+                                 !is_r_zero && is_s_in_range && !is_s_zero && is_point_on_curve &&
+                                 is_x_less_than_modulus && is_y_less_than_modulus;
 
     // Logging
     if (is_signature_valid.get_value()) {

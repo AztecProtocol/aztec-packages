@@ -117,7 +117,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         Fq b(get_context(), uint256_t(NativeGroup::curve_b));
         Fq adjusted_b = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), b);
         // If `assert_is_on_curve` is true, we validate y^2 = x^3 + b by setting "fix_remainder_zero = true" when
-        // calling mult_madd Otherwise, we return the difference x^3 + ax + b - y^2
+        // calling mult_madd. Otherwise, we return the difference x^3 + ax + b - y^2
         if constexpr (!NativeGroup::has_a) {
             result = Fq::mult_madd({ _x.sqr(), _y }, { _x, -_y }, { adjusted_b }, assert_is_on_curve);
             ;
@@ -332,11 +332,10 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      * @brief Optimized chained addition for non-infinity points.
      *
      * @pre p1 and p2 must NOT be point at infinity. Use operator+ for general addition.
-     * @pre p1.x ≠ p2.x for all points in the chain (required for the incomplete addition formula used in this
-     *method).
+     * @pre p1.x ≠ p2.x for all points in the chain (required for the incomplete addition formula used in this method).
      *
-     * @details We can chain repeated point additions together, where we only require 2 non-native field
-     *multiplications per point addition, instead of 3
+     * @details We can chain repeated point additions together, where we only require 2 non-native field multiplications
+     * per point addition, instead of 3
      *
      * NOTE: These must remain public as they are used by nested structs like batch_lookup_table_plookup
      **/
@@ -544,9 +543,9 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      * @param rounds
      * @return std::vector<field_ct>
      *
-     * @details For 4-bit window, each wNAF value is in the range [-15, 15]. We convert these to the range [0, 30]
-     * by adding 15 if `is_negative = false` and by subtracting from 15 if `is_negative = true`. This ensures that
-     * all values are non-negative, which is required for the ROM table lookup.
+     * @details For 4-bit window, each wNAF value is in the range [-15, 15]. We convert these to the range [0, 30] by
+     * adding 15 if `is_negative = false` and by subtracting from 15 if `is_negative = true`. This ensures that all
+     * values are non-negative, which is required for the ROM table lookup.
      */
     template <size_t wnaf_size>
     static std::vector<field_ct> convert_wnaf_values_to_witnesses(Builder* builder,

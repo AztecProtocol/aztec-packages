@@ -189,7 +189,6 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         Fq x;
         Fq y;
         if (mode == TamperingMode::XCoordinateOverflow) {
-            std::vector<uint256_t> buffer{ 0xff, 32 };
             stdlib::byte_array<Builder> x_bytes = stdlib::byte_array<Builder>::constant_padding(&builder, /*length*/ 0);
             for (size_t idx = 0; idx < 32; idx++) {
                 stdlib::byte_array<Builder> to_write(stdlib::field_t<Builder>(0xff), /*length*/ 1);
@@ -303,7 +302,7 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
             hashed_message_bytes.emplace_back(byte);
         }
 
-        // Generate a signature with P = 2G
+        // Generate a signature with P = ±G
         ecdsa_key_pair<FrNative, G1Native> account;
 
         account.private_key = is_minus_generator ? FrNative(-1) : FrNative(1);
