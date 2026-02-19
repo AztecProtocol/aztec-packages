@@ -148,6 +148,9 @@ locals {
         service = {
           p2p = { publicIP = var.P2P_PUBLIC_IP }
         }
+        node = {
+          logLevel = var.LOG_LEVEL
+        }
         # spread validator pods to different nodes to avoid having two validators with the same attester keys on the same physical node
         topologySpreadConstraints = [{
           maxSkew           = 1
@@ -202,6 +205,7 @@ locals {
     "validator.node.env.SEQ_MAX_TX_PER_BLOCK"                  = var.SEQ_MAX_TX_PER_BLOCK
     "validator.node.env.SEQ_BLOCK_DURATION_MS"                 = var.SEQ_BLOCK_DURATION_MS
     "validator.node.env.SEQ_BUILD_CHECKPOINT_IF_EMPTY"         = var.SEQ_BUILD_CHECKPOINT_IF_EMPTY
+    "validator.node.env.SEQ_ENFORCE_TIME_TABLE"               = var.SEQ_ENFORCE_TIME_TABLE
     "validator.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"    = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
     "validator.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"       = var.VALIDATOR_L1_PRIORITY_FEE_BUMP_PERCENTAGE
     "validator.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE" = var.VALIDATOR_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
@@ -209,7 +213,6 @@ locals {
     "validator.node.env.P2P_MAX_TX_POOL_SIZE"                  = var.P2P_MAX_TX_POOL_SIZE
     "validator.node.env.PROVER_TEST_VERIFICATION_DELAY_MS"     = var.PROVER_TEST_VERIFICATION_DELAY_MS
     "validator.node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"         = var.DEBUG_P2P_INSTRUMENT_MESSAGES
-    "validator.node.logLevel"                                  = var.LOG_LEVEL
     "validator.node.secret.envEnabled"                         = true
     "validator.node.secret.mnemonic"                           = var.VALIDATOR_MNEMONIC
     "validator.node.secret.mnemonicIndex"                      = var.VALIDATOR_MNEMONIC_START_INDEX
@@ -305,6 +308,19 @@ locals {
           service = {
             p2p = { publicIP = var.P2P_PUBLIC_IP }
           }
+          node = {
+            logLevel = var.LOG_LEVEL
+          }
+        }
+        broker = {
+          node = {
+            logLevel = var.LOG_LEVEL
+          }
+        }
+        agent = {
+          node = {
+            logLevel = var.LOG_LEVEL
+          }
         }
         })], local.is_kind ? [yamlencode({
         agent = {
@@ -318,7 +334,6 @@ locals {
           "node.mnemonic"                                       = var.PROVER_MNEMONIC
           "node.mnemonicStartIndex"                             = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
           "node.node.proverRealProofs"                          = var.PROVER_REAL_PROOFS
-          "node.node.logLevel"                                  = var.LOG_LEVEL
           "node.node.env.PROVER_FAILED_PROOF_STORE"             = var.PROVER_FAILED_PROOF_STORE
           "node.node.env.PROVER_PROOF_STORE"                    = var.PROVER_PROOF_STORE
           "node.node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"     = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
@@ -332,7 +347,6 @@ locals {
           "node.node.secret.mnemonic"                           = var.PROVER_MNEMONIC
           "node.node.secret.mnemonicIndex"                      = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
           "broker.node.proverRealProofs"                        = var.PROVER_REAL_PROOFS
-          "broker.node.logLevel"                                = var.LOG_LEVEL
           "broker.node.env.BOOTSTRAP_NODES"                     = "asdf"
           "broker.node.env.PROVER_BROKER_DEBUG_REPLAY_ENABLED"  = var.PROVER_BROKER_DEBUG_REPLAY_ENABLED
           "agent.node.image.repository"                         = local.prover_agent_image.repository
@@ -347,7 +361,6 @@ locals {
           "agent.node.env.PROVER_AGENT_PROOF_TYPES"             = join(",", var.PROVER_AGENT_PROOF_TYPES)
           "agent.node.env.PROVER_PROOF_STORE"                   = var.PROVER_PROOF_STORE
           "agent.node.otelIncludeMetrics"                       = var.PROVER_AGENT_INCLUDE_METRICS
-          "agent.node.logLevel"                                 = var.LOG_LEVEL
           "node.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"       = var.PROVER_L1_PRIORITY_FEE_BUMP_PERCENTAGE
           "node.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE" = var.PROVER_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
           "node.node.env.P2P_MAX_TX_POOL_SIZE"                  = var.P2P_MAX_TX_POOL_SIZE
@@ -382,7 +395,7 @@ locals {
         "rpc.yaml",
         "rpc-resources-${var.RPC_RESOURCE_PROFILE}.yaml"
       ]
-      inline_values = var.RPC_INGRESS_ENABLED ? [yamlencode({
+      inline_values = concat(var.RPC_INGRESS_ENABLED ? [yamlencode({
         service = {
           p2p = { publicIP = var.P2P_PUBLIC_IP }
           rpc = {
@@ -413,7 +426,11 @@ locals {
             type    = local.is_kind ? "ClusterIP" : "LoadBalancer"
           }
         }
-      })]
+      })], var.FISHERMAN_MODE ? [yamlencode({
+        node = {
+          logLevel = var.FISHERMAN_LOG_LEVEL
+        }
+      })] : [])
 
       custom_settings = merge({
         "replicaCount"                = var.RPC_REPLICAS
@@ -449,7 +466,6 @@ locals {
           "node.secret.mnemonic"         = var.FISHERMAN_MNEMONIC
           "node.secret.mnemonicIndex"    = var.FISHERMAN_MNEMONIC_START_INDEX
           "node.env.KEY_INDEX_START"     = var.FISHERMAN_MNEMONIC_START_INDEX
-          "node.logLevel"                = var.FISHERMAN_LOG_LEVEL
           "node.env.VALIDATORS_PER_NODE" = "1"
           "node.preStartScript"          = "source /scripts/get-private-key.sh"
         } : {}
