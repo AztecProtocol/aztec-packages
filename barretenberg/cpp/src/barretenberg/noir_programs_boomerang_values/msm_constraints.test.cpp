@@ -470,10 +470,6 @@ TEST_F(MsmConstraintsTests, ValidateMsmConstraintConstantPredicateConstantScalar
 // correctly disambiguate between the two constraints' gate chains.
 TEST_F(MsmConstraintsTests, TwoMsmConstraintsSharedPredicate)
 {
-    // Witness layout:
-    //   shared_pred  = 0
-    //   MSM1: p1_x=1, p1_y=2, p1_inf=3, s1_lo=4, s1_hi=5, out1_x=6, out1_y=7, out1_inf=8
-    //   MSM2: p2_x=9, p2_y=10, p2_inf=11, s2_lo=12, s2_hi=13, out2_x=14, out2_y=15, out2_inf=16
     auto msm1 = MultiScalarMul{
         .points = { WitnessOrConstant<fr>::from_index(1),
                     WitnessOrConstant<fr>::from_index(2),

@@ -18,6 +18,8 @@ namespace cdg {
  *          Selectors: q_arith=1, q_m=1, q_1=-1, q_2=0, q_3=0, q_4=0, q_c=0
  *          The w_l wire is the witness being constrained, and the gate has w_l in both w_l and w_r positions
  *          (since q_m multiplies w_l * w_r).
+ * @note we intentionally do not consume the gate, because we just want to check that the variable is constrained to be
+ * boolean
  */
 template <typename FF, typename CircuitBuilder>
 bool does_boolean_gate_exist(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
