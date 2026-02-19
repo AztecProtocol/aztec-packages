@@ -125,18 +125,10 @@ template <typename Curve> class GeminiProver_ {
     class PolynomialBatcher {
 
         size_t full_batched_size = 0; // size of the full batched polynomial (generally the circuit size)
-        size_t shift_exponent = 1;    // shift depth: 1 for standard (G/X), k for interleaved (G/X^k)
+        size_t shift_exponent = 1;    // shift depth: 1 for standard (G/X), k for multi-linear (G/X^k)
 
         Polynomial batched_unshifted;     // linear combination of unshifted polynomials
         Polynomial batched_to_be_shifted; // linear combination of to-be-shifted polynomials
-
-        // Groups of component polynomials to be interleaved before batching.
-        // Each group has shift_exponent component polynomials (some may be nullptr).
-        // Component polynomial size = full_batched_size / shift_exponent.
-        // One group = one rho power (the 4 components share the same batching scalar).
-        using PolyGroup = std::vector<Polynomial const*>;
-        std::vector<PolyGroup> unshifted_interleaved_groups;
-        std::vector<PolyGroup> shifted_interleaved_groups;
 
       public:
         RefVector<Polynomial> unshifted;     // set of unshifted polynomials
@@ -151,8 +143,6 @@ template <typename Curve> class GeminiProver_ {
 
         bool has_unshifted() const { return unshifted.size() > 0; }
         bool has_to_be_shifted() const { return to_be_shifted.size() > 0; }
-        bool has_unshifted_interleaved_groups() const { return !unshifted_interleaved_groups.empty(); }
-        bool has_shifted_interleaved_groups() const { return !shifted_interleaved_groups.empty(); }
 
         size_t get_shift_exponent() const { return shift_exponent; }
 
@@ -160,22 +150,10 @@ template <typename Curve> class GeminiProver_ {
         void set_unshifted(RefVector<Polynomial> polynomials) { unshifted = polynomials; }
         void set_to_be_shifted(RefVector<Polynomial> polynomials) { to_be_shifted = polynomials; }
 
-        // Set groups of component polynomials to be interleaved and batched.
-        // Each group has k = shift_exponent component polynomials of size n = full_batched_size / k.
-        // The batcher will batch by chunk position (Gⱼ = Σᵢ ρⁱ · groupᵢ[j]) then interleave.
-        void set_unshifted_interleaved_groups(std::vector<PolyGroup> groups)
-        {
-            unshifted_interleaved_groups = std::move(groups);
-        }
-        void set_shifted_interleaved_groups(std::vector<PolyGroup> groups)
-        {
-            shifted_interleaved_groups = std::move(groups);
-        }
-
         /**
          * @brief Compute batched polynomial A₀ = F + G/X^k as the linear combination of all polynomials to be opened,
          * where F is the linear combination of the unshifted polynomials, G is the linear combination of the
-         * to-be-shifted polynomials, and k is the shift_exponent (1 for standard, 4 for interleaved).
+         * to-be-shifted polynomials, and k is the shift_exponent.
          *
          * @param challenge batching challenge
          * @return Polynomial A₀
@@ -203,60 +181,15 @@ template <typename Curve> class GeminiProver_ {
                 batch(batched_to_be_shifted, to_be_shifted);
             }
 
-            // Batch unshifted interleaved groups: for each group, batch by chunk position then interleave.
-            // Each group has k component polynomials of size n = full_batched_size/k. One ρ power per group.
-            // Result: batched_chunks[j] = Σᵢ ρⁱ · groupᵢ[j], then interleave into batched_unshifted.
-            if (has_unshifted_interleaved_groups()) {
-                const size_t k = shift_exponent;
-                const size_t component_size = full_batched_size / k;
-                std::vector<Polynomial> batched_chunks(k, Polynomial(component_size));
-                for (auto& group : unshifted_interleaved_groups) {
-                    for (size_t j = 0; j < k; j++) {
-                        if (group[j] != nullptr) {
-                            batched_chunks[j].add_scaled(*group[j], running_scalar);
-                        }
-                    }
-                    running_scalar *= challenge;
-                }
-                // Interleave: result[k*i + j] = batched_chunks[j][i]
-                for (size_t i = 0; i < component_size; i++) {
-                    for (size_t j = 0; j < k; j++) {
-                        batched_unshifted.at(k * i + j) += batched_chunks[j][i];
-                    }
-                }
-            }
-
-            // Batch shifted interleaved groups similarly, interleaving into batched_to_be_shifted.
-            if (has_shifted_interleaved_groups()) {
-                const size_t k = shift_exponent;
-                const size_t component_size = full_batched_size / k;
-                std::vector<Polynomial> batched_chunks(k, Polynomial(component_size));
-                for (auto& group : shifted_interleaved_groups) {
-                    for (size_t j = 0; j < k; j++) {
-                        if (group[j] != nullptr) {
-                            batched_chunks[j].add_scaled(*group[j], running_scalar);
-                        }
-                    }
-                    running_scalar *= challenge;
-                }
-                // Interleave into batched_to_be_shifted. Skip i=0 since component polys are shiftable
-                // (first element = 0), and batched_to_be_shifted has start_index = shift_exponent.
-                for (size_t i = 1; i < component_size; i++) {
-                    for (size_t j = 0; j < k; j++) {
-                        batched_to_be_shifted.at(k * i + j) += batched_chunks[j][i];
-                    }
-                }
-            }
-
             Polynomial full_batched(full_batched_size);
 
             // Add unshifted contribution: A₀ += F
-            if (has_unshifted() || has_unshifted_interleaved_groups()) {
+            if (has_unshifted()) {
                 full_batched += batched_unshifted;
             }
 
             // Add shifted contribution: A₀ += G/X^k
-            if (has_to_be_shifted() || has_shifted_interleaved_groups()) {
+            if (has_to_be_shifted()) {
                 full_batched += batched_to_be_shifted.shifted(shift_exponent);
             }
 
@@ -281,13 +214,13 @@ template <typename Curve> class GeminiProver_ {
         {
             Polynomial A_0_pos(full_batched_size);
 
-            if (has_unshifted() || has_unshifted_interleaved_groups()) {
+            if (has_unshifted()) {
                 A_0_pos += batched_unshifted; // A₀₊ += F
             }
 
             Polynomial A_0_neg = A_0_pos;
 
-            if (has_to_be_shifted() || has_shifted_interleaved_groups()) {
+            if (has_to_be_shifted()) {
                 Fr r_inv_shift = r_challenge.pow(shift_exponent).invert(); // r^(-k)
                 batched_to_be_shifted *= r_inv_shift;                      // G = G/r^k
 
