@@ -253,13 +253,54 @@ case "$cmd" in
     bootstrap_ec2 "./bootstrap.sh ci-network-teardown $*"
     ;;
 
-  network-tests-kind)
-    # Runs KIND-based spartan tests on a 192 CPU instance.
+  network-tests-kind-proven)
+    # Args: [test_set]
+    # Runs KIND-based spartan tests with real provers on 96-core instances.
+    # If test_set provided, run just that set. Otherwise run both in parallel.
+    test_set="${1:-}"
     export CI_DASHBOARD="network"
-    export AWS_SHUTDOWN_TIME=180 # 3 hours for KIND tests
-    export CPUS=192
-    export INSTANCE_POSTFIX="n-kind"
-    bootstrap_ec2 "./bootstrap.sh ci-network-kind-tests"
+    export AWS_SHUTDOWN_TIME=180
+    export CPUS=96
+    run() {
+      local set=$1
+      JOB_ID="x-kind-proven-${set}" INSTANCE_POSTFIX="nkp${set}" \
+        bootstrap_ec2 "./bootstrap.sh ci-network-kind-proven $set"
+    }
+    export -f run
+    if [[ -n "$test_set" ]]; then
+      run "$test_set"
+    else
+      parallel --jobs 2 --line-buffered ::: 'run 1' 'run 2'
+    fi
+    ;;
+  network-tests-kind)
+    # Runs all KIND scenario tests in parallel, one 32-core EC2 per test (fake provers).
+    # INSTANCE_POSTFIX kept short (nk0..nk12) to avoid hostname >63 char limit.
+    export CI_DASHBOARD="network"
+    export AWS_SHUTDOWN_TIME=180
+    export CPUS=32
+    run() {
+      local test_file=$1
+      local i=$2
+      local test_name="${test_file%.test.ts}"
+      JOB_ID="x-kind-${test_name}" INSTANCE_POSTFIX="nk${i}" \
+        bootstrap_ec2 "./bootstrap.sh ci-network-kind-test $test_file"
+    }
+    export -f run
+    parallel --jobs 0 --line-buffered ::: \
+      'run reorg.test.ts 0' \
+      'run upgrade_rollup_version.test.ts 1' \
+      'run validator_ha.test.ts 2' \
+      'run transfer.test.ts 3' \
+      'run slash_inactivity.test.ts 4' \
+      'run proving.test.ts 5' \
+      'run prover-node.test.ts 6' \
+      'run gating-passive.test.ts 7' \
+      'run invalidate_blocks.test.ts 8' \
+      'run mempool_limit.test.ts 9' \
+      'run upgrade_governance_proposer.test.ts 10' \
+      'run validator_nuke_and_suppression.test.ts 11' \
+      'run mbps.test.ts 12'
     ;;
   deploy-rollup-upgrade)
     # Env vars: NETWORK, GCP_PROJECT_ID (for GCP secrets)
