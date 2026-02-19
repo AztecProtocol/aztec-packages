@@ -656,6 +656,7 @@ def api_ci_performance():
         dbd_map.setdefault(r['dashboard'], []).append({
             'date': r['date'],
             'avg_duration_mins': round(r['sum_duration'] / max(r['run_count'], 1), 1),
+            'total_duration_mins': round(r['sum_duration'], 1),
             'p50_duration_mins': r['p50_duration'],
             'p95_duration_mins': r['p95_duration'],
             'count': r['run_count'],
@@ -665,7 +666,7 @@ def api_ci_performance():
     for db_name, entries in dbd_map.items():
         duration_by_dashboard[db_name] = _aggregate_dates(
             entries, granularity,
-            sum_fields=['count'],
+            sum_fields=['count', 'total_duration_mins'],
             avg_fields=['avg_duration_mins', 'p50_duration_mins', 'p95_duration_mins'])
 
     # Top flakes/failures (with affected authors — filter out empty/NULL)

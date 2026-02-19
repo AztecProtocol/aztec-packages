@@ -141,7 +141,11 @@
         <div class="chart-wrap med"><canvas id="ciDurPipeChart"></canvas></div>
       </div>
       <div class="chart-box full">
-        <h3>avg ci time by pipeline &amp; phase</h3>
+        <h3>total ci time by pipeline (hours)</h3>
+        <div class="chart-wrap med"><canvas id="ciTotalTimeChart"></canvas></div>
+      </div>
+      <div class="chart-box full">
+        <h3>ci time by pipeline &amp; phase</h3>
         <div class="chart-wrap med"><canvas id="phaseChart"></canvas></div>
       </div>
     </div>
@@ -391,7 +395,7 @@
 
     function renderOverview() {
       // Destroy overview charts
-      ['mq', 'flake', 'ciDurPipe', 'phase'].forEach(k => { if (charts[k]) { charts[k].destroy(); delete charts[k]; } });
+      ['mq', 'flake', 'ciDurPipe', 'ciTotalTime', 'phase'].forEach(k => { if (charts[k]) { charts[k].destroy(); delete charts[k]; } });
 
       const period = perfData?.period;
       if (period) document.getElementById('period-label').textContent = `(${period.from} to ${period.to})`;
@@ -400,6 +404,7 @@
       renderMQChart();
       renderFlakeChart();
       renderCIDurPipeChart();
+      renderCITotalTimeChart();
       renderPhaseChart();
       renderTopFlakes();
       renderTopFailures();
@@ -551,6 +556,54 @@
               callbacks: {
                 title: items => items.length ? fmtDateFull(dates[items[0].dataIndex]) : '',
                 label: c => `${c.dataset.label}: ${c.raw != null ? c.raw.toFixed(1) + 'm' : '--'}`
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderCITotalTimeChart() {
+      const dbd = perfData?.duration_by_dashboard || {};
+      const pipelines = Object.keys(dbd).sort();
+      if (!pipelines.length) return;
+      const pipeColors = { 'prs': '#3fb950', 'next': '#58a6ff', 'master': '#d2a8ff', 'nightly': '#f0883e', 'releases': '#f85149', 'deflake': '#a5d6ff' };
+      const defaultColors = ['#56d364', '#79c0ff', '#d2a8ff', '#f0883e', '#ff7b72', '#a5d6ff', '#e3b341', '#8b949e'];
+      const allDates = new Set();
+      pipelines.forEach(p => (dbd[p] || []).forEach(d => allDates.add(d.date)));
+      const dates = [...allDates].sort();
+
+      const datasets = pipelines.map((p, i) => {
+        const dateMap = {};
+        (dbd[p] || []).forEach(d => { dateMap[d.date] = d.total_duration_mins ? round(d.total_duration_mins / 60, 1) : null; });
+        return {
+          label: p, fill: true,
+          data: dates.map(d => dateMap[d] ?? null),
+          backgroundColor: (pipeColors[p] || defaultColors[i % defaultColors.length]) + '40',
+          borderColor: pipeColors[p] || defaultColors[i % defaultColors.length],
+          borderWidth: 2, pointRadius: 1, tension: 0.3, spanGaps: true,
+        };
+      });
+
+      function round(v, d) { const m = Math.pow(10, d); return Math.round(v * m) / m; }
+
+      charts.ciTotalTime = new Chart(document.getElementById('ciTotalTimeChart').getContext('2d'), {
+        type: 'line',
+        data: { labels: dates.map(fmtDate), datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: { stacked: true, ticks: { color: '#555', maxRotation: 45 }, grid: { color: '#181818' } },
+            y: { stacked: true, title: { display: true, text: 'hours', color: '#555', font: { size: 10 } }, ticks: { color: '#555' }, grid: { color: '#181818' } }
+          },
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },
+            tooltip: {
+              callbacks: {
+                title: items => items.length ? fmtDateFull(dates[items[0].dataIndex]) : '',
+                label: c => `${c.dataset.label}: ${c.raw != null ? c.raw.toFixed(1) + 'h' : '--'}`,
+                footer: items => `total: ${items.reduce((s, i) => s + (i.raw || 0), 0).toFixed(1)}h`
               }
             }
           }
