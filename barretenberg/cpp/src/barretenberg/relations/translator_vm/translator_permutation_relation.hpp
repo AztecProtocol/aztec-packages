@@ -40,21 +40,25 @@ template <typename FF_> class TranslatorPermutationRelationImpl {
         using View = typename Accumulator::View;
         using ParameterView = Parameters::DataType;
 
-        auto interleaved_range_constraints_0 = View(in.interleaved_range_constraints_0);
-        auto interleaved_range_constraints_1 = View(in.interleaved_range_constraints_1);
-        auto interleaved_range_constraints_2 = View(in.interleaved_range_constraints_2);
-        auto interleaved_range_constraints_3 = View(in.interleaved_range_constraints_3);
+        auto concatenated_range_constraints_0 = View(in.concatenated_range_constraints_0);
+        auto concatenated_range_constraints_1 = View(in.concatenated_range_constraints_1);
+        auto concatenated_range_constraints_2 = View(in.concatenated_range_constraints_2);
+        auto concatenated_range_constraints_3 = View(in.concatenated_range_constraints_3);
 
         auto ordered_extra_range_constraints_numerator = View(in.ordered_extra_range_constraints_numerator);
 
         auto lagrange_masking = View(in.lagrange_masking);
+        auto lagrange_ordered_masking = View(in.lagrange_ordered_masking);
         const auto& gamma = ParameterView(params.gamma);
         const auto& beta = ParameterView(params.beta);
-        return (interleaved_range_constraints_0 + lagrange_masking * beta + gamma) *
-               (interleaved_range_constraints_1 + lagrange_masking * beta + gamma) *
-               (interleaved_range_constraints_2 + lagrange_masking * beta + gamma) *
-               (interleaved_range_constraints_3 + lagrange_masking * beta + gamma) *
-               (ordered_extra_range_constraints_numerator + lagrange_masking * beta + gamma);
+        // First 4 factors use scattered masking (lagrange_masking), last factor uses contiguous masking
+        auto chosen_set = lagrange_masking * beta;
+        auto chosen_set2 = lagrange_ordered_masking * beta;
+        return (concatenated_range_constraints_0 + chosen_set + gamma) *
+               (concatenated_range_constraints_1 + chosen_set + gamma) *
+               (concatenated_range_constraints_2 + chosen_set + gamma) *
+               (concatenated_range_constraints_3 + chosen_set + gamma) *
+               (ordered_extra_range_constraints_numerator + chosen_set2 + gamma);
     }
 
     template <typename Accumulator, typename AllEntities, typename Parameters>
@@ -69,15 +73,15 @@ template <typename FF_> class TranslatorPermutationRelationImpl {
         auto ordered_range_constraints_3 = View(in.ordered_range_constraints_3);
         auto ordered_range_constraints_4 = View(in.ordered_range_constraints_4);
 
-        auto lagrange_masking = View(in.lagrange_masking);
+        auto lagrange_ordered_masking = View(in.lagrange_ordered_masking);
 
         const auto& gamma = ParameterView(params.gamma);
         const auto& beta = ParameterView(params.beta);
-        return (ordered_range_constraints_0 + lagrange_masking * beta + gamma) *
-               (ordered_range_constraints_1 + lagrange_masking * beta + gamma) *
-               (ordered_range_constraints_2 + lagrange_masking * beta + gamma) *
-               (ordered_range_constraints_3 + lagrange_masking * beta + gamma) *
-               (ordered_range_constraints_4 + lagrange_masking * beta + gamma);
+        // All 5 factors use contiguous masking at the end (lagrange_ordered_masking)
+        auto chosen_set = lagrange_ordered_masking * beta;
+        return (ordered_range_constraints_0 + chosen_set + gamma) * (ordered_range_constraints_1 + chosen_set + gamma) *
+               (ordered_range_constraints_2 + chosen_set + gamma) * (ordered_range_constraints_3 + chosen_set + gamma) *
+               (ordered_range_constraints_4 + chosen_set + gamma);
     }
     /**
      * @brief Compute contribution of the goblin translator permutation relation for a given edge (internal function)
@@ -89,14 +93,18 @@ template <typename FF_> class TranslatorPermutationRelationImpl {
      *  C(in(X)...) =
      *      ( z_perm(X) + lagrange_first(X) )*P(X)
      *         - ( z_perm_shift(X) + lagrange_last(X))*Q(X),
-     * where P(X) = Prod_{i=0:4} (numerator_polynomial_i(X) + lagrange_masking * β + γ)
-     *       Q(X) = Prod_{i=0:4} (ordered_range_constraint_i(X) + lagrange_masking * β + γ)
-     * the first 4 numerator polynomials are interleaved range constraint polynomials and the last one is the constant
+     * where P(X) = Prod_{i=0:3} (concatenated_range_constraint_i(X) + lagrange_masking * β + γ)
+     *            * (extra_numerator(X) + lagrange_ordered_masking * β + γ)
+     *       Q(X) = Prod_{i=0:4} (ordered_range_constraint_i(X) + lagrange_ordered_masking * β + γ)
+     * the first 4 numerator polynomials are concatenated range constraint polynomials and the last one is the
      * extra numerator
      *
-     * If operating in zero-knowledge, we mark the positions (via the lagrange_masking polynomial) that should contain
-     * masking values, expected to be at the same indices both for the ordered and interleaved polynomials. The
-     * lagrange_masking * β term ensures that masking positions contribute unique values to the grand product,
+     * If operating in zero-knowledge, we use two different masking selectors:
+     * - lagrange_masking marks scattered masking positions (last NUM_MASKED_ROWS_END rows of each of 16 blocks)
+     *   in concatenated polynomials
+     * - lagrange_ordered_masking marks contiguous masking positions (last NUM_MASKED_ROWS_END positions at circuit end)
+     *   in ordered polynomials
+     * The lagrange_*_masking * β terms ensure that masking positions contribute unique values to the grand product,
      * preventing information leakage about the underlying witness values at those positions.
      *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`

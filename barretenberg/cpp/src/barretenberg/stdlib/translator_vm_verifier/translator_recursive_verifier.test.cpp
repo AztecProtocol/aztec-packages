@@ -1,3 +1,4 @@
+#include "barretenberg/boomerang_value_detection/graph.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
@@ -224,7 +225,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
         // Use the shared helper to create and verify the recursive circuit
         auto [outer_circuit, outer_verification_key] = create_recursive_verifier_circuit();
 
-        info("Recursive Verifier: num gates = ", outer_circuit.num_gates());
+        info("Recursive Verifier: num gates = ", outer_circuit.get_num_finalized_gates_inefficient());
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
 
         // Prove and verify the outer recursive circuit
@@ -279,7 +280,6 @@ class TranslatorRecursiveTests : public ::testing::Test {
                                         TamperType tamper_type)
     {
         using FF = InnerFF;
-        static constexpr size_t FIRST_WITNESS_INDEX = InnerFlavor::NUM_PRECOMPUTED_ENTITIES;
         static constexpr size_t LOG_N = InnerFlavor::CONST_TRANSLATOR_LOG_N;
 
         StructuredProof<InnerFlavor> structured_proof;
@@ -293,7 +293,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
             break;
         }
         case TamperType::MODIFY_SUMCHECK_EVAL:
-            structured_proof.sumcheck_evaluations[FIRST_WITNESS_INDEX] = FF::random_element();
+            structured_proof.full_circuit_evaluations[0] = FF::random_element();
             break;
         case TamperType::MODIFY_KZG_WITNESS:
             structured_proof.kzg_w_comm = structured_proof.kzg_w_comm * FF::random_element();
@@ -367,6 +367,58 @@ class TranslatorRecursiveTests : public ::testing::Test {
         compare_ultra_blocks_and_verification_keys<OuterFlavor>({ outer_circuit_256.blocks, outer_circuit_512.blocks },
                                                                 { verification_key_256, verification_key_512 });
     };
+
+    /**
+     * @brief Static analysis (boomerang detection) of the translator recursive verifier circuit.
+     * @details Builds the recursive verifier circuit and checks that no variable appears in only one gate,
+     * which would indicate an unconstrained witness (potential soundness issue).
+     */
+    static void test_static_analysis()
+    {
+        auto prover_transcript = std::make_shared<Transcript>();
+
+        InnerBF batching_challenge_v = InnerBF::random_element();
+        InnerBF evaluation_challenge_x = InnerBF::random_element();
+
+        InnerBuilder circuit_builder = generate_test_circuit(batching_challenge_v, evaluation_challenge_x);
+        auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
+        InnerProver prover{ proving_key, prover_transcript };
+        auto proof = prover.construct_proof();
+
+        // Set up outer recursive circuit
+        OuterBuilder outer_circuit;
+        stdlib::Proof<OuterBuilder> stdlib_proof(outer_circuit, proof);
+        auto transcript = std::make_shared<RecursiveFlavor::Transcript>(stdlib_proof);
+
+        // Create recursive verifier inputs
+        auto recursive_inputs =
+            create_recursive_verifier_inputs(&outer_circuit, prover, evaluation_challenge_x, batching_challenge_v);
+
+        // Verify proof recursively
+        stdlib::Proof<OuterBuilder> stdlib_proof_for_verifier(outer_circuit, proof);
+        RecursiveVerifier verifier{ transcript,
+                                    stdlib_proof_for_verifier,
+                                    recursive_inputs.evaluation_challenge_x,
+                                    recursive_inputs.batching_challenge_v,
+                                    recursive_inputs.accumulated_result,
+                                    recursive_inputs.op_queue_commitments };
+        auto recursive_result = verifier.reduce_to_pairing_check();
+
+        recursive_result.pairing_points.fix_witness();
+
+        stdlib::recursion::honk::DefaultIO<OuterBuilder> inputs;
+        inputs.pairing_inputs = recursive_result.pairing_points;
+        inputs.set_public();
+
+        EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
+        outer_circuit.finalize_circuit(false);
+
+        // Run static analysis - no variable should appear in only one gate
+        auto graph = cdg::UltraStaticAnalyzer(outer_circuit);
+        auto [cc, variables_in_one_gate] = graph.analyze_circuit(/*filter_cc=*/true);
+
+        EXPECT_EQ(variables_in_one_gate.size(), 0);
+    }
 };
 
 TEST_F(TranslatorRecursiveTests, SingleRecursiveVerification)
@@ -387,5 +439,10 @@ TEST_F(TranslatorRecursiveTests, SingleRecursiveVerificationFailure)
 TEST_F(TranslatorRecursiveTests, IndependentVKHash)
 {
     TranslatorRecursiveTests::test_independent_vk_hash();
+};
+
+TEST_F(TranslatorRecursiveTests, StaticAnalysis)
+{
+    TranslatorRecursiveTests::test_static_analysis();
 };
 } // namespace bb
