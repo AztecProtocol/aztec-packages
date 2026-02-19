@@ -280,7 +280,6 @@ class TranslatorRecursiveTests : public ::testing::Test {
                                         TamperType tamper_type)
     {
         using FF = InnerFF;
-        static constexpr size_t FIRST_WITNESS_INDEX = InnerFlavor::NUM_PRECOMPUTED_ENTITIES;
         static constexpr size_t LOG_N = InnerFlavor::CONST_TRANSLATOR_LOG_N;
 
         StructuredProof<InnerFlavor> structured_proof;
@@ -294,7 +293,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
             break;
         }
         case TamperType::MODIFY_SUMCHECK_EVAL:
-            structured_proof.sumcheck_evaluations[FIRST_WITNESS_INDEX] = FF::random_element();
+            structured_proof.full_circuit_evaluations[0] = FF::random_element();
             break;
         case TamperType::MODIFY_KZG_WITNESS:
             structured_proof.kzg_w_comm = structured_proof.kzg_w_comm * FF::random_element();
