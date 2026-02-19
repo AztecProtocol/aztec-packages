@@ -15,8 +15,9 @@ pub contract Benchmarking {
         protocol::{
             address::{AztecAddress, EthAddress},
             constants::{
-                MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIERS_PER_CALL,
-                MAX_PRIVATE_LOGS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS,
+                CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_L2_TO_L1_MSGS_PER_CALL,
+                MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIERS_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
+                PRIVATE_LOG_SIZE_IN_FIELDS,
             },
         },
         state_vars::{Map, Owned, PrivateSet, PublicMutable},
@@ -84,27 +85,51 @@ pub contract Benchmarking {
 
     #[external("private")]
     fn emit_note_hashes() {
+        // Safety: Benchmarking code
+        let random_seed = unsafe { random() };
+
         for i in 0..MAX_NOTE_HASHES_PER_CALL {
-            self.context.push_note_hash(0xdeadbeef + (i as Field));
+            self.context.push_note_hash(random_seed + (i as Field));
         }
     }
 
     #[external("private")]
     fn emit_l2_to_l1_msgs() {
+        // Safety: Benchmarking code
+        let random_seed = unsafe { random() };
+
         for i in 0..MAX_L2_TO_L1_MSGS_PER_CALL {
-            self.context.message_portal(EthAddress::from_field(i as Field), (i + 1) as Field);
+            self.context.message_portal(
+                EthAddress::from_field(random_seed + (i as Field)),
+                random_seed + (i + 1) as Field,
+            );
         }
     }
 
     #[external("private")]
     fn emit_private_logs() {
+        // Safety: Benchmarking code
+        let random_seed = unsafe { random() };
+
         for i in 0..MAX_PRIVATE_LOGS_PER_CALL {
             let mut log = [0; PRIVATE_LOG_SIZE_IN_FIELDS];
             for j in 0..PRIVATE_LOG_SIZE_IN_FIELDS {
-                log[i] = 0xdeadbeef + (i * MAX_PRIVATE_LOGS_PER_CALL + j) as Field;
+                log[i] = random_seed + (i * MAX_PRIVATE_LOGS_PER_CALL + j) as Field;
             }
             self.context.emit_private_log(log, PRIVATE_LOG_SIZE_IN_FIELDS);
         }
+    }
+
+    #[external("private")]
+    fn emit_contract_class_log() {
+        // Safety: Benchmarking code
+        let random_seed = unsafe { random() };
+
+        let mut log = [0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS];
+        for i in 0..log.len() {
+            log[i] = random_seed + (i as Field);
+        }
+        self.context.emit_contract_class_log(log);
     }
 
     // Lightest possible private transaction: empty app circuit, no state changes, no public calls.
