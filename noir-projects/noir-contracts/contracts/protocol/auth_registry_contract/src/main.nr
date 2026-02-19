@@ -105,12 +105,12 @@ pub contract AuthRegistry {
         self.storage.reject_all.at(on_behalf_of).read()
     }
 
-    /// Returns whether a specific `message_hash` is currently approved for `on_behalf_of`.
-    /// Does NOT check the `reject_all` flag - also check `is_reject_all` for a complete picture.
+    /// Returns whether a specific `message_hash` is currently consumable for `on_behalf_of`.
     #[external("public")]
     #[view]
     fn is_consumable(on_behalf_of: AztecAddress, message_hash: Field) -> bool {
-        self.storage.approved_actions.at(on_behalf_of).at(message_hash).read()
+        !self.storage.reject_all.at(on_behalf_of).read()
+            & self.storage.approved_actions.at(on_behalf_of).at(message_hash).read()
     }
 
     /// Utility version of `is_consumable`
@@ -119,6 +119,7 @@ pub contract AuthRegistry {
         on_behalf_of: AztecAddress,
         message_hash: Field,
     ) -> bool {
-        self.storage.approved_actions.at(on_behalf_of).at(message_hash).read()
+        !self.storage.reject_all.at(on_behalf_of).read()
+            & self.storage.approved_actions.at(on_behalf_of).at(message_hash).read()
     }
 }

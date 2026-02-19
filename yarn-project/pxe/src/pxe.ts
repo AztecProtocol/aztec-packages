@@ -61,6 +61,7 @@ import {
   generateSimulatedProvingResult,
 } from './contract_function_simulator/contract_function_simulator.js';
 import { ProxiedContractStoreFactory } from './contract_function_simulator/proxied_contract_data_source.js';
+import { displayDebugLogs } from './contract_logging.js';
 import { ContractSyncService } from './contract_sync/contract_sync_service.js';
 import { readCurrentClassId } from './contract_sync/helpers.js';
 import { PXEDebugUtils } from './debug/pxe_debug_utils.js';
@@ -947,6 +948,9 @@ export class PXE {
           const publicSimulationTimer = new Timer();
           publicOutput = await this.#simulatePublicCalls(simulatedTx, skipFeeEnforcement);
           publicSimulationTime = publicSimulationTimer.ms();
+          if (publicOutput?.debugLogs?.length) {
+            await displayDebugLogs(publicOutput.debugLogs, addr => this.contractStore.getDebugContractName(addr));
+          }
         }
 
         let validationTime: number | undefined;

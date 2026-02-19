@@ -1,32 +1,23 @@
-//! The `self` contract value.
+//! The `self` contract value for private execution contexts.
 
 use crate::{
-    context::{
-        calls::{PrivateCall, PrivateStaticCall, PublicCall, PublicStaticCall},
-        PrivateContext,
-        PublicContext,
-        UtilityContext,
-    },
-    event::{
-        event_emission::{emit_event_in_private, emit_event_in_public},
-        event_interface::EventInterface,
-        EventMessage,
-    },
+    context::{calls::{PrivateCall, PrivateStaticCall, PublicCall, PublicStaticCall}, PrivateContext},
+    event::{event_emission::emit_event_in_private, event_interface::EventInterface, EventMessage},
 };
 use crate::protocol::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
-/// Core interface for interacting with aztec-nr contract features.
+/// Core interface for interacting with aztec-nr contract features in private execution contexts.
 ///
 /// This struct is automatically injected into every [`external`](crate::macros::functions::external) and
-/// [`internal`](crate::macros::functions::internal) contract function by the Aztec macro system and is accessible
-/// through the `self` variable.
+/// [`internal`](crate::macros::functions::internal) contract function marked with `"private"` by the Aztec macro
+/// system and is accessible through the `self` variable.
 ///
 /// ## Usage in Contract Functions
 ///
 /// Once injected, you can use `self` to:
 /// - Access storage: `self.storage.balances.at(owner).read()`
 /// - Call contracts: `self.call(Token::at(address).transfer(recipient, amount))`
-/// - Emit events: `self.emit(event).deliver_to(recipient, delivery_mode)` (private) or `self.emit(event)` (public)
+/// - Emit events: `self.emit(event).deliver_to(recipient, delivery_mode)`
 /// - Get the contract address: `self.address`
 /// - Get the caller: `self.msg_sender()`
 /// - Access low-level Aztec.nr APIs through the context: `self.context`
@@ -49,14 +40,14 @@ use crate::protocol::{address::AztecAddress, traits::{Deserialize, Serialize}};
 ///
 /// ## Type Parameters
 ///
-/// - `Context`: The execution context type - either `&mut PrivateContext`, `PublicContext`, or `UtilityContext`
 /// - `Storage`: The contract's storage struct (defined with [`storage`](crate::macros::storage::storage), or `()` if
 /// the contract has no storage
 /// - `CallSelf`: Macro-generated type for calling contract's own non-view functions
 /// - `EnqueueSelf`: Macro-generated type for enqueuing calls to the contract's own non-view functions
 /// - `CallSelfStatic`: Macro-generated type for calling contract's own view functions
 /// - `EnqueueSelfStatic`: Macro-generated type for enqueuing calls to the contract's own view functions
-pub struct ContractSelf<Context, Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal> {
+/// - `CallInternal`: Macro-generated type for calling internal functions
+pub struct ContractSelfPrivate<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal> {
     /// The address of this contract
     pub address: AztecAddress,
 
@@ -64,10 +55,8 @@ pub struct ContractSelf<Context, Storage, CallSelf, EnqueueSelf, CallSelfStatic,
     /// [`storage`](crate::macros::storage::storage) macro was applied in your contract. If the contract has no
     /// storage, the type of this will be `()`.
     ///
-    /// This storage instance is specialized for the current execution context (private, public, or utility) and
-    /// provides access to the contract's state variables. Each state variable accepts the context as a generic
-    /// parameter, which determines its available functionality. For example, a PublicImmutable variable can be read
-    /// from any context (public, private, or utility) but can only be written to from public contexts.
+    /// This storage instance is specialized for the current execution context (private) and
+    /// provides access to the contract's state variables.
     ///
     /// ## Developer Note
     ///
@@ -75,17 +64,12 @@ pub struct ContractSelf<Context, Storage, CallSelf, EnqueueSelf, CallSelfStatic,
     /// to unit type `()`, it means you haven't yet defined a Storage struct using the
     /// [`storage`](crate::macros::storage::storage) macro in your contract. For guidance on setting this up, please
     /// refer to our docs: https://docs.aztec.network/developers/docs/guides/smart_contracts/storage
-
     pub storage: Storage,
 
-    /// The execution context whose type is determined by the [`external`](crate::macros::functions::external)
-    /// attribute of the contract function based on the external function type (private, public, or utility).
-    pub context: Context,
+    /// The private execution context.
+    pub context: &mut PrivateContext,
 
     /// Provides type-safe methods for calling this contract's own non-view functions.
-    ///
-    /// In private and public contexts this will be a struct with appropriate methods; in utility context it will be
-    /// the unit type `()`.
     ///
     /// Example API:
     /// ```noir
@@ -95,9 +79,6 @@ pub struct ContractSelf<Context, Storage, CallSelf, EnqueueSelf, CallSelfStatic,
 
     /// Provides type-safe methods for enqueuing calls to this contract's own non-view functions.
     ///
-    /// In private context this will be a struct with appropriate methods; in public and utility contexts it will be
-    /// the unit type `()`.
-    ///
     /// Example API:
     /// ```noir
     /// self.enqueue_self.some_public_function(args)
@@ -106,19 +87,13 @@ pub struct ContractSelf<Context, Storage, CallSelf, EnqueueSelf, CallSelfStatic,
 
     /// Provides type-safe methods for calling this contract's own view functions.
     ///
-    /// In private and public contexts this will be a struct with appropriate methods; in utility context it will be
-    /// the unit type `()`.
-    ///
     /// Example API:
     /// ```noir
     /// self.call_self_static.some_view_function(args)
     /// ```
     pub call_self_static: CallSelfStatic,
 
-    /// Provides type-safe methods for enqueuing calls to this contract's own view functions.
-    ///
-    /// In private context this will be a struct with appropriate methods; in public and utility contexts it will be
-    /// the unit type `()`.
+    /// Provides type-safe methods for enqueuing calls to the contract's own view functions.
     ///
     /// Example API:
     /// ```noir
@@ -128,9 +103,6 @@ pub struct ContractSelf<Context, Storage, CallSelf, EnqueueSelf, CallSelfStatic,
 
     /// Provides type-safe methods for calling internal functions.
     ///
-    /// In private and public contexts this will be a struct with appropriate methods; in utility context it will be
-    /// the unit type `()`.
-    ///
     /// Example API:
     /// ```noir
     /// self.internal.some_internal_function(args)
@@ -138,14 +110,11 @@ pub struct ContractSelf<Context, Storage, CallSelf, EnqueueSelf, CallSelfStatic,
     pub internal: CallInternal,
 }
 
-// Implementation for `ContractSelf` in private execution contexts.
-//
-// This implementation is used when an external or internal contract function is marked with "private".
-impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal> ContractSelf<&mut PrivateContext, Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal> {
-    /// Creates a new `ContractSelf` instance for a private function.
+impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal> ContractSelfPrivate<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal> {
+    /// Creates a new `ContractSelfPrivate` instance for a private function.
     ///
     /// This constructor is called automatically by the macro system and should not be called directly.
-    pub fn new_private(
+    pub fn new(
         context: &mut PrivateContext,
         storage: Storage,
         call_self: CallSelf,
@@ -335,8 +304,8 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
 
     /// Enqueues a privacy-preserving public contract call function.
     ///
-    /// This is the same as [`ContractSelf::enqueue`], except it hides this calling contract's address from the target
-    /// public function (i.e. [`ContractSelf::msg_sender`] will panic).
+    /// This is the same as [`ContractSelfPrivate::enqueue`], except it hides this calling contract's address from the
+    /// target public function (i.e. [`ContractSelfPrivate::msg_sender`] will panic).
     ///
     /// This means the origin of the call (msg_sender) will not be publicly visible to any blockchain observers, nor to
     /// the target public function. If the target public function reads `self.msg_sender()` the call will revert.
@@ -424,143 +393,5 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     ///
     pub fn set_as_teardown_incognito<let M: u32, let N: u32, T>(&mut self, call: PublicCall<M, N, T>) {
         call.set_as_teardown_incognito(self.context)
-    }
-}
-
-// Implementation for `ContractSelf` in public execution contexts.
-//
-// This implementation is used when an external or internal contract function is marked with "public".
-impl<Storage, CallSelf, CallSelfStatic, CallInternal> ContractSelf<PublicContext, Storage, CallSelf, (), CallSelfStatic, (), CallInternal> {
-    /// Creates a new `ContractSelf` instance for a public function.
-    ///
-    /// This constructor is called automatically by the macro system and should not be called directly.
-    pub fn new_public(
-        context: PublicContext,
-        storage: Storage,
-        call_self: CallSelf,
-        call_self_static: CallSelfStatic,
-        internal: CallInternal,
-    ) -> Self {
-        Self {
-            context,
-            storage,
-            address: context.this_address(),
-            call_self,
-            enqueue_self: (),
-            call_self_static,
-            enqueue_self_static: (),
-            internal,
-        }
-    }
-
-    /// The address of the contract address that made this function call.
-    ///
-    /// This is similar to Solidity's `msg.sender` value.
-    ///
-    /// ## Incognito Calls
-    ///
-    /// Contracts can call public functions from private ones hiding their identity (see
-    /// [`enqueue_incognito`](ContractSelf::enqueue_incognito)). This function reverts when executed in such a context.
-    ///
-    /// If you need to handle these cases, use [`PublicContext::maybe_msg_sender`].
-    pub fn msg_sender(self: Self) -> AztecAddress {
-        self.context.maybe_msg_sender().unwrap()
-    }
-
-    /// Emits an event publicly.
-    ///
-    /// Public events are emitted as plaintext and are therefore visible to everyone. This is is the same as Solidity
-    /// events on EVM chains.
-    ///
-    /// Unlike private events, they don't require delivery of an event message.
-    ///
-    /// # Example
-    /// ```noir
-    /// #[event]
-    /// struct Update { value: Field }
-    ///
-    /// #[external("public")]
-    /// fn publish_update(value: Field) {
-    ///     self.emit(Update { value });
-    /// }
-    /// ```
-    ///
-    /// # Cost
-    ///
-    /// Public event emission is achieved by emitting public transaction logs. A total of `N+1` fields are emitted,
-    /// where `N` is the serialization length of the event.
-    pub fn emit<Event>(&mut self, event: Event)
-    where
-        Event: EventInterface + Serialize,
-    {
-        emit_event_in_public(self.context, event);
-    }
-
-    /// Makes a public contract call.
-    ///
-    /// Will revert if the called function reverts or runs out of gas.
-    ///
-    /// # Arguments
-    /// * `call` - The object representing the public function to invoke.
-    ///
-    /// # Returns
-    /// * `T` - Whatever data the called function has returned.
-    ///
-    /// # Example
-    /// ```noir
-    /// self.call(Token::at(address).transfer_in_public(recipient, amount));
-    /// ```
-    ///
-    pub unconstrained fn call<let M: u32, let N: u32, T>(self, call: PublicCall<M, N, T>) -> T
-    where
-        T: Deserialize,
-    {
-        call.call(self.context)
-    }
-
-    /// Makes a public read-only contract call.
-    ///
-    /// This is similar to Solidity's `staticcall`. The called function cannot modify state or emit events. Any nested
-    /// calls are constrained to also be static calls.
-    ///
-    /// Will revert if the called function reverts or runs out of gas.
-    ///
-    /// # Arguments
-    /// * `call` - The object representing the read-only public function to invoke.
-    ///
-    /// # Returns
-    /// * `T` - Whatever data the called function has returned.
-    ///
-    /// # Example
-    /// ```noir
-    /// self.view(Token::at(address).balance_of_public(recipient));
-    /// ```
-    ///
-    pub unconstrained fn view<let M: u32, let N: u32, T>(self, call: PublicStaticCall<M, N, T>) -> T
-    where
-        T: Deserialize,
-    {
-        call.view(self.context)
-    }
-}
-
-// Implementation for `ContractSelf` in utility execution contexts.
-//
-// This implementation is used when an external or internal contract function is marked with "utility".
-impl<Storage> ContractSelf<UtilityContext, Storage, (), (), (), (), ()> {
-    /// Creates a new `ContractSelf` instance for a utility function.
-    ///
-    /// This constructor is called automatically by the macro system and should not be called directly.
-    pub fn new_utility(context: UtilityContext, storage: Storage) -> Self {
-        Self {
-            context,
-            storage,
-            address: context.this_address(),
-            call_self: (),
-            enqueue_self: (),
-            call_self_static: (),
-            enqueue_self_static: (),
-            internal: (),
-        }
     }
 }
