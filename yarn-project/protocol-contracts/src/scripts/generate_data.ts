@@ -11,10 +11,15 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createConsoleLogger } from '@aztec/foundation/log';
-import { loadContractArtifact } from '@aztec/stdlib/abi';
+import { FunctionSelector, loadContractArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
+import {
+  computeContractAddressFromInstance,
+  computeInitializationHash,
+  getContractClassFromArtifact,
+} from '@aztec/stdlib/contract';
 import { computeSiloedPrivateLogFirstField } from '@aztec/stdlib/hash';
+import { PublicKeys } from '@aztec/stdlib/keys';
 import { type NoirCompiledContract } from '@aztec/stdlib/noir';
 import { ProtocolContracts } from '@aztec/stdlib/tx';
 
@@ -62,9 +67,42 @@ async function copyArtifact(srcName: string, destName: string) {
   return artifact;
 }
 
-async function computeAddress(artifact: NoirCompiledContract, deployer: AztecAddress) {
-  const instance = await getContractInstanceFromInstantiationParams(loadContractArtifact(artifact), { salt, deployer });
-  return instance.address;
+type ContractData = {
+  address: AztecAddress;
+  classId: Fr;
+  artifactHash: Fr;
+  privateFunctionsRoot: Fr;
+  publicBytecodeCommitment: Fr;
+  initializationHash: Fr;
+  privateFunctions: { selector: FunctionSelector; vkHash: Fr }[];
+};
+
+// Precompute all the expensive contract data that can be obtained from the artifact, to avoid redundant computations in clients.
+// Protocol contracts come from a trusted source, so no class verifications are needed.
+async function computeContractData(artifact: NoirCompiledContract, deployer: AztecAddress): Promise<ContractData> {
+  const loaded = loadContractArtifact(artifact);
+  const contractClass = await getContractClassFromArtifact(loaded);
+  const constructorArtifact = loaded.functions.find(f => f.name === 'constructor');
+  const initializationHash = await computeInitializationHash(constructorArtifact, []);
+  const instance = {
+    version: 1 as const,
+    currentContractClassId: contractClass.id,
+    originalContractClassId: contractClass.id,
+    initializationHash,
+    publicKeys: PublicKeys.default(),
+    salt,
+    deployer,
+  };
+  const address = await computeContractAddressFromInstance(instance);
+  return {
+    address,
+    classId: contractClass.id,
+    artifactHash: contractClass.artifactHash,
+    privateFunctionsRoot: contractClass.privateFunctionsRoot,
+    publicBytecodeCommitment: contractClass.publicBytecodeCommitment,
+    initializationHash,
+    privateFunctions: contractClass.privateFunctions,
+  };
 }
 
 async function generateDeclarationFile(destName: string) {
@@ -103,15 +141,53 @@ function generateContractAddresses(names: string[]) {
   `;
 }
 
-function generateDerivedAddresses(names: string[], derivedAddresses: AztecAddress[]) {
+function generateDerivedAddresses(names: string[], contractData: ContractData[]) {
   return `
     export const ProtocolContractDerivedAddress = {
-      ${derivedAddresses.map((address, i) => `${names[i]}: AztecAddress.fromString('${address.toString()}')`).join(',\n')}
+      ${contractData.map((d, i) => `${names[i]}: AztecAddress.fromString('${d.address.toString()}')`).join(',\n')}
     };
   `;
 }
 
-async function generateProtocolContractsList(names: string[], derivedAddresses: AztecAddress[]) {
+function generateClassIdPreimages(names: string[], contractData: ContractData[]) {
+  return `
+    export const ProtocolContractClassId: Record<ProtocolContractName, Fr> = {
+      ${contractData.map((d, i) => `${names[i]}: Fr.fromString('${d.classId.toString()}')`).join(',\n')}
+    };
+
+    export const ProtocolContractClassIdPreimage: Record<ProtocolContractName, { artifactHash: Fr; privateFunctionsRoot: Fr; publicBytecodeCommitment: Fr }> = {
+      ${contractData
+        .map(
+          (d, i) => `${names[i]}: {
+        artifactHash: Fr.fromString('${d.artifactHash.toString()}'),
+        privateFunctionsRoot: Fr.fromString('${d.privateFunctionsRoot.toString()}'),
+        publicBytecodeCommitment: Fr.fromString('${d.publicBytecodeCommitment.toString()}'),
+      }`,
+        )
+        .join(',\n')}
+    };
+
+    export const ProtocolContractInitializationHash: Record<ProtocolContractName, Fr> = {
+      ${contractData.map((d, i) => `${names[i]}: Fr.fromString('${d.initializationHash.toString()}')`).join(',\n')}
+    };
+
+    export const ProtocolContractPrivateFunctions: Record<ProtocolContractName, { selector: FunctionSelector; vkHash: Fr }[]> = {
+      ${contractData
+        .map(
+          (d, i) =>
+            `${names[i]}: [${d.privateFunctions
+              .map(
+                fn =>
+                  `{ selector: FunctionSelector.fromField(Fr.fromString('${fn.selector.toField().toString()}')), vkHash: Fr.fromString('${fn.vkHash.toString()}') }`,
+              )
+              .join(', ')}]`,
+        )
+        .join(',\n')}
+    };
+  `;
+}
+
+async function generateProtocolContractsList(names: string[], contractData: ContractData[]) {
   const list = makeTuple(MAX_PROTOCOL_CONTRACTS, () => AztecAddress.zero());
   for (let i = 0; i < names.length; i++) {
     const name = names[i];
@@ -120,7 +196,7 @@ async function generateProtocolContractsList(names: string[], derivedAddresses: 
     if (!list[derivedAddressIndex].equals(AztecAddress.zero())) {
       throw new Error(`Duplicate protocol contract address: ${address.toString()}`);
     }
-    list[derivedAddressIndex] = derivedAddresses[i];
+    list[derivedAddressIndex] = contractData[i].address;
   }
 
   return `
@@ -142,10 +218,11 @@ async function generateLogTags() {
   `;
 }
 
-async function generateOutputFile(names: string[], derivedAddresses: AztecAddress[]) {
+async function generateOutputFile(names: string[], contractData: ContractData[]) {
   const content = `
     // GENERATED FILE - DO NOT EDIT. RUN \`yarn generate\` or \`yarn generate:data\`
     import { Fr } from '@aztec/foundation/curves/bn254';
+    import { FunctionSelector } from '@aztec/stdlib/abi';
     import { AztecAddress } from '@aztec/stdlib/aztec-address';
     import { ProtocolContracts } from '@aztec/stdlib/tx';
 
@@ -155,9 +232,11 @@ async function generateOutputFile(names: string[], derivedAddresses: AztecAddres
 
     ${generateContractAddresses(names)}
 
-    ${generateDerivedAddresses(names, derivedAddresses)}
+    ${generateDerivedAddresses(names, contractData)}
 
-    ${await generateProtocolContractsList(names, derivedAddresses)}
+    ${generateClassIdPreimages(names, contractData)}
+
+    ${await generateProtocolContractsList(names, contractData)}
 
     ${await generateLogTags()}
   `;
@@ -171,17 +250,19 @@ async function main() {
     await fs.readFile(path.join(noirContractsRoot, 'protocol_contracts.json'), 'utf8'),
   ) as string[];
 
-  const derivedAddresses: AztecAddress[] = [];
+  const contractDataList: ContractData[] = [];
   const destNames = srcNames.map(n => n.split('-')[1]);
   for (let i = 0; i < srcNames.length; i++) {
     const srcName = srcNames[i];
     const destName = destNames[i];
     const artifact = await copyArtifact(srcName, destName);
     await generateDeclarationFile(destName);
-    derivedAddresses.push(await computeAddress(artifact, AztecAddress.fromBigInt(contractAddressMapping[destName])));
+    contractDataList.push(
+      await computeContractData(artifact, AztecAddress.fromBigInt(BigInt(contractAddressMapping[destName]))),
+    );
   }
 
-  await generateOutputFile(destNames, derivedAddresses);
+  await generateOutputFile(destNames, contractDataList);
 }
 
 try {
