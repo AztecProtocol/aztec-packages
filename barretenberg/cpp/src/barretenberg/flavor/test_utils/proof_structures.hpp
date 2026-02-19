@@ -597,9 +597,12 @@ template <typename Flavor> struct TranslatorStructuredProofBase : StructuredProo
     using typename Base::FF;
     using typename Base::ProofData;
 
-    // Batch size = total committed witness entities - gemini_masking_poly - z_perm
-    // Total committed = NUM_WITNESS_ENTITIES - 3 - NUM_OP_QUEUE_WIRES (from PROOF_LENGTH formula)
-    static constexpr size_t NUM_BATCH_WITNESS_COMMS = Flavor::NUM_WITNESS_ENTITIES - 3 - Flavor::NUM_OP_QUEUE_WIRES - 2;
+    // Number of wire commitments sent in proof (concatenated + ordered range constraints)
+    static constexpr size_t NUM_BATCH_WITNESS_COMMS = Flavor::NUM_COMMITMENTS_IN_PROOF;
+    // Minicircuit evaluations are sent mid-sumcheck after LOG_MINI_CIRCUIT_SIZE rounds
+    static constexpr size_t LOG_MINI_CIRCUIT_SIZE = Flavor::LOG_MINI_CIRCUIT_SIZE;
+    static constexpr size_t NUM_MINICIRCUIT_EVALUATIONS = Flavor::NUM_MINICIRCUIT_EVALUATIONS;
+    static constexpr size_t NUM_FULL_CIRCUIT_EVALUATIONS = Flavor::NUM_FULL_CIRCUIT_EVALUATIONS;
 
     // Witness commitments
     Commitment gemini_masking_poly_comm;
@@ -610,10 +613,13 @@ template <typename Flavor> struct TranslatorStructuredProofBase : StructuredProo
     Commitment libra_concatenation_commitment;
     FF libra_sum;
 
-    // Sumcheck
+    // Sumcheck: univariates are split around interleaved minicircuit evaluations
     std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
+    // Minicircuit wire evaluations (sent mid-sumcheck after LOG_MINI_CIRCUIT_SIZE rounds)
+    std::array<FF, NUM_MINICIRCUIT_EVALUATIONS> minicircuit_evaluations;
+    // Full-circuit evaluations (sent after all sumcheck rounds)
+    std::array<FF, NUM_FULL_CIRCUIT_EVALUATIONS> full_circuit_evaluations;
     FF libra_claimed_evaluation;
-    std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
 
     // Post-sumcheck Libra commitments
     Commitment libra_grand_sum_commitment;
@@ -622,10 +628,6 @@ template <typename Flavor> struct TranslatorStructuredProofBase : StructuredProo
     // Gemini/Shplemini
     std::vector<Commitment> gemini_fold_comms;
     std::vector<FF> gemini_fold_evals;
-
-    // Translator-specific: Gemini evaluations for interleaved claims
-    FF gemini_p_pos_eval;
-    FF gemini_p_neg_eval;
 
     // Libra evaluations
     FF libra_concatenation_eval;
@@ -656,14 +658,24 @@ template <typename Flavor> struct TranslatorStructuredProofBase : StructuredProo
         libra_concatenation_commitment = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         libra_sum = this->template deserialize_from_buffer<FF>(proof_data, offset);
 
-        // Sumcheck univariates
-        for (size_t i = 0; i < log_n; ++i) {
+        // Sumcheck univariates (first LOG_MINI_CIRCUIT_SIZE rounds)
+        for (size_t i = 0; i < LOG_MINI_CIRCUIT_SIZE; ++i) {
             sumcheck_univariates.push_back(
                 this->template deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(proof_data,
                                                                                                             offset));
         }
-        sumcheck_evaluations =
-            this->template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, offset);
+        // Minicircuit evaluations (interleaved mid-sumcheck)
+        minicircuit_evaluations =
+            this->template deserialize_from_buffer<std::array<FF, NUM_MINICIRCUIT_EVALUATIONS>>(proof_data, offset);
+        // Sumcheck univariates (remaining rounds)
+        for (size_t i = LOG_MINI_CIRCUIT_SIZE; i < log_n; ++i) {
+            sumcheck_univariates.push_back(
+                this->template deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(proof_data,
+                                                                                                            offset));
+        }
+        // Full-circuit evaluations (excludes computable precomputed + concatenated + minicircuit)
+        full_circuit_evaluations =
+            this->template deserialize_from_buffer<std::array<FF, NUM_FULL_CIRCUIT_EVALUATIONS>>(proof_data, offset);
         libra_claimed_evaluation = this->template deserialize_from_buffer<FF>(proof_data, offset);
 
         // Libra post-sumcheck commitments
@@ -677,10 +689,6 @@ template <typename Flavor> struct TranslatorStructuredProofBase : StructuredProo
         for (size_t i = 0; i < log_n; ++i) {
             gemini_fold_evals.push_back(this->template deserialize_from_buffer<FF>(proof_data, offset));
         }
-
-        // Translator-specific: Gemini P_pos and P_neg evaluations (for interleaved claims)
-        gemini_p_pos_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
-        gemini_p_neg_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
 
         // Libra evaluations
         libra_concatenation_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
@@ -709,11 +717,18 @@ template <typename Flavor> struct TranslatorStructuredProofBase : StructuredProo
         Base::serialize_to_buffer(libra_concatenation_commitment, proof_data);
         Base::serialize_to_buffer(libra_sum, proof_data);
 
-        // Sumcheck univariates
-        for (size_t i = 0; i < log_n; ++i) {
+        // Sumcheck univariates (first LOG_MINI_CIRCUIT_SIZE rounds)
+        for (size_t i = 0; i < LOG_MINI_CIRCUIT_SIZE; ++i) {
             Base::serialize_to_buffer(sumcheck_univariates[i], proof_data);
         }
-        Base::serialize_to_buffer(sumcheck_evaluations, proof_data);
+        // Minicircuit evaluations (interleaved mid-sumcheck)
+        Base::serialize_to_buffer(minicircuit_evaluations, proof_data);
+        // Sumcheck univariates (remaining rounds)
+        for (size_t i = LOG_MINI_CIRCUIT_SIZE; i < log_n; ++i) {
+            Base::serialize_to_buffer(sumcheck_univariates[i], proof_data);
+        }
+        // Full-circuit evaluations
+        Base::serialize_to_buffer(full_circuit_evaluations, proof_data);
         Base::serialize_to_buffer(libra_claimed_evaluation, proof_data);
 
         // Libra post-sumcheck commitments
@@ -727,10 +742,6 @@ template <typename Flavor> struct TranslatorStructuredProofBase : StructuredProo
         for (size_t i = 0; i < log_n; ++i) {
             Base::serialize_to_buffer(gemini_fold_evals[i], proof_data);
         }
-
-        // Translator-specific: Gemini P_pos and P_neg evaluations
-        Base::serialize_to_buffer(gemini_p_pos_eval, proof_data);
-        Base::serialize_to_buffer(gemini_p_neg_eval, proof_data);
 
         // Libra evaluations
         Base::serialize_to_buffer(libra_concatenation_eval, proof_data);

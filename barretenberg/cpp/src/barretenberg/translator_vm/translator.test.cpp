@@ -21,10 +21,9 @@ TranslatorFlavor::VerificationKey create_vk_from_proving_key(
     const std::shared_ptr<TranslatorFlavor::ProvingKey>& proving_key)
 {
     TranslatorFlavor::VerificationKey vk;
-    // Overwrite fixed commitments with computed commitments from the proving key
-    for (auto [polynomial, commitment] : zip_view(proving_key->polynomials.get_precomputed(), vk.get_all())) {
-        commitment = proving_key->commitment_key.commit(polynomial);
-    }
+    // Only ordered_extra_range_constraints_numerator needs a VK commitment (the only non-computable precomputed)
+    vk.ordered_extra_range_constraints_numerator =
+        proving_key->commitment_key.commit(proving_key->polynomials.ordered_extra_range_constraints_numerator);
     return vk;
 }
 
@@ -55,69 +54,35 @@ class TranslatorTests : public ::testing::Test {
 
     /**
      * @brief Build the expected transcript manifest for Translator verification
-     * @details The manifest has 26 rounds total:
-     * - Round 0: vk_hash, Gemini masking, 82 wire commitments -> beta challenge
-     * - Round 1: (empty) -> gamma challenge
-     * - Round 2: Z_PERM -> Sumcheck:alpha + all gate challenges
-     * - Round 3: Libra:concatenation_commitment + Sum -> Libra:Challenge
-     * - Rounds 4-20: Sumcheck univariates (17 rounds)
-     * - Round 21: Sumcheck evaluations + Libra commitments -> rho
-     * - Round 22: Gemini fold commitments -> Gemini:r
-     * - Round 23: Gemini evaluations + Libra evals -> Shplonk:nu
-     * - Round 24: Shplonk:Q -> Shplonk:z
-     * - Round 25: KZG:W -> KZG:masking_challenge
+     * @details The manifest has 25 rounds total (0-24):
+     * - Round 0: vk_hash, Gemini masking, 10 wire commitments -> beta, gamma challenges
+     * - Round 1: Z_PERM -> Sumcheck:alpha + all gate challenges
+     * - Round 2: Libra:concatenation_commitment + Sum -> Libra:Challenge
+     * - Rounds 3-15: Sumcheck univariates for rounds 0-12 (mini-circuit rounds)
+     * - Round 16: minicircuit_evaluations(154) + univariate_13 -> u_13
+     * - Rounds 17-19: Sumcheck univariates for rounds 14-16
+     * - Round 20: Sumcheck full-circuit evaluations(26) + Libra commitments -> rho
+     * - Round 21: Gemini fold commitments -> Gemini:r
+     * - Round 22: Gemini evaluations + Libra evals -> Shplonk:nu
+     * - Round 23: Shplonk:Q -> Shplonk:z
+     * - Round 24: KZG:W -> KZG:masking_challenge
      */
     static TranscriptManifest build_expected_translator_manifest()
     {
         TranscriptManifest manifest;
         constexpr size_t frs_per_G = FrCodec::calc_num_fields<Flavor::Commitment>();
-        constexpr size_t NUM_SUMCHECK_ROUNDS = 17; // CONST_TRANSLATOR_LOG_N + 2
+        constexpr size_t NUM_SUMCHECK_ROUNDS = Flavor::CONST_TRANSLATOR_LOG_N;
 
         // Round 0: vk_hash, Gemini masking, wire commitments
         manifest.add_entry(0, "vk_hash", 1);
         manifest.add_entry(0, "Gemini:masking_poly_comm", frs_per_G);
 
-        // Wire commitments (82 total, in order from the manifest dump)
+        // Wire commitments (10 total: 5 concatenated + 5 ordered)
         // clang-format off
         std::vector<std::string> wire_labels = {
-            "P_X_LOW_LIMBS", "P_X_HIGH_LIMBS", "P_Y_LOW_LIMBS", "P_Y_HIGH_LIMBS",
-            "Z_LOw_LIMBS", "Z_HIGH_LIMBS",
-            "ACCUMULATORS_BINARY_LIMBS_0", "ACCUMULATORS_BINARY_LIMBS_1",
-            "ACCUMULATORS_BINARY_LIMBS_2", "ACCUMULATORS_BINARY_LIMBS_3",
-            "QUOTIENT_LOW_BINARY_LIMBS", "QUOTIENT_HIGH_BINARY_LIMBS",
-            "RELATION_WIDE_LIMBS",
-            "P_X_LOW_LIMBS_RANGE_CONSTRAINT_0", "P_X_LOW_LIMBS_RANGE_CONSTRAINT_1",
-            "P_X_LOW_LIMBS_RANGE_CONSTRAINT_2", "P_X_LOW_LIMBS_RANGE_CONSTRAINT_3",
-            "P_X_LOW_LIMBS_RANGE_CONSTRAINT_4", "P_X_LOW_LIMBS_RANGE_CONSTRAINT_TAIL",
-            "P_X_HIGH_LIMBS_RANGE_CONSTRAINT_0", "P_X_HIGH_LIMBS_RANGE_CONSTRAINT_1",
-            "P_X_HIGH_LIMBS_RANGE_CONSTRAINT_2", "P_X_HIGH_LIMBS_RANGE_CONSTRAINT_3",
-            "P_X_HIGH_LIMBS_RANGE_CONSTRAINT_4", "P_X_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL",
-            "P_Y_LOW_LIMBS_RANGE_CONSTRAINT_0", "P_Y_LOW_LIMBS_RANGE_CONSTRAINT_1",
-            "P_Y_LOW_LIMBS_RANGE_CONSTRAINT_2", "P_Y_LOW_LIMBS_RANGE_CONSTRAINT_3",
-            "P_Y_LOW_LIMBS_RANGE_CONSTRAINT_4", "P_Y_LOW_LIMBS_RANGE_CONSTRAINT_TAIL",
-            "P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_0", "P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_1",
-            "P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_2", "P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_3",
-            "P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_4", "P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL",
-            "Z_LOW_LIMBS_RANGE_CONSTRAINT_0", "Z_LOW_LIMBS_RANGE_CONSTRAINT_1",
-            "Z_LOW_LIMBS_RANGE_CONSTRAINT_2", "Z_LOW_LIMBS_RANGE_CONSTRAINT_3",
-            "Z_LOW_LIMBS_RANGE_CONSTRAINT_4", "Z_LOW_LIMBS_RANGE_CONSTRAINT_TAIL",
-            "Z_HIGH_LIMBS_RANGE_CONSTRAINT_0", "Z_HIGH_LIMBS_RANGE_CONSTRAINT_1",
-            "Z_HIGH_LIMBS_RANGE_CONSTRAINT_2", "Z_HIGH_LIMBS_RANGE_CONSTRAINT_3",
-            "Z_HIGH_LIMBS_RANGE_CONSTRAINT_4", "Z_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL",
-            "ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_0", "ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_1",
-            "ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_2", "ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_3",
-            "ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_4", "ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_TAIL",
-            "ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_0", "ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_1",
-            "ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_2", "ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_3",
-            "ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_4", "ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL",
-            "QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_0", "QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_1",
-            "QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_2", "QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_3",
-            "QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_4", "QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_TAIL",
-            "QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_0", "QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_1",
-            "QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_2", "QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_3",
-            "QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_4", "QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL",
-            "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0", "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1",
-            "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2", "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_3",
+            "CONCATENATED_RANGE_CONSTRAINTS_0", "CONCATENATED_RANGE_CONSTRAINTS_1",
+            "CONCATENATED_RANGE_CONSTRAINTS_2", "CONCATENATED_RANGE_CONSTRAINTS_3",
+            "CONCATENATED_NON_RANGE",
             "ORDERED_RANGE_CONSTRAINTS_0", "ORDERED_RANGE_CONSTRAINTS_1",
             "ORDERED_RANGE_CONSTRAINTS_2", "ORDERED_RANGE_CONSTRAINTS_3",
             "ORDERED_RANGE_CONSTRAINTS_4",
@@ -142,44 +107,61 @@ class TranslatorTests : public ::testing::Test {
         manifest.add_entry(2, "Libra:Sum", 1);
         manifest.add_challenge(2, "Libra:Challenge");
 
-        // Rounds 3-19: Sumcheck univariates (17 rounds)
-        for (size_t i = 0; i < NUM_SUMCHECK_ROUNDS; ++i) {
+        // Rounds 3-15: Sumcheck univariates for mini-circuit rounds 0..12
+        constexpr size_t LOG_MINI = Flavor::LOG_MINI_CIRCUIT_SIZE;
+        for (size_t i = 0; i < LOG_MINI; ++i) {
             manifest.add_entry(3 + i, "Sumcheck:univariate_" + std::to_string(i), 9);
             manifest.add_challenge(3 + i, "Sumcheck:u_" + std::to_string(i));
         }
 
-        // Round 20: Sumcheck evaluations + Libra commitments -> rho
-        manifest.add_entry(20, "Sumcheck:evaluations", 188);
-        manifest.add_entry(20, "Libra:claimed_evaluation", 1);
-        manifest.add_entry(20, "Libra:grand_sum_commitment", frs_per_G);
-        manifest.add_entry(20, "Libra:quotient_commitment", frs_per_G);
-        manifest.add_challenge(20, "rho");
+        // Round 16: 154 minicircuit wire evaluations sent mid-sumcheck, then univariate_13
+        manifest.add_entry(3 + LOG_MINI, "Sumcheck:minicircuit_evaluations", Flavor::NUM_MINICIRCUIT_EVALUATIONS);
+        manifest.add_entry(3 + LOG_MINI, "Sumcheck:univariate_" + std::to_string(LOG_MINI), 9);
+        manifest.add_challenge(3 + LOG_MINI, "Sumcheck:u_" + std::to_string(LOG_MINI));
 
-        // Round 21: Gemini fold commitments -> Gemini:r
-        for (size_t i = 1; i <= 16; ++i) {
-            manifest.add_entry(21, "Gemini:FOLD_" + std::to_string(i), frs_per_G);
+        // Rounds 17-19: remaining sumcheck rounds 14..16
+        for (size_t i = LOG_MINI + 1; i < NUM_SUMCHECK_ROUNDS; ++i) {
+            manifest.add_entry(3 + i, "Sumcheck:univariate_" + std::to_string(i), 9);
+            manifest.add_challenge(3 + i, "Sumcheck:u_" + std::to_string(i));
         }
-        manifest.add_challenge(21, "Gemini:r");
 
-        // Round 22: Gemini evaluations + Libra evals -> Shplonk:nu
-        for (size_t i = 1; i <= 17; ++i) {
-            manifest.add_entry(22, "Gemini:a_" + std::to_string(i), 1);
+        // Sumcheck full-circuit evaluations (computable precomputed + minicircuit wires excluded) + Libra commitments
+        // -> rho
+        const size_t eval_round = 3 + NUM_SUMCHECK_ROUNDS;
+        manifest.add_entry(eval_round, "Sumcheck:evaluations", Flavor::NUM_FULL_CIRCUIT_EVALUATIONS);
+        manifest.add_entry(eval_round, "Libra:claimed_evaluation", 1);
+        manifest.add_entry(eval_round, "Libra:grand_sum_commitment", frs_per_G);
+        manifest.add_entry(eval_round, "Libra:quotient_commitment", frs_per_G);
+        manifest.add_challenge(eval_round, "rho");
+
+        // Gemini fold commitments -> Gemini:r
+        const size_t gemini_fold_round = eval_round + 1;
+        for (size_t i = 1; i < NUM_SUMCHECK_ROUNDS; ++i) {
+            manifest.add_entry(gemini_fold_round, "Gemini:FOLD_" + std::to_string(i), frs_per_G);
         }
-        manifest.add_entry(22, "Gemini:P_pos", 1);
-        manifest.add_entry(22, "Gemini:P_neg", 1);
-        manifest.add_entry(22, "Libra:concatenation_eval", 1);
-        manifest.add_entry(22, "Libra:shifted_grand_sum_eval", 1);
-        manifest.add_entry(22, "Libra:grand_sum_eval", 1);
-        manifest.add_entry(22, "Libra:quotient_eval", 1);
-        manifest.add_challenge(22, "Shplonk:nu");
+        manifest.add_challenge(gemini_fold_round, "Gemini:r");
 
-        // Round 23: Shplonk:Q -> Shplonk:z
-        manifest.add_entry(23, "Shplonk:Q", frs_per_G);
-        manifest.add_challenge(23, "Shplonk:z");
+        // Gemini evaluations + Libra evals -> Shplonk:nu
+        const size_t gemini_eval_round = gemini_fold_round + 1;
+        for (size_t i = 1; i <= NUM_SUMCHECK_ROUNDS; ++i) {
+            manifest.add_entry(gemini_eval_round, "Gemini:a_" + std::to_string(i), 1);
+        }
+        // No more Gemini:P_pos / Gemini:P_neg (interleaving replaced by concatenation)
+        manifest.add_entry(gemini_eval_round, "Libra:concatenation_eval", 1);
+        manifest.add_entry(gemini_eval_round, "Libra:shifted_grand_sum_eval", 1);
+        manifest.add_entry(gemini_eval_round, "Libra:grand_sum_eval", 1);
+        manifest.add_entry(gemini_eval_round, "Libra:quotient_eval", 1);
+        manifest.add_challenge(gemini_eval_round, "Shplonk:nu");
 
-        // Round 24: KZG:W -> KZG:masking_challenge
-        manifest.add_entry(24, "KZG:W", frs_per_G);
-        manifest.add_challenge(24, "KZG:masking_challenge");
+        // Shplonk:Q -> Shplonk:z
+        const size_t shplonk_round = gemini_eval_round + 1;
+        manifest.add_entry(shplonk_round, "Shplonk:Q", frs_per_G);
+        manifest.add_challenge(shplonk_round, "Shplonk:z");
+
+        // KZG:W -> KZG:masking_challenge
+        const size_t kzg_round = shplonk_round + 1;
+        manifest.add_entry(kzg_round, "KZG:W", frs_per_G);
+        manifest.add_challenge(kzg_round, "KZG:masking_challenge");
 
         return manifest;
     }
@@ -374,10 +356,15 @@ TEST_F(TranslatorTests, FixedVK)
         TranslatorProver prover{ proving_key, prover_transcript };
         TranslatorFlavor::VerificationKey computed_vk = create_vk_from_proving_key(proving_key->proving_key);
         auto labels = TranslatorFlavor::VerificationKey::get_labels();
+
         size_t index = 0;
         for (auto [vk_commitment, fixed_commitment] : zip_view(computed_vk.get_all(), fixed_vk.get_all())) {
-            EXPECT_EQ(vk_commitment, fixed_commitment)
-                << "Mismatch between computed vk_commitment and fixed_commitment at label: " << labels[index];
+            if (vk_commitment != fixed_commitment) {
+                info("// ", labels[index]);
+                info("Commitment(uint256_t(\"0x", vk_commitment.x, "\"),");
+                info("           uint256_t(\"0x", vk_commitment.y, "\")),");
+            }
+            EXPECT_EQ(vk_commitment, fixed_commitment) << "Mismatch at label: " << labels[index];
             ++index;
         }
 
@@ -456,4 +443,114 @@ TEST_F(TranslatorTests, TranscriptPinned)
     auto verifier_manifest = verifier_transcript->get_manifest();
 
     EXPECT_EQ(verifier_manifest, expected_manifest);
+}
+
+/**
+ * @brief Unit test for concatenated polynomial construction and reconstruction
+ * @details Tests that:
+ * 1. Concatenated polynomials are correctly constructed from wire polynomials
+ * 2. The verifier's reconstruction formula correctly recovers the concatenated evaluation
+ */
+/**
+ * @brief Sanity check that minicircuit wires + full-circuit entities + computable precomputed
+ * partition all 192 entities without overlap or gaps.
+ * @details The sumcheck helpers split AllEntities into three groups for mid-sumcheck sending:
+ *   - get_minicircuit_wires()         : 77 unshifted minicircuit wires
+ *   - get_minicircuit_wires_shifted()  : 77 shifted minicircuit wires
+ *   - get_full_circuit_entities()      : 26 full-circuit entities
+ *   - compute_computable_precomputed   : 12 computable precomputed selectors
+ *   Total: 77 + 77 + 26 + 12 = 192 = NUM_ALL_ENTITIES
+ */
+TEST_F(TranslatorTests, EvaluationPartition)
+{
+    using Flavor = TranslatorFlavor;
+    using FF = Flavor::FF;
+
+    // Fill all entities with distinct values (entity index as value)
+    Flavor::AllEntities<FF> evals;
+    {
+        size_t idx = 0;
+        for (auto& e : evals.get_all()) {
+            e = FF(idx++);
+        }
+    }
+
+    // Collect addresses of all entities touched by each getter
+    std::set<FF*> covered;
+
+    for (auto& e : evals.get_minicircuit_wires()) {
+        EXPECT_TRUE(covered.insert(&e).second) << "minicircuit wire overlaps with a previous entity";
+    }
+    EXPECT_EQ(covered.size(), Flavor::NUM_MINICIRCUIT_WIRES);
+
+    for (auto& e : evals.get_minicircuit_wires_shifted()) {
+        EXPECT_TRUE(covered.insert(&e).second) << "minicircuit wire shift overlaps with a previous entity";
+    }
+    EXPECT_EQ(covered.size(), 2 * Flavor::NUM_MINICIRCUIT_WIRES);
+
+    for (auto& e : evals.get_full_circuit_entities()) {
+        EXPECT_TRUE(covered.insert(&e).second) << "full-circuit entity overlaps with a previous entity";
+    }
+    EXPECT_EQ(covered.size(), 2 * Flavor::NUM_MINICIRCUIT_WIRES + Flavor::NUM_FULL_CIRCUIT_EVALUATIONS);
+
+    // Concat polys are reconstructed (not sent in proof), but still in AllEntities
+    for (auto& e : evals.get_concatenated()) {
+        EXPECT_TRUE(covered.insert(&e).second) << "concatenated poly overlaps with a previous entity";
+    }
+    EXPECT_EQ(covered.size(),
+              2 * Flavor::NUM_MINICIRCUIT_WIRES + Flavor::NUM_FULL_CIRCUIT_EVALUATIONS +
+                  Flavor::NUM_CONCATENATED_POLYS);
+
+    // The computable precomputed selectors are the remaining entities
+    size_t remaining = Flavor::NUM_ALL_ENTITIES - covered.size();
+    EXPECT_EQ(remaining, Flavor::NUM_COMPUTABLE_PRECOMPUTED);
+
+    // Verify the remaining entities are exactly the computable precomputed ones
+    for (auto& e : evals.get_all()) {
+        if (covered.find(&e) == covered.end()) {
+            // This entity must be one of the 12 computable precomputed selectors
+            remaining--;
+        }
+    }
+    EXPECT_EQ(remaining, 0UL);
+}
+
+/**
+ * @brief Verify that the verifier-side methods populate every entity in AllEntities.
+ * @details Start from all-zeros, call set_minicircuit_evaluations + complete_full_circuit_evaluations
+ * with random inputs, and check that no entity remains zero (with overwhelming probability).
+ */
+TEST_F(TranslatorTests, VerifierPopulatesAllEntities)
+{
+    using Flavor = TranslatorFlavor;
+    using FF = Flavor::FF;
+
+    // Prepare random minicircuit evaluations (154 values)
+    std::array<FF, Flavor::NUM_MINICIRCUIT_EVALUATIONS> mid;
+    for (auto& v : mid) {
+        v = FF::random_element(&engine);
+    }
+
+    // Prepare random full-circuit evaluations (26 values)
+    std::array<FF, Flavor::NUM_FULL_CIRCUIT_EVALUATIONS> full_circuit;
+    for (auto& v : full_circuit) {
+        v = FF::random_element(&engine);
+    }
+
+    // Random challenge (computable precomputed selectors depend on this)
+    std::vector<FF> challenge(Flavor::CONST_TRANSLATOR_LOG_N);
+    for (auto& u : challenge) {
+        u = FF::random_element(&engine);
+    }
+
+    // Verifier reconstruction: start from zero, populate via the two verifier methods
+    Flavor::AllEntities<FF> evals;
+    Flavor::set_minicircuit_evaluations(evals, mid);
+    Flavor::complete_full_circuit_evaluations(evals, full_circuit, std::span<const FF>(challenge));
+
+    // Every entity should now be nonzero (probability of a random FF being zero is negligible)
+    auto all = evals.get_all();
+    for (size_t i = 0; i < Flavor::NUM_ALL_ENTITIES; i++) {
+        EXPECT_NE(all[i], FF(0)) << "Entity " << i << " was not populated by verifier methods";
+    }
 }

@@ -59,9 +59,6 @@ static constexpr uint32_t MERGE_PROOF_SIZE = 42; // used to ensure mock proofs a
 // There are 5 distinguished wires in ECCVM that have to be opened as univariates to establish the connection between
 // ECCVM and Translator
 static constexpr uint32_t NUM_TRANSLATION_EVALUATIONS = 5;
-// The interleaving trick needed for Translator adds 2 extra claims to Gemini fold claims
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1293): Decouple Gemini from Interleaving
-static constexpr uint32_t NUM_INTERLEAVING_CLAIMS = 2;
 
 // The number of leading zero rows in the execution trace. Used to enable shifted polynomials.
 static constexpr size_t NUM_ZERO_ROWS = 1;
