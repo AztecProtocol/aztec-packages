@@ -379,33 +379,35 @@ export class TxPoolV2Impl {
     let softDeletedHits = 0;
     let missingPreviouslyEvicted = 0;
 
-    for (const txHash of txHashes) {
-      const txHashStr = txHash.toString();
+    await this.#store.transactionAsync(async () => {
+      for (const txHash of txHashes) {
+        const txHashStr = txHash.toString();
 
-      if (this.#indices.has(txHashStr)) {
-        // Update protection for existing tx
-        this.#indices.updateProtection(txHashStr, slotNumber);
-      } else if (this.#deletedPool.isSoftDeleted(txHashStr)) {
-        // Resurrect soft-deleted tx as protected
-        const buffer = await this.#txsDB.getAsync(txHashStr);
-        if (buffer) {
-          const tx = Tx.fromBuffer(buffer);
-          await this.#addTx(tx, { protected: slotNumber });
-          softDeletedHits++;
+        if (this.#indices.has(txHashStr)) {
+          // Update protection for existing tx
+          this.#indices.updateProtection(txHashStr, slotNumber);
+        } else if (this.#deletedPool.isSoftDeleted(txHashStr)) {
+          // Resurrect soft-deleted tx as protected
+          const buffer = await this.#txsDB.getAsync(txHashStr);
+          if (buffer) {
+            const tx = Tx.fromBuffer(buffer);
+            await this.#addTx(tx, { protected: slotNumber });
+            softDeletedHits++;
+          } else {
+            // Data missing despite soft-delete flag — treat as truly missing
+            this.#indices.setProtection(txHashStr, slotNumber);
+            missing.push(txHash);
+          }
         } else {
-          // Data missing despite soft-delete flag — treat as truly missing
+          // Truly missing — pre-record protection for tx we don't have yet
           this.#indices.setProtection(txHashStr, slotNumber);
           missing.push(txHash);
-        }
-      } else {
-        // Truly missing — pre-record protection for tx we don't have yet
-        this.#indices.setProtection(txHashStr, slotNumber);
-        missing.push(txHash);
-        if (this.#evictedTxHashes.has(txHashStr)) {
-          missingPreviouslyEvicted++;
+          if (this.#evictedTxHashes.has(txHashStr)) {
+            missingPreviouslyEvicted++;
+          }
         }
       }
-    }
+    });
 
     // Record metrics
     if (softDeletedHits > 0) {
@@ -466,13 +468,16 @@ export class TxPoolV2Impl {
       }
     }
 
-    // Step 4: Mark txs as mined (only those we have in the pool)
-    for (const meta of found) {
-      this.#indices.markAsMined(meta, blockId);
-      await this.#deletedPool.clearIfMinedHigher(meta.txHash, blockId.number);
-    }
+    await this.#store.transactionAsync(async () => {
+      // Step 4: Mark txs as mined (only those we have in the pool)
+      for (const meta of found) {
+        this.#indices.markAsMined(meta, blockId);
+        await this.#deletedPool.clearIfMinedHigher(meta.txHash, blockId.number);
+      }
+    });
 
-    // Step 5: Run eviction rules (remove pending txs with conflicting nullifiers/expired timestamps)
+    // Step 5: Run post-event eviction rules outside the transaction (matches addPendingTxs pattern).
+    // World-state I/O should not hold the write lock; eviction is best-effort.
     await this.#evictionManager.evictAfterNewBlock(block.header, nullifiers, feePayers);
 
     this.#log.info(`Marked ${found.length} txs as mined in block ${blockId.number}`);
@@ -577,8 +582,9 @@ export class TxPoolV2Impl {
   }
 
   async handleFailedExecution(txHashes: TxHash[]): Promise<void> {
-    // Delete failed txs
-    await this.#deleteTxsBatch(txHashes.map(h => h.toString()));
+    await this.#store.transactionAsync(async () => {
+      await this.#deleteTxsBatch(txHashes.map(h => h.toString()));
+    });
 
     this.#log.info(`Deleted ${txHashes.length} failed txs`, { txHashes: txHashes.map(h => h.toString()) });
   }
@@ -589,27 +595,29 @@ export class TxPoolV2Impl {
     // Step 1: Find mined txs at or before finalized block
     const minedTxsToFinalize = this.#indices.findTxsMinedAtOrBefore(blockNumber);
 
-    // Step 2: Collect mined txs for archiving (before deletion)
-    const txsToArchive: Tx[] = [];
-    if (this.#archive.isEnabled()) {
-      for (const txHashStr of minedTxsToFinalize) {
-        const buffer = await this.#txsDB.getAsync(txHashStr);
-        if (buffer) {
-          txsToArchive.push(Tx.fromBuffer(buffer));
+    await this.#store.transactionAsync(async () => {
+      // Step 2: Collect mined txs for archiving (before deletion)
+      const txsToArchive: Tx[] = [];
+      if (this.#archive.isEnabled()) {
+        for (const txHashStr of minedTxsToFinalize) {
+          const buffer = await this.#txsDB.getAsync(txHashStr);
+          if (buffer) {
+            txsToArchive.push(Tx.fromBuffer(buffer));
+          }
         }
       }
-    }
 
-    // Step 3: Delete mined txs from active pool
-    await this.#deleteTxsBatch(minedTxsToFinalize);
+      // Step 3: Delete mined txs from active pool
+      await this.#deleteTxsBatch(minedTxsToFinalize);
 
-    // Step 4: Finalize soft-deleted txs
-    await this.#deletedPool.finalizeBlock(blockNumber);
+      // Step 4: Finalize soft-deleted txs
+      await this.#deletedPool.finalizeBlock(blockNumber);
 
-    // Step 5: Archive mined txs
-    if (txsToArchive.length > 0) {
-      await this.#archive.archiveTxs(txsToArchive);
-    }
+      // Step 5: Archive mined txs
+      if (txsToArchive.length > 0) {
+        await this.#archive.archiveTxs(txsToArchive);
+      }
+    });
 
     if (minedTxsToFinalize.length > 0) {
       this.#log.info(`Finalized ${minedTxsToFinalize.length} mined txs from blocks up to ${blockNumber}`, {
