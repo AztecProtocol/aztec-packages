@@ -350,7 +350,9 @@ def get_phases(date_from: str, date_to: str, dashboard: str = '',
             'exit_code': row['exit_code'],
         })
 
-    # Aggregate by dashboard: avg duration per phase per pipeline
+    # Aggregate by dashboard: total duration per phase per pipeline
+    # Exclude cache-download/cache-upload — those are S3 transfer noise;
+    # the project-level ci_phase wrappers capture the meaningful build time.
     dash_rows = db.query(f'''
         SELECT dashboard, phase,
                ROUND(AVG(duration_secs), 1) as avg_secs,
@@ -358,6 +360,8 @@ def get_phases(date_from: str, date_to: str, dashboard: str = '',
                ROUND(SUM(duration_secs), 0) as total_secs
         FROM ci_phases {where}
         AND dashboard != ''
+        AND phase NOT LIKE 'cache-download:%'
+        AND phase NOT LIKE 'cache-upload:%'
         GROUP BY dashboard, phase
         ORDER BY dashboard, total_secs DESC
     ''', params)
@@ -365,12 +369,12 @@ def get_phases(date_from: str, date_to: str, dashboard: str = '',
     for row in dash_rows:
         d = row['dashboard']
         if d not in by_dashboard:
-            by_dashboard[d] = {'dashboard': d, 'phases': {}, 'total_avg_secs': 0}
-        by_dashboard[d]['phases'][row['phase']] = row['avg_secs']
-        by_dashboard[d]['total_avg_secs'] += row['avg_secs']
-    # Round totals
+            by_dashboard[d] = {'dashboard': d, 'phases': {}, 'total_secs': 0, 'count': 0}
+        by_dashboard[d]['phases'][row['phase']] = row['total_secs']
+        by_dashboard[d]['total_secs'] += row['total_secs']
+        by_dashboard[d]['count'] = max(by_dashboard[d]['count'], row['count'])
     for d in by_dashboard.values():
-        d['total_avg_secs'] = round(d['total_avg_secs'], 1)
+        d['total_secs'] = round(d['total_secs'], 1)
 
     return {
         'by_phase': by_phase,
