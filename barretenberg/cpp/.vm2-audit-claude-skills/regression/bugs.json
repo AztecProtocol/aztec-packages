@@ -1,0 +1,2956 @@
+{
+  "baseline_commit": "a97aea830c",
+  "baseline_date": "2025-10-24",
+  "bugs": [
+    {
+      "id": "discard-missing-field-in-lookup",
+      "title": "Missing discard field in end-enqueued-call lookup",
+      "pr": "#19149",
+      "commit_before": "a0b3024424",
+      "commit_after": "89ed0b96ab",
+      "files": [
+        "pil/vm2/tx.pil",
+        "pil/vm2/execution/discard.pil"
+      ],
+      "description": "Regression from tx.pil pre-audit: the 'end enqueued call' lookup was not passing the discard field. A malicious prover could discard all rows before a failing nested call in the execution trace.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "discard",
+      "introduced_after_baseline": true,
+      "skills": [
+        "vm2-audit-t2-interaction-tuple-completeness",
+        "vm2-audit-t4-discard-revert-handling"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-interaction-tuple-completeness": {
+          "min_severity": "high",
+          "keywords": [
+            "discard",
+            "lookup",
+            "enqueued call"
+          ]
+        },
+        "vm2-audit-t4-discard-revert-handling": {
+          "min_severity": "high",
+          "keywords": [
+            "discard",
+            "enqueued call"
+          ]
+        }
+      }
+    },
+    {
+      "id": "addressing-indirect-relative-mismatch",
+      "title": "Indirect+relative address resolution mismatch between sim and circuit",
+      "pr": "#19001",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/execution/addressing.pil"
+      ],
+      "description": "If indirect address resolved first then relative address with invalid base, tracegen toggles sel_should_apply_indirection and INDIRECT_GATING_0 fails. Mismatch between simulation and circuit behavior.",
+      "severity": "medium",
+      "category": "completeness",
+      "component": "addressing",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t0-opcode-addressing-modes",
+        "vm2-audit-t1-tracegen-pil-alignment"
+      ],
+      "expected_findings": {
+        "vm2-audit-t0-opcode-addressing-modes": {
+          "min_severity": "medium",
+          "keywords": [
+            "indirect",
+            "relative",
+            "addressing"
+          ]
+        },
+        "vm2-audit-t1-tracegen-pil-alignment": {
+          "min_severity": "medium",
+          "keywords": [
+            "indirect",
+            "addressing",
+            "mismatch"
+          ]
+        }
+      }
+    },
+    {
+      "id": "addressing-overflow-default",
+      "title": "Relative address overflow default resolved operand not set correctly",
+      "pr": "#19001",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/execution/addressing.pil"
+      ],
+      "description": "In simulation, when a relative address overflows, the default resolved operand was not correctly set.",
+      "severity": "medium",
+      "category": "completeness",
+      "component": "addressing",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t0-opcode-addressing-modes",
+        "vm2-audit-t0-opcode-edge-cases"
+      ],
+      "expected_findings": {
+        "vm2-audit-t0-opcode-addressing-modes": {
+          "min_severity": "medium",
+          "keywords": [
+            "overflow",
+            "relative",
+            "addressing"
+          ]
+        },
+        "vm2-audit-t0-opcode-edge-cases": {
+          "min_severity": "medium",
+          "keywords": [
+            "overflow",
+            "addressing"
+          ]
+        }
+      }
+    },
+    {
+      "id": "addressing-batched-diff-boolean",
+      "title": "Wrong boolean used for batched diff resolved operand tag",
+      "pr": "#19001",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/execution/addressing.pil"
+      ],
+      "description": "In tracegen, the boolean used to build the 'batched diff resolved operand tag' was incorrect.",
+      "severity": "medium",
+      "category": "completeness",
+      "component": "addressing",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-tracegen-pil-alignment",
+        "vm2-audit-t0-opcode-tag-checks"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-tracegen-pil-alignment": {
+          "min_severity": "medium",
+          "keywords": [
+            "batched",
+            "diff",
+            "boolean",
+            "tag"
+          ]
+        }
+      }
+    },
+    {
+      "id": "context-stack-not-permutation",
+      "title": "Context stack push was lookup instead of permutation",
+      "pr": "#19549",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/context_stack.pil",
+        "pil/vm2/context.pil"
+      ],
+      "description": "Pushing to the context stack was not a permutation, allowing a malicious prover to inject extra stack operations.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "context",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-lookup-vs-permutation",
+        "vm2-audit-t3-memory-row-injection"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-lookup-vs-permutation": {
+          "min_severity": "high",
+          "keywords": [
+            "context",
+            "stack",
+            "permutation"
+          ]
+        },
+        "vm2-audit-t3-memory-row-injection": {
+          "min_severity": "high",
+          "keywords": [
+            "context",
+            "stack",
+            "inject"
+          ]
+        }
+      }
+    },
+    {
+      "id": "context-parent-id-uninitialized",
+      "title": "parent_id not initialized to 0 for enqueued call",
+      "pr": "#19549",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/context.pil"
+      ],
+      "description": "parent_id is not initialized to be 0 for an enqueued call. Potential soundness issue even though no specific exploitation was identified.",
+      "severity": "medium",
+      "category": "soundness",
+      "component": "context",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-missing-initialization"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-missing-initialization": {
+          "min_severity": "medium",
+          "keywords": [
+            "parent_id",
+            "context",
+            "initialized",
+            "enqueued"
+          ]
+        }
+      }
+    },
+    {
+      "id": "internal-call-ids-unconstrained",
+      "title": "Internal call IDs not constrained on nested call exit",
+      "pr": "#19715",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/opcodes/internal_call.pil",
+        "pil/vm2/internal_call_stack.pil"
+      ],
+      "description": "Exiting a nested call did not constrain internal call related IDs. These IDs were not pushed to the context_stack. A malicious prover could set any ID referring to previous internal calls.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "internal_call",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-interaction-tuple-completeness",
+        "vm2-audit-t0-opcode-control-flow"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-interaction-tuple-completeness": {
+          "min_severity": "high",
+          "keywords": [
+            "internal_call",
+            "context_stack",
+            "ID"
+          ]
+        },
+        "vm2-audit-t0-opcode-control-flow": {
+          "min_severity": "high",
+          "keywords": [
+            "internal call",
+            "exit",
+            "constrained"
+          ]
+        }
+      }
+    },
+    {
+      "id": "execution-sha256-exception-type",
+      "title": "Sha256Compression throwing wrong exception type",
+      "pr": "#18864",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/execution.pil"
+      ],
+      "description": "Sha256Compression was throwing std::runtime_error but the caller catches Sha256CompressionException. This leads to an irrecoverable error \u2014 a completeness issue.",
+      "severity": "high",
+      "category": "completeness",
+      "component": "execution",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t3-exception-type-matching"
+      ],
+      "expected_findings": {
+        "vm2-audit-t3-exception-type-matching": {
+          "min_severity": "medium",
+          "keywords": [
+            "sha256",
+            "exception",
+            "runtime_error"
+          ]
+        }
+      }
+    },
+    {
+      "id": "execution-next-pc-unconstrained",
+      "title": "next_pc completely unconstrained for standard increment",
+      "pr": "#18864",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/execution.pil"
+      ],
+      "description": "next_pc was not constrained at all for the standard increment with instr_length. Severe soundness issue completely affecting control flow. Additionally, at the beginning of an enqueued call pc == 0 constraint was missing.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "execution",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t0-opcode-control-flow",
+        "vm2-audit-t2-missing-initialization",
+        "vm2-audit-t0-opcode-semantics"
+      ],
+      "expected_findings": {
+        "vm2-audit-t0-opcode-control-flow": {
+          "min_severity": "critical",
+          "keywords": [
+            "next_pc",
+            "pc",
+            "control flow",
+            "instr_length"
+          ]
+        },
+        "vm2-audit-t2-missing-initialization": {
+          "min_severity": "high",
+          "keywords": [
+            "pc",
+            "initialized",
+            "enqueued"
+          ]
+        }
+      }
+    },
+    {
+      "id": "execution-sel-bytecode-retrieval-failure",
+      "title": "sel_bytecode_retrieval_failure not constrained after first row",
+      "pr": "#18864",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/execution.pil"
+      ],
+      "description": "sel_bytecode_retrieval_failure was not constrained on the row after the first one of the context. Soundness issue.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "execution",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-selector-outside-active",
+        "vm2-audit-t2-missing-propagation"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-selector-outside-active": {
+          "min_severity": "medium",
+          "keywords": [
+            "sel_bytecode_retrieval_failure",
+            "constrained"
+          ]
+        },
+        "vm2-audit-t2-missing-propagation": {
+          "min_severity": "medium",
+          "keywords": [
+            "bytecode_retrieval_failure",
+            "propagat"
+          ]
+        }
+      }
+    },
+    {
+      "id": "execution-dynamic-gas-factor",
+      "title": "Dynamic gas factor unconstrained for CALLDATACOPY/RETURNDATACOPY",
+      "pr": "#18864",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/execution.pil"
+      ],
+      "description": "Dynamic gas factor was not constrained for CALLDATACOPY/RETURNDATACOPY. Soundness issue. Also missing constraint for dynamic gas factor to be zero for all other opcodes.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "execution",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t0-opcode-gas-dynamics",
+        "vm2-audit-t0-opcode-gas-costs"
+      ],
+      "expected_findings": {
+        "vm2-audit-t0-opcode-gas-dynamics": {
+          "min_severity": "high",
+          "keywords": [
+            "dynamic gas",
+            "CALLDATACOPY",
+            "RETURNDATACOPY"
+          ]
+        },
+        "vm2-audit-t0-opcode-gas-costs": {
+          "min_severity": "medium",
+          "keywords": [
+            "dynamic gas",
+            "gas factor"
+          ]
+        }
+      }
+    },
+    {
+      "id": "execution-sel-instruction-fetching-failure",
+      "title": "sel_instruction_fetching_failure and sel_opcode_error underconstrained",
+      "pr": "#18864",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/execution.pil"
+      ],
+      "description": "sel_instruction_fetching_failure not constrained when no fetching happens (bc retrieval error). sel_opcode_error not constrained when no opcode execution occurs. The first could let a malicious prover set sel_error == 0 during a bytecode retrieval error.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "execution",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-error-state-constraint-firing",
+        "vm2-audit-t4-missing-error-gating",
+        "vm2-audit-t0-opcode-error-conditions"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-error-state-constraint-firing": {
+          "min_severity": "high",
+          "keywords": [
+            "sel_instruction_fetching_failure",
+            "sel_opcode_error"
+          ]
+        },
+        "vm2-audit-t4-missing-error-gating": {
+          "min_severity": "medium",
+          "keywords": [
+            "instruction_fetching",
+            "opcode_error",
+            "gating"
+          ]
+        }
+      }
+    },
+    {
+      "id": "execution-last-child-success",
+      "title": "last_child_success not constrained",
+      "pr": "#18864",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/execution.pil"
+      ],
+      "description": "last_child_success was not constrained, affecting soundness.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "execution",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-derived-value-constraints",
+        "vm2-audit-t0-opcode-control-flow"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-derived-value-constraints": {
+          "min_severity": "medium",
+          "keywords": [
+            "last_child_success",
+            "constrained"
+          ]
+        }
+      }
+    },
+    {
+      "id": "execution-batched-tags-diff-inv",
+      "title": "execution_batched_tags_diff_inv not set in tracegen",
+      "pr": "#18864",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/execution.pil"
+      ],
+      "description": "The column execution_batched_tags_diff_inv was not populated in execution_trace.cpp. Completeness issue.",
+      "severity": "high",
+      "category": "completeness",
+      "component": "execution",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-tracegen-pil-alignment",
+        "vm2-audit-t4-zero-check"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-tracegen-pil-alignment": {
+          "min_severity": "medium",
+          "keywords": [
+            "batched_tags_diff_inv",
+            "tracegen"
+          ]
+        }
+      }
+    },
+    {
+      "id": "alu-missing-booleans-shift",
+      "title": "Missing boolean constraints for shift operation selectors",
+      "pr": "#18192",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/alu.pil"
+      ],
+      "description": "Boolean conditions for sel_op_shl, sel_op_shr, sel_shift_ops_no_overflow were missing in alu.pil.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "alu",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-missing-boolean"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-missing-boolean": {
+          "min_severity": "high",
+          "keywords": [
+            "sel_op_shl",
+            "sel_op_shr",
+            "boolean",
+            "shift"
+          ]
+        }
+      }
+    },
+    {
+      "id": "alu-not-output-tag",
+      "title": "NOT output tag unconstrained for non-field type",
+      "pr": "#18192",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/alu.pil"
+      ],
+      "description": "Output tag for NOT and non-field type was not constrained unconditionally but triggered a tag error. Soundness issue.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "alu",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t0-opcode-tag-updates",
+        "vm2-audit-t0-opcode-semantics"
+      ],
+      "expected_findings": {
+        "vm2-audit-t0-opcode-tag-updates": {
+          "min_severity": "high",
+          "keywords": [
+            "NOT",
+            "output tag",
+            "constrained"
+          ]
+        }
+      }
+    },
+    {
+      "id": "alu-set-cast-dispatch",
+      "title": "SET/CAST dispatch uses sel_op_truncate without enforcing sel==1",
+      "pr": "#18192",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/alu.pil"
+      ],
+      "description": "Dispatching from execution to ALU for SET/CAST used destination selector sel_op_truncate which did not enforce sel == 1 in alu.pil, leaving max_bits and max_value completely underconstrained. Soundness issue.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "alu",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-unprotected-destination-selector",
+        "vm2-audit-t1-unprotected-destination-selector-take2"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-unprotected-destination-selector": {
+          "min_severity": "critical",
+          "keywords": [
+            "sel_op_truncate",
+            "sel",
+            "SET",
+            "CAST",
+            "underconstrained"
+          ]
+        },
+        "vm2-audit-t1-unprotected-destination-selector-take2": {
+          "min_severity": "critical",
+          "keywords": [
+            "sel_op_truncate",
+            "SET",
+            "CAST"
+          ]
+        }
+      }
+    },
+    {
+      "id": "alu-lookup-gating-completeness",
+      "title": "ALU lookups not gated by sel_err/sel_tag_err",
+      "pr": "#18192",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/alu.pil"
+      ],
+      "description": "Some lookups to gt, range_check use source selectors not gated by sel_err/sel_tag_err. Completeness issue because lookup cannot be satisfied when error occurs and destination event not emitted. Affects MUL, DIV, SHL, SHR lookups (GT_DIV_REMAINDER, RANGE_CHECK_DECOMPOSITION_*).",
+      "severity": "high",
+      "category": "completeness",
+      "component": "alu",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t4-missing-error-gating",
+        "vm2-audit-t2-error-state-constraint-firing"
+      ],
+      "expected_findings": {
+        "vm2-audit-t4-missing-error-gating": {
+          "min_severity": "high",
+          "keywords": [
+            "lookup",
+            "gating",
+            "sel_err",
+            "sel_tag_err",
+            "GT_DIV_REMAINDER"
+          ]
+        },
+        "vm2-audit-t2-error-state-constraint-firing": {
+          "min_severity": "medium",
+          "keywords": [
+            "lookup",
+            "error",
+            "gating"
+          ]
+        }
+      }
+    },
+    {
+      "id": "alu-shift-undefined-behavior",
+      "title": "Undefined behavior for bitwise shifts >= 128",
+      "pr": "#18192",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/alu.pil"
+      ],
+      "description": "Undefined behaviors for some bitwise shifts such as '>> 128' or '<< 128' over uint128_t.",
+      "severity": "medium",
+      "category": "soundness",
+      "component": "alu",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t0-opcode-edge-cases",
+        "vm2-audit-t0-opcode-semantics"
+      ],
+      "expected_findings": {
+        "vm2-audit-t0-opcode-edge-cases": {
+          "min_severity": "medium",
+          "keywords": [
+            "shift",
+            "128",
+            "undefined"
+          ]
+        }
+      }
+    },
+    {
+      "id": "alu-mul-underconstrained",
+      "title": "Multiplication for tag < U128 underconstrained \u2014 missing range check on c_hi",
+      "pr": "#18192",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/alu.pil"
+      ],
+      "description": "Missing range check on c_hi allows a malicious prover to output any value by choosing c_hi := (a*b - c)/(max_value + 1) for any value of c. Soundness issue.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "alu",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-range-check-overflow",
+        "vm2-audit-t3-witness-boundedness"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-range-check-overflow": {
+          "min_severity": "critical",
+          "keywords": [
+            "c_hi",
+            "range check",
+            "multiplication"
+          ]
+        },
+        "vm2-audit-t3-witness-boundedness": {
+          "min_severity": "high",
+          "keywords": [
+            "c_hi",
+            "multiplication",
+            "underconstrained"
+          ]
+        }
+      }
+    },
+    {
+      "id": "alu-shl-shr-two-pow-shift",
+      "title": "SHL/SHR two_pow_shift_lo_bits unconstrained on overflow",
+      "pr": "#18192",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/alu.pil"
+      ],
+      "description": "two_pow_shift_lo_bits is not constrained when overflow bit is toggled. LIMB_SIZE can be arbitrarily chosen so a_lo and a_hi pass range checks even without real overflow. Malicious prover can output 0 when it shouldn't.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "alu",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t3-witness-boundedness",
+        "vm2-audit-t2-derived-value-constraints"
+      ],
+      "expected_findings": {
+        "vm2-audit-t3-witness-boundedness": {
+          "min_severity": "critical",
+          "keywords": [
+            "two_pow_shift_lo_bits",
+            "overflow",
+            "SHL",
+            "SHR"
+          ]
+        },
+        "vm2-audit-t2-derived-value-constraints": {
+          "min_severity": "high",
+          "keywords": [
+            "two_pow_shift",
+            "overflow",
+            "shift"
+          ]
+        }
+      }
+    },
+    {
+      "id": "data-copy-copy-size-zero",
+      "title": "copy_size == 0 edge case: upper bound flag not set properly",
+      "pr": "#17877",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/data_copy.pil"
+      ],
+      "description": "If copy_size == 0 and data_offset > data_size, data_copy_data_index_upper_bound_gt_offset was not set properly. Completeness issue.",
+      "severity": "medium",
+      "category": "completeness",
+      "component": "data_copy",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t0-opcode-edge-cases",
+        "vm2-audit-t1-tracegen-pil-alignment"
+      ],
+      "expected_findings": {
+        "vm2-audit-t0-opcode-edge-cases": {
+          "min_severity": "medium",
+          "keywords": [
+            "copy_size",
+            "zero",
+            "upper_bound"
+          ]
+        }
+      }
+    },
+    {
+      "id": "data-copy-off-by-one",
+      "title": "Off-by-one comparing max_read_addr and AVM_HIGHEST_ADDRESS",
+      "pr": "#17877",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/data_copy.pil"
+      ],
+      "description": "Off-by-one issue while comparing max_read_addr and AVM_HIGHEST_ADDRESS. Same for write. Completeness issue.",
+      "severity": "medium",
+      "category": "completeness",
+      "component": "data_copy",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t0-opcode-edge-cases"
+      ],
+      "expected_findings": {
+        "vm2-audit-t0-opcode-edge-cases": {
+          "min_severity": "medium",
+          "keywords": [
+            "off-by-one",
+            "max_read_addr",
+            "HIGHEST_ADDRESS"
+          ]
+        }
+      }
+    },
+    {
+      "id": "data-copy-missing-padding-constraint",
+      "title": "Missing constraint to enforce padding continuation",
+      "pr": "#17877",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/data_copy.pil"
+      ],
+      "description": "Missing constraint to enforce that once we enter padding we stay until the end.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "data_copy",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-operation-transition-continuity",
+        "vm2-audit-t2-missing-propagation"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-operation-transition-continuity": {
+          "min_severity": "high",
+          "keywords": [
+            "padding",
+            "continuation",
+            "data_copy"
+          ]
+        },
+        "vm2-audit-t2-missing-propagation": {
+          "min_severity": "medium",
+          "keywords": [
+            "padding",
+            "data_copy"
+          ]
+        }
+      }
+    },
+    {
+      "id": "data-copy-missing-context-id-propagation",
+      "title": "Missing propagation of context_id to subsequent rows",
+      "pr": "#17877",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/data_copy.pil"
+      ],
+      "description": "Missing propagation of the context_id's to subsequent rows in data_copy.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "data_copy",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-missing-propagation"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-missing-propagation": {
+          "min_severity": "high",
+          "keywords": [
+            "context_id",
+            "propagat",
+            "data_copy"
+          ]
+        }
+      }
+    },
+    {
+      "id": "data-copy-missing-clk-propagation",
+      "title": "Missing propagation of clk in data_copy",
+      "pr": "#17877",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/data_copy.pil"
+      ],
+      "description": "Missing propagation of clk to subsequent rows in data_copy.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "data_copy",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-missing-propagation"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-missing-propagation": {
+          "min_severity": "high",
+          "keywords": [
+            "clk",
+            "propagat",
+            "data_copy"
+          ]
+        }
+      }
+    },
+    {
+      "id": "data-copy-missing-booleans",
+      "title": "Several missing boolean constraints in data_copy",
+      "pr": "#17877",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/data_copy.pil"
+      ],
+      "description": "Several boolean constraints were missing in data_copy.pil.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "data_copy",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-missing-boolean"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-missing-boolean": {
+          "min_severity": "high",
+          "keywords": [
+            "boolean",
+            "data_copy"
+          ]
+        }
+      }
+    },
+    {
+      "id": "data-copy-sel-cd-rd-unconstrained",
+      "title": "sel_cd_copy/sel_rd_copy unconstrained beyond sel_start row",
+      "pr": "#17877",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/data_copy.pil"
+      ],
+      "description": "sel_cd_copy/sel_rd_copy are not constrained beyond the row with sel_start == 1. A malicious prover could change the copy type mid-operation.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "data_copy",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-missing-propagation",
+        "vm2-audit-t1-selector-outside-active"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-missing-propagation": {
+          "min_severity": "high",
+          "keywords": [
+            "sel_cd_copy",
+            "sel_rd_copy",
+            "propagat"
+          ]
+        },
+        "vm2-audit-t1-selector-outside-active": {
+          "min_severity": "medium",
+          "keywords": [
+            "sel_cd_copy",
+            "sel_rd_copy",
+            "constrained"
+          ]
+        }
+      }
+    },
+    {
+      "id": "data-copy-premature-truncation",
+      "title": "Malicious prover could truncate data_copy computation",
+      "pr": "#17877",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/data_copy.pil"
+      ],
+      "description": "The trace did not enforce that computation is performed until the row where sel_end == 1. A malicious prover could truncate the computation prematurely.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "data_copy",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t3-premature-termination",
+        "vm2-audit-t1-operation-transition-continuity"
+      ],
+      "expected_findings": {
+        "vm2-audit-t3-premature-termination": {
+          "min_severity": "critical",
+          "keywords": [
+            "truncat",
+            "sel_end",
+            "data_copy"
+          ]
+        },
+        "vm2-audit-t1-operation-transition-continuity": {
+          "min_severity": "high",
+          "keywords": [
+            "sel_end",
+            "data_copy",
+            "continuation"
+          ]
+        }
+      }
+    },
+    {
+      "id": "data-copy-sel-end-premature",
+      "title": "sel_end could be toggled prematurely due to unconstrained err",
+      "pr": "#17877",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/data_copy.pil"
+      ],
+      "description": "sel_end could be toggled prematurely because err is not constrained beyond the first row and the gating factor sel_start was missing in #[END_ON_ERR].",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "data_copy",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-error-state-constraint-firing",
+        "vm2-audit-t1-ghost-row-continuity"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-error-state-constraint-firing": {
+          "min_severity": "high",
+          "keywords": [
+            "sel_end",
+            "err",
+            "END_ON_ERR",
+            "data_copy"
+          ]
+        }
+      }
+    },
+    {
+      "id": "merkle-start-without-sel",
+      "title": "Merkle check start boolean not enforced on active row",
+      "pr": "#17771",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/trees/merkle_check.pil"
+      ],
+      "description": "The start boolean did not enforce being on an active row (sel == 1), allowing a malicious prover to bypass most constraints. Probably allows any fake read/write. Mitigated by adding #[SELECTOR_ON_START].",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "merkle_check",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-unprotected-destination-selector",
+        "vm2-audit-t1-unprotected-destination-selector-take2",
+        "vm2-audit-t1-ghost-row-boolean"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-unprotected-destination-selector": {
+          "min_severity": "critical",
+          "keywords": [
+            "start",
+            "sel",
+            "merkle_check"
+          ]
+        },
+        "vm2-audit-t1-unprotected-destination-selector-take2": {
+          "min_severity": "critical",
+          "keywords": [
+            "start",
+            "sel",
+            "merkle"
+          ]
+        },
+        "vm2-audit-t1-ghost-row-boolean": {
+          "min_severity": "high",
+          "keywords": [
+            "start",
+            "sel",
+            "merkle"
+          ]
+        }
+      }
+    },
+    {
+      "id": "merkle-index-is-even-unconstrained",
+      "title": "index_is_even unconstrained on end row in merkle_check",
+      "pr": "#17771",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/trees/merkle_check.pil"
+      ],
+      "description": "On a row where end == 1, the boolean index_is_even is not constrained and a malicious prover could swap sibling and node in constraints like #[ASSIGN_NODE_LEFT_OR_RIGHT_READ].",
+      "severity": "high",
+      "category": "soundness",
+      "component": "merkle_check",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-ghost-row-boolean",
+        "vm2-audit-t3-witness-boundedness"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-ghost-row-boolean": {
+          "min_severity": "high",
+          "keywords": [
+            "index_is_even",
+            "end",
+            "merkle"
+          ]
+        },
+        "vm2-audit-t3-witness-boundedness": {
+          "min_severity": "medium",
+          "keywords": [
+            "index_is_even",
+            "sibling",
+            "merkle"
+          ]
+        }
+      }
+    },
+    {
+      "id": "poseidon2-hash-trace-structure",
+      "title": "poseidon2_hash.pil trace structure underconstraints",
+      "pr": "#17771",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/poseidon2_hash.pil"
+      ],
+      "description": "Two underconstraints: trace continuity missing and end == 1 not implying sel == 1 in poseidon2_hash.pil.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "poseidon2",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-ghost-row-continuity",
+        "vm2-audit-t1-unprotected-destination-selector"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-ghost-row-continuity": {
+          "min_severity": "high",
+          "keywords": [
+            "poseidon2_hash",
+            "continuity",
+            "trace"
+          ]
+        },
+        "vm2-audit-t1-unprotected-destination-selector": {
+          "min_severity": "high",
+          "keywords": [
+            "poseidon2_hash",
+            "end",
+            "sel"
+          ]
+        }
+      }
+    },
+    {
+      "id": "tx-phase-value-uninitialized",
+      "title": "TX phase value not initialized",
+      "pr": "#18336",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/tx.pil"
+      ],
+      "description": "Phase value is not initialized. A malicious prover could skip an arbitrary number of phases. Soundness issue.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "tx",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-missing-initialization"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-missing-initialization": {
+          "min_severity": "critical",
+          "keywords": [
+            "phase",
+            "initialized",
+            "tx"
+          ]
+        }
+      }
+    },
+    {
+      "id": "tx-phase-static-no-propagation",
+      "title": "TX phase static attributes missing propagation constraints",
+      "pr": "#18336",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/tx.pil"
+      ],
+      "description": "Phase value static attributes did not have propagation constraints. Was already marked as a TODO.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "tx",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-missing-propagation"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-missing-propagation": {
+          "min_severity": "high",
+          "keywords": [
+            "phase",
+            "propagat",
+            "static",
+            "tx"
+          ]
+        }
+      }
+    },
+    {
+      "id": "tx-lookup-vs-permutation",
+      "title": "TX public call request interactions used lookups instead of permutations",
+      "pr": "#18336",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/tx.pil"
+      ],
+      "description": "Interactions for dispatching public call requests and retrieving the output were performed through 2 lookups instead of permutations. A malicious prover could insert extra public call requests.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "tx",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-lookup-vs-permutation"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-lookup-vs-permutation": {
+          "min_severity": "critical",
+          "keywords": [
+            "public call",
+            "lookup",
+            "permutation",
+            "tx"
+          ]
+        }
+      }
+    },
+    {
+      "id": "tx-is-padded-end-phase",
+      "title": "is_padded not implying end_phase in TX",
+      "pr": "#18336",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/tx.pil"
+      ],
+      "description": "is_padded was not implying end_phase. A malicious prover could keep the same phase_value on the next row by not toggling end_phase. remaining_phase_counter would underflow extending the tx trace.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "tx",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-derived-value-constraints",
+        "vm2-audit-t1-operation-transition-continuity"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-derived-value-constraints": {
+          "min_severity": "high",
+          "keywords": [
+            "is_padded",
+            "end_phase",
+            "tx"
+          ]
+        }
+      }
+    },
+    {
+      "id": "tx-selectors-without-sel",
+      "title": "TX selectors can be toggled without sel == 1",
+      "pr": "#18336",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/tx.pil"
+      ],
+      "description": "is_public_call_request can be toggled without sel == 1, allowing illegitimate public call requests. Same for is_collect_fee and is_cleanup selectors.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "tx",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-selector-outside-active",
+        "vm2-audit-t1-unprotected-destination-selector"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-selector-outside-active": {
+          "min_severity": "critical",
+          "keywords": [
+            "is_public_call_request",
+            "sel",
+            "tx"
+          ]
+        },
+        "vm2-audit-t1-unprotected-destination-selector": {
+          "min_severity": "high",
+          "keywords": [
+            "is_public_call_request",
+            "sel",
+            "tx"
+          ]
+        }
+      }
+    },
+    {
+      "id": "tx-should-read-gas-limit-completeness",
+      "title": "should_read_gas_limit overridden incorrectly for padded rows",
+      "pr": "#18336",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/tx.pil"
+      ],
+      "description": "Completeness issue: should_read_gas_limit set to 1 in handle_first_row() then overridden to 0 in handle_padded_row(). Same issue for tx_gas_limit_pi_offset.",
+      "severity": "medium",
+      "category": "completeness",
+      "component": "tx",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-tracegen-pil-alignment",
+        "vm2-audit-t0-opcode-edge-cases"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-tracegen-pil-alignment": {
+          "min_severity": "medium",
+          "keywords": [
+            "should_read_gas_limit",
+            "padded",
+            "tx"
+          ]
+        }
+      }
+    },
+    {
+      "id": "tx-emission-selectors-underconstrained",
+      "title": "TX note_hash/nullifier/l2_to_l1_message emission selectors underconstrained",
+      "pr": "#18336",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/tx.pil"
+      ],
+      "description": "Selectors for note_hash, nullifier, l2_to_l1_message emissions are underconstrained outside activated trace or padded rows. A malicious prover could emit them illegitimately. Soundness issue.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "tx",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-selector-outside-active",
+        "vm2-audit-t4-side-effect-gating"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-selector-outside-active": {
+          "min_severity": "high",
+          "keywords": [
+            "note_hash",
+            "nullifier",
+            "emission",
+            "tx"
+          ]
+        },
+        "vm2-audit-t4-side-effect-gating": {
+          "min_severity": "high",
+          "keywords": [
+            "emission",
+            "selector",
+            "tx"
+          ]
+        }
+      }
+    },
+    {
+      "id": "tx-parent-calldata-addr",
+      "title": "parent_calldata_addr not constrained to zero for enqueued call",
+      "pr": "#18336",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/tx.pil"
+      ],
+      "description": "The column parent_calldata_addr is not constrained to zero for an enqueued call. A malicious prover could shift the offset for calldata values.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "tx",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-missing-initialization"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-missing-initialization": {
+          "min_severity": "high",
+          "keywords": [
+            "parent_calldata_addr",
+            "zero",
+            "enqueued"
+          ]
+        }
+      }
+    },
+    {
+      "id": "tx-l2-l1-msg-discard",
+      "title": "tx_should_l2_l1_msg_append not considering discard flag",
+      "pr": "#18336",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/tx.pil"
+      ],
+      "description": "Completeness issue: tx_should_l2_l1_msg_append is not toggled if discard == 1, otherwise it violates #[WRITE_L2_L1_MSG]. Tracegen did not account for discard value.",
+      "severity": "high",
+      "category": "completeness",
+      "component": "tx",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t4-discard-revert-handling",
+        "vm2-audit-t1-tracegen-pil-alignment"
+      ],
+      "expected_findings": {
+        "vm2-audit-t4-discard-revert-handling": {
+          "min_severity": "high",
+          "keywords": [
+            "l2_l1_msg",
+            "discard",
+            "tx"
+          ]
+        },
+        "vm2-audit-t1-tracegen-pil-alignment": {
+          "min_severity": "medium",
+          "keywords": [
+            "l2_l1_msg",
+            "discard"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ecc-operation-predicates-completeness",
+      "title": "ECC operation predicates \u2014 possible for none to be set",
+      "pr": "#19471",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/ecc.pil"
+      ],
+      "description": "Completeness: possible for no operation predicates to be set when exactly one must be true. Originally found because multiple representations of point at infinity are accepted.",
+      "severity": "high",
+      "category": "completeness",
+      "component": "ecc",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-mutual-exclusivity",
+        "vm2-audit-t0-opcode-edge-cases"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-mutual-exclusivity": {
+          "min_severity": "high",
+          "keywords": [
+            "operation predicate",
+            "ecc",
+            "exactly one"
+          ]
+        },
+        "vm2-audit-t0-opcode-edge-cases": {
+          "min_severity": "medium",
+          "keywords": [
+            "infinity",
+            "ecc",
+            "predicate"
+          ]
+        }
+      }
+    },
+    {
+      "id": "poseidon2-input-len-not-in-lookup",
+      "title": "Poseidon2 input_len not passed in lookup on start row",
+      "pr": "#19963",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/poseidon2_hash.pil"
+      ],
+      "description": "Most usages of poseidon2_hash.pil do not pass input_len in the lookup on the start row. A malicious prover can modify input_len and padding while keeping num_perm_rounds_rem unchanged, computing hash with wrong IV. Affects slot derivation in fee collection.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "poseidon2",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-interaction-tuple-completeness"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-interaction-tuple-completeness": {
+          "min_severity": "critical",
+          "keywords": [
+            "input_len",
+            "poseidon2",
+            "lookup",
+            "start"
+          ]
+        }
+      }
+    },
+    {
+      "id": "to-radix-sel-invalid-bitwise-radix",
+      "title": "sel_invalid_bitwise_radix not prevented for radix==2",
+      "pr": "#20455",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/to_radix.pil"
+      ],
+      "description": "Soundness issue: malicious prover can raise sel_invalid_bitwise_radix even when radix == 2 and is_output_bits == 1, raising a non-genuine error.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "to_radix",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-error-state-constraint-firing",
+        "vm2-audit-t0-opcode-error-conditions"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-error-state-constraint-firing": {
+          "min_severity": "high",
+          "keywords": [
+            "sel_invalid_bitwise_radix",
+            "radix",
+            "to_radix"
+          ]
+        },
+        "vm2-audit-t0-opcode-error-conditions": {
+          "min_severity": "medium",
+          "keywords": [
+            "sel_invalid_bitwise_radix",
+            "radix"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bc-decomp-zero-extension-truncation",
+      "title": "Bytecode zero extension/truncation allows forced tx revert",
+      "pr": "#20254",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/bytecode/bc_decomposition.pil"
+      ],
+      "description": "A malicious prover can set a longer bytecode size and 'include' trailing zeros. Since trailing zeros are already 'included' in packed fields regardless of bytecode membership, bytecodes ending in zeros can be truncated forcing a tx revert.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "bytecode_decomposition",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t0-opcode-edge-cases",
+        "vm2-audit-t3-witness-boundedness"
+      ],
+      "expected_findings": {
+        "vm2-audit-t0-opcode-edge-cases": {
+          "min_severity": "high",
+          "keywords": [
+            "bytecode",
+            "zero",
+            "truncat",
+            "bc_decomposition"
+          ]
+        },
+        "vm2-audit-t3-witness-boundedness": {
+          "min_severity": "medium",
+          "keywords": [
+            "bytecode",
+            "zero extension",
+            "truncat"
+          ]
+        }
+      }
+    },
+    {
+      "id": "tx-reverted-unconstrained",
+      "title": "tx_reverted column unconstrained \u2014 prover can hide reverts",
+      "pr": "#17821",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/context.pil"
+      ],
+      "description": "The tx_reverted column was not properly constrained, allowing a malicious prover to set it to 0 even when a transaction actually reverted. This could allow hiding revert status and making reverted transactions appear successful, bypassing revert-dependent logic throughout the AVM.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "context",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-derived-value-constraints",
+        "vm2-audit-t4-discard-revert-handling"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-derived-value-constraints": {
+          "min_severity": "critical",
+          "keywords": [
+            "tx_reverted",
+            "unconstrained",
+            "revert"
+          ]
+        },
+        "vm2-audit-t4-discard-revert-handling": {
+          "min_severity": "high",
+          "keywords": [
+            "tx_reverted",
+            "revert"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bitwise-ff-error-tracegen-truncation",
+      "title": "Bitwise FF error tracegen truncation mismatch",
+      "pr": "#18245",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/bitwise.pil",
+        "src/barretenberg/vm2/tracegen/bitwise_trace.cpp"
+      ],
+      "description": "The bitwise tracegen was truncating field element values incorrectly when generating error traces for FF (field) type operations. The tracegen would silently truncate values that don't fit in the expected bit width, producing traces that don't match PIL constraints. This is a completeness issue where an honest prover cannot generate valid proofs for certain valid transactions involving bitwise operations on field elements.",
+      "severity": "high",
+      "category": "completeness",
+      "component": "bitwise",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-tracegen-pil-alignment",
+        "vm2-audit-t0-opcode-tag-checks"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-tracegen-pil-alignment": {
+          "min_severity": "high",
+          "keywords": [
+            "bitwise",
+            "FF",
+            "truncat",
+            "tracegen"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bitwise-dispatch-wrong-selector-and-tag-constraint",
+      "title": "Bitwise dispatch used wrong selector and missing tag constraint",
+      "pr": "#18244",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/bitwise.pil"
+      ],
+      "description": "The bitwise trace dispatch used an incorrect selector for routing operations, and was missing a constraint on the tag value. A malicious prover could route a bitwise operation to the wrong decomposition path or use an incorrect tag, producing wrong results that still satisfy constraints.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "bitwise",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t0-opcode-tag-checks",
+        "vm2-audit-t1-unprotected-destination-selector"
+      ],
+      "expected_findings": {
+        "vm2-audit-t0-opcode-tag-checks": {
+          "min_severity": "high",
+          "keywords": [
+            "bitwise",
+            "tag",
+            "selector",
+            "dispatch"
+          ]
+        },
+        "vm2-audit-t1-unprotected-destination-selector": {
+          "min_severity": "high",
+          "keywords": [
+            "bitwise",
+            "dispatch",
+            "selector"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bc-hashing-pc-increment-skippable-conflict",
+      "title": "bc_hashing PC increment conflicts with skippable condition",
+      "pr": "#18424",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/bytecode/bc_hashing.pil"
+      ],
+      "description": "The bc_hashing subtrace had a conflict between the PC increment constraint and the skippable condition. The skippable condition assumed certain values would be zero when the subtrace is inactive, but the PC increment constraint could force non-zero values, making it impossible for an honest prover to generate a valid proof when the bc_hashing subtrace has no active rows.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "bc_hashing",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-skippable-condition-correctness",
+        "vm2-audit-t1-ghost-row-continuity"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-skippable-condition-correctness": {
+          "min_severity": "high",
+          "keywords": [
+            "bc_hashing",
+            "PC",
+            "increment",
+            "skippable"
+          ]
+        }
+      }
+    },
+    {
+      "id": "keccak-state-transposed-ordering",
+      "title": "Keccak state words stored in transposed order",
+      "pr": "#18489",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/keccak.pil",
+        "src/barretenberg/vm2/tracegen/keccak_trace.cpp"
+      ],
+      "description": "The keccak state words were stored in a transposed ordering relative to what the keccakf1600 permutation expects. This meant the keccak hash computation was operating on incorrectly ordered state, producing wrong hash outputs. A critical soundness issue since any keccak hash verification (used in Ethereum compatibility, signatures, etc.) would produce incorrect results.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "keccak",
+      "introduced_after_baseline": true,
+      "skills": [
+        "vm2-audit-t0-opcode-semantics",
+        "vm2-audit-t1-tracegen-pil-alignment"
+      ],
+      "expected_findings": {
+        "vm2-audit-t0-opcode-semantics": {
+          "min_severity": "critical",
+          "keywords": [
+            "keccak",
+            "state",
+            "transpose",
+            "ordering"
+          ]
+        },
+        "vm2-audit-t1-tracegen-pil-alignment": {
+          "min_severity": "high",
+          "keywords": [
+            "keccak",
+            "state",
+            "order"
+          ]
+        }
+      }
+    },
+    {
+      "id": "to-radix-mem-underflow",
+      "title": "to_radix_mem memory address underflow on error path",
+      "pr": "#18503",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/to_radix_mem.pil"
+      ],
+      "description": "In to_radix_mem, when an error occurs the memory address computation could underflow, causing the tracegen to produce an address that wraps around the field. This made it impossible for an honest prover to satisfy the memory constraints on the error path, as the computed address would not match what the memory subtrace expects.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "to_radix_mem",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t0-opcode-error-conditions",
+        "vm2-audit-t3-memory-row-injection"
+      ],
+      "expected_findings": {
+        "vm2-audit-t0-opcode-error-conditions": {
+          "min_severity": "high",
+          "keywords": [
+            "to_radix",
+            "memory",
+            "underflow",
+            "error"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ff-gt-borrow-unconstrained",
+      "title": "FF greater-than borrow bit unconstrained",
+      "pr": "#18883",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/alu.pil"
+      ],
+      "description": "In the ALU's field element greater-than comparison, the borrow bit used in the subtraction was not properly constrained. A malicious prover could set an arbitrary borrow value, causing the comparison to return incorrect results. This affects all FF comparisons used in conditional branches and assertions.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "alu",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t3-witness-boundedness",
+        "vm2-audit-t0-opcode-semantics"
+      ],
+      "expected_findings": {
+        "vm2-audit-t3-witness-boundedness": {
+          "min_severity": "critical",
+          "keywords": [
+            "borrow",
+            "FF",
+            "gt",
+            "unconstrained"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ff-gt-wrong-lookup-selector",
+      "title": "FF greater-than used wrong lookup selector for range check",
+      "pr": "#18883",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/alu.pil"
+      ],
+      "description": "The FF greater-than operation's range check lookup used the wrong selector, causing the range check to not fire on the correct rows. Without the range check, the subtraction result is unconstrained and a malicious prover can forge any comparison outcome.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "alu",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-interaction-tuple-completeness",
+        "vm2-audit-t1-unprotected-destination-selector"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-interaction-tuple-completeness": {
+          "min_severity": "critical",
+          "keywords": [
+            "FF",
+            "gt",
+            "range_check",
+            "lookup",
+            "selector"
+          ]
+        }
+      }
+    },
+    {
+      "id": "keccakf1600-sequential-lookup-soundness",
+      "title": "keccakf1600 used sequential lookup allowing row injection",
+      "pr": "#18915",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/keccak.pil"
+      ],
+      "description": "The keccakf1600 permutation lookup used LookupSequential which assumes 1:1 row correspondence. However, since the lookup was from keccak to the bitwise trace, a malicious prover could insert extra rows in the bitwise trace that satisfy the sequential assumption but contain forged values. Changing to a proper permutation (or LookupGeneric with count enforcement) prevents ghost row injection.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "keccak",
+      "introduced_after_baseline": true,
+      "skills": [
+        "vm2-audit-t1-lookup-vs-permutation",
+        "vm2-audit-t3-memory-row-injection"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-lookup-vs-permutation": {
+          "min_severity": "critical",
+          "keywords": [
+            "keccakf1600",
+            "sequential",
+            "lookup",
+            "permutation"
+          ]
+        }
+      }
+    },
+    {
+      "id": "nullifier-tree-check-sequential-lookup",
+      "title": "Nullifier tree check used sequential lookup instead of permutation",
+      "pr": "#18916",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/trees/nullifier_tree_check.pil"
+      ],
+      "description": "The nullifier tree check used LookupSequential for its merkle check interaction, which assumes 1:1 row correspondence. A malicious prover could inject additional rows in the merkle_check trace to satisfy the sequential pattern while containing forged sibling path values, allowing fake nullifier existence/non-existence proofs.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "nullifier_tree_check",
+      "introduced_after_baseline": true,
+      "skills": [
+        "vm2-audit-t1-lookup-vs-permutation",
+        "vm2-audit-t3-memory-row-injection"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-lookup-vs-permutation": {
+          "min_severity": "critical",
+          "keywords": [
+            "nullifier",
+            "tree",
+            "sequential",
+            "lookup",
+            "permutation"
+          ]
+        }
+      }
+    },
+    {
+      "id": "internal-call-lookup-not-error-gated",
+      "title": "Internal call stack lookup fires even on error",
+      "pr": "#18945",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/opcodes/internal_call.pil"
+      ],
+      "description": "The internal call stack push lookup was not gated by the error condition. When an INTERNALCALL instruction errors (e.g., due to out-of-gas), the lookup to push onto the internal call stack still fires, but no corresponding entry exists in the destination trace since the call was not actually made. This is a completeness issue where the honest prover cannot satisfy the lookup on error paths.",
+      "severity": "high",
+      "category": "completeness",
+      "component": "internal_call",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t4-missing-error-gating",
+        "vm2-audit-t2-error-state-constraint-firing"
+      ],
+      "expected_findings": {
+        "vm2-audit-t4-missing-error-gating": {
+          "min_severity": "high",
+          "keywords": [
+            "internal_call",
+            "lookup",
+            "error",
+            "gating"
+          ]
+        }
+      }
+    },
+    {
+      "id": "emit-unencrypted-log-mem-underflow",
+      "title": "emit_unencrypted_log memory address underflow",
+      "pr": "#19076",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/opcodes/emit_unencrypted_log.pil"
+      ],
+      "description": "In emit_unencrypted_log, the memory address computation could underflow when the log size is 0 or when error conditions are met. The tracegen would compute a negative address that wraps in the field, making it impossible for an honest prover to generate a valid proof for transactions emitting empty logs or hitting error conditions.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "emit_unencrypted_log",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t0-opcode-error-conditions",
+        "vm2-audit-t0-opcode-edge-cases"
+      ],
+      "expected_findings": {
+        "vm2-audit-t0-opcode-error-conditions": {
+          "min_severity": "high",
+          "keywords": [
+            "emit_unencrypted_log",
+            "memory",
+            "underflow"
+          ]
+        }
+      }
+    },
+    {
+      "id": "missing-boolean-ecc-mem-sel",
+      "title": "Missing boolean constraint on ecc_add_mem selector",
+      "pr": "#19256",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/ecc_mem.pil"
+      ],
+      "description": "The ecc_add_mem.sel selector column lacked a boolean constraint (sel * (1 - sel) = 0). Without this constraint, a malicious prover could set sel to any field value, not just 0 or 1. Since sel gates all relations in the ecc_mem subtrace and is used as a source selector in lookups/permutations, a non-boolean sel could allow the prover to satisfy constraints with bogus values, potentially bypassing curve point validation and memory access checks for ECC addition operations.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "ecc_mem",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-missing-boolean",
+        "vm2-audit-t1-selector-outside-active"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-missing-boolean": {
+          "min_severity": "high",
+          "keywords": [
+            "ecc_add_mem",
+            "sel",
+            "boolean"
+          ]
+        }
+      }
+    },
+    {
+      "id": "missing-boolean-poseidon2-mem-sel",
+      "title": "Missing boolean constraint on poseidon2_perm_mem selector",
+      "pr": "#19256",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/poseidon2_mem.pil"
+      ],
+      "description": "The poseidon2_perm_mem.sel selector column lacked a boolean constraint (sel * (1 - sel) = 0). Without this constraint, a malicious prover could set sel to arbitrary field values. Since sel is used to gate all poseidon2 permutation memory relations and participates in lookups/permutations, a non-boolean value could bypass tag checking, out-of-range detection, and correct poseidon2 execution constraints.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "poseidon2_mem",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-missing-boolean",
+        "vm2-audit-t1-selector-outside-active"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-missing-boolean": {
+          "min_severity": "high",
+          "keywords": [
+            "poseidon2_perm_mem",
+            "sel",
+            "boolean"
+          ]
+        }
+      }
+    },
+    {
+      "id": "missing-boolean-to-radix-mem-sel",
+      "title": "Missing boolean constraint on to_radix_mem selector",
+      "pr": "#19256",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/to_radix_mem.pil"
+      ],
+      "description": "The to_radix_mem.sel selector column lacked a boolean constraint (sel * (1 - sel) = 0). Without this constraint, a malicious prover could set sel to arbitrary field values, potentially bypassing all to_radix_mem subtrace constraints and producing incorrect radix decomposition results.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "to_radix_mem",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-missing-boolean",
+        "vm2-audit-t1-selector-outside-active"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-missing-boolean": {
+          "min_severity": "high",
+          "keywords": [
+            "to_radix_mem",
+            "sel",
+            "boolean"
+          ]
+        }
+      }
+    },
+    {
+      "id": "missing-boolean-bitwise-start-sha256",
+      "title": "Missing boolean constraint on bitwise start_sha256 selector",
+      "pr": "#19256",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/bitwise.pil"
+      ],
+      "description": "The bitwise.start_sha256 column lacked a boolean constraint (start_sha256 * (1 - start_sha256) = 0). While start_keccak had a boolean constraint, start_sha256 did not. Since start_sha256 is used to decouple generation of inverses of lookups into the bitwise trace from SHA256, a non-boolean value could allow a malicious prover to manipulate lookup counts and bypass constraints.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "bitwise",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-missing-boolean"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-missing-boolean": {
+          "min_severity": "high",
+          "keywords": [
+            "bitwise",
+            "start_sha256",
+            "boolean"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sha256-modulo-add-wrong-selector",
+      "title": "SHA256 modulo add range checks used wrong selector",
+      "pr": "#19262",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/sha256.pil"
+      ],
+      "description": "The SHA256 final output modulo addition range checks (RANGE_COMP_*_LHS and RANGE_COMP_*_RHS lookups) used 'perform_round' as the source selector instead of 'last'. The perform_round selector is active on every non-error, non-latch round row, while these range checks should only apply on the final round (latch) row. This meant range checks were being requested for every round row (wasting resources and potentially causing lookup count issues), while critically the actual constraint that the output values decompose correctly via modulo 2^32 was also applied using LAST (which was a PIL intermediate, not a committed column). Changing LAST to a committed 'last' column and using it as the lookup selector ensures the range checks are correctly applied only on the final output row.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "sha256",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-interaction-tuple-completeness",
+        "vm2-audit-t0-opcode-semantics"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-interaction-tuple-completeness": {
+          "min_severity": "high",
+          "keywords": [
+            "sha256",
+            "perform_round",
+            "last",
+            "range",
+            "modulo"
+          ]
+        }
+      }
+    },
+    {
+      "id": "get-p-limbs-precomputed-missing-rows",
+      "title": "Missing precomputed rows for radix 0 and 1 in get_p_limbs lookup",
+      "pr": "#19266",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "src/barretenberg/vm2/tracegen/precomputed_trace.cpp"
+      ],
+      "description": "The precomputed trace for to_radix safe limbs skipped indices 0 and 1 (radix values 0 and 1) because their decomposition length was 0. This meant the lookup table for get_p_limbs had no entries for these radix values. When a TORADIXBE instruction was executed with an invalid radix < 2, the gas computation lookup would fail because it couldn't find the radix in the precomputed table. This is a completeness bug: an honest prover cannot generate a valid proof for transactions containing TORADIXBE with radix < 2.",
+      "severity": "medium",
+      "category": "completeness",
+      "component": "execution",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-missing-initialization",
+        "vm2-audit-t0-opcode-edge-cases"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-missing-initialization": {
+          "min_severity": "medium",
+          "keywords": [
+            "precomputed",
+            "radix",
+            "p_limbs",
+            "lookup"
+          ]
+        }
+      }
+    },
+    {
+      "id": "context-stack-lookup-instead-of-permutation",
+      "title": "Context stack push used lookup instead of permutation allowing malicious insertions",
+      "pr": "#19341",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/context.pil",
+        "pil/vm2/context_stack.pil",
+        "pil/vm2/opcodes/internal_call.pil"
+      ],
+      "description": "The CTX_STACK_CALL interaction and PUSH_CALL_STACK interaction used 'in' (lookup) instead of 'is' (permutation). A lookup only checks that each source row exists somewhere in the destination, but does not verify that the destination has no extra rows. A malicious prover could insert additional fake rows into the context_stack trace (or internal_call_stack trace) that were never pushed by legitimate call operations. These fake stack entries could then be popped by CTX_STACK_ROLLBACK/CTX_STACK_RETURN/UNWIND_CALL_STACK lookups, allowing the prover to restore a fabricated execution context with arbitrary values for msg_sender, storage_address, gas limits, and other critical context fields.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "context",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-lookup-vs-permutation",
+        "vm2-audit-t4-side-effect-gating"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-lookup-vs-permutation": {
+          "min_severity": "critical",
+          "keywords": [
+            "context_stack",
+            "permutation",
+            "lookup",
+            "push",
+            "malicious"
+          ]
+        }
+      }
+    },
+    {
+      "id": "missing-boolean-calldata-sel",
+      "title": "Missing boolean constraint on calldata selector",
+      "pr": "#19367",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/calldata.pil"
+      ],
+      "description": "The calldata.sel selector column lacked a boolean constraint (sel * (1 - sel) = 0). Without this constraint, a malicious prover could set sel to arbitrary field values, potentially bypassing calldata trace constraints including index incrementing, context ID continuity, and latch behavior. This could allow manipulation of calldata values passed to contract calls.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "calldata",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-missing-boolean"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-missing-boolean": {
+          "min_severity": "high",
+          "keywords": [
+            "calldata",
+            "sel",
+            "boolean"
+          ]
+        }
+      }
+    },
+    {
+      "id": "missing-boolean-calldata-hashing-sel",
+      "title": "Missing boolean constraint on calldata_hashing selector",
+      "pr": "#19367",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/calldata_hashing.pil"
+      ],
+      "description": "The calldata_hashing.sel selector column lacked a boolean constraint (sel * (1 - sel) = 0). Without this, a malicious prover could set sel to arbitrary field values, potentially bypassing calldata hashing constraints including trace continuity, poseidon2 hashing, and padding checks. This could allow forging calldata hashes.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "calldata_hashing",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-missing-boolean"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-missing-boolean": {
+          "min_severity": "high",
+          "keywords": [
+            "calldata_hashing",
+            "sel",
+            "boolean"
+          ]
+        }
+      }
+    },
+    {
+      "id": "missing-boolean-instr-fetching-opcode-tag-out-of-range",
+      "title": "Missing boolean constraints on opcode_out_of_range and tag_out_of_range in instr_fetching",
+      "pr": "#19371",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/bytecode/instr_fetching.pil"
+      ],
+      "description": "The instr_fetching.opcode_out_of_range and instr_fetching.tag_out_of_range columns lacked boolean constraints. These columns are used in computing PARSING_ERROR_EXCEPT_TAG_ERROR and sel_parsing_err. Without boolean constraints, a malicious prover could set these to arbitrary field values. Since they participate in error flag computation (sel_parsing_err = pc_out_of_range + opcode_out_of_range + instr_out_of_range + tag_out_of_range), non-boolean values could cause the sum to wrap around in the field, potentially making sel_parsing_err appear as 0 (no error) even when errors exist.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "instr_fetching",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-missing-boolean",
+        "vm2-audit-t2-derived-value-constraints"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-missing-boolean": {
+          "min_severity": "high",
+          "keywords": [
+            "opcode_out_of_range",
+            "tag_out_of_range",
+            "boolean",
+            "instr_fetching"
+          ]
+        }
+      }
+    },
+    {
+      "id": "missing-boolean-contract-instance-exists",
+      "title": "Missing boolean constraint on contract_instance_retrieval exists",
+      "pr": "#19371",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/bytecode/contract_instance_retrieval.pil"
+      ],
+      "description": "The contract_instance_retrieval.exists column lacked a boolean constraint (exists * (1 - exists) = 0). This column determines whether a contract instance exists at a given address. Without the boolean constraint, a malicious prover could set exists to an arbitrary field value, potentially claiming a non-deployed contract exists or that a deployed contract does not exist, which would affect bytecode retrieval and execution correctness.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "contract_instance_retrieval",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-missing-boolean",
+        "vm2-audit-t4-zero-check"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-missing-boolean": {
+          "min_severity": "high",
+          "keywords": [
+            "contract_instance_retrieval",
+            "exists",
+            "boolean"
+          ]
+        }
+      }
+    },
+    {
+      "id": "instr-fetching-sel-parsing-err-unconstrained",
+      "title": "Instruction fetching sel_parsing_err was not constrained to error flags",
+      "pr": "#19381",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/bytecode/instr_fetching.pil"
+      ],
+      "description": "The sel_parsing_err column in instr_fetching was declared and constrained to be boolean, but the constraint that tied it to the actual error flags (sel_parsing_err = PARSING_ERROR_EXCEPT_TAG_ERROR + tag_out_of_range) was commented out with a FIXME. This meant sel_parsing_err was a free witness boolean that the prover could set independently of whether any parsing error actually occurred. A malicious prover could set sel_parsing_err = 1 on a valid instruction to force an error path (skipping execution), or set sel_parsing_err = 0 on an invalid instruction to proceed with execution using unconstrained operand values.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "instr_fetching",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-commented-constraints",
+        "vm2-audit-t2-derived-value-constraints"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-commented-constraints": {
+          "min_severity": "critical",
+          "keywords": [
+            "sel_parsing_err",
+            "FIXME",
+            "commented",
+            "unconstrained"
+          ]
+        }
+      }
+    },
+    {
+      "id": "missing-boolean-exists-l1-to-l2-msg-tree",
+      "title": "Missing boolean constraint on l1_to_l2_message_tree_check exists",
+      "pr": "#19401",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/trees/l1_to_l2_message_tree_check.pil"
+      ],
+      "description": "The l1_to_l2_message_tree_check.exists column lacked a boolean constraint (exists * (1 - exists) = 0). The exists column is used in a zero-check pattern to determine if a message hash matches the leaf value. Without the boolean constraint, a malicious prover could set exists to an arbitrary non-boolean field value, potentially claiming a non-existent L1-to-L2 message exists or vice versa, breaking cross-chain message verification.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "l1_to_l2_message_tree_check",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-missing-boolean",
+        "vm2-audit-t4-zero-check"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-missing-boolean": {
+          "min_severity": "high",
+          "keywords": [
+            "l1_to_l2_message_tree_check",
+            "exists",
+            "boolean"
+          ]
+        }
+      }
+    },
+    {
+      "id": "missing-boolean-exists-note-hash-tree",
+      "title": "Missing boolean constraint on note_hash_tree_check exists",
+      "pr": "#19401",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/trees/note_hash_tree_check.pil"
+      ],
+      "description": "The note_hash_tree_check.exists column lacked a boolean constraint (exists * (1 - exists) = 0). The exists column determines whether a note hash exists in the tree. Without the boolean constraint, a malicious prover could set exists to an arbitrary field value, potentially forging note hash existence proofs or hiding existing note hashes.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "note_hash_tree_check",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-missing-boolean",
+        "vm2-audit-t4-zero-check"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-missing-boolean": {
+          "min_severity": "high",
+          "keywords": [
+            "note_hash_tree_check",
+            "exists",
+            "boolean"
+          ]
+        }
+      }
+    },
+    {
+      "id": "context-returndata-size-wrong-column",
+      "title": "Context constrained returndata addr instead of returndata size to zero at start",
+      "pr": "#19404",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/context.pil"
+      ],
+      "description": "The RD_SIZE_IS_ZERO constraint (enqueued_call_start * last_child_returndata_addr = 0) was constraining the wrong column. It should have been constraining last_child_returndata_size to zero at the start of an enqueued call, not last_child_returndata_addr. This meant returndata size was unconstrained at enqueued call start, allowing a malicious prover to set a non-zero returndata size. This could enable reading fabricated return data from a previous context.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "context",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-constraint-typos",
+        "vm2-audit-t2-missing-initialization"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-constraint-typos": {
+          "min_severity": "high",
+          "keywords": [
+            "returndata",
+            "size",
+            "addr",
+            "enqueued_call_start"
+          ]
+        }
+      }
+    },
+    {
+      "id": "context-tree-state-unconstrained-on-enter-call",
+      "title": "Tree roots and sizes unconstrained when entering nested call",
+      "pr": "#19428",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/context.pil"
+      ],
+      "description": "The tree state continuity constraints (note_hash_tree_root, nullifier_tree_root, public_data_tree_root, and their sizes, plus side-effect counters) were gated by DEFAULT_OR_NESTED_RETURN, which is (DEFAULT_CTX_ROW + nested_return). This excluded sel_enter_call rows from the continuity check. A malicious prover entering a nested CALL could set arbitrary tree roots and sizes on the next row (the first row of the nested context), effectively forging the entire state tree.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "context",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-missing-propagation",
+        "vm2-audit-t1-operation-transition-continuity"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-missing-propagation": {
+          "min_severity": "critical",
+          "keywords": [
+            "tree_root",
+            "continuity",
+            "enter_call",
+            "propagation"
+          ]
+        },
+        "vm2-audit-t1-operation-transition-continuity": {
+          "min_severity": "high",
+          "keywords": [
+            "enter_call",
+            "tree_state",
+            "transition"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sstore-ghost-row-write-injection",
+      "title": "SSTORE allowed ghost row injection of malicious storage writes",
+      "pr": "#19470",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/opcodes/sstore.pil"
+      ],
+      "description": "The constraint sel_execute_sstore * ((1 - sel_opcode_error) - sel_write_public_data) = 0 only enforced that sel_write_public_data matched expectations WHEN sel_execute_sstore was 1. On ghost rows (sel_execute_sstore=0), sel_write_public_data was unconstrained and could be set to 1 by a malicious prover. This allowed injecting arbitrary storage write rows that would pass the STORAGE_WRITE permutation check, enabling a prover to write arbitrary values to any storage slot.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "sstore",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t3-memory-row-injection",
+        "vm2-audit-t1-ghost-row-boolean"
+      ],
+      "expected_findings": {
+        "vm2-audit-t3-memory-row-injection": {
+          "min_severity": "critical",
+          "keywords": [
+            "ghost",
+            "injection",
+            "sel_write_public_data",
+            "sstore"
+          ]
+        },
+        "vm2-audit-t1-ghost-row-boolean": {
+          "min_severity": "high",
+          "keywords": [
+            "ghost",
+            "sel_write_public_data",
+            "unconstrained"
+          ]
+        }
+      }
+    },
+    {
+      "id": "emit-log-ghost-row-memory-read",
+      "title": "emit_unencrypted_log ghost rows could trigger memory reads",
+      "pr": "#19480",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/opcodes/emit_unencrypted_log.pil"
+      ],
+      "description": "In emit_unencrypted_log.pil, sel_should_read_memory was defined as is_write_memory_value * (1 - error_out_of_bounds). Since is_write_memory_value was only boolean-constrained but not gated by sel, ghost rows (sel=0) could set is_write_memory_value=1, making sel_should_read_memory=1 and firing the READ_MEM permutation from an inactive row. The fix gates by sel: sel_should_read_memory = sel * is_write_memory_value * (1 - error_out_of_bounds).",
+      "severity": "high",
+      "category": "soundness",
+      "component": "emit_unencrypted_log",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t3-memory-row-injection",
+        "vm2-audit-t1-ghost-row-boolean"
+      ],
+      "expected_findings": {
+        "vm2-audit-t3-memory-row-injection": {
+          "min_severity": "high",
+          "keywords": [
+            "ghost",
+            "memory",
+            "read",
+            "sel_should_read_memory"
+          ]
+        },
+        "vm2-audit-t1-ghost-row-boolean": {
+          "min_severity": "medium",
+          "keywords": [
+            "ghost",
+            "is_write_memory_value",
+            "sel"
+          ]
+        }
+      }
+    },
+    {
+      "id": "get-contract-instance-ghost-row-injection",
+      "title": "GetContractInstance ghost rows could fire memory write permutations",
+      "pr": "#19480",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/opcodes/get_contract_instance.pil"
+      ],
+      "description": "In get_contract_instance.pil, is_valid_writes_in_bounds was not forced to 0 when sel=0. A malicious prover could set is_valid_writes_in_bounds=1 and is_valid_member_enum=1 on ghost rows, enabling memory write permutations to fire from inactive rows. The fix adds is_valid_writes_in_bounds * (1 - sel) = 0.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "get_contract_instance",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t3-memory-row-injection",
+        "vm2-audit-t1-ghost-row-boolean"
+      ],
+      "expected_findings": {
+        "vm2-audit-t3-memory-row-injection": {
+          "min_severity": "high",
+          "keywords": [
+            "ghost",
+            "is_valid_writes_in_bounds",
+            "injection"
+          ]
+        },
+        "vm2-audit-t1-ghost-row-boolean": {
+          "min_severity": "medium",
+          "keywords": [
+            "ghost",
+            "is_valid_writes_in_bounds",
+            "sel"
+          ]
+        }
+      }
+    },
+    {
+      "id": "to-radix-mem-ghost-row-write",
+      "title": "to_radix_mem ghost rows could trigger memory writes",
+      "pr": "#19480",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/to_radix_mem.pil"
+      ],
+      "description": "In to_radix_mem.pil, sel_should_write_mem was propagated via continuity constraint but not forced to 0 when sel=0. Ghost rows could set sel_should_write_mem=1 to fire the WRITE_MEM permutation, injecting arbitrary memory writes. The fix adds sel_should_write_mem * (1 - sel) = 0.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "to_radix_mem",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t3-memory-row-injection",
+        "vm2-audit-t1-ghost-row-boolean"
+      ],
+      "expected_findings": {
+        "vm2-audit-t3-memory-row-injection": {
+          "min_severity": "high",
+          "keywords": [
+            "ghost",
+            "sel_should_write_mem",
+            "to_radix"
+          ]
+        },
+        "vm2-audit-t1-ghost-row-boolean": {
+          "min_severity": "medium",
+          "keywords": [
+            "ghost",
+            "sel_should_write_mem",
+            "sel"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bc-hashing-ghost-row-padding-selectors",
+      "title": "bc_hashing ghost rows could fire packed field permutations",
+      "pr": "#19481",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/bytecode/bc_hashing.pil"
+      ],
+      "description": "In bc_hashing.pil, sel_not_padding_1 and sel_not_padding_2 were boolean-constrained but not gated by sel. Ghost rows (sel=0) could set these to 1, firing the GET_PACKED_FIELD_1 and GET_PACKED_FIELD_2 permutations from inactive rows. This could allow a malicious prover to inject forged bytecode hash inputs. The fix adds sel_not_padding_1 * (1 - sel) = 0 and sel_not_padding_2 * (1 - sel) = 0.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "bc_hashing",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t3-memory-row-injection",
+        "vm2-audit-t1-ghost-row-boolean"
+      ],
+      "expected_findings": {
+        "vm2-audit-t3-memory-row-injection": {
+          "min_severity": "high",
+          "keywords": [
+            "ghost",
+            "sel_not_padding",
+            "injection",
+            "permutation"
+          ]
+        },
+        "vm2-audit-t1-ghost-row-boolean": {
+          "min_severity": "medium",
+          "keywords": [
+            "sel_not_padding",
+            "ghost",
+            "sel"
+          ]
+        }
+      }
+    },
+    {
+      "id": "internal-return-empty-callstack-crash",
+      "title": "Internal return on empty call stack caused unconstrained behavior",
+      "pr": "#19485",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/opcodes/internal_call.pil"
+      ],
+      "description": "The RESTORE_INTERNAL_ID_ON_RETURN constraint used sel_execute_internal_return to gate the restoration of internal_call_id from internal_call_return_id. When an INTERNALRETURN instruction was executed with an empty call stack (which triggers an error), the constraint still tried to enforce internal_call_id' = internal_call_return_id, but the return ID was invalid/unconstrained since the stack was empty. The fix changes the gating to sel_read_unwind_call_stack, which is only active when the return actually succeeds.",
+      "severity": "medium",
+      "category": "completeness",
+      "component": "internal_call",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-error-state-constraint-firing",
+        "vm2-audit-t0-opcode-error-conditions"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-error-state-constraint-firing": {
+          "min_severity": "medium",
+          "keywords": [
+            "internal_return",
+            "error",
+            "empty",
+            "callstack"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sha256-mem-input-addr-unconstrained",
+      "title": "SHA256 memory input address propagation unconstrained",
+      "pr": "#19522",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/sha256_mem.pil"
+      ],
+      "description": "In sha256_mem.pil, the input_addr column had no continuity constraint between rows. While execution_clk, space_id, and output_addr were propagated via CONTINUITY_* constraints, input_addr was missing such a constraint. A malicious prover could set arbitrary input_addr values on non-start rows, causing the SHA256 computation to read from arbitrary memory locations instead of sequential addresses.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "sha256_mem",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-missing-propagation",
+        "vm2-audit-t0-opcode-memory-access-order"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-missing-propagation": {
+          "min_severity": "critical",
+          "keywords": [
+            "input_addr",
+            "propagation",
+            "continuity",
+            "sha256"
+          ]
+        }
+      }
+    },
+    {
+      "id": "get-contract-instance-member-write-offset-completeness",
+      "title": "GetContractInstance member_write_offset tracegen mismatch",
+      "pr": "#19527",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/opcodes/get_contract_instance.pil"
+      ],
+      "description": "The tracegen for GetContractInstance always set member_write_offset = dst_offset + 1, even when writes were out of bounds (is_valid_writes_in_bounds=0). The PIL constraint requires member_write_offset=0 when writes are out of bounds. The tracegen was producing traces that violated the constraint. This was 'secure by coincidence' because the constraint was correct, but the honest prover would fail to generate a valid proof in the out-of-bounds case.",
+      "severity": "low",
+      "category": "completeness",
+      "component": "get_contract_instance",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-tracegen-pil-alignment"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-tracegen-pil-alignment": {
+          "min_severity": "medium",
+          "keywords": [
+            "member_write_offset",
+            "tracegen",
+            "out_of_bounds"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sha256-missing-init-state-propagation",
+      "title": "SHA256 initial state values not propagated across rounds",
+      "pr": "#19590",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/sha256.pil"
+      ],
+      "description": "In sha256.pil, the initial hash state values (init_a through init_h) were only constrained on the start row via start * (1 - err) * (a - init_a) = 0 etc., but were not propagated across the 64 compression rounds. Since the final output on the 'last' row adds init_a..init_h to the compression output, a malicious prover could set arbitrary init values on the last row, producing incorrect SHA256 outputs that would still satisfy the constraints.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "sha256",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-missing-propagation",
+        "vm2-audit-t0-opcode-semantics"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-missing-propagation": {
+          "min_severity": "critical",
+          "keywords": [
+            "init_a",
+            "init_b",
+            "propagation",
+            "sha256",
+            "perform_round"
+          ]
+        },
+        "vm2-audit-t0-opcode-semantics": {
+          "min_severity": "high",
+          "keywords": [
+            "sha256",
+            "initial_state",
+            "compression"
+          ]
+        }
+      }
+    },
+    {
+      "id": "keccak-memory-injection-attacks",
+      "title": "Keccak memory trace vulnerable to row injection and manipulation",
+      "pr": "#19620",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/keccak_memory.pil"
+      ],
+      "description": "The keccak_memory.pil trace had multiple injection vulnerabilities: (1) No trace continuity constraint \u2014 sel could go from 0 to 1 mid-trace without a start_read or start_write, allowing injection of rows mid-operation. (2) No constraint that last implies sel=1, so ghost rows could claim to be 'last'. (3) Propagation constraints used (1-last) gating which allowed inactive rows after a 'last' to have unconstrained values. The fix adds TRACE_CONTINUITY, LAST_HAS_SEL_ON, START_AFTER_LATCH constraints and replaces (1-last) gating with (1-LATCH_CONDITION).",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "keccak_memory",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t3-memory-row-injection",
+        "vm2-audit-t1-ghost-row-continuity",
+        "vm2-audit-t1-selector-outside-active"
+      ],
+      "expected_findings": {
+        "vm2-audit-t3-memory-row-injection": {
+          "min_severity": "critical",
+          "keywords": [
+            "keccak",
+            "memory",
+            "injection",
+            "ghost",
+            "continuity"
+          ]
+        },
+        "vm2-audit-t1-ghost-row-continuity": {
+          "min_severity": "high",
+          "keywords": [
+            "trace_continuity",
+            "sel",
+            "keccak"
+          ]
+        },
+        "vm2-audit-t1-selector-outside-active": {
+          "min_severity": "high",
+          "keywords": [
+            "last",
+            "sel",
+            "keccak",
+            "ghost"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bitwise-ghost-row-keccak-sha256-forgery",
+      "title": "Bitwise ghost rows allowed forged keccak and SHA256 XOR outputs",
+      "pr": "#19875",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/bitwise.pil"
+      ],
+      "description": "In bitwise.pil, the start_keccak and start_sha256 selectors were not constrained to require sel=1. A malicious prover could set start_keccak=1 or start_sha256=1 on ghost rows (sel=0) to create forged destination rows for keccak/SHA256 XOR lookup permutations. Since ghost rows have no bitwise decomposition constraints (all gated by sel), the prover could claim arbitrary XOR results, breaking the integrity of both hash functions.",
+      "severity": "critical",
+      "category": "soundness",
+      "component": "bitwise",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-ghost-row-boolean",
+        "vm2-audit-t1-selector-outside-active",
+        "vm2-audit-t3-memory-row-injection"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-ghost-row-boolean": {
+          "min_severity": "critical",
+          "keywords": [
+            "start_keccak",
+            "start_sha256",
+            "ghost",
+            "sel"
+          ]
+        },
+        "vm2-audit-t1-selector-outside-active": {
+          "min_severity": "critical",
+          "keywords": [
+            "start_keccak",
+            "start_sha256",
+            "bitwise",
+            "inactive"
+          ]
+        }
+      }
+    },
+    {
+      "id": "l2l1msg-unconstrained-recipient-size",
+      "title": "L2-to-L1 message recipient not constrained to 20 bytes",
+      "pr": "#19898",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/opcodes/send_l2_to_l1_msg.pil",
+        "pil/vm2/constants_gen.pil"
+      ],
+      "description": "The SENDL2TOL1MSG opcode did not constrain the recipient (register[0]) to fit within 160 bits (20 bytes), which is the size of an Ethereum address. A malicious prover could create a valid proof where the recipient of an L2-to-L1 message is an arbitrary 254-bit field element exceeding 2^160-1. This would result in invalid L2-to-L1 messages being included in the public transaction effects. The fix adds a lookup into the ff_gt gadget to compare register[0] against MAX_ETH_ADDRESS_VALUE (2^160-1), and if the recipient exceeds this maximum, a new error flag (sel_too_large_recipient_error) forces sel_opcode_error to be set.",
+      "severity": "high",
+      "category": "soundness",
+      "component": "send_l2_to_l1_msg",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-derived-value-constraints",
+        "vm2-audit-t0-opcode-error-conditions",
+        "vm2-audit-t1-range-check-overflow"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-derived-value-constraints": {
+          "min_severity": "high",
+          "keywords": [
+            "recipient",
+            "20 bytes",
+            "160 bits",
+            "eth address",
+            "unconstrained"
+          ]
+        },
+        "vm2-audit-t0-opcode-error-conditions": {
+          "min_severity": "medium",
+          "keywords": [
+            "recipient",
+            "error",
+            "validation",
+            "too large"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bitwise-skippable-too-broad",
+      "title": "Bitwise skippable_if allows skipping last-gated constraints on error rows",
+      "pr": "#20522",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "pil/vm2/bitwise.pil"
+      ],
+      "description": "The bitwise subtrace's skippable_if condition was `sel = 0`, but on error rows the trace has `sel = 0` with `last = 1`. The BITW_INIT_A, BITW_INIT_B, and BITW_INIT_C constraints are gated by `last` (not `sel`), meaning they should fire on error rows where `last = 1`. With the overly broad skippable condition, the sumcheck treats these rows as contributing zero to all subrelations, even though BITW_INIT constraints may be non-zero. A malicious prover could set arbitrary values for ia_byte, ib_byte, ic_byte on error rows without detection. The fix changes the skippable condition to `sel + last = 0`.",
+      "severity": "medium",
+      "category": "soundness",
+      "component": "bitwise",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t2-skippable-condition-correctness"
+      ],
+      "expected_findings": {
+        "vm2-audit-t2-skippable-condition-correctness": {
+          "min_severity": "medium",
+          "keywords": [
+            "skippable",
+            "last",
+            "sel",
+            "BITW_INIT",
+            "error"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ff-gt-dedup-key-dangling-ref",
+      "title": "Field GT event deduplication key stores dangling references causing incorrect trace",
+      "pr": "#20526",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "src/barretenberg/vm2/simulation/events/field_gt_event.hpp"
+      ],
+      "description": "The FieldGreaterThanEvent Key type used `const FF&` references instead of value copies (`FF`). When the deduplicating event emitter stores the key for deduplication, the references can dangle after the original event goes out of scope. This causes incorrect deduplication: distinct gt events may hash to the same key, leading to missing rows in the gt trace. When the lookup/permutation from other subtraces tries to find matching rows in the gt trace, the lookup fails because the deduplicated trace has fewer rows than expected. This is a completeness bug: an honest prover cannot generate a valid proof.",
+      "severity": "high",
+      "category": "completeness",
+      "component": "gt",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-tracegen-pil-alignment"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-tracegen-pil-alignment": {
+          "min_severity": "high",
+          "keywords": [
+            "deduplication",
+            "reference",
+            "gt",
+            "key",
+            "dangling"
+          ]
+        }
+      }
+    },
+    {
+      "id": "to-radix-permutation-missing-columns",
+      "title": "To_radix tracegen omits execution_clk and space_id on start row breaking permutation",
+      "pr": "#20528",
+      "commit_before": "",
+      "commit_after": "",
+      "files": [
+        "src/barretenberg/vm2/tracegen/to_radix_trace.cpp"
+      ],
+      "description": "The to_radix tracegen was not populating the `execution_clk` and `space_id` columns on the start row (where `to_radix_mem_start = 1`). These columns are part of the PERM_EXECUTION_DISPATCH_TO_TO_RADIX permutation that connects the execution trace to the to_radix subtrace. The PIL permutation constraint includes these in the tuple, but the tracegen left them as default (zero). When the execution trace sends non-zero clk and space_id values, the permutation fails. This is a completeness bug: an honest prover cannot produce a valid proof for any transaction that uses the TORADIXBE opcode.",
+      "severity": "high",
+      "category": "completeness",
+      "component": "to_radix",
+      "introduced_after_baseline": false,
+      "skills": [
+        "vm2-audit-t1-tracegen-pil-alignment",
+        "vm2-audit-t2-interaction-tuple-completeness"
+      ],
+      "expected_findings": {
+        "vm2-audit-t1-tracegen-pil-alignment": {
+          "min_severity": "high",
+          "keywords": [
+            "execution_clk",
+            "space_id",
+            "permutation",
+            "to_radix",
+            "missing"
+          ]
+        },
+        "vm2-audit-t2-interaction-tuple-completeness": {
+          "min_severity": "high",
+          "keywords": [
+            "execution_clk",
+            "space_id",
+            "permutation",
+            "dispatch"
+          ]
+        }
+      }
+    }
+  ]
+}
