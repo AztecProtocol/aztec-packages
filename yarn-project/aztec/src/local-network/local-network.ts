@@ -18,6 +18,7 @@ import type { LogFn } from '@aztec/foundation/log';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
+import { SequencerState } from '@aztec/sequencer-client';
 import type { ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
@@ -180,6 +181,21 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
   // Create a local blob client client inside the local network, no http connectivity
   const blobClient = createBlobClient();
   const node = await createAztecNode(aztecNodeConfig, { telemetry, blobClient, dateProvider }, { prefilledPublicData });
+
+  // Now that the node is up, let the watcher check for pending txs so it can skip unfilled slots faster when
+  // transactions are waiting in the mempool. Also let it check if the sequencer is actively building, to avoid
+  // warping time out from under an in-progress block.
+  watcher?.setGetPendingTxCount(() => node.getPendingTxCount());
+  const sequencer = node.getSequencer()?.getSequencer();
+  if (sequencer) {
+    const idleStates: Set<string> = new Set([
+      SequencerState.STOPPED,
+      SequencerState.STOPPING,
+      SequencerState.IDLE,
+      SequencerState.SYNCHRONIZING,
+    ]);
+    watcher?.setIsSequencerBuilding(() => !idleStates.has(sequencer.getState()));
+  }
 
   let epochTestSettler: EpochTestSettler | undefined;
   if (!aztecNodeConfig.p2pEnabled) {
