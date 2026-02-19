@@ -99,10 +99,8 @@ pub contract Benchmarking {
         let random_seed = unsafe { random() };
 
         for i in 0..MAX_L2_TO_L1_MSGS_PER_CALL {
-            self.context.message_portal(
-                EthAddress::from_field(random_seed + (i as Field)),
-                random_seed + (i + 1) as Field,
-            );
+            let recipient = EthAddress::from_field((random_seed as u128) as Field + (i as Field));
+            self.context.message_portal(recipient, random_seed + (i + 1) as Field);
         }
     }
 
