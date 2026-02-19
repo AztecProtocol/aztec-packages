@@ -350,9 +350,32 @@ def get_phases(date_from: str, date_to: str, dashboard: str = '',
             'exit_code': row['exit_code'],
         })
 
+    # Aggregate by dashboard: avg duration per phase per pipeline
+    dash_rows = db.query(f'''
+        SELECT dashboard, phase,
+               ROUND(AVG(duration_secs), 1) as avg_secs,
+               COUNT(*) as count,
+               ROUND(SUM(duration_secs), 0) as total_secs
+        FROM ci_phases {where}
+        AND dashboard != ''
+        GROUP BY dashboard, phase
+        ORDER BY dashboard, total_secs DESC
+    ''', params)
+    by_dashboard: dict[str, dict] = {}
+    for row in dash_rows:
+        d = row['dashboard']
+        if d not in by_dashboard:
+            by_dashboard[d] = {'dashboard': d, 'phases': {}, 'total_avg_secs': 0}
+        by_dashboard[d]['phases'][row['phase']] = row['avg_secs']
+        by_dashboard[d]['total_avg_secs'] += row['avg_secs']
+    # Round totals
+    for d in by_dashboard.values():
+        d['total_avg_secs'] = round(d['total_avg_secs'], 1)
+
     return {
         'by_phase': by_phase,
         'by_date': list(by_date.values()),
+        'by_dashboard': list(by_dashboard.values()),
         'recent_runs': list(runs_map.values())[:50],
     }
 
