@@ -87,17 +87,8 @@ template <typename BuilderType> class MultiMegaZKRecursiveFlavor_ : public Multi
         using Base::Base;
     };
 
-    // VerifierCommitments with 4 masking chunks
-    class VerifierCommitments : public NativeFlavor::template AllEntities<Commitment> {
-      public:
-        VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key)
-        {
-            for (auto [comm, precomputed_comm] :
-                 zip_view(MultiMegaFlavor::PrecomputedEntities<Commitment>::get_all(), verification_key->get_all())) {
-                comm = precomputed_comm;
-            }
-        }
-    };
+    // VerifierCommitments with 4 masking chunks (HasZK=true)
+    using VerifierCommitments = MultiMegaFlavor::VerifierCommitments_<Commitment, VerificationKey, true>;
 
     // Use ZK interleaved witness commitments from NativeFlavor (10 members)
     using InterleavedCommitments = typename MultiMegaFlavor::template InterleavedWitnessCommitments_<Commitment, true>;

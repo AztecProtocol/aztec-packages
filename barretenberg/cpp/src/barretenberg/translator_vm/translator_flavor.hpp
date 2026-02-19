@@ -750,7 +750,8 @@ class TranslatorFlavor {
                                 NUM_ORDERED_RANGE + 1,
                                 2 + NUM_ORDERED_RANGE + 1,
                                 2 + NUM_PCS_TO_BE_SHIFTED + NUM_ORDERED_RANGE + 1,
-                                NUM_CONCATENATED_POLYS);
+                                NUM_CONCATENATED_POLYS,
+                                2 /* Q_commitment + gemini_masking_poly */);
 
     static constexpr size_t PROOF_LENGTH =
         /* 1. Gemini masking poly commitment */ (num_frs_comm) +

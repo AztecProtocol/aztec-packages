@@ -588,6 +588,161 @@ template <typename Flavor> struct MegaZKStructuredProofBase : MegaStructuredProo
 };
 
 // ============================================================================
+// MultiMega proof structure base
+// ============================================================================
+template <typename Flavor> struct MultiMegaStructuredProofBase : StructuredProofHelper<Flavor> {
+    using Base = StructuredProofHelper<Flavor>;
+    using Base::BATCHED_RELATION_PARTIAL_LENGTH;
+    using Base::NUM_ALL_ENTITIES;
+    using typename Base::Commitment;
+    using typename Base::FF;
+    using typename Base::ProofData;
+
+    static constexpr size_t INTERLEAVING_LOG_K = Flavor::INTERLEAVING_LOG_K;
+
+    // Public inputs
+    std::vector<FF> public_inputs;
+
+    // 11 interleaved witness commitments + 4 individual ecc_op_wire commits
+    Commitment interleaved_wires_comm;
+    Commitment interleaved_ecc_op_wires_comm;
+    Commitment ecc_op_wire_1_comm;
+    Commitment ecc_op_wire_2_comm;
+    Commitment ecc_op_wire_3_comm;
+    Commitment ecc_op_wire_4_comm;
+    Commitment interleaved_calldata_comm;
+    Commitment interleaved_secondary_calldata_comm;
+    Commitment interleaved_databus_tags_comm;
+    Commitment interleaved_return_data_tags_comm;
+    Commitment interleaved_return_data_comm;
+    Commitment interleaved_w_4_comm;
+    Commitment interleaved_lookup_comm;
+    Commitment interleaved_inverses_comm;
+    Commitment interleaved_z_perm_comm;
+
+    // Sumcheck (operates on original polynomial size = log_n)
+    std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
+    std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
+
+    // PCS (operates on interleaved polynomial size = log_n + INTERLEAVING_LOG_K)
+    std::vector<Commitment> gemini_fold_comms;
+    std::vector<FF> gemini_fold_evals;
+    Commitment shplonk_q_comm;
+    Commitment kzg_w_comm;
+
+  private:
+    void clear_vectors()
+    {
+        public_inputs.clear();
+        sumcheck_univariates.clear();
+        gemini_fold_comms.clear();
+        gemini_fold_evals.clear();
+    }
+
+  public:
+    void deserialize(ProofData& proof_data, size_t num_public_inputs, size_t log_n)
+    {
+        const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
+        size_t offset = 0;
+        clear_vectors();
+
+        // Public inputs
+        for (size_t i = 0; i < num_public_inputs; ++i) {
+            public_inputs.push_back(this->template deserialize_from_buffer<FF>(proof_data, offset));
+        }
+
+        // Round 1: 7 interleaved witness commitments + 4 individual ecc_op_wire commits
+        interleaved_wires_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        interleaved_ecc_op_wires_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        ecc_op_wire_1_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        ecc_op_wire_2_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        ecc_op_wire_3_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        ecc_op_wire_4_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        interleaved_calldata_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        interleaved_secondary_calldata_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        interleaved_databus_tags_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        interleaved_return_data_tags_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        interleaved_return_data_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        // Round 2
+        interleaved_w_4_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        interleaved_lookup_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        // Round 3
+        interleaved_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        // Round 4
+        interleaved_z_perm_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+
+        // Sumcheck (log_n rounds, original polynomial size)
+        for (size_t i = 0; i < log_n; ++i) {
+            sumcheck_univariates.push_back(
+                this->template deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(proof_data,
+                                                                                                            offset));
+        }
+        sumcheck_evaluations =
+            this->template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, offset);
+
+        // PCS (pcs_log_n rounds, interleaved polynomial size)
+        for (size_t i = 0; i < pcs_log_n - 1; ++i) {
+            gemini_fold_comms.push_back(this->template deserialize_from_buffer<Commitment>(proof_data, offset));
+        }
+        for (size_t i = 0; i < pcs_log_n; ++i) {
+            gemini_fold_evals.push_back(this->template deserialize_from_buffer<FF>(proof_data, offset));
+        }
+        shplonk_q_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        kzg_w_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+    }
+
+    void serialize(ProofData& proof_data, size_t log_n) const
+    {
+        const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
+        size_t old_size = proof_data.size();
+        proof_data.clear();
+
+        // Public inputs
+        for (const auto& pi : public_inputs) {
+            Base::serialize_to_buffer(pi, proof_data);
+        }
+
+        // Round 1: 7 interleaved witness commitments + 4 individual ecc_op_wire commits
+        Base::serialize_to_buffer(interleaved_wires_comm, proof_data);
+        Base::serialize_to_buffer(interleaved_ecc_op_wires_comm, proof_data);
+        Base::serialize_to_buffer(ecc_op_wire_1_comm, proof_data);
+        Base::serialize_to_buffer(ecc_op_wire_2_comm, proof_data);
+        Base::serialize_to_buffer(ecc_op_wire_3_comm, proof_data);
+        Base::serialize_to_buffer(ecc_op_wire_4_comm, proof_data);
+        Base::serialize_to_buffer(interleaved_calldata_comm, proof_data);
+        Base::serialize_to_buffer(interleaved_secondary_calldata_comm, proof_data);
+        Base::serialize_to_buffer(interleaved_databus_tags_comm, proof_data);
+        Base::serialize_to_buffer(interleaved_return_data_tags_comm, proof_data);
+        Base::serialize_to_buffer(interleaved_return_data_comm, proof_data);
+        // Round 2
+        Base::serialize_to_buffer(interleaved_w_4_comm, proof_data);
+        Base::serialize_to_buffer(interleaved_lookup_comm, proof_data);
+        // Round 3
+        Base::serialize_to_buffer(interleaved_inverses_comm, proof_data);
+        // Round 4
+        Base::serialize_to_buffer(interleaved_z_perm_comm, proof_data);
+
+        // Sumcheck (log_n rounds)
+        for (size_t i = 0; i < log_n; ++i) {
+            Base::serialize_to_buffer(sumcheck_univariates[i], proof_data);
+        }
+        Base::serialize_to_buffer(sumcheck_evaluations, proof_data);
+
+        // PCS (pcs_log_n rounds)
+        for (size_t i = 0; i < pcs_log_n - 1; ++i) {
+            Base::serialize_to_buffer(gemini_fold_comms[i], proof_data);
+        }
+        for (size_t i = 0; i < pcs_log_n; ++i) {
+            Base::serialize_to_buffer(gemini_fold_evals[i], proof_data);
+        }
+        Base::serialize_to_buffer(shplonk_q_comm, proof_data);
+        Base::serialize_to_buffer(kzg_w_comm, proof_data);
+
+        BB_ASSERT_EQ(proof_data.size(), old_size);
+    }
+};
+
+// ============================================================================
 // Translator proof structure (always ZK)
 // ============================================================================
 template <typename Flavor> struct TranslatorStructuredProofBase : StructuredProofHelper<Flavor> {
@@ -759,8 +914,6 @@ template <typename Flavor> struct TranslatorStructuredProofBase : StructuredProo
 };
 
 // ============================================================================
-<<<<<<< HEAD
-=======
 // ECCVM proof structure (always ZK, committed sumcheck, translation sub-protocol)
 // ============================================================================
 template <typename Flavor> struct ECCVMStructuredProofBase : StructuredProofHelper<Flavor> {

@@ -83,17 +83,40 @@ template <IsMultiMegaFlavor Flavor> void MultiMegaOinkVerifier_<Flavor>::execute
     interleaved_comms.interleaved_ecc_op_wires = transcript->template receive_from_prover<Commitment>(
         domain_separator + interleaved_labels.interleaved_ecc_op_wires);
 
-    // Receive W₃: [calldata, calldata_read_counts, calldata_read_tags, secondary_calldata]
-    interleaved_comms.interleaved_databus_1 = transcript->template receive_from_prover<Commitment>(
-        domain_separator + interleaved_labels.interleaved_databus_1);
+    // Receive individual ecc_op_wire commits (for merge protocol compatibility).
+    {
+        typename Flavor::CommitmentLabels labels;
+        auto& wc = verifier_instance->witness_commitments;
+        wc.ecc_op_wire_1 =
+            transcript->template receive_from_prover<Commitment>(domain_separator + labels.ecc_op_wire_1);
+        wc.ecc_op_wire_2 =
+            transcript->template receive_from_prover<Commitment>(domain_separator + labels.ecc_op_wire_2);
+        wc.ecc_op_wire_3 =
+            transcript->template receive_from_prover<Commitment>(domain_separator + labels.ecc_op_wire_3);
+        wc.ecc_op_wire_4 =
+            transcript->template receive_from_prover<Commitment>(domain_separator + labels.ecc_op_wire_4);
+    }
 
-    // Receive W₄: [secondary_calldata_read_counts, secondary_calldata_read_tags, return_data, return_data_read_counts]
-    interleaved_comms.interleaved_databus_2 = transcript->template receive_from_prover<Commitment>(
-        domain_separator + interleaved_labels.interleaved_databus_2);
+    // Receive W₃: [calldata, ZERO, ZERO, ZERO]
+    interleaved_comms.interleaved_calldata = transcript->template receive_from_prover<Commitment>(
+        domain_separator + interleaved_labels.interleaved_calldata);
 
-    // Receive W₅: [return_data_read_tags, ZERO, ZERO, ZERO]
-    interleaved_comms.interleaved_databus_3 = transcript->template receive_from_prover<Commitment>(
-        domain_separator + interleaved_labels.interleaved_databus_3);
+    // Receive W₄: [secondary_calldata, ZERO, ZERO, ZERO]
+    interleaved_comms.interleaved_secondary_calldata = transcript->template receive_from_prover<Commitment>(
+        domain_separator + interleaved_labels.interleaved_secondary_calldata);
+
+    // Receive W₅: [calldata_read_counts, calldata_read_tags, secondary_calldata_read_counts,
+    // secondary_calldata_read_tags]
+    interleaved_comms.interleaved_databus_tags = transcript->template receive_from_prover<Commitment>(
+        domain_separator + interleaved_labels.interleaved_databus_tags);
+
+    // Receive W₆: [return_data_read_tags, return_data_read_counts, ZERO, ZERO]
+    interleaved_comms.interleaved_return_data_tags = transcript->template receive_from_prover<Commitment>(
+        domain_separator + interleaved_labels.interleaved_return_data_tags);
+
+    // Receive W₇: [return_data, ZERO, ZERO, ZERO]
+    interleaved_comms.interleaved_return_data = transcript->template receive_from_prover<Commitment>(
+        domain_separator + interleaved_labels.interleaved_return_data);
 }
 
 /**

@@ -14,26 +14,30 @@ namespace bb {
 
 /**
  * @brief Specialized OinkVerifier for MultiMegaFlavor that receives interleaved commitments.
- * @details This class receives 9 interleaved commitments instead of 24 individual ones.
+ * @details This class receives 11 interleaved commitments instead of 24 individual ones.
+ *          Databus polynomials needed for consistency checks are in their own padded groups.
  *
- * Batching layout (9 interleaved witness commits):
+ * Batching layout (11 interleaved witness commits):
  *
- * ROUND 1 (before eta) - 5 commits:
- *   W₁ (shiftable):   [w_l, w_r, w_o, ZERO]
- *   W₂ (unshiftable): [ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4]
- *   W₃ (unshiftable): [calldata, calldata_read_counts, calldata_read_tags, secondary_calldata]
- *   W₄ (unshiftable): [secondary_calldata_read_counts, secondary_calldata_read_tags, return_data,
- * return_data_read_counts] W₅ (unshiftable): [return_data_read_tags, ZERO, ZERO, ZERO]
+ * ROUND 1 (before eta) - 7 commits:
+ *   W₁  (shiftable):   [w_l, w_r, w_o, ZERO]
+ *   W₂  (unshiftable): [ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4]
+ *   W₃  (unshiftable): [calldata, ZERO, ZERO, ZERO]
+ *   W₄  (unshiftable): [secondary_calldata, ZERO, ZERO, ZERO]
+ *   W₅  (unshiftable): [calldata_read_counts, calldata_read_tags, secondary_calldata_read_counts,
+ *                        secondary_calldata_read_tags]
+ *   W₆  (unshiftable): [return_data_read_tags, return_data_read_counts, ZERO, ZERO]
+ *   W₇  (unshiftable): [return_data, ZERO, ZERO, ZERO]
  *
  * ROUND 2 (after eta) - 2 commits:
- *   W₆ (shiftable):   [w_4, ZERO, ZERO, ZERO]
- *   W₇ (unshiftable): [lookup_read_counts, lookup_read_tags, ZERO, ZERO]
+ *   W₈  (shiftable):   [w_4, ZERO, ZERO, ZERO]
+ *   W₉  (unshiftable): [lookup_read_counts, lookup_read_tags, ZERO, ZERO]
  *
  * ROUND 3 (after beta/gamma) - 1 commit:
- *   W₈ (unshiftable): [lookup_inverses, calldata_inverses, secondary_calldata_inverses, return_data_inverses]
+ *   W₁₀ (unshiftable): [lookup_inverses, calldata_inverses, secondary_calldata_inverses, return_data_inverses]
  *
  * ROUND 4 - 1 commit:
- *   W₉ (shiftable):   [z_perm, ZERO, ZERO, ZERO]
+ *   W₁₁ (shiftable):   [z_perm, ZERO, ZERO, ZERO]
  *
  * @tparam Flavor_ MultiMegaFlavor, MultiMegaZKFlavor, or recursive variants
  */

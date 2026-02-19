@@ -74,9 +74,6 @@ template <IsMultiMegaFlavor Flavor_> class MultiMegaProver_ {
 
     void generate_gate_challenges();
 
-    void execute_sumcheck_iop();
-    void execute_pcs();
-
     Proof export_proof();
     Proof construct_proof();
     Proof prove() { return construct_proof(); }

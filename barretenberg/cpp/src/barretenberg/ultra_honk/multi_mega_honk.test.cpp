@@ -69,12 +69,18 @@ class MultiMegaHonkTests : public ::testing::Test {
         for (size_t i = 0; i < NUM_PUBLIC_INPUTS; i++) {
             manifest_expected.add_entry(round, "public_input_" + std::to_string(1 + i), frs_per_Fr);
         }
-        // Round 1: 5 interleaved witness commitments (before eta)
+        // Round 1: 7 interleaved witness commitments + 4 individual ecc_op_wires for merge protocol
         manifest_expected.add_entry(round, "INTERLEAVED_WIRES", frs_per_G);
         manifest_expected.add_entry(round, "INTERLEAVED_ECC_OP_WIRES", frs_per_G);
-        manifest_expected.add_entry(round, "INTERLEAVED_DATABUS_1", frs_per_G);
-        manifest_expected.add_entry(round, "INTERLEAVED_DATABUS_2", frs_per_G);
-        manifest_expected.add_entry(round, "INTERLEAVED_DATABUS_3", frs_per_G);
+        manifest_expected.add_entry(round, "ECC_OP_WIRE_1", frs_per_G);
+        manifest_expected.add_entry(round, "ECC_OP_WIRE_2", frs_per_G);
+        manifest_expected.add_entry(round, "ECC_OP_WIRE_3", frs_per_G);
+        manifest_expected.add_entry(round, "ECC_OP_WIRE_4", frs_per_G);
+        manifest_expected.add_entry(round, "INTERLEAVED_CALLDATA", frs_per_G);
+        manifest_expected.add_entry(round, "INTERLEAVED_SECONDARY_CALLDATA", frs_per_G);
+        manifest_expected.add_entry(round, "INTERLEAVED_DATABUS_TAGS", frs_per_G);
+        manifest_expected.add_entry(round, "INTERLEAVED_RETURN_DATA_TAGS", frs_per_G);
+        manifest_expected.add_entry(round, "INTERLEAVED_RETURN_DATA", frs_per_G);
         manifest_expected.add_challenge(round, "eta");
 
         // Round 2: 2 interleaved witness commitments (after eta)
@@ -101,10 +107,19 @@ class MultiMegaHonkTests : public ::testing::Test {
         }
 
         // Sumcheck evaluations + interleaving challenges + batching challenges
+        constexpr size_t NUM_UNSHIFTED = Flavor::NUM_ALL_INTERLEAVED_COMMITMENTS;
+        constexpr size_t NUM_SHIFTED = Flavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
         manifest_expected.add_entry(round, "Sumcheck:evaluations", frs_per_evals);
         manifest_expected.add_challenge(round, "Shplemini:interleaving_challenge_0");
         manifest_expected.add_challenge(round, "Shplemini:interleaving_challenge_1");
-        manifest_expected.add_challenge(round, "rho"); // Gemini's rho challenge (batches all interleaved polys)
+        // Independent batching challenges: (NUM_UNSHIFTED-1) unshifted + (NUM_SHIFTED-1) shifted
+        for (size_t i = 0; i < NUM_UNSHIFTED - 1; i++) {
+            manifest_expected.add_challenge(round, "unshifted_challenge_" + std::to_string(i));
+        }
+        for (size_t i = 0; i < NUM_SHIFTED - 1; i++) {
+            manifest_expected.add_challenge(round, "shifted_challenge_" + std::to_string(i));
+        }
+        manifest_expected.add_challenge(round, "rho"); // Gemini's rho challenge (batches pre-batched polys)
 
         // Gemini fold commitments (pcs_log_n - 1 folds)
         round++;
@@ -353,7 +368,7 @@ TEST_F(MultiMegaHonkTests, InterleavedEvalAndCommitmentRecovery)
         FF u1 = full_challenge[1];
         std::span<const FF> inner_challenge(full_challenge.data() + LOG_K, CHUNK_LOG_N);
 
-        auto lagrange = Verifier::compute_lagrange_basis(u0, u1);
+        auto lagrange = MultiMegaFlavor::compute_lagrange_basis(u0, u1);
 
         FF eval_reconstructed = FF::zero();
         for (size_t j = 0; j < BATCH_SIZE; ++j) {
@@ -403,7 +418,7 @@ TEST_F(MultiMegaHonkTests, InterleavedEvalAndCommitmentRecovery)
         FF u1 = full_challenge[1];
         std::span<const FF> inner_challenge(full_challenge.data() + LOG_K, CHUNK_LOG_N);
 
-        auto lagrange = Verifier::compute_lagrange_basis(u0, u1);
+        auto lagrange = MultiMegaFlavor::compute_lagrange_basis(u0, u1);
         FF chunk_eval = chunk0.evaluate_mle(inner_challenge);
         FF eval_reconstructed = chunk_eval * lagrange[0]; // only L₀ contributes
 
@@ -445,7 +460,7 @@ TEST_F(MultiMegaHonkTests, InterleavedEvalAndCommitmentRecovery)
         FF u1 = full_challenge[1];
         std::span<const FF> inner_challenge(full_challenge.data() + LOG_K, CHUNK_LOG_N);
 
-        auto lagrange = Verifier::compute_lagrange_basis(u0, u1);
+        auto lagrange = MultiMegaFlavor::compute_lagrange_basis(u0, u1);
         // For shift-by-4 on interleaved, chunk0 is shifted by 1 in its own domain
         FF chunk_eval_shifted = chunk0.evaluate_mle(inner_challenge, /*shift=*/true);
         FF eval_shifted_reconstructed = chunk_eval_shifted * lagrange[0];
@@ -502,7 +517,7 @@ TEST_F(MultiMegaHonkTests, InterleavedEvalAndCommitmentRecovery)
         FF u0 = full_challenge[0];
         FF u1 = full_challenge[1];
         std::span<const FF> inner_challenge(full_challenge.data() + LOG_K, CHUNK_LOG_N);
-        auto lagrange = Verifier::compute_lagrange_basis(u0, u1);
+        auto lagrange = MultiMegaFlavor::compute_lagrange_basis(u0, u1);
 
         FF eval_batched_reconstructed = FF::zero();
         FF rho_pow = FF::one();

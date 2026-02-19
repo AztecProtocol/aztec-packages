@@ -50,10 +50,10 @@ class MultiMegaZKFlavor : public MultiMegaFlavor {
     static constexpr size_t NUM_ALL_ENTITIES = MultiMegaFlavor::NUM_ALL_ENTITIES + NUM_MASKING_ENTITIES;
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = MultiMegaFlavor::NUM_UNSHIFTED_ENTITIES + NUM_MASKING_ENTITIES;
 
-    // 10 interleaved witness commitments (9 base + 1 masking group)
-    static constexpr size_t NUM_INTERLEAVED_WITNESS_COMMITMENTS = 10;
+    // 12 interleaved witness commitments (11 base + 1 masking group)
+    static constexpr size_t NUM_INTERLEAVED_WITNESS_COMMITMENTS = 12;
 
-    // Total interleaved commitments: 8 precomputed + 10 witness = 18
+    // Total interleaved commitments: 8 precomputed + 12 witness = 20
     static constexpr size_t NUM_ALL_INTERLEAVED_COMMITMENTS =
         NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS + NUM_INTERLEAVED_WITNESS_COMMITMENTS;
 
@@ -78,23 +78,16 @@ class MultiMegaZKFlavor : public MultiMegaFlavor {
     using Transcript = NativeTranscript;
     using VKAndHash = MultiMegaFlavor::VKAndHash;
 
-    // Override REPEATED_COMMITMENTS: ZK has 10 witness commitments (7 unshiftable + 3 shiftable),
-    // so indices differ from the non-ZK base.
-    static constexpr size_t SHPLEMINI_OFFSET = 1; // Only Shplonk:Q (no Gemini masking poly in MultiMega)
-    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
-        RepeatedCommitmentsData(NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS +
-                                    (NUM_INTERLEAVED_WITNESS_COMMITMENTS - NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS),
-                                NUM_ALL_INTERLEAVED_COMMITMENTS,
-                                NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS,
-                                SHPLEMINI_OFFSET);
+    // With ψ pre-batching, all interleaved groups are batched into 1 unshifted + 1 shifted
+    // commitment before Shplemini. No repeated commitments optimization needed.
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData();
 
-    // FINAL_PCS_MSM_SIZE: with REPEATED_COMMITMENTS optimization, shifted commitments are merged
+    // FINAL_PCS_MSM_SIZE with ψ pre-batching:
+    // 1 unshifted + 1 shifted + 1 Shplonk Q + (pcs_log_n - 1) Gemini folds + 1 G1 identity + 1 KZG W + 3 Libra
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
     {
         const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
-        // 18 unshifted (shifted merged) + 3 Libra + (pcs_log_n - 1) Gemini folds + 1 Shplonk Q + 1 G1 identity +
-        // 1 KZG W
-        return NUM_ALL_INTERLEAVED_COMMITMENTS + NUM_LIBRA_COMMITMENTS + (pcs_log_n - 1) + 3;
+        return pcs_log_n + 4 + NUM_LIBRA_COMMITMENTS;
     }
 
     /**
@@ -107,6 +100,21 @@ class MultiMegaZKFlavor : public MultiMegaFlavor {
         auto groups = MultiMegaFlavor::get_unshifted_groups(e);
         using T = std::decay_t<decltype(e.w_l)>;
         using Group = std::vector<T const*>;
+        // Insert masking before the shiftable groups (last 3 groups)
+        auto insert_pos = groups.end() - NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
+        groups.insert(insert_pos,
+                      Group{ &e.masking_chunk_0, &e.masking_chunk_1, &e.masking_chunk_2, &e.masking_chunk_3 });
+        return groups;
+    }
+
+    /**
+     * @brief Mutable version of get_unshifted_groups for ZK, including masking group.
+     */
+    template <typename Entities> static auto get_unshifted_groups_mut(Entities& e)
+    {
+        auto groups = MultiMegaFlavor::get_unshifted_groups_mut(e);
+        using T = std::decay_t<decltype(e.w_l)>;
+        using Group = std::vector<T*>;
         // Insert masking before the shiftable groups (last 3 groups)
         auto insert_pos = groups.end() - NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
         groups.insert(insert_pos,

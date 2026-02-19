@@ -21,11 +21,7 @@ namespace bb {
  * @brief Output type for native MultiMegaVerifier
  */
 template <typename Flavor> struct MultiMegaVerifierOutput {
-    using Commitment = typename Flavor::Commitment;
-
     bool result = false;
-
-    MultiMegaVerifierOutput() = default;
 };
 
 /**
@@ -92,23 +88,6 @@ template <IsMultiMegaFlavor Flavor_, class IO = DefaultIO> class MultiMegaVerifi
     std::vector<FF> compute_padding_indicator_array(size_t log_n) const;
 
     /**
-     * @brief Compute Lagrange basis evaluations for interleaving (k=2).
-     * @param u0 First sumcheck challenge
-     * @param u1 Second sumcheck challenge
-     * @return Array of 4 Lagrange basis evaluations: L₀, L₁, L₂, L₃
-     */
-    static std::array<FF, 4> compute_lagrange_basis(const FF& u0, const FF& u1);
-
-    /**
-     * @brief Combine individual polynomial evaluations into batched evaluation.
-     * @param lagrange_basis The 4 Lagrange basis evaluations
-     * @param individual_evals The 4 individual polynomial evaluations (pad with zeros if < 4)
-     * @return Batched evaluation F(u) = Σⱼ fⱼ(u_k,...) · Lⱼ(u₀,u₁)
-     */
-    static FF compute_batched_evaluation(const std::array<FF, 4>& lagrange_basis,
-                                         const std::array<FF, 4>& individual_evals);
-
-    /**
      * @brief Reduce proof to pairing check.
      */
     [[nodiscard("Reduction result should be verified")]] ReductionResult reduce_to_pairing_check(const Proof& proof);
@@ -140,6 +119,21 @@ template <IsMultiMegaFlavor Flavor_, class IO = DefaultIO> class MultiMegaVerifi
     {
         return verifier_instance->interleaved_commitments;
     }
+
+    /**
+     * @brief Get calldata commitment (for databus consistency check in Chonk).
+     * @details Returns the interleaved calldata commitment [calldata, 0, 0, 0] which serves as a stand-in
+     *          for the individual calldata commitment. Not sound, but sufficient for benchmarking.
+     */
+    const Commitment& get_calldata_commitment() const
+    {
+        return verifier_instance->interleaved_commitments.interleaved_calldata;
+    }
+
+    /**
+     * @brief Get ECC op wire commitments as an array (for merge protocol in Chonk).
+     */
+    auto get_ecc_op_wires() const { return verifier_instance->witness_commitments.get_ecc_op_wires().get_copy(); }
 
   private:
     std::shared_ptr<VKAndHash> vk_and_hash;
