@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: v4.0.0-nightly.20260218
+Version: v5.0.0-nightly.20260219
 
 ## Quick Import Reference
 
@@ -1611,10 +1611,11 @@ Outputs of processing the public component of a transaction.
 
 **Constructor**
 ```typescript
-new PublicSimulationOutput(revertReason: SimulationError | undefined, globalVariables: GlobalVariables, txEffect: TxEffect, publicReturnValues: NestedProcessReturnValues[], gasUsed: GasUsed)
+new PublicSimulationOutput(revertReason: SimulationError | undefined, globalVariables: GlobalVariables, txEffect: TxEffect, publicReturnValues: NestedProcessReturnValues[], gasUsed: GasUsed, debugLogs: DebugLog[])
 ```
 
 **Properties**
+- `debugLogs: DebugLog[]`
 - `gasUsed: GasUsed`
 - `globalVariables: GlobalVariables`
 - `publicReturnValues: NestedProcessReturnValues[]`
@@ -2193,11 +2194,11 @@ new TxSimulationResult(privateExecutionResult: PrivateExecutionResult, publicInp
 - `static random() => Promise<TxSimulationResult>`
 - `toSimulatedTx() => Promise<Tx>`
 
-### UtilitySimulationResult
+### UtilityExecutionResult
 
 **Constructor**
 ```typescript
-new UtilitySimulationResult(result: Fr[], stats?: SimulationStats)
+new UtilityExecutionResult(result: Fr[], stats?: SimulationStats)
 ```
 
 **Properties**
@@ -2206,7 +2207,7 @@ new UtilitySimulationResult(result: Fr[], stats?: SimulationStats)
 - `stats?: SimulationStats`
 
 **Methods**
-- `static random() => UtilitySimulationResult`
+- `static random() => UtilityExecutionResult`
 
 ## Interfaces
 
