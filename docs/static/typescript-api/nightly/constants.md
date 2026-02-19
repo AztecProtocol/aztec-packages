@@ -1,6 +1,6 @@
 # @aztec/constants
 
-Version: v4.0.0-nightly.20260218
+Version: v5.0.0-nightly.20260219
 
 ## Quick Import Reference
 
@@ -1224,7 +1224,7 @@ type CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX = 17
 
 ### CHONK_PROOF_LENGTH
 ```typescript
-type CHONK_PROOF_LENGTH = 1935
+type CHONK_PROOF_LENGTH = 1632
 ```
 
 ### CHONK_VK_LENGTH_IN_FIELDS

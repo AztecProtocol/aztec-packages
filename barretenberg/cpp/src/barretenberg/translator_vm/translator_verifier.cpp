@@ -137,10 +137,8 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
     using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = typename ClaimBatcher::Batch;
-    using InterleavedBatch = typename ClaimBatcher::InterleavedBatch;
     using Sumcheck = SumcheckVerifier<Flavor>;
 
-    // Load the proof produced by the translator prover
     transcript->load_proof(proof);
 
     // Fiat-Shamir the vk hash
@@ -208,16 +206,32 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
-    // Execute Shplemini
-    ClaimBatcher claim_batcher{
-        .unshifted = ClaimBatch{ commitments.get_unshifted_without_interleaved(),
-                                 sumcheck_output.claimed_evaluations.get_unshifted_without_interleaved() },
-        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() },
-        .interleaved = InterleavedBatch{ .commitments_groups = commitments.get_groups_to_be_interleaved(),
-                                         .evaluations = sumcheck_output.claimed_evaluations.get_interleaved() }
-    };
+    // Unshifted concat evals are reconstructed inside sumcheck (via complete_full_circuit_evaluations).
+    // Here we only need the shifted concat evals for PCS, which are not stored in AllEntities.
+    auto& claimed = sumcheck_output.claimed_evaluations;
+    auto concat_shift_evals = TranslatorFlavor::reconstruct_concatenated_evaluations(
+        claimed.get_groups_to_be_concatenated_shifted(), std::span<const FF>(sumcheck_output.challenge));
 
-    // Get Commitment::one() - requires builder for recursive case
+    // --- PCS: build opening claims and verify ---
+    auto combined_unshifted_comms = commitments.get_pcs_unshifted();
+    auto combined_unshifted_evals = claimed.get_pcs_unshifted();
+
+    // For shifted: commitments use the getter, but evals must be assembled manually since
+    // the reconstructed shifted concat evals live in a local array, not in AllEntities.
+    auto combined_shifted_comms = commitments.get_pcs_to_be_shifted();
+    RefVector<FF> combined_shifted_evals(claimed.get_pcs_shifted());
+    for (auto& eval : concat_shift_evals) {
+        combined_shifted_evals.push_back(eval);
+    }
+
+    BB_ASSERT_EQ(combined_unshifted_comms.size(), TranslatorFlavor::NUM_PCS_UNSHIFTED);
+    BB_ASSERT_EQ(combined_unshifted_evals.size(), TranslatorFlavor::NUM_PCS_UNSHIFTED);
+    BB_ASSERT_EQ(combined_shifted_comms.size(), TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED);
+    BB_ASSERT_EQ(combined_shifted_evals.size(), TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED);
+
+    ClaimBatcher claim_batcher{ .unshifted = ClaimBatch{ combined_unshifted_comms, combined_unshifted_evals },
+                                .shifted = ClaimBatch{ combined_shifted_comms, combined_shifted_evals } };
+
     Commitment commitment_one;
     if constexpr (IsRecursive) {
         commitment_one = Commitment::one(builder);
