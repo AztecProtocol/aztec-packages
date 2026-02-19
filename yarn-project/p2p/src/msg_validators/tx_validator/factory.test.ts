@@ -8,16 +8,35 @@ import type {
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import type { GlobalVariables } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import { AggregateTxValidator } from './aggregate_tx_validator.js';
+import { BlockHeaderTxValidator } from './block_header_validator.js';
+import { DataTxValidator } from './data_validator.js';
+import { DoubleSpendTxValidator } from './double_spend_validator.js';
 import {
   createFirstStageTxValidationsForGossipedTransactions,
   createSecondStageTxValidationsForGossipedTransactions,
   createTxValidatorForAcceptingTxsOverRPC,
+  createTxValidatorForBlockBuilding,
   createTxValidatorForBlockProposalReceivedTxs,
   createTxValidatorForReqResponseReceivedTxs,
+  createTxValidatorForTransactionsEnteringPendingTxPool,
 } from './factory.js';
+import { GasLimitsValidator, GasTxValidator } from './gas_validator.js';
+import { MetadataTxValidator } from './metadata_validator.js';
+import { PhasesTxValidator } from './phases_validator.js';
+import { SizeTxValidator } from './size_validator.js';
+import { TimestampTxValidator } from './timestamp_validator.js';
+import { TxPermittedValidator } from './tx_permitted_validator.js';
+import { TxProofValidator } from './tx_proof_validator.js';
+
+/** Extract the constructor names from the validators inside an AggregateTxValidator. */
+function getValidatorNames(aggregate: AggregateTxValidator<unknown>): string[] {
+  return aggregate.validators.map(v => v.constructor.name);
+}
 
 describe('Validator factory functions', () => {
   let synchronizer: MockProxy<WorldStateSynchronizer>;
@@ -139,24 +158,36 @@ describe('Validator factory functions', () => {
   });
 
   describe('createTxValidatorForReqResponseReceivedTxs', () => {
-    it('returns an aggregate validator with validateTx method', () => {
+    it('contains well-formedness validators only', () => {
       const validator = createTxValidatorForReqResponseReceivedTxs(proofVerifier, {
         l1ChainId: 1,
         rollupVersion: 2,
       });
 
-      expect(typeof validator.validateTx).toBe('function');
+      const aggregate = validator as AggregateTxValidator<unknown>;
+      expect(getValidatorNames(aggregate)).toEqual([
+        MetadataTxValidator.name,
+        SizeTxValidator.name,
+        DataTxValidator.name,
+        TxProofValidator.name,
+      ]);
     });
   });
 
   describe('createTxValidatorForBlockProposalReceivedTxs', () => {
-    it('returns an aggregate validator with validateTx method', () => {
+    it('contains the same well-formedness validators as req/resp', () => {
       const validator = createTxValidatorForBlockProposalReceivedTxs(proofVerifier, {
         l1ChainId: 1,
         rollupVersion: 2,
       });
 
-      expect(typeof validator.validateTx).toBe('function');
+      const aggregate = validator as AggregateTxValidator<unknown>;
+      expect(getValidatorNames(aggregate)).toEqual([
+        MetadataTxValidator.name,
+        SizeTxValidator.name,
+        DataTxValidator.name,
+        TxProofValidator.name,
+      ]);
     });
   });
 
@@ -167,7 +198,7 @@ describe('Validator factory functions', () => {
       db = mock<MerkleTreeReadOperations>();
     });
 
-    it('returns an aggregate validator', () => {
+    it('contains the full set of validators with fee enforcement and proof verification', () => {
       const validator = createTxValidatorForAcceptingTxsOverRPC(db, contractSource, proofVerifier, {
         l1ChainId: 1,
         rollupVersion: 2,
@@ -178,13 +209,41 @@ describe('Validator factory functions', () => {
         txsPermitted: true,
       });
 
-      expect(typeof validator.validateTx).toBe('function');
+      const aggregate = validator as AggregateTxValidator<unknown>;
+      expect(getValidatorNames(aggregate)).toEqual([
+        TxPermittedValidator.name,
+        SizeTxValidator.name,
+        DataTxValidator.name,
+        MetadataTxValidator.name,
+        TimestampTxValidator.name,
+        DoubleSpendTxValidator.name,
+        PhasesTxValidator.name,
+        BlockHeaderTxValidator.name,
+        GasTxValidator.name,
+        TxProofValidator.name,
+      ]);
     });
 
-    it('includes proof validator when verifier is provided', () => {
-      // With verifier: validator should include proof checking.
-      // Without verifier: should still return a valid aggregate.
-      const withVerifier = createTxValidatorForAcceptingTxsOverRPC(db, contractSource, proofVerifier, {
+    it('excludes gas validator when fee enforcement is skipped', () => {
+      const validator = createTxValidatorForAcceptingTxsOverRPC(db, contractSource, proofVerifier, {
+        l1ChainId: 1,
+        rollupVersion: 2,
+        setupAllowList: [],
+        gasFees: new GasFees(1, 1),
+        skipFeeEnforcement: true,
+        timestamp: 100n,
+        blockNumber: BlockNumber(5),
+        txsPermitted: true,
+      });
+
+      const aggregate = validator as AggregateTxValidator<unknown>;
+      const names = getValidatorNames(aggregate);
+      expect(names).not.toContain(GasTxValidator.name);
+      expect(names).toContain(TxProofValidator.name);
+    });
+
+    it('excludes proof validator when no verifier is provided', () => {
+      const validator = createTxValidatorForAcceptingTxsOverRPC(db, contractSource, undefined, {
         l1ChainId: 1,
         rollupVersion: 2,
         setupAllowList: [],
@@ -194,19 +253,63 @@ describe('Validator factory functions', () => {
         txsPermitted: true,
       });
 
-      const withoutVerifier = createTxValidatorForAcceptingTxsOverRPC(db, contractSource, undefined, {
-        l1ChainId: 1,
-        rollupVersion: 2,
-        setupAllowList: [],
-        gasFees: new GasFees(1, 1),
-        timestamp: 100n,
-        blockNumber: BlockNumber(5),
-        txsPermitted: true,
-      });
+      const aggregate = validator as AggregateTxValidator<unknown>;
+      const names = getValidatorNames(aggregate);
+      expect(names).not.toContain(TxProofValidator.name);
+      expect(names).toContain(GasTxValidator.name);
+    });
+  });
 
-      // Both should be valid aggregate validators
-      expect(typeof withVerifier.validateTx).toBe('function');
-      expect(typeof withoutVerifier.validateTx).toBe('function');
+  describe('createTxValidatorForBlockBuilding', () => {
+    let db: MockProxy<MerkleTreeReadOperations>;
+    let globalVariables: MockProxy<GlobalVariables>;
+
+    beforeEach(() => {
+      db = mock<MerkleTreeReadOperations>();
+      globalVariables = mock<GlobalVariables>();
+      globalVariables.timestamp = 100n;
+      globalVariables.blockNumber = BlockNumber(5);
+      globalVariables.gasFees = new GasFees(1, 1);
+    });
+
+    it('contains state-dependent validators only (no proof, no data)', () => {
+      const result = createTxValidatorForBlockBuilding(db, contractSource, globalVariables, []);
+
+      const aggregate = result.preprocessValidator as AggregateTxValidator<unknown>;
+      expect(getValidatorNames(aggregate)).toEqual([
+        TimestampTxValidator.name,
+        DoubleSpendTxValidator.name,
+        PhasesTxValidator.name,
+        GasTxValidator.name,
+        BlockHeaderTxValidator.name,
+      ]);
+    });
+
+    it('returns a nullifierCache alongside the preprocessValidator', () => {
+      const result = createTxValidatorForBlockBuilding(db, contractSource, globalVariables, []);
+
+      expect(result.nullifierCache).toBeDefined();
+      expect(typeof result.nullifierCache!.addNullifiers).toBe('function');
+    });
+  });
+
+  describe('createTxValidatorForTransactionsEnteringPendingTxPool', () => {
+    it('contains the state-dependent checks missed by well-formedness validators', async () => {
+      const validator = await createTxValidatorForTransactionsEnteringPendingTxPool(synchronizer, 100n, BlockNumber(5));
+
+      const aggregate = validator as AggregateTxValidator<unknown>;
+      expect(getValidatorNames(aggregate)).toEqual([
+        DoubleSpendTxValidator.name,
+        BlockHeaderTxValidator.name,
+        GasLimitsValidator.name,
+        TimestampTxValidator.name,
+      ]);
+    });
+
+    it('syncs world state before creating the validator', async () => {
+      await createTxValidatorForTransactionsEnteringPendingTxPool(synchronizer, 100n, BlockNumber(5));
+
+      expect(synchronizer.syncImmediate).toHaveBeenCalled();
     });
   });
 });
