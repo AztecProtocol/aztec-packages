@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Raju], commit: }
+// internal:    { status: Planned, auditors: [], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -67,9 +67,9 @@ struct NullifierLeafValue {
 
     static NullifierLeafValue padding(index_t i) { return { i }; }
 
-    static std::string name() { return "NullifierLeafValue"; };
-
     size_t hash() const noexcept { return std::hash<fr>{}(nullifier); }
+
+    static std::string name() { return "NullifierLeafValue"; };
 };
 
 struct PublicDataLeafValue {
@@ -129,9 +129,9 @@ struct PublicDataLeafValue {
 
     static PublicDataLeafValue padding(index_t i) { return { i, fr::zero() }; }
 
-    static std::string name() { return "PublicDataLeafValue"; };
-
     size_t hash() const noexcept { return utils::hash_as_tuple(value, slot); }
+
+    static std::string name() { return "PublicDataLeafValue"; };
 };
 
 template <typename LeafType> struct IndexedLeaf {
