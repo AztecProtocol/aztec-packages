@@ -234,6 +234,13 @@ export class TxPoolV2Impl {
           }
         }
       }
+
+      // Run post-add eviction rules for pending txs (inside transaction for atomicity)
+      if (acceptedPending.size > 0) {
+        const feePayers = Array.from(acceptedPending).map(txHash => this.#indices.getMetadata(txHash)!.feePayer);
+        const uniqueFeePayers = new Set<string>(feePayers);
+        await this.#evictionManager.evictAfterNewTxs(Array.from(acceptedPending), [...uniqueFeePayers]);
+      }
     });
 
     // Build final accepted list for pending txs (excludes intra-batch evictions)
@@ -247,13 +254,6 @@ export class TxPoolV2Impl {
     }
     if (rejected.length > 0) {
       this.#instrumentation.recordRejected(rejected.length);
-    }
-
-    // Run post-add eviction rules for pending txs
-    if (acceptedPending.size > 0) {
-      const feePayers = Array.from(acceptedPending).map(txHash => this.#indices.getMetadata(txHash)!.feePayer);
-      const uniqueFeePayers = new Set<string>(feePayers);
-      await this.#evictionManager.evictAfterNewTxs(Array.from(acceptedPending), [...uniqueFeePayers]);
     }
 
     return { accepted, ignored, rejected, ...(errors.size > 0 ? { errors } : {}) };
@@ -474,53 +474,54 @@ export class TxPoolV2Impl {
         this.#indices.markAsMined(meta, blockId);
         await this.#deletedPool.clearIfMinedHigher(meta.txHash, blockId.number);
       }
-    });
 
-    // Step 5: Run post-event eviction rules outside the transaction (matches addPendingTxs pattern).
-    // World-state I/O should not hold the write lock; eviction is best-effort.
-    await this.#evictionManager.evictAfterNewBlock(block.header, nullifiers, feePayers);
+      // Step 5: Run post-event eviction rules (inside transaction for atomicity)
+      await this.#evictionManager.evictAfterNewBlock(block.header, nullifiers, feePayers);
+    });
 
     this.#log.info(`Marked ${found.length} txs as mined in block ${blockId.number}`);
   }
 
   async prepareForSlot(slotNumber: SlotNumber): Promise<void> {
-    // Step 0: Clean up slot-deleted txs from previous slots
-    await this.#deletedPool.cleanupSlotDeleted(slotNumber);
+    await this.#store.transactionAsync(async () => {
+      // Step 0: Clean up slot-deleted txs from previous slots
+      await this.#deletedPool.cleanupSlotDeleted(slotNumber);
 
-    // Step 1: Find expired protected txs
-    const expiredProtected = this.#indices.findExpiredProtectedTxs(slotNumber);
+      // Step 1: Find expired protected txs
+      const expiredProtected = this.#indices.findExpiredProtectedTxs(slotNumber);
 
-    // Step 2: Clear protection for all expired entries (including those without metadata)
-    this.#indices.clearProtection(expiredProtected);
+      // Step 2: Clear protection for all expired entries (including those without metadata)
+      this.#indices.clearProtection(expiredProtected);
 
-    // Step 3: Filter to only txs that have metadata and are not mined
-    const txsToRestore = this.#indices.filterRestorable(expiredProtected);
-    if (txsToRestore.length === 0) {
-      this.#log.debug(`Preparing for slot ${slotNumber}, no txs to unprotect`);
-      return;
-    }
+      // Step 3: Filter to only txs that have metadata and are not mined
+      const txsToRestore = this.#indices.filterRestorable(expiredProtected);
+      if (txsToRestore.length === 0) {
+        this.#log.debug(`Preparing for slot ${slotNumber}, no txs to unprotect`);
+        return;
+      }
 
-    this.#log.info(`Preparing for slot ${slotNumber}: unprotecting ${txsToRestore.length} txs`);
+      this.#log.info(`Preparing for slot ${slotNumber}: unprotecting ${txsToRestore.length} txs`);
 
-    // Step 4: Validate for pending pool
-    const { valid, invalid } = await this.#revalidateMetadata(txsToRestore, 'during prepareForSlot');
+      // Step 4: Validate for pending pool
+      const { valid, invalid } = await this.#revalidateMetadata(txsToRestore, 'during prepareForSlot');
 
-    // Step 5: Resolve nullifier conflicts and add winners to pending indices
-    const { added, toEvict } = this.#applyNullifierConflictResolution(valid);
+      // Step 5: Resolve nullifier conflicts and add winners to pending indices
+      const { added, toEvict } = this.#applyNullifierConflictResolution(valid);
 
-    // Step 6: Delete invalid txs and evict conflict losers
-    await this.#deleteTxsBatch(invalid);
-    await this.#evictTxs(toEvict, 'NullifierConflict');
+      // Step 6: Delete invalid txs and evict conflict losers
+      await this.#deleteTxsBatch(invalid);
+      await this.#evictTxs(toEvict, 'NullifierConflict');
 
-    // Step 7: Run eviction rules (enforce pool size limit)
-    if (added.length > 0) {
-      const feePayers = added.map(meta => meta.feePayer);
-      const uniqueFeePayers = new Set<string>(feePayers);
-      await this.#evictionManager.evictAfterNewTxs(
-        added.map(m => m.txHash),
-        [...uniqueFeePayers],
-      );
-    }
+      // Step 7: Run eviction rules (enforce pool size limit)
+      if (added.length > 0) {
+        const feePayers = added.map(meta => meta.feePayer);
+        const uniqueFeePayers = new Set<string>(feePayers);
+        await this.#evictionManager.evictAfterNewTxs(
+          added.map(m => m.txHash),
+          [...uniqueFeePayers],
+        );
+      }
+    });
   }
 
   async handlePrunedBlocks(latestBlock: L2BlockId, options?: { deleteAllTxs?: boolean }): Promise<void> {
@@ -533,52 +534,54 @@ export class TxPoolV2Impl {
 
     this.#log.info(`Handling prune to block ${latestBlock.number}: un-mining ${txsToUnmine.length} txs`);
 
-    // Step 2: Mark ALL un-mined txs with their original mined block number
-    // This ensures they get soft-deleted if removed later, and only hard-deleted
-    // when their original mined block is finalized
-    await this.#deletedPool.markFromPrunedBlock(
-      txsToUnmine.map(m => ({
-        txHash: m.txHash,
-        minedAtBlock: BlockNumber(m.minedL2BlockId!.number),
-      })),
-    );
-
-    // Step 3: Unmine - clear mined status from metadata
-    for (const meta of txsToUnmine) {
-      this.#indices.markAsUnmined(meta);
-    }
-
-    // If deleteAllTxs is set (epoch prune), delete all un-mined txs and return early
-    if (options?.deleteAllTxs) {
-      const allTxHashes = txsToUnmine.map(m => m.txHash);
-      await this.#deleteTxsBatch(allTxHashes);
-      this.#log.info(
-        `Handled prune to block ${latestBlock.number} with deleteAllTxs: deleted ${allTxHashes.length} txs`,
+    await this.#store.transactionAsync(async () => {
+      // Step 2: Mark ALL un-mined txs with their original mined block number
+      // This ensures they get soft-deleted if removed later, and only hard-deleted
+      // when their original mined block is finalized
+      await this.#deletedPool.markFromPrunedBlock(
+        txsToUnmine.map(m => ({
+          txHash: m.txHash,
+          minedAtBlock: BlockNumber(m.minedL2BlockId!.number),
+        })),
       );
-      return;
-    }
 
-    // Step 4: Filter out protected txs (they'll be handled by prepareForSlot)
-    const unprotectedTxs = this.#indices.filterUnprotected(txsToUnmine);
+      // Step 3: Unmine - clear mined status from metadata
+      for (const meta of txsToUnmine) {
+        this.#indices.markAsUnmined(meta);
+      }
 
-    // Step 5: Validate for pending pool
-    const { valid, invalid } = await this.#revalidateMetadata(unprotectedTxs, 'during handlePrunedBlocks');
+      // If deleteAllTxs is set (epoch prune), delete all un-mined txs and return early
+      if (options?.deleteAllTxs) {
+        const allTxHashes = txsToUnmine.map(m => m.txHash);
+        await this.#deleteTxsBatch(allTxHashes);
+        this.#log.info(
+          `Handled prune to block ${latestBlock.number} with deleteAllTxs: deleted ${allTxHashes.length} txs`,
+        );
+        return;
+      }
 
-    // Step 6: Resolve nullifier conflicts and add winners to pending indices
-    const { toEvict } = this.#applyNullifierConflictResolution(valid);
+      // Step 4: Filter out protected txs (they'll be handled by prepareForSlot)
+      const unprotectedTxs = this.#indices.filterUnprotected(txsToUnmine);
 
-    // Step 7: Delete invalid txs and evict conflict losers
-    await this.#deleteTxsBatch(invalid);
-    await this.#evictTxs(toEvict, 'NullifierConflict');
+      // Step 5: Validate for pending pool
+      const { valid, invalid } = await this.#revalidateMetadata(unprotectedTxs, 'during handlePrunedBlocks');
 
-    this.#log.info(
-      `Handled prune to block ${latestBlock.number}: ${valid.length} txs restored to pending, ${invalid.length} invalid, ${toEvict.length} evicted due to nullifier conflicts`,
-      { txHashesRestored: valid.map(m => m.txHash), txHashesInvalid: invalid, txHashesEvicted: toEvict },
-    );
+      // Step 6: Resolve nullifier conflicts and add winners to pending indices
+      const { toEvict } = this.#applyNullifierConflictResolution(valid);
 
-    // Step 8: Run eviction rules for ALL pending txs (not just restored ones)
-    // This handles cases like existing pending txs with invalid fee payer balances
-    await this.#evictionManager.evictAfterChainPrune(latestBlock.number);
+      // Step 7: Delete invalid txs and evict conflict losers
+      await this.#deleteTxsBatch(invalid);
+      await this.#evictTxs(toEvict, 'NullifierConflict');
+
+      this.#log.info(
+        `Handled prune to block ${latestBlock.number}: ${valid.length} txs restored to pending, ${invalid.length} invalid, ${toEvict.length} evicted due to nullifier conflicts`,
+        { txHashesRestored: valid.map(m => m.txHash), txHashesInvalid: invalid, txHashesEvicted: toEvict },
+      );
+
+      // Step 8: Run eviction rules for ALL pending txs (not just restored ones)
+      // This handles cases like existing pending txs with invalid fee payer balances
+      await this.#evictionManager.evictAfterChainPrune(latestBlock.number);
+    });
   }
 
   async handleFailedExecution(txHashes: TxHash[]): Promise<void> {
