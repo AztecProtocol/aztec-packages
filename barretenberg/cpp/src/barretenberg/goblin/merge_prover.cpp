@@ -343,6 +343,7 @@ template <size_t BATCH_SIZE> typename MergeProver<BATCH_SIZE>::MergeProof MergeP
 template <size_t BATCH_SIZE>
 typename MergeProver<BATCH_SIZE>::MergeProof MergeProver<BATCH_SIZE>::construct_de_interleaving_proof()
 {
+    pcs_commitment_key = CommitmentKey(op_queue->construct_ultra_ops_table_columns().size());
     std::array<Polynomial, NUM_WIRES> merged_table = op_queue->construct_ultra_ops_table_columns();
 
     // Construct interleaved merged columns
@@ -370,8 +371,8 @@ typename MergeProver<BATCH_SIZE>::MergeProof MergeProver<BATCH_SIZE>::construct_
     }
     // Send evaluations of the de-interleaved merged columns
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        FF eval = merged_table[idx].evaluate(evaluation_challenge);
-        opening_claims.emplace_back(OpeningClaim{ merged_table[idx], { evaluation_challenge, eval } });
+        FF eval = merged_table[idx].evaluate(evaluation_challenge.pow(BATCH_SIZE));
+        opening_claims.emplace_back(OpeningClaim{ merged_table[idx], { evaluation_challenge.pow(BATCH_SIZE), eval } });
         transcript->send_to_verifier("MERGED_TABLE_EVAL_" + std::to_string(idx), eval);
     }
 

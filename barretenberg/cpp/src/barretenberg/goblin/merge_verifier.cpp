@@ -254,7 +254,7 @@ typename MergeVerifier_<BatchSize, Curve>::ReductionResult MergeVerifier_<BatchS
     // Compute evaluations of interleaved merged columns
     std::vector<FF> powers_of_challenge = { FF(1) };
     std::vector<FF> evals_interleaved;
-    for (size_t idx = 0; idx < BATCH_SIZE - 1; ++idx) {
+    for (size_t idx = 0; idx < BATCH_SIZE; ++idx) {
         powers_of_challenge.emplace_back(powers_of_challenge.back() * evaluation_challenge);
     }
     for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
@@ -274,7 +274,7 @@ typename MergeVerifier_<BatchSize, Curve>::ReductionResult MergeVerifier_<BatchS
     }
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         opening_claims.emplace_back(
-            OpeningClaim<Curve>{ { evaluation_challenge, evals[idx] }, de_interleaved_merged_commitments[idx] });
+            OpeningClaim<Curve>{ { powers_of_challenge.back(), evals[idx] }, de_interleaved_merged_commitments[idx] });
     }
 
     // Shplonk
