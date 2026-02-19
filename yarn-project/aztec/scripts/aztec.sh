@@ -53,7 +53,7 @@ case $cmd in
 
     aztec start "$@"
     ;;
-  compile|new|init|flamegraph)
+  new|init|flamegraph)
     $script_dir/${cmd}.sh "$@"
     ;;
   *)
