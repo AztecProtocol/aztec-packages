@@ -1,15 +1,20 @@
 """GitHub API polling with in-memory cache.
 
-Fetches PR lifecycle, deployment runs, branch lag, and merge queue stats via `gh` CLI.
+Fetches PR lifecycle, deployment runs, branch lag, and merge queue stats via
+the GitHub REST API (using requests + GH_TOKEN env var).
 Most data cached in memory with TTL. Merge queue stats persisted to SQLite daily.
 """
 import json
-import subprocess
+import os
+import requests
 import threading
 import time
 from datetime import datetime, timedelta, timezone
 
+import db as _db
+
 REPO = 'AztecProtocol/aztec-packages'
+_GH_API = 'https://api.github.com'
 
 BRANCH_PAIRS = [
     ('next', 'staging-public'),
@@ -27,39 +32,122 @@ _CACHE_TTL = 3600  # 1 hour
 _pr_cache = {'data': [], 'ts': 0}
 _deploy_cache = {'data': [], 'ts': 0}
 _lag_cache = {'data': [], 'ts': 0}
-_pr_author_cache = {}  # {pr_number: {'author': str, 'title': str, 'branch': str}}
 _pr_lock = threading.Lock()
 _deploy_lock = threading.Lock()
 _lag_lock = threading.Lock()
 
 
-def _gh(args: list[str]) -> str | None:
+def _gh_headers() -> dict:
+    token = os.environ.get('GH_TOKEN') or os.environ.get('GITHUB_TOKEN', '')
+    h = {'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'}
+    if token:
+        h['Authorization'] = f'Bearer {token}'
+    return h
+
+
+def _github_get(path: str, paginate: bool = False) -> list | dict | None:
+    """GET from GitHub REST API. Returns parsed JSON (list or dict).
+    If paginate=True, follows Link: next headers and merges array results."""
+    url = f'{_GH_API}/{path}' if not path.startswith('http') else path
+    headers = _gh_headers()
     try:
-        result = subprocess.run(
-            ['gh'] + args,
-            capture_output=True, text=True, timeout=30
-        )
-        if result.returncode == 0:
-            return result.stdout.strip()
-    except (FileNotFoundError, subprocess.TimeoutExpired) as e:
-        print(f"[rk_github] gh error: {e}")
-    return None
+        if not paginate:
+            resp = requests.get(url, headers=headers, timeout=30)
+            if resp.status_code != 200:
+                print(f"[rk_github] API {resp.status_code}: {url}")
+                return None
+            return resp.json()
+        # Paginated: collect all pages
+        all_items = []
+        while url:
+            resp = requests.get(url, headers=headers, timeout=30)
+            if resp.status_code != 200:
+                print(f"[rk_github] API {resp.status_code}: {url}")
+                break
+            data = resp.json()
+            if isinstance(data, list):
+                all_items.extend(data)
+            elif isinstance(data, dict):
+                # For endpoints like /actions/workflows/.../runs that wrap in an object
+                all_items.append(data)
+            # Follow Link: <url>; rel="next"
+            link = resp.headers.get('Link', '')
+            url = None
+            for part in link.split(','):
+                if 'rel="next"' in part:
+                    url = part.split('<')[1].split('>')[0]
+        return all_items
+    except Exception as e:
+        print(f"[rk_github] API error: {e}")
+        return None
+
+
+def _github_graphql(query: str, variables: dict = None) -> dict | None:
+    """Execute a GitHub GraphQL query."""
+    headers = _gh_headers()
+    try:
+        resp = requests.post(f'{_GH_API}/graphql', headers=headers,
+                             json={'query': query, 'variables': variables or {}},
+                             timeout=30)
+        if resp.status_code != 200:
+            print(f"[rk_github] GraphQL {resp.status_code}")
+            return None
+        data = resp.json()
+        if 'errors' in data:
+            print(f"[rk_github] GraphQL errors: {data['errors']}")
+        return data.get('data')
+    except Exception as e:
+        print(f"[rk_github] GraphQL error: {e}")
+        return None
 
 
 # ---- PR lifecycle ----
 
+_PR_GQL = '''
+query($owner: String!, $repo: String!, $cursor: String) {
+  repository(owner: $owner, name: $repo) {
+    pullRequests(states: MERGED, first: 100, after: $cursor, orderBy: {field: UPDATED_AT, direction: DESC}) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        number
+        author { login }
+        title
+        createdAt
+        mergedAt
+        closedAt
+        baseRefName
+        headRefName
+        additions
+        deletions
+        changedFiles
+        isDraft
+        reviewDecision
+        labels(first: 20) { nodes { name } }
+      }
+    }
+  }
+}'''
+
+
 def _fetch_and_process_prs() -> list[dict]:
-    out = _gh([
-        'pr', 'list', '--repo', REPO, '--state', 'merged',
-        '--limit', '500',
-        '--json', 'number,author,title,createdAt,mergedAt,closedAt,baseRefName,'
-                  'headRefName,additions,deletions,changedFiles,isDraft,reviewDecision,labels'
-    ])
-    if not out:
-        return []
-    try:
-        prs = json.loads(out)
-    except json.JSONDecodeError:
+    owner, repo = REPO.split('/')
+    prs = []
+    cursor = None
+    for _ in range(5):  # max 5 pages = 500 PRs
+        data = _github_graphql(_PR_GQL, {'owner': owner, 'repo': repo, 'cursor': cursor})
+        if not data:
+            break
+        pr_data = data.get('repository', {}).get('pullRequests', {})
+        nodes = pr_data.get('nodes', [])
+        for node in nodes:
+            node['author'] = (node.get('author') or {}).get('login', 'unknown')
+            node['labels'] = [l['name'] for l in (node.get('labels') or {}).get('nodes', [])]
+        prs.extend(nodes)
+        page_info = pr_data.get('pageInfo', {})
+        if not page_info.get('hasNextPage'):
+            break
+        cursor = page_info.get('endCursor')
+    if not prs:
         return []
 
     for pr in prs:
@@ -106,20 +194,14 @@ def _ensure_prs():
 def _fetch_all_deploys() -> list[dict]:
     all_runs = []
     for workflow in DEPLOY_WORKFLOWS:
-        out = _gh([
-            'run', 'list', '--repo', REPO,
-            '--workflow', workflow, '--limit', '50',
-            '--json', 'databaseId,status,conclusion,createdAt,updatedAt,headBranch,name'
-        ])
-        if not out:
+        data = _github_get(
+            f'repos/{REPO}/actions/workflows/{workflow}/runs?per_page=50&status=completed')
+        if not data:
             continue
-        try:
-            runs = json.loads(out)
-        except json.JSONDecodeError:
-            continue
+        runs = data.get('workflow_runs', [])
         for run in runs:
-            started = run.get('createdAt', '')
-            completed = run.get('updatedAt')
+            started = run.get('created_at', '')
+            completed = run.get('updated_at')
             duration = None
             if started and completed:
                 try:
@@ -129,9 +211,9 @@ def _fetch_all_deploys() -> list[dict]:
                 except (ValueError, TypeError):
                     pass
             all_runs.append({
-                'run_id': str(run.get('databaseId', '')),
+                'run_id': str(run.get('id', '')),
                 'workflow_name': workflow.replace('.yml', ''),
-                'ref_name': run.get('headBranch', ''),
+                'ref_name': run.get('head_branch', ''),
                 'status': run.get('conclusion', run.get('status', 'unknown')),
                 'started_at': started,
                 'completed_at': completed,
@@ -162,26 +244,22 @@ def _fetch_branch_lag() -> list[dict]:
     results = []
     today = datetime.now(timezone.utc).date().isoformat()
     for source, target in BRANCH_PAIRS:
-        out = _gh([
-            'api', f'repos/{REPO}/compare/{target}...{source}',
-            '--jq', '.ahead_by'
-        ])
-        if not out:
+        data = _github_get(f'repos/{REPO}/compare/{target}...{source}')
+        if not data:
             continue
         try:
-            commits_behind = int(out)
+            commits_behind = int(data.get('ahead_by', 0))
         except (ValueError, TypeError):
             continue
 
         days_behind = None
-        out2 = _gh([
-            'api', f'repos/{REPO}/compare/{target}...{source}',
-            '--jq', '.commits[0].commit.committer.date'
-        ])
-        if out2:
+        commits = data.get('commits', [])
+        if commits:
             try:
-                oldest = datetime.fromisoformat(out2.replace('Z', '+00:00'))
-                days_behind = round((datetime.now(timezone.utc) - oldest).total_seconds() / 86400, 1)
+                oldest_date = commits[0].get('commit', {}).get('committer', {}).get('date', '')
+                if oldest_date:
+                    oldest = datetime.fromisoformat(oldest_date.replace('Z', '+00:00'))
+                    days_behind = round((datetime.now(timezone.utc) - oldest).total_seconds() / 86400, 1)
             except (ValueError, TypeError):
                 pass
 
@@ -291,71 +369,106 @@ def get_branch_lag(date_from: str, date_to: str) -> dict:
     return {'pairs': pairs}
 
 
+def _cache_pr_author(pr_number: int, info: dict):
+    """Write PR author info to SQLite cache."""
+    _db.execute('''
+        INSERT OR REPLACE INTO pr_authors (pr_number, author, title, branch, additions, deletions, fetched_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (pr_number, info['author'], info.get('title', ''), info.get('branch', ''),
+          info.get('additions', 0), info.get('deletions', 0),
+          datetime.now(timezone.utc).isoformat()))
+
+
+def _get_cached_pr_author(pr_number: int) -> dict | None:
+    """Read PR author info from SQLite cache."""
+    rows = _db.query('SELECT * FROM pr_authors WHERE pr_number = ?', (pr_number,))
+    if rows:
+        r = rows[0]
+        return {'author': r['author'], 'title': r['title'], 'branch': r['branch'],
+                'additions': r['additions'], 'deletions': r['deletions']}
+    return None
+
+
 def get_pr_author(pr_number) -> dict | None:
-    """Look up PR author/title by number. Results are cached permanently (PR data doesn't change)."""
+    """Look up PR author/title by number. Results cached in SQLite."""
     pr_number = int(pr_number) if pr_number else None
     if not pr_number:
         return None
-    if pr_number in _pr_author_cache:
-        return _pr_author_cache[pr_number]
 
-    # Check merged PR cache first (already fetched)
+    # Check SQLite cache
+    cached = _get_cached_pr_author(pr_number)
+    if cached:
+        return cached
+
+    # Check merged PR cache (already fetched in-memory)
     for pr in _pr_cache.get('data', []):
         if pr.get('number') == pr_number:
             info = {'author': pr.get('author', 'unknown'), 'title': pr.get('title', ''),
                     'branch': pr.get('headRefName', ''),
                     'additions': pr.get('additions', 0), 'deletions': pr.get('deletions', 0)}
-            _pr_author_cache[pr_number] = info
+            _cache_pr_author(pr_number, info)
             return info
 
-    # Fetch from GitHub API
-    out = _gh(['pr', 'view', str(pr_number), '--repo', REPO,
-               '--json', 'author,title,headRefName,additions,deletions'])
-    if out:
+    # Fetch from GitHub REST API
+    data = _github_get(f'repos/{REPO}/pulls/{pr_number}')
+    if data:
         try:
-            data = json.loads(out)
-            author = data.get('author', {})
-            if isinstance(author, dict):
-                author = author.get('login', 'unknown')
+            author = (data.get('user') or {}).get('login', 'unknown')
             info = {'author': author, 'title': data.get('title', ''),
-                    'branch': data.get('headRefName', ''),
+                    'branch': (data.get('head') or {}).get('ref', ''),
                     'additions': data.get('additions', 0), 'deletions': data.get('deletions', 0)}
-            _pr_author_cache[pr_number] = info
+            _cache_pr_author(pr_number, info)
             return info
-        except (json.JSONDecodeError, KeyError):
+        except (KeyError, TypeError):
             pass
     return None
 
 
 def batch_get_pr_authors(pr_numbers: set) -> dict:
-    """Fetch authors for multiple PR numbers, using cache. Returns {pr_number: info}."""
+    """Fetch authors for multiple PR numbers, using SQLite cache. Returns {pr_number: info}."""
     result = {}
-    to_fetch = []
-    for prn in pr_numbers:
-        if not prn:
-            continue
-        prn = int(prn)
-        if prn in _pr_author_cache:
-            result[prn] = _pr_author_cache[prn]
-        else:
-            to_fetch.append(prn)
+    # Batch fetch from SQLite cache in a single query
+    clean = [int(prn) for prn in pr_numbers if prn]
+    if not clean:
+        return result
+    placeholders = ','.join('?' * len(clean))
+    cached_rows = _db.query(
+        f'SELECT * FROM pr_authors WHERE pr_number IN ({placeholders})', clean)
+    cached_set = set()
+    for r in cached_rows:
+        prn = r['pr_number']
+        result[prn] = {'author': r['author'], 'title': r['title'], 'branch': r['branch'],
+                       'additions': r['additions'], 'deletions': r['deletions']}
+        cached_set.add(prn)
+    to_fetch = [prn for prn in clean if prn not in cached_set]
 
-    # Check merged PR cache first
-    for pr in _pr_cache.get('data', []):
-        num = pr.get('number')
-        if num in to_fetch:
-            info = {'author': pr.get('author', 'unknown'), 'title': pr.get('title', ''),
-                    'branch': pr.get('headRefName', ''),
-                    'additions': pr.get('additions', 0), 'deletions': pr.get('deletions', 0)}
-            _pr_author_cache[num] = info
-            result[num] = info
-            to_fetch.remove(num)
+    # Check merged PR cache (in-memory)
+    if to_fetch:
+        to_fetch_set = set(to_fetch)
+        for pr in _pr_cache.get('data', []):
+            num = pr.get('number')
+            if num in to_fetch_set:
+                info = {'author': pr.get('author', 'unknown'), 'title': pr.get('title', ''),
+                        'branch': pr.get('headRefName', ''),
+                        'additions': pr.get('additions', 0), 'deletions': pr.get('deletions', 0)}
+                _cache_pr_author(num, info)
+                result[num] = info
+                to_fetch_set.discard(num)
+        to_fetch = list(to_fetch_set)
 
-    # Fetch remaining individually (with a cap to avoid API abuse)
-    for prn in to_fetch[:50]:
-        info = get_pr_author(prn)
-        if info:
-            result[prn] = info
+    # Fetch remaining concurrently (with a cap to avoid API abuse)
+    if to_fetch:
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        with ThreadPoolExecutor(max_workers=10) as pool:
+            futures = {pool.submit(get_pr_author, prn): prn for prn in to_fetch[:50]}
+            for fut in as_completed(futures):
+                prn = futures[fut]
+                try:
+                    info = fut.result()
+                    if info:
+                        result[prn] = info
+                except Exception:
+                    pass
 
     return result
 
@@ -495,33 +608,29 @@ CI3_WORKFLOW = 'ci3.yml'
 
 def _fetch_merge_queue_runs(date_str: str) -> dict:
     """Fetch merge_group workflow runs for a single date. Returns daily summary."""
-    out = _gh([
-        'api', '--paginate',
+    pages = _github_get(
         f'repos/{REPO}/actions/workflows/{CI3_WORKFLOW}/runs'
         f'?event=merge_group&created={date_str}&per_page=100',
-        '--jq', '.workflow_runs[] | [.conclusion, .status] | @tsv',
-    ])
+        paginate=True)
     summary = {'date': date_str, 'total': 0, 'success': 0, 'failure': 0,
                'cancelled': 0, 'in_progress': 0}
-    if not out:
+    if not pages:
         return summary
-    for line in out.strip().split('\n'):
-        if not line.strip():
-            continue
-        parts = line.split('\t')
-        conclusion = parts[0] if parts[0] else ''
-        status = parts[1] if len(parts) > 1 else ''
-        summary['total'] += 1
-        if conclusion == 'success':
-            summary['success'] += 1
-        elif conclusion == 'failure':
-            summary['failure'] += 1
-        elif conclusion == 'cancelled':
-            summary['cancelled'] += 1
-        elif status in ('in_progress', 'queued', 'waiting'):
-            summary['in_progress'] += 1
-        else:
-            summary['failure'] += 1  # treat unknown conclusions as failures
+    for page in pages:
+        for run in (page.get('workflow_runs') or []) if isinstance(page, dict) else []:
+            conclusion = run.get('conclusion') or ''
+            status = run.get('status') or ''
+            summary['total'] += 1
+            if conclusion == 'success':
+                summary['success'] += 1
+            elif conclusion == 'failure':
+                summary['failure'] += 1
+            elif conclusion == 'cancelled':
+                summary['cancelled'] += 1
+            elif status in ('in_progress', 'queued', 'waiting'):
+                summary['in_progress'] += 1
+            else:
+                summary['failure'] += 1  # treat unknown conclusions as failures
     return summary
 
 
@@ -597,13 +706,14 @@ def _backfill_merge_queue():
 
 
 def refresh_merge_queue_today():
-    """Refresh today's (and yesterday's) merge queue stats. Called periodically."""
+    """Refresh recent merge queue stats. Re-fetches the last 7 days to fix any
+    zero rows written during transient API failures."""
     import db
     conn = db.get_db()
-    today = datetime.now(timezone.utc).date().isoformat()
-    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).date().isoformat()
+    today = datetime.now(timezone.utc).date()
 
-    for ds in [yesterday, today]:
+    for i in range(7):
+        ds = (today - timedelta(days=i)).isoformat()
         summary = _fetch_merge_queue_runs(ds)
         conn.execute(
             'INSERT OR REPLACE INTO merge_queue_daily (date, total, success, failure, cancelled, in_progress) '
@@ -611,6 +721,80 @@ def refresh_merge_queue_today():
             (ds, summary['total'], summary['success'], summary['failure'],
              summary['cancelled'], summary['in_progress']))
         conn.commit()
+
+
+_MQ_DEPTH_GQL = '''
+query($owner: String!, $repo: String!, $branch: String!) {
+  repository(owner: $owner, name: $repo) {
+    mergeQueue(branch: $branch) {
+      entries(first: 100) {
+        totalCount
+        nodes { position state enqueuedAt pullRequest { number title author { login } } }
+      }
+    }
+  }
+}'''
+
+_MQ_BRANCH = 'next'
+
+
+def poll_merge_queue_depth():
+    """Snapshot the current merge queue depth into SQLite."""
+    import db
+    owner, repo = REPO.split('/')
+    data = _github_graphql(_MQ_DEPTH_GQL,
+                           {'owner': owner, 'repo': repo, 'branch': _MQ_BRANCH})
+    if not data:
+        return
+    mq = (data.get('repository') or {}).get('mergeQueue')
+    if mq is None:
+        return
+    entries = mq.get('entries', {})
+    depth = entries.get('totalCount', 0)
+    nodes = entries.get('nodes', [])
+    entries_json = json.dumps([{
+        'position': n.get('position'),
+        'state': n.get('state'),
+        'pr': (n.get('pullRequest') or {}).get('number'),
+        'author': ((n.get('pullRequest') or {}).get('author') or {}).get('login'),
+    } for n in nodes]) if nodes else None
+
+    now = datetime.now(timezone.utc).isoformat()
+    db.execute('INSERT INTO merge_queue_snapshots (timestamp, depth, entries_json) VALUES (?, ?, ?)',
+               (now, depth, entries_json))
+
+
+def _aggregate_depth_stats():
+    """Aggregate merge_queue_snapshots into avg/peak depth on merge_queue_daily."""
+    import db
+    conn = db.get_db()
+    rows = conn.execute('''
+        SELECT substr(timestamp, 1, 10) as date,
+               ROUND(AVG(depth), 1) as avg_depth,
+               MAX(depth) as peak_depth
+        FROM merge_queue_snapshots
+        GROUP BY substr(timestamp, 1, 10)
+    ''').fetchall()
+    for row in rows:
+        conn.execute('''
+            UPDATE merge_queue_daily SET avg_depth = ?, peak_depth = ?
+            WHERE date = ?
+        ''', (row['avg_depth'], row['peak_depth'], row['date']))
+    conn.commit()
+
+
+def start_merge_queue_poller():
+    """Start background thread that polls merge queue depth every 5 minutes."""
+    def loop():
+        while True:
+            try:
+                poll_merge_queue_depth()
+            except Exception as e:
+                print(f"[rk_github] queue depth poll error: {e}")
+            time.sleep(300)  # 5 minutes
+    t = threading.Thread(target=loop, daemon=True, name='mq-depth-poller')
+    t.start()
+    return t
 
 
 _mq_backfill_lock = threading.Lock()
@@ -629,6 +813,7 @@ def ensure_merge_queue_data():
     try:
         _backfill_merge_queue()
         refresh_merge_queue_today()
+        _aggregate_depth_stats()
         _mq_last_refresh = now
     finally:
         _mq_backfill_lock.release()
@@ -646,7 +831,7 @@ def get_merge_queue_stats(date_from: str, date_to: str) -> dict:
         threading.Thread(target=ensure_merge_queue_data, daemon=True).start()
 
     rows = db.query(
-        'SELECT date, total, success, failure, cancelled, in_progress '
+        'SELECT date, total, success, failure, cancelled, in_progress, avg_depth, peak_depth '
         'FROM merge_queue_daily WHERE date >= ? AND date <= ? ORDER BY date',
         (date_from, date_to))
 

@@ -5,6 +5,7 @@ stored in SQLite. All reads go through SQLite so enriched fields (instance_type
 from CloudTrail, recalculated costs) are preserved.
 Test events stored in SQLite since they only arrive via pub/sub.
 """
+import hashlib
 import json
 import re
 import time
@@ -20,6 +21,17 @@ SECTIONS = ['next', 'prs', 'master', 'staging', 'releases', 'nightly', 'network'
 _PR_RE = re.compile(r'(?:pr-|#)(\d+)', re.IGNORECASE)
 _ANSI_RE = re.compile(r'\x1b\[[^m]*m|\x1b\]8;;[^\x07]*\x07')
 _URL_PR_RE = re.compile(r'/pull/(\d+)')
+
+
+def hash_str_orig(s: str) -> str:
+    """Replicate bash's `echo "$s" | git hash-object --stdin | cut -c1-16`.
+
+    git hash-object computes SHA-1 of "blob <len>\\0<content>" where content
+    includes the trailing newline from echo.
+    """
+    content = s + "\n"
+    blob = f"blob {len(content)}\0{content}".encode()
+    return hashlib.sha1(blob).hexdigest()[:16]
 
 
 def compute_run_cost(data: dict) -> float | None:
@@ -158,21 +170,17 @@ def _handle_test_event(channel: str, data: dict):
         log_url = f'http://ci.aztec-labs.com/{log_url}'
     dashboard = data.get('dashboard', '')
     timestamp = data.get('timestamp', datetime.now(timezone.utc).isoformat())
+    test_hash = hash_str_orig(test_cmd) if test_cmd else None
 
     # Always update daily stats (lightweight aggregate)
     _upsert_daily_stats(status, test_cmd, dashboard, timestamp)
-
-    # Only persist individual rows for failed/flaked (for drill-down / log URLs).
-    # Passed and started events are tracked via daily stats only.
-    if status not in ('failed', 'flaked'):
-        return
 
     db.execute('''
         INSERT INTO test_events
         (status, test_cmd, log_url, ref_name, commit_hash, commit_author,
          commit_msg, exit_code, duration_secs, is_scenario, owners,
-         flake_group_id, dashboard, timestamp)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         flake_group_id, dashboard, timestamp, test_hash)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         status,
         test_cmd,
@@ -188,6 +196,7 @@ def _handle_test_event(channel: str, data: dict):
         data.get('flake_group_id'),
         dashboard,
         timestamp,
+        test_hash,
     ))
 
 
@@ -336,18 +345,18 @@ def sync_failed_tests_to_sqlite(redis_conn):
     _failed_tests_sync_ts = now
 
     conn = db.get_db()
-    # Track existing entries to avoid duplicates: log_url for entries that have one,
-    # (test_cmd, timestamp, dashboard) composite key for entries without log_url
+    # Track existing failed/flaked entries to avoid duplicates (this sync only
+    # processes failed/flaked from Redis lists, so no need to scan passed rows).
     existing_urls = {row['log_url'] for row in conn.execute(
-        "SELECT DISTINCT log_url FROM test_events WHERE log_url IS NOT NULL"
+        "SELECT DISTINCT log_url FROM test_events WHERE log_url IS NOT NULL AND status IN ('failed', 'flaked')"
     ).fetchall()}
     existing_keys = {(row['test_cmd'], row['timestamp'], row['dashboard']) for row in conn.execute(
-        "SELECT test_cmd, timestamp, dashboard FROM test_events WHERE log_url IS NULL"
+        "SELECT test_cmd, timestamp, dashboard FROM test_events WHERE log_url IS NULL AND status IN ('failed', 'flaked')"
     ).fetchall()}
 
     total = 0
-    for section in SECTIONS:
-        key = f'failed_tests_{section}'
+    for section in SECTIONS + ['']:
+        key = f'failed_tests_{section}' if section else 'failed_tests'
         try:
             entries = redis_conn.lrange(key, 0, -1)
         except Exception as e:
@@ -373,14 +382,15 @@ def sync_failed_tests_to_sqlite(redis_conn):
                     INSERT INTO test_events
                     (status, test_cmd, log_url, ref_name, commit_author,
                      commit_msg, duration_secs, flake_group_id, dashboard,
-                     timestamp)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     timestamp, test_hash)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     parsed['status'], parsed['test_cmd'], parsed['log_url'],
                     parsed['ref_name'], parsed['commit_author'],
                     parsed['commit_msg'], parsed['duration_secs'],
                     parsed['flake_group_id'], parsed['dashboard'],
                     parsed['timestamp'],
+                    hash_str_orig(parsed['test_cmd']) if parsed['test_cmd'] else None,
                 ))
                 _upsert_daily_stats(
                     parsed['status'], parsed['test_cmd'],
@@ -450,15 +460,16 @@ def _load_seed_data():
         events = data['test_events']
         for ev in events:
             try:
+                te_cmd = ev.get('test_cmd', '')
                 conn.execute('''
                     INSERT OR IGNORE INTO test_events
                     (status, test_cmd, log_url, ref_name, commit_hash, commit_author,
                      commit_msg, exit_code, duration_secs, is_scenario, owners,
-                     flake_group_id, dashboard, timestamp)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     flake_group_id, dashboard, timestamp, test_hash)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     ev.get('status', ''),
-                    ev.get('test_cmd', ''),
+                    te_cmd,
                     ev.get('log_url'),
                     ev.get('ref_name', ''),
                     ev.get('commit_hash'),
@@ -471,6 +482,7 @@ def _load_seed_data():
                     ev.get('flake_group_id'),
                     ev.get('dashboard', ''),
                     ev.get('timestamp', ''),
+                    hash_str_orig(te_cmd) if te_cmd else None,
                 ))
             except Exception:
                 continue
@@ -560,23 +572,106 @@ def _backfill_daily_stats():
 
     Uses INSERT OR IGNORE to fill gaps without overwriting data from the
     real-time listener.  Safe to call repeatedly — skips dates/tests that
-    already have rows.  Only failed/flaked events are in test_events (passed
-    events come exclusively from the real-time listener).
+    already have rows.
     """
     conn = db.get_db()
     cur = conn.execute('''
         INSERT OR IGNORE INTO test_daily_stats (date, test_cmd, dashboard, passed, failed, flaked)
         SELECT substr(timestamp, 1, 10) as date, test_cmd, dashboard,
-               0,
+               SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END),
                SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END),
                SUM(CASE WHEN status = 'flaked' THEN 1 ELSE 0 END)
         FROM test_events
-        WHERE status IN ('failed', 'flaked')
         GROUP BY substr(timestamp, 1, 10), test_cmd, dashboard
     ''')
     conn.commit()
     if cur.rowcount and cur.rowcount > 0:
         print(f"[rk_metrics] Backfilled {cur.rowcount} daily stat rows from test_events")
+
+
+def _materialize_ci_run_daily_stats():
+    """Recompute ci_run_daily_stats from ci_runs.
+
+    Replaces all rows — safe to call repeatedly.  Stores pre-aggregated
+    duration percentiles so the API doesn't need to scan raw rows.
+    """
+    conn = db.get_db()
+    # Fetch raw daily durations grouped by date + dashboard
+    rows = conn.execute('''
+        SELECT
+            strftime('%Y-%m-%d', timestamp_ms / 1000, 'unixepoch') AS date,
+            dashboard,
+            (complete_ms - timestamp_ms) / 60000.0 AS dur_mins
+        FROM ci_runs
+        WHERE status IN ('PASSED', 'FAILED')
+          AND complete_ms IS NOT NULL AND complete_ms > timestamp_ms
+    ''').fetchall()
+
+    # Group durations: {(date, dashboard): [dur_mins, ...]}
+    groups = {}
+    for r in rows:
+        key = (r['date'], r['dashboard'])
+        groups.setdefault(key, {'passed': 0, 'failed': 0, 'durs': []})
+        groups[key]['durs'].append(r['dur_mins'])
+
+    # Also count pass/fail per group
+    status_rows = conn.execute('''
+        SELECT
+            strftime('%Y-%m-%d', timestamp_ms / 1000, 'unixepoch') AS date,
+            dashboard, status, COUNT(*) as cnt
+        FROM ci_runs
+        WHERE status IN ('PASSED', 'FAILED')
+        GROUP BY date, dashboard, status
+    ''').fetchall()
+    for r in status_rows:
+        key = (r['date'], r['dashboard'])
+        if key not in groups:
+            groups[key] = {'passed': 0, 'failed': 0, 'durs': []}
+        if r['status'] == 'PASSED':
+            groups[key]['passed'] = r['cnt']
+        else:
+            groups[key]['failed'] = r['cnt']
+
+    conn.execute('DELETE FROM ci_run_daily_stats')
+    inserted = 0
+    for (date, dashboard), g in groups.items():
+        durs = sorted(g['durs'])
+        n = len(durs)
+        conn.execute('''
+            INSERT INTO ci_run_daily_stats
+            (date, dashboard, run_count, passed, failed,
+             sum_duration, min_duration, max_duration, p50_duration, p95_duration)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            date, dashboard, g['passed'] + g['failed'],
+            g['passed'], g['failed'],
+            round(sum(durs), 2) if durs else 0,
+            round(min(durs), 1) if durs else None,
+            round(max(durs), 1) if durs else None,
+            round(durs[n // 2], 1) if durs else None,
+            round(durs[int(n * 0.95)], 1) if durs else None,
+        ))
+        inserted += 1
+    conn.commit()
+    print(f"[rk_metrics] Materialized {inserted} ci_run_daily_stats rows")
+
+
+def _backfill_test_hashes():
+    """Populate test_hash for existing test_events rows that are missing it."""
+    conn = db.get_db()
+    rows = conn.execute(
+        "SELECT DISTINCT test_cmd FROM test_events WHERE test_hash IS NULL AND test_cmd != ''"
+    ).fetchall()
+    if not rows:
+        return
+    for row in rows:
+        cmd = row['test_cmd']
+        h = hash_str_orig(cmd)
+        conn.execute(
+            "UPDATE test_events SET test_hash = ? WHERE test_cmd = ? AND test_hash IS NULL",
+            (h, cmd))
+    conn.commit()
+    print(f"[rk_metrics] Backfilled test_hash for {len(rows)} distinct test commands")
 
 
 # ---- CloudTrail instance type resolution ----
@@ -824,6 +919,8 @@ def start_ci_run_sync(redis_conn):
     """Start periodic CI run + test event sync thread."""
     _load_seed_data()
     _backfill_daily_stats()
+    _backfill_test_hashes()
+    _materialize_ci_run_daily_stats()
 
     def loop():
         while True:
@@ -831,6 +928,7 @@ def start_ci_run_sync(redis_conn):
                 sync_ci_runs_to_sqlite(redis_conn)
                 sync_failed_tests_to_sqlite(redis_conn)
                 resolve_unknown_instance_types()
+                _materialize_ci_run_daily_stats()
             except Exception as e:
                 print(f"[rk_metrics] sync error: {e}")
             time.sleep(600)  # check every 10 min (TTL gates actual work)
@@ -906,3 +1004,21 @@ def get_flakes_by_command(date_from, date_to, dashboard=''):
             'total_failures': sum(failures_by_command.values()),
         },
     }
+
+
+def get_test_history(test_hash: str, branch: str = '', limit: int = 1000) -> list[dict]:
+    """Get test event history by test_hash, matching Redis history_{hash}[_{branch}] lists."""
+    conditions = ['test_hash = ?']
+    params: list = [test_hash]
+    if branch:
+        conditions.append('ref_name = ?')
+        params.append(branch)
+    where = 'WHERE ' + ' AND '.join(conditions)
+    params.append(limit)
+    return db.query(f'''
+        SELECT status, test_cmd, log_url, ref_name, commit_author,
+               commit_msg, duration_secs, dashboard, timestamp
+        FROM test_events {where}
+        ORDER BY timestamp DESC
+        LIMIT ?
+    ''', params)

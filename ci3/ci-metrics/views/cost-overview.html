@@ -79,9 +79,13 @@
   <h2 style="margin:8px 0;color:#ccc;">cost overview <span id="period-label" style="font-size:12px;color:#666;font-weight:normal"></span></h2>
 
   <div class="controls">
-    <button data-range="30">1m</button>
-    <button data-range="90">3m</button>
     <button data-range="365">1y</button>
+    <button data-range="180">6m</button>
+    <button data-range="30">1m</button>
+    <button data-range="14">2w</button>
+    <button data-range="7">1w</button>
+    <button data-range="2">2d</button>
+    <button data-range="1">1d</button>
     <span style="color:#333">|</span>
     <label>from</label> <input type="date" id="dateFrom" />
     <label>to</label> <input type="date" id="dateTo" />
@@ -155,7 +159,9 @@
     let svcKeys = []; // dynamically built from data
 
     const fmt = v => v >= 1000 ? '$' + v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : v >= 1 ? '$' + v.toFixed(2) : '$' + v.toFixed(4);
-    const fmtDate = s => { const d = new Date(s + 'T00:00:00'); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const fmtDate = s => { const d = new Date(s + 'T00:00:00'); return MONTHS[d.getMonth()] + ' ' + d.getDate(); };
+    const fmtDateFull = s => { const d = new Date(s + 'T00:00:00'); return MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear(); };
     const escapeHtml = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
     const cap = s => s.split('_').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
 
@@ -288,6 +294,7 @@
               itemSort: (a, b) => b.raw - a.raw,
               filter: c => c.raw > 0,
               callbacks: {
+                title: items => items.length ? fmtDateFull(dates[items[0].dataIndex]) : '',
                 label: c => `${c.dataset.label}: ${fmt(c.raw)}`,
                 footer: items => `total: ${fmt(items.reduce((s, i) => s + i.raw, 0))}`
               }

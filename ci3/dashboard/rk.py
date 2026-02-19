@@ -375,10 +375,53 @@ def show_section(section):
         follow='top'
     )
 
+def _history_from_api(key):
+    """Fallback: fetch test history from ci-metrics API when Redis list is empty."""
+    # Key format: history_<16-char-hash>[_<branch>]
+    rest = key[len('history_'):]
+    test_hash = rest[:16]
+    branch = rest[17:] if len(rest) > 16 and rest[16] == '_' else ''
+    try:
+        params = {'branch': branch} if branch else {}
+        resp = _proxy_session.get(
+            f'{CI_METRICS_URL}/api/test-history/{test_hash}',
+            params=params,
+            auth=(request.authorization.username, request.authorization.password),
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            return ''
+        rows = resp.json()
+        if not rows:
+            return ''
+        lines = []
+        for row in rows:
+            ts = row.get('timestamp', '')[:19].replace('T', ' ')
+            if len(ts) > 5:
+                ts = ts[5:]  # Strip year → "MM-DD HH:MM:SS"
+            status = (row.get('status') or '').upper()
+            color = GREEN if status == 'PASSED' else (RED if status == 'FAILED' else YELLOW)
+            cmd = row.get('test_cmd', '')
+            dur = row.get('duration_secs')
+            dur_str = f' ({int(dur)}s)' if dur else ''
+            author = row.get('commit_author', '')
+            msg = row.get('commit_msg', '')
+            author_str = f' ({author}: {msg})' if author else ''
+            log_url = row.get('log_url', '')
+            log_link = f' {hyperlink(log_url, log_url.split("/")[-1])}' if log_url else ''
+            lines.append(f'{ts}: {color}{BOLD}{status}{RESET}{log_link} {cmd}{dur_str}{author_str}')
+        return '\n'.join(lines)
+    except Exception as e:
+        print(f"[rk.py] history fallback error: {e}")
+        return ''
+
+
 @app.route('/list/<key>')
 @auth.login_required
 def get_list(key):
     value = get_list_as_string(key)
+    if not value.strip() and key.startswith('history_'):
+        value = _history_from_api(key)
     follow = request.args.get('follow', 'top')
     return render_template_string(TEMPLATE, value=ansi_to_html(value), follow=follow, filter_str='', filter_prop='')
 
