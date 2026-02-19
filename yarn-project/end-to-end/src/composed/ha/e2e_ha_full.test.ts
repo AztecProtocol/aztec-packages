@@ -62,7 +62,7 @@ describe('HA Full Setup', () => {
   let config: AztecNodeConfig;
   let teardown: () => Promise<void>;
   let initialFundedAccounts: any[];
-  let dateProvider: TestDateProvider | undefined;
+  let dateProvider: TestDateProvider;
   let prefilledPublicData: any[] | undefined;
 
   // HA specific resources
@@ -153,6 +153,10 @@ describe('HA Full Setup', () => {
       slashingRoundSizeInEpochs: 1, // 32 slots (1 epoch)
       slashingQuorum: 17, // >50% of 32 slots for tally quorum,
     }));
+
+    if (!dateProvider) {
+      throw new Error('dateProvider must be provided by setup for HA tests');
+    }
 
     logger.info(`Bootstrap node setup complete (validation disabled)`);
 
@@ -709,6 +713,7 @@ describe('HA Full Setup', () => {
           -1,
         );
 
+        // Wait for real database time to pass (duties need different timestamps in PostgreSQL)
         await sleep(100);
 
         // Node 2 in Tokyo creates and signs a duty at approximately the same time
@@ -788,15 +793,22 @@ describe('HA Full Setup', () => {
       expect(beforeCleanup.rows.length).toBe(1);
       expect(beforeCleanup.rows[0].status).toBe('signed');
 
-      // Simulate node with clock 2 hours ahead
-      const realNow = Date.now;
-      jest.spyOn(Date, 'now').mockImplementation(() => realNow() + 2 * 60 * 60 * 1000);
+      // Simulate node with clock 2 hours ahead using dateProvider
+      // NOTE: Database cleanup uses PostgreSQL's CURRENT_TIMESTAMP, not application time
+      // This test verifies that even if the application clock is skewed, cleanup
+      // correctly uses database time to determine duty age
+      dateProvider.setTime(Date.now() + 2 * 60 * 60 * 1000); // 2 hours ahead
 
-      // Use our actual cleanupOldDuties method
-      const numCleaned = await spDb.cleanupOldDuties(60 * 60 * 1000); // 1 hour
+      try {
+        // Use our actual cleanupOldDuties method
+        const numCleaned = await spDb.cleanupOldDuties(60 * 60 * 1000); // 1 hour
 
-      // Should NOT delete the duty we just created (it uses DB's clock, not node's)
-      expect(numCleaned).toBe(0);
+        // Should NOT delete the duty we just created (it uses DB's clock, not node's)
+        expect(numCleaned).toBe(0);
+      } finally {
+        // Reset dateProvider back to real time
+        dateProvider.reset();
+      }
 
       // Verify duty still exists
       const result = await mainPool.query<DutyRow>(
@@ -854,13 +866,17 @@ describe('HA Full Setup', () => {
       expect(beforeCleanup.rows[0].status).toBe('signed');
       expect(parseFloat(beforeCleanup.rows[0].age_seconds)).toBeGreaterThan(7000); // ~2 hours in seconds
 
-      // Simulate node with clock 1 hour behind
-      const realNow = Date.now;
-      jest.spyOn(Date, 'now').mockImplementation(() => realNow() - 1 * 60 * 60 * 1000);
+      // Simulate node with clock 1 hour behind using
+      dateProvider.setTime(Date.now() - 1 * 60 * 60 * 1000); // 1 hour behind
 
-      // Use our actual cleanupOldDuties method - should delete based on DB time
-      const numCleaned = await spDb.cleanupOldDuties(60 * 60 * 1000); // 1 hour
-      expect(numCleaned).toBeGreaterThanOrEqual(1);
+      try {
+        // Use our actual cleanupOldDuties method - should delete based on DB time
+        const numCleaned = await spDb.cleanupOldDuties(60 * 60 * 1000); // 1 hour
+        expect(numCleaned).toBeGreaterThanOrEqual(1);
+      } finally {
+        // Reset dateProvider back to real time
+        dateProvider.reset();
+      }
 
       // Verify duty was deleted
       const result = await mainPool.query<DutyRow>(
@@ -887,14 +903,18 @@ describe('HA Full Setup', () => {
       // Don't call updateDutySigned - leave it in 'signing' state (stuck)
 
       // Simulate node with clock 3 hours ahead
-      const realNow = Date.now;
-      jest.spyOn(Date, 'now').mockImplementation(() => realNow() + 3 * 60 * 60 * 1000);
+      dateProvider.setTime(Date.now() + 3 * 60 * 60 * 1000); // 3 hours ahead
 
-      // Use our actual cleanupOwnStuckDuties method
-      const numCleaned = await spDb.cleanupOwnStuckDuties('stuck-node', 60 * 60 * 1000); // 1 hour
+      try {
+        // Use our actual cleanupOwnStuckDuties method
+        const numCleaned = await spDb.cleanupOwnStuckDuties('stuck-node', 60 * 60 * 1000); // 1 hour
 
-      // Should NOT delete the duty (it uses DB's clock, not node's)
-      expect(numCleaned).toBe(0);
+        // Should NOT delete the duty (it uses DB's clock, not node's)
+        expect(numCleaned).toBe(0);
+      } finally {
+        // Reset dateProvider back to real time
+        dateProvider.reset();
+      }
     });
   });
 });

@@ -11,6 +11,12 @@
     },
     {
       "path": "../foundation"
+    },
+    {
+      "path": "../stdlib"
+    },
+    {
+      "path": "../telemetry-client"
     }
   ],
   "include": ["src"]
