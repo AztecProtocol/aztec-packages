@@ -79,8 +79,6 @@ export async function createAccount(
       skipInstancePublication: !publicDeploy,
       skipInitialization,
       from,
-      // The account constructor initializes storage vars that need the contract's own nullifier key, so we need to add it to scopes.
-      additionalScopes: [address],
       fee: { paymentMethod, gasSettings },
     };
 
