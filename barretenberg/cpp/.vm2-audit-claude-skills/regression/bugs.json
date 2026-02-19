@@ -457,7 +457,9 @@
       "commit_before": "",
       "commit_after": "",
       "files": [
-        "pil/vm2/execution.pil"
+        "pil/vm2/execution.pil",
+        "pil/vm2/execution/addressing.pil",
+        "src/barretenberg/vm2/tracegen/execution_trace.cpp"
       ],
       "description": "The column execution_batched_tags_diff_inv was not populated in execution_trace.cpp. Completeness issue.",
       "severity": "high",
@@ -744,6 +746,16 @@
             "zero",
             "upper_bound"
           ]
+        },
+        "vm2-audit-t1-tracegen-pil-alignment": {
+          "min_severity": "medium",
+          "keywords": [
+            "copy_size",
+            "zero",
+            "data_copy",
+            "upper_bound",
+            "offset_gt_max_read_index"
+          ]
         }
       }
     },
@@ -995,6 +1007,16 @@
             "END_ON_ERR",
             "data_copy"
           ]
+        },
+        "vm2-audit-t1-ghost-row-continuity": {
+          "min_severity": "high",
+          "keywords": [
+            "sel_end",
+            "err",
+            "ghost",
+            "data_copy",
+            "premature"
+          ]
         }
       }
     },
@@ -1059,18 +1081,9 @@
       "component": "merkle_check",
       "introduced_after_baseline": false,
       "skills": [
-        "vm2-audit-t1-ghost-row-boolean",
         "vm2-audit-t3-witness-boundedness"
       ],
       "expected_findings": {
-        "vm2-audit-t1-ghost-row-boolean": {
-          "min_severity": "high",
-          "keywords": [
-            "index_is_even",
-            "end",
-            "merkle"
-          ]
-        },
         "vm2-audit-t3-witness-boundedness": {
           "min_severity": "medium",
           "keywords": [
@@ -1230,6 +1243,16 @@
             "end_phase",
             "tx"
           ]
+        },
+        "vm2-audit-t1-operation-transition-continuity": {
+          "min_severity": "high",
+          "keywords": [
+            "is_padded",
+            "end_phase",
+            "phase_value",
+            "transition",
+            "remaining_phase_counter"
+          ]
         }
       }
     },
@@ -1277,7 +1300,9 @@
       "commit_before": "",
       "commit_after": "",
       "files": [
-        "pil/vm2/tx.pil"
+        "pil/vm2/tx.pil",
+        "src/barretenberg/vm2/tracegen/tx_trace.cpp",
+        "pil/vm2/tx_context.pil"
       ],
       "description": "Completeness issue: should_read_gas_limit set to 1 in handle_first_row() then overridden to 0 in handle_padded_row(). Same issue for tx_gas_limit_pi_offset.",
       "severity": "medium",
@@ -1445,7 +1470,10 @@
       "commit_before": "",
       "commit_after": "",
       "files": [
-        "pil/vm2/poseidon2_hash.pil"
+        "pil/vm2/poseidon2_hash.pil",
+        "pil/vm2/bytecode/address_derivation.pil",
+        "pil/vm2/bytecode/class_id_derivation.pil",
+        "pil/vm2/trees/public_data_check.pil"
       ],
       "description": "Most usages of poseidon2_hash.pil do not pass input_len in the lookup on the start row. A malicious prover can modify input_len and padding while keeping num_perm_rounds_rem unchanged, computing hash with wrong IV. Affects slot derivation in fee collection.",
       "severity": "critical",
@@ -1673,6 +1701,17 @@
             "increment",
             "skippable"
           ]
+        },
+        "vm2-audit-t1-ghost-row-continuity": {
+          "min_severity": "medium",
+          "keywords": [
+            "bc_hashing",
+            "PC",
+            "increment",
+            "ghost",
+            "continuity",
+            "pc_increment"
+          ]
         }
       }
     },
@@ -1782,7 +1821,8 @@
       "commit_before": "",
       "commit_after": "",
       "files": [
-        "pil/vm2/alu.pil"
+        "pil/vm2/alu.pil",
+        "pil/vm2/bytecode/contract_instance_retrieval.pil"
       ],
       "description": "The FF greater-than operation's range check lookup used the wrong selector, causing the range check to not fire on the correct rows. Without the range check, the subtraction result is unconstrained and a malicious prover can forge any comparison outcome.",
       "severity": "critical",
@@ -1802,6 +1842,17 @@
             "range_check",
             "lookup",
             "selector"
+          ]
+        },
+        "vm2-audit-t1-unprotected-destination-selector": {
+          "min_severity": "high",
+          "keywords": [
+            "ff_gt",
+            "sel_gt",
+            "selector",
+            "lookup",
+            "range_check",
+            "alu"
           ]
         }
       }
@@ -1894,6 +1945,16 @@
             "error",
             "gating"
           ]
+        },
+        "vm2-audit-t2-error-state-constraint-firing": {
+          "min_severity": "high",
+          "keywords": [
+            "internal_call",
+            "RESTORE_INTERNAL_ID",
+            "UNWIND_CALL_STACK",
+            "error",
+            "lookup"
+          ]
         }
       }
     },
@@ -1952,6 +2013,17 @@
             "sel",
             "boolean"
           ]
+        },
+        "vm2-audit-t1-selector-outside-active": {
+          "min_severity": "medium",
+          "keywords": [
+            "ecc_mem",
+            "ecc_add_mem",
+            "sel",
+            "boolean",
+            "unconstrained",
+            "active"
+          ]
         }
       }
     },
@@ -1981,6 +2053,17 @@
             "sel",
             "boolean"
           ]
+        },
+        "vm2-audit-t1-selector-outside-active": {
+          "min_severity": "medium",
+          "keywords": [
+            "poseidon2_mem",
+            "poseidon2_perm_mem",
+            "sel",
+            "boolean",
+            "unconstrained",
+            "active"
+          ]
         }
       }
     },
@@ -2009,6 +2092,16 @@
             "to_radix_mem",
             "sel",
             "boolean"
+          ]
+        },
+        "vm2-audit-t1-selector-outside-active": {
+          "min_severity": "medium",
+          "keywords": [
+            "to_radix_mem",
+            "sel",
+            "boolean",
+            "unconstrained",
+            "active"
           ]
         }
       }
@@ -2218,6 +2311,16 @@
             "boolean",
             "instr_fetching"
           ]
+        },
+        "vm2-audit-t2-derived-value-constraints": {
+          "min_severity": "high",
+          "keywords": [
+            "opcode_out_of_range",
+            "tag_out_of_range",
+            "boolean",
+            "instr_fetching",
+            "unconstrained"
+          ]
         }
       }
     },
@@ -2276,6 +2379,16 @@
             "FIXME",
             "commented",
             "unconstrained"
+          ]
+        },
+        "vm2-audit-t2-derived-value-constraints": {
+          "min_severity": "high",
+          "keywords": [
+            "sel_parsing_err",
+            "FIXME",
+            "unconstrained",
+            "instr_fetching",
+            "parsing"
           ]
         }
       }
@@ -2364,6 +2477,16 @@
             "size",
             "addr",
             "enqueued_call_start"
+          ]
+        },
+        "vm2-audit-t2-missing-initialization": {
+          "min_severity": "high",
+          "keywords": [
+            "returndata",
+            "RD_SIZE_IS_ZERO",
+            "wrong column",
+            "enqueued_call_start",
+            "last_child_returndata"
           ]
         }
       }
@@ -2689,7 +2812,8 @@
       "commit_before": "",
       "commit_after": "",
       "files": [
-        "pil/vm2/sha256.pil"
+        "pil/vm2/sha256.pil",
+        "pil/vm2/sha256_mem.pil"
       ],
       "description": "In sha256.pil, the initial hash state values (init_a through init_h) were only constrained on the start row via start * (1 - err) * (a - init_a) = 0 etc., but were not propagated across the 64 compression rounds. Since the final output on the 'last' row adds init_a..init_h to the compression output, a malicious prover could set arbitrary init values on the last row, producing incorrect SHA256 outputs that would still satisfy the constraints.",
       "severity": "critical",
@@ -2849,6 +2973,18 @@
             "validation",
             "too large"
           ]
+        },
+        "vm2-audit-t1-range-check-overflow": {
+          "min_severity": "high",
+          "keywords": [
+            "recipient",
+            "range",
+            "160 bits",
+            "20 bytes",
+            "send_l2_to_l1_msg",
+            "unconstrained",
+            "eth address"
+          ]
         }
       }
     },
@@ -2919,7 +3055,9 @@
       "commit_before": "",
       "commit_after": "",
       "files": [
-        "src/barretenberg/vm2/tracegen/to_radix_trace.cpp"
+        "src/barretenberg/vm2/tracegen/to_radix_trace.cpp",
+        "pil/vm2/to_radix.pil",
+        "pil/vm2/to_radix_mem.pil"
       ],
       "description": "The to_radix tracegen was not populating the `execution_clk` and `space_id` columns on the start row (where `to_radix_mem_start = 1`). These columns are part of the PERM_EXECUTION_DISPATCH_TO_TO_RADIX permutation that connects the execution trace to the to_radix subtrace. The PIL permutation constraint includes these in the tuple, but the tracegen left them as default (zero). When the execution trace sends non-zero clk and space_id values, the permutation fails. This is a completeness bug: an honest prover cannot produce a valid proof for any transaction that uses the TORADIXBE opcode.",
       "severity": "high",
