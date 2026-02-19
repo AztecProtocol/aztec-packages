@@ -23,7 +23,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
   public:
     using Builder = MegaCircuitBuilder;
     using Flavor = MegaFlavor;
-    using VerificationKey = MegaFlavor::VerificationKey;
+    using VerificationKey = Chonk::MegaVerificationKey;
     using FF = Flavor::FF;
     using VerifierInputs = Chonk::VerifierInputs;
     using QUEUE_TYPE = Chonk::QUEUE_TYPE;
@@ -45,7 +45,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         return circuit;
     }
 
-    static std::shared_ptr<VerificationKey> get_verification_key(Builder& builder_in)
+    static std::shared_ptr<Chonk::MegaVerificationKey> get_verification_key(Builder& builder_in)
     {
         // This is a workaround to ensure that the circuit is finalized before we create the verification key
         // In practice, this should not be needed as the circuit will be finalized when it is accumulated into the IVC
@@ -56,7 +56,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         // Deepcopy the opqueue to avoid modifying the original one
         builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
         std::shared_ptr<Chonk::ProverInstance> prover_instance = std::make_shared<Chonk::ProverInstance>(builder);
-        std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+        auto vk = std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
         return vk;
     }
 
@@ -333,7 +333,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateInitKernelVKFromConstraints)
 {
     BB_DISABLE_ASSERTS();
     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
-    std::shared_ptr<MegaFlavor::VerificationKey> expected_kernel_vk;
+    std::shared_ptr<Chonk::MegaVerificationKey> expected_kernel_vk;
     {
         auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
 
@@ -346,7 +346,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateInitKernelVKFromConstraints)
     }
 
     // Now, construct the kernel VK by mocking the post app accumulation state of the IVC
-    std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
+    std::shared_ptr<Chonk::MegaVerificationKey> kernel_vk;
     {
         auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
 
@@ -367,7 +367,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
 {
     BB_DISABLE_ASSERTS();
     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
-    std::shared_ptr<MegaFlavor::VerificationKey> expected_kernel_vk;
+    std::shared_ptr<Chonk::MegaVerificationKey> expected_kernel_vk;
     {
         auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
 
@@ -387,7 +387,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
     }
 
     // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
-    std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
+    std::shared_ptr<Chonk::MegaVerificationKey> kernel_vk;
     {
         auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
 
@@ -407,7 +407,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateTailKernelVKFromConstraints)
 {
     BB_DISABLE_ASSERTS();
     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
-    std::shared_ptr<MegaFlavor::VerificationKey> expected_kernel_vk;
+    std::shared_ptr<Chonk::MegaVerificationKey> expected_kernel_vk;
     {
         auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
 
@@ -431,7 +431,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateTailKernelVKFromConstraints)
     }
 
     // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
-    std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
+    std::shared_ptr<Chonk::MegaVerificationKey> kernel_vk;
     {
         auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
 
@@ -452,7 +452,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
 {
     BB_DISABLE_ASSERTS();
     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
-    std::shared_ptr<MegaFlavor::VerificationKey> expected_kernel_vk;
+    std::shared_ptr<Chonk::MegaVerificationKey> expected_kernel_vk;
     {
         // we have to set the number of circuits one more than the number of circuits we're accumulating as otherwise
         // the last circuit will be seen as a tail
@@ -481,7 +481,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
     }
 
     // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
-    std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
+    std::shared_ptr<Chonk::MegaVerificationKey> kernel_vk;
     {
         auto ivc = std::make_shared<Chonk>(/*num_circuits=*/4);
 
@@ -503,7 +503,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateMegaVerificationKeyFromConstrai
 {
     BB_DISABLE_ASSERTS();
     // First, construct the kernel VK by running the full IVC
-    std::shared_ptr<MegaFlavor::VerificationKey> expected_hiding_kernel_vk;
+    std::shared_ptr<Chonk::MegaVerificationKey> expected_hiding_kernel_vk;
     {
         auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
         const ProgramMetadata metadata{ ivc };
@@ -525,7 +525,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateMegaVerificationKeyFromConstrai
     }
 
     // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
-    std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
+    std::shared_ptr<Chonk::MegaVerificationKey> kernel_vk;
     {
         // mock IVC accumulation increases the num_circuits_accumualted, hence we need to assume the tail kernel has
         // been accumulated

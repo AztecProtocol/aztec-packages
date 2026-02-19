@@ -1,6 +1,7 @@
 #include "mock_verifier_inputs.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/multi_mega_flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -517,6 +518,7 @@ template HonkProof create_mock_oink_proof<avm2::AvmFlavor, stdlib::recursion::ho
     const size_t);
 
 template HonkProof create_mock_pcs_proof<MegaFlavor>();
+template HonkProof create_mock_pcs_proof<MultiMegaFlavor>();
 
 template HonkProof create_mock_decider_proof<MegaFlavor>();
 template HonkProof create_mock_decider_proof<UltraFlavor>();
@@ -550,6 +552,8 @@ construct_arbitrary_valid_honk_proof_and_vk<UltraFlavor, stdlib::recursion::honk
 
 template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::AppIO>(bool);
 template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>(bool);
+template HonkProof create_mock_hyper_nova_proof<MultiMegaFlavor, stdlib::recursion::honk::AppIO>(bool);
+template HonkProof create_mock_hyper_nova_proof<MultiMegaFlavor, stdlib::recursion::honk::KernelIO>(bool);
 
 template HonkProof create_mock_chonk_proof<UltraCircuitBuilder>(const size_t);
 template HonkProof create_mock_chonk_proof<MegaCircuitBuilder>(const size_t);
@@ -562,6 +566,12 @@ template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<MegaFl
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<
     MegaFlavor,
     stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>(const size_t, const size_t);
+template std::shared_ptr<MultiMegaFlavor::VerificationKey> create_mock_honk_vk<MultiMegaFlavor,
+                                                                               stdlib::recursion::honk::AppIO>(
+    const size_t, const size_t);
+template std::shared_ptr<MultiMegaFlavor::VerificationKey> create_mock_honk_vk<MultiMegaFlavor,
+                                                                               stdlib::recursion::honk::KernelIO>(
+    const size_t, const size_t);
 template std::shared_ptr<MegaZKFlavor::VerificationKey> create_mock_honk_vk<
     MegaZKFlavor,
     stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>(const size_t, const size_t);

@@ -19,13 +19,13 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
     using VerificationKey = Flavor::VerificationKey;
     // Types for Chonk
     using DeciderZKProvingKey = ProverInstance_<MegaZKFlavor>;
-    using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
+    using ChonkVerificationKey = MultiMegaFlavor::VerificationKey;
 
     // Public inputs added by bb to a Chonk proof
     static constexpr size_t PUBLIC_INPUTS_SIZE = bb::HidingKernelIO::PUBLIC_INPUTS_SIZE;
 
     struct ChonkData {
-        std::shared_ptr<MegaZKVerificationKey> mega_vk;
+        std::shared_ptr<ChonkVerificationKey> mega_vk;
         ChonkProof proof;
     };
 
