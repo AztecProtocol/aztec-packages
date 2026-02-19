@@ -33,6 +33,11 @@
     packed: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
 ) -> <a href="../../../protocol_types/delayed_public_mutable/scheduled_delay_change/struct.ScheduledDelayChange.html" class="struct">ScheduledDelayChange</a>&lt;INITIAL_DELAY&gt;</code></pre>
 
+<div class="comments">
+<p>Extracts a ScheduledDelayChange struct from 0th field of the packed representation of the full DelayedPublicMutable.
+This function expects to be called with just the first field of the packed representation, which contains sdc
+and svc timestamp_of_change. We'll discard the svc component.</p>
+</div>
 </main>
 </span>
 </body>
