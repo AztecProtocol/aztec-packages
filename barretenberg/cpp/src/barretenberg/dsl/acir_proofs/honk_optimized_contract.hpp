@@ -1236,7 +1236,7 @@ contract HonkVerifier is IVerifier {
 
                                 // barycentric_index = 1
                                 bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
-                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, P_SUB_1, p), p)
+                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, sub(p, 1), p), p)
                                 mstore(bary_centric_inverses_off, pre_inv)
                                 temp := add(temp, 0x20)
                                 mstore(temp, accumulator)
@@ -1248,7 +1248,7 @@ contract HonkVerifier is IVerifier {
 
                                 // barycentric_index = 2
                                 bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
-                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, P_SUB_2, p), p)
+                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, sub(p, 2), p), p)
                                 mstore(bary_centric_inverses_off, pre_inv)
                                 temp := add(temp, 0x20)
                                 mstore(temp, accumulator)
@@ -1260,7 +1260,7 @@ contract HonkVerifier is IVerifier {
 
                                 // barycentric_index = 3
                                 bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
-                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, P_SUB_3, p), p)
+                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, sub(p, 3), p), p)
                                 mstore(bary_centric_inverses_off, pre_inv)
                                 temp := add(temp, 0x20)
                                 mstore(temp, accumulator)
@@ -1272,7 +1272,7 @@ contract HonkVerifier is IVerifier {
 
                                 // barycentric_index = 4
                                 bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
-                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, P_SUB_4, p), p)
+                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, sub(p, 4), p), p)
                                 mstore(bary_centric_inverses_off, pre_inv)
                                 temp := add(temp, 0x20)
                                 mstore(temp, accumulator)
@@ -1284,7 +1284,7 @@ contract HonkVerifier is IVerifier {
 
                                 // barycentric_index = 5
                                 bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
-                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, P_SUB_5, p), p)
+                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, sub(p, 5), p), p)
                                 mstore(bary_centric_inverses_off, pre_inv)
                                 temp := add(temp, 0x20)
                                 mstore(temp, accumulator)
@@ -1296,7 +1296,7 @@ contract HonkVerifier is IVerifier {
 
                                 // barycentric_index = 6
                                 bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
-                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, P_SUB_6, p), p)
+                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, sub(p, 6), p), p)
                                 mstore(bary_centric_inverses_off, pre_inv)
                                 temp := add(temp, 0x20)
                                 mstore(temp, accumulator)
@@ -1308,7 +1308,7 @@ contract HonkVerifier is IVerifier {
 
                                 // barycentric_index = 7
                                 bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
-                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, P_SUB_7, p), p)
+                                pre_inv := mulmod(bary_lagrange_denominator, addmod(round_challenge, sub(p, 7), p), p)
                                 mstore(bary_centric_inverses_off, pre_inv)
                                 temp := add(temp, 0x20)
                                 mstore(temp, accumulator)
@@ -1426,13 +1426,13 @@ contract HonkVerifier is IVerifier {
 
                     // Compute next target sum
                     let numerator_value := round_challenge
-                    numerator_value := mulmod(numerator_value, addmod(round_challenge, P_SUB_1, p), p)
-                    numerator_value := mulmod(numerator_value, addmod(round_challenge, P_SUB_2, p), p)
-                    numerator_value := mulmod(numerator_value, addmod(round_challenge, P_SUB_3, p), p)
-                    numerator_value := mulmod(numerator_value, addmod(round_challenge, P_SUB_4, p), p)
-                    numerator_value := mulmod(numerator_value, addmod(round_challenge, P_SUB_5, p), p)
-                    numerator_value := mulmod(numerator_value, addmod(round_challenge, P_SUB_6, p), p)
-                    numerator_value := mulmod(numerator_value, addmod(round_challenge, P_SUB_7, p), p)
+                    numerator_value := mulmod(numerator_value, addmod(round_challenge, sub(p, 1), p), p)
+                    numerator_value := mulmod(numerator_value, addmod(round_challenge, sub(p, 2), p), p)
+                    numerator_value := mulmod(numerator_value, addmod(round_challenge, sub(p, 3), p), p)
+                    numerator_value := mulmod(numerator_value, addmod(round_challenge, sub(p, 4), p), p)
+                    numerator_value := mulmod(numerator_value, addmod(round_challenge, sub(p, 5), p), p)
+                    numerator_value := mulmod(numerator_value, addmod(round_challenge, sub(p, 6), p), p)
+                    numerator_value := mulmod(numerator_value, addmod(round_challenge, sub(p, 7), p), p)
 
                     // // Compute the next round target
                     round_target := 0
@@ -1521,7 +1521,7 @@ contract HonkVerifier is IVerifier {
                         mulmod(
                             mulmod(
                                 mulmod(mulmod(mload(W1_EVAL_LOC), mload(W2_EVAL_LOC), p), mload(QM_EVAL_LOC), p),
-                                addmod(q_arith, P_SUB_3, p),
+                                addmod(q_arith, sub(p, 3), p),
                                 p
                             ),
                             NEG_HALF_MODULO_P,
@@ -1542,7 +1542,7 @@ contract HonkVerifier is IVerifier {
                     // α * (q_arith - 2) * (w_1 + w_4 - w_1_omega + q_m)
                     let extra_small_addition_gate_identity :=
                         mulmod(
-                            addmod(q_arith, P_SUB_2, p),
+                            addmod(q_arith, sub(p, 2), p),
                             addmod(
                                 mload(QM_EVAL_LOC),
                                 addmod(
@@ -1557,11 +1557,11 @@ contract HonkVerifier is IVerifier {
 
                     // Split up the two relations
                     let contribution_0 :=
-                        addmod(identity, mulmod(addmod(q_arith, P_SUB_1, p), mload(W4_SHIFT_EVAL_LOC), p), p)
+                        addmod(identity, mulmod(addmod(q_arith, sub(p, 1), p), mload(W4_SHIFT_EVAL_LOC), p), p)
                     contribution_0 := mulmod(mulmod(contribution_0, q_arith, p), mload(POW_PARTIAL_EVALUATION_LOC), p)
                     mstore(SUBRELATION_EVAL_0_LOC, contribution_0)
 
-                    let contribution_1 := mulmod(extra_small_addition_gate_identity, addmod(q_arith, P_SUB_1, p), p)
+                    let contribution_1 := mulmod(extra_small_addition_gate_identity, addmod(q_arith, sub(p, 1), p), p)
                     contribution_1 := mulmod(contribution_1, q_arith, p)
                     contribution_1 := mulmod(contribution_1, mload(POW_PARTIAL_EVALUATION_LOC), p)
                     mstore(SUBRELATION_EVAL_1_LOC, contribution_1)
@@ -1702,7 +1702,7 @@ contract HonkVerifier is IVerifier {
                     )
 
                     let read_tag := mload(LOOKUP_READ_TAGS_EVAL_LOC)
-                    let read_tag_boolean_relation := mulmod(read_tag, addmod(read_tag, P_SUB_1, p), p)
+                    let read_tag_boolean_relation := mulmod(read_tag, addmod(read_tag, sub(p, 1), p), p)
                     read_tag_boolean_relation := mulmod(read_tag_boolean_relation, mload(POW_PARTIAL_EVALUATION_LOC), p)
 
                     mstore(SUBRELATION_EVAL_4_LOC, accumulator_none)
