@@ -12,16 +12,13 @@ export CI=1
 # Set to 0 in ci3-external.yml for external contributors who don't have SSH access.
 export CI_USE_BUILD_INSTANCE_KEY=${CI_USE_BUILD_INSTANCE_KEY:-1}
 
+export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-60}
+
 if [ "$arch" == "arm64" ]; then
   cores=64
-  # Allow for 90 minutes as ARM has less cores.
-  export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-90}
+  export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME_ARM:-$AWS_SHUTDOWN_TIME}
 else
   cores=192,128,64
-  if [ "$CI_FULL" -eq 1 ]; then
-    # Allow for 75 minutes as ci-full time has crept up.
-    export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-75}
-  fi
 fi
 
 # Allow override.
