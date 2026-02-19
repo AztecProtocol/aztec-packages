@@ -162,6 +162,7 @@ InterleavedBatchResult<Commitment, FF> batch_interleaved_verifier_claims(
     }
 
     // Batch commitments via MSM (short scalars can be used here for circuit efficiency)
+    // ???
     Commitment batched_unshifted_comm = Commitment::batch_mul(unshifted_comms, unshifted_challenges, 127);
     Commitment batched_shifted_comm = Commitment::batch_mul(shifted_comms, shifted_challenges, 127);
 
