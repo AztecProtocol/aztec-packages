@@ -17,6 +17,7 @@
 namespace bb::crypto {
 
 static constexpr int ECDSA_RECOVERY_ID_OFFSET = 27;
+static constexpr int ECDSA_R_FINITENESS_OFFSET = 2;
 
 template <typename Fr, typename G1> struct ecdsa_key_pair {
     Fr private_key;

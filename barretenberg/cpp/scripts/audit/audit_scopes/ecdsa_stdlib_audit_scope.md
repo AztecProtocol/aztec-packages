@@ -22,11 +22,18 @@ The files 1. to 4. above contain our implementation of the ECDSA verification al
 
 Files 3. and 4. implement ECDSA verification, while 1. and 2. expose usage of the algorithm to Noir.
 
-Files 5. to 6. contain our native implementation of the ECDSA signature, verification, and recovery algorithms. See the documentation contained in the various files for references to the algorithms implemented.
+Files 5. to 6. contain our native implementation of:
+- ECDSA signature algorithm
+- ECDSA verification algorithm
+- ECDSA public key recovery algorithm
+
+#### HMAC
+HMAC (Hash-based Message Authentication Code) is a cryptographic authentication mechanism. It is used within ECDSA for deterministic nonce generation (RFC 6979) to prevent vulnerabilities from weak random number generators.
 
 File 7. contains our native implementation of HMAC and of deterministic nonce derivation following RFC6979, see links in the code.
 
-File 8. exposes the hash functions Keccak, Sha256, and Blake2s as hashers to be used in ECDSA.
+#### Hashers
+The hashers module provides uniform wrapper interfaces around different hash function implementations (SHA256, BLAKE2s, Keccak256). These wrappers allow ECDSA and other signature schemes to be templated on the hash function type, providing consistent `hash()` interfaces and metadata (BLOCK_SIZE, OUTPUT_SIZE) across different hash algorithms.
 
 
 ## Test Files

@@ -181,12 +181,8 @@ TYPED_TEST(EcdsaNativeTests, RejectROverflowModulus)
     auto account = TestFixture::generate_keypair();
     ecdsa_signature signature = TestFixture::create_valid_signature(message, account);
 
-    // Read current r value and set r = r + Fr::modulus (overflow)
-    uint256_t r_value;
-    const auto* r_read_ptr = &signature.r[0];
-    read(r_read_ptr, r_value);
-
-    uint256_t overflowing_r = r_value + uint256_t(Fr::modulus);
+    // Set r = 1 + Fr::modulus (overflow)
+    uint256_t overflowing_r = uint256_t(1) + uint256_t(Fr::modulus);
     auto* r_write_ptr = &signature.r[0];
     write(r_write_ptr, overflowing_r);
 
@@ -221,10 +217,9 @@ TYPED_TEST(EcdsaNativeTests, RejectHighS)
     auto account = TestFixture::generate_keypair();
     ecdsa_signature signature = TestFixture::create_valid_signature(message, account);
 
-    // Set s = (Fr::modulus + 1) / 2 (exactly at the boundary, should be rejected)
+    // Set s to high s (should be rejected)
     Fr s = Fr::serialize_from_buffer(&signature.s[0]);
-    uint256_t high_s(-s);
-    Fr::serialize_to_buffer(Fr(high_s), &signature.s[0]);
+    Fr::serialize_to_buffer(-s, &signature.s[0]);
 
     bool result = TestFixture::verify_signature(message, account.public_key, signature);
     EXPECT_FALSE(result);

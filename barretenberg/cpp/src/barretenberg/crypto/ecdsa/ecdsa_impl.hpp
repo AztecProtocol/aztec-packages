@@ -32,15 +32,15 @@ ecdsa_signature ecdsa_construct_signature(const std::string& message, const ecds
     typename G1::affine_element R(G1::one * k);
 
     // Compute the signature
-    Fr r_fr = Fr(R.x);
-    Fr s_fr = (z + r_fr * account.private_key) / k;
+    Fr r = Fr(R.x);
+    Fr s = (z + r * account.private_key) / k;
 
-    // Ensure that the value of s is "low", i.e. s := min{ s_fr, (|Fr| - s_fr) }
-    const bool is_s_low = (uint256_t(s_fr) < (uint256_t(Fr::modulus) + 1) / 2);
-    uint256_t s_uint256 = is_s_low ? uint256_t(s_fr) : (uint256_t(Fr::modulus) - uint256_t(s_fr));
+    // Ensure that the value of s is "low", i.e. s := min{ s, (|Fr| - s) }
+    const bool is_s_low = (uint256_t(s) < (uint256_t(Fr::modulus) + 1) / 2);
+    s = is_s_low ? s : -s;
 
-    Fr::serialize_to_buffer(r_fr, &sig.r[0]);
-    Fr::serialize_to_buffer(Fr(s_uint256), &sig.s[0]);
+    Fr::serialize_to_buffer(r, &sig.r[0]);
+    Fr::serialize_to_buffer(s, &sig.s[0]);
 
     // Compute recovery_id: given R = (x, y)
     //   0: y is even  &&  x < |Fr|
@@ -48,13 +48,14 @@ ecdsa_signature ecdsa_construct_signature(const std::string& message, const ecds
     //   2: y is even  &&  |Fr| <= x < |Fq|
     //   3: y is odd   &&  |Fr| <= x < |Fq|
     // v = offset + recovery_id
-    bool is_r_finite = (uint256_t(R.x) == uint256_t(r_fr));
+    bool is_r_finite = (uint256_t(R.x) == uint256_t(r));
     bool y_parity = uint256_t(R.y).get_bit(0);
     // When s is negated (low-s normalization), the effective nonce point becomes -R,
     // which has the opposite y-parity. Flip y_parity accordingly.
     bool recovery_id = is_s_low ? y_parity : !y_parity;
 
-    int value = is_r_finite ? ECDSA_RECOVERY_ID_OFFSET + recovery_id : ECDSA_RECOVERY_ID_OFFSET + recovery_id + 2;
+    int value = is_r_finite ? ECDSA_RECOVERY_ID_OFFSET + recovery_id
+                            : ECDSA_RECOVERY_ID_OFFSET + recovery_id + ECDSA_R_FINITENESS_OFFSET;
     BB_ASSERT_LTE(value, UINT8_MAX);
     sig.v = static_cast<uint8_t>(value);
 

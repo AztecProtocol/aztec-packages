@@ -15,6 +15,26 @@
 #include <vector>
 
 namespace bb::crypto {
+inline void secure_erase_bytes(void* ptr, size_t size)
+{
+    volatile uint8_t* p = static_cast<volatile uint8_t*>(ptr);
+    while (size-- > 0) {
+        *p++ = 0;
+    }
+}
+
+template <typename T, size_t N> inline void secure_erase(std::array<T, N>& buffer)
+{
+    secure_erase_bytes(buffer.data(), buffer.size() * sizeof(T));
+}
+
+template <typename T> inline void secure_erase(std::vector<T>& buffer)
+{
+    if (!buffer.empty()) {
+        secure_erase_bytes(buffer.data(), buffer.size() * sizeof(T));
+    }
+}
+
 /**
  * @brief Compute an HMAC given a secret key and a message, see https://datatracker.ietf.org/doc/html/rfc2104
  *
@@ -40,46 +60,50 @@ std::array<uint8_t, Hash::OUTPUT_SIZE> hmac(const MessageContainer& message, con
 
     // initialize k_prime to 0x00,...,0x00
     // copy key or truncated key to start.
-    // TODO: securely erase `k_prime`
     std::array<uint8_t, B> k_prime{};
     if (key.size() > B) {
         std::vector<uint8_t> key_buffer(key.begin(), key.end());
-        const auto truncated_key = Hash::hash(key_buffer);
+        auto truncated_key = Hash::hash(key_buffer);
         std::copy(truncated_key.begin(), truncated_key.end(), k_prime.begin());
+        secure_erase(key_buffer);
+        secure_erase(truncated_key);
     } else {
         std::copy(key.begin(), key.end(), k_prime.begin());
     }
 
-    // TODO: securely erase `h1`
     std::array<uint8_t, B> h1;
     for (size_t i = 0; i < B; ++i) {
         h1[i] = k_prime[i] ^ opad[i];
     }
 
-    // TODO: securely erase `h2`
     std::array<uint8_t, B> h2;
     for (size_t i = 0; i < B; ++i) {
         h2[i] = k_prime[i] ^ ipad[i];
     }
+    secure_erase(k_prime);
 
-    // TODO: securely erase copy of `h2` in `message_buffer`,
-    // ensure `message_buffer` is not re-allocated
     std::vector<uint8_t> message_buffer;
+    message_buffer.reserve(B + message.size());
     std::copy(h2.begin(), h2.end(), std::back_inserter(message_buffer));
     std::copy(message.begin(), message.end(), std::back_inserter(message_buffer));
 
-    const auto h3 = Hash::hash(message_buffer);
+    auto h3 = Hash::hash(message_buffer);
+    secure_erase(h2);
+    secure_erase(message_buffer);
 
-    // TODO: securely erase copy of `h1` in `hmac_buffer`,
-    // ensure `hmac_buffer` is not re-allocated
     std::vector<uint8_t> hmac_buffer;
+    hmac_buffer.reserve(B + Hash::OUTPUT_SIZE);
     std::copy(h1.begin(), h1.end(), std::back_inserter(hmac_buffer));
     std::copy(h3.begin(), h3.end(), std::back_inserter(hmac_buffer));
 
-    const auto hmac_key = Hash::hash(hmac_buffer);
+    auto hmac_key = Hash::hash(hmac_buffer);
+    secure_erase(h1);
+    secure_erase(h3);
+    secure_erase(hmac_buffer);
 
     std::array<uint8_t, Hash::OUTPUT_SIZE> result;
     std::copy(hmac_key.begin(), hmac_key.end(), result.begin());
+    secure_erase(hmac_key);
     return result;
 }
 
@@ -106,14 +130,17 @@ Fr deterministic_nonce_rfc6979(const MessageContainer& message, const KeyContain
     // Hash the mesage, reduce it modulo Fr::modulus, and serialize it to a buffer
     std::vector<uint8_t> message_buffer(message.begin(), message.end());
     auto hashed_message = Hash::hash(message_buffer);
+    secure_erase(message_buffer);
     Fr hashed_message_fr = Fr::serialize_from_buffer(hashed_message.data());
     hashed_message = {};
     Fr::serialize_to_buffer(hashed_message_fr, &hashed_message[0]);
 
     // Concatenate the private key and the hashed message
     std::vector<uint8_t> seed_material;
+    seed_material.reserve(key.size() + hashed_message.size());
     std::ranges::copy(key, std::back_inserter(seed_material));
     std::ranges::copy(hashed_message, std::back_inserter(seed_material));
+    secure_erase(hashed_message);
 
     // Initialize the buffers V and K
     std::array<uint8_t, INITIAL_BUFFER_SIZE> v_buffer;
@@ -123,6 +150,7 @@ Fr deterministic_nonce_rfc6979(const MessageContainer& message, const KeyContain
 
     // Temporary buffer for first HMAC round
     std::vector<uint8_t> tmp_buffer(INITIAL_BUFFER_SIZE, 0x01);
+    tmp_buffer.reserve(INITIAL_BUFFER_SIZE + 1 + seed_material.size());
     tmp_buffer.emplace_back(0x00);
     std::ranges::copy(seed_material, std::back_inserter(tmp_buffer));
 
@@ -133,6 +161,7 @@ Fr deterministic_nonce_rfc6979(const MessageContainer& message, const KeyContain
 
     // Temporary buffer for second HMAC round
     tmp_buffer.clear();
+    tmp_buffer.reserve(INITIAL_BUFFER_SIZE + 1 + seed_material.size());
     std::ranges::copy(v_buffer, std::back_inserter(tmp_buffer));
     tmp_buffer.emplace_back(0x01);
     std::ranges::copy(seed_material, std::back_inserter(tmp_buffer));
@@ -164,12 +193,19 @@ Fr deterministic_nonce_rfc6979(const MessageContainer& message, const KeyContain
         }
 
         std::vector<uint8_t> tmp_buffer;
+        tmp_buffer.reserve(INITIAL_BUFFER_SIZE + 1);
         std::ranges::copy(v_buffer, std::back_inserter(tmp_buffer));
         tmp_buffer.emplace_back(0x00);
         key_buffer = hmac<Hash, std::vector<uint8_t>, std::array<uint8_t, INITIAL_BUFFER_SIZE>>(tmp_buffer, key_buffer);
+        secure_erase(tmp_buffer);
         v_buffer = hmac<Hash, std::array<uint8_t, INITIAL_BUFFER_SIZE>, std::array<uint8_t, INITIAL_BUFFER_SIZE>>(
             v_buffer, key_buffer);
     }
+
+    secure_erase(seed_material);
+    secure_erase(tmp_buffer);
+    secure_erase(v_buffer);
+    secure_erase(key_buffer);
 
     return Fr(k);
 }
