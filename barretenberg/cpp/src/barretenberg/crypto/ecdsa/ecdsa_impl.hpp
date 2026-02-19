@@ -27,6 +27,7 @@ ecdsa_signature ecdsa_construct_signature(const std::string& message, const ecds
     std::vector<uint8_t> pkey_buffer;
     write(pkey_buffer, account.private_key);
     Fr k = crypto::deterministic_nonce_rfc6979<Hash, Fr>(message, pkey_buffer);
+    secure_erase(pkey_buffer);
 
     // Compute R = k * G
     typename G1::affine_element R(G1::one * k);
@@ -34,6 +35,7 @@ ecdsa_signature ecdsa_construct_signature(const std::string& message, const ecds
     // Compute the signature
     Fr r = Fr(R.x);
     Fr s = (z + r * account.private_key) / k;
+    secure_erase_bytes(&k, sizeof(k));
 
     // Ensure that the value of s is "low", i.e. s := min{ s, (|Fr| - s) }
     const bool is_s_low = (uint256_t(s) < (uint256_t(Fr::modulus) + 1) / 2);
@@ -91,17 +93,9 @@ typename G1::affine_element ecdsa_recover_public_key(const std::string& message,
     BB_ASSERT(s_uint != 0, "s value is zero");
 
     // Check that v is in {27, 28, 29, 30} and then bring it back to the range {0, 1, 2, 3}
-    Fq r_fq = Fq(r_uint);
-    bool is_r_finite = true;
-
-    if ((v_uint == 27) || (v_uint == 28)) {
-        BB_ASSERT_EQ(uint256_t(r), uint256_t(r_fq));
-    } else if ((v_uint == 29) || (v_uint == 30)) {
-        BB_ASSERT_LT(uint256_t(r), uint256_t(r_fq));
-        is_r_finite = false;
-    } else {
-        bb::assert_failure("v value is not in {27, 28, 29, 30}");
-    }
+    BB_ASSERT_GTE(v_uint, ECDSA_RECOVERY_ID_OFFSET, "v value is too small");
+    BB_ASSERT_LTE(v_uint, ECDSA_RECOVERY_ID_OFFSET + 3, "v value is too large");
+    bool is_r_finite = v_uint < ECDSA_RECOVERY_ID_OFFSET + 2;
     v_uint -= ECDSA_RECOVERY_ID_OFFSET;
 
     // Decompress the x-coordinate r_uint to get two possible R points
@@ -208,8 +202,12 @@ template <typename Hash, typename Fr> Fr ecdsa_hash_message(const std::string& m
     if (Hash::OUTPUT_SIZE * 8 > MODULUS_BIT_LENGTH) {
         // Trim the hash output
         size_t remainder = MODULUS_BIT_LENGTH % 8;
-        ev.resize((MODULUS_BIT_LENGTH + 7) / 8);
-        ev.back() &= (1 << remainder) - 1;
+        size_t bit_length = (MODULUS_BIT_LENGTH + 7) / 8;
+        ev.resize(bit_length);
+        if (remainder != 0) {
+            ev[0] &= (1 << remainder) - 1;
+        }
+        ev.insert(ev.begin(), Hash::OUTPUT_SIZE - bit_length, 0);
     }
 
     return Fr::serialize_from_buffer(&ev[0]);

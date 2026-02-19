@@ -132,6 +132,7 @@ Fr deterministic_nonce_rfc6979(const MessageContainer& message, const KeyContain
     auto hashed_message = Hash::hash(message_buffer);
     secure_erase(message_buffer);
     Fr hashed_message_fr = Fr::serialize_from_buffer(hashed_message.data());
+    hashed_message_fr.self_reduce_once();
     hashed_message = {};
     Fr::serialize_to_buffer(hashed_message_fr, &hashed_message[0]);
 
@@ -182,8 +183,12 @@ Fr deterministic_nonce_rfc6979(const MessageContainer& message, const KeyContain
         if (Hash::OUTPUT_SIZE * 8 > MODULUS_BIT_LENGTH) {
             // Trim the hash output
             size_t remainder = MODULUS_BIT_LENGTH % 8;
-            trimmed_v_buffer.resize((MODULUS_BIT_LENGTH + 7) / 8);
-            trimmed_v_buffer.back() &= (1 << remainder) - 1;
+            size_t bit_length = (MODULUS_BIT_LENGTH + 7) / 8;
+            trimmed_v_buffer.resize(bit_length);
+            if (remainder != 0) {
+                trimmed_v_buffer[0] &= (1 << remainder) - 1;
+            }
+            trimmed_v_buffer.insert(trimmed_v_buffer.begin(), Hash::OUTPUT_SIZE - bit_length, 0);
         }
         const uint8_t* ptr = trimmed_v_buffer.data();
         read(ptr, k);
