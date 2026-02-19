@@ -89,8 +89,8 @@ Operates on `TxMetaData` (pre-built by the pool) rather than full `Tx` objects.
 | `MetadataTxValidator` | Chain ID, rollup version, protocol contracts hash, VK tree root |
 | `TimestampTxValidator` | Transaction has not expired (expiration timestamp vs next slot) |
 | `DoubleSpendTxValidator` | Nullifiers do not already exist in the nullifier tree |
-| `GasTxValidator` | Fee payer has sufficient balance to cover gas fees |
-| `GasLimitsValidator` | Gas limits are within configured bounds |
+| `GasTxValidator` | Gas limits are within bounds (delegates to `GasLimitsValidator`), max fee per gas meets current block fees, and fee payer has sufficient FeeJuice balance |
+| `GasLimitsValidator` | Gas limits are >= fixed minimums and <= AVM max processable L2 gas. Used standalone in pool migration; also called internally by `GasTxValidator` |
 | `PhasesTxValidator` | Public function calls in setup phase are on the allow list |
 | `BlockHeaderTxValidator` | Transaction's anchor block hash exists in the archive tree |
 | `TxProofValidator` | Client proof verifies correctly |
@@ -105,11 +105,11 @@ Operates on `TxMetaData` (pre-built by the pool) rather than full `Tx` objects.
 | Metadata | Stage 1 | Yes | Yes | — | — |
 | Timestamp | Stage 1 | Yes | — | Yes | Yes |
 | DoubleSpend | Stage 1 | Yes | — | Yes | Yes |
-| Gas (balance) | Stage 1 | Optional* | — | Yes | — |
-| GasLimits | — | — | — | — | Yes |
+| Gas (balance + limits) | Stage 1 | Optional* | — | Yes | — |
+| GasLimits (standalone) | — | — | — | — | Yes |
 | Phases | Stage 1 | Yes | — | Yes | — |
 | BlockHeader | Stage 1 | Yes | — | Yes | Yes |
 | Proof | Stage 2 | Optional** | Yes | — | — |
 
-\* Gas balance check is skipped when `skipFeeEnforcement` is set (testing/dev).
+\* Gas balance check is skipped when `skipFeeEnforcement` is set (testing/dev). `GasTxValidator` internally delegates to `GasLimitsValidator` as its first step, so gas limits are checked wherever `GasTxValidator` runs. Pool migration uses `GasLimitsValidator` standalone because it doesn't need the balance or fee-per-gas checks.
 \** Proof verification is skipped for simulations (no verifier provided).
