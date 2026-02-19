@@ -23,6 +23,7 @@
 </ul>
 <h3>Functions</h3><ul class="item-list">
 <li><a href="fn.compute_private_event_commitment.html">compute_private_event_commitment</a></div></li>
+<li><a href="fn.compute_private_serialized_event_commitment.html">compute_private_serialized_event_commitment</a></div></li>
 </ul>
 </nav>
 <main>
@@ -31,14 +32,14 @@
 <pre><code>pub fn compute_private_event_commitment&lt;Event&gt;(event: Event, randomness: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a>
 <div class="where-clause">where
     Event: <a href="../../../noir_aztec/event/event_interface/trait.EventInterface.html" class="trait">EventInterface</a>,
-    Event: <a href="../../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code></pre>
+    Event: <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code></pre>
 
 <div class="comments">
-<p>A private event's commitment is used to validate that an event was indeed emitted.</p>
-<p>It requires a <code>randomness</code> value that must be produced alongside the event in order to perform said validation. This
-random value prevents attacks in which someone guesses plausible events (e.g. 'Alice transfers to Bob an amount of
-10'), since they will not be able to test for existence of their guessed events without brute-forcing the entire
-<code>Field</code> space by guessing <code>randomness</code> values.</p>
+<p>A private event's commitment is a value stored on-chain which is used to verify that the event was indeed emitted.</p>
+<p>It requires a <code>randomness</code> value that must be produced alongside the event in order to perform said validation.
+This random value prevents attacks in which someone guesses plausible events (e.g. 'Alice transfers to Bob an
+amount of 10'), since they will not be able to test for existence of their guessed events without brute-forcing the
+entire <code>Field</code> space by guessing <code>randomness</code> values.</p>
 </div>
 </main>
 </span>

@@ -22,7 +22,7 @@ Before starting, ensure you have the following installed and configured:
 - Node.js (v22 or later)
 - yarn package manager
 - Aztec CLI (version #include_aztec_version)
-- Nargo (version 1.0.0-beta.15)
+- Nargo
 - Familiarity with [Noir syntax](https://noir-lang.org/docs) and [Aztec contract basics](../../aztec-nr/index.md)
 
 Install the required tools:
@@ -33,7 +33,7 @@ VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec
 
 # Install Nargo via noirup
 curl -L https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
-noirup -v 1.0.0-beta.15
+noirup -v 1.0.0-beta.18
 ```
 
 ## Part 1: Understanding the Architecture
@@ -93,6 +93,7 @@ This enables patterns impossible on transparent blockchains, like proving you ha
 When using [recursive verification](https://noir-lang.org/docs/noir/standard_library/recursion) in Aztec, users experience **two distinct proof generation phases**:
 
 1. **Noir Proof Generation** (application-specific):
+
    - Happens before interacting with the Aztec contract
    - Proves the computation (e.g., "I know values x and y where x ≠ y")
    - Time depends on circuit complexity (seconds to minutes)
@@ -579,16 +580,15 @@ The deployment script connects to the Aztec network, creates an account, deploys
 Create `scripts/run_recursion.ts`:
 
 ```typescript
-import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee";
 import type { FieldLike } from "@aztec/aztec.js/abi";
 import { getSponsoredFPCInstance } from "./sponsored_fpc.ts";
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
 import { ValueNotEqualContract } from "../contract/artifacts/ValueNotEqual";
 import data from "../data.json";
-import { getPXEConfig } from "@aztec/pxe/config";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
+import { Fr } from "@aztec/aztec.js/fields";
 import { rm } from "node:fs/promises";
 import assert from "node:assert";
 
@@ -597,24 +597,21 @@ export const NODE_URL = "http://localhost:8080";
 // Setup sponsored fee payment - the FPC pays transaction fees for us
 const sponsoredFPC = await getSponsoredFPCInstance();
 const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(
-  sponsoredFPC.address,
+  sponsoredFPC.address
 );
 
 // Initialize wallet and connect to local network
 // The wallet manages accounts and sends transactions through the PXE
 export const setupWallet = async (): Promise<EmbeddedWallet> => {
   try {
-    // Connect to the Aztec node (runs the rollup)
-    const aztecNode = await createAztecNodeClient(NODE_URL);
-
-    // Configure PXE (Private eXecution Environment)
-    // PXE runs on the client and handles private execution
-    const config = getPXEConfig();
+    // Clean up any previous PXE data
     await rm("pxe", { recursive: true, force: true });
-    config.dataDirectory = "pxe";
 
     // Create wallet with embedded PXE
-    let wallet = await EmbeddedWallet.create(aztecNode, config);
+    // The wallet manages accounts and connects to the node
+    let wallet = await EmbeddedWallet.create(NODE_URL, {
+      pxeConfig: { dataDirectory: "pxe" },
+    });
 
     // Register the sponsored FPC so the wallet knows about it
     await wallet.registerContract(sponsoredFPC, SponsoredFPCContract.artifact);
@@ -630,16 +627,14 @@ async function main() {
   // Accounts in Aztec are smart contracts (account abstraction)
   // See: https://docs.aztec.network/aztec/concepts/accounts
   const wallet = await setupWallet();
-  const account = await wallet.createAccount();
-  const manager = await account.getDeployMethod();
+  const manager = await wallet.createSchnorrAccount(Fr.random(), Fr.random());
 
   // Deploy the account contract
-  await manager
-    .send({
-      from: AztecAddress.ZERO,
-      fee: { paymentMethod: sponsoredPaymentMethod },
-    })
-    .deployed();
+  const deployMethod = await manager.getDeployMethod();
+  await deployMethod.send({
+    from: AztecAddress.ZERO,
+    fee: { paymentMethod: sponsoredPaymentMethod },
+  });
 
   const accounts = await wallet.getAccounts();
 
@@ -649,13 +644,11 @@ async function main() {
     wallet,
     10, // Initial counter value
     accounts[0].item, // Owner address
-    data.vkHash as unknown as FieldLike, // VK hash for verification
-  )
-    .send({
-      from: accounts[0].item,
-      fee: { paymentMethod: sponsoredPaymentMethod },
-    })
-    .deployed();
+    data.vkHash as unknown as FieldLike // VK hash for verification
+  ).send({
+    from: accounts[0].item,
+    fee: { paymentMethod: sponsoredPaymentMethod },
+  });
 
   console.log(`Contract deployed at: ${valueNotEqual.address}`);
 
@@ -682,7 +675,7 @@ async function main() {
     accounts[0].item,
     data.vkAsFields as unknown as FieldLike[], // 115 field VK
     data.proofAsFields as unknown as FieldLike[], // 508 field proof
-    data.publicInputs as unknown as FieldLike[], // Public inputs
+    data.publicInputs as unknown as FieldLike[] // Public inputs
   );
 
   // Step 5: Send transaction and wait for inclusion
@@ -713,7 +706,7 @@ Aztec transactions require fees. For testing, we use a Sponsored Fee Payment Con
 ```typescript
 const sponsoredFPC = await getSponsoredFPCInstance();
 const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(
-  sponsoredFPC.address,
+  sponsoredFPC.address
 );
 ```
 
@@ -724,16 +717,19 @@ In production, you would use real [fee payment methods](../../aztec-js/how_to_pa
 This single line triggers a complex flow:
 
 1. **Private Execution** (client-side, in PXE):
+
    - Execute `increment()` with provided arguments
    - Read `vk_hash` from contract storage
    - Execute `verify_honk_proof()` inside the private function
    - Generate the `enqueue_self._increment_public(owner)` call
 
 2. **Proof Generation** (client-side, in PXE):
+
    - Generate a ZK proof that the private execution was correct
    - This proof doesn't reveal inputs (including the 508-field proof!)
 
 3. **Transaction Submission**:
+
    - Send the proof + encrypted logs + public function calls to the network
 
 4. **Verification & Public Execution** (onchain):

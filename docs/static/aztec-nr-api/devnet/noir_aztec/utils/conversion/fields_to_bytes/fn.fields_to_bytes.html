@@ -30,13 +30,12 @@
 
 <div class="comments">
 <p>Converts an input array of fields into a single array of bytes. Use <code>fields_from_bytes</code> to obtain the original
-field array.
-Each field is converted to a 32-byte big-endian array.</p>
+field array. Each field is converted to a 32-byte big-endian array.</p>
 <p>For example, if you have a field array [123, 456], it will be converted to a 64-byte array:
 [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,123,  // First field (32 bytes)
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,200]  // Second field (32 bytes)</p>
-<p>Since a field is ~254 bits, you'll end up with a subtle 2-bit &quot;gap&quot; at the big end, every 32 bytes. Be careful
-that such a gap doesn't leak information! This could happen if you for example expected the output to be
+<p>Since a field is ~254 bits, you'll end up with a subtle 2-bit &quot;gap&quot; at the big end, every 32 bytes. Be careful that
+such a gap doesn't leak information! This could happen if you for example expected the output to be
 indistinguishable from random bytes.</p>
 </div>
 </main>
