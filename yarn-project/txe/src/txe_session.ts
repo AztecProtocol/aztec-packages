@@ -3,12 +3,12 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import type { ProtocolContract } from '@aztec/protocol-contracts';
 import type { AccessScopes } from '@aztec/pxe/client/lazy';
 import {
   AddressStore,
   AnchorBlockStore,
   CapsuleStore,
+  ContractStore,
   JobCoordinator,
   NoteService,
   NoteStore,
@@ -55,7 +55,6 @@ import { TXEArchiver } from './state_machine/archiver.js';
 import { TXEStateMachine } from './state_machine/index.js';
 import type { ForeignCallArgs, ForeignCallResult } from './util/encoding.js';
 import { TXEAccountStore } from './util/txe_account_store.js';
-import { TXEContractStore } from './util/txe_contract_store.js';
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from './utils/block_creation.js';
 import { makeTxEffect } from './utils/tx_effect_creation.js';
 
@@ -132,7 +131,7 @@ export class TXESession implements TXESessionStateHandler {
       | IPrivateExecutionOracle
       | IAvmExecutionOracle
       | ITxeExecutionOracle,
-    private contractStore: TXEContractStore,
+    private contractStore: ContractStore,
     private noteStore: NoteStore,
     private keyStore: KeyStore,
     private addressStore: AddressStore,
@@ -149,12 +148,11 @@ export class TXESession implements TXESessionStateHandler {
     private nextBlockTimestamp: bigint,
   ) {}
 
-  static async init(protocolContracts: ProtocolContract[]) {
+  static async init(contractStore: ContractStore) {
     const store = await openTmpStore('txe-session');
 
     const addressStore = new AddressStore(store);
     const privateEventStore = new PrivateEventStore(store);
-    const contractStore = new TXEContractStore(store);
     const noteStore = new NoteStore(store);
     const senderTaggingStore = new SenderTaggingStore(store);
     const recipientTaggingStore = new RecipientTaggingStore(store);
@@ -172,12 +170,6 @@ export class TXESession implements TXESessionStateHandler {
       privateEventStore,
       noteStore,
     ]);
-
-    // Register protocol contracts.
-    for (const { contractClass, instance, artifact } of protocolContracts) {
-      await contractStore.addContractArtifact(contractClass.id, artifact);
-      await contractStore.addContractInstance(instance);
-    }
 
     const archiver = new TXEArchiver(store);
     const anchorBlockStore = new AnchorBlockStore(store);

@@ -599,11 +599,11 @@ void contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                     static_cast<View>(in.get(C::execution_prev_written_public_data_slots_tree_size_shift)));
         std::get<83>(evals) += (tmp * scaling_factor);
     }
-    { // NUM_UNENCRYPTED_LOGS_CONTINUITY
+    { // NUM_PUBLIC_LOGS_CONTINUITY
         using View = typename std::tuple_element_t<84, ContainerOverSubrelations>::View;
         auto tmp = CView(execution_NOT_LAST_NOT_FAILURE_NOT_ENQ_END) *
-                   (static_cast<View>(in.get(C::execution_num_unencrypted_log_fields)) -
-                    static_cast<View>(in.get(C::execution_prev_num_unencrypted_log_fields_shift)));
+                   (static_cast<View>(in.get(C::execution_num_public_log_fields)) -
+                    static_cast<View>(in.get(C::execution_prev_num_public_log_fields_shift)));
         std::get<84>(evals) += (tmp * scaling_factor);
     }
     { // NUM_L2_TO_L1_MESSAGES_CONTINUITY

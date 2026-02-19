@@ -550,14 +550,14 @@ impl TestEnvironment {
     /// ```noir
     /// let caller = env.create_light_account();
     /// let contract_addr = env.deploy("SampleContract").without_initializer();
-    /// let return_value = env.simulate_utility(SampleContract::at(contract_addr).sample_utility_function());
+    /// let return_value = env.execute_utility(SampleContract::at(contract_addr).sample_utility_function());
     /// ```
-    pub unconstrained fn simulate_utility<let M: u32, let N: u32, T>(_self: Self, call: UtilityCall<M, N, T>) -> T
+    pub unconstrained fn execute_utility<let M: u32, let N: u32, T>(_self: Self, call: UtilityCall<M, N, T>) -> T
     where
         T: Deserialize,
     {
         let serialized_return_values =
-            txe_oracles::simulate_utility_function(call.target_contract, call.selector, call.args);
+            txe_oracles::execute_utility_function(call.target_contract, call.selector, call.args);
 
         T::deserialize(serialized_return_values)
     }

@@ -114,7 +114,7 @@ describe('ValidatorClient Integration', () => {
       worldStateBlockCheckIntervalMS: 20,
       worldStateBlockRequestBatchSize: 10,
       worldStateDbMapSizeKb: 1024 * 1024,
-      worldStateBlockHistory: 0,
+      worldStateCheckpointHistory: 0,
     };
     const worldStateDb = await NativeWorldStateService.tmp(rollupAddress, true, prefilledPublicData);
     const synchronizer = new ServerWorldStateSynchronizer(worldStateDb, archiver, wsConfig);
@@ -279,9 +279,10 @@ describe('ValidatorClient Integration', () => {
       feeRecipient: await AztecAddress.random(),
       gasFees: GasFees.empty(),
       slotNumber: slot,
+      timestamp: BigInt(Date.now()),
     };
 
-    using fork = await proposer.worldStateDb.fork();
+    await using fork = await proposer.worldStateDb.fork();
     const builder = await proposer.checkpointsBuilder.startCheckpoint(
       checkpointNumber,
       globalVariables,

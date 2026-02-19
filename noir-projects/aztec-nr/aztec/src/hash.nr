@@ -66,12 +66,12 @@ pub fn hash_calldata_array<let N: u32>(calldata: [Field; N]) -> Field {
     poseidon2_hash_with_separator(calldata, DOM_SEP__PUBLIC_CALLDATA)
 }
 
-/// Computes the public bytecode commitment for a contract class. The commitment is `hash([separator, ...bytecode])`
-/// where bytecode omits the length prefix present in `packed_bytecode`.
+/// Computes the public bytecode commitment for a contract class. The commitment is `hash([(length | separator),
+/// ...bytecode])`.
 ///
 /// @param packed_bytecode - The packed bytecode of the contract class. 0th word is the length in bytes.
-/// packed_bytecode is mutable so that we can avoid copying the array to construct one starting with separator instead
-/// of length. @returns The public bytecode commitment.
+/// packed_bytecode is mutable so that we can avoid copying the array to construct one starting with first_field
+/// instead of length. @returns The public bytecode commitment.
 pub fn compute_public_bytecode_commitment(
     mut packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS],
 ) -> Field {
@@ -82,12 +82,12 @@ pub fn compute_public_bytecode_commitment(
     assert(bytecode_length_in_fields != 0);
     assert(bytecode_length_in_fields < MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
 
-    // Packed_bytecode's 0th entry is the length. Replace it with separator before hashing.
-    let separator = DOM_SEP__PUBLIC_BYTECODE.to_field();
-    packed_public_bytecode[0] = separator;
+    // Packed_bytecode's 0th entry is the length. Append it to the separator before hashing.
+    let first_field = DOM_SEP__PUBLIC_BYTECODE.to_field() + (packed_public_bytecode[0] as u64 << 32) as Field;
+    packed_public_bytecode[0] = first_field;
 
     // `fields_to_hash` is the number of fields from the start of `packed_public_bytecode` that should be included in
-    // the hash. Fields after this length are ignored. +1 to account for the separator.
+    // the hash. Fields after this length are ignored. +1 to account for the prepended field.
     let num_fields_to_hash = bytecode_length_in_fields + 1;
 
     poseidon2_hash_subarray(packed_public_bytecode, num_fields_to_hash)
@@ -143,5 +143,5 @@ unconstrained fn public_bytecode_commitment() {
     input[0] = (len as Field) * 31;
     let hash = compute_public_bytecode_commitment(input);
     // Used in cpp vm2 tests:
-    assert_eq(hash, 0x0c8f69a2f17ceb90f720db5718a8b2bd948db32d17858db403373b3bfe880113);
+    assert_eq(hash, 0x09348974e76c3602893d7a4b4bb52c2ec746f1ade5004ac471d0fbb4587a81a6);
 }

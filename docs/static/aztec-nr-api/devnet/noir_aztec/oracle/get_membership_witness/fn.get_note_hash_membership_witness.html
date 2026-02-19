@@ -22,7 +22,7 @@
 <li><a href="struct.MembershipWitness.html">MembershipWitness</a></div></li>
 </ul>
 <h3>Functions</h3><ul class="item-list">
-<li><a href="fn.get_archive_membership_witness.html">get_archive_membership_witness</a></div></li>
+<li><a href="fn.get_block_hash_membership_witness.html">get_block_hash_membership_witness</a></div></li>
 <li><a href="fn.get_note_hash_membership_witness.html">get_note_hash_membership_witness</a></div></li>
 </ul>
 </nav>
@@ -30,10 +30,13 @@
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">oracle</a>::<a href="index.html">get_membership_witness</a></div>
 <h1>Function <span class="fn">get_note_hash_membership_witness</span></h1>
 <pre><code>pub unconstrained fn get_note_hash_membership_witness(
-    block_number: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
-    leaf_value: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    anchor_block_header: <a href="../../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a>,
+    note_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
 ) -> <a href="../../../noir_aztec/oracle/get_membership_witness/struct.MembershipWitness.html" class="struct">MembershipWitness</a>&lt;42, 43&gt;</code></pre>
 
+<div class="comments">
+<p>Returns a membership witness for a <code>note_hash</code> in the note hash tree whose root is defined in</p>
+</div>
 </main>
 </span>
 </body>

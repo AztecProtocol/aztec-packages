@@ -52,7 +52,7 @@ describe('world-state integration', () => {
       worldStateBlockCheckIntervalMS: 20,
       worldStateBlockRequestBatchSize: 5,
       worldStateDbMapSizeKb: 1024 * 1024,
-      worldStateBlockHistory: 0,
+      worldStateCheckpointHistory: 0,
     };
 
     archiver = new MockPrefilledArchiver(checkpoints);

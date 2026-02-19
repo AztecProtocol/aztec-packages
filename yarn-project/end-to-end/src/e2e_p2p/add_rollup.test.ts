@@ -25,7 +25,6 @@ import {
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
-import type { ProverNode } from '@aztec/prover-node';
 import { getPXEConfig } from '@aztec/pxe/server';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
@@ -65,7 +64,7 @@ jest.setTimeout(1000 * 60 * 10);
 describe('e2e_p2p_add_rollup', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
-  let proverNode: ProverNode;
+  let proverAztecNode: AztecNodeService;
   let l1TxUtils: L1TxUtils;
 
   beforeAll(async () => {
@@ -94,7 +93,7 @@ describe('e2e_p2p_add_rollup', () => {
   });
 
   afterAll(async () => {
-    await tryStop(proverNode);
+    await tryStop(proverAztecNode);
     await t.stopNodes(nodes);
     await t.teardown();
     for (let i = 0; i < NUM_VALIDATORS; i++) {
@@ -246,7 +245,7 @@ describe('e2e_p2p_add_rollup', () => {
 
     // create a prover node that uses p2p only (not rpc) to gather txs to test prover tx collection
     t.logger.warn(`Creating prover node`);
-    proverNode = await createProverNode(
+    ({ proverNode: proverAztecNode } = await createProverNode(
       t.ctx.aztecNodeConfig,
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
       t.bootstrapNodeEnr,
@@ -255,8 +254,7 @@ describe('e2e_p2p_add_rollup', () => {
       t.prefilledPublicData,
       `${DATA_DIR}-prover`,
       shouldCollectMetrics(),
-    );
-    await proverNode.start();
+    ));
 
     await sleep(4000);
 
@@ -501,8 +499,8 @@ describe('e2e_p2p_add_rollup', () => {
       `Attesters new before: ${attestersBeforeNew.length}. Attesters new after: ${attestersAfterNew.length}`,
     );
 
-    // Stop the prover node.
-    await proverNode.stop();
+    // Stop the prover aztec node (which stops the prover subsystem).
+    await proverAztecNode.stop();
 
     // stop all nodes
     for (let i = 0; i < NUM_VALIDATORS; i++) {
@@ -561,7 +559,7 @@ describe('e2e_p2p_add_rollup', () => {
     );
 
     t.logger.warn(`Creating new prover node`);
-    proverNode = await createProverNode(
+    ({ proverNode: proverAztecNode } = await createProverNode(
       newConfig,
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
       t.bootstrapNodeEnr,
@@ -570,8 +568,7 @@ describe('e2e_p2p_add_rollup', () => {
       prefilledPublicData,
       `${DATA_DIR_NEW}-prover`,
       shouldCollectMetrics(),
-    );
-    await proverNode.start();
+    ));
 
     // wait a bit for peers to discover each other
     await sleep(4000);

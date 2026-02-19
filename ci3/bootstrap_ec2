@@ -12,16 +12,13 @@ export CI=1
 # Set to 0 in ci3-external.yml for external contributors who don't have SSH access.
 export CI_USE_BUILD_INSTANCE_KEY=${CI_USE_BUILD_INSTANCE_KEY:-1}
 
+export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-60}
+
 if [ "$arch" == "arm64" ]; then
   cores=64
-  # Allow for 90 minutes as ARM has less cores.
-  export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-90}
+  export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME_ARM:-$AWS_SHUTDOWN_TIME}
 else
   cores=192,128,64
-  if [ "$CI_FULL" -eq 1 ]; then
-    # Allow for 75 minutes as ci-full time has crept up.
-    export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-75}
-  fi
 fi
 
 # Allow override.
@@ -117,7 +114,7 @@ if [ -t 1 ]; then
     run_cmd="run; exec zsh"
   fi
 else
-  # We're probably running in CI. Handle aws evictions and add timestamps to the logs.
+  # We're probably running in CI. Add timestamps and log.
   run_cmd="PARENT_LOG_ID=\$ci_log_id run 2>&1 | ci3/add_timestamps | DUP=1 ci3/cache_log 'CI run' \$ci_log_id"
 fi
 
@@ -159,22 +156,21 @@ container_script=$(
     fi
 
     # Capture cpu load.
-    mpstat 2 > >(cache_log cpufile) &
+    mpstat 2 > >(cache_log cpufile) 2>&1 &
     cpu_pid=\$!
 
     # Capture mem load.
-    vmstat -w -S M 2 > >(add_timestamps | cache_log memfile) &
+    vmstat -w -S M 2 > >(add_timestamps | cache_log memfile) 2>&1 &
     mem_pid=\$!
 
     # Dump process tree every 10s.
-    bash -c "while true; do pstree -agl; echo; echo; sleep 10; done" 2>&1 > >(add_timestamps | cache_log processes) &
+    bash -c "while true; do pstree -agl; echo; echo; sleep 10; done" > >(add_timestamps | cache_log processes) 2>&1 &
     pstree_pid=\$!
 
     set +e
     set -x
     $cmd
     local code=\${PIPESTATUS[0]}
-    set +x
 
     sudo dmesg 2>&1 | cache_log 'dmesg'
     kill \$cpu_pid \$mem_pid \$pstree_pid &>/dev/null
@@ -319,6 +315,7 @@ function run {
         -e NETLIFY_SITE_ID=${NETLIFY_SITE_ID:-} \
         -e NETLIFY_AUTH_TOKEN=${NETLIFY_AUTH_TOKEN:-} \
         -e NPM_TOKEN=${NPM_TOKEN:-} \
+        -e CARGO_REGISTRY_TOKEN=${CARGO_REGISTRY_TOKEN:-} \
         -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
         -e AWS_TOKEN=\$aws_token \
         -e NAMESPACE=${NAMESPACE:-} \

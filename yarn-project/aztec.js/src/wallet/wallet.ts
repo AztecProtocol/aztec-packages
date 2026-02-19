@@ -22,7 +22,7 @@ import {
   TxProfileResult,
   TxReceipt,
   TxSimulationResult,
-  UtilitySimulationResult,
+  UtilityExecutionResult,
   inTxSchema,
 } from '@aztec/stdlib/tx';
 
@@ -226,10 +226,10 @@ export type ContractClassMetadata = {
 };
 
 /**
- * Options for simulating a utility function call.
+ * Options for executing a utility function call.
  */
-export type SimulateUtilityOptions = {
-  /** The scope for the utility simulation (determines which notes and keys are visible). */
+export type ExecuteUtilityOptions = {
+  /** The scope for the utility execution (determines which notes and keys are visible). */
   scope: AztecAddress;
   /** Optional auth witnesses to use during execution. */
   authWitnesses?: AuthWitness[];
@@ -255,7 +255,7 @@ export type Wallet = {
     secretKey?: Fr,
   ): Promise<ContractInstanceWithAddress>;
   simulateTx(exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult>;
-  simulateUtility(call: FunctionCall, opts: SimulateUtilityOptions): Promise<UtilitySimulationResult>;
+  executeUtility(call: FunctionCall, opts: ExecuteUtilityOptions): Promise<UtilityExecutionResult>;
   profileTx(exec: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult>;
   sendTx<W extends InteractionWaitOptions = undefined>(
     exec: ExecutionPayload,
@@ -303,6 +303,7 @@ export const SendOptionsSchema = z.object({
   capsules: optional(z.array(Capsule.schema)),
   fee: optional(GasSettingsOptionSchema),
   wait: optional(z.union([z.literal(NO_WAIT), WaitOptsSchema])),
+  additionalScopes: optional(z.array(schemas.AztecAddress)),
 });
 
 export const SimulateOptionsSchema = z.object({
@@ -313,6 +314,7 @@ export const SimulateOptionsSchema = z.object({
   skipTxValidation: optional(z.boolean()),
   skipFeeEnforcement: optional(z.boolean()),
   includeMetadata: optional(z.boolean()),
+  additionalScopes: optional(z.array(schemas.AztecAddress)),
 });
 
 export const ProfileOptionsSchema = SimulateOptionsSchema.extend({
@@ -379,6 +381,7 @@ export const ContractClassMetadataSchema = z.object({
 export const ContractFunctionPatternSchema = z.object({
   contract: z.union([schemas.AztecAddress, z.literal('*')]),
   function: z.union([z.string(), z.literal('*')]),
+  additionalScopes: optional(z.union([z.array(schemas.AztecAddress), z.literal('*')])),
 });
 
 export const AccountsCapabilitySchema = z.object({
@@ -518,7 +521,7 @@ const WalletMethodSchemas = {
     .args(ContractInstanceWithAddressSchema, optional(ContractArtifactSchema), optional(schemas.Fr))
     .returns(ContractInstanceWithAddressSchema),
   simulateTx: z.function().args(ExecutionPayloadSchema, SimulateOptionsSchema).returns(TxSimulationResult.schema),
-  simulateUtility: z
+  executeUtility: z
     .function()
     .args(
       FunctionCall.schema,
@@ -527,7 +530,7 @@ const WalletMethodSchemas = {
         authWitnesses: optional(z.array(AuthWitness.schema)),
       }),
     )
-    .returns(UtilitySimulationResult.schema),
+    .returns(UtilityExecutionResult.schema),
   profileTx: z.function().args(ExecutionPayloadSchema, ProfileOptionsSchema).returns(TxProfileResult.schema),
   sendTx: z
     .function()

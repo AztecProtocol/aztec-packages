@@ -33,8 +33,8 @@ describe('e2e_fees Fee Juice payments', () => {
 
     // Alice pays for Bob's account contract deployment.
     const bobsDeployMethod = await bobsAccountManager.getDeployMethod();
-    await bobsDeployMethod.send({ from: aliceAddress });
     bobAddress = bobsAccountManager.address;
+    await bobsDeployMethod.send({ from: aliceAddress });
   });
 
   afterAll(async () => {

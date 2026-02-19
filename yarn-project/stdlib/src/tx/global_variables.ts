@@ -22,10 +22,10 @@ import { schemas } from '../schemas/index.js';
 import type { UInt64 } from '../types/index.js';
 
 /**
- * Global variables that are constant across the entire slot.
- * TODO(palla/mbps): Should timestamp be included here as well?
+ * Global variables that are constant across the entire checkpoint (slot).
+ * Excludes blockNumber since that varies per block within a checkpoint.
  */
-export type CheckpointGlobalVariables = Omit<FieldsOf<GlobalVariables>, 'blockNumber' | 'timestamp'>;
+export type CheckpointGlobalVariables = Omit<FieldsOf<GlobalVariables>, 'blockNumber'>;
 
 /**
  * Global variables of the L2 block.

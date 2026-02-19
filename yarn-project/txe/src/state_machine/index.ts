@@ -50,6 +50,7 @@ export class TXEStateMachine {
       undefined,
       undefined,
       undefined,
+      undefined,
       VERSION,
       CHAIN_ID,
       new TXEGlobalVariablesBuilder(),

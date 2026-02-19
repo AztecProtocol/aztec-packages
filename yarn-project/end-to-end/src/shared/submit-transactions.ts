@@ -19,7 +19,10 @@ export const submitTxsTo = async (
     times(numTxs, async () => {
       const accountManager = await wallet.createSchnorrAccount(Fr.random(), Fr.random(), GrumpkinScalar.random());
       const deployMethod = await accountManager.getDeployMethod();
-      const txHash = await deployMethod.send({ from: submitter, wait: NO_WAIT });
+      const txHash = await deployMethod.send({
+        from: submitter,
+        wait: NO_WAIT,
+      });
 
       logger.info(`Tx sent with hash ${txHash}`);
       const receipt: TxReceipt = await wallet.getTxReceipt(txHash);

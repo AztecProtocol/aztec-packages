@@ -234,13 +234,8 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     Fr expected_constant_term_accumulator{ 0 };
     std::vector<Fr> padding_indicator_array(this->log_n, Fr{ 1 });
 
-    std::vector<Fr> gemini_fold_pos_evaluations =
-        GeminiVerifier_<Curve>::compute_fold_pos_evaluations(padding_indicator_array,
-                                                             expected_constant_term_accumulator,
-                                                             mle_opening_point,
-                                                             r_squares,
-                                                             prover_evaluations,
-                                                             expected_constant_term_accumulator);
+    std::vector<Fr> gemini_fold_pos_evaluations = GeminiVerifier_<Curve>::compute_fold_pos_evaluations(
+        padding_indicator_array, expected_constant_term_accumulator, mle_opening_point, r_squares, prover_evaluations);
     std::vector<Commitment> commitments;
     std::vector<Fr> scalars;
 
@@ -364,7 +359,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
         const auto pairing_points =
             KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
         // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
-        EXPECT_EQ(this->vk().pairing_check(pairing_points[0], pairing_points[1]), true);
+        EXPECT_EQ(pairing_points.check(), true);
     }
     EXPECT_EQ(consistency_checked, true);
 }
@@ -473,7 +468,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
         const auto pairing_points =
             KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
         // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
-        EXPECT_EQ(this->vk().pairing_check(pairing_points[0], pairing_points[1]), true);
+        EXPECT_EQ(pairing_points.check(), true);
     }
 }
 
@@ -548,7 +543,7 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackAccept)
     } else {
         const auto pairing_points =
             KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
-        EXPECT_EQ(this->vk().pairing_check(pairing_points[0], pairing_points[1]), true);
+        EXPECT_EQ(pairing_points.check(), true);
     }
 }
 
@@ -615,7 +610,7 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackReject)
     } else {
         const auto pairing_points =
             KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
-        EXPECT_EQ(this->vk().pairing_check(pairing_points[0], pairing_points[1]), false);
+        EXPECT_EQ(pairing_points.check(), false);
     }
 }
 
@@ -817,7 +812,7 @@ void run_libra_tampering_test(ShpleminiTest<TypeParam>* test,
     } else {
         const auto pairing_points =
             KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
-        EXPECT_FALSE(test->vk().pairing_check(pairing_points[0], pairing_points[1]));
+        EXPECT_FALSE(pairing_points.check());
     }
 }
 

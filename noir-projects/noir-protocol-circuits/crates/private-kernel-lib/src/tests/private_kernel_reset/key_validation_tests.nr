@@ -16,14 +16,14 @@ fn validate_and_propagate_key_validation_requests() {
     builder.add_key_validation_request(456);
     builder.add_key_validation_request(789);
 
-    let requests = builder.previous_kernel.scoped_key_validation_requests_and_generators.storage();
+    let requests = builder.previous_kernel.scoped_key_validation_requests_and_separators.storage();
 
     let pi = builder.execute();
 
     // Only the 2 requests without hints should be propagated.
-    assert_eq(pi.validation_requests.scoped_key_validation_requests_and_generators.length, 2);
+    assert_eq(pi.validation_requests.scoped_key_validation_requests_and_separators.length, 2);
     assert_array_eq(
-        pi.validation_requests.scoped_key_validation_requests_and_generators.array,
+        pi.validation_requests.scoped_key_validation_requests_and_separators.array,
         [requests[KEY_VALIDATION_HINTS_LEN], requests[KEY_VALIDATION_HINTS_LEN + 1]],
     );
 }

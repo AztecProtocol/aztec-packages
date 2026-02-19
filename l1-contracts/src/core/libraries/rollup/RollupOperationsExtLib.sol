@@ -55,7 +55,7 @@ library RollupOperationsExtLib {
 
     Slot slot = _args.header.slotNumber;
     Epoch epoch = slot.epochFromSlot();
-    ValidatorSelectionLib.verifyAttestations(slot, epoch, _attestations, _args.digest);
+    ValidatorSelectionLib.verifyAttestations(epoch, _attestations, _args.digest);
     ValidatorSelectionLib.verifyProposer(
       slot, epoch, _attestations, _signers, _args.digest, _attestationsAndSignersSignature, false
     );

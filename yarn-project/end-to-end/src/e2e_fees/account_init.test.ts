@@ -89,7 +89,10 @@ describe('e2e_fees account_init', () => {
       const [bobsInitialGas] = await t.getGasBalanceFn(bobsAddress);
       expect(bobsInitialGas).toEqual(mintAmount);
 
-      const tx = await bobsDeployMethod.send({ from: AztecAddress.ZERO, wait: { returnReceipt: true } });
+      const tx = await bobsDeployMethod.send({
+        from: AztecAddress.ZERO,
+        wait: { returnReceipt: true },
+      });
 
       expect(tx.transactionFee!).toBeGreaterThan(0n);
       await expect(t.getGasBalanceFn(bobsAddress)).resolves.toEqual([bobsInitialGas - tx.transactionFee!]);
@@ -187,6 +190,8 @@ describe('e2e_fees account_init', () => {
         bobsSigningPubKey.y,
       ).send({
         from: aliceAddress,
+        // The account constructor initializes storage vars that need the contract's own nullifier key, so we need to add it to scopes.
+        additionalScopes: [bobsAddress],
         contractAddressSalt: bobsInstance.salt,
         skipClassPublication: true,
         skipInstancePublication: true,

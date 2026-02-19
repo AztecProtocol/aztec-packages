@@ -57,6 +57,12 @@ function compile {
   local program_hash=$(dump_fail "$program_hash_cmd")
   echo_stderr "Hash preimage: $NOIR_HASH-$program_hash"
   local hash=$(hash_str "$NOIR_HASH-$program_hash" $(cache_content_hash "^noir-projects/noir-protocol-circuits/bootstrap.sh"))
+  # Note: an edge case: If you change the name of a circuit public input, but don't change any of the
+  # circuit's bytecode, then this bootstrap script will not re-compile the circuits. You can force a
+  # re-compilation by temporarily replacing $NOIR_HASH on the above two lines with:
+  # `$NOIR_HASH-$program_hash-$circuits_hash"`
+  # We don't want to include `-$circuits_hash"` ordinarily, because it would force unnecessary
+  # rebuilds when tests / comments are changed.
 
   if ! cache_download circuit-$hash.tar.gz 1>&2; then
     SECONDS=0

@@ -153,7 +153,7 @@ const std::unordered_map<WireOpCode, std::vector<OperandType>>& get_wire_opcode_
           { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
         { WireOpCode::GETCONTRACTINSTANCE,
           { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT8 } },
-        { WireOpCode::EMITUNENCRYPTEDLOG,
+        { WireOpCode::EMITPUBLICLOG,
           {
               OperandType::INDIRECT8,
               OperandType::UINT16,

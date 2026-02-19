@@ -253,6 +253,7 @@ describe('EpochPruneWatcher', () => {
 class MockL2BlockSource {
   public readonly events = new EventEmitter();
   public getCheckpointsForEpoch = () => [];
+  public getCheckpointsDataForEpoch = () => [];
 
   constructor() {}
 }

@@ -18,7 +18,7 @@ import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { L1Metrics, type TelemetryClient } from '@aztec/telemetry-client';
 import { FullNodeCheckpointsBuilder, NodeKeystoreAdapter, type ValidatorClient } from '@aztec/validator-client';
 
-import type { SequencerClientConfig } from '../config.js';
+import { type SequencerClientConfig, getPublisherConfigFromSequencerConfig } from '../config.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
 import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
@@ -86,7 +86,11 @@ export class SequencerClient {
       publicClient,
       l1TxUtils.map(x => x.getSenderAddress()),
     );
-    const publisherManager = new PublisherManager(l1TxUtils, config, log.getBindings());
+    const publisherManager = new PublisherManager(
+      l1TxUtils,
+      getPublisherConfigFromSequencerConfig(config),
+      log.getBindings(),
+    );
     const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
     const [l1GenesisTime, slotDuration, rollupVersion, rollupManaLimit] = await Promise.all([
       rollupContract.getL1GenesisTime(),
@@ -210,6 +214,11 @@ export class SequencerClient {
 
   public getSequencer(): Sequencer {
     return this.sequencer;
+  }
+
+  /** Updates the publisher factory's node keystore adapter after a keystore reload. */
+  public updatePublisherNodeKeyStore(adapter: NodeKeystoreAdapter): void {
+    this.sequencer.updatePublisherNodeKeyStore(adapter);
   }
 
   /** Returns the shared tx delayer for sequencer L1 txs, if enabled. Test-only. */

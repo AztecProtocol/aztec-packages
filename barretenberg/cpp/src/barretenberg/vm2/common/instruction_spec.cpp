@@ -82,7 +82,7 @@ const std::unordered_map<WireOpCode, std::array<uint8_t, NUM_OP_DC_SELECTORS>>& 
         { WireOpCode::GETCONTRACTINSTANCE, { 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
 
         // Accrued Substate
-        { WireOpCode::EMITUNENCRYPTEDLOG, { 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+        { WireOpCode::EMITPUBLICLOG, { 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
         { WireOpCode::SENDL2TOL1MSG, { 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
 
         // Control Flow - Contract Calls
@@ -368,10 +368,10 @@ const std::unordered_map<WireOpCode, WireInstructionSpec>& get_wire_instruction_
             .op_dc_selectors = get_wire_opcode_dc_selectors().at(WireOpCode::GETCONTRACTINSTANCE) } },
 
         // Accrued Substate
-        { WireOpCode::EMITUNENCRYPTEDLOG,
-          { .exec_opcode = ExecutionOpCode::EMITUNENCRYPTEDLOG,
+        { WireOpCode::EMITPUBLICLOG,
+          { .exec_opcode = ExecutionOpCode::EMITPUBLICLOG,
             .size_in_bytes = 6,
-            .op_dc_selectors = get_wire_opcode_dc_selectors().at(WireOpCode::EMITUNENCRYPTEDLOG) } },
+            .op_dc_selectors = get_wire_opcode_dc_selectors().at(WireOpCode::EMITPUBLICLOG) } },
         { WireOpCode::SENDL2TOL1MSG,
           { .exec_opcode = ExecutionOpCode::SENDL2TOL1MSG,
             .size_in_bytes = 6,
@@ -684,13 +684,13 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec>& get_exec_instruc
           { .num_addresses = 2,
             .gas_cost = { .opcode_gas = AVM_GETCONTRACTINSTANCE_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
             .register_info = RegisterInfo().add_input(/*contract_address*/ ValueTag::FF) } },
-        { ExecutionOpCode::EMITUNENCRYPTEDLOG,
+        { ExecutionOpCode::EMITPUBLICLOG,
           { .num_addresses = 2,
-            .gas_cost = { .opcode_gas = AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS,
-                          .base_da = AVM_EMITUNENCRYPTEDLOG_BASE_DA_GAS,
-                          .dyn_l2 = AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS,
-                          .dyn_da = AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS },
-            .dyn_gas_id = AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG,
+            .gas_cost = { .opcode_gas = AVM_EMITPUBLICLOG_BASE_L2_GAS,
+                          .base_da = AVM_EMITPUBLICLOG_BASE_DA_GAS,
+                          .dyn_l2 = AVM_EMITPUBLICLOG_DYN_L2_GAS,
+                          .dyn_da = AVM_EMITPUBLICLOG_DYN_DA_GAS },
+            .dyn_gas_id = AVM_DYN_GAS_ID_EMITPUBLICLOG,
             .register_info = RegisterInfo().add_inputs({ ValueTag::U32 }) } },
         { ExecutionOpCode::SENDL2TOL1MSG,
           { .num_addresses = 2,

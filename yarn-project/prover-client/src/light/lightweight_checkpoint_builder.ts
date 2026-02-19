@@ -242,7 +242,7 @@ export class LightweightCheckpointBuilder {
 
     const newArchive = this.lastArchives[this.lastArchives.length - 1];
 
-    const blobs = getBlobsPerL1Block(this.blobFields);
+    const blobs = await getBlobsPerL1Block(this.blobFields);
     const blobsHash = computeBlobsHashFromBlobs(blobs);
 
     const inHash = computeInHashFromL1ToL2Messages(this.l1ToL2Messages);

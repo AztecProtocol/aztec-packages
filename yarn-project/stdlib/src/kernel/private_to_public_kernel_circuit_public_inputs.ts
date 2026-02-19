@@ -1,4 +1,4 @@
-import { GeneratorIndex, PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH } from '@aztec/constants';
+import { DomainSeparator, PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
@@ -21,7 +21,7 @@ export class PrivateToPublicKernelCircuitPublicInputs {
     public publicTeardownCallRequest: PublicCallRequest,
     public gasUsed: Gas,
     public feePayer: AztecAddress,
-    public includeByTimestamp: UInt64,
+    public expirationTimestamp: UInt64,
   ) {}
 
   toBuffer() {
@@ -32,7 +32,7 @@ export class PrivateToPublicKernelCircuitPublicInputs {
       this.publicTeardownCallRequest,
       this.gasUsed,
       this.feePayer,
-      bigintToUInt64BE(this.includeByTimestamp),
+      bigintToUInt64BE(this.expirationTimestamp),
     );
   }
 
@@ -44,7 +44,7 @@ export class PrivateToPublicKernelCircuitPublicInputs {
       fields.publicTeardownCallRequest,
       fields.gasUsed,
       fields.feePayer,
-      fields.includeByTimestamp,
+      fields.expirationTimestamp,
     ] as const;
   }
 
@@ -92,7 +92,7 @@ export class PrivateToPublicKernelCircuitPublicInputs {
   }
 
   hash() {
-    return poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.PUBLIC_TX_HASH);
+    return poseidon2HashWithSeparator(this.toFields(), DomainSeparator.PUBLIC_TX_HASH);
   }
 
   toJSON() {

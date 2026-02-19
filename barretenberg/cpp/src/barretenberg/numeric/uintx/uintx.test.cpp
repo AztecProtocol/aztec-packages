@@ -1,9 +1,17 @@
 #include "./uintx.hpp"
 #include "../random/engine.hpp"
+#include "./uintx_impl.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
+
+// Explicit instantiation of barrett_reduction for the test-only 1024-bit modulus.
+namespace bb::numeric {
+constexpr uint512_t TEST_MODULUS(uint256_t{ "0x04689e957a1242c84a50189c6d96cadca602072d09eac1013b5458a2275d69b1" },
+                                 uint256_t{ "0x0925c4b8763cbf9c599a6f7c0348d21cb00b85511637560626edfa5c34c6b38d" });
+template std::pair<uint1024_t, uint1024_t> uintx<uint512_t>::barrett_reduction<TEST_MODULUS>() const;
+} // namespace bb::numeric
 
 namespace {
 auto& engine = numeric::get_debug_randomness();
@@ -292,6 +300,37 @@ TEST(uintx, DISABLEDRInv)
     uint64_t result = q_inv.data[0];
     EXPECT_EQ(result, Bn254FrParams::r_inv);
     */
+}
+
+TEST(uintx, Slice)
+{
+    // Construct a uint512_t with known lo and hi halves
+    uint256_t lo_val(1, 2, 3, 4);
+    uint256_t hi_val(5, 6, 7, 8);
+    uint512_t val(lo_val, hi_val);
+
+    // Slice the lower 256 bits
+    uint512_t lower = val.slice(0, 256);
+    EXPECT_EQ(lower.lo, lo_val);
+    EXPECT_EQ(lower.hi, uint256_t(0));
+
+    // Slice the upper 256 bits
+    uint512_t upper = val.slice(256, 512);
+    EXPECT_EQ(upper.lo, hi_val);
+    EXPECT_EQ(upper.hi, uint256_t(0));
+
+    // Slice a sub-limb range within lo
+    uint512_t small_slice = val.slice(0, 64);
+    EXPECT_EQ(static_cast<uint64_t>(small_slice), uint64_t(1));
+
+    // Slice crossing the lo/hi boundary
+    uint512_t cross_boundary = val.slice(128, 384);
+    // Should get bits [128..256) from lo (limbs 2,3) and bits [256..384) from hi (limbs 0,1)
+    uint512_t expected_cross(uint256_t(3, 4, 5, 6));
+    EXPECT_EQ(cross_boundary, expected_cross);
+
+    // Full-width slice should return the original value
+    EXPECT_EQ(val.slice(0, 512), val);
 }
 
 TEST(uintx, BarrettReductionRegression)

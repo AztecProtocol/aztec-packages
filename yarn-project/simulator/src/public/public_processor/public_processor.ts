@@ -25,6 +25,7 @@ import type {
   PublicProcessorValidator,
   SequencerConfig,
 } from '@aztec/stdlib/interfaces/server';
+import type { DebugLog } from '@aztec/stdlib/logs';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
@@ -130,7 +131,6 @@ class PublicProcessorTimeoutError extends Error {
  */
 export class PublicProcessor implements Traceable {
   private metrics: PublicProcessorMetrics;
-
   constructor(
     protected globalVariables: GlobalVariables,
     private guardedMerkleTree: GuardedMerkleTreeOperations,
@@ -159,12 +159,13 @@ export class PublicProcessor implements Traceable {
     txs: Iterable<Tx> | AsyncIterable<Tx>,
     limits: PublicProcessorLimits = {},
     validator: PublicProcessorValidator = {},
-  ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[], number]> {
+  ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[], number, DebugLog[]]> {
     const { maxTransactions, maxBlockSize, deadline, maxBlockGas, maxBlobFields } = limits;
     const { preprocessValidator, nullifierCache } = validator;
     const result: ProcessedTx[] = [];
     const usedTxs: Tx[] = [];
     const failed: FailedTx[] = [];
+    const debugLogs: DebugLog[] = [];
     const timer = new Timer();
 
     let totalSizeInBytes = 0;
@@ -241,7 +242,7 @@ export class PublicProcessor implements Traceable {
       this.contractsDB.createCheckpoint();
 
       try {
-        const [processedTx, returnValues] = await this.processTx(tx, deadline);
+        const [processedTx, returnValues, txDebugLogs] = await this.processTx(tx, deadline);
 
         // Inject a fake processing failure after N txs if requested
         const fakeThrowAfter = this.opts.fakeThrowAfterProcessingTxCount;
@@ -290,6 +291,7 @@ export class PublicProcessor implements Traceable {
         result.push(processedTx);
         usedTxs.push(tx);
         returns = returns.concat(returnValues);
+        debugLogs.push(...txDebugLogs);
 
         totalPublicGas = totalPublicGas.add(processedTx.gasUsed.publicGas);
         totalBlockGas = totalBlockGas.add(processedTx.gasUsed.totalGas);
@@ -363,7 +365,7 @@ export class PublicProcessor implements Traceable {
       totalSizeInBytes,
     });
 
-    return [result, failed, usedTxs, returns, totalBlobFields];
+    return [result, failed, usedTxs, returns, totalBlobFields, debugLogs];
   }
 
   private async checkWorldStateUnchanged(
@@ -383,8 +385,13 @@ export class PublicProcessor implements Traceable {
   }
 
   @trackSpan('PublicProcessor.processTx', tx => ({ [Attributes.TX_HASH]: tx.getTxHash().toString() }))
-  private async processTx(tx: Tx, deadline: Date | undefined): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
-    const [time, [processedTx, returnValues]] = await elapsed(() => this.processTxWithinDeadline(tx, deadline));
+  private async processTx(
+    tx: Tx,
+    deadline: Date | undefined,
+  ): Promise<[ProcessedTx, NestedProcessReturnValues[], DebugLog[]]> {
+    const [time, [processedTx, returnValues, debugLogs]] = await elapsed(() =>
+      this.processTxWithinDeadline(tx, deadline),
+    );
 
     this.log.verbose(
       !tx.hasPublicCalls()
@@ -407,7 +414,7 @@ export class PublicProcessor implements Traceable {
       },
     );
 
-    return [processedTx, returnValues ?? []];
+    return [processedTx, returnValues ?? [], debugLogs];
   }
 
   private async doTreeInsertionsForPrivateOnlyTx(processedTx: ProcessedTx): Promise<void> {
@@ -441,10 +448,9 @@ export class PublicProcessor implements Traceable {
   private async processTxWithinDeadline(
     tx: Tx,
     deadline: Date | undefined,
-  ): Promise<[ProcessedTx, NestedProcessReturnValues[] | undefined]> {
-    const innerProcessFn: () => Promise<[ProcessedTx, NestedProcessReturnValues[] | undefined]> = tx.hasPublicCalls()
-      ? () => this.processTxWithPublicCalls(tx)
-      : () => this.processPrivateOnlyTx(tx);
+  ): Promise<[ProcessedTx, NestedProcessReturnValues[] | undefined, DebugLog[]]> {
+    const innerProcessFn: () => Promise<[ProcessedTx, NestedProcessReturnValues[] | undefined, DebugLog[]]> =
+      tx.hasPublicCalls() ? () => this.processTxWithPublicCalls(tx) : () => this.processPrivateOnlyTx(tx);
 
     // Fake a delay per tx if instructed (used for tests)
     const fakeDelayPerTxMs = this.opts.fakeProcessingDelayPerTxMs;
@@ -512,7 +518,7 @@ export class PublicProcessor implements Traceable {
   @trackSpan('PublicProcessor.processPrivateOnlyTx', (tx: Tx) => ({
     [Attributes.TX_HASH]: tx.getTxHash().toString(),
   }))
-  private async processPrivateOnlyTx(tx: Tx): Promise<[ProcessedTx, undefined]> {
+  private async processPrivateOnlyTx(tx: Tx): Promise<[ProcessedTx, undefined, DebugLog[]]> {
     const gasFees = this.globalVariables.gasFees;
     const transactionFee = computeTransactionFee(gasFees, tx.data.constants.txContext.gasSettings, tx.data.gasUsed);
 
@@ -537,13 +543,13 @@ export class PublicProcessor implements Traceable {
 
     await this.contractsDB.addNewContracts(tx);
 
-    return [processedTx, undefined];
+    return [processedTx, undefined, []];
   }
 
   @trackSpan('PublicProcessor.processTxWithPublicCalls', tx => ({
     [Attributes.TX_HASH]: tx.getTxHash().toString(),
   }))
-  private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
+  private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[], DebugLog[]]> {
     const timer = new Timer();
 
     const result = await this.publicTxSimulator.simulate(tx);
@@ -581,7 +587,7 @@ export class PublicProcessor implements Traceable {
       revertReason,
     );
 
-    return [processedTx, appLogicReturnValues];
+    return [processedTx, appLogicReturnValues, result.logs ?? []];
   }
 
   /**

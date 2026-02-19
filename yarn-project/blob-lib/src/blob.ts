@@ -42,8 +42,8 @@ export class Blob {
    *
    * @throws If data does not match the expected length (BYTES_PER_BLOB).
    */
-  static fromBlobBuffer(data: Uint8Array): Blob {
-    const commitment = computeBlobCommitment(data);
+  static async fromBlobBuffer(data: Uint8Array): Promise<Blob> {
+    const commitment = await computeBlobCommitment(data);
     return new Blob(data, commitment);
   }
 
@@ -55,13 +55,13 @@ export class Blob {
    * @param fields - The array of fields to create the Blob from.
    * @returns A Blob created from the array of fields.
    */
-  static fromFields(fields: Fr[]): Blob {
+  static async fromFields(fields: Fr[]): Promise<Blob> {
     if (fields.length > FIELDS_PER_BLOB) {
       throw new Error(`Attempted to overfill blob with ${fields.length} fields. The maximum is ${FIELDS_PER_BLOB}.`);
     }
 
     const data = Buffer.concat([serializeToBuffer(fields)], BYTES_PER_BLOB);
-    const commitment = computeBlobCommitment(data);
+    const commitment = await computeBlobCommitment(data);
     return new Blob(data, commitment);
   }
 
@@ -88,9 +88,9 @@ export class Blob {
    * @param json - The JSON object to create the Blob from.
    * @returns A Blob created from the JSON object.
    */
-  static fromJson(json: BlobJson): Blob {
+  static async fromJson(json: BlobJson): Promise<Blob> {
     const blobBuffer = Buffer.from(json.blob.slice(2), 'hex');
-    const blob = Blob.fromBlobBuffer(blobBuffer);
+    const blob = await Blob.fromBlobBuffer(blobBuffer);
 
     if (blob.commitment.toString('hex') !== json.kzg_commitment.slice(2)) {
       throw new Error('KZG commitment does not match');
@@ -134,9 +134,9 @@ export class Blob {
    *  y: BLS12Fr -  Evaluation y = p(z), where p() is the blob polynomial. BLS12 field element, rep. as BigNum in nr, bigint in ts.
    *  proof: Buffer - KZG opening proof for y = p(z). The commitment to quotient polynomial Q, used in compressed BLS12 point format (48 bytes).
    */
-  evaluate(challengeZ: Fr, verifyProof = false) {
+  async evaluate(challengeZ: Fr, verifyProof = false) {
     const kzg = getKzg();
-    const res = kzg.computeKzgProof(this.data, challengeZ.toBuffer());
+    const res = await kzg.asyncComputeKzgProof(this.data, challengeZ.toBuffer());
     if (verifyProof && !kzg.verifyKzgProof(this.commitment, challengeZ.toBuffer(), res[1], res[0])) {
       throw new Error(`KZG proof did not verify.`);
     }

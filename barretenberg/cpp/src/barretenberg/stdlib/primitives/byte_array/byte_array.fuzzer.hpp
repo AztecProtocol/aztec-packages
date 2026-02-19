@@ -6,7 +6,6 @@
 
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
-#include "barretenberg/stdlib/primitives/safe_uint/safe_uint.hpp"
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wc99-designator"
 
@@ -56,8 +55,6 @@ template <typename Builder> class ByteArrayFuzzBase {
   private:
     typedef bb::stdlib::byte_array<Builder> byte_array_t;
     typedef bb::stdlib::field_t<Builder> field_t;
-    typedef bb::stdlib::safe_uint_t<Builder> suint_t;
-
     template <class From, class To> static To from_to(const From& in, const std::optional<size_t> size = std::nullopt)
     {
         return To(in.data(), in.data() + (size ? *size : in.size()));
@@ -451,7 +448,7 @@ template <typename Builder> class ByteArrayFuzzBase {
         {
             const auto& ref = this->reference_value;
 
-            switch (VarianceRNG.next() % 5) {
+            switch (VarianceRNG.next() % 4) {
             case 0:
 #ifdef SHOW_INFORMATION
                 std::cout << "byte_array_t(e);" << std::cout;
@@ -512,22 +509,6 @@ template <typename Builder> class ByteArrayFuzzBase {
                 ba = this->byte_array;
 
                 return ExecutionHandler(ref, ba);
-            } break;
-            case 4: {
-                static_assert(suint_t::MAX_BIT_NUM > 0);
-                const auto field = to_field_t(
-                    /* One bit must be reserved */
-                    suint_t::MAX_BIT_NUM - 1);
-
-                if (field == std::nullopt) {
-                    return ExecutionHandler(ref, byte_array_t(this->byte_array));
-                } else {
-                    /* Test the suint constructor.
-                     *
-                     * byte_array -> field -> suint -> byte_array
-                     */
-                    return ExecutionHandler(ref, byte_array_t(suint_t(*field, suint_t::MAX_BIT_NUM), ref.size()));
-                }
             } break;
             default:
                 abort();

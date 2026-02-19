@@ -1,3 +1,4 @@
+import type { Archiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
 import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
@@ -21,7 +22,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
-import { ProverNode, type ProverNodeConfig } from '@aztec/prover-node';
+import type { ProverNodeConfig } from '@aztec/prover-node';
 import type { PXEConfig } from '@aztec/pxe/config';
 import { type SequencerClient, type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
 import { type BlockParameter, EthAddress } from '@aztec/stdlib/block';
@@ -40,7 +41,7 @@ import {
   setup,
 } from '../fixtures/utils.js';
 
-export const WORLD_STATE_BLOCK_HISTORY = 2;
+export const WORLD_STATE_CHECKPOINT_HISTORY = 2;
 export const WORLD_STATE_BLOCK_CHECK_INTERVAL = 50;
 export const ARCHIVER_POLL_INTERVAL = 50;
 export const DEFAULT_L1_BLOCK_TIME = process.env.CI ? 12 : 8;
@@ -75,7 +76,7 @@ export class EpochsTestContext {
   public proverDelayer!: Delayer;
   public sequencerDelayer!: Delayer;
 
-  public proverNodes: ProverNode[] = [];
+  public proverNodes: AztecNodeService[] = [];
   public nodes: AztecNodeService[] = [];
 
   public epochDuration!: number;
@@ -141,7 +142,7 @@ export class EpochsTestContext {
         // using the prover's eth address if the proverId is used for something in the rollup contract
         // Use numeric EthAddress for deterministic prover id
         proverId: EthAddress.fromNumber(1),
-        worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
+        worldStateCheckpointHistory: WORLD_STATE_CHECKPOINT_HISTORY,
         exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
         slasherFlavor: 'none',
         l1PublishingTime,
@@ -199,26 +200,29 @@ export class EpochsTestContext {
     const proverNodePrivateKey = this.getNextPrivateKey();
     const proverIndex = this.proverNodes.length + 1;
     const { mockGossipSubNetwork } = this.context;
-    const proverNode = await withLoggerBindings({ actor: `prover-${proverIndex}` }, () =>
+    const { proverNode } = await withLoggerBindings({ actor: `prover-${proverIndex}` }, () =>
       createAndSyncProverNode(
         proverNodePrivateKey,
         {
           ...this.context.config,
           p2pEnabled: this.context.config.p2pEnabled || mockGossipSubNetwork !== undefined,
-        },
-        {
-          dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
           proverId: EthAddress.fromNumber(proverIndex),
           dontStart: opts.dontStart,
           ...opts,
         },
-        this.context.aztecNode,
-        this.context.prefilledPublicData ?? [],
+        {
+          dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
+        },
         {
           dateProvider: this.context.dateProvider,
-          p2pClientDeps: mockGossipSubNetwork
-            ? { p2pServiceFactory: getMockPubSubP2PServiceFactory(mockGossipSubNetwork) }
-            : undefined,
+          p2pClientDeps: {
+            p2pServiceFactory: mockGossipSubNetwork ? getMockPubSubP2PServiceFactory(mockGossipSubNetwork) : undefined,
+            rpcTxProviders: [this.context.aztecNode],
+          },
+        },
+        {
+          prefilledPublicData: this.context.prefilledPublicData ?? [],
+          dontStart: opts.dontStart,
         },
       ),
     );
@@ -319,7 +323,10 @@ export class EpochsTestContext {
     this.logger.info(`Waiting until last slot of submission window for epoch ${epochNumber} at ${date}`, {
       oneSlotBefore,
     });
-    await waitUntilL1Timestamp(this.l1Client, oneSlotBefore);
+    // Use a timeout that accounts for the full proof submission window
+    const proofSubmissionWindowDuration =
+      this.constants.proofSubmissionEpochs * this.epochDuration * this.L2_SLOT_DURATION_IN_S;
+    await waitUntilL1Timestamp(this.l1Client, oneSlotBefore, undefined, proofSubmissionWindowDuration * 2);
   }
 
   /** Waits for the aztec node to sync to the target block number. */
@@ -392,6 +399,38 @@ export class EpochsTestContext {
       .then(_ => true)
       .catch(_ => false);
     expect(result).toBe(expectedSuccess);
+  }
+
+  /** Verifies at least one checkpoint has the target number of blocks (for MBPS validation). */
+  public async assertMultipleBlocksPerSlot(targetBlockCount: number) {
+    const archiver = (this.context.aztecNode as AztecNodeService).getBlockSource() as Archiver;
+    const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
+
+    this.logger.warn(`Retrieved ${checkpoints.length} checkpoints from archiver`, {
+      checkpoints: checkpoints.map(pc => pc.checkpoint.getStats()),
+    });
+
+    let expectedBlockNumber = checkpoints[0].checkpoint.blocks[0].number;
+    let targetFound = false;
+
+    for (const checkpoint of checkpoints) {
+      const blockCount = checkpoint.checkpoint.blocks.length;
+      targetFound = targetFound || blockCount >= targetBlockCount;
+
+      this.logger.verbose(`Checkpoint ${checkpoint.checkpoint.number} has ${blockCount} blocks`, {
+        checkpoint: checkpoint.checkpoint.getStats(),
+      });
+
+      for (let i = 0; i < blockCount; i++) {
+        const block = checkpoint.checkpoint.blocks[i];
+        expect(block.indexWithinCheckpoint).toBe(i);
+        expect(block.checkpointNumber).toBe(checkpoint.checkpoint.number);
+        expect(block.number).toBe(expectedBlockNumber);
+        expectedBlockNumber++;
+      }
+    }
+
+    expect(targetFound).toBe(true);
   }
 
   public watchSequencerEvents(

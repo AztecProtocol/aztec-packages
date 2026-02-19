@@ -341,6 +341,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       heartbeatIntervalMs: config.gossipsubInterval,
       targetCommitteeSize: l1Constants.targetCommitteeSize,
       blockDurationMs: config.blockDurationMs,
+      expectedBlockProposalsPerSlot: config.expectedBlockProposalsPerSlot,
     });
 
     const node = await createLibp2p({
@@ -612,6 +613,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
   public getPeers(includePending?: boolean): PeerInfo[] {
     return this.peerManager.getPeers(includePending);
+  }
+
+  public getGossipMeshPeerCount(topicType: TopicType): number {
+    return this.node.services.pubsub.getMeshPeers(this.topicStrings[topicType]).length;
   }
 
   private handleGossipSubEvent(e: CustomEvent<GossipsubMessage>) {
@@ -1544,7 +1549,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   protected async validatePropagatedTx(tx: Tx, peerId: PeerId): Promise<boolean> {
     const currentBlockNumber = await this.archiver.getBlockNumber();
 
-    // We accept transactions if they are not expired by the next slot (checked based on the IncludeByTimestamp field)
+    // We accept transactions if they are not expired by the next slot (checked based on the ExpirationTimestamp field)
     const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
     const messageValidators = await this.createMessageValidators(currentBlockNumber, nextSlotTimestamp);
 
@@ -1599,7 +1604,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   public async validate(txs: Tx[]): Promise<void> {
     const currentBlockNumber = await this.archiver.getBlockNumber();
 
-    // We accept transactions if they are not expired by the next slot (checked based on the IncludeByTimestamp field)
+    // We accept transactions if they are not expired by the next slot (checked based on the ExpirationTimestamp field)
     const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
     const messageValidators = await this.createMessageValidators(currentBlockNumber, nextSlotTimestamp);
 

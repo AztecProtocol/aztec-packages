@@ -1,15 +1,21 @@
 import { access, mkdir, readFile, writeFile } from 'fs/promises';
 import { dirname, resolve } from 'path';
+import { promisify } from 'util';
+import { gunzip as gunzipCb, gzip as gzipCb } from 'zlib';
 
-import type { FileStore } from './interface.js';
+import type { FileStore, FileStoreSaveOptions } from './interface.js';
+
+const gzip = promisify(gzipCb);
+const gunzip = promisify(gunzipCb);
 
 export class LocalFileStore implements FileStore {
   constructor(private readonly basePath: string) {}
 
-  public async save(path: string, data: Buffer): Promise<string> {
+  public async save(path: string, data: Buffer, opts?: FileStoreSaveOptions): Promise<string> {
     const fullPath = this.getFullPath(path);
     await mkdir(dirname(fullPath), { recursive: true });
-    await writeFile(fullPath, data);
+    const toWrite = opts?.compress ? await gzip(data) : data;
+    await writeFile(fullPath, toWrite);
     return `file://${fullPath}`;
   }
 
@@ -18,9 +24,13 @@ export class LocalFileStore implements FileStore {
     return this.save(destPath, data);
   }
 
-  public read(pathOrUrlStr: string): Promise<Buffer> {
+  public async read(pathOrUrlStr: string): Promise<Buffer> {
     const fullPath = this.getFullPath(pathOrUrlStr);
-    return readFile(fullPath);
+    const data = await readFile(fullPath);
+    if (data.length >= 2 && data[0] === 0x1f && data[1] === 0x8b) {
+      return await gunzip(data);
+    }
+    return data;
   }
 
   public async download(pathOrUrlStr: string, destPath: string): Promise<void> {

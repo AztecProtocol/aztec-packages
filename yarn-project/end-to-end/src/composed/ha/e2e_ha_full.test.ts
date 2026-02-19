@@ -135,7 +135,7 @@ describe('HA Full Setup', () => {
       prefilledPublicData,
     } = await setup(1, {
       initialValidators,
-      publisherPrivateKeys: [new SecretValue(publisherPrivateKeys[0])],
+      sequencerPublisherPrivateKeys: [new SecretValue(publisherPrivateKeys[0])],
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
       minTxsPerBlock: 1,
       archiverPollingIntervalMS: 200,
@@ -151,12 +151,7 @@ describe('HA Full Setup', () => {
       // Enable slashing for testing governance + slashing vote coordination
       slasherFlavor: 'tally',
       slashingRoundSizeInEpochs: 1, // 32 slots (1 epoch)
-      slashingQuorum: 17, // >50% of 32 slots for tally quorum
-      // Prover node will use publisherPrivateKeys directly, not Web3Signer
-      proverNodeConfig: {
-        web3SignerUrl: undefined,
-        publisherAddresses: undefined,
-      },
+      slashingQuorum: 17, // >50% of 32 slots for tally quorum,
     }));
 
     logger.info(`Bootstrap node setup complete (validation disabled)`);
@@ -203,10 +198,10 @@ describe('HA Full Setup', () => {
         bootstrapNodes: [bootstrapNodeEnr],
         web3SignerUrl,
         validatorAddresses: attesterAddresses.map(addr => EthAddress.fromString(addr)),
-        publisherAddresses: publisherAddresses.map(addr => EthAddress.fromString(addr)),
+        sequencerPublisherAddresses: publisherAddresses.map(addr => EthAddress.fromString(addr)),
         validatorPrivateKeys: new SecretValue(attesterPrivateKeys),
         // Each node has a unique publisher key
-        publisherPrivateKeys: [new SecretValue(publisherPrivateKeys[i])],
+        sequencerPublisherPrivateKeys: [new SecretValue(publisherPrivateKeys[i])],
       };
 
       const nodeService = await withLoggerBindings({ actor: `HA-${i}` }, async () => {
@@ -421,9 +416,9 @@ describe('HA Full Setup', () => {
     const round = await governanceProposer.computeRound(blockSlot);
     logger.info(`Block slot ${blockSlot}, governance round ${round}`);
 
-    // Poll L1 for governance votes
+    // Poll L1 until at least one governance vote appears
     logger.info('Polling L1 for governance votes...');
-    const l1VoteCount = await retryUntil(
+    await retryUntil(
       async () => {
         const voteCount = Number(
           await governanceProposer.getPayloadSignals(
@@ -438,11 +433,6 @@ describe('HA Full Setup', () => {
       6, // timeout in seconds (30 attempts * 200ms)
       0.2, // interval in seconds (200ms)
     );
-    logger.info(`Found ${l1VoteCount} governance vote(s) on L1 for payload ${mockGovernancePayload.toString()}`);
-
-    // Verify votes were actually sent to L1
-    expect(l1VoteCount).toBeGreaterThan(0);
-    logger.info(`Verified ${l1VoteCount} governance vote(s) successfully sent to L1`);
 
     // Get L1 round info to determine which slots have actually landed on L1.
     // We anchor the comparison on L1's lastSignalSlot since:
@@ -453,6 +443,17 @@ describe('HA Full Setup', () => {
       round,
     );
     const lastSignalSlot = Number(roundInfo.lastSignalSlot);
+
+    // Re-query L1 vote count after getting lastSignalSlot in case more votes landed between the poll and getRoundInfo:
+    // the retryUntil may return a stale count if more votes land between the poll and getRoundInfo
+    const l1VoteCount = Number(
+      await governanceProposer.getPayloadSignals(
+        deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+        round,
+        mockGovernancePayload.toString(),
+      ),
+    );
+    expect(l1VoteCount).toBeGreaterThan(0);
     logger.info(
       `L1 round ${round} info: lastSignalSlot=${lastSignalSlot}, l1VoteCount=${l1VoteCount}, payloadWithMostSignals=${roundInfo.payloadWithMostSignals}`,
     );

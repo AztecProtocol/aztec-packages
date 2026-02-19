@@ -80,7 +80,7 @@ describe('e2e_multi_eoa', () => {
         sequencerPollingIntervalMS: 200,
         worldStateBlockCheckIntervalMS: 200,
         blockCheckIntervalMS: 200,
-        publisherPrivateKeys: sequencerKeysAndAddresses.map(k => k.key),
+        sequencerPublisherPrivateKeys: sequencerKeysAndAddresses.map(k => k.key),
         l1PublisherKey: allKeysAndAddresses[0].key,
         maxSpeedUpAttempts: 0, // Disable speed ups, so that cancellation txs never make it through
       }));

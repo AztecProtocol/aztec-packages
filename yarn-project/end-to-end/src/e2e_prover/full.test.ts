@@ -327,7 +327,7 @@ describe('full_prover', () => {
               data.constants,
               data.gasUsed.add(new Gas(i + 1, 0)),
               data.feePayer,
-              data.includeByTimestamp,
+              data.expirationTimestamp,
               data.forPublic,
               data.forRollup,
             ),
