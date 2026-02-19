@@ -247,7 +247,7 @@ function test {
   # Starting txe servers with incrementing port numbers.
   # Base port is below the Linux ephemeral range (32768-60999) to avoid conflicts.
   local txe_base_port=14730
-  export NUM_TXES=8
+  export NUM_TXES=1
   trap 'kill $(jobs -p) &>/dev/null || true' EXIT
   for i in $(seq 0 $((NUM_TXES-1))); do
     check_port $((txe_base_port + i)) || echo "WARNING: port $((txe_base_port + i)) is in use, TXE $i may fail to start"

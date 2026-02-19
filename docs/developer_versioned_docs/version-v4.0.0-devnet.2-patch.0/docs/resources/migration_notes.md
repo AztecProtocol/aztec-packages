@@ -7,7 +7,7 @@ tags: [migration, updating, sandbox, local network]
 
 Aztec is in active development. Each version may introduce breaking changes that affect compatibility with previous versions. This page documents common errors and difficulties you might encounter when upgrading, along with guidance on how to resolve them.
 
-## TBD
+## 4.0.0-devnet.2-patch.0
 
 ### [Protocol] `include_by_timestamp` renamed to `expiration_timestamp`
 
