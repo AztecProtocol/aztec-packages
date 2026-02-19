@@ -8,6 +8,8 @@
 function _publish_phase {
   local phase=$1 duration_secs=$2 exit_code=$3
   [ "${CI_REDIS_AVAILABLE:-0}" -eq 1 ] || return 0
+  # Skip zero-duration phases (fully cached, no real work done)
+  [ "$duration_secs" -gt 0 ] 2>/dev/null || return 0
   local commit_hash=${COMMIT_HASH:-$(git rev-parse HEAD 2>/dev/null || true)}
   redis_publish ci:phase:complete "$(jq -c -n \
     --arg phase "$phase" \
