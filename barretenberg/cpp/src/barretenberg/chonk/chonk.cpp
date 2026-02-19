@@ -167,8 +167,9 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
         // Add pairing points for aggregation
         pairing_points.emplace_back(kernel_input.pairing_inputs);
         // Perform databus consistency checks using interleaved commitments.
-        // W₃ = [calldata, 0, 0, 0] and W₄ = [secondary_calldata, 0, 0, 0] serve as stand-ins
-        // for the individual commitments. Not sound, but sufficient for benchmarking.
+        // W₃ = [calldata, 0, 0, 0] and W₄ = [secondary_calldata, 0, 0, 0] are binding commitments
+        // to the underlying polynomials (using SRS subset {G[4i]}), so equality of interleaved
+        // commitments implies equality of the underlying polynomials.
         bool kernel_return_data_match =
             kernel_input.kernel_return_data.get_value() == interleaved_commitments.interleaved_calldata.get_value();
         BB_ASSERT_DEBUG(kernel_return_data_match,
@@ -204,7 +205,7 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
         kernel_input.output_hn_accum_hash.assert_equal(*prev_accum_hash);
 
         // Set the kernel return data commitment to be propagated via the public inputs.
-        // Use the interleaved commitment W₅ = [return_data, 0, 0, 0] (not sound, but sufficient for benchmarking).
+        // Uses the interleaved commitment W₇ = [return_data, 0, 0, 0].
         bus_depot.set_kernel_return_data_commitment(interleaved_commitments.interleaved_return_data);
     } else {
         // Reconstruct the input from the previous app from its public inputs
@@ -214,7 +215,7 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
         pairing_points.emplace_back(app_input.pairing_inputs);
 
         // Set the app return data commitment to be propagated via the public inputs.
-        // Use the interleaved commitment W₅ = [return_data, 0, 0, 0] (not sound, but sufficient for benchmarking).
+        // Uses the interleaved commitment W₇ = [return_data, 0, 0, 0].
         bus_depot.set_app_return_data_commitment(interleaved_commitments.interleaved_return_data);
     }
 

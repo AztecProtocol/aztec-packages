@@ -110,6 +110,12 @@ class MultiMegaFlavor : public MegaFlavor {
                                PrecomputedEntities<DataType>::get_all(),
                                WitnessEntities_<DataType>::get_all());
         };
+        auto get_unshifted() const
+        {
+            return concatenate(MultiMegaMaskingEntities<DataType, HasZK_>::get_all(),
+                               PrecomputedEntities<DataType>::get_all(),
+                               WitnessEntities_<DataType>::get_all());
+        };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
         auto get_witness() { return WitnessEntities_<DataType>::get_all(); };
         auto get_witness() const { return WitnessEntities_<DataType>::get_all(); };
@@ -200,17 +206,11 @@ class MultiMegaFlavor : public MegaFlavor {
 
     using PartiallyEvaluatedMultivariates = PartiallyEvaluatedMultivariates_<HasZK>;
 
+    // MultiMega VerifierCommitments: individual precomputed slots are not populated from the VK
+    // because the VK stores 8 interleaved commitments, not 31 individual selectors.
+    // The verifier uses interleaved commitments directly for PCS verification.
     template <typename Commitment_, typename VerificationKey_, bool HasZK_ = HasZK>
-    class VerifierCommitments_ : public AllEntities_<Commitment_, HasZK_> {
-      public:
-        // Default constructor: all commitments zero (for benchmarking with interleaved VK)
-        VerifierCommitments_() = default;
-        // Single-arg constructor from interleaved VK (benchmarking only - not sound)
-        explicit VerifierCommitments_(const std::shared_ptr<VerificationKey_>& verification_key)
-        {
-            (void)verification_key; // Interleaved VK can't be directly mapped to individual slots
-        }
-    };
+    class VerifierCommitments_ : public AllEntities_<Commitment_, HasZK_> {};
 
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey, HasZK>;
 

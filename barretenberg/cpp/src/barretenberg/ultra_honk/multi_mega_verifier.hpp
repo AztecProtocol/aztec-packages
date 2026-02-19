@@ -21,11 +21,7 @@ namespace bb {
  * @brief Output type for native MultiMegaVerifier
  */
 template <typename Flavor> struct MultiMegaVerifierOutput {
-    using Commitment = typename Flavor::Commitment;
-
     bool result = false;
-
-    MultiMegaVerifierOutput() = default;
 };
 
 /**

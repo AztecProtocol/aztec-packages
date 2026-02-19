@@ -25,16 +25,6 @@ template <typename Flavor> struct InterleavedCommitmentsHelper<Flavor, true> {
     using type = typename Flavor::InterleavedCommitments;
 };
 
-// Helper to get InterleavedPrecomputedCommitments type if it exists, otherwise an empty struct
-template <typename Flavor, bool = IsMultiMegaFlavor<Flavor>> struct InterleavedPrecomputedHelper {
-    struct Empty {};
-    using type = Empty;
-};
-
-template <typename Flavor> struct InterleavedPrecomputedHelper<Flavor, true> {
-    using type = typename Flavor::InterleavedPrecomputed;
-};
-
 /**
  * @brief The VerifierInstance encapsulates all the necessary information for a Honk Verifier to verify a
  * proof (sumcheck + Shplemini). In the context of folding, this is provided to the Hypernova verifier as an incoming
@@ -64,10 +54,6 @@ template <typename Flavor_> class VerifierInstance_ {
     // This is only used when Flavor has InterleavedCommitments
     using InterleavedCommitmentsType = typename InterleavedCommitmentsHelper<Flavor>::type;
     InterleavedCommitmentsType interleaved_commitments;
-
-    // For MultiMegaFlavor: store interleaved precomputed commitments
-    using InterleavedPrecomputedType = typename InterleavedPrecomputedHelper<Flavor>::type;
-    InterleavedPrecomputedType interleaved_precomputed;
 
     Commitment gemini_masking_commitment; // ZK only: Gemini masking polynomial commitment
 
