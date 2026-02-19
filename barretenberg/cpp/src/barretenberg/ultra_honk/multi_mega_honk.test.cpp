@@ -107,10 +107,19 @@ class MultiMegaHonkTests : public ::testing::Test {
         }
 
         // Sumcheck evaluations + interleaving challenges + batching challenges
+        constexpr size_t NUM_UNSHIFTED = Flavor::NUM_ALL_INTERLEAVED_COMMITMENTS;
+        constexpr size_t NUM_SHIFTED = Flavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
         manifest_expected.add_entry(round, "Sumcheck:evaluations", frs_per_evals);
         manifest_expected.add_challenge(round, "Shplemini:interleaving_challenge_0");
         manifest_expected.add_challenge(round, "Shplemini:interleaving_challenge_1");
-        manifest_expected.add_challenge(round, "rho"); // Gemini's rho challenge (batches all interleaved polys)
+        // Independent batching challenges: (NUM_UNSHIFTED-1) unshifted + (NUM_SHIFTED-1) shifted
+        for (size_t i = 0; i < NUM_UNSHIFTED - 1; i++) {
+            manifest_expected.add_challenge(round, "unshifted_challenge_" + std::to_string(i));
+        }
+        for (size_t i = 0; i < NUM_SHIFTED - 1; i++) {
+            manifest_expected.add_challenge(round, "shifted_challenge_" + std::to_string(i));
+        }
+        manifest_expected.add_challenge(round, "rho"); // Gemini's rho challenge (batches pre-batched polys)
 
         // Gemini fold commitments (pcs_log_n - 1 folds)
         round++;

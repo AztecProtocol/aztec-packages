@@ -91,26 +91,12 @@ class HypernovaFoldingProver {
 
     /**
      * @brief Convert the output of the sumcheck run on the incoming instance into an accumulator.
-     * @details Constructs interleaved polynomials from groups, batches them and the interleaved
-     *          commitments, computes evaluations via Lagrange basis, and prepends interleaving
-     *          challenges to the sumcheck challenge vector.
+     * @details Batches interleaved polynomial groups (batch-then-interleave), batches commitments
+     *          and evaluations, and prepends interleaving challenges to the sumcheck challenge vector.
      */
     Accumulator sumcheck_output_to_accumulator(MegaSumcheckOutput& sumcheck_output,
                                                const std::shared_ptr<ProverInstance>& instance,
                                                const MegaOinkProver& oink_prover);
-
-    /**
-     * @brief Construct an interleaved polynomial from a group of up to BATCH_SIZE individual polynomials.
-     * @details For group (p0, p1, ..., p_{k-1}), constructs F where F[BATCH_SIZE*i + j] = p_j[i].
-     */
-    static Polynomial<FF> construct_interleaved_polynomial(const std::vector<Polynomial<FF> const*>& group,
-                                                           size_t individual_poly_size,
-                                                           bool shiftable = false);
-
-    /**
-     * @brief Utility to perform batch mul of commitments.
-     */
-    template <size_t N> Commitment batch_mul(const RefArray<Commitment, N>& _points, const std::vector<FF>& scalars);
 };
 
 } // namespace bb

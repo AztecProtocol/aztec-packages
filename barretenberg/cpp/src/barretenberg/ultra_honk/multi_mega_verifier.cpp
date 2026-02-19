@@ -5,6 +5,7 @@
 // =====================
 
 #include "barretenberg/ultra_honk/multi_mega_verifier.hpp"
+#include "barretenberg/commitment_schemes/interleaved_group_batching.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/common/assert.hpp"
@@ -48,20 +49,6 @@ std::vector<typename MultiMegaVerifier_<Flavor, IO>::FF> MultiMegaVerifier_<Flav
         }
     }
     return padding_indicator_array;
-}
-
-/**
- * @brief Combine individual polynomial evaluations into batched evaluation using Lagrange basis.
- */
-template <IsMultiMegaFlavor Flavor, class IO>
-typename MultiMegaVerifier_<Flavor, IO>::FF MultiMegaVerifier_<Flavor, IO>::compute_batched_evaluation(
-    const std::array<FF, 4>& lagrange_basis, const std::array<FF, 4>& individual_evals)
-{
-    FF result = FF(0);
-    for (size_t j = 0; j < 4; ++j) {
-        result += individual_evals[j] * lagrange_basis[j];
-    }
-    return result;
 }
 
 template <IsMultiMegaFlavor Flavor, class IO>
@@ -141,42 +128,42 @@ typename MultiMegaVerifier_<Flavor, IO>::ReductionResult MultiMegaVerifier_<Flav
     constexpr size_t NUM_SHIFTED = Flavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS; // 3
     constexpr size_t BATCH_SIZE = Flavor::INTERLEAVING_BATCH_SIZE;
 
-    // Helper: dereference a pointer group into an eval array (nullptr → zero)
-    auto deref_group = [](const auto& group) {
-        std::array<FF, BATCH_SIZE> vals{};
-        for (size_t j = 0; j < BATCH_SIZE; j++) {
-            vals[j] = (j < group.size() && group[j]) ? *group[j] : FF(0);
-        }
-        return vals;
-    };
-
-    // Commitments: P₁-P₈ (from VK) + W₁-W₉ (non-ZK) or W₁-W₁₀ (ZK, includes masking)
-    auto unshifted_comms = concatenate(vk->get_all(), interleaved.get_all());
-    auto shifted_comms = interleaved.get_shiftable();
-
-    // Evaluations: reconstruct batched evals from individual evals via Lagrange basis
-    // For ZK, get_unshifted_groups returns 18 groups (includes masking chunk group)
-    auto unshifted_eval_groups = Flavor::get_unshifted_groups(evals);
-    std::array<FF, NUM_UNSHIFTED> unshifted_evals;
+    // Collect commitments into vectors
+    auto unshifted_comms_ref = concatenate(vk->get_all(), interleaved.get_all());
+    std::vector<Commitment> unshifted_comms_vec;
+    unshifted_comms_vec.reserve(NUM_UNSHIFTED);
     for (size_t i = 0; i < NUM_UNSHIFTED; i++) {
-        unshifted_evals[i] = compute_batched_evaluation(lagrange_basis, deref_group(unshifted_eval_groups[i]));
+        unshifted_comms_vec.push_back(unshifted_comms_ref[i]);
+    }
+    std::vector<Commitment> shifted_comms_vec;
+    shifted_comms_vec.reserve(NUM_SHIFTED);
+    for (const auto& c : interleaved.get_shiftable()) {
+        shifted_comms_vec.push_back(c);
     }
 
-    auto shifted_eval_groups = Flavor::get_shifted_groups(evals);
-    std::array<FF, NUM_SHIFTED> shifted_evals;
-    for (size_t i = 0; i < NUM_SHIFTED; i++) {
-        shifted_evals[i] = compute_batched_evaluation(lagrange_basis, deref_group(shifted_eval_groups[i]));
-    }
+    // Get batching challenges and batch claims using shared module
+    auto [unshifted_challenges, shifted_challenges] =
+        get_interleaved_batching_challenges<FF>(transcript, NUM_UNSHIFTED, NUM_SHIFTED);
+
+    auto [batched_unshifted_comm, batched_shifted_comm, batched_unshifted_eval, batched_shifted_eval] =
+        batch_interleaved_verifier_claims(unshifted_comms_vec,
+                                          shifted_comms_vec,
+                                          Flavor::get_unshifted_groups(evals),
+                                          Flavor::get_shifted_groups(evals),
+                                          unshifted_challenges,
+                                          shifted_challenges,
+                                          lagrange_basis);
 
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
 
-    // Both ZK and non-ZK paths use the same claim batcher structure.
-    // For ZK, the masking group is just another interleaved group (W₁₀) - no manual handling.
-    ClaimBatcher claim_batcher{ .unshifted =
-                                    ClaimBatch{ unshifted_comms, RefArray<FF, NUM_UNSHIFTED>(unshifted_evals) },
-                                .shifted = ClaimBatch{ shifted_comms, RefArray<FF, NUM_SHIFTED>(shifted_evals) },
-                                .shift_exponent = BATCH_SIZE };
+    // With ψ pre-batching, pass 1 unshifted + 1 shifted commitment/evaluation to Shplemini.
+    // The ρ layer inside Shplemini is trivially correct with 2 polynomials.
+    ClaimBatcher claim_batcher{
+        .unshifted = ClaimBatch{ RefVector<Commitment>(batched_unshifted_comm), RefVector<FF>(batched_unshifted_eval) },
+        .shifted = ClaimBatch{ RefVector<Commitment>(batched_shifted_comm), RefVector<FF>(batched_shifted_eval) },
+        .shift_exponent = BATCH_SIZE
+    };
 
     const Commitment one_commitment = [&]() {
         if constexpr (IsRecursive) {

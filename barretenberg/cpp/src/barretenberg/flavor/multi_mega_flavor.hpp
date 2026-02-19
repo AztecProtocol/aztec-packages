@@ -369,20 +369,13 @@ class MultiMegaFlavor : public MegaFlavor {
         }
     };
 
-    // FINAL_PCS_MSM_SIZE for interleaved commitments (with REPEATED_COMMITMENTS optimization):
-    // 19 unshifted (shifted merged via REPEATED_COMMITMENTS) + 1 (Shplonk Q) + (pcs_log_n - 1) Gemini folds
-    // + 1 (G1 identity) + 1 (KZG W)
-    // Note: PCS uses pcs_log_n = log_n + INTERLEAVING_LOG_K since Gemini operates on interleaved polynomials
+    // FINAL_PCS_MSM_SIZE with ψ pre-batching: all interleaved groups are batched into
+    // 1 unshifted + 1 shifted commitment before Shplemini.
+    // Components: 1 unshifted + 1 shifted + 1 Shplonk Q + (pcs_log_n - 1) Gemini folds + 1 G1 identity + 1 KZG W
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
     {
         const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
-        // Unshifted commitments: NUM_ALL_INTERLEAVED_COMMITMENTS (19)
-        // Shifted commitments: 0 (merged with unshifted via REPEATED_COMMITMENTS)
-        // Shplonk Q: 1
-        // Gemini folds: pcs_log_n - 1
-        // G1 identity: 1
-        // KZG W: 1
-        return NUM_ALL_INTERLEAVED_COMMITMENTS + 2 + pcs_log_n;
+        return pcs_log_n + 4;
     }
 
     // VerificationKey stores 8 interleaved precomputed commitments instead of 31 individual ones.
@@ -396,15 +389,9 @@ class MultiMegaFlavor : public MegaFlavor {
 
     using VKAndHash = VKAndHash_<FF, VerificationKey>;
 
-    // With the reordered InterleavedWitnessCommitments (unshiftable first, shiftable at end),
-    // the shiftable commitments are now contiguous, enabling the REPEATED_COMMITMENTS optimization.
-    // This saves NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS (3) points from the final PCS MSM.
-    static constexpr size_t SHPLEMINI_OFFSET = 1; // Shplonk:Q
-    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
-        RepeatedCommitmentsData(NUM_INTERLEAVED_PRECOMPUTED_COMMITMENTS +
-                                    (NUM_INTERLEAVED_WITNESS_COMMITMENTS - NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS),
-                                NUM_ALL_INTERLEAVED_COMMITMENTS,
-                                NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS);
+    // With ψ pre-batching, all interleaved groups are batched into 1 unshifted + 1 shifted
+    // commitment before Shplemini. No repeated commitments optimization needed.
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData();
 
     /**
      * @brief Interleaving group accessors, templated on AllEntities<DataType>.
@@ -441,6 +428,43 @@ class MultiMegaFlavor : public MegaFlavor {
             { &e.lookup_read_counts, &e.lookup_read_tags, nullptr, nullptr },
             { &e.lookup_inverses, &e.calldata_inverses, &e.secondary_calldata_inverses, &e.return_data_inverses },
             // W₁, W₈, W₁₁: shiftable witness groups at end (contiguous for REPEATED_COMMITMENTS)
+            { &e.w_l, &e.w_r, &e.w_o, nullptr },
+            { &e.w_4, nullptr, nullptr, nullptr },
+            { &e.z_perm, nullptr, nullptr, nullptr },
+        };
+    }
+
+    /**
+     * @brief Mutable version of get_unshifted_groups, returning non-const pointers.
+     * @details Enables clearing polynomials after consumption to free memory during ψ pre-batching.
+     */
+    template <typename Entities> static auto get_unshifted_groups_mut(Entities& e)
+    {
+        using T = std::decay_t<decltype(e.w_l)>;
+        using Group = std::vector<T*>;
+        return std::vector<Group>{
+            // P₁-P₈: precomputed (sequential chunks of PrecomputedEntities)
+            { &e.q_m, &e.q_c, &e.q_l, &e.q_r },
+            { &e.q_o, &e.q_4, &e.q_busread, &e.q_lookup },
+            { &e.q_arith, &e.q_delta_range, &e.q_elliptic, &e.q_memory },
+            { &e.q_nnf, &e.q_poseidon2_external, &e.q_poseidon2_internal, &e.sigma_1 },
+            { &e.sigma_2, &e.sigma_3, &e.sigma_4, &e.id_1 },
+            { &e.id_2, &e.id_3, &e.id_4, &e.table_1 },
+            { &e.table_2, &e.table_3, &e.table_4, &e.lagrange_first },
+            { &e.lagrange_last, &e.lagrange_ecc_op, &e.databus_id, nullptr },
+            // W₂-W₁₀: unshiftable witness groups first
+            { &e.ecc_op_wire_1, &e.ecc_op_wire_2, &e.ecc_op_wire_3, &e.ecc_op_wire_4 },
+            { &e.calldata, nullptr, nullptr, nullptr },
+            { &e.secondary_calldata, nullptr, nullptr, nullptr },
+            { &e.calldata_read_counts,
+              &e.calldata_read_tags,
+              &e.secondary_calldata_read_counts,
+              &e.secondary_calldata_read_tags },
+            { &e.return_data_read_tags, &e.return_data_read_counts, nullptr, nullptr },
+            { &e.return_data, nullptr, nullptr, nullptr },
+            { &e.lookup_read_counts, &e.lookup_read_tags, nullptr, nullptr },
+            { &e.lookup_inverses, &e.calldata_inverses, &e.secondary_calldata_inverses, &e.return_data_inverses },
+            // W₁, W₈, W₁₁: shiftable witness groups at end
             { &e.w_l, &e.w_r, &e.w_o, nullptr },
             { &e.w_4, nullptr, nullptr, nullptr },
             { &e.z_perm, nullptr, nullptr, nullptr },

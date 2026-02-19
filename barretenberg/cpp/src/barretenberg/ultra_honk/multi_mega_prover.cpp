@@ -6,7 +6,9 @@
 
 #include "barretenberg/ultra_honk/multi_mega_prover.hpp"
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"
+#include "barretenberg/commitment_schemes/interleaved_group_batching.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/flavor/multi_mega_zk_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ultra_honk/multi_mega_oink_prover.hpp"
@@ -131,8 +133,6 @@ template <IsMultiMegaFlavor Flavor> void MultiMegaProver_<Flavor>::execute_pcs()
 
     auto& ck = commitment_key;
     if (!ck.initialized()) {
-        // For interleaved commitments, we need 4x the polynomial size for the SRS.
-        // For ZK, SmallSubgroupIPA also needs 2 * SUBGROUP_SIZE for its polynomial commitments.
         size_t ck_size = interleaved_size;
         if constexpr (Flavor::HasZK) {
             ck_size = std::max(ck_size, 2 * static_cast<size_t>(Curve::SUBGROUP_SIZE));
@@ -153,28 +153,38 @@ template <IsMultiMegaFlavor Flavor> void MultiMegaProver_<Flavor>::execute_pcs()
 
     auto& polys = prover_instance->polynomials;
 
-    // The polynomial batcher picks up ALL interleaved groups from the flavor:
-    // - Non-ZK: 17 unshifted groups (8 precomputed + 9 witness) + 3 shifted
-    // - ZK: 18 unshifted groups (8 precomputed + 9 witness + 1 masking) + 3 shifted
-    // No manual masking handling needed - masking chunks are in ProverPolynomials.
-    PolynomialBatcher polynomial_batcher(interleaved_size, BATCH_SIZE);
-    polynomial_batcher.set_unshifted_interleaved_groups(Flavor::get_unshifted_groups(polys));
-    polynomial_batcher.set_shifted_interleaved_groups(Flavor::get_to_be_shifted_groups(polys));
-
-    OpeningClaim prover_opening_claim;
+    // ZK: run SmallSubgroupIPA first (sends Libra commitments to transcript before batching challenges)
+    std::array<Polynomial, NUM_SMALL_IPA_EVALUATIONS> libra_witness_polys{};
     if constexpr (Flavor::HasZK) {
-        // SmallSubgroupIPA sends Libra:grand_sum_commitment and Libra:quotient_commitment
-        // Use sumcheck challenge (not full_challenge which includes interleaving prefixes)
         SmallSubgroupIPA small_subgroup_ipa_prover(
             zk_sumcheck_data, sumcheck_output.challenge, sumcheck_output.claimed_libra_evaluation, transcript, ck);
         small_subgroup_ipa_prover.prove();
+        libra_witness_polys = small_subgroup_ipa_prover.get_witness_polynomials();
+    }
 
-        prover_opening_claim = ShpleminiProver_<Curve>::prove(interleaved_size,
-                                                              polynomial_batcher,
-                                                              full_challenge,
-                                                              ck,
-                                                              transcript,
-                                                              small_subgroup_ipa_prover.get_witness_polynomials());
+    // Get independent batching challenges (one per interleaved group, first = implicit 1)
+    constexpr size_t NUM_UNSHIFTED = Flavor::NUM_ALL_INTERLEAVED_COMMITMENTS;
+    constexpr size_t NUM_SHIFTED = Flavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
+    auto [unshifted_challenges, shifted_challenges] =
+        get_interleaved_batching_challenges<FF>(transcript, NUM_UNSHIFTED, NUM_SHIFTED);
+
+    // Batch-then-interleave all groups into 2 polynomials, freeing source polys after each group
+    auto unshifted_groups = Flavor::get_unshifted_groups_mut(polys);
+    auto shifted_groups = Flavor::get_to_be_shifted_groups(polys);
+    std::tie(batched_unshifted, batched_to_be_shifted) = batch_interleaved_polynomial_groups<FF>(
+        unshifted_groups, shifted_groups, unshifted_challenges, shifted_challenges, n, BATCH_SIZE);
+
+    vinfo("pre-batched interleaved groups");
+
+    // Create PolynomialBatcher with just 2 pre-batched polynomials (ρ batching is trivial)
+    PolynomialBatcher polynomial_batcher(interleaved_size, BATCH_SIZE);
+    polynomial_batcher.set_unshifted(RefVector<Polynomial>(batched_unshifted));
+    polynomial_batcher.set_to_be_shifted(RefVector<Polynomial>(batched_to_be_shifted));
+
+    OpeningClaim prover_opening_claim;
+    if constexpr (Flavor::HasZK) {
+        prover_opening_claim = ShpleminiProver_<Curve>::prove(
+            interleaved_size, polynomial_batcher, full_challenge, ck, transcript, libra_witness_polys);
     } else {
         prover_opening_claim =
             ShpleminiProver_<Curve>::prove(interleaved_size, polynomial_batcher, full_challenge, ck, transcript);

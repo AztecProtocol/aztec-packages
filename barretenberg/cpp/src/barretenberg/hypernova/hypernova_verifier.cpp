@@ -5,9 +5,9 @@
 // =====================
 
 #include "barretenberg/hypernova/hypernova_verifier.hpp"
+#include "barretenberg/commitment_schemes/interleaved_group_batching.hpp"
 #include "barretenberg/flavor/multi_mega_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_length.hpp"
-#include "barretenberg/hypernova/hypernova_batching_challenges.hpp"
 
 namespace bb {
 
@@ -24,35 +24,11 @@ HypernovaFoldingVerifier<Flavor>::Accumulator HypernovaFoldingVerifier<Flavor>::
     FF u1 = transcript->template get_challenge<FF>("Shplemini:interleaving_challenge_1");
     auto lagrange_basis = MultiMegaFlavor::compute_lagrange_basis(u0, u1);
 
-    // Generate Hypernova batching challenges for interleaved groups (17 unshifted, 3 shifted)
+    // Generate batching challenges for interleaved groups (17 unshifted, 3 shifted)
     auto [unshifted_challenges, shifted_challenges] =
-        get_hypernova_batching_challenges<FF>(transcript, NUM_UNSHIFTED_ENTITIES, NUM_SHIFTED_ENTITIES);
+        get_interleaved_batching_challenges<FF>(transcript, NUM_UNSHIFTED_ENTITIES, NUM_SHIFTED_ENTITIES);
 
-    // Helper to compute interleaved evaluation from a group of individual evaluations
-    auto compute_group_eval = [&lagrange_basis](const std::vector<FF const*>& group) -> FF {
-        FF result(0);
-        for (size_t j = 0; j < 4; ++j) {
-            FF val = (j < group.size() && group[j] != nullptr) ? *group[j] : FF(0);
-            result += val * lagrange_basis[j];
-        }
-        return result;
-    };
-
-    // Compute batched evaluations from individual evaluations via Lagrange basis
-    auto unshifted_eval_groups = Flavor::get_unshifted_groups(sumcheck_output.claimed_evaluations);
-    auto shifted_eval_groups = Flavor::get_shifted_groups(sumcheck_output.claimed_evaluations);
-
-    FF batched_unshifted_evaluation(0);
-    for (size_t i = 0; i < NUM_UNSHIFTED_ENTITIES; i++) {
-        batched_unshifted_evaluation += compute_group_eval(unshifted_eval_groups[i]) * unshifted_challenges[i];
-    }
-
-    FF batched_shifted_evaluation(0);
-    for (size_t i = 0; i < NUM_SHIFTED_ENTITIES; i++) {
-        batched_shifted_evaluation += compute_group_eval(shifted_eval_groups[i]) * shifted_challenges[i];
-    }
-
-    // Batch interleaved commitments: VK precomputed (8) + witness interleaved (9) = 17
+    // Collect commitments into vectors: VK precomputed (8) + witness interleaved (9) = 17
     std::vector<Commitment> all_unshifted_comms;
     all_unshifted_comms.reserve(NUM_UNSHIFTED_ENTITIES);
     for (const auto& c : instance->get_vk()->get_all()) {
@@ -68,8 +44,18 @@ HypernovaFoldingVerifier<Flavor>::Accumulator HypernovaFoldingVerifier<Flavor>::
         shiftable_comms.push_back(c);
     }
 
-    Commitment batched_unshifted_commitment = Commitment::batch_mul(all_unshifted_comms, unshifted_challenges);
-    Commitment batched_shifted_commitment = Commitment::batch_mul(shiftable_comms, shifted_challenges);
+    // Batch commitments and evaluations using shared module
+    auto [batched_unshifted_commitment,
+          batched_shifted_commitment,
+          batched_unshifted_evaluation,
+          batched_shifted_evaluation] =
+        batch_interleaved_verifier_claims(all_unshifted_comms,
+                                          shiftable_comms,
+                                          Flavor::get_unshifted_groups(sumcheck_output.claimed_evaluations),
+                                          Flavor::get_shifted_groups(sumcheck_output.claimed_evaluations),
+                                          unshifted_challenges,
+                                          shifted_challenges,
+                                          lagrange_basis);
 
     // Build full challenge vector: prepend interleaving challenges to sumcheck challenges
     std::vector<FF> full_challenge;
@@ -163,33 +149,9 @@ std::tuple<bool, bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> H
 
     // Generate batching challenges for interleaved groups
     const auto [unshifted_challenges, shifted_challenges] =
-        get_hypernova_batching_challenges<FF>(transcript, NUM_UNSHIFTED_ENTITIES, NUM_SHIFTED_ENTITIES);
+        get_interleaved_batching_challenges<FF>(transcript, NUM_UNSHIFTED_ENTITIES, NUM_SHIFTED_ENTITIES);
 
-    // Helper to compute interleaved evaluation from a group of individual evaluations
-    auto compute_group_eval = [&lagrange_basis](const std::vector<FF const*>& group) -> FF {
-        FF result(0);
-        for (size_t j = 0; j < 4; ++j) {
-            FF val = (j < group.size() && group[j] != nullptr) ? *group[j] : FF(0);
-            result += val * lagrange_basis[j];
-        }
-        return result;
-    };
-
-    // Compute pre-batched instance evaluations
-    auto unshifted_eval_groups = Flavor::get_unshifted_groups(sumcheck_output.claimed_evaluations);
-    auto shifted_eval_groups = Flavor::get_shifted_groups(sumcheck_output.claimed_evaluations);
-
-    FF batched_unshifted_instance_eval(0);
-    for (size_t i = 0; i < NUM_UNSHIFTED_ENTITIES; i++) {
-        batched_unshifted_instance_eval += compute_group_eval(unshifted_eval_groups[i]) * unshifted_challenges[i];
-    }
-
-    FF batched_shifted_instance_eval(0);
-    for (size_t i = 0; i < NUM_SHIFTED_ENTITIES; i++) {
-        batched_shifted_instance_eval += compute_group_eval(shifted_eval_groups[i]) * shifted_challenges[i];
-    }
-
-    // Compute pre-batched instance commitments from interleaved VK + oink verifier
+    // Collect commitments into vectors
     std::vector<Commitment> all_unshifted_comms;
     all_unshifted_comms.reserve(NUM_UNSHIFTED_ENTITIES);
     for (const auto& c : instance->get_vk()->get_all()) {
@@ -205,8 +167,18 @@ std::tuple<bool, bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> H
         shiftable_comms.push_back(c);
     }
 
-    Commitment batched_unshifted_instance_commitment = Commitment::batch_mul(all_unshifted_comms, unshifted_challenges);
-    Commitment batched_shifted_instance_commitment = Commitment::batch_mul(shiftable_comms, shifted_challenges);
+    // Batch commitments and evaluations using shared module
+    auto [batched_unshifted_instance_commitment,
+          batched_shifted_instance_commitment,
+          batched_unshifted_instance_eval,
+          batched_shifted_instance_eval] =
+        batch_interleaved_verifier_claims(all_unshifted_comms,
+                                          shiftable_comms,
+                                          Flavor::get_unshifted_groups(sumcheck_output.claimed_evaluations),
+                                          Flavor::get_shifted_groups(sumcheck_output.claimed_evaluations),
+                                          unshifted_challenges,
+                                          shifted_challenges,
+                                          lagrange_basis);
 
     // Build full instance challenge: prepend interleaving challenges to sumcheck challenges
     std::vector<FF> instance_challenge;

@@ -88,15 +88,6 @@ template <IsMultiMegaFlavor Flavor_, class IO = DefaultIO> class MultiMegaVerifi
     std::vector<FF> compute_padding_indicator_array(size_t log_n) const;
 
     /**
-     * @brief Combine individual polynomial evaluations into batched evaluation.
-     * @param lagrange_basis The 4 Lagrange basis evaluations
-     * @param individual_evals The 4 individual polynomial evaluations (pad with zeros if < 4)
-     * @return Batched evaluation F(u) = Σⱼ fⱼ(u_k,...) · Lⱼ(u₀,u₁)
-     */
-    static FF compute_batched_evaluation(const std::array<FF, 4>& lagrange_basis,
-                                         const std::array<FF, 4>& individual_evals);
-
-    /**
      * @brief Reduce proof to pairing check.
      */
     [[nodiscard("Reduction result should be verified")]] ReductionResult reduce_to_pairing_check(const Proof& proof);

@@ -120,7 +120,44 @@ BENCHMARK_DEFINE_F(MultiCommitBench, InterleavedPippenger)(benchmark::State& sta
 }
 
 /**
- * @brief Verify that chunked and full commitments are equal
+ * @brief k separate MSMs with pre-extracted strided SRS views (no materialization)
+ * @details For chunk j, uses SRS points {G[4i+j] : i=0,...,n-1} copied into a contiguous array.
+ *          Avoids materializing the interleaved polynomial entirely.
+ */
+BENCHMARK_DEFINE_F(MultiCommitBench, StridedSRS)(benchmark::State& state)
+{
+    size_t log_n = static_cast<size_t>(state.range(0));
+    size_t n = 1UL << log_n;
+
+    // Precompute strided SRS views (one-time cost, not included in benchmark)
+    std::array<std::vector<G1>, BATCH_SIZE> srs_views;
+    auto srs_points = commitment_key->get_monomial_points();
+    for (size_t i = 0; i < BATCH_SIZE; i++) {
+        srs_views[i].resize(n);
+        for (size_t j = 0; j < n; j++) {
+            srs_views[i][j] = srs_points[(BATCH_SIZE * j) + i];
+        }
+    }
+
+    for (auto _ : state) {
+        G1 result;
+        {
+            BB_BENCH_NAME("StridedSRS_Full");
+            G1 commit = G1::infinity();
+            for (size_t i = 0; i < BATCH_SIZE; i++) {
+                auto scalars = PolynomialSpan<const Fr>(0, polys[i].coeffs());
+                auto chunk = scalar_multiplication::pippenger_unsafe<Curve>(
+                    scalars, std::span<const G1>{ srs_views[i].data(), n });
+                commit = commit + chunk;
+            }
+            result = commit;
+        }
+        benchmark::DoNotOptimize(result);
+    }
+}
+
+/**
+ * @brief Verify that all three approaches produce equal commitments
  */
 BENCHMARK_DEFINE_F(MultiCommitBench, VerifyEquality)(benchmark::State& state)
 {
@@ -164,6 +201,8 @@ BENCHMARK_REGISTER_F(MultiCommitBench, FullCommitment)->Unit(benchmark::kMillise
 BENCHMARK_REGISTER_F(MultiCommitBench, InterleavedPippenger)
     ->Unit(benchmark::kMillisecond)
     ->DenseRange(MIN_LOG_N, MAX_LOG_N);
+
+BENCHMARK_REGISTER_F(MultiCommitBench, StridedSRS)->Unit(benchmark::kMillisecond)->DenseRange(MIN_LOG_N, MAX_LOG_N);
 
 BENCHMARK_REGISTER_F(MultiCommitBench, VerifyEquality)->Unit(benchmark::kMillisecond)->DenseRange(MIN_LOG_N, MAX_LOG_N);
 
