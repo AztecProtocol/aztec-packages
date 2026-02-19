@@ -22,9 +22,9 @@ describe('resolveAdminApiKey', () => {
     }
   });
 
-  describe('opt-out (noAdminApiKey = true)', () => {
+  describe('opt-out (disableAdminApiKey = true)', () => {
     it('returns undefined when auth is disabled', async () => {
-      const result = await resolveAdminApiKey({ noAdminApiKey: true }, log);
+      const result = await resolveAdminApiKey({ disableAdminApiKey: true }, log);
       expect(result).toBeUndefined();
     });
   });

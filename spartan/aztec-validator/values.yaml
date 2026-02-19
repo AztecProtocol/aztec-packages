@@ -26,7 +26,7 @@ validator:
 
   node:
     # Set to false in production to enable API key auth.
-    noAdminApiKey: true
+    disableAdminApiKey: true
     configMap:
       envEnabled: true
     secret:
