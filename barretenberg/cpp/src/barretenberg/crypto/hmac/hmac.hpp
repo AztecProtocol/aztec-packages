@@ -43,7 +43,8 @@ std::array<uint8_t, Hash::OUTPUT_SIZE> hmac(const MessageContainer& message, con
     // TODO: securely erase `k_prime`
     std::array<uint8_t, B> k_prime{};
     if (key.size() > B) {
-        const auto truncated_key = Hash::hash(key);
+        std::vector<uint8_t> key_buffer(key.begin(), key.end());
+        const auto truncated_key = Hash::hash(key_buffer);
         std::copy(truncated_key.begin(), truncated_key.end(), k_prime.begin());
     } else {
         std::copy(key.begin(), key.end(), k_prime.begin());
@@ -103,7 +104,8 @@ Fr deterministic_nonce_rfc6979(const MessageContainer& message, const KeyContain
     static constexpr size_t MODULUS_BIT_LENGTH = Fr::modulus.get_msb() + 1;
 
     // Hash the mesage, reduce it modulo Fr::modulus, and serialize it to a buffer
-    auto hashed_message = Hash::hash(message);
+    std::vector<uint8_t> message_buffer(message.begin(), message.end());
+    auto hashed_message = Hash::hash(message_buffer);
     Fr hashed_message_fr = Fr::serialize_from_buffer(hashed_message.data());
     hashed_message = {};
     Fr::serialize_to_buffer(hashed_message_fr, &hashed_message[0]);

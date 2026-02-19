@@ -12,8 +12,10 @@ using namespace bb;
 using namespace bb::crypto;
 
 // Templated test fixture for ECDSA operations on different curves
-template <typename Curve> class EcdsaNativeTests : public ::testing::Test {
+template <typename EcdsaTestParams> class EcdsaNativeTests : public ::testing::Test {
   public:
+    using Curve = typename EcdsaTestParams::CurveType;
+    using Hasher = typename EcdsaTestParams::Hasher;
     using Fr = typename Curve::ScalarField;
     using Fq = typename Curve::BaseField;
     using G1 = typename Curve::Group;
@@ -31,7 +33,7 @@ template <typename Curve> class EcdsaNativeTests : public ::testing::Test {
     // Create a valid signature for the given message and account
     static ecdsa_signature create_valid_signature(const std::string& message, const ecdsa_key_pair<Fr, G1>& account)
     {
-        return ecdsa_construct_signature<Sha256Hasher, Fq, Fr, G1>(message, account);
+        return ecdsa_construct_signature<Hasher, Fq, Fr, G1>(message, account);
     }
 
     // Verify a signature
@@ -39,13 +41,13 @@ template <typename Curve> class EcdsaNativeTests : public ::testing::Test {
                                  const AffineElement& public_key,
                                  const ecdsa_signature& sig)
     {
-        return ecdsa_verify_signature<Sha256Hasher, Fq, Fr, G1>(message, public_key, sig);
+        return ecdsa_verify_signature<Hasher, Fq, Fr, G1>(message, public_key, sig);
     }
 
     // Recover public key from signature (only works for curves with recovery support)
     static AffineElement recover_public_key(const std::string& message, const ecdsa_signature& sig)
     {
-        return ecdsa_recover_public_key<Sha256Hasher, Fq, Fr, G1>(message, sig);
+        return ecdsa_recover_public_key<Hasher, Fq, Fr, G1>(message, sig);
     }
 
     // Fetch Wycherproof test cases for the curve
@@ -91,11 +93,25 @@ struct grumpkin_curve {
     static constexpr bool has_wycheproof_tests = false;
 };
 
+template <typename Curve, typename Hasher_> struct EcdsaTestParams {
+  public:
+    using CurveType = Curve;
+    using Hasher = Hasher_;
+};
+
 // Define the list of curve types to test
-using CurveTypes = ::testing::Types<secp256k1_curve, secp256r1_curve, grumpkin_curve>;
+using Params = ::testing::Types<EcdsaTestParams<secp256k1_curve, Sha256Hasher>,
+                                EcdsaTestParams<secp256r1_curve, Sha256Hasher>,
+                                EcdsaTestParams<grumpkin_curve, Sha256Hasher>,
+                                EcdsaTestParams<secp256k1_curve, Blake2sHasher>,
+                                EcdsaTestParams<secp256r1_curve, Blake2sHasher>,
+                                EcdsaTestParams<grumpkin_curve, Blake2sHasher>,
+                                EcdsaTestParams<secp256k1_curve, KeccakHasher>,
+                                EcdsaTestParams<secp256r1_curve, KeccakHasher>,
+                                EcdsaTestParams<grumpkin_curve, KeccakHasher>>;
 
 // Register the test suite
-TYPED_TEST_SUITE(EcdsaNativeTests, CurveTypes);
+TYPED_TEST_SUITE(EcdsaNativeTests, Params);
 
 // ================================================================================
 // POSITIVE TESTS: Valid signatures should pass verification
@@ -114,7 +130,7 @@ TYPED_TEST(EcdsaNativeTests, VerifyValidSignature)
 
 TYPED_TEST(EcdsaNativeTests, RecoverPublicKey)
 {
-    using Curve = TypeParam;
+    using Curve = TypeParam::CurveType;
 
     std::string message = "The quick brown dog jumped over the lazy fox.";
 
@@ -277,7 +293,7 @@ TYPED_TEST(EcdsaNativeTests, RejectInfinityResult)
 
 TYPED_TEST(EcdsaNativeTests, Wycherproof)
 {
-    using Curve = TypeParam;
+    using Curve = TypeParam::CurveType;
     using AffineElement = TestFixture::AffineElement;
     using Fr = TestFixture::Fr;
 
@@ -291,9 +307,9 @@ TYPED_TEST(EcdsaNativeTests, Wycherproof)
             ecdsa_signature sig = { r, s, ECDSA_RECOVERY_ID_OFFSET };
 
             bool is_signature_valid = ecdsa_verify_signature<Sha256Hasher,
-                                                             typename TypeParam::BaseField,
-                                                             typename TypeParam::ScalarField,
-                                                             typename TypeParam::Group>(
+                                                             typename Curve::BaseField,
+                                                             typename Curve::ScalarField,
+                                                             typename Curve::Group>(
                 message_string, AffineElement(test_case.x, test_case.y), sig);
 
             EXPECT_EQ(is_signature_valid, test_case.is_valid_signature) << "Test case: " << test_case.comment;
