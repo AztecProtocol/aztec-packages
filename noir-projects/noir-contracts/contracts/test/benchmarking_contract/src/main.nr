@@ -61,4 +61,12 @@ pub contract Benchmarking {
     fn sha256_hash_1024(data: [u8; 1024]) -> [u8; 32] {
         sha256::sha256_var(data, data.len())
     }
+
+    // Lightest possible private transaction: empty app circuit, no state changes, no public calls.
+    #[external("private")]
+    fn noop() {}
+
+    // Lightest possible private transaction: empty app circuit, no state changes, no public calls.
+    #[external("public")]
+    fn noop_pub() {}
 }

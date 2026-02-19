@@ -19,7 +19,9 @@ import type {
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
+import { createLogger } from '@aztec/foundation/log';
 import type { ApiSchema } from '@aztec/foundation/schemas';
+import { sleep } from '@aztec/foundation/sleep';
 import { NodeConnector, TransportClient } from '@aztec/foundation/transport';
 import type { PXEConfig } from '@aztec/pxe/config';
 import type { ContractArtifact, EventMetadataDefinition, FunctionCall } from '@aztec/stdlib/abi';
@@ -34,6 +36,10 @@ import { Worker } from 'worker_threads';
 import { WorkerWalletSchema } from './worker_wallet_schema.js';
 
 type WorkerMsg = { fn: string; args: string };
+
+const log = createLogger('e2e:test-wallet:worker-wallet');
+
+const WORKER_READY_TIMEOUT_MS = 120_000;
 
 /**
  * Wallet implementation that offloads all work to a worker thread.
@@ -53,8 +59,18 @@ export class WorkerWallet implements Wallet {
    * @returns A WorkerWallet ready to use.
    */
   static async create(nodeUrl: string, pxeConfig?: Partial<PXEConfig>): Promise<WorkerWallet> {
-    const worker = new Worker(new URL('./wallet_worker_script.js', import.meta.url), {
+    // When running under Jest, import.meta.url points to src/ but compiled JS is in dest/
+    const workerUrl = new URL('./wallet_worker_script.js', import.meta.url);
+    workerUrl.pathname = workerUrl.pathname.replace('/src/', '/dest/');
+    // Strip JEST_WORKER_ID so the worker uses pino-pretty transport instead of Jest's raw output.
+    const { JEST_WORKER_ID: _, ...parentEnv } = process.env;
+    const worker = new Worker(workerUrl, {
       workerData: { nodeUrl, pxeConfig },
+      env: {
+        ...parentEnv,
+        ...(process.stderr.isTTY || process.env.FORCE_COLOR ? { FORCE_COLOR: '1' } : {}),
+        LOG_LEVEL: process.env.WORKER_LOG_LEVEL ?? 'info',
+      },
     });
 
     const connector = new NodeConnector(worker);
@@ -62,8 +78,40 @@ export class WorkerWallet implements Wallet {
     await client.open();
 
     const wallet = new WorkerWallet(worker, client);
-    // Warmup / readiness check — blocks until the worker has finished creating the TestWallet.
-    await wallet.getChainInfo();
+
+    // Reject if the worker exits or errors before the warmup completes.
+    let onError: ((err: Error) => void) | undefined;
+    let onExit: ((code: number) => void) | undefined;
+    const workerDied = new Promise<never>((_resolve, reject) => {
+      onError = (err: Error) => {
+        worker.off('exit', onExit!);
+        reject(new Error(`Worker wallet thread error: ${err.message}`));
+      };
+      onExit = (code: number) => {
+        worker.off('error', onError!);
+        reject(new Error(`Worker wallet thread exited with code ${code} before becoming ready`));
+      };
+      worker.once('error', onError);
+      worker.once('exit', onExit);
+    });
+
+    const timeout = sleep(WORKER_READY_TIMEOUT_MS).then(() => {
+      throw new Error(`Worker wallet creation timed out after ${WORKER_READY_TIMEOUT_MS / 1000}s`);
+    });
+
+    try {
+      // Warmup / readiness check — blocks until the worker has finished creating the TestWallet.
+      await Promise.race([wallet.getChainInfo(), workerDied, timeout]);
+    } catch (err) {
+      log.error('Worker wallet creation failed, cleaning up', { error: String(err) });
+      client.close();
+      await worker.terminate();
+      throw err;
+    } finally {
+      worker.off('error', onError!);
+      worker.off('exit', onExit!);
+    }
+
     return wallet;
   }
 
