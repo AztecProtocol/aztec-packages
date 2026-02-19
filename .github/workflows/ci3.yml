@@ -117,7 +117,7 @@ jobs:
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with: &ci_benchmark_args
           name: Aztec Benchmarks
-          benchmark-data-dir-path: "bench/${{ env.TARGET_BRANCH }}"
+          benchmark-data-dir-path: "bench/${{ env.BENCH_BRANCH }}"
           tool: "customSmallerIsBetter"
           output-file-path: ./bench-out/bench.json
           gh-repository: github.com/AztecProtocol/benchmark-page-data
