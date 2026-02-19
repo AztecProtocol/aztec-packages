@@ -26,8 +26,11 @@ async function collectContractArtifacts(): Promise<string[]> {
   let files;
   try {
     files = await readArtifactFiles('target');
-  } catch {
-    return [];
+  } catch (err: any) {
+    if (err?.message?.includes('does not exist')) {
+      return [];
+    }
+    throw err;
   }
   return files.filter(f => Array.isArray(f.content.functions)).map(f => f.filePath);
 }
