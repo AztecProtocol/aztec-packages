@@ -5,6 +5,7 @@
 // =====================
 
 #include "trace_to_polynomials.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
@@ -51,40 +52,67 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
     RefArray<Polynomial, NUM_WIRES> wires = polynomials.get_wires();
     auto selectors = polynomials.get_selectors();
 
+    // Per-thread staging for copy cycle entries to avoid races on copy_cycles[real_var_idx]
+    using CycleEntry = std::pair<uint32_t, cycle_node>;
+    const size_t num_threads = get_num_cpus();
+    std::vector<std::vector<CycleEntry>> thread_cycle_entries(num_threads);
+
     // For each block in the trace, populate wire polys, copy cycles and selector polys
     for (auto& block : builder.blocks.get()) {
         const uint32_t offset = block.trace_offset();
         const uint32_t block_size = static_cast<uint32_t>(block.size());
 
-        // Update wire polynomials and copy cycles
-        // NB: The order of row/column loops is arbitrary but needs to be row/column to match old copy_cycle code
+        // Parallel wire writes + copy cycle staging
+        // Wire writes are safe: each (wire_idx, trace_row_idx) is unique within a block.
+        // Copy cycles are staged per-thread and merged per-block to preserve the original
+        // cross-block ordering (which determines sigma/id polynomials and thus the VK).
         {
             BB_BENCH_NAME("populating wires and copy_cycles");
 
-            for (uint32_t block_row_idx = 0; block_row_idx < block_size; ++block_row_idx) {
-                for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
-                    uint32_t var_idx = block.wires[wire_idx][block_row_idx]; // an index into the variables array
-                    // Use .at() for bounds checking - fuzzer found OOB with malformed ACIR
-                    uint32_t real_var_idx = builder.real_variable_index.at(var_idx);
-                    uint32_t trace_row_idx = block_row_idx + offset;
-                    // Insert the real witness values from this block into the wire polys at the correct offset
-                    wires[wire_idx].at(trace_row_idx) = builder.get_variable(var_idx);
-                    // Add the address of the witness value to its corresponding copy cycle
-                    // Note that the copy_cycles are indexed by real_variable_indices.
-                    copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, trace_row_idx });
+            for (auto& staged : thread_cycle_entries) {
+                staged.clear();
+            }
+
+            parallel_for_heuristic(
+                block_size,
+                [&](size_t start, size_t end, size_t chunk_index) {
+                    auto& staged = thread_cycle_entries[chunk_index];
+                    for (size_t row = start; row < end; ++row) {
+                        uint32_t block_row_idx = static_cast<uint32_t>(row);
+                        for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
+                            uint32_t var_idx = block.wires[wire_idx][block_row_idx];
+                            uint32_t real_var_idx = builder.real_variable_index.at(var_idx);
+                            uint32_t trace_row_idx = block_row_idx + offset;
+                            wires[wire_idx].at(trace_row_idx) = builder.get_variable(var_idx);
+                            staged.emplace_back(real_var_idx, cycle_node{ wire_idx, trace_row_idx });
+                        }
+                    }
+                },
+                thread_heuristics::FF_COPY_COST * NUM_WIRES * 4);
+
+            // Merge this block's staged entries into copy_cycles (preserves block ordering)
+            for (auto& staged : thread_cycle_entries) {
+                for (auto& [real_var_idx, node] : staged) {
+                    copy_cycles[real_var_idx].emplace_back(node);
                 }
             }
         }
 
-        RefVector<Selector<FF>> block_selectors = block.get_selectors();
-        // Insert the selector values for this block into the selector polynomials at the correct offset
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/398): implicit arithmetization/flavor consistency
-        for (size_t selector_idx = 0; selector_idx < block_selectors.size(); selector_idx++) {
-            auto& selector = block_selectors[selector_idx];
-            for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
-                size_t trace_row_idx = row_idx + offset;
-                selectors[selector_idx].set_if_valid_index(trace_row_idx, selector[row_idx]);
-            }
+        // Parallel selector writes (each trace_row_idx is unique within a block)
+        {
+            RefVector<Selector<FF>> block_selectors = block.get_selectors();
+            parallel_for_heuristic(
+                block_size,
+                [&](size_t start, size_t end, BB_UNUSED size_t chunk_index) {
+                    for (size_t row_idx = start; row_idx < end; ++row_idx) {
+                        size_t trace_row_idx = row_idx + offset;
+                        for (size_t selector_idx = 0; selector_idx < block_selectors.size(); selector_idx++) {
+                            selectors[selector_idx].set_if_valid_index(trace_row_idx,
+                                                                       block_selectors[selector_idx][row_idx]);
+                        }
+                    }
+                },
+                thread_heuristics::FF_COPY_COST * block_selectors.size());
         }
     }
 

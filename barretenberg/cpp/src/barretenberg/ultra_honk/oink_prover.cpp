@@ -6,6 +6,7 @@
 
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
@@ -219,20 +220,30 @@ template <typename Flavor> void OinkProver<Flavor>::add_ram_rom_memory_records_t
     const auto& eta_two = instance.relation_parameters.eta_two;
     const auto& eta_three = instance.relation_parameters.eta_three;
 
-    // Compute read record values
-    for (const auto& gate_idx : instance.memory_read_records) {
-        wires[3].at(gate_idx) = wires[2][gate_idx] * eta_three;
-        wires[3].at(gate_idx) += wires[1][gate_idx] * eta_two;
-        wires[3].at(gate_idx) += wires[0][gate_idx] * eta;
-    }
+    // Compute read record values (each gate_idx is unique — safe to parallelize)
+    const auto& read_records = instance.memory_read_records;
+    parallel_for_heuristic(
+        read_records.size(),
+        [&](size_t i) {
+            const auto gate_idx = read_records[i];
+            wires[3].at(gate_idx) = wires[2][gate_idx] * eta_three;
+            wires[3].at(gate_idx) += wires[1][gate_idx] * eta_two;
+            wires[3].at(gate_idx) += wires[0][gate_idx] * eta;
+        },
+        thread_heuristics::FF_MULTIPLICATION_COST * 3);
 
-    // Compute write record values
-    for (const auto& gate_idx : instance.memory_write_records) {
-        wires[3].at(gate_idx) = wires[2][gate_idx] * eta_three;
-        wires[3].at(gate_idx) += wires[1][gate_idx] * eta_two;
-        wires[3].at(gate_idx) += wires[0][gate_idx] * eta;
-        wires[3].at(gate_idx) += 1;
-    }
+    // Compute write record values (each gate_idx is unique — safe to parallelize)
+    const auto& write_records = instance.memory_write_records;
+    parallel_for_heuristic(
+        write_records.size(),
+        [&](size_t i) {
+            const auto gate_idx = write_records[i];
+            wires[3].at(gate_idx) = wires[2][gate_idx] * eta_three;
+            wires[3].at(gate_idx) += wires[1][gate_idx] * eta_two;
+            wires[3].at(gate_idx) += wires[0][gate_idx] * eta;
+            wires[3].at(gate_idx) += 1;
+        },
+        thread_heuristics::FF_MULTIPLICATION_COST * 3);
 }
 
 /**

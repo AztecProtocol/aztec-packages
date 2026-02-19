@@ -8,6 +8,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/honk/composer/composer_lib.hpp"
@@ -303,28 +304,35 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
 
     // Note: Databus columns start from index 0. If this ever changes, make sure to also update the active range
     // construction in ExecutionTraceUsageTracker::update(). We do not utilize a zero row for databus columns.
-    for (size_t idx = 0; idx < calldata.size(); ++idx) {
-        calldata_poly.at(idx) = circuit.get_variable(calldata[idx]);        // calldata values
-        calldata_read_counts.at(idx) = calldata.get_read_count(idx);        // read counts
-        calldata_read_tags.at(idx) = calldata_read_counts[idx] > 0 ? 1 : 0; // has row been read or not
-    }
-    for (size_t idx = 0; idx < secondary_calldata.size(); ++idx) {
-        secondary_calldata_poly.at(idx) = circuit.get_variable(secondary_calldata[idx]); // secondary_calldata values
-        secondary_calldata_read_counts.at(idx) = secondary_calldata.get_read_count(idx); // read counts
-        secondary_calldata_read_tags.at(idx) =
-            secondary_calldata_read_counts[idx] > 0 ? 1 : 0; // has row been read or not
-    }
-    for (size_t idx = 0; idx < return_data.size(); ++idx) {
-        return_data_poly.at(idx) = circuit.get_variable(return_data[idx]);        // return data values
-        return_data_read_counts.at(idx) = return_data.get_read_count(idx);        // read counts
-        return_data_read_tags.at(idx) = return_data_read_counts[idx] > 0 ? 1 : 0; // has row been read or not
-    }
+    // Each databus column writes to disjoint polynomial ranges; parallelize per-column.
+    parallel_for_heuristic(
+        calldata.size(),
+        [&](size_t idx) {
+            calldata_poly.at(idx) = circuit.get_variable(calldata[idx]);
+            calldata_read_counts.at(idx) = calldata.get_read_count(idx);
+            calldata_read_tags.at(idx) = calldata_read_counts[idx] > 0 ? 1 : 0;
+        },
+        thread_heuristics::FF_COPY_COST * 3);
+    parallel_for_heuristic(
+        secondary_calldata.size(),
+        [&](size_t idx) {
+            secondary_calldata_poly.at(idx) = circuit.get_variable(secondary_calldata[idx]);
+            secondary_calldata_read_counts.at(idx) = secondary_calldata.get_read_count(idx);
+            secondary_calldata_read_tags.at(idx) = secondary_calldata_read_counts[idx] > 0 ? 1 : 0;
+        },
+        thread_heuristics::FF_COPY_COST * 3);
+    parallel_for_heuristic(
+        return_data.size(),
+        [&](size_t idx) {
+            return_data_poly.at(idx) = circuit.get_variable(return_data[idx]);
+            return_data_read_counts.at(idx) = return_data.get_read_count(idx);
+            return_data_read_tags.at(idx) = return_data_read_counts[idx] > 0 ? 1 : 0;
+        },
+        thread_heuristics::FF_COPY_COST * 3);
 
     auto& databus_id = polynomials.databus_id;
     // Compute a simple identity polynomial for use in the databus lookup argument
-    for (size_t i = 0; i < databus_id.size(); ++i) {
-        databus_id.at(i) = i;
-    }
+    parallel_for_heuristic(databus_id.size(), [&](size_t i) { databus_id.at(i) = i; }, thread_heuristics::FF_COPY_COST);
 }
 
 /**
