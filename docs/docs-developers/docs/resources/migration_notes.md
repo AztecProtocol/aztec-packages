@@ -75,6 +75,8 @@ The `simulateUtility` method and related types have been renamed to `executeUtil
 + let result = env.execute_utility(my_contract_address, selector);
 ```
 
+## 4.0.0-devnet.2-patch.0
+
 ### [Protocol] `include_by_timestamp` renamed to `expiration_timestamp`
 
 The `include_by_timestamp` field has been renamed to `expiration_timestamp` across the protocol to better convey its meaning.
