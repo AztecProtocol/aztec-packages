@@ -2,6 +2,7 @@
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/multi_mega_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_zk_flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -11,12 +12,16 @@ namespace acir_format {
 
 using namespace bb;
 
+// Use random curve points for mock commitments to avoid collisions in stdlib batch_mul.
+// The Strauss MSM used by batch_interleaved_verifier_claims (for MultiMega interleaving batching)
+// fails when intermediate curve points in the lookup table share x-coordinates (chain_add assumes
+// distinct x). Random points avoid such collisions.
 template <class Curve>
 void populate_field_elements_for_mock_commitments(std::vector<fr>& fields, const size_t& num_commitments)
 {
-    auto mock_commitment = Curve::AffineElement::one();
-    std::vector<fr> mock_commitment_frs = FrCodec::serialize_to_fields(mock_commitment);
     for (size_t i = 0; i < num_commitments; ++i) {
+        auto mock_commitment = Curve::AffineElement::random_element();
+        std::vector<fr> mock_commitment_frs = FrCodec::serialize_to_fields(mock_commitment);
         for (const fr& val : mock_commitment_frs) {
             fields.emplace_back(val);
         }
@@ -50,7 +55,14 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_oink_proof(
     }
 
     // Populate mock witness polynomial commitments
-    populate_field_elements_for_mock_commitments(proof, Flavor::NUM_WITNESS_ENTITIES);
+    if constexpr (requires { Flavor::NUM_INTERLEAVED_WITNESS_COMMITMENTS; }) {
+        // MultiMega flavors send interleaved commitments + individual ecc_op_wire commitments
+        constexpr size_t NUM_INDIVIDUAL_COMMITMENTS = 4;
+        populate_field_elements_for_mock_commitments(
+            proof, Flavor::NUM_INTERLEAVED_WITNESS_COMMITMENTS + NUM_INDIVIDUAL_COMMITMENTS);
+    } else {
+        populate_field_elements_for_mock_commitments(proof, Flavor::NUM_WITNESS_ENTITIES);
+    }
 
     return proof;
 }
@@ -116,12 +128,21 @@ template <typename Flavor> HonkProof create_mock_pcs_proof()
     using Curve = Flavor::Curve;
     HonkProof proof;
 
+    // For MultiMega flavors, PCS operates on interleaved polynomials with larger degree
+    constexpr size_t pcs_log_n = []() {
+        if constexpr (requires { Flavor::INTERLEAVING_LOG_K; }) {
+            return Flavor::VIRTUAL_LOG_N + Flavor::INTERLEAVING_LOG_K;
+        } else {
+            return Flavor::VIRTUAL_LOG_N;
+        }
+    }();
+
     // Gemini fold commitments
-    const size_t NUM_GEMINI_FOLD_COMMITMENTS = Flavor::VIRTUAL_LOG_N - 1;
+    const size_t NUM_GEMINI_FOLD_COMMITMENTS = pcs_log_n - 1;
     populate_field_elements_for_mock_commitments<Curve>(proof, NUM_GEMINI_FOLD_COMMITMENTS);
 
     // Gemini fold evaluations
-    const size_t NUM_GEMINI_FOLD_EVALUATIONS = Flavor::VIRTUAL_LOG_N;
+    const size_t NUM_GEMINI_FOLD_EVALUATIONS = pcs_log_n;
     populate_field_elements<FF>(proof, NUM_GEMINI_FOLD_EVALUATIONS);
 
     if constexpr (Flavor::HasZK) {
@@ -177,12 +198,21 @@ template <typename Flavor> HonkProof create_mock_decider_proof()
         populate_field_elements_for_mock_commitments<Curve>(proof, 1);
     }
 
+    // For MultiMega flavors, PCS operates on interleaved polynomials with larger degree
+    constexpr size_t pcs_log_n = []() {
+        if constexpr (requires { Flavor::INTERLEAVING_LOG_K; }) {
+            return const_proof_log_n + Flavor::INTERLEAVING_LOG_K;
+        } else {
+            return const_proof_log_n;
+        }
+    }();
+
     // Gemini fold commitments
-    const size_t NUM_GEMINI_FOLD_COMMITMENTS = const_proof_log_n - 1;
+    const size_t NUM_GEMINI_FOLD_COMMITMENTS = pcs_log_n - 1;
     populate_field_elements_for_mock_commitments<Curve>(proof, NUM_GEMINI_FOLD_COMMITMENTS);
 
     // Gemini fold evaluations
-    const size_t NUM_GEMINI_FOLD_EVALUATIONS = const_proof_log_n;
+    const size_t NUM_GEMINI_FOLD_EVALUATIONS = pcs_log_n;
     populate_field_elements<FF>(proof, NUM_GEMINI_FOLD_EVALUATIONS);
 
     if constexpr (Flavor::HasZK) {
@@ -477,8 +507,8 @@ template <typename Builder> HonkProof create_mock_chonk_proof(const size_t acir_
 {
     HonkProof proof;
 
-    HonkProof mega_proof =
-        create_mock_honk_proof<MegaZKFlavor, stdlib::recursion::honk::HidingKernelIO<Builder>>(acir_public_inputs_size);
+    HonkProof mega_proof = create_mock_honk_proof<MultiMegaZKFlavor, stdlib::recursion::honk::HidingKernelIO<Builder>>(
+        acir_public_inputs_size);
     Goblin::MergeProof merge_proof = create_mock_merge_proof();
     HonkProof eccvm_proof{ create_mock_eccvm_proof() };
     HonkProof ipa_proof = create_mock_ipa_proof();
@@ -501,7 +531,7 @@ std::shared_ptr<typename Flavor::VerificationKey> create_mock_honk_vk(const size
     honk_verification_key->pub_inputs_offset = NUM_ZERO_ROWS;
 
     for (auto& commitment : honk_verification_key->get_all()) {
-        commitment = curve::BN254::AffineElement::one(); // arbitrary mock commitment
+        commitment = curve::BN254::AffineElement::random_element();
     }
 
     return honk_verification_key;
@@ -581,8 +611,8 @@ template std::shared_ptr<MultiMegaFlavor::VerificationKey> create_mock_honk_vk<M
 template std::shared_ptr<MultiMegaFlavor::VerificationKey> create_mock_honk_vk<MultiMegaFlavor,
                                                                                stdlib::recursion::honk::KernelIO>(
     const size_t, const size_t);
-template std::shared_ptr<MegaZKFlavor::VerificationKey> create_mock_honk_vk<
-    MegaZKFlavor,
+template std::shared_ptr<MultiMegaZKFlavor::VerificationKey> create_mock_honk_vk<
+    MultiMegaZKFlavor,
     stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>(const size_t, const size_t);
 
 template std::shared_ptr<UltraFlavor::VerificationKey> create_mock_honk_vk<

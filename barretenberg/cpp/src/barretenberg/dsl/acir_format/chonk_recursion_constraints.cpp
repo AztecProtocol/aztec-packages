@@ -40,7 +40,8 @@ void create_dummy_vkey_and_proof(UltraCircuitBuilder& builder,
 
     // Generate mock honk vk
     // Note: log_circuit_size = VIRTUAL_LOG_N
-    auto honk_vk = create_mock_honk_vk<MegaZKFlavor, IO>(1 << MegaZKFlavor::VIRTUAL_LOG_N, num_inner_public_inputs);
+    auto honk_vk =
+        create_mock_honk_vk<MultiMegaZKFlavor, IO>(1 << MultiMegaZKFlavor::VIRTUAL_LOG_N, num_inner_public_inputs);
 
     // Set honk vk in builder
     populate_fields(builder, key_fields, honk_vk->to_field_elements());

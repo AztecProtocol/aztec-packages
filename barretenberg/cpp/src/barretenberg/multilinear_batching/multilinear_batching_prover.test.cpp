@@ -15,6 +15,7 @@ using Commitment = MultilinearBatchingFlavor::Commitment;
 MultilinearBatchingProverClaim create_valid_claim()
 {
     using Polynomial = MultilinearBatchingFlavor::Polynomial;
+    constexpr size_t BATCH_SIZE = MultilinearBatchingFlavor::INTERLEAVING_BATCH_SIZE;
 
     MultilinearBatchingProverClaim claim;
 
@@ -25,10 +26,13 @@ MultilinearBatchingProverClaim create_valid_claim()
 
     const size_t dyadic_size = 16;
     claim.non_shifted_polynomial = Polynomial(dyadic_size);
-    claim.shifted_polynomial = Polynomial::shiftable(dyadic_size);
+    claim.shifted_polynomial = Polynomial::shiftable(dyadic_size, dyadic_size, BATCH_SIZE);
 
     claim.non_shifted_polynomial.at(0) = FF::random_element();
-    for (size_t i = 1; i < dyadic_size; i++) {
+    for (size_t i = 1; i < BATCH_SIZE; i++) {
+        claim.non_shifted_polynomial.at(i) = FF::random_element();
+    }
+    for (size_t i = BATCH_SIZE; i < dyadic_size; i++) {
         claim.non_shifted_polynomial.at(i) = FF::random_element();
         claim.shifted_polynomial.at(i) = FF::random_element();
     }
@@ -45,7 +49,7 @@ MultilinearBatchingProverClaim create_valid_claim()
     }
 
     // Compute shifted evaluation using the shifted polynomial
-    auto shifted = claim.shifted_polynomial.shifted();
+    auto shifted = claim.shifted_polynomial.shifted(BATCH_SIZE);
     claim.shifted_evaluation = 0;
     for (size_t i = 0; i < shifted.size(); i++) {
         claim.shifted_evaluation += shifted.at(i) * eq_polynomial.at(i);

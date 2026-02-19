@@ -92,6 +92,7 @@ typename MultiMegaOinkProver_<Flavor>::Commitment MultiMegaOinkProver_<Flavor>::
 
     // Commit using interleaved MSM (pippenger_interleaved handles zero padding for missing slots)
     std::span<const PolynomialSpan<const FF>> span_view(polynomials.data(), NUM_POLYS);
+    // ?
     Commitment commitment = commitment_key.template commit_interleaved<BATCH_SIZE>(span_view);
 
     // Send to verifier

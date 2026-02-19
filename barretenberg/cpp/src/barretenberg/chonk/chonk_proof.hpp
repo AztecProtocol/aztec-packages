@@ -34,7 +34,7 @@ template <bool IsRecursive = false> struct ChonkProof_ {
 
     // Hiding kernel proof length (MegaZK with fixed circuit size)
     static constexpr size_t HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS =
-        ProofLength::Honk<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS(MegaZKFlavor::VIRTUAL_LOG_N);
+        ProofLength::Honk<MultiMegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS(MegaZKFlavor::VIRTUAL_LOG_N);
 
     /**
      * @brief The size of a Chonk proof without backend-added public inputs

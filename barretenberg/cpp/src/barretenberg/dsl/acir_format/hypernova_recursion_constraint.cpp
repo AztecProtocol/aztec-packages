@@ -152,7 +152,9 @@ void mock_chonk_accumulation(const std::shared_ptr<Chonk>& ivc, Chonk::QUEUE_TYP
     using Commitment = Chonk::Commitment;
 
     // Initialize verifier accumulator with proper structure
-    ivc->recursive_verifier_native_accum.challenge = std::vector<FF>(Chonk::Flavor::VIRTUAL_LOG_N, FF::zero());
+    // For MultiMega: challenge vector includes interleaving challenges prepended to sumcheck challenges
+    constexpr size_t challenge_size = Chonk::Flavor::VIRTUAL_LOG_N + Chonk::Flavor::INTERLEAVING_LOG_K;
+    ivc->recursive_verifier_native_accum.challenge = std::vector<FF>(challenge_size, FF::zero());
     ivc->recursive_verifier_native_accum.non_shifted_evaluation = FF::zero();
     ivc->recursive_verifier_native_accum.shifted_evaluation = FF::zero();
     ivc->recursive_verifier_native_accum.non_shifted_commitment = Commitment::one();
