@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/multi_mega_flavor.hpp"
@@ -14,6 +15,7 @@
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/translator_vm/translator_flavor.hpp"
 
 namespace bb {
 
@@ -586,9 +588,9 @@ template <typename Flavor> struct MegaZKStructuredProofBase : MegaStructuredProo
 };
 
 // ============================================================================
-// MultiMega proof structure base
+// Translator proof structure (always ZK)
 // ============================================================================
-template <typename Flavor> struct MultiMegaStructuredProofBase : StructuredProofHelper<Flavor> {
+template <typename Flavor> struct TranslatorStructuredProofBase : StructuredProofHelper<Flavor> {
     using Base = StructuredProofHelper<Flavor>;
     using Base::BATCHED_RELATION_PARTIAL_LENGTH;
     using Base::NUM_ALL_ENTITIES;
@@ -596,121 +598,372 @@ template <typename Flavor> struct MultiMegaStructuredProofBase : StructuredProof
     using typename Base::FF;
     using typename Base::ProofData;
 
-    static constexpr size_t INTERLEAVING_LOG_K = Flavor::INTERLEAVING_LOG_K;
+    // Number of wire commitments sent in proof (concatenated + ordered range constraints)
+    static constexpr size_t NUM_BATCH_WITNESS_COMMS = Flavor::NUM_COMMITMENTS_IN_PROOF;
+    // Minicircuit evaluations are sent mid-sumcheck after LOG_MINI_CIRCUIT_SIZE rounds
+    static constexpr size_t LOG_MINI_CIRCUIT_SIZE = Flavor::LOG_MINI_CIRCUIT_SIZE;
+    static constexpr size_t NUM_MINICIRCUIT_EVALUATIONS = Flavor::NUM_MINICIRCUIT_EVALUATIONS;
+    static constexpr size_t NUM_FULL_CIRCUIT_EVALUATIONS = Flavor::NUM_FULL_CIRCUIT_EVALUATIONS;
 
-    // Public inputs
-    std::vector<FF> public_inputs;
+    // Witness commitments
+    Commitment gemini_masking_poly_comm;
+    std::vector<Commitment> witness_comms; // non-opqueue wires + ordered range constraints
+    Commitment z_perm_comm;
 
-    // 9 interleaved witness commitments
-    Commitment interleaved_wires_comm;
-    Commitment interleaved_ecc_op_wires_comm;
-    Commitment interleaved_databus_1_comm;
-    Commitment interleaved_databus_2_comm;
-    Commitment interleaved_databus_3_comm;
-    Commitment interleaved_w_4_comm;
-    Commitment interleaved_lookup_comm;
-    Commitment interleaved_inverses_comm;
-    Commitment interleaved_z_perm_comm;
+    // Libra (ZK - Translator is always ZK)
+    Commitment libra_concatenation_commitment;
+    FF libra_sum;
 
-    // Sumcheck (operates on original polynomial size = log_n)
+    // Sumcheck: univariates are split around interleaved minicircuit evaluations
     std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
-    std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
+    // Minicircuit wire evaluations (sent mid-sumcheck after LOG_MINI_CIRCUIT_SIZE rounds)
+    std::array<FF, NUM_MINICIRCUIT_EVALUATIONS> minicircuit_evaluations;
+    // Full-circuit evaluations (sent after all sumcheck rounds)
+    std::array<FF, NUM_FULL_CIRCUIT_EVALUATIONS> full_circuit_evaluations;
+    FF libra_claimed_evaluation;
 
-    // PCS (operates on interleaved polynomial size = log_n + INTERLEAVING_LOG_K)
+    // Post-sumcheck Libra commitments
+    Commitment libra_grand_sum_commitment;
+    Commitment libra_quotient_commitment;
+
+    // Gemini/Shplemini
     std::vector<Commitment> gemini_fold_comms;
     std::vector<FF> gemini_fold_evals;
+
+    // Libra evaluations
+    FF libra_concatenation_eval;
+    FF libra_shifted_grand_sum_eval;
+    FF libra_grand_sum_eval;
+    FF libra_quotient_eval;
+
+    // Final PCS
     Commitment shplonk_q_comm;
     Commitment kzg_w_comm;
 
-  private:
-    void clear_vectors()
+    void deserialize(ProofData& proof_data, size_t /*num_public_inputs*/, size_t log_n)
     {
-        public_inputs.clear();
+        size_t offset = 0;
+        witness_comms.clear();
         sumcheck_univariates.clear();
         gemini_fold_comms.clear();
         gemini_fold_evals.clear();
-    }
 
-  public:
-    void deserialize(ProofData& proof_data, size_t num_public_inputs, size_t log_n)
-    {
-        const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
-        size_t offset = 0;
-        clear_vectors();
-
-        // Public inputs
-        for (size_t i = 0; i < num_public_inputs; ++i) {
-            public_inputs.push_back(this->template deserialize_from_buffer<FF>(proof_data, offset));
+        // Witness commitments
+        gemini_masking_poly_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        for (size_t i = 0; i < NUM_BATCH_WITNESS_COMMS; ++i) {
+            witness_comms.push_back(this->template deserialize_from_buffer<Commitment>(proof_data, offset));
         }
+        z_perm_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
 
-        // 9 interleaved witness commitments
-        interleaved_wires_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        interleaved_ecc_op_wires_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        interleaved_databus_1_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        interleaved_databus_2_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        interleaved_databus_3_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        interleaved_w_4_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        interleaved_lookup_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        interleaved_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        interleaved_z_perm_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        // Libra pre-sumcheck
+        libra_concatenation_commitment = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        libra_sum = this->template deserialize_from_buffer<FF>(proof_data, offset);
 
-        // Sumcheck (log_n rounds, original polynomial size)
-        for (size_t i = 0; i < log_n; ++i) {
+        // Sumcheck univariates (first LOG_MINI_CIRCUIT_SIZE rounds)
+        for (size_t i = 0; i < LOG_MINI_CIRCUIT_SIZE; ++i) {
             sumcheck_univariates.push_back(
                 this->template deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(proof_data,
                                                                                                             offset));
         }
-        sumcheck_evaluations =
-            this->template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, offset);
+        // Minicircuit evaluations (interleaved mid-sumcheck)
+        minicircuit_evaluations =
+            this->template deserialize_from_buffer<std::array<FF, NUM_MINICIRCUIT_EVALUATIONS>>(proof_data, offset);
+        // Sumcheck univariates (remaining rounds)
+        for (size_t i = LOG_MINI_CIRCUIT_SIZE; i < log_n; ++i) {
+            sumcheck_univariates.push_back(
+                this->template deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(proof_data,
+                                                                                                            offset));
+        }
+        // Full-circuit evaluations (excludes computable precomputed + concatenated + minicircuit)
+        full_circuit_evaluations =
+            this->template deserialize_from_buffer<std::array<FF, NUM_FULL_CIRCUIT_EVALUATIONS>>(proof_data, offset);
+        libra_claimed_evaluation = this->template deserialize_from_buffer<FF>(proof_data, offset);
 
-        // PCS (pcs_log_n rounds, interleaved polynomial size)
-        for (size_t i = 0; i < pcs_log_n - 1; ++i) {
+        // Libra post-sumcheck commitments
+        libra_grand_sum_commitment = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        libra_quotient_commitment = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+
+        // Gemini fold commitments and evaluations
+        for (size_t i = 0; i < log_n - 1; ++i) {
             gemini_fold_comms.push_back(this->template deserialize_from_buffer<Commitment>(proof_data, offset));
         }
-        for (size_t i = 0; i < pcs_log_n; ++i) {
+        for (size_t i = 0; i < log_n; ++i) {
             gemini_fold_evals.push_back(this->template deserialize_from_buffer<FF>(proof_data, offset));
         }
+
+        // Libra evaluations
+        libra_concatenation_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+        libra_shifted_grand_sum_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+        libra_grand_sum_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+        libra_quotient_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+
+        // Final PCS
         shplonk_q_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         kzg_w_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
     }
 
     void serialize(ProofData& proof_data, size_t log_n) const
     {
-        const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
         size_t old_size = proof_data.size();
         proof_data.clear();
 
-        // Public inputs
-        for (const auto& pi : public_inputs) {
-            Base::serialize_to_buffer(pi, proof_data);
+        // Witness commitments
+        Base::serialize_to_buffer(gemini_masking_poly_comm, proof_data);
+        for (const auto& comm : witness_comms) {
+            Base::serialize_to_buffer(comm, proof_data);
         }
+        Base::serialize_to_buffer(z_perm_comm, proof_data);
 
-        // 9 interleaved witness commitments
-        Base::serialize_to_buffer(interleaved_wires_comm, proof_data);
-        Base::serialize_to_buffer(interleaved_ecc_op_wires_comm, proof_data);
-        Base::serialize_to_buffer(interleaved_databus_1_comm, proof_data);
-        Base::serialize_to_buffer(interleaved_databus_2_comm, proof_data);
-        Base::serialize_to_buffer(interleaved_databus_3_comm, proof_data);
-        Base::serialize_to_buffer(interleaved_w_4_comm, proof_data);
-        Base::serialize_to_buffer(interleaved_lookup_comm, proof_data);
-        Base::serialize_to_buffer(interleaved_inverses_comm, proof_data);
-        Base::serialize_to_buffer(interleaved_z_perm_comm, proof_data);
+        // Libra pre-sumcheck
+        Base::serialize_to_buffer(libra_concatenation_commitment, proof_data);
+        Base::serialize_to_buffer(libra_sum, proof_data);
 
-        // Sumcheck (log_n rounds)
-        for (size_t i = 0; i < log_n; ++i) {
+        // Sumcheck univariates (first LOG_MINI_CIRCUIT_SIZE rounds)
+        for (size_t i = 0; i < LOG_MINI_CIRCUIT_SIZE; ++i) {
             Base::serialize_to_buffer(sumcheck_univariates[i], proof_data);
         }
-        Base::serialize_to_buffer(sumcheck_evaluations, proof_data);
+        // Minicircuit evaluations (interleaved mid-sumcheck)
+        Base::serialize_to_buffer(minicircuit_evaluations, proof_data);
+        // Sumcheck univariates (remaining rounds)
+        for (size_t i = LOG_MINI_CIRCUIT_SIZE; i < log_n; ++i) {
+            Base::serialize_to_buffer(sumcheck_univariates[i], proof_data);
+        }
+        // Full-circuit evaluations
+        Base::serialize_to_buffer(full_circuit_evaluations, proof_data);
+        Base::serialize_to_buffer(libra_claimed_evaluation, proof_data);
 
-        // PCS (pcs_log_n rounds)
-        for (size_t i = 0; i < pcs_log_n - 1; ++i) {
+        // Libra post-sumcheck commitments
+        Base::serialize_to_buffer(libra_grand_sum_commitment, proof_data);
+        Base::serialize_to_buffer(libra_quotient_commitment, proof_data);
+
+        // Gemini fold commitments and evaluations
+        for (size_t i = 0; i < log_n - 1; ++i) {
             Base::serialize_to_buffer(gemini_fold_comms[i], proof_data);
         }
-        for (size_t i = 0; i < pcs_log_n; ++i) {
+        for (size_t i = 0; i < log_n; ++i) {
             Base::serialize_to_buffer(gemini_fold_evals[i], proof_data);
         }
+
+        // Libra evaluations
+        Base::serialize_to_buffer(libra_concatenation_eval, proof_data);
+        Base::serialize_to_buffer(libra_shifted_grand_sum_eval, proof_data);
+        Base::serialize_to_buffer(libra_grand_sum_eval, proof_data);
+        Base::serialize_to_buffer(libra_quotient_eval, proof_data);
+
+        // Final PCS
         Base::serialize_to_buffer(shplonk_q_comm, proof_data);
         Base::serialize_to_buffer(kzg_w_comm, proof_data);
+
+        BB_ASSERT_EQ(proof_data.size(), old_size);
+    }
+};
+
+// ============================================================================
+<<<<<<< HEAD
+=======
+// ECCVM proof structure (always ZK, committed sumcheck, translation sub-protocol)
+// ============================================================================
+template <typename Flavor> struct ECCVMStructuredProofBase : StructuredProofHelper<Flavor> {
+    using Base = StructuredProofHelper<Flavor>;
+    using Base::NUM_ALL_ENTITIES;
+    using typename Base::Commitment;
+    using typename Base::FF;
+    using typename Base::ProofData;
+
+    // Witness commitments (masking_poly + NUM_WIRES wires + lookup_inverses + z_perm)
+    Commitment gemini_masking_poly_comm;
+    std::vector<Commitment> wire_comms;
+    Commitment lookup_inverses_comm;
+    Commitment z_perm_comm;
+
+    // Libra pre-sumcheck
+    Commitment libra_concatenation_commitment;
+    FF libra_sum;
+
+    // Committed sumcheck rounds (each round: commitment + eval_0 + eval_1, interleaved in proof)
+    std::vector<Commitment> sumcheck_round_comms;
+    std::vector<FF> sumcheck_round_eval_0s;
+    std::vector<FF> sumcheck_round_eval_1s;
+
+    // Sumcheck evaluations
+    std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
+
+    // Libra post-sumcheck
+    FF libra_claimed_evaluation;
+    Commitment libra_grand_sum_commitment;
+    Commitment libra_quotient_commitment;
+
+    // Gemini/Shplemini
+    std::vector<Commitment> gemini_fold_comms;
+    std::vector<FF> gemini_fold_evals;
+
+    // Libra SmallSubgroupIPA evaluations
+    FF libra_concatenation_eval;
+    FF libra_shifted_grand_sum_eval;
+    FF libra_grand_sum_eval;
+    FF libra_quotient_eval;
+
+    // First Shplonk Q (from Shplemini)
+    Commitment shplonk_q_comm;
+
+    // Translation data
+    Commitment translation_masking_comm;
+    FF translation_op_eval;
+    FF translation_Px_eval;
+    FF translation_Py_eval;
+    FF translation_z1_eval;
+    FF translation_z2_eval;
+    FF translation_masking_eval;
+    Commitment translation_grand_sum_commitment;
+    Commitment translation_quotient_commitment;
+    FF translation_concatenation_eval;
+    FF translation_shifted_grand_sum_eval;
+    FF translation_grand_sum_eval;
+    FF translation_quotient_eval;
+
+    // Final Shplonk Q
+    Commitment final_shplonk_q_comm;
+
+    void deserialize(ProofData& proof_data, size_t /*num_public_inputs*/, size_t log_n)
+    {
+        size_t offset = 0;
+        wire_comms.clear();
+        sumcheck_round_comms.clear();
+        sumcheck_round_eval_0s.clear();
+        sumcheck_round_eval_1s.clear();
+        gemini_fold_comms.clear();
+        gemini_fold_evals.clear();
+
+        // Witness commitments
+        gemini_masking_poly_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        for (size_t i = 0; i < Flavor::NUM_WIRES; ++i) {
+            wire_comms.push_back(this->template deserialize_from_buffer<Commitment>(proof_data, offset));
+        }
+        lookup_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        z_perm_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+
+        // Libra pre-sumcheck
+        libra_concatenation_commitment = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        libra_sum = this->template deserialize_from_buffer<FF>(proof_data, offset);
+
+        // Committed sumcheck rounds (interleaved: comm, eval_0, eval_1 per round)
+        for (size_t i = 0; i < log_n; ++i) {
+            sumcheck_round_comms.push_back(this->template deserialize_from_buffer<Commitment>(proof_data, offset));
+            sumcheck_round_eval_0s.push_back(this->template deserialize_from_buffer<FF>(proof_data, offset));
+            sumcheck_round_eval_1s.push_back(this->template deserialize_from_buffer<FF>(proof_data, offset));
+        }
+
+        // Sumcheck evaluations
+        sumcheck_evaluations =
+            this->template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, offset);
+
+        // Libra post-sumcheck
+        libra_claimed_evaluation = this->template deserialize_from_buffer<FF>(proof_data, offset);
+        libra_grand_sum_commitment = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        libra_quotient_commitment = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+
+        // Gemini fold commitments and evaluations
+        for (size_t i = 0; i < log_n - 1; ++i) {
+            gemini_fold_comms.push_back(this->template deserialize_from_buffer<Commitment>(proof_data, offset));
+        }
+        for (size_t i = 0; i < log_n; ++i) {
+            gemini_fold_evals.push_back(this->template deserialize_from_buffer<FF>(proof_data, offset));
+        }
+
+        // Libra SmallSubgroupIPA evaluations
+        libra_concatenation_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+        libra_shifted_grand_sum_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+        libra_grand_sum_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+        libra_quotient_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+
+        // First Shplonk Q
+        shplonk_q_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+
+        // Translation data
+        translation_masking_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        translation_op_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+        translation_Px_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+        translation_Py_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+        translation_z1_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+        translation_z2_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+        translation_masking_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+        translation_grand_sum_commitment = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        translation_quotient_commitment = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        translation_concatenation_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+        translation_shifted_grand_sum_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+        translation_grand_sum_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+        translation_quotient_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+
+        // Final Shplonk Q
+        final_shplonk_q_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+    }
+
+    void serialize(ProofData& proof_data, size_t log_n) const
+    {
+        size_t old_size = proof_data.size();
+        proof_data.clear();
+
+        // Witness commitments
+        Base::serialize_to_buffer(gemini_masking_poly_comm, proof_data);
+        for (const auto& comm : wire_comms) {
+            Base::serialize_to_buffer(comm, proof_data);
+        }
+        Base::serialize_to_buffer(lookup_inverses_comm, proof_data);
+        Base::serialize_to_buffer(z_perm_comm, proof_data);
+
+        // Libra pre-sumcheck
+        Base::serialize_to_buffer(libra_concatenation_commitment, proof_data);
+        Base::serialize_to_buffer(libra_sum, proof_data);
+
+        // Committed sumcheck rounds
+        for (size_t i = 0; i < log_n; ++i) {
+            Base::serialize_to_buffer(sumcheck_round_comms[i], proof_data);
+            Base::serialize_to_buffer(sumcheck_round_eval_0s[i], proof_data);
+            Base::serialize_to_buffer(sumcheck_round_eval_1s[i], proof_data);
+        }
+
+        // Sumcheck evaluations
+        Base::serialize_to_buffer(sumcheck_evaluations, proof_data);
+
+        // Libra post-sumcheck
+        Base::serialize_to_buffer(libra_claimed_evaluation, proof_data);
+        Base::serialize_to_buffer(libra_grand_sum_commitment, proof_data);
+        Base::serialize_to_buffer(libra_quotient_commitment, proof_data);
+
+        // Gemini fold commitments and evaluations
+        for (size_t i = 0; i < log_n - 1; ++i) {
+            Base::serialize_to_buffer(gemini_fold_comms[i], proof_data);
+        }
+        for (size_t i = 0; i < log_n; ++i) {
+            Base::serialize_to_buffer(gemini_fold_evals[i], proof_data);
+        }
+
+        // Libra SmallSubgroupIPA evaluations
+        Base::serialize_to_buffer(libra_concatenation_eval, proof_data);
+        Base::serialize_to_buffer(libra_shifted_grand_sum_eval, proof_data);
+        Base::serialize_to_buffer(libra_grand_sum_eval, proof_data);
+        Base::serialize_to_buffer(libra_quotient_eval, proof_data);
+
+        // First Shplonk Q
+        Base::serialize_to_buffer(shplonk_q_comm, proof_data);
+
+        // Translation data
+        Base::serialize_to_buffer(translation_masking_comm, proof_data);
+        Base::serialize_to_buffer(translation_op_eval, proof_data);
+        Base::serialize_to_buffer(translation_Px_eval, proof_data);
+        Base::serialize_to_buffer(translation_Py_eval, proof_data);
+        Base::serialize_to_buffer(translation_z1_eval, proof_data);
+        Base::serialize_to_buffer(translation_z2_eval, proof_data);
+        Base::serialize_to_buffer(translation_masking_eval, proof_data);
+        Base::serialize_to_buffer(translation_grand_sum_commitment, proof_data);
+        Base::serialize_to_buffer(translation_quotient_commitment, proof_data);
+        Base::serialize_to_buffer(translation_concatenation_eval, proof_data);
+        Base::serialize_to_buffer(translation_shifted_grand_sum_eval, proof_data);
+        Base::serialize_to_buffer(translation_grand_sum_eval, proof_data);
+        Base::serialize_to_buffer(translation_quotient_eval, proof_data);
+
+        // Final Shplonk Q
+        Base::serialize_to_buffer(final_shplonk_q_comm, proof_data);
 
         BB_ASSERT_EQ(proof_data.size(), old_size);
     }
@@ -734,5 +987,11 @@ template <> struct StructuredProof<MegaZKFlavor> : MegaZKStructuredProofBase<Meg
 
 // MultiMega flavor
 template <> struct StructuredProof<MultiMegaFlavor> : MultiMegaStructuredProofBase<MultiMegaFlavor> {};
+
+// Translator flavor
+template <> struct StructuredProof<TranslatorFlavor> : TranslatorStructuredProofBase<TranslatorFlavor> {};
+
+// ECCVM flavor
+template <> struct StructuredProof<ECCVMFlavor> : ECCVMStructuredProofBase<ECCVMFlavor> {};
 
 } // namespace bb

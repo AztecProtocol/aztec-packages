@@ -1,6 +1,6 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
-import type { Gossipable, PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import type { Gossipable, PeerErrorSeverity, TopicType } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
@@ -42,6 +42,10 @@ export class DummyP2PService implements P2PService {
   /** Returns an empty array for peers. */
   getPeers(): PeerInfo[] {
     return [];
+  }
+
+  getGossipMeshPeerCount(_topicType: TopicType): number {
+    return 0;
   }
 
   /**

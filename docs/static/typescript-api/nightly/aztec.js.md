@@ -1,6 +1,6 @@
 # @aztec/aztec.js
 
-Version: v4.0.0-nightly.20260218
+Version: v5.0.0-nightly.20260219
 
 ## Quick Import Reference
 
@@ -98,7 +98,7 @@ new BatchCall(wallet: Wallet, interactions: ExecutionPayload | BaseContractInter
 - `getExecutionPayloads() => Promise<ExecutionPayload[]>`
 - `request(options: RequestInteractionOptions) => Promise<ExecutionPayload>` - Returns an execution request that represents this operation.
 - `send<TReturn>(options: SendInteractionOptionsWithoutWait) => Promise<TReturn>` - Sends a transaction to the contract function with the specified options. By default, waits for the transaction to be mined and returns the receipt (or custom type).
-- `simulate(options: SimulateInteractionOptions) => Promise<any>` - Simulates the batch, supporting private, public and utility functions. Although this is a single interaction with the wallet, private and public functions will be grouped into a single ExecutionPayload that the wallet will simulate as a single transaction. Utility function calls will simply be executed one by one.
+- `simulate(options: SimulateInteractionOptions) => Promise<any>` - Simulates/executes the batch, supporting private, public and utility functions. Although this is a single interaction with the wallet, private and public functions will be grouped into a single ExecutionPayload that the wallet will simulate as a single transaction. Utility function calls will be executed one by one.
 
 ### Capsule
 
@@ -229,7 +229,7 @@ new DeployAccountMethod(publicKeys: PublicKeys, wallet: Wallet, artifact: Contra
 - `getInitializationExecutionPayload(options?: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns the calls necessary to initialize the contract.
 - `getInstance(options?: RequestDeployOptions) => Promise<ContractInstanceWithAddress>` - Builds the contract instance and returns it.
 - `getPublicationExecutionPayload(options?: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns an execution payload for: - publication of the contract class and - publication of the contract instance to enable public execution depending on the provided options.
-- `profile(options: Omit<RequestDeployOptions, "deployer"> & { universalDeploy?: boolean } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => Promise<TxProfileResult>` - Simulate a deployment and profile the gate count for each function in the transaction.
+- `profile(options: Omit<RequestDeployOptions, "deployer"> & { universalDeploy?: boolean } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from" | "additionalScopes"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => Promise<TxProfileResult>` - Simulate a deployment and profile the gate count for each function in the transaction.
 - `register(options?: RequestDeployOptions) => Promise<TContract>` - Adds this contract to the wallet and returns the Contract object.
 - `request(opts?: RequestDeployAccountOptions) => Promise<ExecutionPayload>` - Returns the execution payload that allows this operation to happen on chain.
 - `send(options: DeployOptionsWithoutWait) => Promise<TContract>` - Send a contract deployment transaction (initialize and/or publish) using the provided options. By default, waits for the transaction to be mined and returns the deployed contract instance.
@@ -262,7 +262,7 @@ new DeployMethod(publicKeys: PublicKeys, wallet: Wallet, artifact: ContractArtif
 - `getInitializationExecutionPayload(options?: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns the calls necessary to initialize the contract.
 - `getInstance(options?: RequestDeployOptions) => Promise<ContractInstanceWithAddress>` - Builds the contract instance and returns it.
 - `getPublicationExecutionPayload(options?: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns an execution payload for: - publication of the contract class and - publication of the contract instance to enable public execution depending on the provided options.
-- `profile(options: Omit<RequestDeployOptions, "deployer"> & { universalDeploy?: boolean } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => Promise<TxProfileResult>` - Simulate a deployment and profile the gate count for each function in the transaction.
+- `profile(options: Omit<RequestDeployOptions, "deployer"> & { universalDeploy?: boolean } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from" | "additionalScopes"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => Promise<TxProfileResult>` - Simulate a deployment and profile the gate count for each function in the transaction.
 - `register(options?: RequestDeployOptions) => Promise<TContract>` - Adds this contract to the wallet and returns the Contract object.
 - `request(options?: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns the execution payload that allows this operation to happen on chain.
 - `send(options: DeployOptionsWithoutWait) => Promise<TContract>` - Send a contract deployment transaction (initialize and/or publish) using the provided options. By default, waits for the transaction to be mined and returns the deployed contract instance.
@@ -1046,6 +1046,7 @@ Contract class capability - for querying contract class metadata. Maps to wallet
 Pattern for matching contract functions with wildcards. Used in simulation and transaction capabilities to specify which contract functions are allowed.
 
 **Properties**
+- `additionalScopes?: AztecAddress[] | "*"` - Additional addresses whose private state and keys are accessible when calling this function, beyond the sender's. - undefined: No additional scopes allowed - AztecAddress[]: Only these specific addresses allowed as additional scopes - '*': All known address allowed as an additional scope
 - `contract: AztecAddress | "*"` - Contract address or '*' for any contract
 - `function: string` - Function name or '*' for any function
 
@@ -1056,7 +1057,7 @@ Contract interaction capability - for registering and querying contracts. Maps t
 **Properties**
 - `canGetMetadata?: boolean` - Can query contract metadata. Maps to: getContractMetadata
 - `canRegister?: boolean` - Can register contracts and update existing registrations. Maps to: registerContract When true, allows: - Registering new contract instances at specified addresses - Re-registering existing contracts with updated artifacts (e.g., after upgrade)
-- `contracts: "*" | AztecAddress[]` - Which contracts this applies to: - '*': Any contract address - AztecAddress[]: Specific contract addresses
+- `contracts: AztecAddress[] | "*"` - Which contracts this applies to: - '*': Any contract address - AztecAddress[]: Specific contract addresses
 - `type: "contracts"` - Discriminator for capability type
 
 ### DataCapability
@@ -1065,7 +1066,7 @@ Data access capability - for querying private data. Maps to wallet methods: - ge
 
 **Properties**
 - `addressBook?: boolean` - Access to address book. Maps to: getAddressBook
-- `privateEvents?: { contracts: "*" | AztecAddress[] }` - Access to private events. Maps to: getPrivateEvents
+- `privateEvents?: { contracts: AztecAddress[] | "*" }` - Access to private events. Maps to: getPrivateEvents
 - `type: "data"` - Discriminator for capability type
 
 ### FeePaymentMethod
@@ -1144,7 +1145,7 @@ Extends: `ContractsCapability`
 **Properties**
 - `canGetMetadata?: boolean` - Can query contract metadata. Maps to: getContractMetadata
 - `canRegister?: boolean` - Can register contracts and update existing registrations. Maps to: registerContract When true, allows: - Registering new contract instances at specified addresses - Re-registering existing contracts with updated artifacts (e.g., after upgrade)
-- `contracts: "*" | AztecAddress[]` - Which contracts this applies to: - '*': Any contract address - AztecAddress[]: Specific contract addresses
+- `contracts: AztecAddress[] | "*"` - Which contracts this applies to: - '*': Any contract address - AztecAddress[]: Specific contract addresses
 - `type: "contracts"` - Discriminator for capability type
 
 ### GrantedDataCapability
@@ -1155,7 +1156,7 @@ Extends: `DataCapability`
 
 **Properties**
 - `addressBook?: boolean` - Access to address book. Maps to: getAddressBook
-- `privateEvents?: { contracts: "*" | AztecAddress[] }` - Access to private events. Maps to: getPrivateEvents
+- `privateEvents?: { contracts: AztecAddress[] | "*" }` - Access to private events. Maps to: getPrivateEvents
 - `type: "data"` - Discriminator for capability type
 
 ### GrantedSimulationCapability
@@ -1167,7 +1168,7 @@ Extends: `SimulationCapability`
 **Properties**
 - `transactions?: { scope: "*" | ContractFunctionPattern[] }` - Transaction simulation scope. Maps to: simulateTx, profileTx
 - `type: "simulation"` - Discriminator for capability type
-- `utilities?: { scope: "*" | ContractFunctionPattern[] }` - Utility simulation scope (unconstrained calls). Maps to: simulateUtility
+- `utilities?: { scope: "*" | ContractFunctionPattern[] }` - Utility execution scope (unconstrained calls). Maps to: executeUtility
 
 ### GrantedTransactionCapability
 
@@ -1205,12 +1206,12 @@ The compilation result of an Aztec.nr contract.
 
 ### SimulationCapability
 
-Transaction simulation capability - for simulating transactions and utilities. Maps to wallet methods: - simulateTx (when transactions scope specified) - simulateUtility (when utilities scope specified) - profileTx (when transactions scope specified)
+Transaction simulation capability - for simulating transactions and executing utilities. Maps to wallet methods: - simulateTx (when transactions scope specified) - executeUtility (when utilities scope specified) - profileTx (when transactions scope specified)
 
 **Properties**
 - `transactions?: { scope: "*" | ContractFunctionPattern[] }` - Transaction simulation scope. Maps to: simulateTx, profileTx
 - `type: "simulation"` - Discriminator for capability type
-- `utilities?: { scope: "*" | ContractFunctionPattern[] }` - Utility simulation scope (unconstrained calls). Maps to: simulateUtility
+- `utilities?: { scope: "*" | ContractFunctionPattern[] }` - Utility execution scope (unconstrained calls). Maps to: executeUtility
 
 ### TransactionCapability
 
@@ -1587,6 +1588,12 @@ type EventSelectorLike = FieldLike | EventSelector
 ```
 Any type that can be converted into an EventSelector Aztec.nr struct.
 
+### ExecuteUtilityOptions
+```typescript
+type ExecuteUtilityOptions = unknown
+```
+Options for executing a utility function call.
+
 ### FieldLike
 ```typescript
 type FieldLike = Fr | Buffer | bigint | number | { toField: () => Fr }
@@ -1759,12 +1766,6 @@ Represents the options for simulating a contract function interaction. Allows sp
 type SimulateOptions = Omit<SimulateInteractionOptions, "fee"> & { fee?: GasSettingsOption & FeeEstimationOptions }
 ```
 Options for simulating interactions with the wallet. Overrides the fee settings of an interaction with a simplified version that only hints at the wallet whether the interaction contains a fee payment method or not
-
-### SimulateUtilityOptions
-```typescript
-type SimulateUtilityOptions = unknown
-```
-Options for simulating a utility function call.
 
 ### SimulationReturn
 ```typescript

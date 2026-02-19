@@ -270,6 +270,16 @@ class MockGossipSubService extends TypedEventEmitter<GossipsubEvents> implements
       { msgId, propagationSource, acceptance },
     );
   }
+
+  getMeshPeers(topic?: TopicStr): PeerIdStr[] {
+    if (topic && !this.subscribedTopics.has(topic)) {
+      return [];
+    }
+    return this.network
+      .getPeers()
+      .filter(peer => !this.peerId.equals(peer))
+      .map(peer => peer.toString());
+  }
 }
 
 /**
