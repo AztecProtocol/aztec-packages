@@ -159,32 +159,29 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
     options: DeployOptions<W>,
     // eslint-disable-next-line jsdoc/require-jsdoc
   ): SendOptions<W extends { returnReceipt: true } ? WaitOpts : W> {
-    return super.convertDeployOptionsToSendOptions(this.addContractToScopes(options) as DeployOptions<W>);
+    return super.convertDeployOptionsToSendOptions(this.injectContractAddressIntoScopes(options));
   }
 
   protected override convertDeployOptionsToSimulateOptions(options: SimulateDeployOptions): SimulateOptions {
-    return super.convertDeployOptionsToSimulateOptions(this.addContractToScopes(options));
+    return super.convertDeployOptionsToSimulateOptions(this.injectContractAddressIntoScopes(options));
   }
 
   protected override convertDeployOptionsToProfileOptions(
     options: DeployOptionsWithoutWait & ProfileInteractionOptions,
   ): ProfileOptions {
-    const withScope = this.addContractToScopes(options as SimulateDeployOptions);
-    return super.convertDeployOptionsToProfileOptions(
-      withScope as DeployOptionsWithoutWait & ProfileInteractionOptions,
-    );
+    return super.convertDeployOptionsToProfileOptions(this.injectContractAddressIntoScopes(options));
   }
 
-  /** Injects the contract's own address into scopes so the constructor can access its own keys. */
-  private addContractToScopes(
-    options: DeployOptions<DeployInteractionWaitOptions>,
-  ): DeployOptions<DeployInteractionWaitOptions>;
-  private addContractToScopes(options: SimulateDeployOptions): SimulateDeployOptions;
-  private addContractToScopes(options: Record<string, unknown>): Record<string, unknown> {
+  /**
+   * Injects the contract's own address into scopes so the constructor can access its own keys.
+   * @param options - The deploy options to augment with the contract address.
+   */
+  // eslint-disable-next-line jsdoc/require-jsdoc
+  private injectContractAddressIntoScopes<T extends { additionalScopes?: AztecAddress[] }>(options: T): T {
     if (!this.address) {
       throw new Error('Instance not yet constructed. This is a bug!');
     }
-    const existing = (options.additionalScopes as AztecAddress[] | undefined) ?? [];
+    const existing = options.additionalScopes ?? [];
     return { ...options, additionalScopes: [...existing, this.address] };
   }
 }
