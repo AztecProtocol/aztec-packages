@@ -65,6 +65,29 @@ function get_latest_run_id {
   gh run list --workflow $ci3_workflow_id -b $BRANCH --limit 1 --json databaseId -q .[0].databaseId
 }
 
+# Dispatch a network CI command to an EC2 instance.
+# Usage: network_ec2 <postfix> <cpus> <bootstrap_cmd> [<extra_exports>...]
+function network_ec2 {
+  local postfix=$1 cpus=$2 bootstrap_cmd=$3
+  shift 3
+  export CI_DASHBOARD="network"
+  export INSTANCE_POSTFIX="$postfix"
+  export CPUS=$cpus
+  for extra in "$@"; do export "$extra"; done
+  bootstrap_ec2 "./bootstrap.sh $bootstrap_cmd"
+}
+
+# Set up denoise environment and define the run() function for parallel EC2 jobs.
+function setup_denoise_run {
+  export DENOISE=1
+  export DENOISE_WIDTH=32
+  run() {
+    PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 \
+      exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
+  }
+  export -f run
+}
+
 # Jobs in the ci dashboards are grouped on a single line by RUN_ID.
 export RUN_ID=${RUN_ID:-$(date +%s%3N)}
 
@@ -91,12 +114,7 @@ case "$cmd" in
   grind)
     # Grind a default of 5 times.
     export CI_DASHBOARD="local"
-    export DENOISE=1
-    export DENOISE_WIDTH=32
-    run() {
-      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
-    }
-    export -f run
+    setup_denoise_run
     seq 1 ${1:-5} | parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered \
       'run $USER-x{}-full amd64 ci-full-no-test-cache'
     ;;
@@ -107,12 +125,7 @@ case "$cmd" in
     else
       export CI_DASHBOARD="prs"
     fi
-    export DENOISE=1
-    export DENOISE_WIDTH=32
-    run() {
-      PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
-    }
-    export -f run
+    setup_denoise_run
 
     parallel --jobs 10 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
       'run x1-full amd64 ci-full-no-test-cache' \
@@ -128,12 +141,7 @@ case "$cmd" in
     else
       export CI_DASHBOARD="prs"
     fi
-    export DENOISE=1
-    export DENOISE_WIDTH=32
-    run() {
-      PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
-    }
-    export -f run
+    setup_denoise_run
 
     parallel --jobs 11 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
       'run x1-full amd64 ci-full-no-test-cache' \
@@ -147,6 +155,19 @@ case "$cmd" in
       'run x9-full amd64 ci-full-no-test-cache' \
       'run x10-full amd64 ci-full-no-test-cache' \
       'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue heavy CI run" $RUN_ID
+    ;;
+
+  ############
+  # RELEASES #
+  ############
+  release)
+    # Spin up ec2 instances and run the release flow.
+    export CI_DASHBOARD="releases"
+    setup_denoise_run
+
+    parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+      'run x-release amd64 ci-release' \
+      'run a-release arm64 ci-release' | DUP=1 cache_log "Release CI run" $RUN_ID
     ;;
   grind-test)
     full_cmd="$1"
@@ -194,89 +215,31 @@ case "$cmd" in
     fi
     ;;
   network-deploy)
-    # Args: <scenario> <namespace> [docker_image]
-    # If docker_image is not provided, ci-network-deploy will build and push to aztecdev.
-    export CI_DASHBOARD="network"
     export JOB_ID="x-${2:?namespace is required}-network-deploy"
-    export INSTANCE_POSTFIX="n-deploy"
-    # Enough for the build, which should have a lot of caching, and the test harness.
-    # Resources are on GCP.
-    export CPUS=16
-    bootstrap_ec2 "./bootstrap.sh ci-network-deploy $*"
+    network_ec2 n-deploy 16 "ci-network-deploy $*"
     ;;
   network-tests)
-    # Args: <scenario> <namespace>
-    export CI_DASHBOARD="network"
     export JOB_ID="x-${2:?namespace is required}-network-tests"
-    export AWS_SHUTDOWN_TIME=360 # 6 hours for network tests
-    export INSTANCE_POSTFIX="n-tests"
-    # Enough for the build, which should have a lot of caching, and the test harness.
-    # Resources are on GCP.
-    export CPUS=16
-    bootstrap_ec2 "./bootstrap.sh ci-network-tests $*"
+    network_ec2 n-tests 16 "ci-network-tests $*" "AWS_SHUTDOWN_TIME=360"
     ;;
   network-bench)
-    # Args: <scenario> <namespace> [docker_image]
-    # If docker_image is not provided, ci-network-bench will build and push to aztecdev.
-    export CI_DASHBOARD="network"
     export JOB_ID="x-${2:?namespace is required}-network-bench"
-    export INSTANCE_POSTFIX="n-bench"
-    # Enough for the build, which should have a lot of caching, and the test harness.
-    # Resources are on GCP.
-    export CPUS=16
-    bootstrap_ec2 "./bootstrap.sh ci-network-bench $*"
+    network_ec2 n-bench 16 "ci-network-bench $*"
     ;;
   network-proving-bench)
-    # Args: <scenario> <namespace> [docker_image]
-    # Deploys network and runs proving benchmarks.
-    export CI_DASHBOARD="network"
-    export JOB_ID="x-${2:?namespace is required}-network-proving-bench" CPUS=16
-    export INSTANCE_POSTFIX="n-proving-bench"
-    bootstrap_ec2 "./bootstrap.sh ci-network-proving-bench $*"
+    export JOB_ID="x-${2:?namespace is required}-network-proving-bench"
+    network_ec2 n-proving-bench 16 "ci-network-proving-bench $*"
     ;;
   network-teardown)
-    # Args: <scenario> <namespace>
-    export CI_DASHBOARD="network"
     export JOB_ID="x-${2:?namespace is required}-network-teardown"
-    export CPUS=4
-    export INSTANCE_POSTFIX="n-teardown"
-    bootstrap_ec2 "./bootstrap.sh ci-network-teardown $*"
+    network_ec2 n-teardown 4 "ci-network-teardown $*"
     ;;
-
   network-tests-kind)
-    # Runs KIND-based spartan tests on a 192 CPU instance.
-    export CI_DASHBOARD="network"
-    export AWS_SHUTDOWN_TIME=180 # 3 hours for KIND tests
-    export CPUS=192
-    export INSTANCE_POSTFIX="n-kind"
-    bootstrap_ec2 "./bootstrap.sh ci-network-kind-tests"
+    network_ec2 n-kind 192 "ci-network-kind-tests" "AWS_SHUTDOWN_TIME=180"
     ;;
   deploy-rollup-upgrade)
-    # Env vars: NETWORK, GCP_PROJECT_ID (for GCP secrets)
-    # Args: <registry_address>
-    export CI_DASHBOARD="network"
     export JOB_ID="x-deploy-rollup-upgrade"
-    export CPUS=8
-    export INSTANCE_POSTFIX="rollup-upgrade"
-    bootstrap_ec2 "./bootstrap.sh ci-deploy-rollup-upgrade $*"
-    ;;
-
-  ############
-  # RELEASES #
-  ############
-  release)
-    # Spin up ec2 instance and run the release flow.
-    export CI_DASHBOARD="releases"
-    export DENOISE=1
-    export DENOISE_WIDTH=32
-    run() {
-      PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh ci-release'"
-    }
-    export -f run
-
-    parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x-release amd64' \
-      'run a-release arm64' | DUP=1 cache_log "Release CI run" $RUN_ID
+    network_ec2 rollup-upgrade 8 "ci-deploy-rollup-upgrade $*"
     ;;
 
   ##################

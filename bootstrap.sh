@@ -433,6 +433,24 @@ function bench_merge {
 
 }
 
+function bench_upload {
+  local name=$1
+  rm -rf bench-out
+  mkdir -p bench-out
+  bench_merge
+  cache_upload ${name}-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+}
+
+# Resolve docker image for network CI commands, building and pushing if not provided.
+function resolve_docker_image {
+  local docker_image="${1:-}"
+  if [ -z "$docker_image" ]; then
+    release-image/bootstrap.sh push_pr
+    docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
+  fi
+  export AZTEC_DOCKER_IMAGE="$docker_image"
+}
+
 function bench {
   # TODO bench for arm64.
   if [ $(arch) == arm64 ]; then
@@ -442,10 +460,7 @@ function bench {
   build_bench
   find . -type d -iname bench-out | xargs rm -rf
   bench_cmds | STRICT_SCHEDULING=1 parallelize
-  rm -rf bench-out
-  mkdir -p bench-out
-  bench_merge
-  cache_upload bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+  bench_upload bench
 }
 
 function release_github {
@@ -615,26 +630,36 @@ case "$cmd" in
     # Args: <env_file> <namespace> [docker_image] [test_set]
     export CI=1
     env_file="${1:?env_file is required}"
-    namespace="${2:?namespace is required}"
-    docker_image="${3:-}"
+    export NAMESPACE="${2:?namespace is required}"
     test_set="${4:-}"
     build
-    # If no docker image provided, build and push to aztecdev
-    if [ -z "$docker_image" ]; then
-      release-image/bootstrap.sh push_pr
-      docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
-    fi
-    # Set up environment and deploy using spartan
-    export NAMESPACE="$namespace"
-    export AZTEC_DOCKER_IMAGE="$docker_image"
+    resolve_docker_image "${3:-}"
     deploy_exit_code=0
     spartan/bootstrap.sh network_deploy "${env_file}" "$test_set" || deploy_exit_code=$?
-    # Merge and upload deploy benchmarks (deploy_network.sh writes to spartan/bench-out/)
-    rm -rf bench-out
-    mkdir -p bench-out
-    bench_merge
-    cache_upload deploy-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+    bench_upload deploy-bench
     exit $deploy_exit_code
+    ;;
+  "ci-network-bench")
+    # Args: <env_file> <namespace> [docker_image]
+    export CI=1
+    env_file="${1:?env_file is required}"
+    export NAMESPACE="${2:?namespace is required}"
+    build
+    resolve_docker_image "${3:-}"
+    spartan/bootstrap.sh network_deploy "${env_file}"
+    spartan/bootstrap.sh network_bench "${env_file}"
+    bench_upload spartan-bench
+    ;;
+  "ci-network-proving-bench")
+    # Args: <env_file> <namespace> [docker_image]
+    export CI=1
+    env_file="${1:?env_file is required}"
+    export NAMESPACE="${2:?namespace is required}"
+    build
+    resolve_docker_image "${3:-}"
+    spartan/bootstrap.sh network_deploy "${env_file}"
+    spartan/bootstrap.sh proving_bench "${env_file}"
+    bench_upload spartan-proving-bench
     ;;
   "ci-network-tests")
     # Args: <env_file> <namespace>
@@ -642,67 +667,16 @@ case "$cmd" in
     env_file="${1:?env_file is required}"
     namespace="${2:?namespace is required}"
     build
-    # Set up environment for tests
     export NAMESPACE="$namespace"
     spartan/bootstrap.sh network_tests "${env_file}"
     ;;
   "ci-network-kind-tests")
     export CI=1
     [ "${SKIP_BUILD:-0}" -eq 0 ] && build
-    # Set the docker image to the locally built image and load it into KIND
     export AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:$(git rev-parse HEAD)"
     spartan/bootstrap.sh kind
     kind load docker-image "$AZTEC_DOCKER_IMAGE"
-    # Just one test for now
     spartan/bootstrap.sh test-kind-upgrade-rollup
-    ;;
-  "ci-network-bench")
-    # Args: <env_file> <namespace> [docker_image]
-    # Deploys network and runs benchmarks. Cleanup should be done separately.
-    export CI=1
-    env_file="${1:?env_file is required}"
-    namespace="${2:?namespace is required}"
-    docker_image="${3:-}"
-    build
-    # If no docker image provided, build and push to aztecdev
-    if [ -z "$docker_image" ]; then
-      release-image/bootstrap.sh push_pr
-      docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
-    fi
-    # Set up environment and deploy using spartan
-    export NAMESPACE="$namespace"
-    export AZTEC_DOCKER_IMAGE="$docker_image"
-    spartan/bootstrap.sh network_deploy "${env_file}"
-    # Run benchmarks
-    spartan/bootstrap.sh network_bench "${env_file}"
-    rm -rf bench-out
-    mkdir -p bench-out
-    bench_merge
-    cache_upload spartan-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
-    ;;
-  "ci-network-proving-bench")
-    # Args: <env_file> <namespace> [docker_image]
-    # Deploys network and runs proving benchmarks. Cleanup should be done separately.
-    export CI=1
-    env_file="${1:?env_file is required}"
-    namespace="${2:?namespace is required}"
-    docker_image="${3:-}"
-    build
-    # If no docker image provided, build and push to aztecdev
-    if [ -z "$docker_image" ]; then
-      release-image/bootstrap.sh push_pr
-      docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
-    fi
-    # Set up environment and deploy using spartan
-    export NAMESPACE="$namespace"
-    export AZTEC_DOCKER_IMAGE="$docker_image"
-    spartan/bootstrap.sh network_deploy "${env_file}"
-    # Run proving benchmarks
-    spartan/bootstrap.sh proving_bench "${env_file}"
-    rm -rf bench-out
-    mkdir -p bench-out
-    bench_merge
-    cache_upload spartan-proving-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
     ;;
   "ci-network-teardown")
     # Args: <env_file> <namespace>
