@@ -238,6 +238,103 @@ jobs:
               --data "$data"
           fi
 
+  # Spartan network benchmarks triggered on-demand from a PR label.
+  # Runs TPS and proving benchmarks in parallel, uploads results to a PR-specific
+  # path on the benchmark dashboard so nightly (bench/next) is never affected.
+  # One-time use: label is removed after the job runs.
+  ci-network-bench:
+    name: ${{ matrix.bench_type }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - bench_type: benchmark
+            ci3_cmd: network-bench
+            scenario: tps-scenario
+            namespace_suffix: bench
+            download_cmd: gh-spartan-bench
+            timeout: 300
+          - bench_type: proving-benchmark
+            ci3_cmd: network-proving-bench
+            scenario: prove-n-tps-fake
+            namespace_suffix: proving-bench
+            download_cmd: gh-spartan-proving-bench
+            timeout: 240
+    needs: ci
+    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'ci-network-bench') && (needs.ci.result == 'success' || needs.ci.result == 'skipped')
+    steps:
+      - name: Remove label (one-time use)
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-network-bench --repo ${{ github.repository }} || true
+
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Run Network Benchmarks
+        timeout-minutes: ${{ matrix.timeout }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          # For pushing docker images built from the PR
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+          AWS_SHUTDOWN_TIME: ${{ matrix.timeout }}
+          NO_SPOT: 1
+        run: |
+          namespace=pr-${{ github.event.pull_request.number }}-${{ matrix.namespace_suffix }}
+          echo "NAMESPACE=$namespace" >> $GITHUB_ENV
+          set -x
+          ./.github/ci3.sh ${{ matrix.ci3_cmd }} ${{ matrix.scenario }} "$namespace"
+
+      - name: Cleanup network resources
+        if: always()
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          NO_SPOT: 1
+        run: ./.github/ci3.sh network-teardown ${{ matrix.scenario }} "${NAMESPACE}" || true
+
+      - name: Download benchmarks
+        if: always()
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          if ./ci.sh ${{ matrix.download_cmd }}; then
+            echo "ENABLE_DEPLOY_BENCH=1" >> $GITHUB_ENV
+          fi
+
+      - name: Upload benchmarks
+        if: always() && env.ENABLE_DEPLOY_BENCH == '1'
+        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        with:
+          name: Spartan
+          benchmark-data-dir-path: "bench/pr-${{ github.event.pull_request.number }}"
+          tool: "customSmallerIsBetter"
+          output-file-path: ./bench-out/bench.json
+          gh-repository: github.com/AztecProtocol/benchmark-page-data
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          auto-push: true
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          alert-threshold: "120%"
+          comment-on-alert: false
+          fail-on-alert: false
+          max-items-in-chart: 100
+
   # KIND-based e2e tests that run on a local Kubernetes cluster.
   # One-time use: label is removed after the job runs.
   ci-network-kind:
