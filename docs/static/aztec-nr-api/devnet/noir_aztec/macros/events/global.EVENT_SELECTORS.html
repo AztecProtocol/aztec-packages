@@ -28,11 +28,11 @@
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">macros</a>::<a href="index.html">events</a></div>
 <h1>Global <span class="global">EVENT_SELECTORS</span></h1>
-<pre><code>pub mut comptime global EVENT_SELECTORS: <a href="../../../std/collections/umap/struct.UHashMap.html" class="struct">UHashMap</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>, <a href="../../../std/primitive.Quoted.html" class="primitive">Quoted</a>, <a href="../../../std/hash/struct.BuildHasherDefault.html" class="struct">BuildHasherDefault</a>&lt;<a href="../../../poseidon/poseidon2/struct.Poseidon2Hasher.html" class="struct">Poseidon2Hasher</a>&gt;&gt;;</code></pre>
+<pre><code>pub mut comptime global EVENT_SELECTORS: CHashMap&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>, <a href="../../../std/primitive.Quoted.html" class="primitive">Quoted</a>&gt;;</code></pre>
 
 <div class="comments">
-<p>A map from event selector to event name indicating whether the event selector has already been seen during
-the contract compilation - prevents event selector collisions.</p>
+<p>A map from event selector to event name indicating whether the event selector has already been seen during the
+contract compilation - prevents event selector collisions.</p>
 </div>
 </main>
 </span>
