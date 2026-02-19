@@ -217,7 +217,7 @@ function build {
     local contracts="$@"
   fi
   set +e
-  parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {} $folder_name ::: ${contracts[@]}
+  parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag ci_phase "contract:{}" compile {} $folder_name ::: ${contracts[@]}
   code=$?
   cat joblog.txt
   return $code

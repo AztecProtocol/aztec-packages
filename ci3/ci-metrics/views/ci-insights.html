@@ -562,29 +562,15 @@
       const byDash = phaseData?.by_dashboard || [];
       if (!byDash.length) return;
 
-      // Collect all phase names, grouping cache-download:*/cache-upload:* into aggregates
+      // Collect all unique phase names (no grouping — each artifact is its own phase)
       const allPhases = new Set();
       byDash.forEach(d => {
-        for (const p of Object.keys(d.phases || {})) {
-          if (p.startsWith('cache-download:')) allPhases.add('cache-download');
-          else if (p.startsWith('cache-upload:')) allPhases.add('cache-upload');
-          else allPhases.add(p);
-        }
+        for (const p of Object.keys(d.phases || {})) allPhases.add(p);
       });
 
-      // Build grouped data per dashboard
       const dashboards = byDash.map(d => d.dashboard).sort();
       const dashData = {};
-      byDash.forEach(d => {
-        const row = {};
-        for (const [phase, secs] of Object.entries(d.phases || {})) {
-          let key = phase;
-          if (phase.startsWith('cache-download:')) key = 'cache-download';
-          else if (phase.startsWith('cache-upload:')) key = 'cache-upload';
-          row[key] = (row[key] || 0) + secs;
-        }
-        dashData[d.dashboard] = row;
-      });
+      byDash.forEach(d => { dashData[d.dashboard] = d.phases || {}; });
 
       // Sort phases by total time descending for nice stacking
       const phaseTotals = {};
@@ -598,11 +584,10 @@
         'noir': '#e3b341', 'avm-transpiler': '#a5d6ff', 'barretenberg': '#f0883e',
         'noir-projects': '#ff7b72', 'l1-contracts': '#79c0ff', 'yarn-project': '#56d364',
         'release-image': '#8b949e', 'parallel-builds': '#d2a8ff',
-        'cache-download': '#388bfd', 'cache-upload': '#f85149',
       };
-      const defaultColors = ['#56d364', '#79c0ff', '#d2a8ff', '#f0883e', '#ff7b72', '#a5d6ff', '#e3b341', '#8b949e'];
+      const defaultColors = ['#388bfd', '#f85149', '#56d364', '#79c0ff', '#d2a8ff', '#f0883e', '#ff7b72', '#a5d6ff', '#e3b341', '#8b949e', '#da3633', '#a371f7'];
 
-      // Compute totals per dashboard for top labels
+      // Compute totals per dashboard for top labels (values are already total_secs from API)
       const totals = dashboards.map(d => phases.reduce((s, p) => s + (dashData[d]?.[p] || 0), 0));
 
       const datasets = phases.map((p, i) => ({
@@ -620,7 +605,7 @@
           interaction: { mode: 'index', intersect: false },
           scales: {
             x: { stacked: true, ticks: { color: '#ccc', font: { family: 'monospace', size: 12 } }, grid: { color: '#181818' } },
-            y: { stacked: true, title: { display: true, text: 'minutes', color: '#555', font: { size: 10 } }, ticks: { color: '#555', callback: v => (v / 60).toFixed(0) + 'm' }, grid: { color: '#181818' } }
+            y: { stacked: true, title: { display: true, text: 'total time', color: '#555', font: { size: 10 } }, ticks: { color: '#555', callback: v => v >= 3600 ? (v / 3600).toFixed(0) + 'h' : (v / 60).toFixed(0) + 'm' }, grid: { color: '#181818' } }
           },
           plugins: {
             legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },
@@ -628,11 +613,10 @@
               itemSort: (a, b) => b.raw - a.raw,
               filter: c => c.raw > 0,
               callbacks: {
-                label: c => `${c.dataset.label}: ${c.raw >= 60 ? (c.raw / 60).toFixed(1) + 'm' : Math.round(c.raw) + 's'}`,
-                footer: items => `total: ${(items.reduce((s, i) => s + i.raw, 0) / 60).toFixed(1)}m`
+                label: c => `${c.dataset.label}: ${c.raw >= 3600 ? (c.raw / 3600).toFixed(1) + 'h' : c.raw >= 60 ? (c.raw / 60).toFixed(1) + 'm' : Math.round(c.raw) + 's'}`,
+                footer: items => `total: ${(items.reduce((s, i) => s + i.raw, 0) / 3600).toFixed(1)}h`
               }
             },
-            // Show total time above each bar
             datalabels: false,
           },
           animation: {
