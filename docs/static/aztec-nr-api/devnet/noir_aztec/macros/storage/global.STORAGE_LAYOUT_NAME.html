@@ -29,11 +29,11 @@
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">macros</a>::<a href="index.html">storage</a></div>
 <h1>Global <span class="global">STORAGE_LAYOUT_NAME</span></h1>
-<pre><code>pub mut comptime global STORAGE_LAYOUT_NAME: <a href="../../../std/collections/umap/struct.UHashMap.html" class="struct">UHashMap</a>&lt;<a href="../../../std/primitive.Module.html" class="primitive">Module</a>, <a href="../../../std/primitive.Quoted.html" class="primitive">Quoted</a>, <a href="../../../std/hash/struct.BuildHasherDefault.html" class="struct">BuildHasherDefault</a>&lt;<a href="../../../poseidon/poseidon2/struct.Poseidon2Hasher.html" class="struct">Poseidon2Hasher</a>&gt;&gt;;</code></pre>
+<pre><code>pub mut comptime global STORAGE_LAYOUT_NAME: CHashMap&lt;<a href="../../../std/primitive.Module.html" class="primitive">Module</a>, <a href="../../../std/primitive.Quoted.html" class="primitive">Quoted</a>&gt;;</code></pre>
 
 <div class="comments">
-<p>Stores a map from a module to the name of the struct that describes its storage layout.
-This is then used when generating a <code>storage_layout()</code> getter on the contract struct.</p>
+<p>Stores a map from a module to the name of the struct that describes its storage layout. This is then used when
+generating a <code>storage_layout()</code> getter on the contract struct.</p>
 </div>
 </main>
 </span>
