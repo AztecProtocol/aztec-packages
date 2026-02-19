@@ -75,6 +75,8 @@ bool is_in_range_list(CircuitBuilder& builder, uint32_t witness, uint64_t target
  *   real_variable_index. This function finds the big_add_gate via FilterFunctionBuilder with
  *   the known selector/wire pattern, extracts w_l (limb_idx), and checks range_lists membership.
  *   Complexity: O(G) per call (G = gates per variable, typically small).
+ *  * @note we intentionally do not consume the gate, because we just want to check that the variable is constrained by
+ * range_constraint.
  */
 template <typename FF, typename CircuitBuilder>
 bool is_range_constrained_via_limb_lookup(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
