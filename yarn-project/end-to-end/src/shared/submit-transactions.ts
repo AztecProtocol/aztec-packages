@@ -21,8 +21,6 @@ export const submitTxsTo = async (
       const deployMethod = await accountManager.getDeployMethod();
       const txHash = await deployMethod.send({
         from: submitter,
-        // The account constructor initializes storage vars that need the contract's own nullifier key, so we need to add it to scopes.
-        additionalScopes: [accountManager.address],
         wait: NO_WAIT,
       });
 
