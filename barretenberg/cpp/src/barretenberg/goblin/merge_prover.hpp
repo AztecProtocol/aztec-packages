@@ -67,12 +67,7 @@ template <size_t BATCH_SIZE> class MergeProver {
 
         const std::array<Polynomial, BATCH_SIZE>& operator[](size_t idx) const { return batches[idx]; }
 
-        // Return the size of the individual polys (they are all of the same size - this is enforced by the relations)
-        // The verifier computes the size of the interleaved poly by itself. This might not be strictly needed as the
-        // verifier always knows, if the degree check passes, that each of the polys that have been interleaved has deg
-        // < shift_size / 4, but better to play it safe.
-        size_t size() const { return batches[0][0].size(); }
-
+        size_t size() const { return NUM_COLUMNS; }
         auto begin() { return batches.begin(); }
         auto end() { return batches.end(); }
         auto begin() const { return batches.begin(); }
@@ -127,14 +122,15 @@ template <size_t BATCH_SIZE> class MergeProver {
      * \f]
      *
      */
-    static Polynomial compute_shplonk_batched_quotient(const std::array<Polynomial, NUM_WIRES>& left_table,
-                                                       const std::array<Polynomial, NUM_WIRES>& right_table,
-                                                       const std::array<Polynomial, NUM_WIRES>& merged_table,
-                                                       const std::vector<FF>& shplonk_batching_challenges,
-                                                       const FF& kappa,
-                                                       const FF& kappa_inv,
-                                                       const Polynomial& reversed_batched_left_tables,
-                                                       const std::vector<FF>& evals);
+    static std::array<Polynomial, BATCH_SIZE> compute_shplonk_batched_quotient(
+        const PolynomialBatch& left_columns,
+        const PolynomialBatch& right_columns,
+        const PolynomialBatch& merged_columns,
+        const std::vector<FF>& shplonk_batching_challenges,
+        const FF& kappa,
+        const FF& kappa_inv,
+        const std::array<Polynomial, BATCH_SIZE>& reversed_batched_left_columns,
+        const std::vector<FF>& evals);
 
     /**
      * @brief Compute the partially evaluated Shplonk batched quotient and the resulting opening claim.
@@ -148,15 +144,15 @@ template <size_t BATCH_SIZE> class MergeProver {
      * and return the opening claim \f$\{ Q', (z, 0) \}\f$.
      *
      */
-    static OpeningClaim compute_shplonk_opening_claim(Polynomial& shplonk_batched_quotient,
+    static OpeningClaim compute_shplonk_opening_claim(std::array<Polynomial, BATCH_SIZE>& shplonk_batched_quotient,
                                                       const FF& shplonk_opening_challenge,
-                                                      const std::array<Polynomial, NUM_WIRES>& left_table,
-                                                      const std::array<Polynomial, NUM_WIRES>& right_table,
-                                                      const std::array<Polynomial, NUM_WIRES>& merged_table,
+                                                      const PolynomialBatch& left_columns,
+                                                      const PolynomialBatch& right_columns,
+                                                      const PolynomialBatch& merged_columns,
                                                       const std::vector<FF>& shplonk_batching_challenges,
                                                       const FF& kappa,
                                                       const FF& kappa_inv,
-                                                      Polynomial& reversed_batched_left_tables,
+                                                      std::array<Polynomial, BATCH_SIZE>& reversed_batched_left_columns,
                                                       const std::vector<FF>& evals);
 };
 
