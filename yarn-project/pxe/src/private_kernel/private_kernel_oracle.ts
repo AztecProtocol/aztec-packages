@@ -8,11 +8,7 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
-import {
-  type ContractInstanceWithAddress,
-  computeContractClassIdPreimage,
-  computeSaltedInitializationHash,
-} from '@aztec/stdlib/contract';
+import { type ContractInstanceWithAddress, computeSaltedInitializationHash } from '@aztec/stdlib/contract';
 import { DelayedPublicMutableValues, DelayedPublicMutableValuesWithHash } from '@aztec/stdlib/delayed-public-mutable';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
@@ -49,11 +45,15 @@ export class PrivateKernelOracle {
 
   /** Retrieves the preimage of a contract class id from the contract classes db. */
   public async getContractClassIdPreimage(contractClassId: Fr) {
-    const contractClass = await this.contractStore.getContractClass(contractClassId);
+    const contractClass = await this.contractStore.getContractClassWithPreimage(contractClassId);
     if (!contractClass) {
       throw new Error(`Contract class not found when getting class id preimage. Class id: ${contractClassId}.`);
     }
-    return computeContractClassIdPreimage(contractClass);
+    return {
+      artifactHash: contractClass.artifactHash,
+      privateFunctionsRoot: contractClass.privateFunctionsRoot,
+      publicBytecodeCommitment: contractClass.publicBytecodeCommitment,
+    };
   }
 
   /** Returns a membership witness with the sibling path and leaf index in our private functions tree. */

@@ -11,7 +11,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 export DENOISE=${DENOISE:-1}
 
 # Number of TXE servers to run when testing.
-export NUM_TXES=8
+export NUM_TXES=1
 
 export MAKEFLAGS="-j${MAKE_JOBS:-$(get_num_cpus)}"
 

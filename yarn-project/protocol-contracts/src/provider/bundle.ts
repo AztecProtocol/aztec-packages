@@ -22,6 +22,6 @@ export const ProtocolContractArtifact: Record<ProtocolContractName, ContractArti
 
 export class BundledProtocolContractsProvider implements ProtocolContractsProvider {
   getProtocolContractArtifact(name: ProtocolContractName): Promise<ProtocolContract> {
-    return makeProtocolContract(name, ProtocolContractArtifact[name]);
+    return Promise.resolve(makeProtocolContract(name, ProtocolContractArtifact[name]));
   }
 }

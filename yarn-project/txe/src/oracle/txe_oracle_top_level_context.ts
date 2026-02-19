@@ -16,6 +16,7 @@ import type { AccessScopes } from '@aztec/pxe/client/lazy';
 import {
   AddressStore,
   CapsuleStore,
+  type ContractStore,
   NoteStore,
   ORACLE_VERSION,
   PrivateEventStore,
@@ -84,7 +85,6 @@ import { ForkCheckpoint } from '@aztec/world-state';
 import { DEFAULT_ADDRESS } from '../constants.js';
 import type { TXEStateMachine } from '../state_machine/index.js';
 import type { TXEAccountStore } from '../util/txe_account_store.js';
-import type { TXEContractStore } from '../util/txe_contract_store.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from '../utils/block_creation.js';
 import type { ITxeExecutionOracle } from './interfaces.js';
@@ -97,7 +97,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
   constructor(
     private stateMachine: TXEStateMachine,
-    private contractStore: TXEContractStore,
+    private contractStore: ContractStore,
     private noteStore: NoteStore,
     private keyStore: KeyStore,
     private addressStore: AddressStore,
@@ -211,7 +211,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       await this.txeAddAccount(artifact, instance, secret);
     } else {
       await this.contractStore.addContractInstance(instance);
-      await this.contractStore.addContractArtifact(instance.currentContractClassId, artifact);
+      await this.contractStore.addContractArtifact(artifact);
       this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
     }
   }
@@ -221,7 +221,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
     await this.contractStore.addContractInstance(instance);
-    await this.contractStore.addContractArtifact(instance.currentContractClassId, artifact);
+    await this.contractStore.addContractArtifact(artifact);
 
     const completeAddress = await this.keyStore.addAccount(secret, partialAddress);
     await this.accountStore.setAccount(completeAddress.address, completeAddress);
