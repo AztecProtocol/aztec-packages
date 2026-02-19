@@ -340,6 +340,50 @@ template <size_t BATCH_SIZE> typename MergeProver<BATCH_SIZE>::MergeProof MergeP
     return transcript->export_proof();
 }
 
+template <size_t BATCH_SIZE>
+typename MergeProver<BATCH_SIZE>::MergeProof MergeProver<BATCH_SIZE>::construct_de_interleaving_proof()
+{
+    std::array<Polynomial, NUM_WIRES> merged_table = op_queue->construct_ultra_ops_table_columns();
+
+    // Construct interleaved merged columns
+    PolynomialBatch merged_columns(merged_table);
+    std::array<Polynomial, NUM_COLUMNS> merged_columns_interleaved;
+    for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
+        merged_columns_interleaved[idx] = interleave_polynomials(merged_columns[idx]);
+    }
+
+    // Send commitment to the de-interleaved merged columns to the verifier
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        transcript->send_to_verifier("MERGED_TABLE_" + std::to_string(idx),
+                                     pcs_commitment_key.commit(merged_table[idx]));
+    }
+
+    // Compute evaluation challenge
+    FF evaluation_challenge = transcript->template get_challenge<FF>("evaluation_challenge");
+
+    // Prepare opening claims
+    std::vector<OpeningClaim> opening_claims;
+    opening_claims.reserve(NUM_WIRES + NUM_COLUMNS);
+    for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
+        FF eval = merged_columns_interleaved[idx].evaluate(evaluation_challenge);
+        opening_claims.emplace_back(OpeningClaim{ merged_columns_interleaved[idx], { evaluation_challenge, eval } });
+    }
+    // Send evaluations of the de-interleaved merged columns
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        FF eval = merged_table[idx].evaluate(evaluation_challenge);
+        opening_claims.emplace_back(OpeningClaim{ merged_table[idx], { evaluation_challenge, eval } });
+        transcript->send_to_verifier("MERGED_TABLE_EVAL_" + std::to_string(idx), eval);
+    }
+
+    // Shplonk prover
+    OpeningClaim shplonk_opening_claim = ShplonkProver_<Curve>::prove(pcs_commitment_key, opening_claims, transcript);
+
+    // KZG prover
+    PCS::compute_opening_proof(pcs_commitment_key, shplonk_opening_claim, transcript);
+
+    return transcript->export_proof();
+}
+
 template class MergeProver<1>;
 template class MergeProver<2>;
 template class MergeProver<4>;

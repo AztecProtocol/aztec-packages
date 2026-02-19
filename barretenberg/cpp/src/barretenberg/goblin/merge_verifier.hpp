@@ -64,6 +64,7 @@ template <size_t BatchSize, typename Curve> class MergeVerifier_ {
     struct ReductionResult {
         PairingPoints pairing_points;
         TableCommitments merged_commitments;
+        std::array<Commitment, NUM_WIRES> de_interleaved_merged_commitments;
         bool reduction_succeeded = false; // Aggregate of degree and concatenation checks
     };
 
@@ -95,6 +96,9 @@ template <size_t BatchSize, typename Curve> class MergeVerifier_ {
      */
     [[nodiscard("Verification result should be checked")]] ReductionResult reduce_to_pairing_check(
         const Proof& proof, const InputCommitments& input_commitments);
+
+    [[nodiscard("Verification result should be checked")]] ReductionResult reduce_de_interleaving_to_pairing_check(
+        const Proof& proof, const TableCommitments& interleaved_merged_commitments);
 
   private:
     std::vector<std::string> labels_degree_check()

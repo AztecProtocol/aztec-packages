@@ -225,7 +225,73 @@ typename MergeVerifier_<BatchSize, Curve>::ReductionResult MergeVerifier_<BatchS
     vinfo("Merge Verifier: degree check passed: ", degree_check_verified ? "true" : "false");
     vinfo("Merge Verifier: concatenation check passed: ", concatenation_verified ? "true" : "false");
 
-    return { pairing_points, merged_table_commitments, degree_check_verified && concatenation_verified };
+    return { pairing_points, merged_table_commitments, {}, degree_check_verified && concatenation_verified };
+}
+
+template <size_t BatchSize, typename Curve>
+typename MergeVerifier_<BatchSize, Curve>::ReductionResult MergeVerifier_<BatchSize, Curve>::
+    reduce_de_interleaving_to_pairing_check(const Proof& proof, const TableCommitments& interleaved_merged_commitments)
+{
+    transcript->load_proof(proof);
+
+    // Receive commitment to the de-interleaved merged columns
+    std::array<Commitment, NUM_WIRES> de_interleaved_merged_commitments;
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        de_interleaved_merged_commitments[idx] =
+            transcript->template receive_from_prover<Commitment>("MERGED_TABLE_" + std::to_string(idx));
+    }
+
+    // Generate evaluation challenge
+    FF evaluation_challenge = transcript->template get_challenge<FF>("evaluation_challenge");
+
+    // Receive evaluations of the de-interleaved merged columns at the evaluation challenge
+    std::vector<FF> evals;
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        FF eval = transcript->template receive_from_prover<FF>("MERGED_TABLE_EVAL_" + std::to_string(idx));
+        evals.emplace_back(eval);
+    }
+
+    // Compute evaluations of interleaved merged columns
+    std::vector<FF> powers_of_challenge = { FF(1) };
+    std::vector<FF> evals_interleaved;
+    for (size_t idx = 0; idx < BATCH_SIZE - 1; ++idx) {
+        powers_of_challenge.emplace_back(powers_of_challenge.back() * evaluation_challenge);
+    }
+    for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
+        FF eval_interleaved(0);
+        for (size_t batch_idx = 0; batch_idx < BATCH_SIZE; ++batch_idx) {
+            eval_interleaved += evals[(batch_idx * NUM_COLUMNS) + idx] * powers_of_challenge[batch_idx];
+        }
+        evals_interleaved.emplace_back(eval_interleaved);
+    }
+
+    // Prepare opening claims
+    std::vector<OpeningClaim<Curve>> opening_claims;
+    opening_claims.reserve(NUM_WIRES + NUM_COLUMNS);
+    for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
+        opening_claims.emplace_back(OpeningClaim<Curve>{ { evaluation_challenge, evals_interleaved[idx] },
+                                                         interleaved_merged_commitments[idx] });
+    }
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        opening_claims.emplace_back(
+            OpeningClaim<Curve>{ { evaluation_challenge, evals[idx] }, de_interleaved_merged_commitments[idx] });
+    }
+
+    // Shplonk
+    ShplonkVerifier_<Curve> shplonk_verifier =
+        ShplonkVerifier_<Curve>::reduce_verification_no_finalize(opening_claims, transcript);
+    BatchOpeningClaim<Curve> batch_opening_claim;
+    if constexpr (IsRecursive) {
+        batch_opening_claim =
+            shplonk_verifier.export_batch_opening_claim(Commitment::one(evaluation_challenge.get_context()));
+    } else {
+        batch_opening_claim = shplonk_verifier.export_batch_opening_claim(Commitment::one());
+    }
+
+    // KZG verifier
+    PairingPoints pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), transcript);
+
+    return { pairing_points, interleaved_merged_commitments, de_interleaved_merged_commitments, false };
 }
 
 // Explicit template instantiations
