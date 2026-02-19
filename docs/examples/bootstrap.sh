@@ -135,7 +135,7 @@ function send_slack_message {
 FAILED_STEPS=()
 FAILED_OUTPUTS=()
 
-# Run a step, collect failure if it fails
+# Run a step with retry, collect failure if it fails
 function run_step {
   local step_name=$1
   local step_func=$2
@@ -148,8 +148,18 @@ function run_step {
   set -e
   echo "$output"
 
+  # Retry once on failure
   if [[ $exit_code -ne 0 ]]; then
-    echo "WARNING: $step_name failed (exit code $exit_code)"
+    echo "WARNING: $step_name failed (exit code $exit_code), retrying..."
+    set +e
+    output=$($step_func 2>&1)
+    exit_code=$?
+    set -e
+    echo "$output"
+  fi
+
+  if [[ $exit_code -ne 0 ]]; then
+    echo "WARNING: $step_name failed after retry (exit code $exit_code)"
     FAILED_STEPS+=("$step_name")
     FAILED_OUTPUTS+=("$output")
   fi
@@ -197,6 +207,11 @@ case "$cmd" in
 
     if [[ ${#FAILED_STEPS[@]} -gt 0 ]]; then
       send_failure_slack_message
+      # Block PRs on failure, but allow merge queue to proceed (may be transient infra issues)
+      if [[ ! "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
+        echo "ERROR: Docs examples validation failed. Failing the build."
+        exit 1
+      fi
     fi
     ;;
   compile-circuits)
