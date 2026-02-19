@@ -23,10 +23,14 @@ import { sleep } from '@aztec/foundation/sleep';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { type AttestationInfo, getAttestationInfoFromPublishedCheckpoint } from '@aztec/stdlib/block';
+import type { ValidatorClient } from '@aztec/validator-client';
 import { PostgresSlashingProtectionDatabase } from '@aztec/validator-ha-signer/db';
 import { type DutyRow, DutyStatus, DutyType } from '@aztec/validator-ha-signer/types';
 
 import { jest } from '@jest/globals';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { Pool } from 'pg';
 
 import {
@@ -68,6 +72,7 @@ describe('HA Full Setup', () => {
   // HA specific resources
   let haNodePools: Pool[]; // Database pools for HA nodes (for cleanup)
   let haNodeServices: AztecNodeService[]; // All N HA peer nodes
+  let haKeystoreDirs: string[];
   let mainPool: Pool;
   let databaseConfig: HADatabaseConfig;
   let attesterPrivateKeys: `0x${string}`[];
@@ -77,6 +82,8 @@ describe('HA Full Setup', () => {
   let web3SignerUrl: string;
   let deployL1ContractsValues: DeployAztecL1ContractsReturnType;
   let governanceProposer: GovernanceProposerContract;
+  /** Per-node initial keystore JSON (all 4 attesters, node's own publisher) for restore after reload test */
+  let initialKeystoreJsons: string[];
 
   beforeAll(async () => {
     // Check required environment variables
@@ -175,17 +182,42 @@ describe('HA Full Setup', () => {
     logger.info('L1 contract wrappers initialized');
 
     haNodeServices = [];
+    haKeystoreDirs = [];
     logger.info(`Starting ${NODE_COUNT} HA peer nodes...`);
+
+    // Per-node keystore: all attesters but only this node's publisher to avoid nonce conflicts.
+    // When keyStoreDirectory is set the node loads validators/publishers from file only, so we omit them from config.
+    initialKeystoreJsons = [];
 
     for (let i = 0; i < NODE_COUNT; i++) {
       const nodeId = `${databaseConfig.nodeId}-${i + 1}`;
       logger.info(`Starting HA peer node ${i} with nodeId: ${nodeId}`);
+
+      const keystoreContent = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: attesterAddresses,
+            feeRecipient: AztecAddress.ZERO.toString(),
+            coinbase: EthAddress.fromString(attesterAddresses[0]).toChecksumString(),
+            remoteSigner: web3SignerUrl,
+            publisher: [publisherAddresses[i]],
+          },
+        ],
+      };
+      const keystoreJson = JSON.stringify(keystoreContent, null, 2);
+      initialKeystoreJsons.push(keystoreJson);
+
+      const keystoreDir = await mkdtemp(join(tmpdir(), `ha-keystore-${i}-`));
+      haKeystoreDirs.push(keystoreDir);
+      await writeFile(join(keystoreDir, 'keystore.json'), keystoreJson);
 
       const dataDirectory = config.dataDirectory ? `${config.dataDirectory}-${i}` : undefined;
 
       const nodeConfig: AztecNodeConfig = {
         ...config,
         nodeId,
+        keyStoreDirectory: keystoreDir,
         // Ensure txs are included in proposals to test full signing path
         publishTxsWithProposals: true,
         dataDirectory,
@@ -201,11 +233,6 @@ describe('HA Full Setup', () => {
         // Connect to bootstrap node for tx gossip
         bootstrapNodes: [bootstrapNodeEnr],
         web3SignerUrl,
-        validatorAddresses: attesterAddresses.map(addr => EthAddress.fromString(addr)),
-        sequencerPublisherAddresses: publisherAddresses.map(addr => EthAddress.fromString(addr)),
-        validatorPrivateKeys: new SecretValue(attesterPrivateKeys),
-        // Each node has a unique publisher key
-        sequencerPublisherPrivateKeys: [new SecretValue(publisherPrivateKeys[i])],
       };
 
       const nodeService = await withLoggerBindings({ actor: `HA-${i}` }, async () => {
@@ -241,6 +268,17 @@ describe('HA Full Setup', () => {
           await haNodeServices[i].stop();
         } catch (error) {
           logger.error(`Failed to stop HA peer node ${i}: ${error}`);
+        }
+      }
+    }
+
+    // Cleanup HA keystore temp directories
+    if (haKeystoreDirs) {
+      for (let i = 0; i < haKeystoreDirs.length; i++) {
+        try {
+          await rm(haKeystoreDirs[i], { recursive: true });
+        } catch (error) {
+          logger.error(`Failed to remove HA keystore dir ${i}: ${error}`);
         }
       }
     }
@@ -497,6 +535,84 @@ describe('HA Full Setup', () => {
     }
 
     logger.info('Governance voting with HA coordination and L1 verification complete');
+  });
+
+  it('should reload keystore via admin API and keep building blocks after swapping attesters', async () => {
+    logger.info('Testing reloadKeystore: swap all attesters across HA nodes');
+
+    const groupA = attesterAddresses.slice(0, 2);
+    const groupB = attesterAddresses.slice(2, 4);
+
+    const writeKeystoreForNode = async (nodeIdx: number, attesters: string[]) => {
+      const ks = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: attesters,
+            feeRecipient: AztecAddress.ZERO.toString(),
+            coinbase: EthAddress.fromString(attesters[0]).toChecksumString(),
+            remoteSigner: web3SignerUrl,
+            publisher: [publisherAddresses[nodeIdx]],
+          },
+        ],
+      };
+      await writeFile(join(haKeystoreDirs[nodeIdx], 'keystore.json'), JSON.stringify(ks, null, 2));
+    };
+
+    const verifyNodeAttesters = (nodeIdx: number, expectedAttesters: string[], label: string) => {
+      const vc: ValidatorClient = (haNodeServices[nodeIdx] as any).validatorClient;
+      const addrs = vc.getValidatorAddresses();
+      expect(addrs).toHaveLength(expectedAttesters.length);
+      for (const expected of expectedAttesters) {
+        expect(addrs.some(a => a.equals(EthAddress.fromString(expected)))).toBe(true);
+      }
+      logger.info(`Node ${nodeIdx}: ${addrs.length} attesters (${label})`);
+    };
+
+    const quorum = Math.floor((COMMITTEE_SIZE * 2) / 3) + 1;
+
+    try {
+      // Phase 1: Nodes 0,1,2 get attesters [A0,A1], nodes 3,4 get [A2,A3]
+      logger.info('Phase 1: Initial attester split');
+      for (let i = 0; i < NODE_COUNT; i++) {
+        await writeKeystoreForNode(i, i < 3 ? groupA : groupB);
+        await haNodeServices[i].reloadKeystore();
+      }
+      for (let i = 0; i < NODE_COUNT; i++) {
+        verifyNodeAttesters(i, i < 3 ? groupA : groupB, i < 3 ? 'group A' : 'group B');
+      }
+
+      // Phase 2: Swap — nodes 0,1,2 get [A2,A3], nodes 3,4 get [A0,A1]
+      logger.info('Phase 2: Swapping all attesters');
+      for (let i = 0; i < NODE_COUNT; i++) {
+        await writeKeystoreForNode(i, i < 3 ? groupB : groupA);
+        await haNodeServices[i].reloadKeystore();
+      }
+      for (let i = 0; i < NODE_COUNT; i++) {
+        verifyNodeAttesters(i, i < 3 ? groupB : groupA, i < 3 ? 'group B (swapped)' : 'group A (swapped)');
+      }
+
+      const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
+      const receipt = await deployer.deploy(ownerAddress, ownerAddress, 201).send({
+        from: ownerAddress,
+        contractAddressSalt: new Fr(201),
+        skipClassPublication: true,
+        skipInstancePublication: true,
+        wait: { returnReceipt: true },
+      });
+      expect(receipt.blockNumber).toBeDefined();
+      const [block] = await aztecNode.getCheckpointedBlocks(receipt.blockNumber!, 1);
+      const [cp] = await aztecNode.getCheckpoints(block!.checkpointNumber, 1);
+      const att = cp.attestations.filter(a => !a.signature.isEmpty());
+      expect(att.length).toBeGreaterThanOrEqual(quorum);
+      logger.info(`Phase 2: block ${receipt.blockNumber}, ${att.length} attestations (quorum ${quorum})`);
+    } finally {
+      // Restore each node's saved initial keystore so subsequent tests see original state
+      for (let i = 0; i < NODE_COUNT; i++) {
+        await writeFile(join(haKeystoreDirs[i], 'keystore.json'), initialKeystoreJsons[i]);
+        await haNodeServices[i].reloadKeystore();
+      }
+    }
   });
 
   // NOTE: this test needs to run last
