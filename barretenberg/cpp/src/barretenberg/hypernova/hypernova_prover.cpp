@@ -46,18 +46,6 @@ Polynomial<HypernovaFoldingProver::FF> HypernovaFoldingProver::construct_interle
     return interleaved;
 }
 
-/**
- * @brief Compute Lagrange basis evaluations for interleaving (k=2, batch_size=4).
- * @details L₀(u₀,u₁) = (1-u₀)(1-u₁), L₁ = u₀(1-u₁), L₂ = (1-u₀)u₁, L₃ = u₀·u₁
- */
-static std::array<HypernovaFoldingProver::FF, 4> compute_lagrange_basis(const HypernovaFoldingProver::FF& u0,
-                                                                        const HypernovaFoldingProver::FF& u1)
-{
-    auto one_minus_u0 = HypernovaFoldingProver::FF(1) - u0;
-    auto one_minus_u1 = HypernovaFoldingProver::FF(1) - u1;
-    return { one_minus_u0 * one_minus_u1, u0 * one_minus_u1, one_minus_u0 * u1, u0 * u1 };
-}
-
 HypernovaFoldingProver::Accumulator HypernovaFoldingProver::sumcheck_output_to_accumulator(
     HypernovaFoldingProver::MegaSumcheckOutput& sumcheck_output,
     const std::shared_ptr<typename HypernovaFoldingProver::ProverInstance>& instance,
@@ -71,7 +59,7 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::sumcheck_output_to_a
     // Generate interleaving challenges (same transcript labels as MultiMega verifier)
     FF u0 = transcript->template get_challenge<FF>("Shplemini:interleaving_challenge_0");
     FF u1 = transcript->template get_challenge<FF>("Shplemini:interleaving_challenge_1");
-    auto lagrange_basis = compute_lagrange_basis(u0, u1);
+    auto lagrange_basis = MultiMegaFlavor::compute_lagrange_basis(u0, u1);
 
     // Generate Hypernova batching challenges for interleaved groups (17 unshifted, 3 shifted)
     auto [unshifted_challenges, shifted_challenges] =

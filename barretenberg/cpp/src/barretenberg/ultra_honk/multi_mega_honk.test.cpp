@@ -359,7 +359,7 @@ TEST_F(MultiMegaHonkTests, InterleavedEvalAndCommitmentRecovery)
         FF u1 = full_challenge[1];
         std::span<const FF> inner_challenge(full_challenge.data() + LOG_K, CHUNK_LOG_N);
 
-        auto lagrange = Verifier::compute_lagrange_basis(u0, u1);
+        auto lagrange = MultiMegaFlavor::compute_lagrange_basis(u0, u1);
 
         FF eval_reconstructed = FF::zero();
         for (size_t j = 0; j < BATCH_SIZE; ++j) {
@@ -409,7 +409,7 @@ TEST_F(MultiMegaHonkTests, InterleavedEvalAndCommitmentRecovery)
         FF u1 = full_challenge[1];
         std::span<const FF> inner_challenge(full_challenge.data() + LOG_K, CHUNK_LOG_N);
 
-        auto lagrange = Verifier::compute_lagrange_basis(u0, u1);
+        auto lagrange = MultiMegaFlavor::compute_lagrange_basis(u0, u1);
         FF chunk_eval = chunk0.evaluate_mle(inner_challenge);
         FF eval_reconstructed = chunk_eval * lagrange[0]; // only L₀ contributes
 
@@ -451,7 +451,7 @@ TEST_F(MultiMegaHonkTests, InterleavedEvalAndCommitmentRecovery)
         FF u1 = full_challenge[1];
         std::span<const FF> inner_challenge(full_challenge.data() + LOG_K, CHUNK_LOG_N);
 
-        auto lagrange = Verifier::compute_lagrange_basis(u0, u1);
+        auto lagrange = MultiMegaFlavor::compute_lagrange_basis(u0, u1);
         // For shift-by-4 on interleaved, chunk0 is shifted by 1 in its own domain
         FF chunk_eval_shifted = chunk0.evaluate_mle(inner_challenge, /*shift=*/true);
         FF eval_shifted_reconstructed = chunk_eval_shifted * lagrange[0];
@@ -508,7 +508,7 @@ TEST_F(MultiMegaHonkTests, InterleavedEvalAndCommitmentRecovery)
         FF u0 = full_challenge[0];
         FF u1 = full_challenge[1];
         std::span<const FF> inner_challenge(full_challenge.data() + LOG_K, CHUNK_LOG_N);
-        auto lagrange = Verifier::compute_lagrange_basis(u0, u1);
+        auto lagrange = MultiMegaFlavor::compute_lagrange_basis(u0, u1);
 
         FF eval_batched_reconstructed = FF::zero();
         FF rho_pow = FF::one();

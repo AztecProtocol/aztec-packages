@@ -11,17 +11,6 @@
 
 namespace bb {
 
-/**
- * @brief Compute Lagrange basis evaluations for interleaving (k=2, batch_size=4).
- * @details L₀(u₀,u₁) = (1-u₀)(1-u₁), L₁ = u₀(1-u₁), L₂ = (1-u₀)u₁, L₃ = u₀·u₁
- */
-template <typename FF> static std::array<FF, 4> compute_lagrange_basis_verifier(const FF& u0, const FF& u1)
-{
-    auto one_minus_u0 = FF(1) - u0;
-    auto one_minus_u1 = FF(1) - u1;
-    return { one_minus_u0 * one_minus_u1, u0 * one_minus_u1, one_minus_u0 * u1, u0 * u1 };
-}
-
 template <typename Flavor>
 HypernovaFoldingVerifier<Flavor>::Accumulator HypernovaFoldingVerifier<Flavor>::sumcheck_output_to_accumulator(
     HypernovaFoldingVerifier<Flavor>::MegaSumcheckOutput& sumcheck_output,
@@ -33,7 +22,7 @@ HypernovaFoldingVerifier<Flavor>::Accumulator HypernovaFoldingVerifier<Flavor>::
     // Generate interleaving challenges (same transcript labels as MultiMega verifier)
     FF u0 = transcript->template get_challenge<FF>("Shplemini:interleaving_challenge_0");
     FF u1 = transcript->template get_challenge<FF>("Shplemini:interleaving_challenge_1");
-    auto lagrange_basis = compute_lagrange_basis_verifier(u0, u1);
+    auto lagrange_basis = MultiMegaFlavor::compute_lagrange_basis(u0, u1);
 
     // Generate Hypernova batching challenges for interleaved groups (17 unshifted, 3 shifted)
     auto [unshifted_challenges, shifted_challenges] =
@@ -170,7 +159,7 @@ std::tuple<bool, bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> H
     // Generate interleaving challenges (same as in sumcheck_output_to_accumulator)
     FF u0 = transcript->template get_challenge<FF>("Shplemini:interleaving_challenge_0");
     FF u1 = transcript->template get_challenge<FF>("Shplemini:interleaving_challenge_1");
-    auto lagrange_basis = compute_lagrange_basis_verifier(u0, u1);
+    auto lagrange_basis = MultiMegaFlavor::compute_lagrange_basis(u0, u1);
 
     // Generate batching challenges for interleaved groups
     const auto [unshifted_challenges, shifted_challenges] =

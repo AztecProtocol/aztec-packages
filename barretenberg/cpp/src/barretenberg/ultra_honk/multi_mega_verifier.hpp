@@ -92,14 +92,6 @@ template <IsMultiMegaFlavor Flavor_, class IO = DefaultIO> class MultiMegaVerifi
     std::vector<FF> compute_padding_indicator_array(size_t log_n) const;
 
     /**
-     * @brief Compute Lagrange basis evaluations for interleaving (k=2).
-     * @param u0 First sumcheck challenge
-     * @param u1 Second sumcheck challenge
-     * @return Array of 4 Lagrange basis evaluations: L₀, L₁, L₂, L₃
-     */
-    static std::array<FF, 4> compute_lagrange_basis(const FF& u0, const FF& u1);
-
-    /**
      * @brief Combine individual polynomial evaluations into batched evaluation.
      * @param lagrange_basis The 4 Lagrange basis evaluations
      * @param individual_evals The 4 individual polynomial evaluations (pad with zeros if < 4)

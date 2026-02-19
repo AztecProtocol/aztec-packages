@@ -56,6 +56,17 @@ class MultiMegaFlavor : public MegaFlavor {
     // +2 Gemini rounds for k=2 (batch size 4 = 2^2)
     static constexpr size_t INTERLEAVING_LOG_K = 2;
 
+    /**
+     * @brief Compute Lagrange basis evaluations for interleaving (k=2, batch_size=4).
+     * @details L₀(u₀,u₁) = (1-u₀)(1-u₁), L₁ = u₀(1-u₁), L₂ = (1-u₀)u₁, L₃ = u₀·u₁
+     */
+    template <typename FF> static std::array<FF, 4> compute_lagrange_basis(const FF& u0, const FF& u1)
+    {
+        auto one_minus_u0 = FF(1) - u0;
+        auto one_minus_u1 = FF(1) - u1;
+        return { one_minus_u0 * one_minus_u1, u0 * one_minus_u1, one_minus_u0 * u1, u0 * u1 };
+    }
+
     // ========================================================================
     // HasZK-templated masking entities (mirrors MegaFlavor::MaskingEntities pattern)
     // ========================================================================

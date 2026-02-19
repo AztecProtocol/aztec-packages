@@ -51,27 +51,6 @@ std::vector<typename MultiMegaVerifier_<Flavor, IO>::FF> MultiMegaVerifier_<Flav
 }
 
 /**
- * @brief Compute Lagrange basis evaluations for interleaving.
- * @details For batch_size=4 (k=2), computes:
- *   L₀(u₀,u₁) = (1-u₀)(1-u₁)
- *   L₁(u₀,u₁) = u₀(1-u₁)
- *   L₂(u₀,u₁) = (1-u₀)u₁
- *   L₃(u₀,u₁) = u₀·u₁
- */
-template <IsMultiMegaFlavor Flavor, class IO>
-std::array<typename MultiMegaVerifier_<Flavor, IO>::FF, 4> MultiMegaVerifier_<Flavor, IO>::compute_lagrange_basis(
-    const FF& u0, const FF& u1)
-{
-    FF one_minus_u0 = FF(1) - u0;
-    FF one_minus_u1 = FF(1) - u1;
-
-    return { one_minus_u0 * one_minus_u1, // L₀
-             u0 * one_minus_u1,           // L₁
-             one_minus_u0 * u1,           // L₂
-             u0 * u1 };                   // L₃
-}
-
-/**
  * @brief Combine individual polynomial evaluations into batched evaluation using Lagrange basis.
  */
 template <IsMultiMegaFlavor Flavor, class IO>
@@ -132,7 +111,7 @@ typename MultiMegaVerifier_<Flavor, IO>::ReductionResult MultiMegaVerifier_<Flav
     }
 
     // Compute Lagrange basis from the interleaving challenges
-    auto lagrange_basis = compute_lagrange_basis(u0, u1);
+    auto lagrange_basis = MultiMegaFlavor::compute_lagrange_basis(u0, u1);
 
     // Build the full challenge vector: prepend interleaving challenges to sumcheck challenges
     std::vector<FF> full_challenge;
