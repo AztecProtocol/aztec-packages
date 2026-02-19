@@ -25,15 +25,13 @@
 <h3>Functions</h3><ul class="item-list">
 <li><a href="fn.array_length.html">array_length</a></div></li>
 <li><a href="fn.array_length_until.html">array_length_until</a></div></li>
-<li><a href="fn.array_merge.html">array_merge</a></div></li>
 <li><a href="fn.array_padded_with.html">array_padded_with</a></div></li>
 <li><a href="fn.assert_trailing_zeros.html">assert_trailing_zeros</a></div></li>
 <li><a href="fn.check_permutation.html">check_permutation</a></div></li>
 <li><a href="fn.find_first_index.html">find_first_index</a></div></li>
-<li><a href="fn.find_index_hint.html">find_index_hint</a></div></li>
-<li><a href="fn.find_index_hint_in_reverse.html">find_index_hint_in_reverse</a></div></li>
 <li><a href="fn.find_last_index.html">find_last_index</a></div></li>
 <li><a href="fn.get_sorted_tuples.html">get_sorted_tuples</a></div></li>
+<li><a href="fn.splice_at_count.html">splice_at_count</a></div></li>
 <li><a href="fn.subarray.html">subarray</a></div></li>
 <li><a href="fn.trimmed_array_length_hint.html">trimmed_array_length_hint</a></div></li>
 </ul>
@@ -46,10 +44,8 @@
     T: <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code></pre>
 
 <div class="comments">
-<p>Deprecated.</p>
 <p>Helper function to count the number of non-empty elements in a validated array.
-Important: Only use it for validated arrays where validate_array(array) returns true,
-which ensures that:</p>
+Danger: This is only safe to call if the input arrays have been &quot;validated&quot; (dense lhs, empty rhs).</p>
 <ol>
 <li>All elements before the first empty element are non-empty</li>
 <li>All elements after and including the first empty element are empty</li>
