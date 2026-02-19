@@ -9,9 +9,12 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { PublicKeys, deriveKeys } from '@aztec/aztec.js/keys';
 import { createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import type { Logger } from '@aztec/foundation/log';
-import { type ProtocolContract, protocolContractNames } from '@aztec/protocol-contracts';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { protocolContractNames } from '@aztec/protocol-contracts';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
+import { ContractStore } from '@aztec/pxe/server';
 import { computeArtifactHash } from '@aztec/stdlib/contract';
+import type { ContractArtifactWithHash } from '@aztec/stdlib/contract';
 import type { ApiSchemaFor } from '@aztec/stdlib/schemas';
 import { zodFor } from '@aztec/stdlib/schemas';
 
@@ -33,17 +36,23 @@ import {
   fromSingle,
   toSingle,
 } from './util/encoding.js';
-import type { ContractArtifactWithHash } from './util/txe_contract_store.js';
 
 const sessions = new Map<number, TXESession>();
 
 /*
  * TXE typically has to load the same contract artifacts over and over again for multiple tests,
- * so we cache them here to avoid both loading them from disk repeatedly and computing their artifact hashes
+ * so we cache them here to avoid loading from disk repeatedly.
+ *
+ * The in-flight map coalesces concurrent requests for the same cache key so that
+ * computeArtifactHash (very expensive) is only run once even under parallelism.
  */
 const TXEArtifactsCache = new Map<
   string,
   { artifact: ContractArtifactWithHash; instance: ContractInstanceWithAddress }
+>();
+const TXEArtifactsCacheInFlight = new Map<
+  string,
+  Promise<{ artifact: ContractArtifactWithHash; instance: ContractInstanceWithAddress }>
 >();
 
 type TXEForeignCallInput = {
@@ -68,7 +77,7 @@ const TXEForeignCallInputSchema = zodFor<TXEForeignCallInput>()(
 );
 
 class TXEDispatcher {
-  private protocolContracts!: ProtocolContract[];
+  private contractStore!: ContractStore;
 
   constructor(private logger: Logger) {}
 
@@ -135,29 +144,36 @@ class TXEDispatcher {
       this.logger.debug(`Using cached artifact for ${cacheKey}`);
       ({ artifact, instance } = TXEArtifactsCache.get(cacheKey)!);
     } else {
-      this.logger.debug(`Loading compiled artifact ${artifactPath}`);
-      const artifactJSON = JSON.parse(await readFile(artifactPath, 'utf-8')) as NoirCompiledContract;
-      const artifactWithoutHash = loadContractArtifact(artifactJSON);
-      artifact = {
-        ...artifactWithoutHash,
-        // Artifact hash is *very* expensive to compute, so we do it here once
-        // and the TXE contract data provider can cache it
-        artifactHash: await computeArtifactHash(artifactWithoutHash),
-      };
-      this.logger.debug(
-        `Deploy ${
-          artifact.name
-        } with initializer ${initializer}(${decodedArgs}) and public keys hash ${publicKeysHash.toString()}`,
-      );
-      instance = await getContractInstanceFromInstantiationParams(artifact, {
-        constructorArgs: decodedArgs,
-        skipArgsDecoding: true,
-        salt: Fr.ONE,
-        publicKeys,
-        constructorArtifact: initializer ? initializer : undefined,
-        deployer: AztecAddress.ZERO,
-      });
-      TXEArtifactsCache.set(cacheKey, { artifact, instance });
+      if (!TXEArtifactsCacheInFlight.has(cacheKey)) {
+        this.logger.debug(`Loading compiled artifact ${artifactPath}`);
+        const compute = async () => {
+          const artifactJSON = JSON.parse(await readFile(artifactPath, 'utf-8')) as NoirCompiledContract;
+          const artifactWithoutHash = loadContractArtifact(artifactJSON);
+          const computedArtifact: ContractArtifactWithHash = {
+            ...artifactWithoutHash,
+            // Artifact hash is *very* expensive to compute, so we do it here once
+            // and the TXE contract data provider can cache it
+            artifactHash: await computeArtifactHash(artifactWithoutHash),
+          };
+          this.logger.debug(
+            `Deploy ${computedArtifact.name} with initializer ${initializer}(${decodedArgs}) and public keys hash ${publicKeysHash.toString()}`,
+          );
+          const computedInstance = await getContractInstanceFromInstantiationParams(computedArtifact, {
+            constructorArgs: decodedArgs,
+            skipArgsDecoding: true,
+            salt: Fr.ONE,
+            publicKeys,
+            constructorArtifact: initializer ? initializer : undefined,
+            deployer: AztecAddress.ZERO,
+          });
+          const result = { artifact: computedArtifact, instance: computedInstance };
+          TXEArtifactsCache.set(cacheKey, result);
+          TXEArtifactsCacheInFlight.delete(cacheKey);
+          return result;
+        };
+        TXEArtifactsCacheInFlight.set(cacheKey, compute());
+      }
+      ({ artifact, instance } = await TXEArtifactsCacheInFlight.get(cacheKey)!);
     }
 
     inputs.splice(0, 1, artifact, instance, toSingle(secret));
@@ -175,23 +191,35 @@ class TXEDispatcher {
       this.logger.debug(`Using cached artifact for ${cacheKey}`);
       ({ artifact, instance } = TXEArtifactsCache.get(cacheKey)!);
     } else {
-      const keys = await deriveKeys(secret);
-      const args = [keys.publicKeys.masterIncomingViewingPublicKey.x, keys.publicKeys.masterIncomingViewingPublicKey.y];
-      artifact = {
-        ...SchnorrAccountContractArtifact,
-        // Artifact hash is *very* expensive to compute, so we do it here once
-        // and the TXE contract data provider can cache it
-        artifactHash: await computeArtifactHash(SchnorrAccountContractArtifact),
-      };
-      instance = await getContractInstanceFromInstantiationParams(artifact, {
-        constructorArgs: args,
-        skipArgsDecoding: true,
-        salt: Fr.ONE,
-        publicKeys: keys.publicKeys,
-        constructorArtifact: 'constructor',
-        deployer: AztecAddress.ZERO,
-      });
-      TXEArtifactsCache.set(cacheKey, { artifact, instance });
+      if (!TXEArtifactsCacheInFlight.has(cacheKey)) {
+        const compute = async () => {
+          const keys = await deriveKeys(secret);
+          const args = [
+            keys.publicKeys.masterIncomingViewingPublicKey.x,
+            keys.publicKeys.masterIncomingViewingPublicKey.y,
+          ];
+          const computedArtifact: ContractArtifactWithHash = {
+            ...SchnorrAccountContractArtifact,
+            // Artifact hash is *very* expensive to compute, so we do it here once
+            // and the TXE contract data provider can cache it
+            artifactHash: await computeArtifactHash(SchnorrAccountContractArtifact),
+          };
+          const computedInstance = await getContractInstanceFromInstantiationParams(computedArtifact, {
+            constructorArgs: args,
+            skipArgsDecoding: true,
+            salt: Fr.ONE,
+            publicKeys: keys.publicKeys,
+            constructorArtifact: 'constructor',
+            deployer: AztecAddress.ZERO,
+          });
+          const result = { artifact: computedArtifact, instance: computedInstance };
+          TXEArtifactsCache.set(cacheKey, result);
+          TXEArtifactsCacheInFlight.delete(cacheKey);
+          return result;
+        };
+        TXEArtifactsCacheInFlight.set(cacheKey, compute());
+      }
+      ({ artifact, instance } = await TXEArtifactsCacheInFlight.get(cacheKey)!);
     }
 
     inputs.splice(0, 0, artifact, instance);
@@ -204,12 +232,18 @@ class TXEDispatcher {
 
     if (!sessions.has(sessionId)) {
       this.logger.debug(`Creating new session ${sessionId}`);
-      if (!this.protocolContracts) {
-        this.protocolContracts = await Promise.all(
-          protocolContractNames.map(name => new BundledProtocolContractsProvider().getProtocolContractArtifact(name)),
-        );
+      if (!this.contractStore) {
+        const kvStore = await openTmpStore('txe-contracts');
+        this.contractStore = new ContractStore(kvStore);
+        const provider = new BundledProtocolContractsProvider();
+        for (const name of protocolContractNames) {
+          const { instance, artifact } = await provider.getProtocolContractArtifact(name);
+          await this.contractStore.addContractArtifact(artifact);
+          await this.contractStore.addContractInstance(instance);
+        }
+        this.logger.debug('Registered protocol contracts in shared contract store');
       }
-      sessions.set(sessionId, await TXESession.init(this.protocolContracts));
+      sessions.set(sessionId, await TXESession.init(this.contractStore));
     }
 
     switch (functionName) {
