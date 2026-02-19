@@ -372,14 +372,14 @@
             "uid": "${data_source}"
           },
           "editorMode": "code",
-          "expr": "avg_over_time((clamp(increase(aztec_archiver_block_height{k8s_namespace_name=\"$namespace\", service_name=\"prover-node\", aztec_status=\"\"}[$__range]) / on(service_name) (increase(aztec_p2p_gossip_message_validation_count{k8s_namespace_name=\"$namespace\", service_name=\"prover-node\", aztec_gossip_topic_name=\"block_proposal\"}[$__range])), 0, 1))[15m:1m])",
+          "expr": "(avg_over_time((clamp(increase(aztec_archiver_checkpoint_height{k8s_namespace_name=\"$namespace\", service_name=\"prover-node\", aztec_status=\"\"}[$__range]) / on(service_name) (increase(aztec_p2p_gossip_message_validation_count{k8s_namespace_name=\"$namespace\", service_name=\"prover-node\", aztec_gossip_topic_name=\"checkpoint_proposal\", aztec_ok=\"true\"}[$__range])), 0, 1))[15m:1m]))\nor (avg_over_time((clamp(increase(aztec_archiver_block_height{k8s_namespace_name=\"$namespace\", service_name=\"prover-node\", aztec_status=\"\"}[$__range]) / on(service_name) (increase(aztec_p2p_gossip_message_validation_count{k8s_namespace_name=\"$namespace\", service_name=\"prover-node\", aztec_gossip_topic_name=\"block_proposal\", aztec_ok=\"true\"}[$__range])), 0, 1))[15m:1m]))",
           "hide": false,
-          "legendFormat": "Mined block proposals",
+          "legendFormat": "Mined proposals",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Mined block proposals",
+      "title": "Mined proposals",
       "type": "gauge"
     },
     {

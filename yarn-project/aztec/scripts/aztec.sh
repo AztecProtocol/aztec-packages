@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-shopt -s inherit_errexit
 
 # Re-execute using correct version if we have an .aztecrc file.
 if [ "${AZTEC_VERSIONED:-0}" -eq 0 ] && [ -f .aztecrc ] && command -v aztec-up &>/dev/null; then
@@ -21,7 +20,7 @@ function aztec {
 
 case $cmd in
   test)
-    export LOG_LEVEL="${LOG_LEVEL:-error}"
+    export LOG_LEVEL="${LOG_LEVEL:-"error;trace:contract_log"}"
     aztec start --txe --port 8081 &
     server_pid=$!
     trap 'kill $server_pid &>/dev/null || true' EXIT
@@ -54,7 +53,7 @@ case $cmd in
 
     aztec start "$@"
     ;;
-  compile|new|init|flamegraph)
+  new|init|flamegraph)
     $script_dir/${cmd}.sh "$@"
     ;;
   *)

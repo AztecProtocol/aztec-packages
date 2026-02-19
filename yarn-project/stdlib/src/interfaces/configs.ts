@@ -65,10 +65,16 @@ export interface SequencerConfig {
   shuffleAttestationOrdering?: boolean;
   /** Duration per block in milliseconds when building multiple blocks per slot (default: undefined = single block per slot) */
   blockDurationMs?: number;
+  /** Expected number of block proposals per slot for P2P peer scoring. 0 disables scoring, undefined falls back to blocksPerSlot - 1. */
+  expectedBlockProposalsPerSlot?: number;
   /** Have sequencer build and publish an empty checkpoint if there are no txs */
   buildCheckpointIfEmpty?: boolean;
   /** Skip pushing proposed blocks to archiver (default: false) */
   skipPushProposedBlocksToArchiver?: boolean;
+  /** Minimum number of blocks required for a checkpoint proposal (test only, defaults to undefined = no minimum) */
+  minBlocksForCheckpoint?: number;
+  /** Skip publishing checkpoint proposals probability (for testing checkpoint prunes only) */
+  skipPublishingCheckpointsPercent?: number;
 }
 
 export const SequencerConfigSchema = zodFor<SequencerConfig>()(
@@ -101,14 +107,18 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     fishermanMode: z.boolean().optional(),
     shuffleAttestationOrdering: z.boolean().optional(),
     blockDurationMs: z.number().positive().optional(),
+    expectedBlockProposalsPerSlot: z.number().nonnegative().optional(),
     buildCheckpointIfEmpty: z.boolean().optional(),
     skipPushProposedBlocksToArchiver: z.boolean().optional(),
+    minBlocksForCheckpoint: z.number().positive().optional(),
+    skipPublishingCheckpointsPercent: z.number().gte(0).lte(100).optional(),
   }),
 );
 
 type SequencerConfigOptionalKeys =
   | 'governanceProposerPayload'
   | 'blockDurationMs'
+  | 'expectedBlockProposalsPerSlot'
   | 'coinbase'
   | 'feeRecipient'
   | 'acvmWorkingDirectory'
@@ -117,7 +127,8 @@ type SequencerConfigOptionalKeys =
   | 'fakeThrowAfterProcessingTxCount'
   | 'l1PublishingTime'
   | 'txPublicSetupAllowList'
-  | 'minValidTxsPerBlock';
+  | 'minValidTxsPerBlock'
+  | 'minBlocksForCheckpoint';
 
 export type ResolvedSequencerConfig = Prettify<
   Required<Omit<SequencerConfig, SequencerConfigOptionalKeys>> & Pick<SequencerConfig, SequencerConfigOptionalKeys>

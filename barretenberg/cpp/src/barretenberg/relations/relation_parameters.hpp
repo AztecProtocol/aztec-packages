@@ -5,7 +5,6 @@
 // =====================
 
 #pragma once
-#include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include <array>
 

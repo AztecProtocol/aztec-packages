@@ -20,9 +20,7 @@ TranslatorProver::TranslatorProver(const std::shared_ptr<TranslatorProvingKey>& 
     , key(key)
 {
     BB_BENCH();
-    if (!key->proving_key->commitment_key.initialized()) {
-        key->proving_key->commitment_key = CommitmentKey(key->proving_key->circuit_size);
-    }
+    key->proving_key->commitment_key = CommitmentKey(key->proving_key->circuit_size);
 }
 
 /**
@@ -180,21 +178,18 @@ void TranslatorProver::execute_pcs_rounds()
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
-    // Check whether the commitment key has been deallocated and reinitialize it if necessary
     auto& ck = key->proving_key->commitment_key;
-    if (!ck.initialized()) {
-        ck = CommitmentKey(key->proving_key->circuit_size);
-    }
 
     SmallSubgroupIPA small_subgroup_ipa_prover(
         zk_sumcheck_data, sumcheck_output.challenge, sumcheck_output.claimed_libra_evaluation, transcript, ck);
     small_subgroup_ipa_prover.prove();
 
     PolynomialBatcher polynomial_batcher(key->proving_key->circuit_size);
-    polynomial_batcher.set_unshifted(key->proving_key->polynomials.get_unshifted_without_interleaved());
-    polynomial_batcher.set_to_be_shifted_by_one(key->proving_key->polynomials.get_to_be_shifted());
-    polynomial_batcher.set_interleaved(key->proving_key->polynomials.get_interleaved(),
-                                       key->proving_key->polynomials.get_groups_to_be_interleaved());
+
+    // Unshifted for PCS (excludes computable precomputed — verifier computes them locally)
+    polynomial_batcher.set_unshifted(key->proving_key->polynomials.get_pcs_unshifted());
+    // Shifted for PCS (base to-be-shifted + concatenated)
+    polynomial_batcher.set_to_be_shifted_by_one(key->proving_key->polynomials.get_pcs_to_be_shifted());
 
     const OpeningClaim prover_opening_claim =
         ShpleminiProver_<Curve>::prove(key->proving_key->circuit_size,
@@ -225,11 +220,6 @@ HonkProof TranslatorProver::construct_proof()
     // Fiat-Shamir: gamma
     // Compute grand product(s) and commitments.
     execute_grand_product_computation_round();
-
-    // #ifndef __wasm__
-    // Free the commitment key
-    key->proving_key->commitment_key = CommitmentKey();
-    // #endif
 
     // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.

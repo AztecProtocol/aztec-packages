@@ -234,13 +234,8 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     Fr expected_constant_term_accumulator{ 0 };
     std::vector<Fr> padding_indicator_array(this->log_n, Fr{ 1 });
 
-    std::vector<Fr> gemini_fold_pos_evaluations =
-        GeminiVerifier_<Curve>::compute_fold_pos_evaluations(padding_indicator_array,
-                                                             expected_constant_term_accumulator,
-                                                             mle_opening_point,
-                                                             r_squares,
-                                                             prover_evaluations,
-                                                             expected_constant_term_accumulator);
+    std::vector<Fr> gemini_fold_pos_evaluations = GeminiVerifier_<Curve>::compute_fold_pos_evaluations(
+        padding_indicator_array, expected_constant_term_accumulator, mle_opening_point, r_squares, prover_evaluations);
     std::vector<Commitment> commitments;
     std::vector<Fr> scalars;
 

@@ -1,4 +1,4 @@
-import { GeneratorIndex } from '@aztec/constants';
+import { DomainSeparator } from '@aztec/constants';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { sha512ToGrumpkinScalar } from '@aztec/foundation/crypto/sha512';
@@ -27,29 +27,29 @@ export async function computeOvskApp(ovsk: GrumpkinScalar, app: AztecAddress): P
 }
 
 export function deriveMasterNullifierHidingKey(secretKey: Fr): GrumpkinScalar {
-  return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.NHK_M]);
+  return sha512ToGrumpkinScalar([secretKey, DomainSeparator.NHK_M]);
 }
 
 export function deriveMasterIncomingViewingSecretKey(secretKey: Fr): GrumpkinScalar {
-  return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.IVSK_M]);
+  return sha512ToGrumpkinScalar([secretKey, DomainSeparator.IVSK_M]);
 }
 
 export function deriveMasterOutgoingViewingSecretKey(secretKey: Fr): GrumpkinScalar {
-  return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.OVSK_M]);
+  return sha512ToGrumpkinScalar([secretKey, DomainSeparator.OVSK_M]);
 }
 
 export function deriveSigningKey(secretKey: Fr): GrumpkinScalar {
   // TODO(#5837): come up with a standard signing key derivation scheme instead of using ivsk_m as signing keys here
-  return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.IVSK_M]);
+  return sha512ToGrumpkinScalar([secretKey, DomainSeparator.IVSK_M]);
 }
 
 export function computePreaddress(publicKeysHash: Fr, partialAddress: Fr) {
-  return poseidon2HashWithSeparator([publicKeysHash, partialAddress], GeneratorIndex.CONTRACT_ADDRESS_V1);
+  return poseidon2HashWithSeparator([publicKeysHash, partialAddress], DomainSeparator.CONTRACT_ADDRESS_V1);
 }
 
 export async function computeAddress(publicKeys: PublicKeys, partialAddress: Fr): Promise<AztecAddress> {
   // Given public keys and a partial address, we can compute our address in the following steps.
-  // 1. preaddress = poseidon2([publicKeysHash, partialAddress], GeneratorIndex.CONTRACT_ADDRESS_V1);
+  // 1. preaddress = poseidon2([publicKeysHash, partialAddress], DomainSeparator.CONTRACT_ADDRESS_V1);
   // 2. addressPoint = (preaddress * G) + ivpk_m
   // 3. address = addressPoint.x
   const preaddress = await computePreaddress(await publicKeys.hash(), partialAddress);
@@ -98,7 +98,7 @@ export async function deriveKeys(secretKey: Fr) {
   const masterNullifierHidingKey = deriveMasterNullifierHidingKey(secretKey);
   const masterIncomingViewingSecretKey = deriveMasterIncomingViewingSecretKey(secretKey);
   const masterOutgoingViewingSecretKey = deriveMasterOutgoingViewingSecretKey(secretKey);
-  const masterTaggingSecretKey = sha512ToGrumpkinScalar([secretKey, GeneratorIndex.TSK_M]);
+  const masterTaggingSecretKey = sha512ToGrumpkinScalar([secretKey, DomainSeparator.TSK_M]);
 
   // Then we derive master public keys
   const masterNullifierPublicKey = await derivePublicKeyFromSecretKey(masterNullifierHidingKey);

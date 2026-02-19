@@ -79,8 +79,7 @@ describe('e2e_block_building', () => {
 
     afterAll(() => teardown());
 
-    // TODO(palla/mbps): We've seen these errors on syncing world state if we abort a tx processing halfway through.
-    it.skip('processes txs until hitting timetable', async () => {
+    it('processes txs until hitting timetable', async () => {
       // We send enough txs so they are spread across multiple blocks, but not
       // so many so that we don't end up hitting a reorg or timing out the tx wait().
       const TX_COUNT = 16;

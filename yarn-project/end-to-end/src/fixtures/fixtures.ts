@@ -7,6 +7,16 @@ export const shouldCollectMetrics = () => {
   return undefined;
 };
 
+/** Returns the boot node UDP port from environment variable or default value. */
+export function getBootNodeUdpPort(): number {
+  return process.env.BOOT_NODE_UDP_PORT ? parseInt(process.env.BOOT_NODE_UDP_PORT, 10) : 4500;
+}
+
+/** Returns the anvil port from environment variable or default value. */
+export function getAnvilPort(): number {
+  return process.env.ANVIL_PORT ? parseInt(process.env.ANVIL_PORT, 10) : 8545;
+}
+
 export const TEST_PEER_CHECK_INTERVAL_MS = 1000;
 export const TEST_MAX_PENDING_TX_POOL_COUNT = 10_000; // Number of max pending TXs ~ 1.56GB
 

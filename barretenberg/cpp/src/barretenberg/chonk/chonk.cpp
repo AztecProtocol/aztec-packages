@@ -22,14 +22,8 @@ namespace bb {
 // Constructor
 Chonk::Chonk(size_t num_circuits)
     : num_circuits(num_circuits)
-    , goblin(bn254_commitment_key)
 {
     BB_ASSERT_GT(num_circuits, 0UL, "Number of circuits must be specified and greater than 0.");
-    // Allocate BN254 commitment key based on translator circuit size.
-    // https://github.com/AztecProtocol/barretenberg/issues/1319): Account for Translator only when it's necessary
-    size_t commitment_key_size = 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
-    info("BN254 commitment key size: ", commitment_key_size);
-    bn254_commitment_key = CommitmentKey<curve::BN254>(commitment_key_size);
 }
 
 /**
@@ -408,14 +402,6 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
     debug_incoming_circuit(circuit, prover_instance, precomputed_vk);
 #endif
 
-    // If the current circuit exceeds the current size of the commitment key, reinitialize accordingly.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319)
-    if (prover_instance->dyadic_size() > bn254_commitment_key.srs_size) {
-        bn254_commitment_key = CommitmentKey<curve::BN254>(prover_instance->dyadic_size());
-        goblin.commitment_key = bn254_commitment_key;
-    }
-    prover_instance->commitment_key = bn254_commitment_key;
-
     // We're accumulating a kernel if the verification queue is empty (because the kernel circuit contains recursive
     // verifiers for all the entries previously present in the verification queue) and if it's not the first accumulate
     // call (which will always be for an app circuit).
@@ -460,7 +446,7 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
             prover.fold(std::move(prover_accumulator), prover_instance, precomputed_vk);
         // Decider uses the NEW prover_accumulator (result of fold)
         DeciderProver decider(prover_accumulation_transcript);
-        decider_proof = decider.construct_proof(bn254_commitment_key, prover_accumulator);
+        decider_proof = decider.construct_proof(prover_accumulator);
         break;
     }
     case QUEUE_TYPE::MEGA:
@@ -535,7 +521,7 @@ void Chonk::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
 HonkProof Chonk::construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
                                                         const std::shared_ptr<MegaVerificationKey>& verification_key)
 {
-    auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit, bn254_commitment_key);
+    auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit);
 
     // Hiding kernel is proven by a MegaZKProver
     MegaZKProver prover(hiding_prover_inst, verification_key, transcript);

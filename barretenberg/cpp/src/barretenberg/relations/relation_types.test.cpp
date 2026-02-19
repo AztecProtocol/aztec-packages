@@ -1,6 +1,6 @@
 #include "relation_types.hpp"
 #include "barretenberg/common/tuple.hpp"
-#include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/relations/relation_tuple_helpers.hpp"
 
 #include <gtest/gtest.h>
 

@@ -45,7 +45,9 @@ export function enrichEnvironmentWithChainName(networkName: NetworkNames) {
   }
 
   // Apply generated network config from defaults.yml
-  const generatedConfig = NetworkConfigs[networkName];
+  // For devnet iterations (v4-devnet-1, etc.), use the base devnet config
+  const configKey = /^v\d+-devnet-\d+$/.test(networkName) ? 'devnet' : networkName;
+  const generatedConfig = NetworkConfigs[configKey];
   if (generatedConfig) {
     enrichEnvironmentWithNetworkConfig(generatedConfig);
   }

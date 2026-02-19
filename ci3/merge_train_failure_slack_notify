@@ -2,11 +2,15 @@
 set -eu
 
 # Parse arguments
-DEQUEUED=false
+MODE=""
 while [[ $# -gt 0 ]]; do
   case $1 in
     --dequeued)
-      DEQUEUED=true
+      MODE="dequeued"
+      shift
+      ;;
+    --merged)
+      MODE="merged"
       shift
       ;;
     *)
@@ -52,8 +56,10 @@ EOF
 
 set -x
 
-if [[ "$DEQUEUED" == "true" ]]; then
+if [[ "$MODE" == "dequeued" ]]; then
   send_slack_message "PR was removed from the merge queue: <$PR_URL|View PR>"
+elif [[ "$MODE" == "merged" ]]; then
+  send_slack_message "PR merged: <$PR_URL|$commit_title> by $commit_author"
 else
   send_slack_message "There was a failure (http://ci.aztec-labs.com/$ci_log_id) in the merge-train:\\n$commit_title by $commit_author"
 fi

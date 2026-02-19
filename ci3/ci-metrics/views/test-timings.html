@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>ACI - Test Timings</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { background:#000; color:#ccc; font-family:monospace; padding:10px; font-size:14px; margin:0; }
+    a { color:#58a6ff; text-decoration:none; }
+    a:hover { text-decoration:underline; }
+    .nav { margin:8px 0; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .nav a { color:#58a6ff; font-size:13px; }
+    .nav a.active { color:#fff; border-bottom:1px solid #58a6ff; }
+    .sep { color:#333; }
+    .controls { margin:10px 0; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .controls label { color:#888; }
+    input, select { background:#111; border:1px solid #333; color:#ccc; font-family:monospace; font-size:13px; padding:4px 8px; }
+    input:focus, select:focus { outline:none; border-color:#58a6ff; }
+    button { background:#222; border:1px solid #444; color:#ccc; font-family:monospace; font-size:13px; padding:4px 12px; cursor:pointer; }
+    button:hover { background:#333; }
+    button.active { background:#238636; border-color:#238636; color:#fff; }
+    .msg { color:#888; padding:8px 0; }
+    .msg.err { color:#f85149; }
+    .kpi-strip { display:flex; gap:12px; margin:16px 0; flex-wrap:wrap; }
+    .kpi { background:#0a0a0a; border:1px solid #222; padding:12px 16px; flex:1; min-width:160px; }
+    .kpi .label { color:#666; font-size:11px; text-transform:uppercase; margin-bottom:4px; }
+    .kpi .value { color:#fff; font-size:22px; font-weight:bold; }
+    .charts { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:16px 0; }
+    .charts .full { grid-column:1 / -1; }
+    @media (max-width:1000px) { .charts { grid-template-columns:1fr; } }
+    .chart-box { background:#0a0a0a; border:1px solid #222; padding:12px; }
+    .chart-box h3 { color:#888; font-size:12px; font-weight:normal; text-transform:uppercase; margin:0 0 8px 0; }
+    .chart-wrap { position:relative; height:250px; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th { text-align:left; padding:6px 8px; border-bottom:1px solid #333; color:#888; cursor:pointer; white-space:nowrap; }
+    th:hover { color:#ccc; }
+    td { padding:6px 8px; border-bottom:1px solid #111; }
+    tr:hover td { background:#111; }
+    .amt { font-variant-numeric:tabular-nums; text-align:right; }
+    th.amt { text-align:right; }
+    .detail-scroll { max-height:600px; overflow:auto; }
+    .cmd { max-width:500px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .pass { color:#3fb950; }
+    .fail { color:#f85149; }
+    .flake { color:#d29922; }
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <a href="/">&lt; CI</a> <span class="sep">|</span>
+    <a href="/cost-overview">cost overview</a>
+    <a href="/namespace-billing">namespace billing</a>
+    <a href="/ci-insights">ci insights</a>
+    <a href="/test-timings" class="active">test timings</a>
+  </div>
+
+  <h2 style="margin:8px 0;color:#ccc;">test timings</h2>
+
+  <div class="controls">
+    <button data-range="7">1w</button>
+    <button data-range="14">2w</button>
+    <button data-range="30">1m</button>
+    <button data-range="90">3m</button>
+    <span class="sep">|</span>
+    <label>from</label> <input type="date" id="dateFrom" />
+    <label>to</label> <input type="date" id="dateTo" />
+    <span class="sep">|</span>
+    <label>pipeline</label>
+    <select id="dashboard">
+      <option value="">all</option>
+      <option value="prs">prs</option>
+      <option value="next">next</option>
+      <option value="master">master</option>
+    </select>
+    <span class="sep">|</span>
+    <label>status</label>
+    <select id="statusFilter">
+      <option value="">all</option>
+      <option value="passed">passed</option>
+      <option value="failed">failed</option>
+      <option value="flaked">flaked</option>
+    </select>
+  </div>
+
+  <div id="status" class="msg">loading...</div>
+
+  <div class="kpi-strip" id="kpis"></div>
+
+  <div class="charts">
+    <div class="chart-box full">
+      <h3>avg duration by day</h3>
+      <div class="chart-wrap" id="chartDuration"></div>
+    </div>
+    <div class="chart-box full">
+      <h3>test run count by day</h3>
+      <div class="chart-wrap" id="chartCount"></div>
+    </div>
+  </div>
+
+  <h3 style="color:#888;font-size:12px;text-transform:uppercase;margin:24px 0 8px 0;">tests by duration</h3>
+  <div class="detail-scroll">
+    <table id="testTable">
+      <thead>
+        <tr>
+          <th>test command</th>
+          <th class="amt">runs</th>
+          <th class="amt">avg (s)</th>
+          <th class="amt">min (s)</th>
+          <th class="amt">max (s)</th>
+          <th class="amt">total (h)</th>
+          <th class="amt">pass %</th>
+          <th class="amt">passed</th>
+          <th class="amt">failed</th>
+          <th class="amt">flaked</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <h3 style="color:#888;font-size:12px;text-transform:uppercase;margin:24px 0 8px 0;">slowest individual runs</h3>
+  <div class="detail-scroll">
+    <table id="slowestTable">
+      <thead>
+        <tr>
+          <th>test command</th>
+          <th class="amt">duration (s)</th>
+          <th>status</th>
+          <th>date</th>
+          <th>author</th>
+          <th>pipeline</th>
+          <th>log</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script>
+const $ = s => document.querySelector(s);
+const dF = $('#dateFrom'), dT = $('#dateTo'), dash = $('#dashboard'), statusF = $('#statusFilter');
+
+function initDates(days) {
+  const to = new Date(), from = new Date();
+  from.setDate(from.getDate() - days);
+  dF.value = from.toISOString().slice(0, 10);
+  dT.value = to.toISOString().slice(0, 10);
+}
+initDates(30);
+
+let charts = {};
+
+function makeChart(id, type, data, opts = {}) {
+  if (charts[id]) charts[id].destroy();
+  const ctx = document.createElement('canvas');
+  document.getElementById(id).innerHTML = '';
+  document.getElementById(id).appendChild(ctx);
+  charts[id] = new Chart(ctx, {
+    type, data,
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: !!opts.legend, labels: { color: '#888', font: { family: 'monospace', size: 11 } } } },
+      scales: {
+        x: { ticks: { color: '#555', font: { family: 'monospace', size: 10 } }, grid: { color: '#111' } },
+        y: { ticks: { color: '#555', font: { family: 'monospace', size: 10 } }, grid: { color: '#111' }, ...opts.yAxis || {} },
+      },
+      ...opts.extra || {},
+    }
+  });
+}
+
+function fmt(v) { return v == null ? '-' : v.toLocaleString(); }
+function fmtH(secs) { return secs == null ? '-' : (secs / 3600).toFixed(1); }
+
+async function load() {
+  $('#status').textContent = 'loading...';
+  $('#status').className = 'msg';
+  const p = new URLSearchParams({
+    from: dF.value, to: dT.value,
+    dashboard: dash.value, status: statusF.value,
+  });
+  try {
+    const r = await fetch('/api/tests/timings?' + p);
+    if (!r.ok) throw new Error(r.statusText);
+    const d = await r.json();
+    render(d);
+    $('#status').textContent = '';
+  } catch (e) {
+    $('#status').textContent = 'error: ' + e.message;
+    $('#status').className = 'msg err';
+  }
+}
+
+function render(d) {
+  const s = d.summary;
+  $('#kpis').innerHTML = [
+    kpi('total runs', fmt(s.total_runs)),
+    kpi('avg duration', s.avg_duration_secs != null ? s.avg_duration_secs + 's' : '-'),
+    kpi('max duration', s.max_duration_secs != null ? s.max_duration_secs + 's' : '-'),
+    kpi('total compute', fmtH(s.total_compute_secs) + 'h'),
+    kpi('passed', `<span class="pass">${fmt(s.passed)}</span>`),
+    kpi('failed', `<span class="fail">${fmt(s.failed)}</span>`),
+    kpi('flaked', `<span class="flake">${fmt(s.flaked)}</span>`),
+  ].join('');
+
+  // Duration chart
+  const dates = d.by_date.map(r => r.date);
+  makeChart('chartDuration', 'line', {
+    labels: dates,
+    datasets: [
+      { label: 'avg (s)', data: d.by_date.map(r => r.avg_secs), borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.1)', fill: true, tension: 0.3, pointRadius: 1 },
+      { label: 'max (s)', data: d.by_date.map(r => r.max_secs), borderColor: '#f8514966', borderDash: [4, 4], tension: 0.3, pointRadius: 0 },
+    ]
+  }, { legend: true });
+
+  // Count chart
+  makeChart('chartCount', 'bar', {
+    labels: dates,
+    datasets: [
+      { label: 'passed', data: d.by_date.map(r => r.passed), backgroundColor: '#238636' },
+      { label: 'failed', data: d.by_date.map(r => r.failed), backgroundColor: '#da3633' },
+      { label: 'flaked', data: d.by_date.map(r => r.flaked), backgroundColor: '#9e6a03' },
+    ]
+  }, { legend: true, extra: { scales: { x: { stacked: true, ticks: { color: '#555', font: { family: 'monospace', size: 10 } }, grid: { color: '#111' } }, y: { stacked: true, ticks: { color: '#555', font: { family: 'monospace', size: 10 } }, grid: { color: '#111' } } } } });
+
+  // Test table
+  const tb = $('#testTable tbody');
+  tb.innerHTML = d.by_test.map(t => `<tr>
+    <td class="cmd" title="${esc(t.test_cmd)}">${esc(t.test_cmd)}</td>
+    <td class="amt">${t.count}</td>
+    <td class="amt">${t.avg_secs}</td>
+    <td class="amt">${t.min_secs}</td>
+    <td class="amt">${t.max_secs}</td>
+    <td class="amt">${fmtH(t.total_time_secs)}</td>
+    <td class="amt">${t.pass_rate}%</td>
+    <td class="amt pass">${t.passed}</td>
+    <td class="amt fail">${t.failed}</td>
+    <td class="amt flake">${t.flaked}</td>
+  </tr>`).join('');
+
+  // Slowest table
+  const sb = $('#slowestTable tbody');
+  sb.innerHTML = d.slowest.map(t => `<tr>
+    <td class="cmd" title="${esc(t.test_cmd)}">${esc(t.test_cmd)}</td>
+    <td class="amt">${t.duration_secs}</td>
+    <td class="${t.status === 'passed' ? 'pass' : t.status === 'failed' ? 'fail' : 'flake'}">${t.status}</td>
+    <td>${t.date}</td>
+    <td>${esc(t.commit_author || '')}</td>
+    <td>${esc(t.dashboard || '')}</td>
+    <td>${t.log_url ? '<a href="' + esc(t.log_url) + '" target="_blank">log</a>' : ''}</td>
+  </tr>`).join('');
+}
+
+function kpi(label, value) {
+  return `<div class="kpi"><div class="label">${label}</div><div class="value">${value}</div></div>`;
+}
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// Sort tables by clicking headers
+document.querySelectorAll('table').forEach(table => {
+  table.querySelectorAll('th').forEach((th, i) => {
+    th.addEventListener('click', () => {
+      const rows = [...table.querySelectorAll('tbody tr')];
+      const asc = th.dataset.sort !== 'asc';
+      th.dataset.sort = asc ? 'asc' : 'desc';
+      rows.sort((a, b) => {
+        let va = a.cells[i].textContent.replace(/[%h]/g, '');
+        let vb = b.cells[i].textContent.replace(/[%h]/g, '');
+        const na = parseFloat(va), nb = parseFloat(vb);
+        if (!isNaN(na) && !isNaN(nb)) return asc ? na - nb : nb - na;
+        return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+      });
+      table.querySelector('tbody').append(...rows);
+    });
+  });
+});
+
+// Controls
+document.querySelectorAll('[data-range]').forEach(b => b.addEventListener('click', () => { initDates(+b.dataset.range); load(); }));
+dF.addEventListener('change', load);
+dT.addEventListener('change', load);
+dash.addEventListener('change', load);
+statusF.addEventListener('change', load);
+
+load();
+  </script>
+</body>
+</html>

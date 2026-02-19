@@ -1,5 +1,5 @@
+nodeType: "rpc-node"
 node:
-  nodeType: "rpc-node"
   env:
     OTEL_SERVICE_NAME: "node"
     AWS_ACCESS_KEY_ID: ""

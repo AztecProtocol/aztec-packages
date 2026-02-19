@@ -19,8 +19,8 @@ import type { UInt64 } from '../types/shared.js';
 
 /**
  * Header of a checkpoint. A checkpoint is a collection of blocks submitted to L1 all within the same slot.
- * TODO(palla/mbps): Should this include chainId and version as well? Is this used just in circuits?
- * TODO(palla/mbps): What about CheckpointNumber?
+ * This header is verified as-is in the rollup circuits, posted to the L1 rollup contract, stored in the archiver,
+ * and exposed via the Aztec Node API. See `CheckpointData` for a struct that includes the header plus extra metadata.
  */
 export class CheckpointHeader {
   constructor(

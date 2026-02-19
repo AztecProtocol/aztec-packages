@@ -4,6 +4,7 @@ import type { L2Block, L2BlockId, L2BlockSource } from '@aztec/stdlib/block';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { BlockHeader, Tx, TxHash, TxValidator } from '@aztec/stdlib/tx';
 
+import type { TxPoolRejectionError } from './eviction/interfaces.js';
 import type { TxMetaData, TxState } from './tx_metadata.js';
 
 /**
@@ -17,6 +18,8 @@ export type AddTxsResult = {
   ignored: TxHash[];
   /** Transactions rejected because they failed validation (e.g., invalid proof, expired timestamp) */
   rejected: TxHash[];
+  /** Optional rejection errors, only present when there are rejections with structured errors. */
+  errors?: Map<string, TxPoolRejectionError>;
 };
 
 /**
@@ -39,6 +42,8 @@ export type TxPoolV2Config = {
   archivedTxLimit: number;
   /** Minimum age (ms) a transaction must have been in the pool before it's eligible for block building */
   minTxPoolAgeMs: number;
+  /** Maximum number of evicted tx hashes to remember for metrics tracking */
+  evictedTxCacheSize: number;
 };
 
 /**
@@ -48,6 +53,7 @@ export const DEFAULT_TX_POOL_V2_CONFIG: TxPoolV2Config = {
   maxPendingTxCount: 0, // 0 = disabled
   archivedTxLimit: 0, // 0 = disabled
   minTxPoolAgeMs: 2_000,
+  evictedTxCacheSize: 10_000,
 };
 
 /**
@@ -98,7 +104,7 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
    * @param opts - Optional metadata (e.g., source for logging)
    * @returns Result categorizing each transaction as accepted, rejected, or ignored
    */
-  addPendingTxs(txs: Tx[], opts?: { source?: string }): Promise<AddTxsResult>;
+  addPendingTxs(txs: Tx[], opts?: { source?: string; feeComparisonOnly?: boolean }): Promise<AddTxsResult>;
 
   /**
    * Checks if a transaction can be added without modifying the pool.
@@ -159,7 +165,7 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
    * and validates them before returning to pending.
    * @param latestBlock - The latest valid block ID after the prune
    */
-  handlePrunedBlocks(latestBlock: L2BlockId): Promise<void>;
+  handlePrunedBlocks(latestBlock: L2BlockId, options?: { deleteAllTxs?: boolean }): Promise<void>;
 
   /**
    * Handles failed transaction execution.

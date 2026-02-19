@@ -1476,15 +1476,16 @@ describe('PostgresSlashingProtectionDatabase', () => {
 
     it('should only clean up old signed duties, not signing or recent duties', async () => {
       const spDb = new PostgresSlashingProtectionDatabase(pool);
-      const oldTimestamp = new Date(Date.now() - 2 * 60 * 60 * 1000); // 2 hours ago
 
-      // Insert old signed duties (should be cleaned up)
+      // Insert old signed duties (should be cleaned up) - 2 hours old
       for (let i = 0; i < 2; i++) {
         await pglite.query(
           `INSERT INTO validator_duties (
             rollup_address, validator_address, slot, block_number, block_index_within_checkpoint,
             duty_type, status, message_hash, signature, node_id, lock_token, started_at, completed_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, 'signed', $7, '0xsignature', $8, 'token', $9, $9)`,
+          ) VALUES ($1, $2, $3, $4, $5, $6, 'signed', $7, '0xsignature', $8, 'token',
+            CURRENT_TIMESTAMP - INTERVAL '2 hours',
+            CURRENT_TIMESTAMP - INTERVAL '2 hours')`,
           [
             ROLLUP_ADDRESS.toString(),
             VALIDATOR_ADDRESS.toString(),
@@ -1494,18 +1495,18 @@ describe('PostgresSlashingProtectionDatabase', () => {
             DutyType.BLOCK_PROPOSAL,
             Buffer32.random().toString(),
             NODE_ID,
-            oldTimestamp,
           ],
         );
       }
 
-      // Insert old signing duties (should NOT be cleaned up)
+      // Insert old signing duties (should NOT be cleaned up) - 2 hours old but still signing
       for (let i = 0; i < 2; i++) {
         await pglite.query(
           `INSERT INTO validator_duties (
             rollup_address, validator_address, slot, block_number, block_index_within_checkpoint,
             duty_type, status, message_hash, node_id, lock_token, started_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, 'signing', $7, $8, 'token', $9)`,
+          ) VALUES ($1, $2, $3, $4, $5, $6, 'signing', $7, $8, 'token',
+            CURRENT_TIMESTAMP - INTERVAL '2 hours')`,
           [
             ROLLUP_ADDRESS.toString(),
             VALIDATOR_ADDRESS.toString(),
@@ -1515,7 +1516,6 @@ describe('PostgresSlashingProtectionDatabase', () => {
             DutyType.BLOCK_PROPOSAL,
             Buffer32.random().toString(),
             NODE_ID,
-            oldTimestamp,
           ],
         );
       }

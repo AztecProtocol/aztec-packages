@@ -5,10 +5,11 @@
 set -euo pipefail
 
 # Colors
+r="\033[31m" # Red
 g="\033[32m" # Green
 y="\033[33m" # Yellow
 b="\033[34m" # Blue
-r="\033[0m"  # Reset
+reset="\033[0m"
 
 # Helper function to safely read version from versions file
 function get_version {
@@ -36,11 +37,11 @@ version_bin_path="$version_path/bin"
 os="$(uname -s)"
 
 function echo_green {
-  echo -e "${g}$1${r}"
+  echo -e "${g}$1${reset}"
 }
 
 function echo_yellow {
-  echo -e "${y}$1${r}"
+  echo -e "${y}$1${reset}"
 }
 
 function timeout {
@@ -70,8 +71,8 @@ function dump_fail {
   if [ "$status" -ne 0 ] && [ "$status" -ne 143 ]; then
     {
       echo
-      echo -e "${y}command failed${r}: $@ (exit: $status)"
-      echo -e "${b}--- output ---${r}"
+      echo -e "${r}command failed${reset}: $@ (exit: $status)"
+      echo -e "${b}--- output ---${reset}"
       cat $output
     } >&2
   fi
@@ -104,43 +105,21 @@ function install_node {
   node_installed_version=$(node --version 2>/dev/null | cut -d 'v' -f 2 || echo "none")
 
   # Check if current version is sufficient
-  if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" = "$node_min_version" ]]; then
+  if [ "$node_installed_version" != "none" ] && \
+     [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" = "$node_min_version" ]]; then
     return 0
   fi
 
   # Need to install - check if nvm is available
-  if [ -z "${NVM_DIR:-}" ] || [ ! -s "$NVM_DIR/nvm.sh" ]; then
+  if [ ! -f "$HOME/.nvm/nvm.sh" ]; then
     echo "Minimum Node.js version $node_min_version not found (got $node_installed_version)."
     echo "Installation: nvm install --lts && nvm alias default lts/*"
     exit 1
   fi
 
-  # Source nvm and install
-  . "$NVM_DIR/nvm.sh"
+  . "$HOME/.nvm/nvm.sh"
   nvm install --lts
   nvm alias default lts/*
-}
-
-function install_python {
-  set -euo pipefail
-  # Only needed on macOS for node-gyp
-  if [ "$os" != "Darwin" ]; then
-    return 0
-  fi
-
-  # Check if brew is available
-  if ! command -v brew &>/dev/null; then
-    echo "Installation of python requires Homebrew."
-    echo "Install it from https://brew.sh"
-    exit 1
-  fi
-
-  # Check if python 3.11 is already installed
-  if [ -f "$(brew --prefix)/opt/python@3.11/bin/python3.11" ]; then
-    return 0
-  fi
-
-  brew install python@3.11
 }
 
 function install_versions_file {
@@ -212,11 +191,6 @@ function install_foundry {
 function install_aztec_packages {
   set -euo pipefail
 
-  if [ "$os" = "Darwin" ]; then
-    # Ensure python 3.11 is used for node-gyp on macOS.
-    export npm_config_python="$(brew --prefix)/opt/python@3.11/bin/python3.11"
-  fi
-
   # Install npm packages to the version directory using --prefix
   npm install @aztec/aztec@$VERSION @aztec/cli-wallet@$VERSION @aztec/bb.js@$VERSION --prefix "$version_path"
 }
@@ -235,12 +209,8 @@ function main {
   dump_fail install_node
   echo_green "done."
 
-  # Install python if needed (macOS only)
-  if [ "$os" = "Darwin" ]; then
-    echo -n "Installing python... "
-    dump_fail install_python
-    echo_green "done."
-  fi
+  # Source nvm to ensure node is in PATH.
+  . "$HOME/.nvm/nvm.sh"
 
   # Install noir
   echo -n "Installing nargo... "

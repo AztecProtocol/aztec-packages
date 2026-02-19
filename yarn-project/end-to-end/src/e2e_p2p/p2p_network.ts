@@ -12,7 +12,7 @@ import {
 import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import { MultiAdderArtifact } from '@aztec/ethereum/l1-artifacts';
-import { createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
+import { createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient, ViemClient } from '@aztec/ethereum/types';
 import { EpochNumber } from '@aztec/foundation/branded-types';
@@ -25,6 +25,7 @@ import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
+import { TopicType } from '@aztec/stdlib/p2p';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -343,7 +344,7 @@ export class P2PNetworkTest {
   }
 
   private async _sendDummyTx(l1Client: ExtendedViemWalletClient) {
-    const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client);
+    const l1TxUtils = createL1TxUtils(l1Client);
     return await l1TxUtils.sendAndMonitorTransaction({
       to: l1Client.account!.address,
       value: 1n,
@@ -431,6 +432,27 @@ export class P2PNetworkTest {
     );
 
     this.logger.warn('All nodes connected to P2P mesh');
+
+    // Wait for GossipSub mesh to form for the tx topic.
+    // We only require at least 1 mesh peer per node because GossipSub
+    // stops grafting once it reaches Dlo peers and won't fill the mesh to all available peers.
+    this.logger.warn('Waiting for GossipSub mesh to form for tx topic...');
+    await Promise.all(
+      nodes.map(async (node, index) => {
+        const p2p = node.getP2P();
+        await retryUntil(
+          async () => {
+            const meshPeers = await p2p.getGossipMeshPeerCount(TopicType.tx);
+            this.logger.debug(`Node ${index} has ${meshPeers} gossip mesh peers for tx topic`);
+            return meshPeers >= 1 ? true : undefined;
+          },
+          `Node ${index} to have gossip mesh peers for tx topic`,
+          timeoutSeconds,
+          checkIntervalSeconds,
+        );
+      }),
+    );
+    this.logger.warn('All nodes have gossip mesh peers for tx topic');
   }
 
   async teardown() {

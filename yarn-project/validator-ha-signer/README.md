@@ -178,6 +178,16 @@ All signing operations require a `SigningContext` that includes:
 
 Note: `AUTH_REQUEST` duties bypass HA protection since signing multiple times is safe for authentication requests.
 
+## Important Limitations
+
+### Database Isolation Per Rollup Version
+
+**You cannot use the same database to provide slashing protection for validator nodes running on different rollup versions** (e.g., current rollup and old rollup simultaneously).
+
+When the HA signer performs background cleanup via `cleanupOutdatedRollupDuties()`, it removes all duties where the rollup address doesn't match the current rollup address. If two validators running on different rollup versions share the same database, they will delete each other's duties during cleanup.
+
+**Solution**: Use separate databases for validators running on different rollup versions. Each rollup version requires its own isolated slashing protection database.
+
 ## Development
 
 ```bash

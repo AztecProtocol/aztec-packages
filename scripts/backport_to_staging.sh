@@ -101,7 +101,7 @@ echo "Author: $PR_AUTHOR"
 echo "Author Email: $PR_AUTHOR_EMAIL"
 
 if [[ "$PR_STATE" != "MERGED" ]]; then
-  echo "Error: PR #$PR_NUMBER is not merged yet (state: $PR_MERGED_AT)" >&2
+  echo "Error: PR #$PR_NUMBER is not merged yet (state: $PR_STATE)" >&2
   exit 1
 fi
 
@@ -144,8 +144,14 @@ echo "Diff applied successfully! Committing changes..."
 git config user.name "$PR_AUTHOR"
 git config user.email "$PR_AUTHOR_EMAIL"
 
+# Ensure commit subject contains PR reference for get_meaningful_commits
+COMMIT_SUBJECT="$PR_TITLE"
+if ! echo "$COMMIT_SUBJECT" | grep -qE '\(#[0-9]+\)'; then
+  COMMIT_SUBJECT="$COMMIT_SUBJECT (#$PR_NUMBER)"
+fi
+
 git add -A
-git commit -m "$PR_TITLE
+git commit -m "$COMMIT_SUBJECT
 
 $PR_BODY"
 
@@ -162,27 +168,18 @@ EXISTING_PR=$(gh pr list --base "$TARGET_BRANCH" --head "$STAGING_BRANCH" --json
 
 if [[ -z "$EXISTING_PR" ]]; then
   echo "Creating new PR..."
-  TRAIN_PR_BODY="This PR accumulates backport commits throughout the day and will be auto-merged overnight.
-
-Latest backport: #$PR_NUMBER - $PR_TITLE
-
-🤖 This PR is managed automatically by the backport workflow."
-
   do_or_dryrun gh pr create \
     --base "$TARGET_BRANCH" \
     --head "$STAGING_BRANCH" \
     --title "chore: Accumulated backports to $TARGET_BRANCH" \
-    --body "$TRAIN_PR_BODY"
-
-  do_or_dryrun echo "✅ Created new backport PR"
+    --body "Backport staging PR. Body will be updated with commit list."
+  do_or_dryrun echo "Created new backport PR"
 else
-  echo "PR already exists (#$EXISTING_PR), updating description..."
-  CURRENT_BODY=$(gh pr view "$EXISTING_PR" --json body --jq '.body')
-  NEW_BODY="${CURRENT_BODY}
-- #$PR_NUMBER - $PR_TITLE"
-
-  do_or_dryrun gh pr edit "$EXISTING_PR" --body "$NEW_BODY"
-  do_or_dryrun echo "✅ Updated existing backport PR #$EXISTING_PR"
+  echo "PR already exists (#$EXISTING_PR)"
 fi
 
-do_or_dryrun echo "✅ Successfully backported PR #$PR_NUMBER to $STAGING_BRANCH"
+# Update PR body with commit override markers (same mechanism as merge-trains)
+echo "Updating PR body with commit list..."
+do_or_dryrun "$root/scripts/merge-train/update-pr-body.sh" "$STAGING_BRANCH"
+
+do_or_dryrun echo "Successfully backported PR #$PR_NUMBER to $STAGING_BRANCH"
