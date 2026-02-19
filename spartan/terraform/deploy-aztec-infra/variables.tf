@@ -343,6 +343,13 @@ variable "SEQ_MAX_TX_PER_BLOCK" {
   default     = "8"
 }
 
+variable "SEQ_ENFORCE_TIME_TABLE" {
+  description = "Whether to enforce the time table when building blocks"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
 variable "SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT" {
   description = "Percentage probability of skipping checkpoint publishing"
   type        = string
