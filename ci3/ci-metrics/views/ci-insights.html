@@ -140,6 +140,10 @@
         <h3>ci run duration by pipeline (avg mins)</h3>
         <div class="chart-wrap med"><canvas id="ciDurPipeChart"></canvas></div>
       </div>
+      <div class="chart-box full">
+        <h3>ci time breakdown by phase (avg secs)</h3>
+        <div class="chart-wrap med"><canvas id="phaseChart"></canvas></div>
+      </div>
     </div>
 
     <div style="display:flex; gap:16px; flex-wrap:wrap;">
@@ -340,7 +344,7 @@
     // ==================================================================
     //  TAB 1: Overview
     // ==================================================================
-    let mqData = null, perfData = null, flakeData = null, prData = null;
+    let mqData = null, perfData = null, flakeData = null, prData = null, phaseData = null;
     let flakeSort = { col: 'count', dir: 'desc' };
     let authorSort = { col: 'total_cost', dir: 'desc' };
 
@@ -366,15 +370,16 @@
           dashboard: document.getElementById('ttDashboard').value,
           status: document.getElementById('ttStatus').value,
         });
-        const [mqResp, perfResp, flakeResp, prResp, ttResp] = await Promise.all([
+        const [mqResp, perfResp, flakeResp, prResp, ttResp, phaseResp] = await Promise.all([
           fetch(`/api/merge-queue/stats?from=${f}&to=${t}`),
           fetch(`/api/ci/performance?from=${f}&to=${t}&granularity=${g}${pf}`),
           fetch(`/api/ci/flakes-by-command?from=${f}&to=${t}${pf}`),
           fetch(`/api/prs/metrics?from=${f}&to=${t}`),
           fetch('/api/tests/timings?' + ttP),
+          fetch(`/api/ci/phases?from=${f}&to=${t}${pf}`),
         ]);
-        [mqData, perfData, flakeData, prData, ttData] = await Promise.all([
-          mqResp.json(), perfResp.json(), flakeResp.json(), prResp.json(), ttResp.json()
+        [mqData, perfData, flakeData, prData, ttData, phaseData] = await Promise.all([
+          mqResp.json(), perfResp.json(), flakeResp.json(), prResp.json(), ttResp.json(), phaseResp.json()
         ]);
         el.textContent = '';
         renderOverview();
@@ -386,7 +391,7 @@
 
     function renderOverview() {
       // Destroy overview charts
-      ['mq', 'flake', 'ciDurPipe'].forEach(k => { if (charts[k]) { charts[k].destroy(); delete charts[k]; } });
+      ['mq', 'flake', 'ciDurPipe', 'phase'].forEach(k => { if (charts[k]) { charts[k].destroy(); delete charts[k]; } });
 
       const period = perfData?.period;
       if (period) document.getElementById('period-label').textContent = `(${period.from} to ${period.to})`;
@@ -395,6 +400,7 @@
       renderMQChart();
       renderFlakeChart();
       renderCIDurPipeChart();
+      renderPhaseChart();
       renderTopFlakes();
       renderTopFailures();
       renderFlakeTable();
@@ -545,6 +551,71 @@
               callbacks: {
                 title: items => items.length ? fmtDateFull(dates[items[0].dataIndex]) : '',
                 label: c => `${c.dataset.label}: ${c.raw != null ? c.raw.toFixed(1) + 'm' : '--'}`
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderPhaseChart() {
+      const byDate = phaseData?.by_date || [];
+      if (!byDate.length) return;
+      // Collect all phase names, excluding cache-download/upload prefixes for cleanliness
+      const allPhases = new Set();
+      byDate.forEach(d => Object.keys(d.phases || {}).forEach(p => allPhases.add(p)));
+      // Group cache-download:* and cache-upload:* into aggregate phases
+      const grouped = {};
+      byDate.forEach(d => {
+        const row = { date: d.date };
+        for (const [phase, secs] of Object.entries(d.phases || {})) {
+          let key = phase;
+          if (phase.startsWith('cache-download:')) key = 'cache-download';
+          else if (phase.startsWith('cache-upload:')) key = 'cache-upload';
+          row[key] = (row[key] || 0) + secs;
+        }
+        grouped[d.date] = row;
+      });
+      const dates = Object.keys(grouped).sort();
+      const phaseNames = new Set();
+      dates.forEach(d => Object.keys(grouped[d]).filter(k => k !== 'date').forEach(k => phaseNames.add(k)));
+      const phases = [...phaseNames].sort();
+
+      const phaseColors = {
+        'build': '#58a6ff', 'test': '#3fb950', 'bench': '#d2a8ff',
+        'noir': '#e3b341', 'avm-transpiler': '#a5d6ff', 'barretenberg': '#f0883e',
+        'noir-projects': '#ff7b72', 'l1-contracts': '#79c0ff', 'yarn-project': '#56d364',
+        'release-image': '#8b949e', 'parallel-builds': '#d2a8ff',
+        'cache-download': '#388bfd', 'cache-upload': '#f85149',
+      };
+      const defaultColors = ['#56d364', '#79c0ff', '#d2a8ff', '#f0883e', '#ff7b72', '#a5d6ff', '#e3b341', '#8b949e'];
+
+      const datasets = phases.map((p, i) => ({
+        label: p,
+        data: dates.map(d => grouped[d][p] || 0),
+        backgroundColor: phaseColors[p] || defaultColors[i % defaultColors.length],
+        borderWidth: 0,
+      }));
+
+      charts.phase = new Chart(document.getElementById('phaseChart').getContext('2d'), {
+        type: 'bar',
+        data: { labels: dates.map(fmtDate), datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: { stacked: true, ticks: { color: '#555', maxRotation: 45 }, grid: { color: '#181818' } },
+            y: { stacked: true, title: { display: true, text: 'seconds', color: '#555', font: { size: 10 } }, ticks: { color: '#555' }, grid: { color: '#181818' } }
+          },
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },
+            tooltip: {
+              itemSort: (a, b) => b.raw - a.raw,
+              filter: c => c.raw > 0,
+              callbacks: {
+                title: items => items.length ? fmtDateFull(dates[items[0].dataIndex]) : '',
+                label: c => `${c.dataset.label}: ${c.raw >= 60 ? (c.raw / 60).toFixed(1) + 'm' : c.raw + 's'}`,
+                footer: items => `total: ${(items.reduce((s, i) => s + i.raw, 0) / 60).toFixed(1)}m`
               }
             }
           }
@@ -1024,7 +1095,7 @@
     }
 
     function clearAndReload() {
-      mqData = null; perfData = null; flakeData = null; prData = null; ttData = null; attrData = null;
+      mqData = null; perfData = null; flakeData = null; prData = null; ttData = null; attrData = null; phaseData = null;
       attrUserFilter = ''; document.getElementById('attr-user-filter').style.display = 'none';
       if (activeTab === 'overview') loadOverview();
       else if (activeTab === 'attribution') loadAttribution();

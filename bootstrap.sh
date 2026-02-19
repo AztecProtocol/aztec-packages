@@ -382,7 +382,7 @@ function build {
 
     # Build the project if we should be building
     if [[ -z "${BOOTSTRAP_AFTER:-}" || "$start_building" = true ]]; then
-      $project/bootstrap.sh ${1:-}
+      ci_phase "$project" $project/bootstrap.sh ${1:-}
     fi
 
     # Stop the build if we've reached BOOTSTRAP_TO
@@ -392,7 +392,7 @@ function build {
     fi
   done
 
-  parallel --line-buffer --tag --halt now,fail=1 "denoise '{}'" ::: ${parallel_cmds[@]}
+  ci_phase "parallel-builds" parallel --line-buffer --tag --halt now,fail=1 "denoise '{}'" ::: ${parallel_cmds[@]}
 }
 
 function bench_cmds {
@@ -560,31 +560,31 @@ case "$cmd" in
     export CI=1
     export USE_TEST_CACHE=1
     export CI_FULL=0
-    build
-    test
+    ci_phase "build" build
+    ci_phase "test" test
     ;;
   "ci-full")
     export CI=1
     export USE_TEST_CACHE=1
     export CI_FULL=1
-    build
-    test
-    bench
+    ci_phase "build" build
+    ci_phase "test" test
+    ci_phase "bench" bench
     ;;
   "ci-full-no-test-cache")
     export CI=1
     export USE_TEST_CACHE=0
     export CI_FULL=1
-    build
-    test
-    bench
+    ci_phase "build" build
+    ci_phase "test" test
+    ci_phase "bench" bench
     ;;
   "ci-full-no-test-cache-makefile")
     export CI=1
     export USE_TEST_CACHE=0
     export CI_FULL=1
-    build_and_test
-    bench
+    ci_phase "build-and-test" build_and_test
+    ci_phase "bench" bench
     ;;
   "ci-grind-test")
     export CI=1
@@ -715,8 +715,8 @@ case "$cmd" in
     if ! semver check $REF_NAME; then
       exit 1
     fi
-    build
-    release
+    ci_phase "build" build
+    ci_phase "release" release
     ;;
 
   ##########################
