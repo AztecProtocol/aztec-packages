@@ -79,6 +79,8 @@ b1 = -0x6f4d8248eeb859fc8211bbeb7d4f1128  # 127 bits (negative)
 a2 = 0x6f4d8248eeb859fd0be4e1541221250b  # 127 bits
 b2 = 0x89d3256894d213e3                   # 64 bits
 
+# NOTE: a remarkable feature of this short basis is that a1 == b2, and indeed -b1 is rather close to a2.
+
 # Verify that the vectors are in the lattice: ai + λ·bi ≡ 0 (mod r)
 assert (a1 + lambda_val * b1) % r == 0, "Lattice vector 1 must satisfy a1 + λ·b1 ≡ 0"
 assert (a2 + lambda_val * b2) % r == 0, "Lattice vector 2 must satisfy a2 + λ·b2 ≡ 0"
@@ -161,111 +163,68 @@ assert endo_b2 == expected_endo_b2, "endo_b2 must match fr.hpp"
 #
 # Note: neither a1 nor a2 appear, which is why we don't store them.
 # Note: b1 is negative, hence the second expression is again non-negative.
+# Note: we can think of (k1, k2) as the "error term" to a lattice approximation of (k, 0).
 #
-# BOUNDS: Let δ1, δ2 ∈ [0,1) be the rounding errors. A simple computation
+# APPROXIMATE BOUNDS: Let δ1, δ2 ∈ [0,1) be the rounding errors. A simple computation
 # shows that k2 = c1·b1 + c2·b2 would be zero with exact division, so
 # |k2| ≤ |δ1·b1| + |δ2·b2| < |b1| + |b2| < 2^128. Similarly |k1| < 2^128.
 #
-# WHAT THE IMPLEMENTATION COMPUTES:
+# WHAT THE NAIVE IMPLEMENTATION COMPUTES:
 #
 # k2: The implementation stores -b1 (not b1), so it computes
-#     t1 := c2·b2 - c1·(-b1) = c1·b1 + c2·b2 = k2  (mod r)
-# Since |k2| < 2^128 < r, the mod r is a no-op.
+#     c2·b2 - c1·(-b1) = c1·b1 + c2·b2 = k2  (mod r)
 #
 # k1: Using the lattice relation ai ≡ -λ·bi (mod r), a simple computation
 # shows c1·a1 + c2·a2 ≡ -λ·k2 (mod r), so k1 = k + λ·k2. Hence:
-#     t2 := t1·λ + k = k1  (mod r)
-# Again |k1| < r, so the mod r is a no-op.
+#     k2·λ + k = k1  (mod r)
+#
+# SUBTLETY — k2 CAN BE NEGATIVE:
+#
+# The bound |k2| < 2^128 guarantees the MAGNITUDE fits in 128 bits, but k2
+# can be negative. When k2 < 0, the modular reduction gives t1 = k2 + r,
+# which is ~254 bits. The 128-bit truncation then extracts garbage.
+#
+# Recall k2 = -c1·|b1| + c2·b2, where c1 and c2 are floors of rational
+# values. Writing c1 = c1_exact - δ1, c2 = c2_exact - δ2 with δ ∈ [0,1):
+#
+#     k2 = -δ1·|b1| + δ2·b2
+#
+# This is negative when δ1·|b1| > δ2·b2. Since |b1|/b2 ≈ 2^63, this needs
+# δ1 > δ2·2^{-63} — i.e., δ1 can be tiny but must be nonzero.
+#
+# This happens at boundaries where c1 "ticks up" to a new integer m: at
+# k ≈ ceil(m · 2^256 / endo_g2), c1 jumps to m while c2·b2 hasn't grown
+# enough to compensate, so k2 = c2·b2 - m·|b1| < 0.
+#
+# Frequency: for each of the ~b2 ≈ 2^64 values of c1, there is a contiguous
+# range of ~2^{126} affected k values. Total: ~2^{190} / 2^{254} ≈ 2^{-64}
+# fraction. Far too rare for random testing, but easily constructed.
+#
+# FIX: When t1 has bits above position 128 (in C++: t1.data[2] or t1.data[3]
+# nonzero), we add |b1| to t1. This is equivalent to decrementing c1 by 1,
+# shifting the decomposition by the lattice vector (a1, b1). In other words
+# we change our "close lattice vector":
+#
+#     k2_new = k2 + |b1|    (now positive, ~127 bits)
+#     k1_new = k1 - a1      (shifted down by ~64 bits)
 #
 # ALGORITHM (field_declarations.hpp, split_into_endomorphism_scalars):
 #
 #   1. c1 ≈ (b2·k)/r      via c1 = (endo_g2 · k) >> 256
 #   2. c2 ≈ ((-b1)·k)/r   via c2 = (endo_g1 · k) >> 256
-#   3. q1 = c1 · (-b1) mod r
-#   4. q2 = c2 · b2 mod r
-#   5. t1 = (q2 - q1) mod r       = k2
-#   6. t2 = (t1 · λ + k) mod r    = k1
-#   7. Return low 128 bits of (t2, t1) as (k1, k2)
+#   3. q1 = c1 · (-b1)     (low 256 bits of 512-bit product)
+#   4. q2 = c2 · b2        (low 256 bits of 512-bit product)
+#   5. t1 = (q2 - q1).reduce_once()                           = k2 (mod r)
+#   6. if t1 > 128 bits: t1 = (t1 + endo_minus_b1).reduce_once()  [negative k2 fix]
+#   7. t2 = (t1 · λ + k).reduce_once()                        = k1 (mod r)
+#   8. Return low 128 bits of (t2, t1) as (k1, k2)
 #
-
-def split_scalar_buggy(k, modulus, beta, endo_g1, endo_g2, endo_minus_b1, endo_b2):
-    """
-    BUGGY version of the scalar splitting algorithm (before fix).
-
-    This is the original implementation that fails for ~2^{-64} of inputs.
-    Kept here to demonstrate the bug; use split_scalar() for the fixed version.
-    """
-    input = k % modulus
-
-    c1 = (endo_g2 * input) >> 256
-    c2 = (endo_g1 * input) >> 256
-
-    q1_lo = (c1 * endo_minus_b1) % modulus
-    q2_lo = (c2 * endo_b2) % modulus
-
-    t1 = (q2_lo - q1_lo) % modulus
-    t2 = (t1 * beta + input) % modulus
-
-    k2 = t1 & ((1 << 128) - 1)
-    k1 = t2 & ((1 << 128) - 1)
-
-    return k1, k2, t1, t2
-
-
-# ====================================================================================
-# § 5a. THE NEGATIVE k2 BUG AND FIX
-# ====================================================================================
-#
-# THE BUG:
-#
-# The §5 analysis claims "Since |k2| < 2^128 < r, the mod r is a no-op." This is true
-# for the MAGNITUDE of k2, but k2 can be NEGATIVE. When k2 < 0:
-#
-#     t1 = k2 mod r = k2 + r    (254 bits!)
-#
-# The 128-bit truncation {t1.data[0], t1.data[1]} then extracts garbage, and both
-# k1 and k2 are wrong.
-#
-# WHEN DOES k2 GO NEGATIVE?
-#
-# Recall k2 = c1·b1 + c2·b2 = -c1·|b1| + c2·b2, where c1 and c2 are floors of
-# rational values. Writing c1 = c1_exact - δ1, c2 = c2_exact - δ2 with δ ∈ [0,1):
-#
-#     k2 = -δ1·|b1| + δ2·b2
-#
-# This is negative when δ1·|b1| > δ2·b2. Since |b1|/b2 ≈ 2^63, this requires
-# δ1 > δ2·2^{-63} — i.e., δ1 can be tiny but must be nonzero.
-#
-# In practice, this happens at boundaries where c1 "ticks up" to a new integer m.
-# The boundary is at k ≈ m·r/b2, where c1 jumps from m-1 to m. Just above the
-# boundary, c1 = m while c2·b2 hasn't grown enough to compensate, so
-# k2 = c2·b2 - m·|b1| < 0 (with magnitude up to ~b2 ≈ 2^64).
-#
-# HOW MANY INPUTS ARE AFFECTED?
-#
-# For each of the ~b2 ≈ 2^64 values of c1, there is a contiguous range of ~2^{126}
-# values of k where k2 < 0. Total: ~2^{190} out of r ≈ 2^{254}, a fraction of ~2^{-64}.
-# This is far too rare for random testing to catch (~2^{64} samples needed), but the
-# affected inputs are deterministic and easily constructed.
-#
-# THE FIX:
-#
-# When k2 is negative, t1 = k2 + r has nonzero upper limbs (bits 128..253). We detect
-# this and add |b1| to k2, which is equivalent to decrementing c1 by 1. This shifts
-# the decomposition by the lattice vector (a1, b1):
-#
-#     k2_new = k2 + |b1|    (now positive, ~127 bits)
-#     k1_new = k1 - a1      (shifted by ~64 bits, still fits in 128 bits)
-#
-# Algebraic correctness is preserved because (a1, b1) ∈ L, so the shift satisfies
-# a1 + λ·b1 ≡ 0 (mod r), meaning k1_new - λ·k2_new ≡ k1 - λ·k2 ≡ k (mod r).
 
 def split_scalar(k, modulus, beta, endo_g1, endo_g2, endo_minus_b1, endo_b2):
     """
     Split scalar k into (k1, k2) such that k ≡ k1 - λ·k2 (mod r).
 
-    Implements split_into_endomorphism_scalars() in field_declarations.hpp
-    (with the negative-k2 fix applied).
+    Implements split_into_endomorphism_scalars() in field_declarations.hpp.
 
     Returns:
         (k1, k2, t1, t2): The 128-bit split scalars and their full-width forms
@@ -284,10 +243,10 @@ def split_scalar(k, modulus, beta, endo_g1, endo_g2, endo_minus_b1, endo_b2):
 
     t1 = (q2_lo - q1_lo) % modulus
 
-    # FIX: k2 (= t1) can be slightly negative for ~2^{-64} of inputs.
+    # Negative-k2 fix: k2 (= t1) can be slightly negative for ~2^{-64} of inputs.
     # When negative, t1 = k2 + r is 254 bits (upper limbs nonzero in C++).
-    # Detect this and add |b1| to shift along the lattice vector (a1, b1),
-    # making k2 positive while keeping both scalars within 128 bits.
+    # Adding |b1| shifts along the lattice vector (a1, b1), making k2 positive.
+    # In C++: if (t1.data[2] != 0 || t1.data[3] != 0)
     if t1.bit_length() > 128:
         t1 = (t1 + endo_minus_b1) % modulus
 
@@ -318,19 +277,29 @@ for k_test in [0, 1, 42, lambda_val, r - 1]:
     verify_split(k_test, k1, k2, t1, t2, lambda_val, r)
 
 
-# § 6a. Verify the fix on concrete negative-k2 trigger inputs.
+# § 6a. Verify the negative-k2 fix on concrete trigger inputs.
 #
 # These are k = ceil(m * 2^256 / endo_g2) for m = 1, 2, 3 — the smallest k values
-# where c1 ticks up to m. The buggy version fails; the fixed version must pass.
+# where c1 ticks up to m. Without the fix, t1 would be > 128 bits (negative k2
+# wraps around mod r to ~254 bits). The fix brings t1 back within 128 bits.
 for m in [1, 2, 3]:
     k_trigger = (m * (1 << 256) + endo_g2 - 1) // endo_g2
     assert k_trigger < r, f"trigger input must be < r for m={m}"
 
-    # Buggy version fails (t1 > 128 bits due to negative k2)
-    _, _, t1_buggy, _ = split_scalar_buggy(k_trigger, r, lambda_val, endo_g1, endo_g2, endo_minus_b1, endo_b2)
-    assert t1_buggy.bit_length() > 128, f"Expected buggy t1 > 128 bits for m={m}, got {t1_buggy.bit_length()}"
+    # Show that the raw (pre-fix) t1 would be > 128 bits for these inputs:
+    # compute t1_raw without the fix to demonstrate the problem
+    inp = k_trigger % r
+    c1_raw = (endo_g2 * inp) >> 256
+    c2_raw = (endo_g1 * inp) >> 256
+    q1_raw = (c1_raw * endo_minus_b1) % r
+    q2_raw = (c2_raw * endo_b2) % r
+    t1_raw = (q2_raw - q1_raw) % r
+    assert t1_raw.bit_length() > 128, (
+        f"Expected raw t1 > 128 bits for m={m}, got {t1_raw.bit_length()} — "
+        f"this input should trigger the negative-k2 case"
+    )
 
-    # Fixed version passes
+    # The actual algorithm (with fix) must produce valid 128-bit scalars
     k1, k2, t1, t2 = split_scalar(k_trigger, r, lambda_val, endo_g1, endo_g2, endo_minus_b1, endo_b2)
     verify_split(k_trigger, k1, k2, t1, t2, lambda_val, r)
 
@@ -346,6 +315,8 @@ for m in [1, 2, 3]:
 # 3. The decomposition uses Babai's nearest plane algorithm on a short lattice basis
 # 4. Precomputed constants enable division-free computation via fixed-point arithmetic
 # 5. The algorithm guarantees both k1 and k2 fit in 128 bits (actually ≤ 127 bits)
+# 6. For ~2^{-64} of inputs, k2 is slightly negative; the fix detects this (upper
+#    limbs nonzero) and shifts along a lattice vector to make k2 positive
 #
 # Performance: Instead of one 254-bit scalar multiplication k·P, we compute
 # k1·P - k2·φ(P) with two ~127-bit scalars processed via interleaved WNAF,

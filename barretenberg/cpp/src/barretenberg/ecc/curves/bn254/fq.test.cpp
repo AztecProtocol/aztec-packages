@@ -130,8 +130,8 @@ TEST(BN254Fq, SplitIntoEndomorphismScalarsSimple)
     }
 }
 
-// Negative-k2 bug: k = ceil(m * 2^256 / endo_g2) produces negative k2 in the GLV splitting,
-// and the 128-bit truncation extracts the wrong value. See endomorphism_scalars.py for derivation.
+// Regression: k = ceil(m * 2^256 / endo_g2), for m an integer, previously produced negative k2 in the GLV
+// splitting, causing 128-bit truncation to extract wrong values. See endomorphism_scalars.py.
 TEST(BN254Fq, SplitEndomorphismNegativeK2)
 {
     // clang-format off
@@ -157,7 +157,7 @@ TEST(BN254Fq, SplitEndomorphismNegativeK2)
         fq result = k1 - k2 * lambda;
         result.self_from_montgomery_form();
 
-        EXPECT_NE(result, k) << "Bug may be fixed! " << tc.tag;
+        EXPECT_EQ(result, k) << tc.tag;
     }
 }
 

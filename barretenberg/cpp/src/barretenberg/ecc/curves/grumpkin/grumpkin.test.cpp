@@ -12,7 +12,7 @@ typename Group::affine_element naive_scalar_mul(const typename Group::element& b
 {
     typename Group::element acc = Group::point_at_infinity;
     typename Group::element runner = base;
-    uint256_t bits(scalar.from_montgomery_form());
+    uint256_t bits(scalar);
     for (size_t i = 0; i < 256; ++i) {
         if (bits.get_bit(i)) {
             acc = acc + runner;
@@ -355,9 +355,10 @@ TEST(grumpkin, CheckPrecomputedGenerators)
     ASSERT_TRUE((bb::check_precomputed_generators<grumpkin::g1, "DEFAULT_DOMAIN_SEPARATOR", 8UL>()));
 }
 
-// Negative-k2 bug: boundary scalars k = ceil(m * 2^256 / endo_g2) (from endomorphism_scalars.py)
-// each start a band ~2^123-2^126 wide where operator* gives wrong results vs naive double-and-add.
-TEST(grumpkin, ScalarMulNegativeK2EdgeCases)
+// Regression: boundary scalars k = ceil(m * 2^256 / endo_g2) (from endomorphism_scalars.py)
+// previously triggered the negative-k2 bug in split_into_endomorphism_scalars, producing wrong
+// scalar multiplication results. We test boundaries and random samples within each band.
+TEST(grumpkin, ScalarMulNegativeK2Regression)
 {
     // clang-format off
     struct test_case { std::array<uint64_t, 4> limbs; const char* tag; };
@@ -377,11 +378,11 @@ TEST(grumpkin, ScalarMulNegativeK2EdgeCases)
             naive_scalar_mul<grumpkin::g1, grumpkin::fr>(grumpkin::g1::one, base_scalar);
         EXPECT_EQ(naive_result.on_curve(), true) << tc.tag;
         EXPECT_EQ(endo_result.on_curve(), true) << tc.tag;
-        EXPECT_NE(endo_result, naive_result) << "Bug may be fixed! " << tc.tag;
+        EXPECT_EQ(endo_result, naive_result) << tc.tag;
 
-        // Random samples within the band (narrowest is ~2^123; we use 122-bit offsets).
+        // Random samples within the formerly-buggy band (~2^123-2^126 wide; 122-bit offsets).
         for (size_t i = 0; i < 100; ++i) {
-            uint256_t rand_bits(grumpkin::fr::random_element().from_montgomery_form());
+            uint256_t rand_bits(grumpkin::fr::random_element());
             uint256_t offset_int = (rand_bits & ((uint256_t(1) << 122) - 1)) + 1;
             grumpkin::fr scalar = base_scalar + grumpkin::fr(offset_int);
 
@@ -390,7 +391,7 @@ TEST(grumpkin, ScalarMulNegativeK2EdgeCases)
                 naive_scalar_mul<grumpkin::g1, grumpkin::fr>(grumpkin::g1::one, scalar);
             EXPECT_EQ(naive_res.on_curve(), true) << tc.tag << " offset " << i;
             EXPECT_EQ(endo_res.on_curve(), true) << tc.tag << " offset " << i;
-            EXPECT_NE(endo_res, naive_res) << tc.tag << " offset " << i;
+            EXPECT_EQ(endo_res, naive_res) << tc.tag << " offset " << i;
         }
     }
 }
