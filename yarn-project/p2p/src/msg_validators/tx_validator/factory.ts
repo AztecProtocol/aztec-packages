@@ -15,7 +15,7 @@
  *    Orchestrated by `handleGossipedTx` in `libp2p_service.ts`.
  *
  * 2. **JSON-RPC** — full validation including all state-dependent checks.
- *    Proof verification and fee enforcement are configurable.
+ *    Proof verification and fee enforcement are configurable for testing purposes.
  *
  * 3. **Req/resp & block proposals** — well-formedness checks only (metadata, size,
  *    data, proof). Stored for re-execution; validity against state is not checked here.
@@ -258,7 +258,7 @@ export function createTxValidatorForBlockProposalReceivedTxs(
 /**
  * Validators for unsolicited txs received over JSON-RPC (from a local wallet/PXE).
  * Full validation — all state-dependent checks are run. Proof verification is optional
- * (skipped for simulations). Fee enforcement is also optional (skipped for testing/dev).
+ * (can be skipped for testing purposes). Fee enforcement is also optional (skipped for testing/dev).
  * Called from `AztecNodeService.isValidTx()`.
  */
 export function createTxValidatorForAcceptingTxsOverRPC(
