@@ -30,11 +30,21 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::sumcheck_output_to_a
     auto [unshifted_challenges, shifted_challenges] =
         get_interleaved_batching_challenges<FF>(transcript, NUM_UNSHIFTED_ENTITIES, NUM_SHIFTED_ENTITIES);
 
-    // Batch-then-interleave all polynomial groups into 2 polynomials, freeing source polys after each group
-    auto unshifted_groups = Flavor::get_unshifted_groups_mut(instance->polynomials);
-    auto shifted_groups = Flavor::get_to_be_shifted_groups(instance->polynomials);
-    auto [batched_unshifted, batched_shifted] = batch_interleaved_polynomial_groups<FF>(
-        unshifted_groups, shifted_groups, unshifted_challenges, shifted_challenges, individual_poly_size, BATCH_SIZE);
+    // Batch-then-interleave all polynomial groups into 2 polynomials.
+    // Move polynomials into a scoped local so the proving key is freed when the scope ends.
+    bb::Polynomial<FF> batched_unshifted;
+    bb::Polynomial<FF> batched_shifted;
+    {
+        auto polys = std::move(instance->polynomials);
+        auto unshifted_groups = Flavor::get_unshifted_groups_mut(polys);
+        auto shifted_groups = Flavor::get_to_be_shifted_groups(polys);
+        std::tie(batched_unshifted, batched_shifted) = batch_interleaved_polynomial_groups<FF>(unshifted_groups,
+                                                                                               shifted_groups,
+                                                                                               unshifted_challenges,
+                                                                                               shifted_challenges,
+                                                                                               individual_poly_size,
+                                                                                               BATCH_SIZE);
+    }
 
     // Batch commitments and evaluations using shared module
     std::vector<Commitment> all_unshifted_comms;

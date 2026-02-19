@@ -5,6 +5,9 @@
 // =====================
 
 #include "barretenberg/chonk/chonk.hpp"
+#ifdef __linux__
+#include <malloc.h>
+#endif
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/streams.hpp"
@@ -450,6 +453,11 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
         // Move old accumulator into fold, receive new accumulator back
         std::tie(proof, prover_accumulator) =
             prover.fold(std::move(prover_accumulator), prover_instance, precomputed_vk);
+        // Free proving key before decider PCS allocations
+        prover_instance.reset();
+#ifdef __linux__
+        malloc_trim(0);
+#endif
         // Decider uses the NEW prover_accumulator (result of fold)
         DeciderProver decider(prover_accumulation_transcript);
         decider_proof = decider.construct_proof(prover_accumulator);
