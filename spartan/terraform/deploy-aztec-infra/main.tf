@@ -219,7 +219,6 @@ locals {
     "validator.node.env.P2P_GOSSIPSUB_D"                       = var.P2P_GOSSIPSUB_D
     "validator.node.env.P2P_GOSSIPSUB_DLO"                     = var.P2P_GOSSIPSUB_DLO
     "validator.node.env.P2P_GOSSIPSUB_DHI"                     = var.P2P_GOSSIPSUB_DHI
-    "validator.node.env.P2P_DROP_TX"                           = var.P2P_DROP_TX
     "validator.node.env.P2P_DROP_TX_CHANCE"                    = var.P2P_DROP_TX_CHANCE
     "validator.node.env.WS_NUM_HISTORIC_CHECKPOINTS"           = var.WS_NUM_HISTORIC_CHECKPOINTS
     "validator.node.env.TX_COLLECTION_FILE_STORE_URLS"         = var.TX_COLLECTION_FILE_STORE_URLS
@@ -369,7 +368,6 @@ locals {
           "node.node.env.P2P_GOSSIPSUB_D"                       = var.P2P_GOSSIPSUB_D
           "node.node.env.P2P_GOSSIPSUB_DLO"                     = var.P2P_GOSSIPSUB_DLO
           "node.node.env.P2P_GOSSIPSUB_DHI"                     = var.P2P_GOSSIPSUB_DHI
-          "node.node.env.P2P_DROP_TX"                           = var.P2P_DROP_TX
           "node.node.env.P2P_DROP_TX_CHANCE"                    = var.P2P_DROP_TX_CHANCE
           "node.node.env.WS_NUM_HISTORIC_CHECKPOINTS"           = var.WS_NUM_HISTORIC_CHECKPOINTS
           "node.node.env.TX_COLLECTION_FILE_STORE_URLS"         = var.TX_COLLECTION_FILE_STORE_URLS
@@ -452,7 +450,6 @@ locals {
         "node.env.P2P_GOSSIPSUB_D"                    = var.P2P_GOSSIPSUB_D
         "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
         "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
-        "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
         "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
         "node.env.WS_NUM_HISTORIC_CHECKPOINTS"        = var.WS_NUM_HISTORIC_CHECKPOINTS
         "node.env.TX_FILE_STORE_ENABLED"              = var.TX_FILE_STORE_ENABLED
@@ -508,7 +505,6 @@ locals {
         "node.env.P2P_GOSSIPSUB_D"                    = var.P2P_GOSSIPSUB_D
         "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
         "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
-        "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
         "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
         "node.env.WS_NUM_HISTORIC_CHECKPOINTS"        = var.WS_NUM_HISTORIC_CHECKPOINTS
         "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
@@ -548,7 +544,6 @@ locals {
         "node.env.P2P_GOSSIPSUB_D"                    = var.P2P_GOSSIPSUB_D
         "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
         "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
-        "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
         "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
         "node.env.WS_NUM_HISTORIC_CHECKPOINTS"        = var.WS_NUM_HISTORIC_CHECKPOINTS
         "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
@@ -585,7 +580,6 @@ locals {
         "node.env.P2P_GOSSIPSUB_D"                   = var.P2P_GOSSIPSUB_D
         "node.env.P2P_GOSSIPSUB_DLO"                 = var.P2P_GOSSIPSUB_DLO
         "node.env.P2P_GOSSIPSUB_DHI"                 = var.P2P_GOSSIPSUB_DHI
-        "node.env.P2P_DROP_TX"                       = var.P2P_DROP_TX
         "node.env.P2P_DROP_TX_CHANCE"                = var.P2P_DROP_TX_CHANCE
         "node.env.WS_NUM_HISTORIC_CHECKPOINTS"       = var.WS_NUM_HISTORIC_CHECKPOINTS
       }

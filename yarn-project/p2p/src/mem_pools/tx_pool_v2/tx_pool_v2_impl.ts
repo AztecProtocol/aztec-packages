@@ -316,6 +316,12 @@ export class TxPoolV2Impl {
       }
     }
 
+    // Randomly drop the transaction for testing purposes (report as accepted so it propagates)
+    if (this.#config.dropTransactionsProbability > 0 && Math.random() < this.#config.dropTransactionsProbability) {
+      this.#log.debug(`Dropping tx ${txHashStr} (simulated drop for testing)`);
+      return { status: 'accepted' };
+    }
+
     // Add the transaction
     await this.#addTx(tx, 'pending', opts);
     return { status: 'accepted' };

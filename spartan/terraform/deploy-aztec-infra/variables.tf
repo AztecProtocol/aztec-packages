@@ -767,12 +767,6 @@ variable "P2P_GOSSIPSUB_DHI" {
   default     = "12"
 }
 
-variable "P2P_DROP_TX" {
-  description = "Whether to randomly drop incoming transactions in the P2P layer (for testing)"
-  type        = bool
-  default     = false
-}
-
 variable "P2P_DROP_TX_CHANCE" {
   description = "The chance (0-1) of dropping an incoming transaction in the P2P layer (for testing)"
   type        = number
