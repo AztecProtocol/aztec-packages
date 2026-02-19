@@ -23,7 +23,7 @@ export async function getPublicChecksArtifact(): Promise<ContractArtifact> {
 export async function getCanonicalPublicChecks(): Promise<ProtocolContract> {
   if (!protocolContract) {
     const publicChecksArtifact = await getPublicChecksArtifact();
-    protocolContract = await makeProtocolContract('PublicChecks', publicChecksArtifact);
+    protocolContract = makeProtocolContract('PublicChecks', publicChecksArtifact);
   }
   return protocolContract;
 }
