@@ -489,10 +489,10 @@ TEST_F(MsmConstraintsTests, TwoMsmConstraintsSharedPredicate)
                     WitnessOrConstant<fr>::from_index(2),
                     WitnessOrConstant<fr>::from_index(3) },
         .scalars = { WitnessOrConstant<fr>::from_index(12), WitnessOrConstant<fr>::from_index(5) },
-        .predicate = WitnessOrConstant<fr>::from_index(16),
+        .predicate = WitnessOrConstant<fr>::from_index(0),
         .out_point_x = 6,
         .out_point_y = 7,
-        .out_point_is_infinite = 8,
+        .out_point_is_infinite = 16,
     };
     AcirFormat constraint_system = build_acir_format(16, msm1, msm2);
 
