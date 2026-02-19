@@ -1,0 +1,58 @@
+# Sourced by source_bootstrap. Provides CI phase timing instrumentation.
+# Wraps cache_download/cache_upload to auto-publish timing, and provides
+# ci_phase for wrapping arbitrary commands.
+#
+# All timing events are published to Redis channel ci:phase:complete as JSON,
+# consumed by the ci-metrics server and stored in the ci_phases table.
+
+function _publish_phase {
+  local phase=$1 duration_secs=$2 exit_code=$3
+  [ "${CI_REDIS_AVAILABLE:-0}" -eq 1 ] || return 0
+  local commit_hash=${COMMIT_HASH:-$(git rev-parse HEAD 2>/dev/null || true)}
+  redis_publish ci:phase:complete "$(jq -c -n \
+    --arg phase "$phase" \
+    --argjson duration "$duration_secs" \
+    --argjson exit_code "$exit_code" \
+    --arg run_id "${RUN_ID:-}" \
+    --arg job_id "${JOB_ID:-}" \
+    --arg dashboard "${CI_DASHBOARD:-}" \
+    --arg ref_name "${REF_NAME:-}" \
+    --arg commit_hash "$commit_hash" \
+    '{phase:$phase, duration_secs:$duration, exit_code:$exit_code,
+      run_id:$run_id, job_id:$job_id, dashboard:$dashboard,
+      ref_name:$ref_name, commit_hash:$commit_hash}')" &>/dev/null &
+}
+
+# Shadow the cache_download script on $PATH.
+# Phase name = "cache-download:<artifact>".
+function cache_download {
+  local SECONDS=0
+  command cache_download "$@"
+  local code=$?
+  _publish_phase "cache-download:${1:-unknown}" "$SECONDS" "$code"
+  return $code
+}
+
+# Shadow the cache_upload script on $PATH.
+# Phase name = "cache-upload:<artifact>".
+function cache_upload {
+  local SECONDS=0
+  command cache_upload "$@"
+  local code=$?
+  _publish_phase "cache-upload:${1:-unknown}" "$SECONDS" "$code"
+  return $code
+}
+
+# General phase wrapper.
+# Usage: ci_phase <name> <command...>
+# Example: ci_phase "barretenberg" ./barretenberg/cpp/bootstrap.sh
+function ci_phase {
+  local phase_name=$1; shift
+  local SECONDS=0
+  "$@"
+  local code=$?
+  _publish_phase "$phase_name" "$SECONDS" "$code"
+  return $code
+}
+
+export -f _publish_phase cache_download cache_upload ci_phase

@@ -102,6 +102,22 @@ CREATE TABLE IF NOT EXISTS ci_run_daily_stats (
 );
 CREATE INDEX IF NOT EXISTS idx_crds_date ON ci_run_daily_stats(date);
 
+CREATE TABLE IF NOT EXISTS ci_phases (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    phase         TEXT NOT NULL,
+    duration_secs REAL NOT NULL,
+    exit_code     INTEGER,
+    run_id        TEXT,
+    job_id        TEXT,
+    dashboard     TEXT NOT NULL DEFAULT '',
+    ref_name      TEXT,
+    commit_hash   TEXT,
+    timestamp     TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ci_phases_run ON ci_phases(run_id);
+CREATE INDEX IF NOT EXISTS idx_ci_phases_ts ON ci_phases(timestamp);
+CREATE INDEX IF NOT EXISTS idx_ci_phases_phase ON ci_phases(phase);
+
 CREATE TABLE IF NOT EXISTS pr_authors (
     pr_number     INTEGER PRIMARY KEY,
     author        TEXT NOT NULL,
