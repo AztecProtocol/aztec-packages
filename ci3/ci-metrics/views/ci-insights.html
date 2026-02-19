@@ -141,7 +141,7 @@
         <div class="chart-wrap med"><canvas id="ciDurPipeChart"></canvas></div>
       </div>
       <div class="chart-box full">
-        <h3>ci time breakdown by phase (avg secs)</h3>
+        <h3>avg ci time by pipeline &amp; phase</h3>
         <div class="chart-wrap med"><canvas id="phaseChart"></canvas></div>
       </div>
     </div>
@@ -559,27 +559,39 @@
     }
 
     function renderPhaseChart() {
-      const byDate = phaseData?.by_date || [];
-      if (!byDate.length) return;
-      // Collect all phase names, excluding cache-download/upload prefixes for cleanliness
+      const byDash = phaseData?.by_dashboard || [];
+      if (!byDash.length) return;
+
+      // Collect all phase names, grouping cache-download:*/cache-upload:* into aggregates
       const allPhases = new Set();
-      byDate.forEach(d => Object.keys(d.phases || {}).forEach(p => allPhases.add(p)));
-      // Group cache-download:* and cache-upload:* into aggregate phases
-      const grouped = {};
-      byDate.forEach(d => {
-        const row = { date: d.date };
+      byDash.forEach(d => {
+        for (const p of Object.keys(d.phases || {})) {
+          if (p.startsWith('cache-download:')) allPhases.add('cache-download');
+          else if (p.startsWith('cache-upload:')) allPhases.add('cache-upload');
+          else allPhases.add(p);
+        }
+      });
+
+      // Build grouped data per dashboard
+      const dashboards = byDash.map(d => d.dashboard).sort();
+      const dashData = {};
+      byDash.forEach(d => {
+        const row = {};
         for (const [phase, secs] of Object.entries(d.phases || {})) {
           let key = phase;
           if (phase.startsWith('cache-download:')) key = 'cache-download';
           else if (phase.startsWith('cache-upload:')) key = 'cache-upload';
           row[key] = (row[key] || 0) + secs;
         }
-        grouped[d.date] = row;
+        dashData[d.dashboard] = row;
       });
-      const dates = Object.keys(grouped).sort();
-      const phaseNames = new Set();
-      dates.forEach(d => Object.keys(grouped[d]).filter(k => k !== 'date').forEach(k => phaseNames.add(k)));
-      const phases = [...phaseNames].sort();
+
+      // Sort phases by total time descending for nice stacking
+      const phaseTotals = {};
+      for (const p of allPhases) {
+        phaseTotals[p] = dashboards.reduce((s, d) => s + (dashData[d]?.[p] || 0), 0);
+      }
+      const phases = [...allPhases].sort((a, b) => phaseTotals[b] - phaseTotals[a]);
 
       const phaseColors = {
         'build': '#58a6ff', 'test': '#3fb950', 'bench': '#d2a8ff',
@@ -590,22 +602,25 @@
       };
       const defaultColors = ['#56d364', '#79c0ff', '#d2a8ff', '#f0883e', '#ff7b72', '#a5d6ff', '#e3b341', '#8b949e'];
 
+      // Compute totals per dashboard for top labels
+      const totals = dashboards.map(d => phases.reduce((s, p) => s + (dashData[d]?.[p] || 0), 0));
+
       const datasets = phases.map((p, i) => ({
         label: p,
-        data: dates.map(d => grouped[d][p] || 0),
+        data: dashboards.map(d => dashData[d]?.[p] || 0),
         backgroundColor: phaseColors[p] || defaultColors[i % defaultColors.length],
         borderWidth: 0,
       }));
 
       charts.phase = new Chart(document.getElementById('phaseChart').getContext('2d'), {
         type: 'bar',
-        data: { labels: dates.map(fmtDate), datasets },
+        data: { labels: dashboards, datasets },
         options: {
           responsive: true, maintainAspectRatio: false,
           interaction: { mode: 'index', intersect: false },
           scales: {
-            x: { stacked: true, ticks: { color: '#555', maxRotation: 45 }, grid: { color: '#181818' } },
-            y: { stacked: true, title: { display: true, text: 'seconds', color: '#555', font: { size: 10 } }, ticks: { color: '#555' }, grid: { color: '#181818' } }
+            x: { stacked: true, ticks: { color: '#ccc', font: { family: 'monospace', size: 12 } }, grid: { color: '#181818' } },
+            y: { stacked: true, title: { display: true, text: 'minutes', color: '#555', font: { size: 10 } }, ticks: { color: '#555', callback: v => (v / 60).toFixed(0) + 'm' }, grid: { color: '#181818' } }
           },
           plugins: {
             legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },
@@ -613,10 +628,31 @@
               itemSort: (a, b) => b.raw - a.raw,
               filter: c => c.raw > 0,
               callbacks: {
-                title: items => items.length ? fmtDateFull(dates[items[0].dataIndex]) : '',
-                label: c => `${c.dataset.label}: ${c.raw >= 60 ? (c.raw / 60).toFixed(1) + 'm' : c.raw + 's'}`,
+                label: c => `${c.dataset.label}: ${c.raw >= 60 ? (c.raw / 60).toFixed(1) + 'm' : Math.round(c.raw) + 's'}`,
                 footer: items => `total: ${(items.reduce((s, i) => s + i.raw, 0) / 60).toFixed(1)}m`
               }
+            },
+            // Show total time above each bar
+            datalabels: false,
+          },
+          animation: {
+            onComplete: function() {
+              const ctx = this.ctx;
+              ctx.save();
+              ctx.font = '11px monospace';
+              ctx.fillStyle = '#ccc';
+              ctx.textAlign = 'center';
+              const meta = this.getDatasetMeta(datasets.length - 1);
+              if (!meta) { ctx.restore(); return; }
+              dashboards.forEach((d, i) => {
+                const total = totals[i];
+                if (!total) return;
+                const bar = meta.data[i];
+                if (!bar) return;
+                const label = total >= 3600 ? (total / 3600).toFixed(1) + 'h' : (total / 60).toFixed(0) + 'm';
+                ctx.fillText(label, bar.x, bar.y - 6);
+              });
+              ctx.restore();
             }
           }
         }
