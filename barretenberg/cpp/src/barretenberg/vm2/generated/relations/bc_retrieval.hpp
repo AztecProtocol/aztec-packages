@@ -14,9 +14,7 @@ template <typename FF_> class bc_retrievalImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 15> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 4, 3, 3, 3, 5, 5, 4, 4, 3, 3, 3, 3, 3, 3
-    };
+    static constexpr std::array<size_t, 14> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 5, 5, 4, 4, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -38,16 +36,16 @@ template <typename FF> class bc_retrieval : public Relation<bc_retrievalImpl<FF>
 
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_TRACE_CONTINUITY = 1;
-    static constexpr size_t SR_SEL_ON_INSTANCE_EXISTS = 3;
-    static constexpr size_t SR_NO_REMAINING_BYTECODES = 5;
-    static constexpr size_t SR_ERROR_CHECK = 6;
-    static constexpr size_t SR_NEW_CLASS_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST = 7;
-    static constexpr size_t SR_CURRENT_CLASS_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST = 8;
-    static constexpr size_t SR_ARTIFACT_HASH_IS_ZERO_IF_ERROR = 9;
-    static constexpr size_t SR_PRIVATE_FUNCTION_ROOT_IS_ZERO_IF_ERROR = 10;
-    static constexpr size_t SR_BYTECODE_ID_IS_ZERO_IF_ERROR = 11;
-    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_ROOT_NOT_CHANGED_IF_ERROR = 12;
-    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED_IF_ERROR = 13;
+    static constexpr size_t SR_SEL_ON_INSTANCE_EXISTS = 2;
+    static constexpr size_t SR_NO_REMAINING_BYTECODES = 4;
+    static constexpr size_t SR_ERROR_CHECK = 5;
+    static constexpr size_t SR_NEW_CLASS_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST = 6;
+    static constexpr size_t SR_CURRENT_CLASS_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST = 7;
+    static constexpr size_t SR_ARTIFACT_HASH_IS_ZERO_IF_ERROR = 8;
+    static constexpr size_t SR_PRIVATE_FUNCTION_ROOT_IS_ZERO_IF_ERROR = 9;
+    static constexpr size_t SR_BYTECODE_ID_IS_ZERO_IF_ERROR = 10;
+    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_ROOT_NOT_CHANGED_IF_ERROR = 11;
+    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED_IF_ERROR = 12;
 
     static std::string get_subrelation_label(size_t index)
     {

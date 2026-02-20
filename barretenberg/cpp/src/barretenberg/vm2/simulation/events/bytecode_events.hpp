@@ -32,8 +32,8 @@ struct BytecodeRetrievalEvent {
     AztecAddress address;
     ContractClassId current_class_id;
     ContractClass contract_class{};
-    FF nullifier_root;
-    FF public_data_tree_root;
+    FF nullifier_root;        // TODO(MW): Rename either nullifier_root -> nullifier_tree_root or...
+    FF public_data_tree_root; // public_data_tree_root -> public_data_root
     AppendOnlyTreeSnapshot retrieved_bytecodes_snapshot_before;
     AppendOnlyTreeSnapshot retrieved_bytecodes_snapshot_after;
     bool is_new_class = false;

@@ -27,6 +27,8 @@ using RawPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 using simulation::Instruction;
 using simulation::InstructionFetchingEvent;
 
+// TODO(MW): Add retrieval tests
+
 TEST(BytecodeTraceGenTest, BasicShortLength)
 {
     TestTraceContainer trace;

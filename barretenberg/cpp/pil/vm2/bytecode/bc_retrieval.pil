@@ -140,9 +140,7 @@ pol commit next_retrieved_bytecodes_tree_size;
 // Contract Retrieval
 ///////////////////////////////
 
-pol commit instance_exists; // @boolean
-instance_exists * (1 - instance_exists) = 0;
-
+pol commit instance_exists; // @boolean (by lookup into contract_instance_retrieval)
 // instance_exists is only on for active rows.
 // TODO(MW): Added this to avoid switching on #[IS_NEW_CLASS_CHECK] for inactive rows but may not be required
 #[SEL_ON_INSTANCE_EXISTS]
