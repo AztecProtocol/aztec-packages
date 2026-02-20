@@ -287,7 +287,7 @@ inline std::string generate_memory_offsets(int log_n)
     // BATCH SCALARS
     print_header_centered("SHPLEMINI - RUNTIME MEMORY - BATCH SCALARS");
     const int BATCH_SIZE = 69;
-    for (int i = 0; i < BATCH_SIZE; ++i) {
+    for (int i = 1; i < BATCH_SIZE; ++i) {
         print_fr(pointer, "BATCH_SCALAR_" + std::to_string(i) + "_LOC");
         pointer += 32;
     }
@@ -312,8 +312,6 @@ inline std::string generate_memory_offsets(int log_n)
     }
 
     out << "\n";
-    print_fr(pointer, "BATCHED_EVALUATION_LOC");
-    pointer += 32;
     print_fr(pointer, "CONSTANT_TERM_ACCUMULATOR_LOC");
     pointer += 32;
 
@@ -1396,7 +1394,7 @@ contract HonkVerifier is IVerifier {
 
                         // Normalise as last loop will have incremented the offset
                         bary_centric_inverses_off := sub(bary_centric_inverses_off, 0x20)
-                        for {} gt(bary_centric_inverses_off, SUM_U_CHALLENGE_{{ LOG_N_MINUS_ONE }}) {
+                        for {} gt(bary_centric_inverses_off, BARYCENTRIC_LAGRANGE_DENOMINATOR_7_LOC) {
                             bary_centric_inverses_off := sub(bary_centric_inverses_off, 0x20)
                         } {
                             let tmp := mulmod(accumulator, mload(temp), p)
@@ -2619,7 +2617,6 @@ contract HonkVerifier is IVerifier {
             let neg_unshifted_scalar := sub(p, unshifted_scalar)
             let neg_shifted_scalar := sub(p, shifted_scalar)
 
-            mstore(BATCH_SCALAR_0_LOC, 1)
             let rho := mload(RHO_CHALLENGE)
 
             // Unrolled for the loop below - where NUMBER_UNSHIFTED = 36
@@ -2892,8 +2889,6 @@ contract HonkVerifier is IVerifier {
                 p
             )
             batching_challenge := mulmod(batching_challenge, rho, p)
-
-            mstore(BATCHED_EVALUATION_LOC, batched_evaluation)
 
             // Compute fold pos evaluations
             {

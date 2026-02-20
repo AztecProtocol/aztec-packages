@@ -307,7 +307,7 @@ def print_subrelation_intermediates(pointer: int):
 
 def print_batch_scalars(pointer: int):
     BATCH_SIZE = 69
-    for i in range(0, BATCH_SIZE):
+    for i in range(1, BATCH_SIZE):
         print_fr(pointer, "BATCH_SCALAR_" + str(i) + "_LOC")
         pointer += 32
 
@@ -333,11 +333,6 @@ def print_batched_evaluation_accumulator_inversions(pointer: int):
         pointer += 32
     return pointer
 
-def print_batched_evaluation_location(pointer: int):
-    print_fr(pointer, "BATCHED_EVALUATION_LOC")
-    pointer += 32
-    return pointer
-
 def print_constant_term_accumulator_location(pointer: int):
     print_fr(pointer, "CONSTANT_TERM_ACCUMULATOR_LOC")
     pointer += 32
@@ -353,7 +348,6 @@ def print_inversions(pointer: int):
     pointer = print_batched_evaluation_accumulator_inversions(pointer)
 
     print("")
-    pointer = print_batched_evaluation_location(pointer)
     pointer = print_constant_term_accumulator_location(pointer)
 
     print("")
