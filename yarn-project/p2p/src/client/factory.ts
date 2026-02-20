@@ -121,6 +121,7 @@ export async function createP2PClient<T extends P2PClientType>(
         maxPendingTxCount: config.maxPendingTxCount,
         archivedTxLimit: config.archivedTxLimit,
         minTxPoolAgeMs: config.minTxPoolAgeMs,
+        dropTransactionsProbability: config.dropTransactionsProbability,
       },
       dateProvider,
     );

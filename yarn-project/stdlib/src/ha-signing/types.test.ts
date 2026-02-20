@@ -2,9 +2,9 @@ import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from
 
 import { describe, expect, it } from '@jest/globals';
 
-import { DutyType } from './db/types.js';
 import {
   type BlockProposalSigningContext,
+  DutyType,
   type HAProtectedSigningContext,
   type OtherSigningContext,
   type VoteSigningContext,
