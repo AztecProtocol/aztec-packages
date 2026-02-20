@@ -60,7 +60,7 @@ The reason is **unnecessary recompilation**: the contract artifact depends on ev
 
 ## Basic test structure
 
-Tests live in `<name>_test/src/lib.nr` and import the contract crate by name (not `crate::`):
+When you create a project with `aztec new` or `aztec init`, a separate `test` crate is created alongside the `contract` crate. Tests live in `test/src/lib.nr` and import the contract crate by name (not `crate::`):
 
 ```rust
 use my_contract::MyContract;
@@ -88,11 +88,11 @@ unconstrained fn test_basic_flow() {
 :::
 
 :::tip Organizing test files
-Tests live in the separate `<name>_test` crate that `aztec new` creates. You can organize them into modules:
+Tests live in the separate `test` crate that `aztec new` creates. You can organize them into modules:
 
-- Split tests into modules like `<name>_test/src/transfer_tests.nr`, `<name>_test/src/auth_tests.nr`
-- Import them in `<name>_test/src/lib.nr` with `mod transfer_tests;`, `mod auth_tests;`
-- Share setup functions in `<name>_test/src/utils.nr`
+- Split tests into modules like `test/src/transfer_tests.nr`, `test/src/auth_tests.nr`
+- Import them in `test/src/lib.nr` with `mod transfer_tests;`, `mod auth_tests;`
+- Share setup functions in `test/src/utils.nr`
   :::
 
 ## Deploying contracts

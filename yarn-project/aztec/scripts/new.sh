@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-NARGO=${NARGO:-nargo}
 script_path=$(realpath $(dirname "$0"))
 
-type_arg="--contract"
+name_arg=""
+project_path=""
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -19,20 +19,16 @@ Arguments:
 
 Options:
   --name <NAME>  Name of the package [default: package directory name]
-  --lib          Create a library template instead of a contract
   -h, --help     Print help
 
-This command creates a new Aztec Noir project using nargo and automatically
-adds the Aztec.nr dependency to your Nargo.toml file.
+This command creates a new Aztec Noir project with a workspace containing
+a contract crate and a test crate, and automatically adds the Aztec.nr
+dependency to both.
 EOF
       exit 0
       ;;
-    --lib)
-      type_arg="--lib"
-      shift
-      ;;
     --name)
-      name_arg="--name $2"
+      name_arg="$2"
       shift 2
       ;;
     *)
@@ -50,10 +46,15 @@ if [ -z "$project_path" ]; then
   exit 1
 fi
 
-echo "Creating new Noir project at $project_path..."
-$NARGO new $type_arg ${name_arg:-} $project_path
-
-if [ "$type_arg" == "--contract" ]; then
-  cd $project_path
-  $script_path/setup_project.sh
+if [ -d "$project_path" ] && [ "$(ls -A $project_path 2>/dev/null)" ]; then
+  echo "Error: $project_path already exists and is not empty"
+  exit 1
 fi
+
+# Derive package name: use --name if provided, otherwise use directory basename
+package_name="${name_arg:-$(basename $project_path)}"
+
+echo "Creating new Aztec contract project at $project_path..."
+mkdir -p "$project_path"
+cd "$project_path"
+$script_path/setup_workspace.sh "$package_name"
