@@ -129,6 +129,38 @@ BatchOpeningClaim<Curve> MergeVerifier_<BatchSize, Curve>::compute_shplonk_openi
 }
 
 /**
+ * @brief Update the Shplonk batch opening claim with contributions from the de-interleaved merged columns.
+ * @details Analogous to the prover's update_shplonk_opening_claim for the de-interleaving case.
+ * Inserts the de-interleaved commitments and their scaled contributions into the batch opening claim,
+ * and adjusts the constant (affine) term accordingly.
+ *
+ * The update adds: scaling_factor * Σᵢ γᵢ * ([DMᵢ] - evalᵢ·[1])
+ */
+template <size_t BatchSize, typename Curve>
+void MergeVerifier_<BatchSize, Curve>::update_shplonk_opening_claim(
+    BatchOpeningClaim<Curve>& claim,
+    const std::array<Commitment, NUM_WIRES>& de_interleaved_commitments,
+    const std::vector<FF>& batching_challenges,
+    const std::vector<FF>& evals,
+    const FF& scaling_factor)
+{
+    // Pop the [1] commitment and its constant scalar so we can update the constant and re-add at the end
+    Commitment one_commitment = claim.commitments.back();
+    FF constant_scalar = claim.scalars.back();
+    claim.commitments.pop_back();
+    claim.scalars.pop_back();
+
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        claim.commitments.emplace_back(de_interleaved_commitments[idx]);
+        claim.scalars.emplace_back(scaling_factor * batching_challenges[idx]);
+        constant_scalar -= scaling_factor * batching_challenges[idx] * evals[idx];
+    }
+
+    claim.commitments.emplace_back(one_commitment);
+    claim.scalars.emplace_back(constant_scalar);
+}
+
+/**
  * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_j.
  * @details Verifies that M_j(X) = L_j(X) + X^k * R_j(X) and deg(L_j) < k for j = 1,2,3,4.
  * Checks concatenation and degree identities, then verifies Shplonk opening proof.
@@ -306,38 +338,6 @@ typename MergeVerifier_<BatchSize, Curve>::ReductionResult MergeVerifier_<BatchS
              merged_table_commitments,
              de_interleaved_merged_commitments,
              degree_check_verified && concatenation_verified && de_interleaving_verified };
-}
-
-/**
- * @brief Update the Shplonk batch opening claim with contributions from the de-interleaved merged columns.
- * @details Analogous to the prover's update_shplonk_opening_claim for the de-interleaving case.
- * Inserts the de-interleaved commitments and their scaled contributions into the batch opening claim,
- * and adjusts the constant (affine) term accordingly.
- *
- * The update adds: scaling_factor * Σᵢ γᵢ * ([DMᵢ] - evalᵢ·[1])
- */
-template <size_t BatchSize, typename Curve>
-void MergeVerifier_<BatchSize, Curve>::update_shplonk_opening_claim(
-    BatchOpeningClaim<Curve>& claim,
-    const std::array<Commitment, NUM_WIRES>& de_interleaved_commitments,
-    const std::vector<FF>& batching_challenges,
-    const std::vector<FF>& evals,
-    const FF& scaling_factor)
-{
-    // Pop the [1] commitment and its constant scalar so we can update the constant and re-add at the end
-    Commitment one_commitment = claim.commitments.back();
-    FF constant_scalar = claim.scalars.back();
-    claim.commitments.pop_back();
-    claim.scalars.pop_back();
-
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        claim.commitments.emplace_back(de_interleaved_commitments[idx]);
-        claim.scalars.emplace_back(scaling_factor * batching_challenges[idx]);
-        constant_scalar -= scaling_factor * batching_challenges[idx] * evals[idx];
-    }
-
-    claim.commitments.emplace_back(one_commitment);
-    claim.scalars.emplace_back(constant_scalar);
 }
 
 // Explicit template instantiations

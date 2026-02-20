@@ -128,6 +128,13 @@ template <size_t BATCH_SIZE> class MergeProver {
 
     static Polynomial interleave_polynomials(const std::array<Polynomial, BATCH_SIZE>& polys);
 
+    // Compute the batched-and-interleaved polynomial shared by the quotient and opening claim updates.
+    // Extracted to avoid recomputing the same work twice in construct_proof.
+    static Polynomial compute_interleaved_batched_poly(const std::vector<Batch>& columns,
+                                                       const std::vector<FF>& batching_challenges,
+                                                       const std::vector<FF>& evals,
+                                                       size_t max_size);
+
     /**
      * @brief Compute the batched polynomial for the degree check.
      *
@@ -188,14 +195,6 @@ template <size_t BATCH_SIZE> class MergeProver {
                                                       const std::vector<FF>& evals);
 
     // Update the shplonk quotient by passing a vector of batches which are all evaluated at the same point
-    void update_shplonk_quotient(Polynomial& quotient,
-                                 const std::vector<Batch>& columns,
-                                 const std::vector<FF>& batching_challenges,
-                                 const std::vector<FF>& evals,
-                                 const FF& evaluation_point,
-                                 const size_t max_size);
-
-    // Update the shplonk quotient by passing a vector of batches which are all evaluated at the same point
     // Overload for de interleaving case
     void update_shplonk_quotient(Polynomial& quotient,
                                  const std::array<Polynomial, NUM_WIRES>& tables,
@@ -203,14 +202,6 @@ template <size_t BATCH_SIZE> class MergeProver {
                                  const std::vector<FF>& evals,
                                  const FF& evaluation_point,
                                  const size_t max_size);
-
-    // Update the shplonk opening claim
-    void update_shplonk_opening_claim(OpeningClaim& opening_claim,
-                                      const std::vector<Batch>& columns,
-                                      const std::vector<FF>& batching_challenges,
-                                      const std::vector<FF>& evals,
-                                      const FF& scaling_factor,
-                                      const size_t max_size);
 
     // Update the shplonk opening claim
     // Overload for de interleaving case

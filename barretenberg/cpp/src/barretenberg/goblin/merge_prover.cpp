@@ -76,12 +76,11 @@ typename MergeProver<BATCH_SIZE>::Batch MergeProver<BATCH_SIZE>::compute_degree_
 }
 
 template <size_t BATCH_SIZE>
-void MergeProver<BATCH_SIZE>::update_shplonk_quotient(Polynomial& quotient,
-                                                      const std::vector<Batch>& columns,
-                                                      const std::vector<FF>& batching_challenges,
-                                                      const std::vector<FF>& evals,
-                                                      const FF& evaluation_point,
-                                                      const size_t max_size)
+MergeProver<BATCH_SIZE>::Polynomial MergeProver<BATCH_SIZE>::compute_interleaved_batched_poly(
+    const std::vector<Batch>& columns,
+    const std::vector<FF>& batching_challenges,
+    const std::vector<FF>& evals,
+    size_t max_size)
 {
     Batch batched_columns;
     for (auto& poly : batched_columns) {
@@ -95,10 +94,7 @@ void MergeProver<BATCH_SIZE>::update_shplonk_quotient(Polynomial& quotient,
         batched_columns[0].at(0) -= eval * batching_challenge;
     }
 
-    Polynomial update_to_quotient = interleave_polynomials(batched_columns);
-    update_to_quotient.factor_roots(evaluation_point);
-
-    quotient += update_to_quotient;
+    return interleave_polynomials(batched_columns);
 }
 
 template <size_t BATCH_SIZE>
@@ -120,31 +116,6 @@ void MergeProver<BATCH_SIZE>::update_shplonk_quotient(Polynomial& quotient,
 
     quotient += batched_poly;
 }
-
-template <size_t BATCH_SIZE>
-void MergeProver<BATCH_SIZE>::update_shplonk_opening_claim(OpeningClaim& opening_claim,
-                                                           const std::vector<Batch>& columns,
-                                                           const std::vector<FF>& batching_challenges,
-                                                           const std::vector<FF>& evals,
-                                                           const FF& scaling_factor,
-                                                           const size_t max_size)
-{
-    Batch batched_columns;
-    for (auto& poly : batched_columns) {
-        poly = Polynomial(max_size);
-    }
-
-    for (const auto& [column, batching_challenge, eval] : zip_view(columns, batching_challenges, evals)) {
-        for (size_t idx = 0; idx < BATCH_SIZE; idx++) {
-            batched_columns[idx].add_scaled(column[idx], batching_challenge);
-        }
-        batched_columns[0].at(0) -= eval * batching_challenge;
-    }
-
-    Polynomial update_to_opening_claim = interleave_polynomials(batched_columns);
-
-    opening_claim.polynomial.add_scaled(update_to_opening_claim, scaling_factor);
-};
 
 template <size_t BATCH_SIZE>
 void MergeProver<BATCH_SIZE>::update_shplonk_opening_claim(OpeningClaim& opening_claim,
@@ -181,7 +152,6 @@ typename MergeProver<BATCH_SIZE>::MergeProof MergeProver<BATCH_SIZE>::construct_
     std::array<Polynomial, NUM_WIRES> left_table;
     std::array<Polynomial, NUM_WIRES> right_table;
     std::array<Polynomial, NUM_WIRES> merged_table = op_queue->construct_ultra_ops_table_columns(); // T
-    std::array<Polynomial, NUM_WIRES> left_table_reversed;
 
     if (settings == MergeSettings::PREPEND) {
         left_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t
@@ -243,24 +213,24 @@ typename MergeProver<BATCH_SIZE>::MergeProof MergeProver<BATCH_SIZE>::construct_
     }
 
     // Send evaluations of [Lᵢ], [Rᵢ], [Mᵢ] at κ
-    std::vector<FF> evals;
-    evals.reserve((3 * NUM_COLUMNS) + 1);
+    std::vector<FF> columns_evals;
+    columns_evals.reserve(3 * NUM_COLUMNS);
     for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
-        evals.emplace_back(left_columns.evaluate(idx, powers_of_kappa));
-        transcript->send_to_verifier("LEFT_TABLE_EVAL_" + std::to_string(idx), evals.back());
+        columns_evals.emplace_back(left_columns.evaluate(idx, powers_of_kappa));
+        transcript->send_to_verifier("LEFT_TABLE_EVAL_" + std::to_string(idx), columns_evals.back());
     }
     for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
-        evals.emplace_back(right_columns.evaluate(idx, powers_of_kappa));
-        transcript->send_to_verifier("RIGHT_TABLE_EVAL_" + std::to_string(idx), evals.back());
+        columns_evals.emplace_back(right_columns.evaluate(idx, powers_of_kappa));
+        transcript->send_to_verifier("RIGHT_TABLE_EVAL_" + std::to_string(idx), columns_evals.back());
     }
     for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
-        evals.emplace_back(merged_columns.evaluate(idx, powers_of_kappa));
-        transcript->send_to_verifier("MERGED_TABLE_EVAL_" + std::to_string(idx), evals.back());
+        columns_evals.emplace_back(merged_columns.evaluate(idx, powers_of_kappa));
+        transcript->send_to_verifier("MERGED_TABLE_EVAL_" + std::to_string(idx), columns_evals.back());
     }
 
     // Send evaluation of G at 1/κ
-    evals.emplace_back(reversed_batched_left_columns.evaluate(powers_of_kappa_inv));
-    transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES_EVAL", evals.back());
+    FF inverse_eval = reversed_batched_left_columns.evaluate(powers_of_kappa_inv);
+    transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES_EVAL", inverse_eval);
 
     // Send evals of de interleaved merged columns
     std::vector<FF> evals_de_interleaving;
@@ -276,28 +246,42 @@ typename MergeProver<BATCH_SIZE>::MergeProof MergeProver<BATCH_SIZE>::construct_
     std::vector<Batch> columns;
     std::vector<FF> batching_challenges(shplonk_batching_challenges.begin(),
                                         shplonk_batching_challenges.begin() + (3 * NUM_COLUMNS));
-    std::vector<FF> evals_(evals.begin(), evals.begin() + (3 * NUM_COLUMNS));
     columns.reserve(3 * NUM_COLUMNS);
     for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
-        columns.emplace_back(left_columns[idx]);
+        columns.emplace_back(std::move(left_columns[idx]));
     }
     for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
-        columns.emplace_back(right_columns[idx]);
+        columns.emplace_back(std::move(right_columns[idx]));
     }
     for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
-        columns.emplace_back(merged_columns[idx]);
+        columns.emplace_back(std::move(merged_columns[idx]));
     }
 
-    Polynomial shplonk_batched_quotient(BATCH_SIZE * merged_columns[0][0].size());
-    update_shplonk_quotient(
-        shplonk_batched_quotient, columns, batching_challenges, evals_, kappa, merged_columns[0][0].size());
-    update_shplonk_quotient(shplonk_batched_quotient,
-                            std::vector<Batch>{ reversed_batched_left_columns },
-                            { shplonk_batching_challenges.back() },
-                            { evals.back() },
-                            kappa_inv,
-                            reversed_batched_left_columns[0].size());
+    // Precompute the batched-and-interleaved polynomials once; they are reused for both the
+    // Shplonk quotient and the opening claim
+    const size_t max_size = merged_columns[0][0].size();
+    const size_t rev_max_size = reversed_batched_left_columns[0].size();
+    Polynomial interleaved_cols =
+        compute_interleaved_batched_poly(columns, batching_challenges, columns_evals, max_size);
+    Polynomial interleaved_rev = compute_interleaved_batched_poly(
+        { reversed_batched_left_columns }, { shplonk_batching_challenges.back() }, { inverse_eval }, rev_max_size);
+
+    // Compute Shplonk batched quotient
+    Polynomial shplonk_batched_quotient(BATCH_SIZE * max_size);
+    {
+        // Add contribution to from the columns (batched columns / X - kappa)
+        Polynomial q = interleaved_cols; // copy: factor_roots mutates in-place
+        q.factor_roots(kappa);
+        shplonk_batched_quotient += q;
+    }
+    {
+        // Add contribution from the reverse columns used for the degree check (batched reverse columns / X - 1/kappa)
+        Polynomial q = interleaved_rev; // copy: factor_roots mutates in-place
+        q.factor_roots(kappa_inv);
+        shplonk_batched_quotient += q;
+    }
     if (de_interleaving) {
+        // Add contribution from de-interleaving merged columns (batched de-interleaved columns / X - kappa^BATCH_SIZE)
         update_shplonk_quotient(shplonk_batched_quotient,
                                 merged_table,
                                 shplonk_de_interleaving_batching_challenges,
@@ -312,19 +296,18 @@ typename MergeProver<BATCH_SIZE>::MergeProof MergeProver<BATCH_SIZE>::construct_
     FF shplonk_opening_challenge = transcript->template get_challenge<FF>("shplonk_opening_challenge");
 
     // Compute Shplonk opening claim
+
+    // Rescale Shplonk quotient
     shplonk_batched_quotient *= -(shplonk_opening_challenge - kappa);
     OpeningClaim shplonk_opening_claim_ =
         OpeningClaim{ std::move(shplonk_batched_quotient), { shplonk_opening_challenge, FF(0) } };
-    update_shplonk_opening_claim(
-        shplonk_opening_claim_, columns, batching_challenges, evals_, FF(1), merged_columns[0][0].size());
-    update_shplonk_opening_claim(
-        shplonk_opening_claim_,
-        std::vector<Batch>{ reversed_batched_left_columns },
-        { shplonk_batching_challenges.back() },
-        { evals.back() },
-        { (shplonk_opening_challenge - kappa) * (shplonk_opening_challenge - kappa_inv).invert() },
-        reversed_batched_left_columns[0].size());
+    // Add contribution from the columns
+    shplonk_opening_claim_.polynomial.add_scaled(interleaved_cols, FF(1));
+    // Add contribution from the reverse columns (scale the poly by (z - kappa) / (z - 1/kappa))
+    shplonk_opening_claim_.polynomial.add_scaled(
+        interleaved_rev, (shplonk_opening_challenge - kappa) * (shplonk_opening_challenge - kappa_inv).invert());
     if (de_interleaving) {
+        // Add contribution from de-interleaving merged columns (scale by (z - kappa) / (z - kappa^BATCH_SIZE))
         update_shplonk_opening_claim(shplonk_opening_claim_,
                                      merged_table,
                                      shplonk_de_interleaving_batching_challenges,
