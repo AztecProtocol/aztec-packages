@@ -102,7 +102,7 @@ SimulatorResult fuzz_tx(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr,
                         bb::avm2::fuzzer::FuzzerContractDB& contract_db,
                         FuzzerTxData& tx_data);
 
-// Run the prover fuzzer: fast simulation, hint collection, comparison, and check_circuit
+// Run the prover fuzzer: fast simulation, hint collection, comparison, check_circuit, prove, and verify
 // Returns simulation result on success, throws if the input should be rejected
 TxSimulationResult fuzz_prover(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr,
                                bb::avm2::fuzzer::FuzzerContractDB& contract_db,
