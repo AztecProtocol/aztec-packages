@@ -18,6 +18,9 @@ jobs:
   release:
     runs-on: ubuntu-latest
     environment: master
+    # contents: write is needed for GITHUB_TOKEN to push tags.
+    permissions:
+      contents: write
     steps:
       - name: Checkout source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -48,7 +51,6 @@ jobs:
           REF_NAME: ${{ inputs.tag }}
           RUN_ID: ${{ github.run_id }}
           SOURCE_REPOSITORY: AztecProtocol/aztec-packages-private
-          GITHUB_REPOSITORY: AztecProtocol/aztec-packages-private
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
