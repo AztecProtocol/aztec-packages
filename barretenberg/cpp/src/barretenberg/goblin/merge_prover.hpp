@@ -41,15 +41,30 @@ template <size_t BATCH_SIZE> class MergeProver {
                          std::shared_ptr<Transcript> transcript,
                          MergeSettings settings = MergeSettings::PREPEND);
 
-    BB_PROFILE MergeProof construct_proof();
+    BB_PROFILE MergeProof construct_proof(bool de_interleaving = false);
 
     MergeProof construct_de_interleaving_proof();
 
     // Public for test access (computing commitments)
     CommitmentKey pcs_commitment_key;
 
+    struct Batch : public std::array<Polynomial, BATCH_SIZE> {
+        using std::array<Polynomial, BATCH_SIZE>::array;
+
+        FF evaluate(const std::vector<FF>& powers_of_challenge)
+        {
+            BB_ASSERT(powers_of_challenge.size() == BATCH_SIZE + 1);
+
+            FF result = 0;
+            for (size_t idx = 0; idx < BATCH_SIZE; ++idx) {
+                result += (*this)[idx].evaluate(powers_of_challenge.back()) * powers_of_challenge[idx];
+            }
+            return result;
+        }
+    };
+
     struct PolynomialBatch {
-        std::array<std::array<Polynomial, BATCH_SIZE>, NUM_COLUMNS> batches;
+        std::array<Batch, NUM_COLUMNS> batches;
 
         PolynomialBatch(const std::array<Polynomial, NUM_WIRES>& polynomials)
         {
@@ -60,15 +75,20 @@ template <size_t BATCH_SIZE> class MergeProver {
             }
         }
 
-        std::array<Polynomial, BATCH_SIZE>& operator[](size_t idx) { return batches[idx]; }
+        Batch& operator[](size_t idx) { return batches[idx]; }
 
-        const std::array<Polynomial, BATCH_SIZE>& operator[](size_t idx) const { return batches[idx]; }
+        const Batch& operator[](size_t idx) const { return batches[idx]; }
 
         size_t size() const { return NUM_COLUMNS; }
         auto begin() { return batches.begin(); }
         auto end() { return batches.end(); }
         auto begin() const { return batches.begin(); }
         auto end() const { return batches.end(); }
+
+        FF evaluate(size_t idx, const std::vector<FF>& powers_of_challenge)
+        {
+            return batches[idx].evaluate(powers_of_challenge);
+        }
     };
 
     static constexpr size_t MERGE_PROOF_SIZE()
@@ -92,12 +112,12 @@ template <size_t BATCH_SIZE> class MergeProver {
         return labels;
     }
 
-    std::vector<std::string> labels_shplonk_batching_challenges()
+    std::vector<std::string> labels_shplonk_batching_challenges(size_t num_challenges)
     {
         std::vector<std::string> labels;
-        labels.reserve(3 * NUM_COLUMNS + 1);
+        labels.reserve(num_challenges);
 
-        for (size_t idx = 0; idx < 3 * NUM_COLUMNS + 1; ++idx) {
+        for (size_t idx = 0; idx < num_challenges; ++idx) {
             labels.emplace_back("SHPLONK_MERGE_BATCHING_CHALLENGE_" + std::to_string(idx));
         }
         return labels;
@@ -122,8 +142,8 @@ template <size_t BATCH_SIZE> class MergeProver {
      * @param degree_check_challenges
      * @return Polynomial
      */
-    static std::array<Polynomial, BATCH_SIZE> compute_degree_check_polynomial(
-        const PolynomialBatch& left_columns, const std::vector<FF>& degree_check_challenges);
+    static Batch compute_degree_check_polynomial(const PolynomialBatch& left_columns,
+                                                 const std::vector<FF>& degree_check_challenges);
 
     /**
      * @brief Compute the batched Shplonk quotient polynomial.
@@ -168,6 +188,40 @@ template <size_t BATCH_SIZE> class MergeProver {
                                                       const FF& kappa_inv,
                                                       std::array<Polynomial, BATCH_SIZE>& reversed_batched_left_columns,
                                                       const std::vector<FF>& evals);
+
+    // Update the shplonk quotient by passing a vector of batches which are all evaluated at the same point
+    void update_shplonk_quotient(Polynomial& quotient,
+                                 const std::vector<Batch>& columns,
+                                 const std::vector<FF>& batching_challenges,
+                                 const std::vector<FF>& evals,
+                                 const FF& evaluation_point,
+                                 const size_t max_size);
+
+    // Update the shplonk quotient by passing a vector of batches which are all evaluated at the same point
+    // Overload for de interleaving case
+    void update_shplonk_quotient(Polynomial& quotient,
+                                 const std::array<Polynomial, NUM_WIRES>& tables,
+                                 const std::vector<FF>& batching_challenges,
+                                 const std::vector<FF>& evals,
+                                 const FF& evaluation_point,
+                                 const size_t max_size);
+
+    // Update the shplonk opening claim
+    void update_shplonk_opening_claim(OpeningClaim& opening_claim,
+                                      const std::vector<Batch>& columns,
+                                      const std::vector<FF>& batching_challenges,
+                                      const std::vector<FF>& evals,
+                                      const FF& scaling_factor,
+                                      const size_t max_size);
+
+    // Update the shplonk opening claim
+    // Overload for de interleaving case
+    void update_shplonk_opening_claim(OpeningClaim& opening_claim,
+                                      const std::array<Polynomial, NUM_WIRES>& tables,
+                                      const std::vector<FF>& batching_challenges,
+                                      const std::vector<FF>& evals,
+                                      const FF& scaling_factor,
+                                      const size_t max_size);
 };
 
 } // namespace bb
