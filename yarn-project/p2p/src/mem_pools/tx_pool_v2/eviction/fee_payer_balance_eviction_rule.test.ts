@@ -376,7 +376,7 @@ describe('FeePayerBalanceEvictionRule', () => {
 
         await rule.evict(context, pool);
 
-        expect(mockWorldState.syncImmediate).toHaveBeenCalledWith(BlockNumber(3));
+        expect(mockWorldState.syncImmediate).toHaveBeenCalledWith();
         expect(mockWorldState.getSnapshot).toHaveBeenCalledWith(BlockNumber(3));
       });
 
