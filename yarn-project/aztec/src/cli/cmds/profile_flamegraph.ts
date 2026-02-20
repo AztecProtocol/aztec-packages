@@ -1,7 +1,6 @@
 import type { LogFn } from '@aztec/foundation/log';
 
-import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'fs/promises';
-import { tmpdir } from 'os';
+import { readFile, rename, rm, writeFile } from 'fs/promises';
 import { basename, dirname, join } from 'path';
 
 import { makeFunctionArtifact } from './profile_utils.js';
@@ -26,21 +25,20 @@ export async function profileFlamegraph(artifactPath: string, functionName: stri
     throw new Error(`Function "${functionName}" is unconstrained and cannot be profiled`);
   }
 
-  const tmpDir = await mkdtemp(join(tmpdir(), 'aztec-flamegraph-'));
+  const outputDir = dirname(artifactPath);
+  const contractName = basename(artifactPath, '.json');
+  const functionArtifact = join(outputDir, `${contractName}-${functionName}.json`);
 
   try {
-    const tmpArtifact = join(tmpDir, 'artifact.json');
-    await writeFile(tmpArtifact, makeFunctionArtifact(artifact, func));
+    await writeFile(functionArtifact, makeFunctionArtifact(artifact, func));
 
     const profiler = process.env.PROFILER_PATH ?? 'noir-profiler';
     const bb = process.env.BB ?? 'bb';
-    const outputDir = join(tmpDir, 'output');
-    await mkdir(outputDir, { recursive: true });
 
     await run(profiler, [
       'gates',
       '--artifact-path',
-      tmpArtifact,
+      functionArtifact,
       '--backend-path',
       bb,
       '--backend-gates-command',
@@ -54,13 +52,12 @@ export async function profileFlamegraph(artifactPath: string, functionName: stri
 
     // noir-profiler names the SVG using the internal function name which
     // retains the __aztec_nr_internals__ prefix in the bytecode metadata.
-    const contractName = basename(artifactPath, '.json');
     const srcSvg = join(outputDir, `__aztec_nr_internals__${functionName}_gates.svg`);
-    const destSvg = join(dirname(artifactPath), `${contractName}-${functionName}-flamegraph.svg`);
+    const destSvg = join(outputDir, `${contractName}-${functionName}-flamegraph.svg`);
     await rename(srcSvg, destSvg);
 
     log(`Flamegraph written to ${destSvg}`);
   } finally {
-    await rm(tmpDir, { recursive: true, force: true });
+    await rm(functionArtifact, { force: true });
   }
 }
