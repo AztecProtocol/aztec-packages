@@ -23,12 +23,13 @@ type DerivedField<T extends BaseField> = {
 
 /**
  * Base field class.
- * Uses bigint as the internal representation.
- * Buffers are generated on demand from the bigint value.
+ * Internally stores either a bigint, a 32-byte Buffer, or both.
+ * Conversions between representations are deferred until needed and then cached.
  */
 abstract class BaseField {
   static SIZE_IN_BYTES = 32;
-  private readonly asBigInt: bigint;
+  private _asBuffer: Buffer | undefined;
+  private _asBigInt: bigint | undefined;
 
   /**
    * Return bigint representation.
@@ -48,41 +49,61 @@ abstract class BaseField {
       if (value.length > BaseField.SIZE_IN_BYTES) {
         throw new Error(`Value length ${value.length} exceeds ${BaseField.SIZE_IN_BYTES}`);
       }
-      this.asBigInt = toBigIntBE(value);
+      if (value.length < BaseField.SIZE_IN_BYTES) {
+        const padded = Buffer.alloc(BaseField.SIZE_IN_BYTES);
+        value.copy(padded, BaseField.SIZE_IN_BYTES - value.length);
+        this._asBuffer = padded;
+      } else {
+        this._asBuffer = Buffer.from(value);
+      }
+      const modulusBuf = this.modulusBuffer();
+      if (modulusBuf !== undefined && Buffer.compare(this._asBuffer, modulusBuf) >= 0) {
+        throw new Error(`Value 0x${this._asBuffer.toString('hex')} is greater or equal to field modulus.`);
+      }
     } else if (typeof value === 'bigint' || typeof value === 'number' || typeof value === 'boolean') {
-      this.asBigInt = BigInt(value);
+      this._asBigInt = BigInt(value);
+      if (this._asBigInt < 0n) {
+        throw new Error(`Value 0x${this._asBigInt.toString(16)} is negative.`);
+      } else if (this._asBigInt >= this.modulus()) {
+        throw new Error(`Value 0x${this._asBigInt.toString(16)} is greater or equal to field modulus.`);
+      }
     } else if (value instanceof BaseField) {
-      this.asBigInt = value.asBigInt;
+      this._asBuffer = value._asBuffer;
+      this._asBigInt = value._asBigInt;
     } else {
       throw new Error(`Type '${typeof value}' with value '${value}' passed to BaseField ctor.`);
-    }
-
-    if (this.asBigInt < 0n) {
-      throw new Error(`Value 0x${this.asBigInt.toString(16)} is negative.`);
-    } else if (this.asBigInt >= this.modulus()) {
-      throw new Error(`Value 0x${this.asBigInt.toString(16)} is greater or equal to field modulus.`);
     }
   }
 
   protected abstract modulus(): bigint;
 
-  /**
-   * Converts the bigint to a Buffer.
-   */
+  /** Returns the modulus as a 32-byte Buffer for buffer-based validation. */
+  protected abstract modulusBuffer(): Buffer;
+
+  toBigInt(): bigint {
+    if (this._asBigInt === undefined) {
+      this._asBigInt = toBigIntBE(this._asBuffer!);
+    }
+    return this._asBigInt;
+  }
+
+  /** Converts to a 32-byte big-endian Buffer. Returns a copy of the internal buffer. */
   toBuffer(): Buffer {
-    return toBufferBE(this.asBigInt, 32);
+    if (this._asBuffer === undefined) {
+      this._asBuffer = toBufferBE(this._asBigInt!, 32);
+    }
+    return Buffer.from(this._asBuffer);
   }
 
   toString(): `0x${string}` {
-    return `0x${this.asBigInt.toString(16).padStart(64, '0')}`;
-  }
-
-  toBigInt(): bigint {
-    return this.asBigInt;
+    if (this._asBuffer !== undefined) {
+      return `0x${this._asBuffer.toString('hex')}`;
+    }
+    return `0x${this._asBigInt!.toString(16).padStart(64, '0')}`;
   }
 
   toBool(): boolean {
-    return this.asBigInt !== 0n;
+    return !this.isZero();
   }
 
   /**
@@ -90,10 +111,11 @@ abstract class BaseField {
    * Throws if the underlying value is greater than MAX_SAFE_INTEGER.
    */
   toNumber(): number {
-    if (this.asBigInt > Number.MAX_SAFE_INTEGER) {
-      throw new Error(`Value ${this.asBigInt.toString(16)} greater than than max safe integer`);
+    const bi = this.toBigInt();
+    if (bi > Number.MAX_SAFE_INTEGER) {
+      throw new Error(`Value ${bi.toString(16)} greater than than max safe integer`);
     }
-    return Number(this.asBigInt);
+    return Number(bi);
   }
 
   /**
@@ -101,7 +123,7 @@ abstract class BaseField {
    * May cause loss of precision if the underlying value is greater than MAX_SAFE_INTEGER.
    */
   toNumberUnsafe(): number {
-    return Number(this.asBigInt);
+    return Number(this.toBigInt());
   }
 
   toShortString(): string {
@@ -110,16 +132,35 @@ abstract class BaseField {
   }
 
   equals(rhs: BaseField): boolean {
-    return this.asBigInt === rhs.asBigInt;
+    if (this._asBigInt !== undefined && rhs._asBigInt !== undefined) {
+      return this._asBigInt === rhs._asBigInt;
+    }
+    if (this._asBuffer !== undefined && rhs._asBuffer !== undefined) {
+      return this._asBuffer.equals(rhs._asBuffer);
+    }
+    return this.toBigInt() === rhs.toBigInt();
   }
 
   lt(rhs: BaseField): boolean {
-    return this.asBigInt < rhs.asBigInt;
+    if (this._asBigInt !== undefined && rhs._asBigInt !== undefined) {
+      return this._asBigInt < rhs._asBigInt;
+    }
+    if (this._asBuffer !== undefined && rhs._asBuffer !== undefined) {
+      return Buffer.compare(this._asBuffer, rhs._asBuffer) < 0;
+    }
+    return this.toBigInt() < rhs.toBigInt();
   }
 
   cmp(rhs: BaseField): -1 | 0 | 1 {
-    const rhsBigInt = rhs.asBigInt;
-    return this.asBigInt === rhsBigInt ? 0 : this.asBigInt < rhsBigInt ? -1 : 1;
+    if (this._asBigInt !== undefined && rhs._asBigInt !== undefined) {
+      return this._asBigInt === rhs._asBigInt ? 0 : this._asBigInt < rhs._asBigInt ? -1 : 1;
+    }
+    if (this._asBuffer !== undefined && rhs._asBuffer !== undefined) {
+      return Buffer.compare(this._asBuffer, rhs._asBuffer) as -1 | 0 | 1;
+    }
+    const lBigInt = this.toBigInt();
+    const rBigInt = rhs.toBigInt();
+    return lBigInt === rBigInt ? 0 : lBigInt < rBigInt ? -1 : 1;
   }
 
   static cmp(lhs: BaseField, rhs: BaseField): -1 | 0 | 1 {
@@ -127,7 +168,16 @@ abstract class BaseField {
   }
 
   isZero(): boolean {
-    return this.asBigInt === 0n;
+    if (this._asBigInt !== undefined) {
+      return this._asBigInt === 0n;
+    }
+    const buf = this._asBuffer!;
+    for (let i = 0; i < buf.length; i++) {
+      if (buf[i] !== 0) {
+        return false;
+      }
+    }
+    return true;
   }
 
   isEmpty(): boolean {
@@ -178,9 +228,9 @@ function fromHexString<T extends BaseField>(buf: string, f: DerivedField<T>) {
     throw new Error(`Invalid hex-encoded string: "${buf}"`);
   }
 
-  const buffer = Buffer.from(checked.length % 2 === 1 ? '0' + checked : checked, 'hex');
+  const buffer = Buffer.from(checked.padStart(64, '0'), 'hex');
 
-  return new f(toBigIntBE(buffer));
+  return new f(buffer);
 }
 
 /** Branding to ensure fields are not interchangeable types. */
@@ -198,6 +248,7 @@ export class Fr extends BaseField {
   static ZERO = new Fr(0n);
   static ONE = new Fr(1n);
   static MODULUS = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001n;
+  static MODULUS_BUFFER = toBufferBE(Fr.MODULUS, 32);
   static MAX_FIELD_VALUE = new Fr(this.MODULUS - 1n);
 
   constructor(value: number | bigint | boolean | Fr | Buffer) {
@@ -210,6 +261,10 @@ export class Fr extends BaseField {
 
   protected modulus() {
     return Fr.MODULUS;
+  }
+
+  protected modulusBuffer() {
+    return Fr.MODULUS_BUFFER;
   }
 
   static random() {
@@ -242,7 +297,7 @@ export class Fr extends BaseField {
    */
   static fromString(buf: string) {
     if (buf.match(/^\d+$/) !== null) {
-      return new Fr(toBufferBE(BigInt(buf), 32));
+      return new Fr(BigInt(buf));
     }
     if (buf.match(/^0x/i) !== null) {
       return fromHexString(buf, Fr);
@@ -360,6 +415,7 @@ export interface Fq {
 export class Fq extends BaseField {
   static ZERO = new Fq(0n);
   static MODULUS = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47n;
+  static MODULUS_BUFFER = toBufferBE(Fq.MODULUS, 32);
   private static HIGH_SHIFT = BigInt((BaseField.SIZE_IN_BYTES / 2) * 8);
   private static LOW_MASK = (1n << Fq.HIGH_SHIFT) - 1n;
 
@@ -381,6 +437,10 @@ export class Fq extends BaseField {
 
   protected modulus() {
     return Fq.MODULUS;
+  }
+
+  protected modulusBuffer() {
+    return Fq.MODULUS_BUFFER;
   }
 
   static random() {
@@ -409,7 +469,7 @@ export class Fq extends BaseField {
    */
   static fromString(buf: string) {
     if (buf.match(/^\d+$/) !== null) {
-      return new Fq(toBufferBE(BigInt(buf), 32));
+      return new Fq(BigInt(buf));
     }
     if (buf.match(/^0x/i) !== null) {
       return fromHexString(buf, Fq);

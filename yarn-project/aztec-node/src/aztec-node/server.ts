@@ -818,8 +818,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
 
     await this.p2pClient!.sendTx(tx);
-    this.metrics.receivedTx(timer.ms(), true);
-    this.log.info(`Received tx ${txHash}`, { txHash });
+    const duration = timer.ms();
+    this.metrics.receivedTx(duration, true);
+    this.log.info(`Received tx ${txHash} in ${duration}ms`, { txHash });
   }
 
   public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
