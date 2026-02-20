@@ -89,5 +89,11 @@ pub fn meter_gas_used(public_inputs: PrivateKernelCircuitPublicInputs, is_for_pu
 
     let metered_da_gas = metered_da_fields * DA_GAS_PER_FIELD;
 
-    Gas::tx_overhead() + Gas::new(metered_da_gas, metered_l2_gas) + teardown_gas
+    let overhead = if is_for_public {
+        Gas::public_tx_overhead()
+    } else {
+        Gas::private_tx_overhead()
+    };
+
+    overhead + Gas::new(metered_da_gas, metered_l2_gas) + teardown_gas
 }
