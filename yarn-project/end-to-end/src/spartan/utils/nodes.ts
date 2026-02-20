@@ -255,21 +255,18 @@ export async function initHADb(namespace: string): Promise<void> {
 }
 
 /**
- * Enables or disables probabilistic transaction dropping on validators and waits for rollout.
- * Wired to env vars P2P_DROP_TX and P2P_DROP_TX_CHANCE via Helm values.
+ * Sets probabilistic transaction dropping on validators and waits for rollout.
+ * Use probability=0 to disable. Wired to env var P2P_DROP_TX_CHANCE via Helm values.
  */
 export async function setValidatorTxDrop({
   namespace,
-  enabled,
   probability,
   logger: log,
 }: {
   namespace: string;
-  enabled: boolean;
   probability: number;
   logger: Logger;
 }) {
-  const drop = enabled ? 'true' : 'false';
   const prob = String(probability);
 
   const selectors = ['app.kubernetes.io/name=validator', 'app.kubernetes.io/component=validator', 'app=validator'];
@@ -284,7 +281,7 @@ export async function setValidatorTxDrop({
       if (names.length === 0) {
         continue;
       }
-      const cmd = `kubectl set env statefulset -l ${selector} -n ${namespace} P2P_DROP_TX=${drop} P2P_DROP_TX_CHANCE=${prob}`;
+      const cmd = `kubectl set env statefulset -l ${selector} -n ${namespace} P2P_DROP_TX_CHANCE=${prob}`;
       log.info(`command: ${cmd}`);
       await execAsync(cmd);
       updated = true;
