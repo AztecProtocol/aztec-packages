@@ -8,6 +8,16 @@
 
 namespace bb::avm2::tracegen {
 
+/**
+ * @brief Process the greater-than events and populate the relevant columns in the trace.
+ *
+ * For each event, computes the absolute difference (a - b - 1 if a > b, or b - a otherwise)
+ * and the smallest multiple-of-16 bit width that bounds it. Each event produces one trace row
+ * with columns: gt_sel, gt_input_a, gt_input_b, gt_res, gt_abs_diff, gt_num_bits.
+ *
+ * @param events Container of GreaterThanEvent to process.
+ * @param trace The trace container to populate with generated rows.
+ */
 void GreaterThanTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::GreaterThanEvent>::Container& events, TraceContainer& trace)
 {
