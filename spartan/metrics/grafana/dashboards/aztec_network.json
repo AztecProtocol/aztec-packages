@@ -2676,6 +2676,504 @@
       ],
       "title": "Archiver Sync Duration (P95)",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "default": true,
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "description": "Distribution of checkpoint L1 inclusion delays by time bucket (seconds into L2 slot)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 0,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "percent"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*0-5s.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "dark-green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*5-10s.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*10-15s.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "semi-dark-yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*15-20s.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*20-30s.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*30\\+s.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "dark-red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 64
+      },
+      "id": 40,
+      "interval": "1m",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "(\n  sum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_bucket{k8s_namespace_name=~\"$namespace\", le=\"5\"}[$__rate_interval])) by (le)\n  - ignoring(le) sum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_bucket{k8s_namespace_name=~\"$namespace\", le=\"0\"}[$__rate_interval]))\n)\n/\nsum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_count{k8s_namespace_name=~\"$namespace\"}[$__rate_interval]))",
+          "legendFormat": "0-5s",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "(\n  sum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_bucket{k8s_namespace_name=~\"$namespace\", le=\"10\"}[$__rate_interval])) by (le)\n  - ignoring(le) sum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_bucket{k8s_namespace_name=~\"$namespace\", le=\"5\"}[$__rate_interval]))\n)\n/\nsum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_count{k8s_namespace_name=~\"$namespace\"}[$__rate_interval]))",
+          "hide": false,
+          "legendFormat": "5-10s",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "(\n  sum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_bucket{k8s_namespace_name=~\"$namespace\", le=\"15\"}[$__rate_interval])) by (le)\n  - ignoring(le) sum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_bucket{k8s_namespace_name=~\"$namespace\", le=\"10\"}[$__rate_interval]))\n)\n/\nsum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_count{k8s_namespace_name=~\"$namespace\"}[$__rate_interval]))",
+          "hide": false,
+          "legendFormat": "10-15s",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "(\n  sum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_bucket{k8s_namespace_name=~\"$namespace\", le=\"20\"}[$__rate_interval])) by (le)\n  - ignoring(le) sum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_bucket{k8s_namespace_name=~\"$namespace\", le=\"15\"}[$__rate_interval]))\n)\n/\nsum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_count{k8s_namespace_name=~\"$namespace\"}[$__rate_interval]))",
+          "hide": false,
+          "legendFormat": "15-20s",
+          "range": true,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "(\n  sum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_bucket{k8s_namespace_name=~\"$namespace\", le=\"30\"}[$__rate_interval])) by (le)\n  - ignoring(le) sum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_bucket{k8s_namespace_name=~\"$namespace\", le=\"20\"}[$__rate_interval]))\n)\n/\nsum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_count{k8s_namespace_name=~\"$namespace\"}[$__rate_interval]))",
+          "hide": false,
+          "legendFormat": "20-30s",
+          "range": true,
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "(\n  sum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_count{k8s_namespace_name=~\"$namespace\"}[$__rate_interval]))\n  - sum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_bucket{k8s_namespace_name=~\"$namespace\", le=\"30\"}[$__rate_interval]))\n)\n/\nsum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_count{k8s_namespace_name=~\"$namespace\"}[$__rate_interval]))",
+          "hide": false,
+          "legendFormat": "30+s",
+          "range": true,
+          "refId": "F"
+        }
+      ],
+      "title": "Checkpoint L1 Inclusion Delay Distribution",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "default": true,
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "description": "Absolute count of checkpoints by L1 inclusion delay bucket",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 60,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 0,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "cps"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*0-5s.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "dark-green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*5-10s.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*10-15s.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "semi-dark-yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*15-20s.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*20-30s.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*30\\+s.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "dark-red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 72
+      },
+      "id": 41,
+      "interval": "1m",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_bucket{k8s_namespace_name=~\"$namespace\", le=\"5\"}[$__rate_interval])) by (le)\n- ignoring(le) sum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_bucket{k8s_namespace_name=~\"$namespace\", le=\"0\"}[$__rate_interval]))",
+          "legendFormat": "0-5s",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_bucket{k8s_namespace_name=~\"$namespace\", le=\"10\"}[$__rate_interval])) by (le)\n- ignoring(le) sum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_bucket{k8s_namespace_name=~\"$namespace\", le=\"5\"}[$__rate_interval]))",
+          "hide": false,
+          "legendFormat": "5-10s",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_bucket{k8s_namespace_name=~\"$namespace\", le=\"15\"}[$__rate_interval])) by (le)\n- ignoring(le) sum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_bucket{k8s_namespace_name=~\"$namespace\", le=\"10\"}[$__rate_interval]))",
+          "hide": false,
+          "legendFormat": "10-15s",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_bucket{k8s_namespace_name=~\"$namespace\", le=\"20\"}[$__rate_interval])) by (le)\n- ignoring(le) sum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_bucket{k8s_namespace_name=~\"$namespace\", le=\"15\"}[$__rate_interval]))",
+          "hide": false,
+          "legendFormat": "15-20s",
+          "range": true,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_bucket{k8s_namespace_name=~\"$namespace\", le=\"30\"}[$__rate_interval])) by (le)\n- ignoring(le) sum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_bucket{k8s_namespace_name=~\"$namespace\", le=\"20\"}[$__rate_interval]))",
+          "hide": false,
+          "legendFormat": "20-30s",
+          "range": true,
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_count{k8s_namespace_name=~\"$namespace\"}[$__rate_interval]))\n- sum(rate(aztec_archiver_checkpoint_l1_inclusion_delay_bucket{k8s_namespace_name=~\"$namespace\", le=\"30\"}[$__rate_interval]))",
+          "hide": false,
+          "legendFormat": "30+s",
+          "range": true,
+          "refId": "F"
+        }
+      ],
+      "title": "Checkpoint L1 Inclusion Delay Count",
+      "type": "timeseries"
     }
   ],
   "preload": false,

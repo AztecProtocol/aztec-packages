@@ -796,6 +796,14 @@ export class ArchiverL1Synchronizer implements Traceable {
         );
       }
 
+      for (const published of validCheckpoints) {
+        this.instrumentation.processCheckpointL1Timing({
+          slotNumber: published.checkpoint.header.slotNumber,
+          l1Timestamp: published.l1.timestamp,
+          l1Constants: this.l1Constants,
+        });
+      }
+
       try {
         const updatedValidationResult =
           rollupStatus.validationResult === initialValidationResult ? undefined : rollupStatus.validationResult;
