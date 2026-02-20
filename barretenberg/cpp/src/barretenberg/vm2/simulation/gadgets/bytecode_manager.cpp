@@ -28,7 +28,7 @@ namespace bb::avm2::simulation {
  *        - we have reached the limit of the number of bytecodes to retrieve for this tx
  * @throws Unexpected exception if
  *        - the contract class for the retrieved instance does not exist
- *        - the bytecode commitment the retrieved instance does not exist
+ *        - the bytecode commitment for the retrieved instance does not exist
  *        - the bytecode commitment does not match the calculated hash (inside assert_public_bytecode_commitment())
  *          Note: the deployer contract guarantees that if we have a deployed instance, its contract class and hence its
  *          bytecode commitment must exist. If the contract is not deployed, this is caught by the above

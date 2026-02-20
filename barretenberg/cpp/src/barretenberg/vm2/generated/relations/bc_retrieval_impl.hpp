@@ -31,9 +31,9 @@ void bc_retrievalImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // TRACE_CONTINUITY
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
-        auto tmp =
-            (FF(1) - static_cast<View>(in.get(C::precomputed_first_row))) *
-            (static_cast<View>(in.get(C::bc_retrieval_sel)) - static_cast<View>(in.get(C::bc_retrieval_sel_shift)));
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::precomputed_first_row))) *
+                   (FF(1) - static_cast<View>(in.get(C::bc_retrieval_sel))) *
+                   static_cast<View>(in.get(C::bc_retrieval_sel_shift));
         std::get<1>(evals) += (tmp * scaling_factor);
     }
     {

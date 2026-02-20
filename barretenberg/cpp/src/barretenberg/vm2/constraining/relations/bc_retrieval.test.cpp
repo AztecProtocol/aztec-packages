@@ -317,7 +317,7 @@ class BytecodeRetrievalConstrainingTestFewerMocks : public BytecodeRetrievalCons
     PrecomputedTraceBuilder precomputed_builder;
 };
 
-TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRetrievalNoMocks)
+TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRetrievalFewerMocks)
 {
     TestTraceContainer trace = init_trace();
 
@@ -403,7 +403,7 @@ TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRetrievalNoMocks)
     check_all_interactions<ClassIdDerivationTraceBuilder>(trace);
 }
 
-TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRepeatedRetrievalNoMocks)
+TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRepeatedRetrievalFewerMocks)
 {
     TestTraceContainer trace = init_trace();
 
@@ -507,9 +507,12 @@ TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRepeatedRetrievalN
     check_all_interactions<BytecodeTraceBuilder>(trace);
     check_all_interactions<ClassIdDerivationTraceBuilder>(trace);
 
+    // We cannot claim the second retrieval refers to a new class:
+    // (1) The lookup into the transient tree will have leaf_not_exists == 0 at the root, which is
+    // constrained in execution to either be continuous or correctly transitioned when adding a bytecode:
     trace.set(C::bc_retrieval_is_new_class, 2, 1);
     EXPECT_THROW_WITH_MESSAGE(check_all_interactions<BytecodeTraceBuilder>(trace), "IS_NEW_CLASS_CHECK");
-
+    // (2) Attempting to maliciously set leaf_not_exists == 1 will fail the transient tree's leaf checks:
     trace.set(C::retrieved_bytecodes_tree_check_leaf_not_exists, 2, 1);
     check_all_interactions<BytecodeTraceBuilder>(trace);
     check_relation<bc_retrieval>(trace);

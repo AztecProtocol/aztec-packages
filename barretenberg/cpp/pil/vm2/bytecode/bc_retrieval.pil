@@ -106,9 +106,9 @@ sel * (1 - sel) = 0;
 #[skippable_if]
 sel = 0;
 
-// See common recipes: https://hackmd.io/moq6viBpRJeLpWrHAogCZw#Contiguous-Multi-Rows-Computation-Trace
+// If sel = 0, and it's not the first row, then all following rows should have sel = 0.
 #[TRACE_CONTINUITY]
-(1 - precomputed.first_row) * (sel - sel') = 0;
+(1 - precomputed.first_row) * (1 - sel) * sel' = 0;
 
 // This id is the bytecode commitment itself (bytecode_id == public_bytecode_commitment).
 // Note: This is constrained in bc_hashing <-> bc_decomposition, where the latter is looked up via instr_fetching (#[BYTES_FROM_BC_DEC]).

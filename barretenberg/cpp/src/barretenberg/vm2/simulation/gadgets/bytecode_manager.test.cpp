@@ -109,6 +109,7 @@ TEST_F(BytecodeManagerTest, RetrievalAndDeduplication)
     EXPECT_THAT(retrieval_events_dump, SizeIs(1));
     EXPECT_EQ(retrieval_events_dump[0].address, address1);
     EXPECT_EQ(retrieval_events_dump[0].bytecode_id, bytecode_commitment);
+    EXPECT_TRUE(retrieval_events_dump[0].is_new_class);
     EXPECT_FALSE(retrieval_events_dump[0].instance_not_found_error);
     EXPECT_FALSE(retrieval_events_dump[0].limit_error);
     // Verify hashing events - should have exactly one hashing event total
@@ -145,6 +146,7 @@ TEST_F(BytecodeManagerTest, RetrievalAndDeduplication)
     EXPECT_THAT(retrieval_events_dump, SizeIs(1));
     EXPECT_EQ(retrieval_events_dump[0].address, address1);
     EXPECT_EQ(retrieval_events_dump[0].bytecode_id, bytecode_commitment);
+    EXPECT_FALSE(retrieval_events_dump[0].is_new_class);
     hashing_events_dump = hashing_events.dump_events();
     EXPECT_THAT(hashing_events_dump, SizeIs(0)); // No hashing for deduplicated bytecode
     decomposition_events_dump = decomposition_events.dump_events();
@@ -179,6 +181,7 @@ TEST_F(BytecodeManagerTest, RetrievalAndDeduplication)
     EXPECT_THAT(retrieval_events_dump, SizeIs(1));
     EXPECT_EQ(retrieval_events_dump[0].address, address2);
     EXPECT_EQ(retrieval_events_dump[0].bytecode_id, bytecode_commitment);
+    EXPECT_FALSE(retrieval_events_dump[0].is_new_class);
     hashing_events_dump = hashing_events.dump_events();
     EXPECT_THAT(hashing_events_dump, SizeIs(0)); // No hashing for deduplicated bytecode
     decomposition_events_dump = decomposition_events.dump_events();
