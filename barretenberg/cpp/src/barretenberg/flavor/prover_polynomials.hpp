@@ -31,7 +31,7 @@ class ProverPolynomialsBase : public AllEntitiesBase {
     ProverPolynomialsBase(ProverPolynomialsBase&& o) noexcept = default;
     ProverPolynomialsBase& operator=(ProverPolynomialsBase&& o) noexcept = default;
     ~ProverPolynomialsBase() = default;
-    [[nodiscard]] size_t get_polynomial_size() const { return this->q_c.virtual_size(); }
+    [[nodiscard]] size_t get_polynomial_size() const { return this->q_c.size(); }
     [[nodiscard]] AllValuesType get_row(size_t row_idx) const
     {
         AllValuesType result;
@@ -62,6 +62,16 @@ class ProverPolynomialsBase : public AllEntitiesBase {
         for (auto [shifted, to_be_shifted] : zip_view(this->get_shifted(), this->get_to_be_shifted())) {
             shifted = to_be_shifted.shifted();
         }
+    }
+
+    // Returns the maximum end_index across all polynomials (i.e. the actual data extent)
+    [[nodiscard]] size_t max_end_index() const
+    {
+        size_t result = 0;
+        for (const auto& poly : this->get_all()) {
+            result = std::max(result, poly.end_index());
+        }
+        return result;
     }
 
     void increase_polynomials_virtual_size(const size_t size_in)

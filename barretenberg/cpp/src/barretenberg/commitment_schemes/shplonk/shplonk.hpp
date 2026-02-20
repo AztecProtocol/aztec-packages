@@ -62,8 +62,13 @@ template <typename Curve> class ShplonkProver_ {
             }
         }
         // The polynomials in Sumcheck Round claims and Libra opening claims are generally not dyadic,
-        // so we round up to the next power of 2.
-        max_poly_size = numeric::round_up_power_2(max_poly_size);
+        // so we round up to the next power of 2 when they are present. When only Gemini claims exist
+        // (non-ZK path), all claim polynomials already have well-defined sizes and rounding is unnecessary.
+        // Skipping the round-up allows the quotient Q to be sized at max_end_index rather than dyadic_size,
+        // reducing the CRS requirement for non-ZK proofs.
+        if (!libra_opening_claims.empty() || !sumcheck_round_claims.empty()) {
+            max_poly_size = numeric::round_up_power_2(max_poly_size);
+        }
 
         // Q(X) = ∑ⱼ νʲ ⋅ ( fⱼ(X) − vⱼ) / ( X − xⱼ )
         Polynomial Q(max_poly_size);
