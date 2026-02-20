@@ -1035,5 +1035,14 @@ def test_timings():
     return "Dashboard not found", 404
 
 
+@app.route('/ci-health-report')
+@auth.login_required
+def ci_health_report():
+    path = Path(__file__).parent / 'views' / 'ci-health-report.html'
+    if path.exists():
+        return path.read_text()
+    return "Report not found", 404
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8081)
