@@ -137,7 +137,7 @@ describe('InvalidTxsAfterReorgRule', () => {
         expect(result.txsEvicted).toContain('0x1111');
         expect(result.txsEvicted).toContain('0x2222');
         // Ensure syncImmediate is called before accessing the world state snapshot
-        expect(worldState.syncImmediate).toHaveBeenCalledWith(BlockNumber(1));
+        expect(worldState.syncImmediate).toHaveBeenCalledWith();
       });
 
       it('handles large number of transactions efficiently', async () => {
