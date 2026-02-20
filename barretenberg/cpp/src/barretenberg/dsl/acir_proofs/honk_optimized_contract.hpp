@@ -299,12 +299,6 @@ inline std::string generate_memory_offsets(int log_n)
     print_fr(pointer, "GEMINI_R_INV_LOC");
     pointer += 32;
 
-    // Inverted gemini denominators
-    for (int i = 0; i < log_n + 1; ++i) {
-        print_fr(pointer, "INVERTED_GEMINI_DENOMINATOR_" + std::to_string(i) + "_LOC");
-        pointer += 32;
-    }
-
     // Batched evaluation accumulator inversions
     for (int i = 0; i < log_n; ++i) {
         print_fr(pointer, "BATCH_EVALUATION_ACCUMULATOR_INVERSION_" + std::to_string(i) + "_LOC");
@@ -1364,6 +1358,10 @@ contract HonkVerifier is IVerifier {
                             }
 
                             accumulator := mload(0x00)
+                            if iszero(accumulator) {
+                                mstore(0x00, MODEXP_FAILED_SELECTOR)
+                                revert(0x00, 0x04)
+                            }
                         }
 
                         // --- Shplemini backward pass ---
@@ -2578,9 +2576,6 @@ contract HonkVerifier is IVerifier {
                 //   POS_INVERTED_DENOM_0..14
                 //   NEG_INVERTED_DENOM_0..14
                 // Total: 3*LOG_N
-
-                // INVERTED_GEMINI_DENOMINATOR_0 = POS_INVERTED_DENOM_0 (same value)
-                mstore(INVERTED_GEMINI_DENOMINATOR_0_LOC, mload(POS_INVERTED_DENOM_0_LOC))
 
                 // Compute unshifted_scalar and shifted_scalar using the copied inverses
                 let pos_inverted_denominator := mload(POS_INVERTED_DENOM_0_LOC)

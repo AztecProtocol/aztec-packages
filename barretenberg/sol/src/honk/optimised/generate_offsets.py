@@ -319,12 +319,6 @@ def print_powers_of_evaluation_challenge(pointer: int):
         pointer += 32
     return pointer
 
-def print_inverted_gemini_denominators(pointer: int):
-    for i in range(0, PROOF_SIZE_LOG_N + 1):
-        print_fr(pointer, "INVERTED_GEMINI_DENOMINATOR_" + str(i) + "_LOC")
-        pointer += 32
-    return pointer
-
 # TODO: double check this value
 def print_batched_evaluation_accumulator_inversions(pointer: int):
     BATCH_SIZE = 15
@@ -344,7 +338,6 @@ def print_gemini_r_inv(pointer: int):
     return pointer
 
 def print_inversions(pointer: int):
-    pointer = print_inverted_gemini_denominators(pointer)
     pointer = print_batched_evaluation_accumulator_inversions(pointer)
 
     print("")
