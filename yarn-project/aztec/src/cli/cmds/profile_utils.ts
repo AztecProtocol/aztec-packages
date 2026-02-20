@@ -44,7 +44,7 @@ export async function discoverArtifacts(
 }
 
 /** Extracts a contract function as a standalone program artifact JSON string. */
-function makeFunctionArtifact(artifact: CompiledArtifact, func: ContractFunction) {
+export function makeFunctionArtifact(artifact: CompiledArtifact, func: ContractFunction) {
   /* eslint-disable camelcase */
   return JSON.stringify({
     noir_version: artifact.noir_version,
