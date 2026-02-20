@@ -13,16 +13,20 @@
 using namespace bb;
 using namespace bb::crypto;
 
+namespace {
+
 std::array<uint8_t, 32> hex_to_bytes(const std::string& hex)
 {
     std::array<uint8_t, 32> bytes;
     for (unsigned int i = 0; i < hex.length(); i += 2) {
         std::string byteString = hex.substr(i, 2);
-        uint8_t byte = (uint8_t)strtol(byteString.c_str(), nullptr, 16);
+        uint8_t byte = static_cast<uint8_t>(strtol(byteString.c_str(), nullptr, 16));
         bytes[i >> 1] = byte;
     }
     return bytes;
 }
+
+} // namespace
 
 struct TestData {
     std::string key;
