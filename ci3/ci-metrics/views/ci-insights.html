@@ -145,7 +145,7 @@
         <div class="chart-wrap med"><canvas id="ciTotalTimeChart"></canvas></div>
       </div>
       <div class="chart-box full">
-        <h3>ci time by pipeline &amp; phase</h3>
+        <h3>P95 build time by pipeline &amp; phase (secs)</h3>
         <div class="chart-wrap med"><canvas id="phaseChart"></canvas></div>
       </div>
     </div>
@@ -640,7 +640,7 @@
       };
       const defaultColors = ['#388bfd', '#f85149', '#56d364', '#79c0ff', '#d2a8ff', '#f0883e', '#ff7b72', '#a5d6ff', '#e3b341', '#8b949e', '#da3633', '#a371f7'];
 
-      // Compute totals per dashboard for top labels (values are already total_secs from API)
+      // Sum of P95 values per dashboard (for stacked bar totals in tooltip)
       const totals = dashboards.map(d => phases.reduce((s, p) => s + (dashData[d]?.[p] || 0), 0));
 
       const datasets = phases.map((p, i) => ({
@@ -658,7 +658,7 @@
           interaction: { mode: 'index', intersect: false },
           scales: {
             x: { stacked: true, ticks: { color: '#ccc', font: { family: 'monospace', size: 12 } }, grid: { color: '#181818' } },
-            y: { stacked: true, title: { display: true, text: 'total time', color: '#555', font: { size: 10 } }, ticks: { color: '#555', callback: v => v >= 3600 ? (v / 3600).toFixed(0) + 'h' : (v / 60).toFixed(0) + 'm' }, grid: { color: '#181818' } }
+            y: { stacked: true, title: { display: true, text: 'P95 secs', color: '#555', font: { size: 10 } }, ticks: { color: '#555', callback: v => v >= 3600 ? (v / 3600).toFixed(0) + 'h' : v >= 60 ? (v / 60).toFixed(0) + 'm' : v + 's' }, grid: { color: '#181818' } }
           },
           plugins: {
             legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },

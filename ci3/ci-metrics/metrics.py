@@ -350,29 +350,36 @@ def get_phases(date_from: str, date_to: str, dashboard: str = '',
             'exit_code': row['exit_code'],
         })
 
-    # Aggregate by dashboard: total duration per phase per pipeline
-    # Exclude cache-download/cache-upload — those are S3 transfer noise;
-    # the project-level ci_phase wrappers capture the meaningful build time.
-    dash_rows = db.query(f'''
-        SELECT dashboard, phase,
-               ROUND(AVG(duration_secs), 1) as avg_secs,
-               COUNT(*) as count,
-               ROUND(SUM(duration_secs), 0) as total_secs
+    # Aggregate by dashboard: P95 duration per phase per pipeline.
+    # Step 1: sum durations within each (dashboard, phase, run_id) — multiple machines
+    # running the same phase in one run are summed, not counted separately.
+    # Step 2: compute P95 across run_ids in Python.
+    per_run_rows = db.query(f'''
+        SELECT dashboard, phase, run_id,
+               ROUND(SUM(duration_secs), 3) as run_total
         FROM ci_phases {where}
         AND dashboard != ''
-        AND phase NOT LIKE 'cache-download:%'
-        AND phase NOT LIKE 'cache-upload:%'
-        GROUP BY dashboard, phase
-        ORDER BY dashboard, total_secs DESC
+        AND run_id != ''
+        GROUP BY dashboard, phase, run_id
     ''', params)
+
+    import math
+    from collections import defaultdict
+    run_totals: dict[tuple, list] = defaultdict(list)
+    for row in per_run_rows:
+        run_totals[(row['dashboard'], row['phase'])].append(row['run_total'])
+
     by_dashboard: dict[str, dict] = {}
-    for row in dash_rows:
-        d = row['dashboard']
-        if d not in by_dashboard:
-            by_dashboard[d] = {'dashboard': d, 'phases': {}, 'total_secs': 0, 'count': 0}
-        by_dashboard[d]['phases'][row['phase']] = row['total_secs']
-        by_dashboard[d]['total_secs'] += row['total_secs']
-        by_dashboard[d]['count'] = max(by_dashboard[d]['count'], row['count'])
+    for (dash, phase), totals in sorted(run_totals.items()):
+        totals_s = sorted(totals)
+        n = len(totals_s)
+        p95_idx = min(math.ceil(0.95 * n) - 1, n - 1)
+        p95 = round(totals_s[p95_idx], 1)
+        if dash not in by_dashboard:
+            by_dashboard[dash] = {'dashboard': dash, 'phases': {}, 'total_secs': 0, 'count': 0}
+        by_dashboard[dash]['phases'][phase] = p95
+        by_dashboard[dash]['total_secs'] += sum(totals_s)
+        by_dashboard[dash]['count'] = max(by_dashboard[dash]['count'], n)
     for d in by_dashboard.values():
         d['total_secs'] = round(d['total_secs'], 1)
 
