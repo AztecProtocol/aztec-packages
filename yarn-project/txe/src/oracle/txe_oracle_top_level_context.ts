@@ -191,28 +191,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   async txeGetPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress) {
-    if (contractAddress.equals(DEFAULT_ADDRESS)) {
-      this.logger.debug(`Skipping sync in txeGetPrivateEvents because the events correspond to the default address.`);
-    } else {
-      // Sync private state before fetching events to discover events from previous transactions
-      const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
-      await this.stateMachine.contractSyncService.ensureContractSynced(
-        contractAddress,
-        null,
-        async (call, execScopes) => {
-          await this.executeUtilityCall(call, execScopes);
-        },
-        blockHeader,
-        this.jobId,
-        [scope],
-      );
-
-      // Events discovered during sync are written to the privateEventStore's per-job staging area, but getPrivateEvents
-      // only reads from the persistent store (unlike NoteStore.getNotes which includes staged data). In PXE this is not
-      // an issue because we never want to obtain unstaged private events there.
-      await this.privateEventStore.commit(this.jobId);
-    }
-
     return (
       await this.privateEventStore.getPrivateEvents(selector, {
         contractAddress,
