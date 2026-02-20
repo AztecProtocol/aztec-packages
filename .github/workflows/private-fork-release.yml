@@ -1,7 +1,8 @@
 # Accepts a release dispatch from the private fork.
 # Checks out the fork's code and runs the standard release pipeline
 # using this (public) repo's secrets and publishing identity.
-# The tag is pushed here with [skip ci] to avoid triggering the normal ci3.yml release.
+# The tag is pushed using GITHUB_TOKEN (not a PAT) so it does not trigger ci3.yml.
+# See: https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow
 name: Release (Fork)
 on:
   workflow_dispatch:
@@ -37,15 +38,17 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      # Uses GITHUB_TOKEN (not a PAT) so this push does NOT trigger other workflows.
+      # https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow
       - name: Push tag
         env:
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "AztecBot"
           git config user.email "tech@aztecprotocol.com"
           git remote add public "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
           git fetch public next --depth=1
-          git tag -a "${{ inputs.tag }}" public/next -m "${{ inputs.tag }} [skip ci]"
+          git tag -a "${{ inputs.tag }}" public/next -m "${{ inputs.tag }}"
           git push public "refs/tags/${{ inputs.tag }}" || echo "Tag already exists, continuing."
 
       - name: Release
