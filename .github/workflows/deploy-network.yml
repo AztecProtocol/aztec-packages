@@ -135,6 +135,16 @@ jobs:
           terraform_version: "1.7.5"
           terraform_wrapper: false # Disable the wrapper that adds debug output, this messes with reading terraform output
 
+      - name: Setup SSH key for CI Redis
+        env:
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+        run: |
+          if [ -n "${BUILD_INSTANCE_SSH_KEY:-}" ]; then
+            mkdir -p ~/.ssh
+            echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
+            chmod 600 ~/.ssh/build_instance_key
+          fi
+
       - name: Deploy network
         id: deploy-network
         env:
