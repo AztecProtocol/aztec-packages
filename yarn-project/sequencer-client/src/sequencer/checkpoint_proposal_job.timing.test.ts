@@ -436,6 +436,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
     validatorClient.signAttestationsAndSigners.mockResolvedValue(mockedSig);
     validatorClient.getCoinbaseForAttestor.mockReturnValue(coinbase);
     validatorClient.getFeeRecipientForAttestor.mockReturnValue(globalVariables.feeRecipient);
+    validatorClient.getValidatorAddresses.mockReturnValue([attestorAddress]);
 
     slasherClient = mock<SlasherClientInterface>();
     slasherClient.getProposerActions.mockResolvedValue([]);

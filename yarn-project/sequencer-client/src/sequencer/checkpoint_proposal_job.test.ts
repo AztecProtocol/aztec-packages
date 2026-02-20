@@ -256,6 +256,7 @@ describe('CheckpointProposalJob', () => {
     validatorClient.signAttestationsAndSigners.mockImplementation(() => Promise.resolve(getSignatures()[0].signature));
     validatorClient.getCoinbaseForAttestor.mockReturnValue(coinbase);
     validatorClient.getFeeRecipientForAttestor.mockReturnValue(feeRecipient);
+    validatorClient.getValidatorAddresses.mockReturnValue([attestorAddress]);
 
     slasherClient = mock<SlasherClientInterface>();
     slasherClient.getProposerActions.mockResolvedValue([]);
