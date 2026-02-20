@@ -132,7 +132,6 @@ Fr deterministic_nonce_rfc6979(const MessageContainer& message, const KeyContain
     auto hashed_message = Hash::hash(message_buffer);
     secure_erase(message_buffer);
     Fr hashed_message_fr = Fr::serialize_from_buffer(hashed_message.data());
-    hashed_message_fr.self_reduce_once();
     hashed_message = {};
     Fr::serialize_to_buffer(hashed_message_fr, &hashed_message[0]);
 
