@@ -2,8 +2,9 @@ import type { LogFn } from '@aztec/foundation/log';
 
 import { execFileSync, spawn } from 'child_process';
 import type { Command } from 'commander';
-import { readFile, readdir, writeFile } from 'fs/promises';
-import { join } from 'path';
+import { readFile, writeFile } from 'fs/promises';
+
+import { readArtifactFiles } from './utils/artifacts.js';
 
 /** Spawns a command with inherited stdio and rejects on non-zero exit. */
 function run(cmd: string, args: string[]): Promise<void> {
@@ -20,32 +21,18 @@ function run(cmd: string, args: string[]): Promise<void> {
   });
 }
 
-/** Returns paths to contract artifacts in the target directory.
- *  Contract artifacts are identified by having a `functions` array in the JSON.
- */
+/** Returns paths to contract artifacts in the target directory. */
 async function collectContractArtifacts(): Promise<string[]> {
-  let files: string[];
+  let files;
   try {
-    files = await readdir('target');
+    files = await readArtifactFiles('target');
   } catch (err: any) {
-    if (err?.code === 'ENOENT') {
+    if (err?.message?.includes('does not exist')) {
       return [];
     }
-    throw new Error(`Failed to read target directory: ${err.message}`);
+    throw err;
   }
-
-  const artifacts: string[] = [];
-  for (const file of files) {
-    if (!file.endsWith('.json')) {
-      continue;
-    }
-    const filePath = join('target', file);
-    const content = JSON.parse(await readFile(filePath, 'utf-8'));
-    if (Array.isArray(content.functions)) {
-      artifacts.push(filePath);
-    }
-  }
-  return artifacts;
+  return files.filter(f => Array.isArray(f.content.functions)).map(f => f.filePath);
 }
 
 /** Strips the `__aztec_nr_internals__` prefix from function names in contract artifacts. */
