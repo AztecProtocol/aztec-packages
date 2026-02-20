@@ -619,6 +619,7 @@ def _proxy(path):
 @app.route('/ci-insights')
 @app.route('/cost-overview')
 @app.route('/test-timings')
+@app.route('/ci-health-report')
 @auth.login_required
 def proxy_dashboard():
     return _proxy(request.path)
