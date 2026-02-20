@@ -4,8 +4,6 @@ import {
   AVM_SENDL2TOL1MSG_BASE_L2_GAS,
   DA_GAS_PER_FIELD,
   FIXED_AVM_STARTUP_L2_GAS,
-  FIXED_DA_GAS,
-  FIXED_L2_GAS,
   L2_GAS_PER_CONTRACT_CLASS_LOG,
   L2_GAS_PER_L2_TO_L1_MSG,
   L2_GAS_PER_NOTE_HASH,
@@ -19,6 +17,9 @@ import {
   MAX_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
+  PRIVATE_TX_L2_GAS_OVERHEAD,
+  PUBLIC_TX_L2_GAS_OVERHEAD,
+  TX_DA_GAS_OVERHEAD,
 } from '@aztec/constants';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -653,7 +654,12 @@ export async function generateSimulatedProvingResult(
 
   const publicInputs = new PrivateKernelTailCircuitPublicInputs(
     constantData,
-    /*gasUsed=*/ gasUsed.add(Gas.from({ l2Gas: FIXED_L2_GAS, daGas: FIXED_DA_GAS })),
+    /*gasUsed=*/ gasUsed.add(
+      Gas.from({
+        l2Gas: isPrivateOnlyTx ? PRIVATE_TX_L2_GAS_OVERHEAD : PUBLIC_TX_L2_GAS_OVERHEAD,
+        daGas: TX_DA_GAS_OVERHEAD,
+      }),
+    ),
     /*feePayer=*/ AztecAddress.zero(),
     /*expirationTimestamp=*/ 0n,
     hasPublicCalls ? inputsForPublic : undefined,
