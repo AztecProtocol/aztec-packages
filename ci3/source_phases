@@ -1,9 +1,7 @@
 # Sourced by source_bootstrap. Provides CI phase timing instrumentation.
-# Wraps cache_download/cache_upload to auto-publish timing, and provides
-# ci_phase for wrapping arbitrary commands.
-#
-# All timing events are published to Redis channel ci:phase:complete as JSON,
-# consumed by the ci-metrics server and stored in the ci_phases table.
+# Provides ci_phase for wrapping build/test commands with timing published
+# to Redis channel ci:phase:complete as JSON, stored in the ci_phases table.
+# Cache download/upload timing is intentionally not tracked — only build time matters.
 
 function _publish_phase {
   local phase=$1 duration_secs=$2 exit_code=$3
@@ -30,26 +28,6 @@ function _elapsed {
   echo "$EPOCHREALTIME - $1" | bc -l | xargs printf '%.3f'
 }
 
-# Shadow the cache_download script on $PATH.
-# Phase name = "cache-download:<artifact>".
-function cache_download {
-  local _t=$EPOCHREALTIME
-  command cache_download "$@"
-  local code=$?
-  _publish_phase "cache-download:${1:-unknown}" "$(_elapsed $_t)" "$code"
-  return $code
-}
-
-# Shadow the cache_upload script on $PATH.
-# Phase name = "cache-upload:<artifact>".
-function cache_upload {
-  local _t=$EPOCHREALTIME
-  command cache_upload "$@"
-  local code=$?
-  _publish_phase "cache-upload:${1:-unknown}" "$(_elapsed $_t)" "$code"
-  return $code
-}
-
 # General phase wrapper.
 # Usage: ci_phase <name> <command...>
 # Example: ci_phase "barretenberg" ./barretenberg/cpp/bootstrap.sh
@@ -62,4 +40,4 @@ function ci_phase {
   return $code
 }
 
-export -f _publish_phase _elapsed cache_download cache_upload ci_phase
+export -f _publish_phase _elapsed ci_phase
