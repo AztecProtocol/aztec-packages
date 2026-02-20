@@ -7,7 +7,7 @@ function _publish_phase {
   local phase=$1 duration_secs=$2 exit_code=$3
   [ "${CI_REDIS_AVAILABLE:-0}" -eq 1 ] || return 0
   # Skip sub-0.1s phases (no real work done — fully cached or negligible)
-  (( $(echo "$duration_secs < 0.1" | bc -l) )) && return 0
+  awk "BEGIN{exit !($duration_secs < 0.1)}" && return 0
   local commit_hash=${COMMIT_HASH:-$(git rev-parse HEAD 2>/dev/null || true)}
   redis_publish ci:phase:complete "$(jq -c -n \
     --arg phase "$phase" \
@@ -24,8 +24,9 @@ function _publish_phase {
 }
 
 # High-resolution elapsed seconds since $1 (captured via $EPOCHREALTIME).
+# Uses awk instead of bc — bc is not installed on CI runners.
 function _elapsed {
-  echo "$EPOCHREALTIME - $1" | bc -l | xargs printf '%.3f'
+  awk "BEGIN{printf \"%.3f\", $EPOCHREALTIME - $1}"
 }
 
 # General phase wrapper.
