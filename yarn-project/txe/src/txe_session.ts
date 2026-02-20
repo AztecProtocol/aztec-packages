@@ -113,11 +113,10 @@ export interface TXESessionStateHandler {
   enterPublicState(contractAddress?: AztecAddress): Promise<void>;
   enterPrivateState(contractAddress?: AztecAddress, anchorBlockNumber?: BlockNumber): Promise<PrivateContextInputs>;
   enterUtilityState(contractAddress?: AztecAddress): Promise<void>;
-  /**
-   * Commits the current job and begins a new one. Returns the new job ID.
-   * TODO(F-335): Drop this?
-   */
+
+  // TODO(F-335): Exposing the job info is abstraction breakage - drop the following 2 functions.
   cycleJob(): Promise<string>;
+  getCurrentJob(): string;
 }
 
 /**
@@ -198,7 +197,6 @@ export class TXESession implements TXESessionStateHandler {
       senderAddressBookStore,
       capsuleStore,
       privateEventStore,
-      initialJobId,
       nextBlockTimestamp,
       version,
       chainId,
@@ -259,6 +257,10 @@ export class TXESession implements TXESessionStateHandler {
     }
   }
 
+  getCurrentJob(): string {
+    return this.currentJobId;
+  }
+
   /** Commits the current job and begins a new one. Returns the new job ID. */
   async cycleJob(): Promise<string> {
     await this.jobCoordinator.commitJob(this.currentJobId);
@@ -303,7 +305,6 @@ export class TXESession implements TXESessionStateHandler {
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
-      this.currentJobId,
       this.nextBlockTimestamp,
       this.version,
       this.chainId,

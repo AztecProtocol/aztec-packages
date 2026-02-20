@@ -287,7 +287,7 @@ export class RPCTranslator {
 
     // TODO(F-335): Avoid doing the following 2 calls here.
     {
-      await this.handlerAsTxe().txeSyncContract(contractAddress, scope);
+      await this.handlerAsTxe().syncContractNonOracleMethod(contractAddress, scope, this.stateHandler.getCurrentJob());
       // We cycle job to commit the stores after the contract sync.
       await this.stateHandler.cycleJob();
     }
@@ -1045,6 +1045,7 @@ export class RPCTranslator {
       args,
       argsHash,
       isStaticCall,
+      this.stateHandler.getCurrentJob(),
     );
 
     // TODO(F-335): Avoid doing the following call here.
@@ -1065,6 +1066,7 @@ export class RPCTranslator {
       targetContractAddress,
       functionSelector,
       args,
+      this.stateHandler.getCurrentJob(),
     );
 
     // TODO(F-335): Avoid doing the following call here.
