@@ -1,5 +1,5 @@
 use super::TestBuilder;
-use types::{constants::AVM_MAX_PROCESSABLE_L2_GAS, tests::fixture_builder::FixtureBuilder};
+use types::{constants::MAX_PROCESSABLE_L2_GAS, tests::fixture_builder::FixtureBuilder};
 
 #[test(should_fail_with = "Membership check failed: anchor block header hash not found in archive tree")]
 unconstrained fn anchor_block_header_not_in_archive() {
@@ -62,7 +62,7 @@ unconstrained fn gas_settings_l2_gas_limit_exceeds_max_processable_l2_gas() {
     let mut builder = TestBuilder::new();
 
     builder.private_tail.constants.tx_context.gas_settings.gas_limits.l2_gas =
-        AVM_MAX_PROCESSABLE_L2_GAS + 1;
+        MAX_PROCESSABLE_L2_GAS + 1;
 
     builder.execute_and_fail();
 }

@@ -28,6 +28,7 @@ const CPP_CONSTANTS = [
   'CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS',
   'MULTI_CALL_ENTRYPOINT_ADDRESS',
   'FEE_JUICE_ADDRESS',
+  'TX_DA_GAS_OVERHEAD',
   'PUBLIC_CHECKS_ADDRESS',
   'FEE_JUICE_BALANCES_SLOT',
   'UPDATED_CLASS_IDS_SLOT',
@@ -44,6 +45,7 @@ const CPP_CONSTANTS = [
   'MAX_NOTE_HASHES_PER_TX',
   'MAX_NULLIFIERS_PER_TX',
   'MAX_L2_TO_L1_MSGS_PER_TX',
+  'MAX_PROCESSABLE_L2_GAS',
   'MAX_PUBLIC_LOGS_PER_TX',
   'MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX',
   'MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS',
@@ -111,6 +113,7 @@ const CPP_CONSTANTS = [
   'FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH',
   'PUBLIC_LOGS_LENGTH',
   'PUBLIC_LOG_HEADER_LENGTH',
+  'PUBLIC_TX_L2_GAS_OVERHEAD',
   'MAX_PROTOCOL_CONTRACTS',
   'DEFAULT_MAX_DEBUG_LOG_MEMORY_READS',
 ];
@@ -621,7 +624,11 @@ function evaluateExpressions(expressions: [string, string][]): { [key: string]: 
         // We split the expression into terms...
         .split(/\s+/)
         // ...and then we convert each term to a BigInt if it is a number.
-        .map(term => (isNaN(+term) ? term : `BigInt('${term}')`))
+        .map(term => {
+          // Remove underscores from numeric literals (e.g., 6_000_000 -> 6000000)
+          const termWithoutUnderscores = term.replace(/_/g, '');
+          return isNaN(+termWithoutUnderscores) ? term : `BigInt('${termWithoutUnderscores}')`;
+        })
         // .. also, we convert the known bigints to BigInts.
         .map(term => (knownBigInts.includes(term) ? `BigInt(${term})` : term))
         // We join the terms back together.
