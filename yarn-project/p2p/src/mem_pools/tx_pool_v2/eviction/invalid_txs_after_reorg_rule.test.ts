@@ -31,6 +31,7 @@ describe('InvalidTxsAfterReorgRule', () => {
     nullifiers: [`0x${txHash.slice(2)}null1`],
     expirationTimestamp: 0n,
     receivedAt: 0,
+    estimatedSizeBytes: 0,
     data: stubTxMetaValidationData(),
   });
 
@@ -160,7 +161,7 @@ describe('InvalidTxsAfterReorgRule', () => {
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted.length).toBe(pendingTxs.length);
-        expect(deleteTxsMock).toHaveBeenCalledWith(result.txsEvicted);
+        expect(deleteTxsMock).toHaveBeenCalledWith(result.txsEvicted, 'InvalidTxsAfterReorg');
       });
 
       it('handles error from deleteTxs operation', async () => {

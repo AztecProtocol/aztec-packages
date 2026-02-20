@@ -47,7 +47,7 @@ import {
   TxProfileResult,
   TxProvingResult,
   TxSimulationResult,
-  UtilitySimulationResult,
+  UtilityExecutionResult,
 } from '@aztec/stdlib/tx';
 
 import { inspect } from 'util';
@@ -61,6 +61,7 @@ import {
   generateSimulatedProvingResult,
 } from './contract_function_simulator/contract_function_simulator.js';
 import { ProxiedContractStoreFactory } from './contract_function_simulator/proxied_contract_data_source.js';
+import { displayDebugLogs } from './contract_logging.js';
 import { ContractSyncService } from './contract_sync/contract_sync_service.js';
 import { readCurrentClassId } from './contract_sync/helpers.js';
 import { PXEDebugUtils } from './debug/pxe_debug_utils.js';
@@ -111,8 +112,8 @@ export type SimulateTxOpts = {
   scopes: AccessScopes;
 };
 
-/** Options for PXE.simulateUtility. */
-export type SimulateUtilityOpts = {
+/** Options for PXE.executeUtility. */
+export type ExecuteUtilityOpts = {
   /** The authentication witnesses required for the function call. */
   authwits?: AuthWitness[];
   /** The accounts whose notes we can access in this call */
@@ -264,7 +265,7 @@ export class PXE {
     debugUtils.setPXEHelpers(
       pxe.#putInJobQueue.bind(pxe),
       pxe.#getSimulatorForTx.bind(pxe),
-      pxe.#simulateUtility.bind(pxe),
+      pxe.#executeUtility.bind(pxe),
     );
 
     pxe.jobQueue.start();
@@ -344,9 +345,8 @@ export class PXE {
   async #registerProtocolContracts() {
     const registered: Record<string, string> = {};
     for (const name of protocolContractNames) {
-      const { address, contractClass, instance, artifact } =
-        await this.protocolContractsProvider.getProtocolContractArtifact(name);
-      await this.contractStore.addContractArtifact(contractClass.id, artifact);
+      const { address, instance, artifact } = await this.protocolContractsProvider.getProtocolContractArtifact(name);
+      await this.contractStore.addContractArtifact(artifact);
       await this.contractStore.addContractInstance(instance);
       registered[name] = address.toString();
     }
@@ -370,7 +370,7 @@ export class PXE {
         contractAddress,
         functionSelector,
         (privateSyncCall, execScopes) =>
-          this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
+          this.#executeUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
         anchorBlockHeader,
         jobId,
         scopes,
@@ -394,16 +394,16 @@ export class PXE {
   }
 
   /**
-   * Simulate a utility function call on the given contract.
+   * Execute a utility function call on the given contract.
    * @param contractFunctionSimulator - The simulator to use for the function call.
    * @param call - The function call to execute.
    * @param authWitnesses - Authentication witnesses required for the function call.
    * @param scopes - Optional array of account addresses whose notes can be accessed in this call. Defaults to all
    * accounts if not specified.
    * @param jobId - The job ID for staged writes.
-   * @returns The simulation result containing the outputs of the utility function.
+   * @returns The execution result containing the outputs of the utility function.
    */
-  async #simulateUtility(
+  async #executeUtility(
     contractFunctionSimulator: ContractFunctionSimulator,
     call: FunctionCall,
     authWitnesses: AuthWitness[] | undefined,
@@ -601,8 +601,7 @@ export class PXE {
    * @param artifact - The build artifact for the contract class.
    */
   public async registerContractClass(artifact: ContractArtifact): Promise<void> {
-    const { id: contractClassId } = await getContractClassFromArtifact(artifact);
-    await this.contractStore.addContractArtifact(contractClassId, artifact);
+    const contractClassId = await this.contractStore.addContractArtifact(artifact);
     this.log.info(`Added contract class ${artifact.name} with id ${contractClassId}`);
   }
 
@@ -621,17 +620,17 @@ export class PXE {
     if (artifact) {
       // If the user provides an artifact, validate it against the expected class id and register it
       const contractClass = await getContractClassFromArtifact(artifact);
-      const contractClassId = contractClass.id;
-      if (!contractClassId.equals(instance.currentContractClassId)) {
+      if (!contractClass.id.equals(instance.currentContractClassId)) {
         throw new Error(
-          `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.currentContractClassId})`,
+          `Artifact does not match expected class id (computed ${contractClass.id} but instance refers to ${instance.currentContractClassId})`,
         );
       }
       const computedAddress = await computeContractAddressFromInstance(instance);
       if (!computedAddress.equals(instance.address)) {
         throw new Error('Added a contract in which the address does not match the contract instance.');
       }
-      await this.contractStore.addContractArtifact(contractClass.id, artifact);
+
+      await this.contractStore.addContractArtifact(artifact, contractClass);
 
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
@@ -680,15 +679,16 @@ export class PXE {
         throw new Error('Could not update contract to a class different from the current one.');
       }
 
-      await this.contractStore.addContractArtifact(contractClass.id, artifact);
-
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
       await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
 
       currentInstance.currentContractClassId = contractClass.id;
-      await this.contractStore.addContractInstance(currentInstance);
+      await Promise.all([
+        this.contractStore.addContractArtifact(artifact, contractClass),
+        this.contractStore.addContractInstance(currentInstance),
+      ]);
       this.log.info(`Updated contract ${artifact.name} at ${contractAddress.toString()} to class ${contractClass.id}`);
     });
   }
@@ -947,6 +947,9 @@ export class PXE {
           const publicSimulationTimer = new Timer();
           publicOutput = await this.#simulatePublicCalls(simulatedTx, skipFeeEnforcement);
           publicSimulationTime = publicSimulationTimer.ms();
+          if (publicOutput?.debugLogs?.length) {
+            await displayDebugLogs(publicOutput.debugLogs, addr => this.contractStore.getDebugContractName(addr));
+          }
         }
 
         let validationTime: number | undefined;
@@ -1013,16 +1016,16 @@ export class PXE {
   }
 
   /**
-   * Simulates the execution of a contract utility function.
+   * Executes a contract utility function.
    * @param call - The function call containing the function details, arguments, and target contract address.
    */
-  public simulateUtility(
+  public executeUtility(
     call: FunctionCall,
-    { authwits, scopes }: SimulateUtilityOpts = { scopes: 'ALL_SCOPES' },
-  ): Promise<UtilitySimulationResult> {
-    // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
+    { authwits, scopes }: ExecuteUtilityOpts = { scopes: 'ALL_SCOPES' },
+  ): Promise<UtilityExecutionResult> {
+    // We disable concurrent executions since those might execute oracles which read and write to the PXE stores (e.g.
     // to the capsules), and we need to prevent concurrent runs from interfering with one another (e.g. attempting to
-    // delete the same read value, or reading values that another simulation is currently modifying).
+    // delete the same read value, or reading values that another execution is currently modifying).
     return this.#putInJobQueue(async jobId => {
       try {
         const totalTimer = new Timer();
@@ -1037,13 +1040,13 @@ export class PXE {
           call.to,
           call.selector,
           (privateSyncCall, execScopes) =>
-            this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
+            this.#executeUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
           anchorBlockHeader,
           jobId,
           scopes,
         );
 
-        const executionResult = await this.#simulateUtility(
+        const executionResult = await this.#executeUtility(
           contractFunctionSimulator,
           call,
           authwits ?? [],
@@ -1070,7 +1073,7 @@ export class PXE {
         const stringifiedArgs = args.map(arg => arg.toString()).join(', ');
         throw this.#contextualizeError(
           err,
-          `simulateUtility ${to}:${name}(${stringifiedArgs})`,
+          `executeUtility ${to}:${name}(${stringifiedArgs})`,
           `scopes=${scopes === 'ALL_SCOPES' ? scopes : scopes.map(s => s.toString()).join(', ')}`,
         );
       }
@@ -1108,7 +1111,7 @@ export class PXE {
         filter.contractAddress,
         null,
         async (privateSyncCall, execScopes) =>
-          await this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
+          await this.#executeUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
         anchorBlockHeader,
         jobId,
         filter.scopes,

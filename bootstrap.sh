@@ -11,7 +11,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 export DENOISE=${DENOISE:-1}
 
 # Number of TXE servers to run when testing.
-export NUM_TXES=8
+export NUM_TXES=1
 
 export MAKEFLAGS="-j${MAKE_JOBS:-$(get_num_cpus)}"
 
@@ -233,11 +233,14 @@ function start_txes {
   export TOKIO_WORKER_THREADS=1
 
   # Starting txe servers with incrementing port numbers.
+  # Base port is below the Linux ephemeral range (32768-60999) to avoid conflicts.
+  local txe_base_port=14730
   for i in $(seq 0 $((NUM_TXES-1))); do
-    port=$((45730 + i))
+    port=$((txe_base_port + i))
     existing_pid=$(lsof -ti :$port || true)
     if [ -n "$existing_pid" ]; then
       echo "Killing existing process $existing_pid on port: $port"
+      check_port $port
       kill -9 $existing_pid &>/dev/null || true
       while kill -0 $existing_pid &>/dev/null; do sleep 0.1; done
     fi
@@ -248,8 +251,12 @@ function start_txes {
   echo "Waiting for TXE's to start..."
   for i in $(seq 0 $((NUM_TXES-1))); do
       local j=0
-      while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do
-        [ $j == 60 ] && echo_stderr "TXE $i took too long to start. Exiting." && exit 1
+      while ! nc -z 127.0.0.1 $((txe_base_port + i)) &>/dev/null; do
+        if [ $j == 60 ]; then
+          echo_stderr "TXE $i failed to start on port $((txe_base_port + i)) after 60s."
+          check_port $((txe_base_port + i))
+          exit 1
+        fi
         sleep 1
         j=$((j+1))
       done
@@ -497,6 +504,7 @@ function release {
   projects=(
     barretenberg/cpp
     barretenberg/ts
+    barretenberg/rust
     noir
     l1-contracts
     noir-projects/aztec-nr
@@ -729,6 +737,13 @@ case "$cmd" in
     ./bootstrap.sh
     docs/bootstrap.sh ci
     ;;
+  "ci-barretenberg-debug")
+    export CI=1
+    export NATIVE_PRESET=debug
+    export AVM=0
+    export AVM_TRANSPILER=0
+    barretenberg/cpp/bootstrap.sh build
+    ;;
   "ci-barretenberg")
     export CI=1
     export USE_TEST_CACHE=1
@@ -744,6 +759,7 @@ case "$cmd" in
     pull_submodules
     noir/bootstrap.sh build_native  # Build nargo for acir_tests
     barretenberg/bootstrap.sh ci
+    barretenberg/cpp/bootstrap.sh build_bench
     ;;
 
   #######################

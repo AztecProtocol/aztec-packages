@@ -242,7 +242,7 @@ export class LightweightCheckpointBuilder {
 
     const newArchive = this.lastArchives[this.lastArchives.length - 1];
 
-    const blobs = getBlobsPerL1Block(this.blobFields);
+    const blobs = await getBlobsPerL1Block(this.blobFields);
     const blobsHash = computeBlobsHashFromBlobs(blobs);
 
     const inHash = computeInHashFromL1ToL2Messages(this.l1ToL2Messages);
@@ -253,8 +253,7 @@ export class LightweightCheckpointBuilder {
     );
     const epochOutHash = accumulateCheckpointOutHashes([...this.previousCheckpointOutHashes, checkpointOutHash]);
 
-    // TODO(palla/mbps): Should we source this from the constants instead?
-    // timestamp of a checkpoint is the timestamp of the last block in the checkpoint.
+    // All blocks in the checkpoint have the same timestamp
     const timestamp = blocks[blocks.length - 1].timestamp;
 
     const totalManaUsed = blocks.reduce((acc, block) => acc.add(block.header.totalManaUsed), Fr.ZERO);

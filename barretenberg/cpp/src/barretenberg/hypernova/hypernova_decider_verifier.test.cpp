@@ -254,9 +254,8 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
         tamper_with_accumulator(folded_accumulator, mode);
 
         // Construct Decider proof
-        auto ck = CommitmentKey(folded_accumulator.dyadic_size);
         HypernovaDeciderProver decider_prover(prover_transcript);
-        auto decider_proof = decider_prover.construct_proof(ck, folded_accumulator);
+        auto decider_proof = decider_prover.construct_proof(folded_accumulator);
 
         // Natively verify the folding
         auto native_transcript = std::make_shared<NativeTranscript>();

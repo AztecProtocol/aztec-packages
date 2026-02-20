@@ -34,7 +34,6 @@
 <li><a href="compressed_string/struct.CompressedString.html">compressed_string::CompressedString</a></li>
 <li><a href="compressed_string/struct.FieldCompressedString.html">compressed_string::FieldCompressedString</a></li>
 <li><a href="field_note/struct.FieldNote.html">field_note::FieldNote</a></li>
-<li><a href="noir_aztec/struct.ContractSelf.html">noir_aztec::ContractSelf</a></li>
 <li><a href="noir_aztec/authwit/struct.AuthorizationSelector.html">noir_aztec::authwit::AuthorizationSelector</a></li>
 <li><a href="noir_aztec/authwit/account/struct.AccountActions.html">noir_aztec::authwit::account::AccountActions</a></li>
 <li><a href="noir_aztec/authwit/account/struct.AccountFeePaymentMethodOptionsEnum.html">noir_aztec::authwit::account::AccountFeePaymentMethodOptionsEnum</a></li>
@@ -53,6 +52,9 @@
 <li><a href="noir_aztec/context/calls/struct.UtilityCall.html">noir_aztec::context::calls::UtilityCall</a></li>
 <li><a href="noir_aztec/context/gas/struct.GasOpts.html">noir_aztec::context::gas::GasOpts</a></li>
 <li><a href="noir_aztec/context/inputs/struct.PrivateContextInputs.html">noir_aztec::context::inputs::PrivateContextInputs</a></li>
+<li><a href="noir_aztec/contract_self/contract_self_private/struct.ContractSelfPrivate.html">noir_aztec::contract_self::contract_self_private::ContractSelfPrivate</a></li>
+<li><a href="noir_aztec/contract_self/contract_self_public/struct.ContractSelfPublic.html">noir_aztec::contract_self::contract_self_public::ContractSelfPublic</a></li>
+<li><a href="noir_aztec/contract_self/contract_self_utility/struct.ContractSelfUtility.html">noir_aztec::contract_self::contract_self_utility::ContractSelfUtility</a></li>
 <li><a href="noir_aztec/event/struct.EventMessage.html">noir_aztec::event::EventMessage</a></li>
 <li><a href="noir_aztec/event/struct.EventSelector.html">noir_aztec::event::EventSelector</a></li>
 <li><a href="noir_aztec/event/event_emission/struct.NewEvent.html">noir_aztec::event::event_emission::NewEvent</a></li>
@@ -133,7 +135,7 @@
 <li><a href="noir_aztec/protocol/abis/tree_snapshots/struct.TreeSnapshots.html">noir_aztec::protocol::abis::tree_snapshots::TreeSnapshots</a></li>
 <li><a href="noir_aztec/protocol/abis/tx_constant_data/struct.TxConstantData.html">noir_aztec::protocol::abis::tx_constant_data::TxConstantData</a></li>
 <li><a href="noir_aztec/protocol/abis/validation_requests/key_validation_request/struct.KeyValidationRequest.html">noir_aztec::protocol::abis::validation_requests::key_validation_request::KeyValidationRequest</a></li>
-<li><a href="noir_aztec/protocol/abis/validation_requests/key_validation_request_and_generator/struct.KeyValidationRequestAndGenerator.html">noir_aztec::protocol::abis::validation_requests::key_validation_request_and_generator::KeyValidationRequestAndGenerator</a></li>
+<li><a href="noir_aztec/protocol/abis/validation_requests/key_validation_request_and_separator/struct.KeyValidationRequestAndSeparator.html">noir_aztec::protocol::abis::validation_requests::key_validation_request_and_separator::KeyValidationRequestAndSeparator</a></li>
 <li><a href="noir_aztec/protocol/abis/validation_requests/private_validation_requests/struct.PrivateValidationRequests.html">noir_aztec::protocol::abis::validation_requests::private_validation_requests::PrivateValidationRequests</a></li>
 <li><a href="noir_aztec/protocol/address/aztec_address/struct.AztecAddress.html">noir_aztec::protocol::address::aztec_address::AztecAddress</a></li>
 <li><a href="noir_aztec/protocol/address/eth_address/struct.EthAddress.html">noir_aztec::protocol::address::eth_address::EthAddress</a></li>
@@ -237,7 +239,7 @@
 <li><a href="noir_aztec/keys/constants/global.NUM_KEY_TYPES.html">noir_aztec::keys::constants::NUM_KEY_TYPES</a></li>
 <li><a href="noir_aztec/keys/constants/global.OUTGOING_INDEX.html">noir_aztec::keys::constants::OUTGOING_INDEX</a></li>
 <li><a href="noir_aztec/keys/constants/global.TAGGING_INDEX.html">noir_aztec::keys::constants::TAGGING_INDEX</a></li>
-<li><a href="noir_aztec/keys/constants/global.sk_generators.html">noir_aztec::keys::constants::sk_generators</a></li>
+<li><a href="noir_aztec/keys/constants/global.public_key_domain_separators.html">noir_aztec::keys::constants::public_key_domain_separators</a></li>
 <li><a href="noir_aztec/macros/events/global.EVENT_SELECTORS.html">noir_aztec::macros::events::EVENT_SELECTORS</a></li>
 <li><a href="noir_aztec/macros/notes/global.NOTES.html">noir_aztec::macros::notes::NOTES</a></li>
 <li><a href="noir_aztec/macros/storage/global.STORAGE_LAYOUT_NAME.html">noir_aztec::macros::storage::STORAGE_LAYOUT_NAME</a></li>
@@ -524,6 +526,7 @@
 <li><a href="noir_aztec/protocol/constants/global.COUNTED_PUBLIC_CALL_REQUEST_LENGTH.html">noir_aztec::protocol::constants::COUNTED_PUBLIC_CALL_REQUEST_LENGTH</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DA_BYTES_PER_FIELD.html">noir_aztec::protocol::constants::DA_BYTES_PER_FIELD</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DA_GAS_PER_BYTE.html">noir_aztec::protocol::constants::DA_GAS_PER_BYTE</a></li>
+<li><a href="noir_aztec/protocol/constants/global.DA_GAS_PER_FIELD.html">noir_aztec::protocol::constants::DA_GAS_PER_FIELD</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DEFAULT_DA_GAS_LIMIT.html">noir_aztec::protocol::constants::DEFAULT_DA_GAS_LIMIT</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DEFAULT_IVPK_M_X.html">noir_aztec::protocol::constants::DEFAULT_IVPK_M_X</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DEFAULT_IVPK_M_Y.html">noir_aztec::protocol::constants::DEFAULT_IVPK_M_Y</a></li>
@@ -1121,6 +1124,7 @@
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.create_account.html">noir_aztec::test::helpers::txe_oracles::create_account</a></li>
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.deploy.html">noir_aztec::test::helpers::txe_oracles::deploy</a></li>
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.deploy_oracle.html">noir_aztec::test::helpers::txe_oracles::deploy_oracle</a></li>
+<li><a href="noir_aztec/test/helpers/txe_oracles/fn.execute_utility_function.html">noir_aztec::test::helpers::txe_oracles::execute_utility_function</a></li>
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.get_default_address.html">noir_aztec::test::helpers::txe_oracles::get_default_address</a></li>
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.get_last_block_timestamp.html">noir_aztec::test::helpers::txe_oracles::get_last_block_timestamp</a></li>
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.get_last_tx_effects.html">noir_aztec::test::helpers::txe_oracles::get_last_tx_effects</a></li>
@@ -1132,7 +1136,6 @@
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.set_public_txe_context.html">noir_aztec::test::helpers::txe_oracles::set_public_txe_context</a></li>
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.set_top_level_txe_context.html">noir_aztec::test::helpers::txe_oracles::set_top_level_txe_context</a></li>
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.set_utility_txe_context.html">noir_aztec::test::helpers::txe_oracles::set_utility_txe_context</a></li>
-<li><a href="noir_aztec/test/helpers/txe_oracles/fn.simulate_utility_function.html">noir_aztec::test::helpers::txe_oracles::simulate_utility_function</a></li>
 <li><a href="noir_aztec/utils/array/append/fn.append.html">noir_aztec::utils::array::append::append</a></li>
 <li><a href="noir_aztec/utils/array/collapse/fn.collapse.html">noir_aztec::utils::array::collapse::collapse</a></li>
 <li><a href="noir_aztec/utils/array/subarray/fn.subarray.html">noir_aztec::utils::array::subarray::subarray</a></li>

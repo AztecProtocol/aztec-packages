@@ -16,7 +16,7 @@ import times from 'lodash.times';
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import type { DataInBlock } from '../block/in_block.js';
-import { BlockHash, type BlockParameter, CommitteeAttestation, L2Block } from '../block/index.js';
+import { type BlockData, BlockHash, type BlockParameter, CommitteeAttestation, L2Block } from '../block/index.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
 import { L1PublishedData, PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
@@ -636,6 +636,12 @@ class MockAztecNode implements AztecNode {
   }
   getBlockHeaderByArchive(_archive: Fr): Promise<BlockHeader | undefined> {
     return Promise.resolve(BlockHeader.empty());
+  }
+  getBlockData(_number: BlockNumber): Promise<BlockData | undefined> {
+    return Promise.resolve(undefined);
+  }
+  getBlockDataByArchive(_archive: Fr): Promise<BlockData | undefined> {
+    return Promise.resolve(undefined);
   }
   getCurrentMinFees(): Promise<GasFees> {
     return Promise.resolve(GasFees.empty());

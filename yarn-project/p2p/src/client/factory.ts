@@ -7,7 +7,7 @@ import { AztecLMDBStoreV2, createStore } from '@aztec/kv-store/lmdb-v2';
 import type { BlockHash, L2BlockSource } from '@aztec/stdlib/block';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { AztecNode, ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -26,7 +26,7 @@ import { DummyP2PService } from '../services/dummy_service.js';
 import { LibP2PService } from '../services/index.js';
 import { createFileStoreTxSources } from '../services/tx_collection/file_store_tx_source.js';
 import { TxCollection } from '../services/tx_collection/tx_collection.js';
-import { type TxSource, createNodeRpcTxSources } from '../services/tx_collection/tx_source.js';
+import { NodeRpcTxSource, type TxSource, createNodeRpcTxSources } from '../services/tx_collection/tx_source.js';
 import { TxFileStore } from '../services/tx_file_store/tx_file_store.js';
 import { configureP2PClientAddresses, createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey } from '../util.js';
 
@@ -36,6 +36,7 @@ export type P2PClientDeps<T extends P2PClientType> = {
   attestationPool?: AttestationPoolApi;
   logger?: Logger;
   txCollectionNodeSources?: TxSource[];
+  rpcTxProviders?: AztecNode[];
   p2pServiceFactory?: (...args: Parameters<(typeof LibP2PService)['new']>) => Promise<LibP2PService<T>>;
 };
 
@@ -120,6 +121,7 @@ export async function createP2PClient<T extends P2PClientType>(
         maxPendingTxCount: config.maxPendingTxCount,
         archivedTxLimit: config.archivedTxLimit,
         minTxPoolAgeMs: config.minTxPoolAgeMs,
+        dropTransactionsProbability: config.dropTransactionsProbability,
       },
       dateProvider,
     );
@@ -147,6 +149,7 @@ export async function createP2PClient<T extends P2PClientType>(
 
   const nodeSources = [
     ...createNodeRpcTxSources(config.txCollectionNodeRpcUrls, config),
+    ...(deps.rpcTxProviders ?? []).map((node, i) => new NodeRpcTxSource(node, `node-rpc-provider-${i}`)),
     ...(deps.txCollectionNodeSources ?? []),
   ];
   if (nodeSources.length > 0) {
@@ -159,6 +162,7 @@ export async function createP2PClient<T extends P2PClientType>(
     config.txCollectionFileStoreUrls,
     txFileStoreBasePath,
     logger.createChild('file-store-tx-source'),
+    telemetry,
   );
   if (fileStoreSources.length > 0) {
     logger.info(`Using ${fileStoreSources.length} file store sources for tx collection.`, {

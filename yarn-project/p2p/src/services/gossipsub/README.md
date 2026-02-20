@@ -40,7 +40,7 @@ We configure all parameters (P1-P4) with values calculated dynamically from netw
 | P3b: meshFailurePenalty | -34 per topic | Sticky penalty after pruning |
 | P4: invalidMessageDeliveries | -20 per message | Attack detection |
 
-**Important:** P1 and P2 are only enabled on topics with P3 enabled (block_proposal, checkpoint_proposal, checkpoint_attestation). The tx topic has all scoring disabled except P4, to prevent free positive score accumulation that would offset penalties from other topics.
+**Important:** P1 and P2 are only enabled on topics with P3 enabled. By default, P3 is enabled for checkpoint_proposal and checkpoint_attestation (2 topics). Block proposal scoring is controlled by `expectedBlockProposalsPerSlot` (current default: `0`, including when env var is unset, so disabled) - see [Block Proposals](#block-proposals-block_proposal) for details. The tx topic has all scoring disabled except P4, to prevent free positive score accumulation that would offset penalties from other topics.
 
 ## Exponential Decay
 
@@ -217,7 +217,21 @@ Transactions are submitted unpredictably by users, so we cannot set meaningful d
 
 ### Block Proposals (block_proposal)
 
-In Multi-Block-Per-Slot (MBPS) mode, N-1 block proposals are gossiped per slot (the last block is bundled with the checkpoint). In single-block mode, this is 0.
+Block proposal scoring is controlled by the `expectedBlockProposalsPerSlot` config (`SEQ_EXPECTED_BLOCK_PROPOSALS_PER_SLOT` env var):
+
+| Config Value | Behavior |
+|-------------|----------|
+| `0` (current default) | Block proposal P3 scoring is **disabled** |
+| Positive number | Uses the provided value as expected proposals per slot |
+| `undefined` | Falls back to `blocksPerSlot - 1` (MBPS mode: N-1, single block: 0) |
+
+**Current behavior note:** In the current implementation, if `SEQ_EXPECTED_BLOCK_PROPOSALS_PER_SLOT` is not set, config mapping applies `0` by default (scoring disabled). The `undefined` fallback above is currently reachable only if the value is explicitly provided as `undefined` in code.
+
+**Future intent:** Once throughput is stable, we may change env parsing/defaults so an unset env var resolves to `undefined` again (re-enabling automatic fallback to `blocksPerSlot - 1`).
+
+**Why disabled by default?** In MBPS mode, gossipsub expects N-1 block proposals per slot. When transaction throughput is low (as expected at launch), fewer blocks are actually built, causing peers to be incorrectly penalized for under-delivering block proposals. The default of 0 disables this scoring. Set to a positive value when throughput increases and block production is consistent.
+
+In MBPS mode (when enabled), N-1 block proposals are gossiped per slot (the last block is bundled with the checkpoint). In single-block mode, this is 0.
 
 ### Checkpoint Proposals (checkpoint_proposal)
 
@@ -241,6 +255,7 @@ The scoring parameters depend on:
 | `targetCommitteeSize` | L1RollupConstants | 48 |
 | `heartbeatInterval` | P2PConfig.gossipsubInterval | 700ms |
 | `blockDurationMs` | P2PConfig.blockDurationMs | undefined (single block) |
+| `expectedBlockProposalsPerSlot` | P2PConfig.expectedBlockProposalsPerSlot | 0 (disabled; current unset-env behavior) |
 
 ## Invalid Message Handling (P4)
 
@@ -320,9 +335,9 @@ Conversely, if topic scores are low, a peer slightly above the disconnect thresh
 
 Topic scores provide **burst response** to attacks, while app score provides **stable baseline**:
 
-- P1 (time in mesh): Max +8 per topic (+24 across 3 topics)
-- P2 (first deliveries): Max +25 per topic (+75 across 3 topics, but decays fast)
-- P3 (under-delivery): Max -34 per topic (-102 across 3 topics in MBPS; -68 in single-block mode)
+- P1 (time in mesh): Max +8 per topic (+16 default, +24 with block proposal scoring enabled)
+- P2 (first deliveries): Max +25 per topic (+50 default, +75 with block proposal scoring, but decays fast)
+- P3 (under-delivery): Max -34 per topic (-68 default with 2 topics, -102 with block proposal scoring enabled)
 - P4 (invalid messages): -20 per invalid message, can spike to -2000+ during attacks
 
 Example attack scenario:
@@ -373,21 +388,21 @@ When a peer is pruned from the mesh:
 3. **P3b captures the penalty**: The P3 deficit at prune time becomes P3b, which decays slowly
 
 After pruning, the peer's score consists mainly of P3b:
-- **Total P3b across 3 topics: -102** (max)
+- **Total P3b: -68** (default, 2 topics) or **-102** (with block proposal scoring enabled, 3 topics)
 - **Recovery time**: P3b decays to ~1% over one decay window (2-5 slots = 2-6 minutes)
 - **Grafting eligibility**: Peer can be grafted when score ≥ 0, but asymptotic decay means recovery is slow
 
 ### Why Non-Contributors Aren't Disconnected
 
-With P3b capped at -102 total after pruning (MBPS mode). In single-block mode, the cap is -68:
+With P3b capped at -68 (default, 2 topics) or -102 (with block proposal scoring, 3 topics) after pruning:
 
 | Threshold | Value | P3b Score | Triggered? |
 |-----------|-------|-----------|------------|
-| gossipThreshold | -500 | -102 (MBPS) / -68 (single) | No |
-| publishThreshold | -1000 | -102 (MBPS) / -68 (single) | No |
-| graylistThreshold | -2000 | -102 (MBPS) / -68 (single) | No |
+| gossipThreshold | -500 | -68 (default) / -102 (block scoring on) | No |
+| publishThreshold | -1000 | -68 (default) / -102 (block scoring on) | No |
+| graylistThreshold | -2000 | -68 (default) / -102 (block scoring on) | No |
 
-**A score of -102 (MBPS) or -68 (single-block) is well above -500**, so non-contributing peers:
+**A score of -68 or -102 is well above -500**, so non-contributing peers:
 - Are pruned from mesh (good - stops them slowing propagation)
 - Still receive gossip (can recover by reconnecting/restarting)
 - Are NOT disconnected unless they also have application-level penalties
@@ -547,7 +562,7 @@ What happens when a peer experiences a network outage and stops delivering messa
 While the peer is disconnected:
 
 1. **P3 penalty accumulates**: The message delivery counter decays toward 0, causing increasing P3 penalty
-2. **Max P3 penalty reached**: Once counter drops below threshold, penalty hits -34 per topic (-102 total in MBPS; -68 single-block)
+2. **Max P3 penalty reached**: Once counter drops below threshold, penalty hits -34 per topic (-68 default, -102 with block proposal scoring)
 3. **Mesh pruning**: Topic score goes negative → peer is pruned from mesh
 4. **P3b captures penalty**: The P3 deficit at prune time becomes P3b (sticky penalty)
 
@@ -569,13 +584,13 @@ Note: If the peer just joined the mesh, P3 penalties only start after
 During a network outage, the peer:
 - **Does NOT send invalid messages** → No P4 penalty
 - **Does NOT violate protocols** → No application-level penalty
-- **Only accumulates topic-level penalties** → Max -102 (P3b, MBPS) or -68 (single-block)
+- **Only accumulates topic-level penalties** → Max -68 (default) or -102 (with block proposal scoring)
 
 This is the crucial difference from malicious behavior:
 
 | Scenario | App Score | Topic Score | Total | Threshold Hit |
 |----------|-----------|-------------|-------|---------------|
-| Network outage | 0 | -102 (MBPS) / -68 (single) | -102 / -68 | None |
+| Network outage | 0 | -68 (default) / -102 (block scoring on) | -68 / -102 | None |
 | Validation failure | -50 | -20 | -520 | gossipThreshold |
 | Malicious peer | -100 | -2000+ | -2100+ | graylistThreshold |
 

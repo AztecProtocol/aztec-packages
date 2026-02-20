@@ -32,8 +32,8 @@
 <div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">utils</a>::<a href="../index.html">conversion</a>::bytes_to_fields</div>
 <h1>Module <span id="mod" class="module">bytes_to_fields</span></h1>
 <h2 id="functions">Functions</h2><ul class="item-list">
-<li><div class="item-name"><a href="fn.bytes_from_fields.html" class="fn">bytes_from_fields</a></div><div class="item-description">Converts an input BoundedVec of fields into a BoundedVec of bytes in big-endian order. Arbitrary Field arrays
-are not allowed: this is assumed to be an array obtained via <code>bytes_to_fields</code>, i.e. one that actually represents
+<li><div class="item-name"><a href="fn.bytes_from_fields.html" class="fn">bytes_from_fields</a></div><div class="item-description">Converts an input BoundedVec of fields into a BoundedVec of bytes in big-endian order. Arbitrary Field arrays are
+not allowed: this is assumed to be an array obtained via <code>bytes_to_fields</code>, i.e. one that actually represents
 bytes. To convert a Field array into bytes, use <code>fields_to_bytes</code>.</div></li>
 <li><div class="item-name"><a href="fn.bytes_to_fields.html" class="fn">bytes_to_fields</a></div><div class="item-description">Converts the input bytes into an array of fields. A Field is ~254 bits meaning that each field can store 31 whole
 bytes. Use <code>bytes_from_fields</code> to obtain the original bytes array.</div></li>

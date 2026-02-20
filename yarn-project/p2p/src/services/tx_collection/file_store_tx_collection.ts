@@ -126,9 +126,13 @@ export class FileStoreTxCollection {
 
       try {
         const result = await this.txCollectionSink.collect(
-          hashes => source.getTxsByHash(hashes),
-          [TxHash.fromString(entry.txHash)],
-          { description: `file-store ${source.getInfo()}`, method: 'file-store', fileStore: source.getInfo() },
+          () => source.getTxsByHash([TxHash.fromString(entry.txHash)]),
+          [entry.txHash],
+          {
+            description: `file-store ${source.getInfo()}`,
+            method: 'file-store',
+            fileStore: source.getInfo(),
+          },
           entry.context,
         );
         if (result.txs.length > 0) {

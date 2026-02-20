@@ -58,7 +58,8 @@ const DefaultMaxSizesKb: Record<TopicType, number> = {
   // Proposals may carry some tx objects, so we allow a larger size capped at 10mb
   // Note this may not be enough for carrying all tx objects in a block
   [TopicType.block_proposal]: 1024 * 10,
-  // TODO(palla/mbps): Check size for checkpoint proposal
+  // Checkpoint proposals carry almost the same data as a block proposal (see the lastBlockProposal)
+  // Only diff is an additional header, which is pretty small compared to the 10mb limit
   [TopicType.checkpoint_proposal]: 1024 * 10,
 };
 

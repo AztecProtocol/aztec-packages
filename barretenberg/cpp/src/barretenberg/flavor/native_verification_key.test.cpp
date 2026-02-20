@@ -40,15 +40,11 @@ template <typename Params> class NativeVerificationKeyTests : public ::testing::
 
     VerificationKey create_vk()
     {
-        if constexpr (IsUltraOrMegaHonk<Flavor>) {
-            using ProverInstance = ProverInstance_<Flavor>;
-            Builder builder;
-            IO::add_default(builder);
-            auto prover_instance = std::make_shared<ProverInstance>(builder);
-            return VerificationKey{ prover_instance->get_precomputed() };
-        } else {
-            return VerificationKey();
-        }
+        using ProverInstance = ProverInstance_<Flavor>;
+        Builder builder;
+        IO::add_default(builder);
+        auto prover_instance = std::make_shared<ProverInstance>(builder);
+        return VerificationKey{ prover_instance->get_precomputed() };
     }
 
   protected:

@@ -9,7 +9,7 @@ networkShaping:
         correlation: "75"
     bandwidth:
       enabled: true
-      rate: 25mbps
+      rate: 200mbps
     packetLoss:
       enabled: true
       loss:

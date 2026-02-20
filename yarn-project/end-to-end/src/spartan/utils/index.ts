@@ -25,6 +25,7 @@ export {
   getRPCEndpoint,
   getEthereumEndpoint,
   createResilientPrometheusConnection,
+  scaleProverAgents,
 } from './k8s.js';
 
 // Chaos Mesh

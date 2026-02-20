@@ -27,7 +27,7 @@ export async function getContractClassRegistryArtifact(): Promise<ContractArtifa
 export async function getCanonicalClassRegistry(): Promise<ProtocolContract> {
   if (!protocolContract) {
     const contractClassRegistryArtifact = await getContractClassRegistryArtifact();
-    protocolContract = await makeProtocolContract('ContractClassRegistry', contractClassRegistryArtifact);
+    protocolContract = makeProtocolContract('ContractClassRegistry', contractClassRegistryArtifact);
   }
   return protocolContract;
 }

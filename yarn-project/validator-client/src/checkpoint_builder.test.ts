@@ -41,6 +41,7 @@ describe('CheckpointBuilder', () => {
     chainId: new Fr(1),
     version: new Fr(1),
     slotNumber,
+    timestamp: BigInt(Date.now()),
     coinbase: EthAddress.random(),
     feeRecipient: AztecAddress.fromField(Fr.random()),
     gasFees: GasFees.empty(),
@@ -94,6 +95,7 @@ describe('CheckpointBuilder', () => {
         [], // usedTxs
         [], // returnValues
         0, // usedTxBlobFields
+        [], // debugLogs
       ]);
 
       const result = await checkpointBuilder.buildBlock([], blockNumber, 1000n);
@@ -117,6 +119,7 @@ describe('CheckpointBuilder', () => {
         [], // usedTxs
         [], // returnValues
         0, // usedTxBlobFields
+        [], // debugLogs
       ]);
 
       const result = await checkpointBuilder.buildBlock([], blockNumber, 1000n);
@@ -136,6 +139,7 @@ describe('CheckpointBuilder', () => {
         [], // usedTxs
         [], // returnValues
         0, // usedTxBlobFields
+        [], // debugLogs
       ]);
 
       await expect(checkpointBuilder.buildBlock([], blockNumber, 1000n)).rejects.toThrow(NoValidTxsError);

@@ -38,7 +38,7 @@ export interface P2PConfig
     ChainConfig,
     TxCollectionConfig,
     TxFileStoreConfig,
-    Pick<SequencerConfig, 'blockDurationMs'> {
+    Pick<SequencerConfig, 'blockDurationMs' | 'expectedBlockProposalsPerSlot'> {
   /** A flag dictating whether the P2P subsystem should be enabled. */
   p2pEnabled: boolean;
 
@@ -173,10 +173,7 @@ export interface P2PConfig
   /** Whether transactions are disabled for this node. This means transactions will be rejected at the RPC and P2P layers. */
   disableTransactions: boolean;
 
-  /** True to simulate discarding transactions. - For testing purposes only*/
-  dropTransactions: boolean;
-
-  /** The probability that a transaction is discarded. - For testing purposes only */
+  /** The probability that a transaction is discarded (0 = disabled). - For testing purposes only */
   dropTransactionsProbability: number;
 
   /** Whether to delete transactions from the pool after a reorg instead of moving them back to pending. */
@@ -429,11 +426,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_MAX_AUTH_FAILED_ATTEMPTS_ALLOWED',
     description: 'Number of auth attempts to allow before peer is banned. Number is inclusive',
     ...numberConfigHelper(3),
-  },
-  dropTransactions: {
-    env: 'P2P_DROP_TX',
-    description: 'True to simulate discarding transactions. - For testing purposes only',
-    ...booleanConfigHelper(false),
   },
   dropTransactionsProbability: {
     env: 'P2P_DROP_TX_CHANCE',

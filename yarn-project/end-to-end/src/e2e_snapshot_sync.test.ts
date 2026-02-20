@@ -10,14 +10,12 @@ import { tryRmDir } from '@aztec/foundation/fs';
 import { logger } from '@aztec/foundation/log';
 import { withLoggerBindings } from '@aztec/foundation/log/server';
 import { retryUntil } from '@aztec/foundation/retry';
-import { bufferToHex } from '@aztec/foundation/string';
-import { ProverNode, type ProverNodeConfig } from '@aztec/prover-node';
 
 import { cp, mkdtemp, readFile, readdir, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { type EndToEndContext, createAndSyncProverNode, getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
+import { type EndToEndContext, setup } from './fixtures/utils.js';
 
 const L1_BLOCK_TIME_IN_S = process.env.L1_BLOCK_TIME ? parseInt(process.env.L1_BLOCK_TIME) : 8;
 const L2_TARGET_BLOCK_NUM = 3;
@@ -68,19 +66,7 @@ describe('e2e_snapshot_sync', () => {
     );
   };
 
-  const createTestProverNode = async (config: Partial<ProverNodeConfig> = {}) => {
-    log.warn('Creating and syncing a prover node...');
-    const dataDirectory = join(context.config.dataDirectory!, randomBytes(8).toString('hex'));
-    return await createAndSyncProverNode(
-      bufferToHex(getPrivateKeyFromIndex(5)!),
-      context.config,
-      { ...config, realProofs: false, dataDirectory },
-      context.aztecNode,
-      context.prefilledPublicData ?? [],
-    );
-  };
-
-  const expectNodeSyncedToL2Block = async (node: AztecNode | ProverNode, blockNumber: number) => {
+  const expectNodeSyncedToL2Block = async (node: AztecNode, blockNumber: number) => {
     const tips = await node.getL2Tips();
     expect(tips.proposed.number).toBeGreaterThanOrEqual(blockNumber);
     const worldState = await node.getWorldStateSyncStatus();
@@ -120,17 +106,6 @@ describe('e2e_snapshot_sync', () => {
     expect(await getBlockHashLeafIndex(node)).toBeDefined();
 
     log.warn(`Stopping new node`);
-    await node.stop();
-  });
-
-  it('downloads snapshot when syncing new prover node', async () => {
-    log.warn(`Syncing brand new prover node with snapshot sync`);
-    const node = await createTestProverNode({ snapshotsUrls: [snapshotLocation], syncMode: 'snapshot' });
-
-    log.warn(`New node prover synced`);
-    await expectNodeSyncedToL2Block(node, L2_TARGET_BLOCK_NUM);
-
-    log.warn(`Stopping new prover node`);
     await node.stop();
   });
 

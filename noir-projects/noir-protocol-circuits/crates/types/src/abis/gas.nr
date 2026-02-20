@@ -1,6 +1,6 @@
 use crate::{
     abis::gas_fees::GasFees,
-    constants::{FIXED_DA_GAS, FIXED_L2_GAS},
+    constants::{PRIVATE_TX_L2_GAS_OVERHEAD, PUBLIC_TX_L2_GAS_OVERHEAD, TX_DA_GAS_OVERHEAD},
     traits::{Deserialize, Empty, Serialize},
 };
 use std::{meta::derive, ops::{Add, Sub}};
@@ -16,8 +16,12 @@ impl Gas {
         Self { da_gas, l2_gas }
     }
 
-    pub fn tx_overhead() -> Self {
-        Self { da_gas: FIXED_DA_GAS, l2_gas: FIXED_L2_GAS }
+    pub fn private_tx_overhead() -> Self {
+        Self { da_gas: TX_DA_GAS_OVERHEAD, l2_gas: PRIVATE_TX_L2_GAS_OVERHEAD }
+    }
+
+    pub fn public_tx_overhead() -> Self {
+        Self { da_gas: TX_DA_GAS_OVERHEAD, l2_gas: PUBLIC_TX_L2_GAS_OVERHEAD }
     }
 
     pub fn compute_fee(self, fees: GasFees) -> Field {

@@ -1,3 +1,4 @@
+import type { Archiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
 import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
@@ -9,7 +10,8 @@ import { EpochCache } from '@aztec/epoch-cache';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp, withDelayer } from '@aztec/ethereum/test';
+import { Delayer, createDelayer, waitUntilL1Timestamp, wrapClientWithDelayer } from '@aztec/ethereum/l1-tx-utils';
+import { ChainMonitor } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
@@ -20,16 +22,9 @@ import { sleep } from '@aztec/foundation/sleep';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
-import { ProverNode, type ProverNodeConfig, ProverNodePublisher } from '@aztec/prover-node';
-import type { TestProverNode } from '@aztec/prover-node/test';
+import type { ProverNodeConfig } from '@aztec/prover-node';
 import type { PXEConfig } from '@aztec/pxe/config';
-import {
-  type SequencerClient,
-  type SequencerEvents,
-  type SequencerPublisher,
-  SequencerState,
-} from '@aztec/sequencer-client';
-import type { TestSequencerClient } from '@aztec/sequencer-client/test';
+import { type SequencerClient, type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
 import { type BlockParameter, EthAddress } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
@@ -46,7 +41,7 @@ import {
   setup,
 } from '../fixtures/utils.js';
 
-export const WORLD_STATE_BLOCK_HISTORY = 2;
+export const WORLD_STATE_CHECKPOINT_HISTORY = 2;
 export const WORLD_STATE_BLOCK_CHECK_INTERVAL = 50;
 export const ARCHIVER_POLL_INTERVAL = 50;
 export const DEFAULT_L1_BLOCK_TIME = process.env.CI ? 12 : 8;
@@ -81,7 +76,7 @@ export class EpochsTestContext {
   public proverDelayer!: Delayer;
   public sequencerDelayer!: Delayer;
 
-  public proverNodes: ProverNode[] = [];
+  public proverNodes: AztecNodeService[] = [];
   public nodes: AztecNodeService[] = [];
 
   public epochDuration!: number;
@@ -147,7 +142,7 @@ export class EpochsTestContext {
         // using the prover's eth address if the proverId is used for something in the rollup contract
         // Use numeric EthAddress for deterministic prover id
         proverId: EthAddress.fromNumber(1),
-        worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
+        worldStateCheckpointHistory: WORLD_STATE_CHECKPOINT_HISTORY,
         exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
         slasherFlavor: 'none',
         l1PublishingTime,
@@ -169,17 +164,8 @@ export class EpochsTestContext {
     // Loop that tracks L1 and L2 block numbers and logs whenever there's a new one.
     this.monitor = new ChainMonitor(this.rollup, context.dateProvider, this.logger).start();
 
-    // This is hideous.
-    // We ought to have a definite reference to the l1TxUtils that we're using in both places, provided by the test context.
-    this.proverDelayer = context.proverNode
-      ? (((context.proverNode as TestProverNode).publisher as ProverNodePublisher).l1TxUtils as DelayedTxUtils).delayer!
-      : undefined!;
-    this.sequencerDelayer = context.sequencer
-      ? (
-          ((context.sequencer as TestSequencerClient).sequencer.publisher as SequencerPublisher)
-            .l1TxUtils as DelayedTxUtils
-        ).delayer!
-      : undefined!;
+    this.proverDelayer = context.proverDelayer!;
+    this.sequencerDelayer = context.sequencerDelayer!;
 
     if ((context.proverNode && !this.proverDelayer) || (context.sequencer && !this.sequencerDelayer)) {
       throw new Error(`Could not find prover or sequencer delayer`);
@@ -214,26 +200,29 @@ export class EpochsTestContext {
     const proverNodePrivateKey = this.getNextPrivateKey();
     const proverIndex = this.proverNodes.length + 1;
     const { mockGossipSubNetwork } = this.context;
-    const proverNode = await withLoggerBindings({ actor: `prover-${proverIndex}` }, () =>
+    const { proverNode } = await withLoggerBindings({ actor: `prover-${proverIndex}` }, () =>
       createAndSyncProverNode(
         proverNodePrivateKey,
         {
           ...this.context.config,
           p2pEnabled: this.context.config.p2pEnabled || mockGossipSubNetwork !== undefined,
-        },
-        {
-          dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
           proverId: EthAddress.fromNumber(proverIndex),
           dontStart: opts.dontStart,
           ...opts,
         },
-        this.context.aztecNode,
-        this.context.prefilledPublicData ?? [],
+        {
+          dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
+        },
         {
           dateProvider: this.context.dateProvider,
-          p2pClientDeps: mockGossipSubNetwork
-            ? { p2pServiceFactory: getMockPubSubP2PServiceFactory(mockGossipSubNetwork) }
-            : undefined,
+          p2pClientDeps: {
+            p2pServiceFactory: mockGossipSubNetwork ? getMockPubSubP2PServiceFactory(mockGossipSubNetwork) : undefined,
+            rpcTxProviders: [this.context.aztecNode],
+          },
+        },
+        {
+          prefilledPublicData: this.context.prefilledPublicData ?? [],
+          dontStart: opts.dontStart,
         },
       ),
     );
@@ -248,15 +237,13 @@ export class EpochsTestContext {
 
   public createValidatorNode(
     privateKeys: `0x${string}`[],
-    opts: Partial<AztecNodeConfig> & { txDelayerMaxInclusionTimeIntoSlot?: number; dontStartSequencer?: boolean } = {},
+    opts: Partial<AztecNodeConfig> & { dontStartSequencer?: boolean } = {},
   ) {
     this.logger.warn('Creating and syncing a validator node...');
     return this.createNode({ ...opts, disableValidator: false, validatorPrivateKeys: new SecretValue(privateKeys) });
   }
 
-  private async createNode(
-    opts: Partial<AztecNodeConfig> & { txDelayerMaxInclusionTimeIntoSlot?: number; dontStartSequencer?: boolean } = {},
-  ) {
+  private async createNode(opts: Partial<AztecNodeConfig> & { dontStartSequencer?: boolean } = {}) {
     const nodeIndex = this.nodes.length + 1;
     const actorPrefix = opts.disableValidator ? 'node' : 'validator';
     const { mockGossipSubNetwork } = this.context;
@@ -284,26 +271,6 @@ export class EpochsTestContext {
         },
       ),
     );
-
-    // REFACTOR: We're getting too much into the internals of the sequencer here.
-    // We should have a single method for constructing an aztec node that returns a TestAztecNodeService
-    // which directly exposes the delayer and sets any test config.
-    if (opts.txDelayerMaxInclusionTimeIntoSlot !== undefined) {
-      this.logger.info(
-        `Setting tx delayer max inclusion time into slot to ${opts.txDelayerMaxInclusionTimeIntoSlot} seconds`,
-      );
-      // Here we reach into the sequencer and hook in a tx delayer. The problem is that the sequencer's l1 utils only uses a public client, not a wallet.
-      // The delayer needs a wallet (a client that can sign), so we have to create one here.
-      const l1Client = createExtendedL1Client(
-        resolvedConfig.l1RpcUrls!,
-        resolvedConfig.publisherPrivateKeys![0]!.getValue(),
-      );
-      const sequencer = node.getSequencer() as TestSequencerClient;
-      const publisher = sequencer.sequencer.publisher;
-      const delayed = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, this.L1_BLOCK_TIME_IN_S, l1Client);
-      delayed.delayer!.setMaxInclusionTimeIntoSlot(opts.txDelayerMaxInclusionTimeIntoSlot);
-      publisher.l1TxUtils = delayed;
-    }
 
     this.nodes.push(node);
     return node;
@@ -356,7 +323,10 @@ export class EpochsTestContext {
     this.logger.info(`Waiting until last slot of submission window for epoch ${epochNumber} at ${date}`, {
       oneSlotBefore,
     });
-    await waitUntilL1Timestamp(this.l1Client, oneSlotBefore);
+    // Use a timeout that accounts for the full proof submission window
+    const proofSubmissionWindowDuration =
+      this.constants.proofSubmissionEpochs * this.epochDuration * this.L2_SLOT_DURATION_IN_S;
+    await waitUntilL1Timestamp(this.l1Client, oneSlotBefore, undefined, proofSubmissionWindowDuration * 2);
   }
 
   /** Waits for the aztec node to sync to the target block number. */
@@ -408,15 +378,13 @@ export class EpochsTestContext {
 
   /** Creates an L1 client using a fresh account with funds from anvil, with a tx delayer already set up. */
   public async createL1Client() {
-    const { client, delayer } = withDelayer(
-      createExtendedL1Client(
-        [...this.l1Client.chain.rpcUrls.default.http],
-        privateKeyToAccount(this.getNextPrivateKey()),
-        this.l1Client.chain,
-      ),
-      this.context.dateProvider,
-      { ethereumSlotDuration: this.L1_BLOCK_TIME_IN_S },
+    const rawClient = createExtendedL1Client(
+      [...this.l1Client.chain.rpcUrls.default.http],
+      privateKeyToAccount(this.getNextPrivateKey()),
+      this.l1Client.chain,
     );
+    const delayer = createDelayer(this.context.dateProvider, { ethereumSlotDuration: this.L1_BLOCK_TIME_IN_S }, {});
+    const client = wrapClientWithDelayer(rawClient, delayer);
     expect(await client.getBalance({ address: client.account.address })).toBeGreaterThan(0n);
     return { client, delayer };
   }
@@ -431,6 +399,38 @@ export class EpochsTestContext {
       .then(_ => true)
       .catch(_ => false);
     expect(result).toBe(expectedSuccess);
+  }
+
+  /** Verifies at least one checkpoint has the target number of blocks (for MBPS validation). */
+  public async assertMultipleBlocksPerSlot(targetBlockCount: number) {
+    const archiver = (this.context.aztecNode as AztecNodeService).getBlockSource() as Archiver;
+    const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
+
+    this.logger.warn(`Retrieved ${checkpoints.length} checkpoints from archiver`, {
+      checkpoints: checkpoints.map(pc => pc.checkpoint.getStats()),
+    });
+
+    let expectedBlockNumber = checkpoints[0].checkpoint.blocks[0].number;
+    let targetFound = false;
+
+    for (const checkpoint of checkpoints) {
+      const blockCount = checkpoint.checkpoint.blocks.length;
+      targetFound = targetFound || blockCount >= targetBlockCount;
+
+      this.logger.verbose(`Checkpoint ${checkpoint.checkpoint.number} has ${blockCount} blocks`, {
+        checkpoint: checkpoint.checkpoint.getStats(),
+      });
+
+      for (let i = 0; i < blockCount; i++) {
+        const block = checkpoint.checkpoint.blocks[i];
+        expect(block.indexWithinCheckpoint).toBe(i);
+        expect(block.checkpointNumber).toBe(checkpoint.checkpoint.number);
+        expect(block.number).toBe(expectedBlockNumber);
+        expectedBlockNumber++;
+      }
+    }
+
+    expect(targetFound).toBe(true);
   }
 
   public watchSequencerEvents(

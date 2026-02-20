@@ -103,30 +103,30 @@ pub global MAX_KEY_VALIDATION_REQUESTS_PER_CALL: u32 = MAX_PRIVATE_LOGS_PER_CALL
 pub global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP: u32 = 1 << L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
 // VK TREE CONSTANTS
-pub comptime global PRIVATE_KERNEL_INIT_VK_INDEX: u32 = 0;
-pub comptime global PRIVATE_KERNEL_INNER_VK_INDEX: u32 = 1;
-pub comptime global PRIVATE_KERNEL_TAIL_VK_INDEX: u32 = 2;
-pub comptime global PRIVATE_KERNEL_TAIL_TO_PUBLIC_VK_INDEX: u32 = 3;
-pub comptime global HIDING_KERNEL_TO_ROLLUP_VK_INDEX: u32 = 4;
-pub comptime global HIDING_KERNEL_TO_PUBLIC_VK_INDEX: u32 = 5;
-pub comptime global PUBLIC_CHONK_VERIFIER_VK_INDEX: u32 = 6;
-pub comptime global PRIVATE_TX_BASE_ROLLUP_VK_INDEX: u32 = 7;
-pub comptime global PUBLIC_TX_BASE_ROLLUP_VK_INDEX: u32 = 8;
-pub comptime global TX_MERGE_ROLLUP_VK_INDEX: u32 = 9;
-pub comptime global BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX: u32 = 10;
-pub comptime global BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX: u32 = 11;
-pub comptime global BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX: u32 = 12;
-pub comptime global BLOCK_ROOT_ROLLUP_VK_INDEX: u32 = 13;
-pub comptime global BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX: u32 = 14;
-pub comptime global BLOCK_MERGE_ROLLUP_VK_INDEX: u32 = 15;
-pub comptime global CHECKPOINT_ROOT_ROLLUP_VK_INDEX: u32 = 16;
-pub comptime global CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX: u32 = 17;
-pub comptime global CHECKPOINT_PADDING_ROLLUP_VK_INDEX: u32 = 18;
-pub comptime global CHECKPOINT_MERGE_ROLLUP_VK_INDEX: u32 = 19;
-pub comptime global ROOT_ROLLUP_VK_INDEX: u32 = 20;
-pub comptime global PARITY_BASE_VK_INDEX: u32 = 21;
-pub comptime global PARITY_ROOT_VK_INDEX: u32 = 22;
-pub comptime global PRIVATE_KERNEL_RESET_VK_INDEX: u32 = 23;
+pub global PRIVATE_KERNEL_INIT_VK_INDEX: u32 = 0;
+pub global PRIVATE_KERNEL_INNER_VK_INDEX: u32 = 1;
+pub global PRIVATE_KERNEL_TAIL_VK_INDEX: u32 = 2;
+pub global PRIVATE_KERNEL_TAIL_TO_PUBLIC_VK_INDEX: u32 = 3;
+pub global HIDING_KERNEL_TO_ROLLUP_VK_INDEX: u32 = 4;
+pub global HIDING_KERNEL_TO_PUBLIC_VK_INDEX: u32 = 5;
+pub global PUBLIC_CHONK_VERIFIER_VK_INDEX: u32 = 6;
+pub global PRIVATE_TX_BASE_ROLLUP_VK_INDEX: u32 = 7;
+pub global PUBLIC_TX_BASE_ROLLUP_VK_INDEX: u32 = 8;
+pub global TX_MERGE_ROLLUP_VK_INDEX: u32 = 9;
+pub global BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX: u32 = 10;
+pub global BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX: u32 = 11;
+pub global BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX: u32 = 12;
+pub global BLOCK_ROOT_ROLLUP_VK_INDEX: u32 = 13;
+pub global BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX: u32 = 14;
+pub global BLOCK_MERGE_ROLLUP_VK_INDEX: u32 = 15;
+pub global CHECKPOINT_ROOT_ROLLUP_VK_INDEX: u32 = 16;
+pub global CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX: u32 = 17;
+pub global CHECKPOINT_PADDING_ROLLUP_VK_INDEX: u32 = 18;
+pub global CHECKPOINT_MERGE_ROLLUP_VK_INDEX: u32 = 19;
+pub global ROOT_ROLLUP_VK_INDEX: u32 = 20;
+pub global PARITY_BASE_VK_INDEX: u32 = 21;
+pub global PARITY_ROOT_VK_INDEX: u32 = 22;
+pub global PRIVATE_KERNEL_RESET_VK_INDEX: u32 = 23;
 // Important: Do not define indexes after the PRIVATE_KERNEL_RESET_VK_INDEX. They are allocated for the variants of private kernel reset.
 
 // SIDE EFFECT RELATED CONSTANTS
@@ -610,7 +610,7 @@ pub global ULTRA_KECCAK_PROOF_LENGTH: u32 = 331; // See UltraKeccakFlavor for fo
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
     RECURSIVE_PROOF_LENGTH + IPA_CLAIM_SIZE + IPA_PROOF_LENGTH;
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
-pub global CHONK_PROOF_LENGTH: u32 = 1935;
+pub global CHONK_PROOF_LENGTH: u32 = 1632;
 
 pub global ULTRA_VK_LENGTH_IN_FIELDS: u32 = 115; // size of an Ultra verification key
 pub global MEGA_VK_LENGTH_IN_FIELDS: u32 = 127; // size of a Mega verification key
@@ -1032,30 +1032,32 @@ pub global AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED: u32 = 16400;
 pub global AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED: u32 = 1000;
 
 // GAS DEFAULTS
-// The maximum amount of l2 gas that the AVM can process safely.
-pub global AVM_MAX_PROCESSABLE_L2_GAS: u32 = 6_000_000; // Arbitrary.
-
 pub global DA_BYTES_PER_FIELD: u32 = 32;
-pub global DA_GAS_PER_BYTE: u32 = 16; // TODO: Explain this, might be arbitrary? maybe make it one? and sync it wit the tx overhead constants?
-// pays for preamble information in TX Effects
-pub global FIXED_DA_GAS: u32 = 512;
-// TODO: take into account the cost of executing and proving the rollup circuits (if they can be attributed to this tx... eg the tx base rollup, half a tx merge).
-// We need a test suite to demonstrate these measurements
-// pays for fixed tx costs like validation, and updating state roots
-pub global FIXED_L2_GAS: u32 = 512;
+pub global DA_GAS_PER_BYTE: u32 = 1; // Arbitrary.
+pub global DA_GAS_PER_FIELD: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+// A tx always emits 3 fields: tx_start_marker, tx_hash, and tx_fee.
+pub global TX_DA_GAS_OVERHEAD: u32 = 3 * DA_GAS_PER_FIELD;
+// Computed taking into account simulation time metrics.
+pub global PUBLIC_TX_L2_GAS_OVERHEAD: u32 = 540000;
+pub global PRIVATE_TX_L2_GAS_OVERHEAD: u32 = 440000;
 // base cost for a single public call
 pub global FIXED_AVM_STARTUP_L2_GAS: u32 = 20_000;
 
+// The maximum amount of l2 gas that the AVM can process safely.
+pub global AVM_MAX_PROCESSABLE_L2_GAS: u32 = 6_000_000; // Arbitrary.
+// The following limit assumes that a private only tx will always be cheaper than a tx with a full public component.
+pub global MAX_PROCESSABLE_L2_GAS: u32 = PUBLIC_TX_L2_GAS_OVERHEAD + AVM_MAX_PROCESSABLE_L2_GAS;
+
 pub global MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT: u32 =
-    BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+    BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB * DA_GAS_PER_FIELD;
 
 // For gas estimation, we use the theoretical maximum amounts.
 // Since we split in teardown and total, teardown has the theoretical maximum and total is that times 2.
 // After gas estimation, we tune it down to the actual amount necessary.
 // TODO: this is a wallet concern; it should not be part of the protocol
-pub global GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT: u32 = AVM_MAX_PROCESSABLE_L2_GAS;
+pub global GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT: u32 = MAX_PROCESSABLE_L2_GAS;
 pub global GAS_ESTIMATION_L2_GAS_LIMIT: u32 =
-    GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT + AVM_MAX_PROCESSABLE_L2_GAS;
+    GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT + MAX_PROCESSABLE_L2_GAS;
 
 pub global GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
 pub global GAS_ESTIMATION_DA_GAS_LIMIT: u32 =
@@ -1064,8 +1066,8 @@ pub global GAS_ESTIMATION_DA_GAS_LIMIT: u32 =
 // Default gas limits. Users should use gas estimation, or they will overpay gas fees.
 // TODO: consider moving to typescript
 pub global DEFAULT_TEARDOWN_L2_GAS_LIMIT: u32 = 1_000_000; // Arbitrary default number.
-pub global DEFAULT_L2_GAS_LIMIT: u32 = AVM_MAX_PROCESSABLE_L2_GAS; // Arbitrary default number.
-pub global DEFAULT_TEARDOWN_DA_GAS_LIMIT: u32 = 1_000_000; // Arbitrary default number.
+pub global DEFAULT_L2_GAS_LIMIT: u32 = MAX_PROCESSABLE_L2_GAS; // Arbitrary default number.
+pub global DEFAULT_TEARDOWN_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT / 2; // Arbitrary default number.
 pub global DEFAULT_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT; // Arbitrary default number.
 
 // Some tree insertions incur an additional cost associated with
@@ -1088,14 +1090,12 @@ pub global AVM_ADDRESSING_INDIRECT_L2_GAS: u32 = 3; // One mem access
 pub global AVM_ADDRESSING_RELATIVE_L2_GAS: u32 = 3; // One range check
 
 // Base L2 GAS
-// TODO: Decide what the following constants should be.
-pub global L2_GAS_PER_NOTE_HASH: u32 = 0;
-pub global L2_GAS_PER_NULLIFIER: u32 = 0;
-// Gas for writing message to L1 portal
-pub global L2_GAS_PER_L2_TO_L1_MSG: u32 = 200; // TODO: Update and explain this.
-// Zero gas because we don't have to hash and validate the private logs
-pub global L2_GAS_PER_PRIVATE_LOG: u32 = 0;
-pub global L2_GAS_PER_CONTRACT_CLASS_LOG: u32 = 0; // TODO: this should be nonzero, because the sequencer is doing work to hash this, as part of tx validation
+// Based on simulation time metrics
+pub global L2_GAS_PER_NOTE_HASH: u32 = 2700;
+pub global L2_GAS_PER_NULLIFIER: u32 = 16000;
+pub global L2_GAS_PER_L2_TO_L1_MSG: u32 = 5200;
+pub global L2_GAS_PER_PRIVATE_LOG: u32 = 2500;
+pub global L2_GAS_PER_CONTRACT_CLASS_LOG: u32 = 73000;
 // Note: magic numbers here are derived from each op's AVM circuit trace area
 // https://docs.google.com/spreadsheets/d/1FPyLfJFPOfZTmZC-T6b_4yB5dSrOAofz3dufte23_TA/edit?usp=sharing
 // Some have a "SLOW_SIM_MUL" multiplier because they are slower to simulate and their trace-area-derived gas cost
@@ -1135,7 +1135,7 @@ pub global AVM_EMITNULLIFIER_BASE_L2_GAS: u32 = (516 + L2_GAS_DISTRIBUTED_STORAG
 pub global AVM_L1TOL2MSGEXISTS_BASE_L2_GAS: u32 = 108 * 5; // SLOW_SIM_MUL = 4 (+1 for slow proving)
 pub global AVM_GETCONTRACTINSTANCE_BASE_L2_GAS: u32 = 1527 * 4; // SLOW_SIM_MUL = 4
 pub global AVM_EMITPUBLICLOG_BASE_L2_GAS: u32 = 15;
-pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = (39 + L2_GAS_PER_L2_TO_L1_MSG) * 2; // SLOW_SIM_MUL = 2
+pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = 39 + L2_GAS_PER_L2_TO_L1_MSG;
 // See PR https://github.com/AztecProtocol/aztec-packages/pull/15495 on why we need this buffer.
 pub global AVM_CALL_BASE_L2_GAS: u32 = 3312 * 3; // SLOW_SIM_MUL = 3
 pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 3312 * 3; // SLOW_SIM_MUL = 3
@@ -1156,16 +1156,16 @@ pub global AVM_BITWISE_DYN_L2_GAS: u32 = 3; // One row per byte
 pub global AVM_EMITPUBLICLOG_DYN_L2_GAS: u32 = 3;
 
 // Base DA Gas
-pub global AVM_EMITNOTEHASH_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
-pub global AVM_EMITNULLIFIER_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
-pub global AVM_SENDL2TOL1MSG_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
-pub global AVM_EMITPUBLICLOG_BASE_DA_GAS: u32 = 2 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE; // length and address
+pub global AVM_EMITNOTEHASH_BASE_DA_GAS: u32 = DA_GAS_PER_FIELD;
+pub global AVM_EMITNULLIFIER_BASE_DA_GAS: u32 = DA_GAS_PER_FIELD;
+pub global AVM_SENDL2TOL1MSG_BASE_DA_GAS: u32 = DA_GAS_PER_FIELD;
+pub global AVM_EMITPUBLICLOG_BASE_DA_GAS: u32 = 2 * DA_GAS_PER_FIELD; // length and address
 
 // Dynamic DA Gas
 // a single increment here corresponds to an entire additional field (hence x32 bytes per field)
-pub global AVM_EMITPUBLICLOG_DYN_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+pub global AVM_EMITPUBLICLOG_DYN_DA_GAS: u32 = DA_GAS_PER_FIELD;
 // Gets multiplied by 1 if actually publishing, 0 if not. 2 because of it being (slot, value) pair
-pub global AVM_SSTORE_DYN_DA_GAS: u32 = 2 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+pub global AVM_SSTORE_DYN_DA_GAS: u32 = 2 * DA_GAS_PER_FIELD;
 
 // BLOB PREFIXES
 // Used when decoding blobs of tightly packed effects

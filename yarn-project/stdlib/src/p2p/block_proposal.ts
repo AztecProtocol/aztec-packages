@@ -6,11 +6,11 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { DutyType, type SigningContext } from '@aztec/validator-ha-signer/types';
 
 import type { L2Block } from '../block/l2_block.js';
 import type { L2BlockInfo } from '../block/l2_block_info.js';
 import { MAX_TXS_PER_BLOCK } from '../deserialization/index.js';
+import { DutyType, type SigningContext } from '../ha-signing/index.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { TxHash } from '../tx/index.js';
 import type { Tx } from '../tx/tx.js';
@@ -56,8 +56,6 @@ export class BlockProposal extends Gossipable {
     /** The per-block header containing block state and global variables */
     public readonly blockHeader: BlockHeader,
 
-    // TODO(palla/mbps): Is this really needed? Can we just derive it from the indexWithinCheckpoint of the parent block and the slot number?
-    // See the block-proposal-handler, we have a lot of extra validations to check this is correct, so maybe we can avoid storing it here.
     /** Index of this block within the checkpoint (0-indexed) */
     public readonly indexWithinCheckpoint: IndexWithinCheckpoint,
 

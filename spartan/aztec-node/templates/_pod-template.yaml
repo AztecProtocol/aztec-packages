@@ -190,6 +190,13 @@ spec:
           value: "{{ .Values.service.rpc.port }}"
         - name: AZTEC_ADMIN_PORT
           value: "{{ .Values.service.admin.port }}"
+        {{- if .Values.node.adminApiKeyHash }}
+        - name: AZTEC_ADMIN_API_KEY_HASH
+          value: {{ .Values.node.adminApiKeyHash | quote }}
+        {{- else if .Values.node.disableAdminApiKey }}
+        - name: AZTEC_DISABLE_ADMIN_API_KEY
+          value: "true"
+        {{- end }}
         - name: LOG_LEVEL
           value: "{{ .Values.node.logLevel }}"
         - name: LOG_JSON

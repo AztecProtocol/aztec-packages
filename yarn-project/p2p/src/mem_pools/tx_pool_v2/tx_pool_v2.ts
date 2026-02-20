@@ -61,7 +61,7 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
     };
 
     // Create the implementation
-    this.#impl = new TxPoolV2Impl(store, archiveStore, deps, callbacks, config, dateProvider, log);
+    this.#impl = new TxPoolV2Impl(store, archiveStore, deps, callbacks, telemetry, config, dateProvider, log);
   }
 
   // ============================================================================
@@ -70,7 +70,7 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
 
   // === Core Operations ===
 
-  addPendingTxs(txs: Tx[], opts: { source?: string } = {}): Promise<AddTxsResult> {
+  addPendingTxs(txs: Tx[], opts: { source?: string; feeComparisonOnly?: boolean } = {}): Promise<AddTxsResult> {
     return this.#queue.put(() => this.#impl.addPendingTxs(txs, opts));
   }
 
@@ -83,7 +83,7 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
   }
 
   protectTxs(txHashes: TxHash[], block: BlockHeader): Promise<TxHash[]> {
-    return this.#queue.put(() => Promise.resolve(this.#impl.protectTxs(txHashes, block)));
+    return this.#queue.put(() => this.#impl.protectTxs(txHashes, block));
   }
 
   addMinedTxs(txs: Tx[], block: BlockHeader, opts: { source?: string } = {}): Promise<void> {
@@ -100,8 +100,8 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
     return this.#queue.put(() => this.#impl.prepareForSlot(slotNumber));
   }
 
-  handlePrunedBlocks(latestBlock: L2BlockId): Promise<void> {
-    return this.#queue.put(() => this.#impl.handlePrunedBlocks(latestBlock));
+  handlePrunedBlocks(latestBlock: L2BlockId, options?: { deleteAllTxs?: boolean }): Promise<void> {
+    return this.#queue.put(() => this.#impl.handlePrunedBlocks(latestBlock, options));
   }
 
   handleFailedExecution(txHashes: TxHash[]): Promise<void> {
@@ -195,7 +195,12 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
         this.#queue.put(() => {
           const counts = this.#impl.countTxs();
           return Promise.resolve({
-            itemCount: { pending: counts.pending, protected: counts.protected, mined: counts.mined },
+            itemCount: {
+              pending: counts.pending,
+              protected: counts.protected,
+              mined: counts.mined,
+              softDeleted: counts.softDeleted,
+            },
           });
         }),
       () => this.#store.estimateSize(),

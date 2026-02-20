@@ -561,7 +561,7 @@ public state.</li>
 network as a whole. For example, if a contract interaction sets include-by to some publicly-known value (e.g.
 the time when a contract upgrades), then the wallet might wish to set an even lower one to avoid revealing that
 this tx is interacting with said contract. Ideally, all wallets should standardize on an approach in order to
-provide users with a large anonymity set -- although the exact approach
+provide users with a large privacy set -- although the exact approach
 will need to be discussed. Wallets that deviate from a standard might accidentally reveal which wallet each
 transaction originates from.</li>
 </ul>
@@ -714,7 +714,7 @@ to wait until the messages are copied before you can consume them.</p>
 <p>Validates message existence in the L1-to-L2 message tree and nullifies the message to prevent
 double-consumption.</p>
 </div>
-</div><code id="emit_private_log" class="code-header">pub fn <a href="#emit_private_log"><span class="fn">emit_private_log</span></a>(&mut self, log: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 18], length: <a href="../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+</div><code id="emit_private_log" class="code-header">pub fn <a href="#emit_private_log"><span class="fn">emit_private_log</span></a>(&mut self, log: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 16], length: <a href="../../std/primitive.u32.html" class="primitive">u32</a>)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Emits a private log (an array of Fields) that will be published to an Ethereum blob.</p>
@@ -757,7 +757,7 @@ ideally all wallets should agree on standards for this.</li>
 </div>
 </div><code id="emit_raw_note_log" class="code-header">pub fn <a href="#emit_raw_note_log"><span class="fn">emit_raw_note_log</span></a>(
     &mut self,
-    log: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 18],
+    log: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 16],
     length: <a href="../../std/primitive.u32.html" class="primitive">u32</a>,
     note_hash_counter: <a href="../../std/primitive.u32.html" class="primitive">u32</a>,
 )</code>
