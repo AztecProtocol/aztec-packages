@@ -9,7 +9,14 @@ import {
   getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
 import type { PublicKeys } from '@aztec/stdlib/keys';
-import { type Capsule, TxHash, type TxProfileResult, type TxReceipt, collectOffchainEffects } from '@aztec/stdlib/tx';
+import {
+  type Capsule,
+  HashedValues,
+  TxHash,
+  type TxProfileResult,
+  type TxReceipt,
+  collectOffchainEffects,
+} from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
 import { publishContractClass } from '../deployment/publish_class.js';
@@ -164,6 +171,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
     constructorNameOrArtifact?: string | FunctionArtifact,
     authWitnesses: AuthWitness[] = [],
     capsules: Capsule[] = [],
+    private extraHashedArgs: HashedValues[] = [],
   ) {
     super(wallet, authWitnesses, capsules);
     this.constructorArtifact = getInitializer(artifact, constructorNameOrArtifact);
@@ -174,20 +182,29 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    * @param options - Configuration options.
    * @returns The execution payload for this operation
    */
-  public async request(options?: RequestDeployOptions): Promise<ExecutionPayload> {
+  public async request(options: RequestDeployOptions = {}): Promise<ExecutionPayload> {
     const publication = await this.getPublicationExecutionPayload(options);
 
     if (!options?.skipRegistration) {
       await this.wallet.registerContract(await this.getInstance(options), this.artifact);
     }
+    const { authWitnesses, capsules } = options;
 
+    // Propagates the included authwitnesses, capsules, and extraHashedArgs
+    // potentially baked into the interaction
+    const initialExecutionPayload = new ExecutionPayload(
+      [],
+      this.authWitnesses.concat(authWitnesses ?? []),
+      this.capsules.concat(capsules ?? []),
+      this.extraHashedArgs,
+    );
     const initialization = await this.getInitializationExecutionPayload(options);
     const feeExecutionPayload = options?.fee?.paymentMethod
       ? await options.fee.paymentMethod.getExecutionPayload()
       : undefined;
     const finalExecutionPayload = feeExecutionPayload
-      ? mergeExecutionPayloads([feeExecutionPayload, publication, initialization])
-      : mergeExecutionPayloads([publication, initialization]);
+      ? mergeExecutionPayloads([initialExecutionPayload, feeExecutionPayload, publication, initialization])
+      : mergeExecutionPayloads([initialExecutionPayload, publication, initialization]);
     if (!finalExecutionPayload.calls.length) {
       throw new Error(`No transactions are needed to publish or initialize contract ${this.artifact.name}`);
     }
