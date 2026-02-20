@@ -20,6 +20,68 @@ function aztec {
 
 case $cmd in
   test)
+    # Auto-recompile if sources changed since last compile.
+    #
+    # We check *.nr and Nargo.toml files not only in the current project but also in any path-based dependencies (e.g.
+    # path = "../aztec-nr/aztec"), resolved recursively. Git-based deps are pinned by tag/rev so they only change when
+    # Nargo.toml itself is modified -- no need to walk into them.
+
+    # Track which directories we already visited so we don't loop forever if two packages depend on each other.
+    _visited=""
+
+    # Given a directory, print its absolute path and then recurse into every path-based dependency found in any
+    # Nargo.toml under that directory.
+    collect_dep_dirs() {
+      # `local dir` declares a function-scoped variable.
+      local dir
+      # Resolve the argument to an absolute path. `cd "$1" && pwd` is a portable way to do this. `2>/dev/null`
+      # suppresses errors if the dir doesn't exist, and `|| return` exits the function early in that case.
+      dir=$(cd "$1" && pwd) 2>/dev/null || return
+
+      # If we already visited this directory, skip it (cycle detection). The pattern `,/abs/path,` is checked inside
+      # the comma-delimited _visited string so partial path matches don't give false positives.
+      case ",$_visited," in *",$dir,"*) return ;; esac
+      # Mark this directory as visited.
+      _visited="$_visited,$dir"
+
+      # Output this directory -- callers capture this via `mapfile` below.
+      echo "$dir"
+
+      # Find every Nargo.toml under this directory (skipping target/ build dirs). `< <(...)` is process substitution
+      # -- the while loop reads from the output of the find command line by line.
+      while IFS= read -r toml; do
+        local toml_dir
+        # Get the directory containing this Nargo.toml so we can resolve relative paths declared inside it.
+        toml_dir=$(dirname "$toml")
+
+        # Extract the value of every `path = "..."` entry in the toml file. sed -n with the s///p flag prints only
+        # matching lines, capturing the quoted path value. Example: `aztec = { path = "../foo" }` -> `../foo`
+        while IFS= read -r dep_path; do
+          # If the resolved path is an existing directory, recurse into it.
+          [ -d "$toml_dir/$dep_path" ] && collect_dep_dirs "$toml_dir/$dep_path"
+        done < <(sed -n 's/.*path *= *"\([^"]*\)".*/\1/p' "$toml")
+      done < <(find "$dir" -path '*/target' -prune -o -name 'Nargo.toml' -print 2>/dev/null)
+    }
+
+    # Build the array of all directories whose source files should be checked. `mapfile -t` reads lines from stdin
+    # into a bash array (source_dirs). The input comes from collect_dep_dirs which prints one directory per line.
+    mapfile -t source_dirs < <(collect_dep_dirs .)
+
+    # Find the most recently modified artifact in target/. `ls -t` sorts by modification time (newest first),
+    # `head -1` takes the first.
+    newest_artifact=$(ls -t target/*.json 2>/dev/null | head -1)
+
+    # Recompile if either:
+    #   1. there is no artifact at all (first build), OR
+    #   2. any *.nr or Nargo.toml in any of the source_dirs is newer than that artifact.
+    # `"${source_dirs[@]}"` expands the array into separate arguments so `find` searches all directories at once.
+    # `-newer` tests if a file was modified after the reference file. `head -1` short-circuits after the first match.
+    if [ -z "$newest_artifact" ] || \
+       [ -n "$(find "${source_dirs[@]}" \( -path '*/target' -prune \) -o \( -name '*.nr' -o -name 'Nargo.toml' \) -newer "$newest_artifact" -print 2>/dev/null | head -1)" ]; then
+      echo "Recompiling contracts..."
+      node --no-warnings "$script_dir/../dest/bin/index.js" compile
+    fi
+
     export LOG_LEVEL="${LOG_LEVEL:-"error;trace:contract_log"}"
     aztec start --txe --port 8081 &
     server_pid=$!
