@@ -16,6 +16,7 @@ import {
   type SlashPayloadRound,
   getEpochsForRound,
   getSlashConsensusVotesFromOffenses,
+  offenseDataComparator,
 } from '@aztec/stdlib/slashing';
 
 import type { Hex } from 'viem';
@@ -46,7 +47,10 @@ export type TallySlasherSettings = Prettify<
 >;
 
 export type TallySlasherClientConfig = SlashOffensesCollectorConfig &
-  Pick<SlasherConfig, 'slashValidatorsAlways' | 'slashValidatorsNever' | 'slashExecuteRoundsLookBack'>;
+  Pick<
+    SlasherConfig,
+    'slashValidatorsAlways' | 'slashValidatorsNever' | 'slashExecuteRoundsLookBack' | 'slashMaxPayloadSize'
+  >;
 
 /**
  * The Tally Slasher client is responsible for managing slashable offenses using
@@ -415,8 +419,10 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
   /**
    * Gather offenses to be slashed on a given round.
    * In tally slashing, round N slashes validators from round N - slashOffsetInRounds.
+   * Offenses are sorted by priority (uncontroversial first, then amount, then age) and truncated to
+   * slashMaxPayloadSize so that execution payload stays within gas limits.
    * @param round - The round to get offenses for, defaults to current round
-   * @returns Array of pending offenses for the round with offset applied
+   * @returns Array of pending offenses for the round with offset applied, truncated to max payload size
    */
   public async gatherOffensesForRound(round?: bigint): Promise<Offense[]> {
     const targetRound = this.getSlashedRound(round);
@@ -424,7 +430,14 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
       return [];
     }
 
-    return await this.offensesStore.getOffensesForRound(targetRound);
+    const raw = await this.offensesStore.getOffensesForRound(targetRound);
+    const sorted = [...raw].sort(offenseDataComparator);
+    const { slashMaxPayloadSize } = this.config;
+    const selected = sorted.slice(0, slashMaxPayloadSize);
+    if (selected.length !== sorted.length) {
+      this.log.warn(`Offense list of ${sorted.length} truncated to max size of ${slashMaxPayloadSize}`);
+    }
+    return selected;
   }
 
   /** Returns all pending offenses stored */

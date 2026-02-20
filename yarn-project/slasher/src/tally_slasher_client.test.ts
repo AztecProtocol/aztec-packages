@@ -519,6 +519,106 @@ describe('TallySlasherClient', () => {
       expect(actions).toHaveLength(1);
       expect(actions[0].type).toBe('vote-offenses');
     });
+
+    it('should truncate to slashMaxPayloadSize when offenses exceed cap', async () => {
+      const currentRound = 5n;
+      const targetRound = 3n; // currentRound - offset(2)
+      const baseSlot = targetRound * BigInt(roundSize);
+
+      // Set cap to 2 so we keep only the top 2 offenses by priority (uncontroversial first, then amount desc)
+      tallySlasherClient.updateConfig({ slashMaxPayloadSize: 2 });
+
+      // Add 3 offenses for target round: different amounts so sort order is clear (high amount first)
+      await addPendingOffense({
+        validator: committee[0],
+        epochOrSlot: baseSlot,
+        amount: settings.slashingAmounts[0], // 1 unit - lowest priority
+        offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+      });
+      await addPendingOffense({
+        validator: committee[1],
+        epochOrSlot: baseSlot,
+        amount: settings.slashingAmounts[2], // 3 units - highest priority
+        offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+      });
+      await addPendingOffense({
+        validator: committee[2],
+        epochOrSlot: baseSlot,
+        amount: settings.slashingAmounts[1], // 2 units - middle
+        offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+      });
+
+      const offenses = await tallySlasherClient.gatherOffensesForRound(currentRound);
+
+      expect(offenses).toHaveLength(2);
+      // First should be committee[1] (3 units), second committee[2] (2 units); committee[0] (1 unit) truncated
+      expect(offenses[0].validator.equals(committee[1])).toBe(true);
+      expect(offenses[0].amount).toEqual(settings.slashingAmounts[2]);
+      expect(offenses[1].validator.equals(committee[2])).toBe(true);
+      expect(offenses[1].amount).toEqual(settings.slashingAmounts[1]);
+    });
+
+    it('should not truncate when offenses are within cap', async () => {
+      const currentRound = 5n;
+      const targetRound = 3n;
+      const baseSlot = targetRound * BigInt(roundSize);
+
+      tallySlasherClient.updateConfig({ slashMaxPayloadSize: 10 });
+
+      await addPendingOffense({
+        validator: committee[0],
+        epochOrSlot: baseSlot,
+        amount: slashingUnit,
+        offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+      });
+      await addPendingOffense({
+        validator: committee[1],
+        epochOrSlot: baseSlot,
+        amount: slashingUnit * 2n,
+        offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+      });
+
+      const offenses = await tallySlasherClient.gatherOffensesForRound(currentRound);
+      expect(offenses).toHaveLength(2);
+    });
+
+    it('should produce a valid vote action with truncated offenses', async () => {
+      const currentRound = 5n;
+      const targetRound = 3n;
+      const baseSlot = targetRound * BigInt(roundSize);
+
+      tallySlasherClient.updateConfig({ slashMaxPayloadSize: 1 });
+
+      // Add 3 offenses, only the highest-amount one should survive truncation
+      await addPendingOffense({
+        validator: committee[0],
+        epochOrSlot: baseSlot,
+        amount: settings.slashingAmounts[0],
+        offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+      });
+      await addPendingOffense({
+        validator: committee[1],
+        epochOrSlot: baseSlot,
+        amount: settings.slashingAmounts[2],
+        offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+      });
+      await addPendingOffense({
+        validator: committee[2],
+        epochOrSlot: baseSlot,
+        amount: settings.slashingAmounts[1],
+        offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+      });
+
+      const currentSlot = currentRound * BigInt(roundSize);
+      const action = await tallySlasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
+
+      expect(action).toBeDefined();
+      assert(action!.type === 'vote-offenses');
+      // Only committee[1] (3 units) should have a non-zero vote
+      expect(action!.votes[0]).toBe(0); // committee[0] truncated
+      expect(action!.votes[1]).toBe(3); // committee[1] kept (highest amount)
+      expect(action!.votes[2]).toBe(0); // committee[2] truncated
+    });
   });
 
   describe('getSlashPayloads', () => {
