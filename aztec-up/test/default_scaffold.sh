@@ -25,7 +25,7 @@ fi
 
 cd my_contract
 
-# This is is unfortunate as it makes the test worse but in CI setting the aztec version is 0.0.1 which doesn't exist as
+# This is unfortunate as it makes the test worse but in CI setting the aztec version is 0.0.1 which doesn't exist as
 # a remote git tag, so we need to rewrite dependencies to use local aztec-nr.
 sed -i 's|aztec = .*git.*AztecProtocol/aztec-nr.*|aztec = { path="/home/ubuntu/aztec-packages/noir-projects/aztec-nr/aztec" }|' contract/Nargo.toml test/Nargo.toml
 
