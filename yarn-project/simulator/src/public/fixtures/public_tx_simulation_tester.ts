@@ -1,4 +1,9 @@
-import { DEFAULT_TEARDOWN_DA_GAS_LIMIT, DEFAULT_TEARDOWN_L2_GAS_LIMIT } from '@aztec/constants';
+import {
+  DEFAULT_TEARDOWN_DA_GAS_LIMIT,
+  DEFAULT_TEARDOWN_L2_GAS_LIMIT,
+  PUBLIC_TX_L2_GAS_OVERHEAD,
+  TX_DA_GAS_OVERHEAD,
+} from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -131,8 +136,11 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       teardownCallRequest,
       feePayer,
       /*gasUsedByPrivate*/ teardownCall
-        ? new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, DEFAULT_TEARDOWN_L2_GAS_LIMIT)
-        : Gas.empty(),
+        ? new Gas(
+            DEFAULT_TEARDOWN_DA_GAS_LIMIT + TX_DA_GAS_OVERHEAD,
+            DEFAULT_TEARDOWN_L2_GAS_LIMIT + PUBLIC_TX_L2_GAS_OVERHEAD,
+          )
+        : new Gas(TX_DA_GAS_OVERHEAD, PUBLIC_TX_L2_GAS_OVERHEAD),
       defaultGlobals(),
     );
   }

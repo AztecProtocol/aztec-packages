@@ -8,8 +8,8 @@ use types::{
         log_hash::LogHash, tx_constant_data::TxConstantData,
     },
     constants::{
-        ARCHIVE_HEIGHT, AVM_MAX_PROCESSABLE_L2_GAS, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-        MAX_CONTRACT_CLASS_LOGS_PER_TX,
+        ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX,
+        MAX_PROCESSABLE_L2_GAS,
     },
     hash::compute_contract_class_log_hash,
     merkle_tree::{check_membership, MembershipWitness},
@@ -101,10 +101,9 @@ pub fn validate_tx_constant_data(
     );
 
     // Ensure that the l2 gas limit is within the max processable l2 gas.
-    // The constant is prefixed with `AVM_` but it applies to both private-only and public-inclusive txs.
     // TODO: This should be moved to the private kernels once they are not used for gas estimation anymore.
     assert(
-        tx_gas_settings.gas_limits.l2_gas <= AVM_MAX_PROCESSABLE_L2_GAS,
+        tx_gas_settings.gas_limits.l2_gas <= MAX_PROCESSABLE_L2_GAS,
         "l2 gas limit exceeds max processable l2 gas",
     );
 }
