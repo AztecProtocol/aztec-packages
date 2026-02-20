@@ -42,6 +42,8 @@ template <size_t BatchSize, typename Curve> class MergeVerifier_ {
 
     // Size of batch opening claim: [Q], [L₁..L₄], [R₁..R₄], [M₁..M₄], [G], [1]
     static constexpr size_t MERGE_BATCHED_CLAIM_SIZE = (3 * NUM_COLUMNS) + 3;
+    // With de-interleaving: additionally [DM₁..DM_{NUM_WIRES}]
+    static constexpr size_t MERGE_BATCHED_CLAIM_SIZE_DE_INTERLEAVING = MERGE_BATCHED_CLAIM_SIZE + NUM_WIRES;
 
     using TableCommitments = std::array<Commitment, NUM_COLUMNS>; // Commitments to the subtables and the merged table
 
@@ -95,10 +97,7 @@ template <size_t BatchSize, typename Curve> class MergeVerifier_ {
      *   - reduction_succeeded: true if degree and concatenation checks passed
      */
     [[nodiscard("Verification result should be checked")]] ReductionResult reduce_to_pairing_check(
-        const Proof& proof, const InputCommitments& input_commitments);
-
-    [[nodiscard("Verification result should be checked")]] ReductionResult reduce_de_interleaving_to_pairing_check(
-        const Proof& proof, const TableCommitments& interleaved_merged_commitments);
+        const Proof& proof, const InputCommitments& input_commitments, bool de_interleaving = false);
 
   private:
     std::vector<std::string> labels_degree_check()
@@ -112,12 +111,12 @@ template <size_t BatchSize, typename Curve> class MergeVerifier_ {
         return labels;
     }
 
-    std::vector<std::string> labels_shplonk_batching_challenges()
+    std::vector<std::string> labels_shplonk_batching_challenges(size_t num_challenges)
     {
         std::vector<std::string> labels;
-        labels.reserve(3 * NUM_COLUMNS + 1);
+        labels.reserve(num_challenges);
 
-        for (size_t idx = 0; idx < 3 * NUM_COLUMNS + 1; ++idx) {
+        for (size_t idx = 0; idx < num_challenges; ++idx) {
             labels.emplace_back("SHPLONK_MERGE_BATCHING_CHALLENGE_" + std::to_string(idx));
         }
         return labels;
@@ -129,6 +128,10 @@ template <size_t BatchSize, typename Curve> class MergeVerifier_ {
                                const FF& pow_kappa_minus_one,
                                const std::vector<FF>& degree_check_challenges) const;
 
+    bool check_de_interleaving_identities(const std::vector<FF>& evals,
+                                          const std::vector<FF>& de_interleaving_evals,
+                                          const FF& kappa) const;
+
     BatchOpeningClaim<Curve> compute_shplonk_opening_claim(const std::vector<Commitment>& table_commitments,
                                                            const Commitment& shplonk_batched_quotient,
                                                            const FF& shplonk_opening_challenge,
@@ -136,6 +139,12 @@ template <size_t BatchSize, typename Curve> class MergeVerifier_ {
                                                            const FF& kappa,
                                                            const FF& kappa_inv,
                                                            const std::vector<FF>& evals) const;
+
+    void update_shplonk_opening_claim(BatchOpeningClaim<Curve>& claim,
+                                      const std::array<Commitment, NUM_WIRES>& de_interleaved_commitments,
+                                      const std::vector<FF>& batching_challenges,
+                                      const std::vector<FF>& evals,
+                                      const FF& scaling_factor);
 };
 
 // Type aliases for convenience

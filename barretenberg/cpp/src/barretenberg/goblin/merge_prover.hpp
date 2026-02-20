@@ -43,8 +43,6 @@ template <size_t BATCH_SIZE> class MergeProver {
 
     BB_PROFILE MergeProof construct_proof(bool de_interleaving = false);
 
-    MergeProof construct_de_interleaving_proof();
-
     // Public for test access (computing commitments)
     CommitmentKey pcs_commitment_key;
 

@@ -363,17 +363,17 @@ template <typename MergeTestParams> class MergeTests : public testing::Test {
 
     /**
      * @brief Test the de-interleaving proof after two rounds of merge
-     * @details Performs two merge rounds. For the second (last) merge the prover uses a shared
-     * transcript: it first runs construct_proof() then construct_de_interleaving_proof() on the
-     * same transcript object, producing two incremental proof slices. The verifier uses the same
-     * shared transcript, calling reduce_to_pairing_check() with the merge slice and then
-     * reduce_de_interleaving_to_pairing_check() with the de-interleaving slice.
+     * @details Performs two merge rounds. For the second (last) merge the prover uses
+     * construct_proof(true) which produces a single combined proof containing both the merge and
+     * de-interleaving data. The verifier calls reduce_to_pairing_check(..., true) which handles
+     * both in one call.
      *
      * Verifies:
      *  1. The de-interleaved commitments returned by the verifier match those independently
      *     computed from the op-queue wire polynomials.
-     *  2. The pairing points for both the merge and de-interleaving checks are valid.
-     *  3. The circuit is satisfied (recursive context only).
+     *  2. The pairing points for the combined proof are valid.
+     *  3. The degree and concatenation checks pass.
+     *  4. The circuit is satisfied (recursive context only).
      */
     static void test_de_interleaving()
     {
@@ -391,16 +391,11 @@ template <typename MergeTestParams> class MergeTests : public testing::Test {
         InnerBuilder circuit2{ op_queue };
         GoblinMockCircuits::construct_simple_circuit(circuit2);
 
-        // Create a shared native transcript for the last merge and the subsequent de-interleaving.
         auto prover_transcript = std::make_shared<NativeTranscript>();
         MergeProver<BATCH_SIZE> merge_prover{ op_queue, prover_transcript };
 
-        // Step 1: construct the merge proof — this exports the first transcript slice.
-        auto merge_proof = merge_prover.construct_proof();
-
-        // Step 2: construct the de-interleaving proof on the *same* transcript — this exports the
-        // second transcript slice starting right after the merge slice.
-        auto de_interleaving_proof = merge_prover.construct_de_interleaving_proof();
+        // Construct a single proof with de_interleaving=true
+        auto proof = merge_prover.construct_proof(/*de_interleaving=*/true);
 
         // Compute input commitments required by the merge verifier (interleaved per-column).
         auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
@@ -418,8 +413,6 @@ template <typename MergeTestParams> class MergeTests : public testing::Test {
         }
 
         // Independently compute the expected de-interleaved wire commitments from the op-queue.
-        // These are commitments to each individual wire polynomial (not interleaved), and should
-        // match what the de-interleaving prover sends in the proof.
         auto merged_table = op_queue->construct_ultra_ops_table_columns();
         std::array<curve::BN254::AffineElement, NUM_WIRES> expected_de_interleaved_commitments;
         for (size_t idx = 0; idx < NUM_WIRES; idx++) {
@@ -429,39 +422,34 @@ template <typename MergeTestParams> class MergeTests : public testing::Test {
         // Create builder (only used in recursive context).
         BuilderType builder;
 
-        // Wrap commitments and proofs in the appropriate type (native or stdlib).
+        // Wrap commitments and proof in the appropriate type (native or stdlib).
         InputCommitments input_commitments;
         for (size_t idx = 0; idx < NUM_COLUMNS; idx++) {
             input_commitments.t_commitments[idx] = create_commitment(builder, native_t_commitments[idx]);
             input_commitments.T_prev_commitments[idx] = create_commitment(builder, native_T_prev_commitments[idx]);
         }
-        Proof merge_proof_typed = create_proof(builder, merge_proof);
-        Proof de_interleaving_proof_typed = create_proof(builder, de_interleaving_proof);
+        Proof proof_typed = create_proof(builder, proof);
 
-        // Both verifications share the same transcript so that the Fiat-Shamir challenges in the
-        // de-interleaving proof are derived from the combined transcript state.
         auto verifier_transcript = std::make_shared<Transcript>();
         MergeVerifierType verifier{ MergeSettings::PREPEND, verifier_transcript };
 
-        // Verify the last merge proof (consumes the first slice from the shared transcript).
-        auto merge_result = verifier.reduce_to_pairing_check(merge_proof_typed, input_commitments);
+        // Verify the combined merge + de-interleaving proof
+        auto result = verifier.reduce_to_pairing_check(proof_typed, input_commitments, /*de_interleaving=*/true);
 
-        // Verify the de-interleaving proof (appends and consumes the second slice).
-        auto de_interleaving_result = verifier.reduce_de_interleaving_to_pairing_check(de_interleaving_proof_typed,
-                                                                                       merge_result.merged_commitments);
+        // Test 1: Pairing points are valid.
+        EXPECT_TRUE(result.pairing_points.check()) << "Pairing check failed";
 
-        // Test 1: Pairing points are valid for both the merge and de-interleaving checks.
-        EXPECT_TRUE(merge_result.pairing_points.check()) << "Merge pairing check failed";
-        EXPECT_TRUE(de_interleaving_result.pairing_points.check()) << "De-interleaving pairing check failed";
+        // Test 2: Degree and concatenation checks passed.
+        EXPECT_TRUE(result.reduction_succeeded) << "Degree/concatenation check failed";
 
-        // Test 2: De-interleaved commitments returned by the verifier match the expected ones.
+        // Test 3: De-interleaved commitments returned by the verifier match the expected ones.
         for (size_t idx = 0; idx < NUM_WIRES; idx++) {
-            EXPECT_EQ(to_native(de_interleaving_result.de_interleaved_merged_commitments[idx]),
+            EXPECT_EQ(to_native(result.de_interleaved_merged_commitments[idx]),
                       expected_de_interleaved_commitments[idx])
                 << "De-interleaved commitment mismatch at wire index " << idx;
         }
 
-        // Test 3: Circuit is satisfied (recursive context only).
+        // Test 4: Circuit is satisfied (recursive context only).
         if constexpr (IsRecursive) {
             EXPECT_TRUE(check_circuit(builder)) << "Circuit check failed in recursive context";
         }

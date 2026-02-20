@@ -52,6 +52,34 @@ bool MergeVerifier_<BatchSize, Curve>::check_degree_identity(std::vector<FF>& ev
 }
 
 template <size_t BatchSize, typename Curve>
+bool MergeVerifier_<BatchSize, Curve>::check_de_interleaving_identities(const std::vector<FF>& evals,
+                                                                        const std::vector<FF>& de_interleaving_evals,
+                                                                        const FF& kappa) const
+{
+    bool de_interleaving_verified = true;
+    std::vector<FF> powers_of_kappa = { FF(1) };
+    for (size_t idx = 0; idx < BATCH_SIZE; ++idx) {
+        powers_of_kappa.emplace_back(powers_of_kappa.back() * kappa);
+    }
+
+    for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
+        FF eval = 0;
+        for (size_t batch_idx = 0; batch_idx < BATCH_SIZE; ++batch_idx) {
+            eval += de_interleaving_evals[idx * BATCH_SIZE + batch_idx] * powers_of_kappa[batch_idx];
+        }
+        FF de_interleaving_diff = evals[2 * NUM_COLUMNS + idx] - eval;
+        if constexpr (IsRecursive) {
+            de_interleaving_verified &= de_interleaving_diff.get_value() == 0;
+            de_interleaving_diff.assert_equal(FF(0),
+                                              "assert_equal: merge de-interleaving identity failed in Merge Verifier");
+        } else {
+            de_interleaving_verified &= de_interleaving_diff == 0;
+        }
+    }
+    return de_interleaving_verified;
+}
+
+template <size_t BatchSize, typename Curve>
 BatchOpeningClaim<Curve> MergeVerifier_<BatchSize, Curve>::compute_shplonk_opening_claim(
     const std::vector<Commitment>& table_commitments,
     const Commitment& shplonk_batched_quotient,
@@ -112,7 +140,7 @@ BatchOpeningClaim<Curve> MergeVerifier_<BatchSize, Curve>::compute_shplonk_openi
  */
 template <size_t BatchSize, typename Curve>
 typename MergeVerifier_<BatchSize, Curve>::ReductionResult MergeVerifier_<BatchSize, Curve>::reduce_to_pairing_check(
-    const Proof& proof, const InputCommitments& input_commitments)
+    const Proof& proof, const InputCommitments& input_commitments, bool de_interleaving)
 {
     transcript->load_proof(proof);
 
@@ -156,9 +184,24 @@ typename MergeVerifier_<BatchSize, Curve>::ReductionResult MergeVerifier_<BatchS
     table_commitments.emplace_back(
         transcript->template receive_from_prover<Commitment>("REVERSED_BATCHED_LEFT_TABLES"));
 
+    // Receive commitments to de-interleaved merged columns if applicable
+    std::array<Commitment, NUM_WIRES> de_interleaved_merged_commitments{};
+    if (de_interleaving) {
+        for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+            de_interleaved_merged_commitments[idx] = transcript->template receive_from_prover<Commitment>(
+                "DE_INTERLEAVED_MERGED_TABLE_" + std::to_string(idx));
+        }
+    }
+
     // Compute batching challenges
     std::vector<FF> shplonk_batching_challenges =
-        transcript->template get_challenges<FF>(labels_shplonk_batching_challenges());
+        transcript->template get_challenges<FF>(labels_shplonk_batching_challenges(3 * NUM_COLUMNS + 1));
+
+    std::vector<FF> shplonk_de_interleaving_batching_challenges;
+    if (de_interleaving) {
+        shplonk_de_interleaving_batching_challenges =
+            transcript->template get_challenges<FF>(labels_shplonk_batching_challenges(NUM_WIRES));
+    }
 
     // Evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
@@ -182,6 +225,16 @@ typename MergeVerifier_<BatchSize, Curve>::ReductionResult MergeVerifier_<BatchS
     // Receive evaluation of G at 1/κ
     evals.emplace_back(transcript->template receive_from_prover<FF>("REVERSED_BATCHED_LEFT_TABLES_EVAL"));
 
+    // Receive evaluations of de-interleaved merged columns at κ^BATCH_SIZE
+    std::vector<FF> de_interleaving_evals;
+    if (de_interleaving) {
+        de_interleaving_evals.reserve(NUM_WIRES);
+        for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+            de_interleaving_evals.emplace_back(transcript->template receive_from_prover<FF>(
+                "DE_INTERLEAVED_MERGED_TABLE_EVAL_" + std::to_string(idx)));
+        }
+    }
+
     // OriginTag false positive: The evaluations are PCS-bound - once the table commitments
     // are fixed and kappa is derived, the correct evaluations are uniquely determined. Tag them
     // with kappa to reflect this constraint. The last eval (G at 1/κ) is bound by degree_check_challenges.
@@ -189,16 +242,23 @@ typename MergeVerifier_<BatchSize, Curve>::ReductionResult MergeVerifier_<BatchS
         for (auto& eval : evals) {
             eval.set_origin_tag(kappa.get_origin_tag());
         }
+        for (auto& eval : de_interleaving_evals) {
+            eval.set_origin_tag(kappa.get_origin_tag());
+        }
         evals.back().set_origin_tag(degree_check_challenges.back().get_origin_tag());
     }
 
     // Check concatenation identities
     bool concatenation_verified = check_concatenation_identities(evals, pow_kappa);
-    info("Concatenation check verified: ", concatenation_verified ? "true" : "false");
 
     // Check degree identity
     bool degree_check_verified = check_degree_identity(evals, pow_kappa_minus_one, degree_check_challenges);
-    info("Degree check verified: ", degree_check_verified ? "true" : "false");
+
+    // Check de-interleaving identities if applicable
+    bool de_interleaving_verified = true;
+    if (de_interleaving) {
+        de_interleaving_verified = check_de_interleaving_identities(evals, de_interleaving_evals, kappa);
+    }
 
     // Receive Shplonk batched quotient
     Commitment shplonk_batched_quotient =
@@ -216,82 +276,68 @@ typename MergeVerifier_<BatchSize, Curve>::ReductionResult MergeVerifier_<BatchS
                                                                                  kappa_inv,
                                                                                  evals);
 
-    BB_ASSERT(batch_opening_claim.commitments.size() == MERGE_BATCHED_CLAIM_SIZE);
-    BB_ASSERT(batch_opening_claim.scalars.size() == MERGE_BATCHED_CLAIM_SIZE);
+    // Add de-interleaved merged columns to the opening claim if applicable
+    if (de_interleaving) {
+        FF kappa_to_batch_size = kappa.pow(BATCH_SIZE);
+        const FF scaling_factor =
+            (shplonk_opening_challenge - kappa) * (shplonk_opening_challenge - kappa_to_batch_size).invert();
+        update_shplonk_opening_claim(batch_opening_claim,
+                                     de_interleaved_merged_commitments,
+                                     shplonk_de_interleaving_batching_challenges,
+                                     de_interleaving_evals,
+                                     scaling_factor);
+    }
+
+    const size_t expected_claim_size =
+        de_interleaving ? MERGE_BATCHED_CLAIM_SIZE_DE_INTERLEAVING : MERGE_BATCHED_CLAIM_SIZE;
+    BB_ASSERT(batch_opening_claim.commitments.size() == expected_claim_size);
+    BB_ASSERT(batch_opening_claim.scalars.size() == expected_claim_size);
 
     // KZG verifier - returns PairingPoints directly
     PairingPoints pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), transcript);
 
     vinfo("Merge Verifier: degree check passed: ", degree_check_verified ? "true" : "false");
     vinfo("Merge Verifier: concatenation check passed: ", concatenation_verified ? "true" : "false");
+    if (de_interleaving) {
+        vinfo("Merge Verifier: de-interleaving check passed: ", de_interleaving_verified ? "true" : "false");
+    }
 
-    return { pairing_points, merged_table_commitments, {}, degree_check_verified && concatenation_verified };
+    return { pairing_points,
+             merged_table_commitments,
+             de_interleaved_merged_commitments,
+             degree_check_verified && concatenation_verified && de_interleaving_verified };
 }
 
+/**
+ * @brief Update the Shplonk batch opening claim with contributions from the de-interleaved merged columns.
+ * @details Analogous to the prover's update_shplonk_opening_claim for the de-interleaving case.
+ * Inserts the de-interleaved commitments and their scaled contributions into the batch opening claim,
+ * and adjusts the constant (affine) term accordingly.
+ *
+ * The update adds: scaling_factor * Σᵢ γᵢ * ([DMᵢ] - evalᵢ·[1])
+ */
 template <size_t BatchSize, typename Curve>
-typename MergeVerifier_<BatchSize, Curve>::ReductionResult MergeVerifier_<BatchSize, Curve>::
-    reduce_de_interleaving_to_pairing_check(const Proof& proof, const TableCommitments& interleaved_merged_commitments)
+void MergeVerifier_<BatchSize, Curve>::update_shplonk_opening_claim(
+    BatchOpeningClaim<Curve>& claim,
+    const std::array<Commitment, NUM_WIRES>& de_interleaved_commitments,
+    const std::vector<FF>& batching_challenges,
+    const std::vector<FF>& evals,
+    const FF& scaling_factor)
 {
-    transcript->load_proof(proof);
+    // Pop the [1] commitment and its constant scalar so we can update the constant and re-add at the end
+    Commitment one_commitment = claim.commitments.back();
+    FF constant_scalar = claim.scalars.back();
+    claim.commitments.pop_back();
+    claim.scalars.pop_back();
 
-    // Receive commitment to the de-interleaved merged columns
-    std::array<Commitment, NUM_WIRES> de_interleaved_merged_commitments;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        de_interleaved_merged_commitments[idx] =
-            transcript->template receive_from_prover<Commitment>("MERGED_TABLE_" + std::to_string(idx));
+        claim.commitments.emplace_back(de_interleaved_commitments[idx]);
+        claim.scalars.emplace_back(scaling_factor * batching_challenges[idx]);
+        constant_scalar -= scaling_factor * batching_challenges[idx] * evals[idx];
     }
 
-    // Generate evaluation challenge
-    FF evaluation_challenge = transcript->template get_challenge<FF>("evaluation_challenge");
-
-    // Receive evaluations of the de-interleaved merged columns at the evaluation challenge
-    std::vector<FF> evals;
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        FF eval = transcript->template receive_from_prover<FF>("MERGED_TABLE_EVAL_" + std::to_string(idx));
-        evals.emplace_back(eval);
-    }
-
-    // Compute evaluations of interleaved merged columns
-    std::vector<FF> powers_of_challenge = { FF(1) };
-    std::vector<FF> evals_interleaved;
-    for (size_t idx = 0; idx < BATCH_SIZE; ++idx) {
-        powers_of_challenge.emplace_back(powers_of_challenge.back() * evaluation_challenge);
-    }
-    for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
-        FF eval_interleaved(0);
-        for (size_t batch_idx = 0; batch_idx < BATCH_SIZE; ++batch_idx) {
-            eval_interleaved += evals[(batch_idx * NUM_COLUMNS) + idx] * powers_of_challenge[batch_idx];
-        }
-        evals_interleaved.emplace_back(eval_interleaved);
-    }
-
-    // Prepare opening claims
-    std::vector<OpeningClaim<Curve>> opening_claims;
-    opening_claims.reserve(NUM_WIRES + NUM_COLUMNS);
-    for (size_t idx = 0; idx < NUM_COLUMNS; ++idx) {
-        opening_claims.emplace_back(OpeningClaim<Curve>{ { evaluation_challenge, evals_interleaved[idx] },
-                                                         interleaved_merged_commitments[idx] });
-    }
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        opening_claims.emplace_back(
-            OpeningClaim<Curve>{ { powers_of_challenge.back(), evals[idx] }, de_interleaved_merged_commitments[idx] });
-    }
-
-    // Shplonk
-    ShplonkVerifier_<Curve> shplonk_verifier =
-        ShplonkVerifier_<Curve>::reduce_verification_no_finalize(opening_claims, transcript);
-    BatchOpeningClaim<Curve> batch_opening_claim;
-    if constexpr (IsRecursive) {
-        batch_opening_claim =
-            shplonk_verifier.export_batch_opening_claim(Commitment::one(evaluation_challenge.get_context()));
-    } else {
-        batch_opening_claim = shplonk_verifier.export_batch_opening_claim(Commitment::one());
-    }
-
-    // KZG verifier
-    PairingPoints pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), transcript);
-
-    return { pairing_points, interleaved_merged_commitments, de_interleaved_merged_commitments, false };
+    claim.commitments.emplace_back(one_commitment);
+    claim.scalars.emplace_back(constant_scalar);
 }
 
 // Explicit template instantiations
