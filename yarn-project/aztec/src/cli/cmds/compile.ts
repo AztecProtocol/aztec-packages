@@ -66,6 +66,7 @@ async function getContractPackageNames(): Promise<Set<string>> {
       }
     }
   } else {
+    // Single-crate project (no workspace): check if the root Nargo.toml itself is a contract.
     if (/type\s*=\s*"contract"/.test(rootToml)) {
       const nameMatch = rootToml.match(/name\s*=\s*"([^"]+)"/);
       if (nameMatch) {
