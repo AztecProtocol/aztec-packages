@@ -38,7 +38,7 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { BlockProposalOptions, CheckpointProposal, CheckpointProposalOptions } from '@aztec/stdlib/p2p';
-import { orderAttestations } from '@aztec/stdlib/p2p';
+import { orderAttestations, trimAttestations } from '@aztec/stdlib/p2p';
 import type { L2BlockBuiltStats } from '@aztec/stdlib/stats';
 import { type FailedTx, Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
@@ -743,8 +743,20 @@ export class CheckpointProposalJob implements Traceable {
 
       collectedAttestationsCount = attestations.length;
 
+      // Trim attestations to minimum required to save L1 calldata gas
+      const localAddresses = this.validatorClient.getValidatorAddresses();
+      const trimmed = trimAttestations(
+        attestations,
+        numberOfRequiredAttestations,
+        this.attestorAddress,
+        localAddresses,
+      );
+      if (trimmed.length < attestations.length) {
+        this.log.debug(`Trimmed attestations from ${attestations.length} to ${trimmed.length} for L1 submission`);
+      }
+
       // Rollup contract requires that the signatures are provided in the order of the committee
-      const sorted = orderAttestations(attestations, committee);
+      const sorted = orderAttestations(trimmed, committee);
 
       // Manipulate the attestations if we've been configured to do so
       if (this.config.injectFakeAttestation || this.config.shuffleAttestationOrdering) {
